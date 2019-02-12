@@ -1,0 +1,21 @@
+{
+  "name": "typescript",
+  "author": "elopeWithMe",
+  "homepage": "",
+  "version": "0.0.51",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/exwm/yt_clipper"
+  },
+  "description": "add markers to youtube videos and generate clipped webms online or offline",
+  "main": "./src/yt_clipper.ts",
+  "devDependencies": {
+    "typescript": "3.3.x"
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm ./dist/*"
+  },
+  "dependencies": {}
+}
