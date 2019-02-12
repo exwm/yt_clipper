@@ -1,0 +1,19 @@
+# vscode project settings
+.vscode
+
+# binary assets
+assets/
+
+# secret keys
+secrets/
+
+# Dependency directory
+node_modules
+
+# Optional npm cache directory
+.npm
+
+typings/
+lib/*.js
+test/*.js
+*.map
