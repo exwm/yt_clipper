@@ -4,6 +4,7 @@
 // @namespace    http://tampermonkey.net/
 // @version      0.0.51
 // @description  add markers to youtube videos and generate clipped webms online or offline
+// @updateURL    https://openuserjs.org/meta/elwm/yt_clipper.meta.js
 // @run-at       document-end
 // @license      MIT
 // @author       elwm
@@ -29,18 +30,18 @@
     G: 71
   };
 
-  let fps;
+  let fps: number;
   try {
     let playerApiScript = document.querySelectorAll(
       '#player > script:nth-child(3)'
     )[0].textContent;
     fps = parseInt(playerApiScript.match(/fps=(\d+)/)[1]);
-  } catch {
+  } catch (e) {
     fps = null;
   }
 
   const CLIENT_ID = 'XXXX';
-  const REDIRECT_URI = 'http://127.0.0.1:4443/yt_clipper';
+  const REDIRECT_URI = 'https://127.0.0.1:4443/yt_clipper';
   const AUTH_ENDPOINT = 'https://api.gfycat.com/v1/oauth/token?';
   const BROWSER_BASED_AUTH_ENDPOINT = `https://gfycat.com/oauth/authorize?client_id=${CLIENT_ID}&scope=all&state=yt_clipper&response_type=token&redirect_uri=${REDIRECT_URI}`;
 
@@ -49,17 +50,23 @@
   let isMarkerEditorOpen = false;
   let wasDefaultsEditorOpen = false;
   let isOverlayOpen = false;
-  let checkGfysCompletedId;
-  let markers = [];
-  let links = [];
-  markers.toString = function() {
+  let checkGfysCompletedId: number;
+  interface marker {
+    start: number;
+    end: number;
+    slowdown: string;
+    crop: string;
+  }
+  let markers: marker[] = [];
+  let links: string[] = [];
+  markers.toString = () => {
     let markersString = '';
-    this.forEach((markerPair, idx) => {
-      markersString += `${markerPair[0]},${markerPair[1]},${markerPair[2]},'${
-        markerPair[3]
-      }',`;
-      if (idx === this.length - 1) {
-        markersString = markersString.slice(0, -1);
+    this.forEach((marker: marker, idx: number) => {
+      markersString += `${marker.start},${marker.end},${marker.slowdown},'${
+        marker.crop
+      }'`;
+      if (idx !== this.length - 1) {
+        markersString += ',';
       }
     });
     return markersString;
@@ -69,11 +76,11 @@
 
   let toggleKeys = false;
   let undoMarkerOffset = 0;
-  let previousMarker = null;
+  let previousMarker: marker = null;
 
   document.addEventListener('keyup', hotkeys, false);
 
-  function hotkeys(e) {
+  function hotkeys(e: KeyboardEvent) {
     console.log(e.which);
     if (toggleKeys) {
       switch (e.which) {
@@ -180,7 +187,15 @@
     )[0];
   }
 
-  let settings;
+  interface settings {
+    defaultSlowdown: number;
+    defaultCrop: string;
+    shortTitle: string;
+    videoRes: string;
+    videoWidth: number;
+    videoHeight: number;
+  }
+  let settings : settings;
   let markers_svg;
   function initMarkersContainer() {
     settings = {
@@ -712,9 +727,9 @@
   }
   function enableMarkerHotkeys(endMarker) {
     markerHotkeysEnabled = true;
-    enableMarkerHotkeys.endMarker = endMarker;
-    enableMarkerHotkeys.startMarker = endMarker.previousSibling;
-    enableMarkerHotkeys.moveMarker = marker => {
+    this.endMarker = endMarker;
+    this.startMarker = endMarker.previousSibling;
+    this.moveMarker = marker => {
       const type = marker.getAttribute('type');
       const idx = parseInt(marker.getAttribute('idx')) - 1;
       const currentTime = player.getCurrentTime();
@@ -725,21 +740,16 @@
       markers[idx][type === 'start' ? 0 : 1] = currentTime;
       markerTimeSpan.textContent = `${toHHMMSS(currentTime)}`;
     };
-    enableMarkerHotkeys.deleteMarkerPair = () => {
-      const idx =
-        parseInt(enableMarkerHotkeys.endMarker.getAttribute('idx')) - 1;
+    this.deleteMarkerPair = () => {
+      const idx = parseInt(this.endMarker.getAttribute('idx')) - 1;
       markers.splice(idx, 1);
 
       const me = new MouseEvent('mouseover', { shiftKey: true });
-      enableMarkerHotkeys.endMarker.dispatchEvent(me);
-      enableMarkerHotkeys.endMarker.parentElement.removeChild(
-        enableMarkerHotkeys.endMarker
-      );
-      enableMarkerHotkeys.startMarker.parentElement.removeChild(
-        enableMarkerHotkeys.startMarker
-      );
-      enableMarkerHotkeys.moveMarker = null;
-      enableMarkerHotkeys.deleteMarkerPair = null;
+      this.endMarker.dispatchEvent(me);
+      this.endMarker.parentElement.removeChild(this.endMarker);
+      this.startMarker.parentElement.removeChild(this.startMarker);
+      this.moveMarker = null;
+      this.deleteMarkerPair = null;
       markerHotkeysEnabled = false;
     };
   }
