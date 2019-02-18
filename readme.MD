@@ -38,7 +38,6 @@
 
 **shift+mouseover:** View marker pair info and edit a pair's speed or crop
 
-
 While a pair is selected use shift+A/shift+Z to move the start/end marker to current time
 While a pair is selected use shift+Q to delete the pair
 
