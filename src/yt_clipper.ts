@@ -2,8 +2,9 @@
 // @locale       english
 // @name         yt_clipper
 // @namespace    http://tampermonkey.net/
-// @version      0.0.51
+// @version      0.0.53
 // @description  add markers to youtube videos and generate clipped webms online or offline
+// @updateURL    https://openuserjs.org/meta/elwm/yt_clipper.meta.js
 // @run-at       document-end
 // @license      MIT
 // @author       elwm
@@ -29,14 +30,14 @@
     G: 71
   };
 
-  let fps;
+  let fps = null;
   try {
     let playerApiScript = document.querySelectorAll(
       '#player > script:nth-child(3)'
     )[0].textContent;
     fps = parseInt(playerApiScript.match(/fps=(\d+)/)[1]);
-  } catch {
-    fps = null;
+  } catch (e) {
+    console.log(e);
   }
 
   const CLIENT_ID = 'XXXX';
@@ -820,10 +821,12 @@
   }
 
   const pyClipper = `\
-def clipper(markers, title, videoUrl, ytdlFormat, cropMultiple, overlayPath=''):
+def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, overlayPath='', delay=0):
 
     def trim_video(startTime, endTime, slowdown, cropString,  outPath):
         filter_complex = ''
+        startTime += delay
+        endTime += delay
         duration = (endTime - startTime)*slowdown
 
         if args.url:
@@ -838,7 +841,7 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultiple, overlayPath=''):
             filter_complex += f'[0:v]setpts={slowdown}*(PTS-STARTPTS)[slowed];'
             if args.audio:
                 inputs += f''' -ss {startTime} -i "{urls[1]}" '''
-                filter_complex += f'''[1:a]asetpts={slowdown}*(PTS-STARTPTS);'''
+                filter_complex += f'''[1:a]atempo={1/slowdown};'''
             else:
                 inputs += ' -an '
         else:
@@ -846,19 +849,16 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultiple, overlayPath=''):
             filter_complex += f'''[0:v]trim={startTime}:{endTime},
                 setpts={slowdown}*(PTS-STARTPTS)[slowed];'''
             if args.audio:
-                filter_complex += f'''[1:a]atrim={startTime}:{endTime},
-                    asetpts={slowdown}*(PTS-STARTPTS);'''
+                filter_complex += f'''[0:a]atrim={startTime}:{endTime},
+                    atempo={1/slowdown};'''
             else:
                 inputs += ' -an '
 
         inputs += ' -hide_banner '
 
         crops = cropString.split(':')
-        if cropMultiple:
-            crops = [cropMultiple *
-                     int(crop) if crop.isdigit() else crop for crop in crops]
-
-        filter_complex += f'[slowed]crop=x={crops[0]}:y={crops[1]}:w={crops[2]}:h={crops[3]}'
+        filter_complex += f'''[slowed]crop=x={cropMultipleX}*{crops[0]}:y={cropMultipleY}*{crops[1]}\
+                              :w={cropMultipleX}*{crops[2]}:h={cropMultipleY}*{crops[3]}'''
         if overlayPath:
             filter_complex += f'[cropped];[cropped][1:v]overlay=x=W-w-10:y=10:alpha=0.5'
             inputs += f'-i "{overlayPath}"'
@@ -867,7 +867,7 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultiple, overlayPath=''):
             inputs,
             f'''-filter_complex "{filter_complex}" -c:v libvpx''',
             f'''-pix_fmt yuv420p -threads 8 -slices 8 -metadata title='{title}' ''',
-            f'''-qmin 18 -crf 22 -qmax 45 -qcomp 1 -b:v 0 -movflags +faststart -f webm''',
+            f'''-qmin 20 -crf 23 -qmax 45 -qcomp 1 -b:v 0 -movflags +faststart -f webm''',
             f'''-lag-in-frames 16 -auto-alt-ref 1 -strict -2 -t {duration}''',
             f'''"{outPath}"''',
         ))
@@ -896,10 +896,14 @@ parser.add_argument('infile', metavar='I',
                     help='input video path')
 parser.add_argument('--overlay', '-o', dest='overlay',
                     help='overlay image path')
-parser.add_argument('--multiply-crop', '-m', type=int, dest='cropMultiple', default=1,
+parser.add_argument('--multiply-crop', '-m', type=float, dest='cropMultiple', default=1,
                     help=('Multiply all crop dimensions by an integer ' +
                           '(helpful if you change resolutions: eg 1920x1080 * 2 = 3840x2160(4k))')
                     )
+parser.add_argument('--multiply-crop-x', '-x', type=float, dest='cropMultipleX', default=1,
+                    help='Multiply all x crop dimensions by an integer')
+parser.add_argument('--multiply-crop-y', '-y', type=float, dest='cropMultipleY', default=1,
+                    help='Multiply all y crop dimensions by an integer')
 parser.add_argument('--gfycat', '-g', action='store_true',
                     help='upload all output webms to gfycat and print reddit markdown with all links')
 parser.add_argument('--audio', '-a', action='store_true',
@@ -908,11 +912,17 @@ parser.add_argument('--url', '-u', action='store_true',
                     help='use youtube-dl and ffmpeg to download only the portions of the video required')
 parser.add_argument('--format', '-f', default='bestvideo+bestaudio',
                     help='specify format string passed to youtube-dl')
+parser.add_argument('--delay', '-d', type=float, dest='delay', default=0,
+                    help='Add a fixed delay to both the start and end time of each marker. Can be negative.')
 
 args = parser.parse_args()
 
-clipper(markers, title, videoUrl=args.infile, cropMultiple=args.cropMultiple, ytdlFormat=args.format,
-        overlayPath=args.overlay)
+if args.cropMultiple != 1:
+    args.cropMultipleX = args.cropMultiple
+    args.cropMultipleY = args.cropMultiple
+
+clipper(markers, title, videoUrl=args.infile, cropMultipleX=args.cropMultipleX,
+    cropMultipleY=args.cropMultipleY, ytdlFormat=args.format, overlayPath=args.overlay, delay=args.delay)
 
 # auto gfycat uploading
 if (args.gfycat):
