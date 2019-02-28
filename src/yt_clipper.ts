@@ -55,9 +55,9 @@
   let links = [];
   markers.toString = function() {
     let markersString = '';
-    this.forEach((markerPair, idx) => {
-      markersString += `${markerPair[0]},${markerPair[1]},${markerPair[2]},'${
-        markerPair[3]
+    this.forEach((marker, idx) => {
+      markersString += `${marker[0]},${marker[1]},${marker[2]},'${
+        marker[3]
       }',`;
       if (idx === this.length - 1) {
         markersString = markersString.slice(0, -1);
@@ -70,7 +70,7 @@
 
   let toggleKeys = false;
   let undoMarkerOffset = 0;
-  let previousMarker = null;
+  let prevMarker = null;
 
   document.addEventListener('keyup', hotkeys, false);
 
@@ -249,8 +249,8 @@
   function autoducking(e) {
     let currentIdx;
     const currentTime = e.target.getCurrentTime();
-    const isTimeBetweenMarkerPair = markers.some((markerPair, idx) => {
-      if (currentTime >= markerPair[0] && currentTime <= markerPair[1]) {
+    const isTimeBetweenMarkerPair = markers.some((marker, idx) => {
+      if (currentTime >= marker[0] && currentTime <= marker[1]) {
         currentIdx = idx;
         return true;
       }
@@ -315,8 +315,8 @@
     if (markersJson[playerInfo.playerData.video_id]) {
       markers.length = 0;
       undoMarkerOffset = 0;
-      markersJson[playerInfo.playerData.video_id].forEach(markerPair => {
-        const [startTime, endTime, slowdown, crop] = markerPair;
+      markersJson[playerInfo.playerData.video_id].forEach(marker => {
+        const [startTime, endTime, slowdown, crop] = marker;
         const startMarker = [startTime, slowdown, crop];
         const endMarker = [endTime, slowdown, crop];
         addMarker(startMarker);
@@ -422,12 +422,12 @@
         toggleOverlay();
       }
     }
-    if (wasDefaultsEditorOpen && !previousMarker) {
+    if (wasDefaultsEditorOpen && !prevMarker) {
       wasDefaultsEditorOpen = false;
     } else {
-      if (previousMarker) {
-        restoreMarkerColor(previousMarker);
-        previousMarker = null;
+      if (prevMarker) {
+        restoreMarkerColor(prevMarker);
+        prevMarker = null;
       }
       toggleOverlay();
       createCropOverlay(settings.defaultCrop);
@@ -638,8 +638,8 @@
       idx = 3;
     }
     if (markers) {
-      markers.forEach(markerPair => {
-        markerPair[idx] = newValue;
+      markers.forEach(marker => {
+        marker[idx] = newValue;
       });
       markers_svg.childNodes.forEach(mrkr => {
         mrkr.setAttribute(updateTarget, newValue.toString());
@@ -658,13 +658,13 @@
           toggleOverlay();
         }
       }
-      if (previousMarker === currentMarker) {
-        previousMarker = null;
+      if (prevMarker === currentMarker) {
+        prevMarker = null;
       } else {
-        if (previousMarker) {
-          restoreMarkerColor(previousMarker);
+        if (prevMarker) {
+          restoreMarkerColor(prevMarker);
         }
-        previousMarker = currentMarker;
+        prevMarker = currentMarker;
         if (isOverlayOpen) {
           toggleOverlay();
         }
@@ -1046,11 +1046,11 @@ httpd.serve_forever()
   }
 
   function buildGfyRequests(markers, url) {
-    return markers.map((markerPair, idx) => {
-      const start = markerPair[0];
-      const end = markerPair[1];
-      const speed = (1 / markerPair[2]).toPrecision(4);
-      const crop = markerPair[3];
+    return markers.map((marker, idx) => {
+      const start = marker[0];
+      const end = marker[1];
+      const speed = (1 / marker[2]).toPrecision(4);
+      const crop = marker[3];
       const startHHMMSS = toHHMMSS(start).split(':');
       const startHH = startHHMMSS[0];
       const startMM = startHHMMSS[1];
