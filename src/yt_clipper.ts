@@ -2,7 +2,7 @@
 // @locale       english
 // @name         yt_clipper
 // @namespace    http://tampermonkey.net/
-// @version      0.0.51
+// @version      0.0.53
 // @description  add markers to youtube videos and generate clipped webms online or offline
 // @updateURL    https://openuserjs.org/meta/elwm/yt_clipper.meta.js
 // @run-at       document-end
@@ -27,17 +27,16 @@
     X: 88,
     R: 82,
     C: 67,
-    G: 71
+    G: 71,
   };
 
-  let fps: number;
+  let fps: number = null;
   try {
-    let playerApiScript = document.querySelectorAll(
-      '#player > script:nth-child(3)'
-    )[0].textContent;
+    let playerApiScript = document.querySelectorAll('#player > script:nth-child(3)')[0]
+      .textContent;
     fps = parseInt(playerApiScript.match(/fps=(\d+)/)[1]);
   } catch (e) {
-    fps = null;
+    console.log(e);
   }
 
   const CLIENT_ID = 'XXXX';
@@ -73,7 +72,6 @@
   };
 
   let startTime = 0.0;
-
   let toggleKeys = false;
   let undoMarkerOffset = 0;
   let previousMarker: marker = null;
@@ -182,9 +180,7 @@
     playerInfo.duration = player.getDuration();
     playerInfo.video = document.getElementsByTagName('video')[0];
     playerInfo.isVerticalVideo = player.getVideoAspectRatio() <= 1;
-    playerInfo.progress_bar = document.getElementsByClassName(
-      'ytp-progress-bar'
-    )[0];
+    playerInfo.progress_bar = document.getElementsByClassName('ytp-progress-bar')[0];
   }
 
   interface settings {
@@ -204,7 +200,7 @@
       shortTitle: `${playerInfo.playerData.video_id}`,
       videoRes: playerInfo.isVerticalVideo ? '1080x1920' : '1920x1080',
       videoWidth: playerInfo.isVerticalVideo ? 1080 : 1920,
-      videoHeight: playerInfo.isVerticalVideo ? 1920 : 1080
+      videoHeight: playerInfo.isVerticalVideo ? 1920 : 1080,
     };
     const markers_div = document.createElement('div');
     markers_div.setAttribute('id', 'markers_div');
@@ -213,6 +209,7 @@
 
     markers_svg = markers_div.firstChild;
   }
+
   function initCSS() {
     const clipperCSS = `\
 @keyframes valid-input {
@@ -239,20 +236,22 @@
     style.innerHTML = clipperCSS;
     document.body.appendChild(style);
   }
+
   function addForeignEventListeners() {
     const ids = ['search'];
     ids.forEach(id => {
       const input = document.getElementById(id);
       if (toggleKeys) {
         input.addEventListener('focus', e => (toggleKeys = false), {
-          capture: true
+          capture: true,
         });
         input.addEventListener('blur', e => (toggleKeys = true), {
-          capture: true
+          capture: true,
         });
       }
     });
   }
+
   function toggleSpeedAutoDucking() {
     if (playerInfo.video.ontimeupdate === autoducking) {
       playerInfo.video.removeEventListener('timeupdate', autoducking);
@@ -260,11 +259,12 @@
       playerInfo.video.addEventListener('timeupdate', autoducking, false);
     }
   }
+
   function autoducking(e) {
     let currentIdx;
     const currentTime = e.target.getCurrentTime();
-    const isTimeBetweenMarkerPair = markers.some((markerPair, idx) => {
-      if (currentTime >= markerPair[0] && currentTime <= markerPair[1]) {
+    const isTimeBetweenMarkerPair = markers.some((marker, idx) => {
+      if (currentTime >= marker[0] && currentTime <= marker[1]) {
         currentIdx = idx;
         return true;
       }
@@ -278,6 +278,7 @@
       player.setPlaybackRate(1);
     }
   }
+
   function watchAvailableQualityChange() {
     const quality = player.getAvailableQualityLevels();
     const timer = setInterval(() => {
@@ -287,13 +288,15 @@
       }
     }, 5000);
   }
+
   function saveMarkers() {
     const markersJson = JSON.stringify({
-      [playerInfo.playerData.video_id]: markers
+      [playerInfo.playerData.video_id]: markers,
     });
     const blob = new Blob([markersJson], { type: 'text/plain;charset=utf-8' });
     saveAs(blob, `${settings.shortTitle}.json`);
   }
+
   function loadMarkers() {
     if (document.getElementById('markers-upload-div')) {
       const markersUploadDiv = document.getElementById('markers-upload-div');
@@ -312,6 +315,7 @@
       fileUploadButton.onclick = loadMarkersJson;
     }
   }
+
   function loadMarkersJson(e) {
     const input = document.getElementById('markers-json-input');
     console.log(input.files);
@@ -322,6 +326,7 @@
     const markersUploadDiv = document.getElementById('markers-upload-div');
     markersUploadDiv.parentElement.removeChild(markersUploadDiv);
   }
+
   function receivedJson(e) {
     const lines = e.target.result;
     const markersJson = JSON.parse(lines);
@@ -329,8 +334,8 @@
     if (markersJson[playerInfo.playerData.video_id]) {
       markers.length = 0;
       undoMarkerOffset = 0;
-      markersJson[playerInfo.playerData.video_id].forEach(markerPair => {
-        const [startTime, endTime, slowdown, crop] = markerPair;
+      markersJson[playerInfo.playerData.video_id].forEach(marker => {
+        const [startTime, endTime, slowdown, crop] = marker;
         const startMarker = [startTime, slowdown, crop];
         const endMarker = [endTime, slowdown, crop];
         addMarker(startMarker);
@@ -342,14 +347,11 @@
   const marker_attrs = {
     width: '1px',
     height: '12px',
-    style: 'pointer-events:fill'
+    style: 'pointer-events:fill',
   };
 
   function addMarker(markerConfig = [null, null, null]) {
-    const marker = document.createElementNS(
-      'http://www.w3.org/2000/svg',
-      'rect'
-    );
+    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     markers_svg.appendChild(marker);
 
     const roughCurrentTime = markerConfig[0] || player.getCurrentTime();
@@ -359,8 +361,7 @@
       : (currentTime = roughCurrentTime);
 
     const progress_pos = (currentTime / playerInfo.duration) * 100;
-    marker_attrs.slowdown =
-      markerConfig[1] || settings.defaultSlowdown.toString();
+    marker_attrs.slowdown = markerConfig[1] || settings.defaultSlowdown.toString();
     marker_attrs.crop = markerConfig[2] || settings.defaultCrop;
 
     setAttributes(marker, marker_attrs);
@@ -392,7 +393,7 @@
       markers[lastMarkerIdx] = [
         startTime,
         currentTime,
-        markerConfig[3] || settings.defaultSlowdown
+        markerConfig[3] || settings.defaultSlowdown,
       ];
       undoMarkerOffset = 0;
     } else if (undoMarkerOffset === 0) {
@@ -400,7 +401,7 @@
         startTime,
         currentTime,
         markerConfig[2] || settings.defaultSlowdown,
-        markerConfig[3] || settings.defaultCrop
+        markerConfig[3] || settings.defaultCrop,
       ]);
     }
   }
@@ -436,12 +437,12 @@
         toggleOverlay();
       }
     }
-    if (wasDefaultsEditorOpen && !previousMarker) {
+    if (wasDefaultsEditorOpen && !prevMarker) {
       wasDefaultsEditorOpen = false;
     } else {
-      if (previousMarker) {
-        restoreMarkerColor(previousMarker);
-        previousMarker = null;
+      if (prevMarker) {
+        restoreMarkerColor(prevMarker);
+        prevMarker = null;
       }
       toggleOverlay();
       createCropOverlay(settings.defaultCrop);
@@ -467,9 +468,7 @@
       }" style="width:7em">
       <datalist id="resolutions" autocomplete="off">${resList}</datalist>
       <span style="color:grey;font-size:12pt"> Download Res - </span>
-      <input id="short-title-input" value="${
-        settings.shortTitle
-      }" style="width:7em">
+      <input id="short-title-input" value="${settings.shortTitle}" style="width:7em">
         <span style="color:grey;font-size:12pt"> Short Title </span>
       `;
 
@@ -479,12 +478,13 @@
         ['speed-input', 'defaultSlowdown'],
         ['crop-input', 'defaultCrop'],
         ['res-input', 'videoRes'],
-        ['short-title-input', 'shortTitle']
+        ['short-title-input', 'shortTitle'],
       ]);
       wasDefaultsEditorOpen = true;
       isMarkerEditorOpen = true;
     }
   }
+
   function addInputListeners(inputs) {
     inputs.forEach(input => {
       const id = input[0];
@@ -499,6 +499,7 @@
       );
     });
   }
+
   function updateDefaultValue(e, updateTarget) {
     if (e.target.reportValidity()) {
       settings[updateTarget] = e.target.value;
@@ -515,6 +516,7 @@
     }
     console.log(settings);
   }
+
   function createCropOverlay(crop) {
     if (isOverlayOpen) {
       deleteCropOverlay();
@@ -531,9 +533,7 @@
     cropDiv.setAttribute('id', 'crop-div');
     cropDiv.innerHTML = `<svg id="crop-svg" width="100%" height="100%" style="top:0;position:absolute;z-index:95"></svg>`;
 
-    let annotations = document.getElementsByClassName(
-      'ytp-iv-video-content'
-    )[0];
+    let annotations = document.getElementsByClassName('ytp-iv-video-content')[0];
     if (!annotations) {
       resizeCropOverlay(cropDiv);
       annotations = document.getElementsByClassName('html5-video-container')[0];
@@ -543,10 +543,7 @@
       annotations.insertBefore(cropDiv, annotations.firstElementChild);
     }
     const cropSvg = cropDiv.firstElementChild;
-    const cropRect = document.createElementNS(
-      'http://www.w3.org/2000/svg',
-      'rect'
-    );
+    const cropRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     const cropRectAttrs = {
       x: `${(crop[0] / settings.videoWidth) * 100}%`,
       y: `${(crop[1] / settings.videoHeight) * 100}%`,
@@ -554,7 +551,7 @@
       height: `${(crop[3] / settings.videoHeight) * 100}%`,
       fill: 'none',
       stroke: 'white',
-      'stroke-width': '4px'
+      'stroke-width': '4px',
     };
 
     setAttributes(cropRect, cropRectAttrs);
@@ -562,6 +559,7 @@
 
     isOverlayOpen = true;
   }
+
   function resizeCropOverlay(cropDiv) {
     const videoRect = player.getVideoContentRect();
     cropDiv.setAttribute(
@@ -577,6 +575,7 @@
     cropDiv.parentElement.removeChild(cropDiv);
     isOverlayOpen = false;
   }
+
   function toggleOverlay() {
     const cropSvg = document.getElementById('crop-svg');
     if (cropSvg) {
@@ -587,20 +586,18 @@
       }
     }
   }
+
   function drawCropOverlay() {
     if (document.getElementById('crop-input')) {
       const videoRect = player.getVideoContentRect();
-      playerInfo.video.addEventListener(
-        'mousedown',
-        e => beginDraw(e, videoRect),
-        {
-          once: true,
-          capture: true
-        }
-      );
+      playerInfo.video.addEventListener('mousedown', e => beginDraw(e, videoRect), {
+        once: true,
+        capture: true,
+      });
       togglePlayerControls();
     }
   }
+
   function togglePlayerControls() {
     const controls = document.getElementsByClassName('ytp-chrome-bottom')[0];
     if (controls.style.display !== 'none') {
@@ -609,6 +606,7 @@
       controls.style.display = 'block';
     }
   }
+
   function beginDraw(e, videoRect) {
     if (e.button == 0 && e.shiftKey && !e.ctrlKey && !e.altKey) {
       const beginX = Math.round(
@@ -633,9 +631,7 @@
       const endX = Math.round(
         ((e.pageX - videoRect.left) / videoRect.width) * settings.videoWidth
       );
-      const endY = Math.round(
-        ((e.pageY - 56) / videoRect.height) * settings.videoHeight
-      );
+      const endY = Math.round(((e.pageY - 56) / videoRect.height) * settings.videoHeight);
       crop += `${endX - beginX}:${endY - beginY}`;
       const cropInput = document.getElementById('crop-input');
       cropInput.value = crop;
@@ -652,8 +648,8 @@
       idx = 3;
     }
     if (markers) {
-      markers.forEach(markerPair => {
-        markerPair[idx] = newValue;
+      markers.forEach(marker => {
+        marker[idx] = newValue;
       });
       markers_svg.childNodes.forEach(mrkr => {
         mrkr.setAttribute(updateTarget, newValue.toString());
@@ -672,13 +668,13 @@
           toggleOverlay();
         }
       }
-      if (previousMarker === currentMarker) {
-        previousMarker = null;
+      if (prevMarker === currentMarker) {
+        prevMarker = null;
       } else {
-        if (previousMarker) {
-          restoreMarkerColor(previousMarker);
+        if (prevMarker) {
+          restoreMarkerColor(prevMarker);
         }
-        previousMarker = currentMarker;
+        prevMarker = currentMarker;
         if (isOverlayOpen) {
           toggleOverlay();
         }
@@ -688,6 +684,7 @@
         createMarkerEditor(currentMarker);
       }
     }
+
     function createMarkerEditor(currentMarker) {
       const startMarker = currentMarker.previousSibling;
       const infoContents = document.getElementById('info-contents');
@@ -725,6 +722,7 @@
       wasDefaultsEditorOpen = false;
     }
   }
+
   function enableMarkerHotkeys(endMarker) {
     markerHotkeysEnabled = true;
     this.endMarker = endMarker;
@@ -753,17 +751,13 @@
       markerHotkeysEnabled = false;
     };
   }
+
   function colorSelectedMarkers(currentMarker) {
     currentMarker.setAttribute('fill', '#5880F2');
     currentMarker.previousSibling.setAttribute('fill', '#5880F2');
   }
 
-  function addMarkerInputListeners(
-    inputs,
-    currentMarker,
-    currentMarkerTime,
-    currentIdx
-  ) {
+  function addMarkerInputListeners(inputs, currentMarker, currentMarkerTime, currentIdx) {
     inputs.forEach(input => {
       const id = input[0];
       const updateTarget = input[1];
@@ -772,24 +766,19 @@
       inputElem.addEventListener('blur', e => (toggleKeys = true), false);
       inputElem.addEventListener(
         'change',
-        e =>
-          updateMarker(
-            e,
-            updateTarget,
-            currentMarker,
-            currentMarkerTime,
-            currentIdx
-          ),
+        e => updateMarker(e, updateTarget, currentMarker, currentMarkerTime, currentIdx),
         false
       );
     });
   }
+
   function restoreMarkerColor(marker) {
     if (marker.getAttribute && marker.previousSibling) {
       marker.setAttribute('fill', 'gold');
       marker.previousSibling.setAttribute('fill', 'lime');
     }
   }
+
   function deleteMarkerEditor() {
     const slowdownInputDiv = document.getElementById('slowdownInputDiv');
     slowdownInputDiv.parentElement.removeChild(slowdownInputDiv);
@@ -797,13 +786,7 @@
     markerHotkeysEnabled = false;
   }
 
-  function updateMarker(
-    e,
-    updateTarget,
-    currentMarker,
-    currentMarkerTime,
-    currentIdx
-  ) {
+  function updateMarker(e, updateTarget, currentMarker, currentMarkerTime, currentIdx) {
     const currentType = currentMarker.getAttribute('type');
     const currentCrop = currentMarker.getAttribute('crop');
     const currentSlowdown = currentMarker.getAttribute('slowdown');
@@ -830,10 +813,12 @@
   }
 
   const pyClipper = `\
-def clipper(markers, title, videoUrl, ytdlFormat, cropMultiple, overlayPath=''):
+def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, overlayPath='', delay=0):
 
     def trim_video(startTime, endTime, slowdown, cropString,  outPath):
         filter_complex = ''
+        startTime += delay
+        endTime += delay
         duration = (endTime - startTime)*slowdown
 
         if args.url:
@@ -848,7 +833,7 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultiple, overlayPath=''):
             filter_complex += f'[0:v]setpts={slowdown}*(PTS-STARTPTS)[slowed];'
             if args.audio:
                 inputs += f''' -ss {startTime} -i "{urls[1]}" '''
-                filter_complex += f'''[1:a]asetpts={slowdown}*(PTS-STARTPTS);'''
+                filter_complex += f'''[1:a]atempo={1/slowdown};'''
             else:
                 inputs += ' -an '
         else:
@@ -856,19 +841,16 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultiple, overlayPath=''):
             filter_complex += f'''[0:v]trim={startTime}:{endTime},
                 setpts={slowdown}*(PTS-STARTPTS)[slowed];'''
             if args.audio:
-                filter_complex += f'''[1:a]atrim={startTime}:{endTime},
-                    asetpts={slowdown}*(PTS-STARTPTS);'''
+                filter_complex += f'''[0:a]atrim={startTime}:{endTime},
+                    atempo={1/slowdown};'''
             else:
                 inputs += ' -an '
 
         inputs += ' -hide_banner '
 
         crops = cropString.split(':')
-        if cropMultiple:
-            crops = [cropMultiple *
-                     int(crop) if crop.isdigit() else crop for crop in crops]
-
-        filter_complex += f'[slowed]crop=x={crops[0]}:y={crops[1]}:w={crops[2]}:h={crops[3]}'
+        filter_complex += f'''[slowed]crop=x={cropMultipleX}*{crops[0]}:y={cropMultipleY}*{crops[1]}\
+                              :w={cropMultipleX}*{crops[2]}:h={cropMultipleY}*{crops[3]}'''
         if overlayPath:
             filter_complex += f'[cropped];[cropped][1:v]overlay=x=W-w-10:y=10:alpha=0.5'
             inputs += f'-i "{overlayPath}"'
@@ -877,7 +859,7 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultiple, overlayPath=''):
             inputs,
             f'''-filter_complex "{filter_complex}" -c:v libvpx''',
             f'''-pix_fmt yuv420p -threads 8 -slices 8 -metadata title='{title}' ''',
-            f'''-qmin 18 -crf 22 -qmax 45 -qcomp 1 -b:v 0 -movflags +faststart -f webm''',
+            f'''-qmin 20 -crf 23 -qmax 45 -qcomp 1 -b:v 0 -movflags +faststart -f webm''',
             f'''-lag-in-frames 16 -auto-alt-ref 1 -strict -2 -t {duration}''',
             f'''"{outPath}"''',
         ))
@@ -906,10 +888,14 @@ parser.add_argument('infile', metavar='I',
                     help='input video path')
 parser.add_argument('--overlay', '-o', dest='overlay',
                     help='overlay image path')
-parser.add_argument('--multiply-crop', '-m', type=int, dest='cropMultiple', default=1,
+parser.add_argument('--multiply-crop', '-m', type=float, dest='cropMultiple', default=1,
                     help=('Multiply all crop dimensions by an integer ' +
                           '(helpful if you change resolutions: eg 1920x1080 * 2 = 3840x2160(4k))')
                     )
+parser.add_argument('--multiply-crop-x', '-x', type=float, dest='cropMultipleX', default=1,
+                    help='Multiply all x crop dimensions by an integer')
+parser.add_argument('--multiply-crop-y', '-y', type=float, dest='cropMultipleY', default=1,
+                    help='Multiply all y crop dimensions by an integer')
 parser.add_argument('--gfycat', '-g', action='store_true',
                     help='upload all output webms to gfycat and print reddit markdown with all links')
 parser.add_argument('--audio', '-a', action='store_true',
@@ -918,11 +904,17 @@ parser.add_argument('--url', '-u', action='store_true',
                     help='use youtube-dl and ffmpeg to download only the portions of the video required')
 parser.add_argument('--format', '-f', default='bestvideo+bestaudio',
                     help='specify format string passed to youtube-dl')
+parser.add_argument('--delay', '-d', type=float, dest='delay', default=0,
+                    help='Add a fixed delay to both the start and end time of each marker. Can be negative.')
 
 args = parser.parse_args()
 
-clipper(markers, title, videoUrl=args.infile, cropMultiple=args.cropMultiple, ytdlFormat=args.format,
-        overlayPath=args.overlay)
+if args.cropMultiple != 1:
+    args.cropMultipleX = args.cropMultiple
+    args.cropMultipleY = args.cropMultiple
+
+clipper(markers, title, videoUrl=args.infile, cropMultipleX=args.cropMultipleX,
+    cropMultipleY=args.cropMultipleY, ytdlFormat=args.format, overlayPath=args.overlay, delay=args.delay)
 
 # auto gfycat uploading
 if (args.gfycat):
@@ -953,6 +945,7 @@ if (args.gfycat):
         print('\\n==Reddit Markdown==')
         print(markdown)
   `;
+
   function createScript() {
     const pyHeader = `\
 import sys
@@ -981,6 +974,7 @@ markdown = ''
 
     return pyHeader + pyClipper;
   }
+
   function saveAuthServerScript() {
     const authScript = `\
 import json
@@ -1046,11 +1040,11 @@ httpd.serve_forever()
   }
 
   function buildGfyRequests(markers, url) {
-    return markers.map((markerPair, idx) => {
-      const start = markerPair[0];
-      const end = markerPair[1];
-      const speed = (1 / markerPair[2]).toPrecision(4);
-      const crop = markerPair[3];
+    return markers.map((marker, idx) => {
+      const start = marker[0];
+      const end = marker[1];
+      const speed = (1 / marker[2]).toPrecision(4);
+      const crop = marker[3];
       const startHHMMSS = toHHMMSS(start).split(':');
       const startHH = startHHMMSS[0];
       const startMM = startHHMMSS[1];
@@ -1064,7 +1058,7 @@ httpd.serve_forever()
         fetchSeconds: startSS,
         noMd5: 'true',
         cut: { start, duration },
-        speed
+        speed,
       };
       if (crop && crop !== '0:0:iw:ih') {
         const crops = crop.split(':');
@@ -1072,13 +1066,14 @@ httpd.serve_forever()
           x: crops[0],
           y: crops[1],
           w: crops[2] === 'iw' ? settings.videoWidth : crops[2],
-          h: crops[3] === 'ih' ? settings.videoHeight : crops[3]
+          h: crops[3] === 'ih' ? settings.videoHeight : crops[3],
         };
       }
 
       return req;
     });
   }
+
   function requestGfycatAuth() {
     const authPage = window.open(BROWSER_BASED_AUTH_ENDPOINT);
     const timer = setInterval(() => {
@@ -1088,6 +1083,7 @@ httpd.serve_forever()
       }
     }, 2500);
   }
+
   function getAccessToken() {
     return new Promise((resolve, reject) => {
       fetch(REDIRECT_URI, { mode: 'cors' })
@@ -1102,6 +1098,7 @@ httpd.serve_forever()
         .catch(error => console.error(error));
     });
   }
+
   function sendGfyRequests(markers, url, accessToken) {
     if (markers.length > 0) {
       const markdown = toggleUploadStatus();
@@ -1112,12 +1109,7 @@ httpd.serve_forever()
       Promise.all(reqs).then(gfynames => {
         console.log(reqs);
         console.log(gfynames);
-        checkGfysCompletedId = setInterval(
-          checkGfysCompleted,
-          5000,
-          gfynames,
-          markdown
-        );
+        checkGfysCompletedId = setInterval(checkGfysCompleted, 5000, gfynames, markdown);
       });
     }
   }
@@ -1128,15 +1120,16 @@ httpd.serve_forever()
       postData('https://api.gfycat.com/v1/gfycats', req, accessToken)
         .then(resp => {
           links.push(
-            `(${settings.shortTitle}-${idx})[https://gfycat.com/${
-              resp.gfyname
-            }${req.speed}]`
+            `(${settings.shortTitle}-${idx})[https://gfycat.com/${resp.gfyname}${
+              req.speed
+            }]`
           );
           resolve(resp.gfyname);
         })
         .catch(error => reject(error));
     });
   }
+
   function checkGfysCompleted(gfynames, markdown) {
     const gfyStatuses = gfynames.map(gfyname => {
       return checkGfyStatus(gfyname, markdown).then(isComplete => {
@@ -1147,24 +1140,26 @@ httpd.serve_forever()
       areGfysCompleted(gfyStatuses).then(() => insertMarkdown(markdown));
     });
   }
+
   function toggleUploadStatus() {
     const meta = document.getElementById('meta');
     const markdown = document.createElement('textarea');
     meta.insertAdjacentElement('beforebegin', markdown);
     setAttributes(markdown, {
       id: 'markdown',
-      style: 'width:600px;height:100px;'
+      style: 'width:600px;height:100px;',
     });
-    markdown.textContent =
-      'Upload initiated. Progress updates will begin shortly.\n';
+    markdown.textContent = 'Upload initiated. Progress updates will begin shortly.\n';
     return markdown;
   }
+
   function updateUploadStatus(markdown, status, gfyname) {
     if (markdown) {
       markdown.textContent += `${gfyname} progress: ${status.progress}\n`;
       markdown.scrollTop = markdown.scrollHeight;
     }
   }
+
   function insertMarkdown(markdown) {
     if (markdown) {
       markdown.textContent = links.join('\n');
@@ -1181,6 +1176,7 @@ httpd.serve_forever()
       }
     });
   }
+
   function checkGfyStatus(gfyname, markdown) {
     return new Promise((resolve, reject) => {
       fetch(`https://api.gfycat.com/v1/gfycats/fetch/status/${gfyname}`)
@@ -1206,12 +1202,12 @@ httpd.serve_forever()
       cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
       credentials: 'omit', // include, same-origin, *omit
       headers: {
-        'content-type': 'application/json'
+        'content-type': 'application/json',
       },
       method: 'POST', // *GET, POST, PUT, DELETE, etc.
       mode: 'cors', // no-cors, cors, *same-origin
       redirect: 'follow', // manual, *follow, error
-      referrer: 'no-referrer' // *client, no-referrer
+      referrer: 'no-referrer', // *client, no-referrer
     };
     if (auth) {
       req.headers.Authorization = auth;
