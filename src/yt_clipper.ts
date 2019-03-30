@@ -2,7 +2,7 @@
 // @locale       english
 // @name         yt_clipper
 // @namespace    http://tampermonkey.net/
-// @version      0.0.54
+// @version      0.0.55
 // @description  add markers to youtube videos and generate clipped webms online or offline
 // @updateURL    https://openuserjs.org/meta/elwm/yt_clipper.meta.js
 // @run-at       document-end
@@ -843,10 +843,11 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, 
 
         ffmpegCommand = ' '.join((
             inputs,
-            f'''-filter_complex "{filter_complex}" -c:v libvpx''',
-            f'''-pix_fmt yuv420p -threads 8 -slices 8 -metadata title='{title}' ''',
-            f'''-qmin 20 -crf 23 -qmax 45 -qcomp 1 -b:v 0 -movflags +faststart -f webm''',
-            f'''-lag-in-frames 16 -auto-alt-ref 1 -strict -2 -t {duration}''',
+            f'''-filter_complex "{filter_complex}" ''',
+            f'''-c:v libvpx-vp9 -c:a libopus -pix_fmt yuv420p  ''',
+            f'''-speed 1 -slices 8 -threads 8 -row-mt 1 -tile-columns 6 -tile-rows 2 ''',
+            f'''-qmin 0 -crf 30 -qmax 60 -qcomp 0.9 -b:v 0 -q:a 6 -f webm ''',
+            f'''-metadata title='{title}' -t {duration} ''',
             f'''"{outPath}"''',
         ))
 
