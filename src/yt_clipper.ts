@@ -372,21 +372,19 @@
   }
 
   function updateMarkers(currentTime, markerConfig = [null, null, null]) {
+    const updatedMarker = [
+      startTime,
+      currentTime,
+      markerConfig[1] || settings.defaultSlowdown,
+      markerConfig[2] || settings.defaultCrop,
+    ];
+
     if (undoMarkerOffset === -1) {
-      const lastMarkerIdx = Math.floor(markers.length - 1);
-      markers[lastMarkerIdx] = [
-        startTime,
-        currentTime,
-        markerConfig[3] || settings.defaultSlowdown,
-      ];
+      const lastMarkerIdx = markers.length - 1;
+      markers[lastMarkerIdx] = updatedMarker;
       undoMarkerOffset = 0;
     } else if (undoMarkerOffset === 0) {
-      markers.push([
-        startTime,
-        currentTime,
-        markerConfig[2] || settings.defaultSlowdown,
-        markerConfig[3] || settings.defaultCrop,
-      ]);
+      markers.push(updatedMarker);
     }
   }
 
