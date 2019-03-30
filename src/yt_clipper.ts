@@ -837,8 +837,11 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, 
         crops = cropString.split(':')
         filter_complex += f'''[slowed]crop=x={cropMultipleX}*{crops[0]}:y={cropMultipleY}*{crops[1]}\
                               :w={cropMultipleX}*{crops[2]}:h={cropMultipleY}*{crops[3]}'''
+
+        filter_complex += f'''[cropped];[cropped]lutyuv=y=gammaval({args.gamma})'''
+
         if overlayPath:
-            filter_complex += f'[cropped];[cropped][1:v]overlay=x=W-w-10:y=10:alpha=0.5'
+            filter_complex += f'[corrected];[corrected][1:v]overlay=x=W-w-10:y=10:alpha=0.5'
             inputs += f'-i "{overlayPath}"'
 
         ffmpegCommand = ' '.join((
@@ -893,6 +896,8 @@ parser.add_argument('--format', '-f', default='bestvideo+bestaudio',
                     help='specify format string passed to youtube-dl')
 parser.add_argument('--delay', '-d', type=float, dest='delay', default=0,
                     help='Add a fixed delay to both the start and end time of each marker. Can be negative.')
+parser.add_argument('--gamma', '-ga', type=float, dest='gamma', default=1,
+                    help='Apply luminance gamma correction. Pass in a value between 0 and 1 to brighten shadows and reveal darker details.')
 
 args = parser.parse_args()
 
