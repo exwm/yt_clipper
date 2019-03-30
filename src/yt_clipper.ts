@@ -2,7 +2,7 @@
 // @locale       english
 // @name         yt_clipper
 // @namespace    http://tampermonkey.net/
-// @version      0.0.53
+// @version      0.0.54
 // @description  add markers to youtube videos and generate clipped webms online or offline
 // @updateURL    https://openuserjs.org/meta/elwm/yt_clipper.meta.js
 // @run-at       document-end
@@ -439,7 +439,7 @@
       markerInputs.innerHTML = `\
       <input id="speed-input" type="number" placeholder="speed" value="${
         settings.defaultSlowdown
-      }" step="0.1" min="0.1" max="8" style="width:4em">
+      }" step="0.01" min="0.1" max="8" style="width:4em">
       <span style="color:grey;font-size:12pt;font-style:italic"> Default Slowdown - </span>
       <input id="crop-input" value="${
         settings.defaultCrop
@@ -683,7 +683,7 @@
       markerInputs.setAttribute('id', 'slowdownInputDiv');
       markerInputs.innerHTML = `\
         <input id="speed-input" type="number" placeholder="speed"
-        value="${currentSlowdown}" step="0.1" min="0.1" max="8" style="width:4em"></input>
+        value="${currentSlowdown}" step="0.01" min="0.1" max="8" style="width:4em"></input>
         <input id="crop-input" value="${currentCrop}" pattern="${cropInputValidation}" 
         style="width:10em"></input>
         <div style="display:inline;color:grey;font-size:12pt;font-style:italic">
