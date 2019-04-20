@@ -38,9 +38,8 @@
 
 **shift+mouseover:** View marker pair info and edit a pair's speed or crop
 
-
-While a pair is selected use shift+A/shift+Z to move the start/end marker to current time
-While a pair is selected use shift+Q to delete the pair
+While a pair is selected use shift+Q/shift+A to move the start/end marker to current time
+While a pair is selected use shift+Z to delete the pair
 
 ## Values
 
@@ -58,7 +57,7 @@ Crop is given as x:y:w:h where x:y defines the distance left:top from the top le
 ## Output Script Usage
 
 ```sh
-python ./clip.py -h # print help
+python ./clip.py -h # Prints help. Details all options and arguments. 
 
 python ./clip.py ./filename.webm
 
