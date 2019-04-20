@@ -785,7 +785,7 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, 
             inputs,
             f'''-filter_complex "{filter_complex}" ''',
             f'''-c:v libvpx-vp9 -c:a libopus -pix_fmt yuv420p  ''',
-            f'''-speed 1 -slices 8 -threads 8 -row-mt 1 -tile-columns 6 -tile-rows 2 ''',
+            f'''-speed {args.speed} -slices 8 -threads 8 -row-mt 1 -tile-columns 6 -tile-rows 2 ''',
             f'''-qmin 0 -crf 30 -qmax 60 -qcomp 0.9 -b:v 0 -q:a 6 -f webm ''',
             f'''-metadata title='{title}' -t {duration} ''',
             f'''"{outPath}"''',
@@ -837,6 +837,8 @@ parser.add_argument('--gamma', '-ga', type=float, dest='gamma', default=1,
                     help='Apply luminance gamma correction. Pass in a value between 0 and 1 to brighten shadows and reveal darker details.')
 parser.add_argument('--rotate', '-r', dest='rotate', choices=['clock', 'cclock'],
                     help='Rotate video 90 degrees clockwise or counter-clockwise.')  
+parser.add_argument('--encode-speed', '-s', type=int, dest='speed', default=1, choices=range(0,5),
+                    help='Set the vp9 encoding speed.')
 
 args = parser.parse_args()
 
