@@ -878,7 +878,7 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, 
         endTime = markers[i+1]
         slowdown = markers[i+2]
         cropString = markers[i+3]
-        os.mkdir(shortTitle)
+        os.makedirs(shortTitle, exist_ok=True)
         fileName = f'{shortTitle}-{i//4+1}'
         outPath = f'./{shortTitle}/{fileName}.webm'
         outPaths.append(outPath)
