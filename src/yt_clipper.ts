@@ -799,6 +799,16 @@
   }
 
   const pyClipper = `\
+def loadMarkers(markersJson):
+    markersDict = json.loads(markersJson)
+    videoUrl = ''
+    for videoID, markers in markersDict.items():
+      videoUrl = 'https://www.youtube.com/watch?v=' + videoID
+      print('videoUrl: ', videoUrl)
+      break
+    markers = list(itertools.chain.from_iterable(markers))
+    return videoUrl, markers
+
 def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, overlayPath='', delay=0):
 
     def trim_video(startTime, endTime, slowdown, cropString,  outPath):
@@ -868,7 +878,9 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, 
         endTime = markers[i+1]
         slowdown = markers[i+2]
         cropString = markers[i+3]
-        outPath = f'''./{shortTitle}-{i//4+1}.webm'''
+        os.mkdir(shortTitle)
+        fileName = f'{shortTitle}-{i//4+1}'
+        outPath = f'./{shortTitle}/{fileName}.webm'
         outPaths.append(outPath)
         fileNames.append(outPath[0:-5])
         trim_video(startTime, endTime, slowdown, cropString, outPath)
@@ -878,7 +890,7 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, 
 parser = argparse.ArgumentParser(
     description='Generate trimmed webms from input video.')
 parser.add_argument('infile', metavar='I',
-                    help='input video path')
+                    help='input marker jsons')
 parser.add_argument('--overlay', '-o', dest='overlay',
                     help='overlay image path')
 parser.add_argument('--multiply-crop', '-m', type=float, dest='cropMultiple', default=1,
@@ -912,7 +924,12 @@ if args.cropMultiple != 1:
     args.cropMultipleX = args.cropMultiple
     args.cropMultipleY = args.cropMultiple
 
-clipper(markers, title, videoUrl=args.infile, cropMultipleX=args.cropMultipleX,
+with open(args.infile, 'r', encoding='utf-8-sig' ) as file:
+    markersJson = file.read()
+
+videoUrl, markers = loadMarkers(markersJson)
+args.url = True
+clipper(markers, title, videoUrl=videoUrl, cropMultipleX=args.cropMultipleX,
     cropMultipleY=args.cropMultipleY, ytdlFormat=args.format, overlayPath=args.overlay, delay=args.delay)
 
 # auto gfycat uploading
@@ -952,6 +969,9 @@ import subprocess
 import shlex
 import argparse
 import re
+import json
+import itertools
+import os
 
 UPLOAD_KEY_REQUEST_ENDPOINT = 'https://api.gfycat.com/v1/gfycats?'
 FILE_UPLOAD_ENDPOINT = 'https://filedrop.gfycat.com'
