@@ -852,7 +852,7 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, 
             f'''-filter_complex "{filter_complex}" ''',
             f'''-c:v libvpx-vp9 -c:a libopus -pix_fmt yuv420p  ''',
             f'''-speed {args.speed} -slices 8 -threads 8 -row-mt 1 -tile-columns 6 -tile-rows 2 ''',
-            f'''-qmin 0 -crf 30 -qmax 60 -qcomp 0.9 -b:v 0 -q:a 6 -f webm ''',
+            f'''-qmin 0 -crf 30 -qmax 60 -qcomp 0.9 -b:v 0 -f webm ''',
             f'''-metadata title='{title}' -t {duration} ''',
             f'''"{outPath}"''',
         ))
