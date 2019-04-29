@@ -13,6 +13,9 @@ node_modules
 # Optional npm cache directory
 .npm
 
+# compiled js
+dist/
+
 typings/
 lib/*.js
 test/*.js
