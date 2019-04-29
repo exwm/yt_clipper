@@ -924,10 +924,12 @@ if args.cropMultiple != 1:
     args.cropMultipleX = args.cropMultiple
     args.cropMultipleY = args.cropMultiple
 
+shortTitle = Path(args.infile).stem
+
 with open(args.infile, 'r', encoding='utf-8-sig' ) as file:
     markersJson = file.read()
+    videoUrl, markers = loadMarkers(markersJson)
 
-videoUrl, markers = loadMarkers(markersJson)
 args.url = True
 clipper(markers, title, videoUrl=videoUrl, cropMultipleX=args.cropMultipleX,
     cropMultipleY=args.cropMultipleY, ytdlFormat=args.format, overlayPath=args.overlay, delay=args.delay)
@@ -972,6 +974,7 @@ import re
 import json
 import itertools
 import os
+from pathlib import Path
 
 UPLOAD_KEY_REQUEST_ENDPOINT = 'https://api.gfycat.com/v1/gfycats?'
 FILE_UPLOAD_ENDPOINT = 'https://filedrop.gfycat.com'
