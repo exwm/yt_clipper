@@ -345,7 +345,7 @@
       : (currentTime = roughCurrentTime);
 
     const progress_pos = (currentTime / playerInfo.duration) * 100;
-    marker_attrs.slowdown = markerConfig[1] || settings.defaultSlowdown.toString();
+    marker_attrs.slowdown = markerConfig[1] || settings.defaultSlowdown;
     marker_attrs.crop = markerConfig[2] || settings.defaultCrop;
 
     setAttributes(marker, marker_attrs);
@@ -782,7 +782,7 @@
     if (e.target.reportValidity()) {
       if (updateTarget === 'slowdown') {
         markerInfo.textContent = `slowdown: ${newValue}x - crop: ${currentCrop} - number: ${currentIdx} - time: ${currentMarkerTime}`;
-        markers[currentIdx - 1][2] = newValue;
+        markers[currentIdx - 1][2] = parseFloat(newValue);
       } else if (updateTarget === 'crop') {
         markerInfo.textContent = `slowdown: ${currentSlowdown}x - crop: ${newValue} - number: ${currentIdx} - time: ${currentMarkerTime}`;
         markers[currentIdx - 1][3] = newValue;
