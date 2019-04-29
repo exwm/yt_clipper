@@ -825,7 +825,7 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, 
             urls = proc.stdout.readlines()
             urls = [url.decode().rstrip() for url in urls]
 
-            inputs = f'''ffmpeg -ss {startTime} -i "{urls[0]}" '''
+            inputs = f'''ffmpeg -n -ss {startTime} -i "{urls[0]}" '''
             filter_complex += f'[0:v]setpts={slowdown}*(PTS-STARTPTS)[slowed];'
             if args.audio:
                 inputs += f''' -ss {startTime} -i "{urls[1]}" '''
@@ -833,7 +833,7 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, 
             else:
                 inputs += ' -an '
         else:
-            inputs = f'ffmpeg -i "{videoUrl}" '
+            inputs = f'ffmpeg -n -i "{videoUrl}" '
             filter_complex += f'''[0:v]trim={startTime}:{endTime},
                 setpts={slowdown}*(PTS-STARTPTS)[slowed];'''
             if args.audio:
