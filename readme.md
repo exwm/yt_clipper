@@ -49,8 +49,8 @@ Crop is given as x:y:w:h where x:y defines the distance left:top from the top le
 
 ## Tips
 
-  1. If you're new to userscripts checkout the homepage at <https://greasyfork.org> for instructions.
-  2. Checkout the companion script for copying gfy links from the gfycat upload results page as markdown at <https://greasyfork.org/en/scripts/369871-gfy2md>
+  1. If you're new to userscripts checkout <https://openuserjs.org/about/Userscript-Beginners-HOWTO> for instructions.
+  2. Checkout the companion script for copying gfy links from the gfycat upload results page as markdown at <https://openuserjs.org/scripts/elwm/gfy2md>
   3. The script can be slow to load sometimes, so wait a bit before adding markers.
   4. Use ',' and '.' or '<' and '>' to view a video frame by frame
   5. Use [space_bar] to pause/play the video
