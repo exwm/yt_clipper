@@ -23,7 +23,7 @@
 
 **shift+G:** Toggle auto video playback speed ducking based on markers
 
-**Q:** Toggle video speed between 0.25 and 1.0
+**Q:** Decrease video playback speed by 0.25. If the speed falls below 0 it will cycle back to 1.
 
 **X:** When marker or defaults editor is open, begin drawing crop. Shift+click in the video to set the top left crop boundary and then shift+click again to set the bottom right. Any other click action (eg ctrl+click) will stop drawing.
 
