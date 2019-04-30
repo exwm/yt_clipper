@@ -98,7 +98,7 @@
           break;
         case keys.Q:
           if (!e.shiftKey) {
-            togglePlayerSpeed();
+            cyclePlayerSpeedDown();
           } else if (
             e.shiftKey &&
             markerHotkeysEnabled &&
@@ -411,12 +411,10 @@
     }
   }
 
-  function togglePlayerSpeed() {
-    if (player.getPlaybackRate() === 0.25) {
-      player.setPlaybackRate(1);
-    } else {
-      player.setPlaybackRate(0.25);
-    }
+  function cyclePlayerSpeedDown() {
+    let newSpeed = player.getPlaybackRate() - 0.25;
+    newSpeed = newSpeed <= 0 ? 1 : newSpeed;
+    player.setPlaybackRate(newSpeed);
   }
 
   function toggleDefaultSettings() {
