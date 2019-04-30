@@ -436,7 +436,9 @@
       const infoContents = document.getElementById('info-contents');
       const markerInputs = document.createElement('div');
       const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
-      const resInputValidation = `\\d+x\\d+`;
+      const gte640 = `([1-9]\\d{3}|[6-9][4-9][0-9])`;
+      const gte480 = `([1-9]\\d{3}|[4-9][8-9][0-9])`;
+      const resInputValidation = `${gte640}x${gte480}`;
       const resList = playerInfo.isVerticalVideo
         ? `<option value="1080x1920"><option value="2160x3840">`
         : `<option value="1920x1080"><option value="3840x2160">`;
@@ -448,11 +450,11 @@
       <span style="color:grey;font-size:12pt;font-style:italic"> Default Speed - </span>
       <input id="crop-input" value="${
         settings.defaultCrop
-      }" pattern="${cropInputValidation}" style="width:10em">
+      }" pattern="${cropInputValidation}" style="width:10em" required>
       <span style="color:grey;font-size:12pt"> Default Crop - </span>
       <input id="res-input" list="resolutions"pattern="${resInputValidation}" value="${
         settings.videoRes
-      }" style="width:7em">
+      }" style="width:7em" required>
       <datalist id="resolutions" autocomplete="off">${resList}</datalist>
       <span style="color:grey;font-size:12pt"> Download Res - </span>
       <input id="short-title-input" value="${settings.shortTitle}" style="width:7em">
@@ -490,18 +492,67 @@
   function updateDefaultValue(e, updateTarget) {
     if (e.target.reportValidity()) {
       settings[updateTarget] = e.target.value;
-    }
-    if (
-      settings[updateTarget] === settings.defaultCrop ||
-      settings[updateTarget] === settings.videoRes
-    ) {
-      createCropOverlay(settings.defaultCrop);
-    }
-    if (settings[updateTarget] === settings.videoRes) {
-      settings.videoWidth = parseInt(settings.videoRes.split('x')[0]);
-      settings.videoHeight = parseInt(settings.videoRes.split('x')[1]);
+      if (
+        settings[updateTarget] === settings.defaultCrop ||
+        settings[updateTarget] === settings.videoRes
+      ) {
+        createCropOverlay(settings.defaultCrop);
+      }
+      if (settings[updateTarget] === settings.videoRes) {
+        const prevWidth = settings.videoWidth;
+        const prevHeight = settings.videoHeight;
+        const [newWidth, newHeight] = settings.videoRes.split('x');
+        const cropMultipleX = newWidth / prevWidth;
+        const cropMultipleY = newHeight / prevHeight;
+        settings.videoWidth = parseInt(newWidth);
+        settings.videoHeight = parseInt(newHeight);
+        multiplyAllCrops(cropMultipleX, cropMultipleY);
+      }
     }
     console.log(settings);
+  }
+
+  function multiplyAllCrops(cropMultipleX, cropMultipleY) {
+    const cropString = settings.defaultCrop;
+    const multipliedCropString = multiplyCropString(
+      cropMultipleX,
+      cropMultipleY,
+      cropString
+    );
+    settings.defaultCrop = multipliedCropString;
+    const cropInput = document.getElementById('crop-input');
+    cropInput.value = multipliedCropString;
+
+    if (markers) {
+      markers.forEach(marker => {
+        const cropString = marker[3];
+        const multipliedCropString = multiplyCropString(
+          cropMultipleX,
+          cropMultipleY,
+          cropString
+        );
+        marker[3] = multipliedCropString;
+      });
+      markers_svg.childNodes.forEach(marker => {
+        const cropString = marker.getAttribute('crop');
+        const multipliedCropString = multiplyCropString(
+          cropMultipleX,
+          cropMultipleY,
+          cropString
+        );
+        marker.setAttribute('crop', multipliedCropString);
+      });
+    }
+  }
+
+  function multiplyCropString(cropMultipleX, cropMultipleY, cropString) {
+    let [x, y, width, height] = cropString.split(':');
+    x = Math.round(x * cropMultipleX);
+    y = Math.round(y * cropMultipleY);
+    width = width !== 'iw' ? Math.round(width * cropMultipleX) : width;
+    height = height !== 'ih' ? Math.round(height * cropMultipleY) : height;
+    const multipliedCropString = [x, y, width, height].join(':');
+    return multipliedCropString;
   }
 
   function createCropOverlay(crop) {
@@ -697,9 +748,9 @@
       markerInputs.setAttribute('id', 'slowdownInputDiv');
       markerInputs.innerHTML = `\
         <input id="speed-input" type="number" placeholder="speed"
-        value="${currentSlowdown}" step="0.01" min="0.01" max="2" style="width:4em"></input>
+        value="${currentSlowdown}" step="0.01" min="0.01" max="2" style="width:4em" required></input>
         <input id="crop-input" value="${currentCrop}" pattern="${cropInputValidation}" 
-        style="width:10em"></input>
+        style="width:10em" required></input>
         <div style="display:inline;color:grey;font-size:12pt;font-style:italic">
         <span>speed: ${currentSlowdown}x - crop: ${currentCrop} - number: ${currentIdx} - time: </span>
         <span id='start-time'> ${startMarkerTime}</span>
