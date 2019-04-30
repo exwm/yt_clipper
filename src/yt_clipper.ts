@@ -446,7 +446,7 @@
       markerInputs.innerHTML = `\
       <input id="speed-input" type="number" placeholder="speed" value="${
         settings.defaultSlowdown
-      }" step="0.01" min="0.01" max="2" style="width:4em">
+      }" step="0.01" min="0.05" max="2" style="width:4em">
       <span style="color:grey;font-size:12pt;font-style:italic"> Default Speed - </span>
       <input id="crop-input" value="${
         settings.defaultCrop
@@ -748,7 +748,7 @@
       markerInputs.setAttribute('id', 'slowdownInputDiv');
       markerInputs.innerHTML = `\
         <input id="speed-input" type="number" placeholder="speed"
-        value="${currentSlowdown}" step="0.01" min="0.01" max="2" style="width:4em" required></input>
+        value="${currentSlowdown}" step="0.05" min="0.01" max="2" style="width:4em" required></input>
         <input id="crop-input" value="${currentCrop}" pattern="${cropInputValidation}" 
         style="width:10em" required></input>
         <div style="display:inline;color:grey;font-size:12pt;font-style:italic">
