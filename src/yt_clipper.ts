@@ -121,10 +121,12 @@
           }
           break;
         case keys.G:
-          if (!e.shiftKey) {
+          if (!e.shiftKey && !e.altKey) {
             loadMarkers();
-          } else if (e.shiftKey) {
+          } else if (e.shiftKey && !e.altKey) {
             toggleSpeedAutoDucking();
+          } else if (!e.shiftKey && e.altKey) {
+            toggleMarkerLooping();
           }
           break;
         case keys.Z:
@@ -267,6 +269,31 @@
       }
     } else if (player.getPlaybackRate() !== 1) {
       player.setPlaybackRate(1);
+    }
+  }
+
+  function toggleMarkerLooping() {
+    let _this = toggleMarkerLooping;
+    if (_this.listenerAdded) {
+      playerInfo.video.removeEventListener('timeupdate', markerLoopingHandler, false);
+      _this.listenerAdded = false;
+    } else {
+      playerInfo.video.addEventListener('timeupdate', markerLoopingHandler, false);
+      _this.listenerAdded = true;
+    }
+  }
+
+  function markerLoopingHandler(e) {
+    let currentIdx;
+    const currentTime = player.getCurrentTime();
+    const isTimeBetweenMarkerPair = markers.some((marker, idx) => {
+      if (currentTime >= marker[0] && currentTime <= marker[1]) {
+        currentIdx = idx;
+        return true;
+      }
+    });
+    if (!isTimeBetweenMarkerPair && markers[currentIdx]) {
+      player.seekTo(markers[currentIdx][0]);
     }
   }
 
@@ -446,7 +473,7 @@
       markerInputs.innerHTML = `\
       <input id="speed-input" type="number" placeholder="speed" value="${
         settings.defaultSlowdown
-      }" step="0.01" min="0.05" max="2" style="width:4em">
+      }" step="0.05" min="0.05" max="2" style="width:4em">
       <span style="color:grey;font-size:12pt;font-style:italic"> Default Speed - </span>
       <input id="crop-input" value="${
         settings.defaultCrop
@@ -748,7 +775,7 @@
       markerInputs.setAttribute('id', 'slowdownInputDiv');
       markerInputs.innerHTML = `\
         <input id="speed-input" type="number" placeholder="speed"
-        value="${currentSlowdown}" step="0.05" min="0.01" max="2" style="width:4em" required></input>
+        value="${currentSlowdown}" step="0.05" min="0.05" max="2" style="width:4em" required></input>
         <input id="crop-input" value="${currentCrop}" pattern="${cropInputValidation}" 
         style="width:10em" required></input>
         <div style="display:inline;color:grey;font-size:12pt;font-style:italic">
