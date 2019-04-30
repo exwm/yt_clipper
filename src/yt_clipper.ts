@@ -795,10 +795,10 @@
 
     if (e.target.reportValidity()) {
       if (updateTarget === 'slowdown') {
-        markerInfo.textContent = `slowdown: ${newValue}x - crop: ${currentCrop} - number: ${currentIdx} - time: ${currentMarkerTime}`;
+        markerInfo.textContent = `speed: ${newValue}x - crop: ${currentCrop} - number: ${currentIdx} - time: ${currentMarkerTime}`;
         markers[currentIdx - 1][2] = parseFloat(newValue);
       } else if (updateTarget === 'crop') {
-        markerInfo.textContent = `slowdown: ${currentSlowdown}x - crop: ${newValue} - number: ${currentIdx} - time: ${currentMarkerTime}`;
+        markerInfo.textContent = `speed: ${currentSlowdown}x - crop: ${newValue} - number: ${currentIdx} - time: ${currentMarkerTime}`;
         markers[currentIdx - 1][3] = newValue;
         createCropOverlay(newValue);
       }
