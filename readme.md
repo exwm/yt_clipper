@@ -17,11 +17,11 @@
 
   1. Specify intended download resolution for correctly previewing crops
   2. Specify short title that will be prefixed to output script and webms
-  3. Change default new marker speed or crop (output webm fps is DIVIDED by the speed factor)
+  3. Change default new marker speed or crop (output webm fps is **multiplied** by the speed factor)
 
 **shift+E/D:** Update all markers to default new marker speed(E)/crop(D)
 
-**shift+G:** toggle auto video playback speed ducking based on markers
+**shift+G:** Toggle auto video playback speed ducking based on markers
 
 **Q:** Toggle video speed between 0.25 and 1.0
 
