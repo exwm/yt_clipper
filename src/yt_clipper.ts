@@ -240,17 +240,20 @@
     });
   }
 
-  function toggleSpeedAutoDucking() {
-    if (playerInfo.video.ontimeupdate === autoducking) {
-      playerInfo.video.removeEventListener('timeupdate', autoducking);
+  const toggleSpeedAutoDucking = () => {
+    let _this = toggleSpeedAutoDucking;
+    if (_this.listenerAdded) {
+      playerInfo.video.removeEventListener('timeupdate', autoducking, false);
+      _this.listenerAdded = false;
     } else {
       playerInfo.video.addEventListener('timeupdate', autoducking, false);
+      _this.listenerAdded = true;
     }
-  }
+  };
 
   function autoducking(e) {
     let currentIdx;
-    const currentTime = e.target.getCurrentTime();
+    const currentTime = player.getCurrentTime();
     const isTimeBetweenMarkerPair = markers.some((marker, idx) => {
       if (currentTime >= marker[0] && currentTime <= marker[1]) {
         currentIdx = idx;
@@ -258,11 +261,11 @@
       }
     });
     if (isTimeBetweenMarkerPair && markers[currentIdx]) {
-      const currentSlowdown =  markers[currentIdx][2];
-      if (player.getPlaybackRate() !== currentSlowdown) {
-        player.setPlaybackRate(currentSlowdown);
+      const currentMarkerSlowdown = markers[currentIdx][2];
+      if (player.getPlaybackRate() !== currentMarkerSlowdown) {
+        player.setPlaybackRate(currentMarkerSlowdown);
       }
-    } else {
+    } else if (player.getPlaybackRate() !== 1) {
       player.setPlaybackRate(1);
     }
   }
