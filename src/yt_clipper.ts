@@ -139,7 +139,11 @@
           }
           break;
         case keys.X:
-          drawCropOverlay();
+          if (!e.shiftKey && !e.ctrlkey) {
+            drawCropOverlay(false);
+          } else if (e.shiftKey && !e.ctrlkey) {
+            drawCropOverlay(true);
+          }
           break;
         case keys.C:
           if (!e.shiftKey && !e.ctrlKey) {
@@ -569,13 +573,17 @@
     }
   }
 
-  function drawCropOverlay() {
+  function drawCropOverlay(verticalFill: boolean) {
     if (document.getElementById('crop-input')) {
       const videoRect = player.getVideoContentRect();
-      playerInfo.video.addEventListener('mousedown', e => beginDraw(e, videoRect), {
-        once: true,
-        capture: true,
-      });
+      playerInfo.video.addEventListener(
+        'mousedown',
+        e => beginDraw(e, videoRect, verticalFill),
+        {
+          once: true,
+          capture: true,
+        }
+      );
       togglePlayerControls();
     }
   }
@@ -589,18 +597,19 @@
     }
   }
 
-  function beginDraw(e, videoRect) {
+  function beginDraw(e: MouseEvent, videoRect, verticalFill: boolean) {
     if (e.button == 0 && e.shiftKey && !e.ctrlKey && !e.altKey) {
       const beginX = Math.round(
         ((e.pageX - videoRect.left) / videoRect.width) * settings.videoWidth
       );
-      const beginY = Math.round(
-        ((e.pageY - 56) / videoRect.height) * settings.videoHeight
-      );
+      let beginY = 0;
+      if (!verticalFill) {
+        beginY = Math.round(((e.pageY - 56) / videoRect.height) * settings.videoHeight);
+      }
       let crop = `${beginX}:${beginY}:`;
       playerInfo.video.addEventListener(
         'mousedown',
-        e => endDraw(e, crop, beginX, beginY, videoRect),
+        e => endDraw(e, crop, beginX, beginY, videoRect, verticalFill),
         { once: true, capture: true }
       );
     } else {
@@ -608,12 +617,15 @@
     }
   }
 
-  function endDraw(e, crop, beginX, beginY, videoRect) {
+  function endDraw(e, crop, beginX, beginY, videoRect, verticalFill) {
     if (e.button == 0 && e.shiftKey && !e.ctrlKey && !e.altKey) {
       const endX = Math.round(
         ((e.pageX - videoRect.left) / videoRect.width) * settings.videoWidth
       );
-      const endY = Math.round(((e.pageY - 56) / videoRect.height) * settings.videoHeight);
+      let endY = settings.videoHeight;
+      if (!verticalFill) {
+        endY = Math.round(((e.pageY - 56) / videoRect.height) * settings.videoHeight);
+      }
       crop += `${endX - beginX}:${endY - beginY}`;
       const cropInput = document.getElementById('crop-input');
       cropInput.value = crop;
