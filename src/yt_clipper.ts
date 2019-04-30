@@ -284,16 +284,19 @@
   }
 
   function markerLoopingHandler(e) {
-    let currentIdx;
-    const currentTime = player.getCurrentTime();
-    const isTimeBetweenMarkerPair = markers.some((marker, idx) => {
-      if (currentTime >= marker[0] && currentTime <= marker[1]) {
-        currentIdx = idx;
-        return true;
+    const endMarker = toggleMarkerEditor.currentMarker;
+    if (endMarker) {
+      const idx = parseInt(endMarker.getAttribute('idx')) - 1;
+      const startMarkerTime = markers[idx][0];
+      const endMarkerTime = markers[idx][1];
+      const currentTime = player.getCurrentTime();
+
+      const isTimeBetweenMarkerPair =
+        startMarkerTime < currentTime && currentTime < endMarkerTime;
+      if (!isTimeBetweenMarkerPair) {
+        player.seekTo(startMarkerTime);
+        player.playVideo();
       }
-    });
-    if (!isTimeBetweenMarkerPair && markers[currentIdx]) {
-      player.seekTo(markers[currentIdx][0]);
     }
   }
 
@@ -732,8 +735,9 @@
   }
 
   function toggleMarkerEditor(e) {
-    console.log(e.target);
     const currentMarker = e.target;
+    toggleMarkerEditor.currentMarker = currentMarker;
+
     if (currentMarker && e.shiftKey) {
       if (isMarkerEditorOpen) {
         deleteMarkerEditor();
