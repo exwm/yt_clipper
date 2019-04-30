@@ -34,6 +34,8 @@
 
 **X:** When marker or defaults editor is open, begin drawing crop. Shift+click in the video to set the top left crop boundary and then shift+click again to set the bottom right. Any other click action (eg ctrl+click) will stop drawing.
 
+**shift+X(v0.0.57+):** Like **X**, begin drawing a crop but set only the left and right boundaries. Vertically fills the crop, that is, it sets the top to 0 and the bottom to the video height.
+
 **Z:** Undo last marker (disabled if a marker pair is currently selected)
 
 **shift+mouseover:** View marker pair info and edit a pair's speed or crop
