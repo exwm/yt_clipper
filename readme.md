@@ -19,9 +19,11 @@
   2. Specify short title that will be prefixed to output script and webms
   3. Change default new marker speed or crop (output webm fps is **multiplied** by the speed factor)
 
-**shift+E/D:** Update all markers to default new marker speed(E)/crop(D)
+**shift+E/D:** Update all markers to default new marker speed(E)/crop(D).
 
-**shift+G:** Toggle auto video playback speed ducking based on markers
+**shift+G:** Toggle auto video playback speed ducking based on markers.
+
+**alt+G** Toggle auto looping of currently selected marker pair.
 
 **Q:** Decrease video playback speed by 0.25. If the speed falls below 0 it will cycle back to 1.
 
