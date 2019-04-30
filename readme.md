@@ -25,9 +25,9 @@
 
 **Q:** Decrease video playback speed by 0.25. If the speed falls below 0 it will cycle back to 1.
 
-**X:** When marker or defaults editor is open, begin drawing crop. Shift+click in the video to set the top left crop boundary and then shift+click again to set the bottom right. Any other click action (eg ctrl+click) will stop drawing.
+**X:** When marker or defaults editor is open, begin drawing crop. **Shift+click** in the video to set the top left crop boundary and then **shift+click** again to set the bottom right. Any other click action (eg ctrl+click) will stop drawing.
 
-**shift+X(v0.0.57+):** Like **X**, begin drawing a crop but set only the left and right boundaries. Vertically fills the crop, that is, it sets the top to 0 and the bottom to the video height.
+**shift+X(v0.0.57+):** Like **X**, begin drawing a crop but set only the left and right boundaries on **shift+click**. Vertically fills the crop, that is, it sets the top to 0 and the bottom to the video height.
 
 **S:** Save generated script (save it beside input webm)
 
