@@ -43,7 +43,6 @@
 
 **shift+C:** open gfycat browser authentication and upload under account (auth server must be running)
 
-
 ## Values
 
 Crop is given as x:y:w:h where x:y defines the distance left:top from the top left corner and w:h defines the width:height of the output video. Each value is a positive integer in units of pixels. w and h can also be iw and ih respectively for the input width and input height.
@@ -60,19 +59,21 @@ Crop is given as x:y:w:h where x:y defines the distance left:top from the top le
 ## Output Script Usage
 
 ```sh
-python ./clip.py -h # Prints help. Details all options and arguments. 
+python ./clip.py -h # Prints help. Details all options and arguments.
 
 python ./clip.py ./filename.webm
 
 python ./clip.py ./filename.webm --overlay ./overlay.png --gfycat
 
-python ./clip.py -f bestvideo+bestaudio --audio --url https://www.youtube.com/watch?v=0vrdgDdPApQ
+python ./clip.py -./filename.webm --format bestvideo+bestaudio --audio  # bestvideo+bestaudio is the default format 
+
+python ./clip.py --url https://www.youtube.com/watch?v=0vrdgDdPApQ
 ```
 
 ## Dependencies
 
-- ffmpeg must be in your path for the python script (<https://www.ffmpeg.org>)
-- passing --url to the python script requires youtube-dl be in your path
-  - `pip install youtube-dl`
-- urllib3 is required by the python script only with --gfycat:
-  - `pip install urllib3`
+* ffmpeg must be in your path for the python script (<https://www.ffmpeg.org>)
+* passing --url to the python script requires youtube-dl be in your path
+  * `pip install youtube-dl`
+* urllib3 is required by the python script only with --gfycat:
+  * `pip install urllib3`
