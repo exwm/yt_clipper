@@ -258,7 +258,7 @@
       }
     });
     if (isTimeBetweenMarkerPair && markers[currentIdx]) {
-      const currentSlowdown = 1 / markers[currentIdx][2];
+      const currentSlowdown =  markers[currentIdx][2];
       if (player.getPlaybackRate() !== currentSlowdown) {
         player.setPlaybackRate(currentSlowdown);
       }
@@ -443,8 +443,8 @@
       markerInputs.innerHTML = `\
       <input id="speed-input" type="number" placeholder="speed" value="${
         settings.defaultSlowdown
-      }" step="0.01" min="0.1" max="8" style="width:4em">
-      <span style="color:grey;font-size:12pt;font-style:italic"> Default Slowdown - </span>
+      }" step="0.01" min="0.01" max="2" style="width:4em">
+      <span style="color:grey;font-size:12pt;font-style:italic"> Default Speed - </span>
       <input id="crop-input" value="${
         settings.defaultCrop
       }" pattern="${cropInputValidation}" style="width:10em">
@@ -638,6 +638,7 @@
     let idx;
     if (updateTarget === 'slowdown') {
       idx = 2;
+      newValue = parseFloat(newValue);
     } else if (updateTarget === 'crop') {
       idx = 3;
     }
@@ -695,11 +696,11 @@
       markerInputs.setAttribute('id', 'slowdownInputDiv');
       markerInputs.innerHTML = `\
         <input id="speed-input" type="number" placeholder="speed"
-        value="${currentSlowdown}" step="0.01" min="0.1" max="8" style="width:4em"></input>
+        value="${currentSlowdown}" step="0.01" min="0.01" max="2" style="width:4em"></input>
         <input id="crop-input" value="${currentCrop}" pattern="${cropInputValidation}" 
         style="width:10em"></input>
         <div style="display:inline;color:grey;font-size:12pt;font-style:italic">
-        <span>slowdown: ${currentSlowdown}x - crop: ${currentCrop} - number: ${currentIdx} - time: </span>
+        <span>speed: ${currentSlowdown}x - crop: ${currentCrop} - number: ${currentIdx} - time: </span>
         <span id='start-time'> ${startMarkerTime}</span>
         <span>-</span>
         <span id='end-time'>${currentMarkerTime}</span></div>`;
@@ -878,7 +879,7 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, 
     for i in range(0, len(markers), 4):
         startTime = markers[i]
         endTime = markers[i+1]
-        slowdown = markers[i+2]
+        slowdown = 1 / markers[i+2]
         cropString = markers[i+3]
         outPath = f'''./{shortTitle}-{i//4+1}.webm'''
         outPaths.append(outPath)
