@@ -6,23 +6,12 @@
 
 **A:** Add marker at current time (start = green, end = yellow, selected = purple)
 
-**S:** Save generated script (save it beside input webm)
+**Z:** Undo last marker (disabled if a marker pair is currently selected)
 
-**shift+S:** copy generated script to clipboard (useful if saving breaks due to network errors)
+**shift+mouseover:** View marker pair info and edit a pair's speed or crop
 
-**alt+S:** save markers to a file (.json)
-
-**alt+shift+S:** save yt_clipper authorization server script (run it with python ./yt_clipper_auth.py, close it with ctrl+C)
-
-**G:** toggle markers .json file upload for reloading markers (must be from the same video)
-
-**shift+G:** toggle auto video playback speed ducking based on markers
-
-**C:** upload anonymously to gfycat (only supports slowdown through the gfycat url)
-
-**shift+C:** open gfycat browser authentication and upload under account (auth server must be running)
-
-**Q:** Toggle video speed between 0.25 and 1.0
+* While a pair is selected use **shift+Q/shift+A** to move the start/end marker to current time
+* While a pair is selected use **shift+Z** to delete the pair
 
 **W:**
 
@@ -32,16 +21,28 @@
 
 **shift+E/D:** Update all markers to default new marker speed(E)/crop(D)
 
+**shift+G:** toggle auto video playback speed ducking based on markers
+
+**Q:** Toggle video speed between 0.25 and 1.0
+
 **X:** When marker or defaults editor is open, begin drawing crop. Shift+click in the video to set the top left crop boundary and then shift+click again to set the bottom right. Any other click action (eg ctrl+click) will stop drawing.
 
 **shift+X(v0.0.57+):** Like **X**, begin drawing a crop but set only the left and right boundaries. Vertically fills the crop, that is, it sets the top to 0 and the bottom to the video height.
 
-**Z:** Undo last marker (disabled if a marker pair is currently selected)
+**S:** Save generated script (save it beside input webm)
 
-**shift+mouseover:** View marker pair info and edit a pair's speed or crop
+**shift+S:** copy generated script to clipboard (useful if saving breaks due to network errors)
 
-While a pair is selected use shift+Q/shift+A to move the start/end marker to current time
-While a pair is selected use shift+Z to delete the pair
+**alt+S:** save markers to a file (.json)
+
+**G:** toggle markers .json file upload for reloading markers (must be from the same video)
+
+**C:** upload anonymously to gfycat (only supports slowdown through the gfycat url)
+
+**alt+shift+S:** save yt_clipper authorization server script (run it with python ./yt_clipper_auth.py, close it with ctrl+C)
+
+**shift+C:** open gfycat browser authentication and upload under account (auth server must be running)
+
 
 ## Values
 
