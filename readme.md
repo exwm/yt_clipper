@@ -22,10 +22,11 @@
 
 **W:**
 
-1. Specify intended download resolution for correctly previewing crops (automatically scales any existing crops on change).
+1. Change default new marker speed or crop (output webm fps is **multiplied** by the speed factor).
+2. Specify intended download resolution for correctly previewing crops (automatically scales any existing crops on change).
    - Note that you can mark up the video at any quality/resolution and simply change the intended download resolution before saving the clipper script.
-2. Specify short title that will be prefixed to output script and webms.
-3. Change default new marker speed or crop (output webm fps is **multiplied** by the speed factor).
+3. Specify any concatenated (merged) webms you want to make from the clipped webms. The format for each merged webm is comma separated marker pair numbers or ranges (eg 1-3,5,7). Separate merged webms with semicolons (eg '1-3,5,7;4-6,9' will create two merged webms)
+4. Specify short title that will be prefixed to output script and webms.
 
 **shift+E/D:** Update all markers to default new marker speed(**E**)/crop(**D**).
 
