@@ -15,13 +15,13 @@
 
 **W:**
 
-  1. Specify intended download resolution for correctly previewing crops
+  1. Specify intended download resolution for correctly previewing crops (will automatically scale any existing crops when changed).
   2. Specify short title that will be prefixed to output script and webms
   3. Change default new marker speed or crop (output webm fps is **multiplied** by the speed factor)
 
 **shift+E/D:** Update all markers to default new marker speed(E)/crop(D).
 
-**shift+G:** Toggle auto video playback speed adjustment based on markers.
+**shift+G:** Toggle auto video playback speed adjustment based on markers. When outside of a marker pair the playback speed is set back to 1 (and cannot be changed without toggling off auto speed adjustment).
 
 **alt+G(v0.0.60+):** Toggle auto looping of currently selected marker pair.
 
@@ -67,7 +67,7 @@ python ./clip.py ./filename.webm
 
 python ./clip.py ./filename.webm --overlay ./overlay.png --gfycat
 
-python ./clip.py -./filename.webm --format bestvideo+bestaudio --audio  # bestvideo+bestaudio is the default format 
+python ./clip.py ./filename.webm --format bestvideo+bestaudio --audio  # bestvideo+bestaudio is the default format 
 
 python ./clip.py --url https://www.youtube.com/watch?v=0vrdgDdPApQ
 ```
@@ -79,3 +79,7 @@ python ./clip.py --url https://www.youtube.com/watch?v=0vrdgDdPApQ
   * `pip install youtube-dl`
 * urllib3 is required by the python script only with --gfycat:
   * `pip install urllib3`
+
+## Screenshots
+
+![screenshot](https://i.imgur.com/HyXfMDP.jpg)
