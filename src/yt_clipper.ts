@@ -2,7 +2,7 @@
 // @locale       english
 // @name         yt_clipper
 // @namespace    http://tampermonkey.net/
-// @version      0.0.62
+// @version      0.0.63
 // @description  add markers to youtube videos and generate clipped webms online or offline
 // @updateURL    https://openuserjs.org/meta/elwm/yt_clipper.meta.js
 // @run-at       document-end
@@ -1058,7 +1058,7 @@ parser.add_argument('--audio', '-a', action='store_true',
 parser.add_argument('--url', '-u', action='store_true',
                     help='use youtube-dl and ffmpeg to download only the portions of the video required')
 parser.add_argument('--json', '-j', action='store_true',
-                    help='read in markers json file and automatically create webms')    
+                    help='read in markers json file and automatically create webms')
 parser.add_argument('--format', '-f', default='bestvideo+bestaudio',
                     help='specify format string passed to youtube-dl')
 parser.add_argument('--delay', '-d', type=float, dest='delay', default=0,
