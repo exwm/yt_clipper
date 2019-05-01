@@ -473,17 +473,20 @@
       <input id="speed-input" type="number" placeholder="speed" value="${
         settings.defaultSlowdown
       }" step="0.05" min="0.05" max="2" style="width:4em">
-      <span style="color:grey;font-size:12pt;font-style:italic"> Default Speed - </span>
+      <span style="color:grey;font-size:12pt;font-style:italic"> Default Speed</span>
+      <span> - </span>
       <input id="crop-input" value="${
         settings.defaultCrop
       }" pattern="${cropInputValidation}" style="width:10em" required>
-      <span style="color:grey;font-size:12pt"> Default Crop - </span>
+      <span style="color:grey;font-size:12pt"> Default Crop</span>
+      <span> - </span>
       <input id="res-input" list="resolutions"pattern="${resInputValidation}" value="${
         settings.videoRes
       }" style="width:7em" required>
       <datalist id="resolutions" autocomplete="off">${resList}</datalist>
-      <span style="color:grey;font-size:12pt"> Download Res - </span>
-      <input id="short-title-input" value="${settings.shortTitle}" style="width:7em">
+      <span style="color:grey;font-size:12pt"> Download Res</span>
+      <span> - </span>
+      <input id="short-title-input" value="${settings.shortTitle}" style="width:20em;text-align:right">
         <span style="color:grey;font-size:12pt"> Short Title </span>
       `;
 
