@@ -179,6 +179,9 @@
     playerInfo.video = document.getElementsByTagName('video')[0];
     playerInfo.isVerticalVideo = player.getVideoAspectRatio() <= 1;
     playerInfo.progress_bar = document.getElementsByClassName('ytp-progress-bar')[0];
+    playerInfo.infoContents = document.getElementById('info-contents');
+    playerInfo.annotations = document.getElementsByClassName('ytp-iv-video-content')[0];
+    playerInfo.controls = document.getElementsByClassName('ytp-chrome-bottom')[0];
   }
 
   let settings;
@@ -463,7 +466,7 @@
       }
       toggleOverlay();
       createCropOverlay(settings.defaultCrop);
-      const infoContents = document.getElementById('info-contents');
+      const infoContents = playerInfo.infoContents;
       const markerInputs = document.createElement('div');
       const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
       const gte640 = `([1-9]\\d{3}|[6-9][4-9][0-9])`;
@@ -601,7 +604,7 @@
     cropDiv.setAttribute('id', 'crop-div');
     cropDiv.innerHTML = `<svg id="crop-svg" width="100%" height="100%" style="top:0;position:absolute;z-index:95"></svg>`;
 
-    let annotations = document.getElementsByClassName('ytp-iv-video-content')[0];
+    let annotations = playerInfo.annotations;
     if (!annotations) {
       resizeCropOverlay(cropDiv);
       annotations = document.getElementsByClassName('html5-video-container')[0];
@@ -671,7 +674,7 @@
   }
 
   function togglePlayerControls() {
-    const controls = document.getElementsByClassName('ytp-chrome-bottom')[0];
+    const controls = playerInfo.controls;
     if (controls.style.display !== 'none') {
       controls.style.display = 'none';
     } else {
@@ -765,7 +768,7 @@
 
     function createMarkerEditor(currentMarker) {
       const startMarker = currentMarker.previousSibling;
-      const infoContents = document.getElementById('info-contents');
+      const infoContents = playerInfo.infoContents;
       const currentIdx = currentMarker.getAttribute('idx');
       const currentMarkerTime = toHHMMSS(currentMarker.getAttribute('time'));
       const startMarkerTime = toHHMMSS(startMarker.getAttribute('time'));
@@ -884,11 +887,11 @@
       if (updateTarget === 'slowdown') {
         markers[currentIdx - 1][2] = parseFloat(newValue);
         const speedDisplay = document.getElementById('speed-display');
-        speedDisplay.textContent = `speed: ${newValue}`
+        speedDisplay.textContent = `speed: ${newValue}`;
       } else if (updateTarget === 'crop') {
         markers[currentIdx - 1][3] = newValue;
         const cropDisplay = document.getElementById('crop-display');
-        cropDisplay.textContent = `crop: ${newValue}`
+        cropDisplay.textContent = `crop: ${newValue}`;
         createCropOverlay(newValue);
       }
 
