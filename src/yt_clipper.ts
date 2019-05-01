@@ -71,7 +71,6 @@
   document.addEventListener('keyup', hotkeys, false);
 
   function hotkeys(e) {
-    console.log(e.which);
     if (toggleKeys) {
       switch (e.which) {
         case keys.A:
@@ -172,6 +171,7 @@
 
   const player = document.getElementById('movie_player');
   const playerInfo = {};
+  const video = document.getElementsByTagName('video')[0];
   function initPlayerInfo() {
     playerInfo.url = player.getVideoUrl();
     playerInfo.playerData = player.getVideoData();
@@ -255,7 +255,7 @@
 
   function autoducking(e) {
     let currentIdx;
-    const currentTime = player.getCurrentTime();
+    const currentTime = video.currentTime;
     const isTimeBetweenMarkerPair = markers.some((marker, idx) => {
       if (currentTime >= marker[0] && currentTime <= marker[1]) {
         currentIdx = idx;
@@ -319,8 +319,8 @@
   }
 
   function loadMarkers() {
-    if (document.getElementById('markers-upload-div')) {
-      const markersUploadDiv = document.getElementById('markers-upload-div');
+    const markersUploadDiv = document.getElementById('markers-upload-div');
+    if (markersUploadDiv) {
       markersUploadDiv.parentElement.removeChild(markersUploadDiv);
     } else {
       const meta = document.getElementById('meta');
@@ -472,7 +472,7 @@
       const resList = playerInfo.isVerticalVideo
         ? `<option value="1080x1920"><option value="2160x3840">`
         : `<option value="1920x1080"><option value="3840x2160">`;
-      markerInputs.setAttribute('id', 'slowdownInputDiv');
+      markerInputs.setAttribute('id', 'markerInputsDiv');
       markerInputs.innerHTML = `\
       <input id="speed-input" type="number" placeholder="speed" value="${
         settings.defaultSlowdown
@@ -776,17 +776,23 @@
 
       createCropOverlay(currentCrop);
 
-      markerInputs.setAttribute('id', 'slowdownInputDiv');
+      markerInputs.setAttribute('id', 'markerInputsDiv');
       markerInputs.innerHTML = `\
         <input id="speed-input" type="number" placeholder="speed"
         value="${currentSlowdown}" step="0.05" min="0.05" max="2" style="width:4em" required></input>
         <input id="crop-input" value="${currentCrop}" pattern="${cropInputValidation}" 
         style="width:10em" required></input>
         <div style="display:inline;color:grey;font-size:12pt;font-style:italic">
-        <span>speed: ${currentSlowdown}x - crop: ${currentCrop} - number: ${currentIdx} - time: </span>
-        <span id='start-time'> ${startMarkerTime}</span>
-        <span>-</span>
-        <span id='end-time'>${currentMarkerTime}</span></div>`;
+        <span id="speed-display">speed: ${currentSlowdown}x</span>
+        <span> - </span>
+        <span id="crop-display">crop: ${currentCrop}</span>
+        <span> - </span>
+        <span id="marker-idx-display">number: ${currentIdx}</span>
+        <span> - time: </span>
+        <span id="start-time">${startMarkerTime}</span>
+        <span> - </span>
+        <span id="end-time">${currentMarkerTime}</span>
+        </div>`;
 
       infoContents.insertBefore(markerInputs, infoContents.firstChild);
       addMarkerInputListeners(
@@ -862,8 +868,8 @@
   }
 
   function deleteMarkerEditor() {
-    const slowdownInputDiv = document.getElementById('slowdownInputDiv');
-    slowdownInputDiv.parentElement.removeChild(slowdownInputDiv);
+    const markerInputsDiv = document.getElementById('markerInputsDiv');
+    markerInputsDiv.parentElement.removeChild(markerInputsDiv);
     isMarkerEditorOpen = false;
     markerHotkeysEnabled = false;
   }
@@ -873,15 +879,16 @@
     const currentCrop = currentMarker.getAttribute('crop');
     const currentSlowdown = currentMarker.getAttribute('slowdown');
     const newValue = e.target.value;
-    const markerInfo = document.getElementById('slowdownInputDiv').children[2];
 
     if (e.target.reportValidity()) {
       if (updateTarget === 'slowdown') {
-        markerInfo.textContent = `speed: ${newValue}x - crop: ${currentCrop} - number: ${currentIdx} - time: ${currentMarkerTime}`;
         markers[currentIdx - 1][2] = parseFloat(newValue);
+        const speedDisplay = document.getElementById('speed-display');
+        speedDisplay.textContent = `speed: ${newValue}`
       } else if (updateTarget === 'crop') {
-        markerInfo.textContent = `speed: ${currentSlowdown}x - crop: ${newValue} - number: ${currentIdx} - time: ${currentMarkerTime}`;
         markers[currentIdx - 1][3] = newValue;
+        const cropDisplay = document.getElementById('crop-display');
+        cropDisplay.textContent = `crop: ${newValue}`
         createCropOverlay(newValue);
       }
 
