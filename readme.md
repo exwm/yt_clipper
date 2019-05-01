@@ -95,8 +95,9 @@ python ./clip.py --url https://www.youtube.com/watch?v=0vrdgDdPApQ --audio
 
 ## Changelog
 
-- v0.0.61: Fixed cropping when not in theater mode on YouTube.
-- v0.0.60: Added alt+G for auto looping currently selected marker pair.
-- v0.0.59: Q key now creases playback speed by 0.25, cycling back to 1 if speed becomes 0 or less.
+- v0.0.62: Make short title input in defaults editor wider and improve YouTube video fps detection.
+- v0.0.61: Fix cropping when not in theater mode on YouTube.
+- v0.0.60: Add alt+G for auto looping currently selected marker pair.
+- v0.0.59: Q key now decreases playback speed by 0.25, cycling back to 1 if speed becomes 0 or less.
 - v0.0.58: Slowdown is now a speed multiplier rather than divider.
-- v0.0.57: Added shift+X for cropping with top and bottom automatically set to 0 and video height respectively.
+- v0.0.57: Add shift+X for cropping with top and bottom automatically set to 0 and video height respectively.
