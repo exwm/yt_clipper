@@ -16,15 +16,16 @@
 
 **shift+mouseover:** View marker pair info and edit a pair's crop or speed (output webm fps is **multiplied** by the speed factor).
 
-* While a pair is selected use **shift+Q/shift+A** to move the start/end marker to current time.
-  * Adjust marker position more precisely using the '<' and '>' keys to view YouTube videos frame by frame.
-* While a pair is selected use **shift+Z** to delete the pair.
+- While a pair is selected use **shift+Q/shift+A** to move the start/end marker to current time.
+  - Adjust marker position more precisely using the '<' and '>' keys to view YouTube videos frame by frame.
+- While a pair is selected use **shift+Z** to delete the pair.
 
 **W:**
 
-  1. Specify intended download resolution for correctly previewing crops (automatically scales any existing crops on change).
-  2. Specify short title that will be prefixed to output script and webms.
-  3. Change default new marker speed or crop (output webm fps is **multiplied** by the speed factor).
+1. Specify intended download resolution for correctly previewing crops (automatically scales any existing crops on change).
+   - Note that you can mark up the video at any quality/resolution and simply change the intended download resolution before saving the clipper script.
+2. Specify short title that will be prefixed to output script and webms.
+3. Change default new marker speed or crop (output webm fps is **multiplied** by the speed factor).
 
 **shift+E/D:** Update all markers to default new marker speed(**E**)/crop(**D**).
 
@@ -62,12 +63,13 @@ Crop is given as x:y:w:h where x:y is the distance left:top from the top left co
 
 ## Tips
 
-  1. If you're new to userscripts checkout <https://openuserjs.org/about/Userscript-Beginners-HOWTO> for instructions.
-  2. Checkout the companion script for copying gfy links from the gfycat upload results page as markdown at <https://openuserjs.org/scripts/elwm/gfy2md>.
-  3. The script can be slow to load sometimes, so wait a bit before adding markers.
-  4. Use ',' and '.' or '<' and '>' to view a video frame by frame.
-  5. Use [space_bar] to pause/play the video.
-  6. Refresh the page if the script doesn't load and to clear markers when switching videos in the same window.
+1. If you're new to userscripts checkout <https://openuserjs.org/about/Userscript-Beginners-HOWTO> for instructions.
+2. Checkout the companion script for copying gfy links from the gfycat upload results page as markdown at <https://openuserjs.org/scripts/elwm/gfy2md>.
+3. The script can be slow to load sometimes, so wait a bit before adding markers.
+4. Use ',' and '.' or '<' and '>' to view a video frame by frame.
+5. Use [space_bar] to pause/play the video.
+6. Refresh the page if the script doesn't load and to clear markers when switching videos in the same window.
+7. Videos can be marked up and the markers json or clipper script can be saved before higher quality levels are available, but the final generated webm quality depends on the quality formats available.
 
 ## Output Script Usage
 
@@ -85,8 +87,16 @@ python ./clip.py --url https://www.youtube.com/watch?v=0vrdgDdPApQ --audio
 
 ## Dependencies
 
-* ffmpeg must be in your path for the python script (<https://www.ffmpeg.org>).
-* passing --url to the python script requires youtube-dl be in your path
-  * `pip install youtube-dl`
-* passing --gfycat requires the urllib3 python package.
-  * `pip install urllib3`
+- ffmpeg must be in your path for the python script (<https://www.ffmpeg.org>).
+- passing --url to the python script requires youtube-dl be in your path
+  - `pip install youtube-dl`
+- passing --gfycat requires the urllib3 python package.
+  - `pip install urllib3`
+
+## Changelog
+
+- v0.0.61: Fixed cropping when not in theater mode on YouTube.
+- v0.0.60: Added alt+G for auto looping currently selected marker pair.
+- v0.0.59: Q key now creases playback speed by 0.25, cycling back to 1 if speed becomes 0 or less.
+- v0.0.58: Slowdown is now a speed multiplier rather than divider.
+- v0.0.57: Added shift+X for cropping with top and bottom automatically set to 0 and video height respectively.
