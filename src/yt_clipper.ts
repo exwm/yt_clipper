@@ -30,15 +30,6 @@
     G: 71,
   };
 
-  let fps = null;
-  try {
-    let playerApiScript = document.querySelectorAll('#player > script:nth-child(3)')[0]
-      .textContent;
-    fps = parseInt(playerApiScript.match(/fps=(\d+)/)[1]);
-  } catch (e) {
-    console.log('Could not get video fps', e);
-  }
-
   const CLIENT_ID = 'XXXX';
   const REDIRECT_URI = 'http://127.0.0.1:4443/yt_clipper';
   const AUTH_ENDPOINT = 'https://api.gfycat.com/v1/oauth/token?';
@@ -379,12 +370,14 @@
     markers_svg.appendChild(marker);
 
     const roughCurrentTime = markerConfig[0] || player.getCurrentTime();
-    let currentTime;
+    let currentFrameTime;
+    const videoStats = player.getStatsForNerds();
+    let fps = videoStats ? videoStats.resolution.match(/@(\d\d)/)[1] : null;
     fps
-      ? (currentTime = Math.floor(roughCurrentTime * fps) / fps)
-      : (currentTime = roughCurrentTime);
+      ? (currentFrameTime = Math.floor(roughCurrentTime * fps) / fps)
+      : (currentFrameTime = roughCurrentTime);
 
-    const progress_pos = (currentTime / playerInfo.duration) * 100;
+    const progress_pos = (currentFrameTime / playerInfo.duration) * 100;
     marker_attrs.slowdown = markerConfig[1] || settings.defaultSlowdown;
     marker_attrs.crop = markerConfig[2] || settings.defaultCrop;
 
@@ -392,19 +385,19 @@
     marker.setAttribute('x', `${progress_pos}%`);
     const rectIdx = markers.length + 1 + undoMarkerOffset;
     marker.setAttribute('idx', rectIdx.toString());
-    marker.setAttribute('time', currentTime);
+    marker.setAttribute('time', currentFrameTime);
 
     if (start === true) {
       marker.setAttribute('fill', 'lime');
       marker.setAttribute('type', 'start');
       marker.setAttribute('z-index', '1');
-      startTime = currentTime;
+      startTime = currentFrameTime;
     } else {
       marker.addEventListener('mouseover', toggleMarkerEditor, false);
       marker.setAttribute('fill', 'gold');
       marker.setAttribute('type', 'end');
       marker.setAttribute('z-index', '2');
-      updateMarkers(currentTime, markerConfig);
+      updateMarkers(currentFrameTime, markerConfig);
     }
 
     start = !start;
