@@ -98,7 +98,7 @@
           }
           break;
         case keys.W:
-          toggleDefaultSettings();
+          toggleDefaultsEditor();
           break;
         case keys.E:
           if (e.shiftKey && !e.ctrlKey) {
@@ -185,6 +185,7 @@
       videoRes: playerInfo.isVerticalVideo ? '1080x1920' : '1920x1080',
       videoWidth: playerInfo.isVerticalVideo ? 1080 : 1920,
       videoHeight: playerInfo.isVerticalVideo ? 1920 : 1080,
+      concats: '',
     };
     const markers_div = document.createElement('div');
     markers_div.setAttribute('id', 'markers_div');
@@ -204,12 +205,12 @@
   0% {background-color: lightgreen;}
   100% {background-color: tomato;}
 }
-#speed-input:valid, #crop-input:valid, #res-input:valid {
+#speed-input:valid, #crop-input:valid, #res-input:valid, #concats-input:valid {
   animation-name: valid-input;
   animation-duration:1s;
   animation-fill-mode: forwards;
 }    
-#speed-input:invalid, #crop-input:invalid, #res-input:invalid {
+#speed-input:invalid, #crop-input:invalid, #res-input:invalid, #concats-input:invalid {
   animation-name: invalid-input;
   animation-duration:1s;
   animation-fill-mode: forwards;
@@ -307,6 +308,7 @@
   function saveMarkers() {
     const markersJson = JSON.stringify({
       [playerInfo.playerData.video_id]: markers,
+      concats: settings.concats,
     });
     const blob = new Blob([markersJson], { type: 'text/plain;charset=utf-8' });
     saveAs(blob, `${settings.shortTitle}.json`);
@@ -443,7 +445,7 @@
     player.setPlaybackRate(newSpeed);
   }
 
-  function toggleDefaultSettings() {
+  function toggleDefaultsEditor() {
     if (isMarkerEditorOpen) {
       deleteMarkerEditor();
       if (isOverlayOpen) {
@@ -462,6 +464,8 @@
       const infoContents = playerInfo.infoContents;
       const markerInputs = document.createElement('div');
       const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
+      const csvRange = `(\\d{1,2})([,-]\\d{1,2})*`;
+      const concatsInputValidation = `(${csvRange})+(;${csvRange})*`;
       const gte640 = `([1-9]\\d{3}|[6-9][4-9][0-9])`;
       const gte480 = `([1-9]\\d{3}|[4-9][8-9][0-9])`;
       const resInputValidation = `${gte640}x${gte480}`;
@@ -472,22 +476,27 @@
       markerInputs.innerHTML = `\
       <input id="speed-input" type="number" placeholder="speed" value="${
         settings.defaultSlowdown
-      }" step="0.05" min="0.05" max="2" style="width:4em">
-      <span style="color:grey;font-size:12pt;font-style:italic"> Default Speed</span>
+      }" step="0.05" min="0.05" max="2" style="width:4em;font-weight:bold">
+      <span style="color:grey;font-size:12pt"> Default Speed</span>
       <span> - </span>
       <input id="crop-input" value="${
         settings.defaultCrop
-      }" pattern="${cropInputValidation}" style="width:10em" required>
+      }" pattern="${cropInputValidation}" style="width:10em;font-weight:bold" required>
       <span style="color:grey;font-size:12pt"> Default Crop</span>
       <span> - </span>
-      <input id="res-input" list="resolutions"pattern="${resInputValidation}" value="${
+      <input id="res-input" list="resolutions" pattern="${resInputValidation}" value="${
         settings.videoRes
-      }" style="width:7em" required>
+      }" style="width:7em;font-weight:bold" required>
       <datalist id="resolutions" autocomplete="off">${resList}</datalist>
-      <span style="color:grey;font-size:12pt"> Download Res</span>
+      <span style="color:grey;font-size:12pt"> Download Res </span>
       <span> - </span>
-      <input id="short-title-input" value="${settings.shortTitle}" style="width:20em;text-align:right">
-        <span style="color:grey;font-size:12pt"> Short Title </span>
+      <input id="concats-input" pattern="${concatsInputValidation}" style="width:15em;font-weight:bold">
+      <span style="color:grey;font-size:12pt"> Concats </span>
+      <span> - </span>
+      <input id="short-title-input" value="${
+        settings.shortTitle
+      }" style="width:20em;text-align:right">
+      <span style="color:grey;font-size:12pt"> Short Title </span>
       `;
 
       infoContents.insertBefore(markerInputs, infoContents.firstChild);
@@ -496,6 +505,7 @@
         ['speed-input', 'defaultSlowdown'],
         ['crop-input', 'defaultCrop'],
         ['res-input', 'videoRes'],
+        ['concats-input', 'concats'],
         ['short-title-input', 'shortTitle'],
       ]);
       wasDefaultsEditorOpen = true;
@@ -784,20 +794,20 @@
 
       markerInputs.setAttribute('id', 'markerInputsDiv');
       markerInputs.innerHTML = `\
-        <input id="speed-input" type="number" placeholder="speed"
-        value="${currentSlowdown}" step="0.05" min="0.05" max="2" style="width:4em" required></input>
+        <input id="speed-input" type="number" placeholder="speed" value="${currentSlowdown}" 
+          step="0.05" min="0.05" max="2" style="width:4em;font-weight:bold" required></input>
         <input id="crop-input" value="${currentCrop}" pattern="${cropInputValidation}" 
-        style="width:10em" required></input>
+          style="width:10em;font-weight:bold" required></input>
         <div style="display:inline;color:grey;font-size:12pt;font-style:italic">
-        <span id="speed-display">speed: ${currentSlowdown}x</span>
-        <span> - </span>
-        <span id="crop-display">crop: ${currentCrop}</span>
-        <span> - </span>
-        <span id="marker-idx-display">number: ${currentIdx}</span>
-        <span> - time: </span>
-        <span id="start-time">${startMarkerTime}</span>
-        <span> - </span>
-        <span id="end-time">${currentMarkerTime}</span>
+          <span id="speed-display">speed: ${currentSlowdown}x</span>
+          <span> - </span>
+          <span id="crop-display">crop: ${currentCrop}</span>
+          <span> - </span>
+          <span id="marker-idx-display">number: ${currentIdx}</span>
+          <span> - time: </span>
+          <span id="start-time">${startMarkerTime}</span>
+          <span> - </span>
+          <span id="end-time">${currentMarkerTime}</span>
         </div>`;
 
       infoContents.insertBefore(markerInputs, infoContents.firstChild);
@@ -908,6 +918,19 @@
   }
 
   const pyClipper = `\
+def loadMarkers(markersJson):
+    markersDict = json.loads(markersJson)
+    videoUrl = ''
+    for videoID, markers in markersDict.items():
+      videoUrl = 'https://www.youtube.com/watch?v=' + videoID
+      print('videoUrl: ', videoUrl)
+      break
+    markers = list(itertools.chain.from_iterable(markers))
+    global concats
+    concats = markersDict['concats']
+    print('concats: ', concats)
+    return videoUrl, markers
+
 def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, overlayPath='', delay=0):
 
     def trim_video(startTime, endTime, slowdown, cropString,  outPath):
@@ -944,8 +967,8 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, 
         inputs += ' -hide_banner '
 
         crops = cropString.split(':')
-        filter_complex += f'''[slowed]crop=x={cropMultipleX}*{crops[0]}:y={cropMultipleY}*{crops[1]}\
-                              :w={cropMultipleX}*{crops[2]}:h={cropMultipleY}*{crops[3]}'''
+        filter_complex += (f'''[slowed]crop=x={cropMultipleX}*{crops[0]}:y={cropMultipleY}*{crops[1]}''' +
+          f''':w={cropMultipleX}*{crops[2]}:h={cropMultipleY}*{crops[3]}''')
 
         filter_complex += f'''[cropped];[cropped]lutyuv=y=gammaval({args.gamma})'''
 
@@ -981,7 +1004,37 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, 
         outPaths.append(outPath)
         fileNames.append(outPath[0:-5])
         trim_video(startTime, endTime, slowdown, cropString, outPath)
+    if concats != '':
+        makeMergedClips()
 
+def makeMergedClips():
+    global concats
+    concats = concats.split(';')
+    for concat in concats:
+        concatCSV = concat.split(',')
+        concatList = []
+        for concatRange in concatCSV:
+            if '-' in concatRange:
+                concatRange = concatRange.split('-')
+                for i in range(int(concatRange[0]), int(concatRange[1]) + 1):
+                    concatList.append(i)
+            else:
+                concatList.append(int(concatRange))
+        inputs = ''
+        mergedCSV = ','.join([str(i) for i in concatList])
+        for i in concatList:
+            inputs += f'''file '{shortTitle}-{i}.webm'\n'''
+        inputsTxtPath = f'inputs.txt'
+        with open(inputsTxtPath, "w+") as inputsTxt:
+            inputsTxt.write(inputs)
+        mergedFileName = f'{shortTitle}-({mergedCSV}).webm'
+        ffmpegConcatCmd = f'ffmpeg.exe -n -hide_banner -f concat -safe 0 -i "{inputsTxtPath}" -c copy "{mergedFileName}"'
+        print(ffmpegConcatCmd)
+        subprocess.run(shlex.split(ffmpegConcatCmd))
+    try:
+        os.remove(inputsTxtPath)
+    except OSError:
+        pass
 
 # cli arguments
 parser = argparse.ArgumentParser(
@@ -1004,6 +1057,8 @@ parser.add_argument('--audio', '-a', action='store_true',
                     help='enable audio in output webms')
 parser.add_argument('--url', '-u', action='store_true',
                     help='use youtube-dl and ffmpeg to download only the portions of the video required')
+parser.add_argument('--json', '-j', action='store_true',
+                    help='read in markers json file and automatically create webms')    
 parser.add_argument('--format', '-f', default='bestvideo+bestaudio',
                     help='specify format string passed to youtube-dl')
 parser.add_argument('--delay', '-d', type=float, dest='delay', default=0,
@@ -1021,7 +1076,16 @@ if args.cropMultiple != 1:
     args.cropMultipleX = args.cropMultiple
     args.cropMultipleY = args.cropMultiple
 
-clipper(markers, title, videoUrl=args.infile, cropMultipleX=args.cropMultipleX,
+if args.json:
+    args.url = True
+    shortTitle = Path(args.infile).stem
+    with open(args.infile, 'r', encoding='utf-8-sig' ) as file:
+        markersJson = file.read()
+        videoUrl, markers = loadMarkers(markersJson)
+else:
+    videoUrl = args.infile
+
+clipper(markers, title, videoUrl=videoUrl, cropMultipleX=args.cropMultipleX,
     cropMultipleY=args.cropMultipleY, ytdlFormat=args.format, overlayPath=args.overlay, delay=args.delay)
 
 # auto gfycat uploading
@@ -1061,6 +1125,10 @@ import subprocess
 import shlex
 import argparse
 import re
+import json
+import itertools
+import os
+from pathlib import Path
 
 UPLOAD_KEY_REQUEST_ENDPOINT = 'https://api.gfycat.com/v1/gfycats?'
 FILE_UPLOAD_ENDPOINT = 'https://filedrop.gfycat.com'
@@ -1068,6 +1136,7 @@ AUTHENTICATION_ENDPOINT = 'https://api.gfycat.com/v1/oauth/token'
 
 markers = [${markers.toString()}]
 markers = ['0:0:iw:ih' if m == 'undefined' else m for m in markers]
+concats = '${settings.concats}'
 title = re.sub("'","", r'''${
       document.getElementsByClassName('title')[0].lastElementChild.textContent
     }''')
