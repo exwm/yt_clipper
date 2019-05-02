@@ -999,6 +999,38 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, 
 
         subprocess.run(ffmpeg_args)
 
+    def makeMergedClips():
+        global concats
+        concats = concats.split(';')
+        for concat in concats:
+            concatCSV = concat.split(',')
+            concatList = []
+            for concatRange in concatCSV:
+                if '-' in concatRange:
+                    concatRange = concatRange.split('-')
+                    for i in range(int(concatRange[0]), int(concatRange[1]) + 1):
+                        concatList.append(i)
+                else:
+                    concatList.append(int(concatRange))
+            inputs = ''
+            mergedCSV = ','.join([str(i) for i in concatList])
+            for i in concatList:
+                inputs += f'''file '{shortTitle}-{i}.webm'\n'''
+            inputsTxtPath = f'inputs.txt'
+            with open(inputsTxtPath, "w+") as inputsTxt:
+                inputsTxt.write(inputs)
+            mergedFileName = f'{shortTitle}-({mergedCSV}).webm'
+            ffmpegConcatCmd = f'ffmpeg.exe -n -hide_banner -f concat -safe 0 -i "{inputsTxtPath}" -c copy "{mergedFileName}"'
+            if not Path(mergedFileName).is_file():
+                print(ffmpegConcatCmd)
+                subprocess.run(shlex.split(ffmpegConcatCmd))
+            else:
+                print(f'Skipping existing file: {mergedFileName}')
+        try:
+            os.remove(inputsTxtPath)
+        except OSError:
+            pass
+
     for i in range(0, len(markers), 4):
         startTime = markers[i]
         endTime = markers[i+1]
@@ -1007,38 +1039,12 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, 
         outPath = f'''./{shortTitle}-{i//4+1}.webm'''
         outPaths.append(outPath)
         fileNames.append(outPath[0:-5])
-        trim_video(startTime, endTime, slowdown, cropString, outPath)
+        if not Path(outPath).is_file():
+            trim_video(startTime, endTime, slowdown, cropString, outPath)
+        else:
+            print(f'Skipping existing file: {outPath}')
     if concats != '':
         makeMergedClips()
-
-def makeMergedClips():
-    global concats
-    concats = concats.split(';')
-    for concat in concats:
-        concatCSV = concat.split(',')
-        concatList = []
-        for concatRange in concatCSV:
-            if '-' in concatRange:
-                concatRange = concatRange.split('-')
-                for i in range(int(concatRange[0]), int(concatRange[1]) + 1):
-                    concatList.append(i)
-            else:
-                concatList.append(int(concatRange))
-        inputs = ''
-        mergedCSV = ','.join([str(i) for i in concatList])
-        for i in concatList:
-            inputs += f'''file '{shortTitle}-{i}.webm'\n'''
-        inputsTxtPath = f'inputs.txt'
-        with open(inputsTxtPath, "w+") as inputsTxt:
-            inputsTxt.write(inputs)
-        mergedFileName = f'{shortTitle}-({mergedCSV}).webm'
-        ffmpegConcatCmd = f'ffmpeg.exe -n -hide_banner -f concat -safe 0 -i "{inputsTxtPath}" -c copy "{mergedFileName}"'
-        print(ffmpegConcatCmd)
-        subprocess.run(shlex.split(ffmpegConcatCmd))
-    try:
-        os.remove(inputsTxtPath)
-    except OSError:
-        pass
 
 # cli arguments
 parser = argparse.ArgumentParser(
