@@ -102,6 +102,7 @@ python ./clip.py --json markers.json # automatically generate webms using marker
 
 ## Changelog
 
+- v0.0.65: Skip generating existing webm clips before executing ffmpeg for faster script reruns.
 - v0.0.64: Add denoise, deinterlace and crf options in clipper script.
 - v0.0.63: Add creating webms using markers json in python clipper script. Add concatenating (merging) clips.
 - v0.0.62: Make short title input in defaults editor wider and improve YouTube video fps detection.
