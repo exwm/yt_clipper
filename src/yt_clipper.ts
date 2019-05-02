@@ -803,7 +803,7 @@
           <span> - </span>
           <span id="crop-display">crop: ${currentCrop}</span>
           <span> - </span>
-          <span id="marker-idx-display">number: ${currentIdx}</span>
+          <span id="marker-idx-display" style="font-weight:bold">number: ${currentIdx}</span>
           <span> - time: </span>
           <span id="start-time">${startMarkerTime}</span>
           <span> - </span>
@@ -973,7 +973,11 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, 
         filter_complex += f'''[cropped];[cropped]lutyuv=y=gammaval({args.gamma})'''
 
         if args.rotate:
-          filter_complex += f''',transpose={args.rotate}'''
+            filter_complex += f''',transpose={args.rotate}'''
+        if args.denoise:
+            filter_complex += f''',hqdn3d'''
+        if args.deinterlace:
+            filter_complex += f''',bwdif'''
 
         if overlayPath:
             filter_complex += f'[corrected];[corrected][1:v]overlay=x=W-w-10:y=10:alpha=0.5'
@@ -984,7 +988,7 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, 
             f'''-filter_complex "{filter_complex}" ''',
             f'''-c:v libvpx-vp9 -c:a libopus -pix_fmt yuv420p  ''',
             f'''-speed {args.speed} -slices 8 -threads 8 -row-mt 1 -tile-columns 6 -tile-rows 2 ''',
-            f'''-qmin 0 -crf 30 -qmax 60 -qcomp 0.9 -b:v 0 -f webm ''',
+            f'''-qmin 0 -crf {args.crf} -qmax 60 -qcomp 0.9 -b:v 0 -f webm ''',
             f'''-metadata title='{title}' -t {duration} ''',
             f'''"{outPath}"''',
         ))
@@ -1039,10 +1043,8 @@ def makeMergedClips():
 # cli arguments
 parser = argparse.ArgumentParser(
     description='Generate trimmed webms from input video.')
-parser.add_argument('infile', metavar='I',
-                    help='input video path')
-parser.add_argument('--overlay', '-o', dest='overlay',
-                    help='overlay image path')
+parser.add_argument('infile', metavar='I', help='input video path')
+parser.add_argument('--overlay', '-o', dest='overlay', help='overlay image path')
 parser.add_argument('--multiply-crop', '-m', type=float, dest='cropMultiple', default=1,
                     help=('Multiply all crop dimensions by an integer ' +
                           '(helpful if you change resolutions: eg 1920x1080 * 2 = 3840x2160(4k))')
@@ -1053,8 +1055,7 @@ parser.add_argument('--multiply-crop-y', '-y', type=float, dest='cropMultipleY',
                     help='Multiply all y crop dimensions by an integer')
 parser.add_argument('--gfycat', '-g', action='store_true',
                     help='upload all output webms to gfycat and print reddit markdown with all links')
-parser.add_argument('--audio', '-a', action='store_true',
-                    help='enable audio in output webms')
+parser.add_argument('--audio', '-a', action='store_true', help='enable audio in output webms')
 parser.add_argument('--url', '-u', action='store_true',
                     help='use youtube-dl and ffmpeg to download only the portions of the video required')
 parser.add_argument('--json', '-j', action='store_true',
@@ -1069,6 +1070,9 @@ parser.add_argument('--rotate', '-r', dest='rotate', choices=['clock', 'cclock']
                     help='Rotate video 90 degrees clockwise or counter-clockwise.')  
 parser.add_argument('--encode-speed', '-s', type=int, dest='speed', default=1, choices=range(0,5),
                     help='Set the vp9 encoding speed.')
+parser.add_argument('--denoise', '-dn', action='store_true', help='Apply the hqdn3d denoise filter with default settings.')
+parser.add_argument('--deinterlace', '-di', action='store_true', help='Apply bwdif deinterlacing.')
+parser.add_argument('--crf', type=int, default=30, help='Set constant rate factor (crf).')
 
 args = parser.parse_args()
 
