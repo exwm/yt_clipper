@@ -25,7 +25,7 @@
 1. Change default new marker speed or crop (output webm fps is **multiplied** by the speed factor).
 2. Specify intended download resolution for correctly previewing crops (automatically scales any existing crops on change).
    - Note that you can mark up the video at any quality/resolution and simply change the intended download resolution before saving the clipper script.
-3. Specify any concatenated (merged) webms you want to make from the clipped webms. The format for each merged webm is comma separated marker pair numbers or ranges (eg 1-3,5,7). Separate merged webms with semicolons (eg '1-3,5,7;4-6,9' will create two merged webms)
+3. Specify any concatenated (merged) webms you want to make from the clipped webms. The format is similar to that for print ranges: comma separated marker pair numbers or ranges (eg '1-3,5,7'). Use semicolons to separate merged webms (eg '1-3,5,7;4-6,9' will create two merged webms)
 4. Specify short title that will be prefixed to output script and webms.
 
 **shift+E/D:** Update all markers to default new marker speed(**E**)/crop(**D**).
@@ -62,15 +62,19 @@
 
 Crop is given as x:y:w:h where x:y is the distance left:top from the top left corner and w:h defines the width:height of the output video. Each value is a positive integer in pixels. w and h can also be iw and ih respectively for the input width and input height.
 
+## Useful YouTube Controls
+
+1. Use [space_bar] or K to pause/play the video.
+2. Use '<' and '>' to view a video frame by frame.
+
 ## Tips
 
 1. If you're new to userscripts checkout <https://openuserjs.org/about/Userscript-Beginners-HOWTO> for instructions.
 2. Checkout the companion script for copying gfy links from the gfycat upload results page as markdown at <https://openuserjs.org/scripts/elwm/gfy2md>.
 3. The script can be slow to load sometimes, so wait a bit before adding markers.
-4. Use ',' and '.' or '<' and '>' to view a video frame by frame.
-5. Use [space_bar] to pause/play the video.
-6. Refresh the page if the script doesn't load and to clear markers when switching videos in the same window.
-7. Videos can be marked up and the markers json or clipper script can be saved before higher quality levels are available, but the final generated webm quality depends on the quality formats available.
+4. Refresh the page if the script doesn't load and to clear markers when switching videos in the same window.
+5. Videos can be marked up and the markers json or clipper script can be saved before higher quality levels are available, but the final generated webm quality depends on the quality formats available.
+6. The clipper script skips regenerating any existing webms. This makes it easy to delete webms you want regenerated and by rerunning the script.
 
 ## Output Script Usage
 
@@ -84,6 +88,8 @@ python ./clip.py ./filename.webm --overlay ./overlay.png --gfycat
 python ./clip.py ./filename.webm --format bestvideo+bestaudio # this is the default format
 
 python ./clip.py --url https://www.youtube.com/watch?v=0vrdgDdPApQ --audio
+
+python ./clip.py --json markers.json # automatically generate webms using markers json
 ```
 
 ## Dependencies
@@ -96,6 +102,7 @@ python ./clip.py --url https://www.youtube.com/watch?v=0vrdgDdPApQ --audio
 
 ## Changelog
 
+- v0.0.63 Add creating webms using markers json in python script. Add concatenating (merging) clips.
 - v0.0.62: Make short title input in defaults editor wider and improve YouTube video fps detection.
 - v0.0.61: Fix cropping when not in theater mode on YouTube.
 - v0.0.60: Add alt+G for auto looping currently selected marker pair.
