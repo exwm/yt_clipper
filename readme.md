@@ -69,12 +69,33 @@ Crop is given as x:y:w:h where x:y is the distance left:top from the top left co
 
 ## Tips
 
+### User Script Tips
+
 1. If you're new to userscripts checkout <https://openuserjs.org/about/Userscript-Beginners-HOWTO> for instructions.
 2. Checkout the companion script for copying gfy links from the gfycat upload results page as markdown at <https://openuserjs.org/scripts/elwm/gfy2md>.
 3. The script can be slow to load sometimes, so wait a bit before adding markers.
 4. Refresh the page if the script doesn't load and to clear markers when switching videos in the same window.
 5. Videos can be marked up and the markers json or clipper script can be saved before higher quality levels are available, but the final generated webm quality depends on the quality formats available.
-6. The clipper script skips regenerating any existing webms. This makes it easy to delete webms you want regenerated and by rerunning the script.
+
+### Clipper Script Tips
+
+1. The clipper script skips regenerating any existing webms. This makes it easy to delete webms you want regenerated and by rerunning the script.
+
+### Quality and CRF Tips
+
+Articles on crf and vp9 encoding:
+
+1. [Basic crf guide](https://slhck.info/video/2017/02/24/crf-guide.html)
+2. [vp9 basic encoding](https://developers.google.com/media/vp9/the-basics/)
+3. [More vp9 encoding](https://developers.google.com/media/vp9/live-encoding/)
+4. [vp9 encoding tests](https://github.com/deterenkelt/Nadeshiko/wiki/Tests.-VP9:-encoding-to-size,-part%C2%A01)
+
+Tips:
+
+1. The script is set to use the vp9 encoder by default (this is the encoding used for webm videos on YouTube).
+2. The vp9 encoder is set up to flexibly assign bitrate, providing more for high complexity scenes and less for simple scenes. The script is set to use a min value for the quantizer of 0 and a max of 60 (qmin=0, qmax=60).
+3. The default crf is 30 and provides a good balance of size and quality for most YouTube video rencodes. This can be adjusted with --crf flag in the script. There is unlikely to be any quality benefit to crf values below 22.
+4. A crf of about 35 is more appropriate for 4k 60fps videos.
 
 ## Output Script Usage
 
@@ -92,7 +113,24 @@ python ./clip.py --url https://www.youtube.com/watch?v=0vrdgDdPApQ --audio
 python ./clip.py --json markers.json # automatically generate webms using markers json
 ```
 
+## Windows Installation
+
+For windows there is an experimental installation that does not require the dependencies below.
+
+1. Download this [zip file (v1.2.0)](https://mega.nz/#!4exyXA7a!hzsQrpYOx4UTbDMWkmzVWHawo-9ADatgbZpEGqBQczA) and extract it anywhere.
+2. Use the user script on YouTube as usual, but use **alt+S** to save the markers json in the extracted yt_clipper folder.
+3. Lastly, just drag and drop the markers json file onto the `yt_clipper.bat` file.
+4. All generated clips will be placed in `./webms/<markers-json-filename>`.
+
+A couple of alternative bat files provide more options and all work by dropping the markers json onto them:
+
+- Use `yt_clipper_clock.bat` and `yt_clipper_counterclock.bat` to also rotate the generated webms by 90 degrees clockwise or counter clockwise respectively.
+- Use `yt_clipper_audio.bat` to include audio in the generated webms.
+- Use `yt_clipper_opts.bat` to print all the available options and to be prompted for a string with additional options before running the script. This allows you to combine options (eg include audio and rotate and denoise).
+
 ## Dependencies
+
+These dependencies are not required by the windows installation above.
 
 - ffmpeg must be in your path for the python script (<https://www.ffmpeg.org>).
 - passing --url to the python script requires youtube-dl be in your path
