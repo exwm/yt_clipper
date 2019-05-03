@@ -1,5 +1,10 @@
 # yt_clipper
 
+## Browser Support
+
+- Works best on Chrome. Better Firefox support is a work in progress.
+- Not tested on browsers other than Chrome or Firefox.
+
 ## Screenshots
 
 <img src="https://i.imgur.com/S2pWtEy.jpg" width="560">
@@ -8,7 +13,7 @@
 
 ### Marker Hotkeys
 
-**ctrl+shift+A:** toggle hotkeys on/off.
+**alt+shift+A(changed in v0.0.66):** toggle hotkeys on/off.
 
 **A:** Add marker at current time (start = green, end = yellow, selected = purple).
 
@@ -52,11 +57,11 @@
 
 **G:** Toggle markers .json file upload for reloading markers (must be from the same video).
 
-**C:** Upload anonymously to gfycat (only supports slowdown through the gfycat url).
+**alt+C(changed in v0.0.66):** Upload anonymously to gfycat (only supports slowdown through the gfycat url).
 
 **alt+shift+S:** Save yt_clipper authorization server script (run it with python ./yt_clipper_auth.py, close it with ctrl+C).
 
-**shift+C:** Open gfycat browser authentication and upload under account (auth server must be running).
+**alt+shift+C(changed in v0.0.66):** Open gfycat browser authentication and upload under account (auth server must be running).
 
 ## Values
 
@@ -141,6 +146,11 @@ These dependencies are not required by the windows installation above.
 
 ## Changelog
 
+- v0.0.66:
+  - Improve Firefox support:
+    - Change interfering hotkey **ctrl+shift+A**, which is used to open the extension manager: Toggle hotkeys binding moved from **ctrl+shift+A** to **alt+shift+A**.
+    - Fix marker positioning in YouTube video.
+  - Avoid interfering with YouTube closed caption toggle hotkey: Change upload to gfycat binding from **C** to **alt+C** and open gfycat auth page binding from **shift+C** to **alt+shift+C**.
 - v0.0.65: Skip generating existing webm clips before executing ffmpeg for faster script reruns.
 - v0.0.64: Add denoise, deinterlace and crf options in clipper script.
 - v0.0.63: Add creating webms using markers json in python clipper script. Add concatenating (merging) clips.
