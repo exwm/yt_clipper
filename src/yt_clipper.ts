@@ -496,15 +496,15 @@
         settings.videoRes
       }" style="width:7em;font-weight:bold" required>
       <datalist id="resolutions" autocomplete="off">${resList}</datalist>
-      <span style="color:grey;font-size:12pt"> Download Res </span>
+      <span style="color:grey;font-size:12pt"> Crop Resolution </span>
       <span> - </span>
       <input id="concats-input" pattern="${concatsInputValidation}" style="width:15em;font-weight:bold">
-      <span style="color:grey;font-size:12pt"> Concats </span>
+      <span style="color:grey;font-size:12pt"> Merge List </span>
       <span> - </span>
       <input id="short-title-input" value="${
         settings.shortTitle
       }" style="width:20em;text-align:right">
-      <span style="color:grey;font-size:12pt"> Short Title </span>
+      <span style="color:grey;font-size:12pt"> Title Prefix </span>
       `;
 
       infoContents.insertBefore(markerInputs, infoContents.firstChild);
@@ -636,7 +636,9 @@
       height: `${(crop[3] / settings.videoHeight) * 100}%`,
       fill: 'none',
       stroke: 'white',
-      'stroke-width': '4px',
+      'stroke-width': '3px',
+      'stroke-dasharray': '25 5',
+      'stroke-opacity': 0.75,
     };
 
     setAttributes(cropRect, cropRectAttrs);
@@ -869,8 +871,8 @@
   }
 
   function colorSelectedMarkers(currentMarker) {
-    currentMarker.setAttribute('fill', '#5880F2');
-    currentMarker.previousSibling.setAttribute('fill', '#5880F2');
+    currentMarker.setAttribute('stroke', '#ffffff87');
+    currentMarker.previousSibling.setAttribute('stroke', '#ffffff70');
   }
 
   function addMarkerInputListeners(inputs, currentMarker, currentMarkerTime, currentIdx) {
@@ -890,8 +892,8 @@
 
   function restoreMarkerColor(marker) {
     if (marker.getAttribute && marker.previousSibling) {
-      marker.setAttribute('fill', 'gold');
-      marker.previousSibling.setAttribute('fill', 'lime');
+      marker.setAttribute('stroke', 'none');
+      marker.previousSibling.setAttribute('stroke', 'none');
     }
   }
 
