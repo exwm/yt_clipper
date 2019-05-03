@@ -146,6 +146,7 @@ These dependencies are not required by the windows installation above.
 
 ## Changelog
 
+- v0.0.67: Add borders and padding around input controls.
 - v0.0.66:
   - Improve Firefox support:
     - Change interfering hotkey **ctrl+shift+A**, which is used to open the Firefox extension manager: Toggle hotkeys binding moved from **ctrl+shift+A** to **alt+shift+A**.
