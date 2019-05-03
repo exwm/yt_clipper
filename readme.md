@@ -5,21 +5,19 @@
 - Works best on Chrome. Better Firefox support is a work in progress.
 - Not tested on browsers other than Chrome or Firefox.
 
-## Screenshots
-
-<img src="https://i.imgur.com/S2pWtEy.jpg" width="560">
-
 ## Hotkeys
 
 ### Marker Hotkeys
 
 **alt+shift+A(changed in v0.0.66):** toggle hotkeys on/off.
 
-**A:** Add marker at current time (start = green, end = yellow, selected = purple).
+**A:** Add marker at current time (start = green, end = yellow, selected = white glow).
 
 **Z:** Undo last marker (disabled if a marker pair is currently selected).
 
 **shift+mouseover:** View marker pair info and edit a pair's crop or speed (output webm fps is **multiplied** by the speed factor).
+
+<img src="https://i.imgur.com/lwLJfwT.png">
 
 - While a pair is selected use **shift+Q/shift+A** to move the start/end marker to current time.
   - Adjust marker position more precisely using the '<' and '>' keys to view YouTube videos frame by frame.
@@ -27,11 +25,13 @@
 
 **W:**
 
+<img src="https://i.imgur.com/hZtiUKV.png">
+
 1. Change default new marker speed or crop (output webm fps is **multiplied** by the speed factor).
-2. Specify intended download resolution for correctly previewing crops (automatically scales any existing crops on change).
+2. Specify crop resolution (automatically scales any existing crops on change). This resolution must match the downloaded videos resolution, by default the maximum available.
    - Note that you can mark up the video at any quality/resolution and simply change the intended download resolution before saving the clipper script.
 3. Specify any concatenated (merged) webms you want to make from the clipped webms. The format is similar to that for print ranges: comma separated marker pair numbers or ranges (eg '1-3,5,7'). Use semicolons to separate merged webms (eg '1-3,5,7;4-6,9' will create two merged webms)
-4. Specify short title that will be prefixed to output script and webms.
+4. Specify title prefix that will be prefixed to output script and webms.
 
 **shift+E/D:** Update all markers to default new marker speed(**E**)/crop(**D**).
 
@@ -55,7 +55,9 @@
 
 **alt+S or ctrl+alt+S:** Save markers info to a file (.json). Use ctrl+alt+s on `Firefox` to avoid interfering with built in shortcuts.
 
-**G:** Toggle markers .json file upload for reloading markers (must be from the same video).
+**G:** Toggle markers .json file upload for reloading markers (must be from the same video). Click `Choose File`, pick your markers .json file, then click `Load`.
+
+<img src="https://i.imgur.com/19rao2O.png">
 
 **alt+C(changed in v0.0.66):** Upload anonymously to gfycat (only supports slowdown through the gfycat url).
 
@@ -157,7 +159,7 @@ These dependencies are not required by the windows installation above.
 - v0.0.63: Add creating webms using markers json in python clipper script. Add concatenating (merging) clips.
 - v0.0.62: Make short title input in defaults editor wider and improve YouTube video fps detection.
 - v0.0.61: Fix cropping when not in theater mode on YouTube.
-- v0.0.60: Add alt+G for auto looping currently selected marker pair.
-- v0.0.59: Q key now decreases playback speed by 0.25, cycling back to 1 if speed becomes 0 or less.
+- v0.0.60: Add **alt+G** for auto looping currently selected marker pair.
+- v0.0.59: **Q** key now decreases playback speed by 0.25, cycling back to 1 if speed becomes 0 or less.
 - v0.0.58: Slowdown is now a speed multiplier rather than divider.
-- v0.0.57: Add shift+X for cropping with top and bottom automatically set to 0 and video height respectively.
+- v0.0.57: Add **shift+X** for cropping with top and bottom automatically set to 0 and video height respectively.
