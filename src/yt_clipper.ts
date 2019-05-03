@@ -138,14 +138,15 @@
           }
           break;
         case keys.C:
-          if (!e.shiftKey && !e.ctrlKey) {
+          if (!e.ctrlKey && !e.shiftKey && e.altKey) {
             sendGfyRequests(markers, playerInfo.url);
-          } else if (e.shiftKey && !e.ctrlKey) {
+          } else if (!e.ctrlKey && e.shiftKey && e.altKey) {
             requestGfycatAuth();
-          } else if (!e.shiftKey && e.ctrlKey) break;
+          }
+          break;
       }
     }
-    if (e.ctrlKey && e.shiftKey && e.which === keys.A) {
+    if (!e.ctrlKey && e.shiftKey && e.altKey && e.which === keys.A) {
       toggleKeys = !toggleKeys;
       console.log('keys enabled: ' + toggleKeys);
       initOnce();
