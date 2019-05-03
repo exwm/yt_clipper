@@ -320,15 +320,18 @@
     if (markersUploadDiv) {
       markersUploadDiv.parentElement.removeChild(markersUploadDiv);
     } else {
-      const meta = document.getElementById('meta');
       const markersUploadDiv = document.createElement('div');
       markersUploadDiv.setAttribute('id', 'markers-upload-div');
+      markersUploadDiv.setAttribute(
+        'style',
+        'margin-top:2px;padding:2px;border:2px outset grey'
+      );
       markersUploadDiv.innerHTML = `<fieldset>\
       <h2>Upload a markers .json file.</h2>\
         <input type="file" id="markers-json-input">\
         <input type="button" id="upload-markers-json" value="Load">\
       </fieldset>`;
-      meta.insertAdjacentElement('beforebegin', markersUploadDiv);
+      playerInfo.infoContents.insertAdjacentElement('afterbegin', markersUploadDiv);
       const fileUploadButton = document.getElementById('upload-markers-json');
       fileUploadButton.onclick = loadMarkersJson;
     }
@@ -474,6 +477,10 @@
         ? `<option value="1080x1920"><option value="2160x3840">`
         : `<option value="1920x1080"><option value="3840x2160">`;
       markerInputs.setAttribute('id', 'markerInputsDiv');
+      markerInputs.setAttribute(
+        'style',
+        'margin-top:2px;padding:2px;border:2px outset grey'
+      );
       markerInputs.innerHTML = `\
       <input id="speed-input" type="number" placeholder="speed" value="${
         settings.defaultSlowdown
@@ -794,6 +801,10 @@
       createCropOverlay(currentCrop);
 
       markerInputs.setAttribute('id', 'markerInputsDiv');
+      markerInputs.setAttribute(
+        'style',
+        'margin-top:2px;padding:2px;border:2px outset grey'
+      );
       markerInputs.innerHTML = `\
         <input id="speed-input" type="number" placeholder="speed" value="${currentSlowdown}" 
           step="0.05" min="0.05" max="2" style="width:4em;font-weight:bold" required></input>
