@@ -53,13 +53,13 @@
 
 **shift+S:** Copy generated python clipper script to clipboard (useful if saving breaks).
 
-**alt+S:** Save markers info to a file (.json).
+**alt+S or ctrl+alt+S:** Save markers info to a file (.json). Use ctrl+alt+s on `Firefox` to avoid interfering with built in shortcuts.
 
 **G:** Toggle markers .json file upload for reloading markers (must be from the same video).
 
 **alt+C(changed in v0.0.66):** Upload anonymously to gfycat (only supports slowdown through the gfycat url).
 
-**alt+shift+S:** Save yt_clipper authorization server script (run it with python ./yt_clipper_auth.py, close it with ctrl+C).
+**alt+shift+S:** Save yt_clipper authorization server script (run it with python ./yt_clipper_auth.py, close it with ctrl+C). Does not work on `Firefox` yet.
 
 **alt+shift+C(changed in v0.0.66):** Open gfycat browser authentication and upload under account (auth server must be running).
 
@@ -148,7 +148,7 @@ These dependencies are not required by the windows installation above.
 
 - v0.0.66:
   - Improve Firefox support:
-    - Change interfering hotkey **ctrl+shift+A**, which is used to open the extension manager: Toggle hotkeys binding moved from **ctrl+shift+A** to **alt+shift+A**.
+    - Change interfering hotkey **ctrl+shift+A**, which is used to open the Firefox extension manager: Toggle hotkeys binding moved from **ctrl+shift+A** to **alt+shift+A**.
     - Fix marker positioning in YouTube video.
   - Avoid interfering with YouTube closed caption toggle hotkey: Change upload to gfycat binding from **C** to **alt+C** and open gfycat auth page binding from **shift+C** to **alt+shift+C**.
 - v0.0.65: Skip generating existing webm clips before executing ffmpeg for faster script reruns.
