@@ -190,7 +190,7 @@
     };
     const markers_div = document.createElement('div');
     markers_div.setAttribute('id', 'markers_div');
-    markers_div.innerHTML = `<svg width="100%" height="300%" style="top:-4;position:absolute;z-index:99"></svg>`;
+    markers_div.innerHTML = `<svg width="100%" height="300%" style="top:-4px;position:absolute;z-index:99"></svg>`;
     playerInfo.progress_bar.appendChild(markers_div);
 
     markers_svg = markers_div.firstChild;
