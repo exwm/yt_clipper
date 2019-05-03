@@ -148,6 +148,7 @@ These dependencies are not required by the windows installation above.
 
 ## Changelog
 
+- v0.0.68: Add visual clarity to crop preview rectangle and selected marker pairs. Reword some aspects of UI (Download Res -> Crop Resolution, Short Title -> Title Prefix, Concats -> Merge List)
 - v0.0.67: Add borders and padding around input controls.
 - v0.0.66:
   - Improve Firefox support:
