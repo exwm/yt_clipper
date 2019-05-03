@@ -121,6 +121,7 @@ For windows there is an experimental installation that does not require the depe
 2. Use the user script on YouTube as usual, but use **alt+S** to save the markers json in the extracted yt_clipper folder.
 3. Lastly, just drag and drop the markers json file onto the `yt_clipper.bat` file.
 4. All generated clips will be placed in `./webms/<markers-json-filename>`.
+5. Install [Microsoft Visual C++ 2010 Redistributable Package (x86)](https://www.microsoft.com/en-US/download/details.aspx?id=5555) if necessary.
 
 A couple of alternative bat files provide more options and all work by dropping the markers json onto them:
 
