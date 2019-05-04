@@ -101,7 +101,7 @@ Tips:
 
 1. The script is set to use the vp9 encoder by default (this is the encoding used for webm videos on YouTube).
 2. The vp9 encoder is set up to flexibly assign bitrate, providing more for high complexity scenes and less for simple scenes. The script is set to use a min value for the quantizer of 0 and a max of 60 (qmin=0, qmax=60).
-3. The default crf is 30 and provides a good balance of size and quality for most YouTube video rencodes. This can be adjusted with --crf flag in the script. There is unlikely to be any quality benefit to crf values below 22.
+3. The default crf is 30 and provides a good balance of size and quality for most YouTube video reencodes. This can be adjusted with the --crf flag in the script. There is unlikely to be any quality benefit to crf values below 22.
 4. A crf of about 35 is more appropriate for 4k 60fps videos.
 
 ## Output Script Usage
