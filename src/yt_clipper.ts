@@ -234,7 +234,25 @@
   animation-name: flash;
   animation-duration: 5s;
   animation-fill-mode: forwards;
-}`;
+}
+.editor-input-div {
+  display: inline-block;
+  color: grey;
+  font-size: 12pt;
+  margin: 2px;
+  padding: 2px;
+  border: 2px solid grey;
+}
+.marker-settings-display {
+  display: block;
+  color: grey;
+  font-size: 12pt;
+  font-style: italic;
+  margin: 2px;
+  padding: 2px;
+  border: 2px solid grey;
+}
+`;
 
     const style = document.createElement('style');
     style.innerHTML = clipperCSS;
@@ -261,7 +279,7 @@
     const flashDiv = document.createElement('div');
     flashDiv.setAttribute('class', 'flash-div');
     flashDiv.setAttribute('style', 'margin-top:2px;padding:2px;border:2px outset grey');
-    flashDiv.innerHTML = `<span id="flash-msg" style="font-weight:bold;color:${color}">${msg}</span>`;
+    flashDiv.innerHTML = `<span id="flash-msg" style="font-size:10pt;font-weight:bold;color:${color}">${msg}</span>`;
     infoContents.insertBefore(flashDiv, infoContents.firstChild);
     setTimeout(elem => deleteElement(flashDiv), lifetime);
   }
@@ -277,9 +295,11 @@
     if (_this.listenerAdded) {
       playerInfo.video.removeEventListener('timeupdate', autoducking, false);
       _this.listenerAdded = false;
+      flashMessage('Auto speed ducking disabled', 'red');
     } else {
       playerInfo.video.addEventListener('timeupdate', autoducking, false);
       _this.listenerAdded = true;
+      flashMessage('Auto speed ducking enabled', 'green');
     }
   };
 
@@ -307,9 +327,11 @@
     if (_this.listenerAdded) {
       playerInfo.video.removeEventListener('timeupdate', markerLoopingHandler, false);
       _this.listenerAdded = false;
+      flashMessage('Auto marker looping disabled', 'red');
     } else {
       playerInfo.video.addEventListener('timeupdate', markerLoopingHandler, false);
       _this.listenerAdded = true;
+      flashMessage('Auto marker looping enabled', 'green');
     }
   }
 
@@ -488,6 +510,7 @@
     let newSpeed = player.getPlaybackRate() - 0.25;
     newSpeed = newSpeed <= 0 ? 1 : newSpeed;
     player.setPlaybackRate(newSpeed);
+    flashMessage(`Video playback speed set to ${newSpeed}`, 'green')
   }
 
   function toggleDefaultsEditor() {
@@ -523,29 +546,35 @@
         'margin-top:2px;padding:2px;border:2px outset grey'
       );
       markerInputs.innerHTML = `\
-      <input id="speed-input" type="number" placeholder="speed" value="${
-        settings.defaultSlowdown
-      }" step="0.05" min="0.05" max="2" style="width:4em;font-weight:bold">
-      <span style="color:grey;font-size:12pt"> Default Speed</span>
-      <span> - </span>
-      <input id="crop-input" value="${
-        settings.defaultCrop
-      }" pattern="${cropInputValidation}" style="width:10em;font-weight:bold" required>
-      <span style="color:grey;font-size:12pt"> Default Crop</span>
-      <span> - </span>
-      <input id="res-input" list="resolutions" pattern="${resInputValidation}" value="${
+      <div class="editor-input-div">
+        <span style="color:grey;font-size:12pt">Default Speed: </span>
+        <input id="speed-input" class="editor-input-div" type="number" placeholder="speed" value="${
+          settings.defaultSlowdown
+        }" step="0.05" min="0.05" max="2" style="width:4em;font-weight:bold">
+      </div>
+      <div class="editor-input-div">
+        <span style="color:grey;font-size:12pt"> Default Crop: </span>
+        <input id="crop-input" value="${
+          settings.defaultCrop
+        }" pattern="${cropInputValidation}" style="width:10em;font-weight:bold" required>
+      </div>
+      <div class="editor-input-div">
+        <span style="color:grey;font-size:12pt"> Crop Resolution: </span>
+        <input id="res-input" list="resolutions" pattern="${resInputValidation}" value="${
         settings.videoRes
       }" style="width:7em;font-weight:bold" required>
-      <datalist id="resolutions" autocomplete="off">${resList}</datalist>
-      <span style="color:grey;font-size:12pt"> Crop Resolution </span>
-      <span> - </span>
-      <input id="concats-input" pattern="${concatsInputValidation}" style="width:15em;font-weight:bold">
-      <span style="color:grey;font-size:12pt"> Merge List </span>
-      <span> - </span>
-      <input id="short-title-input" value="${
-        settings.shortTitle
-      }" style="width:20em;text-align:right">
-      <span style="color:grey;font-size:12pt"> Title Prefix </span>
+        <datalist id="resolutions" autocomplete="off">${resList}</datalist>
+      </div>
+      <div class="editor-input-div">
+        <span style="color:grey;font-size:12pt"> Merge List: </span>
+        <input id="concats-input" pattern="${concatsInputValidation}" style="width:15em;font-weight:bold">
+      </div>
+      <div class="editor-input-div">
+        <span style="color:grey;font-size:12pt"> Title Prefix: </span>
+        <input id="short-title-input" value="${
+          settings.shortTitle
+        }" style="background-color:lightgreen;width:20em;text-align:right">
+      </div>
       `;
 
       infoContents.insertBefore(markerInputs, infoContents.firstChild);
@@ -720,7 +749,7 @@
   let endDrawHandler;
   function drawCropOverlay(verticalFill: boolean) {
     if (isDrawingCrop) {
-      resetPartialCropOverlay();
+      cancelDrawingCrop();
     } else {
       if (document.getElementById('crop-input')) {
         const videoRect = player.getVideoContentRect();
@@ -733,10 +762,17 @@
         });
         togglePlayerControls();
         isDrawingCrop = true;
+        flashMessage('Begin drawing crop', 'green');
       }
     }
   }
-  function resetPartialCropOverlay() {
+
+  function cancelDrawingCrop() {
+    clearPartialCrop();
+    flashMessage('Drawing crop canceled', 'red');
+  }
+
+  function clearPartialCrop() {
     togglePlayerControls();
     const beginCropPreview = document.getElementById('begin-crop-preview-div');
     if (beginCropPreview) {
@@ -819,7 +855,7 @@
         capture: true,
       });
     } else {
-      resetPartialCropOverlay();
+      cancelDrawingCrop();
     }
   }
 
@@ -839,8 +875,11 @@
       const cropInput = document.getElementById('crop-input');
       cropInput.value = crop;
       cropInput.dispatchEvent(new Event('change'));
+
+      clearPartialCrop();
+    } else {
+      cancelDrawingCrop();
     }
-    resetPartialCropOverlay();
   }
 
   function updateAllMarkers(updateTarget, newValue) {
@@ -859,6 +898,7 @@
         mrkr.setAttribute(updateTarget, newValue.toString());
       });
     }
+    flashMessage(`All marker ${updateTarget}s updated to ${newValue}`, 'yellow');
   }
 
   function toggleMarkerEditor(e) {
@@ -909,20 +949,28 @@
         'margin-top:2px;padding:2px;border:2px outset grey'
       );
       markerInputs.innerHTML = `\
+      <div class="editor-input-div">
+        <span>Speed: </span>
         <input id="speed-input" type="number" placeholder="speed" value="${currentSlowdown}" 
           step="0.05" min="0.05" max="2" style="width:4em;font-weight:bold" required></input>
+      </div>
+      <div class="editor-input-div">
+        <span>Crop: </span>
         <input id="crop-input" value="${currentCrop}" pattern="${cropInputValidation}" 
-          style="width:10em;font-weight:bold" required></input>
-        <div style="display:inline;color:grey;font-size:12pt;font-style:italic">
-          <span id="speed-display">speed: ${currentSlowdown}x</span>
-          <span> - </span>
-          <span id="crop-display">crop: ${currentCrop}</span>
-          <span> - </span>
-          <span id="marker-idx-display" style="font-weight:bold">number: ${currentIdx}</span>
-          <span> - time: </span>
+        style="width:10em;font-weight:bold" required></input>
+      </div>
+        <div class="marker-settings-display">
+          <span style="font-weight:bold;font-style:none">Marker Pair Info:   </span>
+          <span>   </span>
+          <span id="marker-idx-display" ">[Number: ${currentIdx}]</span>
+          <span id="speed-display">[Speed: ${currentSlowdown}x]</span>
+          <span>   </span>
+          <span id="crop-display">[Crop: ${currentCrop}]</span>
+          <span>[Time: </span>
           <span id="start-time">${startMarkerTime}</span>
           <span> - </span>
           <span id="end-time">${currentMarkerTime}</span>
+          <span>]</span
         </div>`;
 
       infoContents.insertBefore(markerInputs, infoContents.firstChild);
@@ -1015,11 +1063,11 @@
       if (updateTarget === 'slowdown') {
         markers[currentIdx - 1][2] = parseFloat(newValue);
         const speedDisplay = document.getElementById('speed-display');
-        speedDisplay.textContent = `speed: ${newValue}`;
+        speedDisplay.textContent = `[Speed: ${newValue}]`;
       } else if (updateTarget === 'crop') {
         markers[currentIdx - 1][3] = newValue;
         const cropDisplay = document.getElementById('crop-display');
-        cropDisplay.textContent = `crop: ${newValue}`;
+        cropDisplay.textContent = `[Crop: ${newValue}]`;
         createCropOverlay(newValue);
       }
 
