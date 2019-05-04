@@ -93,9 +93,10 @@ Crop is given as x:y:w:h where x:y is the distance left:top from the top left co
 Articles on crf and vp9 encoding:
 
 1. [Basic crf guide](https://slhck.info/video/2017/02/24/crf-guide.html)
-2. [vp9 basic encoding](https://developers.google.com/media/vp9/the-basics/)
-3. [More vp9 encoding](https://developers.google.com/media/vp9/live-encoding/)
-4. [vp9 encoding tests](https://github.com/deterenkelt/Nadeshiko/wiki/Tests.-VP9:-encoding-to-size,-part%C2%A01)
+2. [ffmpeg vp9 encoding guide](https://trac.ffmpeg.org/wiki/Encode/VP9)
+3. [Google vp9 basic encoding](https://developers.google.com/media/vp9/the-basics/)
+4. [More vp9 encoding](https://developers.google.com/media/vp9/live-encoding/)
+5. [vp9 encoding tests](https://github.com/deterenkelt/Nadeshiko/wiki/Tests.-VP9:-encoding-to-size,-part%C2%A01)
 
 Tips:
 
@@ -148,7 +149,7 @@ These dependencies are not required by the windows installation above.
 
 ## Changelog
 
-- v0.0.69: Add preview of first click (top left dimension) of crop. Make crop preview translucent and dashed so it obscures less of the video. Make crop preview more visible in bright videos.  Add message flash on hotkeys enable and disable.
+- v0.0.69: Add preview of first click (top left dimension) of crop. Make crop preview more visible in bright videos. Add message flash on hotkeys enable and disable.
 - v0.0.68: Add visual clarity to crop preview rectangle and selected marker pairs. Reword some aspects of UI (Download Res -> Crop Resolution, Short Title -> Title Prefix, Concats -> Merge List)
 - v0.0.67: Add borders and padding around input controls.
 - v0.0.66:
