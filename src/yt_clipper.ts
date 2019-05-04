@@ -664,10 +664,10 @@
       width: `${(crop[2] / settings.videoWidth) * 100}%`,
       height: `${(crop[3] / settings.videoHeight) * 100}%`,
       fill: 'none',
-      stroke: 'white',
+      stroke: 'grey',
       'stroke-width': '3px',
       'stroke-dasharray': '25 5',
-      'stroke-opacity': 0.75,
+      'stroke-opacity': 0.8,
     };
 
     setAttributes(cropRect, cropRectAttrs);
@@ -746,7 +746,7 @@
     isDrawingCrop = false;
   }
 
-  function createCropBeginPreview(x, y) {
+  function createBeginCropPreview(x, y) {
     const beginCropPreview = document.createElement('div');
     beginCropPreview.setAttribute('id', 'begin-crop-preview-div');
     beginCropPreview.innerHTML = `<svg id="crop-svg" width="100%" height="100%" style="top:0;position:absolute;z-index:95"></svg>`;
@@ -768,10 +768,10 @@
     const cropRectAttrs = {
       x: `${(x / settings.videoWidth) * 100}%`,
       y: `${(y / settings.videoHeight) * 100}%`,
-      width: '4px',
-      height: '4px',
-      fill: 'white',
-      'fill-opacity': 0.75,
+      width: '5px',
+      height: '5px',
+      fill: 'grey',
+      'fill-opacity': 0.8,
     };
     setAttributes(beginCropPreviewRect, cropRectAttrs);
     beginCropPreviewSvg.appendChild(beginCropPreviewRect);
@@ -800,7 +800,7 @@
         );
       }
       let crop = `${beginX}:${beginY}:`;
-      createCropBeginPreview(beginX, beginY);
+      createBeginCropPreview(beginX, beginY);
 
       endDrawHandler = e =>
         endDraw(e, crop, beginX, beginY, playerRect, videoRect, verticalFill);
