@@ -17,7 +17,7 @@
 
 **shift+mouseover:** View marker pair info and edit a pair's crop or speed (output webm fps is **multiplied** by the speed factor).
 
-<img src="https://i.imgur.com/lwLJfwT.png">
+<img src="https://i.imgur.com/AYJYeTf.png">
 
 - While a pair is selected use **shift+Q/shift+A** to move the start/end marker to current time.
   - Adjust marker position more precisely using the '<' and '>' keys to view YouTube videos frame by frame.
@@ -25,7 +25,7 @@
 
 **W:**
 
-<img src="https://i.imgur.com/hZtiUKV.png">
+<img src="https://i.imgur.com/FEhjqkj.png">
 
 1. Change default new marker speed or crop (output webm fps is **multiplied** by the speed factor).
 2. Specify crop resolution (automatically scales any existing crops on change). This resolution must match the downloaded videos resolution, by default the maximum available.
@@ -149,6 +149,7 @@ These dependencies are not required by the windows installation above.
 
 ## Changelog
 
+- v0.0.70: Fix speed multipliers (slowdowns) being saved as string values instead of numbers in Firefox. Add visual clarity to default settings editor and marker pair settings editor. Add more flash messages, primarily for toggleable features.
 - v0.0.69: Add preview of first click (top left dimension) of crop. Make crop preview more visible in bright videos. Add message flash on hotkeys enable and disable.
 - v0.0.68: Add visual clarity to crop preview rectangle and selected marker pairs. Reword some aspects of UI (Download Res -> Crop Resolution, Short Title -> Title Prefix, Concats -> Merge List)
 - v0.0.67: Add borders and padding around input controls.
