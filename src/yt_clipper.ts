@@ -674,20 +674,78 @@
     }
   }
 
+  let isDrawingCrop = false;
+  let beginDrawHandler;
+  let endDrawHandler;
   function drawCropOverlay(verticalFill: boolean) {
-    if (document.getElementById('crop-input')) {
-      const videoRect = player.getVideoContentRect();
-      const playerRect = player.getBoundingClientRect();
-      playerInfo.video.addEventListener(
-        'mousedown',
-        e => beginDraw(e, playerRect, videoRect, verticalFill),
-        {
+    if (isDrawingCrop) {
+      resetPartialCropOverlay();
+    } else {
+      if (document.getElementById('crop-input')) {
+        const videoRect = player.getVideoContentRect();
+        const playerRect = player.getBoundingClientRect();
+
+        beginDrawHandler = e => beginDraw(e, playerRect, videoRect, verticalFill);
+        console.log(beginDrawHandler);
+        playerInfo.video.addEventListener('mousedown', beginDrawHandler, {
           once: true,
           capture: true,
-        }
-      );
-      togglePlayerControls();
+        });
+        togglePlayerControls();
+        isDrawingCrop = true;
+      }
     }
+  }
+  function resetPartialCropOverlay() {
+    togglePlayerControls();
+    const beginCropPreview = document.getElementById('begin-crop-preview-div');
+    if (beginCropPreview) {
+      beginCropPreview.parentElement.removeChild(beginCropPreview);
+    }
+    if (beginDrawHandler) {
+      playerInfo.video.removeEventListener('mousedown', beginDrawHandler, {
+        capture: true,
+      });
+      beginDrawHandler = null;
+    }
+    if (endDrawHandler) {
+      playerInfo.video.removeEventListener('mousedown', endDrawHandler, {
+        capture: true,
+      });
+      endDrawHandler = null;
+    }
+    isDrawingCrop = false;
+  }
+
+  function createCropBeginPreview(x, y) {
+    const beginCropPreview = document.createElement('div');
+    beginCropPreview.setAttribute('id', 'begin-crop-preview-div');
+    beginCropPreview.innerHTML = `<svg id="crop-svg" width="100%" height="100%" style="top:0;position:absolute;z-index:95"></svg>`;
+
+    let annotations = playerInfo.annotations;
+    if (!annotations) {
+      resizeCropOverlay(beginCropPreview);
+      annotations = document.getElementsByClassName('html5-video-container')[0];
+      annotations.insertAdjacentElement('afterend', beginCropPreview);
+      window.addEventListener('resize', e => resizeCropOverlay(beginCropPreview));
+    } else {
+      annotations.insertBefore(beginCropPreview, annotations.firstElementChild);
+    }
+    const beginCropPreviewSvg = beginCropPreview.firstElementChild;
+    const beginCropPreviewRect = document.createElementNS(
+      'http://www.w3.org/2000/svg',
+      'rect'
+    );
+    const cropRectAttrs = {
+      x: `${(x / settings.videoWidth) * 100}%`,
+      y: `${(y / settings.videoHeight) * 100}%`,
+      width: '4px',
+      height: '4px',
+      fill: 'white',
+      'fill-opacity': 0.75,
+    };
+    setAttributes(beginCropPreviewRect, cropRectAttrs);
+    beginCropPreviewSvg.appendChild(beginCropPreviewRect);
   }
 
   function togglePlayerControls() {
@@ -699,7 +757,8 @@
     }
   }
 
-  function beginDraw(e: MouseEvent, playerRect, videoRect, verticalFill: boolean) {
+  function beginDraw(e, playerRect, videoRect, verticalFill) {
+    console.log('begin draw');
     if (e.button == 0 && e.shiftKey && !e.ctrlKey && !e.altKey) {
       const beginX = Math.round(
         ((e.pageX - videoRect.left - playerRect.left) / videoRect.width) *
@@ -712,13 +771,16 @@
         );
       }
       let crop = `${beginX}:${beginY}:`;
-      playerInfo.video.addEventListener(
-        'mousedown',
-        e => endDraw(e, crop, beginX, beginY, playerRect, videoRect, verticalFill),
-        { once: true, capture: true }
-      );
+      createCropBeginPreview(beginX, beginY);
+
+      endDrawHandler = e =>
+        endDraw(e, crop, beginX, beginY, playerRect, videoRect, verticalFill);
+      playerInfo.video.addEventListener('mousedown', endDrawHandler, {
+        once: true,
+        capture: true,
+      });
     } else {
-      togglePlayerControls();
+      resetPartialCropOverlay();
     }
   }
 
@@ -739,7 +801,7 @@
       cropInput.value = crop;
       cropInput.dispatchEvent(new Event('change'));
     }
-    togglePlayerControls();
+    resetPartialCropOverlay();
   }
 
   function updateAllMarkers(updateTarget, newValue) {
