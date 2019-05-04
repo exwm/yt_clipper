@@ -148,8 +148,13 @@
     }
     if (!e.ctrlKey && e.shiftKey && e.altKey && e.which === keys.A) {
       toggleKeys = !toggleKeys;
-      console.log('keys enabled: ' + toggleKeys);
       initOnce();
+      console.log('keys enabled: ' + toggleKeys);
+      if (toggleKeys) {
+        flashMessage('Enabled Hotkeys', 'green');
+      } else {
+        flashMessage('Disabled Hotkeys', 'red');
+      }
     }
   }
 
@@ -206,6 +211,10 @@
   0% {background-color: lightgreen;}
   100% {background-color: tomato;}
 }
+@keyframes flash {
+    0% {opacity: 1;}
+  100% {opacity: 0;}
+}
 #speed-input:valid, #crop-input:valid, #res-input:valid, #concats-input:valid {
   animation-name: valid-input;
   animation-duration:1s;
@@ -215,8 +224,12 @@
   animation-name: invalid-input;
   animation-duration:1s;
   animation-fill-mode: forwards;
-}   
-  `;
+}
+.flash-div {
+  animation-name: flash;
+  animation-duration: 5s;
+  animation-fill-mode: forwards;
+}`;
 
     const style = document.createElement('style');
     style.innerHTML = clipperCSS;
@@ -236,6 +249,22 @@
         });
       }
     });
+  }
+
+  function flashMessage(msg, color, lifetime = 4000) {
+    const infoContents = playerInfo.infoContents;
+    const flashDiv = document.createElement('div');
+    flashDiv.setAttribute('class', 'flash-div');
+    flashDiv.setAttribute('style', 'margin-top:2px;padding:2px;border:2px outset grey');
+    flashDiv.innerHTML = `<span id="flash-msg" style="font-weight:bold;color:${color}">${msg}</span>`;
+    infoContents.insertBefore(flashDiv, infoContents.firstChild);
+    setTimeout(elem => deleteElement(flashDiv), lifetime);
+  }
+
+  function deleteElement(elem) {
+    if (elem) {
+      elem.parentElement.removeChild(elem);
+    }
   }
 
   const toggleSpeedAutoDucking = () => {
