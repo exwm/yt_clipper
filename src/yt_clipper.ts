@@ -46,6 +46,11 @@
   markers.toString = function() {
     let markersString = '';
     this.forEach((marker, idx) => {
+      const slowdown = marker[2];
+      if (typeof slowdown === 'string') {
+        marker[2] = Number(slowdown);
+        console.log(`Converted marker pair ${index}'s slowdown from String to Number`);
+      }
       markersString += `${marker[0]},${marker[1]},${marker[2]},'${marker[3]}',`;
       if (idx === this.length - 1) {
         markersString = markersString.slice(0, -1);
@@ -336,6 +341,13 @@
   }
 
   function saveMarkers() {
+    markers.forEach((marker, idx) => {
+      const slowdown = marker[2];
+      if (typeof slowdown === 'string') {
+        marker[2] = Number(slowdown);
+        console.log(`Converted marker pair ${index}'s slowdown from String to Number`);
+      }
+    });
     const markersJson = JSON.stringify({
       [playerInfo.playerData.video_id]: markers,
       concats: settings.concats,
@@ -715,7 +727,6 @@
         const playerRect = player.getBoundingClientRect();
 
         beginDrawHandler = e => beginDraw(e, playerRect, videoRect, verticalFill);
-        console.log(beginDrawHandler);
         playerInfo.video.addEventListener('mousedown', beginDrawHandler, {
           once: true,
           capture: true,
@@ -787,7 +798,6 @@
   }
 
   function beginDraw(e, playerRect, videoRect, verticalFill) {
-    console.log('begin draw');
     if (e.button == 0 && e.shiftKey && !e.ctrlKey && !e.altKey) {
       const beginX = Math.round(
         ((e.pageX - videoRect.left - playerRect.left) / videoRect.width) *
