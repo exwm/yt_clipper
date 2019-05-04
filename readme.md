@@ -15,9 +15,9 @@
 
 **Z:** Undo last marker (disabled if a marker pair is currently selected).
 
-**shift+mouseover:** View marker pair info and edit a pair's crop or speed (output webm fps is **multiplied** by the speed factor).
+**shift+mouseover:** When done over an end marker (yellow), opens marker pair editor to change the pair's crop or speed (output webm fps is **multiplied** by the speed factor). Selected marker pairs have a white glow.
 
-<img src="https://i.imgur.com/AYJYeTf.png">
+<img src="https://i.imgur.com/PfIyjGG.png">
 
 - While a pair is selected use **shift+Q/shift+A** to move the start/end marker to current time.
   - Adjust marker position more precisely using the '<' and '>' keys to view YouTube videos frame by frame.
