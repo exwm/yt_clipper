@@ -1100,11 +1100,23 @@ def getVideoInfo(videoUrl, ytdlFormat):
     ydl = YoutubeDL({'format': ytdlFormat, 'forceurl' : True})
     ydl_info = ydl.extract_info(videoUrl, download=False)
     rf = ydl_info['requested_formats']
-    videoUrl = rf[0]['url']
-    videobr = int(rf[0]['tbr'])
-    print(f'Detected video bitrate: {videobr}k')
-    audioUrl = ''
+    videoInfo = rf[0]
 
+    global title
+    title = re.sub("'","", ydl_info['title'])
+    videoUrl = videoInfo['url']
+    videoWidth = videoInfo['width']
+    videoHeight = videoInfo['height']
+    videoFPS = videoInfo['fps']
+    videobr = int(videoInfo['tbr'])
+
+    print('Video title: ', title)
+    print('Video width: ', videoWidth)
+    print('Video height: ', videoHeight)
+    print('Video fps: ', videoFPS)
+    print(f'Detected video bitrate: {videobr}k')
+
+    audioUrl = ''
     if args.audio:
         audioUrl = rf[1]['url']
 
@@ -1142,8 +1154,8 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, 
         twoPass = args.twoPass
     if args.speed:
         speed = args.speed
-    print((f'Using following encoding options: CRF: {crf}, Target Bitrate: {videobr}k, '
-        + f'Two Pass Enabled: {twoPass}, Encoding Speed: {speed}\\n'))
+    print((f'Encoding options: CRF: {crf} (0-63), Target Bitrate: {videobr}k, '
+        + f'Two-pass encoding enabled: {twoPass}, Encoding Speed: {speed} (0-5)\\n'))
 
     def trim_video(startTime, endTime, slowdown, cropString,  outPath):
         filter_complex = ''
