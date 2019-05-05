@@ -11,11 +11,11 @@
 
 **alt+shift+A(changed in v0.0.66):** toggle hotkeys on/off.
 
-**A:** Add marker at current time (start = green, end = yellow, selected = white glow).
+**A:** Add marker at current time (start = green, end = yellow, selected = white glow). Multiple marker pairs can be added.
 
 **Z:** Undo last marker (disabled if a marker pair is currently selected).
 
-**shift+mouseover:** When done over an end marker (yellow), opens marker pair editor to change the pair's crop or speed (output webm fps is **multiplied** by the speed factor). Selected marker pairs have a white glow.
+**shift+mouseover:** Toggle marker pair editor. Must be done over an end marker (yellow). Selected marker pairs have a white glow. Allows editing of crop or speed (output webm fps is **multiplied** by the speed factor).
 
 <img src="https://i.imgur.com/PfIyjGG.png">
 
@@ -27,13 +27,13 @@
 
 <img src="https://i.imgur.com/FEhjqkj.png">
 
-1. Change default new marker speed or crop (output webm fps is **multiplied** by the speed factor).
+1. Change default new marker speed or crop. Any new markers added will use these defaults, but this will not update existing markers. To update existing markers to the default new marker speed/crop use **shift+E/shift+D**.
 2. Specify crop resolution (automatically scales any existing crops on change). This resolution must match the downloaded videos resolution, by default the maximum available.
-   - Note that you can mark up the video at any quality/resolution and simply change the intended download resolution before saving the clipper script.
-3. Specify any concatenated (merged) webms you want to make from the clipped webms. The format is similar to that for print ranges: comma separated marker pair numbers or ranges (eg '1-3,5,7'). Use semicolons to separate merged webms (eg '1-3,5,7;4-6,9' will create two merged webms)
+   - Note that you can mark up the video at any quality/resolution and simply change the crop resoluton before saving the clipper script to match that of the video resolution you intend to download.
+3. Specify any concatenated (merged) webms you want to make from the clipped webms. Very fast as it does not require reencoding videos. The format is similar to that for print ranges: comma separated marker pair numbers or ranges (eg '1-3,5,7'). Marker pairs (clips) are merged in the order they are listed. Use semicolons to separate merged webms (eg '1-3,5,7;4-6,9' will create two merged webms).
 4. Specify title prefix that will be prefixed to output script and webms.
 
-**shift+E/D:** Update all markers to default new marker speed(**E**)/crop(**D**).
+**shift+E/D:** Update all existing markers to default new marker speed(**E**)/crop(**D**). Set the default new marker speed or crop using **W**.
 
 **X:** When marker or defaults editor is open, begin drawing crop. **Shift+click** in the video to set the top left crop boundary and then **shift+click** again to set the bottom right. Any other click action (eg ctrl+click) will stop drawing.
 
@@ -63,7 +63,7 @@
 
 **alt+shift+S:** Save yt_clipper authorization server script (run it with python ./yt_clipper_auth.py, close it with ctrl+C). Does not work on `Firefox` yet.
 
-**alt+shift+C(changed in v0.0.66):** Open gfycat browser authentication and upload under account (auth server must be running).
+**alt+shift+C(Disabled until further notice):** Open gfycat browser authentication and upload under account (auth server must be running). Same caveats as **alt+C** for anonymous uploading.
 
 ## Values
 
@@ -95,15 +95,13 @@ Articles on crf and vp9 encoding:
 1. [Basic crf guide](https://slhck.info/video/2017/02/24/crf-guide.html)
 2. [ffmpeg vp9 encoding guide](https://trac.ffmpeg.org/wiki/Encode/VP9)
 3. [Google vp9 basic encoding](https://developers.google.com/media/vp9/the-basics/)
-4. [More vp9 encoding](https://developers.google.com/media/vp9/live-encoding/)
-5. [vp9 encoding tests](https://github.com/deterenkelt/Nadeshiko/wiki/Tests.-VP9:-encoding-to-size,-part%C2%A01)
+4. [vp9 encoding tests](https://github.com/deterenkelt/Nadeshiko/wiki/Tests.-VP9:-encoding-to-size,-part%C2%A01)
 
 Tips:
 
 1. The script is set to use the vp9 encoder by default (this is the encoding used for webm videos on YouTube).
-2. The vp9 encoder is set up to flexibly assign bitrate, providing more for high complexity scenes and less for simple scenes. The script is set to use a min value for the quantizer of 0 and a max of 60 (qmin=0, qmax=60).
-3. The default crf is 30 and provides a good balance of size and quality for most YouTube video reencodes. This can be adjusted with the --crf flag in the script. There is unlikely to be any quality benefit to crf values below 22.
-4. A crf of about 35 is more appropriate for 4k 60fps videos.
+2. The default crf is 30 and provides a good balance of size and quality for most YouTube video reencodes. This can be adjusted with the `--crf` flag in the script. There is unlikely to be any quality benefit to crf values below 22.
+3. A crf of about 35 is more appropriate for 4k 60fps videos. If encoding is slow, use the `--encode-speed` (`-s` for short) to change the default encoding speed of 1. Use up to a value of 4 for the encoding speed for 4k 60fps or otherwise high bitrate video.
 
 ## Output Script Usage
 
