@@ -510,7 +510,7 @@
     let newSpeed = player.getPlaybackRate() - 0.25;
     newSpeed = newSpeed <= 0 ? 1 : newSpeed;
     player.setPlaybackRate(newSpeed);
-    flashMessage(`Video playback speed set to ${newSpeed}`, 'green')
+    flashMessage(`Video playback speed set to ${newSpeed}`, 'green');
   }
 
   function toggleDefaultsEditor() {
@@ -1094,7 +1094,56 @@ def loadMarkers(markersJson):
     print('concats: ', concats)
     return videoUrl, markers
 
+
+def getVideoInfo(videoUrl, ytdlFormat):
+    from youtube_dl import YoutubeDL
+    ydl = YoutubeDL({'format': ytdlFormat, 'forceurl' : True})
+    ydl_info = ydl.extract_info(videoUrl, download=False)
+    rf = ydl_info['requested_formats']
+    videoUrl = rf[0]['url']
+    videobr = int(rf[0]['tbr'])
+    print(f'Detected video bitrate: {videobr}k')
+    audioUrl = ''
+
+    if args.audio:
+        audioUrl = rf[1]['url']
+
+    return videoUrl, videobr, audioUrl
+
+def getDefaultEncodingSettings(videobr):
+    if videobr is None:
+        settings = (30, 0, 2, False)
+    elif videobr <= 4000:
+        settings = (20, 1.6 * videobr, 1, False)
+    elif videobr <= 6000:
+        settings = (22, 1.5 * videobr, 2, False)
+    elif videobr <= 10000:
+        settings = (24, 1.4 * videobr, 3, False)
+    elif videobr <= 15000:
+        settings = (26, 1.3 * videobr, 4, False)
+    elif videobr <= 20000:
+        settings = (30, 1.2 * videobr, 5, False)
+    else:
+        settings = (35, 1.1 * videobr, 5, False)
+    return settings
+
 def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, overlayPath='', delay=0):
+    if args.url:
+        global videoUrl
+        videoUrl, videobr, audioUrl = getVideoInfo(videoUrl, ytdlFormat)
+        crf, videobr, speed, twoPass  = getDefaultEncodingSettings(videobr)
+    else:
+        crf, videobr, speed, twoPass  = getDefaultEncodingSettings(None)
+    if args.videobr:
+        videobr = args.videobr
+    if args.crf:
+        crf = args.crf
+    if args.twoPass:
+        twoPass = args.twoPass
+    if args.speed:
+        speed = args.speed
+    print((f'Using following encoding options: CRF: {crf}, Target Bitrate: {videobr}k, '
+        + f'Two Pass Enabled: {twoPass}, Encoding Speed: {speed}\\n'))
 
     def trim_video(startTime, endTime, slowdown, cropString,  outPath):
         filter_complex = ''
@@ -1103,17 +1152,10 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, 
         duration = (endTime - startTime)*slowdown
 
         if args.url:
-            ytdl_cmd = f'''youtube-dl -f "{ytdlFormat}" -g '{videoUrl}' '''
-            ytdl_cmd = shlex.split(ytdl_cmd)
-            proc = subprocess.Popen(
-                ytdl_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            urls = proc.stdout.readlines()
-            urls = [url.decode().rstrip() for url in urls]
-
-            inputs = f'''ffmpeg -n -ss {startTime} -i "{urls[0]}" '''
+            inputs = f'''ffmpeg -n -ss {startTime} -i "{videoUrl}" '''
             filter_complex += f'[0:v]setpts={slowdown}*(PTS-STARTPTS)[slowed];'
             if args.audio:
-                inputs += f''' -ss {startTime} -i "{urls[1]}" '''
+                inputs += f''' -ss {startTime} -i "{audioUrl}" '''
                 filter_complex += f'''[1:a]atempo={1/slowdown};'''
             else:
                 inputs += ' -an '
@@ -1148,19 +1190,24 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, 
 
         ffmpegCommand = ' '.join((
             inputs,
-            f'''-filter_complex "{filter_complex}" ''',
-            f'''-c:v libvpx-vp9 -c:a libopus -pix_fmt yuv420p  ''',
-            f'''-speed {args.speed} -slices 8 -threads 8 -row-mt 1 -tile-columns 6 -tile-rows 2 ''',
-            f'''-qmin 0 -crf {args.crf} -qmax 60 -qcomp 0.9 -b:v 0 -f webm ''',
-            f'''-metadata title='{title}' -t {duration} ''',
-            f'''"{outPath}"''',
+            f'''-filter_complex "{filter_complex}"''',
+            f'''-c:v libvpx-vp9 -c:a libopus -pix_fmt yuv420p''',
+            f'''-slices 8 -threads 8 -row-mt 1 -tile-columns 6 -tile-rows 2''',
+            f'''-speed {speed} -crf {crf} -b:v {videobr}k''',
+            f'''-metadata title='{title}' -t {duration}''',
+            f'''-f webm ''',
         ))
 
-        print(ffmpegCommand.encode())
-
-        ffmpeg_args = shlex.split(ffmpegCommand)
-
-        subprocess.run(ffmpeg_args)
+        if twoPass:
+            ffmpegPass1 = shlex.split(ffmpegCommand + ' -pass 1 -')
+            subprocess.run(ffmpegPass1)
+            ffmpegPass2 = ffmpegCommand + f' -pass 2 "{outPath}"'
+            print(ffmpegPass2.encode())
+            subprocess.run(shlex.split(ffmpegPass2))
+        else:
+            ffmpegCommand = ffmpegCommand +  f' "{outPath}"'
+            print(ffmpegCommand.encode())
+            subprocess.run(shlex.split(ffmpegCommand))
 
     def makeMergedClips():
         global concats
@@ -1212,36 +1259,41 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, 
 # cli arguments
 parser = argparse.ArgumentParser(
     description='Generate trimmed webms from input video.')
-parser.add_argument('infile', metavar='I', help='input video path')
+parser.add_argument('infile', metavar='I', help='Input video path.')
 parser.add_argument('--overlay', '-o', dest='overlay', help='overlay image path')
 parser.add_argument('--multiply-crop', '-m', type=float, dest='cropMultiple', default=1,
-                    help=('Multiply all crop dimensions by an integer ' +
-                          '(helpful if you change resolutions: eg 1920x1080 * 2 = 3840x2160(4k))')
-                    )
+                    help=('Multiply all crop dimensions by an integer. ' +
+                          '(Helpful if you change resolutions: eg 1920x1080 * 2 = 3840x2160(4k))'.))
 parser.add_argument('--multiply-crop-x', '-x', type=float, dest='cropMultipleX', default=1,
-                    help='Multiply all x crop dimensions by an integer')
+                    help='Multiply all x crop dimensions by an integer.')
 parser.add_argument('--multiply-crop-y', '-y', type=float, dest='cropMultipleY', default=1,
-                    help='Multiply all y crop dimensions by an integer')
+                    help='Multiply all y crop dimensions by an integer.')
 parser.add_argument('--gfycat', '-g', action='store_true',
                     help='upload all output webms to gfycat and print reddit markdown with all links')
-parser.add_argument('--audio', '-a', action='store_true', help='enable audio in output webms')
+parser.add_argument('--audio', '-a', action='store_true', help='Enable audio in output webms.')
 parser.add_argument('--url', '-u', action='store_true',
-                    help='use youtube-dl and ffmpeg to download only the portions of the video required')
+                    help='Use youtube-dl and ffmpeg to download only the portions of the video required.')
 parser.add_argument('--json', '-j', action='store_true',
-                    help='read in markers json file and automatically create webms')
+                    help='Read in markers json file and automatically create webms.')
 parser.add_argument('--format', '-f', default='bestvideo+bestaudio',
-                    help='specify format string passed to youtube-dl')
+                    help='Specify format string passed to youtube-dl.')
 parser.add_argument('--delay', '-d', type=float, dest='delay', default=0,
                     help='Add a fixed delay to both the start and end time of each marker. Can be negative.')
 parser.add_argument('--gamma', '-ga', type=float, dest='gamma', default=1,
                     help='Apply luminance gamma correction. Pass in a value between 0 and 1 to brighten shadows and reveal darker details.')
 parser.add_argument('--rotate', '-r', dest='rotate', choices=['clock', 'cclock'],
                     help='Rotate video 90 degrees clockwise or counter-clockwise.')  
-parser.add_argument('--encode-speed', '-s', type=int, dest='speed', default=1, choices=range(0,5),
-                    help='Set the vp9 encoding speed.')
 parser.add_argument('--denoise', '-dn', action='store_true', help='Apply the hqdn3d denoise filter with default settings.')
 parser.add_argument('--deinterlace', '-di', action='store_true', help='Apply bwdif deinterlacing.')
-parser.add_argument('--crf', type=int, default=30, help='Set constant rate factor (crf).')
+parser.add_argument('--encode-speed', '-s', type=int, dest='speed', choices=range(0,6),
+                    help='Set the vp9 encoding speed.')
+parser.add_argument('--crf', type=int, help=('Set constant rate factor (crf). Default is 30 for video file input.' +
+                    'Automatically set to a factor of the detected video bitrate when using --json or --url.'))
+parser.add_argument('--two-pass', '-tp', dest='twoPass', action='store_true',
+                    help='Enable two-pass encoding. Improves quality at the cost of encoding speed.')
+parser.add_argument('--target-bitrate', '-b', dest='videobr', type=int,
+                    help=('Set target bitrate in kilobits/s.' +
+                    'Automatically set based on detected video bitrate when using --json or --url.'))
 
 args = parser.parse_args()
 
@@ -1313,7 +1365,7 @@ concats = '${settings.concats}'
 title = re.sub("'","", r'''${
       document.getElementsByClassName('title')[0].lastElementChild.textContent
     }''')
-shortTitle = re.sub("'","", r'''${settings.shortTitle}''')
+shortTitle = re.sub("'"," ", r'''${settings.shortTitle}''')
 
 outPaths = []
 fileNames = []
