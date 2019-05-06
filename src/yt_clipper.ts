@@ -1114,9 +1114,17 @@ def loadMarkers(markersJson):
     print('concats: ', concats)
     return videoUrl, markers, cropResWidth, cropResHeight
 
-def autoSetCropMultiples(videoWidth, videoHeight):
-    args.cropMultipleX = (videoWidth / cropResWidth)
-    args.cropMultipleY = (videoHeight / cropResHeight)
+def autoSetCropMultiples(cropResWidth, cropResHeight, videoWidth, videoHeight):
+    if cropResWidth != videoWidth or cropResHeight != cropResHeight:
+        print('Warning: Crop resolution does not match video resolution.', file=sys.stderr)
+        if cropResWidth != videoWidth:
+            print(f'Crop resolution width ({cropResWidth}) not equal to video width ({videoWidth})', file=sys.stderr)
+        if cropResWidth != videoWidth:
+            print(f'Crop resolution height ({cropResHeight}) not equal to video height ({videoHeight})', file=sys.stderr)
+        shouldScaleCrop = input('Do you want to automatically scale the crop resolution? (y/n): ')
+        if shouldScaleCrop == 'yes' or shouldScaleCrop == 'y':
+            args.cropMultipleX = (videoWidth / cropResWidth)
+            args.cropMultipleY = (videoHeight / cropResHeight)
 
 def getVideoInfo(videoUrl, ytdlFormat):
     from youtube_dl import YoutubeDL
@@ -1131,7 +1139,8 @@ def getVideoInfo(videoUrl, ytdlFormat):
     videoWidth = videoInfo['width']
     videoHeight = videoInfo['height']
     videoFPS = videoInfo['fps']
-    videobr = int(videoInfo['tbr'])
+    videobr = int(videoInfo['vbr'])
+    audiobr = int(videoInfo['abr'])
 
     print('Video title: ', title)
     print('Video width: ', videoWidth)
@@ -1139,19 +1148,13 @@ def getVideoInfo(videoUrl, ytdlFormat):
     print('Video fps: ', videoFPS)
     print(f'Detected video bitrate: {videobr}k')
 
-    if cropResWidth != videoWidth or cropResHeight != cropResHeight:
-        print('Warning: Crop resolution does not match video resolution.', file=sys.stderr)
-        if cropResWidth != videoWidth:
-            print(f'Crop resolution width ({cropResWidth}) not equal to video width ({videoWidth})', file=sys.stderr)
-        if cropResWidth != videoWidth:
-            print(f'Crop resolution height ({cropResHeight}) not equal to video height ({videoHeight})', file=sys.stderr)
-        shouldScaleCrop = input('Do you want to automatically scale the crop resolution? (y/n): ')
-        if shouldScaleCrop == 'yes' or shouldScaleCrop == 'y':
-            autoSetCropMultiples(videoWidth, videoHeight)
+    autoSetCropMultiples(cropResWidth, cropResHeight, videoWidth, videoHeight)
 
     audioUrl = ''
     if args.audio:
-        audioUrl = rf[1]['url']
+        audioInfo = rf[1]
+        audioUrl = audioInfo['url']
+        audiobr = int(videoInfo['tbr'])
 
     return videoUrl, videobr, audioUrl
 
@@ -1159,13 +1162,13 @@ def getDefaultEncodingSettings(videobr):
     if videobr is None:
         settings = (30, 0, 2, False)
     elif videobr <= 4000:
-        settings = (20, 1.6 * videobr, 1, False)
+        settings = (20, 1.6 * videobr, 2, False)
     elif videobr <= 6000:
-        settings = (22, 1.5 * videobr, 2, False)
+        settings = (22, 1.5 * videobr, 3, False)
     elif videobr <= 10000:
-        settings = (24, 1.4 * videobr, 3, False)
+        settings = (24, 1.4 * videobr, 4, False)
     elif videobr <= 15000:
-        settings = (26, 1.3 * videobr, 4, False)
+        settings = (26, 1.3 * videobr, 5, False)
     elif videobr <= 20000:
         settings = (30, 1.2 * videobr, 5, False)
     else:
@@ -1291,7 +1294,7 @@ def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
                 else:
                     report += f'Failed to generate: "{mergedFileName}"\\n'
             else:
-                print(f'Skipped existing file: "{mergedFileName}"')
+                print(f'Skipped existing file: "{mergedFileName}"\\n')
                 report += f'Skipped existing file: "{mergedFileName}"\\n'
         try:
             os.remove(inputsTxtPath)
@@ -1316,8 +1319,8 @@ def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
             else:
                 report += f'Failed to generate: "{fileName}"\\n'
         else:
-            print(f'Skipped existing file: "{fileName}"')
-            report += f"Skipped existing file: "{fileName}"\\n"
+            print(f'Skipped existing file: "{fileName}"\\n')
+            report += f'Skipped existing file: "{fileName}"\\n'
     if concats != '':
         makeMergedClips()
     print(report)
@@ -1341,7 +1344,7 @@ parser.add_argument('--url', '-u', action='store_true',
                     help='Use youtube-dl and ffmpeg to download only the portions of the video required.')
 parser.add_argument('--json', '-j', action='store_true',
                     help='Read in markers json file and automatically create webms.')
-parser.add_argument('--format', '-f', default='bestvideo+bestaudio',
+parser.add_argument('--format', '-f', default='bestvideo[ext=webm]/bestvideo+bestaudio[acodec=opus]/bestaudio[acodec=vorbis]/bestaudio',
                     help='Specify format string passed to youtube-dl.')
 parser.add_argument('--delay', '-d', type=float, dest='delay', default=0,
                     help='Add a fixed delay to both the start and end time of each marker. Can be negative.')
