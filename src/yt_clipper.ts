@@ -1048,12 +1048,14 @@
 
       const me = new MouseEvent('mouseover', { shiftKey: true });
       enableMarkerHotkeys.endMarker.dispatchEvent(me);
-      enableMarkerHotkeys.endMarker.parentElement.removeChild(
-        enableMarkerHotkeys.endMarker
-      );
-      enableMarkerHotkeys.startMarker.parentElement.removeChild(
-        enableMarkerHotkeys.startMarker
-      );
+      deleteElement(enableMarkerHotkeys.endMarker);
+      deleteElement(enableMarkerHotkeys.startMarker);
+      const markersSvg = document.getElementById('markers-svg');
+      markersSvg.childNodes.forEach((markerRect, idx) => {
+        // renumber markers by pair starting with index 1
+        const newIdx = Math.floor((idx + 2) / 2);
+        markerRect.setAttribute('idx', newIdx);
+      });
       enableMarkerHotkeys.moveMarker = null;
       enableMarkerHotkeys.deleteMarkerPair = null;
       markerHotkeysEnabled = false;
