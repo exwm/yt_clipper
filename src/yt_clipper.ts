@@ -188,7 +188,7 @@
   }
 
   let settings;
-  let markers_svg;
+  let markersSvg;
   function initMarkersContainer() {
     settings = {
       defaultSlowdown: 1.0,
@@ -199,12 +199,12 @@
       videoHeight: playerInfo.isVerticalVideo ? 1920 : 1080,
       concats: '',
     };
-    const markers_div = document.createElement('div');
-    markers_div.setAttribute('id', 'markers_div');
-    markers_div.innerHTML = `<svg width="100%" height="300%" style="top:-4px;position:absolute;z-index:99"></svg>`;
-    playerInfo.progress_bar.appendChild(markers_div);
+    const markersDiv = document.createElement('div');
+    markersDiv.setAttribute('id', 'markers-div');
+    markersDiv.innerHTML = `<svg id="markers-svg"></svg>`;
+    playerInfo.progress_bar.appendChild(markersDiv);
 
-    markers_svg = markers_div.firstChild;
+    markersSvg = markersDiv.firstChild;
   }
 
   function initCSS() {
@@ -232,9 +232,16 @@
   animation-fill-mode: forwards;
 }
 .flash-div {
+  margin-top: 2px;
+  padding: 2px;
+  border: 2px outset grey;
   animation-name: flash;
   animation-duration: 5s;
   animation-fill-mode: forwards;
+}
+.flash-msg {
+  font-size: 10pt;
+  font-weight: bold;
 }
 .editor-input-div {
   display: inline-block;
@@ -244,6 +251,10 @@
   padding: 2px;
   border: 2px solid grey;
 }
+.editor-input-label {
+  color: grey;
+  font-size: 12pt;
+}
 .marker-settings-display {
   display: block;
   color: grey;
@@ -252,6 +263,20 @@
   margin: 2px;
   padding: 2px;
   border: 2px solid grey;
+}
+#markers-svg {
+  width: 100%;
+  height: 300%;
+  top: -4px;
+  position: absolute;
+  z-index: 99;
+}
+#crop-svg {
+  width: 100%;
+  height: 100%;
+  top: 0px;
+  position: absolute;
+  z-index: 95;
 }
 `;
 
@@ -279,10 +304,9 @@
     const infoContents = playerInfo.infoContents;
     const flashDiv = document.createElement('div');
     flashDiv.setAttribute('class', 'flash-div');
-    flashDiv.setAttribute('style', 'margin-top:2px;padding:2px;border:2px outset grey');
-    flashDiv.innerHTML = `<span id="flash-msg" style="font-size:10pt;font-weight:bold;color:${color}">${msg}</span>`;
+    flashDiv.innerHTML = `<span class="flash-msg" style="color:${color}">${msg}</span>`;
     infoContents.insertBefore(flashDiv, infoContents.firstChild);
-    setTimeout(elem => deleteElement(flashDiv), lifetime);
+    setTimeout(() => deleteElement(flashDiv), lifetime);
   }
 
   function deleteElement(elem) {
@@ -387,7 +411,7 @@
   function loadMarkers() {
     const markersUploadDiv = document.getElementById('markers-upload-div');
     if (markersUploadDiv) {
-      markersUploadDiv.parentElement.removeChild(markersUploadDiv);
+      deleteElement(markersUploadDiv);
     } else {
       const markersUploadDiv = document.createElement('div');
       markersUploadDiv.setAttribute('id', 'markers-upload-div');
@@ -414,7 +438,7 @@
     fr.onload = receivedJson;
     fr.readAsText(file);
     const markersUploadDiv = document.getElementById('markers-upload-div');
-    markersUploadDiv.parentElement.removeChild(markersUploadDiv);
+    deleteElement(markersUploadDiv);
   }
 
   function receivedJson(e) {
@@ -454,7 +478,7 @@
 
   function addMarker(markerConfig = [null, null, null]) {
     const marker = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    markers_svg.appendChild(marker);
+    markersSvg.appendChild(marker);
 
     const roughCurrentTime = markerConfig[0] || player.getCurrentTime();
     let currentFrameTime;
@@ -509,10 +533,10 @@
   }
 
   function undoMarker() {
-    const targetMarker = markers_svg.lastChild;
+    const targetMarker = markersSvg.lastChild;
     if (targetMarker) {
       const deletedMarkerType = targetMarker.getAttribute('type');
-      markers_svg.removeChild(targetMarker);
+      markersSvg.removeChild(targetMarker);
       if (deletedMarkerType === 'start' && undoMarkerOffset === -1) {
         markers.pop();
         undoMarkerOffset = 0;
@@ -564,30 +588,30 @@
       );
       markerInputs.innerHTML = `\
       <div class="editor-input-div">
-        <span style="color:grey;font-size:12pt">Default Speed: </span>
-        <input id="speed-input" class="editor-input-div" type="number" placeholder="speed" value="${
+        <span class="editor-input-label">Default Speed: </span>
+        <input id="speed-input"  type="number" placeholder="speed" value="${
           settings.defaultSlowdown
         }" step="0.05" min="0.05" max="2" style="width:4em;font-weight:bold">
       </div>
       <div class="editor-input-div">
-        <span style="color:grey;font-size:12pt"> Default Crop: </span>
+        <span class="editor-input-label"> Default Crop: </span>
         <input id="crop-input" value="${
           settings.defaultCrop
         }" pattern="${cropInputValidation}" style="width:10em;font-weight:bold" required>
       </div>
       <div class="editor-input-div">
-        <span style="color:grey;font-size:12pt"> Crop Resolution: </span>
+        <span class="editor-input-label"> Crop Resolution: </span>
         <input id="res-input" list="resolutions" pattern="${resInputValidation}" value="${
         settings.videoRes
       }" style="width:7em;font-weight:bold" required>
         <datalist id="resolutions" autocomplete="off">${resList}</datalist>
       </div>
       <div class="editor-input-div">
-        <span style="color:grey;font-size:12pt"> Merge List: </span>
+        <span class="editor-input-label"> Merge List: </span>
         <input id="concats-input" pattern="${concatsInputValidation}" style="width:15em;font-weight:bold">
       </div>
       <div class="editor-input-div">
-        <span style="color:grey;font-size:12pt"> Title Prefix: </span>
+        <span class="editor-input-label"> Title Prefix: </span>
         <input id="short-title-input" value="[${
           settings.shortTitle
         }]" style="background-color:lightgreen;width:20em;text-align:right">
@@ -667,7 +691,7 @@
         );
         marker[3] = multipliedCropString;
       });
-      markers_svg.childNodes.forEach(marker => {
+      markersSvg.childNodes.forEach(marker => {
         const cropString = marker.getAttribute('crop');
         const multipliedCropString = multiplyCropString(
           cropMultipleX,
@@ -703,7 +727,7 @@
     }
     const cropDiv = document.createElement('div');
     cropDiv.setAttribute('id', 'crop-div');
-    cropDiv.innerHTML = `<svg id="crop-svg" width="100%" height="100%" style="top:0;position:absolute;z-index:95"></svg>`;
+    cropDiv.innerHTML = `<svg id="crop-svg" ></svg>`;
 
     let annotations = playerInfo.annotations;
     if (!annotations) {
@@ -746,7 +770,7 @@
 
   function deleteCropOverlay() {
     const cropDiv = document.getElementById('crop-div');
-    cropDiv.parentElement.removeChild(cropDiv);
+    deleteElement(cropDiv);
     isOverlayOpen = false;
   }
 
@@ -793,7 +817,7 @@
     togglePlayerControls();
     const beginCropPreview = document.getElementById('begin-crop-preview-div');
     if (beginCropPreview) {
-      beginCropPreview.parentElement.removeChild(beginCropPreview);
+      deleteElement(beginCropPreview);
     }
     if (beginDrawHandler) {
       playerInfo.video.removeEventListener('mousedown', beginDrawHandler, {
@@ -813,7 +837,7 @@
   function createBeginCropPreview(x, y) {
     const beginCropPreview = document.createElement('div');
     beginCropPreview.setAttribute('id', 'begin-crop-preview-div');
-    beginCropPreview.innerHTML = `<svg id="crop-svg" width="100%" height="100%" style="top:0;position:absolute;z-index:95"></svg>`;
+    beginCropPreview.innerHTML = `<svg id="crop-svg"></svg>`;
 
     let annotations = playerInfo.annotations;
     if (!annotations) {
@@ -911,7 +935,7 @@
       markers.forEach(marker => {
         marker[idx] = newValue;
       });
-      markers_svg.childNodes.forEach(mrkr => {
+      markersSvg.childNodes.forEach(mrkr => {
         mrkr.setAttribute(updateTarget, newValue.toString());
       });
     }
@@ -1065,7 +1089,7 @@
 
   function deleteMarkerEditor() {
     const markerInputsDiv = document.getElementById('markerInputsDiv');
-    markerInputsDiv.parentElement.removeChild(markerInputsDiv);
+    deleteElement(markerInputsDiv);
     isMarkerEditorOpen = false;
     markerHotkeysEnabled = false;
   }
