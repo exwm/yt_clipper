@@ -1115,16 +1115,20 @@ def loadMarkers(markersJson):
     return videoUrl, markers, cropResWidth, cropResHeight
 
 def autoSetCropMultiples(cropResWidth, cropResHeight, videoWidth, videoHeight):
+    cropMultipleX = (videoWidth / cropResWidth)
+    cropMultipleY = (videoHeight / cropResHeight)
     if cropResWidth != videoWidth or cropResHeight != cropResHeight:
         print('Warning: Crop resolution does not match video resolution.', file=sys.stderr)
         if cropResWidth != videoWidth:
             print(f'Crop resolution width ({cropResWidth}) not equal to video width ({videoWidth})', file=sys.stderr)
         if cropResWidth != videoWidth:
             print(f'Crop resolution height ({cropResHeight}) not equal to video height ({videoHeight})', file=sys.stderr)
-        shouldScaleCrop = input('Do you want to automatically scale the crop resolution? (y/n): ')
+        print(f'Crop X offset and width will be multiplied by {cropMultipleX}')
+        print(f'Crop Y offset and height will be multiplied by {cropMultipleY}')
+        shouldScaleCrop = input('Automatically scale the crop resolution? (y/n): ')
         if shouldScaleCrop == 'yes' or shouldScaleCrop == 'y':
-            args.cropMultipleX = (videoWidth / cropResWidth)
-            args.cropMultipleY = (videoHeight / cropResHeight)
+            args.cropMultipleX = cropMultipleX
+            args.cropMultipleY = cropMultipleY
 
 def getVideoInfo(videoUrl, ytdlFormat):
     from youtube_dl import YoutubeDL
@@ -1139,8 +1143,7 @@ def getVideoInfo(videoUrl, ytdlFormat):
     videoWidth = videoInfo['width']
     videoHeight = videoInfo['height']
     videoFPS = videoInfo['fps']
-    videobr = int(videoInfo['vbr'])
-    audiobr = int(videoInfo['abr'])
+    videobr = int(videoInfo['tbr'])
 
     print('Video title: ', title)
     print('Video width: ', videoWidth)
@@ -1190,7 +1193,7 @@ def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
     if args.speed:
         speed = args.speed
     print((f'Encoding options: CRF: {crf} (0-63), Target Bitrate: {videobr}k, '
-        + f'Two-pass encoding enabled: {twoPass}, Encoding Speed: {speed} (0-5)\\n'))
+        + f'Two-pass encoding enabled: {twoPass}, Encoding Speed: {speed} (0-5)'))
 
     def trim_video(startTime, endTime, slowdown, cropString,  outPath):
         filter_complex = ''
@@ -1255,11 +1258,11 @@ def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
             ffmpegPass1 = shlex.split(ffmpegCommand + ' -pass 1 -')
             subprocess.run(ffmpegPass1)
             ffmpegPass2 = ffmpegCommand + f' -pass 2 "{outPath}"'
-            print(re.sub(r'(&aitags.*?")', r'"', ffmpegPass2) + '\\n')
+            print(re.sub(r'(&a?itags?.*?")', r'"', ffmpegPass2) + '\\n')
             ffmpegProcess = subprocess.run(shlex.split(ffmpegPass2))
         else:
             ffmpegCommand = ffmpegCommand +  f' "{outPath}"'
-            print(re.sub(r'(&aitags.*?")', r'"', ffmpegCommand) + '\\n')
+            print(re.sub(r'(&a?itags?.*?")', r'"', ffmpegCommand) + '\\n')
             ffmpegProcess = subprocess.run(shlex.split(ffmpegCommand))
         return ffmpegProcess.returncode
 
@@ -1289,6 +1292,7 @@ def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
             ffmpegConcatCmd = f' "{ffmpegPath}" -n -hide_banner -f concat -safe 0 -i "{inputsTxtPath}" -c copy "{mergedFilePath}"'
 
             if not Path(mergedFilePath).is_file():
+                print(f'\\nGenerating "{mergedFileName}"...\\n')
                 print(ffmpegConcatCmd)
                 ffmpegProcess = subprocess.run(shlex.split(ffmpegConcatCmd))
                 if ffmpegProcess.returncode == 0:
@@ -1315,6 +1319,7 @@ def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
         outPaths.append(outPath)
         fileNames.append(outPath[0:-5])
         if not Path(outPath).is_file():
+            print(f'\\nGenerating "{fileName}"...\\n')
             ffmpegReturnCode = trim_video(startTime, endTime, slowdown, cropString, outPath)
             if ffmpegReturnCode == 0:
                 report += f'Successfuly generated: "{fileName}"\\n'
@@ -1346,7 +1351,7 @@ parser.add_argument('--url', '-u', action='store_true',
                     help='Use youtube-dl and ffmpeg to download only the portions of the video required.')
 parser.add_argument('--json', '-j', action='store_true',
                     help='Read in markers json file and automatically create webms.')
-parser.add_argument('--format', '-f', default='bestvideo[ext=webm]/bestvideo+bestaudio[acodec=opus]/bestaudio[acodec=vorbis]/bestaudio',
+parser.add_argument('--format', '-f', default='(bestvideo[ext=webm]/bestvideo)+(bestaudio[acodec=opus]/bestaudio[acodec=vorbis]/bestaudio)',
                     help='Specify format string passed to youtube-dl.')
 parser.add_argument('--delay', '-d', type=float, dest='delay', default=0,
                     help='Add a fixed delay to both the start and end time of each marker. Can be negative.')
@@ -1362,8 +1367,8 @@ parser.add_argument('--crf', type=int, help=('Set constant rate factor (crf). De
                     'Automatically set to a factor of the detected video bitrate when using --json or --url.'))
 parser.add_argument('--two-pass', '-tp', dest='twoPass', action='store_true',
                     help='Enable two-pass encoding. Improves quality at the cost of encoding speed.')
-parser.add_argument('--target-bitrate', '-b', dest='videobr', type=int,
-                    help=('Set target bitrate in kilobits/s.' +
+parser.add_argument('--target-max-bitrate', '-b', dest='videobr', type=int,
+                    help=('Set target max bitrate in kilobits/s. Constrains bitrate of complex scenes.' +
                     'Automatically set based on detected video bitrate when using --json or --url.'))
 
 args = parser.parse_args()
