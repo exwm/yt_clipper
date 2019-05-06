@@ -374,7 +374,7 @@
     const markersJson = JSON.stringify({
       [playerInfo.playerData.video_id]: markers,
       'video-title': playerInfo.videoTitle,
-      'crop-res': settings.VideoRes,
+      'crop-res': settings.videoRes,
       'crop-res-width': settings.videoWidth,
       'crop-res-height': settings.videoHeight,
       'title-prefix': settings.shortTitle,
@@ -421,7 +421,19 @@
     const lines = e.target.result;
     const markersJson = JSON.parse(lines);
     console.log(markersJson);
+    if (isMarkerEditorOpen) {
+      deleteMarkerEditor();
+      if (isOverlayOpen) {
+        toggleOverlay();
+      }
+    }
+
+    flashMessage('Loading markers.', 'green');
+
     if (markersJson[playerInfo.playerData.video_id]) {
+      settings.videoRes = markersJson['crop-res'];
+      settings.videoWidth = markersJson['crop-res-width'];
+      settings.videoHeight = markersJson['crop-res-height'];
       markers.length = 0;
       undoMarkerOffset = 0;
       markersJson[playerInfo.playerData.video_id].forEach(marker => {
