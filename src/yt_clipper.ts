@@ -177,6 +177,7 @@
   function initPlayerInfo() {
     playerInfo.url = player.getVideoUrl();
     playerInfo.playerData = player.getVideoData();
+    playerInfo.videoTitle = playerInfo.playerData.title;
     playerInfo.duration = player.getDuration();
     playerInfo.video = document.getElementsByTagName('video')[0];
     playerInfo.isVerticalVideo = player.getVideoAspectRatio() <= 1;
@@ -372,7 +373,12 @@
     });
     const markersJson = JSON.stringify({
       [playerInfo.playerData.video_id]: markers,
-      concats: settings.concats,
+      'video-title': playerInfo.videoTitle,
+      'crop-res': settings.VideoRes,
+      'crop-res-width': settings.videoWidth,
+      'crop-res-height': settings.videoHeight,
+      'title-prefix': settings.shortTitle,
+      'merge-list': settings.concats,
     });
     const blob = new Blob([markersJson], { type: 'text/plain;charset=utf-8' });
     saveAs(blob, `${settings.shortTitle}.json`);
@@ -1086,14 +1092,20 @@ def loadMarkers(markersJson):
     videoUrl = ''
     for videoID, markers in markersDict.items():
       videoUrl = 'https://www.youtube.com/watch?v=' + videoID
-      print('videoUrl: ', videoUrl)
       break
     markers = list(itertools.chain.from_iterable(markers))
     global concats
-    concats = markersDict['concats']
-    print('concats: ', concats)
-    return videoUrl, markers
+    concats = markersDict['merge-list']
+    cropResWidth = markersDict['crop-res-width']
+    cropResHeight = markersDict['crop-res-height']
 
+    print('videoUrl: ', videoUrl)
+    print('concats: ', concats)
+    return videoUrl, markers, cropResWidth, cropResHeight
+
+def autoSetCropMultiples(videoWidth, videoHeight):
+    args.cropMultipleX = (videoWidth / cropResWidth)
+    args.cropMultipleY = (videoHeight / cropResHeight)
 
 def getVideoInfo(videoUrl, ytdlFormat):
     from youtube_dl import YoutubeDL
@@ -1115,6 +1127,17 @@ def getVideoInfo(videoUrl, ytdlFormat):
     print('Video height: ', videoHeight)
     print('Video fps: ', videoFPS)
     print(f'Detected video bitrate: {videobr}k')
+
+    if cropResWidth != videoWidth or cropResHeight != cropResHeight:
+        print('Warning: Crop resolution does not match video resolution.', file=sys.stderr)
+        if cropResWidth != videoWidth:
+            print(f'Crop resolution width ({cropResWidth}) not equal to video width ({videoWidth})', file=sys.stderr)
+        if cropResWidth != videoWidth:
+            print(f'Crop resolution height ({cropResHeight}) not equal to video height ({videoHeight})', file=sys.stderr)
+        from prompt_toolkit import prompt
+        shouldScaleCrop = prompt('Do you want to automatically scale the crop resolution? (y/n): ')
+        if shouldScaleCrop == 'yes' or shouldScaleCrop == 'y':
+            autoSetCropMultiples(videoWidth, videoHeight)
 
     audioUrl = ''
     if args.audio:
@@ -1139,7 +1162,7 @@ def getDefaultEncodingSettings(videobr):
         settings = (35, 1.1 * videobr, 5, False)
     return settings
 
-def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, overlayPath='', delay=0):
+def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
     if args.url:
         global videoUrl
         videoUrl, videobr, audioUrl = getVideoInfo(videoUrl, ytdlFormat)
@@ -1184,9 +1207,14 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, 
         inputs += ' -hide_banner '
 
         crops = cropString.split(':')
-        filter_complex += (f'''[slowed]crop=x={cropMultipleX}*{crops[0]}:y={cropMultipleY}*{crops[1]}''' +
-          f''':w={cropMultipleX}*{crops[2]}:h={cropMultipleY}*{crops[3]}''')
+        crops[0] = args.cropMultipleX * int(crops[0])
+        if crops[2] != 'iw':
+            crops[2] = args.cropMultipleX * int(crops[2])
+        crops[1] = args.cropMultipleY * int(crops[1])
+        if crops[3] != 'ih':
+            crops[3] = args.cropMultipleY * int(crops[3])
 
+        filter_complex += (f'''[slowed]crop=x={crops[0]}:y=*{crops[1]}:w={crops[2]}:h={crops[3]}''')
         filter_complex += f'''[cropped];[cropped]lutyuv=y=gammaval({args.gamma})'''
 
         if args.rotate:
@@ -1206,7 +1234,7 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, 
             f'''-c:v libvpx-vp9 -c:a libopus -pix_fmt yuv420p''',
             f'''-slices 8 -threads 8 -row-mt 1 -tile-columns 6 -tile-rows 2''',
             f'''-speed {speed} -crf {crf} -b:v {videobr}k''',
-            f'''-metadata title='{title}' -t {duration}''',
+            f'''-metadata title="{title}" -t {duration}''',
             f'''-f webm ''',
         ))
 
@@ -1214,11 +1242,11 @@ def clipper(markers, title, videoUrl, ytdlFormat, cropMultipleX, cropMultipleY, 
             ffmpegPass1 = shlex.split(ffmpegCommand + ' -pass 1 -')
             subprocess.run(ffmpegPass1)
             ffmpegPass2 = ffmpegCommand + f' -pass 2 "{outPath}"'
-            print(ffmpegPass2.encode())
+            print(re.sub(r'(&aitags.*?")', r'"', ffmpegPass2) + '\\n')
             subprocess.run(shlex.split(ffmpegPass2))
         else:
             ffmpegCommand = ffmpegCommand +  f' "{outPath}"'
-            print(ffmpegCommand.encode())
+            print(re.sub(r'(&aitags.*?")', r'"', ffmpegCommand) + '\\n')
             subprocess.run(shlex.split(ffmpegCommand))
 
     def makeMergedClips():
@@ -1318,12 +1346,11 @@ if args.json:
     shortTitle = Path(args.infile).stem
     with open(args.infile, 'r', encoding='utf-8-sig' ) as file:
         markersJson = file.read()
-        videoUrl, markers = loadMarkers(markersJson)
+        videoUrl, markers, cropResWidth, cropResHeight = loadMarkers(markersJson)
 else:
     videoUrl = args.infile
 
-clipper(markers, title, videoUrl=videoUrl, cropMultipleX=args.cropMultipleX,
-    cropMultipleY=args.cropMultipleY, ytdlFormat=args.format, overlayPath=args.overlay, delay=args.delay)
+clipper(markers, title, videoUrl=videoUrl, ytdlFormat=args.format, overlayPath=args.overlay, delay=args.delay)
 
 # auto gfycat uploading
 if (args.gfycat):
