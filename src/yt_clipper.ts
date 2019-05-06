@@ -552,9 +552,8 @@
       const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
       const csvRange = `(\\d{1,2})([,-]\\d{1,2})*`;
       const concatsInputValidation = `(${csvRange})+(;${csvRange})*`;
-      const gte640 = `([1-9]\\d{3}|[6-9][4-9][0-9])`;
-      const gte480 = `([1-9]\\d{3}|[4-9][8-9][0-9])`;
-      const resInputValidation = `${gte640}x${gte480}`;
+      const gte100 = `([1-9]\\d{3}|[1-9]\\d{2})`;
+      const resInputValidation = `${gte100}x${gte100}`;
       const resList = playerInfo.isVerticalVideo
         ? `<option value="1080x1920"><option value="2160x3840">`
         : `<option value="1920x1080"><option value="3840x2160">`;
