@@ -1145,8 +1145,7 @@ def getVideoInfo(videoUrl, ytdlFormat):
             print(f'Crop resolution width ({cropResWidth}) not equal to video width ({videoWidth})', file=sys.stderr)
         if cropResWidth != videoWidth:
             print(f'Crop resolution height ({cropResHeight}) not equal to video height ({videoHeight})', file=sys.stderr)
-        from prompt_toolkit import prompt
-        shouldScaleCrop = prompt('Do you want to automatically scale the crop resolution? (y/n): ')
+        shouldScaleCrop = input('Do you want to automatically scale the crop resolution? (y/n): ')
         if shouldScaleCrop == 'yes' or shouldScaleCrop == 'y':
             autoSetCropMultiples(videoWidth, videoHeight)
 
@@ -1175,7 +1174,6 @@ def getDefaultEncodingSettings(videobr):
 
 def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
     if args.url:
-        global videoUrl
         videoUrl, videobr, audioUrl = getVideoInfo(videoUrl, ytdlFormat)
         crf, videobr, speed, twoPass  = getDefaultEncodingSettings(videobr)
     else:
@@ -1196,22 +1194,21 @@ def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
         startTime += delay
         endTime += delay
         duration = (endTime - startTime)*slowdown
+        inputs = f'"{ffmpegPath}" '
 
         if args.url:
-            inputs = f'''ffmpeg -n -ss {startTime} -i "{videoUrl}" '''
+            inputs += f' -n -ss {startTime} -i "{videoUrl}" '
             filter_complex += f'[0:v]setpts={slowdown}*(PTS-STARTPTS)[slowed];'
             if args.audio:
-                inputs += f''' -ss {startTime} -i "{audioUrl}" '''
-                filter_complex += f'''[1:a]atempo={1/slowdown};'''
+                inputs += f' -ss {startTime} -i "{audioUrl}" '
+                filter_complex += f'[1:a]atempo={1/slowdown};'
             else:
                 inputs += ' -an '
         else:
-            inputs = f'ffmpeg -n -i "{videoUrl}" '
-            filter_complex += f'''[0:v]trim={startTime}:{endTime},
-                setpts={slowdown}*(PTS-STARTPTS)[slowed];'''
+            inputs += f' -n -i "{videoUrl}" '
+            filter_complex += f'[0:v]trim={startTime}:{endTime}, setpts={slowdown}*(PTS-STARTPTS)[slowed];'
             if args.audio:
-                filter_complex += f'''[0:a]atrim={startTime}:{endTime},
-                    atempo={1/slowdown};'''
+                filter_complex += f'[0:a]atrim={startTime}:{endTime},atempo={1/slowdown};'
             else:
                 inputs += ' -an '
 
@@ -1225,15 +1222,15 @@ def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
         if crops[3] != 'ih':
             crops[3] = args.cropMultipleY * int(crops[3])
 
-        filter_complex += (f'''[slowed]crop=x={crops[0]}:y=*{crops[1]}:w={crops[2]}:h={crops[3]}''')
-        filter_complex += f'''[cropped];[cropped]lutyuv=y=gammaval({args.gamma})'''
+        filter_complex += (f'[slowed]crop=x={crops[0]}:y={crops[1]}:w={crops[2]}:h={crops[3]}')
+        filter_complex += f'[cropped];[cropped]lutyuv=y=gammaval({args.gamma})'
 
         if args.rotate:
-            filter_complex += f''',transpose={args.rotate}'''
+            filter_complex += f',transpose={args.rotate}'
         if args.denoise:
-            filter_complex += f''',hqdn3d'''
+            filter_complex += f',hqdn3d'
         if args.deinterlace:
-            filter_complex += f''',bwdif'''
+            filter_complex += f',bwdif'
 
         if overlayPath:
             filter_complex += f'[corrected];[corrected][1:v]overlay=x=W-w-10:y=10:alpha=0.5'
@@ -1241,12 +1238,12 @@ def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
 
         ffmpegCommand = ' '.join((
             inputs,
-            f'''-filter_complex "{filter_complex}"''',
-            f'''-c:v libvpx-vp9 -c:a libopus -pix_fmt yuv420p''',
-            f'''-slices 8 -threads 8 -row-mt 1 -tile-columns 6 -tile-rows 2''',
-            f'''-speed {speed} -crf {crf} -b:v {videobr}k''',
-            f'''-metadata title="{title}" -t {duration}''',
-            f'''-f webm ''',
+            f'-filter_complex "{filter_complex}"',
+            f'-c:v libvpx-vp9 -c:a libopus -pix_fmt yuv420p',
+            f'-slices 8 -threads 8 -row-mt 1 -tile-columns 6 -tile-rows 2',
+            f'-speed {speed} -crf {crf} -b:v {videobr}k',
+            f'-metadata title="{title}" -t {duration}',
+            f'-f webm ',
         ))
 
         if twoPass:
@@ -1254,15 +1251,17 @@ def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
             subprocess.run(ffmpegPass1)
             ffmpegPass2 = ffmpegCommand + f' -pass 2 "{outPath}"'
             print(re.sub(r'(&aitags.*?")', r'"', ffmpegPass2) + '\\n')
-            subprocess.run(shlex.split(ffmpegPass2))
+            ffmpegProcess = subprocess.run(shlex.split(ffmpegPass2))
         else:
             ffmpegCommand = ffmpegCommand +  f' "{outPath}"'
             print(re.sub(r'(&aitags.*?")', r'"', ffmpegCommand) + '\\n')
-            subprocess.run(shlex.split(ffmpegCommand))
+            ffmpegProcess = subprocess.run(shlex.split(ffmpegCommand))
+        return ffmpegProcess.returncode
 
     def makeMergedClips():
         global concats
         concats = concats.split(';')
+        nonlocal report
         for concat in concats:
             concatCSV = concat.split(',')
             concatList = []
@@ -1276,36 +1275,52 @@ def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
             inputs = ''
             mergedCSV = ','.join([str(i) for i in concatList])
             for i in concatList:
-                inputs += f'''file '{shortTitle}-{i}.webm'\n'''
-            inputsTxtPath = f'inputs.txt'
+                inputs += f'''file '{shortTitle}-{i}.webm'\\n'''
+            inputsTxtPath = f'{webmsPath}/inputs.txt'
             with open(inputsTxtPath, "w+") as inputsTxt:
                 inputsTxt.write(inputs)
             mergedFileName = f'{shortTitle}-({mergedCSV}).webm'
-            ffmpegConcatCmd = f'ffmpeg.exe -n -hide_banner -f concat -safe 0 -i "{inputsTxtPath}" -c copy "{mergedFileName}"'
-            if not Path(mergedFileName).is_file():
+            mergedFilePath = f'{webmsPath}/{mergedFileName}'
+            ffmpegConcatCmd = f' "{ffmpegPath}" -n -hide_banner -f concat -safe 0 -i "{inputsTxtPath}" -c copy "{mergedFilePath}"'
+
+            if not Path(mergedFilePath).is_file():
                 print(ffmpegConcatCmd)
-                subprocess.run(shlex.split(ffmpegConcatCmd))
+                ffmpegProcess = subprocess.run(shlex.split(ffmpegConcatCmd))
+                if ffmpegProcess.returncode == 0:
+                    report += f'Successfuly generated: "{mergedFileName}"\\n'
+                else:
+                    report += f'Failed to generate: "{mergedFileName}"\\n'
             else:
-                print(f'Skipping existing file: {mergedFileName}')
+                print(f'Skipped existing file: "{mergedFileName}"')
+                report += f'Skipped existing file: "{mergedFileName}"\\n'
         try:
             os.remove(inputsTxtPath)
         except OSError:
             pass
 
+    report = '\\n** yt_clipper Summary Report **\\n'
     for i in range(0, len(markers), 4):
         startTime = markers[i]
         endTime = markers[i+1]
         slowdown = 1 / markers[i+2]
         cropString = markers[i+3]
-        outPath = f'''./{shortTitle}-{i//4+1}.webm'''
+        os.makedirs(f'{webmsPath}', exist_ok=True)
+        fileName = f'{shortTitle}-{i//4+1}.webm'
+        outPath = f'{webmsPath}/{fileName}'
         outPaths.append(outPath)
         fileNames.append(outPath[0:-5])
         if not Path(outPath).is_file():
-            trim_video(startTime, endTime, slowdown, cropString, outPath)
+            ffmpegReturnCode = trim_video(startTime, endTime, slowdown, cropString, outPath)
+            if ffmpegReturnCode == 0:
+                report += f'Successfuly generated: "{fileName}"\\n'
+            else:
+                report += f'Failed to generate: "{fileName}"\\n'
         else:
-            print(f'Skipping existing file: {outPath}')
+            print(f'Skipped existing file: "{fileName}"')
+            report += f"Skipped existing file: "{fileName}"\\n"
     if concats != '':
         makeMergedClips()
+    print(report)
 
 # cli arguments
 parser = argparse.ArgumentParser(
@@ -1314,7 +1329,7 @@ parser.add_argument('infile', metavar='I', help='Input video path.')
 parser.add_argument('--overlay', '-o', dest='overlay', help='overlay image path')
 parser.add_argument('--multiply-crop', '-m', type=float, dest='cropMultiple', default=1,
                     help=('Multiply all crop dimensions by an integer. ' +
-                          '(Helpful if you change resolutions: eg 1920x1080 * 2 = 3840x2160(4k))'.))
+                          '(Helpful if you change resolutions: eg 1920x1080 * 2 = 3840x2160(4k)).'))
 parser.add_argument('--multiply-crop-x', '-x', type=float, dest='cropMultipleX', default=1,
                     help='Multiply all x crop dimensions by an integer.')
 parser.add_argument('--multiply-crop-y', '-y', type=float, dest='cropMultipleY', default=1,
@@ -1355,6 +1370,7 @@ if args.cropMultiple != 1:
 if args.json:
     args.url = True
     shortTitle = Path(args.infile).stem
+    webmsPath += f'/{shortTitle}'
     with open(args.infile, 'r', encoding='utf-8-sig' ) as file:
         markersJson = file.read()
         videoUrl, markers, cropResWidth, cropResHeight = loadMarkers(markersJson)
@@ -1421,6 +1437,9 @@ outPaths = []
 fileNames = []
 links = []
 markdown = ''
+
+ffmpegPath = 'ffmpeg'
+webmsPath = '.'
 
 `;
 
