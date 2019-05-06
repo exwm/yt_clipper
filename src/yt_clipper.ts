@@ -1203,8 +1203,8 @@ def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
             inputs += f' -n -ss {startTime} -i "{videoUrl}" '
             filter_complex += f'[0:v]setpts={slowdown}*(PTS-STARTPTS)[slowed];'
             if args.audio:
-                inputs += f' -ss {startTime} -i "{audioUrl}" '
-                filter_complex += f'[1:a]atempo={1/slowdown};'
+                inputs += f' -i "{audioUrl}" '
+                filter_complex += f'[1:a]atrim={startTime}:{endTime},atempo={1/slowdown};'
             else:
                 inputs += ' -an '
         else:
@@ -1242,10 +1242,12 @@ def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
         ffmpegCommand = ' '.join((
             inputs,
             f'-filter_complex "{filter_complex}"',
-            f'-c:v libvpx-vp9 -c:a libopus -pix_fmt yuv420p',
+            f'-c:v libvpx-vp9 -pix_fmt yuv420p',
+            f'-c:a libopus -b:a 128k',
             f'-slices 8 -threads 8 -row-mt 1 -tile-columns 6 -tile-rows 2',
             f'-speed {speed} -crf {crf} -b:v {videobr}k',
             f'-metadata title="{title}" -t {duration}',
+            f'-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
             f'-f webm ',
         ))
 
