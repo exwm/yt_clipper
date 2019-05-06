@@ -588,9 +588,9 @@
       </div>
       <div class="editor-input-div">
         <span style="color:grey;font-size:12pt"> Title Prefix: </span>
-        <input id="short-title-input" value="${
+        <input id="short-title-input" value="[${
           settings.shortTitle
-        }" style="background-color:lightgreen;width:20em;text-align:right">
+        }]" style="background-color:lightgreen;width:20em;text-align:right">
       </div>
       `;
 
