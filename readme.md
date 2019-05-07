@@ -76,8 +76,8 @@ Crop is given as x-offset:y-offset:width:height. Each value is a positive intege
 
 ## Useful YouTube Controls
 
-1. Use [space_bar] or K to pause/play the video.
-2. Use '<' and '>' to view a video frame by frame.
+1. Use **[space_bar]** or **K** to pause/play the video.
+2. Use **<** and **>** to view a video frame by frame.
 
 ## Tips
 
@@ -124,7 +124,7 @@ python ./clip.py ./clip.webm --overlay ./overlay.png
 
 python ./clip.py ./clip.webm --crf 30 --encode-speed 2
 
-python ./clip.py  ./clip.webm --target-max-bitrate 0  #  0 = unlimited target max bitrate
+python ./clip.py  ./clip.webm --target-max-bitrate 0  #  0 = unlimited
 
 python ./clip.py ./clip.webm --format bestvideo[width<=1080]
 
@@ -137,7 +137,7 @@ python ./clip.py --json markers.json # automatically generate webms using marker
 
 For windows there is an experimental installation that does not require the dependencies below.
 
-1. Download this [zip file (v2.0.0)](https://mega.nz/#!1D4T0aqZ!hJHLJHD1psucATr5CD-6zX3JKmf6nzrDXCvwMYkVQV8) and extract it anywhere. **Not compatible** with `v0.0.70` or lower of the markup script.
+1. Download this [zip file (v2.0.0)](https://mega.nz/#!1D4T0aqZ!hJHLJHD1psucATr5CD-6zX3JKmf6nzrDXCvwMYkVQV8) and extract it anywhere. **Not compatible** with `v0.0.70` or lower of the `markup script`.
 2. Use the `markup script` on YouTube as usual, but use **alt+S/ctrl+alt+S** to save the markers .json to the extracted `yt_clipper` folder.
 3. Simply drag and drop the markers .json file onto the `yt_clipper.bat` file.
 4. All generated clips will be placed in `./webms/<markers-json-filename>`.
@@ -174,14 +174,17 @@ These dependencies are not required by the windows installation above.
 
 - v0.0.71:
   - Use with `v2.0.0` of the installation.
+  - The installation is now leaner, using a single file for the `yt_clipper.exe`.
   - Add reporting of fetched YouTube video info (title, fps, width, height, bitrate).
   - Automatically set encoding settings based on detected video bitrate using constrained quality mode. This will keep file sizes for high bitrate videos under control and speed up encoding across the board.
     - **The markers .json format has changed to accommodate this and is not compatible with earlier versions.**
-  - Add reporting of encoding settings. Add summary report of Generated webms (successful, failed, or skipped).
-  - Fix streaming and encoding long audio segments when using --audio.
-  - Automatically detect mismatch of crop resolution and video resolution and prompt user for automatically scaling to fix such a mismatch.
+  - Add reporting of encoding settings.
+  - Add summary report of generated webms (successful, failed, or skipped).
+  - Add automatic reconnect for greater resiliency against network errors.
+  - Fix streaming and encoding long audio segments when using `--audio`.
   - Add crop resolution to markers .json data.
-  - Add two-pass encoding option enabled with `--two-pass` or `-tp`.
+  - Automatically detect and fix mismatch of crop resolution and video resolution.
+  - Add two-pass encoding option, enabled with `--two-pass` or `-tp`. Disabled by default.
   - Add target max bitrate option for constrained quality mode using `--target-max-bitrate <bitrate>` or `-b <bitrate>` where bitrate is in kilobits/s.
 - v0.0.70:
   - Fix speed multipliers (slowdowns) being saved as string values instead of numbers in Firefox.
