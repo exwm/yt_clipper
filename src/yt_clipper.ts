@@ -61,7 +61,7 @@
 
   function hotkeys(e: KeyboardEvent) {
     if (toggleKeys) {
-      switch (e.key) {
+      switch (e.code) {
         case 'KeyA':
           if (!e.shiftKey) {
             addMarker();
