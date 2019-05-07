@@ -1021,9 +1021,9 @@
 
   function enableMarkerHotkeys(endMarker) {
     markerHotkeysEnabled = true;
-    this.endMarker = endMarker;
-    this.startMarker = endMarker.previousSibling;
-    this.moveMarker = marker => {
+    enableMarkerHotkeys.endMarker = endMarker;
+    enableMarkerHotkeys.startMarker = endMarker.previousSibling;
+    enableMarkerHotkeys.moveMarker = marker => {
       const type = marker.getAttribute('type');
       const idx = parseInt(marker.getAttribute('idx')) - 1;
       const currentTime = player.getCurrentTime();
@@ -1034,8 +1034,8 @@
       markers[idx][type === 'start' ? 0 : 1] = currentTime;
       markerTimeSpan.textContent = `${toHHMMSS(currentTime)}`;
     };
-    this.deleteMarkerPair = () => {
-      const idx = parseInt(this.endMarker.getAttribute('idx')) - 1;
+    enableMarkerHotkeys.deleteMarkerPair = () => {
+      const idx = parseInt(enableMarkerHotkeys.endMarker.getAttribute('idx')) - 1;
       markers.splice(idx, 1);
 
       const me = new MouseEvent('mouseover', { shiftKey: true });
