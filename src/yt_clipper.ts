@@ -340,7 +340,7 @@
       return false;
     });
     if (isTimeBetweenMarkerPair && markers[currentIdx]) {
-      const currentMarkerSlowdown = markers[currentIdx][2];
+      const currentMarkerSlowdown = markers[currentIdx].slowdown;
       if (player.getPlaybackRate() !== currentMarkerSlowdown) {
         player.setPlaybackRate(currentMarkerSlowdown);
       }
@@ -366,8 +366,8 @@
     const endMarker = prevSelectedMarkerPair;
     if (endMarker) {
       const idx = parseInt(endMarker.getAttribute('idx')) - 1;
-      const startMarkerTime = markers[idx][0];
-      const endMarkerTime = markers[idx][1];
+      const startMarkerTime = markers[idx].start;
+      const endMarkerTime = markers[idx].end;
       const currentTime = player.getCurrentTime();
 
       const isTimeBetweenMarkerPair =
@@ -381,9 +381,9 @@
 
   function saveMarkers() {
     markers.forEach((marker: marker, index: number) => {
-      const slowdown = marker[2];
+      const slowdown = marker.slowdown;
       if (typeof slowdown === 'string') {
-        marker[2] = Number(slowdown);
+        marker.slowdown = Number(slowdown);
         console.log(`Converted marker pair ${index}'s slowdown from String to Number`);
       }
     });
@@ -538,7 +538,7 @@
         undoMarkerOffset = 0;
       } else if (deletedMarkerType === 'end') {
         undoMarkerOffset = -1;
-        startTime = markers[Math.floor(markers.length - 1)][0];
+        startTime = markers[Math.floor(markers.length - 1)].start;
       }
       start = !start;
     }
@@ -1050,7 +1050,7 @@
       const markerTimeSpan = document.getElementById(`${type}-time`);
       marker.setAttribute('x', `${progress_pos}%`);
       marker.setAttribute('time', `${currentTime}`);
-      markers[idx][type === 'start' ? 0 : 1] = currentTime;
+      markers[idx][type === 'start' ? 'start' : 'end'] = currentTime;
       markerTimeSpan.textContent = `${toHHMMSS(currentTime)}`;
     };
     enableMarkerHotkeys.deleteMarkerPair = () => {
