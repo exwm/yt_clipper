@@ -946,7 +946,6 @@
     const targetMarker = e.target;
 
     if (targetMarker && e.shiftKey) {
-
       // if marker editor is open, always delete it
       if (isMarkerEditorOpen) {
         deleteMarkerEditor();
@@ -1160,16 +1159,47 @@ def autoSetCropMultiples(cropResWidth, cropResHeight, videoWidth, videoHeight):
             args.cropMultipleX = cropMultipleX
             args.cropMultipleY = cropMultipleY
 
+def filterDash(dashManifestUrl, dashFormatIDs):
+    from xml.dom import minidom
+    from urllib import request
+
+    with request.urlopen(dashManifestUrl) as dash:
+        dashdom = minidom.parse(dash)
+
+    reps = dashdom.getElementsByTagName('Representation')
+    for rep in reps:
+        id = rep.getAttribute('id')
+        if id not in dashFormatIDs:
+            rep.parentNode.removeChild(rep)
+
+    filteredDashPath = f'{webmsPath}/filtered-dash.xml'
+    with open(filteredDashPath, 'w+') as filteredDash:
+        filteredDash.write(dashdom.toxml())
+
+    return filteredDashPath
+
 def getVideoInfo(videoUrl, ytdlFormat):
     from youtube_dl import YoutubeDL
     ydl = YoutubeDL({'format': ytdlFormat, 'forceurl' : True})
     ydl_info = ydl.extract_info(videoUrl, download=False)
-    rf = ydl_info['requested_formats']
-    videoInfo = rf[0]
+    if 'requested_formats' in ydl_info:
+        rf = ydl_info['requested_formats']
+        videoInfo = rf[0]
+    else:
+        videoInfo = ydl_info
+
+    dashFormatIDs = []
+    dashVideoFormatID = None
+    dashAudioFormatID = None
+    if videoInfo['protocol'] == 'http_dash_segments':
+        dashVideoFormatID = videoInfo['format_id']
+        dashFormatIDs.append(dashVideoFormatID)
+    else:
+        videoUrl = videoInfo['url']
 
     global title
     title = re.sub("'","", ydl_info['title'])
-    videoUrl = videoInfo['url']
+
     videoWidth = videoInfo['width']
     videoHeight = videoInfo['height']
     videoFPS = videoInfo['fps']
@@ -1187,8 +1217,20 @@ def getVideoInfo(videoUrl, ytdlFormat):
     audioUrl = ''
     if args.audio:
         audioInfo = rf[1]
-        audioUrl = audioInfo['url']
         audiobr = int(videoInfo['tbr'])
+
+        if audioInfo['protocol'] == 'http_dash_segments':
+            dashAudioFormatID = audioInfo['format_id']
+            dashFormatIDs.append(dashAudioFormatID)
+        else:
+            audioUrl = audioInfo['url']
+
+    if dashFormatIDs:
+        filteredDashPath = filterDash(videoInfo['url'], dashFormatIDs)
+        if dashVideoFormatID:
+            videoUrl = filteredDashPath
+        if dashAudioFormatID:
+            audioUrl = filteredDashPath
 
     return videoUrl, videobr, audioUrl
 
@@ -1344,7 +1386,6 @@ def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
         endTime = markers[i+1]
         slowdown = 1 / markers[i+2]
         cropString = markers[i+3]
-        os.makedirs(f'{webmsPath}', exist_ok=True)
         fileName = f'{shortTitle}-{i//4+1}.webm'
         outPath = f'{webmsPath}/{fileName}'
         outPaths.append(outPath)
@@ -1417,6 +1458,7 @@ if args.json:
 else:
     videoUrl = args.infile
 
+os.makedirs(f'{webmsPath}', exist_ok=True)
 clipper(markers, title, videoUrl=videoUrl, ytdlFormat=args.format, overlayPath=args.overlay, delay=args.delay)
 
 # auto gfycat uploading
