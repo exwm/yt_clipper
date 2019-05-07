@@ -3,7 +3,7 @@
     "target": "es2017",
     "lib": ["dom", "es2017"],
     "module": "none",
-    "noImplicitAny": true,
+    "noImplicitAny": false,
     "removeComments": false,
     "preserveConstEnums": true,
     "sourceMap": true,
