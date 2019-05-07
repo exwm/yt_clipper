@@ -182,6 +182,7 @@ These dependencies are not required by the windows installation above.
   - Add summary report of generated webms (successful, failed, or skipped).
   - Add automatic reconnect for greater resiliency against network errors.
   - Fix streaming and encoding long audio segments when using `--audio`.
+  - Fix fetching video info multiple times.
   - Add crop resolution to markers .json data.
   - Automatically detect and fix mismatch of crop resolution and video resolution.
   - Add two-pass encoding option, enabled with `--two-pass` or `-tp`. Disabled by default.

@@ -18,7 +18,7 @@
   // global variables
 
   const CLIENT_ID = 'XXXX';
-  const REDIRECT_URI = 'http://127.0.0.1:4443/yt_clipper';
+  const REDIRECT_URI = 'https://127.0.0.1:4443/yt_clipper';
   const AUTH_ENDPOINT = 'https://api.gfycat.com/v1/oauth/token?';
   const BROWSER_BASED_AUTH_ENDPOINT = `https://gfycat.com/oauth/authorize?client_id=${CLIENT_ID}&scope=all&state=yt_clipper&response_type=token&redirect_uri=${REDIRECT_URI}`;
 
@@ -27,20 +27,27 @@
   let isMarkerEditorOpen = false;
   let wasDefaultsEditorOpen = false;
   let isOverlayOpen = false;
-  let checkGfysCompletedId;
-  let markers = [];
-  let links = [];
-  markers.toString = function() {
+  let checkGfysCompletedId: number;
+  interface marker {
+    start: number;
+    end: number;
+    slowdown: string;
+    crop: string;
+  }
+  let markers: marker[] = [];
+  let links: string[] = [];
+  markers.toString = () => {
     let markersString = '';
-    this.forEach((marker, idx) => {
-      const slowdown = marker[2];
-      if (typeof slowdown === 'string') {
-        marker[2] = Number(slowdown);
+    this.forEach((marker: marker, idx: number) => {
+      if (typeof marker.slowdown === 'string') {
+        marker.slowdown = Number(marker.slowdown);
         console.log(`Converted marker pair ${index}'s slowdown from String to Number`);
       }
-      markersString += `${marker[0]},${marker[1]},${marker[2]},'${marker[3]}',`;
-      if (idx === this.length - 1) {
-        markersString = markersString.slice(0, -1);
+      markersString += `${marker.start},${marker.end},${marker.slowdown},'${
+        marker.crop
+      }'`;
+      if (idx !== this.length - 1) {
+        markersString += ',';
       }
     });
     return markersString;
@@ -49,11 +56,11 @@
   let startTime = 0.0;
   let toggleKeys = false;
   let undoMarkerOffset = 0;
-  let prevSelectedMarkerPair = null;
+  let prevSelectedMarkerPair: marker = null;
 
   document.addEventListener('keyup', hotkeys, false);
 
-  function hotkeys(e) {
+  function hotkeys(e: KeyboardEvent) {
     if (toggleKeys) {
       switch (e.key) {
         case 'KeyA':
@@ -174,7 +181,15 @@
     playerInfo.controls = document.getElementsByClassName('ytp-chrome-bottom')[0];
   }
 
-  let settings;
+  interface settings {
+    defaultSlowdown: number;
+    defaultCrop: string;
+    shortTitle: string;
+    videoRes: string;
+    videoWidth: number;
+    videoHeight: number;
+  }
+  let settings : settings;
   let markersSvg;
   function initMarkersContainer() {
     settings = {
@@ -1019,9 +1034,9 @@
 
   function enableMarkerHotkeys(endMarker) {
     markerHotkeysEnabled = true;
-    enableMarkerHotkeys.endMarker = endMarker;
-    enableMarkerHotkeys.startMarker = endMarker.previousSibling;
-    enableMarkerHotkeys.moveMarker = marker => {
+    this.endMarker = endMarker;
+    this.startMarker = endMarker.previousSibling;
+    this.moveMarker = marker => {
       const type = marker.getAttribute('type');
       const idx = parseInt(marker.getAttribute('idx')) - 1;
       const currentTime = player.getCurrentTime();
@@ -1032,8 +1047,8 @@
       markers[idx][type === 'start' ? 0 : 1] = currentTime;
       markerTimeSpan.textContent = `${toHHMMSS(currentTime)}`;
     };
-    enableMarkerHotkeys.deleteMarkerPair = () => {
-      const idx = parseInt(enableMarkerHotkeys.endMarker.getAttribute('idx')) - 1;
+    this.deleteMarkerPair = () => {
+      const idx = parseInt(this.endMarker.getAttribute('idx')) - 1;
       markers.splice(idx, 1);
 
       const me = new MouseEvent('mouseover', { shiftKey: true });
