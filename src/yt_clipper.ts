@@ -1131,8 +1131,8 @@ def loadMarkers(markersJson):
     markersDict = json.loads(markersJson)
     videoUrl = ''
     for videoID, markers in markersDict.items():
-      videoUrl = 'https://www.youtube.com/watch?v=' + videoID
-      break
+        videoUrl = 'https://www.youtube.com/watch?v=' + videoID
+        break
     markers = list(itertools.chain.from_iterable(markers))
     global concats
     concats = markersDict['merge-list']
@@ -1143,21 +1143,28 @@ def loadMarkers(markersJson):
     print('concats: ', concats)
     return videoUrl, markers, cropResWidth, cropResHeight
 
+
 def autoSetCropMultiples(cropResWidth, cropResHeight, videoWidth, videoHeight):
     cropMultipleX = (videoWidth / cropResWidth)
     cropMultipleY = (videoHeight / cropResHeight)
     if cropResWidth != videoWidth or cropResHeight != cropResHeight:
-        print('Warning: Crop resolution does not match video resolution.', file=sys.stderr)
+        print('Warning: Crop resolution does not match video resolution.',
+              file=sys.stderr)
         if cropResWidth != videoWidth:
-            print(f'Crop resolution width ({cropResWidth}) not equal to video width ({videoWidth})', file=sys.stderr)
+            print(
+                f'Crop resolution width ({cropResWidth}) not equal to video width ({videoWidth})', file=sys.stderr)
         if cropResWidth != videoWidth:
-            print(f'Crop resolution height ({cropResHeight}) not equal to video height ({videoHeight})', file=sys.stderr)
+            print(
+                f'Crop resolution height ({cropResHeight}) not equal to video height ({videoHeight})', file=sys.stderr)
         print(f'Crop X offset and width will be multiplied by {cropMultipleX}')
-        print(f'Crop Y offset and height will be multiplied by {cropMultipleY}')
-        shouldScaleCrop = input('Automatically scale the crop resolution? (y/n): ')
+        print(
+            f'Crop Y offset and height will be multiplied by {cropMultipleY}')
+        shouldScaleCrop = input(
+            'Automatically scale the crop resolution? (y/n): ')
         if shouldScaleCrop == 'yes' or shouldScaleCrop == 'y':
             args.cropMultipleX = cropMultipleX
             args.cropMultipleY = cropMultipleY
+
 
 def filterDash(dashManifestUrl, dashFormatIDs):
     from xml.dom import minidom
@@ -1178,9 +1185,10 @@ def filterDash(dashManifestUrl, dashFormatIDs):
 
     return filteredDashPath
 
+
 def getVideoInfo(videoUrl, ytdlFormat):
     from youtube_dl import YoutubeDL
-    ydl = YoutubeDL({'format': ytdlFormat, 'forceurl' : True})
+    ydl = YoutubeDL({'format': ytdlFormat, 'forceurl': True})
     ydl_info = ydl.extract_info(videoUrl, download=False)
     if 'requested_formats' in ydl_info:
         rf = ydl_info['requested_formats']
@@ -1198,7 +1206,7 @@ def getVideoInfo(videoUrl, ytdlFormat):
         videoUrl = videoInfo['url']
 
     global title
-    title = re.sub("'","", ydl_info['title'])
+    title = re.sub("'", "", ydl_info['title'])
 
     videoWidth = videoInfo['width']
     videoHeight = videoInfo['height']
@@ -1212,7 +1220,8 @@ def getVideoInfo(videoUrl, ytdlFormat):
     print(f'Detected video bitrate: {videobr}k')
 
     if args.json:
-        autoSetCropMultiples(cropResWidth, cropResHeight, videoWidth, videoHeight)
+        autoSetCropMultiples(cropResWidth, cropResHeight,
+                             videoWidth, videoHeight)
 
     audioUrl = ''
     if args.audio:
@@ -1234,6 +1243,7 @@ def getVideoInfo(videoUrl, ytdlFormat):
 
     return videoUrl, videobr, audioUrl
 
+
 def getDefaultEncodingSettings(videobr):
     if videobr is None:
         settings = (30, 0, 2, False)
@@ -1251,12 +1261,13 @@ def getDefaultEncodingSettings(videobr):
         settings = (35, int(1.1 * videobr), 5, False)
     return settings
 
+
 def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
     if args.url:
         videoUrl, videobr, audioUrl = getVideoInfo(videoUrl, ytdlFormat)
-        crf, videobr, speed, twoPass  = getDefaultEncodingSettings(videobr)
+        crf, videobr, speed, twoPass = getDefaultEncodingSettings(videobr)
     else:
-        crf, videobr, speed, twoPass  = getDefaultEncodingSettings(None)
+        crf, videobr, speed, twoPass = getDefaultEncodingSettings(None)
     if args.videobr:
         videobr = args.videobr
     if args.crf:
@@ -1266,7 +1277,7 @@ def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
     if args.speed:
         speed = args.speed
     print((f'Encoding options: CRF: {crf} (0-63), Target Bitrate: {videobr}k, '
-        + f'Two-pass encoding enabled: {twoPass}, Encoding Speed: {speed} (0-5)'))
+           + f'Two-pass encoding enabled: {twoPass}, Encoding Speed: {speed} (0-5)'))
 
     def trim_video(startTime, endTime, slowdown, cropString,  outPath):
         filter_complex = ''
@@ -1301,7 +1312,8 @@ def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
         if crops[3] != 'ih':
             crops[3] = args.cropMultipleY * int(crops[3])
 
-        filter_complex += (f'[slowed]crop=x={crops[0]}:y={crops[1]}:w={crops[2]}:h={crops[3]}')
+        filter_complex += (
+            f'[slowed]crop=x={crops[0]}:y={crops[1]}:w={crops[2]}:h={crops[3]}')
         filter_complex += f'[cropped];[cropped]lutyuv=y=gammaval({args.gamma})'
 
         if args.rotate:
@@ -1334,7 +1346,7 @@ def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
             print(re.sub(r'(&a?itags?.*?")', r'"', ffmpegPass2) + '\\n')
             ffmpegProcess = subprocess.run(shlex.split(ffmpegPass2))
         else:
-            ffmpegCommand = ffmpegCommand +  f' "{outPath}"'
+            ffmpegCommand = ffmpegCommand + f' "{outPath}"'
             print(re.sub(r'(&a?itags?.*?")', r'"', ffmpegCommand) + '\\n')
             ffmpegProcess = subprocess.run(shlex.split(ffmpegCommand))
         return ffmpegProcess.returncode
@@ -1392,7 +1404,8 @@ def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
         fileNames.append(outPath[0:-5])
         if not Path(outPath).is_file():
             print(f'\\nGenerating "{fileName}"...\\n')
-            ffmpegReturnCode = trim_video(startTime, endTime, slowdown, cropString, outPath)
+            ffmpegReturnCode = trim_video(
+                startTime, endTime, slowdown, cropString, outPath)
             if ffmpegReturnCode == 0:
                 report += f'Successfuly generated: "{fileName}"\\n'
             else:
@@ -1404,11 +1417,13 @@ def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
         makeMergedClips()
     print(report)
 
+
 # cli arguments
 parser = argparse.ArgumentParser(
     description='Generate trimmed webms from input video.')
 parser.add_argument('infile', metavar='I', help='Input video path.')
-parser.add_argument('--overlay', '-o', dest='overlay', help='overlay image path')
+parser.add_argument('--overlay', '-o', dest='overlay',
+                    help='overlay image path')
 parser.add_argument('--multiply-crop', '-m', type=float, dest='cropMultiple', default=1,
                     help=('Multiply all crop dimensions by an integer. ' +
                           '(Helpful if you change resolutions: eg 1920x1080 * 2 = 3840x2160(4k)).'))
@@ -1418,29 +1433,33 @@ parser.add_argument('--multiply-crop-y', '-y', type=float, dest='cropMultipleY',
                     help='Multiply all y crop dimensions by an integer.')
 parser.add_argument('--gfycat', '-g', action='store_true',
                     help='upload all output webms to gfycat and print reddit markdown with all links')
-parser.add_argument('--audio', '-a', action='store_true', help='Enable audio in output webms.')
+parser.add_argument('--audio', '-a', action='store_true',
+                    help='Enable audio in output webms.')
 parser.add_argument('--url', '-u', action='store_true',
                     help='Use youtube-dl and ffmpeg to download only the portions of the video required.')
 parser.add_argument('--json', '-j', action='store_true',
                     help='Read in markers json file and automatically create webms.')
-parser.add_argument('--format', '-f', default='bestvideo+bestaudio', help='Specify format string passed to youtube-dl.')
+parser.add_argument('--format', '-f', default='bestvideo+bestaudio',
+                    help='Specify format string passed to youtube-dl.')
 parser.add_argument('--delay', '-d', type=float, dest='delay', default=0,
                     help='Add a fixed delay to both the start and end time of each marker. Can be negative.')
 parser.add_argument('--gamma', '-ga', type=float, dest='gamma', default=1,
                     help='Apply luminance gamma correction. Pass in a value between 0 and 1 to brighten shadows and reveal darker details.')
 parser.add_argument('--rotate', '-r', dest='rotate', choices=['clock', 'cclock'],
-                    help='Rotate video 90 degrees clockwise or counter-clockwise.')  
-parser.add_argument('--denoise', '-dn', action='store_true', help='Apply the hqdn3d denoise filter with default settings.')
-parser.add_argument('--deinterlace', '-di', action='store_true', help='Apply bwdif deinterlacing.')
-parser.add_argument('--encode-speed', '-s', type=int, dest='speed', choices=range(0,6),
+                    help='Rotate video 90 degrees clockwise or counter-clockwise.')
+parser.add_argument('--denoise', '-dn', action='store_true',
+                    help='Apply the hqdn3d denoise filter with default settings.')
+parser.add_argument('--deinterlace', '-di', action='store_true',
+                    help='Apply bwdif deinterlacing.')
+parser.add_argument('--encode-speed', '-s', type=int, dest='speed', choices=range(0, 6),
                     help='Set the vp9 encoding speed.')
 parser.add_argument('--crf', type=int, help=('Set constant rate factor (crf). Default is 30 for video file input.' +
-                    'Automatically set to a factor of the detected video bitrate when using --json or --url.'))
+                                             'Automatically set to a factor of the detected video bitrate when using --json or --url.'))
 parser.add_argument('--two-pass', '-tp', dest='twoPass', action='store_true',
                     help='Enable two-pass encoding. Improves quality at the cost of encoding speed.')
 parser.add_argument('--target-max-bitrate', '-b', dest='videobr', type=int,
                     help=('Set target max bitrate in kilobits/s. Constrains bitrate of complex scenes.' +
-                    'Automatically set based on detected video bitrate when using --json or --url.'))
+                          'Automatically set based on detected video bitrate when using --json or --url.'))
 
 args = parser.parse_args()
 
@@ -1452,14 +1471,17 @@ if args.json:
     args.url = True
     shortTitle = Path(args.infile).stem
     webmsPath += f'/{shortTitle}'
-    with open(args.infile, 'r', encoding='utf-8-sig' ) as file:
+    with open(args.infile, 'r', encoding='utf-8-sig') as file:
         markersJson = file.read()
-        videoUrl, markers, cropResWidth, cropResHeight = loadMarkers(markersJson)
+        videoUrl, markers, cropResWidth, cropResHeight = loadMarkers(
+            markersJson)
 else:
     videoUrl = args.infile
 
+
 os.makedirs(f'{webmsPath}', exist_ok=True)
-clipper(markers, title, videoUrl=videoUrl, ytdlFormat=args.format, overlayPath=args.overlay, delay=args.delay)
+clipper(markers, title, videoUrl=videoUrl, ytdlFormat=args.format,
+        overlayPath=args.overlay, delay=args.delay)
 
 # auto gfycat uploading
 if (args.gfycat):
@@ -1489,6 +1511,7 @@ if (args.gfycat):
         markdown += f'({fileName})[{link}]\\n\\n'
         print('\\n==Reddit Markdown==')
         print(markdown)
+
   `;
 
   function createScript() {
