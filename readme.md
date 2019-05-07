@@ -5,11 +5,16 @@
 - Works best on Chrome. Better Firefox support is a work in progress.
 - Not tested on browsers other than Chrome or Firefox.
 
-## Hotkeys
+## Terminology
+
+- `Markup script` refers to this user script and is used to mark up YouTube videos before creating webm clips.
+- `Clipper script` refers to the python script or installation that consumes marker data (either as .json or embedded into the script) to generate webm clips.
+
+## Markup Script Hotkeys
 
 ### Marker Hotkeys
 
-**alt+shift+A(changed in v0.0.66):** toggle hotkeys on/off.
+**alt+shift+A(changed in v0.0.66):** Toggle hotkeys on/off.
 
 **A:** Add marker at current time (start = green, end = yellow, selected = white glow). Multiple marker pairs can be added.
 
@@ -29,9 +34,9 @@
 
 1. Change default new marker speed or crop. Any new markers added will use these defaults, but this will not update existing markers. To update existing markers to the default new marker speed/crop use **shift+E/shift+D**.
 2. Specify crop resolution (automatically scales any existing crops on change). This resolution must match the downloaded videos resolution, by default the maximum available.
-   - Note that you can mark up the video at any quality/resolution and simply change the crop resoluton before saving the clipper script to match that of the video resolution you intend to download.
+   - The `clipper script` will prompt for auto scaling the crop resolution if a mismatch with the video resolution is detected.
 3. Specify any concatenated (merged) webms you want to make from the clipped webms. Very fast as it does not require reencoding videos. The format is similar to that for print ranges: comma separated marker pair numbers or ranges (eg '1-3,5,7'). Marker pairs (clips) are merged in the order they are listed. Use semicolons to separate merged webms (eg '1-3,5,7;4-6,9' will create two merged webms).
-4. Specify title prefix that will be prefixed to output script and webms.
+4. Specify title prefix that will be prefixed to output script and webm file names.
 
 **shift+E/D:** Update all existing markers to default new marker speed(**E**)/crop(**D**). Set the default new marker speed or crop using **W**.
 
@@ -49,11 +54,11 @@
 
 ### Save and Upload Hotkeys
 
-**S:** Save generated python clipper script (save it beside input webm).
+**S:** Save generated `clipper script` (save it beside input webm).
 
-**shift+S:** Copy generated python clipper script to clipboard (useful if saving breaks).
+**shift+S:** Copy generated `clipper script` to clipboard (useful if saving breaks).
 
-**alt+S or ctrl+alt+S:** Save markers info to a file (.json). Use ctrl+alt+s on `Firefox` to avoid interfering with built in shortcuts.
+**alt+S or ctrl+alt+S:** Save markers info to a file (.json). Use ctrl+alt+s on `Firefox` to avoid interfering with built-in shortcuts. Can be used with the `clipper script` using `--json` or with the installation.
 
 **G:** Toggle markers .json file upload for reloading markers (must be from the same video). Click `Choose File`, pick your markers .json file, then click `Load`.
 
@@ -67,7 +72,7 @@
 
 ## Values
 
-Crop is given as x:y:w:h where x:y is the distance left:top from the top left corner and w:h defines the width:height of the output video. Each value is a positive integer in pixels. w and h can also be iw and ih respectively for the input width and input height.
+Crop is given as x-offset:y-offset:width:height. Each value is a positive integer in pixels. Width and height can also be iw and ih respectively for input width and input height.
 
 ## Useful YouTube Controls
 
@@ -86,7 +91,9 @@ Crop is given as x:y:w:h where x:y is the distance left:top from the top left co
 
 ### Clipper Script Tips
 
-1. The clipper script skips regenerating any existing webms. This makes it easy to delete webms you want regenerated and by rerunning the script.
+1. The `clipper script` skips regenerating any existing webms. 
+   1. This makes it easy to delete webms you want regenerated and by rerunning the script.
+   2. Use this to work incrementally, saving markers data, starting a batch encode, continuing to mark up, overwriting the markers data, and then rerunning the encoding.
 
 ### Quality and CRF Tips
 
@@ -99,57 +106,93 @@ Articles on crf and vp9 encoding:
 
 Tips:
 
-1. The script is set to use the vp9 encoder by default (this is the encoding used for webm videos on YouTube).
-2. The default crf is 30 and provides a good balance of size and quality for most YouTube video reencodes. This can be adjusted with the `--crf` flag in the script. There is unlikely to be any quality benefit to crf values below 22.
-3. A crf of about 35 is more appropriate for 4k 60fps videos. If encoding is slow, use the `--encode-speed` (`-s` for short) to change the default encoding speed of 1. Use up to a value of 4 for the encoding speed for 4k 60fps or otherwise high bitrate video.
+1. The `clipper script` is set to use the vp9 encoder by default (encoding used for webm videos on YouTube).
+2. When using the installation with a markers .json file or `--json`, `--url` the `clipper script` will automatically select encoding settings based on the detected bitrate of the input video.
+3. Override the default encoding settings using `--crf` for crf, `-s` for encoding speed, `-b` for target max bitrate.
+4. There is unlikely to be quality benefit to crf values below 20 and will create very large file sizes.
+5. If encoding is slow, use the `--encode-speed` (`-s` for short) to speed it up at the cost of some quality. Use a value of 1 to 5.
+6. Enable `--two-pass` or `-tp` if you want even better quality at the cost significant encoding speed.
 
-## Output Script Usage
+## Clipper Script Usage
 
 ```sh
 python ./clip.py -h # Prints help. Details all options and arguments.
 
-python ./clip.py ./filename.webm
+python ./clip.py ./clip.webm
 
-python ./clip.py ./filename.webm --overlay ./overlay.png --gfycat
+python ./clip.py ./clip.webm --overlay ./overlay.png
 
-python ./clip.py ./filename.webm --format bestvideo+bestaudio # this is the default format
+python ./clip.py ./clip.webm --crf 30 --encode-speed 2
+
+python ./clip.py  ./clip.webm --target-max-bitrate 0  #  0 = unlimited target max bitrate
+
+python ./clip.py ./clip.webm --format bestvideo[width<=1080]
 
 python ./clip.py --url https://www.youtube.com/watch?v=0vrdgDdPApQ --audio
 
 python ./clip.py --json markers.json # automatically generate webms using markers json
 ```
 
-## Windows Installation
+## Clipper Script Windows Installation
 
 For windows there is an experimental installation that does not require the dependencies below.
 
-1. Download this [zip file (v1.2.0)](https://mega.nz/#!4exyXA7a!hzsQrpYOx4UTbDMWkmzVWHawo-9ADatgbZpEGqBQczA) and extract it anywhere.
-2. Use the user script on YouTube as usual, but use **alt+S** to save the markers json in the extracted yt_clipper folder.
-3. Lastly, just drag and drop the markers json file onto the `yt_clipper.bat` file.
+1. Download this [zip file (v2.0.0)](https://mega.nz/#!1D4T0aqZ!hJHLJHD1psucATr5CD-6zX3JKmf6nzrDXCvwMYkVQV8) and extract it anywhere. **Not compatible** with `v0.0.70` or lower of the markup script.
+2. Use the `markup script` on YouTube as usual, but use **alt+S/ctrl+alt+S** to save the markers .json to the extracted `yt_clipper` folder.
+3. Simply drag and drop the markers .json file onto the `yt_clipper.bat` file.
 4. All generated clips will be placed in `./webms/<markers-json-filename>`.
 5. Install [Microsoft Visual C++ 2010 Redistributable Package (x86)](https://www.microsoft.com/en-US/download/details.aspx?id=5555) if necessary.
 
+The `yt_clipper.exe` may be used on the command line in the same way the python `clipper script` is used.
+
 A couple of alternative bat files provide more options and all work by dropping the markers json onto them:
 
-- Use `yt_clipper_clock.bat` and `yt_clipper_counterclock.bat` to also rotate the generated webms by 90 degrees clockwise or counter clockwise respectively.
-- Use `yt_clipper_audio.bat` to include audio in the generated webms.
-- Use `yt_clipper_opts.bat` to print all the available options and to be prompted for a string with additional options before running the script. This allows you to combine options (eg include audio and rotate and denoise).
+- Use `yt_clipper_auto_clock.bat` and `yt_clipper_auto_counterclock.bat` to also rotate the generated webms by 90 degrees clockwise or counter clockwise respectively.
+- Use `yt_clipper_auto_audio.bat` to include audio in the generated webms.
+- Use `yt_clipper_auto_all_options.bat` to print all the available options and to be prompted for a string with additional options before running the script. This allows you to combine options (eg include audio and rotate and denoise).
 
-## Dependencies
+The bat files have a simple format. Copy and edit `yt_clipper_auto.bat` to create custom automated versions.
+Just add options after the `%1` on line 2 as in the example below.
+
+```bat
+@echo off
+.\yt_clipper.exe --json %1 --audio --rotate clock --denoise
+pause
+```
+
+## Clipper Script Dependencies
 
 These dependencies are not required by the windows installation above.
 
 - ffmpeg must be in your path for the python script (<https://www.ffmpeg.org>).
-- passing --url to the python script requires youtube-dl be in your path
+- `--url` requires youtube-dl
   - `pip install youtube-dl`
-- passing --gfycat requires the urllib3 python package.
+- `--gfycat` requires urllib3
   - `pip install urllib3`
 
-## Changelog
+## Change Log
 
-- v0.0.70: Fix speed multipliers (slowdowns) being saved as string values instead of numbers in Firefox. Add visual clarity to default settings editor and marker pair settings editor. Add more flash messages, primarily for toggleable features.
-- v0.0.69: Add preview of first click (top left dimension) of crop. Make crop preview more visible in bright videos. Add message flash on hotkeys enable and disable.
-- v0.0.68: Add visual clarity to crop preview rectangle and selected marker pairs. Reword some aspects of UI (Download Res -> Crop Resolution, Short Title -> Title Prefix, Concats -> Merge List)
+- v0.0.71:
+  - Use with `v2.0.0` of the installation.
+  - Add reporting of fetched YouTube video info (title, fps, width, height, bitrate).
+  - Automatically set encoding settings based on detected video bitrate using constrained quality mode. This will keep file sizes for high bitrate videos under control and speed up encoding across the board.
+    - **The markers .json format has changed to accommodate this and is not compatible with earlier versions.**
+  - Add reporting of encoding settings. Add summary report of Generated webms (successful, failed, or skipped).
+  - Fix streaming and encoding long audio segments when using --audio.
+  - Automatically detect mismatch of crop resolution and video resolution and prompt user for automatically scaling to fix such a mismatch.
+  - Add crop resolution to markers .json data.
+  - Add two-pass encoding option enabled with `--two-pass` or `-tp`.
+  - Add target max bitrate option for constrained quality mode using `--target-max-bitrate <bitrate>` or `-b <bitrate>` where bitrate is in kilobits/s.
+- v0.0.70:
+  - Fix speed multipliers (slowdowns) being saved as string values instead of numbers in Firefox.
+  - Add visual clarity to default settings editor and marker pair settings editor. Add more flash messages, primarily for toggleable features.
+- v0.0.69:
+  - Add preview of first click (top left dimension) of crop.
+  - Make crop preview more visible in bright videos.
+  - Add message flash on hotkeys enable and disable.
+- v0.0.68:
+  - Add visual clarity to crop preview rectangle and selected marker pairs.
+  - Reword some aspects of UI (Download Res -> Crop Resolution, Short Title -> Title Prefix, Concats -> Merge List)
 - v0.0.67: Add borders and padding around input controls.
 - v0.0.66:
   - Improve Firefox support:
