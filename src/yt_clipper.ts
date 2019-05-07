@@ -188,7 +188,7 @@
     videoHeight: number;
     concats: string;
   }
-  let settings : settings;
+  let settings: settings;
   let markersSvg: SVGAElement;
   function initMarkersContainer() {
     settings = {
@@ -379,7 +379,6 @@
     }
   }
 
-
   function saveMarkers() {
     markers.forEach((marker: marker, index: number) => {
       const slowdown = marker[2];
@@ -453,13 +452,15 @@
       settings.videoHeight = markersJson['crop-res-height'];
       markers.length = 0;
       undoMarkerOffset = 0;
-      markersJson[playerInfo.playerData.video_id].forEach((marker: [number, number, number, string]) => {
-        const [startTime, endTime, slowdown, crop] = marker;
-        const startMarker = [startTime, slowdown, crop];
-        const endMarker = [endTime, slowdown, crop];
-        addMarker(startMarker);
-        addMarker(endMarker);
-      });
+      markersJson[playerInfo.playerData.video_id].forEach(
+        (marker: [number, number, number, string]) => {
+          const [startTime, endTime, slowdown, crop] = marker;
+          const startMarker = [startTime, slowdown, crop];
+          const endMarker = [endTime, slowdown, crop];
+          addMarker(startMarker);
+          addMarker(endMarker);
+        }
+      );
     }
   }
 
@@ -697,7 +698,11 @@
     }
   }
 
-  function multiplyCropString(cropMultipleX: number, cropMultipleY: number, cropString: string) {
+  function multiplyCropString(
+    cropMultipleX: number,
+    cropMultipleY: number,
+    cropString: string
+  ) {
     let [x, y, width, height] = cropString.split(':');
     x = Math.round(x * cropMultipleX);
     y = Math.round(y * cropMultipleY);
@@ -790,7 +795,8 @@
         const videoRect = player.getVideoContentRect();
         const playerRect = player.getBoundingClientRect();
 
-        beginDrawHandler = (e: MouseEvent) => beginDraw(e, playerRect, videoRect, verticalFill);
+        beginDrawHandler = (e: MouseEvent) =>
+          beginDraw(e, playerRect, videoRect, verticalFill);
         playerInfo.video.addEventListener('mousedown', beginDrawHandler, {
           once: true,
           capture: true,
@@ -868,7 +874,12 @@
     }
   }
 
-  function beginDraw(e: MouseEvent, playerRect: ClientRect | DOMRect, videoRect: { left: number; width: number; height: number; }, verticalFill: boolean) {
+  function beginDraw(
+    e: MouseEvent,
+    playerRect: ClientRect | DOMRect,
+    videoRect: { left: number; width: number; height: number },
+    verticalFill: boolean
+  ) {
     if (e.button == 0 && e.shiftKey && !e.ctrlKey && !e.altKey) {
       const beginX = Math.round(
         ((e.pageX - videoRect.left - playerRect.left) / videoRect.width) *
@@ -894,7 +905,15 @@
     }
   }
 
-  function endDraw(e: MouseEvent, crop: string, beginX: number, beginY: number, playerRect: ClientRect | DOMRect, videoRect: { left: any; width: any; height: any; }, verticalFill: boolean) {
+  function endDraw(
+    e: MouseEvent,
+    crop: string,
+    beginX: number,
+    beginY: number,
+    playerRect: ClientRect | DOMRect,
+    videoRect: { left: any; width: any; height: any },
+    verticalFill: boolean
+  ) {
     if (e.button == 0 && e.shiftKey && !e.ctrlKey && !e.altKey) {
       const endX = Math.round(
         ((e.pageX - playerRect.left - videoRect.left) / videoRect.width) *
@@ -1059,7 +1078,11 @@
     currentMarker.previousSibling.setAttribute('stroke', '#ffffff70');
   }
 
-  function addMarkerInputListeners(inputs: string[][], currentMarker: SVGRectElement, currentIdx: number) {
+  function addMarkerInputListeners(
+    inputs: string[][],
+    currentMarker: SVGRectElement,
+    currentIdx: number
+  ) {
     inputs.forEach(input => {
       const id = input[0];
       const updateTarget = input[1];
@@ -1088,7 +1111,12 @@
     markerHotkeysEnabled = false;
   }
 
-  function updateMarker(e: Event, updateTarget: string, currentMarker: SVGRectElement, currentIdx: number) {
+  function updateMarker(
+    e: Event,
+    updateTarget: string,
+    currentMarker: SVGRectElement,
+    currentIdx: number
+  ) {
     const currentType = currentMarker.getAttribute('type');
     const newValue = e.target.value;
 
@@ -1679,7 +1707,11 @@ httpd.serve_forever()
     }
   }
 
-  function buildGfyRequestPromise(reqData: { speed: string; }, idx: any, accessToken: any) {
+  function buildGfyRequestPromise(
+    reqData: { speed: string },
+    idx: any,
+    accessToken: any
+  ) {
     reqData.speed = reqData.speed === '1.000' ? '' : `?speed=${reqData.speed}`;
     return new Promise((resolve, reject) => {
       postData('https://api.gfycat.com/v1/gfycats', reqData, accessToken)
@@ -1756,7 +1788,6 @@ httpd.serve_forever()
     });
   }
 
-
   function postData(url: RequestInfo, data: any, accessToken: any) {
     const auth = accessToken ? `Bearer ${accessToken}` : null;
     const req = {
@@ -1775,7 +1806,7 @@ httpd.serve_forever()
       req.headers.Authorization = auth;
     }
     console.log(req);
-    return fetch(url, req).then((response: { json: () => void; }) => response.json()); // parses response to JSON
+    return fetch(url, req).then((response: { json: () => void }) => response.json()); // parses response to JSON
   }
 
   function toHHMMSS(seconds: number) {
