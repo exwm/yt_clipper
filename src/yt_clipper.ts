@@ -55,7 +55,7 @@
   let startTime = 0.0;
   let toggleKeys = false;
   let undoMarkerOffset = 0;
-  let prevSelectedMarkerPair: marker = null;
+  let prevSelectedMarkerPair: SVGRectElement = null;
 
   document.addEventListener('keyup', hotkeys, false);
 
@@ -381,7 +381,7 @@
 
 
   function saveMarkers() {
-    markers.forEach((marker) => {
+    markers.forEach((marker: marker, index: number) => {
       const slowdown = marker[2];
       if (typeof slowdown === 'string') {
         marker[2] = Number(slowdown);
@@ -467,6 +467,8 @@
     width: '1px',
     height: '12px',
     style: 'pointer-events:fill',
+    slowdown: Number,
+    crop: String,
   };
 
   function addMarker(markerConfig = [null, null, null]) {
@@ -509,12 +511,12 @@
   }
 
   function updateMarkers(currentTime: number, markerConfig = [null, null, null]) {
-    const updatedMarker = [
-      startTime,
-      currentTime,
-      markerConfig[1] || settings.defaultSlowdown,
-      markerConfig[2] || settings.defaultCrop,
-    ];
+    const updatedMarker: marker = {
+      start: startTime,
+      end: currentTime,
+      slowdown: markerConfig[1] || settings.defaultSlowdown,
+      crop: markerConfig[2] || settings.defaultCrop,
+    };
 
     if (undoMarkerOffset === -1) {
       const lastMarkerIdx = markers.length - 1;
@@ -705,7 +707,7 @@
     return multipliedCropString;
   }
 
-  function createCropOverlay(crop: string | number[]) {
+  function createCropOverlay(crop: string) {
     if (isOverlayOpen) {
       deleteCropOverlay();
     }
@@ -905,7 +907,7 @@
         );
       }
       crop += `${endX - beginX}:${endY - beginY}`;
-      const cropInput = document.getElementById('crop-input');
+      const cropInput = document.getElementById('crop-input') as HTMLInputElement;
       cropInput.value = crop;
       cropInput.dispatchEvent(new Event('change'));
 
@@ -930,7 +932,7 @@
     flashMessage(`All marker ${updateTarget}s updated to ${newValue}`, 'olive');
   }
 
-  function toggleMarkerEditor(e) {
+  function toggleMarkerEditor(e: MouseEvent) {
     const targetMarker = e.target;
 
     if (targetMarker && e.shiftKey) {
@@ -969,7 +971,7 @@
       const currentMarkerTime = toHHMMSS(currentMarker.getAttribute('time'));
       const startMarkerTime = toHHMMSS(startMarker.getAttribute('time'));
       const currentSlowdown = currentMarker.getAttribute('slowdown');
-      const currentCrop = currentMarker.getAttribute('crop');
+      const currentCrop: string = currentMarker.getAttribute('crop');
       const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
       const markerInputs = document.createElement('div');
 
@@ -1096,6 +1098,7 @@
         const speedDisplay = document.getElementById('speed-display');
         speedDisplay.textContent = `[Speed: ${newValue}]`;
       } else if (updateTarget === 'crop') {
+        newValue as string;
         markers[currentIdx - 1].crop = newValue;
         const cropDisplay = document.getElementById('crop-display');
         cropDisplay.textContent = `[Crop: ${newValue}]`;
@@ -1620,7 +1623,7 @@ httpd.serve_forever()
         noMd5: 'true',
         cut: { start, duration },
         speed,
-        crop
+        crop,
       };
       if (crop && crop !== '0:0:iw:ih') {
         const crops = crop.split(':');
@@ -1661,7 +1664,7 @@ httpd.serve_forever()
     });
   }
 
-  function sendGfyRequests(markers, url, accessToken?) {
+  function sendGfyRequests(markers: markers[], url: string, accessToken?: string) {
     if (markers.length > 0) {
       const markdown = toggleUploadStatus();
       const reqs = buildGfyRequests(markers, url).map((req, idx) => {
@@ -1676,14 +1679,14 @@ httpd.serve_forever()
     }
   }
 
-  function buildGfyRequestPromise(req, idx, accessToken) {
-    req.speed = req.speed === '1.000' ? '' : `?speed=${req.speed}`;
+  function buildGfyRequestPromise(reqData: { speed: string; }, idx: any, accessToken: any) {
+    reqData.speed = reqData.speed === '1.000' ? '' : `?speed=${reqData.speed}`;
     return new Promise((resolve, reject) => {
-      postData('https://api.gfycat.com/v1/gfycats', req, accessToken)
+      postData('https://api.gfycat.com/v1/gfycats', reqData, accessToken)
         .then(resp => {
           links.push(
             `(${settings.shortTitle}-${idx})[https://gfycat.com/${resp.gfyname}${
-              req.speed
+              reqData.speed
             }]`
           );
           resolve(resp.gfyname);
@@ -1715,7 +1718,7 @@ httpd.serve_forever()
     return markdown;
   }
 
-  function updateUploadStatus(markdown, status, gfyname) {
+  function updateUploadStatus(markdown, status, gfyname: name) {
     if (markdown) {
       markdown.textContent += `${gfyname} progress: ${status.progress}\n`;
       markdown.scrollTop = markdown.scrollHeight;
