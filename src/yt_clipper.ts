@@ -62,7 +62,7 @@
   let startTime = 0.0;
   let toggleKeys = false;
   let undoMarkerOffset = 0;
-  let prevMarker = null;
+  let prevSelectedMarkerPair = null;
 
   document.addEventListener('keyup', hotkeys, false);
 
@@ -361,7 +361,7 @@
   }
 
   function markerLoopingHandler(e) {
-    const endMarker = toggleMarkerEditor.currentMarker;
+    const endMarker = prevSelectedMarkerPair;
     if (endMarker) {
       const idx = parseInt(endMarker.getAttribute('idx')) - 1;
       const startMarkerTime = markers[idx][0];
@@ -562,12 +562,12 @@
         toggleOverlay();
       }
     }
-    if (wasDefaultsEditorOpen && !prevMarker) {
+    if (wasDefaultsEditorOpen && !prevSelectedMarkerPair) {
       wasDefaultsEditorOpen = false;
     } else {
-      if (prevMarker) {
-        restoreMarkerColor(prevMarker);
-        prevMarker = null;
+      if (prevSelectedMarkerPair) {
+        applyUnselectedMarkerStyle(prevSelectedMarkerPair);
+        prevSelectedMarkerPair = null;
       }
       toggleOverlay();
       createCropOverlay(settings.defaultCrop);
@@ -939,35 +939,39 @@
         mrkr.setAttribute(updateTarget, newValue.toString());
       });
     }
-    flashMessage(`All marker ${updateTarget}s updated to ${newValue}`, 'yellow');
+    flashMessage(`All marker ${updateTarget}s updated to ${newValue}`, 'olive');
   }
 
   function toggleMarkerEditor(e) {
-    const currentMarker = e.target;
-    toggleMarkerEditor.currentMarker = currentMarker;
+    const targetMarker = e.target;
 
-    if (currentMarker && e.shiftKey) {
+    if (targetMarker && e.shiftKey) {
+
+      // if marker editor is open, always delete it
       if (isMarkerEditorOpen) {
         deleteMarkerEditor();
-        restoreMarkerColor(currentMarker);
+        applyUnselectedMarkerStyle(targetMarker);
         if (isOverlayOpen) {
           toggleOverlay();
         }
       }
-      if (prevMarker === currentMarker) {
-        prevMarker = null;
-      } else {
-        if (prevMarker) {
-          restoreMarkerColor(prevMarker);
+      // toggling already selected marker pair
+      if (prevSelectedMarkerPair === targetMarker) {
+        prevSelectedMarkerPair = null;
+      }
+      // switching to a different marker pair
+      else {
+        if (prevSelectedMarkerPair) {
+          applyUnselectedMarkerStyle(prevSelectedMarkerPair);
         }
-        prevMarker = currentMarker;
+        prevSelectedMarkerPair = targetMarker;
         if (isOverlayOpen) {
           toggleOverlay();
         }
         toggleOverlay();
-        colorSelectedMarkers(currentMarker);
-        enableMarkerHotkeys(currentMarker);
-        createMarkerEditor(currentMarker);
+        colorSelectedMarkers(targetMarker);
+        enableMarkerHotkeys(targetMarker);
+        createMarkerEditor(targetMarker);
       }
     }
 
@@ -1082,7 +1086,7 @@
     });
   }
 
-  function restoreMarkerColor(marker) {
+  function applyUnselectedMarkerStyle(marker) {
     if (marker.getAttribute && marker.previousSibling) {
       marker.setAttribute('stroke', 'none');
       marker.previousSibling.setAttribute('stroke', 'none');
