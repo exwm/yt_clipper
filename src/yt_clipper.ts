@@ -16,19 +16,6 @@
 (function() {
   'use strict';
   // global variables
-  let keys = {
-    A: 65,
-    S: 83,
-    Q: 81,
-    W: 87,
-    E: 69,
-    D: 68,
-    Z: 90,
-    X: 88,
-    R: 82,
-    C: 67,
-    G: 71,
-  };
 
   const CLIENT_ID = 'XXXX';
   const REDIRECT_URI = 'http://127.0.0.1:4443/yt_clipper';
@@ -68,8 +55,8 @@
 
   function hotkeys(e) {
     if (toggleKeys) {
-      switch (e.which) {
-        case keys.A:
+      switch (e.key) {
+        case 'KeyA':
           if (!e.shiftKey) {
             addMarker();
           } else if (
@@ -80,7 +67,7 @@
             enableMarkerHotkeys.moveMarker(enableMarkerHotkeys.endMarker);
           }
           break;
-        case keys.S:
+        case 'KeyS':
           if (!e.shiftKey && !e.altKey) {
             saveToFile(createScript());
           } else if (e.shiftKey && !e.altKey) {
@@ -91,7 +78,7 @@
             saveAuthServerScript();
           }
           break;
-        case keys.Q:
+        case 'KeyQ':
           if (!e.shiftKey) {
             cyclePlayerSpeedDown();
           } else if (
@@ -102,20 +89,20 @@
             enableMarkerHotkeys.moveMarker(enableMarkerHotkeys.startMarker);
           }
           break;
-        case keys.W:
+        case 'KeyW':
           toggleDefaultsEditor();
           break;
-        case keys.E:
+        case 'KeyE':
           if (e.shiftKey && !e.ctrlKey) {
             updateAllMarkers('slowdown', settings.defaultSlowdown);
           }
           break;
-        case keys.D:
+        case 'KeyD':
           if (e.shiftKey && !e.ctrlKey) {
             updateAllMarkers('crop', settings.defaultCrop);
           }
           break;
-        case keys.G:
+        case 'KeyG':
           if (!e.shiftKey && !e.altKey) {
             loadMarkers();
           } else if (e.shiftKey && !e.altKey) {
@@ -124,7 +111,7 @@
             toggleMarkerLooping();
           }
           break;
-        case keys.Z:
+        case 'KeyZ':
           if (!e.shiftKey && !markerHotkeysEnabled) {
             undoMarker();
           } else if (
@@ -135,14 +122,14 @@
             enableMarkerHotkeys.deleteMarkerPair();
           }
           break;
-        case keys.X:
+        case 'KeyX':
           if (!e.shiftKey && !e.ctrlkey) {
             drawCropOverlay(false);
           } else if (e.shiftKey && !e.ctrlkey) {
             drawCropOverlay(true);
           }
           break;
-        case keys.C:
+        case 'KeyC':
           if (!e.ctrlKey && !e.shiftKey && e.altKey) {
             sendGfyRequests(markers, playerInfo.url);
           } else if (!e.ctrlKey && e.shiftKey && e.altKey) {
@@ -151,7 +138,7 @@
           break;
       }
     }
-    if (!e.ctrlKey && e.shiftKey && e.altKey && e.which === keys.A) {
+    if (!e.ctrlKey && e.shiftKey && e.altKey && e.code === 'KeyA') {
       toggleKeys = !toggleKeys;
       initOnce();
       console.log('keys enabled: ' + toggleKeys);
@@ -859,7 +846,7 @@
       width: '5px',
       height: '5px',
       fill: 'grey',
-      'fill-opacity': 0.8,
+      'fill-opacity': 1,
     };
     setAttributes(beginCropPreviewRect, cropRectAttrs);
     beginCropPreviewSvg.appendChild(beginCropPreviewRect);
