@@ -1177,7 +1177,8 @@ def getVideoInfo(videoUrl, ytdlFormat):
     print('Video fps: ', videoFPS)
     print(f'Detected video bitrate: {videobr}k')
 
-    autoSetCropMultiples(cropResWidth, cropResHeight, videoWidth, videoHeight)
+    if args.json:
+        autoSetCropMultiples(cropResWidth, cropResHeight, videoWidth, videoHeight)
 
     audioUrl = ''
     if args.audio:
@@ -1191,17 +1192,17 @@ def getDefaultEncodingSettings(videobr):
     if videobr is None:
         settings = (30, 0, 2, False)
     elif videobr <= 4000:
-        settings = (20, 1.6 * videobr, 2, False)
+        settings = (20, int(1.6 * videobr), 2, False)
     elif videobr <= 6000:
-        settings = (22, 1.5 * videobr, 3, False)
+        settings = (22, int(1.5 * videobr), 3, False)
     elif videobr <= 10000:
-        settings = (24, 1.4 * videobr, 4, False)
+        settings = (24, int(1.4 * videobr), 4, False)
     elif videobr <= 15000:
-        settings = (26, 1.3 * videobr, 5, False)
+        settings = (26, int(1.3 * videobr), 5, False)
     elif videobr <= 20000:
-        settings = (30, 1.2 * videobr, 5, False)
+        settings = (30, int(1.2 * videobr), 5, False)
     else:
-        settings = (35, 1.1 * videobr, 5, False)
+        settings = (35, int(1.1 * videobr), 5, False)
     return settings
 
 def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
@@ -1377,8 +1378,7 @@ parser.add_argument('--url', '-u', action='store_true',
                     help='Use youtube-dl and ffmpeg to download only the portions of the video required.')
 parser.add_argument('--json', '-j', action='store_true',
                     help='Read in markers json file and automatically create webms.')
-parser.add_argument('--format', '-f', default='(bestvideo[ext=webm]/bestvideo)+(bestaudio[acodec=opus]/bestaudio[acodec=vorbis]/bestaudio)',
-                    help='Specify format string passed to youtube-dl.')
+parser.add_argument('--format', '-f', default='bestvideo+bestaudio', help='Specify format string passed to youtube-dl.')
 parser.add_argument('--delay', '-d', type=float, dest='delay', default=0,
                     help='Add a fixed delay to both the start and end time of each marker. Can be negative.')
 parser.add_argument('--gamma', '-ga', type=float, dest='gamma', default=1,
