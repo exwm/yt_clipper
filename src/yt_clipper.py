@@ -47,7 +47,7 @@ def loadMarkers(markersJson):
 def autoSetCropMultiples(cropResWidth, cropResHeight, videoWidth, videoHeight):
     cropMultipleX = (videoWidth / cropResWidth)
     cropMultipleY = (videoHeight / cropResHeight)
-    if cropResWidth != videoWidth or cropResHeight != cropResHeight:
+    if cropResWidth != videoWidth or cropResHeight != videoHeight:
         print('Warning: Crop resolution does not match video resolution.',
               file=sys.stderr)
         if cropResWidth != videoWidth:
