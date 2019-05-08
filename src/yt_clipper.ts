@@ -87,7 +87,11 @@
           }
           break;
         case 'KeyW':
-          toggleDefaultsEditor();
+          if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
+            toggleDefaultsEditor();
+          } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
+            toggleMarkerPairOverridesEditor();
+          }
           break;
         case 'KeyE':
           if (e.shiftKey && !e.ctrlKey) {
@@ -268,7 +272,6 @@
   border: 2px solid grey;
 }
 #marker-pair-overrides {
-  display: block;
   color: grey;
   font-size: 12pt;
   margin: 2px;
@@ -486,6 +489,7 @@
     width: '1px',
     height: '12px',
     style: 'pointer-events:fill',
+    markerPairOverridesEditorDisplay: 'none',
   };
 
   interface markerConfig {
@@ -1027,6 +1031,9 @@
       const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
       const markerInputsDiv = document.createElement('div');
       const overrides = currentMarker.overrides;
+      const markerPairOverridesEditorDisplay = targetMarker.getAttribute(
+        'markerPairOverridesEditorDisplay'
+      );
       createCropOverlay(crop);
 
       markerInputsDiv.setAttribute('id', 'markerInputsDiv');
@@ -1058,7 +1065,7 @@
         <span id="end-time">${endTime}</span>
         <span>]</span>
       </div>
-      <div id="marker-pair-overrides">
+      <div id="marker-pair-overrides" style="display:${markerPairOverridesEditorDisplay}">
         <span style="font-weight:bold">Marker Pair Overrides: </span>
         <div class="editor-input-div">
           <span>Title Prefix: </span>
@@ -1104,7 +1111,6 @@
         </div>
       </div>
       `;
-
       infoContents.insertBefore(markerInputsDiv, infoContents.firstChild);
 
       addMarkerInputListeners(
@@ -1205,6 +1211,26 @@
     markerHotkeysEnabled = false;
   }
 
+  function toggleMarkerPairOverridesEditor() {
+    if (isMarkerEditorOpen) {
+      const markerPairOverridesEditor = document.getElementById('marker-pair-overrides');
+      if (markerPairOverridesEditor) {
+        if (markerPairOverridesEditor.style.display === 'none') {
+          markerPairOverridesEditor.style.display = 'block';
+          enableMarkerHotkeys.endMarker.setAttribute(
+            'markerPairOverridesEditorDisplay',
+            'block'
+          );
+        } else {
+          markerPairOverridesEditor.style.display = 'none';
+          enableMarkerHotkeys.endMarker.setAttribute(
+            'markerPairOverridesEditorDisplay',
+            'none'
+          );
+        }
+      }
+    }
+  }
   function updateMarker(
     e: Event,
     updateTarget: string,
