@@ -173,11 +173,11 @@
   interface settings {
     defaultSlowdown: number;
     defaultCrop: string;
-    shortTitle: string;
-    videoRes: string;
-    videoWidth: number;
-    videoHeight: number;
-    concats: string;
+    titleSuffix: string;
+    cropRes: string;
+    cropResWidth: number;
+    cropResHeight: number;
+    markerPairMergeList: string;
   }
   let settings: settings;
   let markersSvg: SVGAElement;
@@ -185,11 +185,11 @@
     settings = {
       defaultSlowdown: 1.0,
       defaultCrop: '0:0:iw:ih',
-      shortTitle: `${playerInfo.playerData.video_id}`,
-      videoRes: playerInfo.isVerticalVideo ? '1080x1920' : '1920x1080',
-      videoWidth: playerInfo.isVerticalVideo ? 1080 : 1920,
-      videoHeight: playerInfo.isVerticalVideo ? 1920 : 1080,
-      concats: '',
+      titleSuffix: `${playerInfo.playerData.video_id}`,
+      cropRes: playerInfo.isVerticalVideo ? '1080x1920' : '1920x1080',
+      cropResWidth: playerInfo.isVerticalVideo ? 1080 : 1920,
+      cropResHeight: playerInfo.isVerticalVideo ? 1920 : 1080,
+      markerPairMergeList: '',
     };
     const markersDiv = document.createElement('div');
     markersDiv.setAttribute('id', 'markers-div');
@@ -226,16 +226,16 @@
 }
 #speed-input:valid,
 #crop-input:valid,
-#res-input:valid,
-#concats-input:valid {
+#crop-res-input:valid,
+#merge-list-input:valid {
   animation-name: valid-input;
   animation-duration: 1s;
   animation-fill-mode: forwards;
 }
 #speed-input:invalid,
 #crop-input:invalid,
-#res-input:invalid,
-#concats-input:invalid {
+#crop-res-input:invalid,
+#merge-list-input:invalid {
   animation-name: invalid-input;
   animation-duration: 1s;
   animation-fill-mode: forwards;
@@ -398,18 +398,18 @@
     const markersJson = JSON.stringify(
       {
         [playerInfo.playerData.video_id]: markers,
-        'video-title': playerInfo.videoTitle,
-        'crop-res': settings.videoRes,
-        'crop-res-width': settings.videoWidth,
-        'crop-res-height': settings.videoHeight,
-        'title-prefix': settings.shortTitle,
-        'merge-list': settings.concats,
+        videoTitle: playerInfo.videoTitle,
+        cropRes: settings.cropRes,
+        cropResWidth: settings.cropResWidth,
+        cropResHeight: settings.cropResHeight,
+        titleSuffix: settings.titleSuffix,
+        markerPairMergeList: settings.markerPairMergeList,
       },
       undefined,
       2
     );
     const blob = new Blob([markersJson], { type: 'text/plain;charset=utf-8' });
-    saveAs(blob, `${settings.shortTitle}.json`);
+    saveAs(blob, `${settings.titleSuffix}.json`);
   }
 
   function loadMarkers() {
@@ -459,9 +459,9 @@
     flashMessage('Loading markers.', 'green');
 
     if (markersJson[playerInfo.playerData.video_id]) {
-      settings.videoRes = markersJson['crop-res'];
-      settings.videoWidth = markersJson['crop-res-width'];
-      settings.videoHeight = markersJson['crop-res-height'];
+      settings.cropRes = markersJson['crop-res'];
+      settings.cropResWidth = markersJson['crop-res-width'];
+      settings.cropResHeight = markersJson['crop-res-height'];
       markers.length = 0;
       undoMarkerOffset = 0;
       markersJson[playerInfo.playerData.video_id].forEach((marker: marker) => {
@@ -623,19 +623,19 @@
       </div>
       <div class="editor-input-div">
         <span class="editor-input-label"> Crop Resolution: </span>
-        <input id="res-input" list="resolutions" pattern="${resInputValidation}" value="${
-        settings.videoRes
+        <input id="crop-res-input" list="resolutions" pattern="${resInputValidation}" value="${
+        settings.cropRes
       }" style="width:7em;font-weight:bold" required>
         <datalist id="resolutions" autocomplete="off">${resList}</datalist>
       </div>
       <div class="editor-input-div">
         <span class="editor-input-label"> Merge List: </span>
-        <input id="concats-input" pattern="${concatsInputValidation}" style="width:15em;font-weight:bold">
+        <input id="merge-list-input" pattern="${concatsInputValidation}" style="width:15em;font-weight:bold">
       </div>
       <div class="editor-input-div">
         <span class="editor-input-label"> Title Prefix: </span>
         <input id="short-title-input" value="[${
-          settings.shortTitle
+          settings.titleSuffix
         }]" style="background-color:lightgreen;width:20em;text-align:right">
       </div>
       `;
@@ -645,8 +645,8 @@
       addInputListeners([
         ['speed-input', 'defaultSlowdown'],
         ['crop-input', 'defaultCrop'],
-        ['res-input', 'videoRes'],
-        ['concats-input', 'concats'],
+        ['crop-res-input', 'cropRes'],
+        ['merge-list-input', 'markerPairMergeList'],
         ['short-title-input', 'shortTitle'],
       ]);
       wasDefaultsEditorOpen = true;
@@ -674,18 +674,18 @@
       settings[updateTarget] = e.target.value;
       if (
         settings[updateTarget] === settings.defaultCrop ||
-        settings[updateTarget] === settings.videoRes
+        settings[updateTarget] === settings.cropRes
       ) {
         createCropOverlay(settings.defaultCrop);
       }
-      if (settings[updateTarget] === settings.videoRes) {
-        const prevWidth = settings.videoWidth;
-        const prevHeight = settings.videoHeight;
-        const [newWidth, newHeight] = settings.videoRes.split('x').map(parseInt);
+      if (settings[updateTarget] === settings.cropRes) {
+        const prevWidth = settings.cropResWidth;
+        const prevHeight = settings.cropResHeight;
+        const [newWidth, newHeight] = settings.cropRes.split('x').map(parseInt);
         const cropMultipleX = newWidth / prevWidth;
         const cropMultipleY = newHeight / prevHeight;
-        settings.videoWidth = newWidth;
-        settings.videoHeight = newHeight;
+        settings.cropResWidth = newWidth;
+        settings.cropResHeight = newHeight;
         multiplyAllCrops(cropMultipleX, cropMultipleY);
       }
     }
@@ -745,10 +745,10 @@
 
     crop = crop.split(':');
     if (crop[2] === 'iw') {
-      crop[2] = settings.videoWidth;
+      crop[2] = settings.cropResWidth;
     }
     if (crop[3] === 'ih') {
-      crop[3] = settings.videoHeight;
+      crop[3] = settings.cropResHeight;
     }
     const cropDiv = document.createElement('div');
     cropDiv.setAttribute('id', 'crop-div');
@@ -766,10 +766,10 @@
     const cropSvg = cropDiv.firstElementChild;
     const cropRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     const cropRectAttrs = {
-      x: `${(crop[0] / settings.videoWidth) * 100}%`,
-      y: `${(crop[1] / settings.videoHeight) * 100}%`,
-      width: `${(crop[2] / settings.videoWidth) * 100}%`,
-      height: `${(crop[3] / settings.videoHeight) * 100}%`,
+      x: `${(crop[0] / settings.cropResWidth) * 100}%`,
+      y: `${(crop[1] / settings.cropResHeight) * 100}%`,
+      width: `${(crop[2] / settings.cropResWidth) * 100}%`,
+      height: `${(crop[3] / settings.cropResHeight) * 100}%`,
       fill: 'none',
       stroke: 'grey',
       'stroke-width': '3px',
@@ -880,8 +880,8 @@
       'rect'
     );
     const cropRectAttrs = {
-      x: `${(x / settings.videoWidth) * 100}%`,
-      y: `${(y / settings.videoHeight) * 100}%`,
+      x: `${(x / settings.cropResWidth) * 100}%`,
+      y: `${(y / settings.cropResHeight) * 100}%`,
       width: '5px',
       height: '5px',
       fill: 'grey',
@@ -909,12 +909,12 @@
     if (e.button == 0 && e.shiftKey && !e.ctrlKey && !e.altKey) {
       const beginX = Math.round(
         ((e.pageX - videoRect.left - playerRect.left) / videoRect.width) *
-          settings.videoWidth
+          settings.cropResWidth
       );
       let beginY = 0;
       if (!verticalFill) {
         beginY = Math.round(
-          ((e.pageY - playerRect.top) / videoRect.height) * settings.videoHeight
+          ((e.pageY - playerRect.top) / videoRect.height) * settings.cropResHeight
         );
       }
       let crop = `${beginX}:${beginY}:`;
@@ -943,12 +943,12 @@
     if (e.button == 0 && e.shiftKey && !e.ctrlKey && !e.altKey) {
       const endX = Math.round(
         ((e.pageX - playerRect.left - videoRect.left) / videoRect.width) *
-          settings.videoWidth
+          settings.cropResWidth
       );
-      let endY = settings.videoHeight;
+      let endY = settings.cropResHeight;
       if (!verticalFill) {
         endY = Math.round(
-          ((e.pageY - playerRect.top) / videoRect.height) * settings.videoHeight
+          ((e.pageY - playerRect.top) / videoRect.height) * settings.cropResHeight
         );
       }
       crop += `${endX - beginX}:${endY - beginY}`;
@@ -1309,7 +1309,7 @@ httpd.serve_forever()
       const duration = end - start;
       let req = {
         fetchUrl: url,
-        title: `${settings.shortTitle}-${idx + 1}`,
+        title: `${settings.titleSuffix}-${idx + 1}`,
         fetchHours: startHH,
         fetchMinutes: startMM,
         fetchSeconds: startSS,
@@ -1323,8 +1323,8 @@ httpd.serve_forever()
         req.crop = {
           x: crops[0],
           y: crops[1],
-          w: crops[2] === 'iw' ? settings.videoWidth : crops[2],
-          h: crops[3] === 'ih' ? settings.videoHeight : crops[3],
+          w: crops[2] === 'iw' ? settings.cropResWidth : crops[2],
+          h: crops[3] === 'ih' ? settings.cropResHeight : crops[3],
         };
       }
 
@@ -1382,7 +1382,7 @@ httpd.serve_forever()
       postData('https://api.gfycat.com/v1/gfycats', reqData, accessToken)
         .then(resp => {
           links.push(
-            `(${settings.shortTitle}-${idx})[https://gfycat.com/${resp.gfyname}${
+            `(${settings.titleSuffix}-${idx})[https://gfycat.com/${resp.gfyname}${
               reqData.speed
             }]`
           );
