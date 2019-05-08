@@ -185,6 +185,7 @@
   }
   let settings: settings;
   let markersSvg: SVGAElement;
+  let selectedMarkerPairOverlay: SVGAElement;
   function initMarkersContainer() {
     settings = {
       defaultSpeed: 1.0,
@@ -197,9 +198,16 @@
     };
     const markersDiv = document.createElement('div');
     markersDiv.setAttribute('id', 'markers-div');
-    markersDiv.innerHTML = `<svg id="markers-svg"></svg>`;
+    markersDiv.innerHTML = `\
+    <svg id="markers-svg"></svg>
+    <svg id="selected-marker-pair-overlay" style="display:none">
+      <rect id="selected-start-marker-overlay" class="selected-marker-overlay"></rect>
+      <rect id="selected-end-marker-overlay" class="selected-marker-overlay"></rect>
+    </svg>
+    `;
     playerInfo.progress_bar.appendChild(markersDiv);
-    markersSvg = markersDiv.firstChild as SVGAElement;
+    markersSvg = markersDiv.children[0] as SVGAElement;
+    selectedMarkerPairOverlay = markersDiv.children[1] as SVGAElement;
   }
 
   function initCSS() {
@@ -227,6 +235,25 @@
   100% {
     opacity: 0;
   }
+}
+.marker {
+  width: 1.5px;
+  height: 16px;
+}
+.start-marker {
+  fill: lime;
+  pointer-events: none;
+}
+.end-marker {
+  fill: gold;
+  pointer-events: visibleFill;
+}
+.selected-marker-overlay {
+  fill: black;
+  width: 1.5px;
+  height: 8.5px;
+  y: 3.5px;
+  pointer-events: none;
 }
 .yt_clipper-input:valid {
   animation-name: valid-input;
@@ -278,7 +305,8 @@
   padding: 2px;
   border: 2px solid grey;
 }
-#markers-svg {
+#markers-svg,
+#selected-marker-pair-overlay {
   width: 100%;
   height: 300%;
   top: -4px;
@@ -486,9 +514,7 @@
   }
 
   const marker_attrs = {
-    width: '1px',
-    height: '12px',
-    style: 'pointer-events:fill',
+    class: 'marker',
     markerPairOverridesEditorDisplay: 'none',
   };
 
@@ -517,13 +543,13 @@
     marker.setAttribute('time', currentFrameTime.toString());
 
     if (start === true) {
-      marker.setAttribute('fill', 'lime');
+      marker.classList.add('start-marker');
       marker.setAttribute('type', 'start');
       marker.setAttribute('z-index', '1');
       startTime = currentFrameTime;
     } else {
       marker.addEventListener('mouseover', toggleMarkerEditor, false);
-      marker.setAttribute('fill', 'gold');
+      marker.classList.add('end-marker');
       marker.setAttribute('type', 'end');
       marker.setAttribute('z-index', '2');
       updateMarkersArray(currentFrameTime, markerConfig);
@@ -599,7 +625,7 @@
       wasDefaultsEditorOpen = false;
     } else {
       if (prevSelectedMarkerPair) {
-        applyUnselectedMarkerStyle(prevSelectedMarkerPair);
+        clearSelectedMarkerPairOverlay(prevSelectedMarkerPair);
         prevSelectedMarkerPair = null;
       }
       toggleOverlay();
@@ -995,7 +1021,7 @@
       // if marker editor is open, always delete it
       if (isMarkerEditorOpen) {
         deleteMarkerEditor();
-        applyUnselectedMarkerStyle(targetMarker);
+        clearSelectedMarkerPairOverlay(targetMarker);
         if (isOverlayOpen) {
           toggleOverlay();
         }
@@ -1007,14 +1033,14 @@
       // switching to a different marker pair
       else {
         if (prevSelectedMarkerPair) {
-          applyUnselectedMarkerStyle(prevSelectedMarkerPair);
+          clearSelectedMarkerPairOverlay(prevSelectedMarkerPair);
         }
         prevSelectedMarkerPair = targetMarker;
         if (isOverlayOpen) {
           toggleOverlay();
         }
         toggleOverlay();
-        colorSelectedMarkers(targetMarker);
+        colorSelectedMarkerPair(targetMarker);
         enableMarkerHotkeys(targetMarker);
         createMarkerEditor(targetMarker);
       }
@@ -1141,6 +1167,7 @@
     markerHotkeysEnabled = true;
     enableMarkerHotkeys.endMarker = endMarker;
     enableMarkerHotkeys.startMarker = endMarker.previousSibling;
+
     enableMarkerHotkeys.moveMarker = marker => {
       const type = marker.getAttribute('type');
       const idx = parseInt(marker.getAttribute('idx')) - 1;
@@ -1148,10 +1175,18 @@
       const progress_pos = (currentTime / playerInfo.duration) * 100;
       const markerTimeSpan = document.getElementById(`${type}-time`);
       marker.setAttribute('x', `${progress_pos}%`);
+      if (type === 'start') {
+        selectedStartMarkerOverlay.setAttribute('x', `${progress_pos}%`);
+      } else if (type === 'end') {
+        selectedEndMarkerOverlay.setAttribute('x', `${progress_pos}%`);
+      }
       marker.setAttribute('time', `${currentTime}`);
       markers[idx][type === 'start' ? 'start' : 'end'] = currentTime;
       markerTimeSpan.textContent = `${toHHMMSS(currentTime)}`;
+      if (type === 'start') {
+      }
     };
+
     enableMarkerHotkeys.deleteMarkerPair = () => {
       const idx = parseInt(enableMarkerHotkeys.endMarker.getAttribute('idx')) - 1;
       markers.splice(idx, 1);
@@ -1166,15 +1201,28 @@
         const newIdx = Math.floor((idx + 2) / 2);
         markerRect.setAttribute('idx', newIdx);
       });
+
       enableMarkerHotkeys.moveMarker = null;
       enableMarkerHotkeys.deleteMarkerPair = null;
       markerHotkeysEnabled = false;
     };
   }
 
-  function colorSelectedMarkers(currentMarker: SVGRectElement) {
-    currentMarker.setAttribute('stroke', '#ffffff87');
-    currentMarker.previousSibling.setAttribute('stroke', '#ffffff70');
+  let selectedStartMarkerOverlay;
+  let selectedEndMarkerOverlay;
+  function colorSelectedMarkerPair(currentMarker: SVGRectElement) {
+    if (!selectedStartMarkerOverlay) {
+      selectedStartMarkerOverlay = document.getElementById(
+        'selected-start-marker-overlay'
+      );
+    }
+    if (!selectedEndMarkerOverlay) {
+      selectedEndMarkerOverlay = document.getElementById('selected-end-marker-overlay');
+    }
+    const startMarker = currentMarker.previousSibling;
+    selectedStartMarkerOverlay.setAttribute('x', startMarker.getAttribute('x'));
+    selectedEndMarkerOverlay.setAttribute('x', currentMarker.getAttribute('x'));
+    selectedMarkerPairOverlay.style.display = 'block';
   }
 
   function addMarkerInputListeners(
@@ -1206,11 +1254,8 @@
     });
   }
 
-  function applyUnselectedMarkerStyle(marker: SVGRectElement) {
-    if (marker.getAttribute && marker.previousSibling) {
-      marker.setAttribute('stroke', 'none');
-      marker.previousSibling.setAttribute('stroke', 'none');
-    }
+  function clearSelectedMarkerPairOverlay(marker: SVGRectElement) {
+    selectedMarkerPairOverlay.style.display = 'none';
   }
 
   function deleteMarkerEditor() {
