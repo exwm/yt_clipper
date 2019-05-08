@@ -27,7 +27,7 @@
   let wasDefaultsEditorOpen = false;
   let isOverlayOpen = false;
   let checkGfysCompletedId: number;
-  interface markerOverrides {
+  interface markerPairOverrides {
     titlePrefix?: string;
     gamma?: number;
     encodeSpeed?: number;
@@ -42,7 +42,7 @@
     end: number;
     speed: number;
     crop: string;
-    overrides: markerOverrides;
+    overrides: markerPairOverrides;
   }
   let markers: marker[] = [];
   let links: string[] = [];
@@ -402,7 +402,6 @@
     });
     const markersJson = JSON.stringify(
       {
-        markers: markers,
         videoID: playerInfo.playerData.video_id,
         videoTitle: playerInfo.videoTitle,
         cropRes: settings.cropRes,
@@ -410,6 +409,7 @@
         cropResHeight: settings.cropResHeight,
         titleSuffix: settings.titleSuffix,
         markerPairMergeList: settings.markerPairMergeList,
+        markers: markers,
       },
       undefined,
       2
@@ -497,7 +497,7 @@
     type?: 'start' | 'end';
     speed?: number;
     crop?: string;
-    overrides?: markerOverrides;
+    overrides?: markerPairOverrides;
   }
   function addMarkerSVGRect(markerConfig: markerConfig = {}) {
     const marker = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -1114,19 +1114,19 @@
       infoContents.insertBefore(markerInputsDiv, infoContents.firstChild);
 
       addMarkerInputListeners(
-        [['speed-input', 'speed'], ['crop-input', 'crop']],
+        [['speed-input', 'speed', 'number'], ['crop-input', 'crop', 'string']],
         targetMarker,
         markerIndex
       );
       addMarkerInputListeners(
         [
-          ['title-prefix-input', 'titlePrefix'],
-          ['gamma-input', 'gamma'],
-          ['encode-speed-input', 'encodeSpeed'],
-          ['crf-input', 'crf'],
-          ['two-pass-enabled-input', 'twoPassEnabled'],
-          ['denoise-enabled-input', 'denoiseEnabled'],
-          ['audio-enabled-input', 'audioEnabled'],
+          ['title-prefix-input', 'titlePrefix', 'string'],
+          ['gamma-input', 'gamma', 'number'],
+          ['encode-speed-input', 'encodeSpeed', 'number'],
+          ['crf-input', 'crf', 'number'],
+          ['two-pass-enabled-input', 'twoPassEnabled', 'boolean'],
+          ['denoise-enabled-input', 'denoiseEnabled', 'boolean'],
+          ['audio-enabled-input', 'audioEnabled', 'boolean'],
         ],
         targetMarker,
         markerIndex,
@@ -1186,12 +1186,21 @@
     inputs.forEach(input => {
       const id = input[0];
       const updateTarget = input[1];
+      const valueType = input[2] || 'string';
       const inputElem = document.getElementById(id);
       inputElem.addEventListener('focus', () => (toggleKeys = false), false);
       inputElem.addEventListener('blur', () => (toggleKeys = true), false);
       inputElem.addEventListener(
         'change',
-        e => updateMarker(e, updateTarget, currentMarker, currentIdx, overridesField),
+        e =>
+          updateMarker(
+            e,
+            updateTarget,
+            valueType,
+            currentMarker,
+            currentIdx,
+            overridesField
+          ),
         false
       );
     });
@@ -1234,21 +1243,28 @@
   function updateMarker(
     e: Event,
     updateTarget: string,
+    valueType: string,
     currentMarker: SVGRectElement,
     currentIdx: number,
     overridesField: boolean = false
   ) {
     if (e.target.reportValidity()) {
-      const newValue = e.target.value;
+      let newValue = e.target.value;
+      if (newValue != null) {
+        if (valueType === 'number') {
+          newValue = parseFloat(newValue);
+        } else if (valueType === 'boolean') {
+          newValue = Boolean(newValue);
+        }
+      }
+
       const marker = markers[currentIdx];
       if (!overridesField) {
         const currentType = currentMarker.getAttribute('type');
         if (updateTarget === 'speed') {
-          marker.speed = parseFloat(newValue);
           const speedDisplay = document.getElementById('speed-display');
           speedDisplay.textContent = `[Speed: ${newValue}]`;
         } else if (updateTarget === 'crop') {
-          newValue as string;
           marker.crop = newValue;
           const cropDisplay = document.getElementById('crop-display');
           cropDisplay.textContent = `[Crop: ${newValue}]`;
