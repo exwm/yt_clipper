@@ -53,7 +53,7 @@ def autoSetCropMultiples(cropResWidth, cropResHeight, videoWidth, videoHeight):
         if cropResWidth != videoWidth:
             print(
                 f'Crop resolution width ({cropResWidth}) not equal to video width ({videoWidth})', file=sys.stderr)
-        if cropResWidth != videoWidth:
+        if cropResHeight != videoHeight:
             print(
                 f'Crop resolution height ({cropResHeight}) not equal to video height ({videoHeight})', file=sys.stderr)
         print(f'Crop X offset and width will be multiplied by {cropMultipleX}')
