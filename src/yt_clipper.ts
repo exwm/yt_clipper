@@ -27,30 +27,25 @@
   let wasDefaultsEditorOpen = false;
   let isOverlayOpen = false;
   let checkGfysCompletedId: number;
+  interface markerOverrides {
+    titlePrefix?: string;
+    gamma?: number;
+    encodeSpeed?: number;
+    crf?: number;
+    targetMaxBitrate?: number;
+    twoPassEnabled?: boolean;
+    denoiseEnabled?: boolean;
+    audioEnabled?: boolean;
+  }
   interface marker {
     start: number;
     end: number;
     slowdown: number;
     crop: string;
+    overrides: markerOverrides;
   }
   let markers: marker[] = [];
   let links: string[] = [];
-  markers.toString = () => {
-    let markersString = '';
-    this.forEach((marker: marker, idx: number) => {
-      if (typeof marker.slowdown === 'string') {
-        marker.slowdown = Number(marker.slowdown);
-        console.log(`Converted marker pair ${idx}'s slowdown from String to Number`);
-      }
-      markersString += `${marker.start},${marker.end},${marker.slowdown},'${
-        marker.crop
-      }'`;
-      if (idx !== this.length - 1) {
-        markersString += ',';
-      }
-    });
-    return markersString;
-  };
 
   let startTime = 0.0;
   let toggleKeys = false;
@@ -64,7 +59,7 @@
       switch (e.code) {
         case 'KeyA':
           if (!e.shiftKey) {
-            addMarker();
+            addMarkerSVGRect();
           } else if (
             e.shiftKey &&
             markerHotkeysEnabled &&
@@ -387,15 +382,19 @@
         console.log(`Converted marker pair ${index}'s slowdown from String to Number`);
       }
     });
-    const markersJson = JSON.stringify({
-      [playerInfo.playerData.video_id]: markers,
-      'video-title': playerInfo.videoTitle,
-      'crop-res': settings.videoRes,
-      'crop-res-width': settings.videoWidth,
-      'crop-res-height': settings.videoHeight,
-      'title-prefix': settings.shortTitle,
-      'merge-list': settings.concats,
-    });
+    const markersJson = JSON.stringify(
+      {
+        [playerInfo.playerData.video_id]: markers,
+        'video-title': playerInfo.videoTitle,
+        'crop-res': settings.videoRes,
+        'crop-res-width': settings.videoWidth,
+        'crop-res-height': settings.videoHeight,
+        'title-prefix': settings.shortTitle,
+        'merge-list': settings.concats,
+      },
+      undefined,
+      2
+    );
     const blob = new Blob([markersJson], { type: 'text/plain;charset=utf-8' });
     saveAs(blob, `${settings.shortTitle}.json`);
   }
@@ -452,15 +451,18 @@
       settings.videoHeight = markersJson['crop-res-height'];
       markers.length = 0;
       undoMarkerOffset = 0;
-      markersJson[playerInfo.playerData.video_id].forEach(
-        (marker: [number, number, number, string]) => {
-          const [startTime, endTime, slowdown, crop] = marker;
-          const startMarker = [startTime, slowdown, crop];
-          const endMarker = [endTime, slowdown, crop];
-          addMarker(startMarker);
-          addMarker(endMarker);
-        }
-      );
+      markersJson[playerInfo.playerData.video_id].forEach((marker: marker) => {
+        const startMarkerConfig: markerConfig = { time: marker.start, type: 'start' };
+        const endMarkerConfig: markerConfig = {
+          time: marker.end,
+          type: 'end',
+          crop: marker.crop,
+          slowdown: marker.slowdown,
+          overrides: marker.overrides,
+        };
+        addMarkerSVGRect(startMarkerConfig);
+        addMarkerSVGRect(endMarkerConfig);
+      });
     }
   }
 
@@ -468,31 +470,31 @@
     width: '1px',
     height: '12px',
     style: 'pointer-events:fill',
-    slowdown: Number,
-    crop: String,
   };
 
-  function addMarker(markerConfig = [null, null, null]) {
+  interface markerConfig {
+    time?: number;
+    type?: 'start' | 'end';
+    slowdown?: number;
+    crop?: string;
+    overrides?: markerOverrides;
+  }
+  function addMarkerSVGRect(markerConfig: markerConfig = {}) {
     const marker = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     markersSvg.appendChild(marker);
 
-    const roughCurrentTime = markerConfig[0] || player.getCurrentTime();
-    let currentFrameTime;
-    const videoStats = player.getStatsForNerds();
-    let fps = videoStats ? videoStats.resolution.match(/@(\d\d)/)[1] : null;
-    fps
-      ? (currentFrameTime = Math.floor(roughCurrentTime * fps) / fps)
-      : (currentFrameTime = roughCurrentTime);
+    marker_attrs.slowdown = markerConfig.slowdown || settings.defaultSlowdown;
+    marker_attrs.crop = markerConfig.crop || settings.defaultCrop;
 
+    const roughCurrentTime = markerConfig.time || player.getCurrentTime();
+    const currentFrameTime = getCurrentFrameTime(roughCurrentTime);
     const progress_pos = (currentFrameTime / playerInfo.duration) * 100;
-    marker_attrs.slowdown = markerConfig[1] || settings.defaultSlowdown;
-    marker_attrs.crop = markerConfig[2] || settings.defaultCrop;
 
     setAttributes(marker, marker_attrs);
     marker.setAttribute('x', `${progress_pos}%`);
     const rectIdx = markers.length + 1 + undoMarkerOffset;
     marker.setAttribute('idx', rectIdx.toString());
-    marker.setAttribute('time', currentFrameTime);
+    marker.setAttribute('time', currentFrameTime.toString());
 
     if (start === true) {
       marker.setAttribute('fill', 'lime');
@@ -504,19 +506,30 @@
       marker.setAttribute('fill', 'gold');
       marker.setAttribute('type', 'end');
       marker.setAttribute('z-index', '2');
-      updateMarkers(currentFrameTime, markerConfig);
+      updateMarkersArray(currentFrameTime, markerConfig);
     }
 
     start = !start;
     console.log(markers);
   }
 
-  function updateMarkers(currentTime: number, markerConfig = [null, null, null]) {
+  function getCurrentFrameTime(roughCurrentTime: number): number {
+    let currentFrameTime;
+    const videoStats = player.getStatsForNerds();
+    let fps = videoStats ? videoStats.resolution.match(/@(\d\d)/)[1] : null;
+    fps
+      ? (currentFrameTime = Math.floor(roughCurrentTime * fps) / fps)
+      : (currentFrameTime = roughCurrentTime);
+    return currentFrameTime;
+  }
+
+  function updateMarkersArray(currentTime: number, markerPairConfig: markerConfig) {
     const updatedMarker: marker = {
       start: startTime,
       end: currentTime,
-      slowdown: markerConfig[1] || settings.defaultSlowdown,
-      crop: markerConfig[2] || settings.defaultCrop,
+      slowdown: markerPairConfig.slowdown || settings.defaultSlowdown,
+      crop: markerPairConfig.crop || settings.defaultCrop,
+      overrides: markerPairConfig.overrides || {},
     };
 
     if (undoMarkerOffset === -1) {
@@ -952,7 +965,7 @@
   }
 
   function toggleMarkerEditor(e: MouseEvent) {
-    const targetMarker = e.target;
+    const targetMarker = e.target as SVGRectElement;
 
     if (targetMarker && e.shiftKey) {
       // if marker editor is open, always delete it
@@ -983,56 +996,115 @@
       }
     }
 
-    function createMarkerEditor(currentMarker) {
-      const startMarker = currentMarker.previousSibling;
+    function createMarkerEditor(targetMarker) {
       const infoContents = playerInfo.infoContents;
-      const currentIdx = currentMarker.getAttribute('idx');
-      const currentMarkerTime = toHHMMSS(currentMarker.getAttribute('time'));
-      const startMarkerTime = toHHMMSS(startMarker.getAttribute('time'));
-      const currentSlowdown = currentMarker.getAttribute('slowdown');
-      const currentCrop: string = currentMarker.getAttribute('crop');
+      const markerIndex = targetMarker.getAttribute('idx') - 1;
+      const currentMarker = markers[markerIndex];
+      const startTime = toHHMMSS(currentMarker.start);
+      const endTime = toHHMMSS(currentMarker.end);
+      const slowdown = currentMarker.slowdown;
+      const crop: string = targetMarker.getAttribute('crop');
       const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
-      const markerInputs = document.createElement('div');
+      const markerInputsDiv = document.createElement('div');
+      const overrides = currentMarker.overrides;
+      createCropOverlay(crop);
 
-      createCropOverlay(currentCrop);
-
-      markerInputs.setAttribute('id', 'markerInputsDiv');
-      markerInputs.setAttribute(
+      markerInputsDiv.setAttribute('id', 'markerInputsDiv');
+      markerInputsDiv.setAttribute(
         'style',
         'margin-top:2px;padding:2px;border:2px outset grey'
       );
-      markerInputs.innerHTML = `\
+      markerInputsDiv.innerHTML = `\
       <div class="editor-input-div">
         <span>Speed: </span>
-        <input id="speed-input" type="number" placeholder="speed" value="${currentSlowdown}" 
+        <input id="speed-input" type="number" placeholder="speed" value="${slowdown}" 
           step="0.05" min="0.05" max="2" style="width:4em;font-weight:bold" required></input>
       </div>
       <div class="editor-input-div">
         <span>Crop: </span>
-        <input id="crop-input" value="${currentCrop}" pattern="${cropInputValidation}" 
+        <input id="crop-input" value="${crop}" pattern="${cropInputValidation}" 
         style="width:10em;font-weight:bold" required></input>
       </div>
-        <div class="marker-settings-display">
-          <span style="font-weight:bold;font-style:none">Marker Pair Info:   </span>
-          <span>   </span>
-          <span id="marker-idx-display" ">[Number: ${currentIdx}]</span>
-          <span id="speed-display">[Speed: ${currentSlowdown}x]</span>
-          <span>   </span>
-          <span id="crop-display">[Crop: ${currentCrop}]</span>
-          <span>[Time: </span>
-          <span id="start-time">${startMarkerTime}</span>
-          <span> - </span>
-          <span id="end-time">${currentMarkerTime}</span>
-          <span>]</span
-        </div>`;
+      <div class="marker-settings-display">
+        <span style="font-weight:bold;font-style:none">Marker Pair Info:   </span>
+        <span>   </span>
+        <span id="marker-idx-display" ">[Number: ${markerIndex + 1}]</span>
+        <span id="speed-display">[Speed: ${slowdown}x]</span>
+        <span>   </span>
+        <span id="crop-display">[Crop: ${crop}]</span>
+        <span>[Time: </span>
+        <span id="start-time">${startTime}</span>
+        <span> - </span>
+        <span id="end-time">${endTime}</span>
+        <span>]</span>
+      </div>
+      <div id="marker-overrides">
+        <span display="block">Marker Pair Overrides</span>
+        <div class="editor-input-div">
+          <span>Title Prefix: </span>
+          <input id="title-prefix-input" value="${overrides.titlePrefix ||
+            ''}" style="width:10em;font-weight:bold"></input>
+        </div>
+        <div class="editor-input-div">
+          <span>Gamma (>=0): </span>
+          <input id="gamma-input" type="number" min="0" step="0.01" value="${
+            overrides.gamma
+          }" style="width:10em;font-weight:bold"></input>
+        </div>
+        <div class="editor-input-div">
+          <span>Encode Speed (0-5): </span>
+          <input id="encode-speed-input" type="number" min="0" max="5" step="1" value="${
+            overrides.encodeSpeed
+          }" style="width:10em;font-weight:bold"></input>
+        </div>
+        <div class="editor-input-div">
+          <span>CRF (0-63): </span>
+          <input id="crf-input" type="number" min="0" max="63" step="1" value="${
+            overrides.crf
+          }" style="width:10em;font-weight:bold"></input>
+        </div>
+        <div class="editor-input-div">
+          <span>Two-Pass: </span>
+          <input id="two-pass-enabled-input" type="checkbox" value="${
+            overrides.twoPassEnabled
+          }"></input>
+        </div>
+        <div class="editor-input-div">
+          <span>Denoise: </span>
+          <input id="denoise-enabled-input" type="checkbox" value="${
+            overrides.denoiseEnabled
+          }"></input>
+        </div>
+        <div class="editor-input-div">
+          <span>Audio: </span>
+          <input id="audio-enabled-input" type="checkbox" value="${
+            overrides.audioEnabled
+          }"></input>
+        </div>
+      </div>
+      `;
 
-      infoContents.insertBefore(markerInputs, infoContents.firstChild);
+      infoContents.insertBefore(markerInputsDiv, infoContents.firstChild);
+
       addMarkerInputListeners(
         [['speed-input', 'slowdown'], ['crop-input', 'crop']],
-        currentMarker,
-        currentIdx
+        targetMarker,
+        markerIndex
       );
-
+      addMarkerInputListeners(
+        [
+          ['title-prefix-input', 'titlePrefix'],
+          ['gamma-input', 'gamma'],
+          ['encode-speed-input', 'encodeSpeed'],
+          ['crf-input', 'crf'],
+          ['two-pass-enabled-input', 'twoPassEnabled'],
+          ['denoise-enabled-input', 'denoiseEnabled'],
+          ['audio-enabled-input', 'audioEnabled'],
+        ],
+        targetMarker,
+        markerIndex,
+        true
+      );
       isMarkerEditorOpen = true;
       wasDefaultsEditorOpen = false;
     }
@@ -1081,7 +1153,8 @@
   function addMarkerInputListeners(
     inputs: string[][],
     currentMarker: SVGRectElement,
-    currentIdx: number
+    currentIdx: number,
+    overridesField = false
   ) {
     inputs.forEach(input => {
       const id = input[0];
@@ -1091,7 +1164,7 @@
       inputElem.addEventListener('blur', () => (toggleKeys = true), false);
       inputElem.addEventListener(
         'change',
-        e => updateMarker(e, updateTarget, currentMarker, currentIdx),
+        e => updateMarker(e, updateTarget, currentMarker, currentIdx, overridesField),
         false
       );
     });
@@ -1115,29 +1188,33 @@
     e: Event,
     updateTarget: string,
     currentMarker: SVGRectElement,
-    currentIdx: number
+    currentIdx: number,
+    overridesField: boolean = false
   ) {
-    const currentType = currentMarker.getAttribute('type');
-    const newValue = e.target.value;
-
     if (e.target.reportValidity()) {
-      if (updateTarget === 'slowdown') {
-        markers[currentIdx - 1].slowdown = parseFloat(newValue);
-        const speedDisplay = document.getElementById('speed-display');
-        speedDisplay.textContent = `[Speed: ${newValue}]`;
-      } else if (updateTarget === 'crop') {
-        newValue as string;
-        markers[currentIdx - 1].crop = newValue;
-        const cropDisplay = document.getElementById('crop-display');
-        cropDisplay.textContent = `[Crop: ${newValue}]`;
-        createCropOverlay(newValue);
-      }
-
-      currentMarker.setAttribute(updateTarget, newValue);
-      if (currentType === 'start') {
-        currentMarker.nextSibling.setAttribute(updateTarget, newValue);
-      } else if (currentType === 'end') {
-        currentMarker.previousSibling.setAttribute(updateTarget, newValue);
+      const newValue = e.target.value;
+      const marker = markers[currentIdx];
+      if (!overridesField) {
+        const currentType = currentMarker.getAttribute('type');
+        if (updateTarget === 'slowdown') {
+          marker.slowdown = parseFloat(newValue);
+          const speedDisplay = document.getElementById('speed-display');
+          speedDisplay.textContent = `[Speed: ${newValue}]`;
+        } else if (updateTarget === 'crop') {
+          newValue as string;
+          marker.crop = newValue;
+          const cropDisplay = document.getElementById('crop-display');
+          cropDisplay.textContent = `[Crop: ${newValue}]`;
+          createCropOverlay(newValue);
+        }
+        currentMarker.setAttribute(updateTarget, newValue);
+        if (currentType === 'start') {
+          currentMarker.nextSibling.setAttribute(updateTarget, newValue);
+        } else if (currentType === 'end') {
+          currentMarker.previousSibling.setAttribute(updateTarget, newValue);
+        }
+      } else {
+        marker.overrides[updateTarget] = newValue;
       }
     }
   }
@@ -1546,7 +1623,7 @@ UPLOAD_KEY_REQUEST_ENDPOINT = 'https://api.gfycat.com/v1/gfycats?'
 FILE_UPLOAD_ENDPOINT = 'https://filedrop.gfycat.com'
 AUTHENTICATION_ENDPOINT = 'https://api.gfycat.com/v1/oauth/token'
 
-markers = [${markers.toString()}]
+markers = [${JSON.stringify(markers)}]
 markers = ['0:0:iw:ih' if m == 'undefined' else m for m in markers]
 concats = '${settings.concats}'
 title = re.sub("'","", r'''${
