@@ -224,18 +224,12 @@
     opacity: 0;
   }
 }
-#speed-input:valid,
-#crop-input:valid,
-#crop-res-input:valid,
-#merge-list-input:valid {
+.yt_clipper-input:valid {
   animation-name: valid-input;
   animation-duration: 1s;
   animation-fill-mode: forwards;
 }
-#speed-input:invalid,
-#crop-input:invalid,
-#crop-res-input:invalid,
-#merge-list-input:invalid {
+.yt_clipper-input:invalid {
   animation-name: invalid-input;
   animation-duration: 1s;
   animation-fill-mode: forwards;
@@ -269,6 +263,14 @@
   color: grey;
   font-size: 12pt;
   font-style: italic;
+  margin: 2px;
+  padding: 2px;
+  border: 2px solid grey;
+}
+#marker-pair-overrides {
+  display: block;
+  color: grey;
+  font-size: 12pt;
   margin: 2px;
   padding: 2px;
   border: 2px solid grey;
@@ -397,7 +399,8 @@
     });
     const markersJson = JSON.stringify(
       {
-        [playerInfo.playerData.video_id]: markers,
+        markers: markers,
+        videoID: playerInfo.playerData.video_id,
         videoTitle: playerInfo.videoTitle,
         cropRes: settings.cropRes,
         cropResWidth: settings.cropResWidth,
@@ -542,7 +545,11 @@
       end: currentTime,
       speed: markerPairConfig.speed || settings.defaultSpeed,
       crop: markerPairConfig.crop || settings.defaultCrop,
-      overrides: markerPairConfig.overrides || {},
+      overrides: markerPairConfig.overrides || {
+        denoiseEnabled: false,
+        twoPassEnabled: false,
+        audioEnabled: false,
+      },
     };
 
     if (undoMarkerOffset === -1) {
@@ -611,30 +618,30 @@
       markerInputs.innerHTML = `\
       <div class="editor-input-div">
         <span class="editor-input-label">Default Speed: </span>
-        <input id="speed-input"  type="number" placeholder="speed" value="${
+        <input id="speed-input" class="yt_clipper-input"  type="number" placeholder="speed" value="${
           settings.defaultSpeed
         }" step="0.05" min="0.05" max="2" style="width:4em;font-weight:bold">
       </div>
       <div class="editor-input-div">
         <span class="editor-input-label"> Default Crop: </span>
-        <input id="crop-input" value="${
+        <input id="crop-input" class="yt_clipper-input" value="${
           settings.defaultCrop
         }" pattern="${cropInputValidation}" style="width:10em;font-weight:bold" required>
       </div>
       <div class="editor-input-div">
         <span class="editor-input-label"> Crop Resolution: </span>
-        <input id="crop-res-input" list="resolutions" pattern="${resInputValidation}" value="${
+        <input id="crop-res-input" class="yt_clipper-input" list="resolutions" pattern="${resInputValidation}" value="${
         settings.cropRes
       }" style="width:7em;font-weight:bold" required>
         <datalist id="resolutions" autocomplete="off">${resList}</datalist>
       </div>
       <div class="editor-input-div">
         <span class="editor-input-label"> Merge List: </span>
-        <input id="merge-list-input" pattern="${concatsInputValidation}" style="width:15em;font-weight:bold">
+        <input id="merge-list-input" class="yt_clipper-input" pattern="${concatsInputValidation}" style="width:15em;font-weight:bold">
       </div>
       <div class="editor-input-div">
         <span class="editor-input-label"> Title Prefix: </span>
-        <input id="short-title-input" value="[${
+        <input id="title-suffix-input" class="yt_clipper-input" value="[${
           settings.titleSuffix
         }]" style="background-color:lightgreen;width:20em;text-align:right">
       </div>
@@ -647,7 +654,7 @@
         ['crop-input', 'defaultCrop'],
         ['crop-res-input', 'cropRes'],
         ['merge-list-input', 'markerPairMergeList'],
-        ['short-title-input', 'shortTitle'],
+        ['title-suffix-input', 'titleSuffix'],
       ]);
       wasDefaultsEditorOpen = true;
       isMarkerEditorOpen = true;
@@ -1030,12 +1037,12 @@
       markerInputsDiv.innerHTML = `\
       <div class="editor-input-div">
         <span>Speed: </span>
-        <input id="speed-input" type="number" placeholder="speed" value="${speed}" 
+        <input id="speed-input" class="yt_clipper-input" type="number" placeholder="speed" value="${speed}" 
           step="0.05" min="0.05" max="2" style="width:4em;font-weight:bold" required></input>
       </div>
       <div class="editor-input-div">
         <span>Crop: </span>
-        <input id="crop-input" value="${crop}" pattern="${cropInputValidation}" 
+        <input id="crop-input" class="yt_clipper-input" value="${crop}" pattern="${cropInputValidation}" 
         style="width:10em;font-weight:bold" required></input>
       </div>
       <div class="marker-settings-display">
@@ -1051,48 +1058,49 @@
         <span id="end-time">${endTime}</span>
         <span>]</span>
       </div>
-      <div id="marker-overrides">
-        <span display="block">Marker Pair Overrides</span>
+      <div id="marker-pair-overrides">
+        <span style="font-weight:bold">Marker Pair Overrides: </span>
         <div class="editor-input-div">
           <span>Title Prefix: </span>
-          <input id="title-prefix-input" value="${overrides.titlePrefix ||
-            ''}" style="width:10em;font-weight:bold"></input>
+          <input id="title-prefix-input" class="yt_clipper-input" value="${
+            overrides.titlePrefix != null ? overrides.titlePrefix : ''
+          }" style="width:10em;font-weight:bold"></input>
         </div>
         <div class="editor-input-div">
-          <span>Gamma (>=0): </span>
-          <input id="gamma-input" type="number" min="0" step="0.01" value="${
-            overrides.gamma
+          <span>Gamma (0.00-4.00): </span>
+          <input id="gamma-input" class="yt_clipper-input" type="number" min="0" max="4.00" step="0.01" value="${
+            overrides.gamma != null ? overrides.gamma : ''
           }" style="width:10em;font-weight:bold"></input>
         </div>
         <div class="editor-input-div">
           <span>Encode Speed (0-5): </span>
-          <input id="encode-speed-input" type="number" min="0" max="5" step="1" value="${
-            overrides.encodeSpeed
+          <input id="encode-speed-input" class="yt_clipper-input" type="number" min="0" max="5" step="1" value="${
+            overrides.encodeSpeed != null ? overrides.encodeSpeed : ''
           }" style="width:10em;font-weight:bold"></input>
         </div>
         <div class="editor-input-div">
           <span>CRF (0-63): </span>
-          <input id="crf-input" type="number" min="0" max="63" step="1" value="${
-            overrides.crf
+          <input id="crf-input" class="yt_clipper-input" type="number" min="0" max="63" step="1" value="${
+            overrides.crf != null ? overrides.crf : ''
           }" style="width:10em;font-weight:bold"></input>
         </div>
         <div class="editor-input-div">
           <span>Two-Pass: </span>
-          <input id="two-pass-enabled-input" type="checkbox" value="${
+          <input id="two-pass-enabled-input" type="checkbox" value="${Boolean(
             overrides.twoPassEnabled
-          }"></input>
+          )}"></input>
         </div>
         <div class="editor-input-div">
           <span>Denoise: </span>
-          <input id="denoise-enabled-input" type="checkbox" value="${
+          <input id="denoise-enabled-input" type="checkbox" value="${Boolean(
             overrides.denoiseEnabled
-          }"></input>
+          )}"></input>
         </div>
         <div class="editor-input-div">
           <span>Audio: </span>
-          <input id="audio-enabled-input" type="checkbox" value="${
+          <input id="audio-enabled-input" type="checkbox" value="${Boolean(
             overrides.audioEnabled
-          }"></input>
+          )}"></input>
         </div>
       </div>
       `;
@@ -1227,7 +1235,11 @@
           currentMarker.previousSibling.setAttribute(updateTarget, newValue);
         }
       } else {
-        marker.overrides[updateTarget] = newValue;
+        if (newValue === '') {
+          delete marker.overrides[updateTarget];
+        } else {
+          marker.overrides[updateTarget] = newValue;
+        }
       }
     }
   }
