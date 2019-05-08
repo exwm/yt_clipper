@@ -195,32 +195,49 @@
     markersDiv.setAttribute('id', 'markers-div');
     markersDiv.innerHTML = `<svg id="markers-svg"></svg>`;
     playerInfo.progress_bar.appendChild(markersDiv);
-
     markersSvg = markersDiv.firstChild as SVGAElement;
   }
 
   function initCSS() {
     const clipperCSS = `\
 @keyframes valid-input {
-  0% {background-color: tomato;}
-  100% {background-color: lightgreen;}
+  0% {
+    background-color: tomato;
+  }
+  100% {
+    background-color: lightgreen;
+  }
 }
 @keyframes invalid-input {
-  0% {background-color: lightgreen;}
-  100% {background-color: tomato;}
+  0% {
+    background-color: lightgreen;
+  }
+  100% {
+    background-color: tomato;
+  }
 }
 @keyframes flash {
-    0% {opacity: 1;}
-  100% {opacity: 0;}
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
-#speed-input:valid, #crop-input:valid, #res-input:valid, #concats-input:valid {
+#speed-input:valid,
+#crop-input:valid,
+#res-input:valid,
+#concats-input:valid {
   animation-name: valid-input;
-  animation-duration:1s;
+  animation-duration: 1s;
   animation-fill-mode: forwards;
-}    
-#speed-input:invalid, #crop-input:invalid, #res-input:invalid, #concats-input:invalid {
+}
+#speed-input:invalid,
+#crop-input:invalid,
+#res-input:invalid,
+#concats-input:invalid {
   animation-name: invalid-input;
-  animation-duration:1s;
+  animation-duration: 1s;
   animation-fill-mode: forwards;
 }
 .flash-div {
@@ -1214,7 +1231,6 @@
       }
     }
   }
-
 
   function saveAuthServerScript() {
     const authScript = `\
