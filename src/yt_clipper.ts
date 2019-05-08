@@ -40,7 +40,7 @@
   interface marker {
     start: number;
     end: number;
-    slowdown: number;
+    speed: number;
     crop: string;
     overrides: markerOverrides;
   }
@@ -91,7 +91,7 @@
           break;
         case 'KeyE':
           if (e.shiftKey && !e.ctrlKey) {
-            updateAllMarkers('slowdown', settings.defaultSlowdown);
+            updateAllMarkers('speed', settings.defaultSpeed);
           }
           break;
         case 'KeyD':
@@ -171,7 +171,7 @@
   }
 
   interface settings {
-    defaultSlowdown: number;
+    defaultSpeed: number;
     defaultCrop: string;
     titleSuffix: string;
     cropRes: string;
@@ -183,7 +183,7 @@
   let markersSvg: SVGAElement;
   function initMarkersContainer() {
     settings = {
-      defaultSlowdown: 1.0,
+      defaultSpeed: 1.0,
       defaultCrop: '0:0:iw:ih',
       titleSuffix: `${playerInfo.playerData.video_id}`,
       cropRes: playerInfo.isVerticalVideo ? '1080x1920' : '1920x1080',
@@ -348,7 +348,7 @@
       return false;
     });
     if (isTimeBetweenMarkerPair && markers[currentIdx]) {
-      const currentMarkerSlowdown = markers[currentIdx].slowdown;
+      const currentMarkerSlowdown = markers[currentIdx].speed;
       if (player.getPlaybackRate() !== currentMarkerSlowdown) {
         player.setPlaybackRate(currentMarkerSlowdown);
       }
@@ -389,10 +389,10 @@
 
   function saveMarkers() {
     markers.forEach((marker: marker, index: number) => {
-      const slowdown = marker.slowdown;
-      if (typeof slowdown === 'string') {
-        marker.slowdown = Number(slowdown);
-        console.log(`Converted marker pair ${index}'s slowdown from String to Number`);
+      const speed = marker.speed;
+      if (typeof speed === 'string') {
+        marker.speed = Number(speed);
+        console.log(`Converted marker pair ${index}'s speed from String to Number`);
       }
     });
     const markersJson = JSON.stringify(
@@ -470,7 +470,7 @@
           time: marker.end,
           type: 'end',
           crop: marker.crop,
-          slowdown: marker.slowdown,
+          speed: marker.speed,
           overrides: marker.overrides,
         };
         addMarkerSVGRect(startMarkerConfig);
@@ -488,7 +488,7 @@
   interface markerConfig {
     time?: number;
     type?: 'start' | 'end';
-    slowdown?: number;
+    speed?: number;
     crop?: string;
     overrides?: markerOverrides;
   }
@@ -496,7 +496,7 @@
     const marker = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     markersSvg.appendChild(marker);
 
-    marker_attrs.slowdown = markerConfig.slowdown || settings.defaultSlowdown;
+    marker_attrs.speed = markerConfig.speed || settings.defaultSpeed;
     marker_attrs.crop = markerConfig.crop || settings.defaultCrop;
 
     const roughCurrentTime = markerConfig.time || player.getCurrentTime();
@@ -540,7 +540,7 @@
     const updatedMarker: marker = {
       start: startTime,
       end: currentTime,
-      slowdown: markerPairConfig.slowdown || settings.defaultSlowdown,
+      speed: markerPairConfig.speed || settings.defaultSpeed,
       crop: markerPairConfig.crop || settings.defaultCrop,
       overrides: markerPairConfig.overrides || {},
     };
@@ -612,7 +612,7 @@
       <div class="editor-input-div">
         <span class="editor-input-label">Default Speed: </span>
         <input id="speed-input"  type="number" placeholder="speed" value="${
-          settings.defaultSlowdown
+          settings.defaultSpeed
         }" step="0.05" min="0.05" max="2" style="width:4em;font-weight:bold">
       </div>
       <div class="editor-input-div">
@@ -963,7 +963,7 @@
   }
 
   function updateAllMarkers(updateTarget: string, newValue: string | number) {
-    if (updateTarget === 'slowdown') {
+    if (updateTarget === 'speed') {
       newValue = parseFloat(newValue);
     }
     if (markers) {
@@ -1015,7 +1015,7 @@
       const currentMarker = markers[markerIndex];
       const startTime = toHHMMSS(currentMarker.start);
       const endTime = toHHMMSS(currentMarker.end);
-      const slowdown = currentMarker.slowdown;
+      const speed = currentMarker.speed;
       const crop: string = targetMarker.getAttribute('crop');
       const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
       const markerInputsDiv = document.createElement('div');
@@ -1030,7 +1030,7 @@
       markerInputsDiv.innerHTML = `\
       <div class="editor-input-div">
         <span>Speed: </span>
-        <input id="speed-input" type="number" placeholder="speed" value="${slowdown}" 
+        <input id="speed-input" type="number" placeholder="speed" value="${speed}" 
           step="0.05" min="0.05" max="2" style="width:4em;font-weight:bold" required></input>
       </div>
       <div class="editor-input-div">
@@ -1042,7 +1042,7 @@
         <span style="font-weight:bold;font-style:none">Marker Pair Info:   </span>
         <span>   </span>
         <span id="marker-idx-display" ">[Number: ${markerIndex + 1}]</span>
-        <span id="speed-display">[Speed: ${slowdown}x]</span>
+        <span id="speed-display">[Speed: ${speed}x]</span>
         <span>   </span>
         <span id="crop-display">[Crop: ${crop}]</span>
         <span>[Time: </span>
@@ -1100,7 +1100,7 @@
       infoContents.insertBefore(markerInputsDiv, infoContents.firstChild);
 
       addMarkerInputListeners(
-        [['speed-input', 'slowdown'], ['crop-input', 'crop']],
+        [['speed-input', 'speed'], ['crop-input', 'crop']],
         targetMarker,
         markerIndex
       );
@@ -1209,8 +1209,8 @@
       const marker = markers[currentIdx];
       if (!overridesField) {
         const currentType = currentMarker.getAttribute('type');
-        if (updateTarget === 'slowdown') {
-          marker.slowdown = parseFloat(newValue);
+        if (updateTarget === 'speed') {
+          marker.speed = parseFloat(newValue);
           const speedDisplay = document.getElementById('speed-display');
           speedDisplay.textContent = `[Speed: ${newValue}]`;
         } else if (updateTarget === 'crop') {
@@ -1300,7 +1300,7 @@ httpd.serve_forever()
     return markers.map((marker: marker, idx: number) => {
       const start = marker.start;
       const end = marker.end;
-      const speed = (1 / marker.slowdown).toPrecision(4);
+      const speed = (1 / marker.speed).toPrecision(4);
       const crop = marker.crop;
       const startHHMMSS = toHHMMSS(start).split(':');
       const startHH = startHHMMSS[0];
