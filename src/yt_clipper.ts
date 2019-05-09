@@ -616,6 +616,7 @@
     flashMessage(`Video playback speed set to ${newSpeed}`, 'green');
   }
 
+  let globalEncodeSettingsEditorDisplay: 'none' | 'block' = 'none';
   function toggleDefaultsEditor() {
     if (isMarkerEditorOpen) {
       deleteMarkerEditor();
@@ -641,8 +642,8 @@
       const resList = playerInfo.isVerticalVideo
         ? `<option value="1080x1920"><option value="2160x3840">`
         : `<option value="1920x1080"><option value="3840x2160">`;
+
       markerInputs.setAttribute('id', 'markerInputsDiv');
-      console.log(settings.newMarkerSpeed);
       markerInputs.innerHTML = `\
       <div id="new-marker-defaults-inputs" class="yt_clipper-settings-editor">
         <span style="font-weight:bold">New Marker Defaults: </span>
@@ -681,7 +682,7 @@
       }" style="width:15em;font-weight:bold">
         </div>
       </div>
-      <div id="global-encode-settings" class="yt_clipper-settings-editor">
+      <div id="global-encode-settings" class="yt_clipper-settings-editor" style="display:${globalEncodeSettingsEditorDisplay}">
         <span style="font-weight:bold">Global Encode Settings: </span>
         <div class="editor-input-div">
           <span>Gamma (0.00-4.00): </span>
@@ -1349,6 +1350,9 @@
   function toggleMarkerPairOverridesEditor() {
     if (isMarkerEditorOpen) {
       const markerPairOverridesEditor = document.getElementById('marker-pair-overrides');
+      const globalEncodeSettingsEditor = document.getElementById(
+        'global-encode-settings'
+      );
       if (markerPairOverridesEditor) {
         if (markerPairOverridesEditor.style.display === 'none') {
           markerPairOverridesEditor.style.display = 'block';
@@ -1362,6 +1366,14 @@
             'markerPairOverridesEditorDisplay',
             'none'
           );
+        }
+      } else if (globalEncodeSettingsEditor) {
+        if (globalEncodeSettingsEditor.style.display === 'none') {
+          globalEncodeSettingsEditor.style.display = 'block';
+          globalEncodeSettingsEditorDisplay = 'block';
+        } else if (globalEncodeSettingsEditor.style.display === 'block') {
+          globalEncodeSettingsEditor.style.display = 'none';
+          globalEncodeSettingsEditorDisplay = 'none';
         }
       }
     }
