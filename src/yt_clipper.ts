@@ -195,7 +195,7 @@
     settings = {
       newMarkerSpeed: 1.0,
       newMarkerCrop: '0:0:iw:ih',
-      titleSuffix: `${playerInfo.playerData.video_id}`,
+      titleSuffix: `[${playerInfo.playerData.video_id}]`,
       cropRes: playerInfo.isVerticalVideo ? '1080x1920' : '1920x1080',
       cropResWidth: playerInfo.isVerticalVideo ? 1080 : 1920,
       cropResHeight: playerInfo.isVerticalVideo ? 1920 : 1080,
@@ -664,9 +664,9 @@
         <span style="font-weight:bold">Global Marker Settings: </span>
         <div class="editor-input-div">
           <span class="editor-input-label"> Title Suffix: </span>
-          <input id="title-suffix-input" class="yt_clipper-input" value="[${
+          <input id="title-suffix-input" class="yt_clipper-input" value="${
             settings.titleSuffix
-          }]" style="background-color:lightgreen;width:20em;text-align:right">
+          }" style="background-color:lightgreen;width:20em;text-align:right">
         </div>
         <div class="editor-input-div">
           <span class="editor-input-label"> Crop Resolution: </span>
