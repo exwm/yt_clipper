@@ -116,6 +116,9 @@ def loadMarkers(markersJson, settings):
     settings = {**settings, **markersDict}
     settings["videoUrl"] = 'https://www.youtube.com/watch?v=' + \
         settings["videoID"]
+
+    logger.info(f'Video URL: {settings["videoUrl"]}')
+    logger.info(f'Merge List: {settings["markerPairMergeList"]}')
     return settings
 
 
@@ -125,10 +128,15 @@ def prepareSettings(settings):
         encodeSettings = getDefaultEncodeSettings(settings["targetMaxBitrate"])
     else:
         encodeSettings = getDefaultEncodeSettings(None)
-    settings = {**settings, **encodeSettings}
 
-    logger.info((f'Global encoding options: CRF: {settings["crf"]} (0-63), Target Bitrate: {settings["targetMaxBitrate"]}k, '
-                 + f'Two-pass encoding enabled: {settings["twoPass"]}, Encoding Speed: {settings["encodeSpeed"]} (0-5)'))
+    logger.info((f'Automatically determined encoding settings: CRF: {encodeSettings["crf"]} (0-63), Target Bitrate: {encodeSettings["targetMaxBitrate"]}k, '
+                 + f'Two-pass encoding enabled: {encodeSettings["twoPass"]}, Encoding Speed: {encodeSettings["encodeSpeed"]} (0-5)'))
+
+    settings = {**encodeSettings, **settings}
+
+    logger.info((f'Global encoding settings: CRF: {settings["crf"]} (0-63), Target Bitrate: {settings["targetMaxBitrate"]}k, '
+                 + f'Two-pass encoding enabled: {settings["twoPass"]}, Encoding Speed: {settings["encodeSpeed"]} (0-5)' +
+                 f'Audio enabled: {settings["audio"]}, Denoise enabled: {settings["denoise:"]}, Rotate: {settings["rotate"]}'))
 
     return settings
 
@@ -136,8 +144,15 @@ def prepareSettings(settings):
 def trim_video(settings, markerPairIndex):
     mp = markerPair = {**(settings["markers"][markerPairIndex])}
     mps = markerPairSettings = {**settings, **(markerPair["overrides"])}
+
     if "titlePrefix" not in mps:
         mps["titlePrefix"] = ''
+
+    logger.info((f'Marker pair {markerPairIndex + 1} settings: Title Prefix: {mps["titlePrefix"]}, ' +
+                 f'CRF: {mps["crf"]} (0-63), Target Bitrate: {mps["targetMaxBitrate"]}k, ' +
+                 + f'Two-pass encoding enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5)' +
+                 f'Audio enabled: {settings["audio"]}, Denoise enabled: {settings["denoise:"]}'))
+
     mp["fileNameStem"] = f'{mps["titlePrefix"] + "-" if "titlePrefix" in mps else ""}{mps["titleSuffix"]}-{markerPairIndex + 1}'
     mp["fileName"] = f'{mp["fileNameStem"]}.webm'
     mp["filePath"] = f'{webmsPath}/{mp["fileName"]}'
