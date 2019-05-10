@@ -198,8 +198,8 @@ def clipper(settings):
             inputs += f' -n -ss {start} -i "{mps["videoUrl"]}" '
             filter_complex += f'[0:v]setpts={speed}*(PTS-STARTPTS)[slowed];'
             if mps["audio"]:
-                inputs += f' -i "{mps["audioUrl"]}" '
-                filter_complex += f'[1:a]atrim={start}:{end},atempo={1/speed};'
+                inputs += f' -ss {start} -i "{mps["audioUrl"]}" '
+                filter_complex += f'[1:a]atrim={0}:{duration},atempo={1/speed};'
             else:
                 inputs += ' -an '
         else:
