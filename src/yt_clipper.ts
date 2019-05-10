@@ -815,7 +815,9 @@
       if (updateTarget === 'cropRes') {
         const prevWidth = settings.cropResWidth;
         const prevHeight = settings.cropResHeight;
-        const [newWidth, newHeight] = settings.cropRes.split('x').map(parseInt);
+        const [newWidth, newHeight] = settings.cropRes
+          .split('x')
+          .map(str => parseInt(str));
         const cropMultipleX = newWidth / prevWidth;
         const cropMultipleY = newHeight / prevHeight;
         settings.cropResWidth = newWidth;
