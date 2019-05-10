@@ -20,6 +20,9 @@ dist/
 *.spec
 __pycache__
 
+# compiling, testing, and debugging sandbox
+sandbox/
+
 typings/
 lib/*.js
 test/*.js
