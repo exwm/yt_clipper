@@ -298,6 +298,9 @@
   color: grey;
   font-size: 12pt;
 }
+.yt_clipper-input {
+  font-weight: bold;
+}
 .yt_clipper-input:valid {
   animation-name: valid-input;
   animation-duration: 1s;
@@ -658,13 +661,13 @@
           <span class="editor-input-label">Speed: </span>
           <input id="speed-input" class="yt_clipper-input"  type="number" placeholder="speed" value="${
             settings.newMarkerSpeed
-          }" step="0.05" min="0.05" max="2" style="width:4em;font-weight:bold">
+          }" step="0.05" min="0.05" max="2" style="width:4em">
         </div>
         <div class="editor-input-div">
           <span class="editor-input-label">Crop: </span>
           <input id="crop-input" class="yt_clipper-input" value="${
             settings.newMarkerCrop
-          }" pattern="${cropInputValidation}" style="width:10em;font-weight:bold" required>
+          }" pattern="${cropInputValidation}" style="width:10em" required>
         </div>
       </div>
       <div id="global-marker-settings" class="yt_clipper-settings-editor">
@@ -679,14 +682,14 @@
           <span class="editor-input-label"> Crop Resolution: </span>
           <input id="crop-res-input" class="yt_clipper-input" list="resolutions" pattern="${cropResInputValidation}" value="${
         settings.cropRes
-      }" style="width:7em;font-weight:bold" required>
+      }" style="width:7em" required>
           <datalist id="resolutions" autocomplete="off">${resList}</datalist>
         </div>
         <div class="editor-input-div">
           <span class="editor-input-label"> Merge List: </span>
           <input id="merge-list-input" class="yt_clipper-input" pattern="${mergeListInputValidation}" value="${
         settings.markerPairMergeList
-      }" placeholder="None" style="width:15em;font-weight:bold">
+      }" placeholder="None" style="width:15em">
         </div>
       </div>
       <div id="global-encode-settings" class="yt_clipper-settings-editor" style="display:${globalEncodeSettingsEditorDisplay}">
@@ -695,25 +698,25 @@
           <span>Encode Speed (0-5): </span>
           <input id="encode-speed-input" class="yt_clipper-input" type="number" min="0" max="5" step="1" value="${
             settings.encodeSpeed != null ? settings.encodeSpeed : ''
-          }" placeholder="Auto" style="width:4em;font-weight:bold"></input>
+          }" placeholder="Auto" style="width:4em"></input>
         </div>
         <div class="editor-input-div">
           <span>CRF (0-63): </span>
           <input id="crf-input" class="yt_clipper-input" type="number" min="0" max="63" step="1" value="${
             settings.crf != null ? settings.crf : ''
-          }" placeholder="Auto" style="width:4em;font-weight:bold"></input>
+          }" placeholder="Auto" style="width:4em"></input>
         </div>
         <div class="editor-input-div">
           <span>Target Max Bitrate (kb/s) (>=0) (0 = Unlimited): </span>
           <input id="target-max-bitrate-input" class="yt_clipper-input" type="number" min="0" step="100" value="${
             settings.targetMaxBitrate != null ? settings.targetMaxBitrate : ''
-          }" placeholder="Auto" "style="width:4em;font-weight:bold"></input>
+          }" placeholder="Auto" "style="width:4em"></input>
         </div>
         <div class="editor-input-div">
           <span>Gamma (0.00-4.00): </span>
           <input id="gamma-input" class="yt_clipper-input" type="number" min="0" max="4.00" step="0.01" value="${
             settings.gamma != null ? settings.gamma : ''
-          }" placeholder="1" style="width:4em;font-weight:bold"></input>
+          }" placeholder="1" style="width:4em"></input>
         </div>
         <div class="editor-input-div">
           <span>Rotate: </span>
@@ -1186,18 +1189,18 @@
         <div class="editor-input-div">
           <span>Speed: </span>
           <input id="speed-input" class="yt_clipper-input" type="number" placeholder="speed" value="${speed}" 
-            step="0.05" min="0.05" max="2" style="width:4em;font-weight:bold" required></input>
+            step="0.05" min="0.05" max="2" style="width:4em" required></input>
         </div>
         <div class="editor-input-div">
           <span>Crop: </span>
           <input id="crop-input" class="yt_clipper-input" value="${crop}" pattern="${cropInputValidation}" 
-          style="width:10em;font-weight:bold" required></input>
+          style="width:10em" required></input>
         </div>
         <div class="editor-input-div">
           <span>Title Prefix: </span>
           <input id="title-prefix-input" class="yt_clipper-input" value="${
             overrides.titlePrefix != null ? overrides.titlePrefix : ''
-          }" placeholder="None" style="width:20em;text-align:right;font-weight:bold"></input>
+          }" placeholder="None" style="width:20em;text-align:right"></input>
         </div>
       </div>
       <div class="yt_clipper-settings-editor" style="font-style:italic">
@@ -1219,29 +1222,26 @@
           <span>Gamma (0.00-4.00): </span>
           <input id="gamma-input" class="yt_clipper-input" type="number" min="0" max="4.00" step="0.01" value="${
             overrides.gamma != null ? overrides.gamma : ''
-          }" placeholder="${settings.gamma ||
-        '1'}" style="width:4em;font-weight:bold"></input>
+          }" placeholder="${settings.gamma || '1'}" style="width:4em"></input>
         </div>
         <div class="editor-input-div">
           <span>Encode Speed (0-5): </span>
           <input id="encode-speed-input" class="yt_clipper-input" type="number" min="0" max="5" step="1" value="${
             overrides.encodeSpeed != null ? overrides.encodeSpeed : ''
-          }" placeholder="${settings.encodeSpeed ||
-        'Auto'}"  style="width:4em;font-weight:bold"></input>
+          }" placeholder="${settings.encodeSpeed || 'Auto'}"  style="width:4em"></input>
         </div>
         <div class="editor-input-div">
           <span>CRF (0-63): </span>
           <input id="crf-input" class="yt_clipper-input" type="number" min="0" max="63" step="1" value="${
             overrides.crf != null ? overrides.crf : ''
-          }" placeholder="${settings.crf ||
-        'Auto'}" "style="width:4em;font-weight:bold"></input>
+          }" placeholder="${settings.crf || 'Auto'}" "style="width:4em"></input>
         </div>
         <div class="editor-input-div">
           <span>Target Max Bitrate (kb/s) (>=0) (0 = Unlimited): </span>
           <input id="target-max-bitrate-input" class="yt_clipper-input" type="number" min="0" step="100" value="${
             overrides.targetMaxBitrate != null ? overrides.targetMaxBitrate : ''
           }" placeholder="${settings.targetMaxBitrate ||
-        'Auto'}" "style="width:4em;font-weight:bold"></input>
+        'Auto'}" "style="width:4em"></input>
         </div>
         <div class="editor-input-div">
           <span>Two-Pass: </span>
