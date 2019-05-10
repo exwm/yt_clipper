@@ -54,11 +54,7 @@
 
 ### Save and Upload Hotkeys
 
-**S:** Save generated `clipper script` (save it beside input webm).
-
-**shift+S:** Copy generated `clipper script` to clipboard (useful if saving breaks).
-
-**alt+S or ctrl+alt+S:** Save markers info to a file (.json). Use ctrl+alt+s on `Firefox` to avoid interfering with built-in shortcuts. Can be used with the `clipper script` using `--json` or with the installation.
+**S** Save markers info to a file (.json). Use ctrl+alt+s on `Firefox` to avoid interfering with built-in shortcuts. Can be used with the `clipper script` using `--json` or with the installation.
 
 **G:** Toggle markers .json file upload for reloading markers (must be from the same video). Click `Choose File`, pick your markers .json file, then click `Load`.
 
@@ -91,7 +87,7 @@ Crop is given as x-offset:y-offset:width:height. Each value is a positive intege
 
 ### Clipper Script Tips
 
-1. The `clipper script` skips regenerating any existing webms. 
+1. The `clipper script` skips regenerating any existing webms.
    1. This makes it easy to delete webms you want regenerated and by rerunning the script.
    2. Use this to work incrementally, saving markers data, starting a batch encode, continuing to mark up, overwriting the markers data, and then rerunning the encoding.
 
@@ -172,13 +168,28 @@ These dependencies are not required by the windows installation above.
 
 ## Change Log
 
+- v0.0.72:
+  - Use with `v3.0.0` of the installation.
+  - Changes to `markup script`:
+    - Add global encode settings editor (toggle with **shift+W** when global settings editor is open).
+    - Add per marker pair encode settings overrides (toggle with **shift+W** when marker pair editor is open).
+    - Add visual clarity to selected marker pair (now colored black in the center).
+    - Increase width of all editors and improve visual clarity.
+    - Rename `Title Prefix` in global settings editor to `Title Suffix`.
+    - Add `Title Prefix` input in marker pair editor.
+    - The generated webms are now named using the `Title Prefix` followed by the `Title Suffix`, and finally by the marker pair number.
+    - Fix title suffix being wrapped in square brackets every time the global settings editor is toggled.
+  - Changes to `clipper script`:
+    - Fix handling of DASH video and audio.
+    - Add additional logging for global and per marker pair settings.
+    - Fix long audio files taking very long to begin encoding.
+    - Fix automatically scaling crop res height to match video height.
 - v0.0.71:
   - Use with `v2.0.0` of the installation.
   - The installation is now leaner, using a single file for the `yt_clipper.exe`.
   - Add reporting of fetched YouTube video info (title, fps, width, height, bitrate).
   - Automatically set encoding settings based on detected video bitrate using constrained quality mode. This will keep file sizes for high bitrate videos under control and speed up encoding across the board.
     - **The markers .json format has changed to accommodate this and is not compatible with earlier versions.**
-  - Add reporting of encoding settings.
   - Add summary report of generated webms (successful, failed, or skipped).
   - Add automatic reconnect for greater resiliency against network errors.
   - Fix streaming and encoding long audio segments when using `--audio`.

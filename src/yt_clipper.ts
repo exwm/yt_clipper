@@ -104,12 +104,14 @@
           }
           break;
         case 'KeyG':
-          if (!e.shiftKey && !e.altKey) {
+          if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
             loadMarkers();
-          } else if (e.shiftKey && !e.altKey) {
+          } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
             toggleSpeedAutoDucking();
-          } else if (!e.shiftKey && e.altKey) {
+          } else if (!e.ctrlKey && !e.shiftKey && e.altKey) {
             toggleMarkerLooping();
+          } else if (!e.ctrlKey && e.shiftKey && e.altKey) {
+            toggleGammaPreview();
           }
           break;
         case 'KeyZ':
@@ -393,17 +395,17 @@
   };
 
   function autoducking() {
-    let currentIdx: number;
+    let currentIdex: number;
     const currentTime = video.currentTime;
     const isTimeBetweenMarkerPair = markers.some((marker, idx) => {
       if (currentTime >= marker.start && currentTime <= marker.end) {
-        currentIdx = idx;
+        currentIdex = idx;
         return true;
       }
       return false;
     });
-    if (isTimeBetweenMarkerPair && markers[currentIdx]) {
-      const currentMarkerSlowdown = markers[currentIdx].speed;
+    if (isTimeBetweenMarkerPair && markers[currentIdex]) {
+      const currentMarkerSlowdown = markers[currentIdex].speed;
       if (player.getPlaybackRate() !== currentMarkerSlowdown) {
         player.setPlaybackRate(currentMarkerSlowdown);
       }
@@ -442,6 +444,70 @@
     }
   }
 
+  let gammaFilterDiv;
+  let isGammaPreviewOn = false;
+  let gammaR;
+  let gammaG;
+  let gammaB;
+  function toggleGammaPreview() {
+    if (!gammaFilterDiv) {
+      gammaFilterDiv = document.createElement('div');
+      gammaFilterDiv.setAttribute('id', 'gamma-filter-div');
+      gammaFilterDiv.innerHTML = `\
+      <svg>
+        <defs>
+          <filter id="gamma-filter">
+            <feComponentTransfer>
+              <feFuncR id="gamma-r" type="gamma" offset="0" amplitude="1" exponent="1"></feFuncR>
+              <feFuncG id="gamma-g" type="gamma" offset="0" amplitude="1" exponent="1"></feFuncG>
+              <feFuncB id="gamma-b" type="gamma" offset="0" amplitude="1" exponent="1"></feFuncB>
+            </feComponentTransfer>
+          </filter>
+        </defs>
+      </svg>
+      `;
+      document.body.appendChild(gammaFilterDiv);
+      gammaR = document.getElementById('gamma-r');
+      gammaG = document.getElementById('gamma-g');
+      gammaB = document.getElementById('gamma-b');
+    }
+    if (!isGammaPreviewOn) {
+      video.style.filter = 'url(#gamma-filter)';
+      video.style.webkitFilter = 'url(#gamma-filter)';
+      video.style.mozFilter = 'url(#gamma-filter)';
+      playerInfo.video.addEventListener('timeupdate', gammaPreviewHandler, false);
+      isGammaPreviewOn = true;
+      flashMessage('Gamma preview enabled', 'green');
+    } else {
+      video.style.filter = null;
+      video.style.webkitFilter = null;
+      video.style.mozFilter = null;
+      playerInfo.video.removeEventListener('timeupdate', gammaPreviewHandler, false);
+      isGammaPreviewOn = false;
+      flashMessage('Gamma preview disabled', 'red');
+    }
+  }
+  function gammaPreviewHandler() {
+    let currentIndex: number;
+    const currentTime = video.currentTime;
+    const isTimeBetweenMarkerPair = markers.some((marker, index) => {
+      if (currentTime >= marker.start && currentTime <= marker.end) {
+        currentIndex = index;
+        return true;
+      }
+      return false;
+    });
+    if (isTimeBetweenMarkerPair && markers[currentIndex]) {
+      const markerPairGamma = markers[currentIndex].overrides.gamma;
+      gammaR.exponent.baseVal = markerPairGamma || settings.gamma || 1;
+      gammaG.exponent.baseVal = markerPairGamma || settings.gamma || 1;
+      gammaB.exponent.baseVal = markerPairGamma || settings.gamma || 1;
+    } else {
+      gammaR.exponent.baseVal = 1;
+      gammaG.exponent.baseVal = 1;
+      gammaB.exponent.baseVal = 1;
+    }
+  }
   function saveMarkers() {
     markers.forEach((marker: marker, index: number) => {
       const speed = marker.speed;
