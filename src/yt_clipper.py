@@ -82,8 +82,6 @@ def buildArgParser():
                         help='upload all output webms to gfycat and print reddit markdown with all links')
     parser.add_argument('--audio', '-a', action='store_true',
                         help='Enable audio in output webms.')
-    parser.add_argument('--url', '-u', action='store_true',
-                        help='Use youtube-dl and ffmpeg to download only the portions of the video required.')
     parser.add_argument('--json', '-j', action='store_true',
                         help='Read in markers json file and automatically create webms.')
     parser.add_argument('--format', '-f', default='bestvideo+bestaudio',
