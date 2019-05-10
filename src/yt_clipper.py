@@ -61,7 +61,7 @@ def setUpLogger():
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
         datefmt="%y-%m-%d %H:%M:%S",
-        handlers=[logging.FileHandler(filename=f'{webmsPath}/{settings["titleSuffix"]}.log', mode='w', encoding='utf-8'), logging.StreamHandler()])
+        handlers=[logging.FileHandler(filename=f'{webmsPath}/{settings["titleSuffix"]}.log', mode='a', encoding='utf-8'), logging.StreamHandler()])
     logger = logging.getLogger()
 
 
@@ -117,26 +117,29 @@ def loadMarkers(markersJson, settings):
     settings["videoUrl"] = 'https://www.youtube.com/watch?v=' + \
         settings["videoID"]
 
-    logger.info(f'Video URL: {settings["videoUrl"]}')
-    logger.info(f'Merge List: {settings["markerPairMergeList"]}')
     return settings
 
 
 def prepareSettings(settings):
+    logger.info(f'Video URL: {settings["videoUrl"]}')
+    logger.info(f'Merge List: {settings["markerPairMergeList"]}')
+
     if settings["url"]:
         settings = getVideoInfo(settings)
         encodeSettings = getDefaultEncodeSettings(settings["targetMaxBitrate"])
     else:
         encodeSettings = getDefaultEncodeSettings(None)
 
+    logging.info('-' * 80)
     logger.info((f'Automatically determined encoding settings: CRF: {encodeSettings["crf"]} (0-63), Target Bitrate: {encodeSettings["targetMaxBitrate"]}k, '
                  + f'Two-pass encoding enabled: {encodeSettings["twoPass"]}, Encoding Speed: {encodeSettings["encodeSpeed"]} (0-5)'))
 
     settings = {**encodeSettings, **settings}
 
-    logger.info((f'Global encoding settings: CRF: {settings["crf"]} (0-63), Target Bitrate: {settings["targetMaxBitrate"]}k, '
-                 + f'Two-pass encoding enabled: {settings["twoPass"]}, Encoding Speed: {settings["encodeSpeed"]} (0-5)' +
-                 f'Audio enabled: {settings["audio"]}, Denoise enabled: {settings["denoise:"]}, Rotate: {settings["rotate"]}'))
+    logging.info('-' * 80)
+    logger.info((f'Global encoding settings: CRF: {settings["crf"]} (0-63), Target Bitrate: {settings["targetMaxBitrate"]}k, ' +
+                 f'Two-pass encoding enabled: {settings["twoPass"]}, Encoding Speed: {settings["encodeSpeed"]} (0-5), ' +
+                 f'Audio enabled: {settings["audio"]}, Denoise enabled: {settings["denoise"]}, Rotate: {settings["rotate"]}'))
 
     return settings
 
@@ -148,10 +151,11 @@ def trim_video(settings, markerPairIndex):
     if "titlePrefix" not in mps:
         mps["titlePrefix"] = ''
 
+    logging.info('-' * 80)
     logger.info((f'Marker pair {markerPairIndex + 1} settings: Title Prefix: {mps["titlePrefix"]}, ' +
                  f'CRF: {mps["crf"]} (0-63), Target Bitrate: {mps["targetMaxBitrate"]}k, ' +
-                 + f'Two-pass encoding enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5)' +
-                 f'Audio enabled: {settings["audio"]}, Denoise enabled: {settings["denoise:"]}'))
+                 f'Two-pass encoding enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5), ' +
+                 f'Audio enabled: {mps["audio"]}, Denoise enabled: {mps["denoise"]}'))
 
     mp["fileNameStem"] = f'{mps["titlePrefix"] + "-" if "titlePrefix" in mps else ""}{mps["titleSuffix"]}-{markerPairIndex + 1}'
     mp["fileName"] = f'{mp["fileNameStem"]}.webm'
@@ -222,13 +226,16 @@ def trim_video(settings, markerPairIndex):
 
     if mps["twoPass"]:
         ffmpegPass1 = shlex.split(ffmpegCommand + ' -pass 1 -')
+        logger.info('Running first pass...')
         subprocess.run(ffmpegPass1)
         ffmpegPass2 = ffmpegCommand + f' -pass 2 "{mp["filePath"]}"'
-        logger.info(re.sub(r'(&a?itags?.*?")', r'"', ffmpegPass2) + '\n')
+        logger.info('Using ffmpeg command: ' +
+                    re.sub(r'(&a?itags?.*?")', r'"', ffmpegPass2) + '\n')
         ffmpegProcess = subprocess.run(shlex.split(ffmpegPass2))
     else:
         ffmpegCommand = ffmpegCommand + f' "{mp["filePath"]}"'
-        logger.info(re.sub(r'(&a?itags?.*?")', r'"', ffmpegCommand) + '\n')
+        logger.info('Using ffmpeg command: ' +
+                    re.sub(r'(&a?itags?.*?")', r'"', ffmpegCommand) + '\n')
         ffmpegProcess = subprocess.run(shlex.split(ffmpegCommand))
 
     if ffmpegProcess.returncode == 0:
@@ -272,8 +279,9 @@ def makeMergedClips(settings):
         ffmpegConcatCmd = f' "{ffmpegPath}" -n -hide_banner -f concat -safe 0 -i "{inputsTxtPath}" -c copy "{mergedFilePath}"'
 
         if not Path(mergedFilePath).is_file():
-            logger.info(f'\nGenerating "{mergedFileName}"...\n')
-            logger.info(ffmpegConcatCmd)
+            logging.info('-' * 80)
+            logger.info(f'Generating "{mergedFileName}"...\n')
+            logger.info(f'Using ffmpeg command: {ffmpegConcatCmd}')
             ffmpegProcess = subprocess.run(shlex.split(ffmpegConcatCmd))
             if ffmpegProcess.returncode == 0:
                 logger.info(f'Successfuly generated: "{mergedFileName}"\n')
@@ -290,7 +298,7 @@ def makeMergedClips(settings):
 
 def checkWebmExists(fileName, filePath):
     if not Path(filePath).is_file():
-        logger.info(f'\nGenerating "{fileName}"...\n')
+        logger.info(f'Generating "{fileName}"...\n')
         return False
     else:
         logger.info(f'Skipped existing file: "{fileName}"\n')
