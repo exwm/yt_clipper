@@ -6,17 +6,14 @@ import re
 import json
 import itertools
 import os
+import logging
 from pathlib import Path
 
 UPLOAD_KEY_REQUEST_ENDPOINT = 'https://api.gfycat.com/v1/gfycats?'
 FILE_UPLOAD_ENDPOINT = 'https://filedrop.gfycat.com'
 AUTHENTICATION_ENDPOINT = 'https://api.gfycat.com/v1/oauth/token'
 
-markers = []
-markers = ['0:0:iw:ih' if m == 'undefined' else m for m in markers]
-concats = ''
-title = 'None'
-shortTitle = 'None'
+settings = {}
 
 outPaths = []
 fileNames = []
@@ -27,43 +24,35 @@ ffmpegPath = './bin/ffmpeg.exe'
 webmsPath = './webms'
 
 
-def loadMarkers(markersJson):
+def loadMarkers(markersJson, settings):
     markersDict = json.loads(markersJson)
-    videoUrl = ''
-    for videoID, markers in markersDict.items():
-        videoUrl = 'https://www.youtube.com/watch?v=' + videoID
-        break
-    markers = list(itertools.chain.from_iterable(markers))
-    global concats
-    concats = markersDict['merge-list']
-    cropResWidth = markersDict['crop-res-width']
-    cropResHeight = markersDict['crop-res-height']
-
-    print('videoUrl: ', videoUrl)
-    print('concats: ', concats)
-    return videoUrl, markers, cropResWidth, cropResHeight
+    settings = {**settings, **markersDict}
+    settings["videoUrl"] = 'https://www.youtube.com/watch?v=' + \
+        settings["videoID"]
+    return settings
 
 
-def autoSetCropMultiples(cropResWidth, cropResHeight, videoWidth, videoHeight):
-    cropMultipleX = (videoWidth / cropResWidth)
-    cropMultipleY = (videoHeight / cropResHeight)
-    if cropResWidth != videoWidth or cropResHeight != videoHeight:
-        print('Warning: Crop resolution does not match video resolution.',
-              file=sys.stderr)
-        if cropResWidth != videoWidth:
-            print(
-                f'Crop resolution width ({cropResWidth}) not equal to video width ({videoWidth})', file=sys.stderr)
-        if cropResHeight != videoHeight:
-            print(
-                f'Crop resolution height ({cropResHeight}) not equal to video height ({videoHeight})', file=sys.stderr)
-        print(f'Crop X offset and width will be multiplied by {cropMultipleX}')
-        print(
+def autoSetCropMultiples(settings):
+    cropMultipleX = (settings["videoWidth"] / settings["cropResWidth"])
+    cropMultipleY = (settings["videoHeight"] / settings["cropResHeight"])
+    if settings["cropResWidth"] != settings["videoWidth"] or settings["cropResHeight"] != settings["videoHeight"]:
+        logger.info('Warning: Crop resolution does not match video resolution.')
+        if settings["cropResWidth"] != settings["videoWidth"]:
+            logger.warning(
+                f'Crop resolution width ({settings["cropResWidth"]}) not equal to video width ({settings["videoWidth"]})')
+        if settings["cropResHeight"] != settings["videoHeight"]:
+            logger.warning(
+                f'Crop resolution height ({settings["cropResHeight"]}) not equal to video height ({settings["videoHeight"]})')
+        logger.info(
+            f'Crop X offset and width will be multiplied by {cropMultipleX}')
+        logger.info(
             f'Crop Y offset and height will be multiplied by {cropMultipleY}')
         shouldScaleCrop = input(
             'Automatically scale the crop resolution? (y/n): ')
         if shouldScaleCrop == 'yes' or shouldScaleCrop == 'y':
-            args.cropMultipleX = cropMultipleX
-            args.cropMultipleY = cropMultipleY
+            return {**settings, 'cropMultipleX': cropMultipleX, 'cropMultipleY': cropMultipleY}
+        else:
+            return settings
 
 
 def filterDash(dashManifestUrl, dashFormatIDs):
@@ -86,12 +75,12 @@ def filterDash(dashManifestUrl, dashFormatIDs):
     return filteredDashPath
 
 
-def getVideoInfo(videoUrl, ytdlFormat):
+def getVideoInfo(settings):
     from youtube_dl import YoutubeDL
-    ydl = YoutubeDL({'format': ytdlFormat, 'forceurl': True})
-    ydl_info = ydl.extract_info(videoUrl, download=False)
+    ydl = YoutubeDL({'format': settings["format"], 'forceurl': True})
+    ydl_info = ydl.extract_info(settings["videoUrl"], download=False)
     if 'requested_formats' in ydl_info:
-        rf = ydl_info['requested_formats']
+        rf = ydl_info["requested_formats"]
         videoInfo = rf[0]
     else:
         videoInfo = ydl_info
@@ -99,133 +88,152 @@ def getVideoInfo(videoUrl, ytdlFormat):
     dashFormatIDs = []
     dashVideoFormatID = None
     dashAudioFormatID = None
-    if videoInfo['protocol'] == 'http_dash_segments':
-        dashVideoFormatID = videoInfo['format_id']
+    if videoInfo["protocol"] == 'http_dash_segments':
+        dashVideoFormatID = videoInfo["format_id"]
         dashFormatIDs.append(dashVideoFormatID)
     else:
-        videoUrl = videoInfo['url']
+        settings["videoUrl"] = videoInfo["url"]
 
-    global title
-    title = re.sub("'", "", ydl_info['title'])
+    settings["title"] = re.sub("'", "", ydl_info["title"])
 
-    videoWidth = videoInfo['width']
-    videoHeight = videoInfo['height']
-    videoFPS = videoInfo['fps']
-    videobr = int(videoInfo['tbr'])
+    settings["videoWidth"] = videoInfo["width"]
+    settings["videoHeight"] = videoInfo["height"]
+    settings["videoFPS"] = videoInfo["fps"]
+    settings["targetMaxBitrate"] = int(videoInfo["tbr"])
 
-    print('Video title: ', title)
-    print('Video width: ', videoWidth)
-    print('Video height: ', videoHeight)
-    print('Video fps: ', videoFPS)
-    print(f'Detected video bitrate: {videobr}k')
+    logger.info(f'Video title: {settings["title"]}')
+    logger.info(f'Video width: {settings["videoWidth"]}')
+    logger.info(f'Video height: {settings["videoHeight"]}')
+    logger.info(f'Video fps: {settings["videoFPS"]}')
+    logger.info(f'Detected video bitrate: {settings["targetMaxBitrate"]}k')
 
-    if args.json:
-        autoSetCropMultiples(cropResWidth, cropResHeight,
-                             videoWidth, videoHeight)
+    if settings["json"]:
+        settings = autoSetCropMultiples(settings)
 
-    audioUrl = ''
-    if args.audio:
+    if 'requested_formats' in ydl_info:
         audioInfo = rf[1]
-        audiobr = int(videoInfo['tbr'])
+        settings["audiobr"] = int(audioInfo["tbr"])
 
-        if audioInfo['protocol'] == 'http_dash_segments':
-            dashAudioFormatID = audioInfo['format_id']
+        print(audioInfo)
+        if audioInfo["protocol"] == 'http_dash_segments':
+            dashAudioFormatID = audioInfo["format_id"]
             dashFormatIDs.append(dashAudioFormatID)
         else:
-            audioUrl = audioInfo['url']
+            settings["audioUrl"] = audioInfo["url"]
 
     if dashFormatIDs:
-        filteredDashPath = filterDash(videoInfo['url'], dashFormatIDs)
+        filteredDashPath = filterDash(videoInfo["url"], dashFormatIDs)
         if dashVideoFormatID:
-            videoUrl = filteredDashPath
+            settings["videoUrl"] = filteredDashPath
         if dashAudioFormatID:
-            audioUrl = filteredDashPath
+            settings["audioUrl"] = filteredDashPath
 
-    return videoUrl, videobr, audioUrl
-
-
-def getDefaultEncodingSettings(videobr):
-    if videobr is None:
-        settings = (30, 0, 2, False)
-    elif videobr <= 4000:
-        settings = (20, int(1.6 * videobr), 2, False)
-    elif videobr <= 6000:
-        settings = (22, int(1.5 * videobr), 3, False)
-    elif videobr <= 10000:
-        settings = (24, int(1.4 * videobr), 4, False)
-    elif videobr <= 15000:
-        settings = (26, int(1.3 * videobr), 5, False)
-    elif videobr <= 20000:
-        settings = (30, int(1.2 * videobr), 5, False)
-    else:
-        settings = (35, int(1.1 * videobr), 5, False)
     return settings
 
 
-def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
-    if args.url:
-        videoUrl, videobr, audioUrl = getVideoInfo(videoUrl, ytdlFormat)
-        crf, videobr, speed, twoPass = getDefaultEncodingSettings(videobr)
+def getDefaultEncodeSettings(videobr):
+    if videobr is None:
+        encodeSettings = {'crf': 30, 'targetMaxBitrate': 0,
+                          'encodeSpeed': 2, 'twoPass': False}
+    elif videobr <= 4000:
+        encodeSettings = {'crf': 20, 'targetMaxBitrate': int(
+            1.6 * videobr), 'encodeSpeed': 2, 'twoPass': False}
+    elif videobr <= 6000:
+        encodeSettings = {'crf': 22, 'targetMaxBitrate': int(
+            1.5 * videobr), 'encodeSpeed': 3, 'twoPass': False}
+    elif videobr <= 10000:
+        encodeSettings = {'crf': 24, 'targetMaxBitrate': int(
+            1.4 * videobr), 'encodeSpeed': 4, 'twoPass': False}
+    elif videobr <= 15000:
+        encodeSettings = {'crf': 26, 'targetMaxBitrate': int(
+            1.3 * videobr), 'encodeSpeed': 5, 'twoPass': False}
+    elif videobr <= 20000:
+        encodeSettings = {'crf': 30, 'targetMaxBitrate': int(
+            1.2 * videobr), 'encodeSpeed': 5, 'twoPass': False}
     else:
-        crf, videobr, speed, twoPass = getDefaultEncodingSettings(None)
-    if args.videobr:
-        videobr = args.videobr
-    if args.crf:
-        crf = args.crf
-    if args.twoPass:
-        twoPass = args.twoPass
-    if args.speed:
-        speed = args.speed
-    print((f'Encoding options: CRF: {crf} (0-63), Target Bitrate: {videobr}k, '
-           + f'Two-pass encoding enabled: {twoPass}, Encoding Speed: {speed} (0-5)'))
+        encodeSettings = {'crf': 35, 'targetMaxBitrate': int(
+            1.1 * videobr), 'encodeSpeed': 5, 'twoPass': False}
+    return encodeSettings
 
-    def trim_video(startTime, endTime, slowdown, cropString,  outPath):
+
+def clipper(settings):
+    if settings["url"]:
+        settings = getVideoInfo(settings)
+        encodeSettings = getDefaultEncodeSettings(settings["targetMaxBitrate"])
+    else:
+        encodeSettings = getDefaultEncodeSettings(None)
+    settings = {**settings, **encodeSettings}
+
+    logger.info((f'Global encoding options: CRF: {settings["crf"]} (0-63), Target Bitrate: {settings["targetMaxBitrate"]}k, '
+                 + f'Two-pass encoding enabled: {settings["twoPass"]}, Encoding Speed: {settings["speed"]} (0-5)'))
+
+    def checkWebmExists(fileName, filePath):
+        if not Path(filePath).is_file():
+            logger.info(f'\nGenerating "{fileName}"...\n')
+            return False
+        else:
+            logger.info(f'Skipped existing file: "{fileName}"\n')
+            return True
+
+    def trim_video(settings, markerPairIndex):
+        mp = markerPair = {**(settings["markers"][markerPairIndex])}
+        mps = markerPairSettings = {**settings, **(markerPair["overrides"])}
+        if "titlePrefix" not in mps:
+            mps["titlePrefix"] = ''
+        mp["fileNameStem"] = f'{mps["titlePrefix"]}-{mps["titleSuffix"]}-{markerPairIndex + 1}'
+        mp["fileName"] = f'{mp["fileNameStem"]}.webm'
+        mp["filePath"] = f'{webmsPath}/{mp["fileName"]}'
+        if checkWebmExists(mp["fileName"], mp["filePath"]):
+            return {**(settings["markers"][markerPairIndex]), **mp}
+
+        start = mp["start"] + mps["delay"]
+        end = mp["end"] + mps["delay"]
+        speed = (1 / mp["speed"])
+        cropString = mp["crop"]
         filter_complex = ''
-        startTime += delay
-        endTime += delay
-        duration = (endTime - startTime)*slowdown
+        duration = (end - start)*speed
         inputs = f'"{ffmpegPath}" '
 
-        if args.url:
-            inputs += f' -n -ss {startTime} -i "{videoUrl}" '
-            filter_complex += f'[0:v]setpts={slowdown}*(PTS-STARTPTS)[slowed];'
-            if args.audio:
-                inputs += f' -i "{audioUrl}" '
-                filter_complex += f'[1:a]atrim={startTime}:{endTime},atempo={1/slowdown};'
+        if mps["url"]:
+            inputs += f' -n -ss {start} -i "{mps["videoUrl"]}" '
+            filter_complex += f'[0:v]setpts={speed}*(PTS-STARTPTS)[slowed];'
+            if mps["audio"]:
+                inputs += f' -i "{mps["audioUrl"]}" '
+                filter_complex += f'[1:a]atrim={start}:{end},atempo={1/speed};'
             else:
                 inputs += ' -an '
         else:
-            inputs += f' -n -i "{videoUrl}" -map 0 '
-            filter_complex += f'[0:v]trim={startTime}:{endTime}, setpts={slowdown}*(PTS-STARTPTS)[slowed];'
-            if args.audio:
-                filter_complex += f'[0:a]atrim={startTime}:{endTime},atempo={1/slowdown};'
+            inputs += f' -n -i "{mps["videoUrl"]}" '
+            filter_complex += f'[0:v]trim={start}:{end}, setpts={speed}*(PTS-STARTPTS)[slowed];'
+            if mps["audio"]:
+                filter_complex += f'[0:a]atrim={start}:{end},atempo={1/speed};'
             else:
                 inputs += ' -an '
 
         inputs += ' -hide_banner '
 
         crops = cropString.split(':')
-        crops[0] = args.cropMultipleX * int(crops[0])
+        crops[0] = mps["cropMultipleX"] * int(crops[0])
         if crops[2] != 'iw':
-            crops[2] = args.cropMultipleX * int(crops[2])
-        crops[1] = args.cropMultipleY * int(crops[1])
+            crops[2] = mps["cropMultipleX"] * int(crops[2])
+        crops[1] = mps["cropMultipleY"] * int(crops[1])
         if crops[3] != 'ih':
-            crops[3] = args.cropMultipleY * int(crops[3])
+            crops[3] = mps["cropMultipleY"] * int(crops[3])
 
         filter_complex += (
             f'[slowed]crop=x={crops[0]}:y={crops[1]}:w={crops[2]}:h={crops[3]}')
-        filter_complex += f'[cropped];[cropped]lutyuv=y=gammaval({args.gamma})'
+        filter_complex += f'[cropped];[cropped]lutyuv=y=gammaval({mps["gamma"]})'
 
-        if args.rotate:
-            filter_complex += f',transpose={args.rotate}'
-        if args.denoise:
+        if mps["rotate"]:
+            filter_complex += f',transpose={mps["rotate"]}'
+        if mps["denoise"]:
             filter_complex += f',hqdn3d'
-        if args.deinterlace:
+        if mps["deinterlace"]:
             filter_complex += f',bwdif'
 
-        if overlayPath:
+        if mps["overlayPath"]:
             filter_complex += f'[corrected];[corrected][1:v]overlay=x=W-w-10:y=10:alpha=0.5'
-            inputs += f'-i "{overlayPath}"'
+            inputs += f'-i "{mps["overlayPath"]}"'
 
         ffmpegCommand = ' '.join((
             inputs,
@@ -233,89 +241,74 @@ def clipper(markers, title, videoUrl, ytdlFormat, overlayPath='', delay=0):
             f'-c:v libvpx-vp9 -pix_fmt yuv420p',
             f'-c:a libopus -b:a 128k',
             f'-slices 8 -threads 8 -row-mt 1 -tile-columns 6 -tile-rows 2',
-            f'-speed {speed} -crf {crf} -b:v {videobr}k',
-            f'-metadata title="{title}" -t {duration}',
+            f'-speed {mps["encodeSpeed"]} -crf {mps["crf"]} -b:v {mps["targetMaxBitrate"]}k',
+            f'-metadata title="{mps["videoTitle"]}" -t {duration}',
             f'-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
             f'-f webm ',
         ))
 
-        if twoPass:
+        if mps["twoPass"]:
             ffmpegPass1 = shlex.split(ffmpegCommand + ' -pass 1 -')
             subprocess.run(ffmpegPass1)
-            ffmpegPass2 = ffmpegCommand + f' -pass 2 "{outPath}"'
-            print(re.sub(r'(&a?itags?.*?")', r'"', ffmpegPass2) + '\n')
+            ffmpegPass2 = ffmpegCommand + f' -pass 2 "{mp["filePath"]}"'
+            logger.info(re.sub(r'(&a?itags?.*?")', r'"', ffmpegPass2) + '\n')
             ffmpegProcess = subprocess.run(shlex.split(ffmpegPass2))
         else:
-            ffmpegCommand = ffmpegCommand + f' "{outPath}"'
-            print(re.sub(r'(&a?itags?.*?")', r'"', ffmpegCommand) + '\n')
+            ffmpegCommand = ffmpegCommand + f' "{mp["filePath"]}"'
+            logger.info(re.sub(r'(&a?itags?.*?")', r'"', ffmpegCommand) + '\n')
             ffmpegProcess = subprocess.run(shlex.split(ffmpegCommand))
-        return ffmpegProcess.returncode
 
-    def makeMergedClips():
-        global concats
-        concats = concats.split(';')
-        nonlocal report
-        for concat in concats:
-            concatCSV = concat.split(',')
-            concatList = []
-            for concatRange in concatCSV:
-                if '-' in concatRange:
-                    concatRange = concatRange.split('-')
-                    for i in range(int(concatRange[0]), int(concatRange[1]) + 1):
-                        concatList.append(i)
+        if ffmpegProcess.returncode == 0:
+            logger.info(f'Successfuly generated: "{mp["fileName"]}"\n')
+            return {**(settings["markers"][markerPairIndex]), **mp}
+        else:
+            logger.info(f'Failed to generate: "{mp["fileName"]}"\n')
+            return {**(settings["markers"][markerPairIndex])}
+
+    def makeMergedClips(settings):
+        markerPairMergeList = settings["markerPairMergeList"]
+        markerPairMergeList = markerPairMergeList.split(';')
+        for merge in markerPairMergeList:
+            mergeCSV = merge.split(',')
+            mergeList = []
+            for mergeRange in mergeCSV:
+                if '-' in mergeRange:
+                    mergeRange = mergeRange.split('-')
+                    for i in range(int(mergeRange[0]), int(mergeRange[1]) + 1):
+                        mergeList.append(i)
                 else:
-                    concatList.append(int(concatRange))
+                    mergeList.append(int(mergeRange))
             inputs = ''
-            mergedCSV = ','.join([str(i) for i in concatList])
-            for i in concatList:
-                inputs += f'''file '{shortTitle}-{i}.webm'\n'''
+            mergedCSV = ','.join([str(i) for i in mergeList])
+            for i in mergeList:
+                inputs += f'''file '{settings["markers"][i-1]["fileName"]}'\n'''
             inputsTxtPath = f'{webmsPath}/inputs.txt'
             with open(inputsTxtPath, "w+") as inputsTxt:
                 inputsTxt.write(inputs)
-            mergedFileName = f'{shortTitle}-({mergedCSV}).webm'
+            mergedFileName = f'{settings["titleSuffix"]}-({mergedCSV}).webm'
             mergedFilePath = f'{webmsPath}/{mergedFileName}'
             ffmpegConcatCmd = f' "{ffmpegPath}" -n -hide_banner -f concat -safe 0 -i "{inputsTxtPath}" -c copy "{mergedFilePath}"'
 
             if not Path(mergedFilePath).is_file():
-                print(f'\nGenerating "{mergedFileName}"...\n')
-                print(ffmpegConcatCmd)
+                logger.info(f'\nGenerating "{mergedFileName}"...\n')
+                logger.info(ffmpegConcatCmd)
                 ffmpegProcess = subprocess.run(shlex.split(ffmpegConcatCmd))
                 if ffmpegProcess.returncode == 0:
-                    report += f'Successfuly generated: "{mergedFileName}"\n'
+                    logger.info(f'Successfuly generated: "{mergedFileName}"\n')
                 else:
-                    report += f'Failed to generate: "{mergedFileName}"\n'
+                    logger.info(f'Failed to generate: "{mergedFileName}"\n')
             else:
-                print(f'Skipped existing file: "{mergedFileName}"\n')
-                report += f'Skipped existing file: "{mergedFileName}"\n'
+                logger.info(f'Skipped existing file: "{mergedFileName}"\n')
         try:
             os.remove(inputsTxtPath)
         except OSError:
             pass
 
-    report = '\n** yt_clipper Summary Report **\n'
-    for i in range(0, len(markers), 4):
-        startTime = markers[i]
-        endTime = markers[i+1]
-        slowdown = 1 / markers[i+2]
-        cropString = markers[i+3]
-        fileName = f'{shortTitle}-{i//4+1}.webm'
-        outPath = f'{webmsPath}/{fileName}'
-        outPaths.append(outPath)
-        fileNames.append(outPath[0:-5])
-        if not Path(outPath).is_file():
-            print(f'\nGenerating "{fileName}"...\n')
-            ffmpegReturnCode = trim_video(
-                startTime, endTime, slowdown, cropString, outPath)
-            if ffmpegReturnCode == 0:
-                report += f'Successfuly generated: "{fileName}"\n'
-            else:
-                report += f'Failed to generate: "{fileName}"\n'
-        else:
-            print(f'Skipped existing file: "{fileName}"\n')
-            report += f'Skipped existing file: "{fileName}"\n'
-    if concats != '':
-        makeMergedClips()
-    print(report)
+    for markerPairIndex, marker in enumerate(settings["markers"]):
+        settings["markers"][markerPairIndex] = trim_video(
+            settings, markerPairIndex)
+    if settings["markerPairMergeList"] != '':
+        makeMergedClips(settings)
 
 
 # cli arguments
@@ -367,21 +360,25 @@ if args.cropMultiple != 1:
     args.cropMultipleX = args.cropMultiple
     args.cropMultipleY = args.cropMultiple
 
-if args.json:
-    args.url = True
-    shortTitle = Path(args.infile).stem
-    webmsPath += f'/{shortTitle}'
+settings = {'overlayPath': '', 'delay': 0, **(vars(args))}
+
+if settings["json"]:
+    settings["url"] = True
+    settings["markersDataFileStem"] = Path(settings["infile"]).stem
+    settings["titleSuffix"] = settings["markersDataFileStem"]
+    webmsPath += f'/{settings["markersDataFileStem"]}'
     with open(args.infile, 'r', encoding='utf-8-sig') as file:
         markersJson = file.read()
-        videoUrl, markers, cropResWidth, cropResHeight = loadMarkers(
-            markersJson)
-else:
-    videoUrl = args.infile
+        settings = loadMarkers(markersJson, settings)
 
 
 os.makedirs(f'{webmsPath}', exist_ok=True)
-clipper(markers, title, videoUrl=videoUrl, ytdlFormat=args.format,
-        overlayPath=args.overlay, delay=args.delay)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.FileHandler(filename=f'{webmsPath}/{settings["titleSuffix"]}.log', mode='w'), logging.StreamHandler()])
+logger = logging.getLogger()
+clipper(settings)
 
 # auto gfycat uploading
 if (args.gfycat):
@@ -397,7 +394,7 @@ if (args.gfycat):
         url = UPLOAD_KEY_REQUEST_ENDPOINT + encoded_args
         r_key = http.request('POST', url)
         print(r_key.status)
-        gfyname = json.loads(r_key.data.decode('utf-8'))['gfyname']
+        gfyname = json.loads(r_key.data.decode('utf-8'))["gfyname"]
         links.append(f'https://gfycat.com/{gfyname}')
         print(gfyname)
         fields = {'key': gfyname, 'file': (
