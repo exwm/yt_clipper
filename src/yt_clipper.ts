@@ -180,6 +180,8 @@
   }
 
   interface settings {
+    videoID: string;
+    videoTitle: string;
     newMarkerSpeed: number;
     newMarkerCrop: string;
     titleSuffix: string;
@@ -187,6 +189,10 @@
     cropResWidth: number;
     cropResHeight: number;
     markerPairMergeList: string;
+    encodeSpeed?: number;
+    crf?: number;
+    targetMaxBitrate?: number;
+    gamma?: number;
     twoPass?: boolean;
     denoise?: boolean;
     audio?: boolean;
@@ -698,6 +704,12 @@
           }" placeholder="Auto" style="width:4em;font-weight:bold"></input>
         </div>
         <div class="editor-input-div">
+          <span>Target Max Bitrate (kb/s) (>=0) (0 = Unlimited): </span>
+          <input id="target-max-bitrate-input" class="yt_clipper-input" type="number" min="0" step="100" value="${
+            settings.targetMaxBitrate != null ? settings.targetMaxBitrate : ''
+          }" placeholder="Auto" "style="width:4em;font-weight:bold"></input>
+        </div>
+        <div class="editor-input-div">
           <span>Gamma (0.00-4.00): </span>
           <input id="gamma-input" class="yt_clipper-input" type="number" min="0" max="4.00" step="0.01" value="${
             settings.gamma != null ? settings.gamma : ''
@@ -762,6 +774,7 @@
         ['gamma-input', 'gamma', 'number'],
         ['encode-speed-input', 'encodeSpeed', 'number'],
         ['crf-input', 'crf', 'number'],
+        ['target-max-bitrate-input', 'targetMaxBitrate', 'number'],
         ['rotate-0', 'rotate', 'string'],
         ['rotate-90-clock', 'rotate', 'string'],
         ['rotate-90-counterclock', 'rotate', 'string'],
@@ -1180,6 +1193,12 @@
           <input id="crop-input" class="yt_clipper-input" value="${crop}" pattern="${cropInputValidation}" 
           style="width:10em;font-weight:bold" required></input>
         </div>
+        <div class="editor-input-div">
+          <span>Title Prefix: </span>
+          <input id="title-prefix-input" class="yt_clipper-input" value="${
+            overrides.titlePrefix != null ? overrides.titlePrefix : ''
+          }" placeholder="None" style="width:20em;text-align:right;font-weight:bold"></input>
+        </div>
       </div>
       <div class="yt_clipper-settings-editor" style="font-style:italic">
         <span style="font-weight:bold;font-style:none">Marker Pair Info:   </span>
@@ -1196,12 +1215,6 @@
       </div>
       <div id="marker-pair-overrides" class="yt_clipper-settings-editor" style="display:${markerPairOverridesEditorDisplay}">
         <span style="font-weight:bold">Marker Pair Overrides: </span>
-        <div class="editor-input-div">
-          <span>Title Prefix: </span>
-          <input id="title-prefix-input" class="yt_clipper-input" value="${
-            overrides.titlePrefix != null ? overrides.titlePrefix : ''
-          }" placeholder="None" style="width:20em;text-align:right;font-weight:bold"></input>
-        </div>
         <div class="editor-input-div">
           <span>Gamma (0.00-4.00): </span>
           <input id="gamma-input" class="yt_clipper-input" type="number" min="0" max="4.00" step="0.01" value="${
@@ -1221,6 +1234,13 @@
           <input id="crf-input" class="yt_clipper-input" type="number" min="0" max="63" step="1" value="${
             overrides.crf != null ? overrides.crf : ''
           }" placeholder="${settings.crf ||
+        'Auto'}" "style="width:4em;font-weight:bold"></input>
+        </div>
+        <div class="editor-input-div">
+          <span>Target Max Bitrate (kb/s) (>=0) (0 = Unlimited): </span>
+          <input id="target-max-bitrate-input" class="yt_clipper-input" type="number" min="0" step="100" value="${
+            overrides.targetMaxBitrate != null ? overrides.targetMaxBitrate : ''
+          }" placeholder="${settings.targetMaxBitrate ||
         'Auto'}" "style="width:4em;font-weight:bold"></input>
         </div>
         <div class="editor-input-div">
@@ -1269,6 +1289,7 @@
           ['gamma-input', 'gamma', 'number'],
           ['encode-speed-input', 'encodeSpeed', 'number'],
           ['crf-input', 'crf', 'number'],
+          ['target-max-bitrate-input', 'targetMaxBitrate', 'number'],
           ['two-pass-input', 'twoPass', 'ternary'],
           ['denoise-input', 'denoise', 'ternary'],
           ['audio-input', 'audio', 'ternary'],
