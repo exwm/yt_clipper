@@ -33,9 +33,9 @@
     encodeSpeed?: number;
     crf?: number;
     targetMaxBitrate?: number;
-    twoPassEnabled?: boolean;
-    denoiseEnabled?: boolean;
-    audioEnabled?: boolean;
+    twoPass?: boolean;
+    denoise?: boolean;
+    audio?: boolean;
   }
   interface marker {
     start: number;
@@ -164,7 +164,7 @@
   function initPlayerInfo() {
     playerInfo.url = player.getVideoUrl();
     playerInfo.playerData = player.getVideoData();
-    playerInfo.videoTitle = playerInfo.playerData.title;
+
     playerInfo.duration = player.getDuration();
     playerInfo.video = document.getElementsByTagName('video')[0];
     playerInfo.isVerticalVideo = player.getVideoAspectRatio() <= 1;
@@ -187,12 +187,17 @@
     cropResWidth: number;
     cropResHeight: number;
     markerPairMergeList: string;
+    twoPass?: boolean;
+    denoise?: boolean;
+    audio?: boolean;
   }
   let settings: settings;
   let markersSvg: SVGAElement;
   let selectedMarkerPairOverlay: SVGAElement;
   function initMarkersContainer() {
     settings = {
+      videoID: playerInfo.playerData.video_id,
+      videoTitle: playerInfo.playerData.title,
       newMarkerSpeed: 1.0,
       newMarkerCrop: '0:0:iw:ih',
       titleSuffix: `[${playerInfo.playerData.video_id}]`,
@@ -438,9 +443,7 @@
     });
     const markersJson = JSON.stringify(
       {
-        videoID: playerInfo.playerData.video_id,
-        videoTitle: playerInfo.videoTitle,
-        settings,
+        ...settings,
         markers: markers,
       },
       undefined,
@@ -496,8 +499,10 @@
 
     flashMessage('Loading markers.', 'green');
 
-    if (markersJson.markers && markersJson.settings) {
-      settings = markersJson.settings;
+    if (markersJson && markersJson.markers) {
+      // copy markersJson to settings object less markers field
+      const { markers: _markers, ..._settings } = markersJson;
+      settings = _settings;
       markers.length = 0;
       undoMarkerOffset = 0;
       markersJson.markers.forEach((marker: marker) => {
@@ -577,11 +582,7 @@
       end: currentTime,
       speed: markerPairConfig.speed || settings.newMarkerSpeed,
       crop: markerPairConfig.crop || settings.newMarkerCrop,
-      overrides: markerPairConfig.overrides || {
-        denoiseEnabled: false,
-        twoPassEnabled: false,
-        audioEnabled: false,
-      },
+      overrides: markerPairConfig.overrides || {},
     };
 
     if (undoMarkerOffset === -1) {
@@ -646,15 +647,15 @@
       markerInputs.setAttribute('id', 'markerInputsDiv');
       markerInputs.innerHTML = `\
       <div id="new-marker-defaults-inputs" class="yt_clipper-settings-editor">
-        <span style="font-weight:bold">New Marker Defaults: </span>
+        <span style="font-weight:bold">New Marker Settings: </span>
         <div class="editor-input-div">
-          <span class="editor-input-label">Default Speed: </span>
+          <span class="editor-input-label">Speed: </span>
           <input id="speed-input" class="yt_clipper-input"  type="number" placeholder="speed" value="${
             settings.newMarkerSpeed
           }" step="0.05" min="0.05" max="2" style="width:4em;font-weight:bold">
         </div>
         <div class="editor-input-div">
-          <span class="editor-input-label"> Default Crop: </span>
+          <span class="editor-input-label">Crop: </span>
           <input id="crop-input" class="yt_clipper-input" value="${
             settings.newMarkerCrop
           }" pattern="${cropInputValidation}" style="width:10em;font-weight:bold" required>
@@ -683,7 +684,7 @@
         </div>
       </div>
       <div id="global-encode-settings" class="yt_clipper-settings-editor" style="display:${globalEncodeSettingsEditorDisplay}">
-        <span style="font-weight:bold">Global Encode Settings: </span>
+        <span style="font-weight:bold">Default Global Encode Settings: </span>
         <div class="editor-input-div">
           <span>Gamma (0.00-4.00): </span>
           <input id="gamma-input" class="yt_clipper-input" type="number" min="0" max="4.00" step="0.01" value="${
@@ -705,35 +706,41 @@
         <div class="editor-input-div">
           <span>Rotate: </span>
           <input id="rotate-0" class="yt_clipper-input" type="radio" name="rotate" value="0" ${
-            settings.rotate === '0' ? 'checked' : ''
+            settings.rotate == null || settings.rotate === '0' ? 'checked' : ''
           }></input>
-          <label for="rotate-0">0 Degrees</label>
-          <input id="rotate-90-clock" class="yt_clipper-input" type="radio" name="rotate" ${
+          <label for="rotate-0">0&#x00B0; </label>
+          <input id="rotate-90-clock" class="yt_clipper-input" type="radio" value="clock" name="rotate" ${
             settings.rotate === 'clock' ? 'checked' : ''
           }></input>
-          <label for="rotate-90-clock">90 Degrees Clockwise</label>
-          <input id="rotate-90-counterclock" class="yt_clipper-input" type="radio" name="rotate" ${
+          <label for="rotate-90-clock">90&#x00B0; Clockwise</label>
+          <input id="rotate-90-counterclock" class="yt_clipper-input" type="radio" value="cclock" name="rotate" ${
             settings.rotate === 'cclock' ? 'checked' : ''
           }></input>
-          <label for="rotate-90-counterclock">90 Degrees Counterclockwise</label>
+          <label for="rotate-90-counterclock">90&#x00B0; Counterclockwise</label>
         </div>
         <div class="editor-input-div">
           <span>Two-Pass: </span>
-          <input id="two-pass-enabled-input" type="checkbox" ${
-            settings.twoPassEnabled ? 'checked' : ''
-          }></input>
+          <select id="two-pass-input"> 
+            <option ${settings.twoPass ? 'selected' : ''}>Enabled</option>
+            <option ${settings.twoPass === false ? 'selected' : ''}>Disabled</option>
+            <option ${settings.twoPass == null ? 'selected' : ''}>Default</option>
+          </select>
         </div>
         <div class="editor-input-div">
           <span>Denoise: </span>
-          <input id="denoise-enabled-input" type="checkbox" ${
-            settings.denoiseEnabled ? 'checked' : ''
-          }></input>
+          <select id="denoise-input"> 
+            <option ${settings.denoise ? 'selected' : ''}>Enabled</option>
+            <option ${settings.denoise === false ? 'selected' : ''}>Disabled</option>
+            <option ${settings.denoise == null ? 'selected' : ''}>Default</option>
+          </select>
         </div>
         <div class="editor-input-div">
           <span>Audio: </span>
-          <input id="audio-enabled-input" type="checkbox" ${
-            settings.audioEnabled ? 'checked' : ''
-          }></input>
+          <select id="audio-input"> 
+            <option ${settings.audio ? 'selected' : ''}>Enabled</option>
+            <option ${settings.audio === false ? 'selected' : ''}>Disabled</option>
+            <option ${settings.audio == null ? 'selected' : ''}>Default</option>
+          </select>
         </div>
       </div>
       `;
@@ -752,9 +759,9 @@
         ['rotate-0', 'rotate', 'string'],
         ['rotate-90-clock', 'rotate', 'string'],
         ['rotate-90-counterclock', 'rotate', 'string'],
-        ['two-pass-enabled-input', 'twoPassEnabled', 'boolean'],
-        ['denoise-enabled-input', 'denoiseEnabled', 'boolean'],
-        ['audio-enabled-input', 'audioEnabled', 'boolean'],
+        ['two-pass-input', 'twoPass', 'ternary'],
+        ['denoise-input', 'denoise', 'ternary'],
+        ['audio-input', 'audio', 'ternary'],
       ]);
       wasDefaultsEditorOpen = true;
       isMarkerEditorOpen = true;
@@ -788,11 +795,18 @@
           newValue = parseFloat(newValue);
         } else if (valueType === 'boolean') {
           newValue = e.target.checked;
+        } else if (valueType === 'ternary') {
+          if (newValue === 'Default') {
+            delete settings[updateTarget];
+            return;
+          } else if (newValue === 'Enabled') {
+            newValue = true;
+          } else if (newValue === 'Disabled') {
+            newValue = false;
+          }
         }
       }
 
-      console.log(newValue);
-      console.log(settings[updateTarget]);
       settings[updateTarget] = newValue;
 
       if (updateTarget === 'defaultCrop') {
@@ -1200,21 +1214,27 @@
         </div>
         <div class="editor-input-div">
           <span>Two-Pass: </span>
-          <input id="two-pass-enabled-input" type="checkbox" ${
-            overrides.twoPassEnabled ? 'checked' : ''
-          }></input>
+          <select id="two-pass-input"> 
+            <option ${overrides.twoPass ? 'selected' : ''}>Enabled</option>
+            <option ${overrides.twoPass === false ? 'selected' : ''}>Disabled</option>
+            <option ${overrides.twoPass == null ? 'selected' : ''}>Default</option>
+          </select>
         </div>
         <div class="editor-input-div">
           <span>Denoise: </span>
-          <input id="denoise-enabled-input" type="checkbox" ${
-            overrides.denoiseEnabled ? 'checked' : ''
-          }></input>
+          <select id="denoise-input"> 
+            <option ${overrides.denoise ? 'selected' : ''}>Enabled</option>
+            <option ${overrides.denoise === false ? 'selected' : ''}>Disabled</option>
+            <option ${overrides.denoise == null ? 'selected' : ''}>Default</option>
+          </select>
         </div>
         <div class="editor-input-div">
           <span>Audio: </span>
-          <input id="audio-enabled-input" type="checkbox" ${
-            overrides.audioEnabled ? 'checked' : ''
-          }></input>
+          <select id="audio-input"> 
+            <option ${overrides.audio ? 'selected' : ''}>Enabled</option>
+            <option ${overrides.audio === false ? 'selected' : ''}>Disabled</option>
+            <option ${overrides.audio == null ? 'selected' : ''}>Default</option>
+          </select>
         </div>
       </div>
       `;
@@ -1232,9 +1252,9 @@
           ['gamma-input', 'gamma', 'number'],
           ['encode-speed-input', 'encodeSpeed', 'number'],
           ['crf-input', 'crf', 'number'],
-          ['two-pass-enabled-input', 'twoPassEnabled', 'boolean'],
-          ['denoise-enabled-input', 'denoiseEnabled', 'boolean'],
-          ['audio-enabled-input', 'audioEnabled', 'boolean'],
+          ['two-pass-input', 'twoPass', 'ternary'],
+          ['denoise-input', 'denoise', 'ternary'],
+          ['audio-input', 'audio', 'ternary'],
         ],
         targetMarker,
         markerIndex,
@@ -1395,8 +1415,15 @@
           return;
         } else if (valueType === 'number') {
           newValue = parseFloat(newValue);
-        } else if (valueType === 'boolean') {
-          newValue = e.target.checked;
+        } else if (valueType === 'ternary') {
+          if (newValue === 'Default') {
+            delete marker.overrides[updateTarget];
+            return;
+          } else if (newValue === 'Enabled') {
+            newValue = true;
+          } else if (newValue === 'Disabled') {
+            newValue = false;
+          }
         }
       }
 
