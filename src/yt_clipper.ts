@@ -680,28 +680,28 @@
           <span class="editor-input-label"> Merge List: </span>
           <input id="merge-list-input" class="yt_clipper-input" pattern="${mergeListInputValidation}" value="${
         settings.markerPairMergeList
-      }" style="width:15em;font-weight:bold">
+      }" placeholder="None" style="width:15em;font-weight:bold">
         </div>
       </div>
       <div id="global-encode-settings" class="yt_clipper-settings-editor" style="display:${globalEncodeSettingsEditorDisplay}">
         <span style="font-weight:bold">Default Global Encode Settings: </span>
         <div class="editor-input-div">
-          <span>Gamma (0.00-4.00): </span>
-          <input id="gamma-input" class="yt_clipper-input" type="number" min="0" max="4.00" step="0.01" value="${
-            settings.gamma != null ? settings.gamma : ''
-          }" style="width:4em;font-weight:bold"></input>
-        </div>
-        <div class="editor-input-div">
           <span>Encode Speed (0-5): </span>
           <input id="encode-speed-input" class="yt_clipper-input" type="number" min="0" max="5" step="1" value="${
             settings.encodeSpeed != null ? settings.encodeSpeed : ''
-          }" style="width:3em;font-weight:bold"></input>
+          }" placeholder="Auto" style="width:4em;font-weight:bold"></input>
         </div>
         <div class="editor-input-div">
           <span>CRF (0-63): </span>
           <input id="crf-input" class="yt_clipper-input" type="number" min="0" max="63" step="1" value="${
             settings.crf != null ? settings.crf : ''
-          }" style="width:3em;font-weight:bold"></input>
+          }" placeholder="Auto" style="width:4em;font-weight:bold"></input>
+        </div>
+        <div class="editor-input-div">
+          <span>Gamma (0.00-4.00): </span>
+          <input id="gamma-input" class="yt_clipper-input" type="number" min="0" max="4.00" step="0.01" value="${
+            settings.gamma != null ? settings.gamma : ''
+          }" placeholder="1" style="width:4em;font-weight:bold"></input>
         </div>
         <div class="editor-input-div">
           <span>Rotate: </span>
@@ -723,7 +723,9 @@
           <select id="two-pass-input"> 
             <option ${settings.twoPass ? 'selected' : ''}>Enabled</option>
             <option ${settings.twoPass === false ? 'selected' : ''}>Disabled</option>
-            <option ${settings.twoPass == null ? 'selected' : ''}>Default</option>
+            <option value="Default" ${
+              settings.twoPass == null ? 'selected' : ''
+            }>Inherit (Disabled by Default)</option>
           </select>
         </div>
         <div class="editor-input-div">
@@ -731,7 +733,9 @@
           <select id="denoise-input"> 
             <option ${settings.denoise ? 'selected' : ''}>Enabled</option>
             <option ${settings.denoise === false ? 'selected' : ''}>Disabled</option>
-            <option ${settings.denoise == null ? 'selected' : ''}>Default</option>
+            <option value="Default" ${
+              settings.denoise == null ? 'selected' : ''
+            }>Inherit (Disabled by Default)</option>
           </select>
         </div>
         <div class="editor-input-div">
@@ -739,7 +743,9 @@
           <select id="audio-input"> 
             <option ${settings.audio ? 'selected' : ''}>Enabled</option>
             <option ${settings.audio === false ? 'selected' : ''}>Disabled</option>
-            <option ${settings.audio == null ? 'selected' : ''}>Default</option>
+            <option value="Default" ${
+              settings.audio == null ? 'selected' : ''
+            }>Inherit (Disabled by Default)</option>
           </select>
         </div>
       </div>
@@ -1194,32 +1200,37 @@
           <span>Title Prefix: </span>
           <input id="title-prefix-input" class="yt_clipper-input" value="${
             overrides.titlePrefix != null ? overrides.titlePrefix : ''
-          }" style="width:20em;text-align:right;font-weight:bold"></input>
+          }" placeholder="None" style="width:20em;text-align:right;font-weight:bold"></input>
         </div>
         <div class="editor-input-div">
           <span>Gamma (0.00-4.00): </span>
           <input id="gamma-input" class="yt_clipper-input" type="number" min="0" max="4.00" step="0.01" value="${
             overrides.gamma != null ? overrides.gamma : ''
-          }" style="width:4em;font-weight:bold"></input>
+          }" placeholder="${settings.gamma ||
+        '1'}" style="width:4em;font-weight:bold"></input>
         </div>
         <div class="editor-input-div">
           <span>Encode Speed (0-5): </span>
           <input id="encode-speed-input" class="yt_clipper-input" type="number" min="0" max="5" step="1" value="${
             overrides.encodeSpeed != null ? overrides.encodeSpeed : ''
-          }" style="width:3em;font-weight:bold"></input>
+          }" placeholder="${settings.encodeSpeed ||
+        'Auto'}"  style="width:4em;font-weight:bold"></input>
         </div>
         <div class="editor-input-div">
           <span>CRF (0-63): </span>
           <input id="crf-input" class="yt_clipper-input" type="number" min="0" max="63" step="1" value="${
             overrides.crf != null ? overrides.crf : ''
-          }" style="width:3em;font-weight:bold"></input>
+          }" placeholder="${settings.crf ||
+        'Auto'}" "style="width:4em;font-weight:bold"></input>
         </div>
         <div class="editor-input-div">
           <span>Two-Pass: </span>
           <select id="two-pass-input"> 
             <option ${overrides.twoPass ? 'selected' : ''}>Enabled</option>
             <option ${overrides.twoPass === false ? 'selected' : ''}>Disabled</option>
-            <option ${overrides.twoPass == null ? 'selected' : ''}>Default</option>
+            <option value="Default" ${
+              overrides.twoPass == null ? 'selected' : ''
+            }>Inherit from Global ${ternaryToString(settings.twoPass)}</option>
           </select>
         </div>
         <div class="editor-input-div">
@@ -1227,7 +1238,9 @@
           <select id="denoise-input"> 
             <option ${overrides.denoise ? 'selected' : ''}>Enabled</option>
             <option ${overrides.denoise === false ? 'selected' : ''}>Disabled</option>
-            <option ${overrides.denoise == null ? 'selected' : ''}>Default</option>
+            <option value="Default" ${
+              overrides.denoise == null ? 'selected' : ''
+            }>Inherit from Global ${ternaryToString(settings.denoise)}</option>
           </select>
         </div>
         <div class="editor-input-div">
@@ -1235,7 +1248,9 @@
           <select id="audio-input"> 
             <option ${overrides.audio ? 'selected' : ''}>Enabled</option>
             <option ${overrides.audio === false ? 'selected' : ''}>Disabled</option>
-            <option ${overrides.audio == null ? 'selected' : ''}>Default</option>
+            <option value="Default" ${
+              overrides.audio == null ? 'selected' : ''
+            }>Inherit from Global ${ternaryToString(settings.audio)}</option>
           </select>
         </div>
       </div>
@@ -1264,6 +1279,18 @@
       );
       isMarkerEditorOpen = true;
       wasDefaultsEditorOpen = false;
+    }
+  }
+
+  function ternaryToString(ternary) {
+    if (ternary == null) {
+      return '';
+    } else if (ternary === true) {
+      return '(Enabled)';
+    } else if (ternary === false) {
+      return '(Disabled)';
+    } else {
+      return null;
     }
   }
 
