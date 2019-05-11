@@ -144,7 +144,6 @@
     if (!e.ctrlKey && e.shiftKey && e.altKey && e.code === 'KeyA') {
       toggleKeys = !toggleKeys;
       initOnce();
-      console.log('keys enabled: ' + toggleKeys);
       if (toggleKeys) {
         flashMessage('Enabled Hotkeys', 'green');
       } else {
@@ -163,6 +162,8 @@
   const player = document.getElementById('movie_player');
   const playerInfo = {};
   const video = document.getElementsByTagName('video')[0];
+  let settingsEditorHook: HTMLElement;
+  let flashMessageHook: HTMLElement;
   function initPlayerInfo() {
     playerInfo.url = player.getVideoUrl();
     playerInfo.playerData = player.getVideoData();
@@ -171,16 +172,26 @@
     playerInfo.video = document.getElementsByTagName('video')[0];
     playerInfo.isVerticalVideo = player.getVideoAspectRatio() <= 1;
     playerInfo.progress_bar = document.getElementsByClassName('ytp-progress-bar')[0];
+    playerInfo.watchFlexy = document.getElementsByTagName('ytd-watch-flexy')[0];
     playerInfo.infoContents = document.getElementById('info-contents');
+    flashMessageHook = playerInfo.infoContents;
     playerInfo.columns = document.getElementById('columns');
     while (!playerInfo.columns) {
       playerInfo.columns = document.getElementById('columns');
       sleep(100);
     }
+    updateSettingsEditorHook();
     playerInfo.annotations = document.getElementsByClassName('ytp-iv-video-content')[0];
     playerInfo.controls = document.getElementsByClassName('ytp-chrome-bottom')[0];
   }
 
+  function updateSettingsEditorHook() {
+    if (playerInfo.watchFlexy.theater) {
+      settingsEditorHook = playerInfo.columns;
+    } else {
+      settingsEditorHook = playerInfo.infoContents;
+    }
+  }
   interface settings {
     videoID: string;
     videoTitle: string;
@@ -286,7 +297,7 @@
   pointer-events: none;
 }
 #markerInputsDiv {
-  margin: 0px 5px 0px 5px;
+  display: flex;
 }
 .editor-input-div {
   display: inline-block;
@@ -323,10 +334,11 @@
   border: 2px solid grey;
 }
 .yt_clipper-settings-editor {
+  display: inline;
   color: grey;
   font-size: 12pt;
   margin: 10px;
-  padding: 6px;
+  padding: 4px;
   border: 2px solid grey;
   border-radius: 5px;
 }
@@ -371,7 +383,7 @@
     const flashDiv = document.createElement('div');
     flashDiv.setAttribute('class', 'flash-div');
     flashDiv.innerHTML = `<span class="flash-msg" style="color:${color}">${msg}</span>`;
-    playerInfo.columns.insertAdjacentElement('beforebegin', flashDiv);
+    flashMessageHook.insertAdjacentElement('beforebegin', flashDiv);
     setTimeout(() => deleteElement(flashDiv), lifetime);
   }
 
@@ -544,7 +556,8 @@
         <input type="file" id="markers-json-input">\
         <input type="button" id="upload-markers-json" value="Load">\
       </fieldset>`;
-      playerInfo.columns.insertAdjacentElement('beforebegin', markersUploadDiv);
+      updateSettingsEditorHook();
+      settingsEditorHook.insertAdjacentElement('beforebegin', markersUploadDiv);
       const fileUploadButton = document.getElementById('upload-markers-json');
       fileUploadButton.onclick = loadMarkersJson;
     }
@@ -757,9 +770,24 @@
         settings.markerPairMergeList
       }" placeholder="None" style="width:15em">
         </div>
+        <div class="editor-input-div">
+          <span>Rotate: </span>
+          <input id="rotate-0" class="yt_clipper-input" type="radio" name="rotate" value="0" ${
+            settings.rotate == null || settings.rotate === '0' ? 'checked' : ''
+          }></input>
+          <label for="rotate-0">0&#x00B0; </label>
+          <input id="rotate-90-clock" class="yt_clipper-input" type="radio" value="clock" name="rotate" ${
+            settings.rotate === 'clock' ? 'checked' : ''
+          }></input>
+          <label for="rotate-90-clock">90&#x00B0; &#x27F3;</label>
+          <input id="rotate-90-counterclock" class="yt_clipper-input" type="radio" value="cclock" name="rotate" ${
+            settings.rotate === 'cclock' ? 'checked' : ''
+          }></input>
+          <label for="rotate-90-counterclock">90&#x00B0; &#x27F2;</label>
+        </div>
       </div>
       <div id="global-encode-settings" class="yt_clipper-settings-editor" style="display:${globalEncodeSettingsEditorDisplay}">
-        <span style="font-weight:bold">Default Global Encode Settings: </span>
+        <span style="font-weight:bold">Global Encode Settings: </span>
         <div class="editor-input-div">
           <span>Encode Speed (0-5): </span>
           <input id="encode-speed-input" class="yt_clipper-input" type="number" min="0" max="5" step="1" value="${
@@ -773,31 +801,16 @@
           }" placeholder="Auto" style="width:4em"></input>
         </div>
         <div class="editor-input-div">
-          <span>Target Max Bitrate (kb/s) (>=0) (0 = Unlimited): </span>
-          <input id="target-max-bitrate-input" class="yt_clipper-input" type="number" min="0" step="100" value="${
+          <span>Max Bitrate (kb/s) (0 = &#x221E;): </span>
+          <input id="target-max-bitrate-input" class="yt_clipper-input" type="number" min="0" max="1e5"step="100" value="${
             settings.targetMaxBitrate != null ? settings.targetMaxBitrate : ''
           }" placeholder="Auto" "style="width:4em"></input>
         </div>
         <div class="editor-input-div">
-          <span>Gamma (0.00-4.00): </span>
+          <span>Gamma (0-4): </span>
           <input id="gamma-input" class="yt_clipper-input" type="number" min="0" max="4.00" step="0.01" value="${
             settings.gamma != null ? settings.gamma : ''
           }" placeholder="1" style="width:4em"></input>
-        </div>
-        <div class="editor-input-div">
-          <span>Rotate: </span>
-          <input id="rotate-0" class="yt_clipper-input" type="radio" name="rotate" value="0" ${
-            settings.rotate == null || settings.rotate === '0' ? 'checked' : ''
-          }></input>
-          <label for="rotate-0">0&#x00B0; </label>
-          <input id="rotate-90-clock" class="yt_clipper-input" type="radio" value="clock" name="rotate" ${
-            settings.rotate === 'clock' ? 'checked' : ''
-          }></input>
-          <label for="rotate-90-clock">90&#x00B0; Clockwise</label>
-          <input id="rotate-90-counterclock" class="yt_clipper-input" type="radio" value="cclock" name="rotate" ${
-            settings.rotate === 'cclock' ? 'checked' : ''
-          }></input>
-          <label for="rotate-90-counterclock">90&#x00B0; Counterclockwise</label>
         </div>
         <div class="editor-input-div">
           <span>Two-Pass: </span>
@@ -806,7 +819,7 @@
             <option ${settings.twoPass === false ? 'selected' : ''}>Disabled</option>
             <option value="Default" ${
               settings.twoPass == null ? 'selected' : ''
-            }>Inherit (Disabled by Default)</option>
+            }>Inherit (Disabled)</option>
           </select>
         </div>
         <div class="editor-input-div">
@@ -816,7 +829,7 @@
             <option ${settings.denoise === false ? 'selected' : ''}>Disabled</option>
             <option value="Default" ${
               settings.denoise == null ? 'selected' : ''
-            }>Inherit (Disabled by Default)</option>
+            }>Inherit (Disabled)</option>
           </select>
         </div>
         <div class="editor-input-div">
@@ -826,13 +839,14 @@
             <option ${settings.audio === false ? 'selected' : ''}>Disabled</option>
             <option value="Default" ${
               settings.audio == null ? 'selected' : ''
-            }>Inherit (Disabled by Default)</option>
+            }>Inherit (Disabled)</option>
           </select>
         </div>
       </div>
       `;
 
-      playerInfo.columns.insertAdjacentElement('beforebegin', markerInputs);
+      updateSettingsEditorHook();
+      settingsEditorHook.insertAdjacentElement('beforebegin', markerInputs);
 
       addInputListeners([
         ['speed-input', 'newMarkerSpeed', 'number'],
@@ -897,7 +911,7 @@
 
       settings[updateTarget] = newValue;
 
-      if (updateTarget === 'defaultCrop') {
+      if (updateTarget === 'newMarkerCrop') {
         createCropOverlay(settings.newMarkerCrop);
       }
       if (updateTarget === 'cropRes') {
@@ -1266,26 +1280,20 @@
           <span>Title Prefix: </span>
           <input id="title-prefix-input" class="yt_clipper-input" value="${
             overrides.titlePrefix != null ? overrides.titlePrefix : ''
-          }" placeholder="None" style="width:20em;text-align:right"></input>
+          }" placeholder="None" style="width:10em;text-align:right"></input>
+        </div>
+        <div class="editor-input-div">
+          <span style="font-weight:bold;font-style:none">Pair ${markerIndex +
+            1} Time:</span>
+          <span id="start-time">${startTime}</span>
+          <span> - </span>
+          <span id="end-time">${endTime}</span>
         </div>
       </div>
-      <div class="yt_clipper-settings-editor" style="font-style:italic">
-        <span style="font-weight:bold;font-style:none">Marker Pair Info:   </span>
-        <span>   </span>
-        <span id="marker-idx-display" ">[Number: ${markerIndex + 1}]</span>
-        <span id="speed-display">[Speed: ${speed}x]</span>
-        <span>   </span>
-        <span id="crop-display">[Crop: ${crop}]</span>
-        <span>[Time: </span>
-        <span id="start-time">${startTime}</span>
-        <span> - </span>
-        <span id="end-time">${endTime}</span>
-        <span>]</span>
-      </div>
       <div id="marker-pair-overrides" class="yt_clipper-settings-editor" style="display:${markerPairOverridesEditorDisplay}">
-        <span style="font-weight:bold">Marker Pair Overrides: </span>
+        <span style="font-weight:bold">Overrides: </span>
         <div class="editor-input-div">
-          <span>Gamma (0.00-4.00): </span>
+          <span>Gamma (0-4): </span>
           <input id="gamma-input" class="yt_clipper-input" type="number" min="0" max="4.00" step="0.01" value="${
             overrides.gamma != null ? overrides.gamma : ''
           }" placeholder="${settings.gamma || '1'}" style="width:4em"></input>
@@ -1303,8 +1311,8 @@
           }" placeholder="${settings.crf || 'Auto'}" "style="width:4em"></input>
         </div>
         <div class="editor-input-div">
-          <span>Target Max Bitrate (kb/s) (>=0) (0 = Unlimited): </span>
-          <input id="target-max-bitrate-input" class="yt_clipper-input" type="number" min="0" step="100" value="${
+          <span>Max Bitrate (kb/s) (0 = &#x221E;): </span>
+          <input id="target-max-bitrate-input" class="yt_clipper-input" type="number" min="0" max="10e5" step="100" value="${
             overrides.targetMaxBitrate != null ? overrides.targetMaxBitrate : ''
           }" placeholder="${settings.targetMaxBitrate ||
         'Auto'}" "style="width:4em"></input>
@@ -1316,7 +1324,7 @@
             <option ${overrides.twoPass === false ? 'selected' : ''}>Disabled</option>
             <option value="Default" ${
               overrides.twoPass == null ? 'selected' : ''
-            }>Inherit from Global ${ternaryToString(settings.twoPass)}</option>
+            }>Inherit Global ${ternaryToString(settings.twoPass)}</option>
           </select>
         </div>
         <div class="editor-input-div">
@@ -1326,7 +1334,7 @@
             <option ${overrides.denoise === false ? 'selected' : ''}>Disabled</option>
             <option value="Default" ${
               overrides.denoise == null ? 'selected' : ''
-            }>Inherit from Global ${ternaryToString(settings.denoise)}</option>
+            }>Inherit Global ${ternaryToString(settings.denoise)}</option>
           </select>
         </div>
         <div class="editor-input-div">
@@ -1336,13 +1344,14 @@
             <option ${overrides.audio === false ? 'selected' : ''}>Disabled</option>
             <option value="Default" ${
               overrides.audio == null ? 'selected' : ''
-            }>Inherit from Global ${ternaryToString(settings.audio)}</option>
+            }>Inherit Global ${ternaryToString(settings.audio)}</option>
           </select>
         </div>
       </div>
       `;
 
-      playerInfo.columns.insertAdjacentElement('beforebegin', markerInputsDiv);
+      updateSettingsEditorHook();
+      settingsEditorHook.insertAdjacentElement('beforebegin', markerInputsDiv);
 
       addMarkerInputListeners(
         [['speed-input', 'speed', 'number'], ['crop-input', 'crop', 'string']],
@@ -1547,12 +1556,7 @@
         marker[updateTarget] = newValue;
 
         const currentType = currentMarker.getAttribute('type');
-        if (updateTarget === 'speed') {
-          const speedDisplay = document.getElementById('speed-display');
-          speedDisplay.textContent = `[Speed: ${newValue}]`;
-        } else if (updateTarget === 'crop') {
-          const cropDisplay = document.getElementById('crop-display');
-          cropDisplay.textContent = `[Crop: ${newValue}]`;
+        if (updateTarget === 'crop') {
           createCropOverlay(newValue);
         }
         currentMarker.setAttribute(updateTarget, newValue);
