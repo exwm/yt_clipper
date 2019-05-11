@@ -23,6 +23,9 @@ __pycache__
 # compiling, testing, and debugging sandbox
 sandbox/
 
+# other binaries and artifacts
+webms/
+
 typings/
 lib/*.js
 test/*.js
