@@ -27,7 +27,8 @@
   - [Clipper Script Usage](#clipper-script-usage)
   - [Clipper Script Installation](#clipper-script-installation)
   - [Clipper Script Dependencies](#clipper-script-dependencies)
-  - [Change Log](#change-log)
+  - [Markup Script Change Log](#markup-script-change-log)
+  - [Clipper Script Change Log](#clipper-script-change-log)
 
 ## Terminology
 
@@ -168,8 +169,8 @@ python ./clip.py --json markers.json # automatically generate webms using marker
 There is an installation that does not require the dependencies below.
 
 1. Extract the appropriate zip file anywhere:
-   - On Windows download this [zip file (win_v3.0.0)](https://mega.nz/#!gWxVkAwL!gTg8W6vi0QepBPAQScvw9i8DQK4iR5UpZBsjzxUwt9Y)
-   - On Mac download this [zip file (mac_v3.0.0)](https://mega.nz/#!QGZFjSxC!WGxrkc4A6Mgb7p_8W6mcGrigr36o6gISQjM-7T-2vRA)
+   - On Windows download this [zip file (win_v3.0.2)](https://mega.nz/#!VLhTSC5Z!Uc0qMr7GU06ypBI0I6afTj4bKiizQ_Fzh69KN_W7dew)
+   - On Mac download this [zip file (mac_v3.0.2)](https://mega.nz/#!YW4nxIQT!rFMZe65zB8ELvg1qhUzHkKDZy6V8xzZI_kG_ieiCnzA)
    - The install is **not compatible** with `v0.0.71` or lower of the `markup script`
 1. Use the `markup script` on YouTube as usual, but use **S** to save the markers .json to the extracted `yt_clipper` folder.
 1. Simply drag and drop the markers .json file onto the `yt_clipper.bat` file on Windows or the `yt_clipper_auto.app` file on Mac.
@@ -202,10 +203,10 @@ These dependencies are not required by the windows installation above.
 - `--gfycat` requires urllib3
   - `pip install urllib3`
 
-## Change Log
+## Markup Script Change Log
 
 - v0.0.72:
-  - Use with `v3.0.0` of the installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Use with `v3.0.2` of the installation. See [Clipper Script Installation](#clipper-script-installation).
     - Mac install added to instructions.
   - Changes to `markup script`:
     - Add global encode settings editor (toggle with **shift+W** when global settings editor is open). See [Encoding Settings Guide](#encoding-settings-guide).
@@ -249,4 +250,9 @@ These dependencies are not required by the windows installation above.
 - v0.0.68:
   - Add visual clarity to crop preview rectangle and selected marker pairs.
   - Reword some aspects of UI (Download Res -> Crop Resolution, Short Title -> Title Prefix, Concats -> Merge List)
-- v0.0.67: Add borders and padding around input controls.
+
+## Clipper Script Change Log
+
+- v3.0.2:
+  - Use with `v0.0.72` of `markup script`.
+  - Fixed bugs with settings inheritance and overriding.
