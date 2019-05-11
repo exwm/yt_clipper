@@ -32,14 +32,18 @@ def main():
         args.cropMultipleX = args.cropMultiple
         args.cropMultipleY = args.cropMultiple
 
-    settings = {'overlayPath': '', 'delay': 0, **(vars(args))}
+    args = vars(args)
+
+    args = {k: v for k, v in args.items() if v is not None}
+
+    settings = {'rotate': 0, 'overlayPath': '', 'delay': 0, **args}
 
     if settings["json"]:
         settings["url"] = True
         settings["markersDataFileStem"] = Path(settings["infile"]).stem
         settings["titleSuffix"] = settings["markersDataFileStem"]
         webmsPath += f'/{settings["markersDataFileStem"]}'
-        with open(args.infile, 'r', encoding='utf-8-sig') as file:
+        with open(settings["infile"], 'r', encoding='utf-8-sig') as file:
             markersJson = file.read()
             settings = loadMarkers(markersJson, settings)
 
@@ -124,18 +128,21 @@ def prepareSettings(settings):
 
     if settings["url"]:
         settings = getVideoInfo(settings)
-        encodeSettings = getDefaultEncodeSettings(settings["targetMaxBitrate"])
+        encodeSettings = getDefaultEncodeSettings(settings["videoBitrate"])
     else:
         encodeSettings = getDefaultEncodeSettings(None)
 
     logging.info('-' * 80)
-    logger.info((f'Automatically determined encoding settings: CRF: {encodeSettings["crf"]} (0-63), Target Bitrate: {encodeSettings["targetMaxBitrate"]}k, '
-                 + f'Two-pass encoding enabled: {encodeSettings["twoPass"]}, Encoding Speed: {encodeSettings["encodeSpeed"]} (0-5)'))
+    logger.info((f'Automatically determined encoding settings: CRF: {encodeSettings["crf"]} (0-63), ' +
+                 f'Target Max Bitrate: {encodeSettings["targetMaxBitrate"]}k, ' +
+                 f'Two-pass encoding enabled: {encodeSettings["twoPass"]}, ' +
+                 f'Encoding Speed: {encodeSettings["encodeSpeed"]} (0-5)'))
 
     settings = {**encodeSettings, **settings}
 
     logging.info('-' * 80)
-    logger.info((f'Global encoding settings: CRF: {settings["crf"]} (0-63), Target Bitrate: {settings["targetMaxBitrate"]}k, ' +
+    logger.info((f'Global encoding settings: CRF: {settings["crf"]} (0-63), ' +
+                 f'Detected Bitrate: {settings["videoBitrate"]}k, Target Max Bitrate: {settings["targetMaxBitrate"]}k, ' +
                  f'Two-pass encoding enabled: {settings["twoPass"]}, Encoding Speed: {settings["encodeSpeed"]} (0-5), ' +
                  f'Audio enabled: {settings["audio"]}, Denoise enabled: {settings["denoise"]}, Rotate: {settings["rotate"]}'))
 
@@ -151,7 +158,7 @@ def trim_video(settings, markerPairIndex):
 
     logging.info('-' * 80)
     logger.info((f'Marker pair {markerPairIndex + 1} settings: Title Prefix: {mps["titlePrefix"]}, ' +
-                 f'CRF: {mps["crf"]} (0-63), Target Bitrate: {mps["targetMaxBitrate"]}k, ' +
+                 f'CRF: {mps["crf"]} (0-63), Target Max Bitrate: {mps["targetMaxBitrate"]}k, ' +
                  f'Two-pass encoding enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5), ' +
                  f'Audio enabled: {mps["audio"]}, Denoise enabled: {mps["denoise"]}'))
 
@@ -341,13 +348,13 @@ def getVideoInfo(settings):
     settings["videoWidth"] = videoInfo["width"]
     settings["videoHeight"] = videoInfo["height"]
     settings["videoFPS"] = videoInfo["fps"]
-    settings["targetMaxBitrate"] = int(videoInfo["tbr"])
+    settings["videoBitrate"] = int(videoInfo["tbr"])
 
     logger.info(f'Video title: {settings["title"]}')
     logger.info(f'Video width: {settings["videoWidth"]}')
     logger.info(f'Video height: {settings["videoHeight"]}')
     logger.info(f'Video fps: {settings["videoFPS"]}')
-    logger.info(f'Detected video bitrate: {settings["targetMaxBitrate"]}k')
+    logger.info(f'Detected video bitrate: {settings["videoBitrate"]}k')
 
     if settings["json"]:
         settings = autoSetCropMultiples(settings)
