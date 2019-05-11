@@ -15,42 +15,6 @@
 
 (function() {
   'use strict';
-  // global variables
-
-  const CLIENT_ID = 'XXXX';
-  const REDIRECT_URI = 'https://127.0.0.1:4443/yt_clipper';
-  const BROWSER_BASED_AUTH_ENDPOINT = `https://gfycat.com/oauth/authorize?client_id=${CLIENT_ID}&scope=all&state=yt_clipper&response_type=token&redirect_uri=${REDIRECT_URI}`;
-
-  let start = true;
-  let markerHotkeysEnabled = false;
-  let isMarkerEditorOpen = false;
-  let wasDefaultsEditorOpen = false;
-  let isOverlayOpen = false;
-  let checkGfysCompletedId: number;
-  interface markerPairOverrides {
-    titlePrefix?: string;
-    gamma?: number;
-    encodeSpeed?: number;
-    crf?: number;
-    targetMaxBitrate?: number;
-    twoPass?: boolean;
-    denoise?: boolean;
-    audio?: boolean;
-  }
-  interface marker {
-    start: number;
-    end: number;
-    speed: number;
-    crop: string;
-    overrides: markerPairOverrides;
-  }
-  let markers: marker[] = [];
-  let links: string[] = [];
-
-  let startTime = 0.0;
-  let toggleKeys = false;
-  let undoMarkerOffset = 0;
-  let prevSelectedMarkerPair: SVGRectElement = null;
 
   document.addEventListener('keyup', hotkeys, false);
 
@@ -152,12 +116,50 @@
     }
   }
 
+  // global variables
+
+  const CLIENT_ID = 'XXXX';
+  const REDIRECT_URI = 'https://127.0.0.1:4443/yt_clipper';
+  const BROWSER_BASED_AUTH_ENDPOINT = `https://gfycat.com/oauth/authorize?client_id=${CLIENT_ID}&scope=all&state=yt_clipper&response_type=token&redirect_uri=${REDIRECT_URI}`;
+
+  let start = true;
+  let markerHotkeysEnabled = false;
+  let isMarkerEditorOpen = false;
+  let wasDefaultsEditorOpen = false;
+  let isOverlayOpen = false;
+  let checkGfysCompletedId: number;
+  interface markerPairOverrides {
+    titlePrefix?: string;
+    gamma?: number;
+    encodeSpeed?: number;
+    crf?: number;
+    targetMaxBitrate?: number;
+    twoPass?: boolean;
+    denoise?: boolean;
+    audio?: boolean;
+  }
+  interface marker {
+    start: number;
+    end: number;
+    speed: number;
+    crop: string;
+    overrides: markerPairOverrides;
+  }
+  let markers: marker[] = [];
+  let links: string[] = [];
+
+  let startTime = 0.0;
+  let toggleKeys = false;
+  let undoMarkerOffset = 0;
+  let prevSelectedMarkerPair: SVGRectElement = null;
+
   function init() {
     initCSS();
     initPlayerInfo();
     initMarkersContainer();
     addForeignEventListeners();
   }
+
   const initOnce = once(init, this);
   const player = document.getElementById('movie_player');
   const playerInfo = {};
