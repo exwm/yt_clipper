@@ -103,6 +103,12 @@
             requestGfycatAuth();
           }
           break;
+        case 'ArrowLeft':
+        case 'ArrowRight':
+          if (e.ctrlKey) {
+            jumpToNearestMarkerOrPair(e.code);
+          }
+          break;
       }
     }
     if (!e.ctrlKey && e.shiftKey && e.altKey && e.code === 'KeyA') {
@@ -522,6 +528,79 @@
       gammaB.exponent.baseVal = 1;
     }
   }
+
+  function jumpToNearestMarkerOrPair(keyCode) {
+    const currentEndMarker = enableMarkerHotkeys.endMarker;
+    if (isMarkerEditorOpen && currentEndMarker) {
+      jumpToNearestMarkerPair(currentEndMarker, keyCode);
+    } else {
+      jumpToNearestMarker(video.currentTime, keyCode);
+    }
+    // player.playVideo();
+  }
+
+  function jumpToNearestMarkerPair(currentEndMarker, keyCode) {
+    let index = parseInt(currentEndMarker.getAttribute('idx')) - 1;
+    let targetMarker: SVGRectElement;
+    if (keyCode === 'ArrowLeft' && index > 0) {
+      targetMarker = enableMarkerHotkeys.endMarker.previousSibling.previousSibling;
+      targetMarker && toggleMarkerEditor(targetMarker);
+      index--;
+      player.seekTo(markers[index].start);
+    } else if (keyCode === 'ArrowRight' && index < markers.length - 1) {
+      targetMarker = enableMarkerHotkeys.endMarker.nextSibling.nextSibling;
+      targetMarker && toggleMarkerEditor(targetMarker);
+      index++;
+      player.seekTo(markers[index].start);
+    }
+    return;
+  }
+
+  function jumpToNearestMarker(currentTime, keyCode) {
+    let minDist = 0;
+
+    // Choose marker time to jump to based on low precision time distance
+    // Avoids being unable to jump away from a marker that the current time is very close to
+    let times = markers.map(markerPair => {
+      const distToStartMarker = markerPair.start - currentTime;
+      const distToStartMarkerFixed = parseFloat(distToStartMarker.toFixed(1));
+      const distToEndMarker = markerPair.end - currentTime;
+      const distToEndMarkerFixed = parseFloat(distToEndMarker.toFixed(1));
+      return [
+        {
+          distToMarker: distToStartMarker,
+          distToMarkerFixed: distToStartMarkerFixed,
+        },
+        { distToMarker: distToEndMarker, distToMarkerFixed: distToEndMarkerFixed },
+      ];
+    });
+    times = times.flat();
+    if (keyCode === 'ArrowLeft') {
+      minDist = times.reduce((prevDistToMarker, dist) => {
+        dist.distToMarkerFixed =
+          dist.distToMarkerFixed >= 0 ? -Infinity : dist.distToMarkerFixed;
+        if (dist.distToMarkerFixed > prevDistToMarker) {
+          return dist.distToMarker;
+        } else {
+          return prevDistToMarker;
+        }
+      }, -Infinity);
+    } else if (keyCode === 'ArrowRight') {
+      minDist = times.reduce((prevDistToMarker, dist) => {
+        dist.distToMarkerFixed =
+          dist.distToMarkerFixed <= 0 ? Infinity : dist.distToMarkerFixed;
+        if (dist.distToMarkerFixed < prevDistToMarker) {
+          return dist.distToMarker;
+        } else {
+          return prevDistToMarker;
+        }
+      }, Infinity);
+    }
+    if (minDist != Infinity && minDist != -Infinity && minDist != 0) {
+      player.seekTo(minDist + currentTime);
+    }
+  }
+
   function saveMarkers() {
     markers.forEach((marker: marker, index: number) => {
       const speed = marker.speed;
@@ -645,7 +724,7 @@
       marker.setAttribute('z-index', '1');
       startTime = currentFrameTime;
     } else {
-      marker.addEventListener('mouseover', toggleMarkerEditor, false);
+      marker.addEventListener('mouseover', toggleMarkerEditorHandler, false);
       marker.classList.add('end-marker');
       marker.setAttribute('type', 'end');
       marker.setAttribute('z-index', '2');
@@ -1217,55 +1296,60 @@
     flashMessage(`All marker ${updateTarget}s updated to ${newValue}`, 'olive');
   }
 
-  function toggleMarkerEditor(e: MouseEvent) {
+  function toggleMarkerEditorHandler(e: MouseEvent) {
     const targetMarker = e.target as SVGRectElement;
 
     if (targetMarker && e.shiftKey) {
-      // if marker editor is open, always delete it
-      if (isMarkerEditorOpen) {
-        deleteMarkerEditor();
-        clearSelectedMarkerPairOverlay(targetMarker);
-        if (isOverlayOpen) {
-          toggleOverlay();
-        }
-      }
-      // toggling already selected marker pair
-      if (prevSelectedMarkerPair === targetMarker) {
-        prevSelectedMarkerPair = null;
-      }
-      // switching to a different marker pair
-      else {
-        if (prevSelectedMarkerPair) {
-          clearSelectedMarkerPairOverlay(prevSelectedMarkerPair);
-        }
-        prevSelectedMarkerPair = targetMarker;
-        if (isOverlayOpen) {
-          toggleOverlay();
-        }
+      toggleMarkerEditor(targetMarker);
+    }
+  }
+
+  function toggleMarkerEditor(targetMarker: SVGRectElement) {
+    // if marker editor is open, always delete it
+    if (isMarkerEditorOpen) {
+      deleteMarkerEditor();
+      clearSelectedMarkerPairOverlay(targetMarker);
+      if (isOverlayOpen) {
         toggleOverlay();
-        colorSelectedMarkerPair(targetMarker);
-        enableMarkerHotkeys(targetMarker);
-        createMarkerEditor(targetMarker);
       }
     }
+    // toggling already selected marker pair
+    if (prevSelectedMarkerPair === targetMarker) {
+      prevSelectedMarkerPair = null;
+    }
+    // switching to a different marker pair
+    else {
+      if (prevSelectedMarkerPair) {
+        clearSelectedMarkerPairOverlay(prevSelectedMarkerPair);
+      }
+      prevSelectedMarkerPair = targetMarker;
+      if (isOverlayOpen) {
+        toggleOverlay();
+      }
+      toggleOverlay();
+      colorSelectedMarkerPair(targetMarker);
+      enableMarkerHotkeys(targetMarker);
+      createMarkerEditor(targetMarker);
+    }
+  }
 
-    function createMarkerEditor(targetMarker) {
-      const markerIndex = targetMarker.getAttribute('idx') - 1;
-      const currentMarker = markers[markerIndex];
-      const startTime = toHHMMSS(currentMarker.start);
-      const endTime = toHHMMSS(currentMarker.end);
-      const speed = currentMarker.speed;
-      const crop = currentMarker.crop;
-      const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
-      const markerInputsDiv = document.createElement('div');
-      const overrides = currentMarker.overrides;
-      const markerPairOverridesEditorDisplay = targetMarker.getAttribute(
-        'markerPairOverridesEditorDisplay'
-      );
-      createCropOverlay(crop);
+  function createMarkerEditor(targetMarker) {
+    const markerIndex = targetMarker.getAttribute('idx') - 1;
+    const currentMarker = markers[markerIndex];
+    const startTime = toHHMMSS(currentMarker.start);
+    const endTime = toHHMMSS(currentMarker.end);
+    const speed = currentMarker.speed;
+    const crop = currentMarker.crop;
+    const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
+    const markerInputsDiv = document.createElement('div');
+    const overrides = currentMarker.overrides;
+    const markerPairOverridesEditorDisplay = targetMarker.getAttribute(
+      'markerPairOverridesEditorDisplay'
+    );
+    createCropOverlay(crop);
 
-      markerInputsDiv.setAttribute('id', 'markerInputsDiv');
-      markerInputsDiv.innerHTML = `\
+    markerInputsDiv.setAttribute('id', 'markerInputsDiv');
+    markerInputsDiv.innerHTML = `\
       <div class="yt_clipper-settings-editor">
         <span style="font-weight:bold;font-style:none">Marker Pair Settings:   </span>
         <div class="editor-input-div">
@@ -1317,7 +1401,7 @@
           <input id="target-max-bitrate-input" class="yt_clipper-input" type="number" min="0" max="10e5" step="100" value="${
             overrides.targetMaxBitrate != null ? overrides.targetMaxBitrate : ''
           }" placeholder="${settings.targetMaxBitrate ||
-        'Auto'}" "style="width:4em"></input>
+      'Auto'}" "style="width:4em"></input>
         </div>
         <div class="editor-input-div">
           <span>Two-Pass: </span>
@@ -1352,32 +1436,31 @@
       </div>
       `;
 
-      updateSettingsEditorHook();
-      settingsEditorHook.insertAdjacentElement('beforebegin', markerInputsDiv);
+    updateSettingsEditorHook();
+    settingsEditorHook.insertAdjacentElement('beforebegin', markerInputsDiv);
 
-      addMarkerInputListeners(
-        [['speed-input', 'speed', 'number'], ['crop-input', 'crop', 'string']],
-        targetMarker,
-        markerIndex
-      );
-      addMarkerInputListeners(
-        [
-          ['title-prefix-input', 'titlePrefix', 'string'],
-          ['gamma-input', 'gamma', 'number'],
-          ['encode-speed-input', 'encodeSpeed', 'number'],
-          ['crf-input', 'crf', 'number'],
-          ['target-max-bitrate-input', 'targetMaxBitrate', 'number'],
-          ['two-pass-input', 'twoPass', 'ternary'],
-          ['denoise-input', 'denoise', 'ternary'],
-          ['audio-input', 'audio', 'ternary'],
-        ],
-        targetMarker,
-        markerIndex,
-        true
-      );
-      isMarkerEditorOpen = true;
-      wasDefaultsEditorOpen = false;
-    }
+    addMarkerInputListeners(
+      [['speed-input', 'speed', 'number'], ['crop-input', 'crop', 'string']],
+      targetMarker,
+      markerIndex
+    );
+    addMarkerInputListeners(
+      [
+        ['title-prefix-input', 'titlePrefix', 'string'],
+        ['gamma-input', 'gamma', 'number'],
+        ['encode-speed-input', 'encodeSpeed', 'number'],
+        ['crf-input', 'crf', 'number'],
+        ['target-max-bitrate-input', 'targetMaxBitrate', 'number'],
+        ['two-pass-input', 'twoPass', 'ternary'],
+        ['denoise-input', 'denoise', 'ternary'],
+        ['audio-input', 'audio', 'ternary'],
+      ],
+      targetMarker,
+      markerIndex,
+      true
+    );
+    isMarkerEditorOpen = true;
+    wasDefaultsEditorOpen = false;
   }
 
   function ternaryToString(ternary) {
