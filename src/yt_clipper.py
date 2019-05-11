@@ -153,11 +153,9 @@ def trim_video(settings, markerPairIndex):
     mp = markerPair = {**(settings["markers"][markerPairIndex])}
     mps = markerPairSettings = {**settings, **(markerPair["overrides"])}
 
-    if "titlePrefix" not in mps:
-        mps["titlePrefix"] = ''
-
+    titlePrefixLogMsg = f'Title Prefix: {mps["titlePrefix"] if "titlePrefix" in mps else ""}'
     logging.info('-' * 80)
-    logger.info((f'Marker pair {markerPairIndex + 1} settings: Title Prefix: {mps["titlePrefix"]}, ' +
+    logger.info((f'Marker pair {markerPairIndex + 1} settings: {titlePrefixLogMsg}, ' +
                  f'CRF: {mps["crf"]} (0-63), Target Max Bitrate: {mps["targetMaxBitrate"]}k, ' +
                  f'Two-pass encoding enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5), ' +
                  f'Audio enabled: {mps["audio"]}, Denoise enabled: {mps["denoise"]}'))
