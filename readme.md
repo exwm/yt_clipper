@@ -28,7 +28,7 @@
   - [Clipper Script Installation](#clipper-script-installation)
   - [Clipper Script Dependencies](#clipper-script-dependencies)
   - [Markup Script Change Log](#markup-script-change-log)
-  - [Clipper Script Change Log](#clipper-script-change-log)
+  - [Clipper Script (Installation) Change Log](#clipper-script-installation-change-log)
 
 ## Terminology
 
@@ -148,7 +148,7 @@
 
 ### Gamma Correction
 
-Play around with the `gamma` setting to bring back shadow or highlight detail. Use a value between 0 and 1 to bring back shadow detail and a value greater than 4 to bring back highlight detail. Refer to this [gamma correction guide](https://www.cambridgeincolour.com/tutorials/gamma-correction.htm) for more details.
+Play around with the `gamma` setting to bring back shadow or highlight detail. Use a value between 0 and 1 to bring back shadow detail and a value greater than 1 to bring back highlight detail. Refer to this [gamma correction guide](https://www.cambridgeincolour.com/tutorials/gamma-correction.htm) for more details.
 
 ## Clipper Script Usage
 
@@ -206,31 +206,27 @@ These dependencies are not required by the windows installation above.
 ## Markup Script Change Log
 
 - v0.0.72:
+
   - Use with `v3.0.2` of the installation. See [Clipper Script Installation](#clipper-script-installation).
     - Mac install added to instructions.
-  - Changes to `markup script`:
-    - Add global encode settings editor (toggle with **shift+W** when global settings editor is open). See [Encoding Settings Guide](#encoding-settings-guide).
-    - Add per marker pair encode settings overrides (toggle with **shift+W** when marker pair editor is open).
-    - Add visual clarity to selected marker pair (now colored black in the center).
-    - Increase width of all editors in YouTube theater mode and improve editor visual clarity.
-    - Rename `Title Prefix` in global settings editor to `Title Suffix`.
-    - Add `Title Prefix` input in marker pair editor.
-    - The generated webms are now named as follows: `Title Prefix` followed by `Title Suffix` followed by marker pair number.
-    - Fix title suffix being rewrapped in square brackets when toggling global settings editor.
-    - Remove generating of clipper script with **S** and copying.
-    - Move saving markers json hotkey from **alt+S** to **S**.
-    - Add auto previewing gamma correction with **shift+alt+G**.
-  - Changes to `clipper script`:
-    - Fix handling of DASH video and audio.
-    - Fix large audio files taking very long to begin encoding.
-    - Add additional logging for global and per marker pair settings.
-    - Generate log file saved alongside generated webms.
-    - Fix detecting mismatch of crop res height and video height.
+  - Add global encode settings editor (toggle with **shift+W** when global settings editor is open). See [Encoding Settings Guide](#encoding-settings-guide).
+  - Add per marker pair encode settings overrides (toggle with **shift+W** when marker pair editor is open).
+  - Add visual clarity to selected marker pair (now colored black in the center).
+  - Increase width of all editors in YouTube theater mode and improve editor visual clarity.
+  - Rename `Title Prefix` in global settings editor to `Title Suffix`.
+  - Add `Title Prefix` input in marker pair editor.
+  - Generated webms are now named as follows: `Title Prefix` followed by `Title Suffix` followed by marker pair number.
+  - Fix title suffix being rewrapped in square brackets when toggling global settings editor.
+  - Remove generating of clipper script with **S** and copying.
+  - Move saving markers json hotkey from **alt+S** to **S**.
+  - Add auto previewing gamma correction with **shift+alt+G**.
+
 - v0.0.71:
   - Use with `v2.0.0` of the installation.
   - The installation is now leaner, using a single file for the `yt_clipper.exe`.
   - Add reporting of fetched YouTube video info (title, fps, width, height, bitrate).
-  - Automatically set encoding settings based on detected video bitrate using constrained quality mode. This will keep file sizes for high bitrate videos under control and speed up encoding across the board.
+  - Automatically set encoding settings based on detected video bitrate using constrained quality mode. 
+    - This will keep file sizes for high bitrate videos under control and speed up encoding across the board.
     - **The markers .json format has changed to accommodate this and is not compatible with earlier versions.**
   - Add summary report of generated webms (successful, failed, or skipped).
   - Add automatic reconnect for greater resiliency against network errors.
@@ -239,7 +235,7 @@ These dependencies are not required by the windows installation above.
   - Add crop resolution to markers .json data.
   - Automatically detect and fix mismatch of crop resolution and video resolution.
   - Add two-pass encoding option, enabled with `--two-pass` or `-tp`. Disabled by default.
-  - Add target max bitrate option for constrained quality mode using `--target-max-bitrate <bitrate>` or `-b <bitrate>` where bitrate is in kilobits/s.
+  - Add target max bitrate option for constrained quality mode using `-b <bitrate>` where bitrate is in kb/s.
 - v0.0.70:
   - Fix speed multipliers (slowdowns) being saved as string values instead of numbers in Firefox.
   - Add visual clarity to default settings editor and marker pair settings editor. Add more flash messages, primarily for toggleable features.
@@ -251,8 +247,18 @@ These dependencies are not required by the windows installation above.
   - Add visual clarity to crop preview rectangle and selected marker pairs.
   - Reword some aspects of UI (Download Res -> Crop Resolution, Short Title -> Title Prefix, Concats -> Merge List)
 
-## Clipper Script Change Log
+## Clipper Script (Installation) Change Log
 
 - v3.0.2:
+
   - Use with `v0.0.72` of `markup script`.
   - Fixed bugs with settings inheritance and overriding.
+
+- v3.0.0:
+
+  - Use with `v0.0.72` of `markup script`.
+  - Fix handling of DASH video and audio.
+  - Fix large audio files taking very long to begin encoding.
+  - Add additional logging for global and per marker pair settings.
+  - Generate log file saved alongside generated webms.
+  - Fix detecting mismatch of crop res height and video height.
