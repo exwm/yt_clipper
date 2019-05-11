@@ -20,7 +20,7 @@ fileNames = []
 links = []
 markdown = ''
 
-ffmpegPath = './bin/ffmpeg.exe'
+ffmpegPath = './bin/ffmpeg'
 webmsPath = './webms'
 logger = None
 
@@ -324,7 +324,10 @@ def createMergeList(markerPairMergeList):
 
 def getVideoInfo(settings):
     from youtube_dl import YoutubeDL
-    ydl = YoutubeDL({'format': settings["format"], 'forceurl': True})
+    ydl_opts = {'format': settings["format"], 'forceurl': True}
+    if sys.platform == 'darwin':
+        ydl_opts["nocheckcertificate"] = True
+    ydl = YoutubeDL(ydl_opts)
     ydl_info = ydl.extract_info(settings["videoUrl"], download=False)
     if 'requested_formats' in ydl_info:
         rf = ydl_info["requested_formats"]
