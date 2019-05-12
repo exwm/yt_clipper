@@ -34,7 +34,9 @@
           break;
         case 'KeyS':
           if (!e.shiftKey && !e.altKey) {
-            saveMarkers();
+            saveSettings();
+          } else if (e.altKey && !e.shiftKey) {
+            copyToClipboard(getSettingsJSON());
           } else if (e.altKey && e.shiftKey) {
             saveAuthServerScript();
           }
@@ -608,7 +610,14 @@
     }
   }
 
-  function saveMarkers() {
+  function saveSettings() {
+    const settingsJSON = getSettingsJSON();
+
+    const blob = new Blob([settingsJSON], { type: 'text/plain;charset=utf-8' });
+    saveAs(blob, `${settings.titleSuffix}.json`);
+  }
+
+  function getSettingsJSON() {
     markers.forEach((marker: marker, index: number) => {
       const speed = marker.speed;
       if (typeof speed === 'string') {
@@ -616,7 +625,7 @@
         console.log(`Converted marker pair ${index}'s speed from String to Number`);
       }
     });
-    const markersJson = JSON.stringify(
+    const settingsJSON = JSON.stringify(
       {
         ...settings,
         markers: markers,
@@ -624,8 +633,7 @@
       undefined,
       2
     );
-    const blob = new Blob([markersJson], { type: 'text/plain;charset=utf-8' });
-    saveAs(blob, `${settings.titleSuffix}.json`);
+    return settingsJSON;
   }
 
   function loadMarkers() {
