@@ -249,6 +249,7 @@ def trim_video(settings, markerPairIndex):
             f'-filter_complex "{vidstabtransformFilter}" '
 
     if mps["twoPass"] and not vidstabEnabled:
+        ffmpegCommand += f' -filter_complex "{filter_complex}" '
         ffmpegPass1 = shlex.split(ffmpegCommand + ' -pass 1 -')
         logger.info('Running first pass...')
         subprocess.run(ffmpegPass1)
