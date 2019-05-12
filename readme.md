@@ -187,7 +187,7 @@ For windows there are some alternative bat files for more options. They all work
 - Use `yt_clipper_auto_all_options.bat` to print all the available options and to be prompted for a string with additional options before running the script. This allows you to combine options (eg include audio and rotate and denoise).
 
 The bat files have a simple format. Copy and edit `yt_clipper_auto.bat` to create custom automated versions.
-Just add options after the `%1` on line 2 as in the example below.
+Just add options after the `%1` on line 3 as in the example below.
 
 ```bat
 @echo off
@@ -209,12 +209,13 @@ These dependencies are not required by the windows installation above.
 ## Markup Script Change Log
 
 - v0.0.74:
-  - Use with `v3.1.0` of the installation.
-  - Fix bug with crop y direction offset not accounting for variable video padding.
+
+  - Use with `v3.1.0` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Fix bug with crop y direction offset sometimes not accounting for variable video padding.
 
 - v0.0.73:
 
-  - Use with `v3.1.0` of the installation. Reinstall if necessary. See [Clipper Script Installation](#clipper-script-installation).
+  - Use with `v3.1.0` of the installation. Reinstall if necessary.
   - Add jumping to next/previous marker or marker pair with **ctrl+LeftArrow**/**ctrl+RightArrow**.
     - Jumps to next or previous marker when no marker pair is selected.
     - When a marker pair is selected, selects the next or previous pair and jumps to its start marker.
