@@ -1405,7 +1405,8 @@
     markerInputsDiv.setAttribute('id', 'markerInputsDiv');
     markerInputsDiv.innerHTML = `\
       <div class="yt_clipper-settings-editor">
-        <span style="font-weight:bold;font-style:none">Marker Pair Settings:   </span>
+        <span style="font-weight:bold;font-style:none">Marker Pair ${markerIndex +
+          1} Settings: </span>
         <div class="editor-input-div">
           <span>Speed: </span>
           <input id="speed-input" class="yt_clipper-input" type="number" placeholder="speed" value="${speed}" 
@@ -1423,8 +1424,7 @@
           }" placeholder="None" style="width:10em;text-align:right"></input>
         </div>
         <div class="editor-input-div">
-          <span style="font-weight:bold;font-style:none">Pair ${markerIndex +
-            1} Time:</span>
+          <span style="font-weight:bold;font-style:none">Time:</span>
           <span id="start-time">${startTime}</span>
           <span> - </span>
           <span id="end-time">${endTime}</span>
