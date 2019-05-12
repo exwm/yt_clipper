@@ -49,6 +49,8 @@ def main():
             markersJson = file.read()
             settings = loadMarkers(markersJson, settings)
 
+    settings["videoTitle"] = re.sub('"', '',  settings["videoTitle"])
+
     os.makedirs(f'{webmsPath}', exist_ok=True)
     setUpLogger()
 
