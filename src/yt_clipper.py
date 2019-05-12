@@ -36,7 +36,9 @@ def main():
 
     args = {k: v for k, v in args.items() if v is not None}
 
-    settings = {'rotate': 0, 'overlayPath': '', 'delay': 0, **args}
+    vidstabDefault = {'enabled': False, 'desc': 'Disabled'}
+    settings = {'videoStabilization': vidstabDefault,
+                'rotate': 0, 'overlayPath': '', 'delay': 0, **args}
 
     if settings["json"]:
         settings["url"] = True
@@ -135,16 +137,17 @@ def prepareSettings(settings):
     logging.info('-' * 80)
     logger.info((f'Automatically determined encoding settings: CRF: {encodeSettings["crf"]} (0-63), ' +
                  f'Target Max Bitrate: {encodeSettings["targetMaxBitrate"]}k, ' +
-                 f'Two-pass encoding enabled: {encodeSettings["twoPass"]}, ' +
+                 f'Two-pass Encoding Enabled: {encodeSettings["twoPass"]}, ' +
                  f'Encoding Speed: {encodeSettings["encodeSpeed"]} (0-5)'))
 
     settings = {**encodeSettings, **settings}
 
     logging.info('-' * 80)
-    logger.info((f'Global encoding settings: CRF: {settings["crf"]} (0-63), ' +
+    logger.info((f'Global Encoding Settings: CRF: {settings["crf"]} (0-63), ' +
                  f'Detected Bitrate: {settings["videoBitrate"]}k, Target Max Bitrate: {settings["targetMaxBitrate"]}k, ' +
-                 f'Two-pass encoding enabled: {settings["twoPass"]}, Encoding Speed: {settings["encodeSpeed"]} (0-5), ' +
-                 f'Audio enabled: {settings["audio"]}, Denoise enabled: {settings["denoise"]}, Rotate: {settings["rotate"]}'))
+                 f'Two-pass Encoding Enabled: {settings["twoPass"]}, Encoding Speed: {settings["encodeSpeed"]} (0-5), ' +
+                 f'Audio Enabled: {settings["audio"]}, Denoise Enabled: {settings["denoise"]}, Rotate: {settings["rotate"]}, ' +
+                 f'Video Stabilization: {settings["videoStabilization"]["desc"]}'))
 
     return settings
 
@@ -155,10 +158,11 @@ def trim_video(settings, markerPairIndex):
 
     titlePrefixLogMsg = f'Title Prefix: {mps["titlePrefix"] if "titlePrefix" in mps else ""}'
     logging.info('-' * 80)
-    logger.info((f'Marker pair {markerPairIndex + 1} settings: {titlePrefixLogMsg}, ' +
+    logger.info((f'Marker Pair {markerPairIndex + 1} Settings: {titlePrefixLogMsg}, ' +
                  f'CRF: {mps["crf"]} (0-63), Target Max Bitrate: {mps["targetMaxBitrate"]}k, ' +
-                 f'Two-pass encoding enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5), ' +
-                 f'Audio enabled: {mps["audio"]}, Denoise enabled: {mps["denoise"]}'))
+                 f'Two-pass Encoding Enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5), ' +
+                 f'Audio Enabled: {mps["audio"]}, Denoise Enabled: {mps["denoise"]}, ' +
+                 f'Video Stabilization: {mps["videoStabilization"]["desc"]}'))
 
     mp["fileNameStem"] = f'{mps["titlePrefix"] + "-" if "titlePrefix" in mps else ""}{mps["titleSuffix"]}-{markerPairIndex + 1}'
     mp["fileName"] = f'{mp["fileNameStem"]}.webm'
@@ -202,8 +206,9 @@ def trim_video(settings, markerPairIndex):
 
     filter_complex += (
         f'[slowed]crop=x={crops[0]}:y={crops[1]}:w={crops[2]}:h={crops[3]}')
-    filter_complex += f'[cropped];[cropped]lutyuv=y=gammaval({mps["gamma"]})'
 
+    if 0 <= mps["gamma"] <= 4 and mps["gamma"] != 1:
+        filter_complex += f',lutyuv=y=gammaval({mps["gamma"]})'
     if mps["rotate"]:
         filter_complex += f',transpose={mps["rotate"]}'
     if mps["denoise"]:
@@ -212,31 +217,65 @@ def trim_video(settings, markerPairIndex):
         filter_complex += f',bwdif'
 
     if mps["overlayPath"]:
-        filter_complex += f'[corrected];[corrected][1:v]overlay=x=W-w-10:y=10:alpha=0.5'
+        filter_complex += f'[cropped-and-corrected];[cropped-and-corrected][1:v]overlay=x=W-w-10:y=10:alpha=0.5'
         inputs += f'-i "{mps["overlayPath"]}"'
 
     ffmpegCommand = ' '.join((
         inputs,
-        f'-filter_complex "{filter_complex}"',
         f'-c:v libvpx-vp9 -pix_fmt yuv420p',
         f'-c:a libopus -b:a 128k',
         f'-slices 8 -threads 8 -row-mt 1 -tile-columns 6 -tile-rows 2',
-        f'-speed {mps["encodeSpeed"]} -crf {mps["crf"]} -b:v {mps["targetMaxBitrate"]}k',
+        f'-crf {mps["crf"]} -b:v {mps["targetMaxBitrate"]}k',
         f'-metadata title="{mps["videoTitle"]}" -t {duration}',
         f'-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
         f'-f webm ',
     ))
 
-    if mps["twoPass"]:
+    vidstabEnabled = mps["videoStabilization"]["enabled"]
+    if vidstabEnabled:
+        vidstab = mps["videoStabilization"]
+        transformPath = f'{webmsPath}/{mp["fileNameStem"]}.trf'
+        shakyPath = f'{webmsPath}/{mp["fileNameStem"]}-shaky.webm'
+        filter_complex += '[shaky];[shaky]'
+        vidstabdetectFilter = filter_complex + \
+            f'''vidstabdetect=result='{transformPath}':shakiness={vidstab["shakiness"]}'''
+        ffmpegVidstabdetect = ffmpegCommand + \
+            f'-filter_complex "{vidstabdetectFilter}"'
+        vidstabtransformFilter = filter_complex + \
+            f'''vidstabtransform=input='{transformPath}',unsharp=5:5:0.8:3:3:0.4'''
+        ffmpegVidstabtransform = ffmpegCommand + \
+            f'-filter_complex "{vidstabtransformFilter}" '
+
+    if mps["twoPass"] and not vidstabEnabled:
         ffmpegPass1 = shlex.split(ffmpegCommand + ' -pass 1 -')
         logger.info('Running first pass...')
         subprocess.run(ffmpegPass1)
-        ffmpegPass2 = ffmpegCommand + f' -pass 2 "{mp["filePath"]}"'
+        ffmpegPass2 = ffmpegCommand + \
+            f' -speed {mps["encodeSpeed"]} -pass 2 "{mp["filePath"]}"'
+        logger.info('Running second pass...')
         logger.info('Using ffmpeg command: ' +
                     re.sub(r'(&a?itags?.*?")', r'"', ffmpegPass2) + '\n')
         ffmpegProcess = subprocess.run(shlex.split(ffmpegPass2))
+    elif vidstabEnabled:
+        if mps["twoPass"]:
+            ffmpegVidstabdetect += f' -pass 1'
+        ffmpegVidstabdetect += f' "{shakyPath}"'
+        logger.info('Running video stabilization first pass...')
+        logger.info('Using ffmpeg command: ' +
+                    re.sub(r'(&a?itags?.*?")', r'"', ffmpegVidstabdetect) + '\n')
+        subprocess.run(shlex.split(ffmpegVidstabdetect))
+
+        if mps["twoPass"]:
+            ffmpegVidstabtransform += f' -pass 2'
+        ffmpegVidstabtransform += f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
+        logger.info('Running video stabilization second pass...')
+        logger.info('Using ffmpeg command: ' +
+                    re.sub(r'(&a?itags?.*?")', r'"', ffmpegVidstabtransform) + '\n')
+        ffmpegProcess = subprocess.run(shlex.split(ffmpegVidstabtransform))
     else:
-        ffmpegCommand = ffmpegCommand + f' "{mp["filePath"]}"'
+        ffmpegCommand += f' -filter_complex "{filter_complex}" '
+        ffmpegCommand = ffmpegCommand + \
+            f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
         logger.info('Using ffmpeg command: ' +
                     re.sub(r'(&a?itags?.*?")', r'"', ffmpegCommand) + '\n')
         ffmpegProcess = subprocess.run(shlex.split(ffmpegCommand))
