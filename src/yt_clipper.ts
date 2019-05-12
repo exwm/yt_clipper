@@ -143,6 +143,7 @@
     twoPass?: boolean;
     denoise?: boolean;
     audio?: boolean;
+    videoStabilization?: videoStabilization;
   }
   interface marker {
     start: number;
@@ -200,6 +201,11 @@
       settingsEditorHook = playerInfo.infoContents;
     }
   }
+  interface videoStabilization {
+    enabled: boolean;
+    shakiness: number;
+    desc: string;
+  }
   interface settings {
     videoID: string;
     videoTitle: string;
@@ -217,6 +223,7 @@
     twoPass?: boolean;
     denoise?: boolean;
     audio?: boolean;
+    videoStabilization?: videoStabilization;
   }
   let settings: settings;
   let markersSvg: SVGAElement;
@@ -812,6 +819,8 @@
       const resList = playerInfo.isVerticalVideo
         ? `<option value="1080x1920"><option value="2160x3840">`
         : `<option value="1920x1080"><option value="3840x2160">`;
+      const vidstab = settings.videoStabilization;
+      const vidstabDesc = vidstab ? vidstab.desc : null;
 
       markerInputs.setAttribute('id', 'markerInputsDiv');
       markerInputs.innerHTML = `\
@@ -923,6 +932,21 @@
             }>Inherit (Disabled)</option>
           </select>
         </div>
+        <div class="editor-input-div">
+          <span>Stabilization: </span>
+          <select id="video-stabilization-input">
+            <option ${
+              vidstabDesc === 'Very Strong' ? 'selected' : ''
+            }>Very Strong</option>
+            <option ${vidstabDesc === 'Strong' ? 'selected' : ''}>Strong</option>
+            <option ${vidstabDesc === 'Medium' ? 'selected' : ''}>Medium</option>
+            <option ${vidstabDesc === 'Weak' ? 'selected' : ''}>Weak</option>
+            <option ${vidstabDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
+            <option value="Default" ${
+              vidstabDesc == null ? 'selected' : ''
+            }>Inherit (Disabled)</option>
+          </select>
+        </div>
       </div>
       `;
 
@@ -945,6 +969,7 @@
         ['two-pass-input', 'twoPass', 'ternary'],
         ['denoise-input', 'denoise', 'ternary'],
         ['audio-input', 'audio', 'ternary'],
+        ['video-stabilization-input', 'videoStabilization', 'vidstab'],
       ]);
       wasDefaultsEditorOpen = true;
       isMarkerEditorOpen = true;
@@ -967,6 +992,14 @@
     });
   }
 
+  const vidstabMap = {
+    'Very Strong': { enabled: true, shakiness: 10, desc: 'Very Strong' },
+    Strong: { enabled: true, shakiness: 8, desc: 'Strong' },
+    Medium: { enabled: true, shakiness: 5, desc: 'Medium' },
+    Weak: { enabled: true, shakiness: 3, desc: 'Weak' },
+    'Very Weak': { enabled: true, shakiness: 1, desc: 'Very Weak' },
+    Disabled: { enabled: false, desc: 'Disabled' },
+  };
   function updateDefaultValue(e: Event, updateTarget: string, valueType: string) {
     if (e.target.reportValidity()) {
       let newValue = e.target.value;
@@ -987,6 +1020,12 @@
           } else if (newValue === 'Disabled') {
             newValue = false;
           }
+        } else if (valueType === 'vidstab') {
+          if (newValue === 'Disabled') {
+            delete settings[updateTarget];
+            return;
+          }
+          newValue = vidstabMap[newValue];
         }
       }
 
@@ -1343,6 +1382,11 @@
     const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
     const markerInputsDiv = document.createElement('div');
     const overrides = currentMarker.overrides;
+    const vidstab = overrides.videoStabilization;
+    const vidstabDesc = vidstab ? vidstab.desc : null;
+    const vidstabDescGlobal = settings.videoStabilization
+      ? `(${settings.videoStabilization.desc})`
+      : '';
     const markerPairOverridesEditorDisplay = targetMarker.getAttribute(
       'markerPairOverridesEditorDisplay'
     );
@@ -1433,6 +1477,21 @@
             }>Inherit Global ${ternaryToString(settings.audio)}</option>
           </select>
         </div>
+        <div class="editor-input-div">
+          <span>Stabilization: </span>
+          <select id="video-stabilization-input">
+            <option ${
+              vidstabDesc === 'Very Strong' ? 'selected' : ''
+            }>Very Strong</option>
+            <option ${vidstabDesc === 'Strong' ? 'selected' : ''}>Strong</option>
+            <option ${vidstabDesc === 'Medium' ? 'selected' : ''}>Medium</option>
+            <option ${vidstabDesc === 'Weak' ? 'selected' : ''}>Weak</option>
+            <option ${vidstabDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
+            <option value="Default" ${
+              vidstabDesc == null ? 'selected' : ''
+            }>Inherit Global ${vidstabDescGlobal}</option>
+          </select>
+        </div>
       </div>
       `;
 
@@ -1454,6 +1513,7 @@
         ['two-pass-input', 'twoPass', 'ternary'],
         ['denoise-input', 'denoise', 'ternary'],
         ['audio-input', 'audio', 'ternary'],
+        ['video-stabilization-input', 'videoStabilization', 'vidstab'],
       ],
       targetMarker,
       markerIndex,
@@ -1634,9 +1694,14 @@
           } else if (newValue === 'Disabled') {
             newValue = false;
           }
+        } else if (valueType === 'vidstab') {
+          if (newValue === 'Disabled') {
+            delete settings[updateTarget];
+            return;
+          }
+          newValue = vidstabMap[newValue];
         }
       }
-
       if (!overridesField) {
         marker[updateTarget] = newValue;
 
