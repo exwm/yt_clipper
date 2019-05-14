@@ -156,15 +156,26 @@ def prepareSettings(settings):
 
 def trim_video(settings, markerPairIndex):
     mp = markerPair = {**(settings["markers"][markerPairIndex])}
-    mps = markerPairSettings = {**settings, **(markerPair["overrides"])}
 
-    titlePrefixLogMsg = f'Title Prefix: {mps["titlePrefix"] if "titlePrefix" in mps else ""}'
-    logging.info('-' * 80)
-    logger.info((f'Marker Pair {markerPairIndex + 1} Settings: {titlePrefixLogMsg}, ' +
-                 f'CRF: {mps["crf"]} (0-63), Target Max Bitrate: {mps["targetMaxBitrate"]}k, ' +
-                 f'Two-pass Encoding Enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5), ' +
-                 f'Audio Enabled: {mps["audio"]}, Denoise Enabled: {mps["denoise"]}, ' +
-                 f'Video Stabilization: {mps["videoStabilization"]["desc"]}'))
+    cropString = mp["crop"]
+    crops = cropString.split(':')
+    crops[0] = settings["cropMultipleX"] * int(crops[0])
+    if crops[2] != 'iw':
+        crops[2] = settings["cropMultipleX"] * int(crops[2])
+    else:
+        crops[2] = settings["videoWidth"]
+    crops[1] = settings["cropMultipleY"] * int(crops[1])
+    if crops[3] != 'ih':
+        crops[3] = settings["cropMultipleY"] * int(crops[3])
+    else:
+        crops[3] = settings["videoHeight"]
+
+    bitrateCropFactor = (crops[2] * crops[3]) / \
+        (settings["videoWidth"] * settings["videoHeight"])
+    markerPairEncodeSettings = getDefaultEncodeSettings(settings["videoBitrate"] * bitrateCropFactor)
+    settings = {**settings, **markerPairEncodeSettings}
+
+    mps = markerPairSettings = {**settings, **(markerPair["overrides"])}
 
     mp["fileNameStem"] = f'{mps["titlePrefix"] + "-" if "titlePrefix" in mps else ""}{mps["titleSuffix"]}-{markerPairIndex + 1}'
     mp["fileName"] = f'{mp["fileNameStem"]}.webm'
@@ -175,10 +186,17 @@ def trim_video(settings, markerPairIndex):
     start = mp["start"] + mps["delay"]
     end = mp["end"] + mps["delay"]
     speed = (1 / mp["speed"])
-    cropString = mp["crop"]
     filter_complex = ''
     duration = (end - start)*speed
     inputs = f'"{ffmpegPath}" '
+
+    titlePrefixLogMsg = f'Title Prefix: {mps["titlePrefix"] if "titlePrefix" in mps else ""}'
+    logging.info('-' * 80)
+    logger.info((f'Marker Pair {markerPairIndex + 1} Settings: {titlePrefixLogMsg}, ' +
+                 f'CRF: {mps["crf"]} (0-63), Target Max Bitrate: {mps["targetMaxBitrate"]}k, ' +
+                 f'Two-pass Encoding Enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5), ' +
+                 f'Audio Enabled: {mps["audio"]}, Denoise Enabled: {mps["denoise"]}, ' +
+                 f'Video Stabilization: {mps["videoStabilization"]["desc"]}'))
 
     if mps["url"]:
         inputs += f' -n -ss {start} -i "{mps["videoUrl"]}" '
@@ -197,14 +215,6 @@ def trim_video(settings, markerPairIndex):
             inputs += ' -an '
 
     inputs += ' -hide_banner '
-
-    crops = cropString.split(':')
-    crops[0] = mps["cropMultipleX"] * int(crops[0])
-    if crops[2] != 'iw':
-        crops[2] = mps["cropMultipleX"] * int(crops[2])
-    crops[1] = mps["cropMultipleY"] * int(crops[1])
-    if crops[3] != 'ih':
-        crops[3] = mps["cropMultipleY"] * int(crops[3])
 
     filter_complex += (
         f'[slowed]crop=x={crops[0]}:y={crops[1]}:w={crops[2]}:h={crops[3]}')
