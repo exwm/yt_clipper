@@ -113,7 +113,8 @@ def buildArgParser():
     parser.add_argument('--target-max-bitrate', '-b', dest='targetMaxBitrate', type=int,
                         help=('Set target max bitrate in kilobits/s. Constrains bitrate of complex scenes.' +
                               'Automatically set based on detected video bitrate when using --json or --url.'))
-
+    parser.add_argument('--no-auto-scale-crop-res', dest='noAutoScaleCropRes', action='store_true',
+                        help=('Disable automatically scaling the crop resolution when a mismatch with video resolution is detected.'))
     return parser.parse_args()
 
 
@@ -172,7 +173,8 @@ def trim_video(settings, markerPairIndex):
 
     bitrateCropFactor = (crops[2] * crops[3]) / \
         (settings["videoWidth"] * settings["videoHeight"])
-    markerPairEncodeSettings = getDefaultEncodeSettings(settings["videoBitrate"] * bitrateCropFactor)
+    markerPairEncodeSettings = getDefaultEncodeSettings(
+        settings["videoBitrate"] * bitrateCropFactor)
     settings = {**settings, **markerPairEncodeSettings}
 
     mps = markerPairSettings = {**settings, **(markerPair["overrides"])}
@@ -447,11 +449,10 @@ def autoSetCropMultiples(settings):
             f'Crop X offset and width will be multiplied by {cropMultipleX}')
         logger.info(
             f'Crop Y offset and height will be multiplied by {cropMultipleY}')
-        shouldScaleCrop = input(
-            'Automatically scale the crop resolution? (y/n): ')
-        if shouldScaleCrop == 'yes' or shouldScaleCrop == 'y':
+        if not settings["noAutoScaleCropRes"]:
             return {**settings, 'cropMultipleX': cropMultipleX, 'cropMultipleY': cropMultipleY}
         else:
+            logger.info(f'Auto scale crop resolution disabled in settings.')
             return settings
     else:
         return settings
