@@ -15,6 +15,7 @@
   - [Terminology](#terminology)
   - [Markup Script Hotkeys](#markup-script-hotkeys)
     - [Marker Hotkeys](#marker-hotkeys)
+    - [Cropping Hotkeys](#cropping-hotkeys)
     - [Video Playback Hotkeys](#video-playback-hotkeys)
     - [Save and Upload Hotkeys](#save-and-upload-hotkeys)
   - [Useful YouTube Controls](#useful-youtube-controls)
@@ -78,6 +79,8 @@
 - Global Encode Settings: ![Global Encode Settings:](https://i.imgur.com/UfrTPzc.png)
 
 **shift+E/D:** Update all existing markers to default new marker speed(**E**)/crop(**D**). Set the default new marker speed or crop using **W**.
+
+### Cropping Hotkeys
 
 **X:** When marker or defaults editor is open, begin drawing crop. **Shift+click** in the video to set the top left crop boundary and then **shift+click** again to set the bottom right. Any other click action (eg ctrl+click) will stop drawing.
 
@@ -175,10 +178,10 @@ There is an installation that does not require the dependencies below.
    - On Windows download this [zip file (win_v3.1.0)](https://mega.nz/#!MP5XUAwA!yjlQwP4ruIgo-CtpXoM_lLhmquBw0XGA3K9k4Qr_kmw)
    - On Mac download this [zip file (mac_v3.1.0)](https://mega.nz/#!VDxD2QYQ!1duiDig7cX2WS-fIob43v6zbeNJDOrbS5ruZWSYA_wE)
    - The install is **not compatible** with `v0.0.71` or lower of the `markup script`
-1. Use the `markup script` on YouTube as usual, but use **S** to save the markers .json to the extracted `yt_clipper` folder.
-1. Simply drag and drop the markers .json file onto the `yt_clipper.bat` file on Windows or the `yt_clipper_auto.app` file on Mac.
-1. All generated clips will be placed in `./webms/<markers-json-filename>`.
-1. Windows uses may require [Microsoft Visual C++ 2010 Redistributable Package (x86)](https://www.microsoft.com/en-US/download/details.aspx?id=5555).
+2. Use the `markup script` on YouTube as usual, but use **S** to save the markers .json to the extracted `yt_clipper` folder.
+3. Simply drag and drop the markers .json file onto the `yt_clipper.bat` file on Windows or the `yt_clipper_auto.app` file on Mac.
+4. All generated clips will be placed in `./webms/<markers-json-filename>`.
+5. Windows uses may require [Microsoft Visual C++ 2010 Redistributable Package (x86)](https://www.microsoft.com/en-US/download/details.aspx?id=5555).
 
 For windows there are some alternative bat files for more options. They all work by dropping the markers json onto them:
 
