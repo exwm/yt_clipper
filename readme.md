@@ -16,7 +16,7 @@
   - [Markup Script Hotkeys](#markup-script-hotkeys)
     - [Marker Hotkeys](#marker-hotkeys)
     - [Cropping Hotkeys](#cropping-hotkeys)
-    - [Video Playback Hotkeys](#video-playback-hotkeys)
+    - [Video Playback and Preview Hotkeys](#video-playback-and-preview-hotkeys)
     - [Save and Upload Hotkeys](#save-and-upload-hotkeys)
   - [Useful YouTube Controls](#useful-youtube-controls)
   - [Tips](#tips)
@@ -88,13 +88,18 @@
 
 **shift+X:** Like **X**, begin drawing a crop but set only the left and right boundaries on **shift+click**. Vertically fills the crop, that is, it sets the top to 0 and the bottom to the video height.
 
-### Video Playback Hotkeys
+### Video Playback and Preview Hotkeys
 
 **shift+G:** Toggle auto video playback speed adjustment based on markers. When outside of a marker pair the playback speed is set back to 1 (and cannot be changed without toggling off auto speed adjustment).
 
 **alt+G:** Toggle auto looping of currently selected marker pair.
 
 **shift+alt+G:** Toggle auto previewing gamma correction setting when between a marker pair.
+
+**R/alt+R:** to toggle between a 90 degree clockwise/counter-clockwise rotation and no rotation.
+
+- Works only when in fullscreen mode or theater mode.
+- **Note that this does not yet work with drawing and previewing crops. Disable rotation when working on crops.**
 
 **Q:** Decrease video playback speed by 0.25. If the speed falls below 0 it will cycle back to 1.
 
@@ -175,8 +180,8 @@ python ./clip.py --json markers.json # automatically generate webms using marker
 There is an installation that does not require the dependencies below.
 
 1. Extract the appropriate zip file anywhere:
-   - On Windows download this [zip file (win_v3.1.0)](https://mega.nz/#!MP5XUAwA!yjlQwP4ruIgo-CtpXoM_lLhmquBw0XGA3K9k4Qr_kmw)
-   - On Mac download this [zip file (mac_v3.1.0)](https://mega.nz/#!VDxD2QYQ!1duiDig7cX2WS-fIob43v6zbeNJDOrbS5ruZWSYA_wE)
+   - On Windows download this [zip file (win_v3.2.0)](https://mega.nz/#!AXhT2QjA!5OSHYWLak_BLyX420_G4kmRRNPjxhhnRSmyHlpBJE7c)
+   - On Mac download this [zip file (mac_v3.2.0)](https://mega.nz/#!5LxVXIiS!cSW_gBSLp_oCexZQsIO6dBU3fJGxLjsWQc6QomxO6hw)
    - The install is **not compatible** with `v0.0.71` or lower of the `markup script`
 2. Use the `markup script` on YouTube as usual, but use **S** to save the markers .json to the extracted `yt_clipper` folder.
 3. Simply drag and drop the markers .json file onto the `yt_clipper.bat` file on Windows or the `yt_clipper_auto.app` file on Mac.
@@ -190,12 +195,17 @@ For windows there are some alternative bat files for more options. They all work
 - Use `yt_clipper_auto_all_options.bat` to print all the available options and to be prompted for a string with additional options before running the script. This allows you to combine options (eg include audio and rotate and denoise).
 
 The bat files have a simple format. Copy and edit `yt_clipper_auto.bat` to create custom automated versions.
-Just add options after the `%1` on line 3 as in the example below.
+Just add options after the `%%A` on line 6 as in the example below where several options have been added.
 
 ```bat
 @echo off
 chcp 65001
-.\yt_clipper.exe --json %1 --audio --rotate clock --denoise
+cd /D "%~dp0"
+
+FOR %%A IN (%*) DO (
+  .\yt_clipper.exe --json %%A --denoise --audio --rotate clock
+)
+
 pause
 ```
 
@@ -211,9 +221,18 @@ These dependencies are not required by the windows installation above.
 
 ## Markup Script Change Log
 
+- v0.0.75:
+
+  - Use with `v3.2.0` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Add hotkeys for rotating YouTube video into a custom vertical theater mode.
+    - Use **R** to toggle between a 90 degree clockwise rotation and no rotation.
+    - Use **alt+R** to toggle between a 90 degree counter-clockwise rotation and no rotation.
+    - Works only when in fullscreen mode or theater mode.
+    - **Note that this does not yet work with drawing and previewing crops. Disable rotation when working on crops.**
+
 - v0.0.74:
 
-  - Use with `v3.1.0` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Use with `v3.1.0` of the `clipper script` installation.
   - Fix bug with crop y direction offset sometimes not accounting for variable video padding.
 
 - v0.0.73:
@@ -259,6 +278,18 @@ These dependencies are not required by the windows installation above.
   - Add target max bitrate option for constrained quality mode using `-b <bitrate>` where bitrate is in kb/s.
 
 ## Clipper Script (Installation) Change Log
+
+- v3.2.0:
+
+  - Use with `v0.0.75` of the markup script.
+  - Add scaling target bitrate with marker pair cropped resolution.
+    - Avoids inflating cropped webm file size.
+  - Now Automatically scales crop res if a mismatch is detected without user prompt.
+    - Use the `--no-auto-scale-crop-res` flag if you want to disable this behavior.
+  - (Windows) Add dragging and dropping the `.json` marker data from any location onto a `.bat` file.
+  - (Windows) Add dragging and dropping multiple `.json` marker data files to be run sequentially.
+  - (Windows) Add `yt_clipper_auto_simult.bat` for processing multiple `.json` files simultaneously.
+  - Note that mac by default runs multiple `.json` marker files simultaneously.
 
 - v3.1.0:
 
