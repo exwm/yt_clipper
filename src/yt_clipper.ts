@@ -454,8 +454,8 @@
       }
     }
     `;
-    let rotateVideoCSS;
-    let fullscreenRotatedVideoCSS;
+  let rotateVideoCSS;
+  let fullscreenRotatedVideoCSS;
   let rotation = 0;
   function rotateVideo(direction) {
     if (direction === 'clock') {
