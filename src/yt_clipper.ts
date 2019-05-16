@@ -2,7 +2,7 @@
 // @locale       english
 // @name         yt_clipper
 // @namespace    http://tampermonkey.net/
-// @version      0.0.73
+// @version      0.0.74
 // @description  add markers to youtube videos and generate clipped webms online or offline
 // @updateURL    https://openuserjs.org/meta/elwm/yt_clipper.meta.js
 // @run-at       document-end
@@ -950,7 +950,7 @@
             <option ${vidstabDesc === 'Medium' ? 'selected' : ''}>Medium</option>
             <option ${vidstabDesc === 'Weak' ? 'selected' : ''}>Weak</option>
             <option ${vidstabDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
-            <option value="Default" ${
+            <option value="Disabled" ${
               vidstabDesc == null ? 'selected' : ''
             }>Inherit (Disabled)</option>
           </select>
@@ -1269,7 +1269,7 @@
   function beginDraw(
     e: MouseEvent,
     playerRect: ClientRect | DOMRect,
-    videoRect: { left: number; width: number; height: number },
+    videoRect,
     verticalFill: boolean
   ) {
     if (e.button == 0 && e.shiftKey && !e.ctrlKey && !e.altKey) {
@@ -1280,7 +1280,8 @@
       let beginY = 0;
       if (!verticalFill) {
         beginY = Math.round(
-          ((e.pageY - playerRect.top) / videoRect.height) * settings.cropResHeight
+          ((e.pageY - videoRect.top - playerRect.top) / videoRect.height) *
+            settings.cropResHeight
         );
       }
       let crop = `${beginX}:${beginY}:`;
@@ -1303,18 +1304,19 @@
     beginX: number,
     beginY: number,
     playerRect: ClientRect | DOMRect,
-    videoRect: { left: any; width: any; height: any },
+    videoRect,
     verticalFill: boolean
   ) {
     if (e.button == 0 && e.shiftKey && !e.ctrlKey && !e.altKey) {
       const endX = Math.round(
-        ((e.pageX - playerRect.left - videoRect.left) / videoRect.width) *
+        ((e.pageX - videoRect.left - playerRect.left) / videoRect.width) *
           settings.cropResWidth
       );
       let endY = settings.cropResHeight;
       if (!verticalFill) {
         endY = Math.round(
-          ((e.pageY - playerRect.top) / videoRect.height) * settings.cropResHeight
+          ((e.pageY - videoRect.top - playerRect.top) / videoRect.height) *
+            settings.cropResHeight
         );
       }
       crop += `${endX - beginX}:${endY - beginY}`;
@@ -1495,7 +1497,7 @@
             <option ${vidstabDesc === 'Medium' ? 'selected' : ''}>Medium</option>
             <option ${vidstabDesc === 'Weak' ? 'selected' : ''}>Weak</option>
             <option ${vidstabDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
-            <option value="Default" ${
+            <option value="Disabled" ${
               vidstabDesc == null ? 'selected' : ''
             }>Inherit Global ${vidstabDescGlobal}</option>
           </select>
