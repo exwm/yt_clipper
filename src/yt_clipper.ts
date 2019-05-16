@@ -18,8 +18,7 @@
   // global variables
 
   const CLIENT_ID = 'XXXX';
-  const REDIRECT_URI = 'http://127.0.0.1:4443/yt_clipper';
-  const AUTH_ENDPOINT = 'https://api.gfycat.com/v1/oauth/token?';
+  const REDIRECT_URI = 'https://127.0.0.1:4443/yt_clipper';
   const BROWSER_BASED_AUTH_ENDPOINT = `https://gfycat.com/oauth/authorize?client_id=${CLIENT_ID}&scope=all&state=yt_clipper&response_type=token&redirect_uri=${REDIRECT_URI}`;
 
   let start = true;
@@ -27,20 +26,27 @@
   let isMarkerEditorOpen = false;
   let wasDefaultsEditorOpen = false;
   let isOverlayOpen = false;
-  let checkGfysCompletedId;
-  let markers = [];
-  let links = [];
-  markers.toString = function() {
+  let checkGfysCompletedId: number;
+  interface marker {
+    start: number;
+    end: number;
+    slowdown: number;
+    crop: string;
+  }
+  let markers: marker[] = [];
+  let links: string[] = [];
+  markers.toString = () => {
     let markersString = '';
-    this.forEach((marker, idx) => {
-      const slowdown = marker[2];
-      if (typeof slowdown === 'string') {
-        marker[2] = Number(slowdown);
-        console.log(`Converted marker pair ${index}'s slowdown from String to Number`);
+    this.forEach((marker: marker, idx: number) => {
+      if (typeof marker.slowdown === 'string') {
+        marker.slowdown = Number(marker.slowdown);
+        console.log(`Converted marker pair ${idx}'s slowdown from String to Number`);
       }
-      markersString += `${marker[0]},${marker[1]},${marker[2]},'${marker[3]}',`;
-      if (idx === this.length - 1) {
-        markersString = markersString.slice(0, -1);
+      markersString += `${marker.start},${marker.end},${marker.slowdown},'${
+        marker.crop
+      }'`;
+      if (idx !== this.length - 1) {
+        markersString += ',';
       }
     });
     return markersString;
@@ -49,11 +55,11 @@
   let startTime = 0.0;
   let toggleKeys = false;
   let undoMarkerOffset = 0;
-  let prevSelectedMarkerPair = null;
+  let prevSelectedMarkerPair: SVGRectElement = null;
 
   document.addEventListener('keyup', hotkeys, false);
 
-  function hotkeys(e) {
+  function hotkeys(e: KeyboardEvent) {
     if (toggleKeys) {
       switch (e.code) {
         case 'KeyA':
@@ -123,9 +129,9 @@
           }
           break;
         case 'KeyX':
-          if (!e.shiftKey && !e.ctrlkey) {
+          if (!e.shiftKey && !e.ctrlKey) {
             drawCropOverlay(false);
-          } else if (e.shiftKey && !e.ctrlkey) {
+          } else if (e.shiftKey && !e.ctrlKey) {
             drawCropOverlay(true);
           }
           break;
@@ -157,7 +163,6 @@
     addForeignEventListeners();
   }
   const initOnce = once(init, this);
-
   const player = document.getElementById('movie_player');
   const playerInfo = {};
   const video = document.getElementsByTagName('video')[0];
@@ -174,8 +179,17 @@
     playerInfo.controls = document.getElementsByClassName('ytp-chrome-bottom')[0];
   }
 
-  let settings;
-  let markersSvg;
+  interface settings {
+    defaultSlowdown: number;
+    defaultCrop: string;
+    shortTitle: string;
+    videoRes: string;
+    videoWidth: number;
+    videoHeight: number;
+    concats: string;
+  }
+  let settings: settings;
+  let markersSvg: SVGAElement;
   function initMarkersContainer() {
     settings = {
       defaultSlowdown: 1.0,
@@ -191,7 +205,7 @@
     markersDiv.innerHTML = `<svg id="markers-svg"></svg>`;
     playerInfo.progress_bar.appendChild(markersDiv);
 
-    markersSvg = markersDiv.firstChild;
+    markersSvg = markersDiv.firstChild as SVGAElement;
   }
 
   function initCSS() {
@@ -277,17 +291,17 @@
     ids.forEach(id => {
       const input = document.getElementById(id);
       if (toggleKeys) {
-        input.addEventListener('focus', e => (toggleKeys = false), {
+        input.addEventListener('focus', () => (toggleKeys = false), {
           capture: true,
         });
-        input.addEventListener('blur', e => (toggleKeys = true), {
+        input.addEventListener('blur', () => (toggleKeys = true), {
           capture: true,
         });
       }
     });
   }
 
-  function flashMessage(msg, color, lifetime = 4000) {
+  function flashMessage(msg: string, color: string, lifetime = 4000) {
     const infoContents = playerInfo.infoContents;
     const flashDiv = document.createElement('div');
     flashDiv.setAttribute('class', 'flash-div');
@@ -296,7 +310,7 @@
     setTimeout(() => deleteElement(flashDiv), lifetime);
   }
 
-  function deleteElement(elem) {
+  function deleteElement(elem: HTMLElement) {
     if (elem) {
       elem.parentElement.removeChild(elem);
     }
@@ -315,14 +329,15 @@
     }
   };
 
-  function autoducking(e) {
-    let currentIdx;
+  function autoducking() {
+    let currentIdx: number;
     const currentTime = video.currentTime;
     const isTimeBetweenMarkerPair = markers.some((marker, idx) => {
-      if (currentTime >= marker[0] && currentTime <= marker[1]) {
+      if (currentTime >= marker.start && currentTime <= marker.end) {
         currentIdx = idx;
         return true;
       }
+      return false;
     });
     if (isTimeBetweenMarkerPair && markers[currentIdx]) {
       const currentMarkerSlowdown = markers[currentIdx][2];
@@ -347,7 +362,7 @@
     }
   }
 
-  function markerLoopingHandler(e) {
+  function markerLoopingHandler() {
     const endMarker = prevSelectedMarkerPair;
     if (endMarker) {
       const idx = parseInt(endMarker.getAttribute('idx')) - 1;
@@ -364,18 +379,8 @@
     }
   }
 
-  function watchAvailableQualityChange() {
-    const quality = player.getAvailableQualityLevels();
-    const timer = setInterval(() => {
-      if (player.getAvailableQualityLevels() !== quality) {
-        clearInterval(timer);
-        console.log(player.getAvailableQualityLevels());
-      }
-    }, 5000);
-  }
-
   function saveMarkers() {
-    markers.forEach((marker, idx) => {
+    markers.forEach((marker: marker, index: number) => {
       const slowdown = marker[2];
       if (typeof slowdown === 'string') {
         marker[2] = Number(slowdown);
@@ -417,7 +422,7 @@
     }
   }
 
-  function loadMarkersJson(e) {
+  function loadMarkersJson() {
     const input = document.getElementById('markers-json-input');
     console.log(input.files);
     const file = input.files[0];
@@ -428,7 +433,7 @@
     deleteElement(markersUploadDiv);
   }
 
-  function receivedJson(e) {
+  function receivedJson(e: ProgressEvent) {
     const lines = e.target.result;
     const markersJson = JSON.parse(lines);
     console.log(markersJson);
@@ -447,13 +452,15 @@
       settings.videoHeight = markersJson['crop-res-height'];
       markers.length = 0;
       undoMarkerOffset = 0;
-      markersJson[playerInfo.playerData.video_id].forEach(marker => {
-        const [startTime, endTime, slowdown, crop] = marker;
-        const startMarker = [startTime, slowdown, crop];
-        const endMarker = [endTime, slowdown, crop];
-        addMarker(startMarker);
-        addMarker(endMarker);
-      });
+      markersJson[playerInfo.playerData.video_id].forEach(
+        (marker: [number, number, number, string]) => {
+          const [startTime, endTime, slowdown, crop] = marker;
+          const startMarker = [startTime, slowdown, crop];
+          const endMarker = [endTime, slowdown, crop];
+          addMarker(startMarker);
+          addMarker(endMarker);
+        }
+      );
     }
   }
 
@@ -461,6 +468,8 @@
     width: '1px',
     height: '12px',
     style: 'pointer-events:fill',
+    slowdown: Number,
+    crop: String,
   };
 
   function addMarker(markerConfig = [null, null, null]) {
@@ -502,13 +511,13 @@
     console.log(markers);
   }
 
-  function updateMarkers(currentTime, markerConfig = [null, null, null]) {
-    const updatedMarker = [
-      startTime,
-      currentTime,
-      markerConfig[1] || settings.defaultSlowdown,
-      markerConfig[2] || settings.defaultCrop,
-    ];
+  function updateMarkers(currentTime: number, markerConfig = [null, null, null]) {
+    const updatedMarker: marker = {
+      start: startTime,
+      end: currentTime,
+      slowdown: markerConfig[1] || settings.defaultSlowdown,
+      crop: markerConfig[2] || settings.defaultCrop,
+    };
 
     if (undoMarkerOffset === -1) {
       const lastMarkerIdx = markers.length - 1;
@@ -619,13 +628,13 @@
     }
   }
 
-  function addInputListeners(inputs) {
+  function addInputListeners(inputs: string[][]) {
     inputs.forEach(input => {
       const id = input[0];
       const updateTarget = input[1];
       const inputElem = document.getElementById(id);
-      inputElem.addEventListener('focus', e => (toggleKeys = false), false);
-      inputElem.addEventListener('blur', e => (toggleKeys = true), false);
+      inputElem.addEventListener('focus', () => (toggleKeys = false), false);
+      inputElem.addEventListener('blur', () => (toggleKeys = true), false);
       inputElem.addEventListener(
         'change',
         e => updateDefaultValue(e, updateTarget),
@@ -634,7 +643,7 @@
     });
   }
 
-  function updateDefaultValue(e, updateTarget) {
+  function updateDefaultValue(e: Event, updateTarget: string) {
     if (e.target.reportValidity()) {
       settings[updateTarget] = e.target.value;
       if (
@@ -646,18 +655,18 @@
       if (settings[updateTarget] === settings.videoRes) {
         const prevWidth = settings.videoWidth;
         const prevHeight = settings.videoHeight;
-        const [newWidth, newHeight] = settings.videoRes.split('x');
+        const [newWidth, newHeight] = settings.videoRes.split('x').map(parseInt);
         const cropMultipleX = newWidth / prevWidth;
         const cropMultipleY = newHeight / prevHeight;
-        settings.videoWidth = parseInt(newWidth);
-        settings.videoHeight = parseInt(newHeight);
+        settings.videoWidth = newWidth;
+        settings.videoHeight = newHeight;
         multiplyAllCrops(cropMultipleX, cropMultipleY);
       }
     }
     console.log(settings);
   }
 
-  function multiplyAllCrops(cropMultipleX, cropMultipleY) {
+  function multiplyAllCrops(cropMultipleX: number, cropMultipleY: number) {
     const cropString = settings.defaultCrop;
     const multipliedCropString = multiplyCropString(
       cropMultipleX,
@@ -670,13 +679,12 @@
 
     if (markers) {
       markers.forEach(marker => {
-        const cropString = marker[3];
         const multipliedCropString = multiplyCropString(
           cropMultipleX,
           cropMultipleY,
-          cropString
+          marker.crop
         );
-        marker[3] = multipliedCropString;
+        marker.crop = multipliedCropString;
       });
       markersSvg.childNodes.forEach(marker => {
         const cropString = marker.getAttribute('crop');
@@ -690,7 +698,11 @@
     }
   }
 
-  function multiplyCropString(cropMultipleX, cropMultipleY, cropString) {
+  function multiplyCropString(
+    cropMultipleX: number,
+    cropMultipleY: number,
+    cropString: string
+  ) {
     let [x, y, width, height] = cropString.split(':');
     x = Math.round(x * cropMultipleX);
     y = Math.round(y * cropMultipleY);
@@ -700,7 +712,7 @@
     return multipliedCropString;
   }
 
-  function createCropOverlay(crop) {
+  function createCropOverlay(crop: string) {
     if (isOverlayOpen) {
       deleteCropOverlay();
     }
@@ -721,7 +733,7 @@
       resizeCropOverlay(cropDiv);
       annotations = document.getElementsByClassName('html5-video-container')[0];
       annotations.insertAdjacentElement('afterend', cropDiv);
-      window.addEventListener('resize', e => resizeCropOverlay(cropDiv));
+      window.addEventListener('resize', () => resizeCropOverlay(cropDiv));
     } else {
       annotations.insertBefore(cropDiv, annotations.firstElementChild);
     }
@@ -745,7 +757,7 @@
     isOverlayOpen = true;
   }
 
-  function resizeCropOverlay(cropDiv) {
+  function resizeCropOverlay(cropDiv: HTMLDivElement) {
     const videoRect = player.getVideoContentRect();
     cropDiv.setAttribute(
       'style',
@@ -773,8 +785,8 @@
   }
 
   let isDrawingCrop = false;
-  let beginDrawHandler;
-  let endDrawHandler;
+  let beginDrawHandler: (e: MouseEvent) => void;
+  let endDrawHandler: (e: MouseEvent) => void;
   function drawCropOverlay(verticalFill: boolean) {
     if (isDrawingCrop) {
       cancelDrawingCrop();
@@ -783,7 +795,8 @@
         const videoRect = player.getVideoContentRect();
         const playerRect = player.getBoundingClientRect();
 
-        beginDrawHandler = e => beginDraw(e, playerRect, videoRect, verticalFill);
+        beginDrawHandler = (e: MouseEvent) =>
+          beginDraw(e, playerRect, videoRect, verticalFill);
         playerInfo.video.addEventListener('mousedown', beginDrawHandler, {
           once: true,
           capture: true,
@@ -821,7 +834,7 @@
     isDrawingCrop = false;
   }
 
-  function createBeginCropPreview(x, y) {
+  function createBeginCropPreview(x: number, y: number) {
     const beginCropPreview = document.createElement('div');
     beginCropPreview.setAttribute('id', 'begin-crop-preview-div');
     beginCropPreview.innerHTML = `<svg id="crop-svg"></svg>`;
@@ -831,7 +844,7 @@
       resizeCropOverlay(beginCropPreview);
       annotations = document.getElementsByClassName('html5-video-container')[0];
       annotations.insertAdjacentElement('afterend', beginCropPreview);
-      window.addEventListener('resize', e => resizeCropOverlay(beginCropPreview));
+      window.addEventListener('resize', () => resizeCropOverlay(beginCropPreview));
     } else {
       annotations.insertBefore(beginCropPreview, annotations.firstElementChild);
     }
@@ -861,7 +874,12 @@
     }
   }
 
-  function beginDraw(e, playerRect, videoRect, verticalFill) {
+  function beginDraw(
+    e: MouseEvent,
+    playerRect: ClientRect | DOMRect,
+    videoRect: { left: number; width: number; height: number },
+    verticalFill: boolean
+  ) {
     if (e.button == 0 && e.shiftKey && !e.ctrlKey && !e.altKey) {
       const beginX = Math.round(
         ((e.pageX - videoRect.left - playerRect.left) / videoRect.width) *
@@ -876,7 +894,7 @@
       let crop = `${beginX}:${beginY}:`;
       createBeginCropPreview(beginX, beginY);
 
-      endDrawHandler = e =>
+      endDrawHandler = (e: MouseEvent) =>
         endDraw(e, crop, beginX, beginY, playerRect, videoRect, verticalFill);
       playerInfo.video.addEventListener('mousedown', endDrawHandler, {
         once: true,
@@ -887,7 +905,15 @@
     }
   }
 
-  function endDraw(e, crop, beginX, beginY, playerRect, videoRect, verticalFill) {
+  function endDraw(
+    e: MouseEvent,
+    crop: string,
+    beginX: number,
+    beginY: number,
+    playerRect: ClientRect | DOMRect,
+    videoRect: { left: any; width: any; height: any },
+    verticalFill: boolean
+  ) {
     if (e.button == 0 && e.shiftKey && !e.ctrlKey && !e.altKey) {
       const endX = Math.round(
         ((e.pageX - playerRect.left - videoRect.left) / videoRect.width) *
@@ -900,7 +926,7 @@
         );
       }
       crop += `${endX - beginX}:${endY - beginY}`;
-      const cropInput = document.getElementById('crop-input');
+      const cropInput = document.getElementById('crop-input') as HTMLInputElement;
       cropInput.value = crop;
       cropInput.dispatchEvent(new Event('change'));
 
@@ -910,26 +936,22 @@
     }
   }
 
-  function updateAllMarkers(updateTarget, newValue) {
-    let idx;
+  function updateAllMarkers(updateTarget: string, newValue: string | number) {
     if (updateTarget === 'slowdown') {
-      idx = 2;
       newValue = parseFloat(newValue);
-    } else if (updateTarget === 'crop') {
-      idx = 3;
     }
     if (markers) {
       markers.forEach(marker => {
-        marker[idx] = newValue;
+        marker[updateTarget] = newValue;
       });
-      markersSvg.childNodes.forEach(mrkr => {
-        mrkr.setAttribute(updateTarget, newValue.toString());
+      markersSvg.childNodes.forEach(marker => {
+        marker.setAttribute(updateTarget, newValue.toString());
       });
     }
     flashMessage(`All marker ${updateTarget}s updated to ${newValue}`, 'olive');
   }
 
-  function toggleMarkerEditor(e) {
+  function toggleMarkerEditor(e: MouseEvent) {
     const targetMarker = e.target;
 
     if (targetMarker && e.shiftKey) {
@@ -968,7 +990,7 @@
       const currentMarkerTime = toHHMMSS(currentMarker.getAttribute('time'));
       const startMarkerTime = toHHMMSS(startMarker.getAttribute('time'));
       const currentSlowdown = currentMarker.getAttribute('slowdown');
-      const currentCrop = currentMarker.getAttribute('crop');
+      const currentCrop: string = currentMarker.getAttribute('crop');
       const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
       const markerInputs = document.createElement('div');
 
@@ -1008,7 +1030,6 @@
       addMarkerInputListeners(
         [['speed-input', 'slowdown'], ['crop-input', 'crop']],
         currentMarker,
-        currentMarkerTime,
         currentIdx
       );
 
@@ -1052,27 +1073,31 @@
     };
   }
 
-  function colorSelectedMarkers(currentMarker) {
+  function colorSelectedMarkers(currentMarker: SVGRectElement) {
     currentMarker.setAttribute('stroke', '#ffffff87');
     currentMarker.previousSibling.setAttribute('stroke', '#ffffff70');
   }
 
-  function addMarkerInputListeners(inputs, currentMarker, currentMarkerTime, currentIdx) {
+  function addMarkerInputListeners(
+    inputs: string[][],
+    currentMarker: SVGRectElement,
+    currentIdx: number
+  ) {
     inputs.forEach(input => {
       const id = input[0];
       const updateTarget = input[1];
       const inputElem = document.getElementById(id);
-      inputElem.addEventListener('focus', e => (toggleKeys = false), false);
-      inputElem.addEventListener('blur', e => (toggleKeys = true), false);
+      inputElem.addEventListener('focus', () => (toggleKeys = false), false);
+      inputElem.addEventListener('blur', () => (toggleKeys = true), false);
       inputElem.addEventListener(
         'change',
-        e => updateMarker(e, updateTarget, currentMarker, currentMarkerTime, currentIdx),
+        e => updateMarker(e, updateTarget, currentMarker, currentIdx),
         false
       );
     });
   }
 
-  function applyUnselectedMarkerStyle(marker) {
+  function applyUnselectedMarkerStyle(marker: SVGRectElement) {
     if (marker.getAttribute && marker.previousSibling) {
       marker.setAttribute('stroke', 'none');
       marker.previousSibling.setAttribute('stroke', 'none');
@@ -1086,19 +1111,23 @@
     markerHotkeysEnabled = false;
   }
 
-  function updateMarker(e, updateTarget, currentMarker, currentMarkerTime, currentIdx) {
+  function updateMarker(
+    e: Event,
+    updateTarget: string,
+    currentMarker: SVGRectElement,
+    currentIdx: number
+  ) {
     const currentType = currentMarker.getAttribute('type');
-    const currentCrop = currentMarker.getAttribute('crop');
-    const currentSlowdown = currentMarker.getAttribute('slowdown');
     const newValue = e.target.value;
 
     if (e.target.reportValidity()) {
       if (updateTarget === 'slowdown') {
-        markers[currentIdx - 1][2] = parseFloat(newValue);
+        markers[currentIdx - 1].slowdown = parseFloat(newValue);
         const speedDisplay = document.getElementById('speed-display');
         speedDisplay.textContent = `[Speed: ${newValue}]`;
       } else if (updateTarget === 'crop') {
-        markers[currentIdx - 1][3] = newValue;
+        newValue as string;
+        markers[currentIdx - 1].crop = newValue;
         const cropDisplay = document.getElementById('crop-display');
         cropDisplay.textContent = `[Crop: ${newValue}]`;
         createCropOverlay(newValue);
@@ -1603,11 +1632,11 @@ httpd.serve_forever()
   }
 
   function buildGfyRequests(markers, url) {
-    return markers.map((marker, idx) => {
-      const start = marker[0];
-      const end = marker[1];
-      const speed = (1 / marker[2]).toPrecision(4);
-      const crop = marker[3];
+    return markers.map((marker: marker, idx: number) => {
+      const start = marker.start;
+      const end = marker.end;
+      const speed = (1 / marker.slowdown).toPrecision(4);
+      const crop = marker.crop;
       const startHHMMSS = toHHMMSS(start).split(':');
       const startHH = startHHMMSS[0];
       const startMM = startHHMMSS[1];
@@ -1622,6 +1651,7 @@ httpd.serve_forever()
         noMd5: 'true',
         cut: { start, duration },
         speed,
+        crop,
       };
       if (crop && crop !== '0:0:iw:ih') {
         const crops = crop.split(':');
@@ -1648,7 +1678,7 @@ httpd.serve_forever()
   }
 
   function getAccessToken() {
-    return new Promise((resolve, reject) => {
+    return new Promise(() => {
       fetch(REDIRECT_URI, { mode: 'cors' })
         .then(response => {
           return response.json();
@@ -1662,7 +1692,7 @@ httpd.serve_forever()
     });
   }
 
-  function sendGfyRequests(markers, url, accessToken) {
+  function sendGfyRequests(markers: markers[], url: string, accessToken?: string) {
     if (markers.length > 0) {
       const markdown = toggleUploadStatus();
       const reqs = buildGfyRequests(markers, url).map((req, idx) => {
@@ -1677,23 +1707,27 @@ httpd.serve_forever()
     }
   }
 
-  function buildGfyRequestPromise(req, idx, accessToken) {
-    req.speed = req.speed === '1.000' ? '' : `?speed=${req.speed}`;
+  function buildGfyRequestPromise(
+    reqData: { speed: string },
+    idx: any,
+    accessToken: any
+  ) {
+    reqData.speed = reqData.speed === '1.000' ? '' : `?speed=${reqData.speed}`;
     return new Promise((resolve, reject) => {
-      postData('https://api.gfycat.com/v1/gfycats', req, accessToken)
+      postData('https://api.gfycat.com/v1/gfycats', reqData, accessToken)
         .then(resp => {
           links.push(
             `(${settings.shortTitle}-${idx})[https://gfycat.com/${resp.gfyname}${
-              req.speed
+              reqData.speed
             }]`
           );
           resolve(resp.gfyname);
         })
-        .catch(error => reject(error));
+        .catch((error: Error) => reject(error));
     });
   }
 
-  function checkGfysCompleted(gfynames, markdown) {
+  function checkGfysCompleted(gfynames: string[], markdown) {
     const gfyStatuses = gfynames.map(gfyname => {
       return checkGfyStatus(gfyname, markdown).then(isComplete => {
         return isComplete;
@@ -1716,7 +1750,7 @@ httpd.serve_forever()
     return markdown;
   }
 
-  function updateUploadStatus(markdown, status, gfyname) {
+  function updateUploadStatus(markdown, status, gfyname: name) {
     if (markdown) {
       markdown.textContent += `${gfyname} progress: ${status.progress}\n`;
       markdown.scrollTop = markdown.scrollHeight;
@@ -1732,7 +1766,7 @@ httpd.serve_forever()
 
   function areGfysCompleted(gfyStatuses) {
     return new Promise((resolve, reject) => {
-      if (gfyStatuses.every(isCompleted => isCompleted)) {
+      if (gfyStatuses.every((isCompleted: boolean) => isCompleted)) {
         resolve();
       } else {
         reject();
@@ -1740,7 +1774,7 @@ httpd.serve_forever()
     });
   }
 
-  function checkGfyStatus(gfyname, markdown) {
+  function checkGfyStatus(gfyname: string, markdown: any) {
     return new Promise((resolve, reject) => {
       fetch(`https://api.gfycat.com/v1/gfycats/fetch/status/${gfyname}`)
         .then(response => {
@@ -1754,11 +1788,7 @@ httpd.serve_forever()
     });
   }
 
-  function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  function postData(url, data, accessToken) {
+  function postData(url: RequestInfo, data: any, accessToken: any) {
     const auth = accessToken ? `Bearer ${accessToken}` : null;
     const req = {
       body: JSON.stringify(data), // must match 'Content-Type' header
@@ -1776,23 +1806,23 @@ httpd.serve_forever()
       req.headers.Authorization = auth;
     }
     console.log(req);
-    return fetch(url, req).then(response => response.json()); // parses response to JSON
+    return fetch(url, req).then((response: { json: () => void }) => response.json()); // parses response to JSON
   }
 
-  function toHHMMSS(seconds) {
+  function toHHMMSS(seconds: number) {
     return new Date(seconds * 1000).toISOString().substr(11, 12);
   }
 
-  function setAttributes(el, attrs) {
+  function setAttributes(el: HTMLElement, attrs: {}) {
     Object.keys(attrs).forEach(key => el.setAttribute(key, attrs[key]));
   }
 
-  function saveToFile(str) {
+  function saveToFile(str: BlobPart) {
     const blob = new Blob([str], { type: 'text/plain;charset=utf-8' });
     saveAs(blob, `${settings.shortTitle}-clip.py`);
   }
 
-  function copyToClipboard(str) {
+  function copyToClipboard(str: string) {
     const el = document.createElement('textarea');
     el.value = str;
     document.body.appendChild(el);
@@ -1801,8 +1831,8 @@ httpd.serve_forever()
     document.body.removeChild(el);
   }
 
-  function once(fn, context) {
-    var result;
+  function once(fn: Function, context: any) {
+    var result: Function;
     return function() {
       if (fn) {
         result = fn.apply(context || this, arguments);
