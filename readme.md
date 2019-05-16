@@ -3,14 +3,19 @@
 ## Browser Support
 
 - Works best on Chrome with YouTube video in theater mode.
-- You may need to refresh the video page and ensure user this user script is active.
-- Better Firefox support is a work in progress.
-- Not tested on browsers other than Chrome or Firefox.
+- You may need to refresh the video page and ensure this user script is active.
+- Firefox, Opera, and most Chromium-based browsers not fully tested, but reportedly work as intended.
+- Other browsers may or may not work as intended.
+
+## Related Scripts
+
+- Check out the companion script for copying gfy links from gfycat as reddit markdown at https://openuserjs.org/scripts/elwm/gfy2md.
 
 ## Table of Contents
 
 - [yt_clipper](#ytclipper)
   - [Browser Support](#browser-support)
+  - [Related Scripts](#related-scripts)
   - [Table of Contents](#table-of-contents)
   - [Terminology](#terminology)
   - [Markup Script Hotkeys](#markup-script-hotkeys)
@@ -64,9 +69,10 @@
 
 1. Change default new marker speed or crop. Any new markers added will use these defaults, but this will not update existing markers. To update existing markers to the default new marker speed/crop use **shift+E/shift+D**.
 2. Specify crop resolution (automatically scales any existing crops on change). This resolution must match the downloaded videos resolution, by default the maximum available.
-   - The `clipper script` will prompt for auto scaling the crop resolution if a mismatch with the video resolution is detected.
-3. Specify any concatenated (merged) webms you want to make from the clipped webms. Very fast as it does not require reencoding videos. The format is similar to that for print ranges: comma separated marker pair numbers or ranges (eg '1-3,5,7'). Marker pairs (clips) are merged in the order they are listed. Use semicolons to separate merged webms (eg '1-3,5,7;4-6,9' will create two merged webms).
-4. Specify `Title Suffix` that will be appended to any `Title Prefix` and will be followed by the marker pair number to produce webm file names. The `Title Suffix` is also the name of the folder containing all generated webms.
+   - The `clipper script` will auto scale the crop resolution if a mismatch with the video resolution is detected.
+   - Use `--no-auto-scale-crop-res` to disable this behavior.
+3. Specify any webms you want to merge from the clipped webms. Very fast as it does not require reencoding videos. The format is similar to that for print ranges: comma separated marker pair numbers or ranges (eg '1-3,5,7'). Marker pairs (clips) are merged in the order they are listed. Use semicolons to separate merged webms (eg '1-3,5,7;4-6,9' will create two merged webms).
+4. Specify `Title Suffix` that will be appended to any `Title Prefix` and will be followed by the marker pair number to produce webm file names. By default this is the YouTube video ID. The `Title Suffix` is also the name of the folder containing all generated webms.
 
 **shift+W:** Open additional settings when the global settings editor or a marker pair editor is open.
 
@@ -99,7 +105,8 @@
 **R/alt+R:** to toggle between a 90 degree clockwise/counter-clockwise rotation and no rotation.
 
 - Works only when in fullscreen mode or theater mode.
-- **Note that this does not yet work with drawing and previewing crops. Disable rotation when working on crops.**
+- **Note that this does not yet work with drawing and previewing crops and should be disabled when doing so.**
+- **This feature is only for watching or previewing the video, and does not affect webm output.**
 
 **Q:** Decrease video playback speed by 0.25. If the speed falls below 0 it will cycle back to 1.
 
@@ -126,8 +133,8 @@
 
 ### User Script Tips
 
-1. If you're new to userscripts checkout <https://openuserjs.org/about/Userscript-Beginners-HOWTO> for instructions.
-2. Checkout the companion script for copying gfy links from the gfycat upload results page as markdown at <https://openuserjs.org/scripts/elwm/gfy2md>.
+1. If you're new to userscripts check out <https://openuserjs.org/about/Userscript-Beginners-HOWTO> for instructions.
+2. Check out the companion script for copying gfy links from gfycat as reddit markdown at https://openuserjs.org/scripts/elwm/gfy2md.
 3. The script can be slow to load sometimes, so wait a bit before adding markers.
 4. Refresh the page if the script doesn't load and to clear markers when switching videos in the same window.
 5. Videos can be marked up and the markers json or clipper script can be saved before higher quality levels are available, but the final generated webm quality depends on the quality formats available.
@@ -159,7 +166,7 @@
 
 ### Gamma Correction
 
-Play around with the `gamma` setting to bring back shadow or highlight detail. Use a value between 0 and 1 to bring back shadow detail and a value greater than 1 to bring back highlight detail. Refer to this [gamma correction guide](https://www.cambridgeincolour.com/tutorials/gamma-correction.htm) for more details.
+Play around with the `gamma` setting to bring back shadow or highlight detail. A value of 1 does nothing. Use a value between 0 and 1 to bring back shadow detail and a value greater than 1 to bring back highlight detail. Refer to this [gamma correction guide](https://www.cambridgeincolour.com/tutorials/gamma-correction.htm) for more details.
 
 ## Clipper Script Usage
 
@@ -224,11 +231,12 @@ These dependencies are not required by the windows installation above.
 - v0.0.75:
 
   - Use with `v3.2.0` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
-  - Add hotkeys for rotating YouTube video into a custom vertical theater mode.
+  - Add experimental feature for rotating YouTube video into a custom vertical theater mode.
     - Use **R** to toggle between a 90 degree clockwise rotation and no rotation.
     - Use **alt+R** to toggle between a 90 degree counter-clockwise rotation and no rotation.
     - Works only when in fullscreen mode or theater mode.
-    - **Note that this does not yet work with drawing and previewing crops. Disable rotation when working on crops.**
+    - **Note that this does not yet work with drawing and previewing crops and should be disabled when doing so.**
+    - **This feature is only for watching or previewing the video, and does not affect webm output.**
 
 - v0.0.74:
 
@@ -282,13 +290,13 @@ These dependencies are not required by the windows installation above.
 - v3.2.0:
 
   - Use with `v0.0.75` of the markup script.
-  - Add scaling target bitrate with marker pair cropped resolution.
+  - Add automatic scaling of target bitrate with marker pair cropped resolution.
     - Avoids inflating cropped webm file size.
   - Now Automatically scales crop res if a mismatch is detected without user prompt.
     - Use the `--no-auto-scale-crop-res` flag if you want to disable this behavior.
-  - (Windows) Add dragging and dropping the `.json` marker data from any location onto a `.bat` file.
-  - (Windows) Add dragging and dropping multiple `.json` marker data files to be run sequentially.
-  - (Windows) Add `yt_clipper_auto_simult.bat` for processing multiple `.json` files simultaneously.
+  - (Windows) Add dragging and dropping the `.json` marker data from _any location_ onto a `.bat` file.
+  - (Windows) Add dragging and dropping _multiple_ `.json` marker data files to be processed _sequentially_.
+  - (Windows) Add `yt_clipper_auto_simult.bat` for processing _multiple_ `.json` files _simultaneously_.
   - Note that mac by default runs multiple `.json` marker files simultaneously.
 
 - v3.1.0:
