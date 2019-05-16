@@ -11,7 +11,7 @@
 2.  In a terminal:
 
     ```bash
-    # fork and clone the repository
+    # Fork and clone the repository
     git clone git@github.com:<YOUR-FORK/USERNAME>/yt_clipper.git
     cd yt_clipper
 
