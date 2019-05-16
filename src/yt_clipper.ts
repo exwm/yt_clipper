@@ -536,7 +536,7 @@
 
   function addForeignEventListeners() {
     const ids = ['search'];
-    ids.forEach(id => {
+    ids.forEach((id) => {
       const input = document.getElementById(id);
       if (toggleKeys) {
         input.addEventListener('focus', () => (toggleKeys = false), {
@@ -723,7 +723,7 @@
 
     // Choose marker time to jump to based on low precision time distance
     // Avoids being unable to jump away from a marker that the current time is very close to
-    let times = markers.map(markerPair => {
+    let times = markers.map((markerPair) => {
       const distToStartMarker = markerPair.start - currentTime;
       const distToStartMarkerFixed = parseFloat(distToStartMarker.toFixed(1));
       const distToEndMarker = markerPair.end - currentTime;
@@ -1138,7 +1138,7 @@
   }
 
   function addInputListeners(inputs: string[][]) {
-    inputs.forEach(input => {
+    inputs.forEach((input) => {
       const id = input[0];
       const updateTarget = input[1];
       const valueType = input[2] || 'string';
@@ -1147,7 +1147,7 @@
       inputElem.addEventListener('blur', () => (toggleKeys = true), false);
       inputElem.addEventListener(
         'change',
-        e => updateDefaultValue(e, updateTarget, valueType),
+        (e) => updateDefaultValue(e, updateTarget, valueType),
         false
       );
     });
@@ -1200,7 +1200,7 @@
         const prevHeight = settings.cropResHeight;
         const [newWidth, newHeight] = settings.cropRes
           .split('x')
-          .map(str => parseInt(str));
+          .map((str) => parseInt(str));
         const cropMultipleX = newWidth / prevWidth;
         const cropMultipleY = newHeight / prevHeight;
         settings.cropResWidth = newWidth;
@@ -1223,7 +1223,7 @@
     cropInput.value = multipliedCropString;
 
     if (markers) {
-      markers.forEach(marker => {
+      markers.forEach((marker) => {
         const multipliedCropString = multiplyCropString(
           cropMultipleX,
           cropMultipleY,
@@ -1231,7 +1231,7 @@
         );
         marker.crop = multipliedCropString;
       });
-      markersSvg.childNodes.forEach(marker => {
+      markersSvg.childNodes.forEach((marker) => {
         const cropString = marker.getAttribute('crop');
         const multipliedCropString = multiplyCropString(
           cropMultipleX,
@@ -1488,10 +1488,10 @@
       newValue = parseFloat(newValue);
     }
     if (markers) {
-      markers.forEach(marker => {
+      markers.forEach((marker) => {
         marker[updateTarget] = newValue;
       });
-      markersSvg.childNodes.forEach(marker => {
+      markersSvg.childNodes.forEach((marker) => {
         marker.setAttribute(updateTarget, newValue.toString());
       });
     }
@@ -1703,7 +1703,7 @@
     enableMarkerHotkeys.endMarker = endMarker;
     enableMarkerHotkeys.startMarker = endMarker.previousSibling;
 
-    enableMarkerHotkeys.moveMarker = marker => {
+    enableMarkerHotkeys.moveMarker = (marker) => {
       const type = marker.getAttribute('type');
       const idx = parseInt(marker.getAttribute('idx')) - 1;
       const currentTime = player.getCurrentTime();
@@ -1766,7 +1766,7 @@
     currentIdx: number,
     overridesField: boolean = false
   ) {
-    inputs.forEach(input => {
+    inputs.forEach((input) => {
       const id = input[0];
       const updateTarget = input[1];
       const valueType = input[2] || 'string';
@@ -1775,7 +1775,7 @@
       inputElem.addEventListener('blur', () => (toggleKeys = true), false);
       inputElem.addEventListener(
         'change',
-        e =>
+        (e) =>
           updateMarker(
             e,
             updateTarget,
@@ -1997,15 +1997,15 @@ httpd.serve_forever()
   function getAccessToken() {
     return new Promise(() => {
       fetch(REDIRECT_URI, { mode: 'cors' })
-        .then(response => {
+        .then((response) => {
           return response.json();
         })
-        .then(json => {
+        .then((json) => {
           const accessToken = json['access-token'][0];
           console.log(accessToken);
           sendGfyRequests(markers, playerInfo.url, accessToken);
         })
-        .catch(error => console.error(error));
+        .catch((error) => console.error(error));
     });
   }
 
@@ -2016,7 +2016,7 @@ httpd.serve_forever()
         return buildGfyRequestPromise(req, idx, accessToken);
       });
 
-      Promise.all(reqs).then(gfynames => {
+      Promise.all(reqs).then((gfynames) => {
         console.log(reqs);
         console.log(gfynames);
         checkGfysCompletedId = setInterval(checkGfysCompleted, 5000, gfynames, markdown);
@@ -2032,7 +2032,7 @@ httpd.serve_forever()
     reqData.speed = reqData.speed === '1.000' ? '' : `?speed=${reqData.speed}`;
     return new Promise((resolve, reject) => {
       postData('https://api.gfycat.com/v1/gfycats', reqData, accessToken)
-        .then(resp => {
+        .then((resp) => {
           links.push(
             `(${settings.titleSuffix}-${idx})[https://gfycat.com/${resp.gfyname}${
               reqData.speed
@@ -2045,12 +2045,12 @@ httpd.serve_forever()
   }
 
   function checkGfysCompleted(gfynames: string[], markdown) {
-    const gfyStatuses = gfynames.map(gfyname => {
-      return checkGfyStatus(gfyname, markdown).then(isComplete => {
+    const gfyStatuses = gfynames.map((gfyname) => {
+      return checkGfyStatus(gfyname, markdown).then((isComplete) => {
         return isComplete;
       });
     });
-    Promise.all(gfyStatuses).then(gfyStatuses => {
+    Promise.all(gfyStatuses).then((gfyStatuses) => {
       areGfysCompleted(gfyStatuses).then(() => insertMarkdown(markdown));
     });
   }
@@ -2094,14 +2094,14 @@ httpd.serve_forever()
   function checkGfyStatus(gfyname: string, markdown: any) {
     return new Promise((resolve, reject) => {
       fetch(`https://api.gfycat.com/v1/gfycats/fetch/status/${gfyname}`)
-        .then(response => {
+        .then((response) => {
           return response.json();
         })
-        .then(myJson => {
+        .then((myJson) => {
           updateUploadStatus(markdown, myJson, gfyname);
           myJson.task === 'complete' ? resolve(true) : reject(false);
         })
-        .catch(error => console.error(error));
+        .catch((error) => console.error(error));
     });
   }
 
@@ -2131,7 +2131,7 @@ httpd.serve_forever()
   }
 
   function setAttributes(el: HTMLElement, attrs: {}) {
-    Object.keys(attrs).forEach(key => el.setAttribute(key, attrs[key]));
+    Object.keys(attrs).forEach((key) => el.setAttribute(key, attrs[key]));
   }
 
   function copyToClipboard(str: string) {
@@ -2144,7 +2144,7 @@ httpd.serve_forever()
   }
 
   function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   function once(fn: Function, context: any) {
