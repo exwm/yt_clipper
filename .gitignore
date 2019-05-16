@@ -16,6 +16,13 @@ node_modules
 # compiled js
 dist/
 
+# pyinstaller artifacts
+*.spec
+__pycache__
+
+# compiling, testing, and debugging sandbox
+sandbox/
+
 typings/
 lib/*.js
 test/*.js
