@@ -9,7 +9,7 @@
 
 ## Related Scripts
 
-- Check out the companion script for copying gfy links from gfycat as reddit markdown at https://openuserjs.org/scripts/elwm/gfy2md.
+- Check out the companion script for copying gfy links from gfycat as reddit markdown at <https://openuserjs.org/scripts/elwm/gfy2md>.
 
 ## Table of Contents
 
@@ -134,7 +134,7 @@
 ### User Script Tips
 
 1. If you're new to userscripts check out <https://openuserjs.org/about/Userscript-Beginners-HOWTO> for instructions.
-2. Check out the companion script for copying gfy links from gfycat as reddit markdown at https://openuserjs.org/scripts/elwm/gfy2md.
+2. Check out the companion script for copying gfy links from gfycat as reddit markdown at <https://openuserjs.org/scripts/elwm/gfy2md>.
 3. The script can be slow to load sometimes, so wait a bit before adding markers.
 4. Refresh the page if the script doesn't load and to clear markers when switching videos in the same window.
 5. Videos can be marked up and the markers json or clipper script can be saved before higher quality levels are available, but the final generated webm quality depends on the quality formats available.

@@ -6,11 +6,8 @@ root = true
 end_of_line = lf
 insert_final_newline = true
 
-[*.{ts,js}]
+[*.{ts,js,py,js,json}]
 charset = utf-8
 indent_style = space
 indent_size = 2
 
-[{package.json,.tsconfig.json}]
-indent_style = space
-indent_size = 2
