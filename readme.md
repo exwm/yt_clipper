@@ -208,6 +208,10 @@ These dependencies are not required by the windows installation above.
 
 ## Markup Script Change Log
 
+- v0.0.74:
+  - Use with `v3.1.0` of the installation.
+  - Fix bug with crop y direction offset not accounting for variable video padding.
+
 - v0.0.73:
 
   - Use with `v3.1.0` of the installation. Reinstall if necessary. See [Clipper Script Installation](#clipper-script-installation).
