@@ -1052,7 +1052,7 @@
           }" placeholder="Auto" style="width:4em"></input>
         </div>
         <div class="editor-input-div">
-          <span>Max Bitrate (kb/s) (0 = &#x221E;): </span>
+          <span>Target Bitrate (kb/s) (0 = &#x221E;): </span>
           <input id="target-max-bitrate-input" class="yt_clipper-input" type="number" min="0" max="1e5"step="100" value="${
             settings.targetMaxBitrate != null ? settings.targetMaxBitrate : ''
           }" placeholder="Auto" "style="width:4em"></input>
@@ -1604,7 +1604,7 @@
           }" placeholder="${settings.crf || 'Auto'}" "style="width:4em"></input>
         </div>
         <div class="editor-input-div">
-          <span>Max Bitrate (kb/s) (0 = &#x221E;): </span>
+          <span>Target Bitrate (kb/s) (0 = &#x221E;): </span>
           <input id="target-max-bitrate-input" class="yt_clipper-input" type="number" min="0" max="10e5" step="100" value="${
             overrides.targetMaxBitrate != null ? overrides.targetMaxBitrate : ''
           }" placeholder="${settings.targetMaxBitrate ||
