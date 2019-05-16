@@ -2,7 +2,7 @@
 // @locale       english
 // @name         yt_clipper
 // @namespace    http://tampermonkey.net/
-// @version      0.0.74
+// @version      0.0.75
 // @description  add markers to youtube videos and generate clipped webms online or offline
 // @updateURL    https://openuserjs.org/meta/elwm/yt_clipper.meta.js
 // @run-at       document-end
@@ -105,6 +105,20 @@
             requestGfycatAuth();
           }
           break;
+        case 'KeyR':
+          if (!e.ctrlKey && !e.shiftKey && !e.altKey && playerInfo.watchFlexy.theater) {
+            rotateVideo('clock');
+          } else if (
+            !e.ctrlKey &&
+            !e.shiftKey &&
+            e.altKey &&
+            playerInfo.watchFlexy.theater
+          ) {
+            rotateVideo('cclock');
+          } else if (!e.ctrlKey && !e.shiftKey && !playerInfo.watchFlexy.theater) {
+            flashMessage('Please switch to theater mode to rotate video.', 'red');
+          }
+          break;
         case 'ArrowLeft':
         case 'ArrowRight':
           if (e.ctrlKey) {
@@ -163,7 +177,7 @@
   let prevSelectedMarkerPair: SVGRectElement = null;
 
   function init() {
-    initCSS();
+    injectCSS(ytClipperCSS, 'yt-clipper-css');
     initPlayerInfo();
     initMarkersContainer();
     addForeignEventListeners();
@@ -181,7 +195,9 @@
 
     playerInfo.duration = player.getDuration();
     playerInfo.video = document.getElementsByTagName('video')[0];
-    playerInfo.isVerticalVideo = player.getVideoAspectRatio() <= 1;
+    playerInfo.video.setAttribute('id', 'yt-clipper-video');
+    playerInfo.aspectRatio = player.getVideoAspectRatio();
+    playerInfo.isVerticalVideo = playerInfo.aspectRatio <= 1;
     playerInfo.progress_bar = document.getElementsByClassName('ytp-progress-bar')[0];
     playerInfo.watchFlexy = document.getElementsByTagName('ytd-watch-flexy')[0];
     playerInfo.infoContents = document.getElementById('info-contents');
@@ -228,8 +244,8 @@
     videoStabilization?: videoStabilization;
   }
   let settings: settings;
-  let markersSvg: SVGAElement;
-  let selectedMarkerPairOverlay: SVGAElement;
+  let markersSvg: SVGSVGElement;
+  let selectedMarkerPairOverlay: SVGSVGElement;
   function initMarkersContainer() {
     settings = {
       videoID: playerInfo.playerData.video_id,
@@ -252,12 +268,11 @@
     </svg>
     `;
     playerInfo.progress_bar.appendChild(markersDiv);
-    markersSvg = markersDiv.children[0] as SVGAElement;
-    selectedMarkerPairOverlay = markersDiv.children[1] as SVGAElement;
+    markersSvg = markersDiv.children[0] as SVGSVGElement;
+    selectedMarkerPairOverlay = markersDiv.children[1] as SVGSVGElement;
   }
 
-  function initCSS() {
-    const clipperCSS = `\
+  const ytClipperCSS = `\
 @keyframes valid-input {
   0% {
     background-color: tomato;
@@ -375,10 +390,148 @@
   z-index: 95;
 }
 `;
-
+  function injectCSS(css, id) {
     const style = document.createElement('style');
-    style.innerHTML = clipperCSS;
+    style.setAttribute('id', id);
+    style.innerHTML = css;
     document.body.appendChild(style);
+  }
+
+  const adjustRotatedVideoPositionCSS = `
+    @media (min-aspect-ratio: 29/18) {
+      #yt-clipper-video {
+        margin-left: 36%;
+      }
+    }
+    @media (min-aspect-ratio: 40/18) {
+      #yt-clipper-video {
+        margin-left: 25%;
+      }
+    }
+    @media (max-aspect-ratio: 29/18) {
+      #yt-clipper-video {
+        margin-left: 34%;
+      }
+    }
+    @media (max-aspect-ratio: 13/9) {
+      #yt-clipper-video {
+        margin-left: 32%;
+      }
+    }
+    @media (max-aspect-ratio: 23/18) {
+      #yt-clipper-video {
+        margin-left: 30%;
+      }
+    }
+    @media (max-aspect-ratio: 10/9) {
+      #yt-clipper-video {
+        margin-left: 26%;
+      }
+    }
+    @media (max-aspect-ratio: 17/18) {
+      #yt-clipper-video {
+        margin-left: 22%;
+      }
+    }
+    @media (max-aspect-ratio: 7/9) {
+      #yt-clipper-video {
+        margin-left: 16%;
+      }
+    }
+    @media (max-aspect-ratio: 6/9) {
+      #yt-clipper-video {
+        margin-left: 14%;
+      }
+    }
+    @media (max-aspect-ratio: 11/18) {
+      #yt-clipper-video {
+        margin-left: 10%;
+      }
+    }
+    @media (max-aspect-ratio: 5/9) {
+      #yt-clipper-video {
+        margin-left: 0%;
+      }
+    }
+    `;
+  let rotateVideoCSS;
+  let fullscreenRotatedVideoCSS;
+  let rotation = 0;
+  function rotateVideo(direction) {
+    if (direction === 'clock') {
+      rotation = rotation === 0 ? 90 : 0;
+    } else if (direction === 'cclock') {
+      rotation = rotation === 0 ? -90 : 0;
+    }
+    if (rotation === 90 || rotation === -90) {
+      let scale = 1;
+      scale = 1 / playerInfo.aspectRatio;
+      rotateVideoCSS = `
+        #yt-clipper-video {
+          transform: rotate(${rotation}deg) scale(2.2) !important;
+          max-width: 45vh;
+          max-height: 100vw;
+        }
+        #player-theater-container {
+          height: 100vh !important;
+          max-height: none !important;
+        }
+        #page-manager {
+          margin-top: 0px !important;
+        }
+        #masthead #container {
+          display: none !important;
+        }
+      `;
+      fullscreenRotatedVideoCSS = `
+      #yt-clipper-video {
+        transform: rotate(${rotation}deg) scale(${scale}) !important;
+        margin-left: auto;
+      }
+      `;
+      if (!document.fullscreen) {
+        injectCSS(adjustRotatedVideoPositionCSS, 'adjust-rotated-video-position-css');
+        injectCSS(rotateVideoCSS, 'yt-clipper-rotate-video-css');
+        window.dispatchEvent(new Event('resize'));
+      } else {
+        injectCSS(fullscreenRotatedVideoCSS, 'fullscreen-rotated-video-css');
+      }
+      document.addEventListener('fullscreenchange', fullscreenRotateVideoHandler);
+    } else {
+      const rotateVideoStyle = document.getElementById('yt-clipper-rotate-video-css');
+      deleteElement(rotateVideoStyle);
+      const adjustRotatedVideoPositionStyle = document.getElementById(
+        'adjust-rotated-video-position-css'
+      );
+      deleteElement(adjustRotatedVideoPositionStyle);
+      const fullScreenRotatedVideoStyle = document.getElementById(
+        'fullscreen-rotated-video-css'
+      );
+      deleteElement(fullScreenRotatedVideoStyle);
+      window.dispatchEvent(new Event('resize'));
+      document.removeEventListener('fullscreenchange', fullscreenRotateVideoHandler);
+    }
+  }
+
+  function fullscreenRotateVideoHandler() {
+    if (document.fullscreen) {
+      const rotateVideoStyle = document.getElementById('yt-clipper-rotate-video-css');
+      deleteElement(rotateVideoStyle);
+      const adjustRotatedVideoPositionStyle = document.getElementById(
+        'adjust-rotated-video-position-css'
+      );
+      deleteElement(adjustRotatedVideoPositionStyle);
+      injectCSS(fullscreenRotatedVideoCSS, 'fullscreen-rotated-video-css');
+    } else {
+      const fullScreenRotatedVideoStyle = document.getElementById(
+        'fullscreen-rotated-video-css'
+      );
+      deleteElement(fullScreenRotatedVideoStyle);
+      injectCSS(adjustRotatedVideoPositionCSS, 'adjust-rotated-video-position-css');
+      injectCSS(rotateVideoCSS, 'yt-clipper-rotate-video-css');
+      document.removeEventListener('fullscreenchange', fullscreenRotateVideoHandler);
+      window.dispatchEvent(new Event('resize'));
+    }
   }
 
   function addForeignEventListeners() {
@@ -899,7 +1052,7 @@
           }" placeholder="Auto" style="width:4em"></input>
         </div>
         <div class="editor-input-div">
-          <span>Max Bitrate (kb/s) (0 = &#x221E;): </span>
+          <span>Target Bitrate (kb/s) (0 = &#x221E;): </span>
           <input id="target-max-bitrate-input" class="yt_clipper-input" type="number" min="0" max="1e5"step="100" value="${
             settings.targetMaxBitrate != null ? settings.targetMaxBitrate : ''
           }" placeholder="Auto" "style="width:4em"></input>
@@ -1405,7 +1558,8 @@
     markerInputsDiv.setAttribute('id', 'markerInputsDiv');
     markerInputsDiv.innerHTML = `\
       <div class="yt_clipper-settings-editor">
-        <span style="font-weight:bold;font-style:none">Marker Pair Settings:   </span>
+        <span style="font-weight:bold;font-style:none">Marker Pair ${markerIndex +
+          1} Settings: </span>
         <div class="editor-input-div">
           <span>Speed: </span>
           <input id="speed-input" class="yt_clipper-input" type="number" placeholder="speed" value="${speed}" 
@@ -1423,8 +1577,7 @@
           }" placeholder="None" style="width:10em;text-align:right"></input>
         </div>
         <div class="editor-input-div">
-          <span style="font-weight:bold;font-style:none">Pair ${markerIndex +
-            1} Time:</span>
+          <span style="font-weight:bold;font-style:none">Time:</span>
           <span id="start-time">${startTime}</span>
           <span> - </span>
           <span id="end-time">${endTime}</span>
@@ -1451,7 +1604,7 @@
           }" placeholder="${settings.crf || 'Auto'}" "style="width:4em"></input>
         </div>
         <div class="editor-input-div">
-          <span>Max Bitrate (kb/s) (0 = &#x221E;): </span>
+          <span>Target Bitrate (kb/s) (0 = &#x221E;): </span>
           <input id="target-max-bitrate-input" class="yt_clipper-input" type="number" min="0" max="10e5" step="100" value="${
             overrides.targetMaxBitrate != null ? overrides.targetMaxBitrate : ''
           }" placeholder="${settings.targetMaxBitrate ||
