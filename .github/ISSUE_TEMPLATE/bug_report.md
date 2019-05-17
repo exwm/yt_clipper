@@ -1,6 +1,7 @@
 ---
 name: Bug Report
 about: Create a bug report to help improve yt_clipper
+labels: bug
 ---
 
 **Describe the Bug**

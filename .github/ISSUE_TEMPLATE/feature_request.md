@@ -1,6 +1,7 @@
 ---
 name: Feature Request
 about: Suggest a feature to be included in yt_clipper
+labels: enhancement
 ---
 
 **Please describe the need for the feature:**
