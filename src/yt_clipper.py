@@ -21,6 +21,7 @@ links = []
 markdown = ''
 
 ffmpegPath = './bin/ffmpeg'
+ffprobePath = './bin/ffprobe'
 webmsPath = './webms'
 logger = None
 
@@ -402,22 +403,6 @@ def getVideoInfo(settings):
     else:
         settings["videoUrl"] = videoInfo["url"]
 
-    settings["title"] = re.sub("'", "", ydl_info["title"])
-
-    settings["videoWidth"] = videoInfo["width"]
-    settings["videoHeight"] = videoInfo["height"]
-    settings["videoFPS"] = videoInfo["fps"]
-    settings["videoBitrate"] = int(videoInfo["tbr"])
-
-    logger.info(f'Video title: {settings["title"]}')
-    logger.info(f'Video width: {settings["videoWidth"]}')
-    logger.info(f'Video height: {settings["videoHeight"]}')
-    logger.info(f'Video fps: {settings["videoFPS"]}')
-    logger.info(f'Detected video bitrate: {settings["videoBitrate"]}k')
-
-    if settings["json"]:
-        settings = autoSetCropMultiples(settings)
-
     if 'requested_formats' in ydl_info:
         audioInfo = rf[1]
         settings["audiobr"] = int(audioInfo["tbr"])
@@ -435,7 +420,32 @@ def getVideoInfo(settings):
         if dashAudioFormatID:
             settings["audioUrl"] = filteredDashPath
 
+    settings["title"] = re.sub("'", "", ydl_info["title"])
+
+    settings["videoWidth"] = videoInfo["width"]
+    settings["videoHeight"] = videoInfo["height"]
+    settings["videoFPS"] = videoInfo["fps"]
+    settings["videoBitrate"] = int(getVideoBitrate(
+        settings["videoUrl"])) or int(videoInfo["tbr"])
+
+    logger.info(f'Video title: {settings["title"]}')
+    logger.info(f'Video width: {settings["videoWidth"]}')
+    logger.info(f'Video height: {settings["videoHeight"]}')
+    logger.info(f'Video fps: {settings["videoFPS"]}')
+    logger.info(f'Detected video bitrate: {settings["videoBitrate"]}k')
+
+    if settings["json"]:
+        settings = autoSetCropMultiples(settings)
+
     return settings
+
+
+def getVideoBitrate(videoUrl):
+    ffprobeCommand = f'"{ffprobePath}" "{videoUrl}" -v error -of default=noprint_wrappers=1 -show_entries format=bit_rate'
+    ffprobeProcess = subprocess.Popen(shlex.split(
+        ffprobeCommand), stdout=subprocess.PIPE)
+    bitrate = int(ffprobeProcess.stdout.read().decode().split("=")[1]) / 1000
+    return bitrate
 
 
 def autoSetCropMultiples(settings):
