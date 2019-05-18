@@ -13,7 +13,7 @@ node_modules
 # Optional npm cache directory
 .npm
 
-# compiled js
+# compiled js and py
 dist/
 
 # pyinstaller artifacts

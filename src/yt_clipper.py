@@ -139,7 +139,7 @@ def prepareSettings(settings):
 
     logging.info('-' * 80)
     logger.info((f'Automatically determined encoding settings: CRF: {encodeSettings["crf"]} (0-63), ' +
-                 f'Target Max Bitrate: {encodeSettings["targetMaxBitrate"]}k, ' +
+                 f'Auto Target Max Bitrate: {encodeSettings["autoTargetMaxBitrate"]}k, ' +
                  f'Two-pass Encoding Enabled: {encodeSettings["twoPass"]}, ' +
                  f'Encoding Speed: {encodeSettings["encodeSpeed"]} (0-5)'))
 
@@ -147,7 +147,8 @@ def prepareSettings(settings):
 
     logging.info('-' * 80)
     logger.info((f'Global Encoding Settings: CRF: {settings["crf"]} (0-63), ' +
-                 f'Detected Bitrate: {settings["videoBitrate"]}k, Target Max Bitrate: {settings["targetMaxBitrate"]}k, ' +
+                 f'Detected Bitrate: {settings["videoBitrate"]}k, ' +
+                 f'Global Target Max Bitrate: {settings["targetMaxBitrate"] if "targetMaxBitrate" in settings else "None"}k, ' +
                  f'Two-pass Encoding Enabled: {settings["twoPass"]}, Encoding Speed: {settings["encodeSpeed"]} (0-5), ' +
                  f'Audio Enabled: {settings["audio"]}, Denoise Enabled: {settings["denoise"]}, Rotate: {settings["rotate"]}, ' +
                  f'Video Stabilization: {settings["videoStabilization"]["desc"]}'))
@@ -175,7 +176,10 @@ def trim_video(settings, markerPairIndex):
         (settings["videoWidth"] * settings["videoHeight"])
     markerPairEncodeSettings = getDefaultEncodeSettings(
         settings["videoBitrate"] * bitrateCropFactor)
-    settings = {**settings, **markerPairEncodeSettings}
+    if "targetMaxBitrate" in settings:
+        settings["autoTargetMaxBitrate"] = getDefaultEncodeSettings(
+            settings["targetMaxBitrate"] * bitrateCropFactor)["autoTargetMaxBitrate"]
+    settings = {**markerPairEncodeSettings, **settings}
 
     mps = markerPairSettings = {**settings, **(markerPair["overrides"])}
 
@@ -195,7 +199,7 @@ def trim_video(settings, markerPairIndex):
     titlePrefixLogMsg = f'Title Prefix: {mps["titlePrefix"] if "titlePrefix" in mps else ""}'
     logging.info('-' * 80)
     logger.info((f'Marker Pair {markerPairIndex + 1} Settings: {titlePrefixLogMsg}, ' +
-                 f'CRF: {mps["crf"]} (0-63), Target Max Bitrate: {mps["targetMaxBitrate"]}k, ' +
+                 f'CRF: {mps["crf"]} (0-63), Crop Adjusted Target Max Bitrate: {mps["autoTargetMaxBitrate"]}k, ' +
                  f'Two-pass Encoding Enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5), ' +
                  f'Audio Enabled: {mps["audio"]}, Denoise Enabled: {mps["denoise"]}, ' +
                  f'Video Stabilization: {mps["videoStabilization"]["desc"]}'))
@@ -239,7 +243,7 @@ def trim_video(settings, markerPairIndex):
         f'-c:v libvpx-vp9 -pix_fmt yuv420p',
         f'-c:a libopus -b:a 128k',
         f'-slices 8 -threads 8 -row-mt 1 -tile-columns 6 -tile-rows 2',
-        f'-crf {mps["crf"]} -b:v {mps["targetMaxBitrate"]}k',
+        f'-crf {mps["crf"]} -b:v {mps["autoTargetMaxBitrate"]}k',
         f'-metadata title="{mps["videoTitle"]}" -t {duration}',
         f'-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
         f'-f webm ',
@@ -480,25 +484,25 @@ def filterDash(dashManifestUrl, dashFormatIDs):
 
 def getDefaultEncodeSettings(videobr):
     if videobr is None:
-        encodeSettings = {'crf': 30, 'targetMaxBitrate': 0,
+        encodeSettings = {'crf': 30, 'autoTargetMaxBitrate': 0,
                           'encodeSpeed': 2, 'twoPass': False}
     elif videobr <= 4000:
-        encodeSettings = {'crf': 20, 'targetMaxBitrate': int(
+        encodeSettings = {'crf': 20, 'autoTargetMaxBitrate': int(
             1.6 * videobr), 'encodeSpeed': 2, 'twoPass': False}
     elif videobr <= 6000:
-        encodeSettings = {'crf': 22, 'targetMaxBitrate': int(
+        encodeSettings = {'crf': 22, 'autoTargetMaxBitrate': int(
             1.5 * videobr), 'encodeSpeed': 3, 'twoPass': False}
     elif videobr <= 10000:
-        encodeSettings = {'crf': 24, 'targetMaxBitrate': int(
+        encodeSettings = {'crf': 24, 'autoTargetMaxBitrate': int(
             1.4 * videobr), 'encodeSpeed': 4, 'twoPass': False}
     elif videobr <= 15000:
-        encodeSettings = {'crf': 26, 'targetMaxBitrate': int(
+        encodeSettings = {'crf': 26, 'autoTargetMaxBitrate': int(
             1.3 * videobr), 'encodeSpeed': 5, 'twoPass': False}
     elif videobr <= 20000:
-        encodeSettings = {'crf': 30, 'targetMaxBitrate': int(
+        encodeSettings = {'crf': 30, 'autoTargetMaxBitrate': int(
             1.2 * videobr), 'encodeSpeed': 5, 'twoPass': False}
     else:
-        encodeSettings = {'crf': 35, 'targetMaxBitrate': int(
+        encodeSettings = {'crf': 35, 'autoTargetMaxBitrate': int(
             1.1 * videobr), 'encodeSpeed': 5, 'twoPass': False}
     return encodeSettings
 
