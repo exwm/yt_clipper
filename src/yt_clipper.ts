@@ -81,7 +81,7 @@
           }
           break;
         case 'KeyZ':
-          if (!e.shiftKey && !markerHotkeysEnabled) {
+          if (!e.shiftKey) {
             undoMarker();
           } else if (
             e.shiftKey &&
@@ -173,7 +173,6 @@
 
   let startTime = 0.0;
   let toggleKeys = false;
-  let undoMarkerOffset = 0;
   let prevSelectedMarkerPair: SVGRectElement = null;
 
   function init() {
@@ -841,7 +840,6 @@
       const { markers: _markers, ..._settings } = markersJson;
       settings = _settings;
       markers.length = 0;
-      undoMarkerOffset = 0;
       markersJson.markers.forEach((marker: marker) => {
         const startMarkerConfig: markerConfig = { time: marker.start, type: 'start' };
         const endMarkerConfig: markerConfig = {
@@ -882,7 +880,7 @@
 
     setAttributes(marker, marker_attrs);
     marker.setAttribute('x', `${progress_pos}%`);
-    const rectIdx = markers.length + 1 + undoMarkerOffset;
+    const rectIdx = markers.length + 1;
     marker.setAttribute('idx', rectIdx.toString());
     marker.setAttribute('time', currentFrameTime.toString());
 
@@ -897,6 +895,7 @@
       marker.setAttribute('type', 'end');
       marker.setAttribute('z-index', '2');
       updateMarkersArray(currentFrameTime, markerConfig);
+      updateMarkerPairEditor();
     }
 
     start = !start;
@@ -922,26 +921,36 @@
       overrides: markerPairConfig.overrides || {},
     };
 
-    if (undoMarkerOffset === -1) {
-      const lastMarkerIdx = markers.length - 1;
-      markers[lastMarkerIdx] = updatedMarker;
-      undoMarkerOffset = 0;
-    } else if (undoMarkerOffset === 0) {
-      markers.push(updatedMarker);
-    }
+    markers.push(updatedMarker);
   }
 
+  function updateMarkerPairEditor() {
+    if (isMarkerEditorOpen) {
+      const markerPairCountLabel = document.getElementById('marker-pair-count-label');
+      if (markerPairCountLabel) {
+        markerPairCountLabel.textContent = markers.length.toString();
+      }
+    }
+  }
   function undoMarker() {
     const targetMarker = markersSvg.lastChild;
+
+    const targetMarkerType = targetMarker.getAttribute('type');
+    // do not undo markers part of or before a currently select marker pair
+    if (
+      targetMarkerType === 'end' &&
+      isMarkerEditorOpen &&
+      enableMarkerHotkeys.markerPairIndex >= markers.length
+    ) {
+      return;
+    }
     if (targetMarker) {
-      const deletedMarkerType = targetMarker.getAttribute('type');
       markersSvg.removeChild(targetMarker);
-      if (deletedMarkerType === 'start' && undoMarkerOffset === -1) {
+      if (targetMarkerType === 'end') {
+        startTime = markers[markers.length - 1].start;
         markers.pop();
-        undoMarkerOffset = 0;
-      } else if (deletedMarkerType === 'end') {
-        undoMarkerOffset = -1;
-        startTime = markers[Math.floor(markers.length - 1)].start;
+        console.log(markers);
+        updateMarkerPairEditor();
       }
       start = !start;
     }
@@ -1558,8 +1567,11 @@
     markerInputsDiv.setAttribute('id', 'markerInputsDiv');
     markerInputsDiv.innerHTML = `\
       <div class="yt_clipper-settings-editor">
-        <span style="font-weight:bold;font-style:none">Marker Pair ${markerIndex +
-          1} Settings: </span>
+        <span style="font-weight:bold;font-style:none">Marker Pair \
+          <span id="marker-pair-number-label">${markerIndex + 1}</span>\
+          /\
+          <span id="marker-pair-count-label">${markers.length}</span>\
+        Settings: </span>
         <div class="editor-input-div">
           <span>Speed: </span>
           <input id="speed-input" class="yt_clipper-input" type="number" placeholder="speed" value="${speed}" 
@@ -1701,6 +1713,7 @@
   function enableMarkerHotkeys(endMarker) {
     markerHotkeysEnabled = true;
     enableMarkerHotkeys.endMarker = endMarker;
+    enableMarkerHotkeys.markerPairIndex = endMarker.getAttribute('idx');
     enableMarkerHotkeys.startMarker = endMarker.previousSibling;
 
     enableMarkerHotkeys.moveMarker = (marker) => {
