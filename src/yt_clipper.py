@@ -374,8 +374,14 @@ def createMergeList(markerPairMergeList):
         for mergeRange in mergeCSV:
             if '-' in mergeRange:
                 mergeRange = mergeRange.split('-')
-                for i in range(int(mergeRange[0]), int(mergeRange[1]) + 1):
-                    mergeList.append(i)
+                startPair = int(mergeRange[0])
+                endPair = int(mergeRange[1])
+                if (startPair <= endPair):
+                    for i in range(startPair, endPair + 1):
+                        mergeList.append(i)
+                else:
+                    for i in range(startPair, endPair - 1 if endPair >= 1 else 0, -1):
+                        mergeList.append(i)
             else:
                 mergeList.append(int(mergeRange))
         yield mergeList
