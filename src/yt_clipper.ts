@@ -60,12 +60,12 @@
           }
           break;
         case 'KeyE':
-          if (e.shiftKey && !e.ctrlKey) {
+          if (!e.ctrlKey && e.shiftKey) {
             updateAllMarkers('speed', settings.newMarkerSpeed);
           }
           break;
         case 'KeyD':
-          if (e.shiftKey && !e.ctrlKey) {
+          if (!e.ctrlKey && e.shiftKey) {
             updateAllMarkers('crop', settings.newMarkerCrop);
           }
           break;
@@ -81,10 +81,14 @@
           }
           break;
         case 'KeyZ':
-          if (!e.shiftKey) {
+          if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
             undoMarker();
+          } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
+            redoMarker();
           } else if (
-            e.shiftKey &&
+            !e.ctrlKey &&
+            !e.shiftKey &&
+            e.altKey &&
             markerHotkeysEnabled &&
             enableMarkerHotkeys.deleteMarkerPair
           ) {
@@ -169,6 +173,7 @@
     overrides: markerPairOverrides;
   }
   let markers: marker[] = [];
+  let markersHistory: marker[] = [];
   let links: string[] = [];
 
   let startTime = 0.0;
@@ -932,6 +937,7 @@
       }
     }
   }
+
   function undoMarker() {
     const targetMarker = markersSvg.lastChild;
 
@@ -948,7 +954,7 @@
       markersSvg.removeChild(targetMarker);
       if (targetMarkerType === 'end') {
         startTime = markers[markers.length - 1].start;
-        markers.pop();
+        markersHistory.push(markers.pop());
         console.log(markers);
         updateMarkerPairEditor();
       }
@@ -956,6 +962,17 @@
     }
   }
 
+  function redoMarker() {
+    if (markersHistory.length > 0) {
+      const markerPairToRestore = markersHistory[markersHistory.length - 1];
+      if (start) {
+        addMarkerSVGRect({ time: markerPairToRestore.start });
+      } else {
+        markersHistory.pop();
+        addMarkerSVGRect({ ...markerPairToRestore, time: markerPairToRestore.end });
+      }
+    }
+  }
   function cyclePlayerSpeedDown() {
     let newSpeed = player.getPlaybackRate() - 0.25;
     newSpeed = newSpeed <= 0 ? 1 : newSpeed;
