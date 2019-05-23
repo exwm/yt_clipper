@@ -942,7 +942,7 @@
       isMarkerEditorOpen &&
       enableMarkerHotkeys.markerPairIndex >= markers.length
     ) {
-      return;
+      toggleMarkerEditor(enableMarkerHotkeys.endMarker);
     }
     if (targetMarker) {
       markersSvg.removeChild(targetMarker);
