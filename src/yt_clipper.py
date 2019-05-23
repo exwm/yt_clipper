@@ -13,6 +13,8 @@ UPLOAD_KEY_REQUEST_ENDPOINT = 'https://api.gfycat.com/v1/gfycats?'
 FILE_UPLOAD_ENDPOINT = 'https://filedrop.gfycat.com'
 AUTHENTICATION_ENDPOINT = 'https://api.gfycat.com/v1/oauth/token'
 
+version = '3.2.1'
+
 settings = {}
 
 outPaths = []
@@ -55,6 +57,7 @@ def main():
     os.makedirs(f'{webmsPath}', exist_ok=True)
     setUpLogger()
 
+    logger.info(f'Version: {version}')
     settings = prepareSettings(settings)
 
     for markerPairIndex, marker in enumerate(settings["markers"]):
@@ -177,10 +180,13 @@ def trim_video(settings, markerPairIndex):
         (settings["videoWidth"] * settings["videoHeight"])
     markerPairEncodeSettings = getDefaultEncodeSettings(
         settings["videoBitrate"] * bitrateCropFactor)
+    settings = {**markerPairEncodeSettings, **settings}
+
     if "targetMaxBitrate" in settings:
         settings["autoTargetMaxBitrate"] = getDefaultEncodeSettings(
             settings["targetMaxBitrate"] * bitrateCropFactor)["autoTargetMaxBitrate"]
-    settings = {**markerPairEncodeSettings, **settings}
+    else:
+        settings["autoTargetMaxBitrate"] = markerPairEncodeSettings["autoTargetMaxBitrate"]
 
     mps = markerPairSettings = {**settings, **(markerPair["overrides"])}
 
@@ -200,7 +206,8 @@ def trim_video(settings, markerPairIndex):
     titlePrefixLogMsg = f'Title Prefix: {mps["titlePrefix"] if "titlePrefix" in mps else ""}'
     logging.info('-' * 80)
     logger.info((f'Marker Pair {markerPairIndex + 1} Settings: {titlePrefixLogMsg}, ' +
-                 f'CRF: {mps["crf"]} (0-63), Crop Adjusted Target Max Bitrate: {mps["autoTargetMaxBitrate"]}k, ' +
+                 f'CRF: {mps["crf"]} (0-63), Bitrate Crop Factor: {bitrateCropFactor}, ' +
+                 f'Crop Adjusted Target Max Bitrate: {mps["autoTargetMaxBitrate"]}k, ' +
                  f'Two-pass Encoding Enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5), ' +
                  f'Audio Enabled: {mps["audio"]}, Denoise Enabled: {mps["denoise"]}, ' +
                  f'Video Stabilization: {mps["videoStabilization"]["desc"]}'))
@@ -241,6 +248,7 @@ def trim_video(settings, markerPairIndex):
 
     ffmpegCommand = ' '.join((
         inputs,
+        f'-benchmark',
         f'-c:v libvpx-vp9 -pix_fmt yuv420p',
         f'-c:a libopus -b:a 128k',
         f'-slices 8 -threads 8 -row-mt 1 -tile-columns 6 -tile-rows 2',
@@ -279,15 +287,17 @@ def trim_video(settings, markerPairIndex):
     elif vidstabEnabled:
         if mps["twoPass"]:
             ffmpegVidstabdetect += f' -pass 1'
+        else:
+            ffmpegVidstabdetect += f' -speed 8'
         ffmpegVidstabdetect += f' "{shakyPath}"'
         logger.info('Running video stabilization first pass...')
         logger.info('Using ffmpeg command: ' +
                     re.sub(r'(&a?itags?.*?")', r'"', ffmpegVidstabdetect) + '\n')
         subprocess.run(shlex.split(ffmpegVidstabdetect))
 
+        ffmpegVidstabtransform += f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
         if mps["twoPass"]:
             ffmpegVidstabtransform += f' -pass 2'
-        ffmpegVidstabtransform += f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
         logger.info('Running video stabilization second pass...')
         logger.info('Using ffmpeg command: ' +
                     re.sub(r'(&a?itags?.*?")', r'"', ffmpegVidstabtransform) + '\n')
