@@ -58,6 +58,7 @@ def main():
     setUpLogger()
 
     logger.info(f'Version: {version}')
+    logger.info('-' * 80)
     settings = prepareSettings(settings)
 
     for markerPairIndex, marker in enumerate(settings["markers"]):
@@ -133,7 +134,8 @@ def loadMarkers(markersJson, settings):
 
 def prepareSettings(settings):
     logger.info(f'Video URL: {settings["videoUrl"]}')
-    logger.info(f'Merge List: {settings["markerPairMergeList"]}')
+    logger.info(
+        f'Merge List: {settings["markerPairMergeList"] if settings["markerPairMergeList"] else "None"}')
 
     if settings["url"]:
         settings = getVideoInfo(settings)
@@ -141,7 +143,7 @@ def prepareSettings(settings):
     else:
         encodeSettings = getDefaultEncodeSettings(None)
 
-    logging.info('-' * 80)
+    logger.info('-' * 80)
     logger.info((f'Automatically determined encoding settings: CRF: {encodeSettings["crf"]} (0-63), ' +
                  f'Auto Target Max Bitrate: {encodeSettings["autoTargetMaxBitrate"]}k, ' +
                  f'Two-pass Encoding Enabled: {encodeSettings["twoPass"]}, ' +
@@ -149,7 +151,7 @@ def prepareSettings(settings):
 
     settings = {**encodeSettings, **settings}
 
-    logging.info('-' * 80)
+    logger.info('-' * 80)
     logger.info((f'Global Encoding Settings: CRF: {settings["crf"]} (0-63), ' +
                  f'Detected Bitrate: {settings["videoBitrate"]}k, ' +
                  f'Global Target Max Bitrate: {settings["targetMaxBitrate"] if "targetMaxBitrate" in settings else "None"}k, ' +
@@ -204,13 +206,14 @@ def trim_video(settings, markerPairIndex):
     inputs = f'"{ffmpegPath}" '
 
     titlePrefixLogMsg = f'Title Prefix: {mps["titlePrefix"] if "titlePrefix" in mps else ""}'
-    logging.info('-' * 80)
+    logger.info('-' * 80)
     logger.info((f'Marker Pair {markerPairIndex + 1} Settings: {titlePrefixLogMsg}, ' +
                  f'CRF: {mps["crf"]} (0-63), Bitrate Crop Factor: {bitrateCropFactor}, ' +
                  f'Crop Adjusted Target Max Bitrate: {mps["autoTargetMaxBitrate"]}k, ' +
                  f'Two-pass Encoding Enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5), ' +
                  f'Audio Enabled: {mps["audio"]}, Denoise Enabled: {mps["denoise"]}, ' +
                  f'Video Stabilization: {mps["videoStabilization"]["desc"]}'))
+    logger.info('-' * 80)
 
     if mps["url"]:
         inputs += f' -n -ss {start} -i "{mps["videoUrl"]}" '
@@ -351,7 +354,7 @@ def makeMergedClips(settings):
         ffmpegConcatCmd = f' "{ffmpegPath}" -n -hide_banner -f concat -safe 0 -i "{inputsTxtPath}" -c copy "{mergedFilePath}"'
 
         if not Path(mergedFilePath).is_file():
-            logging.info('-' * 80)
+            logger.info('-' * 80)
             logger.info(f'Generating "{mergedFileName}"...\n')
             logger.info(f'Using ffmpeg command: {ffmpegConcatCmd}')
             ffmpegProcess = subprocess.run(shlex.split(ffmpegConcatCmd))
@@ -468,7 +471,8 @@ def autoSetCropMultiples(settings):
     cropMultipleX = (settings["videoWidth"] / settings["cropResWidth"])
     cropMultipleY = (settings["videoHeight"] / settings["cropResHeight"])
     if settings["cropResWidth"] != settings["videoWidth"] or settings["cropResHeight"] != settings["videoHeight"]:
-        logger.info('Warning: Crop resolution does not match video resolution.')
+        logger.info('-' * 80)
+        logger.warning('Crop resolution does not match video resolution.')
         if settings["cropResWidth"] != settings["videoWidth"]:
             logger.warning(
                 f'Crop resolution width ({settings["cropResWidth"]}) not equal to video width ({settings["videoWidth"]})')
