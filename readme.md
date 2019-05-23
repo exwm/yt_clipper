@@ -50,7 +50,9 @@
 
 **A:** Add marker at current time (start = green, end = yellow, selected = black center). Multiple marker pairs can be added.
 
-**Z:** Undo last marker (disabled if a marker pair is currently selected).
+**Z:** Undo last marker.
+
+**shift+Z:** Redo last undone marker.
 
 **shift+mouseover:** Toggle marker pair editor. Must be done over an end marker (yellow). Selected marker pairs have a black center.
 
@@ -61,7 +63,7 @@
 
 - While a pair is selected use **shift+Q/shift+A** to move the start/end marker to current time.
   - Adjust marker position more precisely using the **<** and **>** keys to view YouTube videos frame by frame.
-- While a pair is selected use **shift+Z** to delete the pair.
+- While a pair is selected use **alt+Z** to delete the pair.
 
 **W:** Global settings editor:
 
