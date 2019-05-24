@@ -223,6 +223,25 @@
       settingsEditorHook = playerInfo.infoContents;
     }
   }
+
+  document.body.addEventListener('wheel', mouseWheelFrameSkipHandler);
+  function mouseWheelFrameSkipHandler(event: WheelEvent) {
+    if (
+      toggleKeys &&
+      !event.ctrlKey &&
+      !event.altKey &&
+      event.shiftKey &&
+      Math.abs(event.deltaY) > 0
+    ) {
+      const videoStats = player.getStatsForNerds();
+      let fps = videoStats ? videoStats.resolution.match(/@(\d\d)/)[1] : null;
+      if (event.deltaY < 0) {
+        player.seekBy(1 / fps);
+      } else if (event.deltaY > 0) {
+        player.seekBy(-1 / fps);
+      }
+    }
+  }
   interface videoStabilization {
     enabled: boolean;
     shakiness: number;
