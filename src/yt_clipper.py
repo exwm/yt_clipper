@@ -100,7 +100,7 @@ def buildArgParser():
                         help='Enable audio in output webms.')
     parser.add_argument('--json', '-j', action='store_true',
                         help='Read in markers json file and automatically create webms.')
-    parser.add_argument('--format', '-f', default='bestvideo+bestaudio',
+    parser.add_argument('--format', '-f', default='bestvideo+(bestaudio[acodec=opus]/bestaudio[acodec=vorbis]/bestaudio)',
                         help='Specify format string passed to youtube-dl.')
     parser.add_argument('--delay', '-d', type=float, dest='delay', default=0,
                         help='Add a fixed delay to both the start and end time of each marker. Can be negative.')
@@ -219,13 +219,14 @@ def trim_video(settings, markerPairIndex):
     logger.info('-' * 80)
 
     if mps["url"]:
-        inputs += f' -n -ss {start} -i "{mps["videoUrl"]}" '
-        filter_complex += f'[0:v]setpts={speed}*(PTS-STARTPTS)[slowed];'
         if mps["audio"]:
-            inputs += f' -ss {start} -i "{mps["audioUrl"]}" '
-            filter_complex += f'[1:a]atrim={0}:{duration},atempo={1/speed};'
+            inputs += f' -i "{mps["audioUrl"]}" '
+            filter_complex += f'[0:a]atrim={0}:{duration},atempo={1/speed};'
+            filter_complex += f'[1:v]setpts={speed}*(PTS-STARTPTS)[slowed];'
         else:
             inputs += ' -an '
+            filter_complex += f'[0:v]setpts={speed}*(PTS-STARTPTS)[slowed];'
+        inputs += f' -n -ss {start} -i "{mps["videoUrl"]}" '
     else:
         inputs += f' -n -i "{mps["videoUrl"]}" '
         filter_complex += f'[0:v]trim={start}:{end}, setpts={speed}*(PTS-STARTPTS)[slowed];'
