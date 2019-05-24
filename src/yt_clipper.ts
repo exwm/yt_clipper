@@ -2,7 +2,7 @@
 // @locale       english
 // @name         yt_clipper
 // @namespace    http://tampermonkey.net/
-// @version      0.0.75
+// @version      0.0.76
 // @description  add markers to youtube videos and generate clipped webms online or offline
 // @updateURL    https://openuserjs.org/meta/elwm/yt_clipper.meta.js
 // @run-at       document-end
