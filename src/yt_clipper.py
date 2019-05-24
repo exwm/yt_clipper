@@ -445,8 +445,11 @@ def getVideoInfo(settings):
     settings["videoWidth"] = videoInfo["width"]
     settings["videoHeight"] = videoInfo["height"]
     settings["videoFPS"] = videoInfo["fps"]
-    settings["videoBitrate"] = int(getVideoBitrate(
-        settings["videoUrl"])) or int(videoInfo["tbr"])
+    if dashVideoFormatID:
+        settings["videoBitrate"] = int(videoInfo["tbr"])
+    else:
+        settings["videoBitrate"] = int(getVideoBitrate(
+            settings["videoUrl"])) or int(videoInfo["tbr"])
 
     logger.info(f'Video title: {settings["title"]}')
     logger.info(f'Video width: {settings["videoWidth"]}')
@@ -461,11 +464,16 @@ def getVideoInfo(settings):
 
 
 def getVideoBitrate(videoUrl):
-    ffprobeCommand = f'"{ffprobePath}" "{videoUrl}" -v error -of default=noprint_wrappers=1 -show_entries format=bit_rate'
-    ffprobeProcess = subprocess.Popen(shlex.split(
-        ffprobeCommand), stdout=subprocess.PIPE)
-    bitrate = int(ffprobeProcess.stdout.read().decode().split("=")[1]) / 1000
-    return bitrate
+    try:
+        ffprobeCommand = f'"{ffprobePath}" "{videoUrl}" -v error -of default=noprint_wrappers=1 -show_entries format=bit_rate'
+        ffprobeProcess = subprocess.Popen(shlex.split(
+            ffprobeCommand), stdout=subprocess.PIPE)
+        ffprobeBitrate = ffprobeProcess.stdout.read().decode()
+        logger.info(f'ffprobe: {ffprobeBitrate} (b/s)')
+        bitrate = int(ffprobeBitrate.split("=")[1]) / 1000
+        return bitrate
+    except:
+        return None
 
 
 def autoSetCropMultiples(settings):
