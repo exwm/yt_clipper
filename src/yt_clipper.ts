@@ -104,7 +104,7 @@
           break;
         case 'KeyC':
           if (!e.ctrlKey && !e.shiftKey && e.altKey) {
-            sendGfyRequests(markers, playerInfo.url);
+            sendGfyRequests(playerInfo.url);
           } else if (!e.ctrlKey && e.shiftKey && e.altKey) {
             requestGfycatAuth();
           }
@@ -1982,8 +1982,11 @@ httpd.serve_forever()
     return markers.map((marker: marker, idx: number) => {
       const start = marker.start;
       const end = marker.end;
-      const speed = (1 / marker.speed).toPrecision(4);
-      const crop = marker.crop;
+      const speed = marker.speed;
+      let [x, y, w, h] = marker.crop.split(':');
+      w = w === 'iw' ? settings.cropResWidth.toString() : w;
+      h = h === 'ih' ? settings.cropResHeight.toString() : h;
+      let crop = [x, y, w, h].map((num) => parseInt(num, 10));
       const startHHMMSS = toHHMMSS(start).split(':');
       const startHH = startHHMMSS[0];
       const startMM = startHHMMSS[1];
@@ -1995,21 +1998,11 @@ httpd.serve_forever()
         fetchHours: startHH,
         fetchMinutes: startMM,
         fetchSeconds: startSS,
-        noMd5: 'true',
+        noMd5: 'false',
         cut: { start, duration },
         speed,
-        crop,
+        crop: { x: crop[0], y: crop[1], w: crop[2], h: crop[3] },
       };
-      if (crop && crop !== '0:0:iw:ih') {
-        const crops = crop.split(':');
-        req.crop = {
-          x: crops[0],
-          y: crops[1],
-          w: crops[2] === 'iw' ? settings.cropResWidth : crops[2],
-          h: crops[3] === 'ih' ? settings.cropResHeight : crops[3],
-        };
-      }
-
       return req;
     });
   }
@@ -2033,13 +2026,13 @@ httpd.serve_forever()
         .then((json) => {
           const accessToken = json['access-token'][0];
           console.log(accessToken);
-          sendGfyRequests(markers, playerInfo.url, accessToken);
+          sendGfyRequests(playerInfo.url, accessToken);
         })
         .catch((error) => console.error(error));
     });
   }
 
-  function sendGfyRequests(markers: markers[], url: string, accessToken?: string) {
+  function sendGfyRequests(url: string, accessToken?: string) {
     if (markers.length > 0) {
       const markdown = toggleUploadStatus();
       const reqs = buildGfyRequests(markers, url).map((req, idx) => {
@@ -2059,14 +2052,11 @@ httpd.serve_forever()
     idx: any,
     accessToken: any
   ) {
-    reqData.speed = reqData.speed === '1.000' ? '' : `?speed=${reqData.speed}`;
     return new Promise((resolve, reject) => {
       postData('https://api.gfycat.com/v1/gfycats', reqData, accessToken)
         .then((resp) => {
           links.push(
-            `(${settings.titleSuffix}-${idx})[https://gfycat.com/${resp.gfyname}${
-              reqData.speed
-            }]`
+            `(${settings.titleSuffix}-${idx})[https://gfycat.com/${resp.gfyname}]`
           );
           resolve(resp.gfyname);
         })
@@ -2080,9 +2070,11 @@ httpd.serve_forever()
         return isComplete;
       });
     });
-    Promise.all(gfyStatuses).then((gfyStatuses) => {
-      areGfysCompleted(gfyStatuses).then(() => insertMarkdown(markdown));
-    });
+    Promise.all(gfyStatuses)
+      .then((gfyStatuses) => {
+        areGfysCompleted(gfyStatuses).then(() => insertMarkdown(markdown));
+      })
+      .catch(() => console.log('gfys not yet completed'));
   }
 
   function toggleUploadStatus() {
@@ -2091,7 +2083,8 @@ httpd.serve_forever()
     meta.insertAdjacentElement('beforebegin', markdown);
     setAttributes(markdown, {
       id: 'markdown',
-      style: 'width:600px;height:100px;',
+      style: 'color:grey;width:600px;height:100px;',
+      spellcheck: false,
     });
     markdown.textContent = 'Upload initiated. Progress updates will begin shortly.\n';
     return markdown;
@@ -2113,7 +2106,7 @@ httpd.serve_forever()
 
   function areGfysCompleted(gfyStatuses) {
     return new Promise((resolve, reject) => {
-      if (gfyStatuses.every((isCompleted: boolean) => isCompleted)) {
+      if (gfyStatuses.every(Boolean)) {
         resolve();
       } else {
         reject();
