@@ -11,11 +11,16 @@
 
 - Check out the companion script for copying gfy links from gfycat as reddit markdown at <https://openuserjs.org/scripts/elwm/gfy2md>.
 
+## Source Code
+
+- The version-controlled source code is available at <https://github.com/exwm/yt_clipper>.
+
 ## Table of Contents
 
 - [yt_clipper](#ytclipper)
   - [Browser Support](#browser-support)
   - [Related Scripts](#related-scripts)
+  - [Source Code](#source-code)
   - [Table of Contents](#table-of-contents)
   - [Terminology](#terminology)
   - [Markup Script Hotkeys](#markup-script-hotkeys)
