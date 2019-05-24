@@ -102,6 +102,7 @@
 **shift+X:** Like **X**, begin drawing a crop but set only the left and right boundaries on **shift+click**. Vertically fills the crop, that is, it sets the top to 0 and the bottom to the video height.
 
 ### Video Playback and Preview Hotkeys
+**shift+mouse-wheel:** Scroll the mouse wheel up/down to skip forward/backward one frame per tick.
 
 **shift+G:** Toggle auto video playback speed adjustment based on markers. When outside of a marker pair the playback speed is set back to 1 (and cannot be changed without toggling off auto speed adjustment).
 
@@ -194,8 +195,8 @@ python ./clip.py --json markers.json # automatically generate webms using marker
 There is an installation that does not require the dependencies below.
 
 1. Extract the appropriate zip file anywhere:
-   - On Windows download this [zip file (win_v3.2.0)](https://mega.nz/#!AXhT2QjA!5OSHYWLak_BLyX420_G4kmRRNPjxhhnRSmyHlpBJE7c)
-   - On Mac download this [zip file (mac_v3.2.0)](https://mega.nz/#!5LxVXIiS!cSW_gBSLp_oCexZQsIO6dBU3fJGxLjsWQc6QomxO6hw)
+   - On Windows download this [zip file (win_v3.3.0)](https://mega.nz/#!sSIlXQCA!viY4Apx3Tq_OgFpglIk5EpE-P2oFCqc7EdWuF6VjJKs)
+   - On Mac download this [zip file (mac_v3.3.0)](https://mega.nz/#!lDJF0CDI!mnRna7LN-BIsrZwAIAbzSzxObR_FZywzKCyuw6OCoUw)
    - The install is **not compatible** with `v0.0.71` or lower of the `markup script`
 2. Use the `markup script` on YouTube as usual, but use **S** to save the markers .json to the extracted `yt_clipper` folder.
 3. Simply drag and drop the markers .json file onto the `yt_clipper.bat` file on Windows or the `yt_clipper_auto.app` file on Mac.
@@ -235,9 +236,21 @@ These dependencies are not required by the windows installation above.
 
 ## Markup Script Change Log
 
+- v0.0.76
+
+  - Use with `v3.3.0` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Add undoing markers with **Z** even when a marker pair is selected.
+    - Undoing a currently selected marker pair will unselect it before undoing the end marker.
+  - Move _delete-selected-marker-pair_ hotkey from **shift+Z** to **alt+Z**.
+  - Add redoing undone markers with **shift+Z**.
+  - Add skipping frames using **shift+mouse-wheel**.
+    - Scroll the mouse wheel up/down to skip forward/backward one frame per tick.
+  - Fix anonymous uploading to gfycat with **alt+C**.
+    - Remove appending speed parameter to URL as it is no longer supported by gfycat.
+
 - v0.0.75:
 
-  - Use with `v3.2.0` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Use with `v3.2.0` of the `clipper script` installation.
   - Add experimental feature for rotating YouTube video into a custom vertical theater mode.
     - Use **R** to toggle between a 90 degree clockwise rotation and no rotation.
     - Use **alt+R** to toggle between a 90 degree counter-clockwise rotation and no rotation.
@@ -293,6 +306,16 @@ These dependencies are not required by the windows installation above.
   - Add target max bitrate option for constrained quality mode using `-b <bitrate>` where bitrate is in kb/s.
 
 ## Clipper Script (Installation) Change Log
+
+- v3.3.0:
+
+  - Use with `v0.0.76` of the markup script. See [Clipper Script Installation](#clipper-script-installation).
+  - Add better bitrate detection using ffprobe.
+  - Add logging version of markup script at top of log.
+  - Add decreasing ranges in merge list (eg 4-1 will merge pairs 4,3,2,1 in that order).
+  - Improve stabilization speed (at the cost of quality of first pass shaky output).
+  - Fix marker pair encode settings not being overridden by global settings.
+  - Fix mac ssl verification errors. Handling of DASH video and audio especially should now be fixed.
 
 - v3.2.0:
 
