@@ -148,7 +148,7 @@ def prepareSettings(settings):
 
     logger.info('-' * 80)
     logger.info((f'Automatically determined encoding settings: CRF: {encodeSettings["crf"]} (0-63), ' +
-                 f'Auto Target Max Bitrate: {encodeSettings["autoTargetMaxBitrate"]}k, ' +
+                 f'Auto Target Max Bitrate: {encodeSettings["autoTargetMaxBitrate"]}kbps, ' +
                  f'Two-pass Encoding Enabled: {encodeSettings["twoPass"]}, ' +
                  f'Encoding Speed: {encodeSettings["encodeSpeed"]} (0-5)'))
 
@@ -156,8 +156,8 @@ def prepareSettings(settings):
 
     logger.info('-' * 80)
     logger.info((f'Global Encoding Settings: CRF: {settings["crf"]} (0-63), ' +
-                 f'Detected Bitrate: {settings["videoBitrate"]}k, ' +
-                 f'Global Target Max Bitrate: {settings["targetMaxBitrate"] if "targetMaxBitrate" in settings else "None"}k, ' +
+                 f'Detected Bitrate: {settings["videoBitrate"]}kbps, ' +
+                 f'Global Target Max Bitrate: {settings["targetMaxBitrate"] + "kbps" if "targetMaxBitrate" in settings else "None"}, ' +
                  f'Two-pass Encoding Enabled: {settings["twoPass"]}, Encoding Speed: {settings["encodeSpeed"]} (0-5), ' +
                  f'Audio Enabled: {settings["audio"]}, Denoise Enabled: {settings["denoise"]}, Rotate: {settings["rotate"]}, ' +
                  f'Video Stabilization: {settings["videoStabilization"]["desc"]}'))
@@ -212,7 +212,7 @@ def trim_video(settings, markerPairIndex):
     logger.info('-' * 80)
     logger.info((f'Marker Pair {markerPairIndex + 1} Settings: {titlePrefixLogMsg}, ' +
                  f'CRF: {mps["crf"]} (0-63), Bitrate Crop Factor: {bitrateCropFactor}, ' +
-                 f'Crop Adjusted Target Max Bitrate: {mps["autoTargetMaxBitrate"]}k, ' +
+                 f'Crop Adjusted Target Max Bitrate: {mps["autoTargetMaxBitrate"]}kbps, ' +
                  f'Two-pass Encoding Enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5), ' +
                  f'Audio Enabled: {mps["audio"]}, Denoise Enabled: {mps["denoise"]}, ' +
                  f'Video Stabilization: {mps["videoStabilization"]["desc"]}'))
@@ -451,11 +451,11 @@ def getVideoInfo(settings):
         settings["videoBitrate"] = int(getVideoBitrate(
             settings["videoUrl"])) or int(videoInfo["tbr"])
 
-    logger.info(f'Video title: {settings["title"]}')
-    logger.info(f'Video width: {settings["videoWidth"]}')
-    logger.info(f'Video height: {settings["videoHeight"]}')
+    logger.info(f'Video Title: {settings["title"]}')
+    logger.info(f'Video Width: {settings["videoWidth"]}')
+    logger.info(f'Video Height: {settings["videoHeight"]}')
     logger.info(f'Video fps: {settings["videoFPS"]}')
-    logger.info(f'Detected video bitrate: {settings["videoBitrate"]}k')
+    logger.info(f'Detected Video Bitrate: {settings["videoBitrate"]}kbps')
 
     if settings["json"]:
         settings = autoSetCropMultiples(settings)
