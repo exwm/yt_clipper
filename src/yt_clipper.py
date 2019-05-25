@@ -43,7 +43,7 @@ def main():
     args = {k: v for k, v in args.items() if v is not None}
 
     vidstabDefault = {'enabled': False, 'desc': 'Disabled'}
-    settings = {'videoStabilization': vidstabDefault,
+    settings = {'videoStabilization': vidstabDefault, 'markerPairMergeList': '',
                 'rotate': 0, 'overlayPath': '', 'delay': 0, **args}
 
     if settings["json"]:
