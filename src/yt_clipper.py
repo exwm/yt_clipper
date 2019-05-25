@@ -449,8 +449,8 @@ def getVideoInfo(settings):
     if dashVideoFormatID:
         settings["videoBitrate"] = int(videoInfo["tbr"])
     else:
-        settings["videoBitrate"] = int(getVideoBitrate(
-            settings["videoUrl"])) or int(videoInfo["tbr"])
+        settings["videoBitrate"] = getVideoBitrate(
+            settings["videoUrl"]) or int(videoInfo["tbr"])
 
     logger.info(f'Video Title: {settings["title"]}')
     logger.info(f'Video Width: {settings["videoWidth"]}')
@@ -472,7 +472,7 @@ def getVideoBitrate(videoUrl):
         ffprobeBitrate = ffprobeProcess.stdout.read().decode()
         logger.info(f'ffprobe: {ffprobeBitrate} (b/s)')
         bitrate = int(ffprobeBitrate.split("=")[1]) / 1000
-        return bitrate
+        return int(bitrate)
     except:
         return None
 
