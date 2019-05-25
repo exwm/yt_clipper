@@ -1063,7 +1063,7 @@
         <div class="editor-input-div">
           <span class="editor-input-label"> Merge List: </span>
           <input id="merge-list-input" class="yt_clipper-input" pattern="${mergeListInputValidation}" value="${
-        settings.markerPairMergeList
+        settings.markerPairMergeList != null ? settings.markerPairMergeList : ''
       }" placeholder="None" style="width:15em">
         </div>
         <div class="editor-input-div">
@@ -1210,7 +1210,7 @@
     if (e.target.reportValidity()) {
       let newValue = e.target.value;
       if (newValue != null) {
-        if (newValue === '') {
+        if (updateTarget !== 'markerPairMergeList' && newValue === '') {
           delete settings[updateTarget];
           return;
         } else if (valueType === 'number') {
