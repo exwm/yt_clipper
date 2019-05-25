@@ -36,6 +36,7 @@
     - [Articles on CRF and vp9 Encoding](#articles-on-crf-and-vp9-encoding)
     - [Tips](#tips-1)
     - [Gamma Correction](#gamma-correction)
+  - [Clipper Script Source](#clipper-script-source)
   - [Clipper Script Usage](#clipper-script-usage)
   - [Clipper Script Installation](#clipper-script-installation)
   - [Clipper Script Dependencies](#clipper-script-dependencies)
@@ -176,18 +177,22 @@
 
 Play around with the `gamma` setting to bring back shadow or highlight detail. A value of 1 does nothing. Use a value between 0 and 1 to bring back shadow detail and a value greater than 1 to bring back highlight detail. Refer to this [gamma correction guide](https://www.cambridgeincolour.com/tutorials/gamma-correction.htm) for more details.
 
+## Clipper Script Source
+
+- You can find the clipper script python source file here: <https://github.com/exwm/yt_clipper/blob/master/src/yt_clipper.py>
+
 ## Clipper Script Usage
 
 ```sh
-python ./clip.py -h # Prints help. Details all options and arguments.
+python ./yt_clipper.py -h # Prints help. Details all options and arguments.
 
-python ./clip.py ./clip.webm
+python ./yt_clipper.py ./clip.webm
 
-python ./clip.py ./clip.webm --overlay ./overlay.png
+python ./yt_clipper.py ./clip.webm --overlay ./overlay.png
 
-python ./clip.py ./clip.webm --format bestvideo[width<=1080]
+python ./yt_clipper.py ./clip.webm --format bestvideo[width<=1080]
 
-python ./clip.py --json markers.json # automatically generate webms using markers json
+python ./yt_clipper.py --json markers.json # automatically generate webms using markers json
 ```
 
 ## Clipper Script Installation
@@ -229,7 +234,7 @@ pause
 These dependencies are not required by the windows installation above.
 
 - ffmpeg must be in your path for the python script (<https://www.ffmpeg.org>).
-- `--url` requires youtube-dl
+- `--url` and `--json` require youtube-dl as a python package
   - `pip install youtube-dl`
 - `--gfycat` requires urllib3
   - `pip install urllib3`
