@@ -821,12 +821,13 @@
       markersUploadDiv.setAttribute('id', 'markers-upload-div');
       markersUploadDiv.setAttribute(
         'style',
-        'margin-top:2px;padding:2px;border:2px outset grey'
+        'color:grey;margin-top:2px;padding:2px;border:2px outset grey'
       );
-      markersUploadDiv.innerHTML = `<fieldset>\
-      <h2>Upload a markers .json file.</h2>\
+      markersUploadDiv.innerHTML = `
+      <fieldset>\
+        <h2>Upload a markers .json file.</h2>\
         <input type="file" id="markers-json-input">\
-        <input type="button" id="upload-markers-json" value="Load">\
+        <input type="button" id="upload-markers-json" style="color:grey" value="Load">\
       </fieldset>`;
       updateSettingsEditorHook();
       settingsEditorHook.insertAdjacentElement('beforebegin', markersUploadDiv);
