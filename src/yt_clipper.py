@@ -22,13 +22,16 @@ fileNames = []
 links = []
 markdown = ''
 
-ffmpegPath = './bin/ffmpeg'
-ffprobePath = './bin/ffprobe'
+ffmpegPath = 'ffmpeg'
+ffprobePath = 'ffprobe'
 webmsPath = './webms'
 logger = None
 
-if sys.platform == 'darwin':
-    os.environ['SSL_CERT_FILE'] = "certifi/cacert.pem"
+if getattr(sys, 'frozen', False):
+    ffmpegPath = './bin/ffmpeg'
+    ffprobePath = './bin/ffprobe'
+    if sys.platform == 'darwin':
+        os.environ['SSL_CERT_FILE'] = "certifi/cacert.pem"
 
 
 def main():
