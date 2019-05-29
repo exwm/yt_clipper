@@ -259,7 +259,7 @@ def trim_video(settings, markerPairIndex):
     ffmpegCommand = ' '.join((
         inputs,
         f'-benchmark',
-        f'-c:v libvpx-vp9 -pix_fmt yuv420p',
+        f'-c:v libvpx-vp9 -color_range 2 -pix_fmt yuv420p',
         f'-c:a libopus -b:a 128k',
         f'-slices 8 -threads 8 -row-mt 1 -tile-columns 6 -tile-rows 2',
         f'-crf {mps["crf"]} -b:v {mps["autoTargetMaxBitrate"]}k',
