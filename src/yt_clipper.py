@@ -217,7 +217,7 @@ def trim_video(settings, markerPairIndex):
     speed = (1 / mp["speed"])
     filter_complex = ''
     duration = (end - start)*speed
-    inputs = f'"{ffmpegPath}" '
+    inputs = ''
 
     titlePrefixLogMsg = f'Title Prefix: {mps["titlePrefix"] if "titlePrefix" in mps else ""}'
     logger.info('-' * 80)
@@ -230,23 +230,26 @@ def trim_video(settings, markerPairIndex):
     logger.info('-' * 80)
 
     if mps["url"]:
+        reconnectFlags = r'-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5'
+        if not settings["isDashVideo"]:
+            inputs += reconnectFlags
+        inputs += f' -ss {start} -i "{mps["videoUrl"]}" '
+        filter_complex += f'[0:v]trim={0}:{duration},setpts={speed}*(PTS-STARTPTS)[slowed];'
         if mps["audio"]:
+            if not settings["isDashAudio"]:
+                inputs += reconnectFlags
             inputs += f' -i "{mps["audioUrl"]}" '
-            filter_complex += f'[0:a]atrim={0}:{duration},atempo={1/speed};'
-            filter_complex += f'[1:v]setpts={speed}*(PTS-STARTPTS)[slowed];'
+            filter_complex += f'[1:a]atrim={0}:{duration},atempo={1/speed};'
         else:
             inputs += ' -an '
-            filter_complex += f'[0:v]setpts={speed}*(PTS-STARTPTS)[slowed];'
-        inputs += f' -n -ss {start} -i "{mps["videoUrl"]}" '
+
     else:
-        inputs += f' -n -i "{mps["videoUrl"]}" '
-        filter_complex += f'[0:v]trim={start}:{end}, setpts={speed}*(PTS-STARTPTS)[slowed];'
+        inputs += f' -i "{mps["videoUrl"]}" '
+        filter_complex += f'[0:v]trim={start}:{end},setpts={speed}*(PTS-STARTPTS)[slowed];'
         if mps["audio"]:
             filter_complex += f'[0:a]atrim={start}:{end},atempo={1/speed};'
         else:
             inputs += ' -an '
-
-    inputs += ' -hide_banner '
 
     filter_complex += (
         f'[slowed]crop=x={crops[0]}:y={crops[1]}:w={crops[2]}:h={crops[3]}')
@@ -268,14 +271,15 @@ def trim_video(settings, markerPairIndex):
         inputs += f'-i "{mps["overlayPath"]}"'
 
     ffmpegCommand = ' '.join((
+        ffmpegPath,
+        f'-n -hide_banner',
         inputs,
         f'-benchmark',
         f'-c:v libvpx-vp9 -pix_fmt yuv420p',
         f'-c:a libopus -b:a 128k',
-        f'-slices 8 -threads 8 -row-mt 1 -tile-columns 6 -tile-rows 2',
+        f'-slices 8 -row-mt 1 -tile-columns 6 -tile-rows 2',
         f'-crf {mps["crf"]} -b:v {mps["autoTargetMaxBitrate"]}k',
         f'-metadata title="{mps["videoTitle"]}" -t {duration}',
-        f'-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
         f'-f webm ',
     ))
 
@@ -433,6 +437,7 @@ def getVideoInfo(settings):
     dashVideoFormatID = None
     dashAudioFormatID = None
     if videoInfo["protocol"] == 'http_dash_segments':
+        settings["isDashVideo"] = True
         dashVideoFormatID = videoInfo["format_id"]
         dashFormatIDs.append(dashVideoFormatID)
     else:
@@ -443,6 +448,7 @@ def getVideoInfo(settings):
         settings["audiobr"] = int(audioInfo["tbr"])
 
         if audioInfo["protocol"] == 'http_dash_segments':
+            settings["isDashAudio"] = True
             dashAudioFormatID = audioInfo["format_id"]
             dashFormatIDs.append(dashAudioFormatID)
         else:
