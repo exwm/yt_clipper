@@ -106,6 +106,8 @@ def buildArgParser():
                         help='Read in markers json file and automatically create webms.')
     parser.add_argument('--format', '-f', default='bestvideo+(bestaudio[acodec=opus]/bestaudio[acodec=vorbis]/bestaudio)',
                         help='Specify format string passed to youtube-dl.')
+    parser.add_argument('--extra-video-filters', '-evf', dest='extraVideoFilters', default='',
+                        help='Specify any extra video filters to be passed to ffmpeg.')
     parser.add_argument('--delay', '-d', type=float, dest='delay', default=0,
                         help='Add a fixed delay to both the start and end time of each marker. Can be negative.')
     parser.add_argument('--gamma', '-ga', type=float, dest='gamma', default=1,
@@ -254,6 +256,8 @@ def trim_video(settings, markerPairIndex):
     if mps["deinterlace"]:
         filter_complex += f',bwdif'
 
+    if mps["extraVideoFilters"]:
+        filter_complex += f',{mps["extraVideoFilters"]}'
     if mps["overlayPath"]:
         filter_complex += f'[cropped-and-corrected];[cropped-and-corrected][1:v]overlay=x=W-w-10:y=10:alpha=0.5'
         inputs += f'-i "{mps["overlayPath"]}"'
