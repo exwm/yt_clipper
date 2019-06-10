@@ -666,23 +666,37 @@
   };
 
   function autoducking() {
-    let currentIdex: number;
-    const currentTime = video.currentTime;
-    const isTimeBetweenMarkerPair = markers.some((marker, idx) => {
-      if (currentTime >= marker.start && currentTime <= marker.end) {
-        currentIdex = idx;
-        return true;
-      }
-      return false;
-    });
-    if (isTimeBetweenMarkerPair && markers[currentIdex]) {
-      const currentMarkerSlowdown = markers[currentIdex].speed;
+    const shortestActiveMarkerPair = getShortestActiveMarkerPair();
+    if (shortestActiveMarkerPair) {
+      const currentMarkerSlowdown = shortestActiveMarkerPair.speed;
       if (player.getPlaybackRate() !== currentMarkerSlowdown) {
         player.setPlaybackRate(currentMarkerSlowdown);
       }
     } else if (player.getPlaybackRate() !== 1) {
       player.setPlaybackRate(1);
     }
+  }
+
+  function getShortestActiveMarkerPair(currentTime: number = video.currentTime) {
+    const activeMarkerPairs = markers.filter((markerPair) => {
+      if (currentTime >= markerPair.start && currentTime <= markerPair.end) {
+        return true;
+      }
+      return false;
+    });
+
+    if (activeMarkerPairs.length === 0) {
+      return null;
+    }
+
+    const shortestActiveMarkerPair = activeMarkerPairs.reduce((prev, cur) => {
+      if (cur.end - cur.start < prev.end - prev.start) {
+        return cur;
+      }
+      return prev;
+    });
+
+    return shortestActiveMarkerPair;
   }
 
   function toggleMarkerLooping() {
@@ -704,7 +718,7 @@
       const idx = parseInt(endMarker.getAttribute('idx')) - 1;
       const startMarkerTime = markers[idx].start;
       const endMarkerTime = markers[idx].end;
-      const currentTime = player.getCurrentTime();
+      const currentTime = video.currentTime;
 
       const isTimeBetweenMarkerPair =
         startMarkerTime < currentTime && currentTime < endMarkerTime;
@@ -717,66 +731,70 @@
 
   let gammaFilterDiv: HTMLDivElement;
   let isGammaPreviewOn = false;
-  let gammaR: HTMLElement;
-  let gammaG: HTMLElement;
-  let gammaB: HTMLElement;
+  let gammaR: SVGFEFuncRElement;
+  let gammaG: SVGFEFuncGElement;
+  let gammaB: SVGFEFuncBElement;
+  let gammaFilterSvg: SVGSVGElement;
   function toggleGammaPreview() {
     if (!gammaFilterDiv) {
       gammaFilterDiv = document.createElement('div');
       gammaFilterDiv.setAttribute('id', 'gamma-filter-div');
       gammaFilterDiv.innerHTML = `\
-      <svg>
+      <svg id="gamma-filter-svg" xmlns="http://www.w3.org/2000/svg" width="0" height="0">
         <defs>
           <filter id="gamma-filter">
-            <feComponentTransfer>
-              <feFuncR id="gamma-r" type="gamma" offset="0" amplitude="1" exponent="1"></feFuncR>
-              <feFuncG id="gamma-g" type="gamma" offset="0" amplitude="1" exponent="1"></feFuncG>
-              <feFuncB id="gamma-b" type="gamma" offset="0" amplitude="1" exponent="1"></feFuncB>
+            <feComponentTransfer id="gamma-filter-comp-transfer">
+              <feFuncR id="gamma-r" type="gamma" offset="0" amplitude="1"></feFuncR>
+              <feFuncG id="gamma-g" type="gamma" offset="0" amplitude="1"></feFuncG>
+              <feFuncB id="gamma-b" type="gamma" offset="0" amplitude="1"></feFuncB>
             </feComponentTransfer>
           </filter>
         </defs>
       </svg>
       `;
       document.body.appendChild(gammaFilterDiv);
-      gammaR = document.getElementById('gamma-r');
-      gammaG = document.getElementById('gamma-g');
-      gammaB = document.getElementById('gamma-b');
+      gammaFilterSvg = gammaFilterDiv.firstElementChild as SVGSVGElement;
+      gammaR = (document.getElementById('gamma-r') as unknown) as SVGFEFuncRElement;
+      gammaG = (document.getElementById('gamma-g') as unknown) as SVGFEFuncGElement;
+      gammaB = (document.getElementById('gamma-b') as unknown) as SVGFEFuncBElement;
     }
     if (!isGammaPreviewOn) {
       video.style.filter = 'url(#gamma-filter)';
-      video.style.webkitFilter = 'url(#gamma-filter)';
-      video.style.mozFilter = 'url(#gamma-filter)';
-      playerInfo.video.addEventListener('timeupdate', gammaPreviewHandler, false);
+      video.addEventListener('timeupdate', gammaPreviewHandler, false);
       isGammaPreviewOn = true;
       flashMessage('Gamma preview enabled', 'green');
     } else {
       video.style.filter = null;
-      video.style.webkitFilter = null;
-      video.style.mozFilter = null;
-      playerInfo.video.removeEventListener('timeupdate', gammaPreviewHandler, false);
+      video.removeEventListener('timeupdate', gammaPreviewHandler, false);
       isGammaPreviewOn = false;
       flashMessage('Gamma preview disabled', 'red');
     }
   }
+
+  let prevGammaVal = 1;
   function gammaPreviewHandler() {
-    let currentIndex: number;
-    const currentTime = video.currentTime;
-    const isTimeBetweenMarkerPair = markers.some((marker, index) => {
-      if (currentTime >= marker.start && currentTime <= marker.end) {
-        currentIndex = index;
-        return true;
+    const shortestActiveMarkerPair = getShortestActiveMarkerPair();
+    if (shortestActiveMarkerPair) {
+      const markerPairGamma =
+        shortestActiveMarkerPair.overrides.gamma || settings.gamma || 1;
+      if (prevGammaVal !== markerPairGamma) {
+        console.log(`Updating gamma from ${prevGammaVal} to ${markerPairGamma}`);
+        gammaR.exponent.baseVal = markerPairGamma;
+        gammaG.exponent.baseVal = markerPairGamma;
+        gammaB.exponent.baseVal = markerPairGamma;
+        // force re-render of filter (possible bug with chrome and other browsers?)
+        gammaFilterSvg.setAttribute('width', '0');
+        prevGammaVal = markerPairGamma;
       }
-      return false;
-    });
-    if (isTimeBetweenMarkerPair && markers[currentIndex]) {
-      const markerPairGamma = markers[currentIndex].overrides.gamma;
-      gammaR.exponent.baseVal = markerPairGamma || settings.gamma || 1;
-      gammaG.exponent.baseVal = markerPairGamma || settings.gamma || 1;
-      gammaB.exponent.baseVal = markerPairGamma || settings.gamma || 1;
     } else {
-      gammaR.exponent.baseVal = 1;
-      gammaG.exponent.baseVal = 1;
-      gammaB.exponent.baseVal = 1;
+      if (prevGammaVal !== 1) {
+        console.log(`Updating gamma from ${prevGammaVal} to 1`);
+        gammaR.exponent.baseVal = 1;
+        gammaG.exponent.baseVal = 1;
+        gammaB.exponent.baseVal = 1;
+        gammaFilterSvg.setAttribute('width', '0');
+        prevGammaVal = 1;
+      }
     }
   }
 
