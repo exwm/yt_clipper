@@ -50,15 +50,16 @@ def main():
                 'rotate': 0, 'overlayPath': '', 'delay': 0, **args}
 
     if settings["json"]:
-        settings["url"] = True
-        settings["markersDataFileStem"] = Path(settings["infile"]).stem
-        settings["titleSuffix"] = settings["markersDataFileStem"]
-        webmsPath += f'/{settings["markersDataFileStem"]}'
+        settings["isDashVideo"] = False
+        settings["isDashAudio"] = False
         with open(settings["infile"], 'r', encoding='utf-8-sig') as file:
             markersJson = file.read()
             settings = loadMarkers(markersJson, settings)
-
-    settings["videoTitle"] = re.sub('"', '',  settings["videoTitle"])
+        settings["url"] = True
+        settings["videoTitle"] = re.sub('"', '',  settings["videoTitle"])
+        settings["markersDataFileStem"] = Path(settings["infile"]).stem
+        settings["titleSuffix"] = settings["markersDataFileStem"]
+        webmsPath += f'/{settings["titleSuffix"]}'
 
     os.makedirs(f'{webmsPath}', exist_ok=True)
     setUpLogger()
@@ -197,7 +198,8 @@ def trim_video(settings, markerPairIndex):
         settings["autoTargetMaxBitrate"] = markerPairEncodeSettings["autoTargetMaxBitrate"]
 
     mps = markerPairSettings = {**settings, **(markerPair["overrides"])}
-
+    if "titlePrefix" in mps:
+        mps["titlePrefix"] = cleanFileName(mps["titlePrefix"])
     mp["fileNameStem"] = f'{mps["titlePrefix"] + "-" if "titlePrefix" in mps else ""}{mps["titleSuffix"]}-{markerPairIndex + 1}'
     mp["fileName"] = f'{mp["fileNameStem"]}.webm'
     mp["filePath"] = f'{webmsPath}/{mp["fileName"]}'
@@ -579,6 +581,16 @@ def uploadToGfycat(settings):
             markdown += f'({fileName})[{link}]\n\n'
             print('\n==Reddit Markdown==')
             print(markdown)
+
+
+def cleanFileName(fileName):
+    if sys.platform == 'win32':
+        fileName = re.sub('[\\|:*?"<>]', '',  fileName)
+    elif sys.platform == 'darwin':
+        fileName = re.sub('[:]', '',  fileName)
+    elif sys.platform.startswith('linux'):
+        fileName = re.sub('[/]', '',  fileName)
+    return fileName
 
 
 main()
