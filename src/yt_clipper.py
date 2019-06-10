@@ -45,10 +45,9 @@ def main():
 
     args = {k: v for k, v in args.items() if v is not None}
 
-    vidstabDefault = {'enabled': False, 'desc': 'Disabled'}
+    args["videoStabilization"] = getVidstabPreset(args["videoStabilization"])
     args["denoise"] = getDenoisePreset(args["denoise"])
-    settings = {'videoStabilization': vidstabDefault, 'markerPairMergeList': '',
-                'rotate': 0, 'overlayPath': '', 'delay': 0, **args}
+    settings = {'markerPairMergeList': '', 'rotate': 0, 'overlayPath': '', 'delay': 0, **args}
 
     if settings["json"]:
         settings["isDashVideo"] = False
@@ -116,7 +115,9 @@ def buildArgParser():
     parser.add_argument('--rotate', '-r', choices=['clock', 'cclock'],
                         help='Rotate video 90 degrees clockwise or counter-clockwise.')
     parser.add_argument('--denoise', '-dn', type=int, default=0, choices=range(0, 6),
-                        help='Apply the hqdn3d denoise filter with default settings.')
+                        help='Apply the hqdn3d denoise filter using a preset strength level from 0-5 where 0 is disabled and 5 is very strong.')
+    parser.add_argument('--video-stabilization', '-vs', dest='videoStabilization', type=int, default=0, choices=range(0, 6),
+                        help='Apply video stabilization using a preset strength level from 0-5 where 0 is disabled and 5 is very strong.')
     parser.add_argument('--deinterlace', '-di', action='store_true',
                         help='Apply bwdif deinterlacing.')
     parser.add_argument('--expand-color-range', '-ecr', dest='expandColorRange', action='store_true',
@@ -298,8 +299,12 @@ def trim_video(settings, markerPairIndex):
             f'''vidstabdetect=result='{transformPath}':shakiness={vidstab["shakiness"]}'''
         ffmpegVidstabdetect = ffmpegCommand + \
             f'-filter_complex "{vidstabdetectFilter}"'
+
         vidstabtransformFilter = filter_complex + \
-            f'''vidstabtransform=input='{transformPath}',unsharp=5:5:0.8:3:3:0.4'''
+            f'''vidstabtransform=input='{transformPath}':optzoom={vidstab["optzoom"]}'''
+        if vidstab["optzoom"] == 2 and "zoomspeed" in vidstab:
+            vidstabtransformFilter += f':zoomspeed={vidstab["zoomspeed"]}'
+        vidstabtransformFilter += r',unsharp=5:5:0.8:3:3:0.4'
         ffmpegVidstabtransform = ffmpegCommand + \
             f'-filter_complex "{vidstabtransformFilter}" '
 
@@ -503,7 +508,7 @@ def ffprobeVideoProperties(videoUrl):
         logger.info('-' * 80)
         logger.info('Detecting video properties with ffprobe')
         for line in ffprobeOutput:
-            line = line.decode()
+            line = line.decode().strip()
             if line.startswith('bit_rate'):
                 logger.info(f'ffprobe: {line} (b/s)')
                 bitrate = int(line.split("=")[1]) / 1000
@@ -629,8 +634,22 @@ def cleanFileName(fileName):
     return fileName
 
 
+def getVidstabPreset(level):
+    denoisePreset = {"enabled": False, "desc": "Disabled"}
+    if level == 1:
+        denoisePreset = {"enabled": True, "shakiness" : 1, "optzoom": 2, "zoomspeed": 0.1,  "desc": "Very Weak"}
+    elif level == 2:
+        denoisePreset = {"enabled": True, "shakiness" : 3, "optzoom": 2, "zoomspeed": 0.25,   "desc": "Weak"}
+    elif level == 3:
+        denoisePreset = {"enabled": True, "shakiness" : 5, "optzoom": 2, "zoomspeed": 0.5,   "desc": "Medium"}
+    elif level == 4:
+        denoisePreset = {"enabled": True, "shakiness" : 8, "optzoom": 2, "zoomspeed": 0.75,   "desc": "Strong"}
+    elif level == 5:
+        denoisePreset = {"enabled": True, "shakiness" : 10, "optzoom": 1,   "desc": "Very Strong"}
+    return denoisePreset
+
 def getDenoisePreset(level):
-    denoisePreset = {"enabled": False, "lumaSpatial" : 0, "desc": "Disabled"}
+    denoisePreset = {"enabled": False, "desc": "Disabled"}
     if level == 1:
         denoisePreset = {"enabled": True, "lumaSpatial" : 1, "desc": "Very Weak"}
     elif level == 2:
