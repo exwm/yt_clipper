@@ -64,7 +64,7 @@ def main():
     os.makedirs(f'{webmsPath}', exist_ok=True)
     setUpLogger()
 
-    logger.info(f'Version: {version}')
+    logger.info(f'Version: {__version__}')
     logger.info('-' * 80)
     settings = prepareSettings(settings)
 
