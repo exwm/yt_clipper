@@ -16,7 +16,7 @@
 (function() {
   'use strict';
 
-  document.addEventListener('keyup', hotkeys, false);
+  document.addEventListener('keydown', hotkeys, true);
 
   function hotkeys(e: KeyboardEvent) {
     if (toggleKeys) {
@@ -125,9 +125,10 @@
           break;
         case 'ArrowLeft':
         case 'ArrowRight':
-          if (e.ctrlKey) {
-            jumpToNearestMarkerOrPair(e.code);
-          }
+          jumpToNearestMarkerOrPair(e, e.code);
+          break;
+        case 'ArrowUp':
+          toggleSelectedMarkerPair(e);
           break;
       }
     }
@@ -142,6 +143,17 @@
     }
   }
 
+  function toggleSelectedMarkerPair(e: KeyboardEvent) {
+    if (e.ctrlKey && !arrowKeyCropAdjustmentEnabled) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (enableMarkerHotkeys.endMarker) {
+        toggleMarkerPairEditor(enableMarkerHotkeys.endMarker);
+      } else if (prevSelectedMarkerPair) {
+        toggleMarkerPairEditor(prevSelectedMarkerPair);
+      }
+    }
+  }
   // global variables
 
   const CLIENT_ID = 'XXXX';
@@ -581,7 +593,7 @@
   }
 
   function deleteElement(elem: HTMLElement) {
-    if (elem) {
+    if (elem && elem.parentElement) {
       elem.parentElement.removeChild(elem);
     }
   }
@@ -714,34 +726,47 @@
     }
   }
 
-  function jumpToNearestMarkerOrPair(keyCode) {
-    const currentEndMarker = enableMarkerHotkeys.endMarker;
-    if (isMarkerEditorOpen && currentEndMarker) {
-      jumpToNearestMarkerPair(currentEndMarker, keyCode);
-    } else {
-      jumpToNearestMarker(video.currentTime, keyCode);
+  function jumpToNearestMarkerOrPair(e: KeyboardEvent, keyCode: string) {
+    if (!arrowKeyCropAdjustmentEnabled) {
+      const currentEndMarker = enableMarkerHotkeys.endMarker;
+      if (e.ctrlKey && !e.altKey && !e.shiftKey) {
+        jumpToNearestMarker(e, video.currentTime, keyCode);
+      } else if (isMarkerEditorOpen && currentEndMarker && e.altKey && !e.shiftKey) {
+        jumpToNearestMarkerPair(e, currentEndMarker, keyCode);
+      }
     }
-    // player.playVideo();
   }
 
-  function jumpToNearestMarkerPair(currentEndMarker, keyCode) {
+  function jumpToNearestMarkerPair(
+    e: KeyboardEvent,
+    currentEndMarker: SVGRectElement,
+    keyCode: string
+  ) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
     let index = parseInt(currentEndMarker.getAttribute('idx')) - 1;
     let targetMarker: SVGRectElement;
     if (keyCode === 'ArrowLeft' && index > 0) {
       targetMarker = enableMarkerHotkeys.endMarker.previousSibling.previousSibling;
-      targetMarker && toggleMarkerEditor(targetMarker);
-      index--;
-      player.seekTo(markers[index].start);
+      targetMarker && toggleMarkerPairEditor(targetMarker);
+      if (e.ctrlKey) {
+        index--;
+        player.seekTo(markers[index].start);
+      }
     } else if (keyCode === 'ArrowRight' && index < markers.length - 1) {
       targetMarker = enableMarkerHotkeys.endMarker.nextSibling.nextSibling;
-      targetMarker && toggleMarkerEditor(targetMarker);
-      index++;
-      player.seekTo(markers[index].start);
+      targetMarker && toggleMarkerPairEditor(targetMarker);
+      if (e.ctrlKey) {
+        index++;
+        player.seekTo(markers[index].start);
+      }
     }
     return;
   }
 
-  function jumpToNearestMarker(currentTime, keyCode) {
+  function jumpToNearestMarker(e: KeyboardEvent, currentTime: number, keyCode: string) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
     let minDist = 0;
 
     // Choose marker time to jump to based on low precision time distance
@@ -854,7 +879,7 @@
     if (isMarkerEditorOpen) {
       deleteMarkerEditor();
       if (isOverlayOpen) {
-        toggleOverlay();
+        toggleCropOverlay();
       }
     }
 
@@ -928,7 +953,7 @@
   }
 
   function getCurrentFrameTime(roughCurrentTime: number): number {
-    let currentFrameTime;
+    let currentFrameTime: number;
     const videoStats = player.getStatsForNerds();
     let fps = videoStats ? videoStats.resolution.match(/@(\d\d)/)[1] : null;
     fps
@@ -968,7 +993,7 @@
       isMarkerEditorOpen &&
       enableMarkerHotkeys.markerPairIndex >= markers.length
     ) {
-      toggleMarkerEditor(enableMarkerHotkeys.endMarker);
+      toggleMarkerPairEditor(enableMarkerHotkeys.endMarker);
     }
     if (targetMarker) {
       markersSvg.removeChild(targetMarker);
@@ -1003,19 +1028,13 @@
   let globalEncodeSettingsEditorDisplay: 'none' | 'block' = 'none';
   function toggleDefaultsEditor() {
     if (isMarkerEditorOpen) {
-      deleteMarkerEditor();
-      if (isOverlayOpen) {
-        toggleOverlay();
-      }
+      toggleOffMarkerEditor();
     }
-    if (wasDefaultsEditorOpen && !prevSelectedMarkerPair) {
+    if (wasDefaultsEditorOpen) {
       wasDefaultsEditorOpen = false;
     } else {
-      if (prevSelectedMarkerPair) {
-        clearSelectedMarkerPairOverlay(prevSelectedMarkerPair);
-        prevSelectedMarkerPair = null;
-      }
-      toggleOverlay();
+      hideSelectedMarkerPairCropOverlay();
+      toggleCropOverlay();
       createCropOverlay(settings.newMarkerCrop);
       const markerInputs = document.createElement('div');
       const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
@@ -1246,7 +1265,7 @@
         const prevHeight = settings.cropResHeight;
         const [newWidth, newHeight] = settings.cropRes
           .split('x')
-          .map((str) => parseInt(str));
+          .map((str) => parseInt(str), 10);
         const cropMultipleX = newWidth / prevWidth;
         const cropMultipleY = newHeight / prevHeight;
         settings.cropResWidth = newWidth;
@@ -1364,7 +1383,7 @@
     isOverlayOpen = false;
   }
 
-  function toggleOverlay() {
+  function toggleCropOverlay() {
     const cropSvg = document.getElementById('crop-svg');
     if (cropSvg) {
       const cropDivDisplay = cropSvg.getAttribute('display');
@@ -1468,7 +1487,7 @@
   function beginDraw(
     e: MouseEvent,
     playerRect: ClientRect | DOMRect,
-    videoRect,
+    videoRect: { left: number; width: number; top: number; height: number },
     verticalFill: boolean
   ) {
     if (e.button == 0 && e.shiftKey && !e.ctrlKey && !e.altKey) {
@@ -1503,7 +1522,7 @@
     beginX: number,
     beginY: number,
     playerRect: ClientRect | DOMRect,
-    videoRect,
+    videoRect: { left: number; width: number; top: number; height: number },
     verticalFill: boolean
   ) {
     if (e.button == 0 && e.shiftKey && !e.ctrlKey && !e.altKey) {
@@ -1529,6 +1548,97 @@
     }
   }
 
+  let arrowKeyCropAdjustmentEnabled = false;
+  function toggleArrowKeyCropAdjustment() {
+    if (arrowKeyCropAdjustmentEnabled) {
+      document.removeEventListener('keydown', arrowKeyCropAdjustmentHandler, true);
+      flashMessage('Disabled crop adjustment with arrow keys', 'red');
+      arrowKeyCropAdjustmentEnabled = false;
+    } else {
+      document.addEventListener('keydown', arrowKeyCropAdjustmentHandler, true);
+      flashMessage('Enabled crop adjustment with arrow keys', 'green');
+      arrowKeyCropAdjustmentEnabled = true;
+    }
+  }
+
+  function arrowKeyCropAdjustmentHandler(ke: KeyboardEvent) {
+    if (isMarkerEditorOpen) {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(ke.code) > -1) {
+        ke.preventDefault();
+        ke.stopImmediatePropagation();
+        const cropInput = document.getElementById('crop-input') as HTMLInputElement;
+        let [x, y, w, h] = extractCropComponents(cropInput.value);
+        let changeAmount: number;
+        if (!ke.altKey && !ke.shiftKey) {
+          changeAmount = 10;
+        } else if (ke.altKey && !ke.shiftKey) {
+          changeAmount = 1;
+        } else if (!ke.altKey && ke.shiftKey) {
+          changeAmount = 50;
+        } else if (ke.altKey && ke.altKey) {
+          changeAmount = 100;
+        }
+        // without modifiers move crop x/y offset
+        // with ctrl key modifier expand/shrink crop width/height
+        let cropTarget: string;
+        if (!ke.ctrlKey) {
+          switch (ke.code) {
+            case 'ArrowUp':
+              y -= changeAmount;
+              cropTarget = 'y';
+              break;
+            case 'ArrowDown':
+              y += changeAmount;
+              break;
+            case 'ArrowLeft':
+              x -= changeAmount;
+              cropTarget = 'x';
+              break;
+            case 'ArrowRight':
+              x += changeAmount;
+              cropTarget = 'x';
+              break;
+          }
+        } else {
+          switch (ke.code) {
+            case 'ArrowUp':
+              h -= changeAmount;
+              cropTarget = 'h';
+              break;
+            case 'ArrowDown':
+              h += changeAmount;
+              cropTarget = 'h';
+              break;
+            case 'ArrowLeft':
+              w -= changeAmount;
+              cropTarget = 'w';
+              break;
+            case 'ArrowRight':
+              w += changeAmount;
+              cropTarget = 'w';
+              break;
+          }
+        }
+        const cropArray = clampCropArray([x, y, w, h], cropTarget);
+        cropInput.value = cropArray.join(':');
+        cropInput.dispatchEvent(new Event('change'));
+      }
+    }
+  }
+  function extractCropComponents(cropString: string) {
+    const cropArray = cropString.split(':').map((cropStringComponent) => {
+      let cropComponent: number;
+      if (cropStringComponent === 'iw') {
+        cropComponent = settings.cropResWidth;
+      } else if (cropStringComponent === 'ih') {
+        cropComponent = settings.cropResHeight;
+      } else {
+        cropComponent = parseInt(cropStringComponent, 10);
+      }
+      return cropComponent;
+    });
+    return cropArray;
+  }
   function updateAllMarkers(updateTarget: string, newValue: string | number) {
     if (updateTarget === 'speed') {
       newValue = parseFloat(newValue);
@@ -1548,40 +1658,46 @@
     const targetMarker = e.target as SVGRectElement;
 
     if (targetMarker && e.shiftKey) {
-      toggleMarkerEditor(targetMarker);
+      toggleMarkerPairEditor(targetMarker);
     }
   }
 
-  function toggleMarkerEditor(targetMarker: SVGRectElement) {
-    // if marker editor is open, always delete it
-    if (isMarkerEditorOpen) {
-      deleteMarkerEditor();
-      clearSelectedMarkerPairOverlay(targetMarker);
-      if (isOverlayOpen) {
-        toggleOverlay();
+  function toggleMarkerPairEditor(targetMarker: SVGRectElement) {
+    // toggling on off current pair editor
+    if (prevSelectedMarkerPair === targetMarker && !wasDefaultsEditorOpen) {
+      if (isMarkerEditorOpen) {
+        toggleOffMarkerEditor();
+      } else {
+        toggleOnMarkerEditor(targetMarker);
       }
-    }
-    // toggling already selected marker pair
-    if (prevSelectedMarkerPair === targetMarker) {
-      prevSelectedMarkerPair = null;
-    }
-    // switching to a different marker pair
-    else {
-      if (prevSelectedMarkerPair) {
-        clearSelectedMarkerPairOverlay(prevSelectedMarkerPair);
+      // switching to different marker pair
+      // delete current editor and create new editor
+    } else {
+      if (isMarkerEditorOpen) {
+        toggleOffMarkerEditor();
       }
-      prevSelectedMarkerPair = targetMarker;
-      if (isOverlayOpen) {
-        toggleOverlay();
-      }
-      toggleOverlay();
-      colorSelectedMarkerPair(targetMarker);
-      enableMarkerHotkeys(targetMarker);
-      createMarkerEditor(targetMarker);
+      toggleOnMarkerEditor(targetMarker);
     }
   }
 
-  function createMarkerEditor(targetMarker) {
+  function toggleOffMarkerEditor() {
+    deleteMarkerEditor();
+    hideSelectedMarkerPairCropOverlay();
+    if (isOverlayOpen) {
+      toggleCropOverlay();
+    }
+  }
+
+  function toggleOnMarkerEditor(targetMarker: SVGRectElement) {
+    toggleCropOverlay();
+    colorSelectedMarkerPair(targetMarker);
+    enableMarkerHotkeys(targetMarker);
+    createMarkerEditor(targetMarker);
+    addCropInputHotkeys();
+    prevSelectedMarkerPair = targetMarker;
+  }
+
+  function createMarkerEditor(targetMarker: SVGRectElement) {
     const markerIndex = targetMarker.getAttribute('idx') - 1;
     const currentMarker = markers[markerIndex];
     const startTime = toHHMMSS(currentMarker.start);
@@ -1735,7 +1851,7 @@
     wasDefaultsEditorOpen = false;
   }
 
-  function ternaryToString(ternary) {
+  function ternaryToString(ternary: boolean) {
     if (ternary == null) {
       return '';
     } else if (ternary === true) {
@@ -1747,7 +1863,7 @@
     }
   }
 
-  function enableMarkerHotkeys(endMarker) {
+  function enableMarkerHotkeys(endMarker: SVGRectElement) {
     markerHotkeysEnabled = true;
     enableMarkerHotkeys.endMarker = endMarker;
     enableMarkerHotkeys.markerPairIndex = endMarker.getAttribute('idx');
@@ -1793,8 +1909,8 @@
     };
   }
 
-  let selectedStartMarkerOverlay;
-  let selectedEndMarkerOverlay;
+  let selectedStartMarkerOverlay: HTMLElement;
+  let selectedEndMarkerOverlay: HTMLElement;
   function colorSelectedMarkerPair(currentMarker: SVGRectElement) {
     if (!selectedStartMarkerOverlay) {
       selectedStartMarkerOverlay = document.getElementById(
@@ -1839,8 +1955,10 @@
     });
   }
 
-  function clearSelectedMarkerPairOverlay(marker: SVGRectElement) {
-    selectedMarkerPairOverlay.style.display = 'none';
+  function hideSelectedMarkerPairCropOverlay() {
+    if (selectedEndMarkerOverlay) {
+      selectedMarkerPairOverlay.style.display = 'none';
+    }
   }
 
   function deleteMarkerEditor() {
@@ -1998,7 +2116,7 @@ httpd.serve_forever()
     saveAs(blob, `yt_clipper_auth.py`);
   }
 
-  function buildGfyRequests(markers, url) {
+  function buildGfyRequests(markers, url: string) {
     return markers.map((marker: marker, idx: number) => {
       const start = marker.start;
       const end = marker.end;
@@ -2055,9 +2173,11 @@ httpd.serve_forever()
   function sendGfyRequests(url: string, accessToken?: string) {
     if (markers.length > 0) {
       const markdown = toggleUploadStatus();
-      const reqs = buildGfyRequests(markers, url).map((req, idx) => {
-        return buildGfyRequestPromise(req, idx, accessToken);
-      });
+      const reqs = buildGfyRequests(markers, url).map(
+        (req: { speed: string }, idx: any) => {
+          return buildGfyRequestPromise(req, idx, accessToken);
+        }
+      );
 
       Promise.all(reqs).then((gfynames) => {
         console.log(reqs);
@@ -2074,7 +2194,7 @@ httpd.serve_forever()
   ) {
     return new Promise((resolve, reject) => {
       postData('https://api.gfycat.com/v1/gfycats', reqData, accessToken)
-        .then((resp) => {
+        .then((resp: { gfyname: {} | PromiseLike<{}> }) => {
           links.push(
             `(${settings.titleSuffix}-${idx})[https://gfycat.com/${resp.gfyname}]`
           );
@@ -2084,7 +2204,7 @@ httpd.serve_forever()
     });
   }
 
-  function checkGfysCompleted(gfynames: string[], markdown) {
+  function checkGfysCompleted(gfynames: string[], markdown: any) {
     const gfyStatuses = gfynames.map((gfyname) => {
       return checkGfyStatus(gfyname, markdown).then((isComplete) => {
         return isComplete;
@@ -2110,21 +2230,25 @@ httpd.serve_forever()
     return markdown;
   }
 
-  function updateUploadStatus(markdown, status, gfyname: name) {
+  function updateUploadStatus(
+    markdown: { textContent: string; scrollTop: any; scrollHeight: any },
+    status: { progress: any },
+    gfyname: name
+  ) {
     if (markdown) {
       markdown.textContent += `${gfyname} progress: ${status.progress}\n`;
       markdown.scrollTop = markdown.scrollHeight;
     }
   }
 
-  function insertMarkdown(markdown) {
+  function insertMarkdown(markdown: { textContent: string }) {
     if (markdown) {
       markdown.textContent = links.join('\n');
       window.clearInterval(checkGfysCompletedId);
     }
   }
 
-  function areGfysCompleted(gfyStatuses) {
+  function areGfysCompleted(gfyStatuses: {}[]) {
     return new Promise((resolve, reject) => {
       if (gfyStatuses.every(Boolean)) {
         resolve();
@@ -2186,7 +2310,7 @@ httpd.serve_forever()
     document.body.removeChild(el);
   }
 
-  function sleep(ms) {
+  function sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
