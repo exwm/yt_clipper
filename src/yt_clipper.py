@@ -13,7 +13,7 @@ UPLOAD_KEY_REQUEST_ENDPOINT = 'https://api.gfycat.com/v1/gfycats?'
 FILE_UPLOAD_ENDPOINT = 'https://filedrop.gfycat.com'
 AUTHENTICATION_ENDPOINT = 'https://api.gfycat.com/v1/oauth/token'
 
-version = '3.3.0'
+__version__ = '3.3.0'
 
 settings = {}
 
@@ -170,6 +170,7 @@ def prepareSettings(settings):
                  f'Global Target Max Bitrate: {str(settings["targetMaxBitrate"]) + "kbps" if "targetMaxBitrate" in settings else "None"}, ' +
                  f'Two-pass Encoding Enabled: {settings["twoPass"]}, Encoding Speed: {settings["encodeSpeed"]} (0-5), ' +
                  f'Audio Enabled: {settings["audio"]}, Denoise Enabled: {settings["denoise"]}, Rotate: {settings["rotate"]}, ' +
+                 f'Expand Color Range Enabled: {settings["expandColorRange"]}, ' +
                  f'Video Stabilization: {settings["videoStabilization"]["desc"]}'))
 
     return settings
@@ -225,6 +226,7 @@ def trim_video(settings, markerPairIndex):
                  f'CRF: {mps["crf"]} (0-63), Bitrate Crop Factor: {bitrateCropFactor}, ' +
                  f'Crop Adjusted Target Max Bitrate: {mps["autoTargetMaxBitrate"]}kbps, ' +
                  f'Two-pass Encoding Enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5), ' +
+                 f'Expand Color Range Enabled: {mps["expandColorRange"]}, ' +
                  f'Audio Enabled: {mps["audio"]}, Denoise Enabled: {mps["denoise"]}, ' +
                  f'Video Stabilization: {mps["videoStabilization"]["desc"]}'))
     logger.info('-' * 80)
