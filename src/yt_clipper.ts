@@ -1321,20 +1321,37 @@
 
   const presetsMap = {
     videoStabilization: {
-      'Very Strong': { enabled: true, shakiness: 10, desc: 'Very Strong' },
-      Strong: { enabled: true, shakiness: 8, desc: 'Strong' },
-      Medium: { enabled: true, shakiness: 5, desc: 'Medium' },
-      Weak: { enabled: true, shakiness: 3, desc: 'Weak' },
-      'Very Weak': { enabled: true, shakiness: 1, desc: 'Very Weak' },
       Disabled: { enabled: false, desc: 'Disabled' },
+      'Very Weak': {
+        enabled: true,
+        shakiness: 1,
+        optzoom: 2,
+        zoomspeed: 0.1,
+        desc: 'Very Weak',
+      },
+      Weak: { enabled: true, shakiness: 3, optzoom: 2, zoomspeed: 0.25, desc: 'Weak' },
+      Medium: { enabled: true, shakiness: 5, optzoom: 2, zoomspeed: 0.5, desc: 'Medium' },
+      Strong: {
+        enabled: true,
+        shakiness: 8,
+        optzoom: 2,
+        zoomspeed: 0.75,
+        desc: 'Strong',
+      },
+      'Very Strong': {
+        enabled: true,
+        shakiness: 10,
+        optzoom: 1,
+        desc: 'Very Strong',
+      },
     },
     denoise: {
-      'Very Strong': { enabled: true, lumaSpatial: 8, desc: 'Very Strong' },
-      Strong: { enabled: true, lumaSpatial: 6, desc: 'Strong' },
-      Medium: { enabled: true, lumaSpatial: 4, desc: 'Medium' },
-      Weak: { enabled: true, lumaSpatial: 2, desc: 'Weak' },
-      'Very Weak': { enabled: true, shakiness: 1, desc: 'Very Weak' },
       Disabled: { enabled: false, desc: 'Disabled' },
+      'Very Weak': { enabled: true, shakiness: 1, desc: 'Very Weak' },
+      Weak: { enabled: true, lumaSpatial: 2, desc: 'Weak' },
+      Medium: { enabled: true, lumaSpatial: 4, desc: 'Medium' },
+      Strong: { enabled: true, lumaSpatial: 6, desc: 'Strong' },
+      'Very Strong': { enabled: true, lumaSpatial: 8, desc: 'Very Strong' },
     },
   };
   function updateDefaultValue(e: Event, updateTarget: string, valueType: string) {
