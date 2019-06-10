@@ -121,6 +121,8 @@
             playerInfo.watchFlexy.theater
           ) {
             rotateVideo('cclock');
+          } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
+            toggleBigVideoPreviews();
           } else if (!e.ctrlKey && !e.shiftKey && !playerInfo.watchFlexy.theater) {
             flashMessage('Please switch to theater mode to rotate video.', 'red');
           }
@@ -427,14 +429,15 @@
   z-index: 95;
 }
 `;
-  function injectCSS(css, id) {
+  function injectCSS(css: string, id: string) {
     const style = document.createElement('style');
     style.setAttribute('id', id);
     style.innerHTML = css;
     document.body.appendChild(style);
+    return style;
   }
 
-  const adjustRotatedVideoPositionCSS = `
+  const adjustRotatedVideoPositionCSS = `\
     @media (min-aspect-ratio: 29/18) {
       #yt-clipper-video {
         margin-left: 36%;
@@ -491,10 +494,15 @@
       }
     }
     `;
-  let rotateVideoCSS;
-  let fullscreenRotatedVideoCSS;
+  let rotatedVideoCSS: string;
+  let fullscreenRotatedVideoCSS: string;
+  let rotatedVideoPreviewsCSS: string;
+  let rotatedVideoStyle: HTMLStyleElement;
+  let adjustRotatedVideoPositionStyle: HTMLStyleElement;
+  let fullscreenRotatedVideoStyle: HTMLStyleElement;
+  let rotatedVideoPreviewsStyle: HTMLStyleElement;
   let rotation = 0;
-  function rotateVideo(direction) {
+  function rotateVideo(direction: string) {
     if (direction === 'clock') {
       rotation = rotation === 0 ? 90 : 0;
     } else if (direction === 'cclock') {
@@ -503,7 +511,7 @@
     if (rotation === 90 || rotation === -90) {
       let scale = 1;
       scale = 1 / playerInfo.aspectRatio;
-      rotateVideoCSS = `
+      rotatedVideoCSS = `
         #yt-clipper-video {
           transform: rotate(${rotation}deg) scale(2.2) !important;
           max-width: 45vh;
@@ -520,6 +528,15 @@
           display: none !important;
         }
       `;
+      rotatedVideoPreviewsCSS = `\
+        .ytp-tooltip {
+          transform: translateY(-20%) rotate(${rotation}deg) !important;
+        }
+        .ytp-tooltip-text-wrapper {
+          transform: rotate(${-rotation}deg) !important;
+          opacity: 0.6;
+        }
+      `;
       fullscreenRotatedVideoCSS = `
       #yt-clipper-video {
         transform: rotate(${rotation}deg) scale(${scale}) !important;
@@ -527,24 +544,33 @@
       }
       `;
       if (!document.fullscreen) {
-        injectCSS(adjustRotatedVideoPositionCSS, 'adjust-rotated-video-position-css');
-        injectCSS(rotateVideoCSS, 'yt-clipper-rotate-video-css');
+        adjustRotatedVideoPositionStyle = injectCSS(
+          adjustRotatedVideoPositionCSS,
+          'adjust-rotated-video-position-css'
+        );
+        rotatedVideoStyle = injectCSS(rotatedVideoCSS, 'yt-clipper-rotate-video-css');
         window.dispatchEvent(new Event('resize'));
       } else {
-        injectCSS(fullscreenRotatedVideoCSS, 'fullscreen-rotated-video-css');
+        fullscreenRotatedVideoStyle = injectCSS(
+          fullscreenRotatedVideoCSS,
+          'fullscreen-rotated-video-css'
+        );
       }
+      rotatedVideoPreviewsStyle = injectCSS(
+        rotatedVideoPreviewsCSS,
+        'yt-clipper-rotated-video-previews-css'
+      );
+      deleteElement(bigVideoPreviewsStyle);
+      bigVideoPreviewsStyle = null;
+      window.dispatchEvent(new Event('resize'));
       document.addEventListener('fullscreenchange', fullscreenRotateVideoHandler);
     } else {
-      const rotateVideoStyle = document.getElementById('yt-clipper-rotate-video-css');
-      deleteElement(rotateVideoStyle);
-      const adjustRotatedVideoPositionStyle = document.getElementById(
-        'adjust-rotated-video-position-css'
-      );
+      deleteElement(rotatedVideoStyle);
       deleteElement(adjustRotatedVideoPositionStyle);
-      const fullScreenRotatedVideoStyle = document.getElementById(
-        'fullscreen-rotated-video-css'
-      );
-      deleteElement(fullScreenRotatedVideoStyle);
+      deleteElement(fullscreenRotatedVideoStyle);
+      deleteElement(rotatedVideoPreviewsStyle);
+      deleteElement(bigVideoPreviewsStyle);
+      bigVideoPreviewsStyle = null;
       window.dispatchEvent(new Event('resize'));
       document.removeEventListener('fullscreenchange', fullscreenRotateVideoHandler);
     }
@@ -552,22 +578,48 @@
 
   function fullscreenRotateVideoHandler() {
     if (document.fullscreen) {
-      const rotateVideoStyle = document.getElementById('yt-clipper-rotate-video-css');
-      deleteElement(rotateVideoStyle);
-      const adjustRotatedVideoPositionStyle = document.getElementById(
-        'adjust-rotated-video-position-css'
-      );
+      deleteElement(rotatedVideoStyle);
       deleteElement(adjustRotatedVideoPositionStyle);
-      injectCSS(fullscreenRotatedVideoCSS, 'fullscreen-rotated-video-css');
-    } else {
-      const fullScreenRotatedVideoStyle = document.getElementById(
+      fullscreenRotatedVideoStyle = injectCSS(
+        fullscreenRotatedVideoCSS,
         'fullscreen-rotated-video-css'
       );
-      deleteElement(fullScreenRotatedVideoStyle);
-      injectCSS(adjustRotatedVideoPositionCSS, 'adjust-rotated-video-position-css');
-      injectCSS(rotateVideoCSS, 'yt-clipper-rotate-video-css');
+    } else {
+      deleteElement(fullscreenRotatedVideoStyle);
+      adjustRotatedVideoPositionStyle = injectCSS(
+        adjustRotatedVideoPositionCSS,
+        'adjust-rotated-video-position-css'
+      );
+      rotatedVideoStyle = injectCSS(rotatedVideoCSS, 'yt-clipper-rotate-video-css');
       document.removeEventListener('fullscreenchange', fullscreenRotateVideoHandler);
       window.dispatchEvent(new Event('resize'));
+    }
+  }
+
+  let bigVideoPreviewsStyle: HTMLStyleElement;
+  function toggleBigVideoPreviews() {
+    const bigVideoPreviewsCSS = `\
+    .ytp-tooltip {
+      left: 45% !important;
+      transform: ${
+        rotation ? `translateY(-285%) rotate(${rotation}deg)` : 'translateY(-160%) '
+      } scale(4) !important;
+      padding: 1px !important;
+      border-radius: 1px !important;
+    }
+    .ytp-tooltip-text-wrapper {
+      transform: scale(0.5) ${rotation ? `rotate(${-rotation}deg)` : ''}!important;
+      opacity: 0.6;
+    }
+    `;
+    if (bigVideoPreviewsStyle) {
+      deleteElement(bigVideoPreviewsStyle);
+      bigVideoPreviewsStyle = null;
+    } else {
+      bigVideoPreviewsStyle = injectCSS(
+        bigVideoPreviewsCSS,
+        'yt-clipper-big-video-previews-css'
+      );
     }
   }
 
@@ -663,11 +715,11 @@
     }
   }
 
-  let gammaFilterDiv;
+  let gammaFilterDiv: HTMLDivElement;
   let isGammaPreviewOn = false;
-  let gammaR;
-  let gammaG;
-  let gammaB;
+  let gammaR: HTMLElement;
+  let gammaG: HTMLElement;
+  let gammaB: HTMLElement;
   function toggleGammaPreview() {
     if (!gammaFilterDiv) {
       gammaFilterDiv = document.createElement('div');
