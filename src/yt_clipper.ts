@@ -96,10 +96,12 @@
           }
           break;
         case 'KeyX':
-          if (!e.shiftKey && !e.ctrlKey) {
+          if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
             drawCropOverlay(false);
-          } else if (e.shiftKey && !e.ctrlKey) {
+          } else if (!e.ctrlKey && !e.altKey && e.shiftKey) {
             drawCropOverlay(true);
+          } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
+            toggleArrowKeyCropAdjustment();
           }
           break;
         case 'KeyC':
@@ -1199,6 +1201,7 @@
       ]);
       wasDefaultsEditorOpen = true;
       isMarkerEditorOpen = true;
+      addCropInputHotkeys();
     }
   }
 
@@ -1320,6 +1323,82 @@
     height = height !== 'ih' ? Math.round(height * cropMultipleY) : height;
     const multipliedCropString = [x, y, width, height].join(':');
     return multipliedCropString;
+  }
+
+  function addCropInputHotkeys() {
+    const cropInput = document.getElementById('crop-input') as HTMLInputElement;
+    cropInput.addEventListener('keydown', (ke: KeyboardEvent) => {
+      if (ke.code === 'ArrowUp' || ke.code === 'ArrowDown') {
+        let cropString = cropInput.value;
+        let cropStringArray = cropString.split(':');
+        let cropArray = extractCropComponents(cropString);
+        // let [x, y, w, ] = cropArray;
+        const cropStringCursorPos = ke.target.selectionStart;
+        let cropComponentCursorPos = cropStringCursorPos;
+        let cropTarget = 0;
+        while (cropComponentCursorPos - (cropStringArray[cropTarget].length + 1) >= 0) {
+          cropComponentCursorPos -= cropStringArray[cropTarget].length + 1;
+          cropTarget++;
+        }
+        if (
+          cropTarget >= 0 &&
+          cropTarget <= cropArray.length - 1 &&
+          typeof cropArray[cropTarget] === 'number'
+        ) {
+          let changeAmount: number;
+          if (!ke.ctrlKey && !ke.altKey && !ke.shiftKey) {
+            changeAmount = 10;
+          } else if (!ke.ctrlKey && ke.altKey && !ke.shiftKey) {
+            changeAmount = 1;
+          } else if (!ke.ctrlKey && !ke.altKey && ke.shiftKey) {
+            changeAmount = 50;
+          } else if (ke.ctrlKey && !ke.altKey && !ke.shiftKey) {
+            changeAmount = 100;
+          }
+
+          if (ke.code === 'ArrowUp') {
+            cropArray[cropTarget] += changeAmount;
+          } else if (ke.code === 'ArrowDown') {
+            cropArray[cropTarget] -= changeAmount;
+          }
+
+          ke.preventDefault();
+          ke.stopImmediatePropagation();
+          cropArray = clampCropArray(cropArray, cropTarget);
+          const updatedCropString = cropArray.join(':');
+          cropInput.value = updatedCropString;
+          const newCursorPosition = cropStringCursorPos - cropComponentCursorPos;
+          cropInput.selectionStart = newCursorPosition;
+          cropInput.selectionEnd = newCursorPosition;
+          cropInput.dispatchEvent(new Event('change'));
+        }
+      }
+    });
+  }
+  function clampCropArray(cropArray: number[], target: string | number) {
+    let [x, y, w, h] = cropArray;
+    switch (target) {
+      case 'x':
+      case 0:
+        x = clampNumber(x, 0, settings.cropResWidth - w);
+        break;
+      case 'y':
+      case 1:
+        y = clampNumber(y, 0, settings.cropResHeight - h);
+        break;
+      case 'w':
+      case 2:
+        w = clampNumber(w, 1, settings.cropResWidth - x);
+        break;
+      case 'h':
+      case 3:
+        h = clampNumber(h, 1, settings.cropResHeight - y);
+        break;
+    }
+    return [x, y, w, h];
+  }
+  function clampNumber(number: number, min: number, max: number) {
+    return Math.max(min, Math.min(number, max));
   }
 
   function createCropOverlay(crop: string) {
