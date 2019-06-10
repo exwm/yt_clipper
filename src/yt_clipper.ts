@@ -179,6 +179,7 @@
     twoPass?: boolean;
     denoise?: boolean;
     audio?: boolean;
+    expandColorRange: boolean;
     videoStabilization?: videoStabilization;
   }
   interface marker {
@@ -280,6 +281,7 @@
     twoPass?: boolean;
     denoise?: boolean;
     audio?: boolean;
+    expandColorRange?: boolean;
     videoStabilization?: videoStabilization;
   }
   let settings: settings;
@@ -1231,6 +1233,18 @@
           </select>
         </div>
         <div class="editor-input-div">
+          <span>Expand Color Range: </span>
+          <select id="expand-color-range-input"> 
+            <option ${settings.expandColorRange ? 'selected' : ''}>Enabled</option>
+            <option ${
+              settings.expandColorRange === false ? 'selected' : ''
+            }>Disabled</option>
+            <option value="Default" ${
+              settings.expandColorRange == null ? 'selected' : ''
+            }>Inherit (Disabled)</option>
+          </select>
+        </div>
+        <div class="editor-input-div">
           <span>Stabilization: </span>
           <select id="video-stabilization-input">
             <option ${
@@ -1267,6 +1281,7 @@
         ['two-pass-input', 'twoPass', 'ternary'],
         ['denoise-input', 'denoise', 'ternary'],
         ['audio-input', 'audio', 'ternary'],
+        ['expand-color-range-input', 'expandColorRange', 'ternary'],
         ['video-stabilization-input', 'videoStabilization', 'vidstab'],
       ]);
       wasDefaultsEditorOpen = true;
@@ -1947,6 +1962,18 @@
           </select>
         </div>
         <div class="editor-input-div">
+          <span>Expand Color Range: </span>
+          <select id="expand-color-range-input"> 
+            <option ${overrides.expandColorRange ? 'selected' : ''}>Enabled</option>
+            <option ${
+              overrides.expandColorRange === false ? 'selected' : ''
+            }>Disabled</option>
+            <option value="Default" ${
+              overrides.expandColorRange == null ? 'selected' : ''
+            }>Inherit Global ${ternaryToString(settings.expandColorRange)}</option>
+          </select>
+        </div>
+        <div class="editor-input-div">
           <span>Stabilization: </span>
           <select id="video-stabilization-input">
             <option ${
@@ -1985,6 +2012,7 @@
         ['two-pass-input', 'twoPass', 'ternary'],
         ['denoise-input', 'denoise', 'ternary'],
         ['audio-input', 'audio', 'ternary'],
+        ['expand-color-range-input', 'expandColorRange', 'ternary'],
         ['video-stabilization-input', 'videoStabilization', 'vidstab'],
       ],
       targetMarker,
