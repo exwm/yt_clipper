@@ -898,10 +898,14 @@
         console.log(`Converted marker pair ${index}'s speed from String to Number`);
       }
     });
+
+    const markersNumbered = markers.map((markerPair, idx) => {
+      return { number: idx + 1, ...markerPair };
+    });
     const settingsJSON = JSON.stringify(
       {
         ...settings,
-        markers: markers,
+        markers: markersNumbered,
       },
       undefined,
       2
