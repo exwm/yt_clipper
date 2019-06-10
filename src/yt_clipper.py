@@ -46,6 +46,7 @@ def main():
     args = {k: v for k, v in args.items() if v is not None}
 
     vidstabDefault = {'enabled': False, 'desc': 'Disabled'}
+    args["denoise"] = getDenoisePreset(args["denoise"])
     settings = {'videoStabilization': vidstabDefault, 'markerPairMergeList': '',
                 'rotate': 0, 'overlayPath': '', 'delay': 0, **args}
 
@@ -114,7 +115,7 @@ def buildArgParser():
                         help='Apply luminance gamma correction. Pass in a value between 0 and 1 to brighten shadows and reveal darker details.')
     parser.add_argument('--rotate', '-r', choices=['clock', 'cclock'],
                         help='Rotate video 90 degrees clockwise or counter-clockwise.')
-    parser.add_argument('--denoise', '-dn', action='store_true',
+    parser.add_argument('--denoise', '-dn', type=int, default=0, choices=range(0, 6),
                         help='Apply the hqdn3d denoise filter with default settings.')
     parser.add_argument('--deinterlace', '-di', action='store_true',
                         help='Apply bwdif deinterlacing.')
@@ -169,7 +170,7 @@ def prepareSettings(settings):
                  f'Detected Bitrate: {settings["videoBitrate"]}kbps, ' +
                  f'Global Target Max Bitrate: {str(settings["targetMaxBitrate"]) + "kbps" if "targetMaxBitrate" in settings else "None"}, ' +
                  f'Two-pass Encoding Enabled: {settings["twoPass"]}, Encoding Speed: {settings["encodeSpeed"]} (0-5), ' +
-                 f'Audio Enabled: {settings["audio"]}, Denoise Enabled: {settings["denoise"]}, Rotate: {settings["rotate"]}, ' +
+                 f'Audio Enabled: {settings["audio"]}, Denoise: {settings["denoise"]["desc"]}, Rotate: {settings["rotate"]}, ' +
                  f'Expand Color Range Enabled: {settings["expandColorRange"]}, ' +
                  f'Video Stabilization: {settings["videoStabilization"]["desc"]}'))
 
@@ -227,7 +228,7 @@ def trim_video(settings, markerPairIndex):
                  f'Crop Adjusted Target Max Bitrate: {mps["autoTargetMaxBitrate"]}kbps, ' +
                  f'Two-pass Encoding Enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5), ' +
                  f'Expand Color Range Enabled: {mps["expandColorRange"]}, ' +
-                 f'Audio Enabled: {mps["audio"]}, Denoise Enabled: {mps["denoise"]}, ' +
+                 f'Audio Enabled: {mps["audio"]}, Denoise: {mps["denoise"]["desc"]}, ' +
                  f'Video Stabilization: {mps["videoStabilization"]["desc"]}'))
     logger.info('-' * 80)
 
@@ -260,8 +261,8 @@ def trim_video(settings, markerPairIndex):
         filter_complex += f',lutyuv=y=gammaval({mps["gamma"]})'
     if mps["rotate"]:
         filter_complex += f',transpose={mps["rotate"]}'
-    if mps["denoise"]:
-        filter_complex += f',hqdn3d'
+    if mps["denoise"]["enabled"]:
+        filter_complex += f',hqdn3d=luma_spatial={mps["denoise"]["lumaSpatial"]}'
     if mps["deinterlace"]:
         filter_complex += f',bwdif'
     if mps["expandColorRange"]:
@@ -628,4 +629,17 @@ def cleanFileName(fileName):
     return fileName
 
 
+def getDenoisePreset(level):
+    denoisePreset = {"enabled": False, "lumaSpatial" : 0, "desc": "Disabled"}
+    if level == 1:
+        denoisePreset = {"enabled": True, "lumaSpatial" : 1, "desc": "Very Weak"}
+    elif level == 2:
+        denoisePreset = {"enabled": True, "lumaSpatial" : 2,  "desc": "Weak"}
+    elif level == 3:
+        denoisePreset = {"enabled": True, "lumaSpatial" : 4,  "desc": "Medium"}
+    elif level == 4:
+        denoisePreset = {"enabled": True, "lumaSpatial" : 6,  "desc": "Strong"}
+    elif level == 5:
+        denoisePreset = {"enabled": True, "lumaSpatial" : 8,  "desc": "Very Strong"}
+    return denoisePreset
 main()
