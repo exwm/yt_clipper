@@ -993,9 +993,6 @@
     const marker = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     markersSvg.appendChild(marker);
 
-    marker_attrs.speed = markerConfig.speed || settings.newMarkerSpeed;
-    marker_attrs.crop = markerConfig.crop || settings.newMarkerCrop;
-
     const roughCurrentTime = markerConfig.time || player.getCurrentTime();
     const currentFrameTime = getCurrentFrameTime(roughCurrentTime);
     const progress_pos = (currentFrameTime / playerInfo.duration) * 100;
@@ -1004,7 +1001,6 @@
     marker.setAttribute('x', `${progress_pos}%`);
     const rectIdx = markers.length + 1;
     marker.setAttribute('idx', rectIdx.toString());
-    marker.setAttribute('time', currentFrameTime.toString());
 
     if (start === true) {
       marker.classList.add('start-marker');
@@ -1361,22 +1357,13 @@
     cropInput.value = multipliedCropString;
 
     if (markers) {
-      markers.forEach((marker) => {
+      markers.forEach((markerPair) => {
         const multipliedCropString = multiplyCropString(
           cropMultipleX,
           cropMultipleY,
-          marker.crop
+          markerPair.crop
         );
-        marker.crop = multipliedCropString;
-      });
-      markersSvg.childNodes.forEach((marker) => {
-        const cropString = marker.getAttribute('crop');
-        const multipliedCropString = multiplyCropString(
-          cropMultipleX,
-          cropMultipleY,
-          cropString
-        );
-        marker.setAttribute('crop', multipliedCropString);
+        markerPair.crop = multipliedCropString;
       });
     }
   }
@@ -2034,7 +2021,6 @@
       } else if (type === 'end') {
         selectedEndMarkerOverlay.setAttribute('x', `${progress_pos}%`);
       }
-      marker.setAttribute('time', `${currentTime}`);
       markers[idx][type === 'start' ? 'start' : 'end'] = currentTime;
       markerTimeSpan.textContent = `${toHHMMSS(currentTime)}`;
       if (type === 'start') {
@@ -2191,16 +2177,8 @@
       }
       if (!overridesField) {
         marker[updateTarget] = newValue;
-
-        const currentType = currentMarker.getAttribute('type');
         if (updateTarget === 'crop') {
           createCropOverlay(newValue);
-        }
-        currentMarker.setAttribute(updateTarget, newValue);
-        if (currentType === 'start') {
-          currentMarker.nextSibling.setAttribute(updateTarget, newValue);
-        } else if (currentType === 'end') {
-          currentMarker.previousSibling.setAttribute(updateTarget, newValue);
         }
       } else {
         marker.overrides[updateTarget] = newValue;
