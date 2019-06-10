@@ -1240,7 +1240,7 @@
             <option ${vidstabDesc === 'Medium' ? 'selected' : ''}>Medium</option>
             <option ${vidstabDesc === 'Weak' ? 'selected' : ''}>Weak</option>
             <option ${vidstabDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
-            <option value="Disabled" ${
+            <option value="Inherit" ${
               vidstabDesc == null ? 'selected' : ''
             }>Inherit (Disabled)</option>
           </select>
@@ -1320,7 +1320,7 @@
             newValue = false;
           }
         } else if (valueType === 'vidstab') {
-          if (newValue === 'Disabled') {
+          if (newValue === 'Inherit') {
             delete settings[updateTarget];
             return;
           }
@@ -1966,6 +1966,9 @@
             <option ${vidstabDesc === 'Weak' ? 'selected' : ''}>Weak</option>
             <option ${vidstabDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
             <option value="Disabled" ${
+              vidstabDesc == 'Disabled' ? 'selected' : ''
+            }>Disabled</option>
+            <option value="Inherit" ${
               vidstabDesc == null ? 'selected' : ''
             }>Inherit Global ${vidstabDescGlobal}</option>
           </select>
@@ -2092,7 +2095,7 @@
       inputElem.addEventListener(
         'change',
         (e) =>
-          updateMarker(
+          updateMarkerSettings(
             e,
             updateTarget,
             valueType,
@@ -2149,7 +2152,7 @@
       }
     }
   }
-  function updateMarker(
+  function updateMarkerSettings(
     e: Event,
     updateTarget: string,
     valueType: string,
@@ -2163,12 +2166,14 @@
       if (newValue != null) {
         if (newValue === '') {
           delete marker.overrides[updateTarget];
+          console.log(marker.overrides);
           return;
         } else if (valueType === 'number') {
           newValue = parseFloat(newValue);
         } else if (valueType === 'ternary') {
           if (newValue === 'Default') {
             delete marker.overrides[updateTarget];
+            console.log(marker.overrides);
             return;
           } else if (newValue === 'Enabled') {
             newValue = true;
@@ -2176,8 +2181,9 @@
             newValue = false;
           }
         } else if (valueType === 'vidstab') {
-          if (newValue === 'Disabled') {
-            delete settings[updateTarget];
+          if (newValue === 'Inherit') {
+            delete marker.overrides[updateTarget];
+            console.log(marker.overrides);
             return;
           }
           newValue = vidstabMap[newValue];
@@ -2199,6 +2205,7 @@
       } else {
         marker.overrides[updateTarget] = newValue;
       }
+      console.log(marker.overrides);
     }
   }
 
