@@ -286,8 +286,10 @@ def trim_video(settings, markerPairIndex):
     vidstabEnabled = mps["videoStabilization"]["enabled"]
     if vidstabEnabled:
         vidstab = mps["videoStabilization"]
-        transformPath = f'{webmsPath}/{mp["fileNameStem"]}.trf'
-        shakyPath = f'{webmsPath}/{mp["fileNameStem"]}-shaky.webm'
+        shakyPath = f'{webmsPath}/shaky'
+        os.makedirs(shakyPath, exist_ok=True)
+        transformPath = f'{shakyPath}/{mp["fileNameStem"]}.trf'
+        shakyWebmPath = f'{shakyPath}/{mp["fileNameStem"]}-shaky.webm'
         filter_complex += '[shaky];[shaky]'
         vidstabdetectFilter = filter_complex + \
             f'''vidstabdetect=result='{transformPath}':shakiness={vidstab["shakiness"]}'''
@@ -300,9 +302,11 @@ def trim_video(settings, markerPairIndex):
 
     if mps["twoPass"] and not vidstabEnabled:
         ffmpegCommand += f' -filter_complex "{filter_complex}" '
-        ffmpegPass1 = shlex.split(ffmpegCommand + ' -pass 1 -')
+        ffmpegPass1 = ffmpegCommand + ' -pass 1 -'
         logger.info('Running first pass...')
-        subprocess.run(ffmpegPass1)
+        logger.info('Using ffmpeg command: ' +
+                    re.sub(r'(&a?itags?.*?")', r'"', ffmpegPass1) + '\n')
+        subprocess.run(shlex.split(ffmpegPass1))
         ffmpegPass2 = ffmpegCommand + \
             f' -speed {mps["encodeSpeed"]} -pass 2 "{mp["filePath"]}"'
         logger.info('Running second pass...')
@@ -313,16 +317,16 @@ def trim_video(settings, markerPairIndex):
         if mps["twoPass"]:
             ffmpegVidstabdetect += f' -pass 1'
         else:
-            ffmpegVidstabdetect += f' -speed 8'
-        ffmpegVidstabdetect += f' "{shakyPath}"'
+            ffmpegVidstabdetect += f' -speed 5'
+        ffmpegVidstabdetect += f' "{shakyWebmPath}"'
         logger.info('Running video stabilization first pass...')
         logger.info('Using ffmpeg command: ' +
                     re.sub(r'(&a?itags?.*?")', r'"', ffmpegVidstabdetect) + '\n')
         subprocess.run(shlex.split(ffmpegVidstabdetect))
 
-        ffmpegVidstabtransform += f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
         if mps["twoPass"]:
             ffmpegVidstabtransform += f' -pass 2'
+        ffmpegVidstabtransform += f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
         logger.info('Running video stabilization second pass...')
         logger.info('Using ffmpeg command: ' +
                     re.sub(r'(&a?itags?.*?")', r'"', ffmpegVidstabtransform) + '\n')
