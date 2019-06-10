@@ -1738,6 +1738,7 @@
               break;
             case 'ArrowDown':
               y += changeAmount;
+              cropTarget = 'y';
               break;
             case 'ArrowLeft':
               x -= changeAmount;
