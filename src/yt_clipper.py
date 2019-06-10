@@ -167,7 +167,7 @@ def prepareSettings(settings):
     logger.info('-' * 80)
     logger.info((f'Global Encoding Settings: CRF: {settings["crf"]} (0-63), ' +
                  f'Detected Bitrate: {settings["videoBitrate"]}kbps, ' +
-                 f'Global Target Max Bitrate: {settings["targetMaxBitrate"] + "kbps" if "targetMaxBitrate" in settings else "None"}, ' +
+                 f'Global Target Max Bitrate: {str(settings["targetMaxBitrate"]) + "kbps" if "targetMaxBitrate" in settings else "None"}, ' +
                  f'Two-pass Encoding Enabled: {settings["twoPass"]}, Encoding Speed: {settings["encodeSpeed"]} (0-5), ' +
                  f'Audio Enabled: {settings["audio"]}, Denoise Enabled: {settings["denoise"]}, Rotate: {settings["rotate"]}, ' +
                  f'Video Stabilization: {settings["videoStabilization"]["desc"]}'))
