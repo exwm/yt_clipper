@@ -177,7 +177,7 @@
     crf?: number;
     targetMaxBitrate?: number;
     twoPass?: boolean;
-    denoise?: boolean;
+    denoise?: Denoise;
     audio?: boolean;
     expandColorRange: boolean;
     videoStabilization?: videoStabilization;
@@ -264,6 +264,11 @@
     shakiness: number;
     desc: string;
   }
+  interface Denoise {
+    enabled: boolean;
+    lumaSpatial: number;
+    desc: string;
+  }
   interface settings {
     videoID: string;
     videoTitle: string;
@@ -277,9 +282,10 @@
     encodeSpeed?: number;
     crf?: number;
     targetMaxBitrate?: number;
+    rotate?: '0' | 'clock' | 'cclock';
     gamma?: number;
     twoPass?: boolean;
-    denoise?: boolean;
+    denoise?: Denoise;
     audio?: boolean;
     expandColorRange?: boolean;
     videoStabilization?: videoStabilization;
@@ -1119,6 +1125,8 @@
       const resList = playerInfo.isVerticalVideo
         ? `<option value="1080x1920"><option value="2160x3840">`
         : `<option value="1920x1080"><option value="3840x2160">`;
+      const denoise = settings.denoise;
+      const denoiseDesc = denoise ? denoise.desc : null;
       const vidstab = settings.videoStabilization;
       const vidstabDesc = vidstab ? vidstab.desc : null;
 
@@ -1213,16 +1221,6 @@
           </select>
         </div>
         <div class="editor-input-div">
-          <span>Denoise: </span>
-          <select id="denoise-input"> 
-            <option ${settings.denoise ? 'selected' : ''}>Enabled</option>
-            <option ${settings.denoise === false ? 'selected' : ''}>Disabled</option>
-            <option value="Default" ${
-              settings.denoise == null ? 'selected' : ''
-            }>Inherit (Disabled)</option>
-          </select>
-        </div>
-        <div class="editor-input-div">
           <span>Audio: </span>
           <select id="audio-input"> 
             <option ${settings.audio ? 'selected' : ''}>Enabled</option>
@@ -1241,6 +1239,21 @@
             }>Disabled</option>
             <option value="Default" ${
               settings.expandColorRange == null ? 'selected' : ''
+            }>Inherit (Disabled)</option>
+          </select>
+        </div>
+        <div class="editor-input-div">
+          <span>Denoise: </span>
+          <select id="denoise-input">
+            <option ${
+              denoiseDesc === 'Very Strong' ? 'selected' : ''
+            }>Very Strong</option>
+            <option ${denoiseDesc === 'Strong' ? 'selected' : ''}>Strong</option>
+            <option ${denoiseDesc === 'Medium' ? 'selected' : ''}>Medium</option>
+            <option ${denoiseDesc === 'Weak' ? 'selected' : ''}>Weak</option>
+            <option ${denoiseDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
+            <option value="Inherit" ${
+              denoiseDesc == null ? 'selected' : ''
             }>Inherit (Disabled)</option>
           </select>
         </div>
@@ -1279,10 +1292,10 @@
         ['rotate-90-clock', 'rotate', 'string'],
         ['rotate-90-counterclock', 'rotate', 'string'],
         ['two-pass-input', 'twoPass', 'ternary'],
-        ['denoise-input', 'denoise', 'ternary'],
         ['audio-input', 'audio', 'ternary'],
         ['expand-color-range-input', 'expandColorRange', 'ternary'],
-        ['video-stabilization-input', 'videoStabilization', 'vidstab'],
+        ['denoise-input', 'denoise', 'preset'],
+        ['video-stabilization-input', 'videoStabilization', 'preset'],
       ]);
       wasDefaultsEditorOpen = true;
       isMarkerEditorOpen = true;
@@ -1306,13 +1319,23 @@
     });
   }
 
-  const vidstabMap = {
-    'Very Strong': { enabled: true, shakiness: 10, desc: 'Very Strong' },
-    Strong: { enabled: true, shakiness: 8, desc: 'Strong' },
-    Medium: { enabled: true, shakiness: 5, desc: 'Medium' },
-    Weak: { enabled: true, shakiness: 3, desc: 'Weak' },
-    'Very Weak': { enabled: true, shakiness: 1, desc: 'Very Weak' },
-    Disabled: { enabled: false, desc: 'Disabled' },
+  const presetsMap = {
+    videoStabilization: {
+      'Very Strong': { enabled: true, shakiness: 10, desc: 'Very Strong' },
+      Strong: { enabled: true, shakiness: 8, desc: 'Strong' },
+      Medium: { enabled: true, shakiness: 5, desc: 'Medium' },
+      Weak: { enabled: true, shakiness: 3, desc: 'Weak' },
+      'Very Weak': { enabled: true, shakiness: 1, desc: 'Very Weak' },
+      Disabled: { enabled: false, desc: 'Disabled' },
+    },
+    denoise: {
+      'Very Strong': { enabled: true, lumaSpatial: 8, desc: 'Very Strong' },
+      Strong: { enabled: true, lumaSpatial: 6, desc: 'Strong' },
+      Medium: { enabled: true, lumaSpatial: 4, desc: 'Medium' },
+      Weak: { enabled: true, lumaSpatial: 2, desc: 'Weak' },
+      'Very Weak': { enabled: true, shakiness: 1, desc: 'Very Weak' },
+      Disabled: { enabled: false, desc: 'Disabled' },
+    },
   };
   function updateDefaultValue(e: Event, updateTarget: string, valueType: string) {
     if (e.target.reportValidity()) {
@@ -1334,12 +1357,12 @@
           } else if (newValue === 'Disabled') {
             newValue = false;
           }
-        } else if (valueType === 'vidstab') {
+        } else if (valueType === 'preset') {
           if (newValue === 'Inherit') {
             delete settings[updateTarget];
             return;
           }
-          newValue = vidstabMap[newValue];
+          newValue = presetsMap[updateTarget][newValue];
         }
       }
 
@@ -1868,6 +1891,9 @@
     const vidstabDescGlobal = settings.videoStabilization
       ? `(${settings.videoStabilization.desc})`
       : '';
+    const denoise = overrides.denoise;
+    const denoiseDesc = denoise ? denoise.desc : null;
+    const denoiseDescGlobal = settings.denoise ? `(${settings.denoise.desc})` : '';
     const markerPairOverridesEditorDisplay = targetMarker.getAttribute(
       'markerPairOverridesEditorDisplay'
     );
@@ -1942,16 +1968,6 @@
           </select>
         </div>
         <div class="editor-input-div">
-          <span>Denoise: </span>
-          <select id="denoise-input"> 
-            <option ${overrides.denoise ? 'selected' : ''}>Enabled</option>
-            <option ${overrides.denoise === false ? 'selected' : ''}>Disabled</option>
-            <option value="Default" ${
-              overrides.denoise == null ? 'selected' : ''
-            }>Inherit Global ${ternaryToString(settings.denoise)}</option>
-          </select>
-        </div>
-        <div class="editor-input-div">
           <span>Audio: </span>
           <select id="audio-input"> 
             <option ${overrides.audio ? 'selected' : ''}>Enabled</option>
@@ -1971,6 +1987,24 @@
             <option value="Default" ${
               overrides.expandColorRange == null ? 'selected' : ''
             }>Inherit Global ${ternaryToString(settings.expandColorRange)}</option>
+          </select>
+        </div>
+        <div class="editor-input-div">
+          <span>Denoise: </span>
+          <select id="denoise-input">
+            <option ${
+              denoiseDesc === 'Very Strong' ? 'selected' : ''
+            }>Very Strong</option>
+            <option ${denoiseDesc === 'Strong' ? 'selected' : ''}>Strong</option>
+            <option ${denoiseDesc === 'Medium' ? 'selected' : ''}>Medium</option>
+            <option ${denoiseDesc === 'Weak' ? 'selected' : ''}>Weak</option>
+            <option ${denoiseDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
+            <option value="Disabled" ${
+              denoiseDesc == 'Disabled' ? 'selected' : ''
+            }>Disabled</option>
+            <option value="Inherit" ${
+              denoiseDesc == null ? 'selected' : ''
+            }>Inherit Global ${denoiseDescGlobal}</option>
           </select>
         </div>
         <div class="editor-input-div">
@@ -1999,7 +2033,6 @@
 
     addMarkerInputListeners(
       [['speed-input', 'speed', 'number'], ['crop-input', 'crop', 'string']],
-      targetMarker,
       markerIndex
     );
     addMarkerInputListeners(
@@ -2010,12 +2043,11 @@
         ['crf-input', 'crf', 'number'],
         ['target-max-bitrate-input', 'targetMaxBitrate', 'number'],
         ['two-pass-input', 'twoPass', 'ternary'],
-        ['denoise-input', 'denoise', 'ternary'],
         ['audio-input', 'audio', 'ternary'],
         ['expand-color-range-input', 'expandColorRange', 'ternary'],
-        ['video-stabilization-input', 'videoStabilization', 'vidstab'],
+        ['denoise-input', 'denoise', 'preset'],
+        ['video-stabilization-input', 'videoStabilization', 'preset'],
       ],
-      targetMarker,
       markerIndex,
       true
     );
@@ -2099,7 +2131,6 @@
 
   function addMarkerInputListeners(
     inputs: string[][],
-    currentMarker: SVGRectElement,
     currentIdx: number,
     overridesField: boolean = false
   ) {
@@ -2113,14 +2144,7 @@
       inputElem.addEventListener(
         'change',
         (e) =>
-          updateMarkerSettings(
-            e,
-            updateTarget,
-            valueType,
-            currentMarker,
-            currentIdx,
-            overridesField
-          ),
+          updateMarkerSettings(e, updateTarget, valueType, currentIdx, overridesField),
         false
       );
     });
@@ -2174,7 +2198,6 @@
     e: Event,
     updateTarget: string,
     valueType: string,
-    currentMarker: SVGRectElement,
     currentIdx: number,
     overridesField: boolean = false
   ) {
@@ -2198,13 +2221,13 @@
           } else if (newValue === 'Disabled') {
             newValue = false;
           }
-        } else if (valueType === 'vidstab') {
+        } else if (valueType === 'preset') {
           if (newValue === 'Inherit') {
             delete marker.overrides[updateTarget];
             console.log(marker.overrides);
             return;
           }
-          newValue = vidstabMap[newValue];
+          newValue = presetsMap[updateTarget][newValue];
         }
       }
       if (!overridesField) {
