@@ -118,6 +118,8 @@ def buildArgParser():
                         help='Apply the hqdn3d denoise filter with default settings.')
     parser.add_argument('--deinterlace', '-di', action='store_true',
                         help='Apply bwdif deinterlacing.')
+    parser.add_argument('--expand-color-range', '-ecr', dest='expandColorRange', action='store_true',
+                        help='Expand the output video color range to full (0-255).')
     parser.add_argument('--encode-speed', '-s', type=int, dest='encodeSpeed', choices=range(0, 6),
                         help='Set the vp9 encoding speed.')
     parser.add_argument('--crf', type=int, help=('Set constant rate factor (crf). Default is 30 for video file input.' +
@@ -153,8 +155,10 @@ def prepareSettings(settings):
         encodeSettings = getDefaultEncodeSettings(None)
 
     logger.info('-' * 80)
+    unknownColorSpaceMsg = "unknown (bt709 will be assumed for color range operations)"
     logger.info((f'Automatically determined encoding settings: CRF: {encodeSettings["crf"]} (0-63), ' +
                  f'Auto Target Max Bitrate: {encodeSettings["autoTargetMaxBitrate"]}kbps, ' +
+                 f'Detected Color Space: {settings["colorspace"] if settings["colorspace"] else  unknownColorSpaceMsg}, ' +
                  f'Two-pass Encoding Enabled: {encodeSettings["twoPass"]}, ' +
                  f'Encoding Speed: {encodeSettings["encodeSpeed"]} (0-5)'))
 
@@ -255,7 +259,8 @@ def trim_video(settings, markerPairIndex):
         filter_complex += f',hqdn3d'
     if mps["deinterlace"]:
         filter_complex += f',bwdif'
-
+    if mps["expandColorRange"]:
+        filter_complex += f',colorspace=all={settings["colorspace"] if settings["colorspace"] else "bt709"}:range=pc'
     if mps["extraVideoFilters"]:
         filter_complex += f',{mps["extraVideoFilters"]}'
     if mps["overlayPath"]:
@@ -458,8 +463,10 @@ def getVideoInfo(settings):
     if dashVideoFormatID:
         settings["videoBitrate"] = int(videoInfo["tbr"])
     else:
-        settings["videoBitrate"] = getVideoBitrate(
-            settings["videoUrl"]) or int(videoInfo["tbr"])
+        settings["videoBitrate"], settings["colorspace"] = ffprobeVideoProperties(
+            settings["videoUrl"])
+        if settings["videoBitrate"] is None:
+            settings["videoBitrate"] = int(videoInfo["tbr"])
 
     logger.info(f'Video Title: {settings["title"]}')
     logger.info(f'Video Width: {settings["videoWidth"]}')
@@ -473,17 +480,29 @@ def getVideoInfo(settings):
     return settings
 
 
-def getVideoBitrate(videoUrl):
+def ffprobeVideoProperties(videoUrl):
+    bitrate = colorspace = None
     try:
-        ffprobeCommand = f'"{ffprobePath}" "{videoUrl}" -v error -of default=noprint_wrappers=1 -show_entries format=bit_rate'
+        ffprobeCommand = f'"{ffprobePath}" "{videoUrl}" -v error -of default=noprint_wrappers=1 -show_entries format=bit_rate:stream=color_space'
         ffprobeProcess = subprocess.Popen(shlex.split(
             ffprobeCommand), stdout=subprocess.PIPE)
-        ffprobeBitrate = ffprobeProcess.stdout.read().decode()
-        logger.info(f'ffprobe: {ffprobeBitrate} (b/s)')
-        bitrate = int(ffprobeBitrate.split("=")[1]) / 1000
-        return int(bitrate)
-    except:
-        return None
+        ffprobeOutput = ffprobeProcess.stdout.readlines()
+        logger.info('-' * 80)
+        logger.info('Detecting video properties with ffprobe')
+        for line in ffprobeOutput:
+            line = line.decode()
+            if line.startswith('bit_rate'):
+                logger.info(f'ffprobe: {line} (b/s)')
+                bitrate = int(line.split("=")[1]) / 1000
+            elif line.startswith('color_space'):
+                logger.info(f'ffprobe: {line}')
+                colorspace = line.split("=")[1]
+        return int(bitrate), colorspace
+    except Exception as err:
+        logger.error(f'Could not fetch video properties with ffprobe')
+        logger.error(f'{err}')
+        logger.error(f'ffprobe return code: {ffprobeProcess.returncode}')
+        return None, None
 
 
 def autoSetCropMultiples(settings):
