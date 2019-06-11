@@ -73,9 +73,9 @@
   - Adjust marker position more precisely using the **<** and **>** keys to view YouTube videos frame by frame.
 - While a pair is selected use **alt+Z** to delete the pair.
 
-**ctrl+LeftArrow/RightArrow**: Jumps to the nearest previous/next marker.
-**alt+LeftArrow/RightArrow**: When a marker pair is selected, select the next/previous marker pair.
-**ctrl+alt+LeftArrow/RightArrow**: Select the next/previous marker pair and jumps to its start marker.
+**ctrl+LeftArrow/RightArrow:** Jumps to the nearest previous/next marker.
+**alt+LeftArrow/RightArrow:**: When a marker pair is selected, select the next/previous marker pair.
+**ctrl+alt+LeftArrow/RightArrow:** Select the next/previous marker pair and jumps to its start marker.
 
 **W:** Global settings editor:
 
@@ -111,11 +111,11 @@
 **Arrow Key Crop Adjustment**:
 
 - When a crop input box has focus:
-  - **UpArrow/DownArrow** increment/decrement the value indicated by the current cursor position by `10`.
+  - **UpArrow/DownArrow:** Increment/decrement the value indicated by the current cursor position by `10`.
 - When a crop input box does not have focus:
-  - **alt+X**: toggle crop adjustment with arrow keys.
-  - **UpArrow/DownArrow** increment/decrement the `y offset` by `10`.
-  - **LeftArrow/RightArrow** increment/decrement the `x offset` by `10`.
+  - **alt+X:** Toggle crop adjustment with arrow keys.
+  - **UpArrow/DownArrow:** Increment/decrement the `y offset` by `10`.
+  - **LeftArrow/RightArrow:** Increment/decrement the `x offset` by `10`.
   - **ctrl** modifier key changes target from `y offset` to `height` or from `x offset` to `width`.
 - The modifier keys alter the increment/decrement amount.
   - **alt** sets the amount to `1`, **shift** to `50`, **alt+shift** to `100`.
@@ -131,7 +131,9 @@
 
 **shift+alt+G:** Toggle auto previewing gamma correction setting when between a marker pair.
 
-**R/alt+R:** to toggle between a 90 degree clockwise/counter-clockwise rotation and no rotation.
+**R/alt+R:** Toggle between a 90 degree clockwise/counter-clockwise rotation and no rotation.
+
+**shift+R:** Toggle big video previews on video progress bar hover.
 
 - Works only when in fullscreen mode or theater mode.
 - **Note that this does not yet work with drawing and previewing crops and should be disabled when doing so.**
@@ -267,9 +269,14 @@ These dependencies are not required by the windows installation above.
 
 - v0.0.77
 
+  - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
   - Use with `v3.4.0` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
   - Fix marker pair merge list errors when the merge list is added and subsequently removed.
   - Fix `markers json` loader poor visibility in YouTube dark mode.
+  - Fix gamma value preview not updating based on temporally active marker pair.
+  - Fix previewing of nested marker pairs (the shortest duration pair is preferred).
+  - Fix rotating of video previews on video progress bar hover in rotate video mode.
+  - Add **shift+R** for toggling big video previews on video progress bar hover.
   - Add color range expansion option. YouTube tends to use limited (~16-245) range.
     - May require gamma adjustment to control brightness of highlights for better results.
   - Add strength presets for denoise.
@@ -285,7 +292,8 @@ These dependencies are not required by the windows installation above.
     - Crop input boxes can now edited with hotkeys.
       - **UpArrow/DownArrow** increment/decrement the value indicated by the current cursor position by `10`.
     - Crops can also be manipulated with hotkeys without focusing the crop input box.
-      - **UpArrow/DownArrow** increment/decrement the `y offset` by `10`.
+      - **alt+X:** Toggle using the arrow keys to manipulate the crop.
+      - **UpArrow/DownArrow:** increment/decrement the `y offset` by `10`.
       - **LeftArrow/RightArrow** increment/decrement the `x offset` by `10`.
       - With the **ctrl** modifier key the target changes from `y offset` to `height` or from `x offset` to `width`.
     - The modifier keys alter the increment/decrement amount.
@@ -365,7 +373,9 @@ These dependencies are not required by the windows installation above.
 
 - v3.4.0:
 
-  - Use with `v0.0.77` of the markup script. See [Clipper Script Installation](#clipper-script-installation).
+  - See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
+  - Use with `v0.0.77` of the markup script.
+    - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
   - Fix ffmpeg reconnect flags not properly being applied to inputs.
     - Fixes some `session invalidation` errors when encoding audio or video.
     - Note: ffmpeg reconnect features are not compatible with DASH audio/video.
