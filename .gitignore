@@ -1,9 +1,6 @@
 # vscode project settings
 .vscode
 
-# binary assets
-assets/
-
 # secret keys
 secrets/
 
