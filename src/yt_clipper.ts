@@ -721,18 +721,20 @@
   }
 
   function markerLoopingHandler() {
-    const endMarker = prevSelectedMarkerPair;
-    if (endMarker) {
-      const idx = parseInt(endMarker.getAttribute('idx')) - 1;
-      const startMarkerTime = markers[idx].start;
-      const endMarkerTime = markers[idx].end;
-      const currentTime = video.currentTime;
+    if (isMarkerEditorOpen && !wasDefaultsEditorOpen) {
+      const endMarker = prevSelectedMarkerPair;
+      if (endMarker) {
+        const idx = parseInt(endMarker.getAttribute('idx')) - 1;
+        const startMarkerTime = markers[idx].start;
+        const endMarkerTime = markers[idx].end;
+        const currentTime = video.currentTime;
 
-      const isTimeBetweenMarkerPair =
-        startMarkerTime < currentTime && currentTime < endMarkerTime;
-      if (!isTimeBetweenMarkerPair) {
-        player.seekTo(startMarkerTime);
-        player.playVideo();
+        const isTimeBetweenMarkerPair =
+          startMarkerTime < currentTime && currentTime < endMarkerTime;
+        if (!isTimeBetweenMarkerPair) {
+          player.seekTo(startMarkerTime);
+          player.playVideo();
+        }
       }
     }
   }
