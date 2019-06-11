@@ -360,9 +360,8 @@ def makeMergedClips(settings):
     markerPairMergeList = markerPairMergeList.split(';')
 
     mergeListGen = createMergeList(markerPairMergeList)
-    for mergeList in mergeListGen:
+    for merge, mergeList in mergeListGen:
         inputs = ''
-        mergedCSV = ','.join([str(i) for i in mergeList])
         for i in mergeList:
             markerPair = settings["markers"][i-1]
             if 'fileName' in markerPair and 'filePath' in markerPair:
@@ -383,7 +382,7 @@ def makeMergedClips(settings):
         inputsTxtPath = f'{webmsPath}/inputs.txt'
         with open(inputsTxtPath, "w+") as inputsTxt:
             inputsTxt.write(inputs)
-        mergedFileName = f'{settings["titleSuffix"]}-({mergedCSV}).webm'
+        mergedFileName = f'{settings["titleSuffix"]}-({merge}).webm'
         mergedFilePath = f'{webmsPath}/{mergedFileName}'
         ffmpegConcatCmd = f' "{ffmpegPath}" -n -hide_banner -f concat -safe 0 -i "{inputsTxtPath}" -c copy "{mergedFilePath}"'
 
@@ -431,7 +430,7 @@ def createMergeList(markerPairMergeList):
                         mergeList.append(i)
             else:
                 mergeList.append(int(mergeRange))
-        yield mergeList
+        yield merge, mergeList
 
 
 def getVideoInfo(settings):
