@@ -18,8 +18,9 @@
   "scripts": {
     "pretty": "npx prettier \"**/*.{ts,js,json,md}\" --write",
     "build:ts": "npx tsc",
+    "build:ts:p": "run-s -c build:ts pretty",
     "build:py": "pyinstaller ./src/yt_clipper.py -F --workpath ./dist/py/ --distpath ./dist/py/ --specpath ./dist/py/spec",
-    "build:all": "run-s -c build:ts pretty build:py",
+    "build:all": "run-s -c build:ts:p build:py",
     "clean:dist": "rm -r ./dist/*",
     "clean:sandbox": "rm -r ./sandbox/*"
   },
