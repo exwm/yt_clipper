@@ -267,9 +267,14 @@ These dependencies are not required by the windows installation above.
 
 ## Markup Script Change Log
 
-- v0.0.77
+- v0.0.78
 
   - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
+  - Use with `v3.4.1` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Fix auto looping of marker pairs even when no marker pair is selected.
+
+- v0.0.77
+
   - Use with `v3.4.0` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
   - Fix marker pair merge list errors when the merge list is added and subsequently removed.
   - Fix `markers json` loader poor visibility in YouTube dark mode.
@@ -371,11 +376,17 @@ These dependencies are not required by the windows installation above.
 
 ## Clipper Script (Installation) Change Log
 
-- v3.4.0:
+- v3.4.1:
 
   - See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
-  - Use with `v0.0.77` of the markup script.
+  - Use with `v0.0.77` or higher of the markup script.
     - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
+  - Fix audio syncing issues where audio start time is always 0 and does not match video start time.
+  - Fix color space detection for DASH video.
+
+- v3.4.0:
+
+  - Use with `v0.0.77` of the markup script.
   - Fix ffmpeg reconnect flags not properly being applied to inputs.
     - Fixes some `session invalidation` errors when encoding audio or video.
     - Note: ffmpeg reconnect features are not compatible with DASH audio/video.
