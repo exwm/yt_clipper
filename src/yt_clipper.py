@@ -242,7 +242,7 @@ def trim_video(settings, markerPairIndex):
         if mps["audio"]:
             if not settings["isDashAudio"]:
                 inputs += reconnectFlags
-            inputs += f' -i "{mps["audioUrl"]}" '
+            inputs += f' -ss {start} -i "{mps["audioUrl"]}" '
             filter_complex += f'[1:a]atrim={0}:{duration},atempo={1/speed};'
         else:
             inputs += ' -an '
