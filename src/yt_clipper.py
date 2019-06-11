@@ -13,7 +13,7 @@ UPLOAD_KEY_REQUEST_ENDPOINT = 'https://api.gfycat.com/v1/gfycats?'
 FILE_UPLOAD_ENDPOINT = 'https://filedrop.gfycat.com'
 AUTHENTICATION_ENDPOINT = 'https://api.gfycat.com/v1/oauth/token'
 
-__version__ = '3.3.0'
+__version__ = '3.4.0'
 
 settings = {}
 
@@ -660,4 +660,5 @@ def getDenoisePreset(level):
     elif level == 5:
         denoisePreset = {"enabled": True, "lumaSpatial" : 8,  "desc": "Very Strong"}
     return denoisePreset
+
 main()
