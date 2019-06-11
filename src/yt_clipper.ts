@@ -1462,13 +1462,13 @@
           typeof cropArray[cropTarget] === 'number'
         ) {
           let changeAmount: number;
-          if (!ke.ctrlKey && !ke.altKey && !ke.shiftKey) {
+          if (!ke.altKey && !ke.shiftKey) {
             changeAmount = 10;
-          } else if (!ke.ctrlKey && ke.altKey && !ke.shiftKey) {
+          } else if (ke.altKey && !ke.shiftKey) {
             changeAmount = 1;
-          } else if (!ke.ctrlKey && !ke.altKey && ke.shiftKey) {
+          } else if (!ke.altKey && ke.shiftKey) {
             changeAmount = 50;
-          } else if (ke.ctrlKey && !ke.altKey && !ke.shiftKey) {
+          } else if (ke.altKey && ke.shiftKey) {
             changeAmount = 100;
           }
 
@@ -1483,9 +1483,14 @@
           cropArray = clampCropArray(cropArray, cropTarget);
           const updatedCropString = cropArray.join(':');
           cropInput.value = updatedCropString;
-          const newCursorPosition = cropStringCursorPos - cropComponentCursorPos;
-          cropInput.selectionStart = newCursorPosition;
-          cropInput.selectionEnd = newCursorPosition;
+          let newCursorPos = cropStringCursorPos - cropComponentCursorPos;
+          if (cropTarget === 3 && cropStringArray[3] === 'ih') {
+            const cropStringLengthDelta = updatedCropString.length - cropString.length;
+            const cursorPosAdjustment = cropStringLengthDelta - cropComponentCursorPos;
+            newCursorPos += cursorPosAdjustment;
+          }
+          cropInput.selectionStart = newCursorPos;
+          cropInput.selectionEnd = newCursorPos;
           cropInput.dispatchEvent(new Event('change'));
         }
       }
@@ -1504,11 +1509,11 @@
         break;
       case 'w':
       case 2:
-        w = clampNumber(w, 1, settings.cropResWidth - x);
+        w = clampNumber(w, 0, settings.cropResWidth - x);
         break;
       case 'h':
       case 3:
-        h = clampNumber(h, 1, settings.cropResHeight - y);
+        h = clampNumber(h, 0, settings.cropResHeight - y);
         break;
     }
     return [x, y, w, h];
@@ -1758,10 +1763,13 @@
 
   function arrowKeyCropAdjustmentHandler(ke: KeyboardEvent) {
     if (isMarkerEditorOpen) {
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(ke.code) > -1) {
+      const cropInput = document.getElementById('crop-input') as HTMLInputElement;
+      if (
+        cropInput !== document.activeElement &&
+        ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(ke.code) > -1
+      ) {
         ke.preventDefault();
         ke.stopImmediatePropagation();
-        const cropInput = document.getElementById('crop-input') as HTMLInputElement;
         let [x, y, w, h] = extractCropComponents(cropInput.value);
         let changeAmount: number;
         if (!ke.altKey && !ke.shiftKey) {
@@ -1770,7 +1778,7 @@
           changeAmount = 1;
         } else if (!ke.altKey && ke.shiftKey) {
           changeAmount = 50;
-        } else if (ke.altKey && ke.altKey) {
+        } else if (ke.altKey && ke.shiftKey) {
           changeAmount = 100;
         }
         // without modifiers move crop x/y offset
