@@ -39,6 +39,7 @@
   - [Clipper Script Source](#clipper-script-source)
   - [Clipper Script Usage](#clipper-script-usage)
   - [Clipper Script Installation](#clipper-script-installation)
+  - [Older Clipper Script Installation Releases](#older-clipper-script-installation-releases)
   - [Clipper Script Dependencies](#clipper-script-dependencies)
   - [Markup Script Change Log](#markup-script-change-log)
   - [Clipper Script (Installation) Change Log](#clipper-script-installation-change-log)
@@ -64,12 +65,17 @@
 
 - Edit pair crop or speed multiplier.
 - Edit `Title Prefix` that will be prepended to the `Title Suffix` and used in the webm name for the marker pair.
+- **ctrl+UpArrow**: Select/deselect the most recently selected marker pair.
 
 <img src="https://i.imgur.com/XfD4Yy5.png">
 
 - While a pair is selected use **shift+Q/shift+A** to move the start/end marker to current time.
   - Adjust marker position more precisely using the **<** and **>** keys to view YouTube videos frame by frame.
 - While a pair is selected use **alt+Z** to delete the pair.
+
+**ctrl+LeftArrow/RightArrow**: Jumps to the nearest previous/next marker.
+**alt+LeftArrow/RightArrow**: When a marker pair is selected, select the next/previous marker pair.
+**ctrl+alt+LeftArrow/RightArrow**: Select the next/previous marker pair and jumps to its start marker.
 
 **W:** Global settings editor:
 
@@ -102,7 +108,21 @@
 
 **shift+X:** Like **X**, begin drawing a crop but set only the left and right boundaries on **shift+click**. Vertically fills the crop, that is, it sets the top to 0 and the bottom to the video height.
 
+**Arrow Key Crop Adjustment**:
+
+- When a crop input box has focus:
+  - **UpArrow/DownArrow** increment/decrement the value indicated by the current cursor position by `10`.
+- When a crop input box does not have focus:
+  - **alt+X**: toggle crop adjustment with arrow keys.
+  - **UpArrow/DownArrow** increment/decrement the `y offset` by `10`.
+  - **LeftArrow/RightArrow** increment/decrement the `x offset` by `10`.
+  - **ctrl** modifier key changes target from `y offset` to `height` or from `x offset` to `width`.
+- The modifier keys alter the increment/decrement amount.
+  - **alt** sets the amount to `1`, **shift** to `50`, **alt+shift** to `100`.
+- The values are clamped to valid values.
+
 ### Video Playback and Preview Hotkeys
+
 **shift+mouse-wheel:** Scroll the mouse wheel up/down to skip forward/backward one frame per tick.
 
 **shift+G:** Toggle auto video playback speed adjustment based on markers. When outside of a marker pair the playback speed is set back to 1 (and cannot be changed without toggling off auto speed adjustment).
@@ -200,9 +220,9 @@ python ./yt_clipper.py --json markers.json # automatically generate webms using 
 There is an installation that does not require the dependencies below.
 
 1. Extract the appropriate zip file anywhere:
-   - On Windows download this [zip file (win_v3.3.0)](https://mega.nz/#!sSIlXQCA!viY4Apx3Tq_OgFpglIk5EpE-P2oFCqc7EdWuF6VjJKs)
-   - On Mac download this [zip file (mac_v3.3.0)](https://mega.nz/#!lDJF0CDI!mnRna7LN-BIsrZwAIAbzSzxObR_FZywzKCyuw6OCoUw)
-   - The install is **not compatible** with `v0.0.71` or lower of the `markup script`
+   - On Windows download this [zip file (win_v3.4.0)](https://mega.nz/#!sCJjlQ6Z!JGnGnMnt8mXneShdc95fMv8IpP0GNCnH0gqYHlJy8fs)
+   - On Mac download this [zip file (mac_v3.4.0)](https://mega.nz/#!VTQnRSoD!aY1hFS6IzjOHiF2quv3XEc42t9NNMofIPzixnLDOaXA)
+   - The latest install (`v3.4.0`) is **not compatible** with `v0.0.76` or lower of the `markup script`
 2. Use the `markup script` on YouTube as usual, but use **S** to save the markers .json to the extracted `yt_clipper` folder.
 3. Simply drag and drop the markers .json file onto the `yt_clipper.bat` file on Windows or the `yt_clipper_auto.app` file on Mac.
 4. All generated clips will be placed in `./webms/<markers-json-filename>`.
@@ -229,6 +249,10 @@ FOR %%A IN (%*) DO (
 pause
 ```
 
+## Older Clipper Script Installation Releases
+
+You can find old releases in this folder: <https://mega.nz/fm/sexQSKbT>.
+
 ## Clipper Script Dependencies
 
 These dependencies are not required by the windows installation above.
@@ -241,9 +265,36 @@ These dependencies are not required by the windows installation above.
 
 ## Markup Script Change Log
 
+- v0.0.77
+
+  - Use with `v3.4.0` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Fix marker pair merge list errors when the merge list is added and subsequently removed.
+  - Fix `markers json` loader poor visibility in YouTube dark mode.
+  - Add color range expansion option. YouTube tends to use limited (~16-245) range.
+    - May require gamma adjustment to control brightness of highlights for better results.
+  - Add strength presets for denoise.
+    - Add marker pair numbers in `markers json` output for easier manual editing.
+  - Add speed adjusted output duration display to marker pair editor.
+  - Add total speed adjusted merge list durations to global settings editor.
+  - Add better arrow key movement between markers and marker pairs.
+    - **ctrl+LeftArrow/RightArrow**: Jumps to the nearest previous/next marker.
+    - **alt+LeftArrow/RightArrow**: When a marker pair is selected, select the next/previous marker pair.
+    - **ctrl+alt+LeftArrow/RightArrow**: Select the next/previous marker pair and jumps to its start marker.
+  - Add **ctrl+UpArrow** to select/deselect the most recently selected marker pair.
+  - Add crop modification with hotkeys:
+    - Crop input boxes can now edited with hotkeys.
+      - **UpArrow/DownArrow** increment/decrement the value indicated by the current cursor position by `10`.
+    - Crops can also be manipulated with hotkeys without focusing the crop input box.
+      - **UpArrow/DownArrow** increment/decrement the `y offset` by `10`.
+      - **LeftArrow/RightArrow** increment/decrement the `x offset` by `10`.
+      - With the **ctrl** modifier key the target changes from `y offset` to `height` or from `x offset` to `width`.
+    - The modifier keys alter the increment/decrement amount.
+      - **alt** sets the amount to `1`, **shift** to `50`, **alt+shift** to `100`.
+    - The values are clamped to valid values.
+
 - v0.0.76
 
-  - Use with `v3.3.0` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Use with `v3.3.0` of the `clipper script` installation.
   - Add undoing markers with **Z** even when a marker pair is selected.
     - Undoing a currently selected marker pair will unselect it before undoing the end marker.
   - Move _delete-selected-marker-pair_ hotkey from **shift+Z** to **alt+Z**.
@@ -312,9 +363,24 @@ These dependencies are not required by the windows installation above.
 
 ## Clipper Script (Installation) Change Log
 
+- v3.4.0:
+
+  - Use with `v0.0.77` of the markup script. See [Clipper Script Installation](#clipper-script-installation).
+  - Fix ffmpeg reconnect flags not properly being applied to inputs.
+    - Fixes some `session invalidation` errors when encoding audio or video.
+    - Note: ffmpeg reconnect features are not compatible with DASH audio/video.
+  - Fix cleaning of invalid file name characters in title suffix and prefix.
+  - Fix command line usage with ffmpeg dependencies on path.
+  - Fix two pass encoding being ignored when video stabilization was also enabled.
+  - Use original merge list strings in merge webm output filenames.
+  - Add more detailed, internal options for video stabilization.
+  - Add better organization of video stabilization artifacts (transform files and shaky versions of webms).
+  - Add `--extra-video-filters` or `-evf` flag for passing in extra ffmpeg video filters.
+  - Add `--expand-color-range` or `-ecr` flag for expanding color range from tv/limited to pc/full.
+
 - v3.3.0:
 
-  - Use with `v0.0.76` of the markup script. See [Clipper Script Installation](#clipper-script-installation).
+  - Use with `v0.0.76` of the markup script.
   - Add better bitrate detection using ffprobe.
   - Add logging version of markup script at top of log.
   - Add decreasing ranges in merge list (eg 4-1 will merge pairs 4,3,2,1 in that order).
