@@ -1,13 +1,17 @@
 // ==UserScript==
 // @locale       english
 // @name         yt_clipper
-// @namespace    http://tampermonkey.net/
 // @version      0.0.78
-// @description  add markers to youtube videos and generate clipped webms online or offline
+// @description  Add markers to youtube videos and generate clipped webms online or offline.
+// @author       elwm
+// @namespace    https://github.com/exwm
+// @homepage     https://github.com/exwm/yt_clipper
+// @supportURL   https://github.com/exwm/yt_clipper/issues
+// @downloadURL  https://openuserjs.org/src/scripts/elwm/yt_clipper.user.js
 // @updateURL    https://openuserjs.org/meta/elwm/yt_clipper.meta.js
+// @icon         https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/pepe-clipper.gif
 // @run-at       document-end
 // @license      MIT
-// @author       elwm
 // @match        *://*.youtube.com/*
 // @require      https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/1.3.8/FileSaver.min.js
 // @grant        none
