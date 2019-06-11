@@ -1129,7 +1129,7 @@
       const denoiseDesc = denoise ? denoise.desc : null;
       const vidstab = settings.videoStabilization;
       const vidstabDesc = vidstab ? vidstab.desc : null;
-
+      const markerPairMergelistDurations = getMarkerPairMergeListDurations();
       markerInputs.setAttribute('id', 'markerInputsDiv');
       markerInputs.innerHTML = `\
       <div id="new-marker-defaults-inputs" class="yt_clipper-settings-editor">
@@ -1167,6 +1167,10 @@
           <input id="merge-list-input" class="yt_clipper-input" pattern="${mergeListInputValidation}" value="${
         settings.markerPairMergeList != null ? settings.markerPairMergeList : ''
       }" placeholder="None" style="width:15em">
+        </div>
+        <div style="display:inline-block">
+            <span style="font-weight:bold">Merge Durations: </span>
+            <span id="merge-list-durations">${markerPairMergelistDurations}</span>
         </div>
         <div class="editor-input-div">
           <span>Rotate: </span>
@@ -1299,6 +1303,7 @@
       ]);
       wasDefaultsEditorOpen = true;
       isMarkerEditorOpen = true;
+      addMarkerPairMergeListDurationsListener();
       addCropInputHotkeys();
     }
   }
@@ -1441,6 +1446,40 @@
     return multipliedCropString;
   }
 
+  function getMarkerPairMergeListDurations(
+    markerPairMergeList = settings.markerPairMergeList
+  ) {
+    const durations = [];
+    for (let merge of markerPairMergeList.split(';')) {
+      let duration = 0;
+      for (let mergeRange of merge.split(',')) {
+        if (mergeRange.includes('-')) {
+          let [mergeRangeStart, mergeRangeEnd] = mergeRange
+            .split('-')
+            .map((str) => parseInt(str, 10) - 1);
+          if (mergeRangeStart > mergeRangeEnd) {
+            [mergeRangeStart, mergeRangeEnd] = [mergeRangeEnd, mergeRangeStart];
+          }
+          for (let idx = mergeRangeStart; idx <= mergeRangeEnd; idx++) {
+            if (!isNaN(idx) && idx >= 0 && idx < markers.length) {
+              const marker = markers[idx];
+              duration += (marker.end - marker.start) / marker.speed;
+            }
+          }
+        } else {
+          const idx = parseInt(mergeRange, 10) - 1;
+          if (!isNaN(idx) && idx >= 0 && idx < markers.length) {
+            const marker = markers[idx];
+            duration += (marker.end - marker.start) / marker.speed;
+          }
+        }
+      }
+      durations.push(duration);
+    }
+    const markerPairMergelistDurations = durations.map(toHHMMSSTrimmed).join(' ; ');
+    return markerPairMergelistDurations;
+  }
+
   function addCropInputHotkeys() {
     const cropInput = document.getElementById('crop-input') as HTMLInputElement;
     cropInput.addEventListener('keydown', (ke: KeyboardEvent) => {
@@ -1522,6 +1561,16 @@
     return Math.max(min, Math.min(number, max));
   }
 
+  function addMarkerPairMergeListDurationsListener() {
+    const markerPairMergeListInput = document.getElementById('merge-list-input');
+    const markerPairMergeListDurationsSpan = document.getElementById(
+      'merge-list-durations'
+    );
+    markerPairMergeListInput.addEventListener('change', () => {
+      const markerPairMergelistDurations = getMarkerPairMergeListDurations();
+      markerPairMergeListDurationsSpan.textContent = markerPairMergelistDurations;
+    });
+  }
   function createCropOverlay(crop: string) {
     if (isOverlayOpen) {
       deleteCropOverlay();
@@ -1851,9 +1900,12 @@
       markers.forEach((marker) => {
         marker[updateTarget] = newValue;
       });
-      markersSvg.childNodes.forEach((marker) => {
-        marker.setAttribute(updateTarget, newValue.toString());
-      });
+    }
+    if (updateTarget === 'speed' && isMarkerEditorOpen && wasDefaultsEditorOpen) {
+      const markerPairMergeListInput = document.getElementById('merge-list-input');
+      if (markerPairMergeListInput) {
+        markerPairMergeListInput.dispatchEvent(new Event('change'));
+      }
     }
     flashMessage(`All marker ${updateTarget}s updated to ${newValue}`, 'olive');
   }
@@ -1904,10 +1956,10 @@
   function createMarkerEditor(targetMarker: SVGRectElement) {
     const markerIndex = parseInt(targetMarker.getAttribute('idx'), 10) - 1;
     const currentMarker = markers[markerIndex];
-    const startTime = toHHMMSS(currentMarker.start);
-    const endTime = toHHMMSS(currentMarker.end);
+    const startTime = toHHMMSSTrimmed(currentMarker.start);
+    const endTime = toHHMMSSTrimmed(currentMarker.end);
     const speed = currentMarker.speed;
-    const speedAdjustedDuration = toHHMMSS(
+    const speedAdjustedDuration = toHHMMSSTrimmed(
       (currentMarker.end - currentMarker.start) / speed
     );
     const crop = currentMarker.crop;
@@ -2118,10 +2170,10 @@
         selectedEndMarkerOverlay.setAttribute('x', `${progress_pos}%`);
       }
       markerPair[type] = currentTime;
-      markerTimeSpan.textContent = `${toHHMMSS(currentTime)}`;
+      markerTimeSpan.textContent = `${toHHMMSSTrimmed(currentTime)}`;
 
       const speedAdjustedDurationSpan = document.getElementById('duration');
-      const speedAdjustedDuration = toHHMMSS(
+      const speedAdjustedDuration = toHHMMSSTrimmed(
         (markerPair.end - markerPair.start) / markerPair.speed
       );
       speedAdjustedDurationSpan.textContent = speedAdjustedDuration;
@@ -2523,6 +2575,9 @@ httpd.serve_forever()
     return new Date(seconds * 1000).toISOString().substr(11, 12);
   }
 
+  function toHHMMSSTrimmed(seconds: number) {
+    return toHHMMSS(seconds).replace(/(00:)+(.*)/, '$2');
+  }
   function setAttributes(el: HTMLElement, attrs: {}) {
     Object.keys(attrs).forEach((key) => el.setAttribute(key, attrs[key]));
   }
