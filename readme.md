@@ -222,9 +222,9 @@ python ./yt_clipper.py --json markers.json # automatically generate webms using 
 There is an installation that does not require the dependencies below.
 
 1. Extract the appropriate zip file anywhere:
-   - On Windows download this [zip file (win_v3.4.0)](https://mega.nz/#!sCJjlQ6Z!JGnGnMnt8mXneShdc95fMv8IpP0GNCnH0gqYHlJy8fs)
-   - On Mac download this [zip file (mac_v3.4.0)](https://mega.nz/#!VTQnRSoD!aY1hFS6IzjOHiF2quv3XEc42t9NNMofIPzixnLDOaXA)
-   - The latest install (`v3.4.0`) is **not compatible** with `v0.0.76` or lower of the `markup script`
+   - On Windows download this [zip file (win_v3.4.1)](https://mega.nz/#!8TY3zCZZ!VF6-7hY9GzOvIRLive91bTzGWk40DfB0PQ3DHzyX8Q8)
+   - On Mac download this [zip file (mac_v3.4.1)](https://mega.nz/#!lLAHkChR!oPhA9DWQaftp-UyclKgFp7SeFkoL-i6rhZ02y0SbVQQ)
+   - The latest install (`v3.4.1`) is **not compatible** with `v0.0.76` or lower of the `markup script`
 2. Use the `markup script` on YouTube as usual, but use **S** to save the markers .json to the extracted `yt_clipper` folder.
 3. Simply drag and drop the markers .json file onto the `yt_clipper.bat` file on Windows or the `yt_clipper_auto.app` file on Mac.
 4. All generated clips will be placed in `./webms/<markers-json-filename>`.
@@ -253,7 +253,7 @@ pause
 
 ## Older Clipper Script Installation Releases
 
-You can find old releases in this folder: <https://mega.nz/fm/sexQSKbT>.
+You can find old releases in this folder: <https://mega.nz/#F!4HYDAKDS!NqS5Nk9heN7QBxvQapudeg>.
 
 ## Clipper Script Dependencies
 
