@@ -1902,11 +1902,14 @@
   }
 
   function createMarkerEditor(targetMarker: SVGRectElement) {
-    const markerIndex = targetMarker.getAttribute('idx') - 1;
+    const markerIndex = parseInt(targetMarker.getAttribute('idx'), 10) - 1;
     const currentMarker = markers[markerIndex];
     const startTime = toHHMMSS(currentMarker.start);
     const endTime = toHHMMSS(currentMarker.end);
     const speed = currentMarker.speed;
+    const speedAdjustedDuration = toHHMMSS(
+      (currentMarker.end - currentMarker.start) / speed
+    );
     const crop = currentMarker.crop;
     const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
     const markerInputsDiv = document.createElement('div');
@@ -1953,6 +1956,9 @@
           <span id="start-time">${startTime}</span>
           <span> - </span>
           <span id="end-time">${endTime}</span>
+          <span> - </span>
+          <span style="font-weight:bold;font-style:none">Output Duration: </span>
+          <span id="duration">${speedAdjustedDuration}
         </div>
       </div>
       <div id="marker-pair-overrides" class="yt_clipper-settings-editor" style="display:${markerPairOverridesEditorDisplay}">
@@ -2098,10 +2104,11 @@
     enableMarkerHotkeys.markerPairIndex = endMarker.getAttribute('idx');
     enableMarkerHotkeys.startMarker = endMarker.previousSibling;
 
-    enableMarkerHotkeys.moveMarker = (marker) => {
-      const type = marker.getAttribute('type');
+    enableMarkerHotkeys.moveMarker = (marker: SVGRectElement) => {
+      const type = marker.getAttribute('type') as 'start' | 'end';
       const idx = parseInt(marker.getAttribute('idx')) - 1;
-      const currentTime = player.getCurrentTime();
+      const markerPair = markers[idx];
+      const currentTime = video.currentTime;
       const progress_pos = (currentTime / playerInfo.duration) * 100;
       const markerTimeSpan = document.getElementById(`${type}-time`);
       marker.setAttribute('x', `${progress_pos}%`);
@@ -2110,10 +2117,14 @@
       } else if (type === 'end') {
         selectedEndMarkerOverlay.setAttribute('x', `${progress_pos}%`);
       }
-      markers[idx][type === 'start' ? 'start' : 'end'] = currentTime;
+      markerPair[type] = currentTime;
       markerTimeSpan.textContent = `${toHHMMSS(currentTime)}`;
-      if (type === 'start') {
-      }
+
+      const speedAdjustedDurationSpan = document.getElementById('duration');
+      const speedAdjustedDuration = toHHMMSS(
+        (markerPair.end - markerPair.start) / markerPair.speed
+      );
+      speedAdjustedDurationSpan.textContent = speedAdjustedDuration;
     };
 
     enableMarkerHotkeys.deleteMarkerPair = () => {
