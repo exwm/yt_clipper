@@ -47,7 +47,7 @@ def main():
 
     args["videoStabilization"] = getVidstabPreset(args["videoStabilization"])
     args["denoise"] = getDenoisePreset(args["denoise"])
-    settings = {'markerPairMergeList': '', 'rotate': 0, 'overlayPath': '', 'delay': 0, **args}
+    settings = {'markerPairMergeList': '', 'rotate': 0, 'overlayPath': '', 'delay': 0,'colorspace' : None, **args}
 
     if settings["json"]:
         settings["isDashVideo"] = False
@@ -479,6 +479,7 @@ def getVideoInfo(settings):
     settings["videoFPS"] = videoInfo["fps"]
     if dashVideoFormatID:
         settings["videoBitrate"] = int(videoInfo["tbr"])
+        _, settings["colorspace"] = ffprobeVideoProperties(settings["videoUrl"])
     else:
         settings["videoBitrate"], settings["colorspace"] = ffprobeVideoProperties(
             settings["videoUrl"])
