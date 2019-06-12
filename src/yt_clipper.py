@@ -626,7 +626,7 @@ def uploadToGfycat(settings):
 
 def cleanFileName(fileName):
     if sys.platform == 'win32':
-        fileName = re.sub('[\\|:*?"<>]', '',  fileName)
+        fileName = re.sub('[/\\|:*?"<>]', '',  fileName)
     elif sys.platform == 'darwin':
         fileName = re.sub('[:]', '',  fileName)
     elif sys.platform.startswith('linux'):
