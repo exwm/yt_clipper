@@ -223,7 +223,7 @@ There is an installation that does not require the dependencies below.
 2. Use the `markup script` on YouTube as usual, but use **S** to save the markers .json to the extracted `yt_clipper` folder.
 3. Simply drag and drop the markers .json file onto the `yt_clipper.bat` file on Windows or the `yt_clipper_auto.app` file on Mac.
 4. All generated clips will be placed in `./webms/<markers-json-filename>`.
-5. Windows uses may require [Microsoft Visual C++ 2010 Redistributable Package (x86)](https://www.microsoft.com/en-US/download/details.aspx?id=5555).
+5. Windows users may require [Microsoft Visual C++ 2010 Redistributable Package (x86)](https://www.microsoft.com/en-US/download/details.aspx?id=5555).
 
 For windows there are some alternative bat files for more options. They all work by dropping the markers json onto them:
 

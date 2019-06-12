@@ -13,13 +13,15 @@
 // @run-at       document-end
 // @license      MIT
 // @match        *://*.youtube.com/*
-// @require      https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/1.3.8/FileSaver.min.js
+// @require      https://cdn.jsdelivr.net/npm/file-saver@2.0.2/dist/FileSaver.min.js
+// @require      https://cdnjs.cloudflare.com/ajax/libs/jszip/3.2.0/jszip.min.js
+// @noframes
 // @grant        none
 // ==/UserScript==
 (function() {
   'use strict';
-  function onLoadVideoPage(callback: Function) {
-    const ytdapp = retryUntilTruthyResult(
+  async function onLoadVideoPage(callback: Function) {
+    const ytdapp = await retryUntilTruthyResult(
       () => document.getElementsByTagName('ytd-app')[0]
     );
     const observer = new MutationObserver((mutationList) => {
@@ -35,16 +37,18 @@
         }
       });
     });
-    const config = { attributes: true };
+    const config = { attributeFilter: ['is-watch-page'] };
+    console.log(`Waiting for video page load before calling ${callback.name}`);
     observer.observe(ytdapp, config);
   }
   onLoadVideoPage(loadytClipper);
 
-  function retryUntilTruthyResult(fn: Function, wait = 100) {
-    let result = fn();
+  async function retryUntilTruthyResult<R>(fn: () => R, wait = 100) {
+    let result: R = fn();
     while (!result) {
+      console.log(`Retrying function: ${fn.name} because result was ${result}`);
       result = fn();
-      sleep(wait);
+      await sleep(wait);
     }
     return result;
   }
@@ -53,7 +57,7 @@
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  function loadytClipper() {
+  async function loadytClipper() {
     console.log('Loading yt clipper markup script');
 
     document.addEventListener('keydown', hotkeys, true);
@@ -82,14 +86,20 @@
             }
             break;
           case 'KeyQ':
-            if (!e.shiftKey) {
+            if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
               cyclePlayerSpeedDown();
             } else if (
+              !e.ctrlKey &&
+              !e.altKey &&
               e.shiftKey &&
               markerHotkeysEnabled &&
               enableMarkerHotkeys.moveMarker
             ) {
               enableMarkerHotkeys.moveMarker(enableMarkerHotkeys.startMarker);
+            } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
+              captureFrame();
+            } else if (!e.ctrlKey && e.altKey && e.shiftKey) {
+              saveCapturedFrames();
             }
             break;
           case 'KeyW':
@@ -245,9 +255,13 @@
     }
 
     const initOnce = once(init, this);
-    const player = retryUntilTruthyResult(() => document.getElementById('movie_player'));
+    const player = await retryUntilTruthyResult(() =>
+      document.getElementById('movie_player')
+    );
     const playerInfo = {};
-    const video = retryUntilTruthyResult(() => document.getElementsByTagName('video')[0]);
+    const video = await retryUntilTruthyResult(
+      () => document.getElementsByTagName('video')[0]
+    );
     let settingsEditorHook: HTMLElement;
     let flashMessageHook: HTMLElement;
     function initPlayerInfo() {
@@ -263,9 +277,8 @@
       playerInfo.watchFlexy = document.getElementsByTagName('ytd-watch-flexy')[0];
       playerInfo.infoContents = document.getElementById('info-contents');
       flashMessageHook = playerInfo.infoContents;
-      playerInfo.columns = retryUntilTruthyResult(() =>
-        document.getElementById('columns')
-      );
+      playerInfo.columns = document.getElementById('columns');
+
       updateSettingsEditorHook();
       playerInfo.annotations = document.getElementsByClassName('ytp-iv-video-content')[0];
       playerInfo.controls = document.getElementsByClassName('ytp-chrome-bottom')[0];
@@ -307,12 +320,13 @@
       lumaSpatial: number;
       desc: string;
     }
-    interface settings {
+    interface Settings {
       videoID: string;
       videoTitle: string;
       newMarkerSpeed: number;
       newMarkerCrop: string;
       titleSuffix: string;
+      isVerticalVideo: boolean;
       cropRes: string;
       cropResWidth: number;
       cropResHeight: number;
@@ -328,7 +342,7 @@
       expandColorRange?: boolean;
       videoStabilization?: videoStabilization;
     }
-    let settings: settings;
+    let settings: Settings;
     let markersSvg: SVGSVGElement;
     let selectedMarkerPairOverlay: SVGSVGElement;
     function initMarkersContainer() {
@@ -338,6 +352,7 @@
         newMarkerSpeed: 1.0,
         newMarkerCrop: '0:0:iw:ih',
         titleSuffix: `[${playerInfo.playerData.video_id}]`,
+        isVerticalVideo: playerInfo.isVerticalVideo,
         cropRes: playerInfo.isVerticalVideo ? '1080x1920' : '1920x1080',
         cropResWidth: playerInfo.isVerticalVideo ? 1080 : 1920,
         cropResHeight: playerInfo.isVerticalVideo ? 1920 : 1080,
@@ -382,10 +397,12 @@
     opacity: 0;
   }
 }
-.flash-div {
+.msg-div {
   margin-top: 2px;
   padding: 2px;
   border: 2px outset grey;
+}
+.flash-div {
   animation-name: flash;
   animation-duration: 5s;
   animation-fill-mode: forwards;
@@ -686,13 +703,13 @@
 
     function flashMessage(msg: string, color: string, lifetime = 2500) {
       const flashDiv = document.createElement('div');
-      flashDiv.setAttribute('class', 'flash-div');
+      flashDiv.setAttribute('class', 'msg-div flash-div');
       flashDiv.innerHTML = `<span class="flash-msg" style="color:${color}">${msg}</span>`;
       flashMessageHook.insertAdjacentElement('beforebegin', flashDiv);
       setTimeout(() => deleteElement(flashDiv), lifetime);
     }
 
-    function deleteElement(elem: HTMLElement) {
+    function deleteElement(elem: Element) {
       if (elem && elem.parentElement) {
         elem.parentElement.removeChild(elem);
       }
@@ -1617,6 +1634,177 @@
         markerPairMergeListDurationsSpan.textContent = markerPairMergelistDurations;
       });
     }
+
+    const frameCaptureViewerHeadHTML = `\
+      <title>yt_clipper Frame Capture Viewer</title>
+      <style>
+        body {
+          margin: 0px;
+          text-align: center;
+        }
+        #frames-div {
+          font-family: Helvetica;
+          background-color: rgb(160,50,20);
+          margin: 0 auto;
+          padding: 2px;
+          width: 99%;
+          text-align: center;
+        }
+        .frame-div {
+          margin: 2px;
+          padding: 2px;
+          border: 2px black solid;
+          font-weight: bold;
+          color: black;
+          text-align: center;
+        }
+        figcaption {
+          display: inline-block;
+          margin: 2px;
+        }
+        button {
+          display: inline-block;
+          font-weight: bold;
+          margin-bottom: 2px;
+          background-color: red;
+          cursor: pointer;
+          border: 2px solid black;
+          border-radius: 4px;
+        }
+        button:hover {
+          box-shadow: 2px 4px 4px 0 rgba(0,0,0,0.2);
+        }
+        canvas {
+          ${player.getVideoAspectRatio() > 1 ? 'width: 98%;' : 'height: 97vh;'}
+        }
+        </style>
+      `;
+    const frameCaptureViewerBodyHTML = `\
+        <div id="frames-div"><strong></strong></div>
+        `;
+    let frameCaptureViewer: Window;
+    let frameCaptureViewerDoc: Document;
+    async function captureFrame() {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const currentTime = video.currentTime;
+      for (let i = 0; i < video.buffered.length; i++) {
+        console.log(video.buffered.start(i), video.buffered.end(i));
+        if (
+          video.buffered.start(i) <= currentTime &&
+          currentTime <= video.buffered.end(i)
+        ) {
+          break;
+        }
+
+        if (i === video.buffered.length - 1) {
+          flashMessage(
+            'Frame not captured. Video has not yet buffered the frame.',
+            'red'
+          );
+          return;
+        }
+      }
+      context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+      if (!frameCaptureViewer || !frameCaptureViewerDoc || frameCaptureViewer.closed) {
+        frameCaptureViewer = window.open(
+          '',
+          'window',
+          `height=${window.innerHeight}, width=${window.innerWidth}`
+        );
+        frameCaptureViewer.deleteFrame = (btn) => {
+          deleteElement(btn.parentElement);
+        };
+        frameCaptureViewerDoc = frameCaptureViewer.document;
+        frameCaptureViewerDoc.head.innerHTML = frameCaptureViewerHeadHTML;
+        frameCaptureViewerDoc.body.innerHTML = frameCaptureViewerBodyHTML;
+      } else {
+      }
+      const frameDiv = document.createElement('div');
+      frameDiv.setAttribute('class', 'frame-div');
+      const frameCount = getFrameCount(currentTime);
+      const frameFileName = `${settings.titleSuffix}-@${currentTime}s(${toHHMMSSTrimmed(
+        currentTime
+      ).replace(':', ';')})-f${frameCount.frameNumber}(${frameCount.totalFrames})`;
+      frameDiv.innerHTML = `\
+      <figcaption>Resolution: ${canvas.width}x${
+        canvas.height
+      } Name: ${frameFileName}</figcaption>
+      <button onclick="deleteFrame(this)"}>Delete Frame</button>
+      `;
+
+      canvas.fileName = `${frameFileName}.png`;
+      const framesDiv = frameCaptureViewerDoc.getElementById('frames-div');
+      frameDiv.appendChild(canvas);
+      framesDiv.appendChild(frameDiv);
+      flashMessage(`Captured frame: ${frameFileName}`, 'green');
+    }
+
+    function getFrameCount(seconds: number) {
+      const videoStats = player.getStatsForNerds();
+      let fps = videoStats ? videoStats.resolution.match(/@(\d\d)/)[1] : null;
+      let frameNumber: number | string;
+      let totalFrames: number | string;
+      if (fps) {
+        frameNumber = Math.floor(seconds * parseFloat(fps));
+        totalFrames = Math.floor(video.duration * parseFloat(fps));
+      } else {
+        frameNumber = 'Unknown';
+        totalFrames = 'Unknown';
+      }
+      return { frameNumber, totalFrames };
+    }
+
+    function canvasBlobToPromise(canvas: HTMLCanvasElement) {
+      return new Promise((resolve) => {
+        canvas.toBlob((blob) => resolve(blob));
+      });
+    }
+
+    let isFrameCapturerZippingInProgress = false;
+    function saveCapturedFrames() {
+      if (isFrameCapturerZippingInProgress) {
+        flashMessage(
+          'Frame Capturer zipping already in progress. Please wait before trying to zip again.',
+          'red'
+        );
+        return;
+      }
+      isFrameCapturerZippingInProgress = true;
+      const zip = new JSZip();
+      const framesZip = zip.folder(settings.titleSuffix).folder('frames');
+      const frames = frameCaptureViewerDoc.getElementsByTagName('canvas');
+      Array.from(frames).forEach((frame) => {
+        framesZip.file(frame.fileName, canvasBlobToPromise(frame), { binary: true });
+      });
+      const progressDiv = injectProgressBar('green');
+      const progressSpan = progressDiv.firstElementChild;
+      zip
+        .generateAsync({ type: 'blob' }, (metadata) => {
+          const percent = metadata.percent.toFixed(2) + '%';
+          progressSpan.textContent = `Frame Capturer Zipping Progress: ${percent}`;
+        })
+        .then((blob) => {
+          saveAs(blob, `${settings.titleSuffix}-frames.zip`);
+          progressDiv.dispatchEvent(new Event('done'));
+          isFrameCapturerZippingInProgress = false;
+        });
+    }
+
+    function injectProgressBar(color: string) {
+      const progressDiv = document.createElement('div');
+      progressDiv.setAttribute('class', 'msg-div');
+      progressDiv.addEventListener('done', () => {
+        progressDiv.setAttribute('class', 'msg-div flash-div');
+        setTimeout(() => deleteElement(progressDiv), 2500);
+      });
+      progressDiv.innerHTML = `<span class="flash-msg" style="color:${color}"> Frame Capturer Zipping Progress: 0%</span>`;
+      flashMessageHook.insertAdjacentElement('beforebegin', progressDiv);
+      return progressDiv;
+    }
+
     function createCropOverlay(crop: string) {
       if (isOverlayOpen) {
         deleteCropOverlay();
