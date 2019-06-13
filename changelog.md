@@ -3,6 +3,7 @@
 ## Markup Script Changelog
 
 - v0.0.80
+
   - Use with `v3.4.1` of the `clipper script` installation.
   - Add cropping of **alt+Q** captured video frames based on currently selected marker pair's crop.
   - Fix speed adjusted marker pair duration not updating on speed change.
