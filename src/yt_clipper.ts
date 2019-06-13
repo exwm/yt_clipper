@@ -1743,6 +1743,8 @@
           box-shadow: 2px 4px 4px 0 rgba(0,0,0,0.2);
         }
         canvas {
+          display: block;
+          margin: 0 auto;
           ${player.getVideoAspectRatio() > 1 ? 'width: 98%;' : 'height: 96vh;'}
         }
         @keyframes flash {
@@ -1766,10 +1768,6 @@
     let frameCaptureViewer: Window;
     let frameCaptureViewerDoc: Document;
     async function captureFrame() {
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
       const currentTime = video.currentTime;
       for (let i = 0; i < video.buffered.length; i++) {
         console.log(video.buffered.start(i), video.buffered.end(i));
@@ -1788,7 +1786,31 @@
           return;
         }
       }
-      context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      let resString: string;
+      if (isMarkerEditorOpen && !wasDefaultsEditorOpen) {
+        const idx = parseInt(prevSelectedMarkerPair.getAttribute('idx'), 10) - 1;
+        const markerPair = markers[idx];
+        const cropMultipleX = video.videoWidth / settings.cropResWidth;
+        const cropMultipleY = video.videoHeight / settings.cropResHeight;
+        resString = multiplyCropString(cropMultipleX, cropMultipleY, markerPair.crop);
+        const [x, y, w, h] = extractCropComponents(resString);
+        canvas.width = w;
+        canvas.height = h;
+        if (h > w) {
+          canvas.style.height = '96vh';
+          canvas.style.width = 'auto';
+        }
+        context.drawImage(video, x, y, w, h, 0, 0, w, h);
+        resString = `x${x}y${y}w${w}h${h}`;
+      } else {
+        resString = `x0y0w${video.videoWidth}h${video.videoHeight}`;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+      }
       if (!frameCaptureViewer || !frameCaptureViewerDoc || frameCaptureViewer.closed) {
         frameCaptureViewer = window.open(
           '',
@@ -1811,9 +1833,12 @@
       const frameDiv = document.createElement('div');
       frameDiv.setAttribute('class', 'frame-div');
       const frameCount = getFrameCount(currentTime);
-      const frameFileName = `${settings.titleSuffix}-@${currentTime}s(${toHHMMSSTrimmed(
-        currentTime
-      ).replace(':', ';')})-f${frameCount.frameNumber}(${frameCount.totalFrames})`;
+      const frameFileName = `${
+        settings.titleSuffix
+      }-${resString}-@${currentTime}s(${toHHMMSSTrimmed(currentTime).replace(
+        ':',
+        ';'
+      )})-f${frameCount.frameNumber}(${frameCount.totalFrames})`;
       frameDiv.innerHTML = `\
       <figcaption>Resolution: ${canvas.width}x${
         canvas.height
