@@ -2,10 +2,15 @@
 
 ## Markup Script Changelog
 
+- v0.0.80
+  - Use with `v3.4.1` of the `clipper script` installation.
+  - Add cropping of **alt+Q** captured video frames based on currently selected marker pair's crop.
+  - Fix speed adjusted marker pair duration not updating on speed change.
+  - Add duration before speed adjustment to marker pair editor.
+
 - v0.0.79
 
-  - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
-  - Use with `v3.4.1` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Use with `v3.4.1` of the `clipper script` installation.
   - Add automatic disabling of browser default and add-on hotkeys when yt_clipper hotkeys are enabled.
   - Add activation of yt_clipper on all YouTube pages and load yt_clipper on navigation to a video.
     - Still requires refreshing the browser when navigating to a new video.
