@@ -4,7 +4,8 @@
 
 - Works best on Chrome with the Tampermonkey extension and YouTube video in theater mode.
 - You may need to refresh the video page and ensure this user script is active.
-- Firefox, Opera, and most Chromium-based browsers not fully tested, but reportedly work as intended.
+- FireFox _Nightly_, Opera, and most Chromium-based browsers not fully tested, but reportedly work as intended.
+  - Main channel FireFox does not display markers.
 - Other browsers may or may not work as intended.
 
 ## Related Scripts
@@ -22,6 +23,7 @@
     - [Marker Hotkeys](#marker-hotkeys)
     - [Cropping Hotkeys](#cropping-hotkeys)
     - [Video Playback and Preview Hotkeys](#video-playback-and-preview-hotkeys)
+    - [Frame Capturing Hotkeys](#frame-capturing-hotkeys)
     - [Save and Upload Hotkeys](#save-and-upload-hotkeys)
   - [Useful YouTube Controls](#useful-youtube-controls)
   - [Tips](#tips)
@@ -81,7 +83,7 @@
 **W:** Global settings editor:
 ![yt_clipper_globals_editor](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_globals_editor.png)
 
-1. Change default new marker speed or crop. 
+1. Change default new marker speed or crop.
    - Any new markers added will use these defaults, but this will not update existing markers.
    - To update existing markers to the default new marker speed/crop use **shift+E/shift+D**.
 2. Specify crop resolution (automatically scales any existing crops on change).
@@ -158,6 +160,17 @@
 
 **Q:** Decrease video playback speed by 0.25. If the speed falls to or below 0 it will cycle back to 1.
 
+### Frame Capturing Hotkeys
+
+**alt+Q:** Capture frame at current time of video at currently selected video quality/resolution.
+
+- Frame must be buffered and loaded.
+- Opens a pop-up window where captured frames are saved.
+  - **Download** and **Delete** buttons are provided above each captured frame.
+  - You may need to allow pop-ups from `youtube.com` in your browser settings.
+
+**alt+shift+Q** Trigger zipping of all captured frames for download.
+
 ### Save and Upload Hotkeys
 
 **S:** Save markers info to a `.json` file.
@@ -170,7 +183,7 @@
 **G:** Toggle markers `json` file upload for reloading markers (must be from the same video).
 
 - Click `Choose File`, pick your markers `json` file, then click `Load`.
-![yt_clipper_load_markers](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_load_markers.png)
+  ![yt_clipper_load_markers](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_load_markers.png)
 
 **alt+C:** Upload anonymously to gfycat.
 
@@ -224,7 +237,7 @@
    - Higher strength presets use more cropping/zooming.
 8. Enable `expand color range` to make the colors more vivid, shadows darker and highlights brighter.
    - Note that the result may not always be desirable and may look artificial.
-   - Videos with blown out shadows or highlights may become further blown out. Try adjusting the `gamma` value to compensate. 
+   - Videos with blown out shadows or highlights may become further blown out. Try adjusting the `gamma` value to compensate.
 9. Enable `two pass encoding` if you want even better quality at the cost of significant encoding speed.
 
 ### Gamma Correction
@@ -299,10 +312,22 @@ These dependencies are not required by the windows installation above.
 
 ## Markup Script Changelog
 
-- v0.0.78
+- v0.0.79
 
   - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
   - Use with `v3.4.1` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Add automatic disabling of browser default and add-on hotkeys when yt_clipper hotkeys are enabled.
+  - Add activation of yt_clipper on all YouTube pages and load yt_clipper on navigation to a video.
+    - Still requires refreshing the browser when navigating to a new video.
+  - Add **alt+Q** for capturing frame at current time of video at currently selected video quality/resolution.
+    - Frame must be buffered and loaded.
+    - Opens a pop-up window where captured frames are saved.
+      - **Download** and **Delete** buttons are provided above each captured frame.
+      - You may need to allow pop-ups from `youtube.com` in your browser settings.
+    - **alt+shift+Q** triggers zipping of all captured frames for download.
+
+- v0.0.78
+
   - Fix auto looping of marker pairs even when no marker pair is selected.
 
 - v0.0.77
