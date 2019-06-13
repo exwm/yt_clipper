@@ -626,12 +626,14 @@ def uploadToGfycat(settings):
 
 def cleanFileName(fileName):
     if sys.platform == 'win32':
-        fileName = re.sub('[/\\|:*?"<>]', '',  fileName)
+        fileName = re.sub(r'[*?"<>\0]', '',  fileName)
+        fileName = re.sub(r'[/|\\:]', '_',  fileName)
     elif sys.platform == 'darwin':
-        fileName = re.sub('[:]', '',  fileName)
+        fileName = re.sub(r'[:\0]', '_',  fileName)
     elif sys.platform.startswith('linux'):
-        fileName = re.sub('[/]', '',  fileName)
+        fileName = re.sub(r'[/\0]', '_',  fileName)
     return fileName
+
 
 
 def getVidstabPreset(level):
