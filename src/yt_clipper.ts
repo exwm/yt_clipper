@@ -2517,12 +2517,7 @@
         }
         markerPair[type] = currentTime;
         markerTimeSpan.textContent = `${toHHMMSSTrimmed(currentTime)}`;
-
-        const speedAdjustedDurationSpan = document.getElementById('duration');
-        const speedAdjustedDuration = toHHMMSSTrimmed(
-          (markerPair.end - markerPair.start) / markerPair.speed
-        );
-        speedAdjustedDurationSpan.textContent = speedAdjustedDuration;
+        updateMarkerPairDuration(markerPair);
       };
 
       enableMarkerHotkeys.deleteMarkerPair = () => {
@@ -2563,6 +2558,13 @@
       selectedMarkerPairOverlay.style.display = 'block';
     }
 
+    function updateMarkerPairDuration(markerPair: marker) {
+      const speedAdjustedDurationSpan = document.getElementById('duration');
+      const speedAdjustedDuration = toHHMMSSTrimmed(
+        (markerPair.end - markerPair.start) / markerPair.speed
+      );
+      speedAdjustedDurationSpan.textContent = speedAdjustedDuration;
+    }
     function addMarkerInputListeners(
       inputs: string[][],
       currentIdx: number,
@@ -2638,19 +2640,19 @@
       overridesField: boolean = false
     ) {
       if (e.target.reportValidity()) {
-        const marker = markers[currentIdx];
+        const markerPair = markers[currentIdx];
         let newValue = e.target.value;
         if (newValue != null) {
           if (newValue === '') {
-            delete marker.overrides[updateTarget];
-            console.log(marker.overrides);
+            delete markerPair.overrides[updateTarget];
+            console.log(markerPair.overrides);
             return;
           } else if (valueType === 'number') {
             newValue = parseFloat(newValue);
           } else if (valueType === 'ternary') {
             if (newValue === 'Default') {
-              delete marker.overrides[updateTarget];
-              console.log(marker.overrides);
+              delete markerPair.overrides[updateTarget];
+              console.log(markerPair.overrides);
               return;
             } else if (newValue === 'Enabled') {
               newValue = true;
@@ -2659,22 +2661,24 @@
             }
           } else if (valueType === 'preset') {
             if (newValue === 'Inherit') {
-              delete marker.overrides[updateTarget];
-              console.log(marker.overrides);
+              delete markerPair.overrides[updateTarget];
+              console.log(markerPair.overrides);
               return;
             }
             newValue = presetsMap[updateTarget][newValue];
           }
         }
         if (!overridesField) {
-          marker[updateTarget] = newValue;
+          markerPair[updateTarget] = newValue;
           if (updateTarget === 'crop') {
             createCropOverlay(newValue);
+          } else if (updateTarget === 'speed') {
+            updateMarkerPairDuration(markerPair);
           }
         } else {
-          marker.overrides[updateTarget] = newValue;
+          markerPair.overrides[updateTarget] = newValue;
         }
-        console.log(marker.overrides);
+        console.log(markerPair.overrides);
       }
     }
 
