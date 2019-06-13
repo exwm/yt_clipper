@@ -1729,16 +1729,34 @@
           display: inline-block;
           font-weight: bold;
           margin-bottom: 2px;
-          background-color: red;
           cursor: pointer;
           border: 2px solid black;
           border-radius: 4px;
+        }
+        button.download {
+          background-color: rgb(66, 134, 244);
+        }
+        button.delete {
+          background-color: red;
         }
         button:hover {
           box-shadow: 2px 4px 4px 0 rgba(0,0,0,0.2);
         }
         canvas {
-          ${player.getVideoAspectRatio() > 1 ? 'width: 98%;' : 'height: 97vh;'}
+          ${player.getVideoAspectRatio() > 1 ? 'width: 98%;' : 'height: 96vh;'}
+        }
+        @keyframes flash {
+          0% {
+            opacity: 1;
+          }
+          100% {
+            opacity: 0.5;
+          }
+        }
+        .flash-div {
+          animation-name: flash;
+          animation-duration: 0.5s;
+          animation-fill-mode: forwards;
         }
         </style>
       `;
@@ -1777,13 +1795,18 @@
           'window',
           `height=${window.innerHeight}, width=${window.innerWidth}`
         );
-        frameCaptureViewer.deleteFrame = (btn) => {
-          deleteElement(btn.parentElement);
+        frameCaptureViewer.downloadFrame = (btn: HTMLButtonElement) => {
+          const frameCanvas = btn.parentElement.querySelector('canvas');
+          frameCanvas.toBlob((blob) => saveAs(blob, frameCanvas.fileName));
+        };
+        frameCaptureViewer.deleteFrame = (btn: HTMLButtonElement) => {
+          const frameDiv = btn.parentElement;
+          frameDiv.setAttribute('class', 'frame-div flash-div');
+          setTimeout(() => deleteElement(frameDiv), 300);
         };
         frameCaptureViewerDoc = frameCaptureViewer.document;
         frameCaptureViewerDoc.head.innerHTML = frameCaptureViewerHeadHTML;
         frameCaptureViewerDoc.body.innerHTML = frameCaptureViewerBodyHTML;
-      } else {
       }
       const frameDiv = document.createElement('div');
       frameDiv.setAttribute('class', 'frame-div');
@@ -1795,7 +1818,8 @@
       <figcaption>Resolution: ${canvas.width}x${
         canvas.height
       } Name: ${frameFileName}</figcaption>
-      <button onclick="deleteFrame(this)"}>Delete Frame</button>
+      <button class="download" onclick="downloadFrame(this)">Download Frame</button>
+      <button class="delete" onclick="deleteFrame(this)">Delete Frame</button>
       `;
 
       canvas.fileName = `${frameFileName}.png`;
