@@ -110,7 +110,7 @@
 - See [Encoding Settings Guide](#encoding-settings-guide) for more information and tips about the possible settings.
 - Marker Pair Overrides:
   - ![yt_clipper_marker_pair_editor_overrides](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_marker_pair_editor_overrides.png)
-- Global Encode Settings: 
+- Global Encode Settings:
   - ![yt_clipper_globals_editor_additional_settings](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_globals_editor_additional_settings.png)
 
 **shift+E/D:** Update all existing markers to default new marker speed(**E**) or crop(**D**).
@@ -170,7 +170,7 @@
 - Opens a pop-up window where captured frames are saved.
   - **Download** and **Delete** buttons are provided above each captured frame.
   - You may need to allow pop-ups from `youtube.com` in your browser settings.
-  ![yt_clipper_frame_capturer](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_frame_capturer.png)
+    ![yt_clipper_frame_capturer](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_frame_capturer.png)
 
 **alt+shift+Q** Trigger zipping of all captured frames for download.
 
@@ -316,6 +316,7 @@ These dependencies are not required by the windows installation above.
 ## Markup Script Changelog
 
 - v0.0.80
+
   - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
   - Use with `v3.4.1` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
   - Add cropping of **alt+Q** captured video frames based on currently selected marker pair's crop.
