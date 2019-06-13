@@ -54,6 +54,8 @@
 
 **alt+shift+A:** Toggle hotkeys on/off. A message will flash below the video.
 
+- ![yt_clipper_active_on_page](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_active_on_page.png)
+
 **A:** Add marker at current time (start = green, end = yellow, selected = black center). Multiple marker pairs can be added simultaneously.
 
 **Z:** Undo last marker.
@@ -66,8 +68,7 @@
 - Edit `Title Prefix` that will be prepended to the `Title Suffix` and used in the webm name for the marker pair.
 
 **ctrl+UpArrow**: Select/deselect the most recently selected marker pair.
-
-<img src="https://i.imgur.com/XfD4Yy5.png">
+![yt_clipper_marker_pair_editor](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_marker_pair_editor.png)
 
 - While a pair is selected use **shift+Q/shift+A** to move the start/end marker to current time.
   - Adjust marker position more precisely using the **<** and **>** keys to view YouTube videos frame by frame.
@@ -78,8 +79,7 @@
 **ctrl+alt+LeftArrow/RightArrow:** When a marker pair is selected, select the next/previous marker pair _and jump to its start marker_.
 
 **W:** Global settings editor:
-
-<img src="https://i.imgur.com/FGCxAiq.png">
+![yt_clipper_globals_editor](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_globals_editor.png)
 
 1. Change default new marker speed or crop. 
    - Any new markers added will use these defaults, but this will not update existing markers.
@@ -106,8 +106,8 @@
 - Marker pair settings set to `Inherit` will get their value from the global settings.
 - Global settings set to `Inherit` will get their value from the command line options or the `yt_clipper_auto_all_options.bat` prompt.
 - See [Encoding Settings Guide](#encoding-settings-guide) for more information and tips about the possible settings.
-- Marker Pair Overrides: ![Marker Pair Overrides](https://i.imgur.com/6h84cce.png)
-- Global Encode Settings: ![Global Encode Settings:](https://i.imgur.com/UfrTPzc.png)
+- Marker Pair Overrides: ![yt_clipper_marker_pair_editor_overrides](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_marker_pair_editor_overrides.png)
+- Global Encode Settings: ![yt_clipper_globals_editor_additional_settings](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_globals_editor_additional_settings.png)
 
 **shift+E/D:** Update all existing markers to default new marker speed(**E**) or crop(**D**).
 
@@ -170,8 +170,7 @@
 **G:** Toggle markers `json` file upload for reloading markers (must be from the same video).
 
 - Click `Choose File`, pick your markers `json` file, then click `Load`.
-
-<img src="https://i.imgur.com/19rao2O.png">
+![yt_clipper_load_markers](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_load_markers.png)
 
 **alt+C:** Upload anonymously to gfycat.
 
