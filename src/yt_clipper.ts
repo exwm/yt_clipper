@@ -24,6 +24,11 @@
     const ytdapp = await retryUntilTruthyResult(
       () => document.getElementsByTagName('ytd-app')[0]
     );
+    if (ytdapp.hasAttribute('is-watch-page')) {
+      console.log('watch page loaded');
+      callback();
+      return;
+    }
     const observer = new MutationObserver((mutationList) => {
       mutationList.forEach((mutation) => {
         if (
@@ -67,26 +72,38 @@
         switch (e.code) {
           case 'KeyA':
             if (!e.shiftKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               addMarkerSVGRect();
             } else if (
               e.shiftKey &&
               markerHotkeysEnabled &&
               enableMarkerHotkeys.moveMarker
             ) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               enableMarkerHotkeys.moveMarker(enableMarkerHotkeys.endMarker);
             }
             break;
           case 'KeyS':
-            if (!e.shiftKey && !e.altKey) {
+            if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               saveSettings();
-            } else if (e.altKey && !e.shiftKey) {
+            } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               copyToClipboard(getSettingsJSON());
-            } else if (e.altKey && e.shiftKey) {
+            } else if (!e.ctrlKey && e.altKey && e.shiftKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               saveAuthServerScript();
             }
             break;
           case 'KeyQ':
             if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               cyclePlayerSpeedDown();
             } else if (
               !e.ctrlKey &&
@@ -95,45 +112,71 @@
               markerHotkeysEnabled &&
               enableMarkerHotkeys.moveMarker
             ) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               enableMarkerHotkeys.moveMarker(enableMarkerHotkeys.startMarker);
             } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               captureFrame();
             } else if (!e.ctrlKey && e.altKey && e.shiftKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               saveCapturedFrames();
             }
             break;
           case 'KeyW':
             if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               toggleDefaultsEditor();
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               toggleMarkerPairOverridesEditor();
             }
             break;
           case 'KeyE':
             if (!e.ctrlKey && e.shiftKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               updateAllMarkers('speed', settings.newMarkerSpeed);
             }
             break;
           case 'KeyD':
             if (!e.ctrlKey && e.shiftKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               updateAllMarkers('crop', settings.newMarkerCrop);
             }
             break;
           case 'KeyG':
             if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               loadMarkers();
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               toggleSpeedAutoDucking();
             } else if (!e.ctrlKey && !e.shiftKey && e.altKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               toggleMarkerLooping();
             } else if (!e.ctrlKey && e.shiftKey && e.altKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               toggleGammaPreview();
             }
             break;
           case 'KeyZ':
             if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               undoMarker();
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               redoMarker();
             } else if (
               !e.ctrlKey &&
@@ -142,27 +185,41 @@
               markerHotkeysEnabled &&
               enableMarkerHotkeys.deleteMarkerPair
             ) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               enableMarkerHotkeys.deleteMarkerPair();
             }
             break;
           case 'KeyX':
             if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               drawCropOverlay(false);
             } else if (!e.ctrlKey && !e.altKey && e.shiftKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               drawCropOverlay(true);
             } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               toggleArrowKeyCropAdjustment();
             }
             break;
           case 'KeyC':
+            e.preventDefault();
+            e.stopImmediatePropagation();
             if (!e.ctrlKey && !e.shiftKey && e.altKey) {
               sendGfyRequests(playerInfo.url);
             } else if (!e.ctrlKey && e.shiftKey && e.altKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               requestGfycatAuth();
             }
             break;
           case 'KeyR':
             if (!e.ctrlKey && !e.shiftKey && !e.altKey && playerInfo.watchFlexy.theater) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               rotateVideo('clock');
             } else if (
               !e.ctrlKey &&
@@ -170,10 +227,16 @@
               e.altKey &&
               playerInfo.watchFlexy.theater
             ) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               rotateVideo('cclock');
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               toggleBigVideoPreviews();
             } else if (!e.ctrlKey && !e.shiftKey && !playerInfo.watchFlexy.theater) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               flashMessage('Please switch to theater mode to rotate video.', 'red');
             }
             break;
