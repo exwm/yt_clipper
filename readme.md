@@ -108,8 +108,10 @@
 - Marker pair settings set to `Inherit` will get their value from the global settings.
 - Global settings set to `Inherit` will get their value from the command line options or the `yt_clipper_auto_all_options.bat` prompt.
 - See [Encoding Settings Guide](#encoding-settings-guide) for more information and tips about the possible settings.
-- Marker Pair Overrides: ![yt_clipper_marker_pair_editor_overrides](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_marker_pair_editor_overrides.png)
-- Global Encode Settings: ![yt_clipper_globals_editor_additional_settings](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_globals_editor_additional_settings.png)
+- Marker Pair Overrides:
+  - ![yt_clipper_marker_pair_editor_overrides](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_marker_pair_editor_overrides.png)
+- Global Encode Settings: 
+  - ![yt_clipper_globals_editor_additional_settings](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_globals_editor_additional_settings.png)
 
 **shift+E/D:** Update all existing markers to default new marker speed(**E**) or crop(**D**).
 
@@ -168,6 +170,7 @@
 - Opens a pop-up window where captured frames are saved.
   - **Download** and **Delete** buttons are provided above each captured frame.
   - You may need to allow pop-ups from `youtube.com` in your browser settings.
+  ![yt_clipper_frame_capturer](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_frame_capturer.png)
 
 **alt+shift+Q** Trigger zipping of all captured frames for download.
 
@@ -183,7 +186,7 @@
 **G:** Toggle markers `json` file upload for reloading markers (must be from the same video).
 
 - Click `Choose File`, pick your markers `json` file, then click `Load`.
-  ![yt_clipper_load_markers](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_load_markers.png)
+  - ![yt_clipper_load_markers](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_load_markers.png)
 
 **alt+C:** Upload anonymously to gfycat.
 
@@ -243,7 +246,7 @@
 ### Gamma Correction
 
 - Play around with the `gamma` setting to bring back shadow or highlight detail.
-- Use **alt=shift+G** to preview `gamma values` with the `markup script`.
+- Use **alt+shift+G** to preview `gamma values` with the `markup script`.
 - A value of 1 does nothing. Use a value between 0 and 1 to bring back shadow detail and a value greater than 1 to bring back highlight detail.
 - Refer to this [gamma correction guide](https://www.cambridgeincolour.com/tutorials/gamma-correction.htm) for more details.
 
@@ -312,10 +315,15 @@ These dependencies are not required by the windows installation above.
 
 ## Markup Script Changelog
 
-- v0.0.79
-
+- v0.0.80
   - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
   - Use with `v3.4.1` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Add cropping of **alt+Q** captured video frames based on currently selected marker pair's crop.
+  - Fix speed adjusted marker pair duration not updating on speed change.
+  - Add duration before speed adjustment to marker pair editor.
+
+- v0.0.79
+
   - Add automatic disabling of browser default and add-on hotkeys when yt_clipper hotkeys are enabled.
   - Add activation of yt_clipper on all YouTube pages and load yt_clipper on navigation to a video.
     - Still requires refreshing the browser when navigating to a new video.
