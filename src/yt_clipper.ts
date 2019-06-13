@@ -2301,17 +2301,18 @@
 
     function createMarkerEditor(targetMarker: SVGRectElement) {
       const markerIndex = parseInt(targetMarker.getAttribute('idx'), 10) - 1;
-      const currentMarker = markers[markerIndex];
-      const startTime = toHHMMSSTrimmed(currentMarker.start);
-      const endTime = toHHMMSSTrimmed(currentMarker.end);
-      const speed = currentMarker.speed;
+      const markerPair = markers[markerIndex];
+      const startTime = toHHMMSSTrimmed(markerPair.start);
+      const endTime = toHHMMSSTrimmed(markerPair.end);
+      const speed = markerPair.speed;
+      const duration = toHHMMSSTrimmed(markerPair.end - markerPair.start);
       const speedAdjustedDuration = toHHMMSSTrimmed(
-        (currentMarker.end - currentMarker.start) / speed
+        (markerPair.end - markerPair.start) / speed
       );
-      const crop = currentMarker.crop;
+      const crop = markerPair.crop;
       const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
       const markerInputsDiv = document.createElement('div');
-      const overrides = currentMarker.overrides;
+      const overrides = markerPair.overrides;
       const vidstab = overrides.videoStabilization;
       const vidstabDesc = vidstab ? vidstab.desc : null;
       const vidstabDescGlobal = settings.videoStabilization
@@ -2355,8 +2356,10 @@
           <span> - </span>
           <span id="end-time">${endTime}</span>
           <span> - </span>
-          <span style="font-weight:bold;font-style:none">Output Duration: </span>
-          <span id="duration">${speedAdjustedDuration}
+          <span style="font-weight:bold;font-style:none">Duration: </span>
+          <span id="duration">${duration} / ${
+        markerPair.speed
+      } = ${speedAdjustedDuration}</span>
         </div>
       </div>
       <div id="marker-pair-overrides" class="yt_clipper-settings-editor" style="display:${markerPairOverridesEditorDisplay}">
@@ -2560,10 +2563,12 @@
 
     function updateMarkerPairDuration(markerPair: marker) {
       const speedAdjustedDurationSpan = document.getElementById('duration');
-      const speedAdjustedDuration = toHHMMSSTrimmed(
-        (markerPair.end - markerPair.start) / markerPair.speed
-      );
-      speedAdjustedDurationSpan.textContent = speedAdjustedDuration;
+      const duration = markerPair.end - markerPair.start;
+      const durationHHMMSS = toHHMMSSTrimmed(duration);
+      const speedAdjustedDurationHHMMSS = toHHMMSSTrimmed(duration / markerPair.speed);
+      speedAdjustedDurationSpan.textContent = `${durationHHMMSS} / ${
+        markerPair.speed
+      } = ${speedAdjustedDurationHHMMSS}`;
     }
     function addMarkerInputListeners(
       inputs: string[][],
