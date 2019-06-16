@@ -206,9 +206,9 @@
             }
             break;
           case 'KeyC':
-            e.preventDefault();
-            e.stopImmediatePropagation();
             if (!e.ctrlKey && !e.shiftKey && e.altKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               sendGfyRequests(playerInfo.url);
             } else if (!e.ctrlKey && e.shiftKey && e.altKey) {
               e.preventDefault();
