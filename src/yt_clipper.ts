@@ -13,11 +13,13 @@
 // @run-at       document-end
 // @license      MIT
 // @match        *://*.youtube.com/*
-// @require      https://cdn.jsdelivr.net/npm/file-saver@2.0.2/dist/FileSaver.min.js
-// @require      https://cdnjs.cloudflare.com/ajax/libs/jszip/3.2.0/jszip.min.js
 // @noframes
 // @grant        none
 // ==/UserScript==
+
+import { saveAs } from 'file-saver';
+import JSZip from 'jszip';
+
 (function() {
   'use strict';
   async function onLoadVideoPage(callback: Function) {
@@ -1869,7 +1871,7 @@
       return { frameNumber, totalFrames };
     }
 
-    function canvasBlobToPromise(canvas: HTMLCanvasElement) {
+    function canvasBlobToPromise(canvas: HTMLCanvasElement): Promise<Blob> {
       return new Promise((resolve) => {
         canvas.toBlob((blob) => resolve(blob));
       });
