@@ -10,7 +10,12 @@
   },
   "description": "add markers to youtube videos and generate clipped webms online or offline",
   "main": "./src/yt_clipper.ts",
+  "browserlist": [
+    "last 3 version"
+  ],
   "devDependencies": {
+    "@types/file-saver": "^2.0.1",
+    "@types/jszip": "^3.1.6",
     "npm-run-all": "^4.1.5",
     "prettier": "1.17.1",
     "typescript": "3.3.x"
@@ -21,8 +26,13 @@
     "build:ts:p": "run-s -c build:ts pretty",
     "build:py": "pyinstaller ./src/yt_clipper.py -F --workpath ./dist/py/ --distpath ./dist/py/ --specpath ./dist/py/spec",
     "build:all": "run-s -c build:ts:p build:py",
+    "bundle:w": "parcel watch --out-dir ./dist/js --no-hmr ./src/yt_clipper.ts",
+    "bundle:prod": "parcel build --no-minify 'test banner' --out-dir ./dist/js ./src/yt_clipper.ts",
     "clean:dist": "rm -r ./dist/*",
     "clean:sandbox": "rm -r ./sandbox/*"
   },
-  "dependencies": {}
+  "dependencies": {
+    "file-saver": "^2.0.2",
+    "jszip": "^3.2.1"
+  }
 }
