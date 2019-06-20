@@ -1,18 +1,27 @@
 {
   "compilerOptions": {
     "target": "es2017",
-    "lib": ["dom", "es2017"],
+    "lib": [
+      "dom",
+      "es2017"
+    ],
     "module": "none",
     "noImplicitAny": false,
     "removeComments": false,
     "preserveConstEnums": true,
     "sourceMap": true,
     "outDir": "./dist/js/",
+    "outFile": "./dist/js/yt_clipper.js",
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "newLine": "LF"
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "**/*.spec.ts"]
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/*.spec.ts"
+  ]
 }
