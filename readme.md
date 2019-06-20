@@ -1,5 +1,9 @@
 # yt_clipper
 
+## Notices
+
+- **NOTICE 1:** The namespace of the user script was recently changed and you may have two versions of the script installed simultaneously. Check your user script extension, and if this is the case, delete the older version.
+
 ## Browser Support
 
 - Works best on Chrome with the Tampermonkey extension and YouTube video in theater mode.
@@ -15,31 +19,32 @@
 ## Table of Contents
 
 - [yt_clipper](#ytclipper)
-  - [Browser Support](#browser-support)
-  - [Related Scripts](#related-scripts)
-  - [Table of Contents](#table-of-contents)
-  - [Terminology](#terminology)
-  - [Markup Script Hotkeys](#markup-script-hotkeys)
-    - [Marker Hotkeys](#marker-hotkeys)
-    - [Cropping Hotkeys](#cropping-hotkeys)
-    - [Video Playback and Preview Hotkeys](#video-playback-and-preview-hotkeys)
-    - [Frame Capturing Hotkeys](#frame-capturing-hotkeys)
-    - [Save and Upload Hotkeys](#save-and-upload-hotkeys)
-  - [Useful YouTube Controls](#useful-youtube-controls)
-  - [Tips](#tips)
-    - [User Script Tips](#user-script-tips)
-    - [Clipper Script Tips](#clipper-script-tips)
-  - [Encoding Settings Guide](#encoding-settings-guide)
-    - [Articles on CRF and vp9 Encoding](#articles-on-crf-and-vp9-encoding)
-    - [Tips and Settings](#tips-and-settings)
-    - [Gamma Correction](#gamma-correction)
-  - [Clipper Script Source](#clipper-script-source)
-  - [Clipper Script Usage](#clipper-script-usage)
-  - [Clipper Script Installation](#clipper-script-installation)
-  - [Older Clipper Script Installation Releases](#older-clipper-script-installation-releases)
-  - [Clipper Script Dependencies](#clipper-script-dependencies)
-  - [Markup Script Changelog](#markup-script-changelog)
-  - [Clipper Script (Installation) Changelog](#clipper-script-installation-changelog)
+  - [Notices](#Notices)
+  - [Browser Support](#Browser-Support)
+  - [Related Scripts](#Related-Scripts)
+  - [Table of Contents](#Table-of-Contents)
+  - [Terminology](#Terminology)
+  - [Markup Script Hotkeys](#Markup-Script-Hotkeys)
+    - [Marker Hotkeys](#Marker-Hotkeys)
+    - [Cropping Hotkeys](#Cropping-Hotkeys)
+    - [Video Playback and Preview Hotkeys](#Video-Playback-and-Preview-Hotkeys)
+    - [Frame Capturing Hotkeys](#Frame-Capturing-Hotkeys)
+    - [Save and Upload Hotkeys](#Save-and-Upload-Hotkeys)
+  - [Useful YouTube Controls](#Useful-YouTube-Controls)
+  - [Tips](#Tips)
+    - [User Script Tips](#User-Script-Tips)
+    - [Clipper Script Tips](#Clipper-Script-Tips)
+  - [Encoding Settings Guide](#Encoding-Settings-Guide)
+    - [Articles on CRF and vp9 Encoding](#Articles-on-CRF-and-vp9-Encoding)
+    - [Tips and Settings](#Tips-and-Settings)
+    - [Gamma Correction](#Gamma-Correction)
+  - [Clipper Script Source](#Clipper-Script-Source)
+  - [Clipper Script Usage](#Clipper-Script-Usage)
+  - [Clipper Script Installation](#Clipper-Script-Installation)
+  - [Older Clipper Script Installation Releases](#Older-Clipper-Script-Installation-Releases)
+  - [Clipper Script Dependencies](#Clipper-Script-Dependencies)
+  - [Markup Script Changelog](#Markup-Script-Changelog)
+  - [Clipper Script (Installation) Changelog](#Clipper-Script-Installation-Changelog)
 
 ## Terminology
 
@@ -170,7 +175,8 @@
 - Opens a pop-up window where captured frames are saved.
   - **Download** and **Delete** buttons are provided above each captured frame.
   - You may need to allow pop-ups from `youtube.com` in your browser settings.
-    ![yt_clipper_frame_capturer](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_frame_capturer.png)
+
+  ![yt_clipper_frame_capturer](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_frame_capturer.png)
 
 **alt+shift+Q** Trigger zipping of all captured frames for download.
 
@@ -322,6 +328,7 @@ These dependencies are not required by the windows installation above.
   - Add cropping of **alt+Q** captured video frames based on currently selected marker pair's crop.
   - Fix speed adjusted marker pair duration not updating on speed change.
   - Add duration before speed adjustment to marker pair editor.
+  - **NOTICE:** The namespace of the user script was recently changed and you may have two versions of the script installed simultaneously. Check your user script extension, and if this is the case, delete the older version.
 
 - v0.0.79
 
