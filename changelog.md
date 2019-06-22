@@ -129,11 +129,19 @@
 
 ## Clipper Script (Installation) Changelog
 
-- v3.4.1:
+- v3.4.2:
 
   - See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
   - Use with `v0.0.77` or higher of the markup script.
     - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
+  - Update `youtube-dl` dependency to version [`2019.06.21`](https://github.com/ytdl-org/youtube-dl/releases/tag/2019.06.21).
+    - Fixes automatic fetching of YouTube videos.
+  - Windows: Add `yt_clipper_merge.bat` for merging webm video files on disk.
+    - See the [Merge Helper Bat Script Instructions](#merge-helper-bat-script).
+
+- v3.4.1:
+
+  - Use with `v0.0.77` or higher of the markup script.
   - Fix audio syncing issues where audio start time is always 0 and does not match video start time.
   - Fix color space detection for DASH video.
 

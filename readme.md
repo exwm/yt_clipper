@@ -41,6 +41,8 @@
   - [Clipper Script Source](#Clipper-Script-Source)
   - [Clipper Script Usage](#Clipper-Script-Usage)
   - [Clipper Script Installation](#Clipper-Script-Installation)
+    - [Windows Helper Bat Scripts](#Windows-Helper-Bat-Scripts)
+      - [Merge Helper Bat Script](#Merge-Helper-Bat-Script)
   - [Older Clipper Script Installation Releases](#Older-Clipper-Script-Installation-Releases)
   - [Clipper Script Dependencies](#Clipper-Script-Dependencies)
   - [Markup Script Changelog](#Markup-Script-Changelog)
@@ -279,12 +281,14 @@ python ./yt_clipper.py --json markers.json # automatically generate webms using 
 There is an installation that does not require the dependencies below.
 
 1. Extract the appropriate zip file anywhere:
-   - On _Windows_ download this [zip file (win_v3.4.1)](https://mega.nz/#!8TY3zCZZ!VF6-7hY9GzOvIRLive91bTzGWk40DfB0PQ3DHzyX8Q8)
-   - On _Mac_ download this [zip file (mac_v3.4.1)](https://mega.nz/#!lLAHkChR!oPhA9DWQaftp-UyclKgFp7SeFkoL-i6rhZ02y0SbVQQ)
-   - The latest install (`v3.4.1`) is **not compatible** with `v0.0.76` or lower of the `markup script`
+   - On _Windows_ download this [zip file (win_v3.4.2)](https://mega.nz/#!JSxgSCRT!MUbKxZAvyqp0xvpdKgtxBiq0ZR5NKLPVBbZaOmhacQ4)
+   - On _Mac_ download this [zip file (mac_v3.4.2)](https://mega.nz/#!EWxEDQrZ!vdS8XruaTFhKDYiad8AZRvOjC_To_ldrjpToRDlx3kY)
+   - The latest install (`v3.4.2`) is **not compatible** with `v0.0.76` or lower of the `markup script`
 2. Simply drag and drop the markers .json file onto the `yt_clipper.bat` file on Windows or the `yt_clipper_auto.app` file on Mac.
 3. All generated clips will be placed in `./webms/<markers-json-filename>`.
 4. Windows users may require [Microsoft Visual C++ 2010 Redistributable Package (x86)](https://www.microsoft.com/en-US/download/details.aspx?id=5555).
+
+### Windows Helper Bat Scripts
 
 For windows there are some alternative `bat` files for more options. They all work by dropping the markers json onto them:
 
@@ -305,6 +309,18 @@ FOR %%A IN (%*) DO (
 pause
 ```
 
+#### Merge Helper Bat Script
+
+The `yt_clipper_merge.bat` can be used to merge any webm files in any order:
+
+- Rename the webm files so they sort in ascending lexicographic order.
+- Select/highlight all webms to be merged in your file explorer.
+- Click and drag from the first webm and drop all webms onto the `bat`.
+- Check that all files are being dragged by checking the number shown when dragging.
+- The output file will be `-merged` appended to the first input file.
+- Example: If you have `input-1.webm`, `input-2.webm`, `input-3.webm`, highlight all three then click `input-1.webm` and drag all three onto `yt_clipper_merge.bat`.
+  - The output file will be `input-1-merged.webm`.
+
 ## Older Clipper Script Installation Releases
 
 You can find old releases in this folder: <https://mega.nz/#F!4HYDAKDS!NqS5Nk9heN7QBxvQapudeg>.
@@ -324,7 +340,7 @@ These dependencies are not required by the windows installation above.
 - v0.0.80
 
   - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
-  - Use with `v3.4.1` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Use with `v3.4.2` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
   - Add cropping of **alt+Q** captured video frames based on currently selected marker pair's crop.
   - Fix speed adjusted marker pair duration not updating on speed change.
   - Add duration before speed adjustment to marker pair editor.
@@ -402,11 +418,19 @@ These dependencies are not required by the windows installation above.
 
 ## Clipper Script (Installation) Changelog
 
-- v3.4.1:
+- v3.4.2:
 
   - See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
   - Use with `v0.0.77` or higher of the markup script.
     - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
+  - Update `youtube-dl` dependency to version [`2019.06.21`](https://github.com/ytdl-org/youtube-dl/releases/tag/2019.06.21).
+    - Fixes automatic fetching of YouTube videos.
+  - Windows: Add `yt_clipper_merge.bat` for merging webm video files on disk.
+    - See the [Merge Helper Bat Script Instructions](#merge-helper-bat-script).
+
+- v3.4.1:
+
+  - Use with `v0.0.77` or higher of the markup script.
   - Fix audio syncing issues where audio start time is always 0 and does not match video start time.
   - Fix color space detection for DASH video.
 
