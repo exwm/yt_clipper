@@ -184,7 +184,7 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              toggleSpeedAutoDucking();
+              toggleSpeedDucking();
             } else if (!e.ctrlKey && !e.shiftKey && e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
@@ -813,27 +813,31 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
       }
     }
 
-    const toggleSpeedAutoDucking = () => {
-      let _this = toggleSpeedAutoDucking;
-      if (_this.listenerAdded) {
-        playerInfo.video.removeEventListener('timeupdate', autoducking, false);
-        _this.listenerAdded = false;
+    let isSpeedDuckingEnabled = false;
+    const toggleSpeedDucking = () => {
+      if (isSpeedDuckingEnabled) {
+        isSpeedDuckingEnabled = false;
         flashMessage('Auto speed ducking disabled', 'red');
       } else {
-        playerInfo.video.addEventListener('timeupdate', autoducking, false);
-        _this.listenerAdded = true;
+        isSpeedDuckingEnabled = true;
+        requestAnimationFrame(updateSpeed);
         flashMessage('Auto speed ducking enabled', 'green');
       }
     };
 
-    function autoducking() {
+    function updateSpeed() {
       const shortestActiveMarkerPair = getShortestActiveMarkerPair();
       if (shortestActiveMarkerPair) {
-        const currentMarkerSlowdown = shortestActiveMarkerPair.speed;
-        if (player.getPlaybackRate() !== currentMarkerSlowdown) {
-          player.setPlaybackRate(currentMarkerSlowdown);
+        const markerPairSpeed = shortestActiveMarkerPair.speed;
+        if (player.getPlaybackRate() !== markerPairSpeed) {
+          player.setPlaybackRate(markerPairSpeed);
         }
       } else if (player.getPlaybackRate() !== 1) {
+        player.setPlaybackRate(1);
+      }
+      if (isSpeedDuckingEnabled) {
+        requestAnimationFrame(updateSpeed);
+      } else {
         player.setPlaybackRate(1);
       }
     }
@@ -860,35 +864,32 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
       return shortestActiveMarkerPair;
     }
 
+    let isMarkerLoopingEnabled = false;
     function toggleMarkerLooping() {
-      let _this = toggleMarkerLooping;
-      if (_this.listenerAdded) {
-        playerInfo.video.removeEventListener('timeupdate', markerLoopingHandler, false);
-        _this.listenerAdded = false;
+      if (isMarkerLoopingEnabled) {
+        isMarkerLoopingEnabled = false;
         flashMessage('Auto marker looping disabled', 'red');
       } else {
-        playerInfo.video.addEventListener('timeupdate', markerLoopingHandler, false);
-        _this.listenerAdded = true;
+        isMarkerLoopingEnabled = true;
+        requestAnimationFrame(loopMarkerPair);
         flashMessage('Auto marker looping enabled', 'green');
       }
     }
 
-    function markerLoopingHandler() {
+    function loopMarkerPair() {
       if (isMarkerEditorOpen && !wasDefaultsEditorOpen) {
-        const endMarker = prevSelectedMarkerPair;
-        if (endMarker) {
-          const idx = parseInt(endMarker.getAttribute('idx')) - 1;
-          const startMarkerTime = markerPairs[idx].start;
-          const endMarkerTime = markerPairs[idx].end;
-          const currentTime = video.currentTime;
-
+        if (prevSelectedMarkerPairIndex != null) {
+          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
           const isTimeBetweenMarkerPair =
-            startMarkerTime < currentTime && currentTime < endMarkerTime;
+            markerPair.start <= video.currentTime && video.currentTime <= markerPair.end;
           if (!isTimeBetweenMarkerPair) {
-            player.seekTo(startMarkerTime);
-            player.playVideo();
+            player.seekTo(markerPair.start);
           }
         }
+      }
+
+      if (isMarkerLoopingEnabled) {
+        requestAnimationFrame(loopMarkerPair);
       }
     }
 
@@ -923,12 +924,11 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
       }
       if (!isGammaPreviewOn) {
         video.style.filter = 'url(#gamma-filter)';
-        video.addEventListener('timeupdate', gammaPreviewHandler, false);
         isGammaPreviewOn = true;
+        requestAnimationFrame(gammaPreviewHandler);
         flashMessage('Gamma preview enabled', 'green');
       } else {
         video.style.filter = null;
-        video.removeEventListener('timeupdate', gammaPreviewHandler, false);
         isGammaPreviewOn = false;
         flashMessage('Gamma preview disabled', 'red');
       }
@@ -941,7 +941,7 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
         const markerPairGamma =
           shortestActiveMarkerPair.overrides.gamma || settings.gamma || 1;
         if (prevGammaVal !== markerPairGamma) {
-          console.log(`Updating gamma from ${prevGammaVal} to ${markerPairGamma}`);
+          // console.log(`Updating gamma from ${prevGammaVal} to ${markerPairGamma}`);
           gammaR.exponent.baseVal = markerPairGamma;
           gammaG.exponent.baseVal = markerPairGamma;
           gammaB.exponent.baseVal = markerPairGamma;
@@ -951,13 +951,17 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
         }
       } else {
         if (prevGammaVal !== 1) {
-          console.log(`Updating gamma from ${prevGammaVal} to 1`);
+          // console.log(`Updating gamma from ${prevGammaVal} to 1`);
           gammaR.exponent.baseVal = 1;
           gammaG.exponent.baseVal = 1;
           gammaB.exponent.baseVal = 1;
           gammaFilterSvg.setAttribute('width', '0');
           prevGammaVal = 1;
         }
+      }
+
+      if (isGammaPreviewOn) {
+        requestAnimationFrame(gammaPreviewHandler);
       }
     }
 
