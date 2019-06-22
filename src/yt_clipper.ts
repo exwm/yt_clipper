@@ -2804,6 +2804,7 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
       if (speedChartContainer) {
         speedChartContainer.style.display = 'block';
         isSpeedChartVisible = true;
+        requestAnimationFrame(updateSpeedChartTimeAnnotation);
       }
     }
     function hideSpeedChart() {
