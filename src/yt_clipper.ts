@@ -2699,14 +2699,30 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
         const currentTime = video.currentTime;
         const progress_pos = (currentTime / playerInfo.duration) * 100;
         const markerTimeSpan = document.getElementById(`${type}-time`);
+        const speedMap = markerPair.speedMap;
         marker.setAttribute('x', `${progress_pos}%`);
+        markerPair[type] = currentTime;
         if (type === 'start') {
           selectedStartMarkerOverlay.setAttribute('x', `${progress_pos}%`);
+          speedMap[0].x = currentTime;
+          markerPair.speedMap = speedMap.filter((speedPoint) => {
+            return speedPoint.x >= currentTime;
+          });
         } else if (type === 'end') {
+          speedMap[speedMap.length - 1].x = currentTime;
           selectedEndMarkerOverlay.setAttribute('x', `${progress_pos}%`);
+          markerPair.speedMap = speedMap.filter((speedPoint) => {
+            return speedPoint.x <= currentTime;
+          });
         }
-        markerPair[type] = currentTime;
         markerTimeSpan.textContent = `${toHHMMSSTrimmed(currentTime)}`;
+        if (speedChart) {
+          speedChart.config.data.datasets[0].data = markerPair.speedMap;
+          updateSpeedChartBounds(speedChart.config, markerPair.start, markerPair.end);
+          speedChart.update({
+            duration: 0,
+          });
+        }
         updateMarkerPairDuration(markerPair);
       };
 
