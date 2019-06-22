@@ -15,6 +15,7 @@
 // @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@0.6.0/dist/chartjs-plugin-datalabels.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js
 // @require      https://gitcdn.xyz/repo/exwm/chartjs-plugin-zoom/master/dist/chartjs-plugin-zoom.min.js
+// @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@0.5.7/chartjs-plugin-annotation.min.js
 // @run-at       document-end
 // @license      MIT
 // @match        *://*.youtube.com/*
@@ -813,35 +814,6 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
       }
     }
 
-    let isSpeedDuckingEnabled = false;
-    const toggleSpeedDucking = () => {
-      if (isSpeedDuckingEnabled) {
-        isSpeedDuckingEnabled = false;
-        flashMessage('Auto speed ducking disabled', 'red');
-      } else {
-        isSpeedDuckingEnabled = true;
-        requestAnimationFrame(updateSpeed);
-        flashMessage('Auto speed ducking enabled', 'green');
-      }
-    };
-
-    function updateSpeed() {
-      const shortestActiveMarkerPair = getShortestActiveMarkerPair();
-      if (shortestActiveMarkerPair) {
-        const markerPairSpeed = shortestActiveMarkerPair.speed;
-        if (player.getPlaybackRate() !== markerPairSpeed) {
-          player.setPlaybackRate(markerPairSpeed);
-        }
-      } else if (player.getPlaybackRate() !== 1) {
-        player.setPlaybackRate(1);
-      }
-      if (isSpeedDuckingEnabled) {
-        requestAnimationFrame(updateSpeed);
-      } else {
-        player.setPlaybackRate(1);
-      }
-    }
-
     function getShortestActiveMarkerPair(currentTime: number = video.currentTime) {
       const activeMarkerPairs = markerPairs.filter((markerPair) => {
         if (currentTime >= markerPair.start && currentTime <= markerPair.end) {
@@ -862,6 +834,81 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
       });
 
       return shortestActiveMarkerPair;
+    }
+
+    let isSpeedDuckingEnabled = false;
+    const toggleSpeedDucking = () => {
+      if (isSpeedDuckingEnabled) {
+        isSpeedDuckingEnabled = false;
+        flashMessage('Auto speed ducking disabled', 'red');
+      } else {
+        isSpeedDuckingEnabled = true;
+        requestAnimationFrame(updateSpeed);
+        flashMessage('Auto speed ducking enabled', 'green');
+      }
+    };
+
+    let prevSpeed = 1;
+    function updateSpeed() {
+      const shortestActiveMarkerPair = getShortestActiveMarkerPair();
+      if (shortestActiveMarkerPair) {
+        // const markerPairSpeed = shortestActiveMarkerPair.speed;
+        const markerPairSpeed = getSpeedMapping(
+          shortestActiveMarkerPair.speedMap,
+          video.currentTime
+        );
+        // console.log(markerPairSpeed);
+
+        if (prevSpeed !== markerPairSpeed) {
+          player.setPlaybackRate(markerPairSpeed);
+          prevSpeed = markerPairSpeed;
+        }
+      } else if (prevSpeed !== 1) {
+        player.setPlaybackRate(1);
+        prevSpeed = 1;
+      }
+
+      if (isSpeedDuckingEnabled) {
+        requestAnimationFrame(updateSpeed);
+      } else {
+        player.setPlaybackRate(1);
+        prevSpeed = 1;
+      }
+    }
+
+    function getSpeedMapping(speedMap: SpeedPoint[], time: number) {
+      let len = speedMap.length;
+      if (len === 2 && speedMap[0].y === speedMap[1].y) {
+        return speedMap[0].y;
+      }
+
+      len--;
+      let left: SpeedPoint;
+      let right: SpeedPoint;
+      for (let i = 0; i < len; ++i) {
+        if (speedMap[i].x <= time && time <= speedMap[i + 1].x) {
+          left = speedMap[i];
+          right = speedMap[i + 1];
+          break;
+        }
+      }
+
+      if (left && right) {
+        if (left.y === right.y) {
+          return left.y;
+        }
+        const slope = (right.y - left.y) / (right.x - left.x);
+        const intercept = left.y - slope * left.x;
+        const speed = slope * time + intercept;
+
+        if (isFinite(speed)) {
+          return speed;
+        } else {
+          return right.y;
+        }
+      } else {
+        return 1;
+      }
     }
 
     let isMarkerLoopingEnabled = false;
@@ -2304,7 +2351,9 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
             'html5-video-container'
           )[0];
           videoContainer.insertAdjacentElement('afterend', speedChartContainer);
+          isSpeedChartVisible = true;
           speedChart = new Chart('speedChartCanvas', SpeedChartSpec.options);
+          updateSpeedChartTimeAnnotation();
         } else {
           toggleSpeedChartVisibility();
         }
@@ -2345,13 +2394,29 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
       }
     }
 
+    let speedChartMinBound: number;
+    let speedChartMaxBound: number;
     function updateSpeedChartBounds(chartConfig: ChartConfiguration, start, end) {
+      speedChartMinBound = start;
+      speedChartMaxBound = end;
       chartConfig.options.scales.xAxes[0].ticks.min = start;
       chartConfig.options.scales.xAxes[0].ticks.max = end;
       chartConfig.options.plugins.zoom.pan.rangeMin.x = start;
       chartConfig.options.plugins.zoom.pan.rangeMax.x = end;
       chartConfig.options.plugins.zoom.zoom.rangeMin.x = start;
       chartConfig.options.plugins.zoom.zoom.rangeMax.x = end;
+    }
+
+    function updateSpeedChartTimeAnnotation() {
+      const time = video.currentTime;
+      if (speedChartMinBound <= time && time <= speedChartMaxBound) {
+        speedChart.config.options.annotation.annotations[0].value = video.currentTime;
+        speedChart.update({ duration: 0 });
+      }
+
+      if (isSpeedChartVisible) {
+        requestAnimationFrame(updateSpeedChartTimeAnnotation);
+      }
     }
 
     function updateAllMarkers(updateTarget: string, newValue: string | number) {
