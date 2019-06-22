@@ -44,7 +44,7 @@ export const options: ChartConfiguration = {
     datasets: [
       {
         label: 'Speed',
-        cubicInterpolationMode: 'monotone',
+        lineTension: 1,
         data: [] as ChartPoint[],
         showLine: true,
         pointBackgroundColor: 'rgba(255, 0, 0, 0.7)',
@@ -61,6 +61,7 @@ export const options: ChartConfiguration = {
     elements: {
       line: {
         fill: true,
+        cubicInterpolationMode: 'monotone',
         backgroundColor: 'rgba(160,0, 255, 0.2)',
         borderColor: lightgrey(0.9),
         borderWidth: 2,
@@ -183,6 +184,19 @@ export const options: ChartConfiguration = {
           },
         },
       },
+    },
+    annotation: {
+      drawTime: 'afterDraw',
+      annotations: [
+        {
+          type: 'line',
+          mode: 'vertical',
+          scaleID: 'x-axis-1',
+          value: 2,
+          borderColor: 'red',
+          borderWidth: 1,
+        },
+      ],
     },
     onHover: (event, chartElement) => {
       event.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
