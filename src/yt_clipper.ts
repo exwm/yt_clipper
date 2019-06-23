@@ -25,10 +25,11 @@
 
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
-import Chart, { ChartConfiguration } from 'chart.js';
+import { Chart, ChartConfiguration } from 'chart.js';
 import * as SpeedChartSpec from './speed-chart-spec';
 import './chart.js-drag-data-plugin';
-import * as d3Ease from 'd3-ease';
+import { easeCubicInOut } from 'd3-ease';
+
 import {
   retryUntilTruthyResult,
   toHHMMSSTrimmed,
@@ -836,9 +837,9 @@ import {
         const duration = right.x - left.x;
         let easedTimePercentage: number;
         if (easingMode === 'cubicInOut') {
-          easedTimePercentage = d3Ease.easeCubicInOut(elapsed / duration);
+          easedTimePercentage = easeCubicInOut(elapsed / duration);
         } else if (easingMode === 'linear') {
-          easedTimePercentage = d3Ease.easeLinear(elapsed / duration);
+          easedTimePercentage = elapsed / duration;
         }
         const change = right.y - left.y;
         const rawSpeed = left.y + change * easedTimePercentage;
