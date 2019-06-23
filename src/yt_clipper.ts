@@ -28,6 +28,7 @@ import JSZip from 'jszip';
 import Chart, { ChartConfiguration } from 'chart.js';
 import * as SpeedChartSpec from './speed-chart-spec';
 import './chart.js-drag-data-plugin';
+import * as d3Ease from 'd3-ease';
 import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from './util';
 
 (function() {
@@ -163,11 +164,7 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              getSpeedData();
-            } else if (!e.ctrlKey && !e.shiftKey && e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
-              loadSpeedMap(speedChart);
+              toggleSpeedChartEasing();
             }
             break;
           case 'KeyD':
@@ -876,6 +873,7 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
       }
     }
 
+    const speedRoundMultiple = 0.05;
     function getSpeedMapping(speedMap: SpeedPoint[], time: number) {
       let len = speedMap.length;
       if (len === 2 && speedMap[0].y === speedMap[1].y) {
@@ -897,12 +895,20 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
         if (left.y === right.y) {
           return left.y;
         }
-        const slope = (right.y - left.y) / (right.x - left.x);
-        const intercept = left.y - slope * left.x;
-        const speed = slope * time + intercept;
-
-        if (isFinite(speed)) {
-          return speed;
+        const elapsed = video.currentTime - left.x;
+        const duration = right.x - left.x;
+        let easedTimePercentage: number;
+        if (easingMode === 'cubicInOut') {
+          easedTimePercentage = d3Ease.easeCubicInOut(elapsed / duration);
+        } else if (easingMode === 'linear') {
+          easedTimePercentage = d3Ease.easeLinear(elapsed / duration);
+        }
+        const change = right.y - left.y;
+        const rawSpeed = left.y + change * easedTimePercentage;
+        if (isFinite(rawSpeed)) {
+          const roundedSpeed =
+            Math.round(rawSpeed / speedRoundMultiple) * speedRoundMultiple;
+          return roundedSpeed;
         } else {
           return right.y;
         }
@@ -2360,10 +2366,17 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
       }
     }
 
-    function getSpeedData() {
+    let easingMode: 'linear' | 'cubicInOut' = 'linear';
+    function toggleSpeedChartEasing() {
       if (speedChart) {
-        console.log(SpeedChartSpec.options.data.datasets[0].data);
-        console.log(markerPairs[prevSelectedMarkerPairIndex].speedMap);
+        if (easingMode === 'linear') {
+          speedChart.data.datasets[0].lineTension = SpeedChartSpec.cubicInOutTension;
+          easingMode = 'cubicInOut';
+        } else {
+          speedChart.data.datasets[0].lineTension = 0;
+          easingMode = 'linear';
+        }
+        speedChart.update({ duration: 0 });
       }
     }
 

@@ -29,6 +29,8 @@ export const speedPointHHMMSSFormatter = (point) => {
   return `T:${+toHHMMSSTrimmed(point.x)}\nS:${+point.y.toFixed(2)}`;
 };
 
+export const cubicInOutTension = 0.6;
+
 export const global: ChartOptions & ChartFontOptions = {
   defaultColor: 'rgba(255, 255, 255, 1)',
   defaultFontSize: 16,
@@ -44,7 +46,7 @@ export const options: ChartConfiguration = {
     datasets: [
       {
         label: 'Speed',
-        lineTension: 1,
+        lineTension: 0,
         data: [] as ChartPoint[],
         showLine: true,
         pointBackgroundColor: 'rgba(255, 0, 0, 0.7)',
@@ -61,7 +63,6 @@ export const options: ChartConfiguration = {
     elements: {
       line: {
         fill: true,
-        cubicInterpolationMode: 'monotone',
         backgroundColor: 'rgba(160,0, 255, 0.2)',
         borderColor: lightgrey(0.9),
         borderWidth: 2,
