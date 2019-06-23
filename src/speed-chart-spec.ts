@@ -38,6 +38,7 @@ export const global: ChartOptions & ChartFontOptions = {
   defaultFontColor: lightgrey(1),
   maintainAspectRatio: false,
   hover: { mode: 'nearest' },
+  animation: { duration: 0 },
 };
 
 export const options: ChartConfiguration = {
@@ -215,7 +216,7 @@ export const options: ChartConfiguration = {
     onDragStart: function(e, chartInstance, element) {
       // console.log(e, element);
       chartInstance.options.plugins.zoom.pan.enabled = false;
-      chartInstance.update({ duration: 0 });
+      chartInstance.update();
     },
     onDrag: function(e, chartInstance, datasetIndex, index, fromValue, toValue) {
       // console.log(datasetIndex, index, fromValue, toValue);
@@ -268,7 +269,7 @@ export const options: ChartConfiguration = {
           });
 
           this.data.datasets[0].data.sort(sortX);
-          this.update({ duration: 0 });
+          this.update();
         }
       }
 
@@ -280,7 +281,7 @@ export const options: ChartConfiguration = {
           let dataRef = this.data.datasets[datasetIndex].data;
           if (dataRef[index].x !== 0 && dataRef[index].x !== 10) {
             dataRef.splice(index, 1);
-            this.update({ duration: 0 });
+            this.update();
           }
         }
       }
