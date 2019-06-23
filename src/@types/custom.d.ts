@@ -1,4 +1,4 @@
-import { ChartConfiguration, ChartOptions } from 'chart.js';
+import { ChartOptions } from 'chart.js';
 
 declare module 'chart.js' {
   interface ChartOptions {
