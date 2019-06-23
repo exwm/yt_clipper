@@ -2870,6 +2870,8 @@ import {
           if (updateTarget === 'crop') {
             createCropOverlay(newValue);
           } else if (updateTarget === 'speed') {
+            markerPair.speedMap[0].y = newValue;
+            speedChart && speedChart.update();
             updateMarkerPairDuration(markerPair);
           }
         } else {
