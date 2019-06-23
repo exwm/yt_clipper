@@ -49,7 +49,8 @@ def main():
 
     args["videoStabilization"] = getVidstabPreset(args["videoStabilization"])
     args["denoise"] = getDenoisePreset(args["denoise"])
-    settings = {'markerPairMergeList': '', 'rotate': 0, 'overlayPath': '', 'delay': 0,'colorspace' : None, **args}
+    settings = {'markerPairMergeList': '', 'rotate': 0,
+                'overlayPath': '', 'delay': 0, 'colorspace': None, **args}
 
     if settings["json"]:
         settings["isDashVideo"] = False
@@ -85,7 +86,8 @@ def main():
         settings["audio"] = False
         while True:
             try:
-                inputStr = input(f'Enter a valid marker pair number (between {1} and {len(settings["markers"])}) or quit(q): ')
+                inputStr = input(
+                    f'Enter a valid marker pair number (between {1} and {len(settings["markers"])}) or quit(q): ')
                 if inputStr == 'quit' or inputStr == 'q':
                     break
                 markerPairIndex = int(inputStr)
@@ -96,16 +98,17 @@ def main():
             if 0 <= markerPairIndex < len(settings["markers"]):
                 makeMarkerPairClip(settings, markerPairIndex)
             else:
-                logger.error(f'{markerPairIndex + 1} is not a valid marker pair number.')
+                logger.error(
+                    f'{markerPairIndex + 1} is not a valid marker pair number.')
             continue
-
 
 
 def setUpLogger():
     global logger
     loggerHandlers = [logging.StreamHandler()]
     if not settings["preview"]:
-        loggerHandlers.append(logging.FileHandler(filename=f'{webmsPath}/{settings["titleSuffix"]}.log', mode='a', encoding='utf-8'))
+        loggerHandlers.append(logging.FileHandler(
+            filename=f'{webmsPath}/{settings["titleSuffix"]}.log', mode='a', encoding='utf-8'))
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
@@ -117,8 +120,10 @@ def setUpLogger():
 def buildArgParser():
     parser = argparse.ArgumentParser(
         description='Generate trimmed webms from input video.')
-    parser.add_argument('infile', metavar='I', help='Input video path.')
-    parser.add_argument('--overlay', '-o', dest='overlay', help='overlay image path')
+    parser.add_argument('infile', metavar='I',
+                        help='Input video path.')
+    parser.add_argument('--overlay', '-o', dest='overlay',
+                        help='overlay image path')
     parser.add_argument('--multiply-crop', '-m', type=float, dest='cropMultiple', default=1,
                         help=('Multiply all crop dimensions by an integer. ' +
                               '(Helpful if you change resolutions: eg 1920x1080 * 2 = 3840x2160(4k)).'))
@@ -152,8 +157,9 @@ def buildArgParser():
                         help='Expand the output video color range to full (0-255).')
     parser.add_argument('--encode-speed', '-s', type=int, dest='encodeSpeed', choices=range(0, 6),
                         help='Set the vp9 encoding speed.')
-    parser.add_argument('--crf', type=int, help=('Set constant rate factor (crf). Default is 30 for video file input.' +
-                                                 'Automatically set to a factor of the detected video bitrate when using --json or --url.'))
+    parser.add_argument('--crf', type=int,
+                        help=('Set constant rate factor (crf). Default is 30 for video file input.' +
+                              'Automatically set to a factor of the detected video bitrate when using --json or --url.'))
     parser.add_argument('--two-pass', '-tp', dest='twoPass', action='store_true',
                         help='Enable two-pass encoding. Improves quality at the cost of encoding speed.')
     parser.add_argument('--target-max-bitrate', '-b', dest='targetMaxBitrate', type=int,
@@ -208,6 +214,7 @@ def prepareGlobalSettings(settings):
 
     return settings
 
+
 def getMarkerPairSettings(settings, markerPairIndex):
     mp = markerPair = {**(settings["markers"][markerPairIndex])}
 
@@ -238,7 +245,6 @@ def getMarkerPairSettings(settings, markerPairIndex):
 
     mps = markerPairSettings = {**settings, **(mp["overrides"])}
 
-
     mp["exists"] = False
     if not mps["preview"]:
         if "titlePrefix" in mps:
@@ -267,6 +273,7 @@ def getMarkerPairSettings(settings, markerPairIndex):
     logger.info('-' * 80)
 
     return (markerPair, markerPairSettings)
+
 
 def makeMarkerPairClip(settings, markerPairIndex):
     mp, mps = getMarkerPairSettings(settings, markerPairIndex)
@@ -326,6 +333,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
         return runffmpegCommand(inputs, filter_complex, markerPairIndex, mp, mps)
     else:
         return runffplayCommand(inputs, filter_complex, filter_complex_before_correction, markerPairIndex, mp, mps)
+
 
 def runffmpegCommand(inputs, filter_complex, markerPairIndex, mp, mps):
     ffmpegCommand = ' '.join((
@@ -409,20 +417,22 @@ def runffmpegCommand(inputs, filter_complex, markerPairIndex, mp, mps):
         logger.info(f'Failed to generate: "{mp["fileName"]}"\n')
         return {**(settings["markers"][markerPairIndex])}
 
-def runffplayCommand(inputs, filter_complex, filter_complex_before_correction ,markerPairIndex, mp, mps):
+
+def runffplayCommand(inputs, filter_complex, filter_complex_before_correction, markerPairIndex, mp, mps):
     logger.info('running ffplay command')
     if 0 <= markerPairIndex < len(settings["markers"]):
         ffplayCommand = ' '.join((
-          ffplayPath,
-          inputs,
-          f'-fs -sync video -fast -genpts',
-          f'-loop 0 -t {mp["duration"]}',
-          f'-vf {filter_complex}',
-          f'-vf {filter_complex_before_correction}'
+            ffplayPath,
+            inputs,
+            f'-fs -sync video -fast -genpts',
+            f'-loop 0 -t {mp["duration"]}',
+            f'-vf {filter_complex}',
+            f'-vf {filter_complex_before_correction}'
         ))
         logger.info('Using ffplay command: ' +
                     re.sub(r'(&a?itags?.*?")', r'"', ffplayCommand) + '\n')
         ffplayProcess = subprocess.run(shlex.split(ffplayCommand))
+
 
 def makeMergedClips(settings):
     markerPairMergeList = settings["markerPairMergeList"]
@@ -548,7 +558,8 @@ def getVideoInfo(settings):
     settings["videoFPS"] = videoInfo["fps"]
     if dashVideoFormatID:
         settings["videoBitrate"] = int(videoInfo["tbr"])
-        _, settings["colorspace"], settings["fps"] = ffprobeVideoProperties(settings["videoUrl"])
+        _, settings["colorspace"], settings["fps"] = ffprobeVideoProperties(
+            settings["videoUrl"])
     else:
         settings["videoBitrate"], settings["colorspace"], settings["fps"] = ffprobeVideoProperties(
             settings["videoUrl"])
@@ -710,30 +721,37 @@ def cleanFileName(fileName):
 def getVidstabPreset(level):
     denoisePreset = {"enabled": False, "desc": "Disabled"}
     if level == 1:
-        denoisePreset = {"enabled": True, "shakiness" : 1, "optzoom": 2, "zoomspeed": 0.1,  "desc": "Very Weak"}
+        denoisePreset = {"enabled": True, "shakiness": 1,
+                         "optzoom": 2, "zoomspeed": 0.1,  "desc": "Very Weak"}
     elif level == 2:
-        denoisePreset = {"enabled": True, "shakiness" : 3, "optzoom": 2, "zoomspeed": 0.25,   "desc": "Weak"}
+        denoisePreset = {"enabled": True, "shakiness": 3,
+                         "optzoom": 2, "zoomspeed": 0.25,   "desc": "Weak"}
     elif level == 3:
-        denoisePreset = {"enabled": True, "shakiness" : 5, "optzoom": 2, "zoomspeed": 0.5,   "desc": "Medium"}
+        denoisePreset = {"enabled": True, "shakiness": 5,
+                         "optzoom": 2, "zoomspeed": 0.5,   "desc": "Medium"}
     elif level == 4:
-        denoisePreset = {"enabled": True, "shakiness" : 8, "optzoom": 2, "zoomspeed": 0.75,   "desc": "Strong"}
+        denoisePreset = {"enabled": True, "shakiness": 8,
+                         "optzoom": 2, "zoomspeed": 0.75,   "desc": "Strong"}
     elif level == 5:
-        denoisePreset = {"enabled": True, "shakiness" : 10, "optzoom": 1,   "desc": "Very Strong"}
+        denoisePreset = {"enabled": True, "shakiness": 10,
+                         "optzoom": 1,   "desc": "Very Strong"}
     return denoisePreset
 
 
 def getDenoisePreset(level):
     denoisePreset = {"enabled": False, "desc": "Disabled"}
     if level == 1:
-        denoisePreset = {"enabled": True, "lumaSpatial" : 1, "desc": "Very Weak"}
+        denoisePreset = {"enabled": True,
+                         "lumaSpatial": 1, "desc": "Very Weak"}
     elif level == 2:
-        denoisePreset = {"enabled": True, "lumaSpatial" : 2,  "desc": "Weak"}
+        denoisePreset = {"enabled": True, "lumaSpatial": 2,  "desc": "Weak"}
     elif level == 3:
-        denoisePreset = {"enabled": True, "lumaSpatial" : 4,  "desc": "Medium"}
+        denoisePreset = {"enabled": True, "lumaSpatial": 4,  "desc": "Medium"}
     elif level == 4:
-        denoisePreset = {"enabled": True, "lumaSpatial" : 6,  "desc": "Strong"}
+        denoisePreset = {"enabled": True, "lumaSpatial": 6,  "desc": "Strong"}
     elif level == 5:
-        denoisePreset = {"enabled": True, "lumaSpatial" : 8,  "desc": "Very Strong"}
+        denoisePreset = {"enabled": True,
+                         "lumaSpatial": 8,  "desc": "Very Strong"}
     return denoisePreset
 
 
