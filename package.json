@@ -32,7 +32,7 @@
     "build:all": "run-s -c build:ts:p build:py",
     "bundle:w": "parcel watch --out-dir ./dist/js --no-hmr ./src/yt_clipper.ts",
     "bundle:tc:w": "run-p -c build:ts:ne bundle:w",
-    "bundle:prod": "parcel build --no-minify 'test banner' --out-dir ./dist/js ./src/yt_clipper.ts",
+    "bundle:prod": "parcel build --experimental-scope-hoisting --no-minify --out-dir ./dist/js ./src/yt_clipper.ts",
     "clean:dist": "rm -r ./dist/*",
     "clean:sandbox": "rm -r ./sandbox/*"
   },
