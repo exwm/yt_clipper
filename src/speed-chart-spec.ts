@@ -1,22 +1,10 @@
 import { ChartConfiguration, ChartOptions, ChartFontOptions, ChartPoint } from 'chart.js';
-import { toHHMMSSTrimmed } from './util';
+import { createRounder, toHHMMSSTrimmed } from './util';
 
 const sortX = (a, b) => {
   if (a.x < b.x) return -1;
   if (a.x > b.x) return 1;
   return 0;
-};
-
-const roundValue = function(multiple: number, precision: number) {
-  return (value: number) => {
-    if (!isNaN(precision)) {
-      let roundedValue = Math.round(value / multiple) * multiple;
-      roundedValue =
-        Math.round(roundedValue * Math.pow(10, precision)) / Math.pow(10, precision);
-      return roundedValue;
-    }
-    return value;
-  };
 };
 
 const lightgrey = (opacity: number) => `rgba(90, 90, 90, ${opacity})`;
@@ -40,6 +28,9 @@ export const global: ChartOptions & ChartFontOptions = {
   hover: { mode: 'nearest' },
   animation: { duration: 0 },
 };
+
+const roundX = createRounder(0.1, 1);
+const roundY = createRounder(0.05, 2);
 
 export const options: ChartConfiguration = {
   type: 'scatter',
@@ -267,8 +258,8 @@ export const options: ChartConfiguration = {
         }
 
         if (valueX && valueY) {
-          valueX = roundValue(0.1, 1)(valueX);
-          valueY = roundValue(0.05, 2)(valueY);
+          valueX = roundX(valueX);
+          valueY = roundY(valueY);
 
           this.data.datasets[0].data.push({
             x: valueX,

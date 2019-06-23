@@ -35,6 +35,7 @@ import {
   toHHMMSSTrimmed,
   copyToClipboard,
   once,
+  createRounder,
   toHHMMSS,
   setAttributes,
   clampNumber,
@@ -811,7 +812,7 @@ import {
       }
     }
 
-    const speedRoundMultiple = 0.05;
+    const roundSpeed = createRounder(0.05, 2);
     function getSpeedMapping(speedMap: SpeedPoint[], time: number) {
       let len = speedMap.length;
       if (len === 2 && speedMap[0].y === speedMap[1].y) {
@@ -842,14 +843,9 @@ import {
           easedTimePercentage = elapsed / duration;
         }
         const change = right.y - left.y;
-        const rawSpeed = left.y + change * easedTimePercentage;
-        if (isFinite(rawSpeed)) {
-          const roundedSpeed =
-            Math.round(rawSpeed / speedRoundMultiple) * speedRoundMultiple;
-          return roundedSpeed;
-        } else {
-          return right.y;
-        }
+        const rawSpeed = left.y + change * easedTimePercentage || right.y;
+        const roundedSpeed = roundSpeed(rawSpeed);
+        return roundedSpeed;
       } else {
         return 1;
       }
