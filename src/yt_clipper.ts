@@ -1362,7 +1362,7 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
         </div>
       </div>
       <div id="global-marker-settings" class="yt_clipper-settings-editor">
-        <span style="font-weight:bold">Global Marker Settings: </span>
+        <span style="font-weight:bold">Global Settings: </span>
         <div class="editor-input-div">
           <span class="editor-input-label"> Title Suffix: </span>
           <input id="title-suffix-input" class="yt_clipper-input" value="${
@@ -2089,21 +2089,29 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
     function drawCropOverlay(verticalFill: boolean) {
       if (isDrawingCrop) {
         cancelDrawingCrop();
-      } else {
-        if (document.getElementById('crop-input')) {
-          const videoRect = player.getVideoContentRect();
-          const playerRect = player.getBoundingClientRect();
+      } else if (isSpeedChartVisible) {
+        flashMessage(
+          'Please toggle off the time-variable speed chart before drawing crop',
+          'olive'
+        );
+      } else if (isMarkerEditorOpen) {
+        const videoRect = player.getVideoContentRect();
+        const playerRect = player.getBoundingClientRect();
 
-          beginDrawHandler = (e: MouseEvent) =>
-            beginDraw(e, playerRect, videoRect, verticalFill);
-          playerInfo.video.addEventListener('mousedown', beginDrawHandler, {
-            once: true,
-            capture: true,
-          });
-          togglePlayerControls();
-          isDrawingCrop = true;
-          flashMessage('Begin drawing crop', 'green');
-        }
+        beginDrawHandler = (e: MouseEvent) =>
+          beginDraw(e, playerRect, videoRect, verticalFill);
+        playerInfo.video.addEventListener('mousedown', beginDrawHandler, {
+          once: true,
+          capture: true,
+        });
+        togglePlayerControls();
+        isDrawingCrop = true;
+        flashMessage('Begin drawing crop', 'green');
+      } else {
+        flashMessage(
+          'Please open the global settings or a marker pair editor before drawing crop',
+          'olive'
+        );
       }
     }
 
@@ -2363,6 +2371,11 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
         } else {
           toggleSpeedChartVisibility();
         }
+      } else {
+        flashMessage(
+          'Please open a marker pair editor before toggling the time-variable speed chart',
+          'olive'
+        );
       }
     }
 
@@ -2831,6 +2844,9 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
 
     function showSpeedChart() {
       if (speedChartContainer) {
+        if (isDrawingCrop) {
+          cancelDrawingCrop();
+        }
         speedChartContainer.style.display = 'block';
         isSpeedChartVisible = true;
         requestAnimationFrame(updateSpeedChartTimeAnnotation);
