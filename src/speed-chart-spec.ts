@@ -244,17 +244,17 @@ export const options: ChartConfiguration = {
       chartInstance.update({ duration: 0 });
     },
 
-    onClick: function(element, dataAtClick) {
-      if (element.shiftKey) {
+    onClick: function(event, dataAtClick) {
+      if (!event.ctrlKey && !event.altKey && event.shiftKey) {
         // console.log(element, dataAtClick);
 
         let scaleRef, valueX, valueY;
         for (var scaleKey in this.scales) {
           scaleRef = this.scales[scaleKey];
           if (scaleRef.isHorizontal() && scaleKey == 'x-axis-1') {
-            valueX = scaleRef.getValueForPixel(element.offsetX);
+            valueX = scaleRef.getValueForPixel(event.offsetX);
           } else if (scaleKey == 'y-axis-1') {
-            valueY = scaleRef.getValueForPixel(element.offsetY);
+            valueY = scaleRef.getValueForPixel(event.offsetY);
           }
         }
 
@@ -272,8 +272,8 @@ export const options: ChartConfiguration = {
         }
       }
 
-      if (element.altKey) {
-        const datum = this.getElementAtEvent(element)[0];
+      if (!event.ctrlKey && event.altKey && !event.shiftKey) {
+        const datum = this.getElementAtEvent(event)[0];
         if (datum) {
           const datasetIndex = datum['_datasetIndex'];
           const index = datum['_index'];
@@ -283,6 +283,10 @@ export const options: ChartConfiguration = {
             this.update({ duration: 0 });
           }
         }
+      }
+
+      if (event.ctrlKey && !event.altKey && !event.shiftKey) {
+        this.resetZoom();
       }
     },
   },
