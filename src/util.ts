@@ -1,9 +1,26 @@
-export function toHHMMSS(seconds: number) {
-  return new Date(seconds * 1000).toISOString().substr(11, 12);
+export async function retryUntilTruthyResult<R>(fn: () => R, wait = 100) {
+  let result: R = fn();
+  while (!result) {
+    console.log(`Retrying function: ${fn.name} because result was ${result}`);
+    result = fn();
+    await sleep(wait);
+  }
+  return result;
 }
 
-export function toHHMMSSTrimmed(seconds: number) {
-  return toHHMMSS(seconds).replace(/(00:)+(.*)/, '$2');
+export function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export function once(fn: Function, context: any) {
+  var result: Function;
+  return function() {
+    if (fn) {
+      result = fn.apply(context || this, arguments);
+      fn = null;
+    }
+    return result;
+  };
 }
 
 export function setAttributes(el: HTMLElement, attrs: {}) {
@@ -19,13 +36,14 @@ export function copyToClipboard(str: string) {
   document.body.removeChild(el);
 }
 
-export function once(fn: Function, context: any) {
-  var result: Function;
-  return function() {
-    if (fn) {
-      result = fn.apply(context || this, arguments);
-      fn = null;
-    }
-    return result;
-  };
+export function clampNumber(number: number, min: number, max: number) {
+  return Math.max(min, Math.min(number, max));
+}
+
+export function toHHMMSS(seconds: number) {
+  return new Date(seconds * 1000).toISOString().substr(11, 12);
+}
+
+export function toHHMMSSTrimmed(seconds: number) {
+  return toHHMMSS(seconds).replace(/(00:)+(.*)/, '$2');
 }
