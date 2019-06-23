@@ -240,6 +240,13 @@ export const options: ChartConfiguration = {
     },
     onDragEnd: function(e, chartInstance, datasetIndex, index, value) {
       // console.log(datasetIndex, index, value);
+      if (index === 0) {
+        const speedInput = document.getElementById('speed-input') as HTMLInputElement;
+        if (speedInput) {
+          speedInput.value = value.y.toString();
+          speedInput.dispatchEvent(new Event('change'));
+        }
+      }
       chartInstance.data.datasets[datasetIndex].data.sort(sortX);
       chartInstance.options.plugins.zoom.pan.enabled = true;
       chartInstance.update({ duration: 0 });
