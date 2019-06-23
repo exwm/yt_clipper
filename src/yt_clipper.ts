@@ -29,7 +29,15 @@ import Chart, { ChartConfiguration } from 'chart.js';
 import * as SpeedChartSpec from './speed-chart-spec';
 import './chart.js-drag-data-plugin';
 import * as d3Ease from 'd3-ease';
-import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from './util';
+import {
+  retryUntilTruthyResult,
+  toHHMMSSTrimmed,
+  copyToClipboard,
+  once,
+  toHHMMSS,
+  setAttributes,
+  clampNumber,
+} from './util';
 
 (function() {
   'use strict';
@@ -60,20 +68,6 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
     observer.observe(ytdapp, config);
   }
   onLoadVideoPage(loadytClipper);
-
-  async function retryUntilTruthyResult<R>(fn: () => R, wait = 100) {
-    let result: R = fn();
-    while (!result) {
-      console.log(`Retrying function: ${fn.name} because result was ${result}`);
-      result = fn();
-      await sleep(wait);
-    }
-    return result;
-  }
-
-  function sleep(ms: number) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
 
   async function loadytClipper() {
     console.log('Loading yt clipper markup script');
@@ -308,31 +302,6 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
     let isCropOverlayOpen = false;
     let isSpeedChartVisible = false;
     let checkGfysCompletedId: number;
-    interface MarkerPair {
-      start: number;
-      end: number;
-      crop: string;
-      speed: number;
-      speedMap: SpeedPoint[];
-      overrides: MarkerPairOverrides;
-    }
-    interface MarkerPairOverrides {
-      titlePrefix?: string;
-      gamma?: number;
-      encodeSpeed?: number;
-      crf?: number;
-      targetMaxBitrate?: number;
-      twoPass?: boolean;
-      denoise?: Denoise;
-      audio?: boolean;
-      expandColorRange?: boolean;
-      videoStabilization?: VideoStabilization;
-    }
-
-    interface SpeedPoint {
-      x: number;
-      y: number;
-    }
 
     let markerPairs: MarkerPair[] = [];
     let markerPairsHistory: MarkerPair[] = [];
@@ -405,38 +374,6 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
           player.seekBy(-1 / fps);
         }
       }
-    }
-    interface VideoStabilization {
-      enabled: boolean;
-      shakiness: number;
-      desc: string;
-    }
-    interface Denoise {
-      enabled: boolean;
-      lumaSpatial: number;
-      desc: string;
-    }
-    interface Settings {
-      videoID: string;
-      videoTitle: string;
-      newMarkerSpeed: number;
-      newMarkerCrop: string;
-      titleSuffix: string;
-      isVerticalVideo: boolean;
-      cropRes: string;
-      cropResWidth: number;
-      cropResHeight: number;
-      markerPairMergeList: string;
-      encodeSpeed?: number;
-      crf?: number;
-      targetMaxBitrate?: number;
-      rotate?: '0' | 'clock' | 'cclock';
-      gamma?: number;
-      twoPass?: boolean;
-      denoise?: Denoise;
-      audio?: boolean;
-      expandColorRange?: boolean;
-      videoStabilization?: VideoStabilization;
     }
     let settings: Settings;
     let markersSvg: SVGSVGElement;
@@ -1187,8 +1124,8 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
         settings = _settings;
         markerPairs.length = 0;
         markersJson.markers.forEach((marker: MarkerPair) => {
-          const startMarkerConfig: markerConfig = { time: marker.start, type: 'start' };
-          const endMarkerConfig: markerConfig = {
+          const startMarkerConfig: MarkerConfig = { time: marker.start, type: 'start' };
+          const endMarkerConfig: MarkerConfig = {
             time: marker.end,
             type: 'end',
             crop: marker.crop,
@@ -1206,14 +1143,7 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
       markerPairOverridesEditorDisplay: 'none',
     };
 
-    interface markerConfig {
-      time?: number;
-      type?: 'start' | 'end';
-      speed?: number;
-      crop?: string;
-      overrides?: MarkerPairOverrides;
-    }
-    function addMarkerSVGRect(markerConfig: markerConfig = {}) {
+    function addMarkerSVGRect(markerConfig: MarkerConfig = {}) {
       const marker = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       markersSvg.appendChild(marker);
 
@@ -1254,7 +1184,7 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
       return currentFrameTime;
     }
 
-    function updateMarkerPairsArray(currentTime: number, markerPairConfig: markerConfig) {
+    function updateMarkerPairsArray(currentTime: number, markerPairConfig: MarkerConfig) {
       const speed = markerPairConfig.speed || settings.newMarkerSpeed;
       const updatedMarker: MarkerPair = {
         start: startTime,
@@ -1776,9 +1706,6 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
           break;
       }
       return [x, y, w, h];
-    }
-    function clampNumber(number: number, min: number, max: number) {
-      return Math.max(min, Math.min(number, max));
     }
 
     function addMarkerPairMergeListDurationsListener() {
@@ -2389,7 +2316,7 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
           speedChart.data.datasets[0].lineTension = 0;
           easingMode = 'linear';
         }
-        speedChart.update({ duration: 0 });
+        speedChart.update();
       }
     }
 
@@ -2410,9 +2337,7 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
               markerPair.start,
               markerPair.end
             );
-            speedChart.update({
-              duration: 0,
-            });
+            speedChart.update();
           } else {
             updateSpeedChartBounds(chartOrChartConfig, markerPair.start, markerPair.end);
           }
@@ -2437,7 +2362,7 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
       const time = video.currentTime;
       if (speedChartMinBound <= time && time <= speedChartMaxBound) {
         speedChart.config.options.annotation.annotations[0].value = video.currentTime;
-        speedChart.update({ duration: 0 });
+        speedChart.update();
       }
 
       if (isSpeedChartVisible) {
@@ -2761,9 +2686,7 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
         if (speedChart) {
           speedChart.config.data.datasets[0].data = markerPair.speedMap;
           updateSpeedChartBounds(speedChart.config, markerPair.start, markerPair.end);
-          speedChart.update({
-            duration: 0,
-          });
+          speedChart.update();
         }
         updateMarkerPairDuration(markerPair);
       };
