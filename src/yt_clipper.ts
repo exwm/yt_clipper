@@ -2441,12 +2441,28 @@ import { toHHMMSSTrimmed, copyToClipboard, once, toHHMMSS, setAttributes } from 
           marker[updateTarget] = newValue;
         });
       }
-      if (updateTarget === 'speed' && isMarkerEditorOpen && wasDefaultsEditorOpen) {
-        const markerPairMergeListInput = document.getElementById('merge-list-input');
-        if (markerPairMergeListInput) {
+      if (updateTarget === 'speed' && isMarkerEditorOpen) {
+        if (wasDefaultsEditorOpen) {
+          const markerPairMergeListInput = document.getElementById('merge-list-input');
           markerPairMergeListInput.dispatchEvent(new Event('change'));
+        } else {
+          const speedInput = document.getElementById('speed-input') as HTMLInputElement;
+          speedInput.value = newValue.toString();
+          speedInput.dispatchEvent(new Event('change'));
         }
       }
+
+      if (
+        updateTarget === 'crop' &&
+        typeof newValue === 'string' &&
+        isMarkerEditorOpen &&
+        !wasDefaultsEditorOpen
+      ) {
+        const cropInput = document.getElementById('crop-input') as HTMLInputElement;
+        cropInput.value = newValue;
+        cropInput.dispatchEvent(new Event('change'));
+      }
+
       flashMessage(`All marker ${updateTarget}s updated to ${newValue}`, 'olive');
     }
 
