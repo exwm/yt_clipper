@@ -36,6 +36,18 @@ function getElement(chartInstance, callback) {
   };
 }
 
+export function createRounder(multiple, precision) {
+  return (value) => {
+    const roundedValue = Math.round(value / multiple) * multiple;
+    const roundedValueFixedPrecision = +roundedValue.toFixed(precision);
+    return roundedValueFixedPrecision;
+  };
+}
+
+export function roundValue(value, multiple, precision) {
+  return createRounder(multiple, precision)(value);
+}
+
 function updateData(chartInstance, callback) {
   return () => {
     if (element && event) {
@@ -47,21 +59,8 @@ function updateData(chartInstance, callback) {
       const roundMultipleY = chartInstance.options.dragDataRoundMultipleY;
       const roundPrecisionY = chartInstance.options.dragDataRoundPrecisionY;
 
-      const roundValue = function(multiple, precision) {
-        return (value) => {
-          if (!isNaN(precision)) {
-            let roundedValue = Math.round(value / multiple) * multiple;
-            roundedValue =
-              Math.round(roundedValue * Math.pow(10, precision)) /
-              Math.pow(10, precision);
-            return roundedValue;
-          }
-          return value;
-        };
-      };
-
-      const roundX = roundValue(roundMultipleX, roundPrecisionX);
-      const roundY = roundValue(roundMultipleY, roundPrecisionY);
+      const roundX = createRounder(roundMultipleX, roundPrecisionX);
+      const roundY = createRounder(roundMultipleY, roundPrecisionY);
 
       let x;
       let y;

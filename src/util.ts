@@ -36,6 +36,18 @@ export function copyToClipboard(str: string) {
   document.body.removeChild(el);
 }
 
+export function createRounder(multiple: number, precision: number) {
+  return (value: number) => {
+    const roundedValue = Math.round(value / multiple) * multiple;
+    const roundedValueFixedPrecision = +roundedValue.toFixed(precision);
+    return roundedValueFixedPrecision;
+  };
+}
+
+export function roundValue(value: number, multiple: number, precision: number) {
+  return createRounder(multiple, precision)(value);
+}
+
 export function clampNumber(number: number, min: number, max: number) {
   return Math.max(min, Math.min(number, max));
 }
