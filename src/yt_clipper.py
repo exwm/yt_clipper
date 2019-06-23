@@ -380,7 +380,7 @@ def makeMergedClips(settings):
                 break
 
         inputsTxtPath = f'{webmsPath}/inputs.txt'
-        with open(inputsTxtPath, "w+") as inputsTxt:
+        with open(inputsTxtPath, "w+", encoding='utf-8') as inputsTxt:
             inputsTxt.write(inputs)
         mergedFileName = f'{settings["titleSuffix"]}-({merge}).webm'
         mergedFilePath = f'{webmsPath}/{mergedFileName}'
@@ -562,7 +562,7 @@ def filterDash(dashManifestUrl, dashFormatIDs):
             rep.parentNode.removeChild(rep)
 
     filteredDashPath = f'{webmsPath}/filtered-dash.xml'
-    with open(filteredDashPath, 'w+') as filteredDash:
+    with open(filteredDashPath, 'w+', encoding='utf-8') as filteredDash:
         filteredDash.write(dashdom.toxml())
 
     return filteredDashPath
@@ -602,7 +602,7 @@ def uploadToGfycat(settings):
         http = urllib3.PoolManager()
 
         for outPath in outPaths:
-            with open(outPath, 'rb') as fp:
+            with open(outPath, 'rb', encoding='utf-8') as fp:
                 file_data = fp.read()
             encoded_args = urlencode({'title': f'{outPath}'})
             url = UPLOAD_KEY_REQUEST_ENDPOINT + encoded_args
