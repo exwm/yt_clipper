@@ -2291,6 +2291,17 @@ import {
           videoContainer.insertAdjacentElement('afterend', speedChartContainer);
           isSpeedChartVisible = true;
           speedChart = new Chart('speedChartCanvas', SpeedChartSpec.options);
+          speedChart.ctx.canvas.removeEventListener(
+            'wheel',
+            speedChart.$zoom._wheelHandler
+          );
+          const wheelHandler = speedChart.$zoom._wheelHandler;
+          speedChart.$zoom._wheelHandler = (e: MouseEvent) => {
+            if (e.ctrlKey && !e.altKey && !e.shiftKey) {
+              wheelHandler(e);
+            }
+          };
+          speedChart.ctx.canvas.addEventListener('wheel', speedChart.$zoom._wheelHandler);
           updateSpeedChartTimeAnnotation();
         } else {
           toggleSpeedChartVisibility();
