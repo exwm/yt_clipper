@@ -34,6 +34,10 @@ if getattr(sys, 'frozen', False):
     ffmpegPath = './bin/ffmpeg'
     ffprobePath = './bin/ffprobe'
     ffplayPath = './bin/ffplay'
+    if sys.platform == 'win32':
+        ffmpegPath += '.exe'
+        ffprobePath += '.exe'
+        ffplayPath += '.exe'
     if sys.platform == 'darwin':
         os.environ['SSL_CERT_FILE'] = "certifi/cacert.pem"
 
@@ -54,17 +58,16 @@ def main():
     settings = {'markerPairMergeList': '', 'rotate': 0,
                 'overlayPath': '', 'delay': 0, 'colorspace': None, **args}
 
-    if settings["json"]:
-        settings["isDashVideo"] = False
-        settings["isDashAudio"] = False
-        with open(settings["infile"], 'r', encoding='utf-8-sig') as file:
-            markersJson = file.read()
-            settings = loadMarkers(markersJson, settings)
-        settings["url"] = True
-        settings["videoTitle"] = re.sub('"', '',  settings["videoTitle"])
-        settings["markersDataFileStem"] = Path(settings["infile"]).stem
-        settings["titleSuffix"] = settings["markersDataFileStem"]
-        webmsPath += f'/{settings["titleSuffix"]}'
+    settings["isDashVideo"] = False
+    settings["isDashAudio"] = False
+
+    with open(settings["json"], 'r', encoding='utf-8-sig') as file:
+        markersJson = file.read()
+        settings = loadMarkers(markersJson, settings)
+    settings["videoTitle"] = re.sub('"', '',  settings["videoTitle"])
+    settings["markersDataFileStem"] = Path(settings["json"]).stem
+    settings["titleSuffix"] = settings["markersDataFileStem"]
+    webmsPath += f'/{settings["titleSuffix"]}'
 
     if not settings["preview"]:
         os.makedirs(f'{webmsPath}', exist_ok=True)
@@ -72,11 +75,46 @@ def main():
 
     logger.info(f'Version: {__version__}')
     logger.info('-' * 80)
-    settings = prepareGlobalSettings(settings)
 
-    if len(settings["markers"]) == 0:
-        logger.warn('There are no marker pairs to process. Exiting.')
-        sys.exit()
+    settings["downloadVideoPath"] = f'{webmsPath}/{settings["titleSuffix"]}'
+
+    if not settings["inputVideo"] and not settings["downloadVideo"] and settings["preview"]:
+        logger.warning(
+            "Preview mode was enabled without providing a local input video and video downloading disabled.")
+        logger.warning(
+            "Automatic fetching of video stream chunks provides a poor preview experience.")
+        logger.warning(
+            "When previewing, a local video file uses less memory and does not require re-streaming from the internet on seek with right-click.")
+        logger.warning(
+            "A local video also enables toggling of video correction filters with W.")
+        logger.info(
+            "Note that you may be able to drag and drop the input video file at the following prompt.")
+        try:
+            settings["inputVideo"] = input(
+                f'Provide an input video path or press enter to continue: ')
+            if settings["inputVideo"] == '':
+                logger.info(
+                    f'The video can also be downloaded before previewing to the path: "{settings["downloadVideoPath"]}"')
+                logger.info(
+                    "Note the file extension will be automatically determined.")
+                logger.info(
+                    "If the file already exists it will be used as is without re-downloading.")
+                downloadVideo = input(
+                    f'Would you like to automatically download the video? (y/n): ')
+                if downloadVideo == 'yes' or downloadVideo == 'y':
+                    settings["downloadVideo"] = True
+        except:
+            pass
+
+    if settings["inputVideo"]:
+        if not Path(settings["inputVideo"]).is_file():
+            logger.error(
+                f'Input video file "{settings["inputVideo"]}" does not exist or is not a file.')
+            logger.error(f'Exiting...')
+            sys.exit()
+        settings = getVideoInfo(settings, {})
+    else:
+        settings = prepareGlobalSettings(settings)
 
     if not settings["preview"]:
         for markerPairIndex, marker in enumerate(settings["markers"]):
@@ -85,7 +123,6 @@ def main():
         if settings["markerPairMergeList"] != '':
             makeMergedClips(settings)
     else:
-        settings["audio"] = False
         while True:
             try:
                 inputStr = input(
@@ -95,8 +132,8 @@ def main():
                 markerPairIndex = int(inputStr)
                 markerPairIndex -= 1
             except ValueError:
-                logger.error(f'{markerPairIndex} is not a valid number.')
-
+                logger.error(f'{inputStr} is not a valid number.')
+                continue
             if 0 <= markerPairIndex < len(settings["markers"]):
                 makeMarkerPairClip(settings, markerPairIndex)
             else:
@@ -122,8 +159,13 @@ def setUpLogger():
 def buildArgParser():
     parser = argparse.ArgumentParser(
         description='Generate trimmed webms from input video.')
-    parser.add_argument('infile', metavar='I',
+    parser.add_argument('--input-video', '-i', dest='inputVideo', default='',
                         help='Input video path.')
+    parser.add_argument('--download-video', '-dv', action='store_true', dest='downloadVideo',
+                        help='Download video from the internet and use as input video for processing marker data.')
+    parser.add_argument('--markers-json', '-j', required=True, dest='json',
+                        help=('Specify markers json path for generating webms from input video.' +
+                              'Automatically streams required portions of input video from the internet if it is not otherwise specified.'))
     parser.add_argument('--overlay', '-o', dest='overlay',
                         help='overlay image path')
     parser.add_argument('--multiply-crop', '-m', type=float, dest='cropMultiple', default=1,
@@ -137,8 +179,6 @@ def buildArgParser():
                         help='upload all output webms to gfycat and print reddit markdown with all links')
     parser.add_argument('--audio', '-a', action='store_true',
                         help='Enable audio in output webms.')
-    parser.add_argument('--json', '-j', action='store_true',
-                        help='Read in markers json file and automatically create webms.')
     parser.add_argument('--format', '-f', default='bestvideo+(bestaudio[acodec=opus]/bestaudio[acodec=vorbis]/bestaudio)',
                         help='Specify format string passed to youtube-dl.')
     parser.add_argument('--extra-video-filters', '-evf', dest='extraVideoFilters', default='',
@@ -161,12 +201,12 @@ def buildArgParser():
                         help='Set the vp9 encoding speed.')
     parser.add_argument('--crf', type=int,
                         help=('Set constant rate factor (crf). Default is 30 for video file input.' +
-                              'Automatically set to a factor of the detected video bitrate when using --json or --url.'))
+                              'Automatically set to a factor of the detected video bitrate'))
     parser.add_argument('--two-pass', '-tp', dest='twoPass', action='store_true',
                         help='Enable two-pass encoding. Improves quality at the cost of encoding speed.')
     parser.add_argument('--target-max-bitrate', '-b', dest='targetMaxBitrate', type=int,
                         help=('Set target max bitrate in kilobits/s. Constrains bitrate of complex scenes.' +
-                              'Automatically set based on detected video bitrate when using --json or --url.'))
+                              'Automatically set based on detected video bitrate.'))
     parser.add_argument('--no-auto-scale-crop-res', dest='noAutoScaleCropRes', action='store_true',
                         help=('Disable automatically scaling the crop resolution when a mismatch with video resolution is detected.'))
     parser.add_argument('--preview', action='store_true',
@@ -178,28 +218,99 @@ def buildArgParser():
 def loadMarkers(markersJson, settings):
     markersDict = json.loads(markersJson)
     settings = {**settings, **markersDict}
-    settings["videoUrl"] = 'https://www.youtube.com/watch?v=' + \
+    settings["videoURL"] = 'https://www.youtube.com/watch?v=' + \
         settings["videoID"]
 
     return settings
 
 
+def getVideoURL(settings):
+    from youtube_dl import YoutubeDL
+
+    ydl_opts = {'format': settings["format"], 'forceurl': True, 'ffmpeg_location': ffmpegPath,
+                'outtmpl': f'{settings["downloadVideoPath"]}.%(ext)s'}
+    ydl = YoutubeDL(ydl_opts)
+    if settings["downloadVideo"]:
+        ydl_info = ydl.extract_info(settings["videoURL"], download=True)
+    else:
+        ydl_info = ydl.extract_info(settings["videoURL"], download=False)
+
+    if 'requested_formats' in ydl_info:
+        rf = ydl_info["requested_formats"]
+        videoInfo = rf[0]
+    else:
+        videoInfo = ydl_info
+
+    dashFormatIDs = []
+    dashVideoFormatID = None
+    dashAudioFormatID = None
+
+    if settings["downloadVideo"]:
+        settings["inputVideo"] = f'{webmsPath}/{settings["titleSuffix"]}.{videoInfo["ext"]}'
+    else:
+        if videoInfo["protocol"] == 'http_dash_segments':
+            settings["isDashVideo"] = True
+            dashVideoFormatID = videoInfo["format_id"]
+            dashFormatIDs.append(dashVideoFormatID)
+        else:
+            settings["videoURL"] = videoInfo["url"]
+
+        if 'requested_formats' in ydl_info:
+            audioInfo = rf[1]
+            settings["audiobr"] = int(audioInfo["tbr"])
+
+            if audioInfo["protocol"] == 'http_dash_segments':
+                settings["isDashAudio"] = True
+                dashAudioFormatID = audioInfo["format_id"]
+                dashFormatIDs.append(dashAudioFormatID)
+            else:
+                settings["audioURL"] = audioInfo["url"]
+
+        if dashFormatIDs:
+            filteredDashPath = filterDash(videoInfo["url"], dashFormatIDs)
+            if settings["isDashVideo"]:
+                settings["videoURL"] = filteredDashPath
+            if settings["isDashAudio"]:
+                settings["audioURL"] = filteredDashPath
+
+    return getVideoInfo(settings, videoInfo)
+
+
+def getVideoInfo(settings, videoInfo):
+    if settings["inputVideo"]:
+        settings = {**settings, **videoInfo, **
+                    ffprobeVideoProperties(settings["inputVideo"])}
+    else:
+        settings = {**settings, **videoInfo, **
+                    ffprobeVideoProperties(settings["videoURL"])}
+
+    if settings["isDashVideo"]:
+        settings["bit_rate"] = int(videoInfo["tbr"])
+
+    logger.info(f'Video Title: {settings["videoTitle"]}')
+    logger.info(f'Video Width: {settings["width"]}')
+    logger.info(f'Video Height: {settings["height"]}')
+    logger.info(f'Video fps: {settings["r_frame_rate"]}')
+    logger.info(f'Detected Video Bitrate: {settings["bit_rate"]}kbps')
+
+    settings = autoSetCropMultiples(settings)
+
+    return settings
+
+
 def prepareGlobalSettings(settings):
-    logger.info(f'Video URL: {settings["videoUrl"]}')
+    logger.info(f'Video URL: {settings["videoURL"]}')
     logger.info(
         f'Merge List: {settings["markerPairMergeList"] if settings["markerPairMergeList"] else "None"}')
 
-    if settings["url"]:
-        settings = getVideoInfo(settings)
-        encodeSettings = getDefaultEncodeSettings(settings["videoBitrate"])
-    else:
-        encodeSettings = getDefaultEncodeSettings(None)
+    settings = getVideoURL(settings)
+    encodeSettings = getDefaultEncodeSettings(settings["bit_rate"])
 
     logger.info('-' * 80)
     unknownColorSpaceMsg = "unknown (bt709 will be assumed for color range operations)"
     logger.info((f'Automatically determined encoding settings: CRF: {encodeSettings["crf"]} (0-63), ' +
                  f'Auto Target Max Bitrate: {encodeSettings["autoTargetMaxBitrate"]}kbps, ' +
-                 f'Detected Color Space: {settings["colorspace"] if settings["colorspace"] else  unknownColorSpaceMsg}, ' +
+                 f'Detected Color Space: {settings["color_space"] if settings["color_space"] else  unknownColorSpaceMsg}, ' +
                  f'Two-pass Encoding Enabled: {encodeSettings["twoPass"]}, ' +
                  f'Encoding Speed: {encodeSettings["encodeSpeed"]} (0-5)'))
 
@@ -207,7 +318,7 @@ def prepareGlobalSettings(settings):
 
     logger.info('-' * 80)
     logger.info((f'Global Encoding Settings: CRF: {settings["crf"]} (0-63), ' +
-                 f'Detected Bitrate: {settings["videoBitrate"]}kbps, ' +
+                 f'Detected Bitrate: {settings["bit_rate"]}kbps, ' +
                  f'Global Target Max Bitrate: {str(settings["targetMaxBitrate"]) + "kbps" if "targetMaxBitrate" in settings else "None"}, ' +
                  f'Two-pass Encoding Enabled: {settings["twoPass"]}, Encoding Speed: {settings["encodeSpeed"]} (0-5), ' +
                  f'Audio Enabled: {settings["audio"]}, Denoise: {settings["denoise"]["desc"]}, Rotate: {settings["rotate"]}, ' +
@@ -226,17 +337,17 @@ def getMarkerPairSettings(settings, markerPairIndex):
     if crops[2] != 'iw':
         crops[2] = settings["cropMultipleX"] * int(crops[2])
     else:
-        crops[2] = settings["videoWidth"]
+        crops[2] = settings["width"]
     crops[1] = settings["cropMultipleY"] * int(crops[1])
     if crops[3] != 'ih':
         crops[3] = settings["cropMultipleY"] * int(crops[3])
     else:
-        crops[3] = settings["videoHeight"]
+        crops[3] = settings["height"]
 
     bitrateCropFactor = (crops[2] * crops[3]) / \
-        (settings["videoWidth"] * settings["videoHeight"])
+        (settings["width"] * settings["height"])
     markerPairEncodeSettings = getDefaultEncodeSettings(
-        settings["videoBitrate"] * bitrateCropFactor)
+        settings["bit_rate"] * bitrateCropFactor)
     settings = {**markerPairEncodeSettings, **settings}
 
     if "targetMaxBitrate" in settings:
@@ -261,7 +372,8 @@ def getMarkerPairSettings(settings, markerPairIndex):
     mp["start"] = mp["start"] + mps["delay"]
     mp["end"] = mp["end"] + mps["delay"]
     mp["speed"] = (1 / mp["speed"])
-    mp["duration"] = (mp["end"] - mp["start"]) * mp["speed"]
+    mp["duration"] = mp["end"] - mp["start"]
+    mp["speedAdjustedDuration"] = mp["duration"] * mp["speed"]
 
     titlePrefixLogMsg = f'Title Prefix: {mps["titlePrefix"] if "titlePrefix" in mps else ""}'
     logger.info('-' * 80)
@@ -284,60 +396,65 @@ def makeMarkerPairClip(settings, markerPairIndex):
         return {**(settings["markers"][markerPairIndex]), **mp}
 
     inputs = ''
-    filter_complex = ''
+    audio_filter = ''
+    video_filter = ''
 
     reconnectFlags = r'-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5'
-    if mps["url"] and not settings["isDashVideo"]:
-        inputs += reconnectFlags
-    inputs += f' -ss {mp["start"]} -i "{mps["videoUrl"]}" '
-    if not mps["preview"]:
-        filter_complex += f'[0:v]trim={0}:{mp["duration"]},setpts={mp["speed"]}*(PTS-STARTPTS)[slowed];'
-    else:
-        filter_complex += f'trim={mp["start"]}:{mp["end"]},setpts={mp["speed"]}*(PTS-STARTPTS)'
-        filter_complex += f',loop=loop=-1:size=({mps["fps"]}*{mp["duration"]})[slowed];'
-
     if mps["audio"]:
-        if mps["url"] and not settings["isDashAudio"]:
+        if not mps["inputVideo"] and not settings["isDashAudio"]:
             inputs += reconnectFlags
-        inputs += f' -ss {mp["start"]} -i "{mps["audioUrl"]}" '
-        if mps["url"]:
-            filter_complex += f'[1:a]atrim={0}:{mp["duration"]},atempo={1/mp["speed"]};'
-        else:
-            filter_complex += f'[0:a]atrim={0}:{mp["duration"]},atempo={1/mp["speed"]};'
+            inputs += f' -ss {mp["start"]} -i "{mps["audioURL"]}" '
+
+        audio_filter += f'[in]atrim={mp["start"]}:{mp["end"]},atempo={1/mp["speed"]}'
     else:
         inputs += ' -an '
 
-    crops = mp["cropComponents"]
-    filter_complex += (
-        f'[slowed]crop=x={crops[0]}:y={crops[1]}:w={crops[2]}:h={crops[3]}')
+    if not mps["inputVideo"] and not settings["isDashVideo"]:
+        inputs += reconnectFlags
 
-    if mps["rotate"]:
-        filter_complex += f',transpose={mps["rotate"]}'
-
-    if mps["preview"]:
-        filter_complex_before_correction = filter_complex
-
-    if 0 <= mps["gamma"] <= 4 and mps["gamma"] != 1:
-        filter_complex += f',lutyuv=y=gammaval({mps["gamma"]})'
-    if mps["extraVideoFilters"]:
-        filter_complex += f',{mps["extraVideoFilters"]}'
-    if mps["deinterlace"]:
-        filter_complex += f',bwdif'
-    if mps["expandColorRange"]:
-        filter_complex += f',colorspace=all={settings["colorspace"] if settings["colorspace"] else "bt709"}:range=pc'
-    if mps["denoise"]["enabled"]:
-        filter_complex += f',hqdn3d=luma_spatial={mps["denoise"]["lumaSpatial"]}'
-    if mps["overlayPath"]:
-        filter_complex += f'[cropped-and-corrected];[cropped-and-corrected][1:v]overlay=x=W-w-10:y=10:alpha=0.5'
-        inputs += f'-i "{mps["overlayPath"]}"'
+    if mps["inputVideo"]:
+        inputs += f' -ss {mp["start"]} -i "{mps["inputVideo"]}" '
+    else:
+        inputs += f' -ss {mp["start"]} -i "{mps["videoURL"]}" '
 
     if not mps["preview"]:
-        return runffmpegCommand(inputs, filter_complex, markerPairIndex, mp, mps)
+        video_filter += f'[in]trim={0}:{mp["speedAdjustedDuration"]},setpts={mp["speed"]}*(PTS-STARTPTS)'
     else:
-        return runffplayCommand(inputs, filter_complex, filter_complex_before_correction, markerPairIndex, mp, mps)
+        video_filter += f'[in]trim={mp["start"]}:{mp["end"]},setpts={mp["speed"]}*(PTS-STARTPTS)'
+        if not settings["inputVideo"]:
+            video_filter += f',loop=loop=-1:size=({mps["r_frame_rate"]}*{mp["speedAdjustedDuration"]})'
+
+    crops = mp["cropComponents"]
+    video_filter += (
+        f',crop=x={crops[0]}:y={crops[1]}:w={crops[2]}:h={crops[3]}')
+
+    if mps["rotate"]:
+        video_filter += f',transpose={mps["rotate"]}'
+
+    if mps["preview"]:
+        video_filter_before_correction = video_filter
+
+    if 0 <= mps["gamma"] <= 4 and mps["gamma"] != 1:
+        video_filter += f',lutyuv=y=gammaval({mps["gamma"]})'
+    if mps["extraVideoFilters"]:
+        video_filter += f',{mps["extraVideoFilters"]}'
+    if mps["deinterlace"]:
+        video_filter += f',bwdif'
+    if mps["expandColorRange"]:
+        video_filter += f',colorspace=all={settings["color_space"] if settings["color_space"] else "bt709"}:range=pc'
+    if mps["denoise"]["enabled"]:
+        video_filter += f',hqdn3d=luma_spatial={mps["denoise"]["lumaSpatial"]}'
+    # if mps["overlayPath"]:
+    #     video_filter += f'[1:v]overlay=x=W-w-10:y=10:alpha=0.5'
+    #     inputs += f'-i "{mps["overlayPath"]}"'
+
+    if not mps["preview"]:
+        return runffmpegCommand(inputs, video_filter, audio_filter, markerPairIndex, mp, mps)
+    else:
+        return runffplayCommand(inputs, video_filter, video_filter_before_correction, audio_filter, markerPairIndex)
 
 
-def runffmpegCommand(inputs, filter_complex, markerPairIndex, mp, mps):
+def runffmpegCommand(inputs, video_filter, audio_filter, markerPairIndex, mp, mps):
     ffmpegCommand = ' '.join((
         ffmpegPath,
         f'-n -hide_banner',
@@ -348,7 +465,8 @@ def runffmpegCommand(inputs, filter_complex, markerPairIndex, mp, mps):
         f'-slices 8 -row-mt 1 -tile-columns 6 -tile-rows 2',
         f'-crf {mps["crf"]} -b:v {mps["autoTargetMaxBitrate"]}k',
         f'-metadata title="{mps["videoTitle"]}" -t {mp["duration"]}',
-        f'-r (1/{mp["speed"]})*({mps["fps"]})',
+        f'-r (1/{mp["speed"]})*({mps["r_frame_rate"]})',
+        f'-af {audio_filter}'
         f'-f webm ',
     ))
 
@@ -359,22 +477,22 @@ def runffmpegCommand(inputs, filter_complex, markerPairIndex, mp, mps):
         os.makedirs(shakyPath, exist_ok=True)
         transformPath = f'{shakyPath}/{mp["fileNameStem"]}.trf'
         shakyWebmPath = f'{shakyPath}/{mp["fileNameStem"]}-shaky.webm'
-        filter_complex += '[shaky];[shaky]'
-        vidstabdetectFilter = filter_complex + \
+        video_filter += '[shaky];[shaky]'
+        vidstabdetectFilter = video_filter + \
             f'''vidstabdetect=result='{transformPath}':shakiness={vidstab["shakiness"]}'''
         ffmpegVidstabdetect = ffmpegCommand + \
-            f'-filter_complex "{vidstabdetectFilter}"'
+            f'-vf "{vidstabdetectFilter}"'
 
-        vidstabtransformFilter = filter_complex + \
-            f'''vidstabtransform=input='{transformPath}':maxshift=50:maxangle=0:zoom=-10:optzoom=2:relative=1:smoothing=0:interpol=bicubic'''
+        vidstabtransformFilter = video_filter + \
+            f'vidstabtransform=input=\'{transformPath}\''
         if vidstab["optzoom"] == 2 and "zoomspeed" in vidstab:
             vidstabtransformFilter += f':zoomspeed=0.1'
         vidstabtransformFilter += r',unsharp=5:5:0.8:3:3:0.4'
         ffmpegVidstabtransform = ffmpegCommand + \
-            f'-filter_complex "{vidstabtransformFilter}" '
+            f'-vf "{vidstabtransformFilter}" '
 
     if mps["twoPass"] and not vidstabEnabled:
-        ffmpegCommand += f' -filter_complex "{filter_complex}" '
+        ffmpegCommand += f' -vf "{video_filter}" '
         ffmpegPass1 = ffmpegCommand + ' -pass 1 -'
         logger.info('Running first pass...')
         logger.info('Using ffmpeg command: ' +
@@ -405,7 +523,7 @@ def runffmpegCommand(inputs, filter_complex, markerPairIndex, mp, mps):
                     re.sub(r'(&a?itags?.*?")', r'"', ffmpegVidstabtransform) + '\n')
         ffmpegProcess = subprocess.run(shlex.split(ffmpegVidstabtransform))
     else:
-        ffmpegCommand += f' -filter_complex "{filter_complex}" '
+        ffmpegCommand += f' -vf "{video_filter}" '
         ffmpegCommand = ffmpegCommand + \
             f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
         logger.info('Using ffmpeg command: ' +
@@ -420,45 +538,72 @@ def runffmpegCommand(inputs, filter_complex, markerPairIndex, mp, mps):
         return {**(settings["markers"][markerPairIndex])}
 
 
-def runffplayCommand(inputs, filter_complex, filter_complex_before_correction, markerPairIndex, mp, mps):
+def runffplayCommand(inputs, video_filter, video_filter_before_correction, audio_filter, markerPairIndex):
     logger.info('running ffplay command')
     if 0 <= markerPairIndex < len(settings["markers"]):
+        ffplayOptions = f'-fs -sync video -fast -genpts'
+        ffplayVideoFilter = f'-vf "{video_filter}"'
+        if settings["inputVideo"]:
+            ffplayOptions += f' -loop 0'
+            ffplayVideoFilter += f' -vf "{video_filter_before_correction}"'
+        ffplayAudioFilter = f'-af {audio_filter}'
+
         ffplayCommand = ' '.join((
             ffplayPath,
             inputs,
-            f'-fs -sync video -fast -genpts',
-            f'-loop 0 -t {mp["duration"]}',
-            f'-vf {filter_complex}',
-            f'-vf {filter_complex_before_correction}'
+            ffplayOptions,
+            ffplayVideoFilter,
+            ffplayAudioFilter
         ))
+
         logger.info('Using ffplay command: ' +
                     re.sub(r'(&a?itags?.*?")', r'"', ffplayCommand) + '\n')
         ffplayProcess = subprocess.run(shlex.split(ffplayCommand))
 
 
+class MissingMergeInput(Exception):
+    pass
+
+
+class MissingMarkerPairFilePath(Exception):
+    pass
+
+
 def makeMergedClips(settings):
     markerPairMergeList = settings["markerPairMergeList"]
     markerPairMergeList = markerPairMergeList.split(';')
+    inputsTxtPath = ''
 
     mergeListGen = createMergeList(markerPairMergeList)
     for merge, mergeList in mergeListGen:
         inputs = ''
-        for i in mergeList:
-            markerPair = settings["markers"][i-1]
-            if 'fileName' in markerPair and 'filePath' in markerPair:
-                if not Path(markerPair["filePath"]).is_file():
-                    logger.warning(
-                        f'Aborting generation of webm with merge list {mergeList}')
-                    logger.warning(
-                        f'Missing required input webm with path {markerPair["filePath"]}')
-                    break
+        logger.info('-' * 80)
+        try:
+            for i in mergeList:
+                markerPair = settings["markers"][i-1]
+                if 'fileName' in markerPair and 'filePath' in markerPair:
+                    if Path(markerPair["filePath"]).is_file():
+                        inputs += f'''file '{settings["markers"][i-1]["fileName"]}'\n'''
+                    else:
+                        raise MissingMergeInput
                 else:
-                    inputs += f'''file '{settings["markers"][i-1]["fileName"]}'\n'''
-            else:
-                logger.warning(
-                    f'Aborting generation of webm with merge list {mergeList}')
-                logger.warning(f'Missing file path for marker pair {i}')
-                break
+                    raise MissingMarkerPairFilePath
+        except IndexError:
+            logger.error(
+                f'Aborting generation of webm with merge list {mergeList}.')
+            logger.error(f'Missing required marker pair number {i}.')
+            continue
+        except MissingMergeInput:
+            logger.error(
+                f'Aborting generation of webm with merge list {mergeList}.')
+            logger.error(
+                f'Missing required input webm with path {markerPair["filePath"]}.')
+            continue
+        except MissingMarkerPairFilePath:
+            logger.error(
+                f'Aborting generation of webm with merge list {mergeList}')
+            logger.error(f'Missing file path for marker pair {i}')
+            continue
 
         inputsTxtPath = f'{webmsPath}/inputs.txt'
         with open(inputsTxtPath, "w+", encoding='utf-8') as inputsTxt:
@@ -479,10 +624,10 @@ def makeMergedClips(settings):
         else:
             logger.info(f'Skipped existing file: "{mergedFileName}"\n')
 
-    try:
-        os.remove(inputsTxtPath)
-    except OSError:
-        pass
+        try:
+            os.remove(inputsTxtPath)
+        except (OSError, FileNotFoundError):
+            pass
 
 
 def checkWebmExists(fileName, filePath):
@@ -514,112 +659,37 @@ def createMergeList(markerPairMergeList):
         yield merge, mergeList
 
 
-def getVideoInfo(settings):
-    from youtube_dl import YoutubeDL
-    ydl_opts = {'format': settings["format"], 'forceurl': True}
-    ydl = YoutubeDL(ydl_opts)
-    ydl_info = ydl.extract_info(settings["videoUrl"], download=False)
-    if 'requested_formats' in ydl_info:
-        rf = ydl_info["requested_formats"]
-        videoInfo = rf[0]
-    else:
-        videoInfo = ydl_info
-
-    dashFormatIDs = []
-    dashVideoFormatID = None
-    dashAudioFormatID = None
-    if videoInfo["protocol"] == 'http_dash_segments':
-        settings["isDashVideo"] = True
-        dashVideoFormatID = videoInfo["format_id"]
-        dashFormatIDs.append(dashVideoFormatID)
-    else:
-        settings["videoUrl"] = videoInfo["url"]
-
-    if 'requested_formats' in ydl_info:
-        audioInfo = rf[1]
-        settings["audiobr"] = int(audioInfo["tbr"])
-
-        if audioInfo["protocol"] == 'http_dash_segments':
-            settings["isDashAudio"] = True
-            dashAudioFormatID = audioInfo["format_id"]
-            dashFormatIDs.append(dashAudioFormatID)
-        else:
-            settings["audioUrl"] = audioInfo["url"]
-
-    if dashFormatIDs:
-        filteredDashPath = filterDash(videoInfo["url"], dashFormatIDs)
-        if dashVideoFormatID:
-            settings["videoUrl"] = filteredDashPath
-        if dashAudioFormatID:
-            settings["audioUrl"] = filteredDashPath
-
-    settings["title"] = re.sub("'", "", ydl_info["title"])
-
-    settings["videoWidth"] = videoInfo["width"]
-    settings["videoHeight"] = videoInfo["height"]
-    settings["videoFPS"] = videoInfo["fps"]
-    if dashVideoFormatID:
-        settings["videoBitrate"] = int(videoInfo["tbr"])
-        _, settings["colorspace"], settings["fps"] = ffprobeVideoProperties(
-            settings["videoUrl"])
-    else:
-        settings["videoBitrate"], settings["colorspace"], settings["fps"] = ffprobeVideoProperties(
-            settings["videoUrl"])
-        if settings["videoBitrate"] is None:
-            settings["videoBitrate"] = int(videoInfo["tbr"])
-
-    logger.info(f'Video Title: {settings["title"]}')
-    logger.info(f'Video Width: {settings["videoWidth"]}')
-    logger.info(f'Video Height: {settings["videoHeight"]}')
-    logger.info(f'Video fps: {settings["videoFPS"]}')
-    logger.info(f'Detected Video Bitrate: {settings["videoBitrate"]}kbps')
-
-    if settings["json"]:
-        settings = autoSetCropMultiples(settings)
-
-    return settings
-
-
-def ffprobeVideoProperties(videoUrl):
-    bitrate = colorspace = fps = None
+def ffprobeVideoProperties(video):
     try:
-        ffprobeCommand = f'"{ffprobePath}" "{videoUrl}" -v error -of default=noprint_wrappers=1 -show_entries format=bit_rate:stream=color_space,r_frame_rate'
-        ffprobeProcess = subprocess.Popen(shlex.split(
-            ffprobeCommand), stdout=subprocess.PIPE)
-        ffprobeOutput = ffprobeProcess.stdout.readlines()
-        logger.info('-' * 80)
-        logger.info('Detecting video properties with ffprobe')
-        for line in ffprobeOutput:
-            line = line.decode().strip()
-            if line.startswith('bit_rate'):
-                logger.info(f'ffprobe: {line} (b/s)')
-                bitrate = int(line.split("=")[1]) / 1000
-            elif line.startswith('color_space'):
-                logger.info(f'ffprobe: {line}')
-                colorspace = line.split("=")[1]
-            elif line.startswith('r_frame_rate'):
-                logger.info(f'ffprobe: {line}')
-                fps = line.split("=")[1]
-        return int(bitrate), colorspace, fps
-    except Exception as err:
+        ffprobeCommand = f'"{ffprobePath}" "{video}" -v quiet -select_streams v -print_format json -show_streams -show_format'
+        ffprobeOutput = subprocess.check_output(shlex.split(ffprobeCommand))
+    except subprocess.CalledProcessError as cpe:
         logger.error(f'Could not fetch video properties with ffprobe')
-        logger.error(f'{err}')
-        logger.error(f'ffprobe return code: {ffprobeProcess.returncode}')
-        return None, None, None
+        logger.error(f'{cpe}')
+        return None
+
+    ffprobeOutput = ffprobeOutput.decode('utf-8')
+    logger.info('-' * 80)
+    logger.info('Detecting video properties with ffprobe')
+    ffprobeData = json.loads(ffprobeOutput)
+
+    ffprobeData["streams"][0]["bit_rate"] = int(
+        int(ffprobeData["format"]["bit_rate"]) / 1000)
+    return ffprobeData["streams"][0]
 
 
 def autoSetCropMultiples(settings):
-    cropMultipleX = (settings["videoWidth"] / settings["cropResWidth"])
-    cropMultipleY = (settings["videoHeight"] / settings["cropResHeight"])
-    if settings["cropResWidth"] != settings["videoWidth"] or settings["cropResHeight"] != settings["videoHeight"]:
+    cropMultipleX = (settings["width"] / settings["cropResWidth"])
+    cropMultipleY = (settings["height"] / settings["cropResHeight"])
+    if settings["cropResWidth"] != settings["width"] or settings["cropResHeight"] != settings["height"]:
         logger.info('-' * 80)
         logger.warning('Crop resolution does not match video resolution.')
-        if settings["cropResWidth"] != settings["videoWidth"]:
+        if settings["cropResWidth"] != settings["width"]:
             logger.warning(
-                f'Crop resolution width ({settings["cropResWidth"]}) not equal to video width ({settings["videoWidth"]})')
-        if settings["cropResHeight"] != settings["videoHeight"]:
+                f'Crop resolution width ({settings["cropResWidth"]}) not equal to video width ({settings["width"]})')
+        if settings["cropResHeight"] != settings["height"]:
             logger.warning(
-                f'Crop resolution height ({settings["cropResHeight"]}) not equal to video height ({settings["videoHeight"]})')
+                f'Crop resolution height ({settings["cropResHeight"]}) not equal to video height ({settings["height"]})')
         logger.info(
             f'Crop X offset and width will be multiplied by {cropMultipleX}')
         logger.info(
