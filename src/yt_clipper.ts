@@ -2878,6 +2878,10 @@ export let player: HTMLElement;
           if (updateTarget === 'crop') {
             createCropOverlay(newValue);
           } else if (updateTarget === 'speed') {
+            const speedMap = markerPair.speedMap;
+            if (speedMap.length === 2 && speedMap[0].y === speedMap[1].y) {
+              markerPair.speedMap[1].y = newValue;
+            }
             markerPair.speedMap[0].y = newValue;
             speedChart && speedChart.update();
             updateMarkerPairDuration(markerPair);
