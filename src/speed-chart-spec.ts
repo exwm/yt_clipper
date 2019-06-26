@@ -32,6 +32,14 @@ export const global: ChartOptions & ChartFontOptions = {
 const roundX = createRounder(0.1, 1);
 const roundY = createRounder(0.05, 2);
 
+function getSpeedPointColor(context) {
+  var index = context.dataIndex;
+  var value = context.dataset.data[index];
+  return value.y <= 1
+    ? `rgba(255, ${100 * value.y}, 100, 0.9)`
+    : `rgba(${130 - 90 * (value.y - 1)}, 100, 245, 0.9)`;
+}
+
 export const options: ChartConfiguration = {
   type: 'scatter',
   data: {
@@ -41,7 +49,7 @@ export const options: ChartConfiguration = {
         lineTension: 0,
         data: [] as ChartPoint[],
         showLine: true,
-        pointBackgroundColor: 'rgba(255, 0, 0, 0.7)',
+        pointBackgroundColor: getSpeedPointColor,
         pointBorderColor: lightgrey(0.5),
         pointRadius: 5,
         pointHoverRadius: 6,
@@ -134,20 +142,19 @@ export const options: ChartConfiguration = {
           return context.active ? true : 'auto';
         },
         align: function(context) {
-          const idx = context.dataIndex;
-          if (idx === 0) {
+          const index = context.dataIndex;
+          // const value = context.dataset.data[index];
+          if (index === 0) {
             return 'right';
-          } else if (idx === context.dataset.data.length - 1) {
+          } else if (index === context.dataset.data.length - 1) {
             return 'left';
+          } else if (context.dataset.data[context.dataIndex].y > 1.85) {
+            return 'start';
           } else {
             return 'end';
           }
         },
-        color: function(context) {
-          var index = context.dataIndex;
-          var value = context.dataset.data[index];
-          return `rgba(255,0,0, 0.9)`;
-        },
+        color: getSpeedPointColor,
       },
       zoom: {
         pan: {
