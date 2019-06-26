@@ -1,6 +1,6 @@
 import { ChartConfiguration, ChartOptions, ChartFontOptions, ChartPoint } from 'chart.js';
 import { createRounder, toHHMMSSTrimmed } from './util';
-
+import { player } from './yt_clipper';
 const sortX = (a, b) => {
   if (a.x < b.x) return -1;
   if (a.x > b.x) return 1;
@@ -247,15 +247,9 @@ export const options: ChartConfiguration = {
       if (!event.ctrlKey && !event.altKey && event.shiftKey) {
         // console.log(element, dataAtClick);
 
-        let scaleRef, valueX, valueY;
-        for (var scaleKey in this.scales) {
-          scaleRef = this.scales[scaleKey];
-          if (scaleRef.isHorizontal() && scaleKey == 'x-axis-1') {
-            valueX = scaleRef.getValueForPixel(event.offsetX);
-          } else if (scaleKey == 'y-axis-1') {
-            valueY = scaleRef.getValueForPixel(event.offsetY);
-          }
-        }
+        let valueX, valueY;
+        valueX = this.scales['x-axis-1'].getValueForPixel(event.offsetX);
+        valueY = this.scales['y-axis-1'].getValueForPixel(event.offsetY);
 
         if (valueX && valueY) {
           valueX = roundX(valueX);
@@ -272,6 +266,10 @@ export const options: ChartConfiguration = {
       }
 
       if (!event.ctrlKey && event.altKey && !event.shiftKey) {
+        player.seekTo(this.scales['x-axis-1'].getValueForPixel(event.offsetX));
+      }
+
+      if (!event.ctrlKey && event.altKey && event.shiftKey) {
         const datum = this.getElementAtEvent(event)[0];
         if (datum) {
           const datasetIndex = datum['_datasetIndex'];
