@@ -41,6 +41,8 @@ import {
   clampNumber,
 } from './util';
 
+export let player: HTMLElement;
+
 (function() {
   'use strict';
   async function onLoadVideoPage(callback: Function) {
@@ -322,9 +324,7 @@ import {
     }
 
     const initOnce = once(init, this);
-    const player = await retryUntilTruthyResult(() =>
-      document.getElementById('movie_player')
-    );
+    player = await retryUntilTruthyResult(() => document.getElementById('movie_player'));
     const playerInfo: { [index: string]: any } = {};
     const video = await retryUntilTruthyResult(
       () => document.getElementsByTagName('video')[0]
