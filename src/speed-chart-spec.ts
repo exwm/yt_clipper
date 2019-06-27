@@ -249,9 +249,14 @@ export const options: ChartConfiguration = {
       chartInstance.options.plugins.zoom.pan.enabled = true;
       chartInstance.update({ duration: 0 });
     },
-
     onClick: function(event, dataAtClick) {
-      if (!event.ctrlKey && !event.altKey && event.shiftKey && dataAtClick.length === 0) {
+      if (
+        event.button === 0 &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        event.shiftKey &&
+        dataAtClick.length === 0
+      ) {
         // console.log(element, dataAtClick);
 
         let valueX, valueY;
@@ -272,11 +277,13 @@ export const options: ChartConfiguration = {
         }
       }
 
-      if (!event.ctrlKey && event.altKey && !event.shiftKey) {
-        player.seekTo(this.scales['x-axis-1'].getValueForPixel(event.offsetX));
-      }
-
-      if (!event.ctrlKey && event.altKey && event.shiftKey && dataAtClick.length === 1) {
+      if (
+        event.button === 0 &&
+        !event.ctrlKey &&
+        event.altKey &&
+        event.shiftKey &&
+        dataAtClick.length === 1
+      ) {
         const datum = dataAtClick[0];
         if (datum) {
           const datasetIndex = datum['_datasetIndex'];

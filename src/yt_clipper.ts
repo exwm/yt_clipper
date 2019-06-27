@@ -35,7 +35,6 @@ import {
   toHHMMSSTrimmed,
   copyToClipboard,
   once,
-  createRounder,
   toHHMMSS,
   setAttributes,
   clampNumber,
@@ -113,11 +112,7 @@ export let player: HTMLElement;
             }
             break;
           case 'KeyQ':
-            if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
-              cyclePlayerSpeedDown();
-            } else if (
+            if (
               !e.ctrlKey &&
               !e.altKey &&
               e.shiftKey &&
@@ -127,11 +122,22 @@ export let player: HTMLElement;
               e.preventDefault();
               e.stopImmediatePropagation();
               enableMarkerHotkeys.moveMarker(enableMarkerHotkeys.startMarker);
-            } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
+            } else if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              cyclePlayerSpeedDown();
+            } else if (!e.ctrlKey && e.altKey && e.shiftKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              updateAllMarkers('speed', settings.newMarkerSpeed);
+            }
+            break;
+          case 'KeyE':
+            if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
               captureFrame();
-            } else if (!e.ctrlKey && e.altKey && e.shiftKey) {
+            } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
               saveCapturedFrames();
@@ -148,29 +154,15 @@ export let player: HTMLElement;
               toggleMarkerPairOverridesEditor();
             }
             break;
-          case 'KeyE':
-            if (!e.ctrlKey && e.shiftKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
-              updateAllMarkers('speed', settings.newMarkerSpeed);
-            }
-            break;
-          case 'KeyF':
+          case 'KeyD':
             if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
               toggleSpeedChart();
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
-              toggleSpeedChartEasing();
-            }
-            break;
-          case 'KeyD':
-            if (!e.ctrlKey && e.shiftKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
-              updateAllMarkers('crop', settings.newMarkerCrop);
+              // e.preventDefault();
+              // e.stopImmediatePropagation();
+              // toggleSpeedChartEasing();
             }
             break;
           case 'KeyG':
@@ -222,10 +214,14 @@ export let player: HTMLElement;
               e.preventDefault();
               e.stopImmediatePropagation();
               drawCropOverlay(true);
-            } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
+            } else if (e.ctrlKey && !e.altKey && !e.shiftKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
               toggleArrowKeyCropAdjustment();
+            } else if (!e.ctrlKey && e.altKey && e.shiftKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              updateAllMarkers('crop', settings.newMarkerCrop);
             }
             break;
           case 'KeyC':
@@ -2357,6 +2353,15 @@ export let player: HTMLElement;
             }
           };
           speedChart.ctx.canvas.addEventListener('wheel', speedChart.$zoom._wheelHandler);
+
+          speedChart.ctx.canvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            if (e.button === 2 && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+              player.seekTo(speedChart.scales['x-axis-1'].getValueForPixel(e.offsetX));
+            }
+          });
+
           updateSpeedChartTimeAnnotation();
         } else {
           toggleSpeedChartVisibility();
