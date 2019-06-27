@@ -251,7 +251,7 @@ export const options: ChartConfiguration = {
     },
 
     onClick: function(event, dataAtClick) {
-      if (!event.ctrlKey && !event.altKey && event.shiftKey) {
+      if (!event.ctrlKey && !event.altKey && event.shiftKey && dataAtClick.length === 0) {
         // console.log(element, dataAtClick);
 
         let valueX, valueY;
@@ -276,8 +276,8 @@ export const options: ChartConfiguration = {
         player.seekTo(this.scales['x-axis-1'].getValueForPixel(event.offsetX));
       }
 
-      if (!event.ctrlKey && event.altKey && event.shiftKey) {
-        const datum = this.getElementAtEvent(event)[0];
+      if (!event.ctrlKey && event.altKey && event.shiftKey && dataAtClick.length === 1) {
+        const datum = dataAtClick[0];
         if (datum) {
           const datasetIndex = datum['_datasetIndex'];
           const index = datum['_index'];
