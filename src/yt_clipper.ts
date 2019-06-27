@@ -39,6 +39,7 @@ import {
   toHHMMSS,
   setAttributes,
   clampNumber,
+  roundValue,
 } from './util';
 
 export let player: HTMLElement;
@@ -140,7 +141,7 @@ export let player: HTMLElement;
             if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              toggleDefaultsEditor();
+              toggleGlobalSettingsEditor();
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
@@ -784,16 +785,33 @@ export let player: HTMLElement;
     };
 
     let prevSpeed = 1;
+    const defaultRoundSpeedMapEasing = 0.05;
     function updateSpeed() {
       const shortestActiveMarkerPair = getShortestActiveMarkerPair();
       if (shortestActiveMarkerPair) {
-        // const markerPairSpeed = shortestActiveMarkerPair.speed;
-        const markerPairSpeed = getSpeedMapping(
-          shortestActiveMarkerPair.speedMap,
-          video.currentTime
-        );
-        // console.log(markerPairSpeed);
+        let markerPairSpeed: number;
+        const enableSpeedMaps =
+          shortestActiveMarkerPair.overrides.enableSpeedMaps !== undefined
+            ? shortestActiveMarkerPair.overrides.enableSpeedMaps
+            : settings.enableSpeedMaps !== false;
+        if (enableSpeedMaps) {
+          const roundSpeedMapEasing =
+            shortestActiveMarkerPair.overrides.roundSpeedMapEasing >= 0
+              ? shortestActiveMarkerPair.overrides.roundSpeedMapEasing
+              : settings.roundSpeedMapEasing >= 0
+              ? settings.roundSpeedMapEasing
+              : defaultRoundSpeedMapEasing;
 
+          markerPairSpeed = getSpeedMapping(
+            shortestActiveMarkerPair.speedMap,
+            video.currentTime,
+            roundSpeedMapEasing,
+            2
+          );
+        } else {
+          markerPairSpeed = shortestActiveMarkerPair.speed;
+        }
+        // console.log(markerPairSpeed);
         if (prevSpeed !== markerPairSpeed) {
           player.setPlaybackRate(markerPairSpeed);
           prevSpeed = markerPairSpeed;
@@ -811,8 +829,12 @@ export let player: HTMLElement;
       }
     }
 
-    const roundSpeed = createRounder(0.05, 2);
-    function getSpeedMapping(speedMap: SpeedPoint[], time: number) {
+    function getSpeedMapping(
+      speedMap: SpeedPoint[],
+      time: number,
+      roundMultiple = settings.roundSpeedMapEasing,
+      roundPrecision = 2
+    ) {
       let len = speedMap.length;
       if (len === 2 && speedMap[0].y === speedMap[1].y) {
         return speedMap[0].y;
@@ -843,7 +865,11 @@ export let player: HTMLElement;
         }
         const change = right.y - left.y;
         const rawSpeed = left.y + change * easedTimePercentage || right.y;
-        const roundedSpeed = roundSpeed(rawSpeed);
+        const roundedSpeed =
+          roundMultiple > 0
+            ? roundValue(rawSpeed, roundMultiple, roundPrecision)
+            : rawSpeed;
+        // console.log(roundedSpeed);
         return roundedSpeed;
       } else {
         return 1;
@@ -1257,7 +1283,7 @@ export let player: HTMLElement;
     }
 
     let globalEncodeSettingsEditorDisplay: 'none' | 'block' = 'none';
-    function toggleDefaultsEditor() {
+    function toggleGlobalSettingsEditor() {
       if (isMarkerEditorOpen) {
         toggleOffMarkerEditor();
       }
@@ -1340,7 +1366,7 @@ export let player: HTMLElement;
         </div>
       </div>
       <div id="global-encode-settings" class="yt_clipper-settings-editor" style="display:${globalEncodeSettingsEditorDisplay}">
-        <span style="font-weight:bold">Global Encode Settings: </span>
+        <span style="font-weight:bold">Encode Settings: </span>
         <div class="editor-input-div">
           <span>Encode Speed (0-5): </span>
           <input id="encode-speed-input" class="yt_clipper-input" type="number" min="0" max="5" step="1" value="${
@@ -1361,7 +1387,7 @@ export let player: HTMLElement;
         </div>
         <div class="editor-input-div">
           <span>Gamma (0-4): </span>
-          <input id="gamma-input" class="yt_clipper-input" type="number" min="0" max="4.00" step="0.01" value="${
+          <input id="gamma-input" class="yt_clipper-input" type="number" min="0.01" max="4.00" step="0.01" value="${
             settings.gamma != null ? settings.gamma : ''
           }" placeholder="1" style="width:4em"></input>
         </div>
@@ -1386,7 +1412,7 @@ export let player: HTMLElement;
           </select>
         </div>
         <div class="editor-input-div">
-          <span>Expand Color Range: </span>
+          <span>Expand Colors: </span>
           <select id="expand-color-range-input"> 
             <option ${settings.expandColorRange ? 'selected' : ''}>Enabled</option>
             <option ${
@@ -1427,13 +1453,31 @@ export let player: HTMLElement;
             }>Inherit (Disabled)</option>
           </select>
         </div>
+        <div class="editor-input-div">
+          <span>Speed Maps: </span>
+            <select id="enable-speed-maps-input">
+            <option ${settings.enableSpeedMaps ? 'selected' : ''}>Enabled</option>
+                <option ${
+                  settings.enableSpeedMaps === false ? 'selected' : ''
+                }>Disabled</option>
+                <option value="Default" ${
+                  settings.enableSpeedMaps == null ? 'selected' : ''
+                }>Inherit (Enabled)</option>
+            </select>
+          <div class="editor-input-div">
+            <span>Round Easing: </span>
+            <input id="round-speed-map-easing-input" class="yt_clipper-input" type="number" min="0" max="0.25" step="0.01" value="${
+              settings.roundSpeedMapEasing != null ? settings.roundSpeedMapEasing : ''
+            }" placeholder="${defaultRoundSpeedMapEasing}" style="width:4em"></input>
+          </div>
+        </div>
       </div>
       `;
 
         updateSettingsEditorHook();
         settingsEditorHook.insertAdjacentElement('beforebegin', markerInputs);
 
-        addInputListeners([
+        addGlobalSettingsListeners([
           ['speed-input', 'newMarkerSpeed', 'number'],
           ['crop-input', 'newMarkerCrop', 'string'],
           ['crop-res-input', 'cropRes', 'string'],
@@ -1449,6 +1493,8 @@ export let player: HTMLElement;
           ['two-pass-input', 'twoPass', 'ternary'],
           ['audio-input', 'audio', 'ternary'],
           ['expand-color-range-input', 'expandColorRange', 'ternary'],
+          ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
+          ['round-speed-map-easing-input', 'roundSpeedMapEasing', 'number'],
           ['denoise-input', 'denoise', 'preset'],
           ['video-stabilization-input', 'videoStabilization', 'preset'],
         ]);
@@ -1459,7 +1505,7 @@ export let player: HTMLElement;
       }
     }
 
-    function addInputListeners(inputs: string[][]) {
+    function addGlobalSettingsListeners(inputs: string[][]) {
       inputs.forEach((input) => {
         const id = input[0];
         const updateTarget = input[1];
@@ -2536,10 +2582,14 @@ export let player: HTMLElement;
       <div id="marker-pair-overrides" class="yt_clipper-settings-editor" style="display:${markerPairOverridesEditorDisplay}">
         <span style="font-weight:bold">Overrides: </span>
         <div class="editor-input-div">
-          <span>Gamma (0-4): </span>
-          <input id="gamma-input" class="yt_clipper-input" type="number" min="0" max="4.00" step="0.01" value="${
-            overrides.gamma != null ? overrides.gamma : ''
-          }" placeholder="${settings.gamma || '1'}" style="width:4em"></input>
+          <span>Audio: </span>
+          <select id="audio-input">
+            <option ${overrides.audio ? 'selected' : ''}>Enabled</option>
+            <option ${overrides.audio === false ? 'selected' : ''}>Disabled</option>
+            <option value="Default" ${
+              overrides.audio == null ? 'selected' : ''
+            }>Inherit Global ${ternaryToString(settings.audio)}</option>
+          </select>
         </div>
         <div class="editor-input-div">
           <span>Encode Speed (0-5): </span>
@@ -2571,17 +2621,13 @@ export let player: HTMLElement;
           </select>
         </div>
         <div class="editor-input-div">
-          <span>Audio: </span>
-          <select id="audio-input"> 
-            <option ${overrides.audio ? 'selected' : ''}>Enabled</option>
-            <option ${overrides.audio === false ? 'selected' : ''}>Disabled</option>
-            <option value="Default" ${
-              overrides.audio == null ? 'selected' : ''
-            }>Inherit Global ${ternaryToString(settings.audio)}</option>
-          </select>
+          <span>Gamma (0-4): </span>
+          <input id="gamma-input" class="yt_clipper-input" type="number" min="0.01" max="4.00" step="0.01" value="${
+            overrides.gamma != null ? overrides.gamma : ''
+          }" placeholder="${settings.gamma || '1'}" style="width:4em"></input>
         </div>
         <div class="editor-input-div">
-          <span>Expand Color Range: </span>
+          <span>Expand Colors: </span>
           <select id="expand-color-range-input"> 
             <option ${overrides.expandColorRange ? 'selected' : ''}>Enabled</option>
             <option ${
@@ -2628,6 +2674,25 @@ export let player: HTMLElement;
             }>Inherit Global ${vidstabDescGlobal}</option>
           </select>
         </div>
+        <div class="editor-input-div">
+        <span>Speed Map: </span>
+            <select id="enable-speed-maps-input">
+              <option ${overrides.enableSpeedMaps ? 'selected' : ''}>Enabled</option>
+              <option ${
+                overrides.enableSpeedMaps === false ? 'selected' : ''
+              }>Disabled</option>
+              <option value="Default" ${
+                overrides.enableSpeedMaps == null ? 'selected' : ''
+              }>Inherit Global ${ternaryToString(settings.enableSpeedMaps)}</option>
+            </select>
+          <div class="editor-input-div">
+            <span>Round Easing: </span>
+            <input id="round-speed-map-easing-input" class="yt_clipper-input" type="number" min="0" max="0.25" step="0.01" value="${
+              overrides.roundSpeedMapEasing != null ? overrides.roundSpeedMapEasing : ''
+            }" placeholder="${settings.roundSpeedMapEasing ||
+        defaultRoundSpeedMapEasing}" style="width:4em"></input>
+          </div>
+        </div>
       </div>
       `;
 
@@ -2648,6 +2713,8 @@ export let player: HTMLElement;
           ['two-pass-input', 'twoPass', 'ternary'],
           ['audio-input', 'audio', 'ternary'],
           ['expand-color-range-input', 'expandColorRange', 'ternary'],
+          ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
+          ['round-speed-map-easing-input', 'roundSpeedMapEasing', 'number'],
           ['denoise-input', 'denoise', 'preset'],
           ['video-stabilization-input', 'videoStabilization', 'preset'],
         ],
