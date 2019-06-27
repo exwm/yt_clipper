@@ -368,8 +368,7 @@ export let player: HTMLElement;
         event.shiftKey &&
         Math.abs(event.deltaY) > 0
       ) {
-        const videoStats = player.getStatsForNerds();
-        let fps = videoStats ? videoStats.resolution.match(/@(\d\d)/)[1] : null;
+        let fps = getFPS();
         if (event.deltaY < 0) {
           player.seekBy(1 / fps);
         } else if (event.deltaY > 0) {
@@ -1174,10 +1173,18 @@ export let player: HTMLElement;
       console.log(markerPairs);
     }
 
+    function getFPS(def: number | null = 60) {
+      try {
+        return parseFloat(player.getStatsForNerds().resolution.match(/@(\d\d)/)[1]);
+      } catch (e) {
+        console.log('Could not detect fps', e);
+        return def; // by default parameter value assume high fps to avoid skipping frames
+      }
+    }
+
     function getCurrentFrameTime(roughCurrentTime: number): number {
       let currentFrameTime: number;
-      const videoStats = player.getStatsForNerds();
-      let fps = videoStats ? videoStats.resolution.match(/@(\d\d)/)[1] : null;
+      let fps = getFPS();
       fps
         ? (currentFrameTime = Math.floor(roughCurrentTime * fps) / fps)
         : (currentFrameTime = roughCurrentTime);
@@ -1876,13 +1883,12 @@ export let player: HTMLElement;
     }
 
     function getFrameCount(seconds: number) {
-      const videoStats = player.getStatsForNerds();
-      let fps = videoStats ? videoStats.resolution.match(/@(\d\d)/)[1] : null;
+      let fps = getFPS(null);
       let frameNumber: number | string;
       let totalFrames: number | string;
       if (fps) {
-        frameNumber = Math.floor(seconds * parseFloat(fps));
-        totalFrames = Math.floor(video.duration * parseFloat(fps));
+        frameNumber = Math.floor(seconds * fps);
+        totalFrames = Math.floor(video.duration * fps);
       } else {
         frameNumber = 'Unknown';
         totalFrames = 'Unknown';
