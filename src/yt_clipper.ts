@@ -398,8 +398,8 @@ export let player: HTMLElement;
       markersDiv.innerHTML = `\
     <svg id="markers-svg"></svg>
     <svg id="selected-marker-pair-overlay" style="display:none">
-      <rect id="selected-start-marker-overlay" class="selected-marker-overlay"></rect>
-      <rect id="selected-end-marker-overlay" class="selected-marker-overlay"></rect>
+      <rect id="selected-start-marker-overlay" width="1.5px" height="8.5px" y="3.5px" class="selected-marker-overlay"></rect>
+      <rect id="selected-end-marker-overlay" width="1.5px" height="8.5px" y="3.5px" class="selected-marker-overlay"></rect>
     </svg>
     `;
       playerInfo.progress_bar.appendChild(markersDiv);
@@ -1150,6 +1150,9 @@ export let player: HTMLElement;
 
       setAttributes(marker, marker_attrs);
       marker.setAttribute('x', `${progress_pos}%`);
+      // set width and height attributes for browsers not supporting svg 2
+      marker.setAttribute('width', '1.5px');
+      marker.setAttribute('height', '16px');
       const rectIdx = markerPairs.length + 1;
       marker.setAttribute('idx', rectIdx.toString());
 
@@ -2452,7 +2455,7 @@ export let player: HTMLElement;
       prevSelectedMarkerPairIndex =
         parseInt(prevSelectedMarkerPair.getAttribute('idx')) - 1;
 
-      colorSelectedMarkerPair(targetMarker);
+      highlightSelectedMarkerPair(targetMarker);
       enableMarkerHotkeys(targetMarker);
       createMarkerEditor(targetMarker);
       addCropInputHotkeys();
@@ -2722,7 +2725,7 @@ export let player: HTMLElement;
 
     let selectedStartMarkerOverlay: HTMLElement;
     let selectedEndMarkerOverlay: HTMLElement;
-    function colorSelectedMarkerPair(currentMarker: SVGRectElement) {
+    function highlightSelectedMarkerPair(currentMarker: SVGRectElement) {
       if (!selectedStartMarkerOverlay) {
         selectedStartMarkerOverlay = document.getElementById(
           'selected-start-marker-overlay'
@@ -2731,7 +2734,7 @@ export let player: HTMLElement;
       if (!selectedEndMarkerOverlay) {
         selectedEndMarkerOverlay = document.getElementById('selected-end-marker-overlay');
       }
-      const startMarker = currentMarker.previousSibling;
+      const startMarker = currentMarker.previousSibling as SVGRectElement;
       selectedStartMarkerOverlay.setAttribute('x', startMarker.getAttribute('x'));
       selectedEndMarkerOverlay.setAttribute('x', currentMarker.getAttribute('x'));
       selectedMarkerPairOverlay.style.display = 'block';
