@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 
-import sys
-import subprocess
-import shlex
 import argparse
-import re
-import json
 import itertools
-import os
+import json
 import logging
+import os
+import re
+import shlex
+import subprocess
+import sys
+from glob import escape, glob
 from pathlib import Path
 
 UPLOAD_KEY_REQUEST_ENDPOINT = 'https://api.gfycat.com/v1/gfycats?'
@@ -60,6 +61,8 @@ def main():
 
     settings["isDashVideo"] = False
     settings["isDashAudio"] = False
+    if "enableSpeedMaps" not in settings:
+      settings["enableSpeedMaps"] = not settings["noSpeedMaps"]
 
     with open(settings["json"], 'r', encoding='utf-8-sig') as file:
         markersJson = file.read()
@@ -76,42 +79,70 @@ def main():
     logger.info(f'Version: {__version__}')
     logger.info('-' * 80)
 
-    settings["downloadVideoPath"] = f'{webmsPath}/{settings["titleSuffix"]}'
+    settings["downloadVideoPath"] = f'{webmsPath}/{settings["titleSuffix"]}-full'
+    potentialInputVideos = glob(escape(settings["downloadVideoPath"]) + r'.*')
 
-    if not settings["inputVideo"] and not settings["downloadVideo"] and settings["preview"]:
+    settings["automaticFetching"] = not settings["inputVideo"] and not settings["downloadVideo"]
+
+    if settings["automaticFetching"] and not settings["preview"] and not settings["noAutoFindInputVideo"]:
+        if len(potentialInputVideos) > 0:
+            logger.info(
+                f'Found potential input video at path {potentialInputVideos[0]}.')
+            if len(potentialInputVideos) > 0:
+                logger.warning(
+                    f'Also found the following other potential input videos {potentialInputVideos[1:]}.')
+            settings["inputVideo"] = potentialInputVideos[0]
+
+    if settings["automaticFetching"] and settings["preview"]:
         logger.warning(
             "Preview mode was enabled without providing a local input video and video downloading disabled.")
         logger.warning(
             "Automatic fetching of video stream chunks provides a poor preview experience.")
         logger.warning(
+            "Automatically fetched video previews can only loop up to 32767 frames (~9 min at 60fps).")
+        logger.warning(
             "When previewing, a local video file uses less memory and does not require re-streaming from the internet on seek with right-click.")
         logger.warning(
             "A local video also enables toggling of video correction filters with W.")
-        logger.info(
-            "Note that you may be able to drag and drop the input video file at the following prompt.")
-        try:
-            settings["inputVideo"] = input(
-                f'Provide an input video path or press enter to continue: ')
-            if settings["inputVideo"] == '':
+        if not settings["noAutoFindInputVideo"]:
+            if len(potentialInputVideos) > 0:
                 logger.info(
-                    f'The video can also be downloaded before previewing to the path: "{settings["downloadVideoPath"]}"')
+                    f'Found potential input video at path {potentialInputVideos[0]}.')
+                useFoundInputVideo = input(
+                    r'Would you like to use this input video? (y/n): ')
+                if useFoundInputVideo == 'yes' or useFoundInputVideo == 'y':
+                    settings["inputVideo"] = potentialInputVideos[0]
+
+        if not settings["inputVideo"]:
+            try:
                 logger.info(
-                    "Note the file extension will be automatically determined.")
-                logger.info(
-                    "If the file already exists it will be used as is without re-downloading.")
-                downloadVideo = input(
-                    f'Would you like to automatically download the video? (y/n): ')
-                if downloadVideo == 'yes' or downloadVideo == 'y':
-                    settings["downloadVideo"] = True
-        except:
-            pass
+                    "You may be able to drag and drop the input video file at the following prompt.")
+                settings["inputVideo"] = input(
+                    f'Specify an input video path OR press ENTER to continue without doing so: ')
+                if settings["inputVideo"] == '':
+                    logger.info(
+                        f'The video can also be downloaded before previewing to the path: "{settings["downloadVideoPath"]}"')
+                    logger.info(
+                        "Note the file extension will be automatically determined.")
+                    logger.info(
+                        "If the file already exists it will be used as is without re-downloading.")
+                    downloadVideo = input(
+                        f'Would you like to automatically download the video? (y/n): ')
+                    if downloadVideo == 'yes' or downloadVideo == 'y':
+                        settings["downloadVideo"] = True
+            except:
+                pass
 
     if settings["inputVideo"]:
         if not Path(settings["inputVideo"]).is_file():
             logger.error(
                 f'Input video file "{settings["inputVideo"]}" does not exist or is not a file.')
             logger.error(f'Exiting...')
-            sys.exit()
+            sys.exit(1)
+        else:
+            logger.info(
+                f'Automatically using found input video file "{settings["inputVideo"]}".')
+
         settings = getVideoInfo(settings, {})
     else:
         settings = prepareGlobalSettings(settings)
@@ -168,14 +199,14 @@ def buildArgParser():
                               'Automatically streams required portions of input video from the internet if it is not otherwise specified.'))
     parser.add_argument('--overlay', '-o', dest='overlay',
                         help='overlay image path')
-    parser.add_argument('--multiply-crop', '-m', type=float, dest='cropMultiple', default=1,
+    parser.add_argument('--multiply-crop', '-mc', type=float, dest='cropMultiple', default=1,
                         help=('Multiply all crop dimensions by an integer. ' +
                               '(Helpful if you change resolutions: eg 1920x1080 * 2 = 3840x2160(4k)).'))
-    parser.add_argument('--multiply-crop-x', '-x', type=float, dest='cropMultipleX', default=1,
+    parser.add_argument('--multiply-crop-x', '-mcx', type=float, dest='cropMultipleX', default=1,
                         help='Multiply all x crop dimensions by an integer.')
-    parser.add_argument('--multiply-crop-y', '-y', type=float, dest='cropMultipleY', default=1,
+    parser.add_argument('--multiply-crop-y', '-mcy', type=float, dest='cropMultipleY', default=1,
                         help='Multiply all y crop dimensions by an integer.')
-    parser.add_argument('--gfycat', '-g', action='store_true',
+    parser.add_argument('--gfycat', '-gc', action='store_true',
                         help='upload all output webms to gfycat and print reddit markdown with all links')
     parser.add_argument('--audio', '-a', action='store_true',
                         help='Enable audio in output webms.')
@@ -207,11 +238,20 @@ def buildArgParser():
     parser.add_argument('--target-max-bitrate', '-b', dest='targetMaxBitrate', type=int,
                         help=('Set target max bitrate in kilobits/s. Constrains bitrate of complex scenes.' +
                               'Automatically set based on detected video bitrate.'))
-    parser.add_argument('--no-auto-scale-crop-res', dest='noAutoScaleCropRes', action='store_true',
+    parser.add_argument('--no-auto-scale-crop-res', '-nascr', dest='noAutoScaleCropRes', action='store_true',
                         help=('Disable automatically scaling the crop resolution when a mismatch with video resolution is detected.'))
     parser.add_argument('--preview', action='store_true',
                         help=('Pass in semicolon separated lists of marker pairs.'
                               + 'Lists of marker pairs are comma-separated numbers or dash separated ranges. (eg 1-3,7;4-6,9)'))
+    parser.add_argument('--no-auto-find-input-video', '-nafiv', dest='noAutoFindInputVideo', action='store_true',
+                        help='Disable automatic detection and usage of input video when not in preview mode.')
+    parser.add_argument('--no-speed-maps', '-nsm', dest='noSpeedMaps', action='store_true',
+                        help='Disable speed maps for time-variable speed.')
+    parser.add_argument('--round-speed-map-easing', '-rsme', dest='roundSpeedMapEasing', type=float, default=0.05,
+                        help=('Round changes in speed with time to the nearest positive multiple provided.')
+                        + ('Valid range is (0, 0.5] (i.e., greater than 0 and less than or equal to 0.5)')
+                        + ('For example, a value of 0.05 will step from a starting speed of 1.0 to a speed of 0.5 in decrements of 0.05.')
+                        + ('A value of 0 disables rounding. The default of 0.05 matches the variable speed preview in the browser.'))
     return parser.parse_args()
 
 
@@ -227,11 +267,12 @@ def loadMarkers(markersJson, settings):
 def getVideoURL(settings):
     from youtube_dl import YoutubeDL
 
-    ydl_opts = {'format': settings["format"], 'forceurl': True, 'ffmpeg_location': ffmpegPath,
+    ydl_opts = {'format': settings["format"], 'forceurl': True, 'ffmpeg_location': ffmpegPath, 'merge_output_format': 'mkv',
                 'outtmpl': f'{settings["downloadVideoPath"]}.%(ext)s'}
     ydl = YoutubeDL(ydl_opts)
     if settings["downloadVideo"]:
         ydl_info = ydl.extract_info(settings["videoURL"], download=True)
+        settings["downloadVideoPath"] = f'{settings["downloadVideoPath"]}.mkv'
     else:
         ydl_info = ydl.extract_info(settings["videoURL"], download=False)
 
@@ -246,7 +287,7 @@ def getVideoURL(settings):
     dashAudioFormatID = None
 
     if settings["downloadVideo"]:
-        settings["inputVideo"] = f'{webmsPath}/{settings["titleSuffix"]}.{videoInfo["ext"]}'
+        settings["inputVideo"] = settings["downloadVideoPath"]
     else:
         if videoInfo["protocol"] == 'http_dash_segments':
             settings["isDashVideo"] = True
@@ -323,6 +364,7 @@ def prepareGlobalSettings(settings):
                  f'Two-pass Encoding Enabled: {settings["twoPass"]}, Encoding Speed: {settings["encodeSpeed"]} (0-5), ' +
                  f'Audio Enabled: {settings["audio"]}, Denoise: {settings["denoise"]["desc"]}, Rotate: {settings["rotate"]}, ' +
                  f'Expand Color Range Enabled: {settings["expandColorRange"]}, ' +
+                 f'Speed Maps Enabled: {settings["enableSpeedMaps"]}, Round Speed Map Easing: {settings["roundSpeedMapEasing"]}, ' +
                  f'Video Stabilization: {settings["videoStabilization"]["desc"]}'))
 
     return settings
@@ -383,6 +425,7 @@ def getMarkerPairSettings(settings, markerPairIndex):
                  f'Two-pass Encoding Enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5), ' +
                  f'Expand Color Range Enabled: {mps["expandColorRange"]}, ' +
                  f'Audio Enabled: {mps["audio"]}, Denoise: {mps["denoise"]["desc"]}, ' +
+                 f'Speed Maps Enabled: {mps["enableSpeedMaps"]}, Round Speed Map Easing: {mps["roundSpeedMapEasing"]}, ' +
                  f'Video Stabilization: {mps["videoStabilization"]["desc"]}'))
     logger.info('-' * 80)
 
@@ -399,6 +442,16 @@ def makeMarkerPairClip(settings, markerPairIndex):
     audio_filter = ''
     video_filter = ''
 
+    mps["isVariableSpeed"] = False
+    if mps["enableSpeedMaps"]:
+        for left, right in zip(mp["speedMap"][:-1], mp["speedMap"][1:]):
+            if left["y"] != right["y"]:
+                mps["isVariableSpeed"] = True
+                break
+
+    if mps["isVariableSpeed"]:
+        mps["audio"] = False
+
     reconnectFlags = r'-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5'
     if mps["audio"]:
         if not mps["inputVideo"] and not settings["isDashAudio"]:
@@ -406,8 +459,6 @@ def makeMarkerPairClip(settings, markerPairIndex):
             inputs += f' -ss {mp["start"]} -i "{mps["audioURL"]}" '
 
         audio_filter += f'[in]atrim={mp["start"]}:{mp["end"]},atempo={1/mp["speed"]}'
-    else:
-        inputs += ' -an '
 
     if not mps["inputVideo"] and not settings["isDashVideo"]:
         inputs += reconnectFlags
@@ -417,16 +468,20 @@ def makeMarkerPairClip(settings, markerPairIndex):
     else:
         inputs += f' -ss {mp["start"]} -i "{mps["videoURL"]}" '
 
-    if not mps["preview"]:
-        video_filter += f'[in]trim={0}:{mp["speedAdjustedDuration"]},setpts={mp["speed"]}*(PTS-STARTPTS)'
-    else:
-        video_filter += f'[in]trim={mp["start"]}:{mp["end"]},setpts={mp["speed"]}*(PTS-STARTPTS)'
-        if not settings["inputVideo"]:
-            video_filter += f',loop=loop=-1:size=({mps["r_frame_rate"]}*{mp["speedAdjustedDuration"]})'
-
     crops = mp["cropComponents"]
-    video_filter += (
-        f',crop=x={crops[0]}:y={crops[1]}:w={crops[2]}:h={crops[3]}')
+    video_filter += (f'crop=x={crops[0]}:y={crops[1]}:w={crops[2]}:h={crops[3]},')
+
+    if mps["isVariableSpeed"]:
+        video_filter += getVariableSpeedFilter(mp["speedMap"], mps)
+        if mps["preview"] and not settings["inputVideo"]:
+            video_filter += f',loop=loop=-1:size=(32767)'
+    else:
+        if not mps["preview"]:
+            video_filter += f'trim=0:{mp["duration"]},setpts={mp["speed"]}*(PTS-STARTPTS)'
+        else:
+            video_filter += f'trim={mp["start"]}:{mp["end"]},setpts={mp["speed"]}*(PTS-STARTPTS)'
+            if not settings["inputVideo"]:
+                video_filter += f',loop=loop=-1:size=(32767)'
 
     if mps["rotate"]:
         video_filter += f',transpose={mps["rotate"]}'
@@ -451,7 +506,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
     if not mps["preview"]:
         return runffmpegCommand(inputs, video_filter, audio_filter, markerPairIndex, mp, mps)
     else:
-        return runffplayCommand(inputs, video_filter, video_filter_before_correction, audio_filter, markerPairIndex)
+        return runffplayCommand(inputs, video_filter, video_filter_before_correction, audio_filter, markerPairIndex, mp, mps)
 
 
 def runffmpegCommand(inputs, video_filter, audio_filter, markerPairIndex, mp, mps):
@@ -464,9 +519,9 @@ def runffmpegCommand(inputs, video_filter, audio_filter, markerPairIndex, mp, mp
         f'-c:a libopus -b:a 128k',
         f'-slices 8 -row-mt 1 -tile-columns 6 -tile-rows 2',
         f'-crf {mps["crf"]} -b:v {mps["autoTargetMaxBitrate"]}k',
-        f'-metadata title="{mps["videoTitle"]}" -t {mp["duration"]}',
-        f'-r (1/{mp["speed"]})*({mps["r_frame_rate"]})',
-        f'-af {audio_filter}'
+        f'-metadata title="{mps["videoTitle"]}"',
+        f'-r ((1/{mp["speed"]})*{mps["r_frame_rate"]})' if not mps["isVariableSpeed"] and mp["speed"] < 1 else '',
+        f'-af {audio_filter}' if mps["audio"] else '-an',
         f'-f webm ',
     ))
 
@@ -538,14 +593,83 @@ def runffmpegCommand(inputs, video_filter, audio_filter, markerPairIndex, mp, mp
         return {**(settings["markers"][markerPairIndex])}
 
 
-def runffplayCommand(inputs, video_filter, video_filter_before_correction, audio_filter, markerPairIndex):
+def getVariableSpeedFilter(speedMap, mps):
+    nSpeedPoints = len(speedMap)
+    nSects = 0
+    for i, speedPoint in enumerate(speedMap):
+        if i == nSpeedPoints - 1:
+            break
+        nextSpeedPoint = speedMap[i+1]
+        sectEndTime = nextSpeedPoint["x"]
+        sectDuration = sectEndTime - speedPoint["x"]
+        if sectDuration > 0:
+            nSects += 1
+
+    video_filter_speed_map = ''
+    video_filter_speed_map += f'split={nSects} '
+
+    for i in range(nSects):
+        video_filter_speed_map += f'[in-sect-{i}] '
+    video_filter_speed_map += f';'
+
+    sectNum = 0
+    sectStartTime = 0
+    prevSectDuration = 0
+    for i, speedPoint in enumerate(speedMap):
+        if i == nSpeedPoints - 1:
+            break
+        if mps["preview"]:
+            sectStartTime = speedPoint["x"]
+        else:
+            sectStartTime += prevSectDuration
+
+        nextSpeedPoint = speedMap[i+1]
+        sectEndTime = nextSpeedPoint["x"]
+        sectDuration = sectEndTime - speedPoint["x"]
+        if sectDuration == 0:
+            prevSectDuration = 0
+            continue
+
+        startSpeed = speedPoint["y"]
+        endSpeed = nextSpeedPoint["y"]
+        video_filter_speed_map += f'[in-sect-{sectNum}]trim=start={sectStartTime}:duration={sectDuration}'
+        setptsA = f'(1/{startSpeed})'
+        setptsB = f'(1/{endSpeed})'
+        setptsP = f'(T-STARTT)/({sectEndTime}-{sectStartTime})'
+        # setptsT = f'(2*{setptsP})'
+        # setptsM = f'({setptsT}-1)'
+        # setptsPE = f'if( lt({setptsT}\\,1) \\, ({setptsP}*{setptsT}^2)\\, (1+{setptsM}^3*4) ) '
+        # setptsSineInOut = f'( 0.5*(1 - cos({setptsP}*PI)) )'
+        # setptsCircleOut = f'sqrt(1 - {setptsM}^2)'
+        # setpts = f'({setptsA}+({setptsB}-{setptsA})*{setptsSineInOut})'
+        # setpts = f'({setptsA}+({setptsB}-{setptsA})*{setptsPE})'
+        # setpts = f'({setptsA}+({setptsB}-{setptsA})*{setptsCircleOut})'
+        setpts = f'lerp({setptsA}\\, {setptsB}\\, {setptsP})'
+        if  0 < mps["roundSpeedMapEasing"] <= 0.5:
+            setpts = f'( round( {setpts} / {mps["roundSpeedMapEasing"]} ) * {mps["roundSpeedMapEasing"]} )'
+        setpts += '*(PTS-STARTPTS)'
+
+        video_filter_speed_map += f',setpts={setpts}[out-sect-{sectNum}];'
+        sectNum += 1
+        prevSectDuration = sectDuration
+
+    sectString = ""
+    for i in range(nSects):
+        sectString += f'[out-sect-{i}] '
+
+    video_filter_speed_map += f'{sectString} concat=n={nSects}:v=1:a=0'
+    return video_filter_speed_map
+
+
+def runffplayCommand(inputs, video_filter, video_filter_before_correction, audio_filter, markerPairIndex, mp, mps):
     logger.info('running ffplay command')
     if 0 <= markerPairIndex < len(settings["markers"]):
-        ffplayOptions = f'-fs -sync video -fast -genpts'
+        ffplayOptions = f'-hide_banner -fs -sync video -fast -genpts '
         ffplayVideoFilter = f'-vf "{video_filter}"'
         if settings["inputVideo"]:
             ffplayOptions += f' -loop 0'
             ffplayVideoFilter += f' -vf "{video_filter_before_correction}"'
+
         ffplayAudioFilter = f'-af {audio_filter}'
 
         ffplayCommand = ' '.join((
@@ -553,7 +677,7 @@ def runffplayCommand(inputs, video_filter, video_filter_before_correction, audio
             inputs,
             ffplayOptions,
             ffplayVideoFilter,
-            ffplayAudioFilter
+            ffplayAudioFilter if mps["audio"] else '-an'
         ))
 
         logger.info('Using ffplay command: ' +
