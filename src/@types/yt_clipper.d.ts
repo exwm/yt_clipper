@@ -29,6 +29,7 @@ interface MarkerPair {
   crop: string;
   speed: number;
   speedMap: SpeedPoint[];
+  speedMapLoop: { start?: number; end?: number; enabled: boolean };
   overrides: MarkerPairOverrides;
 }
 
