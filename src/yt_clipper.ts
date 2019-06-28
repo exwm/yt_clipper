@@ -154,15 +154,19 @@ export let player: HTMLElement;
               toggleMarkerPairOverridesEditor();
             }
             break;
-          case 'KeyD':
+          case 'KeyC':
             if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
               toggleSpeedChart();
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
-              // e.preventDefault();
-              // e.stopImmediatePropagation();
-              // toggleSpeedChartEasing();
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              disableSpeedMapLoop();
+            } else if (!e.ctrlKey && e.shiftKey && e.altKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              resetSpeedMapLoop();
             }
             break;
           case 'KeyG':
@@ -170,15 +174,19 @@ export let player: HTMLElement;
               e.preventDefault();
               e.stopImmediatePropagation();
               loadMarkers();
-            } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
+            }
+            break;
+          case 'KeyD':
+            // alt+shift+D do not work in chrome 75.0.3770.100
+            if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
               toggleSpeedDucking();
-            } else if (!e.ctrlKey && !e.shiftKey && e.altKey) {
+            } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
               toggleMarkerLooping();
-            } else if (!e.ctrlKey && e.shiftKey && e.altKey) {
+            } else if (!e.ctrlKey && !e.shiftKey && e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
               toggleGammaPreview();
@@ -224,7 +232,7 @@ export let player: HTMLElement;
               updateAllMarkers('crop', settings.newMarkerCrop);
             }
             break;
-          case 'KeyC':
+          case 'KeyV':
             if (!e.ctrlKey && !e.shiftKey && e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
@@ -888,10 +896,25 @@ export let player: HTMLElement;
       if (isMarkerEditorOpen && !wasDefaultsEditorOpen) {
         if (prevSelectedMarkerPairIndex != null) {
           const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-          const isTimeBetweenMarkerPair =
-            markerPair.start <= video.currentTime && video.currentTime <= markerPair.end;
-          if (!isTimeBetweenMarkerPair) {
-            player.seekTo(markerPair.start);
+
+          if (
+            markerPair.speedMapLoop.enabled &&
+            markerPair.speedMapLoop.start > markerPair.start &&
+            markerPair.speedMapLoop.end < markerPair.end
+          ) {
+            const isTimeBetweenSpeedMapLoop =
+              markerPair.speedMapLoop.start <= video.currentTime &&
+              video.currentTime <= markerPair.speedMapLoop.end;
+            if (!isTimeBetweenSpeedMapLoop) {
+              player.seekTo(markerPair.speedMapLoop.start);
+            }
+          } else {
+            const isTimeBetweenMarkerPair =
+              markerPair.start <= video.currentTime &&
+              video.currentTime <= markerPair.end;
+            if (!isTimeBetweenMarkerPair) {
+              player.seekTo(markerPair.start);
+            }
           }
         }
       }
@@ -1221,6 +1244,7 @@ export let player: HTMLElement;
         crop: markerPairConfig.crop || settings.newMarkerCrop,
         speed: speed,
         speedMap: [{ x: startTime, y: speed }, { x: currentTime, y: speed }],
+        speedMapLoop: { enabled: true },
         overrides: markerPairConfig.overrides || {},
       };
 
@@ -2354,13 +2378,28 @@ export let player: HTMLElement;
           };
           speedChart.ctx.canvas.addEventListener('wheel', speedChart.$zoom._wheelHandler);
 
-          speedChart.ctx.canvas.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            e.stopImmediatePropagation();
-            if (e.button === 2 && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-              player.seekTo(speedChart.scales['x-axis-1'].getValueForPixel(e.offsetX));
-            }
-          });
+          speedChart.ctx.canvas.addEventListener(
+            'contextmenu',
+            (e) => {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              // shift+right-click context menu opens screenshot tool in firefox 67.0.2
+              if (e.button === 2 && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+                player.seekTo(speedChart.scales['x-axis-1'].getValueForPixel(e.offsetX));
+              } else if (e.button === 2 && e.ctrlKey && !e.altKey && !e.shiftKey) {
+                const start = speedChart.scales['x-axis-1'].getValueForPixel(e.offsetX);
+                speedChart.config.options.annotation.annotations[1].value = start;
+                markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.start = start;
+                speedChart.update();
+              } else if (e.button === 2 && !e.ctrlKey && e.altKey && !e.shiftKey) {
+                const end = speedChart.scales['x-axis-1'].getValueForPixel(e.offsetX);
+                speedChart.config.options.annotation.annotations[2].value = end;
+                markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.end = end;
+                speedChart.update();
+              }
+            },
+            true
+          );
 
           updateSpeedChartTimeAnnotation();
         } else {
@@ -2384,6 +2423,36 @@ export let player: HTMLElement;
           speedChart.data.datasets[0].lineTension = 0;
           easingMode = 'linear';
         }
+        speedChart.update();
+      }
+    }
+
+    function disableSpeedMapLoop() {
+      if (isSpeedChartVisible && prevSelectedMarkerPairIndex != null) {
+        if (markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.enabled) {
+          markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.enabled = false;
+          speedChart.config.options.annotation.annotations[1].borderColor =
+            'rgba(0, 255, 0, 0.4)';
+          speedChart.config.options.annotation.annotations[2].borderColor =
+            'rgba(255, 215, 0, 0.4)';
+        } else {
+          markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.enabled = true;
+          speedChart.config.options.annotation.annotations[1].borderColor =
+            'rgba(0, 255, 0, 0.9)';
+          speedChart.config.options.annotation.annotations[2].borderColor =
+            'rgba(255, 215, 0, 0.9)';
+        }
+        speedChart.update();
+      }
+    }
+
+    function resetSpeedMapLoop() {
+      console.log('called');
+      if (isSpeedChartVisible && prevSelectedMarkerPairIndex != null) {
+        markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.start = undefined;
+        markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.end = undefined;
+        speedChart.config.options.annotation.annotations[1].value = -1;
+        speedChart.config.options.annotation.annotations[2].value = -1;
         speedChart.update();
       }
     }
