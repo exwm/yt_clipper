@@ -308,7 +308,7 @@ export let player: HTMLElement;
     let markerHotkeysEnabled = false;
     let isMarkerEditorOpen = false;
     let wasDefaultsEditorOpen = false;
-    let isCropOverlayOpen = false;
+    let isCropOverlayVisible = false;
     let isSpeedChartVisible = false;
     let checkGfysCompletedId: number;
 
@@ -1151,10 +1151,7 @@ export let player: HTMLElement;
       const markersJson = JSON.parse(lines);
       console.log(markersJson);
       if (isMarkerEditorOpen) {
-        deleteMarkerEditor();
-        if (isCropOverlayOpen) {
-          toggleCropOverlay();
-        }
+        deleteMarkerPairEditor();
       }
 
       flashMessage('Loading markers.', 'green');
@@ -1305,13 +1302,12 @@ export let player: HTMLElement;
     let globalEncodeSettingsEditorDisplay: 'none' | 'block' = 'none';
     function toggleGlobalSettingsEditor() {
       if (isMarkerEditorOpen) {
-        toggleOffMarkerEditor();
+        toggleOffMarkerPairEditor();
       }
       if (wasDefaultsEditorOpen) {
         wasDefaultsEditorOpen = false;
       } else {
         hideSelectedMarkerPairCropOverlay();
-        toggleCropOverlay();
         createCropOverlay(settings.newMarkerCrop);
         const markerInputs = document.createElement('div');
         const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
@@ -2011,9 +2007,7 @@ export let player: HTMLElement;
     }
 
     function createCropOverlay(crop: string) {
-      if (isCropOverlayOpen) {
-        deleteCropOverlay();
-      }
+      deleteCropOverlay();
 
       crop = crop.split(':');
       if (crop[2] === 'iw') {
@@ -2052,7 +2046,7 @@ export let player: HTMLElement;
       setAttributes(cropRect, cropRectAttrs);
       cropSvg.appendChild(cropRect);
 
-      isCropOverlayOpen = true;
+      isCropOverlayVisible = true;
     }
 
     function resizeCropOverlay(cropDiv: HTMLDivElement) {
@@ -2065,21 +2059,37 @@ export let player: HTMLElement;
       );
     }
 
+    function showCropOverlay() {
+      const cropSvg = document.getElementById('crop-svg');
+      if (cropSvg) {
+        cropSvg.style.display = 'block';
+        isCropOverlayVisible = true;
+      }
+    }
+
+    function hideCropOverlay() {
+      if (isDrawingCrop) {
+        cancelDrawingCrop();
+      }
+      const cropSvg = document.getElementById('crop-svg');
+      if (cropSvg) {
+        cropSvg.style.display = 'none';
+        isCropOverlayVisible = false;
+      }
+    }
+
+    function toggleCropOverlayVisibility() {
+      if (!isCropOverlayVisible) {
+        showCropOverlay();
+      } else {
+        hideCropOverlay();
+      }
+    }
+
     function deleteCropOverlay() {
       const cropDiv = document.getElementById('crop-div');
       deleteElement(cropDiv);
-      isCropOverlayOpen = false;
-    }
-
-    function toggleCropOverlay() {
-      const cropSvg = document.getElementById('crop-svg');
-      if (cropSvg) {
-        const cropDivDisplay = cropSvg.getAttribute('display');
-        if (cropDivDisplay === 'none') cropSvg.setAttribute('display', 'block');
-        else {
-          cropSvg.setAttribute('display', 'none');
-        }
-      }
+      isCropOverlayVisible = false;
     }
 
     let isDrawingCrop = false;
@@ -2553,44 +2563,42 @@ export let player: HTMLElement;
       // toggling on off current pair editor
       if (prevSelectedMarkerPair === targetMarker && !wasDefaultsEditorOpen) {
         if (isMarkerEditorOpen) {
-          toggleOffMarkerEditor();
+          toggleOffMarkerPairEditor();
         } else {
-          toggleOnMarkerEditor(targetMarker);
+          toggleOnMarkerPairEditor(targetMarker);
         }
         // switching to different marker pair
         // delete current editor and create new editor
       } else {
         if (isMarkerEditorOpen) {
-          toggleOffMarkerEditor();
+          toggleOffMarkerPairEditor();
         }
-        toggleOnMarkerEditor(targetMarker);
+        toggleOnMarkerPairEditor(targetMarker);
       }
     }
 
-    function toggleOffMarkerEditor() {
-      deleteMarkerEditor();
+    function toggleOffMarkerPairEditor() {
+      deleteMarkerPairEditor();
       hideSelectedMarkerPairCropOverlay();
-      if (isCropOverlayOpen) {
-        toggleCropOverlay();
-      }
+      hideCropOverlay();
       hideSpeedChart();
     }
 
-    function toggleOnMarkerEditor(targetMarker: SVGRectElement) {
+    function toggleOnMarkerPairEditor(targetMarker: SVGRectElement) {
       prevSelectedMarkerPair = targetMarker;
       prevSelectedMarkerPairIndex =
         parseInt(prevSelectedMarkerPair.getAttribute('idx')) - 1;
 
       highlightSelectedMarkerPair(targetMarker);
       enableMarkerHotkeys(targetMarker);
-      createMarkerEditor(targetMarker);
+      createMarkerPairEditor(targetMarker);
       addCropInputHotkeys();
-      toggleCropOverlay();
       loadSpeedMap(speedChart);
+      showCropOverlay();
       showSpeedChart();
     }
 
-    function createMarkerEditor(targetMarker: SVGRectElement) {
+    function createMarkerPairEditor(targetMarker: SVGRectElement) {
       const markerIndex = parseInt(targetMarker.getAttribute('idx'), 10) - 1;
       const markerPair = markerPairs[markerIndex];
       const startTime = toHHMMSSTrimmed(markerPair.start);
@@ -2947,8 +2955,9 @@ export let player: HTMLElement;
       }
     }
 
-    function deleteMarkerEditor() {
+    function deleteMarkerPairEditor() {
       const markerInputsDiv = document.getElementById('markerInputsDiv');
+      hideCropOverlay();
       deleteElement(markerInputsDiv);
       isMarkerEditorOpen = false;
       markerHotkeysEnabled = false;
