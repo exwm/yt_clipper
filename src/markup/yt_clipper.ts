@@ -1240,7 +1240,7 @@ export let player: HTMLElement;
 
     function getFPS(def: number | null = 60) {
       try {
-        return parseFloat(player.getStatsForNerds().resolution.match(/@(\d\d)/)[1]);
+        return parseFloat(player.getStatsForNerds().resolution.match(/@(\d+)/)[1]);
       } catch (e) {
         console.log('Could not detect fps', e);
         return def; // by default parameter value assume high fps to avoid skipping frames
