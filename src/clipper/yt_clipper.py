@@ -240,7 +240,7 @@ def buildArgParser():
                               'Automatically set based on detected video bitrate.'))
     parser.add_argument('--no-auto-scale-crop-res', '-nascr', dest='noAutoScaleCropRes', action='store_true',
                         help=('Disable automatically scaling the crop resolution when a mismatch with video resolution is detected.'))
-    parser.add_argument('--preview', action='store_true',
+    parser.add_argument('--preview', '-p', action='store_true',
                         help=('Pass in semicolon separated lists of marker pairs.'
                               + 'Lists of marker pairs are comma-separated numbers or dash separated ranges. (eg 1-3,7;4-6,9)'))
     parser.add_argument('--no-auto-find-input-video', '-nafiv', dest='noAutoFindInputVideo', action='store_true',
