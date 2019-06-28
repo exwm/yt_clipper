@@ -1,6 +1,5 @@
 import { ChartConfiguration, ChartOptions, ChartFontOptions, ChartPoint } from 'chart.js';
-import { createRounder, toHHMMSSTrimmed } from './util';
-import { player } from './yt_clipper';
+import { createRounder, toHHMMSSTrimmed } from '../util';
 const sortX = (a, b) => {
   if (a.x < b.x) return -1;
   if (a.x > b.x) return 1;
@@ -11,7 +10,7 @@ const lightgrey = (opacity: number) => `rgba(90, 90, 90, ${opacity})`;
 const grey = (opacity: number) => `rgba(50, 50, 50, ${opacity})`;
 
 export const speedPointRawSecondsFormatter = (point) => {
-  return `T:${point.x.toFixed(1)}\nS:${+point.y.toFixed(2)}`;
+  return `T:${point.x.toFixed(2)}\nS:${+point.y.toFixed(2)}`;
 };
 export const speedPointHHMMSSFormatter = (point) => {
   return `T:${+toHHMMSSTrimmed(point.x)}\nS:${+point.y.toFixed(2)}`;
@@ -226,8 +225,8 @@ export const options: ChartConfiguration = {
     dragY: true,
     dragX: true,
     dragDataRound: 0.5,
-    dragDataRoundMultipleX: 0.1,
-    dragDataRoundPrecisionX: 1,
+    dragDataRoundMultipleX: 0.05,
+    dragDataRoundPrecisionX: 2,
     dragDataRoundMultipleY: 0.05,
     dragDataRoundPrecisionY: 2,
     dragDataSort: false,
