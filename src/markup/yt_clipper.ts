@@ -2035,10 +2035,22 @@ export let player: HTMLElement;
         );
         return;
       }
-      isFrameCapturerZippingInProgress = true;
+      if (!frameCaptureViewer || frameCaptureViewer.closed || !frameCaptureViewerDoc) {
+        flashMessage(
+          'Frame capturer not open. Please capture a frame before zipping.',
+          'olive'
+        );
+        return;
+      }
       const zip = new JSZip();
       const framesZip = zip.folder(settings.titleSuffix).folder('frames');
       const frames = frameCaptureViewerDoc.getElementsByTagName('canvas');
+      if (frames.length === 0) {
+        flashMessage('No frames to zip.', 'olive');
+        return;
+      }
+
+      isFrameCapturerZippingInProgress = true;
       Array.from(frames).forEach((frame) => {
         framesZip.file(frame.fileName, canvasBlobToPromise(frame), { binary: true });
       });
