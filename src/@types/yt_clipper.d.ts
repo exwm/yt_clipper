@@ -29,7 +29,7 @@ interface MarkerPair {
   crop: string;
   speed: number;
   speedMap: SpeedPoint[];
-  speedMapLoop: { start?: number; end?: number; enabled: boolean };
+  speedMapLoop: SpeedMapLoop;
   overrides: MarkerPairOverrides;
 }
 
@@ -37,6 +37,8 @@ interface MarkerConfig {
   time?: number;
   type?: 'start' | 'end';
   speed?: number;
+  speedMap?: SpeedPoint[];
+  speedMapLoop?: SpeedMapLoop;
   crop?: string;
   overrides?: MarkerPairOverrides;
 }
@@ -56,6 +58,11 @@ interface MarkerPairOverrides {
   roundSpeedMapEasing?: number;
 }
 
+interface SpeedMapLoop {
+  start?: number;
+  end?: number;
+  enabled: boolean;
+}
 interface VideoStabilization {
   enabled: boolean;
   shakiness: number;
