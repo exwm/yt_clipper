@@ -1182,12 +1182,17 @@ export let player: HTMLElement;
     };
 
     function addMarkerSVGRect(markerConfig: MarkerConfig = {}) {
-      const marker = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      markersSvg.appendChild(marker);
-
       const roughCurrentTime = markerConfig.time || player.getCurrentTime();
       const currentFrameTime = getCurrentFrameTime(roughCurrentTime);
       const progress_pos = (currentFrameTime / playerInfo.duration) * 100;
+
+      if (!start && currentFrameTime <= startTime) {
+        flashMessage('Cannot add end marker before start marker.', 'red');
+        return;
+      }
+
+      const marker = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      markersSvg.appendChild(marker);
 
       setAttributes(marker, marker_attrs);
       marker.setAttribute('x', `${progress_pos}%`);
@@ -2833,6 +2838,16 @@ export let player: HTMLElement;
         const progress_pos = (currentTime / playerInfo.duration) * 100;
         const markerTimeSpan = document.getElementById(`${type}-time`);
         const speedMap = markerPair.speedMap;
+
+        if (type === 'start' && currentTime >= markerPair.end) {
+          flashMessage('Start marker cannot be placed after end marker', 'red');
+          return;
+        }
+        if (type === 'end' && currentTime <= markerPair.start) {
+          flashMessage('End marker cannot be placed before start marker', 'red');
+          return;
+        }
+
         marker.setAttribute('x', `${progress_pos}%`);
         markerPair[type] = currentTime;
         if (type === 'start') {
