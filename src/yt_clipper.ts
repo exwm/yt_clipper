@@ -1089,21 +1089,21 @@ export let player: HTMLElement;
     }
 
     function getSettingsJSON() {
-      markerPairs.forEach((marker: MarkerPair, index: number) => {
-        const speed = marker.speed;
+      markerPairs.forEach((markerPair: MarkerPair, index: number) => {
+        const speed = markerPair.speed;
         if (typeof speed === 'string') {
-          marker.speed = Number(speed);
+          markerPair.speed = Number(speed);
           console.log(`Converted marker pair ${index}'s speed from String to Number`);
         }
       });
 
-      const markersNumbered = markerPairs.map((markerPair, idx) => {
+      const markerPairsNumbered = markerPairs.map((markerPair, idx) => {
         return { number: idx + 1, ...markerPair };
       });
       const settingsJSON = JSON.stringify(
         {
           ...settings,
-          markers: markersNumbered,
+          markerPairs: markerPairsNumbered,
         },
         undefined,
         2
@@ -1150,25 +1150,26 @@ export let player: HTMLElement;
       const lines = e.target.result;
       const markersJson = JSON.parse(lines);
       console.log(markersJson);
-      if (isMarkerEditorOpen) {
-        deleteMarkerPairEditor();
-      }
 
-      flashMessage('Loading markers.', 'green');
+      flashMessage('Loading markers...', 'green');
 
-      if (markersJson && markersJson.markers) {
+      if (markersJson && markersJson.markerPairs) {
         // copy markersJson to settings object less markers field
-        const { markers: _markers, ..._settings } = markersJson;
+        const { markerPairs: _markerPairs, ..._settings } = markersJson;
         settings = _settings;
-        markerPairs.length = 0;
-        markersJson.markers.forEach((marker: MarkerPair) => {
-          const startMarkerConfig: MarkerConfig = { time: marker.start, type: 'start' };
+        markersJson.markerPairs.forEach((markerPair: MarkerPair) => {
+          const startMarkerConfig: MarkerConfig = {
+            time: markerPair.start,
+            type: 'start',
+          };
           const endMarkerConfig: MarkerConfig = {
-            time: marker.end,
+            time: markerPair.end,
             type: 'end',
-            crop: marker.crop,
-            speed: marker.speed,
-            overrides: marker.overrides,
+            crop: markerPair.crop,
+            speed: markerPair.speed,
+            speedMap: markerPair.speedMap,
+            speedMapLoop: markerPair.speedMapLoop,
+            overrides: markerPair.overrides,
           };
           addMarkerSVGRect(startMarkerConfig);
           addMarkerSVGRect(endMarkerConfig);
@@ -1245,8 +1246,11 @@ export let player: HTMLElement;
         end: currentTime,
         crop: markerPairConfig.crop || settings.newMarkerCrop,
         speed: speed,
-        speedMap: [{ x: startTime, y: speed }, { x: currentTime, y: speed }],
-        speedMapLoop: { enabled: true },
+        speedMap: markerPairConfig.speedMap || [
+          { x: startTime, y: speed },
+          { x: currentTime, y: speed },
+        ],
+        speedMapLoop: markerPairConfig.speedMapLoop || { enabled: true },
         overrides: markerPairConfig.overrides || {},
       };
 
