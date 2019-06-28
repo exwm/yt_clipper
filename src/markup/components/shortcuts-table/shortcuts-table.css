@@ -1,0 +1,70 @@
+#shortcutsTableContainer table {
+  text-align: left;
+  line-height: 32px;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 2px solid #ed1c40;
+  width: 630px;
+  margin: 8px auto;
+  border-radius: 0.25rem;
+  font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: #333;
+}
+
+#shortcutsTableContainer thead tr:first-child {
+  background: #ed1c40;
+  color: #fff;
+  border: none;
+}
+
+#shortcutsTableContainer thead tr:nth-child(2) {
+  text-align: center;
+}
+
+#shortcutsTableContainer tr:nth-child(even) {
+  background-color: rgba(20, 20, 20, 0.05);
+}
+
+#shortcutsTableContainer th:first-child,
+td:first-child {
+  padding: 0 5px;
+}
+
+#shortcutsTableContainer th {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+#shortcutsTableContainer thead tr:last-child th {
+  border-bottom: 3px solid #ddd;
+}
+
+#shortcutsTableContainer tbody tr:hover {
+  background-color: rgba(20, 20, 20, 0.1);
+}
+
+#shortcutsTableContainer tbody tr:last-child td {
+  border: none;
+  border-right: 2px solid #ddd;
+}
+
+#shortcutsTableContainer tbody td {
+  border-bottom: 1px solid #ddd;
+  border-right: 2px solid #ddd;
+}
+
+#shortcutsTableContainer td:last-child {
+  text-align: right;
+  padding-right: 5px;
+}
+
+#shortcutsTableContainer kbd {
+  border: 1px solid #666666;
+  border-radius: 2px;
+  font-weight: bold;
+  padding: 2px 4px;
+  margin: 1px;
+  background-color: #e0e0e0;
+}

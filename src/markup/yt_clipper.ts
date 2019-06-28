@@ -26,9 +26,22 @@
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import { Chart, ChartConfiguration } from 'chart.js';
-import * as SpeedChartSpec from './speed-chart-spec';
-import './chart.js-drag-data-plugin';
+import * as SpeedChartSpec from './speedchart/speed-chart-spec';
+import './speedchart/chart.js-drag-data-plugin';
 import { easeCubicInOut } from 'd3-ease';
+import { readFileSync } from 'fs';
+const shortcutsTable = readFileSync(
+  __dirname + '/components/shortcuts-table/shortcuts-table.html',
+  'utf8'
+);
+const shortcutsTableStyle = readFileSync(
+  __dirname + '/components/shortcuts-table/shortcuts-table.css',
+  'utf8'
+);
+const shortcutsTableToggleButtonHTML = readFileSync(
+  __dirname + '/components/shortcuts-table/shortcuts-table-toggle-button.html',
+  'utf8'
+);
 
 import {
   retryUntilTruthyResult,
@@ -39,6 +52,7 @@ import {
   setAttributes,
   clampNumber,
   roundValue,
+  htmlToElement,
 } from './util';
 
 export let player: HTMLElement;
@@ -162,7 +176,7 @@ export let player: HTMLElement;
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              disableSpeedMapLoop();
+              toggleSpeedMapLoop();
             } else if (!e.ctrlKey && e.shiftKey && e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
@@ -280,8 +294,10 @@ export let player: HTMLElement;
         toggleKeys = !toggleKeys;
         initOnce();
         if (toggleKeys) {
+          showShortcutsTableToggleButton();
           flashMessage('Enabled Hotkeys', 'green');
         } else {
+          hideShortcutsTableToggleButton();
           flashMessage('Disabled Hotkeys', 'red');
         }
       }
@@ -326,6 +342,7 @@ export let player: HTMLElement;
       initPlayerInfo();
       initMarkersContainer();
       addForeignEventListeners();
+      injectToggleShortcutsTableButton();
     }
 
     const initOnce = once(init, this);
@@ -1797,6 +1814,42 @@ export let player: HTMLElement;
       });
     }
 
+    let shortcutsTableToggleButton: HTMLButtonElement;
+    function injectToggleShortcutsTableButton() {
+      const ytpRightControls = document.getElementsByClassName('ytp-right-controls')[0];
+      shortcutsTableToggleButton = htmlToElement(
+        shortcutsTableToggleButtonHTML
+      ) as HTMLButtonElement;
+      shortcutsTableToggleButton.onclick = toggleShortcutsTable;
+      ytpRightControls.insertAdjacentElement('afterbegin', shortcutsTableToggleButton);
+    }
+
+    function showShortcutsTableToggleButton() {
+      if (shortcutsTableToggleButton) {
+        shortcutsTableToggleButton.style.display = 'inline-block';
+      }
+    }
+    function hideShortcutsTableToggleButton() {
+      if (shortcutsTableToggleButton) {
+        shortcutsTableToggleButton.style.display = 'none';
+      }
+    }
+
+    let shortcutsTableContainer: HTMLDivElement;
+    function toggleShortcutsTable() {
+      if (!shortcutsTableContainer) {
+        injectCSS(shortcutsTableStyle, 'shortcutsTableStyle');
+        shortcutsTableContainer = document.createElement('div');
+        shortcutsTableContainer.setAttribute('id', 'shortcutsTableContainer');
+        shortcutsTableContainer.innerHTML = shortcutsTable;
+        flashMessageHook.insertAdjacentElement('afterend', shortcutsTableContainer);
+      } else if (shortcutsTableContainer.style.display !== 'none') {
+        shortcutsTableContainer.style.display = 'none';
+      } else {
+        shortcutsTableContainer.style.display = 'block';
+      }
+    }
+
     const frameCaptureViewerHeadHTML = `\
       <title>yt_clipper Frame Capture Viewer</title>
       <style>
@@ -2446,7 +2499,7 @@ export let player: HTMLElement;
       }
     }
 
-    function disableSpeedMapLoop() {
+    function toggleSpeedMapLoop() {
       if (isSpeedChartVisible && prevSelectedMarkerPairIndex != null) {
         if (markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.enabled) {
           markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.enabled = false;
@@ -2466,7 +2519,6 @@ export let player: HTMLElement;
     }
 
     function resetSpeedMapLoop() {
-      console.log('called');
       if (isSpeedChartVisible && prevSelectedMarkerPairIndex != null) {
         markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.start = undefined;
         markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.end = undefined;
@@ -3257,7 +3309,7 @@ httpd.serve_forever()
     function updateUploadStatus(
       markdown: { textContent: string; scrollTop: any; scrollHeight: any },
       status: { progress: any },
-      gfyname: name
+      gfyname: string
     ) {
       if (markdown) {
         markdown.textContent += `${gfyname} progress: ${status.progress}\n`;
