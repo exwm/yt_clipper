@@ -42,9 +42,9 @@
   - [Clipper Script Source](#clipper-script-source)
   - [Clipper Script Usage](#clipper-script-usage)
   - [Clipper Script Installation](#clipper-script-installation)
-    - [Helper Bat/App Scripts](#helper-batapp-scripts)
+    - [Additional Helper Scripts](#additional-helper-scripts)
       - [Windows Merge Helper Bat Script](#windows-merge-helper-bat-script)
-  - [Older Clipper Script Installation Releases](#older-clipper-script-installation-releases)
+  - [Older Releases](#older-releases)
   - [Clipper Script Dependencies](#clipper-script-dependencies)
   - [Full Changelog](#full-changelog)
   - [Markup Script Changelog](#markup-script-changelog)
@@ -315,38 +315,64 @@ python ./yt_clipper.py --json markers.json # automatically generate webms using 
 There is an installation that does not require the dependencies below.
 
 1. Extract the appropriate zip file anywhere:
-   - On _Windows_ download this [zip file (win_v3.5.0)](https://mega.nz/#!pbRwgSYJ!j_WEzrrwVZxcVOogaorBJKlleSFAcr41WgNo8r6G6B0)
-   - On _Mac_ download this [zip file (mac_v3.5.0)](https://mega.nz/#!cTIkWQYa!CiWThkclVxo_fo3EHum7s9fYcNSL0L2Iwg2PdVHV8DQ)
-   - The latest install (`v3.5.0`) is **not compatible** with `v0.0.80` or lower of the `markup script`
-2. Simply drag and drop the markers .json file onto the `yt_clipper_auto.bat` file on Windows or the `yt_clipper_auto.app` file on Mac.
-3. All generated webm clips will be placed in `./webms/<markers-json-filename>`.
-4. Windows users may require [Microsoft Visual C++ 2010 Redistributable Package (x86)](https://www.microsoft.com/en-US/download/details.aspx?id=5555).
+   - On _Windows_ download this [zip file (win_v3.5.1)](https://mega.nz/#!1WIwkAKQ!999ObtZWfu5IG7IfLSGyynYCJanQdcn7Eb4QYh3cNLU)
+   - On _Mac_ download this [zip file (mac_v3.5.1)](https://mega.nz/#!kaY2nAbZ!x249wT-K3RqydZVEkdw1ZA2zZQi-_aERy9ZbVLv2yeM)
+   - The latest install (`v3.5.1`) is **not compatible** with `v0.0.75` or lower of the `markup script`
+2. Simply drag and drop the markers .json file onto the `yt_clipper_auto.bat` file on Windows or at the terminal prompt after executing `yt_clipper_auto` on Mac.
+3. Use `Ctrl+C` if you need to cancel the process.
+4. All generated webm clips will be placed in `./webms/<markers-json-filename>`.
+5. Windows users may require [Microsoft Visual C++ 2010 Redistributable Package (x86)](https://www.microsoft.com/en-US/download/details.aspx?id=5555).
 
-### Helper Bat/App Scripts
+### Additional Helper Scripts
 
-There are some alternative `.bat/.app` files for more options. They all work by dropping the markers json onto them:
+There are some alternative helper scripts for more options:
 
-- Use `yt_clipper_options` `.bat/.app` to print all the available options and to be prompted for a string with additional options before running the script. This allows you to combine options (eg include audio and rotate and denoise).
-- Use the `yt_clipper_preview` `.bat/.app` to locally preview markers `json` data with `ffplay`.
+- Use `yt_clipper_options` to print all the available options and to be prompted for a string with additional options before running the script. This allows you to combine options (e.g., include audio and rotate and denoise).
+  - The other helper scripts provide preconfigured subsets of these options.
+- Use `yt_clipper_preview` to locally preview markers `json` data with `ffplay`.
   - _Cannot preview audio, video stabilization, or expanded color range._
-- Use `yt_clipper_auto_download` `.bat/.app` to download video before processing markers.
-- Add automatic detection of potential input videos with path stem `./webms/titleSuffix/titlePrefix-titleSuffix-full`.
-- Windows Only: Use `yt_clipper_auto_input_video.bat` by dropping markers data and a video file to processed a specific video.
+- Use `yt_clipper_auto_download` to download video before processing markers.
+- Use `yt_clipper_auto_input_video` to specify both markers `json` data and an input video for processing.
+  - On Windows simply drag and drop both the `json` and the input video onto `yt_clipper_auto_input_video`.
+  - On Mac, `yt_clipper_auto_input_video` will prompt for the `json` then the input video.
 
-The `bat` files have a simple format. Copy and edit `yt_clipper_auto.bat` to create custom automated versions.
-Just add options after the `%%A` on line 6 as in the example below where several options have been added.
+The helper scripts have a simple format. Copy and edit `yt_clipper_auto` in a text editor to create custom automated versions.
 
-```bat
-@echo off
-chcp 65001
-cd /D "%~dp0"
+- On Windows:
 
-FOR %%A IN (%*) DO (
-  .\yt_clipper.exe --json %%A --denoise --audio --rotate clock
-)
+  ```bat
+  @echo off
+  chcp 65001
+  cd /D "%~dp0"
 
-pause
-```
+  FOR %%A IN (%*) DO (
+    REM add options after %%A of the next line as shown
+    .\yt_clipper.exe --json %%A --denoise --audio --rotate clock
+  )
+
+  pause
+  ```
+
+- On Mac
+
+  ```bash
+  #!/bin/bash
+  cd "$(dirname "$0")"
+
+  read -p "First enter the paths of 1 or more markers json data files (you may be able to drag and drop files at the prompt): " JSONPROMPT
+
+  IFS=$'\n' JSONS=( $(xargs -n1 <<< "$JSONPROMPT") )
+
+  for JSON in "${JSONS[@]}"
+  do
+    if [ -f "$JSON" ]; then
+      # add options after $JSON of the next line as shown
+      ./yt_clipper --markers-json "$JSON"
+    else
+      echo "$JSON does not exist"
+    fi
+  done
+  ```
 
 #### Windows Merge Helper Bat Script
 
@@ -357,7 +383,7 @@ The `yt_clipper_merge.bat` can be used to merge any webm files in any order:
 - The output file will be `-merged` appended to the first input file.
 - Check the `merge.txt` file to confirm the correct videos were merged in the correct order.
 
-## Older Clipper Script Installation Releases
+## Older Releases
 
 You can find old releases in this folder: <https://mega.nz/#F!4HYDAKDS!NqS5Nk9heN7QBxvQapudeg>.
 
@@ -377,10 +403,18 @@ See <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
 
 ## Markup Script Changelog
 
-- v0.0.81
+- v0.0.82
 
   - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
-  - Use with `v3.5.0` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Use with `v3.5.1` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Revert enabling crop adjustment with arrow keys hotkey to **Alt+X**.
+  - Add version tag to generated markers `json` data.
+  - Fix readme table of contents not working on openuserjs.com.
+  - Added folder for old releases of `markup script` at [Older Releases](#older-releases).
+
+- v0.0.81
+
+  - Use with `v3.5.0` of the `clipper script` installation.
   - Fix some default C key bindings (eg Ctrl+C for copying) being wrongly disabled.
   - Add shortcuts reference toggle button (scissor icon) to video controls on hotkeys enable.
   - Add time-variable speed chart for making webms with variable speed.
@@ -425,11 +459,24 @@ See <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
 
 ## Clipper Script (Installation) Changelog
 
-- v3.5.0:
+- v3.5.1:
 
   - See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
-  - Use with `v0.0.81` or higher of the markup script.
+  - Use with `v0.0.82` or higher of the markup script.
     - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
+  - Fix compatibility with latest markers json format (`v0.0.81`)
+  - Fix backwards compatibility with older markers json formats.
+  - Fix potential input videos including `.part` files and other multi-extension file names.
+  - Mac: Switched `clipper script` installation from `.app`-based system to executable `bash script` system.
+    - Fixes translocation issues with Mac.
+    - Use by double-clicking or otherwise executing one of the executable `bash scripts`.
+    - At the prompt type or drag and drop `json` data files and then hit enter.
+    - Now processes multiple marker `json` data files sequentially and from any location.
+    - See [Additional Helper Scripts](#additional-helper-scripts) for more info.
+
+- v3.5.0:
+
+  - Use with `v0.0.81` or higher of the markup script.
   - Add support for time-variable speed.
   - Add new `clipper script` flags and `bat/app` scripts for accessing new functions.
     - Add local previewing of markers (using ffplay) with `--preview/-p`, `yt_clipper_preview` .bat or .app file.
