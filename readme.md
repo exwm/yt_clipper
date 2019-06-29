@@ -19,36 +19,36 @@
 ## Table of Contents
 
 - [yt_clipper](#ytclipper)
-  - [Notices](#Notices)
-  - [Browser Support](#Browser-Support)
-  - [Related Scripts](#Related-Scripts)
-  - [Table of Contents](#Table-of-Contents)
-  - [Terminology](#Terminology)
-  - [Markup Script Shortcuts](#Markup-Script-Shortcuts)
-    - [Marker Shortcuts](#Marker-Shortcuts)
-    - [Cropping Shortcuts](#Cropping-Shortcuts)
-    - [Video Playback and Preview Shortcuts](#Video-Playback-and-Preview-Shortcuts)
-    - [Time-Variable Speed Chart Shortcuts](#Time-Variable-Speed-Chart-Shortcuts)
-    - [Frame Capturing Shortcuts](#Frame-Capturing-Shortcuts)
-    - [Save and Upload Shortcuts](#Save-and-Upload-Shortcuts)
-  - [Useful YouTube Controls](#Useful-YouTube-Controls)
-  - [Tips](#Tips)
-    - [User Script Tips](#User-Script-Tips)
-    - [Clipper Script Tips](#Clipper-Script-Tips)
-  - [Encoding Settings Guide](#Encoding-Settings-Guide)
-    - [Articles on CRF and vp9 Encoding](#Articles-on-CRF-and-vp9-Encoding)
-    - [Tips and Settings](#Tips-and-Settings)
-    - [Gamma Correction](#Gamma-Correction)
-  - [Clipper Script Source](#Clipper-Script-Source)
-  - [Clipper Script Usage](#Clipper-Script-Usage)
-  - [Clipper Script Installation](#Clipper-Script-Installation)
-    - [Helper Bat/App Scripts](#Helper-BatApp-Scripts)
-      - [Windows Merge Helper Bat Script](#Windows-Merge-Helper-Bat-Script)
-  - [Older Clipper Script Installation Releases](#Older-Clipper-Script-Installation-Releases)
-  - [Clipper Script Dependencies](#Clipper-Script-Dependencies)
-  - [Full Changelog](#Full-Changelog)
-  - [Markup Script Changelog](#Markup-Script-Changelog)
-  - [Clipper Script (Installation) Changelog](#Clipper-Script-Installation-Changelog)
+  - [Notices](#notices)
+  - [Browser Support](#browser-support)
+  - [Related Scripts](#related-scripts)
+  - [Table of Contents](#table-of-contents)
+  - [Terminology](#terminology)
+  - [Markup Script Shortcuts](#markup-script-shortcuts)
+    - [Marker Shortcuts](#marker-shortcuts)
+    - [Cropping Shortcuts](#cropping-shortcuts)
+    - [Video Playback and Preview Shortcuts](#video-playback-and-preview-shortcuts)
+    - [Time-Variable Speed Chart Shortcuts](#time-variable-speed-chart-shortcuts)
+    - [Frame Capturing Shortcuts](#frame-capturing-shortcuts)
+    - [Save and Upload Shortcuts](#save-and-upload-shortcuts)
+  - [Useful YouTube Controls](#useful-youtube-controls)
+  - [Tips](#tips)
+    - [User Script Tips](#user-script-tips)
+    - [Clipper Script Tips](#clipper-script-tips)
+  - [Encoding Settings Guide](#encoding-settings-guide)
+    - [Articles on CRF and vp9 Encoding](#articles-on-crf-and-vp9-encoding)
+    - [Tips and Settings](#tips-and-settings)
+    - [Gamma Correction](#gamma-correction)
+  - [Clipper Script Source](#clipper-script-source)
+  - [Clipper Script Usage](#clipper-script-usage)
+  - [Clipper Script Installation](#clipper-script-installation)
+    - [Helper Bat/App Scripts](#helper-batapp-scripts)
+      - [Windows Merge Helper Bat Script](#windows-merge-helper-bat-script)
+  - [Older Clipper Script Installation Releases](#older-clipper-script-installation-releases)
+  - [Clipper Script Dependencies](#clipper-script-dependencies)
+  - [Full Changelog](#full-changelog)
+  - [Markup Script Changelog](#markup-script-changelog)
+  - [Clipper Script (Installation) Changelog](#clipper-script-installation-changelog)
 
 ## Terminology
 
@@ -197,10 +197,11 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 **Ctrl+mouse-wheel:** Zoom in and out of speed chart. **Ctrl+Click:** Reset zoom.
 
-- Points are auto-sorted based on their time value on adding or removing points or on drag-end when moving points.
-- YouTube playback speed can only be set to a multiple of `0.05`. The transitions between speed points are thus set to round the easing to the nearest multiple of `0.05` by default. This can be changed in the global or marker pair settings editors.
+Points are auto-sorted based on their time value on adding or removing points or on drag-end when moving points.
 
-- ![yt_clipper_speed_chart](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_speed_chart.jpg)
+YouTube playback speed can only be set to a multiple of `0.05`. The transitions between speed points are thus set to round the easing to the nearest multiple of `0.05` by default. This provides in-browser previews that better match final output. The rounding can be changed in the global or marker pair settings editors with the `Round Easing` input.
+
+![yt_clipper_speed_chart](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_speed_chart.jpg)
 
 ### Frame Capturing Shortcuts
 
@@ -446,7 +447,7 @@ See <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
   - Update `youtube-dl` dependency to version [`2019.06.21`](https://github.com/ytdl-org/youtube-dl/releases/tag/2019.06.21).
     - Fixes automatic fetching of YouTube videos.
   - Windows: Add `yt_clipper_merge.bat` for merging webm video files on disk.
-    - See the [Merge Helper Bat Script Instructions](#merge-helper-bat-script).
+    - See the [Merge Helper Bat Script Instructions](#windows-merge-helper-bat-script).
 
 - v3.4.1:
 
