@@ -45,7 +45,7 @@ if getattr(sys, 'frozen', False):
 
 def main():
     global settings, webmsPath
-    args = buildArgParser()
+    args, unknown = buildArgParser()
     if args.cropMultiple != 1:
         args.cropMultipleX = args.cropMultiple
         args.cropMultipleY = args.cropMultiple
@@ -148,8 +148,8 @@ def main():
         settings = prepareGlobalSettings(settings)
 
     if not settings["preview"]:
-        for markerPairIndex, marker in enumerate(settings["markers"]):
-            settings["markers"][markerPairIndex] = makeMarkerPairClip(
+        for markerPairIndex, marker in enumerate(settings["markerPairs"]):
+            settings["markerPairs"][markerPairIndex] = makeMarkerPairClip(
                 settings, markerPairIndex)
         if settings["markerPairMergeList"] != '':
             makeMergedClips(settings)
@@ -157,7 +157,7 @@ def main():
         while True:
             try:
                 inputStr = input(
-                    f'Enter a valid marker pair number (between {1} and {len(settings["markers"])}) or quit(q): ')
+                    f'Enter a valid marker pair number (between {1} and {len(settings["markerPairs"])}) or quit(q): ')
                 if inputStr == 'quit' or inputStr == 'q':
                     break
                 markerPairIndex = int(inputStr)
@@ -165,7 +165,7 @@ def main():
             except ValueError:
                 logger.error(f'{inputStr} is not a valid number.')
                 continue
-            if 0 <= markerPairIndex < len(settings["markers"]):
+            if 0 <= markerPairIndex < len(settings["markerPairs"]):
                 makeMarkerPairClip(settings, markerPairIndex)
             else:
                 logger.error(
@@ -252,12 +252,14 @@ def buildArgParser():
                         + ('Valid range is (0, 0.5] (i.e., greater than 0 and less than or equal to 0.5)')
                         + ('For example, a value of 0.05 will step from a starting speed of 1.0 to a speed of 0.5 in decrements of 0.05.')
                         + ('A value of 0 disables rounding. The default of 0.05 matches the variable speed preview in the browser.'))
-    return parser.parse_args()
+    return parser.parse_known_args()
 
 
 def loadMarkers(markersJson, settings):
     markersDict = json.loads(markersJson)
     settings = {**settings, **markersDict}
+    if "markers" in settings and not "markerPairs" in settings:
+        settings["markerPairs"] = settings["markers"]
     settings["videoURL"] = 'https://www.youtube.com/watch?v=' + \
         settings["videoID"]
 
@@ -371,7 +373,7 @@ def prepareGlobalSettings(settings):
 
 
 def getMarkerPairSettings(settings, markerPairIndex):
-    mp = markerPair = {**(settings["markers"][markerPairIndex])}
+    mp = markerPair = {**(settings["markerPairs"][markerPairIndex])}
 
     cropString = mp["crop"]
     crops = mp["cropComponents"] = cropString.split(':')
@@ -436,18 +438,21 @@ def makeMarkerPairClip(settings, markerPairIndex):
     mp, mps = getMarkerPairSettings(settings, markerPairIndex)
 
     if mp["exists"]:
-        return {**(settings["markers"][markerPairIndex]), **mp}
+        return {**(settings["markerPairs"][markerPairIndex]), **mp}
 
     inputs = ''
     audio_filter = ''
     video_filter = ''
 
     mps["isVariableSpeed"] = False
-    if mps["enableSpeedMaps"]:
+    if mps["enableSpeedMaps"] and "speedMap" in mp:
         for left, right in zip(mp["speedMap"][:-1], mp["speedMap"][1:]):
             if left["y"] != right["y"]:
                 mps["isVariableSpeed"] = True
                 break
+
+    logger.info(f'Marker Pair {markerPairIndex + 1} is of variable speed: {mps["isVariableSpeed"]}')
+    logger.info('-' * 80)
 
     if mps["isVariableSpeed"]:
         mps["audio"] = False
@@ -587,10 +592,10 @@ def runffmpegCommand(inputs, video_filter, audio_filter, markerPairIndex, mp, mp
 
     if ffmpegProcess.returncode == 0:
         logger.info(f'Successfuly generated: "{mp["fileName"]}"\n')
-        return {**(settings["markers"][markerPairIndex]), **mp}
+        return {**(settings["markerPairs"][markerPairIndex]), **mp}
     else:
         logger.info(f'Failed to generate: "{mp["fileName"]}"\n')
-        return {**(settings["markers"][markerPairIndex])}
+        return {**(settings["markerPairs"][markerPairIndex])}
 
 
 def getVariableSpeedFilter(speedMap, mps):
@@ -663,7 +668,7 @@ def getVariableSpeedFilter(speedMap, mps):
 
 def runffplayCommand(inputs, video_filter, video_filter_before_correction, audio_filter, markerPairIndex, mp, mps):
     logger.info('running ffplay command')
-    if 0 <= markerPairIndex < len(settings["markers"]):
+    if 0 <= markerPairIndex < len(settings["markerPairs"]):
         ffplayOptions = f'-hide_banner -fs -sync video -fast -genpts '
         ffplayVideoFilter = f'-vf "{video_filter}"'
         if settings["inputVideo"]:
@@ -704,10 +709,10 @@ def makeMergedClips(settings):
         logger.info('-' * 80)
         try:
             for i in mergeList:
-                markerPair = settings["markers"][i-1]
+                markerPair = settings["markerPairs"][i-1]
                 if 'fileName' in markerPair and 'filePath' in markerPair:
                     if Path(markerPair["filePath"]).is_file():
-                        inputs += f'''file '{settings["markers"][i-1]["fileName"]}'\n'''
+                        inputs += f'''file '{settings["markerPairs"][i-1]["fileName"]}'\n'''
                     else:
                         raise MissingMergeInput
                 else:
