@@ -815,6 +815,7 @@ export let player: HTMLElement;
           shortestActiveMarkerPair.overrides.enableSpeedMaps !== undefined
             ? shortestActiveMarkerPair.overrides.enableSpeedMaps
             : settings.enableSpeedMaps !== false;
+
         if (enableSpeedMaps) {
           const roundSpeedMapEasing =
             shortestActiveMarkerPair.overrides.roundSpeedMapEasing >= 0
@@ -917,7 +918,8 @@ export let player: HTMLElement;
           if (
             markerPair.speedMapLoop.enabled &&
             markerPair.speedMapLoop.start > markerPair.start &&
-            markerPair.speedMapLoop.end < markerPair.end
+            markerPair.speedMapLoop.end < markerPair.end &&
+            markerPair.speedMapLoop.start < markerPair.speedMapLoop.end
           ) {
             const isTimeBetweenSpeedMapLoop =
               markerPair.speedMapLoop.start <= video.currentTime &&
@@ -2470,7 +2472,7 @@ export let player: HTMLElement;
             },
             true
           );
-          
+
           speedChart.ctx.canvas.addEventListener(
             'mouseup',
             speedChartContextMenuHandler,
