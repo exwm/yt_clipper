@@ -467,11 +467,23 @@ def makeMarkerPairClip(settings, markerPairIndex):
 
     reconnectFlags = r'-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5'
     if mps["audio"]:
-        if not mps["inputVideo"] and not settings["isDashAudio"]:
+        # ffplay previewing does not support multiple inputs
+        # if an input video is provided, a dash xml is used, or previewing is on, there is only one input
+        if not mps["inputVideo"] and not settings["isDashAudio"] and not settings["preview"]:
             inputs += reconnectFlags
             inputs += f' -ss {mp["start"]} -i "{mps["audioURL"]}" '
 
-        audio_filter += f'[in]atrim={mp["start"]}:{mp["end"]},atempo={1/mp["speed"]}'
+        # preview mode does not start each clip at time 0 unlike encoding mode
+        if settings["preview"] and (settings["inputVideo"] or settings["isDashAudio"]):
+            audio_filter += f'atrim={mp["start"]}:{mp["end"]},atempo={1/mp["speed"]}'
+        # encoding mode starts each clip at time 0
+        elif not settings["preview"]:
+            audio_filter += f'atrim=0:{mp["duration"]},atempo={1/mp["speed"]}'
+        # when streaming the required chunks from the internet the video and audio inputs are separate
+        else:
+            mps["audio"] = False
+            logger.warning(
+                'Audio disabled when previewing without an input video over non-dash protocal.')
 
     if not mps["inputVideo"] and not settings["isDashVideo"]:
         inputs += reconnectFlags
