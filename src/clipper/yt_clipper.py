@@ -9,7 +9,7 @@ import re
 import shlex
 import subprocess
 import sys
-from glob import escape, glob
+import glob
 from pathlib import Path
 
 UPLOAD_KEY_REQUEST_ENDPOINT = 'https://api.gfycat.com/v1/gfycats?'
@@ -62,7 +62,7 @@ def main():
     settings["isDashVideo"] = False
     settings["isDashAudio"] = False
     if "enableSpeedMaps" not in settings:
-      settings["enableSpeedMaps"] = not settings["noSpeedMaps"]
+        settings["enableSpeedMaps"] = not settings["noSpeedMaps"]
 
     with open(settings["json"], 'r', encoding='utf-8-sig') as file:
         markersJson = file.read()
@@ -79,8 +79,11 @@ def main():
     logger.info(f'Version: {__version__}')
     logger.info('-' * 80)
 
-    settings["downloadVideoPath"] = f'{webmsPath}/{settings["titleSuffix"]}-full'
-    potentialInputVideos = glob(escape(settings["downloadVideoPath"]) + r'.*')
+    settings["downloadVideoNameStem"] = f'{settings["titleSuffix"]}-full'
+    settings["downloadVideoPath"] = f'{webmsPath}/{settings["downloadVideoNameStem"]}'
+    pivpat = r'^' + re.escape(settings["downloadVideoNameStem"]) + r'\.[^.]+$'
+    potentialInputVideos = [
+        f'{webmsPath}/{iv}' for iv in os.listdir(webmsPath) if re.search(pivpat, iv)]
 
     settings["automaticFetching"] = not settings["inputVideo"] and not settings["downloadVideo"]
 
@@ -88,7 +91,7 @@ def main():
         if len(potentialInputVideos) > 0:
             logger.info(
                 f'Found potential input video at path {potentialInputVideos[0]}.')
-            if len(potentialInputVideos) > 0:
+            if len(potentialInputVideos) > 1:
                 logger.warning(
                     f'Also found the following other potential input videos {potentialInputVideos[1:]}.')
             settings["inputVideo"] = potentialInputVideos[0]
@@ -248,7 +251,8 @@ def buildArgParser():
     parser.add_argument('--no-speed-maps', '-nsm', dest='noSpeedMaps', action='store_true',
                         help='Disable speed maps for time-variable speed.')
     parser.add_argument('--round-speed-map-easing', '-rsme', dest='roundSpeedMapEasing', type=float, default=0.05,
-                        help=('Round changes in speed with time to the nearest positive multiple provided.')
+                        help=(
+                            'Round changes in speed with time to the nearest positive multiple provided.')
                         + ('Valid range is (0, 0.5] (i.e., greater than 0 and less than or equal to 0.5)')
                         + ('For example, a value of 0.05 will step from a starting speed of 1.0 to a speed of 0.5 in decrements of 0.05.')
                         + ('A value of 0 disables rounding. The default of 0.05 matches the variable speed preview in the browser.'))
@@ -327,8 +331,11 @@ def getVideoInfo(settings, videoInfo):
         settings = {**settings, **videoInfo, **
                     ffprobeVideoProperties(settings["videoURL"])}
 
-    if settings["isDashVideo"]:
+    if settings["isDashVideo"] or not "bit_rate" in settings:
         settings["bit_rate"] = int(videoInfo["tbr"])
+
+    if not "r_frame_rate" in settings:
+        settings["r_frame_rate"] = videoInfo["fps"]
 
     logger.info(f'Video Title: {settings["videoTitle"]}')
     logger.info(f'Video Width: {settings["width"]}')
@@ -451,7 +458,8 @@ def makeMarkerPairClip(settings, markerPairIndex):
                 mps["isVariableSpeed"] = True
                 break
 
-    logger.info(f'Marker Pair {markerPairIndex + 1} is of variable speed: {mps["isVariableSpeed"]}')
+    logger.info(
+        f'Marker Pair {markerPairIndex + 1} is of variable speed: {mps["isVariableSpeed"]}')
     logger.info('-' * 80)
 
     if mps["isVariableSpeed"]:
@@ -650,7 +658,7 @@ def getVariableSpeedFilter(speedMap, mps):
         # setpts = f'({setptsA}+({setptsB}-{setptsA})*{setptsPE})'
         # setpts = f'({setptsA}+({setptsB}-{setptsA})*{setptsCircleOut})'
         setpts = f'lerp({setptsA}\\, {setptsB}\\, {setptsP})'
-        if  0 < mps["roundSpeedMapEasing"] <= 0.5:
+        if 0 < mps["roundSpeedMapEasing"] <= 0.5:
             setpts = f'( round( {setpts} / {mps["roundSpeedMapEasing"]} ) * {mps["roundSpeedMapEasing"]} )'
         setpts += '*(PTS-STARTPTS)'
 
