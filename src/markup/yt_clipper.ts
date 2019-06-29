@@ -55,6 +55,8 @@ import {
   htmlToElement,
 } from './util';
 
+const __version__ = '0.0.81';
+
 export let player: HTMLElement;
 
 (function() {
@@ -1120,10 +1122,7 @@ export let player: HTMLElement;
         return { number: idx + 1, ...markerPair };
       });
       const settingsJSON = JSON.stringify(
-        {
-          ...settings,
-          markerPairs: markerPairsNumbered,
-        },
+        { version: __version__, ...settings, markerPairs: markerPairsNumbered },
         undefined,
         2
       );
