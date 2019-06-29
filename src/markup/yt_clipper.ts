@@ -236,7 +236,7 @@ export let player: HTMLElement;
               e.preventDefault();
               e.stopImmediatePropagation();
               drawCropOverlay(true);
-            } else if (e.ctrlKey && !e.altKey && !e.shiftKey) {
+            } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
               toggleArrowKeyCropAdjustment();
