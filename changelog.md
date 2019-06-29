@@ -2,6 +2,11 @@
 
 ## Markup Script Changelog
 
+- v0.0.82
+
+  - Use with `v3.5.1` of the `clipper script` installation.
+  - Revert enabling crop adjustment with arrow keys hotkey to **Alt+X**.
+
 - v0.0.81
 
   - Use with `v3.5.0` of the `clipper script` installation.
@@ -149,6 +154,20 @@
   - Add target max bitrate option for constrained quality mode using `-b <bitrate>` where bitrate is in kb/s.
 
 ## Clipper Script (Installation) Changelog
+
+- v3.5.1:
+
+  - Use with `v0.0.82` or higher of the markup script.
+    - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
+  - Fix compatibility with latest markers json format (`v0.0.81`)
+  - Fix backwards compatibility with older markers json formats.
+  - Fix potential input videos including `.part` files and other multi-extension file names.
+  - Mac: Switched `clipper script` installation from `.app`-based system to executable `bash script` system.
+    - Fixes translocation issues with Mac.
+    - Use by double-clicking or otherwise executing one of the executable `bash scripts`.
+    - At the prompt type or drag and drop `json` data files and then hit enter.
+    - Now processes multiple marker `json` data files sequentially and from any location.
+    - See [Additional Helper Scripts](#additional-helper-scripts) for more info.
 
 - v3.5.0:
 
