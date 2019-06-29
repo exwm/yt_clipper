@@ -1,8 +1,8 @@
 {
-  "name": "typescript",
+  "name": "yt_clipper",
   "author": "exwm",
   "homepage": "https://openuserjs.org/scripts/elwm/yt_clipper",
-  "version": "0.0.75",
+  "version": "0.0.81",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -10,19 +10,40 @@
   },
   "description": "add markers to youtube videos and generate clipped webms online or offline",
   "main": "./src/yt_clipper.ts",
+  "browserslist": [
+    "since 2017-06"
+  ],
   "devDependencies": {
+    "@types/chart.js": "^2.7.54",
+    "@types/d3-ease": "^1.0.8",
+    "@types/file-saver": "^2.0.1",
+    "@types/jszip": "^3.1.6",
     "npm-run-all": "^4.1.5",
+    "parcel-globals": "^0.2.3",
     "prettier": "1.17.1",
-    "typescript": "3.3.x"
+    "typescript": "3.5.x"
   },
   "scripts": {
     "pretty": "npx prettier \"**/*.{ts,js,json,md}\" --write",
-    "build:ts": "npx tsc",
+    "build:ts": "npx tsc --watch",
+    "build:ts:ne": "npx tsc --noEmit --watch",
     "build:ts:p": "run-s -c build:ts pretty",
-    "build:py": "pyinstaller ./src/yt_clipper.py -F --workpath ./dist/py/ --distpath ./dist/py/ --specpath ./dist/py/spec",
+    "build:py": "pyinstaller ./src/clipper/yt_clipper.py -F --workpath ./dist/py/ --distpath ./dist/py/ --specpath ./dist/py/spec",
     "build:all": "run-s -c build:ts:p build:py",
+    "bundle:w": "parcel watch --out-dir ./dist/js --no-hmr ./src/markup/yt_clipper.ts",
+    "bundle:tc:w": "run-p -c build:ts:ne bundle:w",
+    "bundle:prod": "parcel build --experimental-scope-hoisting --no-minify --out-dir ./dist/js ./src/markup/yt_clipper.ts",
     "clean:dist": "rm -r ./dist/*",
     "clean:sandbox": "rm -r ./sandbox/*"
   },
-  "dependencies": {}
+  "dependencies": {
+    "d3-drag": "^1.2.3",
+    "d3-ease": "^1.0.5",
+    "d3-selection": "^1.4.0",
+    "file-saver": "^2.0.2"
+  },
+  "alias": {
+    "jszip": ".parcel-globals/jszip.js",
+    "chart.js": ".parcel-globals/chart.js.js"
+  }
 }

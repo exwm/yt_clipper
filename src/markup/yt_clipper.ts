@@ -1,7 +1,7 @@
 // ==UserScript==
 // @locale       english
 // @name         yt_clipper
-// @version      0.0.80
+// @version      0.0.81
 // @description  Add markers to youtube videos and generate clipped webms online or offline.
 // @author       elwm
 // @namespace    https://github.com/exwm
@@ -10,14 +10,53 @@
 // @downloadURL  https://openuserjs.org/src/scripts/elwm/yt_clipper.user.js
 // @updateURL    https://openuserjs.org/meta/elwm/yt_clipper.meta.js
 // @icon         https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/pepe-clipper.gif
+// @require      https://cdn.jsdelivr.net/npm/jszip@3.2.1/dist/jszip.min.js
+// @require      https://cdn.jsdelivr.net/npm/chart.js@2.8.0/dist/Chart.min.js
+// @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@0.6.0/dist/chartjs-plugin-datalabels.min.js
+// @require      https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js
+// @require      https://gitcdn.xyz/repo/exwm/chartjs-plugin-zoom/master/dist/chartjs-plugin-zoom.min.js
+// @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@0.5.7/chartjs-plugin-annotation.min.js
 // @run-at       document-end
 // @license      MIT
 // @match        *://*.youtube.com/*
-// @require      https://cdn.jsdelivr.net/npm/file-saver@2.0.2/dist/FileSaver.min.js
-// @require      https://cdnjs.cloudflare.com/ajax/libs/jszip/3.2.0/jszip.min.js
 // @noframes
 // @grant        none
 // ==/UserScript==
+
+import { saveAs } from 'file-saver';
+import JSZip from 'jszip';
+import { Chart, ChartConfiguration } from 'chart.js';
+import * as SpeedChartSpec from './speedchart/speed-chart-spec';
+import './speedchart/chart.js-drag-data-plugin';
+import { easeCubicInOut } from 'd3-ease';
+import { readFileSync } from 'fs';
+const shortcutsTable = readFileSync(
+  __dirname + '/components/shortcuts-table/shortcuts-table.html',
+  'utf8'
+);
+const shortcutsTableStyle = readFileSync(
+  __dirname + '/components/shortcuts-table/shortcuts-table.css',
+  'utf8'
+);
+const shortcutsTableToggleButtonHTML = readFileSync(
+  __dirname + '/components/shortcuts-table/shortcuts-table-toggle-button.html',
+  'utf8'
+);
+
+import {
+  retryUntilTruthyResult,
+  toHHMMSSTrimmed,
+  copyToClipboard,
+  once,
+  toHHMMSS,
+  setAttributes,
+  clampNumber,
+  roundValue,
+  htmlToElement,
+} from './util';
+
+export let player: HTMLElement;
+
 (function() {
   'use strict';
   async function onLoadVideoPage(callback: Function) {
@@ -47,20 +86,6 @@
     observer.observe(ytdapp, config);
   }
   onLoadVideoPage(loadytClipper);
-
-  async function retryUntilTruthyResult<R>(fn: () => R, wait = 100) {
-    let result: R = fn();
-    while (!result) {
-      console.log(`Retrying function: ${fn.name} because result was ${result}`);
-      result = fn();
-      await sleep(wait);
-    }
-    return result;
-  }
-
-  function sleep(ms: number) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
 
   async function loadytClipper() {
     console.log('Loading yt clipper markup script');
@@ -101,11 +126,7 @@
             }
             break;
           case 'KeyQ':
-            if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
-              cyclePlayerSpeedDown();
-            } else if (
+            if (
               !e.ctrlKey &&
               !e.altKey &&
               e.shiftKey &&
@@ -115,11 +136,22 @@
               e.preventDefault();
               e.stopImmediatePropagation();
               enableMarkerHotkeys.moveMarker(enableMarkerHotkeys.startMarker);
-            } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
+            } else if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              cyclePlayerSpeedDown();
+            } else if (!e.ctrlKey && e.altKey && e.shiftKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              updateAllMarkers('speed', settings.newMarkerSpeed);
+            }
+            break;
+          case 'KeyE':
+            if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
               captureFrame();
-            } else if (!e.ctrlKey && e.altKey && e.shiftKey) {
+            } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
               saveCapturedFrames();
@@ -129,25 +161,26 @@
             if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              toggleDefaultsEditor();
+              toggleGlobalSettingsEditor();
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
               toggleMarkerPairOverridesEditor();
             }
             break;
-          case 'KeyE':
-            if (!e.ctrlKey && e.shiftKey) {
+          case 'KeyC':
+            if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              updateAllMarkers('speed', settings.newMarkerSpeed);
-            }
-            break;
-          case 'KeyD':
-            if (!e.ctrlKey && e.shiftKey) {
+              toggleSpeedChart();
+            } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              updateAllMarkers('crop', settings.newMarkerCrop);
+              toggleSpeedMapLoop();
+            } else if (!e.ctrlKey && e.shiftKey && e.altKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              resetSpeedMapLoop();
             }
             break;
           case 'KeyG':
@@ -155,15 +188,19 @@
               e.preventDefault();
               e.stopImmediatePropagation();
               loadMarkers();
+            }
+            break;
+          case 'KeyD':
+            // alt+shift+D do not work in chrome 75.0.3770.100
+            if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              toggleSpeedDucking();
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              toggleSpeedAutoDucking();
-            } else if (!e.ctrlKey && !e.shiftKey && e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
               toggleMarkerLooping();
-            } else if (!e.ctrlKey && e.shiftKey && e.altKey) {
+            } else if (!e.ctrlKey && !e.shiftKey && e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
               toggleGammaPreview();
@@ -199,13 +236,17 @@
               e.preventDefault();
               e.stopImmediatePropagation();
               drawCropOverlay(true);
-            } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
+            } else if (e.ctrlKey && !e.altKey && !e.shiftKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
               toggleArrowKeyCropAdjustment();
+            } else if (!e.ctrlKey && e.altKey && e.shiftKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              updateAllMarkers('crop', settings.newMarkerCrop);
             }
             break;
-          case 'KeyC':
+          case 'KeyV':
             if (!e.ctrlKey && !e.shiftKey && e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
@@ -253,8 +294,10 @@
         toggleKeys = !toggleKeys;
         initOnce();
         if (toggleKeys) {
+          showShortcutsTableToggleButton();
           flashMessage('Enabled Hotkeys', 'green');
         } else {
+          hideShortcutsTableToggleButton();
           flashMessage('Disabled Hotkeys', 'red');
         }
       }
@@ -281,47 +324,30 @@
     let markerHotkeysEnabled = false;
     let isMarkerEditorOpen = false;
     let wasDefaultsEditorOpen = false;
-    let isOverlayOpen = false;
+    let isCropOverlayVisible = false;
+    let isSpeedChartVisible = false;
     let checkGfysCompletedId: number;
-    interface markerPairOverrides {
-      titlePrefix?: string;
-      gamma?: number;
-      encodeSpeed?: number;
-      crf?: number;
-      targetMaxBitrate?: number;
-      twoPass?: boolean;
-      denoise?: Denoise;
-      audio?: boolean;
-      expandColorRange: boolean;
-      videoStabilization?: videoStabilization;
-    }
-    interface marker {
-      start: number;
-      end: number;
-      speed: number;
-      crop: string;
-      overrides: markerPairOverrides;
-    }
-    let markers: marker[] = [];
-    let markersHistory: marker[] = [];
+
+    let markerPairs: MarkerPair[] = [];
+    let markerPairsHistory: MarkerPair[] = [];
     let links: string[] = [];
 
     let startTime = 0.0;
     let toggleKeys = false;
     let prevSelectedMarkerPair: SVGRectElement = null;
+    let prevSelectedMarkerPairIndex: number = null;
 
     function init() {
       injectCSS(ytClipperCSS, 'yt-clipper-css');
       initPlayerInfo();
       initMarkersContainer();
       addForeignEventListeners();
+      injectToggleShortcutsTableButton();
     }
 
     const initOnce = once(init, this);
-    const player = await retryUntilTruthyResult(() =>
-      document.getElementById('movie_player')
-    );
-    const playerInfo = {};
+    player = await retryUntilTruthyResult(() => document.getElementById('movie_player'));
+    const playerInfo: { [index: string]: any } = {};
     const video = await retryUntilTruthyResult(
       () => document.getElementsByTagName('video')[0]
     );
@@ -364,46 +390,13 @@
         event.shiftKey &&
         Math.abs(event.deltaY) > 0
       ) {
-        const videoStats = player.getStatsForNerds();
-        let fps = videoStats ? videoStats.resolution.match(/@(\d\d)/)[1] : null;
+        let fps = getFPS();
         if (event.deltaY < 0) {
           player.seekBy(1 / fps);
         } else if (event.deltaY > 0) {
           player.seekBy(-1 / fps);
         }
       }
-    }
-    interface videoStabilization {
-      enabled: boolean;
-      shakiness: number;
-      desc: string;
-    }
-    interface Denoise {
-      enabled: boolean;
-      lumaSpatial: number;
-      desc: string;
-    }
-    interface Settings {
-      videoID: string;
-      videoTitle: string;
-      newMarkerSpeed: number;
-      newMarkerCrop: string;
-      titleSuffix: string;
-      isVerticalVideo: boolean;
-      cropRes: string;
-      cropResWidth: number;
-      cropResHeight: number;
-      markerPairMergeList: string;
-      encodeSpeed?: number;
-      crf?: number;
-      targetMaxBitrate?: number;
-      rotate?: '0' | 'clock' | 'cclock';
-      gamma?: number;
-      twoPass?: boolean;
-      denoise?: Denoise;
-      audio?: boolean;
-      expandColorRange?: boolean;
-      videoStabilization?: videoStabilization;
     }
     let settings: Settings;
     let markersSvg: SVGSVGElement;
@@ -426,8 +419,8 @@
       markersDiv.innerHTML = `\
     <svg id="markers-svg"></svg>
     <svg id="selected-marker-pair-overlay" style="display:none">
-      <rect id="selected-start-marker-overlay" class="selected-marker-overlay"></rect>
-      <rect id="selected-end-marker-overlay" class="selected-marker-overlay"></rect>
+      <rect id="selected-start-marker-overlay" width="1.5px" height="8.5px" y="3.5px" class="selected-marker-overlay"></rect>
+      <rect id="selected-end-marker-overlay" width="1.5px" height="8.5px" y="3.5px" class="selected-marker-overlay"></rect>
     </svg>
     `;
       playerInfo.progress_bar.appendChild(markersDiv);
@@ -778,33 +771,8 @@
       }
     }
 
-    const toggleSpeedAutoDucking = () => {
-      let _this = toggleSpeedAutoDucking;
-      if (_this.listenerAdded) {
-        playerInfo.video.removeEventListener('timeupdate', autoducking, false);
-        _this.listenerAdded = false;
-        flashMessage('Auto speed ducking disabled', 'red');
-      } else {
-        playerInfo.video.addEventListener('timeupdate', autoducking, false);
-        _this.listenerAdded = true;
-        flashMessage('Auto speed ducking enabled', 'green');
-      }
-    };
-
-    function autoducking() {
-      const shortestActiveMarkerPair = getShortestActiveMarkerPair();
-      if (shortestActiveMarkerPair) {
-        const currentMarkerSlowdown = shortestActiveMarkerPair.speed;
-        if (player.getPlaybackRate() !== currentMarkerSlowdown) {
-          player.setPlaybackRate(currentMarkerSlowdown);
-        }
-      } else if (player.getPlaybackRate() !== 1) {
-        player.setPlaybackRate(1);
-      }
-    }
-
     function getShortestActiveMarkerPair(currentTime: number = video.currentTime) {
-      const activeMarkerPairs = markers.filter((markerPair) => {
+      const activeMarkerPairs = markerPairs.filter((markerPair) => {
         if (currentTime >= markerPair.start && currentTime <= markerPair.end) {
           return true;
         }
@@ -825,35 +793,153 @@
       return shortestActiveMarkerPair;
     }
 
+    let isSpeedDuckingEnabled = false;
+    const toggleSpeedDucking = () => {
+      if (isSpeedDuckingEnabled) {
+        isSpeedDuckingEnabled = false;
+        flashMessage('Auto speed ducking disabled', 'red');
+      } else {
+        isSpeedDuckingEnabled = true;
+        requestAnimationFrame(updateSpeed);
+        flashMessage('Auto speed ducking enabled', 'green');
+      }
+    };
+
+    let prevSpeed = 1;
+    const defaultRoundSpeedMapEasing = 0.05;
+    function updateSpeed() {
+      const shortestActiveMarkerPair = getShortestActiveMarkerPair();
+      if (shortestActiveMarkerPair) {
+        let markerPairSpeed: number;
+        const enableSpeedMaps =
+          shortestActiveMarkerPair.overrides.enableSpeedMaps !== undefined
+            ? shortestActiveMarkerPair.overrides.enableSpeedMaps
+            : settings.enableSpeedMaps !== false;
+
+        if (enableSpeedMaps) {
+          const roundSpeedMapEasing =
+            shortestActiveMarkerPair.overrides.roundSpeedMapEasing >= 0
+              ? shortestActiveMarkerPair.overrides.roundSpeedMapEasing
+              : settings.roundSpeedMapEasing >= 0
+              ? settings.roundSpeedMapEasing
+              : defaultRoundSpeedMapEasing;
+
+          markerPairSpeed = getSpeedMapping(
+            shortestActiveMarkerPair.speedMap,
+            video.currentTime,
+            roundSpeedMapEasing,
+            2
+          );
+        } else {
+          markerPairSpeed = shortestActiveMarkerPair.speed;
+        }
+        // console.log(markerPairSpeed);
+        if (prevSpeed !== markerPairSpeed) {
+          player.setPlaybackRate(markerPairSpeed);
+          prevSpeed = markerPairSpeed;
+        }
+      } else if (prevSpeed !== 1) {
+        player.setPlaybackRate(1);
+        prevSpeed = 1;
+      }
+
+      if (isSpeedDuckingEnabled) {
+        requestAnimationFrame(updateSpeed);
+      } else {
+        player.setPlaybackRate(1);
+        prevSpeed = 1;
+      }
+    }
+
+    function getSpeedMapping(
+      speedMap: SpeedPoint[],
+      time: number,
+      roundMultiple = settings.roundSpeedMapEasing,
+      roundPrecision = 2
+    ) {
+      let len = speedMap.length;
+      if (len === 2 && speedMap[0].y === speedMap[1].y) {
+        return speedMap[0].y;
+      }
+
+      len--;
+      let left: SpeedPoint;
+      let right: SpeedPoint;
+      for (let i = 0; i < len; ++i) {
+        if (speedMap[i].x <= time && time <= speedMap[i + 1].x) {
+          left = speedMap[i];
+          right = speedMap[i + 1];
+          break;
+        }
+      }
+
+      if (left && right) {
+        if (left.y === right.y) {
+          return left.y;
+        }
+        const elapsed = video.currentTime - left.x;
+        const duration = right.x - left.x;
+        let easedTimePercentage: number;
+        if (easingMode === 'cubicInOut') {
+          easedTimePercentage = easeCubicInOut(elapsed / duration);
+        } else if (easingMode === 'linear') {
+          easedTimePercentage = elapsed / duration;
+        }
+        const change = right.y - left.y;
+        const rawSpeed = left.y + change * easedTimePercentage || right.y;
+        const roundedSpeed =
+          roundMultiple > 0
+            ? roundValue(rawSpeed, roundMultiple, roundPrecision)
+            : rawSpeed;
+        // console.log(roundedSpeed);
+        return roundedSpeed;
+      } else {
+        return 1;
+      }
+    }
+
+    let isMarkerLoopingEnabled = false;
     function toggleMarkerLooping() {
-      let _this = toggleMarkerLooping;
-      if (_this.listenerAdded) {
-        playerInfo.video.removeEventListener('timeupdate', markerLoopingHandler, false);
-        _this.listenerAdded = false;
+      if (isMarkerLoopingEnabled) {
+        isMarkerLoopingEnabled = false;
         flashMessage('Auto marker looping disabled', 'red');
       } else {
-        playerInfo.video.addEventListener('timeupdate', markerLoopingHandler, false);
-        _this.listenerAdded = true;
+        isMarkerLoopingEnabled = true;
+        requestAnimationFrame(loopMarkerPair);
         flashMessage('Auto marker looping enabled', 'green');
       }
     }
 
-    function markerLoopingHandler() {
+    function loopMarkerPair() {
       if (isMarkerEditorOpen && !wasDefaultsEditorOpen) {
-        const endMarker = prevSelectedMarkerPair;
-        if (endMarker) {
-          const idx = parseInt(endMarker.getAttribute('idx')) - 1;
-          const startMarkerTime = markers[idx].start;
-          const endMarkerTime = markers[idx].end;
-          const currentTime = video.currentTime;
+        if (prevSelectedMarkerPairIndex != null) {
+          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
 
-          const isTimeBetweenMarkerPair =
-            startMarkerTime < currentTime && currentTime < endMarkerTime;
-          if (!isTimeBetweenMarkerPair) {
-            player.seekTo(startMarkerTime);
-            player.playVideo();
+          if (
+            markerPair.speedMapLoop.enabled &&
+            markerPair.speedMapLoop.start > markerPair.start &&
+            markerPair.speedMapLoop.end < markerPair.end &&
+            markerPair.speedMapLoop.start < markerPair.speedMapLoop.end
+          ) {
+            const isTimeBetweenSpeedMapLoop =
+              markerPair.speedMapLoop.start <= video.currentTime &&
+              video.currentTime <= markerPair.speedMapLoop.end;
+            if (!isTimeBetweenSpeedMapLoop) {
+              player.seekTo(markerPair.speedMapLoop.start);
+            }
+          } else {
+            const isTimeBetweenMarkerPair =
+              markerPair.start <= video.currentTime &&
+              video.currentTime <= markerPair.end;
+            if (!isTimeBetweenMarkerPair) {
+              player.seekTo(markerPair.start);
+            }
           }
         }
+      }
+
+      if (isMarkerLoopingEnabled) {
+        requestAnimationFrame(loopMarkerPair);
       }
     }
 
@@ -888,12 +974,11 @@
       }
       if (!isGammaPreviewOn) {
         video.style.filter = 'url(#gamma-filter)';
-        video.addEventListener('timeupdate', gammaPreviewHandler, false);
         isGammaPreviewOn = true;
+        requestAnimationFrame(gammaPreviewHandler);
         flashMessage('Gamma preview enabled', 'green');
       } else {
         video.style.filter = null;
-        video.removeEventListener('timeupdate', gammaPreviewHandler, false);
         isGammaPreviewOn = false;
         flashMessage('Gamma preview disabled', 'red');
       }
@@ -906,7 +991,7 @@
         const markerPairGamma =
           shortestActiveMarkerPair.overrides.gamma || settings.gamma || 1;
         if (prevGammaVal !== markerPairGamma) {
-          console.log(`Updating gamma from ${prevGammaVal} to ${markerPairGamma}`);
+          // console.log(`Updating gamma from ${prevGammaVal} to ${markerPairGamma}`);
           gammaR.exponent.baseVal = markerPairGamma;
           gammaG.exponent.baseVal = markerPairGamma;
           gammaB.exponent.baseVal = markerPairGamma;
@@ -916,13 +1001,17 @@
         }
       } else {
         if (prevGammaVal !== 1) {
-          console.log(`Updating gamma from ${prevGammaVal} to 1`);
+          // console.log(`Updating gamma from ${prevGammaVal} to 1`);
           gammaR.exponent.baseVal = 1;
           gammaG.exponent.baseVal = 1;
           gammaB.exponent.baseVal = 1;
           gammaFilterSvg.setAttribute('width', '0');
           prevGammaVal = 1;
         }
+      }
+
+      if (isGammaPreviewOn) {
+        requestAnimationFrame(gammaPreviewHandler);
       }
     }
 
@@ -951,14 +1040,14 @@
         targetMarker && toggleMarkerPairEditor(targetMarker);
         if (e.ctrlKey) {
           index--;
-          player.seekTo(markers[index].start);
+          player.seekTo(markerPairs[index].start);
         }
-      } else if (keyCode === 'ArrowRight' && index < markers.length - 1) {
+      } else if (keyCode === 'ArrowRight' && index < markerPairs.length - 1) {
         targetMarker = enableMarkerHotkeys.endMarker.nextSibling.nextSibling;
         targetMarker && toggleMarkerPairEditor(targetMarker);
         if (e.ctrlKey) {
           index++;
-          player.seekTo(markers[index].start);
+          player.seekTo(markerPairs[index].start);
         }
       }
       return;
@@ -971,7 +1060,7 @@
 
       // Choose marker time to jump to based on low precision time distance
       // Avoids being unable to jump away from a marker that the current time is very close to
-      let times = markers.map((markerPair) => {
+      let times = markerPairs.map((markerPair) => {
         const distToStartMarker = markerPair.start - currentTime;
         const distToStartMarkerFixed = parseFloat(distToStartMarker.toFixed(1));
         const distToEndMarker = markerPair.end - currentTime;
@@ -1019,21 +1108,21 @@
     }
 
     function getSettingsJSON() {
-      markers.forEach((marker: marker, index: number) => {
-        const speed = marker.speed;
+      markerPairs.forEach((markerPair: MarkerPair, index: number) => {
+        const speed = markerPair.speed;
         if (typeof speed === 'string') {
-          marker.speed = Number(speed);
+          markerPair.speed = Number(speed);
           console.log(`Converted marker pair ${index}'s speed from String to Number`);
         }
       });
 
-      const markersNumbered = markers.map((markerPair, idx) => {
+      const markerPairsNumbered = markerPairs.map((markerPair, idx) => {
         return { number: idx + 1, ...markerPair };
       });
       const settingsJSON = JSON.stringify(
         {
           ...settings,
-          markers: markersNumbered,
+          markerPairs: markerPairsNumbered,
         },
         undefined,
         2
@@ -1080,28 +1169,26 @@
       const lines = e.target.result;
       const markersJson = JSON.parse(lines);
       console.log(markersJson);
-      if (isMarkerEditorOpen) {
-        deleteMarkerEditor();
-        if (isOverlayOpen) {
-          toggleCropOverlay();
-        }
-      }
 
-      flashMessage('Loading markers.', 'green');
+      flashMessage('Loading markers...', 'green');
 
-      if (markersJson && markersJson.markers) {
+      if (markersJson && markersJson.markerPairs) {
         // copy markersJson to settings object less markers field
-        const { markers: _markers, ..._settings } = markersJson;
+        const { markerPairs: _markerPairs, ..._settings } = markersJson;
         settings = _settings;
-        markers.length = 0;
-        markersJson.markers.forEach((marker: marker) => {
-          const startMarkerConfig: markerConfig = { time: marker.start, type: 'start' };
-          const endMarkerConfig: markerConfig = {
-            time: marker.end,
+        markersJson.markerPairs.forEach((markerPair: MarkerPair) => {
+          const startMarkerConfig: MarkerConfig = {
+            time: markerPair.start,
+            type: 'start',
+          };
+          const endMarkerConfig: MarkerConfig = {
+            time: markerPair.end,
             type: 'end',
-            crop: marker.crop,
-            speed: marker.speed,
-            overrides: marker.overrides,
+            crop: markerPair.crop,
+            speed: markerPair.speed,
+            speedMap: markerPair.speedMap,
+            speedMapLoop: markerPair.speedMapLoop,
+            overrides: markerPair.overrides,
           };
           addMarkerSVGRect(startMarkerConfig);
           addMarkerSVGRect(endMarkerConfig);
@@ -1114,24 +1201,25 @@
       markerPairOverridesEditorDisplay: 'none',
     };
 
-    interface markerConfig {
-      time?: number;
-      type?: 'start' | 'end';
-      speed?: number;
-      crop?: string;
-      overrides?: markerPairOverrides;
-    }
-    function addMarkerSVGRect(markerConfig: markerConfig = {}) {
-      const marker = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      markersSvg.appendChild(marker);
-
+    function addMarkerSVGRect(markerConfig: MarkerConfig = {}) {
       const roughCurrentTime = markerConfig.time || player.getCurrentTime();
       const currentFrameTime = getCurrentFrameTime(roughCurrentTime);
       const progress_pos = (currentFrameTime / playerInfo.duration) * 100;
 
+      if (!start && currentFrameTime <= startTime) {
+        flashMessage('Cannot add end marker before start marker.', 'red');
+        return;
+      }
+
+      const marker = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      markersSvg.appendChild(marker);
+
       setAttributes(marker, marker_attrs);
       marker.setAttribute('x', `${progress_pos}%`);
-      const rectIdx = markers.length + 1;
+      // set width and height attributes for browsers not supporting svg 2
+      marker.setAttribute('width', '1.5px');
+      marker.setAttribute('height', '16px');
+      const rectIdx = markerPairs.length + 1;
       marker.setAttribute('idx', rectIdx.toString());
 
       if (start === true) {
@@ -1144,41 +1232,55 @@
         marker.classList.add('end-marker');
         marker.setAttribute('type', 'end');
         marker.setAttribute('z-index', '2');
-        updateMarkersArray(currentFrameTime, markerConfig);
+        updateMarkerPairsArray(currentFrameTime, markerConfig);
         updateMarkerPairEditor();
       }
 
       start = !start;
-      console.log(markers);
+      console.log(markerPairs);
+    }
+
+    function getFPS(def: number | null = 60) {
+      try {
+        return parseFloat(player.getStatsForNerds().resolution.match(/@(\d+)/)[1]);
+      } catch (e) {
+        console.log('Could not detect fps', e);
+        return def; // by default parameter value assume high fps to avoid skipping frames
+      }
     }
 
     function getCurrentFrameTime(roughCurrentTime: number): number {
       let currentFrameTime: number;
-      const videoStats = player.getStatsForNerds();
-      let fps = videoStats ? videoStats.resolution.match(/@(\d\d)/)[1] : null;
+      let fps = getFPS();
       fps
         ? (currentFrameTime = Math.floor(roughCurrentTime * fps) / fps)
         : (currentFrameTime = roughCurrentTime);
       return currentFrameTime;
     }
 
-    function updateMarkersArray(currentTime: number, markerPairConfig: markerConfig) {
-      const updatedMarker: marker = {
+    function updateMarkerPairsArray(currentTime: number, markerPairConfig: MarkerConfig) {
+      const speed = markerPairConfig.speed || settings.newMarkerSpeed;
+      const updatedMarker: MarkerPair = {
         start: startTime,
         end: currentTime,
-        speed: markerPairConfig.speed || settings.newMarkerSpeed,
         crop: markerPairConfig.crop || settings.newMarkerCrop,
+        speed: speed,
+        speedMap: markerPairConfig.speedMap || [
+          { x: startTime, y: speed },
+          { x: currentTime, y: speed },
+        ],
+        speedMapLoop: markerPairConfig.speedMapLoop || { enabled: true },
         overrides: markerPairConfig.overrides || {},
       };
 
-      markers.push(updatedMarker);
+      markerPairs.push(updatedMarker);
     }
 
     function updateMarkerPairEditor() {
       if (isMarkerEditorOpen) {
         const markerPairCountLabel = document.getElementById('marker-pair-count-label');
         if (markerPairCountLabel) {
-          markerPairCountLabel.textContent = markers.length.toString();
+          markerPairCountLabel.textContent = markerPairs.length.toString();
         }
       }
     }
@@ -1191,16 +1293,16 @@
       if (
         targetMarkerType === 'end' &&
         isMarkerEditorOpen &&
-        enableMarkerHotkeys.markerPairIndex >= markers.length
+        enableMarkerHotkeys.markerPairIndex >= markerPairs.length
       ) {
         toggleMarkerPairEditor(enableMarkerHotkeys.endMarker);
       }
       if (targetMarker) {
         markersSvg.removeChild(targetMarker);
         if (targetMarkerType === 'end') {
-          startTime = markers[markers.length - 1].start;
-          markersHistory.push(markers.pop());
-          console.log(markers);
+          startTime = markerPairs[markerPairs.length - 1].start;
+          markerPairsHistory.push(markerPairs.pop());
+          console.log(markerPairs);
           updateMarkerPairEditor();
         }
         start = !start;
@@ -1208,12 +1310,12 @@
     }
 
     function redoMarker() {
-      if (markersHistory.length > 0) {
-        const markerPairToRestore = markersHistory[markersHistory.length - 1];
+      if (markerPairsHistory.length > 0) {
+        const markerPairToRestore = markerPairsHistory[markerPairsHistory.length - 1];
         if (start) {
           addMarkerSVGRect({ time: markerPairToRestore.start });
         } else {
-          markersHistory.pop();
+          markerPairsHistory.pop();
           addMarkerSVGRect({ ...markerPairToRestore, time: markerPairToRestore.end });
         }
       }
@@ -1226,15 +1328,14 @@
     }
 
     let globalEncodeSettingsEditorDisplay: 'none' | 'block' = 'none';
-    function toggleDefaultsEditor() {
+    function toggleGlobalSettingsEditor() {
       if (isMarkerEditorOpen) {
-        toggleOffMarkerEditor();
+        toggleOffMarkerPairEditor();
       }
       if (wasDefaultsEditorOpen) {
         wasDefaultsEditorOpen = false;
       } else {
         hideSelectedMarkerPairCropOverlay();
-        toggleCropOverlay();
         createCropOverlay(settings.newMarkerCrop);
         const markerInputs = document.createElement('div');
         const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
@@ -1268,7 +1369,7 @@
         </div>
       </div>
       <div id="global-marker-settings" class="yt_clipper-settings-editor">
-        <span style="font-weight:bold">Global Marker Settings: </span>
+        <span style="font-weight:bold">Global Settings: </span>
         <div class="editor-input-div">
           <span class="editor-input-label"> Title Suffix: </span>
           <input id="title-suffix-input" class="yt_clipper-input" value="${
@@ -1309,7 +1410,7 @@
         </div>
       </div>
       <div id="global-encode-settings" class="yt_clipper-settings-editor" style="display:${globalEncodeSettingsEditorDisplay}">
-        <span style="font-weight:bold">Global Encode Settings: </span>
+        <span style="font-weight:bold">Encode Settings: </span>
         <div class="editor-input-div">
           <span>Encode Speed (0-5): </span>
           <input id="encode-speed-input" class="yt_clipper-input" type="number" min="0" max="5" step="1" value="${
@@ -1330,7 +1431,7 @@
         </div>
         <div class="editor-input-div">
           <span>Gamma (0-4): </span>
-          <input id="gamma-input" class="yt_clipper-input" type="number" min="0" max="4.00" step="0.01" value="${
+          <input id="gamma-input" class="yt_clipper-input" type="number" min="0.01" max="4.00" step="0.01" value="${
             settings.gamma != null ? settings.gamma : ''
           }" placeholder="1" style="width:4em"></input>
         </div>
@@ -1355,7 +1456,7 @@
           </select>
         </div>
         <div class="editor-input-div">
-          <span>Expand Color Range: </span>
+          <span>Expand Colors: </span>
           <select id="expand-color-range-input"> 
             <option ${settings.expandColorRange ? 'selected' : ''}>Enabled</option>
             <option ${
@@ -1396,13 +1497,31 @@
             }>Inherit (Disabled)</option>
           </select>
         </div>
+        <div class="editor-input-div">
+          <span>Speed Maps: </span>
+            <select id="enable-speed-maps-input">
+            <option ${settings.enableSpeedMaps ? 'selected' : ''}>Enabled</option>
+                <option ${
+                  settings.enableSpeedMaps === false ? 'selected' : ''
+                }>Disabled</option>
+                <option value="Default" ${
+                  settings.enableSpeedMaps == null ? 'selected' : ''
+                }>Inherit (Enabled)</option>
+            </select>
+          <div class="editor-input-div">
+            <span>Round Easing: </span>
+            <input id="round-speed-map-easing-input" class="yt_clipper-input" type="number" min="0" max="0.25" step="0.01" value="${
+              settings.roundSpeedMapEasing != null ? settings.roundSpeedMapEasing : ''
+            }" placeholder="${defaultRoundSpeedMapEasing}" style="width:4em"></input>
+          </div>
+        </div>
       </div>
       `;
 
         updateSettingsEditorHook();
         settingsEditorHook.insertAdjacentElement('beforebegin', markerInputs);
 
-        addInputListeners([
+        addGlobalSettingsListeners([
           ['speed-input', 'newMarkerSpeed', 'number'],
           ['crop-input', 'newMarkerCrop', 'string'],
           ['crop-res-input', 'cropRes', 'string'],
@@ -1418,6 +1537,8 @@
           ['two-pass-input', 'twoPass', 'ternary'],
           ['audio-input', 'audio', 'ternary'],
           ['expand-color-range-input', 'expandColorRange', 'ternary'],
+          ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
+          ['round-speed-map-easing-input', 'roundSpeedMapEasing', 'number'],
           ['denoise-input', 'denoise', 'preset'],
           ['video-stabilization-input', 'videoStabilization', 'preset'],
         ]);
@@ -1428,7 +1549,7 @@
       }
     }
 
-    function addInputListeners(inputs: string[][]) {
+    function addGlobalSettingsListeners(inputs: string[][]) {
       inputs.forEach((input) => {
         const id = input[0];
         const updateTarget = input[1];
@@ -1546,8 +1667,8 @@
       const cropInput = document.getElementById('crop-input');
       cropInput.value = multipliedCropString;
 
-      if (markers) {
-        markers.forEach((markerPair) => {
+      if (markerPairs) {
+        markerPairs.forEach((markerPair) => {
           const multipliedCropString = multiplyCropString(
             cropMultipleX,
             cropMultipleY,
@@ -1587,15 +1708,15 @@
               [mergeRangeStart, mergeRangeEnd] = [mergeRangeEnd, mergeRangeStart];
             }
             for (let idx = mergeRangeStart; idx <= mergeRangeEnd; idx++) {
-              if (!isNaN(idx) && idx >= 0 && idx < markers.length) {
-                const marker = markers[idx];
+              if (!isNaN(idx) && idx >= 0 && idx < markerPairs.length) {
+                const marker = markerPairs[idx];
                 duration += (marker.end - marker.start) / marker.speed;
               }
             }
           } else {
             const idx = parseInt(mergeRange, 10) - 1;
-            if (!isNaN(idx) && idx >= 0 && idx < markers.length) {
-              const marker = markers[idx];
+            if (!isNaN(idx) && idx >= 0 && idx < markerPairs.length) {
+              const marker = markerPairs[idx];
               duration += (marker.end - marker.start) / marker.speed;
             }
           }
@@ -1683,9 +1804,6 @@
       }
       return [x, y, w, h];
     }
-    function clampNumber(number: number, min: number, max: number) {
-      return Math.max(min, Math.min(number, max));
-    }
 
     function addMarkerPairMergeListDurationsListener() {
       const markerPairMergeListInput = document.getElementById('merge-list-input');
@@ -1696,6 +1814,42 @@
         const markerPairMergelistDurations = getMarkerPairMergeListDurations();
         markerPairMergeListDurationsSpan.textContent = markerPairMergelistDurations;
       });
+    }
+
+    let shortcutsTableToggleButton: HTMLButtonElement;
+    function injectToggleShortcutsTableButton() {
+      const ytpRightControls = document.getElementsByClassName('ytp-right-controls')[0];
+      shortcutsTableToggleButton = htmlToElement(
+        shortcutsTableToggleButtonHTML
+      ) as HTMLButtonElement;
+      shortcutsTableToggleButton.onclick = toggleShortcutsTable;
+      ytpRightControls.insertAdjacentElement('afterbegin', shortcutsTableToggleButton);
+    }
+
+    function showShortcutsTableToggleButton() {
+      if (shortcutsTableToggleButton) {
+        shortcutsTableToggleButton.style.display = 'inline-block';
+      }
+    }
+    function hideShortcutsTableToggleButton() {
+      if (shortcutsTableToggleButton) {
+        shortcutsTableToggleButton.style.display = 'none';
+      }
+    }
+
+    let shortcutsTableContainer: HTMLDivElement;
+    function toggleShortcutsTable() {
+      if (!shortcutsTableContainer) {
+        injectCSS(shortcutsTableStyle, 'shortcutsTableStyle');
+        shortcutsTableContainer = document.createElement('div');
+        shortcutsTableContainer.setAttribute('id', 'shortcutsTableContainer');
+        shortcutsTableContainer.innerHTML = shortcutsTable;
+        flashMessageHook.insertAdjacentElement('afterend', shortcutsTableContainer);
+      } else if (shortcutsTableContainer.style.display !== 'none') {
+        shortcutsTableContainer.style.display = 'none';
+      } else {
+        shortcutsTableContainer.style.display = 'block';
+      }
     }
 
     const frameCaptureViewerHeadHTML = `\
@@ -1792,7 +1946,7 @@
       let resString: string;
       if (isMarkerEditorOpen && !wasDefaultsEditorOpen) {
         const idx = parseInt(prevSelectedMarkerPair.getAttribute('idx'), 10) - 1;
-        const markerPair = markers[idx];
+        const markerPair = markerPairs[idx];
         const cropMultipleX = video.videoWidth / settings.cropResWidth;
         const cropMultipleY = video.videoHeight / settings.cropResHeight;
         resString = multiplyCropString(cropMultipleX, cropMultipleY, markerPair.crop);
@@ -1855,13 +2009,12 @@
     }
 
     function getFrameCount(seconds: number) {
-      const videoStats = player.getStatsForNerds();
-      let fps = videoStats ? videoStats.resolution.match(/@(\d\d)/)[1] : null;
+      let fps = getFPS(null);
       let frameNumber: number | string;
       let totalFrames: number | string;
       if (fps) {
-        frameNumber = Math.floor(seconds * parseFloat(fps));
-        totalFrames = Math.floor(video.duration * parseFloat(fps));
+        frameNumber = Math.floor(seconds * fps);
+        totalFrames = Math.floor(video.duration * fps);
       } else {
         frameNumber = 'Unknown';
         totalFrames = 'Unknown';
@@ -1869,7 +2022,7 @@
       return { frameNumber, totalFrames };
     }
 
-    function canvasBlobToPromise(canvas: HTMLCanvasElement) {
+    function canvasBlobToPromise(canvas: HTMLCanvasElement): Promise<Blob> {
       return new Promise((resolve) => {
         canvas.toBlob((blob) => resolve(blob));
       });
@@ -1884,10 +2037,22 @@
         );
         return;
       }
-      isFrameCapturerZippingInProgress = true;
+      if (!frameCaptureViewer || frameCaptureViewer.closed || !frameCaptureViewerDoc) {
+        flashMessage(
+          'Frame capturer not open. Please capture a frame before zipping.',
+          'olive'
+        );
+        return;
+      }
       const zip = new JSZip();
       const framesZip = zip.folder(settings.titleSuffix).folder('frames');
       const frames = frameCaptureViewerDoc.getElementsByTagName('canvas');
+      if (frames.length === 0) {
+        flashMessage('No frames to zip.', 'olive');
+        return;
+      }
+
+      isFrameCapturerZippingInProgress = true;
       Array.from(frames).forEach((frame) => {
         framesZip.file(frame.fileName, canvasBlobToPromise(frame), { binary: true });
       });
@@ -1918,9 +2083,7 @@
     }
 
     function createCropOverlay(crop: string) {
-      if (isOverlayOpen) {
-        deleteCropOverlay();
-      }
+      deleteCropOverlay();
 
       crop = crop.split(':');
       if (crop[2] === 'iw') {
@@ -1959,7 +2122,7 @@
       setAttributes(cropRect, cropRectAttrs);
       cropSvg.appendChild(cropRect);
 
-      isOverlayOpen = true;
+      isCropOverlayVisible = true;
     }
 
     function resizeCropOverlay(cropDiv: HTMLDivElement) {
@@ -1972,21 +2135,37 @@
       );
     }
 
+    function showCropOverlay() {
+      const cropSvg = document.getElementById('crop-svg');
+      if (cropSvg) {
+        cropSvg.style.display = 'block';
+        isCropOverlayVisible = true;
+      }
+    }
+
+    function hideCropOverlay() {
+      if (isDrawingCrop) {
+        cancelDrawingCrop();
+      }
+      const cropSvg = document.getElementById('crop-svg');
+      if (cropSvg) {
+        cropSvg.style.display = 'none';
+        isCropOverlayVisible = false;
+      }
+    }
+
+    function toggleCropOverlayVisibility() {
+      if (!isCropOverlayVisible) {
+        showCropOverlay();
+      } else {
+        hideCropOverlay();
+      }
+    }
+
     function deleteCropOverlay() {
       const cropDiv = document.getElementById('crop-div');
       deleteElement(cropDiv);
-      isOverlayOpen = false;
-    }
-
-    function toggleCropOverlay() {
-      const cropSvg = document.getElementById('crop-svg');
-      if (cropSvg) {
-        const cropDivDisplay = cropSvg.getAttribute('display');
-        if (cropDivDisplay === 'none') cropSvg.setAttribute('display', 'block');
-        else {
-          cropSvg.setAttribute('display', 'none');
-        }
-      }
+      isCropOverlayVisible = false;
     }
 
     let isDrawingCrop = false;
@@ -1995,21 +2174,29 @@
     function drawCropOverlay(verticalFill: boolean) {
       if (isDrawingCrop) {
         cancelDrawingCrop();
-      } else {
-        if (document.getElementById('crop-input')) {
-          const videoRect = player.getVideoContentRect();
-          const playerRect = player.getBoundingClientRect();
+      } else if (isSpeedChartVisible) {
+        flashMessage(
+          'Please toggle off the time-variable speed chart before drawing crop',
+          'olive'
+        );
+      } else if (isMarkerEditorOpen) {
+        const videoRect = player.getVideoContentRect();
+        const playerRect = player.getBoundingClientRect();
 
-          beginDrawHandler = (e: MouseEvent) =>
-            beginDraw(e, playerRect, videoRect, verticalFill);
-          playerInfo.video.addEventListener('mousedown', beginDrawHandler, {
-            once: true,
-            capture: true,
-          });
-          togglePlayerControls();
-          isDrawingCrop = true;
-          flashMessage('Begin drawing crop', 'green');
-        }
+        beginDrawHandler = (e: MouseEvent) =>
+          beginDraw(e, playerRect, videoRect, verticalFill);
+        playerInfo.video.addEventListener('mousedown', beginDrawHandler, {
+          once: true,
+          capture: true,
+        });
+        togglePlayerControls();
+        isDrawingCrop = true;
+        flashMessage('Begin drawing crop', 'green');
+      } else {
+        flashMessage(
+          'Please open the global settings or a marker pair editor before drawing crop',
+          'olive'
+        );
       }
     }
 
@@ -2224,6 +2411,7 @@
         }
       }
     }
+
     function extractCropComponents(cropString: string) {
       const cropArray = cropString.split(':').map((cropStringComponent) => {
         let cropComponent: number;
@@ -2238,21 +2426,214 @@
       });
       return cropArray;
     }
+
+    let speedChartContainer: HTMLDivElement;
+    let speedChartCanvas = `<canvas id="speedChartCanvas" width="1600" height="900"></canvas>`;
+    let speedChart: Chart;
+    Chart.helpers.merge(Chart.defaults.global, SpeedChartSpec.global);
+    function toggleSpeedChart() {
+      if (
+        isMarkerEditorOpen &&
+        !wasDefaultsEditorOpen &&
+        prevSelectedMarkerPairIndex != null
+      ) {
+        if (!speedChart) {
+          loadSpeedMap(SpeedChartSpec.options);
+          speedChartContainer = document.createElement('div');
+          speedChartContainer.setAttribute('id', 'speedChartContainer');
+          speedChartContainer.setAttribute(
+            'style',
+            'width: 100%; height: calc(100% - 20px); position: relative; z-index: 11'
+          );
+          speedChartContainer.innerHTML = speedChartCanvas;
+          const videoContainer = document.getElementsByClassName(
+            'html5-video-container'
+          )[0];
+          videoContainer.insertAdjacentElement('afterend', speedChartContainer);
+          isSpeedChartVisible = true;
+          speedChart = new Chart('speedChartCanvas', SpeedChartSpec.options);
+          speedChart.ctx.canvas.removeEventListener(
+            'wheel',
+            speedChart.$zoom._wheelHandler
+          );
+          const wheelHandler = speedChart.$zoom._wheelHandler;
+          speedChart.$zoom._wheelHandler = (e: MouseEvent) => {
+            if (e.ctrlKey && !e.altKey && !e.shiftKey) {
+              wheelHandler(e);
+            }
+          };
+          speedChart.ctx.canvas.addEventListener('wheel', speedChart.$zoom._wheelHandler);
+
+          speedChart.ctx.canvas.addEventListener(
+            'contextmenu',
+            (e) => {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+            },
+            true
+          );
+
+          speedChart.ctx.canvas.addEventListener(
+            'mouseup',
+            speedChartContextMenuHandler,
+            true
+          );
+
+          updateSpeedChartTimeAnnotation();
+        } else {
+          toggleSpeedChartVisibility();
+        }
+      } else {
+        flashMessage(
+          'Please open a marker pair editor before toggling the time-variable speed chart',
+          'olive'
+        );
+      }
+    }
+
+    function speedChartContextMenuHandler(e) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      // shift+right-click context menu opens screenshot tool in firefox 67.0.2
+      if (e.button === 2 && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+        player.seekTo(speedChart.scales['x-axis-1'].getValueForPixel(e.offsetX));
+      } else if (e.button === 2 && !e.ctrlKey && e.altKey && !e.shiftKey) {
+        const start = speedChart.scales['x-axis-1'].getValueForPixel(e.offsetX);
+        speedChart.config.options.annotation.annotations[1].value = start;
+        markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.start = start;
+        speedChart.update();
+      } else if (e.button === 2 && e.ctrlKey && e.altKey && !e.shiftKey) {
+        const end = speedChart.scales['x-axis-1'].getValueForPixel(e.offsetX);
+        speedChart.config.options.annotation.annotations[2].value = end;
+        markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.end = end;
+        speedChart.update();
+      }
+    }
+
+    let easingMode: 'linear' | 'cubicInOut' = 'linear';
+    function toggleSpeedChartEasing() {
+      if (speedChart) {
+        if (easingMode === 'linear') {
+          speedChart.data.datasets[0].lineTension = SpeedChartSpec.cubicInOutTension;
+          easingMode = 'cubicInOut';
+        } else {
+          speedChart.data.datasets[0].lineTension = 0;
+          easingMode = 'linear';
+        }
+        speedChart.update();
+      }
+    }
+
+    function toggleSpeedMapLoop() {
+      if (isSpeedChartVisible && prevSelectedMarkerPairIndex != null) {
+        if (markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.enabled) {
+          markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.enabled = false;
+          speedChart.config.options.annotation.annotations[1].borderColor =
+            'rgba(0, 255, 0, 0.4)';
+          speedChart.config.options.annotation.annotations[2].borderColor =
+            'rgba(255, 215, 0, 0.4)';
+        } else {
+          markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.enabled = true;
+          speedChart.config.options.annotation.annotations[1].borderColor =
+            'rgba(0, 255, 0, 0.9)';
+          speedChart.config.options.annotation.annotations[2].borderColor =
+            'rgba(255, 215, 0, 0.9)';
+        }
+        speedChart.update();
+      }
+    }
+
+    function resetSpeedMapLoop() {
+      if (isSpeedChartVisible && prevSelectedMarkerPairIndex != null) {
+        markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.start = undefined;
+        markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.end = undefined;
+        speedChart.config.options.annotation.annotations[1].value = -1;
+        speedChart.config.options.annotation.annotations[2].value = -1;
+        speedChart.update();
+      }
+    }
+
+    function loadSpeedMap(chartOrChartConfig: Chart | ChartConfiguration) {
+      if (chartOrChartConfig) {
+        if (
+          isMarkerEditorOpen &&
+          !wasDefaultsEditorOpen &&
+          prevSelectedMarkerPairIndex != null
+        ) {
+          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+          let speedMap = markerPair.speedMap;
+
+          chartOrChartConfig.data.datasets[0].data = speedMap;
+          if (chartOrChartConfig instanceof Chart) {
+            updateSpeedChartBounds(
+              chartOrChartConfig.config,
+              markerPair.start,
+              markerPair.end
+            );
+            speedChart.update();
+          } else {
+            updateSpeedChartBounds(chartOrChartConfig, markerPair.start, markerPair.end);
+          }
+        }
+      }
+    }
+
+    let speedChartMinBound: number;
+    let speedChartMaxBound: number;
+    function updateSpeedChartBounds(chartConfig: ChartConfiguration, start, end) {
+      speedChartMinBound = start;
+      speedChartMaxBound = end;
+      chartConfig.options.scales.xAxes[0].ticks.min = start;
+      chartConfig.options.scales.xAxes[0].ticks.max = end;
+      chartConfig.options.plugins.zoom.pan.rangeMin.x = start;
+      chartConfig.options.plugins.zoom.pan.rangeMax.x = end;
+      chartConfig.options.plugins.zoom.zoom.rangeMin.x = start;
+      chartConfig.options.plugins.zoom.zoom.rangeMax.x = end;
+    }
+
+    function updateSpeedChartTimeAnnotation() {
+      const time = video.currentTime;
+      if (speedChartMinBound <= time && time <= speedChartMaxBound) {
+        speedChart.config.options.annotation.annotations[0].value = video.currentTime;
+        speedChart.update();
+      }
+
+      if (isSpeedChartVisible) {
+        requestAnimationFrame(updateSpeedChartTimeAnnotation);
+      }
+    }
+
     function updateAllMarkers(updateTarget: string, newValue: string | number) {
-      if (updateTarget === 'speed') {
+      if (updateTarget === 'speed' && typeof newValue === 'string') {
         newValue = parseFloat(newValue);
       }
-      if (markers) {
-        markers.forEach((marker) => {
+      if (markerPairs) {
+        markerPairs.forEach((marker) => {
           marker[updateTarget] = newValue;
         });
       }
-      if (updateTarget === 'speed' && isMarkerEditorOpen && wasDefaultsEditorOpen) {
-        const markerPairMergeListInput = document.getElementById('merge-list-input');
-        if (markerPairMergeListInput) {
+      if (updateTarget === 'speed' && isMarkerEditorOpen) {
+        if (wasDefaultsEditorOpen) {
+          const markerPairMergeListInput = document.getElementById('merge-list-input');
           markerPairMergeListInput.dispatchEvent(new Event('change'));
+        } else {
+          const speedInput = document.getElementById('speed-input') as HTMLInputElement;
+          speedInput.value = newValue.toString();
+          speedInput.dispatchEvent(new Event('change'));
         }
       }
+
+      if (
+        updateTarget === 'crop' &&
+        typeof newValue === 'string' &&
+        isMarkerEditorOpen &&
+        !wasDefaultsEditorOpen
+      ) {
+        const cropInput = document.getElementById('crop-input') as HTMLInputElement;
+        cropInput.value = newValue;
+        cropInput.dispatchEvent(new Event('change'));
+      }
+
       flashMessage(`All marker ${updateTarget}s updated to ${newValue}`, 'olive');
     }
 
@@ -2268,40 +2649,44 @@
       // toggling on off current pair editor
       if (prevSelectedMarkerPair === targetMarker && !wasDefaultsEditorOpen) {
         if (isMarkerEditorOpen) {
-          toggleOffMarkerEditor();
+          toggleOffMarkerPairEditor();
         } else {
-          toggleOnMarkerEditor(targetMarker);
+          toggleOnMarkerPairEditor(targetMarker);
         }
         // switching to different marker pair
         // delete current editor and create new editor
       } else {
         if (isMarkerEditorOpen) {
-          toggleOffMarkerEditor();
+          toggleOffMarkerPairEditor();
         }
-        toggleOnMarkerEditor(targetMarker);
+        toggleOnMarkerPairEditor(targetMarker);
       }
     }
 
-    function toggleOffMarkerEditor() {
-      deleteMarkerEditor();
+    function toggleOffMarkerPairEditor() {
+      deleteMarkerPairEditor();
       hideSelectedMarkerPairCropOverlay();
-      if (isOverlayOpen) {
-        toggleCropOverlay();
-      }
+      hideCropOverlay();
+      hideSpeedChart();
     }
 
-    function toggleOnMarkerEditor(targetMarker: SVGRectElement) {
-      toggleCropOverlay();
-      colorSelectedMarkerPair(targetMarker);
-      enableMarkerHotkeys(targetMarker);
-      createMarkerEditor(targetMarker);
-      addCropInputHotkeys();
+    function toggleOnMarkerPairEditor(targetMarker: SVGRectElement) {
       prevSelectedMarkerPair = targetMarker;
+      prevSelectedMarkerPairIndex =
+        parseInt(prevSelectedMarkerPair.getAttribute('idx')) - 1;
+
+      highlightSelectedMarkerPair(targetMarker);
+      enableMarkerHotkeys(targetMarker);
+      createMarkerPairEditor(targetMarker);
+      addCropInputHotkeys();
+      loadSpeedMap(speedChart);
+      showCropOverlay();
+      showSpeedChart();
     }
 
-    function createMarkerEditor(targetMarker: SVGRectElement) {
+    function createMarkerPairEditor(targetMarker: SVGRectElement) {
       const markerIndex = parseInt(targetMarker.getAttribute('idx'), 10) - 1;
-      const markerPair = markers[markerIndex];
+      const markerPair = markerPairs[markerIndex];
       const startTime = toHHMMSSTrimmed(markerPair.start);
       const endTime = toHHMMSSTrimmed(markerPair.end);
       const speed = markerPair.speed;
@@ -2332,7 +2717,7 @@
         <span style="font-weight:bold;font-style:none">Marker Pair \
           <span id="marker-pair-number-label">${markerIndex + 1}</span>\
           /\
-          <span id="marker-pair-count-label">${markers.length}</span>\
+          <span id="marker-pair-count-label">${markerPairs.length}</span>\
         Settings: </span>
         <div class="editor-input-div">
           <span>Speed: </span>
@@ -2365,10 +2750,14 @@
       <div id="marker-pair-overrides" class="yt_clipper-settings-editor" style="display:${markerPairOverridesEditorDisplay}">
         <span style="font-weight:bold">Overrides: </span>
         <div class="editor-input-div">
-          <span>Gamma (0-4): </span>
-          <input id="gamma-input" class="yt_clipper-input" type="number" min="0" max="4.00" step="0.01" value="${
-            overrides.gamma != null ? overrides.gamma : ''
-          }" placeholder="${settings.gamma || '1'}" style="width:4em"></input>
+          <span>Audio: </span>
+          <select id="audio-input">
+            <option ${overrides.audio ? 'selected' : ''}>Enabled</option>
+            <option ${overrides.audio === false ? 'selected' : ''}>Disabled</option>
+            <option value="Default" ${
+              overrides.audio == null ? 'selected' : ''
+            }>Inherit Global ${ternaryToString(settings.audio)}</option>
+          </select>
         </div>
         <div class="editor-input-div">
           <span>Encode Speed (0-5): </span>
@@ -2400,17 +2789,13 @@
           </select>
         </div>
         <div class="editor-input-div">
-          <span>Audio: </span>
-          <select id="audio-input"> 
-            <option ${overrides.audio ? 'selected' : ''}>Enabled</option>
-            <option ${overrides.audio === false ? 'selected' : ''}>Disabled</option>
-            <option value="Default" ${
-              overrides.audio == null ? 'selected' : ''
-            }>Inherit Global ${ternaryToString(settings.audio)}</option>
-          </select>
+          <span>Gamma (0-4): </span>
+          <input id="gamma-input" class="yt_clipper-input" type="number" min="0.01" max="4.00" step="0.01" value="${
+            overrides.gamma != null ? overrides.gamma : ''
+          }" placeholder="${settings.gamma || '1'}" style="width:4em"></input>
         </div>
         <div class="editor-input-div">
-          <span>Expand Color Range: </span>
+          <span>Expand Colors: </span>
           <select id="expand-color-range-input"> 
             <option ${overrides.expandColorRange ? 'selected' : ''}>Enabled</option>
             <option ${
@@ -2457,6 +2842,25 @@
             }>Inherit Global ${vidstabDescGlobal}</option>
           </select>
         </div>
+        <div class="editor-input-div">
+        <span>Speed Map: </span>
+            <select id="enable-speed-maps-input">
+              <option ${overrides.enableSpeedMaps ? 'selected' : ''}>Enabled</option>
+              <option ${
+                overrides.enableSpeedMaps === false ? 'selected' : ''
+              }>Disabled</option>
+              <option value="Default" ${
+                overrides.enableSpeedMaps == null ? 'selected' : ''
+              }>Inherit Global ${ternaryToString(settings.enableSpeedMaps)}</option>
+            </select>
+          <div class="editor-input-div">
+            <span>Round Easing: </span>
+            <input id="round-speed-map-easing-input" class="yt_clipper-input" type="number" min="0" max="0.25" step="0.01" value="${
+              overrides.roundSpeedMapEasing != null ? overrides.roundSpeedMapEasing : ''
+            }" placeholder="${settings.roundSpeedMapEasing ||
+        defaultRoundSpeedMapEasing}" style="width:4em"></input>
+          </div>
+        </div>
       </div>
       `;
 
@@ -2477,6 +2881,8 @@
           ['two-pass-input', 'twoPass', 'ternary'],
           ['audio-input', 'audio', 'ternary'],
           ['expand-color-range-input', 'expandColorRange', 'ternary'],
+          ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
+          ['round-speed-map-easing-input', 'roundSpeedMapEasing', 'number'],
           ['denoise-input', 'denoise', 'preset'],
           ['video-stabilization-input', 'videoStabilization', 'preset'],
         ],
@@ -2508,24 +2914,48 @@
       enableMarkerHotkeys.moveMarker = (marker: SVGRectElement) => {
         const type = marker.getAttribute('type') as 'start' | 'end';
         const idx = parseInt(marker.getAttribute('idx')) - 1;
-        const markerPair = markers[idx];
+        const markerPair = markerPairs[idx];
         const currentTime = video.currentTime;
         const progress_pos = (currentTime / playerInfo.duration) * 100;
         const markerTimeSpan = document.getElementById(`${type}-time`);
+        const speedMap = markerPair.speedMap;
+
+        if (type === 'start' && currentTime >= markerPair.end) {
+          flashMessage('Start marker cannot be placed after end marker', 'red');
+          return;
+        }
+        if (type === 'end' && currentTime <= markerPair.start) {
+          flashMessage('End marker cannot be placed before start marker', 'red');
+          return;
+        }
+
         marker.setAttribute('x', `${progress_pos}%`);
+        markerPair[type] = currentTime;
         if (type === 'start') {
           selectedStartMarkerOverlay.setAttribute('x', `${progress_pos}%`);
+          speedMap[0].x = currentTime;
+          markerPair.speedMap = speedMap.filter((speedPoint) => {
+            return speedPoint.x >= currentTime;
+          });
         } else if (type === 'end') {
+          speedMap[speedMap.length - 1].x = currentTime;
           selectedEndMarkerOverlay.setAttribute('x', `${progress_pos}%`);
+          markerPair.speedMap = speedMap.filter((speedPoint) => {
+            return speedPoint.x <= currentTime;
+          });
         }
-        markerPair[type] = currentTime;
         markerTimeSpan.textContent = `${toHHMMSSTrimmed(currentTime)}`;
+        if (speedChart) {
+          speedChart.config.data.datasets[0].data = markerPair.speedMap;
+          updateSpeedChartBounds(speedChart.config, markerPair.start, markerPair.end);
+          speedChart.update();
+        }
         updateMarkerPairDuration(markerPair);
       };
 
       enableMarkerHotkeys.deleteMarkerPair = () => {
         const idx = parseInt(enableMarkerHotkeys.endMarker.getAttribute('idx')) - 1;
-        markers.splice(idx, 1);
+        markerPairs.splice(idx, 1);
 
         const me = new MouseEvent('mouseover', { shiftKey: true });
         enableMarkerHotkeys.endMarker.dispatchEvent(me);
@@ -2546,7 +2976,7 @@
 
     let selectedStartMarkerOverlay: HTMLElement;
     let selectedEndMarkerOverlay: HTMLElement;
-    function colorSelectedMarkerPair(currentMarker: SVGRectElement) {
+    function highlightSelectedMarkerPair(currentMarker: SVGRectElement) {
       if (!selectedStartMarkerOverlay) {
         selectedStartMarkerOverlay = document.getElementById(
           'selected-start-marker-overlay'
@@ -2555,13 +2985,13 @@
       if (!selectedEndMarkerOverlay) {
         selectedEndMarkerOverlay = document.getElementById('selected-end-marker-overlay');
       }
-      const startMarker = currentMarker.previousSibling;
+      const startMarker = currentMarker.previousSibling as SVGRectElement;
       selectedStartMarkerOverlay.setAttribute('x', startMarker.getAttribute('x'));
       selectedEndMarkerOverlay.setAttribute('x', currentMarker.getAttribute('x'));
       selectedMarkerPairOverlay.style.display = 'block';
     }
 
-    function updateMarkerPairDuration(markerPair: marker) {
+    function updateMarkerPairDuration(markerPair: MarkerPair) {
       const speedAdjustedDurationSpan = document.getElementById('duration');
       const duration = markerPair.end - markerPair.start;
       const durationHHMMSS = toHHMMSSTrimmed(duration);
@@ -2592,13 +3022,38 @@
     }
 
     function hideSelectedMarkerPairCropOverlay() {
-      if (selectedEndMarkerOverlay) {
+      if (selectedMarkerPairOverlay) {
         selectedMarkerPairOverlay.style.display = 'none';
       }
     }
 
-    function deleteMarkerEditor() {
+    function showSpeedChart() {
+      if (speedChartContainer) {
+        if (isDrawingCrop) {
+          cancelDrawingCrop();
+        }
+        speedChartContainer.style.display = 'block';
+        isSpeedChartVisible = true;
+        requestAnimationFrame(updateSpeedChartTimeAnnotation);
+      }
+    }
+    function hideSpeedChart() {
+      if (speedChartContainer) {
+        speedChartContainer.style.display = 'none';
+        isSpeedChartVisible = false;
+      }
+    }
+    function toggleSpeedChartVisibility() {
+      if (!isSpeedChartVisible) {
+        showSpeedChart();
+      } else {
+        hideSpeedChart();
+      }
+    }
+
+    function deleteMarkerPairEditor() {
       const markerInputsDiv = document.getElementById('markerInputsDiv');
+      hideCropOverlay();
       deleteElement(markerInputsDiv);
       isMarkerEditorOpen = false;
       markerHotkeysEnabled = false;
@@ -2645,7 +3100,7 @@
       overridesField: boolean = false
     ) {
       if (e.target.reportValidity()) {
-        const markerPair = markers[currentIdx];
+        const markerPair = markerPairs[currentIdx];
         let newValue = e.target.value;
         if (newValue != null) {
           if (newValue === '') {
@@ -2678,6 +3133,12 @@
           if (updateTarget === 'crop') {
             createCropOverlay(newValue);
           } else if (updateTarget === 'speed') {
+            const speedMap = markerPair.speedMap;
+            if (speedMap.length === 2 && speedMap[0].y === speedMap[1].y) {
+              markerPair.speedMap[1].y = newValue;
+            }
+            markerPair.speedMap[0].y = newValue;
+            speedChart && speedChart.update();
             updateMarkerPairDuration(markerPair);
           }
         } else {
@@ -2752,7 +3213,7 @@ httpd.serve_forever()
     }
 
     function buildGfyRequests(markers, url: string) {
-      return markers.map((marker: marker, idx: number) => {
+      return markers.map((marker: MarkerPair, idx: number) => {
         const start = marker.start;
         const end = marker.end;
         const speed = marker.speed;
@@ -2806,9 +3267,9 @@ httpd.serve_forever()
     }
 
     function sendGfyRequests(url: string, accessToken?: string) {
-      if (markers.length > 0) {
+      if (markerPairs.length > 0) {
         const markdown = toggleUploadStatus();
-        const reqs = buildGfyRequests(markers, url).map(
+        const reqs = buildGfyRequests(markerPairs, url).map(
           (req: { speed: string }, idx: any) => {
             return buildGfyRequestPromise(req, idx, accessToken);
           }
@@ -2873,7 +3334,7 @@ httpd.serve_forever()
     function updateUploadStatus(
       markdown: { textContent: string; scrollTop: any; scrollHeight: any },
       status: { progress: any },
-      gfyname: name
+      gfyname: string
     ) {
       if (markdown) {
         markdown.textContent += `${gfyname} progress: ${status.progress}\n`;
@@ -2931,37 +3392,6 @@ httpd.serve_forever()
       }
       console.log(req);
       return fetch(url, req).then((response: { json: () => void }) => response.json()); // parses response to JSON
-    }
-
-    function toHHMMSS(seconds: number) {
-      return new Date(seconds * 1000).toISOString().substr(11, 12);
-    }
-
-    function toHHMMSSTrimmed(seconds: number) {
-      return toHHMMSS(seconds).replace(/(00:)+(.*)/, '$2');
-    }
-    function setAttributes(el: HTMLElement, attrs: {}) {
-      Object.keys(attrs).forEach((key) => el.setAttribute(key, attrs[key]));
-    }
-
-    function copyToClipboard(str: string) {
-      const el = document.createElement('textarea');
-      el.value = str;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand('copy');
-      document.body.removeChild(el);
-    }
-
-    function once(fn: Function, context: any) {
-      var result: Function;
-      return function() {
-        if (fn) {
-          result = fn.apply(context || this, arguments);
-          fn = null;
-        }
-        return result;
-      };
     }
   }
 })();
