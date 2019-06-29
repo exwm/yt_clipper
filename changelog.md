@@ -2,6 +2,27 @@
 
 ## Markup Script Changelog
 
+- v0.0.81
+
+  - Use with `v3.5.0` of the `clipper script` installation.
+  - Fix some default C key bindings (eg Ctrl+C for copying) being wrongly disabled.
+  - Add shortcuts reference toggle button (scissor icon) to video controls on hotkeys enable.
+  - Add time-variable speed chart for making webms with variable speed.
+    - See [Time-Variable Speed Chart Shortcuts](#time-variable-speed-chart-shortcuts) for usage instructions
+    - Note that mainline FireFox does not seem to support audio slowdown well (stutters) and has a min audio speed of 0.5.
+  - Increase frequency of preview updates (speed, looping, and gamma) for more accurate previews.
+  - Fix markers not showing in mainline FireFox due to lack of svg 2.
+  - Fix script crash on new, unprocessed videos.
+  - Fix being able to add or move end marker before start marker and vice versa.
+  - Reorganized hotkeys:
+    - Update all markers to default new marker speed/crop:
+      - Speed: **Shift+E** -> **Alt+Shift+Q**, Crop: **Shift+D** -> **Alt+Shift+X**.
+    - Previewing:
+      - Speed: **Alt+G** -> **D**, Looping: **Alt+G** -> **Shift+D**, Gamma: **Alt+Shift+G** -> **Alt+D**.
+    - Frame capturer:
+      - Capture frame: **Alt+Q** -> **E**, Zip and download all captured frames: **Alt+Shift+Q** -> **Alt+E**.
+    - Uploading: **Alt+C** -> **Alt+V** and **Alt+Shift+C** -> **Alt+Shift+V**
+
 - v0.0.80
 
   - Use with `v3.4.1` of the `clipper script` installation.
@@ -129,11 +150,24 @@
 
 ## Clipper Script (Installation) Changelog
 
+- v3.5.0:
+
+  - Use with `v0.0.81` or higher of the markup script.
+    - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
+  - Add support for time-variable speed.
+  - Add new `clipper script` flags and `bat/app` scripts for accessing new functions.
+    - Add local previewing of markers (using ffplay) with `--preview/-p`, `yt_clipper_preview` .bat or .app file.
+    - Add downloading of video before processing markers with `--download-video/-dv`, `yt_clipper_auto_download` .bat or .app file.
+    - Add automatic detection of potential input videos with path stem `./webms/titleSuffix/titleSuffix-full`.
+    - Add `--input-video` for manually specifying a an input video path or URL.
+      - Windows: Add `yt_clipper_auto_input_video.bat` onto which a markers .json and video file can be dropped for processing.
+  - Windows: Simplified `yt_clipper_merge.bat` usage by auto-sorting file list received on drop.
+    - See the updated [Merge Helper Bat Script Instructions](#windows-merge-helper-bat-script).
+  - Fix some characters breaking merge list processing due to merge inputs txt file not being encoded with utf-8
+
 - v3.4.2:
 
-  - See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
   - Use with `v0.0.77` or higher of the markup script.
-    - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
   - Update `youtube-dl` dependency to version [`2019.06.21`](https://github.com/ytdl-org/youtube-dl/releases/tag/2019.06.21).
     - Fixes automatic fetching of YouTube videos.
   - Windows: Add `yt_clipper_merge.bat` for merging webm video files on disk.
