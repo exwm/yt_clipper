@@ -2467,21 +2467,13 @@ export let player: HTMLElement;
             (e) => {
               e.preventDefault();
               e.stopImmediatePropagation();
-              // shift+right-click context menu opens screenshot tool in firefox 67.0.2
-              if (e.button === 2 && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-                player.seekTo(speedChart.scales['x-axis-1'].getValueForPixel(e.offsetX));
-              } else if (e.button === 2 && e.ctrlKey && !e.altKey && !e.shiftKey) {
-                const start = speedChart.scales['x-axis-1'].getValueForPixel(e.offsetX);
-                speedChart.config.options.annotation.annotations[1].value = start;
-                markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.start = start;
-                speedChart.update();
-              } else if (e.button === 2 && !e.ctrlKey && e.altKey && !e.shiftKey) {
-                const end = speedChart.scales['x-axis-1'].getValueForPixel(e.offsetX);
-                speedChart.config.options.annotation.annotations[2].value = end;
-                markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.end = end;
-                speedChart.update();
-              }
             },
+            true
+          );
+          
+          speedChart.ctx.canvas.addEventListener(
+            'mouseup',
+            speedChartContextMenuHandler,
             true
           );
 
@@ -2494,6 +2486,25 @@ export let player: HTMLElement;
           'Please open a marker pair editor before toggling the time-variable speed chart',
           'olive'
         );
+      }
+    }
+
+    function speedChartContextMenuHandler(e) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      // shift+right-click context menu opens screenshot tool in firefox 67.0.2
+      if (e.button === 2 && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+        player.seekTo(speedChart.scales['x-axis-1'].getValueForPixel(e.offsetX));
+      } else if (e.button === 2 && !e.ctrlKey && e.altKey && !e.shiftKey) {
+        const start = speedChart.scales['x-axis-1'].getValueForPixel(e.offsetX);
+        speedChart.config.options.annotation.annotations[1].value = start;
+        markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.start = start;
+        speedChart.update();
+      } else if (e.button === 2 && e.ctrlKey && e.altKey && !e.shiftKey) {
+        const end = speedChart.scales['x-axis-1'].getValueForPixel(e.offsetX);
+        speedChart.config.options.annotation.annotations[2].value = end;
+        markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.end = end;
+        speedChart.update();
       }
     }
 
