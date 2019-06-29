@@ -23,6 +23,9 @@ sandbox/
 # other binaries and artifacts
 webms/
 
+# parcel cache
+.cache
+
 typings/
 lib/*.js
 test/*.js
