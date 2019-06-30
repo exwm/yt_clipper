@@ -250,12 +250,12 @@ def buildArgParser():
                         help='Disable automatic detection and usage of input video when not in preview mode.')
     parser.add_argument('--no-speed-maps', '-nsm', dest='noSpeedMaps', action='store_true',
                         help='Disable speed maps for time-variable speed.')
-    parser.add_argument('--round-speed-map-easing', '-rsme', dest='roundSpeedMapEasing', type=float, default=0.05,
+    parser.add_argument('--round-speed-map-easing', '-rsme', dest='roundSpeedMapEasing', type=float, default=0,
                         help=(
                             'Round changes in speed with time to the nearest positive multiple provided.')
+                        + ('The default value of 0 disables rounding.)')
                         + ('Valid range is (0, 0.5] (i.e., greater than 0 and less than or equal to 0.5)')
-                        + ('For example, a value of 0.05 will step from a starting speed of 1.0 to a speed of 0.5 in decrements of 0.05.')
-                        + ('A value of 0 disables rounding. The default of 0.05 matches the variable speed preview in the browser.'))
+                        + ('For example, a value of 0.05 will step from a starting speed of 1.0 to a speed of 0.5 in decrements of 0.05.'))
     return parser.parse_known_args()
 
 
@@ -422,9 +422,8 @@ def getMarkerPairSettings(settings, markerPairIndex):
 
     mp["start"] = mp["start"] + mps["delay"]
     mp["end"] = mp["end"] + mps["delay"]
-    mp["speed"] = (1 / mp["speed"])
     mp["duration"] = mp["end"] - mp["start"]
-    mp["speedAdjustedDuration"] = mp["duration"] * mp["speed"]
+    mp["speedAdjustedDuration"] = mp["duration"] / mp["speed"]
 
     titlePrefixLogMsg = f'Title Prefix: {mps["titlePrefix"] if "titlePrefix" in mps else ""}'
     logger.info('-' * 80)
@@ -475,10 +474,10 @@ def makeMarkerPairClip(settings, markerPairIndex):
 
         # preview mode does not start each clip at time 0 unlike encoding mode
         if settings["preview"] and (settings["inputVideo"] or settings["isDashAudio"]):
-            audio_filter += f'atrim={mp["start"]}:{mp["end"]},atempo={1/mp["speed"]}'
+            audio_filter += f'atrim={mp["start"]}:{mp["end"]},atempo={mp["speed"]}'
         # encoding mode starts each clip at time 0
         elif not settings["preview"]:
-            audio_filter += f'atrim=0:{mp["duration"]},atempo={1/mp["speed"]}'
+            audio_filter += f'atrim=0:{mp["duration"]},atempo={mp["speed"]}'
         # when streaming the required chunks from the internet the video and audio inputs are separate
         else:
             mps["audio"] = False
@@ -502,9 +501,9 @@ def makeMarkerPairClip(settings, markerPairIndex):
             video_filter += f',loop=loop=-1:size=(32767)'
     else:
         if not mps["preview"]:
-            video_filter += f'trim=0:{mp["duration"]},setpts={mp["speed"]}*(PTS-STARTPTS)'
+            video_filter += f'trim=0:{mp["duration"]},setpts=(PTS-STARTPTS)/{mp["speed"]}'
         else:
-            video_filter += f'trim={mp["start"]}:{mp["end"]},setpts={mp["speed"]}*(PTS-STARTPTS)'
+            video_filter += f'trim={mp["start"]}:{mp["end"]},setpts=(PTS-STARTPTS)/{mp["speed"]}'
             if not settings["inputVideo"]:
                 video_filter += f',loop=loop=-1:size=(32767)'
 
@@ -545,7 +544,7 @@ def runffmpegCommand(inputs, video_filter, audio_filter, markerPairIndex, mp, mp
         f'-slices 8 -row-mt 1 -tile-columns 6 -tile-rows 2',
         f'-crf {mps["crf"]} -b:v {mps["autoTargetMaxBitrate"]}k',
         f'-metadata title="{mps["videoTitle"]}"',
-        f'-r ((1/{mp["speed"]})*{mps["r_frame_rate"]})' if not mps["isVariableSpeed"] and mp["speed"] < 1 else '',
+        f'-r ({mps["r_frame_rate"]}*{mp["speed"]})' if not mps["isVariableSpeed"] and mp["speed"] > 1 else '',
         f'-af {audio_filter}' if mps["audio"] else '-an',
         f'-f webm ',
     ))
@@ -619,14 +618,9 @@ def runffmpegCommand(inputs, video_filter, audio_filter, markerPairIndex, mp, mp
 
 
 def getVariableSpeedFilter(speedMap, mps):
-    nSpeedPoints = len(speedMap)
     nSects = 0
-    for i, speedPoint in enumerate(speedMap):
-        if i == nSpeedPoints - 1:
-            break
-        nextSpeedPoint = speedMap[i+1]
-        sectEndTime = nextSpeedPoint["x"]
-        sectDuration = sectEndTime - speedPoint["x"]
+    for left, right in zip(speedMap[:-1], speedMap[1:]):
+        sectDuration = right["x"] - left["x"]
         if sectDuration > 0:
             nSects += 1
 
@@ -637,30 +631,26 @@ def getVariableSpeedFilter(speedMap, mps):
         video_filter_speed_map += f'[in-sect-{i}] '
     video_filter_speed_map += f';'
 
+
+    if not mps["preview"]:
+        speedMap = [{"x": speedPoint["x"] - speedMap[0]["x"], "y": speedPoint["y"]} for speedPoint in speedMap]
     sectNum = 0
     sectStartTime = 0
-    prevSectDuration = 0
-    for i, speedPoint in enumerate(speedMap):
-        if i == nSpeedPoints - 1:
-            break
-        if mps["preview"]:
-            sectStartTime = speedPoint["x"]
-        else:
-            sectStartTime += prevSectDuration
+    for left, right in zip(speedMap[:-1], speedMap[1:]):
+        sectStartTime = left["x"]
+        sectEndTime = right["x"]
+        sectDuration = sectEndTime - sectStartTime
 
-        nextSpeedPoint = speedMap[i+1]
-        sectEndTime = nextSpeedPoint["x"]
-        sectDuration = sectEndTime - speedPoint["x"]
         if sectDuration == 0:
-            prevSectDuration = 0
             continue
 
-        startSpeed = speedPoint["y"]
-        endSpeed = nextSpeedPoint["y"]
+        startSpeed = left["y"]
+        endSpeed = right["y"]
+        
         video_filter_speed_map += f'[in-sect-{sectNum}]trim=start={sectStartTime}:duration={sectDuration}'
-        setptsA = f'(1/{startSpeed})'
-        setptsB = f'(1/{endSpeed})'
-        setptsP = f'(T-STARTT)/({sectEndTime}-{sectStartTime})'
+        setptsA = f'({startSpeed})'
+        setptsB = f'({endSpeed})'
+        setptsP = f'(T-STARTT)/({sectDuration})'
         # setptsT = f'(2*{setptsP})'
         # setptsM = f'({setptsT}-1)'
         # setptsPE = f'if( lt({setptsT}\\,1) \\, ({setptsP}*{setptsT}^2)\\, (1+{setptsM}^3*4) ) '
@@ -669,14 +659,15 @@ def getVariableSpeedFilter(speedMap, mps):
         # setpts = f'({setptsA}+({setptsB}-{setptsA})*{setptsSineInOut})'
         # setpts = f'({setptsA}+({setptsB}-{setptsA})*{setptsPE})'
         # setpts = f'({setptsA}+({setptsB}-{setptsA})*{setptsCircleOut})'
-        setpts = f'lerp({setptsA}\\, {setptsB}\\, {setptsP})'
+        setpts = '(PTS-STARTPTS)/'
+        setptsLERP = f'lerp({setptsA}\\, {setptsB}\\, {setptsP})'
         if 0 < mps["roundSpeedMapEasing"] <= 0.5:
-            setpts = f'( round( {setpts} / {mps["roundSpeedMapEasing"]} ) * {mps["roundSpeedMapEasing"]} )'
-        setpts += '*(PTS-STARTPTS)'
+            setpts += f'( round( {setptsLERP} / {mps["roundSpeedMapEasing"]} ) * {mps["roundSpeedMapEasing"]} )'
+        else:
+            setpts += setptsLERP
 
         video_filter_speed_map += f',setpts={setpts}[out-sect-{sectNum}];'
         sectNum += 1
-        prevSectDuration = sectDuration
 
     sectString = ""
     for i in range(nSects):
