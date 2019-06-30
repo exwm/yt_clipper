@@ -41,6 +41,7 @@
     - [Gamma Correction](#gamma-correction)
   - [Clipper Script Source](#clipper-script-source)
   - [Clipper Script Usage](#clipper-script-usage)
+  - [Clipper Script Preview Shortcuts](#clipper-script-preview-shortcuts)
   - [Clipper Script Installation](#clipper-script-installation)
     - [Additional Helper Scripts](#additional-helper-scripts)
       - [Windows Merge Helper Bat Script](#windows-merge-helper-bat-script)
@@ -199,7 +200,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 Points are auto-sorted based on their time value on adding or removing points or on drag-end when moving points.
 
-YouTube playback speed can only be set to a multiple of `0.05`. The transitions between speed points are thus set to round the easing to the nearest multiple of `0.05` by default. This provides in-browser previews that better match final output. The rounding can be changed in the global or marker pair settings editors with the `Round Easing` input.
+YouTube playback speed can only be set to a multiple of `0.05` and greater than or equal to `0.25`. By default rounding is disabled in the final generated webms. The rounding can be changed in the global or marker pair settings editors with the `Round Easing` input if desired.
 
 ![yt_clipper_speed_chart](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_speed_chart.jpg)
 
@@ -301,23 +302,27 @@ YouTube playback speed can only be set to a multiple of `0.05`. The transitions 
 ```sh
 python ./yt_clipper.py -h # Prints help. Details all options and arguments.
 
-python ./yt_clipper.py ./clip.webm
+python ./yt_clipper.py --markers-json markers.json # automatically generate webms using markers json
 
-python ./yt_clipper.py ./clip.webm --overlay ./overlay.png
+python ./yt_clipper.py --input-video ./clip.webm --markers-json markers.json # provide a local input video
 
-python ./yt_clipper.py ./clip.webm --format bestvideo[width<=1080]
+python ./yt_clipper.py -j markers.json --preview  # preview marker pairs using ffplay
 
-python ./yt_clipper.py --json markers.json # automatically generate webms using markers json
+python ./yt_clipper.py -j markers.json --format bestvideo[width<=1080] # specify download format used by youtube-dl
 ```
+
+## Clipper Script Preview Shortcuts
+
+See <https://ffmpeg.org/ffplay.html#While-playing>.
 
 ## Clipper Script Installation
 
 There is an installation that does not require the dependencies below.
 
 1. Extract the appropriate zip file anywhere:
-   - On _Windows_ download this [zip file (win_v3.5.1)](https://mega.nz/#!1WIwkAKQ!999ObtZWfu5IG7IfLSGyynYCJanQdcn7Eb4QYh3cNLU)
-   - On _Mac_ download this [zip file (mac_v3.5.1)](https://mega.nz/#!kaY2nAbZ!x249wT-K3RqydZVEkdw1ZA2zZQi-_aERy9ZbVLv2yeM)
-   - The latest install (`v3.5.1`) is **not compatible** with `v0.0.75` or lower of the `markup script`
+   - On _Windows_ download this [zip file (win_v3.5.2)](https://mega.nz/#!RKwGwKCa!CHZTYZ-v8JoQzkQyLBKU8mqgnwus_8tns_Pc92E75-g)
+   - On _Mac_ download this [zip file (mac_v3.5.2)](https://mega.nz/#!RLoQDSTI!XpzwKbOYc_DNLjm87kI64KM4Qp-enOL2rAbVWTqTfmI)
+   - The latest install (`v3.5.2`) is **not compatible** with `v0.0.74` or lower of the `markup script`
 2. Simply drag and drop the markers .json file onto the `yt_clipper_auto.bat` file on Windows or at the terminal prompt after executing `yt_clipper_auto` on Mac.
 3. Use `Ctrl+C` if you need to cancel the process.
 4. All generated webm clips will be placed in `./webms/<markers-json-filename>`.
@@ -403,10 +408,16 @@ See <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
 
 ## Markup Script Changelog
 
-- v0.0.82
+- v0.0.83
 
   - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
-  - Use with `v3.5.1` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Use with `v3.5.2` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Fix backwards compatibility with older markers data format.
+    - Loading both new and old format with **G** should now work smoothly.
+
+- v0.0.82
+
+  - Use with `v3.5.1` of the `clipper script` installation.
   - Revert enabling crop adjustment with arrow keys hotkey to **Alt+X**.
   - Add version tag to generated markers `json` data.
   - Fix readme table of contents not working on openuserjs.com.
@@ -459,9 +470,19 @@ See <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
 
 ## Clipper Script (Installation) Changelog
 
-- v3.5.1:
+- v3.5.2:
 
   - See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
+  - Use with `v0.0.83` or higher of the markup script.
+    - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
+  - Fix speed map filter being improperly calculated and producing unsmooth video.
+    - Changed default speed map rounding to 0 (disabled) as it now produces smoother results than rounding.
+  - Fix audio sync issues.
+  - Fix audio not disabled in preview mode when streaming (caused preview to crash as this is not supported).
+  - Update youtube-dl dependency to [`2019.06.27`](https://github.com/ytdl-org/youtube-dl/releases/tag/2019.06.27).
+
+- v3.5.1:
+
   - Use with `v0.0.82` or higher of the markup script.
     - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
   - Fix compatibility with latest markers json format (`v0.0.81`)
