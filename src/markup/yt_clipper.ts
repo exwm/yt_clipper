@@ -1122,7 +1122,7 @@ export let player: HTMLElement;
         return { number: idx + 1, ...markerPair };
       });
       const settingsJSON = JSON.stringify(
-        { version: __version__, ...settings, markerPairs: markerPairsNumbered },
+        { ...settings, version: __version__, markerPairs: markerPairsNumbered },
         undefined,
         2
       );
@@ -1171,10 +1171,23 @@ export let player: HTMLElement;
 
       flashMessage('Loading markers...', 'green');
 
-      if (markersJson && markersJson.markerPairs) {
-        // copy markersJson to settings object less markers field
-        const { markerPairs: _markerPairs, ..._settings } = markersJson;
-        settings = _settings;
+      if (markersJson) {
+        // move markers field to marker Pairs for backwards compat)
+        if (markersJson.markers && !markersJson.markerPairs) {
+          markersJson.markerPairs = markersJson.markers;
+          delete markersJson.markers;
+        }
+
+        if (!markersJson.markerPairs) {
+          flashMessage(
+            'Could not find markers or markerPairs field. Could not load marker data.',
+            'red'
+          );
+        }
+        // copy markersJson to settings object less markerPairs field
+        const { markerPairs: _markerPairs, ...loadedSettings } = markersJson;
+
+        settings = loadedSettings;
         markersJson.markerPairs.forEach((markerPair: MarkerPair) => {
           const startMarkerConfig: MarkerConfig = {
             time: markerPair.start,
