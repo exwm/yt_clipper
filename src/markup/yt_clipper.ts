@@ -1524,7 +1524,7 @@ export let player: HTMLElement;
             <span>Round Easing: </span>
             <input id="round-speed-map-easing-input" class="yt_clipper-input" type="number" min="0" max="0.25" step="0.01" value="${
               settings.roundSpeedMapEasing != null ? settings.roundSpeedMapEasing : ''
-            }" placeholder="${defaultRoundSpeedMapEasing}" style="width:4em"></input>
+            }" placeholder="0" style="width:4em"></input>
           </div>
         </div>
       </div>
@@ -2870,7 +2870,7 @@ export let player: HTMLElement;
             <input id="round-speed-map-easing-input" class="yt_clipper-input" type="number" min="0" max="0.25" step="0.01" value="${
               overrides.roundSpeedMapEasing != null ? overrides.roundSpeedMapEasing : ''
             }" placeholder="${settings.roundSpeedMapEasing ||
-        defaultRoundSpeedMapEasing}" style="width:4em"></input>
+        0}" style="width:4em"></input>
           </div>
         </div>
       </div>

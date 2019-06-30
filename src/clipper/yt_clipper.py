@@ -482,7 +482,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
         else:
             mps["audio"] = False
             logger.warning(
-                'Audio disabled when previewing without an input video over non-dash protocal.')
+                'Audio disabled when previewing without an input video over non-dash protocol.')
 
     if not mps["inputVideo"] and not settings["isDashVideo"]:
         inputs += reconnectFlags
