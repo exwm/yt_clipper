@@ -2,6 +2,12 @@
 
 ## Markup Script Changelog
 
+- v0.0.83
+
+  - Use with `v3.5.2` of the `clipper script` installation.
+  - Fix backwards compatibility with older markers data format.
+    - Loading both new and old format with **G** should now work smoothly
+
 - v0.0.82
 
   - Use with `v3.5.1` of the `clipper script` installation.
@@ -154,6 +160,17 @@
   - Add target max bitrate option for constrained quality mode using `-b <bitrate>` where bitrate is in kb/s.
 
 ## Clipper Script (Installation) Changelog
+
+- v3.5.2:
+
+  - See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
+  - Use with `v0.0.83` or higher of the markup script.
+    - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
+  - Fix speed map filter being improperly calculated and producing unsmooth video.
+    - Changed default speed map rounding to 0 (disabled) as it now produces smoother results than rounding.
+  - Fix audio sync issues.
+  - Fix audio not disabled in preview mode when streaming (caused preview to crash as this is not supported).
+  - Update youtube-dl dependency to [`2019.06.27`](https://github.com/ytdl-org/youtube-dl/releases/tag/2019.06.27).
 
 - v3.5.1:
 
