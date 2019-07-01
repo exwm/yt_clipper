@@ -246,6 +246,10 @@ export let player: HTMLElement;
               e.preventDefault();
               e.stopImmediatePropagation();
               updateAllMarkers('crop', settings.newMarkerCrop);
+            } else if (e.ctrlKey && !e.altKey && !e.shiftKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              cycleCropDimOpacity();
             }
             break;
           case 'KeyV':
@@ -355,6 +359,7 @@ export let player: HTMLElement;
     );
     let settingsEditorHook: HTMLElement;
     let flashMessageHook: HTMLElement;
+    let overlayHook: HTMLElement;
     function initPlayerInfo() {
       playerInfo.url = player.getVideoUrl();
       playerInfo.playerData = player.getVideoData();
@@ -369,9 +374,11 @@ export let player: HTMLElement;
       playerInfo.infoContents = document.getElementById('info-contents');
       flashMessageHook = playerInfo.infoContents;
       playerInfo.columns = document.getElementById('columns');
-
       updateSettingsEditorHook();
       playerInfo.annotations = document.getElementsByClassName('ytp-iv-video-content')[0];
+      overlayHook = document.getElementsByClassName(
+        'html5-video-container'
+      )[0] as HTMLElement;
       playerInfo.controls = document.getElementsByClassName('ytp-chrome-bottom')[0];
     }
 
@@ -542,12 +549,19 @@ export let player: HTMLElement;
   position: absolute;
   z-index: 99;
 }
-#crop-svg {
+#crop-div {
+  pointer-events: none;
+  z-index: 10;
+}
+#begin-crop-preview-div {
+  pointer-events: none;
+  z-index: 11;
+}
+#crop-svg, #begin-crop-preview-svg {
   width: 100%;
   height: 100%;
   top: 0px;
   position: absolute;
-  z-index: 95;
 }
 `;
     function injectCSS(css: string, id: string) {
@@ -2094,6 +2108,8 @@ export let player: HTMLElement;
       return progressDiv;
     }
 
+    let cropSvg: SVGSVGElement;
+    let cropDim: SVGRectElement;
     function createCropOverlay(crop: string) {
       deleteCropOverlay();
 
@@ -2106,49 +2122,62 @@ export let player: HTMLElement;
       }
       const cropDiv = document.createElement('div');
       cropDiv.setAttribute('id', 'crop-div');
-      cropDiv.innerHTML = `<svg id="crop-svg" ></svg>`;
-
-      let annotations = playerInfo.annotations;
-      if (!annotations) {
-        resizeCropOverlay(cropDiv);
-        annotations = document.getElementsByClassName('html5-video-container')[0];
-        annotations.insertAdjacentElement('afterend', cropDiv);
-        window.addEventListener('resize', () => resizeCropOverlay(cropDiv));
-      } else {
-        annotations.insertBefore(cropDiv, annotations.firstElementChild);
-      }
-      const cropSvg = cropDiv.firstElementChild;
-      const cropRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      cropDiv.innerHTML = `\
+      <svg id="crop-svg" pointer-events:none>
+        <defs>
+          <mask id="cropMask">
+            <rect x="0" y="0" width="100%" height="100%" fill="white"/>
+            <rect id="cropRect" x="0" y="0" width="100%" height="100%" fill="black"/>
+          </mask>
+        </defs>
+        <rect id="cropDim" mask="url(#cropMask)" x="0" y="0" width="100%" height="100%" fill="black" fill-opacity="${cropDimOpacity}"/>
+        <rect id="cropRectBorderBlack" x="0" y="0" width="100%" height="100%" fill="none" stroke="black" shape-rendering="geometricPrecision" stroke-width="1px" stroke-opacity="0.9" />
+        <rect id="cropRectBorderWhite" x="0" y="0" width="100%" height="100%" fill="none" stroke="white" shape-rendering="geometricPrecision" stroke-width="1px" stroke-dasharray="5 5" stroke-opacity="0.9"/>
+      </svg>`;
+      resizeCropOverlay(cropDiv);
+      overlayHook.insertAdjacentElement('afterend', cropDiv);
+      window.addEventListener('resize', () => resizeCropOverlay(cropDiv));
+      cropSvg = cropDiv.firstElementChild as SVGSVGElement;
+      cropDim = document.getElementById('cropDim');
+      const cropRect = document.getElementById('cropRect');
+      const cropRectBorderBlack = document.getElementById('cropRectBorderBlack');
+      const cropRectBorderWhite = document.getElementById('cropRectBorderWhite');
+      // const cropRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       const cropRectAttrs = {
         x: `${(crop[0] / settings.cropResWidth) * 100}%`,
         y: `${(crop[1] / settings.cropResHeight) * 100}%`,
         width: `${(crop[2] / settings.cropResWidth) * 100}%`,
         height: `${(crop[3] / settings.cropResHeight) * 100}%`,
-        fill: 'none',
-        stroke: 'grey',
-        'stroke-width': '3px',
-        'stroke-dasharray': '25 5',
-        'stroke-opacity': 0.8,
       };
-
       setAttributes(cropRect, cropRectAttrs);
-      cropSvg.appendChild(cropRect);
+      setAttributes(cropRectBorderBlack, cropRectAttrs);
+      setAttributes(cropRectBorderWhite, cropRectAttrs);
+      // cropSvg.appendChild(cropRect);
 
       isCropOverlayVisible = true;
     }
 
     function resizeCropOverlay(cropDiv: HTMLDivElement) {
-      const videoRect = player.getVideoContentRect();
-      cropDiv.setAttribute(
-        'style',
-        `width:${videoRect.width}px;height:${videoRect.height}px;left:${
-          videoRect.left
-        }px;top:${videoRect.top}px;position:absolute`
-      );
+      requestAnimationFrame(() => forceRerenderCrop(cropDiv));
+    }
+
+    function forceRerenderCrop(cropDiv: HTMLDivElement) {
+      cropDiv.setAttribute('style', video.getAttribute('style') + 'position:absolute');
+      if (cropSvg) {
+        cropSvg.setAttribute('width', '0');
+      }
+    }
+
+    let cropDimOpacity: number = 0.5;
+    function cycleCropDimOpacity() {
+      if (cropDim) {
+        cropDimOpacity += 0.25;
+        cropDimOpacity = cropDimOpacity > 1 ? 0 : cropDimOpacity;
+        cropDim.setAttribute('fill-opacity', cropDimOpacity.toString());
+      }
     }
 
     function showCropOverlay() {
-      const cropSvg = document.getElementById('crop-svg');
       if (cropSvg) {
         cropSvg.style.display = 'block';
         isCropOverlayVisible = true;
@@ -2159,7 +2188,6 @@ export let player: HTMLElement;
       if (isDrawingCrop) {
         cancelDrawingCrop();
       }
-      const cropSvg = document.getElementById('crop-svg');
       if (cropSvg) {
         cropSvg.style.display = 'none';
         isCropOverlayVisible = false;
@@ -2222,6 +2250,7 @@ export let player: HTMLElement;
       const beginCropPreview = document.getElementById('begin-crop-preview-div');
       if (beginCropPreview) {
         deleteElement(beginCropPreview);
+        window.removeEventListener('resize', cancelDrawingCrop);
       }
       if (beginDrawHandler) {
         playerInfo.video.removeEventListener('mousedown', beginDrawHandler, {
@@ -2241,17 +2270,11 @@ export let player: HTMLElement;
     function createBeginCropPreview(x: number, y: number) {
       const beginCropPreview = document.createElement('div');
       beginCropPreview.setAttribute('id', 'begin-crop-preview-div');
-      beginCropPreview.innerHTML = `<svg id="crop-svg"></svg>`;
+      beginCropPreview.innerHTML = `<svg id="begin-crop-preview-svg"></svg>`;
 
-      let annotations = playerInfo.annotations;
-      if (!annotations) {
-        resizeCropOverlay(beginCropPreview);
-        annotations = document.getElementsByClassName('html5-video-container')[0];
-        annotations.insertAdjacentElement('afterend', beginCropPreview);
-        window.addEventListener('resize', () => resizeCropOverlay(beginCropPreview));
-      } else {
-        annotations.insertBefore(beginCropPreview, annotations.firstElementChild);
-      }
+      resizeCropOverlay(beginCropPreview);
+      overlayHook.insertAdjacentElement('afterend', beginCropPreview);
+      window.addEventListener('resize', cancelDrawingCrop, { once: true });
       const beginCropPreviewSvg = beginCropPreview.firstElementChild;
       const beginCropPreviewRect = document.createElementNS(
         'http://www.w3.org/2000/svg',
@@ -2262,8 +2285,10 @@ export let player: HTMLElement;
         y: `${(y / settings.cropResHeight) * 100}%`,
         width: '5px',
         height: '5px',
-        fill: 'grey',
+        fill: 'white',
         'fill-opacity': 1,
+        stroke: 'black',
+        'stroke-width': '2px',
       };
       setAttributes(beginCropPreviewRect, cropRectAttrs);
       beginCropPreviewSvg.appendChild(beginCropPreviewRect);
@@ -2455,7 +2480,7 @@ export let player: HTMLElement;
           speedChartContainer.setAttribute('id', 'speedChartContainer');
           speedChartContainer.setAttribute(
             'style',
-            'width: 100%; height: calc(100% - 20px); position: relative; z-index: 11'
+            'width: 100%; height: calc(100% - 20px); position: relative; z-index: 12'
           );
           speedChartContainer.innerHTML = speedChartCanvas;
           const videoContainer = document.getElementsByClassName(
