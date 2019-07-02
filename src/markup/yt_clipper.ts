@@ -309,6 +309,48 @@ export let player: HTMLElement;
       }
     }
 
+    window.addEventListener('keydown', addCropOverlayHoverListener, true);
+
+    window.addEventListener('keyup', removeCropOverlayHoverListener, true);
+
+    function addCropOverlayHoverListener(e: KeyboardEvent) {
+      if (
+        e.key === 'Shift' &&
+        !e.repeat &&
+        isCropOverlayVisible &&
+        !isDrawingCrop &&
+        !isSpeedChartVisible
+      ) {
+        window.addEventListener('mousemove', cropOverlayHoverHandler, true);
+      }
+    }
+
+    function removeCropOverlayHoverListener(e: KeyboardEvent) {
+      if (e.key === 'Shift') {
+        window.removeEventListener('mousemove', cropOverlayHoverHandler, true);
+        showPlayerControls();
+        video.style.removeProperty('cursor');
+      }
+    }
+
+    function cropOverlayHoverHandler(e) {
+      if (isMarkerEditorOpen && isCropOverlayVisible && !isDrawingCrop) {
+        updateCropHoverCursor(e);
+      }
+    }
+
+    function updateCropHoverCursor(e) {
+      const cursor = getMouseCropHoverRegion(e);
+
+      if (cursor) {
+        hidePlayerControls();
+        video.style.cursor = cursor;
+      } else {
+        showPlayerControls();
+        video.style.removeProperty('cursor');
+      }
+    }
+
     function toggleSelectedMarkerPair(e: KeyboardEvent) {
       if (e.ctrlKey && !arrowKeyCropAdjustmentEnabled) {
         e.preventDefault();
@@ -320,7 +362,6 @@ export let player: HTMLElement;
         }
       }
     }
-    // global variables
 
     const CLIENT_ID = 'XXXX';
     const REDIRECT_URI = 'https://127.0.0.1:4443/yt_clipper';
@@ -349,6 +390,273 @@ export let player: HTMLElement;
       initMarkersContainer();
       addForeignEventListeners();
       injectToggleShortcutsTableButton();
+      addCropOverlayDragListener();
+    }
+
+    function getMinWH() {
+      const minWHMultiplier =
+        Math.min(settings.cropResWidth, settings.cropResHeight) / 1080;
+      const minW = Math.round(25 * minWHMultiplier);
+      const minH = Math.round(25 * minWHMultiplier);
+      return { minW, minH };
+    }
+    let isDraggingCrop = false;
+    function addCropOverlayDragListener() {
+      video.addEventListener('mousedown', cropOverlayDragHandler, {
+        capture: true,
+      });
+      function cropOverlayDragHandler(e) {
+        if (
+          e.shiftKey &&
+          isMarkerEditorOpen &&
+          isCropOverlayVisible &&
+          !isDrawingCrop &&
+          !isSpeedChartVisible
+        ) {
+          const { minW, minH } = getMinWH();
+
+          const [ix, iy, iw, ih] = extractCropComponents(
+            markerPairs[prevSelectedMarkerPairIndex].crop
+          );
+          const videoRect = player.getVideoContentRect();
+          const playerRect = player.getBoundingClientRect();
+          const clickPosX = e.pageX - videoRect.left - playerRect.left;
+          const clickPosY = e.pageY - videoRect.top - playerRect.top;
+          const cursor = getMouseCropHoverRegion(e);
+
+          let resizeHandler;
+          if (!cursor) {
+            return;
+          } else {
+            document.addEventListener('click', blockVideoPause, {
+              once: true,
+              capture: true,
+            });
+
+            window.removeEventListener('mousemove', cropOverlayHoverHandler, true);
+            window.removeEventListener('keydown', addCropOverlayHoverListener, true);
+            window.removeEventListener('keyup', removeCropOverlayHoverListener, true);
+
+            document.addEventListener('mouseup', onMouseUp, {
+              once: true,
+              capture: true,
+            });
+
+            isDraggingCrop = true;
+            hidePlayerControls();
+            if (cursor === 'grab') {
+              video.style.cursor = 'grabbing';
+              document.addEventListener('mousemove', dragCropHandler);
+            } else {
+              resizeHandler = (e: MouseEvent) => getResizeHandler(e, cursor);
+              document.addEventListener('mousemove', resizeHandler);
+            }
+          }
+
+          function getResizeHandler(e, cursor) {
+            const dragPosX = e.pageX - videoRect.left - playerRect.left;
+            const changeX = dragPosX - clickPosX;
+            const changeXScaled = (changeX / videoRect.width) * settings.cropResWidth;
+            const dragPosY = e.pageY - videoRect.top - playerRect.top;
+            const changeY = dragPosY - clickPosY;
+            const changeYScaled = (changeY / videoRect.height) * settings.cropResHeight;
+
+            let resizedDimensions;
+            switch (cursor) {
+              case 'n-resize':
+                resizedDimensions = getResizeN(changeYScaled);
+                break;
+              case 'ne-resize':
+                resizedDimensions = getResizeNE(changeXScaled, changeYScaled);
+                break;
+              case 'e-resize':
+                resizedDimensions = getResizeE(changeXScaled);
+                break;
+              case 'se-resize':
+                resizedDimensions = getResizeSE(changeXScaled, changeYScaled);
+                break;
+              case 's-resize':
+                resizedDimensions = getResizeS(changeYScaled);
+                break;
+              case 'sw-resize':
+                resizedDimensions = getResizeSW(changeXScaled, changeYScaled);
+                break;
+              case 'w-resize':
+                resizedDimensions = getResizeW(changeXScaled);
+                break;
+              case 'nw-resize':
+                resizedDimensions = getResizeNW(changeXScaled, changeYScaled);
+                break;
+            }
+
+            const { resizedX, resizedY, resizedW, resizedH } = resizedDimensions;
+            updateCrop(resizedX, resizedY, resizedW, resizedH);
+          }
+
+          function dragCropHandler(e) {
+            const dragPosX = e.pageX - videoRect.left - playerRect.left;
+            const dragPosY = e.pageY - videoRect.top - playerRect.top;
+            const changeX = dragPosX - clickPosX;
+            const changeY = dragPosY - clickPosY;
+            let X = Math.round((changeX / videoRect.width) * settings.cropResWidth + ix);
+
+            let Y = Math.round(
+              (changeY / videoRect.height) * settings.cropResHeight + iy
+            );
+
+            X = clampNumber(X, 0, settings.cropResWidth - iw);
+            Y = clampNumber(Y, 0, settings.cropResHeight - ih);
+            updateCrop(X, Y, iw, ih);
+          }
+
+          function getResizeN(changeYScaled) {
+            let Y = Math.round(iy + changeYScaled);
+            let H = Math.round(ih - changeYScaled);
+
+            Y = clampNumber(Y, 0, iy + ih - minH);
+            H = clampNumber(H, minH, iy + ih);
+            return { resizedX: ix, resizedY: Y, resizedW: iw, resizedH: H };
+          }
+
+          function getResizeE(changeXScaled) {
+            let W = Math.round(iw + changeXScaled);
+            W = clampNumber(W, minW, settings.cropResWidth - ix);
+            return { resizedX: ix, resizedY: iy, resizedW: W, resizedH: ih };
+          }
+
+          function getResizeS(changeYScaled) {
+            let H = Math.round(ih + changeYScaled);
+
+            H = clampNumber(H, minH, settings.cropResHeight - iy);
+            return { resizedX: ix, resizedY: iy, resizedW: iw, resizedH: H };
+          }
+          function getResizeW(changeXScaled) {
+            let X = Math.round(ix + changeXScaled);
+            let W = Math.round(iw - changeXScaled);
+
+            X = clampNumber(X, 0, ix + iw - minW);
+            W = clampNumber(W, minW, ix + iw);
+            return { resizedX: X, resizedY: iy, resizedW: W, resizedH: ih };
+          }
+          function getResizeNE(changeXScaled, changeYScaled) {
+            let Y = Math.round(iy + changeYScaled);
+            let W = Math.round(iw + changeXScaled);
+            let H = Math.round(ih - changeYScaled);
+
+            Y = clampNumber(Y, 0, iy + ih - minH);
+            W = clampNumber(W, minW, settings.cropResWidth - ix);
+            H = clampNumber(H, minH, iy + ih);
+            return { resizedX: ix, resizedY: Y, resizedW: W, resizedH: H };
+          }
+
+          function getResizeSE(changeXScaled, changeYScaled) {
+            let W = Math.round(iw + changeXScaled);
+            let H = Math.round(ih + changeYScaled);
+
+            W = clampNumber(W, minW, settings.cropResWidth - ix);
+            H = clampNumber(H, minH, settings.cropResHeight - iy);
+            return { resizedX: ix, resizedY: iy, resizedW: W, resizedH: H };
+          }
+
+          function getResizeSW(changeXScaled, changeYScaled) {
+            let X = Math.round(ix + changeXScaled);
+            let W = Math.round(iw - changeXScaled);
+            let H = Math.round(ih + changeYScaled);
+
+            X = clampNumber(X, 0, ix + iw - minW);
+            W = clampNumber(W, minW, ix + iw);
+            H = clampNumber(H, minH, settings.cropResHeight - iy);
+            return { resizedX: X, resizedY: iy, resizedW: W, resizedH: H };
+          }
+
+          function getResizeNW(changeXScaled, changeYScaled) {
+            let X = Math.round(ix + changeXScaled);
+            let W = Math.round(iw - changeXScaled);
+            let Y = Math.round(iy + changeYScaled);
+            let H = Math.round(ih - changeYScaled);
+
+            X = clampNumber(X, 0, ix + iw - minW);
+            W = clampNumber(W, minW, ix + iw);
+            Y = clampNumber(Y, 0, iy + ih - minH);
+            H = clampNumber(H, minH, iy + ih);
+            return { resizedX: X, resizedY: Y, resizedW: W, resizedH: H };
+          }
+
+          function onMouseUp(e) {
+            isDraggingCrop = false;
+            cursor === 'grab'
+              ? document.removeEventListener('mousemove', dragCropHandler)
+              : document.removeEventListener('mousemove', resizeHandler);
+
+            showPlayerControls();
+            if (e.shiftKey) {
+              if (cursor) video.style.cursor = cursor;
+              updateCropHoverCursor(e);
+              window.addEventListener('mousemove', cropOverlayHoverHandler, true);
+              window.addEventListener('keyup', removeCropOverlayHoverListener, true);
+              window.addEventListener('keydown', addCropOverlayHoverListener, true);
+            } else {
+              video.style.removeProperty('cursor');
+              window.addEventListener('keydown', addCropOverlayHoverListener, true);
+            }
+          }
+        }
+      }
+    }
+
+    function getMouseCropHoverRegion(e: MouseEvent) {
+      const [x, y, w, h] = extractCropComponents(
+        markerPairs[prevSelectedMarkerPairIndex].crop
+      );
+      const videoRect = player.getVideoContentRect();
+      const playerRect = player.getBoundingClientRect();
+      const clickPosX = e.pageX - videoRect.left - playerRect.left;
+      const clickPosY = e.pageY - videoRect.top - playerRect.top;
+      const clickPosXScaled = (clickPosX / videoRect.width) * settings.cropResWidth;
+      const clickPosYScaled = (clickPosY / videoRect.height) * settings.cropResHeight;
+
+      const slMultiplier = Math.min(settings.cropResWidth, settings.cropResHeight) / 1080;
+      const sl = Math.ceil(Math.min(w, h) * slMultiplier * 0.1);
+      const edgeOffset = 30 * slMultiplier;
+      let cursor: string;
+      let mouseCropColumn: number;
+      if (x - edgeOffset < clickPosXScaled && clickPosXScaled < x + sl) {
+        mouseCropColumn = 1;
+      } else if (x + sl < clickPosXScaled && clickPosXScaled < x + w - sl) {
+        mouseCropColumn = 2;
+      } else if (x + w - sl < clickPosXScaled && clickPosXScaled < x + w + edgeOffset) {
+        mouseCropColumn = 3;
+      }
+      let mouseCropRow: number;
+      if (y - edgeOffset < clickPosYScaled && clickPosYScaled < y + sl) {
+        mouseCropRow = 1;
+      } else if (y + sl < clickPosYScaled && clickPosYScaled < y + h - sl) {
+        mouseCropRow = 2;
+      } else if (y + h - sl < clickPosYScaled && clickPosYScaled < y + h + edgeOffset) {
+        mouseCropRow = 3;
+      }
+
+      const isMouseInCropCenter = mouseCropColumn === 2 && mouseCropRow === 2;
+      const isMouseInCropN = mouseCropColumn === 2 && mouseCropRow === 1;
+      const isMouseInCropNE = mouseCropColumn === 3 && mouseCropRow === 1;
+      const isMouseInCropE = mouseCropColumn === 3 && mouseCropRow === 2;
+      const isMouseInCropSE = mouseCropColumn === 3 && mouseCropRow === 3;
+      const isMouseInCropS = mouseCropColumn === 2 && mouseCropRow === 3;
+      const isMouseInCropSW = mouseCropColumn === 1 && mouseCropRow === 3;
+      const isMouseInCropW = mouseCropColumn === 1 && mouseCropRow === 2;
+      const isMouseInCropNW = mouseCropColumn === 1 && mouseCropRow === 1;
+
+      if (isMouseInCropCenter) cursor = 'grab';
+      if (isMouseInCropN) cursor = 'n-resize';
+      if (isMouseInCropNE) cursor = 'ne-resize';
+      if (isMouseInCropE) cursor = 'e-resize';
+      if (isMouseInCropSE) cursor = 'se-resize';
+      if (isMouseInCropS) cursor = 's-resize';
+      if (isMouseInCropSW) cursor = 'sw-resize';
+      if (isMouseInCropW) cursor = 'w-resize';
+      if (isMouseInCropNW) cursor = 'nw-resize';
+
+      return cursor;
     }
 
     const initOnce = once(init, this);
@@ -372,6 +680,7 @@ export let player: HTMLElement;
       playerInfo.progress_bar = document.getElementsByClassName('ytp-progress-bar')[0];
       playerInfo.watchFlexy = document.getElementsByTagName('ytd-watch-flexy')[0];
       playerInfo.infoContents = document.getElementById('info-contents');
+      playerInfo.container = document.querySelector('#ytd-player #container');
       flashMessageHook = playerInfo.infoContents;
       playerInfo.columns = document.getElementById('columns');
       updateSettingsEditorHook();
@@ -1354,6 +1663,7 @@ export let player: HTMLElement;
     }
 
     let globalEncodeSettingsEditorDisplay: 'none' | 'block' = 'none';
+    let cropInput: HTMLInputElement;
     function toggleGlobalSettingsEditor() {
       if (isMarkerEditorOpen) {
         toggleOffMarkerPairEditor();
@@ -1568,6 +1878,8 @@ export let player: HTMLElement;
           ['denoise-input', 'denoise', 'preset'],
           ['video-stabilization-input', 'videoStabilization', 'preset'],
         ]);
+
+        cropInput = document.getElementById('crop-input') as HTMLInputElement;
         wasDefaultsEditorOpen = true;
         isMarkerEditorOpen = true;
         addMarkerPairMergeListDurationsListener();
@@ -1690,7 +2002,6 @@ export let player: HTMLElement;
         cropString
       );
       settings.newMarkerCrop = multipliedCropString;
-      const cropInput = document.getElementById('crop-input');
       cropInput.value = multipliedCropString;
 
       if (markerPairs) {
@@ -1754,7 +2065,6 @@ export let player: HTMLElement;
     }
 
     function addCropInputHotkeys() {
-      const cropInput = document.getElementById('crop-input') as HTMLInputElement;
       cropInput.addEventListener('keydown', (ke: KeyboardEvent) => {
         if (ke.code === 'ArrowUp' || ke.code === 'ArrowDown') {
           let cropString = cropInput.value;
@@ -2110,20 +2420,16 @@ export let player: HTMLElement;
 
     let cropSvg: SVGSVGElement;
     let cropDim: SVGRectElement;
-    function createCropOverlay(crop: string) {
+    let cropRect: Element;
+    let cropRectBorderBlack: Element;
+    let cropRectBorderWhite: Element;
+    function createCropOverlay(cropString: string) {
       deleteCropOverlay();
 
-      crop = crop.split(':');
-      if (crop[2] === 'iw') {
-        crop[2] = settings.cropResWidth;
-      }
-      if (crop[3] === 'ih') {
-        crop[3] = settings.cropResHeight;
-      }
       const cropDiv = document.createElement('div');
       cropDiv.setAttribute('id', 'crop-div');
       cropDiv.innerHTML = `\
-      <svg id="crop-svg" pointer-events:none>
+      <svg id="crop-svg">
         <defs>
           <mask id="cropMask">
             <rect x="0" y="0" width="100%" height="100%" fill="white"/>
@@ -2139,21 +2445,12 @@ export let player: HTMLElement;
       window.addEventListener('resize', () => resizeCropOverlay(cropDiv));
       cropSvg = cropDiv.firstElementChild as SVGSVGElement;
       cropDim = document.getElementById('cropDim');
-      const cropRect = document.getElementById('cropRect');
-      const cropRectBorderBlack = document.getElementById('cropRectBorderBlack');
-      const cropRectBorderWhite = document.getElementById('cropRectBorderWhite');
-      // const cropRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      const cropRectAttrs = {
-        x: `${(crop[0] / settings.cropResWidth) * 100}%`,
-        y: `${(crop[1] / settings.cropResHeight) * 100}%`,
-        width: `${(crop[2] / settings.cropResWidth) * 100}%`,
-        height: `${(crop[3] / settings.cropResHeight) * 100}%`,
-      };
-      setAttributes(cropRect, cropRectAttrs);
-      setAttributes(cropRectBorderBlack, cropRectAttrs);
-      setAttributes(cropRectBorderWhite, cropRectAttrs);
-      // cropSvg.appendChild(cropRect);
 
+      cropRect = document.getElementById('cropRect');
+      cropRectBorderBlack = document.getElementById('cropRectBorderBlack') as Element;
+      cropRectBorderWhite = document.getElementById('cropRectBorderWhite') as Element;
+      const [x, y, w, h] = extractCropComponents(cropString);
+      setCropOverlayDimensions(x, y, w, h);
       isCropOverlayVisible = true;
     }
 
@@ -2165,6 +2462,20 @@ export let player: HTMLElement;
       cropDiv.setAttribute('style', video.getAttribute('style') + 'position:absolute');
       if (cropSvg) {
         cropSvg.setAttribute('width', '0');
+      }
+    }
+
+    function setCropOverlayDimensions(x: number, y: number, w: number, h: number) {
+      if (cropRect && cropRectBorderBlack && cropRectBorderWhite) {
+        const cropRectAttrs = {
+          x: `${(x / settings.cropResWidth) * 100}%`,
+          y: `${(y / settings.cropResHeight) * 100}%`,
+          width: `${(w / settings.cropResWidth) * 100}%`,
+          height: `${(h / settings.cropResHeight) * 100}%`,
+        };
+        setAttributes(cropRect, cropRectAttrs);
+        setAttributes(cropRectBorderBlack, cropRectAttrs);
+        setAttributes(cropRectBorderWhite, cropRectAttrs);
       }
     }
 
@@ -2186,19 +2497,11 @@ export let player: HTMLElement;
 
     function hideCropOverlay() {
       if (isDrawingCrop) {
-        cancelDrawingCrop();
+        finishDrawingCrop();
       }
       if (cropSvg) {
         cropSvg.style.display = 'none';
         isCropOverlayVisible = false;
-      }
-    }
-
-    function toggleCropOverlayVisibility() {
-      if (!isCropOverlayVisible) {
-        showCropOverlay();
-      } else {
-        hideCropOverlay();
       }
     }
 
@@ -2209,28 +2512,31 @@ export let player: HTMLElement;
     }
 
     let isDrawingCrop = false;
-    let beginDrawHandler: (e: MouseEvent) => void;
-    let endDrawHandler: (e: MouseEvent) => void;
+    let prevCropString = '0:0:iw:ih';
+    let beginDrawHandler: (e: PointerEvent) => void;
     function drawCropOverlay(verticalFill: boolean) {
       if (isDrawingCrop) {
-        cancelDrawingCrop();
+        finishDrawingCrop(prevCropString);
       } else if (isSpeedChartVisible) {
         flashMessage(
           'Please toggle off the time-variable speed chart before drawing crop',
           'olive'
         );
-      } else if (isMarkerEditorOpen) {
-        const videoRect = player.getVideoContentRect();
-        const playerRect = player.getBoundingClientRect();
-
-        beginDrawHandler = (e: MouseEvent) =>
-          beginDraw(e, playerRect, videoRect, verticalFill);
-        playerInfo.video.addEventListener('mousedown', beginDrawHandler, {
+      } else if (isDraggingCrop) {
+        flashMessage('Please finish dragging or resizing before drawing crop', 'olive');
+      } else if (isMarkerEditorOpen && isCropOverlayVisible) {
+        isDrawingCrop = true;
+        prevCropString = markerPairs[prevSelectedMarkerPairIndex].crop;
+        window.removeEventListener('keydown', addCropOverlayHoverListener, true);
+        window.removeEventListener('mousemove', cropOverlayHoverHandler, true);
+        hidePlayerControls();
+        video.style.removeProperty('cursor');
+        playerInfo.container.style.cursor = 'crosshair';
+        beginDrawHandler = (e: PointerEvent) => beginDraw(e, verticalFill);
+        playerInfo.container.addEventListener('pointerdown', beginDrawHandler, {
           once: true,
           capture: true,
         });
-        togglePlayerControls();
-        isDrawingCrop = true;
         flashMessage('Begin drawing crop', 'green');
       } else {
         flashMessage(
@@ -2240,131 +2546,129 @@ export let player: HTMLElement;
       }
     }
 
-    function cancelDrawingCrop() {
-      clearPartialCrop();
-      flashMessage('Drawing crop canceled', 'red');
+    function hidePlayerControls() {
+      playerInfo.controls.style.display = 'none';
+    }
+    function showPlayerControls() {
+      playerInfo.controls.style.display = 'block';
     }
 
-    function clearPartialCrop() {
-      togglePlayerControls();
-      const beginCropPreview = document.getElementById('begin-crop-preview-div');
-      if (beginCropPreview) {
-        deleteElement(beginCropPreview);
-        window.removeEventListener('resize', cancelDrawingCrop);
-      }
-      if (beginDrawHandler) {
-        playerInfo.video.removeEventListener('mousedown', beginDrawHandler, {
-          capture: true,
-        });
-        beginDrawHandler = null;
-      }
-      if (endDrawHandler) {
-        playerInfo.video.removeEventListener('mousedown', endDrawHandler, {
-          capture: true,
-        });
-        endDrawHandler = null;
-      }
-      isDrawingCrop = false;
-    }
-
-    function createBeginCropPreview(x: number, y: number) {
-      const beginCropPreview = document.createElement('div');
-      beginCropPreview.setAttribute('id', 'begin-crop-preview-div');
-      beginCropPreview.innerHTML = `<svg id="begin-crop-preview-svg"></svg>`;
-
-      resizeCropOverlay(beginCropPreview);
-      overlayHook.insertAdjacentElement('afterend', beginCropPreview);
-      window.addEventListener('resize', cancelDrawingCrop, { once: true });
-      const beginCropPreviewSvg = beginCropPreview.firstElementChild;
-      const beginCropPreviewRect = document.createElementNS(
-        'http://www.w3.org/2000/svg',
-        'rect'
-      );
-      const cropRectAttrs = {
-        x: `${(x / settings.cropResWidth) * 100}%`,
-        y: `${(y / settings.cropResHeight) * 100}%`,
-        width: '5px',
-        height: '5px',
-        fill: 'white',
-        'fill-opacity': 1,
-        stroke: 'black',
-        'stroke-width': '2px',
-      };
-      setAttributes(beginCropPreviewRect, cropRectAttrs);
-      beginCropPreviewSvg.appendChild(beginCropPreviewRect);
-    }
-
-    function togglePlayerControls() {
-      const controls = playerInfo.controls;
-      if (controls.style.display !== 'none') {
-        controls.style.display = 'none';
-      } else {
-        controls.style.display = 'block';
-      }
-    }
-
-    function beginDraw(
-      e: MouseEvent,
-      playerRect: ClientRect | DOMRect,
-      videoRect: { left: number; width: number; top: number; height: number },
-      verticalFill: boolean
-    ) {
-      if (e.button == 0 && e.shiftKey && !e.ctrlKey && !e.altKey) {
-        const beginX = Math.round(
-          ((e.pageX - videoRect.left - playerRect.left) / videoRect.width) *
-            settings.cropResWidth
-        );
-        let beginY = 0;
+    let dragCropPreviewHandler: EventListener;
+    function beginDraw(e: PointerEvent, verticalFill: boolean) {
+      console.log(e);
+      if (e.button == 0 && !dragCropPreviewHandler) {
+        const videoRect = player.getVideoContentRect();
+        const playerRect = player.getBoundingClientRect();
+        const ix = e.pageX - videoRect.left - playerRect.left;
+        let ixScaled = Math.round((ix / videoRect.width) * settings.cropResWidth);
+        let iyScaled = 0;
         if (!verticalFill) {
-          beginY = Math.round(
-            ((e.pageY - videoRect.top - playerRect.top) / videoRect.height) *
-              settings.cropResHeight
-          );
+          const iy = e.pageY - videoRect.top - playerRect.top;
+          iyScaled = Math.round((iy / videoRect.height) * settings.cropResHeight);
         }
-        let crop = `${beginX}:${beginY}:`;
-        createBeginCropPreview(beginX, beginY);
+        ixScaled = clampNumber(ixScaled, 0, settings.cropResWidth);
+        iyScaled = clampNumber(iyScaled, 0, settings.cropResHeight);
+        updateCrop(ixScaled, iyScaled, 0, 0);
 
-        endDrawHandler = (e: MouseEvent) =>
-          endDraw(e, crop, beginX, beginY, playerRect, videoRect, verticalFill);
-        playerInfo.video.addEventListener('mousedown', endDrawHandler, {
+        dragCropPreviewHandler = function(e: PointerEvent) {
+          let endX = Math.round(
+            ((e.pageX - videoRect.left - playerRect.left) / videoRect.width) *
+              settings.cropResWidth
+          );
+          let endY = settings.cropResHeight;
+          if (!verticalFill) {
+            endY = Math.round(
+              ((e.pageY - videoRect.top - playerRect.top) / videoRect.height) *
+                settings.cropResHeight
+            );
+          }
+
+          endX = clampNumber(endX, 0, settings.cropResWidth);
+          endY = clampNumber(endY, 0, settings.cropResHeight);
+          let x: number, y: number, w: number, h: number;
+          if (endX > ixScaled) {
+            x = ixScaled;
+            w = endX - x;
+          } else {
+            x = endX;
+            w = ixScaled - x;
+          }
+          if (endY > iyScaled) {
+            y = iyScaled;
+            h = endY - y;
+          } else {
+            y = endY;
+            h = iyScaled - y;
+          }
+
+          w = clampNumber(w, 0, settings.cropResWidth);
+          h = clampNumber(h, 0, settings.cropResHeight);
+
+          updateCrop(x, y, w, h);
+        };
+
+        video.setPointerCapture(e.pointerId);
+
+        window.addEventListener('pointermove', dragCropPreviewHandler);
+
+        window.addEventListener('pointerup', endDraw, true);
+
+        // exact event listener reference only added once so remove not required
+        document.addEventListener('click', blockVideoPause, {
           once: true,
           capture: true,
         });
       } else {
-        cancelDrawingCrop();
+        finishDrawingCrop(prevCropString);
       }
     }
 
-    function endDraw(
-      e: MouseEvent,
-      crop: string,
-      beginX: number,
-      beginY: number,
-      playerRect: ClientRect | DOMRect,
-      videoRect: { left: number; width: number; top: number; height: number },
-      verticalFill: boolean
-    ) {
-      if (e.button == 0 && e.shiftKey && !e.ctrlKey && !e.altKey) {
-        const endX = Math.round(
-          ((e.pageX - videoRect.left - playerRect.left) / videoRect.width) *
-            settings.cropResWidth
-        );
-        let endY = settings.cropResHeight;
-        if (!verticalFill) {
-          endY = Math.round(
-            ((e.pageY - videoRect.top - playerRect.top) / videoRect.height) *
-              settings.cropResHeight
-          );
-        }
-        crop += `${endX - beginX}:${endY - beginY}`;
-        const cropInput = document.getElementById('crop-input') as HTMLInputElement;
-        cropInput.value = crop;
-        cropInput.dispatchEvent(new Event('change'));
+    function blockVideoPause(e) {
+      e.stopImmediatePropagation();
+    }
 
-        clearPartialCrop();
+    function endDraw(e: PointerEvent) {
+      if (e.button === 0) {
+        finishDrawingCrop(null, e.pointerId);
       } else {
-        cancelDrawingCrop();
+        finishDrawingCrop(prevCropString, e.pointerId);
       }
+      if (e.shiftKey) {
+        window.addEventListener('mousemove', cropOverlayHoverHandler, true);
+      }
+    }
+
+    function finishDrawingCrop(prevCropString?: string, pointerId?: number) {
+      if (pointerId) video.releasePointerCapture(pointerId);
+      console.log('finished drawing');
+      playerInfo.container.style.removeProperty('cursor');
+      playerInfo.container.removeEventListener('pointerdown', beginDrawHandler, true);
+      window.removeEventListener('pointermove', dragCropPreviewHandler);
+      window.removeEventListener('pointerup', endDraw, true);
+      dragCropPreviewHandler = null;
+      isDrawingCrop = false;
+      showPlayerControls();
+      window.addEventListener('keydown', addCropOverlayHoverListener, true);
+      if (prevCropString) {
+        updateCropString(prevCropString);
+        flashMessage('Drawing crop canceled', 'red');
+      } else {
+        flashMessage('Finished drawing crop', 'green');
+      }
+    }
+
+    function updateCropString(cropString) {
+      const [x, y, w, h] = extractCropComponents(cropString);
+      updateCrop(x, y, w, h, cropString);
+    }
+
+    function updateCrop(x: number, y: number, w: number, h: number, cropString?: string) {
+      if (!cropString) {
+        cropString = `${x}:${y}:${w}:${h}`;
+      }
+      cropInput.value = cropString;
+      markerPairs[prevSelectedMarkerPairIndex].crop = cropString;
+      setCropOverlayDimensions(x, y, w, h);
     }
 
     let arrowKeyCropAdjustmentEnabled = false;
@@ -2382,7 +2686,6 @@ export let player: HTMLElement;
 
     function arrowKeyCropAdjustmentHandler(ke: KeyboardEvent) {
       if (isMarkerEditorOpen) {
-        const cropInput = document.getElementById('crop-input') as HTMLInputElement;
         if (
           cropInput !== document.activeElement &&
           ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(ke.code) > -1
@@ -2926,6 +3229,8 @@ export let player: HTMLElement;
         markerIndex,
         true
       );
+
+      cropInput = document.getElementById('crop-input') as HTMLInputElement;
       isMarkerEditorOpen = true;
       wasDefaultsEditorOpen = false;
     }
@@ -3067,7 +3372,7 @@ export let player: HTMLElement;
     function showSpeedChart() {
       if (speedChartContainer) {
         if (isDrawingCrop) {
-          cancelDrawingCrop();
+          finishDrawingCrop();
         }
         speedChartContainer.style.display = 'block';
         isSpeedChartVisible = true;
@@ -3168,7 +3473,8 @@ export let player: HTMLElement;
         if (!overridesField) {
           markerPair[updateTarget] = newValue;
           if (updateTarget === 'crop') {
-            createCropOverlay(newValue);
+            const [x, y, w, h] = extractCropComponents(newValue);
+            setCropOverlayDimensions(x, y, w, h);
           } else if (updateTarget === 'speed') {
             const speedMap = markerPair.speedMap;
             if (speedMap.length === 2 && speedMap[0].y === speedMap[1].y) {
