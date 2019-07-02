@@ -30,7 +30,7 @@ export function once(fn: Function, context: any) {
   };
 }
 
-export function setAttributes(el: HTMLElement, attrs: {}) {
+export function setAttributes(el: Element, attrs: {}) {
   Object.keys(attrs).forEach((key) => el.setAttribute(key, attrs[key]));
 }
 
