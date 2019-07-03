@@ -151,9 +151,9 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 **Mouse-Based crop Adjustment:**
 
-- **Shift+Hover:** Indicate potential drag action when hovering over crop.
-- **Shift+Click+Drag:** Drag and move crop or resize crop in the indicated directions.
-  - Can release shift after dragging begins. Dragging ends when mouse is released.
+- **Ctrl+Hover:** Indicate potential drag action when hovering over crop.
+- **Ctrl+Click+Drag:** Drag and move crop or resize crop in the indicated directions.
+  - Can release **Ctrl** after dragging begins. Dragging ends when mouse is released.
 
   ![yt_clipper_crop_preview.png](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_crop_preview.png)
 
@@ -420,11 +420,20 @@ See <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
 
 ## Markup Script Changelog
 
-- v0.0.84
+- v0.0.85
 
   - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
   - Use with `v3.5.2` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
-  - Improve crop preview visibility.
+  - Move mouse-based crop resize and move from **Shift+Click+Drag** to **Ctrl+Click+Drag**.
+    - Fixes mouse-based crop shortcuts interfering with marker pair select shortcuts.
+  - Fix drawing new crop can select text on page.
+  - Fix editing new marker default crop and updating all marker pair crops.
+  - Fix updating all marker pair speeds to new marker default crop when the global settings editor is open.
+  - Fix speed chart visibility not saved when switching marker pair editors.
+
+- v0.0.84
+
+  - Use with `v3.5.2` of the `clipper script` installation.
   - Add **Ctrl+X** for cycling crop dim opacity by +0.25.
   - Improve crop drawing experience.
     - **Click+Drag** to draw crop while showing a dynamic preview of the final crop.
