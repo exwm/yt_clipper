@@ -2,6 +2,21 @@
 
 ## Markup Script Changelog
 
+- v0.0.84
+
+  - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
+  - Use with `v3.5.2` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Improve crop preview visibility.
+  - Add **Ctrl+X** for cycling crop dim opacity by +0.25.
+  - Improve crop drawing experience.
+    - **Click+Drag** to draw crop while showing a dynamic preview of the final crop.
+    - Can now begin and end draw at any point on screen.
+    - Add crosshair cursor while drawing crop.
+    - Cancel drawing crop with **X** or **Shift+X**.
+  - Add mouse-based drag and resize of crop.
+    - **Shift+Hover** over crop to get a cursor indicating potential drag action.
+    - **Click+Drag** appropriate region to either drag and move crop or resize crop in the indicated directions.
+
 - v0.0.83
 
   - Use with `v3.5.2` of the `clipper script` installation.
