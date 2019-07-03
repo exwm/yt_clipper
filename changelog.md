@@ -2,6 +2,17 @@
 
 ## Markup Script Changelog
 
+- v0.0.85
+
+  - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
+  - Use with `v3.5.2` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Move mouse-based crop resize and move from **Shift+Click+Drag** to **Ctrl+Click+Drag**.
+    - Fixes mouse-based crop shortcuts interfering with marker pair select shortcuts.
+  - Fix drawing new crop can select text on page.
+  - Fix editing new marker default crop and updating all marker pair crops.
+  - Fix updating all marker pair speeds to new marker default crop when the global settings editor is open.
+  - Fix speed chart visibility not saved when switching marker pair editors.
+
 - v0.0.84
 
   - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
