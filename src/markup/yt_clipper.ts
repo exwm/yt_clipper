@@ -414,10 +414,7 @@ export let player: HTMLElement;
           !isSpeedChartVisible
         ) {
           const { minW, minH } = getMinWH();
-
-          const [ix, iy, iw, ih] = extractCropComponents(
-            markerPairs[prevSelectedMarkerPairIndex].crop
-          );
+          const [ix, iy, iw, ih] = extractCropComponents();
           const videoRect = player.getVideoContentRect();
           const playerRect = player.getBoundingClientRect();
           const clickPosX = e.pageX - videoRect.left - playerRect.left;
@@ -610,9 +607,7 @@ export let player: HTMLElement;
     }
 
     function getMouseCropHoverRegion(e: MouseEvent) {
-      const [x, y, w, h] = extractCropComponents(
-        markerPairs[prevSelectedMarkerPairIndex].crop
-      );
+      const [x, y, w, h] = extractCropComponents();
       const videoRect = player.getVideoContentRect();
       const playerRect = player.getBoundingClientRect();
       const clickPosX = e.pageX - videoRect.left - playerRect.left;
@@ -2531,7 +2526,11 @@ export let player: HTMLElement;
         flashMessage('Please finish dragging or resizing before drawing crop', 'olive');
       } else if (isMarkerEditorOpen && isCropOverlayVisible) {
         isDrawingCrop = true;
-        prevCropString = markerPairs[prevSelectedMarkerPairIndex].crop;
+        if (!wasDefaultsEditorOpen) {
+          prevCropString = markerPairs[prevSelectedMarkerPairIndex].crop;
+        } else {
+          prevCropString = settings.newMarkerCrop;
+        }
         window.removeEventListener('keydown', addCropOverlayHoverListener, true);
         window.removeEventListener('mousemove', cropOverlayHoverHandler, true);
         hidePlayerControls();
@@ -2560,7 +2559,6 @@ export let player: HTMLElement;
 
     let dragCropPreviewHandler: EventListener;
     function beginDraw(e: PointerEvent, verticalFill: boolean) {
-      console.log(e);
       if (e.button == 0 && !dragCropPreviewHandler) {
         const videoRect = player.getVideoContentRect();
         const playerRect = player.getBoundingClientRect();
@@ -2645,7 +2643,6 @@ export let player: HTMLElement;
 
     function finishDrawingCrop(prevCropString?: string, pointerId?: number) {
       if (pointerId) video.releasePointerCapture(pointerId);
-      console.log('finished drawing');
       playerInfo.container.style.removeProperty('cursor');
       playerInfo.container.removeEventListener('pointerdown', beginDrawHandler, true);
       window.removeEventListener('pointermove', dragCropPreviewHandler);
@@ -2671,9 +2668,17 @@ export let player: HTMLElement;
       if (!cropString) {
         cropString = `${x}:${y}:${w}:${h}`;
       }
-      cropInput.value = cropString;
-      markerPairs[prevSelectedMarkerPairIndex].crop = cropString;
-      setCropOverlayDimensions(x, y, w, h);
+      if (isMarkerEditorOpen) {
+        cropInput.value = cropString;
+        if (!wasDefaultsEditorOpen) {
+          markerPairs[prevSelectedMarkerPairIndex].crop = cropString;
+        } else {
+          settings.newMarkerCrop = cropString;
+        }
+        setCropOverlayDimensions(x, y, w, h);
+      } else {
+        throw new Error('No editor was open when trying to update crop.');
+      }
     }
 
     let arrowKeyCropAdjustmentEnabled = false;
@@ -2757,7 +2762,19 @@ export let player: HTMLElement;
       }
     }
 
-    function extractCropComponents(cropString: string) {
+    function extractCropComponents(cropString?: string) {
+      if (!cropString && isMarkerEditorOpen) {
+        if (!wasDefaultsEditorOpen) {
+          cropString = markerPairs[prevSelectedMarkerPairIndex].crop;
+        } else {
+          cropString = settings.newMarkerCrop;
+        }
+      }
+
+      if (!cropString) {
+        throw new Error('No valid crop string to extract components from.');
+      }
+
       const cropArray = cropString.split(':').map((cropStringComponent) => {
         let cropComponent: number;
         if (cropStringComponent === 'iw') {
