@@ -402,7 +402,7 @@ export let player: HTMLElement;
     }
     let isDraggingCrop = false;
     function addCropOverlayDragListener() {
-      video.addEventListener('mousedown', cropOverlayDragHandler, {
+      video.addEventListener('pointerdown', cropOverlayDragHandler, {
         capture: true,
       });
       function cropOverlayDragHandler(e) {
@@ -437,7 +437,9 @@ export let player: HTMLElement;
             window.removeEventListener('keydown', addCropOverlayHoverListener, true);
             window.removeEventListener('keyup', removeCropOverlayHoverListener, true);
 
-            document.addEventListener('mouseup', onMouseUp, {
+            video.setPointerCapture(e.pointerId);
+
+            document.addEventListener('pointerup', onMouseUp, {
               once: true,
               capture: true,
             });
@@ -446,10 +448,10 @@ export let player: HTMLElement;
             hidePlayerControls();
             if (cursor === 'grab') {
               video.style.cursor = 'grabbing';
-              document.addEventListener('mousemove', dragCropHandler);
+              document.addEventListener('pointermove', dragCropHandler);
             } else {
               resizeHandler = (e: MouseEvent) => getResizeHandler(e, cursor);
-              document.addEventListener('mousemove', resizeHandler);
+              document.addEventListener('pointermove', resizeHandler);
             }
           }
 
@@ -584,9 +586,12 @@ export let player: HTMLElement;
 
           function onMouseUp(e) {
             isDraggingCrop = false;
+
+            video.releasePointerCapture(e.pointerId);
+
             cursor === 'grab'
-              ? document.removeEventListener('mousemove', dragCropHandler)
-              : document.removeEventListener('mousemove', resizeHandler);
+              ? document.removeEventListener('pointermove', dragCropHandler)
+              : document.removeEventListener('pointermove', resizeHandler);
 
             showPlayerControls();
             if (e.shiftKey) {
