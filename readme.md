@@ -100,7 +100,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
   - **Ctrl+alt+Left/Right:** When a marker pair is selected, select the next/previous marker pair _and jump to its start marker_.
 
 **W:** Global settings editor:
-![yt_clipper_globals_editor](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_globals_editor.png)
+  ![yt_clipper_globals_editor](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_globals_editor.png)
 
 1. Change default new marker speed or crop.
    - Any new markers added will use these defaults, but this will not update existing markers.
@@ -135,15 +135,27 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 ### Cropping Shortcuts
 
-**X:** When marker or defaults editor is open, begin drawing crop.
+**X:** When marker or defaults editor is open, begin drawing crop. 
 
-- **Shift+Click** on the video to set the top left crop boundary, then **Shift+Click** again to set the bottom right.
-- Any other click action (eg Ctrl+Click) will stop drawing.
+- **Click+Drag** on the video to set draw a rectangular crop.
+
+- While drawing crop, pressing **X** again will cancel drawing.
+
 - Crop is given as `x-offset:y-offset:width:height`. Each value is a positive integer in pixels. `Width` and `height` can also be `iw` and `ih` respectively for input width and input height.
 
-**Shift+X:** Like **X**, begin drawing a crop but set only the left and right boundaries on **Shift+Click**.
+**Shift+X:** Like **X**, begin drawing a crop but set only the left and right boundaries.
 
 - Vertically fills the crop, that is, it sets the top to 0 and the bottom to the video height.
+
+**Ctrl+X:** Cycle crop dim opacity by +0.25.
+
+**Mouse-Based crop Adjustment:**
+
+- **Shift+Hover:** Indicate potential drag action when hovering over crop.
+- **Shift+Click+Drag:** Drag and move crop or resize crop in the indicated directions.
+  - Can release shift after dragging begins. Dragging ends when mouse is released.
+
+  ![yt_clipper_crop_preview.png](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_crop_preview.png)
 
 **Arrow Key Crop Adjustment**:
 
@@ -352,7 +364,7 @@ The helper scripts have a simple format. Copy and edit `yt_clipper_auto` in a te
 
   FOR %%A IN (%*) DO (
     REM add options after %%A of the next line as shown
-    .\yt_clipper.exe --json %%A --denoise --audio --rotate clock
+    .\yt_clipper.exe --markers-json %%A --denoise --audio --rotate clock
   )
 
   pause
@@ -408,10 +420,25 @@ See <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
 
 ## Markup Script Changelog
 
-- v0.0.83
+- v0.0.84
 
   - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
   - Use with `v3.5.2` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Improve crop preview visibility.
+  - Add **Ctrl+X** for cycling crop dim opacity by +0.25.
+  - Improve crop drawing experience.
+    - **Click+Drag** to draw crop while showing a dynamic preview of the final crop.
+    - Can now begin and end draw at any point on screen.
+    - Add crosshair cursor while drawing crop.
+    - Cancel drawing crop with **X** or **Shift+X**.
+  - Add mouse-based drag and resize of crop.
+    - **Shift+Hover** over crop to get a cursor indicating potential drag action.
+    - **Shift+Click+Drag** appropriate region to either drag and move crop or resize crop in the indicated directions.
+      - Can release shift after dragging begins. Dragging ends when mouse is released.
+
+- v0.0.83
+
+  - Use with `v3.5.2` of the `clipper script` installation.
   - Fix backwards compatibility with older markers data format.
     - Loading both new and old format with **G** should now work smoothly.
 
