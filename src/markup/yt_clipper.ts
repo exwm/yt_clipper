@@ -145,7 +145,7 @@ export let player: HTMLElement;
             } else if (!e.ctrlKey && e.altKey && e.shiftKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              updateAllMarkers('speed', settings.newMarkerSpeed);
+              updateAllMarkerPairSpeeds(settings.newMarkerSpeed);
             }
             break;
           case 'KeyE':
@@ -245,7 +245,7 @@ export let player: HTMLElement;
             } else if (!e.ctrlKey && e.altKey && e.shiftKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              updateAllMarkers('crop', settings.newMarkerCrop);
+              updateAllMarkerPairCrops(settings.newMarkerCrop);
             } else if (e.ctrlKey && !e.altKey && !e.shiftKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
@@ -1993,7 +1993,6 @@ export let player: HTMLElement;
           multiplyAllCrops(cropMultipleX, cropMultipleY);
         }
       }
-      console.log(settings);
     }
 
     function multiplyAllCrops(cropMultipleX: number, cropMultipleY: number) {
@@ -2968,38 +2967,38 @@ export let player: HTMLElement;
       }
     }
 
-    function updateAllMarkers(updateTarget: string, newValue: string | number) {
-      if (updateTarget === 'speed' && typeof newValue === 'string') {
-        newValue = parseFloat(newValue);
-      }
-      if (markerPairs) {
-        markerPairs.forEach((marker) => {
-          marker[updateTarget] = newValue;
-        });
-      }
-      if (updateTarget === 'speed' && isMarkerEditorOpen) {
+    function updateAllMarkerPairSpeeds(newSpeed: number) {
+      markerPairs.forEach((markerPair) => {
+        markerPair.speed = newSpeed;
+        const speedMap = markerPair.speedMap;
+        if (speedMap.length === 2 && speedMap[0].y === speedMap[1].y) {
+          markerPair.speedMap[1].y = newSpeed;
+        }
+        markerPair.speedMap[0].y = newSpeed;
+      });
+      if (isMarkerEditorOpen) {
         if (wasDefaultsEditorOpen) {
           const markerPairMergeListInput = document.getElementById('merge-list-input');
           markerPairMergeListInput.dispatchEvent(new Event('change'));
         } else {
           const speedInput = document.getElementById('speed-input') as HTMLInputElement;
-          speedInput.value = newValue.toString();
+          speedInput.value = newSpeed.toString();
           speedInput.dispatchEvent(new Event('change'));
         }
       }
+      flashMessage(`All marker speeds updated to ${newSpeed}`, 'olive');
+    }
 
-      if (
-        updateTarget === 'crop' &&
-        typeof newValue === 'string' &&
-        isMarkerEditorOpen &&
-        !wasDefaultsEditorOpen
-      ) {
+    function updateAllMarkerPairCrops(newCrop: string) {
+      markerPairs.forEach((markerPair) => {
+        markerPair.crop = newCrop;
+      });
+      if (isMarkerEditorOpen && !wasDefaultsEditorOpen) {
         const cropInput = document.getElementById('crop-input') as HTMLInputElement;
-        cropInput.value = newValue;
+        cropInput.value = newCrop;
         cropInput.dispatchEvent(new Event('change'));
       }
-
-      flashMessage(`All marker ${updateTarget}s updated to ${newValue}`, 'olive');
+      flashMessage(`All marker crops updated to ${newCrop}`, 'olive');
     }
 
     function toggleMarkerEditorHandler(e: MouseEvent) {
@@ -3472,14 +3471,12 @@ export let player: HTMLElement;
         if (newValue != null) {
           if (newValue === '') {
             delete markerPair.overrides[updateTarget];
-            console.log(markerPair.overrides);
             return;
           } else if (valueType === 'number') {
             newValue = parseFloat(newValue);
           } else if (valueType === 'ternary') {
             if (newValue === 'Default') {
               delete markerPair.overrides[updateTarget];
-              console.log(markerPair.overrides);
               return;
             } else if (newValue === 'Enabled') {
               newValue = true;
@@ -3489,7 +3486,6 @@ export let player: HTMLElement;
           } else if (valueType === 'preset') {
             if (newValue === 'Inherit') {
               delete markerPair.overrides[updateTarget];
-              console.log(markerPair.overrides);
               return;
             }
             newValue = presetsMap[updateTarget][newValue];
@@ -3512,7 +3508,6 @@ export let player: HTMLElement;
         } else {
           markerPair.overrides[updateTarget] = newValue;
         }
-        console.log(markerPair.overrides);
       }
     }
 
