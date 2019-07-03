@@ -315,7 +315,8 @@ export let player: HTMLElement;
 
     function addCropOverlayHoverListener(e: KeyboardEvent) {
       if (
-        e.key === 'Shift' &&
+        e.key === 'Control' &&
+        hotkeys &&
         !e.repeat &&
         isCropOverlayVisible &&
         !isDrawingCrop &&
@@ -326,7 +327,7 @@ export let player: HTMLElement;
     }
 
     function removeCropOverlayHoverListener(e: KeyboardEvent) {
-      if (e.key === 'Shift') {
+      if (e.key === 'Control') {
         window.removeEventListener('mousemove', cropOverlayHoverHandler, true);
         showPlayerControls();
         video.style.removeProperty('cursor');
@@ -407,7 +408,7 @@ export let player: HTMLElement;
       });
       function cropOverlayDragHandler(e) {
         if (
-          e.shiftKey &&
+          e.ctrlKey &&
           isMarkerEditorOpen &&
           isCropOverlayVisible &&
           !isDrawingCrop &&
@@ -437,7 +438,7 @@ export let player: HTMLElement;
             e.preventDefault();
             video.setPointerCapture(e.pointerId);
 
-            document.addEventListener('pointerup', onMouseUp, {
+            document.addEventListener('pointerup', endCropOverlayDrag, {
               once: true,
               capture: true,
             });
@@ -582,7 +583,7 @@ export let player: HTMLElement;
             return { resizedX: X, resizedY: Y, resizedW: W, resizedH: H };
           }
 
-          function onMouseUp(e) {
+          function endCropOverlayDrag(e) {
             isDraggingCrop = false;
 
             video.releasePointerCapture(e.pointerId);
@@ -592,7 +593,7 @@ export let player: HTMLElement;
               : document.removeEventListener('pointermove', resizeHandler);
 
             showPlayerControls();
-            if (e.shiftKey) {
+            if (e.ctrlKey) {
               if (cursor) video.style.cursor = cursor;
               updateCropHoverCursor(e);
               window.addEventListener('mousemove', cropOverlayHoverHandler, true);
@@ -2638,7 +2639,7 @@ export let player: HTMLElement;
       } else {
         finishDrawingCrop(prevCropString, e.pointerId);
       }
-      if (e.shiftKey) {
+      if (e.ctrlKey) {
         window.addEventListener('mousemove', cropOverlayHoverHandler, true);
       }
     }
