@@ -434,6 +434,7 @@ export let player: HTMLElement;
             window.removeEventListener('keydown', addCropOverlayHoverListener, true);
             window.removeEventListener('keyup', removeCropOverlayHoverListener, true);
 
+            e.preventDefault();
             video.setPointerCapture(e.pointerId);
 
             document.addEventListener('pointerup', onMouseUp, {
@@ -2560,6 +2561,9 @@ export let player: HTMLElement;
     let dragCropPreviewHandler: EventListener;
     function beginDraw(e: PointerEvent, verticalFill: boolean) {
       if (e.button == 0 && !dragCropPreviewHandler) {
+        e.preventDefault();
+        video.setPointerCapture(e.pointerId);
+
         const videoRect = player.getVideoContentRect();
         const playerRect = player.getBoundingClientRect();
         const ix = e.pageX - videoRect.left - playerRect.left;
@@ -2609,8 +2613,6 @@ export let player: HTMLElement;
 
           updateCrop(x, y, w, h);
         };
-
-        video.setPointerCapture(e.pointerId);
 
         window.addEventListener('pointermove', dragCropPreviewHandler);
 
