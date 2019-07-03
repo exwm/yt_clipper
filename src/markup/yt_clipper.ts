@@ -2802,6 +2802,8 @@ export let player: HTMLElement;
         prevSelectedMarkerPairIndex != null
       ) {
         if (!speedChart) {
+          isSpeedChartVisible = true;
+          isSpeedChartEnabled = true;
           loadSpeedMap(SpeedChartSpec.options);
           speedChartContainer = document.createElement('div');
           speedChartContainer.setAttribute('id', 'speedChartContainer');
@@ -2814,7 +2816,6 @@ export let player: HTMLElement;
             'html5-video-container'
           )[0];
           videoContainer.insertAdjacentElement('afterend', speedChartContainer);
-          isSpeedChartVisible = true;
           speedChart = new Chart('speedChartCanvas', SpeedChartSpec.options);
           speedChart.ctx.canvas.removeEventListener(
             'wheel',
@@ -2846,6 +2847,7 @@ export let player: HTMLElement;
           updateSpeedChartTimeAnnotation();
         } else {
           toggleSpeedChartVisibility();
+          isSpeedChartEnabled = !isSpeedChartEnabled;
         }
       } else {
         flashMessage(
@@ -3009,6 +3011,7 @@ export let player: HTMLElement;
       }
     }
 
+    let isSpeedChartEnabled = false;
     function toggleMarkerPairEditor(targetMarker: SVGRectElement) {
       // toggling on off current pair editor
       if (prevSelectedMarkerPair === targetMarker && !wasDefaultsEditorOpen) {
@@ -3045,7 +3048,9 @@ export let player: HTMLElement;
       addCropInputHotkeys();
       loadSpeedMap(speedChart);
       showCropOverlay();
-      showSpeedChart();
+      if (isSpeedChartEnabled) {
+        showSpeedChart();
+      }
     }
 
     function createMarkerPairEditor(targetMarker: SVGRectElement) {
