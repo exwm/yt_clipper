@@ -20,7 +20,6 @@ interface Settings {
   expandColorRange?: boolean;
   videoStabilization?: VideoStabilization;
   enableSpeedMaps?: boolean;
-  roundSpeedMapEasing?: number;
 }
 
 interface MarkerPair {
@@ -55,7 +54,6 @@ interface MarkerPairOverrides {
   expandColorRange?: boolean;
   videoStabilization?: VideoStabilization;
   enableSpeedMaps?: boolean;
-  roundSpeedMapEasing?: number;
 }
 
 interface SpeedMapLoop {

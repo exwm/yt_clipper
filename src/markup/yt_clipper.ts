@@ -1144,17 +1144,10 @@ export let player: HTMLElement;
             : settings.enableSpeedMaps !== false;
 
         if (enableSpeedMaps) {
-          const roundSpeedMapEasing =
-            shortestActiveMarkerPair.overrides.roundSpeedMapEasing >= 0
-              ? shortestActiveMarkerPair.overrides.roundSpeedMapEasing
-              : settings.roundSpeedMapEasing >= 0
-              ? settings.roundSpeedMapEasing
-              : defaultRoundSpeedMapEasing;
-
           markerPairSpeed = getSpeedMapping(
             shortestActiveMarkerPair.speedMap,
             video.currentTime,
-            roundSpeedMapEasing,
+            defaultRoundSpeedMapEasing,
             2
           );
         } else {
@@ -1181,7 +1174,7 @@ export let player: HTMLElement;
     function getSpeedMapping(
       speedMap: SpeedPoint[],
       time: number,
-      roundMultiple = settings.roundSpeedMapEasing,
+      roundMultiple = defaultRoundSpeedMapEasing,
       roundPrecision = 2
     ) {
       let len = speedMap.length;
@@ -1846,12 +1839,6 @@ export let player: HTMLElement;
                   settings.enableSpeedMaps == null ? 'selected' : ''
                 }>Inherit (Enabled)</option>
             </select>
-          <div class="editor-input-div">
-            <span>Round Easing: </span>
-            <input id="round-speed-map-easing-input" class="yt_clipper-input" type="number" min="0" max="0.25" step="0.01" value="${
-              settings.roundSpeedMapEasing != null ? settings.roundSpeedMapEasing : ''
-            }" placeholder="0" style="width:4em"></input>
-          </div>
         </div>
       </div>
       `;
@@ -1876,7 +1863,6 @@ export let player: HTMLElement;
           ['audio-input', 'audio', 'ternary'],
           ['expand-color-range-input', 'expandColorRange', 'ternary'],
           ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
-          ['round-speed-map-easing-input', 'roundSpeedMapEasing', 'number'],
           ['denoise-input', 'denoise', 'preset'],
           ['video-stabilization-input', 'videoStabilization', 'preset'],
         ]);
@@ -3222,13 +3208,6 @@ export let player: HTMLElement;
                 overrides.enableSpeedMaps == null ? 'selected' : ''
               }>Inherit Global ${ternaryToString(settings.enableSpeedMaps)}</option>
             </select>
-          <div class="editor-input-div">
-            <span>Round Easing: </span>
-            <input id="round-speed-map-easing-input" class="yt_clipper-input" type="number" min="0" max="0.25" step="0.01" value="${
-              overrides.roundSpeedMapEasing != null ? overrides.roundSpeedMapEasing : ''
-            }" placeholder="${settings.roundSpeedMapEasing ||
-        0}" style="width:4em"></input>
-          </div>
         </div>
       </div>
       `;
@@ -3251,7 +3230,6 @@ export let player: HTMLElement;
           ['audio-input', 'audio', 'ternary'],
           ['expand-color-range-input', 'expandColorRange', 'ternary'],
           ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
-          ['round-speed-map-easing-input', 'roundSpeedMapEasing', 'number'],
           ['denoise-input', 'denoise', 'preset'],
           ['video-stabilization-input', 'videoStabilization', 'preset'],
         ],

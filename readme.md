@@ -212,7 +212,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 Points are auto-sorted based on their time value on adding or removing points or on drag-end when moving points.
 
-YouTube playback speed can only be set to a multiple of `0.05` and greater than or equal to `0.25`. By default rounding is disabled in the final generated webms. The rounding can be changed in the global or marker pair settings editors with the `Round Easing` input if desired.
+YouTube playback speed can only be set to a multiple of `0.05` and greater than or equal to `0.25`.
 
 ![yt_clipper_speed_chart](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_speed_chart.jpg)
 
