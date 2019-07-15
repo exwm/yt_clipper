@@ -250,12 +250,6 @@ def buildArgParser():
                         help='Disable automatic detection and usage of input video when not in preview mode.')
     parser.add_argument('--no-speed-maps', '-nsm', dest='noSpeedMaps', action='store_true',
                         help='Disable speed maps for time-variable speed.')
-    parser.add_argument('--round-speed-map-easing', '-rsme', dest='roundSpeedMapEasing', type=float, default=0,
-                        help=(
-                            'Round changes in speed with time to the nearest positive multiple provided.')
-                        + ('The default value of 0 disables rounding.)')
-                        + ('Valid range is (0, 0.5] (i.e., greater than 0 and less than or equal to 0.5)')
-                        + ('For example, a value of 0.05 will step from a starting speed of 1.0 to a speed of 0.5 in decrements of 0.05.'))
     return parser.parse_known_args()
 
 
@@ -373,7 +367,7 @@ def prepareGlobalSettings(settings):
                  f'Two-pass Encoding Enabled: {settings["twoPass"]}, Encoding Speed: {settings["encodeSpeed"]} (0-5), ' +
                  f'Audio Enabled: {settings["audio"]}, Denoise: {settings["denoise"]["desc"]}, Rotate: {settings["rotate"]}, ' +
                  f'Expand Color Range Enabled: {settings["expandColorRange"]}, ' +
-                 f'Speed Maps Enabled: {settings["enableSpeedMaps"]}, Round Speed Map Easing: {settings["roundSpeedMapEasing"]}, ' +
+                 f'Speed Maps Enabled: {settings["enableSpeedMaps"]}, ' +
                  f'Video Stabilization: {settings["videoStabilization"]["desc"]}'))
 
     return settings
@@ -433,7 +427,7 @@ def getMarkerPairSettings(settings, markerPairIndex):
                  f'Two-pass Encoding Enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5), ' +
                  f'Expand Color Range Enabled: {mps["expandColorRange"]}, ' +
                  f'Audio Enabled: {mps["audio"]}, Denoise: {mps["denoise"]["desc"]}, ' +
-                 f'Speed Maps Enabled: {mps["enableSpeedMaps"]}, Round Speed Map Easing: {mps["roundSpeedMapEasing"]}, ' +
+                 f'Speed Maps Enabled: {mps["enableSpeedMaps"]}, ' +
                  f'Video Stabilization: {mps["videoStabilization"]["desc"]}'))
     logger.info('-' * 80)
 
@@ -661,10 +655,7 @@ def getVariableSpeedFilter(speedMap, mps):
         # setpts = f'({setptsA}+({setptsB}-{setptsA})*{setptsCircleOut})'
         setpts = '(PTS-STARTPTS)/'
         setptsLERP = f'lerp({setptsA}\\, {setptsB}\\, {setptsP})'
-        if 0 < mps["roundSpeedMapEasing"] <= 0.5:
-            setpts += f'( round( {setptsLERP} / {mps["roundSpeedMapEasing"]} ) * {mps["roundSpeedMapEasing"]} )'
-        else:
-            setpts += setptsLERP
+        setpts += setptsLERP
 
         video_filter_speed_map += f',setpts={setpts}[out-sect-{sectNum}];'
         sectNum += 1
