@@ -319,11 +319,16 @@ def getVideoURL(settings):
 
 def getVideoInfo(settings, videoInfo):
     if settings["inputVideo"]:
-        settings = {**settings, **videoInfo, **
-                    ffprobeVideoProperties(settings["inputVideo"])}
+        probedSettings = ffprobeVideoProperties(settings["inputVideo"])
     else:
-        settings = {**settings, **videoInfo, **
-                    ffprobeVideoProperties(settings["videoURL"])}
+        probedSettings = ffprobeVideoProperties(settings["videoURL"])
+
+    if probedSettings is not None:
+        settings = {**settings, **videoInfo, **probedSettings}
+    else:
+        if not videoInfo:
+            logger.error("Could not fetch local input video info with ffprobe.")
+        settings = {**settings, **videoInfo}
 
     if settings["isDashVideo"] or not "bit_rate" in settings:
         settings["bit_rate"] = int(videoInfo["tbr"])
