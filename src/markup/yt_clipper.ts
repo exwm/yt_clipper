@@ -1437,14 +1437,41 @@ export let player: HTMLElement;
       });
 
       const markerPairsNumbered = markerPairs.map((markerPair, idx) => {
-        return { number: idx + 1, ...markerPair };
+        const markerPairNumbered = {
+          number: idx + 1,
+          ...markerPair,
+          speedMapLoop: undefined,
+          speedMap: isVariableSpeed(markerPair.speedMap)
+            ? markerPair.speedMap
+            : undefined,
+        };
+        return markerPairNumbered;
       });
+
       const settingsJSON = JSON.stringify(
-        { ...settings, version: __version__, markerPairs: markerPairsNumbered },
+        {
+          ...settings,
+          version: __version__,
+          markerPairs: markerPairsNumbered,
+          newMarkerSpeed: undefined,
+          newMarkerCrop: undefined,
+        },
         undefined,
         2
       );
       return settingsJSON;
+    }
+
+    function isVariableSpeed(speedMap: SpeedPoint[]) {
+      if (speedMap.length < 2) return false;
+
+      let isVariableSpeed = speedMap.some((speedPoint, i) => {
+        if (i === speedMap.length - 1) return false;
+
+        return speedPoint.y !== speedMap[i + 1].y;
+      });
+
+      return isVariableSpeed;
     }
 
     function loadMarkers() {
