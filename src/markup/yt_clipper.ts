@@ -1750,6 +1750,16 @@ export let player: HTMLElement;
       <div id="global-encode-settings" class="yt_clipper-settings-editor" style="display:${globalEncodeSettingsEditorDisplay}">
         <span style="font-weight:bold">Encode Settings: </span>
         <div class="editor-input-div">
+          <span>Audio: </span>
+          <select id="audio-input"> 
+            <option ${settings.audio ? 'selected' : ''}>Enabled</option>
+            <option ${settings.audio === false ? 'selected' : ''}>Disabled</option>
+            <option value="Default" ${
+              settings.audio == null ? 'selected' : ''
+            }>Inherit (Disabled)</option>
+          </select>
+        </div>
+        <div class="editor-input-div">
           <span>Encode Speed (0-5): </span>
           <input id="encode-speed-input" class="yt_clipper-input" type="number" min="0" max="5" step="1" value="${
             settings.encodeSpeed != null ? settings.encodeSpeed : ''
@@ -1768,12 +1778,6 @@ export let player: HTMLElement;
           }" placeholder="Auto" "style="width:4em"></input>
         </div>
         <div class="editor-input-div">
-          <span>Gamma (0-4): </span>
-          <input id="gamma-input" class="yt_clipper-input" type="number" min="0.01" max="4.00" step="0.01" value="${
-            settings.gamma != null ? settings.gamma : ''
-          }" placeholder="1" style="width:4em"></input>
-        </div>
-        <div class="editor-input-div">
           <span>Two-Pass: </span>
           <select id="two-pass-input"> 
             <option ${settings.twoPass ? 'selected' : ''}>Enabled</option>
@@ -1784,14 +1788,10 @@ export let player: HTMLElement;
           </select>
         </div>
         <div class="editor-input-div">
-          <span>Audio: </span>
-          <select id="audio-input"> 
-            <option ${settings.audio ? 'selected' : ''}>Enabled</option>
-            <option ${settings.audio === false ? 'selected' : ''}>Disabled</option>
-            <option value="Default" ${
-              settings.audio == null ? 'selected' : ''
-            }>Inherit (Disabled)</option>
-          </select>
+          <span>Gamma (0-4): </span>
+          <input id="gamma-input" class="yt_clipper-input" type="number" min="0.01" max="4.00" step="0.01" value="${
+            settings.gamma != null ? settings.gamma : ''
+          }" placeholder="1" style="width:4em"></input>
         </div>
         <div class="editor-input-div">
           <span>Expand Colors: </span>
