@@ -1453,8 +1453,6 @@ export let player: HTMLElement;
           ...settings,
           version: __version__,
           markerPairs: markerPairsNumbered,
-          newMarkerSpeed: undefined,
-          newMarkerCrop: undefined,
         },
         undefined,
         2
@@ -1532,7 +1530,7 @@ export let player: HTMLElement;
         // copy markersJson to settings object less markerPairs field
         const { markerPairs: _markerPairs, ...loadedSettings } = markersJson;
 
-        settings = loadedSettings;
+        settings = { ...settings, ...loadedSettings };
         markersJson.markerPairs.forEach((markerPair: MarkerPair) => {
           const startMarkerConfig: MarkerConfig = {
             time: markerPair.start,
