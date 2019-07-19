@@ -20,6 +20,8 @@ interface Settings {
   expandColorRange?: boolean;
   videoStabilization?: VideoStabilization;
   enableSpeedMaps?: boolean;
+  loop?: Loop;
+  fadeDuration?: number;
 }
 
 interface MarkerPair {
@@ -54,6 +56,8 @@ interface MarkerPairOverrides {
   expandColorRange?: boolean;
   videoStabilization?: VideoStabilization;
   enableSpeedMaps?: boolean;
+  loop?: Loop;
+  fadeDuration?: number;
 }
 
 interface SpeedMapLoop {
@@ -66,6 +70,8 @@ interface VideoStabilization {
   shakiness: number;
   desc: string;
 }
+
+type Loop = 'none' | 'fwrev' | 'fade';
 
 interface Denoise {
   enabled: boolean;

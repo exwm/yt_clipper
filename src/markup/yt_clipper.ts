@@ -1856,14 +1856,31 @@ export let player: HTMLElement;
         <div class="editor-input-div">
           <span>Speed Maps: </span>
             <select id="enable-speed-maps-input">
-            <option ${settings.enableSpeedMaps ? 'selected' : ''}>Enabled</option>
-                <option ${
-                  settings.enableSpeedMaps === false ? 'selected' : ''
-                }>Disabled</option>
-                <option value="Default" ${
-                  settings.enableSpeedMaps == null ? 'selected' : ''
-                }>Inherit (Enabled)</option>
+              <option ${settings.enableSpeedMaps ? 'selected' : ''}>Enabled</option>
+              <option ${
+                settings.enableSpeedMaps === false ? 'selected' : ''
+              }>Disabled</option>
+              <option value="Default" ${
+                settings.enableSpeedMaps == null ? 'selected' : ''
+              }>Inherit (Enabled)</option>
             </select>
+        </div>
+        <div class="editor-input-div">
+          <span>Loop: </span>
+            <select id="loop-input">
+              <option ${settings.loop === 'fwrev' ? 'selected' : ''}>fwrev</option>
+              <option ${settings.loop === 'fade' ? 'selected' : ''}>fade</option>
+              <option ${settings.loop === 'none' ? 'selected' : ''}>none</option>
+              <option value="Default" ${
+                settings.loop == null ? 'selected' : ''
+              }>Inherit (none)</option>
+            </select>
+          <div class="editor-input-div">
+            <span>Fade Duration: </span>
+            <input id="fade-duration-input" class="yt_clipper-input" type="number" min="0" max="5" step="0.1" value="${
+              settings.fadeDuration != null ? settings.fadeDuration : ''
+            }" placeholder="1" style="width:4em"></input>
+          </div>
         </div>
       </div>
       `;
@@ -1887,9 +1904,11 @@ export let player: HTMLElement;
           ['two-pass-input', 'twoPass', 'ternary'],
           ['audio-input', 'audio', 'ternary'],
           ['expand-color-range-input', 'expandColorRange', 'ternary'],
-          ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
           ['denoise-input', 'denoise', 'preset'],
           ['video-stabilization-input', 'videoStabilization', 'preset'],
+          ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
+          ['loop-input', 'loop', 'inheritableString'],
+          ['fade-duration-input', 'fadeDuration', 'number'],
         ]);
 
         cropInput = document.getElementById('crop-input') as HTMLInputElement;
@@ -1968,14 +1987,16 @@ export let player: HTMLElement;
             newValue = parseFloat(newValue);
           } else if (valueType === 'boolean') {
             newValue = e.target.checked;
-          } else if (valueType === 'ternary') {
-            if (newValue === 'Default') {
+          } else if (valueType === 'ternary' || valueType === 'inheritableString') {
+            if (newValue === 'Default' || newValue === 'Inherit') {
               delete settings[updateTarget];
               return;
             } else if (newValue === 'Enabled') {
               newValue = true;
             } else if (newValue === 'Disabled') {
               newValue = false;
+            } else {
+              newValue = newValue.toLowerCase();
             }
           } else if (valueType === 'preset') {
             if (newValue === 'Inherit') {
@@ -2785,7 +2806,8 @@ export let player: HTMLElement;
       }
 
       if (!cropString) {
-        throw new Error('No valid crop string to extract components from.');
+        console.error('No valid crop string to extract components from.');
+        cropString = '0:0:iw:ih';
       }
 
       const cropArray = cropString.split(':').map((cropStringComponent) => {
@@ -3234,6 +3256,23 @@ export let player: HTMLElement;
               }>Inherit Global ${ternaryToString(settings.enableSpeedMaps)}</option>
             </select>
         </div>
+        <div class="editor-input-div">
+          <span>Loop: </span>
+            <select id="loop-input">
+              <option ${overrides.loop === 'fwrev' ? 'selected' : ''}>fwrev</option>
+              <option ${overrides.loop === 'fade' ? 'selected' : ''}>fade</option>
+              <option ${overrides.loop === 'none' ? 'selected' : ''}>none</option>
+              <option value="Default" ${
+                overrides.loop == null ? 'selected' : ''
+              }>Inherit Global ${settings.loop ? `(${settings.loop})` : ''}</option>
+            </select>
+          <div class="editor-input-div">
+            <span>Fade Duration: </span>
+            <input id="fade-duration-input" class="yt_clipper-input" type="number" min="0" max="5" step="0.1" value="${
+              overrides.fadeDuration != null ? overrides.fadeDuration : ''
+            }" placeholder="1" style="width:4em"></input>
+          </div>
+        </div>
       </div>
       `;
 
@@ -3257,6 +3296,8 @@ export let player: HTMLElement;
           ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
           ['denoise-input', 'denoise', 'preset'],
           ['video-stabilization-input', 'videoStabilization', 'preset'],
+          ['loop-input', 'loop', 'inheritableString'],
+          ['fade-duration-input', 'fadeDuration', 'number'],
         ],
         markerIndex,
         true
@@ -3482,14 +3523,16 @@ export let player: HTMLElement;
             return;
           } else if (valueType === 'number') {
             newValue = parseFloat(newValue);
-          } else if (valueType === 'ternary') {
-            if (newValue === 'Default') {
+          } else if (valueType === 'ternary' || valueType === 'inheritableString') {
+            if (newValue === 'Default' || newValue === 'Inherit') {
               delete markerPair.overrides[updateTarget];
               return;
             } else if (newValue === 'Enabled') {
               newValue = true;
             } else if (newValue === 'Disabled') {
               newValue = false;
+            } else {
+              newValue = newValue.toLowerCase();
             }
           } else if (valueType === 'preset') {
             if (newValue === 'Inherit') {
@@ -3499,6 +3542,7 @@ export let player: HTMLElement;
             newValue = presetsMap[updateTarget][newValue];
           }
         }
+
         if (!overridesField) {
           markerPair[updateTarget] = newValue;
           if (updateTarget === 'crop') {
