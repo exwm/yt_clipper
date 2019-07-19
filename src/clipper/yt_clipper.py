@@ -231,6 +231,11 @@ def buildArgParser():
                         help='Apply bwdif deinterlacing.')
     parser.add_argument('--expand-color-range', '-ecr', dest='expandColorRange', action='store_true',
                         help='Expand the output video color range to full (0-255).')
+    parser.add_argument('--loop', '-l', dest='loop', choices=['none', 'fwrev', 'fade'], default='none',
+                        help='Apply special looping effect to marker pair clips. For a forward-reverse or ping-pong loop use fwrev. For a cross-fading loop use fade.')
+    parser.add_argument('--fade-duration', '-fd', type=float, dest='fadeDuration', default=1,
+                        help=('When cross-fading loop is enabled set the duration over which to cross-fade the end and start of the clip. '
+                              + 'The fade duration is clamped to a minimum of 0.1 seconds and a maximum of a third of the clip duration.'))
     parser.add_argument('--encode-speed', '-s', type=int, dest='encodeSpeed', choices=range(0, 6),
                         help='Set the vp9 encoding speed.')
     parser.add_argument('--crf', type=int,
@@ -327,7 +332,8 @@ def getVideoInfo(settings, videoInfo):
         settings = {**settings, **videoInfo, **probedSettings}
     else:
         if not videoInfo:
-            logger.error("Could not fetch local input video info with ffprobe.")
+            logger.error(
+                "Could not fetch local input video info with ffprobe.")
         settings = {**settings, **videoInfo}
 
     if settings["isDashVideo"] or not "bit_rate" in settings:
@@ -373,8 +379,9 @@ def prepareGlobalSettings(settings):
                  f'Audio Enabled: {settings["audio"]}, Denoise: {settings["denoise"]["desc"]}, Rotate: {settings["rotate"]}, ' +
                  f'Expand Color Range Enabled: {settings["expandColorRange"]}, ' +
                  f'Speed Maps Enabled: {settings["enableSpeedMaps"]}, ' +
+                 f'Special Looping: {settings["loop"]}, ' +
+                 (f'Fade Duration: {settings["fadeDuration"]}, ' if settings["loop"] == 'fade' else '') +
                  f'Video Stabilization: {settings["videoStabilization"]["desc"]}'))
-
     return settings
 
 
@@ -422,7 +429,22 @@ def getMarkerPairSettings(settings, markerPairIndex):
     mp["start"] = mp["start"] + mps["delay"]
     mp["end"] = mp["end"] + mps["delay"]
     mp["duration"] = mp["end"] - mp["start"]
-    mp["speedAdjustedDuration"] = mp["duration"] / mp["speed"]
+
+    mp["isVariableSpeed"] = False
+    if mps["enableSpeedMaps"] and "speedMap" in mp:
+        for left, right in zip(mp["speedMap"][:-1], mp["speedMap"][1:]):
+            if left["y"] != right["y"]:
+                mp["isVariableSpeed"] = True
+                break
+
+    if mps["loop"] == 'fwrev':
+        mp["isVariableSpeed"] = False
+
+    if mp["isVariableSpeed"]:
+        mp["outputDuration"] = getVariableSpeedOutputDuration(
+            mp["duration"], mps["r_frame_rate"], mp["speedMap"])
+    else:
+        mp["outputDuration"] = mp["duration"] / mp["speed"]
 
     titlePrefixLogMsg = f'Title Prefix: {mps["titlePrefix"] if "titlePrefix" in mps else ""}'
     logger.info('-' * 80)
@@ -432,8 +454,12 @@ def getMarkerPairSettings(settings, markerPairIndex):
                  f'Two-pass Encoding Enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5), ' +
                  f'Expand Color Range Enabled: {mps["expandColorRange"]}, ' +
                  f'Audio Enabled: {mps["audio"]}, Denoise: {mps["denoise"]["desc"]}, ' +
+                 f'Marker Pair {markerPairIndex + 1} is of variable speed: {mp["isVariableSpeed"]}, ' +
                  f'Speed Maps Enabled: {mps["enableSpeedMaps"]}, ' +
-                 f'Video Stabilization: {mps["videoStabilization"]["desc"]}'))
+                 f'Video Stabilization: {mps["videoStabilization"]["desc"]}, ' +
+                 f'Special Looping: {mps["loop"]},  ' +
+                 (f'Fade Duration: {mps["fadeDuration"]}s' if mps["loop"] == 'fade' else '') +
+                 f'Final Output Duration: {mp["outputDuration"]}'))
     logger.info('-' * 80)
 
     return (markerPair, markerPairSettings)
@@ -449,18 +475,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
     audio_filter = ''
     video_filter = ''
 
-    mps["isVariableSpeed"] = False
-    if mps["enableSpeedMaps"] and "speedMap" in mp:
-        for left, right in zip(mp["speedMap"][:-1], mp["speedMap"][1:]):
-            if left["y"] != right["y"]:
-                mps["isVariableSpeed"] = True
-                break
-
-    logger.info(
-        f'Marker Pair {markerPairIndex + 1} is of variable speed: {mps["isVariableSpeed"]}')
-    logger.info('-' * 80)
-
-    if mps["isVariableSpeed"]:
+    if mp["isVariableSpeed"] or mps["loop"] != 'none':
         mps["audio"] = False
 
     reconnectFlags = r'-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5'
@@ -491,10 +506,22 @@ def makeMarkerPairClip(settings, markerPairIndex):
     else:
         inputs += f' -ss {mp["start"]} -i "{mps["videoURL"]}" '
 
-    crops = mp["cropComponents"]
-    video_filter += (f'crop=x={crops[0]}:y={crops[1]}:w={crops[2]}:h={crops[3]},')
+    ffmpegCommand = ' '.join((
+        ffmpegPath,
+        f'-n -hide_banner',
+        inputs,
+        f'-benchmark',
+        f'-c:v libvpx-vp9 -pix_fmt yuv420p',
+        f'-c:a libopus -b:a 128k',
+        f'-slices 8 -row-mt 1 -tile-columns 6 -tile-rows 2',
+        f'-crf {mps["crf"]} -b:v {mps["autoTargetMaxBitrate"]}k',
+        f'-metadata title="{mps["videoTitle"]}"',
+        f'-r ({mps["r_frame_rate"]}*{mp["speed"]})' if not mp["isVariableSpeed"] and mp["speed"] > 1 else '',
+        f'-af {audio_filter}' if mps["audio"] else '-an',
+        f'-f webm ',
+    ))
 
-    if mps["isVariableSpeed"]:
+    if mp["isVariableSpeed"]:
         video_filter += getVariableSpeedFilter(mp["speedMap"], mps)
         if mps["preview"] and not settings["inputVideo"]:
             video_filter += f',loop=loop=-1:size=(32767)'
@@ -506,8 +533,16 @@ def makeMarkerPairClip(settings, markerPairIndex):
             if not settings["inputVideo"]:
                 video_filter += f',loop=loop=-1:size=(32767)'
 
+    crops = mp["cropComponents"]
+    video_filter += f',crop=x={crops[0]}:y={crops[1]}:w={crops[2]}:h={crops[3]}'
+    if mps["preview"]:
+        video_filter += f',scale=w=iw/4:h=ih/4'
+        crops[2] /= 4
+        crops[3] /= 4
+
     if mps["rotate"]:
         video_filter += f',transpose={mps["rotate"]}'
+        crops[2], crops[3] = crops[3], crops[2]
 
     if mps["preview"]:
         video_filter_before_correction = video_filter
@@ -526,27 +561,27 @@ def makeMarkerPairClip(settings, markerPairIndex):
     #     video_filter += f'[1:v]overlay=x=W-w-10:y=10:alpha=0.5'
     #     inputs += f'-i "{mps["overlayPath"]}"'
 
-    if not mps["preview"]:
-        return runffmpegCommand(inputs, video_filter, audio_filter, markerPairIndex, mp, mps)
-    else:
-        return runffplayCommand(inputs, video_filter, video_filter_before_correction, audio_filter, markerPairIndex, mp, mps)
+    if mps["loop"] == 'fwrev':
+        loop_filter = ''
+        loop_filter += f''',split=2[f1][f2];[f2]select='gt(n,0)',reverse,select='gt(n,0)',setpts=(PTS-STARTPTS)[r];[f1][r]concat=n=2'''
+    if mps["loop"] == 'fade':
+        dur = mp["outputDuration"]
+        fadeDur = mps["fadeDuration"] = max(
+            0.1, min(mps["fadeDuration"], 0.4*mp["outputDuration"]))
 
+        easeA = f'1'
+        easeB = f'0'
+        easeP = f'(T/{fadeDur})'
+        alphaEase = getEasingExpression('easeInOutCubic', easeA, easeB, easeP)
 
-def runffmpegCommand(inputs, video_filter, audio_filter, markerPairIndex, mp, mps):
-    ffmpegCommand = ' '.join((
-        ffmpegPath,
-        f'-n -hide_banner',
-        inputs,
-        f'-benchmark',
-        f'-c:v libvpx-vp9 -pix_fmt yuv420p',
-        f'-c:a libopus -b:a 128k',
-        f'-slices 8 -row-mt 1 -tile-columns 6 -tile-rows 2',
-        f'-crf {mps["crf"]} -b:v {mps["autoTargetMaxBitrate"]}k',
-        f'-metadata title="{mps["videoTitle"]}"',
-        f'-r ({mps["r_frame_rate"]}*{mp["speed"]})' if not mps["isVariableSpeed"] and mp["speed"] > 1 else '',
-        f'-af {audio_filter}' if mps["audio"] else '-an',
-        f'-f webm ',
-    ))
+        loop_filter = ''
+        loop_filter += f''',split=3[1][2][3];'''
+        loop_filter += f'''[1]select='lte(t,{fadeDur})',setpts=(PTS-STARTPTS)[fi];'''
+        loop_filter += f'''[2]select='gt(t,{fadeDur})*lt(t,{dur}-{fadeDur})',setpts=(PTS-STARTPTS)[m];'''
+        loop_filter += f'''[3]select='gte(t,{dur}-{fadeDur})',setpts=(PTS-STARTPTS)[3b];'''
+        loop_filter += f'''[3b]format=yuva420p,geq=lum='p(X,Y)':a='{alphaEase}*alpha(X,Y)'[fo];'''
+        loop_filter += f'''[fi][fo]overlay=eof_action=pass,setpts=(PTS-STARTPTS)[cf];'''
+        loop_filter += f'''[m][cf]concat=n=2'''
 
     vidstabEnabled = mps["videoStabilization"]["enabled"]
     if vidstabEnabled:
@@ -558,61 +593,84 @@ def runffmpegCommand(inputs, video_filter, audio_filter, markerPairIndex, mp, mp
         video_filter += '[shaky];[shaky]'
         vidstabdetectFilter = video_filter + \
             f'''vidstabdetect=result='{transformPath}':shakiness={vidstab["shakiness"]}'''
-        ffmpegVidstabdetect = ffmpegCommand + \
-            f'-vf "{vidstabdetectFilter}"'
 
         vidstabtransformFilter = video_filter + \
             f'vidstabtransform=input=\'{transformPath}\''
         if vidstab["optzoom"] == 2 and "zoomspeed" in vidstab:
             vidstabtransformFilter += f':zoomspeed=0.1'
         vidstabtransformFilter += r',unsharp=5:5:0.8:3:3:0.4'
+
+        if mps["loop"] != 'none':
+            vidstabdetectFilter += loop_filter
+            vidstabtransformFilter += loop_filter
+
+        ffmpegVidstabdetect = ffmpegCommand + f'-vf "{vidstabdetectFilter}"'
         ffmpegVidstabtransform = ffmpegCommand + \
             f'-vf "{vidstabtransformFilter}" '
 
+    ffmpegCommands = []
     if mps["twoPass"] and not vidstabEnabled:
+        if mps["loop"] != 'none':
+            video_filter += loop_filter
         ffmpegCommand += f' -vf "{video_filter}" '
         ffmpegPass1 = ffmpegCommand + ' -pass 1 -'
-        logger.info('Running first pass...')
-        logger.info('Using ffmpeg command: ' +
-                    re.sub(r'(&a?itags?.*?")', r'"', ffmpegPass1) + '\n')
-        subprocess.run(shlex.split(ffmpegPass1))
         ffmpegPass2 = ffmpegCommand + \
             f' -speed {mps["encodeSpeed"]} -pass 2 "{mp["filePath"]}"'
-        logger.info('Running second pass...')
-        logger.info('Using ffmpeg command: ' +
-                    re.sub(r'(&a?itags?.*?")', r'"', ffmpegPass2) + '\n')
-        ffmpegProcess = subprocess.run(shlex.split(ffmpegPass2))
+
+        ffmpegCommands = [ffmpegPass1, ffmpegPass2]
     elif vidstabEnabled:
         if mps["twoPass"]:
             ffmpegVidstabdetect += f' -pass 1'
         else:
             ffmpegVidstabdetect += f' -speed 5'
         ffmpegVidstabdetect += f' "{shakyWebmPath}"'
-        logger.info('Running video stabilization first pass...')
-        logger.info('Using ffmpeg command: ' +
-                    re.sub(r'(&a?itags?.*?")', r'"', ffmpegVidstabdetect) + '\n')
-        subprocess.run(shlex.split(ffmpegVidstabdetect))
 
         if mps["twoPass"]:
             ffmpegVidstabtransform += f' -pass 2'
         ffmpegVidstabtransform += f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
-        logger.info('Running video stabilization second pass...')
-        logger.info('Using ffmpeg command: ' +
-                    re.sub(r'(&a?itags?.*?")', r'"', ffmpegVidstabtransform) + '\n')
-        ffmpegProcess = subprocess.run(shlex.split(ffmpegVidstabtransform))
+
+        ffmpegCommands = [ffmpegVidstabdetect, ffmpegVidstabtransform]
     else:
+        if mps["loop"] != 'none':
+            video_filter += loop_filter
         ffmpegCommand += f' -vf "{video_filter}" '
-        ffmpegCommand = ffmpegCommand + \
-            f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
+        ffmpegCommand += f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
+
+        ffmpegCommands = [ffmpegCommand]
+
+    if mps["preview"]:
+        return runffplayCommand(inputs, video_filter, video_filter_before_correction, audio_filter, markerPairIndex, mp, mps)
+
+    if not (1 <= len(ffmpegCommands) <= 2):
+        logger.error(f'ffmpeg command could not be built.\n')
+        logger.error(f'Failed to generate: "{mp["fileName"]}"\n')
+        return {**(settings["markerPairs"][markerPairIndex])}
+
+    return runffmpegCommand(ffmpegCommands, markerPairIndex, mp)
+
+
+def runffmpegCommand(ffmpegCommands, markerPairIndex, mp):
+    ffmpegPass1 = ffmpegCommands[0]
+    if len(ffmpegCommands) == 2:
+        logger.info('Running first pass...')
+
+    logger.info('Using ffmpeg command: ' +
+                re.sub(r'(&a?itags?.*?")', r'"', ffmpegPass1) + '\n')
+    ffmpegProcess = subprocess.run(shlex.split(ffmpegPass1))
+
+    if len(ffmpegCommands) == 2:
+        ffmpegPass2 = ffmpegCommands[1]
+
+        logger.info('Running second pass...')
         logger.info('Using ffmpeg command: ' +
-                    re.sub(r'(&a?itags?.*?")', r'"', ffmpegCommand) + '\n')
-        ffmpegProcess = subprocess.run(shlex.split(ffmpegCommand))
+                    re.sub(r'(&a?itags?.*?")', r'"', ffmpegPass2) + '\n')
+        ffmpegProcess = subprocess.run(shlex.split(ffmpegPass2))
 
     if ffmpegProcess.returncode == 0:
         logger.info(f'Successfuly generated: "{mp["fileName"]}"\n')
         return {**(settings["markerPairs"][markerPairIndex]), **mp}
     else:
-        logger.info(f'Failed to generate: "{mp["fileName"]}"\n')
+        logger.error(f'Failed to generate: "{mp["fileName"]}"\n')
         return {**(settings["markerPairs"][markerPairIndex])}
 
 
@@ -630,9 +688,9 @@ def getVariableSpeedFilter(speedMap, mps):
         video_filter_speed_map += f'[in-sect-{i}] '
     video_filter_speed_map += f';'
 
-
     if not mps["preview"]:
-        speedMap = [{"x": speedPoint["x"] - speedMap[0]["x"], "y": speedPoint["y"]} for speedPoint in speedMap]
+        speedMap = [{"x": speedPoint["x"] - speedMap[0]["x"],
+                     "y": speedPoint["y"]} for speedPoint in speedMap]
     sectNum = 0
     sectStartTime = 0
     for left, right in zip(speedMap[:-1], speedMap[1:]):
@@ -645,24 +703,16 @@ def getVariableSpeedFilter(speedMap, mps):
 
         startSpeed = left["y"]
         endSpeed = right["y"]
-        
+
         video_filter_speed_map += f'[in-sect-{sectNum}]trim=start={sectStartTime}:duration={sectDuration}'
         setptsA = f'({startSpeed})'
         setptsB = f'({endSpeed})'
         setptsP = f'(T-STARTT)/({sectDuration})'
-        # setptsT = f'(2*{setptsP})'
-        # setptsM = f'({setptsT}-1)'
-        # setptsPE = f'if( lt({setptsT}\\,1) \\, ({setptsP}*{setptsT}^2)\\, (1+{setptsM}^3*4) ) '
-        # setptsSineInOut = f'( 0.5*(1 - cos({setptsP}*PI)) )'
-        # setptsCircleOut = f'sqrt(1 - {setptsM}^2)'
-        # setpts = f'({setptsA}+({setptsB}-{setptsA})*{setptsSineInOut})'
-        # setpts = f'({setptsA}+({setptsB}-{setptsA})*{setptsPE})'
-        # setpts = f'({setptsA}+({setptsB}-{setptsA})*{setptsCircleOut})'
         setpts = '(PTS-STARTPTS)/'
-        setptsLERP = f'lerp({setptsA}\\, {setptsB}\\, {setptsP})'
+        setptsLERP = f'lerp({setptsA}, {setptsB}, {setptsP})'
         setpts += setptsLERP
 
-        video_filter_speed_map += f',setpts={setpts}[out-sect-{sectNum}];'
+        video_filter_speed_map += f''',setpts='{setpts}'[out-sect-{sectNum}];'''
         sectNum += 1
 
     sectString = ""
@@ -673,10 +723,26 @@ def getVariableSpeedFilter(speedMap, mps):
     return video_filter_speed_map
 
 
+def getEasingExpression(easingFunc, easeA, easeB, easeP):
+    easeT = f'(2*{easeP})'
+    easeM = f'({easeP}-1)'
+
+    ease = '1'  # linear ease by default
+    if easingFunc == 'easeInOutCubic':
+        ease = f'if(lt({easeT},1), {easeP}*{easeT}^2, 1+({easeM}^3)*4)'
+    if easingFunc == 'easeInOutSine':
+        ease = f'0.5*(1-cos({easeP}*PI))'
+    if easingFunc == 'easeOutCircle':
+        ease = f'sqrt(1-{easeM}^2)'
+
+    easingExpression = f'({easeA}+({easeB}-{easeA})*{ease})'
+    return easingExpression
+
+
 def runffplayCommand(inputs, video_filter, video_filter_before_correction, audio_filter, markerPairIndex, mp, mps):
     logger.info('running ffplay command')
     if 0 <= markerPairIndex < len(settings["markerPairs"]):
-        ffplayOptions = f'-hide_banner -fs -sync video -fast -genpts '
+        ffplayOptions = f'-hide_banner -fs -sync video -fast -genpts -infbuf '
         ffplayVideoFilter = f'-vf "{video_filter}"'
         if settings["inputVideo"]:
             ffplayOptions += f' -loop 0'
@@ -695,6 +761,14 @@ def runffplayCommand(inputs, video_filter, video_filter_before_correction, audio
         logger.info('Using ffplay command: ' +
                     re.sub(r'(&a?itags?.*?")', r'"', ffplayCommand) + '\n')
         ffplayProcess = subprocess.run(shlex.split(ffplayCommand))
+
+
+def getVariableSpeedOutputDuration(inputDuration, fps, speedMap):
+    outputDuration = 0
+    for left, right in zip(speedMap[:-1], speedMap[1:]):
+        sectDuration = right["x"] - left["x"]
+        outputDuration += sectDuration / right["y"]
+    return outputDuration
 
 
 class MissingMergeInput(Exception):
