@@ -57,7 +57,7 @@ def main():
     args["videoStabilization"] = getVidstabPreset(args["videoStabilization"])
     args["denoise"] = getDenoisePreset(args["denoise"])
     settings = {'markerPairMergeList': '', 'rotate': 0,
-                'overlayPath': '', 'delay': 0, 'colorspace': None, **args}
+                'overlayPath': '', 'delay': 0, 'color_space': None, **args}
 
     settings["isDashVideo"] = False
     settings["isDashAudio"] = False
