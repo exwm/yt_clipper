@@ -1595,12 +1595,12 @@ export let player: HTMLElement;
       console.log(markerPairs);
     }
 
-    function getFPS(def: number | null = 60) {
+    function getFPS(defaultFPS: number | null = 60) {
       try {
         return parseFloat(player.getStatsForNerds().resolution.match(/@(\d+)/)[1]);
       } catch (e) {
         console.log('Could not detect fps', e);
-        return def; // by default parameter value assume high fps to avoid skipping frames
+        return defaultFPS; // by default parameter value assume high fps to avoid skipping frames
       }
     }
 
@@ -3410,10 +3410,9 @@ export let player: HTMLElement;
       const speedAdjustedDurationSpan = document.getElementById('duration');
       const duration = markerPair.end - markerPair.start;
       const durationHHMMSS = toHHMMSSTrimmed(duration);
-      const speedAdjustedDurationHHMMSS = toHHMMSSTrimmed(duration / markerPair.speed);
-      speedAdjustedDurationSpan.textContent = `${durationHHMMSS} / ${
-        markerPair.speed
-      } = ${speedAdjustedDurationHHMMSS}`;
+      const outputDuration = getOutputDuration(markerPair.speedMap);
+      const outputDurationHHMMSS = toHHMMSSTrimmed(outputDuration);
+      speedAdjustedDurationSpan.textContent = `${durationHHMMSS} (${outputDurationHHMMSS})`;
     }
     function addMarkerInputListeners(
       inputs: string[][],
@@ -3434,6 +3433,59 @@ export let player: HTMLElement;
           false
         );
       });
+    }
+
+    function getOutputDuration(speedMap: SpeedPoint[]) {
+      let outputDuration = 0;
+      const fps = getFPS();
+      const frameDur = 1 / fps;
+      const nSects = speedMap.length - 1;
+      // Account for marker pair start time as trim filter sets start time to ~0
+      const speedMapStartTime = speedMap[0].x;
+      // Account for first input frame delay due to potentially imprecise trim
+      const startt =
+        Math.ceil(speedMapStartTime / frameDur) * frameDur - speedMapStartTime;
+
+      for (let sect = 0; sect < nSects; ++sect) {
+        const left = speedMap[sect];
+        const right = speedMap[sect + 1];
+
+        const startSpeed = left.y;
+        const endSpeed = right.y;
+        const speedChange = endSpeed - startSpeed;
+
+        const sectStart = left.x - speedMapStartTime - startt;
+        let sectEnd = right.x - speedMapStartTime - startt;
+        // Account for last input frame delay due to potentially imprecise trim
+        if (sect === nSects - 1) {
+          sectEnd = Math.floor(right['x'] / frameDur) * frameDur;
+          // When trim is frame-precise, the frame that begins at the marker pair end time is not included
+          if (right.x - sectEnd < 1e-10) sectEnd = sectEnd - frameDur;
+          sectEnd = sectEnd - speedMapStartTime - startt;
+          sectEnd = Math.floor(sectEnd * 1000000) / 1000000;
+        }
+
+        const sectDuration = sectEnd - sectStart;
+        if (sectDuration === 0) continue;
+
+        const m = speedChange / sectDuration;
+        const b = startSpeed - m * sectStart;
+
+        if (speedChange === 0) {
+          outputDuration += sectDuration / endSpeed;
+        } else {
+          // Integrate the reciprocal of the linear time vs speed function for the current section
+          outputDuration +=
+            (1 / m) *
+            (Math.log(Math.abs(m * sectEnd + b)) - Math.log(Math.abs(m * sectStart + b)));
+        }
+      }
+      // Each output frame time is rounded to the nearest multiple of a frame's duration at the given fps
+      outputDuration = Math.round(outputDuration / frameDur) * frameDur;
+      // The last included frame is held for a single frame's duration
+      outputDuration += frameDur;
+      outputDuration = Math.round(outputDuration * 1000) / 1000;
+      return outputDuration;
     }
 
     function hideSelectedMarkerPairCropOverlay() {
