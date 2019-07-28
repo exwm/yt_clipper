@@ -1879,7 +1879,7 @@ export let player: HTMLElement;
             <span>Fade Duration: </span>
             <input id="fade-duration-input" class="yt_clipper-input" type="number" min="0" max="5" step="0.1" value="${
               settings.fadeDuration != null ? settings.fadeDuration : ''
-            }" placeholder="1" style="width:4em"></input>
+            }" placeholder="0.5" style="width:4em"></input>
           </div>
         </div>
       </div>
@@ -3270,7 +3270,7 @@ export let player: HTMLElement;
             <span>Fade Duration: </span>
             <input id="fade-duration-input" class="yt_clipper-input" type="number" min="0" max="5" step="0.1" value="${
               overrides.fadeDuration != null ? overrides.fadeDuration : ''
-            }" placeholder="1" style="width:4em"></input>
+            }" placeholder="0.5" style="width:4em"></input>
           </div>
         </div>
       </div>
