@@ -40,6 +40,14 @@ function getSpeedPointColor(context) {
     : `rgba(${130 - 90 * (value.y - 1)}, 100, 245, 0.9)`;
 }
 
+function updateSpeedInput(newSpeed?: number) {
+  const speedInput = document.getElementById('speed-input') as HTMLInputElement;
+  if (speedInput) {
+    if (newSpeed) speedInput.value = newSpeed.toString();
+    speedInput.dispatchEvent(new Event('change'));
+  }
+}
+
 export const options: ChartConfiguration = {
   type: 'scatter',
   data: {
@@ -263,11 +271,9 @@ export const options: ChartConfiguration = {
     onDragEnd: function(e, chartInstance, datasetIndex, index, value) {
       // console.log(datasetIndex, index, value);
       if (index === 0) {
-        const speedInput = document.getElementById('speed-input') as HTMLInputElement;
-        if (speedInput) {
-          speedInput.value = value.y.toString();
-          speedInput.dispatchEvent(new Event('change'));
-        }
+        updateSpeedInput(value.y);
+      } else {
+        updateSpeedInput();
       }
       chartInstance.data.datasets[datasetIndex].data.sort(sortX);
       chartInstance.options.plugins.zoom.pan.enabled = true;
@@ -298,6 +304,7 @@ export const options: ChartConfiguration = {
           });
 
           this.data.datasets[0].data.sort(sortX);
+          updateSpeedInput();
           this.update();
         }
       }
@@ -321,6 +328,7 @@ export const options: ChartConfiguration = {
             dataRef[index].x !== speedChartMaxBound
           ) {
             dataRef.splice(index, 1);
+            updateSpeedInput();
             this.update();
           }
         }
