@@ -11,6 +11,8 @@ import subprocess
 import sys
 import glob
 from pathlib import Path
+from math import floor, ceil, log
+from fractions import Fraction
 
 UPLOAD_KEY_REQUEST_ENDPOINT = 'https://api.gfycat.com/v1/gfycats?'
 FILE_UPLOAD_ENDPOINT = 'https://filedrop.gfycat.com'
@@ -233,7 +235,7 @@ def buildArgParser():
                         help='Expand the output video color range to full (0-255).')
     parser.add_argument('--loop', '-l', dest='loop', choices=['none', 'fwrev', 'fade'], default='none',
                         help='Apply special looping effect to marker pair clips. For a forward-reverse or ping-pong loop use fwrev. For a cross-fading loop use fade.')
-    parser.add_argument('--fade-duration', '-fd', type=float, dest='fadeDuration', default=1,
+    parser.add_argument('--fade-duration', '-fd', type=float, dest='fadeDuration', default=0.5,
                         help=('When cross-fading loop is enabled set the duration over which to cross-fade the end and start of the clip. '
                               + 'The fade duration is clamped to a minimum of 0.1 seconds and a maximum of a third of the clip duration.'))
     parser.add_argument('--encode-speed', '-s', type=int, dest='encodeSpeed', choices=range(0, 6),
@@ -436,15 +438,15 @@ def getMarkerPairSettings(settings, markerPairIndex):
             if left["y"] != right["y"]:
                 mp["isVariableSpeed"] = True
                 break
+    else:
+        mp["speedMap"] = [{"x": mp["start"], "y":mp["speed"]}, {
+            "x": mp["end"], "y":mp["speed"]}]
 
     if mps["loop"] == 'fwrev':
         mp["isVariableSpeed"] = False
 
-    if mp["isVariableSpeed"]:
-        mp["outputDuration"] = getVariableSpeedOutputDuration(
-            mp["duration"], mps["r_frame_rate"], mp["speedMap"])
-    else:
-        mp["outputDuration"] = mp["duration"] / mp["speed"]
+    mp["speedFilter"], mp["outputDuration"] = getSpeedFilterAndDuration(
+        mp["speedMap"], mps, mps["r_frame_rate"])
 
     titlePrefixLogMsg = f'Title Prefix: {mps["titlePrefix"] if "titlePrefix" in mps else ""}'
     logger.info('-' * 80)
@@ -521,24 +523,22 @@ def makeMarkerPairClip(settings, markerPairIndex):
         f'-f webm ',
     ))
 
-    if mp["isVariableSpeed"]:
-        video_filter += getVariableSpeedFilter(mp["speedMap"], mps)
-        if mps["preview"] and not settings["inputVideo"]:
-            video_filter += f',loop=loop=-1:size=(32767)'
+    if not mps["preview"]:
+        video_filter += f'trim=0:{mp["duration"]}'
     else:
-        if not mps["preview"]:
-            video_filter += f'trim=0:{mp["duration"]},setpts=(PTS-STARTPTS)/{mp["speed"]}'
-        else:
-            video_filter += f'trim={mp["start"]}:{mp["end"]},setpts=(PTS-STARTPTS)/{mp["speed"]}'
-            if not settings["inputVideo"]:
-                video_filter += f',loop=loop=-1:size=(32767)'
+        video_filter += f'trim={mp["start"]}:{mp["end"]},setpts=(PTS-STARTPTS)/{mp["speed"]}'
+
+    video_filter += mp["speedFilter"]
+
+    if mps["preview"] and not settings["inputVideo"]:
+        video_filter += f',loop=loop=-1:size=(32767)'
 
     crops = mp["cropComponents"]
     video_filter += f',crop=x={crops[0]}:y={crops[1]}:w={crops[2]}:h={crops[3]}'
     if mps["preview"]:
-        video_filter += f',scale=w=iw/4:h=ih/4'
-        crops[2] /= 4
-        crops[3] /= 4
+        video_filter += f',scale=w=iw/2:h=ih/2'
+        crops[2] /= 2
+        crops[3] /= 2
 
     if mps["rotate"]:
         video_filter += f',transpose={mps["rotate"]}'
@@ -582,6 +582,9 @@ def makeMarkerPairClip(settings, markerPairIndex):
         loop_filter += f'''[3b]format=yuva420p,geq=lum='p(X,Y)':a='{alphaEase}*alpha(X,Y)'[fo];'''
         loop_filter += f'''[fi][fo]overlay=eof_action=pass,setpts=(PTS-STARTPTS)[cf];'''
         loop_filter += f'''[m][cf]concat=n=2'''
+
+    if mps["preview"]:
+        return runffplayCommand(inputs, video_filter, video_filter_before_correction, audio_filter, markerPairIndex, mp, mps)
 
     vidstabEnabled = mps["videoStabilization"]["enabled"]
     if vidstabEnabled:
@@ -638,9 +641,6 @@ def makeMarkerPairClip(settings, markerPairIndex):
 
         ffmpegCommands = [ffmpegCommand]
 
-    if mps["preview"]:
-        return runffplayCommand(inputs, video_filter, video_filter_before_correction, audio_filter, markerPairIndex, mp, mps)
-
     if not (1 <= len(ffmpegCommands) <= 2):
         logger.error(f'ffmpeg command could not be built.\n')
         logger.error(f'Failed to generate: "{mp["fileName"]}"\n')
@@ -674,53 +674,73 @@ def runffmpegCommand(ffmpegCommands, markerPairIndex, mp):
         return {**(settings["markerPairs"][markerPairIndex])}
 
 
-def getVariableSpeedFilter(speedMap, mps):
-    nSects = 0
-    for left, right in zip(speedMap[:-1], speedMap[1:]):
-        sectDuration = right["x"] - left["x"]
-        if sectDuration > 0:
-            nSects += 1
-
+def getSpeedFilterAndDuration(speedMap, mps, fps):
+    logger.info('-' * 80)
     video_filter_speed_map = ''
-    video_filter_speed_map += f'split={nSects} '
+    setpts = ''
+    outputDuration = 0
 
-    for i in range(nSects):
-        video_filter_speed_map += f'[in-sect-{i}] '
-    video_filter_speed_map += f';'
+    fps = Fraction(fps)
+    frameDur = 1 / fps
+    nSects = len(speedMap) - 1
+    # Account for marker pair start time as trim filter sets start time to ~0
+    speedMapStartTime = speedMap[0]["x"]
+    # Account for first input frame delay due to potentially imprecise trim
+    startt = ceil(speedMapStartTime/frameDur) * frameDur - speedMapStartTime
+    logger.info(f'First Input Frame Time: {startt}')
 
-    if not mps["preview"]:
-        speedMap = [{"x": speedPoint["x"] - speedMap[0]["x"],
-                     "y": speedPoint["y"]} for speedPoint in speedMap]
-    sectNum = 0
-    sectStartTime = 0
-    for left, right in zip(speedMap[:-1], speedMap[1:]):
-        sectStartTime = left["x"]
-        sectEndTime = right["x"]
-        sectDuration = sectEndTime - sectStartTime
+    for sect, (left, right) in enumerate(zip(speedMap[:-1], speedMap[1:])):
+        startSpeed = left["y"]
+        endSpeed = right["y"]
+        speedChange = endSpeed - startSpeed
 
+        sectStart = left["x"] - speedMapStartTime - startt
+        sectEnd = right["x"] - speedMapStartTime - startt
+        # Account for last input frame delay due to potentially imprecise trim
+        if sect == nSects - 1:
+            logger.info(
+                f'Last Input Frame Time: {right["x"] - speedMapStartTime - startt}')
+            sectEnd = floor(right["x"]/frameDur) * frameDur
+            # When trim is frame-precise, the frame that begins at the marker pair end time is not included
+            if right["x"] - sectEnd < 1e-10:
+                sectEnd = sectEnd - frameDur
+            sectEnd = sectEnd - speedMapStartTime - startt
+            sectEnd = floor(sectEnd*1000000) / 1000000
+            logger.info(f'Last Input Frame Time (Rounded): {sectEnd}')
+
+        sectDuration = sectEnd - sectStart
         if sectDuration == 0:
             continue
 
-        startSpeed = left["y"]
-        endSpeed = right["y"]
+        m = speedChange / sectDuration
+        b = startSpeed - m * sectStart
 
-        video_filter_speed_map += f'[in-sect-{sectNum}]trim=start={sectStartTime}:duration={sectDuration}'
-        setptsA = f'({startSpeed})'
-        setptsB = f'({endSpeed})'
-        setptsP = f'(T-STARTT)/({sectDuration})'
-        setpts = '(PTS-STARTPTS)/'
-        setptsLERP = f'lerp({setptsA}, {setptsB}, {setptsP})'
-        setpts += setptsLERP
+        if speedChange == 0:
+            # Duration is time multiplied by slowdown (or time divided by speed)
+            sliceDuration = f'(min((T-STARTT-{sectStart}),{sectDuration})/{endSpeed})'
+            outputDuration += sectDuration/endSpeed
+        else:
+            # Integrate the reciprocal of the linear time vs speed function for the current section
+            sliceDuration = f'(1/{m})*(log(abs({m}*min((T-STARTT),{sectEnd})+{b}))-log(abs({m}*{sectStart}+{b})))'
+            outputDuration += (1/m) * (log(abs(m * sectEnd
+                                               + b)) - log(abs(m*sectStart + b)))
+        sliceDuration = f'if(gte((T-STARTT),{sectStart}), {sliceDuration},0)'
 
-        video_filter_speed_map += f''',setpts='{setpts}'[out-sect-{sectNum}];'''
-        sectNum += 1
+        if sect == 0:
+            setpts += f'(if(eq(N,0),0,{sliceDuration}))'
+        else:
+            setpts += f'+({sliceDuration})'
 
-    sectString = ""
-    for i in range(nSects):
-        sectString += f'[out-sect-{i}] '
+    video_filter_speed_map += f''',setpts='({setpts})/TB' '''
 
-    video_filter_speed_map += f'{sectString} concat=n={nSects}:v=1:a=0'
-    return video_filter_speed_map
+    logger.info(f'Last Output Frame Time: {outputDuration}')
+    # Each output frame time is rounded to the nearest multiple of a frame's duration at the given fps
+    outputDuration = round(outputDuration/frameDur)*frameDur
+    # The last included frame is held for a single frame's duration
+    outputDuration += frameDur
+    outputDuration = round(outputDuration*1000) / 1000
+
+    return video_filter_speed_map, outputDuration
 
 
 def getEasingExpression(easingFunc, easeA, easeB, easeP):
@@ -761,14 +781,6 @@ def runffplayCommand(inputs, video_filter, video_filter_before_correction, audio
         logger.info('Using ffplay command: ' +
                     re.sub(r'(&a?itags?.*?")', r'"', ffplayCommand) + '\n')
         ffplayProcess = subprocess.run(shlex.split(ffplayCommand))
-
-
-def getVariableSpeedOutputDuration(inputDuration, fps, speedMap):
-    outputDuration = 0
-    for left, right in zip(speedMap[:-1], speedMap[1:]):
-        sectDuration = right["x"] - left["x"]
-        outputDuration += sectDuration / right["y"]
-    return outputDuration
 
 
 class MissingMergeInput(Exception):
