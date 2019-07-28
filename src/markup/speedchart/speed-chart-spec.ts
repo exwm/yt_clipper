@@ -6,7 +6,8 @@ const sortX = (a, b) => {
   return 0;
 };
 
-const lightgrey = (opacity: number) => `rgba(90, 90, 90, ${opacity})`;
+const lightgrey = (opacity: number) => `rgba(120, 120, 120, ${opacity})`;
+const medgrey = (opacity: number) => `rgba(90, 90, 90, ${opacity})`;
 const grey = (opacity: number) => `rgba(50, 50, 50, ${opacity})`;
 
 export const speedPointRawSecondsFormatter = (point) => {
@@ -49,11 +50,11 @@ export const options: ChartConfiguration = {
         data: [] as ChartPoint[],
         showLine: true,
         pointBackgroundColor: getSpeedPointColor,
-        pointBorderColor: lightgrey(0.5),
+        pointBorderColor: medgrey(0.7),
         pointRadius: 5,
         pointHoverRadius: 6,
         pointHoverBorderWidth: 1.5,
-        pointHoverBorderColor: lightgrey(0.7),
+        pointHoverBorderColor: lightgrey(0.8),
         pointHitRadius: 5,
       },
     ],
@@ -62,8 +63,8 @@ export const options: ChartConfiguration = {
     elements: {
       line: {
         fill: true,
-        backgroundColor: 'rgba(160,0, 255, 0.2)',
-        borderColor: lightgrey(0.9),
+        backgroundColor: 'rgba(160,0, 255, 0.1)',
+        borderColor: lightgrey(0.8),
         borderWidth: 2,
         borderDash: [5, 2],
       },
@@ -89,7 +90,7 @@ export const options: ChartConfiguration = {
           },
           position: 'bottom',
           gridLines: {
-            color: lightgrey(0.7),
+            color: medgrey(0.6),
             lineWidth: 1,
           },
           ticks: {
@@ -113,7 +114,7 @@ export const options: ChartConfiguration = {
             padding: 0,
           },
           gridLines: {
-            color: lightgrey(0.7),
+            color: medgrey(0.6),
             lineWidth: 1,
           },
           ticks: {
@@ -219,7 +220,7 @@ export const options: ChartConfiguration = {
       ],
     },
     onHover: (event, chartElement) => {
-      event.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+      event.target.style.cursor = chartElement[0] ? 'grab' : 'default';
     },
     dragData: true,
     dragY: true,
@@ -234,6 +235,7 @@ export const options: ChartConfiguration = {
     onDragStart: function(e, chartInstance, element) {
       // console.log(e, element);
       chartInstance.options.plugins.zoom.pan.enabled = false;
+      event.target.style.cursor = 'grabbing';
       chartInstance.update();
     },
     onDrag: function(e, chartInstance, datasetIndex, index, fromValue, toValue) {
@@ -269,6 +271,7 @@ export const options: ChartConfiguration = {
       }
       chartInstance.data.datasets[datasetIndex].data.sort(sortX);
       chartInstance.options.plugins.zoom.pan.enabled = true;
+      event.target.style.cursor = 'default';
       chartInstance.update({ duration: 0 });
     },
     onClick: function(event, dataAtClick) {
