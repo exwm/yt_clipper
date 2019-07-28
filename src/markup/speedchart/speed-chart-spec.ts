@@ -242,11 +242,13 @@ export const options: ChartConfiguration = {
         dragX: true,
         dragY: true,
       };
+      let speedChartMinBound = chartInstance.options.scales.xAxes[0].ticks.min;
+      let speedChartMaxBound = chartInstance.options.scales.xAxes[0].ticks.max;
       if (
-        fromValue.x <= chartInstance.options.scales.xAxes[0].ticks.min ||
-        fromValue.x >= chartInstance.options.scales.xAxes[0].ticks.max ||
-        toValue.x <= chartInstance.options.scales.xAxes[0].ticks.min ||
-        toValue.x >= chartInstance.options.scales.xAxes[0].ticks.max
+        fromValue.x <= speedChartMinBound ||
+        fromValue.x >= speedChartMaxBound ||
+        toValue.x <= speedChartMinBound ||
+        toValue.x >= speedChartMaxBound
       ) {
         shouldDrag.dragX = false;
       }
@@ -308,8 +310,13 @@ export const options: ChartConfiguration = {
         if (datum) {
           const datasetIndex = datum['_datasetIndex'];
           const index = datum['_index'];
+          let speedChartMinBound = this.options.scales.xAxes[0].ticks.min;
+          let speedChartMaxBound = this.options.scales.xAxes[0].ticks.max;
           let dataRef = this.data.datasets[datasetIndex].data;
-          if (dataRef[index].x !== 0 && dataRef[index].x !== 10) {
+          if (
+            dataRef[index].x !== speedChartMinBound &&
+            dataRef[index].x !== speedChartMaxBound
+          ) {
             dataRef.splice(index, 1);
             this.update();
           }
