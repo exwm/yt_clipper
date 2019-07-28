@@ -526,9 +526,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
     if not mps["preview"]:
         video_filter += f'trim=0:{mp["duration"]}'
     else:
-        video_filter += f'trim={mp["start"]}:{mp["end"]},setpts=(PTS-STARTPTS)/{mp["speed"]}'
-
-    video_filter += mp["speedFilter"]
+        video_filter += f'trim={mp["start"]}:{mp["end"]}'
 
     if mps["preview"] and not settings["inputVideo"]:
         video_filter += f',loop=loop=-1:size=(32767)'
@@ -561,9 +559,16 @@ def makeMarkerPairClip(settings, markerPairIndex):
     #     video_filter += f'[1:v]overlay=x=W-w-10:y=10:alpha=0.5'
     #     inputs += f'-i "{mps["overlayPath"]}"'
 
+    if mps["loop"] != 'fwrev':
+        video_filter += f',{mp["speedFilter"]}'
     if mps["loop"] == 'fwrev':
+        reverseSpeedMap = [{"x":speedPoint["x"], "y":speedPointRev["y"]} for speedPoint, speedPointRev in zip(mp["speedMap"], reversed(mp["speedMap"]))]
+        reverseSpeedFilter, _ = getSpeedFilterAndDuration(reverseSpeedMap, mps, mps["r_frame_rate"])
         loop_filter = ''
-        loop_filter += f''',split=2[f1][f2];[f2]select='gt(n,0)',reverse,select='gt(n,0)',setpts=(PTS-STARTPTS)[r];[f1][r]concat=n=2'''
+        loop_filter += f',split=2[f1][f2];'
+        loop_filter += f'[f1]{mp["speedFilter"]}[f];'
+        loop_filter += f'''[f2]{reverseSpeedFilter},select='gt(n,0)',reverse,select='gt(n,0)',setpts=(PTS-STARTPTS)[r];'''
+        loop_filter += f'[f][r]concat=n=2'
     if mps["loop"] == 'fade':
         dur = mp["outputDuration"]
         fadeDur = mps["fadeDuration"] = max(
@@ -731,7 +736,7 @@ def getSpeedFilterAndDuration(speedMap, mps, fps):
         else:
             setpts += f'+({sliceDuration})'
 
-    video_filter_speed_map += f''',setpts='({setpts})/TB' '''
+    video_filter_speed_map += f'''setpts='({setpts})/TB' '''
 
     logger.info(f'Last Output Frame Time: {outputDuration}')
     # Each output frame time is rounded to the nearest multiple of a frame's duration at the given fps
