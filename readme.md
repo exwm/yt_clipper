@@ -174,11 +174,11 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 **Shift+mouse-wheel:** Scroll the mouse wheel up/down over the video to skip forward/backward one frame per tick.
 
-**D:** Toggle auto video playback speed adjustment based on markers. When outside of a marker pair the playback speed is set back to 1 (and cannot be changed without toggling off auto speed adjustment).
+**C:** Toggle auto video playback speed adjustment based on markers. When outside of a marker pair the playback speed is set back to 1 (and cannot be changed without toggling off auto speed adjustment).
 
-**Shift+D:** Toggle auto looping of currently selected marker pair.
+**Shift+C:** Toggle auto looping of currently selected marker pair.
 
-**Alt+D:** Toggle auto previewing gamma correction setting when between a marker pair.
+**Alt+C:** Toggle auto previewing gamma correction setting when between a marker pair.
 
 **R/alt+R:** Toggle between a 90 degree clockwise/counter-clockwise rotation and no rotation.
 
@@ -192,15 +192,15 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 ### Time-Variable Speed Chart Shortcuts
 
-**C:** Toggle time-variable speed chart.
+**D:** Toggle time-variable speed chart.
 
 **Right-Click:** Seek to time on bottom time-axis when clicking anywhere in chart area.
 
-**Ctrl+Right-Click/Alt+Right-Click:** Set speed chart looping start/end marker.
+**Alt+Right-Click/Ctrl+Alt+Right-Click:** Set speed chart looping start/end marker.
 
-**Shift+C:** Toggle speed chart looping (note speed chart looping only works when speed previewing is on with **D**).
+**Shift+D:** Toggle speed chart looping (note speed chart looping only works when speed previewing is on with **C**).
 
-**Alt+Shift+C:** Reset speed chart looping markers.
+**Alt+D:** Reset speed chart looping markers.
 
 **Click+Drag:** Drag a speed point to move it or drag chart area to pan when zoomed in.
 
