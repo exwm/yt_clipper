@@ -174,15 +174,19 @@ export let player: HTMLElement;
             if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              toggleSpeedChart();
+              toggleSpeedDucking();
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              toggleSpeedMapLoop();
+              toggleMarkerLooping();
+            } else if (!e.ctrlKey && !e.shiftKey && e.altKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              toggleGammaPreview();
             } else if (!e.ctrlKey && e.shiftKey && e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              resetSpeedMapLoop();
+              toggleFadeLoopPreview();
             }
             break;
           case 'KeyG':
@@ -197,15 +201,15 @@ export let player: HTMLElement;
             if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              toggleSpeedDucking();
+              toggleSpeedChart();
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              toggleMarkerLooping();
+              toggleSpeedMapLoop();
             } else if (!e.ctrlKey && !e.shiftKey && e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              toggleGammaPreview();
+              resetSpeedMapLoop();
             }
             break;
           case 'KeyZ':
@@ -1100,7 +1104,10 @@ export let player: HTMLElement;
 
     function getShortestActiveMarkerPair(currentTime: number = video.currentTime) {
       const activeMarkerPairs = markerPairs.filter((markerPair) => {
-        if (currentTime >= markerPair.start && currentTime <= markerPair.end) {
+        if (
+          currentTime >= Math.round(markerPair.start * 1e6) / 1e6 &&
+          currentTime <= Math.round(markerPair.end * 1e6) / 1e6
+        ) {
           return true;
         }
         return false;
@@ -1332,6 +1339,69 @@ export let player: HTMLElement;
 
       if (isGammaPreviewOn) {
         requestAnimationFrame(gammaPreviewHandler);
+      }
+    }
+
+    let isFadeLoopPreviewOn = false;
+    function toggleFadeLoopPreview() {
+      if (!isFadeLoopPreviewOn) {
+        isFadeLoopPreviewOn = true;
+        requestAnimationFrame(fadeLoopPreviewHandler);
+        flashMessage('Fade loop preview enabled', 'green');
+      } else {
+        isFadeLoopPreviewOn = false;
+        video.style.opacity = '1';
+        flashMessage('Fade loop preview disabled', 'red');
+      }
+    }
+
+    function fadeLoopPreviewHandler() {
+      const shortestActiveMarkerPair = getShortestActiveMarkerPair();
+      const currentTime = video.currentTime;
+      if (
+        shortestActiveMarkerPair &&
+        shortestActiveMarkerPair.overrides.loop === 'fade'
+      ) {
+        const currentTimeP = getFadeBounds(shortestActiveMarkerPair, currentTime);
+        if (currentTimeP == null) {
+          video.style.opacity = '1';
+        } else {
+          let currentTimeEased = easeCubicInOut(currentTimeP);
+          video.style.opacity = currentTimeEased.toString();
+          console.log(video.style.opacity);
+        }
+      } else {
+        video.style.opacity = '1';
+      }
+      if (isFadeLoopPreviewOn) {
+        requestAnimationFrame(fadeLoopPreviewHandler);
+      }
+    }
+
+    function getFadeBounds(markerPair: MarkerPair, currentTime: number): number | null {
+      const speedMap = markerPair.speedMap;
+
+      // const inputDuration = markerPair.end - markerPair.start;
+      const outputDuration = getOutputDuration(speedMap);
+      const fadeDuration =
+        markerPair.overrides.fadeDuration || settings.fadeDuration || 0.5;
+
+      const fadeInStartP = 0;
+      const fadeInEndP = fadeDuration / outputDuration;
+      const fadeOutStart = outputDuration - fadeDuration;
+      const fadeOutStartP = (outputDuration - fadeDuration) / outputDuration;
+      const fadeOutEndP = outputDuration / outputDuration;
+
+      let currentTimeP = (currentTime - markerPair.start) / outputDuration;
+
+      if (currentTimeP >= fadeInStartP && currentTimeP <= fadeInEndP) {
+        currentTimeP = (currentTime - markerPair.start) / fadeDuration;
+        return currentTimeP;
+      } else if (currentTimeP >= fadeOutStartP && currentTimeP <= fadeOutEndP) {
+        currentTimeP = 1 - (currentTime - markerPair.start - fadeOutStart) / fadeDuration;
+        return currentTimeP;
+      } else {
+        return null;
       }
     }
 
@@ -2931,12 +3001,14 @@ export let player: HTMLElement;
             'rgba(0, 255, 0, 0.4)';
           speedChart.config.options.annotation.annotations[2].borderColor =
             'rgba(255, 215, 0, 0.4)';
+          flashMessage('Speed chart looping disabled', 'red');
         } else {
           markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.enabled = true;
           speedChart.config.options.annotation.annotations[1].borderColor =
             'rgba(0, 255, 0, 0.9)';
           speedChart.config.options.annotation.annotations[2].borderColor =
             'rgba(255, 215, 0, 0.9)';
+          flashMessage('Speed chart looping enabled', 'green');
         }
         speedChart.update();
       }
