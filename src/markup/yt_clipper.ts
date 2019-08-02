@@ -187,6 +187,10 @@ export let player: HTMLElement;
               e.preventDefault();
               e.stopImmediatePropagation();
               toggleFadeLoopPreview();
+            } else if (e.ctrlKey && e.shiftKey && e.altKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              toggleAllPreviews();
             }
             break;
           case 'KeyG':
@@ -1127,13 +1131,13 @@ export let player: HTMLElement;
       return shortestActiveMarkerPair;
     }
 
-    let isSpeedDuckingEnabled = false;
+    let isSpeedPreviewOn = false;
     const toggleSpeedDucking = () => {
-      if (isSpeedDuckingEnabled) {
-        isSpeedDuckingEnabled = false;
+      if (isSpeedPreviewOn) {
+        isSpeedPreviewOn = false;
         flashMessage('Auto speed ducking disabled', 'red');
       } else {
-        isSpeedDuckingEnabled = true;
+        isSpeedPreviewOn = true;
         requestAnimationFrame(updateSpeed);
         flashMessage('Auto speed ducking enabled', 'green');
       }
@@ -1170,7 +1174,7 @@ export let player: HTMLElement;
         prevSpeed = 1;
       }
 
-      if (isSpeedDuckingEnabled) {
+      if (isSpeedPreviewOn) {
         requestAnimationFrame(updateSpeed);
       } else {
         player.setPlaybackRate(1);
@@ -1225,13 +1229,13 @@ export let player: HTMLElement;
       }
     }
 
-    let isMarkerLoopingEnabled = false;
+    let isMarkerLoopPreviewOn = false;
     function toggleMarkerLooping() {
-      if (isMarkerLoopingEnabled) {
-        isMarkerLoopingEnabled = false;
+      if (isMarkerLoopPreviewOn) {
+        isMarkerLoopPreviewOn = false;
         flashMessage('Auto marker looping disabled', 'red');
       } else {
-        isMarkerLoopingEnabled = true;
+        isMarkerLoopPreviewOn = true;
         requestAnimationFrame(loopMarkerPair);
         flashMessage('Auto marker looping enabled', 'green');
       }
@@ -1265,7 +1269,7 @@ export let player: HTMLElement;
         }
       }
 
-      if (isMarkerLoopingEnabled) {
+      if (isMarkerLoopPreviewOn) {
         requestAnimationFrame(loopMarkerPair);
       }
     }
@@ -1402,6 +1406,28 @@ export let player: HTMLElement;
         return currentTimeP;
       } else {
         return null;
+      }
+    }
+
+    let isAllPreviewsOn = false;
+    function toggleAllPreviews() {
+      isAllPreviewsOn =
+        isSpeedPreviewOn &&
+        isMarkerLoopPreviewOn &&
+        isGammaPreviewOn &&
+        isFadeLoopPreviewOn;
+      if (!isAllPreviewsOn) {
+        !isSpeedPreviewOn && toggleSpeedDucking();
+        !isMarkerLoopPreviewOn && toggleMarkerLooping();
+        !isGammaPreviewOn && toggleGammaPreview();
+        !isFadeLoopPreviewOn && toggleFadeLoopPreview();
+        isAllPreviewsOn = true;
+      } else {
+        isSpeedPreviewOn && toggleSpeedDucking();
+        isMarkerLoopPreviewOn && toggleMarkerLooping();
+        isGammaPreviewOn && toggleGammaPreview();
+        isFadeLoopPreviewOn && toggleFadeLoopPreview();
+        isAllPreviewsOn = false;
       }
     }
 
