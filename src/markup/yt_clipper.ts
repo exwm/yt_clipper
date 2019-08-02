@@ -302,6 +302,9 @@ export let player: HTMLElement;
           case 'ArrowUp':
             toggleSelectedMarkerPair(e);
             break;
+          case 'ArrowDown':
+            toggleAutoHideUnselectedMarkerPairs(e);
+            break;
         }
       }
       if (!e.ctrlKey && e.shiftKey && e.altKey && e.code === 'KeyA') {
@@ -366,8 +369,8 @@ export let player: HTMLElement;
         e.stopImmediatePropagation();
         if (enableMarkerHotkeys.endMarker) {
           toggleMarkerPairEditor(enableMarkerHotkeys.endMarker);
-        } else if (prevSelectedMarkerPair) {
-          toggleMarkerPairEditor(prevSelectedMarkerPair);
+        } else if (prevSelectedEndMarker) {
+          toggleMarkerPairEditor(prevSelectedEndMarker);
         }
       }
     }
@@ -390,7 +393,7 @@ export let player: HTMLElement;
 
     let startTime = 0.0;
     let toggleKeys = false;
-    let prevSelectedMarkerPair: SVGRectElement = null;
+    let prevSelectedEndMarker: SVGRectElement = null;
     let prevSelectedMarkerPairIndex: number = null;
 
     function init() {
@@ -2410,7 +2413,7 @@ export let player: HTMLElement;
       const context = canvas.getContext('2d');
       let resString: string;
       if (isMarkerEditorOpen && !wasDefaultsEditorOpen) {
-        const idx = parseInt(prevSelectedMarkerPair.getAttribute('idx'), 10) - 1;
+        const idx = parseInt(prevSelectedEndMarker.getAttribute('idx'), 10) - 1;
         const markerPair = markerPairs[idx];
         const cropMultipleX = video.videoWidth / settings.cropResWidth;
         const cropMultipleY = video.videoHeight / settings.cropResHeight;
@@ -3145,7 +3148,7 @@ export let player: HTMLElement;
     let isSpeedChartEnabled = false;
     function toggleMarkerPairEditor(targetMarker: SVGRectElement) {
       // toggling on off current pair editor
-      if (prevSelectedMarkerPair === targetMarker && !wasDefaultsEditorOpen) {
+      if (prevSelectedEndMarker === targetMarker && !wasDefaultsEditorOpen) {
         if (isMarkerEditorOpen) {
           toggleOffMarkerPairEditor();
         } else {
@@ -3166,12 +3169,19 @@ export let player: HTMLElement;
       hideSelectedMarkerPairCropOverlay();
       hideCropOverlay();
       hideSpeedChart();
+      if (prevSelectedEndMarker) {
+        prevSelectedEndMarker.classList.remove('selected-marker');
+        prevSelectedEndMarker.previousElementSibling.classList.remove('selected-marker');
+      }
+      if (isAutoHideUnselectedMarkerPairsOn) {
+        deleteElement(autoHideUnselectedMarkerPairsStyle);
+      }
     }
 
     function toggleOnMarkerPairEditor(targetMarker: SVGRectElement) {
-      prevSelectedMarkerPair = targetMarker;
+      prevSelectedEndMarker = targetMarker;
       prevSelectedMarkerPairIndex =
-        parseInt(prevSelectedMarkerPair.getAttribute('idx')) - 1;
+        parseInt(prevSelectedEndMarker.getAttribute('idx')) - 1;
 
       highlightSelectedMarkerPair(targetMarker);
       enableMarkerHotkeys(targetMarker);
@@ -3181,6 +3191,53 @@ export let player: HTMLElement;
       showCropOverlay();
       if (isSpeedChartEnabled) {
         showSpeedChart();
+      }
+
+      targetMarker.classList.add('selected-marker');
+      targetMarker.previousElementSibling.classList.add('selected-marker');
+      if (isAutoHideUnselectedMarkerPairsOn) {
+        autoHideUnselectedMarkerPairsStyle = injectCSS(
+          autoHideUnselectedMarkerPairsCSS,
+          'auto-hide-unselected-marker-pairs-css'
+        );
+      }
+    }
+
+    const autoHideUnselectedMarkerPairsCSS = `
+    rect.marker {
+      opacity: 0.2;
+    }
+
+    rect.marker.end-marker {
+      pointer-events: none;
+    }
+
+    rect.selected-marker {
+      opacity: 1;
+    }
+
+    rect.selected-marker.end-marker {
+      pointer-events: fill;
+    }
+    `;
+    let autoHideUnselectedMarkerPairsStyle: HTMLStyleElement;
+    let isAutoHideUnselectedMarkerPairsOn = false;
+    function toggleAutoHideUnselectedMarkerPairs(e: KeyboardEvent) {
+      if (e.ctrlKey && !arrowKeyCropAdjustmentEnabled) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (!isAutoHideUnselectedMarkerPairsOn) {
+          autoHideUnselectedMarkerPairsStyle = injectCSS(
+            autoHideUnselectedMarkerPairsCSS,
+            'auto-hide-unselected-marker-pairs-css'
+          );
+          isAutoHideUnselectedMarkerPairsOn = true;
+          flashMessage('Auto-hiding of unselected marker pairs enabled', 'green');
+        } else {
+          deleteElement(autoHideUnselectedMarkerPairsStyle);
+          isAutoHideUnselectedMarkerPairsOn = false;
+          flashMessage('Auto-hiding of unselected marker pairs disabled', 'red');
+        }
       }
     }
 
