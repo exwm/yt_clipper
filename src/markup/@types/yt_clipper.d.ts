@@ -19,6 +19,7 @@ interface Settings {
   audio?: boolean;
   expandColorRange?: boolean;
   videoStabilization?: VideoStabilization;
+  videoStabilizationDynamicZoom?: boolean;
   enableSpeedMaps?: boolean;
   loop?: Loop;
   fadeDuration?: number;
@@ -55,6 +56,7 @@ interface MarkerPairOverrides {
   audio?: boolean;
   expandColorRange?: boolean;
   videoStabilization?: VideoStabilization;
+  videoStabilizationDynamicZoom?: boolean;
   enableSpeedMaps?: boolean;
   loop?: Loop;
   fadeDuration?: number;
@@ -66,9 +68,10 @@ interface SpeedMapLoop {
   enabled: boolean;
 }
 interface VideoStabilization {
-  enabled: boolean;
-  shakiness: number;
   desc: string;
+  enabled: boolean;
+  shakiness?: number;
+  smoothing?: number;
 }
 
 type Loop = 'none' | 'fwrev' | 'fade';
