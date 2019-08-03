@@ -227,8 +227,8 @@ def buildArgParser():
                         help='Rotate video 90 degrees clockwise or counter-clockwise.')
     parser.add_argument('--denoise', '-dn', type=int, default=0, choices=range(0, 6),
                         help='Apply the hqdn3d denoise filter using a preset strength level from 0-5 where 0 is disabled and 5 is very strong.')
-    parser.add_argument('--video-stabilization', '-vs', dest='videoStabilization', type=int, default=0, choices=range(0, 6),
-                        help='Apply video stabilization using a preset strength level from 0-5 where 0 is disabled and 5 is very strong.')
+    parser.add_argument('--video-stabilization', '-vs', dest='videoStabilization', type=int, default=0, choices=range(0, 7),
+                        help='Apply video stabilization using a preset strength level from 0-6 where 0 is disabled and 6 is strongest.')
     parser.add_argument('--deinterlace', '-di', action='store_true',
                         help='Apply bwdif deinterlacing.')
     parser.add_argument('--expand-color-range', '-ecr', dest='expandColorRange', action='store_true',
@@ -510,7 +510,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
 
     ffmpegCommand = ' '.join((
         ffmpegPath,
-        f'-n -hide_banner',
+        f'-hide_banner',
         inputs,
         f'-benchmark',
         f'-c:v libvpx-vp9 -pix_fmt yuv420p',
@@ -562,8 +562,10 @@ def makeMarkerPairClip(settings, markerPairIndex):
     if mps["loop"] != 'fwrev':
         video_filter += f',{mp["speedFilter"]}'
     if mps["loop"] == 'fwrev':
-        reverseSpeedMap = [{"x":speedPoint["x"], "y":speedPointRev["y"]} for speedPoint, speedPointRev in zip(mp["speedMap"], reversed(mp["speedMap"]))]
-        reverseSpeedFilter, _ = getSpeedFilterAndDuration(reverseSpeedMap, mps, mps["r_frame_rate"])
+        reverseSpeedMap = [{"x": speedPoint["x"], "y":speedPointRev["y"]}
+                           for speedPoint, speedPointRev in zip(mp["speedMap"], reversed(mp["speedMap"]))]
+        reverseSpeedFilter, _ = getSpeedFilterAndDuration(
+            reverseSpeedMap, mps, mps["r_frame_rate"])
         loop_filter = ''
         loop_filter += f',split=2[f1][f2];'
         loop_filter += f'[f1]{mp["speedFilter"]}[f];'
@@ -603,18 +605,22 @@ def makeMarkerPairClip(settings, markerPairIndex):
             f'''vidstabdetect=result='{transformPath}':shakiness={vidstab["shakiness"]}'''
 
         vidstabtransformFilter = video_filter + \
-            f'vidstabtransform=input=\'{transformPath}\''
+            f'''vidstabtransform=input='{transformPath}':smoothing={vidstab["smoothing"]}'''
         if vidstab["optzoom"] == 2 and "zoomspeed" in vidstab:
-            vidstabtransformFilter += f':zoomspeed=0.1'
+            vidstabtransformFilter += f':optzoom=2:zoomspeed={vidstab["zoomspeed"]}'
         vidstabtransformFilter += r',unsharp=5:5:0.8:3:3:0.4'
 
         if mps["loop"] != 'none':
             vidstabdetectFilter += loop_filter
             vidstabtransformFilter += loop_filter
 
-        ffmpegVidstabdetect = ffmpegCommand + f'-vf "{vidstabdetectFilter}"'
+        ffmpegVidstabdetect = ffmpegCommand + f'-vf "{vidstabdetectFilter}" '
+        ffmpegVidstabdetect += f' -y '
         ffmpegVidstabtransform = ffmpegCommand + \
             f'-vf "{vidstabtransformFilter}" '
+        ffmpegVidstabtransform += f' -n '
+    else:
+        ffmpegCommand += f' -n '
 
     ffmpegCommands = []
     if mps["twoPass"] and not vidstabEnabled:
@@ -1018,24 +1024,26 @@ def cleanFileName(fileName):
 
 
 def getVidstabPreset(level):
-    denoisePreset = {"enabled": False, "desc": "Disabled"}
+    vidstabPreset = {"enabled": False, "desc": "Disabled"}
     if level == 1:
-        denoisePreset = {"enabled": True, "shakiness": 1,
-                         "optzoom": 2, "zoomspeed": 0.1,  "desc": "Very Weak"}
+        vidstabPreset = {"enabled": True, "shakiness": 3,
+                         "optzoom": 1, "smoothing": 3, "desc": "Very Weak"}
     elif level == 2:
-        denoisePreset = {"enabled": True, "shakiness": 3,
-                         "optzoom": 2, "zoomspeed": 0.25,   "desc": "Weak"}
+        vidstabPreset = {"enabled": True, "shakiness": 3,
+                         "optzoom": 2, "zoomspeed": 0.1, "smoothing": 3,  "desc": "Weak"}
     elif level == 3:
-        denoisePreset = {"enabled": True, "shakiness": 5,
-                         "optzoom": 2, "zoomspeed": 0.5,   "desc": "Medium"}
+        vidstabPreset = {"enabled": True, "shakiness": 5,
+                         "optzoom": 2, "zoomspeed": 0.2, "smoothing": 6,   "desc": "Medium"}
     elif level == 4:
-        denoisePreset = {"enabled": True, "shakiness": 8,
-                         "optzoom": 2, "zoomspeed": 0.75,   "desc": "Strong"}
+        vidstabPreset = {"enabled": True, "shakiness": 8,
+                         "optzoom": 2, "zoomspeed": 0.3,  "smoothing": 10, "desc": "Strong"}
     elif level == 5:
-        denoisePreset = {"enabled": True, "shakiness": 10,
-                         "optzoom": 1,   "desc": "Very Strong"}
-    return denoisePreset
-
+        vidstabPreset = {"enabled": True, "shakiness": 10,
+                         "optzoom": 2, "zoomspeed": 0.4, "smoothing": 15,  "desc": "Very Strong"}
+    elif level == 6:
+        vidstabPreset = {"enabled": True, "shakiness": 10,
+                         "optzoom": 2, "zoomspeed": 0.5, "smoothing": 0,  "desc": "Strongest"}
+    return vidstabPreset
 
 def getDenoisePreset(level):
     denoisePreset = {"enabled": False, "desc": "Disabled"}
