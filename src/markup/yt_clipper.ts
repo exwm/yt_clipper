@@ -1940,6 +1940,7 @@ export let player: HTMLElement;
         <div class="editor-input-div">
           <span>Stabilization: </span>
           <select id="video-stabilization-input">
+            <option ${vidstabDesc === 'Strongest' ? 'selected' : ''}>Strongest</option>
             <option ${
               vidstabDesc === 'Very Strong' ? 'selected' : ''
             }>Very Strong</option>
@@ -2036,34 +2037,53 @@ export let player: HTMLElement;
 
     const presetsMap = {
       videoStabilization: {
-        Disabled: { enabled: false, desc: 'Disabled' },
+        Disabled: { desc: 'Disabled', enabled: false },
         'Very Weak': {
+          desc: 'Very Weak',
           enabled: true,
-          shakiness: 1,
+          shakiness: 3,
+          smoothing: 3,
+          optzoom: 1,
+        },
+        Weak: {
+          desc: 'Weak',
+          enabled: true,
+          shakiness: 3,
+          smoothing: 3,
           optzoom: 2,
           zoomspeed: 0.1,
-          desc: 'Very Weak',
         },
-        Weak: { enabled: true, shakiness: 3, optzoom: 2, zoomspeed: 0.25, desc: 'Weak' },
         Medium: {
+          desc: 'Medium',
           enabled: true,
           shakiness: 5,
+          smoothing: 6,
           optzoom: 2,
-          zoomspeed: 0.5,
-          desc: 'Medium',
+          zoomspeed: 0.2,
         },
         Strong: {
+          desc: 'Strong',
           enabled: true,
           shakiness: 8,
+          smoothing: 10,
           optzoom: 2,
-          zoomspeed: 0.75,
-          desc: 'Strong',
+          zoomspeed: 0.3,
         },
         'Very Strong': {
+          desc: 'Very Strong',
           enabled: true,
           shakiness: 10,
-          optzoom: 1,
-          desc: 'Very Strong',
+          smoothing: 15,
+          optzoom: 2,
+          zoomspeed: 0.4,
+        },
+        Strongest: {
+          desc: 'Strongest',
+          enabled: true,
+          shakiness: 10,
+          smoothing: 0,
+          optzoom: 2,
+          zoomspeed: 0.5,
         },
       },
       denoise: {
@@ -3384,6 +3404,7 @@ export let player: HTMLElement;
         <div class="editor-input-div">
           <span>Stabilization: </span>
           <select id="video-stabilization-input">
+            <option ${vidstabDesc === 'Strongest' ? 'selected' : ''}>Strongest</option>
             <option ${
               vidstabDesc === 'Very Strong' ? 'selected' : ''
             }>Very Strong</option>
