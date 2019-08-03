@@ -30,21 +30,25 @@ interface MarkerPair {
   end: number;
   crop: string;
   speed: number;
-  speedMap: SpeedPoint[];
-  speedMapLoop: SpeedMapLoop;
-  outputDuration?: number;
   overrides: MarkerPairOverrides;
+  speedMapLoop: SpeedMapLoop;
+  speedMap: SpeedPoint[];
+  outputDuration: number;
+  startNumbering: SVGTextElement;
+  endNumbering: SVGTextElement;
 }
 
 interface MarkerConfig {
   time?: number;
   type?: 'start' | 'end';
   speed?: number;
-  speedMap?: SpeedPoint[];
+  overrides?: MarkerPairOverrides;
   speedMapLoop?: SpeedMapLoop;
+  speedMap?: SpeedPoint[];
   crop?: string;
   outputDuration?: number;
-  overrides?: MarkerPairOverrides;
+  startNumbering?: SVGTextElement;
+  endNumbering?: SVGTextElement;
 }
 
 interface MarkerPairOverrides {

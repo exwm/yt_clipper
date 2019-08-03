@@ -1,0 +1,172 @@
+@keyframes valid-input {
+  0% {
+    background-color: tomato;
+  }
+  100% {
+    background-color: lightgreen;
+  }
+}
+
+@keyframes invalid-input {
+  0% {
+    background-color: lightgreen;
+  }
+  100% {
+    background-color: tomato;
+  }
+}
+
+@keyframes flash {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.msg-div {
+  margin-top: 2px;
+  padding: 2px;
+  border: 2px outset grey;
+}
+
+.flash-div {
+  animation-name: flash;
+  animation-duration: 5s;
+  animation-fill-mode: forwards;
+}
+
+.flash-msg {
+  font-size: 10pt;
+  font-weight: bold;
+}
+
+.marker {
+  width: 1.5px;
+  height: 16px;
+}
+
+.start-marker {
+  fill: lime;
+  pointer-events: none;
+}
+
+.end-marker {
+  fill: gold;
+  pointer-events: visibleFill;
+}
+
+.selected-marker-overlay {
+  fill: black;
+  width: 1.5px;
+  height: 8.5px;
+  y: 3.5px;
+  pointer-events: none;
+}
+
+#markerInputsDiv {
+  display: flex;
+}
+.editor-input-div {
+  display: inline-block;
+  color: grey;
+  font-size: 12pt;
+  margin: 2px;
+  padding: 2px;
+  border: 2px solid grey;
+}
+
+.editor-input-label {
+  color: grey;
+  font-size: 12pt;
+}
+
+.yt_clipper-input {
+  font-weight: bold;
+}
+
+.yt_clipper-input:valid {
+  animation-name: valid-input;
+  animation-duration: 1s;
+  animation-fill-mode: forwards;
+}
+
+.yt_clipper-input:invalid {
+  animation-name: invalid-input;
+  animation-duration: 1s;
+  animation-fill-mode: forwards;
+}
+
+.marker-settings-display {
+  display: block;
+  color: grey;
+  font-size: 12pt;
+  font-style: italic;
+  margin: 2px;
+  padding: 2px;
+  border: 2px solid grey;
+}
+
+.yt_clipper-settings-editor {
+  display: inline;
+  color: grey;
+  font-size: 12pt;
+  margin: 10px;
+  padding: 4px;
+  border: 2px solid grey;
+  border-radius: 5px;
+}
+
+#markers-svg,
+#selected-marker-pair-overlay,
+#start-marker-numberings,
+#end-marker-numberings {
+  font-size: 6.5pt;
+  width: 100%;
+  height: 300%;
+  top: -4px;
+  position: absolute;
+  z-index: 99;
+  paint-order: stroke;
+  stroke: rgb(60, 60, 60);
+  stroke-width: 0.6pt;
+}
+
+#start-marker-numberings {
+  top: -20px;
+}
+
+#end-marker-numberings {
+  top: 10px;
+}
+
+.markerNumbering {
+  pointer-events: none;
+}
+
+.startMarkerNumbering {
+  fill: lime;
+}
+
+.endMarkerNumbering {
+  fill: gold;
+}
+
+#crop-div {
+  pointer-events: none;
+  z-index: 10;
+}
+
+#begin-crop-preview-div {
+  pointer-events: none;
+  z-index: 11;
+}
+
+#crop-svg,
+#begin-crop-preview-svg {
+  width: 100%;
+  height: 100%;
+  top: 0px;
+  position: absolute;
+}

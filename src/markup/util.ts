@@ -19,6 +19,13 @@ export function htmlToElement(html: string) {
   return template.content.firstChild;
 }
 
+export function htmlToSVGElement(html: string) {
+  const template = document.createElementNS('http://www.w3.org/2000/svg', 'template');
+  html = html.trim(); // Never return a text node of whitespace as the result
+  template.innerHTML = html;
+  return template.firstElementChild;
+}
+
 export function once(fn: Function, context: any) {
   var result: Function;
   return function() {
