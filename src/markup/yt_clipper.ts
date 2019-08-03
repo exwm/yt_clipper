@@ -1112,8 +1112,8 @@ export let player: HTMLElement;
     function getShortestActiveMarkerPair(currentTime: number = video.currentTime) {
       const activeMarkerPairs = markerPairs.filter((markerPair) => {
         if (
-          currentTime >= Math.round(markerPair.start * 1e6) / 1e6 &&
-          currentTime <= Math.round(markerPair.end * 1e6) / 1e6
+          currentTime >= Math.floor(markerPair.start * 1e6) / 1e6 &&
+          currentTime <= Math.ceil(markerPair.end * 1e6) / 1e6
         ) {
           return true;
         }
@@ -1363,8 +1363,8 @@ export let player: HTMLElement;
     }
 
     function fadeLoopPreviewHandler() {
-      const shortestActiveMarkerPair = getShortestActiveMarkerPair();
       const currentTime = video.currentTime;
+      const shortestActiveMarkerPair = getShortestActiveMarkerPair();
       if (
         shortestActiveMarkerPair &&
         shortestActiveMarkerPair.overrides.loop === 'fade'
@@ -1375,7 +1375,7 @@ export let player: HTMLElement;
         } else {
           let currentTimeEased = easeCubicInOut(currentTimeP);
           video.style.opacity = currentTimeEased.toString();
-          console.log(video.style.opacity);
+          // console.log(video.style.opacity);
         }
       } else {
         video.style.opacity = '1';
@@ -1386,26 +1386,26 @@ export let player: HTMLElement;
     }
 
     function getFadeBounds(markerPair: MarkerPair, currentTime: number): number | null {
-      const speedMap = markerPair.speedMap;
-
-      // const inputDuration = markerPair.end - markerPair.start;
-      const outputDuration = getOutputDuration(speedMap);
-      const fadeDuration =
+      const start = Math.floor(markerPair.start * 1e6) / 1e6;
+      const end = Math.ceil(markerPair.end * 1e6) / 1e6;
+      const inputDuration = end - start;
+      const outputDuration = markerPair.outputDuration;
+      let fadeDuration =
         markerPair.overrides.fadeDuration || settings.fadeDuration || 0.5;
-
+      fadeDuration = Math.min(fadeDuration, 0.4 * outputDuration);
       const fadeInStartP = 0;
       const fadeInEndP = fadeDuration / outputDuration;
-      const fadeOutStart = outputDuration - fadeDuration;
       const fadeOutStartP = (outputDuration - fadeDuration) / outputDuration;
       const fadeOutEndP = outputDuration / outputDuration;
 
-      let currentTimeP = (currentTime - markerPair.start) / outputDuration;
+      let currentTimeP = (currentTime - start) / inputDuration;
 
       if (currentTimeP >= fadeInStartP && currentTimeP <= fadeInEndP) {
-        currentTimeP = (currentTime - markerPair.start) / fadeDuration;
+        currentTimeP = (currentTime - start) / fadeDuration;
         return currentTimeP;
       } else if (currentTimeP >= fadeOutStartP && currentTimeP <= fadeOutEndP) {
-        currentTimeP = 1 - (currentTime - markerPair.start - fadeOutStart) / fadeDuration;
+        currentTimeP =
+          1 - (currentTime - start - (inputDuration - fadeDuration)) / fadeDuration;
         return currentTimeP;
       } else {
         return null;
@@ -1719,12 +1719,13 @@ export let player: HTMLElement;
         end: currentTime,
         crop: markerPairConfig.crop || settings.newMarkerCrop,
         speed: speed,
+        outputDuration: markerPairConfig.outputDuration || currentTime - startTime,
+        overrides: markerPairConfig.overrides || {},
+        speedMapLoop: markerPairConfig.speedMapLoop || { enabled: true },
         speedMap: markerPairConfig.speedMap || [
           { x: startTime, y: speed },
           { x: currentTime, y: speed },
         ],
-        speedMapLoop: markerPairConfig.speedMapLoop || { enabled: true },
-        overrides: markerPairConfig.overrides || {},
       };
 
       markerPairs.push(updatedMarker);
@@ -1994,7 +1995,7 @@ export let player: HTMLElement;
             </select>
           <div class="editor-input-div">
             <span>Fade Duration: </span>
-            <input id="fade-duration-input" class="yt_clipper-input" type="number" min="0" max="5" step="0.1" value="${
+            <input id="fade-duration-input" class="yt_clipper-input" type="number" min="0.1" step="0.1" value="${
               settings.fadeDuration != null ? settings.fadeDuration : ''
             }" placeholder="0.5" style="width:4em"></input>
           </div>
@@ -3503,7 +3504,7 @@ export let player: HTMLElement;
             </select>
           <div class="editor-input-div">
             <span>Fade Duration: </span>
-            <input id="fade-duration-input" class="yt_clipper-input" type="number" min="0" max="5" step="0.1" value="${
+            <input id="fade-duration-input" class="yt_clipper-input" type="number" min="0.1" step="0.1" value="${
               overrides.fadeDuration != null ? overrides.fadeDuration : ''
             }" placeholder="0.5" style="width:4em"></input>
           </div>
@@ -3652,6 +3653,7 @@ export let player: HTMLElement;
       const outputDuration = getOutputDuration(markerPair.speedMap);
       const outputDurationHHMMSS = toHHMMSSTrimmed(outputDuration);
       speedAdjustedDurationSpan.textContent = `${durationHHMMSS} (${outputDurationHHMMSS})`;
+      markerPair.outputDuration = outputDuration;
     }
 
     function getOutputDuration(speedMap: SpeedPoint[]) {

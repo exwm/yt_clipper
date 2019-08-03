@@ -32,6 +32,7 @@ interface MarkerPair {
   speed: number;
   speedMap: SpeedPoint[];
   speedMapLoop: SpeedMapLoop;
+  outputDuration?: number;
   overrides: MarkerPairOverrides;
 }
 
@@ -42,6 +43,7 @@ interface MarkerConfig {
   speedMap?: SpeedPoint[];
   speedMapLoop?: SpeedMapLoop;
   crop?: string;
+  outputDuration?: number;
   overrides?: MarkerPairOverrides;
 }
 
