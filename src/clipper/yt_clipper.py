@@ -56,7 +56,8 @@ def main():
 
     args = {k: v for k, v in args.items() if v is not None}
 
-    args["videoStabilization"] = getVidstabPreset(args["videoStabilization"])
+    args["videoStabilization"] = getVidstabPreset(
+        args["videoStabilization"], args["videoStabilizationDynamicZoom"])
     args["denoise"] = getDenoisePreset(args["denoise"])
     settings = {'markerPairMergeList': '', 'rotate': 0,
                 'overlayPath': '', 'delay': 0, 'color_space': None, **args}
@@ -229,6 +230,8 @@ def buildArgParser():
                         help='Apply the hqdn3d denoise filter using a preset strength level from 0-5 where 0 is disabled and 5 is very strong.')
     parser.add_argument('--video-stabilization', '-vs', dest='videoStabilization', type=int, default=0, choices=range(0, 7),
                         help='Apply video stabilization using a preset strength level from 0-6 where 0 is disabled and 6 is strongest.')
+    parser.add_argument('--video-stabilization-dynamic-zoom', '-vsdz', dest='videoStabilizationDynamicZoom', type=bool, default=False,
+                        help='Enable video stabilization dynamic zoom. Unlike a static zoom the zoom in can vary with time to reduce cropping of video.')
     parser.add_argument('--deinterlace', '-di', action='store_true',
                         help='Apply bwdif deinterlacing.')
     parser.add_argument('--expand-color-range', '-ecr', dest='expandColorRange', action='store_true',
@@ -383,7 +386,8 @@ def prepareGlobalSettings(settings):
                  f'Speed Maps Enabled: {settings["enableSpeedMaps"]}, ' +
                  f'Special Looping: {settings["loop"]}, ' +
                  (f'Fade Duration: {settings["fadeDuration"]}, ' if settings["loop"] == 'fade' else '') +
-                 f'Video Stabilization: {settings["videoStabilization"]["desc"]}'))
+                 f'Video Stabilization: {settings["videoStabilization"]["desc"]}, ' +
+                 f'Video Stabilization Dynamic Zoom: {settings["videoStabilizationDynamicZoom"]}'))
     return settings
 
 
@@ -458,10 +462,11 @@ def getMarkerPairSettings(settings, markerPairIndex):
                  f'Audio Enabled: {mps["audio"]}, Denoise: {mps["denoise"]["desc"]}, ' +
                  f'Marker Pair {markerPairIndex + 1} is of variable speed: {mp["isVariableSpeed"]}, ' +
                  f'Speed Maps Enabled: {mps["enableSpeedMaps"]}, ' +
-                 f'Video Stabilization: {mps["videoStabilization"]["desc"]}, ' +
                  f'Special Looping: {mps["loop"]},  ' +
                  (f'Fade Duration: {mps["fadeDuration"]}s' if mps["loop"] == 'fade' else '') +
-                 f'Final Output Duration: {mp["outputDuration"]}'))
+                 f'Final Output Duration: {mp["outputDuration"]}, ' +
+                 f'Video Stabilization: {mps["videoStabilization"]["desc"]}, ' +
+                 f'Video Stabilization Dynamic Zoom: {mps["videoStabilizationDynamicZoom"]}'))
     logger.info('-' * 80)
 
     return (markerPair, markerPairSettings)
@@ -606,7 +611,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
 
         vidstabtransformFilter = video_filter + \
             f'''vidstabtransform=input='{transformPath}':smoothing={vidstab["smoothing"]}'''
-        if vidstab["optzoom"] == 2 and "zoomspeed" in vidstab:
+        if mps["videoStabilizationDynamicZoom"]:
             vidstabtransformFilter += f':optzoom=2:zoomspeed={vidstab["zoomspeed"]}'
         vidstabtransformFilter += r',unsharp=5:5:0.8:3:3:0.4'
 
@@ -1023,27 +1028,28 @@ def cleanFileName(fileName):
     return fileName
 
 
-def getVidstabPreset(level):
+def getVidstabPreset(level, videoStabilizationDynamicZoom):
     vidstabPreset = {"enabled": False, "desc": "Disabled"}
     if level == 1:
-        vidstabPreset = {"enabled": True, "shakiness": 3,
-                         "optzoom": 1, "smoothing": 3, "desc": "Very Weak"}
+        vidstabPreset = {"enabled": True, "shakiness": 2,
+                         "zoomspeed": 0.05, "smoothing": 2, "desc": "Very Weak"}
     elif level == 2:
-        vidstabPreset = {"enabled": True, "shakiness": 3,
-                         "optzoom": 2, "zoomspeed": 0.1, "smoothing": 3,  "desc": "Weak"}
+        vidstabPreset = {"enabled": True, "shakiness": 4,
+                         "zoomspeed": 0.1, "smoothing": 4,  "desc": "Weak"}
     elif level == 3:
-        vidstabPreset = {"enabled": True, "shakiness": 5,
-                         "optzoom": 2, "zoomspeed": 0.2, "smoothing": 6,   "desc": "Medium"}
+        vidstabPreset = {"enabled": True, "shakiness": 6,
+                         "zoomspeed": 0.2, "smoothing": 6,   "desc": "Medium"}
     elif level == 4:
         vidstabPreset = {"enabled": True, "shakiness": 8,
-                         "optzoom": 2, "zoomspeed": 0.3,  "smoothing": 10, "desc": "Strong"}
+                         "zoomspeed": 0.3,  "smoothing": 10, "desc": "Strong"}
     elif level == 5:
         vidstabPreset = {"enabled": True, "shakiness": 10,
-                         "optzoom": 2, "zoomspeed": 0.4, "smoothing": 15,  "desc": "Very Strong"}
+                         "zoomspeed": 0.4, "smoothing": 16,  "desc": "Very Strong"}
     elif level == 6:
         vidstabPreset = {"enabled": True, "shakiness": 10,
-                         "optzoom": 2, "zoomspeed": 0.5, "smoothing": 0,  "desc": "Strongest"}
+                         "zoomspeed": 0.5, "smoothing": 0,  "desc": "Strongest"}
     return vidstabPreset
+
 
 def getDenoisePreset(level):
     denoisePreset = {"enabled": False, "desc": "Disabled"}
