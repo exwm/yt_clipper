@@ -1682,7 +1682,7 @@ export let player: HTMLElement;
         marker.setAttribute('z-index', '1');
         startTime = currentFrameTime;
       } else {
-        marker.addEventListener('mouseover', toggleMarkerEditorHandler, false);
+        marker.addEventListener('mouseover', toggleMarkerPairEditorHandler, false);
         marker.classList.add('end-marker');
         marker.setAttribute('type', 'end');
         marker.setAttribute('z-index', '2');
@@ -1805,6 +1805,11 @@ export let player: HTMLElement;
         const denoiseDesc = denoise ? denoise.desc : null;
         const vidstab = settings.videoStabilization;
         const vidstabDesc = vidstab ? vidstab.desc : null;
+        const vidstabDynamicZoomEnabled = vidstab
+          ? vidstab.enabled && vidstab.optzoom == 2
+            ? true
+            : false
+          : null;
         const markerPairMergelistDurations = getMarkerPairMergeListDurations();
         markerInputs.setAttribute('id', 'markerInputsDiv');
         markerInputs.innerHTML = `\
@@ -1952,6 +1957,18 @@ export let player: HTMLElement;
               vidstabDesc == null ? 'selected' : ''
             }>Inherit (Disabled)</option>
           </select>
+          <div class="editor-input-div">
+            <span>Dynamic Zoom: </span>
+            <select id="video-stabilization-dynamic-zoom-input"> 
+              <option ${vidstabDynamicZoomEnabled ? 'selected' : ''}>Enabled</option>
+              <option ${
+                vidstabDynamicZoomEnabled === false ? 'selected' : ''
+              }>Disabled</option>
+              <option value="Default" ${
+                vidstabDynamicZoomEnabled == null ? 'selected' : ''
+              }>Inherit (Disabled)</option>
+          </select>
+          </div>
         </div>
         <div class="editor-input-div">
           <span>Speed Maps: </span>
@@ -1988,28 +2005,36 @@ export let player: HTMLElement;
         updateSettingsEditorHook();
         settingsEditorHook.insertAdjacentElement('beforebegin', markerInputs);
 
-        addGlobalSettingsListeners([
-          ['speed-input', 'newMarkerSpeed', 'number'],
-          ['crop-input', 'newMarkerCrop', 'string'],
-          ['crop-res-input', 'cropRes', 'string'],
-          ['merge-list-input', 'markerPairMergeList', 'string'],
-          ['title-suffix-input', 'titleSuffix', 'string'],
-          ['gamma-input', 'gamma', 'number'],
-          ['encode-speed-input', 'encodeSpeed', 'number'],
-          ['crf-input', 'crf', 'number'],
-          ['target-max-bitrate-input', 'targetMaxBitrate', 'number'],
-          ['rotate-0', 'rotate', 'string'],
-          ['rotate-90-clock', 'rotate', 'string'],
-          ['rotate-90-counterclock', 'rotate', 'string'],
-          ['two-pass-input', 'twoPass', 'ternary'],
-          ['audio-input', 'audio', 'ternary'],
-          ['expand-color-range-input', 'expandColorRange', 'ternary'],
-          ['denoise-input', 'denoise', 'preset'],
-          ['video-stabilization-input', 'videoStabilization', 'preset'],
-          ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
-          ['loop-input', 'loop', 'inheritableString'],
-          ['fade-duration-input', 'fadeDuration', 'number'],
-        ]);
+        addSettingsInputListeners(
+          [
+            ['speed-input', 'newMarkerSpeed', 'number'],
+            ['crop-input', 'newMarkerCrop', 'string'],
+            ['crop-res-input', 'cropRes', 'string'],
+            ['merge-list-input', 'markerPairMergeList', 'string'],
+            ['title-suffix-input', 'titleSuffix', 'string'],
+            ['gamma-input', 'gamma', 'number'],
+            ['encode-speed-input', 'encodeSpeed', 'number'],
+            ['crf-input', 'crf', 'number'],
+            ['target-max-bitrate-input', 'targetMaxBitrate', 'number'],
+            ['rotate-0', 'rotate', 'string'],
+            ['rotate-90-clock', 'rotate', 'string'],
+            ['rotate-90-counterclock', 'rotate', 'string'],
+            ['two-pass-input', 'twoPass', 'ternary'],
+            ['audio-input', 'audio', 'ternary'],
+            ['expand-color-range-input', 'expandColorRange', 'ternary'],
+            ['denoise-input', 'denoise', 'preset'],
+            ['video-stabilization-input', 'videoStabilization', 'preset'],
+            [
+              'video-stabilization-dynamic-zoom-input',
+              'videoStabilizationDynamicZoom',
+              'ternary',
+            ],
+            ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
+            ['loop-input', 'loop', 'inheritableString'],
+            ['fade-duration-input', 'fadeDuration', 'number'],
+          ],
+          settings
+        );
 
         cropInput = document.getElementById('crop-input') as HTMLInputElement;
         wasDefaultsEditorOpen = true;
@@ -2019,17 +2044,17 @@ export let player: HTMLElement;
       }
     }
 
-    function addGlobalSettingsListeners(inputs: string[][]) {
+    function addSettingsInputListeners(inputs: any[][], target) {
       inputs.forEach((input) => {
         const id = input[0];
-        const updateTarget = input[1];
+        const targetProperty = input[1];
         const valueType = input[2] || 'string';
         const inputElem = document.getElementById(id);
         inputElem.addEventListener('focus', () => (toggleKeys = false), false);
         inputElem.addEventListener('blur', () => (toggleKeys = true), false);
         inputElem.addEventListener(
           'change',
-          (e) => updateDefaultValue(e, updateTarget, valueType),
+          (e) => updateSettingsValue(e, target, targetProperty, valueType),
           false
         );
       });
@@ -2041,24 +2066,22 @@ export let player: HTMLElement;
         'Very Weak': {
           desc: 'Very Weak',
           enabled: true,
-          shakiness: 3,
-          smoothing: 3,
-          optzoom: 1,
+          shakiness: 2,
+          smoothing: 2,
+          zoomspeed: 0.05,
         },
         Weak: {
           desc: 'Weak',
           enabled: true,
-          shakiness: 3,
-          smoothing: 3,
-          optzoom: 2,
+          shakiness: 4,
+          smoothing: 4,
           zoomspeed: 0.1,
         },
         Medium: {
           desc: 'Medium',
           enabled: true,
-          shakiness: 5,
+          shakiness: 6,
           smoothing: 6,
-          optzoom: 2,
           zoomspeed: 0.2,
         },
         Strong: {
@@ -2066,15 +2089,13 @@ export let player: HTMLElement;
           enabled: true,
           shakiness: 8,
           smoothing: 10,
-          optzoom: 2,
           zoomspeed: 0.3,
         },
         'Very Strong': {
           desc: 'Very Strong',
           enabled: true,
           shakiness: 10,
-          smoothing: 15,
-          optzoom: 2,
+          smoothing: 16,
           zoomspeed: 0.4,
         },
         Strongest: {
@@ -2082,7 +2103,6 @@ export let player: HTMLElement;
           enabled: true,
           shakiness: 10,
           smoothing: 0,
-          optzoom: 2,
           zoomspeed: 0.5,
         },
       },
@@ -2095,12 +2115,18 @@ export let player: HTMLElement;
         'Very Strong': { enabled: true, lumaSpatial: 8, desc: 'Very Strong' },
       },
     };
-    function updateDefaultValue(e: Event, updateTarget: string, valueType: string) {
+
+    function updateSettingsValue(
+      e: Event,
+      target: Settings | MarkerPair | MarkerPairOverrides,
+      targetProperty: string,
+      valueType: string
+    ) {
       if (e.target.reportValidity()) {
         let newValue = e.target.value;
         if (newValue != null) {
-          if (updateTarget !== 'markerPairMergeList' && newValue === '') {
-            delete settings[updateTarget];
+          if (targetProperty !== 'markerPairMergeList' && newValue === '') {
+            delete target[targetProperty];
             return;
           } else if (valueType === 'number') {
             newValue = parseFloat(newValue);
@@ -2108,7 +2134,7 @@ export let player: HTMLElement;
             newValue = e.target.checked;
           } else if (valueType === 'ternary' || valueType === 'inheritableString') {
             if (newValue === 'Default' || newValue === 'Inherit') {
-              delete settings[updateTarget];
+              delete target[targetProperty];
               return;
             } else if (newValue === 'Enabled') {
               newValue = true;
@@ -2119,29 +2145,45 @@ export let player: HTMLElement;
             }
           } else if (valueType === 'preset') {
             if (newValue === 'Inherit') {
-              delete settings[updateTarget];
+              delete target[targetProperty];
               return;
             }
-            newValue = presetsMap[updateTarget][newValue];
+            newValue = presetsMap[targetProperty][newValue];
           }
         }
 
-        settings[updateTarget] = newValue;
+        target[targetProperty] = newValue;
 
-        if (updateTarget === 'newMarkerCrop') {
-          createCropOverlay(settings.newMarkerCrop);
+        if (targetProperty === 'newMarkerCrop') {
+          createCropOverlay(target.newMarkerCrop);
         }
-        if (updateTarget === 'cropRes') {
-          const prevWidth = settings.cropResWidth;
-          const prevHeight = settings.cropResHeight;
-          const [newWidth, newHeight] = settings.cropRes
+
+        if (targetProperty === 'cropRes') {
+          const prevWidth = target.cropResWidth;
+          const prevHeight = target.cropResHeight;
+          const [newWidth, newHeight] = target.cropRes
             .split('x')
             .map((str) => parseInt(str), 10);
           const cropMultipleX = newWidth / prevWidth;
           const cropMultipleY = newHeight / prevHeight;
-          settings.cropResWidth = newWidth;
-          settings.cropResHeight = newHeight;
+          target.cropResWidth = newWidth;
+          target.cropResHeight = newHeight;
           multiplyAllCrops(cropMultipleX, cropMultipleY);
+        }
+
+        if (targetProperty === 'crop') {
+          const [x, y, w, h] = extractCropComponents(newValue);
+          setCropOverlayDimensions(x, y, w, h);
+        }
+
+        if (targetProperty === 'speed') {
+          const speedMap = target.speedMap;
+          if (speedMap.length === 2 && speedMap[0].y === speedMap[1].y) {
+            target.speedMap[1].y = newValue;
+          }
+          target.speedMap[0].y = newValue;
+          speedChart && speedChart.update();
+          updateMarkerPairDuration(target);
         }
       }
     }
@@ -3157,7 +3199,7 @@ export let player: HTMLElement;
       flashMessage(`All marker crops updated to ${newCrop}`, 'olive');
     }
 
-    function toggleMarkerEditorHandler(e: MouseEvent) {
+    function toggleMarkerPairEditorHandler(e: MouseEvent) {
       const targetMarker = e.target as SVGRectElement;
 
       if (targetMarker && e.shiftKey) {
@@ -3262,8 +3304,8 @@ export let player: HTMLElement;
     }
 
     function createMarkerPairEditor(targetMarker: SVGRectElement) {
-      const markerIndex = parseInt(targetMarker.getAttribute('idx'), 10) - 1;
-      const markerPair = markerPairs[markerIndex];
+      const markerPairIndex = parseInt(targetMarker.getAttribute('idx'), 10) - 1;
+      const markerPair = markerPairs[markerPairIndex];
       const startTime = toHHMMSSTrimmed(markerPair.start);
       const endTime = toHHMMSSTrimmed(markerPair.end);
       const speed = markerPair.speed;
@@ -3280,6 +3322,11 @@ export let player: HTMLElement;
       const vidstabDescGlobal = settings.videoStabilization
         ? `(${settings.videoStabilization.desc})`
         : '';
+      const vidstabDynamicZoomEnabled = vidstab
+        ? vidstab.enabled && vidstab.optzoom == 2
+          ? true
+          : false
+        : null;
       const denoise = overrides.denoise;
       const denoiseDesc = denoise ? denoise.desc : null;
       const denoiseDescGlobal = settings.denoise ? `(${settings.denoise.desc})` : '';
@@ -3292,7 +3339,7 @@ export let player: HTMLElement;
       markerInputsDiv.innerHTML = `\
       <div class="yt_clipper-settings-editor">
         <span style="font-weight:bold;font-style:none">Marker Pair \
-          <span id="marker-pair-number-label">${markerIndex + 1}</span>\
+          <span id="marker-pair-number-label">${markerPairIndex + 1}</span>\
           /\
           <span id="marker-pair-count-label">${markerPairs.length}</span>\
         Settings: </span>
@@ -3419,6 +3466,18 @@ export let player: HTMLElement;
               vidstabDesc == null ? 'selected' : ''
             }>Inherit Global ${vidstabDescGlobal}</option>
           </select>
+          <div class="editor-input-div">
+            <span>Dynamic Zoom: </span>
+            <select id="video-stabilization-dynamic-zoom-input"> 
+              <option ${vidstabDynamicZoomEnabled ? 'selected' : ''}>Enabled</option>
+              <option ${
+                vidstabDynamicZoomEnabled === false ? 'selected' : ''
+              }>Disabled</option>
+              <option value="Default" ${
+                vidstabDynamicZoomEnabled == null ? 'selected' : ''
+              }>Inherit (Disabled)</option>
+            </select>
+          </div>
         </div>
         <div class="editor-input-div">
         <span>Speed Map: </span>
@@ -3455,11 +3514,11 @@ export let player: HTMLElement;
       updateSettingsEditorHook();
       settingsEditorHook.insertAdjacentElement('beforebegin', markerInputsDiv);
 
-      addMarkerInputListeners(
+      addSettingsInputListeners(
         [['speed-input', 'speed', 'number'], ['crop-input', 'crop', 'string']],
-        markerIndex
+        markerPairs[markerPairIndex]
       );
-      addMarkerInputListeners(
+      addSettingsInputListeners(
         [
           ['title-prefix-input', 'titlePrefix', 'string'],
           ['gamma-input', 'gamma', 'number'],
@@ -3472,11 +3531,15 @@ export let player: HTMLElement;
           ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
           ['denoise-input', 'denoise', 'preset'],
           ['video-stabilization-input', 'videoStabilization', 'preset'],
+          [
+            'video-stabilization-dynamic-zoom-input',
+            'videoStabilizationDynamicZoom',
+            'ternary',
+          ],
           ['loop-input', 'loop', 'inheritableString'],
           ['fade-duration-input', 'fadeDuration', 'number'],
         ],
-        markerIndex,
-        true
+        markerPairs[markerPairIndex].overrides
       );
 
       cropInput = document.getElementById('crop-input') as HTMLInputElement;
@@ -3589,26 +3652,6 @@ export let player: HTMLElement;
       const outputDuration = getOutputDuration(markerPair.speedMap);
       const outputDurationHHMMSS = toHHMMSSTrimmed(outputDuration);
       speedAdjustedDurationSpan.textContent = `${durationHHMMSS} (${outputDurationHHMMSS})`;
-    }
-    function addMarkerInputListeners(
-      inputs: string[][],
-      currentIdx: number,
-      overridesField: boolean = false
-    ) {
-      inputs.forEach((input) => {
-        const id = input[0];
-        const updateTarget = input[1];
-        const valueType = input[2] || 'string';
-        const inputElem = document.getElementById(id);
-        inputElem.addEventListener('focus', () => (toggleKeys = false), false);
-        inputElem.addEventListener('blur', () => (toggleKeys = true), false);
-        inputElem.addEventListener(
-          'change',
-          (e) =>
-            updateMarkerSettings(e, updateTarget, valueType, currentIdx, overridesField),
-          false
-        );
-      });
     }
 
     function getOutputDuration(speedMap: SpeedPoint[]) {
@@ -3732,61 +3775,6 @@ export let player: HTMLElement;
             globalEncodeSettingsEditor.style.display = 'none';
             globalEncodeSettingsEditorDisplay = 'none';
           }
-        }
-      }
-    }
-    function updateMarkerSettings(
-      e: Event,
-      updateTarget: string,
-      valueType: string,
-      currentIdx: number,
-      overridesField: boolean = false
-    ) {
-      if (e.target.reportValidity()) {
-        const markerPair = markerPairs[currentIdx];
-        let newValue = e.target.value;
-        if (newValue != null) {
-          if (newValue === '') {
-            delete markerPair.overrides[updateTarget];
-            return;
-          } else if (valueType === 'number') {
-            newValue = parseFloat(newValue);
-          } else if (valueType === 'ternary' || valueType === 'inheritableString') {
-            if (newValue === 'Default' || newValue === 'Inherit') {
-              delete markerPair.overrides[updateTarget];
-              return;
-            } else if (newValue === 'Enabled') {
-              newValue = true;
-            } else if (newValue === 'Disabled') {
-              newValue = false;
-            } else {
-              newValue = newValue.toLowerCase();
-            }
-          } else if (valueType === 'preset') {
-            if (newValue === 'Inherit') {
-              delete markerPair.overrides[updateTarget];
-              return;
-            }
-            newValue = presetsMap[updateTarget][newValue];
-          }
-        }
-
-        if (!overridesField) {
-          markerPair[updateTarget] = newValue;
-          if (updateTarget === 'crop') {
-            const [x, y, w, h] = extractCropComponents(newValue);
-            setCropOverlayDimensions(x, y, w, h);
-          } else if (updateTarget === 'speed') {
-            const speedMap = markerPair.speedMap;
-            if (speedMap.length === 2 && speedMap[0].y === speedMap[1].y) {
-              markerPair.speedMap[1].y = newValue;
-            }
-            markerPair.speedMap[0].y = newValue;
-            speedChart && speedChart.update();
-            updateMarkerPairDuration(markerPair);
-          }
-        } else {
-          markerPair.overrides[updateTarget] = newValue;
         }
       }
     }
