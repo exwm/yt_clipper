@@ -3330,7 +3330,9 @@ export let player: HTMLElement;
           <span>CRF (0-63): </span>
           <input id="crf-input" class="yt_clipper-input" type="number" min="0" max="63" step="1" value="${
             overrides.crf != null ? overrides.crf : ''
-          }" placeholder="${settings.crf || 'Auto'}" "style="width:4em"></input>
+          }" placeholder="${
+        settings.crf != null ? settings.crf : 'Auto'
+      }" "style="width:4em"></input>
         </div>
         <div class="editor-input-div">
           <span>Target Bitrate (kb/s) (0 = &#x221E;): </span>
@@ -3353,7 +3355,9 @@ export let player: HTMLElement;
           <span>Gamma (0-4): </span>
           <input id="gamma-input" class="yt_clipper-input" type="number" min="0.01" max="4.00" step="0.01" value="${
             overrides.gamma != null ? overrides.gamma : ''
-          }" placeholder="${settings.gamma || '1'}" style="width:4em"></input>
+          }" placeholder="${
+        settings.gamma != null ? settings.gamma : '1'
+      }" style="width:4em"></input>
         </div>
         <div class="editor-input-div">
           <span>Expand Colors: </span>
@@ -3442,7 +3446,9 @@ export let player: HTMLElement;
             <span>Fade Duration: </span>
             <input id="fade-duration-input" class="yt_clipper-input" type="number" min="0.1" step="0.1" value="${
               overrides.fadeDuration != null ? overrides.fadeDuration : ''
-            }" placeholder="0.5" style="width:4em"></input>
+            }" placeholder="${
+        settings.fadeDuration != null ? settings.fadeDuration : '0.5'
+      }" style="width:4em"></input>
           </div>
         </div>
       </div>
