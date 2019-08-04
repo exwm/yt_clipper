@@ -75,8 +75,7 @@ def main():
     settings["titleSuffix"] = settings["markersDataFileStem"]
     webmsPath += f'/{settings["titleSuffix"]}'
 
-    if not settings["preview"]:
-        os.makedirs(f'{webmsPath}', exist_ok=True)
+    os.makedirs(f'{webmsPath}', exist_ok=True)
     setUpLogger()
 
     logger.info(f'Version: {__version__}')
