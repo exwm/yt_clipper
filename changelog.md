@@ -2,10 +2,30 @@
 
 ## Markup Script Changelog
 
-- v0.0.85
+- v0.0.86 [2019.08.03]:
 
   - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
-  - Use with `v3.5.2` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Use with `v3.6.0` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Add special loops: Fade loops and forward-reverse (AKA ping-pong) loops.
+    - Note special loops are not compatible with audio.
+    - Add fade loop previewing.
+  - Add shortcut to toggle all previews (**Ctrl+Alt+Shift+C**).
+  - Add auto-hiding unselected marker pairs toggle (**Ctrl+Down**).
+  - Add better video stabilization preset strength scaling.
+  - Add new _Strongest_ level to video stabilization presets.
+  - Add video stabilization dynamic zoom option.
+  - Add marker pair numberings in user interface.
+  - Remove speed map rounding option as it is no longer relevant.
+  - Fix first and last points of time-variable speed chart not being protected from deletion.
+  - Improve visual clarity of time-variable speed chart.
+  - Fix output duration estimation for marker pairs with time-variable speed.
+  - Swapped previewing shortcuts base key and speed chart base key:
+    - Previewing: **C** -> **D**.
+    - Speed Chart: **D** -> **C**.
+
+- v0.0.85:
+
+  - Use with `v3.5.2` of the `clipper script` installation.
   - Move mouse-based crop resize and move from **Shift+Click+Drag** to **Ctrl+Click+Drag**.
     - Fixes mouse-based crop shortcuts interfering with marker pair select shortcuts.
   - Fix drawing new crop can select text on page.
@@ -186,6 +206,20 @@
   - Add target max bitrate option for constrained quality mode using `-b <bitrate>` where bitrate is in kb/s.
 
 ## Clipper Script (Installation) Changelog
+
+- v3.6.0 [2019.08.03]:
+
+  - See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
+  - Use with `v0.0.86` or higher of the markup script.
+    - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
+  - Add special loop behaviours: Fade loops and forward-reverse (AKA ping-pong) loops.
+  - Add `--video-stabilization-dynamic-zoom` option.
+  - Improve time-variable speed filter smoothness and accuracy.
+  - Fix missing video color space info causing crashes.
+  - Fix video info fetch with ffprobe not falling back to youtube-dl.
+  - Update ffmpeg dependency to latest nightly (`20190802`).
+  - Reduce installation size by ~60% by switching to shared lib version of ffmpeg dependency.
+  - Update youtube-dl dependency to [`2019.08.02`](https://github.com/ytdl-org/youtube-dl/tree/2019.08.02).
 
 - v3.5.2:
 

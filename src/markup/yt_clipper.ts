@@ -1,7 +1,7 @@
 // ==UserScript==
 // @locale       english
 // @name         yt_clipper
-// @version      0.0.85
+// @version      0.0.86
 // @description  Add markers to youtube videos and generate clipped webms online or offline.
 // @author       elwm
 // @namespace    https://github.com/exwm
@@ -57,7 +57,7 @@ import {
   htmlToSVGElement,
 } from './util';
 
-const __version__ = '0.0.85';
+const __version__ = '0.0.86';
 
 export let player: HTMLElement;
 
