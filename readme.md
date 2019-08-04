@@ -2,8 +2,6 @@
 
 ## Notices
 
-- **NOTICE 1:** The namespace of the user script was recently changed and you may have two versions of the script installed simultaneously. Check your user script extension, and if this is the case, delete the older version.
-
 ## Browser Support
 
 - Works best on Chrome with the Tampermonkey extension and YouTube video in theater mode.
@@ -89,6 +87,8 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 ![yt_clipper_marker_pair_editor](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_marker_pair_editor.png)
 
 **Ctrl+Up**: Select/deselect the most recently selected marker pair.
+
+**Ctrl+Down**: Toggle auto-hiding of unselected marker pairs.
 
 - Adjusting marker position:
   - While a pair is selected use **Shift+Q/Shift+A** to move the start/end marker to current time.
@@ -180,6 +180,14 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 **Alt+C:** Toggle auto previewing gamma correction setting when between a marker pair.
 
+**Alt+Shift+C:** Toggle fade loop previewing.
+
+- Note that fade duration defaults to 0.5 and is clamped to a minimum of 0.1 seconds and a maximum of 40% of the output clip duration.
+
+**Ctrl+Alt+Shift+C:** Toggle all previews.
+
+- If any preview feature is disabled, turns it on. If all preview features are enabled, disables all of them.
+
 **R/alt+R:** Toggle between a 90 degree clockwise/counter-clockwise rotation and no rotation.
 
 - Works only when in fullscreen mode or theater mode.
@@ -210,9 +218,11 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 **Ctrl+mouse-wheel:** Zoom in and out of speed chart. **Ctrl+Click:** Reset zoom.
 
-Points are auto-sorted based on their time value on adding or removing points or on drag-end when moving points.
+**Notes:**
 
-YouTube playback speed can only be set to a multiple of `0.05` and greater than or equal to `0.25`.
+- Points are auto-sorted based on their time value on adding or removing points or on drag-end when moving points.
+- ouTube playback speed can only be set to a multiple of `0.05` and greater than or equal to `0.25`.
+- Audio is not compatible with time-variable speed.
 
 ![yt_clipper_speed_chart](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_speed_chart.jpg)
 
@@ -292,11 +302,19 @@ YouTube playback speed can only be set to a multiple of `0.05` and greater than 
    - Higher strength denoise can further reduce noise at the cost of sharpness.
 7. Enable `video stabilization` to smoothen the motion of the video.
    - This usually results in some cropping/zooming of the final video.
-   - Higher strength presets use more cropping/zooming.
+     - Higher strength presets usually result in more cropping/zooming.
+     - Enable `dynamic zoom` to allow the cropping/zooming to vary with the need for stabilization over time.
 8. Enable `expand color range` to make the colors more vivid, shadows darker and highlights brighter.
    - Note that the result may not always be desirable and may look artificial.
    - Videos with blown out shadows or highlights may become further blown out. Try adjusting the `gamma` value to compensate.
 9. Enable `two pass encoding` if you want even better quality at the cost of significant encoding speed.
+10. Enable one of `fwrev` loops or `fade` loops for special looping behavior that can improve the look of short clips on loop.
+   - For `fade` loops adjust the `fade duration` to taste.
+   - The`fade duration` defaults to 0.5 and is clamped to a minimum of 0.1 seconds and a maximum of 40% of the output clip duration.
+   - The `fade` loop preview indicates the duration of the fade in and out.
+   - The `fade` loop preview does not yet show the cross-fading of the end of the clip into the beginning.
+   - Note that audio is not yet compatible with the special looping behaviors.
+   - Note that offline previewing of special special looping behaviors is not yet possible.
 
 ### Gamma Correction
 
@@ -332,9 +350,9 @@ See <https://ffmpeg.org/ffplay.html#While-playing>.
 There is an installation that does not require the dependencies below.
 
 1. Extract the appropriate zip file anywhere:
-   - On _Windows_ download this [zip file (win_v3.5.2)](https://mega.nz/#!RKwGwKCa!CHZTYZ-v8JoQzkQyLBKU8mqgnwus_8tns_Pc92E75-g)
-   - On _Mac_ download this [zip file (mac_v3.5.2)](https://mega.nz/#!RLoQDSTI!XpzwKbOYc_DNLjm87kI64KM4Qp-enOL2rAbVWTqTfmI)
-   - The latest install (`v3.5.2`) is **not compatible** with `v0.0.74` or lower of the `markup script`
+   - On _Windows_ download this [zip file (win_v3.6.0)](https://mega.nz/#!BbJHjaaT!qNVSSin5CPAgdOhhTLgmgniRek69nU5g53ghe3x0z8g)
+   - On _Mac_ download this [zip file (mac_v3.6.0)](https://mega.nz/#!FLQxCKqZ!xHadsns6kfRs5T7nIJn7W2-hiivkugLYlOHJn81DrZM)
+   - The latest install (`v3.6.0`) is **not compatible** with `v0.0.74` or lower of the `markup script`
 2. Simply drag and drop the markers .json file onto the `yt_clipper_auto.bat` file on Windows or at the terminal prompt after executing `yt_clipper_auto` on Mac.
 3. Use `Ctrl+C` if you need to cancel the process.
 4. All generated webm clips will be placed in `./webms/<markers-json-filename>`.
@@ -420,10 +438,30 @@ See <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
 
 ## Markup Script Changelog
 
-- v0.0.85
+- v0.0.86 [2019.08.03]:
 
   - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
-  - Use with `v3.5.2` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Use with `v3.6.0` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Add special loops: Fade loops and forward-reverse (AKA ping-pong) loops.
+    - Note special loops are not compatible with audio.
+    - Add fade loop previewing.
+  - Add shortcut to toggle all previews (**Ctrl+Alt+Shift+C**).
+  - Add auto-hiding unselected marker pairs toggle (**Ctrl+Down**).
+  - Add better video stabilization preset strength scaling.
+  - Add new _Strongest_ level to video stabilization presets.
+  - Add video stabilization dynamic zoom option.
+  - Add marker pair numberings in user interface.
+  - Remove speed map rounding option as it is no longer relevant.
+  - Fix first and last points of time-variable speed chart not being protected from deletion.
+  - Improve visual clarity of time-variable speed chart.
+  - Fix output duration estimation for marker pairs with time-variable speed.
+  - Swapped previewing shortcuts base key and speed chart base key:
+    - Previewing: **C** -> **D**.
+    - Speed Chart: **D** -> **C**.
+
+- v0.0.85:
+
+  - Use with `v3.5.2` of the `clipper script` installation.
   - Move mouse-based crop resize and move from **Shift+Click+Drag** to **Ctrl+Click+Drag**.
     - Fixes mouse-based crop shortcuts interfering with marker pair select shortcuts.
   - Fix drawing new crop can select text on page.
@@ -431,7 +469,7 @@ See <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
   - Fix updating all marker pair speeds to new marker default crop when the global settings editor is open.
   - Fix speed chart visibility not saved when switching marker pair editors.
 
-- v0.0.84
+- v0.0.84:
 
   - Use with `v3.5.2` of the `clipper script` installation.
   - Add **Ctrl+X** for cycling crop dim opacity by +0.25.
@@ -445,13 +483,13 @@ See <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
     - **Shift+Click+Drag** appropriate region to either drag and move crop or resize crop in the indicated directions.
       - Can release shift after dragging begins. Dragging ends when mouse is released.
 
-- v0.0.83
+- v0.0.83:
 
   - Use with `v3.5.2` of the `clipper script` installation.
   - Fix backwards compatibility with older markers data format.
     - Loading both new and old format with **G** should now work smoothly.
 
-- v0.0.82
+- v0.0.82:
 
   - Use with `v3.5.1` of the `clipper script` installation.
   - Revert enabling crop adjustment with arrow keys hotkey to **Alt+X**.
@@ -459,7 +497,7 @@ See <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
   - Fix readme table of contents not working on openuserjs.com.
   - Added folder for old releases of `markup script` at [Older Releases](#older-releases).
 
-- v0.0.81
+- v0.0.81:
 
   - Use with `v3.5.0` of the `clipper script` installation.
   - Fix some default C key bindings (eg Ctrl+C for copying) being wrongly disabled.
@@ -480,7 +518,7 @@ See <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
       - Capture frame: **Alt+Q** -> **E**, Zip and download all captured frames: **Alt+Shift+Q** -> **Alt+E**.
     - Uploading: **Alt+C** -> **Alt+V** and **Alt+Shift+C** -> **Alt+Shift+V**.
 
-- v0.0.80
+- v0.0.80:
 
   - Use with `v3.4.2` of the `clipper script` installation.
   - Add cropping of **Alt+Q** captured video frames based on currently selected marker pair's crop.
@@ -488,7 +526,7 @@ See <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
   - Add duration before speed adjustment to marker pair editor.
   - **NOTICE:** The namespace of the user script was recently changed and you may have two versions of the script installed simultaneously. Check your user script extension, and if this is the case, delete the older version.
 
-- v0.0.79
+- v0.0.79:
 
   - Add automatic disabling of browser default and add-on hotkeys when yt_clipper hotkeys are enabled.
   - Add activation of yt_clipper on all YouTube pages and load yt_clipper on navigation to a video.
@@ -500,11 +538,25 @@ See <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
       - You may need to allow pop-ups from `youtube.com` in your browser settings.
     - **Alt+Shift+Q** triggers zipping of all captured frames for download.
 
-- v0.0.78
+- v0.0.78:
 
   - Fix auto looping of marker pairs even when no marker pair is selected.
 
 ## Clipper Script (Installation) Changelog
+
+- v3.6.0 [2019.08.03]:
+
+  - See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
+  - Use with `v0.0.86` or higher of the markup script.
+    - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
+  - Add special loop behaviours: Fade loops and forward-reverse (AKA ping-pong) loops.
+  - Add `--video-stabilization-dynamic-zoom` option.
+  - Improve time-variable speed filter smoothness and accuracy.
+  - Fix missing video color space info causing crashes.
+  - Fix video info fetch with ffprobe not falling back to youtube-dl.
+  - Update ffmpeg dependency to latest nightly (`20190802`).
+  - Reduce installation size by ~60% by switching to shared lib version of ffmpeg dependency.
+  - Update youtube-dl dependency to [`2019.08.02`](https://github.com/ytdl-org/youtube-dl/tree/2019.08.02).
 
 - v3.5.2:
 
