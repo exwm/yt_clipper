@@ -1733,11 +1733,7 @@ export let player: HTMLElement;
         const denoiseDesc = denoise ? denoise.desc : null;
         const vidstab = settings.videoStabilization;
         const vidstabDesc = vidstab ? vidstab.desc : null;
-        const vidstabDynamicZoomEnabled = vidstab
-          ? vidstab.enabled && vidstab.optzoom == 2
-            ? true
-            : false
-          : null;
+        const vidstabDynamicZoomEnabled = settings.videoStabilizationDynamicZoom;
         const markerPairMergelistDurations = getMarkerPairMergeListDurations();
         markerInputs.setAttribute('id', 'markerInputsDiv');
         markerInputs.innerHTML = `\
@@ -3260,11 +3256,7 @@ export let player: HTMLElement;
       const vidstabDescGlobal = settings.videoStabilization
         ? `(${settings.videoStabilization.desc})`
         : '';
-      const vidstabDynamicZoomEnabled = vidstab
-        ? vidstab.enabled && vidstab.optzoom == 2
-          ? true
-          : false
-        : null;
+      const vidstabDynamicZoomEnabled = overrides.videoStabilizationDynamicZoom;
       const denoise = overrides.denoise;
       const denoiseDesc = denoise ? denoise.desc : null;
       const denoiseDescGlobal = settings.denoise ? `(${settings.denoise.desc})` : '';
