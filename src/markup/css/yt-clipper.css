@@ -1,3 +1,9 @@
+:root {
+  --dark-grey: rgb(110, 110, 110);
+  --marker-pair-editor-accent: rgb(216, 111, 13);
+  --global-editor-accent: rgb(223, 50, 50);
+}
+
 @keyframes valid-input {
   0% {
     background-color: tomato;
@@ -99,22 +105,40 @@
 
 .marker-settings-display {
   display: block;
-  color: grey;
+  color: var(--dark-grey);
   font-size: 12pt;
   font-style: italic;
   margin: 2px;
   padding: 2px;
-  border: 2px solid grey;
+  border: 2px solid var(--dark-grey);
 }
 
 .yt_clipper-settings-editor {
   display: inline;
-  color: grey;
+  color: var(--dark-grey);
   font-size: 12pt;
   margin: 10px;
   padding: 4px;
-  border: 2px solid grey;
+  border: 2px solid var(--dark-grey);
   border-radius: 5px;
+}
+
+.yt_clipper-marker-pair-editor {
+  border: 2px solid var(--marker-pair-editor-accent);
+}
+
+.yt_clipper-marker-pair-editor-label {
+  font-weight: 500;
+  color: var(--marker-pair-editor-accent);
+}
+
+.yt_clipper-global-editor {
+  border: 2px solid var(--global-editor-accent);
+}
+
+.yt_clipper-global-editor-label {
+  font-weight: 500;
+  color: var(--global-editor-accent);
 }
 
 #markers-svg,
