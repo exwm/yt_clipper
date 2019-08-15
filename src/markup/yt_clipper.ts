@@ -754,8 +754,8 @@ export let player: HTMLElement;
       markersDiv.innerHTML = `\
     <svg id="markers-svg"></svg>
     <svg id="selected-marker-pair-overlay" style="display:none">
-      <rect id="selected-start-marker-overlay"  class="selected-marker-overlay" width="1px" height="7px" y="3.5px" shape-rendering="geometricPrecision"></rect>
-      <rect id="selected-end-marker-overlay"  class="selected-marker-overlay" width="1px" height="7px" y="3.5px" shape-rendering="geometricPrecision"></rect>
+      <rect id="selected-start-marker-overlay"  class="selected-marker-overlay" width="1px" height="8px" y="3.5px" shape-rendering="crispEdges"></rect>
+      <rect id="selected-end-marker-overlay"  class="selected-marker-overlay" width="1px" height="8px" y="3.5px" shape-rendering="crispEdges"></rect>
     </svg>
     <svg id="start-marker-numberings"></svg>
     <svg id="end-marker-numberings"></svg>
@@ -1556,7 +1556,7 @@ export let player: HTMLElement;
       // set width and height attributes for browsers not supporting svg 2
       marker.setAttribute('width', '1px');
       marker.setAttribute('height', '14px');
-      marker.setAttribute('shape-rendering', 'geometricPrecision');
+      marker.setAttribute('shape-rendering', 'crispEdges');
       const rectIdx = markerPairs.length + 1;
       marker.setAttribute('idx', rectIdx.toString());
 
@@ -3310,7 +3310,7 @@ export let player: HTMLElement;
             <option ${overrides.audio === false ? 'selected' : ''}>Disabled</option>
             <option value="Default" ${
               overrides.audio == null ? 'selected' : ''
-            }>Inherit Global ${ternaryToString(settings.audio)}</option>
+            }>Inherit ${ternaryToString(settings.audio)}</option>
           </select>
         </div>
         <div class="editor-input-div">
@@ -3341,7 +3341,7 @@ export let player: HTMLElement;
             <option ${overrides.twoPass === false ? 'selected' : ''}>Disabled</option>
             <option value="Default" ${
               overrides.twoPass == null ? 'selected' : ''
-            }>Inherit Global ${ternaryToString(settings.twoPass)}</option>
+            }>Inherit ${ternaryToString(settings.twoPass)}</option>
           </select>
         </div>
         <div class="editor-input-div">
@@ -3361,7 +3361,7 @@ export let player: HTMLElement;
             }>Disabled</option>
             <option value="Default" ${
               overrides.expandColorRange == null ? 'selected' : ''
-            }>Inherit Global ${ternaryToString(settings.expandColorRange)}</option>
+            }>Inherit ${ternaryToString(settings.expandColorRange)}</option>
           </select>
         </div>
         <div class="editor-input-div">
@@ -3379,7 +3379,7 @@ export let player: HTMLElement;
             }>Disabled</option>
             <option value="Inherit" ${
               denoiseDesc == null ? 'selected' : ''
-            }>Inherit Global ${denoiseDescGlobal}</option>
+            }>Inherit ${denoiseDescGlobal}</option>
           </select>
         </div>
         <div class="editor-input-div">
@@ -3398,7 +3398,7 @@ export let player: HTMLElement;
             }>Disabled</option>
             <option value="Inherit" ${
               vidstabDesc == null ? 'selected' : ''
-            }>Inherit Global ${vidstabDescGlobal}</option>
+            }>Inherit ${vidstabDescGlobal}</option>
           </select>
           <div class="editor-input-div">
             <span>Dynamic Zoom: </span>
@@ -3409,7 +3409,9 @@ export let player: HTMLElement;
               }>Disabled</option>
               <option value="Default" ${
                 vidstabDynamicZoomEnabled == null ? 'selected' : ''
-              }>Inherit (Disabled)</option>
+              }>Inherit ${ternaryToString(
+        settings.videoStabilizationDynamicZoom
+      )}</option>
             </select>
           </div>
         </div>
@@ -3422,7 +3424,7 @@ export let player: HTMLElement;
               }>Disabled</option>
               <option value="Default" ${
                 overrides.enableSpeedMaps == null ? 'selected' : ''
-              }>Inherit Global ${ternaryToString(settings.enableSpeedMaps)}</option>
+              }>Inherit ${ternaryToString(settings.enableSpeedMaps)}</option>
             </select>
         </div>
         <div class="editor-input-div">
@@ -3433,7 +3435,7 @@ export let player: HTMLElement;
               <option ${overrides.loop === 'none' ? 'selected' : ''}>none</option>
               <option value="Default" ${
                 overrides.loop == null ? 'selected' : ''
-              }>Inherit Global ${settings.loop ? `(${settings.loop})` : ''}</option>
+              }>Inherit ${settings.loop ? `(${settings.loop})` : ''}</option>
             </select>
           <div class="editor-input-div">
             <span>Fade Duration: </span>
