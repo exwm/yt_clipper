@@ -60,7 +60,7 @@
 .selected-marker-overlay {
   fill: black;
   width: 1px;
-  height: 7px;
+  height: 8px;
   pointer-events: none;
 }
 
@@ -128,8 +128,8 @@
   position: absolute;
   z-index: 99;
   paint-order: stroke;
-  stroke: rgb(60, 60, 60);
-  stroke-width: 0.6pt;
+  stroke: rgba(0, 0, 0, 0.25);
+  stroke-width: 2px;
 }
 
 #start-marker-numberings {
