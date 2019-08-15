@@ -1614,6 +1614,7 @@ export let player: HTMLElement;
         const markerPairCountLabel = document.getElementById('marker-pair-count-label');
         if (markerPairCountLabel) {
           markerPairCountLabel.textContent = markerPairs.length.toString();
+          markerPairNumberInput.setAttribute('max', markerPairs.length.toString());
         }
       }
     }
@@ -3219,6 +3220,7 @@ export let player: HTMLElement;
       }
     }
 
+    let markerPairNumberInput: HTMLInputElement;
     function createMarkerPairEditor(targetMarker: SVGRectElement) {
       const markerPairIndex = parseInt(targetMarker.getAttribute('idx'), 10) - 1;
       const markerPair = markerPairs[markerPairIndex];
@@ -3248,8 +3250,10 @@ export let player: HTMLElement;
       markerInputsDiv.setAttribute('id', 'markerInputsDiv');
       markerInputsDiv.innerHTML = `\
       <div class="yt_clipper-settings-editor yt_clipper-marker-pair-editor">
-        <span class="yt_clipper-marker-pair-editor-label">Marker Pair \
-          <span id="marker-pair-number-label">${markerPairIndex + 1}</span>\
+      <span class="yt_clipper-marker-pair-editor-label">Marker Pair \
+        <input id="marker-pair-number-input" class="yt_clipper-input" type="number" value="${markerPairIndex +
+          1}" 
+          step="1" min="1" max="${markerPairs.length}" style="width:2em" required></input>
           /\
           <span id="marker-pair-count-label">${markerPairs.length}</span>\
         Settings: </span>
@@ -3453,7 +3457,10 @@ export let player: HTMLElement;
         ],
         markerPairs[markerPairIndex].overrides
       );
-
+      markerPairNumberInput = document.getElementById(
+        'marker-pair-number-input'
+      ) as HTMLInputElement;
+      markerPairNumberInput.addEventListener('change', markerPairNumberInputHandler);
       cropInput = document.getElementById('crop-input') as HTMLInputElement;
       isMarkerEditorOpen = true;
       wasDefaultsEditorOpen = false;
@@ -3469,6 +3476,55 @@ export let player: HTMLElement;
       } else {
         return null;
       }
+    }
+
+    function markerPairNumberInputHandler(e: Event) {
+      const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+      const startNumbering = markerPair.startNumbering;
+      const endNumbering = markerPair.endNumbering;
+      const newIdx = e.target.value - 1;
+      markerPairs.splice(
+        newIdx,
+        0,
+        ...markerPairs.splice(prevSelectedMarkerPairIndex, 1)
+      );
+
+      let beforeMarkerRect = markersSvg.children[newIdx * 2];
+      let beforeStartNumbering = startMarkerNumberings.children[newIdx];
+      let beforeEndNumbering = endMarkerNumberings.children[newIdx];
+      const prevSelectedStartMarker = prevSelectedEndMarker.previousElementSibling;
+      if (newIdx < prevSelectedMarkerPairIndex) {
+        prevSelectedEndMarker.parentElement.insertBefore(
+          prevSelectedEndMarker,
+          beforeMarkerRect
+        );
+        prevSelectedStartMarker.parentElement.insertBefore(
+          prevSelectedStartMarker,
+          prevSelectedEndMarker
+        );
+        startNumbering.parentElement.insertBefore(startNumbering, beforeStartNumbering);
+        endNumbering.parentElement.insertBefore(endNumbering, beforeEndNumbering);
+      } else if (newIdx > prevSelectedMarkerPairIndex) {
+        prevSelectedStartMarker.parentElement.insertBefore(
+          prevSelectedStartMarker,
+          beforeMarkerRect.nextElementSibling
+        );
+        prevSelectedEndMarker.parentElement.insertBefore(
+          prevSelectedEndMarker,
+          prevSelectedStartMarker.nextElementSibling
+        );
+        startNumbering.parentElement.insertBefore(
+          startNumbering,
+          beforeStartNumbering.nextElementSibling
+        );
+        endNumbering.parentElement.insertBefore(
+          endNumbering,
+          beforeEndNumbering.nextElementSibling
+        );
+      }
+
+      renumberMarkerPairs();
+      prevSelectedMarkerPairIndex = newIdx;
     }
 
     function enableMarkerHotkeys(endMarker: SVGRectElement) {
@@ -3534,24 +3590,7 @@ export let player: HTMLElement;
       deleteElement(enableMarkerHotkeys.startMarker);
       deleteElement(markerPair.startNumbering);
       deleteElement(markerPair.endNumbering);
-      const markersSvg = document.getElementById('markers-svg');
-      markersSvg.childNodes.forEach((markerRect, idx) => {
-        // renumber markers by pair starting with index 1
-        const newIdx = Math.floor((idx + 2) / 2);
-        markerRect.setAttribute('idx', newIdx);
-      });
-
-      startMarkerNumberings.childNodes.forEach((startNumbering, idx) => {
-        const newIdx = idx + 1;
-        startNumbering.setAttribute('idx', newIdx);
-        startNumbering.textContent = newIdx.toString();
-      });
-
-      endMarkerNumberings.childNodes.forEach((endNumbering, idx) => {
-        const newIdx = idx + 1;
-        endNumbering.setAttribute('idx', newIdx);
-        endNumbering.textContent = newIdx.toString();
-      });
+      renumberMarkerPairs();
 
       markerPairs.splice(idx, 1);
       prevSelectedMarkerPairIndex = null;
@@ -3639,6 +3678,27 @@ export let player: HTMLElement;
       outputDuration += frameDur;
       outputDuration = Math.round(outputDuration * 1000) / 1000;
       return outputDuration;
+    }
+
+    function renumberMarkerPairs() {
+      const markersSvg = document.getElementById('markers-svg');
+      markersSvg.childNodes.forEach((markerRect, idx) => {
+        // renumber markers by pair starting with index 1
+        const newIdx = Math.floor((idx + 2) / 2);
+        markerRect.setAttribute('idx', newIdx);
+      });
+
+      startMarkerNumberings.childNodes.forEach((startNumbering, idx) => {
+        const newIdx = idx + 1;
+        startNumbering.setAttribute('idx', newIdx);
+        startNumbering.textContent = newIdx.toString();
+      });
+
+      endMarkerNumberings.childNodes.forEach((endNumbering, idx) => {
+        const newIdx = idx + 1;
+        endNumbering.setAttribute('idx', newIdx);
+        endNumbering.textContent = newIdx.toString();
+      });
     }
 
     function hideSelectedMarkerPairCropOverlay() {
