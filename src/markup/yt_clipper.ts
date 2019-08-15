@@ -1723,8 +1723,8 @@ export let player: HTMLElement;
           : 'none';
         markerInputs.setAttribute('id', 'markerInputsDiv');
         markerInputs.innerHTML = `\
-      <div id="new-marker-defaults-inputs" class="yt_clipper-settings-editor">
-        <span style="font-weight:bold">New Marker Settings: </span>
+      <div id="new-marker-defaults-inputs" class="yt_clipper-settings-editor yt_clipper-global-editor">
+        <span class="yt_clipper-global-editor-label">New Marker Settings: </span>
         <div class="editor-input-div">
           <span class="editor-input-label">Speed: </span>
           <input id="speed-input" class="yt_clipper-input"  type="number" placeholder="speed" value="${
@@ -1738,8 +1738,8 @@ export let player: HTMLElement;
           }" pattern="${cropInputValidation}" style="width:10em" required>
         </div>
       </div>
-      <div id="global-marker-settings" class="yt_clipper-settings-editor">
-        <span style="font-weight:bold">Global Settings: </span>
+      <div id="global-marker-settings" class="yt_clipper-settings-editor yt_clipper-global-editor">
+        <span class="yt_clipper-global-editor-label">Global Settings: </span>
         <div class="editor-input-div">
           <span class="editor-input-label"> Title Suffix: </span>
           <input id="title-suffix-input" class="yt_clipper-input" value="${
@@ -1752,16 +1752,6 @@ export let player: HTMLElement;
           settings.cropRes
         }" style="width:7em" required>
           <datalist id="resolutions" autocomplete="off">${resList}</datalist>
-        </div>
-        <div class="editor-input-div">
-          <span class="editor-input-label"> Merge List: </span>
-          <input id="merge-list-input" class="yt_clipper-input" pattern="${mergeListInputValidation}" value="${
-          settings.markerPairMergeList != null ? settings.markerPairMergeList : ''
-        }" placeholder="None" style="width:15em">
-        </div>
-        <div style="display:inline-block">
-            <span style="font-weight:bold">Merge Durations: </span>
-            <span id="merge-list-durations">${markerPairMergelistDurations}</span>
         </div>
         <div class="editor-input-div">
           <span>Rotate: </span>
@@ -1778,9 +1768,19 @@ export let player: HTMLElement;
           }></input>
           <label for="rotate-90-counterclock">90&#x00B0; &#x27F2;</label>
         </div>
+        <div class="editor-input-div">
+          <span class="editor-input-label"> Merge List: </span>
+          <input id="merge-list-input" class="yt_clipper-input" pattern="${mergeListInputValidation}" value="${
+          settings.markerPairMergeList != null ? settings.markerPairMergeList : ''
+        }" placeholder="None" style="width:15em">
+          <div style="display:inline-block">
+          <span>Merge Durations: </span>
+          <span id="merge-list-durations">${markerPairMergelistDurations}</span>
+          </div>
+        </div>
       </div>
-      <div id="global-encode-settings" class="yt_clipper-settings-editor" style="display:${globalEncodeSettingsEditorDisplay}">
-        <span style="font-weight:bold">Encode Settings: </span>
+      <div id="global-encode-settings" class="yt_clipper-settings-editor yt_clipper-global-editor" style="display:${globalEncodeSettingsEditorDisplay}">
+        <span class="yt_clipper-global-editor-label">Encode Settings: </span>
         <div class="editor-input-div">
           <span>Audio: </span>
           <select id="audio-input"> 
@@ -1867,18 +1867,16 @@ export let player: HTMLElement;
               vidstabDesc == null ? 'selected' : ''
             }>Inherit (Disabled)</option>
           </select>
-          <div class="editor-input-div">
-            <span>Dynamic Zoom: </span>
-            <select id="video-stabilization-dynamic-zoom-input"> 
-              <option ${vidstabDynamicZoomEnabled ? 'selected' : ''}>Enabled</option>
-              <option ${
-                vidstabDynamicZoomEnabled === false ? 'selected' : ''
-              }>Disabled</option>
-              <option value="Default" ${
-                vidstabDynamicZoomEnabled == null ? 'selected' : ''
-              }>Inherit (Disabled)</option>
+          <span>Dynamic Zoom: </span>
+          <select id="video-stabilization-dynamic-zoom-input"> 
+            <option ${vidstabDynamicZoomEnabled ? 'selected' : ''}>Enabled</option>
+            <option ${
+              vidstabDynamicZoomEnabled === false ? 'selected' : ''
+            }>Disabled</option>
+            <option value="Default" ${
+              vidstabDynamicZoomEnabled == null ? 'selected' : ''
+            }>Inherit (Disabled)</option>
           </select>
-          </div>
         </div>
         <div class="editor-input-div">
           <span>Speed Maps: </span>
@@ -1902,12 +1900,10 @@ export let player: HTMLElement;
                 settings.loop == null ? 'selected' : ''
               }>Inherit (none)</option>
             </select>
-          <div class="editor-input-div">
-            <span>Fade Duration: </span>
-            <input id="fade-duration-input" class="yt_clipper-input" type="number" min="0.1" step="0.1" value="${
-              settings.fadeDuration != null ? settings.fadeDuration : ''
-            }" placeholder="0.5" style="width:4em"></input>
-          </div>
+          <span>Fade Duration: </span>
+          <input id="fade-duration-input" class="yt_clipper-input" type="number" min="0.1" step="0.1" value="${
+            settings.fadeDuration != null ? settings.fadeDuration : ''
+          }" placeholder="0.5" style="width:4em"></input>
         </div>
       </div>
       `;
@@ -3251,8 +3247,8 @@ export let player: HTMLElement;
 
       markerInputsDiv.setAttribute('id', 'markerInputsDiv');
       markerInputsDiv.innerHTML = `\
-      <div class="yt_clipper-settings-editor">
-        <span style="font-weight:bold;font-style:none">Marker Pair \
+      <div class="yt_clipper-settings-editor yt_clipper-marker-pair-editor">
+        <span class="yt_clipper-marker-pair-editor-label">Marker Pair \
           <span id="marker-pair-number-label">${markerPairIndex + 1}</span>\
           /\
           <span id="marker-pair-count-label">${markerPairs.length}</span>\
@@ -3278,15 +3274,15 @@ export let player: HTMLElement;
           <span id="start-time">${startTime}</span>
           <span> - </span>
           <span id="end-time">${endTime}</span>
-          <span> - </span>
+          <span> </span>
           <span style="font-weight:bold;font-style:none">Duration: </span>
           <span id="duration">${duration} / ${
         markerPair.speed
       } = ${speedAdjustedDuration}</span>
         </div>
       </div>
-      <div id="marker-pair-overrides" class="yt_clipper-settings-editor" style="display:${overridesEditorDisplay}">
-        <span style="font-weight:bold">Overrides: </span>
+      <div id="marker-pair-overrides" class="yt_clipper-settings-editor yt_clipper-marker-pair-editor" style="display:${overridesEditorDisplay}">
+        <span class="yt_clipper-marker-pair-editor-label">Overrides: </span>
         <div class="editor-input-div">
           <span>Audio: </span>
           <select id="audio-input">
@@ -3384,20 +3380,16 @@ export let player: HTMLElement;
               vidstabDesc == null ? 'selected' : ''
             }>Inherit ${vidstabDescGlobal}</option>
           </select>
-          <div class="editor-input-div">
-            <span>Dynamic Zoom: </span>
-            <select id="video-stabilization-dynamic-zoom-input"> 
-              <option ${vidstabDynamicZoomEnabled ? 'selected' : ''}>Enabled</option>
-              <option ${
-                vidstabDynamicZoomEnabled === false ? 'selected' : ''
-              }>Disabled</option>
-              <option value="Default" ${
-                vidstabDynamicZoomEnabled == null ? 'selected' : ''
-              }>Inherit ${ternaryToString(
-        settings.videoStabilizationDynamicZoom
-      )}</option>
-            </select>
-          </div>
+          <span>Dynamic Zoom: </span>
+          <select id="video-stabilization-dynamic-zoom-input"> 
+            <option ${vidstabDynamicZoomEnabled ? 'selected' : ''}>Enabled</option>
+            <option ${
+              vidstabDynamicZoomEnabled === false ? 'selected' : ''
+            }>Disabled</option>
+            <option value="Default" ${
+              vidstabDynamicZoomEnabled == null ? 'selected' : ''
+            }>Inherit ${ternaryToString(settings.videoStabilizationDynamicZoom)}</option>
+          </select>
         </div>
         <div class="editor-input-div">
         <span>Speed Map: </span>
@@ -3421,14 +3413,12 @@ export let player: HTMLElement;
                 overrides.loop == null ? 'selected' : ''
               }>Inherit ${settings.loop ? `(${settings.loop})` : ''}</option>
             </select>
-          <div class="editor-input-div">
-            <span>Fade Duration: </span>
-            <input id="fade-duration-input" class="yt_clipper-input" type="number" min="0.1" step="0.1" value="${
-              overrides.fadeDuration != null ? overrides.fadeDuration : ''
-            }" placeholder="${
+          <span>Fade Duration: </span>
+          <input id="fade-duration-input" class="yt_clipper-input" type="number" min="0.1" step="0.1" value="${
+            overrides.fadeDuration != null ? overrides.fadeDuration : ''
+          }" placeholder="${
         settings.fadeDuration != null ? settings.fadeDuration : '0.5'
       }" style="width:4em"></input>
-          </div>
         </div>
       </div>
       `;
