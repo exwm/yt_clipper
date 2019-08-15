@@ -2887,7 +2887,7 @@ export let player: HTMLElement;
 
     function extractCropComponents(cropString?: string) {
       if (!cropString && isMarkerEditorOpen) {
-        if (!wasDefaultsEditorOpen) {
+        if (!wasDefaultsEditorOpen && prevSelectedMarkerPairIndex != null) {
           cropString = markerPairs[prevSelectedMarkerPairIndex].crop;
         } else {
           cropString = settings.newMarkerCrop;
@@ -3555,14 +3555,16 @@ export let player: HTMLElement;
         updateMarkerPairDuration(markerPair);
       };
 
-      enableMarkerHotkeys.deleteMarkerPair = () => {
-        const idx = parseInt(enableMarkerHotkeys.endMarker.getAttribute('idx')) - 1;
-        markerPairs.splice(idx, 1);
+      enableMarkerHotkeys.deleteMarkerPair = (idx?: number) => {
+        if (idx == null) idx = prevSelectedMarkerPairIndex;
+        const markerPair = markerPairs[idx];
 
         const me = new MouseEvent('mouseover', { shiftKey: true });
         enableMarkerHotkeys.endMarker.dispatchEvent(me);
         deleteElement(enableMarkerHotkeys.endMarker);
         deleteElement(enableMarkerHotkeys.startMarker);
+        deleteElement(markerPair.startNumbering);
+        deleteElement(markerPair.endNumbering);
         const markersSvg = document.getElementById('markers-svg');
         markersSvg.childNodes.forEach((markerRect, idx) => {
           // renumber markers by pair starting with index 1
@@ -3570,6 +3572,23 @@ export let player: HTMLElement;
           markerRect.setAttribute('idx', newIdx);
         });
 
+        startMarkerNumberings.childNodes.forEach((startNumbering, idx) => {
+          const newIdx = idx + 1;
+          startNumbering.setAttribute('idx', newIdx);
+          startNumbering.textContent = newIdx.toString();
+        });
+
+        endMarkerNumberings.childNodes.forEach((endNumbering, idx) => {
+          const newIdx = idx + 1;
+          endNumbering.setAttribute('idx', newIdx);
+          endNumbering.textContent = newIdx.toString();
+        });
+
+        markerPairs.splice(idx, 1);
+        prevSelectedMarkerPairIndex = null;
+        prevSelectedEndMarker = null;
+        enableMarkerHotkeys.startMarker = null;
+        enableMarkerHotkeys.endMarker = null;
         enableMarkerHotkeys.moveMarker = null;
         enableMarkerHotkeys.deleteMarkerPair = null;
         markerHotkeysEnabled = false;
