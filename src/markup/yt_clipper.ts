@@ -1232,7 +1232,7 @@ export let player: HTMLElement;
       const shortestActiveMarkerPair = getShortestActiveMarkerPair();
       if (
         shortestActiveMarkerPair &&
-        shortestActiveMarkerPair.overrides.loop === 'fade'
+        (shortestActiveMarkerPair.overrides.loop === 'fade' || settings.loop === 'fade')
       ) {
         const currentTimeP = getFadeBounds(shortestActiveMarkerPair, currentTime);
         if (currentTimeP == null) {
