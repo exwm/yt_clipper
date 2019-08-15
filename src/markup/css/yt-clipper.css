@@ -43,8 +43,8 @@
 }
 
 .marker {
-  width: 1.5px;
-  height: 16px;
+  width: 1px;
+  height: 14px;
 }
 
 .start-marker {
@@ -59,9 +59,8 @@
 
 .selected-marker-overlay {
   fill: black;
-  width: 1.5px;
-  height: 8.5px;
-  y: 3.5px;
+  width: 1px;
+  height: 7px;
   pointer-events: none;
 }
 
@@ -125,7 +124,7 @@
   font-size: 6.5pt;
   width: 100%;
   height: 300%;
-  top: -4px;
+  top: -5px;
   position: absolute;
   z-index: 99;
   paint-order: stroke;
@@ -134,11 +133,11 @@
 }
 
 #start-marker-numberings {
-  top: -20px;
+  top: -19px;
 }
 
 #end-marker-numberings {
-  top: 10px;
+  top: 5px;
 }
 
 .markerNumbering {
