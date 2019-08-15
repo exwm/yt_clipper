@@ -1517,9 +1517,12 @@ export let player: HTMLElement;
       }
     }
 
+    // set width and height attributes for browsers not supporting svg 2
     const marker_attrs = {
       class: 'marker',
-      markerPairOverridesEditorDisplay: 'none',
+      width: '1px',
+      height: '14px',
+      'shape-rendering': 'crispEdges',
     };
 
     function addMarker(markerConfig: MarkerConfig = {}) {
@@ -1537,10 +1540,6 @@ export let player: HTMLElement;
 
       setAttributes(marker, marker_attrs);
       marker.setAttribute('x', `${progressPos}%`);
-      // set width and height attributes for browsers not supporting svg 2
-      marker.setAttribute('width', '1px');
-      marker.setAttribute('height', '14px');
-      marker.setAttribute('shape-rendering', 'crispEdges');
       const rectIdx = markerPairs.length + 1;
       marker.setAttribute('idx', rectIdx.toString());
 
@@ -1694,7 +1693,6 @@ export let player: HTMLElement;
       flashMessage(`Video playback speed set to ${newSpeed}`, 'green');
     }
 
-    let globalEncodeSettingsEditorDisplay: 'none' | 'block' = 'none';
     let cropInput: HTMLInputElement;
     function toggleGlobalSettingsEditor() {
       if (isMarkerEditorOpen) {
@@ -1720,6 +1718,9 @@ export let player: HTMLElement;
         const vidstabDesc = vidstab ? vidstab.desc : null;
         const vidstabDynamicZoomEnabled = settings.videoStabilizationDynamicZoom;
         const markerPairMergelistDurations = getMarkerPairMergeListDurations();
+        const globalEncodeSettingsEditorDisplay = isExtraSettingsEditorEnabled
+          ? 'block'
+          : 'none';
         markerInputs.setAttribute('id', 'markerInputsDiv');
         markerInputs.innerHTML = `\
       <div id="new-marker-defaults-inputs" class="yt_clipper-settings-editor">
@@ -3245,9 +3246,7 @@ export let player: HTMLElement;
       const denoise = overrides.denoise;
       const denoiseDesc = denoise ? denoise.desc : null;
       const denoiseDescGlobal = settings.denoise ? `(${settings.denoise.desc})` : '';
-      const markerPairOverridesEditorDisplay = targetMarker.getAttribute(
-        'markerPairOverridesEditorDisplay'
-      );
+      const overridesEditorDisplay = isExtraSettingsEditorEnabled ? 'block' : 'none';
       createCropOverlay(crop);
 
       markerInputsDiv.setAttribute('id', 'markerInputsDiv');
@@ -3286,7 +3285,7 @@ export let player: HTMLElement;
       } = ${speedAdjustedDuration}</span>
         </div>
       </div>
-      <div id="marker-pair-overrides" class="yt_clipper-settings-editor" style="display:${markerPairOverridesEditorDisplay}">
+      <div id="marker-pair-overrides" class="yt_clipper-settings-editor" style="display:${overridesEditorDisplay}">
         <span style="font-weight:bold">Overrides: </span>
         <div class="editor-input-div">
           <span>Audio: </span>
@@ -3690,35 +3689,32 @@ export let player: HTMLElement;
       markerHotkeysEnabled = false;
     }
 
+    let isExtraSettingsEditorEnabled = false;
     function toggleMarkerPairOverridesEditor() {
       if (isMarkerEditorOpen) {
         const markerPairOverridesEditor = document.getElementById(
           'marker-pair-overrides'
         );
-        const globalEncodeSettingsEditor = document.getElementById(
-          'global-encode-settings'
-        );
         if (markerPairOverridesEditor) {
           if (markerPairOverridesEditor.style.display === 'none') {
             markerPairOverridesEditor.style.display = 'block';
-            enableMarkerHotkeys.endMarker.setAttribute(
-              'markerPairOverridesEditorDisplay',
-              'block'
-            );
+            isExtraSettingsEditorEnabled = true;
           } else {
             markerPairOverridesEditor.style.display = 'none';
-            enableMarkerHotkeys.endMarker.setAttribute(
-              'markerPairOverridesEditorDisplay',
-              'none'
-            );
+            isExtraSettingsEditorEnabled = false;
           }
-        } else if (globalEncodeSettingsEditor) {
+        }
+
+        const globalEncodeSettingsEditor = document.getElementById(
+          'global-encode-settings'
+        );
+        if (globalEncodeSettingsEditor) {
           if (globalEncodeSettingsEditor.style.display === 'none') {
             globalEncodeSettingsEditor.style.display = 'block';
-            globalEncodeSettingsEditorDisplay = 'block';
+            isExtraSettingsEditorEnabled = true;
           } else if (globalEncodeSettingsEditor.style.display === 'block') {
             globalEncodeSettingsEditor.style.display = 'none';
-            globalEncodeSettingsEditorDisplay = 'none';
+            isExtraSettingsEditorEnabled = false;
           }
         }
       }
