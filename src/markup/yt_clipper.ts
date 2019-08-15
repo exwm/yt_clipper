@@ -104,14 +104,10 @@ export let player: HTMLElement;
               e.preventDefault();
               e.stopImmediatePropagation();
               addMarker();
-            } else if (
-              e.shiftKey &&
-              markerHotkeysEnabled &&
-              enableMarkerHotkeys.moveMarker
-            ) {
+            } else if (e.shiftKey && markerHotkeysEnabled) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              enableMarkerHotkeys.moveMarker(enableMarkerHotkeys.endMarker);
+              moveMarker(enableMarkerHotkeys.endMarker);
             }
             break;
           case 'KeyS':
@@ -130,16 +126,10 @@ export let player: HTMLElement;
             }
             break;
           case 'KeyQ':
-            if (
-              !e.ctrlKey &&
-              !e.altKey &&
-              e.shiftKey &&
-              markerHotkeysEnabled &&
-              enableMarkerHotkeys.moveMarker
-            ) {
+            if (!e.ctrlKey && !e.altKey && e.shiftKey && markerHotkeysEnabled) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              enableMarkerHotkeys.moveMarker(enableMarkerHotkeys.startMarker);
+              moveMarker(enableMarkerHotkeys.startMarker);
             } else if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
@@ -227,16 +217,10 @@ export let player: HTMLElement;
               e.preventDefault();
               e.stopImmediatePropagation();
               redoMarker();
-            } else if (
-              !e.ctrlKey &&
-              !e.shiftKey &&
-              e.altKey &&
-              markerHotkeysEnabled &&
-              enableMarkerHotkeys.deleteMarkerPair
-            ) {
+            } else if (!e.ctrlKey && !e.shiftKey && e.altKey && markerHotkeysEnabled) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              enableMarkerHotkeys.deleteMarkerPair();
+              deleteMarkerPair();
             }
             break;
           case 'KeyX':
@@ -1664,9 +1648,10 @@ export let player: HTMLElement;
 
     function undoMarker() {
       const targetMarker = markersSvg.lastElementChild;
+      if (!targetMarker) return;
 
       const targetMarkerType = targetMarker.getAttribute('type');
-      // do not undo markers part of or before a currently select marker pair
+      // toggle off marker pair editor before undoing a selected marker pair
       if (
         targetMarkerType === 'end' &&
         isMarkerEditorOpen &&
@@ -3502,91 +3487,89 @@ export let player: HTMLElement;
       enableMarkerHotkeys.endMarker = endMarker;
       enableMarkerHotkeys.markerPairIndex = endMarker.getAttribute('idx');
       enableMarkerHotkeys.startMarker = endMarker.previousSibling;
+    }
 
-      enableMarkerHotkeys.moveMarker = (marker: SVGRectElement) => {
-        const type = marker.getAttribute('type') as 'start' | 'end';
-        const idx = parseInt(marker.getAttribute('idx')) - 1;
-        const markerPair = markerPairs[idx];
-        const currentTime = video.currentTime;
-        const progress_pos = (currentTime / playerInfo.duration) * 100;
-        const markerTimeSpan = document.getElementById(`${type}-time`);
-        const speedMap = markerPair.speedMap;
+    function moveMarker(marker: SVGRectElement) {
+      const type = marker.getAttribute('type') as 'start' | 'end';
+      const idx = parseInt(marker.getAttribute('idx')) - 1;
+      const markerPair = markerPairs[idx];
+      const currentTime = video.currentTime;
+      const progress_pos = (currentTime / playerInfo.duration) * 100;
+      const markerTimeSpan = document.getElementById(`${type}-time`);
+      const speedMap = markerPair.speedMap;
 
-        if (type === 'start' && currentTime >= markerPair.end) {
-          flashMessage('Start marker cannot be placed after or at end marker', 'red');
-          return;
-        }
-        if (type === 'end' && currentTime <= markerPair.start) {
-          flashMessage('End marker cannot be placed before or at start marker', 'red');
-          return;
-        }
+      if (type === 'start' && currentTime >= markerPair.end) {
+        flashMessage('Start marker cannot be placed after or at end marker', 'red');
+        return;
+      }
+      if (type === 'end' && currentTime <= markerPair.start) {
+        flashMessage('End marker cannot be placed before or at start marker', 'red');
+        return;
+      }
 
-        marker.setAttribute('x', `${progress_pos}%`);
-        markerPair[type] = currentTime;
-        if (type === 'start') {
-          selectedStartMarkerOverlay.setAttribute('x', `${progress_pos}%`);
-          markerPair.startNumbering.setAttribute('x', `${progress_pos}%`);
+      marker.setAttribute('x', `${progress_pos}%`);
+      markerPair[type] = currentTime;
+      if (type === 'start') {
+        selectedStartMarkerOverlay.setAttribute('x', `${progress_pos}%`);
+        markerPair.startNumbering.setAttribute('x', `${progress_pos}%`);
 
-          speedMap[0].x = currentTime;
-          markerPair.speedMap = speedMap.filter((speedPoint) => {
-            return speedPoint.x >= currentTime;
-          });
-        } else if (type === 'end') {
-          speedMap[speedMap.length - 1].x = currentTime;
-          selectedEndMarkerOverlay.setAttribute('x', `${progress_pos}%`);
-          markerPair.endNumbering.setAttribute('x', `${progress_pos}%`);
-
-          markerPair.speedMap = speedMap.filter((speedPoint) => {
-            return speedPoint.x <= currentTime;
-          });
-        }
-        markerTimeSpan.textContent = `${toHHMMSSTrimmed(currentTime)}`;
-        if (speedChart) {
-          speedChart.config.data.datasets[0].data = markerPair.speedMap;
-          updateSpeedChartBounds(speedChart.config, markerPair.start, markerPair.end);
-          speedChart.update();
-        }
-        updateMarkerPairDuration(markerPair);
-      };
-
-      enableMarkerHotkeys.deleteMarkerPair = (idx?: number) => {
-        if (idx == null) idx = prevSelectedMarkerPairIndex;
-        const markerPair = markerPairs[idx];
-
-        const me = new MouseEvent('mouseover', { shiftKey: true });
-        enableMarkerHotkeys.endMarker.dispatchEvent(me);
-        deleteElement(enableMarkerHotkeys.endMarker);
-        deleteElement(enableMarkerHotkeys.startMarker);
-        deleteElement(markerPair.startNumbering);
-        deleteElement(markerPair.endNumbering);
-        const markersSvg = document.getElementById('markers-svg');
-        markersSvg.childNodes.forEach((markerRect, idx) => {
-          // renumber markers by pair starting with index 1
-          const newIdx = Math.floor((idx + 2) / 2);
-          markerRect.setAttribute('idx', newIdx);
+        speedMap[0].x = currentTime;
+        markerPair.speedMap = speedMap.filter((speedPoint) => {
+          return speedPoint.x >= currentTime;
         });
+      } else if (type === 'end') {
+        speedMap[speedMap.length - 1].x = currentTime;
+        selectedEndMarkerOverlay.setAttribute('x', `${progress_pos}%`);
+        markerPair.endNumbering.setAttribute('x', `${progress_pos}%`);
 
-        startMarkerNumberings.childNodes.forEach((startNumbering, idx) => {
-          const newIdx = idx + 1;
-          startNumbering.setAttribute('idx', newIdx);
-          startNumbering.textContent = newIdx.toString();
+        markerPair.speedMap = speedMap.filter((speedPoint) => {
+          return speedPoint.x <= currentTime;
         });
+      }
+      markerTimeSpan.textContent = `${toHHMMSSTrimmed(currentTime)}`;
+      if (speedChart) {
+        speedChart.config.data.datasets[0].data = markerPair.speedMap;
+        updateSpeedChartBounds(speedChart.config, markerPair.start, markerPair.end);
+        speedChart.update();
+      }
+      updateMarkerPairDuration(markerPair);
+    }
 
-        endMarkerNumberings.childNodes.forEach((endNumbering, idx) => {
-          const newIdx = idx + 1;
-          endNumbering.setAttribute('idx', newIdx);
-          endNumbering.textContent = newIdx.toString();
-        });
+    function deleteMarkerPair(idx?: number) {
+      if (idx == null) idx = prevSelectedMarkerPairIndex;
+      const markerPair = markerPairs[idx];
 
-        markerPairs.splice(idx, 1);
-        prevSelectedMarkerPairIndex = null;
-        prevSelectedEndMarker = null;
-        enableMarkerHotkeys.startMarker = null;
-        enableMarkerHotkeys.endMarker = null;
-        enableMarkerHotkeys.moveMarker = null;
-        enableMarkerHotkeys.deleteMarkerPair = null;
-        markerHotkeysEnabled = false;
-      };
+      const me = new MouseEvent('mouseover', { shiftKey: true });
+      enableMarkerHotkeys.endMarker.dispatchEvent(me);
+      deleteElement(enableMarkerHotkeys.endMarker);
+      deleteElement(enableMarkerHotkeys.startMarker);
+      deleteElement(markerPair.startNumbering);
+      deleteElement(markerPair.endNumbering);
+      const markersSvg = document.getElementById('markers-svg');
+      markersSvg.childNodes.forEach((markerRect, idx) => {
+        // renumber markers by pair starting with index 1
+        const newIdx = Math.floor((idx + 2) / 2);
+        markerRect.setAttribute('idx', newIdx);
+      });
+
+      startMarkerNumberings.childNodes.forEach((startNumbering, idx) => {
+        const newIdx = idx + 1;
+        startNumbering.setAttribute('idx', newIdx);
+        startNumbering.textContent = newIdx.toString();
+      });
+
+      endMarkerNumberings.childNodes.forEach((endNumbering, idx) => {
+        const newIdx = idx + 1;
+        endNumbering.setAttribute('idx', newIdx);
+        endNumbering.textContent = newIdx.toString();
+      });
+
+      markerPairs.splice(idx, 1);
+      prevSelectedMarkerPairIndex = null;
+      prevSelectedEndMarker = null;
+      enableMarkerHotkeys.startMarker = null;
+      enableMarkerHotkeys.endMarker = null;
+      markerHotkeysEnabled = false;
     }
 
     let selectedStartMarkerOverlay: HTMLElement;
