@@ -2,13 +2,13 @@
 
 ## Setup
 
-1.  Prerequisites:
+1. Prerequisites:
 
     - [Node.js](https://nodejs.org/) v10.0.0 or higher
     - [Python](https://www.python.org/)
     - [FFmpeg](https://ffmpeg.org/)
 
-2.  In a terminal:
+2. In a terminal:
 
     ```bash
     # Fork and clone the repository
@@ -18,13 +18,16 @@
     # Install npm dependencies
     npm install
 
-    # Build user script (AKA markup script)
-    npm run build:ts
+    # Build and bundle markup script in watch mode with typchecking
+    npm run bundle:tc:w
+
+    # Bundle markup script for release
+    npm run bundle:prod
 
     # Build python executable
     pip install -U pyinstaller youtube-dl urllib3
     npm run build:py
-    mkdir -p ./dist/py/bin/  # place ffmpeg binary here
+    mkdir -p ./dist/py/bin/  # place ffmpeg binaries here (ffmpeg, ffplay, and ffprobe)
 
     # Build all and run prettier formatting
     npm run build:all
