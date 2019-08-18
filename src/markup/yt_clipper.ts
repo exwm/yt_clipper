@@ -29,6 +29,7 @@ import { Chart, ChartConfiguration } from 'chart.js';
 import * as SpeedChartSpec from './speedchart/speed-chart-spec';
 import './speedchart/chart.js-drag-data-plugin';
 import { easeCubicInOut } from 'd3-ease';
+import { Tooltips } from './tooltips';
 import { readFileSync } from 'fs';
 const ytClipperCSS = readFileSync(__dirname + '/css/yt-clipper.css', 'utf8');
 const shortcutsTable = readFileSync(
@@ -1723,16 +1724,16 @@ export let player: HTMLElement;
           ? 'block'
           : 'none';
         markerInputs.setAttribute('id', 'markerInputsDiv');
-        markerInputs.innerHTML = `\
+        markerInputs.innerHTML = `
       <div id="new-marker-defaults-inputs" class="yt_clipper-settings-editor yt_clipper-global-editor">
         <span class="yt_clipper-global-editor-label">New Marker Settings: </span>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.speedTooltip}">
           <span class="editor-input-label">Speed: </span>
           <input id="speed-input" class="yt_clipper-input"  type="number" placeholder="speed" value="${
             settings.newMarkerSpeed
           }" step="0.05" min="0.05" max="2" style="width:4em">
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.cropTooltip}">
           <span class="editor-input-label">Crop: </span>
           <input id="crop-input" class="yt_clipper-input" value="${
             settings.newMarkerCrop
@@ -1741,20 +1742,20 @@ export let player: HTMLElement;
       </div>
       <div id="global-marker-settings" class="yt_clipper-settings-editor yt_clipper-global-editor">
         <span class="yt_clipper-global-editor-label">Global Settings: </span>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.titleSuffixTooltip}">
           <span class="editor-input-label"> Title Suffix: </span>
           <input id="title-suffix-input" class="yt_clipper-input" value="${
             settings.titleSuffix
           }" style="background-color:lightgreen;width:20em;text-align:right">
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.cropResolutionTooltip}">
           <span class="editor-input-label"> Crop Resolution: </span>
           <input id="crop-res-input" class="yt_clipper-input" list="resolutions" pattern="${cropResInputValidation}" value="${
           settings.cropRes
         }" style="width:7em" required>
           <datalist id="resolutions" autocomplete="off">${resList}</datalist>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.rotateTooltip}">
           <span>Rotate: </span>
           <input id="rotate-0" class="yt_clipper-input" type="radio" name="rotate" value="0" ${
             settings.rotate == null || settings.rotate === '0' ? 'checked' : ''
@@ -1769,7 +1770,7 @@ export let player: HTMLElement;
           }></input>
           <label for="rotate-90-counterclock">90&#x00B0; &#x27F2;</label>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.mergeListTooltip}">
           <span class="editor-input-label"> Merge List: </span>
           <input id="merge-list-input" class="yt_clipper-input" pattern="${mergeListInputValidation}" value="${
           settings.markerPairMergeList != null ? settings.markerPairMergeList : ''
@@ -1782,7 +1783,7 @@ export let player: HTMLElement;
       </div>
       <div id="global-encode-settings" class="yt_clipper-settings-editor yt_clipper-global-editor" style="display:${globalEncodeSettingsEditorDisplay}">
         <span class="yt_clipper-global-editor-label">Encode Settings: </span>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.audioTooltip}">
           <span>Audio: </span>
           <select id="audio-input"> 
             <option ${settings.audio ? 'selected' : ''}>Enabled</option>
@@ -1792,25 +1793,25 @@ export let player: HTMLElement;
             }>Inherit (Disabled)</option>
           </select>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.encodeSpeedTooltip}">
           <span>Encode Speed (0-5): </span>
           <input id="encode-speed-input" class="yt_clipper-input" type="number" min="0" max="5" step="1" value="${
             settings.encodeSpeed != null ? settings.encodeSpeed : ''
           }" placeholder="Auto" style="width:4em"></input>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.CRFTooltip}">
           <span>CRF (0-63): </span>
           <input id="crf-input" class="yt_clipper-input" type="number" min="0" max="63" step="1" value="${
             settings.crf != null ? settings.crf : ''
           }" placeholder="Auto" style="width:4em"></input>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.targetBitrateTooltip}">
           <span>Target Bitrate (kb/s) (0 = &#x221E;): </span>
           <input id="target-max-bitrate-input" class="yt_clipper-input" type="number" min="0" max="1e5"step="100" value="${
             settings.targetMaxBitrate != null ? settings.targetMaxBitrate : ''
           }" placeholder="Auto" "style="width:4em"></input>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.twoPassTooltip}">
           <span>Two-Pass: </span>
           <select id="two-pass-input"> 
             <option ${settings.twoPass ? 'selected' : ''}>Enabled</option>
@@ -1820,13 +1821,13 @@ export let player: HTMLElement;
             }>Inherit (Disabled)</option>
           </select>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.gammaTooltip}">
           <span>Gamma (0-4): </span>
           <input id="gamma-input" class="yt_clipper-input" type="number" min="0.01" max="4.00" step="0.01" value="${
             settings.gamma != null ? settings.gamma : ''
           }" placeholder="1" style="width:4em"></input>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.expandColorRangeTooltip}">
           <span>Expand Colors: </span>
           <select id="expand-color-range-input"> 
             <option ${settings.expandColorRange ? 'selected' : ''}>Enabled</option>
@@ -1838,7 +1839,7 @@ export let player: HTMLElement;
             }>Inherit (Disabled)</option>
           </select>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.denoiseTooltip}">
           <span>Denoise: </span>
           <select id="denoise-input">
             <option ${
@@ -1853,7 +1854,7 @@ export let player: HTMLElement;
             }>Inherit (Disabled)</option>
           </select>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.vidstabTooltip}">
           <span>Stabilization: </span>
           <select id="video-stabilization-input">
             <option ${vidstabDesc === 'Strongest' ? 'selected' : ''}>Strongest</option>
@@ -1868,18 +1869,20 @@ export let player: HTMLElement;
               vidstabDesc == null ? 'selected' : ''
             }>Inherit (Disabled)</option>
           </select>
-          <span>Dynamic Zoom: </span>
-          <select id="video-stabilization-dynamic-zoom-input"> 
-            <option ${vidstabDynamicZoomEnabled ? 'selected' : ''}>Enabled</option>
-            <option ${
-              vidstabDynamicZoomEnabled === false ? 'selected' : ''
-            }>Disabled</option>
-            <option value="Default" ${
-              vidstabDynamicZoomEnabled == null ? 'selected' : ''
-            }>Inherit (Disabled)</option>
-          </select>
+          <div style="display:inline-block" title="${Tooltips.dynamicZoomTooltip}">
+            <span>Dynamic Zoom: </span>
+            <select id="video-stabilization-dynamic-zoom-input"> 
+              <option ${vidstabDynamicZoomEnabled ? 'selected' : ''}>Enabled</option>
+              <option ${
+                vidstabDynamicZoomEnabled === false ? 'selected' : ''
+              }>Disabled</option>
+              <option value="Default" ${
+                vidstabDynamicZoomEnabled == null ? 'selected' : ''
+              }>Inherit (Disabled)</option>
+            </select>
+          </div>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.speedMapTooltip}">
           <span>Speed Maps: </span>
             <select id="enable-speed-maps-input">
               <option ${settings.enableSpeedMaps ? 'selected' : ''}>Enabled</option>
@@ -1891,7 +1894,7 @@ export let player: HTMLElement;
               }>Inherit (Enabled)</option>
             </select>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.loopTooltip}">
           <span>Loop: </span>
             <select id="loop-input">
               <option ${settings.loop === 'fwrev' ? 'selected' : ''}>fwrev</option>
@@ -1901,10 +1904,12 @@ export let player: HTMLElement;
                 settings.loop == null ? 'selected' : ''
               }>Inherit (none)</option>
             </select>
-          <span>Fade Duration: </span>
-          <input id="fade-duration-input" class="yt_clipper-input" type="number" min="0.1" step="0.1" value="${
-            settings.fadeDuration != null ? settings.fadeDuration : ''
-          }" placeholder="0.5" style="width:4em"></input>
+          <div style="display:inline-block" title="${Tooltips.fadeDurationTooltip}">
+            <span>Fade Duration: </span>
+            <input id="fade-duration-input" class="yt_clipper-input" type="number" min="0.1" step="0.1" value="${
+              settings.fadeDuration != null ? settings.fadeDuration : ''
+            }" placeholder="0.5" style="width:4em"></input>
+          </div>
         </div>
       </div>
       `;
@@ -3248,26 +3253,29 @@ export let player: HTMLElement;
       createCropOverlay(crop);
 
       markerInputsDiv.setAttribute('id', 'markerInputsDiv');
-      markerInputsDiv.innerHTML = `\
+      markerInputsDiv.innerHTML = `
       <div class="yt_clipper-settings-editor yt_clipper-marker-pair-editor">
-      <span class="yt_clipper-marker-pair-editor-label">Marker Pair \
-        <input id="marker-pair-number-input" class="yt_clipper-input" type="number" value="${markerPairIndex +
-          1}" 
-          step="1" min="1" max="${markerPairs.length}" style="width:2em" required></input>
-          /\
-          <span id="marker-pair-count-label">${markerPairs.length}</span>\
-        Settings: </span>
-        <div class="editor-input-div">
+        <span class="yt_clipper-marker-pair-editor-label">Marker Pair
+          <input id="marker-pair-number-input" class="yt_clipper-input"
+            title="${Tooltips.markerPairNumberTooltip}"
+            type="number" value="${markerPairIndex + 1}"
+            step="1" min="1" max="${markerPairs.length}" style="width:2em" required>
+          </input>
+          /
+          <span id="marker-pair-count-label">${markerPairs.length}</span>
+          Settings: \
+        </span>
+        <div class="editor-input-div" title="${Tooltips.speedTooltip}">
           <span>Speed: </span>
           <input id="speed-input" class="yt_clipper-input" type="number" placeholder="speed" value="${speed}" 
             step="0.05" min="0.05" max="2" style="width:4em" required></input>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.cropTooltip}">
           <span>Crop: </span>
           <input id="crop-input" class="yt_clipper-input" value="${crop}" pattern="${cropInputValidation}" 
           style="width:10em" required></input>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.titlePrefixTooltip}">
           <span>Title Prefix: </span>
           <input id="title-prefix-input" class="yt_clipper-input" value="${
             overrides.titlePrefix != null ? overrides.titlePrefix : ''
@@ -3287,7 +3295,7 @@ export let player: HTMLElement;
       </div>
       <div id="marker-pair-overrides" class="yt_clipper-settings-editor yt_clipper-marker-pair-editor" style="display:${overridesEditorDisplay}">
         <span class="yt_clipper-marker-pair-editor-label">Overrides: </span>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.audioTooltip}">
           <span>Audio: </span>
           <select id="audio-input">
             <option ${overrides.audio ? 'selected' : ''}>Enabled</option>
@@ -3297,13 +3305,13 @@ export let player: HTMLElement;
             }>Inherit ${ternaryToString(settings.audio)}</option>
           </select>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.encodeSpeedTooltip}">
           <span>Encode Speed (0-5): </span>
           <input id="encode-speed-input" class="yt_clipper-input" type="number" min="0" max="5" step="1" value="${
             overrides.encodeSpeed != null ? overrides.encodeSpeed : ''
           }" placeholder="${settings.encodeSpeed || 'Auto'}"  style="width:4em"></input>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.CRFTooltip}">
           <span>CRF (0-63): </span>
           <input id="crf-input" class="yt_clipper-input" type="number" min="0" max="63" step="1" value="${
             overrides.crf != null ? overrides.crf : ''
@@ -3311,14 +3319,14 @@ export let player: HTMLElement;
         settings.crf != null ? settings.crf : 'Auto'
       }" "style="width:4em"></input>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.targetBitrateTooltip}">
           <span>Target Bitrate (kb/s) (0 = &#x221E;): </span>
           <input id="target-max-bitrate-input" class="yt_clipper-input" type="number" min="0" max="10e5" step="100" value="${
             overrides.targetMaxBitrate != null ? overrides.targetMaxBitrate : ''
           }" placeholder="${settings.targetMaxBitrate ||
         'Auto'}" "style="width:4em"></input>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.twoPassTooltip}">
           <span>Two-Pass: </span>
           <select id="two-pass-input"> 
             <option ${overrides.twoPass ? 'selected' : ''}>Enabled</option>
@@ -3328,7 +3336,7 @@ export let player: HTMLElement;
             }>Inherit ${ternaryToString(settings.twoPass)}</option>
           </select>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.gammaTooltip}">
           <span>Gamma (0-4): </span>
           <input id="gamma-input" class="yt_clipper-input" type="number" min="0.01" max="4.00" step="0.01" value="${
             overrides.gamma != null ? overrides.gamma : ''
@@ -3336,7 +3344,7 @@ export let player: HTMLElement;
         settings.gamma != null ? settings.gamma : '1'
       }" style="width:4em"></input>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.expandColorRangeTooltip}">
           <span>Expand Colors: </span>
           <select id="expand-color-range-input"> 
             <option ${overrides.expandColorRange ? 'selected' : ''}>Enabled</option>
@@ -3348,7 +3356,7 @@ export let player: HTMLElement;
             }>Inherit ${ternaryToString(settings.expandColorRange)}</option>
           </select>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.denoiseTooltip}">
           <span>Denoise: </span>
           <select id="denoise-input">
             <option ${
@@ -3366,7 +3374,7 @@ export let player: HTMLElement;
             }>Inherit ${denoiseDescGlobal}</option>
           </select>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.vidstabTooltip}">
           <span>Stabilization: </span>
           <select id="video-stabilization-input">
             <option ${vidstabDesc === 'Strongest' ? 'selected' : ''}>Strongest</option>
@@ -3384,18 +3392,22 @@ export let player: HTMLElement;
               vidstabDesc == null ? 'selected' : ''
             }>Inherit ${vidstabDescGlobal}</option>
           </select>
-          <span>Dynamic Zoom: </span>
-          <select id="video-stabilization-dynamic-zoom-input"> 
-            <option ${vidstabDynamicZoomEnabled ? 'selected' : ''}>Enabled</option>
-            <option ${
-              vidstabDynamicZoomEnabled === false ? 'selected' : ''
-            }>Disabled</option>
-            <option value="Default" ${
-              vidstabDynamicZoomEnabled == null ? 'selected' : ''
-            }>Inherit ${ternaryToString(settings.videoStabilizationDynamicZoom)}</option>
-          </select>
+          <div style="display:inline-block" title="${Tooltips.dynamicZoomTooltip}">
+            <span>Dynamic Zoom: </span>
+            <select id="video-stabilization-dynamic-zoom-input"> 
+              <option ${vidstabDynamicZoomEnabled ? 'selected' : ''}>Enabled</option>
+              <option ${
+                vidstabDynamicZoomEnabled === false ? 'selected' : ''
+              }>Disabled</option>
+              <option value="Default" ${
+                vidstabDynamicZoomEnabled == null ? 'selected' : ''
+              }>Inherit ${ternaryToString(
+        settings.videoStabilizationDynamicZoom
+      )}</option>
+            </select>
+          </div>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.speedMapTooltip}">
         <span>Speed Map: </span>
             <select id="enable-speed-maps-input">
               <option ${overrides.enableSpeedMaps ? 'selected' : ''}>Enabled</option>
@@ -3407,7 +3419,7 @@ export let player: HTMLElement;
               }>Inherit ${ternaryToString(settings.enableSpeedMaps)}</option>
             </select>
         </div>
-        <div class="editor-input-div">
+        <div class="editor-input-div" title="${Tooltips.loopTooltip}">
           <span>Loop: </span>
             <select id="loop-input">
               <option ${overrides.loop === 'fwrev' ? 'selected' : ''}>fwrev</option>
@@ -3417,12 +3429,14 @@ export let player: HTMLElement;
                 overrides.loop == null ? 'selected' : ''
               }>Inherit ${settings.loop ? `(${settings.loop})` : ''}</option>
             </select>
-          <span>Fade Duration: </span>
-          <input id="fade-duration-input" class="yt_clipper-input" type="number" min="0.1" step="0.1" value="${
-            overrides.fadeDuration != null ? overrides.fadeDuration : ''
-          }" placeholder="${
+          <div style="display:inline-block" title="${Tooltips.fadeDurationTooltip}">
+            <span>Fade Duration: </span>
+            <input id="fade-duration-input" class="yt_clipper-input" type="number" min="0.1" step="0.1" value="${
+              overrides.fadeDuration != null ? overrides.fadeDuration : ''
+            }" placeholder="${
         settings.fadeDuration != null ? settings.fadeDuration : '0.5'
       }" style="width:4em"></input>
+          </div>
         </div>
       </div>
       `;
