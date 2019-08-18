@@ -9,12 +9,13 @@
     "url": "https://github.com/exwm/yt_clipper"
   },
   "description": "add markers to youtube videos and generate clipped webms online or offline",
-  "main": "./src/yt_clipper.ts",
+  "main": "./src/markup/yt_clipper.ts",
   "browserslist": [
     "since 2017-06"
   ],
   "devDependencies": {
     "@types/chart.js": "^2.7.54",
+    "@types/common-tags": "^1.8.0",
     "@types/d3-ease": "^1.0.8",
     "@types/file-saver": "^2.0.1",
     "@types/jszip": "^3.1.6",
@@ -37,6 +38,7 @@
     "clean:sandbox": "rm -r ./sandbox/*"
   },
   "dependencies": {
+    "common-tags": "^1.8.0",
     "d3-drag": "^1.2.3",
     "d3-ease": "^1.0.5",
     "d3-selection": "^1.4.0",
