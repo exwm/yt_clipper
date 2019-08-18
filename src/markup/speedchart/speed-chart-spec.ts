@@ -29,7 +29,7 @@ export const global: ChartOptions & ChartFontOptions = {
   animation: { duration: 0 },
 };
 
-const roundX = createRounder(0.1, 1);
+const roundX = createRounder(0.05, 2);
 const roundY = createRounder(0.05, 2);
 
 function getSpeedPointColor(context) {
@@ -48,6 +48,16 @@ function updateSpeedInput(newSpeed?: number) {
   }
 }
 
+function getSpeedChartBounds(chartInstance) {
+  const speedChartBounds = {
+    XMinBound: chartInstance.options.scales.xAxes[0].ticks.min,
+    XMaxBound: chartInstance.options.scales.xAxes[0].ticks.max,
+    YMinBound: 0.05,
+    YMaxBound: 2,
+  };
+  return speedChartBounds;
+}
+
 export const options: ChartConfiguration = {
   type: 'scatter',
   data: {
@@ -60,10 +70,10 @@ export const options: ChartConfiguration = {
         pointBackgroundColor: getSpeedPointColor,
         pointBorderColor: medgrey(0.7),
         pointRadius: 5,
-        pointHoverRadius: 6,
+        pointHoverRadius: 4,
         pointHoverBorderWidth: 1.5,
         pointHoverBorderColor: lightgrey(0.8),
-        pointHitRadius: 5,
+        pointHitRadius: 4,
       },
     ],
   },
@@ -252,17 +262,19 @@ export const options: ChartConfiguration = {
         dragX: true,
         dragY: true,
       };
-      let speedChartMinBound = chartInstance.options.scales.xAxes[0].ticks.min;
-      let speedChartMaxBound = chartInstance.options.scales.xAxes[0].ticks.max;
+      const speedChartBounds = getSpeedChartBounds(chartInstance);
       if (
-        fromValue.x <= speedChartMinBound ||
-        fromValue.x >= speedChartMaxBound ||
-        toValue.x <= speedChartMinBound ||
-        toValue.x >= speedChartMaxBound
+        fromValue.x <= speedChartBounds.XMinBound ||
+        fromValue.x >= speedChartBounds.XMaxBound ||
+        toValue.x <= speedChartBounds.XMinBound ||
+        toValue.x >= speedChartBounds.XMaxBound
       ) {
         shouldDrag.dragX = false;
       }
-      if (toValue.y < 0.05 || toValue.y > 2) {
+      if (
+        toValue.y < speedChartBounds.YMinBound ||
+        toValue.y > speedChartBounds.YMaxBound
+      ) {
         shouldDrag.dragY = false;
       }
 
@@ -295,6 +307,15 @@ export const options: ChartConfiguration = {
         valueY = this.scales['y-axis-1'].getValueForPixel(event.offsetY);
 
         if (valueX && valueY) {
+          const speedChartBounds = getSpeedChartBounds(this);
+          if (
+            valueX <= speedChartBounds.XMinBound ||
+            valueX >= speedChartBounds.XMaxBound ||
+            valueY < speedChartBounds.YMinBound ||
+            valueY > speedChartBounds.YMaxBound
+          ) {
+            return;
+          }
           valueX = roundX(valueX);
           valueY = roundY(valueY);
 
