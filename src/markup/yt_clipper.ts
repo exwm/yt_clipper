@@ -3244,11 +3244,13 @@ export let player: HTMLElement;
       const vidstabDesc = vidstab ? vidstab.desc : null;
       const vidstabDescGlobal = settings.videoStabilization
         ? `(${settings.videoStabilization.desc})`
-        : '';
+        : '(Disabled)';
       const vidstabDynamicZoomEnabled = overrides.videoStabilizationDynamicZoom;
       const denoise = overrides.denoise;
       const denoiseDesc = denoise ? denoise.desc : null;
-      const denoiseDescGlobal = settings.denoise ? `(${settings.denoise.desc})` : '';
+      const denoiseDescGlobal = settings.denoise
+        ? `(${settings.denoise.desc})`
+        : '(Disabled)';
       const overridesEditorDisplay = isExtraSettingsEditorEnabled ? 'block' : 'none';
       createCropOverlay(crop);
 
@@ -3416,7 +3418,7 @@ export let player: HTMLElement;
               }>Disabled</option>
               <option value="Default" ${
                 overrides.enableSpeedMaps == null ? 'selected' : ''
-              }>Inherit ${ternaryToString(settings.enableSpeedMaps)}</option>
+              }>Inherit ${ternaryToString(settings.enableSpeedMaps, '(Enabled)')}</option>
             </select>
         </div>
         <div class="editor-input-div" title="${Tooltips.loopTooltip}">
@@ -3427,7 +3429,9 @@ export let player: HTMLElement;
               <option ${overrides.loop === 'none' ? 'selected' : ''}>none</option>
               <option value="Default" ${
                 overrides.loop == null ? 'selected' : ''
-              }>Inherit ${settings.loop ? `(${settings.loop})` : ''}</option>
+              }>Inherit ${
+        settings.loop != null ? `(${settings.loop})` : '(none)'
+      }</option>
             </select>
           <div style="display:inline-block" title="${Tooltips.fadeDurationTooltip}">
             <span>Fade Duration: </span>
@@ -3480,9 +3484,9 @@ export let player: HTMLElement;
       wasDefaultsEditorOpen = false;
     }
 
-    function ternaryToString(ternary: boolean) {
+    function ternaryToString(ternary: boolean, def?: string) {
       if (ternary == null) {
-        return '';
+        return def != null ? def : '(Disabled)';
       } else if (ternary === true) {
         return '(Enabled)';
       } else if (ternary === false) {
@@ -3503,25 +3507,27 @@ export let player: HTMLElement;
         ...markerPairs.splice(prevSelectedMarkerPairIndex, 1)
       );
 
-      let beforeMarkerRect = markersSvg.children[newIdx * 2];
-      let beforeStartNumbering = startMarkerNumberings.children[newIdx];
-      let beforeEndNumbering = endMarkerNumberings.children[newIdx];
+      let targetMarkerRect = markersSvg.children[newIdx * 2];
+      let targetStartNumbering = startMarkerNumberings.children[newIdx];
+      let targetEndNumbering = endMarkerNumberings.children[newIdx];
       const prevSelectedStartMarker = prevSelectedEndMarker.previousElementSibling;
+      // if target precedes current marker pair, move pair before target
       if (newIdx < prevSelectedMarkerPairIndex) {
         prevSelectedEndMarker.parentElement.insertBefore(
           prevSelectedEndMarker,
-          beforeMarkerRect
+          targetMarkerRect
         );
         prevSelectedStartMarker.parentElement.insertBefore(
           prevSelectedStartMarker,
           prevSelectedEndMarker
         );
-        startNumbering.parentElement.insertBefore(startNumbering, beforeStartNumbering);
-        endNumbering.parentElement.insertBefore(endNumbering, beforeEndNumbering);
+        startNumbering.parentElement.insertBefore(startNumbering, targetStartNumbering);
+        endNumbering.parentElement.insertBefore(endNumbering, targetEndNumbering);
+        // if target succeedes current marker pair, move pair after target
       } else if (newIdx > prevSelectedMarkerPairIndex) {
         prevSelectedStartMarker.parentElement.insertBefore(
           prevSelectedStartMarker,
-          beforeMarkerRect.nextElementSibling
+          targetMarkerRect.nextElementSibling
         );
         prevSelectedEndMarker.parentElement.insertBefore(
           prevSelectedEndMarker,
@@ -3529,11 +3535,11 @@ export let player: HTMLElement;
         );
         startNumbering.parentElement.insertBefore(
           startNumbering,
-          beforeStartNumbering.nextElementSibling
+          targetStartNumbering.nextElementSibling
         );
         endNumbering.parentElement.insertBefore(
           endNumbering,
-          beforeEndNumbering.nextElementSibling
+          targetEndNumbering.nextElementSibling
         );
       }
 
