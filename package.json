@@ -2,7 +2,7 @@
   "name": "yt_clipper",
   "author": "exwm",
   "homepage": "https://openuserjs.org/scripts/elwm/yt_clipper",
-  "version": "0.0.85",
+  "version": "0.0.86",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -20,6 +20,7 @@
     "@types/file-saver": "^2.0.1",
     "@types/jszip": "^3.1.6",
     "npm-run-all": "^4.1.5",
+    "parcel-bundler": "^1.12.3",
     "parcel-globals": "^0.2.3",
     "prettier": "1.17.1",
     "typescript": "3.5.x"
@@ -31,9 +32,9 @@
     "build:ts:p": "run-s -c build:ts pretty",
     "build:py": "pyinstaller ./src/clipper/yt_clipper.py -F --workpath ./dist/py/ --distpath ./dist/py/ --specpath ./dist/py/spec",
     "build:all": "run-s -c build:ts:p build:py",
-    "bundle:w": "parcel watch --out-dir ./dist/js --no-hmr ./src/markup/yt_clipper.ts",
+    "bundle:w": "npx parcel watch --out-dir ./dist/js --no-hmr ./src/markup/yt_clipper.ts",
     "bundle:tc:w": "run-p -c build:ts:ne bundle:w",
-    "bundle:prod": "parcel build --experimental-scope-hoisting --no-minify --out-dir ./dist/js ./src/markup/yt_clipper.ts",
+    "bundle:prod": "npx parcel build --experimental-scope-hoisting --no-minify --out-dir ./dist/js ./src/markup/yt_clipper.ts",
     "clean:dist": "rm -r ./dist/*",
     "clean:sandbox": "rm -r ./sandbox/*"
   },
