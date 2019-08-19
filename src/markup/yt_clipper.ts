@@ -1724,7 +1724,7 @@ export let player: HTMLElement;
         settingsEditorDiv.innerHTML = `
       <div id="new-marker-defaults-inputs" 
         class="settings-editor-panel global-settings-editor global-settings-editor-highlighted-div">
-        <span class="global-settings-editor-label">New Marker Settings: </span>
+        <span class="global-settings-editor-highlighted-label">New Marker Settings: </span>
         <div class="settings-editor-input-div" title="${Tooltips.speedTooltip}">
           <span class="settings-editor-input-label">Speed: </span>
           <input id="speed-input" class="settings-editor-input"  type="number" placeholder="speed" value="${
@@ -1740,7 +1740,7 @@ export let player: HTMLElement;
       </div>
       <div id="global-marker-settings" 
       class="settings-editor-panel global-settings-editor global-settings-editor-highlighted-div">
-        <span class="global-settings-editor-label">Global Settings: </span>
+        <span class="global-settings-editor-highlighted-label">Global Settings: </span>
         <div class="settings-editor-input-div" title="${Tooltips.titleSuffixTooltip}">
           <span class="settings-editor-input-label"> Title Suffix: </span>
           <input id="title-suffix-input" class="settings-editor-input" value="${
@@ -1782,7 +1782,7 @@ export let player: HTMLElement;
       </div>
       <div id="global-encode-settings" 
         class="settings-editor-panel global-settings-editor global-settings-editor-highlighted-div" style="display:${globalEncodeSettingsEditorDisplay}">
-        <span class="global-settings-editor-label">Encode Settings: </span>
+        <span class="global-settings-editor-highlighted-label">Encode Settings: </span>
         <div class="settings-editor-input-div" title="${Tooltips.audioTooltip}">
           <span>Audio: </span>
           <select id="audio-input"> 
@@ -3574,23 +3574,21 @@ export let player: HTMLElement;
 
     function highlightModifiedSettings(inputs: string[][], target) {
       if (isMarkerEditorOpen) {
+        const markerPairSettingsLabelHighlight =
+          'marker-pair-settings-editor-highlighted-label';
+        const globalSettingsLabelHighlight = 'global-settings-editor-highlighted-label';
+        const markerPair = markerPairs[prevSelectedMarkerPairIndex];
         inputs.forEach((input) => {
           const id = input[0];
           const targetProperty = input[1];
           const inputElem = document.getElementById(id);
           const storedTargetValue = target[targetProperty];
-          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
 
           let label = inputElem.previousElementSibling;
           if (id === 'rotate-90-clock' || id === 'rotate-90-counterclock')
             label = inputElem.parentElement.getElementsByTagName('span')[0];
-          let highlightedClassName: string;
 
-          target === settings
-            ? (highlightedClassName = 'global-settings-editor-highlighted-label')
-            : (highlightedClassName = 'marker-pair-settings-editor-highlighted-label');
-
-          const shouldRemoveHighlight =
+          let shouldRemoveHighlight =
             storedTargetValue == null ||
             storedTargetValue === '' ||
             (id === 'title-suffix-input' &&
@@ -3605,9 +3603,20 @@ export let player: HTMLElement;
             id === 'rotate-0';
 
           if (shouldRemoveHighlight) {
-            label.classList.remove(highlightedClassName);
+            label.classList.remove(globalSettingsLabelHighlight);
+            label.classList.remove(markerPairSettingsLabelHighlight);
           } else {
-            label.classList.add(highlightedClassName);
+            if (target === settings) {
+              label.classList.add(globalSettingsLabelHighlight);
+            } else {
+              if (storedTargetValue === settings[targetProperty]) {
+                label.classList.add(globalSettingsLabelHighlight);
+                label.classList.remove(markerPairSettingsLabelHighlight);
+              } else {
+                label.classList.add(markerPairSettingsLabelHighlight);
+                label.classList.remove(globalSettingsLabelHighlight);
+              }
+            }
           }
         });
       }
