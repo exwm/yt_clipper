@@ -70,50 +70,11 @@
   pointer-events: none;
 }
 
-#markerInputsDiv {
+#settings-editor-div {
   display: flex;
 }
-.editor-input-div {
-  display: inline-block;
-  color: grey;
-  font-size: 12pt;
-  margin: 2px;
-  padding: 2px;
-  border: 2px solid grey;
-}
 
-.editor-input-label {
-  color: grey;
-  font-size: 12pt;
-}
-
-.yt_clipper-input {
-  font-weight: bold;
-}
-
-.yt_clipper-input:valid {
-  animation-name: valid-input;
-  animation-duration: 1s;
-  animation-fill-mode: forwards;
-}
-
-.yt_clipper-input:invalid {
-  animation-name: invalid-input;
-  animation-duration: 1s;
-  animation-fill-mode: forwards;
-}
-
-.marker-settings-display {
-  display: block;
-  color: var(--dark-grey);
-  font-size: 12pt;
-  font-style: italic;
-  margin: 2px;
-  padding: 2px;
-  border: 2px solid var(--dark-grey);
-}
-
-.yt_clipper-settings-editor {
+.settings-editor-panel {
   display: inline;
   color: var(--dark-grey);
   font-size: 12pt;
@@ -123,20 +84,50 @@
   border-radius: 5px;
 }
 
-.yt_clipper-marker-pair-editor {
+.settings-editor-input-div {
+  display: inline-block;
+  color: grey;
+  font-size: 12pt;
+  margin: 2px;
+  padding: 2px;
+  border: 2px solid grey;
+}
+
+.settings-editor-input-label {
+  color: grey;
+  font-size: 12pt;
+}
+
+.settings-editor-input {
+  font-weight: bold;
+}
+
+.settings-editor-input:valid {
+  animation-name: valid-input;
+  animation-duration: 1s;
+  animation-fill-mode: forwards;
+}
+
+.settings-editor-input:invalid {
+  animation-name: invalid-input;
+  animation-duration: 1s;
+  animation-fill-mode: forwards;
+}
+
+.marker-pair-settings-editor-highlighted-div {
   border: 2px solid var(--marker-pair-editor-accent);
 }
 
-.yt_clipper-marker-pair-editor-label {
+.global-settings-editor-highlighted-div {
+  border: 2px solid var(--global-editor-accent);
+}
+
+.marker-pair-settings-editor-highlighted-label {
   font-weight: 500;
   color: var(--marker-pair-editor-accent);
 }
 
-.yt_clipper-global-editor {
-  border: 2px solid var(--global-editor-accent);
-}
-
-.yt_clipper-global-editor-label {
+.global-settings-editor-highlighted-label {
   font-weight: 500;
   color: var(--global-editor-accent);
 }
