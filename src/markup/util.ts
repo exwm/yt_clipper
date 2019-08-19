@@ -26,6 +26,12 @@ export function htmlToSVGElement(html: string) {
   return template.firstElementChild;
 }
 
+export function deleteElement(elem: Element) {
+  if (elem && elem.parentElement) {
+    elem.parentElement.removeChild(elem);
+  }
+}
+
 export function once(fn: Function, context: any) {
   var result: Function;
   return function() {
