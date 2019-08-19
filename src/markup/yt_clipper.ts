@@ -56,6 +56,7 @@ import {
   roundValue,
   htmlToElement,
   htmlToSVGElement,
+  deleteElement,
 } from './util';
 
 const __version__ = '0.0.86';
@@ -586,6 +587,8 @@ export let player: HTMLElement;
 
             video.releasePointerCapture(e.pointerId);
 
+            cropInput.dispatchEvent(new Event('change'));
+
             cursor === 'grab'
               ? document.removeEventListener('pointermove', dragCropHandler)
               : document.removeEventListener('pointermove', resizeHandler);
@@ -967,12 +970,6 @@ export let player: HTMLElement;
       flashDiv.innerHTML = `<span class="flash-msg" style="color:${color}">${msg}</span>`;
       flashMessageHook.insertAdjacentElement('beforebegin', flashDiv);
       setTimeout(() => deleteElement(flashDiv), lifetime);
-    }
-
-    function deleteElement(elem: Element) {
-      if (elem && elem.parentElement) {
-        elem.parentElement.removeChild(elem);
-      }
     }
 
     function getShortestActiveMarkerPair(currentTime: number = video.currentTime) {
@@ -1705,7 +1702,7 @@ export let player: HTMLElement;
       } else {
         hideSelectedMarkerPairCropOverlay();
         createCropOverlay(settings.newMarkerCrop);
-        const markerInputs = document.createElement('div');
+        const settingsEditorDiv = document.createElement('div');
         const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
         const csvRange = `(\\d{1,2})([,-]\\d{1,2})*`;
         const mergeListInputValidation = `(${csvRange})+(;${csvRange})*`;
@@ -1723,56 +1720,58 @@ export let player: HTMLElement;
         const globalEncodeSettingsEditorDisplay = isExtraSettingsEditorEnabled
           ? 'block'
           : 'none';
-        markerInputs.setAttribute('id', 'markerInputsDiv');
-        markerInputs.innerHTML = `
-      <div id="new-marker-defaults-inputs" class="yt_clipper-settings-editor yt_clipper-global-editor">
-        <span class="yt_clipper-global-editor-label">New Marker Settings: </span>
-        <div class="editor-input-div" title="${Tooltips.speedTooltip}">
-          <span class="editor-input-label">Speed: </span>
-          <input id="speed-input" class="yt_clipper-input"  type="number" placeholder="speed" value="${
+        settingsEditorDiv.setAttribute('id', 'settings-editor-div');
+        settingsEditorDiv.innerHTML = `
+      <div id="new-marker-defaults-inputs" 
+        class="settings-editor-panel global-settings-editor global-settings-editor-highlighted-div">
+        <span class="global-settings-editor-label">New Marker Settings: </span>
+        <div class="settings-editor-input-div" title="${Tooltips.speedTooltip}">
+          <span class="settings-editor-input-label">Speed: </span>
+          <input id="speed-input" class="settings-editor-input"  type="number" placeholder="speed" value="${
             settings.newMarkerSpeed
           }" step="0.05" min="0.05" max="2" style="width:4em">
         </div>
-        <div class="editor-input-div" title="${Tooltips.cropTooltip}">
-          <span class="editor-input-label">Crop: </span>
-          <input id="crop-input" class="yt_clipper-input" value="${
+        <div class="settings-editor-input-div" title="${Tooltips.cropTooltip}">
+          <span class="settings-editor-input-label">Crop: </span>
+          <input id="crop-input" class="settings-editor-input" value="${
             settings.newMarkerCrop
           }" pattern="${cropInputValidation}" style="width:10em" required>
         </div>
       </div>
-      <div id="global-marker-settings" class="yt_clipper-settings-editor yt_clipper-global-editor">
-        <span class="yt_clipper-global-editor-label">Global Settings: </span>
-        <div class="editor-input-div" title="${Tooltips.titleSuffixTooltip}">
-          <span class="editor-input-label"> Title Suffix: </span>
-          <input id="title-suffix-input" class="yt_clipper-input" value="${
+      <div id="global-marker-settings" 
+      class="settings-editor-panel global-settings-editor global-settings-editor-highlighted-div">
+        <span class="global-settings-editor-label">Global Settings: </span>
+        <div class="settings-editor-input-div" title="${Tooltips.titleSuffixTooltip}">
+          <span class="settings-editor-input-label"> Title Suffix: </span>
+          <input id="title-suffix-input" class="settings-editor-input" value="${
             settings.titleSuffix
           }" style="background-color:lightgreen;width:20em;text-align:right">
         </div>
-        <div class="editor-input-div" title="${Tooltips.cropResolutionTooltip}">
-          <span class="editor-input-label"> Crop Resolution: </span>
-          <input id="crop-res-input" class="yt_clipper-input" list="resolutions" pattern="${cropResInputValidation}" value="${
+        <div class="settings-editor-input-div" title="${Tooltips.cropResolutionTooltip}">
+          <span class="settings-editor-input-label"> Crop Resolution: </span>
+          <input id="crop-res-input" class="settings-editor-input" list="resolutions" pattern="${cropResInputValidation}" value="${
           settings.cropRes
         }" style="width:7em" required>
           <datalist id="resolutions" autocomplete="off">${resList}</datalist>
         </div>
-        <div class="editor-input-div" title="${Tooltips.rotateTooltip}">
+        <div class="settings-editor-input-div" title="${Tooltips.rotateTooltip}">
           <span>Rotate: </span>
-          <input id="rotate-0" class="yt_clipper-input" type="radio" name="rotate" value="0" ${
+          <input id="rotate-0" class="settings-editor-input" type="radio" name="rotate" value="0" ${
             settings.rotate == null || settings.rotate === '0' ? 'checked' : ''
           }></input>
           <label for="rotate-0">0&#x00B0; </label>
-          <input id="rotate-90-clock" class="yt_clipper-input" type="radio" value="clock" name="rotate" ${
+          <input id="rotate-90-clock" class="settings-editor-input" type="radio" value="clock" name="rotate" ${
             settings.rotate === 'clock' ? 'checked' : ''
           }></input>
           <label for="rotate-90-clock">90&#x00B0; &#x27F3;</label>
-          <input id="rotate-90-counterclock" class="yt_clipper-input" type="radio" value="cclock" name="rotate" ${
+          <input id="rotate-90-counterclock" class="settings-editor-input" type="radio" value="cclock" name="rotate" ${
             settings.rotate === 'cclock' ? 'checked' : ''
           }></input>
           <label for="rotate-90-counterclock">90&#x00B0; &#x27F2;</label>
         </div>
-        <div class="editor-input-div" title="${Tooltips.mergeListTooltip}">
-          <span class="editor-input-label"> Merge List: </span>
-          <input id="merge-list-input" class="yt_clipper-input" pattern="${mergeListInputValidation}" value="${
+        <div class="settings-editor-input-div" title="${Tooltips.mergeListTooltip}">
+          <span class="settings-editor-input-label"> Merge List: </span>
+          <input id="merge-list-input" class="settings-editor-input" pattern="${mergeListInputValidation}" value="${
           settings.markerPairMergeList != null ? settings.markerPairMergeList : ''
         }" placeholder="None" style="width:15em">
           <div style="display:inline-block">
@@ -1781,9 +1780,10 @@ export let player: HTMLElement;
           </div>
         </div>
       </div>
-      <div id="global-encode-settings" class="yt_clipper-settings-editor yt_clipper-global-editor" style="display:${globalEncodeSettingsEditorDisplay}">
-        <span class="yt_clipper-global-editor-label">Encode Settings: </span>
-        <div class="editor-input-div" title="${Tooltips.audioTooltip}">
+      <div id="global-encode-settings" 
+        class="settings-editor-panel global-settings-editor global-settings-editor-highlighted-div" style="display:${globalEncodeSettingsEditorDisplay}">
+        <span class="global-settings-editor-label">Encode Settings: </span>
+        <div class="settings-editor-input-div" title="${Tooltips.audioTooltip}">
           <span>Audio: </span>
           <select id="audio-input"> 
             <option ${settings.audio ? 'selected' : ''}>Enabled</option>
@@ -1793,25 +1793,25 @@ export let player: HTMLElement;
             }>Inherit (Disabled)</option>
           </select>
         </div>
-        <div class="editor-input-div" title="${Tooltips.encodeSpeedTooltip}">
+        <div class="settings-editor-input-div" title="${Tooltips.encodeSpeedTooltip}">
           <span>Encode Speed (0-5): </span>
-          <input id="encode-speed-input" class="yt_clipper-input" type="number" min="0" max="5" step="1" value="${
+          <input id="encode-speed-input" class="settings-editor-input" type="number" min="0" max="5" step="1" value="${
             settings.encodeSpeed != null ? settings.encodeSpeed : ''
           }" placeholder="Auto" style="width:4em"></input>
         </div>
-        <div class="editor-input-div" title="${Tooltips.CRFTooltip}">
+        <div class="settings-editor-input-div" title="${Tooltips.CRFTooltip}">
           <span>CRF (0-63): </span>
-          <input id="crf-input" class="yt_clipper-input" type="number" min="0" max="63" step="1" value="${
+          <input id="crf-input" class="settings-editor-input" type="number" min="0" max="63" step="1" value="${
             settings.crf != null ? settings.crf : ''
           }" placeholder="Auto" style="width:4em"></input>
         </div>
-        <div class="editor-input-div" title="${Tooltips.targetBitrateTooltip}">
+        <div class="settings-editor-input-div" title="${Tooltips.targetBitrateTooltip}">
           <span>Target Bitrate (kb/s) (0 = &#x221E;): </span>
-          <input id="target-max-bitrate-input" class="yt_clipper-input" type="number" min="0" max="1e5"step="100" value="${
+          <input id="target-max-bitrate-input" class="settings-editor-input" type="number" min="0" max="1e5"step="100" value="${
             settings.targetMaxBitrate != null ? settings.targetMaxBitrate : ''
           }" placeholder="Auto" "style="width:4em"></input>
         </div>
-        <div class="editor-input-div" title="${Tooltips.twoPassTooltip}">
+        <div class="settings-editor-input-div" title="${Tooltips.twoPassTooltip}">
           <span>Two-Pass: </span>
           <select id="two-pass-input"> 
             <option ${settings.twoPass ? 'selected' : ''}>Enabled</option>
@@ -1821,13 +1821,15 @@ export let player: HTMLElement;
             }>Inherit (Disabled)</option>
           </select>
         </div>
-        <div class="editor-input-div" title="${Tooltips.gammaTooltip}">
+        <div class="settings-editor-input-div" title="${Tooltips.gammaTooltip}">
           <span>Gamma (0-4): </span>
-          <input id="gamma-input" class="yt_clipper-input" type="number" min="0.01" max="4.00" step="0.01" value="${
+          <input id="gamma-input" class="settings-editor-input" type="number" min="0.01" max="4.00" step="0.01" value="${
             settings.gamma != null ? settings.gamma : ''
           }" placeholder="1" style="width:4em"></input>
         </div>
-        <div class="editor-input-div" title="${Tooltips.expandColorRangeTooltip}">
+        <div class="settings-editor-input-div" title="${
+          Tooltips.expandColorRangeTooltip
+        }">
           <span>Expand Colors: </span>
           <select id="expand-color-range-input"> 
             <option ${settings.expandColorRange ? 'selected' : ''}>Enabled</option>
@@ -1839,7 +1841,7 @@ export let player: HTMLElement;
             }>Inherit (Disabled)</option>
           </select>
         </div>
-        <div class="editor-input-div" title="${Tooltips.denoiseTooltip}">
+        <div class="settings-editor-input-div" title="${Tooltips.denoiseTooltip}">
           <span>Denoise: </span>
           <select id="denoise-input">
             <option ${
@@ -1854,7 +1856,7 @@ export let player: HTMLElement;
             }>Inherit (Disabled)</option>
           </select>
         </div>
-        <div class="editor-input-div" title="${Tooltips.vidstabTooltip}">
+        <div class="settings-editor-input-div" title="${Tooltips.vidstabTooltip}">
           <span>Stabilization: </span>
           <select id="video-stabilization-input">
             <option ${vidstabDesc === 'Strongest' ? 'selected' : ''}>Strongest</option>
@@ -1882,7 +1884,7 @@ export let player: HTMLElement;
             </select>
           </div>
         </div>
-        <div class="editor-input-div" title="${Tooltips.speedMapTooltip}">
+        <div class="settings-editor-input-div" title="${Tooltips.speedMapTooltip}">
           <span>Speed Maps: </span>
             <select id="enable-speed-maps-input">
               <option ${settings.enableSpeedMaps ? 'selected' : ''}>Enabled</option>
@@ -1894,7 +1896,7 @@ export let player: HTMLElement;
               }>Inherit (Enabled)</option>
             </select>
         </div>
-        <div class="editor-input-div" title="${Tooltips.loopTooltip}">
+        <div class="settings-editor-input-div" title="${Tooltips.loopTooltip}">
           <span>Loop: </span>
             <select id="loop-input">
               <option ${settings.loop === 'fwrev' ? 'selected' : ''}>fwrev</option>
@@ -1906,7 +1908,7 @@ export let player: HTMLElement;
             </select>
           <div style="display:inline-block" title="${Tooltips.fadeDurationTooltip}">
             <span>Fade Duration: </span>
-            <input id="fade-duration-input" class="yt_clipper-input" type="number" min="0.1" step="0.1" value="${
+            <input id="fade-duration-input" class="settings-editor-input" type="number" min="0.1" step="0.1" value="${
               settings.fadeDuration != null ? settings.fadeDuration : ''
             }" placeholder="0.5" style="width:4em"></input>
           </div>
@@ -1915,48 +1917,53 @@ export let player: HTMLElement;
       `;
 
         updateSettingsEditorHook();
-        settingsEditorHook.insertAdjacentElement('beforebegin', markerInputs);
+        settingsEditorHook.insertAdjacentElement('beforebegin', settingsEditorDiv);
 
-        addSettingsInputListeners(
+        const settingsInputsConfigs = [['crop-res-input', 'cropRes', 'string']];
+        const settingsInputsConfigsHighlightable = [
+          ['crop-input', 'newMarkerCrop', 'string'],
+          ['speed-input', 'newMarkerSpeed', 'number'],
+          ['title-suffix-input', 'titleSuffix', 'string'],
+          ['merge-list-input', 'markerPairMergeList', 'string'],
+          ['gamma-input', 'gamma', 'number'],
+          ['encode-speed-input', 'encodeSpeed', 'number'],
+          ['crf-input', 'crf', 'number'],
+          ['target-max-bitrate-input', 'targetMaxBitrate', 'number'],
+          ['rotate-0', 'rotate', 'string'],
+          ['rotate-90-clock', 'rotate', 'string'],
+          ['rotate-90-counterclock', 'rotate', 'string'],
+          ['two-pass-input', 'twoPass', 'ternary'],
+          ['audio-input', 'audio', 'ternary'],
+          ['expand-color-range-input', 'expandColorRange', 'ternary'],
+          ['denoise-input', 'denoise', 'preset'],
+          ['video-stabilization-input', 'videoStabilization', 'preset'],
           [
-            ['speed-input', 'newMarkerSpeed', 'number'],
-            ['crop-input', 'newMarkerCrop', 'string'],
-            ['crop-res-input', 'cropRes', 'string'],
-            ['merge-list-input', 'markerPairMergeList', 'string'],
-            ['title-suffix-input', 'titleSuffix', 'string'],
-            ['gamma-input', 'gamma', 'number'],
-            ['encode-speed-input', 'encodeSpeed', 'number'],
-            ['crf-input', 'crf', 'number'],
-            ['target-max-bitrate-input', 'targetMaxBitrate', 'number'],
-            ['rotate-0', 'rotate', 'string'],
-            ['rotate-90-clock', 'rotate', 'string'],
-            ['rotate-90-counterclock', 'rotate', 'string'],
-            ['two-pass-input', 'twoPass', 'ternary'],
-            ['audio-input', 'audio', 'ternary'],
-            ['expand-color-range-input', 'expandColorRange', 'ternary'],
-            ['denoise-input', 'denoise', 'preset'],
-            ['video-stabilization-input', 'videoStabilization', 'preset'],
-            [
-              'video-stabilization-dynamic-zoom-input',
-              'videoStabilizationDynamicZoom',
-              'ternary',
-            ],
-            ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
-            ['loop-input', 'loop', 'inheritableString'],
-            ['fade-duration-input', 'fadeDuration', 'number'],
+            'video-stabilization-dynamic-zoom-input',
+            'videoStabilizationDynamicZoom',
+            'ternary',
           ],
-          settings
-        );
+          ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
+          ['loop-input', 'loop', 'inheritableString'],
+          ['fade-duration-input', 'fadeDuration', 'number'],
+        ];
+
+        addSettingsInputListeners(settingsInputsConfigs, settings, false);
+        addSettingsInputListeners(settingsInputsConfigsHighlightable, settings, true);
 
         cropInput = document.getElementById('crop-input') as HTMLInputElement;
         wasDefaultsEditorOpen = true;
         isMarkerEditorOpen = true;
         addMarkerPairMergeListDurationsListener();
         addCropInputHotkeys();
+        highlightModifiedSettings(settingsInputsConfigsHighlightable, settings);
       }
     }
 
-    function addSettingsInputListeners(inputs: any[][], target) {
+    function addSettingsInputListeners(
+      inputs: string[][],
+      target,
+      highlightable = false
+    ) {
       inputs.forEach((input) => {
         const id = input[0];
         const targetProperty = input[1];
@@ -1966,7 +1973,8 @@ export let player: HTMLElement;
         inputElem.addEventListener('blur', () => (toggleKeys = true), false);
         inputElem.addEventListener(
           'change',
-          (e) => updateSettingsValue(e, target, targetProperty, valueType),
+          (e) =>
+            updateSettingsValue(e, id, target, targetProperty, valueType, highlightable),
           false
         );
       });
@@ -2030,16 +2038,18 @@ export let player: HTMLElement;
 
     function updateSettingsValue(
       e: Event,
+      id: string,
       target: Settings | MarkerPair | MarkerPairOverrides,
       targetProperty: string,
-      valueType: string
+      valueType: string,
+      highlightable: boolean
     ) {
       if (e.target.reportValidity()) {
         let newValue = e.target.value;
         if (newValue != null) {
           if (targetProperty !== 'markerPairMergeList' && newValue === '') {
             delete target[targetProperty];
-            return;
+            newValue = null;
           } else if (valueType === 'number') {
             newValue = parseFloat(newValue);
           } else if (valueType === 'boolean') {
@@ -2047,7 +2057,7 @@ export let player: HTMLElement;
           } else if (valueType === 'ternary' || valueType === 'inheritableString') {
             if (newValue === 'Default' || newValue === 'Inherit') {
               delete target[targetProperty];
-              return;
+              newValue = null;
             } else if (newValue === 'Enabled') {
               newValue = true;
             } else if (newValue === 'Disabled') {
@@ -2058,9 +2068,10 @@ export let player: HTMLElement;
           } else if (valueType === 'preset') {
             if (newValue === 'Inherit') {
               delete target[targetProperty];
-              return;
+              newValue = null;
+            } else {
+              newValue = presetsMap[targetProperty][newValue];
             }
-            newValue = presetsMap[targetProperty][newValue];
           }
         }
 
@@ -2098,6 +2109,9 @@ export let player: HTMLElement;
           updateMarkerPairDuration(target);
         }
       }
+
+      if (highlightable)
+        highlightModifiedSettings([[id, targetProperty, valueType]], target);
     }
 
     function multiplyAllCrops(cropMultipleX: number, cropMultipleY: number) {
@@ -2762,6 +2776,7 @@ export let player: HTMLElement;
         updateCropString(prevCropString);
         flashMessage('Drawing crop canceled', 'red');
       } else {
+        cropInput.dispatchEvent(new Event('change'));
         flashMessage('Finished drawing crop', 'green');
       }
     }
@@ -3238,7 +3253,7 @@ export let player: HTMLElement;
       );
       const crop = markerPair.crop;
       const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
-      const markerInputsDiv = document.createElement('div');
+      const settingsEditorDiv = document.createElement('div');
       const overrides = markerPair.overrides;
       const vidstab = overrides.videoStabilization;
       const vidstabDesc = vidstab ? vidstab.desc : null;
@@ -3254,11 +3269,11 @@ export let player: HTMLElement;
       const overridesEditorDisplay = isExtraSettingsEditorEnabled ? 'block' : 'none';
       createCropOverlay(crop);
 
-      markerInputsDiv.setAttribute('id', 'markerInputsDiv');
-      markerInputsDiv.innerHTML = `
-      <div class="yt_clipper-settings-editor yt_clipper-marker-pair-editor">
-        <span class="yt_clipper-marker-pair-editor-label">Marker Pair
-          <input id="marker-pair-number-input" class="yt_clipper-input"
+      settingsEditorDiv.setAttribute('id', 'settings-editor-div');
+      settingsEditorDiv.innerHTML = `
+      <div class="settings-editor-panel marker-pair-settings-editor-highlighted-div">
+        <span class="marker-pair-settings-editor-highlighted-label">Marker Pair
+          <input id="marker-pair-number-input" class="settings-editor-input"
             title="${Tooltips.markerPairNumberTooltip}"
             type="number" value="${markerPairIndex + 1}"
             step="1" min="1" max="${markerPairs.length}" style="width:2em" required>
@@ -3267,23 +3282,23 @@ export let player: HTMLElement;
           <span id="marker-pair-count-label">${markerPairs.length}</span>
           Settings: \
         </span>
-        <div class="editor-input-div" title="${Tooltips.speedTooltip}">
+        <div class="settings-editor-input-div" title="${Tooltips.speedTooltip}">
           <span>Speed: </span>
-          <input id="speed-input" class="yt_clipper-input" type="number" placeholder="speed" value="${speed}" 
+          <input id="speed-input" class="settings-editor-input" type="number" placeholder="speed" value="${speed}" 
             step="0.05" min="0.05" max="2" style="width:4em" required></input>
         </div>
-        <div class="editor-input-div" title="${Tooltips.cropTooltip}">
+        <div class="settings-editor-input-div" title="${Tooltips.cropTooltip}">
           <span>Crop: </span>
-          <input id="crop-input" class="yt_clipper-input" value="${crop}" pattern="${cropInputValidation}" 
+          <input id="crop-input" class="settings-editor-input" value="${crop}" pattern="${cropInputValidation}" 
           style="width:10em" required></input>
         </div>
-        <div class="editor-input-div" title="${Tooltips.titlePrefixTooltip}">
+        <div class="settings-editor-input-div" title="${Tooltips.titlePrefixTooltip}">
           <span>Title Prefix: </span>
-          <input id="title-prefix-input" class="yt_clipper-input" value="${
+          <input id="title-prefix-input" class="settings-editor-input" value="${
             overrides.titlePrefix != null ? overrides.titlePrefix : ''
           }" placeholder="None" style="width:10em;text-align:right"></input>
         </div>
-        <div class="editor-input-div">
+        <div class="settings-editor-input-div">
           <span style="font-weight:bold;font-style:none">Time:</span>
           <span id="start-time">${startTime}</span>
           <span> - </span>
@@ -3295,9 +3310,9 @@ export let player: HTMLElement;
       } = ${speedAdjustedDuration}</span>
         </div>
       </div>
-      <div id="marker-pair-overrides" class="yt_clipper-settings-editor yt_clipper-marker-pair-editor" style="display:${overridesEditorDisplay}">
-        <span class="yt_clipper-marker-pair-editor-label">Overrides: </span>
-        <div class="editor-input-div" title="${Tooltips.audioTooltip}">
+      <div id="marker-pair-overrides" class="settings-editor-panel marker-pair-settings-editor-highlighted-div" style="display:${overridesEditorDisplay}">
+        <span class="marker-pair-settings-editor-highlighted-label">Overrides: </span>
+        <div class="settings-editor-input-div" title="${Tooltips.audioTooltip}">
           <span>Audio: </span>
           <select id="audio-input">
             <option ${overrides.audio ? 'selected' : ''}>Enabled</option>
@@ -3307,28 +3322,28 @@ export let player: HTMLElement;
             }>Inherit ${ternaryToString(settings.audio)}</option>
           </select>
         </div>
-        <div class="editor-input-div" title="${Tooltips.encodeSpeedTooltip}">
+        <div class="settings-editor-input-div" title="${Tooltips.encodeSpeedTooltip}">
           <span>Encode Speed (0-5): </span>
-          <input id="encode-speed-input" class="yt_clipper-input" type="number" min="0" max="5" step="1" value="${
+          <input id="encode-speed-input" class="settings-editor-input" type="number" min="0" max="5" step="1" value="${
             overrides.encodeSpeed != null ? overrides.encodeSpeed : ''
           }" placeholder="${settings.encodeSpeed || 'Auto'}"  style="width:4em"></input>
         </div>
-        <div class="editor-input-div" title="${Tooltips.CRFTooltip}">
+        <div class="settings-editor-input-div" title="${Tooltips.CRFTooltip}">
           <span>CRF (0-63): </span>
-          <input id="crf-input" class="yt_clipper-input" type="number" min="0" max="63" step="1" value="${
+          <input id="crf-input" class="settings-editor-input" type="number" min="0" max="63" step="1" value="${
             overrides.crf != null ? overrides.crf : ''
           }" placeholder="${
         settings.crf != null ? settings.crf : 'Auto'
       }" "style="width:4em"></input>
         </div>
-        <div class="editor-input-div" title="${Tooltips.targetBitrateTooltip}">
+        <div class="settings-editor-input-div" title="${Tooltips.targetBitrateTooltip}">
           <span>Target Bitrate (kb/s) (0 = &#x221E;): </span>
-          <input id="target-max-bitrate-input" class="yt_clipper-input" type="number" min="0" max="10e5" step="100" value="${
+          <input id="target-max-bitrate-input" class="settings-editor-input" type="number" min="0" max="10e5" step="100" value="${
             overrides.targetMaxBitrate != null ? overrides.targetMaxBitrate : ''
           }" placeholder="${settings.targetMaxBitrate ||
         'Auto'}" "style="width:4em"></input>
         </div>
-        <div class="editor-input-div" title="${Tooltips.twoPassTooltip}">
+        <div class="settings-editor-input-div" title="${Tooltips.twoPassTooltip}">
           <span>Two-Pass: </span>
           <select id="two-pass-input"> 
             <option ${overrides.twoPass ? 'selected' : ''}>Enabled</option>
@@ -3338,15 +3353,17 @@ export let player: HTMLElement;
             }>Inherit ${ternaryToString(settings.twoPass)}</option>
           </select>
         </div>
-        <div class="editor-input-div" title="${Tooltips.gammaTooltip}">
+        <div class="settings-editor-input-div" title="${Tooltips.gammaTooltip}">
           <span>Gamma (0-4): </span>
-          <input id="gamma-input" class="yt_clipper-input" type="number" min="0.01" max="4.00" step="0.01" value="${
+          <input id="gamma-input" class="settings-editor-input" type="number" min="0.01" max="4.00" step="0.01" value="${
             overrides.gamma != null ? overrides.gamma : ''
           }" placeholder="${
         settings.gamma != null ? settings.gamma : '1'
       }" style="width:4em"></input>
         </div>
-        <div class="editor-input-div" title="${Tooltips.expandColorRangeTooltip}">
+        <div class="settings-editor-input-div" title="${
+          Tooltips.expandColorRangeTooltip
+        }">
           <span>Expand Colors: </span>
           <select id="expand-color-range-input"> 
             <option ${overrides.expandColorRange ? 'selected' : ''}>Enabled</option>
@@ -3358,7 +3375,7 @@ export let player: HTMLElement;
             }>Inherit ${ternaryToString(settings.expandColorRange)}</option>
           </select>
         </div>
-        <div class="editor-input-div" title="${Tooltips.denoiseTooltip}">
+        <div class="settings-editor-input-div" title="${Tooltips.denoiseTooltip}">
           <span>Denoise: </span>
           <select id="denoise-input">
             <option ${
@@ -3376,7 +3393,7 @@ export let player: HTMLElement;
             }>Inherit ${denoiseDescGlobal}</option>
           </select>
         </div>
-        <div class="editor-input-div" title="${Tooltips.vidstabTooltip}">
+        <div class="settings-editor-input-div" title="${Tooltips.vidstabTooltip}">
           <span>Stabilization: </span>
           <select id="video-stabilization-input">
             <option ${vidstabDesc === 'Strongest' ? 'selected' : ''}>Strongest</option>
@@ -3409,7 +3426,7 @@ export let player: HTMLElement;
             </select>
           </div>
         </div>
-        <div class="editor-input-div" title="${Tooltips.speedMapTooltip}">
+        <div class="settings-editor-input-div" title="${Tooltips.speedMapTooltip}">
         <span>Speed Map: </span>
             <select id="enable-speed-maps-input">
               <option ${overrides.enableSpeedMaps ? 'selected' : ''}>Enabled</option>
@@ -3421,7 +3438,7 @@ export let player: HTMLElement;
               }>Inherit ${ternaryToString(settings.enableSpeedMaps, '(Enabled)')}</option>
             </select>
         </div>
-        <div class="editor-input-div" title="${Tooltips.loopTooltip}">
+        <div class="settings-editor-input-div" title="${Tooltips.loopTooltip}">
           <span>Loop: </span>
             <select id="loop-input">
               <option ${overrides.loop === 'fwrev' ? 'selected' : ''}>fwrev</option>
@@ -3435,7 +3452,7 @@ export let player: HTMLElement;
             </select>
           <div style="display:inline-block" title="${Tooltips.fadeDurationTooltip}">
             <span>Fade Duration: </span>
-            <input id="fade-duration-input" class="yt_clipper-input" type="number" min="0.1" step="0.1" value="${
+            <input id="fade-duration-input" class="settings-editor-input" type="number" min="0.1" step="0.1" value="${
               overrides.fadeDuration != null ? overrides.fadeDuration : ''
             }" placeholder="${
         settings.fadeDuration != null ? settings.fadeDuration : '0.5'
@@ -3446,34 +3463,38 @@ export let player: HTMLElement;
       `;
 
       updateSettingsEditorHook();
-      settingsEditorHook.insertAdjacentElement('beforebegin', markerInputsDiv);
+      settingsEditorHook.insertAdjacentElement('beforebegin', settingsEditorDiv);
 
-      addSettingsInputListeners(
-        [['speed-input', 'speed', 'number'], ['crop-input', 'crop', 'string']],
-        markerPairs[markerPairIndex]
-      );
-      addSettingsInputListeners(
+      const inputConfigs = [
+        ['speed-input', 'speed', 'number'],
+        ['crop-input', 'crop', 'string'],
+      ];
+      addSettingsInputListeners(inputConfigs, markerPairs[markerPairIndex], true);
+
+      const overrideInputConfigs = [
+        ['title-prefix-input', 'titlePrefix', 'string'],
+        ['gamma-input', 'gamma', 'number'],
+        ['encode-speed-input', 'encodeSpeed', 'number'],
+        ['crf-input', 'crf', 'number'],
+        ['target-max-bitrate-input', 'targetMaxBitrate', 'number'],
+        ['two-pass-input', 'twoPass', 'ternary'],
+        ['audio-input', 'audio', 'ternary'],
+        ['expand-color-range-input', 'expandColorRange', 'ternary'],
+        ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
+        ['denoise-input', 'denoise', 'preset'],
+        ['video-stabilization-input', 'videoStabilization', 'preset'],
         [
-          ['title-prefix-input', 'titlePrefix', 'string'],
-          ['gamma-input', 'gamma', 'number'],
-          ['encode-speed-input', 'encodeSpeed', 'number'],
-          ['crf-input', 'crf', 'number'],
-          ['target-max-bitrate-input', 'targetMaxBitrate', 'number'],
-          ['two-pass-input', 'twoPass', 'ternary'],
-          ['audio-input', 'audio', 'ternary'],
-          ['expand-color-range-input', 'expandColorRange', 'ternary'],
-          ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
-          ['denoise-input', 'denoise', 'preset'],
-          ['video-stabilization-input', 'videoStabilization', 'preset'],
-          [
-            'video-stabilization-dynamic-zoom-input',
-            'videoStabilizationDynamicZoom',
-            'ternary',
-          ],
-          ['loop-input', 'loop', 'inheritableString'],
-          ['fade-duration-input', 'fadeDuration', 'number'],
+          'video-stabilization-dynamic-zoom-input',
+          'videoStabilizationDynamicZoom',
+          'ternary',
         ],
-        markerPairs[markerPairIndex].overrides
+        ['loop-input', 'loop', 'inheritableString'],
+        ['fade-duration-input', 'fadeDuration', 'number'],
+      ];
+      addSettingsInputListeners(
+        overrideInputConfigs,
+        markerPairs[markerPairIndex].overrides,
+        true
       );
       markerPairNumberInput = document.getElementById(
         'marker-pair-number-input'
@@ -3482,6 +3503,10 @@ export let player: HTMLElement;
       cropInput = document.getElementById('crop-input') as HTMLInputElement;
       isMarkerEditorOpen = true;
       wasDefaultsEditorOpen = false;
+      highlightModifiedSettings(
+        overrideInputConfigs,
+        markerPairs[markerPairIndex].overrides
+      );
     }
 
     function ternaryToString(ternary: boolean, def?: string) {
@@ -3545,6 +3570,47 @@ export let player: HTMLElement;
 
       renumberMarkerPairs();
       prevSelectedMarkerPairIndex = newIdx;
+    }
+
+    function highlightModifiedSettings(inputs: string[][], target) {
+      if (isMarkerEditorOpen) {
+        inputs.forEach((input) => {
+          const id = input[0];
+          const targetProperty = input[1];
+          const inputElem = document.getElementById(id);
+          const storedTargetValue = target[targetProperty];
+          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+
+          let label = inputElem.previousElementSibling;
+          if (id === 'rotate-90-clock' || id === 'rotate-90-counterclock')
+            label = inputElem.parentElement.getElementsByTagName('span')[0];
+          let highlightedClassName: string;
+
+          target === settings
+            ? (highlightedClassName = 'global-settings-editor-highlighted-label')
+            : (highlightedClassName = 'marker-pair-settings-editor-highlighted-label');
+
+          const shouldRemoveHighlight =
+            storedTargetValue == null ||
+            storedTargetValue === '' ||
+            (id === 'title-suffix-input' &&
+              storedTargetValue == `[${settings.videoID}]`) ||
+            (id === 'speed-input' &&
+              storedTargetValue === 1 &&
+              !isVariableSpeed(markerPair.speedMap)) ||
+            (id === 'crop-input' &&
+              (storedTargetValue === '0:0:iw:ih' ||
+                storedTargetValue ===
+                  `0:0:${settings.cropResWidth}:${settings.cropResHeight}`)) ||
+            id === 'rotate-0';
+
+          if (shouldRemoveHighlight) {
+            label.classList.remove(highlightedClassName);
+          } else {
+            label.classList.add(highlightedClassName);
+          }
+        });
+      }
     }
 
     function enableMarkerHotkeys(endMarker: SVGRectElement) {
@@ -3752,9 +3818,9 @@ export let player: HTMLElement;
     }
 
     function deleteMarkerPairEditor() {
-      const markerInputsDiv = document.getElementById('markerInputsDiv');
+      const settingsEditorDiv = document.getElementById('settings-editor-div');
       hideCropOverlay();
-      deleteElement(markerInputsDiv);
+      deleteElement(settingsEditorDiv);
       isMarkerEditorOpen = false;
       markerHotkeysEnabled = false;
     }
