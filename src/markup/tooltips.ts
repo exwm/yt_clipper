@@ -98,6 +98,7 @@ export namespace Tooltips {
   export const denoiseTooltip = stripIndent`
     Reduce noise, static, and blockiness at the cost of some encoding speed.
     Improves compression efficiency and thus reduces file sizes.
+    Higher strength presets may result in oversmoothing of details.
     `;
 
   export const vidstabTooltip = stripIndent`
