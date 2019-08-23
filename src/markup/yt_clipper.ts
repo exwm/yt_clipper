@@ -1386,7 +1386,7 @@ export let player: HTMLElement;
       const settingsJSON = getSettingsJSON();
 
       const blob = new Blob([settingsJSON], { type: 'text/plain;charset=utf-8' });
-      saveAs(blob, `${settings.titleSuffix}.json`);
+      saveAs(blob, `${settings.titleSuffix || `[${settings.videoID}]`}.json`);
     }
 
     function getSettingsJSON() {
@@ -1745,7 +1745,7 @@ export let player: HTMLElement;
           <span class="settings-editor-input-label"> Title Suffix: </span>
           <input id="title-suffix-input" class="settings-editor-input" value="${
             settings.titleSuffix
-          }" style="background-color:lightgreen;width:20em;text-align:right">
+          }" style="background-color:lightgreen;width:20em;text-align:right" required>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.cropResolutionTooltip}">
           <span class="settings-editor-input-label"> Crop Resolution: </span>
@@ -2047,7 +2047,11 @@ export let player: HTMLElement;
       if (e.target.reportValidity()) {
         let newValue = e.target.value;
         if (newValue != null) {
-          if (targetProperty !== 'markerPairMergeList' && newValue === '') {
+          if (
+            targetProperty !== 'titleSuffix' &&
+            targetProperty !== 'markerPairMergeList' &&
+            newValue === ''
+          ) {
             delete target[targetProperty];
             newValue = null;
           } else if (valueType === 'number') {
@@ -3588,7 +3592,7 @@ export let player: HTMLElement;
           if (id === 'rotate-90-clock' || id === 'rotate-90-counterclock')
             label = inputElem.parentElement.getElementsByTagName('span')[0];
 
-          let shouldRemoveHighlight =
+          const shouldRemoveHighlight =
             storedTargetValue == null ||
             storedTargetValue === '' ||
             (id === 'title-suffix-input' &&
