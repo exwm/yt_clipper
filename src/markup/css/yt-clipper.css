@@ -1,7 +1,10 @@
 :root {
-  --dark-grey: rgb(110, 110, 110);
-  --marker-pair-editor-accent: rgb(216, 111, 13);
-  --global-editor-accent: rgb(223, 50, 50);
+  --light-grey: rgb(190, 190, 190);
+  --med-grey: rgb(110, 110, 110);
+  --dark-grey: rgb(40, 40, 40);
+  --dark-red: rgb(50, 0, 0);
+  --marker-pair-editor-accent: rgb(245, 118, 0);
+  --global-editor-accent: rgb(245, 0, 0);
 }
 
 @keyframes valid-input {
@@ -76,60 +79,119 @@
 
 .settings-editor-panel {
   display: inline;
-  color: var(--dark-grey);
+  flex-grow: 1;
+  color: var(--med-grey);
   font-size: 12pt;
-  margin: 10px;
-  padding: 4px;
-  border: 2px solid var(--dark-grey);
+  margin: 3px;
+  padding: 2px 6px 0px 4px;
+  border: 2px solid var(--med-grey);
   border-radius: 5px;
+  background: var(--dark-red);
+}
+
+.settings-editor-panel > legend {
+  display: block;
+  width: fit-content;
+  font-size: 14pt;
+  text-shadow: -1px -1px 0 black, 1px -1px black, -1px 1px 0 black, 1px 1px 0 black,
+    -1px 0px 0px black, 0px -1px 0px black, 1px 0px 0px black, 0px 1px 0px black;
+  padding: 0px 4px 0px 4px;
+  margin-left: 12px;
 }
 
 .settings-editor-input-div {
   display: inline-block;
   color: grey;
   font-size: 12pt;
-  margin: 2px;
-  padding: 2px;
-  border: 2px solid grey;
+  margin: 0px 0px 6px 2px;
+  padding: 4px 10px 4px 4px;
+  background: var(--dark-grey);
+  box-shadow: 2px 2px 3px 0px black;
+  border-radius: 2px;
+  border-color: rgb(100, 100, 100);
+  border-style: solid;
+  border-width: 1px 0px 0px 1px;
 }
 
-.settings-editor-input-label {
-  color: grey;
-  font-size: 12pt;
+.settings-editor-input-div span {
+  display: block;
+  color: var(--light-grey);
+  margin-bottom: 2px;
 }
 
-.settings-editor-input {
+.multi-input-div {
+  display: inline-flex;
+  width: fit-content;
+  vertical-align: top;
+}
+
+.settings-editor-input-div > div {
+  display: inline-block;
+  margin-right: 6px;
+}
+.settings-editor-input-div > div:last-of-type {
+  margin-right: -4px;
+}
+
+.settings-editor-input-div select,
+.settings-editor-input-div input:not([type='radio']),
+#marker-pair-number-input {
+  display: block;
   font-weight: bold;
+  width: 100%;
+  border: none;
+  box-shadow: #151515 2px 2px 2px 0px;
 }
 
-.settings-editor-input:valid {
+.settings-editor-input-div input:not([type='radio']),
+#marker-pair-number-input {
+  border-radius: 5px;
+  padding-left: 2px;
+  padding-right: 4px;
+}
+
+#marker-pair-settings-time span,
+#global-settings-rotate label,
+#merge-list-div input,
+#global-settings-rotate input,
+#marker-pair-number-input {
+  display: inline;
+  width: auto;
+}
+
+#marker-pair-number-input {
+  vertical-align: top;
+  border: 1px solid black;
+}
+
+.settings-editor-input-div input:valid,
+#marker-pair-number-input:valid {
   animation-name: valid-input;
   animation-duration: 1s;
   animation-fill-mode: forwards;
 }
 
-.settings-editor-input:invalid {
+.settings-editor-input-div input:invalid,
+#marker-pair-number-input:invalid {
   animation-name: invalid-input;
   animation-duration: 1s;
   animation-fill-mode: forwards;
 }
 
 .marker-pair-settings-editor-highlighted-div {
-  border: 2px solid var(--marker-pair-editor-accent);
+  border: 2px solid var(--marker-pair-editor-accent) !important;
 }
 
 .global-settings-editor-highlighted-div {
-  border: 2px solid var(--global-editor-accent);
+  border: 2px solid var(--global-editor-accent) !important;
 }
 
 .marker-pair-settings-editor-highlighted-label {
-  font-weight: 500;
-  color: var(--marker-pair-editor-accent);
+  color: var(--marker-pair-editor-accent) !important;
 }
 
 .global-settings-editor-highlighted-label {
-  font-weight: 500;
-  color: var(--global-editor-accent);
+  color: var(--global-editor-accent) !important;
 }
 
 #markers-svg,
