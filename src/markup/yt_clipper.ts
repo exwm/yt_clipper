@@ -2073,7 +2073,7 @@ export let player: HTMLElement;
             newValue === ''
           ) {
             delete target[targetProperty];
-            newValue = null;
+            newValue = undefined;
           } else if (valueType === 'number') {
             newValue = parseFloat(newValue);
           } else if (valueType === 'boolean') {
@@ -2081,7 +2081,7 @@ export let player: HTMLElement;
           } else if (valueType === 'ternary' || valueType === 'inheritableString') {
             if (newValue === 'Default' || newValue === 'Inherit') {
               delete target[targetProperty];
-              newValue = null;
+              newValue = undefined;
             } else if (newValue === 'Enabled') {
               newValue = true;
             } else if (newValue === 'Disabled') {
@@ -2092,7 +2092,7 @@ export let player: HTMLElement;
           } else if (valueType === 'preset') {
             if (newValue === 'Inherit') {
               delete target[targetProperty];
-              newValue = null;
+              newValue = undefined;
             } else {
               newValue = presetsMap[targetProperty][newValue];
             }
@@ -3538,10 +3538,7 @@ export let player: HTMLElement;
       cropInput = document.getElementById('crop-input') as HTMLInputElement;
       isMarkerPairSettingsEditorOpen = true;
       wasGlobalSettingsEditorOpen = false;
-      highlightModifiedSettings(
-        inputConfigs,
-        markerPairs[markerPairIndex]
-      );
+      highlightModifiedSettings(inputConfigs, markerPairs[markerPairIndex]);
       highlightModifiedSettings(
         overrideInputConfigs,
         markerPairs[markerPairIndex].overrides
