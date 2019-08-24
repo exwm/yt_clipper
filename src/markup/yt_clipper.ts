@@ -1722,69 +1722,73 @@ export let player: HTMLElement;
           : 'none';
         settingsEditorDiv.setAttribute('id', 'settings-editor-div');
         settingsEditorDiv.innerHTML = `
-      <div id="new-marker-defaults-inputs" 
+      <fieldset id="new-marker-defaults-inputs" 
         class="settings-editor-panel global-settings-editor global-settings-editor-highlighted-div">
-        <span class="global-settings-editor-highlighted-label">New Marker Settings: </span>
+        <legend class="global-settings-editor-highlighted-label">New Marker Settings</legend>
         <div class="settings-editor-input-div" title="${Tooltips.speedTooltip}">
-          <span class="settings-editor-input-label">Speed: </span>
-          <input id="speed-input" class="settings-editor-input"  type="number" placeholder="speed" value="${
+          <span>Speed</span>
+          <input id="speed-input" type="number" placeholder="speed" value="${
             settings.newMarkerSpeed
-          }" step="0.05" min="0.05" max="2" style="width:4em">
+          }" step="0.05" min="0.05" max="2" style="min-width:4em">
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.cropTooltip}">
-          <span class="settings-editor-input-label">Crop: </span>
-          <input id="crop-input" class="settings-editor-input" value="${
+          <span>Crop</span>
+          <input id="crop-input" value="${
             settings.newMarkerCrop
-          }" pattern="${cropInputValidation}" style="width:10em" required>
+          }" pattern="${cropInputValidation}" style="min-width:10em" required>
         </div>
-      </div>
-      <div id="global-marker-settings" 
+      </fieldset>
+      <fieldset id="global-marker-settings" 
       class="settings-editor-panel global-settings-editor global-settings-editor-highlighted-div">
-        <span class="global-settings-editor-highlighted-label">Global Settings: </span>
+        <legend class="global-settings-editor-highlighted-label settings-editor-panel-label">Global Settings</legend>
         <div class="settings-editor-input-div" title="${Tooltips.titleSuffixTooltip}">
-          <span class="settings-editor-input-label"> Title Suffix: </span>
-          <input id="title-suffix-input" class="settings-editor-input" value="${
+          <span>Title Suffix</span>
+          <input id="title-suffix-input" value="${
             settings.titleSuffix
-          }" style="background-color:lightgreen;width:20em;text-align:right" required>
+          }" style="background-color:lightgreen;min-width:20em;text-align:right" required>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.cropResolutionTooltip}">
-          <span class="settings-editor-input-label"> Crop Resolution: </span>
-          <input id="crop-res-input" class="settings-editor-input" list="resolutions" pattern="${cropResInputValidation}" value="${
+          <span>Crop Resolution</span>
+          <input id="crop-res-input" list="resolutions" pattern="${cropResInputValidation}" value="${
           settings.cropRes
-        }" style="width:7em" required>
+        }" style="min-width:7em" required>
           <datalist id="resolutions" autocomplete="off">${resList}</datalist>
         </div>
-        <div class="settings-editor-input-div" title="${Tooltips.rotateTooltip}">
-          <span>Rotate: </span>
-          <input id="rotate-0" class="settings-editor-input" type="radio" name="rotate" value="0" ${
+        <div id="global-settings-rotate" class="settings-editor-input-div" title="${
+          Tooltips.rotateTooltip
+        }">
+          <span style="display:inline">Rotate: </span>
+          <input id="rotate-0" type="radio" name="rotate" value="0" ${
             settings.rotate == null || settings.rotate === '0' ? 'checked' : ''
           }></input>
           <label for="rotate-0">0&#x00B0; </label>
-          <input id="rotate-90-clock" class="settings-editor-input" type="radio" value="clock" name="rotate" ${
+          <input id="rotate-90-clock" type="radio" value="clock" name="rotate" ${
             settings.rotate === 'clock' ? 'checked' : ''
           }></input>
           <label for="rotate-90-clock">90&#x00B0; &#x27F3;</label>
-          <input id="rotate-90-counterclock" class="settings-editor-input" type="radio" value="cclock" name="rotate" ${
+          <input id="rotate-90-counterclock" type="radio" value="cclock" name="rotate" ${
             settings.rotate === 'cclock' ? 'checked' : ''
           }></input>
           <label for="rotate-90-counterclock">90&#x00B0; &#x27F2;</label>
         </div>
-        <div class="settings-editor-input-div" title="${Tooltips.mergeListTooltip}">
-          <span class="settings-editor-input-label"> Merge List: </span>
-          <input id="merge-list-input" class="settings-editor-input" pattern="${mergeListInputValidation}" value="${
+        <div id="merge-list-div" class="settings-editor-input-div" title="${
+          Tooltips.mergeListTooltip
+        }">
+            <span style="display:inline">Merge List: </span>
+            <input id="merge-list-input" pattern="${mergeListInputValidation}" value="${
           settings.markerPairMergeList != null ? settings.markerPairMergeList : ''
-        }" placeholder="None" style="width:15em">
-          <div style="display:inline-block">
-          <span>Merge Durations: </span>
-          <span id="merge-list-durations">${markerPairMergelistDurations}</span>
-          </div>
+        }" placeholder="None" style="min-width:15em">
         </div>
-      </div>
-      <div id="global-encode-settings" 
+        <div class="settings-editor-input-div">
+          <span style="display:inline">Merge Durations: </span>
+          <span id="merge-list-durations" style="display:inline">${markerPairMergelistDurations}</span>
+        </div>
+      </fieldset>
+      <fieldset id="global-encode-settings" 
         class="settings-editor-panel global-settings-editor global-settings-editor-highlighted-div" style="display:${globalEncodeSettingsEditorDisplay}">
-        <span class="global-settings-editor-highlighted-label">Encode Settings: </span>
+        <legend class="global-settings-editor-highlighted-label">Encode Settings</legend>
         <div class="settings-editor-input-div" title="${Tooltips.audioTooltip}">
-          <span>Audio: </span>
+          <span>Audio</span>
           <select id="audio-input"> 
             <option ${settings.audio ? 'selected' : ''}>Enabled</option>
             <option ${settings.audio === false ? 'selected' : ''}>Disabled</option>
@@ -1794,25 +1798,25 @@ export let player: HTMLElement;
           </select>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.encodeSpeedTooltip}">
-          <span>Encode Speed (0-5): </span>
-          <input id="encode-speed-input" class="settings-editor-input" type="number" min="0" max="5" step="1" value="${
+          <span>Encode Speed (0-5)</span>
+          <input id="encode-speed-input" type="number" min="0" max="5" step="1" value="${
             settings.encodeSpeed != null ? settings.encodeSpeed : ''
-          }" placeholder="Auto" style="width:4em"></input>
+          }" placeholder="Auto" style="min-width:4em"></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.CRFTooltip}">
-          <span>CRF (0-63): </span>
-          <input id="crf-input" class="settings-editor-input" type="number" min="0" max="63" step="1" value="${
+          <span>CRF (0-63)</span>
+          <input id="crf-input" type="number" min="0" max="63" step="1" value="${
             settings.crf != null ? settings.crf : ''
-          }" placeholder="Auto" style="width:4em"></input>
+          }" placeholder="Auto" style="min-width:4em"></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.targetBitrateTooltip}">
-          <span>Target Bitrate (kb/s) (0 = &#x221E;): </span>
-          <input id="target-max-bitrate-input" class="settings-editor-input" type="number" min="0" max="1e5"step="100" value="${
+          <span>Target Bitrate (kb/s)</span>
+          <input id="target-max-bitrate-input" type="number" min="0" max="1e5"step="100" value="${
             settings.targetMaxBitrate != null ? settings.targetMaxBitrate : ''
-          }" placeholder="Auto" "style="width:4em"></input>
+          }" placeholder="Auto" "style="min-width:4em"></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.twoPassTooltip}">
-          <span>Two-Pass: </span>
+          <span>Two-Pass</span>
           <select id="two-pass-input"> 
             <option ${settings.twoPass ? 'selected' : ''}>Enabled</option>
             <option ${settings.twoPass === false ? 'selected' : ''}>Disabled</option>
@@ -1822,15 +1826,15 @@ export let player: HTMLElement;
           </select>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.gammaTooltip}">
-          <span>Gamma (0-4): </span>
-          <input id="gamma-input" class="settings-editor-input" type="number" min="0.01" max="4.00" step="0.01" value="${
+          <span>Gamma (0-4)</span>
+          <input id="gamma-input" type="number" min="0.01" max="4.00" step="0.01" value="${
             settings.gamma != null ? settings.gamma : ''
-          }" placeholder="1" style="width:4em"></input>
+          }" placeholder="1" style="min-width:4em"></input>
         </div>
         <div class="settings-editor-input-div" title="${
           Tooltips.expandColorRangeTooltip
         }">
-          <span>Expand Colors: </span>
+          <span>Expand Colors</span>
           <select id="expand-color-range-input"> 
             <option ${settings.expandColorRange ? 'selected' : ''}>Enabled</option>
             <option ${
@@ -1842,7 +1846,7 @@ export let player: HTMLElement;
           </select>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.denoiseTooltip}">
-          <span>Denoise: </span>
+          <span>Denoise</span>
           <select id="denoise-input">
             <option ${
               denoiseDesc === 'Very Strong' ? 'selected' : ''
@@ -1856,23 +1860,39 @@ export let player: HTMLElement;
             }>Inherit (Disabled)</option>
           </select>
         </div>
-        <div class="settings-editor-input-div" title="${Tooltips.vidstabTooltip}">
-          <span>Stabilization: </span>
-          <select id="video-stabilization-input">
-            <option ${vidstabDesc === 'Strongest' ? 'selected' : ''}>Strongest</option>
-            <option ${
-              vidstabDesc === 'Very Strong' ? 'selected' : ''
-            }>Very Strong</option>
-            <option ${vidstabDesc === 'Strong' ? 'selected' : ''}>Strong</option>
-            <option ${vidstabDesc === 'Medium' ? 'selected' : ''}>Medium</option>
-            <option ${vidstabDesc === 'Weak' ? 'selected' : ''}>Weak</option>
-            <option ${vidstabDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
-            <option value="Inherit" ${
-              vidstabDesc == null ? 'selected' : ''
-            }>Inherit (Disabled)</option>
-          </select>
-          <div style="display:inline-block" title="${Tooltips.dynamicZoomTooltip}">
-            <span>Dynamic Zoom: </span>
+        <div class="settings-editor-input-div" title="${Tooltips.speedMapTooltip}">
+          <span>Speed Maps</span>
+            <select id="enable-speed-maps-input">
+              <option ${settings.enableSpeedMaps ? 'selected' : ''}>Enabled</option>
+              <option ${
+                settings.enableSpeedMaps === false ? 'selected' : ''
+              }>Disabled</option>
+              <option value="Default" ${
+                settings.enableSpeedMaps == null ? 'selected' : ''
+              }>Inherit (Enabled)</option>
+            </select>
+        </div>
+        <div class="settings-editor-input-div multi-input-div" title="${
+          Tooltips.vidstabTooltip
+        }">
+          <div>
+            <span>Stabilization</span>
+            <select id="video-stabilization-input">
+              <option ${vidstabDesc === 'Strongest' ? 'selected' : ''}>Strongest</option>
+              <option ${
+                vidstabDesc === 'Very Strong' ? 'selected' : ''
+              }>Very Strong</option>
+              <option ${vidstabDesc === 'Strong' ? 'selected' : ''}>Strong</option>
+              <option ${vidstabDesc === 'Medium' ? 'selected' : ''}>Medium</option>
+              <option ${vidstabDesc === 'Weak' ? 'selected' : ''}>Weak</option>
+              <option ${vidstabDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
+              <option value="Inherit" ${
+                vidstabDesc == null ? 'selected' : ''
+              }>Inherit (Disabled)</option>
+            </select>
+          </div>
+          <div title="${Tooltips.dynamicZoomTooltip}">
+            <span>Dynamic Zoom</span>
             <select id="video-stabilization-dynamic-zoom-input"> 
               <option ${vidstabDynamicZoomEnabled ? 'selected' : ''}>Enabled</option>
               <option ${
@@ -1884,20 +1904,11 @@ export let player: HTMLElement;
             </select>
           </div>
         </div>
-        <div class="settings-editor-input-div" title="${Tooltips.speedMapTooltip}">
-          <span>Speed Maps: </span>
-            <select id="enable-speed-maps-input">
-              <option ${settings.enableSpeedMaps ? 'selected' : ''}>Enabled</option>
-              <option ${
-                settings.enableSpeedMaps === false ? 'selected' : ''
-              }>Disabled</option>
-              <option value="Default" ${
-                settings.enableSpeedMaps == null ? 'selected' : ''
-              }>Inherit (Enabled)</option>
-            </select>
-        </div>
-        <div class="settings-editor-input-div" title="${Tooltips.loopTooltip}">
-          <span>Loop: </span>
+        <div class="settings-editor-input-div multi-input-div" title="${
+          Tooltips.loopTooltip
+        }">
+          <div>
+            <span>Loop</span>
             <select id="loop-input">
               <option ${settings.loop === 'fwrev' ? 'selected' : ''}>fwrev</option>
               <option ${settings.loop === 'fade' ? 'selected' : ''}>fade</option>
@@ -1906,14 +1917,15 @@ export let player: HTMLElement;
                 settings.loop == null ? 'selected' : ''
               }>Inherit (none)</option>
             </select>
-          <div style="display:inline-block" title="${Tooltips.fadeDurationTooltip}">
-            <span>Fade Duration: </span>
-            <input id="fade-duration-input" class="settings-editor-input" type="number" min="0.1" step="0.1" value="${
+          </div>
+          <div title="${Tooltips.fadeDurationTooltip}">
+            <span>Fade Duration</span>
+            <input id="fade-duration-input" type="number" min="0.1" step="0.1" value="${
               settings.fadeDuration != null ? settings.fadeDuration : ''
-            }" placeholder="0.5" style="width:4em"></input>
+            }" placeholder="0.5" style="width:7em"></input>
           </div>
         </div>
-      </div>
+      </fieldset>
       `;
 
         updateSettingsEditorHook();
@@ -3275,49 +3287,49 @@ export let player: HTMLElement;
 
       settingsEditorDiv.setAttribute('id', 'settings-editor-div');
       settingsEditorDiv.innerHTML = `
-      <div class="settings-editor-panel marker-pair-settings-editor-highlighted-div">
-        <span class="marker-pair-settings-editor-highlighted-label">Marker Pair
-          <input id="marker-pair-number-input" class="settings-editor-input"
+      <fieldset class="settings-editor-panel marker-pair-settings-editor-highlighted-div">
+        <legend class="marker-pair-settings-editor-highlighted-label">Marker Pair
+          <input id="marker-pair-number-input"
             title="${Tooltips.markerPairNumberTooltip}"
             type="number" value="${markerPairIndex + 1}"
             step="1" min="1" max="${markerPairs.length}" style="width:2em" required>
           </input>
           /
           <span id="marker-pair-count-label">${markerPairs.length}</span>
-          Settings: \
-        </span>
+          Settings\
+        </legend>
         <div class="settings-editor-input-div" title="${Tooltips.speedTooltip}">
-          <span>Speed: </span>
-          <input id="speed-input" class="settings-editor-input" type="number" placeholder="speed" value="${speed}" 
-            step="0.05" min="0.05" max="2" style="width:4em" required></input>
+          <span>Speed</span>
+          <input id="speed-input"type="number" placeholder="speed" value="${speed}" 
+            step="0.05" min="0.05" max="2" style="min-width:4em" required></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.cropTooltip}">
-          <span>Crop: </span>
-          <input id="crop-input" class="settings-editor-input" value="${crop}" pattern="${cropInputValidation}" 
-          style="width:10em" required></input>
+          <span>Crop</span>
+          <input id="crop-input" value="${crop}" pattern="${cropInputValidation}" 
+          style="min-width:10em" required></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.titlePrefixTooltip}">
           <span>Title Prefix: </span>
-          <input id="title-prefix-input" class="settings-editor-input" value="${
+          <input id="title-prefix-input" value="${
             overrides.titlePrefix != null ? overrides.titlePrefix : ''
-          }" placeholder="None" style="width:10em;text-align:right"></input>
+          }" placeholder="None" style="min-width:10em;text-align:right"></input>
         </div>
-        <div class="settings-editor-input-div">
+        <div id="marker-pair-settings-time" class="settings-editor-input-div">
           <span style="font-weight:bold;font-style:none">Time:</span>
           <span id="start-time">${startTime}</span>
           <span> - </span>
           <span id="end-time">${endTime}</span>
-          <span> </span>
+          <br>
           <span style="font-weight:bold;font-style:none">Duration: </span>
           <span id="duration">${duration} / ${
         markerPair.speed
       } = ${speedAdjustedDuration}</span>
         </div>
-      </div>
-      <div id="marker-pair-overrides" class="settings-editor-panel marker-pair-settings-editor-highlighted-div" style="display:${overridesEditorDisplay}">
-        <span class="marker-pair-settings-editor-highlighted-label">Overrides: </span>
+      </fieldset>
+      <fieldset id="marker-pair-overrides" class="settings-editor-panel marker-pair-settings-editor-highlighted-div" style="display:${overridesEditorDisplay}">
+        <legend class="marker-pair-settings-editor-highlighted-label">Overrides</legend>
         <div class="settings-editor-input-div" title="${Tooltips.audioTooltip}">
-          <span>Audio: </span>
+          <span>Audio</span>
           <select id="audio-input">
             <option ${overrides.audio ? 'selected' : ''}>Enabled</option>
             <option ${overrides.audio === false ? 'selected' : ''}>Disabled</option>
@@ -3327,28 +3339,29 @@ export let player: HTMLElement;
           </select>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.encodeSpeedTooltip}">
-          <span>Encode Speed (0-5): </span>
-          <input id="encode-speed-input" class="settings-editor-input" type="number" min="0" max="5" step="1" value="${
+          <span>Encode Speed (0-5)</span>
+          <input id="encode-speed-input" type="number" min="0" max="5" step="1" value="${
             overrides.encodeSpeed != null ? overrides.encodeSpeed : ''
-          }" placeholder="${settings.encodeSpeed || 'Auto'}"  style="width:4em"></input>
+          }" placeholder="${settings.encodeSpeed ||
+        'Auto'}"  style="min-width:4em"></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.CRFTooltip}">
-          <span>CRF (0-63): </span>
-          <input id="crf-input" class="settings-editor-input" type="number" min="0" max="63" step="1" value="${
+          <span>CRF (0-63)</span>
+          <input id="crf-input" type="number" min="0" max="63" step="1" value="${
             overrides.crf != null ? overrides.crf : ''
           }" placeholder="${
         settings.crf != null ? settings.crf : 'Auto'
-      }" "style="width:4em"></input>
+      }" "style="min-width:4em"></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.targetBitrateTooltip}">
-          <span>Target Bitrate (kb/s) (0 = &#x221E;): </span>
-          <input id="target-max-bitrate-input" class="settings-editor-input" type="number" min="0" max="10e5" step="100" value="${
+          <span>Target Bitrate (kb/s)</span>
+          <input id="target-max-bitrate-input" type="number" min="0" max="10e5" step="100" value="${
             overrides.targetMaxBitrate != null ? overrides.targetMaxBitrate : ''
           }" placeholder="${settings.targetMaxBitrate ||
-        'Auto'}" "style="width:4em"></input>
+        'Auto'}" "style="min-width:4em"></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.twoPassTooltip}">
-          <span>Two-Pass: </span>
+          <span>Two-Pass</span>
           <select id="two-pass-input"> 
             <option ${overrides.twoPass ? 'selected' : ''}>Enabled</option>
             <option ${overrides.twoPass === false ? 'selected' : ''}>Disabled</option>
@@ -3358,17 +3371,17 @@ export let player: HTMLElement;
           </select>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.gammaTooltip}">
-          <span>Gamma (0-4): </span>
-          <input id="gamma-input" class="settings-editor-input" type="number" min="0.01" max="4.00" step="0.01" value="${
+          <span>Gamma (0-4)</span>
+          <input id="gamma-input" type="number" min="0.01" max="4.00" step="0.01" value="${
             overrides.gamma != null ? overrides.gamma : ''
           }" placeholder="${
         settings.gamma != null ? settings.gamma : '1'
-      }" style="width:4em"></input>
+      }" style="min-width:4em"></input>
         </div>
         <div class="settings-editor-input-div" title="${
           Tooltips.expandColorRangeTooltip
         }">
-          <span>Expand Colors: </span>
+          <span>Expand Colors</span>
           <select id="expand-color-range-input"> 
             <option ${overrides.expandColorRange ? 'selected' : ''}>Enabled</option>
             <option ${
@@ -3380,7 +3393,7 @@ export let player: HTMLElement;
           </select>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.denoiseTooltip}">
-          <span>Denoise: </span>
+          <span>Denoise</span>
           <select id="denoise-input">
             <option ${
               denoiseDesc === 'Very Strong' ? 'selected' : ''
@@ -3397,26 +3410,42 @@ export let player: HTMLElement;
             }>Inherit ${denoiseDescGlobal}</option>
           </select>
         </div>
-        <div class="settings-editor-input-div" title="${Tooltips.vidstabTooltip}">
-          <span>Stabilization: </span>
-          <select id="video-stabilization-input">
-            <option ${vidstabDesc === 'Strongest' ? 'selected' : ''}>Strongest</option>
-            <option ${
-              vidstabDesc === 'Very Strong' ? 'selected' : ''
-            }>Very Strong</option>
-            <option ${vidstabDesc === 'Strong' ? 'selected' : ''}>Strong</option>
-            <option ${vidstabDesc === 'Medium' ? 'selected' : ''}>Medium</option>
-            <option ${vidstabDesc === 'Weak' ? 'selected' : ''}>Weak</option>
-            <option ${vidstabDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
-            <option value="Disabled" ${
-              vidstabDesc == 'Disabled' ? 'selected' : ''
-            }>Disabled</option>
-            <option value="Inherit" ${
-              vidstabDesc == null ? 'selected' : ''
-            }>Inherit ${vidstabDescGlobal}</option>
-          </select>
-          <div style="display:inline-block" title="${Tooltips.dynamicZoomTooltip}">
-            <span>Dynamic Zoom: </span>
+        <div class="settings-editor-input-div" title="${Tooltips.speedMapTooltip}">
+        <span>Speed Map</span>
+            <select id="enable-speed-maps-input">
+              <option ${overrides.enableSpeedMaps ? 'selected' : ''}>Enabled</option>
+              <option ${
+                overrides.enableSpeedMaps === false ? 'selected' : ''
+              }>Disabled</option>
+              <option value="Default" ${
+                overrides.enableSpeedMaps == null ? 'selected' : ''
+              }>Inherit ${ternaryToString(settings.enableSpeedMaps, '(Enabled)')}</option>
+            </select>
+        </div>
+        <div class="settings-editor-input-div multi-input-div" title="${
+          Tooltips.vidstabTooltip
+        }">
+          <div>
+            <span>Stabilization</span>
+            <select id="video-stabilization-input">
+              <option ${vidstabDesc === 'Strongest' ? 'selected' : ''}>Strongest</option>
+              <option ${
+                vidstabDesc === 'Very Strong' ? 'selected' : ''
+              }>Very Strong</option>
+              <option ${vidstabDesc === 'Strong' ? 'selected' : ''}>Strong</option>
+              <option ${vidstabDesc === 'Medium' ? 'selected' : ''}>Medium</option>
+              <option ${vidstabDesc === 'Weak' ? 'selected' : ''}>Weak</option>
+              <option ${vidstabDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
+              <option value="Disabled" ${
+                vidstabDesc == 'Disabled' ? 'selected' : ''
+              }>Disabled</option>
+              <option value="Inherit" ${
+                vidstabDesc == null ? 'selected' : ''
+              }>Inherit ${vidstabDescGlobal}</option>
+            </select>
+          </div>
+          <div title="${Tooltips.dynamicZoomTooltip}">
+            <span>Dynamic Zoom</span>
             <select id="video-stabilization-dynamic-zoom-input"> 
               <option ${vidstabDynamicZoomEnabled ? 'selected' : ''}>Enabled</option>
               <option ${
@@ -3430,20 +3459,11 @@ export let player: HTMLElement;
             </select>
           </div>
         </div>
-        <div class="settings-editor-input-div" title="${Tooltips.speedMapTooltip}">
-        <span>Speed Map: </span>
-            <select id="enable-speed-maps-input">
-              <option ${overrides.enableSpeedMaps ? 'selected' : ''}>Enabled</option>
-              <option ${
-                overrides.enableSpeedMaps === false ? 'selected' : ''
-              }>Disabled</option>
-              <option value="Default" ${
-                overrides.enableSpeedMaps == null ? 'selected' : ''
-              }>Inherit ${ternaryToString(settings.enableSpeedMaps, '(Enabled)')}</option>
-            </select>
-        </div>
-        <div class="settings-editor-input-div" title="${Tooltips.loopTooltip}">
-          <span>Loop: </span>
+        <div class="settings-editor-input-div multi-input-div" title="${
+          Tooltips.loopTooltip
+        }">
+          <div>
+            <span>Loop</span>
             <select id="loop-input">
               <option ${overrides.loop === 'fwrev' ? 'selected' : ''}>fwrev</option>
               <option ${overrides.loop === 'fade' ? 'selected' : ''}>fade</option>
@@ -3454,16 +3474,17 @@ export let player: HTMLElement;
         settings.loop != null ? `(${settings.loop})` : '(none)'
       }</option>
             </select>
-          <div style="display:inline-block" title="${Tooltips.fadeDurationTooltip}">
-            <span>Fade Duration: </span>
-            <input id="fade-duration-input" class="settings-editor-input" type="number" min="0.1" step="0.1" value="${
+          </div>
+          <div title="${Tooltips.fadeDurationTooltip}">
+            <span>Fade Duration</span>
+            <input id="fade-duration-input" type="number" min="0.1" step="0.1" value="${
               overrides.fadeDuration != null ? overrides.fadeDuration : ''
             }" placeholder="${
         settings.fadeDuration != null ? settings.fadeDuration : '0.5'
-      }" style="width:4em"></input>
+      }" style="width:7em"></input>
           </div>
         </div>
-      </div>
+      </fieldset>
       `;
 
       updateSettingsEditorHook();
