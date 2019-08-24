@@ -3302,7 +3302,7 @@ export let player: HTMLElement;
           <input id="marker-pair-number-input"
             title="${Tooltips.markerPairNumberTooltip}"
             type="number" value="${markerPairIndex + 1}"
-            step="1" min="1" max="${markerPairs.length}" style="width:2em" required>
+            step="1" min="1" max="${markerPairs.length}" style="width:3em" required>
           </input>
           /
           <span id="marker-pair-count-label">${markerPairs.length}</span>
@@ -3538,6 +3538,10 @@ export let player: HTMLElement;
       cropInput = document.getElementById('crop-input') as HTMLInputElement;
       isMarkerPairSettingsEditorOpen = true;
       wasGlobalSettingsEditorOpen = false;
+      highlightModifiedSettings(
+        inputConfigs,
+        markerPairs[markerPairIndex]
+      );
       highlightModifiedSettings(
         overrideInputConfigs,
         markerPairs[markerPairIndex].overrides
