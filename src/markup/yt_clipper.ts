@@ -334,7 +334,7 @@ export let player: HTMLElement;
     }
 
     function cropOverlayHoverHandler(e) {
-      if (isMarkerEditorOpen && isCropOverlayVisible && !isDrawingCrop) {
+      if (isMarkerPairSettingsEditorOpen && isCropOverlayVisible && !isDrawingCrop) {
         updateCropHoverCursor(e);
       }
     }
@@ -369,8 +369,8 @@ export let player: HTMLElement;
 
     let start = true;
     let markerHotkeysEnabled = false;
-    let isMarkerEditorOpen = false;
-    let wasDefaultsEditorOpen = false;
+    let isMarkerPairSettingsEditorOpen = false;
+    let wasGlobalSettingsEditorOpen = false;
     let isCropOverlayVisible = false;
     let isSpeedChartVisible = false;
     let checkGfysCompletedId: number;
@@ -408,7 +408,7 @@ export let player: HTMLElement;
       function cropOverlayDragHandler(e) {
         if (
           e.ctrlKey &&
-          isMarkerEditorOpen &&
+          isMarkerPairSettingsEditorOpen &&
           isCropOverlayVisible &&
           !isDrawingCrop &&
           !isSpeedChartVisible
@@ -1108,7 +1108,7 @@ export let player: HTMLElement;
     }
 
     function loopMarkerPair() {
-      if (isMarkerEditorOpen && !wasDefaultsEditorOpen) {
+      if (isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
         if (prevSelectedMarkerPairIndex != null) {
           const markerPair = markerPairs[prevSelectedMarkerPairIndex];
 
@@ -1302,7 +1302,12 @@ export let player: HTMLElement;
         const currentEndMarker = enableMarkerHotkeys.endMarker;
         if (e.ctrlKey && !e.altKey && !e.shiftKey) {
           jumpToNearestMarker(e, video.currentTime, keyCode);
-        } else if (isMarkerEditorOpen && currentEndMarker && e.altKey && !e.shiftKey) {
+        } else if (
+          isMarkerPairSettingsEditorOpen &&
+          currentEndMarker &&
+          e.altKey &&
+          !e.shiftKey
+        ) {
           jumpToNearestMarkerPair(e, currentEndMarker, keyCode);
         }
       }
@@ -1608,7 +1613,7 @@ export let player: HTMLElement;
     }
 
     function updateMarkerPairEditor() {
-      if (isMarkerEditorOpen) {
+      if (isMarkerPairSettingsEditorOpen) {
         const markerPairCountLabel = document.getElementById('marker-pair-count-label');
         if (markerPairCountLabel) {
           markerPairCountLabel.textContent = markerPairs.length.toString();
@@ -1652,7 +1657,7 @@ export let player: HTMLElement;
       // toggle off marker pair editor before undoing a selected marker pair
       if (
         targetMarkerType === 'end' &&
-        isMarkerEditorOpen &&
+        isMarkerPairSettingsEditorOpen &&
         enableMarkerHotkeys.markerPairIndex >= markerPairs.length
       ) {
         toggleMarkerPairEditor(enableMarkerHotkeys.endMarker);
@@ -1694,283 +1699,286 @@ export let player: HTMLElement;
 
     let cropInput: HTMLInputElement;
     function toggleGlobalSettingsEditor() {
-      if (isMarkerEditorOpen) {
+      if (isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
         toggleOffMarkerPairEditor();
       }
-      if (wasDefaultsEditorOpen) {
-        wasDefaultsEditorOpen = false;
+      if (wasGlobalSettingsEditorOpen) {
+        toggleOffGlobalSettingsEditor();
       } else {
-        hideSelectedMarkerPairCropOverlay();
-        createCropOverlay(settings.newMarkerCrop);
-        const settingsEditorDiv = document.createElement('div');
-        const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
-        const csvRange = `(\\d{1,2})([,-]\\d{1,2})*`;
-        const mergeListInputValidation = `(${csvRange})+(;${csvRange})*`;
-        const gte100 = `([1-9]\\d{3}|[1-9]\\d{2})`;
-        const cropResInputValidation = `${gte100}x${gte100}`;
-        const resList = playerInfo.isVerticalVideo
-          ? `<option value="1080x1920"><option value="2160x3840">`
-          : `<option value="1920x1080"><option value="3840x2160">`;
-        const denoise = settings.denoise;
-        const denoiseDesc = denoise ? denoise.desc : null;
-        const vidstab = settings.videoStabilization;
-        const vidstabDesc = vidstab ? vidstab.desc : null;
-        const vidstabDynamicZoomEnabled = settings.videoStabilizationDynamicZoom;
-        const markerPairMergelistDurations = getMarkerPairMergeListDurations();
-        const globalEncodeSettingsEditorDisplay = isExtraSettingsEditorEnabled
-          ? 'block'
-          : 'none';
-        settingsEditorDiv.setAttribute('id', 'settings-editor-div');
-        settingsEditorDiv.innerHTML = `
-      <fieldset id="new-marker-defaults-inputs" 
-        class="settings-editor-panel global-settings-editor global-settings-editor-highlighted-div">
-        <legend class="global-settings-editor-highlighted-label">New Marker Settings</legend>
-        <div class="settings-editor-input-div" title="${Tooltips.speedTooltip}">
-          <span>Speed</span>
-          <input id="speed-input" type="number" placeholder="speed" value="${
-            settings.newMarkerSpeed
-          }" step="0.05" min="0.05" max="2" style="min-width:4em">
-        </div>
-        <div class="settings-editor-input-div" title="${Tooltips.cropTooltip}">
-          <span>Crop</span>
-          <input id="crop-input" value="${
-            settings.newMarkerCrop
-          }" pattern="${cropInputValidation}" style="min-width:10em" required>
-        </div>
-      </fieldset>
-      <fieldset id="global-marker-settings" 
-      class="settings-editor-panel global-settings-editor global-settings-editor-highlighted-div">
-        <legend class="global-settings-editor-highlighted-label settings-editor-panel-label">Global Settings</legend>
-        <div class="settings-editor-input-div" title="${Tooltips.titleSuffixTooltip}">
-          <span>Title Suffix</span>
-          <input id="title-suffix-input" value="${
-            settings.titleSuffix
-          }" style="background-color:lightgreen;min-width:20em;text-align:right" required>
-        </div>
-        <div class="settings-editor-input-div" title="${Tooltips.cropResolutionTooltip}">
-          <span>Crop Resolution</span>
-          <input id="crop-res-input" list="resolutions" pattern="${cropResInputValidation}" value="${
-          settings.cropRes
-        }" style="min-width:7em" required>
-          <datalist id="resolutions" autocomplete="off">${resList}</datalist>
-        </div>
-        <div id="global-settings-rotate" class="settings-editor-input-div" title="${
-          Tooltips.rotateTooltip
-        }">
-          <span style="display:inline">Rotate: </span>
-          <input id="rotate-0" type="radio" name="rotate" value="0" ${
-            settings.rotate == null || settings.rotate === '0' ? 'checked' : ''
-          }></input>
-          <label for="rotate-0">0&#x00B0; </label>
-          <input id="rotate-90-clock" type="radio" value="clock" name="rotate" ${
-            settings.rotate === 'clock' ? 'checked' : ''
-          }></input>
-          <label for="rotate-90-clock">90&#x00B0; &#x27F3;</label>
-          <input id="rotate-90-counterclock" type="radio" value="cclock" name="rotate" ${
-            settings.rotate === 'cclock' ? 'checked' : ''
-          }></input>
-          <label for="rotate-90-counterclock">90&#x00B0; &#x27F2;</label>
-        </div>
-        <div id="merge-list-div" class="settings-editor-input-div" title="${
-          Tooltips.mergeListTooltip
-        }">
-            <span style="display:inline">Merge List: </span>
-            <input id="merge-list-input" pattern="${mergeListInputValidation}" value="${
-          settings.markerPairMergeList != null ? settings.markerPairMergeList : ''
-        }" placeholder="None" style="min-width:15em">
-        </div>
-        <div class="settings-editor-input-div">
-          <span style="display:inline">Merge Durations: </span>
-          <span id="merge-list-durations" style="display:inline">${markerPairMergelistDurations}</span>
-        </div>
-      </fieldset>
-      <fieldset id="global-encode-settings" 
-        class="settings-editor-panel global-settings-editor global-settings-editor-highlighted-div" style="display:${globalEncodeSettingsEditorDisplay}">
-        <legend class="global-settings-editor-highlighted-label">Encode Settings</legend>
-        <div class="settings-editor-input-div" title="${Tooltips.audioTooltip}">
-          <span>Audio</span>
-          <select id="audio-input"> 
-            <option ${settings.audio ? 'selected' : ''}>Enabled</option>
-            <option ${settings.audio === false ? 'selected' : ''}>Disabled</option>
-            <option value="Default" ${
-              settings.audio == null ? 'selected' : ''
-            }>Inherit (Disabled)</option>
-          </select>
-        </div>
-        <div class="settings-editor-input-div" title="${Tooltips.encodeSpeedTooltip}">
-          <span>Encode Speed (0-5)</span>
-          <input id="encode-speed-input" type="number" min="0" max="5" step="1" value="${
-            settings.encodeSpeed != null ? settings.encodeSpeed : ''
-          }" placeholder="Auto" style="min-width:4em"></input>
-        </div>
-        <div class="settings-editor-input-div" title="${Tooltips.CRFTooltip}">
-          <span>CRF (0-63)</span>
-          <input id="crf-input" type="number" min="0" max="63" step="1" value="${
-            settings.crf != null ? settings.crf : ''
-          }" placeholder="Auto" style="min-width:4em"></input>
-        </div>
-        <div class="settings-editor-input-div" title="${Tooltips.targetBitrateTooltip}">
-          <span>Target Bitrate (kb/s)</span>
-          <input id="target-max-bitrate-input" type="number" min="0" max="1e5"step="100" value="${
-            settings.targetMaxBitrate != null ? settings.targetMaxBitrate : ''
-          }" placeholder="Auto" "style="min-width:4em"></input>
-        </div>
-        <div class="settings-editor-input-div" title="${Tooltips.twoPassTooltip}">
-          <span>Two-Pass</span>
-          <select id="two-pass-input"> 
-            <option ${settings.twoPass ? 'selected' : ''}>Enabled</option>
-            <option ${settings.twoPass === false ? 'selected' : ''}>Disabled</option>
-            <option value="Default" ${
-              settings.twoPass == null ? 'selected' : ''
-            }>Inherit (Disabled)</option>
-          </select>
-        </div>
-        <div class="settings-editor-input-div" title="${Tooltips.gammaTooltip}">
-          <span>Gamma (0-4)</span>
-          <input id="gamma-input" type="number" min="0.01" max="4.00" step="0.01" value="${
-            settings.gamma != null ? settings.gamma : ''
-          }" placeholder="1" style="min-width:4em"></input>
-        </div>
-        <div class="settings-editor-input-div" title="${
-          Tooltips.expandColorRangeTooltip
-        }">
-          <span>Expand Colors</span>
-          <select id="expand-color-range-input"> 
-            <option ${settings.expandColorRange ? 'selected' : ''}>Enabled</option>
-            <option ${
-              settings.expandColorRange === false ? 'selected' : ''
-            }>Disabled</option>
-            <option value="Default" ${
-              settings.expandColorRange == null ? 'selected' : ''
-            }>Inherit (Disabled)</option>
-          </select>
-        </div>
-        <div class="settings-editor-input-div" title="${Tooltips.denoiseTooltip}">
-          <span>Denoise</span>
-          <select id="denoise-input">
-            <option ${
-              denoiseDesc === 'Very Strong' ? 'selected' : ''
-            }>Very Strong</option>
-            <option ${denoiseDesc === 'Strong' ? 'selected' : ''}>Strong</option>
-            <option ${denoiseDesc === 'Medium' ? 'selected' : ''}>Medium</option>
-            <option ${denoiseDesc === 'Weak' ? 'selected' : ''}>Weak</option>
-            <option ${denoiseDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
-            <option value="Inherit" ${
-              denoiseDesc == null ? 'selected' : ''
-            }>Inherit (Disabled)</option>
-          </select>
-        </div>
-        <div class="settings-editor-input-div" title="${Tooltips.speedMapTooltip}">
-          <span>Speed Maps</span>
-            <select id="enable-speed-maps-input">
-              <option ${settings.enableSpeedMaps ? 'selected' : ''}>Enabled</option>
-              <option ${
-                settings.enableSpeedMaps === false ? 'selected' : ''
-              }>Disabled</option>
-              <option value="Default" ${
-                settings.enableSpeedMaps == null ? 'selected' : ''
-              }>Inherit (Enabled)</option>
-            </select>
-        </div>
-        <div class="settings-editor-input-div multi-input-div" title="${
-          Tooltips.vidstabTooltip
-        }">
-          <div>
-            <span>Stabilization</span>
-            <select id="video-stabilization-input">
-              <option ${vidstabDesc === 'Strongest' ? 'selected' : ''}>Strongest</option>
-              <option ${
-                vidstabDesc === 'Very Strong' ? 'selected' : ''
-              }>Very Strong</option>
-              <option ${vidstabDesc === 'Strong' ? 'selected' : ''}>Strong</option>
-              <option ${vidstabDesc === 'Medium' ? 'selected' : ''}>Medium</option>
-              <option ${vidstabDesc === 'Weak' ? 'selected' : ''}>Weak</option>
-              <option ${vidstabDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
-              <option value="Inherit" ${
-                vidstabDesc == null ? 'selected' : ''
-              }>Inherit (Disabled)</option>
-            </select>
-          </div>
-          <div title="${Tooltips.dynamicZoomTooltip}">
-            <span>Dynamic Zoom</span>
-            <select id="video-stabilization-dynamic-zoom-input"> 
-              <option ${vidstabDynamicZoomEnabled ? 'selected' : ''}>Enabled</option>
-              <option ${
-                vidstabDynamicZoomEnabled === false ? 'selected' : ''
-              }>Disabled</option>
-              <option value="Default" ${
-                vidstabDynamicZoomEnabled == null ? 'selected' : ''
-              }>Inherit (Disabled)</option>
-            </select>
-          </div>
-        </div>
-        <div class="settings-editor-input-div multi-input-div" title="${
-          Tooltips.loopTooltip
-        }">
-          <div>
-            <span>Loop</span>
-            <select id="loop-input">
-              <option ${settings.loop === 'fwrev' ? 'selected' : ''}>fwrev</option>
-              <option ${settings.loop === 'fade' ? 'selected' : ''}>fade</option>
-              <option ${settings.loop === 'none' ? 'selected' : ''}>none</option>
-              <option value="Default" ${
-                settings.loop == null ? 'selected' : ''
-              }>Inherit (none)</option>
-            </select>
-          </div>
-          <div title="${Tooltips.fadeDurationTooltip}">
-            <span>Fade Duration</span>
-            <input id="fade-duration-input" type="number" min="0.1" step="0.1" value="${
-              settings.fadeDuration != null ? settings.fadeDuration : ''
-            }" placeholder="0.5" style="width:7em"></input>
-          </div>
-        </div>
-      </fieldset>
-      `;
-
-        updateSettingsEditorHook();
-        settingsEditorHook.insertAdjacentElement('beforebegin', settingsEditorDiv);
-
-        const settingsInputsConfigs = [['crop-res-input', 'cropRes', 'string']];
-        const settingsInputsConfigsHighlightable = [
-          ['crop-input', 'newMarkerCrop', 'string'],
-          ['speed-input', 'newMarkerSpeed', 'number'],
-          ['title-suffix-input', 'titleSuffix', 'string'],
-          ['merge-list-input', 'markerPairMergeList', 'string'],
-          ['gamma-input', 'gamma', 'number'],
-          ['encode-speed-input', 'encodeSpeed', 'number'],
-          ['crf-input', 'crf', 'number'],
-          ['target-max-bitrate-input', 'targetMaxBitrate', 'number'],
-          ['rotate-0', 'rotate', 'string'],
-          ['rotate-90-clock', 'rotate', 'string'],
-          ['rotate-90-counterclock', 'rotate', 'string'],
-          ['two-pass-input', 'twoPass', 'ternary'],
-          ['audio-input', 'audio', 'ternary'],
-          ['expand-color-range-input', 'expandColorRange', 'ternary'],
-          ['denoise-input', 'denoise', 'preset'],
-          ['video-stabilization-input', 'videoStabilization', 'preset'],
-          [
-            'video-stabilization-dynamic-zoom-input',
-            'videoStabilizationDynamicZoom',
-            'ternary',
-          ],
-          ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
-          ['loop-input', 'loop', 'inheritableString'],
-          ['fade-duration-input', 'fadeDuration', 'number'],
-        ];
-
-        addSettingsInputListeners(settingsInputsConfigs, settings, false);
-        addSettingsInputListeners(settingsInputsConfigsHighlightable, settings, true);
-
-        cropInput = document.getElementById('crop-input') as HTMLInputElement;
-        wasDefaultsEditorOpen = true;
-        isMarkerEditorOpen = true;
-        addMarkerPairMergeListDurationsListener();
-        addCropInputHotkeys();
-        highlightModifiedSettings(settingsInputsConfigsHighlightable, settings);
+        createGlobalSettingsEditor();
       }
     }
 
+    function toggleOffGlobalSettingsEditor() {
+      deleteSettingsEditor();
+      hideCropOverlay();
+      hideSpeedChart();
+    }
+    function createGlobalSettingsEditor() {
+      createCropOverlay(settings.newMarkerCrop);
+      const globalSettingsEditorDiv = document.createElement('div');
+      const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
+      const csvRange = `(\\d{1,2})([,-]\\d{1,2})*`;
+      const mergeListInputValidation = `(${csvRange})+(;${csvRange})*`;
+      const gte100 = `([1-9]\\d{3}|[1-9]\\d{2})`;
+      const cropResInputValidation = `${gte100}x${gte100}`;
+      const resList = playerInfo.isVerticalVideo
+        ? `<option value="1080x1920"><option value="2160x3840">`
+        : `<option value="1920x1080"><option value="3840x2160">`;
+      const denoise = settings.denoise;
+      const denoiseDesc = denoise ? denoise.desc : null;
+      const vidstab = settings.videoStabilization;
+      const vidstabDesc = vidstab ? vidstab.desc : null;
+      const vidstabDynamicZoomEnabled = settings.videoStabilizationDynamicZoom;
+      const markerPairMergelistDurations = getMarkerPairMergeListDurations();
+      const globalEncodeSettingsEditorDisplay = isExtraSettingsEditorEnabled
+        ? 'block'
+        : 'none';
+      globalSettingsEditorDiv.setAttribute('id', 'settings-editor-div');
+      globalSettingsEditorDiv.innerHTML = `
+    <fieldset id="new-marker-defaults-inputs" 
+      class="settings-editor-panel global-settings-editor global-settings-editor-highlighted-div">
+      <legend class="global-settings-editor-highlighted-label">New Marker Settings</legend>
+      <div class="settings-editor-input-div" title="${Tooltips.speedTooltip}">
+        <span>Speed</span>
+        <input id="speed-input" type="number" placeholder="speed" value="${
+          settings.newMarkerSpeed
+        }" step="0.05" min="0.05" max="2" style="min-width:4em">
+      </div>
+      <div class="settings-editor-input-div" title="${Tooltips.cropTooltip}">
+        <span>Crop</span>
+        <input id="crop-input" value="${
+          settings.newMarkerCrop
+        }" pattern="${cropInputValidation}" style="min-width:10em" required>
+      </div>
+    </fieldset>
+    <fieldset id="global-marker-settings" 
+    class="settings-editor-panel global-settings-editor global-settings-editor-highlighted-div">
+      <legend class="global-settings-editor-highlighted-label settings-editor-panel-label">Global Settings</legend>
+      <div class="settings-editor-input-div" title="${Tooltips.titleSuffixTooltip}">
+        <span>Title Suffix</span>
+        <input id="title-suffix-input" value="${
+          settings.titleSuffix
+        }" style="background-color:lightgreen;min-width:20em;text-align:right" required>
+      </div>
+      <div class="settings-editor-input-div" title="${Tooltips.cropResolutionTooltip}">
+        <span>Crop Resolution</span>
+        <input id="crop-res-input" list="resolutions" pattern="${cropResInputValidation}" value="${
+        settings.cropRes
+      }" style="min-width:7em" required>
+        <datalist id="resolutions" autocomplete="off">${resList}</datalist>
+      </div>
+      <div id="global-settings-rotate" class="settings-editor-input-div" title="${
+        Tooltips.rotateTooltip
+      }">
+        <span style="display:inline">Rotate: </span>
+        <input id="rotate-0" type="radio" name="rotate" value="0" ${
+          settings.rotate == null || settings.rotate === '0' ? 'checked' : ''
+        }></input>
+        <label for="rotate-0">0&#x00B0; </label>
+        <input id="rotate-90-clock" type="radio" value="clock" name="rotate" ${
+          settings.rotate === 'clock' ? 'checked' : ''
+        }></input>
+        <label for="rotate-90-clock">90&#x00B0; &#x27F3;</label>
+        <input id="rotate-90-counterclock" type="radio" value="cclock" name="rotate" ${
+          settings.rotate === 'cclock' ? 'checked' : ''
+        }></input>
+        <label for="rotate-90-counterclock">90&#x00B0; &#x27F2;</label>
+      </div>
+      <div id="merge-list-div" class="settings-editor-input-div" title="${
+        Tooltips.mergeListTooltip
+      }">
+          <span style="display:inline">Merge List: </span>
+          <input id="merge-list-input" pattern="${mergeListInputValidation}" value="${
+        settings.markerPairMergeList != null ? settings.markerPairMergeList : ''
+      }" placeholder="None" style="min-width:15em">
+      </div>
+      <div class="settings-editor-input-div">
+        <span style="display:inline">Merge Durations: </span>
+        <span id="merge-list-durations" style="display:inline">${markerPairMergelistDurations}</span>
+      </div>
+    </fieldset>
+    <fieldset id="global-encode-settings" 
+      class="settings-editor-panel global-settings-editor global-settings-editor-highlighted-div" style="display:${globalEncodeSettingsEditorDisplay}">
+      <legend class="global-settings-editor-highlighted-label">Encode Settings</legend>
+      <div class="settings-editor-input-div" title="${Tooltips.audioTooltip}">
+        <span>Audio</span>
+        <select id="audio-input"> 
+          <option ${settings.audio ? 'selected' : ''}>Enabled</option>
+          <option ${settings.audio === false ? 'selected' : ''}>Disabled</option>
+          <option value="Default" ${
+            settings.audio == null ? 'selected' : ''
+          }>Inherit (Disabled)</option>
+        </select>
+      </div>
+      <div class="settings-editor-input-div" title="${Tooltips.encodeSpeedTooltip}">
+        <span>Encode Speed (0-5)</span>
+        <input id="encode-speed-input" type="number" min="0" max="5" step="1" value="${
+          settings.encodeSpeed != null ? settings.encodeSpeed : ''
+        }" placeholder="Auto" style="min-width:4em"></input>
+      </div>
+      <div class="settings-editor-input-div" title="${Tooltips.CRFTooltip}">
+        <span>CRF (0-63)</span>
+        <input id="crf-input" type="number" min="0" max="63" step="1" value="${
+          settings.crf != null ? settings.crf : ''
+        }" placeholder="Auto" style="min-width:4em"></input>
+      </div>
+      <div class="settings-editor-input-div" title="${Tooltips.targetBitrateTooltip}">
+        <span>Target Bitrate (kb/s)</span>
+        <input id="target-max-bitrate-input" type="number" min="0" max="1e5"step="100" value="${
+          settings.targetMaxBitrate != null ? settings.targetMaxBitrate : ''
+        }" placeholder="Auto" "style="min-width:4em"></input>
+      </div>
+      <div class="settings-editor-input-div" title="${Tooltips.twoPassTooltip}">
+        <span>Two-Pass</span>
+        <select id="two-pass-input"> 
+          <option ${settings.twoPass ? 'selected' : ''}>Enabled</option>
+          <option ${settings.twoPass === false ? 'selected' : ''}>Disabled</option>
+          <option value="Default" ${
+            settings.twoPass == null ? 'selected' : ''
+          }>Inherit (Disabled)</option>
+        </select>
+      </div>
+      <div class="settings-editor-input-div" title="${Tooltips.gammaTooltip}">
+        <span>Gamma (0-4)</span>
+        <input id="gamma-input" type="number" min="0.01" max="4.00" step="0.01" value="${
+          settings.gamma != null ? settings.gamma : ''
+        }" placeholder="1" style="min-width:4em"></input>
+      </div>
+      <div class="settings-editor-input-div" title="${Tooltips.expandColorRangeTooltip}">
+        <span>Expand Colors</span>
+        <select id="expand-color-range-input"> 
+          <option ${settings.expandColorRange ? 'selected' : ''}>Enabled</option>
+          <option ${
+            settings.expandColorRange === false ? 'selected' : ''
+          }>Disabled</option>
+          <option value="Default" ${
+            settings.expandColorRange == null ? 'selected' : ''
+          }>Inherit (Disabled)</option>
+        </select>
+      </div>
+      <div class="settings-editor-input-div" title="${Tooltips.denoiseTooltip}">
+        <span>Denoise</span>
+        <select id="denoise-input">
+          <option ${denoiseDesc === 'Very Strong' ? 'selected' : ''}>Very Strong</option>
+          <option ${denoiseDesc === 'Strong' ? 'selected' : ''}>Strong</option>
+          <option ${denoiseDesc === 'Medium' ? 'selected' : ''}>Medium</option>
+          <option ${denoiseDesc === 'Weak' ? 'selected' : ''}>Weak</option>
+          <option ${denoiseDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
+          <option value="Inherit" ${
+            denoiseDesc == null ? 'selected' : ''
+          }>Inherit (Disabled)</option>
+        </select>
+      </div>
+      <div class="settings-editor-input-div" title="${Tooltips.speedMapTooltip}">
+        <span>Speed Maps</span>
+          <select id="enable-speed-maps-input">
+            <option ${settings.enableSpeedMaps ? 'selected' : ''}>Enabled</option>
+            <option ${
+              settings.enableSpeedMaps === false ? 'selected' : ''
+            }>Disabled</option>
+            <option value="Default" ${
+              settings.enableSpeedMaps == null ? 'selected' : ''
+            }>Inherit (Enabled)</option>
+          </select>
+      </div>
+      <div class="settings-editor-input-div multi-input-div" title="${
+        Tooltips.vidstabTooltip
+      }">
+        <div>
+          <span>Stabilization</span>
+          <select id="video-stabilization-input">
+            <option ${vidstabDesc === 'Strongest' ? 'selected' : ''}>Strongest</option>
+            <option ${
+              vidstabDesc === 'Very Strong' ? 'selected' : ''
+            }>Very Strong</option>
+            <option ${vidstabDesc === 'Strong' ? 'selected' : ''}>Strong</option>
+            <option ${vidstabDesc === 'Medium' ? 'selected' : ''}>Medium</option>
+            <option ${vidstabDesc === 'Weak' ? 'selected' : ''}>Weak</option>
+            <option ${vidstabDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
+            <option value="Inherit" ${
+              vidstabDesc == null ? 'selected' : ''
+            }>Inherit (Disabled)</option>
+          </select>
+        </div>
+        <div title="${Tooltips.dynamicZoomTooltip}">
+          <span>Dynamic Zoom</span>
+          <select id="video-stabilization-dynamic-zoom-input"> 
+            <option ${vidstabDynamicZoomEnabled ? 'selected' : ''}>Enabled</option>
+            <option ${
+              vidstabDynamicZoomEnabled === false ? 'selected' : ''
+            }>Disabled</option>
+            <option value="Default" ${
+              vidstabDynamicZoomEnabled == null ? 'selected' : ''
+            }>Inherit (Disabled)</option>
+          </select>
+        </div>
+      </div>
+      <div class="settings-editor-input-div multi-input-div" title="${
+        Tooltips.loopTooltip
+      }">
+        <div>
+          <span>Loop</span>
+          <select id="loop-input">
+            <option ${settings.loop === 'fwrev' ? 'selected' : ''}>fwrev</option>
+            <option ${settings.loop === 'fade' ? 'selected' : ''}>fade</option>
+            <option ${settings.loop === 'none' ? 'selected' : ''}>none</option>
+            <option value="Default" ${
+              settings.loop == null ? 'selected' : ''
+            }>Inherit (none)</option>
+          </select>
+        </div>
+        <div title="${Tooltips.fadeDurationTooltip}">
+          <span>Fade Duration</span>
+          <input id="fade-duration-input" type="number" min="0.1" step="0.1" value="${
+            settings.fadeDuration != null ? settings.fadeDuration : ''
+          }" placeholder="0.5" style="width:7em"></input>
+        </div>
+      </div>
+    </fieldset>
+    `;
+
+      updateSettingsEditorHook();
+      settingsEditorHook.insertAdjacentElement('beforebegin', globalSettingsEditorDiv);
+
+      const settingsInputsConfigs = [['crop-res-input', 'cropRes', 'string']];
+      const settingsInputsConfigsHighlightable = [
+        ['crop-input', 'newMarkerCrop', 'string'],
+        ['speed-input', 'newMarkerSpeed', 'number'],
+        ['title-suffix-input', 'titleSuffix', 'string'],
+        ['merge-list-input', 'markerPairMergeList', 'string'],
+        ['gamma-input', 'gamma', 'number'],
+        ['encode-speed-input', 'encodeSpeed', 'number'],
+        ['crf-input', 'crf', 'number'],
+        ['target-max-bitrate-input', 'targetMaxBitrate', 'number'],
+        ['rotate-0', 'rotate', 'string'],
+        ['rotate-90-clock', 'rotate', 'string'],
+        ['rotate-90-counterclock', 'rotate', 'string'],
+        ['two-pass-input', 'twoPass', 'ternary'],
+        ['audio-input', 'audio', 'ternary'],
+        ['expand-color-range-input', 'expandColorRange', 'ternary'],
+        ['denoise-input', 'denoise', 'preset'],
+        ['video-stabilization-input', 'videoStabilization', 'preset'],
+        [
+          'video-stabilization-dynamic-zoom-input',
+          'videoStabilizationDynamicZoom',
+          'ternary',
+        ],
+        ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
+        ['loop-input', 'loop', 'inheritableString'],
+        ['fade-duration-input', 'fadeDuration', 'number'],
+      ];
+
+      addSettingsInputListeners(settingsInputsConfigs, settings, false);
+      addSettingsInputListeners(settingsInputsConfigsHighlightable, settings, true);
+
+      cropInput = document.getElementById('crop-input') as HTMLInputElement;
+      wasGlobalSettingsEditorOpen = true;
+      isMarkerPairSettingsEditorOpen = true;
+      addMarkerPairMergeListDurationsListener();
+      addCropInputHotkeys();
+      highlightModifiedSettings(settingsInputsConfigsHighlightable, settings);
+    }
     function addSettingsInputListeners(
       inputs: string[][],
       target,
@@ -2416,7 +2424,7 @@ export let player: HTMLElement;
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       let resString: string;
-      if (isMarkerEditorOpen && !wasDefaultsEditorOpen) {
+      if (isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
         const idx = parseInt(prevSelectedEndMarker.getAttribute('idx'), 10) - 1;
         const markerPair = markerPairs[idx];
         const cropMultipleX = video.videoWidth / settings.cropResWidth;
@@ -2660,9 +2668,9 @@ export let player: HTMLElement;
         );
       } else if (isDraggingCrop) {
         flashMessage('Please finish dragging or resizing before drawing crop', 'olive');
-      } else if (isMarkerEditorOpen && isCropOverlayVisible) {
+      } else if (isMarkerPairSettingsEditorOpen && isCropOverlayVisible) {
         isDrawingCrop = true;
-        if (!wasDefaultsEditorOpen) {
+        if (!wasGlobalSettingsEditorOpen) {
           prevCropString = markerPairs[prevSelectedMarkerPairIndex].crop;
         } else {
           prevCropString = settings.newMarkerCrop;
@@ -2806,9 +2814,9 @@ export let player: HTMLElement;
       if (!cropString) {
         cropString = `${x}:${y}:${w}:${h}`;
       }
-      if (isMarkerEditorOpen) {
+      if (isMarkerPairSettingsEditorOpen) {
         cropInput.value = cropString;
-        if (!wasDefaultsEditorOpen) {
+        if (!wasGlobalSettingsEditorOpen) {
           markerPairs[prevSelectedMarkerPairIndex].crop = cropString;
         } else {
           settings.newMarkerCrop = cropString;
@@ -2833,7 +2841,7 @@ export let player: HTMLElement;
     }
 
     function arrowKeyCropAdjustmentHandler(ke: KeyboardEvent) {
-      if (isMarkerEditorOpen) {
+      if (isMarkerPairSettingsEditorOpen) {
         if (
           cropInput !== document.activeElement &&
           ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(ke.code) > -1
@@ -2901,8 +2909,8 @@ export let player: HTMLElement;
     }
 
     function extractCropComponents(cropString?: string) {
-      if (!cropString && isMarkerEditorOpen) {
-        if (!wasDefaultsEditorOpen && prevSelectedMarkerPairIndex != null) {
+      if (!cropString && isMarkerPairSettingsEditorOpen) {
+        if (!wasGlobalSettingsEditorOpen && prevSelectedMarkerPairIndex != null) {
           cropString = markerPairs[prevSelectedMarkerPairIndex].crop;
         } else {
           cropString = settings.newMarkerCrop;
@@ -2934,8 +2942,8 @@ export let player: HTMLElement;
     Chart.helpers.merge(Chart.defaults.global, SpeedChartSpec.global);
     function toggleSpeedChart() {
       if (
-        isMarkerEditorOpen &&
-        !wasDefaultsEditorOpen &&
+        isMarkerPairSettingsEditorOpen &&
+        !wasGlobalSettingsEditorOpen &&
         prevSelectedMarkerPairIndex != null
       ) {
         if (!speedChart) {
@@ -3061,8 +3069,8 @@ export let player: HTMLElement;
     function loadSpeedMap(chartOrChartConfig: Chart | ChartConfiguration) {
       if (chartOrChartConfig) {
         if (
-          isMarkerEditorOpen &&
-          !wasDefaultsEditorOpen &&
+          isMarkerPairSettingsEditorOpen &&
+          !wasGlobalSettingsEditorOpen &&
           prevSelectedMarkerPairIndex != null
         ) {
           const markerPair = markerPairs[prevSelectedMarkerPairIndex];
@@ -3117,8 +3125,8 @@ export let player: HTMLElement;
         }
         markerPair.speedMap[0].y = newSpeed;
       });
-      if (isMarkerEditorOpen) {
-        if (wasDefaultsEditorOpen) {
+      if (isMarkerPairSettingsEditorOpen) {
+        if (wasGlobalSettingsEditorOpen) {
           const markerPairMergeListInput = document.getElementById('merge-list-input');
           markerPairMergeListInput.dispatchEvent(new Event('change'));
         } else {
@@ -3134,7 +3142,7 @@ export let player: HTMLElement;
       markerPairs.forEach((markerPair) => {
         markerPair.crop = newCrop;
       });
-      if (isMarkerEditorOpen && !wasDefaultsEditorOpen) {
+      if (isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
         const cropInput = document.getElementById('crop-input') as HTMLInputElement;
         cropInput.value = newCrop;
         cropInput.dispatchEvent(new Event('change'));
@@ -3152,26 +3160,28 @@ export let player: HTMLElement;
 
     let isSpeedChartEnabled = false;
     function toggleMarkerPairEditor(targetMarker: SVGRectElement) {
-      // toggling on off current pair editor
-      if (prevSelectedEndMarker === targetMarker && !wasDefaultsEditorOpen) {
-        if (isMarkerEditorOpen) {
-          toggleOffMarkerPairEditor();
-        } else {
-          toggleOnMarkerPairEditor(targetMarker);
-        }
-        // switching to different marker pair
-        // delete current editor and create new editor
+      // if target marker is previously selected marker: toggle target on/off
+      if (prevSelectedEndMarker === targetMarker && !wasGlobalSettingsEditorOpen) {
+        isMarkerPairSettingsEditorOpen
+          ? toggleOffMarkerPairEditor()
+          : toggleOnMarkerPairEditor(targetMarker);
+
+        // otherwise switching from a different marker pair or from global settings editor
       } else {
-        if (isMarkerEditorOpen) {
-          toggleOffMarkerPairEditor();
+        // delete current settings editor appropriately
+        if (isMarkerPairSettingsEditorOpen) {
+          wasGlobalSettingsEditorOpen
+            ? toggleOffGlobalSettingsEditor()
+            : toggleOffMarkerPairEditor();
         }
+        // create new marker pair settings editor
         toggleOnMarkerPairEditor(targetMarker);
       }
     }
 
     function toggleOffMarkerPairEditor() {
-      deleteMarkerPairEditor();
-      hideSelectedMarkerPairCropOverlay();
+      deleteSettingsEditor();
+      hideSelectedMarkerPairOverlay();
       hideCropOverlay();
       hideSpeedChart();
       prevSelectedEndMarker.classList.remove('selected-marker');
@@ -3526,8 +3536,8 @@ export let player: HTMLElement;
       ) as HTMLInputElement;
       markerPairNumberInput.addEventListener('change', markerPairNumberInputHandler);
       cropInput = document.getElementById('crop-input') as HTMLInputElement;
-      isMarkerEditorOpen = true;
-      wasDefaultsEditorOpen = false;
+      isMarkerPairSettingsEditorOpen = true;
+      wasGlobalSettingsEditorOpen = false;
       highlightModifiedSettings(
         overrideInputConfigs,
         markerPairs[markerPairIndex].overrides
@@ -3598,11 +3608,14 @@ export let player: HTMLElement;
     }
 
     function highlightModifiedSettings(inputs: string[][], target) {
-      if (isMarkerEditorOpen) {
+      if (isMarkerPairSettingsEditorOpen) {
         const markerPairSettingsLabelHighlight =
           'marker-pair-settings-editor-highlighted-label';
         const globalSettingsLabelHighlight = 'global-settings-editor-highlighted-label';
-        const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+        let markerPair: MarkerPair;
+        if (!wasGlobalSettingsEditorOpen && prevSelectedMarkerPairIndex != null) {
+          markerPair = markerPairs[prevSelectedMarkerPairIndex];
+        }
         inputs.forEach((input) => {
           const id = input[0];
           const targetProperty = input[1];
@@ -3618,7 +3631,8 @@ export let player: HTMLElement;
             storedTargetValue === '' ||
             (id === 'title-suffix-input' &&
               storedTargetValue == `[${settings.videoID}]`) ||
-            (id === 'speed-input' &&
+            (markerPair &&
+              id === 'speed-input' &&
               storedTargetValue === 1 &&
               !isVariableSpeed(markerPair.speedMap)) ||
             (id === 'crop-input' &&
@@ -3821,7 +3835,7 @@ export let player: HTMLElement;
       });
     }
 
-    function hideSelectedMarkerPairCropOverlay() {
+    function hideSelectedMarkerPairOverlay() {
       if (selectedMarkerPairOverlay) {
         selectedMarkerPairOverlay.style.display = 'none';
       }
@@ -3851,17 +3865,18 @@ export let player: HTMLElement;
       }
     }
 
-    function deleteMarkerPairEditor() {
+    function deleteSettingsEditor() {
       const settingsEditorDiv = document.getElementById('settings-editor-div');
       hideCropOverlay();
       deleteElement(settingsEditorDiv);
-      isMarkerEditorOpen = false;
+      isMarkerPairSettingsEditorOpen = false;
+      wasGlobalSettingsEditorOpen = false;
       markerHotkeysEnabled = false;
     }
 
     let isExtraSettingsEditorEnabled = false;
     function toggleMarkerPairOverridesEditor() {
-      if (isMarkerEditorOpen) {
+      if (isMarkerPairSettingsEditorOpen) {
         const markerPairOverridesEditor = document.getElementById(
           'marker-pair-overrides'
         );
