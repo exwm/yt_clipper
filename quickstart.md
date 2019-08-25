@@ -19,5 +19,5 @@
    - **Windows:** Drag and drop the saved markers data onto the `yt_clipper_auto.bat`.
    - **Mac:** Launch the `yt_clipper_auto.sh` program, drag and drop the saved markers data onto the terminal, and hit **Enter**.
 8) See the [full instructions](https://openuserjs.org/scripts/elwm/yt_clipper) for more detail and advanced usage as well as changelogs.
-9) Join the [`yt_clipper` discord server](https://discord.gg/5RVGNCU) if you want further help or want to contribute.
-10) Check the [changelogs](https://github.com/exwm/yt_clipper/blob/master/changelog.md) for updates as there is not yet an automated mechanism.
+9) Check the [changelogs](https://openuserjs.org/scripts/elwm/yt_clipper#markup-script-changelog) for updates as there is not yet an automated mechanism.
+10) Join the [`yt_clipper` discord server](https://discord.gg/5RVGNCU) if you want further help or want to contribute.
