@@ -30,6 +30,7 @@ import * as SpeedChartSpec from './speedchart/speed-chart-spec';
 import './speedchart/chart.js-drag-data-plugin';
 import { easeCubicInOut } from 'd3-ease';
 import { Tooltips } from './tooltips';
+import { html } from 'common-tags';
 import { readFileSync } from 'fs';
 const ytClipperCSS = readFileSync(__dirname + '/css/yt-clipper.css', 'utf8');
 const shortcutsTable = readFileSync(
@@ -1449,16 +1450,13 @@ export let player: HTMLElement;
       } else {
         const markersUploadDiv = document.createElement('div');
         markersUploadDiv.setAttribute('id', 'markers-upload-div');
-        markersUploadDiv.setAttribute(
-          'style',
-          'color:grey;margin-top:2px;padding:2px;border:2px outset grey'
-        );
-        markersUploadDiv.innerHTML = `
-      <fieldset>\
-        <h2>Upload a markers .json file.</h2>\
-        <input type="file" id="markers-json-input">\
-        <input type="button" id="upload-markers-json" style="color:grey" value="Load">\
-      </fieldset>`;
+        markersUploadDiv.innerHTML = html`
+          <fieldset>
+            <legend>Upload a markers .json file.</legend>
+            <input type="file" id="markers-json-input" />
+            <input type="button" id="upload-markers-json" value="Load" />
+          </fieldset>
+        `;
         updateSettingsEditorHook();
         settingsEditorHook.insertAdjacentElement('beforebegin', markersUploadDiv);
         const fileUploadButton = document.getElementById('upload-markers-json');
