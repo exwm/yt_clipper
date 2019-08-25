@@ -2,6 +2,13 @@
 
 ## Notices
 
+- Windows users on `v3.6.0` of the `clipper script` getting ffmpeg crashes may want to try the following:
+  - Update visual c++ redistributables:
+    - For 64-bit Windows: <https://aka.ms/vs/16/release/vc_redist.x64.exe>
+    - For other Windows versions and older redistributables check this page: <https://support.microsoft.com/help/2977003/the-latest-supported-visual-c-downloads>.
+  - Switch to static ffmpeg build: <https://ffmpeg.zeranoe.com/builds/win64/static/ffmpeg-4.2-win64-static.zip>
+    - Replace contents of `yt_clipper_win_3.6.0/bin` with the contents of the `bin` folder in the ffmpeg zip.
+
 ## Browser Support
 
 - Works best on Chrome with the Tampermonkey extension and YouTube video in theater mode.
@@ -36,6 +43,8 @@
   - [Encoding Settings Guide](#encoding-settings-guide)
     - [Articles on CRF and vp9 Encoding](#articles-on-crf-and-vp9-encoding)
     - [Tips and Settings](#tips-and-settings)
+      - [Markup Script](#markup-script)
+      - [Clipper Script](#clipper-script)
     - [Gamma Correction](#gamma-correction)
   - [Clipper Script Source](#clipper-script-source)
   - [Clipper Script Usage](#clipper-script-usage)
@@ -81,10 +90,12 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 **Alt+Z:** Delete currently selected marker pair. Does nothing if no pair selected.
 
 **Shift+mouseover:** Toggle marker pair editor. Must be done over an end marker (yellow). Selected marker pairs have a black center.
+  ![yt_clipper_marker_pair_editor](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_marker_pair_editor.png)
 
+- Modified marker pair settings are accented orange while settings redundant with a global setting are accented red.
+- Reorder marker pairs using the input box in the title of the marker pair settings panel.
 - Edit pair crop or speed multiplier.
 - Edit `Title Prefix` that will be prepended to the `Title Suffix` and used in the webm name for the marker pair.
-![yt_clipper_marker_pair_editor](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_marker_pair_editor.png)
 
 **Ctrl+Up**: Select/deselect the most recently selected marker pair.
 
@@ -102,18 +113,19 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 **W:** Global settings editor:
   ![yt_clipper_globals_editor](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_globals_editor.png)
 
-1. Change default new marker speed or crop.
+1. Modified global settings are accented red.
+2. Change default new marker speed or crop.
    - Any new markers added will use these defaults, but this will not update existing markers.
    - To update existing markers to the default new marker speed/crop use **Alt+Shift+Q/alt+Shift+X**.
-2. Specify crop resolution (automatically scales any existing crops on change).
+3. Specify crop resolution (automatically scales any existing crops on change).
    - This resolution must match the downloaded video's resolution.
    - By default the max available video resolution is downloaded by the `clipper script` and the crop resolution auto-scaled if a mismatch is detected.
-3. Specify any webms you want to merge from the clipped webms.
+4. Specify any webms you want to merge from the clipped webms.
    - Very fast as it does not require re-encoding webms.
    - The format is similar to that for printer page ranges:
      - Each merge is a comma separated list of marker pair numbers or ranges (e.g., '1-3,5,9' = '1,2,3,5,9').
      - Multiple merges are separated with semicolons (e.g., '1-3,5,9;4-6,8' will create two merged webms).
-4. Specify `Title Suffix` appended to each marker pair `Title Prefix` to produce its `Full Title`.
+5. Specify `Title Suffix` appended to each marker pair `Title Prefix` to produce its `Full Title`.
    - By default the `Title Suffix` is the YouTube video ID in square brackets (e.g., \[Bey4XXJAqS8\]).
    - The `Title Suffix` is used for the name of the folder containing all generated webms.
 
@@ -293,28 +305,19 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 ### Tips and Settings
 
-1. The `clipper script` is set to use the vp9 encoder by default (encoding used for webm videos on YouTube).
-2. When using the installation with a markers .json file or `--json`, the `clipper script` will automatically select encoding settings based on the detected bitrate of the input video.
+#### Markup Script
+
+1. Move between input fields with **Tab**.
+2. Non-text input fields can be set using the **Up/Down** arrow keys or the **Mousewheel**.
 3. Override the default encoding settings using the **Shift+W** additional settings editors.
-4. The `clipper script` uses constrained quality mode where an automatically determined target max bitrate is set to keep file sizes reasonable. A target max bitrate of 0 forces constant quality mode which is likely to increase file sizes for a small increase in quality.
-5. If encoding is slow, use set `encode speed` to a higher value (max 5) to speed it up at the cost of some quality.
-6. Enable `denoise` to reduce noise, static, and blockiness at the cost of some encoding speed.
-   - Higher strength denoise can further reduce noise at the cost of sharpness.
-7. Enable `video stabilization` to smoothen the motion of the video.
-   - This usually results in some cropping/zooming of the final video.
-     - Higher strength presets usually result in more cropping/zooming.
-     - Enable `dynamic zoom` to allow the cropping/zooming to vary with the need for stabilization over time.
-8. Enable `expand color range` to make the colors more vivid, shadows darker and highlights brighter.
-   - Note that the result may not always be desirable and may look artificial.
-   - Videos with blown out shadows or highlights may become further blown out. Try adjusting the `gamma` value to compensate.
-9. Enable `two pass encoding` if you want even better quality at the cost of significant encoding speed.
-10. Enable one of `fwrev` loops or `fade` loops for special looping behavior that can improve the look of short clips on loop.
-   - For `fade` loops adjust the `fade duration` to taste.
-   - The`fade duration` defaults to 0.5 and is clamped to a minimum of 0.1 seconds and a maximum of 40% of the output clip duration.
-   - The `fade` loop preview indicates the duration of the fade in and out.
-   - The `fade` loop preview does not yet show the cross-fading of the end of the clip into the beginning.
-   - Note that audio is not yet compatible with the special looping behaviors.
-   - Note that offline previewing of special special looping behaviors is not yet possible.
+4. Hover over settings in the `markup script` to view tooltips describing each setting.
+  ![yt_clipper_tooltip](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_tooltip.png)
+
+#### Clipper Script
+
+1. The `clipper script` is set to use the vp9 encoder by default (encoding used for webm videos on YouTube).
+2. Use `--help`, `-h`, or the `yt_clipper_options` helper script for additional options that can be enabled on the command line.
+3. Encoding settings will be automatically selected unless overriden based on the detected bitrate of the input video.
 
 ### Gamma Correction
 
@@ -438,7 +441,26 @@ See <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
 
 ## Markup Script Changelog
 
-- v0.0.86 [2019.08.03]:
+- v0.0.87 `[2019.08.25]`:
+
+  - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
+  - Use with `v3.6.0` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Redesign user interface.
+    - Improve visual clarity of markers and marker numberings.
+    - Add accent colors to quickly differentiate marker pair (orange) and global (red) settings editors.
+    - Add accent colors to modified settings.
+      - Modified global settings accented red.
+      - Modified marker pair settings accented orange.
+      - Marker pair settings redundant with a global setting accented red.
+  - Add reordering/renumbering marker pairs using the input box displayed in the marker pair settings panel.
+  - Add tooltips for marker pair and global settings.
+  - Change extra settings toggle (Shift+W) to a global setting for easier use.
+  - Fix being able to add speed points outside speed chart bounds.
+  - Fix title suffix being undefined if left blank.
+  - Fix deleting marker pairs not deleting associated numberings.
+  - Fix fade loop preview not working when loop set to fade globally only.
+
+- v0.0.86 `[2019.08.03]`:
 
   - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
   - Use with `v3.6.0` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
@@ -544,7 +566,7 @@ See <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
 
 ## Clipper Script (Installation) Changelog
 
-- v3.6.0 [2019.08.03]:
+- v3.6.0 `[2019.08.03]`:
 
   - See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
   - Use with `v0.0.86` or higher of the markup script.
