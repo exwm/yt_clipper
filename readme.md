@@ -9,6 +9,10 @@
   - Switch to static ffmpeg build: <https://ffmpeg.zeranoe.com/builds/win64/static/ffmpeg-4.2-win64-static.zip>
     - Replace contents of `yt_clipper_win_3.6.0/bin` with the contents of the `bin` folder in the ffmpeg zip.
 
+## Quick Start
+
+Visit [this quickstart guide](https://github.com/exwm/yt_clipper/blob/master/quickstart.md) to get up and running with `yt_clipper`.
+
 ## Browser Support
 
 - Works best on Chrome with the Tampermonkey extension and YouTube video in theater mode.
@@ -25,6 +29,7 @@
 
 - [yt_clipper](#ytclipper)
   - [Notices](#notices)
+  - [Quick Start](#quick-start)
   - [Browser Support](#browser-support)
   - [Related Scripts](#related-scripts)
   - [Table of Contents](#table-of-contents)
@@ -89,7 +94,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 **Alt+Z:** Delete currently selected marker pair. Does nothing if no pair selected.
 
-**Shift+mouseover:** Toggle marker pair editor. Must be done over an end marker (yellow). Selected marker pairs have a black center.
+**Shift+Mouseover:** Toggle marker pair editor. Must be done over an end marker (yellow). Selected marker pairs have a black center.
   ![yt_clipper_marker_pair_editor](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_marker_pair_editor.png)
 
 - Modified marker pair settings are accented orange while settings redundant with a global setting are accented red.
@@ -462,8 +467,7 @@ See <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
 
 - v0.0.86 `[2019.08.03]`:
 
-  - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
-  - Use with `v3.6.0` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Use with `v3.6.0` of the `clipper script` installation.
   - Add special loops: Fade loops and forward-reverse (AKA ping-pong) loops.
     - Note special loops are not compatible with audio.
     - Add fade loop previewing.
