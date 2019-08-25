@@ -2,10 +2,28 @@
 
 ## Markup Script Changelog
 
-- v0.0.86 [2019.08.03]:
+- v0.0.87 [2019.08.25]:
 
   - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
   - Use with `v3.6.0` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+  - Redesign user interface.
+    - Improve visual clarity of markers and marker numberings.
+    - Add accent colors to quickly differentiate marker pair (orange) and global (red) settings editors.
+    - Add accent colors to modified settings.
+      - Modified global settings accented red.
+      - Modified marker pair settings accented orange.
+      - Marker pair settings redundant with a global setting accented red.
+  - Add reordering/renumbering marker pairs using the input box displayed in the marker pair settings panel.
+  - Add tooltips for marker pair and global settings.
+  - Change extra settings toggle (Shift+W) to a global setting for easier use.
+  - Fix being able to add speed points outside speed chart bounds.
+  - Fix title suffix being undefined if left blank.
+  - Fix deleting marker pairs not deleting associated numberings.
+  - Fix fade loop preview not working when loop set to fade globally only.
+
+- v0.0.86 [2019.08.03]:
+
+  - Use with `v3.6.0` of the `clipper script` installation.(#clipper-script-installation).
   - Add special loops: Fade loops and forward-reverse (AKA ping-pong) loops.
     - Note special loops are not compatible with audio.
     - Add fade loop previewing.
