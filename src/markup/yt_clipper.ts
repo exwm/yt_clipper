@@ -721,6 +721,7 @@ export let player: HTMLElement;
     }
     let settings: Settings;
     let markersSvg: SVGSVGElement;
+    let markersDiv: HTMLDivElement;
     let selectedMarkerPairOverlay: SVGSVGElement;
     let startMarkerNumberings: SVGSVGElement;
     let endMarkerNumberings: SVGSVGElement;
@@ -737,7 +738,7 @@ export let player: HTMLElement;
         cropResHeight: playerInfo.isVerticalVideo ? 1920 : 1080,
         markerPairMergeList: '',
       };
-      const markersDiv = document.createElement('div');
+      markersDiv = document.createElement('div');
       markersDiv.setAttribute('id', 'markers-div');
       markersDiv.innerHTML = `\
     <svg id="markers-svg"></svg>
@@ -3571,38 +3572,19 @@ export let player: HTMLElement;
       let targetMarkerRect = markersSvg.children[newIdx * 2];
       let targetStartNumbering = startMarkerNumberings.children[newIdx];
       let targetEndNumbering = endMarkerNumberings.children[newIdx];
+      // if target succeedes current marker pair, move pair after target
+      if (newIdx > prevSelectedMarkerPairIndex) {
+        targetMarkerRect = targetMarkerRect.nextElementSibling.nextElementSibling;
+        targetStartNumbering = targetStartNumbering.nextElementSibling;
+        targetEndNumbering = targetEndNumbering.nextElementSibling;
+      }
+
       const prevSelectedStartMarker = prevSelectedEndMarker.previousElementSibling;
       // if target precedes current marker pair, move pair before target
-      if (newIdx < prevSelectedMarkerPairIndex) {
-        prevSelectedEndMarker.parentElement.insertBefore(
-          prevSelectedEndMarker,
-          targetMarkerRect
-        );
-        prevSelectedStartMarker.parentElement.insertBefore(
-          prevSelectedStartMarker,
-          prevSelectedEndMarker
-        );
-        startNumbering.parentElement.insertBefore(startNumbering, targetStartNumbering);
-        endNumbering.parentElement.insertBefore(endNumbering, targetEndNumbering);
-        // if target succeedes current marker pair, move pair after target
-      } else if (newIdx > prevSelectedMarkerPairIndex) {
-        prevSelectedStartMarker.parentElement.insertBefore(
-          prevSelectedStartMarker,
-          targetMarkerRect.nextElementSibling
-        );
-        prevSelectedEndMarker.parentElement.insertBefore(
-          prevSelectedEndMarker,
-          prevSelectedStartMarker.nextElementSibling
-        );
-        startNumbering.parentElement.insertBefore(
-          startNumbering,
-          targetStartNumbering.nextElementSibling
-        );
-        endNumbering.parentElement.insertBefore(
-          endNumbering,
-          targetEndNumbering.nextElementSibling
-        );
-      }
+      markersSvg.insertBefore(prevSelectedStartMarker, targetMarkerRect);
+      markersSvg.insertBefore(prevSelectedEndMarker, targetMarkerRect);
+      startMarkerNumberings.insertBefore(startNumbering, targetStartNumbering);
+      endMarkerNumberings.insertBefore(endNumbering, targetEndNumbering);
 
       renumberMarkerPairs();
       prevSelectedMarkerPairIndex = newIdx;
