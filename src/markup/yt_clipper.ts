@@ -1261,9 +1261,9 @@ export let player: HTMLElement;
       } else {
         video.style.opacity = '1';
       }
-      if (isFadeLoopPreviewOn) {
-        requestAnimationFrame(fadeLoopPreviewHandler);
-      }
+      isFadeLoopPreviewOn
+        ? requestAnimationFrame(fadeLoopPreviewHandler)
+        : (video.style.opacity = '1');
     }
 
     function getFadeBounds(markerPair: MarkerPair, currentTime: number): number | null {
