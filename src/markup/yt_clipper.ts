@@ -974,7 +974,22 @@ export let player: HTMLElement;
       setTimeout(() => deleteElement(flashDiv), lifetime);
     }
 
-    function getShortestActiveMarkerPair(currentTime: number = video.currentTime) {
+    function getShortestActiveMarkerPair(
+      currentTime: number = video.currentTime
+    ): MarkerPair {
+      if (
+        isMarkerPairSettingsEditorOpen &&
+        !wasGlobalSettingsEditorOpen &&
+        prevSelectedMarkerPairIndex != null
+      ) {
+        const selectedMarkerPair = markerPairs[prevSelectedMarkerPairIndex];
+        if (
+          currentTime >= Math.floor(selectedMarkerPair.start * 1e6) / 1e6 &&
+          currentTime <= Math.ceil(selectedMarkerPair.end * 1e6) / 1e6
+        ) {
+          return selectedMarkerPair;
+        }
+      }
       const activeMarkerPairs = markerPairs.filter((markerPair) => {
         if (
           currentTime >= Math.floor(markerPair.start * 1e6) / 1e6 &&
