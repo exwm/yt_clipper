@@ -333,7 +333,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 ## Clipper Script Source
 
-- You can find the clipper script python source file here: <https://github.com/exwm/yt_clipper/blob/master/src/yt_clipper.py>
+- You can find the clipper script python source file here: <https://github.com/exwm/yt_clipper/blob/master/src/clipper/yt_clipper.py>
 
 ## Clipper Script Usage
 
