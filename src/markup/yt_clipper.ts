@@ -1673,24 +1673,23 @@ export let player: HTMLElement;
       if (
         targetMarkerType === 'end' &&
         isMarkerPairSettingsEditorOpen &&
-        enableMarkerHotkeys.markerPairIndex >= markerPairs.length
+        !wasGlobalSettingsEditorOpen &&
+        prevSelectedMarkerPairIndex >= markerPairs.length - 1
       ) {
-        toggleMarkerPairEditor(enableMarkerHotkeys.endMarker);
+        toggleMarkerPairEditor(prevSelectedEndMarker);
       }
 
-      if (targetMarker) {
-        deleteElement(targetMarker);
-        if (targetMarkerType === 'end') {
-          const markerPair = markerPairs[markerPairs.length - 1];
-          deleteElement(markerPair.startNumbering);
-          deleteElement(markerPair.endNumbering);
-          startTime = markerPair.start;
-          markerPairsHistory.push(markerPairs.pop());
-          console.log(markerPairs);
-          updateMarkerPairEditor();
-        }
-        start = !start;
+      deleteElement(targetMarker);
+      if (targetMarkerType === 'end') {
+        const markerPair = markerPairs[markerPairs.length - 1];
+        deleteElement(markerPair.startNumbering);
+        deleteElement(markerPair.endNumbering);
+        startTime = markerPair.start;
+        markerPairsHistory.push(markerPairs.pop());
+        console.log(markerPairs);
+        updateMarkerPairEditor();
       }
+      start = !start;
     }
 
     function redoMarker() {
@@ -3661,7 +3660,6 @@ export let player: HTMLElement;
     function enableMarkerHotkeys(endMarker: SVGRectElement) {
       markerHotkeysEnabled = true;
       enableMarkerHotkeys.endMarker = endMarker;
-      enableMarkerHotkeys.markerPairIndex = endMarker.getAttribute('idx');
       enableMarkerHotkeys.startMarker = endMarker.previousSibling;
     }
 
