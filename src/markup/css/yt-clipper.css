@@ -158,11 +158,11 @@
 .settings-editor-input-div input:not([type='radio']),
 #marker-pair-number-input {
   border-radius: 5px;
-  padding-left: 2px;
   padding-right: 4px;
+  padding-left: 2px;
 }
 
-#marker-pair-settings-time span,
+.settings-info-display span,
 #global-settings-rotate label,
 #merge-list-div input,
 #global-settings-rotate input,
