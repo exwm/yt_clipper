@@ -415,7 +415,7 @@ export let player: HTMLElement;
           !isSpeedChartVisible
         ) {
           const { minW, minH } = getMinWH();
-          const [ix, iy, iw, ih] = extractCropComponents();
+          const [ix, iy, iw, ih] = getCropComponents();
           const videoRect = player.getVideoContentRect();
           const playerRect = player.getBoundingClientRect();
           const clickPosX = e.pageX - videoRect.left - playerRect.left;
@@ -611,7 +611,7 @@ export let player: HTMLElement;
     }
 
     function getMouseCropHoverRegion(e: MouseEvent) {
-      const [x, y, w, h] = extractCropComponents();
+      const [x, y, w, h] = getCropComponents();
       const videoRect = player.getVideoContentRect();
       const playerRect = player.getBoundingClientRect();
       const clickPosX = e.pageX - videoRect.left - playerRect.left;
@@ -1711,7 +1711,6 @@ export let player: HTMLElement;
       flashMessage(`Video playback speed set to ${newSpeed}`, 'green');
     }
 
-    let cropInput: HTMLInputElement;
     function toggleGlobalSettingsEditor() {
       if (isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
         toggleOffMarkerPairEditor();
@@ -1728,10 +1727,15 @@ export let player: HTMLElement;
       hideCropOverlay();
       hideSpeedChart();
     }
+
+    let cropInput: HTMLInputElement;
+    let cropAspectRatioSpan: HTMLSpanElement;
     function createGlobalSettingsEditor() {
       createCropOverlay(settings.newMarkerCrop);
       const globalSettingsEditorDiv = document.createElement('div');
       const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
+      const [x, y, w, h] = getCropComponents(settings.newMarkerCrop);
+      const cropAspectRatio = (w / h).toFixed(13);
       const csvRange = `(\\d{1,2})([,-]\\d{1,2})*`;
       const mergeListInputValidation = `(${csvRange})+(;${csvRange})*`;
       const gte100 = `([1-9]\\d{3}|[1-9]\\d{2})`;
@@ -1764,6 +1768,10 @@ export let player: HTMLElement;
         <input id="crop-input" value="${
           settings.newMarkerCrop
         }" pattern="${cropInputValidation}" style="min-width:10em" required>
+      </div>
+      <div class="settings-editor-input-div  settings-info-display">
+        <span>Crop Aspect Ratio</span>
+        <span id="crop-aspect-ratio">${cropAspectRatio}</span>
       </div>
     </fieldset>
     <fieldset id="global-marker-settings" 
@@ -1987,6 +1995,10 @@ export let player: HTMLElement;
       addSettingsInputListeners(settingsInputsConfigsHighlightable, settings, true);
 
       cropInput = document.getElementById('crop-input') as HTMLInputElement;
+      cropAspectRatioSpan = document.getElementById(
+        'crop-aspect-ratio'
+      ) as HTMLSpanElement;
+
       wasGlobalSettingsEditorOpen = true;
       isMarkerPairSettingsEditorOpen = true;
       addMarkerPairMergeListDurationsListener();
@@ -2133,8 +2145,10 @@ export let player: HTMLElement;
         }
 
         if (targetProperty === 'crop') {
-          const [x, y, w, h] = extractCropComponents(newValue);
+          const [x, y, w, h] = getCropComponents(newValue);
           setCropOverlayDimensions(x, y, w, h);
+          const cropAspectRatio = (w / h).toFixed(13);
+          cropAspectRatioSpan && (cropAspectRatioSpan.textContent = cropAspectRatio);
         }
 
         if (targetProperty === 'speed') {
@@ -2227,7 +2241,7 @@ export let player: HTMLElement;
         if (ke.code === 'ArrowUp' || ke.code === 'ArrowDown') {
           let cropString = cropInput.value;
           let cropStringArray = cropString.split(':');
-          let cropArray = extractCropComponents(cropString);
+          let cropArray = getCropComponents(cropString);
           // let [x, y, w, ] = cropArray;
           const cropStringCursorPos = ke.target.selectionStart;
           let cropComponentCursorPos = cropStringCursorPos;
@@ -2444,7 +2458,7 @@ export let player: HTMLElement;
         const cropMultipleX = video.videoWidth / settings.cropResWidth;
         const cropMultipleY = video.videoHeight / settings.cropResHeight;
         resString = multiplyCropString(cropMultipleX, cropMultipleY, markerPair.crop);
-        const [x, y, w, h] = extractCropComponents(resString);
+        const [x, y, w, h] = getCropComponents(resString);
         canvas.width = w;
         canvas.height = h;
         if (h > w) {
@@ -2607,7 +2621,7 @@ export let player: HTMLElement;
       cropRect = document.getElementById('cropRect');
       cropRectBorderBlack = document.getElementById('cropRectBorderBlack') as Element;
       cropRectBorderWhite = document.getElementById('cropRectBorderWhite') as Element;
-      const [x, y, w, h] = extractCropComponents(cropString);
+      const [x, y, w, h] = getCropComponents(cropString);
       setCropOverlayDimensions(x, y, w, h);
       isCropOverlayVisible = true;
     }
@@ -2820,7 +2834,7 @@ export let player: HTMLElement;
     }
 
     function updateCropString(cropString) {
-      const [x, y, w, h] = extractCropComponents(cropString);
+      const [x, y, w, h] = getCropComponents(cropString);
       updateCrop(x, y, w, h, cropString);
     }
 
@@ -2836,6 +2850,8 @@ export let player: HTMLElement;
           settings.newMarkerCrop = cropString;
         }
         setCropOverlayDimensions(x, y, w, h);
+        const cropAspectRatio = (w / h).toFixed(13);
+        cropAspectRatioSpan && (cropAspectRatioSpan.textContent = cropAspectRatio);
       } else {
         throw new Error('No editor was open when trying to update crop.');
       }
@@ -2862,7 +2878,7 @@ export let player: HTMLElement;
         ) {
           ke.preventDefault();
           ke.stopImmediatePropagation();
-          let [x, y, w, h] = extractCropComponents(cropInput.value);
+          let [x, y, w, h] = getCropComponents(cropInput.value);
           let changeAmount: number;
           if (!ke.altKey && !ke.shiftKey) {
             changeAmount = 10;
@@ -2922,7 +2938,7 @@ export let player: HTMLElement;
       }
     }
 
-    function extractCropComponents(cropString?: string) {
+    function getCropComponents(cropString?: string) {
       if (!cropString && isMarkerPairSettingsEditorOpen) {
         if (!wasGlobalSettingsEditorOpen && prevSelectedMarkerPairIndex != null) {
           cropString = markerPairs[prevSelectedMarkerPairIndex].crop;
@@ -3293,6 +3309,9 @@ export let player: HTMLElement;
       );
       const crop = markerPair.crop;
       const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
+      const [x, y, w, h] = getCropComponents(crop);
+      const cropAspectRatio = (w / h).toFixed(13);
+
       const settingsEditorDiv = document.createElement('div');
       const overrides = markerPair.overrides;
       const vidstab = overrides.videoStabilization;
@@ -3332,19 +3351,24 @@ export let player: HTMLElement;
           <input id="crop-input" value="${crop}" pattern="${cropInputValidation}" 
           style="min-width:10em" required></input>
         </div>
+        <div class="settings-editor-input-div settings-info-display">
+          <span>Crop Aspect Ratio</span>
+          <br>
+          <span id="crop-aspect-ratio">${cropAspectRatio}</span>
+        </div>
         <div class="settings-editor-input-div" title="${Tooltips.titlePrefixTooltip}">
-          <span>Title Prefix: </span>
+          <span>Title Prefix</span>
           <input id="title-prefix-input" value="${
             overrides.titlePrefix != null ? overrides.titlePrefix : ''
           }" placeholder="None" style="min-width:10em;text-align:right"></input>
         </div>
-        <div id="marker-pair-settings-time" class="settings-editor-input-div">
-          <span style="font-weight:bold;font-style:none">Time:</span>
+        <div class="settings-editor-input-div settings-info-display">
+          <span>Time:</span>
           <span id="start-time">${startTime}</span>
           <span> - </span>
           <span id="end-time">${endTime}</span>
           <br>
-          <span style="font-weight:bold;font-style:none">Duration: </span>
+          <span>Duration: </span>
           <span id="duration">${duration} / ${
         markerPair.speed
       } = ${speedAdjustedDuration}</span>
@@ -3550,6 +3574,9 @@ export let player: HTMLElement;
       ) as HTMLInputElement;
       markerPairNumberInput.addEventListener('change', markerPairNumberInputHandler);
       cropInput = document.getElementById('crop-input') as HTMLInputElement;
+      cropAspectRatioSpan = document.getElementById(
+        'crop-aspect-ratio'
+      ) as HTMLSpanElement;
       isMarkerPairSettingsEditorOpen = true;
       wasGlobalSettingsEditorOpen = false;
       highlightModifiedSettings(inputConfigs, markerPairs[markerPairIndex]);
