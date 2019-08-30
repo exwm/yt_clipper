@@ -289,7 +289,11 @@ export let player: HTMLElement;
             jumpToNearestMarkerOrPair(e, e.code);
             break;
           case 'ArrowUp':
-            toggleSelectedMarkerPair(e);
+            if (e.ctrlKey && !arrowKeyCropAdjustmentEnabled) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              togglePrevSelectedMarkerPair();
+            }
             break;
           case 'ArrowDown':
             toggleAutoHideUnselectedMarkerPairs(e);
@@ -352,15 +356,16 @@ export let player: HTMLElement;
       }
     }
 
-    function toggleSelectedMarkerPair(e: KeyboardEvent) {
-      if (e.ctrlKey && !arrowKeyCropAdjustmentEnabled) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        if (enableMarkerHotkeys.endMarker) {
-          toggleMarkerPairEditor(enableMarkerHotkeys.endMarker);
-        } else if (prevSelectedEndMarker) {
-          toggleMarkerPairEditor(prevSelectedEndMarker);
-        }
+    function togglePrevSelectedMarkerPair() {
+      if (enableMarkerHotkeys.endMarker) {
+        toggleMarkerPairEditor(enableMarkerHotkeys.endMarker);
+      } else if (prevSelectedEndMarker) {
+        toggleMarkerPairEditor(prevSelectedEndMarker);
+      } else {
+        const firstEndMarker = markersSvg.firstElementChild
+          ? (markersSvg.firstElementChild.nextElementSibling as SVGRectElement)
+          : null;
+        if (firstEndMarker) toggleMarkerPairEditor(firstEndMarker);
       }
     }
 
@@ -1346,45 +1351,49 @@ export let player: HTMLElement;
 
     function jumpToNearestMarkerOrPair(e: KeyboardEvent, keyCode: string) {
       if (!arrowKeyCropAdjustmentEnabled) {
-        const currentEndMarker = enableMarkerHotkeys.endMarker;
         if (e.ctrlKey && !e.altKey && !e.shiftKey) {
           jumpToNearestMarker(e, video.currentTime, keyCode);
-        } else if (
-          isMarkerPairSettingsEditorOpen &&
-          currentEndMarker &&
-          e.altKey &&
-          !e.shiftKey
-        ) {
-          jumpToNearestMarkerPair(e, currentEndMarker, keyCode);
+        } else if (e.altKey && !e.shiftKey) {
+          if (
+            !e.ctrlKey &&
+            !(isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen)
+          ) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            togglePrevSelectedMarkerPair();
+          }
+          if (enableMarkerHotkeys.endMarker) {
+            jumpToNearestMarkerPair(e, enableMarkerHotkeys.endMarker, keyCode);
+          }
         }
       }
     }
 
     function jumpToNearestMarkerPair(
       e: KeyboardEvent,
-      currentEndMarker: SVGRectElement,
+      targetEndMarker: SVGRectElement,
       keyCode: string
     ) {
       e.preventDefault();
       e.stopImmediatePropagation();
-      let index = parseInt(currentEndMarker.getAttribute('idx')) - 1;
-      let targetMarker: SVGRectElement;
+      let index = parseInt(targetEndMarker.getAttribute('idx')) - 1;
       if (keyCode === 'ArrowLeft' && index > 0) {
-        targetMarker = enableMarkerHotkeys.endMarker.previousSibling.previousSibling;
-        targetMarker && toggleMarkerPairEditor(targetMarker);
+        targetEndMarker =
+          enableMarkerHotkeys.endMarker.previousElementSibling.previousElementSibling;
+        targetEndMarker && toggleMarkerPairEditor(targetEndMarker);
         if (e.ctrlKey) {
           index--;
           player.seekTo(markerPairs[index].start);
         }
       } else if (keyCode === 'ArrowRight' && index < markerPairs.length - 1) {
-        targetMarker = enableMarkerHotkeys.endMarker.nextSibling.nextSibling;
-        targetMarker && toggleMarkerPairEditor(targetMarker);
+        targetEndMarker =
+          enableMarkerHotkeys.endMarker.nextElementSibling.nextElementSibling;
+        targetEndMarker && toggleMarkerPairEditor(targetEndMarker);
         if (e.ctrlKey) {
           index++;
           player.seekTo(markerPairs[index].start);
         }
       }
-      return;
     }
 
     function jumpToNearestMarker(e: KeyboardEvent, currentTime: number, keyCode: string) {
