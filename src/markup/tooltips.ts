@@ -3,20 +3,21 @@ import { stripIndent } from 'common-tags';
 export namespace Tooltips {
   export const markerPairNumberTooltip = stripIndent`
     Enter a new marker pair number here to reorder marker pairs.
+    Does not automatically update merge list.
     `;
 
   export const speedTooltip = stripIndent`
     Toggle speed previewing with C.
-    Note that speeds below 0.25 cannot be previewed as YouTube does not support it.
-    Also note that when audio is enabled, speeds below 0.5 are not yet supported.
+    When audio is enabled, speeds below 0.5 are not yet supported.
+    YouTube can only preview speeds that are multiples of 0.5 (e.g., 0.75 or 0.45).
+    YouTube does not support previewing speeds below 0.25.
     `;
 
   export const cropTooltip = stripIndent`
-    Crop values are given as x-offset:y-offset:width:height.
-    Each value is a positive integer in pixels.
-    Width and height can also be iw and ih respectively for input width and input height.
+    Crop values are given as x-offset:y-offset:width:height. Each value is a positive integer in pixels.
+    Width and height can also be 'iw' and 'ih' respectively for input width and input height.
     Use Ctrl+Click+Drag on the crop preview to adjust the crop with the mouse instead.
-    Increment/decrement with the up/down keys by ±10.
+    Increment/decrement values in the crop input with the up/down keys by ±10.
     The cursor position within the crop string determines the crop component to change.
     Use modifier keys to alter the change amount: Alt: ±1, Shift: ±50, Alt+Shift: ±100.
     `;
@@ -27,24 +28,29 @@ export namespace Tooltips {
 
   export const titleSuffixTooltip = stripIndent`
     Specify a title suffix to be appended to the title prefixes specified for each marker pair.
-    The title suffix is then followed by the marker pair number to make up the final file name for each marker pair.
+    The title suffix is followed by the marker pair number in the final file name for each marker pair.
+    The title suffix is also the the file name stem of the markers data json file saved with S.
+    The markers data file name is used as the title suffix when running the clipper script.
+    Thus it can be renamed to change the title suffix without editing the json data.
     `;
 
   export const cropResolutionTooltip = stripIndent`
     The crop resolution specifies the scaling of crop strings, which should match the input video's resolution.
-    The script will automatically scale the crop resolution if a mismatch with the input video's resolution is detected.
-    Lower crop resolutions can be easier to work with.
+    However, lower crop resolutions can be easier to work with.
+    The clipper script will automatically scale the crop resolution if a mismatch is detected.
     `;
 
   export const rotateTooltip = stripIndent`
     Correct video rotation by rotating the input video clockwise or counterclockwise by 90 degrees.
-    Note that the YouTube video rotate preview using the R/Alt+R shortcut does NOT affect the output video. 
+    Note that the YouTube video rotate preview using the R/Alt+R shortcuts does NOT affect the output video. 
     `;
 
   export const mergeListTooltip = stripIndent`
     Specify which marker pairs if any you would like to merge/concatenate.
     Each merge is a comma separated list of marker pair numbers or ranges (e.g., '1-3,5,9' = '1,2,3,5,9').
     Multiple merges are separated with semicolons (e.g., '1-3,5,9;6-2,8' will create two merged webms).
+    Merge occurs successfully only after successful generation of each required generated webm.
+    Merge does not require reencoding and simply orders each webm into one container.
     `;
 
   export const audioTooltip = stripIndent`
@@ -76,12 +82,14 @@ export namespace Tooltips {
     `;
 
   export const twoPassTooltip = stripIndent`
-    Encode in two passes for better quality and smaller file sizes.
+    Encode in two passes for improved bitrate control which can reduce filesizes.
+    Results in better quality, with diminishing returns for high bitrate video.
     Significantly reduces encode speed.
     `;
 
   export const gammaTooltip = stripIndent`
     A gamma function is used to map input luminance values to output luminance values or vice versa.
+    Note that the gamma preview is not accurate. Use the offline previewer for more accurate gamma preview.
     The gamma value is an exponent applied to the input luminance values.
     A gamma value of 1 is neutral and does not modify the video.
     A gamma value greater than 1 can be used to darken the video and enhance highlight detail.
@@ -118,6 +126,7 @@ export namespace Tooltips {
     Time-variable speed maps are enabled by default, but can be force enabled/disabled with this setting.
     A speed map may be specified using the speed chart (toggled with D).
     `;
+
   export const loopTooltip = stripIndent`
     Enable one of the special loop behaviors.
     fwrev loops will play the video normally once, then immediately play it in reverse.
