@@ -1405,9 +1405,9 @@ export let player: HTMLElement;
       // Avoids being unable to jump away from a marker that the current time is very close to
       let times = markerPairs.map((markerPair) => {
         const distToStartMarker = markerPair.start - currentTime;
-        const distToStartMarkerFixed = parseFloat(distToStartMarker.toFixed(1));
+        const distToStartMarkerFixed = parseFloat(distToStartMarker.toFixed(2));
         const distToEndMarker = markerPair.end - currentTime;
-        const distToEndMarkerFixed = parseFloat(distToEndMarker.toFixed(1));
+        const distToEndMarkerFixed = parseFloat(distToEndMarker.toFixed(2));
         return [
           {
             distToMarker: distToStartMarker,
