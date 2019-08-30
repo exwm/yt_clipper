@@ -747,9 +747,9 @@ export let player: HTMLElement;
           targetMarkerTime = markerPair.start;
         }
         if (event.deltaY > 0) {
-          moveMarker(targetMarker, targetMarkerTime - 1 / fps);
+          moveMarker(targetMarker, Math.max(0, targetMarkerTime - 1 / fps));
         } else if (event.deltaY < 0) {
-          moveMarker(targetMarker, targetMarkerTime + 1 / fps);
+          moveMarker(targetMarker, Math.min(video.duration, targetMarkerTime + 1 / fps));
         }
       }
     }
