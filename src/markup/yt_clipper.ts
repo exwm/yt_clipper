@@ -1714,7 +1714,7 @@ export let player: HTMLElement;
         !wasGlobalSettingsEditorOpen &&
         prevSelectedMarkerPairIndex >= markerPairs.length - 1
       ) {
-        toggleMarkerPairEditor(prevSelectedEndMarker);
+        toggleOffMarkerPairEditor(true);
       }
 
       deleteElement(targetMarker);
@@ -3247,21 +3247,6 @@ export let player: HTMLElement;
       }
     }
 
-    function toggleOffMarkerPairEditor() {
-      deleteSettingsEditor();
-      hideSelectedMarkerPairOverlay();
-      hideCropOverlay();
-      hideSpeedChart();
-      prevSelectedEndMarker.classList.remove('selected-marker');
-      prevSelectedEndMarker.previousElementSibling.classList.remove('selected-marker');
-      const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-      markerPair.startNumbering.classList.remove('selectedMarkerNumbering');
-      markerPair.endNumbering.classList.remove('selectedMarkerNumbering');
-      if (isAutoHideUnselectedMarkerPairsOn) {
-        deleteElement(autoHideUnselectedMarkerPairsStyle);
-      }
-    }
-
     function toggleOnMarkerPairEditor(targetMarker: SVGRectElement) {
       prevSelectedEndMarker = targetMarker;
       prevSelectedMarkerPairIndex =
@@ -3282,12 +3267,26 @@ export let player: HTMLElement;
       const markerPair = markerPairs[prevSelectedMarkerPairIndex];
       markerPair.startNumbering.classList.add('selectedMarkerNumbering');
       markerPair.endNumbering.classList.add('selectedMarkerNumbering');
-
       if (isAutoHideUnselectedMarkerPairsOn) {
         autoHideUnselectedMarkerPairsStyle = injectCSS(
           autoHideUnselectedMarkerPairsCSS,
           'auto-hide-unselected-marker-pairs-css'
         );
+      }
+    }
+
+    function toggleOffMarkerPairEditor(hardHide = false) {
+      deleteSettingsEditor();
+      hideSelectedMarkerPairOverlay(hardHide);
+      hideCropOverlay();
+      hideSpeedChart();
+      prevSelectedEndMarker.classList.remove('selected-marker');
+      prevSelectedEndMarker.previousElementSibling.classList.remove('selected-marker');
+      const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+      markerPair.startNumbering.classList.remove('selectedMarkerNumbering');
+      markerPair.endNumbering.classList.remove('selectedMarkerNumbering');
+      if (isAutoHideUnselectedMarkerPairsOn) {
+        deleteElement(autoHideUnselectedMarkerPairsStyle);
       }
     }
 
@@ -3808,6 +3807,8 @@ export let player: HTMLElement;
       const startMarker = currentMarker.previousSibling as SVGRectElement;
       selectedStartMarkerOverlay.setAttribute('x', startMarker.getAttribute('x'));
       selectedEndMarkerOverlay.setAttribute('x', currentMarker.getAttribute('x'));
+      selectedStartMarkerOverlay.classList.remove('selected-marker-overlay-hidden');
+      selectedEndMarkerOverlay.classList.remove('selected-marker-overlay-hidden');
       selectedMarkerPairOverlay.style.display = 'block';
     }
 
@@ -3895,9 +3896,12 @@ export let player: HTMLElement;
       });
     }
 
-    function hideSelectedMarkerPairOverlay() {
-      if (selectedMarkerPairOverlay) {
+    function hideSelectedMarkerPairOverlay(hardHide = false) {
+      if (hardHide) {
         selectedMarkerPairOverlay.style.display = 'none';
+      } else {
+        selectedStartMarkerOverlay.classList.add('selected-marker-overlay-hidden');
+        selectedEndMarkerOverlay.classList.add('selected-marker-overlay-hidden');
       }
     }
 
