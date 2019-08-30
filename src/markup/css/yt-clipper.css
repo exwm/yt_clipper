@@ -83,6 +83,9 @@
   height: 8px;
   pointer-events: none;
 }
+.selected-marker-overlay-hidden {
+  fill-opacity: 0.5;
+}
 
 #settings-editor-div {
   display: flex;
