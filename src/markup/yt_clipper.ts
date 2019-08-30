@@ -720,6 +720,35 @@ export let player: HTMLElement;
         }
       }
     }
+
+    document.body.addEventListener('wheel', markerFrameSkipHandler);
+    function markerFrameSkipHandler(event: WheelEvent) {
+      if (
+        toggleKeys &&
+        !event.ctrlKey &&
+        event.altKey &&
+        event.shiftKey &&
+        Math.abs(event.deltaY) > 0 &&
+        isMarkerPairSettingsEditorOpen &&
+        !wasGlobalSettingsEditorOpen &&
+        prevSelectedEndMarker
+      ) {
+        const fps = getFPS();
+        let targetMarker = prevSelectedEndMarker;
+        const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+        let targetMarkerTime = markerPair.end;
+        if (event.pageX < window.innerWidth / 2) {
+          targetMarker = prevSelectedEndMarker.previousElementSibling as SVGRectElement;
+          targetMarkerTime = markerPair.start;
+        }
+        if (event.deltaY > 0) {
+          moveMarker(targetMarker, targetMarkerTime - 1 / fps);
+        } else if (event.deltaY < 0) {
+          moveMarker(targetMarker, targetMarkerTime + 1 / fps);
+        }
+      }
+    }
+
     let settings: Settings;
     let markersSvg: SVGSVGElement;
     let markersDiv: HTMLDivElement;
@@ -3690,11 +3719,11 @@ export let player: HTMLElement;
       enableMarkerHotkeys.startMarker = endMarker.previousSibling;
     }
 
-    function moveMarker(marker: SVGRectElement) {
+    function moveMarker(marker: SVGRectElement, newTime?: number) {
       const type = marker.getAttribute('type') as 'start' | 'end';
       const idx = parseInt(marker.getAttribute('idx')) - 1;
       const markerPair = markerPairs[idx];
-      const currentTime = video.currentTime;
+      const currentTime = newTime != null ? newTime : video.currentTime;
       const progress_pos = (currentTime / playerInfo.duration) * 100;
       const markerTimeSpan = document.getElementById(`${type}-time`);
       const speedMap = markerPair.speedMap;
