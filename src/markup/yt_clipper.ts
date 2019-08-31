@@ -223,6 +223,14 @@ export let player: HTMLElement;
             } else if (!e.ctrlKey && !e.shiftKey && e.altKey && markerHotkeysEnabled) {
               e.preventDefault();
               e.stopImmediatePropagation();
+              undoMarkerMove();
+            } else if (!e.ctrlKey && e.shiftKey && e.altKey && markerHotkeysEnabled) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              redoMarkerMove();
+            } else if (e.ctrlKey && e.shiftKey && e.altKey && markerHotkeysEnabled) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
               deleteMarkerPair();
             }
             break;
@@ -1475,6 +1483,7 @@ export let player: HTMLElement;
             : undefined,
           startNumbering: undefined,
           endNumbering: undefined,
+          moveHistory: undefined,
         };
         return markerPairNumbered;
       });
@@ -1666,6 +1675,7 @@ export let player: HTMLElement;
         ],
         startNumbering: markerPairConfig.startNumbering,
         endNumbering: markerPairConfig.endNumbering,
+        moveHistory: { undos: [], redos: [] },
       };
 
       markerPairs.push(newMarkerPair);
@@ -3736,50 +3746,79 @@ export let player: HTMLElement;
       enableMarkerHotkeys.startMarker = endMarker.previousSibling;
     }
 
-    function moveMarker(marker: SVGRectElement, newTime?: number) {
+    function moveMarker(marker: SVGRectElement, newTime?: number, storeHistory = true) {
       const type = marker.getAttribute('type') as 'start' | 'end';
       const idx = parseInt(marker.getAttribute('idx')) - 1;
       const markerPair = markerPairs[idx];
-      const currentTime = newTime != null ? newTime : video.currentTime;
-      const progress_pos = (currentTime / playerInfo.duration) * 100;
+      let fromTime = type === 'start' ? markerPair.start : markerPair.end;
+      const toTime = newTime != null ? newTime : video.currentTime;
+      const progress_pos = (toTime / playerInfo.duration) * 100;
       const markerTimeSpan = document.getElementById(`${type}-time`);
       const speedMap = markerPair.speedMap;
 
-      if (type === 'start' && currentTime >= markerPair.end) {
+      if (type === 'start' && toTime >= markerPair.end) {
         flashMessage('Start marker cannot be placed after or at end marker', 'red');
         return;
       }
-      if (type === 'end' && currentTime <= markerPair.start) {
+      if (type === 'end' && toTime <= markerPair.start) {
         flashMessage('End marker cannot be placed before or at start marker', 'red');
         return;
       }
 
       marker.setAttribute('x', `${progress_pos}%`);
-      markerPair[type] = currentTime;
+      markerPair[type] = toTime;
       if (type === 'start') {
         selectedStartMarkerOverlay.setAttribute('x', `${progress_pos}%`);
         markerPair.startNumbering.setAttribute('x', `${progress_pos}%`);
 
-        speedMap[0].x = currentTime;
+        speedMap[0].x = toTime;
         markerPair.speedMap = speedMap.filter((speedPoint) => {
-          return speedPoint.x >= currentTime;
+          return speedPoint.x >= toTime;
         });
       } else if (type === 'end') {
-        speedMap[speedMap.length - 1].x = currentTime;
+        speedMap[speedMap.length - 1].x = toTime;
         selectedEndMarkerOverlay.setAttribute('x', `${progress_pos}%`);
         markerPair.endNumbering.setAttribute('x', `${progress_pos}%`);
 
         markerPair.speedMap = speedMap.filter((speedPoint) => {
-          return speedPoint.x <= currentTime;
+          return speedPoint.x <= toTime;
         });
       }
-      markerTimeSpan.textContent = `${toHHMMSSTrimmed(currentTime)}`;
+      markerTimeSpan.textContent = `${toHHMMSSTrimmed(toTime)}`;
       if (speedChart) {
         speedChart.config.data.datasets[0].data = markerPair.speedMap;
         updateSpeedChartBounds(speedChart.config, markerPair.start, markerPair.end);
         speedChart.update();
       }
       updateMarkerPairDuration(markerPair);
+      if (storeHistory) markerPair.moveHistory.undos.push({ marker, fromTime, toTime });
+    }
+
+    function undoMarkerMove() {
+      if (
+        isMarkerPairSettingsEditorOpen &&
+        !wasGlobalSettingsEditorOpen &&
+        prevSelectedMarkerPairIndex != null &&
+        markerPairs[prevSelectedMarkerPairIndex].moveHistory.undos.length > 0
+      ) {
+        const moveHistory = markerPairs[prevSelectedMarkerPairIndex].moveHistory;
+        const lastMarkerMove = moveHistory.undos.pop();
+        moveHistory.redos.push(lastMarkerMove);
+        moveMarker(lastMarkerMove.marker, lastMarkerMove.fromTime, false);
+      }
+    }
+
+    function redoMarkerMove() {
+      if (
+        isMarkerPairSettingsEditorOpen &&
+        !wasGlobalSettingsEditorOpen &&
+        prevSelectedMarkerPairIndex != null &&
+        markerPairs[prevSelectedMarkerPairIndex].moveHistory.redos.length > 0
+      ) {
+        const moveHistory = markerPairs[prevSelectedMarkerPairIndex].moveHistory;
+        const lastMarkerMoveUndo = moveHistory.redos.pop();
+        moveMarker(lastMarkerMoveUndo.marker, lastMarkerMoveUndo.toTime, true);
+      }
     }
 
     function deleteMarkerPair(idx?: number) {
