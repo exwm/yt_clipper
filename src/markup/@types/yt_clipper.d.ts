@@ -36,6 +36,12 @@ interface MarkerPair {
   outputDuration: number;
   startNumbering: SVGTextElement;
   endNumbering: SVGTextElement;
+  moveHistory: { undos: markerMoveRecord[]; redos: markerMoveRecord[] };
+}
+interface markerMoveRecord {
+  marker: SVGRectElement;
+  fromTime: number;
+  toTime: number;
 }
 
 interface MarkerConfig {
