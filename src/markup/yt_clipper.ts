@@ -706,6 +706,13 @@ export let player: HTMLElement;
         'html5-video-container'
       )[0] as HTMLElement;
       playerInfo.controls = document.getElementsByClassName('ytp-chrome-bottom')[0];
+      playerInfo.controlsBar = document.getElementsByClassName('ytp-chrome-controls')[0];
+      playerInfo.progressBar = document.getElementsByClassName(
+        'ytp-progress-bar-container'
+      )[0];
+      playerInfo.gradientBottom = document.getElementsByClassName(
+        'ytp-gradient-bottom'
+      )[0];
     }
 
     function updateSettingsEditorHook() {
@@ -2781,9 +2788,11 @@ export let player: HTMLElement;
 
     function hidePlayerControls() {
       playerInfo.controls.style.display = 'none';
+      playerInfo.gradientBottom.style.display = 'none';
     }
     function showPlayerControls() {
       playerInfo.controls.style.display = 'block';
+      playerInfo.gradientBottom.style.display = 'block';
     }
 
     let dragCropPreviewHandler: EventListener;
