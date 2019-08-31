@@ -429,6 +429,7 @@ export let player: HTMLElement;
         ) {
           const { minW, minH } = getMinWH();
           const [ix, iy, iw, ih] = getCropComponents();
+          const cropAspectRatio = iw / ih;
           const videoRect = player.getVideoContentRect();
           const playerRect = player.getBoundingClientRect();
           const clickPosX = e.pageX - videoRect.left - playerRect.left;
@@ -470,33 +471,56 @@ export let player: HTMLElement;
           function getResizeHandler(e, cursor) {
             const dragPosX = e.pageX - videoRect.left - playerRect.left;
             const changeX = dragPosX - clickPosX;
-            const changeXScaled = (changeX / videoRect.width) * settings.cropResWidth;
+            let changeXScaled = (changeX / videoRect.width) * settings.cropResWidth;
             const dragPosY = e.pageY - videoRect.top - playerRect.top;
             const changeY = dragPosY - clickPosY;
-            const changeYScaled = (changeY / videoRect.height) * settings.cropResHeight;
+            let changeYScaled = (changeY / videoRect.height) * settings.cropResHeight;
+            const shouldMaintainCropAspectRatio = e.altKey;
+            if (
+              shouldMaintainCropAspectRatio &&
+              ['ne-resize', 'se-resize', 'sw-resize', 'nw-resize'].includes(cursor)
+            ) {
+              if (Math.abs(changeXScaled) > Math.abs(changeYScaled)) {
+                changeYScaled = changeXScaled / cropAspectRatio;
+                if (['ne-resize', 'sw-resize'].includes(cursor))
+                  changeYScaled = -changeYScaled;
+              } else {
+                changeXScaled = changeYScaled * cropAspectRatio;
+                if (['ne-resize', 'sw-resize'].includes(cursor))
+                  changeXScaled = -changeXScaled;
+              }
+            }
 
             let resizedDimensions;
             switch (cursor) {
               case 'n-resize':
-                resizedDimensions = getResizeN(changeYScaled);
+                resizedDimensions = shouldMaintainCropAspectRatio
+                  ? getResizeNE(-changeYScaled * cropAspectRatio, changeYScaled)
+                  : getResizeN(changeYScaled);
                 break;
               case 'ne-resize':
                 resizedDimensions = getResizeNE(changeXScaled, changeYScaled);
                 break;
               case 'e-resize':
-                resizedDimensions = getResizeE(changeXScaled);
+                resizedDimensions = shouldMaintainCropAspectRatio
+                  ? getResizeSE(changeXScaled, changeXScaled / cropAspectRatio)
+                  : getResizeE(changeXScaled);
                 break;
               case 'se-resize':
                 resizedDimensions = getResizeSE(changeXScaled, changeYScaled);
                 break;
               case 's-resize':
-                resizedDimensions = getResizeS(changeYScaled);
+                resizedDimensions = shouldMaintainCropAspectRatio
+                  ? getResizeSE(changeYScaled * cropAspectRatio, changeYScaled)
+                  : getResizeS(changeYScaled);
                 break;
               case 'sw-resize':
                 resizedDimensions = getResizeSW(changeXScaled, changeYScaled);
                 break;
               case 'w-resize':
-                resizedDimensions = getResizeW(changeXScaled);
+                resizedDimensions = shouldMaintainCropAspectRatio
+                  ? getResizeSW(changeXScaled, -changeXScaled / cropAspectRatio)
+                  : getResizeW(changeXScaled);
                 break;
               case 'nw-resize':
                 resizedDimensions = getResizeNW(changeXScaled, changeYScaled);
@@ -529,6 +553,7 @@ export let player: HTMLElement;
 
             Y = clampNumber(Y, 0, iy + ih - minH);
             H = clampNumber(H, minH, iy + ih);
+
             return { resizedX: ix, resizedY: Y, resizedW: iw, resizedH: H };
           }
 
