@@ -1723,6 +1723,7 @@ export let player: HTMLElement;
         } else {
           hideSelectedMarkerPairOverlay(true);
         }
+        clearPrevSelectedMarkerPairReferences();
       }
 
       deleteElement(targetMarker);
@@ -3795,6 +3796,10 @@ export let player: HTMLElement;
       renumberMarkerPairs();
 
       markerPairs.splice(idx, 1);
+      clearPrevSelectedMarkerPairReferences();
+    }
+
+    function clearPrevSelectedMarkerPairReferences() {
       prevSelectedMarkerPairIndex = null;
       prevSelectedEndMarker = null;
       enableMarkerHotkeys.startMarker = null;
