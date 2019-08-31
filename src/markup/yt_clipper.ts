@@ -1396,50 +1396,56 @@ export let player: HTMLElement;
       }
     }
 
+    let dblJump = 0;
+    let prevJumpKeyCode: 'ArrowLeft' | 'ArrowRight';
+    let prevTime: number;
     function jumpToNearestMarker(e: KeyboardEvent, currentTime: number, keyCode: string) {
       e.preventDefault();
       e.stopImmediatePropagation();
-      let minDist = 0;
-
-      // Choose marker time to jump to based on low precision time distance
-      // Avoids being unable to jump away from a marker that the current time is very close to
-      let times = markerPairs.map((markerPair) => {
-        const distToStartMarker = markerPair.start - currentTime;
-        const distToStartMarkerFixed = parseFloat(distToStartMarker.toFixed(2));
-        const distToEndMarker = markerPair.end - currentTime;
-        const distToEndMarkerFixed = parseFloat(distToEndMarker.toFixed(2));
-        return [
-          {
-            distToMarker: distToStartMarker,
-            distToMarkerFixed: distToStartMarkerFixed,
-          },
-          { distToMarker: distToEndMarker, distToMarkerFixed: distToEndMarkerFixed },
-        ];
+      let minTime: number;
+      currentTime = prevTime != null ? prevTime : currentTime;
+      let markerTimes: number[] = [];
+      markerPairs.forEach((markerPair) => {
+        markerTimes.push(markerPair.start);
+        markerTimes.push(markerPair.end);
       });
-      times = times.flat();
-      if (keyCode === 'ArrowLeft') {
-        minDist = times.reduce((prevDistToMarker, dist) => {
-          dist.distToMarkerFixed =
-            dist.distToMarkerFixed >= 0 ? -Infinity : dist.distToMarkerFixed;
-          if (dist.distToMarkerFixed > prevDistToMarker) {
-            return dist.distToMarker;
-          } else {
-            return prevDistToMarker;
-          }
-        }, -Infinity);
-      } else if (keyCode === 'ArrowRight') {
-        minDist = times.reduce((prevDistToMarker, dist) => {
-          dist.distToMarkerFixed =
-            dist.distToMarkerFixed <= 0 ? Infinity : dist.distToMarkerFixed;
-          if (dist.distToMarkerFixed < prevDistToMarker) {
-            return dist.distToMarker;
-          } else {
-            return prevDistToMarker;
-          }
-        }, Infinity);
+
+      if (start === false) {
+        markerTimes.push(startTime);
       }
-      if (minDist != Infinity && minDist != -Infinity && minDist != 0) {
-        player.seekTo(minDist + currentTime);
+      markerTimes = markerTimes.map((markerTime) => parseFloat(markerTime.toFixed(6)));
+      if (keyCode === 'ArrowLeft') {
+        markerTimes = markerTimes.filter((markerTime) => markerTime < currentTime);
+        minTime = Math.max(...markerTimes);
+        if (dblJump != 0 && markerTimes.length > 0 && prevJumpKeyCode === 'ArrowLeft') {
+          markerTimes = markerTimes.filter((markerTime) => markerTime < minTime);
+          minTime = Math.max(...markerTimes);
+        }
+        prevJumpKeyCode = 'ArrowLeft';
+      } else if (keyCode === 'ArrowRight') {
+        markerTimes = markerTimes.filter((markerTime) => markerTime > currentTime);
+        minTime = Math.min(...markerTimes);
+        if (dblJump != 0 && markerTimes.length > 0 && prevJumpKeyCode === 'ArrowRight') {
+          markerTimes = markerTimes.filter((markerTime) => markerTime > minTime);
+          minTime = Math.min(...markerTimes);
+        }
+        prevJumpKeyCode = 'ArrowRight';
+      }
+
+      if (dblJump !== 0) {
+        clearTimeout(dblJump);
+        dblJump = 0;
+        prevTime = null;
+        if (minTime !== currentTime && minTime != Infinity && minTime != -Infinity)
+          player.seekTo(minTime);
+      } else {
+        prevTime = currentTime;
+        if (minTime !== currentTime && minTime != Infinity && minTime != -Infinity)
+          player.seekTo(minTime);
+        dblJump = (setTimeout(() => {
+          dblJump = 0;
+          prevTime = null;
+        }, 150) as unknown) as number;
       }
     }
 
