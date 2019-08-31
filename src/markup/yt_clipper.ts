@@ -1716,11 +1716,13 @@ export let player: HTMLElement;
       // toggle off marker pair editor before undoing a selected marker pair
       if (
         targetMarkerType === 'end' &&
-        isMarkerPairSettingsEditorOpen &&
-        !wasGlobalSettingsEditorOpen &&
         prevSelectedMarkerPairIndex >= markerPairs.length - 1
       ) {
-        toggleOffMarkerPairEditor(true);
+        if (isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
+          toggleOffMarkerPairEditor(true);
+        } else {
+          hideSelectedMarkerPairOverlay(true);
+        }
       }
 
       deleteElement(targetMarker);
@@ -3789,6 +3791,7 @@ export let player: HTMLElement;
       deleteElement(enableMarkerHotkeys.startMarker);
       deleteElement(markerPair.startNumbering);
       deleteElement(markerPair.endNumbering);
+      hideSelectedMarkerPairOverlay(true);
       renumberMarkerPairs();
 
       markerPairs.splice(idx, 1);
