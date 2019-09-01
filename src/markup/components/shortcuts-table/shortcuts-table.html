@@ -18,20 +18,8 @@
       <td><kbd>A</kbd></td>
     </tr>
     <tr>
-      <td>Undo last marker</td>
-      <td><kbd>Z</kbd></td>
-    </tr>
-    <tr>
-      <td>Redo last marker</td>
-      <td><kbd>Shift</kbd> + <kbd>Z</kbd></td>
-    </tr>
-    <tr>
-      <td>Delete selected marker pair</td>
-      <td><kbd>Alt</kbd> + <kbd>Z</kbd></td>
-    </tr>
-    <tr>
-      <td>Toggle targetted marker pair's editor</td>
-      <td><kbd>Shift</kbd> + <kbd>Mouse-Over</kbd></td>
+      <td>Toggle targeted marker pair's editor</td>
+      <td><kbd>Shift</kbd> + <kbd>Mouseover</kbd></td>
     </tr>
     <tr>
       <td>Toggle marker pair overrides editor</td>
@@ -46,16 +34,44 @@
       <td><kbd>Ctrl</kbd> + <kbd>Down</kbd></td>
     </tr>
     <tr>
+      <td>Undo/redo last marker</td>
+      <td><kbd>Z</kbd> / <kbd>Shift</kbd> + <kbd>Z</kbd></td>
+    </tr>
+    <tr>
+      <td>Delete selected marker pair</td>
+      <td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd></td>
+    </tr>
+    <tr>
+      <td>Move start/end marker to current time</td>
+      <td><kbd>Shift</kbd> + <kbd>Q</kbd>/<kbd>A</kbd></td>
+    </tr>
+    <tr>
+      <td>
+        Move start/end marker a frame when on left/right half of window
+      </td>
+      <td><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>Mousewheel</kbd></td>
+    </tr>
+    <tr>
+      <td>Undo/redo last marker move of selected pair</td>
+      <td>
+        <kbd>Alt</kbd> + <kbd>Z</kbd> / <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd>
+      </td>
+    </tr>
+    <tr>
+      <td>Redo last marker move of selected pair</td>
+      <td><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd></td>
+    </tr>
+    <tr>
       <td>Jump to nearest next/previous marker</td>
-      <td><kbd>Ctrl</kbd> + <kbd>Left</kbd> / <kbd>Right</kbd></td>
+      <td><kbd>Ctrl</kbd> + <kbd>Left</kbd>/<kbd>Right</kbd></td>
     </tr>
     <tr>
       <td>Select next/previous marker pair</td>
-      <td><kbd>Alt</kbd> + <kbd>Left</kbd> / <kbd>Right</kbd></td>
+      <td><kbd>Alt</kbd> + <kbd>Left</kbd>/<kbd>Right</kbd></td>
     </tr>
     <tr>
       <td>Select next/previous marker pair and jump to start marker</td>
-      <td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Left</kbd> / <kbd>Right</kbd></td>
+      <td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Left</kbd>/<kbd>Right</kbd></td>
     </tr>
   </tbody>
 </table>
@@ -80,12 +96,8 @@
       <td><kbd>Shift</kbd> + <kbd>W</kbd></td>
     </tr>
     <tr>
-      <td>Update all markers to default new marker <em>speed</em></td>
-      <td><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>Q</kbd></td>
-    </tr>
-    <tr>
-      <td>Update all markers to default new marker <em>crop</em></td>
-      <td><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>X</kbd></td>
+      <td>Update all markers to default new marker speed/crop</td>
+      <td><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>Q</kbd>/<kbd>X</kbd></td>
     </tr>
   </tbody>
 </table>
@@ -111,11 +123,15 @@
     </tr>
     <tr>
       <td>Draw crop</td>
-      <td><kbd>Click</kbd> + <kbd>Drag</kbd> rectangular area</td>
+      <td><kbd>Click</kbd> + <kbd>Drag</kbd></td>
     </tr>
     <tr>
-      <td>Drag or resize crop</td>
-      <td><kbd>Ctrl</kbd> + <kbd>Click</kbd> + <kbd>Drag</kbd> crop</td>
+      <td>Move or resize crop</td>
+      <td><kbd>Ctrl</kbd> + <kbd>Drag</kbd></td>
+    </tr>
+    <tr>
+      <td>Crop-aspect-ratio-locked resize of crop</td>
+      <td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Drag</kbd></td>
     </tr>
     <tr>
       <td>Cycle crop dim opacity by +0.25</td>
@@ -178,7 +194,7 @@
     <tr>
       <td>Seek video frame by frame</td>
       <td>
-        <kbd>&lt;</kbd> / <kbd>&gt;</kbd> or <kbd>Shift</kbd> + <kbd>Mouse-Wheel</kbd>
+        <kbd>&lt;</kbd> / <kbd>&gt;</kbd> or <kbd>Shift</kbd> + <kbd>Mousewheel</kbd>
       </td>
     </tr>
     <tr>
@@ -208,6 +224,26 @@
       <td><kbd>D</kbd></td>
     </tr>
     <tr>
+      <td>Add speed point</td>
+      <td><kbd>Shift</kbd> + <kbd>Click</kbd></td>
+    </tr>
+    <tr>
+      <td>Delete speed point</td>
+      <td><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>Click</kbd></td>
+    </tr>
+    <tr>
+      <td>Move speed point or pan chart</td>
+      <td><kbd>Click</kbd> + <kbd>Drag</kbd></td>
+    </tr>
+    <tr>
+      <td>Zoom in and out</td>
+      <td><kbd>Ctrl</kbd> + <kbd>Mousewheel</kbd></td>
+    </tr>
+    <tr>
+      <td>Reset zoom</td>
+      <td><kbd>Ctrl</kbd> + <kbd>Click</kbd></td>
+    </tr>
+    <tr>
       <td>Seek to time on time-axis</td>
       <td><kbd>Right-Click</kbd></td>
     </tr>
@@ -225,26 +261,6 @@
     <tr>
       <td>Reset speed chart looping markers</td>
       <td><kbd>Alt</kbd> + <kbd>D</kbd></td>
-    </tr>
-    <tr>
-      <td>Move speed point or pan chart</td>
-      <td><kbd>Click</kbd> + <kbd>Drag</kbd></td>
-    </tr>
-    <tr>
-      <td>Add speed point</td>
-      <td><kbd>Shift</kbd> + <kbd>Click</kbd></td>
-    </tr>
-    <tr>
-      <td>Delete speed point</td>
-      <td><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>Click</kbd></td>
-    </tr>
-    <tr>
-      <td>Zoom in and out</td>
-      <td><kbd>Ctrl</kbd> + <kbd>Mouse-Wheel</kbd></td>
-    </tr>
-    <tr>
-      <td>Reset zoom</td>
-      <td><kbd>Ctrl</kbd> + <kbd>Click</kbd></td>
     </tr>
   </tbody>
 </table>
