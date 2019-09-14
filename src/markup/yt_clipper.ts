@@ -2163,7 +2163,7 @@ export let player: HTMLElement;
       },
       denoise: {
         Disabled: { enabled: false, desc: 'Disabled' },
-        'Very Weak': { enabled: true, shakiness: 1, desc: 'Very Weak' },
+        'Very Weak': { enabled: true, lumaSpatial: 1, desc: 'Very Weak' },
         Weak: { enabled: true, lumaSpatial: 2, desc: 'Weak' },
         Medium: { enabled: true, lumaSpatial: 4, desc: 'Medium' },
         Strong: { enabled: true, lumaSpatial: 6, desc: 'Strong' },
