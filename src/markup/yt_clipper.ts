@@ -444,7 +444,6 @@ export let player: HTMLElement;
               once: true,
               capture: true,
             });
-
             window.removeEventListener('mousemove', cropOverlayHoverHandler, true);
             window.removeEventListener('keydown', addCropOverlayHoverListener, true);
             window.removeEventListener('keyup', removeCropOverlayHoverListener, true);
@@ -2591,9 +2590,7 @@ export let player: HTMLElement;
         ';'
       )})-f${frameCount.frameNumber}(${frameCount.totalFrames})`;
       frameDiv.innerHTML = `\
-      <figcaption>Resolution: ${canvas.width}x${
-        canvas.height
-      } Name: ${frameFileName}</figcaption>
+      <figcaption>Resolution: ${canvas.width}x${canvas.height} Name: ${frameFileName}</figcaption>
       <button class="download" onclick="downloadFrame(this)">Download Frame</button>
       <button class="delete" onclick="deleteFrame(this)">Delete Frame</button>
       `;
@@ -2720,7 +2717,8 @@ export let player: HTMLElement;
     }
 
     function forceRerenderCrop(cropDiv: HTMLDivElement) {
-      cropDiv.setAttribute('style', video.getAttribute('style') + 'position:absolute');
+      const { width, height, top, left } = video.style;
+      Object.assign(cropDiv.style, { width, height, top, left, position: 'absolute' });
       if (cropSvg) {
         cropSvg.setAttribute('width', '0');
       }
