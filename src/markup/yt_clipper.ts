@@ -931,7 +931,7 @@ export let player: HTMLElement;
       `;
         rotatedVideoPreviewsCSS = `\
         .ytp-tooltip {
-          transform: translateY(-20%) rotate(${rotation}deg) !important;
+          transform: translateY(-35%) rotate(${rotation}deg) !important;
         }
         .ytp-tooltip-text-wrapper {
           transform: rotate(${-rotation}deg) !important;
