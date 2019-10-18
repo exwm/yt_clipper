@@ -94,7 +94,7 @@ export namespace Tooltips {
     A gamma value of 1 is neutral and does not modify the video.
     A gamma value greater than 1 can be used to darken the video and enhance highlight detail.
     A gamma value less than 1 can be used to lighten the video and enhance shadow detail.
-    Even small changes in gamma can have large effects (smallest possible change is 0.1).
+    Even small changes in gamma can have large effects (smallest possible change is 0.01).
     Use the gamma preview toggle (Alt+C) to set the gamma to taste.
     `;
 
