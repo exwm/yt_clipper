@@ -103,11 +103,11 @@ export let player: HTMLElement;
       if (toggleKeys) {
         switch (e.code) {
           case 'KeyA':
-            if (!e.shiftKey) {
+            if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
               addMarker();
-            } else if (e.shiftKey && markerHotkeysEnabled) {
+            } else if (!e.ctrlKey && e.shiftKey && !e.altKey && markerHotkeysEnabled) {
               e.preventDefault();
               e.stopImmediatePropagation();
               moveMarker(enableMarkerHotkeys.endMarker);
