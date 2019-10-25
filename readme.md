@@ -23,7 +23,7 @@ Visit [this quickstart guide](https://github.com/exwm/yt_clipper/blob/master/qui
 
 ## Related Scripts
 
-- Check out the companion script for copying gfy links from gfycat as reddit markdown at <https://openuserjs.org/scripts/elwm/gfy2md>.
+- Check out the companion script with tools for making some tasks on `gfycat.com` easier (e.g., quickly tagging multiple gfys, copying gfy links in various formats) at <https://openuserjs.org/scripts/elwm/gfy-tools>.
 
 ## Table of Contents
 
