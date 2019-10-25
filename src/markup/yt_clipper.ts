@@ -765,8 +765,8 @@ export let player: HTMLElement;
       }
     }
 
-    document.body.addEventListener('wheel', markerFrameSkipHandler);
-    function markerFrameSkipHandler(event: WheelEvent) {
+    document.body.addEventListener('wheel', moveMarkerByFrameHandler);
+    function moveMarkerByFrameHandler(event: WheelEvent) {
       if (
         toggleKeys &&
         !event.ctrlKey &&
@@ -1628,8 +1628,11 @@ export let player: HTMLElement;
     };
 
     function addMarker(markerConfig: MarkerConfig = {}) {
-      const roughCurrentTime = markerConfig.time || player.getCurrentTime();
-      const currentFrameTime = getCurrentFrameTime(roughCurrentTime);
+      const preciseCurrentTime = markerConfig.time || player.getCurrentTime();
+      // TODO: Calculate video fps precisely so current frame time
+      // is accurately determined.
+      // const currentFrameTime = getCurrentFrameTime(roughCurrentTime);
+      const currentFrameTime = preciseCurrentTime;
       const progressPos = (currentFrameTime / playerInfo.duration) * 100;
 
       if (!start && currentFrameTime <= startTime) {
@@ -1683,7 +1686,9 @@ export let player: HTMLElement;
 
     function getCurrentFrameTime(roughCurrentTime: number): number {
       let currentFrameTime: number;
-      let fps = getFPS();
+      let fps = getFPS(null);
+      // If fps cannot be detected use precise time reported by video player
+      // instead of estimating nearest frame time
       fps
         ? (currentFrameTime = Math.floor(roughCurrentTime * fps) / fps)
         : (currentFrameTime = roughCurrentTime);
