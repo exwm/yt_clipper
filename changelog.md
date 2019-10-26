@@ -2,6 +2,14 @@
 
 ## Markup Script Changelog
 
+v0.0.89 `[2019.10.25]`:
+
+- Use with `v3.6.1` of the `clipper script` installation.
+- Fix imprecise marker timing due to imprecise FPS information by skipping frame time estimation.
+- Fix moving currently selected end marker when deactivating hotkeys.
+- Fix vertical alignment of rotated video preview thumbnail.
+- Fix fade preview causing crop overlay to disappear.
+
 v0.0.88 `[2019.08.31]`:
 
 - Use with `v3.6.0` of the `clipper script` installation.
@@ -245,9 +253,21 @@ v0.0.71:
 
 ## Clipper Script (Installation) Changelog
 
-v3.6.0 `[2019.08.03]`:
+v3.6.1 `[2019.10.25]`:
 
 - See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
+- Use with `v0.0.89` or higher of the markup script.
+  - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
+- Fix crash on printing help with `--help` or `-h` or using the `yt_clipper_options` helper scripts.
+- Add `yt_clipper_auto_interpolate` helper scripts for motion interpolating output video to 60 fps.
+  - See [Additional Helper Scripts](#additional-helper-scripts) for more info.
+- Fix `Very Weak` denoise preset causing crash.
+- Fix strongest video stabilization preset producing unpredictable results due an excessively high smoothing value.
+- Update ffmpeg dependency to latest stable version (`4.2.1`).
+- Update youtube-dl dependency to [`2019.10.22`](https://github.com/ytdl-org/youtube-dl/releases/tag/2019.10.22).
+
+v3.6.0 `[2019.08.03]`:
+
 - Use with `v0.0.86` or higher of the markup script.
   - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
 - Add special loop behaviours: Fade loops and forward-reverse (AKA ping-pong) loops.
@@ -261,7 +281,6 @@ v3.6.0 `[2019.08.03]`:
 
 v3.5.2:
 
-- See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
 - Use with `v0.0.83` or higher of the markup script.
   - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
 - Fix speed map filter being improperly calculated and producing unsmooth video.
