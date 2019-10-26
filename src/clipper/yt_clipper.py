@@ -1046,7 +1046,7 @@ def getVidstabPreset(level, videoStabilizationDynamicZoom):
                          "zoomspeed": 0.4, "smoothing": 16,  "desc": "Very Strong"}
     elif level == 6:
         vidstabPreset = {"enabled": True, "shakiness": 10,
-                         "zoomspeed": 0.5, "smoothing": 0,  "desc": "Strongest"}
+                         "zoomspeed": 0.5, "smoothing": 22,  "desc": "Strongest"}
     return vidstabPreset
 
 
