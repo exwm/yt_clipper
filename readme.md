@@ -2,12 +2,12 @@
 
 ## Notices
 
-- Windows users on `v3.6.0` of the `clipper script` getting ffmpeg crashes may want to try the following:
+- Windows users on `v3.6.0` or higher of the `clipper script` getting ffmpeg crashes may want to try the following:
   - Update visual c++ redistributables:
     - For 64-bit Windows: <https://aka.ms/vs/16/release/vc_redist.x64.exe>
     - For other Windows versions and older redistributables check this page: <https://support.microsoft.com/help/2977003/the-latest-supported-visual-c-downloads>.
-  - Switch to static ffmpeg build: <https://ffmpeg.zeranoe.com/builds/win64/static/ffmpeg-4.2-win64-static.zip>
-    - Replace contents of `yt_clipper_win_3.6.0/bin` with the contents of the `bin` folder in the ffmpeg zip.
+  - Switch to static ffmpeg build: <https://ffmpeg.zeranoe.com/builds/win64/static/ffmpeg-4.2.1-win64-static.zip>
+    - Replace contents of `yt_clipper_win_3.x.x/bin` with the contents of the `bin` folder in the ffmpeg zip.
 
 ## Quick Start
 
@@ -364,9 +364,9 @@ See <https://ffmpeg.org/ffplay.html#While-playing>.
 There is an installation that does not require the dependencies below.
 
 1. Extract the appropriate zip file anywhere:
-   - On _Windows_ download this [zip file (win_v3.6.0)](https://mega.nz/#!BbJHjaaT!qNVSSin5CPAgdOhhTLgmgniRek69nU5g53ghe3x0z8g)
-   - On _Mac_ download this [zip file (mac_v3.6.0)](https://mega.nz/#!FLQxCKqZ!xHadsns6kfRs5T7nIJn7W2-hiivkugLYlOHJn81DrZM)
-   - The latest install (`v3.6.0`) is **not compatible** with `v0.0.74` or lower of the `markup script`
+   - On _Windows_ download this [zip file (win_v3.6.1)](https://mega.nz/#!MLQzCSZA!O5UFn1Ond49ICEo535mU0lhVygsBtUnDSxn5YEy2fmk)
+   - On _Mac_ download this [zip file (mac_v3.6.1)](https://mega.nz/#!tfR3UQJK!rI0THSOMbJAJFBmC5AxWMibgOn_MGH3L2zNrgX8v79g)
+   - The latest install (`v3.6.1`) is **not compatible** with `v0.0.74` or lower of the `markup script`
 2. Simply drag and drop the markers .json file onto the `yt_clipper_auto.bat` file on Windows or at the terminal prompt after executing `yt_clipper_auto` on Mac.
 3. Use `Ctrl+C` if you need to cancel the process.
 4. All generated webm clips will be placed in `./webms/<markers-json-filename>`.
@@ -384,6 +384,7 @@ There are some alternative helper scripts for more options:
 - Use `yt_clipper_auto_input_video` to specify both markers `json` data and an input video for processing.
   - On Windows simply drag and drop both the `json` and the input video onto `yt_clipper_auto_input_video`.
   - On Mac, `yt_clipper_auto_input_video` will prompt for the `json` then the input video.
+- Use `yt_clipper_auto_interpolate` to apply motion interpolation to output video targeting 60 fps.
 
 The helper scripts have a simple format. Copy and edit `yt_clipper_auto` in a text editor to create custom automated versions.
 
@@ -416,7 +417,7 @@ The helper scripts have a simple format. Copy and edit `yt_clipper_auto` in a te
   do
     if [ -f "$JSON" ]; then
       # add options after $JSON of the next line as shown
-      ./yt_clipper --markers-json "$JSON"
+      ./yt_clipper --markers-json "$JSON" --denoise --audio --rotate clock
     else
       echo "$JSON does not exist"
     fi
@@ -451,6 +452,15 @@ These dependencies are not required by the windows installation above.
 See <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
 
 ## Markup Script Changelog
+
+v0.0.89 `[2019.10.25]`:
+
+- <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
+- Use with `v3.6.1` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+- Fix imprecise marker timing due to imprecise FPS information by skipping frame time estimation.
+- Fix moving currently selected end marker when deactivating hotkeys.
+- Fix vertical alignment of rotated video preview thumbnail.
+- Fix fade preview causing crop overlay to disappear.
 
 v0.0.88 `[2019.08.31]`:
 
@@ -522,25 +532,22 @@ v0.0.85:
 - Fix updating all marker pair speeds to new marker default crop when the global settings editor is open.
 - Fix speed chart visibility not saved when switching marker pair editors.
 
-v0.0.84:
-
-- Use with `v3.5.2` of the `clipper script` installation.
-- Add **Ctrl+X** for cycling crop dim opacity by +0.25.
-- Improve crop drawing experience.
-  - **Click+Drag** to draw crop while showing a dynamic preview of the final crop.
-  - Can now begin and end draw at any point on screen.
-  - Add crosshair cursor while drawing crop.
-  - Cancel drawing crop with **X** or **Shift+X**.
-- Add mouse-based drag and resize of crop.
-  - **Shift+Hover** over crop to get a cursor indicating potential drag action.
-  - **Shift+Click+Drag** appropriate region to either drag and move crop or resize crop in the indicated directions.
-    - Can release shift after dragging begins. Dragging ends when mouse is released.
-
 ## Clipper Script (Installation) Changelog
+
+v3.6.1 `[2019.10.25]`:
+
+- See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
+- Use with `v0.0.89` or higher of the markup script.
+  - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
+- Fix crash on printing help with `--help` or `-h` or using the `yt_clipper_options` helper scripts.
+- Add `yt_clipper_auto_interpolate` helper scripts for motion interpolating output video to 60 fps.
+- Fix `Very Weak` denoise preset causing crash.
+- Fix strongest video stabilization preset producing unpredictable results due an excessively high smoothing value.
+- Update ffmpeg dependency to latest stable version (`4.2.1`).
+- Update youtube-dl dependency to [`2019.10.22`](https://github.com/ytdl-org/youtube-dl/releases/tag/2019.10.22).
 
 v3.6.0 `[2019.08.03]`:
 
-- See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
 - Use with `v0.0.86` or higher of the markup script.
   - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
 - Add special loop behaviours: Fade loops and forward-reverse (AKA ping-pong) loops.
@@ -550,7 +557,7 @@ v3.6.0 `[2019.08.03]`:
 - Fix video info fetch with ffprobe not falling back to youtube-dl.
 - Update ffmpeg dependency to latest nightly (`20190802`).
 - Reduce installation size by ~60% by switching to shared lib version of ffmpeg dependency.
-- Update youtube-dl dependency to [`2019.08.02`](https://github.com/ytdl-org/youtube-dl/tree/2019.08.02).
+- Update youtube-dl dependency to [`2019.08.02`](https://github.com/ytdl-org/youtube-dl/releases/tag/2019.08.02).
 
 v3.5.2:
 
@@ -576,17 +583,3 @@ v3.5.1:
   - At the prompt type or drag and drop `json` data files and then hit enter.
   - Now processes multiple marker `json` data files sequentially and from any location.
   - See [Additional Helper Scripts](#additional-helper-scripts) for more info.
-
-v3.5.0:
-
-- Use with `v0.0.81` or higher of the markup script.
-- Add support for time-variable speed.
-- Add new `clipper script` flags and `bat/app` scripts for accessing new functions.
-  - Add local previewing of markers (using ffplay) with `--preview/-p`, `yt_clipper_preview` .bat or .app file.
-  - Add downloading of video before processing markers with `--download-video/-dv`, `yt_clipper_auto_download` .bat or .app file.
-  - Add automatic detection of potential input videos with path stem `./webms/titleSuffix/titleSuffix-full`.
-  - Add `--input-video` for manually specifying a an input video path or URL.
-    - Windows: Add `yt_clipper_auto_input_video.bat` onto which a markers .json and video file can be dropped for processing.
-- Windows: Simplified `yt_clipper_merge.bat` usage by auto-sorting file list received on drop.
-  - See the updated [Merge Helper Bat Script Instructions](#windows-merge-helper-bat-script).
-- Fix some characters breaking merge list processing due to merge inputs txt file not being encoded with utf-8.
