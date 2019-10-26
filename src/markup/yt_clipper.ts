@@ -2161,7 +2161,7 @@ export let player: HTMLElement;
           desc: 'Strongest',
           enabled: true,
           shakiness: 10,
-          smoothing: 0,
+          smoothing: 22,
           zoomspeed: 0.5,
         },
       },
