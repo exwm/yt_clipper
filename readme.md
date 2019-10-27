@@ -69,7 +69,7 @@ Visit [this quickstart guide](https://github.com/exwm/yt_clipper/blob/master/qui
   - It requires a user script extension such as _Tampermonkey_ which you can install from your browser's add-ons store.
   - See <https://openuserjs.org/about/Userscript-Beginners-HOWTO> for more information on user scripts.
 - `Clipper script` refers to the python script or installation that consumes marker data in `json` format to generate webm clips.
-  - See [Clipper Script Usage](#clipper-script-usage] for usage instructions.
+  - See [Clipper Script Usage](#clipper-script-usage) for usage instructions.
   - See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
 
 ## Markup Script Shortcuts
