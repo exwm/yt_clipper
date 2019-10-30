@@ -116,7 +116,7 @@ export const options: ChartConfiguration = {
             max: 10,
             maxTicksLimit: 100,
             autoSkip: false,
-            maxRotation: 0,
+            maxRotation: 60,
             minRotation: 0,
             major: { fontColor: 'red' },
             minor: {},
