@@ -262,7 +262,7 @@ v3.6.1 `[2019.10.25]`:
 - Add `yt_clipper_auto_interpolate` helper scripts for motion interpolating output video to 60 fps.
   - See [Additional Helper Scripts](#additional-helper-scripts) for more info.
 - Fix `Very Weak` denoise preset causing crash.
-- Fix strongest video stabilization preset producing unpredictable results due an excessively high smoothing value.
+- Fix strongest video stabilization preset producing unpredictable results due to an excessively high smoothing value.
 - Update ffmpeg dependency to latest stable version (`4.2.1`).
 - Update youtube-dl dependency to [`2019.10.22`](https://github.com/ytdl-org/youtube-dl/releases/tag/2019.10.22).
 
