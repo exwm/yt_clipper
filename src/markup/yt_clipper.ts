@@ -11,10 +11,10 @@
 // @updateURL    https://openuserjs.org/meta/elwm/yt_clipper.meta.js
 // @icon         https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/pepe-clipper.gif
 // @require      https://cdn.jsdelivr.net/npm/jszip@3.2.1/dist/jszip.min.js
-// @require      https://cdn.jsdelivr.net/npm/chart.js@2.9.0/dist/Chart.min.js
+// @require      https://cdn.jsdelivr.net/npm/chart.js@2.9.1/dist/Chart.min.js
 // @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@0.7.0/dist/chartjs-plugin-datalabels.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js
-// @require      https://rawcdn.githack.com/exwm/chartjs-plugin-zoom/dbbc42eada02714d7824eec30ca6862ebc34a1a5/dist/chartjs-plugin-zoom.min.js
+// @require      https://gitcdn.xyz/repo/exwm/chartjs-plugin-zoom/master/dist/chartjs-plugin-zoom.min.js
 // @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@0.5.7/chartjs-plugin-annotation.min.js
 // @run-at       document-end
 // @license      MIT
