@@ -1275,27 +1275,24 @@ export let player: HTMLElement;
     let prevGammaVal = 1;
     function gammaPreviewHandler() {
       const shortestActiveMarkerPair = getShortestActiveMarkerPair();
-      if (shortestActiveMarkerPair) {
-        const markerPairGamma =
-          shortestActiveMarkerPair.overrides.gamma || settings.gamma || 1;
-        if (prevGammaVal !== markerPairGamma) {
-          // console.log(`Updating gamma from ${prevGammaVal} to ${markerPairGamma}`);
-          gammaR.exponent.baseVal = markerPairGamma;
-          gammaG.exponent.baseVal = markerPairGamma;
-          gammaB.exponent.baseVal = markerPairGamma;
-          // force re-render of filter (possible bug with chrome and other browsers?)
-          gammaFilterSvg.setAttribute('width', '0');
-          prevGammaVal = markerPairGamma;
-        }
-      } else {
-        if (prevGammaVal !== 1) {
-          // console.log(`Updating gamma from ${prevGammaVal} to 1`);
-          gammaR.exponent.baseVal = 1;
-          gammaG.exponent.baseVal = 1;
-          gammaB.exponent.baseVal = 1;
-          gammaFilterSvg.setAttribute('width', '0');
-          prevGammaVal = 1;
-        }
+
+      const markerPairGamma =
+        (shortestActiveMarkerPair && shortestActiveMarkerPair.overrides.gamma) ||
+        settings.gamma ||
+        1;
+
+      if (markerPairGamma == 1) {
+        if (video.style.filter) video.style.filter = null;
+        prevGammaVal = 1;
+      } else if (prevGammaVal !== markerPairGamma) {
+        // console.log(`Updating gamma from ${prevGammaVal} to ${markerPairGamma}`);
+        gammaR.exponent.baseVal = markerPairGamma;
+        gammaG.exponent.baseVal = markerPairGamma;
+        gammaB.exponent.baseVal = markerPairGamma;
+        // force re-render of filter (possible bug with chrome and other browsers?)
+        if (!video.style.filter) video.style.filter = 'url(#gamma-filter)';
+        gammaFilterSvg.setAttribute('width', '0');
+        prevGammaVal = markerPairGamma;
       }
 
       if (isGammaPreviewOn) {
