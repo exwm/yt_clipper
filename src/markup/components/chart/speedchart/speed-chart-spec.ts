@@ -1,7 +1,10 @@
 import { ChartConfiguration, ChartPoint } from 'chart.js';
-import { medgrey, getSpeedPointColor, lightgrey } from '../chartutil';
-import { scatterChartSpec } from '../scatterChartSpec';
+import { medgrey, lightgrey } from '../chartutil';
+import { scatterChartSpec, getScatterPointColor } from '../scatterChartSpec';
 import Chart from 'chart.js';
+
+const inputId = 'speed-input';
+
 const speedChartConfig: ChartConfiguration = {
   data: {
     datasets: [
@@ -10,7 +13,7 @@ const speedChartConfig: ChartConfiguration = {
         lineTension: 0,
         data: [] as ChartPoint[],
         showLine: true,
-        pointBackgroundColor: getSpeedPointColor,
+        pointBackgroundColor: getScatterPointColor,
         pointBorderColor: medgrey(0.7),
         pointRadius: 5,
         pointHoverRadius: 4,
@@ -45,4 +48,7 @@ const speedChartConfig: ChartConfiguration = {
   },
 };
 
-export const speedChartSpec = Chart.helpers.merge(scatterChartSpec, speedChartConfig);
+export const speedChartSpec = Chart.helpers.merge(
+  scatterChartSpec(inputId),
+  speedChartConfig
+);
