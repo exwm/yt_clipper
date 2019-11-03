@@ -26,8 +26,8 @@
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import { Chart, ChartConfiguration } from 'chart.js';
-import * as SpeedChartSpec from './speedchart/speed-chart-spec';
-import './speedchart/chart.js-drag-data-plugin';
+import { speedChartSpec } from './components/chart/speedchart/speed-chart-spec';
+import './components/chart/chart.js-drag-data-plugin';
 import { easeCubicInOut } from 'd3-ease';
 import { Tooltips } from './tooltips';
 import { html } from 'common-tags';
@@ -59,6 +59,7 @@ import {
   htmlToSVGElement,
   deleteElement,
 } from './util';
+import { scatterChartDefaults } from './components/chart/scatterChartSpec';
 
 const __version__ = '0.0.89';
 
@@ -3063,7 +3064,7 @@ export let player: HTMLElement;
     let speedChartContainer: HTMLDivElement;
     let speedChartCanvas = `<canvas id="speedChartCanvas" width="1600" height="900"></canvas>`;
     let speedChart: Chart;
-    Chart.helpers.merge(Chart.defaults.global, SpeedChartSpec.global);
+    Chart.helpers.merge(Chart.defaults.global, scatterChartDefaults);
     function toggleSpeedChart() {
       if (
         isMarkerPairSettingsEditorOpen &&
@@ -3073,7 +3074,7 @@ export let player: HTMLElement;
         if (!speedChart) {
           isSpeedChartVisible = true;
           isSpeedChartEnabled = true;
-          loadSpeedMap(SpeedChartSpec.options);
+          loadSpeedMap(speedChartSpec);
           speedChartContainer = document.createElement('div');
           speedChartContainer.setAttribute('id', 'speedChartContainer');
           speedChartContainer.setAttribute(
@@ -3085,7 +3086,7 @@ export let player: HTMLElement;
             'html5-video-container'
           )[0];
           videoContainer.insertAdjacentElement('afterend', speedChartContainer);
-          speedChart = new Chart('speedChartCanvas', SpeedChartSpec.options);
+          speedChart = new Chart('speedChartCanvas', speedChartSpec);
           speedChart.ctx.canvas.removeEventListener(
             'wheel',
             speedChart.$zoom._wheelHandler
