@@ -48,7 +48,7 @@ const speedChartConfig: ChartConfiguration = {
   },
 };
 
-export const speedChartSpec = Chart.helpers.merge(
+export const speedChartSpec: ChartConfiguration = Chart.helpers.merge(
   scatterChartSpec(inputId),
   speedChartConfig
 );
