@@ -23,29 +23,12 @@
 // @grant        none
 // ==/UserScript==
 
+const __version__ = '0.0.89';
+
 import { saveAs } from 'file-saver';
-import JSZip from 'jszip';
-import { Chart, ChartConfiguration } from 'chart.js';
-import { speedChartSpec } from './components/chart/speedchart/speed-chart-spec';
-import './components/chart/chart.js-drag-data-plugin';
-import { easeCubicInOut } from 'd3-ease';
 import { Tooltips } from './tooltips';
 import { html } from 'common-tags';
 import { readFileSync } from 'fs';
-const ytClipperCSS = readFileSync(__dirname + '/css/yt-clipper.css', 'utf8');
-const shortcutsTable = readFileSync(
-  __dirname + '/components/shortcuts-table/shortcuts-table.html',
-  'utf8'
-);
-const shortcutsTableStyle = readFileSync(
-  __dirname + '/components/shortcuts-table/shortcuts-table.css',
-  'utf8'
-);
-const shortcutsTableToggleButtonHTML = readFileSync(
-  __dirname + '/components/shortcuts-table/shortcuts-table-toggle-button.html',
-  'utf8'
-);
-
 import {
   retryUntilTruthyResult,
   toHHMMSSTrimmed,
@@ -60,8 +43,35 @@ import {
   deleteElement,
 } from './util';
 import { scatterChartDefaults } from './components/chart/scatterChartSpec';
-
-const __version__ = '0.0.89';
+import { cubicInOutTension } from './components/chart/chartutil';
+import { cropChartSpec } from './components/chart/cropchart/cropChartSpec';
+import {
+  Settings,
+  MarkerPair,
+  SpeedPoint,
+  MarkerConfig,
+  MarkerPairOverrides,
+  ChartInput,
+  ChartLoop,
+} from './@types/yt_clipper';
+import JSZip from 'jszip';
+import { Chart, ChartConfiguration } from 'chart.js';
+import { speedChartSpec } from './components/chart/speedchart/speedChartSpec';
+import './components/chart/chart.js-drag-data-plugin';
+import { easeCubicInOut } from 'd3-ease';
+const ytClipperCSS = readFileSync(__dirname + '/css/yt-clipper.css', 'utf8');
+const shortcutsTable = readFileSync(
+  __dirname + '/components/shortcuts-table/shortcuts-table.html',
+  'utf8'
+);
+const shortcutsTableStyle = readFileSync(
+  __dirname + '/components/shortcuts-table/shortcuts-table.css',
+  'utf8'
+);
+const shortcutsTableToggleButtonHTML = readFileSync(
+  __dirname + '/components/shortcuts-table/shortcuts-table-toggle-button.html',
+  'utf8'
+);
 
 export let player: HTMLElement;
 
@@ -201,15 +211,15 @@ export let player: HTMLElement;
             if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              toggleSpeedChart();
+              toggleChart(speedChartInput);
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              toggleSpeedMapLoop();
+              toggleChartLoop();
             } else if (!e.ctrlKey && !e.shiftKey && e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              resetSpeedMapLoop();
+              toggleChart(cropChart);
             }
             break;
           case 'KeyZ':
@@ -333,7 +343,7 @@ export let player: HTMLElement;
         !e.repeat &&
         isCropOverlayVisible &&
         !isDrawingCrop &&
-        !isSpeedChartVisible
+        !isCurrentChartVisible
       ) {
         window.addEventListener('mousemove', cropOverlayHoverHandler, true);
       }
@@ -387,7 +397,7 @@ export let player: HTMLElement;
     let isMarkerPairSettingsEditorOpen = false;
     let wasGlobalSettingsEditorOpen = false;
     let isCropOverlayVisible = false;
-    let isSpeedChartVisible = false;
+    let isCurrentChartVisible = false;
     let checkGfysCompletedId: number;
 
     let markerPairs: MarkerPair[] = [];
@@ -426,7 +436,7 @@ export let player: HTMLElement;
           isMarkerPairSettingsEditorOpen &&
           isCropOverlayVisible &&
           !isDrawingCrop &&
-          !isSpeedChartVisible
+          !isCurrentChartVisible
         ) {
           const { minW, minH } = getMinWH();
           const [ix, iy, iw, ih] = getCropComponents();
@@ -1202,18 +1212,21 @@ export let player: HTMLElement;
       if (isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
         if (prevSelectedMarkerPairIndex != null) {
           const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+          const chartLoop: ChartLoop = currentChartInput.chartLoopKey
+            ? markerPair[currentChartInput.chartLoopKey]
+            : null;
 
           if (
-            markerPair.speedMapLoop.enabled &&
-            markerPair.speedMapLoop.start > markerPair.start &&
-            markerPair.speedMapLoop.end < markerPair.end &&
-            markerPair.speedMapLoop.start < markerPair.speedMapLoop.end
+            chartLoop &&
+            chartLoop.enabled &&
+            chartLoop.start > markerPair.start &&
+            chartLoop.end < markerPair.end &&
+            chartLoop.start < chartLoop.end
           ) {
-            const isTimeBetweenSpeedMapLoop =
-              markerPair.speedMapLoop.start <= video.currentTime &&
-              video.currentTime <= markerPair.speedMapLoop.end;
-            if (!isTimeBetweenSpeedMapLoop) {
-              player.seekTo(markerPair.speedMapLoop.start);
+            const isTimeBetweenChartLoop =
+              chartLoop.start <= video.currentTime && video.currentTime <= chartLoop.end;
+            if (!isTimeBetweenChartLoop) {
+              player.seekTo(chartLoop.start);
             }
           } else {
             const isTimeBetweenMarkerPair =
@@ -1608,7 +1621,9 @@ export let player: HTMLElement;
             crop: markerPair.crop,
             speed: markerPair.speed,
             speedMap: markerPair.speedMap,
-            speedMapLoop: markerPair.speedMapLoop,
+            speedChartLoop: markerPair.speedChartLoop,
+            cropMap: markerPair.cropMap,
+            cropChartLoop: markerPair.cropChartLoop,
             overrides: markerPair.overrides,
           };
           addMarker(startMarkerConfig);
@@ -1695,17 +1710,23 @@ export let player: HTMLElement;
 
     function updateMarkerPairsArray(currentTime: number, markerPairConfig: MarkerConfig) {
       const speed = markerPairConfig.speed || settings.newMarkerSpeed;
+      const crop = markerPairConfig.crop || settings.newMarkerCrop;
       const newMarkerPair: MarkerPair = {
         start: startTime,
         end: currentTime,
-        crop: markerPairConfig.crop || settings.newMarkerCrop,
-        speed: speed,
+        crop,
+        speed,
         outputDuration: markerPairConfig.outputDuration || currentTime - startTime,
         overrides: markerPairConfig.overrides || {},
-        speedMapLoop: markerPairConfig.speedMapLoop || { enabled: true },
+        speedChartLoop: markerPairConfig.speedChartLoop || { enabled: true },
         speedMap: markerPairConfig.speedMap || [
           { x: startTime, y: speed },
           { x: currentTime, y: speed },
+        ],
+        cropChartLoop: markerPairConfig.cropChartLoop || { enabled: true },
+        cropMap: markerPairConfig.cropMap || [
+          { x: startTime, y: 0, crop: crop },
+          { x: currentTime, y: 0, crop: crop },
         ],
         startNumbering: markerPairConfig.startNumbering,
         endNumbering: markerPairConfig.endNumbering,
@@ -1746,8 +1767,12 @@ export let player: HTMLElement;
         </text>\
         `);
 
-      const startNumberingText = startMarkerNumberings.appendChild(startNumbering);
-      const endNumberingText = endMarkerNumberings.appendChild(endNumbering);
+      const startNumberingText = startMarkerNumberings.appendChild(
+        startNumbering
+      ) as SVGTextElement;
+      const endNumberingText = endMarkerNumberings.appendChild(
+        endNumbering
+      ) as SVGTextElement;
 
       return [startNumberingText, endNumberingText];
     }
@@ -1816,7 +1841,7 @@ export let player: HTMLElement;
     function toggleOffGlobalSettingsEditor() {
       deleteSettingsEditor();
       hideCropOverlay();
-      hideSpeedChart();
+      hideChart();
     }
 
     let cropInput: HTMLInputElement;
@@ -2248,7 +2273,7 @@ export let player: HTMLElement;
             target.speedMap[1].y = newValue;
           }
           target.speedMap[0].y = newValue;
-          speedChart && speedChart.update();
+          speedChartInput.chart && speedChartInput.chart.update();
           updateMarkerPairDuration(target);
         }
       }
@@ -2779,7 +2804,7 @@ export let player: HTMLElement;
     function drawCropOverlay(verticalFill: boolean) {
       if (isDrawingCrop) {
         finishDrawingCrop(prevCropString);
-      } else if (isSpeedChartVisible) {
+      } else if (isCurrentChartVisible) {
         flashMessage(
           'Please toggle off the time-variable speed chart before drawing crop',
           'olive'
@@ -3058,45 +3083,79 @@ export let player: HTMLElement;
       return cropArray;
     }
 
-    let speedChartContainer: HTMLDivElement;
-    let speedChartCanvas = `<canvas id="speedChartCanvas" width="1600" height="900"></canvas>`;
-    let speedChart: Chart;
+    let speedChartInput: ChartInput = {
+      chart: null,
+      type: 'speed',
+      chartContainer: null,
+      containerId: 'speedChartContainer',
+      chartCanvasHTML: `<canvas id="speedChartCanvas" width="1600" height="900"></canvas>`,
+      chartSpec: speedChartSpec,
+      canvasId: 'speedChartCanvas',
+      minBound: 0,
+      maxBound: 0,
+      chartLoopKey: 'speedChartLoop',
+      dataMapKey: 'speedMap',
+    };
+
+    let cropChart: ChartInput = {
+      chart: null,
+      type: 'crop',
+      chartContainer: null,
+      containerId: 'cropChartContainer',
+      chartCanvasHTML: `<canvas id="cropChartCanvas" width="1600" height="900"></canvas>`,
+      canvasId: 'cropChartCanvas',
+      chartSpec: cropChartSpec,
+      minBound: 0,
+      maxBound: 0,
+      chartLoopKey: 'cropChartLoop',
+      dataMapKey: 'cropMap',
+    };
+    let currentChartInput: ChartInput;
     Chart.helpers.merge(Chart.defaults.global, scatterChartDefaults);
-    function toggleSpeedChart() {
+    function toggleChart(chartInput: ChartInput) {
       if (
         isMarkerPairSettingsEditorOpen &&
         !wasGlobalSettingsEditorOpen &&
         prevSelectedMarkerPairIndex != null
       ) {
-        if (!speedChart) {
-          isSpeedChartVisible = true;
-          isSpeedChartEnabled = true;
-          loadSpeedMap(speedChartSpec);
-          speedChartContainer = document.createElement('div');
-          speedChartContainer.setAttribute('id', 'speedChartContainer');
-          speedChartContainer.setAttribute(
-            'style',
-            'width: 100%; height: calc(100% - 20px); position: relative; z-index: 12'
-          );
-          speedChartContainer.innerHTML = speedChartCanvas;
+        if (!chartInput.chart) {
+          if (currentChartInput && isCurrentChartVisible) {
+            hideChart();
+          }
+
+          currentChartInput = chartInput;
+
+          initializeChartData(chartInput.chartSpec, chartInput.dataMapKey);
+          chartInput.chartContainer = htmlToElement(
+            html`
+              <div
+                id="${chartInput.containerId}"
+                style="width: 100%; height: calc(100% - 20px); position: relative; z-index: 12"
+              ></div>
+            `
+          ) as HTMLDivElement;
+          chartInput.chartContainer.innerHTML = chartInput.chartCanvasHTML;
           const videoContainer = document.getElementsByClassName(
             'html5-video-container'
           )[0];
-          videoContainer.insertAdjacentElement('afterend', speedChartContainer);
-          speedChart = new Chart('speedChartCanvas', speedChartSpec);
-          speedChart.ctx.canvas.removeEventListener(
+          videoContainer.insertAdjacentElement('afterend', chartInput.chartContainer);
+          chartInput.chart = new Chart(chartInput.canvasId, chartInput.chartSpec);
+          chartInput.chart.canvas.removeEventListener(
             'wheel',
-            speedChart.$zoom._wheelHandler
+            chartInput.chart.$zoom._wheelHandler
           );
-          const wheelHandler = speedChart.$zoom._wheelHandler;
-          speedChart.$zoom._wheelHandler = (e: MouseEvent) => {
+          const wheelHandler = chartInput.chart.$zoom._wheelHandler;
+          chartInput.chart.$zoom._wheelHandler = (e: MouseEvent) => {
             if (e.ctrlKey && !e.altKey && !e.shiftKey) {
               wheelHandler(e);
             }
           };
-          speedChart.ctx.canvas.addEventListener('wheel', speedChart.$zoom._wheelHandler);
+          chartInput.chart.ctx.canvas.addEventListener(
+            'wheel',
+            chartInput.chart.$zoom._wheelHandler
+          );
 
-          speedChart.ctx.canvas.addEventListener(
+          chartInput.chart.ctx.canvas.addEventListener(
             'contextmenu',
             (e) => {
               e.preventDefault();
@@ -3105,119 +3164,149 @@ export let player: HTMLElement;
             true
           );
 
-          speedChart.ctx.canvas.addEventListener(
+          chartInput.chart.ctx.canvas.addEventListener(
             'mouseup',
-            speedChartContextMenuHandler,
+            getChartContextMenuHandler(chartInput),
             true
           );
 
-          updateSpeedChartTimeAnnotation();
+          isCurrentChartVisible = true;
+          isChartEnabled = true;
+
+          updateChartTimeAnnotation();
         } else {
-          toggleSpeedChartVisibility();
-          isSpeedChartEnabled = !isSpeedChartEnabled;
+          if (currentChartInput.type !== chartInput.type) {
+            hideChart();
+            currentChartInput = chartInput;
+          }
+          toggleCurrentChartVisibility();
+          isChartEnabled = !isChartEnabled;
         }
       } else {
         flashMessage(
-          'Please open a marker pair editor before toggling the time-variable speed chart',
+          'Please open a marker pair editor before toggling a chart input.',
           'olive'
         );
       }
     }
 
-    function speedChartContextMenuHandler(e) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      // shift+right-click context menu opens screenshot tool in firefox 67.0.2
-      if (e.button === 2 && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-        player.seekTo(speedChart.scales['x-axis-1'].getValueForPixel(e.offsetX));
-      } else if (e.button === 2 && !e.ctrlKey && e.altKey && !e.shiftKey) {
-        const start = speedChart.scales['x-axis-1'].getValueForPixel(e.offsetX);
-        speedChart.config.options.annotation.annotations[1].value = start;
-        markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.start = start;
-        speedChart.update();
-      } else if (e.button === 2 && e.ctrlKey && e.altKey && !e.shiftKey) {
-        const end = speedChart.scales['x-axis-1'].getValueForPixel(e.offsetX);
-        speedChart.config.options.annotation.annotations[2].value = end;
-        markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.end = end;
-        speedChart.update();
-      }
+    function getChartContextMenuHandler(chartInput: ChartInput) {
+      return function chartContextMenuHandler(e) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        const chart = chartInput.chart;
+        const chartLoop =
+          markerPairs[prevSelectedMarkerPairIndex][chartInput.chartLoopKey];
+        // shift+right-click context menu opens screenshot tool in firefox 67.0.2
+        if (e.button === 2 && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+          player.seekTo(chart.scales['x-axis-1'].getValueForPixel(e.offsetX));
+        } else if (e.button === 2 && !e.ctrlKey && e.altKey && !e.shiftKey) {
+          const start = chart.scales['x-axis-1'].getValueForPixel(e.offsetX);
+          chart.config.options.annotation.annotations[1].value = start;
+          chartLoop.start = start;
+          chart.update();
+        } else if (e.button === 2 && e.ctrlKey && e.altKey && !e.shiftKey) {
+          const end = chart.scales['x-axis-1'].getValueForPixel(e.offsetX);
+          chart.config.options.annotation.annotations[2].value = end;
+          chartLoop.end = end;
+          chart.update();
+        }
+      };
     }
 
     let easingMode: 'linear' | 'cubicInOut' = 'linear';
-    function toggleSpeedChartEasing() {
-      if (speedChart) {
+    function toggleSpeedChartEasing(chartInput: ChartInput) {
+      const chart = chartInput.chart;
+
+      if (chart) {
         if (easingMode === 'linear') {
-          speedChart.data.datasets[0].lineTension = SpeedChartSpec.cubicInOutTension;
+          chart.data.datasets[0].lineTension = cubicInOutTension;
           easingMode = 'cubicInOut';
         } else {
-          speedChart.data.datasets[0].lineTension = 0;
+          chart.data.datasets[0].lineTension = 0;
           easingMode = 'linear';
         }
-        speedChart.update();
+        chart.update();
       }
     }
 
-    function toggleSpeedMapLoop() {
-      if (isSpeedChartVisible && prevSelectedMarkerPairIndex != null) {
-        if (markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.enabled) {
-          markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.enabled = false;
-          speedChart.config.options.annotation.annotations[1].borderColor =
+    function toggleChartLoop() {
+      if (
+        currentChartInput &&
+        isCurrentChartVisible &&
+        prevSelectedMarkerPairIndex != null
+      ) {
+        const chart = currentChartInput.chart;
+        const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+        const chartLoop = markerPair[currentChartInput.chartLoopKey];
+        if (chartLoop.enabled) {
+          chartLoop.enabled = false;
+          chart.config.options.annotation.annotations[1].borderColor =
             'rgba(0, 255, 0, 0.4)';
-          speedChart.config.options.annotation.annotations[2].borderColor =
+          chart.config.options.annotation.annotations[2].borderColor =
             'rgba(255, 215, 0, 0.4)';
           flashMessage('Speed chart looping disabled', 'red');
         } else {
-          markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.enabled = true;
-          speedChart.config.options.annotation.annotations[1].borderColor =
+          chartLoop.enabled = true;
+          chart.config.options.annotation.annotations[1].borderColor =
             'rgba(0, 255, 0, 0.9)';
-          speedChart.config.options.annotation.annotations[2].borderColor =
+          chart.config.options.annotation.annotations[2].borderColor =
             'rgba(255, 215, 0, 0.9)';
           flashMessage('Speed chart looping enabled', 'green');
         }
-        speedChart.update();
+        chart.update();
       }
     }
 
-    function resetSpeedMapLoop() {
-      if (isSpeedChartVisible && prevSelectedMarkerPairIndex != null) {
-        markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.start = undefined;
-        markerPairs[prevSelectedMarkerPairIndex].speedMapLoop.end = undefined;
-        speedChart.config.options.annotation.annotations[1].value = -1;
-        speedChart.config.options.annotation.annotations[2].value = -1;
-        speedChart.update();
+    function resetChartLoop(chartInput: ChartInput) {
+      if (isCurrentChartVisible && prevSelectedMarkerPairIndex != null) {
+        const chart = chartInput.chart;
+        const chartLoop =
+          markerPairs[prevSelectedMarkerPairIndex][chartInput.chartLoopKey];
+        chartLoop.start = undefined;
+        chartLoop.end = undefined;
+        chart.config.options.annotation.annotations[1].value = -1;
+        chart.config.options.annotation.annotations[2].value = -1;
+        chart.update();
       }
     }
 
-    function loadSpeedMap(chartOrChartConfig: Chart | ChartConfiguration) {
-      if (chartOrChartConfig) {
+    function initializeChartData(chartConfig: ChartConfiguration, dataMapKey: string) {
+      if (
+        isMarkerPairSettingsEditorOpen &&
+        !wasGlobalSettingsEditorOpen &&
+        prevSelectedMarkerPairIndex != null
+      ) {
+        const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+        const dataMap = markerPair[dataMapKey];
+        chartConfig.data.datasets[0].data = dataMap;
+        updateChartBounds(chartConfig, markerPair.start, markerPair.end);
+      }
+    }
+
+    function loadChartData(chartInput: ChartInput) {
+      if (chartInput) {
         if (
           isMarkerPairSettingsEditorOpen &&
           !wasGlobalSettingsEditorOpen &&
           prevSelectedMarkerPairIndex != null
         ) {
           const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-          let speedMap = markerPair.speedMap;
-
-          chartOrChartConfig.data.datasets[0].data = speedMap;
-          if (chartOrChartConfig instanceof Chart) {
-            updateSpeedChartBounds(
-              chartOrChartConfig.config,
-              markerPair.start,
-              markerPair.end
-            );
-            speedChart.update();
-          } else {
-            updateSpeedChartBounds(chartOrChartConfig, markerPair.start, markerPair.end);
-          }
+          const dataMapKey = chartInput.dataMapKey;
+          const dataMap = markerPair[dataMapKey];
+          const chart = chartInput.chart;
+          chart.data.datasets[0].data = dataMap;
+          updateChartBounds(chart.config, markerPair.start, markerPair.end);
+          chart.update();
         }
       }
     }
 
-    let speedChartMinBound: number;
-    let speedChartMaxBound: number;
-    function updateSpeedChartBounds(chartConfig: ChartConfiguration, start, end) {
-      speedChartMinBound = start;
-      speedChartMaxBound = end;
+    function updateChartBounds(chartConfig: ChartConfiguration, start, end) {
+      if (currentChartInput) {
+        currentChartInput.minBound = start;
+        currentChartInput.maxBound = end;
+      }
       chartConfig.options.scales.xAxes[0].ticks.min = start;
       chartConfig.options.scales.xAxes[0].ticks.max = end;
       chartConfig.options.plugins.zoom.pan.rangeMin.x = start;
@@ -3226,15 +3315,16 @@ export let player: HTMLElement;
       chartConfig.options.plugins.zoom.zoom.rangeMax.x = end;
     }
 
-    function updateSpeedChartTimeAnnotation() {
+    function updateChartTimeAnnotation() {
       const time = video.currentTime;
-      if (speedChartMinBound <= time && time <= speedChartMaxBound) {
-        speedChart.config.options.annotation.annotations[0].value = video.currentTime;
-        speedChart.update();
+      const chart = currentChartInput.chart;
+      if (currentChartInput.minBound <= time && time <= currentChartInput.maxBound) {
+        chart.config.options.annotation.annotations[0].value = video.currentTime;
+        chart.update();
       }
 
-      if (isSpeedChartVisible) {
-        requestAnimationFrame(updateSpeedChartTimeAnnotation);
+      if (isCurrentChartVisible) {
+        requestAnimationFrame(updateChartTimeAnnotation);
       }
     }
 
@@ -3280,7 +3370,7 @@ export let player: HTMLElement;
       }
     }
 
-    let isSpeedChartEnabled = false;
+    let isChartEnabled = false;
     function toggleMarkerPairEditor(targetMarker: SVGRectElement) {
       // if target marker is previously selected marker: toggle target on/off
       if (prevSelectedEndMarker === targetMarker && !wasGlobalSettingsEditorOpen) {
@@ -3310,10 +3400,10 @@ export let player: HTMLElement;
       enableMarkerHotkeys(targetMarker);
       createMarkerPairEditor(targetMarker);
       addCropInputHotkeys();
-      loadSpeedMap(speedChart);
+      loadChartData(currentChartInput);
       showCropOverlay();
-      if (isSpeedChartEnabled) {
-        showSpeedChart();
+      if (isChartEnabled) {
+        showChart();
       }
 
       targetMarker.classList.add('selected-marker');
@@ -3333,7 +3423,7 @@ export let player: HTMLElement;
       deleteSettingsEditor();
       hideSelectedMarkerPairOverlay(hardHide);
       hideCropOverlay();
-      hideSpeedChart();
+      hideChart();
       prevSelectedEndMarker.classList.remove('selected-marker');
       prevSelectedEndMarker.previousElementSibling.classList.remove('selected-marker');
       const markerPair = markerPairs[prevSelectedMarkerPairIndex];
@@ -3820,10 +3910,10 @@ export let player: HTMLElement;
         });
       }
       markerTimeSpan.textContent = `${toHHMMSSTrimmed(toTime)}`;
-      if (speedChart) {
-        speedChart.config.data.datasets[0].data = markerPair.speedMap;
-        updateSpeedChartBounds(speedChart.config, markerPair.start, markerPair.end);
-        speedChart.update();
+      if (speedChartInput) {
+        speedChartInput.config.data.datasets[0].data = markerPair.speedMap;
+        updateChartBounds(speedChartInput.config, markerPair.start, markerPair.end);
+        speedChartInput.update();
       }
       updateMarkerPairDuration(markerPair);
       if (storeHistory) markerPair.moveHistory.undos.push({ marker, fromTime, toTime });
@@ -3993,27 +4083,29 @@ export let player: HTMLElement;
       }
     }
 
-    function showSpeedChart() {
-      if (speedChartContainer) {
+    function showChart() {
+      if (currentChartInput && currentChartInput.chartContainer) {
         if (isDrawingCrop) {
           finishDrawingCrop();
         }
-        speedChartContainer.style.display = 'block';
-        isSpeedChartVisible = true;
-        requestAnimationFrame(updateSpeedChartTimeAnnotation);
+        currentChartInput.chartContainer.style.display = 'block';
+        isCurrentChartVisible = true;
+        requestAnimationFrame(updateChartTimeAnnotation);
       }
     }
-    function hideSpeedChart() {
-      if (speedChartContainer) {
-        speedChartContainer.style.display = 'none';
-        isSpeedChartVisible = false;
+
+    function hideChart() {
+      if (currentChartInput && currentChartInput.chartContainer) {
+        currentChartInput.chartContainer.style.display = 'none';
+        isCurrentChartVisible = false;
       }
     }
-    function toggleSpeedChartVisibility() {
-      if (!isSpeedChartVisible) {
-        showSpeedChart();
+
+    function toggleCurrentChartVisibility() {
+      if (!isCurrentChartVisible) {
+        showChart();
       } else {
-        hideSpeedChart();
+        hideChart();
       }
     }
 
