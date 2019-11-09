@@ -1,3 +1,5 @@
+import { ChartConfiguration } from 'chart.js';
+
 interface Settings {
   videoID: string;
   videoTitle: string;
@@ -31,8 +33,10 @@ interface MarkerPair {
   crop: string;
   speed: number;
   overrides: MarkerPairOverrides;
-  speedMapLoop: SpeedMapLoop;
+  speedChartLoop: ChartLoop;
+  cropChartLoop: ChartLoop;
   speedMap: SpeedPoint[];
+  cropMap: CropPoint[];
   outputDuration: number;
   startNumbering: SVGTextElement;
   endNumbering: SVGTextElement;
@@ -49,9 +53,11 @@ interface MarkerConfig {
   type?: 'start' | 'end';
   speed?: number;
   overrides?: MarkerPairOverrides;
-  speedMapLoop?: SpeedMapLoop;
+  speedChartLoop?: ChartLoop;
+  cropChartLoop?: ChartLoop;
   speedMap?: SpeedPoint[];
   crop?: string;
+  cropMap?: CropPoint[];
   outputDuration?: number;
   startNumbering?: SVGTextElement;
   endNumbering?: SVGTextElement;
@@ -74,7 +80,7 @@ interface MarkerPairOverrides {
   fadeDuration?: number;
 }
 
-interface SpeedMapLoop {
+interface ChartLoop {
   start?: number;
   end?: number;
   enabled: boolean;
@@ -97,4 +103,23 @@ interface Denoise {
 interface SpeedPoint {
   x: number;
   y: number;
+}
+interface CropPoint {
+  x: number;
+  y: 0;
+  crop: String;
+}
+
+interface ChartInput {
+  chart: Chart;
+  type: 'speed' | 'crop';
+  chartContainer: HTMLDivElement;
+  containerId: string;
+  chartCanvasHTML: string;
+  canvasId: string;
+  chartSpec: ChartConfiguration;
+  minBound: number;
+  maxBound: number;
+  chartLoopKey: 'speedChartLoop' | 'cropChartLoop';
+  dataMapKey: 'speedMap' | 'cropMap';
 }

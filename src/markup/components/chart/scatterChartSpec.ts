@@ -19,13 +19,9 @@ export const scatterChartDefaults: ChartOptions & ChartFontOptions = {
   animation: { duration: 0 },
 };
 
-const scatterPointRawSecondsFormatter = (point) => {
+const speedPointFormatter = (point) => {
   return `T:${point.x.toFixed(2)}\nS:${+point.y.toFixed(2)}`;
 };
-
-// const scatterPointHHMMSSFormatter = (point) => {
-//   return `T:${+toHHMMSSTrimmed(point.x)}\nS:${+point.y.toFixed(2)}`;
-// };
 
 export function getScatterPointColor(context) {
   var index = context.dataIndex;
@@ -241,7 +237,7 @@ export function scatterChartSpec(inputId): ChartConfiguration {
           textStrokeWidth: 2,
           textStrokeColor: grey(0.9),
           textAlign: 'center',
-          formatter: scatterPointRawSecondsFormatter,
+          formatter: speedPointFormatter,
           display: display,
           align: align,
           color: getScatterPointColor,
