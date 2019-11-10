@@ -173,12 +173,20 @@ export function scatterChartSpec(
       });
       this.data.datasets[0].data.sort(sortX);
 
-      const prevCropPoint =
-        this.data.datasets[0].data.map((cropPoint) => cropPoint.x).indexOf(valueX) - 1;
-      if (prevCropPoint > -1) {
-        this.data.datasets[0].data[prevCropPoint + 1].crop = this.data.datasets[0].data[
-          prevCropPoint
-        ].crop;
+      const cropPointIndex = this.data.datasets[0].data
+        .map((cropPoint) => cropPoint.x)
+        .indexOf(valueX);
+
+      // console.log(currentCropPointIndex, cropPointIndex);
+      if (currentCropPointIndex >= cropPointIndex) {
+        setCurrentCropPointIndex(currentCropPointIndex + 1);
+      }
+
+      if (cropPointIndex > 0) {
+        const prevCropPointIndex = cropPointIndex - 1;
+        this.data.datasets[0].data[
+          prevCropPointIndex + 1
+        ].crop = this.data.datasets[0].data[prevCropPointIndex].crop;
       }
 
       updateInput();
@@ -220,8 +228,12 @@ export function scatterChartSpec(
           dataRef[index].x !== scatterChartMaxBound
         ) {
           dataRef.splice(index, 1);
-          if (chartType === 'crop' && currentCropPointIndex === index) {
-            setCurrentCropPointIndex(0);
+          if (chartType === 'crop') {
+            if (currentCropPointIndex === index) {
+              setCurrentCropPointIndex(0);
+            } else if (currentCropPointIndex > index) {
+              setCurrentCropPointIndex(currentCropPointIndex - 1);
+            }
           }
           updateInput();
           this.update();
