@@ -114,7 +114,7 @@ export let player: HTMLElement;
     document.addEventListener('keydown', hotkeys, true);
 
     function hotkeys(e: KeyboardEvent) {
-      if (toggleKeys) {
+      if (isHotkeysEnabled) {
         switch (e.code) {
           case 'KeyA':
             if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
@@ -323,9 +323,9 @@ export let player: HTMLElement;
         }
       }
       if (!e.ctrlKey && e.shiftKey && e.altKey && e.code === 'KeyA') {
-        toggleKeys = !toggleKeys;
+        isHotkeysEnabled = !isHotkeysEnabled;
         initOnce();
-        if (toggleKeys) {
+        if (isHotkeysEnabled) {
           showShortcutsTableToggleButton();
           flashMessage('Enabled Hotkeys', 'green');
         } else {
@@ -340,13 +340,16 @@ export let player: HTMLElement;
     window.addEventListener('keyup', removeCropOverlayHoverListener, true);
 
     function addCropOverlayHoverListener(e: KeyboardEvent) {
+      const isCropBlockingChartVisible =
+        !isCurrentChartVisible ||
+        (currentChartInput && currentChartInput.type !== 'crop');
       if (
         e.key === 'Control' &&
-        hotkeys &&
+        isHotkeysEnabled &&
         !e.repeat &&
         isCropOverlayVisible &&
         !isDrawingCrop &&
-        !isCurrentChartVisible
+        !isCropBlockingChartVisible
       ) {
         window.addEventListener('mousemove', cropOverlayHoverHandler, true);
       }
@@ -408,7 +411,7 @@ export let player: HTMLElement;
     let links: string[] = [];
 
     let startTime = 0.0;
-    let toggleKeys = false;
+    let isHotkeysEnabled = false;
     let prevSelectedEndMarker: SVGRectElement = null;
     let prevSelectedMarkerPairIndex: number = null;
 
@@ -435,12 +438,15 @@ export let player: HTMLElement;
         capture: true,
       });
       function cropOverlayDragHandler(e) {
+        const isCropBlockingChartVisible =
+          !isCurrentChartVisible ||
+          (currentChartInput && currentChartInput.type !== 'crop');
         if (
           e.ctrlKey &&
           isMarkerPairSettingsEditorOpen &&
           isCropOverlayVisible &&
           !isDrawingCrop &&
-          !isCurrentChartVisible
+          !isCropBlockingChartVisible
         ) {
           const { minW, minH } = getMinWH();
           const [ix, iy, iw, ih] = getCropComponents();
@@ -769,7 +775,7 @@ export let player: HTMLElement;
     document.body.addEventListener('wheel', mouseWheelFrameSkipHandler);
     function mouseWheelFrameSkipHandler(event: WheelEvent) {
       if (
-        toggleKeys &&
+        isHotkeysEnabled &&
         !event.ctrlKey &&
         !event.altKey &&
         event.shiftKey &&
@@ -787,7 +793,7 @@ export let player: HTMLElement;
     document.body.addEventListener('wheel', moveMarkerByFrameHandler);
     function moveMarkerByFrameHandler(event: WheelEvent) {
       if (
-        toggleKeys &&
+        isHotkeysEnabled &&
         !event.ctrlKey &&
         event.altKey &&
         event.shiftKey &&
@@ -1047,11 +1053,11 @@ export let player: HTMLElement;
       const ids = ['search'];
       ids.forEach((id) => {
         const input = document.getElementById(id);
-        if (toggleKeys) {
-          input.addEventListener('focus', () => (toggleKeys = false), {
+        if (isHotkeysEnabled) {
+          input.addEventListener('focus', () => (isHotkeysEnabled = false), {
             capture: true,
           });
-          input.addEventListener('blur', () => (toggleKeys = true), {
+          input.addEventListener('blur', () => (isHotkeysEnabled = true), {
             capture: true,
           });
         }
@@ -2139,8 +2145,8 @@ export let player: HTMLElement;
         const targetProperty = input[1];
         const valueType = input[2] || 'string';
         const inputElem = document.getElementById(id);
-        inputElem.addEventListener('focus', () => (toggleKeys = false), false);
-        inputElem.addEventListener('blur', () => (toggleKeys = true), false);
+        inputElem.addEventListener('focus', () => (isHotkeysEnabled = false), false);
+        inputElem.addEventListener('blur', () => (isHotkeysEnabled = true), false);
         inputElem.addEventListener(
           'change',
           (e) =>
@@ -2271,6 +2277,12 @@ export let player: HTMLElement;
         if (targetProperty === 'crop') {
           const [x, y, w, h] = getCropComponents(newValue);
           setCropOverlayDimensions(x, y, w, h);
+          const cropMap = target.cropMap;
+          if (cropMap.length === 2 && cropMap[0].crop === cropMap[1].y) {
+            target.cropMap[1].crop = newValue;
+          }
+          target.cropMap[currentCropPointIndex].crop = newValue;
+          cropChartInput.chart && cropChartInput.chart.update();
           const cropAspectRatio = (w / h).toFixed(13);
           cropAspectRatioSpan && (cropAspectRatioSpan.textContent = cropAspectRatio);
         }

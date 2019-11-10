@@ -12,6 +12,7 @@ import {
   setCurrentCropPointIndex,
   currentCropPointIndex,
 } from './cropchart/cropChartSpec';
+import { CropPoint } from '../../@types/yt_clipper';
 
 export const scatterChartDefaults: ChartOptions & ChartFontOptions = {
   defaultColor: 'rgba(255, 255, 255, 1)',
@@ -104,11 +105,14 @@ export function scatterChartSpec(
 
   const onDragEnd = function(e, chartInstance, datasetIndex, index, value) {
     // console.log(datasetIndex, index, value);
-    if (index === 0 && chartType !== 'crop') {
-      updateInput(value.y);
-    } else {
-      updateInput();
+    if (chartType !== 'crop') {
+      if (index === 0) {
+        updateInput(value.y);
+      } else {
+        updateInput();
+      }
     }
+
     chartInstance.data.datasets[datasetIndex].data.sort(sortX);
     chartInstance.options.plugins.zoom.pan.enabled = true;
     event.target.style.cursor = 'default';
@@ -237,6 +241,9 @@ export function scatterChartSpec(
       if (datum) {
         const index = datum['_index'];
         setCurrentCropPointIndex(index);
+        const cropChartData = this.data.datasets[0].data;
+        const cropPoint = cropChartData[index] as CropPoint;
+        updateInput(cropPoint.crop);
       }
     }
 
