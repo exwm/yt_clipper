@@ -68,51 +68,76 @@ export function scatterChartSpec(
 
   const onDragStart = function(e, chartInstance, element) {
     // console.log(e, element);
-    chartInstance.options.plugins.zoom.pan.enabled = false;
-    event.target.style.cursor = 'grabbing';
-    chartInstance.update();
+    if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
+      chartInstance.options.plugins.zoom.pan.enabled = false;
+      event.target.style.cursor = 'grabbing';
+      chartInstance.update();
+    }
   };
 
   const onDrag = function(e, chartInstance, datasetIndex, index, fromValue, toValue) {
     // console.log(datasetIndex, index, fromValue, toValue);
-    const shouldDrag = {
-      dragX: true,
-      dragY: true,
-    };
+    if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
+      const shouldDrag = {
+        dragX: true,
+        dragY: true,
+      };
 
-    const scatterChartBounds = getScatterChartBounds(chartInstance);
-    if (
-      fromValue.x <= scatterChartBounds.XMinBound ||
-      fromValue.x >= scatterChartBounds.XMaxBound ||
-      toValue.x <= scatterChartBounds.XMinBound ||
-      toValue.x >= scatterChartBounds.XMaxBound
-    ) {
-      shouldDrag.dragX = false;
-    }
-    if (
-      toValue.y < scatterChartBounds.YMinBound ||
-      toValue.y > scatterChartBounds.YMaxBound
-    ) {
-      shouldDrag.dragY = false;
-    }
+      const scatterChartBounds = getScatterChartBounds(chartInstance);
+      if (
+        fromValue.x <= scatterChartBounds.XMinBound ||
+        fromValue.x >= scatterChartBounds.XMaxBound ||
+        toValue.x <= scatterChartBounds.XMinBound ||
+        toValue.x >= scatterChartBounds.XMaxBound
+      ) {
+        shouldDrag.dragX = false;
+      }
+      if (
+        chartType === 'crop' ||
+        toValue.y < scatterChartBounds.YMinBound ||
+        toValue.y > scatterChartBounds.YMaxBound
+      ) {
+        shouldDrag.dragY = false;
+      }
 
-    return shouldDrag;
+      return shouldDrag;
+    } else {
+      return {
+        dragX: false,
+        dragY: false,
+      };
+    }
   };
 
   const onDragEnd = function(e, chartInstance, datasetIndex, index, value) {
     // console.log(datasetIndex, index, value);
-    if (chartType !== 'crop') {
-      if (index === 0) {
-        updateInput(value.y);
-      } else {
-        updateInput();
+    if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
+      if (chartType !== 'crop') {
+        if (index === 0) {
+          updateInput(value.y);
+        } else {
+          updateInput();
+        }
       }
-    }
 
-    chartInstance.data.datasets[datasetIndex].data.sort(sortX);
-    chartInstance.options.plugins.zoom.pan.enabled = true;
-    event.target.style.cursor = 'default';
-    chartInstance.update();
+      let currentCropPointXPreSort =
+        chartType === 'crop'
+          ? chartInstance.data.datasets[datasetIndex].data[currentCropPointIndex].x
+          : null;
+
+      chartInstance.data.datasets[datasetIndex].data.sort(sortX);
+
+      if (chartType === 'crop') {
+        const newCurrentCropPointIndex = chartInstance.data.datasets[datasetIndex].data
+          .map((cropPoint) => cropPoint.x)
+          .indexOf(currentCropPointXPreSort);
+        setCurrentCropPointIndex(newCurrentCropPointIndex);
+      }
+
+      chartInstance.options.plugins.zoom.pan.enabled = true;
+      event.target.style.cursor = 'default';
+      chartInstance.update();
+    }
   };
 
   const addSpeedPoint = function(event, dataAtClick) {
