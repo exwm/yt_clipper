@@ -195,7 +195,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 ### Video Playback and Preview Shortcuts
 
-**Shift+mouse-wheel:** Scroll the mouse wheel up/down over the video to skip forward/backward one frame per tick.
+**Shift+Mouse-Wheel:** Scroll the mouse wheel up/down over the video to skip forward/backward one frame per tick.
 
 **C:** Toggle auto video playback speed adjustment based on markers. When outside of a marker pair the playback speed is set back to 1 (and cannot be changed without toggling off auto speed adjustment).
 
@@ -223,6 +223,8 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 ### Time-Variable Speed Chart Shortcuts
 
+![yt_clipper_speed_chart](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_speed_chart.jpg)
+
 **D:** Toggle time-variable speed chart.
 
 **Right-Click:** Seek to time on bottom time-axis when clicking anywhere in chart area.
@@ -246,8 +248,6 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 - Points are auto-sorted based on their time value on adding or removing points or on drag-end when moving points.
 - ouTube playback speed can only be set to a multiple of `0.05` and greater than or equal to `0.25`.
 - Audio is not compatible with time-variable speed.
-
-![yt_clipper_speed_chart](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_speed_chart.jpg)
 
 ### Frame Capturing Shortcuts
 
