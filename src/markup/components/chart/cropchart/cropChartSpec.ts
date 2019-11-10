@@ -41,16 +41,11 @@ export const updateCurrentCropPoint = function(cropChart: Chart, cropString: str
 
 function getCropPointStyle(ctx) {
   const index = ctx.dataIndex;
-  return index === currentCropPointIndex ? 'square' : 'circle';
+  return index === currentCropPointIndex ? 'rectRounded' : 'circle';
 }
 
 function getCropPointColor(ctx) {
   const index = ctx.dataIndex;
-  // if (currentCropChartSection[0] === currentCropChartSection[1]) {
-  //   if (index === currentCropChartSection[0]) {
-  //     return;
-  //   }
-  // }
   if (index === currentCropChartSection[0]) {
     return 'green';
   } else if (index === currentCropChartSection[1]) {
@@ -60,9 +55,19 @@ function getCropPointColor(ctx) {
   }
 }
 
+function getCropPointBorderColor(ctx) {
+  const index = ctx.dataIndex;
+  return index === currentCropPointIndex ? 'black' : medgrey(0.9);
+}
+
+function getCropPointBorderWidth(ctx) {
+  const index = ctx.dataIndex;
+  return index === currentCropPointIndex ? 2 : 1;
+}
+
 function getCropPointRadius(ctx) {
   const index = ctx.dataIndex;
-  return index === currentCropPointIndex ? 6 : 5;
+  return index === currentCropPointIndex ? 8 : 5;
 }
 
 const cropChartConfig: ChartConfiguration = {
@@ -74,7 +79,8 @@ const cropChartConfig: ChartConfiguration = {
         data: [] as ChartPoint[],
         showLine: true,
         pointBackgroundColor: getCropPointColor,
-        pointBorderColor: medgrey(0.7),
+        pointBorderColor: getCropPointBorderColor,
+        pointBorderWidth: getCropPointBorderWidth,
         pointStyle: getCropPointStyle,
         pointRadius: getCropPointRadius,
         pointHoverRadius: 4,
