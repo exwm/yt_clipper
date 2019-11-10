@@ -41,12 +41,14 @@ import {
   htmlToElement,
   htmlToSVGElement,
   deleteElement,
+  bsearch,
 } from './util';
 import { scatterChartDefaults } from './components/chart/scatterChartSpec';
-import { cubicInOutTension } from './components/chart/chartutil';
+import { cubicInOutTension, sortX } from './components/chart/chartutil';
 import {
   cropChartSpec,
   currentCropPointIndex,
+  setCurrentCropChartSection,
 } from './components/chart/cropchart/cropChartSpec';
 import {
   Settings,
@@ -3360,14 +3362,24 @@ export let player: HTMLElement;
     }
 
     function updateChartTimeAnnotation() {
-      const time = video.currentTime;
-      const chart = currentChartInput.chart;
-      if (currentChartInput.minBound <= time && time <= currentChartInput.maxBound) {
-        chart.config.options.annotation.annotations[0].value = video.currentTime;
-        chart.update();
-      }
-
       if (isCurrentChartVisible) {
+        const time = video.currentTime;
+        const chart = currentChartInput.chart;
+        chart.config.options.annotation.annotations[0].value = clampNumber(
+          time,
+          currentChartInput.minBound,
+          currentChartInput.maxBound
+        );
+        if (currentChartInput.type === 'crop') {
+          const searchCropPoint = { x: time, y: 0, crop: '' };
+          setCurrentCropChartSection(
+            chart,
+            bsearch(chart.data.datasets[0].data, searchCropPoint, sortX)
+          );
+        }
+
+        chart.update();
+
         requestAnimationFrame(updateChartTimeAnnotation);
       }
     }
