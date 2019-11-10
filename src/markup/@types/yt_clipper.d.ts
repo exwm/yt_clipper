@@ -114,9 +114,12 @@ interface ChartInput {
   chart: Chart;
   type: 'speed' | 'crop';
   chartContainer: HTMLDivElement;
-  containerId: string;
+  chartContainerId: string;
+  chartContainerHook: HTMLElement;
+  chartContainerHookPosition: 'beforebegin' | 'afterbegin' | 'beforeend' | 'afterend';
+  chartContainerStyle: string;
   chartCanvasHTML: string;
-  canvasId: string;
+  chartCanvasId: string;
   chartSpec: ChartConfiguration;
   minBound: number;
   maxBound: number;

@@ -390,24 +390,44 @@ def prepareGlobalSettings(settings):
     return settings
 
 
+def autoScaleCropMap(cropMap, settings):
+  for cropPoint in cropMap:
+    cropString = cropPoint["crop"]
+    cropPoint["crop"], cropPoint["cropComponents"] = getAutoScaledCropComponents(
+        cropString, settings)
+
+
+def getAutoScaledCropComponents(cropString, settings):
+  cropComponents = getCropComponents(cropString)
+  cropComponents['x'] = settings["cropMultipleX"] * cropComponents['x']
+  if cropComponents['w'] != 'iw':
+      cropComponents['w'] = settings["cropMultipleX"] * cropComponents['w']
+  else:
+      cropComponents['w'] = settings["width"]
+  cropComponents['y'] = settings["cropMultipleY"] * cropComponents['y']
+  if cropComponents['h'] != 'ih':
+      cropComponents['h'] = settings["cropMultipleY"] * cropComponents['h']
+  else:
+      cropComponents['h'] = settings["height"]
+
+  scaledCropString = f'''{cropComponents['x']}:{cropComponents['y']}:{cropComponents['w']}:{cropComponents['h']}'''
+  return scaledCropString, cropComponents
+
+
+def getCropComponents(cropString):
+    cropComponents = cropString.split(':')
+    cropComponents = {'x': float(cropComponents[0]), 'y': float(cropComponents[1]),
+                      'w': float(cropComponents[2]), 'h': float(cropComponents[3])}
+    return cropComponents
+
 def getMarkerPairSettings(settings, markerPairIndex):
     mp = markerPair = {**(settings["markerPairs"][markerPairIndex])}
 
-    cropString = mp["crop"]
-    crops = mp["cropComponents"] = cropString.split(':')
-    crops[0] = settings["cropMultipleX"] * int(crops[0])
-    if crops[2] != 'iw':
-        crops[2] = settings["cropMultipleX"] * int(crops[2])
-    else:
-        crops[2] = settings["width"]
-    crops[1] = settings["cropMultipleY"] * int(crops[1])
-    if crops[3] != 'ih':
-        crops[3] = settings["cropMultipleY"] * int(crops[3])
-    else:
-        crops[3] = settings["height"]
+    cropString, cropComponents = getAutoScaledCropComponents(mp["crop"], settings)
+    mp["crop"] = cropString
+    mp["cropComponents"] = cropComponents
 
-    bitrateCropFactor = (crops[2] * crops[3]) / \
-        (settings["width"] * settings["height"])
+    bitrateCropFactor = (cropComponents['w'] * cropComponents['h']) / (settings["width"] * settings["height"])
     markerPairEncodeSettings = getDefaultEncodeSettings(
         settings["bit_rate"] * bitrateCropFactor)
     settings = {**markerPairEncodeSettings, **settings}
@@ -450,6 +470,26 @@ def getMarkerPairSettings(settings, markerPairIndex):
 
     mp["speedFilter"], mp["outputDuration"] = getSpeedFilterAndDuration(
         mp["speedMap"], mps, mps["r_frame_rate"])
+
+
+    mp["isVariableCrop"] = False
+
+    if "enableCropMaps" not in mp:
+       mps["enableCropMaps"] = True
+
+    if mps["enableCropMaps"] and "cropMap" in mp:
+      autoScaleCropMap(mp["cropMap"], settings)
+      for left, right in zip(mp["cropMap"][:-1], mp["cropMap"][1:]):
+          if left["y"] != right["y"]:
+            mp["isVariableCrop"] = True
+            break
+    else:
+        mp["cropMap"] = [{"x": mp["start"], "y":0, "crop": cropString, "cropComponents": cropComponents}, {
+            "x": mp["end"], "y":0,"crop": cropString, "cropComponents": cropComponents}]
+
+    print(mp["cropMap"])
+    mp["cropFilter"] = getCropFilter(mp["cropMap"], mps, mps["r_frame_rate"])
+
 
     titlePrefixLogMsg = f'Title Prefix: {mps["titlePrefix"] if "titlePrefix" in mps else ""}'
     logger.info('-' * 80)
@@ -535,16 +575,16 @@ def makeMarkerPairClip(settings, markerPairIndex):
     if mps["preview"] and not settings["inputVideo"]:
         video_filter += f',loop=loop=-1:size=(32767)'
 
-    crops = mp["cropComponents"]
-    video_filter += f',crop=x={crops[0]}:y={crops[1]}:w={crops[2]}:h={crops[3]}'
+    cropComponents = mp["cropComponents"]
+    video_filter += f',{mp["cropFilter"]}'
     if mps["preview"]:
         video_filter += f',scale=w=iw/2:h=ih/2'
-        crops[2] /= 2
-        crops[3] /= 2
+        cropComponents["w"] /= 2
+        cropComponents["h"] /= 2
 
     if mps["rotate"]:
         video_filter += f',transpose={mps["rotate"]}'
-        crops[2], crops[3] = crops[3], crops[2]
+        cropComponents["w"], cropComponents["h"] = cropComponents["h"], cropComponents["w"]
 
     if mps["preview"]:
         video_filter_before_correction = video_filter
@@ -688,7 +728,6 @@ def runffmpegCommand(ffmpegCommands, markerPairIndex, mp):
         logger.error(f'Failed to generate: "{mp["fileName"]}"\n')
         return {**(settings["markerPairs"][markerPairIndex])}
 
-
 def getSpeedFilterAndDuration(speedMap, mps, fps):
     logger.info('-' * 80)
     video_filter_speed_map = ''
@@ -757,18 +796,60 @@ def getSpeedFilterAndDuration(speedMap, mps, fps):
 
     return video_filter_speed_map, outputDuration
 
+def getCropFilter(cropMap, mps, fps):
+    logger.info('-' * 80)
+    fps = Fraction(fps)
+    frameDur = 1 / fps
+    nSects = len(cropMap) - 1
+    firstTime = cropMap[0]["x"]
+    firstCropX,firstCropY,firstCropW,firstCropH,  = cropMap[0]["crop"].split(':')
+    
+    for sect, (left, right) in enumerate(zip(cropMap[:-1], cropMap[1:])):
+        startTime = left["x"] - firstTime
+        startCrop = left["crop"].split(':')
+        startX, startY, startW, startH = left["crop"].split(':')
+        endTime = right["x"] - firstTime
+        endX, endY, endW, endH = right["crop"].split(':')
+
+        sectDuration = endTime - startTime
+        if sectDuration == 0:
+            continue
+
+        lerpX = getEasingExpression('linear', f'({startX})', f'({endX})', f'(t/{sectDuration})')
+        lerpY = getEasingExpression('linear', f'({startY})', f'({endY})', f'(t/{sectDuration})')
+        # lerpW = getEasingExpression(f'({startW})', f'({endW})', f'(t/{sectDuration})')
+        # lerpH = getEasingExpression(f'({startH})', f'({endH})', f'(t/{sectDuration})')
+
+        cropXExpression = f'between(t, {startTime}, {endTime})*{lerpX}'
+        cropYExpression = f'between(t, {startTime}, {endTime})*{lerpY}'
+        # cropWExpression = f'between(t, {startTime}, {endTime})*{lerpW}'
+        # cropHExpression = f'between(t, {startTime}, {endTime})*{lerpH}'
+        cropWExpression = firstCropW
+        cropHExpression = firstCropH
+
+        if sect != nSects - 1:
+            cropXExpression += '+'
+            cropYExpression += '+'
+            cropWExpression += '+'
+            cropHExpression += '+'
+
+    cropFilter = f"crop='x={cropXExpression}:y={cropYExpression}:w={cropWExpression}:h={cropHExpression}'"
+    return cropFilter
 
 def getEasingExpression(easingFunc, easeA, easeB, easeP):
     easeT = f'(2*{easeP})'
     easeM = f'({easeP}-1)'
 
-    ease = '1'  # linear ease by default
-    if easingFunc == 'easeInOutCubic':
+    if easingFunc == 'linear':
+        return f'lerp({easeA}, {easeB}, {easeP})'
+    elif easingFunc == 'easeInOutCubic':
         ease = f'if(lt({easeT},1), {easeP}*{easeT}^2, 1+({easeM}^3)*4)'
-    if easingFunc == 'easeInOutSine':
+    elif easingFunc == 'easeInOutSine':
         ease = f'0.5*(1-cos({easeP}*PI))'
-    if easingFunc == 'easeOutCircle':
+    elif easingFunc == 'easeOutCircle':
         ease = f'sqrt(1-{easeM}^2)'
+    else:
+        return None
 
     easingExpression = f'({easeA}+({easeB}-{easeA})*{ease})'
     return easingExpression
@@ -966,22 +1047,22 @@ def getDefaultEncodeSettings(videobr):
                           'encodeSpeed': 2, 'twoPass': False}
     elif videobr <= 4000:
         encodeSettings = {'crf': 20, 'autoTargetMaxBitrate': int(
-            1.6 * videobr), 'encodeSpeed': 2, 'twoPass': False}
+            1.4 * videobr), 'encodeSpeed': 2, 'twoPass': False}
     elif videobr <= 6000:
         encodeSettings = {'crf': 22, 'autoTargetMaxBitrate': int(
-            1.5 * videobr), 'encodeSpeed': 3, 'twoPass': False}
+            1.3 * videobr), 'encodeSpeed': 3, 'twoPass': False}
     elif videobr <= 10000:
         encodeSettings = {'crf': 24, 'autoTargetMaxBitrate': int(
-            1.4 * videobr), 'encodeSpeed': 4, 'twoPass': False}
+            1.2 * videobr), 'encodeSpeed': 4, 'twoPass': False}
     elif videobr <= 15000:
         encodeSettings = {'crf': 26, 'autoTargetMaxBitrate': int(
-            1.3 * videobr), 'encodeSpeed': 5, 'twoPass': False}
+            1.1 * videobr), 'encodeSpeed': 5, 'twoPass': False}
     elif videobr <= 20000:
         encodeSettings = {'crf': 30, 'autoTargetMaxBitrate': int(
-            1.2 * videobr), 'encodeSpeed': 5, 'twoPass': False}
+            1.0 * videobr), 'encodeSpeed': 5, 'twoPass': False}
     else:
         encodeSettings = {'crf': 35, 'autoTargetMaxBitrate': int(
-            1.1 * videobr), 'encodeSpeed': 5, 'twoPass': False}
+            0.9 * videobr), 'encodeSpeed': 5, 'twoPass': False}
     return encodeSettings
 
 

@@ -44,7 +44,10 @@ import {
 } from './util';
 import { scatterChartDefaults } from './components/chart/scatterChartSpec';
 import { cubicInOutTension } from './components/chart/chartutil';
-import { cropChartSpec } from './components/chart/cropchart/cropChartSpec';
+import {
+  cropChartSpec,
+  currentCropPointIndex,
+} from './components/chart/cropchart/cropChartSpec';
 import {
   Settings,
   MarkerPair,
@@ -219,7 +222,7 @@ export let player: HTMLElement;
             } else if (!e.ctrlKey && !e.shiftKey && e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              toggleChart(cropChart);
+              toggleChart(cropChartInput);
             }
             break;
           case 'KeyZ':
@@ -413,6 +416,7 @@ export let player: HTMLElement;
       injectCSS(ytClipperCSS, 'yt-clipper-css');
       initPlayerInfo();
       initMarkersContainer();
+      initChartHooks();
       addForeignEventListeners();
       injectToggleShortcutsTableButton();
       addCropOverlayDragListener();
@@ -732,14 +736,18 @@ export let player: HTMLElement;
       playerInfo.progress_bar = document.getElementsByClassName('ytp-progress-bar')[0];
       playerInfo.watchFlexy = document.getElementsByTagName('ytd-watch-flexy')[0];
       playerInfo.infoContents = document.getElementById('info-contents');
-      playerInfo.container = document.querySelector('#ytd-player #container');
       flashMessageHook = playerInfo.infoContents;
+      playerInfo.container = document.querySelector('#ytd-player #container');
       playerInfo.columns = document.getElementById('columns');
+      playerInfo.playerTheaterContainer = document.getElementById(
+        'player-theater-container'
+      );
       updateSettingsEditorHook();
       playerInfo.annotations = document.getElementsByClassName('ytp-iv-video-content')[0];
-      overlayHook = document.getElementsByClassName(
+      playerInfo.videoContainer = document.getElementsByClassName(
         'html5-video-container'
       )[0] as HTMLElement;
+      overlayHook = playerInfo.videoContainer;
       playerInfo.controls = document.getElementsByClassName('ytp-chrome-bottom')[0];
       playerInfo.controlsBar = document.getElementsByClassName('ytp-chrome-controls')[0];
       playerInfo.progressBar = document.getElementsByClassName(
@@ -752,7 +760,7 @@ export let player: HTMLElement;
 
     function updateSettingsEditorHook() {
       if (playerInfo.watchFlexy.theater) {
-        settingsEditorHook = playerInfo.columns;
+        settingsEditorHook = playerInfo.playerTheaterContainer;
       } else {
         settingsEditorHook = playerInfo.infoContents;
       }
@@ -1212,7 +1220,7 @@ export let player: HTMLElement;
       if (isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
         if (prevSelectedMarkerPairIndex != null) {
           const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-          const chartLoop: ChartLoop = currentChartInput.chartLoopKey
+          const chartLoop: ChartLoop = currentChartInput
             ? markerPair[currentChartInput.chartLoopKey]
             : null;
 
@@ -1569,7 +1577,7 @@ export let player: HTMLElement;
           </fieldset>
         `;
         updateSettingsEditorHook();
-        settingsEditorHook.insertAdjacentElement('beforebegin', markersUploadDiv);
+        settingsEditorHook.insertAdjacentElement('afterend', markersUploadDiv);
         const fileUploadButton = document.getElementById('upload-markers-json');
         fileUploadButton.onclick = loadMarkersJson;
       }
@@ -2077,7 +2085,7 @@ export let player: HTMLElement;
     `;
 
       updateSettingsEditorHook();
-      settingsEditorHook.insertAdjacentElement('beforebegin', globalSettingsEditorDiv);
+      settingsEditorHook.insertAdjacentElement('afterend', globalSettingsEditorDiv);
 
       const settingsInputsConfigs = [['crop-res-input', 'cropRes', 'string']];
       const settingsInputsConfigsHighlightable = [
@@ -2804,11 +2812,12 @@ export let player: HTMLElement;
     function drawCropOverlay(verticalFill: boolean) {
       if (isDrawingCrop) {
         finishDrawingCrop(prevCropString);
-      } else if (isCurrentChartVisible) {
-        flashMessage(
-          'Please toggle off the time-variable speed chart before drawing crop',
-          'olive'
-        );
+      } else if (
+        isCurrentChartVisible &&
+        currentChartInput &&
+        currentChartInput.type !== 'crop'
+      ) {
+        flashMessage('Please toggle off the speed chart before drawing crop', 'olive');
       } else if (isDraggingCrop) {
         flashMessage('Please finish dragging or resizing before drawing crop', 'olive');
       } else if (isMarkerPairSettingsEditorOpen && isCropOverlayVisible) {
@@ -2962,7 +2971,18 @@ export let player: HTMLElement;
       if (isMarkerPairSettingsEditorOpen) {
         cropInput.value = cropString;
         if (!wasGlobalSettingsEditorOpen) {
-          markerPairs[prevSelectedMarkerPairIndex].crop = cropString;
+          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+          if (
+            currentChartInput &&
+            currentChartInput.chart &&
+            currentChartInput.type === 'crop'
+          ) {
+            markerPair.cropMap[currentCropPointIndex].crop = cropString;
+            if (currentCropPointIndex === 0) markerPair.crop = cropString;
+            currentChartInput.chart.update();
+          } else {
+            markerPair.crop = cropString;
+          }
         } else {
           settings.newMarkerCrop = cropString;
         }
@@ -3087,23 +3107,30 @@ export let player: HTMLElement;
       chart: null,
       type: 'speed',
       chartContainer: null,
-      containerId: 'speedChartContainer',
-      chartCanvasHTML: `<canvas id="speedChartCanvas" width="1600" height="900"></canvas>`,
+      chartContainerId: 'speedChartContainer',
+      chartContainerHook: null,
+      chartContainerHookPosition: 'afterend',
+      chartContainerStyle:
+        'width: 100%; height: calc(100% - 20px); position: relative; z-index: 12',
+      chartCanvasHTML: `<canvas id="speedChartCanvas" width="1600px" height="900px"></canvas>`,
       chartSpec: speedChartSpec,
-      canvasId: 'speedChartCanvas',
+      chartCanvasId: 'speedChartCanvas',
       minBound: 0,
       maxBound: 0,
       chartLoopKey: 'speedChartLoop',
       dataMapKey: 'speedMap',
     };
 
-    let cropChart: ChartInput = {
+    let cropChartInput: ChartInput = {
       chart: null,
       type: 'crop',
       chartContainer: null,
-      containerId: 'cropChartContainer',
-      chartCanvasHTML: `<canvas id="cropChartCanvas" width="1600" height="900"></canvas>`,
-      canvasId: 'cropChartCanvas',
+      chartContainerId: 'cropChartContainer',
+      chartContainerHook: null,
+      chartContainerHookPosition: 'beforebegin',
+      chartContainerStyle: 'display:flex',
+      chartCanvasHTML: `<canvas id="cropChartCanvas" width="1600px" height="87px"></canvas>`,
+      chartCanvasId: 'cropChartCanvas',
       chartSpec: cropChartSpec,
       minBound: 0,
       maxBound: 0,
@@ -3111,6 +3138,11 @@ export let player: HTMLElement;
       dataMapKey: 'cropMap',
     };
     let currentChartInput: ChartInput;
+    function initChartHooks() {
+      speedChartInput.chartContainerHook = playerInfo.videoContainer;
+      cropChartInput.chartContainerHook = playerInfo.columns;
+    }
+
     Chart.helpers.merge(Chart.defaults.global, scatterChartDefaults);
     function toggleChart(chartInput: ChartInput) {
       if (
@@ -3129,17 +3161,17 @@ export let player: HTMLElement;
           chartInput.chartContainer = htmlToElement(
             html`
               <div
-                id="${chartInput.containerId}"
-                style="width: 100%; height: calc(100% - 20px); position: relative; z-index: 12"
+                id="${chartInput.chartContainerId}"
+                style="${chartInput.chartContainerStyle}"
               ></div>
             `
           ) as HTMLDivElement;
           chartInput.chartContainer.innerHTML = chartInput.chartCanvasHTML;
-          const videoContainer = document.getElementsByClassName(
-            'html5-video-container'
-          )[0];
-          videoContainer.insertAdjacentElement('afterend', chartInput.chartContainer);
-          chartInput.chart = new Chart(chartInput.canvasId, chartInput.chartSpec);
+          chartInput.chartContainerHook.insertAdjacentElement(
+            chartInput.chartContainerHookPosition,
+            chartInput.chartContainer
+          );
+          chartInput.chart = new Chart(chartInput.chartCanvasId, chartInput.chartSpec);
           chartInput.chart.canvas.removeEventListener(
             'wheel',
             chartInput.chart.$zoom._wheelHandler
@@ -3717,7 +3749,7 @@ export let player: HTMLElement;
       `;
 
       updateSettingsEditorHook();
-      settingsEditorHook.insertAdjacentElement('beforebegin', settingsEditorDiv);
+      settingsEditorHook.insertAdjacentElement('afterend', settingsEditorDiv);
 
       const inputConfigs = [
         ['speed-input', 'speed', 'number'],
@@ -3879,7 +3911,6 @@ export let player: HTMLElement;
       const toTime = newTime != null ? newTime : video.currentTime;
       const progress_pos = (toTime / playerInfo.duration) * 100;
       const markerTimeSpan = document.getElementById(`${type}-time`);
-      const speedMap = markerPair.speedMap;
 
       if (type === 'start' && toTime >= markerPair.end) {
         flashMessage('Start marker cannot be placed after or at end marker', 'red');
@@ -3896,24 +3927,41 @@ export let player: HTMLElement;
         selectedStartMarkerOverlay.setAttribute('x', `${progress_pos}%`);
         markerPair.startNumbering.setAttribute('x', `${progress_pos}%`);
 
-        speedMap[0].x = toTime;
-        markerPair.speedMap = speedMap.filter((speedPoint) => {
+        markerPair.speedMap[0].x = toTime;
+        markerPair.cropMap[0].x = toTime;
+        markerPair.speedMap = markerPair.speedMap.filter((speedPoint) => {
           return speedPoint.x >= toTime;
         });
+        markerPair.cropMap = markerPair.cropMap.filter((cropPoint) => {
+          return cropPoint.x >= toTime;
+        });
       } else if (type === 'end') {
-        speedMap[speedMap.length - 1].x = toTime;
+        markerPair.speedMap[markerPair.speedMap.length - 1].x = toTime;
+        markerPair.cropMap[markerPair.cropMap.length - 1].x = toTime;
+
         selectedEndMarkerOverlay.setAttribute('x', `${progress_pos}%`);
         markerPair.endNumbering.setAttribute('x', `${progress_pos}%`);
 
-        markerPair.speedMap = speedMap.filter((speedPoint) => {
+        markerPair.speedMap = markerPair.speedMap.filter((speedPoint) => {
           return speedPoint.x <= toTime;
+        });
+        markerPair.cropMap = markerPair.cropMap.filter((cropPoint) => {
+          return cropPoint.x <= toTime;
         });
       }
       markerTimeSpan.textContent = `${toHHMMSSTrimmed(toTime)}`;
-      if (speedChartInput) {
-        speedChartInput.config.data.datasets[0].data = markerPair.speedMap;
-        updateChartBounds(speedChartInput.config, markerPair.start, markerPair.end);
-        speedChartInput.update();
+
+      const speedChart = speedChartInput.chart;
+      if (speedChart) {
+        speedChart.config.data.datasets[0].data = markerPair.speedMap;
+        updateChartBounds(speedChart.config, markerPair.start, markerPair.end);
+        speedChart.update();
+      }
+      const cropChart = cropChartInput.chart;
+      if (cropChart) {
+        cropChart.config.data.datasets[0].data = markerPair.cropMap;
+        updateChartBounds(cropChart.config, markerPair.start, markerPair.end);
+        cropChart.update();
       }
       updateMarkerPairDuration(markerPair);
       if (storeHistory) markerPair.moveHistory.undos.push({ marker, fromTime, toTime });

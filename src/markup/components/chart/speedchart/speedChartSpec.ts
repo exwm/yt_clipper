@@ -1,9 +1,13 @@
+import Chart from 'chart.js';
 import { ChartConfiguration, ChartPoint } from 'chart.js';
 import { medgrey, lightgrey } from '../chartutil';
 import { scatterChartSpec, getScatterPointColor } from '../scatterChartSpec';
-import Chart from 'chart.js';
 
 const inputId = 'speed-input';
+
+const speedPointFormatter = (point) => {
+  return `T:${point.x.toFixed(2)}\nS:${+point.y.toFixed(2)}`;
+};
 
 const speedChartConfig: ChartConfiguration = {
   data: {
@@ -45,10 +49,19 @@ const speedChartConfig: ChartConfiguration = {
         },
       ],
     },
+    plugins: {
+      datalabels: {
+        formatter: speedPointFormatter,
+        font: {
+          size: 10,
+          weight: 'normal',
+        },
+      },
+    },
   },
 };
 
 export const speedChartSpec: ChartConfiguration = Chart.helpers.merge(
-  scatterChartSpec(inputId),
+  scatterChartSpec('speed', inputId),
   speedChartConfig
 );
