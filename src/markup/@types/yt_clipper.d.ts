@@ -107,7 +107,7 @@ interface SpeedPoint {
 interface CropPoint {
   x: number;
   y: 0;
-  crop: String;
+  crop: string;
 }
 
 interface ChartInput {
