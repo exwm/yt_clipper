@@ -804,6 +804,8 @@ def getCropFilter(cropMap, mps, fps):
     firstTime = cropMap[0]["x"]
     firstCropX,firstCropY,firstCropW,firstCropH,  = cropMap[0]["crop"].split(':')
     
+    cropXExpression = cropYExpression = cropWExpression = cropYExpression = ''
+
     for sect, (left, right) in enumerate(zip(cropMap[:-1], cropMap[1:])):
         startTime = left["x"] - firstTime
         startCrop = left["crop"].split(':')
@@ -814,24 +816,31 @@ def getCropFilter(cropMap, mps, fps):
         sectDuration = endTime - startTime
         if sectDuration == 0:
             continue
+        
+        easeP = f'((t-{startTime})/{sectDuration})'
+        lerpX = getEasingExpression('linear', f'({startX})', f'({endX})', easeP)
+        lerpY = getEasingExpression('linear', f'({startY})', f'({endY})', easeP)
+        # lerpW = getEasingExpression(f'({startW})', f'({endW})', easeP)
+        # lerpH = getEasingExpression(f'({startH})', f'({endH})', easeP)
 
-        lerpX = getEasingExpression('linear', f'({startX})', f'({endX})', f'(t/{sectDuration})')
-        lerpY = getEasingExpression('linear', f'({startY})', f'({endY})', f'(t/{sectDuration})')
-        # lerpW = getEasingExpression(f'({startW})', f'({endW})', f'(t/{sectDuration})')
-        # lerpH = getEasingExpression(f'({startH})', f'({endH})', f'(t/{sectDuration})')
-
-        cropXExpression = f'between(t, {startTime}, {endTime})*{lerpX}'
-        cropYExpression = f'between(t, {startTime}, {endTime})*{lerpY}'
-        # cropWExpression = f'between(t, {startTime}, {endTime})*{lerpW}'
-        # cropHExpression = f'between(t, {startTime}, {endTime})*{lerpH}'
-        cropWExpression = firstCropW
-        cropHExpression = firstCropH
-
-        if sect != nSects - 1:
-            cropXExpression += '+'
-            cropYExpression += '+'
-            cropWExpression += '+'
-            cropHExpression += '+'
+        if sect == nSects - 1:
+          cropXExpression += f'between(t, {startTime}, {endTime})*{lerpX}'
+          cropYExpression += f'between(t, {startTime}, {endTime})*{lerpY}'
+          # cropWExpression += f'between(t, {startTime}, {endTime})*{lerpW}'
+          # cropHExpression += f'between(t, {startTime}, {endTime})*{lerpH}'
+          cropWExpression = firstCropW
+          cropHExpression = firstCropH
+        else:
+          cropXExpression += f'(gte(t, {startTime})*lt(t, {endTime}))*{lerpX}'
+          cropYExpression += f'(gte(t, {startTime})*lt(t, {endTime}))*{lerpY}'
+          # cropWExpression += f'gte(t, {startTime})*lt(t, {endTime}))*{lerpW}'
+          # cropHExpression += f'gte(t, {startTime})*lt(t, {endTime}))*{lerpH}'
+          cropWExpression = firstCropW
+          cropHExpression = firstCropH
+          cropXExpression += '+'
+          cropYExpression += '+'
+          # cropWExpression += '+'
+          # cropHExpression += '+'
 
     cropFilter = f"crop='x={cropXExpression}:y={cropYExpression}:w={cropWExpression}:h={cropHExpression}'"
     return cropFilter
