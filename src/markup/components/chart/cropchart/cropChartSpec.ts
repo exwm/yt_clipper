@@ -1,10 +1,7 @@
 import Chart from 'chart.js';
 import { ChartConfiguration, ChartPoint } from 'chart.js';
 import { medgrey, lightgrey } from '../chartutil';
-import {
-  scatterChartSpec,
-  getScatterPointColor as getCropPointColor,
-} from '../scatterChartSpec';
+import { scatterChartSpec } from '../scatterChartSpec';
 import { CropPoint } from '../../../@types/yt_clipper';
 
 const inputId = 'crop-input';
@@ -16,6 +13,25 @@ export function setCurrentCropPointIndex(cropPointIndex: number) {
   currentCropPointIndex = cropPointIndex;
   console.log(currentCropPointIndex);
 }
+
+export let currentCropChartSection: [number, number] = [0, 1];
+export function setCurrentCropChartSection(
+  cropChart: Chart,
+  [left, right]: [number, number]
+) {
+  const cropChartData = cropChart.data.datasets[0].data;
+
+  if (left <= 0) {
+    currentCropChartSection = [0, 1];
+  } else if (left >= cropChartData.length - 1) {
+    currentCropChartSection = [cropChartData.length - 2, cropChartData.length - 1];
+  } else if (left === right) {
+    currentCropChartSection = [left, left + 1];
+  } else {
+    currentCropChartSection = [left, right];
+  }
+}
+
 export const updateCurrentCropPoint = function(cropChart: Chart, cropString: string) {
   const cropChartData = cropChart.data.datasets[0].data;
   const cropPoint = cropChartData[currentCropPointIndex] as CropPoint;
@@ -23,9 +39,25 @@ export const updateCurrentCropPoint = function(cropChart: Chart, cropString: str
   cropChart.update();
 };
 
+function getCropPointStyle(ctx) {
+  const index = ctx.dataIndex;
+  return index === currentCropPointIndex ? 'square' : 'circle';
+}
+
 function getCropPointColor(ctx) {
   const index = ctx.dataIndex;
-  return index === currentCropPointIndex ? 'green' : 'red';
+  // if (currentCropChartSection[0] === currentCropChartSection[1]) {
+  //   if (index === currentCropChartSection[0]) {
+  //     return;
+  //   }
+  // }
+  if (index === currentCropChartSection[0]) {
+    return 'green';
+  } else if (index === currentCropChartSection[1]) {
+    return 'yellow';
+  } else {
+    return 'red';
+  }
 }
 
 function getCropPointRadius(ctx) {
@@ -43,6 +75,7 @@ const cropChartConfig: ChartConfiguration = {
         showLine: true,
         pointBackgroundColor: getCropPointColor,
         pointBorderColor: medgrey(0.7),
+        pointStyle: getCropPointStyle,
         pointRadius: getCropPointRadius,
         pointHoverRadius: 4,
         pointHoverBorderWidth: 1.5,
