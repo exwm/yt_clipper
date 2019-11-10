@@ -5,7 +5,7 @@
 1. Prerequisites:
 
     - [Node.js](https://nodejs.org/) v10.0.0 or higher
-    - [Python](https://www.python.org/)
+    - [Python 3](https://www.python.org/)
     - [FFmpeg](https://ffmpeg.org/)
 
 2. In a terminal:
