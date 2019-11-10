@@ -60,10 +60,6 @@ function alignDataLabel(context) {
   }
 }
 
-function onHover(event, chartElement) {
-  event.target.style.cursor = chartElement[0] ? 'grab' : 'default';
-}
-
 export function scatterChartSpec(
   chartType: 'speed' | 'crop',
   inputId
@@ -241,15 +237,21 @@ export function scatterChartSpec(
       }
     }
 
+    if (event.ctrlKey && !event.altKey && !event.shiftKey) {
+      this.resetZoom();
+    }
+  };
+
+  function onHover(event, chartElements) {
+    event.target.style.cursor = chartElements[0] ? 'grab' : 'default';
     if (
       chartType === 'crop' &&
-      event.button === 0 &&
       event.ctrlKey &&
       !event.altKey &&
       !event.shiftKey &&
-      dataAtClick.length === 1
+      chartElements.length === 1
     ) {
-      const datum = dataAtClick[0];
+      const datum = chartElements[0];
       if (datum) {
         const index = datum['_index'];
         setCurrentCropPointIndex(index);
@@ -258,11 +260,8 @@ export function scatterChartSpec(
         updateInput(cropPoint.crop);
       }
     }
+  }
 
-    if (event.ctrlKey && !event.altKey && !event.shiftKey) {
-      this.resetZoom();
-    }
-  };
   return {
     type: 'scatter',
     options: {

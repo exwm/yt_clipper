@@ -18,7 +18,7 @@ const speedChartConfig: ChartConfiguration = {
         data: [] as ChartPoint[],
         showLine: true,
         pointBackgroundColor: getScatterPointColor,
-        pointBorderColor: medgrey(0.7),
+        pointBorderColor: medgrey(0.9),
         pointRadius: 5,
         pointHoverRadius: 4,
         pointHoverBorderWidth: 1.5,
