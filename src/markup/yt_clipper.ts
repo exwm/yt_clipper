@@ -51,6 +51,7 @@ import {
   setCurrentCropChartSection,
   currentCropChartSection,
   currentCropPointType,
+  setCurrentCropPoint,
 } from './components/chart/cropchart/cropChartSpec';
 import {
   Settings,
@@ -3681,8 +3682,13 @@ export let player: HTMLElement;
 
     function toggleOnMarkerPairEditor(targetMarker: SVGRectElement) {
       prevSelectedEndMarker = targetMarker;
-      prevSelectedMarkerPairIndex =
+      const selectedMarkerPairIndex =
         parseInt(prevSelectedEndMarker.getAttribute('idx')) - 1;
+      if (selectedMarkerPairIndex !== prevSelectedMarkerPairIndex) {
+        setCurrentCropPoint(null, 0, 'start');
+      }
+      console.log(currentCropPointIndex)
+      prevSelectedMarkerPairIndex = selectedMarkerPairIndex;
 
       highlightSelectedMarkerPair(targetMarker);
       enableMarkerHotkeys(targetMarker);
