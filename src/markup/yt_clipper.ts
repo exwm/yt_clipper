@@ -3494,16 +3494,6 @@ export let player: HTMLElement;
           currentChartInput.maxBound
         );
 
-        if (currentChartInput.type === 'crop') {
-          const searchCropPoint = { x: time, y: 0, crop: '' };
-          const [start, end] = bsearch(
-            chart.data.datasets[0].data,
-            searchCropPoint,
-            sortX
-          );
-          setCurrentCropChartSection(chart, [start, end]);
-        }
-
         chart.update();
         requestAnimationFrame(updateChartTimeAnnotation);
       }
@@ -3514,6 +3504,16 @@ export let player: HTMLElement;
         if (cropChartInput.chart) {
           const time = video.currentTime;
           const chart = cropChartInput.chart;
+
+          if (currentChartInput.type === 'crop') {
+            const searchCropPoint = { x: time, y: 0, crop: '' };
+            const [start, end] = bsearch(
+              chart.data.datasets[0].data,
+              searchCropPoint,
+              sortX
+            );
+            setCurrentCropChartSection(chart, [start, end]);
+          }
 
           cropChartSectionLoop();
           updateCropChartSectionOverlays(chart, time);
@@ -3687,7 +3687,7 @@ export let player: HTMLElement;
       if (selectedMarkerPairIndex !== prevSelectedMarkerPairIndex) {
         setCurrentCropPoint(null, 0, 'start');
       }
-      console.log(currentCropPointIndex)
+      console.log(currentCropPointIndex);
       prevSelectedMarkerPairIndex = selectedMarkerPairIndex;
 
       highlightSelectedMarkerPair(targetMarker);
