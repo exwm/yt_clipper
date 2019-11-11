@@ -51,7 +51,6 @@ import {
   setCurrentCropChartSection,
   currentCropChartSection,
   currentCropPointType,
-  setCurrentCropPoint,
 } from './components/chart/cropchart/cropChartSpec';
 import {
   Settings,
@@ -337,11 +336,28 @@ export let player: HTMLElement;
         initOnce();
         if (isHotkeysEnabled) {
           showShortcutsTableToggleButton();
+          enablePreventAltDefault();
           flashMessage('Enabled Hotkeys', 'green');
         } else {
           hideShortcutsTableToggleButton();
+          disablePreventAltDefault();
           flashMessage('Disabled Hotkeys', 'red');
         }
+      }
+    }
+
+    function enablePreventAltDefault() {
+      window.addEventListener('keyup', preventAltDefaultHandler, true);
+    }
+
+    function disablePreventAltDefault() {
+      window.removeEventListener('keyup', preventAltDefaultHandler, true);
+    }
+
+    function preventAltDefaultHandler(e: KeyboardEvent) {
+      if (e.code === 'AltLeft' && !e.ctrlKey && !e.shiftKey) {
+        console.log(e);
+        e.preventDefault();
       }
     }
 
@@ -3463,7 +3479,7 @@ export let player: HTMLElement;
             createCropOverlay(settings.newMarkerCrop);
           }
         }
-        flashMessage('Dynamic crop preview enabled', 'red');
+        flashMessage('Dynamic crop preview disabled', 'red');
       }
     }
 
