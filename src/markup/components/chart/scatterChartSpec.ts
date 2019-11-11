@@ -264,7 +264,7 @@ export function scatterChartSpec(
     }
   };
 
-  function onHover(event, chartElements) {
+  function onHover(event: MouseEvent, chartElements) {
     event.target.style.cursor = chartElements[0] ? 'grab' : 'default';
     if (chartType === 'crop' && !event.shiftKey && chartElements.length === 1) {
       let cropPointType: 'start' | 'end';
