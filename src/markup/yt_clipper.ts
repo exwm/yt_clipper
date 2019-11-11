@@ -49,6 +49,9 @@ import {
   cropChartSpec,
   currentCropPointIndex,
   setCurrentCropChartSection,
+  currentCropChartSection,
+  currentCropPointType,
+  setCurrentCropPoint,
 } from './components/chart/cropchart/cropChartSpec';
 import {
   Settings,
@@ -58,6 +61,7 @@ import {
   MarkerPairOverrides,
   ChartInput,
   ChartLoop,
+  CropPoint,
 } from './@types/yt_clipper';
 import JSZip from 'jszip';
 import { Chart, ChartConfiguration } from 'chart.js';
@@ -189,7 +193,7 @@ export let player: HTMLElement;
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              toggleMarkerLooping();
+              toggleMarkerPairLoop();
             } else if (!e.ctrlKey && !e.shiftKey && e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
@@ -198,6 +202,10 @@ export let player: HTMLElement;
               e.preventDefault();
               e.stopImmediatePropagation();
               toggleFadeLoopPreview();
+            } else if (e.ctrlKey && e.shiftKey && !e.altKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              toggleCropChartPreview();
             } else if (e.ctrlKey && e.shiftKey && e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
@@ -1213,7 +1221,7 @@ export let player: HTMLElement;
     }
 
     let isMarkerLoopPreviewOn = false;
-    function toggleMarkerLooping() {
+    function toggleMarkerPairLoop() {
       if (isMarkerLoopPreviewOn) {
         isMarkerLoopPreviewOn = false;
         flashMessage('Auto marker looping disabled', 'red');
@@ -1225,13 +1233,22 @@ export let player: HTMLElement;
     }
 
     function loopMarkerPair() {
-      if (isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
+      const cropChartPreviewLoop =
+        isCurrentChartVisible &&
+        currentChartInput &&
+        currentChartInput.type === 'crop' &&
+        isCropChartPreviewOn;
+
+      if (
+        isMarkerPairSettingsEditorOpen &&
+        !wasGlobalSettingsEditorOpen &&
+        !cropChartPreviewLoop
+      ) {
         if (prevSelectedMarkerPairIndex != null) {
           const markerPair = markerPairs[prevSelectedMarkerPairIndex];
           const chartLoop: ChartLoop = currentChartInput
             ? markerPair[currentChartInput.chartLoopKey]
             : null;
-
           if (
             chartLoop &&
             chartLoop.enabled &&
@@ -1399,18 +1416,21 @@ export let player: HTMLElement;
         isSpeedPreviewOn &&
         isMarkerLoopPreviewOn &&
         isGammaPreviewOn &&
-        isFadeLoopPreviewOn;
+        isFadeLoopPreviewOn &&
+        isCropChartPreviewOn;
       if (!isAllPreviewsOn) {
         !isSpeedPreviewOn && toggleSpeedDucking();
-        !isMarkerLoopPreviewOn && toggleMarkerLooping();
+        !isMarkerLoopPreviewOn && toggleMarkerPairLoop();
         !isGammaPreviewOn && toggleGammaPreview();
         !isFadeLoopPreviewOn && toggleFadeLoopPreview();
+        !isCropChartPreviewOn && toggleCropChartPreview();
         isAllPreviewsOn = true;
       } else {
         isSpeedPreviewOn && toggleSpeedDucking();
-        isMarkerLoopPreviewOn && toggleMarkerLooping();
+        isMarkerLoopPreviewOn && toggleMarkerPairLoop();
         isGammaPreviewOn && toggleGammaPreview();
         isFadeLoopPreviewOn && toggleFadeLoopPreview();
+        isCropChartPreviewOn && toggleCropChartPreview();
         isAllPreviewsOn = false;
       }
     }
@@ -2278,7 +2298,9 @@ export let player: HTMLElement;
 
         if (targetProperty === 'crop') {
           const [x, y, w, h] = getCropComponents(newValue);
-          setCropOverlayDimensions(x, y, w, h);
+          [cropRect, cropRectBorderBlack, cropRectBorderWhite].map((cropRect) =>
+            setCropOverlayDimensions(cropRect, x, y, w, h)
+          );
           const cropMap = target.cropMap;
           if (cropMap.length === 2 && cropMap[0].crop === cropMap[1].y) {
             target.cropMap[1].crop = newValue;
@@ -2731,34 +2753,82 @@ export let player: HTMLElement;
     let cropRect: Element;
     let cropRectBorderBlack: Element;
     let cropRectBorderWhite: Element;
+    let cropChartSectionStart: Element;
+    let cropChartSectionStartBorderGreen: Element;
+    let cropChartSectionStartBorderWhite: Element;
+    let cropChartSectionEnd: Element;
+    let cropChartSectionEndBorderYellow: Element;
+    let cropChartSectionEndBorderWhite: Element;
     function createCropOverlay(cropString: string) {
       deleteCropOverlay();
 
       const cropDiv = document.createElement('div');
       cropDiv.setAttribute('id', 'crop-div');
       cropDiv.innerHTML = `\
-      <svg id="crop-svg">
-        <defs>
-          <mask id="cropMask">
-            <rect x="0" y="0" width="100%" height="100%" fill="white"/>
-            <rect id="cropRect" x="0" y="0" width="100%" height="100%" fill="black"/>
-          </mask>
-        </defs>
-        <rect id="cropDim" mask="url(#cropMask)" x="0" y="0" width="100%" height="100%" fill="black" fill-opacity="${cropDimOpacity}"/>
-        <rect id="cropRectBorderBlack" x="0" y="0" width="100%" height="100%" fill="none" stroke="black" shape-rendering="geometricPrecision" stroke-width="1px" stroke-opacity="0.9" />
-        <rect id="cropRectBorderWhite" x="0" y="0" width="100%" height="100%" fill="none" stroke="white" shape-rendering="geometricPrecision" stroke-width="1px" stroke-dasharray="5 5" stroke-opacity="0.9"/>
-      </svg>`;
+        <svg id="crop-svg">
+          <defs>
+            <mask id="cropMask">
+              <rect x="0" y="0" width="100%" height="100%" fill="white" />
+              <rect id="cropRect" x="0" y="0" width="100%" height="100%" fill="black" />
+            </mask>
+          </defs>
+          <rect id="cropDim" mask="url(#cropMask)" x="0" y="0" width="100%" height="100%" 
+            fill="black" fill-opacity="${cropDimOpacity}"
+          />
+
+          <g id="cropChartSectionStart" opacity="0.9">
+            <rect id="cropChartSectionStartBorderGreen" x="0" y="0" width="0%" height="0%" fill="none" 
+              stroke="lime" shape-rendering="geometricPrecision" stroke-width="1px"
+            />
+            <rect id="cropChartSectionStartBorderWhite" x="0" y="0" width="0%" height="0%" fill="none" 
+              stroke="black" shape-rendering="geometricPrecision" stroke-width="1px" stroke-dasharray="5 5"
+            />
+          </g>
+          <g id="cropChartSectionEnd" opacity="0.9">
+            <rect id="cropChartSectionEndBorderYellow" x="0" y="0" width="0%" height="0%" fill="none" 
+              stroke="yellow" shape-rendering="geometricPrecision" stroke-width="1px"
+            />
+            <rect id="cropChartSectionEndBorderWhite" x="0" y="0" width="0%" height="0%" fill="none" 
+              stroke="black" shape-rendering="geometricPrecision" stroke-width="1px" stroke-dasharray="5 5" 
+            />
+          </g>
+
+
+          <rect id="cropRectBorderBlack" x="0" y="0" width="100%" height="100%" fill="none" 
+            stroke="black" shape-rendering="geometricPrecision" stroke-width="1px" stroke-opacity="0.9"
+          />
+          <rect id="cropRectBorderWhite" x="0" y="0" width="100%" height="100%" fill="none" 
+          stroke="white" shape-rendering="geometricPrecision" stroke-width="1px" stroke-dasharray="5 5" stroke-opacity="0.9"
+          />
+        </svg>
+      `;
       resizeCropOverlay(cropDiv);
       overlayHook.insertAdjacentElement('afterend', cropDiv);
       window.addEventListener('resize', () => resizeCropOverlay(cropDiv));
       cropSvg = cropDiv.firstElementChild as SVGSVGElement;
       cropDim = document.getElementById('cropDim');
-
-      cropRect = document.getElementById('cropRect');
+      cropRect = document.getElementById('cropRect') as Element;
       cropRectBorderBlack = document.getElementById('cropRectBorderBlack') as Element;
       cropRectBorderWhite = document.getElementById('cropRectBorderWhite') as Element;
-      const [x, y, w, h] = getCropComponents(cropString);
-      setCropOverlayDimensions(x, y, w, h);
+
+      cropChartSectionStart = document.getElementById('cropChartSectionStart') as Element;
+      cropChartSectionStartBorderGreen = document.getElementById(
+        'cropChartSectionStartBorderGreen'
+      ) as Element;
+      cropChartSectionStartBorderWhite = document.getElementById(
+        'cropChartSectionStartBorderWhite'
+      ) as Element;
+      cropChartSectionEnd = document.getElementById('cropChartSectionEnd') as Element;
+      cropChartSectionEndBorderYellow = document.getElementById(
+        'cropChartSectionEndBorderYellow'
+      ) as Element;
+      cropChartSectionEndBorderWhite = document.getElementById(
+        'cropChartSectionEndBorderWhite'
+      ) as Element;
+
+      [cropRect, cropRectBorderBlack, cropRectBorderWhite].map((cropRect) =>
+        setCropOverlay(cropRect, cropString)
+      );
       isCropOverlayVisible = true;
     }
 
@@ -2774,8 +2844,19 @@ export let player: HTMLElement;
       }
     }
 
-    function setCropOverlayDimensions(x: number, y: number, w: number, h: number) {
-      if (cropRect && cropRectBorderBlack && cropRectBorderWhite) {
+    function setCropOverlay(cropRect: Element, cropString: string) {
+      const [x, y, w, h] = getCropComponents(cropString);
+      setCropOverlayDimensions(cropRect, x, y, w, h);
+    }
+
+    function setCropOverlayDimensions(
+      cropRect: Element,
+      x: number,
+      y: number,
+      w: number,
+      h: number
+    ) {
+      if (cropRect) {
         const cropRectAttrs = {
           x: `${(x / settings.cropResWidth) * 100}%`,
           y: `${(y / settings.cropResHeight) * 100}%`,
@@ -2783,8 +2864,6 @@ export let player: HTMLElement;
           height: `${(h / settings.cropResHeight) * 100}%`,
         };
         setAttributes(cropRect, cropRectAttrs);
-        setAttributes(cropRectBorderBlack, cropRectAttrs);
-        setAttributes(cropRectBorderWhite, cropRectAttrs);
       }
     }
 
@@ -2832,6 +2911,11 @@ export let player: HTMLElement;
         currentChartInput.type !== 'crop'
       ) {
         flashMessage('Please toggle off the speed chart before drawing crop', 'olive');
+      } else if (!isCurrentChartVisible && isCropChartPreviewOn && cropChartInput.chart) {
+        flashMessage(
+          'Please toggle off the crop chart preview before drawing crop',
+          'olive'
+        );
       } else if (isDraggingCrop) {
         flashMessage('Please finish dragging or resizing before drawing crop', 'olive');
       } else if (isMarkerPairSettingsEditorOpen && isCropOverlayVisible) {
@@ -3000,7 +3084,9 @@ export let player: HTMLElement;
         } else {
           settings.newMarkerCrop = cropString;
         }
-        setCropOverlayDimensions(x, y, w, h);
+        [cropRect, cropRectBorderBlack, cropRectBorderWhite].map((cropRect) =>
+          setCropOverlayDimensions(cropRect, x, y, w, h)
+        );
         const cropAspectRatio = (w / h).toFixed(13);
         cropAspectRatioSpan && (cropAspectRatioSpan.textContent = cropAspectRatio);
       } else {
@@ -3361,6 +3447,26 @@ export let player: HTMLElement;
       chartConfig.options.plugins.zoom.zoom.rangeMax.x = end;
     }
 
+    let isCropChartPreviewOn = false;
+    function toggleCropChartPreview() {
+      if (!isCropChartPreviewOn) {
+        isCropChartPreviewOn = true;
+        requestAnimationFrame(cropChartPreviewHandler);
+        flashMessage('Dynamic crop preview enabled', 'green');
+      } else {
+        isCropChartPreviewOn = false;
+        deleteCropOverlay();
+        if (isMarkerPairSettingsEditorOpen) {
+          if (!wasGlobalSettingsEditorOpen) {
+            createCropOverlay(markerPairs[prevSelectedMarkerPairIndex].crop);
+          } else {
+            createCropOverlay(settings.newMarkerCrop);
+          }
+        }
+        flashMessage('Dynamic crop preview enabled', 'red');
+      }
+    }
+
     function updateChartTimeAnnotation() {
       if (isCurrentChartVisible) {
         const time = video.currentTime;
@@ -3370,17 +3476,127 @@ export let player: HTMLElement;
           currentChartInput.minBound,
           currentChartInput.maxBound
         );
+
         if (currentChartInput.type === 'crop') {
           const searchCropPoint = { x: time, y: 0, crop: '' };
-          setCurrentCropChartSection(
-            chart,
-            bsearch(chart.data.datasets[0].data, searchCropPoint, sortX)
+          const [start, end] = bsearch(
+            chart.data.datasets[0].data,
+            searchCropPoint,
+            sortX
           );
+          setCurrentCropChartSection(chart, [start, end]);
         }
 
         chart.update();
-
         requestAnimationFrame(updateChartTimeAnnotation);
+      }
+    }
+
+    function cropChartPreviewHandler() {
+      if (isCropChartPreviewOn) {
+        if (cropChartInput.chart) {
+          const time = video.currentTime;
+          const chart = cropChartInput.chart;
+
+          cropChartSectionLoop();
+          updateCropChartSectionOverlays(chart, time);
+        }
+
+        requestAnimationFrame(cropChartPreviewHandler);
+      }
+    }
+
+    function updateCropChartSectionOverlays(chart: Chart, currentTime: number) {
+      const sectStart = chart.data.datasets[0].data[
+        currentCropChartSection[0]
+      ] as CropPoint;
+      const sectEnd = chart.data.datasets[0].data[
+        currentCropChartSection[1]
+      ] as CropPoint;
+
+      [cropChartSectionStartBorderGreen, cropChartSectionStartBorderWhite].map(
+        (cropRect) => setCropOverlay(cropRect, sectStart.crop)
+      );
+      [cropChartSectionEndBorderYellow, cropChartSectionEndBorderWhite].map((cropRect) =>
+        setCropOverlay(cropRect, sectEnd.crop)
+      );
+
+      if (currentCropPointType === 'start') {
+        cropChartSectionStart.setAttribute('opacity', '0.9');
+        cropChartSectionEnd.setAttribute('opacity', '0.5');
+      } else if (currentCropPointType === 'end') {
+        cropChartSectionStart.setAttribute('opacity', '0.5');
+        cropChartSectionEnd.setAttribute('opacity', '0.9');
+      }
+
+      const [startX, startY, startW, startH] = getCropComponents(sectStart.crop);
+      const [endX, endY, endW, endH] = getCropComponents(sectEnd.crop);
+
+      const easingMode = 'linear';
+      const [easedX, easedY, easedW, easedH] = [
+        [startX, endX],
+        [startY, endY],
+        [startW, endW],
+        [startH, endH],
+      ].map((pair) =>
+        getEasedValue(easingMode, pair[0], pair[1], sectStart.x, sectEnd.x, currentTime)
+      );
+
+      [cropRect, cropRectBorderBlack, cropRectBorderWhite].map((cropRect) =>
+        setCropOverlayDimensions(cropRect, easedX, easedY, easedW, easedH)
+      );
+    }
+
+    function getEasedValue(
+      easingMode: string,
+      startValue: number,
+      endValue: number,
+      startTime: number,
+      endTime: number,
+      currentTime: number
+    ) {
+      const elapsed = currentTime - startTime;
+      const duration = endTime - startTime;
+      const change = endValue - startValue;
+
+      let easedTimePercentage: number;
+      if (easingMode === 'cubicInOut') {
+        easedTimePercentage = easeCubicInOut(elapsed / duration);
+      } else if (easingMode === 'linear') {
+        easedTimePercentage = elapsed / duration;
+      }
+
+      const easedValue = startValue + change * easedTimePercentage;
+      return easedValue;
+    }
+
+    function cropChartSectionLoop() {
+      if (isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
+        if (prevSelectedMarkerPairIndex != null) {
+          if (
+            isCurrentChartVisible &&
+            currentChartInput &&
+            currentChartInput.type === 'crop'
+          ) {
+            const chart = currentChartInput.chart;
+            const chartData = chart.data.datasets[0].data;
+            let sectStart: number;
+            let sectEnd: number;
+            if (currentCropPointType === 'start') {
+              sectStart = chartData[currentCropPointIndex].x;
+              sectEnd = chartData[currentCropPointIndex + 1].x;
+            } else if (currentCropPointType === 'end') {
+              sectStart = chartData[currentCropPointIndex - 1].x;
+              sectEnd = chartData[currentCropPointIndex].x;
+            }
+            const isTimeBetweenCropChartSection =
+              sectStart <= video.currentTime && video.currentTime <= sectEnd;
+
+            if (!isTimeBetweenCropChartSection) {
+              player.seekTo(sectStart);
+            }
+          }
+        }
       }
     }
 
