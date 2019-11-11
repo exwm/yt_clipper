@@ -8,10 +8,7 @@ import {
   roundY,
   getInputUpdater,
 } from './chartutil';
-import {
-  setCurrentCropPointIndex,
-  currentCropPointIndex,
-} from './cropchart/cropChartSpec';
+import { setCurrentCropPoint, currentCropPointIndex } from './cropchart/cropChartSpec';
 import { CropPoint } from '../../@types/yt_clipper';
 
 export const scatterChartDefaults: ChartOptions & ChartFontOptions = {
@@ -131,7 +128,7 @@ export function scatterChartSpec(
         const newCurrentCropPointIndex = chartInstance.data.datasets[datasetIndex].data
           .map((cropPoint) => cropPoint.x)
           .indexOf(currentCropPointXPreSort);
-        setCurrentCropPointIndex(newCurrentCropPointIndex);
+        setCurrentCropPoint(chartInstance, newCurrentCropPointIndex);
       }
 
       chartInstance.options.plugins.zoom.pan.enabled = true;
@@ -200,7 +197,7 @@ export function scatterChartSpec(
 
       // console.log(currentCropPointIndex, cropPointIndex);
       if (currentCropPointIndex >= cropPointIndex) {
-        setCurrentCropPointIndex(currentCropPointIndex + 1);
+        setCurrentCropPoint(this, currentCropPointIndex + 1);
       }
 
       if (cropPointIndex > 0) {
@@ -251,9 +248,9 @@ export function scatterChartSpec(
           dataRef.splice(index, 1);
           if (chartType === 'crop') {
             if (currentCropPointIndex === index) {
-              setCurrentCropPointIndex(0);
+              setCurrentCropPoint(this, 0);
             } else if (currentCropPointIndex > index) {
-              setCurrentCropPointIndex(currentCropPointIndex - 1);
+              setCurrentCropPoint(this, currentCropPointIndex - 1);
             }
           }
           updateInput();
@@ -269,17 +266,19 @@ export function scatterChartSpec(
 
   function onHover(event, chartElements) {
     event.target.style.cursor = chartElements[0] ? 'grab' : 'default';
-    if (
-      chartType === 'crop' &&
-      event.ctrlKey &&
-      !event.altKey &&
-      !event.shiftKey &&
-      chartElements.length === 1
-    ) {
+    if (chartType === 'crop' && !event.shiftKey && chartElements.length === 1) {
+      let cropPointType: 'start' | 'end';
+      if (event.ctrlKey && !event.altKey) {
+        cropPointType = 'start';
+      } else if (!event.ctrlKey && event.altKey) {
+        cropPointType = 'end';
+      } else {
+        return;
+      }
       const datum = chartElements[0];
       if (datum) {
         const index = datum['_index'];
-        setCurrentCropPointIndex(index);
+        setCurrentCropPoint(this, index, cropPointType);
         const cropChartData = this.data.datasets[0].data;
         const cropPoint = cropChartData[index] as CropPoint;
         updateInput(cropPoint.crop);
