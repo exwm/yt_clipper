@@ -9,9 +9,23 @@ const cropPointFormatter = (point) => {
   return `T:${point.x.toFixed(2)}\nC:${point.crop}`;
 };
 export let currentCropPointIndex: number = 0;
-export function setCurrentCropPointIndex(cropPointIndex: number) {
+export let currentCropPointType: 'start' | 'end' = 'start';
+export function setCurrentCropPoint(
+  cropChart: Chart,
+  cropPointIndex: number,
+  type?: 'start' | 'end'
+) {
   currentCropPointIndex = cropPointIndex;
-  console.log(currentCropPointIndex);
+  if (cropChart) {
+    const cropChartDataLength = cropChart.data.datasets[0].data.length;
+    if (cropPointIndex === 0) {
+      currentCropPointType = 'start';
+    } else if (cropPointIndex === cropChartDataLength - 1) {
+      currentCropPointType = 'end';
+    } else if (type) {
+      currentCropPointType = type;
+    }
+  }
 }
 
 export let currentCropChartSection: [number, number] = [0, 1];
