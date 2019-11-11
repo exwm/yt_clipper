@@ -11,20 +11,20 @@ const cropPointFormatter = (point) => {
 export let currentCropPointIndex: number = 0;
 export let currentCropPointType: 'start' | 'end' = 'start';
 export function setCurrentCropPoint(
-  cropChart: Chart,
+  cropChart: Chart | null,
   cropPointIndex: number,
   type?: 'start' | 'end'
 ) {
   currentCropPointIndex = cropPointIndex;
-  if (cropChart) {
-    const cropChartDataLength = cropChart.data.datasets[0].data.length;
-    if (cropPointIndex === 0) {
-      currentCropPointType = 'start';
-    } else if (cropPointIndex === cropChartDataLength - 1) {
-      currentCropPointType = 'end';
-    } else if (type) {
-      currentCropPointType = type;
-    }
+  if (cropPointIndex === 0) {
+    currentCropPointType = 'start';
+  } else if (cropChart && cropPointIndex === cropChart.data.datasets[0].data.length - 1) {
+    currentCropPointType = 'end';
+  } else if (!cropChart) {
+    currentCropPointIndex = 0;
+    currentCropPointType = 'start';
+  } else if (type) {
+    currentCropPointType = type;
   }
 }
 
