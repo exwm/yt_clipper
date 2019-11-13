@@ -357,7 +357,6 @@ export let player: HTMLElement;
 
     function preventAltDefaultHandler(e: KeyboardEvent) {
       if (e.code === 'AltLeft' && !e.ctrlKey && !e.shiftKey) {
-        console.log(e);
         e.preventDefault();
       }
     }
