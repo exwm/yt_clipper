@@ -398,24 +398,22 @@ def autoScaleCropMap(cropMap, settings):
 
 
 def getAutoScaledCropComponents(cropString, settings):
-  cropComponents = getCropComponents(cropString)
+  cropComponents = getCropComponents(cropString, settings["width"], settings["height"])
   cropComponents['x'] = settings["cropMultipleX"] * cropComponents['x']
-  if cropComponents['w'] != 'iw':
-      cropComponents['w'] = settings["cropMultipleX"] * cropComponents['w']
-  else:
-      cropComponents['w'] = settings["width"]
   cropComponents['y'] = settings["cropMultipleY"] * cropComponents['y']
-  if cropComponents['h'] != 'ih':
-      cropComponents['h'] = settings["cropMultipleY"] * cropComponents['h']
-  else:
-      cropComponents['h'] = settings["height"]
+  cropComponents['w'] = settings["cropMultipleX"] * cropComponents['w']
+  cropComponents['h'] = settings["cropMultipleY"] * cropComponents['h']
 
   scaledCropString = f'''{cropComponents['x']}:{cropComponents['y']}:{cropComponents['w']}:{cropComponents['h']}'''
   return scaledCropString, cropComponents
 
 
-def getCropComponents(cropString):
+def getCropComponents(cropString, videoWidth, videoHeight):
     cropComponents = cropString.split(':')
+    if cropComponents[2] == 'iw':
+        cropComponents[2] = videoWidth
+    if cropComponents[3] == 'ih':
+        cropComponents[3] = videoHeight
     cropComponents = {'x': float(cropComponents[0]), 'y': float(cropComponents[1]),
                       'w': float(cropComponents[2]), 'h': float(cropComponents[3])}
     return cropComponents
