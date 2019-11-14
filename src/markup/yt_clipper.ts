@@ -366,9 +366,8 @@ export let player: HTMLElement;
     window.addEventListener('keyup', removeCropOverlayHoverListener, true);
 
     function addCropOverlayHoverListener(e: KeyboardEvent) {
-      const isCropBlockingChartVisible =
-        !isCurrentChartVisible ||
-        (currentChartInput && currentChartInput.type !== 'crop');
+        const isCropBlockingChartVisible =
+          isCurrentChartVisible && currentChartInput && currentChartInput.type !== 'crop';
       if (
         e.key === 'Control' &&
         isHotkeysEnabled &&
@@ -465,8 +464,7 @@ export let player: HTMLElement;
       });
       function cropOverlayDragHandler(e) {
         const isCropBlockingChartVisible =
-          !isCurrentChartVisible ||
-          (currentChartInput && currentChartInput.type !== 'crop');
+          isCurrentChartVisible && currentChartInput && currentChartInput.type !== 'crop';
         if (
           e.ctrlKey &&
           isMarkerPairSettingsEditorOpen &&
