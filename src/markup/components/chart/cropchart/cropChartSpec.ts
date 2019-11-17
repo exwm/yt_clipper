@@ -3,6 +3,7 @@ import { ChartConfiguration, ChartPoint } from 'chart.js';
 import { medgrey, lightgrey } from '../chartutil';
 import { scatterChartSpec } from '../scatterChartSpec';
 import { CropPoint } from '../../../@types/yt_clipper';
+import { clampNumber } from '../../../util';
 
 const inputId = 'crop-input';
 const cropPointFormatter = (point) => {
@@ -15,16 +16,32 @@ export function setCurrentCropPoint(
   cropPointIndex: number,
   type?: 'start' | 'end'
 ) {
-  currentCropPointIndex = cropPointIndex;
+  const maxIndex = cropChart ? cropChart.data.datasets[0].data.length - 1 : 1;
+  currentCropPointIndex = clampNumber(cropPointIndex, 0, maxIndex);
+
   if (cropPointIndex === 0) {
     currentCropPointType = 'start';
-  } else if (cropChart && cropPointIndex === cropChart.data.datasets[0].data.length - 1) {
+    setCurrentCropChartSection(cropChart, [0, 1]);
+  } else if (cropPointIndex === maxIndex) {
     currentCropPointType = 'end';
+    setCurrentCropChartSection(cropChart, [maxIndex - 1, maxIndex]);
   } else if (!cropChart) {
-    currentCropPointIndex = 0;
     currentCropPointType = 'start';
+    setCurrentCropChartSection(cropChart, [
+      currentCropPointIndex,
+      currentCropPointIndex + 1,
+    ]);
   } else if (type) {
     currentCropPointType = type;
+    type === 'start'
+      ? setCurrentCropChartSection(cropChart, [
+          currentCropPointIndex,
+          currentCropPointIndex + 1,
+        ])
+      : setCurrentCropChartSection(cropChart, [
+          currentCropPointIndex - 1,
+          currentCropPointIndex,
+        ]);
   }
 }
 
@@ -33,12 +50,12 @@ export function setCurrentCropChartSection(
   cropChart: Chart,
   [left, right]: [number, number]
 ) {
-  const cropChartData = cropChart.data.datasets[0].data;
+  const maxIndex = cropChart ? cropChart.data.datasets[0].data.length - 1 : 1;
 
   if (left <= 0) {
     currentCropChartSection = [0, 1];
-  } else if (left >= cropChartData.length - 1) {
-    currentCropChartSection = [cropChartData.length - 2, cropChartData.length - 1];
+  } else if (left >= maxIndex) {
+    currentCropChartSection = [maxIndex - 1, maxIndex];
   } else if (left === right) {
     currentCropChartSection = [left, left + 1];
   } else {
