@@ -876,10 +876,43 @@ export let player: HTMLElement;
         }
       }
     }
+
+    document.body.addEventListener('wheel', inheritCropPointCrop, { passive: false });
+    function inheritCropPointCrop(event: WheelEvent) {
+      if (
+        isHotkeysEnabled &&
+        event.ctrlKey &&
+        event.altKey &&
+        event.shiftKey &&
+        Math.abs(event.deltaY) > 0 &&
+        isMarkerPairSettingsEditorOpen &&
+        !wasGlobalSettingsEditorOpen &&
+        prevSelectedEndMarker &&
+        cropChartInput.chart
+      ) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        const cropChart = cropChartInput.chart;
         const cropChartData = cropChart.data.datasets[0].data;
         const cropPoint = cropChartData[currentCropPointIndex] as CropPoint;
+        const oldCropPointCrop = cropPoint.crop;
+        if (event.deltaY < 0) {
+          const nextCropPoint = cropChartData[
+            Math.min(currentCropPointIndex + 1, cropChartData.length - 1)
+          ] as CropPoint;
+          cropPoint.crop = nextCropPoint.crop;
+        } else if (event.deltaY > 0) {
+          const prevCropPoint = cropChartData[
+            Math.max(currentCropPointIndex - 1, 0)
+          ] as CropPoint;
+          cropPoint.crop = prevCropPoint.crop;
+        }
         updateCropString(cropPoint.crop);
-        if (isCurrentChartVisible && currentChartInput.type === 'crop') {
+        if (
+          isCurrentChartVisible &&
+          currentChartInput.type === 'crop' &&
+          oldCropPointCrop === cropPoint.crop
+        ) {
           currentChartInput?.chart?.update();
         }
       }
