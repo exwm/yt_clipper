@@ -842,6 +842,49 @@ export let player: HTMLElement;
       }
     }
 
+    document.body.addEventListener('wheel', selectCropPoint, { passive: false });
+    function selectCropPoint(event: WheelEvent) {
+      if (
+        isHotkeysEnabled &&
+        !event.ctrlKey &&
+        event.altKey &&
+        !event.shiftKey &&
+        Math.abs(event.deltaY) > 0 &&
+        isMarkerPairSettingsEditorOpen &&
+        !wasGlobalSettingsEditorOpen &&
+        prevSelectedEndMarker &&
+        cropChartInput.chart
+      ) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        const cropChart = cropChartInput.chart;
+        const cropChartData = cropChart.data.datasets[0].data;
+        if (event.deltaY < 0) {
+          currentCropPointType === 'start'
+            ? setCurrentCropPoint(cropChart, currentCropPointIndex + 1, 'end')
+            : setCurrentCropPoint(cropChart, currentCropPointIndex, 'start');
+        } else if (event.deltaY > 0) {
+          currentCropPointType === 'start'
+            ? setCurrentCropPoint(cropChart, currentCropPointIndex, 'end')
+            : setCurrentCropPoint(cropChart, currentCropPointIndex - 1, 'start');
+        }
+        const cropPoint = cropChartData[currentCropPointIndex] as CropPoint;
+        cropInput.value = cropPoint.crop;
+        cropInput.dispatchEvent(new Event('change'));
+        if (isCurrentChartVisible && currentChartInput.type === 'crop') {
+          currentChartInput?.chart?.update();
+        }
+      }
+    }
+        const cropChartData = cropChart.data.datasets[0].data;
+        const cropPoint = cropChartData[currentCropPointIndex] as CropPoint;
+        updateCropString(cropPoint.crop);
+        if (isCurrentChartVisible && currentChartInput.type === 'crop') {
+          currentChartInput?.chart?.update();
+        }
+      }
+    }
+
     let settings: Settings;
     let markersSvg: SVGSVGElement;
     let markersDiv: HTMLDivElement;
