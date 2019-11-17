@@ -366,8 +366,8 @@ export let player: HTMLElement;
     window.addEventListener('keyup', removeCropOverlayHoverListener, true);
 
     function addCropOverlayHoverListener(e: KeyboardEvent) {
-        const isCropBlockingChartVisible =
-          isCurrentChartVisible && currentChartInput && currentChartInput.type !== 'crop';
+      const isCropBlockingChartVisible =
+        isCurrentChartVisible && currentChartInput && currentChartInput.type !== 'crop';
       if (
         e.key === 'Control' &&
         isHotkeysEnabled &&
@@ -2316,7 +2316,7 @@ export let player: HTMLElement;
             setCropOverlayDimensions(cropRect, x, y, w, h)
           );
           const cropMap = target.cropMap;
-          if (cropMap.length === 2 && cropMap[0].crop === cropMap[1].y) {
+          if (cropMap.length === 2 && cropMap[0].crop === cropMap[1].crop) {
             target.cropMap[1].crop = newValue;
           }
           target.cropMap[currentCropPointIndex].crop = newValue;
@@ -3084,14 +3084,19 @@ export let player: HTMLElement;
         cropInput.value = cropString;
         if (!wasGlobalSettingsEditorOpen) {
           const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+          const cropMap = markerPair.cropMap;
           if (
             currentChartInput &&
             currentChartInput.chart &&
             currentChartInput.type === 'crop'
           ) {
-            markerPair.cropMap[currentCropPointIndex].crop = cropString;
+            if (cropMap.length === 2 && cropMap[0].crop === cropMap[1].crop) {
+              cropMap[1].crop = cropString;
+            }
+            cropMap[currentCropPointIndex].crop = cropString;
             if (currentCropPointIndex === 0) markerPair.crop = cropString;
-            currentChartInput.chart.update();
+
+            cropChartInput.chart && cropChartInput.chart.update();
           } else {
             markerPair.crop = cropString;
           }
@@ -3528,9 +3533,10 @@ export let player: HTMLElement;
         currentCropChartSection[1]
       ] as CropPoint;
 
-      [cropChartSectionStartBorderGreen, cropChartSectionStartBorderWhite].map(
-        (cropRect) => setCropOverlay(cropRect, sectStart.crop)
-      );
+      [
+        cropChartSectionStartBorderGreen,
+        cropChartSectionStartBorderWhite,
+      ].map((cropRect) => setCropOverlay(cropRect, sectStart.crop));
       [cropChartSectionEndBorderYellow, cropChartSectionEndBorderWhite].map((cropRect) =>
         setCropOverlay(cropRect, sectEnd.crop)
       );
