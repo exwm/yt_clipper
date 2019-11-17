@@ -2434,6 +2434,14 @@ export let player: HTMLElement;
             markerPair.crop
           );
           markerPair.crop = multipliedCropString;
+          markerPair.cropMap.forEach((cropPoint) => {
+            const multipliedCropString = multiplyCropString(
+              cropMultipleX,
+              cropMultipleY,
+              cropPoint.crop
+            );
+            cropPoint.crop = multipliedCropString;
+          });
         });
       }
     }
