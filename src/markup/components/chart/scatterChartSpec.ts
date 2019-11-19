@@ -1,15 +1,15 @@
-import { ChartOptions, ChartFontOptions, ChartConfiguration } from 'chart.js';
+import { ChartConfiguration, ChartFontOptions, ChartOptions } from 'chart.js';
+import { CropPoint } from '../../@types/yt_clipper';
 import {
-  medgrey,
-  lightgrey,
+  getInputUpdater,
   grey,
-  sortX,
+  lightgrey,
+  medgrey,
   roundX,
   roundY,
-  getInputUpdater,
+  sortX,
 } from './chartutil';
-import { setCurrentCropPoint, currentCropPointIndex } from './cropchart/cropChartSpec';
-import { CropPoint } from '../../@types/yt_clipper';
+import { currentCropPointIndex, setCurrentCropPoint } from './cropchart/cropChartSpec';
 
 export const scatterChartDefaults: ChartOptions & ChartFontOptions = {
   defaultColor: 'rgba(255, 255, 255, 1)',
