@@ -1,14 +1,10 @@
-import Chart from 'chart.js';
-import { ChartConfiguration, ChartPoint } from 'chart.js';
-import { medgrey, lightgrey } from '../chartutil';
-import { scatterChartSpec } from '../scatterChartSpec';
+import Chart, { ChartConfiguration, ChartPoint } from 'chart.js';
 import { CropPoint } from '../../../@types/yt_clipper';
 import { clampNumber } from '../../../util';
+import { lightgrey, medgrey } from '../chartutil';
+import { scatterChartSpec } from '../scatterChartSpec';
 
 const inputId = 'crop-input';
-const cropPointFormatter = (point) => {
-  return `T:${point.x.toFixed(2)}\nC:${point.crop}`;
-};
 export let currentCropPointIndex: number = 0;
 export let currentCropPointType: 'start' | 'end' = 'start';
 export function setCurrentCropPoint(
@@ -68,6 +64,21 @@ export const updateCurrentCropPoint = function(cropChart: Chart, cropString: str
   const cropPoint = cropChartData[currentCropPointIndex] as CropPoint;
   cropPoint.crop = cropString;
   cropChart.update();
+};
+
+const cropPointFormatter = (point) => {
+  return `T:${point.x.toFixed(2)}\nC:${point.crop}`;
+};
+
+const cropPointXYFormatter = (point, ctx) => {
+  const [x, y, w, h] = point.crop.split(':');
+  const index = ctx.dataIndex;
+
+  const label =
+    index === 0
+      ? `T:${point.x.toFixed(2)}\nC:${x}:${y}:${w}:${h}`
+      : `T:${point.x.toFixed(2)}\nC:${x}:${y}`;
+  return label;
 };
 
 function getCropPointStyle(ctx) {
@@ -139,7 +150,20 @@ const cropChartConfig: ChartConfiguration = {
   },
 };
 
-export const cropChartSpec: ChartConfiguration = Chart.helpers.merge(
-  scatterChartSpec('crop', inputId),
-  cropChartConfig
-);
+export function getCropChartConfig(isCropChartPanOnly: boolean): ChartConfiguration {
+  let cropChartConfigOverrides: ChartConfiguration = {};
+  if (isCropChartPanOnly) {
+    cropChartConfigOverrides = {
+      options: { plugins: { datalabels: { formatter: cropPointXYFormatter } } },
+    };
+  }
+
+  const cropChartConfigOverridden = Chart.helpers.merge(
+    cropChartConfig,
+    cropChartConfigOverrides
+  );
+  return Chart.helpers.merge(
+    scatterChartSpec('crop', inputId),
+    cropChartConfigOverridden
+  );
+}

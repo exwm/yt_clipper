@@ -108,6 +108,8 @@ interface CropPoint {
   x: number;
   y: 0;
   crop: string;
+  prevCrop?: string;
+  initCrop?: string;
 }
 
 interface ChartInput {

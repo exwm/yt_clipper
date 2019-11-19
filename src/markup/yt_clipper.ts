@@ -25,49 +25,49 @@
 
 const __version__ = '0.0.89';
 
-import { saveAs } from 'file-saver';
-import { Tooltips } from './tooltips';
+import { Chart, ChartConfiguration } from 'chart.js';
 import { html } from 'common-tags';
+import { easeCubicInOut } from 'd3-ease';
+import { saveAs } from 'file-saver';
 import { readFileSync } from 'fs';
+import JSZip from 'jszip';
 import {
-  retryUntilTruthyResult,
-  toHHMMSSTrimmed,
-  copyToClipboard,
-  once,
-  toHHMMSS,
-  setAttributes,
-  clampNumber,
-  roundValue,
-  htmlToElement,
-  htmlToSVGElement,
-  deleteElement,
-  bsearch,
-} from './util';
-import { scatterChartDefaults } from './components/chart/scatterChartSpec';
-import { cubicInOutTension, sortX } from './components/chart/chartutil';
-import {
-  cropChartSpec,
-  currentCropPointIndex,
-  setCurrentCropChartSection,
-  currentCropChartSection,
-  currentCropPointType,
-  setCurrentCropPoint,
-} from './components/chart/cropchart/cropChartSpec';
-import {
-  Settings,
-  MarkerPair,
-  SpeedPoint,
-  MarkerConfig,
-  MarkerPairOverrides,
   ChartInput,
   ChartLoop,
   CropPoint,
+  MarkerConfig,
+  MarkerPair,
+  MarkerPairOverrides,
+  Settings,
+  SpeedPoint,
 } from './@types/yt_clipper';
-import JSZip from 'jszip';
-import { Chart, ChartConfiguration } from 'chart.js';
-import { speedChartSpec } from './components/chart/speedchart/speedChartSpec';
 import './components/chart/chart.js-drag-data-plugin';
-import { easeCubicInOut } from 'd3-ease';
+import { cubicInOutTension, sortX } from './components/chart/chartutil';
+import {
+  currentCropChartSection,
+  currentCropPointIndex,
+  currentCropPointType,
+  getCropChartConfig,
+  setCurrentCropChartSection,
+  setCurrentCropPoint,
+} from './components/chart/cropchart/cropChartSpec';
+import { scatterChartDefaults } from './components/chart/scatterChartSpec';
+import { speedChartSpec } from './components/chart/speedchart/speedChartSpec';
+import { Tooltips } from './tooltips';
+import {
+  bsearch,
+  clampNumber,
+  copyToClipboard,
+  deleteElement,
+  htmlToElement,
+  htmlToSVGElement,
+  once,
+  retryUntilTruthyResult,
+  roundValue,
+  setAttributes,
+  toHHMMSS,
+  toHHMMSSTrimmed,
+} from './util';
 const ytClipperCSS = readFileSync(__dirname + '/css/yt-clipper.css', 'utf8');
 const shortcutsTable = readFileSync(
   __dirname + '/components/shortcuts-table/shortcuts-table.html',
@@ -472,14 +472,20 @@ export let player: HTMLElement;
           !isDrawingCrop &&
           !isCropBlockingChartVisible
         ) {
-          const { minW, minH } = getMinWH();
-          const [ix, iy, iw, ih] = getCropComponents();
+          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+          const cropMap = markerPair.cropMap;
+          const cropString = cropMap[currentCropPointIndex].crop;
+          const [ix, iy, iw, ih] = getCropComponents(cropString);
+          cropMap.forEach((cropPoint) => {
+            cropPoint.initCrop = cropPoint.crop;
+          });
+
           const cropAspectRatio = iw / ih;
           const videoRect = player.getVideoContentRect();
           const playerRect = player.getBoundingClientRect();
           const clickPosX = e.pageX - videoRect.left - playerRect.left;
           const clickPosY = e.pageY - videoRect.top - playerRect.top;
-          const cursor = getMouseCropHoverRegion(e);
+          const cursor = getMouseCropHoverRegion(e, cropString);
 
           let resizeHandler;
           if (!cursor) {
@@ -572,7 +578,18 @@ export let player: HTMLElement;
             }
 
             const { resizedX, resizedY, resizedW, resizedH } = resizedDimensions;
-            updateCrop(resizedX, resizedY, resizedW, resizedH);
+
+            const { x, y, w, h, dx, dy, dw, dh } = clampCropMouseChange(
+              resizedX,
+              resizedY,
+              resizedW,
+              resizedH,
+              ix,
+              iy,
+              iw,
+              ih
+            );
+            updateCrop(x, y, w, h, { dx, dy, dw, dh });
           }
 
           function dragCropHandler(e) {
@@ -580,45 +597,47 @@ export let player: HTMLElement;
             const dragPosY = e.pageY - videoRect.top - playerRect.top;
             const changeX = dragPosX - clickPosX;
             const changeY = dragPosY - clickPosY;
-            let X = Math.round((changeX / videoRect.width) * settings.cropResWidth + ix);
+            let x = Math.round((changeX / videoRect.width) * settings.cropResWidth + ix);
 
-            let Y = Math.round(
+            let y = Math.round(
               (changeY / videoRect.height) * settings.cropResHeight + iy
             );
 
-            X = clampNumber(X, 0, settings.cropResWidth - iw);
-            Y = clampNumber(Y, 0, settings.cropResHeight - ih);
-            updateCrop(X, Y, iw, ih);
+            ({ x, y } = clampCropMouseChange(
+              x,
+              y,
+              iw,
+              ih,
+              ix,
+              iy,
+              iw,
+              ih,
+              null,
+              null,
+              true
+            ));
+            updateCrop(x, y, iw, ih);
           }
 
           function getResizeN(changeYScaled) {
             let Y = Math.round(iy + changeYScaled);
             let H = Math.round(ih - changeYScaled);
 
-            Y = clampNumber(Y, 0, iy + ih - minH);
-            H = clampNumber(H, minH, iy + ih);
-
             return { resizedX: ix, resizedY: Y, resizedW: iw, resizedH: H };
           }
 
           function getResizeE(changeXScaled) {
             let W = Math.round(iw + changeXScaled);
-            W = clampNumber(W, minW, settings.cropResWidth - ix);
             return { resizedX: ix, resizedY: iy, resizedW: W, resizedH: ih };
           }
 
           function getResizeS(changeYScaled) {
             let H = Math.round(ih + changeYScaled);
-
-            H = clampNumber(H, minH, settings.cropResHeight - iy);
             return { resizedX: ix, resizedY: iy, resizedW: iw, resizedH: H };
           }
           function getResizeW(changeXScaled) {
             let X = Math.round(ix + changeXScaled);
             let W = Math.round(iw - changeXScaled);
-
-            X = clampNumber(X, 0, ix + iw - minW);
-            W = clampNumber(W, minW, ix + iw);
             return { resizedX: X, resizedY: iy, resizedW: W, resizedH: ih };
           }
           function getResizeNE(changeXScaled, changeYScaled) {
@@ -626,18 +645,12 @@ export let player: HTMLElement;
             let W = Math.round(iw + changeXScaled);
             let H = Math.round(ih - changeYScaled);
 
-            Y = clampNumber(Y, 0, iy + ih - minH);
-            W = clampNumber(W, minW, settings.cropResWidth - ix);
-            H = clampNumber(H, minH, iy + ih);
             return { resizedX: ix, resizedY: Y, resizedW: W, resizedH: H };
           }
 
           function getResizeSE(changeXScaled, changeYScaled) {
             let W = Math.round(iw + changeXScaled);
             let H = Math.round(ih + changeYScaled);
-
-            W = clampNumber(W, minW, settings.cropResWidth - ix);
-            H = clampNumber(H, minH, settings.cropResHeight - iy);
             return { resizedX: ix, resizedY: iy, resizedW: W, resizedH: H };
           }
 
@@ -645,10 +658,6 @@ export let player: HTMLElement;
             let X = Math.round(ix + changeXScaled);
             let W = Math.round(iw - changeXScaled);
             let H = Math.round(ih + changeYScaled);
-
-            X = clampNumber(X, 0, ix + iw - minW);
-            W = clampNumber(W, minW, ix + iw);
-            H = clampNumber(H, minH, settings.cropResHeight - iy);
             return { resizedX: X, resizedY: iy, resizedW: W, resizedH: H };
           }
 
@@ -657,11 +666,6 @@ export let player: HTMLElement;
             let W = Math.round(iw - changeXScaled);
             let Y = Math.round(iy + changeYScaled);
             let H = Math.round(ih - changeYScaled);
-
-            X = clampNumber(X, 0, ix + iw - minW);
-            W = clampNumber(W, minW, ix + iw);
-            Y = clampNumber(Y, 0, iy + ih - minH);
-            H = clampNumber(H, minH, iy + ih);
             return { resizedX: X, resizedY: Y, resizedW: W, resizedH: H };
           }
 
@@ -672,6 +676,9 @@ export let player: HTMLElement;
 
             cropInput.dispatchEvent(new Event('change'));
 
+            cropMap.forEach((cropPoint) => {
+              delete cropPoint.initCrop;
+            });
             cursor === 'grab'
               ? document.removeEventListener('pointermove', dragCropHandler)
               : document.removeEventListener('pointermove', resizeHandler);
@@ -692,8 +699,107 @@ export let player: HTMLElement;
       }
     }
 
-    function getMouseCropHoverRegion(e: MouseEvent) {
-      const [x, y, w, h] = getCropComponents();
+    function clampCropMouseChange(
+      x,
+      y,
+      w,
+      h,
+      ix,
+      iy,
+      iw,
+      ih,
+      minW?,
+      minH?,
+      isDrag = false
+    ) {
+      let [minX, minY] = [0, 0];
+      if (minW == null || minH == null) {
+        ({ minW, minH } = getMinWH());
+      }
+      let dx = x - ix;
+      let dy = y - iy;
+      let dw = w - iw;
+      let dh = h - ih;
+      const isWestResize = dx !== 0 && dw !== 0;
+      const isNorthResize = dy !== 0 && dh !== 0;
+      let { maxX, maxY, maxW, maxH } = getCropMaxBounds(
+        ix,
+        iy,
+        iw,
+        ih,
+        minW,
+        minH,
+        isDrag,
+        isWestResize,
+        isNorthResize
+      );
+      if (isCropChartPanOnly && !isDrag) {
+        const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+        const cropMap = markerPair.cropMap;
+
+        cropMap.forEach((cropPoint) => {
+          const [ixcp, iycp, iwcp, ihcp] = getCropComponents(cropPoint.initCrop);
+
+          const {
+            // maxX: maxXCP,
+            // maxY: maxYCP,
+            maxW: maxWCP,
+            maxH: maxHCP,
+          } = getCropMaxBounds(
+            ixcp,
+            iycp,
+            iwcp,
+            ihcp,
+            minW,
+            minH,
+            isDrag,
+            isWestResize,
+            isNorthResize
+          );
+          // maxX = dx != 0 ? Math.min(maxX, maxXCP) : maxX;
+          minX = dx != 0 ? Math.max(minX, ix - ixcp) : minX;
+          // maxY = dy != 0 ? Math.min(maxY, maxYCP) : maxY;
+          minY = dy != 0 ? Math.max(minY, iy - iycp) : minY;
+          maxW = dw != 0 ? Math.min(maxW, maxWCP) : maxW;
+          maxH = dh != 0 ? Math.min(maxH, maxHCP) : maxH;
+        });
+      }
+
+      x = x != null ? clampNumber(x, minX, maxX) : null;
+      y = y != null ? clampNumber(y, minY, maxY) : null;
+      w = w != null ? clampNumber(w, minW, maxW) : null;
+      h = h != null ? clampNumber(h, minH, maxH) : null;
+
+      dx = x - ix;
+      dy = y - iy;
+      dw = w - iw;
+      dh = h - ih;
+      return { x, y, w, h, dx, dy, dw, dh };
+    }
+
+    function getCropMaxBounds(
+      ix,
+      iy,
+      iw,
+      ih,
+      minW,
+      minH,
+      isDrag = false,
+      isWestResize,
+      isNorthResize
+    ) {
+      const maxX = isDrag ? settings.cropResWidth - iw : ix + iw - minW;
+      const maxY = isDrag ? settings.cropResHeight - ih : iy + ih - minH;
+      const maxW = isWestResize ? ix + iw : settings.cropResWidth - ix;
+      const maxH = isNorthResize ? iy + ih : settings.cropResHeight - iy;
+      return { maxX, maxY, minW, maxW, minH, maxH };
+    }
+
+    function getMouseCropHoverRegion(e: MouseEvent, cropString?: string) {
+      cropString =
+        cropString ??
+        markerPairs[prevSelectedMarkerPairIndex].cropMap[currentCropPointIndex].crop;
+      const [x, y, w, h] = getCropComponents(cropString);
       const videoRect = player.getVideoContentRect();
       const playerRect = player.getBoundingClientRect();
       const clickPosX = e.pageX - videoRect.left - playerRect.left;
@@ -705,7 +811,7 @@ export let player: HTMLElement;
       const sl = Math.ceil(Math.min(w, h) * slMultiplier * 0.1);
       const edgeOffset = 30 * slMultiplier;
       let cursor: string;
-      let mouseCropColumn: number;
+      let mouseCropColumn: 1 | 2 | 3;
       if (x - edgeOffset < clickPosXScaled && clickPosXScaled < x + sl) {
         mouseCropColumn = 1;
       } else if (x + sl < clickPosXScaled && clickPosXScaled < x + w - sl) {
@@ -713,7 +819,7 @@ export let player: HTMLElement;
       } else if (x + w - sl < clickPosXScaled && clickPosXScaled < x + w + edgeOffset) {
         mouseCropColumn = 3;
       }
-      let mouseCropRow: number;
+      let mouseCropRow: 1 | 2 | 3;
       if (y - edgeOffset < clickPosYScaled && clickPosYScaled < y + sl) {
         mouseCropRow = 1;
       } else if (y + sl < clickPosYScaled && clickPosYScaled < y + h - sl) {
@@ -2367,6 +2473,7 @@ export let player: HTMLElement;
           }
         }
 
+        const prevValue = target[targetProperty];
         target[targetProperty] = newValue;
 
         if (targetProperty === 'newMarkerCrop') {
@@ -2387,7 +2494,18 @@ export let player: HTMLElement;
         }
 
         if (targetProperty === 'crop') {
-          const [x, y, w, h] = getCropComponents(newValue);
+          let [x, y, w, h] = getCropComponents(newValue);
+          if (currentCropPointIndex !== 0 && isCropChartPanOnly) {
+            target.cropMap.map((cropPoint) => {
+              let [ix, iy, iw, ih] = getCropComponents(cropPoint.crop);
+              iw = w;
+              ih = h;
+              cropPoint.crop = [ix, iy, iw, ih].join(':');
+              return cropPoint;
+            });
+            target.crop = prevValue;
+          }
+
           [cropRect, cropRectBorderBlack, cropRectBorderWhite].map((cropRect) =>
             setCropOverlayDimensions(cropRect, x, y, w, h)
           );
@@ -3019,7 +3137,12 @@ export let player: HTMLElement;
       } else if (isMarkerPairSettingsEditorOpen && isCropOverlayVisible) {
         isDrawingCrop = true;
         if (!wasGlobalSettingsEditorOpen) {
-          prevCropString = markerPairs[prevSelectedMarkerPairIndex].crop;
+          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+          const cropMap = markerPair.cropMap;
+          prevCropString = markerPair.crop;
+          cropMap.forEach((cropPoint) => {
+            cropPoint.prevCrop = cropPoint.crop;
+          });
         } else {
           prevCropString = settings.newMarkerCrop;
         }
@@ -3027,7 +3150,7 @@ export let player: HTMLElement;
         window.removeEventListener('mousemove', cropOverlayHoverHandler, true);
         hidePlayerControls();
         video.style.removeProperty('cursor');
-        playerInfo.container.style.cursor = 'crosshair';
+        player.style.cursor = 'crosshair';
         beginDrawHandler = (e: PointerEvent) => beginDraw(e, verticalFill);
         playerInfo.container.addEventListener('pointerdown', beginDrawHandler, {
           once: true,
@@ -3068,6 +3191,20 @@ export let player: HTMLElement;
         }
         ixScaled = clampNumber(ixScaled, 0, settings.cropResWidth);
         iyScaled = clampNumber(iyScaled, 0, settings.cropResHeight);
+
+        const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+        const cropMap = markerPair.cropMap;
+        if (cropMap.length === 2 && cropMap[0].crop === cropMap[1].crop) {
+          cropMap[1].crop = [ixScaled, iyScaled, 0, 0].join(':');
+        } else if (isCropChartPanOnly) {
+          cropMap.forEach((cropPoint, idx) => {
+            if (idx === currentCropPointIndex) return;
+            let [ix, iy, ,] = getCropComponents(cropPoint.crop);
+            cropPoint.crop = [ix, iy, 0, 0].join(':');
+            cropPoint.initCrop = cropPoint.crop;
+          });
+        }
+
         updateCrop(ixScaled, iyScaled, 0, 0);
 
         dragCropPreviewHandler = function(e: PointerEvent) {
@@ -3101,10 +3238,19 @@ export let player: HTMLElement;
             h = iyScaled - y;
           }
 
-          w = clampNumber(w, 0, settings.cropResWidth);
-          h = clampNumber(h, 0, settings.cropResHeight);
-
-          updateCrop(x, y, w, h);
+          let { x: fx, y: fy, w: fw, h: fh, dx, dy, dw, dh } = clampCropMouseChange(
+            x,
+            y,
+            w,
+            h,
+            x,
+            y,
+            0,
+            0,
+            0,
+            0
+          );
+          updateCrop(fx, fy, fw, fh, { dx, dy, dw, dh });
         };
 
         window.addEventListener('pointermove', dragCropPreviewHandler);
@@ -3138,7 +3284,7 @@ export let player: HTMLElement;
 
     function finishDrawingCrop(prevCropString?: string, pointerId?: number) {
       if (pointerId) video.releasePointerCapture(pointerId);
-      playerInfo.container.style.removeProperty('cursor');
+      player.style.removeProperty('cursor');
       playerInfo.container.removeEventListener('pointerdown', beginDrawHandler, true);
       window.removeEventListener('pointermove', dragCropPreviewHandler);
       window.removeEventListener('pointerup', endDraw, true);
@@ -3148,19 +3294,33 @@ export let player: HTMLElement;
       window.addEventListener('keydown', addCropOverlayHoverListener, true);
       if (prevCropString) {
         updateCropString(prevCropString);
+        markerPairs[prevSelectedMarkerPairIndex].cropMap.forEach((cropPoint) => {
+          cropPoint.crop = cropPoint.prevCrop;
+        });
         flashMessage('Drawing crop canceled', 'red');
       } else {
         cropInput.dispatchEvent(new Event('change'));
         flashMessage('Finished drawing crop', 'green');
       }
+      markerPairs[prevSelectedMarkerPairIndex].cropMap.forEach((cropPoint) => {
+        delete cropPoint.prevCrop;
+        delete cropPoint.initCrop;
+      });
     }
 
     function updateCropString(cropString) {
       const [x, y, w, h] = getCropComponents(cropString);
-      updateCrop(x, y, w, h, cropString);
+      updateCrop(x, y, w, h, null, cropString);
     }
 
-    function updateCrop(x: number, y: number, w: number, h: number, cropString?: string) {
+    function updateCrop(
+      x: number,
+      y: number,
+      w: number,
+      h: number,
+      deltas?: { dx: number; dy: number; dw: number; dh: number },
+      cropString?: string
+    ) {
       if (!cropString) {
         cropString = `${x}:${y}:${w}:${h}`;
       }
@@ -3169,21 +3329,23 @@ export let player: HTMLElement;
         if (!wasGlobalSettingsEditorOpen) {
           const markerPair = markerPairs[prevSelectedMarkerPairIndex];
           const cropMap = markerPair.cropMap;
-          if (
-            currentChartInput &&
-            currentChartInput.chart &&
-            currentChartInput.type === 'crop'
-          ) {
-            if (cropMap.length === 2 && cropMap[0].crop === cropMap[1].crop) {
-              cropMap[1].crop = cropString;
-            }
-            cropMap[currentCropPointIndex].crop = cropString;
-            if (currentCropPointIndex === 0) markerPair.crop = cropString;
-
-            cropChartInput.chart && cropChartInput.chart.update();
-          } else {
-            markerPair.crop = cropString;
+          if (cropMap.length === 2 && cropMap[0].crop === cropMap[1].crop) {
+            cropMap[1].crop = cropString;
+          } else if (isCropChartPanOnly && deltas) {
+            cropMap.forEach((cropPoint, idx) => {
+              if (idx === currentCropPointIndex) return;
+              let [ix, iy, iw, ih] = getCropComponents(cropPoint.initCrop);
+              ix += deltas.dx;
+              iy += deltas.dy;
+              iw += deltas.dw;
+              ih += deltas.dh;
+              cropPoint.crop = [ix, iy, iw, ih].join(':');
+            });
           }
+
+          cropMap[currentCropPointIndex].crop = cropString;
+          if (currentCropPointIndex === 0) markerPair.crop = cropString;
+          cropChartInput.chart && cropChartInput.chart.update();
         } else {
           settings.newMarkerCrop = cropString;
         }
@@ -3324,6 +3486,7 @@ export let player: HTMLElement;
       dataMapKey: 'speedMap',
     };
 
+    let isCropChartPanOnly = true;
     let cropChartInput: ChartInput = {
       chart: null,
       type: 'crop',
@@ -3334,7 +3497,7 @@ export let player: HTMLElement;
       chartContainerStyle: 'display:flex',
       chartCanvasHTML: `<canvas id="cropChartCanvas" width="1600px" height="87px"></canvas>`,
       chartCanvasId: 'cropChartCanvas',
-      chartSpec: cropChartSpec,
+      chartSpec: getCropChartConfig(isCropChartPanOnly),
       minBound: 0,
       maxBound: 0,
       chartLoopKey: 'cropChartLoop',
@@ -3774,7 +3937,6 @@ export let player: HTMLElement;
       if (selectedMarkerPairIndex !== prevSelectedMarkerPairIndex) {
         setCurrentCropPoint(null, 0, 'start');
       }
-      console.log(currentCropPointIndex);
       prevSelectedMarkerPairIndex = selectedMarkerPairIndex;
 
       highlightSelectedMarkerPair(targetMarker);
