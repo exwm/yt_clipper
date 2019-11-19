@@ -724,6 +724,7 @@ def runffmpegCommand(ffmpegCommands, markerPairIndex, mp):
         return {**(settings["markerPairs"][markerPairIndex]), **mp}
     else:
         logger.error(f'Failed to generate: "{mp["fileName"]}"\n')
+        logger.error(f'ffmpeg error code: "{ffmpegProcess.returncode}"\n')
         return {**(settings["markerPairs"][markerPairIndex])}
 
 def getSpeedFilterAndDuration(speedMap, mps, fps):
@@ -946,6 +947,7 @@ def makeMergedClips(settings):
                 logger.info(f'Successfuly generated: "{mergedFileName}"\n')
             else:
                 logger.info(f'Failed to generate: "{mergedFileName}"\n')
+                logger.error(f'ffmpeg error code: "{ffmpegProcess.returncode}"\n')
         else:
             logger.info(f'Skipped existing file: "{mergedFileName}"\n')
 
