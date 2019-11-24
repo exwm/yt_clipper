@@ -398,7 +398,7 @@ def autoScaleCropMap(cropMap, settings):
 
 
 def getAutoScaledCropComponents(cropString, settings):
-  cropComponents = getCropComponents(cropString, settings["width"], settings["height"])
+  cropComponents = getCropComponents(cropString, settings["cropResWidth"], settings["cropResHeight"])
   cropComponents['x'] = settings["cropMultipleX"] * cropComponents['x']
   cropComponents['y'] = settings["cropMultipleY"] * cropComponents['y']
   cropComponents['w'] = settings["cropMultipleX"] * cropComponents['w']
@@ -408,12 +408,12 @@ def getAutoScaledCropComponents(cropString, settings):
   return scaledCropString, cropComponents
 
 
-def getCropComponents(cropString, videoWidth, videoHeight):
+def getCropComponents(cropString, cropResWidth, cropResheight):
     cropComponents = cropString.split(':')
     if cropComponents[2] == 'iw':
-        cropComponents[2] = videoWidth
+        cropComponents[2] = cropResWidth
     if cropComponents[3] == 'ih':
-        cropComponents[3] = videoHeight
+        cropComponents[3] = cropResheight
     cropComponents = {'x': float(cropComponents[0]), 'y': float(cropComponents[1]),
                       'w': float(cropComponents[2]), 'h': float(cropComponents[3])}
     return cropComponents
@@ -795,7 +795,7 @@ def getSpeedFilterAndDuration(speedMap, mps, fps):
 
     return video_filter_speed_map, outputDuration
 
-def getCropFilter(cropMap, mps, fps):
+def getCropFilter(cropMap, mps, fps, easeType = 'easeInOutSine'):
     logger.info('-' * 80)
     fps = Fraction(fps)
     frameDur = 1 / fps
@@ -817,10 +817,10 @@ def getCropFilter(cropMap, mps, fps):
             continue
         
         easeP = f'((t-{startTime})/{sectDuration})'
-        lerpX = getEasingExpression('linear', f'({startX})', f'({endX})', easeP)
-        lerpY = getEasingExpression('linear', f'({startY})', f'({endY})', easeP)
-        # lerpW = getEasingExpression(f'({startW})', f'({endW})', easeP)
-        # lerpH = getEasingExpression(f'({startH})', f'({endH})', easeP)
+        lerpX = getEasingExpression(easeType, f'({startX})', f'({endX})', easeP)
+        lerpY = getEasingExpression(easeType, f'({startY})', f'({endY})', easeP)
+        # lerpW = getEasingExpression(easeType, f'({startW})', f'({endW})', easeP)
+        # lerpH = getEasingExpression(easeType, f'({startH})', f'({endH})', easeP)
 
         if sect == nSects - 1:
           cropXExpression += f'between(t, {startTime}, {endTime})*{lerpX}'
@@ -1017,11 +1017,11 @@ def autoSetCropMultiples(settings):
         if settings["cropResHeight"] != settings["height"]:
             logger.warning(
                 f'Crop resolution height ({settings["cropResHeight"]}) not equal to video height ({settings["height"]})')
-        logger.info(
-            f'Crop X offset and width will be multiplied by {cropMultipleX}')
-        logger.info(
-            f'Crop Y offset and height will be multiplied by {cropMultipleY}')
         if not settings["noAutoScaleCropRes"]:
+            logger.info(
+                f'Crop X offset and width will be multiplied by {cropMultipleX}')
+            logger.info(
+                f'Crop Y offset and height will be multiplied by {cropMultipleY}')
             return {**settings, 'cropMultipleX': cropMultipleX, 'cropMultipleY': cropMultipleY}
         else:
             logger.info(f'Auto scale crop resolution disabled in settings.')
