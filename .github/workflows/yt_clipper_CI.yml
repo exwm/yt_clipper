@@ -46,13 +46,31 @@ jobs:
       - name: Generate executable
         run: npm run build:py
 
-      - name: Set up artifacts
-        run: |
-          mkdir -p ./artifact/py/yt_clipper/
-          cp ./dist/py/yt_clipper* ./artifact/py/yt_clipper
+      - name: Set up artifacts dir
+        run: mkdir -p ./artifact/py/yt_clipper_{win,mac}/{webms,bin}/
 
-      - name: Upload clipper script installation artifact
+      - name: Copy win artifacts
+        if: matrix.os == 'windows-latest'
+        run: |
+          cp ./src/clipper/win_helpers/* ./artifact/py/yt_clipper_win/
+          cp ./dist/py/yt_clipper.exe ./artifact/py/yt_clipper_win/
+
+      - name: Copy mac artifacts
+        if: matrix.os == 'macOS-10.14'
+        run: |
+          cp ./src/clipper/mac_helpers/* ./artifact/py/yt_clipper_mac/
+          cp ./dist/py/yt_clipper ./artifact/py/yt_clipper_mac/
+
+      - name: Upload win clipper script installation artifact
+        if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v1
         with:
           name: Clipper Installation
-          path: artifact/py/yt_clipper/
+          path: artifact/py/yt_clipper_win/
+
+      - name: Upload mac clipper script installation artifact
+        if: matrix.os == 'macOS-10.14'
+        uses: actions/upload-artifact@v1
+        with:
+          name: Clipper Installation
+          path: artifact/py/yt_clipper_mac/
