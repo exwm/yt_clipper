@@ -43,10 +43,5 @@ jobs:
       #     flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
       #     # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
       #     flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-      - name: Generate executable (mac)
-        if: matrix.os == 'macOS-10.14'
-        run: sudo pyinstaller ./src/clipper/yt_clipper.py -F --workpath ./dist/py/work --distpath ./dist/py/ --specpath ./dist/py/spec
-
-      - name: Generate executable (win)
-        if: matrix.os == 'windows-latest'
+      - name: Generate executable
         run: npm run build:py
