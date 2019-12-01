@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import itertools
 import json
 import logging
 import os
@@ -9,7 +8,6 @@ import re
 import shlex
 import subprocess
 import sys
-import glob
 from pathlib import Path
 from math import floor, ceil, log
 from fractions import Fraction
@@ -70,7 +68,7 @@ def main():
     with open(settings["json"], 'r', encoding='utf-8-sig') as file:
         markersJson = file.read()
         settings = loadMarkers(markersJson, settings)
-    settings["videoTitle"] = re.sub('"', '',  settings["videoTitle"])
+    settings["videoTitle"] = re.sub('"', '', settings["videoTitle"])
     settings["markersDataFileStem"] = Path(settings["json"]).stem
     settings["titleSuffix"] = settings["markersDataFileStem"]
     webmsPath += f'/{settings["titleSuffix"]}'
@@ -106,7 +104,8 @@ def main():
         logger.warning(
             "Automatically fetched video previews can only loop up to 32767 frames (~9 min at 60fps).")
         logger.warning(
-            "When previewing, a local video file uses less memory and does not require re-streaming from the internet on seek with right-click.")
+            "When previewing, a local video file uses less memory and does not require re-streaming from the"
+            "internet on seek with right-click.")
         logger.warning(
             "A local video also enables toggling of video correction filters with W.")
         if not settings["noAutoFindInputVideo"]:
@@ -126,7 +125,8 @@ def main():
                     f'Specify an input video path OR press ENTER to continue without doing so: ')
                 if settings["inputVideo"] == '':
                     logger.info(
-                        f'The video can also be downloaded before previewing to the path: "{settings["downloadVideoPath"]}"')
+                        f'The video can also be downloaded before previewing to the path: '
+                        f'"{settings["downloadVideoPath"]}"')
                     logger.info(
                         "Note the file extension will be automatically determined.")
                     logger.info(
@@ -200,8 +200,9 @@ def buildArgParser():
     parser.add_argument('--download-video', '-dv', action='store_true', dest='downloadVideo',
                         help='Download video from the internet and use as input video for processing marker data.')
     parser.add_argument('--markers-json', '-j', required=True, dest='json',
-                        help=('Specify markers json path for generating webms from input video.' +
-                              'Automatically streams required portions of input video from the internet if it is not otherwise specified.'))
+                        help=('Specify markers json path for generating webms from input video.'
+                              'Automatically streams required portions of input video from the '
+                              'internet if it is not otherwise specified.'))
     parser.add_argument('--overlay', '-o', dest='overlay',
                         help='overlay image path')
     parser.add_argument('--multiply-crop', '-mc', type=float, dest='cropMultiple', default=1,
@@ -215,31 +216,39 @@ def buildArgParser():
                         help='upload all output webms to gfycat and print reddit markdown with all links')
     parser.add_argument('--audio', '-a', action='store_true',
                         help='Enable audio in output webms.')
-    parser.add_argument('--format', '-f', default='bestvideo+(bestaudio[acodec=opus]/bestaudio[acodec=vorbis]/bestaudio)',
+    parser.add_argument('--format', '-f', default='bestvideo+(bestaudio[acodec=opus]/bestaudio)',
                         help='Specify format string passed to youtube-dl.')
     parser.add_argument('--extra-video-filters', '-evf', dest='extraVideoFilters', default='',
                         help='Specify any extra video filters to be passed to ffmpeg.')
     parser.add_argument('--delay', '-d', type=float, dest='delay', default=0,
                         help='Add a fixed delay to both the start and end time of each marker. Can be negative.')
     parser.add_argument('--gamma', '-ga', type=float, dest='gamma', default=1,
-                        help='Apply luminance gamma correction. Pass in a value between 0 and 1 to brighten shadows and reveal darker details.')
+                        help='Apply luminance gamma correction.'
+                        'Pass in a value between 0 and 1 to brighten shadows and reveal darker details.')
     parser.add_argument('--rotate', '-r', choices=['clock', 'cclock'],
                         help='Rotate video 90 degrees clockwise or counter-clockwise.')
     parser.add_argument('--denoise', '-dn', type=int, default=0, choices=range(0, 6),
-                        help='Apply the hqdn3d denoise filter using a preset strength level from 0-5 where 0 is disabled and 5 is very strong.')
-    parser.add_argument('--video-stabilization', '-vs', dest='videoStabilization', type=int, default=0, choices=range(0, 7),
-                        help='Apply video stabilization using a preset strength level from 0-6 where 0 is disabled and 6 is strongest.')
-    parser.add_argument('--video-stabilization-dynamic-zoom', '-vsdz', dest='videoStabilizationDynamicZoom', type=bool, default=False,
-                        help='Enable video stabilization dynamic zoom. Unlike a static zoom the zoom in can vary with time to reduce cropping of video.')
+                        help='Apply the hqdn3d denoise filter using a preset strength level from 0-5 '
+                        'where 0 is disabled and 5 is very strong.')
+    parser.add_argument('--video-stabilization', '-vs', dest='videoStabilization',
+                        type=int, default=0, choices=range(0, 7),
+                        help='Apply video stabilization using a preset strength from 0-6 '
+                        'where 0 is disabled and 6 is strongest.')
+    parser.add_argument('--video-stabilization-dynamic-zoom', '-vsdz',
+                        dest='videoStabilizationDynamicZoom', type=bool, default=False,
+                        help='Enable video stabilization dynamic zoom. '
+                        'Unlike a static zoom the zoom in can vary with time to reduce cropping of video.')
     parser.add_argument('--deinterlace', '-di', action='store_true',
                         help='Apply bwdif deinterlacing.')
     parser.add_argument('--expand-color-range', '-ecr', dest='expandColorRange', action='store_true',
                         help='Expand the output video color range to full (0-255).')
     parser.add_argument('--loop', '-l', dest='loop', choices=['none', 'fwrev', 'fade'], default='none',
-                        help='Apply special looping effect to marker pair clips. For a forward-reverse or ping-pong loop use fwrev. For a cross-fading loop use fade.')
+                        help='Apply special looping effect to marker pair clips. '
+                        'For a forward-reverse or ping-pong loop use fwrev. For a cross-fading loop use fade.')
     parser.add_argument('--fade-duration', '-fd', type=float, dest='fadeDuration', default=0.5,
-                        help=('When cross-fading loop is enabled set the duration over which to cross-fade the end and start of the clip. '
-                              + 'The fade duration is clamped to a minimum of 0.1 seconds and a maximum of 40%% of the output clip duration.'))
+                        help=('When fade loop is enabled, set the duration of the fade for both clip start and end. '
+                              'The fade duration is clamped to a minimum of 0.1 seconds '
+                              'and a maximum of 40%% of the output clip duration.'))
     parser.add_argument('--encode-speed', '-s', type=int, dest='encodeSpeed', choices=range(0, 6),
                         help='Set the vp9 encoding speed.')
     parser.add_argument('--crf', type=int,
@@ -251,10 +260,12 @@ def buildArgParser():
                         help=('Set target max bitrate in kilobits/s. Constrains bitrate of complex scenes.' +
                               'Automatically set based on detected video bitrate.'))
     parser.add_argument('--no-auto-scale-crop-res', '-nascr', dest='noAutoScaleCropRes', action='store_true',
-                        help=('Disable automatically scaling the crop resolution when a mismatch with video resolution is detected.'))
+                        help=('Disable automatically scaling the crop resolution '
+                              'when a mismatch with video resolution is detected.'))
     parser.add_argument('--preview', '-p', action='store_true',
-                        help=('Pass in semicolon separated lists of marker pairs.'
-                              + 'Lists of marker pairs are comma-separated numbers or dash separated ranges. (eg 1-3,7;4-6,9)'))
+                        help=('Pass in semicolon separated lists of marker pairs. '
+                              'Lists of marker pairs are comma-separated numbers or dash separated ranges. '
+                              '(eg 1-3,7;4-6,9)'))
     parser.add_argument('--no-auto-find-input-video', '-nafiv', dest='noAutoFindInputVideo', action='store_true',
                         help='Disable automatic detection and usage of input video when not in preview mode.')
     parser.add_argument('--no-speed-maps', '-nsm', dest='noSpeedMaps', action='store_true',
@@ -265,7 +276,7 @@ def buildArgParser():
 def loadMarkers(markersJson, settings):
     markersDict = json.loads(markersJson)
     settings = {**settings, **markersDict}
-    if "markers" in settings and not "markerPairs" in settings:
+    if "markers" in settings and "markerPairs" not in settings:
         settings["markerPairs"] = settings["markers"]
     settings["videoURL"] = 'https://www.youtube.com/watch?v=' + \
         settings["videoID"]
@@ -276,7 +287,8 @@ def loadMarkers(markersJson, settings):
 def getVideoURL(settings):
     from youtube_dl import YoutubeDL
 
-    ydl_opts = {'format': settings["format"], 'forceurl': True, 'ffmpeg_location': ffmpegPath, 'merge_output_format': 'mkv',
+    ydl_opts = {'format': settings["format"], 'forceurl': True,
+                'ffmpeg_location': ffmpegPath, 'merge_output_format': 'mkv',
                 'outtmpl': f'{settings["downloadVideoPath"]}.%(ext)s'}
     ydl = YoutubeDL(ydl_opts)
     if settings["downloadVideo"]:
@@ -340,10 +352,10 @@ def getVideoInfo(settings, videoInfo):
                 "Could not fetch local input video info with ffprobe.")
         settings = {**settings, **videoInfo}
 
-    if settings["isDashVideo"] or not "bit_rate" in settings:
+    if settings["isDashVideo"] or "bit_rate" not in settings:
         settings["bit_rate"] = int(videoInfo["tbr"])
 
-    if not "r_frame_rate" in settings:
+    if "r_frame_rate" not in settings:
         settings["r_frame_rate"] = videoInfo["fps"]
 
     logger.info(f'Video Title: {settings["videoTitle"]}')
@@ -367,20 +379,25 @@ def prepareGlobalSettings(settings):
 
     logger.info('-' * 80)
     unknownColorSpaceMsg = "unknown (bt709 will be assumed for color range operations)"
+    globalColorSpaceMsg = f'{settings["color_space"] if settings["color_space"] else unknownColorSpaceMsg}'
     logger.info((f'Automatically determined encoding settings: CRF: {encodeSettings["crf"]} (0-63), ' +
                  f'Auto Target Max Bitrate: {encodeSettings["autoTargetMaxBitrate"]}kbps, ' +
-                 f'Detected Color Space: {settings["color_space"] if settings["color_space"] else  unknownColorSpaceMsg}, ' +
+                 f'Detected Color Space: {globalColorSpaceMsg}, ' +
                  f'Two-pass Encoding Enabled: {encodeSettings["twoPass"]}, ' +
                  f'Encoding Speed: {encodeSettings["encodeSpeed"]} (0-5)'))
 
     settings = {**encodeSettings, **settings}
 
     logger.info('-' * 80)
+    globalTargetBitrateMsg = {str(
+        settings["targetMaxBitrate"]) + "kbps" if "targetMaxBitrate" in settings else "None"}
     logger.info((f'Global Encoding Settings: CRF: {settings["crf"]} (0-63), ' +
                  f'Detected Bitrate: {settings["bit_rate"]}kbps, ' +
-                 f'Global Target Max Bitrate: {str(settings["targetMaxBitrate"]) + "kbps" if "targetMaxBitrate" in settings else "None"}, ' +
-                 f'Two-pass Encoding Enabled: {settings["twoPass"]}, Encoding Speed: {settings["encodeSpeed"]} (0-5), ' +
-                 f'Audio Enabled: {settings["audio"]}, Denoise: {settings["denoise"]["desc"]}, Rotate: {settings["rotate"]}, ' +
+                 f'Global Target Bitrate: {globalTargetBitrateMsg}, ' +
+                 f'Two-pass Encoding Enabled: {settings["twoPass"]}, ' +
+                 f'Encoding Speed: {settings["encodeSpeed"]} (0-5), ' +
+                 f'Audio Enabled: {settings["audio"]}, ' +
+                 f'Denoise: {settings["denoise"]["desc"]}, Rotate: {settings["rotate"]}, ' +
                  f'Expand Color Range Enabled: {settings["expandColorRange"]}, ' +
                  f'Speed Maps Enabled: {settings["enableSpeedMaps"]}, ' +
                  f'Special Looping: {settings["loop"]}, ' +
@@ -391,21 +408,22 @@ def prepareGlobalSettings(settings):
 
 
 def autoScaleCropMap(cropMap, settings):
-  for cropPoint in cropMap:
-    cropString = cropPoint["crop"]
-    cropPoint["crop"], cropPoint["cropComponents"] = getAutoScaledCropComponents(
-        cropString, settings)
+    for cropPoint in cropMap:
+        cropString = cropPoint["crop"]
+        cropPoint["crop"], cropPoint["cropComponents"] = getAutoScaledCropComponents(
+            cropString, settings)
 
 
 def getAutoScaledCropComponents(cropString, settings):
-  cropComponents = getCropComponents(cropString, settings["cropResWidth"], settings["cropResHeight"])
-  cropComponents['x'] = settings["cropMultipleX"] * cropComponents['x']
-  cropComponents['y'] = settings["cropMultipleY"] * cropComponents['y']
-  cropComponents['w'] = settings["cropMultipleX"] * cropComponents['w']
-  cropComponents['h'] = settings["cropMultipleY"] * cropComponents['h']
+    cropComponents = getCropComponents(
+        cropString, settings["cropResWidth"], settings["cropResHeight"])
+    cropComponents['x'] = settings["cropMultipleX"] * cropComponents['x']
+    cropComponents['y'] = settings["cropMultipleY"] * cropComponents['y']
+    cropComponents['w'] = settings["cropMultipleX"] * cropComponents['w']
+    cropComponents['h'] = settings["cropMultipleY"] * cropComponents['h']
 
-  scaledCropString = f'''{cropComponents['x']}:{cropComponents['y']}:{cropComponents['w']}:{cropComponents['h']}'''
-  return scaledCropString, cropComponents
+    scaledCropString = f'''{cropComponents['x']}:{cropComponents['y']}:{cropComponents['w']}:{cropComponents['h']}'''
+    return scaledCropString, cropComponents
 
 
 def getCropComponents(cropString, cropResWidth, cropResheight):
@@ -418,14 +436,17 @@ def getCropComponents(cropString, cropResWidth, cropResheight):
                       'w': float(cropComponents[2]), 'h': float(cropComponents[3])}
     return cropComponents
 
+
 def getMarkerPairSettings(settings, markerPairIndex):
     mp = markerPair = {**(settings["markerPairs"][markerPairIndex])}
 
-    cropString, cropComponents = getAutoScaledCropComponents(mp["crop"], settings)
+    cropString, cropComponents = getAutoScaledCropComponents(
+        mp["crop"], settings)
     mp["crop"] = cropString
     mp["cropComponents"] = cropComponents
 
-    bitrateCropFactor = (cropComponents['w'] * cropComponents['h']) / (settings["width"] * settings["height"])
+    bitrateCropFactor = (
+        cropComponents['w'] * cropComponents['h']) / (settings["width"] * settings["height"])
     markerPairEncodeSettings = getDefaultEncodeSettings(
         settings["bit_rate"] * bitrateCropFactor)
     settings = {**markerPairEncodeSettings, **settings}
@@ -442,7 +463,8 @@ def getMarkerPairSettings(settings, markerPairIndex):
     if not mps["preview"]:
         if "titlePrefix" in mps:
             mps["titlePrefix"] = cleanFileName(mps["titlePrefix"])
-        mp["fileNameStem"] = f'{mps["titlePrefix"] + "-" if "titlePrefix" in mps else ""}{mps["titleSuffix"]}-{markerPairIndex + 1}'
+        titlePrefix = f'{mps["titlePrefix"] + "-" if "titlePrefix" in mps else ""}'
+        mp["fileNameStem"] = f'{titlePrefix}{mps["titleSuffix"]}-{markerPairIndex + 1}'
         mp["fileName"] = f'{mp["fileNameStem"]}.webm'
         mp["filePath"] = f'{webmsPath}/{mp["fileName"]}'
         if checkWebmExists(mp["fileName"], mp["filePath"]):
@@ -469,25 +491,23 @@ def getMarkerPairSettings(settings, markerPairIndex):
     mp["speedFilter"], mp["outputDuration"] = getSpeedFilterAndDuration(
         mp["speedMap"], mps, mps["r_frame_rate"])
 
-
     mp["isVariableCrop"] = False
 
     if "enableCropMaps" not in mp:
-       mps["enableCropMaps"] = True
+        mps["enableCropMaps"] = True
 
     if mps["enableCropMaps"] and "cropMap" in mp:
-      autoScaleCropMap(mp["cropMap"], settings)
-      for left, right in zip(mp["cropMap"][:-1], mp["cropMap"][1:]):
-          if left["y"] != right["y"]:
-            mp["isVariableCrop"] = True
-            break
+        autoScaleCropMap(mp["cropMap"], settings)
+        for left, right in zip(mp["cropMap"][:-1], mp["cropMap"][1:]):
+            if left["y"] != right["y"]:
+                mp["isVariableCrop"] = True
+                break
     else:
         mp["cropMap"] = [{"x": mp["start"], "y":0, "crop": cropString, "cropComponents": cropComponents}, {
-            "x": mp["end"], "y":0,"crop": cropString, "cropComponents": cropComponents}]
+            "x": mp["end"], "y":0, "crop": cropString, "cropComponents": cropComponents}]
 
     print(mp["cropMap"])
     mp["cropFilter"] = getCropFilter(mp["cropMap"], mps, mps["r_frame_rate"])
-
 
     titlePrefixLogMsg = f'Title Prefix: {mps["titlePrefix"] if "titlePrefix" in mps else ""}'
     logger.info('-' * 80)
@@ -611,12 +631,13 @@ def makeMarkerPairClip(settings, markerPairIndex):
         loop_filter = ''
         loop_filter += f',split=2[f1][f2];'
         loop_filter += f'[f1]{mp["speedFilter"]}[f];'
-        loop_filter += f'''[f2]{reverseSpeedFilter},select='gt(n,0)',reverse,select='gt(n,0)',setpts=(PTS-STARTPTS)[r];'''
+        loop_filter += f'''[f2]{reverseSpeedFilter},select='gt(n,0)',reverse,select='gt(n,0)','''
+        loop_filter += f'setpts=(PTS-STARTPTS)[r];'
         loop_filter += f'[f][r]concat=n=2'
     if mps["loop"] == 'fade':
         dur = mp["outputDuration"]
         fadeDur = mps["fadeDuration"] = max(
-            0.1, min(mps["fadeDuration"], 0.4*mp["outputDuration"]))
+            0.1, min(mps["fadeDuration"], 0.4 * mp["outputDuration"]))
 
         easeA = f'1'
         easeB = f'0'
@@ -633,7 +654,8 @@ def makeMarkerPairClip(settings, markerPairIndex):
         loop_filter += f'''[m][cf]concat=n=2'''
 
     if mps["preview"]:
-        return runffplayCommand(inputs, video_filter, video_filter_before_correction, audio_filter, markerPairIndex, mp, mps)
+        return runffplayCommand(inputs, video_filter, video_filter_before_correction,
+                                audio_filter, markerPairIndex, mp, mps)
 
     vidstabEnabled = mps["videoStabilization"]["enabled"]
     if vidstabEnabled:
@@ -727,6 +749,7 @@ def runffmpegCommand(ffmpegCommands, markerPairIndex, mp):
         logger.error(f'ffmpeg error code: "{ffmpegProcess.returncode}"\n')
         return {**(settings["markerPairs"][markerPairIndex])}
 
+
 def getSpeedFilterAndDuration(speedMap, mps, fps):
     logger.info('-' * 80)
     video_filter_speed_map = ''
@@ -739,7 +762,7 @@ def getSpeedFilterAndDuration(speedMap, mps, fps):
     # Account for marker pair start time as trim filter sets start time to ~0
     speedMapStartTime = speedMap[0]["x"]
     # Account for first input frame delay due to potentially imprecise trim
-    startt = ceil(speedMapStartTime/frameDur) * frameDur - speedMapStartTime
+    startt = ceil(speedMapStartTime / frameDur) * frameDur - speedMapStartTime
     logger.info(f'First Input Frame Time: {startt}')
 
     for sect, (left, right) in enumerate(zip(speedMap[:-1], speedMap[1:])):
@@ -753,12 +776,12 @@ def getSpeedFilterAndDuration(speedMap, mps, fps):
         if sect == nSects - 1:
             logger.info(
                 f'Last Input Frame Time: {right["x"] - speedMapStartTime - startt}')
-            sectEnd = floor(right["x"]/frameDur) * frameDur
+            sectEnd = floor(right["x"] / frameDur) * frameDur
             # When trim is frame-precise, the frame that begins at the marker pair end time is not included
             if right["x"] - sectEnd < 1e-10:
                 sectEnd = sectEnd - frameDur
             sectEnd = sectEnd - speedMapStartTime - startt
-            sectEnd = floor(sectEnd*1000000) / 1000000
+            sectEnd = floor(sectEnd * 1000000) / 1000000
             logger.info(f'Last Input Frame Time (Rounded): {sectEnd}')
 
         sectDuration = sectEnd - sectStart
@@ -771,12 +794,12 @@ def getSpeedFilterAndDuration(speedMap, mps, fps):
         if speedChange == 0:
             # Duration is time multiplied by slowdown (or time divided by speed)
             sliceDuration = f'(min((T-STARTT-{sectStart}),{sectDuration})/{endSpeed})'
-            outputDuration += sectDuration/endSpeed
+            outputDuration += sectDuration / endSpeed
         else:
             # Integrate the reciprocal of the linear time vs speed function for the current section
             sliceDuration = f'(1/{m})*(log(abs({m}*min((T-STARTT),{sectEnd})+{b}))-log(abs({m}*{sectStart}+{b})))'
-            outputDuration += (1/m) * (log(abs(m * sectEnd
-                                               + b)) - log(abs(m*sectStart + b)))
+            outputDuration += (1 / m) * (log(abs(m * sectEnd + b)
+                                             ) - log(abs(m * sectStart + b)))
         sliceDuration = f'if(gte((T-STARTT),{sectStart}), {sliceDuration},0)'
 
         if sect == 0:
@@ -788,26 +811,27 @@ def getSpeedFilterAndDuration(speedMap, mps, fps):
 
     logger.info(f'Last Output Frame Time: {outputDuration}')
     # Each output frame time is rounded to the nearest multiple of a frame's duration at the given fps
-    outputDuration = round(outputDuration/frameDur)*frameDur
+    outputDuration = round(outputDuration / frameDur) * frameDur
     # The last included frame is held for a single frame's duration
     outputDuration += frameDur
-    outputDuration = round(outputDuration*1000) / 1000
+    outputDuration = round(outputDuration * 1000) / 1000
 
     return video_filter_speed_map, outputDuration
 
-def getCropFilter(cropMap, mps, fps, easeType = 'easeInOutSine'):
+
+def getCropFilter(cropMap, mps, fps, easeType='easeInOutSine'):
     logger.info('-' * 80)
     fps = Fraction(fps)
-    frameDur = 1 / fps
+    # frameDur = 1 / fps
     nSects = len(cropMap) - 1
     firstTime = cropMap[0]["x"]
-    firstCropX,firstCropY,firstCropW,firstCropH,  = cropMap[0]["crop"].split(':')
-    
+    firstCropX, firstCropY, firstCropW, firstCropH = cropMap[0]["crop"].split(
+        ':')
+
     cropXExpression = cropYExpression = cropWExpression = cropYExpression = ''
 
     for sect, (left, right) in enumerate(zip(cropMap[:-1], cropMap[1:])):
         startTime = left["x"] - firstTime
-        startCrop = left["crop"].split(':')
         startX, startY, startW, startH = left["crop"].split(':')
         endTime = right["x"] - firstTime
         endX, endY, endW, endH = right["crop"].split(':')
@@ -815,34 +839,37 @@ def getCropFilter(cropMap, mps, fps, easeType = 'easeInOutSine'):
         sectDuration = endTime - startTime
         if sectDuration == 0:
             continue
-        
+
         easeP = f'((t-{startTime})/{sectDuration})'
-        lerpX = getEasingExpression(easeType, f'({startX})', f'({endX})', easeP)
-        lerpY = getEasingExpression(easeType, f'({startY})', f'({endY})', easeP)
+        lerpX = getEasingExpression(
+            easeType, f'({startX})', f'({endX})', easeP)
+        lerpY = getEasingExpression(
+            easeType, f'({startY})', f'({endY})', easeP)
         # lerpW = getEasingExpression(easeType, f'({startW})', f'({endW})', easeP)
         # lerpH = getEasingExpression(easeType, f'({startH})', f'({endH})', easeP)
 
         if sect == nSects - 1:
-          cropXExpression += f'between(t, {startTime}, {endTime})*{lerpX}'
-          cropYExpression += f'between(t, {startTime}, {endTime})*{lerpY}'
-          # cropWExpression += f'between(t, {startTime}, {endTime})*{lerpW}'
-          # cropHExpression += f'between(t, {startTime}, {endTime})*{lerpH}'
-          cropWExpression = firstCropW
-          cropHExpression = firstCropH
+            cropXExpression += f'between(t, {startTime}, {endTime})*{lerpX}'
+            cropYExpression += f'between(t, {startTime}, {endTime})*{lerpY}'
+            # cropWExpression += f'between(t, {startTime}, {endTime})*{lerpW}'
+            # cropHExpression += f'between(t, {startTime}, {endTime})*{lerpH}'
+            cropWExpression = firstCropW
+            cropHExpression = firstCropH
         else:
-          cropXExpression += f'(gte(t, {startTime})*lt(t, {endTime}))*{lerpX}'
-          cropYExpression += f'(gte(t, {startTime})*lt(t, {endTime}))*{lerpY}'
-          # cropWExpression += f'gte(t, {startTime})*lt(t, {endTime}))*{lerpW}'
-          # cropHExpression += f'gte(t, {startTime})*lt(t, {endTime}))*{lerpH}'
-          cropWExpression = firstCropW
-          cropHExpression = firstCropH
-          cropXExpression += '+'
-          cropYExpression += '+'
-          # cropWExpression += '+'
-          # cropHExpression += '+'
+            cropXExpression += f'(gte(t, {startTime})*lt(t, {endTime}))*{lerpX}'
+            cropYExpression += f'(gte(t, {startTime})*lt(t, {endTime}))*{lerpY}'
+            # cropWExpression += f'gte(t, {startTime})*lt(t, {endTime}))*{lerpW}'
+            # cropHExpression += f'gte(t, {startTime})*lt(t, {endTime}))*{lerpH}'
+            cropWExpression = firstCropW
+            cropHExpression = firstCropH
+            cropXExpression += '+'
+            cropYExpression += '+'
+            # cropWExpression += '+'
+            # cropHExpression += '+'
 
     cropFilter = f"crop='x={cropXExpression}:y={cropYExpression}:w={cropWExpression}:h={cropHExpression}'"
     return cropFilter
+
 
 def getEasingExpression(easingFunc, easeA, easeB, easeP):
     easeT = f'(2*{easeP})'
@@ -884,7 +911,7 @@ def runffplayCommand(inputs, video_filter, video_filter_before_correction, audio
 
         logger.info('Using ffplay command: ' +
                     re.sub(r'(&a?itags?.*?")', r'"', ffplayCommand) + '\n')
-        ffplayProcess = subprocess.run(shlex.split(ffplayCommand))
+        subprocess.run(shlex.split(ffplayCommand))
 
 
 class MissingMergeInput(Exception):
@@ -906,7 +933,7 @@ def makeMergedClips(settings):
         logger.info('-' * 80)
         try:
             for i in mergeList:
-                markerPair = settings["markerPairs"][i-1]
+                markerPair = settings["markerPairs"][i - 1]
                 if 'fileName' in markerPair and 'filePath' in markerPair:
                     if Path(markerPair["filePath"]).is_file():
                         inputs += f'''file '{settings["markerPairs"][i-1]["fileName"]}'\n'''
@@ -936,7 +963,8 @@ def makeMergedClips(settings):
             inputsTxt.write(inputs)
         mergedFileName = f'{settings["titleSuffix"]}-({merge}).webm'
         mergedFilePath = f'{webmsPath}/{mergedFileName}'
-        ffmpegConcatCmd = f' "{ffmpegPath}" -n -hide_banner -f concat -safe 0 -i "{inputsTxtPath}" -c copy "{mergedFilePath}"'
+        ffmpegConcatFlags = '-n -hide_banner -f concat -safe 0'
+        ffmpegConcatCmd = f' "{ffmpegPath}" {ffmpegConcatFlags}  -i "{inputsTxtPath}" -c copy "{mergedFilePath}"'
 
         if not Path(mergedFilePath).is_file():
             logger.info('-' * 80)
@@ -947,7 +975,8 @@ def makeMergedClips(settings):
                 logger.info(f'Successfuly generated: "{mergedFileName}"\n')
             else:
                 logger.info(f'Failed to generate: "{mergedFileName}"\n')
-                logger.error(f'ffmpeg error code: "{ffmpegProcess.returncode}"\n')
+                logger.error(
+                    f'ffmpeg error code: "{ffmpegProcess.returncode}"\n')
         else:
             logger.info(f'Skipped existing file: "{mergedFileName}"\n')
 
@@ -988,7 +1017,8 @@ def createMergeList(markerPairMergeList):
 
 def ffprobeVideoProperties(video):
     try:
-        ffprobeCommand = f'"{ffprobePath}" "{video}" -v quiet -select_streams v -print_format json -show_streams -show_format'
+        ffprobeFlags = '-v quiet -select_streams v -print_format json -show_streams -show_format'
+        ffprobeCommand = f'"{ffprobePath}" "{video}" {ffprobeFlags} '
         ffprobeOutput = subprocess.check_output(shlex.split(ffprobeCommand))
     except subprocess.CalledProcessError as cpe:
         logger.error(f'Could not fetch video properties with ffprobe')
@@ -1100,6 +1130,7 @@ def uploadToGfycat(settings):
             print(r_upload.status)
             print(r_upload.data)
 
+        global markdown
         for fileName, link in zip(fileNames, links):
             markdown += f'({fileName})[{link}]\n\n'
             print('\n==Reddit Markdown==')
@@ -1108,12 +1139,12 @@ def uploadToGfycat(settings):
 
 def cleanFileName(fileName):
     if sys.platform == 'win32':
-        fileName = re.sub(r'[*?"<>\0]', '',  fileName)
-        fileName = re.sub(r'[/|\\:]', '_',  fileName)
+        fileName = re.sub(r'[*?"<>\0]', '', fileName)
+        fileName = re.sub(r'[/|\\:]', '_', fileName)
     elif sys.platform == 'darwin':
-        fileName = re.sub(r'[:\0]', '_',  fileName)
+        fileName = re.sub(r'[:\0]', '_', fileName)
     elif sys.platform.startswith('linux'):
-        fileName = re.sub(r'[/\0]', '_',  fileName)
+        fileName = re.sub(r'[/\0]', '_', fileName)
     return fileName
 
 
@@ -1124,19 +1155,19 @@ def getVidstabPreset(level, videoStabilizationDynamicZoom):
                          "zoomspeed": 0.05, "smoothing": 2, "desc": "Very Weak"}
     elif level == 2:
         vidstabPreset = {"enabled": True, "shakiness": 4,
-                         "zoomspeed": 0.1, "smoothing": 4,  "desc": "Weak"}
+                         "zoomspeed": 0.1, "smoothing": 4, "desc": "Weak"}
     elif level == 3:
         vidstabPreset = {"enabled": True, "shakiness": 6,
-                         "zoomspeed": 0.2, "smoothing": 6,   "desc": "Medium"}
+                         "zoomspeed": 0.2, "smoothing": 6, "desc": "Medium"}
     elif level == 4:
         vidstabPreset = {"enabled": True, "shakiness": 8,
-                         "zoomspeed": 0.3,  "smoothing": 10, "desc": "Strong"}
+                         "zoomspeed": 0.3, "smoothing": 10, "desc": "Strong"}
     elif level == 5:
         vidstabPreset = {"enabled": True, "shakiness": 10,
-                         "zoomspeed": 0.4, "smoothing": 16,  "desc": "Very Strong"}
+                         "zoomspeed": 0.4, "smoothing": 16, "desc": "Very Strong"}
     elif level == 6:
         vidstabPreset = {"enabled": True, "shakiness": 10,
-                         "zoomspeed": 0.5, "smoothing": 22,  "desc": "Strongest"}
+                         "zoomspeed": 0.5, "smoothing": 22, "desc": "Strongest"}
     return vidstabPreset
 
 
@@ -1146,14 +1177,14 @@ def getDenoisePreset(level):
         denoisePreset = {"enabled": True,
                          "lumaSpatial": 1, "desc": "Very Weak"}
     elif level == 2:
-        denoisePreset = {"enabled": True, "lumaSpatial": 2,  "desc": "Weak"}
+        denoisePreset = {"enabled": True, "lumaSpatial": 2, "desc": "Weak"}
     elif level == 3:
-        denoisePreset = {"enabled": True, "lumaSpatial": 4,  "desc": "Medium"}
+        denoisePreset = {"enabled": True, "lumaSpatial": 4, "desc": "Medium"}
     elif level == 4:
-        denoisePreset = {"enabled": True, "lumaSpatial": 6,  "desc": "Strong"}
+        denoisePreset = {"enabled": True, "lumaSpatial": 6, "desc": "Strong"}
     elif level == 5:
         denoisePreset = {"enabled": True,
-                         "lumaSpatial": 8,  "desc": "Very Strong"}
+                         "lumaSpatial": 8, "desc": "Very Strong"}
     return denoisePreset
 
 
