@@ -45,8 +45,9 @@ jobs:
       #     flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Generate executable (mac)
         if: matrix.os == 'macOS-10.14'
-        run: sudo rm -f ./dist/py/yt_clipper
-        run: sudo pyinstaller ./src/clipper/yt_clipper.py -F --workpath ./dist/py/ --distpath ./dist/py/ --specpath ./dist/py/spec
+        run: |
+          sudo rm -f ./dist/py/yt_clipper
+          sudo pyinstaller ./src/clipper/yt_clipper.py -F --workpath ./dist/py/ --distpath ./dist/py/ --specpath ./dist/py/spec
 
       - name: Generate executable (win)
         if: matrix.os == 'windows-latest'
