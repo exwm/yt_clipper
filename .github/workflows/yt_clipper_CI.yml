@@ -49,7 +49,7 @@ jobs:
       - name: Set up artifacts
         run: |
           mkdir -p ./artifact/py/yt_clipper/
-          cp ./dist/py/yt_clipper/yt_clipper.exe ./artifact/py/yt_clipper/yt_clipper.exe
+          cp ./dist/py/yt_clipper.exe ./artifact/py/yt_clipper/yt_clipper.exe
 
       - name: Upload clipper script installation artifact
         uses: actions/upload-artifact@v1
