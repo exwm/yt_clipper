@@ -1,0 +1,15 @@
+#!/bin/bash
+cd "$(dirname "$0")"
+
+echo "$0"
+
+read -p "First enter the path to a markers json data file (you may be able to drag and drop the file at the prompt): " JSON
+
+read -p "Next enter the path to an input video: " INPUTVIDEO
+
+  if [ -f "$JSON" ] && [ -f "$INPUTVIDEO" ]; then
+    ./yt_clipper --markers-json "$JSON" --input-video "$INPUTVIDEO"
+  else 
+    echo "$JSON or $INPUTVIDEO does not exist"
+  fi
+done
