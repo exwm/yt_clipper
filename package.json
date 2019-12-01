@@ -29,7 +29,7 @@
     "build:ts": "npx tsc --watch",
     "build:ts:ne": "npx tsc --noEmit --watch",
     "build:ts:p": "run-s -c build:ts pretty",
-    "build:py": "pyinstaller ./src/clipper/yt_clipper.py -F --workpath ./dist/py/ --distpath ./dist/py/ --specpath ./dist/py/spec",
+    "build:py": "pyinstaller ./src/clipper/yt_clipper.py -F --workpath ./dist/py/work/ --distpath ./dist/py/ --specpath ./dist/py/spec",
     "build:all": "run-s -c build:ts:p build:py",
     "bundle:w": "npx parcel watch --out-dir ./dist/js --no-hmr ./src/markup/yt_clipper.ts",
     "bundle:tc:w": "run-p -c build:ts:ne bundle:w",
