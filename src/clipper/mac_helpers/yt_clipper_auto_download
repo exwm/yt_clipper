@@ -1,0 +1,15 @@
+#!/bin/bash
+cd "$(dirname "$0")"
+
+read -p "First enter the paths of 1 or more markers json data files (you may be able to drag and drop files at the prompt): " JSONPROMPT
+
+IFS=$'\n' JSONS=( $(xargs -n1 <<< "$JSONPROMPT") )
+
+for JSON in "${JSONS[@]}"
+do
+  if [ -f "$JSON" ]; then
+    ./yt_clipper --markers-json "$JSON" --download-video
+  else 
+    echo "$JSON does not exist"
+  fi
+done
