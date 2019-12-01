@@ -1,0 +1,77 @@
+name: yt_clipper
+
+on:
+  push:
+    branches:
+      - master
+      - release/*
+      - test-CI
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      max-parallel: 4
+      matrix:
+        python-version: [3.7]
+        node-version: [10.x]
+        os: [windows-latest, macOS-10.14]
+
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+      - run: npm install
+      - run: npm run bundle:prod --if-present
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -U pyinstaller
+          pip install -r ./src/clipper/requirements.txt
+      # - name: Lint with flake8
+      #   run: |
+      #     pip install flake8
+      #     # stop the build if there are Python syntax errors or undefined names
+      #     flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+      #     # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+      #     flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      - name: Generate executable
+        run: npm run build:py
+
+      - name: Set up artifacts dir
+        shell: bash
+        run: mkdir -p ./artifact/py/yt_clipper_{win,mac}/{webms,bin}/
+
+      - name: Copy win artifacts
+        if: matrix.os == 'windows-latest'
+        run: |
+          cp ./src/clipper/win_helpers/* ./artifact/py/yt_clipper_win/
+          cp ./dist/py/yt_clipper.exe ./artifact/py/yt_clipper_win/
+
+      - name: Copy mac artifacts
+        if: matrix.os == 'macOS-10.14'
+        run: |
+          cp ./src/clipper/mac_helpers/* ./artifact/py/yt_clipper_mac/
+          cp ./dist/py/yt_clipper ./artifact/py/yt_clipper_mac/
+
+      - name: Upload win clipper script installation artifact
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v1
+        with:
+          name: yt_clipper_win
+          path: ./artifact/py/yt_clipper_win/
+
+      - name: Upload mac clipper script installation artifact
+        if: matrix.os == 'macOS-10.14'
+        uses: actions/upload-artifact@v1
+        with:
+          name: yt_clipper_mac
+          path: ./artifact/py/yt_clipper_mac/
