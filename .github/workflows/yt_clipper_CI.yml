@@ -47,6 +47,7 @@ jobs:
         run: npm run build:py
 
       - name: Set up artifacts dir
+        shell: bash
         run: mkdir -p ./artifact/py/yt_clipper_{win,mac}/{webms,bin}/
 
       - name: Copy win artifacts
