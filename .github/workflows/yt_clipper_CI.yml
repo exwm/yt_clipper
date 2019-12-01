@@ -66,12 +66,12 @@ jobs:
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v1
         with:
-          name: Clipper Installation
-          path: artifact/py/yt_clipper_win/
+          name: yt_clipper_win
+          path: ./artifact/py/yt_clipper_win/
 
       - name: Upload mac clipper script installation artifact
         if: matrix.os == 'macOS-10.14'
         uses: actions/upload-artifact@v1
         with:
-          name: Clipper Installation
-          path: artifact/py/yt_clipper_mac/
+          name: yt_clipper_mac
+          path: ./artifact/py/yt_clipper_mac/
