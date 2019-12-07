@@ -33,7 +33,7 @@ Visit [this quickstart guide](https://github.com/exwm/yt_clipper/blob/master/qui
   - [Browser Support](#browser-support)
   - [Related Scripts](#related-scripts)
   - [Table of Contents](#table-of-contents)
-  - [Terminology](#terminology)
+  - [Terminology and Installation](#terminology-and-installation)
   - [Markup Script Shortcuts](#markup-script-shortcuts)
     - [Marker Shortcuts](#marker-shortcuts)
     - [Cropping Shortcuts](#cropping-shortcuts)
@@ -63,7 +63,7 @@ Visit [this quickstart guide](https://github.com/exwm/yt_clipper/blob/master/qui
   - [Markup Script Changelog](#markup-script-changelog)
   - [Clipper Script (Installation) Changelog](#clipper-script-installation-changelog)
 
-## Terminology
+## Terminology and Installation
 
 - `Markup script` refers to this user script and is used to mark up YouTube videos before creating webm clips.
   - It requires a user script extension such as _Tampermonkey_ which you can install from your browser's add-ons store.
@@ -78,13 +78,13 @@ First ensure the script is active on the page by checking your user script exten
 
 - ![yt_clipper_active_on_page](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_active_on_page.png)
 
-### Marker Shortcuts
-
 **Alt+Shift+A:** Toggle hotkeys on/off. A green message will flash below the video indicating hotkeys are enabled.
 
 A shortcuts reference can be toggled by clicking the scissor icon in the video controls bar.
 
 - ![yt_clipper_shortcuts_table](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_shortcuts_table.png)
+
+### Marker Shortcuts
 
 **A:** Add marker at current time (start = green, end = yellow, selected = black center). Multiple marker pairs can be added simultaneously.
 
@@ -118,7 +118,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 - Jumping to and selecting marker pairs without the mouse
   - **Ctrl+Left/Right:** Jumps to the nearest previous/next marker.
   - **Alt+Left/Right:** Select the next/previous marker pair relative to the currently or previously selected pair.
-  - **Ctrl+alt+Left/Right:** Select the next/previous marker pair _and jump to its start marker_.
+  - **Ctrl+Alt+Left/Right:** Select the next/previous marker pair _and jump to its start marker_.
 
 **W:** Global settings editor:
   ![yt_clipper_globals_editor](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_globals_editor.png)
@@ -126,7 +126,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 1. Modified global settings are accented red.
 2. Change default new marker speed or crop.
    - Any new markers added will use these defaults, but this will not update existing markers.
-   - To update existing markers to the default new marker speed/crop use **Alt+Shift+Q/alt+Shift+X**.
+   - To update existing markers to the default new marker speed/crop use **Alt+Shift+Q/Alt+Shift+X**.
 3. Specify crop resolution (automatically scales any existing crops on change).
    - This resolution must match the downloaded video's resolution.
    - By default the max available video resolution is downloaded by the `clipper script` and the crop resolution auto-scaled if a mismatch is detected.
@@ -176,7 +176,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 - **Ctrl+Hover:** Indicate potential drag action when hovering over crop.
 - **Ctrl+Click+Drag:** Drag and move crop or resize crop in the indicated directions.
   - Can release **Ctrl** after dragging begins. Dragging ends when mouse is released.
-- **Ctrl+Alt+Drag:** Approximately Aspect-ratio-locked mouse resizing of crop.
+- **Ctrl+Alt+Drag:** Approximately aspect-ratio-locked mouse resizing of crop.
 
   ![yt_clipper_crop_preview.png](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_crop_preview.png)
 
@@ -211,7 +211,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 - If any preview feature is disabled, turns it on. If all preview features are enabled, disables all of them.
 
-**R/alt+R:** Toggle between a 90 degree clockwise/counter-clockwise rotation and no rotation.
+**R/Alt+R:** Toggle between a 90 degree clockwise/counter-clockwise rotation and no rotation.
 
 - Works only when in fullscreen mode or theater mode.
 - **Note that this does not yet work with drawing and previewing crops and should be disabled when doing so.**
@@ -333,7 +333,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 ### Gamma Correction
 
 - Play around with the `gamma` setting to bring back shadow or highlight detail.
-- Use **Alt+D** to preview `gamma values` with the `markup script`.
+- Use **Alt+C** to preview `gamma values` with the `markup script`.
 - A value of 1 does nothing. Use a value between 0 and 1 to bring back shadow detail and a value greater than 1 to bring back highlight detail.
 - Refer to this [gamma correction guide](https://www.cambridgeincolour.com/tutorials/gamma-correction.htm) for more details.
 
