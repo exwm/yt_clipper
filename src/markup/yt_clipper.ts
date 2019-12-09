@@ -3007,29 +3007,29 @@ export let isCropChartLoopingOn = false;
             fill="black" fill-opacity="${cropDimOpacity}"
           />
 
-          <g id="cropChartSectionStart" opacity="0.9">
+          <g id="cropChartSectionStart" opacity="0.7">
             <rect id="cropChartSectionStartBorderGreen" x="0" y="0" width="0%" height="0%" fill="none" 
               stroke="lime" shape-rendering="geometricPrecision" stroke-width="1px"
             />
             <rect id="cropChartSectionStartBorderWhite" x="0" y="0" width="0%" height="0%" fill="none" 
-              stroke="black" shape-rendering="geometricPrecision" stroke-width="1px" stroke-dasharray="5 5"
+              stroke="black" shape-rendering="geometricPrecision" stroke-width="1px" stroke-dasharray="5 10"
             />
           </g>
-          <g id="cropChartSectionEnd" opacity="0.9">
+          <g id="cropChartSectionEnd" opacity="0.7">
             <rect id="cropChartSectionEndBorderYellow" x="0" y="0" width="0%" height="0%" fill="none" 
               stroke="yellow" shape-rendering="geometricPrecision" stroke-width="1px"
             />
             <rect id="cropChartSectionEndBorderWhite" x="0" y="0" width="0%" height="0%" fill="none" 
-              stroke="black" shape-rendering="geometricPrecision" stroke-width="1px" stroke-dasharray="5 5" 
+              stroke="black" shape-rendering="geometricPrecision" stroke-width="1px" stroke-dasharray="5 10" 
             />
           </g>
 
 
           <rect id="cropRectBorderBlack" x="0" y="0" width="100%" height="100%" fill="none" 
-            stroke="black" shape-rendering="geometricPrecision" stroke-width="1px" stroke-opacity="0.9"
+            stroke="black" shape-rendering="geometricPrecision" stroke-width="1px" stroke-opacity="0.8"
           />
           <rect id="cropRectBorderWhite" x="0" y="0" width="100%" height="100%" fill="none" 
-          stroke="white" shape-rendering="geometricPrecision" stroke-width="1px" stroke-dasharray="5 5" stroke-opacity="0.9"
+          stroke="white" shape-rendering="geometricPrecision" stroke-width="1px" stroke-dasharray="5 5" stroke-opacity="0.8"
           />
         </svg>
       `;
@@ -3798,7 +3798,7 @@ export let isCropChartLoopingOn = false;
           }
         }
       }
-        updateCropChartSectionOverlays(chartData, time);
+      updateCropChartSectionOverlays(chartData, time);
       requestAnimationFrame(cropChartPreviewHandler);
     }
 
@@ -3815,11 +3815,11 @@ export let isCropChartLoopingOn = false;
       );
 
       if (currentCropChartMode === cropChartMode.Start) {
-        cropChartSectionStart.setAttribute('opacity', '0.9');
-        cropChartSectionEnd.setAttribute('opacity', '0.5');
+        cropChartSectionStart.setAttribute('opacity', '0.7');
+        cropChartSectionEnd.setAttribute('opacity', '0.4');
       } else if (currentCropChartMode === cropChartMode.End) {
-        cropChartSectionStart.setAttribute('opacity', '0.5');
-        cropChartSectionEnd.setAttribute('opacity', '0.9');
+        cropChartSectionStart.setAttribute('opacity', '0.4');
+        cropChartSectionEnd.setAttribute('opacity', '0.7');
       }
 
       const [startX, startY, startW, startH] = getCropComponents(sectStart.crop);
@@ -3960,7 +3960,7 @@ export let isCropChartLoopingOn = false;
       const selectedMarkerPairIndex =
         parseInt(prevSelectedEndMarker.getAttribute('idx')) - 1;
       if (selectedMarkerPairIndex !== prevSelectedMarkerPairIndex) {
-        setCurrentCropPoint(null, 0, 'start');
+        setCurrentCropPoint(null, 0);
       }
       prevSelectedMarkerPairIndex = selectedMarkerPairIndex;
 
