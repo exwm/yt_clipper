@@ -3782,8 +3782,8 @@ export let isCropChartLoopingOn = false;
     function cropChartPreviewHandler() {
       const chart = cropChartInput.chart;
       const chartData = chart?.data.datasets[0].data as CropPoint[];
+      const time = video.currentTime;
       if (chart && !isStaticCrop(chartData)) {
-        const time = video.currentTime;
         if (isCropChartLoopingOn || isDraggingCrop || isDrawingCrop) {
           cropChartSectionLoop();
         } else {
@@ -3797,8 +3797,8 @@ export let isCropChartLoopingOn = false;
             setCurrentCropPoint(chart, end);
           }
         }
-        updateCropChartSectionOverlays(chartData, time);
       }
+        updateCropChartSectionOverlays(chartData, time);
       requestAnimationFrame(cropChartPreviewHandler);
     }
 
