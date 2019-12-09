@@ -9,7 +9,13 @@ import {
   roundY,
   sortX,
 } from './chartutil';
-import { currentCropPointIndex, setCurrentCropPoint } from './cropchart/cropChartSpec';
+import {
+  currentCropPointIndex,
+  setCurrentCropPoint,
+  setCropChartMode,
+  cropChartMode,
+} from './cropchart/cropChartSpec';
+import { isCropChartLoopingOn } from '../../yt_clipper';
 
 export const scatterChartDefaults: ChartOptions & ChartFontOptions = {
   defaultColor: 'rgba(255, 255, 255, 1)',
@@ -266,19 +272,23 @@ export function scatterChartSpec(
 
   function onHover(event: MouseEvent, chartElements) {
     event.target.style.cursor = chartElements[0] ? 'grab' : 'default';
-    if (chartType === 'crop' && !event.shiftKey && chartElements.length === 1) {
-      let cropPointType: 'start' | 'end';
+    if (
+      isCropChartLoopingOn &&
+      chartType === 'crop' &&
+      !event.shiftKey &&
+      chartElements.length === 1
+    ) {
       if (event.ctrlKey && !event.altKey) {
-        cropPointType = 'start';
+        setCropChartMode(cropChartMode.Start);
       } else if (!event.ctrlKey && event.altKey) {
-        cropPointType = 'end';
+        setCropChartMode(cropChartMode.End);
       } else {
         return;
       }
       const datum = chartElements[0];
       if (datum) {
         const index = datum['_index'];
-        setCurrentCropPoint(this, index, cropPointType);
+        setCurrentCropPoint(this, index);
         const cropChartData = this.data.datasets[0].data;
         const cropPoint = cropChartData[index] as CropPoint;
         updateInput(cropPoint.crop);
