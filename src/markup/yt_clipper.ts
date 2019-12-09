@@ -344,10 +344,12 @@ export let isCropChartLoopingOn = false;
         if (isHotkeysEnabled) {
           showShortcutsTableToggleButton();
           enablePreventAltDefault();
+          enablePreventMouseZoom();
           flashMessage('Enabled Hotkeys', 'green');
         } else {
           hideShortcutsTableToggleButton();
           disablePreventAltDefault();
+          disablePreventMouseZoom();
           flashMessage('Disabled Hotkeys', 'red');
         }
       }
@@ -363,6 +365,22 @@ export let isCropChartLoopingOn = false;
 
     function preventAltDefaultHandler(e: KeyboardEvent) {
       if (e.code === 'AltLeft' && !e.ctrlKey && !e.shiftKey) {
+        e.preventDefault();
+      }
+    }
+
+    function enablePreventMouseZoom() {
+      window.addEventListener('mousewheel', stopWheelZoom, { passive: false });
+      window.addEventListener('DOMMouseScroll', stopWheelZoom, { passive: false });
+    }
+
+    function disablePreventMouseZoom() {
+      window.removeEventListener('mousewheel', stopWheelZoom);
+      window.removeEventListener('DOMMouseScroll', stopWheelZoom);
+    }
+
+    function stopWheelZoom(e: MouseEvent) {
+      if (e.ctrlKey) {
         e.preventDefault();
       }
     }
