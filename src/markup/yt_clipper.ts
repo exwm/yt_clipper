@@ -3791,10 +3791,10 @@ export let isCropChartLoopingOn = false;
           let [start, end] = bsearch(chartData, searchCropPoint, sortX);
           if (currentCropChartMode === cropChartMode.Start) {
             if (start === end) start = end - 1;
-            setCurrentCropPoint(chart, start);
+            setCurrentCropPoint(chart, Math.min(start, chartData.length - 2));
           } else if (currentCropChartMode === cropChartMode.End) {
             if (start === end) end = start + 1;
-            setCurrentCropPoint(chart, end);
+            setCurrentCropPoint(chart, Math.max(end, 1));
           }
         }
       }

@@ -21,9 +21,13 @@ export function setCurrentCropPoint(cropChart: Chart | null, cropPointIndex: num
 
   if (cropPointIndex === 0) {
     setCropChartMode(cropChartMode.Start);
-    setCurrentCropChartSection(cropChart, [0, 1]);
   } else if (cropPointIndex === maxIndex) {
     setCropChartMode(cropChartMode.End);
+  }
+
+  if (cropPointIndex <= 0) {
+    setCurrentCropChartSection(cropChart, [0, 1]);
+  } else if (cropPointIndex >= maxIndex) {
     setCurrentCropChartSection(cropChart, [maxIndex - 1, maxIndex]);
   } else if (!cropChart) {
     setCurrentCropChartSection(cropChart, [
