@@ -6,30 +6,32 @@ import { scatterChartSpec } from '../scatterChartSpec';
 
 const inputId = 'crop-input';
 export let currentCropPointIndex: number = 0;
-export let currentCropPointType: 'start' | 'end' = 'start';
-export function setCurrentCropPoint(
-  cropChart: Chart | null,
-  cropPointIndex: number,
-  type?: 'start' | 'end'
-) {
+export enum cropChartMode {
+  Start,
+  End,
+}
+export let currentCropChartMode = cropChartMode.Start;
+
+export function setCropChartMode(mode: cropChartMode) {
+  currentCropChartMode = mode;
+}
+export function setCurrentCropPoint(cropChart: Chart | null, cropPointIndex: number) {
   const maxIndex = cropChart ? cropChart.data.datasets[0].data.length - 1 : 1;
   currentCropPointIndex = clampNumber(cropPointIndex, 0, maxIndex);
 
   if (cropPointIndex === 0) {
-    currentCropPointType = 'start';
+    setCropChartMode(cropChartMode.Start);
     setCurrentCropChartSection(cropChart, [0, 1]);
   } else if (cropPointIndex === maxIndex) {
-    currentCropPointType = 'end';
+    setCropChartMode(cropChartMode.End);
     setCurrentCropChartSection(cropChart, [maxIndex - 1, maxIndex]);
   } else if (!cropChart) {
-    currentCropPointType = 'start';
     setCurrentCropChartSection(cropChart, [
       currentCropPointIndex,
       currentCropPointIndex + 1,
     ]);
-  } else if (type) {
-    currentCropPointType = type;
-    type === 'start'
+  } else {
+    currentCropChartMode === cropChartMode.Start
       ? setCurrentCropChartSection(cropChart, [
           currentCropPointIndex,
           currentCropPointIndex + 1,
