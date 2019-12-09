@@ -80,6 +80,10 @@ export function toHHMMSSTrimmed(seconds: number) {
   return toHHMMSS(seconds).replace(/(00:)+(.*)/, '$2');
 }
 
+export function mod(dividend: number, divisor: number): number {
+  return ((dividend % divisor) + divisor) % divisor;
+}
+
 export function bsearch<A, B>(
   haystack: ArrayLike<A>,
   needle: B,

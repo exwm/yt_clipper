@@ -15,26 +15,22 @@ export let currentCropChartMode = cropChartMode.Start;
 export function setCropChartMode(mode: cropChartMode) {
   currentCropChartMode = mode;
 }
-export function setCurrentCropPoint(cropChart: Chart | null, cropPointIndex: number) {
+export function setCurrentCropPoint(
+  cropChart: Chart | null,
+  cropPointIndex: number,
+  mode?: cropChartMode
+) {
   const maxIndex = cropChart ? cropChart.data.datasets[0].data.length - 1 : 1;
   currentCropPointIndex = clampNumber(cropPointIndex, 0, maxIndex);
 
-  if (cropPointIndex === 0) {
-    setCropChartMode(cropChartMode.Start);
-  } else if (cropPointIndex === maxIndex) {
-    setCropChartMode(cropChartMode.End);
-  }
-
   if (cropPointIndex <= 0) {
+    setCropChartMode(cropChartMode.Start);
     setCurrentCropChartSection(cropChart, [0, 1]);
   } else if (cropPointIndex >= maxIndex) {
+    setCropChartMode(cropChartMode.End);
     setCurrentCropChartSection(cropChart, [maxIndex - 1, maxIndex]);
-  } else if (!cropChart) {
-    setCurrentCropChartSection(cropChart, [
-      currentCropPointIndex,
-      currentCropPointIndex + 1,
-    ]);
   } else {
+    if (mode != null) currentCropChartMode = mode;
     currentCropChartMode === cropChartMode.Start
       ? setCurrentCropChartSection(cropChart, [
           currentCropPointIndex,
