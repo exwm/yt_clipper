@@ -607,18 +607,8 @@ export function triggerCropChartLoop() {
             }
 
             const { resizedX, resizedY, resizedW, resizedH } = resizedDimensions;
-
-            const { x, y, w, h, dx, dy, dw, dh } = clampCropMouseChange(
-              resizedX,
-              resizedY,
-              resizedW,
-              resizedH,
-              ix,
-              iy,
-              iw,
-              ih
-            );
-            updateCrop(x, y, w, h, { dx, dy, dw, dh });
+            const optArgs = { ix, iy, iw, ih, minW: null, minH: null };
+            updateCrop(resizedX, resizedY, resizedW, resizedH, optArgs);
           }
 
           function dragCropHandler(e) {
@@ -632,20 +622,8 @@ export function triggerCropChartLoop() {
               (changeY / videoRect.height) * settings.cropResHeight + iy
             );
 
-            ({ x, y } = clampCropMouseChange(
-              x,
-              y,
-              iw,
-              ih,
-              ix,
-              iy,
-              iw,
-              ih,
-              null,
-              null,
-              true
-            ));
-            updateCrop(x, y, iw, ih);
+            const optArgs = { ix, iy, iw, ih, minW: null, minH: null };
+            updateCrop(x, y, iw, ih, optArgs);
           }
 
           function getResizeN(changeYScaled) {
@@ -726,102 +704,6 @@ export function triggerCropChartLoop() {
           }
         }
       }
-    }
-
-    function clampCropMouseChange(
-      x,
-      y,
-      w,
-      h,
-      ix,
-      iy,
-      iw,
-      ih,
-      minW?,
-      minH?,
-      isDrag = false
-    ) {
-      let [minX, minY] = [0, 0];
-      if (minW == null || minH == null) {
-        ({ minW, minH } = getMinWH());
-      }
-      let dx = x - ix;
-      let dy = y - iy;
-      let dw = w - iw;
-      let dh = h - ih;
-      const isWestResize = dx !== 0 && dw !== 0;
-      const isNorthResize = dy !== 0 && dh !== 0;
-      let { maxX, maxY, maxW, maxH } = getCropMaxBounds(
-        ix,
-        iy,
-        iw,
-        ih,
-        minW,
-        minH,
-        isDrag,
-        isWestResize,
-        isNorthResize
-      );
-      if (isCropChartPanOnly && !isDrag) {
-        const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-        const cropMap = markerPair.cropMap;
-
-        cropMap.forEach((cropPoint) => {
-          const [ixcp, iycp, iwcp, ihcp] = getCropComponents(cropPoint.initCrop);
-
-          const {
-            // maxX: maxXCP,
-            // maxY: maxYCP,
-            maxW: maxWCP,
-            maxH: maxHCP,
-          } = getCropMaxBounds(
-            ixcp,
-            iycp,
-            iwcp,
-            ihcp,
-            minW,
-            minH,
-            isDrag,
-            isWestResize,
-            isNorthResize
-          );
-          // maxX = dx != 0 ? Math.min(maxX, maxXCP) : maxX;
-          minX = dx != 0 ? Math.max(minX, ix - ixcp) : minX;
-          // maxY = dy != 0 ? Math.min(maxY, maxYCP) : maxY;
-          minY = dy != 0 ? Math.max(minY, iy - iycp) : minY;
-          maxW = dw != 0 ? Math.min(maxW, maxWCP) : maxW;
-          maxH = dh != 0 ? Math.min(maxH, maxHCP) : maxH;
-        });
-      }
-
-      x = x != null ? clampNumber(x, minX, maxX) : null;
-      y = y != null ? clampNumber(y, minY, maxY) : null;
-      w = w != null ? clampNumber(w, minW, maxW) : null;
-      h = h != null ? clampNumber(h, minH, maxH) : null;
-
-      dx = x - ix;
-      dy = y - iy;
-      dw = w - iw;
-      dh = h - ih;
-      return { x, y, w, h, dx, dy, dw, dh };
-    }
-
-    function getCropMaxBounds(
-      ix,
-      iy,
-      iw,
-      ih,
-      minW,
-      minH,
-      isDrag = false,
-      isWestResize,
-      isNorthResize
-    ) {
-      const maxX = isDrag ? settings.cropResWidth - iw : ix + iw - minW;
-      const maxY = isDrag ? settings.cropResHeight - ih : iy + ih - minH;
-      const maxW = isWestResize ? ix + iw : settings.cropResWidth - ix;
-      const maxH = isNorthResize ? iy + ih : settings.cropResHeight - iy;
-      return { maxX, maxY, minW, maxW, minH, maxH };
     }
 
     function getMouseCropHoverRegion(e: MouseEvent, cropString?: string) {
@@ -2509,8 +2391,7 @@ export function triggerCropChartLoop() {
           }
         }
 
-        const prevValue = target[targetProperty];
-        target[targetProperty] = newValue;
+        if (targetProperty !== 'crop') target[targetProperty] = newValue;
 
         if (targetProperty === 'newMarkerCrop') {
           createCropOverlay(target.newMarkerCrop);
@@ -2530,29 +2411,11 @@ export function triggerCropChartLoop() {
         }
 
         if (targetProperty === 'crop') {
-          let [x, y, w, h] = getCropComponents(newValue);
-          if (currentCropPointIndex !== 0 && isCropChartPanOnly) {
-            target.cropMap.map((cropPoint) => {
-              let [ix, iy, iw, ih] = getCropComponents(cropPoint.crop);
-              iw = w;
-              ih = h;
-              cropPoint.crop = [ix, iy, iw, ih].join(':');
-              return cropPoint;
-            });
-            target.crop = prevValue;
-          }
-
-          [cropRect, cropRectBorderBlack, cropRectBorderWhite].map((cropRect) =>
-            setCropOverlayDimensions(cropRect, x, y, w, h)
-          );
-          const cropMap = target.cropMap;
-          if (isStaticCrop(cropMap)) {
-            target.cropMap[1].crop = newValue;
-          }
-          target.cropMap[currentCropPointIndex].crop = newValue;
-          cropChartInput.chart && cropChartInput.chart.update();
-          const cropAspectRatio = (w / h).toFixed(13);
-          cropAspectRatioSpan && (cropAspectRatioSpan.textContent = cropAspectRatio);
+          const prevCrop = target.cropMap[currentCropPointIndex].crop;
+          const [ix, iy, iw, ih] = getCropComponents(prevCrop);
+          const [x, y, w, h] = getCropComponents(newValue);
+          const optArgs = { ix, iy, iw, ih, minW: null, minH: null, resizeOnly: true };
+          updateCrop(x, y, w, h, optArgs);
         }
 
         if (targetProperty === 'speed') {
@@ -2653,8 +2516,8 @@ export function triggerCropChartLoop() {
         if (ke.code === 'ArrowUp' || ke.code === 'ArrowDown') {
           let cropString = cropInput.value;
           let cropStringArray = cropString.split(':');
-          let cropArray = getCropComponents(cropString);
-          // let [x, y, w, ] = cropArray;
+          const initialCropArray = getCropComponents(cropString);
+          let cropArray = [...initialCropArray];
           const cropStringCursorPos = ke.target.selectionStart;
           let cropComponentCursorPos = cropStringCursorPos;
           let cropTarget = 0;
@@ -2686,9 +2549,9 @@ export function triggerCropChartLoop() {
 
             ke.preventDefault();
             ke.stopImmediatePropagation();
-            cropArray = clampCropArray(cropArray, cropTarget);
-            const updatedCropString = cropArray.join(':');
-            cropInput.value = updatedCropString;
+            const [nx, ny, nw, nh] = cropArray;
+            updateCrop(nx, ny, nw, nh);
+            const updatedCropString = cropInput.value;
             let newCursorPos = cropStringCursorPos - cropComponentCursorPos;
             if (cropTarget === 3 && cropStringArray[3] === 'ih') {
               const cropStringLengthDelta = updatedCropString.length - cropString.length;
@@ -2701,28 +2564,6 @@ export function triggerCropChartLoop() {
           }
         }
       });
-    }
-    function clampCropArray(cropArray: number[], target: string | number) {
-      let [x, y, w, h] = cropArray;
-      switch (target) {
-        case 'x':
-        case 0:
-          x = clampNumber(x, 0, settings.cropResWidth - w);
-          break;
-        case 'y':
-        case 1:
-          y = clampNumber(y, 0, settings.cropResHeight - h);
-          break;
-        case 'w':
-        case 2:
-          w = clampNumber(w, 0, settings.cropResWidth - x);
-          break;
-        case 'h':
-        case 3:
-          h = clampNumber(h, 0, settings.cropResHeight - y);
-          break;
-      }
-      return [x, y, w, h];
     }
 
     function addMarkerPairMergeListDurationsListener() {
@@ -3275,20 +3116,8 @@ export function triggerCropChartLoop() {
             y = endY;
             h = iyScaled - y;
           }
-
-          let { x: fx, y: fy, w: fw, h: fh, dx, dy, dw, dh } = clampCropMouseChange(
-            x,
-            y,
-            w,
-            h,
-            x,
-            y,
-            0,
-            0,
-            0,
-            0
-          );
-          updateCrop(fx, fy, fw, fh, { dx, dy, dw, dh });
+          const optArgs = { ix: x, iy: y, iw: 0, ih: 0, minW: 0, minH: 0 };
+          updateCrop(x, y, w, h, optArgs);
         };
 
         window.addEventListener('pointermove', dragCropPreviewHandler);
@@ -3348,58 +3177,174 @@ export function triggerCropChartLoop() {
 
     function updateCropString(cropString) {
       const [x, y, w, h] = getCropComponents(cropString);
-      updateCrop(x, y, w, h, null, cropString);
+      updateCrop(x, y, w, h);
     }
 
     function updateCrop(
-      x: number,
-      y: number,
-      w: number,
-      h: number,
-      deltas?: { dx: number; dy: number; dw: number; dh: number },
-      cropString?: string
-    ) {
-      if (!cropString) {
-        cropString = `${x}:${y}:${w}:${h}`;
+      nx: number,
+      ny: number,
+      nw: number,
+      nh: number,
+      optArgs?: {
+        ix: number;
+        iy: number;
+        iw: number;
+        ih: number;
+        minW: number;
+        minH: number;
+        resizeOnly: boolean;
       }
+    ) {
       if (isMarkerPairSettingsEditorOpen) {
-        cropInput.value = cropString;
+        let newCropString = [nx, ny, nw, nh].join(':');
+
         if (!wasGlobalSettingsEditorOpen) {
           const markerPair = markerPairs[prevSelectedMarkerPairIndex];
           const cropMap = markerPair.cropMap;
-          if (
-            cropMap.length === 2 &&
-            currentCropPointIndex === 0 &&
-            cropMap[0].crop === cropMap[1].crop
-          ) {
-            cropMap[1].crop = cropString;
-          } else if (isCropChartPanOnly && deltas) {
-            cropMap.forEach((cropPoint, idx) => {
-              if (idx === currentCropPointIndex) return;
-              let [ix, iy, iw, ih] = getCropComponents(cropPoint.initCrop);
-              ix += deltas.dx;
-              iy += deltas.dy;
-              iw += deltas.dw;
-              ih += deltas.dh;
-              cropPoint.crop = [ix, iy, iw, ih].join(':');
-              if (idx === 0) markerPair.crop = cropPoint.crop;
-            });
+          if (currentCropPointIndex === 0 && isStaticCrop(cropMap)) {
+            cropMap[1].crop = newCropString;
+          } else if (isCropChartPanOnly) {
+            const [ix, iy, iw, ih] = getCropComponents(cropInput.value);
+            optArgs = optArgs ?? {
+              ix,
+              iy,
+              iw,
+              ih,
+              minW: null,
+              minH: null,
+              resizeOnly: false,
+            };
+
+            const { cx, cy, cw, ch, dx, dy, dw, dh, isDrag } = clampCropChange(
+              nx,
+              ny,
+              nw,
+              nh,
+              optArgs
+            );
+
+            [nw, nh] = [cw, ch];
+            if (!optArgs.resizeOnly) [nx, ny] = [cx, cy];
+
+            const deltas = isDrag ? null : { dx, dy, dw, dh };
+            newCropString = [nx, ny, nw, nh].join(':');
+            if (deltas) {
+              cropMap.forEach((cropPoint, idx) => {
+                if (idx === currentCropPointIndex) return;
+                let [ix, iy, iw, ih] = getCropComponents(cropPoint.initCrop);
+                if (!optArgs.resizeOnly) {
+                  ix += deltas.dx;
+                  iy += deltas.dy;
+                }
+                iw += deltas.dw;
+                ih += deltas.dh;
+                cropPoint.crop = [ix, iy, iw, ih].join(':');
+                if (idx === 0) markerPair.crop = cropPoint.crop;
+              });
+            }
           }
 
-          cropMap[currentCropPointIndex].crop = cropString;
-          if (currentCropPointIndex === 0) markerPair.crop = cropString;
+          cropMap[currentCropPointIndex].crop = newCropString;
+          if (currentCropPointIndex === 0) markerPair.crop = newCropString;
           cropChartInput.chart && cropChartInput.chart.update();
         } else {
-          settings.newMarkerCrop = cropString;
+          settings.newMarkerCrop = newCropString;
         }
+        cropInput.value = newCropString;
         [cropRect, cropRectBorderBlack, cropRectBorderWhite].map((cropRect) =>
-          setCropOverlayDimensions(cropRect, x, y, w, h)
+          setCropOverlayDimensions(cropRect, nx, ny, nw, nh)
         );
-        const cropAspectRatio = (w / h).toFixed(13);
+        const cropAspectRatio = (nw / nh).toFixed(13);
         cropAspectRatioSpan && (cropAspectRatioSpan.textContent = cropAspectRatio);
       } else {
         throw new Error('No editor was open when trying to update crop.');
       }
+    }
+
+    function clampCropChange(nx, ny, nw, nh, { ix, iy, iw, ih, minW, minH }) {
+      let [minX, minY] = [0, 0];
+      if (minW == null || minH == null) {
+        ({ minW, minH } = getMinWH());
+      }
+      let dx = nx - ix;
+      let dy = ny - iy;
+      let dw = nw - iw;
+      let dh = nh - ih;
+
+      const isDrag = dw === 0 && dh === 0;
+      const isWestResize = dx !== 0 && dw !== 0;
+      const isNorthResize = dy !== 0 && dh !== 0;
+      let { maxX, maxY, maxW, maxH } = getCropMaxBounds(
+        ix,
+        iy,
+        iw,
+        ih,
+        minW,
+        minH,
+        isDrag,
+        isWestResize,
+        isNorthResize
+      );
+      if (isCropChartPanOnly && !isDrag) {
+        const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+        const cropMap = markerPair.cropMap;
+
+        cropMap.forEach((cropPoint) => {
+          const [ixcp, iycp, iwcp, ihcp] = getCropComponents(cropPoint.initCrop);
+
+          const {
+            // maxX: maxXCP,
+            // maxY: maxYCP,
+            maxW: maxWCP,
+            maxH: maxHCP,
+          } = getCropMaxBounds(
+            ixcp,
+            iycp,
+            iwcp,
+            ihcp,
+            minW,
+            minH,
+            isDrag,
+            isWestResize,
+            isNorthResize
+          );
+          // maxX = dx != 0 ? Math.min(maxX, maxXCP) : maxX;
+          minX = dx != 0 ? Math.max(minX, ix - ixcp) : minX;
+          // maxY = dy != 0 ? Math.min(maxY, maxYCP) : maxY;
+          minY = dy != 0 ? Math.max(minY, iy - iycp) : minY;
+          maxW = dw != 0 ? Math.min(maxW, maxWCP) : maxW;
+          maxH = dh != 0 ? Math.min(maxH, maxHCP) : maxH;
+        });
+      }
+
+      const cx = nx != null ? clampNumber(nx, minX, maxX) : null;
+      const cy = ny != null ? clampNumber(ny, minY, maxY) : null;
+      const cw = nw != null ? clampNumber(nw, minW, maxW) : null;
+      const ch = nh != null ? clampNumber(nh, minH, maxH) : null;
+
+      dx = cx - ix;
+      dy = cy - iy;
+      dw = cw - iw;
+      dh = ch - ih;
+      return { cx, cy, cw, ch, dx, dy, dw, dh, isDrag };
+    }
+
+    function getCropMaxBounds(
+      ix,
+      iy,
+      iw,
+      ih,
+      minW,
+      minH,
+      isDrag = false,
+      isWestResize,
+      isNorthResize
+    ) {
+      const maxX = isDrag ? settings.cropResWidth - iw : ix + iw - minW;
+      const maxY = isDrag ? settings.cropResHeight - ih : iy + ih - minH;
+      const maxW = isWestResize ? ix + iw : settings.cropResWidth - ix;
+      const maxH = isNorthResize ? iy + ih : settings.cropResHeight - iy;
+      return { maxX, maxY, minW, maxW, minH, maxH };
     }
 
     let arrowKeyCropAdjustmentEnabled = false;
@@ -3504,9 +3449,7 @@ export function triggerCropChartLoop() {
                 break;
             }
           }
-          const cropArray = clampCropArray([x, y, w, h], cropTarget);
-          cropInput.value = cropArray.join(':');
-          cropInput.dispatchEvent(new Event('change'));
+          updateCrop(x, y, w, h);
         }
       }
     }
