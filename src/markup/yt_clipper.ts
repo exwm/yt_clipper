@@ -3100,36 +3100,42 @@ export function triggerCropChartLoop() {
         const videoRect = player.getVideoContentRect();
         const playerRect = player.getBoundingClientRect();
         const ix = e.pageX - videoRect.left - playerRect.left;
+        const iy = e.pageY - videoRect.top - playerRect.top;
         let ixScaled = Math.round((ix / videoRect.width) * settings.cropResWidth);
         let iyScaled = 0;
         if (!verticalFill) {
-          const iy = e.pageY - videoRect.top - playerRect.top;
           iyScaled = Math.round((iy / videoRect.height) * settings.cropResHeight);
         }
         ixScaled = clampNumber(ixScaled, 0, settings.cropResWidth);
         iyScaled = clampNumber(iyScaled, 0, settings.cropResHeight);
 
-        const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-        const cropMap = markerPair.cropMap;
+        if (!wasGlobalSettingsEditorOpen) {
+          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+          const cropMap = markerPair.cropMap;
 
-        // Keep first and last crop points in sync if they are the only ones
-        // when editing the first point and desync when editing the last point.
-        if (
-          cropMap.length === 2 &&
-          currentCropPointIndex === 0 &&
-          cropMap[0].crop === cropMap[1].crop
-        ) {
-          cropMap[1].crop = [ixScaled, iyScaled, 0, 0].join(':');
-        } else if (isCropChartPanOnly) {
-          cropMap.forEach((cropPoint, idx) => {
-            if (idx === currentCropPointIndex) return;
-            let [ix, iy, ,] = getCropComponents(cropPoint.crop);
-            cropPoint.crop = [ix, iy, 0, 0].join(':');
-            cropPoint.initCrop = cropPoint.crop;
-          });
+          if (
+            isCropChartPanOnly &&
+            (!isStaticCrop(cropMap) || currentCropPointIndex !== 0)
+          ) {
+            cropMap.forEach((cropPoint, idx) => {
+              let [ix, iy, ,] = getCropComponents(cropPoint.crop);
+              cropPoint.crop = [ix, iy, 0, 0].join(':');
+              cropPoint.initCrop = cropPoint.crop;
+            });
+          }
         }
 
-        updateCrop(ixScaled, iyScaled, 0, 0);
+        const [px, py, ,] = getCropComponents(prevCropString);
+        const optArgs = {
+          ix: px,
+          iy: py,
+          iw: 0,
+          ih: 0,
+          minW: 0,
+          minH: 0,
+          resizeOnly: true,
+        };
+        updateCrop(ixScaled, iyScaled, 0, 0, optArgs);
 
         dragCropPreviewHandler = function(e: PointerEvent) {
           let endX = Math.round(
@@ -3161,7 +3167,15 @@ export function triggerCropChartLoop() {
             y = endY;
             h = iyScaled - y;
           }
-          const optArgs = { ix: x, iy: y, iw: 0, ih: 0, minW: 0, minH: 0 };
+          const optArgs = {
+            ix: x,
+            iy: y,
+            iw: 0,
+            ih: 0,
+            minW: 0,
+            minH: 0,
+            resizeOnly: true,
+          };
           updateCrop(x, y, w, h, optArgs);
         };
 
@@ -3237,7 +3251,7 @@ export function triggerCropChartLoop() {
         ih: number;
         minW: number;
         minH: number;
-        resizeOnly: boolean;
+        resizeOnly?: boolean;
       }
     ) {
       if (isMarkerPairSettingsEditorOpen) {
@@ -3268,8 +3282,7 @@ export function triggerCropChartLoop() {
               optArgs
             );
 
-            [nw, nh] = [cw, ch];
-            if (!optArgs.resizeOnly) [nx, ny] = [cx, cy];
+            [nx, ny, nw, nh] = [cx, cy, cw, ch];
 
             const deltas = isDrag ? null : { dx, dy, dw, dh };
             newCropString = [nx, ny, nw, nh].join(':');
@@ -3806,31 +3819,40 @@ export function triggerCropChartLoop() {
       const chart = cropChartInput.chart;
       const chartData = chart?.data.datasets[0].data as CropPoint[];
       const time = video.currentTime;
-      if (chart && !isStaticCrop(chartData)) {
-        if (
-          shouldTriggerCropChartLoop ||
-          isCropChartLoopingOn ||
-          isDraggingCrop ||
-          isDrawingCrop
-        ) {
-          shouldTriggerCropChartLoop = false;
-          cropChartSectionLoop();
-        } else {
-          const searchCropPoint = { x: time, y: 0, crop: '' };
-          let [start, end] = bsearch(chartData, searchCropPoint, sortX);
-          if (currentCropChartMode === cropChartMode.Start) {
-            setCurrentCropPoint(chart, Math.min(start, chartData.length - 2));
-          } else if (currentCropChartMode === cropChartMode.End) {
-            if (start === end) end++;
-            setCurrentCropPoint(chart, Math.max(end, 1));
+      if (!wasGlobalSettingsEditorOpen && chart) {
+        if (!isStaticCrop(chartData)) {
+          if (
+            shouldTriggerCropChartLoop ||
+            isCropChartLoopingOn ||
+            isDraggingCrop ||
+            isDrawingCrop
+          ) {
+            shouldTriggerCropChartLoop = false;
+            cropChartSectionLoop();
+          } else {
+            const searchCropPoint = { x: time, y: 0, crop: '' };
+            let [start, end] = bsearch(chartData, searchCropPoint, sortX);
+            if (currentCropChartMode === cropChartMode.Start) {
+              setCurrentCropPoint(chart, Math.min(start, chartData.length - 2));
+            } else if (currentCropChartMode === cropChartMode.End) {
+              if (start === end) end++;
+              setCurrentCropPoint(chart, Math.max(end, 1));
+            }
           }
         }
+        updateCropChartSectionOverlays(chartData, time);
       }
-      updateCropChartSectionOverlays(chartData, time);
       requestAnimationFrame(cropChartPreviewHandler);
     }
 
     function updateCropChartSectionOverlays(chartData: CropPoint[], currentTime: number) {
+      if (!isStaticCrop(chartData) || currentCropPointIndex > 0) {
+        cropChartSectionStart.style.display = 'block';
+        cropChartSectionEnd.style.display = 'block';
+      } else {
+        cropChartSectionStart.style.display = 'none';
+        cropChartSectionEnd.style.display = 'none';
+      }
       const sectStart = chartData[currentCropChartSection[0]];
       const sectEnd = chartData[currentCropChartSection[1]];
 
