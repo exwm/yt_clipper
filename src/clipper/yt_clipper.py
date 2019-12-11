@@ -153,9 +153,14 @@ def main():
         settings = prepareGlobalSettings(settings)
 
     if not settings["preview"]:
-        for markerPairIndex, marker in enumerate(settings["markerPairs"]):
-            settings["markerPairs"][markerPairIndex] = makeMarkerPairClip(
+        if settings["only"] != '':
+            markerPairIndex = int(settings["only"]) - 1
+            makeMarkerPairClip(
                 settings, markerPairIndex)
+        else:
+            for markerPairIndex, marker in enumerate(settings["markerPairs"]):
+                settings["markerPairs"][markerPairIndex] = makeMarkerPairClip(
+                    settings, markerPairIndex)
         if settings["markerPairMergeList"] != '':
             makeMergedClips(settings)
     else:
@@ -212,6 +217,8 @@ def buildArgParser():
                         help='Multiply all x crop dimensions by an integer.')
     parser.add_argument('--multiply-crop-y', '-mcy', type=float, dest='cropMultipleY', default=1,
                         help='Multiply all y crop dimensions by an integer.')
+    parser.add_argument('--only', default='',
+                        help='Process only the specified marker pairs.')
     parser.add_argument('--gfycat', '-gc', action='store_true',
                         help='upload all output webms to gfycat and print reddit markdown with all links')
     parser.add_argument('--audio', '-a', action='store_true',
@@ -519,8 +526,8 @@ def getMarkerPairSettings(settings, markerPairIndex):
                  f'Audio Enabled: {mps["audio"]}, Denoise: {mps["denoise"]["desc"]}, ' +
                  f'Marker Pair {markerPairIndex + 1} is of variable speed: {mp["isVariableSpeed"]}, ' +
                  f'Speed Maps Enabled: {mps["enableSpeedMaps"]}, ' +
-                 f'Special Looping: {mps["loop"]},  ' +
-                 (f'Fade Duration: {mps["fadeDuration"]}s' if mps["loop"] == 'fade' else '') +
+                 f'Special Looping: {mps["loop"]}, ' +
+                 (f'Fade Duration: {mps["fadeDuration"]}s, ' if mps["loop"] == 'fade' else '') +
                  f'Final Output Duration: {mp["outputDuration"]}, ' +
                  f'Video Stabilization: {mps["videoStabilization"]["desc"]}, ' +
                  f'Video Stabilization Dynamic Zoom: {mps["videoStabilizationDynamicZoom"]}'))
