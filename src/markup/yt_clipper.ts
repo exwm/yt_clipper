@@ -1992,8 +1992,6 @@ export function triggerCropChartLoop() {
       hideChart();
     }
 
-    let cropInput: HTMLInputElement;
-    let cropAspectRatioSpan: HTMLSpanElement;
     function createGlobalSettingsEditor() {
       createCropOverlay(settings.newMarkerCrop);
       const globalSettingsEditorDiv = document.createElement('div');
@@ -3787,9 +3785,9 @@ export function triggerCropChartLoop() {
 
     function cropChartPreviewHandler() {
       const chart = cropChartInput.chart;
-      const chartData = chart?.data.datasets[0].data as CropPoint[];
-      const time = video.currentTime;
       if (!wasGlobalSettingsEditorOpen && chart) {
+        const chartData = chart?.data.datasets[0].data as CropPoint[];
+        const time = video.currentTime;
         if (!isStaticCrop(chartData)) {
           if (
             shouldTriggerCropChartLoop ||
@@ -3809,6 +3807,9 @@ export function triggerCropChartLoop() {
               setCurrentCropPoint(chart, Math.max(end, 1));
             }
           }
+          cropInputLabel.textContent = `Crop Point ${currentCropPointIndex + 1}`;
+        } else {
+          cropInputLabel.textContent = `Crop`;
         }
         updateCropChartSectionOverlays(chartData, time);
       }
@@ -4066,6 +4067,9 @@ export function triggerCropChartLoop() {
       }
     }
 
+    let cropInputLabel: HTMLInputElement;
+    let cropInput: HTMLInputElement;
+    let cropAspectRatioSpan: HTMLSpanElement;
     let markerPairNumberInput: HTMLInputElement;
     function createMarkerPairEditor(targetMarker: SVGRectElement) {
       const markerPairIndex = parseInt(targetMarker.getAttribute('idx'), 10) - 1;
@@ -4117,7 +4121,7 @@ export function triggerCropChartLoop() {
             step="0.05" min="0.05" max="2" style="min-width:4em" required></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.cropTooltip}">
-          <span>Crop</span>
+          <span id="crop-input-label">Crop</span>
           <input id="crop-input" value="${crop}" pattern="${cropInputValidation}" 
           style="min-width:10em" required></input>
         </div>
@@ -4343,6 +4347,7 @@ export function triggerCropChartLoop() {
         'marker-pair-number-input'
       ) as HTMLInputElement;
       markerPairNumberInput.addEventListener('change', markerPairNumberInputHandler);
+      cropInputLabel = document.getElementById('crop-input-label') as HTMLInputElement;
       cropInput = document.getElementById('crop-input') as HTMLInputElement;
       cropAspectRatioSpan = document.getElementById(
         'crop-aspect-ratio'
