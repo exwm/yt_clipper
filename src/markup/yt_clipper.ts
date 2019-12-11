@@ -1194,7 +1194,7 @@ export function triggerCropChartLoop() {
       });
     }
 
-    function flashMessage(msg: string, color: string, lifetime = 2500) {
+    function flashMessage(msg: string, color: string, lifetime = 3000) {
       const flashDiv = document.createElement('div');
       flashDiv.setAttribute('class', 'msg-div flash-div');
       flashDiv.innerHTML = `<span class="flash-msg" style="color:${color}">${msg}</span>`;
@@ -2513,7 +2513,26 @@ export function triggerCropChartLoop() {
 
     function addCropInputHotkeys() {
       cropInput.addEventListener('keydown', (ke: KeyboardEvent) => {
-        if (ke.code === 'ArrowUp' || ke.code === 'ArrowDown') {
+        if (
+          ke.code === 'Space' ||
+          (!ke.ctrlKey && !ke.altKey && 66 <= ke.which && ke.which <= 90) ||
+          (!ke.ctrlKey && !ke.altKey && ke.shiftKey && ke.which === 65)
+        ) {
+          ke.preventDefault();
+          ke.stopImmediatePropagation();
+          cropInput.blur();
+          flashMessage('Auto blurred crop input focus', 'olive');
+          return;
+        }
+
+        const noModifiers = !ke.ctrlKey && !ke.altKey && !ke.shiftKey;
+        if (
+          ke.code === 'ArrowUp' ||
+          ke.code === 'ArrowDown' ||
+          (ke.code === 'KeyA' && noModifiers)
+        ) {
+          ke.preventDefault();
+          ke.stopImmediatePropagation();
           let cropString = cropInput.value;
           let cropStringArray = cropString.split(':');
           const initialCropArray = getCropComponents(cropString);
@@ -2525,11 +2544,39 @@ export function triggerCropChartLoop() {
             cropComponentCursorPos -= cropStringArray[cropTarget].length + 1;
             cropTarget++;
           }
-          if (
+
+          const isValidCropTarget =
             cropTarget >= 0 &&
             cropTarget <= cropArray.length - 1 &&
-            typeof cropArray[cropTarget] === 'number'
-          ) {
+            typeof cropArray[cropTarget] === 'number';
+          if (!isValidCropTarget) return;
+
+          if (ke.code === 'KeyA' && !wasGlobalSettingsEditorOpen) {
+            const [ix, iy, ,] = initialCropArray;
+            if (cropTarget === 0 || cropTarget === 1) {
+              const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+              const cropMap = markerPair.cropMap;
+              cropMap.forEach((cropPoint, idx) => {
+                if (idx === currentCropPointIndex) return;
+                let [x, y, w, h] = getCropComponents(cropPoint.crop);
+                if (cropTarget === 0) x = ix;
+                if (cropTarget === 1) y = iy;
+                cropPoint.crop = [x, y, w, h].join(':');
+                if (idx === 0) markerPair.crop = cropPoint.crop;
+              });
+            }
+
+            if (cropTarget === 0)
+              flashMessage(`Updated all crop point X values to ${ix}`, 'green');
+            if (cropTarget === 1)
+              flashMessage(`Updated all crop point Y values to ${iy}`, 'green');
+            if (isCropChartPanOnly && (cropTarget === 2 || cropTarget === 3)) {
+              flashMessage(
+                `Crop chart is in pan-only mode and all crop points have the same size`,
+                'olive'
+              );
+            }
+          } else if (ke.code === 'ArrowUp' || ke.code === 'ArrowDown') {
             let changeAmount: number;
             if (!ke.altKey && !ke.shiftKey) {
               changeAmount = 10;
@@ -2547,8 +2594,6 @@ export function triggerCropChartLoop() {
               cropArray[cropTarget] -= changeAmount;
             }
 
-            ke.preventDefault();
-            ke.stopImmediatePropagation();
             const [nx, ny, nw, nh] = cropArray;
             updateCrop(nx, ny, nw, nh);
             const updatedCropString = cropInput.value;
