@@ -3788,42 +3788,50 @@ export function triggerCropChartLoop() {
       if (!wasGlobalSettingsEditorOpen && chart) {
         const chartData = chart?.data.datasets[0].data as CropPoint[];
         const time = video.currentTime;
-        if (!isStaticCrop(chartData)) {
-          if (
-            shouldTriggerCropChartLoop ||
-            isCropChartLoopingOn ||
-            isDraggingCrop ||
-            isDrawingCrop
-          ) {
-            shouldTriggerCropChartLoop = false;
-            cropChartSectionLoop();
-          } else {
-            const searchCropPoint = { x: time, y: 0, crop: '' };
-            let [start, end] = bsearch(chartData, searchCropPoint, sortX);
-            if (currentCropChartMode === cropChartMode.Start) {
-              setCurrentCropPoint(chart, Math.min(start, chartData.length - 2));
-            } else if (currentCropChartMode === cropChartMode.End) {
-              if (start === end) end++;
-              setCurrentCropPoint(chart, Math.max(end, 1));
-            }
+        const isDynamicCrop = !isStaticCrop(chartData);
+        if (
+          shouldTriggerCropChartLoop ||
+          isCropChartLoopingOn ||
+          isDraggingCrop ||
+          isDrawingCrop
+        ) {
+          shouldTriggerCropChartLoop = false;
+          cropChartSectionLoop();
+        } else if (isDynamicCrop) {
+          const searchCropPoint = { x: time, y: 0, crop: '' };
+          let [start, end] = bsearch(chartData, searchCropPoint, sortX);
+          if (currentCropChartMode === cropChartMode.Start) {
+            setCurrentCropPoint(chart, Math.min(start, chartData.length - 2));
+          } else if (currentCropChartMode === cropChartMode.End) {
+            if (start === end) end++;
+            setCurrentCropPoint(chart, Math.max(end, 1));
           }
+        }
+
+        if (isDynamicCrop || currentCropPointIndex > 0) {
           cropInputLabel.textContent = `Crop Point ${currentCropPointIndex + 1}`;
         } else {
           cropInputLabel.textContent = `Crop`;
         }
-        updateCropChartSectionOverlays(chartData, time);
+
+        updateCropChartSectionOverlays(chartData, time, isDynamicCrop);
       }
       requestAnimationFrame(cropChartPreviewHandler);
     }
 
-    function updateCropChartSectionOverlays(chartData: CropPoint[], currentTime: number) {
-      if (!isStaticCrop(chartData) || currentCropPointIndex > 0) {
+    function updateCropChartSectionOverlays(
+      chartData: CropPoint[],
+      currentTime: number,
+      isDynamicCrop: boolean
+    ) {
+      if (isDynamicCrop || currentCropPointIndex > 0) {
         cropChartSectionStart.style.display = 'block';
         cropChartSectionEnd.style.display = 'block';
       } else {
         cropChartSectionStart.style.display = 'none';
         cropChartSectionEnd.style.display = 'none';
       }
+
       const sectStart = chartData[currentCropChartSection[0]];
       const sectEnd = chartData[currentCropChartSection[1]];
 
