@@ -3251,6 +3251,26 @@ export function triggerCropChartLoop() {
       }
     ) {
       if (isMarkerPairSettingsEditorOpen) {
+        const [ix, iy, iw, ih] = getCropComponents(cropInput.value);
+        optArgs = optArgs ?? {
+          ix,
+          iy,
+          iw,
+          ih,
+          minW: null,
+          minH: null,
+          resizeOnly: false,
+        };
+
+        const { cx, cy, cw, ch, dx, dy, dw, dh, isDrag } = clampCropChange(
+          nx,
+          ny,
+          nw,
+          nh,
+          optArgs
+        );
+
+        [nx, ny, nw, nh] = [cx, cy, cw, ch];
         let newCropString = [nx, ny, nw, nh].join(':');
 
         if (!wasGlobalSettingsEditorOpen) {
@@ -3259,29 +3279,7 @@ export function triggerCropChartLoop() {
           if (currentCropPointIndex === 0 && isStaticCrop(cropMap)) {
             cropMap[1].crop = newCropString;
           } else if (isCropChartPanOnly) {
-            const [ix, iy, iw, ih] = getCropComponents(cropInput.value);
-            optArgs = optArgs ?? {
-              ix,
-              iy,
-              iw,
-              ih,
-              minW: null,
-              minH: null,
-              resizeOnly: false,
-            };
-
-            const { cx, cy, cw, ch, dx, dy, dw, dh, isDrag } = clampCropChange(
-              nx,
-              ny,
-              nw,
-              nh,
-              optArgs
-            );
-
-            [nx, ny, nw, nh] = [cx, cy, cw, ch];
-
             const deltas = isDrag ? null : { dx, dy, dw, dh };
-            newCropString = [nx, ny, nw, nh].join(':');
             if (deltas) {
               cropMap.forEach((cropPoint, idx) => {
                 if (idx === currentCropPointIndex) return;
