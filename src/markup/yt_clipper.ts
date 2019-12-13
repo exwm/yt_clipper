@@ -1354,7 +1354,9 @@ export function triggerCropChartLoop() {
       if (
         isMarkerPairSettingsEditorOpen &&
         !wasGlobalSettingsEditorOpen &&
-        !isCropChartLoopingOn
+        (!isCropChartLoopingOn ||
+          !isCurrentChartVisible ||
+          currentChartInput.type === 'speed')
       ) {
         if (prevSelectedMarkerPairIndex != null) {
           const markerPair = markerPairs[prevSelectedMarkerPairIndex];
