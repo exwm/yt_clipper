@@ -9,7 +9,7 @@ export namespace Tooltips {
   export const speedTooltip = stripIndent`
     Toggle speed previewing with C.
     When audio is enabled, speeds below 0.5 are not yet supported.
-    YouTube can only preview speeds that are multiples of 0.5 (e.g., 0.75 or 0.45).
+    YouTube can only preview speeds that are multiples of 0.05 (e.g., 0.75 or 0.45).
     YouTube does not support previewing speeds below 0.25.
     `;
 
@@ -66,7 +66,7 @@ export namespace Tooltips {
   export const CRFTooltip = stripIndent`
     Constant Rate Factor or CRF allows the video bitrate to vary while maintaining roughly constant quality.
     Lower CRF values result in higher quality but larger file sizes.
-    A CRF around 20 (~25 for 4k) usually results in file size compression that does not visibly reduce quality.
+    A CRF around 25 (~30 for 4k) usually results in file size compression that does not visibly reduce quality.
     When the target bitrate is set to 0 (unlimited), the bitrate is unconstrained and operates in constant quality mode .
     When the target bitrate is set to auto or a positive value in kbps, the script operates in constrained quality mode.
     Constrained quality mode keeps file sizes reasonable even when low CRF values are specified.
@@ -111,7 +111,7 @@ export namespace Tooltips {
 
   export const vidstabTooltip = stripIndent`
     Video stabilization tries to smooth out the motion in the video and reduce shaking.
-    Usually requires the cropping and zooming of the video.
+    Usually requires cropping and zooming the video.
     Higher strength presets result in more cropping and zooming.
     Low contrast video or video with flashing lights may give poor results.
     If the video includes a logo or other static element within the cropped region, \
