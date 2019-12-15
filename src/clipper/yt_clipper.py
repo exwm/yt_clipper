@@ -8,9 +8,13 @@ import re
 import shlex
 import subprocess
 import sys
-from pathlib import Path
-from math import floor, ceil, log
 from fractions import Fraction
+from math import ceil, floor, log
+from pathlib import Path
+
+import coloredlogs
+
+import verboselogs
 
 UPLOAD_KEY_REQUEST_ENDPOINT = 'https://api.gfycat.com/v1/gfycats?'
 FILE_UPLOAD_ENDPOINT = 'https://filedrop.gfycat.com'
@@ -185,16 +189,18 @@ def main():
 
 def setUpLogger():
     global logger
-    loggerHandlers = [logging.StreamHandler()]
+    logger = verboselogs.VerboseLogger(__name__)
+
     if not settings["preview"]:
-        loggerHandlers.append(logging.FileHandler(
-            filename=f'{webmsPath}/{settings["titleSuffix"]}.log', mode='a', encoding='utf-8'))
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        datefmt="%y-%m-%d %H:%M:%S",
-        handlers=loggerHandlers)
-    logger = logging.getLogger()
+        fileHandler = logging.FileHandler(
+            filename=f'{webmsPath}/{settings["titleSuffix"]}.log', mode='a', encoding='utf-8')
+        fileFormatter = coloredlogs.BasicFormatter('[%(asctime)s] %(levelname)s: %(message)s')
+        fileHandler.setFormatter(fileFormatter)
+        logger.addHandler(fileHandler)
+
+    coloredlogs.DEFAULT_FIELD_STYLES['levelname'] = {'color': 173}
+    coloredlogs.install(fmt='[%(asctime)s] %(levelname)s: %(message)s',
+                        level=logging.INFO, datefmt="%y-%m-%d %H:%M:%S")
 
 
 def buildArgParser():
@@ -749,7 +755,7 @@ def runffmpegCommand(ffmpegCommands, markerPairIndex, mp):
         ffmpegProcess = subprocess.run(shlex.split(ffmpegPass2))
 
     if ffmpegProcess.returncode == 0:
-        logger.info(f'Successfuly generated: "{mp["fileName"]}"\n')
+        logger.success(f'Successfuly generated: "{mp["fileName"]}"\n')
         return {**(settings["markerPairs"][markerPairIndex]), **mp}
     else:
         logger.error(f'Failed to generate: "{mp["fileName"]}"\n')
@@ -979,13 +985,13 @@ def makeMergedClips(settings):
             logger.info(f'Using ffmpeg command: {ffmpegConcatCmd}')
             ffmpegProcess = subprocess.run(shlex.split(ffmpegConcatCmd))
             if ffmpegProcess.returncode == 0:
-                logger.info(f'Successfuly generated: "{mergedFileName}"\n')
+                logger.success(f'Successfuly generated: "{mergedFileName}"\n')
             else:
                 logger.info(f'Failed to generate: "{mergedFileName}"\n')
                 logger.error(
                     f'ffmpeg error code: "{ffmpegProcess.returncode}"\n')
         else:
-            logger.info(f'Skipped existing file: "{mergedFileName}"\n')
+            logger.notice(f'Skipped existing file: "{mergedFileName}"\n')
 
         try:
             os.remove(inputsTxtPath)
@@ -998,7 +1004,7 @@ def checkWebmExists(fileName, filePath):
         logger.info(f'Generating "{fileName}"...\n')
         return False
     else:
-        logger.info(f'Skipped existing file: "{fileName}"\n')
+        logger.notice(f'Skipped existing file: "{fileName}"\n')
         return True
 
 
