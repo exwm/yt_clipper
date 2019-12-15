@@ -847,11 +847,18 @@ export function triggerCropChartLoop() {
           targetMarker = prevSelectedEndMarker.previousElementSibling as SVGRectElement;
           targetMarkerTime = markerPair.start;
         }
+
+        let newMarkerTime: number;
         if (event.deltaY > 0) {
-          moveMarker(targetMarker, Math.max(0, targetMarkerTime - 1 / fps));
+          newMarkerTime = targetMarkerTime - 1 / fps;
+          moveMarker(targetMarker, Math.max(0, newMarkerTime));
         } else if (event.deltaY < 0) {
-          moveMarker(targetMarker, Math.min(video.duration, targetMarkerTime + 1 / fps));
+          newMarkerTime = targetMarkerTime + 1 / fps;
+          moveMarker(targetMarker, Math.min(video.duration, newMarkerTime));
         }
+
+        video.pause();
+        player.seekTo(newMarkerTime);
       }
     }
 
