@@ -655,7 +655,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
         easeA = f'1'
         easeB = f'0'
         easeP = f'(T/{fadeDur})'
-        alphaEase = getEasingExpression('easeInOutCubic', easeA, easeB, easeP)
+        alphaEase = getEasingExpression('easeInOutCircle', easeA, easeB, easeP)
 
         loop_filter = ''
         loop_filter += f''',split=3[1][2][3];'''
@@ -896,6 +896,8 @@ def getEasingExpression(easingFunc, easeA, easeB, easeP):
         ease = f'0.5*(1-cos({easeP}*PI))'
     elif easingFunc == 'easeOutCircle':
         ease = f'sqrt(1-{easeM}^2)'
+    elif easingFunc == 'easeInOutCircle':
+        ease = f'if(lt({easeT},1), (1-sqrt(1-{easeT}^2))*0.5, (sqrt(1-4*{easeM}^2)+1)*0.5)'
     else:
         return None
 
