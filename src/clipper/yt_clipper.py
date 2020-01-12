@@ -233,6 +233,8 @@ def buildArgParser():
                         help='Specify format string passed to youtube-dl.')
     parser.add_argument('--extra-video-filters', '-evf', dest='extraVideoFilters', default='',
                         help='Specify any extra video filters to be passed to ffmpeg.')
+    parser.add_argument('--extra-audio-filters', '-eaf', dest='extraAudioFilters', default='',
+                        help='Specify any extra audio filters to be passed to ffmpeg.')
     parser.add_argument('--delay', '-d', type=float, dest='delay', default=0,
                         help='Add a fixed delay to both the start and end time of each marker. Can be negative.')
     parser.add_argument('--gamma', '-ga', type=float, dest='gamma', default=1,
@@ -574,6 +576,8 @@ def makeMarkerPairClip(settings, markerPairIndex):
             mps["audio"] = False
             logger.warning(
                 'Audio disabled when previewing without an input video over non-dash protocol.')
+        if mps["extraAudioFilters"]:
+            audio_filter += f',{mps["extraAudioFilters"]}'
 
     if not mps["inputVideo"] and not settings["isDashVideo"]:
         inputs += reconnectFlags
