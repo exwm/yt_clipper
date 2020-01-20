@@ -858,7 +858,7 @@ export function triggerCropChartLoop() {
         }
 
         video.pause();
-        player.seekTo(newMarkerTime);
+        video.currentTime = newMarkerTime;
       }
     }
 
@@ -1380,14 +1380,14 @@ export function triggerCropChartLoop() {
             const isTimeBetweenChartLoop =
               chartLoop.start <= video.currentTime && video.currentTime <= chartLoop.end;
             if (!isTimeBetweenChartLoop) {
-              player.seekTo(chartLoop.start);
+              video.currentTime = chartLoop.start;
             }
           } else {
             const isTimeBetweenMarkerPair =
               markerPair.start <= video.currentTime &&
               video.currentTime <= markerPair.end;
             if (!isTimeBetweenMarkerPair) {
-              player.seekTo(markerPair.start);
+              video.currentTime = markerPair.start;
             }
           }
         }
@@ -1590,7 +1590,7 @@ export function triggerCropChartLoop() {
         targetEndMarker && toggleMarkerPairEditor(targetEndMarker);
         if (e.ctrlKey) {
           index--;
-          player.seekTo(markerPairs[index].start);
+          video.currentTime = markerPairs[index].start;
         }
       } else if (keyCode === 'ArrowRight' && index < markerPairs.length - 1) {
         targetEndMarker =
@@ -1598,7 +1598,7 @@ export function triggerCropChartLoop() {
         targetEndMarker && toggleMarkerPairEditor(targetEndMarker);
         if (e.ctrlKey) {
           index++;
-          player.seekTo(markerPairs[index].start);
+          video.currentTime = markerPairs[index].start;
         }
       }
     }
@@ -1644,11 +1644,11 @@ export function triggerCropChartLoop() {
         dblJump = 0;
         prevTime = null;
         if (minTime !== currentTime && minTime != Infinity && minTime != -Infinity)
-          player.seekTo(minTime);
+          video.currentTime = minTime;
       } else {
         prevTime = currentTime;
         if (minTime !== currentTime && minTime != Infinity && minTime != -Infinity)
-          player.seekTo(minTime);
+          video.currentTime = minTime;
         dblJump = (setTimeout(() => {
           dblJump = 0;
           prevTime = null;
@@ -3186,7 +3186,10 @@ export function triggerCropChartLoop() {
 
         window.addEventListener('pointermove', dragCropPreviewHandler);
 
-        window.addEventListener('pointerup', endDraw, true);
+        window.addEventListener('pointerup', endDraw, {
+          once: true,
+          capture: true,
+        });
 
         // exact event listener reference only added once so remove not required
         document.addEventListener('click', blockVideoPause, {
@@ -3610,8 +3613,8 @@ export function triggerCropChartLoop() {
           );
 
           chartInput.chart.ctx.canvas.addEventListener(
-            'mouseup',
-            getChartContextMenuHandler(chartInput),
+            'pointerdown',
+            getMouseChartTimeAnnotationSetter(chartInput),
             true
           );
 
@@ -3636,27 +3639,42 @@ export function triggerCropChartLoop() {
       }
     }
 
-    function getChartContextMenuHandler(chartInput: ChartInput) {
-      return function chartContextMenuHandler(e) {
+    function getMouseChartTimeAnnotationSetter(chartInput: ChartInput) {
+      return function mouseChartTimeAnnotationSetter(e) {
+        if (e.buttons !== 2) return;
         e.preventDefault();
         e.stopImmediatePropagation();
         const chart = chartInput.chart;
         const chartLoop =
           markerPairs[prevSelectedMarkerPairIndex][chartInput.chartLoopKey];
         // shift+right-click context menu opens screenshot tool in firefox 67.0.2
-        if (e.button === 2 && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-          player.seekTo(chart.scales['x-axis-1'].getValueForPixel(e.offsetX));
-        } else if (e.button === 2 && !e.ctrlKey && e.altKey && !e.shiftKey) {
-          const start = chart.scales['x-axis-1'].getValueForPixel(e.offsetX);
-          chart.config.options.annotation.annotations[1].value = start;
-          chartLoop.start = start;
-          chart.update();
-        } else if (e.button === 2 && e.ctrlKey && e.altKey && !e.shiftKey) {
-          const end = chart.scales['x-axis-1'].getValueForPixel(e.offsetX);
-          chart.config.options.annotation.annotations[2].value = end;
-          chartLoop.end = end;
+
+        function chartTimeAnnotationDragHandler(e) {
+          const time = +chart.scales['x-axis-1'].getValueForPixel(e.offsetX).toFixed(6);
+          if (!e.ctrlKey && !e.altKey && e.shiftKey) {
+            chart.config.options.annotation.annotations[1].value = time;
+            chartLoop.start = time;
+          } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
+            chart.config.options.annotation.annotations[2].value = time;
+            chartLoop.end = time;
+          }
+          chart.config.options.annotation.annotations[0].value = time;
+          video.currentTime = time;
           chart.update();
         }
+
+        chartTimeAnnotationDragHandler(e);
+
+        function chartTimeAnnotationDragEnd(e) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          chart.ctx.canvas.releasePointerCapture(e.pointerId);
+          window.removeEventListener('pointermove', chartTimeAnnotationDragHandler);
+        }
+
+        chart.ctx.canvas.setPointerCapture(e.pointerId);
+        window.addEventListener('pointermove', chartTimeAnnotationDragHandler);
+        window.addEventListener('pointerup', chartTimeAnnotationDragEnd, { once: true });
       };
     }
 
@@ -3912,7 +3930,7 @@ export function triggerCropChartLoop() {
               sectStart < video.currentTime && video.currentTime < sectEnd;
 
             if (!isTimeBetweenCropChartSection) {
-              player.seekTo(sectStart);
+              video.currentTime = sectStart;
             }
           }
         }
