@@ -56,7 +56,7 @@ export function copyToClipboard(str: string) {
   document.body.removeChild(el);
 }
 
-export function createRounder(multiple: number, precision: number) {
+export function getRounder(multiple: number, precision: number) {
   return (value: number) => {
     const roundedValue = Math.round(value / multiple) * multiple;
     const roundedValueFixedPrecision = +roundedValue.toFixed(precision);
@@ -65,9 +65,11 @@ export function createRounder(multiple: number, precision: number) {
 }
 
 export function roundValue(value: number, multiple: number, precision: number) {
-  return createRounder(multiple, precision)(value);
+  return getRounder(multiple, precision)(value);
 }
 
+export const speedRounder = getRounder(5e-2, 2);
+export const timeRounder = getRounder(1e-6, 6);
 export function clampNumber(number: number, min: number, max: number) {
   return Math.max(min, Math.min(number, max));
 }
