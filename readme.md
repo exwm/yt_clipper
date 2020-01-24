@@ -364,9 +364,9 @@ See <https://ffmpeg.org/ffplay.html#While-playing>.
 There is an installation that does not require the dependencies below.
 
 1. Extract the appropriate zip file anywhere:
-   - On _Windows_ download this [zip file (win_v3.6.1)](https://mega.nz/#!MLQzCSZA!O5UFn1Ond49ICEo535mU0lhVygsBtUnDSxn5YEy2fmk)
-   - On _Mac_ download this [zip file (mac_v3.6.1)](https://mega.nz/#!tfR3UQJK!rI0THSOMbJAJFBmC5AxWMibgOn_MGH3L2zNrgX8v79g)
-   - The latest install (`v3.6.1`) is **not compatible** with `v0.0.74` or lower of the `markup script`
+   - On _Windows_ download this [zip file (win_v3.6.2)](https://mega.nz/#!FT5gFIAS!WQEUzTLkL0v3ZwsQtZl7OfTZ0ZoJwhw-QaqGSwVLv_8)
+   - On _Mac_ download this [zip file (mac_v3.6.2)](https://mega.nz/#!ULxCnSRJ!cryPtlHFw0bXJszWGYmyWM7CMm9tPsPhumVurjfsbOs)
+   - The latest install (`v3.6.2`) is only compatible with `v0.0.75` or higher of the `markup script`
 2. Simply drag and drop the markers .json file onto the `yt_clipper_auto.bat` file on Windows or at the terminal prompt after executing `yt_clipper_auto` on Mac.
 3. Use `Ctrl+C` if you need to cancel the process.
 4. All generated webm clips will be placed in `./webms/<markers-json-filename>`.
@@ -456,7 +456,7 @@ See <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
 v0.0.89 `[2019.10.25]`:
 
 - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
-- Use with `v3.6.1` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+- Use with `v3.6.X` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
 - Fix imprecise marker timing due to imprecise FPS information by skipping frame time estimation.
 - Fix moving currently selected end marker when deactivating hotkeys.
 - Fix vertical alignment of rotated video preview thumbnail.
@@ -534,9 +534,17 @@ v0.0.85:
 
 ## Clipper Script (Installation) Changelog
 
-v3.6.1 `[2019.10.25]`:
+v3.6.2 `[2020.01.23]`:
 
 - See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
+- Use with `v0.0.89` or higher of the markup script.
+  - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
+- Update youtube-dl dependency to [`2020.01.24`](https://github.com/ytdl-org/youtube-dl/releases/tag/2019.01.24) to fix extractor errors when trying to download YouTube videos.
+- Update ffmpeg dependency to latest nightly version (`20200121-fc6fde2`) which includes an update to libvpx-vp9 (`1.8.2`).
+
+
+v3.6.1 `[2019.10.25]`:
+
 - Use with `v0.0.89` or higher of the markup script.
   - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
 - Fix crash on printing help with `--help` or `-h` or using the `yt_clipper_options` helper scripts.
