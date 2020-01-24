@@ -1885,7 +1885,8 @@ export function triggerCropChartLoop() {
         const [startNumbering, endNumbering] = addMarkerPairNumberings(
           rectIdx,
           startProgressPos,
-          progressPos
+          progressPos,
+          marker
         );
         updateMarkerPairsArray(currentFrameTime, {
           ...markerConfig,
@@ -1959,7 +1960,8 @@ export function triggerCropChartLoop() {
     function addMarkerPairNumberings(
       idx: number,
       startProgressPos: number,
-      endProgressPos: number
+      endProgressPos: number,
+      endMarker: SVGRectElement
     ) {
       const startNumbering = htmlToSVGElement(`\
         <text class="markerNumbering startMarkerNumbering" idx="${idx}"\
@@ -1983,6 +1985,13 @@ export function triggerCropChartLoop() {
       const endNumberingText = endMarkerNumberings.appendChild(
         endNumbering
       ) as SVGTextElement;
+
+      endNumberingText.marker = endMarker;
+      endNumberingText.addEventListener(
+        'mouseover',
+        markerNumberingMouseOverHandler,
+        false
+      );
 
       return [startNumberingText, endNumberingText];
     }
@@ -4033,8 +4042,13 @@ export function triggerCropChartLoop() {
       flashMessage(`All static marker crops updated to ${newCrop}`, 'olive');
     }
 
-    function toggleMarkerPairEditorHandler(e: MouseEvent) {
-      const targetMarker = e.target as SVGRectElement;
+    function markerNumberingMouseOverHandler(e: MouseEvent) {
+      const targetMarker = e.target.marker as SVGRectElement;
+      toggleMarkerPairEditorHandler(e, targetMarker);
+    }
+
+    function toggleMarkerPairEditorHandler(e: MouseEvent, targetMarker: SVGRectElement) {
+      targetMarker = targetMarker ?? (e.target as SVGRectElement);
 
       if (targetMarker && e.shiftKey) {
         toggleMarkerPairEditor(targetMarker);
