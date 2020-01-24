@@ -4,6 +4,7 @@
   --med-grey: rgb(110, 110, 110);
   --dark-grey: rgb(40, 40, 40);
   --darker-grey: rgb(10, 10, 10);
+  --bright-red: rgb(255, 0, 0);
   --dark-red: rgb(50, 0, 0);
   --marker-pair-editor-accent: rgb(245, 118, 0);
   --global-editor-accent: rgb(245, 0, 0);
@@ -84,7 +85,7 @@
   pointer-events: none;
 }
 .selected-marker-overlay-hidden {
-  fill-opacity: 0.5;
+  fill-opacity: 0.3;
 }
 
 #settings-editor-div {
@@ -242,6 +243,10 @@
 
 .endMarkerNumbering {
   fill: gold;
+  pointer-events: visibleFill;
+}
+.endMarkerNumbering:hover {
+  fill: var(--bright-red);
 }
 
 #crop-div {
