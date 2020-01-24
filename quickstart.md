@@ -6,7 +6,7 @@
    - See [this article](https://openuserjs.org/about/Userscript-Beginners-HOWTO) for more information.
 2) Next install the `markup script` component of `yt_clipper` by clicking [here](https://openuserjs.org/install/elwm/yt_clipper.user.js).
 3) Install the standalone `clipper script` component of `yt_clipper` by visiting [this section](https://openuserjs.org/scripts/elwm/yt_clipper#clipper-script-installation).
-   - Alternatively download the python source [here](https://github.com/exwm/yt_clipper/blob/master/src/clipper/yt_clipper.py) and see [this section](https://github.com/exwm/yt_clipper/blob/master/src/yt_clipper.py) for usage instructions.
+   - Alternatively download the python source [here](https://github.com/exwm/yt_clipper/blob/master/src/clipper/yt_clipper.py) and see [this section](https://openuserjs.org/scripts/elwm/yt_clipper#clipper-script-usage) for usage instructions.
 4) Visit a YouTube video page. Check that the `markup script` is [active on the page](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_active_on_page.png). Refresh the page if it is not active.
 5) Press **Alt+Shift+A** to activate the `markup script` and its hotkeys. You should see a [flash message](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_hotkeys_activated.png) below the video.
    - Use the various hotkeys to add marker pairs and edit settings to specify how to clip the video.
