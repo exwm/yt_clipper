@@ -861,7 +861,7 @@ export function triggerCropChartLoop() {
         }
 
         video.pause();
-        video.currentTime = newMarkerTime;
+        player.seekTo(newMarkerTime);
       }
     }
 
@@ -1383,14 +1383,14 @@ export function triggerCropChartLoop() {
             const isTimeBetweenChartLoop =
               chartLoop.start <= video.currentTime && video.currentTime <= chartLoop.end;
             if (!isTimeBetweenChartLoop) {
-              video.currentTime = chartLoop.start;
+              player.seekTo(chartLoop.start);
             }
           } else {
             const isTimeBetweenMarkerPair =
               markerPair.start <= video.currentTime &&
               video.currentTime <= markerPair.end;
             if (!isTimeBetweenMarkerPair) {
-              video.currentTime = markerPair.start;
+              player.seekTo(markerPair.start);
             }
           }
         }
@@ -1593,7 +1593,7 @@ export function triggerCropChartLoop() {
         targetEndMarker && toggleMarkerPairEditor(targetEndMarker);
         if (e.ctrlKey) {
           index--;
-          video.currentTime = markerPairs[index].start;
+          player.seekTo(markerPairs[index].start);
         }
       } else if (keyCode === 'ArrowRight' && index < markerPairs.length - 1) {
         targetEndMarker =
@@ -1601,7 +1601,7 @@ export function triggerCropChartLoop() {
         targetEndMarker && toggleMarkerPairEditor(targetEndMarker);
         if (e.ctrlKey) {
           index++;
-          video.currentTime = markerPairs[index].start;
+          player.seekTo(markerPairs[index].start);
         }
       }
     }
@@ -1647,11 +1647,11 @@ export function triggerCropChartLoop() {
         dblJump = 0;
         prevTime = null;
         if (minTime !== currentTime && minTime != Infinity && minTime != -Infinity)
-          video.currentTime = minTime;
+          player.seekTo(minTime);
       } else {
         prevTime = currentTime;
         if (minTime !== currentTime && minTime != Infinity && minTime != -Infinity)
-          video.currentTime = minTime;
+          player.seekTo(minTime);
         dblJump = (setTimeout(() => {
           dblJump = 0;
           prevTime = null;
@@ -3712,7 +3712,7 @@ export function triggerCropChartLoop() {
             chartLoop.end = time;
           }
           chart.config.options.annotation.annotations[0].value = time;
-          video.currentTime = time;
+          player.seekTo(time);
           chart.update();
         }
 
@@ -3983,7 +3983,7 @@ export function triggerCropChartLoop() {
               sectStart < video.currentTime && video.currentTime < sectEnd;
 
             if (!isTimeBetweenCropChartSection) {
-              video.currentTime = sectStart;
+              player.seekTo(sectStart);
             }
           }
         }
