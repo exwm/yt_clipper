@@ -253,9 +253,16 @@ v0.0.71:
 
 ## Clipper Script (Installation) Changelog
 
-v3.6.1 `[2019.10.25]`:
+v3.6.2 `[2020.01.23]`:
 
 - See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
+- Use with `v0.0.89` or higher of the markup script.
+  - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
+- Update youtube-dl dependency to [`2020.01.24`](https://github.com/ytdl-org/youtube-dl/releases/tag/2019.01.24) to fix extractor errors when trying to download YouTube videos.
+- Update ffmpeg dependency to latest nightly version (`20200121-fc6fde2`) which includes an update to libvpx-vp9 (`1.8.2`).
+
+v3.6.1 `[2019.10.25]`:
+
 - Use with `v0.0.89` or higher of the markup script.
   - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
 - Fix crash on printing help with `--help` or `-h` or using the `yt_clipper_options` helper scripts.
