@@ -68,6 +68,9 @@ import {
   setAttributes,
   toHHMMSS,
   toHHMMSSTrimmed,
+  getRounder,
+  timeRounder,
+  speedRounder,
 } from './util';
 const ytClipperCSS = readFileSync(__dirname + '/css/yt-clipper.css', 'utf8');
 const shortcutsTable = readFileSync(
@@ -1723,21 +1726,43 @@ export function triggerCropChartLoop() {
             <legend>Upload a markers .json file.</legend>
             <input type="file" id="markers-json-input" />
             <input type="button" id="upload-markers-json" value="Load" />
+            <input type="file" id="markers-array-input" hidden />
+            <input type="button" id="upload-markers-array" value="Load" hidden />
+          </fieldset>
+          <fieldset hidden>
+            <legend>Upload a markers array file.</legend>
+            <input type="file" id="markers-array-input" />
+            <input type="button" id="upload-markers-array" value="Load" />
           </fieldset>
         `;
         updateSettingsEditorHook();
         settingsEditorHook.insertAdjacentElement('afterend', markersUploadDiv);
         const fileUploadButton = document.getElementById('upload-markers-json');
         fileUploadButton.onclick = loadMarkersJson;
+        const markersArrayUploadButton = document.getElementById('upload-markers-array');
+        markersArrayUploadButton.onclick = loadMarkersArray;
       }
     }
 
     function loadMarkersJson() {
       const input = document.getElementById('markers-json-input');
+      if (input.files.length === 0) return;
       console.log(input.files);
       const file = input.files[0];
       const fr = new FileReader();
       fr.onload = receivedJson;
+      fr.readAsText(file);
+      const markersUploadDiv = document.getElementById('markers-upload-div');
+      deleteElement(markersUploadDiv);
+    }
+
+    function loadMarkersArray() {
+      const input = document.getElementById('markers-array-input');
+      if (input.files.length === 0) return;
+      console.log(input.files);
+      const file = input.files[0];
+      const fr = new FileReader();
+      fr.onload = receivedMarkersArray;
       fr.readAsText(file);
       const markersUploadDiv = document.getElementById('markers-upload-div');
       deleteElement(markersUploadDiv);
@@ -1786,6 +1811,34 @@ export function triggerCropChartLoop() {
           addMarker(startMarkerConfig);
           addMarker(endMarkerConfig);
         });
+      }
+    }
+
+    function receivedMarkersArray(e: ProgressEvent) {
+      const lines = e.target.result;
+      const markersJson = JSON.parse(lines);
+      console.log(markersJson);
+
+      flashMessage('Loading markers...', 'green');
+
+      settings = { ...settings };
+      for (let i = 0; i < markersJson.markerPairs.length; i = i + 4) {
+        const start = timeRounder(markersJson.markerPairs[i]);
+        const end = timeRounder(markersJson.markerPairs[i + 1]);
+        const speed = speedRounder(1 / markersJson.markerPairs[i + 2]);
+        const crop = markersJson.markerPairs[i + 3];
+        const startMarkerConfig: MarkerConfig = {
+          time: start,
+          type: 'start',
+        };
+        const endMarkerConfig: MarkerConfig = {
+          time: end,
+          type: 'end',
+          crop: crop,
+          speed: speed,
+        };
+        addMarker(startMarkerConfig);
+        addMarker(endMarkerConfig);
       }
     }
 
@@ -3650,7 +3703,7 @@ export function triggerCropChartLoop() {
         // shift+right-click context menu opens screenshot tool in firefox 67.0.2
 
         function chartTimeAnnotationDragHandler(e) {
-          const time = +chart.scales['x-axis-1'].getValueForPixel(e.offsetX).toFixed(6);
+          const time = timeRounder(chart.scales['x-axis-1'].getValueForPixel(e.offsetX));
           if (!e.ctrlKey && !e.altKey && e.shiftKey) {
             chart.config.options.annotation.annotations[1].value = time;
             chartLoop.start = time;

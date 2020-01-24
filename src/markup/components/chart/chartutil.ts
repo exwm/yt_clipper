@@ -1,4 +1,4 @@
-import { createRounder } from '../../util';
+import { getRounder } from '../../util';
 export const sortX = (a, b) => {
   if (a.x < b.x) return -1;
   if (a.x > b.x) return 1;
@@ -11,8 +11,8 @@ export const grey = (opacity: number) => `rgba(50, 50, 50, ${opacity})`;
 
 export const cubicInOutTension = 0.6;
 
-export const roundX = createRounder(0.05, 2);
-export const roundY = createRounder(0.05, 2);
+export const roundX = getRounder(0.05, 2);
+export const roundY = getRounder(0.05, 2);
 
 export let inputId: string = null;
 export function setInputId(Id: string) {
