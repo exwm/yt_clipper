@@ -429,7 +429,7 @@ export function scatterChartSpec(
       dragY: true,
       dragX: true,
       dragDataRound: 0.5,
-      dragDataRoundMultipleX: 0.05,
+      dragDataRoundMultipleX: 0.01,
       dragDataRoundPrecisionX: 2,
       dragDataRoundMultipleY: 0.05,
       dragDataRoundPrecisionY: 2,
