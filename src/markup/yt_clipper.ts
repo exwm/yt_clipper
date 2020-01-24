@@ -3989,7 +3989,7 @@ export function triggerCropChartLoop() {
             const sectStart = chartData[start].x;
             const sectEnd = chartData[end].x;
             const isTimeBetweenCropChartSection =
-              sectStart < video.currentTime && video.currentTime < sectEnd;
+              sectStart <= video.currentTime && video.currentTime <= sectEnd;
 
             if (!isTimeBetweenCropChartSection) {
               player.seekTo(sectStart);

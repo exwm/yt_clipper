@@ -1,6 +1,6 @@
 import { ChartConfiguration, ChartFontOptions, ChartOptions } from 'chart.js';
 import { CropPoint } from '../../@types/yt_clipper';
-import { triggerCropChartLoop } from '../../yt_clipper';
+import { triggerCropChartLoop, player } from '../../yt_clipper';
 import {
   getInputUpdater,
   grey,
@@ -15,6 +15,7 @@ import {
   currentCropPointIndex,
   setCurrentCropPoint,
 } from './cropchart/cropChartSpec';
+import { timeRounder } from '../../util';
 
 export const scatterChartDefaults: ChartOptions & ChartFontOptions = {
   defaultColor: 'rgba(255, 255, 255, 1)',
@@ -102,6 +103,9 @@ export function scatterChartSpec(
         shouldDrag.dragY = false;
       }
 
+      if (chartType === 'crop' && shouldDrag.dragX && fromValue.x != toValue.x) {
+        player.seekTo(timeRounder(toValue.x));
+      }
       return shouldDrag;
     } else {
       return {
