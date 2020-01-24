@@ -1,10 +1,25 @@
+:root {
+  --lighter-grey: rgb(235, 235, 235);
+  --light-grey: rgb(210, 210, 210);
+  --med-grey: rgb(110, 110, 110);
+  --dark-grey: rgb(40, 40, 40);
+  --darker-grey: rgb(10, 10, 10);
+  --bright-red: rgb(237, 28, 63);
+  --marker-pair-editor-accent: rgb(245, 118, 0);
+  --essential-red: rgb(200, 40, 40);
+}
+
+#shortcutsTableContainer {
+  text-align: center;
+}
+
 #shortcutsTableContainer table {
   text-align: left;
   line-height: 32px;
   border-collapse: separate;
   border-spacing: 0;
-  border: 2px solid #ed1c40;
-  width: 630px;
+  border: 2px solid var(--bright-red);
+  width: 640px;
   margin: 8px auto;
   border-radius: 0.25rem;
   font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -15,8 +30,8 @@
 }
 
 #shortcutsTableContainer thead tr:first-child {
-  background: #ed1c40;
-  color: #fff;
+  background: var(--bright-red);
+  color: var(--lighter-grey);
   border: none;
 }
 
@@ -72,4 +87,13 @@ td:first-child {
   margin: 1px;
   background-color: #e0e0e0;
   color: #333;
+}
+
+#shortcutsTableContainer tr.essential-row {
+  color: var(--bright-red);
+}
+
+#shortcutsTableContainer h2 {
+  color: var(--lighter-grey);
+  margin: 10px;
 }
