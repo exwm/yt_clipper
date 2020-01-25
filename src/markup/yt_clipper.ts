@@ -3926,11 +3926,13 @@ export function triggerCropChartLoop() {
           cropChartSectionLoop();
         } else if (isDynamicCrop) {
           const searchCropPoint = { x: time, y: 0, crop: '' };
+          let [istart, iend] = currentCropChartSection;
           let [start, end] = bsearch(chartData, searchCropPoint, sortX);
           if (currentCropChartMode === cropChartMode.Start) {
+            if (start === end && end === iend) start--;
             setCurrentCropPoint(chart, Math.min(start, chartData.length - 2));
           } else if (currentCropChartMode === cropChartMode.End) {
-            if (start === end) end++;
+            if (start === end && start === istart) end++;
             setCurrentCropPoint(chart, Math.max(end, 1));
           }
         }
