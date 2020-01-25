@@ -626,6 +626,12 @@ export function triggerCropChartLoop() {
             );
 
             const optArgs = { ix, iy, iw, ih, minW: null, minH: null };
+
+            const shouldMaintainCropX = e.shiftKey;
+            const shouldMaintainCropY = e.altKey;
+            if (shouldMaintainCropX) x = ix;
+            if (shouldMaintainCropY) y = iy;
+
             updateCrop(x, y, iw, ih, optArgs);
           }
 
