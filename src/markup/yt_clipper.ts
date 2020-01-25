@@ -166,7 +166,11 @@ export function triggerCropChartLoop() {
             } else if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              cyclePlayerSpeedDown();
+              toggleForceSetSpeed();
+            } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              cycleForceSetSpeedValueDown();
             } else if (!e.ctrlKey && e.altKey && e.shiftKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
@@ -199,7 +203,7 @@ export function triggerCropChartLoop() {
             if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
-              toggleSpeedDucking();
+              toggleMarkerPairSpeedPreview();
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
@@ -1251,21 +1255,40 @@ export function triggerCropChartLoop() {
     }
 
     let isSpeedPreviewOn = false;
-    const toggleSpeedDucking = () => {
+    const toggleMarkerPairSpeedPreview = () => {
       if (isSpeedPreviewOn) {
         isSpeedPreviewOn = false;
-        flashMessage('Auto speed ducking disabled', 'red');
+        flashMessage('Marker pair speed preview disabled', 'red');
       } else {
         isSpeedPreviewOn = true;
-        requestAnimationFrame(updateSpeed);
-        flashMessage('Auto speed ducking enabled', 'green');
+        if (!isForceSetSpeedOn) requestAnimationFrame(updateSpeed);
+        flashMessage('Marker pair speed preview enabled', 'green');
       }
     };
 
     let prevSpeed = 1;
     const defaultRoundSpeedMapEasing = 0.05;
     function updateSpeed() {
+      if (!isSpeedPreviewOn && !isForceSetSpeedOn) {
+        player.setPlaybackRate(1);
+        prevSpeed = 1;
+        speedInputLabel.textContent = `Speed`;
+        return;
+      }
+
+      if (isForceSetSpeedOn) {
+        if (prevSpeed !== forceSetSpeedValue) {
+          player.setPlaybackRate(forceSetSpeedValue);
+          prevSpeed = forceSetSpeedValue;
+          speedInputLabel.textContent = `Speed (${forceSetSpeedValue.toFixed(2)})`;
+        }
+
+        requestAnimationFrame(updateSpeed);
+        return;
+      }
+
       const shortestActiveMarkerPair = getShortestActiveMarkerPair();
+      let newSpeed = prevSpeed;
       if (shortestActiveMarkerPair) {
         let markerPairSpeed: number;
         const enableSpeedMaps =
@@ -1285,20 +1308,19 @@ export function triggerCropChartLoop() {
         }
         // console.log(markerPairSpeed);
         if (prevSpeed !== markerPairSpeed) {
-          player.setPlaybackRate(markerPairSpeed);
-          prevSpeed = markerPairSpeed;
+          newSpeed = markerPairSpeed;
         }
-      } else if (prevSpeed !== 1) {
-        player.setPlaybackRate(1);
-        prevSpeed = 1;
+      } else {
+        newSpeed = 1;
       }
 
-      if (isSpeedPreviewOn) {
-        requestAnimationFrame(updateSpeed);
-      } else {
-        player.setPlaybackRate(1);
-        prevSpeed = 1;
+      if (prevSpeed !== newSpeed) {
+        player.setPlaybackRate(newSpeed);
+        prevSpeed = newSpeed;
+        speedInputLabel.textContent = `Speed`;
       }
+
+      requestAnimationFrame(updateSpeed);
     }
 
     function getSpeedMapping(
@@ -1543,14 +1565,14 @@ export function triggerCropChartLoop() {
         isFadeLoopPreviewOn &&
         isCropChartLoopingOn;
       if (!isAllPreviewsOn) {
-        !isSpeedPreviewOn && toggleSpeedDucking();
+        !isSpeedPreviewOn && toggleMarkerPairSpeedPreview();
         !isMarkerLoopPreviewOn && toggleMarkerPairLoop();
         !isGammaPreviewOn && toggleGammaPreview();
         !isFadeLoopPreviewOn && toggleFadeLoopPreview();
         !isCropChartLoopingOn && toggleCropChartLooping();
         isAllPreviewsOn = true;
       } else {
-        isSpeedPreviewOn && toggleSpeedDucking();
+        isSpeedPreviewOn && toggleMarkerPairSpeedPreview();
         isMarkerLoopPreviewOn && toggleMarkerPairLoop();
         isGammaPreviewOn && toggleGammaPreview();
         isFadeLoopPreviewOn && toggleFadeLoopPreview();
@@ -2039,11 +2061,23 @@ export function triggerCropChartLoop() {
       }
     }
 
-    function cyclePlayerSpeedDown() {
-      let newSpeed = player.getPlaybackRate() - 0.25;
-      newSpeed = newSpeed <= 0 ? 1 : newSpeed;
-      player.setPlaybackRate(newSpeed);
-      flashMessage(`Video playback speed set to ${newSpeed}`, 'green');
+    let forceSetSpeedValue = 1;
+    function cycleForceSetSpeedValueDown() {
+      forceSetSpeedValue = forceSetSpeedValue - 0.25;
+      if (forceSetSpeedValue <= 0) forceSetSpeedValue = 1;
+      flashMessage(`Force set video speed value set to ${forceSetSpeedValue}`, 'green');
+    }
+
+    let isForceSetSpeedOn = false;
+    function toggleForceSetSpeed() {
+      if (isForceSetSpeedOn) {
+        isForceSetSpeedOn = false;
+        flashMessage('Force set speed disabled', 'red');
+      } else {
+        isForceSetSpeedOn = true;
+        if (!isSpeedPreviewOn) requestAnimationFrame(updateSpeed);
+        flashMessage('Force set speed enabled', 'green');
+      }
     }
 
     function toggleGlobalSettingsEditor() {
@@ -4167,6 +4201,7 @@ export function triggerCropChartLoop() {
       }
     }
 
+    let speedInputLabel: HTMLInputElement;
     let cropInputLabel: HTMLInputElement;
     let cropInput: HTMLInputElement;
     let cropAspectRatioSpan: HTMLSpanElement;
@@ -4216,7 +4251,7 @@ export function triggerCropChartLoop() {
           Settings\
         </legend>
         <div class="settings-editor-input-div" title="${Tooltips.speedTooltip}">
-          <span>Speed</span>
+          <span id="speed-input-label">Speed</span>
           <input id="speed-input"type="number" placeholder="speed" value="${speed}" 
             step="0.05" min="0.05" max="2" style="min-width:4em" required></input>
         </div>
@@ -4447,6 +4482,7 @@ export function triggerCropChartLoop() {
         'marker-pair-number-input'
       ) as HTMLInputElement;
       markerPairNumberInput.addEventListener('change', markerPairNumberInputHandler);
+      speedInputLabel = document.getElementById('speed-input-label') as HTMLInputElement;
       cropInputLabel = document.getElementById('crop-input-label') as HTMLInputElement;
       cropInput = document.getElementById('crop-input') as HTMLInputElement;
       cropAspectRatioSpan = document.getElementById(
