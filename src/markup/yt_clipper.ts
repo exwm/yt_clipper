@@ -3765,6 +3765,11 @@ export function triggerCropChartLoop() {
           chart.update();
         }
 
+        function contextMenuBlocker(e) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+
         chartTimeAnnotationDragHandler(e);
 
         function chartTimeAnnotationDragEnd(e) {
@@ -3777,6 +3782,10 @@ export function triggerCropChartLoop() {
         chart.ctx.canvas.setPointerCapture(e.pointerId);
         window.addEventListener('pointermove', chartTimeAnnotationDragHandler);
         window.addEventListener('pointerup', chartTimeAnnotationDragEnd, { once: true });
+        window.addEventListener('contextmenu', contextMenuBlocker, {
+          once: true,
+          capture: true,
+        });
       };
     }
 
