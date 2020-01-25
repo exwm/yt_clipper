@@ -23,7 +23,7 @@
 // @grant        none
 // ==/UserScript==
 
-const __version__ = '0.0.90-beta.2.1';
+const __version__ = '0.0.90-beta.3';
 
 import { Chart, ChartConfiguration } from 'chart.js';
 import { html } from 'common-tags';
