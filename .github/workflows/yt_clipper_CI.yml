@@ -16,7 +16,7 @@ jobs:
       matrix:
         python-version: [3.7]
         node-version: [10.x]
-        os: [windows-latest, macOS-10.14]
+        os: [windows-latest, macOS-latest]
 
     steps:
       - uses: actions/checkout@v1
@@ -58,7 +58,7 @@ jobs:
           cp ./dist/py/yt_clipper.exe ./artifact/py/yt_clipper_win/
 
       - name: Copy mac artifacts
-        if: matrix.os == 'macOS-10.14'
+        if: matrix.os == 'macOS-latest'
         run: |
           cp ./src/clipper/mac_helpers/* ./artifact/py/yt_clipper_mac/
           cp ./dist/py/yt_clipper ./artifact/py/yt_clipper_mac/
@@ -71,7 +71,7 @@ jobs:
           path: ./artifact/py/yt_clipper_win/
 
       - name: Upload mac clipper script installation artifact
-        if: matrix.os == 'macOS-10.14'
+        if: matrix.os == 'macOS-latest'
         uses: actions/upload-artifact@v1
         with:
           name: yt_clipper_mac
