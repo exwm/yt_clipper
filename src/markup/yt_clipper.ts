@@ -3921,7 +3921,7 @@ export function triggerCropChartLoop() {
 
     function cropChartPreviewHandler() {
       const chart = cropChartInput.chart;
-      if (!wasGlobalSettingsEditorOpen && chart) {
+      if (isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen && chart) {
         const chartData = chart?.data.datasets[0].data as CropPoint[];
         const time = video.currentTime;
         const isDynamicCrop = !isStaticCrop(chartData);
