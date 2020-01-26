@@ -3412,7 +3412,6 @@ export function triggerCropChartLoop() {
 
           cropMap[currentCropPointIndex].crop = newCropString;
           if (currentCropPointIndex === 0) markerPair.crop = newCropString;
-          cropChartInput.chart && cropChartInput.chart.update();
         } else {
           settings.newMarkerCrop = newCropString;
         }
@@ -3762,7 +3761,6 @@ export function triggerCropChartLoop() {
           }
           chart.config.options.annotation.annotations[0].value = time;
           player.seekTo(time);
-          chart.update();
         }
 
         function contextMenuBlocker(e) {
@@ -4670,13 +4668,11 @@ export function triggerCropChartLoop() {
       if (speedChart) {
         speedChart.config.data.datasets[0].data = markerPair.speedMap;
         updateChartBounds(speedChart.config, markerPair.start, markerPair.end);
-        speedChart.update();
       }
       const cropChart = cropChartInput.chart;
       if (cropChart) {
         cropChart.config.data.datasets[0].data = markerPair.cropMap;
         updateChartBounds(cropChart.config, markerPair.start, markerPair.end);
-        cropChart.update();
       }
       updateMarkerPairDuration(markerPair);
       if (storeHistory) markerPair.moveHistory.undos.push({ marker, fromTime, toTime });
