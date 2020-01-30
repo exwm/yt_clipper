@@ -27,7 +27,10 @@ function getElement(chartInstance, callback) {
         }
 
         if (typeof callback === 'function' && element) {
-          if (callback(e, chartInstance, element) === false) {
+          const datasetIndex = element['_datasetIndex'];
+          const index = element['_index'];
+          const value = chartInstance.data.datasets[datasetIndex].data[index];
+          if (callback(e, chartInstance, element, value) === false) {
             element = null;
           }
         }

@@ -69,11 +69,14 @@ export function scatterChartSpec(
 ): ChartConfiguration {
   const updateInput = getInputUpdater(inputId);
 
-  const onDragStart = function(e, chartInstance, element) {
-    // console.log(e, element);
+  const onDragStart = function(e, chartInstance, element, value) {
+    // console.log(arguments);
     if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
       chartInstance.options.plugins.zoom.pan.enabled = false;
       event.target.style.cursor = 'grabbing';
+      if (chartType === 'crop') {
+        player.seekTo(timeRounder(value.x));
+      }
       chartInstance.update();
     }
   };
