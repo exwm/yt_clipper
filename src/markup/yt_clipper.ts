@@ -1278,7 +1278,8 @@ export function triggerCropChartLoop() {
       if (!isSpeedPreviewOn && !isForceSetSpeedOn) {
         player.setPlaybackRate(1);
         prevSpeed = 1;
-        speedInputLabel.textContent = `Speed`;
+        updateSpeedInputLabel('Speed');
+
         return;
       }
 
@@ -1286,7 +1287,7 @@ export function triggerCropChartLoop() {
         if (prevSpeed !== forceSetSpeedValue) {
           player.setPlaybackRate(forceSetSpeedValue);
           prevSpeed = forceSetSpeedValue;
-          speedInputLabel.textContent = `Speed (${forceSetSpeedValue.toFixed(2)})`;
+          updateSpeedInputLabel(`Speed (${forceSetSpeedValue.toFixed(2)})`);
         }
 
         requestAnimationFrame(updateSpeed);
@@ -1323,10 +1324,16 @@ export function triggerCropChartLoop() {
       if (prevSpeed !== newSpeed) {
         player.setPlaybackRate(newSpeed);
         prevSpeed = newSpeed;
-        speedInputLabel.textContent = `Speed`;
+        updateSpeedInputLabel('Speed');
       }
 
       requestAnimationFrame(updateSpeed);
+    }
+
+    function updateSpeedInputLabel(text: string) {
+      if (isMarkerPairSettingsEditorOpen && speedInputLabel != null) {
+        speedInputLabel.textContent = text;
+      }
     }
 
     function getSpeedMapping(
@@ -4505,6 +4512,10 @@ export function triggerCropChartLoop() {
       ) as HTMLSpanElement;
       isMarkerPairSettingsEditorOpen = true;
       wasGlobalSettingsEditorOpen = false;
+      
+      if (isForceSetSpeedOn) {
+        updateSpeedInputLabel(`Speed (${forceSetSpeedValue.toFixed(2)})`);
+      }
       highlightModifiedSettings(inputConfigs, markerPairs[markerPairIndex]);
       highlightModifiedSettings(
         overrideInputConfigs,
