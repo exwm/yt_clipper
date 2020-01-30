@@ -3337,18 +3337,23 @@ export function triggerCropChartLoop() {
       window.addEventListener('keydown', addCropOverlayHoverListener, true);
       if (prevCropString) {
         updateCropString(prevCropString);
-        markerPairs[prevSelectedMarkerPairIndex].cropMap.forEach((cropPoint) => {
-          cropPoint.crop = cropPoint.prevCrop;
-        });
+        if (isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
+          markerPairs[prevSelectedMarkerPairIndex].cropMap.forEach((cropPoint) => {
+            cropPoint.crop = cropPoint.prevCrop;
+          });
+        }
         flashMessage('Drawing crop canceled', 'red');
       } else {
         cropInput.dispatchEvent(new Event('change'));
         flashMessage('Finished drawing crop', 'green');
       }
-      markerPairs[prevSelectedMarkerPairIndex].cropMap.forEach((cropPoint) => {
-        delete cropPoint.prevCrop;
-        delete cropPoint.initCrop;
-      });
+
+      if (isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
+        markerPairs[prevSelectedMarkerPairIndex].cropMap.forEach((cropPoint) => {
+          delete cropPoint.prevCrop;
+          delete cropPoint.initCrop;
+        });
+      }
     }
 
     function updateCropString(cropString) {
@@ -3457,7 +3462,12 @@ export function triggerCropChartLoop() {
         isWestResize,
         isNorthResize
       );
-      if (isCropChartPanOnly && !isDrag) {
+      if (
+        isMarkerPairSettingsEditorOpen &&
+        !wasGlobalSettingsEditorOpen &&
+        isCropChartPanOnly &&
+        !isDrag
+      ) {
         const markerPair = markerPairs[prevSelectedMarkerPairIndex];
         const cropMap = markerPair.cropMap;
 
@@ -4512,7 +4522,7 @@ export function triggerCropChartLoop() {
       ) as HTMLSpanElement;
       isMarkerPairSettingsEditorOpen = true;
       wasGlobalSettingsEditorOpen = false;
-      
+
       if (isForceSetSpeedOn) {
         updateSpeedInputLabel(`Speed (${forceSetSpeedValue.toFixed(2)})`);
       }
