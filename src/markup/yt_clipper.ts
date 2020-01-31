@@ -3773,7 +3773,7 @@ export function triggerCropChartLoop() {
             currentChartInput = chartInput;
           }
           toggleCurrentChartVisibility();
-          isChartEnabled = !isChartEnabled;
+          isChartEnabled = isCurrentChartVisible;
         }
       } else {
         flashMessage(
