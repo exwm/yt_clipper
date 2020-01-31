@@ -489,6 +489,16 @@ export function triggerCropChartLoop() {
       const minH = Math.round(25 * minWHMultiplier);
       return { minW, minH };
     }
+
+    function getRelevantCropString() {
+      if (!isMarkerPairSettingsEditorOpen) return null;
+      if (!wasGlobalSettingsEditorOpen) {
+        return markerPairs[prevSelectedMarkerPairIndex].crop;
+      } else {
+        return settings.newMarkerCrop;
+      }
+    }
+
     let isDraggingCrop = false;
     function addCropOverlayDragListener() {
       video.addEventListener('pointerdown', cropOverlayDragHandler, {
@@ -504,13 +514,15 @@ export function triggerCropChartLoop() {
           !isDrawingCrop &&
           !isCropBlockingChartVisible
         ) {
-          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-          const cropMap = markerPair.cropMap;
-          const cropString = cropMap[currentCropPointIndex].crop;
+          const cropString = getRelevantCropString();
           const [ix, iy, iw, ih] = getCropComponents(cropString);
-          cropMap.forEach((cropPoint) => {
-            cropPoint.initCrop = cropPoint.crop;
-          });
+          if (!wasGlobalSettingsEditorOpen) {
+            const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+            const cropMap = markerPair.cropMap;
+            cropMap.forEach((cropPoint) => {
+              cropPoint.initCrop = cropPoint.crop;
+            });
+          }
 
           const cropAspectRatio = iw / ih;
           const videoRect = player.getVideoContentRect();
@@ -692,9 +704,14 @@ export function triggerCropChartLoop() {
 
             cropInput.dispatchEvent(new Event('change'));
 
-            cropMap.forEach((cropPoint) => {
-              delete cropPoint.initCrop;
-            });
+            if (!wasGlobalSettingsEditorOpen) {
+              const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+              const cropMap = markerPair.cropMap;
+              cropMap.forEach((cropPoint) => {
+                delete cropPoint.initCrop;
+              });
+            }
+
             cursor === 'grab'
               ? document.removeEventListener('pointermove', dragCropHandler)
               : document.removeEventListener('pointermove', resizeHandler);
@@ -716,9 +733,7 @@ export function triggerCropChartLoop() {
     }
 
     function getMouseCropHoverRegion(e: MouseEvent, cropString?: string) {
-      cropString =
-        cropString ??
-        markerPairs[prevSelectedMarkerPairIndex].cropMap[currentCropPointIndex].crop;
+      cropString = cropString ?? getRelevantCropString();
       const [x, y, w, h] = getCropComponents(cropString);
       const videoRect = player.getVideoContentRect();
       const playerRect = player.getBoundingClientRect();
