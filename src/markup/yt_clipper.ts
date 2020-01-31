@@ -500,6 +500,8 @@ export function triggerCropChartLoop() {
     }
 
     let isDraggingCrop = false;
+    let endCropOverlayDrag: (e, forceEndDrag?: boolean) => void;
+
     function addCropOverlayDragListener() {
       video.addEventListener('pointerdown', cropOverlayDragHandler, {
         capture: true,
@@ -530,6 +532,43 @@ export function triggerCropChartLoop() {
           const clickPosX = e.pageX - videoRect.left - playerRect.left;
           const clickPosY = e.pageY - videoRect.top - playerRect.top;
           const cursor = getMouseCropHoverRegion(e, cropString);
+          const pointerId = e.pointerId;
+
+          endCropOverlayDrag = (e, forceEndDrag = false) => {
+            if (forceEndDrag) {
+              document.removeEventListener('pointerup', endCropOverlayDrag, {
+                capture: true,
+              });
+            }
+            isDraggingCrop = false;
+
+            video.releasePointerCapture(pointerId);
+
+            cropInput.dispatchEvent(new Event('change'));
+
+            if (!wasGlobalSettingsEditorOpen) {
+              const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+              const cropMap = markerPair.cropMap;
+              cropMap.forEach((cropPoint) => {
+                delete cropPoint.initCrop;
+              });
+            }
+
+            cursor === 'grab'
+              ? document.removeEventListener('pointermove', dragCropHandler)
+              : document.removeEventListener('pointermove', resizeHandler);
+
+            showPlayerControls();
+            if (!forceEndDrag && e.ctrlKey) {
+              if (cursor) video.style.cursor = cursor;
+              updateCropHoverCursor(e);
+              window.addEventListener('mousemove', cropOverlayHoverHandler, true);
+            } else {
+              video.style.removeProperty('cursor');
+            }
+            window.addEventListener('keyup', removeCropOverlayHoverListener, true);
+            window.addEventListener('keydown', addCropOverlayHoverListener, true);
+          };
 
           let resizeHandler;
           if (!cursor) {
@@ -544,15 +583,8 @@ export function triggerCropChartLoop() {
             window.removeEventListener('keyup', removeCropOverlayHoverListener, true);
 
             e.preventDefault();
-            video.setPointerCapture(e.pointerId);
+            video.setPointerCapture(pointerId);
 
-            document.addEventListener('pointerup', endCropOverlayDrag, {
-              once: true,
-              capture: true,
-            });
-
-            isDraggingCrop = true;
-            hidePlayerControls();
             if (cursor === 'grab') {
               video.style.cursor = 'grabbing';
               document.addEventListener('pointermove', dragCropHandler);
@@ -560,6 +592,14 @@ export function triggerCropChartLoop() {
               resizeHandler = (e: MouseEvent) => getResizeHandler(e, cursor);
               document.addEventListener('pointermove', resizeHandler);
             }
+
+            document.addEventListener('pointerup', endCropOverlayDrag, {
+              once: true,
+              capture: true,
+            });
+
+            hidePlayerControls();
+            isDraggingCrop = true;
           }
 
           function getResizeHandler(e, cursor) {
@@ -695,38 +735,6 @@ export function triggerCropChartLoop() {
             let Y = Math.round(iy + changeYScaled);
             let H = Math.round(ih - changeYScaled);
             return { resizedX: X, resizedY: Y, resizedW: W, resizedH: H };
-          }
-
-          function endCropOverlayDrag(e) {
-            isDraggingCrop = false;
-
-            video.releasePointerCapture(e.pointerId);
-
-            cropInput.dispatchEvent(new Event('change'));
-
-            if (!wasGlobalSettingsEditorOpen) {
-              const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-              const cropMap = markerPair.cropMap;
-              cropMap.forEach((cropPoint) => {
-                delete cropPoint.initCrop;
-              });
-            }
-
-            cursor === 'grab'
-              ? document.removeEventListener('pointermove', dragCropHandler)
-              : document.removeEventListener('pointermove', resizeHandler);
-
-            showPlayerControls();
-            if (e.ctrlKey) {
-              if (cursor) video.style.cursor = cursor;
-              updateCropHoverCursor(e);
-              window.addEventListener('mousemove', cropOverlayHoverHandler, true);
-              window.addEventListener('keyup', removeCropOverlayHoverListener, true);
-              window.addEventListener('keydown', addCropOverlayHoverListener, true);
-            } else {
-              video.style.removeProperty('cursor');
-              window.addEventListener('keydown', addCropOverlayHoverListener, true);
-            }
           }
         }
       }
@@ -3152,7 +3160,10 @@ export function triggerCropChartLoop() {
 
     function hideCropOverlay() {
       if (isDrawingCrop) {
-        finishDrawingCrop();
+        finishDrawingCrop(prevCropString);
+      }
+      if (isDraggingCrop) {
+        endCropOverlayDrag(null, true);
       }
       if (cropSvg) {
         cropSvg.style.display = 'none';
