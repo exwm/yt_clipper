@@ -493,7 +493,7 @@ export function triggerCropChartLoop() {
     function getRelevantCropString() {
       if (!isMarkerPairSettingsEditorOpen) return null;
       if (!wasGlobalSettingsEditorOpen) {
-        return markerPairs[prevSelectedMarkerPairIndex].crop;
+        return markerPairs[prevSelectedMarkerPairIndex].cropMap[currentCropPointIndex].crop;
       } else {
         return settings.newMarkerCrop;
       }
