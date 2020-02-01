@@ -894,10 +894,16 @@ def getEasingExpression(easingFunc, easeA, easeB, easeP):
 
     if easingFunc == 'linear':
         return f'lerp({easeA}, {easeB}, {easeP})'
+    elif easingFunc == 'easeInCubic':
+        ease = f'{easeP}^3'
+    elif easingFunc == 'easeOutCubic':
+        ease = f'1+{easeM}^3'
     elif easingFunc == 'easeInOutCubic':
         ease = f'if(lt({easeT},1), {easeP}*{easeT}^2, 1+({easeM}^3)*4)'
     elif easingFunc == 'easeInOutSine':
         ease = f'0.5*(1-cos({easeP}*PI))'
+    elif easingFunc == 'easeInCircle':
+        ease = f'1-sqrt(1-{easeP}^2)'
     elif easingFunc == 'easeOutCircle':
         ease = f'sqrt(1-{easeM}^2)'
     elif easingFunc == 'easeInOutCircle':
