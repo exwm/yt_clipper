@@ -394,13 +394,13 @@ def getVideoInfo(settings, videoInfo):
     else:
         probedSettings = ffprobeVideoProperties(settings["videoURL"])
 
+    settings = {**settings, **videoInfo}
     if probedSettings is not None:
-        settings = {**settings, **videoInfo, **probedSettings}
+        settings = {**settings, **probedSettings}
     else:
-        if not videoInfo:
-            logger.error(
-                "Could not fetch local input video info with ffprobe.")
-        settings = {**settings, **videoInfo}
+        logger.warning(
+            "Could not fetch local input video info with ffprobe")
+        logger.warning("Defaulting to video info fetched with youtube-dl")
 
     if settings["isDashVideo"] or "bit_rate" not in settings:
         settings["bit_rate"] = int(videoInfo["tbr"])
@@ -1087,13 +1087,23 @@ def markerPairsCSVToList(markerPairsCSV):
 
 
 def ffprobeVideoProperties(video):
-    try:
-        ffprobeFlags = '-v quiet -select_streams v -print_format json -show_streams -show_format'
-        ffprobeCommand = f'"{ffprobePath}" "{video}" {ffprobeFlags} '
-        ffprobeOutput = subprocess.check_output(shlex.split(ffprobeCommand))
-    except subprocess.CalledProcessError as cpe:
-        logger.error(f'Could not fetch video properties with ffprobe')
-        logger.error(f'{cpe}')
+    ffprobeRetries = 3
+    done = False
+    while ffprobeRetries > 0 and not done:
+        ffprobeRetries -= 1
+        try:
+            ffprobeFlags = '-v quiet -select_streams v -print_format json -show_streams -show_format'
+            ffprobeCommand = f'"{ffprobePath}" "{video}" {ffprobeFlags} '
+            ffprobeOutput = subprocess.check_output(shlex.split(ffprobeCommand))
+            logger.success(f'Successfully fetched video properties with ffprobe')
+            done = True
+        except subprocess.CalledProcessError as cpe:
+            logger.warning(f'Could not fetch video properties with ffprobe')
+            logger.warning(f'{cpe}')
+            if ffprobeRetries > 0:
+                logger.info(f'Trying {ffprobeRetries} more time(s) to fetch video properties with ffprobe')
+
+    if ffprobeRetries == 0:
         return None
 
     ffprobeOutput = ffprobeOutput.decode('utf-8')
