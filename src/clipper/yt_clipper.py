@@ -652,23 +652,22 @@ def makeMarkerPairClip(settings, markerPairIndex):
         loop_filter += f'setpts=(PTS-STARTPTS)[r];'
         loop_filter += f'[f][r]concat=n=2'
     if mps["loop"] == 'fade':
-        dur = mp["outputDuration"]
         fadeDur = mps["fadeDuration"] = max(
             0.1, min(mps["fadeDuration"], 0.4 * mp["outputDuration"]))
 
-        easeA = f'1'
-        easeB = f'0'
         easeP = f'(T/{fadeDur})'
-        alphaEase = getEasingExpression('easeInOutCircle', easeA, easeB, easeP)
+        alphaEaseOut = getEasingExpression('easeInOutCubic', '1', '0.02', easeP)
+        alphaEaseIn = getEasingExpression('easeInOutCubic', '0', '0.98', easeP)
 
         loop_filter = ''
-        loop_filter += f''',split=3[1][2][3];'''
-        loop_filter += f'''[1]select='lte(t,{fadeDur})',setpts=(PTS-STARTPTS)[fi];'''
-        loop_filter += f'''[2]select='gt(t,{fadeDur})*lt(t,{dur}-{fadeDur})',setpts=(PTS-STARTPTS)[m];'''
-        loop_filter += f'''[3]select='gte(t,{dur}-{fadeDur})',setpts=(PTS-STARTPTS)[3b];'''
-        loop_filter += f'''[3b]format=yuva420p,geq=lum='p(X,Y)':a='{alphaEase}*alpha(X,Y)'[fo];'''
-        loop_filter += f'''[fi][fo]overlay=eof_action=pass,setpts=(PTS-STARTPTS)[cf];'''
-        loop_filter += f'''[m][cf]concat=n=2'''
+        loop_filter += f''',select='if(lte(t,{fadeDur}),1,2)':n=2[fia][mfia];'''
+        loop_filter += f'''[fia]format=yuva420p,geq=lum='p(X,Y)':a='{alphaEaseIn}*alpha(X,Y)'[fi];'''
+        loop_filter += f'''[mfia]setpts=(PTS-STARTPTS)[mfib];'''
+        loop_filter += f'''[mfib]reverse,select='if(lte(t,{fadeDur}),1,2)':n=2[for][mr];'''
+        loop_filter += f'''[mr]reverse,setpts=(PTS-STARTPTS)[m];'''
+        loop_filter += f'''[for]reverse,format=yuva420p,geq=lum='p(X,Y)':a='{alphaEaseOut}*alpha(X,Y)'[fo];'''
+        loop_filter += f'''[fi][fo]overlay=eof_action=repeat,setpts=(PTS-STARTPTS)[fl];'''
+        loop_filter += f'''[m][fl]concat=n=2'''
 
     if mps["preview"]:
         return runffplayCommand(inputs, video_filter, video_filter_before_correction,
