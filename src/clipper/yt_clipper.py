@@ -157,14 +157,43 @@ def main():
         settings = prepareGlobalSettings(settings)
 
     if not settings["preview"]:
+        markerPairQueue = set()
+        for markerPairIndex, _ in enumerate(settings["markerPairs"]):
+            markerPairQueue.add(markerPairIndex)
+
+        onlyPairsSet = markerPairQueue
+        exceptPairsSet = set()
         if settings["only"] != '':
-            markerPairIndex = int(settings["only"]) - 1
-            makeMarkerPairClip(
-                settings, markerPairIndex)
+            onlyPairsList = settings["only"]
+            try:
+                onlyPairsList = markerPairsCSVToList(onlyPairsList)
+            except ValueError:
+                logger.error(f'Argument provided to --only was invalid: "{settings["only"]}"')
+                sys.exit()
+            onlyPairsSet = {x - 1 for x in set(onlyPairsList)}
+        if settings["except"] != '':
+            exceptPairsList = settings["except"]
+            try:
+                exceptPairsList = markerPairsCSVToList(exceptPairsList)
+            except ValueError:
+                logger.error(f'Argument provided to --except was invalid: "{settings["except"]}"')
+                sys.exit()
+            exceptPairsSet = {x - 1 for x in set(exceptPairsList)}
+
+        onlyPairsSet.difference_update(exceptPairsSet)
+        markerPairQueue.intersection_update(onlyPairsSet)
+
+        if len(markerPairQueue) == 0:
+            logger.warning("No marker pairs to process")
         else:
-            for markerPairIndex, marker in enumerate(settings["markerPairs"]):
+            printableMarkerPairQueue = {x + 1 for x in markerPairQueue}
+            logger.notice(f'Processing the following set of marker pairs: "{printableMarkerPairQueue}"')
+
+        for markerPairIndex, marker in enumerate(settings["markerPairs"]):
+            if markerPairIndex in markerPairQueue:
                 settings["markerPairs"][markerPairIndex] = makeMarkerPairClip(
                     settings, markerPairIndex)
+
         if settings["markerPairMergeList"] != '':
             makeMergedClips(settings)
     else:
@@ -214,7 +243,7 @@ def buildArgParser():
                         help=('Specify markers json path for generating webms from input video.'
                               'Automatically streams required portions of input video from the '
                               'internet if it is not otherwise specified.'))
-    parser.add_argument('--overlay', '-o', dest='overlay',
+    parser.add_argument('--overlay', '-ov', dest='overlay',
                         help='overlay image path')
     parser.add_argument('--multiply-crop', '-mc', type=float, dest='cropMultiple', default=1,
                         help=('Multiply all crop dimensions by an integer. ' +
@@ -224,7 +253,13 @@ def buildArgParser():
     parser.add_argument('--multiply-crop-y', '-mcy', type=float, dest='cropMultipleY', default=1,
                         help='Multiply all y crop dimensions by an integer.')
     parser.add_argument('--only', default='',
-                        help='Process only the specified marker pairs.')
+                        help=('Specify which marker pairs to process by providing a comma separated '
+                              'list of marker pair numbers or ranges (e.g., "1-3,5,9" = "1,2,3,5,9"). '
+                              'The --except flag takes precedence and will skip pairs specified with --only.'))
+    parser.add_argument('--except', default='',
+                        help=('Specify which marker pairs to skip by providing a comma separated '
+                              'list of marker pair numbers or ranges (e.g., "1-3,5,9" = "1,2,3,5,9"). '
+                              'The --except flag takes precedence and will skip pairs specified with --only.'))
     parser.add_argument('--gfycat', '-gc', action='store_true',
                         help='upload all output webms to gfycat and print reddit markdown with all links')
     parser.add_argument('--audio', '-a', action='store_true',
@@ -1021,22 +1056,34 @@ def checkWebmExists(fileName, filePath):
 
 def createMergeList(markerPairMergeList):
     for merge in markerPairMergeList:
-        mergeCSV = merge.split(',')
-        mergeList = []
-        for mergeRange in mergeCSV:
-            if '-' in mergeRange:
-                mergeRange = mergeRange.split('-')
-                startPair = int(mergeRange[0])
-                endPair = int(mergeRange[1])
-                if (startPair <= endPair):
-                    for i in range(startPair, endPair + 1):
-                        mergeList.append(i)
-                else:
-                    for i in range(startPair, endPair - 1 if endPair >= 1 else 0, -1):
-                        mergeList.append(i)
-            else:
-                mergeList.append(int(mergeRange))
+        mergeList = markerPairsCSVToList(merge)
         yield merge, mergeList
+
+
+def markerPairsCSVToList(markerPairsCSV):
+    markerPairsCSV = re.sub(r'\s+', '', markerPairsCSV)
+    markerPairsCSV = markerPairsCSV.rstrip(',')
+    csvRangeValidation = r'^((\d{1,2})|(\d{1,2}-\d{1,2})){1}(,((\d{1,2})|(\d{1,2}-\d{1,2})))*$'
+    if re.match(csvRangeValidation, markerPairsCSV) is None:
+        raise ValueError("Invalid Marker pairs CSV.")
+
+    markerPairsCSV = markerPairsCSV.split(',')
+
+    markerPairsList = []
+    for mergeRange in markerPairsCSV:
+        if '-' in mergeRange:
+            mergeRange = mergeRange.split('-')
+            startPair = int(mergeRange[0])
+            endPair = int(mergeRange[1])
+            if (startPair <= endPair):
+                for i in range(startPair, endPair + 1):
+                    markerPairsList.append(i)
+            else:
+                for i in range(startPair, endPair - 1 if endPair >= 1 else 0, -1):
+                    markerPairsList.append(i)
+        else:
+            markerPairsList.append(int(mergeRange))
+    return markerPairsList
 
 
 def ffprobeVideoProperties(video):
@@ -1064,7 +1111,7 @@ def autoSetCropMultiples(settings):
     cropMultipleY = (settings["height"] / settings["cropResHeight"])
     if settings["cropResWidth"] != settings["width"] or settings["cropResHeight"] != settings["height"]:
         logger.info('-' * 80)
-        logger.warning('Crop resolution does not match video resolution.')
+        logger.warning('Crop resolution does not match video resolution')
         if settings["cropResWidth"] != settings["width"]:
             logger.warning(
                 f'Crop resolution width ({settings["cropResWidth"]}) not equal to video width ({settings["width"]})')
