@@ -662,8 +662,6 @@ def makeMarkerPairClip(settings, markerPairIndex):
 
     if 0 <= mps["gamma"] <= 4 and mps["gamma"] != 1:
         video_filter += f',lutyuv=y=gammaval({mps["gamma"]})'
-    if mps["extraVideoFilters"]:
-        video_filter += f',{mps["extraVideoFilters"]}'
     if mps["deinterlace"]:
         video_filter += f',bwdif'
     if mps["expandColorRange"]:
@@ -676,6 +674,8 @@ def makeMarkerPairClip(settings, markerPairIndex):
 
     if mps["loop"] != 'fwrev':
         video_filter += f',{mp["speedFilter"]}'
+        if mps["extraVideoFilters"]:
+            video_filter += f',{mps["extraVideoFilters"]}'
     if mps["loop"] == 'fwrev':
         reverseSpeedMap = [{"x": speedPoint["x"], "y":speedPointRev["y"]}
                            for speedPoint, speedPointRev in zip(mp["speedMap"], reversed(mp["speedMap"]))]
@@ -687,6 +687,8 @@ def makeMarkerPairClip(settings, markerPairIndex):
         loop_filter += f'''[f2]{reverseSpeedFilter},select='gt(n,0)',reverse,select='gt(n,0)','''
         loop_filter += f'setpts=(PTS-STARTPTS)[r];'
         loop_filter += f'[f][r]concat=n=2'
+        if mps["extraVideoFilters"]:
+            video_filter += f',{mps["extraVideoFilters"]}'
     if mps["loop"] == 'fade':
         fadeDur = mps["fadeDuration"] = max(
             0.1, min(mps["fadeDuration"], 0.4 * mp["outputDuration"]))
