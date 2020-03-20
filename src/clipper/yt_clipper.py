@@ -157,32 +157,8 @@ def main():
         settings = prepareGlobalSettings(settings)
 
     if not settings["preview"]:
-        markerPairQueue = set()
-        for markerPairIndex, _ in enumerate(settings["markerPairs"]):
-            markerPairQueue.add(markerPairIndex)
-
-        onlyPairsSet = markerPairQueue
-        exceptPairsSet = set()
-        if settings["only"] != '':
-            onlyPairsList = settings["only"]
-            try:
-                onlyPairsList = markerPairsCSVToList(onlyPairsList)
-            except ValueError:
-                logger.error(f'Argument provided to --only was invalid: "{settings["only"]}"')
-                sys.exit()
-            onlyPairsSet = {x - 1 for x in set(onlyPairsList)}
-        if settings["except"] != '':
-            exceptPairsList = settings["except"]
-            try:
-                exceptPairsList = markerPairsCSVToList(exceptPairsList)
-            except ValueError:
-                logger.error(f'Argument provided to --except was invalid: "{settings["except"]}"')
-                sys.exit()
-            exceptPairsSet = {x - 1 for x in set(exceptPairsList)}
-
-        onlyPairsSet.difference_update(exceptPairsSet)
-        markerPairQueue.intersection_update(onlyPairsSet)
-
+        nMarkerPairs = len(settings["markerPairs"])
+        markerPairQueue = getMarkerPairQueue(nMarkerPairs, settings["only"], settings["except"])
         if len(markerPairQueue) == 0:
             logger.warning("No marker pairs to process")
         else:
@@ -321,6 +297,31 @@ def buildArgParser():
     parser.add_argument('--no-speed-maps', '-nsm', dest='noSpeedMaps', action='store_true',
                         help='Disable speed maps for time-variable speed.')
     return parser.parse_known_args()
+
+
+def getMarkerPairQueue(nMarkerPairs, onlyArg, exceptArg):
+    markerPairQueue = set(range(nMarkerPairs))
+    onlyPairsSet = markerPairQueue
+    exceptPairsSet = set()
+
+    if onlyArg != '':
+        try:
+            onlyPairsList = markerPairsCSVToList(onlyArg)
+        except ValueError:
+            logger.error(f'Argument provided to --only was invalid: "{onlyArg}"')
+            sys.exit()
+        onlyPairsSet = {x - 1 for x in set(onlyPairsList)}
+    if exceptArg != '':
+        try:
+            exceptPairsList = markerPairsCSVToList(exceptArg)
+        except ValueError:
+            logger.error(f'Argument provided to --except was invalid: "{exceptArg}"')
+            sys.exit()
+        exceptPairsSet = {x - 1 for x in set(exceptPairsList)}
+
+    onlyPairsSet.difference_update(exceptPairsSet)
+    markerPairQueue.intersection_update(onlyPairsSet)
+    return markerPairQueue
 
 
 def loadMarkers(markersJson, settings):
@@ -1119,6 +1120,7 @@ def ffprobeVideoProperties(video):
 def autoSetCropMultiples(settings):
     cropMultipleX = (settings["width"] / settings["cropResWidth"])
     cropMultipleY = (settings["height"] / settings["cropResHeight"])
+
     if settings["cropResWidth"] != settings["width"] or settings["cropResHeight"] != settings["height"]:
         logger.info('-' * 80)
         logger.warning('Crop resolution does not match video resolution')
@@ -1128,6 +1130,7 @@ def autoSetCropMultiples(settings):
         if settings["cropResHeight"] != settings["height"]:
             logger.warning(
                 f'Crop resolution height ({settings["cropResHeight"]}) not equal to video height ({settings["height"]})')
+
         if not settings["noAutoScaleCropRes"]:
             logger.info(
                 f'Crop X offset and width will be multiplied by {cropMultipleX}')
