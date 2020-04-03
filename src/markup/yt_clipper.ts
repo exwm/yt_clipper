@@ -2139,8 +2139,10 @@ export function triggerCropChartLoop() {
       const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
       const [x, y, w, h] = getCropComponents(settings.newMarkerCrop);
       const cropAspectRatio = (w / h).toFixed(13);
-      const csvRange = `(\\d{1,2})([,-]\\d{1,2})*`;
-      const mergeListInputValidation = `(${csvRange})+(;${csvRange})*`;
+      const numOrRange = `(\\d{1,2})|(\\d{1,2}-\\d{1,2})`;
+      const csvRange = `(${numOrRange})*(,(${numOrRange}))*`;
+      const csvRangeReq = `(${numOrRange}){1}(,(${numOrRange}))*`;
+      const mergeListInputValidation = `^(${csvRange})(;${csvRangeReq})*$`;
       const gte100 = `([1-9]\\d{3}|[1-9]\\d{2})`;
       const cropResInputValidation = `${gte100}x${gte100}`;
       const resList = playerInfo.isVerticalVideo
