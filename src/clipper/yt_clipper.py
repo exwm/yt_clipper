@@ -1234,6 +1234,38 @@ def cleanFileName(fileName):
     return fileName
 
 
+def getDefaultEncodeSettings(videobr):
+    # switch to constant quality mode if no bitrate specified
+    if videobr is None:
+        encodeSettings = {'crf': 30, 'autoTargetMaxBitrate': 0,
+                          'encodeSpeed': 2, 'twoPass': False}
+    elif videobr <= 1000:
+        encodeSettings = {'crf': 20, 'autoTargetMaxBitrate': int(
+            2 * videobr), 'encodeSpeed': 2, 'twoPass': False}
+    elif videobr <= 2000:
+        encodeSettings = {'crf': 20, 'autoTargetMaxBitrate': int(
+            1.8 * videobr), 'encodeSpeed': 2, 'twoPass': False}
+    elif videobr <= 4000:
+        encodeSettings = {'crf': 22, 'autoTargetMaxBitrate': int(
+            1.6 * videobr), 'encodeSpeed': 2, 'twoPass': False}
+    elif videobr <= 6000:
+        encodeSettings = {'crf': 24, 'autoTargetMaxBitrate': int(
+            1.4 * videobr), 'encodeSpeed': 3, 'twoPass': False}
+    elif videobr <= 10000:
+        encodeSettings = {'crf': 26, 'autoTargetMaxBitrate': int(
+            1.2 * videobr), 'encodeSpeed': 4, 'twoPass': False}
+    elif videobr <= 14000:
+        encodeSettings = {'crf': 28, 'autoTargetMaxBitrate': int(
+            1.1 * videobr), 'encodeSpeed': 5, 'twoPass': False}
+    elif videobr <= 20000:
+        encodeSettings = {'crf': 30, 'autoTargetMaxBitrate': int(
+            1.0 * videobr), 'encodeSpeed': 5, 'twoPass': False}
+    else:
+        encodeSettings = {'crf': 35, 'autoTargetMaxBitrate': int(
+            0.9 * videobr), 'encodeSpeed': 5, 'twoPass': False}
+    return encodeSettings
+
+
 def getVidstabPreset(level, videoStabilizationDynamicZoom):
     vidstabPreset = {"enabled": False, "desc": "Disabled"}
     if level == 1:
