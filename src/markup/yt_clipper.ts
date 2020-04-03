@@ -94,7 +94,7 @@ export function triggerCropChartLoop() {
   shouldTriggerCropChartLoop = true;
 }
 
-(function() {
+(function () {
   'use strict';
   async function onLoadVideoPage(callback: Function) {
     const ytdapp = await retryUntilTruthyResult(
@@ -493,7 +493,8 @@ export function triggerCropChartLoop() {
     function getRelevantCropString() {
       if (!isMarkerPairSettingsEditorOpen) return null;
       if (!wasGlobalSettingsEditorOpen) {
-        return markerPairs[prevSelectedMarkerPairIndex].cropMap[currentCropPointIndex].crop;
+        return markerPairs[prevSelectedMarkerPairIndex].cropMap[currentCropPointIndex]
+          .crop;
       } else {
         return settings.newMarkerCrop;
       }
@@ -3287,7 +3288,7 @@ export function triggerCropChartLoop() {
         };
         updateCrop(ixScaled, iyScaled, 0, 0, optArgs);
 
-        dragCropPreviewHandler = function(e: PointerEvent) {
+        dragCropPreviewHandler = function (e: PointerEvent) {
           let endX = Math.round(
             ((e.pageX - videoRect.left - playerRect.left) / videoRect.width) *
               settings.cropResWidth
@@ -4370,8 +4371,9 @@ export function triggerCropChartLoop() {
           <span>Encode Speed (0-5)</span>
           <input id="encode-speed-input" type="number" min="0" max="5" step="1" value="${
             overrides.encodeSpeed != null ? overrides.encodeSpeed : ''
-          }" placeholder="${settings.encodeSpeed ||
-        'Auto'}"  style="min-width:4em"></input>
+          }" placeholder="${
+        settings.encodeSpeed || 'Auto'
+      }"  style="min-width:4em"></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.CRFTooltip}">
           <span>CRF (0-63)</span>
@@ -4385,8 +4387,9 @@ export function triggerCropChartLoop() {
           <span>Target Bitrate (kb/s)</span>
           <input id="target-max-bitrate-input" type="number" min="0" max="10e5" step="100" value="${
             overrides.targetMaxBitrate != null ? overrides.targetMaxBitrate : ''
-          }" placeholder="${settings.targetMaxBitrate ||
-        'Auto'}" "style="min-width:4em"></input>
+          }" placeholder="${
+        settings.targetMaxBitrate || 'Auto'
+      }" "style="min-width:4em"></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.twoPassTooltip}">
           <span>Two-Pass</span>
