@@ -13,7 +13,6 @@ from math import ceil, floor, log
 from pathlib import Path
 
 import coloredlogs
-
 import verboselogs
 
 UPLOAD_KEY_REQUEST_ENDPOINT = 'https://api.gfycat.com/v1/gfycats?'
@@ -400,7 +399,7 @@ def getVideoInfo(settings, videoInfo):
         settings = {**settings, **probedSettings}
     else:
         logger.warning(
-            "Could not fetch local input video info with ffprobe")
+            "Could not fetch video info with ffprobe")
         logger.warning("Defaulting to video info fetched with youtube-dl")
 
     if settings["isDashVideo"] or "bit_rate" not in settings:
@@ -437,16 +436,18 @@ def prepareGlobalSettings(settings):
                  f'Two-pass Encoding Enabled: {encodeSettings["twoPass"]}, ' +
                  f'Encoding Speed: {encodeSettings["encodeSpeed"]} (0-5)'))
 
-    settings = {**encodeSettings, **settings}
+    encodeSettings = {**encodeSettings, **settings}
+    if "targetMaxBitrate" not in encodeSettings:
+        encodeSettings["targetMaxBitrate"] = encodeSettings["autoTargetMaxBitrate"]
 
     logger.info('-' * 80)
-    globalTargetBitrateMsg = {str(
-        settings["targetMaxBitrate"]) + "kbps" if "targetMaxBitrate" in settings else "None"}
-    logger.info((f'Global Encoding Settings: CRF: {settings["crf"]} (0-63), ' +
+    globalTargetBitrateMsg = (
+        f'{encodeSettings["targetMaxBitrate"]}kbps' if "targetMaxBitrate" in encodeSettings else "Auto")
+    logger.info((f'Global Encoding Settings: CRF: {encodeSettings["crf"]} (0-63), ' +
                  f'Detected Bitrate: {settings["bit_rate"]}kbps, ' +
                  f'Global Target Bitrate: {globalTargetBitrateMsg}, ' +
-                 f'Two-pass Encoding Enabled: {settings["twoPass"]}, ' +
-                 f'Encoding Speed: {settings["encodeSpeed"]} (0-5), ' +
+                 f'Two-pass Encoding Enabled: {encodeSettings["twoPass"]}, ' +
+                 f'Encoding Speed: {encodeSettings["encodeSpeed"]} (0-5), ' +
                  f'Audio Enabled: {settings["audio"]}, ' +
                  f'Denoise: {settings["denoise"]["desc"]}, Rotate: {settings["rotate"]}, ' +
                  f'Expand Color Range Enabled: {settings["expandColorRange"]}, ' +
@@ -489,26 +490,31 @@ def getCropComponents(cropString, cropResWidth, cropResheight):
 
 
 def getMarkerPairSettings(settings, markerPairIndex):
-    mp = markerPair = {**(settings["markerPairs"][markerPairIndex])}
+    # marker pair properties
+    mp = settings["markerPairs"][markerPairIndex]
 
     cropString, cropComponents = getAutoScaledCropComponents(
         mp["crop"], settings)
     mp["crop"] = cropString
     mp["cropComponents"] = cropComponents
 
+    # marker pair settings
+    mps = {**settings, **(mp["overrides"])}
+
     bitrateCropFactor = (
         cropComponents['w'] * cropComponents['h']) / (settings["width"] * settings["height"])
-    markerPairEncodeSettings = getDefaultEncodeSettings(
-        settings["bit_rate"] * bitrateCropFactor)
-    settings = {**markerPairEncodeSettings, **settings}
+    logger.notice(bitrateCropFactor)
 
-    if "targetMaxBitrate" in settings:
-        settings["autoTargetMaxBitrate"] = getDefaultEncodeSettings(
-            settings["targetMaxBitrate"] * bitrateCropFactor)["autoTargetMaxBitrate"]
-    else:
-        settings["autoTargetMaxBitrate"] = markerPairEncodeSettings["autoTargetMaxBitrate"]
+    # relax bitrate crop factor assuming that most crops include complex parts
+    # of the video and exclude simpler parts
+    bitrateCropRelaxationFactor = 0.8
+    bitrateCropFactor = min(1, bitrateCropFactor ** bitrateCropRelaxationFactor)
 
-    mps = markerPairSettings = {**settings, **(mp["overrides"])}
+    globalEncodeSettings = getDefaultEncodeSettings(mps["bit_rate"])
+    autoMarkerPairEncodeSettings = getDefaultEncodeSettings(mps["bit_rate"] * bitrateCropFactor)
+    mps = {**globalEncodeSettings, **autoMarkerPairEncodeSettings, **mps}
+    if "targetMaxBitrate" not in mps:
+        mps["targetMaxBitrate"] = mps["autoTargetMaxBitrate"]
 
     mp["exists"] = False
     if not mps["preview"]:
@@ -520,7 +526,7 @@ def getMarkerPairSettings(settings, markerPairIndex):
         mp["filePath"] = f'{webmsPath}/{mp["fileName"]}'
         if checkWebmExists(mp["fileName"], mp["filePath"]):
             mp["exists"] = True
-            return (markerPair, markerPairSettings)
+            return (mp, mps)
 
     mp["start"] = mp["start"] + mps["delay"]
     mp["end"] = mp["end"] + mps["delay"]
@@ -563,7 +569,8 @@ def getMarkerPairSettings(settings, markerPairIndex):
     titlePrefixLogMsg = f'Title Prefix: {mps["titlePrefix"] if "titlePrefix" in mps else ""}'
     logger.info('-' * 80)
     logger.info((f'Marker Pair {markerPairIndex + 1} Settings: {titlePrefixLogMsg}, ' +
-                 f'CRF: {mps["crf"]} (0-63), Bitrate Crop Factor: {bitrateCropFactor}, ' +
+                 f'CRF: {mps["crf"]} (0-63), Target Bitrate: {mps["targetMaxBitrate"]}, ' +
+                 f'Bitrate Crop Factor: {bitrateCropFactor}, ' +
                  f'Crop Adjusted Target Max Bitrate: {mps["autoTargetMaxBitrate"]}kbps, ' +
                  f'Two-pass Encoding Enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5), ' +
                  f'Expand Color Range Enabled: {mps["expandColorRange"]}, ' +
@@ -577,7 +584,7 @@ def getMarkerPairSettings(settings, markerPairIndex):
                  f'Video Stabilization Dynamic Zoom: {mps["videoStabilizationDynamicZoom"]}'))
     logger.info('-' * 80)
 
-    return (markerPair, markerPairSettings)
+    return (mp, mps)
 
 
 def makeMarkerPairClip(settings, markerPairIndex):
@@ -631,7 +638,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
         f'-c:v libvpx-vp9 -pix_fmt yuv420p',
         f'-c:a libopus -b:a 128k',
         f'-slices 8 -row-mt 1 -tile-columns 6 -tile-rows 2',
-        f'-crf {mps["crf"]} -b:v {mps["autoTargetMaxBitrate"]}k',
+        f'-crf {mps["crf"]} -b:v {mps["targetMaxBitrate"]}k',
         f'-metadata title="{mps["videoTitle"]}"',
         f'-r ({mps["r_frame_rate"]}*{mp["speed"]})' if not mp["isVariableSpeed"] and mp["speed"] > 1 else '',
         f'-af {audio_filter}' if mps["audio"] else '-an',
@@ -687,8 +694,6 @@ def makeMarkerPairClip(settings, markerPairIndex):
         loop_filter += f'''[f2]{reverseSpeedFilter},select='gt(n,0)',reverse,select='gt(n,0)','''
         loop_filter += f'setpts=(PTS-STARTPTS)[r];'
         loop_filter += f'[f][r]concat=n=2'
-        if mps["extraVideoFilters"]:
-            video_filter += f',{mps["extraVideoFilters"]}'
     if mps["loop"] == 'fade':
         fadeDur = mps["fadeDuration"] = max(
             0.1, min(mps["fadeDuration"], 0.4 * mp["outputDuration"]))
