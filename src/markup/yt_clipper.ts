@@ -3813,7 +3813,10 @@ export function triggerCropChartLoop() {
             chartLoop.end = time;
           }
           chart.config.options.annotation.annotations[0].value = time;
-          player.seekTo(time);
+          if (Math.abs(video.currentTime - time) >= 0.01) {
+            // player.seekTo(time);
+            video.currentTime = time;
+          }
         }
 
         function contextMenuBlocker(e) {
