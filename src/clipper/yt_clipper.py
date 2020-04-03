@@ -805,7 +805,6 @@ def runffmpegCommand(ffmpegCommands, markerPairIndex, mp):
 
 
 def getSpeedFilterAndDuration(speedMap, mps, fps):
-    logger.info('-' * 80)
     video_filter_speed_map = ''
     setpts = ''
     outputDuration = 0
@@ -817,7 +816,6 @@ def getSpeedFilterAndDuration(speedMap, mps, fps):
     speedMapStartTime = speedMap[0]["x"]
     # Account for first input frame delay due to potentially imprecise trim
     startt = ceil(speedMapStartTime / frameDur) * frameDur - speedMapStartTime
-    logger.info(f'First Input Frame Time: {startt}')
 
     for sect, (left, right) in enumerate(zip(speedMap[:-1], speedMap[1:])):
         startSpeed = left["y"]
@@ -828,15 +826,12 @@ def getSpeedFilterAndDuration(speedMap, mps, fps):
         sectEnd = right["x"] - speedMapStartTime - startt
         # Account for last input frame delay due to potentially imprecise trim
         if sect == nSects - 1:
-            logger.info(
-                f'Last Input Frame Time: {right["x"] - speedMapStartTime - startt}')
             sectEnd = floor(right["x"] / frameDur) * frameDur
             # When trim is frame-precise, the frame that begins at the marker pair end time is not included
             if right["x"] - sectEnd < 1e-10:
                 sectEnd = sectEnd - frameDur
             sectEnd = sectEnd - speedMapStartTime - startt
             sectEnd = floor(sectEnd * 1000000) / 1000000
-            logger.info(f'Last Input Frame Time (Rounded): {sectEnd}')
 
         sectDuration = sectEnd - sectStart
         if sectDuration == 0:
@@ -851,7 +846,7 @@ def getSpeedFilterAndDuration(speedMap, mps, fps):
             outputDuration += sectDuration / endSpeed
         else:
             # Integrate the reciprocal of the linear time vs speed function for the current section
-            sliceDuration = f'(1/{m})*(log(abs({m}*min((T-STARTT),{sectEnd})+{b}))-log(abs({m}*{sectStart}+{b})))'
+            sliceDuration = f'(1/{m})*(log(abs({m}*min((T-STARTT),{sectEnd})+({b})))-log(abs({m}*{sectStart}+({b}))))'
             outputDuration += (1 / m) * (log(abs(m * sectEnd + b)
                                              ) - log(abs(m * sectStart + b)))
         sliceDuration = f'if(gte((T-STARTT),{sectStart}), {sliceDuration},0)'
@@ -863,13 +858,18 @@ def getSpeedFilterAndDuration(speedMap, mps, fps):
 
     video_filter_speed_map += f'''setpts='({setpts})/TB' '''
 
-    logger.info(f'Last Output Frame Time: {outputDuration}')
     # Each output frame time is rounded to the nearest multiple of a frame's duration at the given fps
     outputDuration = round(outputDuration / frameDur) * frameDur
     # The last included frame is held for a single frame's duration
     outputDuration += frameDur
     outputDuration = round(outputDuration * 1000) / 1000
 
+    # logger.info('-' * 80
+    # logger.info(f'First Input Frame Time: {startt}')
+    # logger.info(
+    #     f'Last Input Frame Time: {right["x"] - speedMapStartTime - startt}')
+    # logger.info(f'Last Input Frame Time (Rounded): {sectEnd}')
+    # logger.info(f'Last Output Frame Time: {outputDuration}')
     return video_filter_speed_map, outputDuration
 
 
