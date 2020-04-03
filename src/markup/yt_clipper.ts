@@ -2887,12 +2887,20 @@ export function triggerCropChartLoop() {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       let resString: string;
-      if (isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
-        const idx = parseInt(prevSelectedEndMarker.getAttribute('idx'), 10) - 1;
-        const markerPair = markerPairs[idx];
+      if (isMarkerPairSettingsEditorOpen) {
         const cropMultipleX = video.videoWidth / settings.cropResWidth;
         const cropMultipleY = video.videoHeight / settings.cropResHeight;
-        resString = multiplyCropString(cropMultipleX, cropMultipleY, markerPair.crop);
+        if (!wasGlobalSettingsEditorOpen) {
+          const idx = parseInt(prevSelectedEndMarker.getAttribute('idx'), 10) - 1;
+          const markerPair = markerPairs[idx];
+          resString = multiplyCropString(cropMultipleX, cropMultipleY, markerPair.crop);
+        } else {
+          resString = multiplyCropString(
+            cropMultipleX,
+            cropMultipleY,
+            settings.newMarkerCrop
+          );
+        }
         const [x, y, w, h] = getCropComponents(resString);
         canvas.width = w;
         canvas.height = h;
