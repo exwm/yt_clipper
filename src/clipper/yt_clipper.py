@@ -10,6 +10,7 @@ import shlex
 import subprocess
 import sys
 from fractions import Fraction
+from functools import reduce
 from math import ceil, floor, log
 from pathlib import Path
 
@@ -228,6 +229,7 @@ def setUpLogger(reportStream):
 
 def printReport(reportStream):
     report = reportStream.getvalue()
+    logger.info("-" * 80)
     logger.header("#" * 30 + " Summary Report " + "#" * 30)
     logger.notice("\n" + report)
 
@@ -706,6 +708,9 @@ def makeMarkerPairClip(settings, markerPairIndex):
         video_filter += f',{mp["speedFilter"]}'
         if mps["extraVideoFilters"]:
             video_filter += f',{mps["extraVideoFilters"]}'
+        if "minterpMode" in mps:
+            video_filter += getMinterpFilter(mps, mp["speedMap"])
+
     if mps["loop"] == 'fwrev':
         reverseSpeedMap = [{"x": speedPoint["x"], "y":speedPointRev["y"]}
                            for speedPoint, speedPointRev in zip(mp["speedMap"], reversed(mp["speedMap"]))]
@@ -804,6 +809,28 @@ def makeMarkerPairClip(settings, markerPairIndex):
         return {**(settings["markerPairs"][markerPairIndex])}
 
     return runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp)
+
+
+def getMinterpFilter(mps, speedMap):
+    minterpMode = mps["minterpMode"]
+    videoFPS = Fraction(mps["r_frame_rate"])
+
+    maxSpeed = 0.05
+    for speedPoint in speedMap:
+        maxSpeed = max(maxSpeed, speedPoint["y"])
+
+    if minterpMode == "MaxSpeed":
+        minterpFPS = videoFPS * maxSpeed
+    elif minterpMode == "VideoFPS":
+        minterpFPS = videoFPS
+    elif minterpMode == "MaxSpeedx2":
+        minterpFPS = 2 * videoFPS * maxSpeed
+    elif minterpMode == "VideoFPSx2":
+        minterpFPS = videoFPS
+    elif "minterpFPS" in mps:
+        minterpFPS = mps["minterpFPS"]
+
+    return f',"minterpolate=fps=({minterpFPS}):mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"'
 
 
 def runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp):
