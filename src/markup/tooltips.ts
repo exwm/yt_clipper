@@ -109,6 +109,21 @@ export namespace Tooltips {
     Higher strength presets may result in oversmoothing of details.
     `;
 
+  export const minterpModeTooltip = stripIndent`
+    By default, motion interpolation is enabled but requires a valid fps value to work.
+    Input an fps value from 10-120 to add interpolated frames and achieve smooth slow motion.
+    A higher fps value requires more resources and time to encode.
+    In MaxSpeed mode, motion interpolation targets the fps of the highest speed seen in the dynamic speed chart.
+    This helps smooth out motion when using dynamic speed with reasonable resource efficiency.
+    In VideoFPS mode, motion interpolation targets the fps of the input video.
+    MaxSpeedx2 and VideoFPSx2 modes double the target fps from the previous two modes.
+    `;
+
+  export const minterpFPSTooltip = stripIndent`
+    Input an fps value from 10-120 to add interpolated frames and achieve smooth slow motion.
+    Motion interpolation mode must be set to Enabled.
+    `;
+
   export const vidstabTooltip = stripIndent`
     Video stabilization tries to smooth out the motion in the video and reduce shaking.
     Usually requires cropping and zooming the video.
