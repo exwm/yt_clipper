@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import io
 import json
 import logging
 import os
@@ -77,7 +78,8 @@ def main():
     webmsPath += f'/{settings["titleSuffix"]}'
 
     os.makedirs(f'{webmsPath}', exist_ok=True)
-    setUpLogger()
+    reportStream = io.StringIO()
+    setUpLogger(reportStream)
 
     logger.info(f'Version: {__version__}')
     logger.info('-' * 80)
@@ -155,6 +157,7 @@ def main():
     else:
         settings = prepareGlobalSettings(settings)
 
+    logger.info("-" * 80)
     if not settings["preview"]:
         nMarkerPairs = len(settings["markerPairs"])
         markerPairQueue = getMarkerPairQueue(nMarkerPairs, settings["only"], settings["except"])
@@ -162,12 +165,11 @@ def main():
             logger.warning("No marker pairs to process")
         else:
             printableMarkerPairQueue = {x + 1 for x in markerPairQueue}
-            logger.notice(f'Processing the following set of marker pairs: "{printableMarkerPairQueue}"')
+            logger.report(f'Processing the following set of marker pairs: {printableMarkerPairQueue}')
 
         for markerPairIndex, marker in enumerate(settings["markerPairs"]):
             if markerPairIndex in markerPairQueue:
-                settings["markerPairs"][markerPairIndex] = makeMarkerPairClip(
-                    settings, markerPairIndex)
+                settings["markerPairs"][markerPairIndex] = makeMarkerPairClip(settings, markerPairIndex)
 
         if settings["markerPairMergeList"] != '':
             makeMergedClips(settings)
@@ -190,21 +192,44 @@ def main():
                     f'{markerPairIndex + 1} is not a valid marker pair number.')
             continue
 
+    printReport(reportStream)
 
-def setUpLogger():
+
+def setUpLogger(reportStream):
     global logger
+    verboselogs.add_log_level(33, "HEADER")
+    verboselogs.add_log_level(34, "REPORT")
     logger = verboselogs.VerboseLogger(__name__)
+    logger.header = lambda msg: logger.log(33, msg)
+    logger.report = lambda msg: logger.log(34, msg)
+
+    formatString = r'[%(asctime)s] (ln %(lineno)d) %(levelname)s: %(message)s'
+    coloredlogs.DEFAULT_LOG_FORMAT = formatString
+    coloredlogs.DEFAULT_FIELD_STYLES['levelname'] = {'color': 'white'}
+    coloredlogs.DEFAULT_LEVEL_STYLES['HEADER'] = {'color': 'blue'}
+    coloredlogs.DEFAULT_LEVEL_STYLES['REPORT'] = {'color': 'cyan'}
+
+    coloredlogs.install(level=logging.INFO, datefmt="%y-%m-%d %H:%M:%S")
+
+    coloredFormatter = coloredlogs.ColoredFormatter(datefmt="%y-%m-%d %H:%M:%S")
+
+    reportHandler = logging.StreamHandler(reportStream)
+    reportHandler.setLevel(33)
+    reportHandler.setFormatter(coloredFormatter)
+    logger.addHandler(reportHandler)
 
     if not settings["preview"]:
         fileHandler = logging.FileHandler(
-            filename=f'{webmsPath}/{settings["titleSuffix"]}.log', mode='a', encoding='utf-8')
-        fileFormatter = coloredlogs.BasicFormatter('[%(asctime)s] %(levelname)s: %(message)s')
-        fileHandler.setFormatter(fileFormatter)
+            filename=f'{webmsPath}/{settings["titleSuffix"]}.log', mode='a', encoding='utf-8', )
+        formatter = coloredlogs.BasicFormatter(datefmt="%y-%m-%d %H:%M:%S")
+        fileHandler.setFormatter(formatter)
         logger.addHandler(fileHandler)
 
-    coloredlogs.DEFAULT_FIELD_STYLES['levelname'] = {'color': 173}
-    coloredlogs.install(fmt='[%(asctime)s] %(levelname)s: %(message)s',
-                        level=logging.INFO, datefmt="%y-%m-%d %H:%M:%S")
+
+def printReport(reportStream):
+    report = reportStream.getvalue()
+    logger.header("#" * 30 + " Summary Report " + "#" * 30)
+    logger.notice("\n" + report)
 
 
 def buildArgParser():
@@ -307,14 +332,14 @@ def getMarkerPairQueue(nMarkerPairs, onlyArg, exceptArg):
         try:
             onlyPairsList = markerPairsCSVToList(onlyArg)
         except ValueError:
-            logger.error(f'Argument provided to --only was invalid: "{onlyArg}"')
+            logger.error(f'Argument provided to --only was invalid: {onlyArg}')
             sys.exit()
         onlyPairsSet = {x - 1 for x in set(onlyPairsList)}
     if exceptArg != '':
         try:
             exceptPairsList = markerPairsCSVToList(exceptArg)
         except ValueError:
-            logger.error(f'Argument provided to --except was invalid: "{exceptArg}"')
+            logger.error(f'Argument provided to --except was invalid: {exceptArg}')
             sys.exit()
         exceptPairsSet = {x - 1 for x in set(exceptPairsList)}
 
@@ -412,7 +437,7 @@ def getVideoInfo(settings, videoInfo):
     logger.info(f'Video Width: {settings["width"]}')
     logger.info(f'Video Height: {settings["height"]}')
     logger.info(f'Video fps: {settings["r_frame_rate"]}')
-    logger.info(f'Detected Video Bitrate: {settings["bit_rate"]}kbps')
+    logger.notice(f'Detected Video Bitrate: {settings["bit_rate"]}kbps')
 
     settings = autoSetCropMultiples(settings)
 
@@ -503,7 +528,6 @@ def getMarkerPairSettings(settings, markerPairIndex):
 
     bitrateCropFactor = (
         cropComponents['w'] * cropComponents['h']) / (settings["width"] * settings["height"])
-    logger.notice(bitrateCropFactor)
 
     # relax bitrate crop factor assuming that most crops include complex parts
     # of the video and exclude simpler parts
@@ -563,7 +587,6 @@ def getMarkerPairSettings(settings, markerPairIndex):
         mp["cropMap"] = [{"x": mp["start"], "y":0, "crop": cropString, "cropComponents": cropComponents}, {
             "x": mp["end"], "y":0, "crop": cropString, "cropComponents": cropComponents}]
 
-    print(mp["cropMap"])
     mp["cropFilter"] = getCropFilter(mp["cropMap"], mps, mps["r_frame_rate"])
 
     titlePrefixLogMsg = f'Title Prefix: {mps["titlePrefix"] if "titlePrefix" in mps else ""}'
@@ -777,13 +800,13 @@ def makeMarkerPairClip(settings, markerPairIndex):
 
     if not (1 <= len(ffmpegCommands) <= 2):
         logger.error(f'ffmpeg command could not be built.\n')
-        logger.error(f'Failed to generate: "{mp["fileName"]}"\n')
+        logger.error(f'Failed to generate: {mp["fileName"]}\n')
         return {**(settings["markerPairs"][markerPairIndex])}
 
-    return runffmpegCommand(ffmpegCommands, markerPairIndex, mp)
+    return runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp)
 
 
-def runffmpegCommand(ffmpegCommands, markerPairIndex, mp):
+def runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp):
     ffmpegPass1 = ffmpegCommands[0]
     if len(ffmpegCommands) == 2:
         logger.info('Running first pass...')
@@ -800,13 +823,13 @@ def runffmpegCommand(ffmpegCommands, markerPairIndex, mp):
                     re.sub(r'(&a?itags?.*?")', r'"', ffmpegPass2) + '\n')
         ffmpegProcess = subprocess.run(shlex.split(ffmpegPass2))
 
-    if ffmpegProcess.returncode == 0:
-        logger.success(f'Successfuly generated: "{mp["fileName"]}"\n')
-        return {**(settings["markerPairs"][markerPairIndex]), **mp}
+    mp["returncode"] = ffmpegProcess.returncode
+    if mp["returncode"] == 0:
+        logger.success(f'Successfuly generated: "{mp["fileName"]}"')
     else:
-        logger.error(f'Failed to generate: "{mp["fileName"]}"\n')
-        logger.error(f'ffmpeg error code: "{ffmpegProcess.returncode}"\n')
-        return {**(settings["markerPairs"][markerPairIndex])}
+        logger.error(f'Failed to generate: "{mp["fileName"]}" (error code: {mp["returncode"]}).')
+
+    return {**(settings["markerPairs"][markerPairIndex]), **mp}
 
 
 def getSpeedFilterAndDuration(speedMap, mps, fps):
@@ -985,11 +1008,17 @@ class MissingMergeInput(Exception):
     pass
 
 
+class BadMergeInput(Exception):
+    pass
+
+
 class MissingMarkerPairFilePath(Exception):
     pass
 
 
 def makeMergedClips(settings):
+    print()
+    logger.header("-" * 30 + " Merge List Processing " + "-" * 30)
     markerPairMergeList = settings["markerPairMergeList"]
     markerPairMergeList = markerPairMergeList.split(';')
     inputsTxtPath = ''
@@ -997,10 +1026,17 @@ def makeMergedClips(settings):
     mergeListGen = createMergeList(markerPairMergeList)
     for merge, mergeList in mergeListGen:
         inputs = ''
-        logger.info('-' * 80)
         try:
             for i in mergeList:
                 markerPair = settings["markerPairs"][i - 1]
+                if "returncode" in markerPair and markerPair["returncode"] != 0:
+                    logger.warning(
+                        f'Required marker pair {i} failed to generate with error code {markerPair["returncode"]}')
+                    logger.notice(f'This may be a false positive.')
+                    ans = input(r'Would you like to continue merging anyway? (y/n): ')
+                    if not (ans == 'yes' or ans == 'y'):
+                        logger.notice(f'Continuing with merge despite possible bad input.')
+                        raise BadMergeInput
                 if 'fileName' in markerPair and 'filePath' in markerPair:
                     if Path(markerPair["filePath"]).is_file():
                         inputs += f'''file '{settings["markerPairs"][i-1]["fileName"]}'\n'''
@@ -1013,15 +1049,16 @@ def makeMergedClips(settings):
                 f'Aborting generation of webm with merge list {mergeList}.')
             logger.error(f'Missing required marker pair number {i}.')
             continue
+        except BadMergeInput:
+            logger.error(f'Aborting generation of webm with merge list {mergeList}.')
+            logger.error(f'Required marker pair {i} not successfully generated.')
+            continue
         except MissingMergeInput:
-            logger.error(
-                f'Aborting generation of webm with merge list {mergeList}.')
-            logger.error(
-                f'Missing required input webm with path {markerPair["filePath"]}.')
+            logger.error(f'Aborting generation of webm with merge list {mergeList}.')
+            logger.error(f'Missing required input webm with path {markerPair["filePath"]}.')
             continue
         except MissingMarkerPairFilePath:
-            logger.error(
-                f'Aborting generation of webm with merge list {mergeList}')
+            logger.error(f'Aborting generation of webm with merge list {mergeList}')
             logger.error(f'Missing file path for marker pair {i}')
             continue
 
@@ -1043,9 +1080,9 @@ def makeMergedClips(settings):
             else:
                 logger.info(f'Failed to generate: "{mergedFileName}"\n')
                 logger.error(
-                    f'ffmpeg error code: "{ffmpegProcess.returncode}"\n')
+                    f'ffmpeg error code: {ffmpegProcess.returncode}\n')
         else:
-            logger.notice(f'Skipped existing file: "{mergedFileName}"\n')
+            logger.report(f'Skipped existing file: "{mergedFileName}"\n')
 
         try:
             os.remove(inputsTxtPath)
@@ -1055,10 +1092,10 @@ def makeMergedClips(settings):
 
 def checkWebmExists(fileName, filePath):
     if not Path(filePath).is_file():
-        logger.info(f'Generating "{fileName}"...\n')
+        logger.info(f'Generating "{fileName}"...')
         return False
     else:
-        logger.notice(f'Skipped existing file: "{fileName}"\n')
+        logger.report(f'Skipped existing file: "{fileName}"')
         return True
 
 
@@ -1130,12 +1167,12 @@ def autoSetCropMultiples(settings):
 
     if settings["cropResWidth"] != settings["width"] or settings["cropResHeight"] != settings["height"]:
         logger.info('-' * 80)
-        logger.warning('Crop resolution does not match video resolution')
+        logger.info('Crop resolution does not match video resolution')
         if settings["cropResWidth"] != settings["width"]:
-            logger.warning(
+            logger.info(
                 f'Crop resolution width ({settings["cropResWidth"]}) not equal to video width ({settings["width"]})')
         if settings["cropResHeight"] != settings["height"]:
-            logger.warning(
+            logger.info(
                 f'Crop resolution height ({settings["cropResHeight"]}) not equal to video height ({settings["height"]})')
 
         if not settings["noAutoScaleCropRes"]:
