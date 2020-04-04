@@ -23,6 +23,8 @@ interface Settings {
   videoStabilization?: VideoStabilization;
   videoStabilizationDynamicZoom?: boolean;
   enableSpeedMaps?: boolean;
+  minterpMode?: string | boolean;
+  minterpFPS?: number;
   loop?: Loop;
   fadeDuration?: number;
 }
@@ -76,6 +78,8 @@ interface MarkerPairOverrides {
   videoStabilization?: VideoStabilization;
   videoStabilizationDynamicZoom?: boolean;
   enableSpeedMaps?: boolean;
+  minterpMode?: string | boolean;
+  minterpFPS?: number;
   loop?: Loop;
   fadeDuration?: number;
 }
