@@ -10,7 +10,6 @@ import shlex
 import subprocess
 import sys
 from fractions import Fraction
-from functools import reduce
 from math import ceil, floor, log
 from pathlib import Path
 
@@ -21,7 +20,7 @@ UPLOAD_KEY_REQUEST_ENDPOINT = 'https://api.gfycat.com/v1/gfycats?'
 FILE_UPLOAD_ENDPOINT = 'https://filedrop.gfycat.com'
 AUTHENTICATION_ENDPOINT = 'https://api.gfycat.com/v1/oauth/token'
 
-__version__ = '3.7.0-beta.3'
+__version__ = '3.7.0-beta.3.5'
 
 settings = {}
 
