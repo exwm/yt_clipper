@@ -2314,12 +2314,12 @@ export function triggerCropChartLoop() {
       </div>
       <div class="settings-editor-input-div">
         <div  title="${Tooltips.minterpModeTooltip}">
-          <span>Interpolation</span>
+          <span>Minterpolation</span>
           <select id="minterp-mode-input">
             <option value="Default" ${
               minterpMode == null ? 'selected' : ''
-            }>Inherit (Enabled)</option>
-            <option ${minterpMode === false ? 'selected' : ''}>Disabled</option>
+            }>Inherit (Numeric)</option>
+            <option ${minterpMode === 'None' ? 'selected' : ''}>None</option>
             <option value="MaxSpeed" ${
               minterpMode == 'MaxSpeed' ? 'selected' : ''
             }>MaxSpeed</option>
@@ -4488,13 +4488,13 @@ export function triggerCropChartLoop() {
         </div>
         <div class="settings-editor-input-div">
           <div title="${Tooltips.minterpModeTooltip}">
-            <span>Interpolation</span>
+            <span>Minterpolation</span>
             <select id="minterp-mode-input">
               <option value="Default" ${minterpMode == null ? 'selected' : ''}>Inherit ${
-        settings.minterpMode != null ? `(${settings.minterpMode})` : '(Enabled)'
+        settings.minterpMode != null ? `(${settings.minterpMode})` : '(Numeric)'
       }</option>
-              <option ${minterpMode === false ? 'selected' : ''}>Disabled</option>
-              <option ${minterpMode === true ? 'selected' : ''}>Enabled</option>
+              <option ${minterpMode === 'None' ? 'selected' : ''}>None</option>
+              <option ${minterpMode === 'Numeric' ? 'selected' : ''}>Numeric</option>
               <option value="MaxSpeed" ${
                 minterpMode == 'MaxSpeed' ? 'selected' : ''
               }>MaxSpeed</option>
