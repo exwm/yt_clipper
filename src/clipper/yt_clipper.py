@@ -719,13 +719,13 @@ def makeMarkerPairClip(settings, markerPairIndex):
     #     video_filter += f'[1:v]overlay=x=W-w-10:y=10:alpha=0.5'
     #     inputs += f'-i "{mps["overlayPath"]}"'
 
-    if mps["loop"] != 'fwrev':
-        video_filter += f',{mp["speedFilter"]}'
         if mps["extraVideoFilters"]:
             video_filter += f',{mps["extraVideoFilters"]}'
-        if "minterpMode" in mps:
-            video_filter += getMinterpFilter(mps, mp["speedMap"])
 
+    if mps["loop"] != 'fwrev':
+        video_filter += f',{mp["speedFilter"]}'
+        if "minterpMode" in mps and mps["minterpMode"] != "None":
+            video_filter += getMinterpFilter(mps, mp["speedMap"])
     if mps["loop"] == 'fwrev':
         reverseSpeedMap = [{"x": speedPoint["x"], "y":speedPointRev["y"]}
                            for speedPoint, speedPointRev in zip(mp["speedMap"], reversed(mp["speedMap"]))]
