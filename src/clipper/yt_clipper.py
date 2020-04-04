@@ -271,6 +271,22 @@ def buildArgParser():
                         help='Specify any extra video filters to be passed to ffmpeg.')
     parser.add_argument('--extra-audio-filters', '-eaf', dest='extraAudioFilters', default='',
                         help='Specify any extra audio filters to be passed to ffmpeg.')
+    parser.add_argument('--minterp-mode', '-mm', dest='minterpMode', default='Numeric',
+                        choices=['Numeric', 'None', 'MaxSpeed', 'VideoFPS', 'MaxSpeedx2', 'VideoFPSx2'],
+                        help=('Motion interpolation is Enabled by default in a numeric mode.'
+                              'In numeric mode, specify a valid target fps value in --minterp-fps. '
+                              'In MaxSpeed mode, targets the fps of the highest speed seen in the dynamic speed chart. '
+                              'In VideoFPS mode, targets the fps of the input video. '
+                              'MaxSpeedx2 and VideoFPSx2 modes double the target fps from the previous two modes. '
+                              ))
+    parser.add_argument('--minterp-fps', '-mf', dest='minterpFPS', type=int,
+                        help=(
+                            'Input an fps value from 10-120 to add interpolated frames and achieve smooth slow motion. '
+                            'Motion interpolation mode must be set to Numeric. '
+                            'This filter is resource intensive and will take longer to process the higher the target fps. '
+                            'Motion interpolation can and will introduce artifacting (visual glitches). '
+                            'Artifacting increases with the speed and complexity of the video. '
+                        ))
     parser.add_argument('--delay', '-d', type=float, dest='delay', default=0,
                         help='Add a fixed delay to both the start and end time of each marker. Can be negative.')
     parser.add_argument('--gamma', '-ga', type=float, dest='gamma', default=1,
