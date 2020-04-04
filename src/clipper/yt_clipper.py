@@ -485,6 +485,7 @@ def prepareGlobalSettings(settings):
     logger.info('-' * 80)
     globalTargetBitrateMsg = (
         f'{encodeSettings["targetMaxBitrate"]}kbps' if "targetMaxBitrate" in encodeSettings else "Auto")
+    minterpFPSMsg = f'Target FPS: {getMinterpFPS(settings, None)}, '
     logger.info((f'Global Encoding Settings: CRF: {encodeSettings["crf"]} (0-63), ' +
                  f'Detected Bitrate: {settings["bit_rate"]}kbps, ' +
                  f'Global Target Bitrate: {globalTargetBitrateMsg}, ' +
@@ -494,6 +495,7 @@ def prepareGlobalSettings(settings):
                  f'Denoise: {settings["denoise"]["desc"]}, Rotate: {settings["rotate"]}, ' +
                  f'Expand Color Range Enabled: {settings["expandColorRange"]}, ' +
                  f'Speed Maps Enabled: {settings["enableSpeedMaps"]}, ' +
+                 f'Minterpolation Mode: {settings["minterpMode"]}, ' + minterpFPSMsg +
                  f'Special Looping: {settings["loop"]}, ' +
                  (f'Fade Duration: {settings["fadeDuration"]}, ' if settings["loop"] == 'fade' else '') +
                  f'Video Stabilization: {settings["videoStabilization"]["desc"]}, ' +
@@ -608,6 +610,7 @@ def getMarkerPairSettings(settings, markerPairIndex):
 
     titlePrefixLogMsg = f'Title Prefix: {mps["titlePrefix"] if "titlePrefix" in mps else ""}'
     logger.info('-' * 80)
+    minterpFPSMsg = f'Target FPS: {getMinterpFPS(mps, mp["speedMap"])}, '
     logger.info((f'Marker Pair {markerPairIndex + 1} Settings: {titlePrefixLogMsg}, ' +
                  f'CRF: {mps["crf"]} (0-63), Target Bitrate: {mps["targetMaxBitrate"]}, ' +
                  f'Bitrate Crop Factor: {bitrateCropFactor}, ' +
@@ -617,6 +620,7 @@ def getMarkerPairSettings(settings, markerPairIndex):
                  f'Audio Enabled: {mps["audio"]}, Denoise: {mps["denoise"]["desc"]}, ' +
                  f'Marker Pair {markerPairIndex + 1} is of variable speed: {mp["isVariableSpeed"]}, ' +
                  f'Speed Maps Enabled: {mps["enableSpeedMaps"]}, ' +
+                 f'Minterpolation Mode: {mps["minterpMode"]}, ' + minterpFPSMsg +
                  f'Special Looping: {mps["loop"]}, ' +
                  (f'Fade Duration: {mps["fadeDuration"]}s, ' if mps["loop"] == 'fade' else '') +
                  f'Final Output Duration: {mp["outputDuration"]}, ' +
@@ -719,8 +723,8 @@ def makeMarkerPairClip(settings, markerPairIndex):
     #     video_filter += f'[1:v]overlay=x=W-w-10:y=10:alpha=0.5'
     #     inputs += f'-i "{mps["overlayPath"]}"'
 
-        if mps["extraVideoFilters"]:
-            video_filter += f',{mps["extraVideoFilters"]}'
+    if mps["extraVideoFilters"]:
+        video_filter += f',{mps["extraVideoFilters"]}'
 
     if mps["loop"] != 'fwrev':
         video_filter += f',{mp["speedFilter"]}'
@@ -827,25 +831,41 @@ def makeMarkerPairClip(settings, markerPairIndex):
 
 
 def getMinterpFilter(mps, speedMap):
+    minterpFPS = getMinterpFPS(mps, speedMap)
+
+    minterpFilter = ''
+    if minterpFPS is not None:
+        minterpFilter = f',"minterpolate=fps=({minterpFPS}):mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"'
+
+    return minterpFilter
+
+
+def getMinterpFPS(mps, speedMap):
     minterpMode = mps["minterpMode"]
     videoFPS = Fraction(mps["r_frame_rate"])
 
     maxSpeed = 0.05
-    for speedPoint in speedMap:
-        maxSpeed = max(maxSpeed, speedPoint["y"])
+    if speedMap is None:
+        maxSpeed = 1
+    else:
+        for speedPoint in speedMap:
+            maxSpeed = max(maxSpeed, speedPoint["y"])
 
+    maxFPS = maxSpeed * videoFPS
+
+    minterpFPS = None
+    if minterpMode == "Numeric" and "minterpFPS" in mps:
+        minterpFPS = min(120, max(maxFPS, mps["minterpFPS"]))
     if minterpMode == "MaxSpeed":
-        minterpFPS = videoFPS * maxSpeed
+        minterpFPS = maxFPS
     elif minterpMode == "VideoFPS":
         minterpFPS = videoFPS
     elif minterpMode == "MaxSpeedx2":
-        minterpFPS = 2 * videoFPS * maxSpeed
+        minterpFPS = 2 * maxFPS
     elif minterpMode == "VideoFPSx2":
-        minterpFPS = videoFPS
-    elif "minterpFPS" in mps:
-        minterpFPS = mps["minterpFPS"]
+        minterpFPS = 2 * videoFPS
 
-    return f',"minterpolate=fps=({minterpFPS}):mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"'
+    return minterpFPS
 
 
 def runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp):
