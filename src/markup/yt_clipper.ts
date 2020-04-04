@@ -2149,6 +2149,8 @@ export function triggerCropChartLoop() {
       const resList = playerInfo.isVerticalVideo
         ? `<option value="1080x1920"><option value="2160x3840">`
         : `<option value="1920x1080"><option value="3840x2160">`;
+      const minterpMode = settings.minterpMode;
+      const minterpFPS = settings.minterpFPS;
       const denoise = settings.denoise;
       const denoiseDesc = denoise ? denoise.desc : null;
       const vidstab = settings.videoStabilization;
@@ -2288,14 +2290,14 @@ export function triggerCropChartLoop() {
       <div class="settings-editor-input-div" title="${Tooltips.denoiseTooltip}">
         <span>Denoise</span>
         <select id="denoise-input">
-          <option ${denoiseDesc === 'Very Strong' ? 'selected' : ''}>Very Strong</option>
-          <option ${denoiseDesc === 'Strong' ? 'selected' : ''}>Strong</option>
-          <option ${denoiseDesc === 'Medium' ? 'selected' : ''}>Medium</option>
-          <option ${denoiseDesc === 'Weak' ? 'selected' : ''}>Weak</option>
-          <option ${denoiseDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
           <option value="Inherit" ${
             denoiseDesc == null ? 'selected' : ''
           }>Inherit (Disabled)</option>
+          <option ${denoiseDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
+          <option ${denoiseDesc === 'Weak' ? 'selected' : ''}>Weak</option>
+          <option ${denoiseDesc === 'Medium' ? 'selected' : ''}>Medium</option>
+          <option ${denoiseDesc === 'Strong' ? 'selected' : ''}>Strong</option>
+          <option ${denoiseDesc === 'Very Strong' ? 'selected' : ''}>Very Strong</option>
         </select>
       </div>
       <div class="settings-editor-input-div" title="${Tooltips.speedMapTooltip}">
@@ -2310,23 +2312,52 @@ export function triggerCropChartLoop() {
             }>Inherit (Enabled)</option>
           </select>
       </div>
+      <div class="settings-editor-input-div">
+        <div  title="${Tooltips.minterpModeTooltip}">
+          <span>Interpolation</span>
+          <select id="minterp-mode-input">
+            <option value="Default" ${
+              minterpMode == null ? 'selected' : ''
+            }>Inherit (Enabled)</option>
+            <option ${minterpMode === false ? 'selected' : ''}>Disabled</option>
+            <option value="MaxSpeed" ${
+              minterpMode == 'MaxSpeed' ? 'selected' : ''
+            }>MaxSpeed</option>
+            <option value="VideoFPS" ${
+              minterpMode == 'VideoFPS' ? 'selected' : ''
+            }>VideoFPS</option>
+            <option value="MaxSpeedx2" ${
+              minterpMode == 'MaxSpeedx2' ? 'selected' : ''
+            }>MaxSpeedx2</option>
+            <option value="VideoFPSx2" ${
+              minterpMode == 'VideoFPSx2' ? 'selected' : ''
+            }>VideoFPSx2</option>
+          </select>
+        </div>
+        <div  title="${Tooltips.minterpFPSTooltip}">
+          <span>FPS</span>
+          <input id="minterp-fps-input" type="number" min="10" max="120" step="1" value="${
+            minterpFPS ?? ''
+          }" placeholder="" style="min-width:2em"></input>
+        </div>
+      </div>
       <div class="settings-editor-input-div multi-input-div" title="${
         Tooltips.vidstabTooltip
       }">
         <div>
           <span>Stabilization</span>
           <select id="video-stabilization-input">
-            <option ${vidstabDesc === 'Strongest' ? 'selected' : ''}>Strongest</option>
-            <option ${
-              vidstabDesc === 'Very Strong' ? 'selected' : ''
-            }>Very Strong</option>
-            <option ${vidstabDesc === 'Strong' ? 'selected' : ''}>Strong</option>
-            <option ${vidstabDesc === 'Medium' ? 'selected' : ''}>Medium</option>
-            <option ${vidstabDesc === 'Weak' ? 'selected' : ''}>Weak</option>
-            <option ${vidstabDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
             <option value="Inherit" ${
               vidstabDesc == null ? 'selected' : ''
             }>Inherit (Disabled)</option>
+            <option ${vidstabDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
+            <option ${vidstabDesc === 'Weak' ? 'selected' : ''}>Weak</option>
+            <option ${vidstabDesc === 'Medium' ? 'selected' : ''}>Medium</option>
+            <option ${vidstabDesc === 'Strong' ? 'selected' : ''}>Strong</option>
+            <option ${
+              vidstabDesc === 'Very Strong' ? 'selected' : ''
+            }>Very Strong</option>
+            <option ${vidstabDesc === 'Strongest' ? 'selected' : ''}>Strongest</option>
           </select>
         </div>
         <div title="${Tooltips.dynamicZoomTooltip}">
@@ -2386,13 +2417,15 @@ export function triggerCropChartLoop() {
         ['audio-input', 'audio', 'ternary'],
         ['expand-color-range-input', 'expandColorRange', 'ternary'],
         ['denoise-input', 'denoise', 'preset'],
+        ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
+        ['minterp-mode-input', 'minterpMode', 'inheritableString'],
+        ['minterp-fps-input', 'minterpFPS', 'number'],
         ['video-stabilization-input', 'videoStabilization', 'preset'],
         [
           'video-stabilization-dynamic-zoom-input',
           'videoStabilizationDynamicZoom',
           'ternary',
         ],
-        ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
         ['loop-input', 'loop', 'inheritableString'],
         ['fade-duration-input', 'fadeDuration', 'number'],
       ];
@@ -2518,8 +2551,6 @@ export function triggerCropChartLoop() {
               newValue = true;
             } else if (newValue === 'Disabled') {
               newValue = false;
-            } else {
-              newValue = newValue.toLowerCase();
             }
           } else if (valueType === 'preset') {
             if (newValue === 'Inherit') {
@@ -4301,6 +4332,8 @@ export function triggerCropChartLoop() {
         ? `(${settings.videoStabilization.desc})`
         : '(Disabled)';
       const vidstabDynamicZoomEnabled = overrides.videoStabilizationDynamicZoom;
+      const minterpMode = overrides.minterpMode;
+      const minterpFPS = overrides.minterpFPS;
       const denoise = overrides.denoise;
       const denoiseDesc = denoise ? denoise.desc : null;
       const denoiseDescGlobal = settings.denoise
@@ -4426,23 +4459,23 @@ export function triggerCropChartLoop() {
         <div class="settings-editor-input-div" title="${Tooltips.denoiseTooltip}">
           <span>Denoise</span>
           <select id="denoise-input">
-            <option ${
-              denoiseDesc === 'Very Strong' ? 'selected' : ''
-            }>Very Strong</option>
-            <option ${denoiseDesc === 'Strong' ? 'selected' : ''}>Strong</option>
-            <option ${denoiseDesc === 'Medium' ? 'selected' : ''}>Medium</option>
-            <option ${denoiseDesc === 'Weak' ? 'selected' : ''}>Weak</option>
-            <option ${denoiseDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
-            <option value="Disabled" ${
-              denoiseDesc == 'Disabled' ? 'selected' : ''
-            }>Disabled</option>
             <option value="Inherit" ${
               denoiseDesc == null ? 'selected' : ''
             }>Inherit ${denoiseDescGlobal}</option>
+            <option value="Disabled" ${
+              denoiseDesc == 'Disabled' ? 'selected' : ''
+            }>Disabled</option>
+            <option ${denoiseDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
+            <option ${denoiseDesc === 'Weak' ? 'selected' : ''}>Weak</option>
+            <option ${denoiseDesc === 'Medium' ? 'selected' : ''}>Medium</option>
+            <option ${denoiseDesc === 'Strong' ? 'selected' : ''}>Strong</option>
+            <option ${
+              denoiseDesc === 'Very Strong' ? 'selected' : ''
+            }>Very Strong</option>
           </select>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.speedMapTooltip}">
-        <span>Speed Map</span>
+          <span>Speed Map</span>
             <select id="enable-speed-maps-input">
               <option ${overrides.enableSpeedMaps ? 'selected' : ''}>Enabled</option>
               <option ${
@@ -4453,26 +4486,56 @@ export function triggerCropChartLoop() {
               }>Inherit ${ternaryToString(settings.enableSpeedMaps, '(Enabled)')}</option>
             </select>
         </div>
+        <div class="settings-editor-input-div">
+          <div title="${Tooltips.minterpModeTooltip}">
+            <span>Interpolation</span>
+            <select id="minterp-mode-input">
+              <option value="Default" ${minterpMode == null ? 'selected' : ''}>Inherit ${
+        settings.minterpMode != null ? `(${settings.minterpMode})` : '(Enabled)'
+      }</option>
+              <option ${minterpMode === false ? 'selected' : ''}>Disabled</option>
+              <option ${minterpMode === true ? 'selected' : ''}>Enabled</option>
+              <option value="MaxSpeed" ${
+                minterpMode == 'MaxSpeed' ? 'selected' : ''
+              }>MaxSpeed</option>
+              <option value="VideoFPS" ${
+                minterpMode == 'VideoFPS' ? 'selected' : ''
+              }>VideoFPS</option>
+              <option value="MaxSpeedx2" ${
+                minterpMode == 'MaxSpeedx2' ? 'selected' : ''
+              }>MaxSpeedx2</option>
+              <option value="VideoFPSx2" ${
+                minterpMode == 'VideoFPSx2' ? 'selected' : ''
+              }>VideoFPSx2</option>
+            </select>
+          </div>
+          <div title="${Tooltips.minterpFPSTooltip}">
+            <span>FPS</span>
+            <input id="minterp-fps-input" type="number" min="10" max="120" step="1" value="${
+              minterpFPS ?? ''
+            }" placeholder="" style="min-width:2em"></input>
+          </div>
+        </div>
         <div class="settings-editor-input-div multi-input-div" title="${
           Tooltips.vidstabTooltip
         }">
-          <div>
-            <span>Stabilization</span>
-            <select id="video-stabilization-input">
-              <option ${vidstabDesc === 'Strongest' ? 'selected' : ''}>Strongest</option>
-              <option ${
-                vidstabDesc === 'Very Strong' ? 'selected' : ''
-              }>Very Strong</option>
-              <option ${vidstabDesc === 'Strong' ? 'selected' : ''}>Strong</option>
-              <option ${vidstabDesc === 'Medium' ? 'selected' : ''}>Medium</option>
-              <option ${vidstabDesc === 'Weak' ? 'selected' : ''}>Weak</option>
-              <option ${vidstabDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
-              <option value="Disabled" ${
-                vidstabDesc == 'Disabled' ? 'selected' : ''
-              }>Disabled</option>
+        <div>
+          <span>Stabilization</span>
+          <select id="video-stabilization-input">
               <option value="Inherit" ${
                 vidstabDesc == null ? 'selected' : ''
               }>Inherit ${vidstabDescGlobal}</option>
+              <option value="Disabled" ${
+                vidstabDesc == 'Disabled' ? 'selected' : ''
+              }>Disabled</option>
+              <option ${vidstabDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
+              <option ${vidstabDesc === 'Weak' ? 'selected' : ''}>Weak</option>
+              <option ${vidstabDesc === 'Medium' ? 'selected' : ''}>Medium</option>
+              <option ${vidstabDesc === 'Strong' ? 'selected' : ''}>Strong</option>
+              <option ${
+                vidstabDesc === 'Very Strong' ? 'selected' : ''
+              }>Very Strong</option>
+              <option ${vidstabDesc === 'Strongest' ? 'selected' : ''}>Strongest</option>
             </select>
           </div>
           <div title="${Tooltips.dynamicZoomTooltip}">
@@ -4537,6 +4600,8 @@ export function triggerCropChartLoop() {
         ['audio-input', 'audio', 'ternary'],
         ['expand-color-range-input', 'expandColorRange', 'ternary'],
         ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
+        ['minterp-mode-input', 'minterpMode', 'inheritableString'],
+        ['minterp-fps-input', 'minterpFPS', 'number'],
         ['denoise-input', 'denoise', 'preset'],
         ['video-stabilization-input', 'videoStabilization', 'preset'],
         [
