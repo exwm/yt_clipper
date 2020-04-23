@@ -588,7 +588,7 @@ def getMarkerPairSettings(settings, markerPairIndex):
     if mps["loop"] == 'fwrev':
         mp["isVariableSpeed"] = False
 
-    mp["speedFilter"], mp["outputDuration"] = getSpeedFilterAndDuration(
+    mp["speedFilter"], mp["outputDuration"], mp["outputDurations"] = getSpeedFilterAndDuration(
         mp["speedMap"], mps, mps["r_frame_rate"])
 
     mp["isVariableCrop"] = False
@@ -679,6 +679,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
         f'-hide_banner',
         inputs,
         f'-benchmark',
+        # f'-loglevel verbose',
         f'-c:v libvpx-vp9 -pix_fmt yuv420p',
         f'-c:a libopus -b:a 128k',
         f'-slices 8 -row-mt 1 -tile-columns 6 -tile-rows 2',
@@ -729,11 +730,11 @@ def makeMarkerPairClip(settings, markerPairIndex):
     if mps["loop"] != 'fwrev':
         video_filter += f',{mp["speedFilter"]}'
         if "minterpMode" in mps and mps["minterpMode"] != "None":
-            video_filter += getMinterpFilter(mps, mp["speedMap"])
+            video_filter += getMinterpFilter(mp, mps)
     if mps["loop"] == 'fwrev':
         reverseSpeedMap = [{"x": speedPoint["x"], "y":speedPointRev["y"]}
                            for speedPoint, speedPointRev in zip(mp["speedMap"], reversed(mp["speedMap"]))]
-        reverseSpeedFilter, _ = getSpeedFilterAndDuration(
+        reverseSpeedFilter, _, _ = getSpeedFilterAndDuration(
             reverseSpeedMap, mps, mps["r_frame_rate"])
         loop_filter = ''
         loop_filter += f',split=2[f1][f2];'
@@ -830,12 +831,37 @@ def makeMarkerPairClip(settings, markerPairIndex):
     return runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp)
 
 
-def getMinterpFilter(mps, speedMap):
-    minterpFPS = getMinterpFPS(mps, speedMap)
+def getMinterpFilter(mp, mps):
+    speedMap = mp["speedMap"]
 
-    minterpFilter = ''
+    minterpFPS = getMinterpFPS(mps, speedMap)
+    maxSpeed = getMaxSpeed(speedMap)
+
+    minterpEnable = []
     if minterpFPS is not None:
-        minterpFilter = f',"minterpolate=fps=({minterpFPS}):mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"'
+        outDurs = mp["outputDurations"]
+
+        for sect, (left, right) in enumerate(zip(speedMap[:-1], speedMap[1:])):
+            startSpeed = left["y"]
+            endSpeed = right["y"]
+            speedChange = endSpeed - startSpeed
+
+            # not taking into account target fps??
+            if not (speedChange == 0 and left["y"] == maxSpeed):
+                sectStart = outDurs[sect]
+                sectEnd = outDurs[sect + 1]
+
+                minterpEnable.append(f'between(t,{sectStart},{sectEnd})')
+
+    if len(minterpEnable) > 0:
+        minterpEnable = f"""enable='{'+'.join(minterpEnable)}':"""
+    else:
+        minterpEnable = ''
+
+    if minterpFPS is not None:
+        minterpFilter = f''',minterpolate={minterpEnable}fps=({minterpFPS}):mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1:search_param=64:scd_threshold=10'''
+    else:
+        minterpFilter = ''
 
     return minterpFilter
 
@@ -844,13 +870,7 @@ def getMinterpFPS(mps, speedMap):
     minterpMode = mps["minterpMode"]
     videoFPS = Fraction(mps["r_frame_rate"])
 
-    maxSpeed = 0.05
-    if speedMap is None:
-        maxSpeed = 1
-    else:
-        for speedPoint in speedMap:
-            maxSpeed = max(maxSpeed, speedPoint["y"])
-
+    maxSpeed = getMaxSpeed(speedMap)
     maxFPS = maxSpeed * videoFPS
 
     minterpFPS = None
@@ -866,6 +886,17 @@ def getMinterpFPS(mps, speedMap):
         minterpFPS = 2 * videoFPS
 
     return minterpFPS
+
+
+def getMaxSpeed(speedMap):
+    maxSpeed = 0.05
+    if speedMap is None:
+        maxSpeed = 1
+    else:
+        for speedPoint in speedMap:
+            maxSpeed = max(maxSpeed, speedPoint["y"])
+
+    return maxSpeed
 
 
 def runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp):
@@ -897,7 +928,7 @@ def runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp):
 def getSpeedFilterAndDuration(speedMap, mps, fps):
     video_filter_speed_map = ''
     setpts = ''
-    outputDuration = 0
+    outputDurations = [0]
 
     fps = Fraction(fps)
     frameDur = 1 / fps
@@ -930,15 +961,18 @@ def getSpeedFilterAndDuration(speedMap, mps, fps):
         m = speedChange / sectDuration
         b = startSpeed - m * sectStart
 
+        nextDur = 0
+        nDurs = len(outputDurations)
         if speedChange == 0:
             # Duration is time multiplied by slowdown (or time divided by speed)
-            sliceDuration = f'(min((T-STARTT-{sectStart}),{sectDuration})/{endSpeed})'
-            outputDuration += sectDuration / endSpeed
+            sliceDuration = f'(min((T-STARTT-({sectStart})),{sectDuration})/{endSpeed})'
+            nextDur = (sectDuration / endSpeed) + outputDurations[nDurs - 1]
         else:
             # Integrate the reciprocal of the linear time vs speed function for the current section
             sliceDuration = f'(1/{m})*(log(abs({m}*min((T-STARTT),{sectEnd})+({b})))-log(abs({m}*{sectStart}+({b}))))'
-            outputDuration += (1 / m) * (log(abs(m * sectEnd + b)
-                                             ) - log(abs(m * sectStart + b)))
+            nextDur = ((1 / m) * (log(abs(m * sectEnd + b)
+                                      ) - log(abs(m * sectStart + b)))) + outputDurations[nDurs - 1]
+        outputDurations.append(nextDur)
         sliceDuration = f'if(gte((T-STARTT),{sectStart}), {sliceDuration},0)'
 
         if sect == 0:
@@ -948,11 +982,14 @@ def getSpeedFilterAndDuration(speedMap, mps, fps):
 
     video_filter_speed_map += f'''setpts='({setpts})/TB' '''
 
+    nDurs = len(outputDurations)
     # Each output frame time is rounded to the nearest multiple of a frame's duration at the given fps
-    outputDuration = round(outputDuration / frameDur) * frameDur
+    outputDurations[nDurs - 1] = round(outputDurations[nDurs - 1] / frameDur) * frameDur
     # The last included frame is held for a single frame's duration
-    outputDuration += frameDur
-    outputDuration = round(outputDuration * 1000) / 1000
+    outputDurations[nDurs - 1] += frameDur
+    outputDurations[nDurs - 1] = round(outputDurations[nDurs - 1] * 1000) / 1000
+
+    outputDuration = outputDurations[nDurs - 1]
 
     # logger.info('-' * 80
     # logger.info(f'First Input Frame Time: {startt}')
@@ -960,7 +997,7 @@ def getSpeedFilterAndDuration(speedMap, mps, fps):
     #     f'Last Input Frame Time: {right["x"] - speedMapStartTime - startt}')
     # logger.info(f'Last Input Frame Time (Rounded): {sectEnd}')
     # logger.info(f'Last Output Frame Time: {outputDuration}')
-    return video_filter_speed_map, outputDuration
+    return video_filter_speed_map, outputDuration, outputDurations
 
 
 def getCropFilter(cropMap, mps, fps, easeType='easeInOutSine'):
