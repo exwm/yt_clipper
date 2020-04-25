@@ -840,17 +840,17 @@ def getMinterpFilter(mp, mps):
     minterpEnable = []
     if minterpFPS is not None:
         outDurs = mp["outputDurations"]
+        fps = Fraction(mps["r_frame_rate"])
+        targetSpeed = minterpFPS / fps
 
         for sect, (left, right) in enumerate(zip(speedMap[:-1], speedMap[1:])):
             startSpeed = left["y"]
             endSpeed = right["y"]
             speedChange = endSpeed - startSpeed
 
-            # not taking into account target fps??
-            if not (speedChange == 0 and left["y"] == maxSpeed):
+            if speedChange != 0 or (left["y"] < maxSpeed and left["y"] < round(targetSpeed)):
                 sectStart = outDurs[sect]
                 sectEnd = outDurs[sect + 1]
-
                 minterpEnable.append(f'between(t,{sectStart},{sectEnd})')
 
     if len(minterpEnable) > 0:
