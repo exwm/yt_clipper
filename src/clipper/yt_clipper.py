@@ -15,6 +15,7 @@ from pathlib import Path
 
 import coloredlogs
 import verboselogs
+import time
 
 UPLOAD_KEY_REQUEST_ENDPOINT = 'https://api.gfycat.com/v1/gfycats?'
 FILE_UPLOAD_ENDPOINT = 'https://filedrop.gfycat.com'
@@ -1208,6 +1209,7 @@ def ffprobeVideoProperties(video):
             logger.warning(f'Could not fetch video properties with ffprobe')
             logger.warning(f'{cpe}')
             if ffprobeRetries > 0:
+                time.sleep(1)
                 logger.info(f'Trying {ffprobeRetries} more time(s) to fetch video properties with ffprobe')
 
     if ffprobeRetries == 0:
