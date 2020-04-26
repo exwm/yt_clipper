@@ -954,15 +954,17 @@ def getSpeedFilterAndDuration(speedMap, mps, fps):
             sectEnd = sectEnd - speedMapStartTime - startt
             sectEnd = floor(sectEnd * 1000000) / 1000000
 
+        nDurs = len(outputDurations)
+        nextDur = 0
         sectDuration = sectEnd - sectStart
         if sectDuration == 0:
+            nextDur = outputDurations[nDurs - 1]
+            outputDurations.append(nextDur)
             continue
 
         m = speedChange / sectDuration
         b = startSpeed - m * sectStart
 
-        nextDur = 0
-        nDurs = len(outputDurations)
         if speedChange == 0:
             # Duration is time multiplied by slowdown (or time divided by speed)
             sliceDuration = f'(min((T-STARTT-({sectStart})),{sectDuration})/{endSpeed})'
@@ -972,6 +974,7 @@ def getSpeedFilterAndDuration(speedMap, mps, fps):
             sliceDuration = f'(1/{m})*(log(abs({m}*min((T-STARTT),{sectEnd})+({b})))-log(abs({m}*{sectStart}+({b}))))'
             nextDur = ((1 / m) * (log(abs(m * sectEnd + b)
                                       ) - log(abs(m * sectStart + b)))) + outputDurations[nDurs - 1]
+
         outputDurations.append(nextDur)
         sliceDuration = f'if(gte((T-STARTT),{sectStart}), {sliceDuration},0)'
 
