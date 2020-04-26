@@ -20,7 +20,7 @@ UPLOAD_KEY_REQUEST_ENDPOINT = 'https://api.gfycat.com/v1/gfycats?'
 FILE_UPLOAD_ENDPOINT = 'https://filedrop.gfycat.com'
 AUTHENTICATION_ENDPOINT = 'https://api.gfycat.com/v1/oauth/token'
 
-__version__ = '3.7.0-beta.3.7.alpha.2'
+__version__ = '3.7.0-beta.3.7.alpha.3'
 
 settings = {}
 
