@@ -836,7 +836,7 @@ def getMinterpFilter(mps, speedMap):
 
     minterpFilter = ''
     if minterpFPS is not None:
-        minterpFilter = f',"minterpolate=fps=({minterpFPS}):mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"'
+        minterpFilter = f',"minterpolate=fps=({minterpFPS}):mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1:search_param=64:scd_threshold=10"'
 
     return minterpFilter
 
