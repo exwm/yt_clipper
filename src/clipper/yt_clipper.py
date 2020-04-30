@@ -879,7 +879,7 @@ def getMinterpFPS(mps, speedMap):
 
     minterpFPS = None
     if minterpMode == "Numeric" and "minterpFPS" in mps:
-        minterpFPS = min(120, max(maxFPS, mps["minterpFPS"]))
+        minterpFPS = min(120, mps["minterpFPS"])
     if minterpMode == "MaxSpeed":
         minterpFPS = maxFPS
     elif minterpMode == "VideoFPS":
