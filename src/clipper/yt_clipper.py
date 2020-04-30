@@ -276,8 +276,9 @@ def loadMarkers(markersJson, settings):
 def getVideoURL(settings):
     from youtube_dl import YoutubeDL
 
-    ydl_opts = {'format': settings["format"], 'forceurl': True, 'ffmpeg_location': ffmpegPath, 'merge_output_format': 'mkv',
-                'outtmpl': f'{settings["downloadVideoPath"]}.%(ext)s'}
+    ydl_opts = {'format': settings["format"], 'forceurl': True,
+                'ffmpeg_location': ffmpegPath, 'merge_output_format': 'mkv',
+                'outtmpl': f'{settings["downloadVideoPath"]}.%(ext)s', "cachedir": False}
     ydl = YoutubeDL(ydl_opts)
     if settings["downloadVideo"]:
         ydl_info = ydl.extract_info(settings["videoURL"], download=True)
