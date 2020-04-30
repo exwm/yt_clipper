@@ -848,7 +848,9 @@ def getMinterpFilter(mp, mps):
             endSpeed = right["y"]
             speedChange = endSpeed - startSpeed
 
-            if speedChange != 0 or (left["y"] < maxSpeed and left["y"] < round(targetSpeed)):
+            logger.debug(f'speedChange: {speedChange}, startSpeed: {startSpeed}, targetSpeed: {round(targetSpeed, 2)}')
+            if speedChange != 0 or startSpeed < round(targetSpeed, 2):
+                logger.debug(f'minterp enabled for section: {left["x"]}, {right["x"]}')
                 sectStart = outDurs[sect]
                 sectEnd = outDurs[sect + 1]
                 minterpEnable.append(f'between(t,{sectStart},{sectEnd})')
@@ -856,13 +858,15 @@ def getMinterpFilter(mp, mps):
     if len(minterpEnable) > 0:
         minterpEnable = f"""enable='{'+'.join(minterpEnable)}':"""
     else:
-        minterpEnable = ''
+        minterpEnable = 'enable=0:'
 
     if minterpFPS is not None:
-        minterpFilter = f''',minterpolate={minterpEnable}fps=({minterpFPS}):mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1:search_param=64:scd_threshold=10'''
+        minterpFilter = f''',minterpolate={minterpEnable}fps=({minterpFPS}):mi_mode=mci'''
+        minterpFilter += f''':mc_mode=aobmc:me_mode=bidir:vsbmc=1:search_param=64:scd_threshold=10:mb_size=32'''
     else:
         minterpFilter = ''
 
+    logger.debug(minterpFilter)
     return minterpFilter
 
 
