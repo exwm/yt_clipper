@@ -21,7 +21,7 @@ UPLOAD_KEY_REQUEST_ENDPOINT = 'https://api.gfycat.com/v1/gfycats?'
 FILE_UPLOAD_ENDPOINT = 'https://filedrop.gfycat.com'
 AUTHENTICATION_ENDPOINT = 'https://api.gfycat.com/v1/oauth/token'
 
-__version__ = '3.7.0-beta.3.6'
+__version__ = '3.7.0-beta.3.7.alpha.4'
 
 settings = {}
 
@@ -382,7 +382,7 @@ def getVideoURL(settings):
 
     ydl_opts = {'format': settings["format"], 'forceurl': True,
                 'ffmpeg_location': ffmpegPath, 'merge_output_format': 'mkv',
-                'outtmpl': f'{settings["downloadVideoPath"]}.%(ext)s'}
+                'outtmpl': f'{settings["downloadVideoPath"]}.%(ext)s', "cachedir": False}
     ydl = YoutubeDL(ydl_opts)
     if settings["downloadVideo"]:
         ydl_info = ydl.extract_info(settings["videoURL"], download=True)
@@ -589,7 +589,7 @@ def getMarkerPairSettings(settings, markerPairIndex):
     if mps["loop"] == 'fwrev':
         mp["isVariableSpeed"] = False
 
-    mp["speedFilter"], mp["outputDuration"] = getSpeedFilterAndDuration(
+    mp["speedFilter"], mp["outputDuration"], mp["outputDurations"] = getSpeedFilterAndDuration(
         mp["speedMap"], mps, mps["r_frame_rate"])
 
     mp["isVariableCrop"] = False
@@ -680,6 +680,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
         f'-hide_banner',
         inputs,
         f'-benchmark',
+        # f'-loglevel 56',
         f'-c:v libvpx-vp9 -pix_fmt yuv420p',
         f'-c:a libopus -b:a 128k',
         f'-slices 8 -row-mt 1 -tile-columns 6 -tile-rows 2',
@@ -728,13 +729,16 @@ def makeMarkerPairClip(settings, markerPairIndex):
         video_filter += f',{mps["extraVideoFilters"]}'
 
     if mps["loop"] != 'fwrev':
+        minterpFPS = getMinterpFPS(mps, mp["speedMap"])
+        if minterpFPS is not None:
+            video_filter += f''',mpdecimate,setpts=N/FR/TB'''
         video_filter += f',{mp["speedFilter"]}'
         if "minterpMode" in mps and mps["minterpMode"] != "None":
-            video_filter += getMinterpFilter(mps, mp["speedMap"])
+            video_filter += getMinterpFilter(mp, mps)
     if mps["loop"] == 'fwrev':
         reverseSpeedMap = [{"x": speedPoint["x"], "y":speedPointRev["y"]}
                            for speedPoint, speedPointRev in zip(mp["speedMap"], reversed(mp["speedMap"]))]
-        reverseSpeedFilter, _ = getSpeedFilterAndDuration(
+        reverseSpeedFilter, _, _ = getSpeedFilterAndDuration(
             reverseSpeedMap, mps, mps["r_frame_rate"])
         loop_filter = ''
         loop_filter += f',split=2[f1][f2];'
@@ -831,13 +835,43 @@ def makeMarkerPairClip(settings, markerPairIndex):
     return runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp)
 
 
-def getMinterpFilter(mps, speedMap):
+def getMinterpFilter(mp, mps):
+    speedMap = mp["speedMap"]
+
     minterpFPS = getMinterpFPS(mps, speedMap)
+    maxSpeed = getMaxSpeed(speedMap)
 
-    minterpFilter = ''
+    minterpEnable = []
     if minterpFPS is not None:
-        minterpFilter = f',"minterpolate=fps=({minterpFPS}):mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1:search_param=64:scd_threshold=10"'
+        outDurs = mp["outputDurations"]
+        fps = Fraction(mps["r_frame_rate"])
+        targetSpeed = minterpFPS / fps
 
+        for sect, (left, right) in enumerate(zip(speedMap[:-1], speedMap[1:])):
+            startSpeed = left["y"]
+            endSpeed = right["y"]
+            speedChange = endSpeed - startSpeed
+
+            logger.debug(f'speedChange: {speedChange}, startSpeed: {startSpeed}, targetSpeed: {round(targetSpeed, 2)}')
+            if speedChange != 0 or startSpeed < round(targetSpeed, 2):
+                logger.debug(f'minterp enabled for section: {left["x"]}, {right["x"]}')
+                sectStart = outDurs[sect]
+                sectEnd = outDurs[sect + 1]
+                minterpEnable.append(f'between(t,{sectStart},{sectEnd})')
+
+    if len(minterpEnable) > 0:
+        minterpEnable = f"""enable='{'+'.join(minterpEnable)}':"""
+    else:
+        minterpEnable = 'enable=0:'
+
+    if minterpFPS is not None:
+        minterpFilter = f''',minterpolate={minterpEnable}fps=({minterpFPS}):mi_mode=mci'''
+        minterpFilter += f''':mc_mode=aobmc:me_mode=bidir:vsbmc=1:search_param=64:scd_threshold=10:mb_size=32'''
+        # minterpFilter += f''',deblock=filter=strong:block=32:alpha=0.3:beta=0.3:gamma=0.3:delta=0.3'''
+    else:
+        minterpFilter = ''
+
+    logger.debug(minterpFilter)
     return minterpFilter
 
 
@@ -845,18 +879,12 @@ def getMinterpFPS(mps, speedMap):
     minterpMode = mps["minterpMode"]
     videoFPS = Fraction(mps["r_frame_rate"])
 
-    maxSpeed = 0.05
-    if speedMap is None:
-        maxSpeed = 1
-    else:
-        for speedPoint in speedMap:
-            maxSpeed = max(maxSpeed, speedPoint["y"])
-
+    maxSpeed = getMaxSpeed(speedMap)
     maxFPS = maxSpeed * videoFPS
 
     minterpFPS = None
     if minterpMode == "Numeric" and "minterpFPS" in mps:
-        minterpFPS = min(120, max(maxFPS, mps["minterpFPS"]))
+        minterpFPS = min(120, mps["minterpFPS"])
     if minterpMode == "MaxSpeed":
         minterpFPS = maxFPS
     elif minterpMode == "VideoFPS":
@@ -869,21 +897,34 @@ def getMinterpFPS(mps, speedMap):
     return minterpFPS
 
 
+def getMaxSpeed(speedMap):
+    maxSpeed = 0.05
+    if speedMap is None:
+        maxSpeed = 1
+    else:
+        for speedPoint in speedMap:
+            maxSpeed = max(maxSpeed, speedPoint["y"])
+
+    return maxSpeed
+
+
 def runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp):
     ffmpegPass1 = ffmpegCommands[0]
     if len(ffmpegCommands) == 2:
         logger.info('Running first pass...')
 
-    logger.info('Using ffmpeg command: ' +
-                re.sub(r'(&a?itags?.*?")', r'"', ffmpegPass1) + '\n')
+    printablePass1 = re.sub(r'-i.*?\".*?\"', r'', ffmpegPass1)
+
+    logger.info(f'Using ffmpeg command: {printablePass1}\n')
     ffmpegProcess = subprocess.run(shlex.split(ffmpegPass1))
 
     if len(ffmpegCommands) == 2:
         ffmpegPass2 = ffmpegCommands[1]
 
+        printablePass2 = re.sub(r'-i.*?\".*?\"', r'', ffmpegPass2)
+
         logger.info('Running second pass...')
-        logger.info('Using ffmpeg command: ' +
-                    re.sub(r'(&a?itags?.*?")', r'"', ffmpegPass2) + '\n')
+        logger.info(f'Using ffmpeg command: {printablePass2}\n')
         ffmpegProcess = subprocess.run(shlex.split(ffmpegPass2))
 
     mp["returncode"] = ffmpegProcess.returncode
@@ -898,7 +939,7 @@ def runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp):
 def getSpeedFilterAndDuration(speedMap, mps, fps):
     video_filter_speed_map = ''
     setpts = ''
-    outputDuration = 0
+    outputDurations = [0]
 
     fps = Fraction(fps)
     frameDur = 1 / fps
@@ -924,8 +965,12 @@ def getSpeedFilterAndDuration(speedMap, mps, fps):
             sectEnd = sectEnd - speedMapStartTime - startt
             sectEnd = floor(sectEnd * 1000000) / 1000000
 
+        nDurs = len(outputDurations)
+        nextDur = 0
         sectDuration = sectEnd - sectStart
         if sectDuration == 0:
+            nextDur = outputDurations[nDurs - 1]
+            outputDurations.append(nextDur)
             continue
 
         m = speedChange / sectDuration
@@ -933,13 +978,15 @@ def getSpeedFilterAndDuration(speedMap, mps, fps):
 
         if speedChange == 0:
             # Duration is time multiplied by slowdown (or time divided by speed)
-            sliceDuration = f'(min((T-STARTT-{sectStart}),{sectDuration})/{endSpeed})'
-            outputDuration += sectDuration / endSpeed
+            sliceDuration = f'(min((T-STARTT-({sectStart})),{sectDuration})/{endSpeed})'
+            nextDur = (sectDuration / endSpeed) + outputDurations[nDurs - 1]
         else:
             # Integrate the reciprocal of the linear time vs speed function for the current section
             sliceDuration = f'(1/{m})*(log(abs({m}*min((T-STARTT),{sectEnd})+({b})))-log(abs({m}*{sectStart}+({b}))))'
-            outputDuration += (1 / m) * (log(abs(m * sectEnd + b)
-                                             ) - log(abs(m * sectStart + b)))
+            nextDur = ((1 / m) * (log(abs(m * sectEnd + b)
+                                      ) - log(abs(m * sectStart + b)))) + outputDurations[nDurs - 1]
+
+        outputDurations.append(nextDur)
         sliceDuration = f'if(gte((T-STARTT),{sectStart}), {sliceDuration},0)'
 
         if sect == 0:
@@ -949,11 +996,14 @@ def getSpeedFilterAndDuration(speedMap, mps, fps):
 
     video_filter_speed_map += f'''setpts='({setpts})/TB' '''
 
+    nDurs = len(outputDurations)
     # Each output frame time is rounded to the nearest multiple of a frame's duration at the given fps
-    outputDuration = round(outputDuration / frameDur) * frameDur
+    outputDurations[nDurs - 1] = round(outputDurations[nDurs - 1] / frameDur) * frameDur
     # The last included frame is held for a single frame's duration
-    outputDuration += frameDur
-    outputDuration = round(outputDuration * 1000) / 1000
+    outputDurations[nDurs - 1] += frameDur
+    outputDurations[nDurs - 1] = round(outputDurations[nDurs - 1] * 1000) / 1000
+
+    outputDuration = outputDurations[nDurs - 1]
 
     # logger.info('-' * 80
     # logger.info(f'First Input Frame Time: {startt}')
@@ -961,7 +1011,7 @@ def getSpeedFilterAndDuration(speedMap, mps, fps):
     #     f'Last Input Frame Time: {right["x"] - speedMapStartTime - startt}')
     # logger.info(f'Last Input Frame Time (Rounded): {sectEnd}')
     # logger.info(f'Last Output Frame Time: {outputDuration}')
-    return video_filter_speed_map, outputDuration
+    return video_filter_speed_map, outputDuration, outputDurations
 
 
 def getCropFilter(cropMap, mps, fps, easeType='easeInOutSine'):
@@ -1062,8 +1112,9 @@ def runffplayCommand(inputs, video_filter, video_filter_before_correction, audio
             ffplayAudioFilter if mps["audio"] else '-an'
         ))
 
-        logger.info('Using ffplay command: ' +
-                    re.sub(r'(&a?itags?.*?")', r'"', ffplayCommand) + '\n')
+        printableCommand = re.sub(r'-i.*?\".*?\"', r'', ffplayCommand)
+
+        logger.info(f'Using ffplay command: {printableCommand}\n')
         subprocess.run(shlex.split(ffplayCommand))
 
 
