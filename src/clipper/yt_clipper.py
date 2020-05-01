@@ -679,7 +679,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
         f'-hide_banner',
         inputs,
         f'-benchmark',
-        # f'-loglevel verbose',
+        # f'-loglevel 56',
         f'-c:v libvpx-vp9 -pix_fmt yuv420p',
         f'-c:a libopus -b:a 128k',
         f'-slices 8 -row-mt 1 -tile-columns 6 -tile-rows 2',
@@ -728,6 +728,9 @@ def makeMarkerPairClip(settings, markerPairIndex):
         video_filter += f',{mps["extraVideoFilters"]}'
 
     if mps["loop"] != 'fwrev':
+        minterpFPS = getMinterpFPS(mps, mp["speedMap"])
+        if minterpFPS is not None:
+            video_filter += f''',mpdecimate,setpts=N/FR/TB'''
         video_filter += f',{mp["speedFilter"]}'
         if "minterpMode" in mps and mps["minterpMode"] != "None":
             video_filter += getMinterpFilter(mp, mps)
@@ -863,6 +866,7 @@ def getMinterpFilter(mp, mps):
     if minterpFPS is not None:
         minterpFilter = f''',minterpolate={minterpEnable}fps=({minterpFPS}):mi_mode=mci'''
         minterpFilter += f''':mc_mode=aobmc:me_mode=bidir:vsbmc=1:search_param=64:scd_threshold=10:mb_size=32'''
+        # minterpFilter += f''',deblock=filter=strong:block=32:alpha=0.3:beta=0.3:gamma=0.3:delta=0.3'''
     else:
         minterpFilter = ''
 
@@ -908,16 +912,18 @@ def runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp):
     if len(ffmpegCommands) == 2:
         logger.info('Running first pass...')
 
-    logger.info('Using ffmpeg command: ' +
-                re.sub(r'(&a?itags?.*?")', r'"', ffmpegPass1) + '\n')
+    printablePass1 = re.sub(r'-i.*?\".*?\"', r'', ffmpegPass1)
+
+    logger.info(f'Using ffmpeg command: {printablePass1}\n')
     ffmpegProcess = subprocess.run(shlex.split(ffmpegPass1))
 
     if len(ffmpegCommands) == 2:
         ffmpegPass2 = ffmpegCommands[1]
 
+        printablePass2 = re.sub(r'-i.*?\".*?\"', r'', ffmpegPass2)
+
         logger.info('Running second pass...')
-        logger.info('Using ffmpeg command: ' +
-                    re.sub(r'(&a?itags?.*?")', r'"', ffmpegPass2) + '\n')
+        logger.info(f'Using ffmpeg command: {printablePass2}\n')
         ffmpegProcess = subprocess.run(shlex.split(ffmpegPass2))
 
     mp["returncode"] = ffmpegProcess.returncode
@@ -1105,8 +1111,9 @@ def runffplayCommand(inputs, video_filter, video_filter_before_correction, audio
             ffplayAudioFilter if mps["audio"] else '-an'
         ))
 
-        logger.info('Using ffplay command: ' +
-                    re.sub(r'(&a?itags?.*?")', r'"', ffplayCommand) + '\n')
+        printableCommand = re.sub(r'-i.*?\".*?\"', r'', ffplayCommand)
+
+        logger.info(f'Using ffplay command: {printableCommand}\n')
         subprocess.run(shlex.split(ffplayCommand))
 
 
