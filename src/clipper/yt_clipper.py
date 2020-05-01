@@ -154,9 +154,7 @@ def main():
             logger.info(
                 f'Automatically using found input video file "{settings["inputVideo"]}".')
 
-        settings = getVideoInfo(settings, {})
-    else:
-        settings = prepareGlobalSettings(settings)
+    settings = prepareGlobalSettings(settings)
 
     logger.info("-" * 80)
     if not settings["preview"]:
@@ -467,7 +465,11 @@ def prepareGlobalSettings(settings):
     logger.info(
         f'Merge List: {settings["markerPairMergeList"] if settings["markerPairMergeList"] else "None"}')
 
-    settings = getVideoURL(settings)
+    if settings["inputVideo"]:
+        settings = getVideoInfo(settings, {})
+    else:
+        settings = getVideoURL(settings)
+
     encodeSettings = getDefaultEncodeSettings(settings["bit_rate"])
 
     logger.info('-' * 80)
