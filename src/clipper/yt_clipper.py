@@ -686,6 +686,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
         f'-c:v libvpx-vp9 -pix_fmt yuv420p',
         f'-c:a libopus -b:a 128k',
         f'-slices 8 -row-mt 1 -tile-columns 6 -tile-rows 2',
+        f'-nr 4 -aq-mode 4 -crf {mps["crf"]} -b:v {mps["targetMaxBitrate"]}k',
         f'-force_key_frames 1',
         f'-metadata title="{mps["videoTitle"]}"',
         f'-r ({mps["r_frame_rate"]}*{mp["speed"]})' if not mp["isVariableSpeed"] and mp["speed"] > 1 else '',
