@@ -588,9 +588,6 @@ def getMarkerPairSettings(settings, markerPairIndex):
         mp["speedMap"] = [{"x": mp["start"], "y":mp["speed"]}, {
             "x": mp["end"], "y":mp["speed"]}]
 
-    if mps["loop"] == 'fwrev':
-        mp["isVariableSpeed"] = False
-
     mp["speedFilter"], mp["outputDuration"], mp["outputDurations"] = getSpeedFilterAndDuration(
         mp["speedMap"], mps, mps["r_frame_rate"])
 
