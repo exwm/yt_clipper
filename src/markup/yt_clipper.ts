@@ -4011,9 +4011,12 @@ export function triggerCropChartLoop() {
         const chartData = chart?.data.datasets[0].data as CropPoint[];
         const time = video.currentTime;
         const isDynamicCrop = !isStaticCrop(chartData);
+        const isCropChartVisible =
+          currentChartInput.type == 'crop' && isCurrentChartVisible;
         if (
           shouldTriggerCropChartLoop ||
-          isCropChartLoopingOn ||
+          // assume update not required for crop chart section if looping section
+          (isCropChartLoopingOn && isCropChartVisible) ||
           isDraggingCrop ||
           isDrawingCrop
         ) {
