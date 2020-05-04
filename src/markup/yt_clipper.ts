@@ -4012,10 +4012,10 @@ export function triggerCropChartLoop() {
         const time = video.currentTime;
         const isDynamicCrop = !isStaticCrop(chartData);
         const isCropChartVisible =
-          currentChartInput.type == 'crop' && isCurrentChartVisible;
+          currentChartInput && currentChartInput.type == 'crop' && isCurrentChartVisible;
         if (
           shouldTriggerCropChartLoop ||
-          // assume update not required for crop chart section if looping section
+          // assume auto time-based update not required for crop chart section if looping section
           (isCropChartLoopingOn && isCropChartVisible) ||
           isDraggingCrop ||
           isDrawingCrop
@@ -4118,22 +4118,17 @@ export function triggerCropChartLoop() {
     function cropChartSectionLoop() {
       if (isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
         if (prevSelectedMarkerPairIndex != null) {
-          if (
-            isCurrentChartVisible &&
-            currentChartInput &&
-            currentChartInput.type === 'crop'
-          ) {
-            const chart = currentChartInput.chart;
-            const chartData = chart.data.datasets[0].data;
-            const [start, end] = currentCropChartSection;
-            const sectStart = chartData[start].x;
-            const sectEnd = chartData[end].x;
-            const isTimeBetweenCropChartSection =
-              sectStart <= video.currentTime && video.currentTime <= sectEnd;
+          const chart = cropChartInput.chart;
+          if (chart == null) return;
+          const chartData = chart.data.datasets[0].data;
+          const [start, end] = currentCropChartSection;
+          const sectStart = chartData[start].x;
+          const sectEnd = chartData[end].x;
+          const isTimeBetweenCropChartSection =
+            sectStart <= video.currentTime && video.currentTime <= sectEnd;
 
-            if (!isTimeBetweenCropChartSection) {
-              player.seekTo(sectStart);
-            }
+          if (!isTimeBetweenCropChartSection) {
+            player.seekTo(sectStart);
           }
         }
       }
