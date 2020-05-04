@@ -4267,6 +4267,7 @@ export function triggerCropChartLoop() {
     }
     text.markerNumbering {
       opacity: 0.25;
+      pointer-events: none;
     }
 
     rect.selected-marker {
@@ -4274,13 +4275,14 @@ export function triggerCropChartLoop() {
     }
     text.selectedMarkerNumbering {
       opacity: 1;
+      pointer-events: visibleFill;
     }
 
     rect.marker.end-marker {
       pointer-events: none;
     }
     rect.selected-marker.end-marker {
-      pointer-events: fill;
+      pointer-events: visibleFill;
     }
     `;
     let autoHideUnselectedMarkerPairsStyle: HTMLStyleElement;
