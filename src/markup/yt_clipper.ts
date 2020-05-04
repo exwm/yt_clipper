@@ -2109,9 +2109,11 @@ export function triggerCropChartLoop() {
     function toggleForceSetSpeed() {
       if (isForceSetSpeedOn) {
         isForceSetSpeedOn = false;
+        updateSpeedInputLabel(`Speed`);
         flashMessage('Force set speed disabled', 'red');
       } else {
         isForceSetSpeedOn = true;
+        updateSpeedInputLabel(`Speed (${forceSetSpeedValue.toFixed(2)})`);
         if (!isSpeedPreviewOn) requestAnimationFrame(updateSpeed);
         flashMessage('Force set speed enabled', 'green');
       }
