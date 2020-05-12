@@ -35,7 +35,8 @@
     "bundle:tc:w": "run-p -c build:ts:ne bundle:w",
     "bundle:prod": "npx parcel build --experimental-scope-hoisting --no-minify --out-dir ./dist/js ./src/markup/yt_clipper.ts",
     "clean:dist": "rm -r ./dist/*",
-    "clean:sandbox": "rm -r ./sandbox/*"
+    "clean:sandbox": "rm -r ./sandbox/*",
+    "pigar": "pigar -P ./src/clipper -p ./src/clipper/requirements.txt --without-referenced-comments"
   },
   "dependencies": {
     "common-tags": "^1.8.0",
