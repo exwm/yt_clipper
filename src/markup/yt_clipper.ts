@@ -330,6 +330,13 @@ export function triggerCropChartLoop() {
               flashMessage('Please switch to theater mode to rotate video.', 'red');
             }
             break;
+          case 'KeyF':
+            if (!e.ctrlKey && e.shiftKey && !e.altKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              flattenVRVideo();
+            }
+            break;
           case 'ArrowLeft':
           case 'ArrowRight':
             jumpToNearestMarkerOrPair(e, e.code);
@@ -3251,7 +3258,7 @@ export function triggerCropChartLoop() {
         window.removeEventListener('mousemove', cropOverlayHoverHandler, true);
         hidePlayerControls();
         video.style.removeProperty('cursor');
-        player.style.cursor = 'crosshair';
+        playerInfo.videoContainer.style.cursor = 'crosshair';
         beginDrawHandler = (e: PointerEvent) => beginDraw(e, verticalFill);
         playerInfo.container.addEventListener('pointerdown', beginDrawHandler, {
           once: true,
@@ -3397,7 +3404,7 @@ export function triggerCropChartLoop() {
 
     function finishDrawingCrop(prevCropString?: string, pointerId?: number) {
       if (pointerId) video.releasePointerCapture(pointerId);
-      player.style.removeProperty('cursor');
+      playerInfo.videoContainer.style.cursor = 'auto';
       playerInfo.container.removeEventListener('pointerdown', beginDrawHandler, true);
       window.removeEventListener('pointermove', dragCropPreviewHandler);
       window.removeEventListener('pointerup', endDraw, true);
@@ -5035,6 +5042,23 @@ export function triggerCropChartLoop() {
             isExtraSettingsEditorEnabled = false;
           }
         }
+      }
+    }
+
+    function flattenVRVideo() {
+      let isVRVideo = true;
+
+      const VRCanvas = playerInfo.videoContainer.getElementsByClassName('webgl')[0];
+      VRCanvas != null ? deleteElement(VRCanvas) : (isVRVideo = false);
+      const VRControl = document.getElementsByClassName('ytp-webgl-spherical-control')[0];
+      VRControl != null ? deleteElement(VRControl) : (isVRVideo = false);
+
+      if (isVRVideo) {
+        playerInfo.videoContainer.style.cursor = 'auto';
+        video.style.display = 'block';
+        flashMessage('Flattened VR video.', 'green');
+      } else {
+        flashMessage('Not a VR video or already flattened.', 'red');
       }
     }
 
