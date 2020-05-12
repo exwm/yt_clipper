@@ -49,7 +49,6 @@ import {
   currentCropChartSection,
   currentCropPointIndex,
   getCropChartConfig,
-  setCropChartMode,
   setCurrentCropPoint,
 } from './components/chart/cropchart/cropChartSpec';
 import { scatterChartDefaults } from './components/chart/scatterChartSpec';
@@ -66,11 +65,9 @@ import {
   retryUntilTruthyResult,
   roundValue,
   setAttributes,
-  toHHMMSS,
-  toHHMMSSTrimmed,
-  getRounder,
-  timeRounder,
   speedRounder,
+  timeRounder,
+  toHHMMSSTrimmed,
 } from './util';
 const ytClipperCSS = readFileSync(__dirname + '/css/yt-clipper.css', 'utf8');
 const shortcutsTable = readFileSync(
@@ -152,10 +149,6 @@ export function triggerCropChartLoop() {
               e.preventDefault();
               e.stopImmediatePropagation();
               copyToClipboard(getSettingsJSON());
-            } else if (!e.ctrlKey && e.altKey && e.shiftKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
-              saveAuthServerScript();
             }
             break;
           case 'KeyQ':
@@ -293,17 +286,6 @@ export function triggerCropChartLoop() {
               e.preventDefault();
               e.stopImmediatePropagation();
               cycleCropDimOpacity();
-            }
-            break;
-          case 'KeyV':
-            if (!e.ctrlKey && !e.shiftKey && e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
-              sendGfyRequests(playerInfo.url);
-            } else if (!e.ctrlKey && e.shiftKey && e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
-              requestGfycatAuth();
             }
             break;
           case 'KeyR':
@@ -458,21 +440,15 @@ export function triggerCropChartLoop() {
       }
     }
 
-    const CLIENT_ID = 'XXXX';
-    const REDIRECT_URI = 'https://127.0.0.1:4443/yt_clipper';
-    const BROWSER_BASED_AUTH_ENDPOINT = `https://gfycat.com/oauth/authorize?client_id=${CLIENT_ID}&scope=all&state=yt_clipper&response_type=token&redirect_uri=${REDIRECT_URI}`;
-
     let start = true;
     let markerHotkeysEnabled = false;
     let isMarkerPairSettingsEditorOpen = false;
     let wasGlobalSettingsEditorOpen = false;
     let isCropOverlayVisible = false;
     let isCurrentChartVisible = false;
-    let checkGfysCompletedId: number;
 
     let markerPairs: MarkerPair[] = [];
     let markerPairsHistory: MarkerPair[] = [];
-    let links: string[] = [];
 
     let startTime = 0.0;
     let isHotkeysEnabled = false;
@@ -5060,252 +5036,6 @@ export function triggerCropChartLoop() {
       } else {
         flashMessage('Not a VR video or already flattened.', 'red');
       }
-    }
-
-    function saveAuthServerScript() {
-      const authScript = `\
-import json
-import re
-from urllib.parse import urlencode, urlparse, parse_qs
-from http.server import HTTPServer, BaseHTTPRequestHandler
-
-CLIENT_ID = 'XXXX'
-REDIRECT_URI = 'http://127.0.0.1:4443/yt_clipper?'
-
-BROWSER_BASED_AUTH_ENDPOINT = f'https://gfycat.com/oauth/authorize?client_id={CLIENT_ID}&scope=all&state=yt_clipper&response_type=token&redirect_uri={REDIRECT_URI}'
-
-REDIRECT_PAGE_BODY = b'''
-<body>
-    <script>
-        let url = window.location.href;
-        url = url.replace('?','&');
-        url = url.replace('#','?access-token=');
-        window.open(url,'_self');
-    </script>
-</body>
-'''
-
-COMPLETE_AUTH_PAGE_BODY = b'''
-<body>
-    <span>
-        Please close this window and return to yt_clipper.
-    </span>
-</body>
-'''
-
-
-class getServer(BaseHTTPRequestHandler):
-    redirected = -1
-
-    def do_GET(self):
-        print(self.path)
-        if re.match('/yt_clipper*', self.path):
-            if getServer.redirected == -1:
-                self.send_response(200)
-                self.end_headers()
-                self.wfile.write(REDIRECT_PAGE_BODY)
-                getServer.redirected = 0
-            elif getServer.redirected == 0:
-                self.send_response(200)
-                self.end_headers()
-                self.wfile.write(COMPLETE_AUTH_PAGE_BODY)
-                getServer.query = parse_qs(urlparse(self.path).query)
-                getServer.redirected = 1
-            elif getServer.redirected == 1:
-                self.send_response(200)
-                self.send_header('Content-Type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.end_headers()
-                self.wfile.write(json.dumps(getServer.query).encode())
-
-
-httpd = HTTPServer(('localhost', 4443), getServer)
-httpd.serve_forever()
-`;
-      const blob = new Blob([authScript], { type: 'text/plain;charset=utf-8' });
-      saveAs(blob, `yt_clipper_auth.py`);
-    }
-
-    function buildGfyRequests(markers, url: string) {
-      return markers.map((marker: MarkerPair, idx: number) => {
-        const start = marker.start;
-        const end = marker.end;
-        const speed = marker.speed;
-        let [x, y, w, h] = marker.crop.split(':');
-        w = w === 'iw' ? settings.cropResWidth.toString() : w;
-        h = h === 'ih' ? settings.cropResHeight.toString() : h;
-        let crop = [x, y, w, h].map((num) => parseInt(num, 10));
-        const startHHMMSS = toHHMMSS(start).split(':');
-        const startHH = startHHMMSS[0];
-        const startMM = startHHMMSS[1];
-        const startSS = startHHMMSS[2];
-        const duration = end - start;
-        let req = {
-          fetchUrl: url,
-          title: `${settings.titleSuffix}-${idx + 1}`,
-          fetchHours: startHH,
-          fetchMinutes: startMM,
-          fetchSeconds: startSS,
-          noMd5: 'false',
-          cut: { start, duration },
-          speed,
-          crop: { x: crop[0], y: crop[1], w: crop[2], h: crop[3] },
-        };
-        return req;
-      });
-    }
-
-    function requestGfycatAuth() {
-      const authPage = window.open(BROWSER_BASED_AUTH_ENDPOINT);
-      const timer = setInterval(() => {
-        if (authPage.closed) {
-          clearInterval(timer);
-          getAccessToken();
-        }
-      }, 2500);
-    }
-
-    function getAccessToken() {
-      return new Promise(() => {
-        fetch(REDIRECT_URI, { mode: 'cors' })
-          .then((response) => {
-            return response.json();
-          })
-          .then((json) => {
-            const accessToken = json['access-token'][0];
-            console.log(accessToken);
-            sendGfyRequests(playerInfo.url, accessToken);
-          })
-          .catch((error) => console.error(error));
-      });
-    }
-
-    function sendGfyRequests(url: string, accessToken?: string) {
-      if (markerPairs.length > 0) {
-        const markdown = toggleUploadStatus();
-        const reqs = buildGfyRequests(markerPairs, url).map(
-          (req: { speed: string }, idx: any) => {
-            return buildGfyRequestPromise(req, idx, accessToken);
-          }
-        );
-
-        Promise.all(reqs).then((gfynames) => {
-          console.log(reqs);
-          console.log(gfynames);
-          checkGfysCompletedId = setInterval(
-            checkGfysCompleted,
-            5000,
-            gfynames,
-            markdown
-          );
-        });
-      }
-    }
-
-    function buildGfyRequestPromise(
-      reqData: { speed: string },
-      idx: any,
-      accessToken: any
-    ) {
-      return new Promise((resolve, reject) => {
-        postData('https://api.gfycat.com/v1/gfycats', reqData, accessToken)
-          .then((resp: { gfyname: {} | PromiseLike<{}> }) => {
-            links.push(
-              `(${settings.titleSuffix}-${idx})[https://gfycat.com/${resp.gfyname}]`
-            );
-            resolve(resp.gfyname);
-          })
-          .catch((error: Error) => reject(error));
-      });
-    }
-
-    function checkGfysCompleted(gfynames: string[], markdown: any) {
-      const gfyStatuses = gfynames.map((gfyname) => {
-        return checkGfyStatus(gfyname, markdown).then((isComplete) => {
-          return isComplete;
-        });
-      });
-      Promise.all(gfyStatuses)
-        .then((gfyStatuses) => {
-          areGfysCompleted(gfyStatuses).then(() => insertMarkdown(markdown));
-        })
-        .catch(() => console.log('gfys not yet completed'));
-    }
-
-    function toggleUploadStatus() {
-      const meta = document.getElementById('meta');
-      const markdown = document.createElement('textarea');
-      meta.insertAdjacentElement('beforebegin', markdown);
-      setAttributes(markdown, {
-        id: 'markdown',
-        style: 'color:grey;width:600px;height:100px;',
-        spellcheck: false,
-      });
-      markdown.textContent = 'Upload initiated. Progress updates will begin shortly.\n';
-      return markdown;
-    }
-
-    function updateUploadStatus(
-      markdown: { textContent: string; scrollTop: any; scrollHeight: any },
-      status: { progress: any },
-      gfyname: string
-    ) {
-      if (markdown) {
-        markdown.textContent += `${gfyname} progress: ${status.progress}\n`;
-        markdown.scrollTop = markdown.scrollHeight;
-      }
-    }
-
-    function insertMarkdown(markdown: { textContent: string }) {
-      if (markdown) {
-        markdown.textContent = links.join('\n');
-        window.clearInterval(checkGfysCompletedId);
-      }
-    }
-
-    function areGfysCompleted(gfyStatuses: {}[]) {
-      return new Promise((resolve, reject) => {
-        if (gfyStatuses.every(Boolean)) {
-          resolve();
-        } else {
-          reject();
-        }
-      });
-    }
-
-    function checkGfyStatus(gfyname: string, markdown: any) {
-      return new Promise((resolve, reject) => {
-        fetch(`https://api.gfycat.com/v1/gfycats/fetch/status/${gfyname}`)
-          .then((response) => {
-            return response.json();
-          })
-          .then((myJson) => {
-            updateUploadStatus(markdown, myJson, gfyname);
-            myJson.task === 'complete' ? resolve(true) : reject(false);
-          })
-          .catch((error) => console.error(error));
-      });
-    }
-
-    function postData(url: RequestInfo, data: any, accessToken: any) {
-      const auth = accessToken ? `Bearer ${accessToken}` : null;
-      const req = {
-        body: JSON.stringify(data), // must match 'Content-Type' header
-        cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
-        credentials: 'omit', // include, same-origin, *omit
-        headers: {
-          'content-type': 'application/json',
-        },
-        method: 'POST', // *GET, POST, PUT, DELETE, etc.
-        mode: 'cors', // no-cors, cors, *same-origin
-        redirect: 'follow', // manual, *follow, error
-        referrer: 'no-referrer', // *client, no-referrer
-      };
-      if (auth) {
-        req.headers.Authorization = auth;
-      }
-      console.log(req);
-      return fetch(url, req).then((response: { json: () => void }) => response.json()); // parses response to JSON
     }
   }
 })();
