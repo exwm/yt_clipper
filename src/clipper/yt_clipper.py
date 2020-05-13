@@ -85,6 +85,15 @@ def main():
     logger.info(f'Version: {__version__}')
     logger.info('-' * 80)
 
+    if settings["enableMinterpEnhancements"] and sys.platform == 'win32':
+        global ffmpegPath
+        ffmpegPath = "./bin/ffmpeg_elwm.exe"
+        if not Path(ffmpegPath).is_file():
+            logger.error(f'{ffmpegPath} required for minterp enhancements not found.')
+            sys.exit(1)
+    else:
+        settings["enableMinterpEnhancements"] = False
+
     settings["downloadVideoNameStem"] = f'{settings["titleSuffix"]}-full'
     settings["downloadVideoPath"] = f'{webmsPath}/{settings["downloadVideoNameStem"]}'
     pivpat = r'^' + re.escape(settings["downloadVideoNameStem"]) + r'\.[^.]+$'
@@ -285,6 +294,18 @@ def buildArgParser():
                             'This filter is resource intensive and will take longer to process the higher the target fps. '
                             'Motion interpolation can and will introduce artifacting (visual glitches). '
                             'Artifacting increases with the speed and complexity of the video. '
+                        ))
+    parser.add_argument('--enable-minterp-enhancements', '-eme', action='store_true',
+                        dest='enableMinterpEnhancements', default=False,
+                        help=(
+                            'Enables experimental enhancements for motion interpolation (minterp):'
+                            ' 1) Sections of the video already at the target minterp speed are not interpolated.'
+                            '    This saves resources and improves performance and avoids artifacting.'
+                            ' 2) The original video frames are forcibly used in the interpolated result.'
+                            '    This improves performance and may reduce artifacting at the cost of some smoothness.'
+                            'Enabling this option requires a custom build of ffmpeg named ffmpeg_elwm.'
+                            'ffmpeg_elwm must be present inside the bin folder of the clipper installation.'
+                            'Currently ffmpeg_elwm is available only for windows.'
                         ))
     parser.add_argument('--delay', '-d', type=float, dest='delay', default=0,
                         help='Add a fixed delay to both the start and end time of each marker. Can be negative.')
@@ -870,15 +891,18 @@ def getMinterpFilter(mp, mps):
                 sectEnd = outDurs[sect + 1]
                 minterpEnable.append(f'between(t,{sectStart},{sectEnd})')
 
-    if len(minterpEnable) > 0:
-        minterpEnable = f"""enable='{'+'.join(minterpEnable)}':"""
-    else:
-        minterpEnable = 'enable=0:'
+    minterpEnable = ''
+    if mps["enableMinterpEnhancements"]:
+        if len(minterpEnable) > 0:
+            minterpEnable = f"""enable='{'+'.join(minterpEnable)}':"""
+        else:
+            minterpEnable = 'enable=0:'
 
     if minterpFPS is not None:
         minterpFilter = f''',minterpolate={minterpEnable}fps=({minterpFPS}):mi_mode=mci'''
         minterpFilter += f''':mc_mode=aobmc:me_mode=bidir:vsbmc=1:search_param=128:scd_threshold=8:mb_size=16'''
-        minterpFilter += f''':fuovf=1:alpha_threshold=256'''
+        if mps["enableMinterpEnhancements"]:
+            minterpFilter += f''':fuovf=1:alpha_threshold=256'''
     else:
         minterpFilter = ''
 
