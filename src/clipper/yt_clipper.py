@@ -349,14 +349,14 @@ def getMarkerPairQueue(nMarkerPairs, onlyArg, exceptArg):
             onlyPairsList = markerPairsCSVToList(onlyArg)
         except ValueError:
             logger.error(f'Argument provided to --only was invalid: {onlyArg}')
-            sys.exit()
+            sys.exit(1)
         onlyPairsSet = {x - 1 for x in set(onlyPairsList)}
     if exceptArg != '':
         try:
             exceptPairsList = markerPairsCSVToList(exceptArg)
         except ValueError:
             logger.error(f'Argument provided to --except was invalid: {exceptArg}')
-            sys.exit()
+            sys.exit(1)
         exceptPairsSet = {x - 1 for x in set(exceptPairsList)}
 
     onlyPairsSet.difference_update(exceptPairsSet)
@@ -548,20 +548,6 @@ def getMarkerPairSettings(settings, markerPairIndex):
     # marker pair settings
     mps = {**settings, **(mp["overrides"])}
 
-    bitrateCropFactor = (
-        cropComponents['w'] * cropComponents['h']) / (settings["width"] * settings["height"])
-
-    # relax bitrate crop factor assuming that most crops include complex parts
-    # of the video and exclude simpler parts
-    bitrateCropRelaxationFactor = 0.8
-    bitrateCropFactor = min(1, bitrateCropFactor ** bitrateCropRelaxationFactor)
-
-    globalEncodeSettings = getDefaultEncodeSettings(mps["bit_rate"])
-    autoMarkerPairEncodeSettings = getDefaultEncodeSettings(mps["bit_rate"] * bitrateCropFactor)
-    mps = {**globalEncodeSettings, **autoMarkerPairEncodeSettings, **mps}
-    if "targetMaxBitrate" not in mps:
-        mps["targetMaxBitrate"] = mps["autoTargetMaxBitrate"]
-
     mp["exists"] = False
     if not mps["preview"]:
         if "titlePrefix" in mps:
@@ -591,6 +577,29 @@ def getMarkerPairSettings(settings, markerPairIndex):
     mp["speedFilter"], mp["outputDuration"], mp["outputDurations"] = getSpeedFilterAndDuration(
         mp["speedMap"], mps, mps["r_frame_rate"])
 
+    mp["averageSpeed"] = getAverageSpeed(mp["speedMap"], mps["r_frame_rate"])
+
+    bitrateCropFactor = (
+        cropComponents['w'] * cropComponents['h']) / (settings["width"] * settings["height"])
+
+    # relax bitrate crop factor assuming that most crops include complex parts
+    # of the video and exclude simpler parts
+    bitrateRelaxationFactor = 0.8
+    bitrateCropFactor = min(1, bitrateCropFactor ** bitrateRelaxationFactor)
+
+    bitrateSpeedFactor = mp["averageSpeed"]
+    mps["minterpFPS"] = getMinterpFPS(mps, mp["speedMap"])
+    if mps["minterpFPS"] is not None:
+        bitrateSpeedFactor = mps["minterpFPS"] / (mp["averageSpeed"] * Fraction(mps["r_frame_rate"]))
+
+    bitrateFactor = bitrateCropFactor * bitrateSpeedFactor
+
+    globalEncodeSettings = getDefaultEncodeSettings(mps["bit_rate"])
+    autoMarkerPairEncodeSettings = getDefaultEncodeSettings(mps["bit_rate"] * bitrateFactor)
+    mps = {**globalEncodeSettings, **autoMarkerPairEncodeSettings, **mps}
+    if "targetMaxBitrate" not in mps:
+        mps["targetMaxBitrate"] = mps["autoTargetMaxBitrate"]
+
     mp["isVariableCrop"] = False
 
     if "enableCropMaps" not in mp:
@@ -610,10 +619,10 @@ def getMarkerPairSettings(settings, markerPairIndex):
 
     titlePrefixLogMsg = f'Title Prefix: {mps["titlePrefix"] if "titlePrefix" in mps else ""}'
     logger.info('-' * 80)
-    minterpFPSMsg = f'Target FPS: {getMinterpFPS(mps, mp["speedMap"])}, '
+    minterpFPSMsg = f'Target FPS: {mps["minterpFPS"]}, '
     logger.info((f'Marker Pair {markerPairIndex + 1} Settings: {titlePrefixLogMsg}, ' +
                  f'CRF: {mps["crf"]} (0-63), Target Bitrate: {mps["targetMaxBitrate"]}, ' +
-                 f'Bitrate Crop Factor: {bitrateCropFactor}, ' +
+                 f'Bitrate Crop Factor: {bitrateCropFactor}, Bitrate Speed Factor {bitrateSpeedFactor},' +
                  f'Crop Adjusted Target Max Bitrate: {mps["autoTargetMaxBitrate"]}kbps, ' +
                  f'Two-pass Encoding Enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5), ' +
                  f'Expand Color Range Enabled: {mps["expandColorRange"]}, ' +
@@ -650,7 +659,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
         # if an input video is provided, a dash xml is used, or previewing is on, there is only one input
         if not mps["inputVideo"] and not settings["isDashAudio"] and not settings["preview"]:
             inputs += reconnectFlags
-            inputs += f' -ss {mp["start"]} -i "{mps["audioURL"]}" '
+            inputs += f' -ss {mp["start"]} -to {mp["end"]} -i "{mps["audioURL"]}" '
 
         # preview mode does not start each clip at time 0 unlike encoding mode
         if settings["preview"] and (settings["inputVideo"] or settings["isDashAudio"]):
@@ -729,7 +738,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
         video_filter += f',{mps["extraVideoFilters"]}'
 
     if mps["loop"] != 'fwrev':
-        minterpFPS = getMinterpFPS(mps, mp["speedMap"])
+        minterpFPS = mps["minterpFPS"]
         if minterpFPS is not None:
             video_filter += f''',mpdecimate,setpts=N/FR/TB'''
         video_filter += f',{mp["speedFilter"]}'
@@ -838,7 +847,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
 def getMinterpFilter(mp, mps):
     speedMap = mp["speedMap"]
 
-    minterpFPS = getMinterpFPS(mps, speedMap)
+    minterpFPS = mps["minterpFPS"]
     maxSpeed = getMaxSpeed(speedMap)
 
     minterpEnable = []
@@ -868,7 +877,6 @@ def getMinterpFilter(mp, mps):
         minterpFilter = f''',minterpolate={minterpEnable}fps=({minterpFPS}):mi_mode=mci'''
         minterpFilter += f''':mc_mode=aobmc:me_mode=bidir:vsbmc=1:search_param=128:scd_threshold=8:mb_size=16'''
         minterpFilter += f''':fuovf=1:alpha_threshold=256'''
-        # minterpFilter += f''',deblock=filter=strong:block=32:alpha=0.3:beta=0.3:gamma=0.3:delta=0.3'''
     else:
         minterpFilter = ''
 
@@ -884,7 +892,7 @@ def getMinterpFPS(mps, speedMap):
     maxFPS = maxSpeed * videoFPS
 
     minterpFPS = None
-    if minterpMode == "Numeric" and "minterpFPS" in mps:
+    if minterpMode == "Numeric" and "minterpFPS" in mps and mps["minterpFPS"] is not None:
         minterpFPS = min(120, mps["minterpFPS"])
     if minterpMode == "MaxSpeed":
         minterpFPS = maxFPS
@@ -1013,6 +1021,32 @@ def getSpeedFilterAndDuration(speedMap, mps, fps):
     # logger.info(f'Last Input Frame Time (Rounded): {sectEnd}')
     # logger.info(f'Last Output Frame Time: {outputDuration}')
     return video_filter_speed_map, outputDuration, outputDurations
+
+
+def getAverageSpeed(speedMap, fps):
+    fps = Fraction(fps)
+    frameDur = 1 / fps
+    # Account for marker pair start time as trim filter sets start time to ~0
+    speedMapStartTime = speedMap[0]["x"]
+    # Account for first input frame delay due to potentially imprecise trim
+    startt = ceil(speedMapStartTime / frameDur) * frameDur - speedMapStartTime
+
+    averageSpeed = 0
+    duration = 0
+    for sect, (left, right) in enumerate(zip(speedMap[:-1], speedMap[1:])):
+        startSpeed = left["y"]
+        endSpeed = right["y"]
+
+        sectStart = left["x"] - speedMapStartTime - startt
+        sectEnd = right["x"] - speedMapStartTime - startt
+        sectDuration = sectEnd - sectStart
+
+        duration += sectDuration
+        averageSpeed += ((startSpeed + endSpeed) / 2) * sectDuration
+
+    averageSpeed = averageSpeed / duration
+
+    return averageSpeed
 
 
 def getCropFilter(cropMap, mps, fps, easeType='easeInOutSine'):
