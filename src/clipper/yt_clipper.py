@@ -9,13 +9,13 @@ import re
 import shlex
 import subprocess
 import sys
+import time
 from fractions import Fraction
 from math import ceil, floor, log
 from pathlib import Path
 
 import coloredlogs
 import verboselogs
-import time
 
 UPLOAD_KEY_REQUEST_ENDPOINT = 'https://api.gfycat.com/v1/gfycats?'
 FILE_UPLOAD_ENDPOINT = 'https://filedrop.gfycat.com'
@@ -346,6 +346,8 @@ def buildArgParser():
     parser.add_argument('--target-max-bitrate', '-b', dest='targetMaxBitrate', type=int,
                         help=('Set target max bitrate in kilobits/s. Constrains bitrate of complex scenes.' +
                               'Automatically set based on detected video bitrate.'))
+    parser.add_argument('--enable-vp8', '-vp8', dest='vp8', action='store_true', default=False,
+                        help=('Use vp8 codec for for video encoding instead of the default vp9.'))
     parser.add_argument('--no-auto-scale-crop-res', '-nascr', dest='noAutoScaleCropRes', action='store_true',
                         help=('Disable automatically scaling the crop resolution '
                               'when a mismatch with video resolution is detected.'))
@@ -712,10 +714,11 @@ def makeMarkerPairClip(settings, markerPairIndex):
         inputs,
         f'-benchmark',
         # f'-loglevel 56',
-        f'-c:v libvpx-vp9 -pix_fmt yuv420p',
-        f'-c:a libopus -b:a 128k',
-        f'-slices 8 -row-mt 1 -tile-columns 6 -tile-rows 2',
-        f'-nr 4 -aq-mode 4 -qmin {qmin} -crf {mps["crf"]} -qmax {qmax} -b:v {mps["targetMaxBitrate"]}k',
+        f'-c:v libvpx-vp9' if not mps["vp8"] else f'-c:v libvpx',
+        f'-pix_fmt yuv420p -c:a libopus -b:a 128k',
+        f'-slices 8 -nr 4',
+        f'-aq-mode 4 -row-mt 1 -tile-columns 6 -tile-rows 2' if not mps["vp8"] else '',
+        f'-qmin {qmin} -crf {mps["crf"]} -qmax {qmax} -b:v {mps["targetMaxBitrate"]}k',
         f'-force_key_frames 1',
         f'-metadata title="{mps["videoTitle"]}"',
         f'-r ({mps["r_frame_rate"]}*{mp["speed"]})' if not mp["isVariableSpeed"] and mp["speed"] > 1 else '',
