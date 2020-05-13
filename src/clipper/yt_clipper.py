@@ -21,7 +21,7 @@ UPLOAD_KEY_REQUEST_ENDPOINT = 'https://api.gfycat.com/v1/gfycats?'
 FILE_UPLOAD_ENDPOINT = 'https://filedrop.gfycat.com'
 AUTHENTICATION_ENDPOINT = 'https://api.gfycat.com/v1/oauth/token'
 
-__version__ = '3.7.0-beta.3.7'
+__version__ = '3.7.0-beta.3.7.1'
 
 settings = {}
 
@@ -894,12 +894,13 @@ def getMinterpFilter(mp, mps):
                 sectEnd = outDurs[sect + 1]
                 minterpEnable.append(f'between(t,{sectStart},{sectEnd})')
 
-    minterpEnable = ''
     if mps["enableMinterpEnhancements"]:
         if len(minterpEnable) > 0:
             minterpEnable = f"""enable='{'+'.join(minterpEnable)}':"""
         else:
             minterpEnable = 'enable=0:'
+    else:
+        minterpEnable = ''
 
     if minterpFPS is not None:
         minterpFilter = f''',minterpolate={minterpEnable}fps=({minterpFPS}):mi_mode=mci'''
