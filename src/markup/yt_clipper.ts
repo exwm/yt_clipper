@@ -340,11 +340,13 @@ export function triggerCropChartLoop() {
         initOnce();
         if (isHotkeysEnabled) {
           showShortcutsTableToggleButton();
+          enablePreventSideBarPull();
           enablePreventAltDefault();
           enablePreventMouseZoom();
           flashMessage('Enabled Hotkeys', 'green');
         } else {
           hideShortcutsTableToggleButton();
+          disablePreventSideBarPull();
           disablePreventAltDefault();
           disablePreventMouseZoom();
           flashMessage('Disabled Hotkeys', 'red');
@@ -358,6 +360,15 @@ export function triggerCropChartLoop() {
 
     function disablePreventAltDefault() {
       window.removeEventListener('keyup', preventAltDefaultHandler, true);
+    }
+
+    function enablePreventSideBarPull() {
+      const sideBar = document.getElementById('contentContainer');
+      if (sideBar != null) sideBar.style.pointerEvents = 'none';
+    }
+    function disablePreventSideBarPull() {
+      const sideBar = document.getElementById('contentContainer');
+      if (sideBar != null) sideBar.style.removeProperty('pointer-events');
     }
 
     function preventAltDefaultHandler(e: KeyboardEvent) {
