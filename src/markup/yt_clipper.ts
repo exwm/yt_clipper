@@ -1216,9 +1216,9 @@ export function triggerCropChartLoop() {
     }
 
     function addForeignEventListeners() {
-      const ids = ['search'];
-      ids.forEach((id) => {
-        const input = document.getElementById(id);
+      const selectors = ['#search-input #search'];
+      selectors.forEach((selector) => {
+        const input = document.querySelector(selector);
         if (isHotkeysEnabled) {
           input.addEventListener('focus', () => (isHotkeysEnabled = false), {
             capture: true,
