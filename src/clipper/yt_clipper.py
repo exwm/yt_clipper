@@ -891,12 +891,13 @@ def getMinterpFilter(mp, mps):
                 sectEnd = outDurs[sect + 1]
                 minterpEnable.append(f'between(t,{sectStart},{sectEnd})')
 
-    minterpEnable = ''
     if mps["enableMinterpEnhancements"]:
         if len(minterpEnable) > 0:
             minterpEnable = f"""enable='{'+'.join(minterpEnable)}':"""
         else:
             minterpEnable = 'enable=0:'
+    else:
+        minterpEnable = ''
 
     if minterpFPS is not None:
         minterpFilter = f''',minterpolate={minterpEnable}fps=({minterpFPS}):mi_mode=mci'''
