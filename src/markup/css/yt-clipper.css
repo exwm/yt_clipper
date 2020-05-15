@@ -78,6 +78,10 @@
   pointer-events: visibleFill;
 }
 
+.end-marker:hover {
+      fill: var(--bright-red);
+}
+
 .selected-marker-overlay {
   fill: black;
   width: 1px;
@@ -234,7 +238,12 @@
 }
 
 .markerNumbering {
-  pointer-events: none;
+  pointer-events: visibleFill;
+  user-select: none;
+}
+.markerNumbering:hover {
+  fill: var(--bright-red);
+  cursor: pointer;
 }
 
 .startMarkerNumbering {
@@ -243,11 +252,8 @@
 
 .endMarkerNumbering {
   fill: gold;
-  pointer-events: visibleFill;
 }
-.endMarkerNumbering:hover {
-  fill: var(--bright-red);
-}
+
 
 #crop-div {
   pointer-events: none;
