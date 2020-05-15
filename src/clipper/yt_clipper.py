@@ -650,8 +650,8 @@ def getMarkerPairSettings(settings, markerPairIndex):
     minterpFPSMsg = f'Target FPS: {mps["minterpFPS"]}, '
     logger.info((f'Marker Pair {markerPairIndex + 1} Settings: {titlePrefixLogMsg}, ' +
                  f'CRF: {mps["crf"]} (0-63), Target Bitrate: {mps["targetMaxBitrate"]}, ' +
-                 f'Bitrate Crop Factor: {bitrateCropFactor}, Bitrate Speed Factor {bitrateSpeedFactor},' +
-                 f'Crop Adjusted Target Max Bitrate: {mps["autoTargetMaxBitrate"]}kbps, ' +
+                 f'Bitrate Crop Factor: {bitrateCropFactor}, Bitrate Speed Factor {bitrateSpeedFactor}, ' +
+                 f'Adjusted Target Max Bitrate: {mps["autoTargetMaxBitrate"]}kbps, ' +
                  f'Two-pass Encoding Enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5), ' +
                  f'Expand Color Range Enabled: {mps["expandColorRange"]}, ' +
                  f'Audio Enabled: {mps["audio"]}, Denoise: {mps["denoise"]["desc"]}, ' +
@@ -769,12 +769,9 @@ def makeMarkerPairClip(settings, markerPairIndex):
         video_filter += f',{mps["extraVideoFilters"]}'
 
     if mps["loop"] != 'fwrev':
-        minterpFPS = mps["minterpFPS"]
-        if minterpFPS is not None:
+        if mps["minterpFPS"] is not None:
             video_filter += f''',mpdecimate,setpts=N/FR/TB'''
         video_filter += f',{mp["speedFilter"]}'
-        if "minterpMode" in mps and mps["minterpMode"] != "None":
-            video_filter += getMinterpFilter(mp, mps)
     if mps["loop"] == 'fwrev':
         reverseSpeedMap = [{"x": speedPoint["x"], "y":speedPointRev["y"]}
                            for speedPoint, speedPointRev in zip(mp["speedMap"], reversed(mp["speedMap"]))]
@@ -825,6 +822,9 @@ def makeMarkerPairClip(settings, markerPairIndex):
             vidstabtransformFilter += f':optzoom=2:zoomspeed={vidstab["zoomspeed"]}'
         vidstabtransformFilter += r',unsharp=5:5:0.8:3:3:0.4'
 
+        if "minterpMode" in mps and mps["minterpMode"] != "None":
+            vidstabtransformFilter += getMinterpFilter(mp, mps)
+
         if mps["loop"] != 'none':
             vidstabdetectFilter += loop_filter
             vidstabtransformFilter += loop_filter
@@ -839,8 +839,12 @@ def makeMarkerPairClip(settings, markerPairIndex):
 
     ffmpegCommands = []
     if mps["twoPass"] and not vidstabEnabled:
+        if "minterpMode" in mps and mps["minterpMode"] != "None":
+            video_filter += getMinterpFilter(mp, mps)
+
         if mps["loop"] != 'none':
             video_filter += loop_filter
+
         ffmpegCommand += f' -vf "{video_filter}" '
         ffmpegPass1 = ffmpegCommand + ' -pass 1 -'
         ffmpegPass2 = ffmpegCommand + \
@@ -852,6 +856,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
             ffmpegVidstabdetect += f' -pass 1'
         else:
             ffmpegVidstabdetect += f' -speed 5'
+
         ffmpegVidstabdetect += f' "{shakyWebmPath}"'
 
         if mps["twoPass"]:
@@ -860,8 +865,12 @@ def makeMarkerPairClip(settings, markerPairIndex):
 
         ffmpegCommands = [ffmpegVidstabdetect, ffmpegVidstabtransform]
     else:
+        if "minterpMode" in mps and mps["minterpMode"] != "None":
+            video_filter += getMinterpFilter(mp, mps)
+
         if mps["loop"] != 'none':
             video_filter += loop_filter
+
         ffmpegCommand += f' -vf "{video_filter}" '
         ffmpegCommand += f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
 
