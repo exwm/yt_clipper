@@ -347,7 +347,12 @@ def buildArgParser():
                         help=('Set target max bitrate in kilobits/s. Constrains bitrate of complex scenes.' +
                               'Automatically set based on detected video bitrate.'))
     parser.add_argument('--enable-vp8', '-vp8', dest='vp8', action='store_true', default=False,
-                        help=('Use vp8 codec for for video encoding instead of the default vp9.'))
+                        help=(
+                            'Use vp8 codec for for video encoding instead of the default vp9.'
+                            'Note that yt_clipper is not yet optimized for vp8, only for vp9.'
+                            'This means quality and file size may not be well balanced.'
+                            'Additionally, vp9 generally offers a better quality-size trade-off.'
+                        ))
     parser.add_argument('--no-auto-scale-crop-res', '-nascr', dest='noAutoScaleCropRes', action='store_true',
                         help=('Disable automatically scaling the crop resolution '
                               'when a mismatch with video resolution is detected.'))
