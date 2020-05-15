@@ -12,6 +12,13 @@ export function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export function injectCSS(css: string, id: string) {
+  const style = document.createElement('style');
+  style.setAttribute('id', id);
+  style.innerHTML = css;
+  document.body.appendChild(style);
+  return style;
+}
 export function htmlToElement(html: string) {
   const template = document.createElement('template');
   html = html.trim(); // Never return a text node of whitespace as the result
@@ -34,7 +41,7 @@ export function deleteElement(elem: Element) {
 
 export function once(fn: Function, context: any) {
   var result: Function;
-  return function() {
+  return function () {
     if (fn) {
       result = fn.apply(context || this, arguments);
       fn = null;
