@@ -61,6 +61,7 @@ import {
   deleteElement,
   htmlToElement,
   htmlToSVGElement,
+  injectCSS,
   once,
   retryUntilTruthyResult,
   roundValue,
@@ -421,7 +422,7 @@ export function triggerCropChartLoop() {
     }
 
     function cropOverlayHoverHandler(e) {
-      if (isMarkerPairSettingsEditorOpen && isCropOverlayVisible && !isDrawingCrop) {
+      if (isSettingsEditorOpen && isCropOverlayVisible && !isDrawingCrop) {
         updateCropHoverCursor(e);
       }
     }
@@ -453,7 +454,7 @@ export function triggerCropChartLoop() {
 
     let start = true;
     let markerHotkeysEnabled = false;
-    let isMarkerPairSettingsEditorOpen = false;
+    let isSettingsEditorOpen = false;
     let wasGlobalSettingsEditorOpen = false;
     let isCropOverlayVisible = false;
     let isCurrentChartVisible = false;
@@ -485,7 +486,7 @@ export function triggerCropChartLoop() {
     }
 
     function getRelevantCropString() {
-      if (!isMarkerPairSettingsEditorOpen) return null;
+      if (!isSettingsEditorOpen) return null;
       if (!wasGlobalSettingsEditorOpen) {
         return markerPairs[prevSelectedMarkerPairIndex].cropMap[currentCropPointIndex]
           .crop;
@@ -506,7 +507,7 @@ export function triggerCropChartLoop() {
           isCurrentChartVisible && currentChartInput && currentChartInput.type !== 'crop';
         if (
           e.ctrlKey &&
-          isMarkerPairSettingsEditorOpen &&
+          isSettingsEditorOpen &&
           isCropOverlayVisible &&
           !isDrawingCrop &&
           !isCropBlockingChartVisible
@@ -866,7 +867,7 @@ export function triggerCropChartLoop() {
         event.altKey &&
         event.shiftKey &&
         Math.abs(event.deltaY) > 0 &&
-        isMarkerPairSettingsEditorOpen &&
+        isSettingsEditorOpen &&
         !wasGlobalSettingsEditorOpen &&
         prevSelectedEndMarker
       ) {
@@ -907,7 +908,7 @@ export function triggerCropChartLoop() {
 
       if (
         Math.abs(event.deltaY) > 0 &&
-        isMarkerPairSettingsEditorOpen &&
+        isSettingsEditorOpen &&
         !wasGlobalSettingsEditorOpen &&
         prevSelectedEndMarker &&
         cropChartInput.chart
@@ -951,7 +952,7 @@ export function triggerCropChartLoop() {
         event.altKey &&
         event.shiftKey &&
         Math.abs(event.deltaY) > 0 &&
-        isMarkerPairSettingsEditorOpen &&
+        isSettingsEditorOpen &&
         !wasGlobalSettingsEditorOpen &&
         prevSelectedEndMarker &&
         cropChartInput.chart
@@ -987,6 +988,7 @@ export function triggerCropChartLoop() {
     let settings: Settings;
     let markersSvg: SVGSVGElement;
     let markersDiv: HTMLDivElement;
+    let markerNumberingsDiv: HTMLDivElement;
     let selectedMarkerPairOverlay: SVGSVGElement;
     let startMarkerNumberings: SVGSVGElement;
     let endMarkerNumberings: SVGSVGElement;
@@ -1006,27 +1008,27 @@ export function triggerCropChartLoop() {
       markersDiv = document.createElement('div');
       markersDiv.setAttribute('id', 'markers-div');
       markersDiv.innerHTML = `\
-    <svg id="markers-svg"></svg>
-    <svg id="selected-marker-pair-overlay" style="display:none">
-      <rect id="selected-start-marker-overlay"  class="selected-marker-overlay" width="1px" height="8px" y="3.5px" shape-rendering="crispEdges"></rect>
-      <rect id="selected-end-marker-overlay"  class="selected-marker-overlay" width="1px" height="8px" y="3.5px" shape-rendering="crispEdges"></rect>
-    </svg>
-    <svg id="start-marker-numberings"></svg>
-    <svg id="end-marker-numberings"></svg>
-    `;
+        <svg id="markers-svg"></svg>
+        <svg id="selected-marker-pair-overlay" style="display:none">
+          <rect id="selected-start-marker-overlay"  class="selected-marker-overlay" width="1px" height="8px" y="3.5px" shape-rendering="crispEdges"></rect>
+          <rect id="selected-end-marker-overlay"  class="selected-marker-overlay" width="1px" height="8px" y="3.5px" shape-rendering="crispEdges"></rect>
+        </svg>
+        <svg id="start-marker-numberings"></svg>
+        <svg id="end-marker-numberings"></svg>
+      `;
       playerInfo.progress_bar.appendChild(markersDiv);
       markersSvg = markersDiv.children[0] as SVGSVGElement;
       selectedMarkerPairOverlay = markersDiv.children[1] as SVGSVGElement;
-      startMarkerNumberings = markersDiv.children[2] as SVGSVGElement;
-      endMarkerNumberings = markersDiv.children[3] as SVGSVGElement;
-    }
 
-    function injectCSS(css: string, id: string) {
-      const style = document.createElement('style');
-      style.setAttribute('id', id);
-      style.innerHTML = css;
-      document.body.appendChild(style);
-      return style;
+      markerNumberingsDiv = document.createElement('div');
+      markerNumberingsDiv.setAttribute('id', 'marker-numberings-div');
+      markerNumberingsDiv.innerHTML = `\
+        <svg id="start-marker-numberings"></svg>
+        <svg id="end-marker-numberings"></svg>
+      `;
+      playerInfo.controls.appendChild(markerNumberingsDiv);
+      startMarkerNumberings = markerNumberingsDiv.children[0] as SVGSVGElement;
+      endMarkerNumberings = markerNumberingsDiv.children[1] as SVGSVGElement;
     }
 
     const adjustRotatedVideoPositionCSS = `\
@@ -1242,7 +1244,7 @@ export function triggerCropChartLoop() {
       currentTime: number = video.currentTime
     ): MarkerPair {
       if (
-        isMarkerPairSettingsEditorOpen &&
+        isSettingsEditorOpen &&
         !wasGlobalSettingsEditorOpen &&
         prevSelectedMarkerPairIndex != null
       ) {
@@ -1349,7 +1351,7 @@ export function triggerCropChartLoop() {
     }
 
     function updateSpeedInputLabel(text: string) {
-      if (isMarkerPairSettingsEditorOpen && speedInputLabel != null) {
+      if (isSettingsEditorOpen && speedInputLabel != null) {
         speedInputLabel.textContent = text;
       }
     }
@@ -1415,7 +1417,7 @@ export function triggerCropChartLoop() {
 
     function loopMarkerPair() {
       if (
-        isMarkerPairSettingsEditorOpen &&
+        isSettingsEditorOpen &&
         !wasGlobalSettingsEditorOpen &&
         (!isCropChartLoopingOn ||
           !isCurrentChartVisible ||
@@ -1617,10 +1619,7 @@ export function triggerCropChartLoop() {
         if (e.ctrlKey && !e.altKey && !e.shiftKey) {
           jumpToNearestMarker(e, video.currentTime, keyCode);
         } else if (e.altKey && !e.shiftKey) {
-          if (
-            !e.ctrlKey &&
-            !(isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen)
-          ) {
+          if (!e.ctrlKey && !(isSettingsEditorOpen && !wasGlobalSettingsEditorOpen)) {
             e.preventDefault();
             e.stopImmediatePropagation();
             togglePrevSelectedMarkerPair();
@@ -2001,7 +2000,7 @@ export function triggerCropChartLoop() {
     }
 
     function updateMarkerPairEditor() {
-      if (isMarkerPairSettingsEditorOpen) {
+      if (isSettingsEditorOpen) {
         const markerPairCountLabel = document.getElementById('marker-pair-count-label');
         if (markerPairCountLabel) {
           markerPairCountLabel.textContent = markerPairs.length.toString();
@@ -2040,11 +2039,14 @@ export function triggerCropChartLoop() {
       ) as SVGTextElement;
 
       endNumberingText.marker = endMarker;
+      startNumberingText.marker = endMarker;
       endNumberingText.addEventListener(
         'mouseover',
         markerNumberingMouseOverHandler,
         false
       );
+      startNumberingText.addEventListener('click', markerNumberingClickHandler, true);
+      endNumberingText.addEventListener('click', markerNumberingClickHandler, true);
 
       return [startNumberingText, endNumberingText];
     }
@@ -2059,7 +2061,7 @@ export function triggerCropChartLoop() {
         targetMarkerType === 'end' &&
         prevSelectedMarkerPairIndex >= markerPairs.length - 1
       ) {
-        if (isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
+        if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
           toggleOffMarkerPairEditor(true);
         } else {
           hideSelectedMarkerPairOverlay(true);
@@ -2114,7 +2116,7 @@ export function triggerCropChartLoop() {
     }
 
     function toggleGlobalSettingsEditor() {
-      if (isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
+      if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
         toggleOffMarkerPairEditor();
       }
       if (wasGlobalSettingsEditorOpen) {
@@ -2435,7 +2437,7 @@ export function triggerCropChartLoop() {
       ) as HTMLSpanElement;
 
       wasGlobalSettingsEditorOpen = true;
-      isMarkerPairSettingsEditorOpen = true;
+      isSettingsEditorOpen = true;
       addMarkerPairMergeListDurationsListener();
       addCropInputHotkeys();
       highlightModifiedSettings(settingsInputsConfigsHighlightable, settings);
@@ -2917,7 +2919,7 @@ export function triggerCropChartLoop() {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       let resString: string;
-      if (isMarkerPairSettingsEditorOpen) {
+      if (isSettingsEditorOpen) {
         const cropMultipleX = video.videoWidth / settings.cropResWidth;
         const cropMultipleY = video.videoHeight / settings.cropResHeight;
         if (!wasGlobalSettingsEditorOpen) {
@@ -3229,7 +3231,7 @@ export function triggerCropChartLoop() {
         flashMessage('Please toggle off the speed chart before drawing crop', 'olive');
       } else if (isDraggingCrop) {
         flashMessage('Please finish dragging or resizing before drawing crop', 'olive');
-      } else if (isMarkerPairSettingsEditorOpen && isCropOverlayVisible) {
+      } else if (isSettingsEditorOpen && isCropOverlayVisible) {
         isDrawingCrop = true;
         if (!wasGlobalSettingsEditorOpen) {
           const markerPair = markerPairs[prevSelectedMarkerPairIndex];
@@ -3401,7 +3403,7 @@ export function triggerCropChartLoop() {
       window.addEventListener('keydown', addCropOverlayHoverListener, true);
       if (prevCropString) {
         updateCropString(prevCropString);
-        if (isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
+        if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
           markerPairs[prevSelectedMarkerPairIndex].cropMap.forEach((cropPoint) => {
             cropPoint.crop = cropPoint.prevCrop;
           });
@@ -3412,7 +3414,7 @@ export function triggerCropChartLoop() {
         flashMessage('Finished drawing crop', 'green');
       }
 
-      if (isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
+      if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
         markerPairs[prevSelectedMarkerPairIndex].cropMap.forEach((cropPoint) => {
           delete cropPoint.prevCrop;
           delete cropPoint.initCrop;
@@ -3440,7 +3442,7 @@ export function triggerCropChartLoop() {
         resizeOnly?: boolean;
       }
     ) {
-      if (isMarkerPairSettingsEditorOpen) {
+      if (isSettingsEditorOpen) {
         const [ix, iy, iw, ih] = getCropComponents(cropInput.value);
         optArgs = optArgs ?? {
           ix,
@@ -3527,7 +3529,7 @@ export function triggerCropChartLoop() {
         isNorthResize
       );
       if (
-        isMarkerPairSettingsEditorOpen &&
+        isSettingsEditorOpen &&
         !wasGlobalSettingsEditorOpen &&
         isCropChartPanOnly &&
         !isDrag
@@ -3607,7 +3609,7 @@ export function triggerCropChartLoop() {
     }
 
     function arrowKeyCropAdjustmentHandler(ke: KeyboardEvent) {
-      if (isMarkerPairSettingsEditorOpen) {
+      if (isSettingsEditorOpen) {
         if (
           cropInput !== document.activeElement &&
           ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(ke.code) > -1
@@ -3673,7 +3675,7 @@ export function triggerCropChartLoop() {
     }
 
     function getCropComponents(cropString?: string) {
-      if (!cropString && isMarkerPairSettingsEditorOpen) {
+      if (!cropString && isSettingsEditorOpen) {
         if (!wasGlobalSettingsEditorOpen && prevSelectedMarkerPairIndex != null) {
           cropString = markerPairs[prevSelectedMarkerPairIndex].crop;
         } else {
@@ -3744,7 +3746,7 @@ export function triggerCropChartLoop() {
     Chart.helpers.merge(Chart.defaults.global, scatterChartDefaults);
     function toggleChart(chartInput: ChartInput) {
       if (
-        isMarkerPairSettingsEditorOpen &&
+        isSettingsEditorOpen &&
         !wasGlobalSettingsEditorOpen &&
         prevSelectedMarkerPairIndex != null
       ) {
@@ -3930,7 +3932,7 @@ export function triggerCropChartLoop() {
 
     function initializeChartData(chartConfig: ChartConfiguration, dataMapKey: string) {
       if (
-        isMarkerPairSettingsEditorOpen &&
+        isSettingsEditorOpen &&
         !wasGlobalSettingsEditorOpen &&
         prevSelectedMarkerPairIndex != null
       ) {
@@ -3944,7 +3946,7 @@ export function triggerCropChartLoop() {
     function loadChartData(chartInput: ChartInput) {
       if (chartInput && chartInput.chart) {
         if (
-          isMarkerPairSettingsEditorOpen &&
+          isSettingsEditorOpen &&
           !wasGlobalSettingsEditorOpen &&
           prevSelectedMarkerPairIndex != null
         ) {
@@ -4003,7 +4005,7 @@ export function triggerCropChartLoop() {
 
     function cropChartPreviewHandler() {
       const chart = cropChartInput.chart;
-      if (isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen && chart) {
+      if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen && chart) {
         const chartData = chart?.data.datasets[0].data as CropPoint[];
         const time = video.currentTime;
         const isDynamicCrop = !isStaticCrop(chartData);
@@ -4112,7 +4114,7 @@ export function triggerCropChartLoop() {
     }
 
     function cropChartSectionLoop() {
-      if (isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
+      if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
         if (prevSelectedMarkerPairIndex != null) {
           const chart = cropChartInput.chart;
           if (chart == null) return;
@@ -4139,7 +4141,7 @@ export function triggerCropChartLoop() {
         }
         markerPair.speedMap[0].y = newSpeed;
       });
-      if (isMarkerPairSettingsEditorOpen) {
+      if (isSettingsEditorOpen) {
         if (wasGlobalSettingsEditorOpen) {
           const markerPairMergeListInput = document.getElementById('merge-list-input');
           markerPairMergeListInput.dispatchEvent(new Event('change'));
@@ -4161,7 +4163,7 @@ export function triggerCropChartLoop() {
           cropMap[1].crop = newCrop;
         }
       });
-      if (isMarkerPairSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
+      if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
         const markerPair = markerPairs[prevSelectedMarkerPairIndex];
         const cropMap = markerPair.cropMap;
         if (isStaticCrop(cropMap)) {
@@ -4178,7 +4180,34 @@ export function triggerCropChartLoop() {
       toggleMarkerPairEditorHandler(e, targetMarker);
     }
 
-    function toggleMarkerPairEditorHandler(e: MouseEvent, targetMarker: SVGRectElement) {
+    function markerNumberingClickHandler(e: MouseEvent) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const numbering = e.target as SVGTextElement;
+      const targetMarker = numbering.marker as SVGRectElement;
+
+      const markerPairIndex = parseInt(numbering.getAttribute('idx')) - 1;
+      const markerPair = markerPairs[markerPairIndex];
+      const time = numbering.classList.contains('startMarkerNumbering')
+        ? markerPair.start
+        : markerPair.end;
+
+      if (!isSettingsEditorOpen) {
+        toggleOnMarkerPairEditor(targetMarker);
+      } else {
+        if (wasGlobalSettingsEditorOpen) {
+          toggleOffGlobalSettingsEditor();
+          toggleOnMarkerPairEditor(targetMarker);
+        } else if (prevSelectedEndMarker != targetMarker) {
+          toggleOffMarkerPairEditor();
+          toggleOnMarkerPairEditor(targetMarker);
+        }
+      }
+
+      video.currentTime = time;
+    }
+
+    function toggleMarkerPairEditorHandler(e: MouseEvent, targetMarker?: SVGRectElement) {
       targetMarker = targetMarker ?? (e.target as SVGRectElement);
 
       if (targetMarker && e.shiftKey) {
@@ -4190,14 +4219,14 @@ export function triggerCropChartLoop() {
     function toggleMarkerPairEditor(targetMarker: SVGRectElement) {
       // if target marker is previously selected marker: toggle target on/off
       if (prevSelectedEndMarker === targetMarker && !wasGlobalSettingsEditorOpen) {
-        isMarkerPairSettingsEditorOpen
+        isSettingsEditorOpen
           ? toggleOffMarkerPairEditor()
           : toggleOnMarkerPairEditor(targetMarker);
 
         // otherwise switching from a different marker pair or from global settings editor
       } else {
         // delete current settings editor appropriately
-        if (isMarkerPairSettingsEditorOpen) {
+        if (isSettingsEditorOpen) {
           wasGlobalSettingsEditorOpen
             ? toggleOffGlobalSettingsEditor()
             : toggleOffMarkerPairEditor();
@@ -4623,7 +4652,7 @@ export function triggerCropChartLoop() {
       cropAspectRatioSpan = document.getElementById(
         'crop-aspect-ratio'
       ) as HTMLSpanElement;
-      isMarkerPairSettingsEditorOpen = true;
+      isSettingsEditorOpen = true;
       wasGlobalSettingsEditorOpen = false;
 
       if (isForceSetSpeedOn) {
@@ -4681,7 +4710,7 @@ export function triggerCropChartLoop() {
     }
 
     function highlightModifiedSettings(inputs: string[][], target) {
-      if (isMarkerPairSettingsEditorOpen) {
+      if (isSettingsEditorOpen) {
         const markerPairSettingsLabelHighlight =
           'marker-pair-settings-editor-highlighted-label';
         const globalSettingsLabelHighlight = 'global-settings-editor-highlighted-label';
@@ -4804,7 +4833,7 @@ export function triggerCropChartLoop() {
 
     function undoMarkerMove() {
       if (
-        isMarkerPairSettingsEditorOpen &&
+        isSettingsEditorOpen &&
         !wasGlobalSettingsEditorOpen &&
         prevSelectedMarkerPairIndex != null &&
         markerPairs[prevSelectedMarkerPairIndex].moveHistory.undos.length > 0
@@ -4818,7 +4847,7 @@ export function triggerCropChartLoop() {
 
     function redoMarkerMove() {
       if (
-        isMarkerPairSettingsEditorOpen &&
+        isSettingsEditorOpen &&
         !wasGlobalSettingsEditorOpen &&
         prevSelectedMarkerPairIndex != null &&
         markerPairs[prevSelectedMarkerPairIndex].moveHistory.redos.length > 0
@@ -4996,14 +5025,14 @@ export function triggerCropChartLoop() {
       const settingsEditorDiv = document.getElementById('settings-editor-div');
       hideCropOverlay();
       deleteElement(settingsEditorDiv);
-      isMarkerPairSettingsEditorOpen = false;
+      isSettingsEditorOpen = false;
       wasGlobalSettingsEditorOpen = false;
       markerHotkeysEnabled = false;
     }
 
     let isExtraSettingsEditorEnabled = false;
     function toggleMarkerPairOverridesEditor() {
-      if (isMarkerPairSettingsEditorOpen) {
+      if (isSettingsEditorOpen) {
         const markerPairOverridesEditor = document.getElementById(
           'marker-pair-overrides'
         );
