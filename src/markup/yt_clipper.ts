@@ -809,6 +809,7 @@ export function triggerCropChartLoop() {
       playerInfo.aspectRatio = player.getVideoAspectRatio();
       playerInfo.isVerticalVideo = playerInfo.aspectRatio <= 1;
       playerInfo.progress_bar = document.getElementsByClassName('ytp-progress-bar')[0];
+      playerInfo.progress_bar.removeAttribute('draggable');
       playerInfo.watchFlexy = document.getElementsByTagName('ytd-watch-flexy')[0];
       playerInfo.infoContents = document.getElementById('info-contents');
       flashMessageHook = playerInfo.infoContents;
@@ -2045,8 +2046,16 @@ export function triggerCropChartLoop() {
         markerNumberingMouseOverHandler,
         false
       );
-      startNumberingText.addEventListener('click', markerNumberingClickHandler, true);
-      endNumberingText.addEventListener('click', markerNumberingClickHandler, true);
+      startNumberingText.addEventListener(
+        'pointerdown',
+        markerNumberingMouseDownHandler,
+        true
+      );
+      endNumberingText.addEventListener(
+        'pointerdown',
+        markerNumberingMouseDownHandler,
+        true
+      );
 
       return [startNumberingText, endNumberingText];
     }
@@ -4180,31 +4189,77 @@ export function triggerCropChartLoop() {
       toggleMarkerPairEditorHandler(e, targetMarker);
     }
 
-    function markerNumberingClickHandler(e: MouseEvent) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
+    function markerNumberingMouseDownHandler(e: PointerEvent) {
+      // e.preventDefault();
+      // e.stopImmediatePropagation();
       const numbering = e.target as SVGTextElement;
-      const targetMarker = numbering.marker as SVGRectElement;
+      const numberingType = numbering.classList.contains('startMarkerNumbering')
+        ? 'start'
+        : 'end';
+      const targetEndMarker = numbering.marker as SVGRectElement;
+      const targetStartMarker = targetEndMarker.previousSibling as SVGRectElement;
+      const targetMarker =
+        numberingType === 'start' ? targetStartMarker : targetEndMarker;
 
       const markerPairIndex = parseInt(numbering.getAttribute('idx')) - 1;
       const markerPair = markerPairs[markerPairIndex];
-      const time = numbering.classList.contains('startMarkerNumbering')
-        ? markerPair.start
-        : markerPair.end;
+      const markerTime = numberingType === 'start' ? markerPair.start : markerPair.end;
 
+      // open editor of target marker corresponding to clicked numbering
       if (!isSettingsEditorOpen) {
-        toggleOnMarkerPairEditor(targetMarker);
+        toggleOnMarkerPairEditor(targetEndMarker);
       } else {
         if (wasGlobalSettingsEditorOpen) {
           toggleOffGlobalSettingsEditor();
-          toggleOnMarkerPairEditor(targetMarker);
-        } else if (prevSelectedEndMarker != targetMarker) {
+          toggleOnMarkerPairEditor(targetEndMarker);
+        } else if (prevSelectedEndMarker != targetEndMarker) {
           toggleOffMarkerPairEditor();
-          toggleOnMarkerPairEditor(targetMarker);
+          toggleOnMarkerPairEditor(targetEndMarker);
         }
       }
 
-      video.currentTime = time;
+      player.seekTo(markerTime);
+      const pointerId = e.pointerId;
+      numbering.setPointerCapture(pointerId);
+
+      const numberingRect = numbering.getBoundingClientRect();
+      const progressBarRect = playerInfo.progress_bar.getBoundingClientRect();
+      const offset = e.pageX - numberingRect.left - numberingRect.width / 2;
+
+      function getDragTime(e: PointerEvent) {
+        let time =
+          (video.duration * (e.pageX - offset - progressBarRect.left)) /
+          progressBarRect.width;
+        time =
+          numberingType === 'start'
+            ? clampNumber(time, 0, markerPair.end - 1e-3)
+            : clampNumber(time, markerPair.start + 1e-3, video.duration);
+        return time;
+      }
+
+      function dragNumbering(e: PointerEvent) {
+        const time = getDragTime(e);
+        moveMarker(targetMarker, time, false);
+        player.seekTo(time);
+      }
+
+      window.addEventListener('pointermove', dragNumbering);
+
+      const iPageX = e.pageX;
+      window.addEventListener(
+        'pointerup',
+        (e: PointerEvent) => {
+          window.removeEventListener('pointermove', dragNumbering);
+          numbering.releasePointerCapture(pointerId);
+          if (iPageX == e.pageX) return;
+          const time = getDragTime(e);
+          moveMarker(targetMarker, time, true, markerTime);
+        },
+        {
+          once: true,
+          capture: true,
+        }
+      );
     }
 
     function toggleMarkerPairEditorHandler(e: MouseEvent, targetMarker?: SVGRectElement) {
@@ -4769,11 +4824,16 @@ export function triggerCropChartLoop() {
       enableMarkerHotkeys.startMarker = endMarker.previousSibling;
     }
 
-    function moveMarker(marker: SVGRectElement, newTime?: number, storeHistory = true) {
+    function moveMarker(
+      marker: SVGRectElement,
+      newTime?: number,
+      storeHistory = true,
+      fromTime?: number
+    ) {
       const type = marker.getAttribute('type') as 'start' | 'end';
       const idx = parseInt(marker.getAttribute('idx')) - 1;
       const markerPair = markerPairs[idx];
-      let fromTime = type === 'start' ? markerPair.start : markerPair.end;
+      fromTime = fromTime ?? (type === 'start' ? markerPair.start : markerPair.end);
       const toTime = newTime != null ? newTime : video.currentTime;
       const progress_pos = (toTime / playerInfo.duration) * 100;
       const markerTimeSpan = document.getElementById(`${type}-time`);
