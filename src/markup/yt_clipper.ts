@@ -4239,7 +4239,7 @@ export function triggerCropChartLoop() {
 
       function dragNumbering(e: PointerEvent) {
         const time = getDragTime(e);
-        moveMarker(targetMarker, time, false);
+        moveMarker(targetMarker, time, false, null, false);
         player.seekTo(time);
       }
 
@@ -4253,7 +4253,7 @@ export function triggerCropChartLoop() {
           numbering.releasePointerCapture(pointerId);
           if (iPageX == e.pageX) return;
           const time = getDragTime(e);
-          moveMarker(targetMarker, time, true, markerTime);
+          moveMarker(targetMarker, time, true, markerTime, true);
         },
         {
           once: true,
@@ -4828,7 +4828,8 @@ export function triggerCropChartLoop() {
       marker: SVGRectElement,
       newTime?: number,
       storeHistory = true,
-      fromTime?: number
+      fromTime?: number,
+      adjustCharts = true
     ) {
       const type = marker.getAttribute('type') as 'start' | 'end';
       const idx = parseInt(marker.getAttribute('idx')) - 1;
@@ -4852,40 +4853,43 @@ export function triggerCropChartLoop() {
       if (type === 'start') {
         selectedStartMarkerOverlay.setAttribute('x', `${progress_pos}%`);
         markerPair.startNumbering.setAttribute('x', `${progress_pos}%`);
-
-        markerPair.speedMap[0].x = toTime;
-        markerPair.cropMap[0].x = toTime;
-        markerPair.speedMap = markerPair.speedMap.filter((speedPoint) => {
-          return speedPoint.x >= toTime;
-        });
-        markerPair.cropMap = markerPair.cropMap.filter((cropPoint) => {
-          return cropPoint.x >= toTime;
-        });
+        if (adjustCharts) {
+          markerPair.speedMap[0].x = toTime;
+          markerPair.cropMap[0].x = toTime;
+          markerPair.speedMap = markerPair.speedMap.filter((speedPoint) => {
+            return speedPoint.x >= toTime;
+          });
+          markerPair.cropMap = markerPair.cropMap.filter((cropPoint) => {
+            return cropPoint.x >= toTime;
+          });
+        }
       } else if (type === 'end') {
-        markerPair.speedMap[markerPair.speedMap.length - 1].x = toTime;
-        markerPair.cropMap[markerPair.cropMap.length - 1].x = toTime;
-
         selectedEndMarkerOverlay.setAttribute('x', `${progress_pos}%`);
         markerPair.endNumbering.setAttribute('x', `${progress_pos}%`);
-
-        markerPair.speedMap = markerPair.speedMap.filter((speedPoint) => {
-          return speedPoint.x <= toTime;
-        });
-        markerPair.cropMap = markerPair.cropMap.filter((cropPoint) => {
-          return cropPoint.x <= toTime;
-        });
+        if (adjustCharts) {
+          markerPair.speedMap[markerPair.speedMap.length - 1].x = toTime;
+          markerPair.cropMap[markerPair.cropMap.length - 1].x = toTime;
+          markerPair.speedMap = markerPair.speedMap.filter((speedPoint) => {
+            return speedPoint.x <= toTime;
+          });
+          markerPair.cropMap = markerPair.cropMap.filter((cropPoint) => {
+            return cropPoint.x <= toTime;
+          });
+        }
       }
       markerTimeSpan.textContent = `${toHHMMSSTrimmed(toTime)}`;
 
-      const speedChart = speedChartInput.chart;
-      if (speedChart) {
-        speedChart.config.data.datasets[0].data = markerPair.speedMap;
-        updateChartBounds(speedChart.config, markerPair.start, markerPair.end);
-      }
-      const cropChart = cropChartInput.chart;
-      if (cropChart) {
-        cropChart.config.data.datasets[0].data = markerPair.cropMap;
-        updateChartBounds(cropChart.config, markerPair.start, markerPair.end);
+      if (adjustCharts) {
+        const speedChart = speedChartInput.chart;
+        if (speedChart) {
+          speedChart.config.data.datasets[0].data = markerPair.speedMap;
+          updateChartBounds(speedChart.config, markerPair.start, markerPair.end);
+        }
+        const cropChart = cropChartInput.chart;
+        if (cropChart) {
+          cropChart.config.data.datasets[0].data = markerPair.cropMap;
+          updateChartBounds(cropChart.config, markerPair.start, markerPair.end);
+        }
       }
       updateMarkerPairDuration(markerPair);
       if (storeHistory) markerPair.moveHistory.undos.push({ marker, fromTime, toTime });
