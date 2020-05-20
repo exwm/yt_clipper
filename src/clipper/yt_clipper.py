@@ -327,6 +327,12 @@ def buildArgParser():
                         dest='videoStabilizationDynamicZoom', type=bool, default=False,
                         help='Enable video stabilization dynamic zoom. '
                         'Unlike a static zoom the zoom in can vary with time to reduce cropping of video.')
+    parser.add_argument('--remove-duplicate-frames', '-rdf', dest='removeDuplicateFrames',
+                        action='store_true',
+                        help=(
+                            'Remove duplicate frames from input video.'
+                            'This option is automatically enabled when motion interpolation is enabled.'
+                        ))
     parser.add_argument('--deinterlace', '-di', action='store_true',
                         help='Apply bwdif deinterlacing.')
     parser.add_argument('--expand-color-range', '-ecr', dest='expandColorRange', action='store_true',
@@ -698,6 +704,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
         # encoding mode starts each clip at time 0
         elif not settings["preview"]:
             audio_filter += f'atrim=0:{mp["duration"]},atempo={mp["speed"]}'
+            audio_filter += f',afade=d=0.1,areverse,afade=d=0.1,areverse'
         # when streaming the required chunks from the internet the video and audio inputs are separate
         else:
             mps["audio"] = False
@@ -756,14 +763,19 @@ def makeMarkerPairClip(settings, markerPairIndex):
     if mps["preview"]:
         video_filter_before_correction = video_filter
 
-    if 0 <= mps["gamma"] <= 4 and mps["gamma"] != 1:
-        video_filter += f',lutyuv=y=gammaval({mps["gamma"]})'
     if mps["deinterlace"]:
         video_filter += f',bwdif'
+    if mps["minterpFPS"] is not None or mps["removeDuplicateFrames"]:
+        video_filter += f''',mpdecimate,setpts=N/FR/TB'''
+    if 0 <= mps["gamma"] <= 4 and mps["gamma"] != 1:
+        video_filter += f',lutyuv=y=gammaval({mps["gamma"]})'
     if mps["expandColorRange"]:
         video_filter += f',colorspace=all={settings["color_space"] if settings["color_space"] else "bt709"}:range=pc'
     if mps["denoise"]["enabled"]:
         video_filter += f',hqdn3d=luma_spatial={mps["denoise"]["lumaSpatial"]}'
+    # if mps["scale"]:
+    #     video_filter += f'scale=w=2*iw:h=2*ih:flags=lanczos'
+
     # if mps["overlayPath"]:
     #     video_filter += f'[1:v]overlay=x=W-w-10:y=10:alpha=0.5'
     #     inputs += f'-i "{mps["overlayPath"]}"'
@@ -772,8 +784,6 @@ def makeMarkerPairClip(settings, markerPairIndex):
         video_filter += f',{mps["extraVideoFilters"]}'
 
     if mps["loop"] != 'fwrev':
-        if mps["minterpFPS"] is not None:
-            video_filter += f''',mpdecimate,setpts=N/FR/TB'''
         video_filter += f',{mp["speedFilter"]}'
     if mps["loop"] == 'fwrev':
         reverseSpeedMap = [{"x": speedPoint["x"], "y":speedPointRev["y"]}
