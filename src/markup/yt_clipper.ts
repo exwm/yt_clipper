@@ -2398,7 +2398,7 @@ export function triggerCropChartLoop() {
           <span>Fade Duration</span>
           <input id="fade-duration-input" type="number" min="0.1" step="0.1" value="${
             settings.fadeDuration != null ? settings.fadeDuration : ''
-          }" placeholder="0.5" style="width:7em"></input>
+          }" placeholder="0.7" style="width:7em"></input>
         </div>
       </div>
     </fieldset>
@@ -4654,7 +4654,7 @@ export function triggerCropChartLoop() {
             <input id="fade-duration-input" type="number" min="0.1" step="0.1" value="${
               overrides.fadeDuration != null ? overrides.fadeDuration : ''
             }" placeholder="${
-        settings.fadeDuration != null ? settings.fadeDuration : '0.5'
+        settings.fadeDuration != null ? settings.fadeDuration : '0.7'
       }" style="width:7em"></input>
           </div>
         </div>
