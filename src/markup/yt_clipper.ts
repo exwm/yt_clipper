@@ -1779,8 +1779,6 @@ export function triggerCropChartLoop() {
             <legend>Upload a markers .json file.</legend>
             <input type="file" id="markers-json-input" />
             <input type="button" id="upload-markers-json" value="Load" />
-            <input type="file" id="markers-array-input" hidden />
-            <input type="button" id="upload-markers-array" value="Load" hidden />
           </fieldset>
           <fieldset hidden>
             <legend>Upload a markers array file.</legend>
@@ -1875,7 +1873,9 @@ export function triggerCropChartLoop() {
       flashMessage('Loading markers...', 'green');
 
       settings = { ...settings };
+      markersJson.markerPairs = markersJson.markerPairs.flat(1);
       for (let i = 0; i < markersJson.markerPairs.length; i = i + 4) {
+        console.log(markerPairs);
         const start = timeRounder(markersJson.markerPairs[i]);
         const end = timeRounder(markersJson.markerPairs[i + 1]);
         const speed = speedRounder(1 / markersJson.markerPairs[i + 2]);
