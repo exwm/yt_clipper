@@ -415,8 +415,12 @@ def getVideoURL(settings):
     from youtube_dl import YoutubeDL
 
     ydl_opts = {'format': settings["format"], 'forceurl': True,
-                'ffmpeg_location': ffmpegPath, 'merge_output_format': 'mkv',
+                'merge_output_format': 'mkv',
                 'outtmpl': f'{settings["downloadVideoPath"]}.%(ext)s', "cachedir": False}
+
+    if getattr(sys, 'frozen', False):
+        ydl_opts["ffmpeg_location"] = ffmpegPath
+
     ydl = YoutubeDL(ydl_opts)
     if settings["downloadVideo"]:
         ydl_info = ydl.extract_info(settings["videoURL"], download=True)
