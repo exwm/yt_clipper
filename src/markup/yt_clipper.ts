@@ -1551,7 +1551,7 @@ export function triggerCropChartLoop() {
         if (currentTimeP == null) {
           video.style.opacity = '1';
         } else {
-          let currentTimeEased = easeCubicInOut(currentTimeP);
+          let currentTimeEased = Math.max(0.1, easeCubicInOut(currentTimeP));
           video.style.opacity = currentTimeEased.toString();
           // console.log(video.style.opacity);
         }
