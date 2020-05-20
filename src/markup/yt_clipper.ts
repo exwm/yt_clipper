@@ -4218,6 +4218,9 @@ export function triggerCropChartLoop() {
       }
 
       player.seekTo(markerTime);
+
+      if (!e.altKey) return;
+
       const pointerId = e.pointerId;
       numbering.setPointerCapture(pointerId);
 
