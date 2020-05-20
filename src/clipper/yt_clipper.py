@@ -715,7 +715,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
         # encoding mode starts each clip at time 0
         elif not settings["preview"]:
             audio_filter += f'atrim=0:{mp["duration"]},atempo={mp["speed"]}'
-            audio_filter += f',afade=d=0.1,areverse,afade=d=0.1,areverse'
+            # audio_filter += f',afade=d=0.1,areverse,afade=d=0.1,areverse'
         # when streaming the required chunks from the internet the video and audio inputs are separate
         else:
             mps["audio"] = False
