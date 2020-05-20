@@ -91,6 +91,8 @@ def main():
         if not Path(ffmpegPath).is_file():
             logger.error(f'{ffmpegPath} required for minterp enhancements not found.')
             sys.exit(1)
+        else:
+            logger.success(f'Found {ffmpegPath}. Minterp enhancements enabled.')
     else:
         settings["enableMinterpEnhancements"] = False
 
