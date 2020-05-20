@@ -726,7 +726,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
         f'-slices 8 -nr 4',
         f'-aq-mode 4 -row-mt 1 -tile-columns 6 -tile-rows 2' if not mps["vp8"] else '',
         f'-qmin {qmin} -crf {mps["crf"]} -qmax {qmax} -b:v {mps["targetMaxBitrate"]}k',
-        f'-force_key_frames 1',
+        f'-force_key_frames 1 -g {mp["averageSpeed"] * Fraction(mps["r_frame_rate"])}',
         f'-metadata title="{mps["videoTitle"]}"',
         f'-r ({mps["r_frame_rate"]}*{mp["speed"]})' if not mp["isVariableSpeed"] and mp["speed"] > 1 else '',
         f'-af {audio_filter}' if mps["audio"] else '-an',
