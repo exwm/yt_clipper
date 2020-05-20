@@ -4190,8 +4190,7 @@ export function triggerCropChartLoop() {
     }
 
     function markerNumberingMouseDownHandler(e: PointerEvent) {
-      // e.preventDefault();
-      // e.stopImmediatePropagation();
+      if (!(e.button === 0)) return;
       const numbering = e.target as SVGTextElement;
       const numberingType = numbering.classList.contains('startMarkerNumbering')
         ? 'start'
