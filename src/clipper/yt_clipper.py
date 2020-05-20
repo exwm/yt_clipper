@@ -379,6 +379,17 @@ def buildArgParser():
                             'Also tries to strip any other metadata that may otherwise be added.'
                             'Some basic video properties such as the duration or muxing app will remain.'
                         ))
+    parser.add_argument('--extra-ffmpeg-args', '-efa', dest='extraFfmpegArgs', default='',
+                        help=(
+                            'Extra arguments to be passed to the ffmpeg command built by yt_clipper.'
+                            'The extra arguments are injected after other arguments set by yt_clipper, '
+                            'but before the video filters.'
+                            'Use quotes to ensure the arguments are passed to ffmpeg including whitespace.'
+                            'On Windows, if nested quoting is required, it may be necessary '
+                            'to use double quotes for the outermost quotes due to a bug.'
+                            'Arguments that conflict with the arguments automatically added '
+                            'by yt_clipper may cause errors.'
+                        ))
     return parser.parse_known_args()
 
 
@@ -750,6 +761,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
         f'-r ({mps["r_frame_rate"]}*{mp["speed"]})' if not mp["isVariableSpeed"] and mp["speed"] > 1 else '',
         f'-af {audio_filter}' if mps["audio"] else '-an',
         f'-f webm ',
+        f'{mps["extraFfmpegArgs"]}',
     ))
 
     if not mps["preview"]:
