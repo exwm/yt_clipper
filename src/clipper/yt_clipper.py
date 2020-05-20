@@ -334,7 +334,7 @@ def buildArgParser():
     parser.add_argument('--loop', '-l', dest='loop', choices=['none', 'fwrev', 'fade'], default='none',
                         help='Apply special looping effect to marker pair clips. '
                         'For a forward-reverse or ping-pong loop use fwrev. For a cross-fading loop use fade.')
-    parser.add_argument('--fade-duration', '-fd', type=float, dest='fadeDuration', default=0.5,
+    parser.add_argument('--fade-duration', '-fd', type=float, dest='fadeDuration', default=0.7,
                         help=('When fade loop is enabled, set the duration of the fade for both clip start and end. '
                               'The fade duration is clamped to a minimum of 0.1 seconds '
                               'and a maximum of 40%% of the output clip duration.'))
