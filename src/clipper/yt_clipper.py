@@ -621,6 +621,7 @@ def getMarkerPairSettings(settings, markerPairIndex):
     mps["minterpFPS"] = getMinterpFPS(mps, mp["speedMap"])
     if mps["minterpFPS"] is not None:
         bitrateSpeedFactor = mps["minterpFPS"] / (mp["averageSpeed"] * Fraction(mps["r_frame_rate"]))
+        bitrateSpeedFactor **= 0.5
 
     bitrateFactor = bitrateCropFactor * bitrateSpeedFactor
 
