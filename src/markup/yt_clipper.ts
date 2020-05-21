@@ -4254,12 +4254,27 @@ export function triggerCropChartLoop() {
 
       const numberingRect = numbering.getBoundingClientRect();
       const progressBarRect = playerInfo.progress_bar.getBoundingClientRect();
-      const offset = e.pageX - numberingRect.left - numberingRect.width / 2;
+      const offsetX = e.pageX - numberingRect.left - numberingRect.width / 2;
+      const offsetY = e.pageY - numberingRect.top;
+      let prevPageX = e.pageX;
 
       function getDragTime(e: PointerEvent) {
-        let time =
-          (video.duration * (e.pageX - offset - progressBarRect.left)) /
+        let newTime =
+          (video.duration * (e.pageX - offsetX - progressBarRect.left)) /
           progressBarRect.width;
+        let prevTime =
+          (video.duration * (prevPageX - offsetX - progressBarRect.left)) /
+          progressBarRect.width;
+        const zoom = clampNumber((e.pageY - offsetY) / video.clientHeight, 0, 1);
+        console.log(zoom);
+
+        let timeDelta = roundValue(zoom * (newTime - prevTime), 0.01, 2);
+
+        prevPageX = e.pageX;
+
+        if (Math.abs(timeDelta) < 0.01) return video.currentTime;
+
+        let time = video.currentTime + timeDelta;
         time =
           numberingType === 'start'
             ? clampNumber(time, 0, markerPair.end - 1e-3)
@@ -4269,20 +4284,20 @@ export function triggerCropChartLoop() {
 
       function dragNumbering(e: PointerEvent) {
         const time = getDragTime(e);
+        if (Math.abs(time - video.currentTime) < 0.01) return;
         moveMarker(targetMarker, time, false, null, false);
         player.seekTo(time);
       }
 
       window.addEventListener('pointermove', dragNumbering);
 
-      const iPageX = e.pageX;
       window.addEventListener(
         'pointerup',
         (e: PointerEvent) => {
           window.removeEventListener('pointermove', dragNumbering);
           numbering.releasePointerCapture(pointerId);
-          if (iPageX == e.pageX) return;
           const time = getDragTime(e);
+          if (Math.abs(time - markerTime) < 0.001) return;
           moveMarker(targetMarker, time, true, markerTime, true);
         },
         {
