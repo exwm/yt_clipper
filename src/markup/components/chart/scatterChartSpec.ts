@@ -69,7 +69,7 @@ export function scatterChartSpec(
 ): ChartConfiguration {
   const updateInput = getInputUpdater(inputId);
 
-  const onDragStart = function(e, chartInstance, element, value) {
+  const onDragStart = function (e, chartInstance, element, value) {
     // console.log(arguments);
     if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
       chartInstance.options.plugins.zoom.pan.enabled = false;
@@ -81,7 +81,7 @@ export function scatterChartSpec(
     }
   };
 
-  const onDrag = function(e, chartInstance, datasetIndex, index, fromValue, toValue) {
+  const onDrag = function (e, chartInstance, datasetIndex, index, fromValue, toValue) {
     // console.log(datasetIndex, index, fromValue, toValue);
     if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
       const shouldDrag = {
@@ -118,7 +118,7 @@ export function scatterChartSpec(
     }
   };
 
-  const onDragEnd = function(e, chartInstance, datasetIndex, index, value) {
+  const onDragEnd = function (e, chartInstance, datasetIndex, index, value) {
     // console.log(datasetIndex, index, value);
     if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
       if (chartType !== 'crop') {
@@ -149,7 +149,7 @@ export function scatterChartSpec(
     }
   };
 
-  const addSpeedPoint = function(event, dataAtClick) {
+  const addSpeedPoint = function (event, dataAtClick) {
     // console.log(element, dataAtClick);
 
     let valueX, valueY;
@@ -180,7 +180,7 @@ export function scatterChartSpec(
     }
   };
 
-  const addCropPoint = function(event, dataAtClick) {
+  const addCropPoint = function (event, dataAtClick) {
     // console.log(element, dataAtClick);
 
     let valueX;
@@ -224,7 +224,7 @@ export function scatterChartSpec(
     }
   };
 
-  const onClick = function(event, dataAtClick) {
+  const onClick = function (event, dataAtClick) {
     if (
       event.button === 0 &&
       !event.ctrlKey &&
@@ -401,7 +401,7 @@ export function scatterChartSpec(
             type: 'line',
             mode: 'vertical',
             scaleID: 'x-axis-1',
-            value: 2,
+            value: -1,
             borderColor: 'rgba(255, 0, 0, 0.9)',
             borderWidth: 1,
           },

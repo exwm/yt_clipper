@@ -1030,6 +1030,7 @@ export function triggerCropChartLoop() {
       playerInfo.controls.appendChild(markerNumberingsDiv);
       startMarkerNumberings = markerNumberingsDiv.children[0] as SVGSVGElement;
       endMarkerNumberings = markerNumberingsDiv.children[1] as SVGSVGElement;
+      playerInfo.fps = getFPS();
     }
 
     const adjustRotatedVideoPositionCSS = `\
@@ -1952,9 +1953,22 @@ export function triggerCropChartLoop() {
       console.log(markerPairs);
     }
 
+    let prevVideoWidth: number;
     function getFPS(defaultFPS: number | null = 60) {
       try {
-        return parseFloat(player.getStatsForNerds().resolution.match(/@(\d+)/)[1]);
+        if (
+          playerInfo.fps != null &&
+          video.videoWidth != null &&
+          prevVideoWidth === video.videoWidth
+        ) {
+          return playerInfo.fps;
+        } else {
+          playerInfo.fps = parseFloat(
+            player.getStatsForNerds().resolution.match(/@(\d+)/)[1]
+          );
+          prevVideoWidth = video.videoWidth;
+          return playerInfo.fps;
+        }
       } catch (e) {
         console.log('Could not detect fps', e);
         return defaultFPS; // by default parameter value assume high fps to avoid skipping frames
