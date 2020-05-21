@@ -4257,7 +4257,7 @@ export function triggerCropChartLoop() {
       const offsetX = e.pageX - numberingRect.left - numberingRect.width / 2;
       const offsetY = e.pageY - numberingRect.top;
       let prevPageX = e.pageX;
-
+      let prevZoom = 1;
       function getDragTime(e: PointerEvent) {
         let newTime =
           (video.duration * (e.pageX - offsetX - progressBarRect.left)) /
@@ -4266,12 +4266,12 @@ export function triggerCropChartLoop() {
           (video.duration * (prevPageX - offsetX - progressBarRect.left)) /
           progressBarRect.width;
         const zoom = clampNumber((e.pageY - offsetY) / video.clientHeight, 0, 1);
-        console.log(zoom);
-
-        let timeDelta = roundValue(zoom * (newTime - prevTime), 0.01, 2);
-
+        const zoomDelta = Math.abs(zoom - prevZoom);
+        prevZoom = zoom;
         prevPageX = e.pageX;
 
+        if (zoomDelta >= 0.0001) return video.currentTime;
+        let timeDelta = roundValue(zoom * (newTime - prevTime), 0.01, 2);
         if (Math.abs(timeDelta) < 0.01) return video.currentTime;
 
         let time = video.currentTime + timeDelta;
