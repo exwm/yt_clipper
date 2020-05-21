@@ -4009,7 +4009,15 @@ export function triggerCropChartLoop() {
             currentChartInput.minBound,
             currentChartInput.maxBound
           );
-          chart.update();
+
+          const timeAnnotation = Object.values(chart.annotation.elements)[0];
+          timeAnnotation.options.value = clampNumber(
+            time,
+            currentChartInput.minBound,
+            currentChartInput.maxBound
+          );
+          timeAnnotation.configure();
+          chart.render();
         }
 
         requestAnimationFrame(updateChartTimeAnnotation);
@@ -4909,6 +4917,9 @@ export function triggerCropChartLoop() {
         if (cropChart) {
           cropChart.config.data.datasets[0].data = markerPair.cropMap;
           updateChartBounds(cropChart.config, markerPair.start, markerPair.end);
+        }
+        if (isCurrentChartVisible && currentChartInput && currentChartInput.chart) {
+          currentChartInput.chart.update();
         }
       }
       updateMarkerPairDuration(markerPair);
