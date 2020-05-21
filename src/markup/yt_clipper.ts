@@ -3997,17 +3997,21 @@ export function triggerCropChartLoop() {
       chartConfig.options.plugins.zoom.zoom.rangeMax.x = end;
     }
 
+    let prevChartTime: number;
     function updateChartTimeAnnotation() {
       if (isCurrentChartVisible) {
-        const time = video.currentTime;
-        const chart = currentChartInput.chart;
-        chart.config.options.annotation.annotations[0].value = clampNumber(
-          time,
-          currentChartInput.minBound,
-          currentChartInput.maxBound
-        );
+        if (prevChartTime !== video.currentTime) {
+          const time = video.currentTime;
+          prevChartTime = time;
+          const chart = currentChartInput.chart;
+          chart.config.options.annotation.annotations[0].value = clampNumber(
+            time,
+            currentChartInput.minBound,
+            currentChartInput.maxBound
+          );
+          chart.update();
+        }
 
-        chart.update();
         requestAnimationFrame(updateChartTimeAnnotation);
       }
     }
