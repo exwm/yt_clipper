@@ -87,7 +87,7 @@ def main():
 
     if settings["enableMinterpEnhancements"] and sys.platform == 'win32':
         global ffmpegPath
-        ffmpegPath = "./bin/ffmpeg_elwm.exe"
+        ffmpegPath = "./bin/ffmpeg_ytc.exe"
         if not Path(ffmpegPath).is_file():
             logger.error(f'{ffmpegPath} required for minterp enhancements not found.')
             sys.exit(1)
@@ -305,9 +305,9 @@ def buildArgParser():
                             '    This saves resources and improves performance and avoids artifacting.'
                             ' 2) The original video frames are forcibly used in the interpolated result.'
                             '    This improves performance and may reduce artifacting at the cost of some smoothness.'
-                            'Enabling this option requires a custom build of ffmpeg named ffmpeg_elwm.'
-                            'ffmpeg_elwm must be present inside the bin folder of the clipper installation.'
-                            'Currently ffmpeg_elwm is available only for windows.'
+                            'Enabling this option requires a custom build of ffmpeg named ffmpeg_ytc.'
+                            'ffmpeg_ytc must be present inside the bin folder of the clipper installation.'
+                            'Currently ffmpeg_ytc is available only for windows.'
                         ))
     parser.add_argument('--delay', '-d', type=float, dest='delay', default=0,
                         help='Add a fixed delay to both the start and end time of each marker. Can be negative.')
