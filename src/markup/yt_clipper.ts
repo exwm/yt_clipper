@@ -3830,6 +3830,7 @@ export function triggerCropChartLoop() {
 
           updateChartTimeAnnotation();
           cropChartPreviewHandler();
+          // console.log(chartInput.chart);
         } else {
           if (currentChartInput.type !== chartInput.type) {
             hideChart();
@@ -4090,6 +4091,7 @@ export function triggerCropChartLoop() {
       } else {
         cropChartSectionStart.style.display = 'none';
         cropChartSectionEnd.style.display = 'none';
+        return;
       }
 
       const sectStart = chartData[currentCropChartSection[0]];
