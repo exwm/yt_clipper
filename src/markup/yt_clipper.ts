@@ -3111,7 +3111,7 @@ export function triggerCropChartLoop() {
             </mask>
           </defs>
           <rect id="cropDim" mask="url(#cropMask)" x="0" y="0" width="100%" height="100%" 
-            fill="black" fill-opacity="${cropDimOpacity}"
+            fill="black" fill-opacity="${cropDims[cropDimIndex]}"
           />
 
           <g id="cropChartSectionStart" opacity="0.7">
@@ -3205,13 +3205,11 @@ export function triggerCropChartLoop() {
       }
     }
 
-    let cropDimOpacity: number = 0.5;
+    const cropDims = [0, 0.25, 0.5, 0.75, 0.9, 1];
+    let cropDimIndex = 2;
     function cycleCropDimOpacity() {
-      if (cropDim) {
-        cropDimOpacity += 0.25;
-        cropDimOpacity = cropDimOpacity > 1 ? 0 : cropDimOpacity;
-        cropDim.setAttribute('fill-opacity', cropDimOpacity.toString());
-      }
+      cropDimIndex = (cropDimIndex + 1) % cropDims.length;
+      cropDim.setAttribute('fill-opacity', cropDims[cropDimIndex].toString());
     }
 
     function showCropOverlay() {
