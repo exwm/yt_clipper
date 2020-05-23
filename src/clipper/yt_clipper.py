@@ -1174,7 +1174,7 @@ def getCropFilter(cropMap, mps, fps, easeType='easeInOutSine'):
     return cropFilter
 
 
-def getZoomPanFilter(cropMap, mps, fps, easeType='linear'):
+def getZoomPanFilter(cropMap, mps, fps, easeType='easeInOutSine'):
     maxSize = getMaxSizeCrop(cropMap)
     maxWidth = maxSize["width"]
     maxHeight = maxSize["height"]
@@ -1187,7 +1187,7 @@ def getZoomPanFilter(cropMap, mps, fps, easeType='linear'):
 
     zoomExpr = zoomXExpr = zoomYExpr = ''
 
-    scale = 8
+    scale = 4
 
     for sect, (left, right) in enumerate(zip(cropMap[:-1], cropMap[1:])):
         startTime = left["x"] - firstTime
@@ -1199,10 +1199,8 @@ def getZoomPanFilter(cropMap, mps, fps, easeType='linear'):
         endRight = float(endX) + float(endW)
         endBottom = float(endY) + float(endH)
 
-        startSize = float(startW) * float(startH)
-        startZoom = maxSize / startSize
-        endSize = float(endW) * float(endH)
-        endZoom = maxSize / endSize
+        startZoom = maxWidth / float(startW)
+        endZoom = maxWidth / float(endW)
 
         sectDuration = endTime - startTime
         if sectDuration == 0:
@@ -1235,13 +1233,13 @@ def getZoomPanFilter(cropMap, mps, fps, easeType='linear'):
     zoomPanFilter = ''
     zoomPanFilter += f"{panFilter},"
     zoomPanFilter += f"scale=w={scale}*iw:h={scale}*ih,"
-    zoomPanFilter += f"zoompan=z='{zoomExpr}':x='{zoomXExpr}':y='{zoomYExpr}'"
+    zoomPanFilter += f"zoompan=z='({zoomExpr})':x='{zoomXExpr}':y='{zoomYExpr}'"
     zoomPanFilter += f":d=1:s={maxWidth}x{maxHeight}:fps={fps}"
 
     return zoomPanFilter
 
 
-def getPanFilter(cropMap, mps, fps, easeType='linear'):
+def getPanFilter(cropMap, mps, fps, easeType='easeInOutSine'):
     maxSize = getMaxSizeCrop(cropMap)
     maxWidth = maxSize["width"]
     maxHeight = maxSize["height"]
@@ -1296,7 +1294,6 @@ def getMaxSizeCrop(cropMap):
     def getLargerCropSize(cropLeft, cropRight):
         left = cropLeft["width"] * cropLeft["height"]
         right = cropRight["width"] * cropRight["height"]
-        print(left, right)
         return cropLeft if left > right else cropRight
 
     maxSize = reduce(getLargerCropSize, map(getSize, cropMap))
