@@ -11,6 +11,7 @@ import subprocess
 import sys
 import time
 from fractions import Fraction
+from functools import reduce
 from math import ceil, floor, log
 from pathlib import Path
 
@@ -674,7 +675,10 @@ def getMarkerPairSettings(settings, markerPairIndex):
         mp["cropMap"] = [{"x": mp["start"], "y":0, "crop": cropString, "cropComponents": cropComponents}, {
             "x": mp["end"], "y":0, "crop": cropString, "cropComponents": cropComponents}]
 
-    mp["cropFilter"] = getCropFilter(mp["cropMap"], mps, mps["r_frame_rate"])
+    if mps["enableZoomPan"]:
+        mp["zoomPanFilter"] = getZoomPanFilter(mp["cropMap"], mps, mps["r_frame_rate"])
+    else:
+        mp["cropFilter"] = getCropFilter(mp["cropMap"], mps, mps["r_frame_rate"])
 
     titlePrefixLogMsg = f'Title Prefix: {mps["titlePrefix"] if "titlePrefix" in mps else ""}'
     logger.info('-' * 80)
@@ -773,7 +777,11 @@ def makeMarkerPairClip(settings, markerPairIndex):
         video_filter += f',loop=loop=-1:size=(32767)'
 
     cropComponents = mp["cropComponents"]
-    video_filter += f',{mp["cropFilter"]}'
+    if mps["enableZoomPan"]:
+        video_filter += f',{mp["zoomPanFilter"]}'
+    else:
+        video_filter += f',{mp["cropFilter"]}'
+
     if mps["preview"]:
         video_filter += f',scale=w=iw/2:h=ih/2'
         cropComponents["w"] /= 2
@@ -1132,13 +1140,11 @@ def getAverageSpeed(speedMap, fps):
 def getCropFilter(cropMap, mps, fps, easeType='easeInOutSine'):
     logger.info('-' * 80)
     fps = Fraction(fps)
-    # frameDur = 1 / fps
     nSects = len(cropMap) - 1
     firstTime = cropMap[0]["x"]
-    firstCropX, firstCropY, firstCropW, firstCropH = cropMap[0]["crop"].split(
-        ':')
+    firstCropX, firstCropY, firstCropW, firstCropH = cropMap[0]["crop"].split(':')
 
-    cropXExpression = cropYExpression = cropWExpression = cropYExpression = ''
+    cropXExpr = cropYExpr = cropWExpr = cropYExpr = ''
 
     for sect, (left, right) in enumerate(zip(cropMap[:-1], cropMap[1:])):
         startTime = left["x"] - firstTime
@@ -1151,34 +1157,150 @@ def getCropFilter(cropMap, mps, fps, easeType='easeInOutSine'):
             continue
 
         easeP = f'((t-{startTime})/{sectDuration})'
-        lerpX = getEasingExpression(
-            easeType, f'({startX})', f'({endX})', easeP)
-        lerpY = getEasingExpression(
-            easeType, f'({startY})', f'({endY})', easeP)
-        # lerpW = getEasingExpression(easeType, f'({startW})', f'({endW})', easeP)
-        # lerpH = getEasingExpression(easeType, f'({startH})', f'({endH})', easeP)
+        easeX = getEasingExpression(easeType, f'({startX})', f'({endX})', easeP)
+        easeY = getEasingExpression(easeType, f'({startY})', f'({endY})', easeP)
 
         if sect == nSects - 1:
-            cropXExpression += f'between(t, {startTime}, {endTime})*{lerpX}'
-            cropYExpression += f'between(t, {startTime}, {endTime})*{lerpY}'
-            # cropWExpression += f'between(t, {startTime}, {endTime})*{lerpW}'
-            # cropHExpression += f'between(t, {startTime}, {endTime})*{lerpH}'
-            cropWExpression = firstCropW
-            cropHExpression = firstCropH
+            cropXExpr += f'between(t, {startTime}, {endTime})*{easeX}'
+            cropYExpr += f'between(t, {startTime}, {endTime})*{easeY}'
         else:
-            cropXExpression += f'(gte(t, {startTime})*lt(t, {endTime}))*{lerpX}'
-            cropYExpression += f'(gte(t, {startTime})*lt(t, {endTime}))*{lerpY}'
-            # cropWExpression += f'gte(t, {startTime})*lt(t, {endTime}))*{lerpW}'
-            # cropHExpression += f'gte(t, {startTime})*lt(t, {endTime}))*{lerpH}'
-            cropWExpression = firstCropW
-            cropHExpression = firstCropH
-            cropXExpression += '+'
-            cropYExpression += '+'
-            # cropWExpression += '+'
-            # cropHExpression += '+'
+            cropXExpr += f'(gte(t, {startTime})*lt(t, {endTime}))*{easeX}+'
+            cropYExpr += f'(gte(t, {startTime})*lt(t, {endTime}))*{easeY}+'
 
-    cropFilter = f"crop='x={cropXExpression}:y={cropYExpression}:w={cropWExpression}:h={cropHExpression}'"
+        cropWExpr = firstCropW
+        cropHExpr = firstCropH
+
+    cropFilter = f"crop='x={cropXExpr}:y={cropYExpr}:w={cropWExpr}:h={cropHExpr}'"
     return cropFilter
+
+
+def getZoomPanFilter(cropMap, mps, fps, easeType='linear'):
+    maxSize = getMaxSizeCrop(cropMap)
+    maxWidth = maxSize["width"]
+    maxHeight = maxSize["height"]
+    maxSize = maxWidth * maxHeight
+
+    fps = Fraction(fps)
+    nSects = len(cropMap) - 1
+    firstTime = cropMap[0]["x"]
+    firstCropX, firstCropY, firstCropW, firstCropH = cropMap[0]["crop"].split(':')
+
+    zoomExpr = zoomXExpr = zoomYExpr = ''
+
+    scale = 8
+
+    for sect, (left, right) in enumerate(zip(cropMap[:-1], cropMap[1:])):
+        startTime = left["x"] - firstTime
+        startX, startY, startW, startH = left["crop"].split(':')
+        endTime = right["x"] - firstTime
+        endX, endY, endW, endH = right["crop"].split(':')
+        startRight = float(startX) + float(startW)
+        startBottom = float(startY) + float(startH)
+        endRight = float(endX) + float(endW)
+        endBottom = float(endY) + float(endH)
+
+        startSize = float(startW) * float(startH)
+        startZoom = maxSize / startSize
+        endSize = float(endW) * float(endH)
+        endZoom = maxSize / endSize
+
+        sectDuration = endTime - startTime
+        if sectDuration == 0:
+            continue
+
+        t = f'(in/({fps}))'
+        easeP = f'(({t}-{startTime})/{sectDuration})'
+        easeZoom = getEasingExpression(easeType, f'({startZoom})', f'({endZoom})', easeP)
+        easeX = getEasingExpression(easeType, f'({scale}*{startX})', f'({scale}*{endX})', easeP)
+        easeY = getEasingExpression(easeType, f'({scale}*{startY})', f'({scale}*{endY})', easeP)
+
+        easeRight = getEasingExpression(easeType, f'({scale}*{startRight})', f'({scale}*{endRight})', easeP)
+        easeBottom = getEasingExpression(easeType, f'({scale}*{startBottom})', f'({scale}*{endBottom})', easeP)
+        containingX = f'max({easeRight}-{scale}*{maxWidth}, 0)'
+        containingY = f'max({easeBottom}-{scale}*{maxHeight}, 0)'
+
+        easeX = f'(({easeX})-({containingX}))'
+        easeY = f'(({easeY})-({containingY}))'
+
+        if sect == nSects - 1:
+            zoomExpr += f'(between({t}, {startTime}, {endTime})*{easeZoom})'
+            zoomXExpr += f'(between({t}, {startTime}, {endTime})*{easeX})'
+            zoomYExpr += f'(between({t}, {startTime}, {endTime})*{easeY})'
+        else:
+            zoomExpr += f'(gte({t}, {startTime})*lt({t}, {endTime})*{easeZoom})+'
+            zoomXExpr += f'(gte({t}, {startTime})*lt({t}, {endTime})*{easeX})+'
+            zoomYExpr += f'(gte({t}, {startTime})*lt({t}, {endTime})*{easeY})+'
+
+    panFilter = getPanFilter(cropMap, mps, fps)
+    zoomPanFilter = ''
+    zoomPanFilter += f"{panFilter},"
+    zoomPanFilter += f"scale=w={scale}*iw:h={scale}*ih,"
+    zoomPanFilter += f"zoompan=z='{zoomExpr}':x='{zoomXExpr}':y='{zoomYExpr}'"
+    zoomPanFilter += f":d=1:s={maxWidth}x{maxHeight}:fps={fps}"
+
+    return zoomPanFilter
+
+
+def getPanFilter(cropMap, mps, fps, easeType='linear'):
+    maxSize = getMaxSizeCrop(cropMap)
+    maxWidth = maxSize["width"]
+    maxHeight = maxSize["height"]
+
+    fps = Fraction(fps)
+    nSects = len(cropMap) - 1
+    firstTime = cropMap[0]["x"]
+    firstCropX, firstCropY, firstCropW, firstCropH = cropMap[0]["crop"].split(':')
+
+    cropXExpr = cropYExpr = cropWExpr = cropYExpr = ''
+
+    for sect, (left, right) in enumerate(zip(cropMap[:-1], cropMap[1:])):
+        startTime = left["x"] - firstTime
+        startX, startY, startW, startH = left["crop"].split(':')
+        endTime = right["x"] - firstTime
+        endX, endY, endW, endH = right["crop"].split(':')
+        startRight = float(startX) + float(startW)
+        startBottom = float(startY) + float(startH)
+        endRight = float(endX) + float(endW)
+        endBottom = float(endY) + float(endH)
+
+        sectDuration = endTime - startTime
+        if sectDuration == 0:
+            continue
+
+        easeP = f'((t-{startTime})/{sectDuration})'
+        easeRight = getEasingExpression(easeType, f'({startRight})', f'({endRight})', easeP)
+        easeBottom = getEasingExpression(easeType, f'({startBottom})', f'({endBottom})', easeP)
+
+        easeRight = f'max({easeRight}-{maxWidth}, 0)'
+        easeBottom = f'max({easeBottom}-{maxHeight}, 0)'
+
+        if sect == nSects - 1:
+            cropXExpr += f'(between(t, {startTime}, {endTime})*{easeRight})'
+            cropYExpr += f'(between(t, {startTime}, {endTime})*{easeBottom})'
+        else:
+            cropXExpr += f'(gte(t, {startTime})*lt(t, {endTime})*{easeRight})+'
+            cropYExpr += f'(gte(t, {startTime})*lt(t, {endTime})*{easeBottom})+'
+
+        cropWExpr = maxSize["width"]
+        cropHExpr = maxSize["height"]
+
+    cropFilter = f"crop='x={cropXExpr}:y={cropYExpr}:w={cropWExpr}:h={cropHExpr}'"
+    return cropFilter
+
+
+def getMaxSizeCrop(cropMap):
+    def getSize(cropPoint):
+        _, _, cropW, cropH = cropPoint["crop"].split(':')
+        return {"width": int(float(cropW)), "height": int(float(cropH))}
+
+    def getLargerCropSize(cropLeft, cropRight):
+        left = cropLeft["width"] * cropLeft["height"]
+        right = cropRight["width"] * cropRight["height"]
+        print(left, right)
+        return cropLeft if left > right else cropRight
+
+    maxSize = reduce(getLargerCropSize, map(getSize, cropMap))
+    return maxSize
 
 
 def getEasingExpression(easingFunc, easeA, easeB, easeP):
