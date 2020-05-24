@@ -658,7 +658,15 @@ export function triggerCropChartLoop() {
             }
 
             const { resizedX, resizedY, resizedW, resizedH } = resizedDimensions;
-            const optArgs = { ix, iy, iw, ih, minW: null, minH: null };
+            const optArgs = {
+              ix,
+              iy,
+              iw,
+              ih,
+              minW: null,
+              minH: null,
+              updateCropChart: false,
+            };
             updateCrop(resizedX, resizedY, resizedW, resizedH, optArgs);
           }
 
@@ -673,7 +681,15 @@ export function triggerCropChartLoop() {
               (changeY / videoRect.height) * settings.cropResHeight + iy
             );
 
-            const optArgs = { ix, iy, iw, ih, minW: null, minH: null };
+            const optArgs = {
+              ix,
+              iy,
+              iw,
+              ih,
+              minW: null,
+              minH: null,
+              updateCropChart: false,
+            };
 
             const shouldMaintainCropX = e.shiftKey;
             const shouldMaintainCropY = e.altKey;
@@ -2606,7 +2622,16 @@ export function triggerCropChartLoop() {
           const prevCrop = target.cropMap[currentCropPointIndex].crop;
           const [ix, iy, iw, ih] = getCropComponents(prevCrop);
           const [x, y, w, h] = getCropComponents(newValue);
-          const optArgs = { ix, iy, iw, ih, minW: null, minH: null, resizeOnly: true };
+          const optArgs = {
+            ix,
+            iy,
+            iw,
+            ih,
+            minW: null,
+            minH: null,
+            resizeOnly: true,
+            updateCropChart: true,
+          };
           updateCrop(x, y, w, h, optArgs);
         }
 
@@ -3335,6 +3360,7 @@ export function triggerCropChartLoop() {
           minW: 0,
           minH: 0,
           resizeOnly: true,
+          updateCropChart: false,
         };
         updateCrop(ixScaled, iyScaled, 0, 0, optArgs);
 
@@ -3376,6 +3402,7 @@ export function triggerCropChartLoop() {
             minW: 0,
             minH: 0,
             resizeOnly: true,
+            updateCropChart: false,
           };
           updateCrop(x, y, w, h, optArgs);
         };
@@ -3461,6 +3488,7 @@ export function triggerCropChartLoop() {
         minW: number;
         minH: number;
         resizeOnly?: boolean;
+        updateCropChart?: boolean;
       }
     ) {
       if (isSettingsEditorOpen) {
@@ -3473,6 +3501,7 @@ export function triggerCropChartLoop() {
           minW: null,
           minH: null,
           resizeOnly: false,
+          updateCropChart: true,
         };
 
         const { cx, cy, cw, ch, dx, dy, dw, dh, isDrag } = clampCropChange(
@@ -3520,8 +3549,20 @@ export function triggerCropChartLoop() {
         );
         const cropAspectRatio = (nw / nh).toFixed(13);
         cropAspectRatioSpan && (cropAspectRatioSpan.textContent = cropAspectRatio);
+        if (optArgs.updateCropChart) updateCropChart();
       } else {
         throw new Error('No editor was open when trying to update crop.');
+      }
+    }
+
+    function updateCropChart() {
+      if (
+        isCurrentChartVisible &&
+        currentChartInput &&
+        currentChartInput.chart &&
+        currentChartInput.type === 'crop'
+      ) {
+        currentChartInput.chart.update();
       }
     }
 
