@@ -21,7 +21,12 @@ export function setCurrentCropPoint(
   mode?: cropChartMode
 ) {
   const maxIndex = cropChart ? cropChart.data.datasets[0].data.length - 1 : 1;
-  currentCropPointIndex = clampNumber(cropPointIndex, 0, maxIndex);
+  const newCropPointIndex = clampNumber(cropPointIndex, 0, maxIndex);
+  let cropPointIndexChanged = false;
+  if (currentCropPointIndex !== newCropPointIndex) {
+    cropPointIndexChanged = true;
+    currentCropPointIndex = newCropPointIndex;
+  }
 
   if (cropPointIndex <= 0) {
     setCropChartMode(cropChartMode.Start);
@@ -41,6 +46,7 @@ export function setCurrentCropPoint(
           currentCropPointIndex,
         ]);
   }
+  if (cropPointIndexChanged) cropChart.update();
 }
 
 export let currentCropChartSection: [number, number] = [0, 1];
@@ -61,7 +67,7 @@ export function setCurrentCropChartSection(
   }
 }
 
-export const updateCurrentCropPoint = function(cropChart: Chart, cropString: string) {
+export const updateCurrentCropPoint = function (cropChart: Chart, cropString: string) {
   const cropChartData = cropChart.data.datasets[0].data;
   const cropPoint = cropChartData[currentCropPointIndex] as CropPoint;
   cropPoint.crop = cropString;
