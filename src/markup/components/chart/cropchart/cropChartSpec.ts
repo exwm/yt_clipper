@@ -117,7 +117,7 @@ function getCropPointBorderWidth(ctx) {
 
 function getCropPointRadius(ctx) {
   const index = ctx.dataIndex;
-  return index === currentCropPointIndex ? 8 : 5;
+  return index === currentCropPointIndex ? 6 : 4;
 }
 
 const cropChartConfig: ChartConfiguration = {
@@ -133,10 +133,7 @@ const cropChartConfig: ChartConfiguration = {
         pointBorderWidth: getCropPointBorderWidth,
         pointStyle: getCropPointStyle,
         pointRadius: getCropPointRadius,
-        pointHoverRadius: 4,
-        pointHoverBorderWidth: 1.5,
-        pointHoverBorderColor: lightgrey(0.8),
-        pointHitRadius: 4,
+        pointHitRadius: 3,
       },
     ],
   },
