@@ -5112,6 +5112,7 @@ export function triggerCropChartLoop() {
         }
         currentChartInput.chartContainer.style.display = 'block';
         isCurrentChartVisible = true;
+        currentChartInput.chart.update();
         requestAnimationFrame(updateChartTimeAnnotation);
       }
     }
