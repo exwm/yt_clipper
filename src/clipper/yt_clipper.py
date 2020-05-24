@@ -1140,16 +1140,20 @@ def getAverageSpeed(speedMap, fps):
 def getCropFilter(cropMap, mps, fps, easeType='easeInOutSine'):
     logger.info('-' * 80)
     fps = Fraction(fps)
+    frameDur = 1 / fps
     nSects = len(cropMap) - 1
     firstTime = cropMap[0]["x"]
     firstCropX, firstCropY, firstCropW, firstCropH = cropMap[0]["crop"].split(':')
 
     cropXExpr = cropYExpr = cropWExpr = cropYExpr = ''
 
+    # Account for first input frame delay due to potentially imprecise trim
+    startt = ceil(firstTime / frameDur) * frameDur - firstTime
+
     for sect, (left, right) in enumerate(zip(cropMap[:-1], cropMap[1:])):
-        startTime = left["x"] - firstTime
+        startTime = left["x"] - firstTime - startt
         startX, startY, startW, startH = left["crop"].split(':')
-        endTime = right["x"] - firstTime
+        endTime = right["x"] - firstTime - startt
         endX, endY, endW, endH = right["crop"].split(':')
 
         sectDuration = endTime - startTime
@@ -1181,11 +1185,15 @@ def getZoomPanFilter(cropMap, mps, fps, easeType='easeInOutSine'):
     maxSize = maxWidth * maxHeight
 
     fps = Fraction(fps)
+    frameDur = 1 / fps
     nSects = len(cropMap) - 1
     firstTime = cropMap[0]["x"]
     firstCropX, firstCropY, firstCropW, firstCropH = cropMap[0]["crop"].split(':')
 
     panXExpr = panYExpr = zoomExpr = zoomXExpr = zoomYExpr = ''
+
+    # Account for first input frame delay due to potentially imprecise trim
+    startt = ceil(firstTime / frameDur) * frameDur - firstTime
 
     # This scale constant is used in for prescaling the video before applying zoompan.
     # This reduces jitter caused by the rounding of the panning done by zoompan.
@@ -1193,9 +1201,9 @@ def getZoomPanFilter(cropMap, mps, fps, easeType='easeInOutSine'):
     scale = 4
 
     for sect, (left, right) in enumerate(zip(cropMap[:-1], cropMap[1:])):
-        startTime = left["x"] - firstTime
+        startTime = left["x"] - firstTime - startt
         startX, startY, startW, startH = left["crop"].split(':')
-        endTime = right["x"] - firstTime
+        endTime = right["x"] - firstTime - startt
         endX, endY, endW, endH = right["crop"].split(':')
         startRight = float(startX) + float(startW)
         startBottom = float(startY) + float(startH)
