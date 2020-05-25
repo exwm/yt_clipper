@@ -787,9 +787,9 @@ def makeMarkerPairClip(settings, markerPairIndex):
         cropComponents["w"] /= 2
         cropComponents["h"] /= 2
 
-    if mps["rotate"]:
+    # if the marker pair crop is used after the filter then it should be rotated the same way
+    if mps["rotate"] and mps["rotate"] != "0":
         video_filter += f',transpose={mps["rotate"]}'
-        cropComponents["w"], cropComponents["h"] = cropComponents["h"], cropComponents["w"]
 
     if mps["preview"]:
         video_filter_before_correction = video_filter
