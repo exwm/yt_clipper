@@ -1217,6 +1217,11 @@ def getZoomPanFilter(cropMap, mps, fps, easeType='easeInOutSine'):
         if sectDuration == 0:
             continue
 
+        if not right.get("easeIn", False):
+            currEaseType = easeType
+        else:
+            currEaseType = right["easeIn"]
+
         # zoompan does not support zooming out or changing aspect ratio without stretching.
         # By cropping the video first we can get the desired aspect ratio.
         # Additionally we can zoom in more (up to 10x) if we apply cropping before zoompan.
@@ -1225,8 +1230,8 @@ def getZoomPanFilter(cropMap, mps, fps, easeType='easeInOutSine'):
         # The x:y coordinates of the top-left of this maximum crop is such that
         # it is always the top-left most position that still contains the target crop.
         panEaseP = f'((t-{startTime})/{sectDuration})'
-        panEaseRight = getEasingExpression(easeType, f'({startRight})', f'({endRight})', panEaseP)
-        panEaseBottom = getEasingExpression(easeType, f'({startBottom})', f'({endBottom})', panEaseP)
+        panEaseRight = getEasingExpression(currEaseType, f'({startRight})', f'({endRight})', panEaseP)
+        panEaseBottom = getEasingExpression(currEaseType, f'({startBottom})', f'({endBottom})', panEaseP)
 
         # Ensure that the containing maximum crop does not go out of the video bounds.
         panEaseRight = f'max({panEaseRight}-{maxWidth}, 0)'
@@ -1235,12 +1240,13 @@ def getZoomPanFilter(cropMap, mps, fps, easeType='easeInOutSine'):
         # zoompan's time variable is time instead of t
         t = f'time'
         easeP = f'(({t}-{startTime})/{sectDuration})'
-        easeZoom = getEasingExpression(easeType, f'({startZoom})', f'({endZoom})', easeP)
-        easeX = getEasingExpression(easeType, f'({scale}*{startX})', f'({scale}*{endX})', easeP)
-        easeY = getEasingExpression(easeType, f'({scale}*{startY})', f'({scale}*{endY})', easeP)
+        easeZoom = getEasingExpression(currEaseType, f'({startZoom})', f'({endZoom})', easeP)
+        easeX = getEasingExpression(currEaseType, f'({scale}*{startX})', f'({scale}*{endX})', easeP)
+        easeY = getEasingExpression(currEaseType, f'({scale}*{startY})', f'({scale}*{endY})', easeP)
 
-        easeRight = getEasingExpression(easeType, f'({scale}*{startRight})', f'({scale}*{endRight})', easeP)
-        easeBottom = getEasingExpression(easeType, f'({scale}*{startBottom})', f'({scale}*{endBottom})', easeP)
+        easeRight = getEasingExpression(currEaseType, f'({scale}*{startRight})', f'({scale}*{endRight})', easeP)
+        easeBottom = getEasingExpression(currEaseType, f'({scale}*{startBottom})', f'({scale}*{endBottom})', easeP)
+
         containingX = f'max({easeRight}-{scale}*{maxWidth}, 0)'
         containingY = f'max({easeBottom}-{scale}*{maxHeight}, 0)'
 
@@ -1290,7 +1296,9 @@ def getEasingExpression(easingFunc, easeA, easeB, easeP):
     easeT = f'(2*{easeP})'
     easeM = f'({easeP}-1)'
 
-    if easingFunc == 'linear':
+    if easingFunc == 'none':
+        return f'{easeB}'
+    elif easingFunc == 'linear':
         return f'lerp({easeA}, {easeB}, {easeP})'
     elif easingFunc == 'easeInCubic':
         ease = f'{easeP}^3'
