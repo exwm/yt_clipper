@@ -45,6 +45,8 @@ import './components/chart/chart.js-drag-data-plugin';
 import { cubicInOutTension, sortX } from './components/chart/chartutil';
 import {
   cropChartMode,
+  cropPointFormatter,
+  cropPointXYFormatter,
   currentCropChartMode,
   currentCropChartSection,
   currentCropPointIndex,
@@ -228,7 +230,7 @@ export function triggerCropChartLoop() {
             }
             break;
           case 'KeyD':
-            // alt+shift+D do not work in chrome 75.0.3770.100
+            // alt+shift+D does not work in chrome 75.0.3770.100
             if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
               e.preventDefault();
               e.stopImmediatePropagation();
@@ -241,6 +243,10 @@ export function triggerCropChartLoop() {
               e.preventDefault();
               e.stopImmediatePropagation();
               toggleChart(cropChartInput);
+            } else if (e.ctrlKey && !e.shiftKey && !e.altKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              toggleCropChartPanOnly();
             }
             break;
           case 'KeyZ':
@@ -4079,6 +4085,28 @@ export function triggerCropChartLoop() {
       } else {
         isCropChartLoopingOn = false;
         flashMessage('Dynamic crop looping  disabled', 'red');
+      }
+    }
+
+    function toggleCropChartPanOnly() {
+      if (!isCropChartPanOnly) {
+        isCropChartPanOnly = true;
+        if (cropChartInput.chart) {
+          cropChartInput.chart.options.plugins.datalabels.formatter = cropPointXYFormatter;
+        } else {
+          cropChartInput.chartSpec = getCropChartConfig(isCropChartPanOnly);
+        }
+        updateCropChart();
+        flashMessage('Crop chart mode set to pan only.', 'olive');
+      } else {
+        isCropChartPanOnly = false;
+        if (cropChartInput.chart) {
+          cropChartInput.chart.options.plugins.datalabels.formatter = cropPointFormatter;
+        } else {
+          cropChartInput.chartSpec = getCropChartConfig(isCropChartPanOnly);
+        }
+        updateCropChart();
+        flashMessage('Crop chart mode set to zoompan.', 'olive');
       }
     }
 
