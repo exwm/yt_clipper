@@ -1,6 +1,7 @@
 # yt_clipper
 
 ## Notices
+- The mainline `master` branch is out of date and has old dependencies (when using the clipper installation). Therefore it likely does not work. You can update your dependencies, namely youtube-dl and ffmpeg, if you're using the clipper source. Otherwise you can use the beta and alpha releases currently being worked on from https://mega.nz/#F!4HYDAKDS!NqS5Nk9heN7QBxvQapudeg. The mainline releases should be merged sometime in the coming months.
 
 - Windows users on `v3.6.0` or higher of the `clipper script` getting ffmpeg crashes may want to try the following:
   - Update visual c++ redistributables:
