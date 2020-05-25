@@ -74,11 +74,11 @@ export const updateCurrentCropPoint = function (cropChart: Chart, cropString: st
   cropChart.update();
 };
 
-const cropPointFormatter = (point) => {
+export const cropPointFormatter = (point) => {
   return `T:${point.x.toFixed(2)}\nC:${point.crop}`;
 };
 
-const cropPointXYFormatter = (point, ctx) => {
+export const cropPointXYFormatter = (point, ctx) => {
   const [x, y, w, h] = point.crop.split(':');
   const index = ctx.dataIndex;
 
