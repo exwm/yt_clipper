@@ -1759,6 +1759,9 @@ export function triggerCropChartLoop() {
           speedMap: isVariableSpeed(markerPair.speedMap)
             ? markerPair.speedMap
             : undefined,
+          speedChartLoop: undefined,
+          cropMap: !isStaticCrop(markerPair.cropMap) ? markerPair.cropMap : undefined,
+          cropChartLoop: undefined,
           startNumbering: undefined,
           endNumbering: undefined,
           moveHistory: undefined,
