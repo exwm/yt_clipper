@@ -611,7 +611,7 @@ export function triggerCropChartLoop() {
             const dragPosY = e.pageY - videoRect.top - playerRect.top;
             const changeY = dragPosY - clickPosY;
             let changeYScaled = (changeY / videoRect.height) * settings.cropResHeight;
-            const shouldMaintainCropAspectRatio = e.altKey;
+            const shouldMaintainCropAspectRatio = e.altKey || !isCropChartPanOnly;
             if (
               shouldMaintainCropAspectRatio &&
               ['ne-resize', 'se-resize', 'sw-resize', 'nw-resize'].includes(cursor)
@@ -3546,6 +3546,7 @@ export function triggerCropChartLoop() {
                 if (idx === 0) markerPair.crop = cropPoint.crop;
               });
             }
+          } else {
           }
 
           cropMap[currentCropPointIndex].crop = newCropString;
@@ -3600,41 +3601,48 @@ export function triggerCropChartLoop() {
         isWestResize,
         isNorthResize
       );
-      if (
-        isSettingsEditorOpen &&
-        !wasGlobalSettingsEditorOpen &&
-        isCropChartPanOnly &&
-        !isDrag
-      ) {
-        const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-        const cropMap = markerPair.cropMap;
+      if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen && !isDrag) {
+        if (!isCropChartPanOnly) {
+          const iAspectRatio = iw / ih;
+          const nAspectRatio = nw / nh;
+          if (Math.abs(nAspectRatio - iAspectRatio) > 1e-13) {
+            if (iw === nw) {
+              nw = Math.round(iAspectRatio * nh);
+            } else {
+              nh = Math.round(nw / iAspectRatio);
+            }
+          }
+        } else {
+          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+          const cropMap = markerPair.cropMap;
 
-        cropMap.forEach((cropPoint) => {
-          const [ixcp, iycp, iwcp, ihcp] = getCropComponents(cropPoint.initCrop);
+          cropMap.forEach((cropPoint) => {
+            const [ixcp, iycp, iwcp, ihcp] = getCropComponents(cropPoint.initCrop);
 
-          const {
-            // maxX: maxXCP,
-            // maxY: maxYCP,
-            maxW: maxWCP,
-            maxH: maxHCP,
-          } = getCropMaxBounds(
-            ixcp,
-            iycp,
-            iwcp,
-            ihcp,
-            minW,
-            minH,
-            isDrag,
-            isWestResize,
-            isNorthResize
-          );
-          // maxX = dx != 0 ? Math.min(maxX, maxXCP) : maxX;
-          minX = dx != 0 ? Math.max(minX, ix - ixcp) : minX;
-          // maxY = dy != 0 ? Math.min(maxY, maxYCP) : maxY;
-          minY = dy != 0 ? Math.max(minY, iy - iycp) : minY;
-          maxW = dw != 0 ? Math.min(maxW, maxWCP) : maxW;
-          maxH = dh != 0 ? Math.min(maxH, maxHCP) : maxH;
-        });
+            const {
+              // maxX: maxXCP,
+              // maxY: maxYCP,
+              maxW: maxWCP,
+              maxH: maxHCP,
+            } = getCropMaxBounds(
+              ixcp,
+              iycp,
+              iwcp,
+              ihcp,
+              minW,
+              minH,
+              isDrag,
+              isWestResize,
+              isNorthResize
+            );
+            // maxX = dx != 0 ? Math.min(maxX, maxXCP) : maxX;
+            minX = dx != 0 ? Math.max(minX, ix - ixcp) : minX;
+            // maxY = dy != 0 ? Math.min(maxY, maxYCP) : maxY;
+            minY = dy != 0 ? Math.max(minY, iy - iycp) : minY;
+            maxW = dw != 0 ? Math.min(maxW, maxWCP) : maxW;
+            maxH = dh != 0 ? Math.min(maxH, maxHCP) : maxH;
+          });
+        }
       }
 
       const cx = nx != null ? clampNumber(nx, minX, maxX) : null;
