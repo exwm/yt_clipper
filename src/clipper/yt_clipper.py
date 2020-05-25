@@ -660,25 +660,32 @@ def getMarkerPairSettings(settings, markerPairIndex):
     if "targetMaxBitrate" not in mps:
         mps["targetMaxBitrate"] = mps["autoTargetMaxBitrate"]
 
-    mp["isVariableCrop"] = False
-
     if "enableCropMaps" not in mp:
         mps["enableCropMaps"] = True
 
+    mp["isPanningCrop"] = False
+    mp["isZoomPanCrop"] = False
     if mps["enableCropMaps"] and "cropMap" in mp:
         autoScaleCropMap(mp["cropMap"], settings)
         for left, right in zip(mp["cropMap"][:-1], mp["cropMap"][1:]):
-            if left["y"] != right["y"]:
-                mp["isVariableCrop"] = True
-                break
+            lcc = left["cropComponents"]
+            rcc = right["cropComponents"]
+            if lcc["x"] != rcc["x"] or lcc["y"] != rcc["y"]:
+                mp["isPanningCrop"] = True
+            if lcc["w"] != rcc["w"] or lcc["h"] != rcc["h"]:
+                mp["isZoomPanCrop"] = True
+            break
     else:
         mp["cropMap"] = [{"x": mp["start"], "y":0, "crop": cropString, "cropComponents": cropComponents}, {
             "x": mp["end"], "y":0, "crop": cropString, "cropComponents": cropComponents}]
 
-    if mps["enableZoomPan"]:
-        mp["zoomPanFilter"] = getZoomPanFilter(mp["cropMap"], mps, mps["r_frame_rate"])
-    else:
+    if mp["isZoomPanCrop"]:
+        mp["cropFilter"] = getZoomPanFilter(mp["cropMap"], mps, mps["r_frame_rate"])
+    elif mp["isPanningCrop"]:
         mp["cropFilter"] = getCropFilter(mp["cropMap"], mps, mps["r_frame_rate"])
+    else:
+        cc = cropComponents
+        mp["cropFilter"] = f"""crop='x={cc["x"]}:y={cc["y"]}:w={cc["w"]}:h={cc["h"]}'"""
 
     titlePrefixLogMsg = f'Title Prefix: {mps["titlePrefix"] if "titlePrefix" in mps else ""}'
     logger.info('-' * 80)
@@ -777,10 +784,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
         video_filter += f',loop=loop=-1:size=(32767)'
 
     cropComponents = mp["cropComponents"]
-    if mps["enableZoomPan"]:
-        video_filter += f',{mp["zoomPanFilter"]}'
-    else:
-        video_filter += f',{mp["cropFilter"]}'
+    video_filter += f',{mp["cropFilter"]}'
 
     if mps["preview"]:
         video_filter += f',scale=w=iw/2:h=ih/2'
