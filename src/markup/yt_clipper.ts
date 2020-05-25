@@ -2732,7 +2732,11 @@ export function triggerCropChartLoop() {
       cropInput.addEventListener('keydown', (ke: KeyboardEvent) => {
         if (
           ke.code === 'Space' ||
-          (!ke.ctrlKey && !ke.altKey && 66 <= ke.which && ke.which <= 90) ||
+          (!ke.ctrlKey &&
+            !ke.altKey &&
+            66 <= ke.which &&
+            ke.which <= 90 &&
+            !(ke.code === 'KeyI' || ke.code === 'KeyW' || ke.code === 'KeyH')) ||
           (!ke.ctrlKey && !ke.altKey && ke.shiftKey && ke.which === 65)
         ) {
           ke.preventDefault();
