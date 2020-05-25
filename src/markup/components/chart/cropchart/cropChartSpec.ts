@@ -161,6 +161,10 @@ export function getCropChartConfig(isCropChartPanOnly: boolean): ChartConfigurat
     cropChartConfigOverrides = {
       options: { plugins: { datalabels: { formatter: cropPointXYFormatter } } },
     };
+  } else {
+    cropChartConfigOverrides = {
+      options: { plugins: { datalabels: { formatter: cropPointFormatter } } },
+    };
   }
 
   const cropChartConfigOverridden = Chart.helpers.merge(
