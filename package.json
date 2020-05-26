@@ -14,6 +14,8 @@
     "last 4 versions and > 0.5% and not op_mini all and not IE 11"
   ],
   "devDependencies": {
+    "browserslist": "^4.12.0",
+    "caniuse-lite": "^1.0.30001066",
     "@types/chart.js": "^2.9.20",
     "@types/common-tags": "^1.8.0",
     "@types/d3-ease": "^1.0.9",
