@@ -674,7 +674,7 @@ def getMarkerPairSettings(settings, markerPairIndex):
                 mp["isPanningCrop"] = True
             if lcc["w"] != rcc["w"] or lcc["h"] != rcc["h"]:
                 mp["isZoomPanCrop"] = True
-            break
+                break
     else:
         mp["cropMap"] = [{"x": mp["start"], "y":0, "crop": cropString, "cropComponents": cropComponents}, {
             "x": mp["end"], "y":0, "crop": cropString, "cropComponents": cropComponents}]
