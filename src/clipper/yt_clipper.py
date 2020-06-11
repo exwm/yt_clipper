@@ -345,6 +345,8 @@ def buildArgParser():
                         help=('When fade loop is enabled, set the duration of the fade for both clip start and end. '
                               'The fade duration is clamped to a minimum of 0.1 seconds '
                               'and a maximum of 40%% of the output clip duration.'))
+    parser.add_argument('--audio-fade', '-af', type=float, dest='audioFade', default=0,
+                        help=('Fade the audio in at start and out at end by the specified duration in seconds.'))
     parser.add_argument('--encode-speed', '-s', type=int, dest='encodeSpeed', choices=range(0, 6),
                         help='Set the vp9 encoding speed.')
     parser.add_argument('--crf', type=int,
@@ -737,7 +739,9 @@ def makeMarkerPairClip(settings, markerPairIndex):
         # encoding mode starts each clip at time 0
         elif not settings["preview"]:
             audio_filter += f'atrim=0:{mp["duration"]},atempo={mp["speed"]}'
-            # audio_filter += f',afade=d=0.1,areverse,afade=d=0.1,areverse'
+            if mps["audioFade"] > 0:
+                af = mps["audioFade"]
+                audio_filter += f',afade=d={af},areverse,afade=d={af},areverse'
         # when streaming the required chunks from the internet the video and audio inputs are separate
         else:
             mps["audio"] = False
