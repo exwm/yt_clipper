@@ -1059,15 +1059,15 @@ def getSpeedFilterAndDuration(speedMap, mps, fps):
         endSpeed = right["y"]
         speedChange = endSpeed - startSpeed
 
-        sectStart = left["x"] - speedMapStartTime - startt
-        sectEnd = right["x"] - speedMapStartTime - startt
+        sectStart = left["x"] - speedMapStartTime
+        sectEnd = right["x"] - speedMapStartTime
         # Account for last input frame delay due to potentially imprecise trim
         if sect == nSects - 1:
             sectEnd = floor(right["x"] / frameDur) * frameDur
             # When trim is frame-precise, the frame that begins at the marker pair end time is not included
             if right["x"] - sectEnd < 1e-10:
                 sectEnd = sectEnd - frameDur
-            sectEnd = sectEnd - speedMapStartTime - startt
+            sectEnd = sectEnd - speedMapStartTime
             sectEnd = floor(sectEnd * 1000000) / 1000000
 
         nDurs = len(outputDurations)
@@ -1133,8 +1133,8 @@ def getAverageSpeed(speedMap, fps):
         startSpeed = left["y"]
         endSpeed = right["y"]
 
-        sectStart = left["x"] - speedMapStartTime - startt
-        sectEnd = right["x"] - speedMapStartTime - startt
+        sectStart = left["x"] - speedMapStartTime
+        sectEnd = right["x"] - speedMapStartTime
         sectDuration = sectEnd - sectStart
 
         duration += sectDuration
@@ -1159,9 +1159,9 @@ def getCropFilter(cropMap, mps, fps, easeType='easeInOutSine'):
     startt = ceil(firstTime / frameDur) * frameDur - firstTime
 
     for sect, (left, right) in enumerate(zip(cropMap[:-1], cropMap[1:])):
-        startTime = left["x"] - firstTime - startt
+        startTime = left["x"] - firstTime
         startX, startY, startW, startH = left["crop"].split(':')
-        endTime = right["x"] - firstTime - startt
+        endTime = right["x"] - firstTime
         endX, endY, endW, endH = right["crop"].split(':')
 
         sectDuration = endTime - startTime
@@ -1209,9 +1209,9 @@ def getZoomPanFilter(cropMap, mps, fps, easeType='easeInOutSine'):
     scale = 4
 
     for sect, (left, right) in enumerate(zip(cropMap[:-1], cropMap[1:])):
-        startTime = left["x"] - firstTime - startt
+        startTime = left["x"] - firstTime
         startX, startY, startW, startH = left["crop"].split(':')
-        endTime = right["x"] - firstTime - startt
+        endTime = right["x"] - firstTime
         endX, endY, endW, endH = right["crop"].split(':')
         startRight = float(startX) + float(startW)
         startBottom = float(startY) + float(startH)
