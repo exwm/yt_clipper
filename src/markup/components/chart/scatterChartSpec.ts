@@ -264,8 +264,8 @@ export function scatterChartSpec(
             } else if (currentCropPointIndex > index) {
               setCurrentCropPoint(this, currentCropPointIndex - 1);
             }
+            updateInput(dataRef[currentCropPointIndex].crop);
           }
-          updateInput();
           this.update();
         }
       }
