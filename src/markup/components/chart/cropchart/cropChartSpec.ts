@@ -1,7 +1,7 @@
 import Chart, { ChartConfiguration, ChartPoint } from 'chart.js';
 import { CropPoint } from '../../../@types/yt_clipper';
 import { clampNumber } from '../../../util';
-import { lightgrey, medgrey } from '../chartutil';
+import { getInputUpdater, medgrey } from '../chartutil';
 import { scatterChartSpec } from '../scatterChartSpec';
 
 const inputId = 'crop-input';
@@ -15,6 +15,8 @@ export let currentCropChartMode = cropChartMode.Start;
 export function setCropChartMode(mode: cropChartMode) {
   currentCropChartMode = mode;
 }
+
+const updateInput = getInputUpdater('crop-input');
 export function setCurrentCropPoint(
   cropChart: Chart | null,
   cropPointIndex: number,
@@ -46,7 +48,12 @@ export function setCurrentCropPoint(
           currentCropPointIndex,
         ]);
   }
-  if (cropPointIndexChanged) cropChart.update();
+  if (cropPointIndexChanged) {
+    const cropChartData = cropChart.data.datasets[0].data;
+    const cropPoint = cropChartData[currentCropPointIndex] as CropPoint;
+    updateInput(cropPoint.crop);
+    cropChart.update();
+  }
 }
 
 export let currentCropChartSection: [number, number] = [0, 1];
