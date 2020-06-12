@@ -2748,7 +2748,7 @@ export function triggerCropChartLoop() {
             66 <= ke.which &&
             ke.which <= 90 &&
             !(ke.code === 'KeyI' || ke.code === 'KeyW' || ke.code === 'KeyH')) ||
-          (!ke.ctrlKey && !ke.altKey && ke.shiftKey && ke.which === 65)
+          (ke.which === 65 && (ke.ctrlKey || ke.altKey)) // blur on KeyA with ctrl or alt modifiers
         ) {
           ke.preventDefault();
           ke.stopImmediatePropagation();
@@ -2757,11 +2757,10 @@ export function triggerCropChartLoop() {
           return;
         }
 
-        const noModifiers = !ke.ctrlKey && !ke.altKey && !ke.shiftKey;
         if (
           ke.code === 'ArrowUp' ||
           ke.code === 'ArrowDown' ||
-          (ke.code === 'KeyA' && noModifiers)
+          (ke.code === 'KeyA' && !ke.ctrlKey && !ke.altKey)
         ) {
           ke.preventDefault();
           ke.stopImmediatePropagation();
@@ -2793,7 +2792,12 @@ export function triggerCropChartLoop() {
               const markerPair = markerPairs[prevSelectedMarkerPairIndex];
               const cropMap = markerPair.cropMap;
               cropMap.forEach((cropPoint, idx) => {
-                if (idx === currentCropPointIndex) return;
+                if (
+                  (!ke.shiftKey && idx <= currentCropPointIndex) ||
+                  (ke.shiftKey && idx >= currentCropPointIndex)
+                ) {
+                  return;
+                }
                 let [x, y, w, h] = getCropComponents(cropPoint.crop);
                 if (cropTarget === 0) x = ix;
                 if (cropTarget === 1) y = iy;
@@ -2807,13 +2811,22 @@ export function triggerCropChartLoop() {
               updateCropChart();
             }
 
-            if (cropTarget === 0 && noModifiers)
-              flashMessage(`Updated all crop point X values to ${ix}`, 'green');
+            const targetPointsMsg = `${ke.shiftKey ? 'preceding' : 'following'} point ${
+              currentCropPointIndex + 1
+            }`;
+            if (cropTarget === 0)
+              flashMessage(
+                `Updated X values of crop points ${targetPointsMsg} to ${ix}`,
+                'green'
+              );
             if (cropTarget === 1)
-              flashMessage(`Updated all crop point Y values to ${iy}`, 'green');
+              flashMessage(
+                `Updated Y values crop points ${targetPointsMsg} Y values to ${iy}`,
+                'green'
+              );
             if (!isCropChartPanOnly && (cropTarget === 2 || cropTarget === 3))
               flashMessage(
-                `Updated all crop point H values to ${ih} and W values to ${iw}`,
+                `Updated size of all crop points ${targetPointsMsg} to ${ih}x${iw}`,
                 'green'
               );
             if (isCropChartPanOnly && (cropTarget === 2 || cropTarget === 3)) {
