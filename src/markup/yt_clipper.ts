@@ -2784,8 +2784,12 @@ export function triggerCropChartLoop() {
           if (!isValidCropTarget) return;
 
           if (ke.code === 'KeyA' && !wasGlobalSettingsEditorOpen) {
-            const [ix, iy, ,] = initialCropArray;
-            if (cropTarget === 0 || cropTarget === 1) {
+            const [ix, iy, iw, ih] = initialCropArray;
+            if (
+              cropTarget === 0 ||
+              cropTarget === 1 ||
+              (!isCropChartPanOnly && (cropTarget === 2 || cropTarget === 3))
+            ) {
               const markerPair = markerPairs[prevSelectedMarkerPairIndex];
               const cropMap = markerPair.cropMap;
               cropMap.forEach((cropPoint, idx) => {
@@ -2793,18 +2797,28 @@ export function triggerCropChartLoop() {
                 let [x, y, w, h] = getCropComponents(cropPoint.crop);
                 if (cropTarget === 0) x = ix;
                 if (cropTarget === 1) y = iy;
+                if (cropTarget === 2 || cropTarget === 3) {
+                  w = iw;
+                  h = ih;
+                }
                 cropPoint.crop = [x, y, w, h].join(':');
                 if (idx === 0) markerPair.crop = cropPoint.crop;
               });
+              updateCropChart();
             }
 
-            if (cropTarget === 0)
+            if (cropTarget === 0 && noModifiers)
               flashMessage(`Updated all crop point X values to ${ix}`, 'green');
             if (cropTarget === 1)
               flashMessage(`Updated all crop point Y values to ${iy}`, 'green');
+            if (!isCropChartPanOnly && (cropTarget === 2 || cropTarget === 3))
+              flashMessage(
+                `Updated all crop point H values to ${ih} and W values to ${iw}`,
+                'green'
+              );
             if (isCropChartPanOnly && (cropTarget === 2 || cropTarget === 3)) {
               flashMessage(
-                `Crop chart is in pan-only mode and all crop points have the same size`,
+                `All crop points have the same size in pan-only mode`,
                 'olive'
               );
             }
