@@ -371,6 +371,8 @@ export function triggerCropChartLoop() {
 
     function enablePreventSideBarPull() {
       const sideBar = document.getElementById('contentContainer');
+      const sideBarContent = document.getElementById('guide-content');
+      sideBarContent.style.pointerEvents = 'auto';
       if (sideBar != null) sideBar.style.pointerEvents = 'none';
     }
     function disablePreventSideBarPull() {
