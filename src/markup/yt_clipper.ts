@@ -10,7 +10,7 @@
 // @downloadURL  https://openuserjs.org/src/scripts/elwm/yt_clipper.user.js
 // @updateURL    https://openuserjs.org/meta/elwm/yt_clipper.meta.js
 // @icon         https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/pepe-clipper.gif
-// @require      https://cdn.jsdelivr.net/npm/jszip@3.2.1/dist/jszip.min.js
+// @require      https://cdn.jsdelivr.net/npm/jszip@3.4.0/dist/jszip.min.js
 // @require      https://rawcdn.githack.com/exwm/Chart.js/141fe542034bc127b0a932de25d0c4f351f3bce1/dist/Chart.min.js
 // @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@0.7.0/dist/chartjs-plugin-datalabels.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js
