@@ -13,6 +13,7 @@
 // @require      https://cdn.jsdelivr.net/npm/jszip@3.4.0/dist/jszip.min.js
 // @require      https://rawcdn.githack.com/exwm/Chart.js/141fe542034bc127b0a932de25d0c4f351f3bce1/dist/Chart.min.js
 // @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@0.7.0/dist/chartjs-plugin-datalabels.min.js
+// @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-style@latest/dist/chartjs-plugin-style.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js
 // @require      https://gitcdn.xyz/repo/exwm/chartjs-plugin-zoom/master/dist/chartjs-plugin-zoom.min.js
 // @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@0.5.7/chartjs-plugin-annotation.min.js
@@ -4191,6 +4192,7 @@ export function triggerCropChartLoop() {
       requestAnimationFrame(cropChartPreviewHandler);
     }
 
+    const easeInstantIn = (nt) => (nt === 0 ? 0 : 1);
     function updateCropChartSectionOverlays(
       chartData: CropPoint[],
       currentTime: number,
@@ -4228,13 +4230,14 @@ export function triggerCropChartLoop() {
       const [endX, endY, endW, endH] = getCropComponents(sectEnd.crop);
 
       const clampedTime = clampNumber(currentTime, sectStart.x, sectEnd.x);
+      const easingFunc = sectEnd.easeIn == 'instant' ? easeInstantIn : easeSinInOut;
       const [easedX, easedY, easedW, easedH] = [
         [startX, endX],
         [startY, endY],
         [startW, endW],
         [startH, endH],
       ].map((pair) =>
-        getEasedValue(easeSinInOut, pair[0], pair[1], sectStart.x, sectEnd.x, clampedTime)
+        getEasedValue(easingFunc, pair[0], pair[1], sectStart.x, sectEnd.x, clampedTime)
       );
 
       [cropRect, cropRectBorderBlack, cropRectBorderWhite].map((cropRect) =>

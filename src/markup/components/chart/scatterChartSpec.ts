@@ -225,6 +225,7 @@ export function scatterChartSpec(
   };
 
   const onClick = function (event, dataAtClick) {
+    // add chart points on shift+left-click
     if (
       event.button === 0 &&
       !event.ctrlKey &&
@@ -239,6 +240,7 @@ export function scatterChartSpec(
       }
     }
 
+    // delete chart points on alt+shift+left-click
     if (
       event.button === 0 &&
       !event.ctrlKey &&
@@ -265,6 +267,30 @@ export function scatterChartSpec(
               setCurrentCropPoint(this, currentCropPointIndex - 1);
             }
             updateInput(dataRef[currentCropPointIndex].crop);
+          }
+          this.update();
+        }
+      }
+    }
+
+    // change crop point ease in function
+    if (
+      event.button === 0 &&
+      event.ctrlKey &&
+      !event.altKey &&
+      event.shiftKey &&
+      dataAtClick.length === 1
+    ) {
+      if (chartType === 'crop') {
+        const datum = dataAtClick[0];
+        if (datum) {
+          const datasetIndex = datum['_datasetIndex'];
+          const index = datum['_index'];
+          let dataRef = this.data.datasets[datasetIndex].data;
+          if (dataRef[index].easeIn == null) {
+            dataRef[index].easeIn = 'instant';
+          } else {
+            delete dataRef[index].easeIn;
           }
           this.update();
         }
