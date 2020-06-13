@@ -758,7 +758,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
     else:
         inputs += f' -ss {mp["start"]} -i "{mps["videoURL"]}" '
 
-    qmax = max(min(mps["crf"] + 10, 63), 35)
+    qmax = max(min(mps["crf"] + 10, 63), 30)
     qmin = min(mps["crf"], 10)
     ffmpegCommand = ' '.join((
         ffmpegPath,
@@ -1616,26 +1616,29 @@ def getDefaultEncodeSettings(videobr):
         encodeSettings = {'crf': 20, 'autoTargetMaxBitrate': int(
             2 * videobr), 'encodeSpeed': 2, 'twoPass': False}
     elif videobr <= 2000:
-        encodeSettings = {'crf': 20, 'autoTargetMaxBitrate': int(
+        encodeSettings = {'crf': 22, 'autoTargetMaxBitrate': int(
             1.8 * videobr), 'encodeSpeed': 2, 'twoPass': False}
     elif videobr <= 4000:
-        encodeSettings = {'crf': 22, 'autoTargetMaxBitrate': int(
+        encodeSettings = {'crf': 24, 'autoTargetMaxBitrate': int(
             1.6 * videobr), 'encodeSpeed': 2, 'twoPass': False}
     elif videobr <= 6000:
-        encodeSettings = {'crf': 24, 'autoTargetMaxBitrate': int(
+        encodeSettings = {'crf': 26, 'autoTargetMaxBitrate': int(
             1.4 * videobr), 'encodeSpeed': 3, 'twoPass': False}
     elif videobr <= 10000:
-        encodeSettings = {'crf': 26, 'autoTargetMaxBitrate': int(
+        encodeSettings = {'crf': 28, 'autoTargetMaxBitrate': int(
             1.2 * videobr), 'encodeSpeed': 4, 'twoPass': False}
     elif videobr <= 14000:
-        encodeSettings = {'crf': 28, 'autoTargetMaxBitrate': int(
-            1.1 * videobr), 'encodeSpeed': 5, 'twoPass': False}
-    elif videobr <= 20000:
         encodeSettings = {'crf': 30, 'autoTargetMaxBitrate': int(
+            1.1 * videobr), 'encodeSpeed': 5, 'twoPass': False}
+    elif videobr <= 18000:
+        encodeSettings = {'crf': 32, 'autoTargetMaxBitrate': int(
             1.0 * videobr), 'encodeSpeed': 5, 'twoPass': False}
-    else:
-        encodeSettings = {'crf': 35, 'autoTargetMaxBitrate': int(
+    elif videobr <= 25000:
+        encodeSettings = {'crf': 34, 'autoTargetMaxBitrate': int(
             0.9 * videobr), 'encodeSpeed': 5, 'twoPass': False}
+    else:
+        encodeSettings = {'crf': 36, 'autoTargetMaxBitrate': int(
+            0.8 * videobr), 'encodeSpeed': 5, 'twoPass': False}
     return encodeSettings
 
 
