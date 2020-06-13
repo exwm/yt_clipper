@@ -1,7 +1,7 @@
 import Chart, { ChartConfiguration, ChartPoint } from 'chart.js';
 import { CropPoint } from '../../../@types/yt_clipper';
 import { clampNumber } from '../../../util';
-import { getInputUpdater, medgrey } from '../chartutil';
+import { getInputUpdater, lightgrey, medgrey } from '../chartutil';
 import { scatterChartSpec } from '../scatterChartSpec';
 
 const inputId = 'crop-input';
@@ -112,6 +112,11 @@ function getCropPointColor(ctx) {
   }
 }
 
+function getCropPointBackgroundOverlayColor(ctx) {
+  const cropPoint = ctx.dataset.data[ctx.dataIndex] as CropPoint;
+  return cropPoint.easeIn === 'instant' ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0)';
+}
+
 function getCropPointBorderColor(ctx) {
   const index = ctx.dataIndex;
   return index === currentCropPointIndex ? 'black' : medgrey(0.9);
@@ -140,6 +145,8 @@ const cropChartConfig: ChartConfiguration = {
         pointBorderWidth: getCropPointBorderWidth,
         pointStyle: getCropPointStyle,
         pointRadius: getCropPointRadius,
+        backgroundOverlayColor: getCropPointBackgroundOverlayColor,
+        backgroundOverlayMode: 'multiply',
         pointHitRadius: 3,
       },
     ],
