@@ -758,7 +758,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
     else:
         inputs += f' -ss {mp["start"]} -i "{mps["videoURL"]}" '
 
-    qmax = max(mps["crf"], 35)
+    qmax = max(min(mps["crf"] + 10, 63), 35)
     qmin = min(mps["crf"], 10)
     ffmpegCommand = ' '.join((
         ffmpegPath,
