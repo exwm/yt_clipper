@@ -1168,9 +1168,14 @@ def getCropFilter(cropMap, mps, fps, easeType='easeInOutSine'):
         if sectDuration == 0:
             continue
 
+        if not right.get("easeIn", False):
+            currEaseType = easeType
+        else:
+            currEaseType = right["easeIn"]
+
         easeP = f'((t-{startTime})/{sectDuration})'
-        easeX = getEasingExpression(easeType, f'({startX})', f'({endX})', easeP)
-        easeY = getEasingExpression(easeType, f'({startY})', f'({endY})', easeP)
+        easeX = getEasingExpression(currEaseType, f'({startX})', f'({endX})', easeP)
+        easeY = getEasingExpression(currEaseType, f'({startY})', f'({endY})', easeP)
 
         if sect == nSects - 1:
             cropXExpr += f'between(t, {startTime}, {endTime})*{easeX}'
@@ -1304,8 +1309,8 @@ def getEasingExpression(easingFunc, easeA, easeB, easeP):
     easeT = f'(2*{easeP})'
     easeM = f'({easeP}-1)'
 
-    if easingFunc == 'none':
-        return f'{easeB}'
+    if easingFunc == 'instant':
+        return f'if(lte({easeP},0),{easeA},{easeB})'
     elif easingFunc == 'linear':
         return f'lerp({easeA}, {easeB}, {easeP})'
     elif easingFunc == 'easeInCubic':

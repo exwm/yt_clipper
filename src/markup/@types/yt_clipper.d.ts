@@ -114,6 +114,7 @@ interface CropPoint {
   crop: string;
   prevCrop?: string;
   initCrop?: string;
+  easeIn?: 'instant';
 }
 
 interface ChartInput {
