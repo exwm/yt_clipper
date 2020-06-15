@@ -760,6 +760,14 @@ def makeMarkerPairClip(settings, markerPairIndex):
 
     qmax = max(min(mps["crf"] + 10, 63), 30)
     qmin = min(mps["crf"], 10)
+
+    if mps["minterpFPS"] is not None:
+        fps_arg = f'-r {mps["minterpFPS"]}'
+    elif not mp["isVariableSpeed"]:
+        fps_arg = f'-r ({mps["r_frame_rate"]}*{mp["speed"]})'
+    else:
+        fps_arg = f'-r 1000000000'
+
     ffmpegCommand = ' '.join((
         ffmpegPath,
         f'-hide_banner',
@@ -773,7 +781,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
         f'-qmin {qmin} -crf {mps["crf"]} -qmax {qmax} -b:v {mps["targetMaxBitrate"]}k',
         f'-force_key_frames 1 -g {mp["averageSpeed"] * Fraction(mps["r_frame_rate"])}',
         f'-metadata title="{mps["videoTitle"]}"' if not mps["removeMetadata"] else '-map_metadata -1',
-        f'-r ({mps["r_frame_rate"]}*{mp["speed"]})' if not mp["isVariableSpeed"] and mp["speed"] > 1 else '',
+        fps_arg,
         f'-af {audio_filter}' if mps["audio"] else '-an',
         f'-f webm ',
         f'{mps["extraFfmpegArgs"]}',
