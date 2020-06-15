@@ -636,7 +636,7 @@ def getMarkerPairSettings(settings, markerPairIndex):
             "x": mp["end"], "y":mp["speed"]}]
 
     mp["speedFilter"], mp["outputDuration"], mp["outputDurations"] = getSpeedFilterAndDuration(
-        mp["speedMap"], mps, mps["r_frame_rate"])
+        mp["speedMap"], mp, mps, mps["r_frame_rate"])
 
     mp["averageSpeed"] = getAverageSpeed(mp["speedMap"], mps["r_frame_rate"])
 
@@ -828,7 +828,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
         reverseSpeedMap = [{"x": speedPoint["x"], "y":speedPointRev["y"]}
                            for speedPoint, speedPointRev in zip(mp["speedMap"], reversed(mp["speedMap"]))]
         reverseSpeedFilter, _, _ = getSpeedFilterAndDuration(
-            reverseSpeedMap, mps, mps["r_frame_rate"])
+            reverseSpeedMap, mp, mps, mps["r_frame_rate"])
         loop_filter = ''
         loop_filter += f',split=2[f1][f2];'
         loop_filter += f'[f1]{mp["speedFilter"]}[f];'
@@ -1041,7 +1041,11 @@ def runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp):
     return {**(settings["markerPairs"][markerPairIndex]), **mp}
 
 
-def getSpeedFilterAndDuration(speedMap, mps, fps):
+def getSpeedFilterAndDuration(speedMap, mp, mps, fps):
+    if not mp["isVariableSpeed"]:
+        duration = mp["duration"] / mp["speed"]
+        return f'setpts=(PTS-STARTPTS)/{mp["speed"]}', duration, [0, duration]
+
     video_filter_speed_map = ''
     setpts = ''
     outputDurations = [0]
