@@ -359,7 +359,8 @@ def buildArgParser():
                               'Automatically set based on detected video bitrate.'))
     parser.add_argument('--enable-vp8', '-vp8', dest='vp8', action='store_true', default=False,
                         help=(
-                            'Use vp8 codec for for video encoding instead of the default vp9.'
+                            'Use vp8 codec for video encoding instead of the default vp9.'
+                            'Also use libopus for audio encoding instead of the default libopus.'
                             'Note that yt_clipper is not yet optimized for vp8, only for vp9.'
                             'This means quality and file size may not be well balanced.'
                             'Additionally, vp9 generally offers a better quality-size trade-off.'
@@ -775,8 +776,8 @@ def makeMarkerPairClip(settings, markerPairIndex):
         f'-benchmark',
         # f'-loglevel 56',
         f'-c:v libvpx-vp9' if not mps["vp8"] else f'-c:v libvpx',
-        f'-pix_fmt yuv420p -c:a libopus -b:a 128k',
-        f'-slices 8 -nr 4',
+        f'-c:a libopus -b:a 128k' if not mps["vp8"] else f'-c:a libvorbis -q:a 10',
+        f'-pix_fmt yuv420p -slices 8 -nr 4',
         f'-aq-mode 4 -row-mt 1 -tile-columns 6 -tile-rows 2' if not mps["vp8"] else '',
         f'-qmin {qmin} -crf {mps["crf"]} -qmax {qmax} -b:v {mps["targetMaxBitrate"]}k',
         f'-force_key_frames 1 -g {mp["averageSpeed"] * Fraction(mps["r_frame_rate"])}',
