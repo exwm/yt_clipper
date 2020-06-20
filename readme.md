@@ -465,10 +465,10 @@ You can find all releases including beta and alpha releases in this folder: <htt
 
 ## Clipper Script Dependencies
 
-These dependencies are not required by the windows installation above.
+These dependencies must be manually installed when not using the clipper script installation:
 
 - ffmpeg must be in your path for the python script (<https://www.ffmpeg.org>).
-- `--url` and `--json` require youtube-dl as a python package
+- `--markers-json`/`-j` require youtube-dl as a python package
   - `pip install youtube-dl`
 - `--gfycat` requires urllib3
   - `pip install urllib3`
