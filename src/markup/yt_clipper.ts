@@ -325,6 +325,10 @@ export function triggerCropChartLoop() {
               e.preventDefault();
               e.stopImmediatePropagation();
               flattenVRVideo();
+            } else if (!e.ctrlKey && !e.shiftKey && e.altKey) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              openSubsEditor();
             }
             break;
           case 'ArrowLeft':
@@ -5303,6 +5307,11 @@ export function triggerCropChartLoop() {
       } else {
         flashMessage('Not a VR video or already flattened.', 'red');
       }
+    }
+
+    function openSubsEditor() {
+      const url = `https://www.youtube.com/timedtext_video?ref=player&v=${settings.videoID}`;
+      window.open(url, '_blank');
     }
   }
 })();
