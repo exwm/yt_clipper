@@ -3,7 +3,6 @@ name: yt_clipper
 on:
   push:
     branches:
-      - master
       - release
       - release/*
       - test-CI
