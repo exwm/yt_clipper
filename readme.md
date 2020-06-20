@@ -2,14 +2,13 @@
 
 ## Notices
 
-- If the `master` branch is out of date and has old dependencies (when using the clipper installation),
-you can check if there is a newer beta release that works here: https://mega.nz/#F!4HYDAKDS!NqS5Nk9heN7QBxvQapudeg.
+- If the mainline (non-beta) release is out of date and has old dependencies (when using the clipper installation), you can check if there is a newer beta release. All releases can be found here: here: https://mega.nz/#F!4HYDAKDS!NqS5Nk9heN7QBxvQapudeg.
 
 - Windows users on `v3.6.0` or higher of the `clipper script` getting ffmpeg crashes may want to try the following:
   - Update visual c++ redistributables:
     - For 64-bit Windows: <https://aka.ms/vs/16/release/vc_redist.x64.exe>
     - For other Windows versions and older redistributables check this page: <https://support.microsoft.com/help/2977003/the-latest-supported-visual-c-downloads>.
-  - Switch to static ffmpeg build: <https://ffmpeg.zeranoe.com/builds/win64/static/ffmpeg-4.2.1-win64-static.zip>
+  - Switch to static ffmpeg build: <https://ffmpeg.zeranoe.com/builds/win64/static/ffmpeg-4.2.3-win64-static.zip>
     - Replace contents of `yt_clipper_win_3.x.x/bin` with the contents of the `bin` folder in the ffmpeg zip.
 
 ## Quick Start
