@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import importlib
 import io
 import json
 import logging
@@ -17,6 +18,7 @@ from pathlib import Path
 
 import coloredlogs
 import verboselogs
+import youtube_dl
 
 UPLOAD_KEY_REQUEST_ENDPOINT = 'https://api.gfycat.com/v1/gfycats?'
 FILE_UPLOAD_ENDPOINT = 'https://filedrop.gfycat.com'
@@ -365,6 +367,25 @@ def buildArgParser():
                             'This means quality and file size may not be well balanced.'
                             'Additionally, vp9 generally offers a better quality-size trade-off.'
                         ))
+    parser.add_argument('--auto-subs-lang', '-asl', dest='autoSubsLang', default='',
+                        help=(
+                            'Automatically download and add subtitles from YouTube in the specified language.'
+                            'Subtitles will be burned (hardcoded) into the video.'
+                            'The argument to this option is a two-letter language code (eg en, fr, ko, ja).'
+                        ))
+    parser.add_argument('--subs-file', '-sf', dest='subsFilePath', default='',
+                        help=(
+                            'Provide a subtitles file in vtt, sbv, or srt format .'
+                            'Subtitles will be burned (hardcoded) into the video.'
+                            'This option will take precedence over `--auto-subs-lang`.'
+                        ))
+    parser.add_argument('--subs-style', '-ss', dest='subsStyle',
+                        default='FontSize=12,PrimaryColour=&H32FFFFFF,SecondaryColour=&H32000000,MarginV=5',
+                        help=(
+                            'Specify an ASS format string for styling subtitles.'
+                            'The provided styles will override those specified in the subs file.'
+                            'See https://fileformats.fandom.com/wiki/SubStation_Alpha#Styles_section.'
+                        ))
     parser.add_argument('--no-auto-scale-crop-res', '-nascr', dest='noAutoScaleCropRes', action='store_true',
                         help=('Disable automatically scaling the crop resolution '
                               'when a mismatch with video resolution is detected.'))
@@ -434,8 +455,6 @@ def loadMarkers(markersJson, settings):
 
 
 def getVideoURL(settings):
-    from youtube_dl import YoutubeDL
-
     ydl_opts = {'format': settings["format"], 'forceurl': True,
                 'merge_output_format': 'mkv',
                 'outtmpl': f'{settings["downloadVideoPath"]}.%(ext)s', "cachedir": False}
@@ -443,12 +462,12 @@ def getVideoURL(settings):
     if getattr(sys, 'frozen', False):
         ydl_opts["ffmpeg_location"] = ffmpegPath
 
-    ydl = YoutubeDL(ydl_opts)
-    if settings["downloadVideo"]:
-        ydl_info = ydl.extract_info(settings["videoURL"], download=True)
-        settings["downloadVideoPath"] = f'{settings["downloadVideoPath"]}.mkv'
-    else:
-        ydl_info = ydl.extract_info(settings["videoURL"], download=False)
+    with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+        if settings["downloadVideo"]:
+            ydl_info = ydl.extract_info(settings["videoURL"], download=True)
+            settings["downloadVideoPath"] = f'{settings["downloadVideoPath"]}.mkv'
+        else:
+            ydl_info = ydl.extract_info(settings["videoURL"], download=False)
 
     if 'requested_formats' in ydl_info:
         rf = ydl_info["requested_formats"]
@@ -522,10 +541,37 @@ def getVideoInfo(settings, videoInfo):
     return settings
 
 
+def getSubs(settings):
+    importlib.reload(youtube_dl)
+    settings["subsFileStem"] = f'{webmsPath}/subs/{settings["titleSuffix"]}'
+    settings["subsFilePath"] = f'{settings["subsFileStem"]}.{settings["autoSubsLang"]}.vtt'
+
+    ydl_opts = {'skip_download': True, 'writesubtitles': True,
+                'subtitlesformat': 'vtt', 'subtitleslangs': [settings["autoSubsLang"]],
+                'outtmpl': f'{settings["subsFileStem"]}', "cachedir": False}
+
+    with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([settings["videoURL"]])
+
+    return settings
+
+
 def prepareGlobalSettings(settings):
     logger.info(f'Video URL: {settings["videoURL"]}')
     logger.info(
         f'Merge List: {settings["markerPairMergeList"] if settings["markerPairMergeList"] else "None"}')
+
+    if settings["subsFilePath"] == '' and settings["autoSubsLang"] != '':
+        settings = getSubs(settings)
+        if not Path(settings["subsFilePath"]).is_file():
+            logger.error(f'Could not download subtitles with language id {settings["autoSubsLang"]}.')
+            sys.exit(1)
+    elif settings["subsFilePath"] != '':
+        if not Path(settings["subsFilePath"]).is_file():
+            logger.error(f'Could not find subtitles file at "{settings["subsFilePath"]}"')
+            sys.exit(1)
+        else:
+            logger.success(f'Found subtitles file at "{settings["subsFilePath"]}"')
 
     if settings["inputVideo"]:
         settings = getVideoInfo(settings, {})
@@ -565,6 +611,7 @@ def prepareGlobalSettings(settings):
                  (f'Fade Duration: {settings["fadeDuration"]}, ' if settings["loop"] == 'fade' else '') +
                  f'Video Stabilization: {settings["videoStabilization"]["desc"]}, ' +
                  f'Video Stabilization Dynamic Zoom: {settings["videoStabilizationDynamicZoom"]}'))
+
     return settings
 
 
@@ -799,6 +846,9 @@ def makeMarkerPairClip(settings, markerPairIndex):
     cropComponents = mp["cropComponents"]
     video_filter += f',{mp["cropFilter"]}'
 
+    if mps["subsFilePath"] != '':
+        video_filter += f',{getSubsFilter(mp, mps, markerPairIndex)}'
+
     if mps["preview"]:
         video_filter += f',scale=w=iw/2:h=ih/2'
         cropComponents["w"] /= 2
@@ -1020,6 +1070,25 @@ def getMaxSpeed(speedMap):
             maxSpeed = max(maxSpeed, speedPoint["y"])
 
     return maxSpeed
+
+
+def getSubsFilter(mp, mps, markerPairIndex):
+    import webvtt
+    vtt = webvtt.read(mps["subsFilePath"])
+    sub_start = mp["start"]
+    sub_end = mp["end"]
+    vtt._captions = [c for c in vtt.captions
+                     if c.start_in_seconds < sub_end and c.end_in_seconds > sub_start]
+    for i, caption in enumerate(vtt.captions):
+        start = caption.start_in_seconds
+        end = caption.end_in_seconds
+        caption.start = caption._to_timestamp(max(start - sub_start, 0))
+        caption.end = caption._to_timestamp(min(sub_end - sub_start, end - sub_start))
+    tmp_subs_path = f'{webmsPath}/subs/{mps["titleSuffix"]}-{markerPairIndex+1}.vtt'
+    vtt.save(tmp_subs_path)
+    subs_filter = f"""subtitles='{tmp_subs_path}':force_style='{mps["subsStyle"]}'"""
+
+    return subs_filter
 
 
 def runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp):
