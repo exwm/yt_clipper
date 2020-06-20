@@ -83,7 +83,7 @@ The contents of the quickstart guide are included here for convenience:
   - [Clipper Script Installation](#clipper-script-installation)
     - [Additional Helper Scripts](#additional-helper-scripts)
       - [Windows Merge Helper Bat Script](#windows-merge-helper-bat-script)
-  - [Older Releases](#older-releases)
+  - [All Releases](#all-releases)
   - [Clipper Script Dependencies](#clipper-script-dependencies)
   - [Full Changelog](#full-changelog)
   - [Markup Script Changelog](#markup-script-changelog)
@@ -459,9 +459,9 @@ The `yt_clipper_merge.bat` can be used to merge any webm files in any order:
 - The output file will be `-merged` appended to the first input file.
 - Check the `merge.txt` file to confirm the correct videos were merged in the correct order.
 
-## Older Releases
+## All Releases
 
-You can find old releases in this folder: <https://mega.nz/#F!4HYDAKDS!NqS5Nk9heN7QBxvQapudeg>.
+You can find all releases including beta and alpha releases in this folder: <https://mega.nz/#F!4HYDAKDS!NqS5Nk9heN7QBxvQapudeg>.
 
 ## Clipper Script Dependencies
 
