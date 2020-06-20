@@ -17,8 +17,9 @@ dist/
 *.spec
 __pycache__
 
-# compiling, testing, and debugging sandbox
+# compiling, testing, and debugging sandboxes
 sandbox/
+misc/
 
 # other binaries and artifacts
 webms/
