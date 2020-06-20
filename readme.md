@@ -17,8 +17,6 @@ Visit [this quickstart guide](https://github.com/exwm/yt_clipper/blob/master/qui
 
 The contents of the quickstart guide are included here for convenience:
 
-[**Full Instructions**](https://openuserjs.org/scripts/elwm/yt_clipper).
-
 1) First install a user script extension (preferably Tampermonkey) for your browser (preferably chrome).
    - See [this article](https://openuserjs.org/about/Userscript-Beginners-HOWTO) for more information.
 2) Next install the `markup script` component of `yt_clipper` by clicking [here](https://openuserjs.org/install/elwm/yt_clipper.user.js).
