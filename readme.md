@@ -513,54 +513,6 @@ v0.0.88 `[2019.08.31]`:
 - Fix fade preview not disabling when set to none in marker pair overrides and set to fade in global settings.
 - Move marker pair delete shortcut from **Alt+Z** -> **Ctrl+Alt+Shift+Z**.
 
-v0.0.87 `[2019.08.25]`:
-
-- Use with `v3.6.0` of the `clipper script` installation.
-- Redesign user interface.
-  - Improve visual clarity of markers and marker numberings.
-  - Add accent colors to quickly differentiate marker pair (orange) and global (red) settings editors.
-  - Add accent colors to modified settings.
-    - Modified global settings accented red.
-    - Modified marker pair settings accented orange.
-    - Marker pair settings redundant with a global setting accented red.
-- Add reordering/renumbering marker pairs using the input box displayed in the marker pair settings panel.
-- Add tooltips for marker pair and global settings.
-- Change extra settings toggle (Shift+W) to a global setting for easier use.
-- Fix being able to add speed points outside speed chart bounds.
-- Fix title suffix being undefined if left blank.
-- Fix deleting marker pairs not deleting associated numberings.
-- Fix fade loop preview not working when loop set to fade globally only.
-
-v0.0.86 `[2019.08.03]`:
-
-- Use with `v3.6.0` of the `clipper script` installation.
-- Add special loops: Fade loops and forward-reverse (AKA ping-pong) loops.
-  - Note special loops are not compatible with audio.
-  - Add fade loop previewing.
-- Add shortcut to toggle all previews (**Ctrl+Alt+Shift+C**).
-- Add auto-hiding unselected marker pairs toggle (**Ctrl+Down**).
-- Add better video stabilization preset strength scaling.
-- Add new _Strongest_ level to video stabilization presets.
-- Add video stabilization dynamic zoom option.
-- Add marker pair numberings in user interface.
-- Remove speed map rounding option as it is no longer relevant.
-- Fix first and last points of time-variable speed chart not being protected from deletion.
-- Improve visual clarity of time-variable speed chart.
-- Fix output duration estimation for marker pairs with time-variable speed.
-- Swapped previewing shortcuts base key and speed chart base key:
-  - Previewing: **C** -> **D**.
-  - Speed Chart: **D** -> **C**.
-
-v0.0.85:
-
-- Use with `v3.5.2` of the `clipper script` installation.
-- Move mouse-based crop resize and move from **Shift+Click+Drag** to **Ctrl+Click+Drag**.
-  - Fixes mouse-based crop shortcuts interfering with marker pair select shortcuts.
-- Fix drawing new crop can select text on page.
-- Fix editing new marker default crop and updating all marker pair crops.
-- Fix updating all marker pair speeds to new marker default crop when the global settings editor is open.
-- Fix speed chart visibility not saved when switching marker pair editors.
-
 ## Clipper Script (Installation) Changelog
 
 v3.6.3 `[2020.06.20]`:
@@ -574,9 +526,7 @@ v3.6.3 `[2020.06.20]`:
 
 v3.6.2 `[2020.01.23]`:
 
-- See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
 - Use with `v0.0.89` or higher of the markup script.
-  - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
 - Update youtube-dl dependency to [`2020.01.24`](https://github.com/ytdl-org/youtube-dl/releases/tag/2019.01.24) to fix extractor errors when trying to download YouTube videos.
 - Update ffmpeg dependency to latest nightly version (`20200121-fc6fde2`) which includes an update to libvpx-vp9 (`1.8.2`).
 
@@ -603,28 +553,3 @@ v3.6.0 `[2019.08.03]`:
 - Update ffmpeg dependency to latest nightly (`20190802`).
 - Reduce installation size by ~60% by switching to shared lib version of ffmpeg dependency.
 - Update youtube-dl dependency to [`2019.08.02`](https://github.com/ytdl-org/youtube-dl/releases/tag/2019.08.02).
-
-v3.5.2:
-
-- See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
-- Use with `v0.0.83` or higher of the markup script.
-  - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
-- Fix speed map filter being improperly calculated and producing unsmooth video.
-  - Changed default speed map rounding to 0 (disabled) as it now produces smoother results than rounding.
-- Fix audio sync issues.
-- Fix audio not disabled in preview mode when streaming (caused preview to crash as this is not supported).
-- Update youtube-dl dependency to [`2019.06.27`](https://github.com/ytdl-org/youtube-dl/releases/tag/2019.06.27).
-
-v3.5.1:
-
-- Use with `v0.0.82` or higher of the markup script.
-  - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
-- Fix compatibility with latest markers json format (`v0.0.81`)
-- Fix backwards compatibility with older markers json formats.
-- Fix potential input videos including `.part` files and other multi-extension file names.
-- Mac: Switched `clipper script` installation from `.app`-based system to executable `bash script` system.
-  - Fixes translocation issues with Mac.
-  - Use by double-clicking or otherwise executing one of the executable `bash scripts`.
-  - At the prompt type or drag and drop `json` data files and then hit enter.
-  - Now processes multiple marker `json` data files sequentially and from any location.
-  - See [Additional Helper Scripts](#additional-helper-scripts) for more info.
