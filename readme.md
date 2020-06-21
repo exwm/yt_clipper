@@ -514,7 +514,7 @@ v0.0.88 `[2019.08.31]`:
 
 ## Clipper Script (Installation) Changelog
 
-v3.6.3 `[2020.06.20]`:
+v3.6.3 `[2020.06.21]`:
 
 - See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
 - Use with `v0.0.89` or higher of the markup script.
