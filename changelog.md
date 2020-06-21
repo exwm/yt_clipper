@@ -423,7 +423,7 @@ v3.7.0-beta.3.8.0 `[2020.05.13]`
 - Add `--remove-metadata`/`-rm` flag.
   - The only metadata added when this flag is not enabled is the videoTitle property from the markers .json data file.
 - Add `--extra-ffmpeg-args` argument for passing extra options to ffmpeg. These are included after other options set by yt_clipper.
-- Renamed `ffmpeg_elwm.exe` to `ffmpeg_ytc.exe` and reduced its file size.
+- Renamed `ffmpeg_elwm.exe` to [`ffmpeg_ytc.exe`](https://mega.nz/file/9SBwGSQJ#Gvge0IIQchK3nVYgkdiaQIBjk2D8BAHOrZvK23b3o9Y) and reduced its file size.
 - Optimized interaction between video stabilization and motion interpolation improving speed and quality when used together.
 - Reverted motion interpolation search parameter from 128 to 64.
 - Fix ffmpeg from path not being used when running yt_clipper from source rather than the installation.
@@ -437,7 +437,7 @@ v3.7.0-beta.3.7 `[2020.05.13]`
 
 - Adjusted minterp parameters for better results on average.
 - Put minterp enhancements behind `--enable-minterp-enhancements`/`-eme` flag.
-  - Requires downloading (`ffmpeg_elwm.exe`)[https://mega.nz/file/NTg1SZ7R#wCTJK4nOCCvGs0VJCOJfyAaooWmIDCHPMFAYBfobs5Y] and placing it in the `./bin folder.`
+  - Requires downloading [`ffmpeg_elwm.exe`](https://mega.nz/file/NTg1SZ7R#wCTJK4nOCCvGs0VJCOJfyAaooWmIDCHPMFAYBfobs5Y) and placing it in the `./bin folder.`
   - Enhancements include skipping sections already at the target fps and forcing inclusion of original video frames. The latter increases performance at the cost of some smoothness.
 - Add bitrate adjustment factors for the speed and fps of the output video.
 - Add additional tweaks and parameters to vp9 encoding that optimize file size and quality better for a larger range of input videos.
