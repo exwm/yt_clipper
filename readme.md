@@ -3,8 +3,8 @@
 ## Notices
 
 - If the mainline (non-beta) release is out of date and has old dependencies (when using the clipper installation), you can check if there is a newer beta release. All releases can be found here:
-https://mega.nz/#F!4HYDAKDS!NqS5Nk9heN7QBxvQapudeg. When using a beta release use the shortcuts reference table in the markup script and the `yt_clipper_options` helper script or `-h` help flag for a review of any
-usage changes.
+https://mega.nz/#F!4HYDAKDS!NqS5Nk9heN7QBxvQapudeg.
+  - When using a beta release use the shortcuts reference table in the markup script and the `yt_clipper_options` helper script or `-h` help flag for a review of any usage changes.
 
 - Windows users on `v3.6.0` or higher of the `clipper script` installation getting ffmpeg crashes may want to try the following:
   - Update visual c++ redistributables:
@@ -493,8 +493,7 @@ v0.0.89 `[2019.10.25]`:
 
 v0.0.88 `[2019.08.31]`:
 
-- <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
-- Use with `v3.6.0` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+- Use with `v3.6.0` of the `clipper script` installation.
 - Add marker move undo (**Alt+Z**) and redo (**Shift+Alt+Z**).
 - Add **Alt+Shift+Mousewheel** for moving selected start/end marker by a frame per tick.
   - When performed on the left half of the window moves start marker and on the right half the end marker.
