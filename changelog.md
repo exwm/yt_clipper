@@ -375,7 +375,7 @@ v0.0.71:
 
 ## Clipper Script (Installation) Changelog
 
-v3.6.3 `[2020.06.20]`:
+v3.6.3 `[2020.06.21]`:
 
 - Note that this release is directly on top of `v3.6.2`.
 - Use with `v0.0.89` or higher of the markup script.
