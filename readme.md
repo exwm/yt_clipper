@@ -2,9 +2,11 @@
 
 ## Notices
 
-- If the mainline (non-beta) release is out of date and has old dependencies (when using the clipper installation), you can check if there is a newer beta release. All releases can be found here: here: https://mega.nz/#F!4HYDAKDS!NqS5Nk9heN7QBxvQapudeg.
+- If the mainline (non-beta) release is out of date and has old dependencies (when using the clipper installation), you can check if there is a newer beta release. All releases can be found here:
+https://mega.nz/#F!4HYDAKDS!NqS5Nk9heN7QBxvQapudeg. When using a beta release use the shortcuts reference table in the markup script and the `yt_clipper_options` helper script or `-h` help flag for a review of any
+usage changes.
 
-- Windows users on `v3.6.0` or higher of the `clipper script` getting ffmpeg crashes may want to try the following:
+- Windows users on `v3.6.0` or higher of the `clipper script` installation getting ffmpeg crashes may want to try the following:
   - Update visual c++ redistributables:
     - For 64-bit Windows: <https://aka.ms/vs/16/release/vc_redist.x64.exe>
     - For other Windows versions and older redistributables check this page: <https://support.microsoft.com/help/2977003/the-latest-supported-visual-c-downloads>.
@@ -475,7 +477,8 @@ These dependencies must be manually installed when not using the clipper script 
 
 ## Full Changelog
 
-See <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
+For a complete changelog, including beta and alpha releases,
+see <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
 
 ## Markup Script Changelog
 
@@ -567,7 +570,6 @@ v3.6.2 `[2020.01.23]`:
   - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
 - Update youtube-dl dependency to [`2020.01.24`](https://github.com/ytdl-org/youtube-dl/releases/tag/2019.01.24) to fix extractor errors when trying to download YouTube videos.
 - Update ffmpeg dependency to latest nightly version (`20200121-fc6fde2`) which includes an update to libvpx-vp9 (`1.8.2`).
-
 
 v3.6.1 `[2019.10.25]`:
 
