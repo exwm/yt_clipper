@@ -2,6 +2,128 @@
 
 ## Markup Script Changelog
 
+v0.0.90-beta.3.9.0-alpha.6 `[2020.06.20]`:
+
+- Add **Alt+F** to open the YouTube subtitles editor in a new tab. This allows creating, downloading, and uploading subtitle files. Note that some videos have this feature disabled.
+- Update shortcuts reference table with recently added and changed shortcuts.
+
+v0.0.90-beta.3.9.0-alpha.3 `[2020.06.12]`:
+
+- Add **Ctrl+Shift+Click** crop point for toggling point ease in function between instant (dimmed out) and auto.
+  - The crop will jump instantly to the crop value of an instant point when the point ends a section.
+- Add **Shift+A** for setting crop component of all crop points preceding currently selected point.
+- Change **a** for setting crop component of all crop points to only points following currently selected point.
+- Update shortcuts reference table with recently added and changed shortcuts.
+- Fix YouTube side bar buttons and content blocked along with side bar pull out gesture when markup script is active.
+- Fix deleting currently selected crop point improperly changing crop of other points.
+- Fix crop input field not updated when selected crop point changes with video time.
+
+v0.0.90-beta.3.9.0-alpha.1 `[2020.05.24]`:
+
+- Add Ctrl+D for toggling dynamic crop between pan-only mode and zoompan mode.
+- Shrink crop chart point size and reduce hover animations.
+- Fix auto blurring when typing 'i', 'w', or 'h' in crop input field.
+- Remove some unnecessary data from markers json output.
+
+v0.0.90-beta.3.8.1 `[2020.05.24]`:
+
+- Add 0.9 opacity level to cycle crop dim (**Ctrl+X**).
+- Fix updating charts when loading new marker pair editors.
+- Fix updating crop chart view when current crop chart point or section changes.
+- Fix crop chart not updated when a crop point's crop changes.
+  - Note that manipulating crop with mouse will not update the crop chart until the action is complete for performance.
+
+v0.0.90-beta.3.8.0 `[2020.05.21]`:
+
+- Add jumping to marker pair start or end when clicking the corresponding marker pair numbering with Left-Mouse.
+- Add dragging marker numberings to change marker time with **Alt+LeftClick**.
+  - Drag upwards to increase the precision of the numbering drag.
+- Add minimum video opacity (0.2) when fade loop preview is on.
+- Change default fade loop duration from 0.5 s to 0.7 s.
+- Several performance improvements especially when using charts.
+
+v0.0.90-beta.3.7 `[2020.05.13]`:
+
+- Add blocking of pull out side bar in YouTube when markup script hotkeys are enabled.
+- Add **Shift+F** for flattening VR videos. This allows easier cropping of VR videos.
+- Fix current crop chart section not looping when interacting with crop with mouse and crop chart invisible.
+- Fix crop chart section and thus dynamic crop preview not updating when crop chart is invisible.
+- Fix YouTube search not disabling hotkeys on focus.
+
+v0.0.90-beta.3.6 `[2020.04.04]`:
+
+- Add additional detail to motion interpolation tooltips.
+- Rename Enabled mode of motion interpolation to Numeric and Disabled to None.
+
+v0.0.90-beta.3.6 `[2020.04.04]`:
+
+- Add additional detail to motion interpolation tooltips.
+- Rename Enabled mode of motion interpolation to Numeric and Disabled to None.
+
+v0.0.90-beta.3.5 `[2020.04.04]`:
+
+- Add motion interpolation to gui.
+- Add using global new marker crop in frame capturer when global settings editor is open.
+- Fix merge list validation holes.
+
+v0.0.90-beta.3.4 `[2020.01.31]`:
+
+- Fix mouse editing crops of crop points.
+
+v0.0.90-beta.3.3 `[2020.01.31]`:
+
+- Add seek on crop point drag start.
+- Fix force set speed not working due to improperly updating speed input label.
+- Fix drawing and dragging new marker default crop.
+- Fix toggling off editor while also mouse dragging crop not closing crop overlay.
+
+v0.0.90-beta.3.2 `[2020.01.26]`:
+
+- Improve chart performance, especially when seeking video with the chart and cropping with crop chart open.
+
+v0.0.90-beta.3.1 `[2020.01.26]`:
+
+- Fix crop chart section inconsistently maintained when dragging or selecting crop points.
+- Block context menu ending crop chart time annotation drag (**Right-MouseClick**).
+
+v0.0.90-beta.3 `[2020.01.24]`:
+
+- Add auto video time seeking when using **Alt+Shift+Mousewheel** to adjust marker time.
+- Add auto video time seeking on crop point drag.
+- Add dragging/scrubbing video time with **Right-MouseClick** using any chart.
+- Add horizontally (**Shift**) and vertically (**Alt**) fixed crop drag when holding modifier keys.
+- Add selecting marker pair with **Shift+Mouseover** on the end marker number.
+- Add force setting video speed toggle (**Q**).
+- Move cycling video speed down shortcut from **Q** to **Alt+Q**.
+- Increased chart point time granularity from 0.05 s to 0.01 s.
+- Add highlighting of essential shortcuts in shortcuts table.
+
+v0.0.90-beta.2.1 `[2019.12.12]`:
+
+- Fix marker pair looping not working when crop is static.
+- Fix crop constraint not enforced when crop is static.
+
+v0.0.90-beta.2 `[2019.12.11]`:
+
+- Add **Ctrl/Alt+Mouseover** to select crop point as start/end of crop section.
+- Change **Alt+Mousewheel** to toggle start/end mode.
+  - Start mode means the currently selected crop point is the start of the current section.
+  - End mode means the currently selected crop point is the end of the current section.
+  - **Alt+MousewheelDown** also selects prev point if already in end mode.
+  - **Alt+MousewheelUp** also selects prev point if already in end mode.
+- Add **a** contextual hotkey for updating a cromp component of all crop points.
+  - Works only when the cursor is inside the crop input field of the marker pair editor.
+  - The crop component is selected by moving the cursor to that component.
+- Fix multiple bugs with toggling and using dynamic crop chart.
+
+
+v0.0.90-beta.1 `[2019.11.18]`:
+- Add **Alt+D** for toggling dynamic crop chart.
+- Add **Ctrl+Shift+C** for toggling dynamic crop chart preview.
+- Add **Alt+Mousewheel** for selecting next/prev crop point.
+- Add **Ctrl+Alt+Shift+Mousewheel** for copying crop of prev/next crop point to currently selected point.
+- Note that the dynamic crop chart supports only panning for now.
+
 v0.0.89 `[2019.10.25]`:
 
 - Use with `v3.6.1` of the `clipper script` installation.
@@ -253,18 +375,147 @@ v0.0.71:
 
 ## Clipper Script (Installation) Changelog
 
+v3.6.3 `[2020.06.21]`:
+
+- Note that this release is directly on top of `v3.6.2`.
+- Use with `v0.0.89` or higher of the markup script.
+- Update youtube-dl dependency to [`2020.06.16.1`](https://github.com/ytdl-org/youtube-dl/releases/tag/2020.06.16.1) to fix extractor errors when trying to download YouTube videos.
+- Disable youtube-dl caching to avoid http 403 errors from stale signatures.
+- Update ffmpeg dependency to latest mainline version (`4.2.3`).
+
+v3.7.0-beta.3.9.0-alpha.6 `[2020.06.20]`
+
+- Add initial support for burning (hardcoding) subtitles into clipped videos.
+  - Use `--auto-subs-lang`/`-asl` and specify a two-letter language code (eg en, fr, kr, ja) to automatically fetch subs from YouTube.
+  - Use `--subs-file`/`-sf` to specify a local subtitles file (only vtt format is supported for now).
+  - Use `--subs-style`/`-ss` to change the style of the subs (see the clipper help output for more details).
+
+v3.7.0-beta.3.9.0-alpha.5 `[2020.06.15]`
+
+- Fix some loss of output video smoothness when slowing down video to non-integer multiples of the source fps.
+  - This primarily impacted low fps source videos. Dynamic speed should also see smoothness improvements with this change.
+- Change `--enable-vp8`/`-vp8` to use libvorbis for audio encoding instead of libopus for better compatibility.
+- Update youtube-dl dependency from `v2020.5.8` to `v2020.06.16.1`.
+  - This fixes some issues with the YouTube extractor (see https://github.com/ytdl-org/youtube-dl/releases)
+
+v3.7.0-beta.3.9.0-alpha.3 `[2020.06.12]`
+
+- Add audio fading using `--audio-fade`/`-af` with fade duration specified in seconds.
+- Fix (remove) improper frame alignment correction in dynamic speed and dynamic crop filters. Frame alignment correction needs further investigation.
+- Tweak automatic encode settings.
+  
+v3.7.0-beta.3.9.0-alpha.2 `[2020.05.25]`
+
+- Fix dynamic crop detection using crop map. This may have caused a static crop to be used instead of a panning or zoompan crop.
+
+v3.7.0-beta.3.9.0-alpha.1 `[2020.05.25]`
+
+- Add zooming support to dynamic crop.
+- Fix not accounting for first frame delay in dynamic crop filter. This may have led to incorrect timing of the dynamic crop by ~1 frame.
+- Fix improperly rotating output video when rotate value was set to the string "0".
+
+v3.7.0-beta.3.8.0 `[2020.05.13]`
+
+- Add `--enable-vp8`/`-vp8` flag for using vp8 codec over the default vp9. Note that yt_clipper is not yet optimized for vp8.
+- Add success log message when motion interpolation enhancements are enabled.
+- Add forcing key frames at the average video frame rate.
+- Add `--remove-duplicate-frames`/`-rdf` flag.
+- Add `--remove-metadata`/`-rm` flag.
+  - The only metadata added when this flag is not enabled is the videoTitle property from the markers .json data file.
+- Add `--extra-ffmpeg-args` argument for passing extra options to ffmpeg. These are included after other options set by yt_clipper.
+- Renamed `ffmpeg_elwm.exe` to [`ffmpeg_ytc.exe`](https://mega.nz/file/9SBwGSQJ#Gvge0IIQchK3nVYgkdiaQIBjk2D8BAHOrZvK23b3o9Y) and reduced its file size.
+- Optimized interaction between video stabilization and motion interpolation improving speed and quality when used together.
+- Reverted motion interpolation search parameter from 128 to 64.
+- Fix ffmpeg from path not being used when running yt_clipper from source rather than the installation.
+
+v3.7.0-beta.3.7.1 `[2020.05.13]`
+
+- Fix motion interpolation (minterp) being disabled when using minterp enhancements (-eme).
+  - This would cause the video to simply be sped up instead of being interpolated.
+
+v3.7.0-beta.3.7 `[2020.05.13]`
+
+- Adjusted minterp parameters for better results on average.
+- Put minterp enhancements behind `--enable-minterp-enhancements`/`-eme` flag.
+  - Requires downloading [`ffmpeg_elwm.exe`](https://mega.nz/file/NTg1SZ7R#wCTJK4nOCCvGs0VJCOJfyAaooWmIDCHPMFAYBfobs5Y) and placing it in the `./bin folder.`
+  - Enhancements include skipping sections already at the target fps and forcing inclusion of original video frames. The latter increases performance at the cost of some smoothness.
+- Add bitrate adjustment factors for the speed and fps of the output video.
+- Add additional tweaks and parameters to vp9 encoding that optimize file size and quality better for a larger range of input videos.
+- Add force key frame generation. This improves seeking and may improve playback of output video on some devices.
+- Fix global settings not logged when using input video.
+- Update youtube-dl dependency to `v2020.05.08`.
+
+v3.7.0-beta.3.7-alpha.4 `[2020.04.25]`
+
+- Add experimental changes to motion interpolation for a possible minor reduction in artifacting.
+- Fix video speeding up when motion interpolation fps was set above max speed, for example when using MaxSpeedx2 mode.
+- Add automatic duplicate frame removal before applying motion interpolation to avoid stuttering in low fps video sources.
+- Remove minimum fps limit on motion interpolation fps.
+- Disable youtube-dl caching to avoid http 403 errors from stale signatures.
+
+v3.7.0-beta.3.7-alpha.3 `[2020.04.25]`
+
+- Fix crash when there is a vertical section in the dynamic speed chart.
+- 
+v3.7.0-beta.3.7-alpha.2 `[2020.04.25]`
+
+- Fix crash when motion interpolation is disabled.
+- Increase motion interpolation scene change detection threshold.
+  - This can help avoid disabling motion interpolation when there is rapid motion.
+- Switch from frame duplication to pass-through for disabled sections of motion interpolation.
+  - This helps avoid unnecessary frame duplication and stuttering.
+
+v3.7.0-beta.3.7-alpha.1 `[2020.04.08]`
+
+- Add experimental performance improvements to motion interpolation.
+  - Skip interpolation of sections of source video already at target fps.
+
+v3.7.0-beta.3.6 `[2020.04.04]`
+
+- Add flags `--minterp-mode` and `--minterp-fps` for controlling motion interpolation settings on the command line.
+- Add logging of motion interpolation settings.
+- Fix missing default mode Numeric for motion interpolation.
+- Fix extra video filters provided via -evf or --extra-video-filters not applying in fwrev loop mode.
+- Fix VideoSpeedx2 motion interpolation mode not doubling.
+
+v3.7.0-beta.3.5 `[2020.04.04]`
+
+- Add better support for motion interpolation.
+-  Motion interpolation is now applied after speed filters.
+  - This allows smooth slow motion when combined with dynamic speed unlike when applying motion interpolation using `--extra-video-filters`/`-evf`.
+- Add prompt to continue merging despite ffmpeg errors. Useful if you suspect a false positive.
+- Add summary report logging.
+- Revert to cubic fade loop easing and tweak smoothness using other parameters.
+- Add `--only` and `--except` flags for fine-grained inclusion and exclusion of marker pairs to be processed.
+  - Both options take a comma-separated list of marker pair numbers or ranges (similar to merge list).
+- Add finer-grained auto encode settings.
+- Add automatic retrying for fetching video info with ffprobe.
+- Fix some marker pair encode setting overrides being shadowed by global settings.
+
+v3.7.0-beta.3 `[2020.01.24]`
+
+- Update youtube-dl and ffmpeg dependencies to match `v3.6.2` of the clipper (fixes youtube-dl extractor errors).
+- Improve fade loop smoothness using circle easing.
+- Add `--extra-audio-filters`/`-eaf` option for injecting extra audio filters into generated ffmpeg command.
+- Add colored logging.
+
 v3.6.2 `[2020.01.23]`:
 
-- See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
 - Use with `v0.0.89` or higher of the markup script.
-  - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
 - Update youtube-dl dependency to [`2020.01.24`](https://github.com/ytdl-org/youtube-dl/releases/tag/2019.01.24) to fix extractor errors when trying to download YouTube videos.
 - Update ffmpeg dependency to latest nightly version (`20200121-fc6fde2`) which includes an update to libvpx-vp9 (`1.8.2`).
+
+v3.7.0-beta.2 `[2019.12.11]`
+
+- Switched to partially automatic builds via GitHub Actions.
+
+v3.7.0-beta.1 `[2019.11.18]`
+
+- Add support for dynamic crop maps.
 
 v3.6.1 `[2019.10.25]`:
 
 - Use with `v0.0.89` or higher of the markup script.
-  - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
 - Fix crash on printing help with `--help` or `-h` or using the `yt_clipper_options` helper scripts.
 - Add `yt_clipper_auto_interpolate` helper scripts for motion interpolating output video to 60 fps.
   - See [Additional Helper Scripts](#additional-helper-scripts) for more info.
@@ -276,7 +527,6 @@ v3.6.1 `[2019.10.25]`:
 v3.6.0 `[2019.08.03]`:
 
 - Use with `v0.0.86` or higher of the markup script.
-  - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
 - Add special loop behaviours: Fade loops and forward-reverse (AKA ping-pong) loops.
 - Add `--video-stabilization-dynamic-zoom` option.
 - Improve time-variable speed filter smoothness and accuracy.
@@ -289,7 +539,6 @@ v3.6.0 `[2019.08.03]`:
 v3.5.2:
 
 - Use with `v0.0.83` or higher of the markup script.
-  - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
 - Fix speed map filter being improperly calculated and producing unsmooth video.
   - Changed default speed map rounding to 0 (disabled) as it now produces smoother results than rounding.
 - Fix audio sync issues.
@@ -299,7 +548,6 @@ v3.5.2:
 v3.5.1:
 
 - Use with `v0.0.82` or higher of the markup script.
-  - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
 - Fix compatibility with latest markers json format (`v0.0.81`)
 - Fix backwards compatibility with older markers json formats.
 - Fix potential input videos including `.part` files and other multi-extension file names.
@@ -313,7 +561,6 @@ v3.5.1:
 v3.5.0:
 
 - Use with `v0.0.81` or higher of the markup script.
-  - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
 - Add support for time-variable speed.
 - Add new `clipper script` flags and `bat/app` scripts for accessing new functions.
   - Add local previewing of markers (using ffplay) with `--preview/-p`, `yt_clipper_preview` .bat or .app file.

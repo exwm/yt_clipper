@@ -2,16 +2,44 @@
 
 ## Notices
 
-- Windows users on `v3.6.0` or higher of the `clipper script` getting ffmpeg crashes may want to try the following:
+- If the mainline (non-beta) release is out of date and has old dependencies (when using the clipper installation), you can check if there is a newer beta release. All releases can be found here:
+https://mega.nz/#F!4HYDAKDS!NqS5Nk9heN7QBxvQapudeg.
+  - When using a beta release use the shortcuts reference table in the markup script and the `yt_clipper_options` helper script or `-h` help flag for a review of any usage changes.
+
+- Windows users on `v3.6.0` or higher of the `clipper script` installation getting ffmpeg crashes may want to try the following:
   - Update visual c++ redistributables:
     - For 64-bit Windows: <https://aka.ms/vs/16/release/vc_redist.x64.exe>
     - For other Windows versions and older redistributables check this page: <https://support.microsoft.com/help/2977003/the-latest-supported-visual-c-downloads>.
-  - Switch to static ffmpeg build: <https://ffmpeg.zeranoe.com/builds/win64/static/ffmpeg-4.2.1-win64-static.zip>
+  - Switch to static ffmpeg build: <https://ffmpeg.zeranoe.com/builds/win64/static/ffmpeg-4.2.3-win64-static.zip>
     - Replace contents of `yt_clipper_win_3.x.x/bin` with the contents of the `bin` folder in the ffmpeg zip.
 
 ## Quick Start
 
 Visit [this quickstart guide](https://github.com/exwm/yt_clipper/blob/master/quickstart.md) to get up and running with `yt_clipper`.
+
+The contents of the quickstart guide are included here for convenience:
+
+1) First install a user script extension (preferably Tampermonkey) for your browser (preferably chrome).
+   - See [this article](https://openuserjs.org/about/Userscript-Beginners-HOWTO) for more information.
+2) Next install the `markup script` component of `yt_clipper` by clicking [here](https://openuserjs.org/install/elwm/yt_clipper.user.js).
+3) Install the standalone `clipper script` component of `yt_clipper` by visiting [this section](https://openuserjs.org/scripts/elwm/yt_clipper#clipper-script-installation).
+   - Alternatively download the python source [here](https://github.com/exwm/yt_clipper/blob/master/src/clipper/yt_clipper.py) and see [this section](https://openuserjs.org/scripts/elwm/yt_clipper#clipper-script-usage) for usage instructions.
+4) Visit a YouTube video page. Check that the `markup script` is [active on the page](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_active_on_page.png). Refresh the page if it is not active.
+5) Press **Alt+Shift+A** to activate the `markup script` and its hotkeys. You should see a [flash message](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_hotkeys_activated.png) below the video.
+   - Use the various hotkeys to add marker pairs and edit settings to specify how to clip the video.
+     - **A** to add markers, **Z** to undo markers, **Shift+Mouseover** a yellow end marker to open [its settings editor](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_marker_pair_editor.png).
+     - **W** to open global settings editor, **Shift+W** to toggle additional settings.
+   - Click the [shortcuts reference toggle](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_shortcuts_table.png) in the video player bar for an overview of all shortcuts.
+   - Hover over an option in a settings editor to see a [tooltip](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_tooltip.png) describing the option.
+6) Use the **S** key to save markers data in `.json` format.
+7) Generate webms using the saved markers data and the `clipper script`.
+   - **Windows:** Drag and drop the saved markers data onto the `yt_clipper_auto.bat`.
+   - **Mac:** Launch the `yt_clipper_auto.sh` program, drag and drop the saved markers data onto the terminal, and hit **Enter**.
+   - Find generated webms in `yt_clipper/webms/title-suffix` folder where `title-suffix` is the file name stem of the markers data file.
+   - See [this section](https://openuserjs.org/scripts/elwm/yt_clipper#additional-helper-scripts) for details on the other helper scripts available.
+8) See the [full instructions](https://openuserjs.org/scripts/elwm/yt_clipper) for more detail and advanced usage as well as changelogs.
+9) Check the [changelogs](https://openuserjs.org/scripts/elwm/yt_clipper#markup-script-changelog) for updates as there is not yet an automated mechanism.
+10) Join the [`yt_clipper` discord server](https://discord.gg/5RVGNCU) if you want further help or want to contribute.
 
 ## Browser Support
 
@@ -27,7 +55,7 @@ Visit [this quickstart guide](https://github.com/exwm/yt_clipper/blob/master/qui
 
 ## Table of Contents
 
-- [yt_clipper](#ytclipper)
+- [yt_clipper](#yt_clipper)
   - [Notices](#notices)
   - [Quick Start](#quick-start)
   - [Browser Support](#browser-support)
@@ -57,7 +85,7 @@ Visit [this quickstart guide](https://github.com/exwm/yt_clipper/blob/master/qui
   - [Clipper Script Installation](#clipper-script-installation)
     - [Additional Helper Scripts](#additional-helper-scripts)
       - [Windows Merge Helper Bat Script](#windows-merge-helper-bat-script)
-  - [Older Releases](#older-releases)
+  - [All Releases](#all-releases)
   - [Clipper Script Dependencies](#clipper-script-dependencies)
   - [Full Changelog](#full-changelog)
   - [Markup Script Changelog](#markup-script-changelog)
@@ -364,9 +392,9 @@ See <https://ffmpeg.org/ffplay.html#While-playing>.
 There is an installation that does not require the dependencies below.
 
 1. Extract the appropriate zip file anywhere:
-   - On _Windows_ download this [zip file (win_v3.6.2)](https://mega.nz/#!FT5gFIAS!WQEUzTLkL0v3ZwsQtZl7OfTZ0ZoJwhw-QaqGSwVLv_8)
-   - On _Mac_ download this [zip file (mac_v3.6.2)](https://mega.nz/#!ULxCnSRJ!cryPtlHFw0bXJszWGYmyWM7CMm9tPsPhumVurjfsbOs)
-   - The latest install (`v3.6.2`) is only compatible with `v0.0.75` or higher of the `markup script`
+   - On _Windows_ download this [zip file (win_v3.6.3)](https://mega.nz/file/JORHTK5b#JUeLNxpDp_-SeoO0Xo4dddmTIv_hoCvxNYNwvvoTdPU)
+   - On _Mac_ download this [zip file (mac_v3.6.3)](https://mega.nz/file/sSoxmTgI#rpi2g1MqwyUavgpjDeEDWazYhbfqyraLhkpwgVVYMQw)
+   - The latest install (`v3.6.3`) is only compatible with `v0.0.75` or higher of the `markup script`
 2. Simply drag and drop the markers .json file onto the `yt_clipper_auto.bat` file on Windows or at the terminal prompt after executing `yt_clipper_auto` on Mac.
 3. Use `Ctrl+C` if you need to cancel the process.
 4. All generated webm clips will be placed in `./webms/<markers-json-filename>`.
@@ -433,23 +461,24 @@ The `yt_clipper_merge.bat` can be used to merge any webm files in any order:
 - The output file will be `-merged` appended to the first input file.
 - Check the `merge.txt` file to confirm the correct videos were merged in the correct order.
 
-## Older Releases
+## All Releases
 
-You can find old releases in this folder: <https://mega.nz/#F!4HYDAKDS!NqS5Nk9heN7QBxvQapudeg>.
+You can find all releases including beta and alpha releases in this folder: <https://mega.nz/#F!4HYDAKDS!NqS5Nk9heN7QBxvQapudeg>.
 
 ## Clipper Script Dependencies
 
-These dependencies are not required by the windows installation above.
+These dependencies must be manually installed when not using the clipper script installation:
 
 - ffmpeg must be in your path for the python script (<https://www.ffmpeg.org>).
-- `--url` and `--json` require youtube-dl as a python package
+- `--markers-json`/`-j` require youtube-dl as a python package
   - `pip install youtube-dl`
 - `--gfycat` requires urllib3
   - `pip install urllib3`
 
 ## Full Changelog
 
-See <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
+For a complete changelog, including beta and alpha releases,
+see <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
 
 ## Markup Script Changelog
 
@@ -464,8 +493,7 @@ v0.0.89 `[2019.10.25]`:
 
 v0.0.88 `[2019.08.31]`:
 
-- <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
-- Use with `v3.6.0` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+- Use with `v3.6.0` of the `clipper script` installation.
 - Add marker move undo (**Alt+Z**) and redo (**Shift+Alt+Z**).
 - Add **Alt+Shift+Mousewheel** for moving selected start/end marker by a frame per tick.
   - When performed on the left half of the window moves start marker and on the right half the end marker.
@@ -484,64 +512,22 @@ v0.0.88 `[2019.08.31]`:
 - Fix fade preview not disabling when set to none in marker pair overrides and set to fade in global settings.
 - Move marker pair delete shortcut from **Alt+Z** -> **Ctrl+Alt+Shift+Z**.
 
-v0.0.87 `[2019.08.25]`:
-
-- Use with `v3.6.0` of the `clipper script` installation.
-- Redesign user interface.
-  - Improve visual clarity of markers and marker numberings.
-  - Add accent colors to quickly differentiate marker pair (orange) and global (red) settings editors.
-  - Add accent colors to modified settings.
-    - Modified global settings accented red.
-    - Modified marker pair settings accented orange.
-    - Marker pair settings redundant with a global setting accented red.
-- Add reordering/renumbering marker pairs using the input box displayed in the marker pair settings panel.
-- Add tooltips for marker pair and global settings.
-- Change extra settings toggle (Shift+W) to a global setting for easier use.
-- Fix being able to add speed points outside speed chart bounds.
-- Fix title suffix being undefined if left blank.
-- Fix deleting marker pairs not deleting associated numberings.
-- Fix fade loop preview not working when loop set to fade globally only.
-
-v0.0.86 `[2019.08.03]`:
-
-- Use with `v3.6.0` of the `clipper script` installation.
-- Add special loops: Fade loops and forward-reverse (AKA ping-pong) loops.
-  - Note special loops are not compatible with audio.
-  - Add fade loop previewing.
-- Add shortcut to toggle all previews (**Ctrl+Alt+Shift+C**).
-- Add auto-hiding unselected marker pairs toggle (**Ctrl+Down**).
-- Add better video stabilization preset strength scaling.
-- Add new _Strongest_ level to video stabilization presets.
-- Add video stabilization dynamic zoom option.
-- Add marker pair numberings in user interface.
-- Remove speed map rounding option as it is no longer relevant.
-- Fix first and last points of time-variable speed chart not being protected from deletion.
-- Improve visual clarity of time-variable speed chart.
-- Fix output duration estimation for marker pairs with time-variable speed.
-- Swapped previewing shortcuts base key and speed chart base key:
-  - Previewing: **C** -> **D**.
-  - Speed Chart: **D** -> **C**.
-
-v0.0.85:
-
-- Use with `v3.5.2` of the `clipper script` installation.
-- Move mouse-based crop resize and move from **Shift+Click+Drag** to **Ctrl+Click+Drag**.
-  - Fixes mouse-based crop shortcuts interfering with marker pair select shortcuts.
-- Fix drawing new crop can select text on page.
-- Fix editing new marker default crop and updating all marker pair crops.
-- Fix updating all marker pair speeds to new marker default crop when the global settings editor is open.
-- Fix speed chart visibility not saved when switching marker pair editors.
-
 ## Clipper Script (Installation) Changelog
 
-v3.6.2 `[2020.01.23]`:
+v3.6.3 `[2020.06.21]`:
 
 - See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
 - Use with `v0.0.89` or higher of the markup script.
   - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
+- Update youtube-dl dependency to [`2020.06.16.1`](https://github.com/ytdl-org/youtube-dl/releases/tag/2020.06.16.1) to fix extractor errors when trying to download YouTube videos.
+- Disable youtube-dl caching to avoid http 403 errors from stale signatures.
+- Update ffmpeg dependency to latest mainline version (`4.2.3`).
+
+v3.6.2 `[2020.01.23]`:
+
+- Use with `v0.0.89` or higher of the markup script.
 - Update youtube-dl dependency to [`2020.01.24`](https://github.com/ytdl-org/youtube-dl/releases/tag/2019.01.24) to fix extractor errors when trying to download YouTube videos.
 - Update ffmpeg dependency to latest nightly version (`20200121-fc6fde2`) which includes an update to libvpx-vp9 (`1.8.2`).
-
 
 v3.6.1 `[2019.10.25]`:
 
@@ -566,28 +552,3 @@ v3.6.0 `[2019.08.03]`:
 - Update ffmpeg dependency to latest nightly (`20190802`).
 - Reduce installation size by ~60% by switching to shared lib version of ffmpeg dependency.
 - Update youtube-dl dependency to [`2019.08.02`](https://github.com/ytdl-org/youtube-dl/releases/tag/2019.08.02).
-
-v3.5.2:
-
-- See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
-- Use with `v0.0.83` or higher of the markup script.
-  - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
-- Fix speed map filter being improperly calculated and producing unsmooth video.
-  - Changed default speed map rounding to 0 (disabled) as it now produces smoother results than rounding.
-- Fix audio sync issues.
-- Fix audio not disabled in preview mode when streaming (caused preview to crash as this is not supported).
-- Update youtube-dl dependency to [`2019.06.27`](https://github.com/ytdl-org/youtube-dl/releases/tag/2019.06.27).
-
-v3.5.1:
-
-- Use with `v0.0.82` or higher of the markup script.
-  - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
-- Fix compatibility with latest markers json format (`v0.0.81`)
-- Fix backwards compatibility with older markers json formats.
-- Fix potential input videos including `.part` files and other multi-extension file names.
-- Mac: Switched `clipper script` installation from `.app`-based system to executable `bash script` system.
-  - Fixes translocation issues with Mac.
-  - Use by double-clicking or otherwise executing one of the executable `bash scripts`.
-  - At the prompt type or drag and drop `json` data files and then hit enter.
-  - Now processes multiple marker `json` data files sequentially and from any location.
-  - See [Additional Helper Scripts](#additional-helper-scripts) for more info.
