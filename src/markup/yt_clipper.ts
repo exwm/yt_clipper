@@ -4465,6 +4465,7 @@ export function triggerCropChartLoop() {
 
       highlightSelectedMarkerPair(targetMarker);
       enableMarkerHotkeys(targetMarker);
+      // creating editor sets isSettingsEditorOpen to true
       createMarkerPairEditor(targetMarker);
       addCropInputHotkeys();
       loadChartData(speedChartInput);
