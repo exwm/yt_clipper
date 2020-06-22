@@ -1477,11 +1477,22 @@ def makeMergedClips(settings):
                         raise BadMergeInput
                 if 'fileName' in markerPair and 'filePath' in markerPair:
                     if Path(markerPair["filePath"]).is_file():
-                        inputs += f'''file '{settings["markerPairs"][i-1]["fileName"]}'\n'''
+                        inputs += f'''file '{markerPair["fileName"]}'\n'''
                     else:
                         raise MissingMergeInput
                 else:
                     raise MissingMarkerPairFilePath
+
+            titlePrefixesConsistent = True
+            titlePrefixes = [p["overrides"].get("titlePrefix", "") for p in settings["markerPairs"]]
+            mergeTitlePrefix = titlePrefixes[mergeList[0] - 1]
+            if len(mergeList) > 1:
+                for l, r in zip(mergeList[:-1], mergeList[1:]):
+                    lPrefix = titlePrefixes[l - 1]
+                    rPrefix = titlePrefixes[r - 1]
+                    if lPrefix != rPrefix or lPrefix == '' or rPrefix == '':
+                        titlePrefixesConsistent = False
+
         except IndexError:
             logger.error(
                 f'Aborting generation of webm with merge list {mergeList}.')
@@ -1503,7 +1514,12 @@ def makeMergedClips(settings):
         inputsTxtPath = f'{webmsPath}/inputs.txt'
         with open(inputsTxtPath, "w+", encoding='utf-8') as inputsTxt:
             inputsTxt.write(inputs)
-        mergedFileName = f'{settings["titleSuffix"]}-({merge}).webm'
+
+        if titlePrefixesConsistent:
+            mergedFileName = f'{mergeTitlePrefix}-{settings["titleSuffix"]}-({merge}).webm'
+        else:
+            mergedFileName = f'{settings["titleSuffix"]}-({merge}).webm'
+
         mergedFilePath = f'{webmsPath}/{mergedFileName}'
         ffmpegConcatFlags = '-n -hide_banner -f concat -safe 0'
         ffmpegConcatCmd = f' "{ffmpegPath}" {ffmpegConcatFlags}  -i "{inputsTxtPath}" -c copy "{mergedFilePath}"'
