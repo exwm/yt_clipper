@@ -1388,6 +1388,7 @@ def getMaxSizeCrop(cropMap):
 
 
 def getEasingExpression(easingFunc, easeA, easeB, easeP):
+    easeP = f'(clip({easeP},0,1))'
     easeT = f'(2*{easeP})'
     easeM = f'({easeP}-1)'
 
