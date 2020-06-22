@@ -673,6 +673,14 @@ def getMarkerPairSettings(settings, markerPairIndex):
     mp["end"] = mp["end"] + mps["delay"]
     mp["duration"] = mp["end"] - mp["start"]
 
+    if mps["delay"] != 0:
+        if "speedMap" in mp:
+            for point in mp["speedMap"]:
+                point["x"] += mps["delay"]
+        if "cropMap" in mp:
+            for point in mp["cropMap"]:
+                point["x"] += mps["delay"]
+
     mp["isVariableSpeed"] = False
     if mps["enableSpeedMaps"] and "speedMap" in mp:
         for left, right in zip(mp["speedMap"][:-1], mp["speedMap"][1:]):
