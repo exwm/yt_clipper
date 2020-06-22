@@ -1004,14 +1004,9 @@ export function triggerCropChartLoop() {
           ] as CropPoint;
           cropPoint.crop = prevCropPoint.crop;
         }
-        updateCropString(cropPoint.crop);
-        if (
-          isCurrentChartVisible &&
-          currentChartInput.type === 'crop' &&
-          oldCropPointCrop === cropPoint.crop
-        ) {
-          currentChartInput?.chart?.update();
-        }
+        oldCropPointCrop !== cropPoint.crop
+          ? forceUpdateCropString(cropPoint.crop, true)
+          : forceUpdateCropString(cropPoint.crop);
       }
     }
 
@@ -3517,7 +3512,30 @@ export function triggerCropChartLoop() {
       }
     }
 
-    function updateCropString(cropString) {
+    function forceUpdateCropString(cropString: string, shouldUpdateCropChart = false) {
+      const [nx, ny, nw, nh] = getCropComponents(cropString);
+      if (isSettingsEditorOpen) {
+        if (!wasGlobalSettingsEditorOpen) {
+          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+          const cropMap = markerPair.cropMap;
+          cropMap[currentCropPointIndex].crop = cropString;
+          if (currentCropPointIndex === 0) markerPair.crop = cropString;
+        } else {
+          settings.newMarkerCrop = cropString;
+        }
+        cropInput.value = cropString;
+        [cropRect, cropRectBorderBlack, cropRectBorderWhite].map((cropRect) =>
+          setCropOverlayDimensions(cropRect, nx, ny, nw, nh)
+        );
+        const cropAspectRatio = (nw / nh).toFixed(13);
+        cropAspectRatioSpan && (cropAspectRatioSpan.textContent = cropAspectRatio);
+        if (shouldUpdateCropChart) updateCropChart();
+      } else {
+        throw new Error('No editor was open when trying to update crop.');
+      }
+    }
+
+    function updateCropString(cropString: string) {
       const [x, y, w, h] = getCropComponents(cropString);
       updateCrop(x, y, w, h);
     }
