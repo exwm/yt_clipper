@@ -1870,6 +1870,11 @@ export function triggerCropChartLoop() {
         // copy markersJson to settings object less markerPairs field
         const { markerPairs: _markerPairs, ...loadedSettings } = markersJson;
 
+        delete loadedSettings.videoID;
+        delete loadedSettings.videoTitle;
+        delete loadedSettings.isVerticalVideo;
+        delete loadedSettings.version;
+
         settings = { ...settings, ...loadedSettings };
         markersJson.markerPairs.forEach((markerPair: MarkerPair) => {
           const startMarkerConfig: MarkerConfig = {
@@ -1900,7 +1905,6 @@ export function triggerCropChartLoop() {
 
       flashMessage('Loading markers...', 'green');
 
-      settings = { ...settings };
       markersJson.markerPairs = markersJson.markerPairs.flat(1);
       for (let i = 0; i < markersJson.markerPairs.length; i = i + 4) {
         console.log(markerPairs);
