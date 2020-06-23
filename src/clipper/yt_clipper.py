@@ -1082,6 +1082,8 @@ def getMaxSpeed(speedMap):
 
 def getSubsFilter(mp, mps, markerPairIndex):
     import webvtt
+    subsPath = f'{webmsPath}/subs'
+    os.makedirs(subsPath, exist_ok=True)
     vtt = webvtt.read(mps["subsFilePath"])
     sub_start = mp["start"]
     sub_end = mp["end"]
