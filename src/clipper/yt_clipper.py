@@ -39,7 +39,7 @@ ffplayPath = 'ffplay'
 webmsPath = './webms'
 logger = None
 
-if getattr(sys, 'frozen', False):
+if True:
     ffmpegPath = './bin/ffmpeg'
     ffprobePath = './bin/ffprobe'
     ffplayPath = './bin/ffplay'
@@ -573,6 +573,20 @@ def prepareGlobalSettings(settings):
         else:
             logger.success(f'Found subtitles file at "{settings["subsFilePath"]}"')
 
+    subsPath = f'{webmsPath}/subs'
+    os.makedirs(subsPath, exist_ok=True)
+    subs_ext = Path(settings["subsFilePath"]).suffix
+    if subs_ext not in ['.vtt', '.sbv', '.srt']:
+        logger.error(f'Uknown subtitle file extension {subs_ext}.')
+        logger.notice('Only .vtt, .sbv, and .srt subtitles are supported for now.')
+        skipSubs = input('Would you like to continue without subtitles? (y/n): ')
+        if skipSubs == 'yes' or skipSubs == 'y':
+            logger.notice('Continuing without subtitles.')
+            settings["subsFilePath"] = ''
+        else:
+            logger.error('Exiting...')
+            sys.exit(1)
+
     if settings["inputVideo"]:
         settings = getVideoInfo(settings, {})
     else:
@@ -907,8 +921,8 @@ def makeMarkerPairClip(settings, markerPairIndex):
             0.1, min(mps["fadeDuration"], 0.4 * mp["outputDuration"]))
 
         easeP = f'(T/{fadeDur})'
-        alphaEaseOut = getEasingExpression('easeInOutCubic', '1', '0.02', easeP)
-        alphaEaseIn = getEasingExpression('easeInOutCubic', '0', '0.98', easeP)
+        alphaEaseOut = getEasingExpression('linear', '1', '0', easeP)
+        alphaEaseIn = getEasingExpression('linear', '0', '1', easeP)
 
         loop_filter = ''
         loop_filter += f''',select='if(lte(t,{fadeDur}),1,2)':n=2[fia][mfia];'''
@@ -1082,8 +1096,7 @@ def getMaxSpeed(speedMap):
 
 def getSubsFilter(mp, mps, markerPairIndex):
     import webvtt
-    subsPath = f'{webmsPath}/subs'
-    os.makedirs(subsPath, exist_ok=True)
+
     subs_ext = Path(mps["subsFilePath"]).suffix
     if subs_ext == '.vtt':
         vtt = webvtt.read(mps["subsFilePath"])
@@ -1094,12 +1107,7 @@ def getSubsFilter(mp, mps, markerPairIndex):
     else:
         logger.error(f'Uknown subtitle file extension {subs_ext}.')
         logger.notice('Only .vtt, .sbv, and .srt are supported for now.')
-        skipSubs = input('Would you like to continue without subtitles? (y/n): ')
-        if skipSubs == 'yes' or skipSubs == 'y':
-            return ''
-        else:
-            logger.error('Exiting...')
-            sys.exit(1)
+        sys.exit(1)
 
     subsStart = mp["start"]
     subsEnd = mp["end"]
@@ -1359,7 +1367,7 @@ def getZoomPanFilter(cropMap, mps, fps, easeType='easeInOutSine'):
         panEaseBottom = f'max({panEaseBottom}-{maxHeight}, 0)'
 
         # zoompan's time variable is time instead of t
-        t = f'time'
+        t = f'in_time'
         easeP = f'(({t}-{startTime})/{sectDuration})'
         easeZoom = getEasingExpression(currEaseType, f'({startZoom})', f'({endZoom})', easeP)
         easeX = getEasingExpression(currEaseType, f'({scale}*{startX})', f'({scale}*{endX})', easeP)
