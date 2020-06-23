@@ -212,8 +212,7 @@ v0.0.85:
 
 v0.0.84
 
-- <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
-- Use with `v3.5.2` of the `clipper script` installation. See [Clipper Script Installation](#clipper-script-installation).
+- Use with `v3.5.2` of the `clipper script` installation.
 - Improve crop preview visibility.
 - Add **Ctrl+X** for cycling crop dim opacity by +0.25.
 - Improve crop drawing experience.
@@ -384,7 +383,7 @@ v0.0.71:
 
 ## Clipper Script (Installation) Changelog
 
-v3.7.0-beta.3.9.0-alpha.7 `[2020.06.22]`
+v3.7.0-beta.3.9.0-alpha.7 `[2020.06.22]`:
 
 - Add support for `.sbv` and `.srt` subtitle files.
 - Fix crash when writing clipped subtitles files because of missing `subs` directory.
