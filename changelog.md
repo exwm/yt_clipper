@@ -2,6 +2,15 @@
 
 ## Markup Script Changelog
 
+v0.0.90-beta.3.9.0-alpha.7 `[2020.06.22]`:
+
+- Add locking last crop point's crop to second last's crop when they are initially the same and modifying second last point. Modifying the last point will always break the lock.
+  - This should simplify the common workflows of creating dynamic crops.
+- Force update crop string when inhering crop point crops (**Ctrl+Alt+Shift+Mousewheel**) and ignore constraints.
+- Fix switching settings editors not opening new editor when currently selected crop point was not the first point.
+- Fix overwriting some video properties in settings when loading markers.
+  - This is useful when loading markers from a different video.
+
 v0.0.90-beta.3.9.0-alpha.6 `[2020.06.20]`:
 
 - Add **Alt+F** to open the YouTube subtitles editor in a new tab. This allows creating, downloading, and uploading subtitle files. Note that some videos have this feature disabled.
@@ -374,6 +383,14 @@ v0.0.71:
 - Add target max bitrate option for constrained quality mode using `-b <bitrate>` where bitrate is in kb/s.
 
 ## Clipper Script (Installation) Changelog
+
+v3.7.0-beta.3.9.0-alpha.7 `[2020.06.22]`
+
+- Add support for `.sbv` and `.srt` subtitle files.
+- Fix crash when writing clipped subtitles files because of missing `subs` directory.
+- Fix `--delay` for shifting marker timings not being applied to speed map and crop map.
+- Tweak automatic encode settings.
+- Increase ffprobe retry delay from 1 to 2 seconds.
 
 v3.6.3 `[2020.06.21]`:
 
