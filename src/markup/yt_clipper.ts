@@ -3540,6 +3540,12 @@ export function triggerCropChartLoop() {
       updateCrop(x, y, w, h);
     }
 
+    function cropStringsEqual(a: string, b: string): boolean {
+      const [ax, ay, aw, ah] = getCropComponents(a);
+      const [bx, by, bw, bh] = getCropComponents(b);
+      return ax === bx && ay === by && aw === bw && ah === bh;
+    }
+
     function updateCrop(
       nx: number,
       ny: number,
@@ -3585,23 +3591,31 @@ export function triggerCropChartLoop() {
           const cropMap = markerPair.cropMap;
           if (currentCropPointIndex === 0 && isStaticCrop(cropMap)) {
             cropMap[1].crop = newCropString;
-          } else if (isCropChartPanOnly) {
-            const deltas = isDrag ? null : { dx, dy, dw, dh };
-            if (deltas) {
-              cropMap.forEach((cropPoint, idx) => {
-                if (idx === currentCropPointIndex) return;
-                let [ix, iy, iw, ih] = getCropComponents(cropPoint.initCrop);
-                if (!optArgs.resizeOnly) {
-                  ix += deltas.dx;
-                  iy += deltas.dy;
-                }
-                iw += deltas.dw;
-                ih += deltas.dh;
-                cropPoint.crop = [ix, iy, iw, ih].join(':');
-                if (idx === 0) markerPair.crop = cropPoint.crop;
-              });
-            }
           } else {
+            const maxIndex = cropMap.length - 1;
+            if (currentCropPointIndex === maxIndex - 1 && !isStaticCrop(cropMap)) {
+              if (cropStringsEqual(cropMap[maxIndex].crop, cropMap[maxIndex - 1].crop)) {
+                cropMap[maxIndex].crop = newCropString;
+              }
+            }
+            if (isCropChartPanOnly) {
+              const deltas = isDrag ? null : { dx, dy, dw, dh };
+              if (deltas) {
+                cropMap.forEach((cropPoint, idx) => {
+                  if (idx === currentCropPointIndex) return;
+                  let [ix, iy, iw, ih] = getCropComponents(cropPoint.initCrop);
+                  if (!optArgs.resizeOnly) {
+                    ix += deltas.dx;
+                    iy += deltas.dy;
+                  }
+                  iw += deltas.dw;
+                  ih += deltas.dh;
+                  cropPoint.crop = [ix, iy, iw, ih].join(':');
+                  if (idx === 0) markerPair.crop = cropPoint.crop;
+                });
+              }
+            } else {
+            }
           }
 
           cropMap[currentCropPointIndex].crop = newCropString;
