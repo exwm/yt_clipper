@@ -1,7 +1,7 @@
 // ==UserScript==
 // @locale       english
 // @name         yt_clipper
-// @version      0.0.90-beta.3.9.0-alpha.6
+// @version      0.0.90-beta.3.9.0-alpha.7
 // @description  Mark up YouTube videos and quickly generate clipped webms.
 // @author       elwm
 // @namespace    https://github.com/exwm
@@ -24,7 +24,7 @@
 // @grant        none
 // ==/UserScript==
 
-const __version__ = '0.0.90-beta.3.9.0-alpha.6';
+const __version__ = '0.0.90-beta.3.9.0-alpha.7';
 
 import { Chart, ChartConfiguration } from 'chart.js';
 import { html } from 'common-tags';

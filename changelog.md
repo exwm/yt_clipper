@@ -11,7 +11,7 @@ v0.0.90-beta.3.9.0-alpha.7 `[2020.06.22]`:
 - Fix overwriting some video properties in settings when loading markers.
   - This is useful when loading markers from a different video.
 
-v0.0.90-beta.3.9.0-alpha.6 `[2020.06.20]`:
+v0.0.90-beta.3.9.0-alpha.7 `[2020.06.20]`:
 
 - Add **Alt+F** to open the YouTube subtitles editor in a new tab. This allows creating, downloading, and uploading subtitle files. Note that some videos have this feature disabled.
 - Update shortcuts reference table with recently added and changed shortcuts.
