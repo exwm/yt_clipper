@@ -814,8 +814,8 @@ def makeMarkerPairClip(settings, markerPairIndex):
     else:
         inputs += f' -ss {mp["start"]} -i "{mps["videoURL"]}" '
 
-    qmax = max(min(mps["crf"] + 10, 63), 30)
-    qmin = min(mps["crf"], 10)
+    qmax = max(min(mps["crf"] + 15, 63), 35)
+    qmin = min(mps["crf"], 15)
 
     if mps["minterpFPS"] is not None:
         fps_arg = f'-r {mps["minterpFPS"]}'
@@ -832,7 +832,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
         # f'-loglevel 56',
         f'-c:v libvpx-vp9' if not mps["vp8"] else f'-c:v libvpx',
         f'-c:a libopus -b:a 128k' if not mps["vp8"] else f'-c:a libvorbis -q:a 10',
-        f'-pix_fmt yuv420p -slices 8 -nr 4',
+        f'-pix_fmt yuv420p -slices 8',
         f'-aq-mode 4 -row-mt 1 -tile-columns 6 -tile-rows 2' if not mps["vp8"] else '',
         f'-qmin {qmin} -crf {mps["crf"]} -qmax {qmax} -b:v {mps["targetMaxBitrate"]}k',
         f'-force_key_frames 1 -g {mp["averageSpeed"] * Fraction(mps["r_frame_rate"])}',
@@ -1738,13 +1738,13 @@ def getDefaultEncodeSettings(videobr):
         encodeSettings = {'crf': 30, 'autoTargetMaxBitrate': int(
             1.1 * videobr), 'encodeSpeed': 5, 'twoPass': False}
     elif videobr <= 18000:
-        encodeSettings = {'crf': 32, 'autoTargetMaxBitrate': int(
+        encodeSettings = {'crf': 30, 'autoTargetMaxBitrate': int(
             1.0 * videobr), 'encodeSpeed': 5, 'twoPass': False}
     elif videobr <= 25000:
-        encodeSettings = {'crf': 34, 'autoTargetMaxBitrate': int(
+        encodeSettings = {'crf': 32, 'autoTargetMaxBitrate': int(
             0.9 * videobr), 'encodeSpeed': 5, 'twoPass': False}
     else:
-        encodeSettings = {'crf': 36, 'autoTargetMaxBitrate': int(
+        encodeSettings = {'crf': 34, 'autoTargetMaxBitrate': int(
             0.8 * videobr), 'encodeSpeed': 5, 'twoPass': False}
     return encodeSettings
 
