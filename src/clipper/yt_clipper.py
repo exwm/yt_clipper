@@ -1608,7 +1608,7 @@ def ffprobeVideoProperties(video):
             logger.warning(f'Could not fetch video properties with ffprobe')
             logger.warning(f'{cpe}')
             if ffprobeRetries > 0:
-                time.sleep(1)
+                time.sleep(2)
                 logger.info(f'Trying {ffprobeRetries} more time(s) to fetch video properties with ffprobe')
 
     if ffprobeRetries == 0:
