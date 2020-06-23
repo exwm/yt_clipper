@@ -855,7 +855,7 @@ def makeMarkerPairClip(settings, markerPairIndex):
     video_filter += f',{mp["cropFilter"]}'
 
     if mps["subsFilePath"] != '':
-        video_filter += f',{getSubsFilter(mp, mps, markerPairIndex)}'
+        video_filter += getSubsFilter(mp, mps, markerPairIndex)
 
     if mps["preview"]:
         video_filter += f',scale=w=iw/2:h=ih/2'
@@ -1084,19 +1084,35 @@ def getSubsFilter(mp, mps, markerPairIndex):
     import webvtt
     subsPath = f'{webmsPath}/subs'
     os.makedirs(subsPath, exist_ok=True)
-    vtt = webvtt.read(mps["subsFilePath"])
-    sub_start = mp["start"]
-    sub_end = mp["end"]
+    subs_ext = Path(mps["subsFilePath"]).suffix
+    if subs_ext == '.vtt':
+        vtt = webvtt.read(mps["subsFilePath"])
+    elif subs_ext == '.sbv':
+        vtt = webvtt.from_sbv(mps["subsFilePath"])
+    elif subs_ext == '.srt':
+        vtt = webvtt.from_srt(mps["subsFilePath"])
+    else:
+        logger.error(f'Uknown subtitle file extension {subs_ext}.')
+        logger.notice('Only .vtt, .sbv, and .srt are supported for now.')
+        skipSubs = input('Would you like to continue without subtitles? (y/n): ')
+        if skipSubs == 'yes' or skipSubs == 'y':
+            return ''
+        else:
+            logger.error('Exiting...')
+            sys.exit(1)
+
+    subsStart = mp["start"]
+    subsEnd = mp["end"]
     vtt._captions = [c for c in vtt.captions
-                     if c.start_in_seconds < sub_end and c.end_in_seconds > sub_start]
+                     if c.start_in_seconds < subsEnd and c.end_in_seconds > subsStart]
     for i, caption in enumerate(vtt.captions):
         start = caption.start_in_seconds
         end = caption.end_in_seconds
-        caption.start = caption._to_timestamp(max(start - sub_start, 0))
-        caption.end = caption._to_timestamp(min(sub_end - sub_start, end - sub_start))
+        caption.start = caption._to_timestamp(max(start - subsStart, 0))
+        caption.end = caption._to_timestamp(min(subsEnd - subsStart, end - subsStart))
     tmp_subs_path = f'{webmsPath}/subs/{mps["titleSuffix"]}-{markerPairIndex+1}.vtt'
     vtt.save(tmp_subs_path)
-    subs_filter = f"""subtitles='{tmp_subs_path}':force_style='{mps["subsStyle"]}'"""
+    subs_filter = f""",subtitles='{tmp_subs_path}':force_style='{mps["subsStyle"]}'"""
 
     return subs_filter
 
