@@ -688,16 +688,12 @@ def getMarkerPairSettings(settings, markerPairIndex):
     mp["end"] = mp["end"] + mps["delay"]
     mp["duration"] = mp["end"] - mp["start"]
 
-    if mps["delay"] != 0:
-        if "speedMap" in mp:
-            for point in mp["speedMap"]:
-                point["x"] += mps["delay"]
-        if "cropMap" in mp:
-            for point in mp["cropMap"]:
-                point["x"] += mps["delay"]
-
     mp["isVariableSpeed"] = False
     if mps["enableSpeedMaps"] and "speedMap" in mp:
+        if mps["delay"] != 0:
+            for point in mp["speedMap"]:
+                point["x"] += mps["delay"]
+
         for left, right in zip(mp["speedMap"][:-1], mp["speedMap"][1:]):
             if left["y"] != right["y"]:
                 mp["isVariableSpeed"] = True
@@ -739,6 +735,10 @@ def getMarkerPairSettings(settings, markerPairIndex):
     mp["isPanningCrop"] = False
     mp["isZoomPanCrop"] = False
     if mps["enableCropMaps"] and "cropMap" in mp:
+        if mps["delay"] != 0:
+            for point in mp["cropMap"]:
+                point["x"] += mps["delay"]
+
         autoScaleCropMap(mp["cropMap"], settings)
         for left, right in zip(mp["cropMap"][:-1], mp["cropMap"][1:]):
             lcc = left["cropComponents"]
