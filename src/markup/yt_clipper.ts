@@ -1033,10 +1033,8 @@ export function triggerCropChartLoop() {
         newMarkerCrop: '0:0:iw:ih',
         titleSuffix: `[${playerInfo.playerData.video_id}]`,
         isVerticalVideo: playerInfo.isVerticalVideo,
-        cropRes: playerInfo.isVerticalVideo ? '1080x1920' : '1920x1080',
-        cropResWidth: playerInfo.isVerticalVideo ? 1080 : 1920,
-        cropResHeight: playerInfo.isVerticalVideo ? 1920 : 1080,
         markerPairMergeList: '',
+        ...getDefaultCropRes(),
       };
       markersDiv = document.createElement('div');
       markersDiv.setAttribute('id', 'markers-div');
@@ -1063,6 +1061,21 @@ export function triggerCropChartLoop() {
       startMarkerNumberings = markerNumberingsDiv.children[0] as SVGSVGElement;
       endMarkerNumberings = markerNumberingsDiv.children[1] as SVGSVGElement;
       playerInfo.fps = getFPS();
+    }
+
+    function getDefaultCropRes() {
+      const cropResWidth = playerInfo.isVerticalVideo
+        ? Math.round(1920 * playerInfo.aspectRatio)
+        : 1920;
+      const cropResHeight = playerInfo.isVerticalVideo
+        ? 1920
+        : Math.round(1920 / playerInfo.aspectRatio);
+      const cropRes = `${cropResWidth}x${cropResHeight}`;
+      return {
+        cropResWidth,
+        cropResHeight,
+        cropRes,
+      };
     }
 
     const adjustRotatedVideoPositionCSS = `\
@@ -2216,9 +2229,9 @@ export function triggerCropChartLoop() {
       const mergeListInputValidation = `^(${csvRange})(;${csvRangeReq})*$`;
       const gte100 = `([1-9]\\d{3}|[1-9]\\d{2})`;
       const cropResInputValidation = `${gte100}x${gte100}`;
-      const resList = playerInfo.isVerticalVideo
-        ? `<option value="1080x1920"><option value="2160x3840">`
-        : `<option value="1920x1080"><option value="3840x2160">`;
+      const { cropRes, cropResWidth, cropResHeight } = getDefaultCropRes();
+      const cropResX2 = `${cropResWidth * 2}x${cropResHeight * 2}`;
+      const resList = `<option value="${cropRes}"><option value="${cropResX2}">`;
       const minterpMode = settings.minterpMode;
       const minterpFPS = settings.minterpFPS;
       const denoise = settings.denoise;
