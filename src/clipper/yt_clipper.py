@@ -313,7 +313,17 @@ def buildArgParser():
                             'Currently ffmpeg_ytc is available only for windows.'
                         ))
     parser.add_argument('--delay', '-d', type=float, dest='delay', default=0,
-                        help='Add a fixed delay to both the start and end time of each marker. Can be negative.')
+                        help=(
+                            'Add a fixed delay to both the start and end time of each marker pair.'
+                            'This can be used to correct desync between the markup video and the input video.'
+                            'Can be negative.'
+                        ))
+    parser.add_argument('--audio-delay', '-ad', type=float, dest='audioDelay', default=0,
+                        help=(
+                            'Add a fixed delay to the start and end time of the audio of each marker pair.'
+                            'This can be used to correct audio desync present in the source video.'
+                            'Note that the audio delay is applied on top of the overall delay from `--delay`/`-d`.'
+                        ))
     parser.add_argument('--gamma', '-ga', type=float, dest='gamma', default=1,
                         help='Apply luminance gamma correction.'
                         'Pass in a value between 0 and 1 to brighten shadows and reveal darker details.')
@@ -798,18 +808,21 @@ def makeMarkerPairClip(settings, markerPairIndex):
 
     reconnectFlags = r'-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5'
     if mps["audio"]:
+        aStart = mp["start"] + mps["audioDelay"]
+        aEnd = mp["end"] + mps["audioDelay"]
+        aDuration = aEnd - aStart
         # ffplay previewing does not support multiple inputs
         # if an input video is provided, a dash xml is used, or previewing is on, there is only one input
         if not mps["inputVideo"] and not settings["isDashAudio"] and not settings["preview"]:
             inputs += reconnectFlags
-            inputs += f' -ss {mp["start"]} -to {mp["end"]} -i "{mps["audioURL"]}" '
+            inputs += f' -ss {aStart} -to {aEnd} -i "{mps["audioURL"]}" '
 
         # preview mode does not start each clip at time 0 unlike encoding mode
         if settings["preview"] and (settings["inputVideo"] or settings["isDashAudio"]):
-            audio_filter += f'atrim={mp["start"]}:{mp["end"]},atempo={mp["speed"]}'
+            audio_filter += f'atrim={aStart}:{aEnd},atempo={mp["speed"]}'
         # encoding mode starts each clip at time 0
         elif not settings["preview"]:
-            audio_filter += f'atrim=0:{mp["duration"]},atempo={mp["speed"]}'
+            audio_filter += f'atrim=0:{aDuration},atempo={mp["speed"]}'
             if mps["audioFade"] > 0:
                 af = mps["audioFade"]
                 audio_filter += f',afade=d={af},areverse,afade=d={af},areverse'
