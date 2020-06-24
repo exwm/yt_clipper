@@ -573,19 +573,20 @@ def prepareGlobalSettings(settings):
         else:
             logger.success(f'Found subtitles file at "{settings["subsFilePath"]}"')
 
-    subsPath = f'{webmsPath}/subs'
-    os.makedirs(subsPath, exist_ok=True)
-    subs_ext = Path(settings["subsFilePath"]).suffix
-    if subs_ext not in ['.vtt', '.sbv', '.srt']:
-        logger.error(f'Uknown subtitle file extension {subs_ext}.')
-        logger.notice('Only .vtt, .sbv, and .srt subtitles are supported for now.')
-        skipSubs = input('Would you like to continue without subtitles? (y/n): ')
-        if skipSubs == 'yes' or skipSubs == 'y':
-            logger.notice('Continuing without subtitles.')
-            settings["subsFilePath"] = ''
-        else:
-            logger.error('Exiting...')
-            sys.exit(1)
+    if settings["subsFilePath"] != '':
+        subsPath = f'{webmsPath}/subs'
+        os.makedirs(subsPath, exist_ok=True)
+        subs_ext = Path(settings["subsFilePath"]).suffix
+        if subs_ext not in ['.vtt', '.sbv', '.srt']:
+            logger.error(f'Uknown subtitle file extension {subs_ext}.')
+            logger.notice('Only .vtt, .sbv, and .srt subtitles are supported for now.')
+            skipSubs = input('Would you like to continue without subtitles? (y/n): ')
+            if skipSubs == 'yes' or skipSubs == 'y':
+                logger.notice('Continuing without subtitles.')
+                settings["subsFilePath"] = ''
+            else:
+                logger.error('Exiting...')
+                sys.exit(1)
 
     if settings["inputVideo"]:
         settings = getVideoInfo(settings, {})
