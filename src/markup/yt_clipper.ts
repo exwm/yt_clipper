@@ -3160,6 +3160,7 @@ export function triggerCropChartLoop() {
     let cropSvg: SVGSVGElement;
     let cropDim: SVGRectElement;
     let cropRect: Element;
+    let cropRectBorder: Element;
     let cropRectBorderBlack: Element;
     let cropRectBorderWhite: Element;
     let cropChartSectionStart: Element;
@@ -3202,13 +3203,14 @@ export function triggerCropChartLoop() {
             />
           </g>
 
-
-          <rect id="cropRectBorderBlack" x="0" y="0" width="100%" height="100%" fill="none" 
-            stroke="black" shape-rendering="geometricPrecision" stroke-width="1px" stroke-opacity="0.8"
-          />
-          <rect id="cropRectBorderWhite" x="0" y="0" width="100%" height="100%" fill="none" 
-          stroke="white" shape-rendering="geometricPrecision" stroke-width="1px" stroke-dasharray="5 5" stroke-opacity="0.8"
-          />
+          <g id="cropRectBorder" opacity="1">
+            <rect id="cropRectBorderBlack" x="0" y="0" width="100%" height="100%" fill="none" 
+              stroke="black" shape-rendering="geometricPrecision" stroke-width="1px" stroke-opacity="0.8"
+            />
+            <rect id="cropRectBorderWhite" x="0" y="0" width="100%" height="100%" fill="none" 
+            stroke="white" shape-rendering="geometricPrecision" stroke-width="1px" stroke-dasharray="5 5" stroke-opacity="0.8"
+            />
+          </g>
         </svg>
       `;
       resizeCropOverlay(cropDiv);
@@ -3217,6 +3219,7 @@ export function triggerCropChartLoop() {
       cropSvg = cropDiv.firstElementChild as SVGSVGElement;
       cropDim = document.getElementById('cropDim');
       cropRect = document.getElementById('cropRect') as Element;
+      cropRectBorder = document.getElementById('cropRectBorder') as Element;
       cropRectBorderBlack = document.getElementById('cropRectBorderBlack') as Element;
       cropRectBorderWhite = document.getElementById('cropRectBorderWhite') as Element;
 
@@ -4232,7 +4235,7 @@ export function triggerCropChartLoop() {
       requestAnimationFrame(cropChartPreviewHandler);
     }
 
-    const easeInstantIn = (nt) => (nt === 0 ? 0 : 1);
+    const easeInInstant = (nt) => (nt === 0 ? 0 : 1);
     function updateCropChartSectionOverlays(
       chartData: CropPoint[],
       currentTime: number,
@@ -4241,9 +4244,11 @@ export function triggerCropChartLoop() {
       if (isDynamicCrop || currentCropPointIndex > 0) {
         cropChartSectionStart.style.display = 'block';
         cropChartSectionEnd.style.display = 'block';
+        cropRectBorder.style.opacity = '0.6';
       } else {
         cropChartSectionStart.style.display = 'none';
         cropChartSectionEnd.style.display = 'none';
+        cropRectBorder.style.opacity = '1';
         return;
       }
 
@@ -4259,18 +4264,18 @@ export function triggerCropChartLoop() {
       );
 
       if (currentCropChartMode === cropChartMode.Start) {
-        cropChartSectionStart.setAttribute('opacity', '0.7');
-        cropChartSectionEnd.setAttribute('opacity', '0.4');
+        cropChartSectionStart.setAttribute('opacity', '0.8');
+        cropChartSectionEnd.setAttribute('opacity', '0.3');
       } else if (currentCropChartMode === cropChartMode.End) {
-        cropChartSectionStart.setAttribute('opacity', '0.4');
-        cropChartSectionEnd.setAttribute('opacity', '0.7');
+        cropChartSectionStart.setAttribute('opacity', '0.3');
+        cropChartSectionEnd.setAttribute('opacity', '0.8');
       }
 
       const [startX, startY, startW, startH] = getCropComponents(sectStart.crop);
       const [endX, endY, endW, endH] = getCropComponents(sectEnd.crop);
 
       const clampedTime = clampNumber(currentTime, sectStart.x, sectEnd.x);
-      const easingFunc = sectEnd.easeIn == 'instant' ? easeInstantIn : easeSinInOut;
+      const easingFunc = sectEnd.easeIn == 'instant' ? easeInInstant : easeSinInOut;
       const [easedX, easedY, easedW, easedH] = [
         [startX, endX],
         [startY, endY],
