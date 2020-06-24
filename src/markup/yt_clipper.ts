@@ -54,7 +54,11 @@ import {
   getCropChartConfig,
   setCurrentCropPoint,
 } from './components/chart/cropchart/cropChartSpec';
-import { scatterChartDefaults } from './components/chart/scatterChartSpec';
+import {
+  scatterChartDefaults,
+  addCropPoint,
+  addSpeedPoint,
+} from './components/chart/scatterChartSpec';
 import { speedChartSpec } from './components/chart/speedchart/speedChartSpec';
 import { Tooltips } from './tooltips';
 import {
@@ -142,6 +146,10 @@ export function triggerCropChartLoop() {
               e.preventDefault();
               e.stopImmediatePropagation();
               moveMarker(enableMarkerHotkeys.endMarker);
+            } else if (!e.ctrlKey && !e.shiftKey && e.altKey && markerHotkeysEnabled) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              addChartPoint();
             }
             break;
           case 'KeyS':
@@ -2144,6 +2152,16 @@ export function triggerCropChartLoop() {
         } else {
           markerPairsHistory.pop();
           addMarker({ ...markerPairToRestore, time: markerPairToRestore.end });
+        }
+      }
+    }
+
+    function addChartPoint() {
+      if (isChartEnabled && isCurrentChartVisible) {
+        if (currentChartInput.type == 'speed') {
+          addSpeedPoint.call(currentChartInput.chart, video.currentTime, 1);
+        } else if (currentChartInput.type == 'crop') {
+          addCropPoint.call(currentChartInput.chart, video.currentTime);
         }
       }
     }
