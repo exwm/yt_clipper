@@ -63,6 +63,74 @@ function alignDataLabel(context) {
   }
 }
 
+const updateSpeedInput = getInputUpdater('speed-input');
+
+export const addSpeedPoint = function (time, speed) {
+  // console.log(element, dataAtClick);
+
+  if (time && speed) {
+    const scatterChartBounds = getScatterChartBounds(this);
+    if (
+      time <= scatterChartBounds.XMinBound ||
+      time >= scatterChartBounds.XMaxBound ||
+      speed < scatterChartBounds.YMinBound ||
+      speed > scatterChartBounds.YMaxBound
+    ) {
+      return;
+    }
+    time = roundX(time);
+    speed = roundY(speed);
+
+    this.data.datasets[0].data.push({
+      x: time,
+      y: speed,
+    });
+
+    this.data.datasets[0].data.sort(sortX);
+    updateSpeedInput();
+    this.update();
+  }
+};
+
+const updateCropInput = getInputUpdater('crop-input');
+export const addCropPoint = function (time: number) {
+  // console.log(element, dataAtClick);
+
+  if (time) {
+    const scatterChartBounds = getScatterChartBounds(this);
+    if (time <= scatterChartBounds.XMinBound || time >= scatterChartBounds.XMaxBound) {
+      return;
+    }
+    time = roundX(time);
+
+    this.data.datasets[0].data.push({
+      x: time,
+      y: 0,
+      crop: '0:0:iw:ih',
+    });
+    this.data.datasets[0].data.sort(sortX);
+
+    const cropPointIndex = this.data.datasets[0].data
+      .map((cropPoint) => cropPoint.x)
+      .indexOf(time);
+
+    // console.log(currentCropPointIndex, cropPointIndex);
+    if (currentCropPointIndex >= cropPointIndex) {
+      setCurrentCropPoint(this, currentCropPointIndex + 1);
+    }
+
+    if (cropPointIndex > 0) {
+      const prevCropPointIndex = cropPointIndex - 1;
+      this.data.datasets[0].data[
+        prevCropPointIndex + 1
+      ].crop = this.data.datasets[0].data[prevCropPointIndex].crop;
+    }
+
+    updateCropInput();
+    this.update();
+  }
+};
+
 export function scatterChartSpec(
   chartType: 'speed' | 'crop',
   inputId
@@ -149,81 +217,6 @@ export function scatterChartSpec(
     }
   };
 
-  const addSpeedPoint = function (event, dataAtClick) {
-    // console.log(element, dataAtClick);
-
-    let valueX, valueY;
-    valueX = this.scales['x-axis-1'].getValueForPixel(event.offsetX);
-    valueY = this.scales['y-axis-1'].getValueForPixel(event.offsetY);
-
-    if (valueX && valueY) {
-      const scatterChartBounds = getScatterChartBounds(this);
-      if (
-        valueX <= scatterChartBounds.XMinBound ||
-        valueX >= scatterChartBounds.XMaxBound ||
-        valueY < scatterChartBounds.YMinBound ||
-        valueY > scatterChartBounds.YMaxBound
-      ) {
-        return;
-      }
-      valueX = roundX(valueX);
-      valueY = roundY(valueY);
-
-      this.data.datasets[0].data.push({
-        x: valueX,
-        y: valueY,
-      });
-
-      this.data.datasets[0].data.sort(sortX);
-      updateInput();
-      this.update();
-    }
-  };
-
-  const addCropPoint = function (event, dataAtClick) {
-    // console.log(element, dataAtClick);
-
-    let valueX;
-    valueX = this.scales['x-axis-1'].getValueForPixel(event.offsetX);
-
-    if (valueX) {
-      const scatterChartBounds = getScatterChartBounds(this);
-      if (
-        valueX <= scatterChartBounds.XMinBound ||
-        valueX >= scatterChartBounds.XMaxBound
-      ) {
-        return;
-      }
-      valueX = roundX(valueX);
-
-      this.data.datasets[0].data.push({
-        x: valueX,
-        y: 0,
-        crop: '0:0:iw:ih',
-      });
-      this.data.datasets[0].data.sort(sortX);
-
-      const cropPointIndex = this.data.datasets[0].data
-        .map((cropPoint) => cropPoint.x)
-        .indexOf(valueX);
-
-      // console.log(currentCropPointIndex, cropPointIndex);
-      if (currentCropPointIndex >= cropPointIndex) {
-        setCurrentCropPoint(this, currentCropPointIndex + 1);
-      }
-
-      if (cropPointIndex > 0) {
-        const prevCropPointIndex = cropPointIndex - 1;
-        this.data.datasets[0].data[
-          prevCropPointIndex + 1
-        ].crop = this.data.datasets[0].data[prevCropPointIndex].crop;
-      }
-
-      updateInput();
-      this.update();
-    }
-  };
-
   const onClick = function (event, dataAtClick) {
     // add chart points on shift+left-click
     if (
@@ -233,10 +226,12 @@ export function scatterChartSpec(
       event.shiftKey &&
       dataAtClick.length === 0
     ) {
+      const time = this.scales['x-axis-1'].getValueForPixel(event.offsetX);
       if (chartType === 'speed') {
-        addSpeedPoint.call(this, event, dataAtClick);
+        const speed = this.scales['y-axis-1'].getValueForPixel(event.offsetY);
+        addSpeedPoint.call(this, time, speed);
       } else if (chartType === 'crop') {
-        addCropPoint.call(this, event, dataAtClick);
+        addCropPoint.call(this, time);
       }
     }
 
