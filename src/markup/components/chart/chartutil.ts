@@ -11,7 +11,7 @@ export const grey = (opacity: number) => `rgba(50, 50, 50, ${opacity})`;
 
 export const cubicInOutTension = 0.6;
 
-export const roundX = getRounder(0.05, 2);
+export const roundX = getRounder(0.01, 2);
 export const roundY = getRounder(0.05, 2);
 
 export let inputId: string = null;
@@ -19,7 +19,7 @@ export function setInputId(Id: string) {
   inputId = Id;
 }
 export function getInputUpdater(inputId) {
-  return function(newValue?: string | number) {
+  return function (newValue?: string | number) {
     const input = document.getElementById(inputId) as HTMLInputElement;
     if (input) {
       if (newValue != null) {
