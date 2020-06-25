@@ -2675,7 +2675,7 @@ export function triggerCropChartLoop() {
             ih,
             minW: null,
             minH: null,
-            resizeOnly: true,
+            resizeOnly: true, // in pan-only mode update all crop point sizes and leave x,y alone
             updateCropChart: true,
           };
           updateCrop(x, y, w, h, optArgs);
@@ -3641,7 +3641,9 @@ export function triggerCropChartLoop() {
               if (deltas) {
                 cropMap.forEach((cropPoint, idx) => {
                   if (idx === currentCropPointIndex) return;
-                  let [ix, iy, iw, ih] = getCropComponents(cropPoint.initCrop);
+                  let [ix, iy, iw, ih] = getCropComponents(
+                    cropPoint.initCrop ?? cropPoint.crop
+                  );
                   if (!optArgs.resizeOnly) {
                     ix += deltas.dx;
                     iy += deltas.dy;
