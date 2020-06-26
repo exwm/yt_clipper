@@ -1065,7 +1065,8 @@ def getMinterpFilter(mp, mps):
 
     if minterpFPS is not None:
         minterpFilter = f''',minterpolate={minterpEnable}fps=({minterpFPS}):mi_mode=mci'''
-        minterpFilter += f''':mc_mode=aobmc:me_mode=bidir:vsbmc=1:search_param=64:scd_threshold=8:mb_size=16'''
+        minterpFilter += f''':mc_mode=aobmc:me_mode=bidir:vsbmc=1'''
+        minterpFilter += f''':search_param=32:scd_threshold=8:mb_size=16'''
         if mps["enableMinterpEnhancements"]:
             minterpFilter += f''':fuovf=1:alpha_threshold=256'''
     else:
