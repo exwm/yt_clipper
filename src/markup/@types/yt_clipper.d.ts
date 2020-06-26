@@ -19,7 +19,6 @@ interface Settings {
   twoPass?: boolean;
   denoise?: Denoise;
   audio?: boolean;
-  expandColorRange?: boolean;
   videoStabilization?: VideoStabilization;
   videoStabilizationDynamicZoom?: boolean;
   enableSpeedMaps?: boolean;
@@ -74,7 +73,6 @@ interface MarkerPairOverrides {
   twoPass?: boolean;
   denoise?: Denoise;
   audio?: boolean;
-  expandColorRange?: boolean;
   videoStabilization?: VideoStabilization;
   videoStabilizationDynamicZoom?: boolean;
   enableSpeedMaps?: boolean;
