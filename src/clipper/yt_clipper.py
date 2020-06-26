@@ -39,7 +39,7 @@ ffplayPath = 'ffplay'
 webmsPath = './webms'
 logger = None
 
-if True:
+if getattr(sys, 'frozen', False):
     ffmpegPath = './bin/ffmpeg'
     ffprobePath = './bin/ffprobe'
     ffplayPath = './bin/ffplay'
