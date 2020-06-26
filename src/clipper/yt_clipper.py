@@ -300,6 +300,14 @@ def buildArgParser():
                             'Motion interpolation can and will introduce artifacting (visual glitches). '
                             'Artifacting increases with the speed and complexity of the video. '
                         ))
+    parser.add_argument('--minterp-search-parameter', '-msp', dest='minterpSearchParam', type=int, default=32,
+                        help=(
+                            'Specify a search parameter value for motion interpolation.',
+                            'The search parameter is roughly the exhaustiveness of the search for the right motion vectors.',
+                            'The minimum is 4 while the maximum is very large, but above 1024 there should be no practical use.',
+                            'A higher or lower value than default may help to reduce artifacting '
+                            'depending on the source video, but no general recommendation can be given.'
+                        ))
     parser.add_argument('--enable-minterp-enhancements', '-eme', action='store_true',
                         dest='enableMinterpEnhancements', default=False,
                         help=(
@@ -1066,7 +1074,8 @@ def getMinterpFilter(mp, mps):
     if minterpFPS is not None:
         minterpFilter = f''',minterpolate={minterpEnable}fps=({minterpFPS}):mi_mode=mci'''
         minterpFilter += f''':mc_mode=aobmc:me_mode=bidir:vsbmc=1'''
-        minterpFilter += f''':search_param=32:scd_threshold=8:mb_size=16'''
+        sp = max(mps["minterpSearchParam"], 4)
+        minterpFilter += f''':search_param={sp}:scd_threshold=8:mb_size=16'''
         if mps["enableMinterpEnhancements"]:
             minterpFilter += f''':fuovf=1:alpha_threshold=256'''
     else:
