@@ -2361,18 +2361,6 @@ export function triggerCropChartLoop() {
           settings.gamma != null ? settings.gamma : ''
         }" placeholder="1" style="min-width:4em"></input>
       </div>
-      <div class="settings-editor-input-div" title="${Tooltips.expandColorRangeTooltip}">
-        <span>Expand Colors</span>
-        <select id="expand-color-range-input"> 
-          <option ${settings.expandColorRange ? 'selected' : ''}>Enabled</option>
-          <option ${
-            settings.expandColorRange === false ? 'selected' : ''
-          }>Disabled</option>
-          <option value="Default" ${
-            settings.expandColorRange == null ? 'selected' : ''
-          }>Inherit (Disabled)</option>
-        </select>
-      </div>
       <div class="settings-editor-input-div" title="${Tooltips.denoiseTooltip}">
         <span>Denoise</span>
         <select id="denoise-input">
@@ -2501,7 +2489,6 @@ export function triggerCropChartLoop() {
         ['rotate-90-counterclock', 'rotate', 'string'],
         ['two-pass-input', 'twoPass', 'ternary'],
         ['audio-input', 'audio', 'ternary'],
-        ['expand-color-range-input', 'expandColorRange', 'ternary'],
         ['denoise-input', 'denoise', 'preset'],
         ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
         ['minterp-mode-input', 'minterpMode', 'inheritableString'],
@@ -4809,20 +4796,6 @@ export function triggerCropChartLoop() {
         settings.gamma != null ? settings.gamma : '1'
       }" style="min-width:4em"></input>
         </div>
-        <div class="settings-editor-input-div" title="${
-          Tooltips.expandColorRangeTooltip
-        }">
-          <span>Expand Colors</span>
-          <select id="expand-color-range-input"> 
-            <option ${overrides.expandColorRange ? 'selected' : ''}>Enabled</option>
-            <option ${
-              overrides.expandColorRange === false ? 'selected' : ''
-            }>Disabled</option>
-            <option value="Default" ${
-              overrides.expandColorRange == null ? 'selected' : ''
-            }>Inherit ${ternaryToString(settings.expandColorRange)}</option>
-          </select>
-        </div>
         <div class="settings-editor-input-div" title="${Tooltips.denoiseTooltip}">
           <span>Denoise</span>
           <select id="denoise-input">
@@ -4965,7 +4938,6 @@ export function triggerCropChartLoop() {
         ['target-max-bitrate-input', 'targetMaxBitrate', 'number'],
         ['two-pass-input', 'twoPass', 'ternary'],
         ['audio-input', 'audio', 'ternary'],
-        ['expand-color-range-input', 'expandColorRange', 'ternary'],
         ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
         ['minterp-mode-input', 'minterpMode', 'inheritableString'],
         ['minterp-fps-input', 'minterpFPS', 'number'],
