@@ -2,6 +2,18 @@
 
 ## Markup Script Changelog
 
+v0.0.90-beta.3.9.0-alpha.8 `[2020.06.26]`:
+
+- Add **Alt+A** for adding a point to the currently open chart at the current time.
+- Add **Alt+Click+Drag** for drawing crop without aspect ratio constraints in zoompan mode.
+- Add **Ctrl+Alt+Drag** for resizing crop without aspect ratio constraints in zoompan mode.
+- Fix drawing crop in zoompan mode not constraining to aspect ratio of crop chart.
+- Fix adding chart point rounding to nearest 0.05 s rather than 0.01 s.
+- Improve visual clarity of dynamic crop preview rectangles.
+- Fix default crop resolution not matching video aspect ratio.
+  - This may have caused imprecise crop aspect ratios being reported.
+- Remove expand color range setting. Note that this is still available in the clipper script.
+
 v0.0.90-beta.3.9.0-alpha.7 `[2020.06.22]`:
 
 - Add locking last crop point's crop to second last's crop when they are initially the same and modifying second last point. Modifying the last point will always break the lock.
@@ -382,6 +394,17 @@ v0.0.71:
 - Add target max bitrate option for constrained quality mode using `-b <bitrate>` where bitrate is in kb/s.
 
 ## Clipper Script (Installation) Changelog
+
+v3.7.0-beta.3.9.0-alpha.8 `[2020.06.26]`:
+
+- Fix checking subtitles file extension even when subtitles not requested.
+- Add `--audio-delay`/`-ad` argument.
+  - This can be used to correct audio desync present in the source video.
+- Fix not using system ffmpeg when using source clipper script.
+- Add `--minterp-search-parameter`/`-msp` argument for changing motion interpolation search parameter.
+  - The search parameter specifies the exhaustiveness of the search for the right motion vectors.
+  - A higher or lower value than default may help to reduce artifacting depending on the source video.
+- Fix `yt_clipper_option.bat` on Windows not checking if markers json file provided.
 
 v3.7.0-beta.3.9.0-alpha.7 `[2020.06.22]`:
 
