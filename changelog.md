@@ -14,7 +14,7 @@ v0.0.90-beta.3.9.0-alpha.8 `[2020.06.26]`:
   - This may have caused imprecise crop aspect ratios being reported.
 - Remove expand color range setting. Note that this is still available in the clipper script.
 
-v0.0.90-beta.3.9.0-alpha.7 `[2020.06.22]`:
+v0.0.90-beta.3.9.0-alpha.8 `[2020.06.22]`:
 
 - Add locking last crop point's crop to second last's crop when they are initially the same and modifying second last point. Modifying the last point will always break the lock.
   - This should simplify the common workflows of creating dynamic crops.
@@ -23,7 +23,7 @@ v0.0.90-beta.3.9.0-alpha.7 `[2020.06.22]`:
 - Fix overwriting some video properties in settings when loading markers.
   - This is useful when loading markers from a different video.
 
-v0.0.90-beta.3.9.0-alpha.7 `[2020.06.20]`:
+v0.0.90-beta.3.9.0-alpha.8 `[2020.06.20]`:
 
 - Add **Alt+F** to open the YouTube subtitles editor in a new tab. This allows creating, downloading, and uploading subtitle files. Note that some videos have this feature disabled.
 - Update shortcuts reference table with recently added and changed shortcuts.
@@ -406,7 +406,7 @@ v3.7.0-beta.3.9.0-alpha.8 `[2020.06.26]`:
   - A higher or lower value than default may help to reduce artifacting depending on the source video.
 - Fix `yt_clipper_option.bat` on Windows not checking if markers json file provided.
 
-v3.7.0-beta.3.9.0-alpha.7 `[2020.06.22]`:
+v3.7.0-beta.3.9.0-alpha.8 `[2020.06.22]`:
 
 - Add support for `.sbv` and `.srt` subtitle files.
 - Fix crash when writing clipped subtitles files because of missing `subs` directory.
