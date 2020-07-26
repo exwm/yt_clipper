@@ -302,9 +302,9 @@ def buildArgParser():
                         ))
     parser.add_argument('--minterp-search-parameter', '-msp', dest='minterpSearchParam', type=int, default=32,
                         help=(
-                            'Specify a search parameter value for motion interpolation.',
-                            'The search parameter is roughly the exhaustiveness of the search for the right motion vectors.',
-                            'The minimum is 4 while the maximum is very large, but above 1024 there should be no practical use.',
+                            'Specify a search parameter value for motion interpolation.'
+                            'The search parameter is roughly the exhaustiveness of the search for the right motion vectors.'
+                            'The minimum is 4 while the maximum is very large, but above 1024 there should be no practical use.'
                             'A higher or lower value than default may help to reduce artifacting '
                             'depending on the source video, but no general recommendation can be given.'
                         ))
