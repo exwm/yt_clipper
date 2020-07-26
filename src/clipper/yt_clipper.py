@@ -433,6 +433,10 @@ def buildArgParser():
                             'Arguments that conflict with the arguments automatically added '
                             'by yt_clipper may cause errors.'
                         ))
+    parser.add_argument('--ytdl-username', '-yu', dest='username', default='',
+                        help='Username passed to youtube-dl for authentication.')
+    parser.add_argument('--ytdl-password', '-yp', dest='password', default='',
+                        help='Password passed to youtube-dl for authentication.')
     return parser.parse_known_args()
 
 
@@ -475,6 +479,11 @@ def getVideoURL(settings):
     ydl_opts = {'format': settings["format"], 'forceurl': True,
                 'merge_output_format': 'mkv',
                 'outtmpl': f'{settings["downloadVideoPath"]}.%(ext)s', "cachedir": False}
+
+    if settings["username"] != '':
+        ydl_opts["username"] = settings["username"]
+    if settings["password"] != '':
+        ydl_opts["password"] = settings["password"]
 
     if getattr(sys, 'frozen', False):
         ydl_opts["ffmpeg_location"] = ffmpegPath
