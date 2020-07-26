@@ -725,28 +725,6 @@ def getMarkerPairSettings(settings, markerPairIndex):
 
     mp["averageSpeed"] = getAverageSpeed(mp["speedMap"], mps["r_frame_rate"])
 
-    bitrateCropFactor = (
-        cropComponents['w'] * cropComponents['h']) / (settings["width"] * settings["height"])
-
-    # relax bitrate crop factor assuming that most crops include complex parts
-    # of the video and exclude simpler parts
-    bitrateRelaxationFactor = 0.8
-    bitrateCropFactor = min(1, bitrateCropFactor ** bitrateRelaxationFactor)
-
-    bitrateSpeedFactor = mp["averageSpeed"]
-    mps["minterpFPS"] = getMinterpFPS(mps, mp["speedMap"])
-    if mps["minterpFPS"] is not None:
-        bitrateSpeedFactor = mps["minterpFPS"] / (mp["averageSpeed"] * Fraction(mps["r_frame_rate"]))
-        bitrateSpeedFactor **= 0.5
-
-    bitrateFactor = bitrateCropFactor * bitrateSpeedFactor
-
-    globalEncodeSettings = getDefaultEncodeSettings(mps["bit_rate"])
-    autoMarkerPairEncodeSettings = getDefaultEncodeSettings(mps["bit_rate"] * bitrateFactor)
-    mps = {**globalEncodeSettings, **autoMarkerPairEncodeSettings, **mps}
-    if "targetMaxBitrate" not in mps:
-        mps["targetMaxBitrate"] = mps["autoTargetMaxBitrate"]
-
     if "enableCropMaps" not in mp:
         mps["enableCropMaps"] = True
 
@@ -770,13 +748,35 @@ def getMarkerPairSettings(settings, markerPairIndex):
         mp["cropMap"] = [{"x": mp["start"], "y":0, "crop": cropString, "cropComponents": cropComponents}, {
             "x": mp["end"], "y":0, "crop": cropString, "cropComponents": cropComponents}]
 
+    mp["maxSize"] = cropComponents['w'] * cropComponents['h']
     if mp["isZoomPanCrop"]:
-        mp["cropFilter"] = getZoomPanFilter(mp["cropMap"], mps, mps["r_frame_rate"])
+        mp["cropFilter"], mp["maxSize"] = getZoomPanFilter(mp["cropMap"], mps, mps["r_frame_rate"])
     elif mp["isPanningCrop"]:
         mp["cropFilter"] = getCropFilter(mp["cropMap"], mps, mps["r_frame_rate"])
     else:
         cc = cropComponents
         mp["cropFilter"] = f"""crop='x={cc["x"]}:y={cc["y"]}:w={cc["w"]}:h={cc["h"]}'"""
+
+    bitrateCropFactor = (mp["maxSize"]) / (settings["width"] * settings["height"])
+
+    # relax bitrate crop factor assuming that most crops include complex parts
+    # of the video and exclude simpler parts
+    bitrateRelaxationFactor = 0.8
+    bitrateCropFactor = min(1, bitrateCropFactor ** bitrateRelaxationFactor)
+
+    bitrateSpeedFactor = mp["averageSpeed"]
+    mps["minterpFPS"] = getMinterpFPS(mps, mp["speedMap"])
+    if mps["minterpFPS"] is not None:
+        bitrateSpeedFactor = mps["minterpFPS"] / (mp["averageSpeed"] * Fraction(mps["r_frame_rate"]))
+        bitrateSpeedFactor **= 0.5
+
+    bitrateFactor = bitrateCropFactor * bitrateSpeedFactor
+
+    globalEncodeSettings = getDefaultEncodeSettings(mps["bit_rate"])
+    autoMarkerPairEncodeSettings = getDefaultEncodeSettings(mps["bit_rate"] * bitrateFactor)
+    mps = {**globalEncodeSettings, **autoMarkerPairEncodeSettings, **mps}
+    if "targetMaxBitrate" not in mps:
+        mps["targetMaxBitrate"] = mps["autoTargetMaxBitrate"]
 
     titlePrefixLogMsg = f'Title Prefix: {mps["titlePrefix"] if "titlePrefix" in mps else ""}'
     logger.info('-' * 80)
@@ -1428,7 +1428,7 @@ def getZoomPanFilter(cropMap, mps, fps, easeType='easeInOutSine'):
     zoomPanFilter += f"zoompan=z='({zoomExpr})':x='{zoomXExpr}':y='{zoomYExpr}'"
     zoomPanFilter += f":d=1:s={maxWidth}x{maxHeight}:fps={fps}"
 
-    return zoomPanFilter
+    return zoomPanFilter, maxSize
 
 
 def getMaxSizeCrop(cropMap):
