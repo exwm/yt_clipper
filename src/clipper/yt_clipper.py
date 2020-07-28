@@ -480,9 +480,8 @@ def getVideoURL(settings):
                 'merge_output_format': 'mkv',
                 'outtmpl': f'{settings["downloadVideoPath"]}.%(ext)s', "cachedir": False}
 
-    if settings["username"] != '':
+    if settings["username"] != '' or settings["password"] != '':
         ydl_opts["username"] = settings["username"]
-    if settings["password"] != '':
         ydl_opts["password"] = settings["password"]
 
     if getattr(sys, 'frozen', False):
