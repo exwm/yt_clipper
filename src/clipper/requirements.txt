@@ -4,4 +4,4 @@ coloredlogs == 14.0
 urllib3 == 1.25.8
 verboselogs == 1.7
 webvtt_py == 0.4.5
-youtube_dl == 2020.6.16.1
+youtube_dl == 2020.07.28
