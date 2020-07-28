@@ -395,6 +395,15 @@ v0.0.71:
 
 ## Clipper Script (Installation) Changelog
 
+v3.7.0-beta.3.9.0-alpha.9 `[2020.07.27]`:
+- Add `--ytdl-username`/`-yu` and `--ytdl-password`/`-yp` for YouTube account authentication.
+  - Note that this is not currently working and is pending a fix on youtube-dl's end.
+- Add debugging output in `yt_clipper_merge.bat` helper script (Windows only).
+- Fix help text not printing when using `--help`/`-h` or the `yt_clipper_options` helper script.
+- Fix `yt_clipper_options` helper script not correctly passing additional options to `yt_clipper`.
+- Fix bitrate relaxation using first crop point instead of maximum size crop point when zoompan is enabled.
+- Update youtube-dl dependency to [`2020.06.16.1`](https://github.com/ytdl-org/youtube-dl/releases/tag/2020.07.28) to fix extractor errors when trying to download YouTube videos.
+
 v3.7.0-beta.3.9.0-alpha.8 `[2020.06.26]`:
 
 - Fix checking subtitles file extension even when subtitles not requested.
