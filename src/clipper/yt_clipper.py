@@ -20,10 +20,6 @@ import coloredlogs
 import verboselogs
 import youtube_dl
 
-UPLOAD_KEY_REQUEST_ENDPOINT = 'https://api.gfycat.com/v1/gfycats?'
-FILE_UPLOAD_ENDPOINT = 'https://filedrop.gfycat.com'
-AUTHENTICATION_ENDPOINT = 'https://api.gfycat.com/v1/oauth/token'
-
 __version__ = '3.7.0-beta.3.9.0-alpha.9'
 
 settings = {}
@@ -274,8 +270,6 @@ def buildArgParser():
                         help=('Specify which marker pairs to skip by providing a comma separated '
                               'list of marker pair numbers or ranges (e.g., "1-3,5,9" = "1,2,3,5,9"). '
                               'The --except flag takes precedence and will skip pairs specified with --only.'))
-    parser.add_argument('--gfycat', '-gc', action='store_true',
-                        help='upload all output webms to gfycat and print reddit markdown with all links')
     parser.add_argument('--audio', '-a', action='store_true',
                         help='Enable audio in output webms.')
     parser.add_argument('--format', '-f', default='bestvideo+(bestaudio[acodec=opus]/bestaudio)',
@@ -1734,38 +1728,6 @@ def filterDash(dashManifestUrl, dashFormatIDs):
         filteredDash.write(dashdom.toxml())
 
     return filteredDashPath
-
-
-def uploadToGfycat(settings):
-    # auto gfycat uploading
-    if (settings["gfycat"]):
-        import urllib3
-        import json
-        from urllib.parse import urlencode
-        http = urllib3.PoolManager()
-
-        for outPath in outPaths:
-            with open(outPath, 'rb', encoding='utf-8') as fp:
-                file_data = fp.read()
-            encoded_args = urlencode({'title': f'{outPath}'})
-            url = UPLOAD_KEY_REQUEST_ENDPOINT + encoded_args
-            r_key = http.request('POST', url)
-            print(r_key.status)
-            gfyname = json.loads(r_key.data.decode('utf-8'))["gfyname"]
-            links.append(f'https://gfycat.com/{gfyname}')
-            print(gfyname)
-            fields = {'key': gfyname, 'file': (
-                gfyname, file_data, 'multipart/formdata')}
-            r_upload = http.request(
-                'POST', FILE_UPLOAD_ENDPOINT, fields=fields)
-            print(r_upload.status)
-            print(r_upload.data)
-
-        global markdown
-        for fileName, link in zip(fileNames, links):
-            markdown += f'({fileName})[{link}]\n\n'
-            print('\n==Reddit Markdown==')
-            print(markdown)
 
 
 def cleanFileName(fileName):
