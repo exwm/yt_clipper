@@ -139,6 +139,7 @@ v0.0.90-beta.2 `[2019.12.11]`:
 
 
 v0.0.90-beta.1 `[2019.11.18]`:
+
 - Add **Alt+D** for toggling dynamic crop chart.
 - Add **Ctrl+Shift+C** for toggling dynamic crop chart preview.
 - Add **Alt+Mousewheel** for selecting next/prev crop point.
@@ -564,10 +565,10 @@ v3.7.0-beta.1 `[2019.11.18]`
 
 v3.6.1 `[2019.10.25]`:
 
-- Use with `v0.0.89` or higher of the markup script.
-- Fix crash on printing help with `--help` or `-h` or using the `yt_clipper_options` helper scripts.
 - Add `yt_clipper_auto_interpolate` helper scripts for motion interpolating output video to 60 fps.
   - See [Additional Helper Scripts](#additional-helper-scripts) for more info.
+- Use with `v0.0.89` or higher of the markup script.
+- Fix crash on printing help with `--help` or `-h` or using the `yt_clipper_options` helper scripts.
 - Fix `Very Weak` denoise preset causing crash.
 - Fix strongest video stabilization preset producing unpredictable results due to an excessively high smoothing value.
 - Update ffmpeg dependency to latest stable version (`4.2.1`).
