@@ -17,6 +17,6 @@ type "%merge_text%"
 
 SET "merge_output_dir=%~dp1\%~n1-merged.webm"
 
-"%~dp0\bin\ffmpeg" -hide_banner -f concat -safe 0 -i "%merge_text%" -c copy "%merge_output_dir%"
+"%~dp0\bin\ffmpeg" -f concat -safe 0 -i "%merge_text%" -c copy "%merge_output_dir%"
 
 pause
