@@ -24,11 +24,6 @@ __version__ = '3.7.0-beta.3.9.0-alpha.9'
 
 settings = {}
 
-outPaths = []
-fileNames = []
-links = []
-markdown = ''
-
 ffmpegPath = 'ffmpeg'
 ffprobePath = 'ffprobe'
 ffplayPath = 'ffplay'
