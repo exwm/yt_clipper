@@ -30,17 +30,6 @@ ffplayPath = 'ffplay'
 webmsPath = './webms'
 logger = None
 
-if getattr(sys, 'frozen', False):
-    ffmpegPath = './bin/ffmpeg'
-    ffprobePath = './bin/ffprobe'
-    ffplayPath = './bin/ffplay'
-    if sys.platform == 'win32':
-        ffmpegPath += '.exe'
-        ffprobePath += '.exe'
-        ffplayPath += '.exe'
-    if sys.platform == 'darwin':
-        os.environ['SSL_CERT_FILE'] = "certifi/cacert.pem"
-
 
 def main():
     global settings, webmsPath
@@ -50,37 +39,53 @@ def main():
         args.cropMultipleY = args.cropMultiple
 
     args = vars(args)
-
     args = {k: v for k, v in args.items() if v is not None}
-
     args["videoStabilization"] = getVidstabPreset(
         args["videoStabilization"], args["videoStabilizationDynamicZoom"])
     args["denoise"] = getDenoisePreset(args["denoise"])
-    settings = {'markerPairMergeList': '', 'rotate': 0,
-                'overlayPath': '', 'delay': 0, 'color_space': None, **args}
+    settings = {'color_space': None, **args}
 
-    settings["isDashVideo"] = False
-    settings["isDashAudio"] = False
-    if "enableSpeedMaps" not in settings:
-        settings["enableSpeedMaps"] = not settings["noSpeedMaps"]
+    settings = loadSettings(settings)
 
-    with open(settings["json"], 'r', encoding='utf-8-sig') as file:
-        markersJson = file.read()
-        settings = loadMarkers(markersJson, settings)
-    settings["videoTitle"] = re.sub('"', '', settings["videoTitle"])
-    settings["markersDataFileStem"] = Path(settings["json"]).stem
-    settings["titleSuffix"] = settings["markersDataFileStem"]
-    webmsPath += f'/{settings["titleSuffix"]}'
-
-    os.makedirs(f'{webmsPath}', exist_ok=True)
     reportStream = io.StringIO()
     setUpLogger(reportStream)
 
     logger.info(f'Version: {__version__}')
     logger.info('-' * 80)
 
+    setPaths()
+
+    settings = getInputVideo(settings)
+
+    settings = getGlobalSettings(settings)
+
+    logger.info("-" * 80)
+    if not settings["preview"]:
+        settings = makeClips(settings)
+    else:
+        settings = previewClips(settings)
+
+    printReport(reportStream)
+
+
+def setPaths():
+    global ffmpegPath, ffprobePath, ffplayPath, webmsPath
+    webmsPath += f'/{settings["titleSuffix"]}'
+    os.makedirs(f'{webmsPath}', exist_ok=True)
+    settings["downloadVideoPath"] = f'{webmsPath}/{settings["downloadVideoNameStem"]}'
+
+    if getattr(sys, 'frozen', False):
+        ffmpegPath = './bin/ffmpeg'
+        ffprobePath = './bin/ffprobe'
+        ffplayPath = './bin/ffplay'
+        if sys.platform == 'win32':
+            ffmpegPath += '.exe'
+            ffprobePath += '.exe'
+            ffplayPath += '.exe'
+        if sys.platform == 'darwin':
+            os.environ['SSL_CERT_FILE'] = "certifi/cacert.pem"
+
     if settings["enableMinterpEnhancements"] and sys.platform == 'win32':
-        global ffmpegPath
         ffmpegPath = "./bin/ffmpeg_ytc.exe"
         if not Path(ffmpegPath).is_file():
             logger.error(f'{ffmpegPath} required for minterp enhancements not found.')
@@ -90,8 +95,39 @@ def main():
     else:
         settings["enableMinterpEnhancements"] = False
 
-    settings["downloadVideoNameStem"] = f'{settings["titleSuffix"]}-full'
-    settings["downloadVideoPath"] = f'{webmsPath}/{settings["downloadVideoNameStem"]}'
+
+def setUpLogger(reportStream):
+    global logger
+    verboselogs.add_log_level(33, "HEADER")
+    verboselogs.add_log_level(34, "REPORT")
+    logger = verboselogs.VerboseLogger(__name__)
+    logger.header = lambda msg: logger.log(33, msg)
+    logger.report = lambda msg: logger.log(34, msg)
+
+    formatString = r'[%(asctime)s] (ln %(lineno)d) %(levelname)s: %(message)s'
+    coloredlogs.DEFAULT_LOG_FORMAT = formatString
+    coloredlogs.DEFAULT_FIELD_STYLES['levelname'] = {'color': 'white'}
+    coloredlogs.DEFAULT_LEVEL_STYLES['HEADER'] = {'color': 'blue'}
+    coloredlogs.DEFAULT_LEVEL_STYLES['REPORT'] = {'color': 'cyan'}
+
+    coloredlogs.install(level=logging.INFO, datefmt="%y-%m-%d %H:%M:%S")
+
+    coloredFormatter = coloredlogs.ColoredFormatter(datefmt="%y-%m-%d %H:%M:%S")
+
+    reportHandler = logging.StreamHandler(reportStream)
+    reportHandler.setLevel(33)
+    reportHandler.setFormatter(coloredFormatter)
+    logger.addHandler(reportHandler)
+
+    if not settings["preview"]:
+        fileHandler = logging.FileHandler(
+            filename=f'{webmsPath}/{settings["titleSuffix"]}.log', mode='a', encoding='utf-8', )
+        formatter = coloredlogs.BasicFormatter(datefmt="%y-%m-%d %H:%M:%S")
+        fileHandler.setFormatter(formatter)
+        logger.addHandler(fileHandler)
+
+
+def getInputVideo(settings):
     pivpat = r'^' + re.escape(settings["downloadVideoNameStem"]) + r'\.[^.]+$'
     potentialInputVideos = [
         f'{webmsPath}/{iv}' for iv in os.listdir(webmsPath) if re.search(pivpat, iv)]
@@ -159,75 +195,48 @@ def main():
             logger.info(
                 f'Automatically using found input video file "{settings["inputVideo"]}".')
 
-    settings = prepareGlobalSettings(settings)
+    return settings
 
-    logger.info("-" * 80)
-    if not settings["preview"]:
-        nMarkerPairs = len(settings["markerPairs"])
-        markerPairQueue = getMarkerPairQueue(nMarkerPairs, settings["only"], settings["except"])
-        if len(markerPairQueue) == 0:
-            logger.warning("No marker pairs to process")
-        else:
-            printableMarkerPairQueue = {x + 1 for x in markerPairQueue}
-            logger.report(f'Processing the following set of marker pairs: {printableMarkerPairQueue}')
 
-        for markerPairIndex, marker in enumerate(settings["markerPairs"]):
-            if markerPairIndex in markerPairQueue:
-                settings["markerPairs"][markerPairIndex] = makeMarkerPairClip(settings, markerPairIndex)
-
-        if settings["markerPairMergeList"] != '':
-            makeMergedClips(settings)
+def makeClips(settings):
+    nMarkerPairs = len(settings["markerPairs"])
+    markerPairQueue = getMarkerPairQueue(nMarkerPairs, settings["only"], settings["except"])
+    if len(markerPairQueue) == 0:
+        logger.warning("No marker pairs to process")
     else:
-        while True:
-            try:
-                inputStr = input(
-                    f'Enter a valid marker pair number (between {1} and {len(settings["markerPairs"])}) or quit(q): ')
-                if inputStr == 'quit' or inputStr == 'q':
-                    break
-                markerPairIndex = int(inputStr)
-                markerPairIndex -= 1
-            except ValueError:
-                logger.error(f'{inputStr} is not a valid number.')
-                continue
-            if 0 <= markerPairIndex < len(settings["markerPairs"]):
-                makeMarkerPairClip(settings, markerPairIndex)
-            else:
-                logger.error(
-                    f'{markerPairIndex + 1} is not a valid marker pair number.')
+        printableMarkerPairQueue = {x + 1 for x in markerPairQueue}
+        logger.report(f'Processing the following set of marker pairs: {printableMarkerPairQueue}')
+
+    for markerPairIndex, marker in enumerate(settings["markerPairs"]):
+        if markerPairIndex in markerPairQueue:
+            settings["markerPairs"][markerPairIndex] = makeClip(settings, markerPairIndex)
+
+    if settings["markerPairMergeList"] != '':
+        makeMergedClips(settings)
+
+    return settings
+
+
+def previewClips(settings):
+    while True:
+        try:
+            inputStr = input(
+                f'Enter a valid marker pair number (between {1} and {len(settings["markerPairs"])}) or quit(q): ')
+            if inputStr == 'quit' or inputStr == 'q':
+                break
+            markerPairIndex = int(inputStr)
+            markerPairIndex -= 1
+        except ValueError:
+            logger.error(f'{inputStr} is not a valid number.')
             continue
+        if 0 <= markerPairIndex < len(settings["markerPairs"]):
+            makeClip(settings, markerPairIndex)
+        else:
+            logger.error(
+                f'{markerPairIndex + 1} is not a valid marker pair number.')
+        continue
 
-    printReport(reportStream)
-
-
-def setUpLogger(reportStream):
-    global logger
-    verboselogs.add_log_level(33, "HEADER")
-    verboselogs.add_log_level(34, "REPORT")
-    logger = verboselogs.VerboseLogger(__name__)
-    logger.header = lambda msg: logger.log(33, msg)
-    logger.report = lambda msg: logger.log(34, msg)
-
-    formatString = r'[%(asctime)s] (ln %(lineno)d) %(levelname)s: %(message)s'
-    coloredlogs.DEFAULT_LOG_FORMAT = formatString
-    coloredlogs.DEFAULT_FIELD_STYLES['levelname'] = {'color': 'white'}
-    coloredlogs.DEFAULT_LEVEL_STYLES['HEADER'] = {'color': 'blue'}
-    coloredlogs.DEFAULT_LEVEL_STYLES['REPORT'] = {'color': 'cyan'}
-
-    coloredlogs.install(level=logging.INFO, datefmt="%y-%m-%d %H:%M:%S")
-
-    coloredFormatter = coloredlogs.ColoredFormatter(datefmt="%y-%m-%d %H:%M:%S")
-
-    reportHandler = logging.StreamHandler(reportStream)
-    reportHandler.setLevel(33)
-    reportHandler.setFormatter(coloredFormatter)
-    logger.addHandler(reportHandler)
-
-    if not settings["preview"]:
-        fileHandler = logging.FileHandler(
-            filename=f'{webmsPath}/{settings["titleSuffix"]}.log', mode='a', encoding='utf-8', )
-        formatter = coloredlogs.BasicFormatter(datefmt="%y-%m-%d %H:%M:%S")
-        fileHandler.setFormatter(formatter)
-        logger.addHandler(fileHandler)
+    return settings
 
 
 def printReport(reportStream):
@@ -248,8 +257,15 @@ def buildArgParser():
                         help=('Specify markers json path for generating webms from input video.'
                               'Automatically streams required portions of input video from the '
                               'internet if it is not otherwise specified.'))
-    parser.add_argument('--overlay', '-ov', dest='overlay',
-                        help='overlay image path')
+    parser.add_argument('--marker-pairs-merge-list', '-mpml', dest='markerPairsMergeList', default='',
+                        help=('Specify which marker pairs if any you would like to merge/concatenate.'
+                              'Each merge is a comma separated list of marker pair numbers or ranges'
+                              '''For example '1-3,5,9' will merge marker pairs '1,2,3,5,9').'''
+                              '''Separate multiple merges with semicolons (eg '1-3,5,9;6-2,8' creates 2 merged clips).'''
+                              'Merge requires successful generation of each required marker pair.'
+                              'Merge does not require reencoding and simply orders each webm into one container.'))
+    parser.add_argument('--overlay', '-ov', dest='overlayPath', default='',
+                        help='Overlay image path.')
     parser.add_argument('--multiply-crop', '-mc', type=float, dest='cropMultiple', default=1,
                         help=('Multiply all crop dimensions by an integer. ' +
                               '(Helpful if you change resolutions: eg 1920x1080 * 2 = 3840x2160(4k)).'))
@@ -324,7 +340,7 @@ def buildArgParser():
     parser.add_argument('--gamma', '-ga', type=float, dest='gamma', default=1,
                         help='Apply luminance gamma correction.'
                         'Pass in a value between 0 and 1 to brighten shadows and reveal darker details.')
-    parser.add_argument('--rotate', '-r', choices=['clock', 'cclock'],
+    parser.add_argument('--rotate', '-r', choices=['', 'clock', 'cclock'], default='',
                         help='Rotate video 90 degrees clockwise or counter-clockwise.')
     parser.add_argument('--denoise', '-dn', type=int, default=0, choices=range(0, 6),
                         help='Apply the hqdn3d denoise filter using a preset strength level from 0-5 '
@@ -454,12 +470,23 @@ def getMarkerPairQueue(nMarkerPairs, onlyArg, exceptArg):
     return markerPairQueue
 
 
-def loadMarkers(markersJson, settings):
-    markersDict = json.loads(markersJson)
-    settings = {**settings, **markersDict}
-    if "markers" in settings and "markerPairs" not in settings:
-        settings["markerPairs"] = settings["markers"]
-    settings["videoURL"] = f'https://www.youtube.com/watch?v={settings["videoID"]}'
+def loadSettings(settings):
+    with open(settings["json"], 'r', encoding='utf-8-sig') as file:
+        markersJson = file.read()
+        markersDict = json.loads(markersJson)
+        settings = {**settings, **markersDict}
+        if "markers" in settings and "markerPairs" not in settings:
+            settings["markerPairs"] = settings["markers"]
+        settings["videoURL"] = f'https://www.youtube.com/watch?v={settings["videoID"]}'
+        settings["videoTitle"] = re.sub('"', '', settings["videoTitle"])
+        settings["markersDataFileStem"] = Path(settings["json"]).stem
+        settings["titleSuffix"] = settings["markersDataFileStem"]
+        settings["downloadVideoNameStem"] = f'{settings["titleSuffix"]}-full'
+
+        settings["isDashVideo"] = False
+        settings["isDashAudio"] = False
+        if "enableSpeedMaps" not in settings:
+            settings["enableSpeedMaps"] = not settings.get("noSpeedMaps", False)
 
     return settings
 
@@ -570,7 +597,7 @@ def getSubs(settings):
     return settings
 
 
-def prepareGlobalSettings(settings):
+def getGlobalSettings(settings):
     logger.info(f'Video URL: {settings["videoURL"]}')
     logger.info(
         f'Merge List: {settings["markerPairMergeList"] if settings["markerPairMergeList"] else "None"}')
@@ -797,7 +824,7 @@ def getMarkerPairSettings(settings, markerPairIndex):
     return (mp, mps)
 
 
-def makeMarkerPairClip(settings, markerPairIndex):
+def makeClip(settings, markerPairIndex):
     mp, mps = getMarkerPairSettings(settings, markerPairIndex)
 
     if mp["exists"]:
