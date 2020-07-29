@@ -13,7 +13,7 @@ import sys
 import time
 from fractions import Fraction
 from functools import reduce
-from math import ceil, floor, log
+from math import floor, log
 from pathlib import Path
 
 import coloredlogs
@@ -1044,7 +1044,6 @@ def getMinterpFilter(mp, mps):
     speedMap = mp["speedMap"]
 
     minterpFPS = mps["minterpFPS"]
-    maxSpeed = getMaxSpeed(speedMap)
 
     minterpEnable = []
     if minterpFPS is not None:
@@ -1192,8 +1191,6 @@ def getSpeedFilterAndDuration(speedMap, mp, mps, fps):
     nSects = len(speedMap) - 1
     # Account for marker pair start time as trim filter sets start time to ~0
     speedMapStartTime = speedMap[0]["x"]
-    # Account for first input frame delay due to potentially imprecise trim
-    startt = ceil(speedMapStartTime / frameDur) * frameDur - speedMapStartTime
 
     for sect, (left, right) in enumerate(zip(speedMap[:-1], speedMap[1:])):
         startSpeed = left["y"]
@@ -1262,11 +1259,8 @@ def getSpeedFilterAndDuration(speedMap, mp, mps, fps):
 
 def getAverageSpeed(speedMap, fps):
     fps = Fraction(fps)
-    frameDur = 1 / fps
     # Account for marker pair start time as trim filter sets start time to ~0
     speedMapStartTime = speedMap[0]["x"]
-    # Account for first input frame delay due to potentially imprecise trim
-    startt = ceil(speedMapStartTime / frameDur) * frameDur - speedMapStartTime
 
     averageSpeed = 0
     duration = 0
@@ -1289,15 +1283,11 @@ def getAverageSpeed(speedMap, fps):
 def getCropFilter(cropMap, mps, fps, easeType='easeInOutSine'):
     logger.info('-' * 80)
     fps = Fraction(fps)
-    frameDur = 1 / fps
     nSects = len(cropMap) - 1
     firstTime = cropMap[0]["x"]
     firstCropX, firstCropY, firstCropW, firstCropH = cropMap[0]["crop"].split(':')
 
     cropXExpr = cropYExpr = cropWExpr = cropYExpr = ''
-
-    # Account for first input frame delay due to potentially imprecise trim
-    startt = ceil(firstTime / frameDur) * frameDur - firstTime
 
     for sect, (left, right) in enumerate(zip(cropMap[:-1], cropMap[1:])):
         startTime = left["x"] - firstTime
@@ -1339,15 +1329,10 @@ def getZoomPanFilter(cropMap, mps, fps, easeType='easeInOutSine'):
     maxSize = maxWidth * maxHeight
 
     fps = Fraction(fps)
-    frameDur = 1 / fps
     nSects = len(cropMap) - 1
     firstTime = cropMap[0]["x"]
-    firstCropX, firstCropY, firstCropW, firstCropH = cropMap[0]["crop"].split(':')
 
     panXExpr = panYExpr = zoomExpr = zoomXExpr = zoomYExpr = ''
-
-    # Account for first input frame delay due to potentially imprecise trim
-    startt = ceil(firstTime / frameDur) * frameDur - firstTime
 
     # This scale constant is used in for prescaling the video before applying zoompan.
     # This reduces jitter caused by the rounding of the panning done by zoompan.
