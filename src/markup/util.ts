@@ -1,3 +1,17 @@
+import { SpeedPoint, CropPoint } from './@types/yt_clipper';
+
+let flashMessageHook: HTMLElement;
+export function setFlashMessageHook(hook: HTMLElement) {
+  flashMessageHook = hook;
+}
+export function flashMessage(msg: string, color: string, lifetime = 3000) {
+  const flashDiv = document.createElement('div');
+  flashDiv.setAttribute('class', 'msg-div flash-div');
+  flashDiv.innerHTML = `<span class="flash-msg" style="color:${color}">${msg}</span>`;
+  flashMessageHook.insertAdjacentElement('beforebegin', flashDiv);
+  setTimeout(() => deleteElement(flashDiv), lifetime);
+}
+
 export async function retryUntilTruthyResult<R>(fn: () => R, wait = 100) {
   let result: R = fn();
   while (!result) {
@@ -133,4 +147,94 @@ export function bsearch<A, B>(
 
   // Key not found.
   return [high, low];
+}
+
+export function getEasedValue(
+  easingFunc: (number) => number,
+  startValue: number,
+  endValue: number,
+  startTime: number,
+  endTime: number,
+  currentTime: number
+) {
+  const elapsed = currentTime - startTime;
+  const duration = endTime - startTime;
+  const change = endValue - startValue;
+
+  let easedTimePercentage: number;
+  easedTimePercentage = easingFunc(elapsed / duration);
+
+  const easedValue = startValue + change * easedTimePercentage;
+  return easedValue;
+}
+
+export function isStaticCrop(cropMap: CropPoint[]) {
+  return cropMap.length === 2 && cropMap[0].crop === cropMap[1].crop;
+}
+
+export function blockEvent(e) {
+  e.preventDefault();
+  e.stopImmediatePropagation();
+}
+
+export function ternaryToString(ternary: boolean, def?: string) {
+  if (ternary == null) {
+    return def != null ? def : '(Disabled)';
+  } else if (ternary === true) {
+    return '(Enabled)';
+  } else if (ternary === false) {
+    return '(Disabled)';
+  } else {
+    return null;
+  }
+}
+export function getOutputDuration(speedMap: SpeedPoint[], fps = 30) {
+  let outputDuration = 0;
+  const frameDur = 1 / fps;
+  const nSects = speedMap.length - 1;
+  // Account for marker pair start time as trim filter sets start time to ~0
+  const speedMapStartTime = speedMap[0].x;
+  // Account for first input frame delay due to potentially imprecise trim
+  const startt = Math.ceil(speedMapStartTime / frameDur) * frameDur - speedMapStartTime;
+
+  for (let sect = 0; sect < nSects; ++sect) {
+    const left = speedMap[sect];
+    const right = speedMap[sect + 1];
+
+    const startSpeed = left.y;
+    const endSpeed = right.y;
+    const speedChange = endSpeed - startSpeed;
+
+    const sectStart = left.x - speedMapStartTime - startt;
+    let sectEnd = right.x - speedMapStartTime - startt;
+    // Account for last input frame delay due to potentially imprecise trim
+    if (sect === nSects - 1) {
+      sectEnd = Math.floor(right['x'] / frameDur) * frameDur;
+      // When trim is frame-precise, the frame that begins at the marker pair end time is not included
+      if (right.x - sectEnd < 1e-10) sectEnd = sectEnd - frameDur;
+      sectEnd = sectEnd - speedMapStartTime - startt;
+      sectEnd = Math.floor(sectEnd * 1000000) / 1000000;
+    }
+
+    const sectDuration = sectEnd - sectStart;
+    if (sectDuration === 0) continue;
+
+    const m = speedChange / sectDuration;
+    const b = startSpeed - m * sectStart;
+
+    if (speedChange === 0) {
+      outputDuration += sectDuration / endSpeed;
+    } else {
+      // Integrate the reciprocal of the linear time vs speed function for the current section
+      outputDuration +=
+        (1 / m) *
+        (Math.log(Math.abs(m * sectEnd + b)) - Math.log(Math.abs(m * sectStart + b)));
+    }
+  }
+  // Each output frame time is rounded to the nearest multiple of a frame's duration at the given fps
+  outputDuration = Math.round(outputDuration / frameDur) * frameDur;
+  // The last included frame is held for a single frame's duration
+  outputDuration += frameDur;
+  outputDuration = Math.round(outputDuration * 1000) / 1000;
+  return outputDuration;
 }

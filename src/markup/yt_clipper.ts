@@ -76,7 +76,16 @@ import {
   speedRounder,
   timeRounder,
   toHHMMSSTrimmed,
+  setFlashMessageHook,
+  flashMessage,
+  getOutputDuration,
+  ternaryToString,
+  getEasedValue,
+  isStaticCrop,
+  blockEvent,
 } from './util';
+import { autoHideUnselectedMarkerPairsCSS } from './css';
+import { flattenVRVideo, openSubsEditor } from './misc';
 const ytClipperCSS = readFileSync(__dirname + '/css/yt-clipper.css', 'utf8');
 const shortcutsTable = readFileSync(
   __dirname + '/components/shortcuts-table/shortcuts-table.html',
@@ -139,175 +148,140 @@ export function triggerCropChartLoop() {
         switch (e.code) {
           case 'KeyA':
             if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               addMarker();
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey && markerHotkeysEnabled) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               moveMarker(enableMarkerHotkeys.endMarker);
             } else if (!e.ctrlKey && !e.shiftKey && e.altKey && markerHotkeysEnabled) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               addChartPoint();
             }
             break;
           case 'KeyS':
             if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               saveMarkersAndSettings();
             } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               copyToClipboard(getSettingsJSON());
             }
             break;
           case 'KeyQ':
             if (!e.ctrlKey && !e.altKey && e.shiftKey && markerHotkeysEnabled) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               moveMarker(enableMarkerHotkeys.startMarker);
             } else if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               toggleForceSetSpeed();
             } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               cycleForceSetSpeedValueDown();
             } else if (!e.ctrlKey && e.altKey && e.shiftKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               updateAllMarkerPairSpeeds(settings.newMarkerSpeed);
             }
             break;
           case 'KeyE':
             if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               captureFrame();
             } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               saveCapturedFrames();
             }
             break;
           case 'KeyW':
             if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               toggleGlobalSettingsEditor();
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               toggleMarkerPairOverridesEditor();
             }
             break;
           case 'KeyC':
             if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               toggleMarkerPairSpeedPreview();
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               toggleMarkerPairLoop();
             } else if (!e.ctrlKey && !e.shiftKey && e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               toggleGammaPreview();
             } else if (!e.ctrlKey && e.shiftKey && e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               toggleFadeLoopPreview();
             } else if (e.ctrlKey && e.shiftKey && !e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               toggleCropChartLooping();
             } else if (e.ctrlKey && e.shiftKey && e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               toggleAllPreviews();
             }
             break;
           case 'KeyG':
             if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               loadMarkers();
             }
             break;
           case 'KeyD':
             // alt+shift+D does not work in chrome 75.0.3770.100
             if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               toggleChart(speedChartInput);
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               toggleChartLoop();
             } else if (!e.ctrlKey && !e.shiftKey && e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               toggleChart(cropChartInput);
             } else if (e.ctrlKey && !e.shiftKey && !e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               toggleCropChartPanOnly();
             }
             break;
           case 'KeyZ':
             if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               undoMarker();
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               redoMarker();
             } else if (!e.ctrlKey && !e.shiftKey && e.altKey && markerHotkeysEnabled) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               undoMarkerMove();
             } else if (!e.ctrlKey && e.shiftKey && e.altKey && markerHotkeysEnabled) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               redoMarkerMove();
             } else if (e.ctrlKey && e.shiftKey && e.altKey && markerHotkeysEnabled) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               deleteMarkerPair();
             }
             break;
           case 'KeyX':
             if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               drawCropOverlay(false);
             } else if (!e.ctrlKey && !e.altKey && e.shiftKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               drawCropOverlay(true);
             } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               toggleArrowKeyCropAdjustment();
             } else if (!e.ctrlKey && e.altKey && e.shiftKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               updateAllMarkerPairCrops(settings.newMarkerCrop);
             } else if (e.ctrlKey && !e.altKey && !e.shiftKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               cycleCropDimOpacity();
             }
             break;
           case 'KeyR':
             if (!e.ctrlKey && !e.shiftKey && !e.altKey && playerInfo.watchFlexy.theater) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               rotateVideo('clock');
             } else if (
               !e.ctrlKey &&
@@ -315,28 +289,23 @@ export function triggerCropChartLoop() {
               e.altKey &&
               playerInfo.watchFlexy.theater
             ) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               rotateVideo('cclock');
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               toggleBigVideoPreviews();
             } else if (!e.ctrlKey && !e.shiftKey && !playerInfo.watchFlexy.theater) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               flashMessage('Please switch to theater mode to rotate video.', 'red');
             }
             break;
           case 'KeyF':
             if (!e.ctrlKey && e.shiftKey && !e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
-              flattenVRVideo();
+              blockEvent(e);
+              flattenVRVideo(playerInfo.videoContainer, video);
             } else if (!e.ctrlKey && !e.shiftKey && e.altKey) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
-              openSubsEditor();
+              blockEvent(e);
+              openSubsEditor(settings.videoID);
             }
             break;
           case 'ArrowLeft':
@@ -345,8 +314,7 @@ export function triggerCropChartLoop() {
             break;
           case 'ArrowUp':
             if (e.ctrlKey && !arrowKeyCropAdjustmentEnabled) {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
               togglePrevSelectedMarkerPair();
             }
             break;
@@ -837,7 +805,6 @@ export function triggerCropChartLoop() {
       () => document.getElementsByTagName('video')[0]
     );
     let settingsEditorHook: HTMLElement;
-    let flashMessageHook: HTMLElement;
     let overlayHook: HTMLElement;
     function initPlayerInfo() {
       playerInfo.url = player.getVideoUrl();
@@ -852,7 +819,7 @@ export function triggerCropChartLoop() {
       playerInfo.progress_bar.removeAttribute('draggable');
       playerInfo.watchFlexy = document.getElementsByTagName('ytd-watch-flexy')[0];
       playerInfo.infoContents = document.getElementById('info-contents');
-      flashMessageHook = playerInfo.infoContents;
+      setFlashMessageHook(playerInfo.infoContents);
       playerInfo.container = document.querySelector('#ytd-player #container');
       playerInfo.columns = document.getElementById('columns');
       playerInfo.playerTheaterContainer = document.getElementById(
@@ -862,7 +829,7 @@ export function triggerCropChartLoop() {
       playerInfo.annotations = document.getElementsByClassName('ytp-iv-video-content')[0];
       playerInfo.videoContainer = document.getElementsByClassName(
         'html5-video-container'
-      )[0] as HTMLElement;
+      )[0] as HTMLDivElement;
       overlayHook = playerInfo.videoContainer;
       playerInfo.controls = document.getElementsByClassName('ytp-chrome-bottom')[0];
       playerInfo.controlsBar = document.getElementsByClassName('ytp-chrome-controls')[0];
@@ -936,10 +903,9 @@ export function triggerCropChartLoop() {
     }
 
     document.body.addEventListener('wheel', selectCropPoint, { passive: false });
-    function selectCropPoint(event: WheelEvent) {
-      if (isHotkeysEnabled && !event.ctrlKey && event.altKey && !event.shiftKey) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
+    function selectCropPoint(e: WheelEvent) {
+      if (isHotkeysEnabled && !e.ctrlKey && e.altKey && !e.shiftKey) {
+        blockEvent(e);
       } else {
         return;
       }
@@ -948,19 +914,19 @@ export function triggerCropChartLoop() {
       const cropChartData = cropChart.data.datasets[0].data;
 
       if (
-        Math.abs(event.deltaY) > 0 &&
+        Math.abs(e.deltaY) > 0 &&
         isSettingsEditorOpen &&
         !wasGlobalSettingsEditorOpen &&
         prevSelectedEndMarker &&
         cropChartInput.chart
       ) {
-        if (event.deltaY < 0) {
+        if (e.deltaY < 0) {
           if (currentCropChartMode === cropChartMode.Start) {
             setCurrentCropPoint(cropChart, currentCropPointIndex + 1, cropChartMode.End);
           } else {
             setCurrentCropPoint(cropChart, currentCropPointIndex, cropChartMode.Start);
           }
-        } else if (event.deltaY > 0) {
+        } else if (e.deltaY > 0) {
           if (currentCropChartMode === cropChartMode.End) {
             setCurrentCropPoint(
               cropChart,
@@ -986,30 +952,29 @@ export function triggerCropChartLoop() {
     }
 
     document.body.addEventListener('wheel', inheritCropPointCrop, { passive: false });
-    function inheritCropPointCrop(event: WheelEvent) {
+    function inheritCropPointCrop(e: WheelEvent) {
       if (
         isHotkeysEnabled &&
-        event.ctrlKey &&
-        event.altKey &&
-        event.shiftKey &&
-        Math.abs(event.deltaY) > 0 &&
+        e.ctrlKey &&
+        e.altKey &&
+        e.shiftKey &&
+        Math.abs(e.deltaY) > 0 &&
         isSettingsEditorOpen &&
         !wasGlobalSettingsEditorOpen &&
         prevSelectedEndMarker &&
         cropChartInput.chart
       ) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
+        blockEvent(e);
         const cropChart = cropChartInput.chart;
         const cropChartData = cropChart.data.datasets[0].data;
         const cropPoint = cropChartData[currentCropPointIndex] as CropPoint;
         const oldCropPointCrop = cropPoint.crop;
-        if (event.deltaY < 0) {
+        if (e.deltaY < 0) {
           const nextCropPoint = cropChartData[
             Math.min(currentCropPointIndex + 1, cropChartData.length - 1)
           ] as CropPoint;
           cropPoint.crop = nextCropPoint.crop;
-        } else if (event.deltaY > 0) {
+        } else if (e.deltaY > 0) {
           const prevCropPoint = cropChartData[
             Math.max(currentCropPointIndex - 1, 0)
           ] as CropPoint;
@@ -1280,14 +1245,6 @@ export function triggerCropChartLoop() {
           });
         }
       });
-    }
-
-    function flashMessage(msg: string, color: string, lifetime = 3000) {
-      const flashDiv = document.createElement('div');
-      flashDiv.setAttribute('class', 'msg-div flash-div');
-      flashDiv.innerHTML = `<span class="flash-msg" style="color:${color}">${msg}</span>`;
-      flashMessageHook.insertAdjacentElement('beforebegin', flashDiv);
-      setTimeout(() => deleteElement(flashDiv), lifetime);
     }
 
     function getShortestActiveMarkerPair(
@@ -1670,8 +1627,7 @@ export function triggerCropChartLoop() {
           jumpToNearestMarker(e, video.currentTime, keyCode);
         } else if (e.altKey && !e.shiftKey) {
           if (!e.ctrlKey && !(isSettingsEditorOpen && !wasGlobalSettingsEditorOpen)) {
-            e.preventDefault();
-            e.stopImmediatePropagation();
+            blockEvent(e);
             togglePrevSelectedMarkerPair();
           }
           if (enableMarkerHotkeys.endMarker) {
@@ -1686,8 +1642,7 @@ export function triggerCropChartLoop() {
       targetEndMarker: SVGRectElement,
       keyCode: string
     ) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
+      blockEvent(e);
       let index = parseInt(targetEndMarker.getAttribute('idx')) - 1;
       if (keyCode === 'ArrowLeft' && index > 0) {
         targetEndMarker =
@@ -1712,8 +1667,7 @@ export function triggerCropChartLoop() {
     let prevJumpKeyCode: 'ArrowLeft' | 'ArrowRight';
     let prevTime: number;
     function jumpToNearestMarker(e: KeyboardEvent, currentTime: number, keyCode: string) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
+      blockEvent(e);
       let minTime: number;
       currentTime = prevTime != null ? prevTime : currentTime;
       let markerTimes: number[] = [];
@@ -2776,8 +2730,7 @@ export function triggerCropChartLoop() {
             !(ke.code === 'KeyI' || ke.code === 'KeyW' || ke.code === 'KeyH')) ||
           (ke.which === 65 && (ke.ctrlKey || ke.altKey)) // blur on KeyA with ctrl or alt modifiers
         ) {
-          ke.preventDefault();
-          ke.stopImmediatePropagation();
+          blockEvent(ke);
           cropInput.blur();
           flashMessage('Auto blurred crop input focus', 'olive');
           return;
@@ -2788,8 +2741,7 @@ export function triggerCropChartLoop() {
           ke.code === 'ArrowDown' ||
           (ke.code === 'KeyA' && !ke.ctrlKey && !ke.altKey)
         ) {
-          ke.preventDefault();
-          ke.stopImmediatePropagation();
+          blockEvent(ke);
           let cropString = cropInput.value;
           let cropStringArray = cropString.split(':');
           const initialCropArray = getCropComponents(cropString);
@@ -3839,8 +3791,7 @@ export function triggerCropChartLoop() {
           cropInput !== document.activeElement &&
           ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(ke.code) > -1
         ) {
-          ke.preventDefault();
-          ke.stopImmediatePropagation();
+          blockEvent(ke);
           let [x, y, w, h] = getCropComponents(cropInput.value);
           let changeAmount: number;
           if (!ke.altKey && !ke.shiftKey) {
@@ -4015,8 +3966,7 @@ export function triggerCropChartLoop() {
           chartInput.chart.ctx.canvas.addEventListener(
             'contextmenu',
             (e) => {
-              e.preventDefault();
-              e.stopImmediatePropagation();
+              blockEvent(e);
             },
             true
           );
@@ -4052,8 +4002,7 @@ export function triggerCropChartLoop() {
     function getMouseChartTimeAnnotationSetter(chartInput: ChartInput) {
       return function mouseChartTimeAnnotationSetter(e) {
         if (e.buttons !== 2) return;
-        e.preventDefault();
-        e.stopImmediatePropagation();
+        blockEvent(e);
         const chart = chartInput.chart;
         const chartLoop =
           markerPairs[prevSelectedMarkerPairIndex][chartInput.chartLoopKey];
@@ -4075,16 +4024,10 @@ export function triggerCropChartLoop() {
           }
         }
 
-        function contextMenuBlocker(e) {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-        }
-
         chartTimeAnnotationDragHandler(e);
 
         function chartTimeAnnotationDragEnd(e) {
-          e.preventDefault();
-          e.stopImmediatePropagation();
+          blockEvent(e);
           chart.ctx.canvas.releasePointerCapture(e.pointerId);
           window.removeEventListener('pointermove', chartTimeAnnotationDragHandler);
         }
@@ -4092,7 +4035,7 @@ export function triggerCropChartLoop() {
         chart.ctx.canvas.setPointerCapture(e.pointerId);
         window.addEventListener('pointermove', chartTimeAnnotationDragHandler);
         window.addEventListener('pointerup', chartTimeAnnotationDragEnd, { once: true });
-        window.addEventListener('contextmenu', contextMenuBlocker, {
+        window.addEventListener('contextmenu', blockEvent, {
           once: true,
           capture: true,
         });
@@ -4227,10 +4170,6 @@ export function triggerCropChartLoop() {
       }
     }
 
-    function isStaticCrop(cropMap: CropPoint[]) {
-      return cropMap.length === 2 && cropMap[0].crop === cropMap[1].crop;
-    }
-
     function toggleCropChartLooping() {
       if (!isCropChartLoopingOn) {
         isCropChartLoopingOn = true;
@@ -4357,25 +4296,6 @@ export function triggerCropChartLoop() {
       [cropRect, cropRectBorderBlack, cropRectBorderWhite].map((cropRect) =>
         setCropOverlayDimensions(cropRect, easedX, easedY, easedW, easedH)
       );
-    }
-
-    function getEasedValue(
-      easingFunc: (number) => number,
-      startValue: number,
-      endValue: number,
-      startTime: number,
-      endTime: number,
-      currentTime: number
-    ) {
-      const elapsed = currentTime - startTime;
-      const duration = endTime - startTime;
-      const change = endValue - startValue;
-
-      let easedTimePercentage: number;
-      easedTimePercentage = easingFunc(elapsed / duration);
-
-      const easedValue = startValue + change * easedTimePercentage;
-      return easedValue;
     }
 
     function cropChartSectionLoop() {
@@ -4613,36 +4533,11 @@ export function triggerCropChartLoop() {
       }
     }
 
-    const autoHideUnselectedMarkerPairsCSS = `
-    rect.marker {
-      opacity: 0.25;
-    }
-    text.markerNumbering {
-      opacity: 0.25;
-      pointer-events: none;
-    }
-
-    rect.selected-marker {
-      opacity: 1;
-    }
-    text.selectedMarkerNumbering {
-      opacity: 1;
-      pointer-events: visibleFill;
-    }
-
-    rect.marker.end-marker {
-      pointer-events: none;
-    }
-    rect.selected-marker.end-marker {
-      pointer-events: visibleFill;
-    }
-    `;
     let autoHideUnselectedMarkerPairsStyle: HTMLStyleElement;
     let isAutoHideUnselectedMarkerPairsOn = false;
     function toggleAutoHideUnselectedMarkerPairs(e: KeyboardEvent) {
       if (e.ctrlKey && !arrowKeyCropAdjustmentEnabled) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
+        blockEvent(e);
         if (!isAutoHideUnselectedMarkerPairsOn) {
           autoHideUnselectedMarkerPairsStyle = injectCSS(
             autoHideUnselectedMarkerPairsCSS,
@@ -4979,18 +4874,6 @@ export function triggerCropChartLoop() {
       );
     }
 
-    function ternaryToString(ternary: boolean, def?: string) {
-      if (ternary == null) {
-        return def != null ? def : '(Disabled)';
-      } else if (ternary === true) {
-        return '(Enabled)';
-      } else if (ternary === false) {
-        return '(Disabled)';
-      } else {
-        return null;
-      }
-    }
-
     function markerPairNumberInputHandler(e: Event) {
       const markerPair = markerPairs[prevSelectedMarkerPairIndex];
       const startNumbering = markerPair.startNumbering;
@@ -5232,63 +5115,10 @@ export function triggerCropChartLoop() {
       const speedAdjustedDurationSpan = document.getElementById('duration');
       const duration = markerPair.end - markerPair.start;
       const durationHHMMSS = toHHMMSSTrimmed(duration);
-      const outputDuration = getOutputDuration(markerPair.speedMap);
+      const outputDuration = getOutputDuration(markerPair.speedMap, getFPS());
       const outputDurationHHMMSS = toHHMMSSTrimmed(outputDuration);
       speedAdjustedDurationSpan.textContent = `${durationHHMMSS} (${outputDurationHHMMSS})`;
       markerPair.outputDuration = outputDuration;
-    }
-
-    function getOutputDuration(speedMap: SpeedPoint[]) {
-      let outputDuration = 0;
-      const fps = getFPS();
-      const frameDur = 1 / fps;
-      const nSects = speedMap.length - 1;
-      // Account for marker pair start time as trim filter sets start time to ~0
-      const speedMapStartTime = speedMap[0].x;
-      // Account for first input frame delay due to potentially imprecise trim
-      const startt =
-        Math.ceil(speedMapStartTime / frameDur) * frameDur - speedMapStartTime;
-
-      for (let sect = 0; sect < nSects; ++sect) {
-        const left = speedMap[sect];
-        const right = speedMap[sect + 1];
-
-        const startSpeed = left.y;
-        const endSpeed = right.y;
-        const speedChange = endSpeed - startSpeed;
-
-        const sectStart = left.x - speedMapStartTime - startt;
-        let sectEnd = right.x - speedMapStartTime - startt;
-        // Account for last input frame delay due to potentially imprecise trim
-        if (sect === nSects - 1) {
-          sectEnd = Math.floor(right['x'] / frameDur) * frameDur;
-          // When trim is frame-precise, the frame that begins at the marker pair end time is not included
-          if (right.x - sectEnd < 1e-10) sectEnd = sectEnd - frameDur;
-          sectEnd = sectEnd - speedMapStartTime - startt;
-          sectEnd = Math.floor(sectEnd * 1000000) / 1000000;
-        }
-
-        const sectDuration = sectEnd - sectStart;
-        if (sectDuration === 0) continue;
-
-        const m = speedChange / sectDuration;
-        const b = startSpeed - m * sectStart;
-
-        if (speedChange === 0) {
-          outputDuration += sectDuration / endSpeed;
-        } else {
-          // Integrate the reciprocal of the linear time vs speed function for the current section
-          outputDuration +=
-            (1 / m) *
-            (Math.log(Math.abs(m * sectEnd + b)) - Math.log(Math.abs(m * sectStart + b)));
-        }
-      }
-      // Each output frame time is rounded to the nearest multiple of a frame's duration at the given fps
-      outputDuration = Math.round(outputDuration / frameDur) * frameDur;
-      // The last included frame is held for a single frame's duration
-      outputDuration += frameDur;
-      outputDuration = Math.round(outputDuration * 1000) / 1000;
-      return outputDuration;
     }
 
     function renumberMarkerPairs() {
@@ -5386,28 +5216,6 @@ export function triggerCropChartLoop() {
           }
         }
       }
-    }
-
-    function flattenVRVideo() {
-      let isVRVideo = true;
-
-      const VRCanvas = playerInfo.videoContainer.getElementsByClassName('webgl')[0];
-      VRCanvas != null ? deleteElement(VRCanvas) : (isVRVideo = false);
-      const VRControl = document.getElementsByClassName('ytp-webgl-spherical-control')[0];
-      VRControl != null ? deleteElement(VRControl) : (isVRVideo = false);
-
-      if (isVRVideo) {
-        playerInfo.videoContainer.style.cursor = 'auto';
-        video.style.display = 'block';
-        flashMessage('Flattened VR video.', 'green');
-      } else {
-        flashMessage('Not a VR video or already flattened.', 'red');
-      }
-    }
-
-    function openSubsEditor() {
-      const url = `https://www.youtube.com/timedtext_video?ref=player&v=${settings.videoID}`;
-      window.open(url, '_blank');
     }
   }
 })();
