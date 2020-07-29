@@ -11,7 +11,7 @@
   "description": "Mark up YouTube videos and quickly generate clipped webms.",
   "main": "./src/markup/yt_clipper.ts",
   "browserslist": [
-    "last 4 versions and > 0.5% and not op_mini all and not IE 11"
+    "since 2019 and > 0.5% and not op_mini all and not IE 11"
   ],
   "devDependencies": {
     "browserslist": "^4.13.0",
