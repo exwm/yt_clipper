@@ -875,7 +875,7 @@ def makeClip(settings, markerPairIndex):
     else:
         inputs += f' -ss {mp["start"]} -i "{mps["videoURL"]}" '
 
-    qmax = max(min(mps["crf"] + 15, 63), 35)
+    qmax = max(min(mps["crf"] + 13, 63), 34)
     qmin = min(mps["crf"], 15)
 
     if mps["minterpFPS"] is not None:
