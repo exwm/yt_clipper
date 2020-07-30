@@ -434,6 +434,12 @@ v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`:
 - Rename `yt_clipper_merge` and `yt_clipper_fast_trim` helper scripts to simply `merge` and `fast_trim`.
 - Update ffmpeg dependency to latest nightly version (`20200814-a762fd2`).
 
+v3.6.4 `[2020.07.29]`:
+
+- Note that this release is directly on top of `v3.6.3`.
+- Use with `v0.0.89` or higher of the markup script.
+- Update youtube-dl dependency to [`2020.07.28`](https://github.com/ytdl-org/youtube-dl/releases/tag/2020.07.28) to fix extractor errors when trying to download YouTube videos.
+
 v3.7.0-beta.3.9.0-alpha.9 `[2020.07.27]`:
 
 - Add `--ytdl-username`/`-yu` and `--ytdl-password`/`-yp` for YouTube account authentication.
