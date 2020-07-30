@@ -3216,7 +3216,10 @@ export function triggerCropChartLoop() {
         shortcutsTableContainer = document.createElement('div');
         shortcutsTableContainer.setAttribute('id', 'shortcutsTableContainer');
         shortcutsTableContainer.innerHTML = shortcutsTable;
-        flashMessageHook.insertAdjacentElement('afterend', shortcutsTableContainer);
+        playerInfo.infoContents.insertAdjacentElement(
+          'afterend',
+          shortcutsTableContainer
+        );
       } else if (shortcutsTableContainer.style.display !== 'none') {
         shortcutsTableContainer.style.display = 'none';
       } else {
@@ -3456,7 +3459,7 @@ export function triggerCropChartLoop() {
         setTimeout(() => deleteElement(progressDiv), 2500);
       });
       progressDiv.innerHTML = `<span class="flash-msg" style="color:${color}"> Frame Capturer Zipping Progress: 0%</span>`;
-      flashMessageHook.insertAdjacentElement('beforebegin', progressDiv);
+      playerInfo.infoContents.insertAdjacentElement('beforebegin', progressDiv);
       return progressDiv;
     }
 
