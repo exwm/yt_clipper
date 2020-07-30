@@ -238,3 +238,29 @@ export function getOutputDuration(speedMap: SpeedPoint[], fps = 30) {
   outputDuration = Math.round(outputDuration * 1000) / 1000;
   return outputDuration;
 }
+export async function onLoadVideoPage(callback: Function) {
+  const ytdapp = await retryUntilTruthyResult(
+    () => document.getElementsByTagName('ytd-app')[0]
+  );
+  if (ytdapp.hasAttribute('is-watch-page')) {
+    console.log('watch page loaded');
+    callback();
+    return;
+  }
+  const observer = new MutationObserver((mutationList) => {
+    mutationList.forEach((mutation) => {
+      if (
+        mutation.type === 'attributes' &&
+        mutation.attributeName === 'is-watch-page' &&
+        ytdapp.hasAttribute('is-watch-page')
+      ) {
+        console.log('watch page loaded');
+        observer.disconnect();
+        callback();
+      }
+    });
+  });
+  const config = { attributeFilter: ['is-watch-page'] };
+  console.log(`Waiting for video page load before calling ${callback.name}`);
+  observer.observe(ytdapp, config);
+}
