@@ -83,9 +83,18 @@ import {
   getEasedValue,
   isStaticCrop,
   blockEvent,
+  onLoadVideoPage,
 } from './util';
 import { autoHideUnselectedMarkerPairsCSS } from './css';
 import { flattenVRVideo, openSubsEditor } from './misc';
+import {
+  enablePreventSideBarPull,
+  enablePreventAltDefault,
+  enablePreventMouseZoom,
+  disablePreventSideBarPull,
+  disablePreventAltDefault,
+  disablePreventMouseZoom,
+} from './yt-blockers';
 const ytClipperCSS = readFileSync(__dirname + '/css/yt-clipper.css', 'utf8');
 const shortcutsTable = readFileSync(
   __dirname + '/components/shortcuts-table/shortcuts-table.html',
@@ -110,32 +119,6 @@ export function triggerCropChartLoop() {
 
 (function () {
   'use strict';
-  async function onLoadVideoPage(callback: Function) {
-    const ytdapp = await retryUntilTruthyResult(
-      () => document.getElementsByTagName('ytd-app')[0]
-    );
-    if (ytdapp.hasAttribute('is-watch-page')) {
-      console.log('watch page loaded');
-      callback();
-      return;
-    }
-    const observer = new MutationObserver((mutationList) => {
-      mutationList.forEach((mutation) => {
-        if (
-          mutation.type === 'attributes' &&
-          mutation.attributeName === 'is-watch-page' &&
-          ytdapp.hasAttribute('is-watch-page')
-        ) {
-          console.log('watch page loaded');
-          observer.disconnect();
-          callback();
-        }
-      });
-    });
-    const config = { attributeFilter: ['is-watch-page'] };
-    console.log(`Waiting for video page load before calling ${callback.name}`);
-    observer.observe(ytdapp, config);
-  }
   onLoadVideoPage(loadytClipper);
 
   async function loadytClipper() {
@@ -342,44 +325,79 @@ export function triggerCropChartLoop() {
       }
     }
 
-    function enablePreventAltDefault() {
-      window.addEventListener('keyup', preventAltDefaultHandler, true);
+    let start = true;
+    let markerHotkeysEnabled = false;
+    let isSettingsEditorOpen = false;
+    let wasGlobalSettingsEditorOpen = false;
+    let isCropOverlayVisible = false;
+    let isCurrentChartVisible = false;
+
+    let markerPairs: MarkerPair[] = [];
+    let markerPairsHistory: MarkerPair[] = [];
+
+    let startTime = 0.0;
+    let isHotkeysEnabled = false;
+    let prevSelectedEndMarker: SVGRectElement = null;
+    let prevSelectedMarkerPairIndex: number = null;
+
+    function init() {
+      injectCSS(ytClipperCSS, 'yt-clipper-css');
+      initPlayerInfo();
+      initMarkersContainer();
+      initChartHooks();
+      addForeignEventListeners();
+      injectToggleShortcutsTableButton();
+      addCropOverlayDragListener();
     }
 
-    function disablePreventAltDefault() {
-      window.removeEventListener('keyup', preventAltDefaultHandler, true);
+    const initOnce = once(init, this);
+    player = await retryUntilTruthyResult(() => document.getElementById('movie_player'));
+    const playerInfo: { [index: string]: any } = {};
+    const video = await retryUntilTruthyResult(
+      () => document.getElementsByTagName('video')[0]
+    );
+    let settingsEditorHook: HTMLElement;
+    let overlayHook: HTMLElement;
+    function initPlayerInfo() {
+      playerInfo.url = player.getVideoUrl();
+      playerInfo.playerData = player.getVideoData();
+
+      playerInfo.duration = player.getDuration();
+      playerInfo.video = document.getElementsByTagName('video')[0];
+      playerInfo.video.setAttribute('id', 'yt-clipper-video');
+      playerInfo.aspectRatio = player.getVideoAspectRatio();
+      playerInfo.isVerticalVideo = playerInfo.aspectRatio <= 1;
+      playerInfo.progress_bar = document.getElementsByClassName('ytp-progress-bar')[0];
+      playerInfo.progress_bar.removeAttribute('draggable');
+      playerInfo.watchFlexy = document.getElementsByTagName('ytd-watch-flexy')[0];
+      playerInfo.infoContents = document.getElementById('info-contents');
+      setFlashMessageHook(playerInfo.infoContents);
+      playerInfo.container = document.querySelector('#ytd-player #container');
+      playerInfo.columns = document.getElementById('columns');
+      playerInfo.playerTheaterContainer = document.getElementById(
+        'player-theater-container'
+      );
+      updateSettingsEditorHook();
+      playerInfo.annotations = document.getElementsByClassName('ytp-iv-video-content')[0];
+      playerInfo.videoContainer = document.getElementsByClassName(
+        'html5-video-container'
+      )[0] as HTMLDivElement;
+      overlayHook = playerInfo.videoContainer;
+      playerInfo.controls = document.getElementsByClassName('ytp-chrome-bottom')[0];
+      playerInfo.controlsBar = document.getElementsByClassName('ytp-chrome-controls')[0];
+      playerInfo.progressBar = document.getElementsByClassName(
+        'ytp-progress-bar-container'
+      )[0];
+      playerInfo.gradientBottom = document.getElementsByClassName(
+        'ytp-gradient-bottom'
+      )[0];
     }
 
-    function enablePreventSideBarPull() {
-      const sideBar = document.getElementById('contentContainer');
-      const sideBarContent = document.getElementById('guide-content');
-      sideBarContent.style.pointerEvents = 'auto';
-      if (sideBar != null) sideBar.style.pointerEvents = 'none';
-    }
-    function disablePreventSideBarPull() {
-      const sideBar = document.getElementById('contentContainer');
-      if (sideBar != null) sideBar.style.removeProperty('pointer-events');
-    }
-
-    function preventAltDefaultHandler(e: KeyboardEvent) {
-      if (e.code === 'AltLeft' && !e.ctrlKey && !e.shiftKey) {
-        e.preventDefault();
-      }
-    }
-
-    function enablePreventMouseZoom() {
-      window.addEventListener('mousewheel', stopWheelZoom, { passive: false });
-      window.addEventListener('DOMMouseScroll', stopWheelZoom, { passive: false });
-    }
-
-    function disablePreventMouseZoom() {
-      window.removeEventListener('mousewheel', stopWheelZoom);
-      window.removeEventListener('DOMMouseScroll', stopWheelZoom);
-    }
-
-    function stopWheelZoom(e: MouseEvent) {
-      if (e.ctrlKey) {
-        e.preventDefault();
+    function updateSettingsEditorHook() {
+      if (playerInfo.watchFlexy.theater) {
+        settingsEditorHook = playerInfo.playerTheaterContainer;
+      } else {
+        settingsEditorHook = playerInfo.infoContents;
       }
     }
 
@@ -438,414 +456,6 @@ export function triggerCropChartLoop() {
           ? (markersSvg.firstElementChild.nextElementSibling as SVGRectElement)
           : null;
         if (firstEndMarker) toggleMarkerPairEditor(firstEndMarker);
-      }
-    }
-
-    let start = true;
-    let markerHotkeysEnabled = false;
-    let isSettingsEditorOpen = false;
-    let wasGlobalSettingsEditorOpen = false;
-    let isCropOverlayVisible = false;
-    let isCurrentChartVisible = false;
-
-    let markerPairs: MarkerPair[] = [];
-    let markerPairsHistory: MarkerPair[] = [];
-
-    let startTime = 0.0;
-    let isHotkeysEnabled = false;
-    let prevSelectedEndMarker: SVGRectElement = null;
-    let prevSelectedMarkerPairIndex: number = null;
-
-    function init() {
-      injectCSS(ytClipperCSS, 'yt-clipper-css');
-      initPlayerInfo();
-      initMarkersContainer();
-      initChartHooks();
-      addForeignEventListeners();
-      injectToggleShortcutsTableButton();
-      addCropOverlayDragListener();
-    }
-
-    function getMinWH() {
-      const minWHMultiplier =
-        Math.min(settings.cropResWidth, settings.cropResHeight) / 1080;
-      const minW = Math.round(25 * minWHMultiplier);
-      const minH = Math.round(25 * minWHMultiplier);
-      return { minW, minH };
-    }
-
-    function getRelevantCropString() {
-      if (!isSettingsEditorOpen) return null;
-      if (!wasGlobalSettingsEditorOpen) {
-        return markerPairs[prevSelectedMarkerPairIndex].cropMap[currentCropPointIndex]
-          .crop;
-      } else {
-        return settings.newMarkerCrop;
-      }
-    }
-
-    let isDraggingCrop = false;
-    let endCropOverlayDrag: (e, forceEndDrag?: boolean) => void;
-
-    function addCropOverlayDragListener() {
-      video.addEventListener('pointerdown', cropOverlayDragHandler, {
-        capture: true,
-      });
-      function cropOverlayDragHandler(e) {
-        const isCropBlockingChartVisible =
-          isCurrentChartVisible && currentChartInput && currentChartInput.type !== 'crop';
-        if (
-          e.ctrlKey &&
-          isSettingsEditorOpen &&
-          isCropOverlayVisible &&
-          !isDrawingCrop &&
-          !isCropBlockingChartVisible
-        ) {
-          const cropString = getRelevantCropString();
-          const [ix, iy, iw, ih] = getCropComponents(cropString);
-          if (!wasGlobalSettingsEditorOpen) {
-            const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-            const cropMap = markerPair.cropMap;
-            cropMap.forEach((cropPoint) => {
-              cropPoint.initCrop = cropPoint.crop;
-            });
-          }
-
-          const cropAspectRatio = iw / ih;
-          const videoRect = player.getVideoContentRect();
-          const playerRect = player.getBoundingClientRect();
-          const clickPosX = e.pageX - videoRect.left - playerRect.left;
-          const clickPosY = e.pageY - videoRect.top - playerRect.top;
-          const cursor = getMouseCropHoverRegion(e, cropString);
-          const pointerId = e.pointerId;
-
-          endCropOverlayDrag = (e, forceEndDrag = false) => {
-            if (forceEndDrag) {
-              document.removeEventListener('pointerup', endCropOverlayDrag, {
-                capture: true,
-              });
-            }
-            isDraggingCrop = false;
-
-            video.releasePointerCapture(pointerId);
-
-            cropInput.dispatchEvent(new Event('change'));
-
-            if (!wasGlobalSettingsEditorOpen) {
-              const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-              const cropMap = markerPair.cropMap;
-              cropMap.forEach((cropPoint) => {
-                delete cropPoint.initCrop;
-              });
-            }
-
-            cursor === 'grab'
-              ? document.removeEventListener('pointermove', dragCropHandler)
-              : document.removeEventListener('pointermove', resizeHandler);
-
-            showPlayerControls();
-            if (!forceEndDrag && e.ctrlKey) {
-              if (cursor) video.style.cursor = cursor;
-              updateCropHoverCursor(e);
-              window.addEventListener('mousemove', cropOverlayHoverHandler, true);
-            } else {
-              video.style.removeProperty('cursor');
-            }
-            window.addEventListener('keyup', removeCropOverlayHoverListener, true);
-            window.addEventListener('keydown', addCropOverlayHoverListener, true);
-          };
-
-          let resizeHandler;
-          if (!cursor) {
-            return;
-          } else {
-            document.addEventListener('click', blockVideoPause, {
-              once: true,
-              capture: true,
-            });
-            window.removeEventListener('mousemove', cropOverlayHoverHandler, true);
-            window.removeEventListener('keydown', addCropOverlayHoverListener, true);
-            window.removeEventListener('keyup', removeCropOverlayHoverListener, true);
-
-            e.preventDefault();
-            video.setPointerCapture(pointerId);
-
-            if (cursor === 'grab') {
-              video.style.cursor = 'grabbing';
-              document.addEventListener('pointermove', dragCropHandler);
-            } else {
-              resizeHandler = (e: MouseEvent) => getResizeHandler(e, cursor);
-              document.addEventListener('pointermove', resizeHandler);
-            }
-
-            document.addEventListener('pointerup', endCropOverlayDrag, {
-              once: true,
-              capture: true,
-            });
-
-            hidePlayerControls();
-            isDraggingCrop = true;
-          }
-
-          function getResizeHandler(e, cursor) {
-            const dragPosX = e.pageX - videoRect.left - playerRect.left;
-            const changeX = dragPosX - clickPosX;
-            let changeXScaled = (changeX / videoRect.width) * settings.cropResWidth;
-            const dragPosY = e.pageY - videoRect.top - playerRect.top;
-            const changeY = dragPosY - clickPosY;
-            let changeYScaled = (changeY / videoRect.height) * settings.cropResHeight;
-            const shouldMaintainCropAspectRatio =
-              (isCropChartPanOnly && e.altKey) || (!isCropChartPanOnly && !e.altKey);
-            if (
-              shouldMaintainCropAspectRatio &&
-              ['ne-resize', 'se-resize', 'sw-resize', 'nw-resize'].includes(cursor)
-            ) {
-              if (Math.abs(changeXScaled) > Math.abs(changeYScaled)) {
-                changeYScaled = changeXScaled / cropAspectRatio;
-                if (['ne-resize', 'sw-resize'].includes(cursor))
-                  changeYScaled = -changeYScaled;
-              } else {
-                changeXScaled = changeYScaled * cropAspectRatio;
-                if (['ne-resize', 'sw-resize'].includes(cursor))
-                  changeXScaled = -changeXScaled;
-              }
-            }
-
-            let resizedDimensions;
-            switch (cursor) {
-              case 'n-resize':
-                resizedDimensions = shouldMaintainCropAspectRatio
-                  ? getResizeNE(-changeYScaled * cropAspectRatio, changeYScaled)
-                  : getResizeN(changeYScaled);
-                break;
-              case 'ne-resize':
-                resizedDimensions = getResizeNE(changeXScaled, changeYScaled);
-                break;
-              case 'e-resize':
-                resizedDimensions = shouldMaintainCropAspectRatio
-                  ? getResizeSE(changeXScaled, changeXScaled / cropAspectRatio)
-                  : getResizeE(changeXScaled);
-                break;
-              case 'se-resize':
-                resizedDimensions = getResizeSE(changeXScaled, changeYScaled);
-                break;
-              case 's-resize':
-                resizedDimensions = shouldMaintainCropAspectRatio
-                  ? getResizeSE(changeYScaled * cropAspectRatio, changeYScaled)
-                  : getResizeS(changeYScaled);
-                break;
-              case 'sw-resize':
-                resizedDimensions = getResizeSW(changeXScaled, changeYScaled);
-                break;
-              case 'w-resize':
-                resizedDimensions = shouldMaintainCropAspectRatio
-                  ? getResizeSW(changeXScaled, -changeXScaled / cropAspectRatio)
-                  : getResizeW(changeXScaled);
-                break;
-              case 'nw-resize':
-                resizedDimensions = getResizeNW(changeXScaled, changeYScaled);
-                break;
-            }
-
-            const { resizedX, resizedY, resizedW, resizedH } = resizedDimensions;
-            const optArgs = {
-              ix,
-              iy,
-              iw,
-              ih,
-              minW: null,
-              minH: null,
-              updateCropChart: false,
-              shouldMaintainCropAspectRatio,
-            };
-            updateCrop(resizedX, resizedY, resizedW, resizedH, optArgs);
-          }
-
-          function dragCropHandler(e) {
-            const dragPosX = e.pageX - videoRect.left - playerRect.left;
-            const dragPosY = e.pageY - videoRect.top - playerRect.top;
-            const changeX = dragPosX - clickPosX;
-            const changeY = dragPosY - clickPosY;
-            let x = Math.round((changeX / videoRect.width) * settings.cropResWidth + ix);
-
-            let y = Math.round(
-              (changeY / videoRect.height) * settings.cropResHeight + iy
-            );
-
-            const optArgs = {
-              ix,
-              iy,
-              iw,
-              ih,
-              minW: null,
-              minH: null,
-              updateCropChart: false,
-              shouldMaintainCropAspectRatio: false,
-            };
-
-            const shouldMaintainCropX = e.shiftKey;
-            const shouldMaintainCropY = e.altKey;
-            if (shouldMaintainCropX) x = ix;
-            if (shouldMaintainCropY) y = iy;
-
-            updateCrop(x, y, iw, ih, optArgs);
-          }
-
-          function getResizeN(changeYScaled) {
-            let Y = Math.round(iy + changeYScaled);
-            let H = Math.round(ih - changeYScaled);
-
-            return { resizedX: ix, resizedY: Y, resizedW: iw, resizedH: H };
-          }
-
-          function getResizeE(changeXScaled) {
-            let W = Math.round(iw + changeXScaled);
-            return { resizedX: ix, resizedY: iy, resizedW: W, resizedH: ih };
-          }
-
-          function getResizeS(changeYScaled) {
-            let H = Math.round(ih + changeYScaled);
-            return { resizedX: ix, resizedY: iy, resizedW: iw, resizedH: H };
-          }
-          function getResizeW(changeXScaled) {
-            let X = Math.round(ix + changeXScaled);
-            let W = Math.round(iw - changeXScaled);
-            return { resizedX: X, resizedY: iy, resizedW: W, resizedH: ih };
-          }
-          function getResizeNE(changeXScaled, changeYScaled) {
-            let Y = Math.round(iy + changeYScaled);
-            let W = Math.round(iw + changeXScaled);
-            let H = Math.round(ih - changeYScaled);
-
-            return { resizedX: ix, resizedY: Y, resizedW: W, resizedH: H };
-          }
-
-          function getResizeSE(changeXScaled, changeYScaled) {
-            let W = Math.round(iw + changeXScaled);
-            let H = Math.round(ih + changeYScaled);
-            return { resizedX: ix, resizedY: iy, resizedW: W, resizedH: H };
-          }
-
-          function getResizeSW(changeXScaled, changeYScaled) {
-            let X = Math.round(ix + changeXScaled);
-            let W = Math.round(iw - changeXScaled);
-            let H = Math.round(ih + changeYScaled);
-            return { resizedX: X, resizedY: iy, resizedW: W, resizedH: H };
-          }
-
-          function getResizeNW(changeXScaled, changeYScaled) {
-            let X = Math.round(ix + changeXScaled);
-            let W = Math.round(iw - changeXScaled);
-            let Y = Math.round(iy + changeYScaled);
-            let H = Math.round(ih - changeYScaled);
-            return { resizedX: X, resizedY: Y, resizedW: W, resizedH: H };
-          }
-        }
-      }
-    }
-
-    function getMouseCropHoverRegion(e: MouseEvent, cropString?: string) {
-      cropString = cropString ?? getRelevantCropString();
-      const [x, y, w, h] = getCropComponents(cropString);
-      const videoRect = player.getVideoContentRect();
-      const playerRect = player.getBoundingClientRect();
-      const clickPosX = e.pageX - videoRect.left - playerRect.left;
-      const clickPosY = e.pageY - videoRect.top - playerRect.top;
-      const clickPosXScaled = (clickPosX / videoRect.width) * settings.cropResWidth;
-      const clickPosYScaled = (clickPosY / videoRect.height) * settings.cropResHeight;
-
-      const slMultiplier = Math.min(settings.cropResWidth, settings.cropResHeight) / 1080;
-      const sl = Math.ceil(Math.min(w, h) * slMultiplier * 0.1);
-      const edgeOffset = 30 * slMultiplier;
-      let cursor: string;
-      let mouseCropColumn: 1 | 2 | 3;
-      if (x - edgeOffset < clickPosXScaled && clickPosXScaled < x + sl) {
-        mouseCropColumn = 1;
-      } else if (x + sl < clickPosXScaled && clickPosXScaled < x + w - sl) {
-        mouseCropColumn = 2;
-      } else if (x + w - sl < clickPosXScaled && clickPosXScaled < x + w + edgeOffset) {
-        mouseCropColumn = 3;
-      }
-      let mouseCropRow: 1 | 2 | 3;
-      if (y - edgeOffset < clickPosYScaled && clickPosYScaled < y + sl) {
-        mouseCropRow = 1;
-      } else if (y + sl < clickPosYScaled && clickPosYScaled < y + h - sl) {
-        mouseCropRow = 2;
-      } else if (y + h - sl < clickPosYScaled && clickPosYScaled < y + h + edgeOffset) {
-        mouseCropRow = 3;
-      }
-
-      const isMouseInCropCenter = mouseCropColumn === 2 && mouseCropRow === 2;
-      const isMouseInCropN = mouseCropColumn === 2 && mouseCropRow === 1;
-      const isMouseInCropNE = mouseCropColumn === 3 && mouseCropRow === 1;
-      const isMouseInCropE = mouseCropColumn === 3 && mouseCropRow === 2;
-      const isMouseInCropSE = mouseCropColumn === 3 && mouseCropRow === 3;
-      const isMouseInCropS = mouseCropColumn === 2 && mouseCropRow === 3;
-      const isMouseInCropSW = mouseCropColumn === 1 && mouseCropRow === 3;
-      const isMouseInCropW = mouseCropColumn === 1 && mouseCropRow === 2;
-      const isMouseInCropNW = mouseCropColumn === 1 && mouseCropRow === 1;
-
-      if (isMouseInCropCenter) cursor = 'grab';
-      if (isMouseInCropN) cursor = 'n-resize';
-      if (isMouseInCropNE) cursor = 'ne-resize';
-      if (isMouseInCropE) cursor = 'e-resize';
-      if (isMouseInCropSE) cursor = 'se-resize';
-      if (isMouseInCropS) cursor = 's-resize';
-      if (isMouseInCropSW) cursor = 'sw-resize';
-      if (isMouseInCropW) cursor = 'w-resize';
-      if (isMouseInCropNW) cursor = 'nw-resize';
-
-      return cursor;
-    }
-
-    const initOnce = once(init, this);
-    player = await retryUntilTruthyResult(() => document.getElementById('movie_player'));
-    const playerInfo: { [index: string]: any } = {};
-    const video = await retryUntilTruthyResult(
-      () => document.getElementsByTagName('video')[0]
-    );
-    let settingsEditorHook: HTMLElement;
-    let overlayHook: HTMLElement;
-    function initPlayerInfo() {
-      playerInfo.url = player.getVideoUrl();
-      playerInfo.playerData = player.getVideoData();
-
-      playerInfo.duration = player.getDuration();
-      playerInfo.video = document.getElementsByTagName('video')[0];
-      playerInfo.video.setAttribute('id', 'yt-clipper-video');
-      playerInfo.aspectRatio = player.getVideoAspectRatio();
-      playerInfo.isVerticalVideo = playerInfo.aspectRatio <= 1;
-      playerInfo.progress_bar = document.getElementsByClassName('ytp-progress-bar')[0];
-      playerInfo.progress_bar.removeAttribute('draggable');
-      playerInfo.watchFlexy = document.getElementsByTagName('ytd-watch-flexy')[0];
-      playerInfo.infoContents = document.getElementById('info-contents');
-      setFlashMessageHook(playerInfo.infoContents);
-      playerInfo.container = document.querySelector('#ytd-player #container');
-      playerInfo.columns = document.getElementById('columns');
-      playerInfo.playerTheaterContainer = document.getElementById(
-        'player-theater-container'
-      );
-      updateSettingsEditorHook();
-      playerInfo.annotations = document.getElementsByClassName('ytp-iv-video-content')[0];
-      playerInfo.videoContainer = document.getElementsByClassName(
-        'html5-video-container'
-      )[0] as HTMLDivElement;
-      overlayHook = playerInfo.videoContainer;
-      playerInfo.controls = document.getElementsByClassName('ytp-chrome-bottom')[0];
-      playerInfo.controlsBar = document.getElementsByClassName('ytp-chrome-controls')[0];
-      playerInfo.progressBar = document.getElementsByClassName(
-        'ytp-progress-bar-container'
-      )[0];
-      playerInfo.gradientBottom = document.getElementsByClassName(
-        'ytp-gradient-bottom'
-      )[0];
-    }
-
-    function updateSettingsEditorHook() {
-      if (playerInfo.watchFlexy.theater) {
-        settingsEditorHook = playerInfo.playerTheaterContainer;
-      } else {
-        settingsEditorHook = playerInfo.infoContents;
       }
     }
 
@@ -2492,6 +2102,725 @@ export function triggerCropChartLoop() {
       });
     }
 
+    function deleteSettingsEditor() {
+      const settingsEditorDiv = document.getElementById('settings-editor-div');
+      hideCropOverlay();
+      deleteElement(settingsEditorDiv);
+      isSettingsEditorOpen = false;
+      wasGlobalSettingsEditorOpen = false;
+      markerHotkeysEnabled = false;
+    }
+
+    let isExtraSettingsEditorEnabled = false;
+    function toggleMarkerPairOverridesEditor() {
+      if (isSettingsEditorOpen) {
+        const markerPairOverridesEditor = document.getElementById(
+          'marker-pair-overrides'
+        );
+        if (markerPairOverridesEditor) {
+          if (markerPairOverridesEditor.style.display === 'none') {
+            markerPairOverridesEditor.style.display = 'block';
+            isExtraSettingsEditorEnabled = true;
+          } else {
+            markerPairOverridesEditor.style.display = 'none';
+            isExtraSettingsEditorEnabled = false;
+          }
+        }
+
+        const globalEncodeSettingsEditor = document.getElementById(
+          'global-encode-settings'
+        );
+        if (globalEncodeSettingsEditor) {
+          if (globalEncodeSettingsEditor.style.display === 'none') {
+            globalEncodeSettingsEditor.style.display = 'block';
+            isExtraSettingsEditorEnabled = true;
+          } else if (globalEncodeSettingsEditor.style.display === 'block') {
+            globalEncodeSettingsEditor.style.display = 'none';
+            isExtraSettingsEditorEnabled = false;
+          }
+        }
+      }
+    }
+
+    function markerNumberingMouseOverHandler(e: MouseEvent) {
+      const targetMarker = e.target.marker as SVGRectElement;
+      toggleMarkerPairEditorHandler(e, targetMarker);
+    }
+
+    function markerNumberingMouseDownHandler(e: PointerEvent) {
+      if (!(e.button === 0)) return;
+      const numbering = e.target as SVGTextElement;
+      const numberingType = numbering.classList.contains('startMarkerNumbering')
+        ? 'start'
+        : 'end';
+      const targetEndMarker = numbering.marker as SVGRectElement;
+      const targetStartMarker = targetEndMarker.previousSibling as SVGRectElement;
+      const targetMarker =
+        numberingType === 'start' ? targetStartMarker : targetEndMarker;
+
+      const markerPairIndex = parseInt(numbering.getAttribute('idx')) - 1;
+      const markerPair = markerPairs[markerPairIndex];
+      const markerTime = numberingType === 'start' ? markerPair.start : markerPair.end;
+
+      // open editor of target marker corresponding to clicked numbering
+      if (!isSettingsEditorOpen) {
+        toggleOnMarkerPairEditor(targetEndMarker);
+      } else {
+        if (wasGlobalSettingsEditorOpen) {
+          toggleOffGlobalSettingsEditor();
+          toggleOnMarkerPairEditor(targetEndMarker);
+        } else if (prevSelectedEndMarker != targetEndMarker) {
+          toggleOffMarkerPairEditor();
+          toggleOnMarkerPairEditor(targetEndMarker);
+        }
+      }
+
+      player.seekTo(markerTime);
+
+      if (!e.altKey) return;
+
+      const pointerId = e.pointerId;
+      numbering.setPointerCapture(pointerId);
+
+      const numberingRect = numbering.getBoundingClientRect();
+      const progressBarRect = playerInfo.progress_bar.getBoundingClientRect();
+      const offsetX = e.pageX - numberingRect.left - numberingRect.width / 2;
+      const offsetY = e.pageY - numberingRect.top;
+      let prevPageX = e.pageX;
+      let prevZoom = 1;
+      function getDragTime(e: PointerEvent) {
+        let newTime =
+          (video.duration * (e.pageX - offsetX - progressBarRect.left)) /
+          progressBarRect.width;
+        let prevTime =
+          (video.duration * (prevPageX - offsetX - progressBarRect.left)) /
+          progressBarRect.width;
+        const zoom = clampNumber((e.pageY - offsetY) / video.clientHeight, 0, 1);
+        const zoomDelta = Math.abs(zoom - prevZoom);
+        prevZoom = zoom;
+        prevPageX = e.pageX;
+
+        if (zoomDelta >= 0.0001) return video.currentTime;
+        let timeDelta = roundValue(zoom * (newTime - prevTime), 0.01, 2);
+        if (Math.abs(timeDelta) < 0.01) return video.currentTime;
+
+        let time = video.currentTime + timeDelta;
+        time =
+          numberingType === 'start'
+            ? clampNumber(time, 0, markerPair.end - 1e-3)
+            : clampNumber(time, markerPair.start + 1e-3, video.duration);
+        return time;
+      }
+
+      function dragNumbering(e: PointerEvent) {
+        const time = getDragTime(e);
+        if (Math.abs(time - video.currentTime) < 0.01) return;
+        moveMarker(targetMarker, time, false, null, false);
+        player.seekTo(time);
+      }
+
+      window.addEventListener('pointermove', dragNumbering);
+
+      window.addEventListener(
+        'pointerup',
+        (e: PointerEvent) => {
+          window.removeEventListener('pointermove', dragNumbering);
+          numbering.releasePointerCapture(pointerId);
+          const time = getDragTime(e);
+          if (Math.abs(time - markerTime) < 0.001) return;
+          moveMarker(targetMarker, time, true, markerTime, true);
+        },
+        {
+          once: true,
+          capture: true,
+        }
+      );
+    }
+
+    function toggleMarkerPairEditorHandler(e: MouseEvent, targetMarker?: SVGRectElement) {
+      targetMarker = targetMarker ?? (e.target as SVGRectElement);
+
+      if (targetMarker && e.shiftKey) {
+        toggleMarkerPairEditor(targetMarker);
+      }
+    }
+
+    let isChartEnabled = false;
+    function toggleMarkerPairEditor(targetMarker: SVGRectElement) {
+      // if target marker is previously selected marker: toggle target on/off
+      if (prevSelectedEndMarker === targetMarker && !wasGlobalSettingsEditorOpen) {
+        isSettingsEditorOpen
+          ? toggleOffMarkerPairEditor()
+          : toggleOnMarkerPairEditor(targetMarker);
+
+        // otherwise switching from a different marker pair or from global settings editor
+      } else {
+        // delete current settings editor appropriately
+        if (isSettingsEditorOpen) {
+          wasGlobalSettingsEditorOpen
+            ? toggleOffGlobalSettingsEditor()
+            : toggleOffMarkerPairEditor();
+        }
+        // create new marker pair settings editor
+        toggleOnMarkerPairEditor(targetMarker);
+      }
+    }
+
+    function toggleOnMarkerPairEditor(targetMarker: SVGRectElement) {
+      prevSelectedEndMarker = targetMarker;
+      const selectedMarkerPairIndex =
+        parseInt(prevSelectedEndMarker.getAttribute('idx')) - 1;
+      if (selectedMarkerPairIndex !== prevSelectedMarkerPairIndex) {
+        setCurrentCropPoint(null, 0);
+      }
+      prevSelectedMarkerPairIndex = selectedMarkerPairIndex;
+
+      highlightSelectedMarkerPair(targetMarker);
+      enableMarkerHotkeys(targetMarker);
+      // creating editor sets isSettingsEditorOpen to true
+      createMarkerPairEditor(targetMarker);
+      addCropInputHotkeys();
+      loadChartData(speedChartInput);
+      loadChartData(cropChartInput);
+      showCropOverlay();
+      if (isChartEnabled) {
+        showChart();
+      }
+
+      targetMarker.classList.add('selected-marker');
+      targetMarker.previousElementSibling.classList.add('selected-marker');
+      const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+      markerPair.startNumbering.classList.add('selectedMarkerNumbering');
+      markerPair.endNumbering.classList.add('selectedMarkerNumbering');
+      if (isAutoHideUnselectedMarkerPairsOn) {
+        autoHideUnselectedMarkerPairsStyle = injectCSS(
+          autoHideUnselectedMarkerPairsCSS,
+          'auto-hide-unselected-marker-pairs-css'
+        );
+      }
+    }
+
+    function toggleOffMarkerPairEditor(hardHide = false) {
+      deleteSettingsEditor();
+      hideSelectedMarkerPairOverlay(hardHide);
+      hideCropOverlay();
+      hideChart();
+      prevSelectedEndMarker.classList.remove('selected-marker');
+      prevSelectedEndMarker.previousElementSibling.classList.remove('selected-marker');
+      const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+      markerPair.startNumbering.classList.remove('selectedMarkerNumbering');
+      markerPair.endNumbering.classList.remove('selectedMarkerNumbering');
+      if (isAutoHideUnselectedMarkerPairsOn) {
+        deleteElement(autoHideUnselectedMarkerPairsStyle);
+      }
+    }
+
+    let autoHideUnselectedMarkerPairsStyle: HTMLStyleElement;
+    let isAutoHideUnselectedMarkerPairsOn = false;
+    function toggleAutoHideUnselectedMarkerPairs(e: KeyboardEvent) {
+      if (e.ctrlKey && !arrowKeyCropAdjustmentEnabled) {
+        blockEvent(e);
+        if (!isAutoHideUnselectedMarkerPairsOn) {
+          autoHideUnselectedMarkerPairsStyle = injectCSS(
+            autoHideUnselectedMarkerPairsCSS,
+            'auto-hide-unselected-marker-pairs-css'
+          );
+          isAutoHideUnselectedMarkerPairsOn = true;
+          flashMessage('Auto-hiding of unselected marker pairs enabled', 'green');
+        } else {
+          deleteElement(autoHideUnselectedMarkerPairsStyle);
+          isAutoHideUnselectedMarkerPairsOn = false;
+          flashMessage('Auto-hiding of unselected marker pairs disabled', 'red');
+        }
+      }
+    }
+
+    let speedInputLabel: HTMLInputElement;
+    let cropInputLabel: HTMLInputElement;
+    let cropInput: HTMLInputElement;
+    let cropAspectRatioSpan: HTMLSpanElement;
+    let markerPairNumberInput: HTMLInputElement;
+    function createMarkerPairEditor(targetMarker: SVGRectElement) {
+      const markerPairIndex = parseInt(targetMarker.getAttribute('idx'), 10) - 1;
+      const markerPair = markerPairs[markerPairIndex];
+      const startTime = toHHMMSSTrimmed(markerPair.start);
+      const endTime = toHHMMSSTrimmed(markerPair.end);
+      const speed = markerPair.speed;
+      const duration = toHHMMSSTrimmed(markerPair.end - markerPair.start);
+      const speedAdjustedDuration = toHHMMSSTrimmed(
+        (markerPair.end - markerPair.start) / speed
+      );
+      const crop = markerPair.crop;
+      const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
+      const [x, y, w, h] = getCropComponents(crop);
+      const cropAspectRatio = (w / h).toFixed(13);
+
+      const settingsEditorDiv = document.createElement('div');
+      const overrides = markerPair.overrides;
+      const vidstab = overrides.videoStabilization;
+      const vidstabDesc = vidstab ? vidstab.desc : null;
+      const vidstabDescGlobal = settings.videoStabilization
+        ? `(${settings.videoStabilization.desc})`
+        : '(Disabled)';
+      const vidstabDynamicZoomEnabled = overrides.videoStabilizationDynamicZoom;
+      const minterpMode = overrides.minterpMode;
+      const minterpFPS = overrides.minterpFPS;
+      const denoise = overrides.denoise;
+      const denoiseDesc = denoise ? denoise.desc : null;
+      const denoiseDescGlobal = settings.denoise
+        ? `(${settings.denoise.desc})`
+        : '(Disabled)';
+      const overridesEditorDisplay = isExtraSettingsEditorEnabled ? 'block' : 'none';
+      createCropOverlay(crop);
+
+      settingsEditorDiv.setAttribute('id', 'settings-editor-div');
+      settingsEditorDiv.innerHTML = `
+      <fieldset class="settings-editor-panel marker-pair-settings-editor-highlighted-div">
+        <legend class="marker-pair-settings-editor-highlighted-label">Marker Pair
+          <input id="marker-pair-number-input"
+            title="${Tooltips.markerPairNumberTooltip}"
+            type="number" value="${markerPairIndex + 1}"
+            step="1" min="1" max="${markerPairs.length}" style="width:3em" required>
+          </input>
+          /
+          <span id="marker-pair-count-label">${markerPairs.length}</span>
+          Settings\
+        </legend>
+        <div class="settings-editor-input-div" title="${Tooltips.speedTooltip}">
+          <span id="speed-input-label">Speed</span>
+          <input id="speed-input"type="number" placeholder="speed" value="${speed}" 
+            step="0.05" min="0.05" max="2" style="min-width:4em" required></input>
+        </div>
+        <div class="settings-editor-input-div" title="${Tooltips.cropTooltip}">
+          <span id="crop-input-label">Crop</span>
+          <input id="crop-input" value="${crop}" pattern="${cropInputValidation}" 
+          style="min-width:10em" required></input>
+        </div>
+        <div class="settings-editor-input-div settings-info-display">
+          <span>Crop Aspect Ratio</span>
+          <br>
+          <span id="crop-aspect-ratio">${cropAspectRatio}</span>
+        </div>
+        <div class="settings-editor-input-div" title="${Tooltips.titlePrefixTooltip}">
+          <span>Title Prefix</span>
+          <input id="title-prefix-input" value="${
+            overrides.titlePrefix != null ? overrides.titlePrefix : ''
+          }" placeholder="None" style="min-width:10em;text-align:right"></input>
+        </div>
+        <div class="settings-editor-input-div settings-info-display">
+          <span>Time:</span>
+          <span id="start-time">${startTime}</span>
+          <span> - </span>
+          <span id="end-time">${endTime}</span>
+          <br>
+          <span>Duration: </span>
+          <span id="duration">${duration} / ${
+        markerPair.speed
+      } = ${speedAdjustedDuration}</span>
+        </div>
+      </fieldset>
+      <fieldset id="marker-pair-overrides" class="settings-editor-panel marker-pair-settings-editor-highlighted-div" style="display:${overridesEditorDisplay}">
+        <legend class="marker-pair-settings-editor-highlighted-label">Overrides</legend>
+        <div class="settings-editor-input-div" title="${Tooltips.audioTooltip}">
+          <span>Audio</span>
+          <select id="audio-input">
+            <option ${overrides.audio ? 'selected' : ''}>Enabled</option>
+            <option ${overrides.audio === false ? 'selected' : ''}>Disabled</option>
+            <option value="Default" ${
+              overrides.audio == null ? 'selected' : ''
+            }>Inherit ${ternaryToString(settings.audio)}</option>
+          </select>
+        </div>
+        <div class="settings-editor-input-div" title="${Tooltips.encodeSpeedTooltip}">
+          <span>Encode Speed (0-5)</span>
+          <input id="encode-speed-input" type="number" min="0" max="5" step="1" value="${
+            overrides.encodeSpeed != null ? overrides.encodeSpeed : ''
+          }" placeholder="${
+        settings.encodeSpeed || 'Auto'
+      }"  style="min-width:4em"></input>
+        </div>
+        <div class="settings-editor-input-div" title="${Tooltips.CRFTooltip}">
+          <span>CRF (0-63)</span>
+          <input id="crf-input" type="number" min="0" max="63" step="1" value="${
+            overrides.crf != null ? overrides.crf : ''
+          }" placeholder="${
+        settings.crf != null ? settings.crf : 'Auto'
+      }" "style="min-width:4em"></input>
+        </div>
+        <div class="settings-editor-input-div" title="${Tooltips.targetBitrateTooltip}">
+          <span>Target Bitrate (kb/s)</span>
+          <input id="target-max-bitrate-input" type="number" min="0" max="10e5" step="100" value="${
+            overrides.targetMaxBitrate != null ? overrides.targetMaxBitrate : ''
+          }" placeholder="${
+        settings.targetMaxBitrate || 'Auto'
+      }" "style="min-width:4em"></input>
+        </div>
+        <div class="settings-editor-input-div" title="${Tooltips.twoPassTooltip}">
+          <span>Two-Pass</span>
+          <select id="two-pass-input"> 
+            <option ${overrides.twoPass ? 'selected' : ''}>Enabled</option>
+            <option ${overrides.twoPass === false ? 'selected' : ''}>Disabled</option>
+            <option value="Default" ${
+              overrides.twoPass == null ? 'selected' : ''
+            }>Inherit ${ternaryToString(settings.twoPass)}</option>
+          </select>
+        </div>
+        <div class="settings-editor-input-div" title="${Tooltips.gammaTooltip}">
+          <span>Gamma (0-4)</span>
+          <input id="gamma-input" type="number" min="0.01" max="4.00" step="0.01" value="${
+            overrides.gamma != null ? overrides.gamma : ''
+          }" placeholder="${
+        settings.gamma != null ? settings.gamma : '1'
+      }" style="min-width:4em"></input>
+        </div>
+        <div class="settings-editor-input-div" title="${Tooltips.denoiseTooltip}">
+          <span>Denoise</span>
+          <select id="denoise-input">
+            <option value="Inherit" ${
+              denoiseDesc == null ? 'selected' : ''
+            }>Inherit ${denoiseDescGlobal}</option>
+            <option value="Disabled" ${
+              denoiseDesc == 'Disabled' ? 'selected' : ''
+            }>Disabled</option>
+            <option ${denoiseDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
+            <option ${denoiseDesc === 'Weak' ? 'selected' : ''}>Weak</option>
+            <option ${denoiseDesc === 'Medium' ? 'selected' : ''}>Medium</option>
+            <option ${denoiseDesc === 'Strong' ? 'selected' : ''}>Strong</option>
+            <option ${
+              denoiseDesc === 'Very Strong' ? 'selected' : ''
+            }>Very Strong</option>
+          </select>
+        </div>
+        <div class="settings-editor-input-div" title="${Tooltips.speedMapTooltip}">
+          <span>Speed Map</span>
+            <select id="enable-speed-maps-input">
+              <option ${overrides.enableSpeedMaps ? 'selected' : ''}>Enabled</option>
+              <option ${
+                overrides.enableSpeedMaps === false ? 'selected' : ''
+              }>Disabled</option>
+              <option value="Default" ${
+                overrides.enableSpeedMaps == null ? 'selected' : ''
+              }>Inherit ${ternaryToString(settings.enableSpeedMaps, '(Enabled)')}</option>
+            </select>
+        </div>
+        <div class="settings-editor-input-div">
+          <div title="${Tooltips.minterpModeTooltip}">
+            <span>Minterpolation</span>
+            <select id="minterp-mode-input">
+              <option value="Default" ${minterpMode == null ? 'selected' : ''}>Inherit ${
+        settings.minterpMode != null ? `(${settings.minterpMode})` : '(Numeric)'
+      }</option>
+              <option ${minterpMode === 'None' ? 'selected' : ''}>None</option>
+              <option ${minterpMode === 'Numeric' ? 'selected' : ''}>Numeric</option>
+              <option value="MaxSpeed" ${
+                minterpMode == 'MaxSpeed' ? 'selected' : ''
+              }>MaxSpeed</option>
+              <option value="VideoFPS" ${
+                minterpMode == 'VideoFPS' ? 'selected' : ''
+              }>VideoFPS</option>
+              <option value="MaxSpeedx2" ${
+                minterpMode == 'MaxSpeedx2' ? 'selected' : ''
+              }>MaxSpeedx2</option>
+              <option value="VideoFPSx2" ${
+                minterpMode == 'VideoFPSx2' ? 'selected' : ''
+              }>VideoFPSx2</option>
+            </select>
+          </div>
+          <div title="${Tooltips.minterpFPSTooltip}">
+            <span>FPS</span>
+            <input id="minterp-fps-input" type="number" min="10" max="120" step="1" value="${
+              minterpFPS ?? ''
+            }" placeholder="" style="min-width:2em"></input>
+          </div>
+        </div>
+        <div class="settings-editor-input-div multi-input-div" title="${
+          Tooltips.vidstabTooltip
+        }">
+        <div>
+          <span>Stabilization</span>
+          <select id="video-stabilization-input">
+              <option value="Inherit" ${
+                vidstabDesc == null ? 'selected' : ''
+              }>Inherit ${vidstabDescGlobal}</option>
+              <option value="Disabled" ${
+                vidstabDesc == 'Disabled' ? 'selected' : ''
+              }>Disabled</option>
+              <option ${vidstabDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
+              <option ${vidstabDesc === 'Weak' ? 'selected' : ''}>Weak</option>
+              <option ${vidstabDesc === 'Medium' ? 'selected' : ''}>Medium</option>
+              <option ${vidstabDesc === 'Strong' ? 'selected' : ''}>Strong</option>
+              <option ${
+                vidstabDesc === 'Very Strong' ? 'selected' : ''
+              }>Very Strong</option>
+              <option ${vidstabDesc === 'Strongest' ? 'selected' : ''}>Strongest</option>
+            </select>
+          </div>
+          <div title="${Tooltips.dynamicZoomTooltip}">
+            <span>Dynamic Zoom</span>
+            <select id="video-stabilization-dynamic-zoom-input"> 
+              <option ${vidstabDynamicZoomEnabled ? 'selected' : ''}>Enabled</option>
+              <option ${
+                vidstabDynamicZoomEnabled === false ? 'selected' : ''
+              }>Disabled</option>
+              <option value="Default" ${
+                vidstabDynamicZoomEnabled == null ? 'selected' : ''
+              }>Inherit ${ternaryToString(
+        settings.videoStabilizationDynamicZoom
+      )}</option>
+            </select>
+          </div>
+        </div>
+        <div class="settings-editor-input-div multi-input-div" title="${
+          Tooltips.loopTooltip
+        }">
+          <div>
+            <span>Loop</span>
+            <select id="loop-input">
+              <option ${overrides.loop === 'fwrev' ? 'selected' : ''}>fwrev</option>
+              <option ${overrides.loop === 'fade' ? 'selected' : ''}>fade</option>
+              <option ${overrides.loop === 'none' ? 'selected' : ''}>none</option>
+              <option value="Default" ${
+                overrides.loop == null ? 'selected' : ''
+              }>Inherit ${
+        settings.loop != null ? `(${settings.loop})` : '(none)'
+      }</option>
+            </select>
+          </div>
+          <div title="${Tooltips.fadeDurationTooltip}">
+            <span>Fade Duration</span>
+            <input id="fade-duration-input" type="number" min="0.1" step="0.1" value="${
+              overrides.fadeDuration != null ? overrides.fadeDuration : ''
+            }" placeholder="${
+        settings.fadeDuration != null ? settings.fadeDuration : '0.7'
+      }" style="width:7em"></input>
+          </div>
+        </div>
+      </fieldset>
+      `;
+
+      updateSettingsEditorHook();
+      settingsEditorHook.insertAdjacentElement('afterend', settingsEditorDiv);
+
+      const inputConfigs = [
+        ['speed-input', 'speed', 'number'],
+        ['crop-input', 'crop', 'string'],
+      ];
+      addSettingsInputListeners(inputConfigs, markerPairs[markerPairIndex], true);
+
+      const overrideInputConfigs = [
+        ['title-prefix-input', 'titlePrefix', 'string'],
+        ['gamma-input', 'gamma', 'number'],
+        ['encode-speed-input', 'encodeSpeed', 'number'],
+        ['crf-input', 'crf', 'number'],
+        ['target-max-bitrate-input', 'targetMaxBitrate', 'number'],
+        ['two-pass-input', 'twoPass', 'ternary'],
+        ['audio-input', 'audio', 'ternary'],
+        ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
+        ['minterp-mode-input', 'minterpMode', 'inheritableString'],
+        ['minterp-fps-input', 'minterpFPS', 'number'],
+        ['denoise-input', 'denoise', 'preset'],
+        ['video-stabilization-input', 'videoStabilization', 'preset'],
+        [
+          'video-stabilization-dynamic-zoom-input',
+          'videoStabilizationDynamicZoom',
+          'ternary',
+        ],
+        ['loop-input', 'loop', 'inheritableString'],
+        ['fade-duration-input', 'fadeDuration', 'number'],
+      ];
+      addSettingsInputListeners(
+        overrideInputConfigs,
+        markerPairs[markerPairIndex].overrides,
+        true
+      );
+      markerPairNumberInput = document.getElementById(
+        'marker-pair-number-input'
+      ) as HTMLInputElement;
+      markerPairNumberInput.addEventListener('change', markerPairNumberInputHandler);
+      speedInputLabel = document.getElementById('speed-input-label') as HTMLInputElement;
+      cropInputLabel = document.getElementById('crop-input-label') as HTMLInputElement;
+      cropInput = document.getElementById('crop-input') as HTMLInputElement;
+      cropAspectRatioSpan = document.getElementById(
+        'crop-aspect-ratio'
+      ) as HTMLSpanElement;
+      isSettingsEditorOpen = true;
+      wasGlobalSettingsEditorOpen = false;
+
+      if (isForceSetSpeedOn) {
+        updateSpeedInputLabel(`Speed (${forceSetSpeedValue.toFixed(2)})`);
+      }
+      highlightModifiedSettings(inputConfigs, markerPairs[markerPairIndex]);
+      highlightModifiedSettings(
+        overrideInputConfigs,
+        markerPairs[markerPairIndex].overrides
+      );
+    }
+
+    function markerPairNumberInputHandler(e: Event) {
+      const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+      const startNumbering = markerPair.startNumbering;
+      const endNumbering = markerPair.endNumbering;
+      const newIdx = e.target.value - 1;
+      markerPairs.splice(
+        newIdx,
+        0,
+        ...markerPairs.splice(prevSelectedMarkerPairIndex, 1)
+      );
+
+      let targetMarkerRect = markersSvg.children[newIdx * 2];
+      let targetStartNumbering = startMarkerNumberings.children[newIdx];
+      let targetEndNumbering = endMarkerNumberings.children[newIdx];
+      // if target succeedes current marker pair, move pair after target
+      if (newIdx > prevSelectedMarkerPairIndex) {
+        targetMarkerRect = targetMarkerRect.nextElementSibling.nextElementSibling;
+        targetStartNumbering = targetStartNumbering.nextElementSibling;
+        targetEndNumbering = targetEndNumbering.nextElementSibling;
+      }
+
+      const prevSelectedStartMarker = prevSelectedEndMarker.previousElementSibling;
+      // if target precedes current marker pair, move pair before target
+      markersSvg.insertBefore(prevSelectedStartMarker, targetMarkerRect);
+      markersSvg.insertBefore(prevSelectedEndMarker, targetMarkerRect);
+      startMarkerNumberings.insertBefore(startNumbering, targetStartNumbering);
+      endMarkerNumberings.insertBefore(endNumbering, targetEndNumbering);
+
+      renumberMarkerPairs();
+      prevSelectedMarkerPairIndex = newIdx;
+    }
+
+    function highlightModifiedSettings(inputs: string[][], target) {
+      if (isSettingsEditorOpen) {
+        const markerPairSettingsLabelHighlight =
+          'marker-pair-settings-editor-highlighted-label';
+        const globalSettingsLabelHighlight = 'global-settings-editor-highlighted-label';
+        let markerPair: MarkerPair;
+        if (!wasGlobalSettingsEditorOpen && prevSelectedMarkerPairIndex != null) {
+          markerPair = markerPairs[prevSelectedMarkerPairIndex];
+        }
+        inputs.forEach((input) => {
+          const id = input[0];
+          const targetProperty = input[1];
+          const inputElem = document.getElementById(id);
+          const storedTargetValue = target[targetProperty];
+
+          let label = inputElem.previousElementSibling;
+          if (id === 'rotate-90-clock' || id === 'rotate-90-counterclock')
+            label = inputElem.parentElement.getElementsByTagName('span')[0];
+
+          const shouldRemoveHighlight =
+            storedTargetValue == null ||
+            storedTargetValue === '' ||
+            (id === 'title-suffix-input' &&
+              storedTargetValue == `[${settings.videoID}]`) ||
+            (markerPair &&
+              id === 'speed-input' &&
+              storedTargetValue === 1 &&
+              !isVariableSpeed(markerPair.speedMap)) ||
+            (id === 'crop-input' &&
+              (storedTargetValue === '0:0:iw:ih' ||
+                storedTargetValue ===
+                  `0:0:${settings.cropResWidth}:${settings.cropResHeight}`)) ||
+            id === 'rotate-0';
+
+          if (shouldRemoveHighlight) {
+            label.classList.remove(globalSettingsLabelHighlight);
+            label.classList.remove(markerPairSettingsLabelHighlight);
+          } else {
+            if (target === settings) {
+              label.classList.add(globalSettingsLabelHighlight);
+            } else {
+              if (storedTargetValue === settings[targetProperty]) {
+                label.classList.add(globalSettingsLabelHighlight);
+                label.classList.remove(markerPairSettingsLabelHighlight);
+              } else {
+                label.classList.add(markerPairSettingsLabelHighlight);
+                label.classList.remove(globalSettingsLabelHighlight);
+              }
+            }
+          }
+        });
+      }
+    }
+
+    function enableMarkerHotkeys(endMarker: SVGRectElement) {
+      markerHotkeysEnabled = true;
+      enableMarkerHotkeys.endMarker = endMarker;
+      enableMarkerHotkeys.startMarker = endMarker.previousSibling;
+    }
+
+    function moveMarker(
+      marker: SVGRectElement,
+      newTime?: number,
+      storeHistory = true,
+      fromTime?: number,
+      adjustCharts = true
+    ) {
+      const type = marker.getAttribute('type') as 'start' | 'end';
+      const idx = parseInt(marker.getAttribute('idx')) - 1;
+      const markerPair = markerPairs[idx];
+      fromTime = fromTime ?? (type === 'start' ? markerPair.start : markerPair.end);
+      const toTime = newTime != null ? newTime : video.currentTime;
+      const progress_pos = (toTime / playerInfo.duration) * 100;
+      const markerTimeSpan = document.getElementById(`${type}-time`);
+
+      if (type === 'start' && toTime >= markerPair.end) {
+        flashMessage('Start marker cannot be placed after or at end marker', 'red');
+        return;
+      }
+      if (type === 'end' && toTime <= markerPair.start) {
+        flashMessage('End marker cannot be placed before or at start marker', 'red');
+        return;
+      }
+
+      marker.setAttribute('x', `${progress_pos}%`);
+      markerPair[type] = toTime;
+      if (type === 'start') {
+        selectedStartMarkerOverlay.setAttribute('x', `${progress_pos}%`);
+        markerPair.startNumbering.setAttribute('x', `${progress_pos}%`);
+        if (adjustCharts) {
+          markerPair.speedMap[0].x = toTime;
+          markerPair.cropMap[0].x = toTime;
+          markerPair.speedMap = markerPair.speedMap.filter((speedPoint) => {
+            return speedPoint.x >= toTime;
+          });
+          markerPair.cropMap = markerPair.cropMap.filter((cropPoint) => {
+            return cropPoint.x >= toTime;
+          });
+        }
+      } else if (type === 'end') {
+        selectedEndMarkerOverlay.setAttribute('x', `${progress_pos}%`);
+        markerPair.endNumbering.setAttribute('x', `${progress_pos}%`);
+        if (adjustCharts) {
+          markerPair.speedMap[markerPair.speedMap.length - 1].x = toTime;
+          markerPair.cropMap[markerPair.cropMap.length - 1].x = toTime;
+          markerPair.speedMap = markerPair.speedMap.filter((speedPoint) => {
+            return speedPoint.x <= toTime;
+          });
+          markerPair.cropMap = markerPair.cropMap.filter((cropPoint) => {
+            return cropPoint.x <= toTime;
+          });
+        }
+      }
+      markerTimeSpan.textContent = `${toHHMMSSTrimmed(toTime)}`;
+
+      if (adjustCharts) {
+        const speedChart = speedChartInput.chart;
+        if (speedChart) {
+          speedChart.config.data.datasets[0].data = markerPair.speedMap;
+          updateChartBounds(speedChart.config, markerPair.start, markerPair.end);
+        }
+        const cropChart = cropChartInput.chart;
+        if (cropChart) {
+          cropChart.config.data.datasets[0].data = markerPair.cropMap;
+          updateChartBounds(cropChart.config, markerPair.start, markerPair.end);
+        }
+        if (isCurrentChartVisible && currentChartInput && currentChartInput.chart) {
+          currentChartInput.chart.update();
+        }
+      }
+      updateMarkerPairDuration(markerPair);
+      if (storeHistory) markerPair.moveHistory.undos.push({ marker, fromTime, toTime });
+    }
     const presetsMap = {
       videoStabilization: {
         Disabled: { desc: 'Disabled', enabled: false },
@@ -3340,6 +3669,338 @@ export function triggerCropChartLoop() {
       playerInfo.gradientBottom.style.display = 'block';
     }
 
+    function getMinWH() {
+      const minWHMultiplier =
+        Math.min(settings.cropResWidth, settings.cropResHeight) / 1080;
+      const minW = Math.round(25 * minWHMultiplier);
+      const minH = Math.round(25 * minWHMultiplier);
+      return { minW, minH };
+    }
+
+    function getRelevantCropString() {
+      if (!isSettingsEditorOpen) return null;
+      if (!wasGlobalSettingsEditorOpen) {
+        return markerPairs[prevSelectedMarkerPairIndex].cropMap[currentCropPointIndex]
+          .crop;
+      } else {
+        return settings.newMarkerCrop;
+      }
+    }
+
+    let isDraggingCrop = false;
+    let endCropOverlayDrag: (e, forceEndDrag?: boolean) => void;
+
+    function addCropOverlayDragListener() {
+      video.addEventListener('pointerdown', cropOverlayDragHandler, {
+        capture: true,
+      });
+      function cropOverlayDragHandler(e) {
+        const isCropBlockingChartVisible =
+          isCurrentChartVisible && currentChartInput && currentChartInput.type !== 'crop';
+        if (
+          e.ctrlKey &&
+          isSettingsEditorOpen &&
+          isCropOverlayVisible &&
+          !isDrawingCrop &&
+          !isCropBlockingChartVisible
+        ) {
+          const cropString = getRelevantCropString();
+          const [ix, iy, iw, ih] = getCropComponents(cropString);
+          if (!wasGlobalSettingsEditorOpen) {
+            const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+            const cropMap = markerPair.cropMap;
+            cropMap.forEach((cropPoint) => {
+              cropPoint.initCrop = cropPoint.crop;
+            });
+          }
+
+          const cropAspectRatio = iw / ih;
+          const videoRect = player.getVideoContentRect();
+          const playerRect = player.getBoundingClientRect();
+          const clickPosX = e.pageX - videoRect.left - playerRect.left;
+          const clickPosY = e.pageY - videoRect.top - playerRect.top;
+          const cursor = getMouseCropHoverRegion(e, cropString);
+          const pointerId = e.pointerId;
+
+          endCropOverlayDrag = (e, forceEndDrag = false) => {
+            if (forceEndDrag) {
+              document.removeEventListener('pointerup', endCropOverlayDrag, {
+                capture: true,
+              });
+            }
+            isDraggingCrop = false;
+
+            video.releasePointerCapture(pointerId);
+
+            cropInput.dispatchEvent(new Event('change'));
+
+            if (!wasGlobalSettingsEditorOpen) {
+              const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+              const cropMap = markerPair.cropMap;
+              cropMap.forEach((cropPoint) => {
+                delete cropPoint.initCrop;
+              });
+            }
+
+            cursor === 'grab'
+              ? document.removeEventListener('pointermove', dragCropHandler)
+              : document.removeEventListener('pointermove', resizeHandler);
+
+            showPlayerControls();
+            if (!forceEndDrag && e.ctrlKey) {
+              if (cursor) video.style.cursor = cursor;
+              updateCropHoverCursor(e);
+              window.addEventListener('mousemove', cropOverlayHoverHandler, true);
+            } else {
+              video.style.removeProperty('cursor');
+            }
+            window.addEventListener('keyup', removeCropOverlayHoverListener, true);
+            window.addEventListener('keydown', addCropOverlayHoverListener, true);
+          };
+
+          let resizeHandler;
+          if (!cursor) {
+            return;
+          } else {
+            document.addEventListener('click', blockVideoPause, {
+              once: true,
+              capture: true,
+            });
+            window.removeEventListener('mousemove', cropOverlayHoverHandler, true);
+            window.removeEventListener('keydown', addCropOverlayHoverListener, true);
+            window.removeEventListener('keyup', removeCropOverlayHoverListener, true);
+
+            e.preventDefault();
+            video.setPointerCapture(pointerId);
+
+            if (cursor === 'grab') {
+              video.style.cursor = 'grabbing';
+              document.addEventListener('pointermove', dragCropHandler);
+            } else {
+              resizeHandler = (e: MouseEvent) => getResizeHandler(e, cursor);
+              document.addEventListener('pointermove', resizeHandler);
+            }
+
+            document.addEventListener('pointerup', endCropOverlayDrag, {
+              once: true,
+              capture: true,
+            });
+
+            hidePlayerControls();
+            isDraggingCrop = true;
+          }
+
+          function getResizeHandler(e, cursor) {
+            const dragPosX = e.pageX - videoRect.left - playerRect.left;
+            const changeX = dragPosX - clickPosX;
+            let changeXScaled = (changeX / videoRect.width) * settings.cropResWidth;
+            const dragPosY = e.pageY - videoRect.top - playerRect.top;
+            const changeY = dragPosY - clickPosY;
+            let changeYScaled = (changeY / videoRect.height) * settings.cropResHeight;
+            const shouldMaintainCropAspectRatio =
+              (isCropChartPanOnly && e.altKey) || (!isCropChartPanOnly && !e.altKey);
+            if (
+              shouldMaintainCropAspectRatio &&
+              ['ne-resize', 'se-resize', 'sw-resize', 'nw-resize'].includes(cursor)
+            ) {
+              if (Math.abs(changeXScaled) > Math.abs(changeYScaled)) {
+                changeYScaled = changeXScaled / cropAspectRatio;
+                if (['ne-resize', 'sw-resize'].includes(cursor))
+                  changeYScaled = -changeYScaled;
+              } else {
+                changeXScaled = changeYScaled * cropAspectRatio;
+                if (['ne-resize', 'sw-resize'].includes(cursor))
+                  changeXScaled = -changeXScaled;
+              }
+            }
+
+            let resizedDimensions;
+            switch (cursor) {
+              case 'n-resize':
+                resizedDimensions = shouldMaintainCropAspectRatio
+                  ? getResizeNE(-changeYScaled * cropAspectRatio, changeYScaled)
+                  : getResizeN(changeYScaled);
+                break;
+              case 'ne-resize':
+                resizedDimensions = getResizeNE(changeXScaled, changeYScaled);
+                break;
+              case 'e-resize':
+                resizedDimensions = shouldMaintainCropAspectRatio
+                  ? getResizeSE(changeXScaled, changeXScaled / cropAspectRatio)
+                  : getResizeE(changeXScaled);
+                break;
+              case 'se-resize':
+                resizedDimensions = getResizeSE(changeXScaled, changeYScaled);
+                break;
+              case 's-resize':
+                resizedDimensions = shouldMaintainCropAspectRatio
+                  ? getResizeSE(changeYScaled * cropAspectRatio, changeYScaled)
+                  : getResizeS(changeYScaled);
+                break;
+              case 'sw-resize':
+                resizedDimensions = getResizeSW(changeXScaled, changeYScaled);
+                break;
+              case 'w-resize':
+                resizedDimensions = shouldMaintainCropAspectRatio
+                  ? getResizeSW(changeXScaled, -changeXScaled / cropAspectRatio)
+                  : getResizeW(changeXScaled);
+                break;
+              case 'nw-resize':
+                resizedDimensions = getResizeNW(changeXScaled, changeYScaled);
+                break;
+            }
+
+            const { resizedX, resizedY, resizedW, resizedH } = resizedDimensions;
+            const optArgs = {
+              ix,
+              iy,
+              iw,
+              ih,
+              minW: null,
+              minH: null,
+              updateCropChart: false,
+              shouldMaintainCropAspectRatio,
+            };
+            updateCrop(resizedX, resizedY, resizedW, resizedH, optArgs);
+          }
+
+          function dragCropHandler(e) {
+            const dragPosX = e.pageX - videoRect.left - playerRect.left;
+            const dragPosY = e.pageY - videoRect.top - playerRect.top;
+            const changeX = dragPosX - clickPosX;
+            const changeY = dragPosY - clickPosY;
+            let x = Math.round((changeX / videoRect.width) * settings.cropResWidth + ix);
+
+            let y = Math.round(
+              (changeY / videoRect.height) * settings.cropResHeight + iy
+            );
+
+            const optArgs = {
+              ix,
+              iy,
+              iw,
+              ih,
+              minW: null,
+              minH: null,
+              updateCropChart: false,
+              shouldMaintainCropAspectRatio: false,
+            };
+
+            const shouldMaintainCropX = e.shiftKey;
+            const shouldMaintainCropY = e.altKey;
+            if (shouldMaintainCropX) x = ix;
+            if (shouldMaintainCropY) y = iy;
+
+            updateCrop(x, y, iw, ih, optArgs);
+          }
+
+          function getResizeN(changeYScaled) {
+            let Y = Math.round(iy + changeYScaled);
+            let H = Math.round(ih - changeYScaled);
+
+            return { resizedX: ix, resizedY: Y, resizedW: iw, resizedH: H };
+          }
+
+          function getResizeE(changeXScaled) {
+            let W = Math.round(iw + changeXScaled);
+            return { resizedX: ix, resizedY: iy, resizedW: W, resizedH: ih };
+          }
+
+          function getResizeS(changeYScaled) {
+            let H = Math.round(ih + changeYScaled);
+            return { resizedX: ix, resizedY: iy, resizedW: iw, resizedH: H };
+          }
+          function getResizeW(changeXScaled) {
+            let X = Math.round(ix + changeXScaled);
+            let W = Math.round(iw - changeXScaled);
+            return { resizedX: X, resizedY: iy, resizedW: W, resizedH: ih };
+          }
+          function getResizeNE(changeXScaled, changeYScaled) {
+            let Y = Math.round(iy + changeYScaled);
+            let W = Math.round(iw + changeXScaled);
+            let H = Math.round(ih - changeYScaled);
+
+            return { resizedX: ix, resizedY: Y, resizedW: W, resizedH: H };
+          }
+
+          function getResizeSE(changeXScaled, changeYScaled) {
+            let W = Math.round(iw + changeXScaled);
+            let H = Math.round(ih + changeYScaled);
+            return { resizedX: ix, resizedY: iy, resizedW: W, resizedH: H };
+          }
+
+          function getResizeSW(changeXScaled, changeYScaled) {
+            let X = Math.round(ix + changeXScaled);
+            let W = Math.round(iw - changeXScaled);
+            let H = Math.round(ih + changeYScaled);
+            return { resizedX: X, resizedY: iy, resizedW: W, resizedH: H };
+          }
+
+          function getResizeNW(changeXScaled, changeYScaled) {
+            let X = Math.round(ix + changeXScaled);
+            let W = Math.round(iw - changeXScaled);
+            let Y = Math.round(iy + changeYScaled);
+            let H = Math.round(ih - changeYScaled);
+            return { resizedX: X, resizedY: Y, resizedW: W, resizedH: H };
+          }
+        }
+      }
+    }
+
+    function getMouseCropHoverRegion(e: MouseEvent, cropString?: string) {
+      cropString = cropString ?? getRelevantCropString();
+      const [x, y, w, h] = getCropComponents(cropString);
+      const videoRect = player.getVideoContentRect();
+      const playerRect = player.getBoundingClientRect();
+      const clickPosX = e.pageX - videoRect.left - playerRect.left;
+      const clickPosY = e.pageY - videoRect.top - playerRect.top;
+      const clickPosXScaled = (clickPosX / videoRect.width) * settings.cropResWidth;
+      const clickPosYScaled = (clickPosY / videoRect.height) * settings.cropResHeight;
+
+      const slMultiplier = Math.min(settings.cropResWidth, settings.cropResHeight) / 1080;
+      const sl = Math.ceil(Math.min(w, h) * slMultiplier * 0.1);
+      const edgeOffset = 30 * slMultiplier;
+      let cursor: string;
+      let mouseCropColumn: 1 | 2 | 3;
+      if (x - edgeOffset < clickPosXScaled && clickPosXScaled < x + sl) {
+        mouseCropColumn = 1;
+      } else if (x + sl < clickPosXScaled && clickPosXScaled < x + w - sl) {
+        mouseCropColumn = 2;
+      } else if (x + w - sl < clickPosXScaled && clickPosXScaled < x + w + edgeOffset) {
+        mouseCropColumn = 3;
+      }
+      let mouseCropRow: 1 | 2 | 3;
+      if (y - edgeOffset < clickPosYScaled && clickPosYScaled < y + sl) {
+        mouseCropRow = 1;
+      } else if (y + sl < clickPosYScaled && clickPosYScaled < y + h - sl) {
+        mouseCropRow = 2;
+      } else if (y + h - sl < clickPosYScaled && clickPosYScaled < y + h + edgeOffset) {
+        mouseCropRow = 3;
+      }
+
+      const isMouseInCropCenter = mouseCropColumn === 2 && mouseCropRow === 2;
+      const isMouseInCropN = mouseCropColumn === 2 && mouseCropRow === 1;
+      const isMouseInCropNE = mouseCropColumn === 3 && mouseCropRow === 1;
+      const isMouseInCropE = mouseCropColumn === 3 && mouseCropRow === 2;
+      const isMouseInCropSE = mouseCropColumn === 3 && mouseCropRow === 3;
+      const isMouseInCropS = mouseCropColumn === 2 && mouseCropRow === 3;
+      const isMouseInCropSW = mouseCropColumn === 1 && mouseCropRow === 3;
+      const isMouseInCropW = mouseCropColumn === 1 && mouseCropRow === 2;
+      const isMouseInCropNW = mouseCropColumn === 1 && mouseCropRow === 1;
+
+      if (isMouseInCropCenter) cursor = 'grab';
+      if (isMouseInCropN) cursor = 'n-resize';
+      if (isMouseInCropNE) cursor = 'ne-resize';
+      if (isMouseInCropE) cursor = 'e-resize';
+      if (isMouseInCropSE) cursor = 'se-resize';
+      if (isMouseInCropS) cursor = 's-resize';
+      if (isMouseInCropSW) cursor = 'sw-resize';
+      if (isMouseInCropW) cursor = 'w-resize';
+      if (isMouseInCropNW) cursor = 'nw-resize';
+
+      return cursor;
+    }
+
     let dragCropPreviewHandler: EventListener;
     function beginDraw(e: PointerEvent, verticalFill: boolean) {
       if (e.button == 0 && !dragCropPreviewHandler) {
@@ -3506,6 +4167,112 @@ export function triggerCropChartLoop() {
           delete cropPoint.initCrop;
         });
       }
+    }
+
+    let arrowKeyCropAdjustmentEnabled = false;
+    function toggleArrowKeyCropAdjustment() {
+      if (arrowKeyCropAdjustmentEnabled) {
+        document.removeEventListener('keydown', arrowKeyCropAdjustmentHandler, true);
+        flashMessage('Disabled crop adjustment with arrow keys', 'red');
+        arrowKeyCropAdjustmentEnabled = false;
+      } else {
+        document.addEventListener('keydown', arrowKeyCropAdjustmentHandler, true);
+        flashMessage('Enabled crop adjustment with arrow keys', 'green');
+        arrowKeyCropAdjustmentEnabled = true;
+      }
+    }
+
+    function arrowKeyCropAdjustmentHandler(ke: KeyboardEvent) {
+      if (isSettingsEditorOpen) {
+        if (
+          cropInput !== document.activeElement &&
+          ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(ke.code) > -1
+        ) {
+          blockEvent(ke);
+          let [x, y, w, h] = getCropComponents(cropInput.value);
+          let changeAmount: number;
+          if (!ke.altKey && !ke.shiftKey) {
+            changeAmount = 10;
+          } else if (ke.altKey && !ke.shiftKey) {
+            changeAmount = 1;
+          } else if (!ke.altKey && ke.shiftKey) {
+            changeAmount = 50;
+          } else if (ke.altKey && ke.shiftKey) {
+            changeAmount = 100;
+          }
+          // without modifiers move crop x/y offset
+          // with ctrl key modifier expand/shrink crop width/height
+          let cropTarget: string;
+          if (!ke.ctrlKey) {
+            switch (ke.code) {
+              case 'ArrowUp':
+                y -= changeAmount;
+                cropTarget = 'y';
+                break;
+              case 'ArrowDown':
+                y += changeAmount;
+                cropTarget = 'y';
+                break;
+              case 'ArrowLeft':
+                x -= changeAmount;
+                cropTarget = 'x';
+                break;
+              case 'ArrowRight':
+                x += changeAmount;
+                cropTarget = 'x';
+                break;
+            }
+          } else {
+            switch (ke.code) {
+              case 'ArrowUp':
+                h -= changeAmount;
+                cropTarget = 'h';
+                break;
+              case 'ArrowDown':
+                h += changeAmount;
+                cropTarget = 'h';
+                break;
+              case 'ArrowLeft':
+                w -= changeAmount;
+                cropTarget = 'w';
+                break;
+              case 'ArrowRight':
+                w += changeAmount;
+                cropTarget = 'w';
+                break;
+            }
+          }
+          updateCrop(x, y, w, h);
+        }
+      }
+    }
+
+    function getCropComponents(cropString?: string) {
+      if (!cropString && isSettingsEditorOpen) {
+        if (!wasGlobalSettingsEditorOpen && prevSelectedMarkerPairIndex != null) {
+          cropString = markerPairs[prevSelectedMarkerPairIndex].crop;
+        } else {
+          cropString = settings.newMarkerCrop;
+        }
+      }
+
+      if (!cropString) {
+        console.error('No valid crop string to extract components from.');
+        cropString = '0:0:iw:ih';
+      }
+
+      const cropArray = cropString.split(':').map((cropStringComponent) => {
+        let cropComponent: number;
+        if (cropStringComponent === 'iw') {
+          cropComponent = settings.cropResWidth;
+        } else if (cropStringComponent === 'ih') {
+          cropComponent = settings.cropResHeight;
+        } else {
+          cropComponent = parseInt(cropStringComponent, 10);
+        }
+        return cropComponent;
+      });
+      return cropArray;
     }
 
     function forceUpdateCropString(cropString: string, shouldUpdateCropChart = false) {
@@ -3770,112 +4537,6 @@ export function triggerCropChartLoop() {
       const maxW = isWestResize ? ix + iw : settings.cropResWidth - ix;
       const maxH = isNorthResize ? iy + ih : settings.cropResHeight - iy;
       return { maxX, maxY, minW, maxW, minH, maxH };
-    }
-
-    let arrowKeyCropAdjustmentEnabled = false;
-    function toggleArrowKeyCropAdjustment() {
-      if (arrowKeyCropAdjustmentEnabled) {
-        document.removeEventListener('keydown', arrowKeyCropAdjustmentHandler, true);
-        flashMessage('Disabled crop adjustment with arrow keys', 'red');
-        arrowKeyCropAdjustmentEnabled = false;
-      } else {
-        document.addEventListener('keydown', arrowKeyCropAdjustmentHandler, true);
-        flashMessage('Enabled crop adjustment with arrow keys', 'green');
-        arrowKeyCropAdjustmentEnabled = true;
-      }
-    }
-
-    function arrowKeyCropAdjustmentHandler(ke: KeyboardEvent) {
-      if (isSettingsEditorOpen) {
-        if (
-          cropInput !== document.activeElement &&
-          ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(ke.code) > -1
-        ) {
-          blockEvent(ke);
-          let [x, y, w, h] = getCropComponents(cropInput.value);
-          let changeAmount: number;
-          if (!ke.altKey && !ke.shiftKey) {
-            changeAmount = 10;
-          } else if (ke.altKey && !ke.shiftKey) {
-            changeAmount = 1;
-          } else if (!ke.altKey && ke.shiftKey) {
-            changeAmount = 50;
-          } else if (ke.altKey && ke.shiftKey) {
-            changeAmount = 100;
-          }
-          // without modifiers move crop x/y offset
-          // with ctrl key modifier expand/shrink crop width/height
-          let cropTarget: string;
-          if (!ke.ctrlKey) {
-            switch (ke.code) {
-              case 'ArrowUp':
-                y -= changeAmount;
-                cropTarget = 'y';
-                break;
-              case 'ArrowDown':
-                y += changeAmount;
-                cropTarget = 'y';
-                break;
-              case 'ArrowLeft':
-                x -= changeAmount;
-                cropTarget = 'x';
-                break;
-              case 'ArrowRight':
-                x += changeAmount;
-                cropTarget = 'x';
-                break;
-            }
-          } else {
-            switch (ke.code) {
-              case 'ArrowUp':
-                h -= changeAmount;
-                cropTarget = 'h';
-                break;
-              case 'ArrowDown':
-                h += changeAmount;
-                cropTarget = 'h';
-                break;
-              case 'ArrowLeft':
-                w -= changeAmount;
-                cropTarget = 'w';
-                break;
-              case 'ArrowRight':
-                w += changeAmount;
-                cropTarget = 'w';
-                break;
-            }
-          }
-          updateCrop(x, y, w, h);
-        }
-      }
-    }
-
-    function getCropComponents(cropString?: string) {
-      if (!cropString && isSettingsEditorOpen) {
-        if (!wasGlobalSettingsEditorOpen && prevSelectedMarkerPairIndex != null) {
-          cropString = markerPairs[prevSelectedMarkerPairIndex].crop;
-        } else {
-          cropString = settings.newMarkerCrop;
-        }
-      }
-
-      if (!cropString) {
-        console.error('No valid crop string to extract components from.');
-        cropString = '0:0:iw:ih';
-      }
-
-      const cropArray = cropString.split(':').map((cropStringComponent) => {
-        let cropComponent: number;
-        if (cropStringComponent === 'iw') {
-          cropComponent = settings.cropResWidth;
-        } else if (cropStringComponent === 'ih') {
-          cropComponent = settings.cropResHeight;
-        } else {
-          cropComponent = parseInt(cropStringComponent, 10);
-        }
-        return cropComponent;
-      });
-      return cropArray;
     }
 
     let speedChartInput: ChartInput = {
@@ -4360,686 +5021,6 @@ export function triggerCropChartLoop() {
       flashMessage(`All static marker crops updated to ${newCrop}`, 'olive');
     }
 
-    function markerNumberingMouseOverHandler(e: MouseEvent) {
-      const targetMarker = e.target.marker as SVGRectElement;
-      toggleMarkerPairEditorHandler(e, targetMarker);
-    }
-
-    function markerNumberingMouseDownHandler(e: PointerEvent) {
-      if (!(e.button === 0)) return;
-      const numbering = e.target as SVGTextElement;
-      const numberingType = numbering.classList.contains('startMarkerNumbering')
-        ? 'start'
-        : 'end';
-      const targetEndMarker = numbering.marker as SVGRectElement;
-      const targetStartMarker = targetEndMarker.previousSibling as SVGRectElement;
-      const targetMarker =
-        numberingType === 'start' ? targetStartMarker : targetEndMarker;
-
-      const markerPairIndex = parseInt(numbering.getAttribute('idx')) - 1;
-      const markerPair = markerPairs[markerPairIndex];
-      const markerTime = numberingType === 'start' ? markerPair.start : markerPair.end;
-
-      // open editor of target marker corresponding to clicked numbering
-      if (!isSettingsEditorOpen) {
-        toggleOnMarkerPairEditor(targetEndMarker);
-      } else {
-        if (wasGlobalSettingsEditorOpen) {
-          toggleOffGlobalSettingsEditor();
-          toggleOnMarkerPairEditor(targetEndMarker);
-        } else if (prevSelectedEndMarker != targetEndMarker) {
-          toggleOffMarkerPairEditor();
-          toggleOnMarkerPairEditor(targetEndMarker);
-        }
-      }
-
-      player.seekTo(markerTime);
-
-      if (!e.altKey) return;
-
-      const pointerId = e.pointerId;
-      numbering.setPointerCapture(pointerId);
-
-      const numberingRect = numbering.getBoundingClientRect();
-      const progressBarRect = playerInfo.progress_bar.getBoundingClientRect();
-      const offsetX = e.pageX - numberingRect.left - numberingRect.width / 2;
-      const offsetY = e.pageY - numberingRect.top;
-      let prevPageX = e.pageX;
-      let prevZoom = 1;
-      function getDragTime(e: PointerEvent) {
-        let newTime =
-          (video.duration * (e.pageX - offsetX - progressBarRect.left)) /
-          progressBarRect.width;
-        let prevTime =
-          (video.duration * (prevPageX - offsetX - progressBarRect.left)) /
-          progressBarRect.width;
-        const zoom = clampNumber((e.pageY - offsetY) / video.clientHeight, 0, 1);
-        const zoomDelta = Math.abs(zoom - prevZoom);
-        prevZoom = zoom;
-        prevPageX = e.pageX;
-
-        if (zoomDelta >= 0.0001) return video.currentTime;
-        let timeDelta = roundValue(zoom * (newTime - prevTime), 0.01, 2);
-        if (Math.abs(timeDelta) < 0.01) return video.currentTime;
-
-        let time = video.currentTime + timeDelta;
-        time =
-          numberingType === 'start'
-            ? clampNumber(time, 0, markerPair.end - 1e-3)
-            : clampNumber(time, markerPair.start + 1e-3, video.duration);
-        return time;
-      }
-
-      function dragNumbering(e: PointerEvent) {
-        const time = getDragTime(e);
-        if (Math.abs(time - video.currentTime) < 0.01) return;
-        moveMarker(targetMarker, time, false, null, false);
-        player.seekTo(time);
-      }
-
-      window.addEventListener('pointermove', dragNumbering);
-
-      window.addEventListener(
-        'pointerup',
-        (e: PointerEvent) => {
-          window.removeEventListener('pointermove', dragNumbering);
-          numbering.releasePointerCapture(pointerId);
-          const time = getDragTime(e);
-          if (Math.abs(time - markerTime) < 0.001) return;
-          moveMarker(targetMarker, time, true, markerTime, true);
-        },
-        {
-          once: true,
-          capture: true,
-        }
-      );
-    }
-
-    function toggleMarkerPairEditorHandler(e: MouseEvent, targetMarker?: SVGRectElement) {
-      targetMarker = targetMarker ?? (e.target as SVGRectElement);
-
-      if (targetMarker && e.shiftKey) {
-        toggleMarkerPairEditor(targetMarker);
-      }
-    }
-
-    let isChartEnabled = false;
-    function toggleMarkerPairEditor(targetMarker: SVGRectElement) {
-      // if target marker is previously selected marker: toggle target on/off
-      if (prevSelectedEndMarker === targetMarker && !wasGlobalSettingsEditorOpen) {
-        isSettingsEditorOpen
-          ? toggleOffMarkerPairEditor()
-          : toggleOnMarkerPairEditor(targetMarker);
-
-        // otherwise switching from a different marker pair or from global settings editor
-      } else {
-        // delete current settings editor appropriately
-        if (isSettingsEditorOpen) {
-          wasGlobalSettingsEditorOpen
-            ? toggleOffGlobalSettingsEditor()
-            : toggleOffMarkerPairEditor();
-        }
-        // create new marker pair settings editor
-        toggleOnMarkerPairEditor(targetMarker);
-      }
-    }
-
-    function toggleOnMarkerPairEditor(targetMarker: SVGRectElement) {
-      prevSelectedEndMarker = targetMarker;
-      const selectedMarkerPairIndex =
-        parseInt(prevSelectedEndMarker.getAttribute('idx')) - 1;
-      if (selectedMarkerPairIndex !== prevSelectedMarkerPairIndex) {
-        setCurrentCropPoint(null, 0);
-      }
-      prevSelectedMarkerPairIndex = selectedMarkerPairIndex;
-
-      highlightSelectedMarkerPair(targetMarker);
-      enableMarkerHotkeys(targetMarker);
-      // creating editor sets isSettingsEditorOpen to true
-      createMarkerPairEditor(targetMarker);
-      addCropInputHotkeys();
-      loadChartData(speedChartInput);
-      loadChartData(cropChartInput);
-      showCropOverlay();
-      if (isChartEnabled) {
-        showChart();
-      }
-
-      targetMarker.classList.add('selected-marker');
-      targetMarker.previousElementSibling.classList.add('selected-marker');
-      const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-      markerPair.startNumbering.classList.add('selectedMarkerNumbering');
-      markerPair.endNumbering.classList.add('selectedMarkerNumbering');
-      if (isAutoHideUnselectedMarkerPairsOn) {
-        autoHideUnselectedMarkerPairsStyle = injectCSS(
-          autoHideUnselectedMarkerPairsCSS,
-          'auto-hide-unselected-marker-pairs-css'
-        );
-      }
-    }
-
-    function toggleOffMarkerPairEditor(hardHide = false) {
-      deleteSettingsEditor();
-      hideSelectedMarkerPairOverlay(hardHide);
-      hideCropOverlay();
-      hideChart();
-      prevSelectedEndMarker.classList.remove('selected-marker');
-      prevSelectedEndMarker.previousElementSibling.classList.remove('selected-marker');
-      const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-      markerPair.startNumbering.classList.remove('selectedMarkerNumbering');
-      markerPair.endNumbering.classList.remove('selectedMarkerNumbering');
-      if (isAutoHideUnselectedMarkerPairsOn) {
-        deleteElement(autoHideUnselectedMarkerPairsStyle);
-      }
-    }
-
-    let autoHideUnselectedMarkerPairsStyle: HTMLStyleElement;
-    let isAutoHideUnselectedMarkerPairsOn = false;
-    function toggleAutoHideUnselectedMarkerPairs(e: KeyboardEvent) {
-      if (e.ctrlKey && !arrowKeyCropAdjustmentEnabled) {
-        blockEvent(e);
-        if (!isAutoHideUnselectedMarkerPairsOn) {
-          autoHideUnselectedMarkerPairsStyle = injectCSS(
-            autoHideUnselectedMarkerPairsCSS,
-            'auto-hide-unselected-marker-pairs-css'
-          );
-          isAutoHideUnselectedMarkerPairsOn = true;
-          flashMessage('Auto-hiding of unselected marker pairs enabled', 'green');
-        } else {
-          deleteElement(autoHideUnselectedMarkerPairsStyle);
-          isAutoHideUnselectedMarkerPairsOn = false;
-          flashMessage('Auto-hiding of unselected marker pairs disabled', 'red');
-        }
-      }
-    }
-
-    let speedInputLabel: HTMLInputElement;
-    let cropInputLabel: HTMLInputElement;
-    let cropInput: HTMLInputElement;
-    let cropAspectRatioSpan: HTMLSpanElement;
-    let markerPairNumberInput: HTMLInputElement;
-    function createMarkerPairEditor(targetMarker: SVGRectElement) {
-      const markerPairIndex = parseInt(targetMarker.getAttribute('idx'), 10) - 1;
-      const markerPair = markerPairs[markerPairIndex];
-      const startTime = toHHMMSSTrimmed(markerPair.start);
-      const endTime = toHHMMSSTrimmed(markerPair.end);
-      const speed = markerPair.speed;
-      const duration = toHHMMSSTrimmed(markerPair.end - markerPair.start);
-      const speedAdjustedDuration = toHHMMSSTrimmed(
-        (markerPair.end - markerPair.start) / speed
-      );
-      const crop = markerPair.crop;
-      const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
-      const [x, y, w, h] = getCropComponents(crop);
-      const cropAspectRatio = (w / h).toFixed(13);
-
-      const settingsEditorDiv = document.createElement('div');
-      const overrides = markerPair.overrides;
-      const vidstab = overrides.videoStabilization;
-      const vidstabDesc = vidstab ? vidstab.desc : null;
-      const vidstabDescGlobal = settings.videoStabilization
-        ? `(${settings.videoStabilization.desc})`
-        : '(Disabled)';
-      const vidstabDynamicZoomEnabled = overrides.videoStabilizationDynamicZoom;
-      const minterpMode = overrides.minterpMode;
-      const minterpFPS = overrides.minterpFPS;
-      const denoise = overrides.denoise;
-      const denoiseDesc = denoise ? denoise.desc : null;
-      const denoiseDescGlobal = settings.denoise
-        ? `(${settings.denoise.desc})`
-        : '(Disabled)';
-      const overridesEditorDisplay = isExtraSettingsEditorEnabled ? 'block' : 'none';
-      createCropOverlay(crop);
-
-      settingsEditorDiv.setAttribute('id', 'settings-editor-div');
-      settingsEditorDiv.innerHTML = `
-      <fieldset class="settings-editor-panel marker-pair-settings-editor-highlighted-div">
-        <legend class="marker-pair-settings-editor-highlighted-label">Marker Pair
-          <input id="marker-pair-number-input"
-            title="${Tooltips.markerPairNumberTooltip}"
-            type="number" value="${markerPairIndex + 1}"
-            step="1" min="1" max="${markerPairs.length}" style="width:3em" required>
-          </input>
-          /
-          <span id="marker-pair-count-label">${markerPairs.length}</span>
-          Settings\
-        </legend>
-        <div class="settings-editor-input-div" title="${Tooltips.speedTooltip}">
-          <span id="speed-input-label">Speed</span>
-          <input id="speed-input"type="number" placeholder="speed" value="${speed}" 
-            step="0.05" min="0.05" max="2" style="min-width:4em" required></input>
-        </div>
-        <div class="settings-editor-input-div" title="${Tooltips.cropTooltip}">
-          <span id="crop-input-label">Crop</span>
-          <input id="crop-input" value="${crop}" pattern="${cropInputValidation}" 
-          style="min-width:10em" required></input>
-        </div>
-        <div class="settings-editor-input-div settings-info-display">
-          <span>Crop Aspect Ratio</span>
-          <br>
-          <span id="crop-aspect-ratio">${cropAspectRatio}</span>
-        </div>
-        <div class="settings-editor-input-div" title="${Tooltips.titlePrefixTooltip}">
-          <span>Title Prefix</span>
-          <input id="title-prefix-input" value="${
-            overrides.titlePrefix != null ? overrides.titlePrefix : ''
-          }" placeholder="None" style="min-width:10em;text-align:right"></input>
-        </div>
-        <div class="settings-editor-input-div settings-info-display">
-          <span>Time:</span>
-          <span id="start-time">${startTime}</span>
-          <span> - </span>
-          <span id="end-time">${endTime}</span>
-          <br>
-          <span>Duration: </span>
-          <span id="duration">${duration} / ${
-        markerPair.speed
-      } = ${speedAdjustedDuration}</span>
-        </div>
-      </fieldset>
-      <fieldset id="marker-pair-overrides" class="settings-editor-panel marker-pair-settings-editor-highlighted-div" style="display:${overridesEditorDisplay}">
-        <legend class="marker-pair-settings-editor-highlighted-label">Overrides</legend>
-        <div class="settings-editor-input-div" title="${Tooltips.audioTooltip}">
-          <span>Audio</span>
-          <select id="audio-input">
-            <option ${overrides.audio ? 'selected' : ''}>Enabled</option>
-            <option ${overrides.audio === false ? 'selected' : ''}>Disabled</option>
-            <option value="Default" ${
-              overrides.audio == null ? 'selected' : ''
-            }>Inherit ${ternaryToString(settings.audio)}</option>
-          </select>
-        </div>
-        <div class="settings-editor-input-div" title="${Tooltips.encodeSpeedTooltip}">
-          <span>Encode Speed (0-5)</span>
-          <input id="encode-speed-input" type="number" min="0" max="5" step="1" value="${
-            overrides.encodeSpeed != null ? overrides.encodeSpeed : ''
-          }" placeholder="${
-        settings.encodeSpeed || 'Auto'
-      }"  style="min-width:4em"></input>
-        </div>
-        <div class="settings-editor-input-div" title="${Tooltips.CRFTooltip}">
-          <span>CRF (0-63)</span>
-          <input id="crf-input" type="number" min="0" max="63" step="1" value="${
-            overrides.crf != null ? overrides.crf : ''
-          }" placeholder="${
-        settings.crf != null ? settings.crf : 'Auto'
-      }" "style="min-width:4em"></input>
-        </div>
-        <div class="settings-editor-input-div" title="${Tooltips.targetBitrateTooltip}">
-          <span>Target Bitrate (kb/s)</span>
-          <input id="target-max-bitrate-input" type="number" min="0" max="10e5" step="100" value="${
-            overrides.targetMaxBitrate != null ? overrides.targetMaxBitrate : ''
-          }" placeholder="${
-        settings.targetMaxBitrate || 'Auto'
-      }" "style="min-width:4em"></input>
-        </div>
-        <div class="settings-editor-input-div" title="${Tooltips.twoPassTooltip}">
-          <span>Two-Pass</span>
-          <select id="two-pass-input"> 
-            <option ${overrides.twoPass ? 'selected' : ''}>Enabled</option>
-            <option ${overrides.twoPass === false ? 'selected' : ''}>Disabled</option>
-            <option value="Default" ${
-              overrides.twoPass == null ? 'selected' : ''
-            }>Inherit ${ternaryToString(settings.twoPass)}</option>
-          </select>
-        </div>
-        <div class="settings-editor-input-div" title="${Tooltips.gammaTooltip}">
-          <span>Gamma (0-4)</span>
-          <input id="gamma-input" type="number" min="0.01" max="4.00" step="0.01" value="${
-            overrides.gamma != null ? overrides.gamma : ''
-          }" placeholder="${
-        settings.gamma != null ? settings.gamma : '1'
-      }" style="min-width:4em"></input>
-        </div>
-        <div class="settings-editor-input-div" title="${Tooltips.denoiseTooltip}">
-          <span>Denoise</span>
-          <select id="denoise-input">
-            <option value="Inherit" ${
-              denoiseDesc == null ? 'selected' : ''
-            }>Inherit ${denoiseDescGlobal}</option>
-            <option value="Disabled" ${
-              denoiseDesc == 'Disabled' ? 'selected' : ''
-            }>Disabled</option>
-            <option ${denoiseDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
-            <option ${denoiseDesc === 'Weak' ? 'selected' : ''}>Weak</option>
-            <option ${denoiseDesc === 'Medium' ? 'selected' : ''}>Medium</option>
-            <option ${denoiseDesc === 'Strong' ? 'selected' : ''}>Strong</option>
-            <option ${
-              denoiseDesc === 'Very Strong' ? 'selected' : ''
-            }>Very Strong</option>
-          </select>
-        </div>
-        <div class="settings-editor-input-div" title="${Tooltips.speedMapTooltip}">
-          <span>Speed Map</span>
-            <select id="enable-speed-maps-input">
-              <option ${overrides.enableSpeedMaps ? 'selected' : ''}>Enabled</option>
-              <option ${
-                overrides.enableSpeedMaps === false ? 'selected' : ''
-              }>Disabled</option>
-              <option value="Default" ${
-                overrides.enableSpeedMaps == null ? 'selected' : ''
-              }>Inherit ${ternaryToString(settings.enableSpeedMaps, '(Enabled)')}</option>
-            </select>
-        </div>
-        <div class="settings-editor-input-div">
-          <div title="${Tooltips.minterpModeTooltip}">
-            <span>Minterpolation</span>
-            <select id="minterp-mode-input">
-              <option value="Default" ${minterpMode == null ? 'selected' : ''}>Inherit ${
-        settings.minterpMode != null ? `(${settings.minterpMode})` : '(Numeric)'
-      }</option>
-              <option ${minterpMode === 'None' ? 'selected' : ''}>None</option>
-              <option ${minterpMode === 'Numeric' ? 'selected' : ''}>Numeric</option>
-              <option value="MaxSpeed" ${
-                minterpMode == 'MaxSpeed' ? 'selected' : ''
-              }>MaxSpeed</option>
-              <option value="VideoFPS" ${
-                minterpMode == 'VideoFPS' ? 'selected' : ''
-              }>VideoFPS</option>
-              <option value="MaxSpeedx2" ${
-                minterpMode == 'MaxSpeedx2' ? 'selected' : ''
-              }>MaxSpeedx2</option>
-              <option value="VideoFPSx2" ${
-                minterpMode == 'VideoFPSx2' ? 'selected' : ''
-              }>VideoFPSx2</option>
-            </select>
-          </div>
-          <div title="${Tooltips.minterpFPSTooltip}">
-            <span>FPS</span>
-            <input id="minterp-fps-input" type="number" min="10" max="120" step="1" value="${
-              minterpFPS ?? ''
-            }" placeholder="" style="min-width:2em"></input>
-          </div>
-        </div>
-        <div class="settings-editor-input-div multi-input-div" title="${
-          Tooltips.vidstabTooltip
-        }">
-        <div>
-          <span>Stabilization</span>
-          <select id="video-stabilization-input">
-              <option value="Inherit" ${
-                vidstabDesc == null ? 'selected' : ''
-              }>Inherit ${vidstabDescGlobal}</option>
-              <option value="Disabled" ${
-                vidstabDesc == 'Disabled' ? 'selected' : ''
-              }>Disabled</option>
-              <option ${vidstabDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
-              <option ${vidstabDesc === 'Weak' ? 'selected' : ''}>Weak</option>
-              <option ${vidstabDesc === 'Medium' ? 'selected' : ''}>Medium</option>
-              <option ${vidstabDesc === 'Strong' ? 'selected' : ''}>Strong</option>
-              <option ${
-                vidstabDesc === 'Very Strong' ? 'selected' : ''
-              }>Very Strong</option>
-              <option ${vidstabDesc === 'Strongest' ? 'selected' : ''}>Strongest</option>
-            </select>
-          </div>
-          <div title="${Tooltips.dynamicZoomTooltip}">
-            <span>Dynamic Zoom</span>
-            <select id="video-stabilization-dynamic-zoom-input"> 
-              <option ${vidstabDynamicZoomEnabled ? 'selected' : ''}>Enabled</option>
-              <option ${
-                vidstabDynamicZoomEnabled === false ? 'selected' : ''
-              }>Disabled</option>
-              <option value="Default" ${
-                vidstabDynamicZoomEnabled == null ? 'selected' : ''
-              }>Inherit ${ternaryToString(
-        settings.videoStabilizationDynamicZoom
-      )}</option>
-            </select>
-          </div>
-        </div>
-        <div class="settings-editor-input-div multi-input-div" title="${
-          Tooltips.loopTooltip
-        }">
-          <div>
-            <span>Loop</span>
-            <select id="loop-input">
-              <option ${overrides.loop === 'fwrev' ? 'selected' : ''}>fwrev</option>
-              <option ${overrides.loop === 'fade' ? 'selected' : ''}>fade</option>
-              <option ${overrides.loop === 'none' ? 'selected' : ''}>none</option>
-              <option value="Default" ${
-                overrides.loop == null ? 'selected' : ''
-              }>Inherit ${
-        settings.loop != null ? `(${settings.loop})` : '(none)'
-      }</option>
-            </select>
-          </div>
-          <div title="${Tooltips.fadeDurationTooltip}">
-            <span>Fade Duration</span>
-            <input id="fade-duration-input" type="number" min="0.1" step="0.1" value="${
-              overrides.fadeDuration != null ? overrides.fadeDuration : ''
-            }" placeholder="${
-        settings.fadeDuration != null ? settings.fadeDuration : '0.7'
-      }" style="width:7em"></input>
-          </div>
-        </div>
-      </fieldset>
-      `;
-
-      updateSettingsEditorHook();
-      settingsEditorHook.insertAdjacentElement('afterend', settingsEditorDiv);
-
-      const inputConfigs = [
-        ['speed-input', 'speed', 'number'],
-        ['crop-input', 'crop', 'string'],
-      ];
-      addSettingsInputListeners(inputConfigs, markerPairs[markerPairIndex], true);
-
-      const overrideInputConfigs = [
-        ['title-prefix-input', 'titlePrefix', 'string'],
-        ['gamma-input', 'gamma', 'number'],
-        ['encode-speed-input', 'encodeSpeed', 'number'],
-        ['crf-input', 'crf', 'number'],
-        ['target-max-bitrate-input', 'targetMaxBitrate', 'number'],
-        ['two-pass-input', 'twoPass', 'ternary'],
-        ['audio-input', 'audio', 'ternary'],
-        ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
-        ['minterp-mode-input', 'minterpMode', 'inheritableString'],
-        ['minterp-fps-input', 'minterpFPS', 'number'],
-        ['denoise-input', 'denoise', 'preset'],
-        ['video-stabilization-input', 'videoStabilization', 'preset'],
-        [
-          'video-stabilization-dynamic-zoom-input',
-          'videoStabilizationDynamicZoom',
-          'ternary',
-        ],
-        ['loop-input', 'loop', 'inheritableString'],
-        ['fade-duration-input', 'fadeDuration', 'number'],
-      ];
-      addSettingsInputListeners(
-        overrideInputConfigs,
-        markerPairs[markerPairIndex].overrides,
-        true
-      );
-      markerPairNumberInput = document.getElementById(
-        'marker-pair-number-input'
-      ) as HTMLInputElement;
-      markerPairNumberInput.addEventListener('change', markerPairNumberInputHandler);
-      speedInputLabel = document.getElementById('speed-input-label') as HTMLInputElement;
-      cropInputLabel = document.getElementById('crop-input-label') as HTMLInputElement;
-      cropInput = document.getElementById('crop-input') as HTMLInputElement;
-      cropAspectRatioSpan = document.getElementById(
-        'crop-aspect-ratio'
-      ) as HTMLSpanElement;
-      isSettingsEditorOpen = true;
-      wasGlobalSettingsEditorOpen = false;
-
-      if (isForceSetSpeedOn) {
-        updateSpeedInputLabel(`Speed (${forceSetSpeedValue.toFixed(2)})`);
-      }
-      highlightModifiedSettings(inputConfigs, markerPairs[markerPairIndex]);
-      highlightModifiedSettings(
-        overrideInputConfigs,
-        markerPairs[markerPairIndex].overrides
-      );
-    }
-
-    function markerPairNumberInputHandler(e: Event) {
-      const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-      const startNumbering = markerPair.startNumbering;
-      const endNumbering = markerPair.endNumbering;
-      const newIdx = e.target.value - 1;
-      markerPairs.splice(
-        newIdx,
-        0,
-        ...markerPairs.splice(prevSelectedMarkerPairIndex, 1)
-      );
-
-      let targetMarkerRect = markersSvg.children[newIdx * 2];
-      let targetStartNumbering = startMarkerNumberings.children[newIdx];
-      let targetEndNumbering = endMarkerNumberings.children[newIdx];
-      // if target succeedes current marker pair, move pair after target
-      if (newIdx > prevSelectedMarkerPairIndex) {
-        targetMarkerRect = targetMarkerRect.nextElementSibling.nextElementSibling;
-        targetStartNumbering = targetStartNumbering.nextElementSibling;
-        targetEndNumbering = targetEndNumbering.nextElementSibling;
-      }
-
-      const prevSelectedStartMarker = prevSelectedEndMarker.previousElementSibling;
-      // if target precedes current marker pair, move pair before target
-      markersSvg.insertBefore(prevSelectedStartMarker, targetMarkerRect);
-      markersSvg.insertBefore(prevSelectedEndMarker, targetMarkerRect);
-      startMarkerNumberings.insertBefore(startNumbering, targetStartNumbering);
-      endMarkerNumberings.insertBefore(endNumbering, targetEndNumbering);
-
-      renumberMarkerPairs();
-      prevSelectedMarkerPairIndex = newIdx;
-    }
-
-    function highlightModifiedSettings(inputs: string[][], target) {
-      if (isSettingsEditorOpen) {
-        const markerPairSettingsLabelHighlight =
-          'marker-pair-settings-editor-highlighted-label';
-        const globalSettingsLabelHighlight = 'global-settings-editor-highlighted-label';
-        let markerPair: MarkerPair;
-        if (!wasGlobalSettingsEditorOpen && prevSelectedMarkerPairIndex != null) {
-          markerPair = markerPairs[prevSelectedMarkerPairIndex];
-        }
-        inputs.forEach((input) => {
-          const id = input[0];
-          const targetProperty = input[1];
-          const inputElem = document.getElementById(id);
-          const storedTargetValue = target[targetProperty];
-
-          let label = inputElem.previousElementSibling;
-          if (id === 'rotate-90-clock' || id === 'rotate-90-counterclock')
-            label = inputElem.parentElement.getElementsByTagName('span')[0];
-
-          const shouldRemoveHighlight =
-            storedTargetValue == null ||
-            storedTargetValue === '' ||
-            (id === 'title-suffix-input' &&
-              storedTargetValue == `[${settings.videoID}]`) ||
-            (markerPair &&
-              id === 'speed-input' &&
-              storedTargetValue === 1 &&
-              !isVariableSpeed(markerPair.speedMap)) ||
-            (id === 'crop-input' &&
-              (storedTargetValue === '0:0:iw:ih' ||
-                storedTargetValue ===
-                  `0:0:${settings.cropResWidth}:${settings.cropResHeight}`)) ||
-            id === 'rotate-0';
-
-          if (shouldRemoveHighlight) {
-            label.classList.remove(globalSettingsLabelHighlight);
-            label.classList.remove(markerPairSettingsLabelHighlight);
-          } else {
-            if (target === settings) {
-              label.classList.add(globalSettingsLabelHighlight);
-            } else {
-              if (storedTargetValue === settings[targetProperty]) {
-                label.classList.add(globalSettingsLabelHighlight);
-                label.classList.remove(markerPairSettingsLabelHighlight);
-              } else {
-                label.classList.add(markerPairSettingsLabelHighlight);
-                label.classList.remove(globalSettingsLabelHighlight);
-              }
-            }
-          }
-        });
-      }
-    }
-
-    function enableMarkerHotkeys(endMarker: SVGRectElement) {
-      markerHotkeysEnabled = true;
-      enableMarkerHotkeys.endMarker = endMarker;
-      enableMarkerHotkeys.startMarker = endMarker.previousSibling;
-    }
-
-    function moveMarker(
-      marker: SVGRectElement,
-      newTime?: number,
-      storeHistory = true,
-      fromTime?: number,
-      adjustCharts = true
-    ) {
-      const type = marker.getAttribute('type') as 'start' | 'end';
-      const idx = parseInt(marker.getAttribute('idx')) - 1;
-      const markerPair = markerPairs[idx];
-      fromTime = fromTime ?? (type === 'start' ? markerPair.start : markerPair.end);
-      const toTime = newTime != null ? newTime : video.currentTime;
-      const progress_pos = (toTime / playerInfo.duration) * 100;
-      const markerTimeSpan = document.getElementById(`${type}-time`);
-
-      if (type === 'start' && toTime >= markerPair.end) {
-        flashMessage('Start marker cannot be placed after or at end marker', 'red');
-        return;
-      }
-      if (type === 'end' && toTime <= markerPair.start) {
-        flashMessage('End marker cannot be placed before or at start marker', 'red');
-        return;
-      }
-
-      marker.setAttribute('x', `${progress_pos}%`);
-      markerPair[type] = toTime;
-      if (type === 'start') {
-        selectedStartMarkerOverlay.setAttribute('x', `${progress_pos}%`);
-        markerPair.startNumbering.setAttribute('x', `${progress_pos}%`);
-        if (adjustCharts) {
-          markerPair.speedMap[0].x = toTime;
-          markerPair.cropMap[0].x = toTime;
-          markerPair.speedMap = markerPair.speedMap.filter((speedPoint) => {
-            return speedPoint.x >= toTime;
-          });
-          markerPair.cropMap = markerPair.cropMap.filter((cropPoint) => {
-            return cropPoint.x >= toTime;
-          });
-        }
-      } else if (type === 'end') {
-        selectedEndMarkerOverlay.setAttribute('x', `${progress_pos}%`);
-        markerPair.endNumbering.setAttribute('x', `${progress_pos}%`);
-        if (adjustCharts) {
-          markerPair.speedMap[markerPair.speedMap.length - 1].x = toTime;
-          markerPair.cropMap[markerPair.cropMap.length - 1].x = toTime;
-          markerPair.speedMap = markerPair.speedMap.filter((speedPoint) => {
-            return speedPoint.x <= toTime;
-          });
-          markerPair.cropMap = markerPair.cropMap.filter((cropPoint) => {
-            return cropPoint.x <= toTime;
-          });
-        }
-      }
-      markerTimeSpan.textContent = `${toHHMMSSTrimmed(toTime)}`;
-
-      if (adjustCharts) {
-        const speedChart = speedChartInput.chart;
-        if (speedChart) {
-          speedChart.config.data.datasets[0].data = markerPair.speedMap;
-          updateChartBounds(speedChart.config, markerPair.start, markerPair.end);
-        }
-        const cropChart = cropChartInput.chart;
-        if (cropChart) {
-          cropChart.config.data.datasets[0].data = markerPair.cropMap;
-          updateChartBounds(cropChart.config, markerPair.start, markerPair.end);
-        }
-        if (isCurrentChartVisible && currentChartInput && currentChartInput.chart) {
-          currentChartInput.chart.update();
-        }
-      }
-      updateMarkerPairDuration(markerPair);
-      if (storeHistory) markerPair.moveHistory.undos.push({ marker, fromTime, toTime });
-    }
-
     function undoMarkerMove() {
       if (
         isSettingsEditorOpen &&
@@ -5175,46 +5156,6 @@ export function triggerCropChartLoop() {
         showChart();
       } else {
         hideChart();
-      }
-    }
-
-    function deleteSettingsEditor() {
-      const settingsEditorDiv = document.getElementById('settings-editor-div');
-      hideCropOverlay();
-      deleteElement(settingsEditorDiv);
-      isSettingsEditorOpen = false;
-      wasGlobalSettingsEditorOpen = false;
-      markerHotkeysEnabled = false;
-    }
-
-    let isExtraSettingsEditorEnabled = false;
-    function toggleMarkerPairOverridesEditor() {
-      if (isSettingsEditorOpen) {
-        const markerPairOverridesEditor = document.getElementById(
-          'marker-pair-overrides'
-        );
-        if (markerPairOverridesEditor) {
-          if (markerPairOverridesEditor.style.display === 'none') {
-            markerPairOverridesEditor.style.display = 'block';
-            isExtraSettingsEditorEnabled = true;
-          } else {
-            markerPairOverridesEditor.style.display = 'none';
-            isExtraSettingsEditorEnabled = false;
-          }
-        }
-
-        const globalEncodeSettingsEditor = document.getElementById(
-          'global-encode-settings'
-        );
-        if (globalEncodeSettingsEditor) {
-          if (globalEncodeSettingsEditor.style.display === 'none') {
-            globalEncodeSettingsEditor.style.display = 'block';
-            isExtraSettingsEditorEnabled = true;
-          } else if (globalEncodeSettingsEditor.style.display === 'block') {
-            globalEncodeSettingsEditor.style.display = 'none';
-            isExtraSettingsEditorEnabled = false;
-          }
-        }
       }
     }
   }
