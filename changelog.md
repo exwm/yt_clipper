@@ -396,6 +396,12 @@ v0.0.71:
 
 ## Clipper Script (Installation) Changelog
 
+v3.6.4 `[2020.07.29]`:
+
+- Note that this release is directly on top of `v3.6.3`.
+- Use with `v0.0.89` or higher of the markup script.
+- Update youtube-dl dependency to [`2020.07.28`](https://github.com/ytdl-org/youtube-dl/releases/tag/2020.07.28) to fix extractor errors when trying to download YouTube videos.
+
 v3.7.0-beta.3.9.0-alpha.9 `[2020.07.27]`:
 
 - Add `--ytdl-username`/`-yu` and `--ytdl-password`/`-yp` for YouTube account authentication.
