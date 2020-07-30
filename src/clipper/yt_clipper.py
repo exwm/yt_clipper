@@ -47,6 +47,8 @@ def main():
 
     settings = loadSettings(settings)
 
+    setPaths()
+
     reportStream = io.StringIO()
     setUpLogger(reportStream)
 
@@ -56,7 +58,7 @@ def main():
     if unknown:
         logger.warning(f'The following unknown arguments were provided and will be ignored:\n {unknown}')
 
-    setPaths()
+    settings = enableMinterpEnhancements(settings)
 
     settings = getInputVideo(settings)
 
@@ -88,6 +90,9 @@ def setPaths():
         if sys.platform == 'darwin':
             os.environ['SSL_CERT_FILE'] = "certifi/cacert.pem"
 
+
+def enableMinterpEnhancements(settings):
+    global ffmpegPath
     if settings["enableMinterpEnhancements"] and sys.platform == 'win32':
         ffmpegPath = "./bin/ffmpeg_ytc.exe"
         if not Path(ffmpegPath).is_file():
@@ -97,6 +102,8 @@ def setPaths():
             logger.success(f'Found {ffmpegPath}. Minterp enhancements enabled.')
     else:
         settings["enableMinterpEnhancements"] = False
+
+    return settings
 
 
 def setUpLogger(reportStream):
