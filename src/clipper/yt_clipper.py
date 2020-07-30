@@ -53,7 +53,8 @@ def main():
     logger.info(f'Version: {__version__}')
     logger.info('-' * 80)
 
-    logger.warning(f'The following unknown arguments were provided and will be ignored:\n {unknown}')
+    if unknown:
+        logger.warning(f'The following unknown arguments were provided and will be ignored:\n {unknown}')
 
     setPaths()
 
