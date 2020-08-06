@@ -7,14 +7,17 @@ on:
       - release/*
       - test-ci
 
+# Workflow env variables not yet available at job level
+# See https://github.community/t/how-to-set-and-access-a-workflow-variable/17335/14
 env:
-  version: 3.7.0-beta.3.9.0-alpha.10
-  clipper-name-win: yt_clipper_win_${{env.version}}
-  clipper-name-mac: yt_clipper_mac_${{env.version}}
+  NAME: yt_clipper
+  VERSION: 3.7.0-beta.3.9.0-alpha.10
 
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    env:
+      FULL_NAME: yt_clipper_${{matrix.shortos}}_3.7.0-beta.3.9.0-alpha.10
     strategy:
       max-parallel: 4
       matrix:
@@ -24,10 +27,8 @@ jobs:
         include:
           - os: windows-latest
             shortos: win
-            clipper-name: ${{env.clipper-name-win}}
           - os: macos-latest
             shortos: mac
-            clipper-name: ${{env.clipper-name-mac}}
 
     steps:
       - uses: actions/checkout@v2
@@ -64,54 +65,62 @@ jobs:
       - name: Set up artifacts dir
         shell: bash
         run: |
-          mkdir -p ./artifact/py/${{matrix.clipper-name}}/{webms,bin}/
-          mkdir -p ./artifact/js/${{matrix.clipper-name}}/
+          mkdir -p ./artifact/py/${{env.FULL_NAME}}/{webms,bin}/
+          mkdir -p ./artifact/js/${{env.FULL_NAME}}/
 
       - name: Copy artifacts
         shell: bash
         run: |
-          cp ./bindeps/${{matrix.shortos}}/ffmpeg/* ./artifact/py/${{matrix.clipper-name}}/bin/
-          cp ./src/clipper/${{matrix.shortos}}_helpers/* ./artifact/py/yt_clipper_${{matrix.shortos}}/
-          cp ./dist/py/yt_clipper* ./artifact/py/${{matrix.clipper-name}}/
-          cp ./dist/js/yt_clipper.js ./artifact/py/${{matrix.clipper-name}}/
+          cp ./bindeps/${{matrix.shortos}}/ffmpeg/* ./artifact/py/${{env.FULL_NAME}}/bin/
+          cp ./src/clipper/${{matrix.shortos}}_helpers/* ./artifact/py/${{env.FULL_NAME}}/
+          cp ./dist/py/yt_clipper* ./artifact/py/${{env.FULL_NAME}}/
+          cp ./dist/js/yt_clipper.js ./artifact/py/${{env.FULL_NAME}}/
 
       - name: Zip artifacts on windows
         if: matrix.os == 'windows-latest'
         run: |
-          Compress-Archive ./artifact/py/${{matrix.clipper-name}}/ ./artifact/py/${{matrix.clipper-name}}.zip
+          Compress-Archive ./artifact/py/${{env.FULL_NAME}}/ ./artifact/py/${{env.FULL_NAME}}.zip
 
       - name: Zip artifacts on non-windows systems
         if: matrix.os != 'windows-latest'
         run: |
-          zip -r ./artifact/py/${{matrix.clipper-name}}.zip ./artifact/py/${{matrix.clipper-name}}/ 
+          zip -r ./artifact/py/${{env.FULL_NAME}}.zip ./artifact/py/${{env.FULL_NAME}}/ 
 
       - name: Upload clipper script installation artifact
         uses: actions/upload-artifact@v1
         with:
-          name: ${{matrix.clipper-name}}.zip
-          path: ./artifact/py/${{matrix.clipper-name}}.zip
+          name: ${{env.FULL_NAME}}.zip
+          path: ./artifact/py/${{env.FULL_NAME}}.zip
 
   release:
     needs: build
     runs-on: macos-latest
+    env:
+      FULL_NAME_WIN: yt_clipper_win_3.7.0-beta.3.9.0-alpha.10
+      FULL_NAME_MAC: yt_clipper_mac_3.7.0-beta.3.9.0-alpha.10
 
     steps:
-    - uses: actions/download-artifact@v2
-      with:
-        name:  ${{env.clipper-name-win}}.zip
+
+    - name: Set env
+      run: |
+        echo ::set-env DATE=$(date "+%Y.%m.%d")
 
     - uses: actions/download-artifact@v2
       with:
-        name:  ${{env.clipper-name-mac}}.zip
+        name:  ${{env.FULL_NAME_WIN}}.zip
+
+    - uses: actions/download-artifact@v2
+      with:
+        name:  ${{env.FULL_NAME_MAC}}.zip
 
     - name: Create release
       id: create_release
       uses: actions/create-release@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
       with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
+        tag_name: v${{env.VERSION}}
+        release_name: ${{env.NAME}} v${{env.VERSION}} [${{env.DATE}}] 
         draft: true
         prerelease: false
 
@@ -119,20 +128,20 @@ jobs:
       id: upload-release-asset-win
       uses: actions/upload-release-asset@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ${{env.clipper-name-win}}.zip
-        asset_name: ${{env.clipper-name-win}}.zip
+        upload_url: ${{steps.create_release.outputs.upload_url}}
+        asset_path: ${{env.FULL_NAME_WIN}}.zip
+        asset_name: ${{env.FULL_NAME_WIN}}.zip
         asset_content_type: application/zip
 
     - name: Upload release asset (mac)
       id: upload-release-asset-mac 
       uses: actions/upload-release-asset@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ${{env.clipper-name-mac}}.zip
-        asset_name: ${{env.clipper-name-mac}}.zip
+        upload_url: ${{steps.create_release.outputs.upload_url}}
+        asset_path: ${{env.FULL_NAME_MAC}}.zip
+        asset_name: ${{env.FULL_NAME_MAC}}.zip
         asset_content_type: application/zip
