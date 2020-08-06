@@ -24,7 +24,7 @@
 // @grant        none
 // ==/UserScript==
 
-const __version__ = '0.0.90-beta.3.9.0-alpha.8';
+const __version__ = '3.7.0-beta.3.9.0-alpha.10';
 
 import { Chart, ChartConfiguration } from 'chart.js';
 import { html } from 'common-tags';
