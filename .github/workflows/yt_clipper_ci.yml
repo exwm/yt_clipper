@@ -9,6 +9,7 @@ on:
 
 # Workflow env variables not yet available at job level
 # See https://github.community/t/how-to-set-and-access-a-workflow-variable/17335/14
+# Can work around to some degree using set-env
 env:
   NAME: yt_clipper
   VERSION: 3.7.0-beta.3.9.0-alpha.10
@@ -16,8 +17,6 @@ env:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
-    env:
-      FULL_NAME: yt_clipper_${{matrix.shortos}}_3.7.0-beta.3.9.0-alpha.10
     strategy:
       max-parallel: 4
       matrix:
@@ -31,6 +30,10 @@ jobs:
             shortos: mac
 
     steps:
+      - name: Set env
+        run: |
+          echo "::set-env name=FULL_NAME::${{env.NAME}}_${{matrix.shortos}}_${{env.VERSION}}"
+
       - uses: actions/checkout@v2
 
       - name: Use Node.js ${{ matrix.node-version }}
@@ -95,15 +98,13 @@ jobs:
   release:
     needs: build
     runs-on: macos-latest
-    env:
-      FULL_NAME_WIN: yt_clipper_win_3.7.0-beta.3.9.0-alpha.10
-      FULL_NAME_MAC: yt_clipper_mac_3.7.0-beta.3.9.0-alpha.10
 
     steps:
-
-    - name: Get current date
-      id: date
-      run: echo "::set-output name=date::$(date +'%Y.%m.%d')"
+    - name: Set env
+      run: |
+        echo "::set-env name=DATE::$(date +'%Y.%m.%d')"
+        echo "::set-env name=FULL_NAME_WIN::${{env.NAME}}_win_${{env.VERSION}}"
+        echo "::set-env name=FULL_NAME_MAC::${{env.NAME}}_mac_${{env.VERSION}}"
 
     - uses: actions/download-artifact@v2
       with:
@@ -120,7 +121,7 @@ jobs:
         GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
       with:
         tag_name: v${{env.VERSION}}
-        release_name: ${{env.NAME}} v${{env.VERSION}} [${{steps.date.outputs.date}}] 
+        release_name: ${{env.NAME}} v${{env.VERSION}} [${{env.DATE}}] 
         draft: true
         prerelease: false
 
@@ -131,7 +132,7 @@ jobs:
         GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
       with:
         upload_url: ${{steps.create_release.outputs.upload_url}}
-        asset_path: ${{env.FULL_NAME_WIN}}.zip
+        asset_path:  ${{env.FULL_NAME_WIN}}.zip
         asset_name: ${{env.FULL_NAME_WIN}}.zip
         asset_content_type: application/zip
 
