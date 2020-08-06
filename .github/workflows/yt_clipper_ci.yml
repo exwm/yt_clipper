@@ -88,43 +88,45 @@ jobs:
     needs: build
     runs-on: macos-latest
 
-  - uses: actions/download-artifact@v2
-    with:
-      name:  yt_clipper_win.zip
-  - uses: actions/download-artifact@v2
-    with:
-      name:  yt_clipper_mac.zip
 
     steps:
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: true
-          prerelease: false
+    - uses: actions/download-artifact@v2
+      with:
+        name:  yt_clipper_win.zip
 
-      - name: Upload Release Asset (WIN)
-        id: upload-release-asset-win
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: yt_clipper_win.zip
-          asset_name: yt_clipper_win.zip
-          asset_content_type: application/zip
+    - uses: actions/download-artifact@v2
+      with:
+        name:  yt_clipper_mac.zip
 
-      - name: Upload Release Asset (MAC)
-        id: upload-release-asset-mac 
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: yt_clipper_mac.zip
-          asset_name: yt_clipper_mac.zip
-          asset_content_type: application/zip
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: true
+        prerelease: false
+
+    - name: Upload Release Asset (WIN)
+      id: upload-release-asset-win
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: yt_clipper_win.zip
+        asset_name: yt_clipper_win.zip
+        asset_content_type: application/zip
+
+    - name: Upload Release Asset (MAC)
+      id: upload-release-asset-mac 
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: yt_clipper_mac.zip
+        asset_name: yt_clipper_mac.zip
+        asset_content_type: application/zip
