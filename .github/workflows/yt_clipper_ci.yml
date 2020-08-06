@@ -15,7 +15,12 @@ jobs:
       matrix:
         python-version: [3.7.x]
         node-version: [12.x]
-        os: [windows-latest, macOS-latest]
+        os: [windows-latest, macos-latest]
+        include:
+          - os: windows-latest
+            shortos: win
+          - os: macos-latest
+            shortos: mac
 
     steps:
       - uses: actions/checkout@v1
@@ -50,28 +55,14 @@ jobs:
         shell: bash
         run: mkdir -p ./artifact/py/yt_clipper_{win,mac}/{webms,bin}/
 
-      - name: Copy win artifacts
-        if: matrix.os == 'windows-latest'
+      - name: Copy artifacts
         run: |
-          cp ./src/clipper/win_helpers/* ./artifact/py/yt_clipper_win/
-          cp ./dist/py/yt_clipper.exe ./artifact/py/yt_clipper_win/
+          cp ./bindeps/${{matrix.shortos}}/ffmpeg/* ./artifact/py/yt_clipper_${{matrix.shortos}}/bin/*
+          cp ./src/clipper/${{matrix.shortos}}_helpers/* ./artifact/py/yt_clipper_${{matrix.shortos}}/
+          cp ./dist/py/yt_clipper.exe ./artifact/py/yt_clipper_${{matrix.shortos}}/
 
-      - name: Copy mac artifacts
-        if: matrix.os == 'macOS-latest'
-        run: |
-          cp ./src/clipper/mac_helpers/* ./artifact/py/yt_clipper_mac/
-          cp ./dist/py/yt_clipper ./artifact/py/yt_clipper_mac/
-
-      - name: Upload win clipper script installation artifact
-        if: matrix.os == 'windows-latest'
+      - name: Upload clipper script installation artifact
         uses: actions/upload-artifact@v1
         with:
-          name: yt_clipper_win
-          path: ./artifact/py/yt_clipper_win/
-
-      - name: Upload mac clipper script installation artifact
-        if: matrix.os == 'macOS-latest'
-        uses: actions/upload-artifact@v1
-        with:
-          name: yt_clipper_mac
-          path: ./artifact/py/yt_clipper_mac/
+          name: yt_clipper_${{matrix.shortos}}
+          path: ./artifact/py/yt_clipper_${{matrix.shortos}}/
