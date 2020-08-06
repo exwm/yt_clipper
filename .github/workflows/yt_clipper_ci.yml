@@ -13,7 +13,7 @@ jobs:
     strategy:
       max-parallel: 4
       matrix:
-        python-version: [3.7]
+        python-version: [3.7.x]
         node-version: [12.x]
         os: [windows-latest, macOS-latest]
 
