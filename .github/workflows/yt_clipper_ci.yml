@@ -98,7 +98,7 @@ jobs:
           prerelease: false
 
       - name: Upload Release Asset (WIN)
-        id: upload-release-asset 
+        id: upload-release-asset-win
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -109,7 +109,7 @@ jobs:
           asset_content_type: application/zip
 
       - name: Upload Release Asset (MAC)
-        id: upload-release-asset 
+        id: upload-release-asset-mac 
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
