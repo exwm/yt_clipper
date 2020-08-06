@@ -23,17 +23,17 @@ jobs:
             shortos: mac
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v2-beta
         with:
           node-version: ${{ matrix.node-version }}
       - run: npm install
       - run: npm run bundle:prod --if-present
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
 
