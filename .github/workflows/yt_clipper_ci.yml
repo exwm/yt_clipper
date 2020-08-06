@@ -67,11 +67,10 @@ jobs:
 
       - name: Zip artifacts on windows
         if: matrix.os == 'windows-latest'
-        shell: powershell
         run: |
           Compress-Archive ./artifact/py/yt_clipper_${{matrix.shortos}}/ ./artifact/py/yt_clipper_${{matrix.shortos}}.zip
 
-        - name: Zip artifacts on non-windows systems
+      - name: Zip artifacts on non-windows systems
         if: matrix.os != 'windows-latest'
         run: |
           zip -r ./artifact/py/yt_clipper_${{matrix.shortos}}.zip ./artifact/py/yt_clipper_${{matrix.shortos}}/ 
@@ -81,7 +80,6 @@ jobs:
         with:
           name: yt_clipper_${{matrix.shortos}}.zip
           path: ./artifact/py/yt_clipper_${{matrix.shortos}}.zip
-
 jobs:
   release:
     needs: build
