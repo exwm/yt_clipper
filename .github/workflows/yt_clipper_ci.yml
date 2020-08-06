@@ -5,7 +5,7 @@ on:
     branches:
       - release
       - release/*
-      - test-CI
+      - test-ci
 
 jobs:
   build:
@@ -14,7 +14,7 @@ jobs:
       max-parallel: 4
       matrix:
         python-version: [3.7]
-        node-version: [10.x]
+        node-version: [12.x]
         os: [windows-latest, macOS-latest]
 
     steps:
