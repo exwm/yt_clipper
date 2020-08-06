@@ -64,13 +64,13 @@ jobs:
           cp ./bindeps/${{matrix.shortos}}/ffmpeg/* ./artifact/py/yt_clipper_${{matrix.shortos}}/bin/
           cp ./src/clipper/${{matrix.shortos}}_helpers/* ./artifact/py/yt_clipper_${{matrix.shortos}}/
           cp ./dist/py/yt_clipper* ./artifact/py/yt_clipper_${{matrix.shortos}}/
-          zip -r ./artifact/py/yt_clipper_${{matrix.shortos}}/ ./artifact/py/yt_clipper_${{matrix.shortos}}.zip 
+          zip -r ./artifact/py/yt_clipper_${{matrix.shortos}}.zip ./artifact/py/yt_clipper_${{matrix.shortos}}/ 
 
       - name: Upload clipper script installation artifact
         uses: actions/upload-artifact@v1
         with:
-          name: yt_clipper_${{matrix.shortos}}
-          path: ./artifact/py/yt_clipper_${{matrix.shortos}}/
+          name: yt_clipper_${{matrix.shortos}}.zip
+          path: ./artifact/py/yt_clipper_${{matrix.shortos}}.zip
 
       - name: Create Release
         id: create_release
