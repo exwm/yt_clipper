@@ -7,6 +7,11 @@ on:
       - release/*
       - test-ci
 
+env:
+  version: 3.7.0-beta.3.9.0-alpha.10
+  clipper-name-win: yt_clipper_win_${{env.version}}
+  clipper-name-mac: yt_clipper_mac_${{env.version}}
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -19,8 +24,10 @@ jobs:
         include:
           - os: windows-latest
             shortos: win
+            clipper-name: ${{env.clipper-name-win}}
           - os: macos-latest
             shortos: mac
+            clipper-name: ${{env.clipper-name-mac}}
 
     steps:
       - uses: actions/checkout@v2
@@ -57,48 +64,47 @@ jobs:
       - name: Set up artifacts dir
         shell: bash
         run: |
-          mkdir -p ./artifact/py/yt_clipper_${{matrix.shortos}}/{webms,bin}/
-          mkdir -p ./artifact/js/yt_clipper_${{matrix.shortos}}/
+          mkdir -p ./artifact/py/${{matrix.clipper-name}}/{webms,bin}/
+          mkdir -p ./artifact/js/${{matrix.clipper-name}}/
 
       - name: Copy artifacts
         shell: bash
         run: |
-          cp ./bindeps/${{matrix.shortos}}/ffmpeg/* ./artifact/py/yt_clipper_${{matrix.shortos}}/bin/
+          cp ./bindeps/${{matrix.shortos}}/ffmpeg/* ./artifact/py/${{matrix.clipper-name}}/bin/
           cp ./src/clipper/${{matrix.shortos}}_helpers/* ./artifact/py/yt_clipper_${{matrix.shortos}}/
-          cp ./dist/py/yt_clipper* ./artifact/py/yt_clipper_${{matrix.shortos}}/
-          cp ./dist/js/yt_clipper.js ./artifact/py/yt_clipper_${{matrix.shortos}}/
+          cp ./dist/py/yt_clipper* ./artifact/py/${{matrix.clipper-name}}/
+          cp ./dist/js/yt_clipper.js ./artifact/py/${{matrix.clipper-name}}/
 
       - name: Zip artifacts on windows
         if: matrix.os == 'windows-latest'
         run: |
-          Compress-Archive ./artifact/py/yt_clipper_${{matrix.shortos}}/ ./artifact/py/yt_clipper_${{matrix.shortos}}.zip
+          Compress-Archive ./artifact/py/${{matrix.clipper-name}}/ ./artifact/py/${{matrix.clipper-name}}.zip
 
       - name: Zip artifacts on non-windows systems
         if: matrix.os != 'windows-latest'
         run: |
-          zip -r ./artifact/py/yt_clipper_${{matrix.shortos}}.zip ./artifact/py/yt_clipper_${{matrix.shortos}}/ 
+          zip -r ./artifact/py/${{matrix.clipper-name}}.zip ./artifact/py/${{matrix.clipper-name}}/ 
 
       - name: Upload clipper script installation artifact
         uses: actions/upload-artifact@v1
         with:
-          name: yt_clipper_${{matrix.shortos}}.zip
-          path: ./artifact/py/yt_clipper_${{matrix.shortos}}.zip
+          name: ${{matrix.clipper-name}}.zip
+          path: ./artifact/py/${{matrix.clipper-name}}.zip
 
   release:
     needs: build
     runs-on: macos-latest
 
-
     steps:
     - uses: actions/download-artifact@v2
       with:
-        name:  yt_clipper_win.zip
+        name:  ${{env.clipper-name-win}}.zip
 
     - uses: actions/download-artifact@v2
       with:
-        name:  yt_clipper_mac.zip
+        name:  ${{env.clipper-name-mac}}.zip
 
-    - name: Create Release
+    - name: Create release
       id: create_release
       uses: actions/create-release@v1
       env:
@@ -109,24 +115,24 @@ jobs:
         draft: true
         prerelease: false
 
-    - name: Upload Release Asset (WIN)
+    - name: Upload release asset (win)
       id: upload-release-asset-win
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: yt_clipper_win.zip
-        asset_name: yt_clipper_win.zip
+        asset_path: ${{env.clipper-name-win}}.zip
+        asset_name: ${{env.clipper-name-win}}.zip
         asset_content_type: application/zip
 
-    - name: Upload Release Asset (MAC)
+    - name: Upload release asset (mac)
       id: upload-release-asset-mac 
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: yt_clipper_mac.zip
-        asset_name: yt_clipper_mac.zip
+        asset_path: ${{env.clipper-name-mac}}.zip
+        asset_name: ${{env.clipper-name-mac}}.zip
         asset_content_type: application/zip
