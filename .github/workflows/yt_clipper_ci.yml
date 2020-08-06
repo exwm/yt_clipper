@@ -57,7 +57,7 @@ jobs:
 
       - name: Copy artifacts
         run: |
-          cp ./bindeps/${{matrix.shortos}}/ffmpeg/* ./artifact/py/yt_clipper_${{matrix.shortos}}/bin/*
+          cp ./bindeps/${{matrix.shortos}}/ffmpeg/* ./artifact/py/yt_clipper_${{matrix.shortos}}/bin/
           cp ./src/clipper/${{matrix.shortos}}_helpers/* ./artifact/py/yt_clipper_${{matrix.shortos}}/
           cp ./dist/py/yt_clipper.exe ./artifact/py/yt_clipper_${{matrix.shortos}}/
 
