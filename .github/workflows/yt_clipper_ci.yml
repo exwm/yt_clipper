@@ -56,7 +56,9 @@ jobs:
 
       - name: Set up artifacts dir
         shell: bash
-        run: mkdir -p ./artifact/py/yt_clipper_${{matrix.shortos}}/{webms,bin}/
+        run: |
+          mkdir -p ./artifact/py/yt_clipper_${{matrix.shortos}}/{webms,bin}/
+          mkdir -p ./artifact/js/yt_clipper_${{matrix.shortos}}/
 
       - name: Copy artifacts
         shell: bash
@@ -64,6 +66,7 @@ jobs:
           cp ./bindeps/${{matrix.shortos}}/ffmpeg/* ./artifact/py/yt_clipper_${{matrix.shortos}}/bin/
           cp ./src/clipper/${{matrix.shortos}}_helpers/* ./artifact/py/yt_clipper_${{matrix.shortos}}/
           cp ./dist/py/yt_clipper* ./artifact/py/yt_clipper_${{matrix.shortos}}/
+          cp ./dist/js/yt_clipper.js ./artifact/py/yt_clipper_${{matrix.shortos}}/
 
       - name: Zip artifacts on windows
         if: matrix.os == 'windows-latest'
@@ -85,6 +88,13 @@ jobs:
     needs: build
     runs-on: macos-latest
 
+  - uses: actions/download-artifact@v2
+    with:
+      name:  yt_clipper_win.zip
+  - uses: actions/download-artifact@v2
+    with:
+      name:  yt_clipper_mac.zip
+
     steps:
       - name: Create Release
         id: create_release
@@ -104,7 +114,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifact/py/yt_clipper_win.zip
+          asset_path: yt_clipper_win.zip
           asset_name: yt_clipper_win.zip
           asset_content_type: application/zip
 
@@ -115,6 +125,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifact/py/yt_clipper_mac.zip
+          asset_path: yt_clipper_mac.zip
           asset_name: yt_clipper_mac.zip
           asset_content_type: application/zip
