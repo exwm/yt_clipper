@@ -80,7 +80,7 @@ jobs:
         with:
           name: yt_clipper_${{matrix.shortos}}.zip
           path: ./artifact/py/yt_clipper_${{matrix.shortos}}.zip
-jobs:
+
   release:
     needs: build
     runs-on: macos-latest
