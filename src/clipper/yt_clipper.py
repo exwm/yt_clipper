@@ -688,15 +688,31 @@ def autoScaleCropMap(cropMap, settings):
             cropString, settings)
 
 
-def getAutoScaledCropComponents(cropString, settings):
-    cropComponents = getCropComponents(
-        cropString, settings["cropResWidth"], settings["cropResHeight"])
-    cropComponents['x'] = settings["cropMultipleX"] * cropComponents['x']
-    cropComponents['y'] = settings["cropMultipleY"] * cropComponents['y']
-    cropComponents['w'] = settings["cropMultipleX"] * cropComponents['w']
-    cropComponents['h'] = settings["cropMultipleY"] * cropComponents['h']
+def getAutoScaledCropComponents(cropString, settings, forceEvenDimensions=False):
+    cropResWidth = settings["cropResWidth"]
+    cropResHeight = settings["cropResHeight"]
+
+    cropComponents = getCropComponents(cropString, cropResWidth, cropResHeight)
+
+    cropComponents['x'] = round(settings["cropMultipleX"] * cropComponents['x'])
+    cropComponents['x'] = min(cropComponents['x'], cropResWidth)
+    cropComponents['w'] = round(settings["cropMultipleX"] * cropComponents['w'])
+    cropComponents['w'] = min(cropComponents['w'], cropResWidth)
+
+    cropComponents['y'] = round(settings["cropMultipleY"] * cropComponents['y'])
+    cropComponents['y'] = min(cropComponents['y'], cropResHeight)
+    cropComponents['h'] = round(settings["cropMultipleY"] * cropComponents['h'])
+    cropComponents['h'] = min(cropComponents['h'], cropResHeight)
+
+    # We floor the width and height to even to get even dimension output
+    # This is important as some services require even dimensions
+    # For example, gfycat re-encodes odd dimension video usually with low quality
+    if forceEvenDimensions:
+        cropComponents['w'] = floorToEven(cropComponents['w'])
+        cropComponents['h'] = floorToEven(cropComponents['h'])
 
     scaledCropString = f'''{cropComponents['x']}:{cropComponents['y']}:{cropComponents['w']}:{cropComponents['h']}'''
+
     return scaledCropString, cropComponents
 
 
@@ -714,11 +730,6 @@ def getCropComponents(cropString, cropResWidth, cropResheight):
 def getMarkerPairSettings(settings, markerPairIndex):
     # marker pair properties
     mp = settings["markerPairs"][markerPairIndex]
-
-    cropString, cropComponents = getAutoScaledCropComponents(
-        mp["crop"], settings)
-    mp["crop"] = cropString
-    mp["cropComponents"] = cropComponents
 
     # marker pair settings
     mps = {**settings, **(mp["overrides"])}
@@ -758,6 +769,12 @@ def getMarkerPairSettings(settings, markerPairIndex):
 
     mp["averageSpeed"] = getAverageSpeed(mp["speedMap"], mps["r_frame_rate"])
 
+    cropString, cropComponents = getAutoScaledCropComponents(
+        mp["crop"], settings, forceEvenDimensions=True)
+
+    mp["crop"] = cropString
+    mp["cropComponents"] = cropComponents
+
     if "enableCropMaps" not in mp:
         mps["enableCropMaps"] = True
 
@@ -785,10 +802,10 @@ def getMarkerPairSettings(settings, markerPairIndex):
     if mp["isZoomPanCrop"]:
         mp["cropFilter"], mp["maxSize"] = getZoomPanFilter(mp["cropMap"], mps, mps["r_frame_rate"])
     elif mp["isPanningCrop"]:
-        mp["cropFilter"] = getCropFilter(mp["cropMap"], mps, mps["r_frame_rate"])
+        mp["cropFilter"] = getCropFilter(mp["crop"], mp["cropMap"], mps, mps["r_frame_rate"])
     else:
         cc = cropComponents
-        mp["cropFilter"] = f"""crop='x={cc["x"]}:y={cc["y"]}:w={cc["w"]}:h={cc["h"]}'"""
+        mp["cropFilter"] = f"""crop='x={cc["x"]}:y={cc["y"]}:w={cc["w"]}:h={cc["h"]}:exact=1'"""
 
     bitrateCropFactor = (mp["maxSize"]) / (settings["width"] * settings["height"])
 
@@ -1312,14 +1329,14 @@ def getAverageSpeed(speedMap, fps):
     return averageSpeed
 
 
-def getCropFilter(cropMap, mps, fps, easeType='easeInOutSine'):
+def getCropFilter(crop, cropMap, mps, fps, easeType='easeInOutSine'):
     logger.info('-' * 80)
     fps = Fraction(fps)
     nSects = len(cropMap) - 1
-    firstTime = cropMap[0]["x"]
-    firstCropX, firstCropY, firstCropW, firstCropH = cropMap[0]["crop"].split(':')
 
-    cropXExpr = cropYExpr = cropWExpr = cropYExpr = ''
+    firstTime = cropMap[0]["x"]
+    _, _, cropW, cropH = crop.split(':')
+    cropXExpr = cropYExpr = ''
 
     for sect, (left, right) in enumerate(zip(cropMap[:-1], cropMap[1:])):
         startTime = left["x"] - firstTime
@@ -1347,17 +1364,15 @@ def getCropFilter(cropMap, mps, fps, easeType='easeInOutSine'):
             cropXExpr += f'(gte(t, {startTime})*lt(t, {endTime}))*{easeX}+'
             cropYExpr += f'(gte(t, {startTime})*lt(t, {endTime}))*{easeY}+'
 
-    cropWExpr = firstCropW
-    cropHExpr = firstCropH
+    cropFilter = f"crop='x={cropXExpr}:y={cropYExpr}:w={cropW}:h={cropH}:exact=1'"
 
-    cropFilter = f"crop='x={cropXExpr}:y={cropYExpr}:w={cropWExpr}:h={cropHExpr}'"
     return cropFilter
 
 
 def getZoomPanFilter(cropMap, mps, fps, easeType='easeInOutSine'):
     maxSize = getMaxSizeCrop(cropMap)
-    maxWidth = maxSize["width"]
-    maxHeight = maxSize["height"]
+    maxWidth = floorToEven(maxSize["width"])
+    maxHeight = floorToEven(maxSize["height"])
     maxSize = maxWidth * maxHeight
 
     fps = Fraction(fps)
@@ -1370,7 +1385,8 @@ def getZoomPanFilter(cropMap, mps, fps, easeType='easeInOutSine'):
     # This reduces jitter caused by the rounding of the panning done by zoompan.
     # We need to account for this scaling in the calculation of the zoom and pan.
     panScale = 1
-    zoomScale = panScale * 4
+    zoomScale = 4
+    totalScale = panScale * zoomScale
 
     for sect, (left, right) in enumerate(zip(cropMap[:-1], cropMap[1:])):
         startTime = left["x"] - firstTime
@@ -1412,7 +1428,7 @@ def getZoomPanFilter(cropMap, mps, fps, easeType='easeInOutSine'):
         panEaseBottom = f'max({panEaseBottom}-{panScale}*{maxHeight}, 0)'
 
         # zoompan's time variable is time instead of t
-        t = f'in_time'
+        t = f'it'
         easeP = f'(({t}-{startTime})/{sectDuration})'
         easeZoom = getEasingExpression(currEaseType, f'({startZoom})', f'({endZoom})', easeP)
         easeX = getEasingExpression(currEaseType, f'({zoomScale}*{startX})', f'({zoomScale}*{endX})', easeP)
@@ -1448,7 +1464,7 @@ def getZoomPanFilter(cropMap, mps, fps, easeType='easeInOutSine'):
     # Prescale filter to reduce jitter caused by the rounding of the panning done by zoompan.
     if panScale > 1:
         zoomPanFilter += f"scale=w={panScale}*iw:h={panScale}*ih,"
-    zoomPanFilter += f"crop='x={panXExpr}:y={panYExpr}:w={panScale}*{maxWidth}:h={panScale}*{maxHeight}',"
+    zoomPanFilter += f"crop='x={panXExpr}:y={panYExpr}:w={panScale}*{maxWidth}:h={panScale}*{maxHeight}:exact=1',"
     if zoomScale > 1:
         zoomPanFilter += f"scale=w={zoomScale}*iw:h={zoomScale}*ih,"
     zoomPanFilter += f"zoompan=z='({zoomExpr})':x='{zoomXExpr}':y='{zoomYExpr}'"
@@ -1468,7 +1484,13 @@ def getMaxSizeCrop(cropMap):
         return cropLeft if left > right else cropRight
 
     maxSize = reduce(getLargerCropSize, map(getSize, cropMap))
+
     return maxSize
+
+
+def floorToEven(x):
+    x = int(x)
+    return x & ~1
 
 
 def getEasingExpression(easingFunc, easeA, easeB, easeP):
