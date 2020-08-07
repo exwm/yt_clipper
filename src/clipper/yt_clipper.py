@@ -958,7 +958,7 @@ def makeClip(settings, markerPairIndex):
     if mps["deinterlace"]:
         video_filter += f',bwdif'
     if mps["minterpFPS"] is not None or mps["removeDuplicateFrames"]:
-        video_filter += f''',mpdecimate,setpts=N/FR/TB'''
+        video_filter += f",mpdecimate=hi=64*2:lo=64:frac=0.1,setpts='(N/FR/TB)'"
     if 0 <= mps["gamma"] <= 4 and mps["gamma"] != 1:
         video_filter += f',lutyuv=y=gammaval({mps["gamma"]})'
     if mps["expandColorRange"]:
