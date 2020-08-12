@@ -94,7 +94,6 @@ export const timeRounder = getRounder(1e-6, 6);
 export function clampNumber(number: number, min: number, max: number) {
   return Math.max(min, Math.min(number, max));
 }
-
 export function toHHMMSS(seconds: number) {
   return new Date(seconds * 1000).toISOString().substr(11, 12);
 }
@@ -177,6 +176,9 @@ export function blockEvent(e) {
   e.stopImmediatePropagation();
 }
 
+export function getCropString(x: number, y: number, w: number, h: number) {
+  return `${x}:${y}:${w}:${h}`;
+}
 export function ternaryToString(ternary: boolean, def?: string) {
   if (ternary == null) {
     return def != null ? def : '(Disabled)';
