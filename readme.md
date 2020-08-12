@@ -392,9 +392,9 @@ See <https://ffmpeg.org/ffplay.html#While-playing>.
 There is an installation that does not require the dependencies below.
 
 1. Extract the appropriate zip file anywhere:
-   - On _Windows_ download this [zip file (win_v3.6.3)](https://mega.nz/file/JORHTK5b#JUeLNxpDp_-SeoO0Xo4dddmTIv_hoCvxNYNwvvoTdPU)
-   - On _Mac_ download this [zip file (mac_v3.6.3)](https://mega.nz/file/sSoxmTgI#rpi2g1MqwyUavgpjDeEDWazYhbfqyraLhkpwgVVYMQw)
-   - The latest install (`v3.6.3`) is only compatible with `v0.0.75` or higher of the `markup script`
+   - On _Windows_ download this [zip file (win_v3.6.4)](https://mega.nz/file/RewFzRyB#3CzbHOKyfyqym5yMjIGAtLesFLuPccghd_fVjJ4UBiI)
+   - On _Mac_ download this [zip file (mac_v3.6.4)](https://mega.nz/file/ob43wDzQ#8cc7Ag25maYJsxgB6TKLlBZkTXQ2m9M7gkykGu-vDGo)
+   - The latest install (`v3.6.4`) is only compatible with `v0.0.75` or higher of the `markup script`
 2. Simply drag and drop the markers .json file onto the `yt_clipper_auto.bat` file on Windows or at the terminal prompt after executing `yt_clipper_auto` on Mac.
 3. Use `Ctrl+C` if you need to cancel the process.
 4. All generated webm clips will be placed in `./webms/<markers-json-filename>`.
@@ -514,11 +514,16 @@ v0.0.88 `[2019.08.31]`:
 
 ## Clipper Script (Installation) Changelog
 
-v3.6.3 `[2020.06.21]`:
+v3.6.4 `[2020.07.29]`:
 
 - See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
 - Use with `v0.0.89` or higher of the markup script.
   - <a href="https://openuserjs.org/install/elwm/yt_clipper.user.js">Click to install markup script</a>
+- Use with `v0.0.89` or higher of the markup script.
+- Update youtube-dl dependency to [`2020.07.28`](https://github.com/ytdl-org/youtube-dl/releases/tag/2020.07.28) to fix extractor errors when trying to download YouTube videos.
+
+v3.6.3 `[2020.06.21]`:
+
 - Update youtube-dl dependency to [`2020.06.16.1`](https://github.com/ytdl-org/youtube-dl/releases/tag/2020.06.16.1) to fix extractor errors when trying to download YouTube videos.
 - Disable youtube-dl caching to avoid http 403 errors from stale signatures.
 - Update ffmpeg dependency to latest mainline version (`4.2.3`).
