@@ -1,4 +1,4 @@
-import { clampNumber } from './util';
+import { clampNumber, getCropString } from './util';
 
 export class Crop {
   private static minX = 0;
@@ -48,6 +48,40 @@ export class Crop {
   }
   public set cropString(cropString: string) {
     [this._x, this._y, this._w, this._h] = Crop.getCropComponents(cropString);
+  }
+  public setCropStringSafe(cropString: string, shouldMaintainCropAspectRatio = false) {
+    const [nx, ny, nw, nh] = Crop.getCropComponents(cropString);
+    const isDrag = nw === this._w && nh === this._h;
+
+    const maxX = isDrag ? this.maxW - this._w : this.maxW - Crop.minW;
+    const maxY = isDrag ? this.maxH - this._h : this.maxH - Crop.minH;
+    let cx = clampNumber(nx, Crop.minX, maxX);
+    let cy = clampNumber(ny, Crop.minY, maxY);
+
+    const maxW = this.maxW - cx;
+    const maxH = this.maxH - cy;
+    let cw = isDrag ? this._w : clampNumber(nw, Crop.minW, maxW);
+    let ch = isDrag ? this._h : clampNumber(nh, Crop.minH, maxH);
+
+    if (shouldMaintainCropAspectRatio) {
+      const ar = this.aspectRatio;
+      const ph = Math.floor(cw / ar);
+      const pw = Math.floor(ch * ar);
+      const phWithinBounds = Crop.minH <= ph && ph <= this.maxH;
+      const pwWithinBounds = Crop.minW <= pw && pw <= this.maxW;
+
+      if (!phWithinBounds && !pwWithinBounds) {
+        throw new Error('Could not determine a valid aspect-ratio-constrained crop.');
+      }
+
+      if (phWithinBounds) {
+        ch = ph;
+      } else {
+        cw = pw;
+      }
+    }
+
+    this.cropString = getCropString(cx, cy, cw, ch);
   }
   // public set minW(minW: number) {
   //   this._minW = Math.max(minW, 0);
@@ -383,9 +417,9 @@ export class Crop {
   }
   resizeNESWAspectRatioLocked(deltaY: number, deltaX: number) {
     const [a, b] = this.aspectRatioPair;
+    let isExpand = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX >= 0 : deltaY >= 0;
     deltaX *= a;
     deltaY *= b;
-    let isExpand = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX >= 0 : deltaY >= 0;
 
     if (isExpand) {
       deltaY += deltaX / this.aspectRatio;
