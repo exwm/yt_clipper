@@ -938,6 +938,7 @@ def makeClip(settings, markerPairIndex):
         video_filter += f',loop=loop=-1:size=(32767)'
 
     cropComponents = mp["cropComponents"]
+    # video_filter += f",mpdecimate=hi=64*2:lo=64:frac=0.1,setpts='(N/FR/TB)'"
     video_filter += f',{mp["cropFilter"]}'
 
     if mps["subsFilePath"] != '':
