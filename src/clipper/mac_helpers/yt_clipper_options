@@ -1,13 +1,13 @@
 #!/bin/bash
-cd "$(dirname "$0")"
+cd "$(dirname "$0")" || exit
 
 ./yt_clipper -h
 
-read -p "First enter the paths of 1 or more markers json data files (you may be able to drag and drop files at the prompt): " JSONPROMPT
+read -rp "First enter the paths of 1 or more markers json data files (you may be able to drag and drop files at the prompt): " JSONPROMPT
 
 IFS=$'\n' JSONS=( $(xargs -n1 <<< "$JSONPROMPT") )
 
-read -p "Next provide any additional options: " OPTS
+read -rp "Next provide any additional options: " OPTS
 
 for JSON in "${JSONS[@]}"
 do
