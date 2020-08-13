@@ -81,7 +81,6 @@ import {
   getOutputDuration,
   ternaryToString,
   getEasedValue,
-  isStaticCrop,
   blockEvent,
   onLoadVideoPage,
   getCropString,
@@ -3637,51 +3636,6 @@ export function triggerCropChartLoop() {
       isCropOverlayVisible = false;
     }
 
-    let isDrawingCrop = false;
-    let prevCropString = '0:0:iw:ih';
-    let beginDrawHandler: (e: PointerEvent) => void;
-    function drawCropOverlay(verticalFill: boolean) {
-      if (isDrawingCrop) {
-        finishDrawingCrop(prevCropString);
-      } else if (
-        isCurrentChartVisible &&
-        currentChartInput &&
-        currentChartInput.type !== 'crop'
-      ) {
-        flashMessage('Please toggle off the speed chart before drawing crop', 'olive');
-      } else if (isDraggingCrop) {
-        flashMessage('Please finish dragging or resizing before drawing crop', 'olive');
-      } else if (isSettingsEditorOpen && isCropOverlayVisible) {
-        isDrawingCrop = true;
-        if (!wasGlobalSettingsEditorOpen) {
-          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-          const cropMap = markerPair.cropMap;
-          prevCropString = markerPair.crop;
-          cropMap.forEach((cropPoint) => {
-            cropPoint.prevCrop = cropPoint.crop;
-          });
-        } else {
-          prevCropString = settings.newMarkerCrop;
-        }
-        window.removeEventListener('keydown', addCropOverlayHoverListener, true);
-        window.removeEventListener('mousemove', cropOverlayHoverHandler, true);
-        hidePlayerControls();
-        video.style.removeProperty('cursor');
-        playerInfo.videoContainer.style.cursor = 'crosshair';
-        beginDrawHandler = (e: PointerEvent) => beginDraw(e, verticalFill);
-        playerInfo.container.addEventListener('pointerdown', beginDrawHandler, {
-          once: true,
-          capture: true,
-        });
-        flashMessage('Begin drawing crop', 'green');
-      } else {
-        flashMessage(
-          'Please open the global settings or a marker pair editor before drawing crop',
-          'olive'
-        );
-      }
-    }
-
     function hidePlayerControls() {
       playerInfo.controls.style.display = 'none';
       playerInfo.gradientBottom.style.display = 'none';
@@ -3730,9 +3684,9 @@ export function triggerCropChartLoop() {
           const [ix, iy, iw, ih] = getCropComponents(cropString);
           const cropResWidth = settings.cropResWidth;
           const cropResHeight = settings.cropResHeight;
+          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+          const cropMap = markerPair.cropMap;
           if (!wasGlobalSettingsEditorOpen) {
-            const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-            const cropMap = markerPair.cropMap;
             cropMap.forEach((cropPoint) => {
               cropPoint.initCrop = cropPoint.crop;
             });
@@ -3745,6 +3699,7 @@ export function triggerCropChartLoop() {
           const clickPosY = e.pageY - videoRect.top - playerRect.top;
           const cursor = getMouseCropHoverRegion(e, cropString);
           const pointerId = e.pointerId;
+          const isDynamicCrop = !isStaticCrop(cropMap);
 
           endCropOverlayDrag = (e, forceEndDrag = false) => {
             if (forceEndDrag) {
@@ -3845,79 +3800,97 @@ export function triggerCropChartLoop() {
             const changeY = dragPosY - clickPosY;
             let deltaY = (changeY / videoRect.height) * settings.cropResHeight;
             const shouldMaintainCropAspectRatio =
-              (isCropChartPanOnly && e.altKey) || (!isCropChartPanOnly && !e.altKey);
+              ((isCropChartPanOnly || !isDynamicCrop) && e.altKey) ||
+              (!isCropChartPanOnly && isDynamicCrop && !e.altKey);
             const shouldResizeCenterOut = e.shiftKey;
             const crop = new Crop(ix, iy, iw, ih, cropResWidth, cropResHeight);
-            const isWResize = ['w-resize', 'nw-resize', 'sw-resize'].includes(cursor);
-            const isNResize = ['n-resize', 'nw-resize', 'ne-resize'].includes(cursor);
-            if (isWResize) deltaX = -deltaX;
-            if (isNResize) deltaY = -deltaY;
-
-            const isDiagonalResize = [
-              'ne-resize',
-              'se-resize',
-              'sw-resize',
-              'nw-resize',
-            ].includes(cursor);
-            if (shouldMaintainCropAspectRatio && shouldResizeCenterOut) {
-              crop.resizeNESWAspectRatioLocked(deltaY, deltaX);
-            } else if (shouldResizeCenterOut && isDiagonalResize) {
-              crop.resizeNESW(deltaY, deltaX);
-            } else {
-              switch (cursor) {
-                case 'n-resize':
-                  shouldMaintainCropAspectRatio
-                    ? crop.resizeNAspectRatioLocked(deltaY)
-                    : shouldResizeCenterOut
-                    ? crop.resizeNS(deltaY)
-                    : crop.resizeN(deltaY);
-                  break;
-                case 'ne-resize':
-                  shouldMaintainCropAspectRatio
-                    ? crop.resizeNEAspectRatioLocked(deltaY, deltaX)
-                    : crop.resizeNE(deltaY, deltaX);
-                  break;
-                case 'e-resize':
-                  shouldMaintainCropAspectRatio
-                    ? crop.resizeEAspectRatioLocked(deltaX)
-                    : shouldResizeCenterOut
-                    ? crop.resizeEW(deltaX)
-                    : crop.resizeE(deltaX);
-                  break;
-                case 'se-resize':
-                  shouldMaintainCropAspectRatio
-                    ? crop.resizeSEAspectRatioLocked(deltaY, deltaX)
-                    : crop.resizeSE(deltaY, deltaX);
-                  break;
-                case 's-resize':
-                  shouldMaintainCropAspectRatio
-                    ? crop.resizeSAspectRatioLocked(deltaY)
-                    : shouldResizeCenterOut
-                    ? crop.resizeNS(deltaY)
-                    : crop.resizeS(deltaY);
-                  break;
-                case 'sw-resize':
-                  shouldMaintainCropAspectRatio
-                    ? crop.resizeSWAspectRatioLocked(deltaY, deltaX)
-                    : crop.resizeSW(deltaY, deltaX);
-                  break;
-                case 'w-resize':
-                  shouldMaintainCropAspectRatio
-                    ? crop.resizeWAspectRatioLocked(deltaX)
-                    : shouldResizeCenterOut
-                    ? crop.resizeEW(deltaX)
-                    : crop.resizeW(deltaX);
-                  break;
-                case 'nw-resize':
-                  shouldMaintainCropAspectRatio
-                    ? crop.resizeNWAspectRatioLocked(deltaY, deltaX)
-                    : crop.resizeNW(deltaY, deltaX);
-                  break;
-              }
-            }
-
+            resizeCrop(
+              crop,
+              cursor,
+              deltaX,
+              deltaY,
+              shouldMaintainCropAspectRatio,
+              shouldResizeCenterOut
+            );
             forceUpdateCropString(crop.cropString);
           }
+        }
+      }
+    }
+
+    function resizeCrop(
+      crop: Crop,
+      cursor: string,
+      deltaX: number,
+      deltaY: number,
+      shouldMaintainCropAspectRatio = false,
+      shouldResizeCenterOut = false
+    ) {
+      const isWResize = ['w-resize', 'nw-resize', 'sw-resize'].includes(cursor);
+      const isNResize = ['n-resize', 'nw-resize', 'ne-resize'].includes(cursor);
+      if (isWResize) deltaX = -deltaX;
+      if (isNResize) deltaY = -deltaY;
+
+      const isDiagonalResize = [
+        'ne-resize',
+        'se-resize',
+        'sw-resize',
+        'nw-resize',
+      ].includes(cursor);
+      if (shouldMaintainCropAspectRatio && shouldResizeCenterOut) {
+        crop.resizeNESWAspectRatioLocked(deltaY, deltaX);
+      } else if (shouldResizeCenterOut && isDiagonalResize) {
+        crop.resizeNESW(deltaY, deltaX);
+      } else {
+        switch (cursor) {
+          case 'n-resize':
+            shouldMaintainCropAspectRatio
+              ? crop.resizeNAspectRatioLocked(deltaY)
+              : shouldResizeCenterOut
+              ? crop.resizeNS(deltaY)
+              : crop.resizeN(deltaY);
+            break;
+          case 'ne-resize':
+            shouldMaintainCropAspectRatio
+              ? crop.resizeNEAspectRatioLocked(deltaY, deltaX)
+              : crop.resizeNE(deltaY, deltaX);
+            break;
+          case 'e-resize':
+            shouldMaintainCropAspectRatio
+              ? crop.resizeEAspectRatioLocked(deltaX)
+              : shouldResizeCenterOut
+              ? crop.resizeEW(deltaX)
+              : crop.resizeE(deltaX);
+            break;
+          case 'se-resize':
+            shouldMaintainCropAspectRatio
+              ? crop.resizeSEAspectRatioLocked(deltaY, deltaX)
+              : crop.resizeSE(deltaY, deltaX);
+            break;
+          case 's-resize':
+            shouldMaintainCropAspectRatio
+              ? crop.resizeSAspectRatioLocked(deltaY)
+              : shouldResizeCenterOut
+              ? crop.resizeNS(deltaY)
+              : crop.resizeS(deltaY);
+            break;
+          case 'sw-resize':
+            shouldMaintainCropAspectRatio
+              ? crop.resizeSWAspectRatioLocked(deltaY, deltaX)
+              : crop.resizeSW(deltaY, deltaX);
+            break;
+          case 'w-resize':
+            shouldMaintainCropAspectRatio
+              ? crop.resizeWAspectRatioLocked(deltaX)
+              : shouldResizeCenterOut
+              ? crop.resizeEW(deltaX)
+              : crop.resizeW(deltaX);
+            break;
+          case 'nw-resize':
+            shouldMaintainCropAspectRatio
+              ? crop.resizeNWAspectRatioLocked(deltaY, deltaX)
+              : crop.resizeNW(deltaY, deltaX);
+            break;
         }
       }
     }
@@ -3976,23 +3949,69 @@ export function triggerCropChartLoop() {
       return cursor;
     }
 
+    let isDrawingCrop = false;
+    let prevCropString = '0:0:iw:ih';
+    let beginDrawHandler: (e: PointerEvent) => void;
+    function drawCropOverlay(verticalFill: boolean) {
+      if (isDrawingCrop) {
+        finishDrawingCrop(prevCropString);
+      } else if (
+        isCurrentChartVisible &&
+        currentChartInput &&
+        currentChartInput.type !== 'crop'
+      ) {
+        flashMessage('Please toggle off the speed chart before drawing crop', 'olive');
+      } else if (isDraggingCrop) {
+        flashMessage('Please finish dragging or resizing before drawing crop', 'olive');
+      } else if (isSettingsEditorOpen && isCropOverlayVisible) {
+        isDrawingCrop = true;
+        if (!wasGlobalSettingsEditorOpen) {
+          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+          const cropMap = markerPair.cropMap;
+          prevCropString = markerPair.crop;
+          cropMap.forEach((cropPoint) => {
+            cropPoint.prevCrop = cropPoint.crop;
+          });
+        } else {
+          prevCropString = settings.newMarkerCrop;
+        }
+
+        Crop.shouldConstrainMinDimensions = false;
+        window.removeEventListener('keydown', addCropOverlayHoverListener, true);
+        window.removeEventListener('mousemove', cropOverlayHoverHandler, true);
+        hidePlayerControls();
+        video.style.removeProperty('cursor');
+        playerInfo.videoContainer.style.cursor = 'crosshair';
+        beginDrawHandler = (e: PointerEvent) => beginDraw(e, verticalFill);
+        playerInfo.container.addEventListener('pointerdown', beginDrawHandler, {
+          once: true,
+          capture: true,
+        });
+        flashMessage('Begin drawing crop', 'green');
+      } else {
+        flashMessage(
+          'Please open the global settings or a marker pair editor before drawing crop',
+          'olive'
+        );
+      }
+    }
+
     let dragCropPreviewHandler: EventListener;
     function beginDraw(e: PointerEvent, verticalFill: boolean) {
       if (e.button == 0 && !dragCropPreviewHandler) {
         e.preventDefault();
         video.setPointerCapture(e.pointerId);
 
+        const cropResWidth = settings.cropResWidth;
+        const cropResHeight = settings.cropResHeight;
+
         const videoRect = player.getVideoContentRect();
         const playerRect = player.getBoundingClientRect();
-        const ix = e.pageX - videoRect.left - playerRect.left;
-        const iy = e.pageY - videoRect.top - playerRect.top;
-        let ixScaled = Math.round((ix / videoRect.width) * settings.cropResWidth);
-        let iyScaled = 0;
-        if (!verticalFill) {
-          iyScaled = Math.round((iy / videoRect.height) * settings.cropResHeight);
-        }
-        ixScaled = clampNumber(ixScaled, 0, settings.cropResWidth);
-        iyScaled = clampNumber(iyScaled, 0, settings.cropResHeight);
+        const clickPosX = e.pageX - videoRect.left - playerRect.left;
+        const clickPosY = e.pageY - videoRect.top - playerRect.top;
+        const ix = (clickPosX / videoRect.width) * cropResWidth;
+        const iy = (clickPosY / videoRect.height) * cropResHeight;
+
         let isDynamicCrop = false;
         if (!wasGlobalSettingsEditorOpen) {
           const markerPair = markerPairs[prevSelectedMarkerPairIndex];
@@ -4006,79 +4025,52 @@ export function triggerCropChartLoop() {
             });
           }
         }
-        const shouldMaintainCropAspectRatio =
-          !isCropChartPanOnly && isDynamicCrop && !e.altKey;
         const [px, py, pw, ph] = getCropComponents(prevCropString);
         const par = pw <= 0 || ph <= 0 ? 1 : pw / ph;
-        const optArgs = {
-          ix: px,
-          iy: py,
-          iw: 0,
-          ih: 0,
-          minW: 0,
-          minH: 0,
-          resizeOnly: true,
-          updateCropChart: false,
-          shouldMaintainCropAspectRatio,
-        };
-        updateCrop(ixScaled, iyScaled, 0, 0, optArgs);
+
+        const crop = new Crop(ix, iy, Crop.minW, Crop.minH, cropResWidth, cropResHeight);
+
+        forceUpdateCropString(crop.cropString);
 
         dragCropPreviewHandler = function (e: PointerEvent) {
+          const dragPosX = e.pageX - videoRect.left - playerRect.left;
+          const changeX = dragPosX - clickPosX;
+          let deltaX = (changeX / videoRect.width) * cropResWidth;
+          const dragPosY = e.pageY - videoRect.top - playerRect.top;
+          const changeY = dragPosY - clickPosY;
+          let deltaY = (changeY / videoRect.height) * cropResHeight;
+
           const shouldMaintainCropAspectRatio =
-            !isCropChartPanOnly && isDynamicCrop && !e.altKey;
-          let endX = Math.round(
-            ((e.pageX - videoRect.left - playerRect.left) / videoRect.width) *
-              settings.cropResWidth
+            ((isCropChartPanOnly || !isDynamicCrop) && e.altKey) ||
+            (!isCropChartPanOnly && isDynamicCrop && !e.altKey);
+          const shouldResizeCenterOut = e.shiftKey;
+
+          const crop = new Crop(
+            ix,
+            iy,
+            Crop.minW,
+            Crop.minH,
+            cropResWidth,
+            cropResHeight
           );
-          let endY = settings.cropResHeight;
-          if (!verticalFill) {
-            endY = Math.round(
-              ((e.pageY - videoRect.top - playerRect.top) / videoRect.height) *
-                settings.cropResHeight
-            );
-          }
+          crop.defaultAspectRatio = par;
 
-          endX = clampNumber(endX, 0, settings.cropResWidth);
-          endY = clampNumber(endY, 0, settings.cropResHeight);
-          let x: number, y: number, w: number, h: number;
-          if (endX > ixScaled) {
-            x = ixScaled;
-            w = endX - x;
-          } else {
-            x = endX;
-            w = ixScaled - x;
-          }
-          if (endY > iyScaled) {
-            y = iyScaled;
-            h = endY - y;
-          } else {
-            y = endY;
-            h = iyScaled - y;
-          }
+          let cursor: string;
+          if (deltaX >= 0 && deltaY >= 0) cursor = 'se-resize';
+          if (deltaX >= 0 && deltaY < 0) cursor = 'ne-resize';
+          if (deltaX < 0 && deltaY < 0) cursor = 'nw-resize';
+          if (deltaX < 0 && deltaY >= 0) cursor = 'sw-resize';
 
-          const optArgs = {
-            ix: x,
-            iy: y,
-            iw: 0,
-            ih: 0,
-            minW: 0,
-            minH: 0,
-            resizeOnly: true,
-            updateCropChart: false,
+          resizeCrop(
+            crop,
+            cursor,
+            deltaX,
+            deltaY,
             shouldMaintainCropAspectRatio,
-          };
+            shouldResizeCenterOut
+          );
 
-          if (shouldMaintainCropAspectRatio) {
-            optArgs.ix = ixScaled;
-            optArgs.iy = iyScaled;
-            if (w > h) {
-              h = Math.round(w / par);
-            } else {
-              w = Math.round(h * par);
-            }
-          }
-
-          updateCrop(x, y, w, h, optArgs);
+          forceUpdateCropString(crop.cropString);
         };
 
         window.addEventListener('pointermove', dragCropPreviewHandler);
@@ -4114,6 +4106,8 @@ export function triggerCropChartLoop() {
     }
 
     function finishDrawingCrop(prevCropString?: string, pointerId?: number) {
+      Crop.shouldConstrainMinDimensions = true;
+
       if (pointerId) video.releasePointerCapture(pointerId);
       playerInfo.videoContainer.style.cursor = 'auto';
       playerInfo.container.removeEventListener('pointerdown', beginDrawHandler, true);
@@ -4236,14 +4230,18 @@ export function triggerCropChartLoop() {
         cropString = '0:0:iw:ih';
       }
 
-      const cropArray = cropString.split(':').map((cropStringComponent) => {
+      const cropArray = cropString.split(':').map((cropStringComponent, i) => {
         let cropComponent: number;
         if (cropStringComponent === 'iw') {
           cropComponent = settings.cropResWidth;
         } else if (cropStringComponent === 'ih') {
           cropComponent = settings.cropResHeight;
+        } else if (i % 2 == 0) {
+          cropComponent = parseFloat(cropStringComponent);
+          cropComponent = Math.min(Math.round(cropComponent), settings.cropResWidth);
         } else {
-          cropComponent = parseInt(cropStringComponent, 10);
+          cropComponent = parseFloat(cropStringComponent);
+          cropComponent = Math.min(Math.round(cropComponent), settings.cropResHeight);
         }
         return cropComponent;
       });
@@ -4255,15 +4253,16 @@ export function triggerCropChartLoop() {
         throw new Error('No editor was open when trying to update crop.');
 
       const [nx, ny, nw, nh] = getCropComponents(cropString);
+      cropString = getCropString(nx, ny, nw, nh);
 
       if (!wasGlobalSettingsEditorOpen) {
         const markerPair = markerPairs[prevSelectedMarkerPairIndex];
         const cropMap = markerPair.cropMap;
+        const isDynamicCrop = !isStaticCrop(cropMap);
         cropMap[currentCropPointIndex].crop = cropString;
 
         if (currentCropPointIndex === 0) {
           markerPair.crop = cropString;
-          const isDynamicCrop = !isStaticCrop(cropMap);
           if (!isDynamicCrop) {
             cropMap[1].crop = cropString;
           } else {
@@ -4340,6 +4339,10 @@ export function triggerCropChartLoop() {
     function updateCropString(cropString: string) {
       const [x, y, w, h] = getCropComponents(cropString);
       updateCrop(x, y, w, h);
+    }
+
+    function isStaticCrop(cropMap: CropPoint[]) {
+      return cropMap.length === 2 && cropStringsEqual(cropMap[0].crop, cropMap[1].crop);
     }
 
     function cropStringsEqual(a: string, b: string): boolean {

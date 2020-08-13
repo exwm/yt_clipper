@@ -167,10 +167,6 @@ export function getEasedValue(
   return easedValue;
 }
 
-export function isStaticCrop(cropMap: CropPoint[]) {
-  return cropMap.length === 2 && cropMap[0].crop === cropMap[1].crop;
-}
-
 export function blockEvent(e) {
   e.preventDefault();
   e.stopImmediatePropagation();
