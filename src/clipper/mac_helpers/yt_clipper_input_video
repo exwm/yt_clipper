@@ -7,9 +7,8 @@ read -rp "First enter the path to a markers json data file (you may be able to d
 
 read -rp "Next enter the path to an input video: " INPUTVIDEO
 
-  if [ -f "$JSON" ] && [ -f "$INPUTVIDEO" ]; then
-    ./yt_clipper --markers-json "$JSON" --input-video "$INPUTVIDEO"
-  else 
-    echo "$JSON or $INPUTVIDEO does not exist"
-  fi
-done
+if [ -f "$JSON" ] && [ -f "$INPUTVIDEO" ]; then
+  ./yt_clipper --markers-json "$JSON" --input-video "$INPUTVIDEO"
+else 
+  echo "$JSON or $INPUTVIDEO does not exist"
+fi
