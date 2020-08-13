@@ -3,19 +3,35 @@ import { clampNumber } from './util';
 export class Crop {
   private static minX = 0;
   private static minY = 0;
-  private static minW = 20;
-  private static minH = 20;
+  private static _minW = 20;
+  private static _minH = 20;
+  public static shouldConstrainMinDimensions = true;
+  public static get minW() {
+    return Crop.shouldConstrainMinDimensions ? this._minW : 0;
+  }
+  public static get minH() {
+    return Crop.shouldConstrainMinDimensions ? this._minH : 0;
+  }
+  public static set minW(minW: number) {
+    Crop.minW = minW;
+  }
+  public static set minH(minH: number) {
+    Crop.minH = minH;
+  }
   private _history: string[] = [];
+  private _defaultAspectRatio = 1;
   constructor(
     private _x: number,
     private _y: number,
     private _w: number,
     private _h: number,
     public maxW: number,
-    public maxH: number
+    public maxH: number // private _minW: number, // private _minH: number
   ) {
     this._x = Math.max(Crop.minX, _x);
     this._y = Math.max(Crop.minY, _y);
+    // this._minW = Crop.minW;
+    // this._minW = Crop.minW;
     this.maxW = Math.max(Crop.minW, maxW);
     this.maxH = Math.max(Crop.minH, maxH);
     this._w = clampNumber(_w, Crop.minW, this.maxW);
@@ -33,6 +49,18 @@ export class Crop {
   public set cropString(cropString: string) {
     [this._x, this._y, this._w, this._h] = Crop.getCropComponents(cropString);
   }
+  // public set minW(minW: number) {
+  //   this._minW = Math.max(minW, 0);
+  // }
+  // public set minH(minH: number) {
+  //   this._minH = Math.max(minH, 0);
+  // }
+  // private get minW(minW: number) {
+  //   this._minW = Math.max(minW, 0);
+  // }
+  // private get minH(minH: number) {
+  //   this._minH = Math.max(minH, 0);
+  // }
 
   public pushHistory(cropString?: string) {
     cropString = cropString ?? this.cropString;
@@ -100,8 +128,11 @@ export class Crop {
     this._y += delta;
   }
 
+  public set defaultAspectRatio(aspectRatio: number) {
+    this._defaultAspectRatio = aspectRatio;
+  }
   public get aspectRatio() {
-    return this._w / this._h;
+    return this._w == 0 || this._h == 0 ? this._defaultAspectRatio : this._w / this._h;
   }
 
   public get minResizeS() {
@@ -156,27 +187,23 @@ export class Crop {
 
   resizeN(delta: number, shouldClamp = true) {
     delta = this.clampResizeN(delta);
-    console.log('delta n: ', delta);
     this._y -= delta;
     this._h += delta;
     return delta;
   }
   resizeW(delta: number, shouldClamp = true) {
     if (shouldClamp) delta = clampNumber(delta, this.minResizeW, this.maxResizeW);
-    console.log('delta w: ', delta);
     this._x -= delta;
     this._w += delta;
     return delta;
   }
   resizeS(delta: number, shouldClamp = true) {
     if (shouldClamp) delta = clampNumber(delta, this.minResizeS, this.maxResizeS);
-    console.log('delta s: ', delta);
     this._h += delta;
     return delta;
   }
   resizeE(delta: number, shouldClamp = true) {
     if (shouldClamp) delta = clampNumber(delta, this.minResizeE, this.maxResizeE);
-    console.log('delta e: ', delta);
     this._w += delta;
     return delta;
   }
@@ -205,7 +232,6 @@ export class Crop {
     } else {
       delta = Math.max(delta, -(this.b - this.cy - Crop.minH / 2));
     }
-    console.log('delta ns: ', delta);
     this.resizeN(delta, false);
     this.resizeS(delta, false);
   }
@@ -217,7 +243,6 @@ export class Crop {
     } else {
       delta = Math.max(delta, -(this.r - this.cx - Crop.minW / 2));
     }
-    console.log('delta ew: ', delta);
     this.resizeE(delta, false);
     this.resizeW(delta, false);
   }
@@ -235,7 +260,6 @@ export class Crop {
     } else {
       deltaX = Math.max(deltaX, -(this.r - this.cx - Crop.minW / 2));
     }
-    console.log('delta nesw: ', deltaX, deltaY);
     this.resizeN(deltaY, false);
     this.resizeS(deltaY, false);
     this.resizeE(deltaX, false);
