@@ -121,9 +121,9 @@ export const addCropPoint = function (time: number) {
 
     if (cropPointIndex > 0) {
       const prevCropPointIndex = cropPointIndex - 1;
-      this.data.datasets[0].data[
-        prevCropPointIndex + 1
-      ].crop = this.data.datasets[0].data[prevCropPointIndex].crop;
+      this.data.datasets[0].data[cropPointIndex].crop = this.data.datasets[0].data[
+        prevCropPointIndex
+      ].crop;
     }
 
     updateCropInput();

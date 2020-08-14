@@ -1,3 +1,4 @@
+import { CropPoint } from './@types/yt_clipper';
 import { clampNumber, getCropString } from './util';
 
 export class Crop {
@@ -451,4 +452,22 @@ export class Crop {
     this.resizeS(deltaY, false);
     this.resizeW(deltaX, false);
   }
+}
+
+export function saveCropMapInitCrops(cropMap: CropPoint[]) {
+  cropMap.forEach((cropPoint) => {
+    cropPoint.initCrop = cropPoint.crop;
+  });
+}
+
+export function deleteCropMapInitCrops(cropMap: CropPoint[]) {
+  cropMap.forEach((cropPoint) => {
+    delete cropPoint.initCrop;
+  });
+}
+
+export function loadCropMapInitCrops(cropMap: CropPoint[]) {
+  cropMap.forEach((cropPoint) => {
+    cropPoint.crop = cropPoint.initCrop ?? cropPoint.crop;
+  });
 }
