@@ -250,10 +250,7 @@ export function triggerCropChartLoop() {
           case 'KeyX':
             if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
               blockEvent(e);
-              drawCropOverlay(false);
-            } else if (!e.ctrlKey && !e.altKey && e.shiftKey) {
-              blockEvent(e);
-              drawCropOverlay(true);
+              drawCropOverlay();
             } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
               blockEvent(e);
               toggleArrowKeyCropAdjustment();
@@ -3804,7 +3801,7 @@ export function triggerCropChartLoop() {
     let isDrawingCrop = false;
     let prevNewMarkerCrop = '0:0:iw:ih';
     let beginDrawHandler: (e: PointerEvent) => void;
-    function drawCropOverlay(verticalFill: boolean) {
+    function drawCropOverlay() {
       if (isDrawingCrop) {
         finishDrawingCrop(true);
       } else if (isCurrentChartVisible && currentChartInput && currentChartInput.type !== 'crop') {
@@ -3827,7 +3824,7 @@ export function triggerCropChartLoop() {
         hidePlayerControls();
         video.style.removeProperty('cursor');
         playerInfo.videoContainer.style.cursor = 'crosshair';
-        beginDrawHandler = (e: PointerEvent) => beginDraw(e, verticalFill);
+        beginDrawHandler = (e: PointerEvent) => beginDraw(e);
         playerInfo.container.addEventListener('pointerdown', beginDrawHandler, {
           once: true,
           capture: true,
@@ -3842,7 +3839,7 @@ export function triggerCropChartLoop() {
     }
 
     let dragCropPreviewHandler: EventListener;
-    function beginDraw(e: PointerEvent, verticalFill: boolean) {
+    function beginDraw(e: PointerEvent) {
       if (e.button == 0 && !dragCropPreviewHandler) {
         e.preventDefault();
         video.setPointerCapture(e.pointerId);
