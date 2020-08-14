@@ -167,6 +167,18 @@ export function getEasedValue(
   return easedValue;
 }
 
+export function seekToSafe(player, newTime: number) {
+  const currentTime = player.getCurrentTime();
+  newTime = clampNumber(newTime, 0, player.getDuration());
+  if (currentTime != newTime) {
+    player.seekTo(newTime);
+  }
+}
+export function seekBySafe(player, timeDelta: number) {
+  const currentTime = player.getCurrentTime();
+  const newTime = currentTime + timeDelta;
+  seekToSafe(player, newTime);
+}
 export function blockEvent(e) {
   e.preventDefault();
   e.stopImmediatePropagation();

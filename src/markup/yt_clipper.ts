@@ -84,6 +84,8 @@ import {
   blockEvent,
   onLoadVideoPage,
   getCropString,
+  seekBySafe,
+  seekToSafe,
 } from './util';
 import {
   Crop,
@@ -476,9 +478,9 @@ export function triggerCropChartLoop() {
       ) {
         let fps = getFPS();
         if (event.deltaY < 0) {
-          player.seekBy(1 / fps);
+          seekBySafe(player, 1 / fps);
         } else if (event.deltaY > 0) {
-          player.seekBy(-1 / fps);
+          seekBySafe(player, -1 / fps);
         }
       }
     }
@@ -514,7 +516,7 @@ export function triggerCropChartLoop() {
         }
 
         video.pause();
-        player.seekTo(newMarkerTime);
+        seekToSafe(player, newMarkerTime);
       }
     }
 
@@ -1061,14 +1063,14 @@ export function triggerCropChartLoop() {
             const isTimeBetweenChartLoop =
               chartLoop.start <= video.currentTime && video.currentTime <= chartLoop.end;
             if (!isTimeBetweenChartLoop) {
-              player.seekTo(chartLoop.start);
+              seekToSafe(player, chartLoop.start);
             }
           } else {
             const isTimeBetweenMarkerPair =
               markerPair.start <= video.currentTime &&
               video.currentTime <= markerPair.end;
             if (!isTimeBetweenMarkerPair) {
-              player.seekTo(markerPair.start);
+              seekToSafe(player, markerPair.start);
             }
           }
         }
@@ -1266,7 +1268,7 @@ export function triggerCropChartLoop() {
         targetEndMarker && toggleMarkerPairEditor(targetEndMarker);
         if (e.ctrlKey) {
           index--;
-          player.seekTo(markerPairs[index].start);
+          seekToSafe(player, markerPairs[index].start);
         }
       } else if (keyCode === 'ArrowRight' && index < markerPairs.length - 1) {
         targetEndMarker =
@@ -1274,7 +1276,7 @@ export function triggerCropChartLoop() {
         targetEndMarker && toggleMarkerPairEditor(targetEndMarker);
         if (e.ctrlKey) {
           index++;
-          player.seekTo(markerPairs[index].start);
+          seekToSafe(player, markerPairs[index].start);
         }
       }
     }
@@ -1319,11 +1321,11 @@ export function triggerCropChartLoop() {
         dblJump = 0;
         prevTime = null;
         if (minTime !== currentTime && minTime != Infinity && minTime != -Infinity)
-          player.seekTo(minTime);
+          seekToSafe(player, minTime);
       } else {
         prevTime = currentTime;
         if (minTime !== currentTime && minTime != Infinity && minTime != -Infinity)
-          player.seekTo(minTime);
+          seekToSafe(player, minTime);
         dblJump = (setTimeout(() => {
           dblJump = 0;
           prevTime = null;
@@ -2197,7 +2199,7 @@ export function triggerCropChartLoop() {
         }
       }
 
-      player.seekTo(markerTime);
+      seekToSafe(player, markerTime);
 
       if (!e.altKey) return;
 
@@ -2238,7 +2240,7 @@ export function triggerCropChartLoop() {
         const time = getDragTime(e);
         if (Math.abs(time - video.currentTime) < 0.01) return;
         moveMarker(targetMarker, time, false, null, false);
-        player.seekTo(time);
+        seekToSafe(player, time);
       }
 
       window.addEventListener('pointermove', dragNumbering);
@@ -4569,7 +4571,7 @@ export function triggerCropChartLoop() {
           }
           chart.config.options.annotation.annotations[0].value = time;
           if (Math.abs(video.currentTime - time) >= 0.01) {
-            // player.seekTo(time);
+            // seekToSafe(player, time);
             video.currentTime = time;
           }
         }
@@ -4861,7 +4863,7 @@ export function triggerCropChartLoop() {
             sectStart <= video.currentTime && video.currentTime <= sectEnd;
 
           if (!isTimeBetweenCropChartSection) {
-            player.seekTo(sectStart);
+            seekToSafe(player, sectStart);
           }
         }
       }
