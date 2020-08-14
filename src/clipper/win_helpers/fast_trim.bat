@@ -14,6 +14,8 @@ if not %argC% == 1 (
 
 if exist "%~f1" (
   set "output_file=%~dp1\%~n1-trim%~x1"
+  set /p start="Enter start time (s or HH:MM:SS.MS): "
+  set /p end="Enter end time (s or HH:MM:SS.MS): "
   "%~dp0\bin\ffmpeg"  -ss "!start!" -to "!end!" -i "%~f1"  -c copy  "!output_file!"
 )
 
