@@ -117,9 +117,7 @@ export class Crop {
     }
   }
   static getCropComponents(cropString: string) {
-    const cropArr = cropString
-      .split(':')
-      .map((cropComponent) => parseInt(cropComponent, 10));
+    const cropArr = cropString.split(':').map((cropComponent) => parseInt(cropComponent, 10));
     return cropArr;
   }
   static getMaxDimensions(cropRes: string) {

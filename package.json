@@ -27,7 +27,7 @@
     "typescript": "^3.9.7"
   },
   "scripts": {
-    "pretty": "npx prettier \"**/*.{ts,js,json,md}\" --write",
+    "pretty": "npx prettier \"src/**/*.{ts,js,json}\" --write",
     "build:ts": "npx tsc --watch",
     "build:ts:ne": "npx tsc --noEmit --watch",
     "build:ts:p": "run-s -c build:ts pretty",
