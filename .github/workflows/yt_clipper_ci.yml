@@ -36,6 +36,10 @@ jobs:
           echo "::set-env name=NOPLAT_NAME::${{env.NAME}}_${{env.VERSION}}"
 
       - uses: actions/checkout@v2
+        with:
+          lfs: true
+      - name: Checkout LFS objects
+        run: git lfs pull
 
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v2-beta
