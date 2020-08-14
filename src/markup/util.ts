@@ -124,8 +124,7 @@ export function bsearch<A, B>(
   if (high === undefined) high = haystack.length - 1;
   else {
     high = high | 0;
-    if (high < low || high >= haystack.length)
-      throw new RangeError('invalid upper bound');
+    if (high < low || high >= haystack.length) throw new RangeError('invalid upper bound');
   }
 
   while (low <= high) {
@@ -237,8 +236,7 @@ export function getOutputDuration(speedMap: SpeedPoint[], fps = 30) {
     } else {
       // Integrate the reciprocal of the linear time vs speed function for the current section
       outputDuration +=
-        (1 / m) *
-        (Math.log(Math.abs(m * sectEnd + b)) - Math.log(Math.abs(m * sectStart + b)));
+        (1 / m) * (Math.log(Math.abs(m * sectEnd + b)) - Math.log(Math.abs(m * sectStart + b)));
     }
   }
   // Each output frame time is rounded to the nearest multiple of a frame's duration at the given fps
@@ -249,9 +247,7 @@ export function getOutputDuration(speedMap: SpeedPoint[], fps = 30) {
   return outputDuration;
 }
 export async function onLoadVideoPage(callback: Function) {
-  const ytdapp = await retryUntilTruthyResult(
-    () => document.getElementsByTagName('ytd-app')[0]
-  );
+  const ytdapp = await retryUntilTruthyResult(() => document.getElementsByTagName('ytd-app')[0]);
   if (ytdapp.hasAttribute('is-watch-page')) {
     console.log('watch page loaded');
     callback();

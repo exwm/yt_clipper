@@ -39,14 +39,8 @@ export function setCurrentCropPoint(
   } else {
     if (mode != null) currentCropChartMode = mode;
     currentCropChartMode === cropChartMode.Start
-      ? setCurrentCropChartSection(cropChart, [
-          currentCropPointIndex,
-          currentCropPointIndex + 1,
-        ])
-      : setCurrentCropChartSection(cropChart, [
-          currentCropPointIndex - 1,
-          currentCropPointIndex,
-        ]);
+      ? setCurrentCropChartSection(cropChart, [currentCropPointIndex, currentCropPointIndex + 1])
+      : setCurrentCropChartSection(cropChart, [currentCropPointIndex - 1, currentCropPointIndex]);
   }
   if (cropPointIndexChanged && cropChart) {
     const cropChartData = cropChart.data.datasets[0].data;
@@ -181,12 +175,6 @@ export function getCropChartConfig(isCropChartPanOnly: boolean): ChartConfigurat
     };
   }
 
-  const cropChartConfigOverridden = Chart.helpers.merge(
-    cropChartConfig,
-    cropChartConfigOverrides
-  );
-  return Chart.helpers.merge(
-    scatterChartSpec('crop', inputId),
-    cropChartConfigOverridden
-  );
+  const cropChartConfigOverridden = Chart.helpers.merge(cropChartConfig, cropChartConfigOverrides);
+  return Chart.helpers.merge(scatterChartSpec('crop', inputId), cropChartConfigOverridden);
 }

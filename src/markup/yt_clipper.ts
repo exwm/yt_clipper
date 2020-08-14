@@ -87,12 +87,7 @@ import {
   seekBySafe,
   seekToSafe,
 } from './util';
-import {
-  Crop,
-  deleteCropMapInitCrops,
-  loadCropMapInitCrops,
-  saveCropMapInitCrops,
-} from './crop';
+import { Crop, deleteCropMapInitCrops, loadCropMapInitCrops, saveCropMapInitCrops } from './crop';
 import { autoHideUnselectedMarkerPairsCSS } from './css';
 import { flattenVRVideo, openSubsEditor } from './misc';
 import {
@@ -274,12 +269,7 @@ export function triggerCropChartLoop() {
             if (!e.ctrlKey && !e.shiftKey && !e.altKey && playerInfo.watchFlexy.theater) {
               blockEvent(e);
               rotateVideo('clock');
-            } else if (
-              !e.ctrlKey &&
-              !e.shiftKey &&
-              e.altKey &&
-              playerInfo.watchFlexy.theater
-            ) {
+            } else if (!e.ctrlKey && !e.shiftKey && e.altKey && playerInfo.watchFlexy.theater) {
               blockEvent(e);
               rotateVideo('cclock');
             } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
@@ -361,9 +351,7 @@ export function triggerCropChartLoop() {
     const initOnce = once(init, this);
     player = await retryUntilTruthyResult(() => document.getElementById('movie_player'));
     const playerInfo: { [index: string]: any } = {};
-    const video = await retryUntilTruthyResult(
-      () => document.getElementsByTagName('video')[0]
-    );
+    const video = await retryUntilTruthyResult(() => document.getElementsByTagName('video')[0]);
     let settingsEditorHook: HTMLElement;
     let overlayHook: HTMLElement;
     function initPlayerInfo() {
@@ -382,9 +370,7 @@ export function triggerCropChartLoop() {
       setFlashMessageHook(playerInfo.infoContents);
       playerInfo.container = document.querySelector('#ytd-player #container');
       playerInfo.columns = document.getElementById('columns');
-      playerInfo.playerTheaterContainer = document.getElementById(
-        'player-theater-container'
-      );
+      playerInfo.playerTheaterContainer = document.getElementById('player-theater-container');
       updateSettingsEditorHook();
       playerInfo.annotations = document.getElementsByClassName('ytp-iv-video-content')[0];
       playerInfo.videoContainer = document.getElementsByClassName(
@@ -393,12 +379,8 @@ export function triggerCropChartLoop() {
       overlayHook = playerInfo.videoContainer;
       playerInfo.controls = document.getElementsByClassName('ytp-chrome-bottom')[0];
       playerInfo.controlsBar = document.getElementsByClassName('ytp-chrome-controls')[0];
-      playerInfo.progressBar = document.getElementsByClassName(
-        'ytp-progress-bar-container'
-      )[0];
-      playerInfo.gradientBottom = document.getElementsByClassName(
-        'ytp-gradient-bottom'
-      )[0];
+      playerInfo.progressBar = document.getElementsByClassName('ytp-progress-bar-container')[0];
+      playerInfo.gradientBottom = document.getElementsByClassName('ytp-gradient-bottom')[0];
     }
 
     function updateSettingsEditorHook() {
@@ -546,11 +528,7 @@ export function triggerCropChartLoop() {
           }
         } else if (e.deltaY > 0) {
           if (currentCropChartMode === cropChartMode.End) {
-            setCurrentCropPoint(
-              cropChart,
-              currentCropPointIndex - 1,
-              cropChartMode.Start
-            );
+            setCurrentCropPoint(cropChart, currentCropPointIndex - 1, cropChartMode.Start);
           } else {
             setCurrentCropPoint(cropChart, currentCropPointIndex, cropChartMode.End);
           }
@@ -593,9 +571,7 @@ export function triggerCropChartLoop() {
           ] as CropPoint;
           cropPoint.crop = nextCropPoint.crop;
         } else if (e.deltaY > 0) {
-          const prevCropPoint = cropChartData[
-            Math.max(currentCropPointIndex - 1, 0)
-          ] as CropPoint;
+          const prevCropPoint = cropChartData[Math.max(currentCropPointIndex - 1, 0)] as CropPoint;
           cropPoint.crop = prevCropPoint.crop;
         }
         oldCropPointCrop !== cropPoint.crop
@@ -843,10 +819,7 @@ export function triggerCropChartLoop() {
         deleteElement(bigVideoPreviewsStyle);
         bigVideoPreviewsStyle = null;
       } else {
-        bigVideoPreviewsStyle = injectCSS(
-          bigVideoPreviewsCSS,
-          'yt-clipper-big-video-previews-css'
-        );
+        bigVideoPreviewsStyle = injectCSS(bigVideoPreviewsCSS, 'yt-clipper-big-video-previews-css');
       }
     }
 
@@ -865,9 +838,7 @@ export function triggerCropChartLoop() {
       });
     }
 
-    function getShortestActiveMarkerPair(
-      currentTime: number = video.currentTime
-    ): MarkerPair {
+    function getShortestActiveMarkerPair(currentTime: number = video.currentTime): MarkerPair {
       if (
         isSettingsEditorOpen &&
         !wasGlobalSettingsEditorOpen &&
@@ -1018,9 +989,7 @@ export function triggerCropChartLoop() {
         const change = right.y - left.y;
         const rawSpeed = left.y + change * easedTimePercentage || right.y;
         const roundedSpeed =
-          roundMultiple > 0
-            ? roundValue(rawSpeed, roundMultiple, roundPrecision)
-            : rawSpeed;
+          roundMultiple > 0 ? roundValue(rawSpeed, roundMultiple, roundPrecision) : rawSpeed;
         // console.log(roundedSpeed);
         return roundedSpeed;
       } else {
@@ -1044,9 +1013,7 @@ export function triggerCropChartLoop() {
       if (
         isSettingsEditorOpen &&
         !wasGlobalSettingsEditorOpen &&
-        (!isCropChartLoopingOn ||
-          !isCurrentChartVisible ||
-          currentChartInput.type === 'speed')
+        (!isCropChartLoopingOn || !isCurrentChartVisible || currentChartInput.type === 'speed')
       ) {
         if (prevSelectedMarkerPairIndex != null) {
           const markerPair = markerPairs[prevSelectedMarkerPairIndex];
@@ -1067,8 +1034,7 @@ export function triggerCropChartLoop() {
             }
           } else {
             const isTimeBetweenMarkerPair =
-              markerPair.start <= video.currentTime &&
-              video.currentTime <= markerPair.end;
+              markerPair.start <= video.currentTime && video.currentTime <= markerPair.end;
             if (!isTimeBetweenMarkerPair) {
               seekToSafe(player, markerPair.start);
             }
@@ -1192,8 +1158,7 @@ export function triggerCropChartLoop() {
       const end = Math.ceil(markerPair.end * 1e6) / 1e6;
       const inputDuration = end - start;
       const outputDuration = markerPair.outputDuration;
-      let fadeDuration =
-        markerPair.overrides.fadeDuration || settings.fadeDuration || 0.5;
+      let fadeDuration = markerPair.overrides.fadeDuration || settings.fadeDuration || 0.5;
       fadeDuration = Math.min(fadeDuration, 0.4 * outputDuration);
       const fadeInStartP = 0;
       const fadeInEndP = fadeDuration / outputDuration;
@@ -1206,8 +1171,7 @@ export function triggerCropChartLoop() {
         currentTimeP = (currentTime - start) / fadeDuration;
         return currentTimeP;
       } else if (currentTimeP >= fadeOutStartP && currentTimeP <= fadeOutEndP) {
-        currentTimeP =
-          1 - (currentTime - start - (inputDuration - fadeDuration)) / fadeDuration;
+        currentTimeP = 1 - (currentTime - start - (inputDuration - fadeDuration)) / fadeDuration;
         return currentTimeP;
       } else {
         return null;
@@ -1271,8 +1235,7 @@ export function triggerCropChartLoop() {
           seekToSafe(player, markerPairs[index].start);
         }
       } else if (keyCode === 'ArrowRight' && index < markerPairs.length - 1) {
-        targetEndMarker =
-          enableMarkerHotkeys.endMarker.nextElementSibling.nextElementSibling;
+        targetEndMarker = enableMarkerHotkeys.endMarker.nextElementSibling.nextElementSibling;
         targetEndMarker && toggleMarkerPairEditor(targetEndMarker);
         if (e.ctrlKey) {
           index++;
@@ -1354,9 +1317,7 @@ export function triggerCropChartLoop() {
           number: idx + 1,
           ...markerPair,
           speedMapLoop: undefined,
-          speedMap: isVariableSpeed(markerPair.speedMap)
-            ? markerPair.speedMap
-            : undefined,
+          speedMap: isVariableSpeed(markerPair.speedMap) ? markerPair.speedMap : undefined,
           speedChartLoop: undefined,
           cropMap: !isStaticCrop(markerPair.cropMap) ? markerPair.cropMap : undefined,
           cropChartLoop: undefined,
@@ -1606,9 +1567,7 @@ export function triggerCropChartLoop() {
         ) {
           return playerInfo.fps;
         } else {
-          playerInfo.fps = parseFloat(
-            player.getStatsForNerds().resolution.match(/@(\d+)/)[1]
-          );
+          playerInfo.fps = parseFloat(player.getStatsForNerds().resolution.match(/@(\d+)/)[1]);
           prevVideoWidth = video.videoWidth;
           return playerInfo.fps;
         }
@@ -1692,27 +1651,13 @@ export function triggerCropChartLoop() {
       const startNumberingText = startMarkerNumberings.appendChild(
         startNumbering
       ) as SVGTextElement;
-      const endNumberingText = endMarkerNumberings.appendChild(
-        endNumbering
-      ) as SVGTextElement;
+      const endNumberingText = endMarkerNumberings.appendChild(endNumbering) as SVGTextElement;
 
       endNumberingText.marker = endMarker;
       startNumberingText.marker = endMarker;
-      endNumberingText.addEventListener(
-        'mouseover',
-        markerNumberingMouseOverHandler,
-        false
-      );
-      startNumberingText.addEventListener(
-        'pointerdown',
-        markerNumberingMouseDownHandler,
-        true
-      );
-      endNumberingText.addEventListener(
-        'pointerdown',
-        markerNumberingMouseDownHandler,
-        true
-      );
+      endNumberingText.addEventListener('mouseover', markerNumberingMouseOverHandler, false);
+      startNumberingText.addEventListener('pointerdown', markerNumberingMouseDownHandler, true);
+      endNumberingText.addEventListener('pointerdown', markerNumberingMouseDownHandler, true);
 
       return [startNumberingText, endNumberingText];
     }
@@ -1723,10 +1668,7 @@ export function triggerCropChartLoop() {
 
       const targetMarkerType = targetMarker.getAttribute('type');
       // toggle off marker pair editor before undoing a selected marker pair
-      if (
-        targetMarkerType === 'end' &&
-        prevSelectedMarkerPairIndex >= markerPairs.length - 1
-      ) {
+      if (targetMarkerType === 'end' && prevSelectedMarkerPairIndex >= markerPairs.length - 1) {
         if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
           toggleOffMarkerPairEditor(true);
         } else {
@@ -1831,9 +1773,7 @@ export function triggerCropChartLoop() {
       const vidstabDesc = vidstab ? vidstab.desc : null;
       const vidstabDynamicZoomEnabled = settings.videoStabilizationDynamicZoom;
       const markerPairMergelistDurations = getMarkerPairMergeListDurations();
-      const globalEncodeSettingsEditorDisplay = isExtraSettingsEditorEnabled
-        ? 'block'
-        : 'none';
+      const globalEncodeSettingsEditorDisplay = isExtraSettingsEditorEnabled ? 'block' : 'none';
       globalSettingsEditorDiv.setAttribute('id', 'settings-editor-div');
       globalSettingsEditorDiv.innerHTML = `
     <fieldset id="new-marker-defaults-inputs" 
@@ -1966,9 +1906,7 @@ export function triggerCropChartLoop() {
         <span>Speed Maps</span>
           <select id="enable-speed-maps-input">
             <option ${settings.enableSpeedMaps ? 'selected' : ''}>Enabled</option>
-            <option ${
-              settings.enableSpeedMaps === false ? 'selected' : ''
-            }>Disabled</option>
+            <option ${settings.enableSpeedMaps === false ? 'selected' : ''}>Disabled</option>
             <option value="Default" ${
               settings.enableSpeedMaps == null ? 'selected' : ''
             }>Inherit (Enabled)</option>
@@ -2003,9 +1941,7 @@ export function triggerCropChartLoop() {
           }" placeholder="" style="min-width:2em"></input>
         </div>
       </div>
-      <div class="settings-editor-input-div multi-input-div" title="${
-        Tooltips.vidstabTooltip
-      }">
+      <div class="settings-editor-input-div multi-input-div" title="${Tooltips.vidstabTooltip}">
         <div>
           <span>Stabilization</span>
           <select id="video-stabilization-input">
@@ -2016,9 +1952,7 @@ export function triggerCropChartLoop() {
             <option ${vidstabDesc === 'Weak' ? 'selected' : ''}>Weak</option>
             <option ${vidstabDesc === 'Medium' ? 'selected' : ''}>Medium</option>
             <option ${vidstabDesc === 'Strong' ? 'selected' : ''}>Strong</option>
-            <option ${
-              vidstabDesc === 'Very Strong' ? 'selected' : ''
-            }>Very Strong</option>
+            <option ${vidstabDesc === 'Very Strong' ? 'selected' : ''}>Very Strong</option>
             <option ${vidstabDesc === 'Strongest' ? 'selected' : ''}>Strongest</option>
           </select>
         </div>
@@ -2026,18 +1960,14 @@ export function triggerCropChartLoop() {
           <span>Dynamic Zoom</span>
           <select id="video-stabilization-dynamic-zoom-input"> 
             <option ${vidstabDynamicZoomEnabled ? 'selected' : ''}>Enabled</option>
-            <option ${
-              vidstabDynamicZoomEnabled === false ? 'selected' : ''
-            }>Disabled</option>
+            <option ${vidstabDynamicZoomEnabled === false ? 'selected' : ''}>Disabled</option>
             <option value="Default" ${
               vidstabDynamicZoomEnabled == null ? 'selected' : ''
             }>Inherit (Disabled)</option>
           </select>
         </div>
       </div>
-      <div class="settings-editor-input-div multi-input-div" title="${
-        Tooltips.loopTooltip
-      }">
+      <div class="settings-editor-input-div multi-input-div" title="${Tooltips.loopTooltip}">
         <div>
           <span>Loop</span>
           <select id="loop-input">
@@ -2082,11 +2012,7 @@ export function triggerCropChartLoop() {
         ['minterp-mode-input', 'minterpMode', 'inheritableString'],
         ['minterp-fps-input', 'minterpFPS', 'number'],
         ['video-stabilization-input', 'videoStabilization', 'preset'],
-        [
-          'video-stabilization-dynamic-zoom-input',
-          'videoStabilizationDynamicZoom',
-          'ternary',
-        ],
+        ['video-stabilization-dynamic-zoom-input', 'videoStabilizationDynamicZoom', 'ternary'],
         ['loop-input', 'loop', 'inheritableString'],
         ['fade-duration-input', 'fadeDuration', 'number'],
       ];
@@ -2095,9 +2021,7 @@ export function triggerCropChartLoop() {
       addSettingsInputListeners(settingsInputsConfigsHighlightable, settings, true);
 
       cropInput = document.getElementById('crop-input') as HTMLInputElement;
-      cropAspectRatioSpan = document.getElementById(
-        'crop-aspect-ratio'
-      ) as HTMLSpanElement;
+      cropAspectRatioSpan = document.getElementById('crop-aspect-ratio') as HTMLSpanElement;
 
       wasGlobalSettingsEditorOpen = true;
       isSettingsEditorOpen = true;
@@ -2105,11 +2029,7 @@ export function triggerCropChartLoop() {
       addCropInputHotkeys();
       highlightModifiedSettings(settingsInputsConfigsHighlightable, settings);
     }
-    function addSettingsInputListeners(
-      inputs: string[][],
-      target,
-      highlightable = false
-    ) {
+    function addSettingsInputListeners(inputs: string[][], target, highlightable = false) {
       inputs.forEach((input) => {
         const id = input[0];
         const targetProperty = input[1];
@@ -2119,8 +2039,7 @@ export function triggerCropChartLoop() {
         inputElem.addEventListener('blur', () => (isHotkeysEnabled = true), false);
         inputElem.addEventListener(
           'change',
-          (e) =>
-            updateSettingsValue(e, id, target, targetProperty, valueType, highlightable),
+          (e) => updateSettingsValue(e, id, target, targetProperty, valueType, highlightable),
           false
         );
       });
@@ -2138,9 +2057,7 @@ export function triggerCropChartLoop() {
     let isExtraSettingsEditorEnabled = false;
     function toggleMarkerPairOverridesEditor() {
       if (isSettingsEditorOpen) {
-        const markerPairOverridesEditor = document.getElementById(
-          'marker-pair-overrides'
-        );
+        const markerPairOverridesEditor = document.getElementById('marker-pair-overrides');
         if (markerPairOverridesEditor) {
           if (markerPairOverridesEditor.style.display === 'none') {
             markerPairOverridesEditor.style.display = 'block';
@@ -2151,9 +2068,7 @@ export function triggerCropChartLoop() {
           }
         }
 
-        const globalEncodeSettingsEditor = document.getElementById(
-          'global-encode-settings'
-        );
+        const globalEncodeSettingsEditor = document.getElementById('global-encode-settings');
         if (globalEncodeSettingsEditor) {
           if (globalEncodeSettingsEditor.style.display === 'none') {
             globalEncodeSettingsEditor.style.display = 'block';
@@ -2174,13 +2089,10 @@ export function triggerCropChartLoop() {
     function markerNumberingMouseDownHandler(e: PointerEvent) {
       if (!(e.button === 0)) return;
       const numbering = e.target as SVGTextElement;
-      const numberingType = numbering.classList.contains('startMarkerNumbering')
-        ? 'start'
-        : 'end';
+      const numberingType = numbering.classList.contains('startMarkerNumbering') ? 'start' : 'end';
       const targetEndMarker = numbering.marker as SVGRectElement;
       const targetStartMarker = targetEndMarker.previousSibling as SVGRectElement;
-      const targetMarker =
-        numberingType === 'start' ? targetStartMarker : targetEndMarker;
+      const targetMarker = numberingType === 'start' ? targetStartMarker : targetEndMarker;
 
       const markerPairIndex = parseInt(numbering.getAttribute('idx')) - 1;
       const markerPair = markerPairs[markerPairIndex];
@@ -2214,11 +2126,9 @@ export function triggerCropChartLoop() {
       let prevZoom = 1;
       function getDragTime(e: PointerEvent) {
         let newTime =
-          (video.duration * (e.pageX - offsetX - progressBarRect.left)) /
-          progressBarRect.width;
+          (video.duration * (e.pageX - offsetX - progressBarRect.left)) / progressBarRect.width;
         let prevTime =
-          (video.duration * (prevPageX - offsetX - progressBarRect.left)) /
-          progressBarRect.width;
+          (video.duration * (prevPageX - offsetX - progressBarRect.left)) / progressBarRect.width;
         const zoom = clampNumber((e.pageY - offsetY) / video.clientHeight, 0, 1);
         const zoomDelta = Math.abs(zoom - prevZoom);
         prevZoom = zoom;
@@ -2273,9 +2183,7 @@ export function triggerCropChartLoop() {
     function toggleMarkerPairEditor(targetMarker: SVGRectElement) {
       // if target marker is previously selected marker: toggle target on/off
       if (prevSelectedEndMarker === targetMarker && !wasGlobalSettingsEditorOpen) {
-        isSettingsEditorOpen
-          ? toggleOffMarkerPairEditor()
-          : toggleOnMarkerPairEditor(targetMarker);
+        isSettingsEditorOpen ? toggleOffMarkerPairEditor() : toggleOnMarkerPairEditor(targetMarker);
 
         // otherwise switching from a different marker pair or from global settings editor
       } else {
@@ -2292,8 +2200,7 @@ export function triggerCropChartLoop() {
 
     function toggleOnMarkerPairEditor(targetMarker: SVGRectElement) {
       prevSelectedEndMarker = targetMarker;
-      const selectedMarkerPairIndex =
-        parseInt(prevSelectedEndMarker.getAttribute('idx')) - 1;
+      const selectedMarkerPairIndex = parseInt(prevSelectedEndMarker.getAttribute('idx')) - 1;
       if (selectedMarkerPairIndex !== prevSelectedMarkerPairIndex) {
         setCurrentCropPoint(null, 0);
       }
@@ -2371,9 +2278,7 @@ export function triggerCropChartLoop() {
       const endTime = toHHMMSSTrimmed(markerPair.end);
       const speed = markerPair.speed;
       const duration = toHHMMSSTrimmed(markerPair.end - markerPair.start);
-      const speedAdjustedDuration = toHHMMSSTrimmed(
-        (markerPair.end - markerPair.start) / speed
-      );
+      const speedAdjustedDuration = toHHMMSSTrimmed((markerPair.end - markerPair.start) / speed);
       const crop = markerPair.crop;
       const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
       const [x, y, w, h] = getCropComponents(crop);
@@ -2391,9 +2296,7 @@ export function triggerCropChartLoop() {
       const minterpFPS = overrides.minterpFPS;
       const denoise = overrides.denoise;
       const denoiseDesc = denoise ? denoise.desc : null;
-      const denoiseDescGlobal = settings.denoise
-        ? `(${settings.denoise.desc})`
-        : '(Disabled)';
+      const denoiseDescGlobal = settings.denoise ? `(${settings.denoise.desc})` : '(Disabled)';
       const overridesEditorDisplay = isExtraSettingsEditorEnabled ? 'block' : 'none';
       createCropOverlay(crop);
 
@@ -2438,9 +2341,7 @@ export function triggerCropChartLoop() {
           <span id="end-time">${endTime}</span>
           <br>
           <span>Duration: </span>
-          <span id="duration">${duration} / ${
-        markerPair.speed
-      } = ${speedAdjustedDuration}</span>
+          <span id="duration">${duration} / ${markerPair.speed} = ${speedAdjustedDuration}</span>
         </div>
       </fieldset>
       <fieldset id="marker-pair-overrides" class="settings-editor-panel marker-pair-settings-editor-highlighted-div" style="display:${overridesEditorDisplay}">
@@ -2459,9 +2360,7 @@ export function triggerCropChartLoop() {
           <span>Encode Speed (0-5)</span>
           <input id="encode-speed-input" type="number" min="0" max="5" step="1" value="${
             overrides.encodeSpeed != null ? overrides.encodeSpeed : ''
-          }" placeholder="${
-        settings.encodeSpeed || 'Auto'
-      }"  style="min-width:4em"></input>
+          }" placeholder="${settings.encodeSpeed || 'Auto'}"  style="min-width:4em"></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.CRFTooltip}">
           <span>CRF (0-63)</span>
@@ -2475,9 +2374,7 @@ export function triggerCropChartLoop() {
           <span>Target Bitrate (kb/s)</span>
           <input id="target-max-bitrate-input" type="number" min="0" max="10e5" step="100" value="${
             overrides.targetMaxBitrate != null ? overrides.targetMaxBitrate : ''
-          }" placeholder="${
-        settings.targetMaxBitrate || 'Auto'
-      }" "style="min-width:4em"></input>
+          }" placeholder="${settings.targetMaxBitrate || 'Auto'}" "style="min-width:4em"></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.twoPassTooltip}">
           <span>Two-Pass</span>
@@ -2510,18 +2407,14 @@ export function triggerCropChartLoop() {
             <option ${denoiseDesc === 'Weak' ? 'selected' : ''}>Weak</option>
             <option ${denoiseDesc === 'Medium' ? 'selected' : ''}>Medium</option>
             <option ${denoiseDesc === 'Strong' ? 'selected' : ''}>Strong</option>
-            <option ${
-              denoiseDesc === 'Very Strong' ? 'selected' : ''
-            }>Very Strong</option>
+            <option ${denoiseDesc === 'Very Strong' ? 'selected' : ''}>Very Strong</option>
           </select>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.speedMapTooltip}">
           <span>Speed Map</span>
             <select id="enable-speed-maps-input">
               <option ${overrides.enableSpeedMaps ? 'selected' : ''}>Enabled</option>
-              <option ${
-                overrides.enableSpeedMaps === false ? 'selected' : ''
-              }>Disabled</option>
+              <option ${overrides.enableSpeedMaps === false ? 'selected' : ''}>Disabled</option>
               <option value="Default" ${
                 overrides.enableSpeedMaps == null ? 'selected' : ''
               }>Inherit ${ternaryToString(settings.enableSpeedMaps, '(Enabled)')}</option>
@@ -2557,9 +2450,7 @@ export function triggerCropChartLoop() {
             }" placeholder="" style="min-width:2em"></input>
           </div>
         </div>
-        <div class="settings-editor-input-div multi-input-div" title="${
-          Tooltips.vidstabTooltip
-        }">
+        <div class="settings-editor-input-div multi-input-div" title="${Tooltips.vidstabTooltip}">
         <div>
           <span>Stabilization</span>
           <select id="video-stabilization-input">
@@ -2573,9 +2464,7 @@ export function triggerCropChartLoop() {
               <option ${vidstabDesc === 'Weak' ? 'selected' : ''}>Weak</option>
               <option ${vidstabDesc === 'Medium' ? 'selected' : ''}>Medium</option>
               <option ${vidstabDesc === 'Strong' ? 'selected' : ''}>Strong</option>
-              <option ${
-                vidstabDesc === 'Very Strong' ? 'selected' : ''
-              }>Very Strong</option>
+              <option ${vidstabDesc === 'Very Strong' ? 'selected' : ''}>Very Strong</option>
               <option ${vidstabDesc === 'Strongest' ? 'selected' : ''}>Strongest</option>
             </select>
           </div>
@@ -2583,29 +2472,21 @@ export function triggerCropChartLoop() {
             <span>Dynamic Zoom</span>
             <select id="video-stabilization-dynamic-zoom-input"> 
               <option ${vidstabDynamicZoomEnabled ? 'selected' : ''}>Enabled</option>
-              <option ${
-                vidstabDynamicZoomEnabled === false ? 'selected' : ''
-              }>Disabled</option>
+              <option ${vidstabDynamicZoomEnabled === false ? 'selected' : ''}>Disabled</option>
               <option value="Default" ${
                 vidstabDynamicZoomEnabled == null ? 'selected' : ''
-              }>Inherit ${ternaryToString(
-        settings.videoStabilizationDynamicZoom
-      )}</option>
+              }>Inherit ${ternaryToString(settings.videoStabilizationDynamicZoom)}</option>
             </select>
           </div>
         </div>
-        <div class="settings-editor-input-div multi-input-div" title="${
-          Tooltips.loopTooltip
-        }">
+        <div class="settings-editor-input-div multi-input-div" title="${Tooltips.loopTooltip}">
           <div>
             <span>Loop</span>
             <select id="loop-input">
               <option ${overrides.loop === 'fwrev' ? 'selected' : ''}>fwrev</option>
               <option ${overrides.loop === 'fade' ? 'selected' : ''}>fade</option>
               <option ${overrides.loop === 'none' ? 'selected' : ''}>none</option>
-              <option value="Default" ${
-                overrides.loop == null ? 'selected' : ''
-              }>Inherit ${
+              <option value="Default" ${overrides.loop == null ? 'selected' : ''}>Inherit ${
         settings.loop != null ? `(${settings.loop})` : '(none)'
       }</option>
             </select>
@@ -2644,19 +2525,11 @@ export function triggerCropChartLoop() {
         ['minterp-fps-input', 'minterpFPS', 'number'],
         ['denoise-input', 'denoise', 'preset'],
         ['video-stabilization-input', 'videoStabilization', 'preset'],
-        [
-          'video-stabilization-dynamic-zoom-input',
-          'videoStabilizationDynamicZoom',
-          'ternary',
-        ],
+        ['video-stabilization-dynamic-zoom-input', 'videoStabilizationDynamicZoom', 'ternary'],
         ['loop-input', 'loop', 'inheritableString'],
         ['fade-duration-input', 'fadeDuration', 'number'],
       ];
-      addSettingsInputListeners(
-        overrideInputConfigs,
-        markerPairs[markerPairIndex].overrides,
-        true
-      );
+      addSettingsInputListeners(overrideInputConfigs, markerPairs[markerPairIndex].overrides, true);
       markerPairNumberInput = document.getElementById(
         'marker-pair-number-input'
       ) as HTMLInputElement;
@@ -2664,9 +2537,7 @@ export function triggerCropChartLoop() {
       speedInputLabel = document.getElementById('speed-input-label') as HTMLInputElement;
       cropInputLabel = document.getElementById('crop-input-label') as HTMLInputElement;
       cropInput = document.getElementById('crop-input') as HTMLInputElement;
-      cropAspectRatioSpan = document.getElementById(
-        'crop-aspect-ratio'
-      ) as HTMLSpanElement;
+      cropAspectRatioSpan = document.getElementById('crop-aspect-ratio') as HTMLSpanElement;
       isSettingsEditorOpen = true;
       wasGlobalSettingsEditorOpen = false;
 
@@ -2674,10 +2545,7 @@ export function triggerCropChartLoop() {
         updateSpeedInputLabel(`Speed (${forceSetSpeedValue.toFixed(2)})`);
       }
       highlightModifiedSettings(inputConfigs, markerPairs[markerPairIndex]);
-      highlightModifiedSettings(
-        overrideInputConfigs,
-        markerPairs[markerPairIndex].overrides
-      );
+      highlightModifiedSettings(overrideInputConfigs, markerPairs[markerPairIndex].overrides);
     }
 
     function markerPairNumberInputHandler(e: Event) {
@@ -2685,11 +2553,7 @@ export function triggerCropChartLoop() {
       const startNumbering = markerPair.startNumbering;
       const endNumbering = markerPair.endNumbering;
       const newIdx = e.target.value - 1;
-      markerPairs.splice(
-        newIdx,
-        0,
-        ...markerPairs.splice(prevSelectedMarkerPairIndex, 1)
-      );
+      markerPairs.splice(newIdx, 0, ...markerPairs.splice(prevSelectedMarkerPairIndex, 1));
 
       let targetMarkerRect = markersSvg.children[newIdx * 2];
       let targetStartNumbering = startMarkerNumberings.children[newIdx];
@@ -2714,8 +2578,7 @@ export function triggerCropChartLoop() {
 
     function highlightModifiedSettings(inputs: string[][], target) {
       if (isSettingsEditorOpen) {
-        const markerPairSettingsLabelHighlight =
-          'marker-pair-settings-editor-highlighted-label';
+        const markerPairSettingsLabelHighlight = 'marker-pair-settings-editor-highlighted-label';
         const globalSettingsLabelHighlight = 'global-settings-editor-highlighted-label';
         let markerPair: MarkerPair;
         if (!wasGlobalSettingsEditorOpen && prevSelectedMarkerPairIndex != null) {
@@ -2734,16 +2597,14 @@ export function triggerCropChartLoop() {
           const shouldRemoveHighlight =
             storedTargetValue == null ||
             storedTargetValue === '' ||
-            (id === 'title-suffix-input' &&
-              storedTargetValue == `[${settings.videoID}]`) ||
+            (id === 'title-suffix-input' && storedTargetValue == `[${settings.videoID}]`) ||
             (markerPair &&
               id === 'speed-input' &&
               storedTargetValue === 1 &&
               !isVariableSpeed(markerPair.speedMap)) ||
             (id === 'crop-input' &&
               (storedTargetValue === '0:0:iw:ih' ||
-                storedTargetValue ===
-                  `0:0:${settings.cropResWidth}:${settings.cropResHeight}`)) ||
+                storedTargetValue === `0:0:${settings.cropResWidth}:${settings.cropResHeight}`)) ||
             id === 'rotate-0';
 
           if (shouldRemoveHighlight) {
@@ -2958,9 +2819,7 @@ export function triggerCropChartLoop() {
         if (targetProperty === 'cropRes') {
           const prevWidth = target.cropResWidth;
           const prevHeight = target.cropResHeight;
-          const [newWidth, newHeight] = target.cropRes
-            .split('x')
-            .map((str) => parseInt(str), 10);
+          const [newWidth, newHeight] = target.cropRes.split('x').map((str) => parseInt(str), 10);
           const cropMultipleX = newWidth / prevWidth;
           const cropMultipleY = newHeight / prevHeight;
           target.cropResWidth = newWidth;
@@ -2998,17 +2857,12 @@ export function triggerCropChartLoop() {
         }
       }
 
-      if (highlightable)
-        highlightModifiedSettings([[id, targetProperty, valueType]], target);
+      if (highlightable) highlightModifiedSettings([[id, targetProperty, valueType]], target);
     }
 
     function multiplyAllCrops(cropMultipleX: number, cropMultipleY: number) {
       const cropString = settings.newMarkerCrop;
-      const multipliedCropString = multiplyCropString(
-        cropMultipleX,
-        cropMultipleY,
-        cropString
-      );
+      const multipliedCropString = multiplyCropString(cropMultipleX, cropMultipleY, cropString);
       settings.newMarkerCrop = multipliedCropString;
       cropInput.value = multipliedCropString;
 
@@ -3032,11 +2886,7 @@ export function triggerCropChartLoop() {
       }
     }
 
-    function multiplyCropString(
-      cropMultipleX: number,
-      cropMultipleY: number,
-      cropString: string
-    ) {
+    function multiplyCropString(cropMultipleX: number, cropMultipleY: number, cropString: string) {
       let [x, y, width, height] = cropString.split(':');
       x = Math.round(x * cropMultipleX);
       y = Math.round(y * cropMultipleY);
@@ -3046,9 +2896,7 @@ export function triggerCropChartLoop() {
       return multipliedCropString;
     }
 
-    function getMarkerPairMergeListDurations(
-      markerPairMergeList = settings.markerPairMergeList
-    ) {
+    function getMarkerPairMergeListDurations(markerPairMergeList = settings.markerPairMergeList) {
       const durations = [];
       for (let merge of markerPairMergeList.split(';')) {
         let duration = 0;
@@ -3154,10 +3002,7 @@ export function triggerCropChartLoop() {
               currentCropPointIndex + 1
             }`;
             if (cropTarget === 0)
-              flashMessage(
-                `Updated X values of crop points ${targetPointsMsg} to ${ix}`,
-                'green'
-              );
+              flashMessage(`Updated X values of crop points ${targetPointsMsg} to ${ix}`, 'green');
             if (cropTarget === 1)
               flashMessage(
                 `Updated Y values crop points ${targetPointsMsg} Y values to ${iy}`,
@@ -3169,10 +3014,7 @@ export function triggerCropChartLoop() {
                 'green'
               );
             if (isCropChartPanOnly && (cropTarget === 2 || cropTarget === 3)) {
-              flashMessage(
-                `All crop points have the same size in pan-only mode`,
-                'olive'
-              );
+              flashMessage(`All crop points have the same size in pan-only mode`, 'olive');
             }
           } else if (ke.code === 'ArrowUp' || ke.code === 'ArrowDown') {
             let changeAmount: number;
@@ -3211,13 +3053,7 @@ export function triggerCropChartLoop() {
               if (cropTarget === 2) cursor = 'e-resize';
               if (cropTarget === 3) cursor = 's-resize';
               if (ke.code === 'ArrowDown') changeAmount = -changeAmount;
-              resizeCrop(
-                crop,
-                cursor,
-                changeAmount,
-                changeAmount,
-                shouldMaintainCropAspectRatio
-              );
+              resizeCrop(crop, cursor, changeAmount, changeAmount, shouldMaintainCropAspectRatio);
             }
 
             updateCropString(crop.cropString);
@@ -3244,9 +3080,7 @@ export function triggerCropChartLoop() {
 
     function addMarkerPairMergeListDurationsListener() {
       const markerPairMergeListInput = document.getElementById('merge-list-input');
-      const markerPairMergeListDurationsSpan = document.getElementById(
-        'merge-list-durations'
-      );
+      const markerPairMergeListDurationsSpan = document.getElementById('merge-list-durations');
       markerPairMergeListInput.addEventListener('change', () => {
         const markerPairMergelistDurations = getMarkerPairMergeListDurations();
         markerPairMergeListDurationsSpan.textContent = markerPairMergelistDurations;
@@ -3281,10 +3115,7 @@ export function triggerCropChartLoop() {
         shortcutsTableContainer = document.createElement('div');
         shortcutsTableContainer.setAttribute('id', 'shortcutsTableContainer');
         shortcutsTableContainer.innerHTML = shortcutsTable;
-        playerInfo.infoContents.insertAdjacentElement(
-          'afterend',
-          shortcutsTableContainer
-        );
+        playerInfo.infoContents.insertAdjacentElement('afterend', shortcutsTableContainer);
       } else if (shortcutsTableContainer.style.display !== 'none') {
         shortcutsTableContainer.style.display = 'none';
       } else {
@@ -3365,18 +3196,12 @@ export function triggerCropChartLoop() {
       const currentTime = video.currentTime;
       for (let i = 0; i < video.buffered.length; i++) {
         console.log(video.buffered.start(i), video.buffered.end(i));
-        if (
-          video.buffered.start(i) <= currentTime &&
-          currentTime <= video.buffered.end(i)
-        ) {
+        if (video.buffered.start(i) <= currentTime && currentTime <= video.buffered.end(i)) {
           break;
         }
 
         if (i === video.buffered.length - 1) {
-          flashMessage(
-            'Frame not captured. Video has not yet buffered the frame.',
-            'red'
-          );
+          flashMessage('Frame not captured. Video has not yet buffered the frame.', 'red');
           return;
         }
       }
@@ -3392,11 +3217,7 @@ export function triggerCropChartLoop() {
           const markerPair = markerPairs[idx];
           resString = multiplyCropString(cropMultipleX, cropMultipleY, markerPair.crop);
         } else {
-          resString = multiplyCropString(
-            cropMultipleX,
-            cropMultipleY,
-            settings.newMarkerCrop
-          );
+          resString = multiplyCropString(cropMultipleX, cropMultipleY, settings.newMarkerCrop);
         }
         const [x, y, w, h] = getCropComponents(resString);
         canvas.width = w;
@@ -3437,10 +3258,9 @@ export function triggerCropChartLoop() {
       const frameCount = getFrameCount(currentTime);
       const frameFileName = `${
         settings.titleSuffix
-      }-${resString}-@${currentTime}s(${toHHMMSSTrimmed(currentTime).replace(
-        ':',
-        ';'
-      )})-f${frameCount.frameNumber}(${frameCount.totalFrames})`;
+      }-${resString}-@${currentTime}s(${toHHMMSSTrimmed(currentTime).replace(':', ';')})-f${
+        frameCount.frameNumber
+      }(${frameCount.totalFrames})`;
       frameDiv.innerHTML = `\
       <figcaption>Resolution: ${canvas.width}x${canvas.height} Name: ${frameFileName}</figcaption>
       <button class="download" onclick="downloadFrame(this)">Download Frame</button>
@@ -3484,10 +3304,7 @@ export function triggerCropChartLoop() {
         return;
       }
       if (!frameCaptureViewer || frameCaptureViewer.closed || !frameCaptureViewerDoc) {
-        flashMessage(
-          'Frame capturer not open. Please capture a frame before zipping.',
-          'olive'
-        );
+        flashMessage('Frame capturer not open. Please capture a frame before zipping.', 'olive');
         return;
       }
       const zip = new JSZip();
@@ -3693,8 +3510,7 @@ export function triggerCropChartLoop() {
     }
 
     function getMinWH() {
-      const minWHMultiplier =
-        Math.min(settings.cropResWidth, settings.cropResHeight) / 1080;
+      const minWHMultiplier = Math.min(settings.cropResWidth, settings.cropResHeight) / 1080;
       const minW = Math.round(25 * minWHMultiplier);
       const minH = Math.round(25 * minWHMultiplier);
       return { minW, minH };
@@ -3703,8 +3519,7 @@ export function triggerCropChartLoop() {
     function getRelevantCropString() {
       if (!isSettingsEditorOpen) return null;
       if (!wasGlobalSettingsEditorOpen) {
-        return markerPairs[prevSelectedMarkerPairIndex].cropMap[currentCropPointIndex]
-          .crop;
+        return markerPairs[prevSelectedMarkerPairIndex].cropMap[currentCropPointIndex].crop;
       } else {
         return settings.newMarkerCrop;
       }
@@ -3818,13 +3633,9 @@ export function triggerCropChartLoop() {
             const dragPosY = e.pageY - videoRect.top - playerRect.top;
             const changeX = dragPosX - clickPosX;
             const changeY = dragPosY - clickPosY;
-            let changeXScaled = Math.round(
-              (changeX / videoRect.width) * settings.cropResWidth
-            );
+            let changeXScaled = Math.round((changeX / videoRect.width) * settings.cropResWidth);
 
-            let changeYScaled = Math.round(
-              (changeY / videoRect.height) * settings.cropResHeight
-            );
+            let changeYScaled = Math.round((changeY / videoRect.height) * settings.cropResHeight);
             const crop = new Crop(ix, iy, iw, ih, cropResWidth, cropResHeight);
             const shouldMaintainCropX = e.shiftKey;
             const shouldMaintainCropY = e.altKey;
@@ -3875,12 +3686,9 @@ export function triggerCropChartLoop() {
       if (isWResize) deltaX = -deltaX;
       if (isNResize) deltaY = -deltaY;
 
-      const isDiagonalResize = [
-        'ne-resize',
-        'se-resize',
-        'sw-resize',
-        'nw-resize',
-      ].includes(cursor);
+      const isDiagonalResize = ['ne-resize', 'se-resize', 'sw-resize', 'nw-resize'].includes(
+        cursor
+      );
       if (shouldMaintainCropAspectRatio && shouldResizeCenterOut) {
         crop.resizeNESWAspectRatioLocked(deltaY, deltaX);
       } else if (shouldResizeCenterOut && isDiagonalResize) {
@@ -3999,11 +3807,7 @@ export function triggerCropChartLoop() {
     function drawCropOverlay(verticalFill: boolean) {
       if (isDrawingCrop) {
         finishDrawingCrop(true);
-      } else if (
-        isCurrentChartVisible &&
-        currentChartInput &&
-        currentChartInput.type !== 'crop'
-      ) {
+      } else if (isCurrentChartVisible && currentChartInput && currentChartInput.type !== 'crop') {
         flashMessage('Please toggle off the speed chart before drawing crop', 'olive');
       } else if (isDraggingCrop) {
         flashMessage('Please finish dragging or resizing before drawing crop', 'olive');
@@ -4082,14 +3886,7 @@ export function triggerCropChartLoop() {
             (!isCropChartPanOnly && isDynamicCrop && !e.altKey);
           const shouldResizeCenterOut = e.shiftKey;
 
-          const crop = new Crop(
-            ix,
-            iy,
-            Crop.minW,
-            Crop.minH,
-            cropResWidth,
-            cropResHeight
-          );
+          const crop = new Crop(ix, iy, Crop.minW, Crop.minH, cropResWidth, cropResHeight);
           crop.defaultAspectRatio = par;
 
           let cursor: string;
@@ -4256,13 +4053,7 @@ export function triggerCropChartLoop() {
                 cursor = 'e-resize';
                 break;
             }
-            resizeCrop(
-              crop,
-              cursor,
-              changeAmount,
-              changeAmount,
-              shouldMaintainCropAspectRatio
-            );
+            resizeCrop(crop, cursor, changeAmount, changeAmount, shouldMaintainCropAspectRatio);
           }
 
           updateCropString(crop.cropString);
@@ -4309,8 +4100,7 @@ export function triggerCropChartLoop() {
     }
 
     function updateCropString(cropString: string, shouldUpdateCropChart = false) {
-      if (!isSettingsEditorOpen)
-        throw new Error('No editor was open when trying to update crop.');
+      if (!isSettingsEditorOpen) throw new Error('No editor was open when trying to update crop.');
 
       const [nx, ny, nw, nh] = getCropComponents(cropString);
       cropString = getCropString(nx, ny, nw, nh);
@@ -4345,10 +4135,7 @@ export function triggerCropChartLoop() {
 
         const maxIndex = cropMap.length - 1;
         const isSecondLastPoint = currentCropPointIndex === maxIndex - 1;
-        const isLastSectionStatic = cropStringsEqual(
-          initCrop,
-          cropMap[maxIndex].initCrop
-        );
+        const isLastSectionStatic = cropStringsEqual(initCrop, cropMap[maxIndex].initCrop);
         if (isSecondLastPoint && isLastSectionStatic) {
           cropMap[maxIndex].crop = cropString;
         }
@@ -4544,10 +4331,7 @@ export function triggerCropChartLoop() {
           isChartEnabled = isCurrentChartVisible;
         }
       } else {
-        flashMessage(
-          'Please open a marker pair editor before toggling a chart input.',
-          'olive'
-        );
+        flashMessage('Please open a marker pair editor before toggling a chart input.', 'olive');
       }
     }
 
@@ -4556,8 +4340,7 @@ export function triggerCropChartLoop() {
         if (e.buttons !== 2) return;
         blockEvent(e);
         const chart = chartInput.chart;
-        const chartLoop =
-          markerPairs[prevSelectedMarkerPairIndex][chartInput.chartLoopKey];
+        const chartLoop = markerPairs[prevSelectedMarkerPairIndex][chartInput.chartLoopKey];
         // shift+right-click context menu opens screenshot tool in firefox 67.0.2
 
         function chartTimeAnnotationDragHandler(e) {
@@ -4611,27 +4394,19 @@ export function triggerCropChartLoop() {
     }
 
     function toggleChartLoop() {
-      if (
-        currentChartInput &&
-        isCurrentChartVisible &&
-        prevSelectedMarkerPairIndex != null
-      ) {
+      if (currentChartInput && isCurrentChartVisible && prevSelectedMarkerPairIndex != null) {
         const chart = currentChartInput.chart;
         const markerPair = markerPairs[prevSelectedMarkerPairIndex];
         const chartLoop = markerPair[currentChartInput.chartLoopKey];
         if (chartLoop.enabled) {
           chartLoop.enabled = false;
-          chart.config.options.annotation.annotations[1].borderColor =
-            'rgba(0, 255, 0, 0.4)';
-          chart.config.options.annotation.annotations[2].borderColor =
-            'rgba(255, 215, 0, 0.4)';
+          chart.config.options.annotation.annotations[1].borderColor = 'rgba(0, 255, 0, 0.4)';
+          chart.config.options.annotation.annotations[2].borderColor = 'rgba(255, 215, 0, 0.4)';
           flashMessage('Speed chart looping disabled', 'red');
         } else {
           chartLoop.enabled = true;
-          chart.config.options.annotation.annotations[1].borderColor =
-            'rgba(0, 255, 0, 0.9)';
-          chart.config.options.annotation.annotations[2].borderColor =
-            'rgba(255, 215, 0, 0.9)';
+          chart.config.options.annotation.annotations[1].borderColor = 'rgba(0, 255, 0, 0.9)';
+          chart.config.options.annotation.annotations[2].borderColor = 'rgba(255, 215, 0, 0.9)';
           flashMessage('Speed chart looping enabled', 'green');
         }
         chart.update();
@@ -4641,8 +4416,7 @@ export function triggerCropChartLoop() {
     function resetChartLoop(chartInput: ChartInput) {
       if (isCurrentChartVisible && prevSelectedMarkerPairIndex != null) {
         const chart = chartInput.chart;
-        const chartLoop =
-          markerPairs[prevSelectedMarkerPairIndex][chartInput.chartLoopKey];
+        const chartLoop = markerPairs[prevSelectedMarkerPairIndex][chartInput.chartLoopKey];
         chartLoop.start = undefined;
         chartLoop.end = undefined;
         chart.config.options.annotation.annotations[1].value = -1;
@@ -4815,10 +4589,9 @@ export function triggerCropChartLoop() {
       const sectStart = chartData[currentCropChartSection[0]];
       const sectEnd = chartData[currentCropChartSection[1]];
 
-      [
-        cropChartSectionStartBorderGreen,
-        cropChartSectionStartBorderWhite,
-      ].map((cropRect) => setCropOverlay(cropRect, sectStart.crop));
+      [cropChartSectionStartBorderGreen, cropChartSectionStartBorderWhite].map((cropRect) =>
+        setCropOverlay(cropRect, sectStart.crop)
+      );
       [cropChartSectionEndBorderYellow, cropChartSectionEndBorderWhite].map((cropRect) =>
         setCropOverlay(cropRect, sectEnd.crop)
       );
@@ -4968,9 +4741,7 @@ export function triggerCropChartLoop() {
     let selectedEndMarkerOverlay: HTMLElement;
     function highlightSelectedMarkerPair(currentMarker: SVGRectElement) {
       if (!selectedStartMarkerOverlay) {
-        selectedStartMarkerOverlay = document.getElementById(
-          'selected-start-marker-overlay'
-        );
+        selectedStartMarkerOverlay = document.getElementById('selected-start-marker-overlay');
       }
       if (!selectedEndMarkerOverlay) {
         selectedEndMarkerOverlay = document.getElementById('selected-end-marker-overlay');

@@ -1,15 +1,7 @@
 import { ChartConfiguration, ChartFontOptions, ChartOptions } from 'chart.js';
 import { CropPoint } from '../../@types/yt_clipper';
 import { triggerCropChartLoop, player } from '../../yt_clipper';
-import {
-  getInputUpdater,
-  grey,
-  lightgrey,
-  medgrey,
-  roundX,
-  roundY,
-  sortX,
-} from './chartutil';
+import { getInputUpdater, grey, lightgrey, medgrey, roundX, roundY, sortX } from './chartutil';
 import {
   cropChartMode,
   currentCropPointIndex,
@@ -110,9 +102,7 @@ export const addCropPoint = function (time: number) {
     });
     this.data.datasets[0].data.sort(sortX);
 
-    const cropPointIndex = this.data.datasets[0].data
-      .map((cropPoint) => cropPoint.x)
-      .indexOf(time);
+    const cropPointIndex = this.data.datasets[0].data.map((cropPoint) => cropPoint.x).indexOf(time);
 
     // console.log(currentCropPointIndex, cropPointIndex);
     if (currentCropPointIndex >= cropPointIndex) {
@@ -131,10 +121,7 @@ export const addCropPoint = function (time: number) {
   }
 };
 
-export function scatterChartSpec(
-  chartType: 'speed' | 'crop',
-  inputId
-): ChartConfiguration {
+export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartConfiguration {
   const updateInput = getInputUpdater(inputId);
 
   const onDragStart = function (e, chartInstance, element, value) {
