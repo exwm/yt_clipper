@@ -81,9 +81,7 @@ function updateData(chartInstance, callback) {
           y = e.clientY - chartInstance.canvas.getBoundingClientRect().top;
         }
         let rScale = chartInstance.scales[scale];
-        let d = Math.sqrt(
-          Math.pow(x - rScale.xCenter, 2) + Math.pow(y - rScale.yCenter, 2)
-        );
+        let d = Math.sqrt(Math.pow(x - rScale.xCenter, 2) + Math.pow(y - rScale.yCenter, 2));
         let scalingFactor = rScale.drawingArea / (rScale.max - rScale.min);
         if (rScale.options.ticks.reverse) {
           v = rScale.max - d / scalingFactor;
@@ -175,7 +173,7 @@ function dragEndCallback(chartInstance, callback) {
   };
 }
 const ChartJSdragDataPlugin = {
-  afterInit: function(chartInstance) {
+  afterInit: function (chartInstance) {
     if (chartInstance.options.dragData) {
       select(chartInstance.chart.canvas).call(
         drag()
