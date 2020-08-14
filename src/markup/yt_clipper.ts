@@ -85,7 +85,12 @@ import {
   onLoadVideoPage,
   getCropString,
 } from './util';
-import { Crop } from './crop';
+import {
+  Crop,
+  deleteCropMapInitCrops,
+  loadCropMapInitCrops,
+  saveCropMapInitCrops,
+} from './crop';
 import { autoHideUnselectedMarkerPairsCSS } from './css';
 import { flattenVRVideo, openSubsEditor } from './misc';
 import {
@@ -2938,12 +2943,12 @@ export function triggerCropChartLoop() {
         if (targetProperty !== 'crop') target[targetProperty] = newValue;
 
         if (targetProperty === 'newMarkerCrop') {
-          const cropString = newValue;
-          const [x, y, w, h] = getCropComponents(cropString);
+          const [nx, ny, nw, nh] = getCropComponents(newValue);
+          const cropString = getCropString(nx, ny, nw, nh);
           const cropResWidth = settings.cropResWidth;
           const cropResHeight = settings.cropResHeight;
-          const crop = new Crop(x, y, w, h, cropResWidth, cropResHeight);
-          crop.setCropStringSafe(newValue);
+          const crop = new Crop(nx, ny, nw, nh, cropResWidth, cropResHeight);
+          crop.setCropStringSafe(cropString);
           updateCropString(crop.cropString, true);
           // createCropOverlay(target.newMarkerCrop);
         }
@@ -2966,14 +2971,18 @@ export function triggerCropChartLoop() {
         if (targetProperty === 'crop') {
           const cropMap = target.cropMap;
           const prevCrop = cropMap[currentCropPointIndex].crop;
+          saveCropMapInitCrops(cropMap);
           const [x, y, w, h] = getCropComponents(prevCrop);
+          const [nx, ny, nw, nh] = getCropComponents(newValue);
+          const cropString = getCropString(nx, ny, nw, nh);
           const cropResWidth = settings.cropResWidth;
           const cropResHeight = settings.cropResHeight;
           const crop = new Crop(x, y, w, h, cropResWidth, cropResHeight);
           const isDynamicCrop = !isStaticCrop(cropMap);
           const shouldMaintainCropAspectRatio = !isCropChartPanOnly && isDynamicCrop;
-          crop.setCropStringSafe(newValue, shouldMaintainCropAspectRatio);
+          crop.setCropStringSafe(cropString, shouldMaintainCropAspectRatio);
           updateCropString(crop.cropString, true);
+          deleteCropMapInitCrops(cropMap);
         }
 
         if (targetProperty === 'speed') {
@@ -3622,7 +3631,7 @@ export function triggerCropChartLoop() {
 
     function hideCropOverlay() {
       if (isDrawingCrop) {
-        finishDrawingCrop(prevCropString);
+        finishDrawingCrop(true);
       }
       if (isDraggingCrop) {
         endCropOverlayDrag(null, true);
@@ -3687,12 +3696,12 @@ export function triggerCropChartLoop() {
           const [ix, iy, iw, ih] = getCropComponents(cropString);
           const cropResWidth = settings.cropResWidth;
           const cropResHeight = settings.cropResHeight;
-          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-          const cropMap = markerPair.cropMap;
+          let isDynamicCrop = false;
           if (!wasGlobalSettingsEditorOpen) {
-            cropMap.forEach((cropPoint) => {
-              cropPoint.initCrop = cropPoint.crop;
-            });
+            const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+            const cropMap = markerPair.cropMap;
+            isDynamicCrop = !isStaticCrop(cropMap);
+            saveCropMapInitCrops(cropMap);
           }
 
           const cropAspectRatio = iw / ih;
@@ -3702,7 +3711,6 @@ export function triggerCropChartLoop() {
           const clickPosY = e.pageY - videoRect.top - playerRect.top;
           const cursor = getMouseCropHoverRegion(e, cropString);
           const pointerId = e.pointerId;
-          const isDynamicCrop = !isStaticCrop(cropMap);
 
           endCropOverlayDrag = (e, forceEndDrag = false) => {
             if (forceEndDrag) {
@@ -3719,9 +3727,7 @@ export function triggerCropChartLoop() {
             if (!wasGlobalSettingsEditorOpen) {
               const markerPair = markerPairs[prevSelectedMarkerPairIndex];
               const cropMap = markerPair.cropMap;
-              cropMap.forEach((cropPoint) => {
-                delete cropPoint.initCrop;
-              });
+              deleteCropMapInitCrops(cropMap);
             }
 
             cursor === 'grab'
@@ -3953,11 +3959,11 @@ export function triggerCropChartLoop() {
     }
 
     let isDrawingCrop = false;
-    let prevCropString = '0:0:iw:ih';
+    let prevNewMarkerCrop = '0:0:iw:ih';
     let beginDrawHandler: (e: PointerEvent) => void;
     function drawCropOverlay(verticalFill: boolean) {
       if (isDrawingCrop) {
-        finishDrawingCrop(prevCropString);
+        finishDrawingCrop(true);
       } else if (
         isCurrentChartVisible &&
         currentChartInput &&
@@ -3971,13 +3977,10 @@ export function triggerCropChartLoop() {
         if (!wasGlobalSettingsEditorOpen) {
           const markerPair = markerPairs[prevSelectedMarkerPairIndex];
           const cropMap = markerPair.cropMap;
-          prevCropString = markerPair.crop;
-          cropMap.forEach((cropPoint) => {
-            cropPoint.prevCrop = cropPoint.crop;
-          });
-        } else {
-          prevCropString = settings.newMarkerCrop;
+          saveCropMapInitCrops(cropMap);
         }
+
+        prevNewMarkerCrop = settings.newMarkerCrop;
 
         Crop.shouldConstrainMinDimensions = false;
         window.removeEventListener('keydown', addCropOverlayHoverListener, true);
@@ -4016,19 +4019,15 @@ export function triggerCropChartLoop() {
         const iy = (clickPosY / videoRect.height) * cropResHeight;
 
         let isDynamicCrop = false;
+        let initCrop = prevNewMarkerCrop;
         if (!wasGlobalSettingsEditorOpen) {
           const markerPair = markerPairs[prevSelectedMarkerPairIndex];
           const cropMap = markerPair.cropMap;
           isDynamicCrop = !isStaticCrop(cropMap);
-          if (isCropChartPanOnly && (isDynamicCrop || currentCropPointIndex !== 0)) {
-            cropMap.forEach((cropPoint, idx) => {
-              let [ix, iy, ,] = getCropComponents(cropPoint.crop);
-              cropPoint.crop = [ix, iy, 0, 0].join(':');
-              cropPoint.initCrop = cropPoint.crop;
-            });
-          }
+          initCrop = cropMap[prevSelectedMarkerPairIndex].initCrop;
         }
-        const [px, py, pw, ph] = getCropComponents(prevCropString);
+        const [px, py, pw, ph] = getCropComponents(initCrop);
+
         const par = pw <= 0 || ph <= 0 ? 1 : pw / ph;
 
         const crop = new Crop(ix, iy, Crop.minW, Crop.minH, cropResWidth, cropResHeight);
@@ -4059,10 +4058,10 @@ export function triggerCropChartLoop() {
           crop.defaultAspectRatio = par;
 
           let cursor: string;
-          if (deltaX >= 0 && deltaY >= 0) cursor = 'se-resize';
           if (deltaX >= 0 && deltaY < 0) cursor = 'ne-resize';
-          if (deltaX < 0 && deltaY < 0) cursor = 'nw-resize';
+          if (deltaX >= 0 && deltaY >= 0) cursor = 'se-resize';
           if (deltaX < 0 && deltaY >= 0) cursor = 'sw-resize';
+          if (deltaX < 0 && deltaY < 0) cursor = 'nw-resize';
 
           resizeCrop(
             crop,
@@ -4089,7 +4088,7 @@ export function triggerCropChartLoop() {
           capture: true,
         });
       } else {
-        finishDrawingCrop(prevCropString);
+        finishDrawingCrop(true);
       }
     }
 
@@ -4099,19 +4098,19 @@ export function triggerCropChartLoop() {
 
     function endDraw(e: PointerEvent) {
       if (e.button === 0) {
-        finishDrawingCrop(null, e.pointerId);
+        finishDrawingCrop(false, e.pointerId);
       } else {
-        finishDrawingCrop(prevCropString, e.pointerId);
+        finishDrawingCrop(true, e.pointerId);
       }
       if (e.ctrlKey) {
         window.addEventListener('mousemove', cropOverlayHoverHandler, true);
       }
     }
 
-    function finishDrawingCrop(prevCropString?: string, pointerId?: number) {
+    function finishDrawingCrop(shouldRevertCrop: boolean, pointerId?: number) {
       Crop.shouldConstrainMinDimensions = true;
 
-      if (pointerId) video.releasePointerCapture(pointerId);
+      if (pointerId != null) video.releasePointerCapture(pointerId);
       playerInfo.videoContainer.style.cursor = 'auto';
       playerInfo.container.removeEventListener('pointerdown', beginDrawHandler, true);
       window.removeEventListener('pointermove', dragCropPreviewHandler);
@@ -4120,24 +4119,25 @@ export function triggerCropChartLoop() {
       isDrawingCrop = false;
       showPlayerControls();
       window.addEventListener('keydown', addCropOverlayHoverListener, true);
-      if (prevCropString) {
-        updateCropString(prevCropString);
-        if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
-          markerPairs[prevSelectedMarkerPairIndex].cropMap.forEach((cropPoint) => {
-            cropPoint.crop = cropPoint.prevCrop;
-          });
+
+      if (shouldRevertCrop) {
+        if (wasGlobalSettingsEditorOpen) {
+          settings.newMarkerCrop = prevNewMarkerCrop;
+          updateCropString(settings.newMarkerCrop);
+        } else {
+          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+          const cropMap = markerPair.cropMap;
+          loadCropMapInitCrops(cropMap);
+          updateCropString(cropMap[currentCropPointIndex].crop, true);
         }
         flashMessage('Drawing crop canceled', 'red');
       } else {
-        cropInput.dispatchEvent(new Event('change'));
         flashMessage('Finished drawing crop', 'green');
       }
 
-      if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
-        markerPairs[prevSelectedMarkerPairIndex].cropMap.forEach((cropPoint) => {
-          delete cropPoint.prevCrop;
-          delete cropPoint.initCrop;
-        });
+      if (!wasGlobalSettingsEditorOpen) {
+        const cropMap = markerPairs[prevSelectedMarkerPairIndex].cropMap;
+        deleteCropMapInitCrops(cropMap);
       }
     }
 
@@ -4262,32 +4262,38 @@ export function triggerCropChartLoop() {
       if (!wasGlobalSettingsEditorOpen) {
         const markerPair = markerPairs[prevSelectedMarkerPairIndex];
         const cropMap = markerPair.cropMap;
+        const cropPoint = cropMap[currentCropPointIndex];
         isDynamicCrop = !isStaticCrop(cropMap);
-        cropMap[currentCropPointIndex].crop = cropString;
+        const initCrop = cropPoint.initCrop ?? cropPoint.crop;
 
-        if (currentCropPointIndex === 0) {
-          markerPair.crop = cropString;
-          if (!isDynamicCrop) {
-            cropMap[1].crop = cropString;
-          } else {
-            const maxIndex = cropMap.length - 1;
-            const isSecondLastPoint = currentCropPointIndex === maxIndex - 1;
-            const isLastSectionStatic = cropStringsEqual(
-              cropMap[maxIndex].crop,
-              cropMap[maxIndex - 1].crop
-            );
-            if (isSecondLastPoint && isDynamicCrop && isLastSectionStatic) {
-              cropMap[maxIndex].crop = cropString;
-            }
-          }
-        }
+        cropPoint.crop = cropString;
+        if (currentCropPointIndex === 0) markerPair.crop = cropString;
+
         if (isDynamicCrop) {
-          if (isCropChartPanOnly) {
+          const [ix, iy, iw, ih] = getCropComponents(initCrop);
+          const dw = nw - iw;
+          const dh = nh - ih;
+          const isResize = dw !== 0 || dh !== 0;
+          const iar = iw / ih;
+          const nar = nw / nh;
+          const isReshape = Math.abs(nar - iar) > 1e-4;
+
+          if (isCropChartPanOnly && isResize) {
             setCropComponentForAllPoints({ w: nw, h: nh }, cropMap);
-          } else {
+          } else if (!isCropChartPanOnly && isReshape) {
             const aspectRatio = nw / nh;
             setAspectRatioForAllPoints(aspectRatio, cropMap);
           }
+        }
+
+        const maxIndex = cropMap.length - 1;
+        const isSecondLastPoint = currentCropPointIndex === maxIndex - 1;
+        const isLastSectionStatic = cropStringsEqual(
+          initCrop,
+          cropMap[maxIndex].initCrop
+        );
+        if (isSecondLastPoint && isLastSectionStatic) {
+          cropMap[maxIndex].crop = cropString;
         }
       } else {
         settings.newMarkerCrop = cropString;
@@ -4328,7 +4334,11 @@ export function triggerCropChartLoop() {
         const [ix, iy, iw, ih] = getCropComponents(cropPoint.initCrop ?? cropPoint.crop);
         const crop = new Crop(0, 0, 0, 0, cropResWidth, cropResHeight);
         crop.defaultAspectRatio = aspectRatio;
-        crop.resizeSAspectRatioLocked(ih);
+        if (ih >= iw) {
+          crop.resizeSAspectRatioLocked(ih);
+        } else {
+          crop.resizeEAspectRatioLocked(iw);
+        }
         crop.panX(ix);
         crop.panY(iy);
         cropPoint.crop = crop.cropString;
@@ -4959,7 +4969,7 @@ export function triggerCropChartLoop() {
     function showChart() {
       if (currentChartInput && currentChartInput.chartContainer) {
         if (isDrawingCrop) {
-          finishDrawingCrop();
+          finishDrawingCrop(true);
         }
         currentChartInput.chartContainer.style.display = 'block';
         isCurrentChartVisible = true;
