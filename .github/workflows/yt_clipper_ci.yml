@@ -100,14 +100,14 @@ jobs:
           zip -r ./artifact/py/${{env.FULL_NAME}}.zip ./artifact/py/${{env.FULL_NAME}}/ 
 
       - name: Upload clipper script installation artifact
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v2
         with:
           name: ${{env.FULL_NAME}}.zip
           path: ./artifact/py/${{env.FULL_NAME}}.zip
 
       - name: Upload markup script installation artifact
         if: matrix.os == 'macos-latest'
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v2
         with:
           name: ${{env.NOPLAT_NAME}}.js
           path: ./artifact/js/${{env.NOPLAT_NAME}}.js
