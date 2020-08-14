@@ -3174,6 +3174,7 @@ export function triggerCropChartLoop() {
             }
           } else if (ke.code === 'ArrowUp' || ke.code === 'ArrowDown') {
             let changeAmount: number;
+            let [ix, iy, iw, ih] = getCropComponents(cropInput.value);
             if (!ke.altKey && !ke.shiftKey) {
               changeAmount = 10;
             } else if (ke.altKey && !ke.shiftKey) {
@@ -3184,14 +3185,47 @@ export function triggerCropChartLoop() {
               changeAmount = 100;
             }
 
-            if (ke.code === 'ArrowUp') {
-              cropArray[cropTarget] += changeAmount;
-            } else if (ke.code === 'ArrowDown') {
-              cropArray[cropTarget] -= changeAmount;
+            let isDynamicCrop = false;
+            if (!wasGlobalSettingsEditorOpen) {
+              const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+              const cropMap = markerPair.cropMap;
+              isDynamicCrop = !isStaticCrop(cropMap);
+              saveCropMapInitCrops(cropMap);
             }
 
-            const [nx, ny, nw, nh] = cropArray;
-            updateCropString(getCropString(nx, ny, nw, nh));
+            const shouldMaintainCropAspectRatio = !isCropChartPanOnly && isDynamicCrop;
+            const cropResWidth = settings.cropResWidth;
+            const cropResHeight = settings.cropResHeight;
+            const crop = new Crop(ix, iy, iw, ih, cropResWidth, cropResHeight);
+
+            // without modifiers move crop x/y offset
+            // with ctrl key modifier expand/shrink crop width/height
+            if (cropTarget === 0) {
+              ke.code === 'ArrowUp' ? crop.panX(changeAmount) : crop.panX(-changeAmount);
+            } else if (cropTarget === 1) {
+              ke.code === 'ArrowUp' ? crop.panY(changeAmount) : crop.panY(-changeAmount);
+            } else {
+              let cursor: string;
+              if (cropTarget === 2) cursor = 'e-resize';
+              if (cropTarget === 3) cursor = 's-resize';
+              if (ke.code === 'ArrowDown') changeAmount = -changeAmount;
+              resizeCrop(
+                crop,
+                cursor,
+                changeAmount,
+                changeAmount,
+                shouldMaintainCropAspectRatio
+              );
+            }
+
+            updateCropString(crop.cropString);
+
+            if (!wasGlobalSettingsEditorOpen) {
+              const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+              const cropMap = markerPair.cropMap;
+              deleteCropMapInitCrops(cropMap);
+            }
+
             const updatedCropString = cropInput.value;
             let newCursorPos = cropStringCursorPos - cropComponentCursorPos;
             if (cropTarget === 3 && cropStringArray[3] === 'ih') {
@@ -3201,7 +3235,6 @@ export function triggerCropChartLoop() {
             }
             cropInput.selectionStart = newCursorPos;
             cropInput.selectionEnd = newCursorPos;
-            cropInput.dispatchEvent(new Event('change'));
           }
         }
       });
@@ -3722,13 +3755,13 @@ export function triggerCropChartLoop() {
 
             video.releasePointerCapture(pointerId);
 
-            cropInput.dispatchEvent(new Event('change'));
-
             if (!wasGlobalSettingsEditorOpen) {
               const markerPair = markerPairs[prevSelectedMarkerPairIndex];
               const cropMap = markerPair.cropMap;
               deleteCropMapInitCrops(cropMap);
             }
+
+            updateCropChart();
 
             cursor === 'grab'
               ? document.removeEventListener('pointermove', dragCropHandler)
@@ -4132,6 +4165,7 @@ export function triggerCropChartLoop() {
         }
         flashMessage('Drawing crop canceled', 'red');
       } else {
+        updateCropChart();
         flashMessage('Finished drawing crop', 'green');
       }
 
@@ -4161,7 +4195,7 @@ export function triggerCropChartLoop() {
           ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(ke.code) > -1
         ) {
           blockEvent(ke);
-          let [x, y, w, h] = getCropComponents(cropInput.value);
+          let [ix, iy, iw, ih] = getCropComponents(cropInput.value);
           let changeAmount: number;
           if (!ke.altKey && !ke.shiftKey) {
             changeAmount = 10;
@@ -4172,49 +4206,70 @@ export function triggerCropChartLoop() {
           } else if (ke.altKey && ke.shiftKey) {
             changeAmount = 100;
           }
+
+          let isDynamicCrop = false;
+          if (!wasGlobalSettingsEditorOpen) {
+            const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+            const cropMap = markerPair.cropMap;
+            isDynamicCrop = !isStaticCrop(cropMap);
+            saveCropMapInitCrops(cropMap);
+          }
+          const shouldMaintainCropAspectRatio = !isCropChartPanOnly && isDynamicCrop;
+          const cropResWidth = settings.cropResWidth;
+          const cropResHeight = settings.cropResHeight;
+          const crop = new Crop(ix, iy, iw, ih, cropResWidth, cropResHeight);
+
           // without modifiers move crop x/y offset
           // with ctrl key modifier expand/shrink crop width/height
-          let cropTarget: string;
           if (!ke.ctrlKey) {
             switch (ke.code) {
               case 'ArrowUp':
-                y -= changeAmount;
-                cropTarget = 'y';
+                crop.panY(-changeAmount);
                 break;
               case 'ArrowDown':
-                y += changeAmount;
-                cropTarget = 'y';
+                crop.panY(changeAmount);
                 break;
               case 'ArrowLeft':
-                x -= changeAmount;
-                cropTarget = 'x';
+                crop.panX(-changeAmount);
                 break;
               case 'ArrowRight':
-                x += changeAmount;
-                cropTarget = 'x';
+                crop.panX(changeAmount);
                 break;
             }
           } else {
+            let cursor: string;
             switch (ke.code) {
               case 'ArrowUp':
-                h -= changeAmount;
-                cropTarget = 'h';
+                cursor = 's-resize';
+                changeAmount = -changeAmount;
                 break;
               case 'ArrowDown':
-                h += changeAmount;
-                cropTarget = 'h';
+                cursor = 's-resize';
                 break;
               case 'ArrowLeft':
-                w -= changeAmount;
-                cropTarget = 'w';
+                cursor = 'e-resize';
+                changeAmount = -changeAmount;
                 break;
               case 'ArrowRight':
-                w += changeAmount;
-                cropTarget = 'w';
+                cursor = 'e-resize';
                 break;
             }
+            resizeCrop(
+              crop,
+              cursor,
+              changeAmount,
+              changeAmount,
+              shouldMaintainCropAspectRatio
+            );
           }
-          updateCropString(getCropString(x, y, w, h));
+
+          updateCropString(crop.cropString);
+
+          if (!wasGlobalSettingsEditorOpen) {
+            const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+            const cropMap = markerPair.cropMap;
+            deleteCropMapInitCrops(cropMap);
+          }
         }
       }
     }
