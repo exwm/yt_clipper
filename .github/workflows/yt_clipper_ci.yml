@@ -105,9 +105,11 @@ jobs:
       - name: Download ffmpeg dependency
         shell: bash
         run: |
-          curl -o ./bindeps/ffmpeg.zip ${{env.FFMPEG_DL}}
-          7z x ./bindeps/ffmpeg.zip
-          mv ${{env.FFMPEG_NAME}} ffmpeg
+          cd ./bindeps
+          curl -o ./ffmpeg.zip ${{env.FFMPEG_DL}}
+          7z x ./ffmpeg.zip
+          mv ./${{env.FFMPEG_NAME}} ffmpeg
+          ls -la
 
       - name: Copy artifacts
         shell: bash
