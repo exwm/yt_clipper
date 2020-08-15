@@ -19,6 +19,7 @@ v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`:
   - This may have caused imprecise crop aspect ratios being reported.
 - Fix unable to draw and resize global new marker crop in some cases.
 - Fix shortcuts table and frame capturer zip progress not working.
+- Fix editing crop input field could improperly apply constraints.
 - Stabilize build process to support most browsers since 2019 rather than the most recent ~4 browser versions.
 - Remove vertical-fill drawing of crops (**Shift+X**).
 
@@ -424,7 +425,8 @@ v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`:
 - (Mac) Add `merge` and `fast_trim` helper scripts.
 - Fix crop panning and zooming jitter.
 - Fix removing useful frames when using `-rdf` or minterp due to low mpdecimate thresholds.
-- (Win) Fix output filename included extra `.` before extension in `fast_trim` helper script.
+- Fix `merge` helper script always using `webm` container even when all inputs use some other format.
+- (Win) Fix  `fast_trim` helper script outputting video file with extra `.` before extension.
 - (Mac) Fix `yt_clipper_preview` helper script crashing due to syntax error.
 - (Mac) Fix helper scripts could mangle backslashes when reading user input.
 - Tweak automatic encode settings.
