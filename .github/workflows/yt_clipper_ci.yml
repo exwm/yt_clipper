@@ -36,8 +36,8 @@ jobs:
         run: |
           echo "::set-env name=FULL_NAME::${{env.NAME}}_${{matrix.shortos}}_${{env.VERSION}}"
           echo "::set-env name=NOPLAT_NAME::${{env.NAME}}_${{env.VERSION}}"
-          echo "::set-env name=FFMPEG_NAME::ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}-shared"
-          echo "::set-env name=FFMPEG_DL::${{env.FFMPEG_DL_PREFIX}}/${{matrix.shortos}}64/shared/ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}-shared.zip"
+          echo "::set-env name=FFMPEG_NAME::ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}64-shared"
+          echo "::set-env name=FFMPEG_DL::${{env.FFMPEG_DL_PREFIX}}/${{matrix.shortos}}64/shared/ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}64-shared.zip"
 
       - uses: actions/checkout@v2
 
