@@ -97,7 +97,7 @@ jobs:
       - name: Zip artifacts on non-windows systems
         if: matrix.os != 'windows-latest'
         run: |
-          zip -r ./artifact/py/${{env.FULL_NAME}}.zip ./artifact/py/${{env.FULL_NAME}}/ 
+          zip -r ./artifact/py/${{env.FULL_NAME}}.zip ./artifact/py/${{env.FULL_NAME}}/*
 
       - name: Upload clipper script installation artifact
         uses: actions/upload-artifact@v2
