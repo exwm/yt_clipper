@@ -1,3 +1,4 @@
+// BANNER GUARD
 // ==UserScript==
 // @locale       english
 // @name         yt_clipper
