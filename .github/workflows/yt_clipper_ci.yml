@@ -13,6 +13,8 @@ on:
 env:
   NAME: yt_clipper
   VERSION: 3.7.0-beta.3.9.0-alpha.10
+  FFMPEG_VERSION: 20200814-a762fd2
+  FFMPEG_DL_PREFIX: https://ffmpeg.zeranoe.com/builds
 
 jobs:
   build:
@@ -34,6 +36,8 @@ jobs:
         run: |
           echo "::set-env name=FULL_NAME::${{env.NAME}}_${{matrix.shortos}}_${{env.VERSION}}"
           echo "::set-env name=NOPLAT_NAME::${{env.NAME}}_${{env.VERSION}}"
+          echo "::set-env name=FFMPEG_NAME::ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}-shared"
+          echo "::set-env name=FFMPEG_DL::${{env.FFMPEG_DL_PREFIX}}/${{matrix.shortos}}64/shared/ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}-shared.zip"
 
       - uses: actions/checkout@v2
 
@@ -66,15 +70,24 @@ jobs:
       - name: Generate executable
         run: npm run build:py
 
-      - name: Set up artifacts dir
+      - name: Set up dirs
         shell: bash
         run: |
           mkdir -p ./artifact/py/${{env.FULL_NAME}}/{webms,bin}/
+          mkdir -p ./bindeps
+
+      - name: Download ffmpeg dependency
+        shell: bash
+        run: |
+          curl -o ./bindeps/ffmpeg.zip ${{env.FFMPEG_DL}}
+          7z x ./bindeps/ffmpeg.zip
+          mv ${{env.FFMPEG_NAME}} ffmpeg
 
       - name: Copy artifacts
         shell: bash
         run: |
-          cp ./bindeps/${{matrix.shortos}}/ffmpeg/* ./artifact/py/${{env.FULL_NAME}}/bin/
+          mv ./bindeps/ffmpeg/bin/* ./artifact/py/${{env.FULL_NAME}}/bin/
+          mv ./bindeps/ffmpeg/*.txt ./artifact/py/${{env.FULL_NAME}}/bin/
           cp ./src/clipper/${{matrix.shortos}}_helpers/* ./artifact/py/${{env.FULL_NAME}}/
           cp ./dist/py/yt_clipper* ./artifact/py/${{env.FULL_NAME}}/
 
