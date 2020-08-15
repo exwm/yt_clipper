@@ -160,7 +160,7 @@ jobs:
         echo "::set-env name=DATE::$(date +'%Y.%m.%d')"
         echo "::set-env name=FULL_NAME::${{env.NAME}}_${{env.VERSION}}"
         echo "::set-env name=FULL_NAME_WIN::${{env.NAME}}_win_${{env.VERSION}}"
-        echo "::set-env name=FULL_NAME_MAC::${{env.NAME}}_mac_${{env.VERSION}}"
+        echo "::set-env name=FULL_NAME_MAC::${{env.NAME}}_macos_${{env.VERSION}}"
 
     - uses: actions/download-artifact@v2
       with:
