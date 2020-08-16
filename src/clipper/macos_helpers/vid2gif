@@ -41,7 +41,7 @@ for VIDEO in "${VIDEOS[@]}"; do
 
     echo "generating $OUT..."
 
-    ./bin/ffmpeg -i "$VIDEO" -vf "fps=${FPS},scale=$SCALE_FILTER:flags=lanczos,hqdn3d,split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse" "$OUT"
+    ./bin/ffmpeg -i "$VIDEO" -vf "fps=${FPS},scale=$SCALE_FILTER:flags=lanczos,setdar=ratio=a,hqdn3d,split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse" "$OUT"
   else
     echo "$VIDEO does not exist"
   fi
