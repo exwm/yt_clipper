@@ -1,6 +1,27 @@
 # yt_clipper Changelog
 
+- [yt_clipper Changelog](#yt_clipper-changelog)
+  - [Markup Script Changelog](#markup-script-changelog)
+  - [Clipper Script (Installation) Changelog](#clipper-script-installation-changelog)
+
 ## Markup Script Changelog
+
+v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`:
+
+- Revamp internal cropping system.
+  - Manipulating crops should now always maintain the correct constraints. The mechanism for this has changed.
+    - Most notably, when zoompan is enabled all crop points will maintain the same aspect ratio.
+    - When resizing a crop point in pan-only mode or reshaping (changing aspect ratio) in zoompan mode, all other crop points will now be resized and panned as necessary to match.
+  - Aspect-ratio-locked resizing (from a corner) and drawing is now smoother.
+- Add **Shift** modifier for center-out resizing and drawing of crops with the mouse.
+  - Note that this can be combined with aspect-ratio locking.
+- Fix seeking video to current video time causing video buffering spinner to show on YouTube.
+  - This may have caused imprecise crop aspect ratios being reported.
+- Fix unable to draw and resize global new marker crop in some cases.
+- Fix shortcuts table and frame capturer zip progress not working.
+- Fix editing crop input field could improperly apply constraints.
+- Stabilize build process to support most browsers since 2019 rather than the most recent ~4 browser versions.
+- Remove vertical-fill drawing of crops (**Shift+X**).
 
 v0.0.90-beta.3.9.0-alpha.8 `[2020.06.26]`:
 
@@ -395,6 +416,23 @@ v0.0.71:
 - Add target max bitrate option for constrained quality mode using `-b <bitrate>` where bitrate is in kb/s.
 
 ## Clipper Script (Installation) Changelog
+
+v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`:
+
+- Add warning for unknown arguments provided to `clipper` script.
+- Add handling of mixed input video file extensions in `merge` helper script.
+- Add clarification of required format of start and end time inputs to `fast_trim` helper script.
+- (Mac) Add `merge` and `fast_trim` helper scripts.
+- Fix crop panning and zooming jitter.
+- Fix removing useful frames when using `-rdf` or minterp due to low mpdecimate thresholds.
+- Fix `merge` helper script always using `webm` container even when all inputs use some other format.
+- (Win) Fix  `fast_trim` helper script outputting video file with extra `.` before extension.
+- (Mac) Fix `yt_clipper_preview` helper script crashing due to syntax error.
+- (Mac) Fix helper scripts could mangle backslashes when reading user input.
+- Tweak automatic encode settings.
+- Remove gfycat anonymous uploading feature (`--gfycat`).
+- Rename `yt_clipper_merge` and `yt_clipper_fast_trim` helper scripts to simply `merge` and `fast_trim`.
+- Update ffmpeg dependency to latest nightly version (`20200814-a762fd2`).
 
 v3.6.4 `[2020.07.29]`:
 
