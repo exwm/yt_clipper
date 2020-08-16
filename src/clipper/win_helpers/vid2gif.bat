@@ -21,15 +21,10 @@ for %%A IN (%*) DO (
   if exist "%%A" (
     set "out=%%~dpA\%%~nA.gif"
 
-    "%~dp0\bin\ffmpeg" -i "%%A" -vf "fps=!fps!,scale=!scale_filter!:flags=lanczos,hqdn3d,split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse" "!out!"
+    "%~dp0\bin\ffmpeg" -i "%%A" -vf "fps=!fps!,scale=!scale_filter!:flags=lanczos,setdar=ratio=a,hqdn3d,split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse" "!out!"
   ) else (
     echo Path "%%A" does not exist. 
   )
 )
 
-
-
 pause
-
-
- 
