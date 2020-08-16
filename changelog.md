@@ -15,7 +15,7 @@ v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`:
   - Aspect-ratio-locked resizing (from a corner) and drawing is now smoother.
 - Add **Shift** modifier for center-out resizing and drawing of crops with the mouse.
   - Note that this can be combined with aspect-ratio locking.
-- Fix seeking video to current video time causing video buffering spinned to show on YouTube.
+- Fix seeking video to current video time causing video buffering spinner to show on YouTube.
   - This may have caused imprecise crop aspect ratios being reported.
 - Fix unable to draw and resize global new marker crop in some cases.
 - Fix shortcuts table and frame capturer zip progress not working.
@@ -455,7 +455,7 @@ v3.7.0-beta.3.9.0-alpha.8 `[2020.06.26]`:
   - A higher or lower value than default may help to reduce artifacting depending on the source video.
 - Fix `yt_clipper_option.bat` on Windows not checking if markers json file provided.
 
-v3.7.0-beta.3.9.0-alpha.8 `[2020.06.22]`:
+v3.7.0-beta.3.9.0-alpha.7 `[2020.06.22]`:
 
 - Add support for `.sbv` and `.srt` subtitle files.
 - Fix crash when writing clipped subtitles files because of missing `subs` directory.
