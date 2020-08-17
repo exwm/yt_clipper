@@ -18,12 +18,12 @@ for /F "tokens=1,2 delims=x" %%a in ("!scale!") do (
 )
 
 for %%A IN (%*) DO (
-  if exist "%%A" (
+  if exist "%%~A" (
     set "out=%%~dpA\%%~nA.gif"
 
-    "%~dp0\bin\ffmpeg" -i "%%A" -vf "fps=!fps!,scale=!scale_filter!:flags=lanczos,setdar=ratio=a,hqdn3d,split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse" "!out!"
+    "%~dp0\bin\ffmpeg" -i "%%~A" -vf "fps=!fps!,scale=!scale_filter!:flags=lanczos,setdar=ratio=a,hqdn3d,split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse" "!out!"
   ) else (
-    echo Path "%%A" does not exist. 
+    echo Path "%%~A" does not exist. 
   )
 )
 
