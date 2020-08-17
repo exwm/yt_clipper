@@ -3861,7 +3861,7 @@ export function triggerCropChartLoop() {
           const markerPair = markerPairs[prevSelectedMarkerPairIndex];
           const cropMap = markerPair.cropMap;
           isDynamicCrop = !isStaticCrop(cropMap);
-          initCrop = cropMap[prevSelectedMarkerPairIndex].initCrop;
+          initCrop = cropMap[currentCropPointIndex].initCrop;
         }
         const [px, py, pw, ph] = getCropComponents(initCrop);
 
