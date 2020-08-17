@@ -1742,6 +1742,8 @@ def autoSetCropMultiples(settings):
                 f'Crop X offset and width will be multiplied by {cropMultipleX}')
             logger.info(
                 f'Crop Y offset and height will be multiplied by {cropMultipleY}')
+            settings["cropResWidth"] = settings["width"]
+            settings["cropResHeight"] = settings["height"]
             return {**settings, 'cropMultipleX': cropMultipleX, 'cropMultipleY': cropMultipleY}
         else:
             logger.info(f'Auto scale crop resolution disabled in settings.')
