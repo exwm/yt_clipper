@@ -6,6 +6,10 @@
 
 ## Markup Script Changelog
 
+v3.7.0-beta.3.9.0-alpha.11 `[2020.08.17]`:
+
+- Fix drawing crop sometimes breaks due to use of incorrect crop map index.
+
 v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`:
 
 - Revamp internal cropping system.
@@ -416,6 +420,11 @@ v0.0.71:
 - Add target max bitrate option for constrained quality mode using `-b <bitrate>` where bitrate is in kb/s.
 
 ## Clipper Script (Installation) Changelog
+
+v3.7.0-beta.3.9.0-alpha.11 `[2020.08.17]`:
+
+- Fix incorrect crops resulting from crop resolution not being auto scaled.
+- Add `vid2gif` helper script. Use as usual with 1 or more video file inputs.
 
 v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`:
 
