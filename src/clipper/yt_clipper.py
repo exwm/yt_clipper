@@ -60,7 +60,8 @@ def main():
     setPaths()
 
     reportStream = io.StringIO()
-    setUpLogger(reportStream)
+    reportStreamColored = io.StringIO()
+    logFilePath = setUpLogger(reportStream, reportStreamColored)
 
     logger.info(f'Version: {__version__}')
     logger.info('-' * 80)
@@ -87,7 +88,7 @@ def main():
     else:
         settings = previewClips(settings)
 
-    printReport(reportStream)
+    printReport(reportStream, reportStreamColored, logFilePath)
 
 
 def setPaths():
@@ -123,7 +124,7 @@ def enableMinterpEnhancements(settings):
     return settings
 
 
-def setUpLogger(reportStream):
+def setUpLogger(reportStream, reportStreamColored):
     global logger
     verboselogs.add_log_level(32, "NOTICE")
     verboselogs.add_log_level(33, "HEADER")
@@ -146,15 +147,22 @@ def setUpLogger(reportStream):
 
     reportHandler = logging.StreamHandler(reportStream)
     reportHandler.setLevel(32)
-    reportHandler.setFormatter(coloredFormatter)
     logger.addHandler(reportHandler)
+    reportHandlerColored = logging.StreamHandler(reportStreamColored)
+    reportHandlerColored.setLevel(32)
+    reportHandlerColored.setFormatter(coloredFormatter)
+    logger.addHandler(reportHandlerColored)
 
+    logFilePath = ''
     if not settings["preview"]:
+        logFilePath = f'{webmsPath}/{settings["titleSuffix"]}.log'
         fileHandler = logging.FileHandler(
-            filename=f'{webmsPath}/{settings["titleSuffix"]}.log', mode='a', encoding='utf-8', )
+            filename=logFilePath, mode='a', encoding='utf-8', )
         formatter = coloredlogs.BasicFormatter(datefmt="%y-%m-%d %H:%M:%S")
         fileHandler.setFormatter(formatter)
         logger.addHandler(fileHandler)
+
+    return logFilePath
 
 
 def getInputVideo(settings):
@@ -269,11 +277,16 @@ def previewClips(settings):
     return settings
 
 
-def printReport(reportStream):
-    report = reportStream.getvalue()
+def printReport(reportStream, reportStreamColored, logFilePath):
+    reportColored = reportStreamColored.getvalue()
     logger.info("-" * 80)
     logger.header("#" * 30 + " Summary Report " + "#" * 30)
-    logger.notice("\n" + report)
+    print(reportColored)
+
+    if Path(logFilePath).is_file():
+        report = reportStream.getvalue()
+        with open(logFilePath, 'a') as f:
+            f.write(report)
 
 
 def buildArgParser():
