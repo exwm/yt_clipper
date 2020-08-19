@@ -29,20 +29,26 @@ ffprobePath = 'ffprobe'
 ffplayPath = 'ffplay'
 webmsPath = './webms'
 logger = None
-configPath = './default_config.txt'
 
 
 def main():
     global settings, webmsPath
     parser = buildArgParser()
 
-    argv = sys.argv[1:]
-    cfg = []
-    if Path(configPath).is_file():
-        with open(configPath, 'r') as f:
-            cfg = f.read().split()
-            argv = cfg + argv
+    argFiles = parser.parse_known_args()[0].argFiles
 
+    argv = sys.argv[1:]
+    defArgs = []
+    for argFile in argFiles:
+        args = []
+        if Path(argFile).is_file():
+            with open(argFile, 'r') as f:
+                lines = [l.lstrip() for l in f.readlines()]
+                lines = "".join([l for l in lines if not l.startswith("#")])
+                args = lines.split()
+                defArgs += args
+
+    argv = defArgs + argv
     args, unknown = parser.parse_known_args(argv)
     args = vars(args)
 
@@ -66,9 +72,12 @@ def main():
     logger.info(f'Version: {__version__}')
     logger.info('-' * 80)
 
-    if cfg:
-        logger.notice(f'The following default arguments were read from {configPath}:')
-        logger.notice(cfg)
+    if defArgs:
+        logger.notice(f'The following default arguments were read from {argFiles}:')
+        logger.notice(defArgs)
+        logger.info('-' * 80)
+    elif argFiles:
+        logger.notice(f'No uncommented arguments were found in {argFiles}')
         logger.info('-' * 80)
 
     if unknown:
@@ -292,6 +301,11 @@ def printReport(reportStream, reportStreamColored, logFilePath):
 def buildArgParser():
     parser = argparse.ArgumentParser(
         description='Generate trimmed webms from input video.')
+    parser.add_argument('--arg-files', nargs='*',
+                        dest='argFiles', default=['default_args.txt'],
+                        help=('List of paths to files to read arguments from.'
+                              'The files are processed in order with later files taking precedence.'
+                              ))
     parser.add_argument('--input-video', '-i', dest='inputVideo', default='',
                         help='Input video path.')
     parser.add_argument('--download-video', '-dv', action='store_true', dest='downloadVideo',

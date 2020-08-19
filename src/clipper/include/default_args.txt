@@ -1,0 +1,12 @@
+# By default, this args file will be read by yt_clipper to set default arguments.
+# To see all arguments use the `yt_clipper_options` helper script or the `-h` argument.
+# Lines that begin with a `#` in this file are comments and are ignored.
+# To use other arg files use the `--arg-files` argument outside of an arg file.
+
+
+# The following commented lines provide an example of how to use this file.
+# The lines can be uncommented (by removing the `#`) to test their effects.
+
+# --audio
+# --two-pass
+# -di -dn 2
