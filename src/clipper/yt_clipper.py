@@ -67,8 +67,8 @@ def main():
     logger.info('-' * 80)
 
     if cfg:
-        logger.report(f'The following default arguments were read from {configPath}:')
-        logger.report(cfg)
+        logger.notice(f'The following default arguments were read from {configPath}:')
+        logger.notice(cfg)
         logger.info('-' * 80)
 
     if unknown:
