@@ -125,15 +125,18 @@ def enableMinterpEnhancements(settings):
 
 def setUpLogger(reportStream):
     global logger
+    verboselogs.add_log_level(32, "NOTICE")
     verboselogs.add_log_level(33, "HEADER")
     verboselogs.add_log_level(34, "REPORT")
     logger = verboselogs.VerboseLogger(__name__)
+    logger.notice = lambda msg: logger.log(32, msg)
     logger.header = lambda msg: logger.log(33, msg)
     logger.report = lambda msg: logger.log(34, msg)
 
     formatString = r'[%(asctime)s] (ln %(lineno)d) %(levelname)s: %(message)s'
     coloredlogs.DEFAULT_LOG_FORMAT = formatString
     coloredlogs.DEFAULT_FIELD_STYLES['levelname'] = {'color': 'white'}
+    coloredlogs.DEFAULT_LEVEL_STYLES['NOTICE'] = {'color': 'magenta'}
     coloredlogs.DEFAULT_LEVEL_STYLES['HEADER'] = {'color': 'blue'}
     coloredlogs.DEFAULT_LEVEL_STYLES['REPORT'] = {'color': 'cyan'}
 
@@ -142,7 +145,7 @@ def setUpLogger(reportStream):
     coloredFormatter = coloredlogs.ColoredFormatter(datefmt="%y-%m-%d %H:%M:%S")
 
     reportHandler = logging.StreamHandler(reportStream)
-    reportHandler.setLevel(33)
+    reportHandler.setLevel(32)
     reportHandler.setFormatter(coloredFormatter)
     logger.addHandler(reportHandler)
 
@@ -601,8 +604,8 @@ def getVideoInfo(settings, videoInfo):
     logger.info(f'Video Title: {settings["videoTitle"]}')
     logger.info(f'Video Width: {settings["width"]}')
     logger.info(f'Video Height: {settings["height"]}')
-    logger.info(f'Video fps: {settings["r_frame_rate"]}')
-    logger.notice(f'Detected Video Bitrate: {settings["bit_rate"]}kbps')
+    logger.report(f'Video fps: {settings["r_frame_rate"]}')
+    logger.report(f'Detected Video Bitrate: {settings["bit_rate"]}kbps')
 
     settings = autoSetCropMultiples(settings)
 
@@ -647,10 +650,10 @@ def getGlobalSettings(settings):
         subs_ext = Path(settings["subsFilePath"]).suffix
         if subs_ext not in ['.vtt', '.sbv', '.srt']:
             logger.error(f'Uknown subtitle file extension {subs_ext}.')
-            logger.notice('Only .vtt, .sbv, and .srt subtitles are supported for now.')
+            logger.warning('Only .vtt, .sbv, and .srt subtitles are supported for now.')
             skipSubs = input('Would you like to continue without subtitles? (y/n): ')
             if skipSubs == 'yes' or skipSubs == 'y':
-                logger.notice('Continuing without subtitles.')
+                logger.warning('Continuing without subtitles.')
                 settings["subsFilePath"] = ''
             else:
                 logger.error('Exiting...')
@@ -1197,7 +1200,7 @@ def getSubsFilter(mp, mps, markerPairIndex):
         vtt = webvtt.from_srt(mps["subsFilePath"])
     else:
         logger.error(f'Uknown subtitle file extension {subs_ext}.')
-        logger.notice('Only .vtt, .sbv, and .srt are supported for now.')
+        logger.error('Only .vtt, .sbv, and .srt are supported for now.')
         sys.exit(1)
 
     subsStart = mp["start"]
@@ -1594,10 +1597,10 @@ def makeMergedClips(settings):
                 if "returncode" in markerPair and markerPair["returncode"] != 0:
                     logger.warning(
                         f'Required marker pair {i} failed to generate with error code {markerPair["returncode"]}')
-                    logger.notice(f'This may be a false positive.')
+                    logger.warning(f'This may be a false positive.')
                     ans = input(r'Would you like to continue merging anyway? (y/n): ')
                     if not (ans == 'yes' or ans == 'y'):
-                        logger.notice(f'Continuing with merge despite possible bad input.')
+                        logger.warning(f'Continuing with merge despite possible bad input.')
                         raise BadMergeInput
                 if 'fileName' in markerPair and 'filePath' in markerPair:
                     if Path(markerPair["filePath"]).is_file():
@@ -1660,7 +1663,7 @@ def makeMergedClips(settings):
                 logger.error(
                     f'ffmpeg error code: {ffmpegProcess.returncode}\n')
         else:
-            logger.report(f'Skipped existing file: "{mergedFileName}"\n')
+            logger.notice(f'Skipped existing file: "{mergedFileName}"\n')
 
         try:
             os.remove(inputsTxtPath)
@@ -1673,7 +1676,7 @@ def checkWebmExists(fileName, filePath):
         logger.info(f'Generating "{fileName}"...')
         return False
     else:
-        logger.report(f'Skipped existing file: "{fileName}"')
+        logger.notice(f'Skipped existing file: "{fileName}"')
         return True
 
 
