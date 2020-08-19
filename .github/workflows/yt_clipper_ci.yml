@@ -116,6 +116,7 @@ jobs:
         run: |
           mv ./bindeps/ffmpeg/bin/* ./artifact/py/${{env.FULL_NAME}}/bin/
           mv ./bindeps/ffmpeg/*.txt ./artifact/py/${{env.FULL_NAME}}/bin/
+          cp ./src/clipper/include/* ./artifact/py/${{env.FULL_NAME}}/
           cp ./src/clipper/${{matrix.shortos}}_helpers/* ./artifact/py/${{env.FULL_NAME}}/
           cp ./dist/py/yt_clipper* ./artifact/py/${{env.FULL_NAME}}/
 
@@ -155,65 +156,65 @@ jobs:
     runs-on: macos-latest
 
     steps:
-    - name: Set env
-      run: |
-        echo "::set-env name=DATE::$(date +'%Y.%m.%d')"
-        echo "::set-env name=FULL_NAME::${{env.NAME}}_${{env.VERSION}}"
-        echo "::set-env name=FULL_NAME_WIN::${{env.NAME}}_win_${{env.VERSION}}"
-        echo "::set-env name=FULL_NAME_MAC::${{env.NAME}}_macos_${{env.VERSION}}"
+      - name: Set env
+        run: |
+          echo "::set-env name=DATE::$(date +'%Y.%m.%d')"
+          echo "::set-env name=FULL_NAME::${{env.NAME}}_${{env.VERSION}}"
+          echo "::set-env name=FULL_NAME_WIN::${{env.NAME}}_win_${{env.VERSION}}"
+          echo "::set-env name=FULL_NAME_MAC::${{env.NAME}}_macos_${{env.VERSION}}"
 
-    - uses: actions/download-artifact@v2
-      with:
-        name:  ${{env.FULL_NAME_WIN}}.zip
+      - uses: actions/download-artifact@v2
+        with:
+          name: ${{env.FULL_NAME_WIN}}.zip
 
-    - uses: actions/download-artifact@v2
-      with:
-        name:  ${{env.FULL_NAME_MAC}}.zip
+      - uses: actions/download-artifact@v2
+        with:
+          name: ${{env.FULL_NAME_MAC}}.zip
 
-    - uses: actions/download-artifact@v2
-      with:
-        name:  ${{env.FULL_NAME}}.js
+      - uses: actions/download-artifact@v2
+        with:
+          name: ${{env.FULL_NAME}}.js
 
-    - name: Create release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-      with:
-        tag_name: v${{env.VERSION}}
-        release_name: ${{env.NAME}} v${{env.VERSION}} [${{env.DATE}}] 
-        draft: true
-        prerelease: false
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          tag_name: v${{env.VERSION}}
+          release_name: ${{env.NAME}} v${{env.VERSION}} [${{env.DATE}}]
+          draft: true
+          prerelease: false
 
-    - name: Upload release asset (win)
-      id: upload-release-asset-win
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-      with:
-        upload_url: ${{steps.create_release.outputs.upload_url}}
-        asset_path:  ${{env.FULL_NAME_WIN}}.zip
-        asset_name: ${{env.FULL_NAME_WIN}}.zip
-        asset_content_type: application/zip
+      - name: Upload release asset (win)
+        id: upload-release-asset-win
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          upload_url: ${{steps.create_release.outputs.upload_url}}
+          asset_path: ${{env.FULL_NAME_WIN}}.zip
+          asset_name: ${{env.FULL_NAME_WIN}}.zip
+          asset_content_type: application/zip
 
-    - name: Upload release asset (mac)
-      id: upload-release-asset-mac 
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-      with:
-        upload_url: ${{steps.create_release.outputs.upload_url}}
-        asset_path: ${{env.FULL_NAME_MAC}}.zip
-        asset_name: ${{env.FULL_NAME_MAC}}.zip
-        asset_content_type: application/zip
+      - name: Upload release asset (mac)
+        id: upload-release-asset-mac
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          upload_url: ${{steps.create_release.outputs.upload_url}}
+          asset_path: ${{env.FULL_NAME_MAC}}.zip
+          asset_name: ${{env.FULL_NAME_MAC}}.zip
+          asset_content_type: application/zip
 
-    - name: Upload release asset (markup)
-      id: upload-release-asset-markup
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-      with:
-        upload_url: ${{steps.create_release.outputs.upload_url}}
-        asset_path: ${{env.FULL_NAME}}.js
-        asset_name: ${{env.FULL_NAME}}.js
-        asset_content_type: text/javascript
+      - name: Upload release asset (markup)
+        id: upload-release-asset-markup
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          upload_url: ${{steps.create_release.outputs.upload_url}}
+          asset_path: ${{env.FULL_NAME}}.js
+          asset_name: ${{env.FULL_NAME}}.js
+          asset_content_type: text/javascript
