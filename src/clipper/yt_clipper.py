@@ -29,16 +29,26 @@ ffprobePath = 'ffprobe'
 ffplayPath = 'ffplay'
 webmsPath = './webms'
 logger = None
+configPath = './default_config.txt'
 
 
 def main():
     global settings, webmsPath
-    args, unknown = buildArgParser()
-    if args.cropMultiple != 1:
-        args.cropMultipleX = args.cropMultiple
-        args.cropMultipleY = args.cropMultiple
+    parser = buildArgParser()
 
+    argv = sys.argv[1:]
+    cfg = []
+    if Path(configPath).is_file():
+        with open(configPath, 'r') as f:
+            cfg = f.read().split()
+            argv = cfg + argv
+
+    args, unknown = parser.parse_known_args(argv)
     args = vars(args)
+
+    if args["cropMultiple"] != 1:
+        args["cropMultipleX"] = args["cropMultiple"]
+        args["cropMultipleY"] = args["cropMultiple"]
     args = {k: v for k, v in args.items() if v is not None}
     args["videoStabilization"] = getVidstabPreset(
         args["videoStabilization"], args["videoStabilizationDynamicZoom"])
@@ -55,8 +65,15 @@ def main():
     logger.info(f'Version: {__version__}')
     logger.info('-' * 80)
 
+    if cfg:
+        logger.report(f'The following default arguments were read from {configPath}:')
+        logger.report(cfg)
+        logger.info('-' * 80)
+
     if unknown:
-        logger.warning(f'The following unknown arguments were provided and will be ignored:\n {unknown}')
+        logger.warning(f'The following unknown arguments were provided and will be ignored:')
+        logger.warning(unknown)
+        logger.info('-' * 80)
 
     settings = enableMinterpEnhancements(settings)
 
@@ -452,7 +469,7 @@ def buildArgParser():
                         help='Username passed to youtube-dl for authentication.')
     parser.add_argument('--ytdl-password', '-yp', dest='password', default='',
                         help='Password passed to youtube-dl for authentication.')
-    return parser.parse_known_args()
+    return parser
 
 
 def getMarkerPairQueue(nMarkerPairs, onlyArg, exceptArg):
