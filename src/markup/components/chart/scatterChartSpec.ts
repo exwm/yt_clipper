@@ -249,6 +249,8 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
               setCurrentCropPoint(this, currentCropPointIndex - 1);
             }
             updateInput(dataRef[currentCropPointIndex].crop);
+          } else {
+            updateInput();
           }
           this.update();
         }
