@@ -116,8 +116,14 @@ export class Crop {
       if (cropString != null) this.cropString = cropString;
     }
   }
-  static getCropComponents(cropString: string) {
-    const cropArr = cropString.split(':').map((cropComponent) => parseInt(cropComponent, 10));
+  static getCropComponents(cropString: string, cropRes?: string) {
+    let maxW, maxH: number;
+    if (cropRes != null) [maxW, maxH] = Crop.getMaxDimensions(cropRes);
+    const cropArr = cropString.split(':').map((cropComponent) => {
+      if (cropComponent === 'iw') return maxW;
+      if (cropComponent === 'ih') return maxH;
+      return parseInt(cropComponent, 10);
+    });
     return cropArr;
   }
   static getMaxDimensions(cropRes: string) {
@@ -468,4 +474,42 @@ export function loadCropMapInitCrops(cropMap: CropPoint[]) {
   cropMap.forEach((cropPoint) => {
     cropPoint.crop = cropPoint.initCrop ?? cropPoint.crop;
   });
+}
+
+export function getCropSize(crop: string, cropRes: string) {
+  const [, , w, h] = Crop.getCropComponents(crop, cropRes);
+  const size = w * h;
+  const aspectRatio = w / h;
+  return { w, h, size, aspectRatio };
+}
+export function getMinMaxAvgCropPoint(cropMap: CropPoint[], cropRes: string) {
+  const { aspectRatio } = getCropSize(cropMap[0].crop, cropRes);
+
+  let [minSize, minSizeW, minSizeH] = [Infinity, Infinity, Infinity];
+  let [maxSize, maxSizeW, maxSizeH] = [-Infinity, -Infinity, -Infinity];
+  let [avgSize, avgSizeW, avgSizeH] = [0, 0, 0];
+  cropMap.forEach((cropPoint, i) => {
+    const { w, h, size } = getCropSize(cropPoint.crop, cropRes);
+    if (size < minSize) {
+      [minSizeW, minSizeH, minSize] = [w, h, size];
+    }
+    if (size > maxSize) {
+      [maxSizeW, maxSizeH, maxSize] = [w, h, size];
+    }
+    avgSizeW += (w - avgSizeW) / (i + 1);
+  });
+
+  avgSizeH = Math.floor(avgSizeW / aspectRatio);
+  avgSizeW = Math.floor(avgSizeW);
+  avgSize = avgSizeW * avgSizeH;
+
+  return { minSizeW, minSizeH, minSize, maxSizeW, maxSizeH, maxSize, avgSizeW, avgSizeH, avgSize };
+}
+
+export function isVariableSize(cropMap: CropPoint[], cropRes: string) {
+  const { size } = getCropSize(cropMap[0].crop, cropRes);
+  const isVariableSize = cropMap.some((cropPoint) => {
+    return size !== getCropSize(cropPoint.crop, cropRes).size;
+  });
+  return isVariableSize;
 }
