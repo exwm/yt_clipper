@@ -232,9 +232,6 @@ export function triggerCropChartLoop() {
             } else if (!e.ctrlKey && !e.shiftKey && e.altKey) {
               blockEvent(e);
               toggleChart(cropChartInput);
-            } else if (e.ctrlKey && !e.shiftKey && !e.altKey) {
-              blockEvent(e);
-              toggleCropChartPanOnly();
             }
             break;
           case 'KeyZ':
@@ -4560,28 +4557,6 @@ export function triggerCropChartLoop() {
       } else {
         isCropChartLoopingOn = false;
         flashMessage('Dynamic crop looping  disabled', 'red');
-      }
-    }
-
-    function toggleCropChartPanOnly() {
-      if (!isCropChartPanOnly) {
-        isCropChartPanOnly = true;
-        if (cropChartInput.chart) {
-          cropChartInput.chart.options.plugins.datalabels.formatter = cropPointXYFormatter;
-        } else {
-          cropChartInput.chartSpec = getCropChartConfig(isCropChartPanOnly);
-        }
-        updateCropChart();
-        flashMessage('Crop chart mode set to pan only.', 'olive');
-      } else {
-        isCropChartPanOnly = false;
-        if (cropChartInput.chart) {
-          cropChartInput.chart.options.plugins.datalabels.formatter = cropPointFormatter;
-        } else {
-          cropChartInput.chartSpec = getCropChartConfig(isCropChartPanOnly);
-        }
-        updateCropChart();
-        flashMessage('Crop chart mode set to zoompan.', 'olive');
       }
     }
 
