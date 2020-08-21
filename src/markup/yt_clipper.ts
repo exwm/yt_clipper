@@ -88,7 +88,14 @@ import {
   seekBySafe,
   seekToSafe,
 } from './util';
-import { Crop, deleteCropMapInitCrops, loadCropMapInitCrops, saveCropMapInitCrops } from './crop';
+import {
+  Crop,
+  deleteCropMapInitCrops,
+  getMinMaxAvgCropPoint,
+  isVariableSize,
+  loadCropMapInitCrops,
+  saveCropMapInitCrops,
+} from './crop';
 import { autoHideUnselectedMarkerPairsCSS } from './css';
 import { flattenVRVideo, openSubsEditor } from './misc';
 import {
@@ -2408,6 +2415,13 @@ export function triggerCropChartLoop() {
             <option ${denoiseDesc === 'Very Strong' ? 'selected' : ''}>Very Strong</option>
           </select>
         </div>
+        <div class="settings-editor-input-div" title="${Tooltips.enableZoomPanTooltip}">
+          <span>Zoom Pan</span>
+            <select id="enable-zoom-pan-input">
+              <option ${overrides.enableZoomPan ? 'selected' : ''}>Enabled</option>
+              <option ${!overrides.enableZoomPan ? 'selected' : ''}>Disabled</option>
+            </select>
+        </div>
         <div class="settings-editor-input-div" title="${Tooltips.speedMapTooltip}">
           <span>Speed Map</span>
             <select id="enable-speed-maps-input">
@@ -2518,6 +2532,7 @@ export function triggerCropChartLoop() {
         ['target-max-bitrate-input', 'targetMaxBitrate', 'number'],
         ['two-pass-input', 'twoPass', 'ternary'],
         ['audio-input', 'audio', 'ternary'],
+        ['enable-zoom-pan-input', 'enableZoomPan', 'bool'],
         ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
         ['minterp-mode-input', 'minterpMode', 'inheritableString'],
         ['minterp-fps-input', 'minterpFPS', 'number'],
@@ -2583,8 +2598,7 @@ export function triggerCropChartLoop() {
           markerPair = markerPairs[prevSelectedMarkerPairIndex];
         }
         inputs.forEach((input) => {
-          const id = input[0];
-          const targetProperty = input[1];
+          const [id, targetProperty, valueType] = input;
           const inputElem = document.getElementById(id);
           const storedTargetValue = target[targetProperty];
 
@@ -2595,6 +2609,7 @@ export function triggerCropChartLoop() {
           const shouldRemoveHighlight =
             storedTargetValue == null ||
             storedTargetValue === '' ||
+            (valueType === 'bool' && storedTargetValue === false) ||
             (id === 'title-suffix-input' && storedTargetValue == `[${settings.videoID}]`) ||
             (markerPair &&
               id === 'speed-input' &&
@@ -2780,8 +2795,12 @@ export function triggerCropChartLoop() {
             newValue = undefined;
           } else if (valueType === 'number') {
             newValue = parseFloat(newValue);
-          } else if (valueType === 'boolean') {
-            newValue = e.target.checked;
+          } else if (valueType === 'bool') {
+            if (newValue === 'Enabled') {
+              newValue = true;
+            } else if (newValue === 'Disabled') {
+              newValue = false;
+            }
           } else if (valueType === 'ternary' || valueType === 'inheritableString') {
             if (newValue === 'Default' || newValue === 'Inherit') {
               delete target[targetProperty];
@@ -2801,7 +2820,8 @@ export function triggerCropChartLoop() {
           }
         }
 
-        if (targetProperty !== 'crop') target[targetProperty] = newValue;
+        if (targetProperty !== 'crop' && targetProperty !== 'enableZoomPan')
+          target[targetProperty] = newValue;
 
         if (targetProperty === 'newMarkerCrop') {
           const [nx, ny, nw, nh] = getCropComponents(newValue);
@@ -2828,20 +2848,8 @@ export function triggerCropChartLoop() {
         }
 
         if (targetProperty === 'crop') {
-          const cropMap = target.cropMap;
-          const prevCrop = cropMap[currentCropPointIndex].crop;
-          saveCropMapInitCrops(cropMap);
-          const [x, y, w, h] = getCropComponents(prevCrop);
-          const [nx, ny, nw, nh] = getCropComponents(newValue);
-          const cropString = getCropString(nx, ny, nw, nh);
-          const cropResWidth = settings.cropResWidth;
-          const cropResHeight = settings.cropResHeight;
-          const crop = new Crop(x, y, w, h, cropResWidth, cropResHeight);
-          const isDynamicCrop = !isStaticCrop(cropMap);
-          const shouldMaintainCropAspectRatio = !isCropChartPanOnly && isDynamicCrop;
-          crop.setCropStringSafe(cropString, shouldMaintainCropAspectRatio);
-          updateCropString(crop.cropString, true);
-          deleteCropMapInitCrops(cropMap);
+          const markerPair = target as MarkerPair;
+          setCropString(markerPair, newValue);
         }
 
         if (targetProperty === 'speed') {
@@ -2853,9 +2861,70 @@ export function triggerCropChartLoop() {
           speedChartInput.chart && speedChartInput.chart.update();
           updateMarkerPairDuration(target);
         }
+
+        if (targetProperty === 'enableZoomPan') {
+          // video.pause();
+          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+          const cropMap = markerPair.cropMap;
+          const cropString = cropMap[currentCropPointIndex].crop;
+          const enableZoomPan = newValue;
+          const formatter = enableZoomPan ? cropPointXYFormatter : cropPointFormatter;
+          const cropRes = settings.cropRes;
+          if (!enableZoomPan && isVariableSize(cropMap, cropRes)) {
+            const crop = Crop.fromCropString(cropString, settings.cropRes);
+            const desiredSize = prompt(Tooltips.zoomPanToPanOnlyToolTip, 's');
+            let w: number;
+            let h: number;
+            if (!['s', 'l', 'a'].includes(desiredSize)) {
+              flashMessage(
+                "Zoompan not disabled. Please enter 's' for smallest, 'l' for largest, or 'a' for average.",
+                'red'
+              );
+
+              target['enableZoomPan'] = true;
+              e.target.value = 'Enabled';
+              return;
+            } else {
+              if (desiredSize === 's')
+                ({ minSizeW: w, minSizeH: h } = getMinMaxAvgCropPoint(cropMap, cropRes));
+              if (desiredSize === 'l')
+                ({ maxSizeW: w, maxSizeH: h } = getMinMaxAvgCropPoint(cropMap, cropRes));
+              if (desiredSize === 'a')
+                ({ avgSizeW: w, avgSizeH: h } = getMinMaxAvgCropPoint(cropMap, cropRes));
+            }
+
+            target['enableZoomPan'] = false;
+            crop.setCropStringSafe(getCropString(crop.x, crop.y, w, h));
+            setCropString(markerPair, crop.cropString, true);
+          } else {
+            target['enableZoomPan'] = enableZoomPan;
+          }
+          if (cropChartInput.chart) {
+            cropChartInput.chart.options.plugins.datalabels.formatter = formatter;
+          } else {
+            cropChartInput.chartSpec = getCropChartConfig(enableZoomPan);
+          }
+          updateCropChart();
+        }
       }
 
       if (highlightable) highlightModifiedSettings([[id, targetProperty, valueType]], target);
+    }
+
+    function setCropString(markerPair: MarkerPair, newCrop: string, forceCropConstraints = false) {
+      const cropMap = markerPair.cropMap;
+      const prevCrop = cropMap[currentCropPointIndex].crop;
+      const { isDynamicCrop, enableZoomPan } = prepareCropMapForCropping();
+      const [x, y, w, h] = getCropComponents(prevCrop);
+      const [nx, ny, nw, nh] = getCropComponents(newCrop);
+      const cropString = getCropString(nx, ny, nw, nh);
+      const cropResWidth = settings.cropResWidth;
+      const cropResHeight = settings.cropResHeight;
+      const crop = new Crop(x, y, w, h, cropResWidth, cropResHeight);
+      const shouldMaintainCropAspectRatio = enableZoomPan && isDynamicCrop;
+      crop.setCropStringSafe(cropString, shouldMaintainCropAspectRatio);
+      updateCropString(crop.cropString, true, forceCropConstraints);
+      deleteCropMapInitCrops(cropMap);
     }
 
     function multiplyAllCrops(cropMultipleX: number, cropMultipleY: number) {
@@ -2968,14 +3037,15 @@ export function triggerCropChartLoop() {
           if (!isValidCropTarget) return;
 
           if (ke.code === 'KeyA' && !wasGlobalSettingsEditorOpen) {
+            const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+            const cropMap = markerPair.cropMap;
+            const { enableZoomPan } = prepareCropMapForCropping();
             const [ix, iy, iw, ih] = initialCropArray;
             if (
               cropTarget === 0 ||
               cropTarget === 1 ||
-              (!isCropChartPanOnly && (cropTarget === 2 || cropTarget === 3))
+              (enableZoomPan && (cropTarget === 2 || cropTarget === 3))
             ) {
-              const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-              const cropMap = markerPair.cropMap;
               cropMap.forEach((cropPoint, idx) => {
                 if (
                   (!ke.shiftKey && idx <= currentCropPointIndex) ||
@@ -3006,12 +3076,12 @@ export function triggerCropChartLoop() {
                 `Updated Y values crop points ${targetPointsMsg} Y values to ${iy}`,
                 'green'
               );
-            if (!isCropChartPanOnly && (cropTarget === 2 || cropTarget === 3))
+            if (enableZoomPan && (cropTarget === 2 || cropTarget === 3))
               flashMessage(
                 `Updated size of all crop points ${targetPointsMsg} to ${ih}x${iw}`,
                 'green'
               );
-            if (isCropChartPanOnly && (cropTarget === 2 || cropTarget === 3)) {
+            if (!enableZoomPan && (cropTarget === 2 || cropTarget === 3)) {
               flashMessage(`All crop points have the same size in pan-only mode`, 'olive');
             }
           } else if (ke.code === 'ArrowUp' || ke.code === 'ArrowDown') {
@@ -3027,15 +3097,8 @@ export function triggerCropChartLoop() {
               changeAmount = 100;
             }
 
-            let isDynamicCrop = false;
-            if (!wasGlobalSettingsEditorOpen) {
-              const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-              const cropMap = markerPair.cropMap;
-              isDynamicCrop = !isStaticCrop(cropMap);
-              saveCropMapInitCrops(cropMap);
-            }
-
-            const shouldMaintainCropAspectRatio = !isCropChartPanOnly && isDynamicCrop;
+            const { isDynamicCrop, enableZoomPan } = prepareCropMapForCropping();
+            const shouldMaintainCropAspectRatio = enableZoomPan && isDynamicCrop;
             const cropResWidth = settings.cropResWidth;
             const cropResHeight = settings.cropResHeight;
             const crop = new Crop(ix, iy, iw, ih, cropResWidth, cropResHeight);
@@ -3544,15 +3607,7 @@ export function triggerCropChartLoop() {
           const [ix, iy, iw, ih] = getCropComponents(cropString);
           const cropResWidth = settings.cropResWidth;
           const cropResHeight = settings.cropResHeight;
-          let isDynamicCrop = false;
-          if (!wasGlobalSettingsEditorOpen) {
-            const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-            const cropMap = markerPair.cropMap;
-            isDynamicCrop = !isStaticCrop(cropMap);
-            saveCropMapInitCrops(cropMap);
-          }
-
-          const cropAspectRatio = iw / ih;
+          const { isDynamicCrop, enableZoomPan } = prepareCropMapForCropping();
           const videoRect = player.getVideoContentRect();
           const playerRect = player.getBoundingClientRect();
           const clickPosX = e.pageX - videoRect.left - playerRect.left;
@@ -3653,8 +3708,8 @@ export function triggerCropChartLoop() {
             const changeY = dragPosY - clickPosY;
             let deltaY = (changeY / videoRect.height) * settings.cropResHeight;
             const shouldMaintainCropAspectRatio =
-              ((isCropChartPanOnly || !isDynamicCrop) && e.altKey) ||
-              (!isCropChartPanOnly && isDynamicCrop && !e.altKey);
+              ((!enableZoomPan || !isDynamicCrop) && e.altKey) ||
+              (enableZoomPan && isDynamicCrop && !e.altKey);
             const shouldResizeCenterOut = e.shiftKey;
             const crop = new Crop(ix, iy, iw, ih, cropResWidth, cropResHeight);
             resizeCrop(
@@ -3811,11 +3866,7 @@ export function triggerCropChartLoop() {
         flashMessage('Please finish dragging or resizing before drawing crop', 'olive');
       } else if (isSettingsEditorOpen && isCropOverlayVisible) {
         isDrawingCrop = true;
-        if (!wasGlobalSettingsEditorOpen) {
-          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-          const cropMap = markerPair.cropMap;
-          saveCropMapInitCrops(cropMap);
-        }
+        prepareCropMapForCropping();
 
         prevNewMarkerCrop = settings.newMarkerCrop;
 
@@ -3855,14 +3906,10 @@ export function triggerCropChartLoop() {
         const ix = (clickPosX / videoRect.width) * cropResWidth;
         const iy = (clickPosY / videoRect.height) * cropResHeight;
 
-        let isDynamicCrop = false;
-        let initCrop = prevNewMarkerCrop;
-        if (!wasGlobalSettingsEditorOpen) {
-          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-          const cropMap = markerPair.cropMap;
-          isDynamicCrop = !isStaticCrop(cropMap);
-          initCrop = cropMap[currentCropPointIndex].initCrop;
-        }
+        const cropMapSettings = prepareCropMapForCropping();
+        const { isDynamicCrop, enableZoomPan } = cropMapSettings;
+        const initCrop = cropMapSettings.initCrop ?? prevNewMarkerCrop;
+
         const [px, py, pw, ph] = getCropComponents(initCrop);
 
         const par = pw <= 0 || ph <= 0 ? 1 : pw / ph;
@@ -3880,8 +3927,8 @@ export function triggerCropChartLoop() {
           let deltaY = (changeY / videoRect.height) * cropResHeight;
 
           const shouldMaintainCropAspectRatio =
-            ((isCropChartPanOnly || !isDynamicCrop) && e.altKey) ||
-            (!isCropChartPanOnly && isDynamicCrop && !e.altKey);
+            ((!enableZoomPan || !isDynamicCrop) && e.altKey) ||
+            (enableZoomPan && isDynamicCrop && !e.altKey);
           const shouldResizeCenterOut = e.shiftKey;
 
           const crop = new Crop(ix, iy, Crop.minW, Crop.minH, cropResWidth, cropResHeight);
@@ -4004,14 +4051,9 @@ export function triggerCropChartLoop() {
             changeAmount = 100;
           }
 
-          let isDynamicCrop = false;
-          if (!wasGlobalSettingsEditorOpen) {
-            const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-            const cropMap = markerPair.cropMap;
-            isDynamicCrop = !isStaticCrop(cropMap);
-            saveCropMapInitCrops(cropMap);
-          }
-          const shouldMaintainCropAspectRatio = !isCropChartPanOnly && isDynamicCrop;
+          const { isDynamicCrop, enableZoomPan } = prepareCropMapForCropping();
+
+          const shouldMaintainCropAspectRatio = enableZoomPan && isDynamicCrop;
           const cropResWidth = settings.cropResWidth;
           const cropResHeight = settings.cropResHeight;
           const crop = new Crop(ix, iy, iw, ih, cropResWidth, cropResHeight);
@@ -4065,6 +4107,21 @@ export function triggerCropChartLoop() {
       }
     }
 
+    function prepareCropMapForCropping(saveInitCrops = true) {
+      let isDynamicCrop = false;
+      let enableZoomPan = false;
+      let initCrop = null;
+      if (!wasGlobalSettingsEditorOpen) {
+        const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+        const cropMap = markerPair.cropMap;
+        isDynamicCrop = !isStaticCrop(cropMap);
+        enableZoomPan = markerPair.overrides.enableZoomPan;
+        if (saveInitCrops) saveCropMapInitCrops(cropMap);
+        initCrop = cropMap[currentCropPointIndex].initCrop;
+      }
+      return { isDynamicCrop, enableZoomPan, initCrop };
+    }
+
     function getCropComponents(cropString?: string) {
       if (!cropString && isSettingsEditorOpen) {
         if (!wasGlobalSettingsEditorOpen && prevSelectedMarkerPairIndex != null) {
@@ -4097,18 +4154,21 @@ export function triggerCropChartLoop() {
       return cropArray;
     }
 
-    function updateCropString(cropString: string, shouldUpdateCropChart = false) {
+    function updateCropString(
+      cropString: string,
+      shouldUpdateCropChart = false,
+      forceCropConstraints = false
+    ) {
       if (!isSettingsEditorOpen) throw new Error('No editor was open when trying to update crop.');
 
       const [nx, ny, nw, nh] = getCropComponents(cropString);
       cropString = getCropString(nx, ny, nw, nh);
 
-      let isDynamicCrop = false;
+      const { isDynamicCrop, enableZoomPan } = prepareCropMapForCropping(false);
       if (!wasGlobalSettingsEditorOpen) {
         const markerPair = markerPairs[prevSelectedMarkerPairIndex];
         const cropMap = markerPair.cropMap;
         const cropPoint = cropMap[currentCropPointIndex];
-        isDynamicCrop = !isStaticCrop(cropMap);
         const initCrop = cropPoint.initCrop ?? cropPoint.crop;
 
         cropPoint.crop = cropString;
@@ -4123,9 +4183,9 @@ export function triggerCropChartLoop() {
           const nar = nw / nh;
           const isReshape = Math.abs(nar - iar) > 1e-4;
 
-          if (isCropChartPanOnly && isResize) {
+          if ((!enableZoomPan && isResize) || forceCropConstraints) {
             setCropComponentForAllPoints({ w: nw, h: nh }, cropMap);
-          } else if (!isCropChartPanOnly && isReshape) {
+          } else if ((enableZoomPan && isReshape) || forceCropConstraints) {
             const aspectRatio = nw / nh;
             setAspectRatioForAllPoints(aspectRatio, cropMap);
           }
@@ -4233,7 +4293,6 @@ export function triggerCropChartLoop() {
       dataMapKey: 'speedMap',
     };
 
-    let isCropChartPanOnly = true;
     let cropChartInput: ChartInput = {
       chart: null,
       type: 'crop',
@@ -4244,7 +4303,7 @@ export function triggerCropChartLoop() {
       chartContainerStyle: 'display:flex',
       chartCanvasHTML: `<canvas id="cropChartCanvas" width="1600px" height="87px"></canvas>`,
       chartCanvasId: 'cropChartCanvas',
-      chartSpec: getCropChartConfig(isCropChartPanOnly),
+      chartSpec: getCropChartConfig(false),
       minBound: 0,
       maxBound: 0,
       chartLoopKey: 'cropChartLoop',

@@ -76,6 +76,7 @@ interface MarkerPairOverrides {
   videoStabilization?: VideoStabilization;
   videoStabilizationDynamicZoom?: boolean;
   enableSpeedMaps?: boolean;
+  enableZoomPan?: boolean;
   minterpMode?: string | boolean;
   minterpFPS?: number;
   loop?: Loop;
