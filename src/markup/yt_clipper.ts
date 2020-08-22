@@ -4111,7 +4111,8 @@ export function triggerCropChartLoop() {
       if (!wasGlobalSettingsEditorOpen) {
         const markerPair = markerPairs[prevSelectedMarkerPairIndex];
         const cropMap = markerPair.cropMap;
-        isDynamicCrop = !isStaticCrop(cropMap);
+        isDynamicCrop =
+          !isStaticCrop(cropMap) || (cropMap.length === 2 && currentCropPointIndex === 1);
         enableZoomPan = markerPair.overrides.enableZoomPan;
         if (saveInitCrops) saveCropMapInitCrops(cropMap);
         initCrop = cropMap[currentCropPointIndex].initCrop;
@@ -4161,17 +4162,23 @@ export function triggerCropChartLoop() {
       const [nx, ny, nw, nh] = getCropComponents(cropString);
       cropString = getCropString(nx, ny, nw, nh);
 
-      const { isDynamicCrop, enableZoomPan } = prepareCropMapForCropping(false);
+      let wasDynamicCrop = false;
+      let enableZoomPan = false;
       if (!wasGlobalSettingsEditorOpen) {
         const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+        enableZoomPan = markerPair.overrides.enableZoomPan;
         const cropMap = markerPair.cropMap;
+        wasDynamicCrop =
+          !isStaticCrop(cropMap, true) || (cropMap.length === 2 && currentCropPointIndex === 1);
+
         const cropPoint = cropMap[currentCropPointIndex];
-        const initCrop = cropPoint.initCrop ?? cropPoint.crop;
+        const initCrop = cropPoint.initCrop;
+        if (initCrop == null) throw new Error('Init crop undefined.');
 
         cropPoint.crop = cropString;
         if (currentCropPointIndex === 0) markerPair.crop = cropString;
 
-        if (isDynamicCrop) {
+        if (wasDynamicCrop) {
           const [ix, iy, iw, ih] = getCropComponents(initCrop);
           const dw = nw - iw;
           const dh = nh - ih;
@@ -4199,7 +4206,7 @@ export function triggerCropChartLoop() {
       }
 
       cropInput.value = cropString;
-      if (!isDynamicCrop) {
+      if (!wasDynamicCrop) {
         [cropRect, cropRectBorderBlack, cropRectBorderWhite].map((cropRect) =>
           setCropOverlayDimensions(cropRect, nx, ny, nw, nh)
         );
@@ -4251,8 +4258,12 @@ export function triggerCropChartLoop() {
       // });
     }
 
-    function isStaticCrop(cropMap: CropPoint[]) {
-      return cropMap.length === 2 && cropStringsEqual(cropMap[0].crop, cropMap[1].crop);
+    function isStaticCrop(cropMap: CropPoint[], useInitCrops = false) {
+      if (!useInitCrops) {
+        return cropMap.length === 2 && cropStringsEqual(cropMap[0].crop, cropMap[1].crop);
+      } else {
+        return cropMap.length === 2 && cropStringsEqual(cropMap[0].initCrop, cropMap[1].initCrop);
+      }
     }
 
     function cropStringsEqual(a: string, b: string): boolean {
