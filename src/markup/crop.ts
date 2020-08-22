@@ -8,10 +8,10 @@ export class Crop {
   private static _minH = 20;
   public static shouldConstrainMinDimensions = true;
   public static get minW() {
-    return Crop.shouldConstrainMinDimensions ? this._minW : 0;
+    return Crop.shouldConstrainMinDimensions ? Crop._minW : 0;
   }
   public static get minH() {
-    return Crop.shouldConstrainMinDimensions ? this._minH : 0;
+    return Crop.shouldConstrainMinDimensions ? Crop._minH : 0;
   }
   public static set minW(minW: number) {
     Crop.minW = minW;

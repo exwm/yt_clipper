@@ -3888,6 +3888,7 @@ export function triggerCropChartLoop() {
     }
 
     let dragCropPreviewHandler: EventListener;
+    let shouldFinishDrawMaintainAspectRatio = false;
     function beginDraw(e: PointerEvent) {
       if (e.button == 0 && !dragCropPreviewHandler) {
         e.preventDefault();
@@ -3906,6 +3907,10 @@ export function triggerCropChartLoop() {
         const cropMapSettings = prepareCropMapForCropping();
         const { isDynamicCrop, enableZoomPan } = cropMapSettings;
         const initCrop = cropMapSettings.initCrop ?? prevNewMarkerCrop;
+        const shouldMaintainCropAspectRatio =
+          ((!enableZoomPan || !isDynamicCrop) && e.altKey) ||
+          (enableZoomPan && isDynamicCrop && !e.altKey);
+        shouldFinishDrawMaintainAspectRatio = shouldMaintainCropAspectRatio;
 
         const [px, py, pw, ph] = getCropComponents(initCrop);
 
@@ -3926,6 +3931,8 @@ export function triggerCropChartLoop() {
           const shouldMaintainCropAspectRatio =
             ((!enableZoomPan || !isDynamicCrop) && e.altKey) ||
             (enableZoomPan && isDynamicCrop && !e.altKey);
+          shouldFinishDrawMaintainAspectRatio = shouldMaintainCropAspectRatio;
+
           const shouldResizeCenterOut = e.shiftKey;
 
           const crop = new Crop(ix, iy, Crop.minW, Crop.minH, cropResWidth, cropResHeight);
@@ -3994,26 +4001,57 @@ export function triggerCropChartLoop() {
       showPlayerControls();
       window.addEventListener('keydown', addCropOverlayHoverListener, true);
 
-      if (shouldRevertCrop) {
-        if (wasGlobalSettingsEditorOpen) {
+      if (wasGlobalSettingsEditorOpen) {
+        if (shouldRevertCrop) {
           settings.newMarkerCrop = prevNewMarkerCrop;
-          updateCropString(settings.newMarkerCrop);
         } else {
-          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-          const cropMap = markerPair.cropMap;
-          loadCropMapInitCrops(cropMap);
-          updateCropString(cropMap[currentCropPointIndex].crop, true);
+          const newCrop = transformCropWithPushBack(
+            prevNewMarkerCrop,
+            settings.newMarkerCrop,
+            shouldFinishDrawMaintainAspectRatio
+          );
+          settings.newMarkerCrop = newCrop;
         }
-        flashMessage('Drawing crop canceled', 'red');
-      } else {
-        updateCropChart();
-        flashMessage('Finished drawing crop', 'green');
+        updateCropString(settings.newMarkerCrop, true);
       }
 
       if (!wasGlobalSettingsEditorOpen) {
-        const cropMap = markerPairs[prevSelectedMarkerPairIndex].cropMap;
+        const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+        const cropMap = markerPair.cropMap;
+        if (shouldRevertCrop) {
+          loadCropMapInitCrops(cropMap);
+        } else {
+          const newCrop = transformCropWithPushBack(
+            cropMap[currentCropPointIndex].initCrop,
+            cropMap[currentCropPointIndex].crop,
+            shouldFinishDrawMaintainAspectRatio
+          );
+          cropMap[currentCropPointIndex].crop = newCrop;
+        }
+        updateCropString(cropMap[currentCropPointIndex].crop, true);
         deleteCropMapInitCrops(cropMap);
       }
+      shouldRevertCrop
+        ? flashMessage('Drawing crop canceled', 'red')
+        : flashMessage('Finished drawing crop', 'green');
+    }
+
+    function transformCropWithPushBack(
+      oldCrop: string,
+      newCrop: string,
+      shouldMaintainCropAspectRatio = false
+    ) {
+      const [, , iw, ih] = getCropComponents(oldCrop);
+      const [nx, ny, nw, nh] = getCropComponents(newCrop);
+      const dw = nw - iw;
+      const dh = nh - ih;
+      const crop = Crop.fromCropString(getCropString(0, 0, iw, ih), settings.cropRes);
+      shouldMaintainCropAspectRatio
+        ? crop.resizeSEAspectRatioLocked(dh, dw)
+        : crop.resizeSE(dh, dw);
+      crop.panX(nx);
+      crop.panY(ny);
+      return crop.cropString;
     }
 
     let arrowKeyCropAdjustmentEnabled = false;
