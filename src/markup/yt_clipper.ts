@@ -2864,19 +2864,35 @@ export function triggerCropChartLoop() {
           const formatter = enableZoomPan ? cropPointFormatter : cropPointXYFormatter;
           const cropRes = settings.cropRes;
           if (!enableZoomPan && isVariableSize(cropMap, cropRes)) {
+            const {
+              minSizeW,
+              minSizeH,
+              maxSizeW,
+              maxSizeH,
+              avgSizeW,
+              avgSizeH,
+            } = getMinMaxAvgCropPoint(cropMap, cropRes);
             const crop = Crop.fromCropString(cropString, settings.cropRes);
-            const desiredSize = prompt(Tooltips.zoomPanToPanOnlyToolTip, 's');
+            const tooltip = Tooltips.zoomPanToPanOnlyToolTip(
+              minSizeW,
+              minSizeH,
+              maxSizeW,
+              maxSizeH,
+              avgSizeW,
+              avgSizeH
+            );
+            const desiredSize = prompt(tooltip, 's');
             let w: number;
             let h: number;
             switch (desiredSize) {
               case 's':
-                ({ minSizeW: w, minSizeH: h } = getMinMaxAvgCropPoint(cropMap, cropRes));
+                [w, h] = [minSizeW, minSizeH];
                 break;
               case 'l':
-                ({ maxSizeW: w, maxSizeH: h } = getMinMaxAvgCropPoint(cropMap, cropRes));
+                [w, h] = [maxSizeW, maxSizeH];
                 break;
               case 'a':
-                ({ avgSizeW: w, avgSizeH: h } = getMinMaxAvgCropPoint(cropMap, cropRes));
+                [w, h] = [avgSizeW, avgSizeH];
                 break;
               case null:
                 flashMessage('Zoompan not disabled (canceled).', 'olive');

@@ -148,16 +148,17 @@ export namespace Tooltips {
     A speed map may be specified using the speed chart (toggled with D).
     `;
 
-  export const zoomPanToPanOnlyToolTip = stripIndent`
+  export function zoomPanToPanOnlyToolTip(sw, sh, lw, lh, aw, ah) {
+    return stripIndent`
     Switching from zoompan to pan-only mode requires removing zooms.
     That is, all crop points must be made to have the same size.
-    This size can be the smallest, largest or average size in the crop map.
+    This can be the (s)mallest, (l)argest or (a)verage size in the crop map.
     
-    Enter 's' for smallest, 'l' for largest, or 'a' for average.
+    Enter 's' for ${sw}x${sh}, 'l' for ${lw}x${lh}, or 'a' for ${aw}x${ah}.
     
-    *Note that choosing largest or average will shift crops as necessary.
+    *Note that choosing (l)argest or (a)verage will shift crops as necessary.
   `;
-
+  }
   export const loopTooltip = stripIndent`
     Enable one of the special loop behaviors.
     fwrev loops will play the video normally once, then immediately play it in reverse.
