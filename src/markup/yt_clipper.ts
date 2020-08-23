@@ -2864,6 +2864,7 @@ export function triggerCropChartLoop() {
           const formatter = enableZoomPan ? cropPointFormatter : cropPointXYFormatter;
           const cropRes = settings.cropRes;
           if (!enableZoomPan && isVariableSize(cropMap, cropRes)) {
+            video.pause();
             const {
               minSizeW,
               minSizeH,
