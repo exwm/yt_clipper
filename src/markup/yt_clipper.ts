@@ -916,12 +916,8 @@ export function triggerCropChartLoop() {
       let newSpeed = prevSpeed;
       if (shortestActiveMarkerPair) {
         let markerPairSpeed: number;
-        const enableSpeedMaps =
-          shortestActiveMarkerPair.overrides.enableSpeedMaps !== undefined
-            ? shortestActiveMarkerPair.overrides.enableSpeedMaps
-            : settings.enableSpeedMaps !== false;
 
-        if (enableSpeedMaps) {
+        if (isVariableSpeed(shortestActiveMarkerPair.speedMap)) {
           markerPairSpeed = getSpeedMapping(
             shortestActiveMarkerPair.speedMap,
             video.currentTime,
@@ -1904,16 +1900,6 @@ export function triggerCropChartLoop() {
           <option ${denoiseDesc === 'Very Strong' ? 'selected' : ''}>Very Strong</option>
         </select>
       </div>
-      <div class="settings-editor-input-div" title="${Tooltips.speedMapTooltip}">
-        <span>Speed Maps</span>
-          <select id="enable-speed-maps-input">
-            <option ${settings.enableSpeedMaps ? 'selected' : ''}>Enabled</option>
-            <option ${settings.enableSpeedMaps === false ? 'selected' : ''}>Disabled</option>
-            <option value="Default" ${
-              settings.enableSpeedMaps == null ? 'selected' : ''
-            }>Inherit (Enabled)</option>
-          </select>
-      </div>
       <div class="settings-editor-input-div">
         <div  title="${Tooltips.minterpModeTooltip}">
           <span>Minterpolation</span>
@@ -2010,7 +1996,6 @@ export function triggerCropChartLoop() {
         ['two-pass-input', 'twoPass', 'ternary'],
         ['audio-input', 'audio', 'ternary'],
         ['denoise-input', 'denoise', 'preset'],
-        ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
         ['minterp-mode-input', 'minterpMode', 'inheritableString'],
         ['minterp-fps-input', 'minterpFPS', 'number'],
         ['video-stabilization-input', 'videoStabilization', 'preset'],
@@ -2413,20 +2398,10 @@ export function triggerCropChartLoop() {
           </select>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.enableZoomPanTooltip}">
-          <span>Zoom Pan</span>
+          <span>ZoomPan</span>
             <select id="enable-zoom-pan-input">
               <option ${overrides.enableZoomPan ? 'selected' : ''}>Enabled</option>
               <option ${!overrides.enableZoomPan ? 'selected' : ''}>Disabled</option>
-            </select>
-        </div>
-        <div class="settings-editor-input-div" title="${Tooltips.speedMapTooltip}">
-          <span>Speed Map</span>
-            <select id="enable-speed-maps-input">
-              <option ${overrides.enableSpeedMaps ? 'selected' : ''}>Enabled</option>
-              <option ${overrides.enableSpeedMaps === false ? 'selected' : ''}>Disabled</option>
-              <option value="Default" ${
-                overrides.enableSpeedMaps == null ? 'selected' : ''
-              }>Inherit ${ternaryToString(settings.enableSpeedMaps, '(Enabled)')}</option>
             </select>
         </div>
         <div class="settings-editor-input-div">
@@ -2530,7 +2505,6 @@ export function triggerCropChartLoop() {
         ['two-pass-input', 'twoPass', 'ternary'],
         ['audio-input', 'audio', 'ternary'],
         ['enable-zoom-pan-input', 'enableZoomPan', 'bool'],
-        ['enable-speed-maps-input', 'enableSpeedMaps', 'ternary'],
         ['minterp-mode-input', 'minterpMode', 'inheritableString'],
         ['minterp-fps-input', 'minterpFPS', 'number'],
         ['denoise-input', 'denoise', 'preset'],
@@ -2856,7 +2830,6 @@ export function triggerCropChartLoop() {
         }
 
         if (targetProperty === 'enableZoomPan') {
-          // video.pause();
           const markerPair = markerPairs[prevSelectedMarkerPairIndex];
           const cropMap = markerPair.cropMap;
           const cropString = cropMap[currentCropPointIndex].crop;
