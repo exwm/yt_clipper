@@ -148,7 +148,14 @@ export namespace Tooltips {
     A speed map may be specified using the speed chart (toggled with D).
     `;
 
-  export function zoomPanToPanOnlyToolTip(sw, sh, lw, lh, aw, ah) {
+  export const enableZoomPanTooltip = stripIndent`
+    Enable or disable dynamic crop zoompan mode.
+    When disabled, dynamic crop is in pan-only mode.
+    In pan-only mode, crop points all have the same size.
+    In zoompan mode, crop points can have different sizes but have the same aspect ratio.
+    Switching from zoompan to pan-only mode requires removing zooms and a prompt may appear.
+  `;
+  export function zoomPanToPanOnlyTooltip(sw, sh, lw, lh, aw, ah) {
     return stripIndent`
     Switching from zoompan to pan-only mode requires removing zooms.
     That is, all crop points must be made to have the same size.
