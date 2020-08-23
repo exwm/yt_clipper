@@ -4207,17 +4207,9 @@ export function triggerCropChartLoop() {
         if (currentCropPointIndex === 0) markerPair.crop = cropString;
 
         if (wasDynamicCrop) {
-          const [ix, iy, iw, ih] = getCropComponents(initCrop);
-          const dw = nw - iw;
-          const dh = nh - ih;
-          const isResize = dw !== 0 || dh !== 0;
-          const iar = iw / ih;
-          const nar = nw / nh;
-          const isReshape = Math.abs(nar - iar) > 1e-4;
-
-          if ((!enableZoomPan && isResize) || forceCropConstraints) {
+          if (!enableZoomPan || forceCropConstraints) {
             setCropComponentForAllPoints({ w: nw, h: nh }, cropMap);
-          } else if ((enableZoomPan && isReshape) || forceCropConstraints) {
+          } else if (enableZoomPan || forceCropConstraints) {
             const aspectRatio = nw / nh;
             setAspectRatioForAllPoints(aspectRatio, cropMap);
           }
