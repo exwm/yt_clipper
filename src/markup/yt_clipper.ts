@@ -2781,6 +2781,7 @@ export function triggerCropChartLoop() {
       highlightable: boolean
     ) {
       if (e.target.reportValidity()) {
+        const prevValue = e.target.value;
         let newValue = e.target.value;
         if (newValue != null) {
           if (
@@ -2821,13 +2822,8 @@ export function triggerCropChartLoop() {
           target[targetProperty] = newValue;
 
         if (targetProperty === 'newMarkerCrop') {
-          const [nx, ny, nw, nh] = getCropComponents(newValue);
-          const cropString = getCropString(nx, ny, nw, nh);
-          const cropResWidth = settings.cropResWidth;
-          const cropResHeight = settings.cropResHeight;
-          const crop = new Crop(nx, ny, nw, nh, cropResWidth, cropResHeight);
-          crop.setCropStringSafe(cropString);
-          updateCropString(crop.cropString, true);
+          const newCrop = transformCropWithPushBack(prevValue, newValue);
+          updateCropString(newCrop, true);
           // createCropOverlay(target.newMarkerCrop);
         }
 
@@ -2912,15 +2908,9 @@ export function triggerCropChartLoop() {
       const cropMap = markerPair.cropMap;
       const prevCrop = cropMap[currentCropPointIndex].crop;
       const { isDynamicCrop, enableZoomPan } = prepareCropMapForCropping();
-      const [x, y, w, h] = getCropComponents(prevCrop);
-      const [nx, ny, nw, nh] = getCropComponents(newCrop);
-      const cropString = getCropString(nx, ny, nw, nh);
-      const cropResWidth = settings.cropResWidth;
-      const cropResHeight = settings.cropResHeight;
-      const crop = new Crop(x, y, w, h, cropResWidth, cropResHeight);
       const shouldMaintainCropAspectRatio = enableZoomPan && isDynamicCrop;
-      crop.setCropStringSafe(cropString, shouldMaintainCropAspectRatio);
-      updateCropString(crop.cropString, true, forceCropConstraints);
+      const crop = transformCropWithPushBack(prevCrop, newCrop, shouldMaintainCropAspectRatio);
+      updateCropString(crop, true, forceCropConstraints);
       deleteCropMapInitCrops(cropMap);
     }
 
@@ -4288,12 +4278,6 @@ export function triggerCropChartLoop() {
         cropPoint.crop = crop.cropString;
       });
       Crop.shouldConstrainMinDimensions = true;
-      // cropMap.forEach((cropPoint) => {
-      //   const [x, y, w, h] = getCropComponents(cropPoint.crop);
-      //   const crop = new Crop(x, y, w, h, cropResWidth, cropResHeight);
-      //   crop.setCropStringSafe(crop.cropString);
-      //   cropPoint.crop = crop.cropString;
-      // });
     }
 
     function isStaticCrop(cropMap: CropPoint[], useInitCrops = false) {
