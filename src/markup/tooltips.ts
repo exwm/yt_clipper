@@ -13,6 +13,12 @@ export namespace Tooltips {
     YouTube does not support previewing speeds below 0.25.
     `;
 
+  export const timeDurationTooltip = stripIndent`
+      When speed is constant (static) the duration is formatted as <in-duration>/<speed> = <out-duration>.
+      When speed is variable (dynamic) the duration is formatted as <in-duration> (<out-duration>).
+      Durations are formatted as HH:MM:SS.MS omitting insignificant 0s on the left.
+    `;
+
   export const cropTooltip = stripIndent`
     Crop values are given as x-offset:y-offset:width:height. Each value is a positive integer in pixels.
     Width and height can also be 'iw' and 'ih' respectively for input width and input height.

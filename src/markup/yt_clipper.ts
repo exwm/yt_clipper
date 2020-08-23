@@ -2321,7 +2321,9 @@ export function triggerCropChartLoop() {
             overrides.titlePrefix != null ? overrides.titlePrefix : ''
           }" placeholder="None" style="min-width:10em;text-align:right"></input>
         </div>
-        <div class="settings-editor-input-div settings-info-display">
+        <div class="settings-editor-input-div settings-info-display" title="${
+          Tooltips.timeDurationTooltip
+        }">
           <span>Time:</span>
           <span id="start-time">${startTime}</span>
           <span> - </span>
