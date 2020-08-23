@@ -495,6 +495,12 @@ def buildArgParser():
                             'Arguments that conflict with the arguments automatically added '
                             'by yt_clipper may cause errors.'
                         ))
+    parser.add_argument('--target-size', '-ts', dest='targetSize', type=float, default=0,
+                        help=(
+                            'Target file size in megabytes.'
+                            'A target size of 0 or less means unlimited.'
+                            'Note that this will use an estimated a constant bitrate for encoding.'
+                        ))
     parser.add_argument('--ytdl-username', '-yu', dest='username', default='',
                         help='Username passed to youtube-dl for authentication.')
     parser.add_argument('--ytdl-password', '-yp', dest='password', default='',
@@ -957,6 +963,10 @@ def makeClip(settings, markerPairIndex):
     else:
         fps_arg = f'-r 1000000000'
 
+    cbr = None
+    if mps["targetSize"] > 0:
+        cbr = mps["targetSize"] / mp["outputDuration"]
+
     ffmpegCommand = ' '.join((
         ffmpegPath,
         f'-hide_banner',
@@ -967,7 +977,8 @@ def makeClip(settings, markerPairIndex):
         f'-c:a libopus -b:a 128k' if not mps["vp8"] else f'-c:a libvorbis -q:a 10',
         f'-pix_fmt yuv420p -slices 8',
         f'-aq-mode 4 -row-mt 1 -tile-columns 6 -tile-rows 2' if not mps["vp8"] else '',
-        f'-qmin {qmin} -crf {mps["crf"]} -qmax {qmax} -b:v {mps["targetMaxBitrate"]}k',
+        f'-qmin {qmin} -crf {mps["crf"]} -qmax {qmax}' if mps["targetSize"] <= 0 else '',
+        f'-b:v {mps["targetMaxBitrate"]}k' if cbr is None else f'-b:v {cbr}MB',
         f'-force_key_frames 1 -g {mp["averageSpeed"] * Fraction(mps["r_frame_rate"])}',
         f'-metadata title="{mps["videoTitle"]}"' if not mps["removeMetadata"] else '-map_metadata -1',
         fps_arg,
@@ -1084,8 +1095,7 @@ def makeClip(settings, markerPairIndex):
 
         ffmpegVidstabdetect = ffmpegCommand + f'-vf "{vidstabdetectFilter}" '
         ffmpegVidstabdetect += f' -y '
-        ffmpegVidstabtransform = ffmpegCommand + \
-            f'-vf "{vidstabtransformFilter}" '
+        ffmpegVidstabtransform = ffmpegCommand + f'-vf "{vidstabtransformFilter}" '
         ffmpegVidstabtransform += f' -n '
     else:
         ffmpegCommand += f' -n '
@@ -1345,12 +1355,6 @@ def getSpeedFilterAndDuration(speedMap, mp, mps, fps):
 
     outputDuration = outputDurations[nDurs - 1]
 
-    # logger.info('-' * 80
-    # logger.info(f'First Input Frame Time: {startt}')
-    # logger.info(
-    #     f'Last Input Frame Time: {right["x"] - speedMapStartTime - startt}')
-    # logger.info(f'Last Input Frame Time (Rounded): {sectEnd}')
-    # logger.info(f'Last Output Frame Time: {outputDuration}')
     return video_filter_speed_map, outputDuration, outputDurations
 
 
