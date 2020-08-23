@@ -2579,34 +2579,48 @@ export function triggerCropChartLoop() {
           if (id === 'rotate-90-clock' || id === 'rotate-90-counterclock')
             label = inputElem.parentElement.getElementsByTagName('span')[0];
 
-          const shouldRemoveHighlight =
+          let shouldRemoveHighlight =
             storedTargetValue == null ||
             storedTargetValue === '' ||
-            (valueType === 'bool' && storedTargetValue === false) ||
-            (id === 'title-suffix-input' && storedTargetValue == `[${settings.videoID}]`) ||
-            (markerPair &&
-              id === 'speed-input' &&
-              storedTargetValue === 1 &&
-              !isVariableSpeed(markerPair.speedMap)) ||
-            (id === 'crop-input' &&
-              (storedTargetValue === '0:0:iw:ih' ||
-                storedTargetValue === `0:0:${settings.cropResWidth}:${settings.cropResHeight}`)) ||
-            id === 'rotate-0';
+            (valueType === 'bool' && storedTargetValue === false);
+
+          if (target === settings) {
+            shouldRemoveHighlight =
+              shouldRemoveHighlight ||
+              (id === 'title-suffix-input' && storedTargetValue == `[${settings.videoID}]`) ||
+              (id === 'speed-input' && storedTargetValue === 1) ||
+              (id === 'crop-input' &&
+                (storedTargetValue === '0:0:iw:ih' ||
+                  storedTargetValue ===
+                    `0:0:${settings.cropResWidth}:${settings.cropResHeight}`)) ||
+              id === 'rotate-0';
+          }
 
           if (shouldRemoveHighlight) {
             label.classList.remove(globalSettingsLabelHighlight);
             label.classList.remove(markerPairSettingsLabelHighlight);
+            return;
+          }
+
+          if (target === settings) {
+            label.classList.add(globalSettingsLabelHighlight);
           } else {
-            if (target === settings) {
+            let settingsProperty = targetProperty;
+            if (targetProperty === 'speed') settingsProperty = 'newMarkerSpeed';
+            if (targetProperty === 'crop') settingsProperty = 'newMarkerCrop';
+            let globalValue = settings[settingsProperty];
+            let shouldApplyGlobalHighlight = storedTargetValue === globalValue;
+            if (targetProperty === 'crop') {
+              shouldApplyGlobalHighlight = cropStringsEqual(storedTargetValue, globalValue);
+              shouldApplyGlobalHighlight =
+                shouldApplyGlobalHighlight && isStaticCrop(markerPair.cropMap);
+            }
+            if (shouldApplyGlobalHighlight) {
               label.classList.add(globalSettingsLabelHighlight);
+              label.classList.remove(markerPairSettingsLabelHighlight);
             } else {
-              if (storedTargetValue === settings[targetProperty]) {
-                label.classList.add(globalSettingsLabelHighlight);
-                label.classList.remove(markerPairSettingsLabelHighlight);
-              } else {
-                label.classList.add(markerPairSettingsLabelHighlight);
-                label.classList.remove(globalSettingsLabelHighlight);
-              }
+              label.classList.add(markerPairSettingsLabelHighlight);
+              label.classList.remove(globalSettingsLabelHighlight);
             }
           }
         });
@@ -4179,6 +4193,11 @@ export function triggerCropChartLoop() {
       return cropArray;
     }
 
+    function getNumericCropString(cropString: string) {
+      const [x, y, w, h] = getCropComponents(cropString);
+      return getCropString(x, y, w, h);
+    }
+
     function updateCropString(
       cropString: string,
       shouldUpdateCropChart = false,
@@ -4233,6 +4252,13 @@ export function triggerCropChartLoop() {
       const cropAspectRatio = (nw / nh).toFixed(13);
       cropAspectRatioSpan && (cropAspectRatioSpan.textContent = cropAspectRatio);
       if (shouldUpdateCropChart) updateCropChart();
+
+      if (wasGlobalSettingsEditorOpen) {
+        highlightModifiedSettings([['crop-input', 'newMarkerCrop', 'string']], settings);
+      } else {
+        const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+        highlightModifiedSettings([['crop-input', 'crop', 'string']], markerPair);
+      }
     }
 
     function setCropComponentForAllPoints(
