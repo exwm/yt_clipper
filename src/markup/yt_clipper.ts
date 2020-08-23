@@ -2861,7 +2861,7 @@ export function triggerCropChartLoop() {
           const cropMap = markerPair.cropMap;
           const cropString = cropMap[currentCropPointIndex].crop;
           const enableZoomPan = newValue;
-          const formatter = enableZoomPan ? cropPointXYFormatter : cropPointFormatter;
+          const formatter = enableZoomPan ? cropPointFormatter : cropPointXYFormatter;
           const cropRes = settings.cropRes;
           if (!enableZoomPan && isVariableSize(cropMap, cropRes)) {
             const crop = Crop.fromCropString(cropString, settings.cropRes);
