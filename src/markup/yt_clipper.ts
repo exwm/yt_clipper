@@ -2847,7 +2847,7 @@ export function triggerCropChartLoop() {
               avgSizeH,
             } = getMinMaxAvgCropPoint(cropMap, cropRes);
             const crop = Crop.fromCropString(cropString, settings.cropRes);
-            const tooltip = Tooltips.zoomPanToPanOnlyToolTip(
+            const tooltip = Tooltips.zoomPanToPanOnlyTooltip(
               minSizeW,
               minSizeH,
               maxSizeW,
