@@ -21,7 +21,6 @@ interface Settings {
   audio?: boolean;
   videoStabilization?: VideoStabilization;
   videoStabilizationDynamicZoom?: boolean;
-  enableSpeedMaps?: boolean;
   minterpMode?: string | boolean;
   minterpFPS?: number;
   loop?: Loop;
@@ -75,7 +74,6 @@ interface MarkerPairOverrides {
   audio?: boolean;
   videoStabilization?: VideoStabilization;
   videoStabilizationDynamicZoom?: boolean;
-  enableSpeedMaps?: boolean;
   enableZoomPan?: boolean;
   minterpMode?: string | boolean;
   minterpFPS?: number;
