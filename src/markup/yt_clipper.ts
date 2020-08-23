@@ -2868,27 +2868,34 @@ export function triggerCropChartLoop() {
             const desiredSize = prompt(Tooltips.zoomPanToPanOnlyToolTip, 's');
             let w: number;
             let h: number;
-            if (!['s', 'l', 'a'].includes(desiredSize)) {
-              flashMessage(
-                "Zoompan not disabled. Please enter 's' for smallest, 'l' for largest, or 'a' for average.",
-                'red'
-              );
-
-              target['enableZoomPan'] = true;
-              e.target.value = 'Enabled';
-              return;
-            } else {
-              if (desiredSize === 's')
+            switch (desiredSize) {
+              case 's':
                 ({ minSizeW: w, minSizeH: h } = getMinMaxAvgCropPoint(cropMap, cropRes));
-              if (desiredSize === 'l')
+                break;
+              case 'l':
                 ({ maxSizeW: w, maxSizeH: h } = getMinMaxAvgCropPoint(cropMap, cropRes));
-              if (desiredSize === 'a')
+                break;
+              case 'a':
                 ({ avgSizeW: w, avgSizeH: h } = getMinMaxAvgCropPoint(cropMap, cropRes));
+                break;
+              case null:
+                flashMessage('Zoompan not disabled (canceled).', 'olive');
+                target['enableZoomPan'] = true;
+                e.target.value = 'Enabled';
+                return;
+              default:
+                flashMessage(
+                  "Zoompan not disabled. Please enter 's' for smallest, 'l' for largest, or 'a' for average.",
+                  'red'
+                );
+                target['enableZoomPan'] = true;
+                e.target.value = 'Enabled';
+                return;
             }
-
             target['enableZoomPan'] = false;
             crop.setCropStringSafe(getCropString(crop.x, crop.y, w, h));
             setCropString(markerPair, crop.cropString, true);
+            flashMessage(`Zoompan disabled. All crop points set to size ${w}x${h}.`, 'green');
           } else {
             target['enableZoomPan'] = enableZoomPan;
           }
