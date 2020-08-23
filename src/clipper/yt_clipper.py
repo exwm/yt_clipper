@@ -69,7 +69,7 @@ def main():
     reportStreamColored = io.StringIO()
     logFilePath = setUpLogger(reportStream, reportStreamColored)
 
-    logger.info(f'Version: {__version__}')
+    logger.report(f'Version: {__version__}')
     logger.info('-' * 80)
 
     if defArgs:
@@ -123,7 +123,7 @@ def enableMinterpEnhancements(settings):
     if settings["enableMinterpEnhancements"] and sys.platform == 'win32':
         ffmpegPath = "./bin/ffmpeg_ytc.exe"
         if not Path(ffmpegPath).is_file():
-            logger.error(f'{ffmpegPath} required for minterp enhancements not found.')
+            logger.critical(f'{ffmpegPath} required for minterp enhancements not found.')
             sys.exit(1)
         else:
             logger.success(f'Found {ffmpegPath}. Minterp enhancements enabled.')
@@ -135,10 +135,12 @@ def enableMinterpEnhancements(settings):
 
 def setUpLogger(reportStream, reportStreamColored):
     global logger
+    verboselogs.add_log_level(29, "IMPORTANT")
     verboselogs.add_log_level(32, "NOTICE")
     verboselogs.add_log_level(33, "HEADER")
     verboselogs.add_log_level(34, "REPORT")
     logger = verboselogs.VerboseLogger(__name__)
+    logger.important = lambda msg: logger.log(29, msg)
     logger.notice = lambda msg: logger.log(32, msg)
     logger.header = lambda msg: logger.log(33, msg)
     logger.report = lambda msg: logger.log(34, msg)
@@ -146,11 +148,12 @@ def setUpLogger(reportStream, reportStreamColored):
     formatString = r'[%(asctime)s] (ln %(lineno)d) %(levelname)s: %(message)s'
     coloredlogs.DEFAULT_LOG_FORMAT = formatString
     coloredlogs.DEFAULT_FIELD_STYLES['levelname'] = {'color': 'white'}
+    coloredlogs.DEFAULT_LEVEL_STYLES['IMPORTANT'] = {'color': 209}
     coloredlogs.DEFAULT_LEVEL_STYLES['NOTICE'] = {'color': 'magenta'}
     coloredlogs.DEFAULT_LEVEL_STYLES['HEADER'] = {'color': 'blue'}
     coloredlogs.DEFAULT_LEVEL_STYLES['REPORT'] = {'color': 'cyan'}
 
-    coloredlogs.install(level=logging.INFO, datefmt="%y-%m-%d %H:%M:%S")
+    coloredlogs.install(level=logging.VERBOSE, datefmt="%y-%m-%d %H:%M:%S")
 
     coloredFormatter = coloredlogs.ColoredFormatter(datefmt="%y-%m-%d %H:%M:%S")
 
@@ -234,9 +237,9 @@ def getInputVideo(settings):
 
     if settings["inputVideo"]:
         if not Path(settings["inputVideo"]).is_file():
-            logger.error(
+            logger.critical(
                 f'Input video file "{settings["inputVideo"]}" does not exist or is not a file.')
-            logger.error(f'Exiting...')
+            logger.critical(f'Exiting...')
             sys.exit(1)
         else:
             logger.info(
@@ -517,14 +520,14 @@ def getMarkerPairQueue(nMarkerPairs, onlyArg, exceptArg):
         try:
             onlyPairsList = markerPairsCSVToList(onlyArg)
         except ValueError:
-            logger.error(f'Argument provided to --only was invalid: {onlyArg}')
+            logger.critical(f'Argument provided to --only was invalid: {onlyArg}')
             sys.exit(1)
         onlyPairsSet = {x - 1 for x in set(onlyPairsList)}
     if exceptArg != '':
         try:
             exceptPairsList = markerPairsCSVToList(exceptArg)
         except ValueError:
-            logger.error(f'Argument provided to --except was invalid: {exceptArg}')
+            logger.critical(f'Argument provided to --except was invalid: {exceptArg}')
             sys.exit(1)
         exceptPairsSet = {x - 1 for x in set(exceptPairsList)}
 
@@ -634,11 +637,9 @@ def getVideoInfo(settings, videoInfo):
     if "r_frame_rate" not in settings:
         settings["r_frame_rate"] = videoInfo["fps"]
 
-    logger.info(f'Video Title: {settings["videoTitle"]}')
-    logger.info(f'Video Width: {settings["width"]}')
-    logger.info(f'Video Height: {settings["height"]}')
-    logger.report(f'Video fps: {settings["r_frame_rate"]}')
-    logger.report(f'Detected Video Bitrate: {settings["bit_rate"]}kbps')
+    logger.report(f'Video Title: {settings["videoTitle"]}')
+    logger.report(f'Video Width: {settings["width"]}, Video Height: {settings["height"]}')
+    logger.report(f'Video FPS: {settings["r_frame_rate"]}, Video Bitrate: {settings["bit_rate"]}kbps')
 
     settings = autoSetCropMultiples(settings)
 
@@ -661,18 +662,18 @@ def getSubs(settings):
 
 
 def getGlobalSettings(settings):
-    logger.info(f'Video URL: {settings["videoURL"]}')
-    logger.info(
+    logger.report(f'Video URL: {settings["videoURL"]}')
+    logger.report(
         f'Merge List: {settings["markerPairMergeList"] if settings["markerPairMergeList"] else "None"}')
 
     if settings["subsFilePath"] == '' and settings["autoSubsLang"] != '':
         settings = getSubs(settings)
         if not Path(settings["subsFilePath"]).is_file():
-            logger.error(f'Could not download subtitles with language id {settings["autoSubsLang"]}.')
+            logger.critical(f'Could not download subtitles with language id {settings["autoSubsLang"]}.')
             sys.exit(1)
     elif settings["subsFilePath"] != '':
         if not Path(settings["subsFilePath"]).is_file():
-            logger.error(f'Could not find subtitles file at "{settings["subsFilePath"]}"')
+            logger.critical(f'Could not find subtitles file at "{settings["subsFilePath"]}"')
             sys.exit(1)
         else:
             logger.success(f'Found subtitles file at "{settings["subsFilePath"]}"')
@@ -682,7 +683,7 @@ def getGlobalSettings(settings):
         os.makedirs(subsPath, exist_ok=True)
         subs_ext = Path(settings["subsFilePath"]).suffix
         if subs_ext not in ['.vtt', '.sbv', '.srt']:
-            logger.error(f'Uknown subtitle file extension {subs_ext}.')
+            logger.error(f'Unknown subtitle file extension {subs_ext}.')
             logger.warning('Only .vtt, .sbv, and .srt subtitles are supported for now.')
             skipSubs = input('Would you like to continue without subtitles? (y/n): ')
             if skipSubs == 'yes' or skipSubs == 'y':
@@ -966,6 +967,8 @@ def makeClip(settings, markerPairIndex):
     cbr = None
     if mps["targetSize"] > 0:
         cbr = mps["targetSize"] / mp["outputDuration"]
+        logger.important(f'Forcing constant bitrate of ~{round(cbr, 3)} MBps ' +
+                         f'({mps["targetSize"]} MB / ~{round(mp["outputDuration"],3)} s).')
 
     ffmpegCommand = ' '.join((
         ffmpegPath,
@@ -1236,8 +1239,8 @@ def getSubsFilter(mp, mps, markerPairIndex):
     elif subs_ext == '.srt':
         vtt = webvtt.from_srt(mps["subsFilePath"])
     else:
-        logger.error(f'Uknown subtitle file extension {subs_ext}.')
-        logger.error('Only .vtt, .sbv, and .srt are supported for now.')
+        logger.critical(f'Uknown subtitle file extension {subs_ext}.')
+        logger.critical('Only .vtt, .sbv, and .srt are supported for now.')
         sys.exit(1)
 
     subsStart = mp["start"]
@@ -1263,7 +1266,7 @@ def runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp):
 
     printablePass1 = re.sub(r'-i .*?\".*?\"', r'-i ...', ffmpegPass1, count=1)
 
-    logger.info(f'Using ffmpeg command: {printablePass1}\n')
+    logger.verbose(f'Using ffmpeg command: {printablePass1}\n')
     ffmpegProcess = subprocess.run(shlex.split(ffmpegPass1))
 
     if len(ffmpegCommands) == 2:
@@ -1272,7 +1275,7 @@ def runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp):
         printablePass2 = re.sub(r'-i .*?\".*?\"', r'-i ...', ffmpegPass2, count=1)
 
         logger.info('Running second pass...')
-        logger.info(f'Using ffmpeg command: {printablePass2}\n')
+        logger.verbose(f'Using ffmpeg command: {printablePass2}\n')
         ffmpegProcess = subprocess.run(shlex.split(ffmpegPass2))
 
     mp["returncode"] = ffmpegProcess.returncode
