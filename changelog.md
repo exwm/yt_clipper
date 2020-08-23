@@ -1,14 +1,63 @@
-# yt_clipper Changelog
+# yt_clipper Changelog (Post-Version-Unification)
 
-- [yt_clipper Changelog](#yt_clipper-changelog)
+This changelog records all the changes to `yt_clipper` after version numbers between the markup and clipper script were unified (ie since v3.7.0-beta.3.9.0-alpha.11 `[2020.08.17]`).
+
+- [yt_clipper Changelog (Post-Version-Unification)](#yt_clipper-changelog-post-version-unification)
+  - [v3.7.0-beta.3.9.0-alpha.12 `[2020.08.23]`](#v370-beta390-alpha12-20200823)
+    - [Markup Changes](#markup-changes)
+    - [Clipper Changes](#clipper-changes)
+  - [v3.7.0-beta.3.9.0-alpha.11 `[2020.08.17]`:](#v370-beta390-alpha11-20200817)
+    - [Markup Changes](#markup-changes-1)
+    - [Clipper Changes](#clipper-changes-1)
+- [yt_clipper Changelog (Pre-Version-Unification)](#yt_clipper-changelog-pre-version-unification)
   - [Markup Script Changelog](#markup-script-changelog)
   - [Clipper Script (Installation) Changelog](#clipper-script-installation-changelog)
 
-## Markup Script Changelog
+## v3.7.0-beta.3.9.0-alpha.12 `[2020.08.23]`
 
-v3.7.0-beta.3.9.0-alpha.11 `[2020.08.17]`:
+### Markup Changes
+
+- Add per-marker-pair zoompan mode setting.
+- Add tooltip for marker pair duration display.
+- Remove speed maps enable/disable setting from markup gui.
+- Fix deleting speed points doesn't update speed input properly.
+- Fix highlighting speed and crop settings in markup gui.
+- Fix crop constraints not applied when manipulating last point of a static, 2-point crop map.
+- Fix minimum crop size constraint not enforced when drawing crop.
+- Fix minor deviations in final crop when ending mouse-based resize/draw.
+- Fix crop constraints sometimes not maintained when manipulating crop with mouse.
+- Fix marker pair output duration estimate always assuming variable speed.
+- Remove **Ctrl+D** hotkey for toggling global crop chart mode between pan-only and zoompan mode.
+
+### Clipper Changes
+
+- Add `--args-files` for reading `yt_clipper` arguments from 1 or more files.
+  - By default this is set to `default_args.txt` which is included with the clipper install.
+  - For more information on how to use such arg files see the comments inside `default_args.txt`.
+- Add `--target-size`/`-ts` argument for restricting the file size of generated clips.
+  - Takes a target file size in megabytes and automatically calculates an appropriate constant bitrate for encoding each marker pair.
+- Add additional logging and log levels/colors.
+- Fix color codes present in log file summary report.
+- Fix logging of ffmpeg command mangled in some rare cases.
+  
+## v3.7.0-beta.3.9.0-alpha.11 `[2020.08.17]`:
+
+### Markup Changes
 
 - Fix drawing crop sometimes breaks due to use of incorrect crop map index.
+
+### Clipper Changes
+
+- Fix incorrect crops resulting from crop resolution not being auto scaled.
+- Add `vid2gif` helper script. Use as usual with 1 or more video file inputs.
+
+
+
+
+
+# yt_clipper Changelog (Pre-Version-Unification)
+
+## Markup Script Changelog
 
 v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`:
 
@@ -420,11 +469,6 @@ v0.0.71:
 - Add target max bitrate option for constrained quality mode using `-b <bitrate>` where bitrate is in kb/s.
 
 ## Clipper Script (Installation) Changelog
-
-v3.7.0-beta.3.9.0-alpha.11 `[2020.08.17]`:
-
-- Fix incorrect crops resulting from crop resolution not being auto scaled.
-- Add `vid2gif` helper script. Use as usual with 1 or more video file inputs.
 
 v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`:
 
