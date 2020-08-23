@@ -14,9 +14,9 @@
     "since 2019 and > 0.5% and not op_mini all and not IE 11"
   ],
   "devDependencies": {
-    "browserslist": "^4.13.0",
-    "caniuse-lite": "^1.0.30001107",
-    "@types/chart.js": "^2.9.23",
+    "browserslist": "^4.14.0",
+    "caniuse-lite": "^1.0.30001117",
+    "@types/chart.js": "^2.9.24",
     "@types/common-tags": "^1.8.0",
     "@types/d3-ease": "^1.0.9",
     "@types/file-saver": "^2.0.1",
