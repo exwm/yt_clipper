@@ -4812,10 +4812,19 @@ export function triggerCropChartLoop() {
       const speedAdjustedDurationSpan = document.getElementById('duration');
       const duration = markerPair.end - markerPair.start;
       const durationHHMMSS = toHHMMSSTrimmed(duration);
-      const outputDuration = getOutputDuration(markerPair.speedMap, getFPS());
-      const outputDurationHHMMSS = toHHMMSSTrimmed(outputDuration);
-      speedAdjustedDurationSpan.textContent = `${durationHHMMSS} (${outputDurationHHMMSS})`;
-      markerPair.outputDuration = outputDuration;
+      const speed = markerPair.speed;
+      const speedMap = markerPair.speedMap;
+      if (isVariableSpeed(speedMap)) {
+        const outputDuration = getOutputDuration(markerPair.speedMap, getFPS());
+        const outputDurationHHMMSS = toHHMMSSTrimmed(outputDuration);
+        speedAdjustedDurationSpan.textContent = `${durationHHMMSS} (${outputDurationHHMMSS})`;
+        markerPair.outputDuration = outputDuration;
+      } else {
+        const outputDuration = duration / speed;
+        const outputDurationHHMMSS = toHHMMSSTrimmed(outputDuration);
+        speedAdjustedDurationSpan.textContent = `${durationHHMMSS}/${speed} = ${outputDurationHHMMSS}`;
+        markerPair.outputDuration = outputDuration;
+      }
     }
 
     function renumberMarkerPairs() {
