@@ -42,7 +42,7 @@ def main():
     for argFile in argFiles:
         args = []
         if Path(argFile).is_file():
-            with open(argFile, 'r') as f:
+            with open(argFile, 'r', encoding='utf-8') as f:
                 lines = [l.lstrip() for l in f.readlines()]
                 lines = "".join([l for l in lines if not l.startswith("#")])
                 args = lines.split()
@@ -297,7 +297,7 @@ def printReport(reportStream, reportStreamColored, logFilePath):
 
     if Path(logFilePath).is_file():
         report = reportStream.getvalue()
-        with open(logFilePath, 'a') as f:
+        with open(logFilePath, 'a', encoding='utf-8') as f:
             f.write(report)
 
 
