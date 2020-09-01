@@ -12,7 +12,7 @@ on:
 # Can work around to some degree using set-env
 env:
   NAME: yt_clipper
-  VERSION: 3.7.0-beta.3.9.0-alpha.12
+  VERSION: 3.7.0-beta.3.9.0-alpha.13
   FFMPEG_VERSION: 20200814-a762fd2
   FFMPEG_DL_PREFIX: https://ffmpeg.zeranoe.com/builds
 
