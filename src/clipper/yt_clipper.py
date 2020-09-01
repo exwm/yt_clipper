@@ -745,18 +745,17 @@ def autoScaleCropMap(cropMap, settings):
 def getAutoScaledCropComponents(cropString, settings, forceEvenDimensions=False):
     cropResWidth = settings["cropResWidth"]
     cropResHeight = settings["cropResHeight"]
-
     cropComponents = getCropComponents(cropString, cropResWidth, cropResHeight)
 
     cropComponents['x'] = round(settings["cropMultipleX"] * cropComponents['x'])
-    cropComponents['x'] = min(cropComponents['x'], cropResWidth)
+    cropComponents['x'] = min(cropComponents['x'], settings["width"])
     cropComponents['w'] = round(settings["cropMultipleX"] * cropComponents['w'])
-    cropComponents['w'] = min(cropComponents['w'], cropResWidth)
+    cropComponents['w'] = min(cropComponents['w'], settings["width"])
 
     cropComponents['y'] = round(settings["cropMultipleY"] * cropComponents['y'])
-    cropComponents['y'] = min(cropComponents['y'], cropResHeight)
+    cropComponents['y'] = min(cropComponents['y'], settings["height"])
     cropComponents['h'] = round(settings["cropMultipleY"] * cropComponents['h'])
-    cropComponents['h'] = min(cropComponents['h'], cropResHeight)
+    cropComponents['h'] = min(cropComponents['h'], settings["height"])
 
     # We floor the width and height to even to get even dimension output
     # This is important as some services require even dimensions
@@ -770,12 +769,12 @@ def getAutoScaledCropComponents(cropString, settings, forceEvenDimensions=False)
     return scaledCropString, cropComponents
 
 
-def getCropComponents(cropString, cropResWidth, cropResheight):
+def getCropComponents(cropString, maxWidth, maxHeight):
     cropComponents = cropString.split(':')
     if cropComponents[2] == 'iw':
-        cropComponents[2] = cropResWidth
+        cropComponents[2] = maxWidth
     if cropComponents[3] == 'ih':
-        cropComponents[3] = cropResheight
+        cropComponents[3] = maxHeight
     cropComponents = {'x': float(cropComponents[0]), 'y': float(cropComponents[1]),
                       'w': float(cropComponents[2]), 'h': float(cropComponents[3])}
     return cropComponents
@@ -1796,8 +1795,6 @@ def autoSetCropMultiples(settings):
                 f'Crop X offset and width will be multiplied by {cropMultipleX}')
             logger.info(
                 f'Crop Y offset and height will be multiplied by {cropMultipleY}')
-            settings["cropResWidth"] = settings["width"]
-            settings["cropResHeight"] = settings["height"]
             return {**settings, 'cropMultipleX': cropMultipleX, 'cropMultipleY': cropMultipleY}
         else:
             logger.info(f'Auto scale crop resolution disabled in settings.')
