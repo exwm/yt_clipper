@@ -19,8 +19,8 @@ This changelog records all the changes to `yt_clipper` after version numbers bet
 
 ### Clipper Changes
 
-Fix auto scaling crops incorrect when crop resolution is greater than video resolution.
-Fix printing summary report failing to encode utf-8 when writing to log file on some systems.
+- Fix auto scaling crops incorrect when crop resolution is greater than video resolution.
+- Fix printing summary report failing to encode utf-8 when writing to log file on some systems.
 
 ## v3.7.0-beta.3.9.0-alpha.12 `[2020.08.23]`
 
