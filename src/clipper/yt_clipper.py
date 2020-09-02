@@ -99,6 +99,9 @@ def main():
 
     printReport(reportStream, reportStreamColored, logFilePath)
 
+    if settings["notifyOnCompletion"]:
+        notifyOnComplete(settings["titleSuffix"])
+
 
 def setPaths():
     global ffmpegPath, ffprobePath, ffplayPath, webmsPath
@@ -299,6 +302,16 @@ def printReport(reportStream, reportStreamColored, logFilePath):
         report = reportStream.getvalue()
         with open(logFilePath, 'a', encoding='utf-8') as f:
             f.write(report)
+
+
+def notifyOnComplete(titleSuffix):
+    from notifypy import Notify
+
+    n = Notify()
+    n.application_name = "yt_clipper"
+    n.title = "yt_clipper Completed Run"
+    n.message = f'Processed {titleSuffix}.json.'
+    n.send(block=False)
 
 
 def buildArgParser():
@@ -503,6 +516,10 @@ def buildArgParser():
                             'Target file size in megabytes.'
                             'A target size of 0 or less means unlimited.'
                             'Note that this will use an estimated a constant bitrate for encoding.'
+                        ))
+    parser.add_argument('--notify-on-completion', '-noc', dest="notifyOnCompletion", action='store_true',
+                        help=(
+                            'Display a system notification when yt_clipper completes the current run.'
                         ))
     parser.add_argument('--ytdl-username', '-yu', dest='username', default='',
                         help='Username passed to youtube-dl for authentication.')
