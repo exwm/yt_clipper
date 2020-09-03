@@ -150,6 +150,9 @@ export function triggerCropChartLoop() {
             } else if (!e.ctrlKey && !e.shiftKey && e.altKey && markerHotkeysEnabled) {
               blockEvent(e);
               addChartPoint();
+            } else if (e.ctrlKey && e.shiftKey && !e.altKey) {
+              blockEvent(e);
+              duplicateSelectedMarkerPair();
             }
             break;
           case 'KeyS':
@@ -1446,26 +1449,30 @@ export function triggerCropChartLoop() {
         //   return markerPair;
         // });
 
-        markersJson.markerPairs.forEach((markerPair: MarkerPair) => {
-          const startMarkerConfig: MarkerConfig = {
-            time: markerPair.start,
-            type: 'start',
-          };
-          const endMarkerConfig: MarkerConfig = {
-            time: markerPair.end,
-            type: 'end',
-            crop: markerPair.crop,
-            speed: markerPair.speed,
-            speedMap: markerPair.speedMap,
-            speedChartLoop: markerPair.speedChartLoop,
-            cropMap: markerPair.cropMap,
-            cropChartLoop: markerPair.cropChartLoop,
-            overrides: markerPair.overrides,
-          };
-          addMarker(startMarkerConfig);
-          addMarker(endMarkerConfig);
-        });
+        addMarkerPairs(markersJson.markerPairs);
       }
+    }
+
+    function addMarkerPairs(markerPairs: MarkerPair[]) {
+      markerPairs.forEach((markerPair: MarkerPair) => {
+        const startMarkerConfig: MarkerConfig = {
+          time: markerPair.start,
+          type: 'start',
+        };
+        const endMarkerConfig: MarkerConfig = {
+          time: markerPair.end,
+          type: 'end',
+          crop: markerPair.crop,
+          speed: markerPair.speed,
+          speedMap: markerPair.speedMap,
+          speedChartLoop: markerPair.speedChartLoop,
+          cropMap: markerPair.cropMap,
+          cropChartLoop: markerPair.cropChartLoop,
+          overrides: markerPair.overrides,
+        };
+        addMarker(startMarkerConfig);
+        addMarker(endMarkerConfig);
+      });
     }
 
     function receivedMarkersArray(e: ProgressEvent) {
@@ -1697,6 +1704,19 @@ export function triggerCropChartLoop() {
           markerPairsHistory.pop();
           addMarker({ ...markerPairToRestore, time: markerPairToRestore.end });
         }
+      }
+    }
+
+    function duplicateSelectedMarkerPair() {
+      const markerPairIndex = prevSelectedMarkerPairIndex;
+      if (markerPairIndex != null) {
+        // deep cloning with this trick has some important caveats
+        // see https://stackoverflow.com/a/122704
+        const markerPair = JSON.parse(JSON.stringify(markerPairs[markerPairIndex]));
+        addMarkerPairs([markerPair]);
+        flashMessage(`Duplicated marker pair ${markerPairIndex + 1}.`, 'green');
+      } else {
+        flashMessage(`No selected or previously selected marker pair to duplicate.`, 'red');
       }
     }
 
