@@ -33,7 +33,7 @@ logger = None
 
 def main():
     global settings, webmsPath
-    parser = buildArgParser()
+    parser = getArgParser()
 
     argFiles = parser.parse_known_args()[0].argFiles
 
@@ -263,9 +263,12 @@ def makeClips(settings):
     for markerPairIndex, marker in enumerate(settings["markerPairs"]):
         if markerPairIndex in markerPairQueue:
             settings["markerPairs"][markerPairIndex] = makeClip(settings, markerPairIndex)
+        else:
+            mp, mps = getMarkerPairSettings(settings, markerPairIndex, True)
+            settings["markerPairs"][markerPairIndex] = {**(settings["markerPairs"][markerPairIndex]), **mp}
 
     if settings["markerPairMergeList"] != '':
-        makeMergedClips(settings)
+        mergeClips(settings)
 
     return settings
 
@@ -314,9 +317,13 @@ def notifyOnComplete(titleSuffix):
     n.send(block=False)
 
 
-def buildArgParser():
+def getArgParser():
     parser = argparse.ArgumentParser(
         description='Generate trimmed webms from input video.')
+    parser.add_argument('--markers-json', '-j', required=True, dest='json',
+                        help=('Specify markers json path for generating webms from input video.'
+                              'Automatically streams required portions of input video from the '
+                              'internet if it is not otherwise specified.'))
     parser.add_argument('--arg-files', nargs='*',
                         dest='argFiles', default=['default_args.txt'],
                         help=('List of paths to files to read arguments from.'
@@ -326,10 +333,6 @@ def buildArgParser():
                         help='Input video path.')
     parser.add_argument('--download-video', '-dv', action='store_true', dest='downloadVideo',
                         help='Download video from the internet and use as input video for processing marker data.')
-    parser.add_argument('--markers-json', '-j', required=True, dest='json',
-                        help=('Specify markers json path for generating webms from input video.'
-                              'Automatically streams required portions of input video from the '
-                              'internet if it is not otherwise specified.'))
     parser.add_argument('--marker-pairs-merge-list', '-mpml', dest='markerPairsMergeList', default='',
                         help=('Specify which marker pairs if any you would like to merge/concatenate.'
                               'Each merge is a comma separated list of marker pair numbers or ranges'
@@ -521,6 +524,8 @@ def buildArgParser():
                         help=(
                             'Display a system notification when yt_clipper completes the current run.'
                         ))
+    parser.add_argument('--overwrite', '-ow', dest="overwrite", action='store_true',
+                        help='Regenerate and overwrite existing clips.')
     parser.add_argument('--ytdl-username', '-yu', dest='username', default='',
                         help='Username passed to youtube-dl for authentication.')
     parser.add_argument('--ytdl-password', '-yp', dest='password', default='',
@@ -797,7 +802,7 @@ def getCropComponents(cropString, maxWidth, maxHeight):
     return cropComponents
 
 
-def getMarkerPairSettings(settings, markerPairIndex):
+def getMarkerPairSettings(settings, markerPairIndex, skip=False):
     # marker pair properties
     mp = settings["markerPairs"][markerPairIndex]
 
@@ -812,8 +817,9 @@ def getMarkerPairSettings(settings, markerPairIndex):
         mp["fileNameStem"] = f'{titlePrefix}{mps["titleSuffix"]}-{markerPairIndex + 1}'
         mp["fileName"] = f'{mp["fileNameStem"]}.webm'
         mp["filePath"] = f'{webmsPath}/{mp["fileName"]}'
-        if checkWebmExists(mp["fileName"], mp["filePath"]):
-            mp["exists"] = True
+        mp["exists"] = checkClipExists(mp["fileName"], mp["filePath"], mps["overwrite"], skip)
+
+        if mp["exists"] and not mps["overwrite"]:
             return (mp, mps)
 
     mp["start"] = mp["start"] + mps["delay"]
@@ -924,7 +930,7 @@ def getMarkerPairSettings(settings, markerPairIndex):
 def makeClip(settings, markerPairIndex):
     mp, mps = getMarkerPairSettings(settings, markerPairIndex)
 
-    if mp["exists"]:
+    if mp["exists"] and not mps["overwrite"]:
         return {**(settings["markerPairs"][markerPairIndex]), **mp}
 
     inputs = ''
@@ -1088,6 +1094,7 @@ def makeClip(settings, markerPairIndex):
         return runffplayCommand(inputs, video_filter, video_filter_before_correction,
                                 audio_filter, markerPairIndex, mp, mps)
 
+    overwriteArg = ' -y ' if mps["overwrite"] else ' -n '
     vidstabEnabled = mps["videoStabilization"]["enabled"]
     if vidstabEnabled:
         vidstab = mps["videoStabilization"]
@@ -1115,9 +1122,9 @@ def makeClip(settings, markerPairIndex):
         ffmpegVidstabdetect = ffmpegCommand + f'-vf "{vidstabdetectFilter}" '
         ffmpegVidstabdetect += f' -y '
         ffmpegVidstabtransform = ffmpegCommand + f'-vf "{vidstabtransformFilter}" '
-        ffmpegVidstabtransform += f' -n '
+        ffmpegVidstabtransform += overwriteArg
     else:
-        ffmpegCommand += f' -n '
+        ffmpegCommand += overwriteArg
 
     ffmpegCommands = []
     if mps["twoPass"] and not vidstabEnabled:
@@ -1631,7 +1638,7 @@ class MissingMarkerPairFilePath(Exception):
     pass
 
 
-def makeMergedClips(settings):
+def mergeClips(settings):
     print()
     logger.header("-" * 30 + " Merge List Processing " + "-" * 30)
     markerPairMergeList = settings["markerPairMergeList"]
@@ -1698,22 +1705,19 @@ def makeMergedClips(settings):
             mergedFileName = f'{settings["titleSuffix"]}-({merge}).webm'
 
         mergedFilePath = f'{webmsPath}/{mergedFileName}'
-        ffmpegConcatFlags = '-n -hide_banner -f concat -safe 0'
+        mergeFileExists = checkClipExists(mergedFileName, mergedFilePath, settings["overwrite"])
+        overwriteArg = '-y' if settings["overwrite"] else '-n'
+        ffmpegConcatFlags = f'{overwriteArg} -hide_banner -f concat -safe 0'
         ffmpegConcatCmd = f' "{ffmpegPath}" {ffmpegConcatFlags}  -i "{inputsTxtPath}" -c copy "{mergedFilePath}"'
 
-        if not Path(mergedFilePath).is_file():
-            logger.info('-' * 80)
-            logger.info(f'Generating "{mergedFileName}"...\n')
+        if not mergeFileExists or settings["overwrite"]:
             logger.info(f'Using ffmpeg command: {ffmpegConcatCmd}')
             ffmpegProcess = subprocess.run(shlex.split(ffmpegConcatCmd))
             if ffmpegProcess.returncode == 0:
                 logger.success(f'Successfuly generated: "{mergedFileName}"\n')
             else:
                 logger.info(f'Failed to generate: "{mergedFileName}"\n')
-                logger.error(
-                    f'ffmpeg error code: {ffmpegProcess.returncode}\n')
-        else:
-            logger.notice(f'Skipped existing file: "{mergedFileName}"\n')
+                logger.error(f'ffmpeg error code: {ffmpegProcess.returncode}\n')
 
         try:
             os.remove(inputsTxtPath)
@@ -1721,13 +1725,18 @@ def makeMergedClips(settings):
             pass
 
 
-def checkWebmExists(fileName, filePath):
-    if not Path(filePath).is_file():
+def checkClipExists(fileName, filePath, overwrite=False, skip=False):
+    fileExists = Path(filePath).is_file()
+    if skip:
+        logger.notice(f'Skipped generating: "{fileName}"')
+    elif overwrite:
+        logger.warning(f'Generating and overwriting "{fileName}"...')
+    elif not fileExists:
         logger.info(f'Generating "{fileName}"...')
-        return False
     else:
         logger.notice(f'Skipped existing file: "{fileName}"')
-        return True
+
+    return fileExists
 
 
 def createMergeList(markerPairMergeList):
