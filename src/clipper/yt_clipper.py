@@ -81,8 +81,8 @@ def main():
         logger.info('-' * 80)
 
     if unknown:
-        logger.warning(f'The following unknown arguments were provided and will be ignored:')
-        logger.warning(unknown)
+        logger.notice(f'The following unknown arguments were provided and were ignored:')
+        logger.notice(unknown)
         logger.info('-' * 80)
 
     settings = enableMinterpEnhancements(settings)
