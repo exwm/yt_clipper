@@ -423,7 +423,7 @@ def buildArgParser():
                         help='Apply video stabilization using a preset strength from 0-6 '
                         'where 0 is disabled and 6 is strongest.')
     parser.add_argument('--video-stabilization-dynamic-zoom', '-vsdz',
-                        dest='videoStabilizationDynamicZoom', type=bool, default=False,
+                        dest='videoStabilizationDynamicZoom', action="store_true",
                         help='Enable video stabilization dynamic zoom. '
                         'Unlike a static zoom the zoom in can vary with time to reduce cropping of video.')
     parser.add_argument('--remove-duplicate-frames', '-rdf', dest='removeDuplicateFrames',
