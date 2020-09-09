@@ -4469,17 +4469,19 @@ export function triggerCropChartLoop() {
 
         function chartTimeAnnotationDragHandler(e) {
           const time = timeRounder(chart.scales['x-axis-1'].getValueForPixel(e.offsetX));
-          if (!e.ctrlKey && !e.altKey && e.shiftKey) {
-            chart.config.options.annotation.annotations[1].value = time;
-            chartLoop.start = time;
-          } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
-            chart.config.options.annotation.annotations[2].value = time;
-            chartLoop.end = time;
-          }
           chart.config.options.annotation.annotations[0].value = time;
           if (Math.abs(video.currentTime - time) >= 0.01) {
             seekToSafe(player, time);
             // video.currentTime = time;
+          }
+          if (!e.ctrlKey && !e.altKey && e.shiftKey) {
+            chart.config.options.annotation.annotations[1].value = time;
+            chartLoop.start = time;
+            chart.update();
+          } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
+            chart.config.options.annotation.annotations[2].value = time;
+            chartLoop.end = time;
+            chart.update();
           }
         }
 
@@ -4533,18 +4535,6 @@ export function triggerCropChartLoop() {
           chart.config.options.annotation.annotations[2].borderColor = 'rgba(255, 215, 0, 0.9)';
           flashMessage('Speed chart looping enabled', 'green');
         }
-        chart.update();
-      }
-    }
-
-    function resetChartLoop(chartInput: ChartInput) {
-      if (isCurrentChartVisible && prevSelectedMarkerPairIndex != null) {
-        const chart = chartInput.chart;
-        const chartLoop = markerPairs[prevSelectedMarkerPairIndex][chartInput.chartLoopKey];
-        chartLoop.start = undefined;
-        chartLoop.end = undefined;
-        chart.config.options.annotation.annotations[1].value = -1;
-        chart.config.options.annotation.annotations[2].value = -1;
         chart.update();
       }
     }
@@ -4619,7 +4609,6 @@ export function triggerCropChartLoop() {
           timeAnnotation.configure();
           chart.render();
         }
-
       }
       requestAnimationFrame(updateChartTimeAnnotation);
     }
