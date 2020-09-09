@@ -4478,8 +4478,8 @@ export function triggerCropChartLoop() {
           }
           chart.config.options.annotation.annotations[0].value = time;
           if (Math.abs(video.currentTime - time) >= 0.01) {
-            // seekToSafe(player, time);
-            video.currentTime = time;
+            seekToSafe(player, time);
+            // video.currentTime = time;
           }
         }
 
@@ -4581,9 +4581,13 @@ export function triggerCropChartLoop() {
     }
 
     function updateChartBounds(chartConfig: ChartConfiguration, start, end) {
-      if (currentChartInput) {
-        currentChartInput.minBound = start;
-        currentChartInput.maxBound = end;
+      if (cropChartInput) {
+        cropChartInput.minBound = start;
+        cropChartInput.maxBound = end;
+      }
+      if (speedChartInput) {
+        speedChartInput.minBound = start;
+        speedChartInput.maxBound = end;
       }
       chartConfig.options.scales.xAxes[0].ticks.min = start;
       chartConfig.options.scales.xAxes[0].ticks.max = end;
