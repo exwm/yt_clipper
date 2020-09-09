@@ -4620,8 +4620,8 @@ export function triggerCropChartLoop() {
           chart.render();
         }
 
-        requestAnimationFrame(updateChartTimeAnnotation);
       }
+      requestAnimationFrame(updateChartTimeAnnotation);
     }
 
     function toggleCropChartLooping() {
@@ -4917,7 +4917,8 @@ export function triggerCropChartLoop() {
         currentChartInput.chartContainer.style.display = 'block';
         isCurrentChartVisible = true;
         currentChartInput.chart.update();
-        requestAnimationFrame(updateChartTimeAnnotation);
+        // force chart time annotation to update
+        prevChartTime = -1;
       }
     }
 
