@@ -13,7 +13,7 @@ on:
 env:
   NAME: yt_clipper
   VERSION: 3.7.0-beta.3.9.0-alpha.13
-  FFMPEG_VERSION: 20200814-a762fd2
+  FFMPEG_VERSION: 20200831-4a11a6f
   FFMPEG_DL_PREFIX: https://ffmpeg.zeranoe.com/builds
 
 jobs:
