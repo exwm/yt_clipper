@@ -315,7 +315,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
       elements: {
         line: {
           fill: true,
-          backgroundColor: 'rgba(160,0, 255, 0.1)',
+          backgroundColor: 'rgba(160,0, 255, 0.05)',
           borderColor: lightgrey(0.8),
           borderWidth: 2,
           borderDash: [5, 2],
@@ -352,7 +352,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
               autoSkip: false,
               maxRotation: 60,
               minRotation: 0,
-              major: { fontColor: 'red' },
+              major: {},
               minor: {},
             },
           },

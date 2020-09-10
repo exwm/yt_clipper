@@ -4350,7 +4350,7 @@ export function triggerCropChartLoop() {
       chartContainerHook: null,
       chartContainerHookPosition: 'afterend',
       chartContainerStyle:
-        'width: 100%; height: calc(100% - 20px); position: relative; z-index: 12',
+        'width: 100%; height: calc(100% - 20px); position: relative; z-index: 12; opacity:0.8;',
       chartCanvasHTML: `<canvas id="speedChartCanvas" width="1600px" height="900px"></canvas>`,
       chartSpec: speedChartSpec,
       chartCanvasId: 'speedChartCanvas',
