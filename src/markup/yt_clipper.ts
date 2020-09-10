@@ -3630,8 +3630,8 @@ export function triggerCropChartLoop() {
           const { isDynamicCrop, enableZoomPan } = prepareCropMapForCropping();
           const videoRect = player.getVideoContentRect();
           const playerRect = player.getBoundingClientRect();
-          const clickPosX = e.pageX - videoRect.left - playerRect.left;
-          const clickPosY = e.pageY - videoRect.top - playerRect.top;
+          const clickPosX = e.clientX - videoRect.left - playerRect.left;
+          const clickPosY = e.clientY - videoRect.top - playerRect.top;
           const cursor = getMouseCropHoverRegion(e, cropString);
           const pointerId = e.pointerId;
 
@@ -3702,8 +3702,8 @@ export function triggerCropChartLoop() {
           }
 
           function dragCropHandler(e) {
-            const dragPosX = e.pageX - videoRect.left - playerRect.left;
-            const dragPosY = e.pageY - videoRect.top - playerRect.top;
+            const dragPosX = e.clientX - videoRect.left - playerRect.left;
+            const dragPosY = e.clientY - videoRect.top - playerRect.top;
             const changeX = dragPosX - clickPosX;
             const changeY = dragPosY - clickPosY;
             let changeXScaled = Math.round((changeX / videoRect.width) * settings.cropResWidth);
@@ -3721,10 +3721,10 @@ export function triggerCropChartLoop() {
           }
 
           function getResizeHandler(e, cursor) {
-            const dragPosX = e.pageX - videoRect.left - playerRect.left;
+            const dragPosX = e.clientX - videoRect.left - playerRect.left;
             const changeX = dragPosX - clickPosX;
             let deltaX = (changeX / videoRect.width) * settings.cropResWidth;
-            const dragPosY = e.pageY - videoRect.top - playerRect.top;
+            const dragPosY = e.clientY - videoRect.top - playerRect.top;
             const changeY = dragPosY - clickPosY;
             let deltaY = (changeY / videoRect.height) * settings.cropResHeight;
             const shouldMaintainCropAspectRatio =
@@ -3825,8 +3825,8 @@ export function triggerCropChartLoop() {
       const [x, y, w, h] = getCropComponents(cropString);
       const videoRect = player.getVideoContentRect();
       const playerRect = player.getBoundingClientRect();
-      const clickPosX = e.pageX - videoRect.left - playerRect.left;
-      const clickPosY = e.pageY - videoRect.top - playerRect.top;
+      const clickPosX = e.clientX - videoRect.left - playerRect.left;
+      const clickPosY = e.clientY - videoRect.top - playerRect.top;
       const clickPosXScaled = (clickPosX / videoRect.width) * settings.cropResWidth;
       const clickPosYScaled = (clickPosY / videoRect.height) * settings.cropResHeight;
 
@@ -3922,8 +3922,8 @@ export function triggerCropChartLoop() {
 
         const videoRect = player.getVideoContentRect();
         const playerRect = player.getBoundingClientRect();
-        const clickPosX = e.pageX - videoRect.left - playerRect.left;
-        const clickPosY = e.pageY - videoRect.top - playerRect.top;
+        const clickPosX = e.clientX - videoRect.left - playerRect.left;
+        const clickPosY = e.clientY - videoRect.top - playerRect.top;
         const ix = (clickPosX / videoRect.width) * cropResWidth;
         const iy = (clickPosY / videoRect.height) * cropResHeight;
 
@@ -3944,10 +3944,10 @@ export function triggerCropChartLoop() {
         updateCropString(crop.cropString);
 
         dragCropPreviewHandler = function (e: PointerEvent) {
-          const dragPosX = e.pageX - videoRect.left - playerRect.left;
+          const dragPosX = e.clientX - videoRect.left - playerRect.left;
           const changeX = dragPosX - clickPosX;
           let deltaX = (changeX / videoRect.width) * cropResWidth;
-          const dragPosY = e.pageY - videoRect.top - playerRect.top;
+          const dragPosY = e.clientY - videoRect.top - playerRect.top;
           const changeY = dragPosY - clickPosY;
           let deltaY = (changeY / videoRect.height) * cropResHeight;
 
