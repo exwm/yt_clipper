@@ -7,7 +7,7 @@ import {
   currentCropPointIndex,
   setCurrentCropPoint,
 } from './cropchart/cropChartSpec';
-import { seekToSafe, timeRounder } from '../../util';
+import { seekToSafe, timeRounder } from '../../util/util';
 
 export const scatterChartDefaults: ChartOptions & ChartFontOptions = {
   defaultColor: 'rgba(255, 255, 255, 1)',

@@ -43,8 +43,8 @@ import {
   Settings,
   SpeedPoint,
 } from './@types/yt_clipper';
-import './components/chart/chart.js-drag-data-plugin';
-import { cubicInOutTension, sortX } from './components/chart/chartutil';
+import './ui/chart/chart.js-drag-data-plugin';
+import { cubicInOutTension, sortX } from './ui/chart/chartutil';
 import {
   cropChartMode,
   cropPointFormatter,
@@ -54,14 +54,10 @@ import {
   currentCropPointIndex,
   getCropChartConfig,
   setCurrentCropPoint,
-} from './components/chart/cropchart/cropChartSpec';
-import {
-  scatterChartDefaults,
-  addCropPoint,
-  addSpeedPoint,
-} from './components/chart/scatterChartSpec';
-import { speedChartSpec } from './components/chart/speedchart/speedChartSpec';
-import { Tooltips } from './tooltips';
+} from './ui/chart/cropchart/cropChartSpec';
+import { scatterChartDefaults, addCropPoint, addSpeedPoint } from './ui/chart/scatterChartSpec';
+import { speedChartSpec } from './ui/chart/speedchart/speedChartSpec';
+import { Tooltips } from './ui/tooltips';
 import {
   bsearch,
   clampNumber,
@@ -87,7 +83,7 @@ import {
   getCropString,
   seekBySafe,
   seekToSafe,
-} from './util';
+} from './util/util';
 import {
   Crop,
   deleteCropMapInitCrops,
@@ -95,9 +91,9 @@ import {
   isVariableSize,
   loadCropMapInitCrops,
   saveCropMapInitCrops,
-} from './crop';
-import { autoHideUnselectedMarkerPairsCSS } from './css';
-import { flattenVRVideo, openSubsEditor } from './misc';
+} from './crop/crop';
+import { autoHideUnselectedMarkerPairsCSS } from './ui/css/css';
+import { flattenVRVideo, openSubsEditor } from './actions/misc';
 import {
   enablePreventSideBarPull,
   enablePreventAltDefault,
@@ -105,18 +101,15 @@ import {
   disablePreventSideBarPull,
   disablePreventAltDefault,
   disablePreventMouseZoom,
-} from './yt-blockers';
-const ytClipperCSS = readFileSync(__dirname + '/css/yt-clipper.css', 'utf8');
-const shortcutsTable = readFileSync(
-  __dirname + '/components/shortcuts-table/shortcuts-table.html',
-  'utf8'
-);
+} from './actions/yt-blockers';
+const ytClipperCSS = readFileSync(__dirname + '/ui/css/yt-clipper.css', 'utf8');
+const shortcutsTable = readFileSync(__dirname + '/ui/shortcuts-table/shortcuts-table.html', 'utf8');
 const shortcutsTableStyle = readFileSync(
-  __dirname + '/components/shortcuts-table/shortcuts-table.css',
+  __dirname + '/ui/shortcuts-table/shortcuts-table.css',
   'utf8'
 );
 const shortcutsTableToggleButtonHTML = readFileSync(
-  __dirname + '/components/shortcuts-table/shortcuts-table-toggle-button.html',
+  __dirname + '/ui/shortcuts-table/shortcuts-table-toggle-button.html',
   'utf8'
 );
 

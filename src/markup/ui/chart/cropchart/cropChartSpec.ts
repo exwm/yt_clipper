@@ -1,6 +1,6 @@
 import Chart, { ChartConfiguration, ChartPoint } from 'chart.js';
 import { CropPoint } from '../../../@types/yt_clipper';
-import { clampNumber } from '../../../util';
+import { clampNumber } from '../../../util/util';
 import { getInputUpdater, lightgrey, medgrey } from '../chartutil';
 import { scatterChartSpec } from '../scatterChartSpec';
 

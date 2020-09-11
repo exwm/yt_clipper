@@ -1,5 +1,5 @@
-import { CropPoint } from './@types/yt_clipper';
-import { clampNumber, getCropString } from './util';
+import { CropPoint } from '../@types/yt_clipper';
+import { clampNumber, getCropString } from '../util/util';
 
 export class Crop {
   private static minX = 0;

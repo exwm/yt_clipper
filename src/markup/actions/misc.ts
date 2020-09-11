@@ -1,4 +1,4 @@
-import { deleteElement, flashMessage } from './util';
+import { deleteElement, flashMessage } from '../util/util';
 
 export function flattenVRVideo(videoContainer: HTMLDivElement, video: HTMLVideoElement) {
   let isVRVideo = true;

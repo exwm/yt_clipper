@@ -1,4 +1,4 @@
-import { SpeedPoint, CropPoint } from './@types/yt_clipper';
+import { SpeedPoint, CropPoint } from '../@types/yt_clipper';
 
 let flashMessageHook: HTMLElement;
 export function setFlashMessageHook(hook: HTMLElement) {
