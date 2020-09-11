@@ -1,4 +1,4 @@
-import { getRounder } from '../../util';
+import { getRounder } from '../../util/util';
 export const sortX = (a, b) => {
   if (a.x < b.x) return -1;
   if (a.x > b.x) return 1;
