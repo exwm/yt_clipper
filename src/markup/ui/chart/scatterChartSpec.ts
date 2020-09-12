@@ -1,13 +1,20 @@
 import { ChartConfiguration, ChartFontOptions, ChartOptions } from 'chart.js';
+import { createDraft, finishDraft } from 'immer';
 import { CropPoint } from '../../@types/yt_clipper';
-import { triggerCropChartLoop, player } from '../../yt_clipper';
+import { getMarkerPairHistory, saveMarkerPairHistory } from '../../util/undoredo';
+import { seekToSafe, timeRounder } from '../../util/util';
+import {
+  markerPairs,
+  player,
+  prevSelectedMarkerPairIndex,
+  triggerCropChartLoop,
+} from '../../yt_clipper';
 import { getInputUpdater, grey, lightgrey, medgrey, roundX, roundY, sortX } from './chartutil';
 import {
   cropChartMode,
   currentCropPointIndex,
   setCurrentCropPoint,
 } from './cropchart/cropChartSpec';
-import { seekToSafe, timeRounder } from '../../util/util';
 
 export const scatterChartDefaults: ChartOptions & ChartFontOptions = {
   defaultColor: 'rgba(255, 255, 255, 1)',
@@ -70,15 +77,24 @@ export const addSpeedPoint = function (time, speed) {
     ) {
       return;
     }
+
     time = roundX(time);
     speed = roundY(speed);
 
-    this.data.datasets[0].data.push({
+    const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+    const initialState = getMarkerPairHistory(markerPair);
+    const draft = createDraft(initialState);
+
+    draft.speedMap.push({
       x: time,
       y: speed,
     });
 
-    this.data.datasets[0].data.sort(sortX);
+    draft.speedMap.sort(sortX);
+
+    saveMarkerPairHistory(draft, markerPair);
+    this.data.datasets[0].data = markerPair.speedMap;
+
     updateSpeedInput();
     this.update();
   }
@@ -95,14 +111,18 @@ export const addCropPoint = function (time: number) {
     }
     time = roundX(time);
 
-    this.data.datasets[0].data.push({
+    const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+    const initialState = getMarkerPairHistory(markerPair);
+    const draft = createDraft(initialState);
+
+    draft.cropMap.push({
       x: time,
       y: 0,
       crop: '0:0:iw:ih',
     });
-    this.data.datasets[0].data.sort(sortX);
+    draft.cropMap.sort(sortX);
 
-    const cropPointIndex = this.data.datasets[0].data.map((cropPoint) => cropPoint.x).indexOf(time);
+    const cropPointIndex = draft.cropMap.map((cropPoint) => cropPoint.x).indexOf(time);
 
     // console.log(currentCropPointIndex, cropPointIndex);
     if (currentCropPointIndex >= cropPointIndex) {
@@ -111,10 +131,11 @@ export const addCropPoint = function (time: number) {
 
     if (cropPointIndex > 0) {
       const prevCropPointIndex = cropPointIndex - 1;
-      this.data.datasets[0].data[cropPointIndex].crop = this.data.datasets[0].data[
-        prevCropPointIndex
-      ].crop;
+      draft.cropMap[cropPointIndex].crop = draft.cropMap[prevCropPointIndex].crop;
     }
+
+    saveMarkerPairHistory(draft, markerPair);
+    this.data.datasets[0].data = markerPair.cropMap;
 
     updateCropInput();
     this.update();
@@ -142,6 +163,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
       const shouldDrag = {
         dragX: true,
         dragY: true,
+        chartType,
       };
 
       const scatterChartBounds = getScatterChartBounds(chartInstance);
@@ -169,6 +191,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
       return {
         dragX: false,
         dragY: false,
+        chartType,
       };
     }
   };
@@ -176,6 +199,28 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
   const onDragEnd = function (e, chartInstance, datasetIndex, index, value) {
     // console.log(datasetIndex, index, value);
     if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
+      const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+      const draft = createDraft(getMarkerPairHistory(markerPair));
+      const draftMap = chartType === 'crop' ? draft.cropMap : draft.speedMap;
+
+      let currentCropPointXPreSort =
+        chartType === 'crop' ? draftMap[currentCropPointIndex].x : null;
+
+      draftMap.sort(sortX);
+
+      if (chartType === 'crop') {
+        const newCurrentCropPointIndex = draftMap
+          .map((cropPoint) => cropPoint.x)
+          .indexOf(currentCropPointXPreSort);
+        setCurrentCropPoint(chartInstance, newCurrentCropPointIndex);
+      }
+      chartInstance.options.plugins.zoom.pan.enabled = true;
+      event.target.style.cursor = 'default';
+
+      saveMarkerPairHistory(draft, markerPair);
+      chartInstance.data.datasets[0].data =
+        chartType === 'crop' ? markerPair.cropMap : markerPair.speedMap;
+
       if (chartType !== 'crop') {
         if (index === 0) {
           updateInput(value.y);
@@ -183,23 +228,6 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
           updateInput();
         }
       }
-
-      let currentCropPointXPreSort =
-        chartType === 'crop'
-          ? chartInstance.data.datasets[datasetIndex].data[currentCropPointIndex].x
-          : null;
-
-      chartInstance.data.datasets[datasetIndex].data.sort(sortX);
-
-      if (chartType === 'crop') {
-        const newCurrentCropPointIndex = chartInstance.data.datasets[datasetIndex].data
-          .map((cropPoint) => cropPoint.x)
-          .indexOf(currentCropPointXPreSort);
-        setCurrentCropPoint(chartInstance, newCurrentCropPointIndex);
-      }
-
-      chartInstance.options.plugins.zoom.pan.enabled = true;
-      event.target.style.cursor = 'default';
       chartInstance.update();
     }
   };
@@ -236,20 +264,35 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
         const index = datum['_index'];
         let scatterChartMinBound = this.options.scales.xAxes[0].ticks.min;
         let scatterChartMaxBound = this.options.scales.xAxes[0].ticks.max;
-        let dataRef = this.data.datasets[datasetIndex].data;
+
+        const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+        const initialState = getMarkerPairHistory(markerPair);
+        const draft = createDraft(initialState);
+
+        let dataRef: any[];
+        if (chartType === 'crop') {
+          dataRef = draft.cropMap;
+        } else {
+          dataRef = draft.speedMap;
+        }
+
         if (
           dataRef[index].x !== scatterChartMinBound &&
           dataRef[index].x !== scatterChartMaxBound
         ) {
           dataRef.splice(index, 1);
           if (chartType === 'crop') {
-            if (currentCropPointIndex === index) {
-              setCurrentCropPoint(this, 0);
-            } else if (currentCropPointIndex > index) {
+            saveMarkerPairHistory(draft, markerPair);
+            this.data.datasets[0].data = markerPair.cropMap;
+
+            if (currentCropPointIndex >= index) {
               setCurrentCropPoint(this, currentCropPointIndex - 1);
             }
-            updateInput(dataRef[currentCropPointIndex].crop);
+
+            updateInput(markerPair.cropMap[currentCropPointIndex].crop);
           } else {
+            saveMarkerPairHistory(draft, markerPair);
+            this.data.datasets[0].data = markerPair.speedMap;
             updateInput();
           }
           this.update();
@@ -270,12 +313,21 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
         if (datum) {
           const datasetIndex = datum['_datasetIndex'];
           const index = datum['_index'];
-          let dataRef = this.data.datasets[datasetIndex].data;
-          if (dataRef[index].easeIn == null) {
-            dataRef[index].easeIn = 'instant';
+
+          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+          const initialState = getMarkerPairHistory(markerPair);
+          const draft = createDraft(initialState);
+
+          if (draft.cropMap[index].easeIn == null) {
+            draft.cropMap[index].easeIn = 'instant';
           } else {
-            delete dataRef[index].easeIn;
+            delete draft.cropMap[index].easeIn;
           }
+
+          saveMarkerPairHistory(draft, markerPair);
+          this.data.datasets[0].data =
+            chartType === 'crop' ? markerPair.cropMap : markerPair.speedMap;
+
           this.update();
         }
       }

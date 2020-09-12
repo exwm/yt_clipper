@@ -1,6 +1,8 @@
 import Chart from 'chart.js';
 import { drag } from 'd3-drag';
 import { select, event } from 'd3-selection';
+import { createDraft, finishDraft } from 'immer';
+import { markerPairs, prevSelectedMarkerPairIndex } from '../../yt_clipper';
 
 let element, scale, scaleX, radar;
 
@@ -67,7 +69,8 @@ function updateData(chartInstance, callback) {
 
       let x;
       let y;
-      const dataRef = chartInstance.data.datasets[datasetIndex].data;
+      const initialState = chartInstance.data.datasets[datasetIndex].data;
+      const dataRef = createDraft(initialState);
       let datumRef = dataRef[index];
       let proposedDatum = { x: datumRef.x, y: datumRef.y };
 
@@ -89,7 +92,7 @@ function updateData(chartInstance, callback) {
           v = rScale.min + d / scalingFactor;
         }
 
-        v = roundValue(chartInstance.options.dragDataRound, 2)(v);
+        v = roundValue(v, chartInstance.options.dragDataRound, 2);
 
         v = Math.min(v, chartInstance.scale.max);
         v = Math.max(v, chartInstance.scale.min);
@@ -154,6 +157,14 @@ function updateData(chartInstance, callback) {
           datumRef = proposedDatum;
         }
       }
+
+      const newState = finishDraft(dataRef);
+      const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+      chartInstance.data.datasets[datasetIndex].data = newState;
+      shouldChartUpdate.chartType === 'crop'
+        ? (markerPair.cropMap = newState)
+        : (markerPair.speedMap = newState);
+
       if (shouldChartUpdateX !== false || shouldChartUpdateY !== false) {
         chartInstance.update(0);
       }
@@ -173,7 +184,7 @@ function dragEndCallback(chartInstance, callback) {
   };
 }
 const ChartJSdragDataPlugin = {
-  afterInit: function (chartInstance) {
+  beforeDatasetsUpdate: function (chartInstance) {
     if (chartInstance.options.dragData) {
       select(chartInstance.chart.canvas).call(
         drag()

@@ -26,7 +26,7 @@ export function getInputUpdater(inputId) {
         if (typeof newValue !== 'string') newValue = newValue.toString();
         input.value = newValue;
       }
-      input.dispatchEvent(new Event('change'));
+      // input.dispatchEvent(new Event('change'));
     } else {
       console.log(`Input with Id ${inputId} not found.`);
     }
