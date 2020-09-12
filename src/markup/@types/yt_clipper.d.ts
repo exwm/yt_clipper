@@ -30,37 +30,47 @@ interface Settings {
 interface MarkerPair {
   start: number;
   end: number;
-  crop: string;
   speed: number;
-  overrides: MarkerPairOverrides;
-  speedChartLoop: ChartLoop;
-  cropChartLoop: ChartLoop;
   speedMap: SpeedPoint[];
+  speedChartLoop: ChartLoop;
+  crop: string;
   cropMap: CropPoint[];
+  cropChartLoop: ChartLoop;
+  enableZoomPan: boolean;
+  cropRes: string;
   outputDuration: number;
+  overrides: MarkerPairOverrides;
   startNumbering: SVGTextElement;
   endNumbering: SVGTextElement;
-  moveHistory: { undos: markerMoveRecord[]; redos: markerMoveRecord[] };
+  undoredo: { history: MarkerPairHistory[]; index: number };
 }
-interface markerMoveRecord {
-  marker: SVGRectElement;
-  fromTime: number;
-  toTime: number;
+
+interface MarkerPairHistory {
+  start: number;
+  end: number;
+  speed: number;
+  speedMap: SpeedPoint[];
+  crop: string;
+  cropMap: CropPoint[];
+  enableZoomPan: boolean;
+  cropRes: string;
 }
 
 interface MarkerConfig {
   time?: number;
   type?: 'start' | 'end';
   speed?: number;
-  overrides?: MarkerPairOverrides;
-  speedChartLoop?: ChartLoop;
-  cropChartLoop?: ChartLoop;
   speedMap?: SpeedPoint[];
+  speedChartLoop?: ChartLoop;
   crop?: string;
   cropMap?: CropPoint[];
+  cropChartLoop?: ChartLoop;
+  enableZoomPan?: boolean;
+  overrides?: MarkerPairOverrides;
   outputDuration?: number;
   startNumbering?: SVGTextElement;
   endNumbering?: SVGTextElement;
+  undoredo?: { history: any[]; index: number };
 }
 
 interface MarkerPairOverrides {
@@ -74,7 +84,6 @@ interface MarkerPairOverrides {
   audio?: boolean;
   videoStabilization?: VideoStabilization;
   videoStabilizationDynamicZoom?: boolean;
-  enableZoomPan?: boolean;
   minterpMode?: string | boolean;
   minterpFPS?: number;
   loop?: Loop;
@@ -109,8 +118,6 @@ interface CropPoint {
   x: number;
   y: 0;
   crop: string;
-  prevCrop?: string;
-  initCrop?: string;
   easeIn?: 'instant';
 }
 

@@ -4,20 +4,14 @@ import { clampNumber, getCropString } from '../util/util';
 export class Crop {
   private static minX = 0;
   private static minY = 0;
-  private static _minW = 20;
-  private static _minH = 20;
+  static _minW = 20;
+  static _minH = 20;
   public static shouldConstrainMinDimensions = true;
   public static get minW() {
     return Crop.shouldConstrainMinDimensions ? Crop._minW : 0;
   }
   public static get minH() {
     return Crop.shouldConstrainMinDimensions ? Crop._minH : 0;
-  }
-  public static set minW(minW: number) {
-    Crop.minW = minW;
-  }
-  public static set minH(minH: number) {
-    Crop.minH = minH;
   }
   private _history: string[] = [];
   private _defaultAspectRatio = 1;
@@ -457,25 +451,6 @@ export class Crop {
     this.resizeW(deltaX, false);
   }
 }
-
-export function saveCropMapInitCrops(cropMap: CropPoint[]) {
-  cropMap.forEach((cropPoint) => {
-    cropPoint.initCrop = cropPoint.crop;
-  });
-}
-
-export function deleteCropMapInitCrops(cropMap: CropPoint[]) {
-  cropMap.forEach((cropPoint) => {
-    delete cropPoint.initCrop;
-  });
-}
-
-export function loadCropMapInitCrops(cropMap: CropPoint[]) {
-  cropMap.forEach((cropPoint) => {
-    cropPoint.crop = cropPoint.initCrop ?? cropPoint.crop;
-  });
-}
-
 export function getCropSize(crop: string, cropRes: string) {
   const [, , w, h] = Crop.getCropComponents(crop, cropRes);
   const size = w * h;
