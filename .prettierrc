@@ -6,5 +6,4 @@
   "arrowParens": "always",
   "printWidth": 100,
   "singleQuote": true,
-  "parser": "typescript"
 }
