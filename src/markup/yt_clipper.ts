@@ -1866,9 +1866,9 @@ export function triggerCropChartLoop() {
       <div class="settings-editor-input-div" title="${Tooltips.audioTooltip}">
         <span>Audio</span>
         <select id="audio-input"> 
-          <option ${settings.audio ? 'selected' : ''}>Enabled</option>
-          <option ${settings.audio === false ? 'selected' : ''}>Disabled</option>
           <option value="Default" ${settings.audio == null ? 'selected' : ''}>(Disabled)</option>
+          <option ${settings.audio === false ? 'selected' : ''}>Disabled</option>
+          <option ${settings.audio ? 'selected' : ''}>Enabled</option>
         </select>
       </div>
       <div class="settings-editor-input-div" title="${Tooltips.encodeSpeedTooltip}">
@@ -1892,9 +1892,9 @@ export function triggerCropChartLoop() {
       <div class="settings-editor-input-div" title="${Tooltips.twoPassTooltip}">
         <span>Two-Pass</span>
         <select id="two-pass-input"> 
-          <option ${settings.twoPass ? 'selected' : ''}>Enabled</option>
-          <option ${settings.twoPass === false ? 'selected' : ''}>Disabled</option>
           <option value="Default" ${settings.twoPass == null ? 'selected' : ''}>(Disabled)</option>
+          <option ${settings.twoPass === false ? 'selected' : ''}>Disabled</option>
+          <option ${settings.twoPass ? 'selected' : ''}>Enabled</option>
         </select>
       </div>
       <div class="settings-editor-input-div" title="${Tooltips.gammaTooltip}">
@@ -1957,11 +1957,11 @@ export function triggerCropChartLoop() {
         <div title="${Tooltips.dynamicZoomTooltip}">
           <span>Dynamic Zoom</span>
           <select id="video-stabilization-dynamic-zoom-input"> 
-            <option ${vidstabDynamicZoomEnabled ? 'selected' : ''}>Enabled</option>
-            <option ${vidstabDynamicZoomEnabled === false ? 'selected' : ''}>Disabled</option>
             <option value="Default" ${
               vidstabDynamicZoomEnabled == null ? 'selected' : ''
             }>(Disabled)</option>
+            <option ${vidstabDynamicZoomEnabled === false ? 'selected' : ''}>Disabled</option>
+            <option ${vidstabDynamicZoomEnabled ? 'selected' : ''}>Enabled</option>
           </select>
         </div>
       </div>
@@ -1969,10 +1969,10 @@ export function triggerCropChartLoop() {
         <div>
           <span>Loop</span>
           <select id="loop-input">
+          <option value="Default" ${settings.loop == null ? 'selected' : ''}>(none)</option>
+          <option ${settings.loop === 'none' ? 'selected' : ''}>none</option>
             <option ${settings.loop === 'fwrev' ? 'selected' : ''}>fwrev</option>
             <option ${settings.loop === 'fade' ? 'selected' : ''}>fade</option>
-            <option ${settings.loop === 'none' ? 'selected' : ''}>none</option>
-            <option value="Default" ${settings.loop == null ? 'selected' : ''}>(none)</option>
           </select>
         </div>
         <div title="${Tooltips.fadeDurationTooltip}">
@@ -2348,11 +2348,11 @@ export function triggerCropChartLoop() {
         <div class="settings-editor-input-div" title="${Tooltips.audioTooltip}">
           <span>Audio</span>
           <select id="audio-input">
-            <option ${overrides.audio ? 'selected' : ''}>Enabled</option>
-            <option ${overrides.audio === false ? 'selected' : ''}>Disabled</option>
             <option value="Default" ${overrides.audio == null ? 'selected' : ''}>${ternaryToString(
         settings.audio
       )}</option>
+            <option ${overrides.audio === false ? 'selected' : ''}>Disabled</option>
+            <option ${overrides.audio ? 'selected' : ''}>Enabled</option>
           </select>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.encodeSpeedTooltip}">
@@ -2378,11 +2378,11 @@ export function triggerCropChartLoop() {
         <div class="settings-editor-input-div" title="${Tooltips.twoPassTooltip}">
           <span>Two-Pass</span>
           <select id="two-pass-input"> 
-            <option ${overrides.twoPass ? 'selected' : ''}>Enabled</option>
-            <option ${overrides.twoPass === false ? 'selected' : ''}>Disabled</option>
             <option value="Default" ${
               overrides.twoPass == null ? 'selected' : ''
             }>${ternaryToString(settings.twoPass)}</option>
+            <option ${overrides.twoPass === false ? 'selected' : ''}>Disabled</option>
+            <option ${overrides.twoPass ? 'selected' : ''}>Enabled</option>
           </select>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.gammaTooltip}">
@@ -2460,11 +2460,11 @@ export function triggerCropChartLoop() {
           <div title="${Tooltips.dynamicZoomTooltip}">
             <span>Dynamic Zoom</span>
             <select id="video-stabilization-dynamic-zoom-input"> 
-              <option ${vidstabDynamicZoomEnabled ? 'selected' : ''}>Enabled</option>
-              <option ${vidstabDynamicZoomEnabled === false ? 'selected' : ''}>Disabled</option>
               <option value="Default" ${
                 vidstabDynamicZoomEnabled == null ? 'selected' : ''
               }>${ternaryToString(settings.videoStabilizationDynamicZoom)}</option>
+              <option ${vidstabDynamicZoomEnabled === false ? 'selected' : ''}>Disabled</option>
+              <option ${vidstabDynamicZoomEnabled ? 'selected' : ''}>Enabled</option>
             </select>
           </div>
         </div>
@@ -2472,12 +2472,12 @@ export function triggerCropChartLoop() {
           <div>
             <span>Loop</span>
             <select id="loop-input">
-              <option ${overrides.loop === 'fwrev' ? 'selected' : ''}>fwrev</option>
-              <option ${overrides.loop === 'fade' ? 'selected' : ''}>fade</option>
-              <option ${overrides.loop === 'none' ? 'selected' : ''}>none</option>
               <option value="Default" ${overrides.loop == null ? 'selected' : ''}>${
         settings.loop != null ? `(${settings.loop})` : '(none)'
       }</option>
+              <option ${overrides.loop === 'none' ? 'selected' : ''}>none</option>
+              <option ${overrides.loop === 'fwrev' ? 'selected' : ''}>fwrev</option>
+              <option ${overrides.loop === 'fade' ? 'selected' : ''}>fade</option>
             </select>
           </div>
           <div title="${Tooltips.fadeDurationTooltip}">
@@ -2492,8 +2492,8 @@ export function triggerCropChartLoop() {
         <div class="settings-editor-input-div" title="${Tooltips.enableZoomPanTooltip}">
           <span>ZoomPan</span>
             <select id="enable-zoom-pan-input">
-              <option ${markerPair.enableZoomPan ? 'selected' : ''}>Enabled</option>
               <option ${!markerPair.enableZoomPan ? 'selected' : ''}>Disabled</option>
+              <option ${markerPair.enableZoomPan ? 'selected' : ''}>Enabled</option>
             </select>
         </div>
       </fieldset>
