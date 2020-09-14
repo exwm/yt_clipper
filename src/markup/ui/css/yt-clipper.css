@@ -111,7 +111,7 @@
 .settings-editor-panel > legend {
   display: block;
   width: fit-content;
-  font-size: 14pt;
+  font-size: 12pt;
   text-shadow: -1px -1px 0 black, 1px -1px black, -1px 1px 0 black, 1px 1px 0 black,
     -1px 0px 0px black, 0px -1px 0px black, 1px 0px 0px black, 0px 1px 0px black;
   padding: 0px 4px 0px 4px;
@@ -121,7 +121,7 @@
 .settings-editor-input-div {
   display: inline-block;
   color: grey;
-  font-size: 12pt;
+  font-size: 11.5pt;
   margin: 0px 0px 6px 2px;
   padding: 4px 10px 4px 4px;
   background: var(--dark-grey);
