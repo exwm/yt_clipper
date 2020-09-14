@@ -1801,13 +1801,13 @@ export function triggerCropChartLoop() {
         <span>Speed</span>
         <input id="speed-input" type="number" placeholder="speed" value="${
           settings.newMarkerSpeed
-        }" step="0.05" min="0.05" max="2" style="min-width:4em">
+        }" step="0.05" min="0.05" max="2" style="width:7ch">
       </div>
       <div class="settings-editor-input-div" title="${Tooltips.cropTooltip}">
         <span>Crop</span>
         <input id="crop-input" value="${
           settings.newMarkerCrop
-        }" pattern="${cropInputValidation}" style="min-width:10em" required>
+        }" pattern="${cropInputValidation}" style="width:21ch" required>
       </div>
       <div class="settings-editor-input-div  settings-info-display">
         <span>Crop Aspect Ratio</span>
@@ -1827,7 +1827,7 @@ export function triggerCropChartLoop() {
         <span>Crop Resolution</span>
         <input id="crop-res-input" list="resolutions" pattern="${cropResInputValidation}" value="${
         settings.cropRes
-      }" style="min-width:7em" required>
+      }" style="width:14ch" required>
         <datalist id="resolutions" autocomplete="off">${resList}</datalist>
       </div>
       <div id="global-settings-rotate" class="settings-editor-input-div" title="${
@@ -1868,9 +1868,7 @@ export function triggerCropChartLoop() {
         <select id="audio-input"> 
           <option ${settings.audio ? 'selected' : ''}>Enabled</option>
           <option ${settings.audio === false ? 'selected' : ''}>Disabled</option>
-          <option value="Default" ${
-            settings.audio == null ? 'selected' : ''
-          }>Inherit (Disabled)</option>
+          <option value="Default" ${settings.audio == null ? 'selected' : ''}>(Disabled)</option>
         </select>
       </div>
       <div class="settings-editor-input-div" title="${Tooltips.encodeSpeedTooltip}">
@@ -1896,9 +1894,7 @@ export function triggerCropChartLoop() {
         <select id="two-pass-input"> 
           <option ${settings.twoPass ? 'selected' : ''}>Enabled</option>
           <option ${settings.twoPass === false ? 'selected' : ''}>Disabled</option>
-          <option value="Default" ${
-            settings.twoPass == null ? 'selected' : ''
-          }>Inherit (Disabled)</option>
+          <option value="Default" ${settings.twoPass == null ? 'selected' : ''}>(Disabled)</option>
         </select>
       </div>
       <div class="settings-editor-input-div" title="${Tooltips.gammaTooltip}">
@@ -1910,9 +1906,7 @@ export function triggerCropChartLoop() {
       <div class="settings-editor-input-div" title="${Tooltips.denoiseTooltip}">
         <span>Denoise</span>
         <select id="denoise-input">
-          <option value="Inherit" ${
-            denoiseDesc == null ? 'selected' : ''
-          }>Inherit (Disabled)</option>
+          <option value="Inherit" ${denoiseDesc == null ? 'selected' : ''}>(Disabled)</option>
           <option ${denoiseDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
           <option ${denoiseDesc === 'Weak' ? 'selected' : ''}>Weak</option>
           <option ${denoiseDesc === 'Medium' ? 'selected' : ''}>Medium</option>
@@ -1924,9 +1918,7 @@ export function triggerCropChartLoop() {
         <div  title="${Tooltips.minterpModeTooltip}">
           <span>Minterpolation</span>
           <select id="minterp-mode-input">
-            <option value="Default" ${
-              minterpMode == null ? 'selected' : ''
-            }>Inherit (Numeric)</option>
+            <option value="Default" ${minterpMode == null ? 'selected' : ''}>(Numeric)</option>
             <option ${minterpMode === 'None' ? 'selected' : ''}>None</option>
             <option value="MaxSpeed" ${
               minterpMode == 'MaxSpeed' ? 'selected' : ''
@@ -1953,9 +1945,7 @@ export function triggerCropChartLoop() {
         <div>
           <span>Stabilization</span>
           <select id="video-stabilization-input">
-            <option value="Inherit" ${
-              vidstabDesc == null ? 'selected' : ''
-            }>Inherit (Disabled)</option>
+            <option value="Inherit" ${vidstabDesc == null ? 'selected' : ''}>(Disabled)</option>
             <option ${vidstabDesc === 'Very Weak' ? 'selected' : ''}>Very Weak</option>
             <option ${vidstabDesc === 'Weak' ? 'selected' : ''}>Weak</option>
             <option ${vidstabDesc === 'Medium' ? 'selected' : ''}>Medium</option>
@@ -1971,7 +1961,7 @@ export function triggerCropChartLoop() {
             <option ${vidstabDynamicZoomEnabled === false ? 'selected' : ''}>Disabled</option>
             <option value="Default" ${
               vidstabDynamicZoomEnabled == null ? 'selected' : ''
-            }>Inherit (Disabled)</option>
+            }>(Disabled)</option>
           </select>
         </div>
       </div>
@@ -1982,9 +1972,7 @@ export function triggerCropChartLoop() {
             <option ${settings.loop === 'fwrev' ? 'selected' : ''}>fwrev</option>
             <option ${settings.loop === 'fade' ? 'selected' : ''}>fade</option>
             <option ${settings.loop === 'none' ? 'selected' : ''}>none</option>
-            <option value="Default" ${
-              settings.loop == null ? 'selected' : ''
-            }>Inherit (none)</option>
+            <option value="Default" ${settings.loop == null ? 'selected' : ''}>(none)</option>
           </select>
         </div>
         <div title="${Tooltips.fadeDurationTooltip}">
@@ -2325,12 +2313,12 @@ export function triggerCropChartLoop() {
         <div class="settings-editor-input-div" title="${Tooltips.speedTooltip}">
           <span id="speed-input-label">Speed</span>
           <input id="speed-input"type="number" placeholder="speed" value="${speed}" 
-            step="0.05" min="0.05" max="2" style="min-width:4em" required></input>
+            step="0.05" min="0.05" max="2" style="width:7ch" required></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.cropTooltip}">
           <span id="crop-input-label">Crop</span>
           <input id="crop-input" value="${crop}" pattern="${cropInputValidation}" 
-          style="min-width:10em" required></input>
+          style="width:20ch" required></input>
         </div>
         <div class="settings-editor-input-div settings-info-display">
           <span>Crop Aspect Ratio</span>
@@ -2341,7 +2329,7 @@ export function triggerCropChartLoop() {
           <span>Title Prefix</span>
           <input id="title-prefix-input" value="${
             overrides.titlePrefix != null ? overrides.titlePrefix : ''
-          }" placeholder="None" style="min-width:10em;text-align:right"></input>
+          }" placeholder="None" style="width:20ch;text-align:right"></input>
         </div>
         <div class="settings-editor-input-div settings-info-display" title="${
           Tooltips.timeDurationTooltip
@@ -2362,9 +2350,9 @@ export function triggerCropChartLoop() {
           <select id="audio-input">
             <option ${overrides.audio ? 'selected' : ''}>Enabled</option>
             <option ${overrides.audio === false ? 'selected' : ''}>Disabled</option>
-            <option value="Default" ${
-              overrides.audio == null ? 'selected' : ''
-            }>Inherit ${ternaryToString(settings.audio)}</option>
+            <option value="Default" ${overrides.audio == null ? 'selected' : ''}>${ternaryToString(
+        settings.audio
+      )}</option>
           </select>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.encodeSpeedTooltip}">
@@ -2382,7 +2370,7 @@ export function triggerCropChartLoop() {
       }" "style="min-width:4em"></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.targetBitrateTooltip}">
-          <span>Target Bitrate (kb/s)</span>
+          <span>Bitrate (kb/s)</span>
           <input id="target-max-bitrate-input" type="number" min="0" max="10e5" step="100" value="${
             overrides.targetMaxBitrate != null ? overrides.targetMaxBitrate : ''
           }" placeholder="${settings.targetMaxBitrate || 'Auto'}" "style="min-width:4em"></input>
@@ -2394,7 +2382,7 @@ export function triggerCropChartLoop() {
             <option ${overrides.twoPass === false ? 'selected' : ''}>Disabled</option>
             <option value="Default" ${
               overrides.twoPass == null ? 'selected' : ''
-            }>Inherit ${ternaryToString(settings.twoPass)}</option>
+            }>${ternaryToString(settings.twoPass)}</option>
           </select>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.gammaTooltip}">
@@ -2410,7 +2398,7 @@ export function triggerCropChartLoop() {
           <select id="denoise-input">
             <option value="Inherit" ${
               denoiseDesc == null ? 'selected' : ''
-            }>Inherit ${denoiseDescGlobal}</option>
+            }>${denoiseDescGlobal}</option>
             <option value="Disabled" ${
               denoiseDesc == 'Disabled' ? 'selected' : ''
             }>Disabled</option>
@@ -2425,7 +2413,7 @@ export function triggerCropChartLoop() {
           <div title="${Tooltips.minterpModeTooltip}">
             <span>Minterpolation</span>
             <select id="minterp-mode-input">
-              <option value="Default" ${minterpMode == null ? 'selected' : ''}>Inherit ${
+              <option value="Default" ${minterpMode == null ? 'selected' : ''}>${
         settings.minterpMode != null ? `(${settings.minterpMode})` : '(Numeric)'
       }</option>
               <option ${minterpMode === 'None' ? 'selected' : ''}>None</option>
@@ -2457,7 +2445,7 @@ export function triggerCropChartLoop() {
           <select id="video-stabilization-input">
               <option value="Inherit" ${
                 vidstabDesc == null ? 'selected' : ''
-              }>Inherit ${vidstabDescGlobal}</option>
+              }>${vidstabDescGlobal}</option>
               <option value="Disabled" ${
                 vidstabDesc == 'Disabled' ? 'selected' : ''
               }>Disabled</option>
@@ -2476,7 +2464,7 @@ export function triggerCropChartLoop() {
               <option ${vidstabDynamicZoomEnabled === false ? 'selected' : ''}>Disabled</option>
               <option value="Default" ${
                 vidstabDynamicZoomEnabled == null ? 'selected' : ''
-              }>Inherit ${ternaryToString(settings.videoStabilizationDynamicZoom)}</option>
+              }>${ternaryToString(settings.videoStabilizationDynamicZoom)}</option>
             </select>
           </div>
         </div>
@@ -2487,7 +2475,7 @@ export function triggerCropChartLoop() {
               <option ${overrides.loop === 'fwrev' ? 'selected' : ''}>fwrev</option>
               <option ${overrides.loop === 'fade' ? 'selected' : ''}>fade</option>
               <option ${overrides.loop === 'none' ? 'selected' : ''}>none</option>
-              <option value="Default" ${overrides.loop == null ? 'selected' : ''}>Inherit ${
+              <option value="Default" ${overrides.loop == null ? 'selected' : ''}>${
         settings.loop != null ? `(${settings.loop})` : '(none)'
       }</option>
             </select>
