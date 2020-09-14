@@ -141,8 +141,7 @@ export namespace Tooltips {
     Usually requires cropping and zooming the video.
     Higher strength presets result in more cropping and zooming.
     Low contrast video or video with flashing lights may give poor results.
-    If the video includes a logo or other static element within the cropped region, \
-    video stabilization may cause the logo to shake.
+    Video stabilization may cause static elements within the cropped region to shake.
     `;
 
   export const dynamicZoomTooltip = stripIndent`

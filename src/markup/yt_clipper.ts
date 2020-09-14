@@ -2578,6 +2578,7 @@ export function triggerCropChartLoop() {
       if (isSettingsEditorOpen) {
         const markerPairSettingsLabelHighlight = 'marker-pair-settings-editor-highlighted-label';
         const globalSettingsLabelHighlight = 'global-settings-editor-highlighted-label';
+        const inheritedSettingsLabelHighlight = 'inherited-settings-highlighted-label';
         let markerPair: MarkerPair;
         if (!wasGlobalSettingsEditorOpen && prevSelectedMarkerPairIndex != null) {
           markerPair = markerPairs[prevSelectedMarkerPairIndex];
@@ -2590,6 +2591,12 @@ export function triggerCropChartLoop() {
           let label = inputElem.previousElementSibling;
           if (id === 'rotate-90-clock' || id === 'rotate-90-counterclock')
             label = inputElem.parentElement.getElementsByTagName('span')[0];
+
+          if (storedTargetValue == null) {
+            inputElem.classList.add(inheritedSettingsLabelHighlight);
+          } else {
+            inputElem.classList.remove(inheritedSettingsLabelHighlight);
+          }
 
           let shouldRemoveHighlight =
             storedTargetValue == null ||

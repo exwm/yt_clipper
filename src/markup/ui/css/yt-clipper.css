@@ -1,13 +1,16 @@
 :root {
   --lighter-grey: rgb(235, 235, 235);
   --light-grey: rgb(210, 210, 210);
+  --med-light-grey: rgb(160, 160, 160);
   --med-grey: rgb(110, 110, 110);
+  --med-dark-grey: rgb(90, 90, 90);
   --dark-grey: rgb(40, 40, 40);
   --darker-grey: rgb(10, 10, 10);
   --bright-red: rgb(255, 0, 0);
   --dark-red: rgb(50, 0, 0);
   --marker-pair-editor-accent: rgb(245, 118, 0);
   --global-editor-accent: rgb(245, 0, 0);
+  --inherited-accent: dimgrey;
 }
 
 @keyframes valid-input {
@@ -79,7 +82,7 @@
 }
 
 .end-marker:hover {
-      fill: var(--bright-red);
+  fill: var(--bright-red);
 }
 
 .selected-marker-overlay {
@@ -137,6 +140,14 @@
   display: block;
   color: var(--light-grey);
   margin-bottom: 2px;
+}
+
+.settings-editor-input-div select option {
+  color: black;
+}
+
+.settings-editor-input-div select option:first-child {
+  color: dimgrey;
 }
 
 .multi-input-div {
@@ -214,6 +225,10 @@
   color: var(--global-editor-accent) !important;
 }
 
+.inherited-settings-highlighted-label {
+  color: var(--inherited-accent);
+}
+
 #markers-svg,
 #selected-marker-pair-overlay,
 #start-marker-numberings,
@@ -253,7 +268,6 @@
 .endMarkerNumbering {
   fill: gold;
 }
-
 
 #crop-div {
   pointer-events: none;
