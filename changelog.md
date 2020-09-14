@@ -3,20 +3,50 @@
 This changelog records all the changes to `yt_clipper` after version numbers between the markup and clipper script were unified (ie since v3.7.0-beta.3.9.0-alpha.11 `[2020.08.17]`).
 
 - [yt_clipper Changelog (Post-Version-Unification)](#yt_clipper-changelog-post-version-unification)
-  - [v3.7.0-beta.3.9.0-alpha.13 `[2020.08.31]`](#v370-beta390-alpha13-20200831)
-    - [Clipper Changes](#clipper-changes)
-  - [v3.7.0-beta.3.9.0-alpha.12 `[2020.08.23]`](#v370-beta390-alpha12-20200823)
+  - [v3.7.0-beta.3.9.0 `[2020.09.14]`](#v370-beta390-20200914)
     - [Markup Changes](#markup-changes)
+    - [Clipper Changes](#clipper-changes)
+  - [v3.7.0-beta.3.9.0-alpha.13 `[2020.08.31]`](#v370-beta390-alpha13-20200831)
     - [Clipper Changes](#clipper-changes-1)
-  - [v3.7.0-beta.3.9.0-alpha.11 `[2020.08.17]`:](#v370-beta390-alpha11-20200817)
+  - [v3.7.0-beta.3.9.0-alpha.12 `[2020.08.23]`](#v370-beta390-alpha12-20200823)
     - [Markup Changes](#markup-changes-1)
     - [Clipper Changes](#clipper-changes-2)
-  - [v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`](#v370-beta390-alpha10-20200814)
+  - [v3.7.0-beta.3.9.0-alpha.11 `[2020.08.17]`:](#v370-beta390-alpha11-20200817)
     - [Markup Changes](#markup-changes-2)
     - [Clipper Changes](#clipper-changes-3)
+  - [v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`](#v370-beta390-alpha10-20200814)
+    - [Markup Changes](#markup-changes-3)
+    - [Clipper Changes](#clipper-changes-4)
 - [yt_clipper Changelog (Pre-Version-Unification)](#yt_clipper-changelog-pre-version-unification)
   - [Markup Script Changelog](#markup-script-changelog)
   - [Clipper Script (Installation) Changelog](#clipper-script-installation-changelog)
+
+## v3.7.0-beta.3.9.0 `[2020.09.14]`
+
+### Markup Changes
+
+- Add per-markerpair undo/redo for speed and crop changes to **Alt+Z/Alt+Shift+Z**
+- Add **Ctrl+Shift+A** for duplicating the currently or previously selected marker pair.
+- Add accounting for browser window scroll position when mouse manipulating crops.
+- Add dimmed grey font color to inherited setting values.
+- Increase speed chart transparency.
+- Reduce settings editor size so more of the UI can fit into the browser window.
+- Change all inherited setting value options from `Inherit (...)` to simply `(...)`.
+- Normalize dropdown menu option order in settings editors.
+  - Options are now in descending order by effect strength.
+- Fix red chart time bar not properly updating in some cases.
+- Fix chart loop markers not rendering (invisible).
+
+### Clipper Changes
+
+- Add `--notify-on-completion`/`-noc` flag that provides a notification when yt_clipper completes a run.
+- Add `--overwrite/-ow` flag that enables regenerating and overwriting existing clips.
+- Add unknown arguments list in summary report.
+- Fix `--video-stabilization-dynamic-zoom`/`-vsdz` not behaving as a flag.
+- Update ffmpeg from `v20200814-a762fd2` to `v20200831-4a11a6f`.
+- Update youtube-dl from `v2020.07.28` to [`v2020.09.06`](https://github.com/ytdl-org/youtube-dl/releases/tag/2020.09.06).
+  - (youtube) Fix age gate content detection.
+  - (youtube:user) Extend URL regular expression.
 
 ## v3.7.0-beta.3.9.0-alpha.13 `[2020.08.31]`
 
