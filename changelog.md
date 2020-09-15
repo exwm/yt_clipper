@@ -1,6 +1,6 @@
 # yt_clipper Changelog (Post-Version-Unification)
 
-This changelog records all the changes to `yt_clipper` after version numbers between the markup and clipper script were unified (ie since v3.7.0-beta.3.9.0-alpha.11 `[2020.08.17]`).
+This changelog records all the changes to `yt_clipper` after version numbers between the markup and clipper script were unified (ie since v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`).
 
 - [yt_clipper Changelog (Post-Version-Unification)](#yt_clipper-changelog-post-version-unification)
   - [v3.7.0-beta.3.9.0 `[2020.09.14]`](#v370-beta390-20200914)
@@ -43,6 +43,7 @@ This changelog records all the changes to `yt_clipper` after version numbers bet
 - Add `--overwrite/-ow` flag that enables regenerating and overwriting existing clips.
 - Add unknown arguments list in summary report.
 - Fix `--video-stabilization-dynamic-zoom`/`-vsdz` not behaving as a flag.
+  - This option used to expect an argument like `True`.
 - Update ffmpeg from `v20200814-a762fd2` to `v20200831-4a11a6f`.
 - Update youtube-dl from `v2020.07.28` to [`v2020.09.06`](https://github.com/ytdl-org/youtube-dl/releases/tag/2020.09.06).
   - (youtube) Fix age gate content detection.
