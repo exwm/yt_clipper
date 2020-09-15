@@ -2,8 +2,7 @@
 
 ## Notices
 
-- If the mainline (non-beta) release is out of date and has old dependencies (when using the clipper installation), you can check if there is a newer beta release. All releases can be found here:
-https://mega.nz/#F!4HYDAKDS!NqS5Nk9heN7QBxvQapudeg.
+- If the mainline (non-beta) release is out of date and has old dependencies (when using the clipper installation), you can check for a newer beta release. Since clipper script `v3.6.1`, releases can be tracked here: <https://github.com/exwm/yt_clipper/releases>. Older releases can be found here: <https://mega.nz/#F!4HYDAKDS!NqS5Nk9heN7QBxvQapudeg>.
   - When using a beta release use the shortcuts reference table in the markup script and the `yt_clipper_options` helper script or `-h` help flag for a review of any usage changes.
 
 - Windows users on `v3.6.0` or higher of the `clipper script` installation getting ffmpeg crashes may want to try the following:
@@ -463,7 +462,7 @@ The `yt_clipper_merge.bat` can be used to merge any webm files in any order:
 
 ## All Releases
 
-You can find all releases including beta and alpha releases in this folder: <https://mega.nz/#F!4HYDAKDS!NqS5Nk9heN7QBxvQapudeg>.
+Since clipper script `v3.6.1`, releases can be tracked here: <https://github.com/exwm/yt_clipper/releases>. Older releases can be found here: <https://mega.nz/#F!4HYDAKDS!NqS5Nk9heN7QBxvQapudeg>.
 
 ## Clipper Script Dependencies
 
