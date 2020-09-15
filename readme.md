@@ -5,6 +5,8 @@
 - If the mainline (non-beta) release is out of date and has old dependencies (when using the clipper installation), you can check for a newer beta release. Since clipper script `v3.6.1`, releases can be tracked here: <https://github.com/exwm/yt_clipper/releases>. Older releases can be found here: <https://mega.nz/#F!4HYDAKDS!NqS5Nk9heN7QBxvQapudeg>.
   - When using a beta release use the shortcuts reference table in the markup script and the `yt_clipper_options` helper script or `-h` help flag for a review of any usage changes.
 
+- This readme is synchronized only with the mainline release and does not talk about any beta or alpha releases.
+
 - Windows users on `v3.6.0` or higher of the `clipper script` installation getting ffmpeg crashes may want to try the following:
   - Update visual c++ redistributables:
     - For 64-bit Windows: <https://aka.ms/vs/16/release/vc_redist.x64.exe>
@@ -86,9 +88,7 @@ The contents of the quickstart guide are included here for convenience:
       - [Windows Merge Helper Bat Script](#windows-merge-helper-bat-script)
   - [All Releases](#all-releases)
   - [Clipper Script Dependencies](#clipper-script-dependencies)
-  - [Full Changelog](#full-changelog)
-  - [Markup Script Changelog](#markup-script-changelog)
-  - [Clipper Script (Installation) Changelog](#clipper-script-installation-changelog)
+  - [Changelog](#changelog)
 
 ## Terminology and Installation
 
