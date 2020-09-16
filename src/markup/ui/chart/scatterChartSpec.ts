@@ -1,13 +1,13 @@
 import { ChartConfiguration, ChartFontOptions, ChartOptions } from 'chart.js';
-import { createDraft, finishDraft } from 'immer';
+import { createDraft } from 'immer';
 import { CropPoint } from '../../@types/yt_clipper';
 import { getMarkerPairHistory, saveMarkerPairHistory } from '../../util/undoredo';
 import { seekToSafe, timeRounder } from '../../util/util';
 import {
   markerPairs,
-  player,
   prevSelectedMarkerPairIndex,
   triggerCropChartLoop,
+  video,
 } from '../../yt_clipper';
 import { getInputUpdater, grey, lightgrey, medgrey, roundX, roundY, sortX } from './chartutil';
 import {
@@ -151,7 +151,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
       chartInstance.options.plugins.zoom.pan.enabled = false;
       event.target.style.cursor = 'grabbing';
       if (chartType === 'crop') {
-        seekToSafe(player, timeRounder(value.x));
+        seekToSafe(video, timeRounder(value.x));
       }
       chartInstance.update();
     }
@@ -184,7 +184,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
       }
 
       if (chartType === 'crop' && shouldDrag.dragX && fromValue.x != toValue.x) {
-        seekToSafe(player, timeRounder(toValue.x));
+        seekToSafe(video, timeRounder(toValue.x));
       }
       return shouldDrag;
     } else {

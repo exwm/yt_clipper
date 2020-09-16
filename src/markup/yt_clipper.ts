@@ -13,10 +13,10 @@
 // @icon         https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/pepe-clipper.gif
 // @require      https://cdn.jsdelivr.net/npm/jszip@3.4.0/dist/jszip.min.js
 // @require      https://rawcdn.githack.com/exwm/Chart.js/141fe542034bc127b0a932de25d0c4f351f3bce1/dist/Chart.min.js
-// @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@0.7.0/dist/chartjs-plugin-datalabels.min.js
-// @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-style@latest/dist/chartjs-plugin-style.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js
 // @require      https://rawcdn.githack.com/exwm/chartjs-plugin-zoom/b1adf6115d5816cabf0d82fba87950a32f7f965e/dist/chartjs-plugin-zoom.min.js
+// @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@0.7.0/dist/chartjs-plugin-datalabels.min.js
+// @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-style@latest/dist/chartjs-plugin-style.min.js
 // @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@0.5.7/chartjs-plugin-annotation.min.js
 // @run-at       document-end
 // @license      MIT
@@ -99,6 +99,13 @@ import {
   disablePreventMouseZoom,
 } from './actions/yt-blockers';
 import { getMarkerPairHistory, redo, undo, saveMarkerPairHistory } from './util/undoredo';
+import {
+  getPlatform,
+  getVideoPlatformHooks,
+  getVideoPlatformSelectors,
+  VideoPlatformHooks,
+  VideoPlatforms,
+} from './platforms/platforms';
 const ytClipperCSS = readFileSync(__dirname + '/ui/css/yt-clipper.css', 'utf8');
 const shortcutsTable = readFileSync(__dirname + '/ui/shortcuts-table/shortcuts-table.html', 'utf8');
 const shortcutsTableStyle = readFileSync(
@@ -111,7 +118,7 @@ const shortcutsTableToggleButtonHTML = readFileSync(
 );
 
 export let player: HTMLElement;
-
+export let video: HTMLVideoElement;
 export let markerPairs: MarkerPair[] = [];
 export let prevSelectedMarkerPairIndex: number = null;
 export let isCropChartLoopingOn = false;
@@ -124,9 +131,8 @@ export function triggerCropChartLoop() {
 onLoadVideoPage(loadytClipper);
 
 async function loadytClipper() {
-  console.log('Loading yt clipper markup script');
-
-  document.addEventListener('keydown', hotkeys, true);
+  console.log('Loading yt_clipper markup script...');
+  const platform = getPlatform();
 
   function hotkeys(e: KeyboardEvent) {
     if (isHotkeysEnabled) {
@@ -262,16 +268,16 @@ async function loadytClipper() {
           }
           break;
         case 'KeyR':
-          if (!e.ctrlKey && !e.shiftKey && !e.altKey && playerInfo.watchFlexy.theater) {
+          if (!e.ctrlKey && !e.shiftKey && !e.altKey && isTheatreMode()) {
             blockEvent(e);
             rotateVideo('clock');
-          } else if (!e.ctrlKey && !e.shiftKey && e.altKey && playerInfo.watchFlexy.theater) {
+          } else if (!e.ctrlKey && !e.shiftKey && e.altKey && isTheatreMode()) {
             blockEvent(e);
             rotateVideo('cclock');
           } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
             blockEvent(e);
             toggleBigVideoPreviews();
-          } else if (!e.ctrlKey && !e.shiftKey && !playerInfo.watchFlexy.theater) {
+          } else if (!e.ctrlKey && !e.shiftKey && !isTheatreMode()) {
             blockEvent(e);
             flashMessage('Please switch to theater mode to rotate video.', 'red');
           }
@@ -279,7 +285,7 @@ async function loadytClipper() {
         case 'KeyF':
           if (!e.ctrlKey && e.shiftKey && !e.altKey) {
             blockEvent(e);
-            flattenVRVideo(playerInfo.videoContainer, video);
+            flattenVRVideo(hooks.videoContainer, video);
           } else if (!e.ctrlKey && !e.shiftKey && e.altKey) {
             blockEvent(e);
             openSubsEditor(settings.videoID);
@@ -332,9 +338,11 @@ async function loadytClipper() {
   let isHotkeysEnabled = false;
   let prevSelectedEndMarker: SVGRectElement = null;
 
+  const initOnce = once(init, this);
   function init() {
     injectCSS(ytClipperCSS, 'yt-clipper-css');
-    initPlayerInfo();
+    initHooks();
+    initVideoInfo();
     initMarkersContainer();
     initChartHooks();
     addForeignEventListeners();
@@ -342,52 +350,58 @@ async function loadytClipper() {
     addCropMouseManipulationListener();
   }
 
-  const initOnce = once(init, this);
-  player = await retryUntilTruthyResult(() => document.getElementById('movie_player'));
-  const playerInfo: { [index: string]: any } = {};
-  const video = await retryUntilTruthyResult(() => document.getElementsByTagName('video')[0]);
-  let settingsEditorHook: HTMLElement;
-  let overlayHook: HTMLElement;
-  function initPlayerInfo() {
-    playerInfo.url = player.getVideoUrl();
-    playerInfo.playerData = player.getVideoData();
-
-    playerInfo.duration = player.getDuration();
-    playerInfo.video = document.getElementsByTagName('video')[0];
-    playerInfo.video.setAttribute('id', 'yt-clipper-video');
-    playerInfo.aspectRatio = player.getVideoAspectRatio();
-    playerInfo.isVerticalVideo = playerInfo.aspectRatio <= 1;
-    playerInfo.progress_bar = document.getElementsByClassName('ytp-progress-bar')[0];
-    playerInfo.progress_bar.removeAttribute('draggable');
-    playerInfo.watchFlexy = document.getElementsByTagName('ytd-watch-flexy')[0];
-    playerInfo.infoContents = document.getElementById('info-contents');
-    setFlashMessageHook(playerInfo.infoContents);
-    playerInfo.container = document.querySelector('#ytd-player #container');
-    playerInfo.columns = document.getElementById('columns');
-    playerInfo.playerTheaterContainer = document.getElementById('player-theater-container');
-    updateSettingsEditorHook();
-    playerInfo.annotations = document.getElementsByClassName('ytp-iv-video-content')[0];
-    playerInfo.videoContainer = document.getElementsByClassName(
-      'html5-video-container'
-    )[0] as HTMLDivElement;
-    overlayHook = playerInfo.videoContainer;
-    playerInfo.controls = document.getElementsByClassName('ytp-chrome-bottom')[0];
-    playerInfo.controlsBar = document.getElementsByClassName('ytp-chrome-controls')[0];
-    playerInfo.progressBar = document.getElementsByClassName('ytp-progress-bar-container')[0];
-    playerInfo.gradientBottom = document.getElementsByClassName('ytp-gradient-bottom')[0];
+  function addEventListeners() {
+    document.addEventListener('keydown', hotkeys, true);
+    window.addEventListener('keydown', addCropHoverListener, true);
+    window.addEventListener('keyup', removeCropHoverListener, true);
+    document.body.addEventListener('wheel', mouseWheelFrameSkipHandler);
+    document.body.addEventListener('wheel', moveMarkerByFrameHandler);
+    document.body.addEventListener('wheel', selectCropPoint, { passive: false });
+    document.body.addEventListener('wheel', inheritCropPointCrop, { passive: false });
   }
 
-  function updateSettingsEditorHook() {
-    if (playerInfo.watchFlexy.theater) {
-      settingsEditorHook = playerInfo.playerTheaterContainer;
-    } else {
-      settingsEditorHook = playerInfo.infoContents;
+  const selectors = getVideoPlatformSelectors(VideoPlatforms.youtube);
+
+  player = await retryUntilTruthyResult(() => document.querySelector(selectors.player));
+  video = await retryUntilTruthyResult(() => player.querySelector(selectors.video));
+  video.setAttribute('id', 'yt-clipper-video');
+
+  let settingsEditorHook: HTMLElement;
+
+  let hooks: VideoPlatformHooks = {} as VideoPlatformHooks;
+  function initHooks() {
+    hooks = getVideoPlatformHooks(selectors);
+    setFlashMessageHook(hooks.flashMessage);
+    updateSettingsEditorHook();
+    hooks.progressBar.removeAttribute('draggable');
+  }
+
+  function isTheatreMode() {
+    if (platform === VideoPlatforms.youtube) {
+      return hooks.theaterModeIndicator.theater;
     }
   }
 
-  window.addEventListener('keydown', addCropHoverListener, true);
+  const videoInfo: { [index: string]: any } = {};
+  function initVideoInfo() {
+    videoInfo.aspectRatio = video.videoWidth / video.videoHeight;
+    videoInfo.isVerticalVideo = videoInfo.aspectRatio <= 1;
+    if (platform === VideoPlatforms.youtube) {
+      videoInfo.playerData = player.getVideoData();
+      videoInfo.id = videoInfo.playerData.video_id;
+      videoInfo.title = videoInfo.playerData.title;
+      videoInfo.fps = getFPS();
+    }
+  }
 
-  window.addEventListener('keyup', removeCropHoverListener, true);
+  function updateSettingsEditorHook() {
+    if (isTheatreMode()) {
+      settingsEditorHook = hooks.settingsEditorTheater;
+    } else {
+      settingsEditorHook = hooks.settingsEditor;
+    }
+  }
+  addEventListeners();
 
   function addCropHoverListener(e: KeyboardEvent) {
     const isCropBlockingChartVisible =
@@ -443,7 +457,6 @@ async function loadytClipper() {
     }
   }
 
-  document.body.addEventListener('wheel', mouseWheelFrameSkipHandler);
   function mouseWheelFrameSkipHandler(event: WheelEvent) {
     if (
       isHotkeysEnabled &&
@@ -454,14 +467,13 @@ async function loadytClipper() {
     ) {
       let fps = getFPS();
       if (event.deltaY < 0) {
-        seekBySafe(player, 1 / fps);
+        seekBySafe(video, 1 / fps);
       } else if (event.deltaY > 0) {
-        seekBySafe(player, -1 / fps);
+        seekBySafe(video, -1 / fps);
       }
     }
   }
 
-  document.body.addEventListener('wheel', moveMarkerByFrameHandler);
   function moveMarkerByFrameHandler(event: WheelEvent) {
     if (
       isHotkeysEnabled &&
@@ -492,11 +504,10 @@ async function loadytClipper() {
       }
 
       video.pause();
-      seekToSafe(player, newMarkerTime);
+      seekToSafe(video, newMarkerTime);
     }
   }
 
-  document.body.addEventListener('wheel', selectCropPoint, { passive: false });
   function selectCropPoint(e: WheelEvent) {
     if (isHotkeysEnabled && !e.ctrlKey && e.altKey && !e.shiftKey) {
       blockEvent(e);
@@ -541,7 +552,6 @@ async function loadytClipper() {
     }
   }
 
-  document.body.addEventListener('wheel', inheritCropPointCrop, { passive: false });
   function inheritCropPointCrop(e: WheelEvent) {
     if (
       isHotkeysEnabled &&
@@ -586,12 +596,12 @@ async function loadytClipper() {
   let endMarkerNumberings: SVGSVGElement;
   function initMarkersContainer() {
     settings = {
-      videoID: playerInfo.playerData.video_id,
-      videoTitle: playerInfo.playerData.title,
+      videoID: videoInfo.id,
+      videoTitle: videoInfo.title,
       newMarkerSpeed: 1.0,
       newMarkerCrop: '0:0:iw:ih',
-      titleSuffix: `[${playerInfo.playerData.video_id}]`,
-      isVerticalVideo: playerInfo.isVerticalVideo,
+      titleSuffix: `[${videoInfo.id}]`,
+      isVerticalVideo: videoInfo.isVerticalVideo,
       markerPairMergeList: '',
       ...getDefaultCropRes(),
     };
@@ -606,7 +616,7 @@ async function loadytClipper() {
         <svg id="start-marker-numberings"></svg>
         <svg id="end-marker-numberings"></svg>
       `;
-    playerInfo.progress_bar.appendChild(markersDiv);
+    hooks.markersDiv.appendChild(markersDiv);
     markersSvg = markersDiv.children[0] as SVGSVGElement;
     selectedMarkerPairOverlay = markersDiv.children[1] as SVGSVGElement;
 
@@ -616,19 +626,19 @@ async function loadytClipper() {
         <svg id="start-marker-numberings"></svg>
         <svg id="end-marker-numberings"></svg>
       `;
-    playerInfo.controls.appendChild(markerNumberingsDiv);
+    hooks.markerNumberingsDiv.appendChild(markerNumberingsDiv);
     startMarkerNumberings = markerNumberingsDiv.children[0] as SVGSVGElement;
     endMarkerNumberings = markerNumberingsDiv.children[1] as SVGSVGElement;
-    playerInfo.fps = getFPS();
+    videoInfo.fps = getFPS();
   }
 
   function getDefaultCropRes() {
-    const cropResWidth = playerInfo.isVerticalVideo
-      ? Math.round(1920 * playerInfo.aspectRatio)
+    const cropResWidth = videoInfo.isVerticalVideo
+      ? Math.round(1920 * videoInfo.aspectRatio)
       : 1920;
-    const cropResHeight = playerInfo.isVerticalVideo
+    const cropResHeight = videoInfo.isVerticalVideo
       ? 1920
-      : Math.round(1920 / playerInfo.aspectRatio);
+      : Math.round(1920 / videoInfo.aspectRatio);
     const cropRes = `${cropResWidth}x${cropResHeight}`;
     return {
       cropResWidth,
@@ -710,7 +720,7 @@ async function loadytClipper() {
     }
     if (rotation === 90 || rotation === -90) {
       let scale = 1;
-      scale = 1 / playerInfo.aspectRatio;
+      scale = 1 / videoInfo.aspectRatio;
       rotatedVideoCSS = `
         #yt-clipper-video {
           transform: rotate(${rotation}deg) scale(2.2) !important;
@@ -889,7 +899,7 @@ async function loadytClipper() {
   const defaultRoundSpeedMapEasing = 0.05;
   function updateSpeed() {
     if (!isSpeedPreviewOn && !isForceSetSpeedOn) {
-      player.setPlaybackRate(1);
+      video.playbackRate = 1;
       prevSpeed = 1;
       updateSpeedInputLabel('Speed');
 
@@ -898,7 +908,7 @@ async function loadytClipper() {
 
     if (isForceSetSpeedOn) {
       if (prevSpeed !== forceSetSpeedValue) {
-        player.setPlaybackRate(forceSetSpeedValue);
+        video.playbackRate = forceSetSpeedValue;
         prevSpeed = forceSetSpeedValue;
         updateSpeedInputLabel(`Speed (${forceSetSpeedValue.toFixed(2)})`);
       }
@@ -931,7 +941,7 @@ async function loadytClipper() {
     }
 
     if (prevSpeed !== newSpeed) {
-      player.setPlaybackRate(newSpeed);
+      video.playbackRate = newSpeed;
       prevSpeed = newSpeed;
       updateSpeedInputLabel('Speed');
     }
@@ -1023,13 +1033,13 @@ async function loadytClipper() {
           const isTimeBetweenChartLoop =
             chartLoop.start <= video.currentTime && video.currentTime <= chartLoop.end;
           if (!isTimeBetweenChartLoop) {
-            seekToSafe(player, chartLoop.start);
+            seekToSafe(video, chartLoop.start);
           }
         } else {
           const isTimeBetweenMarkerPair =
             markerPair.start <= video.currentTime && video.currentTime <= markerPair.end;
           if (!isTimeBetweenMarkerPair) {
-            seekToSafe(player, markerPair.start);
+            seekToSafe(video, markerPair.start);
           }
         }
       }
@@ -1222,14 +1232,14 @@ async function loadytClipper() {
       targetEndMarker && toggleMarkerPairEditor(targetEndMarker);
       if (e.ctrlKey) {
         index--;
-        seekToSafe(player, markerPairs[index].start);
+        seekToSafe(video, markerPairs[index].start);
       }
     } else if (keyCode === 'ArrowRight' && index < markerPairs.length - 1) {
       targetEndMarker = enableMarkerHotkeys.endMarker.nextElementSibling.nextElementSibling;
       targetEndMarker && toggleMarkerPairEditor(targetEndMarker);
       if (e.ctrlKey) {
         index++;
-        seekToSafe(player, markerPairs[index].start);
+        seekToSafe(video, markerPairs[index].start);
       }
     }
   }
@@ -1274,11 +1284,11 @@ async function loadytClipper() {
       dblJump = 0;
       prevTime = null;
       if (minTime !== currentTime && minTime != Infinity && minTime != -Infinity)
-        seekToSafe(player, minTime);
+        seekToSafe(video, minTime);
     } else {
       prevTime = currentTime;
       if (minTime !== currentTime && minTime != Infinity && minTime != -Infinity)
-        seekToSafe(player, minTime);
+        seekToSafe(video, minTime);
       dblJump = (setTimeout(() => {
         dblJump = 0;
         prevTime = null;
@@ -1506,12 +1516,12 @@ async function loadytClipper() {
   };
 
   function addMarker(markerConfig: MarkerConfig = {}) {
-    const preciseCurrentTime = markerConfig.time || player.getCurrentTime();
+    const preciseCurrentTime = markerConfig.time || video.currentTime;
     // TODO: Calculate video fps precisely so current frame time
     // is accurately determined.
     // const currentFrameTime = getCurrentFrameTime(roughCurrentTime);
     const currentFrameTime = preciseCurrentTime;
-    const progressPos = (currentFrameTime / playerInfo.duration) * 100;
+    const progressPos = (currentFrameTime / video.duration) * 100;
 
     if (!start && currentFrameTime <= startTime) {
       flashMessage('Cannot add end marker before start marker.', 'red');
@@ -1536,7 +1546,7 @@ async function loadytClipper() {
       marker.classList.add('end-marker');
       marker.setAttribute('type', 'end');
       marker.setAttribute('z-index', '2');
-      const startProgressPos = (startTime / playerInfo.duration) * 100;
+      const startProgressPos = (startTime / video.duration) * 100;
       const [startNumbering, endNumbering] = addMarkerPairNumberings(
         rectIdx,
         startProgressPos,
@@ -1558,15 +1568,15 @@ async function loadytClipper() {
   function getFPS(defaultFPS: number | null = 60) {
     try {
       if (
-        playerInfo.fps != null &&
+        videoInfo.fps != null &&
         video.videoWidth != null &&
         prevVideoWidth === video.videoWidth
       ) {
-        return playerInfo.fps;
+        return videoInfo.fps;
       } else {
-        playerInfo.fps = parseFloat(player.getStatsForNerds().resolution.match(/@(\d+)/)[1]);
+        videoInfo.fps = parseFloat(player.getStatsForNerds().resolution.match(/@(\d+)/)[1]);
         prevVideoWidth = video.videoWidth;
-        return playerInfo.fps;
+        return videoInfo.fps;
       }
     } catch (e) {
       console.log('Could not detect fps', e);
@@ -2099,7 +2109,7 @@ async function loadytClipper() {
       }
     }
 
-    seekToSafe(player, markerTime);
+    seekToSafe(video, markerTime);
 
     if (!e.altKey) return;
 
@@ -2107,7 +2117,7 @@ async function loadytClipper() {
     numbering.setPointerCapture(pointerId);
 
     const numberingRect = numbering.getBoundingClientRect();
-    const progressBarRect = playerInfo.progress_bar.getBoundingClientRect();
+    const progressBarRect = hooks.progressBar.getBoundingClientRect();
     const offsetX = e.pageX - numberingRect.left - numberingRect.width / 2;
     const offsetY = e.pageY - numberingRect.top;
     let prevPageX = e.pageX;
@@ -2138,7 +2148,7 @@ async function loadytClipper() {
       const time = getDragTime(e);
       if (Math.abs(time - video.currentTime) < 0.01) return;
       moveMarker(targetMarker, time, false, false);
-      seekToSafe(player, time);
+      seekToSafe(video, time);
     }
 
     window.addEventListener('pointermove', dragNumbering);
@@ -2702,8 +2712,8 @@ async function loadytClipper() {
     const endMarker = markersSvg.querySelector(`.end-marker[idx="${markerPairIndex + 1}"]`);
     const startMarkerNumbering = endMarkerNumberings.children[markerPairIndex];
     const endMarkerNumbering = endMarkerNumberings.children[markerPairIndex];
-    const startProgressPos = (markerPair.start / playerInfo.duration) * 100;
-    const endProgressPos = (markerPair.end / playerInfo.duration) * 100;
+    const startProgressPos = (markerPair.start / video.duration) * 100;
+    const endProgressPos = (markerPair.end / video.duration) * 100;
 
     startMarker.setAttribute('x', `${startProgressPos}%`);
     startMarkerNumbering.setAttribute('x', `${startProgressPos}%`);
@@ -3206,7 +3216,7 @@ async function loadytClipper() {
       shortcutsTableContainer = document.createElement('div');
       shortcutsTableContainer.setAttribute('id', 'shortcutsTableContainer');
       shortcutsTableContainer.innerHTML = shortcutsTable;
-      playerInfo.infoContents.insertAdjacentElement('afterend', shortcutsTableContainer);
+      hooks.shortcutsTable.insertAdjacentElement('afterend', shortcutsTableContainer);
     } else if (shortcutsTableContainer.style.display !== 'none') {
       shortcutsTableContainer.style.display = 'none';
     } else {
@@ -3261,7 +3271,7 @@ async function loadytClipper() {
         canvas {
           display: block;
           margin: 0 auto;
-          ${player.getVideoAspectRatio() > 1 ? 'width: 98%;' : 'height: 96vh;'}
+          ${videoInfo.aspectRatio > 1 ? 'width: 98%;' : 'height: 96vh;'}
         }
         @keyframes flash {
           0% {
@@ -3408,7 +3418,7 @@ async function loadytClipper() {
     Array.from(frames).forEach((frame) => {
       framesZip.file(frame.fileName, canvasBlobToPromise(frame), { binary: true });
     });
-    const progressDiv = injectProgressBar('green');
+    const progressDiv = injectFrameCapturerProgressBar('green');
     const progressSpan = progressDiv.firstElementChild;
     zip
       .generateAsync({ type: 'blob' }, (metadata) => {
@@ -3422,7 +3432,7 @@ async function loadytClipper() {
       });
   }
 
-  function injectProgressBar(color: string) {
+  function injectFrameCapturerProgressBar(color: string) {
     const progressDiv = document.createElement('div');
     progressDiv.setAttribute('class', 'msg-div');
     progressDiv.addEventListener('done', () => {
@@ -3430,7 +3440,7 @@ async function loadytClipper() {
       setTimeout(() => deleteElement(progressDiv), 2500);
     });
     progressDiv.innerHTML = `<span class="flash-msg" style="color:${color}"> Frame Capturer Zipping Progress: 0%</span>`;
-    playerInfo.infoContents.insertAdjacentElement('beforebegin', progressDiv);
+    hooks.frameCapturerProgressBar.insertAdjacentElement('beforebegin', progressDiv);
     return progressDiv;
   }
 
@@ -3491,7 +3501,7 @@ async function loadytClipper() {
         </svg>
       `;
     resizeCropOverlay(cropDiv);
-    overlayHook.insertAdjacentElement('afterend', cropDiv);
+    hooks.cropOverlay.insertAdjacentElement('afterend', cropDiv);
     window.addEventListener('resize', () => resizeCropOverlay(cropDiv));
     cropSvg = cropDiv.firstElementChild as SVGSVGElement;
     cropDim = document.getElementById('cropDim');
@@ -3584,12 +3594,12 @@ async function loadytClipper() {
   }
 
   function hidePlayerControls() {
-    playerInfo.controls.style.display = 'none';
-    playerInfo.gradientBottom.style.display = 'none';
+    hooks.controls.style.display = 'none';
+    hooks.controlsGradient.style.display = 'none';
   }
   function showPlayerControls() {
-    playerInfo.controls.style.display = 'block';
-    playerInfo.gradientBottom.style.display = 'block';
+    hooks.controls.style.display = 'block';
+    hooks.controlsGradient.style.display = 'block';
   }
 
   function getMinWH() {
@@ -3630,10 +3640,9 @@ async function loadytClipper() {
         const cropResWidth = settings.cropResWidth;
         const cropResHeight = settings.cropResHeight;
         const { isDynamicCrop, enableZoomPan } = getCropMapProperties();
-        const videoRect = player.getVideoContentRect();
-        const playerRect = player.getBoundingClientRect();
-        const clickPosX = e.clientX - videoRect.left - playerRect.left;
-        const clickPosY = e.clientY - videoRect.top - playerRect.top;
+        const videoRect = video.getBoundingClientRect();
+        const clickPosX = e.clientX - videoRect.left;
+        const clickPosY = e.clientY - videoRect.top;
         const cursor = getMouseCropHoverRegion(e, cropString);
         const pointerId = e.pointerId;
 
@@ -3703,8 +3712,8 @@ async function loadytClipper() {
         }
 
         function dragCropHandler(e) {
-          const dragPosX = e.clientX - videoRect.left - playerRect.left;
-          const dragPosY = e.clientY - videoRect.top - playerRect.top;
+          const dragPosX = e.clientX - videoRect.left;
+          const dragPosY = e.clientY - videoRect.top;
           const changeX = dragPosX - clickPosX;
           const changeY = dragPosY - clickPosY;
           let changeXScaled = Math.round((changeX / videoRect.width) * settings.cropResWidth);
@@ -3722,10 +3731,10 @@ async function loadytClipper() {
         }
 
         function getCropResizeHandler(e, cursor) {
-          const dragPosX = e.clientX - videoRect.left - playerRect.left;
+          const dragPosX = e.clientX - videoRect.left;
           const changeX = dragPosX - clickPosX;
           let deltaX = (changeX / videoRect.width) * settings.cropResWidth;
-          const dragPosY = e.clientY - videoRect.top - playerRect.top;
+          const dragPosY = e.clientY - videoRect.top;
           const changeY = dragPosY - clickPosY;
           let deltaY = (changeY / videoRect.height) * settings.cropResHeight;
           const shouldMaintainCropAspectRatio =
@@ -3822,10 +3831,9 @@ async function loadytClipper() {
   function getMouseCropHoverRegion(e: MouseEvent, cropString?: string) {
     cropString = cropString ?? getRelevantCropString();
     const [x, y, w, h] = getCropComponents(cropString);
-    const videoRect = player.getVideoContentRect();
-    const playerRect = player.getBoundingClientRect();
-    const clickPosX = e.clientX - videoRect.left - playerRect.left;
-    const clickPosY = e.clientY - videoRect.top - playerRect.top;
+    const videoRect = video.getBoundingClientRect();
+    const clickPosX = e.clientX - videoRect.left;
+    const clickPosY = e.clientY - videoRect.top;
     const clickPosXScaled = (clickPosX / videoRect.width) * settings.cropResWidth;
     const clickPosYScaled = (clickPosY / videoRect.height) * settings.cropResHeight;
 
@@ -3895,9 +3903,9 @@ async function loadytClipper() {
       window.removeEventListener('mousemove', cropHoverHandler, true);
       hidePlayerControls();
       video.style.removeProperty('cursor');
-      playerInfo.videoContainer.style.cursor = 'crosshair';
+      hooks.videoContainer.style.cursor = 'crosshair';
       beginDrawHandler = (e: PointerEvent) => beginDraw(e);
-      playerInfo.container.addEventListener('pointerdown', beginDrawHandler, {
+      hooks.playerContainer.addEventListener('pointerdown', beginDrawHandler, {
         once: true,
         capture: true,
       });
@@ -3920,10 +3928,9 @@ async function loadytClipper() {
       const cropResWidth = settings.cropResWidth;
       const cropResHeight = settings.cropResHeight;
 
-      const videoRect = player.getVideoContentRect();
-      const playerRect = player.getBoundingClientRect();
-      const clickPosX = e.clientX - videoRect.left - playerRect.left;
-      const clickPosY = e.clientY - videoRect.top - playerRect.top;
+      const videoRect = video.getBoundingClientRect();
+      const clickPosX = e.clientX - videoRect.left;
+      const clickPosY = e.clientY - videoRect.top;
       const ix = (clickPosX / videoRect.width) * cropResWidth;
       const iy = (clickPosY / videoRect.height) * cropResHeight;
 
@@ -3948,10 +3955,10 @@ async function loadytClipper() {
       const { initCropMap: zeroCropMap } = getCropMapProperties();
 
       drawCropHandler = function (e: PointerEvent) {
-        const dragPosX = e.clientX - videoRect.left - playerRect.left;
+        const dragPosX = e.clientX - videoRect.left;
         const changeX = dragPosX - clickPosX;
         let deltaX = (changeX / videoRect.width) * cropResWidth;
-        const dragPosY = e.clientY - videoRect.top - playerRect.top;
+        const dragPosY = e.clientY - videoRect.top;
         const changeY = dragPosY - clickPosY;
         let deltaY = (changeY / videoRect.height) * cropResHeight;
 
@@ -4019,8 +4026,8 @@ async function loadytClipper() {
     Crop.shouldConstrainMinDimensions = true;
 
     if (pointerId != null) video.releasePointerCapture(pointerId);
-    playerInfo.videoContainer.style.cursor = 'auto';
-    playerInfo.container.removeEventListener('pointerdown', beginDrawHandler, true);
+    hooks.videoContainer.style.cursor = 'auto';
+    hooks.playerContainer.removeEventListener('pointerdown', beginDrawHandler, true);
     window.removeEventListener('pointermove', drawCropHandler);
     window.removeEventListener('pointerup', endDraw, true);
     drawCropHandler = null;
@@ -4449,8 +4456,8 @@ async function loadytClipper() {
   };
   let currentChartInput: ChartInput;
   function initChartHooks() {
-    speedChartInput.chartContainerHook = playerInfo.videoContainer;
-    cropChartInput.chartContainerHook = playerInfo.columns;
+    speedChartInput.chartContainerHook = hooks.speedChartContainer;
+    cropChartInput.chartContainerHook = hooks.cropChartContainer;
   }
 
   Chart.helpers.merge(Chart.defaults.global, scatterChartDefaults);
@@ -4536,8 +4543,7 @@ async function loadytClipper() {
         const time = timeRounder(chart.scales['x-axis-1'].getValueForPixel(e.offsetX));
         chart.config.options.annotation.annotations[0].value = time;
         if (Math.abs(video.currentTime - time) >= 0.01) {
-          seekToSafe(player, time);
-          // video.currentTime = time;
+          seekToSafe(video, time);
         }
         if (!e.ctrlKey && !e.altKey && e.shiftKey) {
           chart.config.options.annotation.annotations[1].value = time;
@@ -4805,7 +4811,7 @@ async function loadytClipper() {
           sectStart <= video.currentTime && video.currentTime <= sectEnd;
 
         if (!isTimeBetweenCropChartSection) {
-          seekToSafe(player, sectStart);
+          seekToSafe(video, sectStart);
         }
       }
     }
