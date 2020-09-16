@@ -53,6 +53,17 @@ export function deleteElement(elem: Element) {
   }
 }
 
+export function querySelectors<
+  S extends { [key: string]: string },
+  T extends { [key in keyof S]: HTMLElement }
+>(selectors: S, root: ParentNode = document): T {
+  const elements: Partial<T> = {};
+  for (const key in selectors) {
+    elements[key] = root.querySelector(selectors[key]);
+  }
+  return elements as T;
+}
+
 export function once(fn: Function, context: any) {
   var result: Function;
   return function () {
@@ -166,17 +177,15 @@ export function getEasedValue(
   return easedValue;
 }
 
-export function seekToSafe(player, newTime: number) {
-  const currentTime = player.getCurrentTime();
-  newTime = clampNumber(newTime, 0, player.getDuration());
-  if (currentTime != newTime) {
-    player.seekTo(newTime);
+export function seekToSafe(video: HTMLVideoElement, newTime: number) {
+  newTime = clampNumber(newTime, 0, video.duration);
+  if (video.currentTime != newTime) {
+    video.currentTime = newTime;
   }
 }
-export function seekBySafe(player, timeDelta: number) {
-  const currentTime = player.getCurrentTime();
-  const newTime = currentTime + timeDelta;
-  seekToSafe(player, newTime);
+export function seekBySafe(video: HTMLVideoElement, timeDelta: number) {
+  const newTime = video.currentTime + timeDelta;
+  seekToSafe(video, newTime);
 }
 export function blockEvent(e) {
   e.preventDefault();
