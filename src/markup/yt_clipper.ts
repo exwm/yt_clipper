@@ -97,7 +97,7 @@ import {
   disablePreventSideBarPull,
   disablePreventAltDefault,
   disablePreventMouseZoom,
-} from './actions/yt-blockers';
+} from './platforms/blockers/youtube';
 import { getMarkerPairHistory, redo, undo, saveMarkerPairHistory } from './util/undoredo';
 import {
   getPlatform,
