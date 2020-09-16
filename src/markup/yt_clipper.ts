@@ -90,14 +90,7 @@ import {
 import { Crop, getMinMaxAvgCropPoint, isVariableSize } from './crop/crop';
 import { autoHideUnselectedMarkerPairsCSS } from './ui/css/css';
 import { flattenVRVideo, openSubsEditor } from './actions/misc';
-import {
-  enablePreventSideBarPull,
-  enablePreventAltDefault,
-  enablePreventMouseZoom,
-  disablePreventSideBarPull,
-  disablePreventAltDefault,
-  disablePreventMouseZoom,
-} from './platforms/blockers/youtube';
+import { enableYTBlockers, disableYTBlockers } from './platforms/blockers/youtube';
 import { getMarkerPairHistory, redo, undo, saveMarkerPairHistory } from './util/undoredo';
 import {
   getPlatform,
@@ -128,11 +121,11 @@ export function triggerCropChartLoop() {
   shouldTriggerCropChartLoop = true;
 }
 
+const platform = getPlatform();
 onLoadVideoPage(loadytClipper);
 
 async function loadytClipper() {
   console.log('Loading yt_clipper markup script...');
-  const platform = getPlatform();
 
   function hotkeys(e: KeyboardEvent) {
     if (isHotkeysEnabled) {
@@ -311,15 +304,15 @@ async function loadytClipper() {
       initOnce();
       if (isHotkeysEnabled) {
         showShortcutsTableToggleButton();
-        enablePreventSideBarPull();
-        enablePreventAltDefault();
-        enablePreventMouseZoom();
+        if (platform === VideoPlatforms.youtube) {
+          enableYTBlockers();
+        }
         flashMessage('Enabled Hotkeys', 'green');
       } else {
         hideShortcutsTableToggleButton();
-        disablePreventSideBarPull();
-        disablePreventAltDefault();
-        disablePreventMouseZoom();
+        if (platform === VideoPlatforms.youtube) {
+          disableYTBlockers();
+        }
         flashMessage('Disabled Hotkeys', 'red');
       }
     }
@@ -360,7 +353,7 @@ async function loadytClipper() {
     document.body.addEventListener('wheel', inheritCropPointCrop, { passive: false });
   }
 
-  const selectors = getVideoPlatformSelectors(VideoPlatforms.youtube);
+  const selectors = getVideoPlatformSelectors(platform);
 
   player = await retryUntilTruthyResult(() => document.querySelector(selectors.player));
   video = await retryUntilTruthyResult(() => player.querySelector(selectors.video));
