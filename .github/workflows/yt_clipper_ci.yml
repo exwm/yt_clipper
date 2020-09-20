@@ -14,7 +14,7 @@ env:
   NAME: yt_clipper
   VERSION: 3.7.0-beta.3.9.0
   FFMPEG_VERSION: 20200831-4a11a6f
-  FFMPEG_DL_PREFIX: https://ffmpeg.zeranoe.com/builds
+  FFMPEG_DL_PREFIX: https://github.com/exwm/yt_clipper_bindeps/releases/download
 
 jobs:
   build:
@@ -37,7 +37,7 @@ jobs:
           echo "::set-env name=FULL_NAME::${{env.NAME}}_${{matrix.shortos}}_${{env.VERSION}}"
           echo "::set-env name=NOPLAT_NAME::${{env.NAME}}_${{env.VERSION}}"
           echo "::set-env name=FFMPEG_NAME::ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}64-shared"
-          echo "::set-env name=FFMPEG_DL::${{env.FFMPEG_DL_PREFIX}}/${{matrix.shortos}}64/shared/ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}64-shared.zip"
+          echo "::set-env name=FFMPEG_DL::${{env.FFMPEG_DL_PREFIX}}/${{env.FFMPEG_VERSION}}/ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}64-shared.zip"
 
       - uses: actions/checkout@v2
 
