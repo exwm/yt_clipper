@@ -244,6 +244,10 @@
   stroke-width: 2px;
 }
 
+#selected-marker-pair-overlay {
+  pointer-events: none;
+}
+
 #start-marker-numberings {
   top: -19px;
 }
