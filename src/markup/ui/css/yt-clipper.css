@@ -286,3 +286,13 @@
   top: 0px;
   position: absolute;
 }
+
+#cropChartCanvas {
+  background-color: rgb(24, 24, 24);
+}
+
+#shortcutsTableToggleButton {
+  cursor: help;
+  position: relative;
+  float: left;
+}

@@ -232,7 +232,8 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
     }
   };
 
-  const onClick = function (event, dataAtClick) {
+  const onClick = function (event: MouseEvent, dataAtClick) {
+    event.stopImmediatePropagation();
     // add chart points on shift+left-click
     if (
       event.button === 0 &&
