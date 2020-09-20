@@ -80,7 +80,7 @@ jobs:
         shell: bash
         run: |
           cd ./bindeps
-          curl -o ./ffmpeg.zip ${{env.FFMPEG_DL}}
+          curl -o ./ffmpeg.zip -L ${{env.FFMPEG_DL}} 
           7z x ./ffmpeg.zip
           mv ./${{env.FFMPEG_NAME}} ffmpeg
           ls -la
