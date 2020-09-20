@@ -774,16 +774,18 @@ async function loadytClipper() {
   }
 
   function addForeignEventListeners() {
-    const selectors = platform === VideoPlatforms.youtube ? ['#search-input #search'] : [];
+    const selectors = ['input[type="text"', 'textarea'];
     selectors.forEach((selector) => {
-      const input = document.querySelector(selector);
-      if (isHotkeysEnabled) {
-        input.addEventListener('focus', () => (isHotkeysEnabled = false), {
-          capture: true,
-        });
-        input.addEventListener('blur', () => (isHotkeysEnabled = true), {
-          capture: true,
-        });
+      const inputs = document.querySelectorAll(selector);
+      for (const input of Array.from(inputs)) {
+        if (isHotkeysEnabled) {
+          input.addEventListener('focus', () => (isHotkeysEnabled = false), {
+            capture: true,
+          });
+          input.addEventListener('blur', () => (isHotkeysEnabled = true), {
+            capture: true,
+          });
+        }
       }
     });
   }
