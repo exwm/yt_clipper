@@ -3,3 +3,15 @@
   top: -7px;
   left: 10px;
 }
+
+#markers-upload-div input[type='file'],
+#settings-editor-div input[type='checkbox'],
+#settings-editor-div input[type='radio'] {
+  position: static;
+  width: auto;
+  height: auto;
+  opacity: 1;
+  appearance: auto;
+  -webkit-appearance: auto;
+  -moz-appearance: auto;
+}
