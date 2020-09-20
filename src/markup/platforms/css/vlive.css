@@ -15,3 +15,7 @@
   -webkit-appearance: auto;
   -moz-appearance: auto;
 }
+
+._click_zone[data-title-container] {
+  pointer-events: none !important;
+}
