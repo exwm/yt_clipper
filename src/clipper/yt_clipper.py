@@ -359,7 +359,7 @@ def getArgParser():
                               'The --except flag takes precedence and will skip pairs specified with --only.'))
     parser.add_argument('--audio', '-a', action='store_true',
                         help='Enable audio in output webms.')
-    parser.add_argument('--format', '-f', default='bestvideo+(bestaudio[acodec=opus]/bestaudio)',
+    parser.add_argument('--format', '-f', default='(bestvideo+(bestaudio[acodec=opus]/bestaudio))/best',
                         help='Specify format string passed to youtube-dl.')
     parser.add_argument('--extra-video-filters', '-evf', dest='extraVideoFilters', default='',
                         help='Specify any extra video filters to be passed to ffmpeg.')
@@ -563,9 +563,12 @@ def loadSettings(settings):
         markersJson = file.read()
         markersDict = json.loads(markersJson)
         settings = {**settings, **markersDict}
+
         if "markers" in settings and "markerPairs" not in settings:
             settings["markerPairs"] = settings["markers"]
-        settings["videoURL"] = f'https://www.youtube.com/watch?v={settings["videoID"]}'
+        settings["platform"] = settings.get("platform", 'youtube')
+
+        settings["videoURL"] = getVideoURL(settings["platform"], settings["videoID"])
         settings["videoTitle"] = re.sub('"', '', settings["videoTitle"])
         settings["markersDataFileStem"] = Path(settings["json"]).stem
         settings["titleSuffix"] = settings["markersDataFileStem"]
@@ -579,7 +582,7 @@ def loadSettings(settings):
     return settings
 
 
-def getVideoURL(settings):
+def getVideoInfo(settings):
     ydl_opts = {'format': settings["format"], 'forceurl': True,
                 'merge_output_format': 'mkv',
                 'outtmpl': f'{settings["downloadVideoPath"]}.%(ext)s', "cachedir": False}
@@ -608,6 +611,8 @@ def getVideoURL(settings):
     dashVideoFormatID = None
     dashAudioFormatID = None
 
+    audioRequested = True if settings["audio"] else False
+
     if settings["downloadVideo"]:
         settings["inputVideo"] = settings["downloadVideoPath"]
     else:
@@ -618,28 +623,32 @@ def getVideoURL(settings):
         else:
             settings["videoURL"] = videoInfo["url"]
 
+    if audioRequested:
         if 'requested_formats' in ydl_info:
             audioInfo = rf[1]
-            settings["audiobr"] = int(audioInfo["tbr"])
+        else:
+            audioInfo = videoInfo
 
-            if audioInfo["protocol"] == 'http_dash_segments':
-                settings["isDashAudio"] = True
-                dashAudioFormatID = audioInfo["format_id"]
-                dashFormatIDs.append(dashAudioFormatID)
-            else:
-                settings["audioURL"] = audioInfo["url"]
+        settings["audiobr"] = int(audioInfo["abr"])
 
-        if dashFormatIDs:
-            filteredDashPath = filterDash(videoInfo["url"], dashFormatIDs)
-            if settings["isDashVideo"]:
-                settings["videoURL"] = filteredDashPath
-            if settings["isDashAudio"]:
-                settings["audioURL"] = filteredDashPath
+        if audioInfo["protocol"] == 'http_dash_segments':
+            settings["isDashAudio"] = True
+            dashAudioFormatID = audioInfo["format_id"]
+            dashFormatIDs.append(dashAudioFormatID)
+        else:
+            settings["audioURL"] = audioInfo["url"]
 
-    return getVideoInfo(settings, videoInfo)
+    if dashFormatIDs:
+        filteredDashPath = filterDash(videoInfo["url"], dashFormatIDs)
+        if settings["isDashVideo"]:
+            settings["videoURL"] = filteredDashPath
+        if settings["isDashAudio"]:
+            settings["audioURL"] = filteredDashPath
+
+    return getMoreVideoInfo(settings, videoInfo)
 
 
-def getVideoInfo(settings, videoInfo):
+def getMoreVideoInfo(settings, videoInfo):
     if settings["inputVideo"]:
         probedSettings = ffprobeVideoProperties(settings["inputVideo"])
     else:
@@ -654,7 +663,7 @@ def getVideoInfo(settings, videoInfo):
         logger.warning("Defaulting to video info fetched with youtube-dl")
 
     if settings["isDashVideo"] or "bit_rate" not in settings:
-        settings["bit_rate"] = int(videoInfo["tbr"])
+        settings["bit_rate"] = int(videoInfo["vbr"])
 
     if "r_frame_rate" not in settings:
         settings["r_frame_rate"] = videoInfo["fps"]
@@ -716,9 +725,9 @@ def getGlobalSettings(settings):
                 sys.exit(1)
 
     if settings["inputVideo"]:
-        settings = getVideoInfo(settings, {})
+        settings = getMoreVideoInfo(settings, {})
     else:
-        settings = getVideoURL(settings)
+        settings = getVideoInfo(settings)
 
     encodeSettings = getDefaultEncodeSettings(settings["bit_rate"])
 
@@ -1858,6 +1867,13 @@ def cleanFileName(fileName):
     elif sys.platform.startswith('linux'):
         fileName = re.sub(r'[/\0]', '_', fileName)
     return fileName
+
+
+def getVideoURL(platform, videoID):
+    if platform == 'youtube':
+        return f'https://www.youtube.com/watch?v={videoID}'
+    elif platform == 'vlive':
+        return f'https://www.vlive.tv/video/{videoID}'
 
 
 def getDefaultEncodeSettings(videobr):
