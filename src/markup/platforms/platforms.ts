@@ -76,7 +76,7 @@ export function getVideoPlatformSelectors(platform: VideoPlatforms) {
       cropChartContainer: '.vlive_info',
       markerNumberingsDiv: '.u_rmc_progress_bar_container',
       controls: '.u_rmcplayer_control',
-      controlsGradient: '.u_rmc_progress_controls',
+      controlsGradient: '.u_rmcplayer_control_bg._click_zone',
       shortcutsTableButton: '.u_rmc_controls_btn',
       playerClickZone: '._click_zone[data-video-overlay]',
     };
