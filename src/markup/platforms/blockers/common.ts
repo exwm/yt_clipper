@@ -30,7 +30,7 @@ function disablePreventSpaceScroll() {
   window.removeEventListener('keydown', preventSpaceScrollHandler);
 }
 function preventSpaceScrollHandler(e: KeyboardEvent) {
-  if (e.code === 'Space' && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+  if (e.code === 'Space' && e.target == document.body && !e.ctrlKey && !e.shiftKey && !e.altKey) {
     e.preventDefault();
   }
 }
