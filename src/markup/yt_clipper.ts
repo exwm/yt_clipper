@@ -3449,7 +3449,7 @@ async function loadytClipper() {
       `;
     resizeCropOverlay(cropDiv);
     hooks.cropOverlay.insertAdjacentElement('afterend', cropDiv);
-    window.addEventListener('resize', () => resizeCropOverlay(cropDiv));
+    new ResizeObserver(() => resizeCropOverlay(cropDiv)).observe(hooks.videoContainer);
     cropSvg = cropDiv.firstElementChild as SVGSVGElement;
     cropDim = document.getElementById('cropDim');
     cropRect = document.getElementById('cropRect') as Element;
@@ -3494,7 +3494,7 @@ async function loadytClipper() {
   function centerVideo() {
     const videoContainerRect = hooks.videoContainer.getBoundingClientRect();
     let height = videoContainerRect.height;
-    let width = height * videoInfo.aspectRatio;
+    let width = Math.round(height * videoInfo.aspectRatio);
     let left = videoContainerRect.width / 2 - width / 2;
     let top = 0;
 
