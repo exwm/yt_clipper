@@ -611,8 +611,6 @@ def getVideoInfo(settings):
     dashVideoFormatID = None
     dashAudioFormatID = None
 
-    audioRequested = True if settings["audio"] else False
-
     if settings["downloadVideo"]:
         settings["inputVideo"] = settings["downloadVideoPath"]
     else:
@@ -623,20 +621,19 @@ def getVideoInfo(settings):
         else:
             settings["videoURL"] = videoInfo["url"]
 
-    if audioRequested:
-        if 'requested_formats' in ydl_info:
-            audioInfo = rf[1]
-        else:
-            audioInfo = videoInfo
+    if 'requested_formats' in ydl_info:
+        audioInfo = rf[1]
+    else:
+        audioInfo = videoInfo
 
-        settings["audiobr"] = int(audioInfo["abr"])
+    settings["audiobr"] = int(audioInfo["abr"])
 
-        if audioInfo["protocol"] == 'http_dash_segments':
-            settings["isDashAudio"] = True
-            dashAudioFormatID = audioInfo["format_id"]
-            dashFormatIDs.append(dashAudioFormatID)
-        else:
-            settings["audioURL"] = audioInfo["url"]
+    if audioInfo["protocol"] == 'http_dash_segments':
+        settings["isDashAudio"] = True
+        dashAudioFormatID = audioInfo["format_id"]
+        dashFormatIDs.append(dashAudioFormatID)
+    else:
+        settings["audioURL"] = audioInfo["url"]
 
     if dashFormatIDs:
         filteredDashPath = filterDash(videoInfo["url"], dashFormatIDs)
