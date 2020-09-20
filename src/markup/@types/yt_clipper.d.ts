@@ -1,6 +1,7 @@
 import { ChartConfiguration } from 'chart.js';
 
 interface Settings {
+  platform: string;
   videoID: string;
   videoTitle: string;
   newMarkerSpeed: number;

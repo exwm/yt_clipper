@@ -20,7 +20,8 @@
 // @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@0.5.7/chartjs-plugin-annotation.min.js
 // @run-at       document-end
 // @license      MIT
-// @match        *://*.youtube.com/*
+// @match        http*://*.youtube.com/*
+// @match        http*://*.vlive.tv/video/*
 // @noframes
 // @grant        none
 // ==/UserScript==
@@ -60,7 +61,6 @@ import {
 import { scatterChartDefaults, addCropPoint, addSpeedPoint } from './ui/chart/scatterChartSpec';
 import { speedChartSpec } from './ui/chart/speedchart/speedChartSpec';
 import { Tooltips } from './ui/tooltips';
-import { createDraft, Draft, finishDraft, setAutoFreeze } from 'immer';
 import {
   bsearch,
   clampNumber,
@@ -88,7 +88,11 @@ import {
   seekToSafe,
 } from './util/util';
 import { Crop, getMinMaxAvgCropPoint, isVariableSize } from './crop/crop';
-import { autoHideUnselectedMarkerPairsCSS } from './ui/css/css';
+import {
+  adjustRotatedVideoPositionCSS,
+  autoHideUnselectedMarkerPairsCSS,
+  getRotatedVideoCSS,
+} from './ui/css/css';
 import { flattenVRVideo, openSubsEditor } from './actions/misc';
 import { enableYTBlockers, disableYTBlockers } from './platforms/blockers/youtube';
 import { getMarkerPairHistory, redo, undo, saveMarkerPairHistory } from './util/undoredo';
@@ -99,7 +103,10 @@ import {
   VideoPlatformHooks,
   VideoPlatforms,
 } from './platforms/platforms';
+import { createDraft, Draft, finishDraft, setAutoFreeze } from 'immer';
+import { disableCommonBlockers, enableCommonBlockers } from './platforms/blockers/common';
 const ytClipperCSS = readFileSync(__dirname + '/ui/css/yt-clipper.css', 'utf8');
+const vliveCSS = readFileSync(__dirname + '/platforms/css/vlive.css', 'utf8');
 const shortcutsTable = readFileSync(__dirname + '/ui/shortcuts-table/shortcuts-table.html', 'utf8');
 const shortcutsTableStyle = readFileSync(
   __dirname + '/ui/shortcuts-table/shortcuts-table.css',
@@ -122,7 +129,12 @@ export function triggerCropChartLoop() {
 }
 
 const platform = getPlatform();
-onLoadVideoPage(loadytClipper);
+
+if (platform === VideoPlatforms.youtube) {
+  onLoadVideoPage(loadytClipper);
+} else {
+  loadytClipper();
+}
 
 async function loadytClipper() {
   console.log('Loading yt_clipper markup script...');
@@ -304,12 +316,14 @@ async function loadytClipper() {
       initOnce();
       if (isHotkeysEnabled) {
         showShortcutsTableToggleButton();
+        enableCommonBlockers();
         if (platform === VideoPlatforms.youtube) {
           enableYTBlockers();
         }
         flashMessage('Enabled Hotkeys', 'green');
       } else {
         hideShortcutsTableToggleButton();
+        disableCommonBlockers();
         if (platform === VideoPlatforms.youtube) {
           disableYTBlockers();
         }
@@ -334,6 +348,7 @@ async function loadytClipper() {
   const initOnce = once(init, this);
   function init() {
     injectCSS(ytClipperCSS, 'yt-clipper-css');
+    if (platform === VideoPlatforms.vlive) injectCSS(vliveCSS, 'vlive-css');
     initHooks();
     initVideoInfo();
     initMarkersContainer();
@@ -357,7 +372,7 @@ async function loadytClipper() {
 
   player = await retryUntilTruthyResult(() => document.querySelector(selectors.player));
   video = await retryUntilTruthyResult(() => player.querySelector(selectors.video));
-  video.setAttribute('id', 'yt-clipper-video');
+  video.classList.add('yt-clipper-video');
 
   let settingsEditorHook: HTMLElement;
 
@@ -380,9 +395,16 @@ async function loadytClipper() {
     videoInfo.aspectRatio = video.videoWidth / video.videoHeight;
     videoInfo.isVerticalVideo = videoInfo.aspectRatio <= 1;
     if (platform === VideoPlatforms.youtube) {
-      videoInfo.playerData = player.getVideoData();
-      videoInfo.id = videoInfo.playerData.video_id;
-      videoInfo.title = videoInfo.playerData.title;
+      const playerData = player.getVideoData();
+      videoInfo.id = playerData.video_id;
+      videoInfo.title = playerData.title;
+      videoInfo.fps = getFPS();
+    } else if (platform === VideoPlatforms.vlive) {
+      const location = window.location;
+      const videoID = location.pathname.split('/')[2];
+      const title = document.querySelector('.vlive_info .tit').textContent;
+      videoInfo.id = videoID;
+      videoInfo.title = title;
       videoInfo.fps = getFPS();
     }
   }
@@ -415,7 +437,7 @@ async function loadytClipper() {
     if (e.key === 'Control') {
       window.removeEventListener('mousemove', cropHoverHandler, true);
       showPlayerControls();
-      video.style.removeProperty('cursor');
+      hooks.cropMouseManipulation.style.removeProperty('cursor');
     }
   }
 
@@ -430,10 +452,10 @@ async function loadytClipper() {
 
     if (cursor) {
       hidePlayerControls();
-      video.style.cursor = cursor;
+      hooks.cropMouseManipulation.style.cursor = cursor;
     } else {
       showPlayerControls();
-      video.style.removeProperty('cursor');
+      hooks.cropMouseManipulation.style.removeProperty('cursor');
     }
   }
 
@@ -589,11 +611,12 @@ async function loadytClipper() {
   let endMarkerNumberings: SVGSVGElement;
   function initMarkersContainer() {
     settings = {
+      platform: platform,
       videoID: videoInfo.id,
       videoTitle: videoInfo.title,
       newMarkerSpeed: 1.0,
       newMarkerCrop: '0:0:iw:ih',
-      titleSuffix: `[${videoInfo.id}]`,
+      titleSuffix: `[${platform}@${videoInfo.id}]`,
       isVerticalVideo: videoInfo.isVerticalVideo,
       markerPairMergeList: '',
       ...getDefaultCropRes(),
@@ -640,63 +663,6 @@ async function loadytClipper() {
     };
   }
 
-  const adjustRotatedVideoPositionCSS = `\
-    @media (min-aspect-ratio: 29/18) {
-      #yt-clipper-video {
-        margin-left: 36%;
-      }
-    }
-    @media (min-aspect-ratio: 40/18) {
-      #yt-clipper-video {
-        margin-left: 25%;
-      }
-    }
-    @media (max-aspect-ratio: 29/18) {
-      #yt-clipper-video {
-        margin-left: 34%;
-      }
-    }
-    @media (max-aspect-ratio: 13/9) {
-      #yt-clipper-video {
-        margin-left: 32%;
-      }
-    }
-    @media (max-aspect-ratio: 23/18) {
-      #yt-clipper-video {
-        margin-left: 30%;
-      }
-    }
-    @media (max-aspect-ratio: 10/9) {
-      #yt-clipper-video {
-        margin-left: 26%;
-      }
-    }
-    @media (max-aspect-ratio: 17/18) {
-      #yt-clipper-video {
-        margin-left: 22%;
-      }
-    }
-    @media (max-aspect-ratio: 7/9) {
-      #yt-clipper-video {
-        margin-left: 16%;
-      }
-    }
-    @media (max-aspect-ratio: 6/9) {
-      #yt-clipper-video {
-        margin-left: 14%;
-      }
-    }
-    @media (max-aspect-ratio: 11/18) {
-      #yt-clipper-video {
-        margin-left: 10%;
-      }
-    }
-    @media (max-aspect-ratio: 5/9) {
-      #yt-clipper-video {
-        margin-left: 0%;
-      }
-    }
-    `;
   let rotatedVideoCSS: string;
   let fullscreenRotatedVideoCSS: string;
   let rotatedVideoPreviewsCSS: string;
@@ -714,23 +680,7 @@ async function loadytClipper() {
     if (rotation === 90 || rotation === -90) {
       let scale = 1;
       scale = 1 / videoInfo.aspectRatio;
-      rotatedVideoCSS = `
-        #yt-clipper-video {
-          transform: rotate(${rotation}deg) scale(2.2) !important;
-          max-width: 45vh;
-          max-height: 100vw;
-        }
-        #player-theater-container {
-          height: 100vh !important;
-          max-height: none !important;
-        }
-        #page-manager {
-          margin-top: 0px !important;
-        }
-        #masthead #container {
-          display: none !important;
-        }
-      `;
+      rotatedVideoCSS = getRotatedVideoCSS(rotation);
       rotatedVideoPreviewsCSS = `\
         .ytp-tooltip {
           transform: translateY(-35%) rotate(${rotation}deg) !important;
@@ -741,7 +691,7 @@ async function loadytClipper() {
         }
       `;
       fullscreenRotatedVideoCSS = `
-      #yt-clipper-video {
+      .yt-clipper-video {
         transform: rotate(${rotation}deg) scale(${scale}) !important;
         margin-left: auto;
       }
@@ -824,7 +774,7 @@ async function loadytClipper() {
   }
 
   function addForeignEventListeners() {
-    const selectors = ['#search-input #search'];
+    const selectors = platform === VideoPlatforms.youtube ? ['#search-input #search'] : [];
     selectors.forEach((selector) => {
       const input = document.querySelector(selector);
       if (isHotkeysEnabled) {
@@ -1559,22 +1509,26 @@ async function loadytClipper() {
 
   let prevVideoWidth: number;
   function getFPS(defaultFPS: number | null = 60) {
+    let fps: number;
     try {
       if (
         videoInfo.fps != null &&
         video.videoWidth != null &&
         prevVideoWidth === video.videoWidth
       ) {
-        return videoInfo.fps;
-      } else {
+        fps = videoInfo.fps;
+      } else if (platform === VideoPlatforms.youtube) {
         videoInfo.fps = parseFloat(player.getStatsForNerds().resolution.match(/@(\d+)/)[1]);
-        prevVideoWidth = video.videoWidth;
-        return videoInfo.fps;
+        fps = videoInfo.fps;
+      } else {
+        fps = defaultFPS;
       }
     } catch (e) {
       console.log('Could not detect fps', e);
-      return defaultFPS; // by default parameter value assume high fps to avoid skipping frames
+      fps = defaultFPS; // by default parameter value assume high fps to avoid skipping frames
     }
+    prevVideoWidth = video.videoWidth;
+    return fps;
   }
 
   function getCurrentFrameTime(roughCurrentTime: number): number {
@@ -2079,6 +2033,7 @@ async function loadytClipper() {
 
   function markerNumberingMouseDownHandler(e: PointerEvent) {
     if (!(e.button === 0)) return;
+    blockEvent(e);
     const numbering = e.target as SVGTextElement;
     const numberingType = numbering.classList.contains('startMarkerNumbering') ? 'start' : 'end';
     const targetEndMarker = numbering.marker as SVGRectElement;
@@ -3185,10 +3140,9 @@ async function loadytClipper() {
 
   let shortcutsTableToggleButton: HTMLButtonElement;
   function injectToggleShortcutsTableButton() {
-    const ytpRightControls = document.getElementsByClassName('ytp-right-controls')[0];
     shortcutsTableToggleButton = htmlToElement(shortcutsTableToggleButtonHTML) as HTMLButtonElement;
     shortcutsTableToggleButton.onclick = toggleShortcutsTable;
-    ytpRightControls.insertAdjacentElement('afterbegin', shortcutsTableToggleButton);
+    hooks.shortcutsTableButton.insertAdjacentElement('afterbegin', shortcutsTableToggleButton);
   }
 
   function showShortcutsTableToggleButton() {
@@ -3529,11 +3483,23 @@ async function loadytClipper() {
   }
 
   function forceRerenderCrop(cropDiv: HTMLDivElement) {
+    centerVideo();
     const { width, height, top, left } = video.style;
     Object.assign(cropDiv.style, { width, height, top, left, position: 'absolute' });
     if (cropSvg) {
       cropSvg.setAttribute('width', '0');
     }
+  }
+
+  function centerVideo() {
+    const videoContainerRect = hooks.videoContainer.getBoundingClientRect();
+    let height = videoContainerRect.height;
+    let width = height * videoInfo.aspectRatio;
+    let left = videoContainerRect.width / 2 - width / 2;
+    let top = 0;
+
+    [width, height, top, left] = [width, height, top, left].map((e) => `${e}px`);
+    Object.assign(video.style, { width, height, top, left, position: 'absolute' });
   }
 
   function setCropOverlay(cropRect: Element, cropString: string) {
@@ -3595,13 +3561,6 @@ async function loadytClipper() {
     hooks.controlsGradient.style.display = 'block';
   }
 
-  function getMinWH() {
-    const minWHMultiplier = Math.min(settings.cropResWidth, settings.cropResHeight) / 1080;
-    const minW = Math.round(25 * minWHMultiplier);
-    const minH = Math.round(25 * minWHMultiplier);
-    return { minW, minH };
-  }
-
   function getRelevantCropString() {
     if (!isSettingsEditorOpen) return null;
     if (!wasGlobalSettingsEditorOpen) {
@@ -3615,10 +3574,10 @@ async function loadytClipper() {
   let endCropMouseManipulation: (e, forceEndDrag?: boolean) => void;
 
   function addCropMouseManipulationListener() {
-    video.addEventListener('pointerdown', cropOverlayDragHandler, {
+    hooks.cropMouseManipulation.addEventListener('pointerdown', cropMouseManipulationHandler, {
       capture: true,
     });
-    function cropOverlayDragHandler(e) {
+    function cropMouseManipulationHandler(e) {
       const isCropBlockingChartVisible =
         isCurrentChartVisible && currentChartInput && currentChartInput.type !== 'crop';
       if (
@@ -3650,7 +3609,7 @@ async function loadytClipper() {
           }
           isDraggingCrop = false;
 
-          video.releasePointerCapture(pointerId);
+          hooks.cropMouseManipulation.releasePointerCapture(pointerId);
 
           const draft = createDraft(getMarkerPairHistory(markerPair));
           saveMarkerPairHistory(draft, markerPair);
@@ -3662,11 +3621,11 @@ async function loadytClipper() {
 
           showPlayerControls();
           if (!forceEnd && e.ctrlKey) {
-            if (cursor) video.style.cursor = cursor;
+            if (cursor) hooks.cropMouseManipulation.style.cursor = cursor;
             updateCropHoverCursor(e);
             window.addEventListener('mousemove', cropHoverHandler, true);
           } else {
-            video.style.removeProperty('cursor');
+            hooks.cropMouseManipulation.style.removeProperty('cursor');
           }
           window.addEventListener('keyup', removeCropHoverListener, true);
           window.addEventListener('keydown', addCropHoverListener, true);
@@ -3685,10 +3644,10 @@ async function loadytClipper() {
           window.removeEventListener('keyup', removeCropHoverListener, true);
 
           e.preventDefault();
-          video.setPointerCapture(pointerId);
+          hooks.cropMouseManipulation.setPointerCapture(pointerId);
 
           if (cursor === 'grab') {
-            video.style.cursor = 'grabbing';
+            hooks.cropMouseManipulation.style.cursor = 'grabbing';
             document.addEventListener('pointermove', dragCropHandler);
           } else {
             cropResizeHandler = (e: MouseEvent) => getCropResizeHandler(e, cursor);
@@ -3895,10 +3854,10 @@ async function loadytClipper() {
       window.removeEventListener('keydown', addCropHoverListener, true);
       window.removeEventListener('mousemove', cropHoverHandler, true);
       hidePlayerControls();
-      video.style.removeProperty('cursor');
-      hooks.videoContainer.style.cursor = 'crosshair';
+      hooks.cropMouseManipulation.style.removeProperty('cursor');
+      hooks.cropMouseManipulation.style.cursor = 'crosshair';
       beginDrawHandler = (e: PointerEvent) => beginDraw(e);
-      hooks.playerContainer.addEventListener('pointerdown', beginDrawHandler, {
+      hooks.cropMouseManipulation.addEventListener('pointerdown', beginDrawHandler, {
         once: true,
         capture: true,
       });
@@ -3916,7 +3875,7 @@ async function loadytClipper() {
   function beginDraw(e: PointerEvent) {
     if (e.button == 0 && !drawCropHandler) {
       e.preventDefault();
-      video.setPointerCapture(e.pointerId);
+      hooks.cropMouseManipulation.setPointerCapture(e.pointerId);
 
       const cropResWidth = settings.cropResWidth;
       const cropResHeight = settings.cropResHeight;
@@ -4018,9 +3977,9 @@ async function loadytClipper() {
   function finishDrawingCrop(shouldRevertCrop: boolean, pointerId?: number) {
     Crop.shouldConstrainMinDimensions = true;
 
-    if (pointerId != null) video.releasePointerCapture(pointerId);
-    hooks.videoContainer.style.cursor = 'auto';
-    hooks.playerContainer.removeEventListener('pointerdown', beginDrawHandler, true);
+    if (pointerId != null) hooks.cropMouseManipulation.releasePointerCapture(pointerId);
+    hooks.cropMouseManipulation.style.cursor = 'auto';
+    hooks.cropMouseManipulation.removeEventListener('pointerdown', beginDrawHandler, true);
     window.removeEventListener('pointermove', drawCropHandler);
     window.removeEventListener('pointerup', endDraw, true);
     drawCropHandler = null;
@@ -4421,7 +4380,7 @@ async function loadytClipper() {
     chartContainerHook: null,
     chartContainerHookPosition: 'afterend',
     chartContainerStyle:
-      'width: 100%; height: calc(100% - 20px); position: relative; z-index: 12; opacity:0.8;',
+      'width: 100%; height: calc(100% - 20px); position: relative; z-index: 99; opacity:0.8;',
     chartCanvasHTML: `<canvas id="speedChartCanvas" width="1600px" height="900px"></canvas>`,
     chartSpec: speedChartSpec,
     chartCanvasId: 'speedChartCanvas',
