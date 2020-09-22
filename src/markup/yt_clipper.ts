@@ -1244,7 +1244,7 @@ async function loadytClipper() {
   function saveMarkersAndSettings() {
     const settingsJSON = getSettingsJSON();
 
-    const blob = new Blob([settingsJSON], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob([settingsJSON], { type: 'application/json;charset=utf-8' });
     saveAs(blob, `${settings.titleSuffix || `[${settings.videoID}]`}.json`);
   }
 
