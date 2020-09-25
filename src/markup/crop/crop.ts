@@ -124,6 +124,16 @@ export class Crop {
     const maxDimensions = cropRes.split('x').map((dim) => parseInt(dim, 10));
     return maxDimensions;
   }
+  static getMultipliedCropRes(
+    cropRes: string,
+    cropMultipleX: number,
+    cropMultipleY: number
+  ): string {
+    let [maxW, maxH] = Crop.getMaxDimensions(cropRes);
+    maxW = maxW * cropMultipleX;
+    maxH = maxH * cropMultipleY;
+    return `${maxW}x${maxH}`;
+  }
   public get cropComponents() {
     return [this._x, this._y, this._w, this._h];
   }

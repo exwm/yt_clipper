@@ -3269,7 +3269,9 @@ async function loadytClipper() {
       } else {
         resString = multiplyCropString(cropMultipleX, cropMultipleY, settings.newMarkerCrop);
       }
-      const [x, y, w, h] = getCropComponents(resString);
+      const cropRes = Crop.getMultipliedCropRes(settings.cropRes, cropMultipleX, cropMultipleY);
+      const [x, y, w, h] = Crop.getCropComponents(resString, cropRes);
+
       canvas.width = w;
       canvas.height = h;
       if (h > w) {
