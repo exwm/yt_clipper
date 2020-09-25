@@ -372,6 +372,7 @@ async function loadytClipper() {
 
   player = await retryUntilTruthyResult(() => document.querySelector(selectors.player));
   video = await retryUntilTruthyResult(() => player.querySelector(selectors.video));
+  await retryUntilTruthyResult(() => video.videoWidth * video.videoHeight);
   video.classList.add('yt-clipper-video');
 
   let settingsEditorHook: HTMLElement;
