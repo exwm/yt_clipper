@@ -660,7 +660,7 @@ def getMoreVideoInfo(settings, videoInfo):
         logger.warning("Defaulting to video info fetched with youtube-dl")
 
     if settings["isDashVideo"] or "bit_rate" not in settings:
-        settings["bit_rate"] = int(videoInfo["vbr"])
+        settings["bit_rate"] = int(videoInfo["tbr"])
 
     if "r_frame_rate" not in settings:
         settings["r_frame_rate"] = videoInfo["fps"]
