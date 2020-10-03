@@ -3,29 +3,48 @@
 This changelog records all the changes to `yt_clipper` after version numbers between the markup and clipper script were unified (ie since v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`).
 
 - [yt_clipper Changelog (Post-Version-Unification)](#yt_clipper-changelog-post-version-unification)
-  - [v3.7.0-beta.4.0.1 `[2020.09.20]`](#v370-beta401-20200920)
+  - [v3.7.0-beta.4.1.0 `[2020.10.03]`](#v370-beta410-20201003)
     - [Markup Changes](#markup-changes)
     - [Clipper Changes](#clipper-changes)
-  - [v3.7.0-beta.4.0.0 `[2020.09.19]`](#v370-beta400-20200919)
+  - [v3.7.0-beta.4.0.1 `[2020.09.20]`](#v370-beta401-20200920)
     - [Markup Changes](#markup-changes-1)
     - [Clipper Changes](#clipper-changes-1)
-  - [v3.7.0-beta.3.9.0 `[2020.09.14]`](#v370-beta390-20200914)
+  - [v3.7.0-beta.4.0.0 `[2020.09.19]`](#v370-beta400-20200919)
     - [Markup Changes](#markup-changes-2)
     - [Clipper Changes](#clipper-changes-2)
-  - [v3.7.0-beta.3.9.0-alpha.13 `[2020.08.31]`](#v370-beta390-alpha13-20200831)
-    - [Clipper Changes](#clipper-changes-3)
-  - [v3.7.0-beta.3.9.0-alpha.12 `[2020.08.23]`](#v370-beta390-alpha12-20200823)
+  - [v3.7.0-beta.3.9.0 `[2020.09.14]`](#v370-beta390-20200914)
     - [Markup Changes](#markup-changes-3)
+    - [Clipper Changes](#clipper-changes-3)
+  - [v3.7.0-beta.3.9.0-alpha.13 `[2020.08.31]`](#v370-beta390-alpha13-20200831)
     - [Clipper Changes](#clipper-changes-4)
-  - [v3.7.0-beta.3.9.0-alpha.11 `[2020.08.17]`:](#v370-beta390-alpha11-20200817)
+  - [v3.7.0-beta.3.9.0-alpha.12 `[2020.08.23]`](#v370-beta390-alpha12-20200823)
     - [Markup Changes](#markup-changes-4)
     - [Clipper Changes](#clipper-changes-5)
-  - [v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`](#v370-beta390-alpha10-20200814)
+  - [v3.7.0-beta.3.9.0-alpha.11 `[2020.08.17]`:](#v370-beta390-alpha11-20200817)
     - [Markup Changes](#markup-changes-5)
     - [Clipper Changes](#clipper-changes-6)
+  - [v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`](#v370-beta390-alpha10-20200814)
+    - [Markup Changes](#markup-changes-6)
+    - [Clipper Changes](#clipper-changes-7)
 - [yt_clipper Changelog (Pre-Version-Unification)](#yt_clipper-changelog-pre-version-unification)
   - [Markup Script Changelog](#markup-script-changelog)
   - [Clipper Script (Installation) Changelog](#clipper-script-installation-changelog)
+
+## v3.7.0-beta.4.1.0 `[2020.10.03]`
+
+### Markup Changes
+
+- Fix media type for markers json download causing incorrect extension `.txt` on some systems.
+- Fix frame capture not scaling correctly when video resolution does not match crop resolution.
+- (youtube) Fix script-based video seeking not updating progress bar when paused.
+- (youtube) Fix video overscaled and cut off in some cases.
+- (youtube) Fix rotated video not properly centered and scaled.
+
+### Clipper Changes
+
+- Fix crash due to incorrect bit rate extraction for dash video.
+- Tweak audio encoding settings.
+- Update youtube-dl from `v2020.09.06` to [`v2020.09.20`](https://github.com/ytdl-org/youtube-dl/releases/tag/2020.09.20).
 
 ## v3.7.0-beta.4.0.1 `[2020.09.20]`
 
