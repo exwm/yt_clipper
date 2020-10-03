@@ -691,7 +691,7 @@ async function loadytClipper() {
       rotatedVideoCSS = getRotatedVideoCSS(rotation);
       rotatedVideoPreviewsCSS = `\
         .ytp-tooltip {
-          transform: translateY(-35%) rotate(${rotation}deg) !important;
+          transform: translateY(-15%) rotate(${rotation}deg) !important;
         }
         .ytp-tooltip-text-wrapper {
           transform: rotate(${-rotation}deg) !important;
