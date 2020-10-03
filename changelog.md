@@ -36,6 +36,7 @@ This changelog records all the changes to `yt_clipper` after version numbers bet
 
 - Fix media type for markers json download causing incorrect extension `.txt` on some systems.
 - Fix frame capture not scaling correctly when video resolution does not match crop resolution.
+- Fix crop resolution could be invalid if script loaded before video.
 - (youtube) Fix script-based video seeking not updating progress bar when paused.
 - (youtube) Fix video overscaled and cut off in some cases.
 - (youtube) Fix rotated video not properly centered and scaled.
