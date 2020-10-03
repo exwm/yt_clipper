@@ -400,6 +400,7 @@ async function loadytClipper() {
       videoInfo.id = playerData.video_id;
       videoInfo.title = playerData.title;
       videoInfo.fps = getFPS();
+      video.seekTo = (time) => player.seekTo(time);
     } else if (platform === VideoPlatforms.vlive) {
       const location = window.location;
       const videoID = location.pathname.split('/')[2];
@@ -407,6 +408,7 @@ async function loadytClipper() {
       videoInfo.id = videoID;
       videoInfo.title = title;
       videoInfo.fps = getFPS();
+      video.seekTo = (time) => (video.currentTime = time);
     }
   }
 
