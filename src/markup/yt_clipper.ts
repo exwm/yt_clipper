@@ -351,6 +351,7 @@ async function loadytClipper() {
     if (platform === VideoPlatforms.vlive) injectCSS(vliveCSS, 'vlive-css');
     initHooks();
     initVideoInfo();
+    initObservers();
     initMarkersContainer();
     initChartHooks();
     addForeignEventListeners();
@@ -410,6 +411,10 @@ async function loadytClipper() {
       videoInfo.fps = getFPS();
       video.seekTo = (time) => (video.currentTime = time);
     }
+  }
+
+  function initObservers() {
+    new ResizeObserver(resizeCropOverlay).observe(hooks.videoContainer);
   }
 
   function updateSettingsEditorHook() {
@@ -3398,6 +3403,7 @@ async function loadytClipper() {
     return progressDiv;
   }
 
+  let cropDiv: HTMLDivElement;
   let cropSvg: SVGSVGElement;
   let cropDim: SVGRectElement;
   let cropRect: Element;
@@ -3413,7 +3419,7 @@ async function loadytClipper() {
   function createCropOverlay(cropString: string) {
     deleteCropOverlay();
 
-    const cropDiv = document.createElement('div');
+    cropDiv = document.createElement('div');
     cropDiv.setAttribute('id', 'crop-div');
     cropDiv.innerHTML = `\
         <svg id="crop-svg">
@@ -3454,9 +3460,8 @@ async function loadytClipper() {
           </g>
         </svg>
       `;
-    resizeCropOverlay(cropDiv);
+    resizeCropOverlay();
     hooks.cropOverlay.insertAdjacentElement('afterend', cropDiv);
-    new ResizeObserver(() => resizeCropOverlay(cropDiv)).observe(hooks.videoContainer);
     cropSvg = cropDiv.firstElementChild as SVGSVGElement;
     cropDim = document.getElementById('cropDim');
     cropRect = document.getElementById('cropRect') as Element;
@@ -3485,27 +3490,46 @@ async function loadytClipper() {
     isCropOverlayVisible = true;
   }
 
-  function resizeCropOverlay(cropDiv: HTMLDivElement) {
-    requestAnimationFrame(() => forceRerenderCrop(cropDiv));
+  function resizeCropOverlay() {
+    requestAnimationFrame(forceRerenderCrop);
   }
 
-  function forceRerenderCrop(cropDiv: HTMLDivElement) {
+  function forceRerenderCrop() {
     centerVideo();
-    const { width, height, top, left } = video.style;
-    Object.assign(cropDiv.style, { width, height, top, left, position: 'absolute' });
-    if (cropSvg) {
-      cropSvg.setAttribute('width', '0');
+    if (cropDiv) {
+      const videoRect = video.getBoundingClientRect();
+      const videoContainerRect = hooks.videoContainer.getBoundingClientRect();
+      let { width, height, top, left } = videoRect;
+      top = top - videoContainerRect.top;
+      left = left - videoContainerRect.left;
+      [width, height, top, left] = [width, height, top, left].map((e) => `${Math.floor(e)}px`);
+
+      Object.assign(cropDiv.style, { width, height, top, left, position: 'absolute' });
+      if (cropSvg) {
+        cropSvg.setAttribute('width', '0');
+      }
     }
   }
 
   function centerVideo() {
     const videoContainerRect = hooks.videoContainer.getBoundingClientRect();
-    let height = videoContainerRect.height;
-    let width = Math.round(height * videoInfo.aspectRatio);
-    let left = videoContainerRect.width / 2 - width / 2;
-    let top = 0;
+    let width, height;
+    if (rotation === 0) {
+      height = videoContainerRect.height;
+      width = height * videoInfo.aspectRatio;
+      width = Math.floor(Math.min(width, videoContainerRect.width));
+      height = Math.floor(width / videoInfo.aspectRatio);
+    } else {
+      width = videoContainerRect.height;
+      height = width / videoInfo.aspectRatio;
+      height = Math.floor(Math.min(height, videoContainerRect.width));
+      width = Math.floor(height * videoInfo.aspectRatio);
+    }
 
-    [width, height, top, left] = [width, height, top, left].map((e) => `${e}px`);
+    let left = videoContainerRect.width / 2 - width / 2;
+    let top = videoContainerRect.height / 2 - height / 2;
+
+    [width, height, top, left] = [width, height, top, left].map((e) => `${Math.round(e)}px`);
     Object.assign(video.style, { width, height, top, left, position: 'absolute' });
   }
 
