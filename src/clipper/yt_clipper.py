@@ -1005,7 +1005,7 @@ def makeClip(settings, markerPairIndex):
         f'-benchmark',
         # f'-loglevel 56',
         f'-c:v libvpx-vp9' if not mps["vp8"] else f'-c:v libvpx',
-        f'-c:a libopus -b:a 128k -vbr constrained' if not mps["vp8"] else f'-c:a libvorbis -q:a 7',
+        f'-c:a libopus -b:a 128k' if not mps["vp8"] else f'-c:a libvorbis -q:a 7',
         f'-pix_fmt yuv420p -slices 8',
         f'-aq-mode 4 -row-mt 1 -tile-columns 6 -tile-rows 2' if not mps["vp8"] else '',
         f'-qmin {qmin} -crf {mps["crf"]} -qmax {qmax}' if mps["targetSize"] <= 0 else '',
