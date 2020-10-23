@@ -373,7 +373,11 @@ async function loadytClipper() {
 
   player = await retryUntilTruthyResult(() => document.querySelector(selectors.player));
   video = await retryUntilTruthyResult(() => player.querySelector(selectors.video));
-  await retryUntilTruthyResult(() => video.videoWidth * video.videoHeight);
+  await retryUntilTruthyResult(() => video.videoWidth * video.videoHeight * video.duration);
+  if (platform === 'vlive') {
+    await retryUntilTruthyResult(() => !video.src.startsWith('data:video'));
+    await retryUntilTruthyResult(() => video.videoWidth * video.videoHeight * video.duration);
+  }
   video.classList.add('yt-clipper-video');
 
   let settingsEditorHook: HTMLElement;
