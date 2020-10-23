@@ -361,8 +361,8 @@ async function loadytClipper() {
 
   function addEventListeners() {
     document.addEventListener('keydown', hotkeys, true);
-    window.addEventListener('keydown', addCropHoverListener, true);
-    window.addEventListener('keyup', removeCropHoverListener, true);
+    document.addEventListener('keydown', addCropHoverListener, true);
+    document.addEventListener('keyup', removeCropHoverListener, true);
     document.body.addEventListener('wheel', mouseWheelFrameSkipHandler);
     document.body.addEventListener('wheel', moveMarkerByFrameHandler);
     document.body.addEventListener('wheel', selectCropPoint, { passive: false });
@@ -437,13 +437,13 @@ async function loadytClipper() {
       !isDrawingCrop &&
       !isCropBlockingChartVisible
     ) {
-      window.addEventListener('mousemove', cropHoverHandler, true);
+      document.addEventListener('pointermove', cropHoverHandler, true);
     }
   }
 
   function removeCropHoverListener(e: KeyboardEvent) {
     if (e.key === 'Control') {
-      window.removeEventListener('mousemove', cropHoverHandler, true);
+      document.removeEventListener('pointermove', cropHoverHandler, true);
       showPlayerControls();
       hooks.cropMouseManipulation.style.removeProperty('cursor');
     }
@@ -1495,7 +1495,7 @@ async function loadytClipper() {
       marker.setAttribute('z-index', '1');
       startTime = currentFrameTime;
     } else {
-      marker.addEventListener('mouseover', toggleMarkerPairEditorHandler, false);
+      marker.addEventListener('pointerover', toggleMarkerPairEditorHandler, false);
       marker.classList.add('end-marker');
       marker.setAttribute('type', 'end');
       marker.setAttribute('z-index', '2');
@@ -1622,7 +1622,7 @@ async function loadytClipper() {
 
     endNumberingText.marker = endMarker;
     startNumberingText.marker = endMarker;
-    endNumberingText.addEventListener('mouseover', markerNumberingMouseOverHandler, false);
+    endNumberingText.addEventListener('pointerover', markerNumberingMouseOverHandler, false);
     startNumberingText.addEventListener('pointerdown', markerNumberingMouseDownHandler, true);
     endNumberingText.addEventListener('pointerdown', markerNumberingMouseDownHandler, true);
 
@@ -2036,7 +2036,7 @@ async function loadytClipper() {
     }
   }
 
-  function markerNumberingMouseOverHandler(e: MouseEvent) {
+  function markerNumberingMouseOverHandler(e: PointerEvent) {
     const targetMarker = e.target.marker as SVGRectElement;
     toggleMarkerPairEditorHandler(e, targetMarker);
   }
@@ -2109,12 +2109,12 @@ async function loadytClipper() {
       seekToSafe(video, time);
     }
 
-    window.addEventListener('pointermove', dragNumbering);
+    document.addEventListener('pointermove', dragNumbering);
 
-    window.addEventListener(
+    document.addEventListener(
       'pointerup',
       (e: PointerEvent) => {
-        window.removeEventListener('pointermove', dragNumbering);
+        document.removeEventListener('pointermove', dragNumbering);
         numbering.releasePointerCapture(pointerId);
         const time = getDragTime(e);
         if (Math.abs(time - markerTime) < 0.001) return;
@@ -2127,7 +2127,7 @@ async function loadytClipper() {
     );
   }
 
-  function toggleMarkerPairEditorHandler(e: MouseEvent, targetMarker?: SVGRectElement) {
+  function toggleMarkerPairEditorHandler(e: PointerEvent, targetMarker?: SVGRectElement) {
     targetMarker = targetMarker ?? (e.target as SVGRectElement);
 
     if (targetMarker && e.shiftKey) {
@@ -3646,20 +3646,19 @@ async function loadytClipper() {
           saveMarkerPairHistory(draft, markerPair);
           renderSpeedAndCropUI(true);
 
-          cursor === 'grab'
-            ? document.removeEventListener('pointermove', dragCropHandler)
-            : document.removeEventListener('pointermove', cropResizeHandler);
+          document.removeEventListener('pointermove', dragCropHandler);
+          document.removeEventListener('pointermove', cropResizeHandler);
 
           showPlayerControls();
           if (!forceEnd && e.ctrlKey) {
             if (cursor) hooks.cropMouseManipulation.style.cursor = cursor;
             updateCropHoverCursor(e);
-            window.addEventListener('mousemove', cropHoverHandler, true);
+            document.addEventListener('pointermove', cropHoverHandler, true);
           } else {
             hooks.cropMouseManipulation.style.removeProperty('cursor');
           }
-          window.addEventListener('keyup', removeCropHoverListener, true);
-          window.addEventListener('keydown', addCropHoverListener, true);
+          document.addEventListener('keyup', removeCropHoverListener, true);
+          document.addEventListener('keydown', addCropHoverListener, true);
         };
 
         let cropResizeHandler;
@@ -3670,9 +3669,9 @@ async function loadytClipper() {
             once: true,
             capture: true,
           });
-          window.removeEventListener('mousemove', cropHoverHandler, true);
-          window.removeEventListener('keydown', addCropHoverListener, true);
-          window.removeEventListener('keyup', removeCropHoverListener, true);
+          document.removeEventListener('pointermove', cropHoverHandler, true);
+          document.removeEventListener('keydown', addCropHoverListener, true);
+          document.removeEventListener('keyup', removeCropHoverListener, true);
 
           e.preventDefault();
           hooks.cropMouseManipulation.setPointerCapture(pointerId);
@@ -3694,7 +3693,7 @@ async function loadytClipper() {
           isDraggingCrop = true;
         }
 
-        function dragCropHandler(e) {
+        function dragCropHandler(e: PointerEvent) {
           const dragPosX = e.clientX - videoRect.left;
           const dragPosY = e.clientY - videoRect.top;
           const changeX = dragPosX - clickPosX;
@@ -3713,7 +3712,7 @@ async function loadytClipper() {
           updateCropString(crop.cropString, false, false, initCropMap);
         }
 
-        function getCropResizeHandler(e, cursor) {
+        function getCropResizeHandler(e: PointerEvent, cursor: string) {
           const dragPosX = e.clientX - videoRect.left;
           const changeX = dragPosX - clickPosX;
           let deltaX = (changeX / videoRect.width) * settings.cropResWidth;
@@ -3811,7 +3810,7 @@ async function loadytClipper() {
     }
   }
 
-  function getMouseCropHoverRegion(e: MouseEvent, cropString?: string) {
+  function getMouseCropHoverRegion(e: PointerEvent, cropString?: string) {
     cropString = cropString ?? getRelevantCropString();
     const [x, y, w, h] = getCropComponents(cropString);
     const videoRect = video.getBoundingClientRect();
@@ -3882,8 +3881,8 @@ async function loadytClipper() {
       prevNewMarkerCrop = settings.newMarkerCrop;
 
       Crop.shouldConstrainMinDimensions = false;
-      window.removeEventListener('keydown', addCropHoverListener, true);
-      window.removeEventListener('mousemove', cropHoverHandler, true);
+      document.removeEventListener('keydown', addCropHoverListener, true);
+      document.removeEventListener('pointermove', cropHoverHandler, true);
       hidePlayerControls();
       hooks.cropMouseManipulation.style.removeProperty('cursor');
       hooks.cropMouseManipulation.style.cursor = 'crosshair';
@@ -3973,9 +3972,9 @@ async function loadytClipper() {
         updateCropString(crop.cropString, false, false, zeroCropMap);
       };
 
-      window.addEventListener('pointermove', drawCropHandler);
+      document.addEventListener('pointermove', drawCropHandler);
 
-      window.addEventListener('pointerup', endDraw, {
+      document.addEventListener('pointerup', endDraw, {
         once: true,
         capture: true,
       });
@@ -4001,7 +4000,7 @@ async function loadytClipper() {
       finishDrawingCrop(true, e.pointerId);
     }
     if (e.ctrlKey) {
-      window.addEventListener('mousemove', cropHoverHandler, true);
+      document.addEventListener('pointermove', cropHoverHandler, true);
     }
   }
 
@@ -4011,12 +4010,12 @@ async function loadytClipper() {
     if (pointerId != null) hooks.cropMouseManipulation.releasePointerCapture(pointerId);
     hooks.cropMouseManipulation.style.cursor = 'auto';
     hooks.cropMouseManipulation.removeEventListener('pointerdown', beginDrawHandler, true);
-    window.removeEventListener('pointermove', drawCropHandler);
-    window.removeEventListener('pointerup', endDraw, true);
+    document.removeEventListener('pointermove', drawCropHandler);
+    document.removeEventListener('pointerup', endDraw, true);
     drawCropHandler = null;
     isDrawingCrop = false;
     showPlayerControls();
-    window.addEventListener('keydown', addCropHoverListener, true);
+    document.addEventListener('keydown', addCropHoverListener, true);
 
     if (wasGlobalSettingsEditorOpen) {
       if (shouldRevertCrop) {
@@ -4544,13 +4543,13 @@ async function loadytClipper() {
       function chartTimeAnnotationDragEnd(e) {
         blockEvent(e);
         chart.ctx.canvas.releasePointerCapture(e.pointerId);
-        window.removeEventListener('pointermove', chartTimeAnnotationDragHandler);
+        document.removeEventListener('pointermove', chartTimeAnnotationDragHandler);
       }
 
       chart.ctx.canvas.setPointerCapture(e.pointerId);
-      window.addEventListener('pointermove', chartTimeAnnotationDragHandler);
-      window.addEventListener('pointerup', chartTimeAnnotationDragEnd, { once: true });
-      window.addEventListener('contextmenu', blockEvent, {
+      document.addEventListener('pointermove', chartTimeAnnotationDragHandler);
+      document.addEventListener('pointerup', chartTimeAnnotationDragEnd, { once: true });
+      document.addEventListener('contextmenu', blockEvent, {
         once: true,
         capture: true,
       });
@@ -4898,7 +4897,7 @@ async function loadytClipper() {
     if (idx == null) idx = prevSelectedMarkerPairIndex;
     const markerPair = markerPairs[idx];
 
-    const me = new MouseEvent('mouseover', { shiftKey: true });
+    const me = new PointerEvent('pointerover', { shiftKey: true });
     enableMarkerHotkeys.endMarker.dispatchEvent(me);
     deleteElement(enableMarkerHotkeys.endMarker);
     deleteElement(enableMarkerHotkeys.startMarker);
