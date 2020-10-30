@@ -357,6 +357,7 @@ async function loadytClipper() {
     addForeignEventListeners();
     injectToggleShortcutsTableButton();
     addCropMouseManipulationListener();
+    addScrubVideoHandler();
   }
 
   function addEventListeners() {
@@ -3572,7 +3573,7 @@ async function loadytClipper() {
     if (isDrawingCrop) {
       finishDrawingCrop(true);
     }
-    if (isDraggingCrop) {
+    if (isMouseManipulatingCrop) {
       endCropMouseManipulation(null, true);
     }
     if (cropSvg) {
@@ -3605,7 +3606,63 @@ async function loadytClipper() {
     }
   }
 
-  let isDraggingCrop = false;
+  function addScrubVideoHandler() {
+    hooks.cropMouseManipulation.addEventListener('pointerdown', scrubVideoHandler, {
+      capture: true,
+    });
+  }
+
+  function scrubVideoHandler(e) {
+    const isCropBlockingChartVisible =
+      isCurrentChartVisible && currentChartInput && currentChartInput.type !== 'crop';
+    if (
+      !e.ctrlKey &&
+      e.altKey &&
+      !e.shiftKey &&
+      !isMouseManipulatingCrop &&
+      !isDrawingCrop &&
+      !isCropBlockingChartVisible
+    ) {
+      blockEvent(e);
+      document.addEventListener('click', blockVideoPause, {
+        once: true,
+        capture: true,
+      });
+      const videoRect = video.getBoundingClientRect();
+      let prevClickPosX = e.clientX - videoRect.left;
+      let prevClickPosY = e.clientY - videoRect.top;
+      const pointerId = e.pointerId;
+      video.setPointerCapture(pointerId);
+
+      const baseWidth = 1920;
+      function dragHandler(e: PointerEvent) {
+        blockEvent(e);
+        const pixelRatio = window.devicePixelRatio;
+        const widthMultiple = baseWidth / screen.width;
+        const dragPosX = e.clientX - videoRect.left;
+        const dragPosY = e.clientY - videoRect.top;
+        const changeX = (dragPosX - prevClickPosX) * pixelRatio * widthMultiple;
+        const seekBy = changeX * (1 / videoInfo.fps);
+        seekBySafe(video, seekBy);
+        prevClickPosX = e.clientX - videoRect.left;
+      }
+
+      function endDragHandler(e: PointerEvent) {
+        blockEvent(e);
+        document.removeEventListener('pointermove', dragHandler);
+        video.releasePointerCapture(pointerId);
+      }
+
+      document.addEventListener('pointermove', dragHandler);
+      document.addEventListener('pointerup', endDragHandler, {
+        once: true,
+        capture: true,
+      });
+    }
+  }
+
+  let isMouseManipulatingCrop = false;
+
   let endCropMouseManipulation: (e, forceEndDrag?: boolean) => void;
 
   function addCropMouseManipulationListener() {
@@ -3642,7 +3699,7 @@ async function loadytClipper() {
               capture: true,
             });
           }
-          isDraggingCrop = false;
+          isMouseManipulatingCrop = false;
 
           hooks.cropMouseManipulation.releasePointerCapture(pointerId);
 
@@ -3694,7 +3751,7 @@ async function loadytClipper() {
           });
 
           hidePlayerControls();
-          isDraggingCrop = true;
+          isMouseManipulatingCrop = true;
         }
 
         function dragCropHandler(e: PointerEvent) {
@@ -3876,7 +3933,7 @@ async function loadytClipper() {
       finishDrawingCrop(true);
     } else if (isCurrentChartVisible && currentChartInput && currentChartInput.type !== 'crop') {
       flashMessage('Please toggle off the speed chart before drawing crop', 'olive');
-    } else if (isDraggingCrop) {
+    } else if (isMouseManipulatingCrop) {
       flashMessage('Please finish dragging or resizing before drawing crop', 'olive');
     } else if (isSettingsEditorOpen && isCropOverlayVisible) {
       isDrawingCrop = true;
@@ -4692,7 +4749,7 @@ async function loadytClipper() {
         shouldTriggerCropChartLoop ||
         // assume auto time-based update not required for crop chart section if looping section
         (isCropChartLoopingOn && isCropChartVisible) ||
-        isDraggingCrop ||
+        isMouseManipulatingCrop ||
         isDrawingCrop
       ) {
         shouldTriggerCropChartLoop = false;
