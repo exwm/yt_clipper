@@ -2673,7 +2673,7 @@ async function loadytClipper() {
   function renderMarkerPair(markerPair, markerPairIndex) {
     const startMarker = markersSvg.querySelector(`.start-marker[idx="${markerPairIndex + 1}"]`);
     const endMarker = markersSvg.querySelector(`.end-marker[idx="${markerPairIndex + 1}"]`);
-    const startMarkerNumbering = endMarkerNumberings.children[markerPairIndex];
+    const startMarkerNumbering = startMarkerNumberings.children[markerPairIndex];
     const endMarkerNumbering = endMarkerNumberings.children[markerPairIndex];
     const startProgressPos = (markerPair.start / video.duration) * 100;
     const endProgressPos = (markerPair.end / video.duration) * 100;
