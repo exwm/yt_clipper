@@ -410,7 +410,7 @@ async function loadytClipper() {
     } else if (platform === VideoPlatforms.vlive) {
       const location = window.location;
       const videoID = location.pathname.split('/')[2];
-      const title = document.querySelector('.vlive_info .tit').textContent;
+      const title = document.querySelector('[class*="video_title"]')?.textContent;
       videoInfo.id = videoID;
       videoInfo.title = title;
       videoInfo.fps = getFPS();
