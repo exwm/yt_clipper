@@ -2844,7 +2844,7 @@ async function loadytClipper() {
       if (targetProperty === 'speed') {
         const markerPair = markerPairs[prevSelectedMarkerPairIndex];
         updateMarkerPairSpeed(markerPair, newValue);
-        updateChart('speed');
+        renderSpeedAndCropUI(true);
       }
 
       if (targetProperty === 'enableZoomPan') {
@@ -4871,8 +4871,7 @@ async function loadytClipper() {
         markerPairMergeListInput.dispatchEvent(new Event('change'));
       } else {
         speedInput.value = newSpeed.toString();
-        highlightSpeedAndCropInputs();
-        updateChart('speed');
+        renderSpeedAndCropUI(true);
       }
     }
 
@@ -4889,7 +4888,6 @@ async function loadytClipper() {
     speedMap[0].y = newSpeed;
 
     saveMarkerPairHistory(draft, markerPair);
-    updateMarkerPairDuration(markerPair);
   }
 
   function updateAllMarkerPairCrops(newCrop: string) {
