@@ -1293,7 +1293,8 @@ def runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp):
     if len(ffmpegCommands) == 2:
         logger.info('Running first pass...')
 
-    printablePass1 = re.sub(r'-i .*?\".*?\"', r'-i ...', ffmpegPass1, count=1)
+    input_pat = r'(-i[\s]+\".*?\"[\s]+)+'
+    printablePass1 = re.sub(input_pat, r'-i ... ', ffmpegPass1, count=1)
 
     logger.verbose(f'Using ffmpeg command: {printablePass1}\n')
     ffmpegProcess = subprocess.run(shlex.split(ffmpegPass1))
@@ -1301,7 +1302,7 @@ def runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp):
     if len(ffmpegCommands) == 2:
         ffmpegPass2 = ffmpegCommands[1]
 
-        printablePass2 = re.sub(r'-i .*?\".*?\"', r'-i ...', ffmpegPass2, count=1)
+        printablePass2 = re.sub(input_pat, r'-i ... ', ffmpegPass2, count=1)
 
         logger.info('Running second pass...')
         logger.verbose(f'Using ffmpeg command: {printablePass2}\n')
