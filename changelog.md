@@ -3,32 +3,59 @@
 This changelog records all the changes to `yt_clipper` after version numbers between the markup and clipper script were unified (ie since v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`).
 
 - [yt_clipper Changelog (Post-Version-Unification)](#yt_clipper-changelog-post-version-unification)
-  - [v3.7.0-beta.4.1.0 `[2020.10.03]`](#v370-beta410-20201003)
+  - [v3.7.0-beta.4.2.0 `[2020.11.01]`](#v370-beta420-20201101)
     - [Markup Changes](#markup-changes)
     - [Clipper Changes](#clipper-changes)
-  - [v3.7.0-beta.4.0.1 `[2020.09.20]`](#v370-beta401-20200920)
+  - [v3.7.0-beta.4.1.0 `[2020.10.03]`](#v370-beta410-20201003)
     - [Markup Changes](#markup-changes-1)
     - [Clipper Changes](#clipper-changes-1)
-  - [v3.7.0-beta.4.0.0 `[2020.09.19]`](#v370-beta400-20200919)
+  - [v3.7.0-beta.4.0.1 `[2020.09.20]`](#v370-beta401-20200920)
     - [Markup Changes](#markup-changes-2)
     - [Clipper Changes](#clipper-changes-2)
-  - [v3.7.0-beta.3.9.0 `[2020.09.14]`](#v370-beta390-20200914)
+  - [v3.7.0-beta.4.0.0 `[2020.09.19]`](#v370-beta400-20200919)
     - [Markup Changes](#markup-changes-3)
     - [Clipper Changes](#clipper-changes-3)
-  - [v3.7.0-beta.3.9.0-alpha.13 `[2020.08.31]`](#v370-beta390-alpha13-20200831)
-    - [Clipper Changes](#clipper-changes-4)
-  - [v3.7.0-beta.3.9.0-alpha.12 `[2020.08.23]`](#v370-beta390-alpha12-20200823)
+  - [v3.7.0-beta.3.9.0 `[2020.09.14]`](#v370-beta390-20200914)
     - [Markup Changes](#markup-changes-4)
+    - [Clipper Changes](#clipper-changes-4)
+  - [v3.7.0-beta.3.9.0-alpha.13 `[2020.08.31]`](#v370-beta390-alpha13-20200831)
     - [Clipper Changes](#clipper-changes-5)
-  - [v3.7.0-beta.3.9.0-alpha.11 `[2020.08.17]`:](#v370-beta390-alpha11-20200817)
+  - [v3.7.0-beta.3.9.0-alpha.12 `[2020.08.23]`](#v370-beta390-alpha12-20200823)
     - [Markup Changes](#markup-changes-5)
     - [Clipper Changes](#clipper-changes-6)
-  - [v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`](#v370-beta390-alpha10-20200814)
+  - [v3.7.0-beta.3.9.0-alpha.11 `[2020.08.17]`:](#v370-beta390-alpha11-20200817)
     - [Markup Changes](#markup-changes-6)
     - [Clipper Changes](#clipper-changes-7)
+  - [v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`](#v370-beta390-alpha10-20200814)
+    - [Markup Changes](#markup-changes-7)
+    - [Clipper Changes](#clipper-changes-8)
 - [yt_clipper Changelog (Pre-Version-Unification)](#yt_clipper-changelog-pre-version-unification)
   - [Markup Script Changelog](#markup-script-changelog)
   - [Clipper Script (Installation) Changelog](#clipper-script-installation-changelog)
+
+## v3.7.0-beta.4.2.0 `[2020.11.01]`
+
+### Markup Changes
+
+- Add mouse scrubbing/seeking video time.
+  - Use **Alt+Click+Drag** on video left/right to seek backward/forward.
+- Add use of pointer events over mouse events for better pointer device compatibility.
+- Fix start marker numbering not moving when start marker moved.
+- Fix speed map and speed chart not synced in some cases.
+
+- (youtube) Fix speed chart blocking player progress bar.
+
+- (vlive) Add larger vlive theater mode after script is activated.
+- (vlive) Fix script incompatibilities with new vlive interface.
+- (vlive) Fix invalid crop resolution when script loaded before video.
+  - Note that for now the script will silently refuse to activate until the video page is ready.
+
+### Clipper Changes
+
+- Tweak audio encoding settings.
+- Fix input video omission regex from ffmpeg command print out
+- Update youtube-dl from `v2020.09.20` to [`v2020.11.01`](https://gitlab.com/dstftw/youtube-dl/-/blob/master/ChangeLog).
+  - This includes some fixes for youtube but not yet for vlive.
 
 ## v3.7.0-beta.4.1.0 `[2020.10.03]`
 
