@@ -3683,15 +3683,13 @@ async function loadytClipper() {
         const [ix, iy, iw, ih] = getCropComponents(cropString);
         const cropResWidth = settings.cropResWidth;
         const cropResHeight = settings.cropResHeight;
-        const { isDynamicCrop, enableZoomPan } = getCropMapProperties();
         const videoRect = video.getBoundingClientRect();
         const clickPosX = e.clientX - videoRect.left;
         const clickPosY = e.clientY - videoRect.top;
         const cursor = getMouseCropHoverRegion(e, cropString);
         const pointerId = e.pointerId;
 
-        const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-        const { initCropMap } = getCropMapProperties();
+        const { isDynamicCrop, enableZoomPan, initCropMap } = getCropMapProperties();
 
         endCropMouseManipulation = (e, forceEnd = false) => {
           if (forceEnd) {
@@ -3703,8 +3701,12 @@ async function loadytClipper() {
 
           hooks.cropMouseManipulation.releasePointerCapture(pointerId);
 
-          const draft = createDraft(getMarkerPairHistory(markerPair));
-          saveMarkerPairHistory(draft, markerPair);
+          if (!wasGlobalSettingsEditorOpen) {
+            const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+            const draft = createDraft(getMarkerPairHistory(markerPair));
+            saveMarkerPairHistory(draft, markerPair);
+          }
+
           renderSpeedAndCropUI(true);
 
           document.removeEventListener('pointermove', dragCropHandler);
