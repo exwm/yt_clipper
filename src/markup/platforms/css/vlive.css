@@ -24,22 +24,24 @@ div[class*='layout_content'] {
   width: 100% !important;
 }
 
-div[class*='snb'] {
-  position: fixed;
-  top: 55px;
-  left: 0;
-  bottom: 0;
-  width: 250px;
-  overflow-y: auto;
-  z-index: 1500;
-  -webkit-transform: translate(-90%);
-  transform: translate(-90%);
-  background: #fff;
-}
+@media (min-width: 1024px) {
+  div[class*='snb'] {
+    position: fixed;
+    top: 55px;
+    left: 0;
+    bottom: 0;
+    width: 250px;
+    overflow-y: auto;
+    z-index: 1500;
+    -webkit-transform: translate(-90%);
+    transform: translate(-90%);
+    background: #fff;
+  }
 
-div[class*='snb']:hover {
-  transform: translateX(0%);
-  -webkit-transform: translate(0);
-  transform: translate(0);
-  transition: all 0.3s ease-in-out 0s;
+  div[class*='snb']:hover {
+    transform: translateX(0%);
+    -webkit-transform: translate(0);
+    transform: translate(0);
+    transition: all 0.3s ease-in-out 0s;
+  }
 }
