@@ -93,10 +93,7 @@ export const addSpeedPoint = function (time, speed) {
     draft.speedMap.sort(sortX);
 
     saveMarkerPairHistory(draft, markerPair);
-    this.data.datasets[0].data = markerPair.speedMap;
-
-    updateSpeedInput();
-    this.update();
+    this.renderSpeedAndCropUI(true);
   }
 };
 
@@ -135,10 +132,7 @@ export const addCropPoint = function (time: number) {
     }
 
     saveMarkerPairHistory(draft, markerPair);
-    this.data.datasets[0].data = markerPair.cropMap;
-
-    updateCropInput();
-    this.update();
+    this.renderSpeedAndCropUI(true);
   }
 };
 
@@ -149,7 +143,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
     // console.log(arguments);
     if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
       chartInstance.options.plugins.zoom.pan.enabled = false;
-      event.target.style.cursor = 'grabbing';
+      e.target.style.cursor = 'grabbing';
       if (chartType === 'crop') {
         seekToSafe(video, timeRounder(value.x));
       }
@@ -215,20 +209,10 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
         setCurrentCropPoint(chartInstance, newCurrentCropPointIndex);
       }
       chartInstance.options.plugins.zoom.pan.enabled = true;
-      event.target.style.cursor = 'default';
+      e.target.style.cursor = 'default';
 
       saveMarkerPairHistory(draft, markerPair);
-      chartInstance.data.datasets[0].data =
-        chartType === 'crop' ? markerPair.cropMap : markerPair.speedMap;
-
-      if (chartType !== 'crop') {
-        if (index === 0) {
-          updateInput(value.y);
-        } else {
-          updateInput();
-        }
-      }
-      chartInstance.update();
+      chartInstance.renderSpeedAndCropUI(true);
     }
   };
 
@@ -296,7 +280,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
             this.data.datasets[0].data = markerPair.speedMap;
             updateInput();
           }
-          this.update();
+          this.renderSpeedAndCropUI(true);
         }
       }
     }
@@ -326,10 +310,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
           }
 
           saveMarkerPairHistory(draft, markerPair);
-          this.data.datasets[0].data =
-            chartType === 'crop' ? markerPair.cropMap : markerPair.speedMap;
-
-          this.update();
+          this.renderSpeedAndCropUI(true);
         }
       }
     }
@@ -339,13 +320,13 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
     }
   };
 
-  function onHover(event: MouseEvent, chartElements) {
-    event.target.style.cursor = chartElements[0] ? 'grab' : 'default';
-    if (chartType === 'crop' && !event.shiftKey && chartElements.length === 1) {
+  function onHover(e: MouseEvent, chartElements) {
+    e.target.style.cursor = chartElements[0] ? 'grab' : 'default';
+    if (chartType === 'crop' && !e.shiftKey && chartElements.length === 1) {
       let mode: cropChartMode;
-      if (event.ctrlKey && !event.altKey && !event.shiftKey) {
+      if (e.ctrlKey && !e.altKey && !e.shiftKey) {
         mode = cropChartMode.Start;
-      } else if (!event.ctrlKey && event.altKey && !event.shiftKey) {
+      } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
         mode = cropChartMode.End;
       } else {
         return;
