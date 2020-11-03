@@ -2666,7 +2666,6 @@ async function loadytClipper() {
     saveMarkerPairHistory(draft, markerPair, storeHistory);
 
     renderMarkerPair(markerPair, idx);
-
     renderSpeedAndCropUI(adjustCharts);
   }
 
@@ -4332,14 +4331,15 @@ async function loadytClipper() {
     if (isSettingsEditorOpen) {
       if (!wasGlobalSettingsEditorOpen) {
         const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-        updateCharts(markerPair, rerenderCharts);
         const cropMap = markerPair.cropMap;
         const crop = cropMap[currentCropPointIndex].crop;
         const [x, y, w, h] = getCropComponents(crop);
         const isDynamicCrop = !isStaticCrop(cropMap);
 
+        updateCharts(markerPair, rerenderCharts);
         cropInput.value = crop;
         speedInput.value = markerPair.speed.toString();
+        updateMarkerPairDuration(markerPair);
 
         const cropAspectRatio = (w / h).toFixed(13);
         cropAspectRatioSpan && (cropAspectRatioSpan.textContent = cropAspectRatio);
