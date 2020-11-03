@@ -4534,6 +4534,8 @@ async function loadytClipper() {
           chartInput.chartContainer
         );
         chartInput.chart = new Chart(chartInput.chartCanvasId, chartInput.chartSpec);
+        chartInput.chart.renderSpeedAndCropUI = renderSpeedAndCropUI;
+
         chartInput.chart.canvas.removeEventListener('wheel', chartInput.chart.$zoom._wheelHandler);
         const wheelHandler = chartInput.chart.$zoom._wheelHandler;
         chartInput.chart.$zoom._wheelHandler = (e: MouseEvent) => {
