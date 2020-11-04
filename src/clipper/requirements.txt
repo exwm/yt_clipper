@@ -4,4 +4,5 @@ coloredlogs == 14.0
 notify_py == 0.2.3
 verboselogs == 1.7
 webvtt_py == 0.4.5
-youtube_dl == 2020.11.01
+https://github.com/exwm/yt-dlc/archive/98a668862f6e8e4191557b272a7f2142d099a282.tar.gz#egg=youtube_dlc
+
