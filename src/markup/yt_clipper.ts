@@ -22,6 +22,7 @@
 // @license      MIT
 // @match        http*://*.youtube.com/*
 // @match        http*://*.vlive.tv/video/*
+// @match        http*://*.vlive.tv/post/*
 // @noframes
 // @grant        none
 // ==/UserScript==
@@ -409,10 +410,22 @@ async function loadytClipper() {
       video.seekTo = (time) => player.seekTo(time);
     } else if (platform === VideoPlatforms.vlive) {
       const location = window.location;
-      const videoID = location.pathname.split('/')[2];
-      const title = document.querySelector('[class*="video_title"]')?.textContent;
-      videoInfo.id = videoID;
-      videoInfo.title = title;
+
+      const preloadedState = window.__PRELOADED_STATE__;
+      const videoParams = preloadedState?.postDetail?.post?.officialVideo;
+      videoInfo.id = videoParams?.videoSeq;
+      videoInfo.title = videoParams?.title;
+      if (location.href.includes('video')) {
+        if (videoInfo.id == null) videoInfo.id = location.pathname.split('/')[2];
+        if (videoInfo.title == null)
+          videoInfo.title = document.querySelector('[class*="video_title"]')?.textContent;
+      }
+
+      if (videoInfo.id == null) {
+        flashMessage('Could not get video ID.', 'red');
+        throw new Error('Could not get video ID.');
+      }
+
       videoInfo.fps = getFPS();
       video.seekTo = (time) => (video.currentTime = time);
     }
