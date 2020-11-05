@@ -20,7 +20,7 @@ import coloredlogs
 import verboselogs
 import youtube_dlc
 
-__version__ = '3.7.0-beta.4.3.0'
+__version__ = '3.7.0-beta.4.4.0'
 
 settings = {}
 
