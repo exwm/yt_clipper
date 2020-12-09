@@ -18,7 +18,7 @@ from pathlib import Path
 
 import coloredlogs
 import verboselogs
-import youtube_dlc
+import youtube_dl
 
 __version__ = '3.7.0-beta.4.4.0'
 
@@ -594,7 +594,7 @@ def getVideoInfo(settings):
     if getattr(sys, 'frozen', False):
         ydl_opts["ffmpeg_location"] = ffmpegPath
 
-    with youtube_dlc.YoutubeDL(ydl_opts) as ydl:
+    with youtube_dl.YoutubeDL(ydl_opts) as ydl:
         if settings["downloadVideo"]:
             ydl_info = ydl.extract_info(settings["videoURL"], download=True)
             settings["downloadVideoPath"] = f'{settings["downloadVideoPath"]}.mkv'
@@ -675,7 +675,7 @@ def getMoreVideoInfo(settings, videoInfo):
 
 
 def getSubs(settings):
-    importlib.reload(youtube_dlc)
+    importlib.reload(youtube_dl)
     settings["subsFileStem"] = f'{webmsPath}/subs/{settings["titleSuffix"]}'
     settings["subsFilePath"] = f'{settings["subsFileStem"]}.{settings["autoSubsLang"]}.vtt'
 
@@ -683,7 +683,7 @@ def getSubs(settings):
                 'subtitlesformat': 'vtt', 'subtitleslangs': [settings["autoSubsLang"]],
                 'outtmpl': f'{settings["subsFileStem"]}', "cachedir": False}
 
-    with youtube_dlc.YoutubeDL(ydl_opts) as ydl:
+    with youtube_dl.YoutubeDL(ydl_opts) as ydl:
         ydl.download([settings["videoURL"]])
 
     return settings
