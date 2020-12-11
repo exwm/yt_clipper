@@ -41,8 +41,8 @@
 }
 
 .msg-div,
-#markers-upload-div,
-#markers-upload-div input:not([type='file']) {
+.long-msg-div,
+.long-msg-div input:not([type='file']) {
   display: inline-block;
   margin: 4px;
   padding: 4px;
@@ -56,7 +56,7 @@
   font-weight: 500;
 }
 
-#markers-upload-div {
+.long-msg-div {
   display: block;
 }
 

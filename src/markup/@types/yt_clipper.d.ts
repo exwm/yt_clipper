@@ -3,6 +3,7 @@ import { ChartConfiguration } from 'chart.js';
 interface Settings {
   platform: string;
   videoID: string;
+  videoTag: string;
   videoTitle: string;
   newMarkerSpeed: number;
   newMarkerCrop: string;

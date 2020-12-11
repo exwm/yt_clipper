@@ -30,7 +30,7 @@
 const __version__ = '3.7.0-beta.4.4.0';
 
 import { Chart, ChartConfiguration } from 'chart.js';
-import { html } from 'common-tags';
+import { html, stripIndent } from 'common-tags';
 import { easeCubicInOut, easeSinInOut } from 'd3-ease';
 import { saveAs } from 'file-saver';
 import { readFileSync } from 'fs';
@@ -164,7 +164,7 @@ async function loadytClipper() {
             saveMarkersAndSettings();
           } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
             blockEvent(e);
-            copyToClipboard(getSettingsJSON());
+            copyToClipboard(getClipperInputJSON());
           }
           break;
         case 'KeyQ':
@@ -224,7 +224,7 @@ async function loadytClipper() {
         case 'KeyG':
           if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
             blockEvent(e);
-            loadMarkers();
+            createMarkersDataCommands();
           }
           break;
         case 'KeyD':
@@ -359,6 +359,67 @@ async function loadytClipper() {
     injectToggleShortcutsTableButton();
     addCropMouseManipulationListener();
     addScrubVideoHandler();
+  }
+
+  let autoSaveIntervalId;
+  function initAutoSave() {
+    if (autoSaveIntervalId == null) {
+      flashMessage('Initializing auto saving of markers data to local storage...', 'olive');
+      autoSaveIntervalId = setInterval(() => {
+        saveClipperInputDataToLocalStorage();
+      }, 5000);
+    }
+  }
+
+  const localStorageKeyPrefix = 'yt_clipper';
+  function saveClipperInputDataToLocalStorage() {
+    const date = Date.now();
+    const key = `${localStorageKeyPrefix}_${settings.videoTag}`;
+    const data = getClipperInputData(date);
+    localStorage.setItem(key, JSON.stringify(data, null, 2));
+  }
+
+  function loadClipperInputDataFromLocalStorage() {
+    if (markerPairs.length === 0) {
+      const key = `${localStorageKeyPrefix}_${settings.videoTag}`;
+      const clipperInputJSON = localStorage.getItem(key);
+      if (clipperInputJSON != null) {
+        const clipperInputData = JSON.parse(clipperInputJSON);
+        const date = new Date(clipperInputData.date);
+        const confirmLoad = confirm(stripIndent`
+        The last auto-saved markers data for video ${settings.videoTag} will be restored.
+        This data was saved on ${date}.
+        It contains ${clipperInputData.markerPairs.length} marker pair(s).\n
+        Proceed to restore markers data?
+      `);
+        if (confirmLoad) loadClipperInputJSON(clipperInputJSON);
+      } else {
+        flashMessage(
+          `No markers data found in local storage for video ${settings.videoTag}.`,
+          'red'
+        );
+      }
+    } else {
+      flashMessage('Please delete all marker pairs before restoring markers data.', 'red');
+    }
+  }
+
+  function clearYTClipperLocalStorage() {
+    const entries = Object.entries(localStorage)
+      .map((x) => x[0])
+      .filter((x) => x.startsWith(localStorageKeyPrefix));
+    const nEntries = entries.length;
+
+    const clearAll = confirm(stripIndent`
+      The following markers data files will be cleared from local storage:
+      ${entries.map((entry) => entry.replace(localStorageKeyPrefix + '_', '')).join(', ')}\n
+      Proceed to clear all (${nEntries}) markers data files from local storage?
+    `);
+
+    if (clearAll) {
+      entries.map((x) => localStorage.removeItem(x));
+      flashMessage(`Cleared ${nEntries} markers data files.`, 'olive');
+    }
   }
 
   function addEventListeners() {
@@ -642,6 +703,7 @@ async function loadytClipper() {
       videoTitle: videoInfo.title,
       newMarkerSpeed: 1.0,
       newMarkerCrop: '0:0:iw:ih',
+      videoTag: `[${platform}@${videoInfo.id}]`,
       titleSuffix: `[${platform}@${videoInfo.id}]`,
       isVerticalVideo: videoInfo.isVerticalVideo,
       markerPairMergeList: '',
@@ -1268,13 +1330,13 @@ async function loadytClipper() {
   }
 
   function saveMarkersAndSettings() {
-    const settingsJSON = getSettingsJSON();
+    const settingsJSON = getClipperInputJSON();
 
     const blob = new Blob([settingsJSON], { type: 'application/json;charset=utf-8' });
     saveAs(blob, `${settings.titleSuffix || `[${settings.videoID}]`}.json`);
   }
 
-  function getSettingsJSON() {
+  function getClipperInputData(date?) {
     markerPairs.forEach((markerPair: MarkerPair, index: number) => {
       const speed = markerPair.speed;
       if (typeof speed === 'string') {
@@ -1300,15 +1362,17 @@ async function loadytClipper() {
       return markerPairNumbered;
     });
 
-    const settingsJSON = JSON.stringify(
-      {
-        ...settings,
-        version: __version__,
-        markerPairs: markerPairsNumbered,
-      },
-      undefined,
-      2
-    );
+    const clipperInputData = {
+      ...settings,
+      version: __version__,
+      markerPairs: markerPairsNumbered,
+      date: date ?? undefined,
+    };
+    return clipperInputData;
+  }
+
+  function getClipperInputJSON() {
+    const settingsJSON = JSON.stringify(getClipperInputData(), undefined, 2);
     return settingsJSON;
   }
 
@@ -1324,16 +1388,19 @@ async function loadytClipper() {
     return isVariableSpeed;
   }
 
-  function loadMarkers() {
-    const markersUploadDiv = document.getElementById('markers-upload-div');
-    if (markersUploadDiv) {
-      deleteElement(markersUploadDiv);
+  function createMarkersDataCommands() {
+    const markersDataCommandsDiv = document.getElementById('markers-data-commands-div');
+    if (markersDataCommandsDiv) {
+      deleteElement(markersDataCommandsDiv);
     } else {
+      const markersDataCommandsDiv = document.createElement('div');
+      markersDataCommandsDiv.setAttribute('id', 'markers-data-commands-div');
+
       const markersUploadDiv = document.createElement('div');
-      markersUploadDiv.setAttribute('id', 'markers-upload-div');
+      markersUploadDiv.setAttribute('class', 'long-msg-div');
       markersUploadDiv.innerHTML = html`
         <fieldset>
-          <legend>Upload a markers .json file.</legend>
+          <legend>Load markers data from an uploaded markers .json file.</legend>
           <input type="file" id="markers-json-input" />
           <input type="button" id="upload-markers-json" value="Load" />
         </fieldset>
@@ -1343,12 +1410,40 @@ async function loadytClipper() {
           <input type="button" id="upload-markers-array" value="Load" />
         </fieldset>
       `;
+
+      const restoreMarkersDataDiv = document.createElement('div');
+      restoreMarkersDataDiv.setAttribute('class', 'long-msg-div');
+      restoreMarkersDataDiv.innerHTML = html`
+        <fieldset>
+          <legend>Restore auto-saved markers data from browser local storage.</legend>
+          <input type="button" id="restore-markers-data" value="Restore" />
+        </fieldset>
+      `;
+
+      const clearMarkersDataDiv = document.createElement('div');
+      clearMarkersDataDiv.setAttribute('class', 'long-msg-div');
+      clearMarkersDataDiv.innerHTML = html`
+        <fieldset>
+          <legend>Clear all markers data files from browser local storage.</legend>
+          <input type="button" id="clear-markers-data" value="Clear" style="color:red" />
+        </fieldset>
+      `;
+
+      markersDataCommandsDiv.appendChild(markersUploadDiv);
+      markersDataCommandsDiv.appendChild(restoreMarkersDataDiv);
+      markersDataCommandsDiv.appendChild(clearMarkersDataDiv);
+
       updateSettingsEditorHook();
-      settingsEditorHook.insertAdjacentElement('afterend', markersUploadDiv);
+      settingsEditorHook.insertAdjacentElement('afterend', markersDataCommandsDiv);
+
       const fileUploadButton = document.getElementById('upload-markers-json');
       fileUploadButton.onclick = loadMarkersJson;
       const markersArrayUploadButton = document.getElementById('upload-markers-array');
       markersArrayUploadButton.onclick = loadMarkersArray;
+      const restoreMarkersDataButton = document.getElementById('restore-markers-data');
+      restoreMarkersDataButton.onclick = loadClipperInputDataFromLocalStorage;
+      const clearMarkersDataButton = document.getElementById('clear-markers-data');
+      clearMarkersDataButton.onclick = clearYTClipperLocalStorage;
     }
   }
 
@@ -1358,7 +1453,7 @@ async function loadytClipper() {
     console.log(input.files);
     const file = input.files[0];
     const fr = new FileReader();
-    fr.onload = receivedJson;
+    fr.onload = (e) => loadClipperInputJSON(e.target.result);
     fr.readAsText(file);
     const markersUploadDiv = document.getElementById('markers-upload-div');
     deleteElement(markersUploadDiv);
@@ -1376,28 +1471,27 @@ async function loadytClipper() {
     deleteElement(markersUploadDiv);
   }
 
-  function receivedJson(e: ProgressEvent) {
-    const lines = e.target.result;
-    const markersJson = JSON.parse(lines);
-    console.log(markersJson);
+  function loadClipperInputJSON(json) {
+    const markersData = JSON.parse(json);
+    console.log(markersData);
 
-    flashMessage('Loading markers...', 'green');
+    flashMessage('Loading markers data...', 'green');
 
-    if (markersJson) {
+    if (markersData) {
       // move markers field to marker Pairs for backwards compat)
-      if (markersJson.markers && !markersJson.markerPairs) {
-        markersJson.markerPairs = markersJson.markers;
-        delete markersJson.markers;
+      if (markersData.markers && !markersData.markerPairs) {
+        markersData.markerPairs = markersData.markers;
+        delete markersData.markers;
       }
 
-      if (!markersJson.markerPairs) {
+      if (!markersData.markerPairs) {
         flashMessage(
           'Could not find markers or markerPairs field. Could not load marker data.',
           'red'
         );
       }
       // copy markersJson to settings object less markerPairs field
-      const { markerPairs: _markerPairs, ...loadedSettings } = markersJson;
+      const { markerPairs: _markerPairs, ...loadedSettings } = markersData;
 
       delete loadedSettings.videoID;
       delete loadedSettings.videoTitle;
@@ -1420,7 +1514,7 @@ async function loadytClipper() {
       //   return markerPair;
       // });
 
-      addMarkerPairs(markersJson.markerPairs);
+      addMarkerPairs(markersData.markerPairs);
     }
   }
 
@@ -1524,7 +1618,7 @@ async function loadytClipper() {
         progressPos,
         marker
       );
-      updateMarkerPairsArray(currentFrameTime, {
+      pushMarkerPairsArray(currentFrameTime, {
         ...markerConfig,
         ...{ startNumbering, endNumbering },
       });
@@ -1570,7 +1664,7 @@ async function loadytClipper() {
     return currentFrameTime;
   }
 
-  function updateMarkerPairsArray(currentTime: number, markerPairConfig: MarkerConfig) {
+  function pushMarkerPairsArray(currentTime: number, markerPairConfig: MarkerConfig) {
     const speed = markerPairConfig.speed || settings.newMarkerSpeed;
     const crop = markerPairConfig.crop || settings.newMarkerCrop;
     const newMarkerPair: MarkerPair = {
@@ -1601,6 +1695,7 @@ async function loadytClipper() {
       saveMarkerPairHistory(draft, newMarkerPair);
     }
     markerPairs.push(newMarkerPair);
+    initAutoSave();
   }
 
   function updateMarkerPairEditor() {
