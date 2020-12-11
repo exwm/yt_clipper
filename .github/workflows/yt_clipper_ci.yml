@@ -33,11 +33,12 @@ jobs:
 
     steps:
       - name: Set env
+        shell: bash
         run: |
-          echo "::set-env name=FULL_NAME::${{env.NAME}}_${{matrix.shortos}}_${{env.VERSION}}"
-          echo "::set-env name=NOPLAT_NAME::${{env.NAME}}_${{env.VERSION}}"
-          echo "::set-env name=FFMPEG_NAME::ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}64-shared"
-          echo "::set-env name=FFMPEG_DL::${{env.FFMPEG_DL_PREFIX}}/${{env.FFMPEG_VERSION}}/ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}64-shared.zip"
+          echo "FULL_NAME=${{env.NAME}}_${{matrix.shortos}}_${{env.VERSION}}" >> $GITHUB_ENV
+          echo "NOPLAT_NAME=${{env.NAME}}_${{env.VERSION}}" >> $GITHUB_ENV
+          echo "FFMPEG_NAME=ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}64-shared" >> $GITHUB_ENV
+          echo "FFMPEG_DL=${{env.FFMPEG_DL_PREFIX}}/${{env.FFMPEG_VERSION}}/ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}64-shared.zip" >> $GITHUB_ENV
 
       - uses: actions/checkout@v2
 
@@ -132,10 +133,10 @@ jobs:
     steps:
       - name: Set env
         run: |
-          echo "::set-env name=DATE::$(date +'%Y.%m.%d')"
-          echo "::set-env name=FULL_NAME::${{env.NAME}}_${{env.VERSION}}"
-          echo "::set-env name=FULL_NAME_WIN::${{env.NAME}}_win_${{env.VERSION}}"
-          echo "::set-env name=FULL_NAME_MAC::${{env.NAME}}_macos_${{env.VERSION}}"
+          echo "DATE=$(date +'%Y.%m.%d')" >> $GITHUB_ENV
+          echo "FULL_NAME=${{env.NAME}}_${{env.VERSION}}" >> $GITHUB_ENV
+          echo "FULL_NAME_WIN=${{env.NAME}}_win_${{env.VERSION}}" >> $GITHUB_ENV
+          echo "FULL_NAME_MAC=${{env.NAME}}_macos_${{env.VERSION}}" >> $GITHUB_ENV
 
       - uses: actions/download-artifact@v2
         with:
