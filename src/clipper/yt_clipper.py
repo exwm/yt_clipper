@@ -69,7 +69,8 @@ def main():
     reportStreamColored = io.StringIO()
     logFilePath = setUpLogger(reportStream, reportStreamColored)
 
-    logger.report(f'Version: {__version__}')
+    logger.report(f'yt_clipper version: {__version__}')
+    logger.report(f'youtube_dl version: {youtube_dl.version.__version__}')
     logger.info('-' * 80)
 
     if defArgs:
