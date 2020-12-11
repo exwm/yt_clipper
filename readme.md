@@ -391,9 +391,9 @@ See <https://ffmpeg.org/ffplay.html#While-playing>.
 There is an installation that does not require the dependencies below.
 
 1. Extract the appropriate zip file anywhere:
-   - On _Windows_ download this [zip file (win_v3.6.4)](https://mega.nz/file/RewFzRyB#3CzbHOKyfyqym5yMjIGAtLesFLuPccghd_fVjJ4UBiI)
-   - On _Mac_ download this [zip file (mac_v3.6.4)](https://mega.nz/file/ob43wDzQ#8cc7Ag25maYJsxgB6TKLlBZkTXQ2m9M7gkykGu-vDGo)
-   - The latest install (`v3.6.4`) is only compatible with `v0.0.75` or higher of the `markup script`
+   - On _Windows_ download this [zip file (win_v3.6.5)](https://github.com/exwm/yt_clipper/releases/download/msv0.0.89%2Bcsv3.6.5/yt_clipper_win_3.6.5.zip)
+   - On _Mac_ download this [zip file (mac_v3.6.5)](https://github.com/exwm/yt_clipper/releases/download/msv0.0.89%2Bcsv3.6.5/yt_clipper_mac_3.6.5.zip)
+   - The latest install (`v3.6.5`) is only compatible with `v0.0.75` or higher of the `markup script`
 2. Simply drag and drop the markers .json file onto the `yt_clipper_auto.bat` file on Windows or at the terminal prompt after executing `yt_clipper_auto` on Mac.
 3. Use `Ctrl+C` if you need to cancel the process.
 4. All generated webm clips will be placed in `./webms/<markers-json-filename>`.
@@ -477,4 +477,4 @@ These dependencies must be manually installed when not using the clipper script 
 ## Changelog
 
 For a complete changelog, including beta and alpha releases,
-see <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
+see <https://github.com/exwm/yt_clipper/blob/develop/changelog.md>.
