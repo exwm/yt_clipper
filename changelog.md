@@ -47,13 +47,13 @@ youtube_dl == 2020.12.9
 
 ### Markup Changes
 
-- Add auto saving markers data to browser local storage to markers data commands (**G**).
+- Add auto saving markers data to browser local storage in markers data commands menu (**G**).
   - Auto saving is started only after a marker pair has been created.
-  - Markers data is saved every 5 seconds. 
+  - Markers data is automatically saved every 5 seconds, overwriting the last save.
   - Browser local storage is preserved across tab restarts.
   - Browser local storage is only preserved across browser restarts when not in private/incognito mode.
   - Private/incognito mode browsing does not share local storage with normal mode.
-- Add clearing all markers data files from local storage to markers data commands (**G**).
+- Add clearing all markers data files from local storage in markers data commands menu (**G**).
 
 ### Clipper Changes
 
