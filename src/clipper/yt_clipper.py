@@ -320,6 +320,12 @@ def notifyOnComplete(titleSuffix):
 def getArgParser():
     parser = argparse.ArgumentParser(
         description='Generate trimmed webms from input video.')
+    parser.add_argument('-v', '--version', action='version',
+                        version=f'''
+                          %(prog)s v{__version__},
+                          youtube_dl v{youtube_dl.version.__version__}'''
+                        )
+
     parser.add_argument('--markers-json', '-j', required=True, dest='json',
                         help=('Specify markers json path for generating webms from input video.'
                               'Automatically streams required portions of input video from the '
