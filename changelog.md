@@ -266,7 +266,6 @@ youtube_dl == 2020.12.9
 
 ## Markup Script Changelog
 
-
 v0.0.90-beta.3.9.0-alpha.8 `[2020.06.26]`:
 
 - Add **Alt+A** for adding a point to the currently open chart at the current time.
@@ -655,6 +654,12 @@ v0.0.71:
 - Add target max bitrate option for constrained quality mode using `-b <bitrate>` where bitrate is in kb/s.
 
 ## Clipper Script (Installation) Changelog
+
+v3.6.5 `[2020.12.11]`:
+
+- Note that this release is directly on top of `v3.6.4`.
+- Use with `v0.0.89` or higher of the markup script.
+- Update youtube_dl dependency to [`v2020.12.09`](https://github.com/ytdl-org/youtube-dl/releases/tag/2020.12.09) to fix extractor errors when trying to download YouTube videos.
 
 v3.6.4 `[2020.07.29]`:
 
