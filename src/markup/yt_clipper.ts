@@ -104,7 +104,7 @@ import {
   VideoPlatformHooks,
   VideoPlatforms,
 } from './platforms/platforms';
-import { createDraft, Draft, finishDraft, setAutoFreeze } from 'immer';
+import { createDraft, Draft, finishDraft } from 'immer';
 import { disableCommonBlockers, enableCommonBlockers } from './platforms/blockers/common';
 const ytClipperCSS = readFileSync(__dirname + '/ui/css/yt-clipper.css', 'utf8');
 const vliveCSS = readFileSync(__dirname + '/platforms/css/vlive.css', 'utf8');
@@ -2720,7 +2720,6 @@ async function loadytClipper() {
     enableMarkerHotkeys.startMarker = endMarker.previousSibling;
   }
 
-  setAutoFreeze(true);
   function moveMarker(
     marker: SVGRectElement,
     newTime?: number,
