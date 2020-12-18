@@ -1054,8 +1054,29 @@ def makeClip(settings, markerPairIndex):
 
     if mps["deinterlace"]:
         video_filter += f',bwdif'
-    if mps["minterpFPS"] is not None or mps["removeDuplicateFrames"]:
-        video_filter += f",mpdecimate=hi=64*2:lo=64:frac=0.1,setpts='(N/FR/TB)'"
+
+    # Source videos with a high time base (eg 1/60 for 60 fps video)
+    # can cause issues with later timestamp manipulations.
+    # Thus we set the timebase to a low value (1/9000 as 9000 is a multiple of 24,25,30).
+    video_filter += f",settb=1/9000"
+
+    # Videos with no duplicate frames should not be adversely affected by frame deduplication.
+    # Low fps video with 1 duplicated frame every N > 2 frames is essentially
+    # of variable frame rate masked as a constant frame rate.
+    # By removing duplicate frames and resetting timestamps based on the expected
+    # constant frame rate, the stutter in the source input is eliminated.
+    # High fps video may sometimes actually be low fps video with doubled frame rate
+    # via frame duplication. Such videos should be passed through to avoid speeding
+    # them up when resetting timestamps to the expected frame rate post-deduplication,
+    # Assumes we do not have low fps video with frame doubling via frame duplication
+    # or high fps video with duplicate frames every N > 2 frames.
+    # We consider videos with less than 47 fps (24*2 - 1) to be of low fps as
+    # the lowest common video fps is ~24 fps and with frame doubling is ~48 fps.
+    if ((mps["minterpFPS"] is not None and Fraction(mps["r_frame_rate"]) < 47) or
+            mps["removeDuplicateFrames"]):
+        video_filter += f",mpdecimate=hi=64*8:lo=64*5:frac=0.1"
+        video_filter += f""",setpts='(N/FR/TB)'"""
+
     if 0 <= mps["gamma"] <= 4 and mps["gamma"] != 1:
         video_filter += f',lutyuv=y=gammaval({mps["gamma"]})'
     if mps["expandColorRange"]:
