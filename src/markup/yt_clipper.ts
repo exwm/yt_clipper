@@ -2573,13 +2573,14 @@ async function loadytClipper() {
 
     updateSettingsEditorHook();
     settingsEditorHook.insertAdjacentElement('afterend', settingsEditorDiv);
+    updateMarkerPairDuration(markerPair);
 
     const inputConfigs = [
       ['speed-input', 'speed', 'number'],
       ['crop-input', 'crop', 'string'],
       ['enable-zoom-pan-input', 'enableZoomPan', 'bool'],
     ];
-    addSettingsInputListeners(inputConfigs, markerPairs[markerPairIndex], true);
+    addSettingsInputListeners(inputConfigs, markerPair, true);
 
     const overrideInputConfigs = [
       ['title-prefix-input', 'titlePrefix', 'string'],
@@ -2597,7 +2598,7 @@ async function loadytClipper() {
       ['loop-input', 'loop', 'inheritableString'],
       ['fade-duration-input', 'fadeDuration', 'number'],
     ];
-    addSettingsInputListeners(overrideInputConfigs, markerPairs[markerPairIndex].overrides, true);
+    addSettingsInputListeners(overrideInputConfigs, markerPair.overrides, true);
     markerPairNumberInput = document.getElementById('marker-pair-number-input') as HTMLInputElement;
     markerPairNumberInput.addEventListener('change', markerPairNumberInputHandler);
     speedInputLabel = document.getElementById('speed-input-label') as HTMLInputElement;
@@ -2612,8 +2613,8 @@ async function loadytClipper() {
     if (isForceSetSpeedOn) {
       updateSpeedInputLabel(`Speed (${forceSetSpeedValue.toFixed(2)})`);
     }
-    highlightModifiedSettings(inputConfigs, markerPairs[markerPairIndex]);
-    highlightModifiedSettings(overrideInputConfigs, markerPairs[markerPairIndex].overrides);
+    highlightModifiedSettings(inputConfigs, markerPair);
+    highlightModifiedSettings(overrideInputConfigs, markerPair.overrides);
   }
 
   function markerPairNumberInputHandler(e: Event) {
