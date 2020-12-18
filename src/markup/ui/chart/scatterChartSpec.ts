@@ -202,6 +202,10 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
 
       draftMap.sort(sortX);
 
+      if (index === 0 && chartType === 'speed') {
+        draft.speed = value.y;
+      }
+
       if (chartType === 'crop') {
         const newCurrentCropPointIndex = draftMap
           .map((cropPoint) => cropPoint.x)
