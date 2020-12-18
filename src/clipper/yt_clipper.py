@@ -1213,7 +1213,7 @@ def makeClip(settings, markerPairIndex):
         logger.error(f'Failed to generate: {mp["fileName"]}\n')
         return {**(settings["markerPairs"][markerPairIndex])}
 
-    return runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp)
+    return runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp, inputs)
 
 
 def getMinterpFilter(mp, mps):
@@ -1325,13 +1325,15 @@ def getSubsFilter(mp, mps, markerPairIndex):
     return subs_filter
 
 
-def runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp):
+def runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp, inputs):
     ffmpegPass1 = ffmpegCommands[0]
     if len(ffmpegCommands) == 2:
         logger.info('Running first pass...')
 
     input_pat = r'(-i[\s]+\".*?\"[\s]+)+'
-    printablePass1 = re.sub(input_pat, r'-i ... ', ffmpegPass1, count=1)
+    nInputs = len(re.findall(input_pat, ffmpegPass1))
+
+    printablePass1 = re.sub(input_pat, r'-i ... ', ffmpegPass1, count=nInputs)
 
     logger.verbose(f'Using ffmpeg command: {printablePass1}\n')
     ffmpegProcess = subprocess.run(shlex.split(ffmpegPass1))
@@ -1339,7 +1341,7 @@ def runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp):
     if len(ffmpegCommands) == 2:
         ffmpegPass2 = ffmpegCommands[1]
 
-        printablePass2 = re.sub(input_pat, r'-i ... ', ffmpegPass2, count=1)
+        printablePass2 = re.sub(input_pat, r'-i ... ', ffmpegPass2, count=nInputs)
 
         logger.info('Running second pass...')
         logger.verbose(f'Using ffmpeg command: {printablePass2}\n')
