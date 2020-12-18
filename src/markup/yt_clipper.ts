@@ -3056,11 +3056,10 @@ async function loadytClipper() {
   ) {
     markerPair.cropRes = settings.cropRes;
     const draft = createDraft(getMarkerPairHistory(markerPair));
-    const multipliedCropString = multiplyCropString(cropMultipleX, cropMultipleY, draft.crop);
-    draft.crop = multipliedCropString;
-    draft.cropMap.forEach((cropPoint) => {
+    draft.cropMap.forEach((cropPoint, idx) => {
       const multipliedCropString = multiplyCropString(cropMultipleX, cropMultipleY, cropPoint.crop);
       cropPoint.crop = multipliedCropString;
+      if (idx === 0) draft.crop = multipliedCropString;
     });
     saveMarkerPairHistory(draft, markerPair, false);
   }
@@ -4397,7 +4396,7 @@ async function loadytClipper() {
       if (initCropMap == null)
         throw new Error('No initial crop map given when modifying marker pair crop.');
 
-      const draftCropMap = draft.cropMap;
+      const draftCropMap: CropPoint[] = draft.cropMap;
       wasDynamicCrop =
         !isStaticCrop(initCropMap) || (initCropMap.length === 2 && currentCropPointIndex === 1);
 
@@ -4406,7 +4405,6 @@ async function loadytClipper() {
       if (initCrop == null) throw new Error('Init crop undefined.');
 
       draftCropPoint.crop = cropString;
-      if (currentCropPointIndex === 0) draft.crop = cropString;
 
       if (wasDynamicCrop) {
         if (!enableZoomPan || forceCropConstraints) {
@@ -4423,6 +4421,8 @@ async function loadytClipper() {
       if (isSecondLastPoint && isLastSectionStatic) {
         draftCropMap[maxIndex].crop = cropString;
       }
+
+      draft.crop = draftCropMap[0].crop;
     } else {
       settings.newMarkerCrop = cropString;
     }
