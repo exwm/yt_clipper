@@ -436,11 +436,17 @@ def getArgParser():
                         dest='videoStabilizationDynamicZoom', action="store_true",
                         help='Enable video stabilization dynamic zoom. '
                         'Unlike a static zoom the zoom in can vary with time to reduce cropping of video.')
-    parser.add_argument('--remove-duplicate-frames', '-rdf', dest='removeDuplicateFrames',
+    parser.add_argument('--remove-duplicate-frames', '-rdf', dest='dedupe',
                         action='store_true',
                         help=(
                             'Remove duplicate frames from input video.'
                             'This option is automatically enabled when motion interpolation is enabled.'
+                        ))
+    parser.add_argument('--no-remove-duplicate-frames', '-nrdf', dest='noDedupe',
+                        action='store_true',
+                        help=(
+                            'Force disable removing of duplicate frames from input video.'
+                            'Overrides --remove-duplicate-frames option.'
                         ))
     parser.add_argument('--deinterlace', '-di', action='store_true',
                         help='Apply bwdif deinterlacing.')
@@ -1072,10 +1078,13 @@ def makeClip(settings, markerPairIndex):
     # or high fps video with duplicate frames every N > 2 frames.
     # We consider videos with less than 47 fps (24*2 - 1) to be of low fps as
     # the lowest common video fps is ~24 fps and with frame doubling is ~48 fps.
-    if ((mps["minterpFPS"] is not None and Fraction(mps["r_frame_rate"]) < 47) or
-            mps["removeDuplicateFrames"]):
+    shouldDedupe = (not mps["noDedupe"] and
+                    (mps["dedupe"] or
+                     (mps["minterpFPS"] is not None and Fraction(mps["r_frame_rate"]) < 47)))
+    logger.info("Duplicate frames will be removed.")
+    if shouldDedupe:
         video_filter += f",mpdecimate=hi=64*8:lo=64*5:frac=0.1"
-        video_filter += f""",setpts='(N/FR/TB)'"""
+        video_filter += f",setpts=N/FR/TB"
 
     if 0 <= mps["gamma"] <= 4 and mps["gamma"] != 1:
         video_filter += f',lutyuv=y=gammaval({mps["gamma"]})'
