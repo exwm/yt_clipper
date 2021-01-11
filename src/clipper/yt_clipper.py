@@ -63,7 +63,7 @@ def main():
 
     settings = loadSettings(settings)
 
-    setPaths()
+    setupPaths()
 
     reportStream = io.StringIO()
     reportStreamColored = io.StringIO()
@@ -104,10 +104,10 @@ def main():
         notifyOnComplete(settings["titleSuffix"])
 
 
-def setPaths():
+def setupPaths():
     global ffmpegPath, ffprobePath, ffplayPath, webmsPath
     webmsPath += f'/{settings["titleSuffix"]}'
-    os.makedirs(f'{webmsPath}', exist_ok=True)
+    os.makedirs(f'{webmsPath}/temp', exist_ok=True)
     settings["downloadVideoPath"] = f'{webmsPath}/{settings["downloadVideoNameStem"]}'
 
     if getattr(sys, 'frozen', False):
@@ -1081,8 +1081,8 @@ def makeClip(settings, markerPairIndex):
     shouldDedupe = (not mps["noDedupe"] and
                     (mps["dedupe"] or
                      (mps["minterpFPS"] is not None and Fraction(mps["r_frame_rate"]) < 47)))
-    logger.info("Duplicate frames will be removed.")
     if shouldDedupe:
+        logger.info("Duplicate frames will be removed.")
         video_filter += f",mpdecimate=hi=64*8:lo=64*5:frac=0.1"
         video_filter += f",setpts=N/FR/TB"
 
@@ -1137,6 +1137,10 @@ def makeClip(settings, markerPairIndex):
         return runffplayCommand(inputs, video_filter, video_filter_before_correction,
                                 audio_filter, markerPairIndex, mp, mps)
 
+    MAX_VFILTER_SIZE = 10_000
+    filterPathPass1 = f'{webmsPath}/temp/vfilter-{markerPairIndex+1}-pass1.txt'
+    filterPathPass2 = f'{webmsPath}/temp/vfilter-{markerPairIndex+1}-pass2.txt'
+
     overwriteArg = ' -y ' if mps["overwrite"] else ' -n '
     vidstabEnabled = mps["videoStabilization"]["enabled"]
     if vidstabEnabled:
@@ -1162,28 +1166,52 @@ def makeClip(settings, markerPairIndex):
             vidstabdetectFilter += loop_filter
             vidstabtransformFilter += loop_filter
 
-        ffmpegVidstabdetect = ffmpegCommand + f'-vf "{vidstabdetectFilter}" '
+        if len(video_filter) > MAX_VFILTER_SIZE:
+            logger.info(f'Video filter is larger than {MAX_VFILTER_SIZE} characters.')
+            logger.info(f'Video filter will be written to "{filterPathPass1}" and "{filterPathPass2}"')
+            with open(filterPathPass1, 'w') as f:
+                f.write(vidstabdetectFilter)
+            with open(filterPathPass2, 'w') as f:
+                f.write(vidstabtransformFilter)
+            ffmpegVidstabdetect = ffmpegCommand + f' -filter_script:v "{filterPathPass1}" '
+            ffmpegVidstabtransform = ffmpegCommand + f' -filter_script:v "{filterPathPass1}" '
+        else:
+            ffmpegVidstabdetect = ffmpegCommand + f'-vf "{vidstabdetectFilter}" '
+            ffmpegVidstabtransform = ffmpegCommand + f'-vf "{vidstabtransformFilter}" '
+
         ffmpegVidstabdetect += f' -y '
-        ffmpegVidstabtransform = ffmpegCommand + f'-vf "{vidstabtransformFilter}" '
         ffmpegVidstabtransform += overwriteArg
     else:
         ffmpegCommand += overwriteArg
 
     ffmpegCommands = []
-    if mps["twoPass"] and not vidstabEnabled:
+    if not vidstabEnabled:
         if "minterpMode" in mps and mps["minterpMode"] != "None":
             video_filter += getMinterpFilter(mp, mps)
 
         if mps["loop"] != 'none':
             video_filter += loop_filter
 
-        ffmpegCommand += f' -vf "{video_filter}" '
-        ffmpegPass1 = ffmpegCommand + ' -pass 1 -'
-        ffmpegPass2 = ffmpegCommand + \
-            f' -speed {mps["encodeSpeed"]} -pass 2 "{mp["filePath"]}"'
+        if len(video_filter) > MAX_VFILTER_SIZE:
+            logger.info(f'Video filter is larger than {MAX_VFILTER_SIZE} characters.')
+            logger.info(f'Video filter will be written to "{filterPathPass1}"')
+            with open(filterPathPass1, 'w') as f:
+                f.write(video_filter)
+            ffmpegCommand += f' -filter_script:v "{filterPathPass1}" '
+        else:
+            ffmpegCommand += f' -vf "{video_filter}" '
 
-        ffmpegCommands = [ffmpegPass1, ffmpegPass2]
-    elif vidstabEnabled:
+        if not mps["twoPass"]:
+            ffmpegCommand += f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
+
+            ffmpegCommands = [ffmpegCommand]
+        else:
+            ffmpegPass1 = ffmpegCommand + ' -pass 1 -'
+            ffmpegPass2 = ffmpegCommand + \
+                f' -speed {mps["encodeSpeed"]} -pass 2 "{mp["filePath"]}"'
+
+            ffmpegCommands = [ffmpegPass1, ffmpegPass2]
+    else:
         if mps["twoPass"]:
             ffmpegVidstabdetect += f' -pass 1'
         else:
@@ -1196,17 +1224,6 @@ def makeClip(settings, markerPairIndex):
         ffmpegVidstabtransform += f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
 
         ffmpegCommands = [ffmpegVidstabdetect, ffmpegVidstabtransform]
-    else:
-        if "minterpMode" in mps and mps["minterpMode"] != "None":
-            video_filter += getMinterpFilter(mp, mps)
-
-        if mps["loop"] != 'none':
-            video_filter += loop_filter
-
-        ffmpegCommand += f' -vf "{video_filter}" '
-        ffmpegCommand += f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
-
-        ffmpegCommands = [ffmpegCommand]
 
     if not (1 <= len(ffmpegCommands) <= 2):
         logger.error(f'ffmpeg command could not be built.\n')
