@@ -13,7 +13,7 @@ import sys
 import time
 from fractions import Fraction
 from functools import reduce
-from math import floor, log
+from math import floor, log, pi
 from pathlib import Path
 
 import coloredlogs
@@ -436,6 +436,16 @@ def getArgParser():
                         dest='videoStabilizationDynamicZoom', action="store_true",
                         help='Enable video stabilization dynamic zoom. '
                         'Unlike a static zoom the zoom in can vary with time to reduce cropping of video.')
+    parser.add_argument('--video-stabilization-max-angle', '-vsma',
+                        dest='videoStabilizationMaxAngle', type=float, default=0,
+                        help=('When video stabilization is enabled, ',
+                              'set the per-frame maximum angle in degrees for rotation-based stabilization. ',
+                              'Negative values impose no limit. '))
+    parser.add_argument('--video-stabilization-max-shift', '-vsms',
+                        dest='videoStabilizationMaxShift', type=int, default=-1,
+                        help=('When video stabilization is enabled, ',
+                              'set the per-frame maximum shift in pixels for shift-based stabilization. ',
+                              'Negative values impose no limit. '))
     parser.add_argument('--remove-duplicate-frames', '-rdf', dest='dedupe',
                         action='store_true',
                         help=(
@@ -770,7 +780,15 @@ def getGlobalSettings(settings):
                  f'Minterpolation Mode: {settings["minterpMode"]}, ' + minterpFPSMsg +
                  f'Special Looping: {settings["loop"]}, ' +
                  (f'Fade Duration: {settings["fadeDuration"]}, ' if settings["loop"] == 'fade' else '') +
-                 f'Video Stabilization: {settings["videoStabilization"]["desc"]}, ' +
+                 f'Video Stabilization Strength: {settings["videoStabilization"]["desc"]}, ' +
+                 f'Video Stabilization Max Angle: ' +
+                 (f'{settings["videoStabilizationMaxAngle"]} degrees, '
+                  if settings["videoStabilizationMaxAngle"] >= 0
+                  else 'Unlimited, ') +
+                 f'Video Stabilization Max Shift: ' +
+                 (f'{settings["videoStabilizationMaxShift"]} pixels, '
+                  if settings["videoStabilizationMaxShift"] >= 0
+                  else 'Unlimited, ') +
                  f'Video Stabilization Dynamic Zoom: {settings["videoStabilizationDynamicZoom"]}'))
 
     return settings
@@ -940,6 +958,14 @@ def getMarkerPairSettings(settings, markerPairIndex, skip=False):
                  (f'Fade Duration: {mps["fadeDuration"]}s, ' if mps["loop"] == 'fade' else '') +
                  f'Final Output Duration: {mp["outputDuration"]}, ' +
                  f'Video Stabilization: {mps["videoStabilization"]["desc"]}, ' +
+                 f'Video Stabilization Max Angle: ' +
+                 (f'{mps["videoStabilizationMaxAngle"]} degrees, '
+                  if mps["videoStabilizationMaxAngle"] >= 0
+                  else 'Unlimited, ') +
+                 f'Video Stabilization Max Shift: ' +
+                 (f'{mps["videoStabilizationMaxShift"]} pixels, '
+                  if mps["videoStabilizationMaxShift"] >= 0
+                  else 'Unlimited, ') +
                  f'Video Stabilization Dynamic Zoom: {mps["videoStabilizationDynamicZoom"]}'))
     logger.info('-' * 80)
 
@@ -1153,8 +1179,18 @@ def makeClip(settings, markerPairIndex):
         vidstabdetectFilter = video_filter + \
             f'''vidstabdetect=result='{transformPath}':shakiness={vidstab["shakiness"]}'''
 
+        if mps["videoStabilizationMaxAngle"] < 0:
+            mps["videoStabilizationMaxAngle"] = -1
+        else:
+            mps["videoStabilizationMaxAngle"] *= pi / 180
+        if mps["videoStabilizationMaxShift"] < 0:
+            mps["videoStabilizationMaxShift"] = -1
+
         vidstabtransformFilter = video_filter + \
-            f'''vidstabtransform=input='{transformPath}':smoothing={vidstab["smoothing"]}'''
+            f'''vidstabtransform=input='{transformPath}':smoothing={vidstab["smoothing"]}''' + \
+            f''':maxangle={mps["videoStabilizationMaxAngle"]}''' + \
+            f''':maxshift={mps["videoStabilizationMaxShift"]}'''
+
         if mps["videoStabilizationDynamicZoom"]:
             vidstabtransformFilter += f':optzoom=2:zoomspeed={vidstab["zoomspeed"]}'
         vidstabtransformFilter += r',unsharp=5:5:0.8:3:3:0.4'
