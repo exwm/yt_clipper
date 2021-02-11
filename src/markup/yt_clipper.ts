@@ -2752,10 +2752,12 @@ async function loadytClipper() {
         draft.speedMap[0].x = toTime;
         draft.cropMap[0].x = toTime;
         draft.speedMap = draft.speedMap.filter((speedPoint) => {
-          return speedPoint.x >= toTime;
+          const shouldKeepPoint = speedPoint === draft.speedMap[0] || speedPoint.x > toTime;
+          return shouldKeepPoint;
         });
         draft.cropMap = draft.cropMap.filter((cropPoint) => {
-          return cropPoint.x >= toTime;
+          const shouldKeepPoint = cropPoint === draft.cropMap[0] || cropPoint.x > toTime;
+          return shouldKeepPoint;
         });
       }
     } else if (type === 'end') {
@@ -2763,16 +2765,20 @@ async function loadytClipper() {
         draft.speedMap[draft.speedMap.length - 1].x = toTime;
         draft.cropMap[draft.cropMap.length - 1].x = toTime;
         draft.speedMap = draft.speedMap.filter((speedPoint) => {
-          return speedPoint.x <= toTime;
+          const shouldKeepPoint =
+            speedPoint === draft.speedMap[draft.speedMap.length - 1] || speedPoint.x < toTime;
+          return shouldKeepPoint;
         });
         draft.cropMap = draft.cropMap.filter((cropPoint) => {
-          return cropPoint.x <= toTime;
+          const shouldKeepPoint =
+            cropPoint === draft.cropMap[draft.cropMap.length - 1] || cropPoint.x < toTime;
+          return shouldKeepPoint;
         });
       }
     }
-
     saveMarkerPairHistory(draft, markerPair, storeHistory);
 
+    setCurrentCropPointWithCurrentTime();
     renderMarkerPair(markerPair, idx);
     renderSpeedAndCropUI(adjustCharts);
   }
