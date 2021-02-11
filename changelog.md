@@ -3,7 +3,7 @@
 This changelog records all the changes to `yt_clipper` after version numbers between the markup and clipper script were unified (ie since v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`).
 
 - [yt_clipper Changelog (Post-Version-Unification)](#yt_clipper-changelog-post-version-unification)
-  - [v3.7.0-beta.4.7.0 `[2020.01.12]`](#v370-beta470-20200112)
+  - [v3.7.0-beta.4.7.0 `[2021.01.12]`](#v370-beta470-20210112)
     - [Clipper Changes](#clipper-changes)
   - [v3.7.0-beta.4.6.0 `[2020.12.18]`](#v370-beta460-20201218)
     - [Markup Changes](#markup-changes)
@@ -46,7 +46,7 @@ This changelog records all the changes to `yt_clipper` after version numbers bet
   - [Markup Script Changelog](#markup-script-changelog)
   - [Clipper Script (Installation) Changelog](#clipper-script-installation-changelog)
 
-## v3.7.0-beta.4.7.0 `[2020.01.12]`
+## v3.7.0-beta.4.7.0 `[2021.01.12]`
 
 ### Clipper Changes
 
@@ -56,7 +56,7 @@ This changelog records all the changes to `yt_clipper` after version numbers bet
 - Add `--video-stabilization-max-shift`/`-vsms` to set the per-frame maximum shift in pixels for shift-based stabilization when video stabilization is enabled.
   - The default value remains -1 for unlimited shift.
 - Fix crash on long ffmpeg commands due to length limits on some shells, for example when using dynamic crop with many crop points.
-- Update to latest youtube_dl dependency [`v2020.01.08`](https://github.com/ytdl-org/youtube-dl/releases/tag/2021.01.08).
+- Update to latest youtube_dl dependency [`v2021.01.08`](https://github.com/ytdl-org/youtube-dl/releases/tag/2021.01.08).
 
 ## v3.7.0-beta.4.6.0 `[2020.12.18]`
 
