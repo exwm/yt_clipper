@@ -62,8 +62,6 @@ function alignDataLabel(context) {
   }
 }
 
-const updateSpeedInput = getInputUpdater('speed-input');
-
 export const addSpeedPoint = function (time, speed) {
   // console.log(element, dataAtClick);
 
@@ -97,7 +95,6 @@ export const addSpeedPoint = function (time, speed) {
   }
 };
 
-const updateCropInput = getInputUpdater('crop-input');
 export const addCropPoint = function (time: number) {
   // console.log(element, dataAtClick);
 
@@ -328,9 +325,9 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
     e.target.style.cursor = chartElements[0] ? 'grab' : 'default';
     if (chartType === 'crop' && !e.shiftKey && chartElements.length === 1) {
       let mode: cropChartMode;
-      if (e.ctrlKey && !e.altKey && !e.shiftKey) {
+      if (e.ctrlKey && !e.altKey) {
         mode = cropChartMode.Start;
-      } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
+      } else if (!e.ctrlKey && e.altKey) {
         mode = cropChartMode.End;
       } else {
         return;
@@ -340,9 +337,6 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
         const index = datum['_index'];
         setCurrentCropPoint(this, index, mode);
         triggerCropChartLoop();
-        const cropChartData = this.data.datasets[0].data;
-        const cropPoint = cropChartData[index] as CropPoint;
-        updateInput(cropPoint.crop);
       }
     }
   }

@@ -16,7 +16,6 @@ export function setCropChartMode(mode: cropChartMode) {
   currentCropChartMode = mode;
 }
 
-const updateInput = getInputUpdater('crop-input');
 export function setCurrentCropPoint(
   cropChart: Chart | null,
   cropPointIndex: number,
@@ -43,10 +42,7 @@ export function setCurrentCropPoint(
       : setCurrentCropChartSection(cropChart, [currentCropPointIndex - 1, currentCropPointIndex]);
   }
   if (cropPointIndexChanged && cropChart) {
-    const cropChartData = cropChart.data.datasets[0].data;
-    const cropPoint = cropChartData[currentCropPointIndex] as CropPoint;
-    updateInput(cropPoint.crop);
-    cropChart.update();
+    cropChart.renderSpeedAndCropUI(true, false);
   }
 }
 
