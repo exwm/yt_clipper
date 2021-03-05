@@ -23,8 +23,7 @@ export function getInputUpdater(inputId) {
     const input = document.getElementById(inputId) as HTMLInputElement;
     if (input) {
       if (newValue != null) {
-        if (typeof newValue !== 'string') newValue = newValue.toString();
-        input.value = newValue;
+        input.value = newValue.toString();
       }
       // input.dispatchEvent(new Event('change'));
     } else {
