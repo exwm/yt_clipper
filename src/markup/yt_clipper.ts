@@ -96,7 +96,13 @@ import {
 } from './ui/css/css';
 import { flattenVRVideo, openSubsEditor } from './actions/misc';
 import { enableYTBlockers, disableYTBlockers } from './platforms/blockers/youtube';
-import { getMarkerPairHistory, redo, undo, saveMarkerPairHistory } from './util/undoredo';
+import {
+  getMarkerPairHistory,
+  redo,
+  undo,
+  peekLastState,
+  saveMarkerPairHistory,
+} from './util/undoredo';
 import {
   getPlatform,
   getVideoPlatformHooks,
@@ -956,12 +962,7 @@ async function loadytClipper() {
       let markerPairSpeed: number;
 
       if (isVariableSpeed(shortestActiveMarkerPair.speedMap)) {
-        markerPairSpeed = getSpeedMapping(
-          shortestActiveMarkerPair.speedMap,
-          video.currentTime,
-          defaultRoundSpeedMapEasing,
-          2
-        );
+        markerPairSpeed = getSpeedMapping(shortestActiveMarkerPair.speedMap, video.currentTime);
       } else {
         markerPairSpeed = shortestActiveMarkerPair.speed;
       }
@@ -988,11 +989,12 @@ async function loadytClipper() {
     }
   }
 
+  const defaultSpeedRoundPrecision = 2;
   function getSpeedMapping(
     speedMap: SpeedPoint[],
     time: number,
     roundMultiple = defaultRoundSpeedMapEasing,
-    roundPrecision = 2
+    roundPrecision = defaultSpeedRoundPrecision
   ) {
     let len = speedMap.length;
     if (len === 2 && speedMap[0].y === speedMap[1].y) {
@@ -1014,23 +1016,39 @@ async function loadytClipper() {
       if (left.y === right.y) {
         return left.y;
       }
-      const elapsed = video.currentTime - left.x;
-      const duration = right.x - left.x;
-      let easedTimePercentage: number;
-      if (easingMode === 'cubicInOut') {
-        easedTimePercentage = easeCubicInOut(elapsed / duration);
-      } else if (easingMode === 'linear') {
-        easedTimePercentage = elapsed / duration;
-      }
-      const change = right.y - left.y;
-      const rawSpeed = left.y + change * easedTimePercentage || right.y;
-      const roundedSpeed =
-        roundMultiple > 0 ? roundValue(rawSpeed, roundMultiple, roundPrecision) : rawSpeed;
-      // console.log(roundedSpeed);
-      return roundedSpeed;
+      const speed = getInterpolatedSpeed(
+        left,
+        right,
+        video.currentTime,
+        roundMultiple,
+        roundPrecision
+      );
+      return speed;
     } else {
       return 1;
     }
+  }
+
+  function getInterpolatedSpeed(
+    left: SpeedPoint,
+    right: SpeedPoint,
+    time: number,
+    roundMultiple = defaultRoundSpeedMapEasing,
+    roundPrecision = defaultSpeedRoundPrecision
+  ) {
+    const elapsed = time - left.x;
+    const duration = right.x - left.x;
+    let easedTimePercentage: number;
+    if (easingMode === 'cubicInOut') {
+      easedTimePercentage = easeCubicInOut(elapsed / duration);
+    } else if (easingMode === 'linear') {
+      easedTimePercentage = elapsed / duration;
+    }
+    const change = right.y - left.y;
+    const rawSpeed = left.y + change * easedTimePercentage || right.y;
+    const roundedSpeed =
+      roundMultiple > 0 ? roundValue(rawSpeed, roundMultiple, roundPrecision) : rawSpeed;
+    return roundedSpeed;
   }
 
   let isMarkerLoopPreviewOn = false;
@@ -2731,9 +2749,6 @@ async function loadytClipper() {
     const idx = parseInt(marker.getAttribute('idx')) - 1;
     const markerPair = markerPairs[idx];
 
-    const initialState: MarkerPairHistory = getMarkerPairHistory(markerPair);
-    const draft = createDraft(initialState);
-
     const toTime = newTime != null ? newTime : video.currentTime;
 
     if (type === 'start' && toTime >= markerPair.end) {
@@ -2745,42 +2760,88 @@ async function loadytClipper() {
       return;
     }
 
-    draft[type] = toTime;
+    const initialState: MarkerPairHistory = getMarkerPairHistory(markerPair);
+    const draft = createDraft(initialState);
+    const lastState = peekLastState(markerPair.undoredo);
+    const isStretch = type === 'start' ? toTime <= lastState.start : toTime >= lastState.end;
 
-    if (type === 'start') {
-      if (adjustCharts) {
-        draft.speedMap[0].x = toTime;
-        draft.cropMap[0].x = toTime;
-        draft.speedMap = draft.speedMap.filter((speedPoint) => {
-          const shouldKeepPoint = speedPoint === draft.speedMap[0] || speedPoint.x > toTime;
-          return shouldKeepPoint;
-        });
-        draft.cropMap = draft.cropMap.filter((cropPoint) => {
-          const shouldKeepPoint = cropPoint === draft.cropMap[0] || cropPoint.x > toTime;
-          return shouldKeepPoint;
-        });
-      }
-    } else if (type === 'end') {
-      if (adjustCharts) {
-        draft.speedMap[draft.speedMap.length - 1].x = toTime;
-        draft.cropMap[draft.cropMap.length - 1].x = toTime;
-        draft.speedMap = draft.speedMap.filter((speedPoint) => {
-          const shouldKeepPoint =
-            speedPoint === draft.speedMap[draft.speedMap.length - 1] || speedPoint.x < toTime;
-          return shouldKeepPoint;
-        });
-        draft.cropMap = draft.cropMap.filter((cropPoint) => {
-          const shouldKeepPoint =
-            cropPoint === draft.cropMap[draft.cropMap.length - 1] || cropPoint.x < toTime;
-          return shouldKeepPoint;
-        });
+    draft[type] = toTime;
+    if (adjustCharts) {
+      if (isStretch) {
+        draft.speedMap = stretchPointMap(draft, draft.speedMap, 'speed', toTime, type);
+        draft.cropMap = stretchPointMap(draft, draft.cropMap, 'crop', toTime, type);
+      } else {
+        draft.speedMap = shrinkPointMap(draft, draft.speedMap, 'speed', toTime, type);
+        draft.cropMap = shrinkPointMap(draft, draft.cropMap, 'crop', toTime, type);
       }
     }
     saveMarkerPairHistory(draft, markerPair, storeHistory);
 
-    setCurrentCropPointWithCurrentTime();
-    renderMarkerPair(markerPair, idx);
     renderSpeedAndCropUI(adjustCharts);
+  }
+
+  function stretchPointMap(draft, pointMap, pointType, toTime, type) {
+    const maxIndex = pointMap.length - 1;
+    const [sectStart, sectEnd] = type === 'start' ? [0, 1] : [maxIndex - 1, maxIndex];
+    const leftPoint = pointMap[sectStart];
+    const rightPoint = pointMap[sectEnd];
+    const targetPoint = type === 'start' ? leftPoint : rightPoint;
+
+    const isSectionStatic =
+      pointType === 'crop'
+        ? cropStringsEqual(leftPoint.crop, rightPoint.crop)
+        : leftPoint.y === rightPoint.y;
+
+    if (isSectionStatic) {
+      targetPoint.x = toTime;
+    } else {
+      const targetPointCopy = cloneDeep(targetPoint);
+      targetPointCopy.x = toTime;
+      type === 'start' ? pointMap.unshift(targetPointCopy) : pointMap.push(targetPointCopy);
+    }
+
+    return pointMap;
+  }
+
+  function shrinkPointMap(draft, pointMap, pointType, toTime, type) {
+    const maxIndex = pointMap.length - 1;
+    const searchPoint = { x: toTime, y: 0, crop: '' };
+    let [sectStart, sectEnd] = bsearch(pointMap, searchPoint, sortX);
+    if (sectStart <= 0) {
+      [sectStart, sectEnd] = [0, 1];
+    } else if (sectStart >= maxIndex) {
+      [sectStart, sectEnd] = [maxIndex - 1, maxIndex];
+    } else {
+      [sectStart, sectEnd] = [sectStart, sectStart + 1];
+    }
+
+    const leftPoint = pointMap[sectStart];
+    const rightPoint = pointMap[sectEnd];
+    const targetPointIndex = type === 'start' ? sectStart : sectEnd;
+    const targetPoint = pointMap[targetPointIndex];
+
+    if (pointType === 'crop') {
+      let toCropString = getInterpolatedCrop(leftPoint, rightPoint, toTime);
+      let [x, y, w, h] = getCropComponents(targetPoint.crop);
+      const toCrop = new Crop(x, y, w, h, settings.cropResWidth, settings.cropResHeight);
+      toCrop.setCropStringSafe(toCropString, draft.enableZoomPan);
+      targetPoint.crop = toCrop.cropString;
+      setAspectRatioForAllPoints(toCrop.aspectRatio, pointMap, pointMap, targetPointIndex);
+      if (type === 'start') draft.crop = toCrop.cropString;
+    } else {
+      const speed = getInterpolatedSpeed(leftPoint, rightPoint, toTime);
+      targetPoint.y = speed;
+      if (type === 'start') draft.speed = speed;
+    }
+    targetPoint.x = toTime;
+
+    pointMap = pointMap.filter((point) => {
+      const keepPoint =
+        point === targetPoint || (type === 'start' ? point.x > toTime : point.x < toTime);
+      return keepPoint;
+    });
+
+    return pointMap;
   }
 
   function renderMarkerPair(markerPair, markerPairIndex) {
@@ -2957,7 +3018,7 @@ async function loadytClipper() {
       if (targetProperty === 'speed') {
         const markerPair = markerPairs[prevSelectedMarkerPairIndex];
         updateMarkerPairSpeed(markerPair, newValue);
-        renderSpeedAndCropUI(true);
+        renderSpeedAndCropUI();
       }
 
       if (targetProperty === 'enableZoomPan') {
@@ -3819,7 +3880,7 @@ async function loadytClipper() {
             saveMarkerPairHistory(draft, markerPair);
           }
 
-          renderSpeedAndCropUI(true);
+          renderSpeedAndCropUI();
 
           document.removeEventListener('pointermove', dragCropHandler);
           document.removeEventListener('pointermove', cropResizeHandler);
@@ -4441,19 +4502,21 @@ async function loadytClipper() {
     renderSpeedAndCropUI(shouldRerenderCharts);
   }
 
-  function renderSpeedAndCropUI(rerenderCharts = true) {
+  function renderSpeedAndCropUI(rerenderCharts = true, updateCurrentCropPoint = true) {
     if (isSettingsEditorOpen) {
       if (!wasGlobalSettingsEditorOpen) {
         const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+        updateCharts(markerPair, rerenderCharts);
+        if (updateCurrentCropPoint) setCurrentCropPointWithCurrentTime();
+        renderMarkerPair(markerPair, prevSelectedMarkerPairIndex);
+
         const cropMap = markerPair.cropMap;
         const crop = cropMap[currentCropPointIndex].crop;
         const [x, y, w, h] = getCropComponents(crop);
         const isDynamicCrop = !isStaticCrop(cropMap);
 
-        updateCharts(markerPair, rerenderCharts);
         cropInput.value = crop;
         speedInput.value = markerPair.speed.toString();
-        updateMarkerPairDuration(markerPair);
 
         const cropAspectRatio = (w / h).toFixed(13);
         cropAspectRatioSpan && (cropAspectRatioSpan.textContent = cropAspectRatio);
@@ -4534,13 +4597,14 @@ async function loadytClipper() {
   function setAspectRatioForAllPoints(
     aspectRatio: number,
     draftCropMap: Draft<CropPoint[]>,
-    initialCropMap: CropPoint[]
+    initialCropMap: CropPoint[],
+    referencePointIndex = currentCropPointIndex
   ) {
     Crop.shouldConstrainMinDimensions = false;
     const cropResWidth = settings.cropResWidth;
     const cropResHeight = settings.cropResHeight;
     draftCropMap.forEach((cropPoint, i) => {
-      if (i === currentCropPointIndex) return;
+      if (i === referencePointIndex) return;
       const initCrop = initialCropMap[i].crop;
 
       const [ix, iy, iw, ih] = getCropComponents(initCrop ?? cropPoint.crop);
@@ -4959,6 +5023,32 @@ async function loadytClipper() {
     );
   }
 
+  function getInterpolatedCrop(sectStart: CropPoint, sectEnd: CropPoint, time: number) {
+    const [startX, startY, startW, startH] = getCropComponents(sectStart.crop);
+    const [endX, endY, endW, endH] = getCropComponents(sectEnd.crop);
+
+    const clampedTime = clampNumber(time, sectStart.x, sectEnd.x);
+    const easingFunc = sectEnd.easeIn == 'instant' ? easeInInstant : easeSinInOut;
+    const [x, y, w, h] = [
+      [startX, endX],
+      [startY, endY],
+      [startW, endW],
+      [startH, endH],
+    ].map(([startValue, endValue]) => {
+      const eased = getEasedValue(
+        easingFunc,
+        startValue,
+        endValue,
+        sectStart.x,
+        sectEnd.x,
+        clampedTime
+      );
+      return eased;
+    });
+    // return [x, y, w, h];
+    return getCropString(x, y, w, h);
+  }
+
   function cropChartSectionLoop() {
     if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
       if (prevSelectedMarkerPairIndex != null) {
@@ -4989,7 +5079,7 @@ async function loadytClipper() {
         markerPairMergeListInput.dispatchEvent(new Event('change'));
       } else {
         speedInput.value = newSpeed.toString();
-        renderSpeedAndCropUI(true);
+        renderSpeedAndCropUI();
       }
     }
 
@@ -5056,11 +5146,6 @@ async function loadytClipper() {
           multiplyMarkerPairCrops(markerPair, cropMultipleX, cropMultipleY);
         }
 
-        renderMarkerPair(markerPair, prevSelectedMarkerPairIndex);
-
-        updateCharts(markerPair, false);
-
-        setCurrentCropPointWithCurrentTime();
         renderSpeedAndCropUI();
 
         flashMessage(`Applied ${dir}.`, 'green');

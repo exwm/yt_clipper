@@ -78,38 +78,7 @@ export class Crop {
 
     this.cropString = getCropString(cx, cy, cw, ch);
   }
-  // public set minW(minW: number) {
-  //   this._minW = Math.max(minW, 0);
-  // }
-  // public set minH(minH: number) {
-  //   this._minH = Math.max(minH, 0);
-  // }
-  // private get minW(minW: number) {
-  //   this._minW = Math.max(minW, 0);
-  // }
-  // private get minH(minH: number) {
-  //   this._minH = Math.max(minH, 0);
-  // }
 
-  public pushHistory(cropString?: string) {
-    cropString = cropString ?? this.cropString;
-    this._history.push(cropString);
-  }
-
-  public clearHistory() {
-    this._history = [];
-  }
-
-  public popHistory() {
-    const cropString = this._history.pop();
-    if (cropString != null) this.cropString = cropString;
-  }
-  public applyPrevHistory() {
-    if (this._history.length > 0) {
-      const cropString = this._history[this._history.length - 1];
-      if (cropString != null) this.cropString = cropString;
-    }
-  }
   static getCropComponents(cropString: string, cropRes?: string) {
     let maxW, maxH: number;
     if (cropRes != null) [maxW, maxH] = Crop.getMaxDimensions(cropRes);
