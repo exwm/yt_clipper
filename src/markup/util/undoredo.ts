@@ -45,6 +45,11 @@ export function redo<S>(
   }
 }
 
+export function peekLastState<S>(undoredo: { history: S[]; index: number }): S {
+  const state = undoredo.history[undoredo.index];
+  return state;
+}
+
 export function getMarkerPairHistory(markerPair: MarkerPair): MarkerPairHistory {
   const { start, end, speed, speedMap, crop, cropMap, enableZoomPan, cropRes } = markerPair;
   const history = { start, end, speed, speedMap, crop, cropMap, enableZoomPan, cropRes };
