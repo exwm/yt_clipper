@@ -3,48 +3,67 @@
 This changelog records all the changes to `yt_clipper` after version numbers between the markup and clipper script were unified (ie since v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`).
 
 - [yt_clipper Changelog (Post-Version-Unification)](#yt_clipper-changelog-post-version-unification)
-  - [v3.7.0-beta.4.7.0 `[2021.01.12]`](#v370-beta470-20210112)
-    - [Clipper Changes](#clipper-changes)
-  - [v3.7.0-beta.4.6.0 `[2020.12.18]`](#v370-beta460-20201218)
+  - [v3.7.0-beta.4.8.0 `[2021.03.5]`](#v370-beta480-2021035)
     - [Markup Changes](#markup-changes)
+    - [Clipper Changes](#clipper-changes)
+  - [v3.7.0-beta.4.7.0 `[2021.01.12]`](#v370-beta470-20210112)
     - [Clipper Changes](#clipper-changes-1)
-  - [v3.7.0-beta.4.5.0 `[2020.12.11]`](#v370-beta450-20201211)
+  - [v3.7.0-beta.4.6.0 `[2020.12.18]`](#v370-beta460-20201218)
     - [Markup Changes](#markup-changes-1)
     - [Clipper Changes](#clipper-changes-2)
-  - [v3.7.0-beta.4.4.0 `[2020.11.04]`](#v370-beta440-20201104)
+  - [v3.7.0-beta.4.5.0 `[2020.12.11]`](#v370-beta450-20201211)
     - [Markup Changes](#markup-changes-2)
     - [Clipper Changes](#clipper-changes-3)
-  - [v3.7.0-beta.4.3.0 `[2020.11.03]`](#v370-beta430-20201103)
+  - [v3.7.0-beta.4.4.0 `[2020.11.04]`](#v370-beta440-20201104)
     - [Markup Changes](#markup-changes-3)
-  - [v3.7.0-beta.4.2.0 `[2020.11.01]`](#v370-beta420-20201101)
-    - [Markup Changes](#markup-changes-4)
     - [Clipper Changes](#clipper-changes-4)
-  - [v3.7.0-beta.4.1.0 `[2020.10.03]`](#v370-beta410-20201003)
+  - [v3.7.0-beta.4.3.0 `[2020.11.03]`](#v370-beta430-20201103)
+    - [Markup Changes](#markup-changes-4)
+  - [v3.7.0-beta.4.2.0 `[2020.11.01]`](#v370-beta420-20201101)
     - [Markup Changes](#markup-changes-5)
     - [Clipper Changes](#clipper-changes-5)
-  - [v3.7.0-beta.4.0.1 `[2020.09.20]`](#v370-beta401-20200920)
+  - [v3.7.0-beta.4.1.0 `[2020.10.03]`](#v370-beta410-20201003)
     - [Markup Changes](#markup-changes-6)
     - [Clipper Changes](#clipper-changes-6)
-  - [v3.7.0-beta.4.0.0 `[2020.09.19]`](#v370-beta400-20200919)
+  - [v3.7.0-beta.4.0.1 `[2020.09.20]`](#v370-beta401-20200920)
     - [Markup Changes](#markup-changes-7)
     - [Clipper Changes](#clipper-changes-7)
-  - [v3.7.0-beta.3.9.0 `[2020.09.14]`](#v370-beta390-20200914)
+  - [v3.7.0-beta.4.0.0 `[2020.09.19]`](#v370-beta400-20200919)
     - [Markup Changes](#markup-changes-8)
     - [Clipper Changes](#clipper-changes-8)
-  - [v3.7.0-beta.3.9.0-alpha.13 `[2020.08.31]`](#v370-beta390-alpha13-20200831)
-    - [Clipper Changes](#clipper-changes-9)
-  - [v3.7.0-beta.3.9.0-alpha.12 `[2020.08.23]`](#v370-beta390-alpha12-20200823)
+  - [v3.7.0-beta.3.9.0 `[2020.09.14]`](#v370-beta390-20200914)
     - [Markup Changes](#markup-changes-9)
+    - [Clipper Changes](#clipper-changes-9)
+  - [v3.7.0-beta.3.9.0-alpha.13 `[2020.08.31]`](#v370-beta390-alpha13-20200831)
     - [Clipper Changes](#clipper-changes-10)
-  - [v3.7.0-beta.3.9.0-alpha.11 `[2020.08.17]`:](#v370-beta390-alpha11-20200817)
+  - [v3.7.0-beta.3.9.0-alpha.12 `[2020.08.23]`](#v370-beta390-alpha12-20200823)
     - [Markup Changes](#markup-changes-10)
     - [Clipper Changes](#clipper-changes-11)
-  - [v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`](#v370-beta390-alpha10-20200814)
+  - [v3.7.0-beta.3.9.0-alpha.11 `[2020.08.17]`:](#v370-beta390-alpha11-20200817)
     - [Markup Changes](#markup-changes-11)
     - [Clipper Changes](#clipper-changes-12)
+  - [v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`](#v370-beta390-alpha10-20200814)
+    - [Markup Changes](#markup-changes-12)
+    - [Clipper Changes](#clipper-changes-13)
 - [yt_clipper Changelog (Pre-Version-Unification)](#yt_clipper-changelog-pre-version-unification)
   - [Markup Script Changelog](#markup-script-changelog)
   - [Clipper Script (Installation) Changelog](#clipper-script-installation-changelog)
+
+## v3.7.0-beta.4.8.0 `[2021.03.5]`
+
+### Markup Changes
+
+- Add crop crosshair toggled with **Ctrl+Shift+X**.
+- Add interpolation of speed and crop when moving markers (i.e. adjusting marker times).
+  - Moving markers now largely preserves the existing dynamic speed/crop.
+- Fix moving markers not removing chart points at target time.
+  - This could crash processing of speed/crop filters due to multiple points at the same time.
+- Fix aspect ratio reported in settings editor not updated when changing selected crop point.
+- Fix crop chart not updated when chart section changes (but selected point does not).
+
+### Clipper Changes
+
+- Update youtube_dl dependency to [`v2021.03.03`](https://github.com/ytdl-org/youtube-dl/releases/tag/2021.03.03).
 
 ## v3.7.0-beta.4.7.0 `[2021.01.12]`
 
