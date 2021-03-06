@@ -277,6 +277,9 @@ async function loadytClipper() {
           } else if (e.ctrlKey && !e.altKey && !e.shiftKey) {
             blockEvent(e);
             cycleCropDimOpacity();
+          } else if (e.ctrlKey && !e.altKey && e.shiftKey) {
+            blockEvent(e);
+            toggleCropCrossHair();
           }
           break;
         case 'KeyR':
@@ -3594,6 +3597,12 @@ async function loadytClipper() {
   let cropChartSectionEnd: Element;
   let cropChartSectionEndBorderYellow: Element;
   let cropChartSectionEndBorderWhite: Element;
+  let cropCrossHair: Element;
+  let cropCrossHairXBlack: Element;
+  let cropCrossHairXWhite: Element;
+  let cropCrossHairYBlack: Element;
+  let cropCrossHairYWhite: Element;
+  let cropCrossHairs: Element[];
   function createCropOverlay(cropString: string) {
     deleteCropOverlay();
 
@@ -3611,30 +3620,40 @@ async function loadytClipper() {
             fill="black" fill-opacity="${cropDims[cropDimIndex]}"
           />
 
-          <g id="cropChartSectionStart" opacity="0.7">
+          <g id="cropChartSectionStart" opacity="0.7" shape-rendering="geometricPrecision">
             <rect id="cropChartSectionStartBorderGreen" x="0" y="0" width="0%" height="0%" fill="none" 
-              stroke="lime" shape-rendering="geometricPrecision" stroke-width="1px"
+              stroke="lime" stroke-width="1px"
             />
             <rect id="cropChartSectionStartBorderWhite" x="0" y="0" width="0%" height="0%" fill="none" 
-              stroke="black" shape-rendering="geometricPrecision" stroke-width="1px" stroke-dasharray="5 10"
+              stroke="black" stroke-width="1px" stroke-dasharray="5 10"
             />
           </g>
-          <g id="cropChartSectionEnd" opacity="0.7">
+          <g id="cropChartSectionEnd" opacity="0.7" shape-rendering="geometricPrecision">
             <rect id="cropChartSectionEndBorderYellow" x="0" y="0" width="0%" height="0%" fill="none" 
-              stroke="yellow" shape-rendering="geometricPrecision" stroke-width="1px"
+              stroke="yellow" stroke-width="1px"
             />
             <rect id="cropChartSectionEndBorderWhite" x="0" y="0" width="0%" height="0%" fill="none" 
-              stroke="black" shape-rendering="geometricPrecision" stroke-width="1px" stroke-dasharray="5 10" 
+              stroke="black" stroke-width="1px" stroke-dasharray="5 10" 
             />
           </g>
 
-          <g id="cropRectBorder" opacity="1">
+          <g id="cropRectBorder" opacity="1" shape-rendering="geometricPrecision">
             <rect id="cropRectBorderBlack" x="0" y="0" width="100%" height="100%" fill="none" 
-              stroke="black" shape-rendering="geometricPrecision" stroke-width="1px" stroke-opacity="0.8"
+              stroke="black" stroke-width="1px" stroke-opacity="0.8"
             />
             <rect id="cropRectBorderWhite" x="0" y="0" width="100%" height="100%" fill="none" 
-            stroke="white" shape-rendering="geometricPrecision" stroke-width="1px" stroke-dasharray="5 5" stroke-opacity="0.8"
-            />
+            stroke="white" stroke-width="1px" stroke-dasharray="5 5" stroke-opacity="0.8"
+            >
+            </rect>
+            <g id="cropCrossHair" opacity="0.9" stroke="white" display="${
+              cropCrossHairEnabled ? 'block' : 'none'
+            }">
+              <line id="cropCrossHairXBlack" x1="0" y1="50%" x2="100%" y2="50%" stroke="black" stroke-width="1px" type="x"/>
+              <line id="cropCrossHairXWhite" x1="0" y1="50%" x2="100%" y2="50%" stroke-width="1px" stroke-dasharray="5 5" type="x"/>
+              
+              <line id="cropCrossHairYBlack" x1="50%" y1="0" x2="50%" y2="100%" stroke="black" stroke-width="1px" type="y"/>
+              <line id="cropCrossHairYWhite" x1="50%" y1="0" x2="50%" y2="100%" stroke-width="1px" stroke-dasharray="5 5" type="y"/>
+            </g>
           </g>
         </svg>
       `;
@@ -3642,29 +3661,34 @@ async function loadytClipper() {
     hooks.cropOverlay.insertAdjacentElement('afterend', cropDiv);
     cropSvg = cropDiv.firstElementChild as SVGSVGElement;
     cropDim = document.getElementById('cropDim');
-    cropRect = document.getElementById('cropRect') as Element;
-    cropRectBorder = document.getElementById('cropRectBorder') as Element;
-    cropRectBorderBlack = document.getElementById('cropRectBorderBlack') as Element;
-    cropRectBorderWhite = document.getElementById('cropRectBorderWhite') as Element;
+    cropRect = document.getElementById('cropRect');
+    cropRectBorder = document.getElementById('cropRectBorder');
+    cropRectBorderBlack = document.getElementById('cropRectBorderBlack');
+    cropRectBorderWhite = document.getElementById('cropRectBorderWhite');
 
-    cropChartSectionStart = document.getElementById('cropChartSectionStart') as Element;
-    cropChartSectionStartBorderGreen = document.getElementById(
-      'cropChartSectionStartBorderGreen'
-    ) as Element;
-    cropChartSectionStartBorderWhite = document.getElementById(
-      'cropChartSectionStartBorderWhite'
-    ) as Element;
-    cropChartSectionEnd = document.getElementById('cropChartSectionEnd') as Element;
-    cropChartSectionEndBorderYellow = document.getElementById(
-      'cropChartSectionEndBorderYellow'
-    ) as Element;
-    cropChartSectionEndBorderWhite = document.getElementById(
-      'cropChartSectionEndBorderWhite'
-    ) as Element;
+    cropChartSectionStart = document.getElementById('cropChartSectionStart');
+    cropChartSectionStartBorderGreen = document.getElementById('cropChartSectionStartBorderGreen');
+    cropChartSectionStartBorderWhite = document.getElementById('cropChartSectionStartBorderWhite');
+    cropChartSectionEnd = document.getElementById('cropChartSectionEnd');
+    cropChartSectionEndBorderYellow = document.getElementById('cropChartSectionEndBorderYellow');
+    cropChartSectionEndBorderWhite = document.getElementById('cropChartSectionEndBorderWhite');
+
+    cropCrossHair = document.getElementById('cropCrossHair');
+    cropCrossHairXBlack = document.getElementById('cropCrossHairXBlack');
+    cropCrossHairXWhite = document.getElementById('cropCrossHairXWhite');
+    cropCrossHairYBlack = document.getElementById('cropCrossHairYBlack');
+    cropCrossHairYWhite = document.getElementById('cropCrossHairYWhite');
+    cropCrossHairs = [
+      cropCrossHairXBlack,
+      cropCrossHairXWhite,
+      cropCrossHairYBlack,
+      cropCrossHairYWhite,
+    ];
 
     [cropRect, cropRectBorderBlack, cropRectBorderWhite].map((cropRect) =>
       setCropOverlay(cropRect, cropString)
     );
+    cropCrossHairs.map((cropCrossHair) => setCropCrossHair(cropCrossHair, cropString));
     isCropOverlayVisible = true;
   }
 
@@ -3725,6 +3749,22 @@ async function loadytClipper() {
         height: `${(h / settings.cropResHeight) * 100}%`,
       };
       setAttributes(cropRect, cropRectAttrs);
+    }
+  }
+
+  function setCropCrossHair(cropCrossHair: Element, cropString: string) {
+    const [x, y, w, h] = getCropComponents(cropString);
+    if (cropCrossHair) {
+      const [x1M, x2M, y1M, y2M] =
+        cropCrossHair.getAttribute('type') === 'x' ? [0, 1, 0.5, 0.5] : [0.5, 0.5, 0, 1];
+
+      const cropCrossHairAttrs = {
+        x1: `${((x + x1M * w) / settings.cropResWidth) * 100}%`,
+        x2: `${((x + x2M * w) / settings.cropResWidth) * 100}%`,
+        y1: `${((y + y1M * h) / settings.cropResHeight) * 100}%`,
+        y2: `${((y + y2M * h) / settings.cropResHeight) * 100}%`,
+      };
+      setAttributes(cropCrossHair, cropCrossHairAttrs);
     }
   }
 
@@ -4305,6 +4345,19 @@ async function loadytClipper() {
     return crop.cropString;
   }
 
+  let cropCrossHairEnabled = false;
+  function toggleCropCrossHair() {
+    if (cropCrossHairEnabled) {
+      flashMessage('Disabled crop crosshair', 'red');
+      cropCrossHairEnabled = false;
+      cropCrossHair && (cropCrossHair.style.display = 'none');
+    } else {
+      flashMessage('Enabled crop crosshair', 'green');
+      cropCrossHairEnabled = true;
+      cropCrossHair && (cropCrossHair.style.display = 'block');
+    }
+  }
+
   let arrowKeyCropAdjustmentEnabled = false;
   function toggleArrowKeyCropAdjustment() {
     if (arrowKeyCropAdjustmentEnabled) {
@@ -4525,6 +4578,12 @@ async function loadytClipper() {
           [cropRect, cropRectBorderBlack, cropRectBorderWhite].map((cropRect) =>
             setCropOverlayDimensions(cropRect, x, y, w, h)
           );
+          if (cropCrossHairEnabled && cropCrossHair) {
+            cropCrossHairs.map((cropCrossHair) =>
+              setCropCrossHair(cropCrossHair, getCropString(x, y, w, h))
+            );
+            cropCrossHair.style.stroke = 'white';
+          }
         } else {
           updateCropChartSectionOverlays(cropMap, video.currentTime, isDynamicCrop);
         }
@@ -4988,13 +5047,18 @@ async function loadytClipper() {
 
     const sectStart = chartData[currentCropChartSection[0]];
     const sectEnd = chartData[currentCropChartSection[1]];
-
     [cropChartSectionStartBorderGreen, cropChartSectionStartBorderWhite].map((cropRect) =>
       setCropOverlay(cropRect, sectStart.crop)
     );
     [cropChartSectionEndBorderYellow, cropChartSectionEndBorderWhite].map((cropRect) =>
       setCropOverlay(cropRect, sectEnd.crop)
     );
+
+    const currentCropPoint = chartData[currentCropPointIndex];
+    if (cropCrossHairEnabled && cropCrossHair) {
+      cropCrossHairs.map((cropCrossHair) => setCropCrossHair(cropCrossHair, currentCropPoint.crop));
+      cropCrossHair.style.stroke = currentCropChartMode === cropChartMode.Start ? 'lime' : 'yellow';
+    }
 
     if (currentCropChartMode === cropChartMode.Start) {
       cropChartSectionStart.setAttribute('opacity', '0.8');
