@@ -1,8 +1,9 @@
 import Chart, { ChartConfiguration, ChartPoint } from 'chart.js';
 import { CropPoint } from '../../../@types/yt_clipper';
 import { clampNumber } from '../../../util/util';
-import { getInputUpdater, lightgrey, medgrey } from '../chartutil';
+import { medgrey } from '../chartutil';
 import { scatterChartSpec } from '../scatterChartSpec';
+import isEqual from 'lodash.isequal';
 
 const inputId = 'crop-input';
 export let currentCropPointIndex: number = 0;
@@ -23,16 +24,15 @@ export function setCurrentCropPoint(
 ) {
   const maxIndex = cropChart ? cropChart.data.datasets[0].data.length - 1 : 1;
   const newCropPointIndex = clampNumber(cropPointIndex, 0, maxIndex);
-  let cropPointIndexChanged = false;
-  if (currentCropPointIndex !== newCropPointIndex) {
-    cropPointIndexChanged = true;
-    currentCropPointIndex = newCropPointIndex;
-  }
+  const cropPointIndexChanged = currentCropPointIndex !== newCropPointIndex;
+  currentCropPointIndex = newCropPointIndex;
 
-  if (cropPointIndex <= 0) {
+  const oldCropChartSection = currentCropChartSection;
+
+  if (currentCropPointIndex <= 0) {
     setCropChartMode(cropChartMode.Start);
     setCurrentCropChartSection(cropChart, [0, 1]);
-  } else if (cropPointIndex >= maxIndex) {
+  } else if (currentCropPointIndex >= maxIndex) {
     setCropChartMode(cropChartMode.End);
     setCurrentCropChartSection(cropChart, [maxIndex - 1, maxIndex]);
   } else {
@@ -41,7 +41,8 @@ export function setCurrentCropPoint(
       ? setCurrentCropChartSection(cropChart, [currentCropPointIndex, currentCropPointIndex + 1])
       : setCurrentCropChartSection(cropChart, [currentCropPointIndex - 1, currentCropPointIndex]);
   }
-  if (cropPointIndexChanged && cropChart) {
+  const cropChartSectionChanged = !isEqual(currentCropChartSection, oldCropChartSection);
+  if ((cropPointIndexChanged || cropChartSectionChanged) && cropChart) {
     cropChart.renderSpeedAndCropUI(true, false);
   }
 }
