@@ -206,6 +206,11 @@ export function ternaryToString(ternary: boolean, def?: string) {
     return null;
   }
 }
+
+export function arrayEquals(a, b) {
+  return a.length === b.length && a.every((v, i) => v === b[i]);
+}
+
 export function getOutputDuration(speedMap: SpeedPoint[], fps = 30) {
   let outputDuration = 0;
   const frameDur = 1 / fps;
