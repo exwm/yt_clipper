@@ -24,7 +24,7 @@
 // @match        http*://*.vlive.tv/video/*
 // @match        http*://*.vlive.tv/post/*
 // @noframes
-// @grant        none
+// @grant         GM_getValue // dummy grant to enable sandboxing
 // ==/UserScript==
 
 const __version__ = '3.7.0-beta.4.8.0';
@@ -110,7 +110,7 @@ import {
   VideoPlatformHooks,
   VideoPlatforms,
 } from './platforms/platforms';
-import { createDraft, Draft, finishDraft } from 'immer';
+import { createDraft, Draft, finishDraft, enableAllPlugins } from 'immer';
 import { disableCommonBlockers, enableCommonBlockers } from './platforms/blockers/common';
 const ytClipperCSS = readFileSync(__dirname + '/ui/css/yt-clipper.css', 'utf8');
 const vliveCSS = readFileSync(__dirname + '/platforms/css/vlive.css', 'utf8');
@@ -357,6 +357,10 @@ async function loadytClipper() {
 
   const initOnce = once(init, this);
   function init() {
+    //immer
+    enableAllPlugins();
+
+    //yt-clipper
     injectCSS(ytClipperCSS, 'yt-clipper-css');
     if (platform === VideoPlatforms.vlive) injectCSS(vliveCSS, 'vlive-css');
     initHooks();
