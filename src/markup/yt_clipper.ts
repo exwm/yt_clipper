@@ -4359,6 +4359,7 @@ async function loadytClipper() {
       flashMessage('Enabled crop crosshair', 'green');
       cropCrossHairEnabled = true;
       cropCrossHair && (cropCrossHair.style.display = 'block');
+      renderSpeedAndCropUI(false, false);
     }
   }
 
