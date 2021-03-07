@@ -4568,29 +4568,19 @@ async function loadytClipper() {
         if (updateCurrentCropPoint) setCurrentCropPointWithCurrentTime();
         renderMarkerPair(markerPair, prevSelectedMarkerPairIndex);
 
+        speedInput.value = markerPair.speed.toString();
+
         const cropMap = markerPair.cropMap;
         const crop = cropMap[currentCropPointIndex].crop;
         const [x, y, w, h] = getCropComponents(crop);
         const isDynamicCrop = !isStaticCrop(cropMap);
 
-        cropInput.value = crop;
-        speedInput.value = markerPair.speed.toString();
-
-        const cropAspectRatio = (w / h).toFixed(13);
-        cropAspectRatioSpan && (cropAspectRatioSpan.textContent = cropAspectRatio);
+        renderCropForm(crop);
 
         if (!isDynamicCrop) {
-          [cropRect, cropRectBorderBlack, cropRectBorderWhite].map((cropRect) =>
-            setCropOverlayDimensions(cropRect, x, y, w, h)
-          );
-          if (cropCrossHairEnabled && cropCrossHair) {
-            cropCrossHairs.map((cropCrossHair) =>
-              setCropCrossHair(cropCrossHair, getCropString(x, y, w, h))
-            );
-            cropCrossHair.style.stroke = 'white';
-          }
+          renderStaticCropOverlay(crop);
         } else {
-          updateCropChartSectionOverlays(cropMap, video.currentTime, isDynamicCrop);
+          updateDynamicCropOverlays(cropMap, video.currentTime, isDynamicCrop);
         }
 
         const enableZoomPan = markerPair.enableZoomPan;
@@ -4604,19 +4594,33 @@ async function loadytClipper() {
         }
       } else {
         const crop = settings.newMarkerCrop;
-        const [x, y, w, h] = getCropComponents(crop);
-
-        cropInput.value = crop;
-
-        const cropAspectRatio = (w / h).toFixed(13);
-        cropAspectRatioSpan && (cropAspectRatioSpan.textContent = cropAspectRatio);
-
-        [cropRect, cropRectBorderBlack, cropRectBorderWhite].map((cropRect) =>
-          setCropOverlayDimensions(cropRect, x, y, w, h)
-        );
+        renderCropForm(crop);
+        renderStaticCropOverlay(crop);
       }
       highlightSpeedAndCropInputs();
     }
+  }
+
+  function renderStaticCropOverlay(crop) {
+    const [x, y, w, h] = getCropComponents(crop);
+
+    [cropRect, cropRectBorderBlack, cropRectBorderWhite].map((cropRect) =>
+      setCropOverlayDimensions(cropRect, x, y, w, h)
+    );
+    if (cropCrossHairEnabled && cropCrossHair) {
+      cropCrossHairs.map((cropCrossHair) =>
+        setCropCrossHair(cropCrossHair, getCropString(x, y, w, h))
+      );
+      cropCrossHair.style.stroke = 'white';
+    }
+  }
+
+  function renderCropForm(crop) {
+    const [x, y, w, h] = getCropComponents(crop);
+
+    cropInput.value = crop;
+    const cropAspectRatio = (w / h).toFixed(13);
+    cropAspectRatioSpan && (cropAspectRatioSpan.textContent = cropAspectRatio);
   }
 
   function highlightSpeedAndCropInputs() {
@@ -5010,7 +5014,7 @@ async function loadytClipper() {
         cropInputLabel.textContent = `Crop`;
       }
 
-      updateCropChartSectionOverlays(chartData, time, isDynamicCrop);
+      updateDynamicCropOverlays(chartData, time, isDynamicCrop);
     }
     requestAnimationFrame(cropChartPreviewHandler);
   }
@@ -5034,7 +5038,7 @@ async function loadytClipper() {
   }
 
   const easeInInstant = (nt) => (nt === 0 ? 0 : 1);
-  function updateCropChartSectionOverlays(
+  function updateDynamicCropOverlays(
     chartData: CropPoint[],
     currentTime: number,
     isDynamicCrop: boolean
