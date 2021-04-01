@@ -485,7 +485,7 @@ async function loadytClipper() {
     } else if (platform === VideoPlatforms.vlive) {
       const location = window.location;
 
-      const preloadedState = window.__PRELOADED_STATE__;
+      const preloadedState = unsafeWindow.__PRELOADED_STATE__;
       const videoParams = preloadedState?.postDetail?.post?.officialVideo;
       videoInfo.id = videoParams?.videoSeq;
       videoInfo.title = videoParams?.title;
