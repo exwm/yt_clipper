@@ -1,6 +1,9 @@
 # yt_clipper
 
-yt_clipper is a relatively simple way to clip videos from popular platforms (for now YouTube and vlive). It pro
+yt_clipper is a relatively simple way to clip videos from popular platforms (for now YouTube and vlive).
+It provides a graphical UI for video editing that creates instructions in `json` format for clipping the video.
+These instruction files are small and in plain text they can be easily read, modified, and shared with others.
+The `clipper script` component provides a way to process these instructions and generate the clips you want.
 
 ## Quick Start
 
@@ -11,8 +14,8 @@ The contents of the quickstart guide are included here for convenience:
 1) First install a user script extension (preferably Tampermonkey) for your browser (preferably chrome).
    - See [this article](https://openuserjs.org/about/Userscript-Beginners-HOWTO) for more information.
 2) Next install the `markup script` component of `yt_clipper` by clicking [here](https://openuserjs.org/install/elwm/yt_clipper.user.js).
-3) Install the standalone `clipper script` component of `yt_clipper` by visiting [this section](https://openuserjs.org/scripts/elwm/yt_clipper#clipper-script-installation).
-   - Alternatively download the python source [here](https://github.com/exwm/yt_clipper/blob/master/src/clipper/yt_clipper.py) and see [this section](https://openuserjs.org/scripts/elwm/yt_clipper#clipper-script-usage) for usage instructions.
+3) Install the standalone `clipper script` component of `yt_clipper` by visiting [Clipper Script Installation](#clipper-script-installation).
+   - Alternatively download the python source [here](https://github.com/exwm/yt_clipper/blob/master/src/clipper/yt_clipper.py) and see [this section](#clipper-script-usage) for usage instructions.
 4) Visit a YouTube video page. Check that the `markup script` is [active on the page](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_active_on_page.png). Refresh the page if it is not active.
 5) Press **Alt+Shift+A** to activate the `markup script` and its hotkeys. You should see a [flash message](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_hotkeys_activated.png) below the video.
    - Use the various hotkeys to add marker pairs and edit settings to specify how to clip the video.
@@ -25,9 +28,9 @@ The contents of the quickstart guide are included here for convenience:
    - **Windows:** Drag and drop the saved markers data onto the `yt_clipper_auto.bat`.
    - **Mac:** Launch the `yt_clipper_auto.sh` program, drag and drop the saved markers data onto the terminal, and hit **Enter**.
    - Find generated webms in `yt_clipper/webms/title-suffix` folder where `title-suffix` is the file name stem of the markers data file.
-   - See [this section](https://openuserjs.org/scripts/elwm/yt_clipper#additional-helper-scripts) for details on the other helper scripts available.
-8) See the [full instructions](https://openuserjs.org/scripts/elwm/yt_clipper) for more detail and advanced usage as well as changelogs.
-9) Check the [changelogs](https://openuserjs.org/scripts/elwm/yt_clipper#markup-script-changelog) for updates as there is not yet an automated mechanism.
+   - See [this section](#additional-helper-scripts) for details on the other helper scripts available.
+8) See the [full instructions](https://github.com/exwm/yt_clipper) for more detail and advanced usage as well as changelogs.
+9) Check the [changelogs](https://github.com/exwm/yt_clipper/blob/master/changelog.md) for updates as there is not yet an automated mechanism.
 10) Join the [`yt_clipper` discord server](https://discord.gg/5RVGNCU) if you want further help or want to contribute.
 
 ## Notices
