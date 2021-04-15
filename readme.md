@@ -5,11 +5,18 @@ It provides a graphical UI for video editing that creates instructions in `json`
 These instruction files are small and in plain text they can be easily read, modified, and shared with others.
 The `clipper script` component provides a way to process these instructions and generate the clips you want.
 
-## Quick Start
+## Video Quick Start
+
+For a video quickstart check out this gfy: <https://gfycat.com/meekweightyarmyant>
+
+## Quick Start Guide
 
 Visit [this quickstart guide](https://github.com/exwm/yt_clipper/blob/master/quickstart.md) to get up and running with `yt_clipper`.
 
+
+
 The contents of the quickstart guide are included here for convenience:
+
 
 1) First install a user script extension (preferably Tampermonkey) for your browser (preferably chrome).
    - See [this article](https://openuserjs.org/about/Userscript-Beginners-HOWTO) for more information.
@@ -57,7 +64,8 @@ The contents of the quickstart guide are included here for convenience:
 ## Table of Contents
 
 - [yt_clipper](#yt_clipper)
-  - [Quick Start](#quick-start)
+  - [Video Quick Start](#video-quick-start)
+  - [Quick Start Guide](#quick-start-guide)
   - [Notices](#notices)
   - [Browser Support](#browser-support)
   - [Related Scripts](#related-scripts)
