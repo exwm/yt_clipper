@@ -1,0 +1,51 @@
+#!/bin/bash
+cd "$(dirname "$0")" || exit
+
+read -rp "Enter the paths of 2 or more video files that you would like to merge (you may be able to drag and drop files at the prompt): " VIDEOSPROMPT
+
+IFS=$'\n' VIDEOS=($(xargs -n1 <<<"$VIDEOSPROMPT"))
+
+NVIDEOS="${#VIDEOS[@]}"
+
+if [ "$NVIDEOS" -lt 2 ]; then
+  echo -e '\n'
+  echo "Provide at least 2 video files to be merged."
+  exit
+fi
+
+MERGEDIR="$(dirname "${VIDEOS[0]}")"
+NAME="${VIDEOS[0]##*/}"
+EXT=".${NAME##*.}"
+NAME="${NAME%.*}"
+MERGEOUT="$MERGEDIR/$NAME-merged$EXT"
+
+FIRSTEXT="$EXT"
+for VIDEO in "${VIDEOS[@]}"; do
+  N="${VIDEO##*/}"
+  E=".${N##*.}"
+  if [[ "$FIRSTEXT" != "$E" ]]; then
+    MIXED_EXT=true
+  fi
+done
+
+if [[ "$MIXED_EXT" ]]; then
+  EXT=".mkv"
+  echo -e '\n'
+  echo "Detected mixed file extensions. Defaulting to mkv container for output format."
+fi
+
+TEMPFILE="$MERGEDIR/temp_merge.txt"
+
+for VIDEO in "${VIDEOS[@]}"; do
+  echo file "$VIDEO"
+done >"$TEMPFILE"
+
+sort -nf "$TEMPFILE"
+
+echo -e '\n'
+echo '--- video files to be merged in the following order: ---'
+cat "$TEMPFILE"
+echo '---------------------------------------------------------'
+echo -e '\n'
+
+./bin/ffmpeg -f concat -safe 0 -i "$TEMPFILE" -c copy "$MERGEOUT"

@@ -1,18 +1,6 @@
 # yt_clipper
 
-## Notices
-
-- If the mainline (non-beta) release is out of date and has old dependencies (when using the clipper installation), you can check for a newer beta release. Since clipper script `v3.6.1`, releases can be tracked here: <https://github.com/exwm/yt_clipper/releases>. Older releases can be found here: <https://mega.nz/#F!4HYDAKDS!NqS5Nk9heN7QBxvQapudeg>.
-  - When using a beta release use the shortcuts reference table in the markup script and the `yt_clipper_options` helper script or `-h` help flag for a review of any usage changes.
-
-- This readme is synchronized only with the mainline release and does not talk about any beta or alpha releases.
-
-- Windows users on `v3.6.0` or higher of the `clipper script` installation getting ffmpeg crashes may want to try the following:
-  - Update visual c++ redistributables:
-    - For 64-bit Windows: <https://aka.ms/vs/16/release/vc_redist.x64.exe>
-    - For other Windows versions and older redistributables check this page: <https://support.microsoft.com/help/2977003/the-latest-supported-visual-c-downloads>.
-  - Switch to static ffmpeg build: <https://ffmpeg.zeranoe.com/builds/win64/static/ffmpeg-4.2.3-win64-static.zip>
-    - Replace contents of `yt_clipper_win_3.x.x/bin` with the contents of the `bin` folder in the ffmpeg zip.
+yt_clipper is a relatively simple way to clip videos from popular platforms (for now YouTube and vlive). It pro
 
 ## Quick Start
 
@@ -42,6 +30,15 @@ The contents of the quickstart guide are included here for convenience:
 9) Check the [changelogs](https://openuserjs.org/scripts/elwm/yt_clipper#markup-script-changelog) for updates as there is not yet an automated mechanism.
 10) Join the [`yt_clipper` discord server](https://discord.gg/5RVGNCU) if you want further help or want to contribute.
 
+## Notices
+
+- Windows users getting ffmpeg crashes may want to try the following:
+  - Update visual c++ redistributables:
+    - For 64-bit Windows: <https://aka.ms/vs/16/release/vc_redist.x64.exe>
+    - For other Windows versions and older redistributables check this page: <https://support.microsoft.com/help/2977003/the-latest-supported-visual-c-downloads>.
+  - Switch to static ffmpeg build: <https://github.com/BtbN/FFmpeg-Builds/releases> and find the latest release titled something like `ffmpeg-N-101776-gd4575982f4-win64-gpl.zip`.
+    - Replace contents of `yt_clipper_win_*/bin` with the contents of the `bin` folder in the ffmpeg zip.
+
 ## Browser Support
 
 - Works best on Chrome with the Tampermonkey extension and YouTube video in theater mode.
@@ -57,8 +54,8 @@ The contents of the quickstart guide are included here for convenience:
 ## Table of Contents
 
 - [yt_clipper](#yt_clipper)
-  - [Notices](#notices)
   - [Quick Start](#quick-start)
+  - [Notices](#notices)
   - [Browser Support](#browser-support)
   - [Related Scripts](#related-scripts)
   - [Table of Contents](#table-of-contents)
@@ -67,10 +64,15 @@ The contents of the quickstart guide are included here for convenience:
     - [Marker Shortcuts](#marker-shortcuts)
     - [Cropping Shortcuts](#cropping-shortcuts)
     - [Video Playback and Preview Shortcuts](#video-playback-and-preview-shortcuts)
-    - [Time-Variable Speed Chart Shortcuts](#time-variable-speed-chart-shortcuts)
     - [Frame Capturing Shortcuts](#frame-capturing-shortcuts)
-    - [Save and Upload Shortcuts](#save-and-upload-shortcuts)
+    - [Save and Load Shortcuts](#save-and-load-shortcuts)
   - [Useful YouTube Controls](#useful-youtube-controls)
+    - [Miscellaneous Shortcuts](#miscellaneous-shortcuts)
+    - [Advanced Features](#advanced-features)
+      - [General Chart Shortcuts](#general-chart-shortcuts)
+      - [Dynamic Speed Shortcuts](#dynamic-speed-shortcuts)
+      - [Dynamic Crop Shortcuts](#dynamic-crop-shortcuts)
+        - [ZoompPan Mode](#zoomppan-mode)
   - [Tips](#tips)
     - [User Script Tips](#user-script-tips)
     - [Clipper Script Tips](#clipper-script-tips)
@@ -84,6 +86,7 @@ The contents of the quickstart guide are included here for convenience:
   - [Clipper Script Usage](#clipper-script-usage)
   - [Clipper Script Preview Shortcuts](#clipper-script-preview-shortcuts)
   - [Clipper Script Installation](#clipper-script-installation)
+    - [Manual and Beta/Alpha Version Installation](#manual-and-betaalpha-version-installation)
     - [Additional Helper Scripts](#additional-helper-scripts)
       - [Windows Merge Helper Bat Script](#windows-merge-helper-bat-script)
   - [All Releases](#all-releases)
@@ -92,10 +95,10 @@ The contents of the quickstart guide are included here for convenience:
 
 ## Terminology and Installation
 
-- `Markup script` refers to this user script and is used to mark up YouTube videos before creating webm clips.
-  - It requires a user script extension such as _Tampermonkey_ which you can install from your browser's add-ons store.
+- `Markup script` refers to the user script installed in your browser through a user script extension. It is used to mark up videos (e.g. on YouTube) before creating webm clips.
+  - The required user script extension, for example_Tampermonkey_, can be installed from the appropriate add-on store from your browser.
   - See <https://openuserjs.org/about/Userscript-Beginners-HOWTO> for more information on user scripts.
-- `Clipper script` refers to the python script or installation that consumes marker data in `json` format to generate webm clips.
+- `Clipper script` refers to the python script (`.py` )or the installation that consumes marker data in `json` format to generate webm clips.
   - See [Clipper Script Usage](#clipper-script-usage) for usage instructions.
   - See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
 
@@ -121,7 +124,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 **Ctrl+Shift+Alt+Z:** Delete currently selected marker pair. Does nothing if no pair selected.
 
-**Shift+Mouseover:** Toggle marker pair editor. Must be done over an end marker (yellow). Selected marker pairs have a black center.
+**Shift+Mouseover End Marker (Yellow) or Left-Click Any Marker Numbering:** Toggle marker pair editor. Selected marker pairs have a black center.
   ![yt_clipper_marker_pair_editor](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_marker_pair_editor.png)
 
 - Modified marker pair settings are accented orange while settings redundant with a global setting are accented red.
@@ -131,16 +134,18 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 **Ctrl+Up**: Select/deselect the most recently selected marker pair or else the first available pair.
 
-**Ctrl+Down**: Toggle auto-hiding of unselected marker pairs.
+**Ctrl+Down**: Toggle auto-hiding of unselected marker pairs. Hidden marker pairs cannot be selected with the mouse.
 
-**Adjusting marker position:**
+**Adjusting marker position/time:**
 
 - While a pair is selected use **Shift+Q/Shift+A** to move the start/end marker to current time.
   - Adjust marker position more precisely by first using the **<** and **>** keys to seek videos frame by frame.
-  - Use **Alt+Shift+Mousewheel** and scroll up/down to move marker one frame forward/backward.
-    - When performed on the left half of the window moves the start marker and on the right half the end marker.
-  - Use **Alt+Z/Alt+Shift+Z** to undo/redo marker moves.
-    - Move history is kept separately for each marker pair.
+- Use **Alt+Shift+Mousewheel** and scroll up/down to move marker one frame forward/backward.
+  - When performed on the left half of the window moves the start marker and on the right half the end marker.
+- **Alt+Click+Drag** a marker numbering to quickly make rough adjustments to the marker's time.
+- Use **Alt+Z/Alt+Shift+Z** to undo/redo marker moves as well as speed and crop changes.
+  - Undo/redo history is kept separately for each marker pair.
+**Navigating marker pairs without the mouse:**
 
 - Jumping to and selecting marker pairs without the mouse
   - **Ctrl+Left/Right:** Jumps to the nearest previous/next marker.
@@ -171,7 +176,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 - Settings left blank with a placeholder of `Auto` will be automatically calculated based on the input video bitrate and other video properties. This is the recommended default.
 - Marker pair settings are overrides that if set will override the global value for that marker pair only.
 - Marker pair settings set to `Inherit` will get their value from the global settings.
-- Global settings set to `Inherit` will get their value from the command line options or the `yt_clipper_options` `.bat/.app` prompt.
+- Global settings set to `Inherit` will get their value from the command line options or the `yt_clipper_options` helper script prompt.
 - See [Encoding Settings Guide](#encoding-settings-guide) for more information and tips about the possible settings.
 - Marker Pair Overrides:
   - ![yt_clipper_marker_pair_editor_overrides](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_marker_pair_editor_overrides.png)
@@ -184,7 +189,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 ### Cropping Shortcuts
 
-**X:** When marker or defaults editor is open, begin drawing crop. 
+**X:** When marker or defaults editor is open, begin drawing crop.
 
 - **Click+Drag** on the video to set draw a rectangular crop.
 
@@ -192,11 +197,8 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 - Crop is given as `x-offset:y-offset:width:height`. Each value is a positive integer in pixels. `Width` and `height` can also be `iw` and `ih` respectively for input width and input height.
 
-**Shift+X:** Like **X**, begin drawing a crop but set only the left and right boundaries.
-
-- Vertically fills the crop, that is, it sets the top to 0 and the bottom to the video height.
-
-**Ctrl+X:** Cycle crop dim opacity by +0.25.
+**Ctrl+X:** Cycle crop dim opacity by 25% plus one stop point at 90%.
+**Ctrl+Shift+X:** Toggle crop crosshair.
 
 **Mouse-Based crop Adjustment:**
 
@@ -204,6 +206,9 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 - **Ctrl+Click+Drag:** Drag and move crop or resize crop in the indicated directions.
   - Can release **Ctrl** after dragging begins. Dragging ends when mouse is released.
 - **Ctrl+Alt+Drag:** Approximately aspect-ratio-locked mouse resizing of crop.
+- **Ctrl+Shift+Drag:** Center-out resize/draw of crop.
+- **Ctrl+Shift+Drag:** Horizontally-fixed (Y-only) drag of crop.
+- **Ctrl+Alt+Drag:** Vertically-fixed (X-only) drag of crop.
 
   ![yt_clipper_crop_preview.png](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_crop_preview.png)
 
@@ -224,21 +229,26 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 **Shift+Mouse-Wheel:** Scroll the mouse wheel up/down over the video to skip forward/backward one frame per tick.
 
-**C:** Toggle auto video playback speed adjustment based on markers. When outside of a marker pair the playback speed is set back to 1 (and cannot be changed without toggling off auto speed adjustment).
+**Alt+Click+Drag:** Scrub/seek video time backward or forward by dragging left or right respectively.
+
+**C:** Toggle previewing marker pair speed.
+
+- Video playback speed is automatically set to the speed of the current marker pair.
+- When outside of a marker pair the playback speed is force set to 1. Toggle off the speed preview to change the player speed manually.
 
 **Shift+C:** Toggle auto looping of currently selected marker pair.
+
+**Ctrl+Shift+C:** Toggle auto crop chart section looping. This setting takes precedence over auto marker pair looping.
 
 **Alt+C:** Toggle auto previewing gamma correction setting when between a marker pair.
 
 **Alt+Shift+C:** Toggle fade loop previewing.
 
-- Note that fade duration defaults to 0.5 and is clamped to a minimum of 0.1 seconds and a maximum of 40% of the output clip duration.
+- Note that fade duration defaults to 0.7 seconds and is clamped to a minimum of 0.1 seconds and a maximum of 40% of the output clip duration.
 
 **Ctrl+Alt+Shift+C:** Toggle all previews.
 
 - If any preview feature is disabled, turns it on. If all preview features are enabled, disables all of them.
-
-**R/Alt+R:** Toggle between a 90 degree clockwise/counter-clockwise rotation and no rotation.
 
 - Works only when in fullscreen mode or theater mode.
 - **Note that this does not yet work with drawing and previewing crops and should be disabled when doing so.**
@@ -246,35 +256,13 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 **Shift+R:** Toggle big video previews on video progress bar hover.
 
-**Q:** Decrease video playback speed by 0.25. If the speed falls to or below 0 it will cycle back to 1.
+**Q:** Toggle auto force setting of video playback speed. Takes precedence over any marker pair speed. This can be useful to try out different playback speeds without modifying settings.
 
-### Time-Variable Speed Chart Shortcuts
+**Alt+Q:** Cycle the force-set video speed down by 0.25. Use **Q** to toggle force settings video speed.
 
-![yt_clipper_speed_chart](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_speed_chart.jpg)
+**R/Alt+R:** Toggle between a 90 degree clockwise/counter-clockwise rotation and no rotation.
 
-**D:** Toggle time-variable speed chart.
-
-**Right-Click:** Seek to time on bottom time-axis when clicking anywhere in chart area.
-
-**Alt+Right-Click/Ctrl+Alt+Right-Click:** Set speed chart looping start/end marker.
-
-**Shift+D:** Toggle speed chart looping (note speed chart looping only works when speed previewing is on with **C**).
-
-**Alt+D:** Reset speed chart looping markers.
-
-**Click+Drag:** Drag a speed point to move it or drag chart area to pan when zoomed in.
-
-**Shift+Click:** Add a speed point.
-
-**Alt+Shift+Click:** Delete a speed point.
-
-**Ctrl+mouse-wheel:** Zoom in and out of speed chart. **Ctrl+Click:** Reset zoom.
-
-**Notes:**
-
-- Points are auto-sorted based on their time value on adding or removing points or on drag-end when moving points.
-- ouTube playback speed can only be set to a multiple of `0.05` and greater than or equal to `0.25`.
-- Audio is not compatible with time-variable speed.
+- Note that this is only a preview and you must set the rotation in the global settings editor opened with **W** to rotate the output video.
 
 ### Frame Capturing Shortcuts
 
@@ -289,33 +277,128 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 **Alt+E** Trigger zipping of all captured frames for download.
 
-### Save and Upload Shortcuts
+### Save and Load Shortcuts
 
 **S:** Save markers info to a `.json` file.
 
-- Can be dropped onto the installation's `yt_clipper_auto.bat` or `.bat` files to generate webms.
-- Can be passed to the `clipper script` using `--json`.
+- Can be dropped onto the clipper script installation's helper scrips like `yt_clipper_auto` on Windows. On Mac, run the helper script and try dragging and dropping in the window that opens up when prompted.
+- When using the python source of the `clipper script` use`--json/-j` and pass the path of the markers data file.
 
 **Alt+S:** Copy markers `json` data to clipboard. Useful if saving breaks.
 
-**G:** Toggle markers `json` file upload for reloading markers (must be from the same video).
+**G:** Toggle markers data commands UI. Allows for uploading and loading markers data files in `.json` format and for restoring markers data auto-saved in browser local storage.
 
-- Click `Choose File`, pick your markers `json` file, then click `Load`.
+- To upload and reload markers data, click `Choose File`, pick your markers `json` file, then click `Load`.
   - ![yt_clipper_load_markers](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_load_markers.png)
-
-**Alt+V:** Upload anonymously to gfycat.
-
-- The quality is not generally good.
-- Most encoding settings are not used, including speed adjustments.
-
-**Alt+Shift+V(Disabled):** Open gfycat browser authentication and upload under account (auth server must be running).
-
-- Same caveats as **Alt+V** for anonymous uploading.
 
 ## Useful YouTube Controls
 
 1. Use **[space_bar]** or **K** to pause/play the video.
 2. Use **<** and **>** to view a video frame by frame.
+3. Use **Left-Arrow** and **Right-Arrow** to jump backwards or forwards by 5 seconds.
+
+### Miscellaneous Shortcuts
+
+**Shift+F:** Flatten a VR video to make it easier to crop.
+
+### Advanced Features
+
+#### General Chart Shortcuts
+
+**D:** Toggle dynamic speed chart.
+
+**Alt+D:** Toggle dynamic crop chart.
+
+**Shift+Click:** Add a point at the clicked location.
+
+**Alt+A:** Add a point at the current time.
+
+**Alt+Shift+Click:** Delete a point.
+
+**Right-Click:** Seek to time on bottom time-axis when clicking anywhere in chart area.
+
+**Alt+Right-Click/Ctrl+Alt+Right-Click:** Set chart looping start/end marker.
+
+**Shift+D:** Toggle chart loop markers
+
+- Note that chart loop markers only work when speed previewing is on with **C**.
+
+**Ctrl+Mousewheel:** Zoom in and out of chart.
+
+**Ctrl+Click:** Reset zoom.
+
+**Click+Drag:** Drag a point to move it or drag chart area to pan when zoomed in.
+
+**Alt+Z/Alt+Shift+Z:** Undo/redo marker moves as well as speed and crop changes.
+
+- Undo/redo history is kept separately for each marker pair.
+
+#### Dynamic Speed Shortcuts
+
+**D:** Toggle dynamic speed chart.
+
+<img src="https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_speed_chart.jpg" alt="yt_clipper_speed_chart" style="width:500px;"/>
+
+**Notes:**
+
+- Points are auto-sorted based on their time value on adding or removing points or on drag-end when moving points.
+- YouTube playback speed can only be set to a multiple of `0.05` and greater than or equal to `0.25`.
+- Audio is not compatible with dynamic speed.
+
+#### Dynamic Crop Shortcuts
+
+Dynamic crop allows for panning a crop in the default `pan-only` mode.
+In `pan-only` mode the crops of all crop chart points are maintained equal.
+For zooming and panning, enable  `zoompan` mode from the marker pair settings extended options (**Shift+W**).
+In `zoompan` mode crops can change size for a zooming effect, but their aspect ratios are maintained equal.
+
+**Alt+D:** Toggle dynamic crop chart.
+
+**Ctrl+Shift+C:** Toggle auto crop chart section looping.
+
+- A crop chart section is any two points on the chart.
+- The current section is between a green start point and yellow end point. All other points are red.
+- As the video time changes, the current crop chart section is automatically updated. 
+- Takes precedence over marker pair looping.
+
+
+**Ctrl/Alt+Mouseover:** Select point as start or end of crop section.
+
+- When the currently selected point is green then you are in start mode, and if it is yellow you are in end mode.
+- The selected point's crop is editable and it's crop appears more brightly in a matching color (green or yellow).
+- As the video time changes, the currently selected point is automatically updated to the start or end point of the new section maintaining the current mode where possible.
+- Selected points have a black border and are square. Unselected points are circular.
+
+**Alt+Mousewheel-Up/Down:** Intelligently toggle modes or select points. More specifically:
+ 
+- **Alt+Mousewheel-Up:** If in end mode, toggle to start mode. If already in start mode, select next point and toggle to end mode.
+- **Alt+Mousewheel-Down:** If in start mode, toggle to end mode. If already in end mode, select previous point and toggle to start mode.
+
+**Ctrl+Alt+Shift+Mousewheel-Up/Down:** Set current crop point's crop to that of the next/previous point's crop.
+
+**Ctrl+Shift+Click:** Toggle crop point easing between auto and instant.
+
+- Points with instant easing enabled are darkened.
+- Instant easing means that any pan or zoom from a previous point will happen instantly, causing the crop to jump. This is useful if there is a scene change in the video or very fast movement.
+
+**A/Shift+A:** Set target crop component of all points following/preceding the currently selected point. Select crop components by placing your cursor in the crop input field in the marker pair settings.
+
+- For example, let's say you want to align the X-position of all points following the currently selected point. Place your cursor by clicking in the crop input field in the first value. For example  `10|0:100:920:1080` where the `|` represents your cursor. Now hit the **A** key and all following crop points will have an X-Position of `100`.
+
+##### ZoompPan Mode
+
+In `zoompan` mode crops can change size for a zooming effect, but their aspect ratios are maintained equal.
+The usual crop shortcuts have different effects than usual in this mode as described here.
+
+**Ctrl+Drag:** Resize crop while maintaining aspect ratio.
+
+**Ctrl+Alt+Drag:** Freely resize the crop, updating the aspect ratio of all other crop points to match automatically.
+
+**X:** Draw crop.
+
+- **Click+Drag:** Draw crop while maintaining aspect ratio.
+- **Alt+Click+Drag:** Freely draw crop, updating the aspect ratio of all other crop points to match automatically.
+
 
 ## Tips
 
@@ -345,9 +428,9 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 #### Markup Script
 
-1. Move between input fields with **Tab**.
-2. Non-text input fields can be set using the **Up/Down** arrow keys or the **Mousewheel**.
-3. Override the default encoding settings using the **Shift+W** additional settings editors.
+1. Move between input fields with **Tab** and **Shift+Tab**.
+2. Numeric input fields can be set using the **Up/Down** arrow keys or the **Mousewheel**.
+3. Access additional settings, including various encoding settings using the **Shift+W** additional settings editors.
 4. Hover over settings in the `markup script` to view tooltips describing each setting.
   ![yt_clipper_tooltip](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_tooltip.png)
 
@@ -355,7 +438,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 1. The `clipper script` is set to use the vp9 encoder by default (encoding used for webm videos on YouTube).
 2. Use `--help`, `-h`, or the `yt_clipper_options` helper script for additional options that can be enabled on the command line.
-3. Encoding settings will be automatically selected unless overriden based on the detected bitrate of the input video.
+3. Encoding settings will be automatically selected, unless overridden, based on the detected bitrate and other properties of the input video.
 
 ### Gamma Correction
 
@@ -366,7 +449,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 ## Clipper Script Source
 
-- You can find the clipper script python source file here: <https://github.com/exwm/yt_clipper/blob/master/src/clipper/yt_clipper.py>
+- You can find the latest mainline clipper script python source file here: <https://github.com/exwm/yt_clipper/blob/master/src/clipper/yt_clipper.py>
 
 ## Clipper Script Usage
 
@@ -375,7 +458,7 @@ python ./yt_clipper.py -h # Prints help. Details all options and arguments.
 
 python ./yt_clipper.py --markers-json markers.json # automatically generate webms using markers json
 
-python ./yt_clipper.py --input-video ./clip.webm --markers-json markers.json # provide a local input video
+python ./yt_clipper.py -j markers.json --input-video ./clip.webm  # provide a local input video
 
 python ./yt_clipper.py -j markers.json --preview  # preview marker pairs using ffplay
 
@@ -391,13 +474,19 @@ See <https://ffmpeg.org/ffplay.html#While-playing>.
 There is an installation that does not require the dependencies below.
 
 1. Extract the appropriate zip file anywhere:
-   - On _Windows_ download this [zip file (win_v3.6.5)](https://github.com/exwm/yt_clipper/releases/download/msv0.0.89%2Bcsv3.6.5/yt_clipper_win_3.6.5.zip)
-   - On _Mac_ download this [zip file (mac_v3.6.5)](https://github.com/exwm/yt_clipper/releases/download/msv0.0.89%2Bcsv3.6.5/yt_clipper_mac_3.6.5.zip)
-   - The latest install (`v3.6.5`) is only compatible with `v0.0.75` or higher of the `markup script`
+   - Go to <https://github.com/exwm/yt_clipper/releases> and pick a release. In the assets, find the appropriate file for your platform.
 2. Simply drag and drop the markers .json file onto the `yt_clipper_auto.bat` file on Windows or at the terminal prompt after executing `yt_clipper_auto` on Mac.
 3. Use `Ctrl+C` if you need to cancel the process.
 4. All generated webm clips will be placed in `./webms/<markers-json-filename>`.
 5. Windows users may require [Microsoft Visual C++ 2010 Redistributable Package (x86)](https://www.microsoft.com/en-US/download/details.aspx?id=5555).
+
+### Manual and Beta/Alpha Version Installation
+
+**Markup script (js):** (1) Find the `yt_clipper*.js` file in the github release assets, (2) right-click > `copy address`, (3) open user script extension dashboard, (4) find and use option to add a script via url (in tampermonkey, utilities tab > `install from url`; in violentmonkey, `+` button at top > `install from url`). 
+
+_Alternatively_, (1) Download the `yt_clipper*.js` file from the github release assets, (2) open user script extension dashboard, (3) open yt_clipper for editing, (4) click inside the editor and select everything with `Ctrl+A`, (5) delete everything with say `backspace`, (6) drag and drop the markup script js file into the editor, (7) `Ctrl+S` to save.
+
+**Clipper script (platform-specific zip):** Install as usual by extracting the zip file to a convenient location.
 
 ### Additional Helper Scripts
 
@@ -411,9 +500,8 @@ There are some alternative helper scripts for more options:
 - Use `yt_clipper_auto_input_video` to specify both markers `json` data and an input video for processing.
   - On Windows simply drag and drop both the `json` and the input video onto `yt_clipper_auto_input_video`.
   - On Mac, `yt_clipper_auto_input_video` will prompt for the `json` then the input video.
-- Use `yt_clipper_auto_interpolate` to apply motion interpolation to output video targeting 60 fps.
 
-The helper scripts have a simple format. Copy and edit `yt_clipper_auto` in a text editor to create custom automated versions.
+The helper scripts have a simple format. Copy and edit `yt_clipper_auto` in a text editor to create custom automated versions. For example you could add `--deinterlace` to enable deinterlacing or use `--only 2,5` to process only marker pairs 2 and 5.
 
 - On Windows:
 
@@ -423,8 +511,8 @@ The helper scripts have a simple format. Copy and edit `yt_clipper_auto` in a te
   cd /D "%~dp0"
 
   FOR %%A IN (%*) DO (
-    REM add options after %%A of the next line as shown
-    .\yt_clipper.exe --markers-json %%A --denoise --audio --rotate clock
+    REM you can add options after %%A of the next line as shown
+    .\yt_clipper.exe --markers-json %%A
   )
 
   pause
@@ -434,18 +522,18 @@ The helper scripts have a simple format. Copy and edit `yt_clipper_auto` in a te
 
   ```bash
   #!/bin/bash
-  cd "$(dirname "$0")"
+  cd "$(dirname "$0")" || exit
 
-  read -p "First enter the paths of 1 or more markers json data files (you may be able to drag and drop files at the prompt): " JSONPROMPT
+  read -rp "First enter the paths of 1 or more markers json data files (you may be able to drag and drop files at the prompt): " JSONPROMPT
 
   IFS=$'\n' JSONS=( $(xargs -n1 <<< "$JSONPROMPT") )
 
   for JSON in "${JSONS[@]}"
   do
     if [ -f "$JSON" ]; then
-      # add options after $JSON of the next line as shown
-      ./yt_clipper --markers-json "$JSON" --denoise --audio --rotate clock
-    else
+      # you can add options after $JSON of the next line as shown
+      ./yt_clipper --markers-json "$JSON"
+    else 
       echo "$JSON does not exist"
     fi
   done
@@ -455,24 +543,22 @@ The helper scripts have a simple format. Copy and edit `yt_clipper_auto` in a te
 
 The `yt_clipper_merge.bat` can be used to merge any webm files in any order:
 
-- Rename the webm files so they sort in ascending lexicographic order.
-- Select/highlight all webms to be merged in your file explorer and drag and drop them onto the `bat`.
-- The output file will be `-merged` appended to the first input file.
+- Rename the webm files so they sort in desired lexicographic order.
+- Select/highlight all webms to be merged in your file explorer and drag and drop them onto the `yt_clipper_merge.bat` script.
+- The output file name will be `-merged` appended to the first input file name.
 - Check the `merge.txt` file to confirm the correct videos were merged in the correct order.
 
 ## All Releases
 
-Since clipper script `v3.6.1`, releases can be tracked here: <https://github.com/exwm/yt_clipper/releases>. Older releases can be found here: <https://mega.nz/#F!4HYDAKDS!NqS5Nk9heN7QBxvQapudeg>.
+Since clipper script `v3.6.1`, releases can be tracked here: <https://github.com/exwm/yt_clipper/releases>.
 
 ## Clipper Script Dependencies
 
 These dependencies must be manually installed when not using the clipper script installation:
 
-- ffmpeg must be in your path for the python script (<https://www.ffmpeg.org>).
-- `--markers-json`/`-j` require youtube-dl as a python package
-  - `pip install youtube-dl`
-- `--gfycat` requires urllib3
-  - `pip install urllib3`
+- ffmpeg must be in your path: (<https://www.ffmpeg.org/download.html>).
+- install required python packages as listed in the `requirements.txt`:
+  - `pip install -r ./src/clipper/requirements.txt`
 
 ## Changelog
 

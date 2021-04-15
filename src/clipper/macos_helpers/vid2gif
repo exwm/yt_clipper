@@ -1,0 +1,48 @@
+#!/bin/bash
+cd "$(dirname "$0")" || exit
+
+read -rp "Enter the paths of 1 or more video files to convert to gif (you may be able to drag and drop files at the prompt): " VIDEOSPROMPT
+
+IFS=$'\n' VIDEOS=($(xargs -n1 <<<"$VIDEOSPROMPT"))
+
+NVIDEOS="${#VIDEOS[@]}"
+
+if [ "$NVIDEOS" -lt 1 ]; then
+  echo "Provide at least 1 video file as input."
+  exit
+fi
+
+VIDEO="${VIDEOS[0]}"
+
+read -rp "Enter target gif fps (DEFAULT 8): " FPS
+read -rp "Enter target gif scale. Specify target size of only larger dimension (maintaining aspect ratio) or both dimensions (ie WxH; eg 128x90) (DEFAULT 128): " SCALE
+
+FPS="${FPS:-10}"
+SCALE="${SCALE:-128}"
+
+echo -e '\n'
+echo Using fps "$FPS" and scale "$SCALE".
+echo -e '\n'
+
+IFS='x' read -ra SCALES <<<"$SCALE"
+if [[ "${#SCALES[@]}" -gt 1 ]]; then
+  SCALE_FILTER="$SCALE"
+else
+  SCALE_FILTER="'if(gte(iw,ih),$SCALE,-1):if(gte(iw,ih),-1,$SCALE)'"
+fi
+
+for VIDEO in "${VIDEOS[@]}"; do
+  if [ -f "$VIDEO" ]; then
+    DIR="$(dirname "$VIDEO")"
+    NAME="${VIDEO##*/}"
+    EXT=".${NAME##*.}"
+    NAME="${NAME%.*}"
+    OUT="$DIR/$NAME.gif"
+
+    echo "generating $OUT..."
+
+    ./bin/ffmpeg -i "$VIDEO" -vf "fps=${FPS},scale=$SCALE_FILTER:flags=lanczos,setdar=ratio=a,hqdn3d,split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse" "$OUT"
+  else
+    echo "$VIDEO does not exist"
+  fi
+done

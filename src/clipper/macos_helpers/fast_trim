@@ -1,0 +1,30 @@
+#!/bin/bash
+cd "$(dirname "$0")" || exit
+
+read -rp "Enter the path of a video file that you would like to trim (you may be able to drag and drop files at the prompt): " VIDEOSPROMPT
+
+IFS=$'\n' VIDEOS=($(xargs -n1 <<<"$VIDEOSPROMPT"))
+
+NVIDEOS="${#VIDEOS[@]}"
+
+if [ "$NVIDEOS" -ne 1 ]; then
+  echo "Provide a single video file as input."
+  exit
+fi
+
+VIDEO="${VIDEOS[0]}"
+
+DIR="$(dirname "$VIDEO")"
+NAME="${VIDEO##*/}"
+EXT=".${NAME##*.}"
+NAME="${NAME%.*}"
+OUT="$DIR/$NAME-trim$EXT"
+
+if [ -f "$VIDEO" ]; then
+  read -rp "Enter start time (s or HH:MM:SS.MS): " START
+  read -rp "Enter end time(s or HH:MM:SS.MS): " END
+  echo "generating $OUT..."
+  ./bin/ffmpeg -ss "$START" -to "$END" -i "$VIDEO" -c copy "$OUT"
+else
+  echo "$VIDEO does not exist."
+fi
