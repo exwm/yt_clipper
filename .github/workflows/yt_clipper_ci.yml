@@ -1,0 +1,195 @@
+name: yt_clipper
+
+on:
+  push:
+    branches:
+      - release
+      - release/*
+      - test-ci
+
+# Workflow env variables not yet available at job level
+# See https://github.community/t/how-to-set-and-access-a-workflow-variable/17335/14
+# Can work around to some degree using set-env
+env:
+  NAME: yt_clipper
+  VERSION: 3.7.0-beta.4.8.3
+  FFMPEG_VERSION: 20200831-4a11a6f
+  FFMPEG_DL_PREFIX: https://github.com/exwm/yt_clipper_bindeps/releases/download
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      max-parallel: 4
+      matrix:
+        python-version: [3.7.x]
+        node-version: [12.x]
+        os: [windows-latest, macos-latest]
+        include:
+          - os: windows-latest
+            shortos: win
+          - os: macos-latest
+            shortos: macos
+
+    steps:
+      - name: Set env
+        shell: bash
+        run: |
+          echo "FULL_NAME=${{env.NAME}}_${{matrix.shortos}}_${{env.VERSION}}" >> $GITHUB_ENV
+          echo "NOPLAT_NAME=${{env.NAME}}_${{env.VERSION}}" >> $GITHUB_ENV
+          echo "FFMPEG_NAME=ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}64-shared" >> $GITHUB_ENV
+          echo "FFMPEG_DL=${{env.FFMPEG_DL_PREFIX}}/${{env.FFMPEG_VERSION}}/ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}64-shared.zip" >> $GITHUB_ENV
+
+      - uses: actions/checkout@v2
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v2-beta
+        with:
+          node-version: ${{ matrix.node-version }}
+      - run: npm install
+      - run: npm run bundle:prod --if-present
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install clipper python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -U pyinstaller
+          pip install -r ./src/clipper/requirements.txt
+
+      # - name: Lint with flake8
+      #   run: |
+      #     pip install flake8
+      #     # stop the build if there are Python syntax errors or undefined names
+      #     flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+      #     # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+      #     flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Generate executable
+        run: npm run build:py
+
+      - name: Set up dirs
+        shell: bash
+        run: |
+          mkdir -p ./artifact/py/${{env.FULL_NAME}}/{webms,bin}/
+          mkdir -p ./bindeps
+
+      - name: Download ffmpeg dependency
+        shell: bash
+        run: |
+          cd ./bindeps
+          curl -o ./ffmpeg.zip -L ${{env.FFMPEG_DL}} 
+          7z x ./ffmpeg.zip
+          mv ./${{env.FFMPEG_NAME}} ffmpeg
+          ls -la
+
+      - name: Copy artifacts
+        shell: bash
+        run: |
+          mv ./bindeps/ffmpeg/bin/* ./artifact/py/${{env.FULL_NAME}}/bin/
+          mv ./bindeps/ffmpeg/*.txt ./artifact/py/${{env.FULL_NAME}}/bin/
+          cp ./src/clipper/include/* ./artifact/py/${{env.FULL_NAME}}/
+          cp ./src/clipper/${{matrix.shortos}}_helpers/* ./artifact/py/${{env.FULL_NAME}}/
+          cp ./dist/py/yt_clipper* ./artifact/py/${{env.FULL_NAME}}/
+
+      - name: Copy artifacts (markup)
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          mkdir -p ./artifact/js/
+          cp ./dist/js/yt_clipper.js ./artifact/js/${{env.NOPLAT_NAME}}.js
+
+      - name: Zip artifacts on windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          Compress-Archive ./artifact/py/${{env.FULL_NAME}}/ ./artifact/py/${{env.FULL_NAME}}.zip
+
+      - name: Zip artifacts on non-windows systems
+        if: matrix.os != 'windows-latest'
+        run: |
+          cd ./artifact/py
+          zip -r ${{env.FULL_NAME}}.zip ./${{env.FULL_NAME}}/
+
+      - name: Upload clipper script installation artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{env.FULL_NAME}}.zip
+          path: ./artifact/py/${{env.FULL_NAME}}.zip
+
+      - name: Upload markup script installation artifact
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{env.NOPLAT_NAME}}.js
+          path: ./artifact/js/${{env.NOPLAT_NAME}}.js
+
+  release:
+    needs: build
+    runs-on: macos-latest
+
+    steps:
+      - name: Set env
+        run: |
+          echo "DATE=$(date +'%Y.%m.%d')" >> $GITHUB_ENV
+          echo "FULL_NAME=${{env.NAME}}_${{env.VERSION}}" >> $GITHUB_ENV
+          echo "FULL_NAME_WIN=${{env.NAME}}_win_${{env.VERSION}}" >> $GITHUB_ENV
+          echo "FULL_NAME_MAC=${{env.NAME}}_macos_${{env.VERSION}}" >> $GITHUB_ENV
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: ${{env.FULL_NAME_WIN}}.zip
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: ${{env.FULL_NAME_MAC}}.zip
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: ${{env.FULL_NAME}}.js
+
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          tag_name: v${{env.VERSION}}
+          release_name: ${{env.NAME}} v${{env.VERSION}} [${{env.DATE}}]
+          draft: true
+          prerelease: false
+
+      - name: Upload release asset (win)
+        id: upload-release-asset-win
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          upload_url: ${{steps.create_release.outputs.upload_url}}
+          asset_path: ${{env.FULL_NAME_WIN}}.zip
+          asset_name: ${{env.FULL_NAME_WIN}}.zip
+          asset_content_type: application/zip
+
+      - name: Upload release asset (mac)
+        id: upload-release-asset-mac
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          upload_url: ${{steps.create_release.outputs.upload_url}}
+          asset_path: ${{env.FULL_NAME_MAC}}.zip
+          asset_name: ${{env.FULL_NAME_MAC}}.zip
+          asset_content_type: application/zip
+
+      - name: Upload release asset (markup)
+        id: upload-release-asset-markup
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          upload_url: ${{steps.create_release.outputs.upload_url}}
+          asset_path: ${{env.FULL_NAME}}.js
+          asset_name: ${{env.FULL_NAME}}.js
+          asset_content_type: text/javascript

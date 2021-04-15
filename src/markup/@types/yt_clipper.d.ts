@@ -1,5 +1,9 @@
+import { ChartConfiguration } from 'chart.js';
+
 interface Settings {
+  platform: string;
   videoID: string;
+  videoTag: string;
   videoTitle: string;
   newMarkerSpeed: number;
   newMarkerCrop: string;
@@ -17,10 +21,10 @@ interface Settings {
   twoPass?: boolean;
   denoise?: Denoise;
   audio?: boolean;
-  expandColorRange?: boolean;
   videoStabilization?: VideoStabilization;
   videoStabilizationDynamicZoom?: boolean;
-  enableSpeedMaps?: boolean;
+  minterpMode?: string | boolean;
+  minterpFPS?: number;
   loop?: Loop;
   fadeDuration?: number;
 }
@@ -28,33 +32,47 @@ interface Settings {
 interface MarkerPair {
   start: number;
   end: number;
-  crop: string;
   speed: number;
-  overrides: MarkerPairOverrides;
-  speedMapLoop: SpeedMapLoop;
   speedMap: SpeedPoint[];
+  speedChartLoop: ChartLoop;
+  crop: string;
+  cropMap: CropPoint[];
+  cropChartLoop: ChartLoop;
+  enableZoomPan: boolean;
+  cropRes: string;
   outputDuration: number;
+  overrides: MarkerPairOverrides;
   startNumbering: SVGTextElement;
   endNumbering: SVGTextElement;
-  moveHistory: { undos: markerMoveRecord[]; redos: markerMoveRecord[] };
+  undoredo: { history: MarkerPairHistory[]; index: number };
 }
-interface markerMoveRecord {
-  marker: SVGRectElement;
-  fromTime: number;
-  toTime: number;
+
+interface MarkerPairHistory {
+  start: number;
+  end: number;
+  speed: number;
+  speedMap: SpeedPoint[];
+  crop: string;
+  cropMap: CropPoint[];
+  enableZoomPan: boolean;
+  cropRes: string;
 }
 
 interface MarkerConfig {
   time?: number;
   type?: 'start' | 'end';
   speed?: number;
-  overrides?: MarkerPairOverrides;
-  speedMapLoop?: SpeedMapLoop;
   speedMap?: SpeedPoint[];
+  speedChartLoop?: ChartLoop;
   crop?: string;
+  cropMap?: CropPoint[];
+  cropChartLoop?: ChartLoop;
+  enableZoomPan?: boolean;
+  overrides?: MarkerPairOverrides;
   outputDuration?: number;
   startNumbering?: SVGTextElement;
   endNumbering?: SVGTextElement;
+  undoredo?: { history: any[]; index: number };
 }
 
 interface MarkerPairOverrides {
@@ -66,15 +84,15 @@ interface MarkerPairOverrides {
   twoPass?: boolean;
   denoise?: Denoise;
   audio?: boolean;
-  expandColorRange?: boolean;
   videoStabilization?: VideoStabilization;
   videoStabilizationDynamicZoom?: boolean;
-  enableSpeedMaps?: boolean;
+  minterpMode?: string | boolean;
+  minterpFPS?: number;
   loop?: Loop;
   fadeDuration?: number;
 }
 
-interface SpeedMapLoop {
+interface ChartLoop {
   start?: number;
   end?: number;
   enabled: boolean;
@@ -97,4 +115,27 @@ interface Denoise {
 interface SpeedPoint {
   x: number;
   y: number;
+}
+interface CropPoint {
+  x: number;
+  y: 0;
+  crop: string;
+  easeIn?: 'instant';
+}
+
+interface ChartInput {
+  chart: Chart;
+  type: 'speed' | 'crop';
+  chartContainer: HTMLDivElement;
+  chartContainerId: string;
+  chartContainerHook: HTMLElement;
+  chartContainerHookPosition: 'beforebegin' | 'afterbegin' | 'beforeend' | 'afterend';
+  chartContainerStyle: string;
+  chartCanvasHTML: string;
+  chartCanvasId: string;
+  chartSpec: ChartConfiguration;
+  minBound: number;
+  maxBound: number;
+  chartLoopKey: 'speedChartLoop' | 'cropChartLoop';
+  dataMapKey: 'speedMap' | 'cropMap';
 }

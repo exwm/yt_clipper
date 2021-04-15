@@ -1,0 +1,39 @@
+#shortcutsTableToggleButton {
+  width: 30px;
+  top: -7px;
+  left: 10px;
+}
+
+#markers-upload-div input[type='file'],
+#settings-editor-div input[type='checkbox'],
+#settings-editor-div input[type='radio'] {
+  position: static;
+  width: auto;
+  height: auto;
+  opacity: 1;
+  appearance: auto;
+  -webkit-appearance: auto;
+  -moz-appearance: auto;
+}
+
+._click_zone[data-title-container] {
+  pointer-events: none !important;
+}
+
+div[class*='layout_main'] {
+  width: 100% !important;
+  margin: 5px auto 0px;
+}
+div[class*='layout_content'] {
+  width: 98% !important;
+  margin-left: 1%;
+}
+div[class*='lnb'] {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  div[class*='snb'] {
+    display: none;
+  }
+}
