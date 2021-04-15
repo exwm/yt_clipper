@@ -76,6 +76,7 @@ The contents of the quickstart guide are included here for convenience:
       - [Dynamic Speed Shortcuts](#dynamic-speed-shortcuts)
       - [Dynamic Crop Shortcuts](#dynamic-crop-shortcuts)
         - [ZoompPan Mode](#zoomppan-mode)
+        - [Dynamic Crop Tips](#dynamic-crop-tips)
   - [Tips](#tips)
     - [User Script Tips](#user-script-tips)
     - [Clipper Script Tips](#clipper-script-tips)
@@ -357,11 +358,15 @@ In `zoompan` mode crops can change size for a zooming effect, but their aspect r
 
 **Alt+D:** Toggle dynamic crop chart.
 
+**Left-Click:** Left-click a crop chart point to seek to it's time.
+
+**Left-Click+Drag:** Left-click and drag a crop chart point to change it's time and seek/scrub the video.
+
 **Ctrl+Shift+C:** Toggle auto crop chart section looping.
 
 - A crop chart section is any two points on the chart.
 - The current section is between a green start point and yellow end point. All other points are red.
-- As the video time changes, the current crop chart section is automatically updated. 
+- As the video time changes, the current crop chart section is automatically updated.
 - Takes precedence over marker pair looping.
 
 
@@ -402,6 +407,11 @@ The usual crop shortcuts have different effects than usual in this mode as descr
 - **Click+Drag:** Draw crop while maintaining aspect ratio.
 - **Alt+Click+Drag:** Freely draw crop, updating the aspect ratio of all other crop points to match automatically.
 
+##### Dynamic Crop Tips
+
+- Use as few points as possible for smoother motion (each point with a crop different from its neighbors causes the crop motion to stop and then start again).
+- Try enabling video stabilization to smooth out the motion, especially if many points are used.
+- Pause the video and **Right-Click+Drag to seek/scrub through the video. Use this to preview the crop movement with precise control.
 
 ## Tips
 
