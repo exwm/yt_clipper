@@ -11,6 +11,7 @@
 // @downloadURL  https://openuserjs.org/src/scripts/elwm/yt_clipper.user.js
 // @updateURL    https://openuserjs.org/meta/elwm/yt_clipper.meta.js
 // @icon         https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/pepe-clipper.gif
+// @license      MIT
 // @require      https://cdn.jsdelivr.net/npm/jszip@3.4.0/dist/jszip.min.js
 // @require      https://rawcdn.githack.com/exwm/Chart.js/141fe542034bc127b0a932de25d0c4f351f3bce1/dist/Chart.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js
@@ -19,7 +20,6 @@
 // @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-style@latest/dist/chartjs-plugin-style.min.js
 // @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@0.5.7/chartjs-plugin-annotation.min.js
 // @run-at       document-end
-// @license      MIT
 // @match        http*://*.youtube.com/*
 // @match        http*://*.vlive.tv/video/*
 // @match        http*://*.vlive.tv/post/*
