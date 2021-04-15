@@ -13,10 +13,7 @@ For a video quickstart check out this gfy: <https://gfycat.com/meekweightyarmyan
 
 Visit [this quickstart guide](https://github.com/exwm/yt_clipper/blob/master/quickstart.md) to get up and running with `yt_clipper`.
 
-
-
 The contents of the quickstart guide are included here for convenience:
-
 
 1) First install a user script extension (preferably Tampermonkey) for your browser (preferably chrome).
    - See [this article](https://openuserjs.org/about/Userscript-Beginners-HOWTO) for more information.
@@ -77,14 +74,14 @@ The contents of the quickstart guide are included here for convenience:
     - [Video Playback and Preview Shortcuts](#video-playback-and-preview-shortcuts)
     - [Frame Capturing Shortcuts](#frame-capturing-shortcuts)
     - [Save and Load Shortcuts](#save-and-load-shortcuts)
-  - [Useful YouTube Controls](#useful-youtube-controls)
     - [Miscellaneous Shortcuts](#miscellaneous-shortcuts)
-    - [Advanced Features](#advanced-features)
-      - [General Chart Shortcuts](#general-chart-shortcuts)
-      - [Dynamic Speed Shortcuts](#dynamic-speed-shortcuts)
-      - [Dynamic Crop Shortcuts](#dynamic-crop-shortcuts)
-        - [ZoompPan Mode](#zoomppan-mode)
-        - [Dynamic Crop Tips](#dynamic-crop-tips)
+  - [Advanced Features Shortcuts](#advanced-features-shortcuts)
+    - [General Chart Shortcuts](#general-chart-shortcuts)
+    - [Dynamic Speed Shortcuts](#dynamic-speed-shortcuts)
+    - [Dynamic Crop Shortcuts](#dynamic-crop-shortcuts)
+      - [ZoompPan Mode](#zoomppan-mode)
+      - [Dynamic Crop Tips](#dynamic-crop-tips)
+  - [Useful YouTube Controls](#useful-youtube-controls)
   - [Tips](#tips)
     - [User Script Tips](#user-script-tips)
     - [Clipper Script Tips](#clipper-script-tips)
@@ -303,19 +300,13 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 - To upload and reload markers data, click `Choose File`, pick your markers `json` file, then click `Load`.
   - ![yt_clipper_load_markers](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_load_markers.png)
 
-## Useful YouTube Controls
-
-1. Use **[space_bar]** or **K** to pause/play the video.
-2. Use **<** and **>** to view a video frame by frame.
-3. Use **Left-Arrow** and **Right-Arrow** to jump backwards or forwards by 5 seconds.
-
 ### Miscellaneous Shortcuts
 
 **Shift+F:** Flatten a VR video to make it easier to crop.
 
-### Advanced Features
+## Advanced Features Shortcuts
 
-#### General Chart Shortcuts
+### General Chart Shortcuts
 
 **D:** Toggle dynamic speed chart.
 
@@ -345,7 +336,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 - Undo/redo history is kept separately for each marker pair.
 
-#### Dynamic Speed Shortcuts
+### Dynamic Speed Shortcuts
 
 **D:** Toggle dynamic speed chart.
 
@@ -357,7 +348,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 - YouTube playback speed can only be set to a multiple of `0.05` and greater than or equal to `0.25`.
 - Audio is not compatible with dynamic speed.
 
-#### Dynamic Crop Shortcuts
+### Dynamic Crop Shortcuts
 
 Dynamic crop allows for panning a crop in the default `pan-only` mode.
 In `pan-only` mode the crops of all crop chart points are maintained equal.
@@ -401,7 +392,7 @@ In `zoompan` mode crops can change size for a zooming effect, but their aspect r
 
 - For example, let's say you want to align the X-position of all points following the currently selected point. Place your cursor by clicking in the crop input field in the first value. For example  `10|0:100:920:1080` where the `|` represents your cursor. Now hit the **A** key and all following crop points will have an X-Position of `100`.
 
-##### ZoompPan Mode
+#### ZoompPan Mode
 
 In `zoompan` mode crops can change size for a zooming effect, but their aspect ratios are maintained equal.
 The usual crop shortcuts have different effects than usual in this mode as described here.
@@ -415,11 +406,17 @@ The usual crop shortcuts have different effects than usual in this mode as descr
 - **Click+Drag:** Draw crop while maintaining aspect ratio.
 - **Alt+Click+Drag:** Freely draw crop, updating the aspect ratio of all other crop points to match automatically.
 
-##### Dynamic Crop Tips
+#### Dynamic Crop Tips
 
 - Use as few points as possible for smoother motion (each point with a crop different from its neighbors causes the crop motion to stop and then start again).
 - Try enabling video stabilization to smooth out the motion, especially if many points are used.
 - Pause the video and **Right-Click+Drag to seek/scrub through the video. Use this to preview the crop movement with precise control.
+
+## Useful YouTube Controls
+
+1. Use **[space_bar]** or **K** to pause/play the video.
+2. Use **<** and **>** to view a video frame by frame.
+3. Use **Left-Arrow** and **Right-Arrow** to jump backwards or forwards by 5 seconds.
 
 ## Tips
 
