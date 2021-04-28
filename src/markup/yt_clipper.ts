@@ -372,6 +372,7 @@ async function loadytClipper() {
     injectToggleShortcutsTableButton();
     addCropMouseManipulationListener();
     addScrubVideoHandler();
+    loopMarkerPair();
   }
 
   let autoSaveIntervalId;
@@ -1065,17 +1066,12 @@ async function loadytClipper() {
       flashMessage('Auto marker looping disabled', 'red');
     } else {
       isMarkerLoopPreviewOn = true;
-      requestAnimationFrame(loopMarkerPair);
       flashMessage('Auto marker looping enabled', 'green');
     }
   }
 
   function loopMarkerPair() {
-    if (
-      isSettingsEditorOpen &&
-      !wasGlobalSettingsEditorOpen &&
-      (!isCropChartLoopingOn || !isCurrentChartVisible || currentChartInput.type === 'speed')
-    ) {
+    if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
       if (prevSelectedMarkerPairIndex != null) {
         const markerPair = markerPairs[prevSelectedMarkerPairIndex];
         const chartLoop: ChartLoop = currentChartInput
@@ -1093,7 +1089,14 @@ async function loadytClipper() {
           if (!isTimeBetweenChartLoop) {
             seekToSafe(video, chartLoop.start);
           }
-        } else {
+        } else if (
+          (isCropChartLoopingOn && isCurrentChartVisible && currentChartInput.type === 'crop') ||
+          isMouseManipulatingCrop ||
+          isDrawingCrop
+        ) {
+          shouldTriggerCropChartLoop = false;
+          cropChartSectionLoop();
+        } else if (isMarkerLoopPreviewOn) {
           const isTimeBetweenMarkerPair =
             markerPair.start <= video.currentTime && video.currentTime <= markerPair.end;
           if (!isTimeBetweenMarkerPair) {
@@ -1103,9 +1106,7 @@ async function loadytClipper() {
       }
     }
 
-    if (isMarkerLoopPreviewOn) {
-      requestAnimationFrame(loopMarkerPair);
-    }
+    setTimeout(loopMarkerPair, 4);
   }
 
   let gammaFilterDiv: HTMLDivElement;
