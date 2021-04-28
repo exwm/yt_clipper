@@ -2784,7 +2784,7 @@ async function loadytClipper() {
     }
     saveMarkerPairHistory(draft, markerPair, storeHistory);
 
-    renderSpeedAndCropUI(adjustCharts);
+    renderSpeedAndCropUI(adjustCharts, adjustCharts);
   }
 
   function stretchPointMap(draft, pointMap, pointType, toTime, type) {
@@ -4560,11 +4560,12 @@ async function loadytClipper() {
     renderSpeedAndCropUI(shouldRerenderCharts);
   }
 
-  function renderSpeedAndCropUI(rerenderCharts = true, updateCurrentCropPoint = true) {
+  function renderSpeedAndCropUI(rerenderCharts = true, updateCurrentCropPoint = false) {
     if (isSettingsEditorOpen) {
       if (!wasGlobalSettingsEditorOpen) {
         const markerPair = markerPairs[prevSelectedMarkerPairIndex];
         updateCharts(markerPair, rerenderCharts);
+        // avoid updating current crop point unless crop map times have changed
         if (updateCurrentCropPoint) setCurrentCropPointWithCurrentTime();
         renderMarkerPair(markerPair, prevSelectedMarkerPairIndex);
 
@@ -4572,7 +4573,6 @@ async function loadytClipper() {
 
         const cropMap = markerPair.cropMap;
         const crop = cropMap[currentCropPointIndex].crop;
-        const [x, y, w, h] = getCropComponents(crop);
         const isDynamicCrop = !isStaticCrop(cropMap);
 
         renderCropForm(crop);
@@ -5219,7 +5219,7 @@ async function loadytClipper() {
           multiplyMarkerPairCrops(markerPair, cropMultipleX, cropMultipleY);
         }
 
-        renderSpeedAndCropUI();
+        renderSpeedAndCropUI(true, true);
 
         flashMessage(`Applied ${dir}.`, 'green');
       }
