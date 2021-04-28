@@ -2,7 +2,7 @@
 
 yt_clipper is a relatively simple way to clip videos from popular platforms (for now YouTube and vlive).
 It provides a graphical UI for video editing that creates instructions in `json` format for clipping the video.
-These instruction files are small and in plain text they can be easily read, modified, and shared with others.
+These instruction files are small and in plain text so they can be easily read, modified, and shared with others.
 The `clipper script` component provides a way to process these instructions and generate the clips you want.
 
 ## Video Quick Start
@@ -368,8 +368,7 @@ In `zoompan` mode crops can change size for a zooming effect, but their aspect r
 - As the video time changes, the current crop chart section is automatically updated.
 - Takes precedence over marker pair looping.
 
-
-**Ctrl/Alt+Mouseover:** Select point as start or end of crop section.
+**Ctrl/Alt+Mouseover:** Select point as start/end of crop section.
 
 - When the currently selected point is green then you are in start mode, and if it is yellow you are in end mode.
 - The selected point's crop is editable and it's crop appears more brightly in a matching color (green or yellow).
@@ -410,7 +409,7 @@ The usual crop shortcuts have different effects than usual in this mode as descr
 
 - Use as few points as possible for smoother motion (each point with a crop different from its neighbors causes the crop motion to stop and then start again).
 - Try enabling video stabilization to smooth out the motion, especially if many points are used.
-- Pause the video and **Right-Click+Drag to seek/scrub through the video. Use this to preview the crop movement with precise control.
+- Pause the video and **Right-Click+Drag** to seek/scrub through the video. Use this to preview the crop movement with precise control.
 
 ## Useful YouTube Controls
 
