@@ -1971,9 +1971,8 @@ def ffprobeVideoProperties(video):
             ffprobeOutput = subprocess.check_output(shlex.split(ffprobeCommand))
             logger.success(f'Successfully fetched video properties with ffprobe')
             done = True
-        except subprocess.CalledProcessError as cpe:
+        except subprocess.CalledProcessError:
             logger.warning(f'Could not fetch video properties with ffprobe')
-            logger.warning(f'{cpe}')
             if ffprobeRetries > 0:
                 time.sleep(2)
                 logger.info(f'Trying {ffprobeRetries} more time(s) to fetch video properties with ffprobe')
