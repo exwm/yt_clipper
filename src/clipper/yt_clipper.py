@@ -697,7 +697,8 @@ def loadSettings(settings):
 def getVideoInfo(settings):
     ydl_opts = {'format': settings["format"], 'forceurl': True,
                 'merge_output_format': 'mkv',
-                'outtmpl': f'{settings["downloadVideoPath"]}.%(ext)s', "cachedir": False}
+                'outtmpl': f'{settings["downloadVideoPath"]}.%(ext)s', "cachedir": False,
+                'youtube_include_dash_manifest': False}
 
     if settings["username"] != '' or settings["password"] != '':
         ydl_opts["username"] = settings["username"]
