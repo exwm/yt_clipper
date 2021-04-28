@@ -179,7 +179,7 @@ export function getEasedValue(
 
 export function seekToSafe(video: HTMLVideoElement, newTime: number) {
   newTime = clampNumber(newTime, 0, video.duration);
-  if (video.currentTime != newTime) {
+  if (video.currentTime != newTime && !video.seeking) {
     video.currentTime = newTime;
   }
 }
