@@ -230,7 +230,7 @@ async function loadytClipper() {
         case 'KeyG':
           if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
             blockEvent(e);
-            createMarkersDataCommands();
+            toggleMarkersDataCommands();
           }
           break;
         case 'KeyD':
@@ -406,7 +406,10 @@ async function loadytClipper() {
         It contains ${clipperInputData.markerPairs.length} marker pair(s).\n
         Proceed to restore markers data?
       `);
-        if (confirmLoad) loadClipperInputJSON(clipperInputJSON);
+        if (confirmLoad) {
+          loadClipperInputJSON(clipperInputJSON);
+          deleteMarkersDataCommands();
+        }
       } else {
         flashMessage(
           `No markers data found in local storage for video ${settings.videoTag}.`,
@@ -1414,11 +1417,17 @@ async function loadytClipper() {
     return isVariableSpeed;
   }
 
-  function createMarkersDataCommands() {
+  function deleteMarkersDataCommands() {
     const markersDataCommandsDiv = document.getElementById('markers-data-commands-div');
     if (markersDataCommandsDiv) {
       deleteElement(markersDataCommandsDiv);
-    } else {
+      return true;
+    }
+    return false;
+  }
+
+  function toggleMarkersDataCommands() {
+    if (!deleteMarkersDataCommands()) {
       const markersDataCommandsDiv = document.createElement('div');
       markersDataCommandsDiv.setAttribute('id', 'markers-data-commands-div');
 
@@ -1481,8 +1490,7 @@ async function loadytClipper() {
     const fr = new FileReader();
     fr.onload = (e) => loadClipperInputJSON(e.target.result);
     fr.readAsText(file);
-    const markersUploadDiv = document.getElementById('markers-upload-div');
-    deleteElement(markersUploadDiv);
+    deleteMarkersDataCommands();
   }
 
   function loadMarkersArray() {
@@ -1493,8 +1501,7 @@ async function loadytClipper() {
     const fr = new FileReader();
     fr.onload = receivedMarkersArray;
     fr.readAsText(file);
-    const markersUploadDiv = document.getElementById('markers-upload-div');
-    deleteElement(markersUploadDiv);
+    deleteMarkersDataCommands();
   }
 
   function loadClipperInputJSON(json) {
@@ -1525,20 +1532,6 @@ async function loadytClipper() {
       delete loadedSettings.version;
 
       settings = { ...settings, ...loadedSettings };
-
-      // markersJson.markerPairs.map((markerPair) => {
-      //   markerPair.crop = Crop.fromCropString(markerPair.crop, settings.cropRes);
-      //   const cropMap = markerPair.cropMap;
-      //   if (cropMap != null) {
-      //     cropMap.map(
-      //       (cropPoint) =>
-      //         (cropPoint.crop = Crop.fromCropString(cropPoint.crop, settings.cropRes))
-      //     );
-
-      //     Crop.fromCropString(markerPair.crop, settings.cropRes);
-      //   }
-      //   return markerPair;
-      // });
 
       addMarkerPairs(markersData.markerPairs);
     }
