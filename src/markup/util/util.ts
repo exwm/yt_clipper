@@ -180,7 +180,7 @@ export function getEasedValue(
 export function seekToSafe(video: HTMLVideoElement, newTime: number) {
   newTime = clampNumber(newTime, 0, video.duration);
   if (video.currentTime != newTime) {
-    typeof video.seekTo === 'function' ? video.seekTo(newTime) : (video.currentTime = newTime);
+    video.currentTime = newTime;
   }
 }
 export function seekBySafe(video: HTMLVideoElement, timeDelta: number) {
