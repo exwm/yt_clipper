@@ -137,11 +137,7 @@ export function triggerCropChartLoop() {
 
 const platform = getPlatform();
 
-if (platform === VideoPlatforms.youtube) {
-  onLoadVideoPage(loadytClipper);
-} else {
-  loadytClipper();
-}
+loadytClipper();
 
 async function loadytClipper() {
   console.log('Loading yt_clipper markup script...');
@@ -453,6 +449,7 @@ async function loadytClipper() {
 
   player = await retryUntilTruthyResult(() => document.querySelector(selectors.player));
   video = await retryUntilTruthyResult(() => player.querySelector(selectors.video));
+  await retryUntilTruthyResult(() => video.readyState != 0);
   await retryUntilTruthyResult(() => video.videoWidth * video.videoHeight * video.duration);
   if (platform === 'vlive') {
     await retryUntilTruthyResult(() => !video.src.startsWith('data:video'));
