@@ -12,7 +12,7 @@ on:
 # Can work around to some degree using set-env
 env:
   NAME: yt_clipper
-  VERSION: 5.1.0
+  VERSION: 5.1.1
   FFMPEG_VERSION: 20200831-4a11a6f
   FFMPEG_DL_PREFIX: https://github.com/exwm/yt_clipper_bindeps/releases/download
 
