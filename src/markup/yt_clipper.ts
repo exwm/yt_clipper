@@ -1091,8 +1091,7 @@ async function loadytClipper() {
           }
         } else if (
           (isCropChartLoopingOn && isCurrentChartVisible && currentChartInput.type === 'crop') ||
-          isMouseManipulatingCrop ||
-          isDrawingCrop
+          (cropChartInput.chart && (isMouseManipulatingCrop || isDrawingCrop))
         ) {
           shouldTriggerCropChartLoop = false;
           cropChartSectionLoop();
@@ -4990,8 +4989,7 @@ async function loadytClipper() {
         shouldTriggerCropChartLoop ||
         // assume auto time-based update not required for crop chart section if looping section
         (isCropChartLoopingOn && isCropChartVisible) ||
-        isMouseManipulatingCrop ||
-        isDrawingCrop
+        (cropChartInput.chart && (isMouseManipulatingCrop || isDrawingCrop))
       ) {
         shouldTriggerCropChartLoop = false;
         cropChartSectionLoop();
