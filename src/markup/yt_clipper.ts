@@ -1133,9 +1133,9 @@ async function loadytClipper() {
       `;
       document.body.appendChild(gammaFilterDiv);
       gammaFilterSvg = gammaFilterDiv.firstElementChild as SVGSVGElement;
-      gammaR = (document.getElementById('gamma-r') as unknown) as SVGFEFuncRElement;
-      gammaG = (document.getElementById('gamma-g') as unknown) as SVGFEFuncGElement;
-      gammaB = (document.getElementById('gamma-b') as unknown) as SVGFEFuncBElement;
+      gammaR = document.getElementById('gamma-r') as unknown as SVGFEFuncRElement;
+      gammaG = document.getElementById('gamma-g') as unknown as SVGFEFuncGElement;
+      gammaB = document.getElementById('gamma-b') as unknown as SVGFEFuncBElement;
     }
     if (!isGammaPreviewOn) {
       video.style.filter = 'url(#gamma-filter)';
@@ -1347,10 +1347,10 @@ async function loadytClipper() {
       prevTime = currentTime;
       if (minTime !== currentTime && minTime != Infinity && minTime != -Infinity)
         seekToSafe(video, minTime);
-      dblJump = (setTimeout(() => {
+      dblJump = setTimeout(() => {
         dblJump = 0;
         prevTime = null;
-      }, 150) as unknown) as number;
+      }, 150) as unknown as number;
     }
   }
 
@@ -3028,14 +3028,8 @@ async function loadytClipper() {
         const cropRes = settings.cropRes;
         if (!enableZoomPan && isVariableSize(cropMap, cropRes)) {
           video.pause();
-          const {
-            minSizeW,
-            minSizeH,
-            maxSizeW,
-            maxSizeH,
-            avgSizeW,
-            avgSizeH,
-          } = getMinMaxAvgCropPoint(cropMap, cropRes);
+          const { minSizeW, minSizeH, maxSizeW, maxSizeH, avgSizeW, avgSizeH } =
+            getMinMaxAvgCropPoint(cropMap, cropRes);
           const crop = Crop.fromCropString(cropString, settings.cropRes);
           const tooltip = Tooltips.zoomPanToPanOnlyTooltip(
             minSizeW,
