@@ -45,8 +45,8 @@
     "d3-drag": "^1.2.4",
     "d3-ease": "^1.0.5",
     "d3-selection": "^1.4.0",
-    "file-saver": "^2.0.2",
-    "immer": "^8.0.1",
+    "file-saver": "^2.0.5",
+    "immer": "^9.0.5",
     "lodash.clonedeep": "^4.5.0",
     "lodash.isequal": "^4.5.0"
   },
