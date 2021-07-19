@@ -182,20 +182,20 @@ def setUpLogger(reportStream, reportStreamColored):
 
 
 def getInputVideo(settings):
-    pivpat = r'^' + re.escape(settings["downloadVideoNameStem"]) + r'\.[^.]+$'
+    input_video_pattern = r'^' + re.escape(settings["downloadVideoNameStem"]) + r'\.[^.]+$'
     potentialInputVideos = [
-        f'{webmsPath}/{iv}' for iv in os.listdir(webmsPath) if re.search(pivpat, iv)]
+        f'{webmsPath}/{iv}' for iv in os.listdir(webmsPath) if re.search(input_video_pattern, iv)]
 
     settings["automaticFetching"] = not settings["inputVideo"] and not settings["downloadVideo"]
 
-    if settings["automaticFetching"] and not settings["preview"] and not settings["noAutoFindInputVideo"]:
-        if len(potentialInputVideos) > 0:
-            logger.info(
-                f'Found potential input video at path {potentialInputVideos[0]}.')
-            if len(potentialInputVideos) > 1:
-                logger.warning(
-                    f'Also found the following other potential input videos {potentialInputVideos[1:]}.')
-            settings["inputVideo"] = potentialInputVideos[0]
+    if (settings["automaticFetching"] and not settings["preview"] and
+            not settings["noAutoFindInputVideo"] and len(potentialInputVideos) > 0):
+        logger.info(
+            f'Found potential input video at path {potentialInputVideos[0]}.')
+        if len(potentialInputVideos) > 1:
+            logger.warning(
+                f'Also found the following other potential input videos {potentialInputVideos[1:]}.')
+        settings["inputVideo"] = potentialInputVideos[0]
 
     if settings["automaticFetching"] and settings["preview"]:
         logger.warning(
@@ -209,14 +209,13 @@ def getInputVideo(settings):
             "internet on seek with right-click.")
         logger.warning(
             "A local video also enables toggling of video correction filters with W.")
-        if not settings["noAutoFindInputVideo"]:
-            if len(potentialInputVideos) > 0:
-                logger.info(
-                    f'Found potential input video at path {potentialInputVideos[0]}.')
-                useFoundInputVideo = input(
-                    r'Would you like to use this input video? (y/n): ')
-                if useFoundInputVideo == 'yes' or useFoundInputVideo == 'y':
-                    settings["inputVideo"] = potentialInputVideos[0]
+        if not settings["noAutoFindInputVideo"] and len(potentialInputVideos) > 0:
+            logger.info(
+                f'Found potential input video at path {potentialInputVideos[0]}.')
+            useFoundInputVideo = input(
+                r'Would you like to use this input video? (y/n): ')
+            if useFoundInputVideo == 'yes' or useFoundInputVideo == 'y':
+                settings["inputVideo"] = potentialInputVideos[0]
 
         if not settings["inputVideo"]:
             try:
@@ -1473,10 +1472,10 @@ def runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp, inputs):
     if len(ffmpegCommands) == 2:
         logger.info('Running first pass...')
 
-    input_pat = r'(-i[\s]+\".*?\"[\s]+)+'
-    nInputs = len(re.findall(input_pat, ffmpegPass1))
+    input_redaction_pattern = r'(-i[\s]+\".*?\"[\s]+)+'
+    nInputs = len(re.findall(input_redaction_pattern, ffmpegPass1))
 
-    printablePass1 = re.sub(input_pat, r'-i ... ', ffmpegPass1, count=nInputs)
+    printablePass1 = re.sub(input_redaction_pattern, r'-i ... ', ffmpegPass1, count=nInputs)
 
     logger.verbose(f'Using ffmpeg command: {printablePass1}\n')
     ffmpegProcess = subprocess.run(shlex.split(ffmpegPass1))
@@ -1484,7 +1483,7 @@ def runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp, inputs):
     if len(ffmpegCommands) == 2:
         ffmpegPass2 = ffmpegCommands[1]
 
-        printablePass2 = re.sub(input_pat, r'-i ... ', ffmpegPass2, count=nInputs)
+        printablePass2 = re.sub(input_redaction_pattern, r'-i ... ', ffmpegPass2, count=nInputs)
 
         logger.info('Running second pass...')
         logger.verbose(f'Using ffmpeg command: {printablePass2}\n')
