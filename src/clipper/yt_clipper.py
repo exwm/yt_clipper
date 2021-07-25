@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import enum
 import importlib
 import io
 import json
@@ -15,24 +16,88 @@ from fractions import Fraction
 from functools import reduce
 from math import floor, log, pi
 from pathlib import Path
+from typing import Any, Dict, Type, Union
 
 import coloredlogs
 import verboselogs
 import youtube_dl
+from dataclasses import dataclass, field
 
 __version__ = '5.1.4'
 
-settings = {}
+logger = verboselogs.VerboseLogger(__name__)
 
-ffmpegPath = 'ffmpeg'
-ffprobePath = 'ffprobe'
-ffplayPath = 'ffplay'
-webmsPath = './webms'
-logger = None
+
+@dataclass()
+class ClipperPaths:
+    """Paths to executables and input/output directories."""
+    ffmpegPath: str = 'ffmpeg'
+    ffprobePath: str = 'ffprobe'
+    ffplayPath: str = 'ffplay'
+    webmsPath: str = './webms'
+    logFilePath: str = ''
+
+
+Settings = Dict[str, Any]
+
+
+@dataclass(frozen=True)
+class ClipperState:
+    """Central state for yt_clipper functions."""
+    settings: Settings = field(default_factory=dict)
+    clipper_paths: ClipperPaths = ClipperPaths()
+    reportStream = io.StringIO()
+    reportStreamColored = io.StringIO()
 
 
 def main():
-    global settings, webmsPath
+    cs = ClipperState()
+
+    args, unknown, defArgs, argFiles = getArgs()
+
+    cs.settings.update({'color_space': None, **args})
+    loadSettings(cs.settings)
+
+    setupPaths(cs)
+
+    setUpLogger(cs)
+
+    logger.report(f'yt_clipper version: {__version__}')
+    logger.report(f'youtube_dl version: {youtube_dl.version.__version__}')
+    logger.info('-' * 80)
+
+    if defArgs:
+        logger.notice(f'The following default arguments were read from {argFiles}:')
+        logger.notice(defArgs)
+        logger.info('-' * 80)
+    elif argFiles:
+        logger.notice(f'No uncommented arguments were found in {argFiles}')
+        logger.info('-' * 80)
+
+    if unknown:
+        logger.notice(f'The following unknown arguments were provided and were ignored:')
+        logger.notice(unknown)
+        logger.info('-' * 80)
+
+    enableMinterpEnhancements(cs)
+
+    getInputVideo(cs)
+
+    getGlobalSettings(cs)
+
+    logger.info("-" * 80)
+    if not cs.settings["preview"]:
+        makeClips(cs)
+    else:
+        previewClips(cs)
+
+    printReport(cs)
+
+    if cs.settings["notifyOnCompletion"]:
+        notifyOnComplete(cs.settings["titleSuffix"])
+
+
+def getArgs():
     parser = getArgParser()
 
     argFiles = parser.parse_known_args()[0].argFiles
@@ -56,94 +121,55 @@ def main():
         args["cropMultipleX"] = args["cropMultiple"]
         args["cropMultipleY"] = args["cropMultiple"]
     args = {k: v for k, v in args.items() if v is not None}
-    args["videoStabilization"] = getVidstabPreset(
-        args["videoStabilization"], args["videoStabilizationDynamicZoom"])
+    args["videoStabilization"] = getVidstabPreset(args["videoStabilization"])
     args["denoise"] = getDenoisePreset(args["denoise"])
-    settings = {'color_space': None, **args}
 
-    settings = loadSettings(settings)
-
-    setupPaths()
-
-    reportStream = io.StringIO()
-    reportStreamColored = io.StringIO()
-    logFilePath = setUpLogger(reportStream, reportStreamColored)
-
-    logger.report(f'yt_clipper version: {__version__}')
-    logger.report(f'youtube_dl version: {youtube_dl.version.__version__}')
-    logger.info('-' * 80)
-
-    if defArgs:
-        logger.notice(f'The following default arguments were read from {argFiles}:')
-        logger.notice(defArgs)
-        logger.info('-' * 80)
-    elif argFiles:
-        logger.notice(f'No uncommented arguments were found in {argFiles}')
-        logger.info('-' * 80)
-
-    if unknown:
-        logger.notice(f'The following unknown arguments were provided and were ignored:')
-        logger.notice(unknown)
-        logger.info('-' * 80)
-
-    settings = enableMinterpEnhancements(settings)
-
-    settings = getInputVideo(settings)
-
-    settings = getGlobalSettings(settings)
-
-    logger.info("-" * 80)
-    if not settings["preview"]:
-        settings = makeClips(settings)
-    else:
-        settings = previewClips(settings)
-
-    printReport(reportStream, reportStreamColored, logFilePath)
-
-    if settings["notifyOnCompletion"]:
-        notifyOnComplete(settings["titleSuffix"])
+    return args, unknown, defArgs, argFiles
 
 
-def setupPaths():
-    global ffmpegPath, ffprobePath, ffplayPath, webmsPath
-    webmsPath += f'/{settings["titleSuffix"]}'
-    os.makedirs(f'{webmsPath}/temp', exist_ok=True)
-    settings["downloadVideoPath"] = f'{webmsPath}/{settings["downloadVideoNameStem"]}'
+def setupPaths(cs: ClipperState):
+    settings = cs.settings
+    cp = cs.clipper_paths
+
+    cp.webmsPath += f'/{settings["titleSuffix"]}'
+    os.makedirs(f'{cp.webmsPath}/temp', exist_ok=True)
+    settings["downloadVideoPath"] = f'{cp.webmsPath}/{settings["downloadVideoNameStem"]}'
 
     if getattr(sys, 'frozen', False):
-        ffmpegPath = './bin/ffmpeg'
-        ffprobePath = './bin/ffprobe'
-        ffplayPath = './bin/ffplay'
+        cp.ffmpegPath = './bin/ffmpeg'
+        cp.ffprobePath = './bin/ffprobe'
+        cp.ffplayPath = './bin/ffplay'
         if sys.platform == 'win32':
-            ffmpegPath += '.exe'
-            ffprobePath += '.exe'
-            ffplayPath += '.exe'
+            cp.ffmpegPath += '.exe'
+            cp.ffprobePath += '.exe'
+            cp.ffplayPath += '.exe'
         if sys.platform == 'darwin':
             os.environ['SSL_CERT_FILE'] = "certifi/cacert.pem"
 
 
-def enableMinterpEnhancements(settings):
-    global ffmpegPath
+def enableMinterpEnhancements(cm: ClipperState):
+    settings = cm.settings
+    cp = cm.clipper_paths
     if settings["enableMinterpEnhancements"] and sys.platform == 'win32':
-        ffmpegPath = "./bin/ffmpeg_ytc.exe"
-        if not Path(ffmpegPath).is_file():
-            logger.critical(f'{ffmpegPath} required for minterp enhancements not found.')
+        cp.ffmpegPath = "./bin/ffmpeg_ytc.exe"
+        if not Path(cp.ffmpegPath).is_file():
+            logger.critical(f'{cp.ffmpegPath} required for minterp enhancements not found.')
             sys.exit(1)
         else:
-            logger.success(f'Found {ffmpegPath}. Minterp enhancements enabled.')
+            logger.success(f'Found {cp.ffmpegPath}. Minterp enhancements enabled.')
     else:
         settings["enableMinterpEnhancements"] = False
 
-    return settings
 
+def setUpLogger(cs: ClipperState):
+    settings = cs.settings
+    cp = cs.clipper_paths
 
-def setUpLogger(reportStream, reportStreamColored):
-    global logger
     verboselogs.add_log_level(29, "IMPORTANT")
     verboselogs.add_log_level(32, "NOTICE")
     verboselogs.add_log_level(33, "HEADER")
     verboselogs.add_log_level(34, "REPORT")
-    logger = verboselogs.VerboseLogger(__name__)
+
     logger.important = lambda msg: logger.log(29, msg)
     logger.notice = lambda msg: logger.log(32, msg)
     logger.header = lambda msg: logger.log(33, msg)
@@ -157,34 +183,35 @@ def setUpLogger(reportStream, reportStreamColored):
     coloredlogs.DEFAULT_LEVEL_STYLES['HEADER'] = {'color': 'blue'}
     coloredlogs.DEFAULT_LEVEL_STYLES['REPORT'] = {'color': 'cyan'}
 
-    coloredlogs.install(level=logging.VERBOSE, datefmt="%y-%m-%d %H:%M:%S")
+    datefmt = "%y-%m-%d %H:%M:%S"
+    coloredlogs.install(level=logging.VERBOSE, datefmt=datefmt)
 
-    coloredFormatter = coloredlogs.ColoredFormatter(datefmt="%y-%m-%d %H:%M:%S")
+    coloredFormatter = coloredlogs.ColoredFormatter(datefmt=datefmt)
 
-    reportHandler = logging.StreamHandler(reportStream)
+    reportHandler = logging.StreamHandler(cs.reportStream)
     reportHandler.setLevel(32)
     logger.addHandler(reportHandler)
-    reportHandlerColored = logging.StreamHandler(reportStreamColored)
+    reportHandlerColored = logging.StreamHandler(cs.reportStreamColored)
     reportHandlerColored.setLevel(32)
     reportHandlerColored.setFormatter(coloredFormatter)
     logger.addHandler(reportHandlerColored)
 
-    logFilePath = ''
     if not settings["preview"]:
-        logFilePath = f'{webmsPath}/{settings["titleSuffix"]}.log'
+        cp.logFilePath = f'{cp.webmsPath}/{settings["titleSuffix"]}.log'
         fileHandler = logging.FileHandler(
-            filename=logFilePath, mode='a', encoding='utf-8', )
-        formatter = coloredlogs.BasicFormatter(datefmt="%y-%m-%d %H:%M:%S")
+            filename=cp.logFilePath, mode='a', encoding='utf-8', )
+        formatter = coloredlogs.BasicFormatter(datefmt=datefmt)
         fileHandler.setFormatter(formatter)
         logger.addHandler(fileHandler)
 
-    return logFilePath
 
+def getInputVideo(cs: ClipperState):
+    settings = cs.settings
+    cp = cs.clipper_paths
 
-def getInputVideo(settings):
     input_video_pattern = r'^' + re.escape(settings["downloadVideoNameStem"]) + r'\.[^.]+$'
     potentialInputVideos = [
-        f'{webmsPath}/{iv}' for iv in os.listdir(webmsPath) if re.search(input_video_pattern, iv)]
+        f'{cp.webmsPath}/{iv}' for iv in os.listdir(cp.webmsPath) if re.search(input_video_pattern, iv)]
 
     settings["automaticFetching"] = not settings["inputVideo"] and not settings["downloadVideo"]
 
@@ -248,10 +275,10 @@ def getInputVideo(settings):
             logger.info(
                 f'Automatically using found input video file "{settings["inputVideo"]}".')
 
-    return settings
 
+def makeClips(cs: ClipperState):
+    settings = cs.settings
 
-def makeClips(settings):
     nMarkerPairs = len(settings["markerPairs"])
     markerPairQueue = getMarkerPairQueue(nMarkerPairs, settings["only"], settings["except"])
     if len(markerPairQueue) == 0:
@@ -262,18 +289,17 @@ def makeClips(settings):
 
     for markerPairIndex, marker in enumerate(settings["markerPairs"]):
         if markerPairIndex in markerPairQueue:
-            settings["markerPairs"][markerPairIndex] = makeClip(settings, markerPairIndex)
+            settings["markerPairs"][markerPairIndex] = makeClip(cs, markerPairIndex)
         else:
-            mp, mps = getMarkerPairSettings(settings, markerPairIndex, True)
+            mp, mps = getMarkerPairSettings(cs, markerPairIndex, True)
             settings["markerPairs"][markerPairIndex] = {**(settings["markerPairs"][markerPairIndex]), **mp}
 
     if settings["markerPairMergeList"] != '':
-        mergeClips(settings)
-
-    return settings
+        mergeClips(cs)
 
 
-def previewClips(settings):
+def previewClips(cs: ClipperState):
+    settings = cs.settings
     while True:
         try:
             inputStr = input(
@@ -286,28 +312,27 @@ def previewClips(settings):
             logger.error(f'{inputStr} is not a valid number.')
             continue
         if 0 <= markerPairIndex < len(settings["markerPairs"]):
-            makeClip(settings, markerPairIndex)
+            makeClip(cs, markerPairIndex)
         else:
             logger.error(
                 f'{markerPairIndex + 1} is not a valid marker pair number.')
-        continue
-
-    return settings
 
 
-def printReport(reportStream, reportStreamColored, logFilePath):
-    reportColored = reportStreamColored.getvalue()
+def printReport(cs: ClipperState):
+    cp = cs.clipper_paths
+
+    reportColored = cs.reportStreamColored.getvalue()
     logger.info("-" * 80)
     logger.header("#" * 30 + " Summary Report " + "#" * 30)
     print(reportColored)
 
-    if Path(logFilePath).is_file():
-        report = reportStream.getvalue()
-        with open(logFilePath, 'a', encoding='utf-8') as f:
+    if Path(cp.logFilePath).is_file():
+        report = cs.reportStream.getvalue()
+        with open(cp.logFilePath, 'a', encoding='utf-8') as f:
             f.write(report)
 
 
-def notifyOnComplete(titleSuffix):
+def notifyOnComplete(titleSuffix: str):
     from notifypy import Notify
 
     n = Notify()
@@ -644,7 +669,7 @@ def getArgParser():
     return parser
 
 
-def getMarkerPairQueue(nMarkerPairs, onlyArg, exceptArg):
+def getMarkerPairQueue(nMarkerPairs: int, onlyArg, exceptArg):
     markerPairQueue = set(range(nMarkerPairs))
     onlyPairsSet = markerPairQueue
     exceptPairsSet = set()
@@ -669,11 +694,11 @@ def getMarkerPairQueue(nMarkerPairs, onlyArg, exceptArg):
     return markerPairQueue
 
 
-def loadSettings(settings):
+def loadSettings(settings: Settings):
     with open(settings["json"], 'r', encoding='utf-8-sig') as file:
         markersJson = file.read()
         markersDict = json.loads(markersJson)
-        settings = {**settings, **markersDict}
+        settings.update(markersDict)
 
         if "markers" in settings and "markerPairs" not in settings:
             settings["markerPairs"] = settings["markers"]
@@ -690,10 +715,11 @@ def loadSettings(settings):
         if "enableSpeedMaps" not in settings:
             settings["enableSpeedMaps"] = not settings.get("noSpeedMaps", False)
 
-    return settings
 
+def getVideoInfo(cs: ClipperState):
+    settings = cs.settings
+    cp = cs.clipper_paths
 
-def getVideoInfo(settings):
     ydl_opts = {'format': settings["format"], 'forceurl': True,
                 'merge_output_format': 'mkv',
                 'outtmpl': f'{settings["downloadVideoPath"]}.%(ext)s', "cachedir": False,
@@ -704,7 +730,7 @@ def getVideoInfo(settings):
         ydl_opts["password"] = settings["password"]
 
     if getattr(sys, 'frozen', False):
-        ydl_opts["ffmpeg_location"] = ffmpegPath
+        ydl_opts["ffmpeg_location"] = cp.ffmpegPath
 
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:
         if settings["downloadVideo"]:
@@ -748,24 +774,26 @@ def getVideoInfo(settings):
         settings["audioURL"] = audioInfo["url"]
 
     if dashFormatIDs:
-        filteredDashPath = filterDash(videoInfo["url"], dashFormatIDs)
+        filteredDashPath = filterDash(cs, videoInfo["url"], dashFormatIDs)
         if settings["isDashVideo"]:
             settings["videoURL"] = filteredDashPath
         if settings["isDashAudio"]:
             settings["audioURL"] = filteredDashPath
 
-    return getMoreVideoInfo(settings, videoInfo)
+    getMoreVideoInfo(cs, videoInfo)
 
 
-def getMoreVideoInfo(settings, videoInfo):
+def getMoreVideoInfo(cs: ClipperState, videoInfo):
+    settings = cs.settings
+
     if settings["inputVideo"]:
-        probedSettings = ffprobeVideoProperties(settings["inputVideo"])
+        probedSettings = ffprobeVideoProperties(cs, settings["inputVideo"])
     else:
-        probedSettings = ffprobeVideoProperties(settings["videoURL"])
+        probedSettings = ffprobeVideoProperties(cs, settings["videoURL"])
 
-    settings = {**settings, **videoInfo}
+    settings.update(videoInfo)
     if probedSettings is not None:
-        settings = {**settings, **probedSettings}
+        settings.update(probedSettings)
     else:
         logger.warning(
             "Could not fetch video info with ffprobe")
@@ -781,14 +809,15 @@ def getMoreVideoInfo(settings, videoInfo):
     logger.report(f'Video Width: {settings["width"]}, Video Height: {settings["height"]}')
     logger.report(f'Video FPS: {settings["r_frame_rate"]}, Video Bitrate: {settings["bit_rate"]}kbps')
 
-    settings = autoSetCropMultiples(settings)
-
-    return settings
+    autoSetCropMultiples(settings)
 
 
-def getSubs(settings):
+def getSubs(cs: ClipperState):
+    cp = cs.clipper_paths
+    settings = cs.settings
+
     importlib.reload(youtube_dl)
-    settings["subsFileStem"] = f'{webmsPath}/subs/{settings["titleSuffix"]}'
+    settings["subsFileStem"] = f'{cp.webmsPath}/subs/{settings["titleSuffix"]}'
     settings["subsFilePath"] = f'{settings["subsFileStem"]}.{settings["autoSubsLang"]}.vtt'
 
     ydl_opts = {'skip_download': True, 'writesubtitles': True,
@@ -798,16 +827,17 @@ def getSubs(settings):
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:
         ydl.download([settings["videoURL"]])
 
-    return settings
 
+def getGlobalSettings(cs: ClipperState):
+    settings = cs.settings
+    cp = cs.clipper_paths
 
-def getGlobalSettings(settings):
     logger.report(f'Video URL: {settings["videoURL"]}')
     logger.report(
         f'Merge List: {settings["markerPairMergeList"] if settings["markerPairMergeList"] else "None"}')
 
     if settings["subsFilePath"] == '' and settings["autoSubsLang"] != '':
-        settings = getSubs(settings)
+        getSubs(cs)
         if not Path(settings["subsFilePath"]).is_file():
             logger.critical(f'Could not download subtitles with language id {settings["autoSubsLang"]}.')
             sys.exit(1)
@@ -819,7 +849,7 @@ def getGlobalSettings(settings):
             logger.success(f'Found subtitles file at "{settings["subsFilePath"]}"')
 
     if settings["subsFilePath"] != '':
-        subsPath = f'{webmsPath}/subs'
+        subsPath = f'{cp.webmsPath}/subs'
         os.makedirs(subsPath, exist_ok=True)
         subs_ext = Path(settings["subsFilePath"]).suffix
         if subs_ext not in ['.vtt', '.sbv', '.srt']:
@@ -834,9 +864,9 @@ def getGlobalSettings(settings):
                 sys.exit(1)
 
     if settings["inputVideo"]:
-        settings = getMoreVideoInfo(settings, {})
+        getMoreVideoInfo(cs, {})
     else:
-        settings = getVideoInfo(settings)
+        getVideoInfo(cs)
 
     encodeSettings = getDefaultEncodeSettings(settings["bit_rate"])
 
@@ -879,8 +909,6 @@ def getGlobalSettings(settings):
                   if settings["videoStabilizationMaxShift"] >= 0
                   else 'Unlimited, ') +
                  f'Video Stabilization Dynamic Zoom: {settings["videoStabilizationDynamicZoom"]}'))
-
-    return settings
 
 
 def autoScaleCropMap(cropMap, settings):
@@ -928,7 +956,10 @@ def getCropComponents(cropString, maxWidth, maxHeight):
     return cropComponents
 
 
-def getMarkerPairSettings(settings, markerPairIndex, skip=False):
+def getMarkerPairSettings(cs: ClipperState, markerPairIndex: int, skip=False):
+    settings = cs.settings
+    cp = cs.clipper_paths
+
     # marker pair properties
     mp = settings["markerPairs"][markerPairIndex]
 
@@ -942,7 +973,7 @@ def getMarkerPairSettings(settings, markerPairIndex, skip=False):
         titlePrefix = f'{mps["titlePrefix"] + "-" if "titlePrefix" in mps else ""}'
         mp["fileNameStem"] = f'{titlePrefix}{mps["titleSuffix"]}-{markerPairIndex + 1}'
         mp["fileName"] = f'{mp["fileNameStem"]}.webm'
-        mp["filePath"] = f'{webmsPath}/{mp["fileName"]}'
+        mp["filePath"] = f'{cp.webmsPath}/{mp["fileName"]}'
         mp["exists"] = checkClipExists(mp["fileName"], mp["filePath"], mps["overwrite"], skip)
 
         if mp["exists"] and not mps["overwrite"]:
@@ -1061,8 +1092,11 @@ def getMarkerPairSettings(settings, markerPairIndex, skip=False):
     return (mp, mps)
 
 
-def makeClip(settings, markerPairIndex):
-    mp, mps = getMarkerPairSettings(settings, markerPairIndex)
+def makeClip(cs: ClipperState, markerPairIndex):
+    settings = cs.settings
+    cp = cs.clipper_paths
+
+    mp, mps = getMarkerPairSettings(cs, markerPairIndex)
 
     if mp["exists"] and not mps["overwrite"]:
         return {**(settings["markerPairs"][markerPairIndex]), **mp}
@@ -1127,7 +1161,7 @@ def makeClip(settings, markerPairIndex):
                          f'({mps["targetSize"]} MB / ~{round(mp["outputDuration"],3)} s).')
 
     ffmpegCommand = ' '.join((
-        ffmpegPath,
+        cp.ffmpegPath,
         f'-hide_banner',
         inputs,
         f'-benchmark',
@@ -1159,7 +1193,7 @@ def makeClip(settings, markerPairIndex):
     video_filter += f',{mp["cropFilter"]}'
 
     if mps["subsFilePath"] != '':
-        video_filter += getSubsFilter(mp, mps, markerPairIndex)
+        video_filter += getSubsFilter(cs, mp, mps, markerPairIndex)
 
     if mps["preview"]:
         video_filter += f',scale=w=iw/2:h=ih/2'
@@ -1249,18 +1283,18 @@ def makeClip(settings, markerPairIndex):
         loop_filter += f'''[m][fl]concat=n=2'''
 
     if mps["preview"]:
-        return runffplayCommand(inputs, video_filter, video_filter_before_correction,
+        return runffplayCommand(cs, inputs, video_filter, video_filter_before_correction,
                                 audio_filter, markerPairIndex, mp, mps)
 
     MAX_VFILTER_SIZE = 10_000
-    filterPathPass1 = f'{webmsPath}/temp/vfilter-{markerPairIndex+1}-pass1.txt'
-    filterPathPass2 = f'{webmsPath}/temp/vfilter-{markerPairIndex+1}-pass2.txt'
+    filterPathPass1 = f'{cp.webmsPath}/temp/vfilter-{markerPairIndex+1}-pass1.txt'
+    filterPathPass2 = f'{cp.webmsPath}/temp/vfilter-{markerPairIndex+1}-pass2.txt'
 
     overwriteArg = ' -y ' if mps["overwrite"] else ' -n '
     vidstabEnabled = mps["videoStabilization"]["enabled"]
     if vidstabEnabled:
         vidstab = mps["videoStabilization"]
-        shakyPath = f'{webmsPath}/shaky'
+        shakyPath = f'{cp.webmsPath}/shaky'
         os.makedirs(shakyPath, exist_ok=True)
         transformPath = f'{shakyPath}/{mp["fileNameStem"]}.trf'
         shakyWebmPath = f'{shakyPath}/{mp["fileNameStem"]}-shaky.webm'
@@ -1436,7 +1470,8 @@ def getMaxSpeed(speedMap):
     return maxSpeed
 
 
-def getSubsFilter(mp, mps, markerPairIndex):
+def getSubsFilter(cs: ClipperState, mp, mps, markerPairIndex):
+    cp = cs.clipper_paths
     import webvtt
 
     subs_ext = Path(mps["subsFilePath"]).suffix
@@ -1460,7 +1495,7 @@ def getSubsFilter(mp, mps, markerPairIndex):
         end = caption.end_in_seconds
         caption.start = caption._to_timestamp(max(start - subsStart, 0))
         caption.end = caption._to_timestamp(min(subsEnd - subsStart, end - subsStart))
-    tmp_subs_path = f'{webmsPath}/subs/{mps["titleSuffix"]}-{markerPairIndex+1}.vtt'
+    tmp_subs_path = f'{cp.webmsPath}/subs/{mps["titleSuffix"]}-{markerPairIndex+1}.vtt'
     vtt.save(tmp_subs_path)
     subs_filter = f""",subtitles='{tmp_subs_path}':force_style='{mps["subsStyle"]}'"""
 
@@ -1572,7 +1607,7 @@ def getSpeedFilterAndDuration(speedMap, mp, mps, fps):
     return video_filter_speed_map, outputDuration, outputDurations
 
 
-def getAverageSpeed(speedMap, fps):
+def getAverageSpeed(speedMap, fps: float):
     fps = Fraction(fps)
     # Account for marker pair start time as trim filter sets start time to ~0
     speedMapStartTime = speedMap[0]["x"]
@@ -1739,7 +1774,7 @@ def getZoomPanFilter(cropMap, mps, fps, easeType='easeInOutSine'):
     return zoomPanFilter, maxSize
 
 
-def getMaxSizeCrop(cropMap):
+def getMaxSizeCrop(cropMap: list):
     def getSize(cropPoint):
         _, _, cropW, cropH = cropPoint["crop"].split(':')
         return {"width": int(float(cropW)), "height": int(float(cropH))}
@@ -1754,12 +1789,12 @@ def getMaxSizeCrop(cropMap):
     return maxSize
 
 
-def floorToEven(x):
+def floorToEven(x: Union[int, str]):
     x = int(x)
     return x & ~1
 
 
-def getEasingExpression(easingFunc, easeA, easeB, easeP):
+def getEasingExpression(easingFunc: str, easeA: str, easeB: str, easeP: str) -> Union[str, None]:
     easeP = f'(clip({easeP},0,1))'
     easeT = f'(2*{easeP})'
     easeM = f'({easeP}-1)'
@@ -1789,7 +1824,10 @@ def getEasingExpression(easingFunc, easeA, easeB, easeP):
     return easingExpression
 
 
-def runffplayCommand(inputs, video_filter, video_filter_before_correction, audio_filter, markerPairIndex, mp, mps):
+def runffplayCommand(cs: ClipperState, inputs, video_filter, video_filter_before_correction, audio_filter, markerPairIndex, mp, mps):
+    settings = cs.settings
+    cp = cs.clipper_paths
+
     logger.info('running ffplay command')
     if 0 <= markerPairIndex < len(settings["markerPairs"]):
         ffplayOptions = f'-hide_banner -fs -sync video -fast -genpts -infbuf '
@@ -1801,7 +1839,7 @@ def runffplayCommand(inputs, video_filter, video_filter_before_correction, audio
         ffplayAudioFilter = f'-af {audio_filter}'
 
         ffplayCommand = ' '.join((
-            ffplayPath,
+            cp.ffplayPath,
             inputs,
             ffplayOptions,
             ffplayVideoFilter,
@@ -1826,7 +1864,10 @@ class MissingMarkerPairFilePath(Exception):
     pass
 
 
-def mergeClips(settings):
+def mergeClips(cs: ClipperState):
+    settings = cs.settings
+    cp = cs.clipper_paths
+
     print()
     logger.header("-" * 30 + " Merge List Processing " + "-" * 30)
     markerPairMergeList = settings["markerPairMergeList"]
@@ -1883,7 +1924,7 @@ def mergeClips(settings):
             logger.error(f'Missing file path for marker pair {i}')
             continue
 
-        inputsTxtPath = f'{webmsPath}/inputs.txt'
+        inputsTxtPath = f'{cp.webmsPath}/inputs.txt'
         with open(inputsTxtPath, "w+", encoding='utf-8') as inputsTxt:
             inputsTxt.write(inputs)
 
@@ -1892,11 +1933,11 @@ def mergeClips(settings):
         else:
             mergedFileName = f'{settings["titleSuffix"]}-({merge}).webm'
 
-        mergedFilePath = f'{webmsPath}/{mergedFileName}'
+        mergedFilePath = f'{cp.webmsPath}/{mergedFileName}'
         mergeFileExists = checkClipExists(mergedFileName, mergedFilePath, settings["overwrite"])
         overwriteArg = '-y' if settings["overwrite"] else '-n'
         ffmpegConcatFlags = f'{overwriteArg} -hide_banner -f concat -safe 0'
-        ffmpegConcatCmd = f' "{ffmpegPath}" {ffmpegConcatFlags}  -i "{inputsTxtPath}" -c copy "{mergedFilePath}"'
+        ffmpegConcatCmd = f' "{cp.ffmpegPath}" {ffmpegConcatFlags}  -i "{inputsTxtPath}" -c copy "{mergedFilePath}"'
 
         if not mergeFileExists or settings["overwrite"]:
             logger.info(f'Using ffmpeg command: {ffmpegConcatCmd}')
@@ -1913,7 +1954,7 @@ def mergeClips(settings):
             pass
 
 
-def checkClipExists(fileName, filePath, overwrite=False, skip=False):
+def checkClipExists(fileName: str, filePath: str, overwrite=False, skip=False):
     fileExists = Path(filePath).is_file()
     if skip:
         logger.notice(f'Skipped generating: "{fileName}"')
@@ -1933,17 +1974,17 @@ def createMergeList(markerPairMergeList):
         yield merge, mergeList
 
 
-def markerPairsCSVToList(markerPairsCSV):
+def markerPairsCSVToList(markerPairsCSV: str):
     markerPairsCSV = re.sub(r'\s+', '', markerPairsCSV)
     markerPairsCSV = markerPairsCSV.rstrip(',')
     csvRangeValidation = r'^((\d{1,2})|(\d{1,2}-\d{1,2})){1}(,((\d{1,2})|(\d{1,2}-\d{1,2})))*$'
     if re.match(csvRangeValidation, markerPairsCSV) is None:
         raise ValueError("Invalid Marker pairs CSV.")
 
-    markerPairsCSV = markerPairsCSV.split(',')
+    markerPairsMergeRanges = markerPairsCSV.split(',')
 
     markerPairsList = []
-    for mergeRange in markerPairsCSV:
+    for mergeRange in markerPairsMergeRanges:
         if '-' in mergeRange:
             mergeRange = mergeRange.split('-')
             startPair = int(mergeRange[0])
@@ -1959,14 +2000,16 @@ def markerPairsCSVToList(markerPairsCSV):
     return markerPairsList
 
 
-def ffprobeVideoProperties(video):
+def ffprobeVideoProperties(cs: ClipperState, video: str):
+    cp = cs.clipper_paths
+
     ffprobeRetries = 3
     done = False
     while ffprobeRetries > 0 and not done:
         ffprobeRetries -= 1
         try:
             ffprobeFlags = '-v quiet -select_streams v -print_format json -show_streams -show_format'
-            ffprobeCommand = f'"{ffprobePath}" "{video}" {ffprobeFlags} '
+            ffprobeCommand = f'"{cp.ffprobePath}" "{video}" {ffprobeFlags} '
             ffprobeOutput = subprocess.check_output(shlex.split(ffprobeCommand))
             logger.success(f'Successfully fetched video properties with ffprobe')
             done = True
@@ -2008,28 +2051,27 @@ def autoSetCropMultiples(settings):
                 f'Crop X offset and width will be multiplied by {cropMultipleX}')
             logger.info(
                 f'Crop Y offset and height will be multiplied by {cropMultipleY}')
-            return {**settings, 'cropMultipleX': cropMultipleX, 'cropMultipleY': cropMultipleY}
+            settings.update({'cropMultipleX': cropMultipleX, 'cropMultipleY': cropMultipleY})
         else:
             logger.info(f'Auto scale crop resolution disabled in settings.')
-            return settings
-    else:
-        return settings
 
 
-def filterDash(dashManifestUrl, dashFormatIDs):
-    from xml.dom import minidom
+def filterDash(cs: ClipperState, dashManifestUrl, dashFormatIDs):
+    cp = cs.clipper_paths
+
     from urllib import request
+    from xml.dom import minidom
 
     with request.urlopen(dashManifestUrl) as dash:
         dashdom = minidom.parse(dash)
 
     reps = dashdom.getElementsByTagName('Representation')
     for rep in reps:
-        id = rep.getAttribute('id')
-        if id not in dashFormatIDs:
+        elementId = rep.getAttribute('id')
+        if elementId not in dashFormatIDs:
             rep.parentNode.removeChild(rep)
 
-    filteredDashPath = f'{webmsPath}/filtered-dash.xml'
+    filteredDashPath = f'{cp.webmsPath}/filtered-dash.xml'
     with open(filteredDashPath, 'w+', encoding='utf-8') as filteredDash:
         filteredDash.write(dashdom.toxml())
 
@@ -2047,14 +2089,22 @@ def cleanFileName(fileName):
     return fileName
 
 
-def getVideoURL(platform, videoID):
-    if platform == 'youtube':
+class KnownPlatform(enum.Enum):
+    youtube = 'youtube'
+    vlive = 'vlive'
+
+
+def getVideoURL(platform: str, videoID: str):
+    if platform == KnownPlatform.youtube.name:
         return f'https://www.youtube.com/watch?v={videoID}'
-    elif platform == 'vlive':
+    elif platform == KnownPlatform.vlive.name:
         return f'https://www.vlive.tv/video/{videoID}'
+    else:
+        logger.fatal(f"Unknown platform: {platform}")
+        exit(1)
 
 
-def getDefaultEncodeSettings(videobr):
+def getDefaultEncodeSettings(videobr: int):
     # switch to constant quality mode if no bitrate specified
     if videobr is None:
         encodeSettings = {'crf': 30, 'autoTargetMaxBitrate': 0,
@@ -2089,7 +2139,7 @@ def getDefaultEncodeSettings(videobr):
     return encodeSettings
 
 
-def getVidstabPreset(level, videoStabilizationDynamicZoom):
+def getVidstabPreset(level: int):
     vidstabPreset = {"enabled": False, "desc": "Disabled"}
     if level == 1:
         vidstabPreset = {"enabled": True, "shakiness": 2,
@@ -2112,7 +2162,7 @@ def getVidstabPreset(level, videoStabilizationDynamicZoom):
     return vidstabPreset
 
 
-def getDenoisePreset(level):
+def getDenoisePreset(level: int) -> Dict[str, Any]:
     denoisePreset = {"enabled": False, "desc": "Disabled"}
     if level == 1:
         denoisePreset = {"enabled": True,
