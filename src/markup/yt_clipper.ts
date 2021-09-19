@@ -1383,6 +1383,7 @@ async function loadytClipper() {
         startNumbering: undefined,
         endNumbering: undefined,
         moveHistory: undefined,
+        outputDuration: undefined,
       };
       return markerPairNumbered;
     });
