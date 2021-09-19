@@ -1596,7 +1596,7 @@ async function loadytClipper() {
   };
 
   function addMarker(markerConfig: MarkerConfig = {}) {
-    const preciseCurrentTime = markerConfig.time || video.currentTime;
+    const preciseCurrentTime = markerConfig.time ?? video.currentTime;
     // TODO: Calculate video fps precisely so current frame time
     // is accurately determined.
     // const currentFrameTime = getCurrentFrameTime(roughCurrentTime);
@@ -1604,7 +1604,7 @@ async function loadytClipper() {
     const progressPos = (currentFrameTime / video.duration) * 100;
 
     if (!start && currentFrameTime <= startTime) {
-      flashMessage('Cannot add end marker before start marker.', 'red');
+      flashMessage('End marker must be after start marker.', 'red');
       return;
     }
 
