@@ -341,10 +341,23 @@ def notifyOnComplete(titleSuffix: str):
     n.message = f'Processed {titleSuffix}.json.'
     n.send(block=False)
 
+class ArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
+    def _get_help_string(self, action):
+        help_str = action.help
+        if '%(default)' not in action.help:
+            if action.default is not argparse.SUPPRESS:
+                defaulting_nargs = [argparse.OPTIONAL, argparse.ZERO_OR_MORE]
+                if action.option_strings or action.nargs in defaulting_nargs:
+                    if isinstance(action.default, str):
+                        help_str += ' (default: %(default)r)'
+                    else:
+                        help_str += ' (default: %(default)s)'
+        return help_str
 
 def getArgParser():
     parser = argparse.ArgumentParser(
-        description='Generate trimmed webms from input video.')
+        description='Generate trimmed webms from input video.',
+        formatter_class=ArgumentDefaultsHelpFormatter)
     parser.add_argument(
         '-v', '--version', action='version',
         version=f'''%(prog)s v{__version__}, youtube_dl v{youtube_dl.version.__version__}'''
