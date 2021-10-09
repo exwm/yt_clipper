@@ -338,6 +338,9 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 ### Dynamic Speed Chart Shortcuts
 
+See [Common Dynamic Chart Shortcuts](#common-dynamic-chart-shortcuts) for shortcuts shared between dynamic charts
+like adding and removing points.
+
 **D:** Toggle dynamic speed chart.
 
 <img src="https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_speed_chart.jpg" alt="yt_clipper_speed_chart" style="width:500px;"/>
@@ -349,6 +352,9 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 - Audio is not compatible with dynamic speed.
 
 ### Dynamic Crop Chart Shortcuts
+
+See [Common Dynamic Chart Shortcuts](#common-dynamic-chart-shortcuts) for shortcuts shared between dynamic charts
+like adding and removing points.
 
 Dynamic crop allows for panning a crop in the default `pan-only` mode.
 In `pan-only` mode the crops of all crop chart points are maintained equal.
