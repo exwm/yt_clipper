@@ -3,6 +3,7 @@
 // @locale       english
 // @name         yt_clipper
 // @version      5.2.0
+// @version      5.2.0
 // @description  Mark up YouTube videos and quickly generate clipped webms.
 // @author       elwm
 // @namespace    https://github.com/exwm
