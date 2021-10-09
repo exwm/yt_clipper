@@ -76,9 +76,10 @@ The contents of the quickstart guide are included here for convenience:
     - [Save and Load Shortcuts](#save-and-load-shortcuts)
     - [Miscellaneous Shortcuts](#miscellaneous-shortcuts)
   - [Advanced Features Shortcuts](#advanced-features-shortcuts)
-    - [General Chart Shortcuts](#general-chart-shortcuts)
-    - [Dynamic Speed Shortcuts](#dynamic-speed-shortcuts)
-    - [Dynamic Crop Shortcuts](#dynamic-crop-shortcuts)
+    - [Dynamic Speed and Crop](#dynamic-speed-and-crop)
+      - [Common Chart Shortcuts](#common-chart-shortcuts)
+      - [Dynamic Speed Shortcuts](#dynamic-speed-shortcuts)
+      - [Dynamic Crop Shortcuts](#dynamic-crop-shortcuts)
       - [ZoompPan Mode](#zoomppan-mode)
       - [Dynamic Crop Tips](#dynamic-crop-tips)
   - [Useful YouTube Controls](#useful-youtube-controls)
@@ -306,7 +307,9 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 ## Advanced Features Shortcuts
 
-### General Chart Shortcuts
+### Dynamic Speed and Crop
+
+#### Common Chart Shortcuts
 
 **D:** Toggle dynamic speed chart.
 
@@ -336,7 +339,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 - Undo/redo history is kept separately for each marker pair.
 
-### Dynamic Speed Shortcuts
+#### Dynamic Speed Shortcuts
 
 **D:** Toggle dynamic speed chart.
 
@@ -348,7 +351,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 - YouTube playback speed can only be set to a multiple of `0.05` and greater than or equal to `0.25`.
 - Audio is not compatible with dynamic speed.
 
-### Dynamic Crop Shortcuts
+#### Dynamic Crop Shortcuts
 
 Dynamic crop allows for panning a crop in the default `pan-only` mode.
 In `pan-only` mode the crops of all crop chart points are maintained equal.
