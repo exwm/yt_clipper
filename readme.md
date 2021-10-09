@@ -5,11 +5,11 @@ It provides a graphical UI for video editing that creates instructions in `json`
 These instruction files are small and in plain text so they can be easily read, modified, and shared with others.
 The `clipper script` component provides a way to process these instructions and generate the clips you want.
 
-## Video Quick Start
+# Video Quick Start
 
 For a video quickstart check out this gfy: <https://gfycat.com/meekweightyarmyant>
 
-## Quick Start Guide
+# Quick Start Guide
 
 Visit [this quickstart guide](https://github.com/exwm/yt_clipper/blob/master/quickstart.md) to get up and running with `yt_clipper`.
 
@@ -37,7 +37,7 @@ The contents of the quickstart guide are included here for convenience:
 9) Check the [changelogs](https://github.com/exwm/yt_clipper/blob/master/changelog.md) for updates as there is not yet an automated mechanism.
 10) Join the [`yt_clipper` discord server](https://discord.gg/5RVGNCU) if you want further help or want to contribute.
 
-## Notices
+# Notices
 
 - Windows users getting ffmpeg crashes may want to try the following:
   - Update visual c++ redistributables:
@@ -46,7 +46,7 @@ The contents of the quickstart guide are included here for convenience:
   - Switch to static ffmpeg build: <https://github.com/BtbN/FFmpeg-Builds/releases> and find the latest release titled something like `ffmpeg-N-101776-gd4575982f4-win64-gpl.zip`.
     - Replace contents of `yt_clipper_win_*/bin` with the contents of the `bin` folder in the ffmpeg zip.
 
-## Browser Support
+# Browser Support
 
 - Works best on Chrome with the Tampermonkey extension and YouTube video in theater mode.
 - You may need to refresh the video page and ensure this user script is active.
@@ -54,56 +54,55 @@ The contents of the quickstart guide are included here for convenience:
   - FireFox audio slowdown stutters and in mainline FireFox has a min speed of 0.5.
 - Other browsers may or may not work as intended.
 
-## Related Scripts
+# Related Scripts
 
 - Check out the companion script with tools for making some tasks on `gfycat.com` easier (e.g., quickly tagging multiple gfys, copying gfy links in various formats) at <https://openuserjs.org/scripts/elwm/gfy-tools>.
 
-## Table of Contents
+# Table of Contents
 
 - [yt_clipper](#yt_clipper)
-  - [Video Quick Start](#video-quick-start)
-  - [Quick Start Guide](#quick-start-guide)
-  - [Notices](#notices)
-  - [Browser Support](#browser-support)
-  - [Related Scripts](#related-scripts)
-  - [Table of Contents](#table-of-contents)
-  - [Terminology and Installation](#terminology-and-installation)
-  - [Markup Script Shortcuts](#markup-script-shortcuts)
-    - [Marker Shortcuts](#marker-shortcuts)
-    - [Cropping Shortcuts](#cropping-shortcuts)
-    - [Video Playback and Preview Shortcuts](#video-playback-and-preview-shortcuts)
-    - [Frame Capturing Shortcuts](#frame-capturing-shortcuts)
-    - [Save and Load Shortcuts](#save-and-load-shortcuts)
-    - [Miscellaneous Shortcuts](#miscellaneous-shortcuts)
-  - [Advanced Features Shortcuts](#advanced-features-shortcuts)
-    - [Dynamic Speed and Crop](#dynamic-speed-and-crop)
-      - [Common Chart Shortcuts](#common-chart-shortcuts)
-      - [Dynamic Speed Shortcuts](#dynamic-speed-shortcuts)
-      - [Dynamic Crop Shortcuts](#dynamic-crop-shortcuts)
-      - [ZoompPan Mode](#zoomppan-mode)
-      - [Dynamic Crop Tips](#dynamic-crop-tips)
-  - [Useful YouTube Controls](#useful-youtube-controls)
-  - [Tips](#tips)
-    - [User Script Tips](#user-script-tips)
-    - [Clipper Script Tips](#clipper-script-tips)
-  - [Encoding Settings Guide](#encoding-settings-guide)
-    - [Articles on CRF and vp9 Encoding](#articles-on-crf-and-vp9-encoding)
-    - [Tips and Settings](#tips-and-settings)
-      - [Markup Script](#markup-script)
-      - [Clipper Script](#clipper-script)
-    - [Gamma Correction](#gamma-correction)
-  - [Clipper Script Source](#clipper-script-source)
-  - [Clipper Script Usage](#clipper-script-usage)
-  - [Clipper Script Preview Shortcuts](#clipper-script-preview-shortcuts)
-  - [Clipper Script Installation](#clipper-script-installation)
-    - [Manual and Beta/Alpha Version Installation](#manual-and-betaalpha-version-installation)
-    - [Additional Helper Scripts](#additional-helper-scripts)
-      - [Windows Merge Helper Bat Script](#windows-merge-helper-bat-script)
-  - [All Releases](#all-releases)
-  - [Clipper Script Dependencies](#clipper-script-dependencies)
-  - [Changelog](#changelog)
+- [Video Quick Start](#video-quick-start)
+- [Quick Start Guide](#quick-start-guide)
+- [Notices](#notices)
+- [Browser Support](#browser-support)
+- [Related Scripts](#related-scripts)
+- [Table of Contents](#table-of-contents)
+- [Terminology and Installation](#terminology-and-installation)
+- [Markup Script Shortcuts](#markup-script-shortcuts)
+  - [Marker Shortcuts](#marker-shortcuts)
+  - [Cropping Shortcuts](#cropping-shortcuts)
+  - [Video Playback and Preview Shortcuts](#video-playback-and-preview-shortcuts)
+  - [Frame Capturing Shortcuts](#frame-capturing-shortcuts)
+  - [Save and Load Shortcuts](#save-and-load-shortcuts)
+  - [Miscellaneous Shortcuts](#miscellaneous-shortcuts)
+  - [Dynamic Speed and Crop Shortcuts](#dynamic-speed-and-crop-shortcuts)
+    - [Common Dynamic Chart Shortcuts](#common-dynamic-chart-shortcuts)
+    - [Dynamic Speed Chart Shortcuts](#dynamic-speed-chart-shortcuts)
+    - [Dynamic Crop Chart Shortcuts](#dynamic-crop-chart-shortcuts)
+    - [ZoompPan Mode](#zoomppan-mode)
+    - [Dynamic Crop Tips](#dynamic-crop-tips)
+- [Useful YouTube Controls](#useful-youtube-controls)
+- [Tips](#tips)
+  - [User Script Tips](#user-script-tips)
+  - [Clipper Script Tips](#clipper-script-tips)
+- [Encoding Settings Guide](#encoding-settings-guide)
+  - [Articles on CRF and vp9 Encoding](#articles-on-crf-and-vp9-encoding)
+  - [Tips and Settings](#tips-and-settings)
+    - [Markup Script Tips](#markup-script-tips)
+    - [Clipper Script Tips](#clipper-script-tips-1)
+  - [Gamma Correction](#gamma-correction)
+- [Clipper Script Source](#clipper-script-source)
+- [Clipper Script Usage](#clipper-script-usage)
+- [Clipper Script Preview Shortcuts](#clipper-script-preview-shortcuts)
+- [Clipper Script Installation](#clipper-script-installation)
+  - [Manual and Beta/Alpha Version Installation](#manual-and-betaalpha-version-installation)
+  - [Additional Helper Scripts](#additional-helper-scripts)
+    - [Windows Merge Helper Bat Script](#windows-merge-helper-bat-script)
+- [All Releases](#all-releases)
+- [Clipper Script Dependencies](#clipper-script-dependencies)
+- [Changelog](#changelog)
 
-## Terminology and Installation
+# Terminology and Installation
 
 - `Markup script` refers to the user script installed in your browser through a user script extension. It is used to mark up videos (e.g. on YouTube) before creating webm clips.
   - The required user script extension, for example_Tampermonkey_, can be installed from the appropriate add-on store from your browser.
@@ -112,7 +111,7 @@ The contents of the quickstart guide are included here for convenience:
   - See [Clipper Script Usage](#clipper-script-usage) for usage instructions.
   - See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
 
-## Markup Script Shortcuts
+# Markup Script Shortcuts
 
 First ensure the script is active on the page by checking your user script extension.
 
@@ -124,7 +123,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 - ![yt_clipper_shortcuts_table](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_shortcuts_table.png)
 
-### Marker Shortcuts
+## Marker Shortcuts
 
 **A:** Add marker at current time (start = green, end = yellow, selected = black center). Multiple marker pairs can be added simultaneously.
 
@@ -197,7 +196,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 - Set the default new marker speed or crop using **W**.
 
-### Cropping Shortcuts
+## Cropping Shortcuts
 
 **X:** When marker or defaults editor is open, begin drawing crop.
 
@@ -235,7 +234,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
   - **Alt** sets the amount to `1`, **Shift** to `50`, **Alt+Shift** to `100`.
 - The resulting crop values are clamped to valid values.
 
-### Video Playback and Preview Shortcuts
+## Video Playback and Preview Shortcuts
 
 **Shift+Mouse-Wheel:** Scroll the mouse wheel up/down over the video to skip forward/backward one frame per tick.
 
@@ -274,7 +273,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 - Note that this is only a preview and you must set the rotation in the global settings editor opened with **W** to rotate the output video.
 
-### Frame Capturing Shortcuts
+## Frame Capturing Shortcuts
 
 **E:** Capture frame at current time of video at currently selected video quality/resolution.
 
@@ -287,7 +286,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 **Alt+E** Trigger zipping of all captured frames for download.
 
-### Save and Load Shortcuts
+## Save and Load Shortcuts
 
 **S:** Save markers info to a `.json` file.
 
@@ -301,15 +300,13 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 - To upload and reload markers data, click `Choose File`, pick your markers `json` file, then click `Load`.
   - ![yt_clipper_load_markers](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_load_markers.png)
 
-### Miscellaneous Shortcuts
+## Miscellaneous Shortcuts
 
 **Shift+F:** Flatten a VR video to make it easier to crop.
 
-## Advanced Features Shortcuts
+## Dynamic Speed and Crop Shortcuts
 
-### Dynamic Speed and Crop
-
-#### Common Chart Shortcuts
+### Common Dynamic Chart Shortcuts
 
 **D:** Toggle dynamic speed chart.
 
@@ -339,7 +336,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 - Undo/redo history is kept separately for each marker pair.
 
-#### Dynamic Speed Shortcuts
+### Dynamic Speed Chart Shortcuts
 
 **D:** Toggle dynamic speed chart.
 
@@ -351,7 +348,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 - YouTube playback speed can only be set to a multiple of `0.05` and greater than or equal to `0.25`.
 - Audio is not compatible with dynamic speed.
 
-#### Dynamic Crop Shortcuts
+### Dynamic Crop Chart Shortcuts
 
 Dynamic crop allows for panning a crop in the default `pan-only` mode.
 In `pan-only` mode the crops of all crop chart points are maintained equal.
@@ -394,7 +391,7 @@ In `zoompan` mode crops can change size for a zooming effect, but their aspect r
 
 - For example, let's say you want to align the X-position of all points following the currently selected point. Place your cursor by clicking in the crop input field in the first value. For example  `10|0:100:920:1080` where the `|` represents your cursor. Now hit the **A** key and all following crop points will have an X-Position of `100`.
 
-#### ZoompPan Mode
+### ZoompPan Mode
 
 In `zoompan` mode crops can change size for a zooming effect, but their aspect ratios are maintained equal.
 The usual crop shortcuts have different effects than usual in this mode as described here.
@@ -408,45 +405,45 @@ The usual crop shortcuts have different effects than usual in this mode as descr
 - **Click+Drag:** Draw crop while maintaining aspect ratio.
 - **Alt+Click+Drag:** Freely draw crop, updating the aspect ratio of all other crop points to match automatically.
 
-#### Dynamic Crop Tips
+### Dynamic Crop Tips
 
 - Use as few points as possible for smoother motion (each point with a crop different from its neighbors causes the crop motion to stop and then start again).
 - Try enabling video stabilization to smooth out the motion, especially if many points are used.
 - Pause the video and **Right-Click+Drag** to seek/scrub through the video. Use this to preview the crop movement with precise control.
 
-## Useful YouTube Controls
+# Useful YouTube Controls
 
 1. Use **[space_bar]** or **K** to pause/play the video.
 2. Use **<** and **>** to view a video frame by frame.
 3. Use **Left-Arrow** and **Right-Arrow** to jump backwards or forwards by 5 seconds.
 
-## Tips
+# Tips
 
-### User Script Tips
+## User Script Tips
 
 1. If you're new to userscripts check out <https://openuserjs.org/about/Userscript-Beginners-HOWTO> for instructions.
 2. Check out the companion script for copying gfy links from gfycat as reddit markdown at <https://openuserjs.org/scripts/elwm/gfy2md>.
 3. Refresh the page if the script doesn't load and to clear markers when switching videos in the same window.
 4. Videos can be marked up and the markers json or clipper script can be saved before higher quality levels are available, but the final generated webm quality depends on the quality formats available.
 
-### Clipper Script Tips
+## Clipper Script Tips
 
 1. The `clipper script` skips regenerating any existing webms.
    - This makes it easy to delete webms you want regenerated and by rerunning the script.
    - Use this to work incrementally, saving markers data, starting a batch encode, continuing to mark up, overwriting the markers data, and then rerunning the encoding.
 
-## Encoding Settings Guide
+# Encoding Settings Guide
 
-### Articles on CRF and vp9 Encoding
+## Articles on CRF and vp9 Encoding
 
 1. [Basic crf guide](https://slhck.info/video/2017/02/24/crf-guide.html)
 2. [ffmpeg vp9 encoding guide](https://trac.ffmpeg.org/wiki/Encode/VP9)
 3. [Google vp9 basic encoding](https://developers.google.com/media/vp9/the-basics/)
 4. [vp9 encoding tests](https://github.com/deterenkelt/Nadeshiko/wiki/Tests.-VP9:-encoding-to-size,-part%C2%A01)
 
-### Tips and Settings
+## Tips and Settings
 
-#### Markup Script
+### Markup Script Tips
 
 1. Move between input fields with **Tab** and **Shift+Tab**.
 2. Numeric input fields can be set using the **Up/Down** arrow keys or the **Mousewheel**.
@@ -454,24 +451,24 @@ The usual crop shortcuts have different effects than usual in this mode as descr
 4. Hover over settings in the `markup script` to view tooltips describing each setting.
   ![yt_clipper_tooltip](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_tooltip.png)
 
-#### Clipper Script
+### Clipper Script Tips
 
 1. The `clipper script` is set to use the vp9 encoder by default (encoding used for webm videos on YouTube).
 2. Use `--help`, `-h`, or the `yt_clipper_options` helper script for additional options that can be enabled on the command line.
 3. Encoding settings will be automatically selected, unless overridden, based on the detected bitrate and other properties of the input video.
 
-### Gamma Correction
+## Gamma Correction
 
 - Play around with the `gamma` setting to bring back shadow or highlight detail.
 - Use **Alt+C** to preview `gamma values` with the `markup script`.
 - A value of 1 does nothing. Use a value between 0 and 1 to bring back shadow detail and a value greater than 1 to bring back highlight detail.
 - Refer to this [gamma correction guide](https://www.cambridgeincolour.com/tutorials/gamma-correction.htm) for more details.
 
-## Clipper Script Source
+# Clipper Script Source
 
 - You can find the latest mainline clipper script python source file here: <https://github.com/exwm/yt_clipper/blob/master/src/clipper/yt_clipper.py>
 
-## Clipper Script Usage
+# Clipper Script Usage
 
 ```sh
 python ./yt_clipper.py -h # Prints help. Details all options and arguments.
@@ -485,11 +482,11 @@ python ./yt_clipper.py -j markers.json --preview  # preview marker pairs using f
 python ./yt_clipper.py -j markers.json --format bestvideo[width<=1080] # specify download format used by youtube-dl
 ```
 
-## Clipper Script Preview Shortcuts
+# Clipper Script Preview Shortcuts
 
 See <https://ffmpeg.org/ffplay.html#While-playing>.
 
-## Clipper Script Installation
+# Clipper Script Installation
 
 There is an installation that does not require the dependencies below.
 
@@ -500,7 +497,7 @@ There is an installation that does not require the dependencies below.
 4. All generated webm clips will be placed in `./webms/<markers-json-filename>`.
 5. Windows users may require [Microsoft Visual C++ 2010 Redistributable Package (x86)](https://www.microsoft.com/en-US/download/details.aspx?id=5555).
 
-### Manual and Beta/Alpha Version Installation
+## Manual and Beta/Alpha Version Installation
 
 **Markup script (js):** (1) Find the `yt_clipper*.js` file in the github release assets, (2) right-click > `copy address`, (3) open user script extension dashboard, (4) find and use option to add a script via url (in tampermonkey, utilities tab > `install from url`; in violentmonkey, `+` button at top > `install from url`). 
 
@@ -508,7 +505,7 @@ _Alternatively_, (1) Download the `yt_clipper*.js` file from the github release 
 
 **Clipper script (platform-specific zip):** Install as usual by extracting the zip file to a convenient location.
 
-### Additional Helper Scripts
+## Additional Helper Scripts
 
 There are some alternative helper scripts for more options:
 
@@ -559,7 +556,7 @@ The helper scripts have a simple format. Copy and edit `yt_clipper_auto` in a te
   done
   ```
 
-#### Windows Merge Helper Bat Script
+### Windows Merge Helper Bat Script
 
 The `yt_clipper_merge.bat` can be used to merge any webm files in any order:
 
@@ -568,11 +565,11 @@ The `yt_clipper_merge.bat` can be used to merge any webm files in any order:
 - The output file name will be `-merged` appended to the first input file name.
 - Check the `merge.txt` file to confirm the correct videos were merged in the correct order.
 
-## All Releases
+# All Releases
 
 Since clipper script `v3.6.1`, releases can be tracked here: <https://github.com/exwm/yt_clipper/releases>.
 
-## Clipper Script Dependencies
+# Clipper Script Dependencies
 
 These dependencies must be manually installed when not using the clipper script installation:
 
@@ -580,7 +577,7 @@ These dependencies must be manually installed when not using the clipper script 
 - install required python packages as listed in the `requirements.txt`:
   - `pip install -r ./src/clipper/requirements.txt`
 
-## Changelog
+# Changelog
 
 For a complete changelog, including beta and alpha releases,
 see <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
