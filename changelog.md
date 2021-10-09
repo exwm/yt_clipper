@@ -3,90 +3,112 @@
 This changelog records all the changes to `yt_clipper` after version numbers between the markup and clipper script were unified (ie since v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`).
 
 - [yt_clipper Changelog (Post-Version-Unification)](#yt_clipper-changelog-post-version-unification)
-  - [v5.1.4 `[2021.07.21]](#v514-20210721)
-    - [Clipper Changes](#clipper-changes)
-  - [v5.1.3 `[2021.07.19]](#v513-20210719)
-    - [Clipper Changes](#clipper-changes-1)
-  - [v5.1.2 `[2021.04.30]](#v512-20210430)
+  - [v5.2.0 `[2021.10.09]`](#v520-20211009)
     - [Markup Changes](#markup-changes)
-  - [v5.1.1 `[2021.04.29]](#v511-20210429)
-    - [Markup Changes](#markup-changes-1)
+    - [Clipper Changes](#clipper-changes)
+  - [v5.1.4 `[2021.07.21]`](#v514-20210721)
+    - [Clipper Changes](#clipper-changes-1)
+  - [v5.1.3 `[2021.07.19]`](#v513-20210719)
     - [Clipper Changes](#clipper-changes-2)
-  - [v5.1.0 `[2021.04.27]](#v510-20210427)
+  - [v5.1.2 `[2021.04.30]`](#v512-20210430)
+    - [Markup Changes](#markup-changes-1)
+  - [v5.1.1 `[2021.04.29]`](#v511-20210429)
     - [Markup Changes](#markup-changes-2)
     - [Clipper Changes](#clipper-changes-3)
-  - [v5.0.0 `[2021.04.15]](#v500-20210415)
-    - [General Changes](#general-changes)
-    - [Clipper Changes](#clipper-changes-4)
-  - [v3.7.0-beta.4.8.3 `[2021.04.01]`](#v370-beta483-20210401)
+  - [v5.1.0 `[2021.04.27]`](#v510-20210427)
     - [Markup Changes](#markup-changes-3)
-  - [v3.7.0-beta.4.8.2 `[2021.03.31]`](#v370-beta482-20210331)
+    - [Clipper Changes](#clipper-changes-4)
+  - [v5.0.0 `[2021.04.15]`](#v500-20210415)
+    - [General Changes](#general-changes)
     - [Clipper Changes](#clipper-changes-5)
-  - [v3.7.0-beta.4.8.1 `[2021.03.07]`](#v370-beta481-20210307)
+  - [v3.7.0-beta.4.8.3 `[2021.04.01]`](#v370-beta483-20210401)
     - [Markup Changes](#markup-changes-4)
-  - [v3.7.0-beta.4.8.0 `[2021.03.05]`](#v370-beta480-20210305)
-    - [Markup Changes](#markup-changes-5)
+  - [v3.7.0-beta.4.8.2 `[2021.03.31]`](#v370-beta482-20210331)
     - [Clipper Changes](#clipper-changes-6)
-  - [v3.7.0-beta.4.7.0 `[2021.01.12]`](#v370-beta470-20210112)
-    - [Clipper Changes](#clipper-changes-7)
-  - [v3.7.0-beta.4.6.0 `[2020.12.18]`](#v370-beta460-20201218)
+  - [v3.7.0-beta.4.8.1 `[2021.03.07]`](#v370-beta481-20210307)
+    - [Markup Changes](#markup-changes-5)
+  - [v3.7.0-beta.4.8.0 `[2021.03.05]`](#v370-beta480-20210305)
     - [Markup Changes](#markup-changes-6)
+    - [Clipper Changes](#clipper-changes-7)
+  - [v3.7.0-beta.4.7.0 `[2021.01.12]`](#v370-beta470-20210112)
     - [Clipper Changes](#clipper-changes-8)
-  - [v3.7.0-beta.4.5.0 `[2020.12.11]`](#v370-beta450-20201211)
+  - [v3.7.0-beta.4.6.0 `[2020.12.18]`](#v370-beta460-20201218)
     - [Markup Changes](#markup-changes-7)
     - [Clipper Changes](#clipper-changes-9)
-  - [v3.7.0-beta.4.4.0 `[2020.11.04]`](#v370-beta440-20201104)
+  - [v3.7.0-beta.4.5.0 `[2020.12.11]`](#v370-beta450-20201211)
     - [Markup Changes](#markup-changes-8)
     - [Clipper Changes](#clipper-changes-10)
-  - [v3.7.0-beta.4.3.0 `[2020.11.03]`](#v370-beta430-20201103)
+  - [v3.7.0-beta.4.4.0 `[2020.11.04]`](#v370-beta440-20201104)
     - [Markup Changes](#markup-changes-9)
-  - [v3.7.0-beta.4.2.0 `[2020.11.01]`](#v370-beta420-20201101)
-    - [Markup Changes](#markup-changes-10)
     - [Clipper Changes](#clipper-changes-11)
-  - [v3.7.0-beta.4.1.0 `[2020.10.03]`](#v370-beta410-20201003)
+  - [v3.7.0-beta.4.3.0 `[2020.11.03]`](#v370-beta430-20201103)
+    - [Markup Changes](#markup-changes-10)
+  - [v3.7.0-beta.4.2.0 `[2020.11.01]`](#v370-beta420-20201101)
     - [Markup Changes](#markup-changes-11)
     - [Clipper Changes](#clipper-changes-12)
-  - [v3.7.0-beta.4.0.1 `[2020.09.20]`](#v370-beta401-20200920)
+  - [v3.7.0-beta.4.1.0 `[2020.10.03]`](#v370-beta410-20201003)
     - [Markup Changes](#markup-changes-12)
     - [Clipper Changes](#clipper-changes-13)
-  - [v3.7.0-beta.4.0.0 `[2020.09.19]`](#v370-beta400-20200919)
+  - [v3.7.0-beta.4.0.1 `[2020.09.20]`](#v370-beta401-20200920)
     - [Markup Changes](#markup-changes-13)
     - [Clipper Changes](#clipper-changes-14)
-  - [v3.7.0-beta.3.9.0 `[2020.09.14]`](#v370-beta390-20200914)
+  - [v3.7.0-beta.4.0.0 `[2020.09.19]`](#v370-beta400-20200919)
     - [Markup Changes](#markup-changes-14)
     - [Clipper Changes](#clipper-changes-15)
-  - [v3.7.0-beta.3.9.0-alpha.13 `[2020.08.31]`](#v370-beta390-alpha13-20200831)
-    - [Clipper Changes](#clipper-changes-16)
-  - [v3.7.0-beta.3.9.0-alpha.12 `[2020.08.23]`](#v370-beta390-alpha12-20200823)
+  - [v3.7.0-beta.3.9.0 `[2020.09.14]`](#v370-beta390-20200914)
     - [Markup Changes](#markup-changes-15)
+    - [Clipper Changes](#clipper-changes-16)
+  - [v3.7.0-beta.3.9.0-alpha.13 `[2020.08.31]`](#v370-beta390-alpha13-20200831)
     - [Clipper Changes](#clipper-changes-17)
-  - [v3.7.0-beta.3.9.0-alpha.11 `[2020.08.17]`:](#v370-beta390-alpha11-20200817)
+  - [v3.7.0-beta.3.9.0-alpha.12 `[2020.08.23]`](#v370-beta390-alpha12-20200823)
     - [Markup Changes](#markup-changes-16)
     - [Clipper Changes](#clipper-changes-18)
-  - [v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`](#v370-beta390-alpha10-20200814)
+  - [v3.7.0-beta.3.9.0-alpha.11 `[2020.08.17]`:](#v370-beta390-alpha11-20200817)
     - [Markup Changes](#markup-changes-17)
     - [Clipper Changes](#clipper-changes-19)
+  - [v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`](#v370-beta390-alpha10-20200814)
+    - [Markup Changes](#markup-changes-18)
+    - [Clipper Changes](#clipper-changes-20)
 
-## v5.1.4 `[2021.07.21]
+## v5.2.0 `[2021.10.09]`
+
+### Markup Changes
+
+- Fix markers with a start or end time of `0` incorrectly loaded from markers json files.
+- Remove unused `outputDuration` key from saved markers json.
+
+### Clipper Changes
+
+- Add `--youtube-dl-alternative`/`-ytda` option.
+  - The options currently are `youtube_dl` or `yt_dlp`.
+  - The `yt_dlp` alternative is currently being more regularly updated and includes some fixes over `youtube_dl`.
+    - For example, some slowdown issues when downloading videos seem to be fixed in `yt_dlp`.
+    - This `yt_clipper` release includes `yt_dlp` `v2021.09.26`.
+  - Usage of `yt_dlp` is currently experimental and may have unexpected behavior.
+    - See <https://github.com/yt-dlp/yt-dlp#differences-in-default-behavior> for more information.
+- Show default option values when printing help with `--help` or the `yt_clipper_options` helper script.
+- Fix incorrect `--preview` help string.
+
+## v5.1.4 `[2021.07.21]`
 
 ### Clipper Changes
 
 - (Win) Fix false positive warnings from anti-virus software.
   - Fixed pyinstaller version to `v4.3`.
 
-## v5.1.3 `[2021.07.19]
+## v5.1.3 `[2021.07.19]`
 
 ### Clipper Changes
 
 - Update youtube_dl dependency from [`v2021.04.26`](https://github.com/ytdl-org/youtube-dl/releases/tag/2021.04.26) to [`v2021.06.06`](https://github.com/ytdl-org/youtube-dl/releases/tag/2021.06.06)
 
-## v5.1.2 `[2021.04.30]
+## v5.1.2 `[2021.04.30]`
 
 ### Markup Changes
 
 - Fix marker pair looping bypassed when manipulating crop and crop chart not yet initialized.
 
-## v5.1.1 `[2021.04.29]
+## v5.1.1 `[2021.04.29]`
 
 ### Markup Changes
 
@@ -96,7 +118,7 @@ This changelog records all the changes to `yt_clipper` after version numbers bet
 
 - (Mac) Fix helper scripts not recognized as executables (lacking executable permissions).
 
-## v5.1.0 `[2021.04.27]
+## v5.1.0 `[2021.04.27]`
 
 ### Markup Changes
 
@@ -109,7 +131,7 @@ This changelog records all the changes to `yt_clipper` after version numbers bet
 - Fix ffmpeg crash on long YouTube dash manifests by skipping the manifest.
 - Update youtube_dl dependency from [`v2021.04.07`](https://github.com/ytdl-org/youtube-dl/releases/tag/2021.04.07) to [`v2021.04.26`](https://github.com/ytdl-org/youtube-dl/releases/tag/2021.04.26)
 
-## v5.0.0 `[2021.04.15]
+## v5.0.0 `[2021.04.15]`
 
 ### General Changes
 

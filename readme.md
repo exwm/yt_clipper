@@ -581,4 +581,5 @@ These dependencies must be manually installed when not using the clipper script 
 
 For a complete changelog, including beta and alpha releases,
 see <https://github.com/exwm/yt_clipper/blob/master/changelog.md>.
+
 For pre-version-unification (between `markup` and `clipper` scripts) changelogs see <https://github.com/exwm/yt_clipper/blob/master/changelog-pre-version-unification.md>.
