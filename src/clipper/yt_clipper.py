@@ -21,7 +21,8 @@ from typing import Any, Dict, Union
 
 import coloredlogs
 import verboselogs
-import youtube_dl
+import youtube_dl.version
+import yt_dlp.version
 
 __version__ = '5.1.4'
 
@@ -62,8 +63,14 @@ def main():
 
     setUpLogger(cs)
 
+    if cs.settings["youtubeDLAlternative"] == 'yt_dlp':
+      import yt_dlp as youtube_dl
+    else:
+      import youtube_dl
+    
+
     logger.report(f'yt_clipper version: {__version__}')
-    logger.report(f'youtube_dl version: {youtube_dl.version.__version__}')
+    logger.report(f'{cs.settings["youtubeDLAlternative"]} version: {youtube_dl.version.__version__}')
     logger.info('-' * 80)
 
     if defArgs:
@@ -341,6 +348,7 @@ def notifyOnComplete(titleSuffix: str):
     n.message = f'Processed {titleSuffix}.json.'
     n.send(block=False)
 
+
 class ArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
     def _get_help_string(self, action):
         help_str = action.help
@@ -354,13 +362,14 @@ class ArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
                         help_str += ' (default: %(default)s)'
         return help_str
 
+
 def getArgParser():
     parser = argparse.ArgumentParser(
         description='Generate trimmed webms from input video.',
         formatter_class=ArgumentDefaultsHelpFormatter)
     parser.add_argument(
         '-v', '--version', action='version',
-        version=f'''%(prog)s v{__version__}, youtube_dl v{youtube_dl.version.__version__}'''
+        version=f'''%(prog)s v{__version__}, youtube_dl v{youtube_dl.version.__version__}, yt_dlp v{yt_dlp.version.__version__}'''
     )
     parser.add_argument(
         '--markers-json', '-j', required=True, dest='json',
@@ -677,6 +686,9 @@ def getArgParser():
                         help='Username passed to youtube-dl for authentication.')
     parser.add_argument('--ytdl-password', '-yp', dest='password', default='',
                         help='Password passed to youtube-dl for authentication.')
+
+    parser.add_argument('--youtube-dl-alternative', '-ytdla', dest="youtubeDLAlternative", choices=['youtube_dl', 'yt_dlp'], default='youtube_dl',
+       help='Choose a youtube_dl alternative for downloading videos.')
     return parser
 
 
