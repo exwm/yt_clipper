@@ -24,7 +24,7 @@ import verboselogs
 import youtube_dl.version
 import yt_dlp.version
 
-__version__ = '5.1.4'
+__version__ = '5.2.0'
 
 logger = verboselogs.VerboseLogger(__name__)
 
@@ -64,10 +64,9 @@ def main():
     setUpLogger(cs)
 
     if cs.settings["youtubeDLAlternative"] == 'yt_dlp':
-      import yt_dlp as youtube_dl
+        import yt_dlp as youtube_dl
     else:
-      import youtube_dl
-    
+        import youtube_dl
 
     logger.report(f'yt_clipper version: {__version__}')
     logger.report(f'{cs.settings["youtubeDLAlternative"]} version: {youtube_dl.version.__version__}')
@@ -688,7 +687,7 @@ def getArgParser():
                         help='Password passed to youtube-dl for authentication.')
 
     parser.add_argument('--youtube-dl-alternative', '-ytdla', dest="youtubeDLAlternative", choices=['youtube_dl', 'yt_dlp'], default='youtube_dl',
-       help='Choose a youtube_dl alternative for downloading videos.')
+                        help='Choose a youtube_dl alternative for downloading videos.')
     return parser
 
 
