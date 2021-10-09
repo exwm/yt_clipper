@@ -12,16 +12,16 @@ import shlex
 import subprocess
 import sys
 import time
+from dataclasses import dataclass, field
 from fractions import Fraction
 from functools import reduce
 from math import floor, log, pi
 from pathlib import Path
-from typing import Any, Dict, Type, Union
+from typing import Any, Dict, Union
 
 import coloredlogs
 import verboselogs
 import youtube_dl
-from dataclasses import dataclass, field
 
 __version__ = '5.1.4'
 
@@ -634,9 +634,7 @@ def getArgParser():
     parser.add_argument(
         '--preview', '-p', action='store_true',
         help=" ".join([
-            'Pass in semicolon separated lists of marker pairs.',
-            'Lists of marker pairs are comma-separated numbers or dash separated ranges.',
-            '(eg 1-3,7;4-6,9)',
+            'Enable preview mode. Skips generating clips and instead prompts for marker pairs to preview.',
         ])
     )
     parser.add_argument('--no-auto-find-input-video', '-nafiv', dest='noAutoFindInputVideo', action='store_true',
