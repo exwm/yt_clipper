@@ -76,7 +76,7 @@ This changelog records all the changes to `yt_clipper` after version numbers bet
 
 ### Clipper Changes
 
-- Fix `yt_dlp` alternative not being used even when set using  `--youtube-dl-alternative yt_dlp` or `-ytda yt_dlp`. 
+- Fix `yt_dlp` alternative not being used even when set using  `--youtube-dl-alternative yt_dlp` or `-ytdla yt_dlp`. 
 - Update `yt_dlp` dependency from `v2021.09.26` to `v2021.10.10`.
   - Includes some fixes to downloading YouTube video information.
   - See <https://github.com/yt-dlp/yt-dlp/releases/tag/2021.10.09> and <https://github.com/yt-dlp/yt-dlp/releases/tag/2021.10.10>.
