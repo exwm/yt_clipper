@@ -63,6 +63,7 @@ def main():
 
     setUpLogger(cs)
 
+    global youtube_dl
     if cs.settings["youtubeDLAlternative"] == 'yt_dlp':
         import yt_dlp as youtube_dl
     else:
