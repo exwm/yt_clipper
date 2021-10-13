@@ -93,6 +93,7 @@ The contents of the quickstart guide are included here for convenience:
   - [Gamma Correction](#gamma-correction)
 - [Clipper Script Source](#clipper-script-source)
 - [Clipper Script Usage](#clipper-script-usage)
+  - [Clipper Default Argument Files](#clipper-default-argument-files)
 - [Clipper Script Preview Shortcuts](#clipper-script-preview-shortcuts)
 - [Clipper Script Installation](#clipper-script-installation)
   - [Manual and Beta/Alpha Version Installation](#manual-and-betaalpha-version-installation)
@@ -486,6 +487,28 @@ python ./yt_clipper.py -j markers.json --input-video ./clip.webm  # provide a lo
 python ./yt_clipper.py -j markers.json --preview  # preview marker pairs using ffplay
 
 python ./yt_clipper.py -j markers.json --format bestvideo[width<=1080] # specify download format used by youtube-dl
+```
+
+## Clipper Default Argument Files
+
+Default arguments for the `clipper` script may be set using a simple file format.
+A `default_args.txt` file with comments explaining the usage is provided with the clipper script installation.
+The file contents are copied below for convenience:
+
+```txt
+# By default, this args file will be read by yt_clipper to set default arguments.
+# To see all arguments use the `yt_clipper_options` helper script or the `-h` argument.
+# Lines that begin with a `#` in this file are comments and are ignored.
+# To use other arg files use the `--arg-files` argument outside of an arg file.
+
+
+# The following commented lines provide an example of how to use this file.
+# The lines can be uncommented (by removing the `#`) to test their effects.
+
+# --audio
+# --two-pass
+# -di -dn 2
+# --youtube-dl-alternative yt_dlp
 ```
 
 # Clipper Script Preview Shortcuts

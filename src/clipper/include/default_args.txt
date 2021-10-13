@@ -10,3 +10,4 @@
 # --audio
 # --two-pass
 # -di -dn 2
+# --youtube-dl-alternative yt_dlp
