@@ -93,7 +93,7 @@ The contents of the quickstart guide are included here for convenience:
   - [Gamma Correction](#gamma-correction)
 - [Clipper Script Source](#clipper-script-source)
 - [Clipper Script Usage](#clipper-script-usage)
-  - [Clipper Default Argument Files](#clipper-default-argument-files)
+  - [Clipper Default Arguments Files](#clipper-default-arguments-files)
 - [Clipper Script Preview Shortcuts](#clipper-script-preview-shortcuts)
 - [Clipper Script Installation](#clipper-script-installation)
   - [Manual and Beta/Alpha Version Installation](#manual-and-betaalpha-version-installation)
@@ -489,7 +489,7 @@ python ./yt_clipper.py -j markers.json --preview  # preview marker pairs using f
 python ./yt_clipper.py -j markers.json --format bestvideo[width<=1080] # specify download format used by youtube-dl
 ```
 
-## Clipper Default Argument Files
+## Clipper Default Arguments Files
 
 Default arguments for the `clipper` script may be set using a simple file format.
 A `default_args.txt` file with comments explaining the usage is provided with the clipper script installation.
