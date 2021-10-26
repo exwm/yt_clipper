@@ -24,7 +24,7 @@ import verboselogs
 import youtube_dl.version
 import yt_dlp.version
 
-__version__ = '5.2.1'
+__version__ = '5.3.0'
 
 logger = verboselogs.VerboseLogger(__name__)
 
