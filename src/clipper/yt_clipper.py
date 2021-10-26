@@ -687,7 +687,7 @@ def getArgParser():
     parser.add_argument('--ytdl-password', '-yp', dest='password', default='',
                         help='Password passed to youtube-dl for authentication.')
 
-    parser.add_argument('--youtube-dl-alternative', '-ytdla', dest="youtubeDLAlternative", choices=['youtube_dl', 'yt_dlp'], default='youtube_dl',
+    parser.add_argument('--youtube-dl-alternative', '-ytdla', dest="youtubeDLAlternative", choices=['youtube_dl', 'yt_dlp'], default='yt_dlp',
                         help='Choose a youtube_dl alternative for downloading videos.')
     return parser
 
