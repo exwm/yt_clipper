@@ -78,7 +78,7 @@ This changelog records all the changes to `yt_clipper` after version numbers bet
 
 ### Clipper Changes
 
-- Note: Change default youtube-dl alternative (`--youtube-dl-alternative`) to `yt_dlp`.
+- Change default youtube-dl alternative (`--youtube-dl-alternative`) to `yt_dlp`.
 - Update `yt_dlp` dependency from `v2021.10.10` to `v2021.10.22`.
   - See <https://github.com/yt-dlp/yt-dlp/releases/tag/2021.10.22>.
 
