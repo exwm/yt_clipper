@@ -19,6 +19,7 @@ from math import floor, log, pi
 from pathlib import Path
 from typing import Any, Dict, Union
 
+import certifi
 import coloredlogs
 import verboselogs
 import youtube_dl.version
@@ -151,7 +152,9 @@ def setupPaths(cs: ClipperState):
             cp.ffprobePath += '.exe'
             cp.ffplayPath += '.exe'
         if sys.platform == 'darwin':
-            os.environ['SSL_CERT_FILE'] = "certifi/cacert.pem"
+            certifi_cacert_path = certifi.where()
+            os.environ['SSL_CERT_FILE'] = certifi_cacert_path
+            os.environ['REQUESTS_CA_BUNDLE'] = certifi_cacert_path
 
 
 def enableMinterpEnhancements(cm: ClipperState):

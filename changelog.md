@@ -85,8 +85,6 @@ This changelog records all the changes to `yt_clipper` after version numbers bet
 - Update `yt_dlp` dependency from `v2021.11.10` to `v2021.12.01`.
   - See <https://github.com/yt-dlp/yt-dlp/releases/tag/2021.12.01>.
 
-
-
 ## v5.3.1 `[2021.11.11]`
 
 ### Clipper Changes
