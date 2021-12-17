@@ -183,8 +183,12 @@ export function getEasedValue(
 
 export function seekToSafe(video: HTMLVideoElement, newTime: number) {
   newTime = clampNumber(newTime, 0, video.duration);
-  if (video.currentTime != newTime && !video.seeking) {
-    video.currentTime = newTime;
+  if (!isNaN(newTime) && video.currentTime != newTime && !video.seeking) {
+    try {
+      video.currentTime = newTime;
+    } catch (e) {
+      console.error(e);
+    }
   }
 }
 export function seekBySafe(video: HTMLVideoElement, timeDelta: number) {
