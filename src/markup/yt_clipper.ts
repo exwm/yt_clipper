@@ -25,7 +25,8 @@
 // @match        http*://*.vlive.tv/video/*
 // @match        http*://*.vlive.tv/post/*
 // @noframes
-// @grant         GM_getValue // dummy grant to enable sandboxing
+// dummy grant to enable sandboxing
+// @grant         GM_getValue
 // ==/UserScript==
 
 const __version__ = '5.4.2';
