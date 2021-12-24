@@ -2,8 +2,8 @@
 // ==UserScript==
 // @locale       english
 // @name         yt_clipper
-// @version      5.4.2
-// @version      5.4.2
+// @version      5.5.0
+// @version      5.5.0
 // @description  Mark up YouTube videos and quickly generate clipped webms.
 // @author       elwm
 // @namespace    https://github.com/exwm
@@ -29,7 +29,7 @@
 // @grant         GM_getValue
 // ==/UserScript==
 
-const __version__ = '5.4.2';
+const __version__ = '5.5.0';
 
 import { Chart, ChartConfiguration } from 'chart.js';
 import { html, stripIndent } from 'common-tags';
