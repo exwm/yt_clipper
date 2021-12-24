@@ -760,10 +760,10 @@ def getVideoInfo(cs: ClipperState):
 
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:
         if settings["downloadVideo"]:
-            ydl_info = ydl.extract_info(settings["videoURL"], download=True)
+            ydl_info: Dict[str, Any] = ydl.extract_info(settings["videoURL"], download=True)
             settings["downloadVideoPath"] = f'{settings["downloadVideoPath"]}.mkv'
         else:
-            ydl_info = ydl.extract_info(settings["videoURL"], download=False)
+            ydl_info: Dict[str, Any] = ydl.extract_info(settings["videoURL"], download=False)
 
     if 'requested_formats' in ydl_info:
         rf = ydl_info["requested_formats"]
@@ -806,10 +806,10 @@ def getVideoInfo(cs: ClipperState):
         if settings["isDashAudio"]:
             settings["audioURL"] = filteredDashPath
 
-    getMoreVideoInfo(cs, videoInfo)
+    getMoreVideoInfo(cs, videoInfo, audioInfo)
 
 
-def getMoreVideoInfo(cs: ClipperState, videoInfo):
+def getMoreVideoInfo(cs: ClipperState, videoInfo, audioInfo):
     settings = cs.settings
 
     if settings["inputVideo"]:
@@ -832,6 +832,11 @@ def getMoreVideoInfo(cs: ClipperState, videoInfo):
         settings["r_frame_rate"] = videoInfo["fps"]
 
     logger.report(f'Video Title: {settings["videoTitle"]}')
+    logger.report(f'Video Format: {videoInfo["vcodec"]} ({videoInfo["format_id"]})' +
+                  (' [Uses MPEG-DASH]' if settings["isDashVideo"] else ''))
+    if settings["audio"] and isinstance(audioInfo, dict):
+        logger.report(f'Audio Format: {audioInfo["acodec"]} ({audioInfo["format_id"]})' +
+                      (' [Uses MPEG-DASH]' if settings["isDashAudio"] else ''))
     logger.report(f'Video Width: {settings["width"]}, Video Height: {settings["height"]}')
     logger.report(f'Video FPS: {settings["r_frame_rate"]}, Video Bitrate: {settings["bit_rate"]}kbps')
 
