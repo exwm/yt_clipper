@@ -749,7 +749,7 @@ def getVideoInfo(cs: ClipperState):
     ydl_opts = {'format': settings["format"], 'forceurl': True,
                 'merge_output_format': 'mkv',
                 'outtmpl': f'{settings["downloadVideoPath"]}.%(ext)s', "cachedir": False,
-                'youtube_include_dash_manifest': False}
+                'youtube_include_dash_manifest': True}
 
     if settings["username"] != '' or settings["password"] != '':
         ydl_opts["username"] = settings["username"]
