@@ -27,7 +27,22 @@ import yt_dlp.version
 
 __version__ = '5.5.0'
 
-logger = verboselogs.VerboseLogger(__name__)
+
+class YTCLogger(verboselogs.VerboseLogger):
+    def important(self, msg, *args, **kwargs):
+        self.log(29, msg, *args, **kwargs)
+
+    def notice(self, msg, *args, **kwargs):
+        self.log(32, msg, *args, **kwargs)
+
+    def header(self, msg, *args, **kwargs):
+        self.log(33, msg, *args, **kwargs)
+
+    def report(self, msg, *args, **kwargs):
+        self.log(34, msg, *args, **kwargs)
+
+
+logger = YTCLogger(__name__)
 
 
 @dataclass()
@@ -180,11 +195,6 @@ def setUpLogger(cs: ClipperState):
     verboselogs.add_log_level(33, "HEADER")
     verboselogs.add_log_level(34, "REPORT")
 
-    logger.important = lambda msg: logger.log(29, msg)
-    logger.notice = lambda msg: logger.log(32, msg)
-    logger.header = lambda msg: logger.log(33, msg)
-    logger.report = lambda msg: logger.log(34, msg)
-
     formatString = r'[%(asctime)s] (ln %(lineno)d) %(levelname)s: %(message)s'
     coloredlogs.DEFAULT_LOG_FORMAT = formatString
     coloredlogs.DEFAULT_FIELD_STYLES['levelname'] = {'color': 'white'}
@@ -194,7 +204,7 @@ def setUpLogger(cs: ClipperState):
     coloredlogs.DEFAULT_LEVEL_STYLES['REPORT'] = {'color': 'cyan'}
 
     datefmt = "%y-%m-%d %H:%M:%S"
-    coloredlogs.install(level=logging.VERBOSE, datefmt=datefmt)
+    coloredlogs.install(level=verboselogs.VERBOSE, datefmt=datefmt)
 
     coloredFormatter = coloredlogs.ColoredFormatter(datefmt=datefmt)
 
@@ -311,6 +321,7 @@ def makeClips(cs: ClipperState):
 def previewClips(cs: ClipperState):
     settings = cs.settings
     while True:
+        inputStr = ''
         try:
             inputStr = input(
                 f'Enter a valid marker pair number (between {1} and {len(settings["markerPairs"])}) or quit(q): ')
@@ -766,8 +777,7 @@ def getVideoInfo(cs: ClipperState):
             ydl_info: Dict[str, Any] = ydl.extract_info(settings["videoURL"], download=False)
 
     if 'requested_formats' in ydl_info:
-        rf = ydl_info["requested_formats"]
-        videoInfo = rf[0]
+        videoInfo = ydl_info["requested_formats"][0]
     else:
         videoInfo = ydl_info
 
@@ -786,7 +796,7 @@ def getVideoInfo(cs: ClipperState):
             settings["videoURL"] = videoInfo["url"]
 
     if 'requested_formats' in ydl_info:
-        audioInfo = rf[1]
+        audioInfo = ydl_info["requested_formats"][1]
     else:
         audioInfo = videoInfo
 
