@@ -282,7 +282,7 @@ def getInputVideo(cs: ClipperState):
                         f'Would you like to automatically download the video? (y/n): ')
                     if downloadVideo == 'yes' or downloadVideo == 'y':
                         settings["downloadVideo"] = True
-            except:
+            except Exception:
                 pass
 
     if settings["inputVideo"]:
@@ -2036,7 +2036,7 @@ def markerPairsCSVToList(markerPairsCSV: str):
             mergeRange = mergeRange.split('-')
             startPair = int(mergeRange[0])
             endPair = int(mergeRange[1])
-            if (startPair <= endPair):
+            if startPair <= endPair:
                 for i in range(startPair, endPair + 1):
                     markerPairsList.append(i)
             else:
@@ -2148,7 +2148,7 @@ def getVideoURL(platform: str, videoID: str):
         return f'https://www.vlive.tv/video/{videoID}'
     else:
         logger.fatal(f"Unknown platform: {platform}")
-        exit(1)
+        sys.exit(1)
 
 
 def getDefaultEncodeSettings(videobr: int):
