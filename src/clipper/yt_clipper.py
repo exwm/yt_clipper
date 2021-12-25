@@ -812,6 +812,9 @@ def getVideoInfo(cs: ClipperState):
 def getMoreVideoInfo(cs: ClipperState, videoInfo, audioInfo):
     settings = cs.settings
 
+    # TODO: ffprobe all streams including audio
+    # TODO: merge properties fetched from ffprobe and ytdl into common namespace
+    # TODO: improve compatibility between inputVideo mode and default stream mode
     if settings["inputVideo"]:
         probedSettings = ffprobeVideoProperties(cs, settings["inputVideo"])
     else:
@@ -832,11 +835,14 @@ def getMoreVideoInfo(cs: ClipperState, videoInfo, audioInfo):
         settings["r_frame_rate"] = videoInfo["fps"]
 
     logger.report(f'Video Title: {settings["videoTitle"]}')
-    logger.report(f'Video Format: {videoInfo["vcodec"]} ({videoInfo["format_id"]})' +
-                  (' [Uses MPEG-DASH]' if settings["isDashVideo"] else ''))
-    if settings["audio"] and isinstance(audioInfo, dict):
-        logger.report(f'Audio Format: {audioInfo["acodec"]} ({audioInfo["format_id"]})' +
-                      (' [Uses MPEG-DASH]' if settings["isDashAudio"] else ''))
+
+    if not settings["inputVideo"]:
+        logger.report(f'Video Format: {videoInfo["vcodec"]} ({videoInfo["format_id"]})' +
+                      (' [Uses MPEG-DASH]' if settings["isDashVideo"] else ''))
+        if settings["audio"] and isinstance(audioInfo, dict):
+            logger.report(f'Audio Format: {audioInfo["acodec"]} ({audioInfo["format_id"]})' +
+                          (' [Uses MPEG-DASH]' if settings["isDashAudio"] else ''))
+
     logger.report(f'Video Width: {settings["width"]}, Video Height: {settings["height"]}')
     logger.report(f'Video FPS: {settings["r_frame_rate"]}, Video Bitrate: {settings["bit_rate"]}kbps')
 
@@ -895,7 +901,7 @@ def getGlobalSettings(cs: ClipperState):
                 sys.exit(1)
 
     if settings["inputVideo"]:
-        getMoreVideoInfo(cs, {})
+        getMoreVideoInfo(cs, {}, {})
     else:
         getVideoInfo(cs)
 
