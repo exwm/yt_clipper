@@ -13,7 +13,7 @@ on:
 env:
   NAME: yt_clipper
   VERSION: 5.4.2
-  FFMPEG_VERSION: 20200831-4a11a6f
+  FFMPEG_VERSION: 4.4.1
   FFMPEG_DL_PREFIX: https://github.com/exwm/yt_clipper_bindeps/releases/download
 
 jobs:
@@ -38,7 +38,7 @@ jobs:
           echo "FULL_NAME=${{env.NAME}}_${{matrix.shortos}}_${{env.VERSION}}" >> $GITHUB_ENV
           echo "NOPLAT_NAME=${{env.NAME}}_${{env.VERSION}}" >> $GITHUB_ENV
           echo "FFMPEG_NAME=ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}64-shared" >> $GITHUB_ENV
-          echo "FFMPEG_DL=${{env.FFMPEG_DL_PREFIX}}/${{env.FFMPEG_VERSION}}/ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}64-shared.zip" >> $GITHUB_ENV
+          echo "FFMPEG_DL=${{env.FFMPEG_DL_PREFIX}}/${{env.FFMPEG_VERSION}}/ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}64.zip" >> $GITHUB_ENV
 
       - uses: actions/checkout@v2
 
