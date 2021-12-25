@@ -37,7 +37,7 @@ jobs:
         run: |
           echo "FULL_NAME=${{env.NAME}}_${{matrix.shortos}}_${{env.VERSION}}" >> $GITHUB_ENV
           echo "NOPLAT_NAME=${{env.NAME}}_${{env.VERSION}}" >> $GITHUB_ENV
-          echo "FFMPEG_NAME=ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}64-shared" >> $GITHUB_ENV
+          echo "FFMPEG_NAME=ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}64" >> $GITHUB_ENV
           echo "FFMPEG_DL=${{env.FFMPEG_DL_PREFIX}}/${{env.FFMPEG_VERSION}}/ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}64.zip" >> $GITHUB_ENV
 
       - uses: actions/checkout@v2
