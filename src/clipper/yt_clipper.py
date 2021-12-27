@@ -27,6 +27,8 @@ import yt_dlp.version
 
 __version__ = '5.5.1'
 
+UNKNOWN_PROPERTY = "unknown"
+
 
 class YTCLogger(verboselogs.VerboseLogger):
     def important(self, msg, *args, **kwargs):
@@ -118,6 +120,15 @@ def main():
 
     if cs.settings["notifyOnCompletion"]:
         notifyOnComplete(cs.settings["titleSuffix"])
+
+
+def dictTryGetKeys(d: dict, *keys: str, default=None):
+    for key in keys:
+        value = d.get(key)
+        if value is not None:
+            return value
+
+    return default
 
 
 def getArgs():
@@ -293,7 +304,7 @@ def getInputVideo(cs: ClipperState):
             sys.exit(1)
         else:
             logger.info(
-                f'Automatically using found input video file "{settings["inputVideo"]}".')
+                f'Using input video file "{settings["inputVideo"]}".')
 
 
 def makeClips(cs: ClipperState):
@@ -749,6 +760,7 @@ def loadSettings(settings: Settings):
 
         settings["isDashVideo"] = False
         settings["isDashAudio"] = False
+        settings["mergedStreams"] = False
         if "enableSpeedMaps" not in settings:
             settings["enableSpeedMaps"] = not settings.get("noSpeedMaps", False)
 
@@ -778,8 +790,11 @@ def getVideoInfo(cs: ClipperState):
 
     if 'requested_formats' in ydl_info:
         videoInfo = ydl_info["requested_formats"][0]
+        audioInfo = ydl_info["requested_formats"][1]
     else:
         videoInfo = ydl_info
+        audioInfo = videoInfo
+        settings["mergedStreams"] = True
 
     dashFormatIDs = []
     dashVideoFormatID = None
@@ -794,11 +809,6 @@ def getVideoInfo(cs: ClipperState):
             dashFormatIDs.append(dashVideoFormatID)
         else:
             settings["videoURL"] = videoInfo["url"]
-
-    if 'requested_formats' in ydl_info:
-        audioInfo = ydl_info["requested_formats"][1]
-    else:
-        audioInfo = videoInfo
 
     settings["audiobr"] = int(audioInfo["abr"])
 
@@ -819,7 +829,7 @@ def getVideoInfo(cs: ClipperState):
     getMoreVideoInfo(cs, videoInfo, audioInfo)
 
 
-def getMoreVideoInfo(cs: ClipperState, videoInfo, audioInfo):
+def getMoreVideoInfo(cs: ClipperState, videoInfo: dict, audioInfo: dict):
     settings = cs.settings
 
     # TODO: ffprobe all streams including audio
@@ -846,12 +856,17 @@ def getMoreVideoInfo(cs: ClipperState, videoInfo, audioInfo):
 
     logger.report(f'Video Title: {settings["videoTitle"]}')
 
-    if not settings["inputVideo"]:
-        logger.report(f'Video Format: {videoInfo["vcodec"]} ({videoInfo["format_id"]})' +
-                      (' [Uses MPEG-DASH]' if settings["isDashVideo"] else ''))
-        if settings["audio"] and isinstance(audioInfo, dict):
-            logger.report(f'Audio Format: {audioInfo["acodec"]} ({audioInfo["format_id"]})' +
-                          (' [Uses MPEG-DASH]' if settings["isDashAudio"] else ''))
+    videoFormat = dictTryGetKeys(videoInfo, "vcodec", "format", default=UNKNOWN_PROPERTY)
+    videoFormatID = dictTryGetKeys(videoInfo, "format_id", default=UNKNOWN_PROPERTY)
+    audioFormat = dictTryGetKeys(audioInfo, "acodec", "format", default=UNKNOWN_PROPERTY)
+    audioFormatID = dictTryGetKeys(audioInfo, "format_id", default=UNKNOWN_PROPERTY)
+
+    logger.report(f'Video Format: {videoFormat} ({videoFormatID})' +
+                  (' [Uses MPEG-DASH]' if settings["isDashVideo"] else ''))
+    # TODO: improve detection of when unique audio stream format information is available
+    if videoFormat != audioFormat:
+        logger.report(f'Audio Format: {audioFormat} ({audioFormatID})' +
+                      (' [Uses MPEG-DASH]' if settings["isDashAudio"] else ''))
 
     logger.report(f'Video Width: {settings["width"]}, Video Height: {settings["height"]}')
     logger.report(f'Video FPS: {settings["r_frame_rate"]}, Video Bitrate: {settings["bit_rate"]}kbps')

@@ -17,4 +17,5 @@ disable=too-many-lines,
         too-many-branches,
         too-many-locals,
         too-many-statements,
-        line-too-long
+        line-too-long,
+        fixme
