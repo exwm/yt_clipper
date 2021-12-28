@@ -2247,4 +2247,5 @@ def getDenoisePreset(level: int) -> DictStrAny:
     return denoisePreset
 
 
-main()
+if __name__ == "__main__":
+    main()
