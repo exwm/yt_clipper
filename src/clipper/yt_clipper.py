@@ -17,7 +17,7 @@ from fractions import Fraction
 from functools import reduce
 from math import floor, log, pi
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
 
 import certifi
 import coloredlogs
@@ -27,20 +27,27 @@ import yt_dlp.version
 
 __version__ = '5.5.2'
 
+ExtendedRealNumber = Union[int, float, Fraction]
+DictStrAny = Dict[str, Any]
+SpeedMap = List[DictStrAny]
+CropMap = List[DictStrAny]
+Settings = Dict[str, Any]
+
+
 UNKNOWN_PROPERTY = "unknown"
 
 
 class YTCLogger(verboselogs.VerboseLogger):
-    def important(self, msg, *args, **kwargs):
+    def important(self, msg, *args, **kwargs) -> None:
         self.log(29, msg, *args, **kwargs)
 
-    def notice(self, msg, *args, **kwargs):
+    def notice(self, msg, *args, **kwargs) -> None:
         self.log(32, msg, *args, **kwargs)
 
-    def header(self, msg, *args, **kwargs):
+    def header(self, msg, *args, **kwargs) -> None:
         self.log(33, msg, *args, **kwargs)
 
-    def report(self, msg, *args, **kwargs):
+    def report(self, msg, *args, **kwargs) -> None:
         self.log(34, msg, *args, **kwargs)
 
 
@@ -57,9 +64,6 @@ class ClipperPaths:
     logFilePath: str = ''
 
 
-Settings = Dict[str, Any]
-
-
 @dataclass(frozen=True)
 class ClipperState:
     """Central state for yt_clipper functions."""
@@ -69,7 +73,7 @@ class ClipperState:
     reportStreamColored = io.StringIO()
 
 
-def main():
+def main() -> None:
     cs = ClipperState()
 
     args, unknown, defArgs, argFiles = getArgs()
@@ -122,7 +126,7 @@ def main():
         notifyOnComplete(cs.settings["titleSuffix"])
 
 
-def dictTryGetKeys(d: dict, *keys: str, default=None):
+def dictTryGetKeys(d: dict, *keys: str, default=None) -> Any:
     for key in keys:
         value = d.get(key)
         if value is not None:
@@ -131,13 +135,13 @@ def dictTryGetKeys(d: dict, *keys: str, default=None):
     return default
 
 
-def getArgs():
+def getArgs() -> Tuple[Dict[str, Any], List[str], List[str], List[str]]:
     parser = getArgParser()
 
-    argFiles = parser.parse_known_args()[0].argFiles
+    argFiles: List[str] = parser.parse_known_args()[0].argFiles
 
     argv = sys.argv[1:]
-    defArgs = []
+    defaultArgs: List[str] = []
     for argFile in argFiles:
         args = []
         if Path(argFile).is_file():
@@ -145,9 +149,9 @@ def getArgs():
                 lines = [l.lstrip() for l in f.readlines()]
                 lines = "".join([l for l in lines if not l.startswith("#")])
                 args = lines.split()
-                defArgs += args
+                defaultArgs += args
 
-    argv = defArgs + argv
+    argv = defaultArgs + argv
     args, unknown = parser.parse_known_args(argv)
     args = vars(args)
 
@@ -158,10 +162,10 @@ def getArgs():
     args["videoStabilization"] = getVidstabPreset(args["videoStabilization"])
     args["denoise"] = getDenoisePreset(args["denoise"])
 
-    return args, unknown, defArgs, argFiles
+    return args, unknown, defaultArgs, argFiles
 
 
-def setupPaths(cs: ClipperState):
+def setupPaths(cs: ClipperState) -> None:
     settings = cs.settings
     cp = cs.clipper_paths
 
@@ -183,7 +187,7 @@ def setupPaths(cs: ClipperState):
             os.environ['REQUESTS_CA_BUNDLE'] = certifi_cacert_path
 
 
-def enableMinterpEnhancements(cm: ClipperState):
+def enableMinterpEnhancements(cm: ClipperState) -> None:
     settings = cm.settings
     cp = cm.clipper_paths
     if settings["enableMinterpEnhancements"] and sys.platform == 'win32':
@@ -197,7 +201,7 @@ def enableMinterpEnhancements(cm: ClipperState):
         settings["enableMinterpEnhancements"] = False
 
 
-def setUpLogger(cs: ClipperState):
+def setUpLogger(cs: ClipperState) -> None:
     settings = cs.settings
     cp = cs.clipper_paths
 
@@ -236,7 +240,7 @@ def setUpLogger(cs: ClipperState):
         logger.addHandler(fileHandler)
 
 
-def getInputVideo(cs: ClipperState):
+def getInputVideo(cs: ClipperState) -> None:
     settings = cs.settings
     cp = cs.clipper_paths
 
@@ -307,7 +311,7 @@ def getInputVideo(cs: ClipperState):
                 f'Using input video file "{settings["inputVideo"]}".')
 
 
-def makeClips(cs: ClipperState):
+def makeClips(cs: ClipperState) -> None:
     settings = cs.settings
 
     nMarkerPairs = len(settings["markerPairs"])
@@ -329,7 +333,7 @@ def makeClips(cs: ClipperState):
         mergeClips(cs)
 
 
-def previewClips(cs: ClipperState):
+def previewClips(cs: ClipperState) -> None:
     settings = cs.settings
     while True:
         inputStr = ''
@@ -350,7 +354,7 @@ def previewClips(cs: ClipperState):
                 f'{markerPairIndex + 1} is not a valid marker pair number.')
 
 
-def printReport(cs: ClipperState):
+def printReport(cs: ClipperState) -> None:
     cp = cs.clipper_paths
 
     reportColored = cs.reportStreamColored.getvalue()
@@ -364,7 +368,7 @@ def printReport(cs: ClipperState):
             f.write(report)
 
 
-def notifyOnComplete(titleSuffix: str):
+def notifyOnComplete(titleSuffix: str) -> None:
     from notifypy import Notify
 
     n = Notify()
@@ -375,7 +379,7 @@ def notifyOnComplete(titleSuffix: str):
 
 
 class ArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
-    def _get_help_string(self, action):
+    def _get_help_string(self, action) -> str:
         help_str = action.help
         if '%(default)' not in action.help:
             if action.default is not argparse.SUPPRESS:
@@ -388,7 +392,7 @@ class ArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
         return help_str
 
 
-def getArgParser():
+def getArgParser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description='Generate trimmed webms from input video.',
         formatter_class=ArgumentDefaultsHelpFormatter)
@@ -717,23 +721,23 @@ def getArgParser():
     return parser
 
 
-def getMarkerPairQueue(nMarkerPairs: int, onlyArg, exceptArg):
+def getMarkerPairQueue(nMarkerPairs: int, onlyMarkerPairs: str, exceptMarkerPairs: str) -> Set[int]:
     markerPairQueue = set(range(nMarkerPairs))
     onlyPairsSet = markerPairQueue
     exceptPairsSet = set()
 
-    if onlyArg != '':
+    if onlyMarkerPairs != '':
         try:
-            onlyPairsList = markerPairsCSVToList(onlyArg)
+            onlyPairsList = markerPairsCSVToList(onlyMarkerPairs)
         except ValueError:
-            logger.critical(f'Argument provided to --only was invalid: {onlyArg}')
+            logger.critical(f'Argument provided to --only was invalid: {onlyMarkerPairs}')
             sys.exit(1)
         onlyPairsSet = {x - 1 for x in set(onlyPairsList)}
-    if exceptArg != '':
+    if exceptMarkerPairs != '':
         try:
-            exceptPairsList = markerPairsCSVToList(exceptArg)
+            exceptPairsList = markerPairsCSVToList(exceptMarkerPairs)
         except ValueError:
-            logger.critical(f'Argument provided to --except was invalid: {exceptArg}')
+            logger.critical(f'Argument provided to --except was invalid: {exceptMarkerPairs}')
             sys.exit(1)
         exceptPairsSet = {x - 1 for x in set(exceptPairsList)}
 
@@ -742,7 +746,7 @@ def getMarkerPairQueue(nMarkerPairs: int, onlyArg, exceptArg):
     return markerPairQueue
 
 
-def loadSettings(settings: Settings):
+def loadSettings(settings: Settings) -> None:
     with open(settings["json"], 'r', encoding='utf-8-sig') as file:
         markersJson = file.read()
         markersDict = json.loads(markersJson)
@@ -765,7 +769,7 @@ def loadSettings(settings: Settings):
             settings["enableSpeedMaps"] = not settings.get("noSpeedMaps", False)
 
 
-def getVideoInfo(cs: ClipperState):
+def getVideoInfo(cs: ClipperState) -> None:
     settings = cs.settings
     cp = cs.clipper_paths
 
@@ -796,7 +800,7 @@ def getVideoInfo(cs: ClipperState):
         audioInfo = videoInfo
         settings["mergedStreams"] = True
 
-    dashFormatIDs = []
+    dashFormatIDs: List[str] = []
     dashVideoFormatID = None
     dashAudioFormatID = None
 
@@ -829,7 +833,7 @@ def getVideoInfo(cs: ClipperState):
     getMoreVideoInfo(cs, videoInfo, audioInfo)
 
 
-def getMoreVideoInfo(cs: ClipperState, videoInfo: dict, audioInfo: dict):
+def getMoreVideoInfo(cs: ClipperState, videoInfo: dict, audioInfo: dict) -> None:
     settings = cs.settings
 
     # TODO: ffprobe all streams including audio
@@ -874,7 +878,7 @@ def getMoreVideoInfo(cs: ClipperState, videoInfo: dict, audioInfo: dict):
     autoSetCropMultiples(settings)
 
 
-def getSubs(cs: ClipperState):
+def getSubs(cs: ClipperState) -> None:
     cp = cs.clipper_paths
     settings = cs.settings
 
@@ -890,7 +894,7 @@ def getSubs(cs: ClipperState):
         ydl.download([settings["videoURL"]])
 
 
-def getGlobalSettings(cs: ClipperState):
+def getGlobalSettings(cs: ClipperState) -> None:
     settings = cs.settings
     cp = cs.clipper_paths
 
@@ -973,14 +977,14 @@ def getGlobalSettings(cs: ClipperState):
                  f'Video Stabilization Dynamic Zoom: {settings["videoStabilizationDynamicZoom"]}'))
 
 
-def autoScaleCropMap(cropMap, settings):
+def autoScaleCropMap(cropMap: List[dict[str, Any]], settings: Settings) -> None:
     for cropPoint in cropMap:
         cropString = cropPoint["crop"]
         cropPoint["crop"], cropPoint["cropComponents"] = getAutoScaledCropComponents(
             cropString, settings)
 
 
-def getAutoScaledCropComponents(cropString, settings, forceEvenDimensions=False):
+def getAutoScaledCropComponents(cropString: str, settings: Settings, forceEvenDimensions=False) -> Tuple[str, Dict[str, float]]:
     cropResWidth = settings["cropResWidth"]
     cropResHeight = settings["cropResHeight"]
     cropComponents = getCropComponents(cropString, cropResWidth, cropResHeight)
@@ -1007,26 +1011,26 @@ def getAutoScaledCropComponents(cropString, settings, forceEvenDimensions=False)
     return scaledCropString, cropComponents
 
 
-def getCropComponents(cropString, maxWidth, maxHeight):
-    cropComponents = cropString.split(':')
+def getCropComponents(cropString: str, maxWidth: int, maxHeight: int) -> Dict[str, float]:
+    cropComponents: List[Any] = cropString.split(':')
     if cropComponents[2] == 'iw':
         cropComponents[2] = maxWidth
     if cropComponents[3] == 'ih':
         cropComponents[3] = maxHeight
-    cropComponents = {'x': float(cropComponents[0]), 'y': float(cropComponents[1]),
-                      'w': float(cropComponents[2]), 'h': float(cropComponents[3])}
-    return cropComponents
+    cropComponentsDict = {'x': float(cropComponents[0]), 'y': float(cropComponents[1]),
+                          'w': float(cropComponents[2]), 'h': float(cropComponents[3])}
+    return cropComponentsDict
 
 
-def getMarkerPairSettings(cs: ClipperState, markerPairIndex: int, skip=False):
+def getMarkerPairSettings(cs: ClipperState, markerPairIndex: int, skip: bool = False) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     settings = cs.settings
     cp = cs.clipper_paths
 
     # marker pair properties
-    mp = settings["markerPairs"][markerPairIndex]
+    mp: dict[str, Any] = settings["markerPairs"][markerPairIndex]
 
     # marker pair settings
-    mps = {**settings, **(mp["overrides"])}
+    mps: dict[str, Any] = {**settings, **(mp["overrides"])}
 
     mp["exists"] = False
     if not mps["preview"]:
@@ -1154,7 +1158,7 @@ def getMarkerPairSettings(cs: ClipperState, markerPairIndex: int, skip=False):
     return (mp, mps)
 
 
-def makeClip(cs: ClipperState, markerPairIndex):
+def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]:
     settings = cs.settings
     cp = cs.clipper_paths
 
@@ -1444,17 +1448,17 @@ def makeClip(cs: ClipperState, markerPairIndex):
             ffmpegVidstabtransform += f' -pass 2'
         ffmpegVidstabtransform += f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
 
-        ffmpegCommands = [ffmpegVidstabdetect, ffmpegVidstabtransform]
+        ffmpegCommands: List[str] = [ffmpegVidstabdetect, ffmpegVidstabtransform]
 
     if not (1 <= len(ffmpegCommands) <= 2):
         logger.error(f'ffmpeg command could not be built.\n')
         logger.error(f'Failed to generate: {mp["fileName"]}\n')
         return {**(settings["markerPairs"][markerPairIndex])}
 
-    return runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp, inputs)
+    return runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp)
 
 
-def getMinterpFilter(mp, mps):
+def getMinterpFilter(mp: Dict[str, Any], mps: Dict[str, Any]) -> str:
     speedMap = mp["speedMap"]
 
     minterpFPS = mps["minterpFPS"]
@@ -1499,7 +1503,7 @@ def getMinterpFilter(mp, mps):
     return minterpFilter
 
 
-def getMinterpFPS(mps, speedMap):
+def getMinterpFPS(mps: DictStrAny, speedMap: SpeedMap) -> Union[ExtendedRealNumber, None]:
     minterpMode = mps["minterpMode"]
     videoFPS = Fraction(mps["r_frame_rate"])
 
@@ -1521,7 +1525,7 @@ def getMinterpFPS(mps, speedMap):
     return minterpFPS
 
 
-def getMaxSpeed(speedMap):
+def getMaxSpeed(speedMap: SpeedMap) -> float:
     maxSpeed = 0.05
     if speedMap is None:
         maxSpeed = 1
@@ -1532,7 +1536,7 @@ def getMaxSpeed(speedMap):
     return maxSpeed
 
 
-def getSubsFilter(cs: ClipperState, mp, mps, markerPairIndex):
+def getSubsFilter(cs: ClipperState, mp: DictStrAny, mps: DictStrAny, markerPairIndex: int) -> str:
     cp = cs.clipper_paths
     import webvtt
 
@@ -1564,7 +1568,7 @@ def getSubsFilter(cs: ClipperState, mp, mps, markerPairIndex):
     return subs_filter
 
 
-def runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp, inputs):
+def runffmpegCommand(settings: Settings, ffmpegCommands: List[str], markerPairIndex: int, mp: DictStrAny) -> DictStrAny:
     ffmpegPass1 = ffmpegCommands[0]
     if len(ffmpegCommands) == 2:
         logger.info('Running first pass...')
@@ -1595,7 +1599,8 @@ def runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp, inputs):
     return {**(settings["markerPairs"][markerPairIndex]), **mp}
 
 
-def getSpeedFilterAndDuration(speedMap, mp, mps, fps):
+def getSpeedFilterAndDuration(speedMap: SpeedMap, mp: DictStrAny, mps: DictStrAny,
+                              fps: Union[float, Fraction]) -> Tuple[str, int, List[int]]:
     if not mp["isVariableSpeed"]:
         duration = mp["duration"] / mp["speed"]
         return f'setpts=(PTS-STARTPTS)/{mp["speed"]}', duration, [0, duration]
@@ -1669,14 +1674,14 @@ def getSpeedFilterAndDuration(speedMap, mp, mps, fps):
     return video_filter_speed_map, outputDuration, outputDurations
 
 
-def getAverageSpeed(speedMap, fps: float):
+def getAverageSpeed(speedMap: SpeedMap, fps: Union[float, Fraction]) -> float:
     fps = Fraction(fps)
     # Account for marker pair start time as trim filter sets start time to ~0
     speedMapStartTime = speedMap[0]["x"]
 
     averageSpeed = 0
     duration = 0
-    for sect, (left, right) in enumerate(zip(speedMap[:-1], speedMap[1:])):
+    for _sect, (left, right) in enumerate(zip(speedMap[:-1], speedMap[1:])):
         startSpeed = left["y"]
         endSpeed = right["y"]
 
@@ -1692,7 +1697,7 @@ def getAverageSpeed(speedMap, fps: float):
     return averageSpeed
 
 
-def getCropFilter(crop, cropMap, mps, fps, easeType='easeInOutSine'):
+def getCropFilter(crop: str, cropMap: CropMap, mps: DictStrAny, fps: Union[float, Fraction], easeType: str = 'easeInOutSine') -> str:
     logger.info('-' * 80)
     fps = Fraction(fps)
     nSects = len(cropMap) - 1
@@ -1732,10 +1737,10 @@ def getCropFilter(crop, cropMap, mps, fps, easeType='easeInOutSine'):
     return cropFilter
 
 
-def getZoomPanFilter(cropMap, mps, fps, easeType='easeInOutSine'):
-    maxSize = getMaxSizeCrop(cropMap)
-    maxWidth = floorToEven(maxSize["width"])
-    maxHeight = floorToEven(maxSize["height"])
+def getZoomPanFilter(cropMap: CropMap, mps: DictStrAny, fps: Union[float, Fraction], easeType: str = 'easeInOutSine') -> Tuple[str, int]:
+    maxSizeCrop = getMaxSizeCrop(cropMap)
+    maxWidth = floorToEven(maxSizeCrop["width"])
+    maxHeight = floorToEven(maxSizeCrop["height"])
     maxSize = maxWidth * maxHeight
 
     fps = Fraction(fps)
@@ -1836,27 +1841,27 @@ def getZoomPanFilter(cropMap, mps, fps, easeType='easeInOutSine'):
     return zoomPanFilter, maxSize
 
 
-def getMaxSizeCrop(cropMap: list):
-    def getSize(cropPoint):
+def getMaxSizeCrop(cropMap: CropMap) -> Dict[str, int]:
+    def getSize(cropPoint: DictStrAny) -> Dict[str, int]:
         _, _, cropW, cropH = cropPoint["crop"].split(':')
         return {"width": int(float(cropW)), "height": int(float(cropH))}
 
-    def getLargerCropSize(cropLeft, cropRight):
+    def getLargerCropSize(cropLeft: DictStrAny, cropRight: DictStrAny) -> DictStrAny:
         left = cropLeft["width"] * cropLeft["height"]
         right = cropRight["width"] * cropRight["height"]
         return cropLeft if left > right else cropRight
 
-    maxSize = reduce(getLargerCropSize, map(getSize, cropMap))
+    maxSizeCrop = reduce(getLargerCropSize, map(getSize, cropMap))
 
-    return maxSize
+    return maxSizeCrop
 
 
-def floorToEven(x: Union[int, str]):
+def floorToEven(x: Union[int, str]) -> int:
     x = int(x)
     return x & ~1
 
 
-def getEasingExpression(easingFunc: str, easeA: str, easeB: str, easeP: str) -> Union[str, None]:
+def getEasingExpression(easingFunc: str, easeA: str, easeB: str, easeP: str) -> Optional[str]:
     easeP = f'(clip({easeP},0,1))'
     easeT = f'(2*{easeP})'
     easeM = f'({easeP}-1)'
@@ -1886,7 +1891,8 @@ def getEasingExpression(easingFunc: str, easeA: str, easeB: str, easeP: str) -> 
     return easingExpression
 
 
-def runffplayCommand(cs: ClipperState, inputs, video_filter, video_filter_before_correction, audio_filter, markerPairIndex, mp, mps):
+def runffplayCommand(cs: ClipperState, inputs: str, video_filter: str, video_filter_before_correction: str,
+                     audio_filter: str, markerPairIndex: int, mp: DictStrAny, mps: DictStrAny) -> None:
     settings = cs.settings
     cp = cs.clipper_paths
 
@@ -1926,7 +1932,7 @@ class MissingMarkerPairFilePath(Exception):
     pass
 
 
-def mergeClips(cs: ClipperState):
+def mergeClips(cs: ClipperState) -> None:
     settings = cs.settings
     cp = cs.clipper_paths
 
@@ -2016,7 +2022,7 @@ def mergeClips(cs: ClipperState):
             pass
 
 
-def checkClipExists(fileName: str, filePath: str, overwrite=False, skip=False):
+def checkClipExists(fileName: str, filePath: str, overwrite: bool = False, skip: bool = False) -> bool:
     fileExists = Path(filePath).is_file()
     if skip:
         logger.notice(f'Skipped generating: "{fileName}"')
@@ -2030,13 +2036,13 @@ def checkClipExists(fileName: str, filePath: str, overwrite=False, skip=False):
     return fileExists
 
 
-def createMergeList(markerPairMergeList):
+def createMergeList(markerPairMergeList: List[str]) -> Generator[Tuple[str, List[str]], None, None]:
     for merge in markerPairMergeList:
         mergeList = markerPairsCSVToList(merge)
         yield merge, mergeList
 
 
-def markerPairsCSVToList(markerPairsCSV: str):
+def markerPairsCSVToList(markerPairsCSV: str) -> List[str]:
     markerPairsCSV = re.sub(r'\s+', '', markerPairsCSV)
     markerPairsCSV = markerPairsCSV.rstrip(',')
     csvRangeValidation = r'^((\d{1,2})|(\d{1,2}-\d{1,2})){1}(,((\d{1,2})|(\d{1,2}-\d{1,2})))*$'
@@ -2062,7 +2068,7 @@ def markerPairsCSVToList(markerPairsCSV: str):
     return markerPairsList
 
 
-def ffprobeVideoProperties(cs: ClipperState, video: str):
+def ffprobeVideoProperties(cs: ClipperState, video: str) -> Optional[DictStrAny]:
     cp = cs.clipper_paths
 
     ffprobeRetries = 3
@@ -2094,7 +2100,7 @@ def ffprobeVideoProperties(cs: ClipperState, video: str):
     return ffprobeData["streams"][0]
 
 
-def autoSetCropMultiples(settings):
+def autoSetCropMultiples(settings: Settings) -> None:
     cropMultipleX = (settings["width"] / settings["cropResWidth"])
     cropMultipleY = (settings["height"] / settings["cropResHeight"])
 
@@ -2118,7 +2124,7 @@ def autoSetCropMultiples(settings):
             logger.info(f'Auto scale crop resolution disabled in settings.')
 
 
-def filterDash(cs: ClipperState, dashManifestUrl, dashFormatIDs):
+def filterDash(cs: ClipperState, dashManifestUrl: str, dashFormatIDs: List[str]) -> str:
     cp = cs.clipper_paths
 
     from urllib import request
@@ -2140,7 +2146,7 @@ def filterDash(cs: ClipperState, dashManifestUrl, dashFormatIDs):
     return filteredDashPath
 
 
-def cleanFileName(fileName):
+def cleanFileName(fileName: str) -> str:
     if sys.platform == 'win32':
         fileName = re.sub(r'[*?"<>\0]', '', fileName)
         fileName = re.sub(r'[/|\\:]', '_', fileName)
@@ -2156,7 +2162,7 @@ class KnownPlatform(enum.Enum):
     vlive = 'vlive'
 
 
-def getVideoURL(platform: str, videoID: str):
+def getVideoURL(platform: str, videoID: str) -> str:
     if platform == KnownPlatform.youtube.name:
         return f'https://www.youtube.com/watch?v={videoID}'
     elif platform == KnownPlatform.vlive.name:
@@ -2166,7 +2172,7 @@ def getVideoURL(platform: str, videoID: str):
         sys.exit(1)
 
 
-def getDefaultEncodeSettings(videobr: int):
+def getDefaultEncodeSettings(videobr: int) -> DictStrAny:
     # switch to constant quality mode if no bitrate specified
     if videobr is None:
         encodeSettings = {'crf': 30, 'autoTargetMaxBitrate': 0,
@@ -2201,7 +2207,7 @@ def getDefaultEncodeSettings(videobr: int):
     return encodeSettings
 
 
-def getVidstabPreset(level: int):
+def getVidstabPreset(level: int) -> DictStrAny:
     vidstabPreset = {"enabled": False, "desc": "Disabled"}
     if level == 1:
         vidstabPreset = {"enabled": True, "shakiness": 2,
@@ -2224,7 +2230,7 @@ def getVidstabPreset(level: int):
     return vidstabPreset
 
 
-def getDenoisePreset(level: int) -> Dict[str, Any]:
+def getDenoisePreset(level: int) -> DictStrAny:
     denoisePreset = {"enabled": False, "desc": "Disabled"}
     if level == 1:
         denoisePreset = {"enabled": True,
