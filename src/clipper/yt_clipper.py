@@ -1956,9 +1956,10 @@ def mergeClips(cs: ClipperState) -> None:
                     if not (ans == 'yes' or ans == 'y'):
                         logger.warning(f'Continuing with merge despite possible bad input.')
                         raise BadMergeInput
-                if 'fileName' in markerPair and 'filePath' in markerPair:
+                if 'filePath' in markerPair and 'fileName' in markerPair:
                     if Path(markerPair["filePath"]).is_file():
-                        inputs += f'''file '{markerPair["fileName"]}'\n'''
+                        fileName = escapeSingleQuotesFFmpeg(markerPair["fileName"])
+                        inputs += f'''file '{fileName}'\n'''
                     else:
                         raise MissingMergeInput
                 else:
@@ -2245,6 +2246,10 @@ def getDenoisePreset(level: int) -> DictStrAny:
         denoisePreset = {"enabled": True,
                          "lumaSpatial": 8, "desc": "Very Strong"}
     return denoisePreset
+
+
+def escapeSingleQuotesFFmpeg(string: str) -> str:
+    return re.sub(r"'", r"'\\''", string)
 
 
 if __name__ == "__main__":
