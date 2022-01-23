@@ -98,7 +98,8 @@ The contents of the quickstart guide are included here for convenience:
 - [Clipper Script Installation](#clipper-script-installation)
   - [Manual and Beta/Alpha Version Installation](#manual-and-betaalpha-version-installation)
   - [Additional Helper Scripts](#additional-helper-scripts)
-    - [Windows Merge Helper Bat Script](#windows-merge-helper-bat-script)
+    - [Utility Scripts](#utility-scripts)
+      - [Merge Utility Script](#merge-utility-script)
 - [All Releases](#all-releases)
 - [Clipper Script Dependencies](#clipper-script-dependencies)
 - [Changelog](#changelog)
@@ -585,14 +586,24 @@ The helper scripts have a simple format. Copy and edit `yt_clipper_auto` in a te
   done
   ```
 
-### Windows Merge Helper Bat Script
+### Utility Scripts
 
-The `yt_clipper_merge.bat` can be used to merge any webm files in any order:
+There several utility scripts provided as well that wrap ffmpeg or other tools either for convenience or additional functionality.
 
-- Rename the webm files so they sort in desired lexicographic order.
-- Select/highlight all webms to be merged in your file explorer and drag and drop them onto the `yt_clipper_merge.bat` script.
-- The output file name will be `-merged` appended to the first input file name.
-- Check the `merge.txt` file to confirm the correct videos were merged in the correct order.
+1. The `fast_trim` utility script takes a single video file as input and trims it quickly BUT approximately. The script prompts for a start time and an end time to trim the input video file. The output file name will be suffixed with `-trim`.
+2. The `vid2gif` utility script converts an input video file to a `gif` with a small file size and resolution. The script will prompt for the output gif fps and scale/resolution.
+3. The `preprocess_hevc` utility script preprocesses an input video file (likely `mp4`) with an `hevc` video stream to ensure compatibility with ffmpeg. You may need to use this script if you see errors like `Invalid data found when processing input` from ffmpeg when using `hevc` with the `--input-video`/`-i` option or the `yt_clipper_auto_input_video` helper script. The preprocessed output file name will be suffixed with `-preproc`.
+
+#### Merge Utility Script
+
+The `merge` utility script can be used to merge any webm files in any order:
+
+- On mac, follow the prompts after running the utility script, providing the paths of 2 or more input files in the other you want them merged.
+- On Windows:
+  - Rename the webm files so they sort in desired lexicographic order.
+  - Select/highlight all webms to be merged in your file explorer and drag and drop them onto the `merge.bat` script.
+  - The output file name will be `-merged` appended to the first input file name.
+  - Check the `merge.txt` file to confirm the correct videos were merged in the correct order.
 
 # All Releases
 
