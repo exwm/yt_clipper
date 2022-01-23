@@ -1,10 +1,10 @@
 #!/bin/bash
 cd "$(dirname "$0")" || exit
 
-
 echo "----------------------------------------------------"
-echo "This script quickly BUT approximately trims an input video."
-echo "The output file name will be suffixed with '-trim'."
+echo "This script preprocesses hevc (h265) input video to ensure that it is compatible with ffmpeg."
+echo "Currently, the steps performed are a 1) Convert HEVC/H.265 bitstream from length-prefixed mode to start-code-prefixed mode."
+echo "The output file will be suffixed with '-preproc'."
 echo "----------------------------------------------------"
 
 read -rp "Enter the path of a video file that you would like to trim (you may be able to drag and drop files at the prompt): " VIDEOSPROMPT
@@ -27,15 +27,14 @@ NAME="${NAME%.*}"
 OUT="$DIR/$NAME-trim$EXT"
 
 if [ -f "$VIDEO" ]; then
-  read -rp "Enter start time (s or HH:MM:SS.MS): " START
-  read -rp "Enter end time(s or HH:MM:SS.MS): " END
   echo "generating $OUT..."
-  ./bin/ffmpeg -ss "$START" -to "$END" -i "$VIDEO" -c copy "$OUT"
+  ./bin/ffmpeg -i "$VIDEO" -c copy -bsf:v hevc_mp4toannexb "$OUT"
 else
   echo "$VIDEO does not exist."
 fi
 
 echo "----------------------------------------------------"
-echo "This script quickly BUT approximately trims an input video."
-echo "The output file name will be suffixed with '-trim'."
+echo "This script preprocesses hevc (h265) input video to ensure that it is compatible with ffmpeg."
+echo "Currently, the steps performed are a 1) Convert HEVC/H.265 bitstream from length-prefixed mode to start-code-prefixed mode."
+echo "The output file will be suffixed with '-preproc'."
 echo "----------------------------------------------------"

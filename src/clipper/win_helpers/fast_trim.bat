@@ -5,6 +5,12 @@ chcp 65001
 set argC=0
 for %%x in (%*) do Set /A argC+=1
 
+
+echo "----------------------------------------------------"
+echo "This script quickly BUT approximately trims an input video."
+echo "The output file name will be suffixed with '-trim'."
+echo "----------------------------------------------------"
+
 if not %argC% == 1 (
   echo Provide a single video file as input.
   pause
@@ -19,5 +25,11 @@ if exist "%~f1" (
 ) else (
   echo Path "%~f1" does not exist. 
 )
+
+
+echo "----------------------------------------------------"
+echo "This script quickly BUT approximately trims an input video."
+echo "The output file name will be suffixed with '-trim'."
+echo "----------------------------------------------------"
 
 pause
