@@ -1382,7 +1382,6 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
 
         if mps["videoStabilizationDynamicZoom"]:
             vidstabtransformFilter += f':optzoom=2:zoomspeed={vidstab["zoomspeed"]}'
-        vidstabtransformFilter += r',unsharp=5:5:0.8:3:3:0.4'
 
         if "minterpMode" in mps and mps["minterpMode"] != "None":
             vidstabtransformFilter += getMinterpFilter(mp, mps)
