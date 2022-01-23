@@ -4,6 +4,6 @@ coloredlogs == 14.0
 notify_py == 0.2.3
 verboselogs == 1.7
 webvtt_py == 0.4.5
-youtube_dl == 2021.06.06
+youtube_dl == 2021.12.17
 yt_dlp == 2021.12.27
 certifi>=2021.10.8
