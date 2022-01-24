@@ -126,7 +126,7 @@ def main() -> None:
         notifyOnComplete(cs.settings["titleSuffix"])
 
 
-def dictTryGetKeys(d: dict, *keys: str, default=None) -> Any:
+def dictTryGetKeys(d: Dict, *keys: str, default=None) -> Any:
     for key in keys:
         value = d.get(key)
         if value is not None:
@@ -833,7 +833,7 @@ def getVideoInfo(cs: ClipperState) -> None:
     getMoreVideoInfo(cs, videoInfo, audioInfo)
 
 
-def getMoreVideoInfo(cs: ClipperState, videoInfo: dict, audioInfo: dict) -> None:
+def getMoreVideoInfo(cs: ClipperState, videoInfo: Dict, audioInfo: Dict) -> None:
     settings = cs.settings
 
     # TODO: ffprobe all streams including audio
@@ -977,7 +977,7 @@ def getGlobalSettings(cs: ClipperState) -> None:
                  f'Video Stabilization Dynamic Zoom: {settings["videoStabilizationDynamicZoom"]}'))
 
 
-def autoScaleCropMap(cropMap: List[dict[str, Any]], settings: Settings) -> None:
+def autoScaleCropMap(cropMap: List[Dict[str, Any]], settings: Settings) -> None:
     for cropPoint in cropMap:
         cropString = cropPoint["crop"]
         cropPoint["crop"], cropPoint["cropComponents"] = getAutoScaledCropComponents(
@@ -1027,10 +1027,10 @@ def getMarkerPairSettings(cs: ClipperState, markerPairIndex: int, skip: bool = F
     cp = cs.clipper_paths
 
     # marker pair properties
-    mp: dict[str, Any] = settings["markerPairs"][markerPairIndex]
+    mp: Dict[str, Any] = settings["markerPairs"][markerPairIndex]
 
     # marker pair settings
-    mps: dict[str, Any] = {**settings, **(mp["overrides"])}
+    mps: Dict[str, Any] = {**settings, **(mp["overrides"])}
 
     mp["exists"] = False
     if not mps["preview"]:
@@ -1524,7 +1524,7 @@ def getMinterpFPS(mps: DictStrAny, speedMap: SpeedMap) -> Union[ExtendedRealNumb
     return minterpFPS
 
 
-def getMaxSpeed(speedMap: SpeedMap) -> float:
+def getMaxSpeed(speedMap: Union[SpeedMap, None]) -> float:
     maxSpeed = 0.05
     if speedMap is None:
         maxSpeed = 1
@@ -2036,13 +2036,13 @@ def checkClipExists(fileName: str, filePath: str, overwrite: bool = False, skip:
     return fileExists
 
 
-def createMergeList(markerPairMergeList: List[str]) -> Generator[Tuple[str, List[str]], None, None]:
+def createMergeList(markerPairMergeList: List[str]) -> Generator[Tuple[str, List[int]], None, None]:
     for merge in markerPairMergeList:
         mergeList = markerPairsCSVToList(merge)
         yield merge, mergeList
 
 
-def markerPairsCSVToList(markerPairsCSV: str) -> List[str]:
+def markerPairsCSVToList(markerPairsCSV: str) -> List[int]:
     markerPairsCSV = re.sub(r'\s+', '', markerPairsCSV)
     markerPairsCSV = markerPairsCSV.rstrip(',')
     csvRangeValidation = r'^((\d{1,2})|(\d{1,2}-\d{1,2})){1}(,((\d{1,2})|(\d{1,2}-\d{1,2})))*$'
