@@ -1,0 +1,35 @@
+[tool.poetry]
+name = "yt_clipper"
+version = "5.9.1"
+description = "Quickly generate clipped webms."
+authors = ["exwm <rjvgb@protonmail.com>"]
+license = "MIT"
+readme = "readme.md"
+
+[tool.poetry.dependencies]
+python = "^3.8,<3.11"
+yt-dlp = "2022.08.19"
+youtube_dl = "2021.12.17"
+coloredlogs = "^15.0.1"
+notify-py = "^0.3.3"
+verboselogs = "^1.7"
+webvtt-py = "^0.4.6"
+certifi = ">=2021.10.8"
+
+[tool.poetry.group.dev.dependencies]
+pyinstaller = "5.0.1"
+black = "^22.8.0"
+isort = "^5.10.1"
+pylint = "^2.12.2"
+
+[tool.poetry.group.test.dependencies]
+pytest = "^7.0.0"
+pytest-cov = "^3.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
+include = '\.pyi?$'
