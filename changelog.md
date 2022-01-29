@@ -148,7 +148,7 @@ This changelog records all the changes to `yt_clipper` after version numbers bet
   - This required removing a sharpening filter intended to reduce blur introduced by video stabilization.
 - Fix failure to merge clips with single quotes in file path.
 - Update `youtube_dl` dependency from `v2021.06.06` to `v2021.12.17`.
-- Update `ffmpeg` dependency from `v4.1.1` to `v5.0`.
+- Update `ffmpeg` dependency from `v4.4.1` to `v5.0`.
 
 ### Documentation Changes
 
