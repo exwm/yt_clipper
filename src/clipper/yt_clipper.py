@@ -1941,24 +1941,25 @@ def getEasingExpression(easingFunc: str, easeA: str, easeB: str, easeP: str) -> 
     easeT = f'(2*{easeP})'
     easeM = f'({easeP}-1)'
 
-    if easingFunc == 'instant':
-        return f'if(lte({easeP},0),{easeA},{easeB})'
-    elif easingFunc == 'linear':
-        return f'lerp({easeA}, {easeB}, {easeP})'
-    elif easingFunc == 'easeInCubic':
-        ease = f'{easeP}^3'
-    elif easingFunc == 'easeOutCubic':
-        ease = f'1+{easeM}^3'
-    elif easingFunc == 'easeInOutCubic':
-        ease = f'if(lt({easeT},1), {easeP}*{easeT}^2, 1+({easeM}^3)*4)'
-    elif easingFunc == 'easeInOutSine':
-        ease = f'0.5*(1-cos({easeP}*PI))'
-    elif easingFunc == 'easeInCircle':
-        ease = f'1-sqrt(1-{easeP}^2)'
-    elif easingFunc == 'easeOutCircle':
-        ease = f'sqrt(1-{easeM}^2)'
-    elif easingFunc == 'easeInOutCircle':
-        ease = f'if(lt({easeT},1), (1-sqrt(1-{easeT}^2))*0.5, (sqrt(1-4*{easeM}^2)+1)*0.5)'
+    if easingFunc == "instant":
+        return f"if(lte({easeP},0),{easeA},{easeB})"
+    if easingFunc == "linear":
+        return f"lerp({easeA}, {easeB}, {easeP})"
+
+    if easingFunc == "easeInCubic":
+        ease = f"{easeP}^3"
+    elif easingFunc == "easeOutCubic":
+        ease = f"1+{easeM}^3"
+    elif easingFunc == "easeInOutCubic":
+        ease = f"if(lt({easeT},1), {easeP}*{easeT}^2, 1+({easeM}^3)*4)"
+    elif easingFunc == "easeInOutSine":
+        ease = f"0.5*(1-cos({easeP}*PI))"
+    elif easingFunc == "easeInCircle":
+        ease = f"1-sqrt(1-{easeP}^2)"
+    elif easingFunc == "easeOutCircle":
+        ease = f"sqrt(1-{easeM}^2)"
+    elif easingFunc == "easeInOutCircle":
+        ease = f"if(lt({easeT},1), (1-sqrt(1-{easeT}^2))*0.5, (sqrt(1-4*{easeM}^2)+1)*0.5)"
     else:
         return None
 
@@ -2240,12 +2241,12 @@ class KnownPlatform(enum.Enum):
 
 def getVideoURL(platform: str, videoID: str) -> str:
     if platform == KnownPlatform.youtube.name:
-        return f'https://www.youtube.com/watch?v={videoID}'
-    elif platform == KnownPlatform.vlive.name:
-        return f'https://www.vlive.tv/video/{videoID}'
-    else:
-        logger.fatal(f"Unknown platform: {platform}")
-        sys.exit(1)
+        return f"https://www.youtube.com/watch?v={videoID}"
+    if platform == KnownPlatform.vlive.name:
+        return f"https://www.vlive.tv/video/{videoID}"
+
+    logger.fatal(f"Unknown platform: {platform}")
+    sys.exit(1)
 
 
 def getDefaultEncodeSettings(videobr: int) -> DictStrAny:
