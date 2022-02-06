@@ -1931,7 +1931,7 @@ def getMaxSizeCrop(cropMap: CropMap) -> Dict[str, int]:
     return maxSizeCrop
 
 
-def floorToEven(x: Union[int, str]) -> int:
+def floorToEven(x: Union[int, str, float]) -> int:
     x = int(x)
     return x & ~1
 
