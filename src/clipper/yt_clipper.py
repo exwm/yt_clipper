@@ -789,7 +789,7 @@ def getVideoInfo(cs: ClipperState) -> None:
 
     ydl_opts = {'format': settings["format"], 'forceurl': True,
                 'format_sort': ",".join(settings["formatSort"]).split(","),
-                'merge_output_format': 'mkv',
+                'merge_output_format': 'mkv', 'verbose': True,
                 'outtmpl': f'{settings["downloadVideoPath"]}.%(ext)s', "cachedir": False,
                 'youtube_include_dash_manifest': True}
 
