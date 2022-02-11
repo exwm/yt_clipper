@@ -464,7 +464,21 @@ def getArgParser() -> argparse.ArgumentParser:
     parser.add_argument('--audio', '-a', action='store_true',
                         help='Enable audio in output webms.')
     parser.add_argument('--format', '-f', default='(bestvideo+(bestaudio[acodec=opus]/bestaudio))/best',
-                        help='Specify format string passed to youtube-dl.')
+                        help='Specify format string passed to youtube-dl alternative.')
+    parser.add_argument('--format-sort', '-S', dest='formatSort', nargs='+',
+                        default=[
+                            'hasvid,ie_pref,lang,quality,res,fps,size,br,hdr:1,codec:vp9.2,asr,proto,ext,hasaud,source,id'
+                        ],
+                        help=" ".join([
+                            'Specify the sorting used to determine the best audio and video formats to download for generating clips.'
+                            'The sorting is specified as a comma-separated list of sort fields that describe audio/video formats.'
+                            'The list of sort fields is passed to the youtube_dl alternative (not supported by: youtube_dl).',
+                            'See the documentation of the youtube-dl alternative for the details on available sort fields.',
+                            'The default sort used by yt_clipper is similar to the yt_dlp default',
+                            'except higher filesize and bitrate are preferred over a codec hierarchy.',
+                            'This default sort is closer to the behavior of youtube_dl but not the same.',
+                        ])
+                        )
     parser.add_argument('--extra-video-filters', '-evf', dest='extraVideoFilters', default='',
                         help='Specify any extra video filters to be passed to ffmpeg.')
     parser.add_argument('--extra-audio-filters', '-eaf', dest='extraAudioFilters', default='',
@@ -774,6 +788,7 @@ def getVideoInfo(cs: ClipperState) -> None:
     cp = cs.clipper_paths
 
     ydl_opts = {'format': settings["format"], 'forceurl': True,
+                'format_sort': ",".join(settings["formatSort"]).split(","),
                 'merge_output_format': 'mkv',
                 'outtmpl': f'{settings["downloadVideoPath"]}.%(ext)s', "cachedir": False,
                 'youtube_include_dash_manifest': True}
