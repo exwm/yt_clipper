@@ -73,7 +73,7 @@ jobs:
       - name: Set up dirs
         shell: bash
         run: |
-          mkdir -p ./artifact/py/${{env.FULL_NAME}}/{webms,bin}/
+          mkdir -p ./artifact/py/${{env.FULL_NAME}}/{webms,bin,temp}/
           mkdir -p ./bindeps
 
       - name: Download ffmpeg dependency
