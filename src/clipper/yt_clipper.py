@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import hashlib
+import base64
 import argparse
 import enum
 import importlib
@@ -61,6 +63,7 @@ class ClipperPaths:
     ffprobePath: str = 'ffprobe'
     ffplayPath: str = 'ffplay'
     webmsPath: str = './webms'
+    tempPath: str = './temp'
     logFilePath: str = ''
 
 
@@ -1378,6 +1381,18 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
         shakyPath = f'{cp.webmsPath}/shaky'
         os.makedirs(shakyPath, exist_ok=True)
         transformPath = f'{shakyPath}/{mp["fileNameStem"]}.trf'
+
+        if not containsValidCharsForVidStab(transformPath):
+            # TODO: Write titleSuffix to text file in safe temp work dir for reverse lookup from titleSuffix to hash
+            titleSuffix = mps["titleSuffix"]
+            titleSuffixHash = getTrimmedBase64Hash(titleSuffix)
+            safeShakyPath = f'{cp.tempPath}/{titleSuffixHash}/shaky'
+            logger.warning(f"Marker pair titleSuffix contains characters that are incompatible with video stabilization.")
+            logger.warning(
+                f"Using temp directory for intermediate video stabilization transform files: '{safeShakyPath}'.")
+            os.makedirs(safeShakyPath, exist_ok=True)
+            transformPath = f'{safeShakyPath}/{markerPairIndex+1}.trf'
+
         shakyWebmPath = f'{shakyPath}/{mp["fileNameStem"]}-shaky.webm'
         video_filter += '[shaky];[shaky]'
         vidstabdetectFilter = video_filter + \
@@ -2260,6 +2275,23 @@ def getDenoisePreset(level: int) -> DictStrAny:
         denoisePreset = {"enabled": True,
                          "lumaSpatial": 8, "desc": "Very Strong"}
     return denoisePreset
+
+
+def getTrimmedBase64Hash(string: str, n_bytes: int = 9) -> str:
+    hash_object = hashlib.sha256(string.encode(encoding='utf-8', errors='replace'))
+    hex_dig = hash_object.digest()[:n_bytes]
+    return base64.b64encode(hex_dig).decode('ascii')
+
+
+def containsValidCharsForVidStab(string: str) -> bool:
+    if not string.isascii():
+        return False
+
+    for char in string:
+        if char == "'":
+            return False
+
+    return True
 
 
 def escapeSingleQuotesFFmpeg(string: str) -> str:
