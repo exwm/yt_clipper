@@ -27,7 +27,7 @@ import verboselogs
 import youtube_dl.version
 import yt_dlp.version
 
-__version__ = '5.7.0'
+__version__ = '5.7.1'
 
 ExtendedRealNumber = Union[int, float, Fraction]
 DictStrAny = Dict[str, Any]
