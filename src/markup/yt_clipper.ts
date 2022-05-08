@@ -1,5 +1,6 @@
 // BANNER GUARD
 // ==UserScript==
+// BANNER GUARD
 // @locale       english
 // @name         yt_clipper
 // @version      5.7.1
@@ -27,7 +28,9 @@
 // @noframes
 // dummy grant to enable sandboxing
 // @grant         GM_getValue
+// BANNER GUARD
 // ==/UserScript==
+// BANNER GUARD
 
 const __version__ = '5.7.1';
 
@@ -385,10 +388,25 @@ async function loadytClipper() {
 
   const localStorageKeyPrefix = 'yt_clipper';
   function saveClipperInputDataToLocalStorage() {
-    const date = Date.now();
+    const date = Date.now(); /*  */
     const key = `${localStorageKeyPrefix}_${settings.videoTag}`;
     const data = getClipperInputData(date);
-    localStorage.setItem(key, JSON.stringify(data, null, 2));
+    try {
+      localStorage.setItem(key, JSON.stringify(data, null, 2));
+    } catch (e) {
+      if (e instanceof DOMException && e.code == DOMException.QUOTA_EXCEEDED_ERR) {
+        const markersDataFiles = getMarkersDataEntriesFromLocalStorage();
+        flashMessage(
+          `Failed to save markers data.
+          Browser local storage quota exceeded with ${markersDataFiles?.length} markers data files.
+          Try clearing auto-saved markers data after backing it up (see marker data commands menu (shortcut: G).`,
+          'red',
+          4500
+        );
+      } else {
+        flashMessage(`Failed to save markers data. Error: ${e}`, 'red');
+      }
+    }
   }
 
   function loadClipperInputDataFromLocalStorage() {
@@ -419,10 +437,16 @@ async function loadytClipper() {
     }
   }
 
-  function clearYTClipperLocalStorage() {
+  function getMarkersDataEntriesFromLocalStorage(): string[] {
     const entries = Object.entries(localStorage)
       .map((x) => x[0])
       .filter((x) => x.startsWith(localStorageKeyPrefix));
+    return entries;
+  }
+
+  function clearYTClipperLocalStorage() {
+    const entries = getMarkersDataEntriesFromLocalStorage();
+
     const nEntries = entries.length;
 
     const clearAll = confirm(stripIndent`
@@ -1486,13 +1510,19 @@ async function loadytClipper() {
 
       const restoreMarkersDataDiv = document.createElement('div');
       restoreMarkersDataDiv.setAttribute('class', 'long-msg-div');
+
+      const markersDataFiles = getMarkersDataEntriesFromLocalStorage();
+
       restoreMarkersDataDiv.innerHTML = html`
         <fieldset>
           <legend>Restore auto-saved markers data from browser local storage.</legend>
           <input type="button" id="restore-markers-data" value="Restore" />
         </fieldset>
         <fieldset>
-          <legend>Zip and download auto-saved markers data from browser local storage.</legend>
+          <legend>
+            Zip and download ${markersDataFiles?.length} auto-saved markers data files from browser
+            local storage.
+          </legend>
           <input type="button" id="download-markers-data" value="Download" />
         </fieldset>
       `;
