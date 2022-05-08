@@ -437,6 +437,45 @@ async function loadytClipper() {
     }
   }
 
+  function downloadAutoSavedMarkersData() {
+    const entries = Object.entries(localStorage)
+      .map((x) => x[0])
+      .filter((x) => x.startsWith(localStorageKeyPrefix));
+
+    const nEntries = entries.length;
+    if (nEntries === 0) {
+      flashMessage('No markers data in local storage to zip.', 'olive');
+      return;
+    }
+
+    flashMessage(`Zipping ${nEntries} markers data files.`, 'olive');
+
+    const now = new Date();
+    const zip = new JSZip();
+    const markersZipFolderName = 'yt_clipper_markers_data_' + now.toISOString();
+    const markersZip = zip.folder(markersZipFolderName);
+
+    entries.forEach((entry) => {
+      markersZip.file(
+        entry.replace(localStorageKeyPrefix, '') + '.json',
+        localStorage.getItem(entry),
+        { binary: false }
+      );
+    });
+
+    const progressDiv = injectProgressBar('green', 'Markers Data');
+    const progressSpan = progressDiv.firstElementChild;
+    zip
+      .generateAsync({ type: 'blob' }, (metadata) => {
+        const percent = metadata.percent.toFixed(2) + '%';
+        progressSpan.textContent = `Markers Data Zipping Progress: ${percent}`;
+      })
+      .then((blob) => {
+        saveAs(blob, markersZipFolderName + '.zip');
+        progressDiv.dispatchEvent(new Event('done'));
+      });
+  }
+
   function addEventListeners() {
     document.addEventListener('keydown', hotkeys, true);
     document.addEventListener('keydown', addCropHoverListener, true);
@@ -1452,6 +1491,10 @@ async function loadytClipper() {
           <legend>Restore auto-saved markers data from browser local storage.</legend>
           <input type="button" id="restore-markers-data" value="Restore" />
         </fieldset>
+        <fieldset>
+          <legend>Zip and download auto-saved markers data from browser local storage.</legend>
+          <input type="button" id="download-markers-data" value="Download" />
+        </fieldset>
       `;
 
       const clearMarkersDataDiv = document.createElement('div');
@@ -1476,6 +1519,8 @@ async function loadytClipper() {
       markersArrayUploadButton.onclick = loadMarkersArray;
       const restoreMarkersDataButton = document.getElementById('restore-markers-data');
       restoreMarkersDataButton.onclick = loadClipperInputDataFromLocalStorage;
+      const downloadMarkersDataButton = document.getElementById('download-markers-data');
+      downloadMarkersDataButton.onclick = downloadAutoSavedMarkersData;
       const clearMarkersDataButton = document.getElementById('clear-markers-data');
       clearMarkersDataButton.onclick = clearYTClipperLocalStorage;
     }
@@ -3549,7 +3594,7 @@ async function loadytClipper() {
     Array.from(frames).forEach((frame) => {
       framesZip.file(frame.fileName, canvasBlobToPromise(frame), { binary: true });
     });
-    const progressDiv = injectFrameCapturerProgressBar('green');
+    const progressDiv = injectProgressBar('green', 'Frame Capturer');
     const progressSpan = progressDiv.firstElementChild;
     zip
       .generateAsync({ type: 'blob' }, (metadata) => {
@@ -3563,14 +3608,14 @@ async function loadytClipper() {
       });
   }
 
-  function injectFrameCapturerProgressBar(color: string) {
+  function injectProgressBar(color: string, tag: string) {
     const progressDiv = document.createElement('div');
     progressDiv.setAttribute('class', 'msg-div');
     progressDiv.addEventListener('done', () => {
       progressDiv.setAttribute('class', 'msg-div flash-div');
       setTimeout(() => deleteElement(progressDiv), 2500);
     });
-    progressDiv.innerHTML = `<span class="flash-msg" style="color:${color}"> Frame Capturer Zipping Progress: 0%</span>`;
+    progressDiv.innerHTML = `<span class="flash-msg" style="color:${color}"> ${tag} Zipping Progress: 0%</span>`;
     hooks.frameCapturerProgressBar.insertAdjacentElement('beforebegin', progressDiv);
     return progressDiv;
   }
