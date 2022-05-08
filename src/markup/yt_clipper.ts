@@ -35,7 +35,7 @@
 const __version__ = '5.7.1';
 
 import { Chart, ChartConfiguration } from 'chart.js';
-import { html, stripIndent } from 'common-tags';
+import { safeHtml, stripIndent } from 'common-tags';
 import { easeCubicInOut, easeSinInOut } from 'd3-ease';
 import { saveAs } from 'file-saver';
 import { readFileSync } from 'fs';
@@ -790,7 +790,7 @@ async function loadytClipper() {
     };
     markersDiv = document.createElement('div');
     markersDiv.setAttribute('id', 'markers-div');
-    markersDiv.innerHTML = `\
+    markersDiv.innerHTML = safeHtml`
         <svg id="markers-svg"></svg>
         <svg id="selected-marker-pair-overlay" style="display:none">
           <rect id="selected-start-marker-overlay"  class="selected-marker-overlay" width="1px" height="8px" y="3.5px" shape-rendering="crispEdges"></rect>
@@ -805,7 +805,7 @@ async function loadytClipper() {
 
     markerNumberingsDiv = document.createElement('div');
     markerNumberingsDiv.setAttribute('id', 'marker-numberings-div');
-    markerNumberingsDiv.innerHTML = `\
+    markerNumberingsDiv.innerHTML = safeHtml`
         <svg id="start-marker-numberings"></svg>
         <svg id="end-marker-numberings"></svg>
       `;
@@ -1183,7 +1183,7 @@ async function loadytClipper() {
     if (!gammaFilterDiv) {
       gammaFilterDiv = document.createElement('div');
       gammaFilterDiv.setAttribute('id', 'gamma-filter-div');
-      gammaFilterDiv.innerHTML = `\
+      gammaFilterDiv.innerHTML = safeHtml`
       <svg id="gamma-filter-svg" xmlns="http://www.w3.org/2000/svg" width="0" height="0">
         <defs>
           <filter id="gamma-filter">
@@ -1495,7 +1495,7 @@ async function loadytClipper() {
 
       const markersUploadDiv = document.createElement('div');
       markersUploadDiv.setAttribute('class', 'long-msg-div');
-      markersUploadDiv.innerHTML = html`
+      markersUploadDiv.innerHTML = safeHtml`
         <fieldset>
           <legend>Load markers data from an uploaded markers .json file.</legend>
           <input type="file" id="markers-json-input" />
@@ -1513,7 +1513,7 @@ async function loadytClipper() {
 
       const markersDataFiles = getMarkersDataEntriesFromLocalStorage();
 
-      restoreMarkersDataDiv.innerHTML = html`
+      restoreMarkersDataDiv.innerHTML = safeHtml`
         <fieldset>
           <legend>Restore auto-saved markers data from browser local storage.</legend>
           <input type="button" id="restore-markers-data" value="Restore" />
@@ -1529,7 +1529,7 @@ async function loadytClipper() {
 
       const clearMarkersDataDiv = document.createElement('div');
       clearMarkersDataDiv.setAttribute('class', 'long-msg-div');
-      clearMarkersDataDiv.innerHTML = html`
+      clearMarkersDataDiv.innerHTML = safeHtml`
         <fieldset>
           <legend>Clear all markers data files from browser local storage.</legend>
           <input type="button" id="clear-markers-data" value="Clear" style="color:red" />
@@ -1959,7 +1959,7 @@ async function loadytClipper() {
     const markerPairMergelistDurations = getMarkerPairMergeListDurations();
     const globalEncodeSettingsEditorDisplay = isExtraSettingsEditorEnabled ? 'block' : 'none';
     globalSettingsEditorDiv.setAttribute('id', 'settings-editor-div');
-    globalSettingsEditorDiv.innerHTML = `
+    globalSettingsEditorDiv.innerHTML = safeHtml`
     <fieldset id="new-marker-defaults-inputs" 
       class="settings-editor-panel global-settings-editor global-settings-editor-highlighted-div">
       <legend class="global-settings-editor-highlighted-label">New Marker Settings</legend>
@@ -2463,7 +2463,7 @@ async function loadytClipper() {
     createCropOverlay(crop);
 
     settingsEditorDiv.setAttribute('id', 'settings-editor-div');
-    settingsEditorDiv.innerHTML = `
+    settingsEditorDiv.innerHTML = safeHtml`
       <fieldset class="settings-editor-panel marker-pair-settings-editor-highlighted-div">
         <legend class="marker-pair-settings-editor-highlighted-label">Marker Pair
           <input id="marker-pair-number-input"
@@ -3419,7 +3419,7 @@ async function loadytClipper() {
       injectCSS(shortcutsTableStyle, 'shortcutsTableStyle');
       shortcutsTableContainer = document.createElement('div');
       shortcutsTableContainer.setAttribute('id', 'shortcutsTableContainer');
-      shortcutsTableContainer.innerHTML = shortcutsTable;
+      shortcutsTableContainer.innerHTML = safeHtml(shortcutsTable);
       hooks.shortcutsTable.insertAdjacentElement('afterend', shortcutsTableContainer);
     } else if (shortcutsTableContainer.style.display !== 'none') {
       shortcutsTableContainer.style.display = 'none';
@@ -3428,7 +3428,7 @@ async function loadytClipper() {
     }
   }
 
-  const frameCaptureViewerHeadHTML = `\
+  const frameCaptureViewerHeadHTML = `
       <title>yt_clipper Frame Capture Viewer</title>
       <style>
         body {
@@ -3557,8 +3557,8 @@ async function loadytClipper() {
         setTimeout(() => deleteElement(frameDiv), 300);
       };
       frameCaptureViewerDoc = frameCaptureViewer.document;
-      frameCaptureViewerDoc.head.innerHTML = frameCaptureViewerHeadHTML;
-      frameCaptureViewerDoc.body.innerHTML = frameCaptureViewerBodyHTML;
+      frameCaptureViewerDoc.head.innerHTML = safeHtml(frameCaptureViewerHeadHTML);
+      frameCaptureViewerDoc.body.innerHTML = safeHtml(frameCaptureViewerBodyHTML);
     }
     const frameDiv = document.createElement('div');
     frameDiv.setAttribute('class', 'frame-div');
@@ -3566,7 +3566,7 @@ async function loadytClipper() {
     const frameFileName = `${settings.titleSuffix}-${resString}-@${currentTime}s(${toHHMMSSTrimmed(
       currentTime
     ).replace(':', ';')})-f${frameCount.frameNumber}(${frameCount.totalFrames})`;
-    frameDiv.innerHTML = `\
+    frameDiv.innerHTML = safeHtml`
       <figcaption>Resolution: ${canvas.width}x${canvas.height} Name: ${frameFileName}</figcaption>
       <button class="download" onclick="downloadFrame(this)">Download Frame</button>
       <button class="delete" onclick="deleteFrame(this)">Delete Frame</button>
@@ -3645,7 +3645,7 @@ async function loadytClipper() {
       progressDiv.setAttribute('class', 'msg-div flash-div');
       setTimeout(() => deleteElement(progressDiv), 2500);
     });
-    progressDiv.innerHTML = `<span class="flash-msg" style="color:${color}"> ${tag} Zipping Progress: 0%</span>`;
+    progressDiv.innerHTML = safeHtml`<span class="flash-msg" style="color:${color}"> ${tag} Zipping Progress: 0%</span>`;
     hooks.frameCapturerProgressBar.insertAdjacentElement('beforebegin', progressDiv);
     return progressDiv;
   }
@@ -3674,7 +3674,7 @@ async function loadytClipper() {
 
     cropDiv = document.createElement('div');
     cropDiv.setAttribute('id', 'crop-div');
-    cropDiv.innerHTML = `\
+    cropDiv.innerHTML = safeHtml`
         <svg id="crop-svg">
           <defs>
             <mask id="cropMask">
@@ -4829,14 +4829,14 @@ async function loadytClipper() {
 
         initializeChartData(chartInput.chartSpec, chartInput.dataMapKey);
         chartInput.chartContainer = htmlToElement(
-          html`
+          safeHtml`
             <div
               id="${chartInput.chartContainerId}"
               style="${chartInput.chartContainerStyle}"
             ></div>
           `
         ) as HTMLDivElement;
-        chartInput.chartContainer.innerHTML = chartInput.chartCanvasHTML;
+        chartInput.chartContainer.innerHTML = safeHtml(chartInput.chartCanvasHTML);
         chartInput.chartContainerHook.insertAdjacentElement(
           chartInput.chartContainerHookPosition,
           chartInput.chartContainer

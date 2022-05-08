@@ -1,3 +1,4 @@
+import { safeHtml } from 'common-tags';
 import { SpeedPoint, CropPoint } from '../@types/yt_clipper';
 
 let flashMessageHook: HTMLElement;
@@ -7,7 +8,7 @@ export function setFlashMessageHook(hook: HTMLElement) {
 export function flashMessage(msg: string, color: string, lifetime = 3000) {
   const flashDiv = document.createElement('div');
   flashDiv.setAttribute('class', 'msg-div flash-div');
-  flashDiv.innerHTML = `<span class="flash-msg" style="color:${color}">${msg}</span>`;
+  flashDiv.innerHTML = safeHtml`<span class="flash-msg" style="color:${color}">${msg}</span>`;
   flashMessageHook.insertAdjacentElement('beforebegin', flashDiv);
   setTimeout(() => deleteElement(flashDiv), lifetime);
 }
@@ -33,21 +34,21 @@ export function sleep(ms: number) {
 export function injectCSS(css: string, id: string) {
   const style = document.createElement('style');
   style.setAttribute('id', id);
-  style.innerHTML = css;
+  style.innerHTML = safeHtml(css);
   document.body.appendChild(style);
   return style;
 }
 export function htmlToElement(html: string) {
   const template = document.createElement('template');
   html = html.trim(); // Never return a text node of whitespace as the result
-  template.innerHTML = html;
+  template.innerHTML = safeHtml(html);
   return template.content.firstChild;
 }
 
 export function htmlToSVGElement(html: string) {
   const template = document.createElementNS('http://www.w3.org/2000/svg', 'template');
   html = html.trim(); // Never return a text node of whitespace as the result
-  template.innerHTML = html;
+  template.innerHTML = safeHtml(html);
   return template.firstElementChild;
 }
 
