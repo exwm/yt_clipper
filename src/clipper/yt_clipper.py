@@ -24,8 +24,6 @@ from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
 import certifi
 import coloredlogs
 import verboselogs
-import youtube_dl.version
-import yt_dlp.version
 
 __version__ = '5.7.1'
 
@@ -37,6 +35,7 @@ Settings = Dict[str, Any]
 
 
 UNKNOWN_PROPERTY = "unknown"
+SUPPORTED_YOUTUBE_DL_ALTERNATIVES = ["yt_dlp", "youtube_dl"]
 
 
 class YTCLogger(verboselogs.VerboseLogger):
@@ -76,6 +75,22 @@ class ClipperState:
     reportStreamColored = io.StringIO()
 
 
+def is_module_available(mod: str) -> bool:
+    return importlib.util.find_spec(mod) is not None
+
+
+# import a youtube_dl alternative in the global scope to satisfy pylint
+if is_module_available("yt_dlp"):
+    import yt_dlp as youtube_dl
+elif is_module_available("youtube_dl"):
+    import youtube_dl
+else:
+    print(
+        f"No supported youtube_dl alternatives available.SUPPORTED_YOUTUBE_DL_ALTERNATIVES={SUPPORTED_YOUTUBE_DL_ALTERNATIVES}'")
+    print("Exiting...")
+    sys.exit(1)
+
+
 def main() -> None:
     cs = ClipperState()
 
@@ -88,14 +103,11 @@ def main() -> None:
 
     setUpLogger(cs)
 
-    global youtube_dl
-    if cs.settings["youtubeDLAlternative"] == 'yt_dlp':
-        import yt_dlp as youtube_dl
-    else:
-        import youtube_dl
+    youtube_dl_alternative = cs.settings["youtubeDLAlternative"]
+    import_youtube_dl_alternative(youtube_dl_alternative)
 
     logger.report(f'yt_clipper version: {__version__}')
-    logger.report(f'{cs.settings["youtubeDLAlternative"]} version: {youtube_dl.version.__version__}')
+    logger.report(f'{youtube_dl_alternative} version: {youtube_dl.version.__version__}')
     logger.info('-' * 80)
 
     if defArgs:
@@ -241,6 +253,20 @@ def setUpLogger(cs: ClipperState) -> None:
         formatter = coloredlogs.BasicFormatter(datefmt=datefmt)
         fileHandler.setFormatter(formatter)
         logger.addHandler(fileHandler)
+
+
+def import_youtube_dl_alternative(youtube_dl_alternative: str):
+    global youtube_dl
+
+    if is_module_available(youtube_dl_alternative):
+        if youtube_dl_alternative == "yt_dlp":
+            import yt_dlp as youtube_dl
+        else:
+            import youtube_dl
+    else:
+        logger.fatal(f"Could not find requested yotube_dl alternative '{youtube_dl_alternative}'")
+        logger.fatal("Exiting...")
+        sys.exit(1)
 
 
 def getInputVideo(cs: ClipperState) -> None:
@@ -401,7 +427,7 @@ def getArgParser() -> argparse.ArgumentParser:
         formatter_class=ArgumentDefaultsHelpFormatter)
     parser.add_argument(
         '-v', '--version', action='version',
-        version=f'''%(prog)s v{__version__}, youtube_dl v{youtube_dl.version.__version__}, yt_dlp v{yt_dlp.version.__version__}'''
+        version=getVersionString()
     )
     parser.add_argument(
         '--markers-json', '-j', required=True, dest='json',
@@ -733,9 +759,22 @@ def getArgParser() -> argparse.ArgumentParser:
     parser.add_argument('--ytdl-password', '-yp', dest='password', default='',
                         help='Password passed to youtube-dl for authentication.')
 
-    parser.add_argument('--youtube-dl-alternative', '-ytdla', dest="youtubeDLAlternative", choices=['youtube_dl', 'yt_dlp'], default='yt_dlp',
+    parser.add_argument('--youtube-dl-alternative', '-ytdla', dest="youtubeDLAlternative", choices=SUPPORTED_YOUTUBE_DL_ALTERNATIVES,
+                        default='yt_dlp',
                         help='Choose a youtube_dl alternative for downloading videos.')
     return parser
+
+
+def getYoutubeDLAlternativeVersion(module: str):
+    try:
+        youtube_dl_alternative = importlib.import_module(module)
+        return "v" + youtube_dl_alternative.version.__version__
+    except ModuleNotFoundError:
+        return "vNotFound"
+
+
+def getVersionString() -> str:
+    return f'''%(prog)s v{__version__}, youtube_dl {getYoutubeDLAlternativeVersion("youtube_dl")}, yt_dlp {getYoutubeDLAlternativeVersion("yt_dlp")}'''
 
 
 def getMarkerPairQueue(nMarkerPairs: int, onlyMarkerPairs: str, exceptMarkerPairs: str) -> Set[int]:
