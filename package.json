@@ -13,6 +13,32 @@
   "browserslist": [
     "since 2019 and > 0.5% and not op_mini all and not IE 11"
   ],
+  "scripts": {
+    "pretty:ts": "npx prettier \"src/**/*.{ts,js,json}\" --write",
+    "pretty:py": "poetry run black src/clipper",
+    "test:py": "poetry run pytest src/clipper -s --cov=src/clipper --cov-report=html",
+    "build:ts": "npx tsc --watch",
+    "build:ts:ne": "npx tsc --noEmit --watch",
+    "build:ts:p": "run-s -c build:ts pretty",
+    "build:py": "pyinstaller ./src/clipper/yt_clipper.py -F --workpath ./dist/py/work/ --distpath ./dist/py/ --specpath ./dist/py/spec",
+    "build:all": "run-s -c build:ts:p build:py",
+    "bundle:w": "npx parcel watch --out-dir ./dist/js --no-hmr ./src/markup/yt_clipper.ts",
+    "bundle:tc:w": "run-p -c build:ts:ne bundle:w",
+    "bundle:prod": "npx parcel build --experimental-scope-hoisting --no-minify --out-dir ./dist/js ./src/markup/yt_clipper.ts",
+    "clean:dist": "rm -r ./dist/*",
+    "clean:sandbox": "rm -r ./sandbox/*",
+    "pigar": "pigar -P ./src/clipper -p ./src/clipper/requirements.txt --without-referenced-comments"
+  },
+  "dependencies": {
+    "common-tags": "^1.8.2",
+    "d3-drag": "^1.2.4",
+    "d3-ease": "^1.0.5",
+    "d3-selection": "^1.4.0",
+    "file-saver": "^2.0.5",
+    "immer": "^9.0.12",
+    "lodash.clonedeep": "^4.5.0",
+    "lodash.isequal": "^4.5.0"
+  },
   "devDependencies": {
     "browserslist": "^4.21.3",
     "caniuse-lite": "^1.0.30001388",
@@ -25,32 +51,6 @@
     "parcel-bundler": "^1.12.5",
     "prettier": "^2.7.1",
     "typescript": "^4.8.2"
-  },
-  "scripts": {
-    "pretty:markup": "npx prettier \"src/**/*.{ts,js,json}\" --write",
-    "pretty:clipper": "poetry run black src/clipper",
-    "build:ts": "npx tsc --watch",
-    "build:ts:ne": "npx tsc --noEmit --watch",
-    "build:ts:p": "run-s -c build:ts pretty",
-    "build:py": "pyinstaller ./src/clipper/yt_clipper.py -F --workpath ./dist/py/work/ --distpath ./dist/py/ --specpath ./dist/py/spec",
-    "build:all": "run-s -c build:ts:p build:py",
-    "bundle:w": "npx parcel watch --out-dir ./dist/js --no-hmr ./src/markup/yt_clipper.ts",
-    "bundle:tc:w": "run-p -c build:ts:ne bundle:w",
-    "bundle:prod": "npx parcel build --experimental-scope-hoisting --no-minify --out-dir ./dist/js ./src/markup/yt_clipper.ts",
-    "clean:dist": "rm -r ./dist/*",
-    "clean:sandbox": "rm -r ./sandbox/*",
-    "pigar": "pigar -P ./src/clipper -p ./src/clipper/requirements.txt --without-referenced-comments",
-    "fmt:py" :"poetry run black ./src/clipper"
-  },
-  "dependencies": {
-    "common-tags": "^1.8.2",
-    "d3-drag": "^1.2.4",
-    "d3-ease": "^1.0.5",
-    "d3-selection": "^1.4.0",
-    "file-saver": "^2.0.5",
-    "immer": "^9.0.12",
-    "lodash.clonedeep": "^4.5.0",
-    "lodash.isequal": "^4.5.0"
   },
   "alias": {
     "jszip": ".parcel-globals/jszip.js",
