@@ -3,10 +3,10 @@
 This changelog records all the changes to `yt_clipper` after version numbers between the markup and clipper script were unified (ie since v3.7.0-beta.3.9.0-alpha.10 `[2020.08.14]`).
 
 - [yt_clipper Changelog (Post-Version-Unification)](#yt_clipper-changelog-post-version-unification)
-  - [v5.8.0 `[2022.02.10]`](#v580-20220210)
+  - [v5.8.0 `[2022.05.08]`](#v580-20220508)
     - [Markup Changes](#markup-changes)
     - [Clipper Changes](#clipper-changes)
-  - [v5.7.1 `[2022.02.10]`](#v571-20220210)
+  - [v5.7.1 `[2022.03.20]`](#v571-20220320)
     - [Clipper Changes](#clipper-changes-1)
   - [v5.7.0 `[2022.02.10]`](#v570-20220210)
     - [Clipper Changes](#clipper-changes-2)
@@ -98,7 +98,7 @@ This changelog records all the changes to `yt_clipper` after version numbers bet
     - [Markup Changes](#markup-changes-20)
     - [Clipper Changes](#clipper-changes-32)
 
-## v5.8.0 `[2022.02.10]`
+## v5.8.0 `[2022.05.08]`
 
 ### Markup Changes
 
@@ -110,12 +110,12 @@ This changelog records all the changes to `yt_clipper` after version numbers bet
 
 - Fix requiring all youtube_dl alternatives to be installed.
   - Fatally log if no youtube_dl alternatives are available or if the specified youtube_dl alternative is unavailable.
-  - Note: use `--youtube-dl-alternative`/`-ytdla` switch the alternative used (current default is `yt_dlp`).
+  - Note: Use the  `--youtube-dl-alternative`/`-ytdla` option to switch the alternative used (current default is `yt_dlp`).
 - Update `yt_dlp` dependency from  `2022.03.08.2` to `2022.4.08`.
   - See <https://github.com/yt-dlp/yt-dlp/releases>.
 - Update `ffmpeg` dependency from  `5.0` to `5.0.1`.
 
-## v5.7.1 `[2022.02.10]`
+## v5.7.1 `[2022.03.20]`
 
 ### Clipper Changes
 
