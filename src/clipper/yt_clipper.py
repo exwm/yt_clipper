@@ -815,7 +815,14 @@ def loadSettings(settings: Settings) -> None:
         settings["videoURL"] = getVideoURL(settings["platform"], settings["videoID"])
         settings["videoTitle"] = re.sub('"', '', settings["videoTitle"])
         settings["markersDataFileStem"] = Path(settings["json"]).stem
+
+        if settings["markersDataFileStem"] != settings["markersDataFileStem"].rstrip():
+            logger.fatal("FATAL: Markers data file name stem (excluding .json extension) must not end in whitespace.")
+            logger.fatal(f"""markersDataFileStem={repr(settings["markersDataFileStem"])}.""")
+            logger.fatal("Exiting...")
+            sys.exit(1)
         settings["titleSuffix"] = settings["markersDataFileStem"]
+
         settings["downloadVideoNameStem"] = f'{settings["titleSuffix"]}-full'
 
         settings["isDashVideo"] = False
