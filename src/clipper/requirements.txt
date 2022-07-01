@@ -5,5 +5,5 @@ notify_py == 0.2.3
 verboselogs == 1.7
 webvtt_py == 0.4.5
 youtube_dl == 2021.12.17
-yt_dlp == 2022.04.08
+yt_dlp == 2022.06.29
 certifi>=2021.10.8
