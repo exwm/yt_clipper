@@ -28,7 +28,7 @@
     yarn run bundle:prod
 
     # Build python executable
-    pip install -U pyinstaller youtube-dl urllib3
+    pip install -r src/clipper/requirements.dev.txt
     yarn run build:py
     mkdir -p ./dist/py/bin/  # place ffmpeg binaries here (ffmpeg, ffplay, and ffprobe)
 

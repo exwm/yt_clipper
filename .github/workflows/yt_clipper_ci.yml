@@ -48,7 +48,7 @@ jobs:
           node-version: ${{ matrix.node-version }}
       - run: npm install -g yarn
       - run: yarn
-      - run: npm run bundle:prod --if-present
+      - run: yarn run bundle:prod
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
@@ -85,6 +85,11 @@ jobs:
           7z x ./ffmpeg.zip
           mv ./${{env.FFMPEG_NAME}} ffmpeg
           ls -la
+
+      - name: Set ffmpeg executable permissions on non-windows systems
+        if: matrix.os != 'windows-latest'
+        run: |
+          chmod -v +x ./bindeps/ffmpeg/bin/*
 
       - name: Copy artifacts
         shell: bash
