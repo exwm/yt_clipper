@@ -15,20 +15,23 @@
     git clone git@github.com:<YOUR-FORK/USERNAME>/yt_clipper.git
     cd yt_clipper
 
-    # Install npm dependencies
-    npm install
+    # Install yarn
+    npm install --global yarn
+
+    # Install js dependencies with yarn
+    yarn
 
     # Build and bundle markup script in watch mode with typchecking
-    npm run bundle:tc:w
+    yarn run bundle:tc:w
 
     # Bundle markup script for release
-    npm run bundle:prod
+    yarn run bundle:prod
 
     # Build python executable
     pip install -U pyinstaller youtube-dl urllib3
-    npm run build:py
+    yarn run build:py
     mkdir -p ./dist/py/bin/  # place ffmpeg binaries here (ffmpeg, ffplay, and ffprobe)
 
     # Build all and run prettier formatting
-    npm run build:all
+    yarn run build:all
     ```
