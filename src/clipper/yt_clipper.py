@@ -25,7 +25,7 @@ import certifi
 import coloredlogs
 import verboselogs
 
-__version__ = "5.9.1"
+__version__ = "5.10.0"
 
 ExtendedRealNumber = Union[int, float, Fraction]
 DictStrAny = Dict[str, Any]
