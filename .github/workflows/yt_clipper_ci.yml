@@ -18,12 +18,16 @@ env:
 
 jobs:
   build:
+    defaults:
+      run:
+        shell: bash
     runs-on: ${{ matrix.os }}
     strategy:
       max-parallel: 4
       matrix:
         python-version: [3.8.x]
         node-version: [12.x]
+        poetry-version: ["1.2.2"]
         os: [windows-latest, macos-latest]
         include:
           - os: windows-latest
@@ -40,25 +44,55 @@ jobs:
           echo "FFMPEG_NAME=ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}64" >> $GITHUB_ENV
           echo "FFMPEG_DL=${{env.FFMPEG_DL_PREFIX}}/${{env.FFMPEG_VERSION}}/ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}64.zip" >> $GITHUB_ENV
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v2-beta
+        uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node-version }}
-      - run: npm install -g yarn
-      - run: yarn
+          cache: 'yarn'
+
+      - name: Load cached node_modules
+        id: cached-node_modules
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: yarn-${{ matrix.os }}-${{ hashFiles('**/yarn.lock') }}
+      - run: yarn install --frozen-lockfile
+
       - run: yarn run bundle:prod
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: cache poetry install
+        uses: actions/cache@v3
+        with:
+          path: ~/.local
+          key: poetry-${{ matrix.os }}-${{ matrix.poetry-version }}-0
+      - name: Set up poetry ${{ matrix.poetry-version }}
+        uses: snok/install-poetry@v1
+        with:
+          version: ${{ matrix.poetry-version }}
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Load cached venv
+        id: cached-pip-wheels
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: pydeps-${{ matrix.os }}-${{ hashFiles('**/poetry.lock') }}
+
       - name: Install clipper python dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r ./src/clipper/requirements.dev.txt
+          poetry install --no-interaction --no-root
+
+      - name: Run clipper tests
+        run: |
+          npm run test:py
 
       # - name: Lint with flake8
       #   run: |
@@ -76,6 +110,13 @@ jobs:
         run: |
           mkdir -p ./artifact/py/${{env.FULL_NAME}}/{webms,bin,temp}/
           mkdir -p ./bindeps
+
+      - name: Load cached venv
+        id: cached-ffmpeg
+        uses: actions/cache@v3
+        with:
+          path: ~/.cached-ffmpeg
+          key: ffmpeg-${{ matrix.os }}-${{env.FFMPEG_DL}}
 
       - name: Download ffmpeg dependency
         shell: bash
@@ -109,6 +150,7 @@ jobs:
 
       - name: Zip artifacts on windows
         if: matrix.os == 'windows-latest'
+        shell: powershell
         run: |
           Compress-Archive ./artifact/py/${{env.FULL_NAME}}/ ./artifact/py/${{env.FULL_NAME}}.zip
 
