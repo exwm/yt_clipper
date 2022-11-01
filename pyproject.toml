@@ -7,9 +7,9 @@ license = "MIT"
 readme = "readme.md"
 
 [tool.poetry.dependencies]
-python = "^3.8,<3.11"
-yt-dlp = "2022.08.19"
-youtube_dl = "2021.12.17"
+python = ">=3.8,<3.9"
+yt-dlp = "2022.10.4"
+youtube-dl = "2021.12.17"
 coloredlogs = "^15.0.1"
 notify-py = "^0.3.3"
 verboselogs = "^1.7"
