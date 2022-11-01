@@ -1858,7 +1858,7 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
             with open(filterPathPass2, "w") as f:
                 f.write(vidstabtransformFilter)
             ffmpegVidstabdetect = ffmpegCommand + f' -filter_script:v "{filterPathPass1}" '
-            ffmpegVidstabtransform = ffmpegCommand + f' -filter_script:v "{filterPathPass1}" '
+            ffmpegVidstabtransform = ffmpegCommand + f' -filter_script:v "{filterPathPass2}" '
         else:
             ffmpegVidstabdetect = ffmpegCommand + f'-vf "{vidstabdetectFilter}" '
             ffmpegVidstabtransform = ffmpegCommand + f'-vf "{vidstabtransformFilter}" '
