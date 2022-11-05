@@ -18,4 +18,7 @@ disable=too-many-lines,
         too-many-locals,
         too-many-statements,
         line-too-long,
-        fixme
+        fixme,
+        broad-except,
+        subprocess-run-check,
+        too-many-arguments

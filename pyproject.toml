@@ -1,10 +1,13 @@
 [tool.poetry]
-name = "yt_clipper"
+name = "clipper"
 version = "5.10.0"
 description = "Quickly generate clipped webms."
 authors = ["exwm <rjvgb@protonmail.com>"]
 license = "MIT"
 readme = "readme.md"
+
+[tool.poetry.scripts]
+yt_clipper = 'clipper.yt_clipper:main'
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.9"
@@ -33,3 +36,7 @@ build-backend = "poetry.core.masonry.api"
 [tool.black]
 line-length = 100
 include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+

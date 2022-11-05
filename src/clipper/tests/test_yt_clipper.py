@@ -1,6 +1,5 @@
 import pytest
-
-import yt_clipper
+from clipper import util
 
 
 @pytest.mark.parametrize(
@@ -12,4 +11,4 @@ import yt_clipper
     ],
 )
 def test_escapeSingleQuotesFFmpeg(test_input: str, expected: str):
-    assert expected == yt_clipper.escapeSingleQuotesFFmpeg(test_input)
+    assert expected == util.escapeSingleQuotesFFmpeg(test_input)
