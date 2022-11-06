@@ -3,8 +3,8 @@
 // BANNER GUARD
 // @locale       english
 // @name         yt_clipper
-// @version      5.10.0
-// @version      5.10.0
+// @version      5.11.0
+// @version      5.11.0
 // @description  Mark up YouTube videos and quickly generate clipped webms.
 // @author       elwm
 // @namespace    https://github.com/exwm
@@ -32,7 +32,7 @@
 // ==/UserScript==
 // BANNER GUARD
 
-const __version__ = '5.10.0';
+const __version__ = '5.11.0';
 
 import { Chart, ChartConfiguration } from 'chart.js';
 import { safeHtml, stripIndent } from 'common-tags';
