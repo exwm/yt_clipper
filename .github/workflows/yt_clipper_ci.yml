@@ -62,30 +62,14 @@ jobs:
 
       - run: yarn run bundle:prod
 
+
+      - name: Install poetry
+        run: pipx install poetry
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-
-      - name: cache poetry install
-        uses: actions/cache@v3
-        with:
-          path: ~/.local
-          key: poetry-${{ matrix.os }}-${{ matrix.poetry-version }}-0
-      - run: echo "~/.local/bin" >> $GITHUB_ACTION_PATH
-      - name: Set up poetry ${{ matrix.poetry-version }}
-        uses: snok/install-poetry@v1
-        with:
-          version: ${{ matrix.poetry-version }}
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-
-      - name: Load cached venv
-        id: cached-pip-wheels
-        uses: actions/cache@v3
-        with:
-          path: .venv
-          key: pydeps-${{ matrix.os }}-${{ hashFiles('**/poetry.lock') }}
+          cache: 'poetry'
 
       - name: Install clipper python dependencies
         run: |
@@ -107,13 +91,6 @@ jobs:
         run: |
           mkdir -p ./artifact/py/${{env.FULL_NAME}}/{webms,bin,temp}/
           mkdir -p ./bindeps
-
-      - name: Load cached venv
-        id: cached-ffmpeg
-        uses: actions/cache@v3
-        with:
-          path: ~/.cached-ffmpeg
-          key: ffmpeg-${{ matrix.os }}-${{env.FFMPEG_DL}}
 
       - name: Download ffmpeg dependency
         shell: bash
