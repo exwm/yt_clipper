@@ -137,6 +137,16 @@ jobs:
           cp ./src/clipper/include/* ./artifact/py/${{env.FULL_NAME}}/
           cp ./src/clipper/${{matrix.shortos}}_helpers/* ./artifact/py/${{env.FULL_NAME}}/
           cp ./dist/py/yt_clipper* ./artifact/py/${{env.FULL_NAME}}/
+      
+      - name: Print clipper install version (windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          ./dist/py/yt_clipper.exe --version
+
+      - name: Print clipper install version (non-windows)
+        if: matrix.os != 'windows-latest'
+        run: |
+          ./dist/py/yt_clipper --version
 
       - name: Copy artifacts (markup)
         if: matrix.os == 'macos-latest'
