@@ -72,13 +72,13 @@ jobs:
         with:
           path: ~/.local
           key: poetry-${{ matrix.os }}-${{ matrix.poetry-version }}-0
+      - run: echo "~/.local/bin" >> $GITHUB_ACTION_PATH
       - name: Set up poetry ${{ matrix.poetry-version }}
         uses: snok/install-poetry@v1
         with:
           version: ${{ matrix.poetry-version }}
           virtualenvs-create: true
           virtualenvs-in-project: true
-      - run: echo "~/.local/bin/poetry" >> $GITHUB_PATH
 
       - name: Load cached venv
         id: cached-pip-wheels
