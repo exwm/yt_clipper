@@ -78,9 +78,9 @@ def setupPaths(cs: ClipperState) -> None:
     settings = cs.settings
     cp = cs.clipper_paths
 
-    cp.webmsPath += f'/{settings["titleSuffix"]}'
-    os.makedirs(f"{cp.webmsPath}/temp", exist_ok=True)
-    settings["downloadVideoPath"] = f'{cp.webmsPath}/{settings["downloadVideoNameStem"]}'
+    cp.clipsPath += f'/{settings["titleSuffix"]}'
+    os.makedirs(f"{cp.clipsPath}/temp", exist_ok=True)
+    settings["downloadVideoPath"] = f'{cp.clipsPath}/{settings["downloadVideoNameStem"]}'
 
     if getattr(sys, "frozen", False):
         cp.ffmpegPath = "./bin/ffmpeg"

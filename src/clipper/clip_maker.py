@@ -51,8 +51,9 @@ def getMarkerPairSettings(
             mps["titlePrefix"] = cleanFileName(mps["titlePrefix"])
         titlePrefix = f'{mps["titlePrefix"] + "-" if "titlePrefix" in mps else ""}'
         mp["fileNameStem"] = f'{titlePrefix}{mps["titleSuffix"]}-{markerPairIndex + 1}'
-        mp["fileName"] = f'{mp["fileNameStem"]}.webm'
-        mp["filePath"] = f'{cp.webmsPath}/{mp["fileName"]}'
+        mp["fileNameSuffix"] = "mp4" if mps["videoCodec"] == "h264" else "webm"
+        mp["fileName"] = f'{mp["fileNameStem"]}.{mp["fileNameSuffix"]}'
+        mp["filePath"] = f'{cp.clipsPath}/{mp["fileName"]}'
         mp["exists"] = checkClipExists(mp["fileName"], mp["filePath"], mps["overwrite"], skip)
 
         if mp["exists"] and not mps["overwrite"]:
@@ -151,7 +152,7 @@ def getMarkerPairSettings(
     logger.info(
         (
             f"Marker Pair {markerPairIndex + 1} Settings: {titlePrefixLogMsg}, "
-            + f'CRF: {mps["crf"]} (0-63), Target Bitrate: {mps["targetMaxBitrate"]}, '
+            + f'Video Codec: {mps["videoCodec"]}, CRF: {mps["crf"]} (0-63), Target Bitrate: {mps["targetMaxBitrate"]}, '
             + f"Bitrate Crop Factor: {bitrateCropFactor}, Bitrate Speed Factor {bitrateSpeedFactor}, "
             + f'Adjusted Target Max Bitrate: {mps["autoTargetMaxBitrate"]}kbps, '
             + f'Two-pass Encoding Enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5), '
@@ -243,13 +244,6 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
     qmax: int = max(min(mps["crf"] + 13, 63), 34)
     qmin: int = min(mps["crf"], 15)
 
-    if mps["minterpFPS"] is not None:
-        fps_arg = f'-r {mps["minterpFPS"]}'
-    elif not mp["isVariableSpeed"]:
-        fps_arg = f'-r ({mps["r_frame_rate"]}*{mp["speed"]})'
-    else:
-        fps_arg = f"-r 1000000000"
-
     cbr = None
     if mps["targetSize"] > 0:
         cbr = mps["targetSize"] / mp["outputDuration"]
@@ -258,7 +252,7 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
             + f'({mps["targetSize"]} MB / ~{round(mp["outputDuration"],3)} s).'
         )
 
-    ffmpegCommand = getFfmpegCommand(audio_filter, cbr, cp, fps_arg, inputs, mp, mps, qmax, qmin)
+    ffmpegCommand = getFfmpegCommand(audio_filter, cbr, cp, inputs, mp, mps, qmax, qmin)
 
     if not mps["preview"]:
         video_filter += f'trim=0:{mp["duration"]}'
@@ -392,14 +386,14 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
     ffmpegCommands = []
 
     MAX_VFILTER_SIZE = 10_000
-    filterPathPass1 = f"{cp.webmsPath}/temp/vfilter-{markerPairIndex+1}-pass1.txt"
-    filterPathPass2 = f"{cp.webmsPath}/temp/vfilter-{markerPairIndex+1}-pass2.txt"
+    filterPathPass1 = f"{cp.clipsPath}/temp/vfilter-{markerPairIndex+1}-pass1.txt"
+    filterPathPass2 = f"{cp.clipsPath}/temp/vfilter-{markerPairIndex+1}-pass2.txt"
 
     overwriteArg = " -y " if mps["overwrite"] else " -n "
     vidstabEnabled = mps["videoStabilization"]["enabled"]
     if vidstabEnabled:
         vidstab = mps["videoStabilization"]
-        shakyPath = f"{cp.webmsPath}/shaky"
+        shakyPath = f"{cp.clipsPath}/shaky"
         os.makedirs(shakyPath, exist_ok=True)
         transformPath = f'{shakyPath}/{mp["fileNameStem"]}.trf'
 
@@ -417,7 +411,7 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
             os.makedirs(safeShakyPath, exist_ok=True)
             transformPath = f"{safeShakyPath}/{markerPairIndex+1}.trf"
 
-        shakyWebmPath = f'{shakyPath}/{mp["fileNameStem"]}-shaky.webm'
+        shakyClipPath = f'{shakyPath}/{mp["fileNameStem"]}-shaky.{mp["fileNameSuffix"]}'
         video_filter += "[shaky];[shaky]"
         vidstabdetectFilter = (
             video_filter
@@ -472,12 +466,11 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
         else:
             ffmpegVidstabdetect += f" -speed 5"
 
-        ffmpegVidstabdetect += f' "{shakyWebmPath}"'
+        ffmpegVidstabdetect += f' "{shakyClipPath}"'
         ffmpegVidstabtransform += f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
         ffmpegCommands: List[str] = [ffmpegVidstabdetect, ffmpegVidstabtransform]
 
     if not vidstabEnabled:
-        ffmpegCommand += overwriteArg
         if "minterpMode" in mps and mps["minterpMode"] != "None":
             video_filter += getMinterpFilter(mp, mps)
 
@@ -494,12 +487,13 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
             ffmpegCommand += f' -vf "{video_filter}" '
 
         if not mps["twoPass"]:
+            ffmpegCommand += overwriteArg
             ffmpegCommand += f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
 
             ffmpegCommands = [ffmpegCommand]
         else:
-            ffmpegPass1 = ffmpegCommand + " -pass 1 -"
-            ffmpegPass2 = ffmpegCommand + f' -speed {mps["encodeSpeed"]} -pass 2 "{mp["filePath"]}"'
+            ffmpegPass1 = ffmpegCommand + f" -y -pass 1 {os.devnull}"
+            ffmpegPass2 = ffmpegCommand + f' {overwriteArg} -speed {mps["encodeSpeed"]} -pass 2 "{mp["filePath"]}"'
 
             ffmpegCommands = [ffmpegPass1, ffmpegPass2]
 
@@ -515,13 +509,17 @@ def getFfmpegCommand(
     audio_filter: str,
     cbr: Optional[int],
     cp: ClipperPaths,
-    fps_arg: str,
     inputs: str,
     mp: DictStrAny,
     mps: DictStrAny,
     qmax: int,
     qmin: int,
 ):
+
+    video_codec_args, video_output_args = getFfmpegVideoCodec(
+        mps["videoCodec"], cbr=cbr, mp=mp, mps=mps, qmax=qmax, qmin=qmin
+    )
+
     return " ".join(
         (
             cp.ffmpegPath,
@@ -529,22 +527,114 @@ def getFfmpegCommand(
             inputs,
             f"-benchmark",
             # f'-loglevel 56',
-            f"-c:v libvpx-vp9" if not mps["vp8"] else f"-c:v libvpx",
-            f"-c:a libopus -b:a 128k" if not mps["vp8"] else f"-c:a libvorbis -q:a 7",
-            f"-pix_fmt yuv420p -slices 8",
-            f"-aq-mode 4 -row-mt 1 -tile-columns 6 -tile-rows 2" if not mps["vp8"] else "",
-            f'-qmin {qmin} -crf {mps["crf"]} -qmax {qmax}' if mps["targetSize"] <= 0 else "",
-            f'-b:v {mps["targetMaxBitrate"]}k' if cbr is None else f"-b:v {cbr}MB",
-            f'-force_key_frames 1 -g {mp["averageSpeed"] * Fraction(mps["r_frame_rate"])}',
+            video_codec_args,
+            f"-c:a libopus -b:a 128k"
+            if not mps["videoCodec"] == "vp8"
+            else f"-c:a libvorbis -q:a 7",
             f'-metadata title="{mps["videoTitle"]}"'
             if not mps["removeMetadata"]
             else "-map_metadata -1",
-            fps_arg,
             f"-af {audio_filter}" if mps["audio"] else "-an",
-            f"-f webm ",
+            video_output_args,
             f'{mps["extraFfmpegArgs"]}',
         )
     )
+
+
+def getFfmpegVideoCodec(
+    videoCodec: str,
+    cbr: Optional[int],
+    mp: DictStrAny,
+    mps: DictStrAny,
+    qmax: int,
+    qmin: int,
+) -> Tuple[str, str]:
+    if videoCodec in {"vp9", "vp8"}:
+        return getFfmpegVideoCodecVpx(
+            videoCodec=videoCodec, cbr=cbr, mp=mp, mps=mps, qmax=qmax, qmin=qmin
+        )
+    if videoCodec == "h264":
+        return getFfmpegVideoCodecH264(cbr=cbr, mp=mp, mps=mps, qmax=qmax, qmin=qmin)
+
+    raise ValueError(f"Invalid video codec: {videoCodec}")
+
+
+def getFfmpegVideoCodecVpx(
+    videoCodec: str,
+    cbr: Optional[int],
+    mp: DictStrAny,
+    mps: DictStrAny,
+    qmax: int,
+    qmin: int,
+) -> Tuple[str, str]:
+    if mps["minterpFPS"] is not None:
+        fps_arg = f'-r {mps["minterpFPS"]}'
+    elif not mp["isVariableSpeed"]:
+        fps_arg = f'-r ({mps["r_frame_rate"]}*{mp["speed"]})'
+    else:
+        fps_arg = f"-r 1000000000"
+
+    video_codec_args = " ".join(
+        (
+            f"-c:v libvpx-vp9" if not videoCodec == "vp8" else f"-c:v libvpx",
+            f"-pix_fmt yuv420p -slices 8",
+            f"-aq-mode 4 -row-mt 1 -tile-columns 6 -tile-rows 2" if not videoCodec == "vp8" else "",
+            f'-qmin {qmin} -crf {mps["crf"]} -qmax {qmax}' if mps["targetSize"] <= 0 else "",
+            f'-b:v {mps["targetMaxBitrate"]}k' if cbr is None else f"-b:v {cbr}MB",
+            f'-force_key_frames 1 -g {mp["averageSpeed"] * Fraction(mps["r_frame_rate"])}',
+        )
+    )
+    video_output_args = " ".join(("-f webm", fps_arg))
+    return video_codec_args, video_output_args
+
+
+def getFfmpegVideoCodecH264(
+    cbr: Optional[int],
+    mp: DictStrAny,
+    mps: DictStrAny,
+    qmax: int,
+    qmin: int,
+) -> Tuple[str, str]:
+    """Following recommendations from https://www.lighterra.com/papers/videoencodingh264"""
+
+    # TODO: Investigate h264 interactions with variable frame rate
+    # if mps["minterpFPS"] is not None:
+    #     fps_arg = f'-r {mps["minterpFPS"]}'
+    # else:
+    #     fps_arg = f'-r ({mps["r_frame_rate"]}*{mp["speed"]})'
+
+    pixel_count = mps["width"] * mps["height"]
+
+    # The me_method and me_range have a fairly significant impact on encoding speed and could be tweaked
+    # Currently going with a high me_method (umh vs the default hex), and a moderate me_range (32 for higher resolutiosn vs the default 16)
+    me_range = 16 if pixel_count < (1800 * 1000) else 32
+    video_codec_args = " ".join(
+        (
+            f"-c:v libx264",
+            f"-pix_fmt yuv420p",
+            f"-aq-mode 4",
+            f'-qmin {qmin} -crf {mps["crf"]} -qmax {qmax}' if mps["targetSize"] <= 0 else "",
+            f'-b:v {mps["targetMaxBitrate"]}k' if cbr is None else f"-b:v {cbr}MB",
+            f'-force_key_frames 1 -g {mp["averageSpeed"] * Fraction(mps["r_frame_rate"])}',
+            "-refs 4",
+            "-qmin 3",
+            "-qcomp 0.9",
+            "-rc-lookahead 40",
+            "-weightb 1 -weightp 2",
+            "-direct-pred auto",
+            "-b-pyramid none",
+            "-me_method umh",
+            f"-me_range {me_range}",
+            "-psy-rd 1.0:1.0",
+            "-fastfirstpass 1",
+            "-keyint_min 1",
+            "-trellis 2",
+            "-x264-params rc-lookahead=40",
+        )
+    )
+
+    video_output_args = " ".join(("-f h264",))
+    return video_codec_args, video_output_args
 
 
 def runffmpegCommand(
@@ -665,32 +755,36 @@ def mergeClips(cs: ClipperState) -> None:
                         titlePrefixesConsistent = False
 
         except IndexError:
-            logger.error(f"Aborting generation of webm with merge list {mergeList}.")
+            logger.error(f"Aborting generation of clip with merge list {mergeList}.")
             logger.error(f"Missing required marker pair number {i}.")
             continue
         except BadMergeInput:
-            logger.error(f"Aborting generation of webm with merge list {mergeList}.")
+            logger.error(f"Aborting generation of clip with merge list {mergeList}.")
             logger.error(f"Required marker pair {i} not successfully generated.")
             continue
         except MissingMergeInput:
-            logger.error(f"Aborting generation of webm with merge list {mergeList}.")
-            logger.error(f'Missing required input webm with path {markerPair["filePath"]}.')
+            logger.error(f"Aborting generation of clip with merge list {mergeList}.")
+            logger.error(f'Missing required input clip with path {markerPair["filePath"]}.')
             continue
         except MissingMarkerPairFilePath:
-            logger.error(f"Aborting generation of webm with merge list {mergeList}")
+            logger.error(f"Aborting generation of clip with merge list {mergeList}")
             logger.error(f"Missing file path for marker pair {i}")
             continue
 
-        inputsTxtPath = f"{cp.webmsPath}/inputs.txt"
+        inputsTxtPath = f"{cp.clipsPath}/inputs.txt"
         with open(inputsTxtPath, "w+", encoding="utf-8") as inputsTxt:
             inputsTxt.write(inputs)
 
+        # TODO: Test merging of clips of different video codecs
+        mergedFileNameSuffix = "mp4" if settings["videoCodec"] == "h264" else "webm"
         if titlePrefixesConsistent:
-            mergedFileName = f'{mergeTitlePrefix}-{settings["titleSuffix"]}-({merge}).webm'
+            mergedFileName = (
+                f'{mergeTitlePrefix}-{settings["titleSuffix"]}-({merge}).{mergedFileNameSuffix}'
+            )
         else:
-            mergedFileName = f'{settings["titleSuffix"]}-({merge}).webm'
+            mergedFileName = f'{settings["titleSuffix"]}-({merge}).{mergedFileNameSuffix}'
 
-        mergedFilePath = f"{cp.webmsPath}/{mergedFileName}"
+        mergedFilePath = f"{cp.clipsPath}/{mergedFileName}"
         mergeFileExists = checkClipExists(mergedFileName, mergedFilePath, settings["overwrite"])
         overwriteArg = "-y" if settings["overwrite"] else "-n"
         ffmpegConcatFlags = f"{overwriteArg} -hide_banner -f concat -safe 0"

@@ -22,7 +22,7 @@ def getSubs(cs: ClipperState) -> None:
     cp = cs.clipper_paths
     settings = cs.settings
 
-    settings["subsFileStem"] = f'{cp.webmsPath}/subs/{settings["titleSuffix"]}'
+    settings["subsFileStem"] = f'{cp.clipsPath}/subs/{settings["titleSuffix"]}'
     settings["subsFilePath"] = f'{settings["subsFileStem"]}.{settings["autoSubsLang"]}.vtt'
 
     ydl_opts = {
@@ -203,7 +203,7 @@ def getSubsFilter(cs: ClipperState, mp: DictStrAny, mps: DictStrAny, markerPairI
         caption.end = caption._to_timestamp(  # pylint: disable=protected-access
             min(subsEnd - subsStart, end - subsStart)
         )
-    tmp_subs_path = f'{cp.webmsPath}/subs/{mps["titleSuffix"]}-{markerPairIndex+1}.vtt'
+    tmp_subs_path = f'{cp.clipsPath}/subs/{mps["titleSuffix"]}-{markerPairIndex+1}.vtt'
     vtt.save(tmp_subs_path)
     subs_filter = f""",subtitles='{tmp_subs_path}':force_style='{mps["subsStyle"]}'"""
 

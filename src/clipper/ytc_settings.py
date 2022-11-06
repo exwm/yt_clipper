@@ -56,8 +56,8 @@ def getInputVideo(cs: ClipperState) -> None:
 
     input_video_pattern = r"^" + re.escape(settings["downloadVideoNameStem"]) + r"\.[^.]+$"
     potentialInputVideos = [
-        f"{cp.webmsPath}/{iv}"
-        for iv in os.listdir(cp.webmsPath)
+        f"{cp.clipsPath}/{iv}"
+        for iv in os.listdir(cp.clipsPath)
         if re.search(input_video_pattern, iv)
     ]
 
@@ -277,7 +277,7 @@ def getGlobalSettings(cs: ClipperState) -> None:
             logger.success(f'Found subtitles file at "{settings["subsFilePath"]}"')
 
     if settings["subsFilePath"] != "":
-        subsPath = f"{cp.webmsPath}/subs"
+        subsPath = f"{cp.clipsPath}/subs"
         os.makedirs(subsPath, exist_ok=True)
         subs_ext = Path(settings["subsFilePath"]).suffix
         if subs_ext not in [".vtt", ".sbv", ".srt"]:
@@ -326,7 +326,7 @@ def getGlobalSettings(cs: ClipperState) -> None:
     minterpFPSMsg = f"Target FPS: {getMinterpFPS(settings, None)}, "
     logger.info(
         (
-            f'Global Encoding Settings: CRF: {encodeSettings["crf"]} (0-63), '
+            f'Global Encoding Settings: Video Codec: {settings["videoCodec"]}, CRF: {encodeSettings["crf"]} (0-63), '
             + f'Detected Bitrate: {settings["bit_rate"]}kbps, '
             + f"Global Target Bitrate: {globalTargetBitrateMsg}, "
             + f'Two-pass Encoding Enabled: {encodeSettings["twoPass"]}, '
@@ -399,7 +399,7 @@ def filterDash(cs: ClipperState, dashManifestUrl: str, dashFormatIDs: List[str])
         if elementId not in dashFormatIDs:
             rep.parentNode.removeChild(rep)
 
-    filteredDashPath = f"{cp.webmsPath}/filtered-dash.xml"
+    filteredDashPath = f"{cp.clipsPath}/filtered-dash.xml"
     with open(filteredDashPath, "w+", encoding="utf-8") as filteredDash:
         filteredDash.write(dashdom.toxml())
 

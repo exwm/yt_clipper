@@ -11,7 +11,7 @@ from clipper.ytdl_importer import SUPPORTED_YOUTUBE_DL_ALTERNATIVES
 
 def getArgParser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Generate trimmed webms from input video.",
+        description="Generate clips from input video.",
         formatter_class=ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument("-v", "--version", action="version", version=getVersionString())
@@ -62,7 +62,7 @@ def getArgParser() -> argparse.ArgumentParser:
                 'For example "1-3,5,9" will merge marker pairs "1,2,3,5,9").',
                 'Separate multiple merges with semicolons (eg "1-3,5,9;6-2,8" creates 2 merged clips).',
                 "Merge requires successful generation of each required marker pair.",
-                "Merge does not require reencoding and simply orders each webm into one container.",
+                "Merge does not require reencoding and simply orders each clip into one container.",
             ]
         ),
     )
@@ -445,18 +445,18 @@ def getArgParser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
-        "--enable-vp8",
-        "-vp8",
-        dest="vp8",
-        action="store_true",
-        default=False,
+        "--video-codec",
+        "-vc",
+        dest="videoCodec",
+        default="vp9",
+        choices=["vp9", "vp8", "h264"],
         help=" ".join(
             [
-                "Use vp8 codec for video encoding instead of the default vp9.",
-                "Also use libopus for audio encoding instead of the default libopus.",
-                "Note that yt_clipper is not yet optimized for vp8, only for vp9.",
-                "This means quality and file size may not be well balanced.",
-                "Additionally, vp9 generally offers a better quality-size trade-off.",
+                "Select a video codec for video encoding."
+                "With vp8, use libvorbis for audio encoding instead of the default libopus.",
+                "vp9 is the default and most tested video codec with yt_clipper.",
+                "vp9 generally offers a better quality-size trade-off than vp8.",
+                "h264 was added more recently and is not as well tested as vp9.",
             ]
         ),
     )

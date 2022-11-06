@@ -55,7 +55,7 @@ def setUpLogger(cs: ClipperState) -> None:
     logger.addHandler(reportHandlerColored)
 
     if not settings["preview"]:
-        cp.logFilePath = f'{cp.webmsPath}/{settings["titleSuffix"]}.log'
+        cp.logFilePath = f'{cp.clipsPath}/{settings["titleSuffix"]}.log'
         fileHandler = logging.FileHandler(
             filename=cp.logFilePath,
             mode="a",
