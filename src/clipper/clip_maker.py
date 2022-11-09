@@ -633,7 +633,7 @@ def getFfmpegVideoCodecH264(
         )
     )
 
-    video_output_args = " ".join(("-f h264",))
+    video_output_args = " ".join(("-f mp4",))
     return video_codec_args, video_output_args
 
 
