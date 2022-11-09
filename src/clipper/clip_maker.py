@@ -537,6 +537,7 @@ def getFfmpegCommand(
             f"-af {audio_filter}" if mps["audio"] else "-an",
             video_output_args,
             f'{mps["extraFfmpegArgs"]}',
+            ' ',
         )
     )
 
