@@ -43,8 +43,6 @@ def loadSettings(settings: Settings) -> None:
 
         settings["downloadVideoNameStem"] = f'{settings["titleSuffix"]}-full'
 
-        settings["isDashVideo"] = False
-        settings["isDashAudio"] = False
         settings["mergedStreams"] = False
         if "enableSpeedMaps" not in settings:
             settings["enableSpeedMaps"] = not settings.get("noSpeedMaps", False)
@@ -145,7 +143,7 @@ def getVideoInfo(cs: ClipperState) -> None:
         "verbose": True,
         "outtmpl": f'{settings["downloadVideoPath"]}.%(ext)s',
         "cachedir": False,
-        "youtube_include_dash_manifest": True,
+        "youtube_include_dash_manifest": False,
     }
 
     if settings["username"] != "" or settings["password"] != "":
@@ -170,35 +168,14 @@ def getVideoInfo(cs: ClipperState) -> None:
         audioInfo = videoInfo
         settings["mergedStreams"] = True
 
-    dashFormatIDs: List[str] = []
-    dashVideoFormatID = None
-    dashAudioFormatID = None
-
     if settings["downloadVideo"]:
         settings["inputVideo"] = settings["downloadVideoPath"]
     else:
-        if videoInfo["protocol"] == "http_dash_segments":
-            settings["isDashVideo"] = True
-            dashVideoFormatID = videoInfo["format_id"]
-            dashFormatIDs.append(dashVideoFormatID)
-        else:
-            settings["videoURL"] = videoInfo["url"]
+        settings["videoURL"] = videoInfo["url"]
 
     settings["audiobr"] = int(audioInfo["abr"])
 
-    if audioInfo["protocol"] == "http_dash_segments":
-        settings["isDashAudio"] = True
-        dashAudioFormatID = audioInfo["format_id"]
-        dashFormatIDs.append(dashAudioFormatID)
-    else:
-        settings["audioURL"] = audioInfo["url"]
-
-    if dashFormatIDs:
-        filteredDashPath = filterDash(cs, videoInfo["url"], dashFormatIDs)
-        if settings["isDashVideo"]:
-            settings["videoURL"] = filteredDashPath
-        if settings["isDashAudio"]:
-            settings["audioURL"] = filteredDashPath
+    settings["audioURL"] = audioInfo["url"]
 
     getMoreVideoInfo(cs, videoInfo, audioInfo)
 
@@ -221,7 +198,7 @@ def getMoreVideoInfo(cs: ClipperState, videoInfo: Dict, audioInfo: Dict) -> None
         logger.warning("Could not fetch video info with ffprobe")
         logger.warning("Defaulting to video info fetched with youtube-dl")
 
-    if settings["isDashVideo"] or "bit_rate" not in settings:
+    if "bit_rate" not in settings:
         settings["bit_rate"] = int(videoInfo["tbr"])
 
     if "r_frame_rate" not in settings:
@@ -236,13 +213,11 @@ def getMoreVideoInfo(cs: ClipperState, videoInfo: Dict, audioInfo: Dict) -> None
 
     logger.report(
         f"Video Format: {videoFormat} ({videoFormatID})"
-        + (" [Uses MPEG-DASH]" if settings["isDashVideo"] else "")
     )
     # TODO: improve detection of when unique audio stream format information is available
     if videoFormat != audioFormat:
         logger.report(
             f"Audio Format: {audioFormat} ({audioFormatID})"
-            + (" [Uses MPEG-DASH]" if settings["isDashAudio"] else "")
         )
 
     logger.report(f'Video Width: {settings["width"]}, Video Height: {settings["height"]}')

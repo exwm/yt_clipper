@@ -210,13 +210,13 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
         aEnd = mp["end"] + mps["audioDelay"]
         aDuration = aEnd - aStart
         # ffplay previewing does not support multiple inputs
-        # if an input video is provided, a dash xml is used, or previewing is on, there is only one input
-        if not mps["inputVideo"] and not settings["isDashAudio"] and not settings["preview"]:
+        # if an input video is provided or previewing is on, there is only one input
+        if not mps["inputVideo"] and not settings["preview"]:
             inputs += reconnectFlags
             inputs += f' -ss {aStart} -to {aEnd} -i "{mps["audioURL"]}" '
 
         # preview mode does not start each clip at time 0 unlike encoding mode
-        if settings["preview"] and (settings["inputVideo"] or settings["isDashAudio"]):
+        if settings["preview"] and settings["inputVideo"]:
             audio_filter += f'atrim={aStart}:{aEnd},atempo={mp["speed"]}'
         # encoding mode starts each clip at time 0
         elif not settings["preview"]:
@@ -233,7 +233,7 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
         if mps["extraAudioFilters"]:
             audio_filter += f',{mps["extraAudioFilters"]}'
 
-    if not mps["inputVideo"] and not settings["isDashVideo"]:
+    if not mps["inputVideo"]:
         inputs += reconnectFlags
 
     if mps["inputVideo"]:
