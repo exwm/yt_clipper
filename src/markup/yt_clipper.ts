@@ -3420,7 +3420,7 @@ async function loadytClipper() {
       shortcutsTableContainer = document.createElement('div');
       shortcutsTableContainer.setAttribute('id', 'shortcutsTableContainer');
       shortcutsTableContainer.innerHTML = safeHtml(shortcutsTable);
-      hooks.shortcutsTable.insertAdjacentElement('afterend', shortcutsTableContainer);
+      hooks.shortcutsTable.insertAdjacentElement('beforebegin', shortcutsTableContainer);
     } else if (shortcutsTableContainer.style.display !== 'none') {
       shortcutsTableContainer.style.display = 'none';
     } else {
