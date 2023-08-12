@@ -12,9 +12,7 @@ on:
 # Can work around to some degree using set-env
 env:
   NAME: yt_clipper
-  VERSION: "5.12.0"
-  FFMPEG_VERSION: "5.0.1"
-  FFMPEG_DL_PREFIX: https://github.com/exwm/yt_clipper_bindeps/releases/download
+  VERSION: '5.12.0'
 
 jobs:
   build:
@@ -27,13 +25,19 @@ jobs:
       matrix:
         python-version: [3.8.x]
         node-version: [12.x]
-        poetry-version: ["1.2.2"]
+        poetry-version: ['1.5.1']
         os: [windows-latest, macos-latest]
         include:
           - os: windows-latest
             shortos: win
+            ffmpeg_dl_name: ffmpeg-n6.0-34-g3d5edb89e7-win64-gpl-shared-6.0
+            ffmpeg_dl_prefix: 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2023-08-11-12-48'
           - os: macos-latest
             shortos: macos
+            ffmpeg_dl_url: 'https://evermeet.cx/ffmpeg/ffmpeg-111749-g3e04f53571.7z'
+            ffprobe_dl_url: 'https://evermeet.cx/ffmpeg/ffprobe-111749-g3e04f53571.7z'
+            ffplay_dl_url: 'https://evermeet.cx/ffmpeg/ffplay-110011-gf456c192d9.7z'
+            ffmpeg_info_url: 'https://evermeet.cx/ffmpeg/info/110011-gf456c192d9'
 
     steps:
       - name: Set env
@@ -41,8 +45,6 @@ jobs:
         run: |
           echo "FULL_NAME=${{env.NAME}}_${{matrix.shortos}}_${{env.VERSION}}" >> $GITHUB_ENV
           echo "NOPLAT_NAME=${{env.NAME}}_${{env.VERSION}}" >> $GITHUB_ENV
-          echo "FFMPEG_NAME=ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}64" >> $GITHUB_ENV
-          echo "FFMPEG_DL=${{env.FFMPEG_DL_PREFIX}}/${{env.FFMPEG_VERSION}}/ffmpeg-${{env.FFMPEG_VERSION}}-${{matrix.shortos}}64.zip" >> $GITHUB_ENV
 
       - uses: actions/checkout@v3
 
@@ -62,7 +64,6 @@ jobs:
 
       - run: yarn run bundle:prod
 
-
       - name: Install poetry
         run: pipx install poetry
       - name: Set up Python ${{ matrix.python-version }}
@@ -77,7 +78,7 @@ jobs:
 
       - name: Lint with pylint
         run: |
-           npm run lint:py
+          npm run lint:py
 
       - name: Run clipper tests
         run: |
@@ -92,29 +93,51 @@ jobs:
           mkdir -p ./artifact/py/${{env.FULL_NAME}}/{webms,bin,temp}/
           mkdir -p ./bindeps
 
-      - name: Download ffmpeg dependency
+      - name: Download ffmpeg dependency (windows)
+        if: matrix.os == 'windows-latest'
         shell: bash
         run: |
           cd ./bindeps
-          curl -o ./ffmpeg.zip -L ${{env.FFMPEG_DL}} 
+          curl -o ./ffmpeg.zip -L ${{ format('{0}/{1}.zip', matrix.ffmpeg_dl_prefix, matrix.ffmpeg_dl_name) }}
           7z x ./ffmpeg.zip
-          mv ./${{env.FFMPEG_NAME}} ffmpeg
-          ls -la
+          mv ./${{matrix.ffmpeg_dl_name}} ffmpeg
 
-      - name: Set ffmpeg executable permissions on non-windows systems
-        if: matrix.os != 'windows-latest'
+          ./ffmpeg/bin/ffmpeg -version > version.txt
+
+          ls -laR
+
+      - name: Download ffmpeg dependency (markup)
+        if: matrix.os == 'macos-latest'
+        shell: bash
         run: |
+          cd ./bindeps
+
+          curl -o ./ffmpeg.zip -L ${{matrix.ffmpeg_dl_url}}
+          curl -o ./ffprobe.zip -L ${{matrix.ffprobe_dl_url}}
+          curl -o ./ffplay.zip -L ${{matrix.ffplay_dl_url}}
+          curl -o version.txt -L ${{matrix.ffmpeg_info_url}}
+
+          7z x ./ffmpeg.zip
+          7z x ./ffprobe.zip
+          7z x ./ffplay.zip
+
+          mkdir -p ffmpeg/bin
+
+          mv ffmpeg ffprobe ffplay ffmpeg/bin
           chmod -v +x ./bindeps/ffmpeg/bin/*
+          mv version.txt ffmpeg/bin
+
+          ls -laR
 
       - name: Copy artifacts
         shell: bash
         run: |
           mv ./bindeps/ffmpeg/bin/* ./artifact/py/${{env.FULL_NAME}}/bin/
-          mv ./bindeps/ffmpeg/*.txt ./artifact/py/${{env.FULL_NAME}}/bin/
+          mv ./bindeps/ffmpeg/*.{txt,json,md} ./artifact/py/${{env.FULL_NAME}}/bin/
           cp ./src/clipper/include/* ./artifact/py/${{env.FULL_NAME}}/
           cp ./src/clipper/${{matrix.shortos}}_helpers/* ./artifact/py/${{env.FULL_NAME}}/
           cp ./dist/py/yt_clipper* ./artifact/py/${{env.FULL_NAME}}/
-      
+
       - name: Print clipper install version (windows)
         if: matrix.os == 'windows-latest'
         run: |
