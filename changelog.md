@@ -23,3 +23,4 @@ All notable changes to this project will be documented in this file. See [standa
 ### Major Dependency Upgrades
 
 * **clipper:** update yt-dlp dependency from v2023.03.03 to v2023.07.06 ([69c0b34](https://github.com/exwm/yt_clipper/commit/69c0b3417693bcb9a067045cf0ade8f10e51e2e0))
+* **clipper:** ffmpeg dependency updated to v6.0.0 (latest master branch builds)
