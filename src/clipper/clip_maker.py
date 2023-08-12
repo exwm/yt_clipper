@@ -576,7 +576,7 @@ def getFfmpegVideoCodecVpx(
     elif not mp["isVariableSpeed"]:
         fps_arg = f'-r ({mps["r_frame_rate"]}*{mp["speed"]})'
     else:
-        fps_arg = f"-r 1000000000"
+        fps_arg = "-fps_mode vfr"
 
     video_codec_args = " ".join(
         (
@@ -600,17 +600,17 @@ def getFfmpegVideoCodecH264(
     qmin: int,
 ) -> Tuple[str, str]:
     """Following recommendations from https://www.lighterra.com/papers/videoencodingh264"""
-
-    # TODO: Investigate h264 interactions with variable frame rate
-    # if mps["minterpFPS"] is not None:
-    #     fps_arg = f'-r {mps["minterpFPS"]}'
-    # else:
-    #     fps_arg = f'-r ({mps["r_frame_rate"]}*{mp["speed"]})'
+    if mps["minterpFPS"] is not None:
+        fps_arg = f'-r {mps["minterpFPS"]}'
+    elif not mp["isVariableSpeed"]:
+        fps_arg = f'-r ({mps["r_frame_rate"]}*{mp["speed"]})'
+    else:
+        fps_arg = "-fps_mode vfr"
 
     pixel_count = mps["width"] * mps["height"]
 
     # The me_method and me_range have a fairly significant impact on encoding speed and could be tweaked
-    # Currently going with a high me_method (umh vs the default hex), and a moderate me_range (32 for higher resolutiosn vs the default 16)
+    # Currently going with a high me_method (umh vs the default hex), and a moderate me_range (32 for higher resolutions vs the default 16)
     me_range = 16 if pixel_count < (1800 * 1000) else 32
     video_codec_args = " ".join(
         (
@@ -637,7 +637,7 @@ def getFfmpegVideoCodecH264(
         )
     )
 
-    video_output_args = " ".join(("-f mp4",))
+    video_output_args = " ".join(("-f mp4", fps_arg))
     return video_codec_args, video_output_args
 
 
