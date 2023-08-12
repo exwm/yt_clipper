@@ -493,7 +493,10 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
             ffmpegCommands = [ffmpegCommand]
         else:
             ffmpegPass1 = ffmpegCommand + f" -y -pass 1 {os.devnull}"
-            ffmpegPass2 = ffmpegCommand + f' {overwriteArg} -speed {mps["encodeSpeed"]} -pass 2 "{mp["filePath"]}"'
+            ffmpegPass2 = (
+                ffmpegCommand
+                + f' {overwriteArg} -speed {mps["encodeSpeed"]} -pass 2 "{mp["filePath"]}"'
+            )
 
             ffmpegCommands = [ffmpegPass1, ffmpegPass2]
 
@@ -537,7 +540,7 @@ def getFfmpegCommand(
             f"-af {audio_filter}" if mps["audio"] else "-an",
             video_output_args,
             f'{mps["extraFfmpegArgs"]}',
-            ' ',
+            " ",
         )
     )
 

@@ -211,14 +211,10 @@ def getMoreVideoInfo(cs: ClipperState, videoInfo: Dict, audioInfo: Dict) -> None
     audioFormat = util.dictTryGetKeys(audioInfo, "acodec", "format", default=UNKNOWN_PROPERTY)
     audioFormatID = util.dictTryGetKeys(audioInfo, "format_id", default=UNKNOWN_PROPERTY)
 
-    logger.report(
-        f"Video Format: {videoFormat} ({videoFormatID})"
-    )
+    logger.report(f"Video Format: {videoFormat} ({videoFormatID})")
     # TODO: improve detection of when unique audio stream format information is available
     if videoFormat != audioFormat:
-        logger.report(
-            f"Audio Format: {audioFormat} ({audioFormatID})"
-        )
+        logger.report(f"Audio Format: {audioFormat} ({audioFormatID})")
 
     logger.report(f'Video Width: {settings["width"]}, Video Height: {settings["height"]}')
     logger.report(

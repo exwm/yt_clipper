@@ -40,3 +40,5 @@ def ffprobeVideoProperties(cs: ClipperState, video: str) -> Optional[DictStrAny]
 
         ffprobeData["streams"][0]["bit_rate"] = int(int(ffprobeData["format"]["bit_rate"]) / 1000)
         return ffprobeData["streams"][0]
+
+    return None
