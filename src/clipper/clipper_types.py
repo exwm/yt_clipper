@@ -30,9 +30,9 @@ class ClipperState:
     """Central state for yt_clipper functions."""
 
     settings: Settings = field(default_factory=dict)
-    clipper_paths: ClipperPaths = ClipperPaths()
-    reportStream = io.StringIO()
-    reportStreamColored = io.StringIO()
+    clipper_paths: ClipperPaths = field(default_factory=ClipperPaths)
+    reportStream: io.StringIO = field(default_factory=io.StringIO)
+    reportStreamColored: io.StringIO = field(default_factory=io.StringIO)
 
 
 class MissingMergeInput(Exception):
