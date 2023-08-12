@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "clipper"
-version = "5.12.0"
+version = "5.13.0"
 description = "Quickly generate clipped webms."
 authors = ["exwm <rjvgb@protonmail.com>"]
 license = "MIT"

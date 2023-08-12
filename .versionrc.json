@@ -1,0 +1,20 @@
+{
+  "skip": {
+    "commit": true,
+    "tag": true
+  },
+  "scripts": {
+    "postbump": "poetry run bumpit || true"
+  },
+  "types": [
+    { "type": "feat", "section": "Features" },
+    { "type": "fix", "section": "Bug Fixes" },
+    { "type": "mdeps", "section": "Major Dependency Upgrades" },
+    { "type": "chore", "hidden": true },
+    { "type": "docs", "hidden": true },
+    { "type": "style", "hidden": true },
+    { "type": "refactor", "hidden": true },
+    { "type": "perf", "hidden": true },
+    { "type": "test", "hidden": true }
+  ]
+}
