@@ -1960,7 +1960,7 @@ async function loadytClipper() {
     const globalEncodeSettingsEditorDisplay = isExtraSettingsEditorEnabled ? 'block' : 'none';
     globalSettingsEditorDiv.setAttribute('id', 'settings-editor-div');
     globalSettingsEditorDiv.innerHTML = safeHtml`
-    <fieldset id="new-marker-defaults-inputs" 
+    <fieldset id="new-marker-defaults-inputs"
       class="settings-editor-panel global-settings-editor global-settings-editor-highlighted-div">
       <legend class="global-settings-editor-highlighted-label">New Marker Settings</legend>
       <div class="settings-editor-input-div" title="${Tooltips.speedTooltip}">
@@ -1980,7 +1980,7 @@ async function loadytClipper() {
         <span id="crop-aspect-ratio">${cropAspectRatio}</span>
       </div>
     </fieldset>
-    <fieldset id="global-marker-settings" 
+    <fieldset id="global-marker-settings"
     class="settings-editor-panel global-settings-editor global-settings-editor-highlighted-div">
       <legend class="global-settings-editor-highlighted-label settings-editor-panel-label">Global Settings</legend>
       <div class="settings-editor-input-div" title="${Tooltips.titleSuffixTooltip}">
@@ -2026,12 +2026,12 @@ async function loadytClipper() {
         <span id="merge-list-durations" style="display:inline">${markerPairMergelistDurations}</span>
       </div>
     </fieldset>
-    <fieldset id="global-encode-settings" 
+    <fieldset id="global-encode-settings"
       class="settings-editor-panel global-settings-editor global-settings-editor-highlighted-div" style="display:${globalEncodeSettingsEditorDisplay}">
       <legend class="global-settings-editor-highlighted-label">Encode Settings</legend>
       <div class="settings-editor-input-div" title="${Tooltips.audioTooltip}">
         <span>Audio</span>
-        <select id="audio-input"> 
+        <select id="audio-input">
           <option value="Default" ${settings.audio == null ? 'selected' : ''}>(Disabled)</option>
           <option ${settings.audio === false ? 'selected' : ''}>Disabled</option>
           <option ${settings.audio ? 'selected' : ''}>Enabled</option>
@@ -2057,7 +2057,7 @@ async function loadytClipper() {
       </div>
       <div class="settings-editor-input-div" title="${Tooltips.twoPassTooltip}">
         <span>Two-Pass</span>
-        <select id="two-pass-input"> 
+        <select id="two-pass-input">
           <option value="Default" ${settings.twoPass == null ? 'selected' : ''}>(Disabled)</option>
           <option ${settings.twoPass === false ? 'selected' : ''}>Disabled</option>
           <option ${settings.twoPass ? 'selected' : ''}>Enabled</option>
@@ -2122,7 +2122,7 @@ async function loadytClipper() {
         </div>
         <div title="${Tooltips.dynamicZoomTooltip}">
           <span>Dynamic Zoom</span>
-          <select id="video-stabilization-dynamic-zoom-input"> 
+          <select id="video-stabilization-dynamic-zoom-input">
             <option value="Default" ${
               vidstabDynamicZoomEnabled == null ? 'selected' : ''
             }>(Disabled)</option>
@@ -2477,12 +2477,12 @@ async function loadytClipper() {
         </legend>
         <div class="settings-editor-input-div" title="${Tooltips.speedTooltip}">
           <span id="speed-input-label">Speed</span>
-          <input id="speed-input"type="number" placeholder="speed" value="${speed}" 
+          <input id="speed-input"type="number" placeholder="speed" value="${speed}"
             step="0.05" min="0.05" max="2" style="width:7ch" required></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.cropTooltip}">
           <span id="crop-input-label">Crop</span>
-          <input id="crop-input" value="${crop}" pattern="${cropInputValidation}" 
+          <input id="crop-input" value="${crop}" pattern="${cropInputValidation}"
           style="width:20ch" required></input>
         </div>
         <div class="settings-editor-input-div settings-info-display">
@@ -2542,7 +2542,7 @@ async function loadytClipper() {
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.twoPassTooltip}">
           <span>Two-Pass</span>
-          <select id="two-pass-input"> 
+          <select id="two-pass-input">
             <option value="Default" ${
               overrides.twoPass == null ? 'selected' : ''
             }>${ternaryToString(settings.twoPass)}</option>
@@ -2624,7 +2624,7 @@ async function loadytClipper() {
           </div>
           <div title="${Tooltips.dynamicZoomTooltip}">
             <span>Dynamic Zoom</span>
-            <select id="video-stabilization-dynamic-zoom-input"> 
+            <select id="video-stabilization-dynamic-zoom-input">
               <option value="Default" ${
                 vidstabDynamicZoomEnabled == null ? 'selected' : ''
               }>${ternaryToString(settings.videoStabilizationDynamicZoom)}</option>
@@ -3682,32 +3682,32 @@ async function loadytClipper() {
               <rect id="cropRect" x="0" y="0" width="100%" height="100%" fill="black" />
             </mask>
           </defs>
-          <rect id="cropDim" mask="url(#cropMask)" x="0" y="0" width="100%" height="100%" 
+          <rect id="cropDim" mask="url(#cropMask)" x="0" y="0" width="100%" height="100%"
             fill="black" fill-opacity="${cropDims[cropDimIndex]}"
           />
 
           <g id="cropChartSectionStart" opacity="0.7" shape-rendering="geometricPrecision">
-            <rect id="cropChartSectionStartBorderGreen" x="0" y="0" width="0%" height="0%" fill="none" 
+            <rect id="cropChartSectionStartBorderGreen" x="0" y="0" width="0%" height="0%" fill="none"
               stroke="lime" stroke-width="1px"
             />
-            <rect id="cropChartSectionStartBorderWhite" x="0" y="0" width="0%" height="0%" fill="none" 
+            <rect id="cropChartSectionStartBorderWhite" x="0" y="0" width="0%" height="0%" fill="none"
               stroke="black" stroke-width="1px" stroke-dasharray="5 10"
             />
           </g>
           <g id="cropChartSectionEnd" opacity="0.7" shape-rendering="geometricPrecision">
-            <rect id="cropChartSectionEndBorderYellow" x="0" y="0" width="0%" height="0%" fill="none" 
+            <rect id="cropChartSectionEndBorderYellow" x="0" y="0" width="0%" height="0%" fill="none"
               stroke="yellow" stroke-width="1px"
             />
-            <rect id="cropChartSectionEndBorderWhite" x="0" y="0" width="0%" height="0%" fill="none" 
-              stroke="black" stroke-width="1px" stroke-dasharray="5 10" 
+            <rect id="cropChartSectionEndBorderWhite" x="0" y="0" width="0%" height="0%" fill="none"
+              stroke="black" stroke-width="1px" stroke-dasharray="5 10"
             />
           </g>
 
           <g id="cropRectBorder" opacity="1" shape-rendering="geometricPrecision">
-            <rect id="cropRectBorderBlack" x="0" y="0" width="100%" height="100%" fill="none" 
+            <rect id="cropRectBorderBlack" x="0" y="0" width="100%" height="100%" fill="none"
               stroke="black" stroke-width="1px" stroke-opacity="0.8"
             />
-            <rect id="cropRectBorderWhite" x="0" y="0" width="100%" height="100%" fill="none" 
+            <rect id="cropRectBorderWhite" x="0" y="0" width="100%" height="100%" fill="none"
             stroke="white" stroke-width="1px" stroke-dasharray="5 5" stroke-opacity="0.8"
             >
             </rect>
@@ -3716,7 +3716,7 @@ async function loadytClipper() {
             }">
               <line id="cropCrossHairXBlack" x1="0" y1="50%" x2="100%" y2="50%" stroke="black" stroke-width="1px" type="x"/>
               <line id="cropCrossHairXWhite" x1="0" y1="50%" x2="100%" y2="50%" stroke-width="1px" stroke-dasharray="5 5" type="x"/>
-              
+
               <line id="cropCrossHairYBlack" x1="50%" y1="0" x2="50%" y2="100%" stroke="black" stroke-width="1px" type="y"/>
               <line id="cropCrossHairYWhite" x1="50%" y1="0" x2="50%" y2="100%" stroke-width="1px" stroke-dasharray="5 5" type="y"/>
             </g>
