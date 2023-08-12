@@ -42,7 +42,7 @@ export function getVideoPlatformSelectors(platform: VideoPlatforms) {
       theaterModeIndicator: 'ytd-watch-flexy',
       progressBar: '.ytp-progress-bar',
       settingsEditor: '#info-contents',
-      settingsEditorTheater: '#player-theater-container',
+      settingsEditorTheater: '#player-wide-container',
       shortcutsTable: '#info-contents',
       frameCapturerProgressBar: '#info-contents',
       flashMessage: '#info-contents',
