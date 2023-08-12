@@ -24,6 +24,7 @@ pyinstaller = "5.0.1"
 black = "^22.8.0"
 isort = "^5.10.1"
 pylint = "^2.12.2"
+bumpit = "^0.8.0"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.0.0"

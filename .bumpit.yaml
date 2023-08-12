@@ -1,0 +1,17 @@
+current_version: "5.12.0"
+base_branch: "master"
+strategy:
+  name: "semver"
+  part: "minor"
+commit:
+  author: "foo <bar>"
+tag:
+  apply: False
+  format: "v{version}"
+auto_remote_push: False # or False
+tracked_files:
+  - package.json
+  - src/clipper/version.py
+  - .github/workflows/yt_clipper_ci.yml
+  - src/markup/yt_clipper.ts
+  - pyproject.toml
