@@ -28,7 +28,7 @@
     "build:all": "run-s -c build:ts:p build:py",
     "bundle:w": "npx parcel watch --out-dir ./dist/js --no-hmr ./src/markup/yt_clipper.ts",
     "bundle:tc:w": "run-p -c build:ts:ne bundle:w",
-    "bundle:prod": "npx parcel build --experimental-scope-hoisting --no-minify --out-dir ./dist/js ./src/markup/yt_clipper.ts",
+    "bundle:prod": "npx parcel build --no-minify --out-dir ./dist/js ./src/markup/yt_clipper.ts",
     "clean:dist": "rm -r ./dist/*",
     "clean:sandbox": "rm -r ./sandbox/*",
     "pigar": "pigar -P ./src/clipper -p ./src/clipper/requirements.txt --without-referenced-comments"
