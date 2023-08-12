@@ -1,9 +1,10 @@
+import importlib
 import json
 import os
 import re
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 from clipper import util, ytdl_importer
 from clipper.clip_maker import getDefaultEncodeSettings
@@ -133,6 +134,47 @@ def getInputVideo(cs: ClipperState) -> None:
 
 def getVideoInfo(cs: ClipperState) -> None:
     settings = cs.settings
+
+    UNSUPPORTED_STREAMING_PROTOCOLS = ["m3u8", "m3u8_native"]
+
+    videoInfo, audioInfo = _getVideoInfo(cs)
+
+    if not settings["downloadVideo"] and "protocol" in videoInfo and videoInfo["protocol"] in UNSUPPORTED_STREAMING_PROTOCOLS:
+        logger.warning(f'In streaming mode, got video with unsupported protocol {videoInfo["protocol"]}.')
+        logger.warning(f'Unsupported streaming mode protocols: {UNSUPPORTED_STREAMING_PROTOCOLS}')
+        logger.warning(
+            f'm3u8 and m3u8_native protocols may require streaming/downloading the entire video before trimming and may fail')
+
+        logger.warning(
+            f'If an unsupported streaming mode protocol is preferred, please use a non-streaming mode with the --download-video or --input-video options')
+
+        response = input(r"Disable potentially unsupported protocols? (y/n): ")
+        if response in {"yes", "y"}:
+            logger.info(f'Retrying with potentially unsupported protocols disabled.')
+            disableYdlProtocols(settings, UNSUPPORTED_STREAMING_PROTOCOLS)
+            videoInfo, audioInfo = _getVideoInfo(cs)
+        else:
+            logger.warning(f'Continuing with potentially unsupported protocol {videoInfo["protocol"]}')
+
+    if settings["downloadVideo"]:
+        settings["inputVideo"] = settings["downloadVideoPath"]
+    else:
+        settings["videoURL"] = videoInfo["url"]
+
+    settings["audiobr"] = int(audioInfo["abr"])
+
+    settings["audioURL"] = audioInfo["url"]
+
+    getMoreVideoInfo(cs, videoInfo, audioInfo)
+
+
+def disableYdlProtocols(settings: Settings, protocols: List[str]):
+    disableClause = "".join(f'[protocol!={protocol}]' for protocol in protocols)
+    settings["format"] = f'({settings["format"]}){disableClause}'
+
+
+def _getVideoInfo(cs: ClipperState) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    settings = cs.settings
     cp = cs.clipper_paths
 
     ydl_opts = {
@@ -153,6 +195,7 @@ def getVideoInfo(cs: ClipperState) -> None:
     if getattr(sys, "frozen", False):
         ydl_opts["ffmpeg_location"] = cp.ffmpegPath
 
+    importlib.reload(ytdl_importer.youtube_dl)
     with ytdl_importer.youtube_dl.YoutubeDL(ydl_opts) as ydl:
         if settings["downloadVideo"]:
             ydl_info: Dict[str, Any] = ydl.extract_info(settings["videoURL"], download=True)  # type: ignore
@@ -163,21 +206,13 @@ def getVideoInfo(cs: ClipperState) -> None:
     if "requested_formats" in ydl_info:
         videoInfo = ydl_info["requested_formats"][0]
         audioInfo = ydl_info["requested_formats"][1]
+        settings["mergedStreams"] = False
     else:
         videoInfo = ydl_info
         audioInfo = videoInfo
         settings["mergedStreams"] = True
 
-    if settings["downloadVideo"]:
-        settings["inputVideo"] = settings["downloadVideoPath"]
-    else:
-        settings["videoURL"] = videoInfo["url"]
-
-    settings["audiobr"] = int(audioInfo["abr"])
-
-    settings["audioURL"] = audioInfo["url"]
-
-    getMoreVideoInfo(cs, videoInfo, audioInfo)
+    return videoInfo, audioInfo
 
 
 def getMoreVideoInfo(cs: ClipperState, videoInfo: Dict, audioInfo: Dict) -> None:
