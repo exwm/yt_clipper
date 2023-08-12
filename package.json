@@ -13,6 +13,9 @@
   "browserslist": [
     "since 2019 and > 0.5% and not op_mini all and not IE 11"
   ],
+  "engines": {
+    "node": "^12.22"
+  },
   "scripts": {
     "pretty:ts": "npx prettier \"src/**/*.{ts,js,json}\" --write",
     "pretty:py": "poetry run isort src/clipper && poetry run black src/clipper",
@@ -46,7 +49,7 @@
     "@types/d3-ease": "^1.0.9",
     "@types/file-saver": "^2.0.5",
     "@types/jszip": "^3.4.1",
-    "browserslist": "^4.21.3",
+    "browserslist": "^4.21.10",
     "npm-run-all": "^4.1.5",
     "parcel-bundler": "^1.12.5",
     "prettier": "^2.7.1",
