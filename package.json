@@ -41,13 +41,12 @@
     "lodash.isequal": "^4.5.0"
   },
   "devDependencies": {
-    "browserslist": "^4.21.3",
-    "caniuse-lite": "^1.0.30001388",
     "@types/chart.js": "^2.9.37",
     "@types/common-tags": "^1.8.1",
     "@types/d3-ease": "^1.0.9",
     "@types/file-saver": "^2.0.5",
     "@types/jszip": "^3.4.1",
+    "browserslist": "^4.21.3",
     "npm-run-all": "^4.1.5",
     "parcel-bundler": "^1.12.5",
     "prettier": "^2.7.1",
