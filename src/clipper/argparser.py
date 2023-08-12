@@ -133,7 +133,7 @@ def getArgParser() -> argparse.ArgumentParser:
         dest="formatSort",
         nargs="+",
         default=[
-            "hasvid,ie_pref,lang,quality,res,fps,size,br,hdr:1,codec:vp9.2,asr,proto,ext,hasaud,source,id"
+            "hasvid,ie_pref,lang,quality,res,fps,br,size,hdr:1,vcodec:vp9.2,vcodec:vp9,asr,proto,ext,hasaud,source,id"
         ],
         help=" ".join(
             [
