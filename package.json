@@ -32,8 +32,14 @@
     "clean:dist": "rm -r ./dist/*",
     "clean:sandbox": "rm -r ./sandbox/*",
     "version": "npx standard-version",
-    "pigar": "pigar -P ./src/clipper -p ./src/clipper/requirements.txt --without-referenced-comments"
+    "pigar": "pigar -P ./src/clipper -p ./src/clipper/requirements.txt --without-referenced-comments",
+    "precommit-msg": "echo 'Pre-commit checks...' && exit 0"
   },
+  "pre-commit": [
+    "precommit-msg",
+    "lint:py",
+    "test:py"
+  ],
   "dependencies": {
     "common-tags": "^1.8.2",
     "d3-drag": "^1.2.4",
@@ -53,6 +59,7 @@
     "browserslist": "^4.21.10",
     "npm-run-all": "^4.1.5",
     "parcel-bundler": "^1.12.5",
+    "pre-commit": "^1.2.2",
     "prettier": "^2.7.1",
     "standard-version": "^9.5.0",
     "typescript": "^4.8.2"
