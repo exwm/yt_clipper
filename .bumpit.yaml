@@ -1,8 +1,8 @@
-current_version: "5.14.0"
+current_version: "5.14.1"
 base_branch: "master"
 strategy:
   name: "semver"
-  part: "minor"
+  part: "patch"
 commit:
   author: "foo <bar>"
 tag:
