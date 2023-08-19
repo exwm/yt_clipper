@@ -4,7 +4,7 @@ from fractions import Fraction
 from functools import reduce
 from math import floor, log
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 from clipper import util, ytdl_importer
 from clipper.clipper_types import (
@@ -310,6 +310,54 @@ def getAverageSpeed(speedMap: SpeedMap, fps: Union[float, Fraction]) -> float:
     return averageSpeed
 
 
+# TODO: remove, replace tests with snapshots
+
+
+def getCropFilterOld(
+    crop: str,
+    cropMap: CropMap,
+    fps: Union[float, Fraction],
+    easeType: str = "easeInOutSine",
+) -> str:
+    logger.info("-" * 80)
+    fps = Fraction(fps)
+    nSects = len(cropMap) - 1
+
+    firstTime = cropMap[0]["x"]
+    _, _, cropW, cropH = crop.split(":")
+    cropXExpr = cropYExpr = ""
+
+    for sect, (left, right) in enumerate(zip(cropMap[:-1], cropMap[1:])):
+        startTime = left["x"] - firstTime
+        startX, startY, _startW, _startH = left["crop"].split(":")
+        endTime = right["x"] - firstTime
+        endX, endY, _endW, _endH = right["crop"].split(":")
+
+        sectDuration = endTime - startTime
+        if sectDuration == 0:
+            continue
+
+        if not right.get("easeIn", False):
+            currEaseType = easeType
+        else:
+            currEaseType = right["easeIn"]
+
+        easeP = f"((t-{startTime})/{sectDuration})"
+        easeX = getEasingExpression(currEaseType, f"({startX})", f"({endX})", easeP)
+        easeY = getEasingExpression(currEaseType, f"({startY})", f"({endY})", easeP)
+
+        if sect == nSects - 1:
+            cropXExpr += f"(between(t, {startTime}, {endTime})*{easeX})"
+            cropYExpr += f"(between(t, {startTime}, {endTime})*{easeY})"
+        else:
+            cropXExpr += f"(gte(t, {startTime})*lt(t, {endTime})*{easeX})+"
+            cropYExpr += f"(gte(t, {startTime})*lt(t, {endTime})*{easeY})+"
+
+    cropFilter = f"crop='x={cropXExpr}:y={cropYExpr}:w={cropW}:h={cropH}:exact=1'"
+
+    return cropFilter
+
+
 def getCropFilter(
     crop: str,
     cropMap: CropMap,
@@ -346,21 +394,27 @@ def getCropFilter(
         easingsX.append((startTime, endTime, easeX))
         easingsY.append((startTime, endTime, easeY))
 
-    cropXExpr = getEaseFilterExpr(easingsX)
-    cropYExpr = getEaseFilterExpr(easingsY)
+    cropXExpr = getEaseFilterExpr(easingsX, timeExpr="t")
+    cropYExpr = getEaseFilterExpr(easingsY, timeExpr="t")
 
     cropFilter = f"crop='x={cropXExpr}:y={cropYExpr}:w={cropW}:h={cropH}:exact=1'"
 
     return cropFilter
 
 
-def getEaseFilterExpr(easings: List):
-    easeFilterExpr = [f"(gte(t, {startTime})*lt(t, {endTime}))*{easeExpr}" for (startTime,
-                                                                                endTime, easeExpr) in easings[:-1]]
+def getEaseFilterExpr(easings: List, timeExpr: Literal["t", "it"]):
+    easeFilterExpr = [
+        f"(gte({timeExpr}, {startTime})*lt({timeExpr}, {endTime})*{easeExpr})"
+        for (startTime, endTime, easeExpr) in easings[:-1]
+    ]
     (startTime, endTime, easeExpr) = easings[-1]
-    easeFilterExpr.append(f"between(t, {startTime}, {endTime})*{easeExpr}")
+    easeFilterExpr.append(f"(between({timeExpr}, {startTime}, {endTime})*{easeExpr})")
 
     return "+".join(easeFilterExpr)
+
+
+# zoompan's time variable is time instead of t
+ZOOM_PAN_TIME_EXPR = "it"
 
 
 def getZoomPanFilter(
@@ -430,9 +484,7 @@ def getZoomPanFilter(
         panEaseRight = f"max({panEaseRight}-{panScale}*{maxWidth}, 0)"
         panEaseBottom = f"max({panEaseBottom}-{panScale}*{maxHeight}, 0)"
 
-        # zoompan's time variable is time instead of t
-        t = f"it"
-        easeP = f"(({t}-{startTime})/{sectDuration})"
+        easeP = f"(({ZOOM_PAN_TIME_EXPR}-{startTime})/{sectDuration})"
         easeZoom = getEasingExpression(currEaseType, f"({startZoom})", f"({endZoom})", easeP)
         easeX = getEasingExpression(
             currEaseType, f"({zoomScale}*{startX})", f"({zoomScale}*{endX})", easeP
@@ -462,11 +514,129 @@ def getZoomPanFilter(
         easingsZoomX.append((startTime, endTime, easeX))
         easingsZoomY.append((startTime, endTime, easeY))
 
-    panXExpr = getEaseFilterExpr(easingsPanRight)
-    panYExpr = getEaseFilterExpr(easingsPanBottom)
-    zoomExpr = getEaseFilterExpr(easingsZoom)
-    zoomXExpr = getEaseFilterExpr(easingsZoomX)
-    zoomYExpr = getEaseFilterExpr(easingsZoomY)
+    panXExpr = getEaseFilterExpr(easingsPanRight, timeExpr="t")
+    panYExpr = getEaseFilterExpr(easingsPanBottom, timeExpr="t")
+    zoomExpr = getEaseFilterExpr(easingsZoom, timeExpr=ZOOM_PAN_TIME_EXPR)
+    zoomXExpr = getEaseFilterExpr(easingsZoomX, timeExpr=ZOOM_PAN_TIME_EXPR)
+    zoomYExpr = getEaseFilterExpr(easingsZoomY, timeExpr=ZOOM_PAN_TIME_EXPR)
+
+    zoomPanFilter = ""
+    targetSize = f"{round(1*maxWidth)}x{round(1*maxHeight)}"
+    # Prescale filter to reduce jitter caused by the rounding of the panning done by zoompan.
+    if panScale > 1:
+        zoomPanFilter += f"scale=w={panScale}*iw:h={panScale}*ih,"
+    zoomPanFilter += f"crop='x={panXExpr}:y={panYExpr}:w={panScale}*{maxWidth}:h={panScale}*{maxHeight}:exact=1',"
+    if zoomScale > 1:
+        zoomPanFilter += f"scale=w={zoomScale}*iw:h={zoomScale}*ih,"
+    zoomPanFilter += f"zoompan=z='({zoomExpr})':x='{zoomXExpr}':y='{zoomYExpr}'"
+    zoomPanFilter += f":d=1:s={targetSize}:fps={fps}"
+
+    return zoomPanFilter, maxSize
+
+
+# TODO: remove, replace tests with snapshots
+
+
+def getZoomPanFilterOld(
+    cropMap: CropMap, fps: Union[float, Fraction], easeType: str = "easeInOutSine"
+) -> Tuple[str, int]:
+    maxSizeCrop = getMaxSizeCrop(cropMap)
+    maxWidth = floorToEven(maxSizeCrop["width"])
+    maxHeight = floorToEven(maxSizeCrop["height"])
+    maxSize = maxWidth * maxHeight
+
+    fps = Fraction(fps)
+    nSects = len(cropMap) - 1
+    firstTime = cropMap[0]["x"]
+
+    panXExpr = panYExpr = zoomExpr = zoomXExpr = zoomYExpr = ""
+
+    # This scale constant is used in for prescaling the video before applying zoompan.
+    # This reduces jitter caused by the rounding of the panning done by zoompan.
+    # We need to account for this scaling in the calculation of the zoom and pan.
+    panScale = 1
+    zoomScale = 4
+    _totalScale = panScale * zoomScale
+
+    for sect, (left, right) in enumerate(zip(cropMap[:-1], cropMap[1:])):
+        startTime = left["x"] - firstTime
+        startX, startY, startW, startH = left["crop"].split(":")
+        endTime = right["x"] - firstTime
+        endX, endY, endW, endH = right["crop"].split(":")
+        startRight = float(startX) + float(startW)
+        startBottom = float(startY) + float(startH)
+        endRight = float(endX) + float(endW)
+        endBottom = float(endY) + float(endH)
+
+        startZoom = maxWidth / float(startW)
+        endZoom = maxWidth / float(endW)
+
+        sectDuration = endTime - startTime
+        if sectDuration == 0:
+            continue
+
+        if not right.get("easeIn", False):
+            currEaseType = easeType
+        else:
+            currEaseType = right["easeIn"]
+
+        # zoompan does not support zooming out or changing aspect ratio without stretching.
+        # By cropping the video first we can get the desired aspect ratio.
+        # Additionally we can zoom in more (up to 10x) if we apply cropping before zoompan.
+        # We crop using the largest crop point's width and height.
+        # We pan this maximum crop such that it always contains the target crop.
+        # The x:y coordinates of the top-left of this maximum crop is such that
+        # it is always the top-left most position that still contains the target crop.
+        panEaseP = f"((t-{startTime})/{sectDuration})"
+        panEaseRight = getEasingExpression(
+            currEaseType, f"({panScale}*{startRight})", f"({panScale}*{endRight})", panEaseP
+        )
+        panEaseBottom = getEasingExpression(
+            currEaseType, f"({panScale}*{startBottom})", f"({panScale}*{endBottom})", panEaseP
+        )
+
+        # Ensure that the containing maximum crop does not go out of the video bounds.
+        panEaseRight = f"max({panEaseRight}-{panScale}*{maxWidth}, 0)"
+        panEaseBottom = f"max({panEaseBottom}-{panScale}*{maxHeight}, 0)"
+
+        # zoompan's time variable is time instead of t
+        t = f"it"
+        easeP = f"(({t}-{startTime})/{sectDuration})"
+        easeZoom = getEasingExpression(currEaseType, f"({startZoom})", f"({endZoom})", easeP)
+        easeX = getEasingExpression(
+            currEaseType, f"({zoomScale}*{startX})", f"({zoomScale}*{endX})", easeP
+        )
+        easeY = getEasingExpression(
+            currEaseType, f"({zoomScale}*{startY})", f"({zoomScale}*{endY})", easeP
+        )
+
+        easeRight = getEasingExpression(
+            currEaseType, f"({zoomScale}*{startRight})", f"({zoomScale}*{endRight})", easeP
+        )
+        easeBottom = getEasingExpression(
+            currEaseType, f"({zoomScale}*{startBottom})", f"({zoomScale}*{endBottom})", easeP
+        )
+
+        containingX = f"max({easeRight}-{zoomScale}*{maxWidth}, 0)"
+        containingY = f"max({easeBottom}-{zoomScale}*{maxHeight}, 0)"
+
+        # At each frame the target crop's x:y coordinates
+        # are calculated relative to its containing crop.
+        easeX = f"(({easeX})-({containingX}))"
+        easeY = f"(({easeY})-({containingY}))"
+
+        if sect == nSects - 1:
+            panXExpr += f"(between(t, {startTime}, {endTime})*{panEaseRight})"
+            panYExpr += f"(between(t, {startTime}, {endTime})*{panEaseBottom})"
+            zoomExpr += f"(between({t}, {startTime}, {endTime})*{easeZoom})"
+            zoomXExpr += f"(between({t}, {startTime}, {endTime})*{easeX})"
+            zoomYExpr += f"(between({t}, {startTime}, {endTime})*{easeY})"
+        else:
+            panXExpr += f"(gte(t, {startTime})*lt(t, {endTime})*{panEaseRight})+"
+            panYExpr += f"(gte(t, {startTime})*lt(t, {endTime})*{panEaseBottom})+"
+            zoomExpr += f"(gte({t}, {startTime})*lt({t}, {endTime})*{easeZoom})+"
+            zoomXExpr += f"(gte({t}, {startTime})*lt({t}, {endTime})*{easeX})+"
+            zoomYExpr += f"(gte({t}, {startTime})*lt({t}, {endTime})*{easeY})+"
 
     zoomPanFilter = ""
     targetSize = f"{round(1*maxWidth)}x{round(1*maxHeight)}"

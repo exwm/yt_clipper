@@ -139,22 +139,32 @@ def getVideoInfo(cs: ClipperState) -> None:
 
     videoInfo, audioInfo = _getVideoInfo(cs)
 
-    if not settings["downloadVideo"] and "protocol" in videoInfo and videoInfo["protocol"] in UNSUPPORTED_STREAMING_PROTOCOLS:
-        logger.warning(f'In streaming mode, got video with unsupported protocol {videoInfo["protocol"]}.')
-        logger.warning(f'Unsupported streaming mode protocols: {UNSUPPORTED_STREAMING_PROTOCOLS}')
+    if (
+        not settings["downloadVideo"]
+        and "protocol" in videoInfo
+        and videoInfo["protocol"] in UNSUPPORTED_STREAMING_PROTOCOLS
+    ):
         logger.warning(
-            f'm3u8 and m3u8_native protocols may require streaming/downloading the entire video before trimming and may fail')
+            f'In streaming mode, got video with unsupported protocol {videoInfo["protocol"]}.'
+        )
+        logger.warning(f"Unsupported streaming mode protocols: {UNSUPPORTED_STREAMING_PROTOCOLS}")
+        logger.warning(
+            f"m3u8 and m3u8_native protocols may require streaming/downloading the entire video before trimming and may fail"
+        )
 
         logger.warning(
-            f'If an unsupported streaming mode protocol is preferred, please use a non-streaming mode with the --download-video or --input-video options')
+            f"If an unsupported streaming mode protocol is preferred, please use a non-streaming mode with the --download-video or --input-video options"
+        )
 
         response = input(r"Disable potentially unsupported protocols? (y/n): ")
         if response in {"yes", "y"}:
-            logger.info(f'Retrying with potentially unsupported protocols disabled.')
+            logger.info(f"Retrying with potentially unsupported protocols disabled.")
             disableYdlProtocols(settings, UNSUPPORTED_STREAMING_PROTOCOLS)
             videoInfo, audioInfo = _getVideoInfo(cs)
         else:
-            logger.warning(f'Continuing with potentially unsupported protocol {videoInfo["protocol"]}')
+            logger.warning(
+                f'Continuing with potentially unsupported protocol {videoInfo["protocol"]}'
+            )
 
     if settings["downloadVideo"]:
         settings["inputVideo"] = settings["downloadVideoPath"]
@@ -169,7 +179,7 @@ def getVideoInfo(cs: ClipperState) -> None:
 
 
 def disableYdlProtocols(settings: Settings, protocols: List[str]):
-    disableClause = "".join(f'[protocol!={protocol}]' for protocol in protocols)
+    disableClause = "".join(f"[protocol!={protocol}]" for protocol in protocols)
     settings["format"] = f'({settings["format"]}){disableClause}'
 
 
