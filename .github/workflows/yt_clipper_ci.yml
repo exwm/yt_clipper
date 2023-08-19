@@ -30,14 +30,14 @@ jobs:
         include:
           - os: windows-latest
             shortos: win
-            ffmpeg_dl_name: ffmpeg-n6.0-34-g3d5edb89e7-win64-gpl-shared-6.0
-            ffmpeg_dl_prefix: 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2023-08-11-12-48'
+            ffmpeg_dl_name: ffmpeg-6.0-full_build-shared
+            ffmpeg_dl_prefix: 'https://www.gyan.dev/ffmpeg/builds/packages'
           - os: macos-latest
             shortos: macos
-            ffmpeg_dl_url: 'https://evermeet.cx/ffmpeg/ffmpeg-111749-g3e04f53571.7z'
-            ffprobe_dl_url: 'https://evermeet.cx/ffmpeg/ffprobe-111749-g3e04f53571.7z'
-            ffplay_dl_url: 'https://evermeet.cx/ffmpeg/ffplay-110011-gf456c192d9.7z'
-            ffmpeg_info_url: 'https://evermeet.cx/ffmpeg/info/110011-gf456c192d9'
+            ffmpeg_dl_url: 'https://evermeet.cx/ffmpeg/ffmpeg-6.0.7z'
+            ffprobe_dl_url: 'https://evermeet.cx/ffmpeg/ffprobe-6.0.7z'
+            ffplay_dl_url: 'https://evermeet.cx/ffmpeg/ffplay-6.0.7z'
+            ffmpeg_info_url: 'https://evermeet.cx/ffmpeg/info/6.0'
 
     steps:
       - name: Set env
@@ -59,7 +59,7 @@ jobs:
         shell: bash
         run: |
           cd ./bindeps
-          curl -o ./ffmpeg.zip -L ${{ format('{0}/{1}.zip', matrix.ffmpeg_dl_prefix, matrix.ffmpeg_dl_name) }}
+          curl -o ./ffmpeg.zip -L ${{ format('{0}/{1}.7z', matrix.ffmpeg_dl_prefix, matrix.ffmpeg_dl_name) }}
           7z x ./ffmpeg.zip
           mv ./${{matrix.ffmpeg_dl_name}} ffmpeg
 
