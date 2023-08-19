@@ -323,6 +323,16 @@ files = [
 ]
 
 [[package]]
+name = "colored"
+version = "1.4.4"
+description = "Simple library for color and formatting to terminal"
+optional = false
+python-versions = "*"
+files = [
+    {file = "colored-1.4.4.tar.gz", hash = "sha256:04ff4d4dd514274fe3b99a21bb52fb96f2688c01e93fba7bef37221e7cb56ce0"},
+]
+
+[[package]]
 name = "coloredlogs"
 version = "15.0.1"
 description = "Colored terminal output for Python's logging module"
@@ -967,6 +977,21 @@ testing = ["build[virtualenv]", "filelock (>=3.4.0)", "flake8 (<5)", "flake8-202
 testing-integration = ["build[virtualenv]", "filelock (>=3.4.0)", "jaraco.envs (>=2.2)", "jaraco.path (>=3.2.0)", "pytest", "pytest-enabler", "pytest-xdist", "tomli", "virtualenv (>=13.0.0)", "wheel"]
 
 [[package]]
+name = "syrupy"
+version = "4.1.1"
+description = "Pytest Snapshot Test Utility"
+optional = false
+python-versions = ">=3.8.1,<4"
+files = [
+    {file = "syrupy-4.1.1-py3-none-any.whl", hash = "sha256:7d54e391f3d21eccb3b35f5532fdaa05255ec2a28f55b1f01e7662743e7a1ef7"},
+    {file = "syrupy-4.1.1.tar.gz", hash = "sha256:e399c9e550b94d4d4f554331c7a98aa6a7877b73f1e463ef6758e99963e7efc5"},
+]
+
+[package.dependencies]
+colored = ">=1.3.92,<2.0.0"
+pytest = ">=7.0.0,<8.0.0"
+
+[[package]]
 name = "tomli"
 version = "1.2.3"
 description = "A lil' TOML parser"
@@ -1199,5 +1224,5 @@ websockets = "*"
 
 [metadata]
 lock-version = "2.0"
-python-versions = ">=3.8,<3.9"
-content-hash = "7908d6a83ed59638e435dbd723a7377dd9ea2e264ab8b8da17efe71db658cb25"
+python-versions = ">=3.8.1,<3.9"
+content-hash = "1182f661d90287a0a4a5136fe9ce04cd70d06040fdf2f5edc580f678515f8ade"
