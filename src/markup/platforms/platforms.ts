@@ -30,7 +30,7 @@ type VideoPlatform<T extends string | HTMLElement> = {
 
 type VideoPlatformSelectors = VideoPlatform<string>;
 export type VideoPlatformHooks = VideoPlatform<HTMLElement>;
-export function getVideoPlatformSelectors(platform: VideoPlatforms) {
+export function getVideoPlatformSelectors(platform: VideoPlatforms): VideoPlatformSelectors {
   let selectors: VideoPlatformSelectors;
   if (platform === VideoPlatforms.youtube) {
     selectors = {
@@ -42,7 +42,7 @@ export function getVideoPlatformSelectors(platform: VideoPlatforms) {
       theaterModeIndicator: 'ytd-watch-flexy',
       progressBar: '.ytp-progress-bar',
       settingsEditor: '#below',
-      settingsEditorTheater: '#player-wide-container',
+      settingsEditorTheater: '#player-full-bleed-container',
       shortcutsTable: '#below',
       frameCapturerProgressBar: '#below',
       flashMessage: '#below',

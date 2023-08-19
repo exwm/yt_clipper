@@ -11,6 +11,7 @@
 
 #shortcutsTableContainer {
   text-align: center;
+  position: relative;
 }
 
 #shortcutsTableContainer table {

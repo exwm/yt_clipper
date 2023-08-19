@@ -1540,8 +1540,7 @@ async function loadytClipper() {
       markersDataCommandsDiv.appendChild(restoreMarkersDataDiv);
       markersDataCommandsDiv.appendChild(clearMarkersDataDiv);
 
-      updateSettingsEditorHook();
-      settingsEditorHook.insertAdjacentElement('afterend', markersDataCommandsDiv);
+      injectYtcWidget(markersDataCommandsDiv);
 
       const fileUploadButton = document.getElementById('upload-markers-json');
       fileUploadButton.onclick = loadMarkersJson;
@@ -1553,6 +1552,17 @@ async function loadytClipper() {
       downloadMarkersDataButton.onclick = downloadAutoSavedMarkersData;
       const clearMarkersDataButton = document.getElementById('clear-markers-data');
       clearMarkersDataButton.onclick = clearYTClipperLocalStorage;
+    }
+  }
+
+  function injectYtcWidget(widget: HTMLDivElement) {
+    updateSettingsEditorHook();
+
+    if (isTheatreMode()) {
+      settingsEditorHook.insertAdjacentElement('afterend', widget);
+    } else {
+      widget.style.position = 'relative';
+      settingsEditorHook.insertAdjacentElement('beforebegin', widget);
     }
   }
 
@@ -2151,8 +2161,7 @@ async function loadytClipper() {
     </fieldset>
     `;
 
-    updateSettingsEditorHook();
-    settingsEditorHook.insertAdjacentElement('afterend', globalSettingsEditorDiv);
+    injectYtcWidget(globalSettingsEditorDiv);
 
     const settingsInputsConfigs = [['crop-res-input', 'cropRes', 'string']];
     const settingsInputsConfigsHighlightable = [
@@ -2664,9 +2673,7 @@ async function loadytClipper() {
       </fieldset>
       `;
 
-    updateSettingsEditorHook();
-    settingsEditorHook.insertAdjacentElement('afterend', settingsEditorDiv);
-    updateMarkerPairDuration(markerPair);
+    injectYtcWidget(settingsEditorDiv);
 
     const inputConfigs = [
       ['speed-input', 'speed', 'number'],

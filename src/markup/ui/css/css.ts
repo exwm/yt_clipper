@@ -32,7 +32,7 @@ export function getRotatedVideoCSS(rotation: number) {
         .yt-clipper-video {
           transform: rotate(${rotation}deg) !important;
         }
-        #player-wide-container {
+        #player-full-bleed-container {
           height: 100vh !important;
           max-height: none !important;
         }
