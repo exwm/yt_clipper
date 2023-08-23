@@ -1,5 +1,6 @@
 import importlib
 import sys
+from fractions import Fraction
 from functools import reduce
 from math import floor, log
 from pathlib import Path
@@ -16,7 +17,6 @@ from clipper.clipper_types import (
 )
 from clipper.ytc_logger import logger
 
-from fractions import Fraction
 
 def getSubs(cs: ClipperState) -> None:
     cp = cs.clipper_paths
