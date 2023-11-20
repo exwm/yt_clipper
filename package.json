@@ -31,7 +31,9 @@
     "bundle:prod": "npx parcel build --no-minify --out-dir ./dist/js ./src/markup/yt_clipper.ts",
     "clean:dist": "rm -r ./dist/*",
     "clean:sandbox": "rm -r ./sandbox/*",
-    "version": "npx standard-version",
+    "version:patch": "npx standard-version -r patch && poetry run bumpit -p patch || true",
+    "version:minor": "npx standard-version -r minor && poetry run bumpit -p minor || true",
+    "version:major": "npx standard-version -r major && poetry run bumpit -p major || true",
     "pigar": "pigar -P ./src/clipper -p ./src/clipper/requirements.txt --without-referenced-comments",
     "precommit-msg": "echo 'Pre-commit checks...' && exit 0"
   },
