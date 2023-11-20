@@ -30,14 +30,14 @@ jobs:
         include:
           - os: windows-latest
             shortos: win
-            ffmpeg_dl_name: ffmpeg-6.0-full_build-shared
+            ffmpeg_dl_name: ffmpeg-6.1-full_build-shared
             ffmpeg_dl_prefix: 'https://www.gyan.dev/ffmpeg/builds/packages'
           - os: macos-latest
             shortos: macos
-            ffmpeg_dl_url: 'https://evermeet.cx/ffmpeg/ffmpeg-6.0.7z'
-            ffprobe_dl_url: 'https://evermeet.cx/ffmpeg/ffprobe-6.0.7z'
-            ffplay_dl_url: 'https://evermeet.cx/ffmpeg/ffplay-6.0.7z'
-            ffmpeg_info_url: 'https://evermeet.cx/ffmpeg/info/6.0'
+            ffmpeg_dl_url: 'https://evermeet.cx/ffmpeg/ffmpeg-6.1.7z'
+            ffprobe_dl_url: 'https://evermeet.cx/ffmpeg/ffprobe-6.1.7z'
+            ffplay_dl_url: 'https://evermeet.cx/ffmpeg/ffplay-6.1.7z'
+            ffmpeg_info_url: 'https://evermeet.cx/ffmpeg/info/6.1'
 
     steps:
       - name: Set env
