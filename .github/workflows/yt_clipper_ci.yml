@@ -141,6 +141,8 @@ jobs:
           mv ./bindeps/ffmpeg/*.txt ./artifact/py/${{env.FULL_NAME}}/bin/
           cp ./src/clipper/include/* ./artifact/py/${{env.FULL_NAME}}/
           cp ./src/clipper/${{matrix.shortos}}_helpers/* ./artifact/py/${{env.FULL_NAME}}/
+          mkdir -p ./artifact/py/${{env.FULL_NAME}}/yt-dlp-plugins/ytc
+          cp -R ./src/clipper/yt-dlp-plugins/ytc/ ./artifact/py/${{env.FULL_NAME}}/yt-dlp-plugins/
           cp ./dist/py/yt_clipper* ./artifact/py/${{env.FULL_NAME}}/
 
       - name: Print clipper install version (windows)
