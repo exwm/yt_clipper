@@ -19,6 +19,8 @@ verboselogs = "^1.7"
 webvtt-py = "^0.4.6"
 certifi = ">=2021.10.8"
 
+ytc-yt-dlp-plugins = { git = "https://github.com/exwm/ytc-yt-dlp-plugins", rev = "7bec6b7" }
+
 [tool.poetry.group.dev.dependencies]
 pyinstaller = "5.0.1"
 black = "^22.8.0"

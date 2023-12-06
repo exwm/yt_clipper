@@ -5,6 +5,7 @@ interface Settings {
   videoID: string;
   videoTag: string;
   videoTitle: string;
+  videoUrl: string;
   newMarkerSpeed: number;
   newMarkerCrop: string;
   titleSuffix: string;

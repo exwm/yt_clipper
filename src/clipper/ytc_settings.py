@@ -29,7 +29,7 @@ def loadSettings(settings: Settings) -> None:
             settings["markerPairs"] = settings["markers"]
         settings["platform"] = settings.get("platform", "youtube")
 
-        settings["videoURL"] = getVideoURL(settings["platform"], settings["videoID"])
+        settings["videoURL"] = getVideoURL(settings, settings["platform"], settings["videoID"])
         settings["videoTitle"] = re.sub('"', "", settings["videoTitle"])
         settings["markersDataFileStem"] = Path(settings["json"]).stem
 
@@ -422,11 +422,13 @@ def filterDash(cs: ClipperState, dashManifestUrl: str, dashFormatIDs: List[str])
     return filteredDashPath
 
 
-def getVideoURL(platform: str, videoID: str) -> str:
+def getVideoURL(_settings: Settings, platform: str, videoID: str) -> str:
     if platform == KnownPlatform.youtube.name:
         return f"https://www.youtube.com/watch?v={videoID}"
     if platform == KnownPlatform.vlive.name:
         return f"https://www.vlive.tv/video/{videoID}"
+    if platform == KnownPlatform.naver_now_watch.name:
+        return f"https://now.naver.com/watch/{videoID}"
 
     logger.fatal(f"Unknown platform: {platform}")
     sys.exit(1)

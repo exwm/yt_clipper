@@ -25,6 +25,7 @@
 // @match        http*://*.youtube.com/*
 // @match        http*://*.vlive.tv/video/*
 // @match        http*://*.vlive.tv/post/*
+// @match        http*://*.now.naver.com/*
 // @noframes
 // dummy grant to enable sandboxing
 // @grant         GM_getValue
@@ -119,6 +120,8 @@ import { createDraft, Draft, finishDraft, enableAllPlugins } from 'immer';
 import { disableCommonBlockers, enableCommonBlockers } from './platforms/blockers/common';
 const ytClipperCSS = readFileSync(__dirname + '/ui/css/yt-clipper.css', 'utf8');
 const vliveCSS = readFileSync(__dirname + '/platforms/css/vlive.css', 'utf8');
+const naver_now_watchCSS = readFileSync(__dirname + '/platforms/css/naver_now_watch.css', 'utf8');
+const weverseCSS = readFileSync(__dirname + '/platforms/css/weverse.css', 'utf8');
 const shortcutsTable = readFileSync(__dirname + '/ui/shortcuts-table/shortcuts-table.html', 'utf8');
 const shortcutsTableStyle = readFileSync(
   __dirname + '/ui/shortcuts-table/shortcuts-table.css',
@@ -364,6 +367,8 @@ async function loadytClipper() {
     //yt-clipper
     injectCSS(ytClipperCSS, 'yt-clipper-css');
     if (platform === VideoPlatforms.vlive) injectCSS(vliveCSS, 'vlive-css');
+    if (platform === VideoPlatforms.naver_now_watch) injectCSS(naver_now_watchCSS, 'naver-now-css');
+    if (platform === VideoPlatforms.weverse) injectCSS(weverseCSS, 'weverse-css');
     initHooks();
     initVideoInfo();
     initObservers();
@@ -538,16 +543,21 @@ async function loadytClipper() {
     }
   }
 
-  const videoInfo: { [index: string]: any } = {};
+  type VideoInfo = { [index: string]: any };
+  const videoInfo: VideoInfo = {};
   function initVideoInfo() {
     videoInfo.aspectRatio = video.videoWidth / video.videoHeight;
     videoInfo.isVerticalVideo = videoInfo.aspectRatio <= 1;
+    const url = window.location.origin + window.location.pathname;
+    videoInfo.videoUrl = url;
+
     if (platform === VideoPlatforms.youtube) {
       const playerData = player.getVideoData();
       videoInfo.id = playerData.video_id;
       videoInfo.title = playerData.title;
       videoInfo.fps = getFPS();
       video.seekTo = (time) => player.seekTo(time);
+
     } else if (platform === VideoPlatforms.vlive) {
       const location = window.location;
 
@@ -555,21 +565,36 @@ async function loadytClipper() {
       const videoParams = preloadedState?.postDetail?.post?.officialVideo;
       videoInfo.id = videoParams?.videoSeq;
       videoInfo.title = videoParams?.title;
-      if (location.href.includes('video')) {
+      if (location.pathname.includes('video')) {
         if (videoInfo.id == null) videoInfo.id = location.pathname.split('/')[2];
         if (videoInfo.title == null)
           videoInfo.title = document.querySelector('[class*="video_title"]')?.textContent;
       }
 
-      if (videoInfo.id == null) {
-        flashMessage('Could not get video ID.', 'red');
-        throw new Error('Could not get video ID.');
-      }
+      videoInfo.fps = getFPS();
+      video.seekTo = (time) => (video.currentTime = time);
 
+    } else if (platform === VideoPlatforms.naver_now_watch) {
+      videoInfo.id = location.pathname.split('/')[2];
+      videoInfo.title = document.querySelector('h2[class*=ArticleSection_article_title]')?.textContent
+      videoInfo.fps = getFPS();
+      video.seekTo = (time) => (video.currentTime = time);
+    } else if (platform === VideoPlatforms.weverse) {
+      videoInfo.title = document.querySelector('h2[class*=TitleView_title]')?.textContent
+
+      if (location.pathname.includes('media')) {
+        if (videoInfo.id == null) videoInfo.id = location.pathname.split('/')[3];
+      }
       videoInfo.fps = getFPS();
       video.seekTo = (time) => (video.currentTime = time);
     }
+
+    if (videoInfo.id == null) {
+      flashMessage('Could not get video ID.', 'red');
+      throw new Error('Could not get video ID.');
+    }
   }
+
 
   function initObservers() {
     new ResizeObserver(resizeCropOverlay).observe(hooks.videoContainer);
@@ -780,6 +805,7 @@ async function loadytClipper() {
       platform: platform,
       videoID: videoInfo.id,
       videoTitle: videoInfo.title,
+      videoUrl: videoInfo.videoUrl,
       newMarkerSpeed: 1.0,
       newMarkerCrop: '0:0:iw:ih',
       videoTag: `[${platform}@${videoInfo.id}]`,
@@ -3406,6 +3432,7 @@ async function loadytClipper() {
   function injectToggleShortcutsTableButton() {
     shortcutsTableToggleButton = htmlToElement(shortcutsTableToggleButtonHTML) as HTMLButtonElement;
     shortcutsTableToggleButton.onclick = toggleShortcutsTable;
+    if (platform === VideoPlatforms.naver_now_watch) shortcutsTableToggleButton.classList.add('pzp-pc__subtitle-button');
     hooks.shortcutsTableButton.insertAdjacentElement('afterbegin', shortcutsTableToggleButton);
   }
 
