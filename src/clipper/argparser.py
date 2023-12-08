@@ -461,6 +461,19 @@ def getArgParser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--h264-disable-reduce-stutter",
+        "-h264-drs",
+        dest="h264DisableReduceStutter",
+        action="store_true",
+        help=" ".join(
+            [
+                "Disable reducing output clip sutter when using the h264 output video codec.",
+                "When disabled, output clips will all use the input video framerate and slowed down clips may have duplicate frames that cause some stuttering.",
+                "This may be useful when merging h264 videos however as in some cases keeping the same framerate results in smoother transitions between clips."
+            ]
+        ),
+    )
+    parser.add_argument(
         "--auto-subs-lang",
         "-asl",
         dest="autoSubsLang",

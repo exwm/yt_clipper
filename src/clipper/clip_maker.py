@@ -600,11 +600,14 @@ def getFfmpegVideoCodecH264(
     qmin: int,
 ) -> Tuple[str, str]:
     """Following recommendations from https://www.lighterra.com/papers/videoencodingh264"""
-    if mps["minterpFPS"] is not None:
-        fps_arg = f'-r {mps["minterpFPS"]}'
-    elif not mp["isVariableSpeed"]:
-        fps_arg = f'-r ({mps["r_frame_rate"]}*{mp["speed"]})'
-    else:
+    fps_arg = ""
+    if not mps["h264DisableReduceStutter"]:
+        if mps["minterpFPS"] is not None:
+            fps_arg = f'-r {mps["minterpFPS"]}'
+        elif not mp["isVariableSpeed"]:
+            fps_arg = f'-r ({mps["r_frame_rate"]}*{mp["speed"]})'
+
+    if mp["isVariableSpeed"]:
         fps_arg = "-fps_mode vfr"
 
     pixel_count = mps["width"] * mps["height"]
