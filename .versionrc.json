@@ -3,9 +3,6 @@
     "commit": true,
     "tag": true
   },
-  "scripts": {
-    "postbump": "poetry run bumpit || true"
-  },
   "types": [
     { "type": "feat", "section": "Features" },
     { "type": "fix", "section": "Bug Fixes" },
