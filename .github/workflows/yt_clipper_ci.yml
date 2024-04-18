@@ -31,7 +31,7 @@ jobs:
           - os: windows-latest
             shortos: win
             ffmpeg_dl_name: ffmpeg-6.1-full_build-shared
-            ffmpeg_dl_prefix: 'https://www.gyan.dev/ffmpeg/builds/packages'
+            ffmpeg_dl_prefix: 'https://github.com/GyanD/codexffmpeg/releases/download/6.1'
           - os: macos-latest
             shortos: macos
             ffmpeg_dl_url: 'https://evermeet.cx/ffmpeg/ffmpeg-6.1.7z'
