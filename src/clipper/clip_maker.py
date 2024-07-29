@@ -624,7 +624,7 @@ def getFfmpegVideoCodecH264(
             f'-b:v {mps["targetMaxBitrate"]}k' if cbr is None else f"-b:v {cbr}MB",
             f'-force_key_frames 1 -g {mp["averageSpeed"] * Fraction(mps["r_frame_rate"])}',
             # video_track_timescale = 2^4 * 3^2 * 5^2 * 7 * 11 * 13 * 23, max is ~2E9
-            f' -video_track_timescale 82882800',
+            f" -video_track_timescale 82882800",
             "-refs 4",
             "-qmin 3",
             "-qcomp 0.9",

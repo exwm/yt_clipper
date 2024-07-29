@@ -60,7 +60,7 @@ export function deleteElement(elem: Element) {
 
 export function querySelectors<
   S extends { [key: string]: string },
-  T extends { [key in keyof S]: HTMLElement }
+  T extends { [key in keyof S]: HTMLElement },
 >(selectors: S, root: ParentNode = document): T {
   const elements: Partial<T> = {};
   for (const key in selectors) {

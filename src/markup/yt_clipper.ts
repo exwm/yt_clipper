@@ -2050,8 +2050,8 @@ async function loadytClipper() {
       <div class="settings-editor-input-div" title="${Tooltips.cropResolutionTooltip}">
         <span>Crop Resolution</span>
         <input id="crop-res-input" list="resolutions" pattern="${cropResInputValidation}" value="${
-      settings.cropRes
-    }" style="width:14ch" required>
+          settings.cropRes
+        }" style="width:14ch" required>
         <datalist id="resolutions" autocomplete="off">${resList}</datalist>
       </div>
       <div id="global-settings-rotate" class="settings-editor-input-div" title="${
@@ -2076,8 +2076,8 @@ async function loadytClipper() {
       }">
           <span style="display:inline">Merge List: </span>
           <input id="merge-list-input" pattern="${mergeListInputValidation}" value="${
-      settings.markerPairMergeList != null ? settings.markerPairMergeList : ''
-    }" placeholder="None" style="min-width:15em">
+            settings.markerPairMergeList != null ? settings.markerPairMergeList : ''
+          }" placeholder="None" style="min-width:15em">
       </div>
       <div class="settings-editor-input-div">
         <span style="display:inline">Merge Durations: </span>
@@ -2571,8 +2571,8 @@ async function loadytClipper() {
           <span>Audio</span>
           <select id="audio-input">
             <option value="Default" ${overrides.audio == null ? 'selected' : ''}>${ternaryToString(
-      settings.audio
-    )}</option>
+              settings.audio
+            )}</option>
             <option ${overrides.audio === false ? 'selected' : ''}>Disabled</option>
             <option ${overrides.audio ? 'selected' : ''}>Enabled</option>
           </select>
@@ -2588,8 +2588,8 @@ async function loadytClipper() {
           <input id="crf-input" type="number" min="0" max="63" step="1" value="${
             overrides.crf != null ? overrides.crf : ''
           }" placeholder="${
-      settings.crf != null ? settings.crf : 'Auto'
-    }" "style="min-width:4em"></input>
+            settings.crf != null ? settings.crf : 'Auto'
+          }" "style="min-width:4em"></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.targetBitrateTooltip}">
           <span>Bitrate (kb/s)</span>
@@ -2612,8 +2612,8 @@ async function loadytClipper() {
           <input id="gamma-input" type="number" min="0.01" max="4.00" step="0.01" value="${
             overrides.gamma != null ? overrides.gamma : ''
           }" placeholder="${
-      settings.gamma != null ? settings.gamma : '1'
-    }" style="min-width:4em"></input>
+            settings.gamma != null ? settings.gamma : '1'
+          }" style="min-width:4em"></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.denoiseTooltip}">
           <span>Denoise</span>
@@ -2636,8 +2636,8 @@ async function loadytClipper() {
             <span>Minterpolation</span>
             <select id="minterp-mode-input">
               <option value="Default" ${minterpMode == null ? 'selected' : ''}>${
-      settings.minterpMode != null ? `(${settings.minterpMode})` : '(Numeric)'
-    }</option>
+                settings.minterpMode != null ? `(${settings.minterpMode})` : '(Numeric)'
+              }</option>
               <option ${minterpMode === 'None' ? 'selected' : ''}>None</option>
               <option ${minterpMode === 'Numeric' ? 'selected' : ''}>Numeric</option>
               <option value="MaxSpeed" ${
@@ -2695,8 +2695,8 @@ async function loadytClipper() {
             <span>Loop</span>
             <select id="loop-input">
               <option value="Default" ${overrides.loop == null ? 'selected' : ''}>${
-      settings.loop != null ? `(${settings.loop})` : '(none)'
-    }</option>
+                settings.loop != null ? `(${settings.loop})` : '(none)'
+              }</option>
               <option ${overrides.loop === 'none' ? 'selected' : ''}>none</option>
               <option ${overrides.loop === 'fwrev' ? 'selected' : ''}>fwrev</option>
               <option ${overrides.loop === 'fade' ? 'selected' : ''}>fade</option>
@@ -2707,8 +2707,8 @@ async function loadytClipper() {
             <input id="fade-duration-input" type="number" min="0.1" step="0.1" value="${
               overrides.fadeDuration != null ? overrides.fadeDuration : ''
             }" placeholder="${
-      settings.fadeDuration != null ? settings.fadeDuration : '0.7'
-    }" style="width:7em"></input>
+              settings.fadeDuration != null ? settings.fadeDuration : '0.7'
+            }" style="width:7em"></input>
           </div>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.enableZoomPanTooltip}">
@@ -4178,8 +4178,8 @@ async function loadytClipper() {
           shouldMaintainCropAspectRatio
             ? crop.resizeNAspectRatioLocked(deltaY)
             : shouldResizeCenterOut
-            ? crop.resizeNS(deltaY)
-            : crop.resizeN(deltaY);
+              ? crop.resizeNS(deltaY)
+              : crop.resizeN(deltaY);
           break;
         case 'ne-resize':
           shouldMaintainCropAspectRatio
@@ -4190,8 +4190,8 @@ async function loadytClipper() {
           shouldMaintainCropAspectRatio
             ? crop.resizeEAspectRatioLocked(deltaX)
             : shouldResizeCenterOut
-            ? crop.resizeEW(deltaX)
-            : crop.resizeE(deltaX);
+              ? crop.resizeEW(deltaX)
+              : crop.resizeE(deltaX);
           break;
         case 'se-resize':
           shouldMaintainCropAspectRatio
@@ -4202,8 +4202,8 @@ async function loadytClipper() {
           shouldMaintainCropAspectRatio
             ? crop.resizeSAspectRatioLocked(deltaY)
             : shouldResizeCenterOut
-            ? crop.resizeNS(deltaY)
-            : crop.resizeS(deltaY);
+              ? crop.resizeNS(deltaY)
+              : crop.resizeS(deltaY);
           break;
         case 'sw-resize':
           shouldMaintainCropAspectRatio
@@ -4214,8 +4214,8 @@ async function loadytClipper() {
           shouldMaintainCropAspectRatio
             ? crop.resizeWAspectRatioLocked(deltaX)
             : shouldResizeCenterOut
-            ? crop.resizeEW(deltaX)
-            : crop.resizeW(deltaX);
+              ? crop.resizeEW(deltaX)
+              : crop.resizeW(deltaX);
           break;
         case 'nw-resize':
           shouldMaintainCropAspectRatio

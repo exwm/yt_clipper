@@ -469,7 +469,7 @@ def getArgParser() -> argparse.ArgumentParser:
             [
                 "Disable reducing output clip sutter when using the h264 output video codec.",
                 "When disabled, output clips will all use the input video framerate and slowed down clips may have duplicate frames that cause some stuttering.",
-                "This may be useful when merging h264 videos however as in some cases keeping the same framerate results in smoother transitions between clips."
+                "This may be useful when merging h264 videos however as in some cases keeping the same framerate results in smoother transitions between clips.",
             ]
         ),
     )
