@@ -7,7 +7,7 @@ The `clipper script` component provides a way to process these instructions and 
 
 # Video Quick Start
 
-For a video quickstart check out this gfy: <https://gfycat.com/meekweightyarmyant>
+For a video quickstart check out this video: <https://imgur.com/a/gQ4KItt>
 
 # Quick Start Guide
 
@@ -60,7 +60,7 @@ The contents of the quickstart guide are included here for convenience:
 
 # Table of Contents
 
-- [yt_clipper](#yt_clipper)
+- [yt\_clipper](#yt_clipper)
 - [Video Quick Start](#video-quick-start)
 - [Quick Start Guide](#quick-start-guide)
 - [Notices](#notices)
@@ -384,7 +384,7 @@ In `zoompan` mode crops can change size for a zooming effect, but their aspect r
 - Selected points have a black border and are square. Unselected points are circular.
 
 **Alt+Mousewheel-Up/Down:** Intelligently toggle modes or select points. More specifically:
- 
+
 - **Alt+Mousewheel-Up:** If in end mode, toggle to start mode. If already in start mode, select next point and toggle to end mode.
 - **Alt+Mousewheel-Down:** If in start mode, toggle to end mode. If already in end mode, select previous point and toggle to start mode.
 
@@ -529,7 +529,7 @@ There is an installation that does not require the dependencies below.
 
 ## Manual and Beta/Alpha Version Installation
 
-**Markup script (js):** (1) Find the `yt_clipper*.js` file in the github release assets, (2) right-click > `copy address`, (3) open user script extension dashboard, (4) find and use option to add a script via url (in tampermonkey, utilities tab > `install from url`; in violentmonkey, `+` button at top > `install from url`). 
+**Markup script (js):** (1) Find the `yt_clipper*.js` file in the github release assets, (2) right-click > `copy address`, (3) open user script extension dashboard, (4) find and use option to add a script via url (in tampermonkey, utilities tab > `install from url`; in violentmonkey, `+` button at top > `install from url`).
 
 _Alternatively_, (1) Download the `yt_clipper*.js` file from the github release assets, (2) open user script extension dashboard, (3) open yt_clipper for editing, (4) click inside the editor and select everything with `Ctrl+A`, (5) delete everything with say `backspace`, (6) drag and drop the markup script js file into the editor, (7) `Ctrl+S` to save.
 
@@ -580,7 +580,7 @@ The helper scripts have a simple format. Copy and edit `yt_clipper_auto` in a te
     if [ -f "$JSON" ]; then
       # you can add options after $JSON of the next line as shown
       ./yt_clipper --markers-json "$JSON"
-    else 
+    else
       echo "$JSON does not exist"
     fi
   done
