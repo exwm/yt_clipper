@@ -422,13 +422,15 @@ def filterDash(cs: ClipperState, dashManifestUrl: str, dashFormatIDs: List[str])
     return filteredDashPath
 
 
-def getVideoURL(_settings: Settings, platform: str, videoID: str) -> str:
+def getVideoURL(settings: Settings, platform: str, videoID: str) -> str:
     if platform == KnownPlatform.youtube.name:
         return f"https://www.youtube.com/watch?v={videoID}"
     if platform == KnownPlatform.vlive.name:
         return f"https://www.vlive.tv/video/{videoID}"
     if platform == KnownPlatform.naver_now_watch.name:
         return f"https://now.naver.com/watch/{videoID}"
+    if platform == KnownPlatform.weverse.name:
+        return settings["videoUrl"]
 
     logger.fatal(f"Unknown platform: {platform}")
     sys.exit(1)

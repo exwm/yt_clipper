@@ -27,3 +27,8 @@
 #end-marker-numberings {
   top: 13px;
 }
+
+.pzp-pc__bottom-buttons {
+  top: 8px;
+  z-index: 100;
+}

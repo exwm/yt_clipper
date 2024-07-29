@@ -26,6 +26,7 @@
 // @match        http*://*.vlive.tv/video/*
 // @match        http*://*.vlive.tv/post/*
 // @match        http*://*.now.naver.com/*
+// @match        http*://*.weverse.io/*
 // @noframes
 // dummy grant to enable sandboxing
 // @grant         GM_getValue
@@ -582,7 +583,7 @@ async function loadytClipper() {
     } else if (platform === VideoPlatforms.weverse) {
       videoInfo.title = document.querySelector('h2[class*=TitleView_title]')?.textContent
 
-      if (location.pathname.includes('media')) {
+      if (location.pathname.includes('media') || (location.pathname.includes('live')))   {
         if (videoInfo.id == null) videoInfo.id = location.pathname.split('/')[3];
       }
       videoInfo.fps = getFPS();
@@ -3901,13 +3902,18 @@ async function loadytClipper() {
     isCropOverlayVisible = false;
   }
 
+
   function hidePlayerControls() {
+    hooks.controls.originalDisplay = hooks.controls.originalDisplay ?? hooks.controls.style.display;
+    hooks.controlsGradient.originalDisplay = hooks.controlsGradient.originalDisplay ?? hooks.controlsGradient.style.display;
+
     hooks.controls.style.display = 'none';
     hooks.controlsGradient.style.display = 'none';
   }
+
   function showPlayerControls() {
-    hooks.controls.style.display = 'block';
-    hooks.controlsGradient.style.display = 'block';
+    hooks.controls.style.display = hooks.controls.originalDisplay;
+    hooks.controlsGradient.style.display = hooks.controlsGradient.originalDisplay;
   }
 
   function getRelevantCropString() {
