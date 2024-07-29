@@ -14,7 +14,7 @@
     "since 2019 and > 0.5% and not op_mini all and not IE 11"
   ],
   "engines": {
-    "node": "^12.22"
+    "node": "^20.16"
   },
   "scripts": {
     "pretty:ts": "npx prettier \"src/**/*.{ts,js,json}\" --write",
