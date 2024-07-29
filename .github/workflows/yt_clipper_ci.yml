@@ -26,13 +26,13 @@ jobs:
         python-version: [3.8.x]
         node-version: [12.x]
         poetry-version: ['1.8.2']
-        os: [windows-latest, macos-latest]
+        os: [windows-latest, macos-13]
         include:
           - os: windows-latest
             shortos: win
             ffmpeg_dl_name: ffmpeg-6.1-full_build-shared
             ffmpeg_dl_prefix: 'https://github.com/GyanD/codexffmpeg/releases/download/6.1'
-          - os: macos-latest
+          - os: macos-13
             shortos: macos
             ffmpeg_dl_url: 'https://evermeet.cx/ffmpeg/ffmpeg-6.1.7z'
             ffprobe_dl_url: 'https://evermeet.cx/ffmpeg/ffprobe-6.1.7z'
@@ -68,8 +68,8 @@ jobs:
 
           ls -laR
 
-      - name: Download ffmpeg dependency (markup)
-        if: matrix.os == 'macos-latest'
+      - name: Download ffmpeg dependency (macos)
+        if: matrix.shortos == 'macos'
         shell: bash
         run: |
           cd ./bindeps
@@ -96,10 +96,11 @@ jobs:
           ls -laR
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'yarn'
+          architecture: 'x64'
 
       - name: Load cached node_modules
         id: cached-node_modules
@@ -156,7 +157,7 @@ jobs:
           ./dist/py/yt_clipper --version
 
       - name: Copy artifacts (markup)
-        if: matrix.os == 'macos-latest'
+        if: matrix.shortos == 'macos'
         shell: bash
         run: |
           mkdir -p ./artifact/js/
@@ -181,7 +182,7 @@ jobs:
           path: ./artifact/py/${{env.FULL_NAME}}.zip
 
       - name: Upload markup script installation artifact
-        if: matrix.os == 'macos-latest'
+        if: matrix.shortos == 'macos'
         uses: actions/upload-artifact@v2
         with:
           name: ${{env.NOPLAT_NAME}}.js
@@ -189,7 +190,7 @@ jobs:
 
   release:
     needs: build
-    runs-on: macos-latest
+    runs-on: macos-13
 
     steps:
       - name: Set env
