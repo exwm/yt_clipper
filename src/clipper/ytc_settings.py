@@ -431,6 +431,8 @@ def getVideoURL(settings: Settings, platform: str, videoID: str) -> str:
         return f"https://now.naver.com/watch/{videoID}"
     if platform == KnownPlatform.weverse.name:
         return settings["videoUrl"]
+    if platform == KnownPlatform.naver_tv.name:
+        return f"https://tv.naver.com/v/{videoID}"
 
     logger.fatal(f"Unknown platform: {platform}")
     sys.exit(1)

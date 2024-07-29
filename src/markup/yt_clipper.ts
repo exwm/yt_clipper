@@ -26,7 +26,8 @@
 // @match        http*://*.vlive.tv/video/*
 // @match        http*://*.vlive.tv/post/*
 // @match        http*://*.now.naver.com/*
-// @match        http*://*.weverse.io/*
+// @match        http*://weverse.io/*
+// @match        https*://tv.naver.com/*
 // @noframes
 // dummy grant to enable sandboxing
 // @grant         GM_getValue
@@ -113,7 +114,7 @@ import {
 import {
   getPlatform,
   getVideoPlatformHooks,
-  getVideoPlatformSelectors,
+  videoPlatformSelectors,
   VideoPlatformHooks,
   VideoPlatforms,
 } from './platforms/platforms';
@@ -122,6 +123,7 @@ import { disableCommonBlockers, enableCommonBlockers } from './platforms/blocker
 const ytClipperCSS = readFileSync(__dirname + '/ui/css/yt-clipper.css', 'utf8');
 const vliveCSS = readFileSync(__dirname + '/platforms/css/vlive.css', 'utf8');
 const naver_now_watchCSS = readFileSync(__dirname + '/platforms/css/naver_now_watch.css', 'utf8');
+const naver_tvCSS = readFileSync(__dirname + '/platforms/css/naver_tv.css', 'utf8');
 const weverseCSS = readFileSync(__dirname + '/platforms/css/weverse.css', 'utf8');
 const shortcutsTable = readFileSync(__dirname + '/ui/shortcuts-table/shortcuts-table.html', 'utf8');
 const shortcutsTableStyle = readFileSync(
@@ -370,6 +372,7 @@ async function loadytClipper() {
     if (platform === VideoPlatforms.vlive) injectCSS(vliveCSS, 'vlive-css');
     if (platform === VideoPlatforms.naver_now_watch) injectCSS(naver_now_watchCSS, 'naver-now-css');
     if (platform === VideoPlatforms.weverse) injectCSS(weverseCSS, 'weverse-css');
+    if (platform === VideoPlatforms.naver_tv) injectCSS(naver_tvCSS, 'naver-tv-css');
     initHooks();
     initVideoInfo();
     initObservers();
@@ -516,7 +519,7 @@ async function loadytClipper() {
     document.body.addEventListener('wheel', inheritCropPointCrop, { passive: false });
   }
 
-  const selectors = getVideoPlatformSelectors(platform);
+  const selectors = videoPlatformSelectors[platform];
 
   player = await retryUntilTruthyResult(() => document.querySelector(selectors.player));
   video = await retryUntilTruthyResult(() => player.querySelector(selectors.video));
@@ -558,7 +561,6 @@ async function loadytClipper() {
       videoInfo.title = playerData.title;
       videoInfo.fps = getFPS();
       video.seekTo = (time) => player.seekTo(time);
-
     } else if (platform === VideoPlatforms.vlive) {
       const location = window.location;
 
@@ -574,16 +576,24 @@ async function loadytClipper() {
 
       videoInfo.fps = getFPS();
       video.seekTo = (time) => (video.currentTime = time);
-
     } else if (platform === VideoPlatforms.naver_now_watch) {
       videoInfo.id = location.pathname.split('/')[2];
-      videoInfo.title = document.querySelector('h2[class*=ArticleSection_article_title]')?.textContent
+      videoInfo.title = document.querySelector(
+        'h2[class*=ArticleSection_article_title]'
+      )?.textContent;
+      videoInfo.fps = getFPS();
+      video.seekTo = (time) => (video.currentTime = time);
+    } else if (platform === VideoPlatforms.naver_tv) {
+      videoInfo.id = location.pathname.split('/')[2];
+      videoInfo.title = document.querySelector(
+        'h2[class*=ArticleSection_article_title]'
+      )?.textContent;
       videoInfo.fps = getFPS();
       video.seekTo = (time) => (video.currentTime = time);
     } else if (platform === VideoPlatforms.weverse) {
-      videoInfo.title = document.querySelector('h2[class*=TitleView_title]')?.textContent
+      videoInfo.title = document.querySelector('h2[class*=TitleView_title]')?.textContent;
 
-      if (location.pathname.includes('media') || (location.pathname.includes('live')))   {
+      if (location.pathname.includes('media') || location.pathname.includes('live')) {
         if (videoInfo.id == null) videoInfo.id = location.pathname.split('/')[3];
       }
       videoInfo.fps = getFPS();
@@ -595,7 +605,6 @@ async function loadytClipper() {
       throw new Error('Could not get video ID.');
     }
   }
-
 
   function initObservers() {
     new ResizeObserver(resizeCropOverlay).observe(hooks.videoContainer);
@@ -826,7 +835,7 @@ async function loadytClipper() {
         <svg id="start-marker-numberings"></svg>
         <svg id="end-marker-numberings"></svg>
       `;
-    hooks.markersDiv.appendChild(markersDiv);
+
     markersSvg = markersDiv.children[0] as SVGSVGElement;
     selectedMarkerPairOverlay = markersDiv.children[1] as SVGSVGElement;
 
@@ -836,9 +845,21 @@ async function loadytClipper() {
         <svg id="start-marker-numberings"></svg>
         <svg id="end-marker-numberings"></svg>
       `;
-    hooks.markerNumberingsDiv.appendChild(markerNumberingsDiv);
     startMarkerNumberings = markerNumberingsDiv.children[0] as SVGSVGElement;
     endMarkerNumberings = markerNumberingsDiv.children[1] as SVGSVGElement;
+
+    if (
+      [VideoPlatforms.weverse, VideoPlatforms.naver_now_watch, VideoPlatforms.naver_tv].includes(
+        platform
+      )
+    ) {
+      hooks.markersDiv.prepend(markersDiv);
+      hooks.markerNumberingsDiv.prepend(markerNumberingsDiv);
+    } else {
+      hooks.markersDiv.appendChild(markersDiv);
+      hooks.markerNumberingsDiv.appendChild(markerNumberingsDiv);
+    }
+
     videoInfo.fps = getFPS();
   }
 
@@ -3433,7 +3454,20 @@ async function loadytClipper() {
   function injectToggleShortcutsTableButton() {
     shortcutsTableToggleButton = htmlToElement(shortcutsTableToggleButtonHTML) as HTMLButtonElement;
     shortcutsTableToggleButton.onclick = toggleShortcutsTable;
-    if (platform === VideoPlatforms.naver_now_watch) shortcutsTableToggleButton.classList.add('pzp-pc__subtitle-button');
+
+    if (
+      [VideoPlatforms.weverse, VideoPlatforms.naver_now_watch, VideoPlatforms.naver_tv].includes(
+        platform
+      )
+    ) {
+      shortcutsTableToggleButton.classList.add(
+        'pzp-button',
+        'pzp-subtitle-button',
+        'pzp-pc-subtitle-button',
+        'pzp-pc__subtitle-button'
+      );
+    }
+
     hooks.shortcutsTableButton.insertAdjacentElement('afterbegin', shortcutsTableToggleButton);
   }
 
@@ -3902,10 +3936,10 @@ async function loadytClipper() {
     isCropOverlayVisible = false;
   }
 
-
   function hidePlayerControls() {
     hooks.controls.originalDisplay = hooks.controls.originalDisplay ?? hooks.controls.style.display;
-    hooks.controlsGradient.originalDisplay = hooks.controlsGradient.originalDisplay ?? hooks.controlsGradient.style.display;
+    hooks.controlsGradient.originalDisplay =
+      hooks.controlsGradient.originalDisplay ?? hooks.controlsGradient.style.display;
 
     hooks.controls.style.display = 'none';
     hooks.controlsGradient.style.display = 'none';

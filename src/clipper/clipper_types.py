@@ -51,4 +51,5 @@ class KnownPlatform(enum.Enum):
     youtube = "youtube"
     vlive = "vlive"
     naver_now_watch = "naver_now_watch"
+    naver_tv = "naver_tv"
     weverse = "weverse"

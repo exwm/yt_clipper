@@ -5,6 +5,7 @@ export enum VideoPlatforms {
   vlive = 'vlive',
   weverse = 'weverse',
   naver_now_watch = 'naver_now_watch',
+  naver_tv = 'naver_tv',
 }
 type VideoPlatform<T extends string | HTMLElement> = {
   // Contains the video element, progress bars, and controls.
@@ -43,19 +44,6 @@ type VideoPlatformSelectors = VideoPlatform<string>;
 
 export type VideoPlatformHooks = VideoPlatform<HTMLElement>;
 
-export function getVideoPlatformSelectors(platform: VideoPlatforms): VideoPlatformSelectors {
-  if (platform === VideoPlatforms.youtube) {
-    return youtubeSelectors;
-  } else if (platform === VideoPlatforms.vlive) {
-    return vliveSelectors;
-  } else if (platform === VideoPlatforms.naver_now_watch) {
-    return naver_now_watchSelectors;
-  } else if (platform === VideoPlatforms.weverse) {
-    return weverseSelectors;
-  }
-  return null;
-}
-
 export function getVideoPlatformHooks(selectors: VideoPlatformSelectors): VideoPlatformHooks {
   return querySelectors(selectors);
 }
@@ -70,6 +58,8 @@ export function getPlatform() {
     return VideoPlatforms.naver_now_watch;
   } else if (host.includes('weverse')) {
     return VideoPlatforms.weverse;
+  } else if (host.includes('tv.naver')) {
+    return VideoPlatforms.naver_tv;
   } else {
     return VideoPlatforms.youtube;
   }
@@ -147,6 +137,30 @@ const naver_now_watchSelectors = {
   shortcutsTableButton: '.pzp-pc__bottom-buttons-right',
 };
 
+const naver_tvSelectors = {
+  playerContainer: 'div[class=webplayer-internal-source-shadow]',
+  player: 'div[class=webplayer-internal-source-wrapper]',
+  playerClickZone: '.webplayer-internal-source-wrapper',
+  videoContainer: 'div[class=webplayer-internal-source-wrapper]',
+  video: 'video',
+  progressBar: '.pzp-pc__progress-slider',
+  markersDiv: '.pzp-ui-slider__wrap',
+  markerNumberingsDiv: '.pzp-ui-slider__wrap',
+  theaterModeIndicator: 'placeholder',
+  settingsEditor: 'div[class*=ArticleSection_article_section]',
+  settingsEditorTheater: 'div[class*=ArticleSection_article_section]',
+  shortcutsTable: 'div[class*=ArticleSection_article_section]',
+  frameCapturerProgressBar: 'div[class*=ArticleSection_article_section]',
+  flashMessage: 'div[class*=ArticleSection_article_section]',
+  cropOverlay: '.webplayer-internal-source-wrapper',
+  cropMouseManipulation: '.webplayer-internal-source-wrapper',
+  speedChartContainer: '.webplayer-internal-video',
+  cropChartContainer: 'div[class*=ArticleSection_article_section]',
+  controls: '.pzp-pc__bottom',
+  controlsGradient: '.pzp-pc__bottom-shadow',
+  shortcutsTableButton: '.pzp-pc__bottom-buttons-right',
+};
+
 const weverseSelectors = {
   playerContainer: 'div[class=webplayer-internal-source-shadow]',
   player: 'div[class=webplayer-internal-source-wrapper]',
@@ -169,4 +183,12 @@ const weverseSelectors = {
   controls: '.pzp-pc__bottom-buttons',
   controlsGradient: '.pzp-pc__bottom-buttons',
   shortcutsTableButton: '.pzp-pc__bottom-buttons-right',
+};
+
+export const videoPlatformSelectors: Record<VideoPlatforms, VideoPlatformSelectors> = {
+  [VideoPlatforms.youtube]: youtubeSelectors,
+  [VideoPlatforms.weverse]: weverseSelectors,
+  [VideoPlatforms.vlive]: vliveSelectors,
+  [VideoPlatforms.naver_now_watch]: naver_now_watchSelectors,
+  [VideoPlatforms.naver_tv]: naver_tvSelectors,
 };
