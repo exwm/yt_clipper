@@ -145,15 +145,15 @@ def getVideoInfo(cs: ClipperState) -> None:
         and videoInfo["protocol"] in UNSUPPORTED_STREAMING_PROTOCOLS
     ):
         logger.warning(
-            f'In streaming mode, got video with unsupported protocol {videoInfo["protocol"]}.'
+            f'In streaming mode, got video with unsupported streaming protocol {videoInfo["protocol"]}.'
         )
-        logger.warning(f"Unsupported streaming mode protocols: {UNSUPPORTED_STREAMING_PROTOCOLS}")
+        logger.warning(f"Unsupported streaming protocols: {UNSUPPORTED_STREAMING_PROTOCOLS}")
         logger.warning(
-            f"m3u8 and m3u8_native protocols may require streaming/downloading the entire video before trimming and may fail"
+            f"m3u8 and m3u8_native streaming protocols may require downloading the entire video before trimming and may occasionally fail anyways"
         )
 
         logger.warning(
-            f"If an unsupported streaming mode protocol is preferred, please use a non-streaming mode with the --download-video or --input-video options"
+            f"To avoid processing failures due to streaming m3u8/m3u8 native, consider downloading the video first either automatically with --download-video or the yt_clipper_auto_download helper script or manually and then specifying the video with --input-video or the yt_clipper_auto_input_video helper script"
         )
 
         response = input(r"Disable potentially unsupported protocols? (y/n): ")
