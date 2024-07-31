@@ -29,6 +29,7 @@ from clipper.ffmpeg_filter import (
     getSubsFilter,
     getZoomPanFilter,
 )
+from clipper.platforms import getFfmpegHeaders
 from clipper.util import escapeSingleQuotesFFmpeg, getTrimmedBase64Hash
 from clipper.ytc_logger import logger
 
@@ -59,8 +60,15 @@ def getMarkerPairSettings(
         if mp["exists"] and not mps["overwrite"]:
             return (mp, mps)
 
-    mp["start"] = mp["start"] + mps["delay"]
-    mp["end"] = mp["end"] + mps["delay"]
+    videoPartDelay = 0
+    if mps["videoType"] == "multi_video":
+        videoPart = findVideoPart(mp, mps)
+        if videoPart:
+            videoPartDelay = videoPart["start"]
+            mp["videoPart"] = videoPart
+
+    mp["start"] = mp["start"] + mps["delay"] - videoPartDelay
+    mp["end"] = mp["end"] + mps["delay"] - videoPartDelay
     mp["duration"] = mp["end"] - mp["start"]
 
     mp["isVariableSpeed"] = False
@@ -186,6 +194,17 @@ def getMarkerPairSettings(
     return (mp, mps)
 
 
+def findVideoPart(mp: DictStrAny, mps: DictStrAny) -> Optional[DictStrAny]:
+    videoParts = []
+    for videoPart in mps["videoParts"]:
+        if mp["start"] >= videoPart["start"] and mp["end"] <= videoPart["end"]:
+            videoParts.append(videoPart)
+    if len(videoParts) == 1:
+        return videoParts[0]
+
+    return None
+
+
 def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]:
     settings = cs.settings
     cp = cs.clipper_paths
@@ -202,9 +221,7 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
     if mp["isVariableSpeed"] or mps["loop"] != "none":
         mps["audio"] = False
 
-    reconnectFlags = (
-        r"-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5"
-    )
+    inputFlags = r"-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5"
     if mps["audio"]:
         aStart = mp["start"] + mps["audioDelay"]
         aEnd = mp["end"] + mps["audioDelay"]
@@ -212,8 +229,8 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
         # ffplay previewing does not support multiple inputs
         # if an input video is provided or previewing is on, there is only one input
         if not mps["inputVideo"] and not settings["preview"]:
-            inputs += reconnectFlags
-            inputs += f' -ss {aStart} -to {aEnd} -i "{mps["audioURL"]}" '
+            inputs += inputFlags
+            inputs += f' -ss {aStart} -to {aEnd} -i "{mps["audioDownloadURL"]}" '
 
         # preview mode does not start each clip at time 0 unlike encoding mode
         if settings["preview"] and settings["inputVideo"]:
@@ -234,12 +251,21 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
             audio_filter += f',{mps["extraAudioFilters"]}'
 
     if not mps["inputVideo"]:
-        inputs += reconnectFlags
+        inputs += inputFlags
 
     if mps["inputVideo"]:
         inputs += f' -ss {mp["start"]} -i "{mps["inputVideo"]}" '
+    elif mps["videoType"] != "multi_video":
+        inputs += f' -ss {mp["start"]} -i "{mps["videoDownloadURL"]}" '
     else:
-        inputs += f' -ss {mp["start"]} -i "{mps["videoURL"]}" '
+        if "videoPart" in mp:
+            videoPart = mp["videoPart"]
+            inputs += f' -ss {mp["start"]} -i "{videoPart["url"]}" '
+        else:
+            logger.error(
+                f'Failed to generate: "{mp["fileName"]}". The marker pair defines a clip that spans multiple video parts which is not currently supported.'
+            )
+            return None
 
     qmax: int = max(min(mps["crf"] + 13, 63), 34)
     qmin: int = min(mps["crf"], 15)
@@ -527,16 +553,21 @@ def getFfmpegCommand(
         (
             cp.ffmpegPath,
             f"-hide_banner",
+            getFfmpegHeaders(mps["platform"]),
             inputs,
             f"-benchmark",
             # f'-loglevel 56',
             video_codec_args,
-            f"-c:a libopus -b:a 128k"
-            if not mps["videoCodec"] == "vp8"
-            else f"-c:a libvorbis -q:a 7",
-            f'-metadata title="{mps["videoTitle"]}"'
-            if not mps["removeMetadata"]
-            else "-map_metadata -1",
+            (
+                f"-c:a libopus -b:a 128k"
+                if not mps["videoCodec"] == "vp8"
+                else f"-c:a libvorbis -q:a 7"
+            ),
+            (
+                f'-metadata title="{mps["videoTitle"]}"'
+                if not mps["removeMetadata"]
+                else "-map_metadata -1"
+            ),
             f"-af {audio_filter}" if mps["audio"] else "-an",
             video_output_args,
             f'{mps["extraFfmpegArgs"]}',

@@ -1,11 +1,18 @@
 import { querySelectors } from '../util/util';
+import { readFileSync } from 'fs';
+
+const youtubeCSS: string = '';
+const vliveCSS: string = readFileSync(__dirname + '/css/vlive.css', 'utf8');
+const naver_tvCSS: string = readFileSync(__dirname + '/css/naver_tv.css', 'utf8');
+const weverseCSS: string = readFileSync(__dirname + '/css/weverse.css', 'utf8');
+const afreecatvCSS: string = readFileSync(__dirname + '/css/afreecatv.css', 'utf8');
 
 export enum VideoPlatforms {
   youtube = 'youtube',
   vlive = 'vlive',
   weverse = 'weverse',
-  naver_now_watch = 'naver_now_watch',
   naver_tv = 'naver_tv',
+  afreecatv = 'afreecatv',
 }
 type VideoPlatform<T extends string | HTMLElement> = {
   // Contains the video element, progress bars, and controls.
@@ -54,12 +61,12 @@ export function getPlatform() {
     return VideoPlatforms.youtube;
   } else if (host.includes('vlive')) {
     return VideoPlatforms.vlive;
-  } else if (host.includes('now.naver')) {
-    return VideoPlatforms.naver_now_watch;
   } else if (host.includes('weverse')) {
     return VideoPlatforms.weverse;
   } else if (host.includes('tv.naver')) {
     return VideoPlatforms.naver_tv;
+  } else if (host.includes('afreecatv.com')) {
+    return VideoPlatforms.afreecatv;
   } else {
     return VideoPlatforms.youtube;
   }
@@ -113,30 +120,6 @@ const vliveSelectors: VideoPlatformSelectors = {
   playerClickZone: '._click_zone[data-video-overlay]',
 };
 
-const naver_now_watchSelectors = {
-  playerContainer: 'div[class=webplayer-internal-source-shadow]',
-  player: 'div[class=webplayer-internal-source-wrapper]',
-  playerClickZone: '.webplayer-internal-source-wrapper',
-  videoContainer: 'div[class=webplayer-internal-source-wrapper]',
-  video: 'video',
-  progressBar: '.pzp-pc__progress-slider',
-  markersDiv: '.pzp-pc__progress-slider',
-  markerNumberingsDiv: '.pzp-pc__progress-slider',
-  theaterModeIndicator: 'placeholder',
-  settingsEditor: 'div[class*=ArticleSection_article_section]',
-  settingsEditorTheater: 'div[class*=ArticleSection_article_section]',
-  shortcutsTable: 'div[class*=ArticleSection_article_section]',
-  frameCapturerProgressBar: 'div[class*=ArticleSection_article_section]',
-  flashMessage: 'div[class*=ArticleSection_article_section]',
-  cropOverlay: '.webplayer-internal-source-wrapper',
-  cropMouseManipulation: '.webplayer-internal-source-wrapper',
-  speedChartContainer: '.webplayer-internal-video',
-  cropChartContainer: 'div[class*=ArticleSection_article_section]',
-  controls: '.pzp-pc__bottom',
-  controlsGradient: '.pzp-pc__bottom-shadow',
-  shortcutsTableButton: '.pzp-pc__bottom-buttons-right',
-};
-
 const naver_tvSelectors = {
   playerContainer: 'div[class=webplayer-internal-source-shadow]',
   player: 'div[class=webplayer-internal-source-wrapper]',
@@ -185,10 +168,65 @@ const weverseSelectors = {
   shortcutsTableButton: '.pzp-pc__bottom-buttons-right',
 };
 
-export const videoPlatformSelectors: Record<VideoPlatforms, VideoPlatformSelectors> = {
-  [VideoPlatforms.youtube]: youtubeSelectors,
-  [VideoPlatforms.weverse]: weverseSelectors,
-  [VideoPlatforms.vlive]: vliveSelectors,
-  [VideoPlatforms.naver_now_watch]: naver_now_watchSelectors,
-  [VideoPlatforms.naver_tv]: naver_tvSelectors,
+const afreecaPlayerItemListSelector = 'div[class~=player_item_list]';
+const afreecatvSelectors = {
+  playerContainer: 'div[class~=htmlplayer_wrap]',
+  player: 'div[id=afreecatv_player]',
+  playerClickZone: 'div[id=afreecatv_player]',
+  videoContainer: 'div[id=videoLayer]',
+  video: 'video[id=video]',
+  progressBar: 'div[class~=progress_track]',
+  markersDiv: 'div[class~=progress_track]',
+  markerNumberingsDiv: 'div[class~=progress_track]',
+  theaterModeIndicator: 'placeholder',
+  settingsEditor: afreecaPlayerItemListSelector,
+  settingsEditorTheater: afreecaPlayerItemListSelector,
+  shortcutsTable: afreecaPlayerItemListSelector,
+  frameCapturerProgressBar: afreecaPlayerItemListSelector,
+  flashMessage: afreecaPlayerItemListSelector,
+  cropOverlay: 'div[id=afreecatv_player]',
+  cropMouseManipulation: 'div[id=afreecatv_player]',
+  speedChartContainer: 'div[id=videoLayer]',
+  cropChartContainer: afreecaPlayerItemListSelector,
+  controls: 'div[class~=ctrl]',
+  controlsGradient: 'div[class~=ctrl]',
+  shortcutsTableButton: 'div[class~=right_ctrl]',
+};
+
+interface videoPlatformData {
+  selectors: VideoPlatformSelectors;
+  css: string;
+}
+
+const youtubeData: videoPlatformData = {
+  selectors: youtubeSelectors,
+  css: youtubeCSS,
+};
+
+const vliveData: videoPlatformData = {
+  selectors: vliveSelectors,
+  css: vliveCSS,
+};
+
+const weverseData: videoPlatformData = {
+  selectors: weverseSelectors,
+  css: weverseCSS,
+};
+
+const naver_tvData: videoPlatformData = {
+  selectors: naver_tvSelectors,
+  css: naver_tvCSS,
+};
+
+const afreecaData: videoPlatformData = {
+  selectors: afreecatvSelectors,
+  css: afreecatvCSS,
+};
+
+export const videoPlatformDataRecords: Record<VideoPlatforms, videoPlatformData> = {
+  [VideoPlatforms.youtube]: youtubeData,
+  [VideoPlatforms.weverse]: weverseData,
+  [VideoPlatforms.vlive]: vliveData,
+  [VideoPlatforms.naver_tv]: naver_tvData,
+  [VideoPlatforms.afreecatv]: afreecaData,
 };

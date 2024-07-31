@@ -36,7 +36,7 @@ def getSubs(cs: ClipperState) -> None:
 
     importlib.reload(ytdl_importer.youtube_dl)
     with ytdl_importer.youtube_dl.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([settings["videoURL"]])
+        ydl.download([settings["videoPageURL"]])
 
 
 def autoScaleCropMap(cropMap: List[Dict[str, Any]], settings: Settings) -> None:
@@ -142,6 +142,8 @@ def getMinterpFPS(
     mps: DictStrAny, speedMap: Union[SpeedMap, None]
 ) -> Union[ExtendedRealNumber, None]:
     minterpMode = mps["minterpMode"]
+    if mps["r_frame_rate"] is None:
+        return None
     videoFPS = Fraction(mps["r_frame_rate"])
 
     maxSpeed = getMaxSpeed(speedMap)

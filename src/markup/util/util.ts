@@ -1,5 +1,6 @@
 import { safeHtml } from 'common-tags';
-import { SpeedPoint, CropPoint } from '../@types/yt_clipper';
+import { SpeedPoint } from '../@types/yt_clipper';
+import { VideoPlatforms } from '../platforms/platforms';
 
 let flashMessageHook: HTMLElement;
 export function setFlashMessageHook(hook: HTMLElement) {
@@ -184,16 +185,16 @@ export function getEasedValue(
 
 export function seekToSafe(video: HTMLVideoElement, newTime: number) {
   newTime = clampNumber(newTime, 0, video.duration);
-  if (!isNaN(newTime) && video.currentTime != newTime && !video.seeking) {
+  if (!isNaN(newTime) && video.getCurrentTime() != newTime && !video.seeking) {
     try {
-      video.currentTime = newTime;
+      video.seekTo(newTime);
     } catch (e) {
       console.error(e);
     }
   }
 }
 export function seekBySafe(video: HTMLVideoElement, timeDelta: number) {
-  const newTime = video.currentTime + timeDelta;
+  const newTime = video.getCurrentTime() + timeDelta;
   seekToSafe(video, newTime);
 }
 export function blockEvent(e) {
@@ -292,4 +293,42 @@ export async function onLoadVideoPage(callback: Function) {
   const config = { attributeFilter: ['is-watch-page'] };
   console.log(`Waiting for video page load before calling ${callback.name}`);
   observer.observe(ytdapp, config);
+}
+
+export function observeVideoElementChange(videoContainer: HTMLElement, callback: Function) {
+  const observer = new MutationObserver((mutationList: MutationRecord[]) => {
+    mutationList.forEach((mutation) => {
+      if (mutation.type === 'childList') {
+        console.log('observed mutation in video container', mutation);
+        callback(mutation.addedNodes);
+      }
+    });
+  });
+  console.log(`Watching for changes to video container nodes. callback=${callback.name}`);
+  observer.observe(videoContainer, { childList: true });
+}
+
+export function parseTimeStringToSeconds(timeString) {
+  const [hours, minutes, seconds] = timeString.split(':').map(Number);
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
+let videoDuration = NaN;
+export function getVideoDuration(platform: VideoPlatforms, video: HTMLVideoElement): number {
+  if (!Number.isNaN(videoDuration)) {
+    return videoDuration;
+  }
+
+  if (platform === VideoPlatforms.afreecatv) {
+    let duration = 0;
+    for (let videoPart of unsafeWindow.vodCore.playerController.fileItems) {
+      duration += videoPart.duration;
+    }
+
+    videoDuration = duration;
+  } else {
+    videoDuration = video.duration;
+  }
+
+  return videoDuration;
 }

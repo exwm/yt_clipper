@@ -16,6 +16,7 @@ from clipper.clipper_types import (
 )
 from clipper.ffmpeg_filter import getMinterpFPS, getSubs
 from clipper.ffprobe import ffprobeVideoProperties
+from clipper.platforms import getVideoPageURL
 from clipper.ytc_logger import logger
 
 
@@ -29,7 +30,9 @@ def loadSettings(settings: Settings) -> None:
             settings["markerPairs"] = settings["markers"]
         settings["platform"] = settings.get("platform", "youtube")
 
-        settings["videoURL"] = getVideoURL(settings, settings["platform"], settings["videoID"])
+        settings["videoPageURL"] = getVideoPageURL(
+            settings, settings["platform"], settings["videoID"]
+        )
         settings["videoTitle"] = re.sub('"', "", settings["videoTitle"])
         settings["markersDataFileStem"] = Path(settings["json"]).stem
 
@@ -143,6 +146,7 @@ def getVideoInfo(cs: ClipperState) -> None:
         not settings["downloadVideo"]
         and "protocol" in videoInfo
         and videoInfo["protocol"] in UNSUPPORTED_STREAMING_PROTOCOLS
+        and settings["platform"] != KnownPlatform.afreecatv.name
     ):
         logger.warning(
             f'In streaming mode, got video with unsupported streaming protocol {videoInfo["protocol"]}.'
@@ -169,11 +173,8 @@ def getVideoInfo(cs: ClipperState) -> None:
     if settings["downloadVideo"]:
         settings["inputVideo"] = settings["downloadVideoPath"]
     else:
-        settings["videoURL"] = videoInfo["url"]
-
-    settings["audiobr"] = int(audioInfo["abr"])
-
-    settings["audioURL"] = audioInfo["url"]
+        settings["videoDownloadURL"] = videoInfo["url"]
+        settings["audioDownloadURL"] = audioInfo["url"]
 
     getMoreVideoInfo(cs, videoInfo, audioInfo)
 
@@ -208,19 +209,37 @@ def _getVideoInfo(cs: ClipperState) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     importlib.reload(ytdl_importer.youtube_dl)
     with ytdl_importer.youtube_dl.YoutubeDL(ydl_opts) as ydl:
         if settings["downloadVideo"]:
-            ydl_info: Dict[str, Any] = ydl.extract_info(settings["videoURL"], download=True)  # type: ignore
+            ydl_info: Dict[str, Any] = ydl.extract_info(settings["videoPageURL"], download=True)  # type: ignore
             settings["downloadVideoPath"] = f'{settings["downloadVideoPath"]}.mkv'
         else:
-            ydl_info: Dict[str, Any] = ydl.extract_info(settings["videoURL"], download=False)  # type: ignore
+            ydl_info: Dict[str, Any] = ydl.extract_info(settings["videoPageURL"], download=False)  # type: ignore
+
+    settings["videoType"] = ydl_info.get("_type")
+
+    settings["videoParts"] = []
+    if settings["videoType"] == "multi_video":
+        settings["videoParts"] = ydl_info["entries"]
+
+    videoPartsStart = 0
+    for videoPart in settings["videoParts"]:
+        videoPart["start"] = videoPartsStart
+        videoPart["end"] = videoPart["start"] + videoPart["duration"]
+        videoPartsStart += videoPart["duration"]
 
     if "requested_formats" in ydl_info:
         videoInfo = ydl_info["requested_formats"][0]
         audioInfo = ydl_info["requested_formats"][1]
         settings["mergedStreams"] = False
-    else:
+    elif settings["videoType"] != "multi_video":
         videoInfo = ydl_info
         audioInfo = videoInfo
         settings["mergedStreams"] = True
+    else:
+        videoInfo = settings["videoParts"][0]
+        audioInfo = videoInfo
+        settings["mergedStreams"] = True
+
+    # print(json.dumps(videoInfo))
 
     return videoInfo, audioInfo
 
@@ -234,7 +253,7 @@ def getMoreVideoInfo(cs: ClipperState, videoInfo: Dict, audioInfo: Dict) -> None
     if settings["inputVideo"]:
         probedSettings = ffprobeVideoProperties(cs, settings["inputVideo"])
     else:
-        probedSettings = ffprobeVideoProperties(cs, settings["videoURL"])
+        probedSettings = ffprobeVideoProperties(cs, settings["videoDownloadURL"])
 
     settings.update(videoInfo)
     if probedSettings is not None:
@@ -247,7 +266,12 @@ def getMoreVideoInfo(cs: ClipperState, videoInfo: Dict, audioInfo: Dict) -> None
         settings["bit_rate"] = int(videoInfo["tbr"])
 
     if "r_frame_rate" not in settings:
-        settings["r_frame_rate"] = videoInfo["fps"]
+        DEFAULT_VIDEO_FPS = 30
+        if videoInfo["fps"] is None:
+            logger.warning(f"Could not determine video fps. Assuming {DEFAULT_VIDEO_FPS} fps.")
+        settings["r_frame_rate"] = (
+            videoInfo["fps"] if videoInfo["fps"] is not None else DEFAULT_VIDEO_FPS
+        )
 
     logger.report(f'Video Title: {settings["videoTitle"]}')
 
@@ -273,7 +297,7 @@ def getGlobalSettings(cs: ClipperState) -> None:
     settings = cs.settings
     cp = cs.clipper_paths
 
-    logger.report(f'Video URL: {settings["videoURL"]}')
+    logger.report(f'Video Page URL: {settings["videoPageURL"]}')
     logger.report(
         f'Merge List: {settings["markerPairMergeList"] if settings["markerPairMergeList"] else "None"}'
     )
@@ -420,19 +444,3 @@ def filterDash(cs: ClipperState, dashManifestUrl: str, dashFormatIDs: List[str])
         filteredDash.write(dashdom.toxml())
 
     return filteredDashPath
-
-
-def getVideoURL(settings: Settings, platform: str, videoID: str) -> str:
-    if platform == KnownPlatform.youtube.name:
-        return f"https://www.youtube.com/watch?v={videoID}"
-    if platform == KnownPlatform.vlive.name:
-        return f"https://www.vlive.tv/video/{videoID}"
-    if platform == KnownPlatform.naver_now_watch.name:
-        return f"https://now.naver.com/watch/{videoID}"
-    if platform == KnownPlatform.weverse.name:
-        return settings["videoUrl"]
-    if platform == KnownPlatform.naver_tv.name:
-        return f"https://tv.naver.com/v/{videoID}"
-
-    logger.fatal(f"Unknown platform: {platform}")
-    sys.exit(1)

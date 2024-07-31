@@ -25,9 +25,9 @@
 // @match        http*://*.youtube.com/*
 // @match        http*://*.vlive.tv/video/*
 // @match        http*://*.vlive.tv/post/*
-// @match        http*://*.now.naver.com/*
 // @match        http*://weverse.io/*
 // @match        https*://tv.naver.com/*
+// @match        https*://*.afreecatv.com/*
 // @noframes
 // dummy grant to enable sandboxing
 // @grant         GM_getValue
@@ -42,6 +42,7 @@ import { safeHtml, stripIndent } from 'common-tags';
 import { easeCubicInOut, easeSinInOut } from 'd3-ease';
 import { saveAs } from 'file-saver';
 import { readFileSync } from 'fs';
+import { createDraft, Draft, enableAllPlugins, finishDraft } from 'immer';
 import JSZip from 'jszip';
 import cloneDeep from 'lodash.clonedeep';
 import {
@@ -55,6 +56,17 @@ import {
   Settings,
   SpeedPoint,
 } from './@types/yt_clipper';
+import { flattenVRVideo, openSubsEditor } from './actions/misc';
+import { Crop, getMinMaxAvgCropPoint, isVariableSize } from './crop/crop';
+import { disableCommonBlockers, enableCommonBlockers } from './platforms/blockers/common';
+import { disableYTBlockers, enableYTBlockers } from './platforms/blockers/youtube';
+import {
+  getPlatform,
+  getVideoPlatformHooks,
+  videoPlatformDataRecords,
+  VideoPlatformHooks,
+  VideoPlatforms,
+} from './platforms/platforms';
 import './ui/chart/chart.js-drag-data-plugin';
 import { cubicInOutTension, sortX } from './ui/chart/chartutil';
 import {
@@ -67,64 +79,49 @@ import {
   getCropChartConfig,
   setCurrentCropPoint,
 } from './ui/chart/cropchart/cropChartSpec';
-import { scatterChartDefaults, addCropPoint, addSpeedPoint } from './ui/chart/scatterChartSpec';
+import { addCropPoint, addSpeedPoint, scatterChartDefaults } from './ui/chart/scatterChartSpec';
 import { speedChartSpec } from './ui/chart/speedchart/speedChartSpec';
-import { Tooltips } from './ui/tooltips';
-import {
-  bsearch,
-  clampNumber,
-  copyToClipboard,
-  deleteElement,
-  htmlToElement,
-  htmlToSVGElement,
-  injectCSS,
-  once,
-  retryUntilTruthyResult,
-  roundValue,
-  setAttributes,
-  speedRounder,
-  timeRounder,
-  toHHMMSSTrimmed,
-  setFlashMessageHook,
-  flashMessage,
-  getOutputDuration,
-  ternaryToString,
-  getEasedValue,
-  blockEvent,
-  onLoadVideoPage,
-  getCropString,
-  seekBySafe,
-  seekToSafe,
-} from './util/util';
-import { Crop, getMinMaxAvgCropPoint, isVariableSize } from './crop/crop';
 import {
   adjustRotatedVideoPositionCSS,
   autoHideUnselectedMarkerPairsCSS,
   getRotatedVideoCSS,
 } from './ui/css/css';
-import { flattenVRVideo, openSubsEditor } from './actions/misc';
-import { enableYTBlockers, disableYTBlockers } from './platforms/blockers/youtube';
+import { Tooltips } from './ui/tooltips';
 import {
   getMarkerPairHistory,
-  redo,
-  undo,
   peekLastState,
+  redo,
   saveMarkerPairHistory,
+  undo,
 } from './util/undoredo';
 import {
-  getPlatform,
-  getVideoPlatformHooks,
-  videoPlatformSelectors,
-  VideoPlatformHooks,
-  VideoPlatforms,
-} from './platforms/platforms';
-import { createDraft, Draft, finishDraft, enableAllPlugins } from 'immer';
-import { disableCommonBlockers, enableCommonBlockers } from './platforms/blockers/common';
+  blockEvent,
+  bsearch,
+  clampNumber,
+  copyToClipboard,
+  deleteElement,
+  flashMessage,
+  getCropString,
+  getEasedValue,
+  getOutputDuration,
+  getVideoDuration,
+  htmlToElement,
+  htmlToSVGElement,
+  injectCSS,
+  once,
+  observeVideoElementChange,
+  retryUntilTruthyResult,
+  roundValue,
+  seekBySafe,
+  seekToSafe,
+  setAttributes,
+  setFlashMessageHook,
+  speedRounder,
+  ternaryToString,
+  timeRounder,
+  toHHMMSSTrimmed,
+} from './util/util';
 const ytClipperCSS = readFileSync(__dirname + '/ui/css/yt-clipper.css', 'utf8');
-const vliveCSS = readFileSync(__dirname + '/platforms/css/vlive.css', 'utf8');
-const naver_now_watchCSS = readFileSync(__dirname + '/platforms/css/naver_now_watch.css', 'utf8');
-const naver_tvCSS = readFileSync(__dirname + '/platforms/css/naver_tv.css', 'utf8');
-const weverseCSS = readFileSync(__dirname + '/platforms/css/weverse.css', 'utf8');
 const shortcutsTable = readFileSync(__dirname + '/ui/shortcuts-table/shortcuts-table.html', 'utf8');
 const shortcutsTableStyle = readFileSync(
   __dirname + '/ui/shortcuts-table/shortcuts-table.css',
@@ -369,10 +366,7 @@ async function loadytClipper() {
 
     //yt-clipper
     injectCSS(ytClipperCSS, 'yt-clipper-css');
-    if (platform === VideoPlatforms.vlive) injectCSS(vliveCSS, 'vlive-css');
-    if (platform === VideoPlatforms.naver_now_watch) injectCSS(naver_now_watchCSS, 'naver-now-css');
-    if (platform === VideoPlatforms.weverse) injectCSS(weverseCSS, 'weverse-css');
-    if (platform === VideoPlatforms.naver_tv) injectCSS(naver_tvCSS, 'naver-tv-css');
+    injectCSS(videoPlatformDataRecords[platform].css, 'platform-css');
     initHooks();
     initVideoInfo();
     initObservers();
@@ -519,15 +513,20 @@ async function loadytClipper() {
     document.body.addEventListener('wheel', inheritCropPointCrop, { passive: false });
   }
 
-  const selectors = videoPlatformSelectors[platform];
+  const selectors = videoPlatformDataRecords[platform].selectors;
 
   player = await retryUntilTruthyResult(() => document.querySelector(selectors.player));
   video = await retryUntilTruthyResult(() => player.querySelector(selectors.video));
+
   await retryUntilTruthyResult(() => video.readyState != 0);
-  await retryUntilTruthyResult(() => video.videoWidth * video.videoHeight * video.duration);
+  await retryUntilTruthyResult(
+    () => video.videoWidth * video.videoHeight * getVideoDuration(platform, video)
+  );
   if (platform === 'vlive') {
     await retryUntilTruthyResult(() => !video.src.startsWith('data:video'));
-    await retryUntilTruthyResult(() => video.videoWidth * video.videoHeight * video.duration);
+    await retryUntilTruthyResult(
+      () => video.videoWidth * video.videoHeight * getVideoDuration(platform, video)
+    );
   }
   video.classList.add('yt-clipper-video');
 
@@ -554,12 +553,17 @@ async function loadytClipper() {
     videoInfo.isVerticalVideo = videoInfo.aspectRatio <= 1;
     const url = window.location.origin + window.location.pathname;
     videoInfo.videoUrl = url;
+    videoInfo.fps = getFPS();
+
+    video.seekTo = (time) => (video.currentTime = time);
+    video.getCurrentTime = () => {
+      return video.currentTime;
+    };
 
     if (platform === VideoPlatforms.youtube) {
       const playerData = player.getVideoData();
       videoInfo.id = playerData.video_id;
       videoInfo.title = playerData.title;
-      videoInfo.fps = getFPS();
       video.seekTo = (time) => player.seekTo(time);
     } else if (platform === VideoPlatforms.vlive) {
       const location = window.location;
@@ -573,31 +577,28 @@ async function loadytClipper() {
         if (videoInfo.title == null)
           videoInfo.title = document.querySelector('[class*="video_title"]')?.textContent;
       }
-
-      videoInfo.fps = getFPS();
-      video.seekTo = (time) => (video.currentTime = time);
-    } else if (platform === VideoPlatforms.naver_now_watch) {
-      videoInfo.id = location.pathname.split('/')[2];
-      videoInfo.title = document.querySelector(
-        'h2[class*=ArticleSection_article_title]'
-      )?.textContent;
-      videoInfo.fps = getFPS();
-      video.seekTo = (time) => (video.currentTime = time);
     } else if (platform === VideoPlatforms.naver_tv) {
       videoInfo.id = location.pathname.split('/')[2];
       videoInfo.title = document.querySelector(
         'h2[class*=ArticleSection_article_title]'
       )?.textContent;
-      videoInfo.fps = getFPS();
-      video.seekTo = (time) => (video.currentTime = time);
     } else if (platform === VideoPlatforms.weverse) {
       videoInfo.title = document.querySelector('h2[class*=TitleView_title]')?.textContent;
 
       if (location.pathname.includes('media') || location.pathname.includes('live')) {
         if (videoInfo.id == null) videoInfo.id = location.pathname.split('/')[3];
       }
-      videoInfo.fps = getFPS();
-      video.seekTo = (time) => (video.currentTime = time);
+    } else if (platform === VideoPlatforms.afreecatv) {
+      videoInfo.id = location.pathname.split('/')[2];
+      videoInfo.title = document.querySelector('div[class~=broadcast_title]')?.textContent;
+
+      video.getCurrentTime = () => {
+        return unsafeWindow.vodCore.playerController._playingTime;
+      };
+
+      video.seekTo = (time) => {
+        unsafeWindow.vodCore.seek(time);
+      };
     }
 
     if (videoInfo.id == null) {
@@ -608,6 +609,15 @@ async function loadytClipper() {
 
   function initObservers() {
     new ResizeObserver(resizeCropOverlay).observe(hooks.videoContainer);
+
+    if (platform === VideoPlatforms.afreecatv) {
+      observeVideoElementChange(hooks.videoContainer, (addedNodes: NodeList) => {
+        video = addedNodes[0] as HTMLVideoElement;
+        video.classList.add('yt-clipper-video');
+        initVideoInfo();
+      });
+    }
+
   }
 
   function updateSettingsEditorHook() {
@@ -716,7 +726,7 @@ async function loadytClipper() {
         moveMarker(targetMarker, Math.max(0, newMarkerTime));
       } else if (event.deltaY < 0) {
         newMarkerTime = targetMarkerTime + 1 / fps;
-        moveMarker(targetMarker, Math.min(video.duration, newMarkerTime));
+        moveMarker(targetMarker, Math.min(getVideoDuration(platform, video), newMarkerTime));
       }
 
       video.pause();
@@ -848,11 +858,7 @@ async function loadytClipper() {
     startMarkerNumberings = markerNumberingsDiv.children[0] as SVGSVGElement;
     endMarkerNumberings = markerNumberingsDiv.children[1] as SVGSVGElement;
 
-    if (
-      [VideoPlatforms.weverse, VideoPlatforms.naver_now_watch, VideoPlatforms.naver_tv].includes(
-        platform
-      )
-    ) {
+    if ([VideoPlatforms.weverse, VideoPlatforms.naver_tv].includes(platform)) {
       hooks.markersDiv.prepend(markersDiv);
       hooks.markerNumberingsDiv.prepend(markerNumberingsDiv);
     } else {
@@ -1005,7 +1011,9 @@ async function loadytClipper() {
     });
   }
 
-  function getShortestActiveMarkerPair(currentTime: number = video.currentTime): MarkerPair {
+  function getShortestActiveMarkerPair(currentTime: number | null): MarkerPair {
+    if (currentTime == null) currentTime = video.getCurrentTime();
+
     if (
       isSettingsEditorOpen &&
       !wasGlobalSettingsEditorOpen &&
@@ -1083,7 +1091,10 @@ async function loadytClipper() {
       let markerPairSpeed: number;
 
       if (isVariableSpeed(shortestActiveMarkerPair.speedMap)) {
-        markerPairSpeed = getSpeedMapping(shortestActiveMarkerPair.speedMap, video.currentTime);
+        markerPairSpeed = getSpeedMapping(
+          shortestActiveMarkerPair.speedMap,
+          video.getCurrentTime()
+        );
       } else {
         markerPairSpeed = shortestActiveMarkerPair.speed;
       }
@@ -1140,7 +1151,7 @@ async function loadytClipper() {
       const speed = getInterpolatedSpeed(
         left,
         right,
-        video.currentTime,
+        video.getCurrentTime(),
         roundMultiple,
         roundPrecision
       );
@@ -1198,7 +1209,7 @@ async function loadytClipper() {
           chartLoop.start < chartLoop.end
         ) {
           const isTimeBetweenChartLoop =
-            chartLoop.start <= video.currentTime && video.currentTime <= chartLoop.end;
+            chartLoop.start <= video.getCurrentTime() && video.getCurrentTime() <= chartLoop.end;
           if (!isTimeBetweenChartLoop) {
             seekToSafe(video, chartLoop.start);
           }
@@ -1210,7 +1221,7 @@ async function loadytClipper() {
           cropChartSectionLoop();
         } else if (isMarkerLoopPreviewOn) {
           const isTimeBetweenMarkerPair =
-            markerPair.start <= video.currentTime && video.currentTime <= markerPair.end;
+            markerPair.start <= video.getCurrentTime() && video.getCurrentTime() <= markerPair.end;
           if (!isTimeBetweenMarkerPair) {
             seekToSafe(video, markerPair.start);
           }
@@ -1302,7 +1313,7 @@ async function loadytClipper() {
   }
 
   function fadeLoopPreviewHandler() {
-    const currentTime = video.currentTime;
+    const currentTime = video.getCurrentTime();
     const shortestActiveMarkerPair = getShortestActiveMarkerPair();
     if (
       shortestActiveMarkerPair &&
@@ -1378,7 +1389,7 @@ async function loadytClipper() {
   function jumpToNearestMarkerOrPair(e: KeyboardEvent, keyCode: string) {
     if (!arrowKeyCropAdjustmentEnabled) {
       if (e.ctrlKey && !e.altKey && !e.shiftKey) {
-        jumpToNearestMarker(e, video.currentTime, keyCode);
+        jumpToNearestMarker(e, video.getCurrentTime(), keyCode);
       } else if (e.altKey && !e.shiftKey) {
         if (!e.ctrlKey && !(isSettingsEditorOpen && !wasGlobalSettingsEditorOpen)) {
           blockEvent(e);
@@ -1732,12 +1743,12 @@ async function loadytClipper() {
   };
 
   function addMarker(markerConfig: MarkerConfig = {}) {
-    const preciseCurrentTime = markerConfig.time ?? video.currentTime;
+    const preciseCurrentTime = markerConfig.time ?? video.getCurrentTime();
     // TODO: Calculate video fps precisely so current frame time
     // is accurately determined.
     // const currentFrameTime = getCurrentFrameTime(roughCurrentTime);
     const currentFrameTime = preciseCurrentTime;
-    const progressPos = (currentFrameTime / video.duration) * 100;
+    const progressPos = (currentFrameTime / getVideoDuration(platform, video)) * 100;
 
     if (!start && currentFrameTime <= startTime) {
       flashMessage('End marker must be after start marker.', 'red');
@@ -1762,7 +1773,7 @@ async function loadytClipper() {
       marker.classList.add('end-marker');
       marker.setAttribute('type', 'end');
       marker.setAttribute('z-index', '2');
-      const startProgressPos = (startTime / video.duration) * 100;
+      const startProgressPos = (startTime / getVideoDuration(platform, video)) * 100;
       const [startNumbering, endNumbering] = addMarkerPairNumberings(
         rectIdx,
         startProgressPos,
@@ -1947,9 +1958,9 @@ async function loadytClipper() {
   function addChartPoint() {
     if (isChartEnabled && isCurrentChartVisible) {
       if (currentChartInput.type == 'speed') {
-        addSpeedPoint.call(currentChartInput.chart, video.currentTime, 1);
+        addSpeedPoint.call(currentChartInput.chart, video.getCurrentTime(), 1);
       } else if (currentChartInput.type == 'crop') {
-        addCropPoint.call(currentChartInput.chart, video.currentTime);
+        addCropPoint.call(currentChartInput.chart, video.getCurrentTime());
       }
     }
   }
@@ -2345,29 +2356,31 @@ async function loadytClipper() {
     let prevZoom = 1;
     function getDragTime(e: PointerEvent) {
       let newTime =
-        (video.duration * (e.pageX - offsetX - progressBarRect.left)) / progressBarRect.width;
+        (getVideoDuration(platform, video) * (e.pageX - offsetX - progressBarRect.left)) /
+        progressBarRect.width;
       let prevTime =
-        (video.duration * (prevPageX - offsetX - progressBarRect.left)) / progressBarRect.width;
+        (getVideoDuration(platform, video) * (prevPageX - offsetX - progressBarRect.left)) /
+        progressBarRect.width;
       const zoom = clampNumber((e.pageY - offsetY) / video.clientHeight, 0, 1);
       const zoomDelta = Math.abs(zoom - prevZoom);
       prevZoom = zoom;
       prevPageX = e.pageX;
 
-      if (zoomDelta >= 0.0001) return video.currentTime;
+      if (zoomDelta >= 0.0001) return video.getCurrentTime();
       let timeDelta = roundValue(zoom * (newTime - prevTime), 0.01, 2);
-      if (Math.abs(timeDelta) < 0.01) return video.currentTime;
+      if (Math.abs(timeDelta) < 0.01) return video.getCurrentTime();
 
-      let time = video.currentTime + timeDelta;
+      let time = video.getCurrentTime() + timeDelta;
       time =
         numberingType === 'start'
           ? clampNumber(time, 0, markerPair.end - 1e-3)
-          : clampNumber(time, markerPair.start + 1e-3, video.duration);
+          : clampNumber(time, markerPair.start + 1e-3, getVideoDuration(platform, video));
       return time;
     }
 
     function dragNumbering(e: PointerEvent) {
       const time = getDragTime(e);
-      if (Math.abs(time - video.currentTime) < 0.01) return;
+      if (Math.abs(time - video.getCurrentTime()) < 0.01) return;
       moveMarker(targetMarker, time, false, false);
       seekToSafe(video, time);
     }
@@ -2879,7 +2892,7 @@ async function loadytClipper() {
     const idx = parseInt(marker.getAttribute('idx')) - 1;
     const markerPair = markerPairs[idx];
 
-    const toTime = newTime != null ? newTime : video.currentTime;
+    const toTime = newTime != null ? newTime : video.getCurrentTime();
 
     if (type === 'start' && toTime >= markerPair.end) {
       flashMessage('Start marker cannot be placed after or at end marker', 'red');
@@ -2979,8 +2992,8 @@ async function loadytClipper() {
     const endMarker = markersSvg.querySelector(`.end-marker[idx="${markerPairIndex + 1}"]`);
     const startMarkerNumbering = startMarkerNumberings.children[markerPairIndex];
     const endMarkerNumbering = endMarkerNumberings.children[markerPairIndex];
-    const startProgressPos = (markerPair.start / video.duration) * 100;
-    const endProgressPos = (markerPair.end / video.duration) * 100;
+    const startProgressPos = (markerPair.start / getVideoDuration(platform, video)) * 100;
+    const endProgressPos = (markerPair.end / getVideoDuration(platform, video)) * 100;
 
     startMarker.setAttribute('x', `${startProgressPos}%`);
     startMarkerNumbering.setAttribute('x', `${startProgressPos}%`);
@@ -3455,17 +3468,16 @@ async function loadytClipper() {
     shortcutsTableToggleButton = htmlToElement(shortcutsTableToggleButtonHTML) as HTMLButtonElement;
     shortcutsTableToggleButton.onclick = toggleShortcutsTable;
 
-    if (
-      [VideoPlatforms.weverse, VideoPlatforms.naver_now_watch, VideoPlatforms.naver_tv].includes(
-        platform
-      )
-    ) {
+    if ([VideoPlatforms.weverse, VideoPlatforms.naver_tv].includes(platform)) {
       shortcutsTableToggleButton.classList.add(
         'pzp-button',
         'pzp-subtitle-button',
         'pzp-pc-subtitle-button',
         'pzp-pc__subtitle-button'
       );
+    }
+    if ([VideoPlatforms.afreecatv].includes(platform)) {
+      shortcutsTableToggleButton.classList.add('btn_statistics');
     }
 
     hooks.shortcutsTableButton.insertAdjacentElement('afterbegin', shortcutsTableToggleButton);
@@ -3567,7 +3579,7 @@ async function loadytClipper() {
   let frameCaptureViewer: Window;
   let frameCaptureViewerDoc: Document;
   async function captureFrame() {
-    const currentTime = video.currentTime;
+    const currentTime = video.getCurrentTime();
     for (let i = 0; i < video.buffered.length; i++) {
       console.log(video.buffered.start(i), video.buffered.end(i));
       if (video.buffered.start(i) <= currentTime && currentTime <= video.buffered.end(i)) {
@@ -3654,7 +3666,7 @@ async function loadytClipper() {
     let totalFrames: number | string;
     if (fps) {
       frameNumber = Math.floor(seconds * fps);
-      totalFrames = Math.floor(video.duration * fps);
+      totalFrames = Math.floor(getVideoDuration(platform, video) * fps);
     } else {
       frameNumber = 'Unknown';
       totalFrames = 'Unknown';
@@ -4716,7 +4728,7 @@ async function loadytClipper() {
         if (!isDynamicCrop) {
           renderStaticCropOverlay(crop);
         } else {
-          updateDynamicCropOverlays(cropMap, video.currentTime, isDynamicCrop);
+          updateDynamicCropOverlays(cropMap, video.getCurrentTime(), isDynamicCrop);
         }
 
         const enableZoomPan = markerPair.enableZoomPan;
@@ -4971,7 +4983,7 @@ async function loadytClipper() {
       function chartTimeAnnotationDragHandler(e) {
         const time = timeRounder(chart.scales['x-axis-1'].getValueForPixel(e.offsetX));
         chart.config.options.annotation.annotations[0].value = time;
-        if (Math.abs(video.currentTime - time) >= 0.01) {
+        if (Math.abs(video.getCurrentTime() - time) >= 0.01) {
           seekToSafe(video, time);
         }
         if (!e.ctrlKey && !e.altKey && e.shiftKey) {
@@ -5090,8 +5102,8 @@ async function loadytClipper() {
   let prevChartTime: number;
   function updateChartTimeAnnotation() {
     if (isCurrentChartVisible) {
-      if (prevChartTime !== video.currentTime) {
-        const time = video.currentTime;
+      if (prevChartTime !== video.getCurrentTime()) {
+        const time = video.getCurrentTime();
         prevChartTime = time;
         const chart = currentChartInput.chart;
         chart.config.options.annotation.annotations[0].value = clampNumber(
@@ -5127,7 +5139,7 @@ async function loadytClipper() {
     const chart = cropChartInput.chart;
     if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen && chart) {
       const chartData = chart?.data.datasets[0].data as CropPoint[];
-      const time = video.currentTime;
+      const time = video.getCurrentTime();
       const isDynamicCrop = !isStaticCrop(chartData);
       const isCropChartVisible =
         currentChartInput && currentChartInput.type == 'crop' && isCurrentChartVisible;
@@ -5158,7 +5170,7 @@ async function loadytClipper() {
     const cropChart = cropChartInput.chart;
     if (cropChart) {
       const chartData = cropChart.data.datasets[0].data as CropPoint[];
-      const time = video.currentTime;
+      const time = video.getCurrentTime();
       const searchCropPoint = { x: time, y: 0, crop: '' };
       let [istart, iend] = currentCropChartSection;
       let [start, end] = bsearch(chartData, searchCropPoint, sortX);
@@ -5267,7 +5279,7 @@ async function loadytClipper() {
         const sectStart = chartData[start].x;
         const sectEnd = chartData[end].x;
         const isTimeBetweenCropChartSection =
-          sectStart <= video.currentTime && video.currentTime <= sectEnd;
+          sectStart <= video.getCurrentTime() && video.getCurrentTime() <= sectEnd;
 
         if (!isTimeBetweenCropChartSection) {
           seekToSafe(video, sectStart);

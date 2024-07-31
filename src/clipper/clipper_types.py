@@ -53,3 +53,4 @@ class KnownPlatform(enum.Enum):
     naver_now_watch = "naver_now_watch"
     naver_tv = "naver_tv"
     weverse = "weverse"
+    afreecatv = "afreecatv"
