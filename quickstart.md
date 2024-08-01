@@ -1,7 +1,7 @@
 # yt_clipper Quick Start
 ## Video Quick Start
 
-For a video quickstart check out this gfy: <https://gfycat.com/meekweightyarmyant>
+For a video quickstart check out this video: <https://imgur.com/a/gQ4KItt>
 
 ## Quick Start Guide
 
