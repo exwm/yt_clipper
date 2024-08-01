@@ -1,6 +1,6 @@
 # yt_clipper
 
-yt_clipper is a relatively simple way to clip videos from popular platforms (for now YouTube and vlive).
+yt_clipper is a relatively simple way to clip videos from popular platforms (for now YouTube, WeVerse, Naver TV, and AfreecaTV).
 It provides a graphical UI for video editing that creates instructions in `json` format for clipping the video.
 These instruction files are small and in plain text so they can be easily read, modified, and shared with others.
 The `clipper script` component provides a way to process these instructions and generate the clips you want.
@@ -54,6 +54,21 @@ The contents of the quickstart guide are included here for convenience:
   - FireFox audio slowdown stutters and in mainline FireFox has a min speed of 0.5.
 - Other browsers may or may not work as intended.
 
+# Video Platform Support
+
+YouTube is the primary video platform supported by yt_clipper. Other supported platforms are listed below.
+
+1. YouTube
+2. Weverse (at least Weverse Lives)
+3. Naver TV
+4. AfreecaTV (at least VODs)
+
+## AfreecaTV Support Notes
+
+* AfreecaTV clips use the hls (http live streaming) protocol which is not as reliable as other protocols.
+* Short AfreecaTV clips (about 1 second or shorter) may produce empty video files when.
+* AfreecaTV VODs come in multiple video file parts and clips that span multiple parts are not currently supported.
+
 # Related Scripts
 
 - Check out the companion script with tools for making some tasks on `gfycat.com` easier (e.g., quickly tagging multiple gfys, copying gfy links in various formats) at <https://openuserjs.org/scripts/elwm/gfy-tools>.
@@ -65,6 +80,8 @@ The contents of the quickstart guide are included here for convenience:
 - [Quick Start Guide](#quick-start-guide)
 - [Notices](#notices)
 - [Browser Support](#browser-support)
+- [Video Platform Support](#video-platform-support)
+  - [AfreecaTV Support Notes](#afreecatv-support-notes)
 - [Related Scripts](#related-scripts)
 - [Table of Contents](#table-of-contents)
 - [Terminology and Installation](#terminology-and-installation)
