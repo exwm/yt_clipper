@@ -11,7 +11,7 @@
 #end-marker-numberings {
   font-size: 6.5pt;
   width: 100%;
-  height: 300%;
+  height: 100%;
   top: 2px;
   position: absolute;
   z-index: 99;
@@ -19,6 +19,11 @@
   stroke: rgba(0, 0, 0, 0.25);
   stroke-width: 2px;
 }
+
+.slider {
+  padding-bottom: 15px !important;
+}
+
 
 #start-marker-numberings {
   top: -13px;
@@ -30,5 +35,4 @@
 
 .pzp-pc__bottom-buttons {
   top: 8px;
-  z-index: 100;
 }

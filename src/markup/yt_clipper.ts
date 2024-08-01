@@ -842,8 +842,6 @@ async function loadytClipper() {
           <rect id="selected-start-marker-overlay"  class="selected-marker-overlay" width="1px" height="8px" y="3.5px" shape-rendering="crispEdges"></rect>
           <rect id="selected-end-marker-overlay"  class="selected-marker-overlay" width="1px" height="8px" y="3.5px" shape-rendering="crispEdges"></rect>
         </svg>
-        <svg id="start-marker-numberings"></svg>
-        <svg id="end-marker-numberings"></svg>
       `;
 
     markersSvg = markersDiv.children[0] as SVGSVGElement;
@@ -859,8 +857,8 @@ async function loadytClipper() {
     endMarkerNumberings = markerNumberingsDiv.children[1] as SVGSVGElement;
 
     if ([VideoPlatforms.weverse, VideoPlatforms.naver_tv].includes(platform)) {
-      hooks.markersDiv.prepend(markersDiv);
       hooks.markerNumberingsDiv.prepend(markerNumberingsDiv);
+      hooks.markersDiv.prepend(markersDiv);
     } else {
       hooks.markersDiv.appendChild(markersDiv);
       hooks.markerNumberingsDiv.appendChild(markerNumberingsDiv);
