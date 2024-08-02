@@ -12,7 +12,7 @@ on:
 # Can work around to some degree using set-env
 env:
   NAME: yt_clipper
-  VERSION: '5.20.0'
+  VERSION: '5.21.0'
 
 jobs:
   build:
