@@ -438,10 +438,15 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
             transformPath = f"{safeShakyPath}/{markerPairIndex+1}.trf"
 
         shakyClipPath = f'{shakyPath}/{mp["fileNameStem"]}-shaky.{mp["fileNameSuffix"]}'
+
+        videoStabilizationLowContrastGammaCorrection = 0.6
+
         video_filter += "[shaky];[shaky]"
         vidstabdetectFilter = (
             video_filter
+            + f"lutyuv=y=gammaval({videoStabilizationLowContrastGammaCorrection}),"
             + f"""vidstabdetect=result='{transformPath}':shakiness={vidstab["shakiness"]}"""
+            + f",lutyuv=y=gammaval(1/{videoStabilizationLowContrastGammaCorrection})"
         )
 
         if mps["videoStabilizationMaxAngle"] < 0:
@@ -453,6 +458,7 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
 
         vidstabtransformFilter = (
             video_filter
+            + f"lutyuv=y=gammaval({videoStabilizationLowContrastGammaCorrection}),"
             + f"""vidstabtransform=input='{transformPath}':smoothing={vidstab["smoothing"]}"""
             + f""":maxangle={mps["videoStabilizationMaxAngle"]}"""
             + f""":maxshift={mps["videoStabilizationMaxShift"]}"""
@@ -460,6 +466,8 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
 
         if mps["videoStabilizationDynamicZoom"]:
             vidstabtransformFilter += f':optzoom=2:zoomspeed={vidstab["zoomspeed"]}'
+
+        vidstabtransformFilter += f",lutyuv=y=gammaval(1/{videoStabilizationLowContrastGammaCorrection})"
 
         if "minterpMode" in mps and mps["minterpMode"] != "None":
             vidstabtransformFilter += getMinterpFilter(mp, mps)
