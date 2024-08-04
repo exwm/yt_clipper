@@ -251,6 +251,7 @@ def getMoreVideoInfo(cs: ClipperState, videoInfo: Dict, audioInfo: Dict) -> None
     # TODO: merge properties fetched from ffprobe and ytdl into common namespace
     # TODO: improve compatibility between inputVideo mode and default stream mode
     if settings["inputVideo"]:
+        settings["videoType"] = "local_video"
         probedSettings = ffprobeVideoProperties(cs, settings["inputVideo"])
     else:
         probedSettings = ffprobeVideoProperties(cs, settings["videoDownloadURL"])
