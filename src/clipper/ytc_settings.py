@@ -138,20 +138,24 @@ def getInputVideo(cs: ClipperState) -> None:
 def getVideoInfo(cs: ClipperState) -> None:
     settings = cs.settings
 
-    UNSUPPORTED_STREAMING_PROTOCOLS = ["m3u8", "m3u8_native"]
+    UNSUPPORTED_VIDEO_STREAMING_PROTOCOLS = ["m3u8", "m3u8_native"]
+
+    if not settings["enableVideoStreamingProtocolHLS"] and settings["platform"] != KnownPlatform.afreecatv.name:
+        logger.notice("HLS streaming protocol (m3u8) is disabled.")
+        disableVideoStreamingProtocols(settings, UNSUPPORTED_VIDEO_STREAMING_PROTOCOLS)
 
     videoInfo, audioInfo = _getVideoInfo(cs)
 
     if (
         not settings["downloadVideo"]
         and "protocol" in videoInfo
-        and videoInfo["protocol"] in UNSUPPORTED_STREAMING_PROTOCOLS
+        and videoInfo["protocol"] in UNSUPPORTED_VIDEO_STREAMING_PROTOCOLS
         and settings["platform"] != KnownPlatform.afreecatv.name
     ):
         logger.warning(
             f'In streaming mode, got video with unsupported streaming protocol {videoInfo["protocol"]}.'
         )
-        logger.warning(f"Unsupported streaming protocols: {UNSUPPORTED_STREAMING_PROTOCOLS}")
+        logger.warning(f"Unsupported streaming protocols: {UNSUPPORTED_VIDEO_STREAMING_PROTOCOLS}")
         logger.warning(
             f"m3u8 and m3u8_native streaming protocols may require downloading the entire video before trimming and may occasionally fail anyways"
         )
@@ -163,7 +167,7 @@ def getVideoInfo(cs: ClipperState) -> None:
         response = input(r"Disable potentially unsupported protocols? (y/n): ")
         if response in {"yes", "y"}:
             logger.info(f"Retrying with potentially unsupported protocols disabled.")
-            disableYdlProtocols(settings, UNSUPPORTED_STREAMING_PROTOCOLS)
+            disableVideoStreamingProtocols(settings, UNSUPPORTED_VIDEO_STREAMING_PROTOCOLS)
             videoInfo, audioInfo = _getVideoInfo(cs)
         else:
             logger.warning(
@@ -179,7 +183,7 @@ def getVideoInfo(cs: ClipperState) -> None:
     getMoreVideoInfo(cs, videoInfo, audioInfo)
 
 
-def disableYdlProtocols(settings: Settings, protocols: List[str]):
+def disableVideoStreamingProtocols(settings: Settings, protocols: List[str]):
     disableClause = "".join(f"[protocol!={protocol}]" for protocol in protocols)
     settings["format"] = f'({settings["format"]}){disableClause}'
 

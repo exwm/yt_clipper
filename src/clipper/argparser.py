@@ -4,17 +4,18 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from clipper.clipper_types import DictStrAny
+from clipper.clipper_types import ClipperPaths, DictStrAny
+from clipper.ffmpeg_version import getFfmpegVersion
 from clipper.version import __version__
 from clipper.ytdl_importer import SUPPORTED_YOUTUBE_DL_ALTERNATIVES
 
 
-def getArgParser() -> argparse.ArgumentParser:
+def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Generate clips from input video.",
         formatter_class=ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("-v", "--version", action="version", version=getVersionString())
+    parser.add_argument("-v", "--version", action="version", version=getVersionString(clipper_paths.ffmpegPath))
     parser.add_argument(
         "--markers-json",
         "-j",
@@ -608,6 +609,15 @@ def getArgParser() -> argparse.ArgumentParser:
         action="store_true",
         help="Regenerate and overwrite existing clips.",
     )
+
+    parser.add_argument(
+        "--enable-video-streaming-protocol-hls",
+        "-evsp-hls",
+        dest="enableVideoStreamingProtocolHLS",
+        action="store_true",
+        help="Enable use of the HLS (HTTP live streaming) video streaming protocol. Typically this involves the use of a m3u8 manifest file with a list of video segments. HLS is a relatively unreliable protocol and support for it in ffmpeg is not robust, often leading to errors during clip generation. Thus, HLS is disabled by default. However, some platforms only offer HLS (e.g. AfreecaTV for which HLS is allowed by default) and in other cases HLS may be the highest quality video stream. If HLS is required, consider downloading the video first either automatically with --download-video or the yt_clipper_auto_download helper script or manually and then specifying the video with --input-video or the yt_clipper_auto_input_video helper script.",
+    )
+
     parser.add_argument(
         "--ytdl-username",
         "-yu",
@@ -634,8 +644,8 @@ def getArgParser() -> argparse.ArgumentParser:
     return parser
 
 
-def getArgs() -> Tuple[Dict[str, Any], List[str], List[str], List[str]]:
-    parser = getArgParser()
+def getArgs(clipper_paths: ClipperPaths) -> Tuple[Dict[str, Any], List[str], List[str], List[str]]:
+    parser = getArgParser(clipper_paths)
 
     argFiles: List[str] = parser.parse_known_args()[0].argFiles
 
@@ -664,8 +674,8 @@ def getArgs() -> Tuple[Dict[str, Any], List[str], List[str], List[str]]:
     return args, unknown, defaultArgs, argFiles
 
 
-def getVersionString() -> str:
-    return f"""%(prog)s v{__version__}, youtube_dl {getYoutubeDLAlternativeVersion("youtube_dl")}, yt_dlp {getYoutubeDLAlternativeVersion("yt_dlp")}"""
+def getVersionString(ffmpeg_path: str) -> str:
+    return f"""%(prog)s v{__version__}, youtube_dl {getYoutubeDLAlternativeVersion("youtube_dl")}, yt_dlp {getYoutubeDLAlternativeVersion("yt_dlp")}, ffmpeg: {getFfmpegVersion(ffmpeg_path)}"""
 
 
 class ArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
