@@ -16,6 +16,7 @@ from clipper import (
     ytdl_importer,
 )
 from clipper.clipper_types import ClipperState
+from clipper.ffmpeg_version import getFfmpegVersion
 from clipper.version import __version__
 from clipper.ytc_logger import logger
 
@@ -24,13 +25,14 @@ UNKNOWN_PROPERTY = "unknown"
 
 def main() -> None:
     cs = clipper_types.ClipperState()
+    setupDepPaths(cs)
 
-    args, unknown, defArgs, argFiles = argparser.getArgs()
+    args, unknown, defArgs, argFiles = argparser.getArgs(cs.clipper_paths)
 
     cs.settings.update({"color_space": None, **args})
     ytc_settings.loadSettings(cs.settings)
 
-    setupPaths(cs)
+    setupOutputPaths(cs)
 
     ytc_logger.setUpLogger(cs)
 
@@ -41,6 +43,7 @@ def main() -> None:
     logger.report(
         f"{youtube_dl_alternative} version: {ytdl_importer.youtube_dl.version.__version__}"
     )
+    logger.report(f"{getFfmpegVersion(cs.clipper_paths.ffmpegPath)}")
     logger.info("-" * 80)
 
     if defArgs:
@@ -74,13 +77,8 @@ def main() -> None:
         util.notifyOnComplete(cs.settings["titleSuffix"])
 
 
-def setupPaths(cs: ClipperState) -> None:
-    settings = cs.settings
+def setupDepPaths(cs: ClipperState) -> None:
     cp = cs.clipper_paths
-
-    cp.clipsPath += f'/{settings["titleSuffix"]}'
-    os.makedirs(f"{cp.clipsPath}/temp", exist_ok=True)
-    settings["downloadVideoPath"] = f'{cp.clipsPath}/{settings["downloadVideoNameStem"]}'
 
     if getattr(sys, "frozen", False):
         cp.ffmpegPath = "./bin/ffmpeg"
@@ -94,6 +92,15 @@ def setupPaths(cs: ClipperState) -> None:
             certifi_cacert_path = certifi.where()
             os.environ["SSL_CERT_FILE"] = certifi_cacert_path
             os.environ["REQUESTS_CA_BUNDLE"] = certifi_cacert_path
+
+
+def setupOutputPaths(cs: ClipperState) -> None:
+    settings = cs.settings
+    cp = cs.clipper_paths
+    cp.clipsPath += f'/{settings["titleSuffix"]}'
+
+    os.makedirs(f"{cp.clipsPath}/temp", exist_ok=True)
+    settings["downloadVideoPath"] = f'{cp.clipsPath}/{settings["downloadVideoNameStem"]}'
 
 
 def enableMinterpEnhancements(cm: ClipperState) -> None:

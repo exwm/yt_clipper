@@ -1,0 +1,80 @@
+{
+  "platform": "youtube",
+  "videoID": "nlpSopy0d-U",
+  "videoTitle": "Popeye the Sailor: Popeye for President (1956) - Jack Mercer, Mae Questel, Jackson Beck",
+  "videoUrl": "https://www.youtube.com/watch",
+  "newMarkerSpeed": 1,
+  "newMarkerCrop": "0:0:iw:ih",
+  "videoTag": "[youtube@nlpSopy0d-U]",
+  "titleSuffix": "[youtube@nlpSopy0d-U]",
+  "isVerticalVideo": false,
+  "markerPairMergeList": "",
+  "cropResWidth": 1920,
+  "cropResHeight": 1440,
+  "cropRes": "1920x1440",
+  "version": "5.20.0",
+  "markerPairs": [
+    {
+      "number": 1,
+      "start": 75.199153,
+      "end": 76.960404,
+      "speed": 0.3,
+      "speedMap": [
+        {
+          "x": 75.199153,
+          "y": 0.3
+        },
+        {
+          "x": 75.49,
+          "y": 0.3
+        },
+        {
+          "x": 75.75,
+          "y": 1.1
+        },
+        {
+          "x": 76.34,
+          "y": 1.1
+        },
+        {
+          "x": 76.53,
+          "y": 0.3
+        },
+        {
+          "x": 76.76,
+          "y": 0.3
+        },
+        {
+          "x": 76.960404,
+          "y": 1
+        }
+      ],
+      "crop": "684:865:414:376",
+      "cropMap": [
+        {
+          "x": 75.199153,
+          "y": 0,
+          "crop": "684:865:414:376"
+        },
+        {
+          "x": 75.61,
+          "y": 0,
+          "crop": "640:134:414:376"
+        },
+        {
+          "x": 76.43,
+          "y": 0,
+          "crop": "705:435:414:376"
+        },
+        {
+          "x": 76.960404,
+          "y": 0,
+          "crop": "705:435:414:376"
+        }
+      ],
+      "enableZoomPan": false,
+      "cropRes": "1920x1440",
+      "overrides": {}
+    }
+  ]
+}
