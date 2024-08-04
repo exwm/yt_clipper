@@ -1,4 +1,4 @@
-current_version: "5.21.1"
+current_version: "5.21.2"
 base_branch: "master"
 strategy:
   name: "semver"
