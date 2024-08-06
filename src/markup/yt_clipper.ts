@@ -21,6 +21,7 @@
 // @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@0.7.0/dist/chartjs-plugin-datalabels.min.js
 // @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-style@latest/dist/chartjs-plugin-style.min.js
 // @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@0.5.7/chartjs-plugin-annotation.min.js
+// @require      https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js
 // @run-at       document-end
 // @match        http*://*.youtube.com/*
 // @match        http*://*.vlive.tv/video/*
@@ -36,9 +37,9 @@
 // BANNER GUARD
 
 const __version__ = '5.21.2';
-
 import { Chart, ChartConfiguration } from 'chart.js';
-import { safeHtml, stripIndent } from 'common-tags';
+import { safeSetInnerHtml } from './util/util';
+import { stripIndent } from 'common-tags';
 import { easeCubicInOut, easeSinInOut } from 'd3-ease';
 import { saveAs } from 'file-saver';
 import { readFileSync } from 'fs';
@@ -122,7 +123,10 @@ import {
   toHHMMSSTrimmed,
 } from './util/util';
 const ytClipperCSS = readFileSync(__dirname + '/ui/css/yt-clipper.css', 'utf8');
-const shortcutsTable = readFileSync(__dirname + '/ui/shortcuts-table/shortcuts-table.html', 'utf8');
+const shortcutsTableHTML = readFileSync(
+  __dirname + '/ui/shortcuts-table/shortcuts-table.html',
+  'utf8'
+);
 const shortcutsTableStyle = readFileSync(
   __dirname + '/ui/shortcuts-table/shortcuts-table.css',
   'utf8'
@@ -617,7 +621,6 @@ async function loadytClipper() {
         initVideoInfo();
       });
     }
-
   }
 
   function updateSettingsEditorHook() {
@@ -836,23 +839,29 @@ async function loadytClipper() {
     };
     markersDiv = document.createElement('div');
     markersDiv.setAttribute('id', 'markers-div');
-    markersDiv.innerHTML = safeHtml`
+    safeSetInnerHtml(
+      markersDiv,
+      `
         <svg id="markers-svg"></svg>
         <svg id="selected-marker-pair-overlay" style="display:none">
           <rect id="selected-start-marker-overlay"  class="selected-marker-overlay" width="1px" height="8px" y="3.5px" shape-rendering="crispEdges"></rect>
           <rect id="selected-end-marker-overlay"  class="selected-marker-overlay" width="1px" height="8px" y="3.5px" shape-rendering="crispEdges"></rect>
         </svg>
-      `;
+      `
+    );
 
     markersSvg = markersDiv.children[0] as SVGSVGElement;
     selectedMarkerPairOverlay = markersDiv.children[1] as SVGSVGElement;
 
     markerNumberingsDiv = document.createElement('div');
     markerNumberingsDiv.setAttribute('id', 'marker-numberings-div');
-    markerNumberingsDiv.innerHTML = safeHtml`
+    safeSetInnerHtml(
+      markerNumberingsDiv,
+      `
         <svg id="start-marker-numberings"></svg>
         <svg id="end-marker-numberings"></svg>
-      `;
+      `
+    );
     startMarkerNumberings = markerNumberingsDiv.children[0] as SVGSVGElement;
     endMarkerNumberings = markerNumberingsDiv.children[1] as SVGSVGElement;
 
@@ -1240,7 +1249,9 @@ async function loadytClipper() {
     if (!gammaFilterDiv) {
       gammaFilterDiv = document.createElement('div');
       gammaFilterDiv.setAttribute('id', 'gamma-filter-div');
-      gammaFilterDiv.innerHTML = safeHtml`
+      safeSetInnerHtml(
+        gammaFilterDiv,
+        `
       <svg id="gamma-filter-svg" xmlns="http://www.w3.org/2000/svg" width="0" height="0">
         <defs>
           <filter id="gamma-filter">
@@ -1252,7 +1263,8 @@ async function loadytClipper() {
           </filter>
         </defs>
       </svg>
-      `;
+      `
+      );
       document.body.appendChild(gammaFilterDiv);
       gammaFilterSvg = gammaFilterDiv.firstElementChild as SVGSVGElement;
       gammaR = document.getElementById('gamma-r') as unknown as SVGFEFuncRElement;
@@ -1406,7 +1418,7 @@ async function loadytClipper() {
     keyCode: string
   ) {
     blockEvent(e);
-    let index = parseInt(targetEndMarker.getAttribute('idx')) - 1;
+    let index = parseInt(targetEndMarker.getAttribute('data-idx')) - 1;
     if (keyCode === 'ArrowLeft' && index > 0) {
       targetEndMarker = enableMarkerHotkeys.endMarker.previousElementSibling.previousElementSibling;
       targetEndMarker && toggleMarkerPairEditor(targetEndMarker);
@@ -1552,7 +1564,9 @@ async function loadytClipper() {
 
       const markersUploadDiv = document.createElement('div');
       markersUploadDiv.setAttribute('class', 'long-msg-div');
-      markersUploadDiv.innerHTML = safeHtml`
+      safeSetInnerHtml(
+        markersUploadDiv,
+        `
         <fieldset>
           <legend>Load markers data from an uploaded markers .json file.</legend>
           <input type="file" id="markers-json-input" />
@@ -1563,14 +1577,17 @@ async function loadytClipper() {
           <input type="file" id="markers-array-input" />
           <input type="button" id="upload-markers-array" value="Load" />
         </fieldset>
-      `;
+      `
+      );
 
       const restoreMarkersDataDiv = document.createElement('div');
       restoreMarkersDataDiv.setAttribute('class', 'long-msg-div');
 
       const markersDataFiles = getMarkersDataEntriesFromLocalStorage();
 
-      restoreMarkersDataDiv.innerHTML = safeHtml`
+      safeSetInnerHtml(
+        restoreMarkersDataDiv,
+        `
         <fieldset>
           <legend>Restore auto-saved markers data from browser local storage.</legend>
           <input type="button" id="restore-markers-data" value="Restore" />
@@ -1582,16 +1599,20 @@ async function loadytClipper() {
           </legend>
           <input type="button" id="download-markers-data" value="Download" />
         </fieldset>
-      `;
+      `
+      );
 
       const clearMarkersDataDiv = document.createElement('div');
       clearMarkersDataDiv.setAttribute('class', 'long-msg-div');
-      clearMarkersDataDiv.innerHTML = safeHtml`
+      safeSetInnerHtml(
+        clearMarkersDataDiv,
+        `
         <fieldset>
           <legend>Clear all markers data files from browser local storage.</legend>
           <input type="button" id="clear-markers-data" value="Clear" style="color:red" />
         </fieldset>
-      `;
+      `
+      );
 
       markersDataCommandsDiv.appendChild(markersUploadDiv);
       markersDataCommandsDiv.appendChild(restoreMarkersDataDiv);
@@ -1759,7 +1780,7 @@ async function loadytClipper() {
     setAttributes(marker, marker_attrs);
     marker.setAttribute('x', `${progressPos}%`);
     const rectIdx = markerPairs.length + 1;
-    marker.setAttribute('idx', rectIdx.toString());
+    marker.setAttribute('data-idx', rectIdx.toString());
 
     if (start === true) {
       marker.classList.add('start-marker');
@@ -1874,21 +1895,28 @@ async function loadytClipper() {
     endProgressPos: number,
     endMarker: SVGRectElement
   ) {
-    const startNumbering = htmlToSVGElement(`\
-        <text class="markerNumbering startMarkerNumbering" idx="${idx}"\
-        x="${startProgressPos}%" y="11.5px"
-        text-anchor="middle">\
+    let startNumbering = htmlToSVGElement(`\
+        <svg>\
+        <text class="markerNumbering startMarkerNumbering" data-idx="${idx}"\
+          x="${startProgressPos}%" y="11.5px"
+          text-anchor="middle"
+        >\
         ${idx}\
         </text>\
+        </svg>\
         `);
-    const endNumbering = htmlToSVGElement(`\
-        <text class="markerNumbering endMarkerNumbering" idx="${idx}"\
+    startNumbering = startNumbering.children[0];
+    let endNumbering = htmlToSVGElement(`\
+        <svg>\
+        <text class="markerNumbering endMarkerNumbering" data-idx="${idx}"\
           x="${endProgressPos}%" y="11.5px"
           text-anchor="middle"
         >\
         ${idx}\
         </text>\
+        </svg>\
         `);
+    endNumbering = endNumbering.children[0];
 
     const startNumberingText = startMarkerNumberings.appendChild(startNumbering) as SVGTextElement;
     const endNumberingText = endMarkerNumberings.appendChild(endNumbering) as SVGTextElement;
@@ -2026,7 +2054,9 @@ async function loadytClipper() {
     const markerPairMergelistDurations = getMarkerPairMergeListDurations();
     const globalEncodeSettingsEditorDisplay = isExtraSettingsEditorEnabled ? 'block' : 'none';
     globalSettingsEditorDiv.setAttribute('id', 'settings-editor-div');
-    globalSettingsEditorDiv.innerHTML = safeHtml`
+    safeSetInnerHtml(
+      globalSettingsEditorDiv,
+      `
     <fieldset id="new-marker-defaults-inputs"
       class="settings-editor-panel global-settings-editor global-settings-editor-highlighted-div">
       <legend class="global-settings-editor-highlighted-label">New Marker Settings</legend>
@@ -2120,7 +2150,7 @@ async function loadytClipper() {
         <span>Target Bitrate (kb/s)</span>
         <input id="target-max-bitrate-input" type="number" min="0" max="1e5"step="100" value="${
           settings.targetMaxBitrate != null ? settings.targetMaxBitrate : ''
-        }" placeholder="Auto" "style="min-width:4em"></input>
+        }" placeholder="Auto" style="min-width:4em"></input>
       </div>
       <div class="settings-editor-input-div" title="${Tooltips.twoPassTooltip}">
         <span>Two-Pass</span>
@@ -2216,7 +2246,8 @@ async function loadytClipper() {
         </div>
       </div>
     </fieldset>
-    `;
+    `
+    );
 
     injectYtcWidget(globalSettingsEditorDiv);
 
@@ -2322,7 +2353,7 @@ async function loadytClipper() {
     const targetStartMarker = targetEndMarker.previousSibling as SVGRectElement;
     const targetMarker = numberingType === 'start' ? targetStartMarker : targetEndMarker;
 
-    const markerPairIndex = parseInt(numbering.getAttribute('idx')) - 1;
+    const markerPairIndex = parseInt(numbering.getAttribute('data-idx')) - 1;
     const markerPair = markerPairs[markerPairIndex];
     const markerTime = numberingType === 'start' ? markerPair.start : markerPair.end;
 
@@ -2428,7 +2459,7 @@ async function loadytClipper() {
 
   function toggleOnMarkerPairEditor(targetMarker: SVGRectElement) {
     prevSelectedEndMarker = targetMarker;
-    const selectedMarkerPairIndex = parseInt(prevSelectedEndMarker.getAttribute('idx')) - 1;
+    const selectedMarkerPairIndex = parseInt(prevSelectedEndMarker.getAttribute('data-idx')) - 1;
     if (selectedMarkerPairIndex !== prevSelectedMarkerPairIndex) {
       setCurrentCropPoint(null, 0);
     }
@@ -2502,7 +2533,7 @@ async function loadytClipper() {
   let cropAspectRatioSpan: HTMLSpanElement;
   let markerPairNumberInput: HTMLInputElement;
   function createMarkerPairEditor(targetMarker: SVGRectElement) {
-    const markerPairIndex = parseInt(targetMarker.getAttribute('idx'), 10) - 1;
+    const markerPairIndex = parseInt(targetMarker.getAttribute('data-idx'), 10) - 1;
     const markerPair = markerPairs[markerPairIndex];
     const startTime = toHHMMSSTrimmed(markerPair.start);
     const endTime = toHHMMSSTrimmed(markerPair.end);
@@ -2531,7 +2562,9 @@ async function loadytClipper() {
     createCropOverlay(crop);
 
     settingsEditorDiv.setAttribute('id', 'settings-editor-div');
-    settingsEditorDiv.innerHTML = safeHtml`
+    safeSetInnerHtml(
+      settingsEditorDiv,
+      `
       <fieldset class="settings-editor-panel marker-pair-settings-editor-highlighted-div">
         <legend class="marker-pair-settings-editor-highlighted-label">Marker Pair
           <input id="marker-pair-number-input"
@@ -2600,13 +2633,13 @@ async function loadytClipper() {
             overrides.crf != null ? overrides.crf : ''
           }" placeholder="${
             settings.crf != null ? settings.crf : 'Auto'
-          }" "style="min-width:4em"></input>
+          }" style="min-width:4em"></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.targetBitrateTooltip}">
           <span>Bitrate (kb/s)</span>
           <input id="target-max-bitrate-input" type="number" min="0" max="10e5" step="100" value="${
             overrides.targetMaxBitrate != null ? overrides.targetMaxBitrate : ''
-          }" placeholder="${settings.targetMaxBitrate || 'Auto'}" "style="min-width:4em"></input>
+          }" placeholder="${settings.targetMaxBitrate || 'Auto'}" style="min-width:4em"></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.twoPassTooltip}">
           <span>Two-Pass</span>
@@ -2730,7 +2763,8 @@ async function loadytClipper() {
             </select>
         </div>
       </fieldset>
-      `;
+      `
+    );
 
     injectYtcWidget(settingsEditorDiv);
 
@@ -2887,7 +2921,7 @@ async function loadytClipper() {
     adjustCharts = true
   ) {
     const type = marker.getAttribute('type') as 'start' | 'end';
-    const idx = parseInt(marker.getAttribute('idx')) - 1;
+    const idx = parseInt(marker.getAttribute('data-idx')) - 1;
     const markerPair = markerPairs[idx];
 
     const toTime = newTime != null ? newTime : video.getCurrentTime();
@@ -2986,8 +3020,10 @@ async function loadytClipper() {
   }
 
   function renderMarkerPair(markerPair, markerPairIndex) {
-    const startMarker = markersSvg.querySelector(`.start-marker[idx="${markerPairIndex + 1}"]`);
-    const endMarker = markersSvg.querySelector(`.end-marker[idx="${markerPairIndex + 1}"]`);
+    const startMarker = markersSvg.querySelector(
+      `.start-marker[data-idx="${markerPairIndex + 1}"]`
+    );
+    const endMarker = markersSvg.querySelector(`.end-marker[data-idx="${markerPairIndex + 1}"]`);
     const startMarkerNumbering = startMarkerNumberings.children[markerPairIndex];
     const endMarkerNumbering = endMarkerNumberings.children[markerPairIndex];
     const startProgressPos = (markerPair.start / getVideoDuration(platform, video)) * 100;
@@ -3498,7 +3534,7 @@ async function loadytClipper() {
       injectCSS(shortcutsTableStyle, 'shortcutsTableStyle');
       shortcutsTableContainer = document.createElement('div');
       shortcutsTableContainer.setAttribute('id', 'shortcutsTableContainer');
-      shortcutsTableContainer.innerHTML = safeHtml(shortcutsTable);
+      safeSetInnerHtml(shortcutsTableContainer, shortcutsTableHTML);
       hooks.shortcutsTable.insertAdjacentElement('beforebegin', shortcutsTableContainer);
     } else if (shortcutsTableContainer.style.display !== 'none') {
       shortcutsTableContainer.style.display = 'none';
@@ -3574,7 +3610,7 @@ async function loadytClipper() {
   const frameCaptureViewerBodyHTML = `\
         <div id="frames-div"><strong></strong></div>
         `;
-  let frameCaptureViewer: Window;
+  let frameCaptureViewerWindow: Window;
   let frameCaptureViewerDoc: Document;
   async function captureFrame() {
     const currentTime = video.getCurrentTime();
@@ -3597,7 +3633,7 @@ async function loadytClipper() {
       const cropMultipleX = video.videoWidth / settings.cropResWidth;
       const cropMultipleY = video.videoHeight / settings.cropResHeight;
       if (!wasGlobalSettingsEditorOpen) {
-        const idx = parseInt(prevSelectedEndMarker.getAttribute('idx'), 10) - 1;
+        const idx = parseInt(prevSelectedEndMarker.getAttribute('data-idx'), 10) - 1;
         const markerPair = markerPairs[idx];
         resString = multiplyCropString(cropMultipleX, cropMultipleY, markerPair.crop);
       } else {
@@ -3620,24 +3656,15 @@ async function loadytClipper() {
       canvas.height = video.videoHeight;
       context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
     }
-    if (!frameCaptureViewer || !frameCaptureViewerDoc || frameCaptureViewer.closed) {
-      frameCaptureViewer = window.open(
+    if (!frameCaptureViewerWindow || !frameCaptureViewerDoc || frameCaptureViewerWindow.closed) {
+      frameCaptureViewerWindow = window.open(
         '',
         'window',
         `height=${window.innerHeight}, width=${window.innerWidth}`
       );
-      frameCaptureViewer.downloadFrame = (btn: HTMLButtonElement) => {
-        const frameCanvas = btn.parentElement.querySelector('canvas');
-        frameCanvas.toBlob((blob) => saveAs(blob, frameCanvas.fileName));
-      };
-      frameCaptureViewer.deleteFrame = (btn: HTMLButtonElement) => {
-        const frameDiv = btn.parentElement;
-        frameDiv.setAttribute('class', 'frame-div flash-div');
-        setTimeout(() => deleteElement(frameDiv), 300);
-      };
-      frameCaptureViewerDoc = frameCaptureViewer.document;
-      frameCaptureViewerDoc.head.innerHTML = safeHtml(frameCaptureViewerHeadHTML);
-      frameCaptureViewerDoc.body.innerHTML = safeHtml(frameCaptureViewerBodyHTML);
+      frameCaptureViewerDoc = frameCaptureViewerWindow.document;
+      safeSetInnerHtml(frameCaptureViewerDoc.head, frameCaptureViewerHeadHTML, true);
+      safeSetInnerHtml(frameCaptureViewerDoc.body, frameCaptureViewerBodyHTML, true);
     }
     const frameDiv = document.createElement('div');
     frameDiv.setAttribute('class', 'frame-div');
@@ -3645,15 +3672,26 @@ async function loadytClipper() {
     const frameFileName = `${settings.titleSuffix}-${resString}-@${currentTime}s(${toHHMMSSTrimmed(
       currentTime
     ).replace(':', ';')})-f${frameCount.frameNumber}(${frameCount.totalFrames})`;
-    frameDiv.innerHTML = safeHtml`
+    safeSetInnerHtml(
+      frameDiv,
+      `
       <figcaption>Resolution: ${canvas.width}x${canvas.height} Name: ${frameFileName}</figcaption>
-      <button class="download" onclick="downloadFrame(this)">Download Frame</button>
-      <button class="delete" onclick="deleteFrame(this)">Delete Frame</button>
-      `;
-
+      <button class="download">Download Frame</button>
+      <button class="delete">Delete Frame</button>
+      `
+    );
     canvas.fileName = `${frameFileName}.png`;
-    const framesDiv = frameCaptureViewerDoc.getElementById('frames-div');
     frameDiv.appendChild(canvas);
+
+    frameDiv.getElementsByClassName('download')[0].onclick = () => {
+      canvas.toBlob((blob) => saveAs(blob, canvas.fileName));
+    };
+    frameDiv.getElementsByClassName('delete')[0].onclick = () => {
+      frameDiv.setAttribute('class', 'frame-div flash-div');
+      setTimeout(() => deleteElement(frameDiv), 300);
+    };
+
+    const framesDiv = frameCaptureViewerDoc.getElementById('frames-div');
     framesDiv.appendChild(frameDiv);
     flashMessage(`Captured frame: ${frameFileName}`, 'green');
   }
@@ -3687,7 +3725,7 @@ async function loadytClipper() {
       );
       return;
     }
-    if (!frameCaptureViewer || frameCaptureViewer.closed || !frameCaptureViewerDoc) {
+    if (!frameCaptureViewerWindow || frameCaptureViewerWindow.closed || !frameCaptureViewerDoc) {
       flashMessage('Frame capturer not open. Please capture a frame before zipping.', 'olive');
       return;
     }
@@ -3724,7 +3762,10 @@ async function loadytClipper() {
       progressDiv.setAttribute('class', 'msg-div flash-div');
       setTimeout(() => deleteElement(progressDiv), 2500);
     });
-    progressDiv.innerHTML = safeHtml`<span class="flash-msg" style="color:${color}"> ${tag} Zipping Progress: 0%</span>`;
+    safeSetInnerHtml(
+      progressDiv,
+      `<span class="flash-msg" style="color:${color}"> ${tag} Zipping Progress: 0%</span>`
+    );
     hooks.frameCapturerProgressBar.insertAdjacentElement('beforebegin', progressDiv);
     return progressDiv;
   }
@@ -3753,7 +3794,9 @@ async function loadytClipper() {
 
     cropDiv = document.createElement('div');
     cropDiv.setAttribute('id', 'crop-div');
-    cropDiv.innerHTML = safeHtml`
+    safeSetInnerHtml(
+      cropDiv,
+      `
         <svg id="crop-svg">
           <defs>
             <mask id="cropMask">
@@ -3801,7 +3844,8 @@ async function loadytClipper() {
             </g>
           </g>
         </svg>
-      `;
+      `
+    );
     resizeCropOverlay();
     hooks.cropOverlay.insertAdjacentElement('afterend', cropDiv);
     cropSvg = cropDiv.firstElementChild as SVGSVGElement;
@@ -4913,14 +4957,14 @@ async function loadytClipper() {
 
         initializeChartData(chartInput.chartSpec, chartInput.dataMapKey);
         chartInput.chartContainer = htmlToElement(
-          safeHtml`
+          `
             <div
               id="${chartInput.chartContainerId}"
               style="${chartInput.chartContainerStyle}"
             ></div>
           `
         ) as HTMLDivElement;
-        chartInput.chartContainer.innerHTML = safeHtml(chartInput.chartCanvasHTML);
+        safeSetInnerHtml(chartInput.chartContainer, chartInput.chartCanvasHTML);
         chartInput.chartContainerHook.insertAdjacentElement(
           chartInput.chartContainerHookPosition,
           chartInput.chartContainer
@@ -5441,18 +5485,18 @@ async function loadytClipper() {
     markersSvg.childNodes.forEach((markerRect, idx) => {
       // renumber markers by pair starting with index 1
       const newIdx = Math.floor((idx + 2) / 2);
-      markerRect.setAttribute('idx', newIdx);
+      markerRect.setAttribute('data-idx', newIdx);
     });
 
     startMarkerNumberings.childNodes.forEach((startNumbering, idx) => {
       const newIdx = idx + 1;
-      startNumbering.setAttribute('idx', newIdx);
+      startNumbering.setAttribute('data-idx', newIdx);
       startNumbering.textContent = newIdx.toString();
     });
 
     endMarkerNumberings.childNodes.forEach((endNumbering, idx) => {
       const newIdx = idx + 1;
-      endNumbering.setAttribute('idx', newIdx);
+      endNumbering.setAttribute('data-idx', newIdx);
       endNumbering.textContent = newIdx.toString();
     });
   }
