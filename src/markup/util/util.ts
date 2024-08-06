@@ -1,6 +1,28 @@
-import { safeHtml } from 'common-tags';
+import DOMPurify from 'dompurify';
 import { SpeedPoint } from '../@types/yt_clipper';
 import { VideoPlatforms } from '../platforms/platforms';
+
+export function sanitizeHtml(html: string, forceBody: boolean = false): string | TrustedHTML {
+  const trustedHtml = DOMPurify.sanitize(html, {
+    USE_PROFILES: { html: true, svg: true },
+    RETURN_TRUSTED_TYPE: Boolean(window.TrustedHTML),
+    FORCE_BODY: forceBody
+  });
+
+  if (DOMPurify.removed.length > 0) {
+    console.warn('Sanitized html. removed elements = ', DOMPurify.removed);
+  }
+
+  if (window.TrustedHTML) {
+    return trustedHtml;
+  } else {
+    return trustedHtml.toString();
+  }
+}
+
+export function safeSetInnerHtml(e: HTMLOrSVGElement, html: string, forceBody: boolean = false) {
+  e.innerHTML = sanitizeHtml(html, forceBody);
+}
 
 let flashMessageHook: HTMLElement;
 export function setFlashMessageHook(hook: HTMLElement) {
@@ -9,7 +31,7 @@ export function setFlashMessageHook(hook: HTMLElement) {
 export function flashMessage(msg: string, color: string, lifetime = 3000) {
   const flashDiv = document.createElement('div');
   flashDiv.setAttribute('class', 'msg-div flash-div');
-  flashDiv.innerHTML = safeHtml`<span class="flash-msg" style="color:${color}">${msg}</span>`;
+  safeSetInnerHtml(flashDiv, `<span class="flash-msg" style="color:${color}">${msg}</span>`);
   flashMessageHook.insertAdjacentElement('beforebegin', flashDiv);
   setTimeout(() => deleteElement(flashDiv), lifetime);
 }
@@ -35,21 +57,21 @@ export function sleep(ms: number) {
 export function injectCSS(css: string, id: string) {
   const style = document.createElement('style');
   style.setAttribute('id', id);
-  style.innerHTML = safeHtml(css);
+  safeSetInnerHtml(style, css);
   document.body.appendChild(style);
   return style;
 }
 export function htmlToElement(html: string) {
   const template = document.createElement('template');
   html = html.trim(); // Never return a text node of whitespace as the result
-  template.innerHTML = safeHtml(html);
+  safeSetInnerHtml(template, html);
   return template.content.firstChild;
 }
 
 export function htmlToSVGElement(html: string) {
   const template = document.createElementNS('http://www.w3.org/2000/svg', 'template');
   html = html.trim(); // Never return a text node of whitespace as the result
-  template.innerHTML = safeHtml(html);
+  safeSetInnerHtml(template, html);
   return template.firstElementChild;
 }
 

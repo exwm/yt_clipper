@@ -19,7 +19,7 @@
     "newLine": "LF"
   },
   "include": [
-    "src/**/*"
+    "src/**/*",
   ],
   "exclude": [
     "node_modules",
