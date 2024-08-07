@@ -8,16 +8,16 @@ from clipper.clipper_types import ClipperState
 
 
 class YTCLogger(verboselogs.VerboseLogger):
-    def important(self, msg, *args, **kwargs) -> None:
+    def important(self, msg: str, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
         self.log(29, msg, *args, **kwargs)
 
-    def notice(self, msg, *args, **kwargs) -> None:
+    def notice(self, msg: str, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
         self.log(32, msg, *args, **kwargs)
 
-    def header(self, msg, *args, **kwargs) -> None:
+    def header(self, msg: str, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
         self.log(33, msg, *args, **kwargs)
 
-    def report(self, msg, *args, **kwargs) -> None:
+    def report(self, msg: str, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
         self.log(34, msg, *args, **kwargs)
 
 

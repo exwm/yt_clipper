@@ -1,3 +1,4 @@
+import contextlib
 import os
 import re
 import shlex
@@ -34,8 +35,10 @@ from clipper.util import escapeSingleQuotesFFmpeg, getTrimmedBase64Hash
 from clipper.ytc_logger import logger
 
 
-def getMarkerPairSettings(
-    cs: ClipperState, markerPairIndex: int, skip: bool = False
+def getMarkerPairSettings(  # noqa: PLR0912
+    cs: ClipperState,
+    markerPairIndex: int,
+    skip: bool = False,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     settings = cs.settings
     cp = cs.clipper_paths
@@ -55,7 +58,12 @@ def getMarkerPairSettings(
         mp["fileNameSuffix"] = "mp4" if mps["videoCodec"] == "h264" else "webm"
         mp["fileName"] = f'{mp["fileNameStem"]}.{mp["fileNameSuffix"]}'
         mp["filePath"] = f'{cp.clipsPath}/{mp["fileName"]}'
-        mp["exists"] = checkClipExists(mp["fileName"], mp["filePath"], mps["overwrite"], skip)
+        mp["exists"] = checkClipExists(
+            mp["fileName"],
+            mp["filePath"],
+            mps["overwrite"],
+            skip,
+        )
 
         if mp["exists"] and not mps["overwrite"]:
             return (mp, mps)
@@ -82,16 +90,25 @@ def getMarkerPairSettings(
                 mp["isVariableSpeed"] = True
                 break
     else:
-        mp["speedMap"] = [{"x": mp["start"], "y": mp["speed"]}, {"x": mp["end"], "y": mp["speed"]}]
+        mp["speedMap"] = [
+            {"x": mp["start"], "y": mp["speed"]},
+            {"x": mp["end"], "y": mp["speed"]},
+        ]
 
-    mp["speedFilter"], mp["outputDuration"], mp["outputDurations"] = getSpeedFilterAndDuration(
-        mp["speedMap"], mp, mps["r_frame_rate"]
+    mp["speedFilter"], mp["outputDuration"], mp["outputDurations"] = (
+        getSpeedFilterAndDuration(
+            mp["speedMap"],
+            mp,
+            mps["r_frame_rate"],
+        )
     )
 
     mp["averageSpeed"] = getAverageSpeed(mp["speedMap"], mps["r_frame_rate"])
 
     cropString, cropComponents = getAutoScaledCropComponents(
-        mp["crop"], settings, forceEvenDimensions=True
+        mp["crop"],
+        settings,
+        forceEvenDimensions=True,
     )
 
     mp["crop"] = cropString
@@ -118,18 +135,33 @@ def getMarkerPairSettings(
                 break
     else:
         mp["cropMap"] = [
-            {"x": mp["start"], "y": 0, "crop": cropString, "cropComponents": cropComponents},
-            {"x": mp["end"], "y": 0, "crop": cropString, "cropComponents": cropComponents},
+            {
+                "x": mp["start"],
+                "y": 0,
+                "crop": cropString,
+                "cropComponents": cropComponents,
+            },
+            {
+                "x": mp["end"],
+                "y": 0,
+                "crop": cropString,
+                "cropComponents": cropComponents,
+            },
         ]
 
     mp["maxSize"] = cropComponents["w"] * cropComponents["h"]
     if mp["isZoomPanCrop"]:
-        mp["cropFilter"], mp["maxSize"] = getZoomPanFilter(mp["cropMap"], mps["r_frame_rate"])
+        mp["cropFilter"], mp["maxSize"] = getZoomPanFilter(
+            mp["cropMap"],
+            mps["r_frame_rate"],
+        )
     elif mp["isPanningCrop"]:
         mp["cropFilter"] = getCropFilter(mp["crop"], mp["cropMap"], mps["r_frame_rate"])
     else:
         cc = cropComponents
-        mp["cropFilter"] = f"""crop='x={cc["x"]}:y={cc["y"]}:w={cc["w"]}:h={cc["h"]}:exact=1'"""
+        mp["cropFilter"] = (
+            f"""crop='x={cc["x"]}:y={cc["y"]}:w={cc["w"]}:h={cc["h"]}:exact=1'"""
+        )
 
     bitrateCropFactor = (mp["maxSize"]) / (settings["width"] * settings["height"])
 
@@ -149,45 +181,45 @@ def getMarkerPairSettings(
     bitrateFactor = bitrateCropFactor * bitrateSpeedFactor
 
     globalEncodeSettings = getDefaultEncodeSettings(mps["bit_rate"])
-    autoMarkerPairEncodeSettings = getDefaultEncodeSettings(mps["bit_rate"] * bitrateFactor)
+    autoMarkerPairEncodeSettings = getDefaultEncodeSettings(
+        mps["bit_rate"] * bitrateFactor,
+    )
     mps = {**globalEncodeSettings, **autoMarkerPairEncodeSettings, **mps}
     if "targetMaxBitrate" not in mps:
         mps["targetMaxBitrate"] = mps["autoTargetMaxBitrate"]
 
-    titlePrefixLogMsg = f'Title Prefix: {mps["titlePrefix"] if "titlePrefix" in mps else ""}'
+    titlePrefixLogMsg = f'Title Prefix: {mps.get("titlePrefix", "")}'
     logger.info("-" * 80)
     minterpFPSMsg = f'Target FPS: {mps["minterpFPS"]}, '
     logger.info(
-        (
-            f"Marker Pair {markerPairIndex + 1} Settings: {titlePrefixLogMsg}, "
-            + f'Video Codec: {mps["videoCodec"]}, CRF: {mps["crf"]} (0-63), Target Bitrate: {mps["targetMaxBitrate"]}, '
-            + f"Bitrate Crop Factor: {bitrateCropFactor}, Bitrate Speed Factor {bitrateSpeedFactor}, "
-            + f'Adjusted Target Max Bitrate: {mps["autoTargetMaxBitrate"]}kbps, '
-            + f'Two-pass Encoding Enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5), '
-            + f'Expand Color Range Enabled: {mps["expandColorRange"]}, '
-            + f'Audio Enabled: {mps["audio"]}, Denoise: {mps["denoise"]["desc"]}, '
-            + f'Marker Pair {markerPairIndex + 1} is of variable speed: {mp["isVariableSpeed"]}, '
-            + f'Speed Maps Enabled: {mps["enableSpeedMaps"]}, '
-            + f'Minterpolation Mode: {mps["minterpMode"]}, '
-            + minterpFPSMsg
-            + f'Special Looping: {mps["loop"]}, '
-            + (f'Fade Duration: {mps["fadeDuration"]}s, ' if mps["loop"] == "fade" else "")
-            + f'Final Output Duration: {mp["outputDuration"]}, '
-            + f'Video Stabilization: {mps["videoStabilization"]["desc"]}, '
-            + f"Video Stabilization Max Angle: "
-            + (
-                f'{mps["videoStabilizationMaxAngle"]} degrees, '
-                if mps["videoStabilizationMaxAngle"] >= 0
-                else "Unlimited, "
-            )
-            + f"Video Stabilization Max Shift: "
-            + (
-                f'{mps["videoStabilizationMaxShift"]} pixels, '
-                if mps["videoStabilizationMaxShift"] >= 0
-                else "Unlimited, "
-            )
-            + f'Video Stabilization Dynamic Zoom: {mps["videoStabilizationDynamicZoom"]}'
+        f"Marker Pair {markerPairIndex + 1} Settings: {titlePrefixLogMsg}, "
+        + f'Video Codec: {mps["videoCodec"]}, CRF: {mps["crf"]} (0-63), Target Bitrate: {mps["targetMaxBitrate"]}, '
+        + f"Bitrate Crop Factor: {bitrateCropFactor}, Bitrate Speed Factor {bitrateSpeedFactor}, "
+        + f'Adjusted Target Max Bitrate: {mps["autoTargetMaxBitrate"]}kbps, '
+        + f'Two-pass Encoding Enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5), '
+        + f'Expand Color Range Enabled: {mps["expandColorRange"]}, '
+        + f'Audio Enabled: {mps["audio"]}, Denoise: {mps["denoise"]["desc"]}, '
+        + f'Marker Pair {markerPairIndex + 1} is of variable speed: {mp["isVariableSpeed"]}, '
+        + f'Speed Maps Enabled: {mps["enableSpeedMaps"]}, '
+        + f'Minterpolation Mode: {mps["minterpMode"]}, '
+        + minterpFPSMsg
+        + f'Special Looping: {mps["loop"]}, '
+        + (f'Fade Duration: {mps["fadeDuration"]}s, ' if mps["loop"] == "fade" else "")
+        + f'Final Output Duration: {mp["outputDuration"]}, '
+        + f'Video Stabilization: {mps["videoStabilization"]["desc"]}, '
+        + f"Video Stabilization Max Angle: "
+        + (
+            f'{mps["videoStabilizationMaxAngle"]} degrees, '
+            if mps["videoStabilizationMaxAngle"] >= 0
+            else "Unlimited, "
         )
+        + f"Video Stabilization Max Shift: "
+        + (
+            f'{mps["videoStabilizationMaxShift"]} pixels, '
+            if mps["videoStabilizationMaxShift"] >= 0
+            else "Unlimited, "
+        )
+        + f'Video Stabilization Dynamic Zoom: {mps["videoStabilizationDynamicZoom"]}',
     )
     logger.info("-" * 80)
 
@@ -198,14 +230,14 @@ def findVideoPart(mp: DictStrAny, mps: DictStrAny) -> Optional[DictStrAny]:
     videoParts = []
     for videoPart in mps["videoParts"]:
         if mp["start"] >= videoPart["start"] and mp["end"] <= videoPart["end"]:
-            videoParts.append(videoPart)
+            videoParts.append(videoPart)  # noqa: PERF401
     if len(videoParts) == 1:
         return videoParts[0]
 
     return None
 
 
-def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]:
+def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]:  # noqa: PLR0912
     settings = cs.settings
     cp = cs.clipper_paths
 
@@ -221,7 +253,9 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
     if mp["isVariableSpeed"] or mps["loop"] != "none":
         mps["audio"] = False
 
-    inputFlags = r"-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+    inputFlags = (
+        r"-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+    )
     if mps["audio"]:
         aStart = mp["start"] + mps["audioDelay"]
         aEnd = mp["end"] + mps["audioDelay"]
@@ -245,7 +279,7 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
         else:
             mps["audio"] = False
             logger.warning(
-                "Audio disabled when previewing without an input video over non-dash protocol."
+                "Audio disabled when previewing without an input video over non-dash protocol.",
             )
         if mps["extraAudioFilters"]:
             audio_filter += f',{mps["extraAudioFilters"]}'
@@ -257,15 +291,14 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
         inputs += f' -ss {mp["start"]} -i "{mps["inputVideo"]}" '
     elif mps["videoType"] != "multi_video":
         inputs += f' -ss {mp["start"]} -i "{mps["videoDownloadURL"]}" '
+    elif "videoPart" in mp:
+        videoPart = mp["videoPart"]
+        inputs += f' -ss {mp["start"]} -i "{videoPart["url"]}" '
     else:
-        if "videoPart" in mp:
-            videoPart = mp["videoPart"]
-            inputs += f' -ss {mp["start"]} -i "{videoPart["url"]}" '
-        else:
-            logger.error(
-                f'Failed to generate: "{mp["fileName"]}". The marker pair defines a clip that spans multiple video parts which is not currently supported.'
-            )
-            return None
+        logger.error(
+            f'Failed to generate: "{mp["fileName"]}". The marker pair defines a clip that spans multiple video parts which is not currently supported.',
+        )
+        return None
 
     qmax: int = max(min(mps["crf"] + 13, 63), 34)
     qmin: int = min(mps["crf"], 15)
@@ -275,7 +308,7 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
         cbr = mps["targetSize"] / mp["outputDuration"]
         logger.important(
             f"Forcing constant bitrate of ~{round(cbr, 3)} MBps "
-            + f'({mps["targetSize"]} MB / ~{round(mp["outputDuration"],3)} s).'
+            + f'({mps["targetSize"]} MB / ~{round(mp["outputDuration"],3)} s).',
         )
 
     ffmpegCommand = getFfmpegCommand(audio_filter, cbr, cp, inputs, mp, mps, qmax, qmin)
@@ -329,7 +362,8 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
     # We consider videos with less than 47 fps (24*2 - 1) to be of low fps as
     # the lowest common video fps is ~24 fps and with frame doubling is ~48 fps.
     shouldDedupe = not mps["noDedupe"] and (
-        mps["dedupe"] or (mps["minterpFPS"] is not None and Fraction(mps["r_frame_rate"]) < 47)
+        mps["dedupe"]
+        or (mps["minterpFPS"] is not None and Fraction(mps["r_frame_rate"]) < 47)
     )
     if shouldDedupe:
         logger.info("Duplicate frames will be removed.")
@@ -358,20 +392,28 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
     if mps["loop"] == "fwrev":
         reverseSpeedMap = [
             {"x": speedPoint["x"], "y": speedPointRev["y"]}
-            for speedPoint, speedPointRev in zip(mp["speedMap"], reversed(mp["speedMap"]))
+            for speedPoint, speedPointRev in zip(
+                mp["speedMap"],
+                reversed(mp["speedMap"]),
+            )
         ]
         reverseSpeedFilter, _, _ = getSpeedFilterAndDuration(
-            reverseSpeedMap, mp, mps["r_frame_rate"]
+            reverseSpeedMap,
+            mp,
+            mps["r_frame_rate"],
         )
         loop_filter = ""
         loop_filter += f",split=2[f1][f2];"
         loop_filter += f'[f1]{mp["speedFilter"]}[f];'
-        loop_filter += f"""[f2]{reverseSpeedFilter},select='gt(n,0)',reverse,select='gt(n,0)',"""
+        loop_filter += (
+            f"""[f2]{reverseSpeedFilter},select='gt(n,0)',reverse,select='gt(n,0)',"""
+        )
         loop_filter += f"setpts=(PTS-STARTPTS)[r];"
         loop_filter += f"[f][r]concat=n=2"
     if mps["loop"] == "fade":
         fadeDur = mps["fadeDuration"] = max(
-            0.1, min(mps["fadeDuration"], 0.4 * mp["outputDuration"])
+            0.1,
+            min(mps["fadeDuration"], 0.4 * mp["outputDuration"]),
         )
 
         easeP = f"(T/{fadeDur})"
@@ -380,22 +422,22 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
 
         loop_filter = ""
         loop_filter += f""",select='if(lte(t,{fadeDur}),1,2)':n=2[fia][mfia];"""
-        loop_filter += (
-            f"""[fia]format=yuva420p,geq=lum='p(X,Y)':a='{alphaEaseIn}*alpha(X,Y)'[fi];"""
-        )
+        loop_filter += f"""[fia]format=yuva420p,geq=lum='p(X,Y)':a='{alphaEaseIn}*alpha(X,Y)'[fi];"""
         loop_filter += f"""[mfia]setpts=(PTS-STARTPTS)[mfib];"""
-        loop_filter += f"""[mfib]reverse,select='if(lte(t,{fadeDur}),1,2)':n=2[for][mr];"""
-        loop_filter += f"""[mr]reverse,setpts=(PTS-STARTPTS)[m];"""
         loop_filter += (
-            f"""[for]reverse,format=yuva420p,geq=lum='p(X,Y)':a='{alphaEaseOut}*alpha(X,Y)'[fo];"""
+            f"""[mfib]reverse,select='if(lte(t,{fadeDur}),1,2)':n=2[for][mr];"""
         )
-        loop_filter += f"""[fi][fo]overlay=eof_action=repeat,setpts=(PTS-STARTPTS)[fl];"""
+        loop_filter += f"""[mr]reverse,setpts=(PTS-STARTPTS)[m];"""
+        loop_filter += f"""[for]reverse,format=yuva420p,geq=lum='p(X,Y)':a='{alphaEaseOut}*alpha(X,Y)'[fo];"""
+        loop_filter += (
+            f"""[fi][fo]overlay=eof_action=repeat,setpts=(PTS-STARTPTS)[fl];"""
+        )
         loop_filter += f"""[m][fl]concat=n=2"""
 
     if mps["preview"]:
         if video_filter_before_correction is None:
             logger.error(
-                "Preview mode unexpectedly did not have vidoe filters before corrections available."
+                "Preview mode unexpectedly did not have vidoe filters before corrections available.",
             )
             sys.exit(1)
 
@@ -429,10 +471,10 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
             titleSuffixHash = getTrimmedBase64Hash(titleSuffix)
             safeShakyPath = f"{cp.tempPath}/{titleSuffixHash}/shaky"
             logger.warning(
-                f"Marker pair titleSuffix contains characters that are incompatible with video stabilization."
+                f"Marker pair titleSuffix contains characters that are incompatible with video stabilization.",
             )
             logger.warning(
-                f"Using temp directory for intermediate video stabilization transform files: '{safeShakyPath}'."
+                f"Using temp directory for intermediate video stabilization transform files: '{safeShakyPath}'.",
             )
             os.makedirs(safeShakyPath, exist_ok=True)
             transformPath = f"{safeShakyPath}/{markerPairIndex+1}.trf"
@@ -467,7 +509,9 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
         if mps["videoStabilizationDynamicZoom"]:
             vidstabtransformFilter += f':optzoom=2:zoomspeed={vidstab["zoomspeed"]}'
 
-        vidstabtransformFilter += f",lutyuv=y=gammaval(1/{videoStabilizationLowContrastGammaCorrection})"
+        vidstabtransformFilter += (
+            f",lutyuv=y=gammaval(1/{videoStabilizationLowContrastGammaCorrection})"
+        )
 
         if "minterpMode" in mps and mps["minterpMode"] != "None":
             vidstabtransformFilter += getMinterpFilter(mp, mps)
@@ -479,14 +523,18 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
         if len(video_filter) > MAX_VFILTER_SIZE:
             logger.info(f"Video filter is larger than {MAX_VFILTER_SIZE} characters.")
             logger.info(
-                f'Video filter will be written to "{filterPathPass1}" and "{filterPathPass2}"'
+                f'Video filter will be written to "{filterPathPass1}" and "{filterPathPass2}"',
             )
             with open(filterPathPass1, "w", encoding="utf-8") as f:
                 f.write(vidstabdetectFilter)
             with open(filterPathPass2, "w", encoding="utf-8") as f:
                 f.write(vidstabtransformFilter)
-            ffmpegVidstabdetect = ffmpegCommand + f' -filter_script:v "{filterPathPass1}" '
-            ffmpegVidstabtransform = ffmpegCommand + f' -filter_script:v "{filterPathPass1}" '
+            ffmpegVidstabdetect = (
+                ffmpegCommand + f' -filter_script:v "{filterPathPass1}" '
+            )
+            ffmpegVidstabtransform = (
+                ffmpegCommand + f' -filter_script:v "{filterPathPass1}" '
+            )
         else:
             ffmpegVidstabdetect = ffmpegCommand + f'-vf "{vidstabdetectFilter}" '
             ffmpegVidstabtransform = ffmpegCommand + f'-vf "{vidstabtransformFilter}" '
@@ -551,10 +599,14 @@ def getFfmpegCommand(
     mps: DictStrAny,
     qmax: int,
     qmin: int,
-):
-
+) -> str:
     video_codec_args, video_output_args = getFfmpegVideoCodec(
-        mps["videoCodec"], cbr=cbr, mp=mp, mps=mps, qmax=qmax, qmin=qmin
+        mps["videoCodec"],
+        cbr=cbr,
+        mp=mp,
+        mps=mps,
+        qmax=qmax,
+        qmin=qmin,
     )
 
     return " ".join(
@@ -568,7 +620,7 @@ def getFfmpegCommand(
             video_codec_args,
             (
                 f"-c:a libopus -b:a 128k"
-                if not mps["videoCodec"] == "vp8"
+                if mps["videoCodec"] != "vp8"
                 else f"-c:a libvorbis -q:a 7"
             ),
             (
@@ -580,7 +632,7 @@ def getFfmpegCommand(
             video_output_args,
             f'{mps["extraFfmpegArgs"]}',
             " ",
-        )
+        ),
     )
 
 
@@ -594,7 +646,12 @@ def getFfmpegVideoCodec(
 ) -> Tuple[str, str]:
     if videoCodec in {"vp9", "vp8"}:
         return getFfmpegVideoCodecVpx(
-            videoCodec=videoCodec, cbr=cbr, mp=mp, mps=mps, qmax=qmax, qmin=qmin
+            videoCodec=videoCodec,
+            cbr=cbr,
+            mp=mp,
+            mps=mps,
+            qmax=qmax,
+            qmin=qmin,
         )
     if videoCodec == "h264":
         return getFfmpegVideoCodecH264(cbr=cbr, mp=mp, mps=mps, qmax=qmax, qmin=qmin)
@@ -619,13 +676,17 @@ def getFfmpegVideoCodecVpx(
 
     video_codec_args = " ".join(
         (
-            f"-c:v libvpx-vp9" if not videoCodec == "vp8" else f"-c:v libvpx",
+            f"-c:v libvpx-vp9" if videoCodec != "vp8" else f"-c:v libvpx",
             f"-pix_fmt yuv420p -slices 8",
-            f"-aq-mode 4 -row-mt 1 -tile-columns 6 -tile-rows 2" if not videoCodec == "vp8" else "",
-            f'-qmin {qmin} -crf {mps["crf"]} -qmax {qmax}' if mps["targetSize"] <= 0 else "",
+            f"-aq-mode 4 -row-mt 1 -tile-columns 6 -tile-rows 2"
+            if videoCodec != "vp8"
+            else "",
+            f'-qmin {qmin} -crf {mps["crf"]} -qmax {qmax}'
+            if mps["targetSize"] <= 0
+            else "",
             f'-b:v {mps["targetMaxBitrate"]}k' if cbr is None else f"-b:v {cbr}MB",
             f'-force_key_frames 1 -g {mp["averageSpeed"] * Fraction(mps["r_frame_rate"])}',
-        )
+        ),
     )
     video_output_args = " ".join(("-f webm", fps_arg))
     return video_codec_args, video_output_args
@@ -659,7 +720,9 @@ def getFfmpegVideoCodecH264(
             f"-c:v libx264",
             f"-pix_fmt yuv420p",
             f"-aq-mode 4",
-            f'-qmin {qmin} -crf {mps["crf"]} -qmax {qmax}' if mps["targetSize"] <= 0 else "",
+            f'-qmin {qmin} -crf {mps["crf"]} -qmax {qmax}'
+            if mps["targetSize"] <= 0
+            else "",
             f'-b:v {mps["targetMaxBitrate"]}k' if cbr is None else f"-b:v {cbr}MB",
             f'-force_key_frames 1 -g {mp["averageSpeed"] * Fraction(mps["r_frame_rate"])}',
             # video_track_timescale = 2^4 * 3^2 * 5^2 * 7 * 11 * 13 * 23, max is ~2E9
@@ -678,7 +741,7 @@ def getFfmpegVideoCodecH264(
             "-keyint_min 1",
             "-trellis 2",
             "-x264-params rc-lookahead=40",
-        )
+        ),
     )
 
     video_output_args = " ".join(("-f mp4", fps_arg))
@@ -686,7 +749,10 @@ def getFfmpegVideoCodecH264(
 
 
 def runffmpegCommand(
-    settings: Settings, ffmpegCommands: List[str], markerPairIndex: int, mp: DictStrAny
+    settings: Settings,
+    ffmpegCommands: List[str],
+    markerPairIndex: int,
+    mp: DictStrAny,
 ) -> DictStrAny:
     ffmpegPass1 = ffmpegCommands[0]
     if len(ffmpegCommands) == 2:
@@ -695,25 +761,37 @@ def runffmpegCommand(
     input_redaction_pattern = r"(-i[\s]+\".*?\"[\s]+)+"
     nInputs = len(re.findall(input_redaction_pattern, ffmpegPass1))
 
-    printablePass1 = re.sub(input_redaction_pattern, r"-i ... ", ffmpegPass1, count=nInputs)
+    printablePass1 = re.sub(
+        input_redaction_pattern,
+        r"-i ... ",
+        ffmpegPass1,
+        count=nInputs,
+    )
 
     logger.verbose(f"Using ffmpeg command: {printablePass1}\n")
-    ffmpegProcess = subprocess.run(shlex.split(ffmpegPass1))
+    ffmpegProcess = subprocess.run(shlex.split(ffmpegPass1), check=False)
 
     if len(ffmpegCommands) == 2:
         ffmpegPass2 = ffmpegCommands[1]
 
-        printablePass2 = re.sub(input_redaction_pattern, r"-i ... ", ffmpegPass2, count=nInputs)
+        printablePass2 = re.sub(
+            input_redaction_pattern,
+            r"-i ... ",
+            ffmpegPass2,
+            count=nInputs,
+        )
 
         logger.info("Running second pass...")
         logger.verbose(f"Using ffmpeg command: {printablePass2}\n")
-        ffmpegProcess = subprocess.run(shlex.split(ffmpegPass2))
+        ffmpegProcess = subprocess.run(shlex.split(ffmpegPass2), check=False)
 
     mp["returncode"] = ffmpegProcess.returncode
     if mp["returncode"] == 0:
         logger.success(f'Successfuly generated: "{mp["fileName"]}"')
     else:
-        logger.error(f'Failed to generate: "{mp["fileName"]}" (error code: {mp["returncode"]}).')
+        logger.error(
+            f'Failed to generate: "{mp["fileName"]}" (error code: {mp["returncode"]}).',
+        )
 
     return {**(settings["markerPairs"][markerPairIndex]), **mp}
 
@@ -747,7 +825,7 @@ def runffplayCommand(
                 ffplayOptions,
                 ffplayVideoFilter,
                 ffplayAudioFilter if mps["audio"] else "-an",
-            )
+            ),
         )
 
         printableCommand = re.sub(r"-i.*?\".*?\"", r"", ffplayCommand)
@@ -756,7 +834,7 @@ def runffplayCommand(
         subprocess.run(shlex.split(ffplayCommand), check=True)
 
 
-def mergeClips(cs: ClipperState) -> None:
+def mergeClips(cs: ClipperState) -> None:  # noqa: PLR0912
     settings = cs.settings
     cp = cs.clipper_paths
 
@@ -776,7 +854,7 @@ def mergeClips(cs: ClipperState) -> None:
                 markerPair = settings["markerPairs"][i - 1]
                 if "returncode" in markerPair and markerPair["returncode"] != 0:
                     logger.warning(
-                        f'Required marker pair {i} failed to generate with error code {markerPair["returncode"]}'
+                        f'Required marker pair {i} failed to generate with error code {markerPair["returncode"]}',
                     )
                     logger.warning(f"This may be a false positive.")
                     ans = input(r"Would you like to continue merging anyway? (y/n): ")
@@ -793,13 +871,19 @@ def mergeClips(cs: ClipperState) -> None:
                     raise MissingMarkerPairFilePath
 
             titlePrefixesConsistent = True
-            titlePrefixes = [p["overrides"].get("titlePrefix", "") for p in settings["markerPairs"]]
+            titlePrefixes = [
+                p["overrides"].get("titlePrefix", "") for p in settings["markerPairs"]
+            ]
             mergeTitlePrefix = titlePrefixes[mergeList[0] - 1]
             if len(mergeList) > 1:
-                for l, r in zip(mergeList[:-1], mergeList[1:]):
-                    lPrefix = titlePrefixes[l - 1]
-                    rPrefix = titlePrefixes[r - 1]
-                    if lPrefix != rPrefix or lPrefix == "" or rPrefix == "":
+                for left, right in zip(mergeList[:-1], mergeList[1:]):
+                    leftPrefix = titlePrefixes[left - 1]
+                    rightPrefix = titlePrefixes[right - 1]
+                    if (
+                        leftPrefix != rightPrefix
+                        or leftPrefix == ""
+                        or rightPrefix == ""
+                    ):
                         titlePrefixesConsistent = False
 
         except IndexError:
@@ -812,7 +896,9 @@ def mergeClips(cs: ClipperState) -> None:
             continue
         except MissingMergeInput:
             logger.error(f"Aborting generation of clip with merge list {mergeList}.")
-            logger.error(f'Missing required input clip with path {markerPair["filePath"]}.')
+            logger.error(
+                f'Missing required input clip with path {markerPair["filePath"]}.',
+            )
             continue
         except MissingMarkerPairFilePath:
             logger.error(f"Aborting generation of clip with merge list {mergeList}")
@@ -826,35 +912,40 @@ def mergeClips(cs: ClipperState) -> None:
         # TODO: Test merging of clips of different video codecs
         mergedFileNameSuffix = "mp4" if settings["videoCodec"] == "h264" else "webm"
         if titlePrefixesConsistent:
-            mergedFileName = (
-                f'{mergeTitlePrefix}-{settings["titleSuffix"]}-({merge}).{mergedFileNameSuffix}'
-            )
+            mergedFileName = f'{mergeTitlePrefix}-{settings["titleSuffix"]}-({merge}).{mergedFileNameSuffix}'
         else:
-            mergedFileName = f'{settings["titleSuffix"]}-({merge}).{mergedFileNameSuffix}'
+            mergedFileName = (
+                f'{settings["titleSuffix"]}-({merge}).{mergedFileNameSuffix}'
+            )
 
         mergedFilePath = f"{cp.clipsPath}/{mergedFileName}"
-        mergeFileExists = checkClipExists(mergedFileName, mergedFilePath, settings["overwrite"])
+        mergeFileExists = checkClipExists(
+            mergedFileName,
+            mergedFilePath,
+            settings["overwrite"],
+        )
         overwriteArg = "-y" if settings["overwrite"] else "-n"
         ffmpegConcatFlags = f"{overwriteArg} -hide_banner -f concat -safe 0"
         ffmpegConcatCmd = f' "{cp.ffmpegPath}" {ffmpegConcatFlags}  -i "{inputsTxtPath}" -c copy "{mergedFilePath}"'
 
         if not mergeFileExists or settings["overwrite"]:
             logger.info(f"Using ffmpeg command: {ffmpegConcatCmd}")
-            ffmpegProcess = subprocess.run(shlex.split(ffmpegConcatCmd))
+            ffmpegProcess = subprocess.run(shlex.split(ffmpegConcatCmd), check=False)
             if ffmpegProcess.returncode == 0:
                 logger.success(f'Successfuly generated: "{mergedFileName}"\n')
             else:
                 logger.info(f'Failed to generate: "{mergedFileName}"\n')
                 logger.error(f"ffmpeg error code: {ffmpegProcess.returncode}\n")
 
-        try:
-            os.remove(inputsTxtPath)
-        except (OSError, FileNotFoundError):
-            pass
+        with contextlib.suppress(OSError, FileNotFoundError):
+            os.remove(inputsTxtPath)  # noqa: PTH107
 
 
 def checkClipExists(
-    fileName: str, filePath: str, overwrite: bool = False, skip: bool = False
+    fileName: str,
+    filePath: str,
+    overwrite: bool = False,
+    skip: bool = False,
 ) -> bool:
     fileExists = Path(filePath).is_file()
     if skip:
@@ -869,7 +960,9 @@ def checkClipExists(
     return fileExists
 
 
-def createMergeList(markerPairMergeList: List[str]) -> Generator[Tuple[str, List[int]], None, None]:
+def createMergeList(
+    markerPairMergeList: List[str],
+) -> Generator[Tuple[str, List[int]], None, None]:
     for merge in markerPairMergeList:
         mergeList = markerPairsCSVToList(merge)
         yield merge, mergeList
@@ -878,7 +971,9 @@ def createMergeList(markerPairMergeList: List[str]) -> Generator[Tuple[str, List
 def markerPairsCSVToList(markerPairsCSV: str) -> List[int]:
     markerPairsCSV = re.sub(r"\s+", "", markerPairsCSV)
     markerPairsCSV = markerPairsCSV.rstrip(",")
-    csvRangeValidation = r"^((\d{1,2})|(\d{1,2}-\d{1,2})){1}(,((\d{1,2})|(\d{1,2}-\d{1,2})))*$"
+    csvRangeValidation = (
+        r"^((\d{1,2})|(\d{1,2}-\d{1,2})){1}(,((\d{1,2})|(\d{1,2}-\d{1,2})))*$"
+    )
     if re.match(csvRangeValidation, markerPairsCSV) is None:
         raise ValueError("Invalid Marker pairs CSV.")
 
@@ -887,15 +982,15 @@ def markerPairsCSVToList(markerPairsCSV: str) -> List[int]:
     markerPairsList = []
     for mergeRange in markerPairsMergeRanges:
         if "-" in mergeRange:
-            mergeRange = mergeRange.split("-")
+            mergeRange = mergeRange.split("-")  # noqa: PLW2901
             startPair = int(mergeRange[0])
             endPair = int(mergeRange[1])
             if startPair <= endPair:
                 for i in range(startPair, endPair + 1):
-                    markerPairsList.append(i)
+                    markerPairsList.append(i)  # noqa: PERF402
             else:
                 for i in range(startPair, endPair - 1 if endPair >= 1 else 0, -1):
-                    markerPairsList.append(i)
+                    markerPairsList.append(i)  # noqa: PERF402
         else:
             markerPairsList.append(int(mergeRange))
     return markerPairsList
@@ -915,7 +1010,12 @@ def cleanFileName(fileName: str) -> str:
 def getDefaultEncodeSettings(videobr: int) -> DictStrAny:
     # switch to constant quality mode if no bitrate specified
     if videobr is None:
-        encodeSettings = {"crf": 30, "autoTargetMaxBitrate": 0, "encodeSpeed": 2, "twoPass": False}
+        encodeSettings = {
+            "crf": 30,
+            "autoTargetMaxBitrate": 0,
+            "encodeSpeed": 2,
+            "twoPass": False,
+        }
     elif videobr <= 1000:
         encodeSettings = {
             "crf": 20,
@@ -986,23 +1086,25 @@ def containsValidCharsForVidStab(string: str) -> bool:
     if not string.isascii():
         return False
 
-    for char in string:
-        if char == "'":
-            return False
-
-    return True
+    return all(char != "'" for char in string)
 
 
 def makeClips(cs: ClipperState) -> None:
     settings = cs.settings
 
     nMarkerPairs = len(settings["markerPairs"])
-    markerPairQueue = getMarkerPairQueue(nMarkerPairs, settings["only"], settings["except"])
+    markerPairQueue = getMarkerPairQueue(
+        nMarkerPairs,
+        settings["only"],
+        settings["except"],
+    )
     if len(markerPairQueue) == 0:
         logger.warning("No marker pairs to process")
     else:
         printableMarkerPairQueue = {x + 1 for x in markerPairQueue}
-        logger.report(f"Processing the following set of marker pairs: {printableMarkerPairQueue}")
+        logger.report(
+            f"Processing the following set of marker pairs: {printableMarkerPairQueue}",
+        )
 
     for markerPairIndex, _marker in enumerate(settings["markerPairs"]):
         if markerPairIndex in markerPairQueue:
@@ -1024,7 +1126,7 @@ def previewClips(cs: ClipperState) -> None:
         inputStr = ""
         try:
             inputStr = input(
-                f'Enter a valid marker pair number (between {1} and {len(settings["markerPairs"])}) or quit(q): '
+                f'Enter a valid marker pair number (between {1} and {len(settings["markerPairs"])}) or quit(q): ',
             )
             if inputStr in {"quit", "q"}:
                 break
@@ -1039,7 +1141,11 @@ def previewClips(cs: ClipperState) -> None:
             logger.error(f"{markerPairIndex + 1} is not a valid marker pair number.")
 
 
-def getMarkerPairQueue(nMarkerPairs: int, onlyMarkerPairs: str, exceptMarkerPairs: str) -> Set[int]:
+def getMarkerPairQueue(
+    nMarkerPairs: int,
+    onlyMarkerPairs: str,
+    exceptMarkerPairs: str,
+) -> Set[int]:
     markerPairQueue = set(range(nMarkerPairs))
     onlyPairsSet = markerPairQueue
     exceptPairsSet = set()
@@ -1048,14 +1154,18 @@ def getMarkerPairQueue(nMarkerPairs: int, onlyMarkerPairs: str, exceptMarkerPair
         try:
             onlyPairsList = markerPairsCSVToList(onlyMarkerPairs)
         except ValueError:
-            logger.critical(f"Argument provided to --only was invalid: {onlyMarkerPairs}")
+            logger.critical(
+                f"Argument provided to --only was invalid: {onlyMarkerPairs}",
+            )
             sys.exit(1)
         onlyPairsSet = {x - 1 for x in set(onlyPairsList)}
     if exceptMarkerPairs != "":
         try:
             exceptPairsList = markerPairsCSVToList(exceptMarkerPairs)
         except ValueError:
-            logger.critical(f"Argument provided to --except was invalid: {exceptMarkerPairs}")
+            logger.critical(
+                f"Argument provided to --except was invalid: {exceptMarkerPairs}",
+            )
             sys.exit(1)
         exceptPairsSet = {x - 1 for x in set(exceptPairsList)}
 

@@ -21,11 +21,9 @@ certifi = ">=2021.10.8"
 
 [tool.poetry.group.dev.dependencies]
 pyinstaller = "6.9.0"
-black = "^22.8.0"
-isort = "^5.10.1"
-pylint = "^2.12.2"
 bumpit = "^0.8.0"
 syrupy = "^4.0.8"
+ruff = "0.5.6"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.0.0"

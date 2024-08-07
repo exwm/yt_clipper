@@ -1,5 +1,6 @@
 from subprocess import PIPE, Popen
 
+
 def getFfmpegVersion(ffmpeg_path: str) -> str:
     try:
         with Popen([ffmpeg_path, "-version"], stdout=PIPE, stderr=PIPE) as proc:
@@ -7,7 +8,7 @@ def getFfmpegVersion(ffmpeg_path: str) -> str:
                 version_line = proc.stdout.readline()
             else:
                 version_line = "unknown"
-    except:  # pylint: disable=bare-except
+    except:  # pylint: disable=bare-except  # noqa: E722
         version_line = "unknown"
 
     return str(version_line).strip()

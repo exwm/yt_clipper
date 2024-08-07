@@ -23,7 +23,9 @@ def getSubs(cs: ClipperState) -> None:
     settings = cs.settings
 
     settings["subsFileStem"] = f'{cp.clipsPath}/subs/{settings["titleSuffix"]}'
-    settings["subsFilePath"] = f'{settings["subsFileStem"]}.{settings["autoSubsLang"]}.vtt'
+    settings["subsFilePath"] = (
+        f'{settings["subsFileStem"]}.{settings["autoSubsLang"]}.vtt'
+    )
 
     ydl_opts = {
         "skip_download": True,
@@ -43,12 +45,15 @@ def autoScaleCropMap(cropMap: List[Dict[str, Any]], settings: Settings) -> None:
     for cropPoint in cropMap:
         cropString = cropPoint["crop"]
         cropPoint["crop"], cropPoint["cropComponents"] = getAutoScaledCropComponents(
-            cropString, settings
+            cropString,
+            settings,
         )
 
 
 def getAutoScaledCropComponents(
-    cropString: str, settings: Settings, forceEvenDimensions=False
+    cropString: str,
+    settings: Settings,
+    forceEvenDimensions: bool = False,
 ) -> Tuple[str, Dict[str, float]]:
     cropResWidth = settings["cropResWidth"]
     cropResHeight = settings["cropResHeight"]
@@ -76,7 +81,11 @@ def getAutoScaledCropComponents(
     return scaledCropString, cropComponents
 
 
-def getCropComponents(cropString: str, maxWidth: int, maxHeight: int) -> Dict[str, float]:
+def getCropComponents(
+    cropString: str,
+    maxWidth: int,
+    maxHeight: int,
+) -> Dict[str, float]:
     cropComponents: List[Any] = cropString.split(":")
     if cropComponents[2] == "iw":
         cropComponents[2] = maxWidth
@@ -108,7 +117,7 @@ def getMinterpFilter(mp: Dict[str, Any], mps: Dict[str, Any]) -> str:
             speedChange = endSpeed - startSpeed
 
             logger.debug(
-                f"speedChange: {speedChange}, startSpeed: {startSpeed}, targetSpeed: {round(targetSpeed, 2)}"
+                f"speedChange: {speedChange}, startSpeed: {startSpeed}, targetSpeed: {round(targetSpeed, 2)}",
             )
             if speedChange != 0 or startSpeed < round(targetSpeed, 2):
                 logger.debug(f'minterp enabled for section: {left["x"]}, {right["x"]}')
@@ -125,7 +134,9 @@ def getMinterpFilter(mp: Dict[str, Any], mps: Dict[str, Any]) -> str:
         minterpEnable = ""
 
     if minterpFPS is not None:
-        minterpFilter = f""",minterpolate={minterpEnable}fps=({minterpFPS}):mi_mode=mci"""
+        minterpFilter = (
+            f""",minterpolate={minterpEnable}fps=({minterpFPS}):mi_mode=mci"""
+        )
         minterpFilter += f""":mc_mode=aobmc:me_mode=bidir:vsbmc=1"""
         sp = max(mps["minterpSearchParam"], 4)
         minterpFilter += f""":search_param={sp}:scd_threshold=8:mb_size=16"""
@@ -139,7 +150,8 @@ def getMinterpFilter(mp: Dict[str, Any], mps: Dict[str, Any]) -> str:
 
 
 def getMinterpFPS(
-    mps: DictStrAny, speedMap: Union[SpeedMap, None]
+    mps: DictStrAny,
+    speedMap: Union[SpeedMap, None],
 ) -> Union[ExtendedRealNumber, None]:
     minterpMode = mps["minterpMode"]
     if mps["r_frame_rate"] is None:
@@ -150,7 +162,11 @@ def getMinterpFPS(
     maxFPS = maxSpeed * videoFPS
 
     minterpFPS = None
-    if minterpMode == "Numeric" and "minterpFPS" in mps and mps["minterpFPS"] is not None:
+    if (
+        minterpMode == "Numeric"
+        and "minterpFPS" in mps
+        and mps["minterpFPS"] is not None
+    ):
         minterpFPS = min(120, mps["minterpFPS"])
     if minterpMode == "MaxSpeed":
         minterpFPS = maxFPS
@@ -175,7 +191,12 @@ def getMaxSpeed(speedMap: Union[SpeedMap, None]) -> float:
     return maxSpeed
 
 
-def getSubsFilter(cs: ClipperState, mp: DictStrAny, mps: DictStrAny, markerPairIndex: int) -> str:
+def getSubsFilter(
+    cs: ClipperState,
+    mp: DictStrAny,
+    mps: DictStrAny,
+    markerPairIndex: int,
+) -> str:
     cp = cs.clipper_paths
     import webvtt
 
@@ -194,16 +215,18 @@ def getSubsFilter(cs: ClipperState, mp: DictStrAny, mps: DictStrAny, markerPairI
     subsStart = mp["start"]
     subsEnd = mp["end"]
     vtt._captions = [  # pylint: disable=protected-access
-        c for c in vtt.captions if c.start_in_seconds < subsEnd and c.end_in_seconds > subsStart
+        c
+        for c in vtt.captions
+        if c.start_in_seconds < subsEnd and c.end_in_seconds > subsStart
     ]
     for _i, caption in enumerate(vtt.captions):
         start = caption.start_in_seconds
         end = caption.end_in_seconds
         caption.start = caption._to_timestamp(  # pylint: disable=protected-access
-            max(start - subsStart, 0)
+            max(start - subsStart, 0),
         )
         caption.end = caption._to_timestamp(  # pylint: disable=protected-access
-            min(subsEnd - subsStart, end - subsStart)
+            min(subsEnd - subsStart, end - subsStart),
         )
     tmp_subs_path = f'{cp.clipsPath}/subs/{mps["titleSuffix"]}-{markerPairIndex+1}.vtt'
     vtt.save(tmp_subs_path)
@@ -213,7 +236,9 @@ def getSubsFilter(cs: ClipperState, mp: DictStrAny, mps: DictStrAny, markerPairI
 
 
 def getSpeedFilterAndDuration(
-    speedMap: SpeedMap, mp: DictStrAny, fps: Union[float, Fraction]
+    speedMap: SpeedMap,
+    mp: DictStrAny,
+    fps: Union[float, Fraction],
 ) -> Tuple[str, ExtendedRealNumber, List[ExtendedRealNumber]]:
     if not mp["isVariableSpeed"]:
         duration = mp["duration"] / mp["speed"]
@@ -339,10 +364,7 @@ def getCropFilterOld(
         if sectDuration == 0:
             continue
 
-        if not right.get("easeIn", False):
-            currEaseType = easeType
-        else:
-            currEaseType = right["easeIn"]
+        currEaseType = easeType if not right.get("easeIn", False) else right["easeIn"]
 
         easeP = f"((t-{startTime})/{sectDuration})"
         easeX = getEasingExpression(currEaseType, f"({startX})", f"({endX})", easeP)
@@ -375,7 +397,7 @@ def getCropFilter(
 
     easingsX = []
     easingsY = []
-    for (left, right) in zip(cropMap[:-1], cropMap[1:]):
+    for left, right in zip(cropMap[:-1], cropMap[1:]):
         startTime = left["x"] - firstTime
         startX, startY, _startW, _startH = left["crop"].split(":")
         endTime = right["x"] - firstTime
@@ -385,10 +407,7 @@ def getCropFilter(
         if sectDuration == 0:
             continue
 
-        if not right.get("easeIn", False):
-            currEaseType = easeType
-        else:
-            currEaseType = right["easeIn"]
+        currEaseType = easeType if not right.get("easeIn", False) else right["easeIn"]
 
         easeP = f"((t-{startTime})/{sectDuration})"
         easeX = getEasingExpression(currEaseType, f"({startX})", f"({endX})", easeP)
@@ -404,7 +423,7 @@ def getCropFilter(
     return cropFilter
 
 
-def getEaseFilterExpr(easings: List, timeExpr: Literal["t", "it"]):
+def getEaseFilterExpr(easings: List, timeExpr: Literal["t", "it"]) -> str:
     easeFilterExpr = [
         f"(gte({timeExpr}, {startTime})*lt({timeExpr}, {endTime})*{easeExpr})"
         for (startTime, endTime, easeExpr) in easings[:-1]
@@ -420,7 +439,9 @@ ZOOM_PAN_TIME_EXPR = "it"
 
 
 def getZoomPanFilter(
-    cropMap: CropMap, fps: Union[float, Fraction], easeType: str = "easeInOutSine"
+    cropMap: CropMap,
+    fps: Union[float, Fraction],
+    easeType: str = "easeInOutSine",
 ) -> Tuple[str, int]:
     maxSizeCrop = getMaxSizeCrop(cropMap)
     maxWidth = floorToEven(maxSizeCrop["width"])
@@ -445,7 +466,7 @@ def getZoomPanFilter(
     easingsZoomY = []
     easingsZoom = []
 
-    for (left, right) in zip(cropMap[:-1], cropMap[1:]):
+    for left, right in zip(cropMap[:-1], cropMap[1:]):
         startTime = left["x"] - firstTime
         startX, startY, startW, startH = left["crop"].split(":")
         endTime = right["x"] - firstTime
@@ -462,10 +483,7 @@ def getZoomPanFilter(
         if sectDuration == 0:
             continue
 
-        if not right.get("easeIn", False):
-            currEaseType = easeType
-        else:
-            currEaseType = right["easeIn"]
+        currEaseType = easeType if not right.get("easeIn", False) else right["easeIn"]
 
         # zoompan does not support zooming out or changing aspect ratio without stretching.
         # By cropping the video first we can get the desired aspect ratio.
@@ -476,10 +494,16 @@ def getZoomPanFilter(
         # it is always the top-left most position that still contains the target crop.
         panEaseP = f"((t-{startTime})/{sectDuration})"
         panEaseRight = getEasingExpression(
-            currEaseType, f"({panScale}*{startRight})", f"({panScale}*{endRight})", panEaseP
+            currEaseType,
+            f"({panScale}*{startRight})",
+            f"({panScale}*{endRight})",
+            panEaseP,
         )
         panEaseBottom = getEasingExpression(
-            currEaseType, f"({panScale}*{startBottom})", f"({panScale}*{endBottom})", panEaseP
+            currEaseType,
+            f"({panScale}*{startBottom})",
+            f"({panScale}*{endBottom})",
+            panEaseP,
         )
 
         # Ensure that the containing maximum crop does not go out of the video bounds.
@@ -487,19 +511,36 @@ def getZoomPanFilter(
         panEaseBottom = f"max({panEaseBottom}-{panScale}*{maxHeight}, 0)"
 
         easeP = f"(({ZOOM_PAN_TIME_EXPR}-{startTime})/{sectDuration})"
-        easeZoom = getEasingExpression(currEaseType, f"({startZoom})", f"({endZoom})", easeP)
+        easeZoom = getEasingExpression(
+            currEaseType,
+            f"({startZoom})",
+            f"({endZoom})",
+            easeP,
+        )
         easeX = getEasingExpression(
-            currEaseType, f"({zoomScale}*{startX})", f"({zoomScale}*{endX})", easeP
+            currEaseType,
+            f"({zoomScale}*{startX})",
+            f"({zoomScale}*{endX})",
+            easeP,
         )
         easeY = getEasingExpression(
-            currEaseType, f"({zoomScale}*{startY})", f"({zoomScale}*{endY})", easeP
+            currEaseType,
+            f"({zoomScale}*{startY})",
+            f"({zoomScale}*{endY})",
+            easeP,
         )
 
         easeRight = getEasingExpression(
-            currEaseType, f"({zoomScale}*{startRight})", f"({zoomScale}*{endRight})", easeP
+            currEaseType,
+            f"({zoomScale}*{startRight})",
+            f"({zoomScale}*{endRight})",
+            easeP,
         )
         easeBottom = getEasingExpression(
-            currEaseType, f"({zoomScale}*{startBottom})", f"({zoomScale}*{endBottom})", easeP
+            currEaseType,
+            f"({zoomScale}*{startBottom})",
+            f"({zoomScale}*{endBottom})",
+            easeP,
         )
 
         containingX = f"max({easeRight}-{zoomScale}*{maxWidth}, 0)"
@@ -540,7 +581,9 @@ def getZoomPanFilter(
 
 
 def getZoomPanFilterOld(
-    cropMap: CropMap, fps: Union[float, Fraction], easeType: str = "easeInOutSine"
+    cropMap: CropMap,
+    fps: Union[float, Fraction],
+    easeType: str = "easeInOutSine",
 ) -> Tuple[str, int]:
     maxSizeCrop = getMaxSizeCrop(cropMap)
     maxWidth = floorToEven(maxSizeCrop["width"])
@@ -577,10 +620,7 @@ def getZoomPanFilterOld(
         if sectDuration == 0:
             continue
 
-        if not right.get("easeIn", False):
-            currEaseType = easeType
-        else:
-            currEaseType = right["easeIn"]
+        currEaseType = easeType if not right.get("easeIn", False) else right["easeIn"]
 
         # zoompan does not support zooming out or changing aspect ratio without stretching.
         # By cropping the video first we can get the desired aspect ratio.
@@ -591,10 +631,16 @@ def getZoomPanFilterOld(
         # it is always the top-left most position that still contains the target crop.
         panEaseP = f"((t-{startTime})/{sectDuration})"
         panEaseRight = getEasingExpression(
-            currEaseType, f"({panScale}*{startRight})", f"({panScale}*{endRight})", panEaseP
+            currEaseType,
+            f"({panScale}*{startRight})",
+            f"({panScale}*{endRight})",
+            panEaseP,
         )
         panEaseBottom = getEasingExpression(
-            currEaseType, f"({panScale}*{startBottom})", f"({panScale}*{endBottom})", panEaseP
+            currEaseType,
+            f"({panScale}*{startBottom})",
+            f"({panScale}*{endBottom})",
+            panEaseP,
         )
 
         # Ensure that the containing maximum crop does not go out of the video bounds.
@@ -604,19 +650,36 @@ def getZoomPanFilterOld(
         # zoompan's time variable is time instead of t
         t = f"it"
         easeP = f"(({t}-{startTime})/{sectDuration})"
-        easeZoom = getEasingExpression(currEaseType, f"({startZoom})", f"({endZoom})", easeP)
+        easeZoom = getEasingExpression(
+            currEaseType,
+            f"({startZoom})",
+            f"({endZoom})",
+            easeP,
+        )
         easeX = getEasingExpression(
-            currEaseType, f"({zoomScale}*{startX})", f"({zoomScale}*{endX})", easeP
+            currEaseType,
+            f"({zoomScale}*{startX})",
+            f"({zoomScale}*{endX})",
+            easeP,
         )
         easeY = getEasingExpression(
-            currEaseType, f"({zoomScale}*{startY})", f"({zoomScale}*{endY})", easeP
+            currEaseType,
+            f"({zoomScale}*{startY})",
+            f"({zoomScale}*{endY})",
+            easeP,
         )
 
         easeRight = getEasingExpression(
-            currEaseType, f"({zoomScale}*{startRight})", f"({zoomScale}*{endRight})", easeP
+            currEaseType,
+            f"({zoomScale}*{startRight})",
+            f"({zoomScale}*{endRight})",
+            easeP,
         )
         easeBottom = getEasingExpression(
-            currEaseType, f"({zoomScale}*{startBottom})", f"({zoomScale}*{endBottom})", easeP
+            currEaseType,
+            f"({zoomScale}*{startBottom})",
+            f"({zoomScale}*{endBottom})",
+            easeP,
         )
 
         containingX = f"max({easeRight}-{zoomScale}*{maxWidth}, 0)"
@@ -674,7 +737,12 @@ def floorToEven(x: Union[int, str, float]) -> int:
     return x & ~1
 
 
-def getEasingExpression(easingFunc: str, easeA: str, easeB: str, easeP: str) -> Optional[str]:
+def getEasingExpression(
+    easingFunc: str,
+    easeA: str,
+    easeB: str,
+    easeP: str,
+) -> Optional[str]:
     easeP = f"(clip({easeP},0,1))"
     easeT = f"(2*{easeP})"
     easeM = f"({easeP}-1)"
@@ -697,7 +765,9 @@ def getEasingExpression(easingFunc: str, easeA: str, easeB: str, easeP: str) -> 
     elif easingFunc == "easeOutCircle":
         ease = f"sqrt(1-{easeM}^2)"
     elif easingFunc == "easeInOutCircle":
-        ease = f"if(lt({easeT},1), (1-sqrt(1-{easeT}^2))*0.5, (sqrt(1-4*{easeM}^2)+1)*0.5)"
+        ease = (
+            f"if(lt({easeT},1), (1-sqrt(1-{easeT}^2))*0.5, (sqrt(1-4*{easeM}^2)+1)*0.5)"
+        )
     else:
         return None
 

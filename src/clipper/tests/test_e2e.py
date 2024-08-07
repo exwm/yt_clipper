@@ -7,8 +7,12 @@ from clipper.yt_clipper import main
 
 this_dir = pathlib.Path(__file__).parent.resolve()
 
-@pytest.mark.slow
-def test_get_version_info(monkeypatch, capsys):
+
+@pytest.mark.slow()
+def test_get_version_info(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture,
+) -> None:
     with monkeypatch.context() as m:
         m.setattr(sys, "argv", ["yt_clipper.py", "--version"])
         with pytest.raises(SystemExit):
@@ -20,8 +24,11 @@ def test_get_version_info(monkeypatch, capsys):
     assert "ffmpeg" in out
 
 
-@pytest.mark.slow
-def test_make_clip(monkeypatch, capsys):
+@pytest.mark.slow()
+def test_make_clip(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture,
+) -> None:
     with monkeypatch.context() as m:
         m.setattr(
             sys,
@@ -38,12 +45,16 @@ def test_make_clip(monkeypatch, capsys):
     # assert no warnings from a yt-dlp extractor
     assert "WARNING: [" not in out
     # assert no errors
-    assert "error" not in out and "ERROR" not in out
+    assert "error" not in out
+    assert "ERROR" not in out
     print(out, err)
 
 
-@pytest.mark.slow
-def test_make_clip_with_local_input_video(monkeypatch, capsys):
+@pytest.mark.slow()
+def test_make_clip_with_local_input_video(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture,
+) -> None:
     with monkeypatch.context() as m:
         m.setattr(
             sys,
@@ -62,5 +73,6 @@ def test_make_clip_with_local_input_video(monkeypatch, capsys):
     # assert no warnings from a yt-dlp extractor
     assert "WARNING: [" not in out
     # assert no errors
-    assert "error" not in out and "ERROR" not in out
+    assert "error" not in out
+    assert "ERROR" not in out
     print(out, err)

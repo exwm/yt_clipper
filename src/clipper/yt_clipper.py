@@ -41,7 +41,7 @@ def main() -> None:
 
     logger.report(f"yt_clipper version: {__version__}")
     logger.report(
-        f"{youtube_dl_alternative} version: {ytdl_importer.youtube_dl.version.__version__}"
+        f"{youtube_dl_alternative} version: {ytdl_importer.youtube_dl.version.__version__}",
     )
     logger.report(f"{getFfmpegVersion(cs.clipper_paths.ffmpegPath)}")
     logger.info("-" * 80)
@@ -55,7 +55,9 @@ def main() -> None:
         logger.info("-" * 80)
 
     if unknown:
-        logger.notice(f"The following unknown arguments were provided and were ignored:")
+        logger.notice(
+            f"The following unknown arguments were provided and were ignored:",
+        )
         logger.notice(unknown)
         logger.info("-" * 80)
 
@@ -100,7 +102,9 @@ def setupOutputPaths(cs: ClipperState) -> None:
     cp.clipsPath += f'/{settings["titleSuffix"]}'
 
     os.makedirs(f"{cp.clipsPath}/temp", exist_ok=True)
-    settings["downloadVideoPath"] = f'{cp.clipsPath}/{settings["downloadVideoNameStem"]}'
+    settings["downloadVideoPath"] = (
+        f'{cp.clipsPath}/{settings["downloadVideoNameStem"]}'
+    )
 
 
 def enableMinterpEnhancements(cm: ClipperState) -> None:
@@ -109,7 +113,9 @@ def enableMinterpEnhancements(cm: ClipperState) -> None:
     if settings["enableMinterpEnhancements"] and sys.platform == "win32":
         cp.ffmpegPath = "./bin/ffmpeg_ytc.exe"
         if not Path(cp.ffmpegPath).is_file():
-            logger.critical(f"{cp.ffmpegPath} required for minterp enhancements not found.")
+            logger.critical(
+                f"{cp.ffmpegPath} required for minterp enhancements not found.",
+            )
             sys.exit(1)
         else:
             logger.success(f"Found {cp.ffmpegPath}. Minterp enhancements enabled.")
