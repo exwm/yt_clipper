@@ -1,3 +1,4 @@
+# ruff: noqa
 # ⚠ Don't use relative imports
 # ℹ️ If you need to import from another plugin
 # from yt_dlp_plugins.extractor.example import ExamplePluginIE
@@ -86,7 +87,9 @@ class NaverNowWatchIE(NaverBaseIE):
         msgpad = int(time.time() * 1000)
         # algorithm same as in yt_dlp/extractor/weverse.py::WeverseBaseIE._call_api
         md = base64.b64encode(
-            hmac.HMAC(key, f"{api_url[:255]}{msgpad}".encode(), digestmod=hashlib.sha1).digest()
+            hmac.HMAC(
+                key, f"{api_url[:255]}{msgpad}".encode(), digestmod=hashlib.sha1
+            ).digest(),
         ).decode()
         qs = parse_qs(f"msgpad={msgpad}&md={md}")
         return qs
@@ -103,7 +106,9 @@ class NaverNowWatchIE(NaverBaseIE):
         )
 
         if not video_info_response:
-            raise ExtractorError("Got unexpected or empty video info JSON response.", expected=True)
+            raise ExtractorError(
+                "Got unexpected or empty video info JSON response.", expected=True
+            )
 
         video_info = traverse_obj(video_info_response, ("result", "result"))
         if not video_info:
@@ -118,12 +123,15 @@ class NaverNowWatchIE(NaverBaseIE):
 
         key = traverse_obj(video_info, ("play", "inKey"))
         if not key:
-            raise ExtractorError("Could not find API key in video info JSON.", expected=True)
+            raise ExtractorError(
+                "Could not find API key in video info JSON.", expected=True
+            )
 
         vid = traverse_obj(video_clip_info, "videoId")
         if not vid:
             raise ExtractorError(
-                "Could not find Naver CDN video id in video clip info.", expected=True
+                "Could not find Naver CDN video id in video clip info.",
+                expected=True,
             )
 
         info = self._extract_video_info(video_id, vid, key)
@@ -134,10 +142,14 @@ class NaverNowWatchIE(NaverBaseIE):
                 # episodeStartDateTime seems to be the start time for a live stream and registerDateTime the end time
                 # registerDateTime seems to be the upload time for vods
                 "upload_date": unified_strdate(
-                    dict_get(video_clip_info, ("episodeStartDateTime", "registerDateTime"))
+                    dict_get(
+                        video_clip_info, ("episodeStartDateTime", "registerDateTime")
+                    ),
                 ),
                 "timestamp": unified_timestamp(
-                    dict_get(video_clip_info, ("episodeStartDateTime", "registerDateTime"))
+                    dict_get(
+                        video_clip_info, ("episodeStartDateTime", "registerDateTime")
+                    ),
                 ),
                 # channelId and channelUrl in the video_clip_info are not always accurate
                 "uploader_id": traverse_obj(video_info, ("channel", "channelId")),
@@ -145,6 +157,6 @@ class NaverNowWatchIE(NaverBaseIE):
                 "description": video_clip_info.get("description"),
                 "duration": traverse_obj(video_clip_info, "playTime"),
                 "like_count": traverse_obj(video_clip_info, "likeItCount"),
-            }
+            },
         )
         return info

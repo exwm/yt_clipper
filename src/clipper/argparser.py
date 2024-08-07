@@ -15,7 +15,12 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         description="Generate clips from input video.",
         formatter_class=ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("-v", "--version", action="version", version=getVersionString(clipper_paths.ffmpegPath))
+    parser.add_argument(
+        "-v",
+        "--version",
+        action="version",
+        version=getVersionString(clipper_paths.ffmpegPath),
+    )
     parser.add_argument(
         "--markers-json",
         "-j",
@@ -26,7 +31,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 "Specify markers json path for generating webms from input video.",
                 "Automatically streams required portions of input video from the",
                 "internet if it is not otherwise specified.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -38,11 +43,15 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             [
                 "List of paths to files to read arguments from.",
                 "The files are processed in order with later files taking precedence.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
-        "--input-video", "-i", dest="inputVideo", default="", help="Input video path."
+        "--input-video",
+        "-i",
+        dest="inputVideo",
+        default="",
+        help="Input video path.",
     )
     parser.add_argument(
         "--download-video",
@@ -64,11 +73,15 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 'Separate multiple merges with semicolons (eg "1-3,5,9;6-2,8" creates 2 merged clips).',
                 "Merge requires successful generation of each required marker pair.",
                 "Merge does not require reencoding and simply orders each clip into one container.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
-        "--overlay", "-ov", dest="overlayPath", default="", help="Overlay image path."
+        "--overlay",
+        "-ov",
+        dest="overlayPath",
+        default="",
+        help="Overlay image path.",
     )
     parser.add_argument(
         "--multiply-crop",
@@ -80,7 +93,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             [
                 "Multiply all crop dimensions by an integer.",
                 "(Helpful if you change resolutions: eg 1920x1080 * 2 = 3840x2160(4k)).",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -107,7 +120,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 "Specify which marker pairs to process by providing a comma separated",
                 'list of marker pair numbers or ranges (e.g., "1-3,5,9" = "1,2,3,5,9").',
                 "The --except flag takes precedence and will skip pairs specified with --only.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -118,10 +131,15 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 "Specify which marker pairs to skip by providing a comma separated",
                 'list of marker pair numbers or ranges (e.g., "1-3,5,9" = "1,2,3,5,9").',
                 "The --except flag takes precedence and will skip pairs specified with --only.",
-            ]
+            ],
         ),
     )
-    parser.add_argument("--audio", "-a", action="store_true", help="Enable audio in output webms.")
+    parser.add_argument(
+        "--audio",
+        "-a",
+        action="store_true",
+        help="Enable audio in output webms.",
+    )
     parser.add_argument(
         "--format",
         "-f",
@@ -134,7 +152,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         dest="formatSort",
         nargs="+",
         default=[
-            "hasvid,ie_pref,lang,quality,res,fps,br,size,hdr:1,vcodec:vp9.2,vcodec:vp9,asr,proto,ext,hasaud,source,id"
+            "hasvid,ie_pref,lang,quality,res,fps,br,size,hdr:1,vcodec:vp9.2,vcodec:vp9,asr,proto,ext,hasaud,source,id",
         ],
         help=" ".join(
             [
@@ -145,7 +163,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 "The default sort used by yt_clipper is similar to the yt_dlp default",
                 "except higher filesize and bitrate are preferred over a codec hierarchy.",
                 "This default sort is closer to the behavior of youtube_dl but not the same.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -175,7 +193,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 "In MaxSpeed mode, targets the fps of the highest speed seen in the dynamic speed chart.",
                 "In VideoFPS mode, targets the fps of the input video.",
                 "MaxSpeedx2 and VideoFPSx2 modes double the target fps from the previous two modes.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -190,7 +208,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 "This filter is resource intensive and will take longer to process the higher the target fps.",
                 "Motion interpolation can and will introduce artifacting (visual glitches).",
                 "Artifacting increases with the speed and complexity of the video.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -206,7 +224,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 "The minimum is 4 while the maximum is very large, but above 1024 there should be no practical use.",
                 "A higher or lower value than default may help to reduce artifacting",
                 "depending on the source video, but no general recommendation can be given.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -225,7 +243,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 "Enabling this option requires a custom build of ffmpeg named ffmpeg_ytc.",
                 "ffmpeg_ytc must be present inside the bin folder of the clipper installation.",
                 "Currently ffmpeg_ytc is available only for windows.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -239,7 +257,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 "Add a fixed delay to both the start and end time of each marker pair.",
                 "This can be used to correct desync between the markup video and the input video.",
                 "Can be negative.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -253,7 +271,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 "Add a fixed delay to the start and end time of the audio of each marker pair.",
                 "This can be used to correct audio desync present in the source video.",
                 "Note that the audio delay is applied on top of the overall delay from `--delay`/`-d`.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -266,7 +284,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             [
                 "Apply luminance gamma correction.",
                 "Pass in a value between 0 and 1 to brighten shadows and reveal darker details.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -286,7 +304,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             [
                 "Apply the hqdn3d denoise filter using a preset strength level from 0-5",
                 "where 0 is disabled and 5 is very strong.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -300,7 +318,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             [
                 "Apply video stabilization using a preset strength from 0-6",
                 "where 0 is disabled and 6 is strongest.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -312,7 +330,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             [
                 "Enable video stabilization dynamic zoom.",
                 "Unlike a static zoom the zoom in can vary with time to reduce cropping of video.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -326,7 +344,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 "When video stabilization is enabled,",
                 "set the per-frame maximum angle in degrees for rotation-based stabilization.",
                 "Negative values impose no limit.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -340,7 +358,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 "When video stabilization is enabled,",
                 "set the per-frame maximum shift in pixels for shift-based stabilization.",
                 "Negative values impose no limit.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -352,7 +370,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             [
                 "Remove duplicate frames from input video.",
                 "This option is automatically enabled when motion interpolation is enabled.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -364,11 +382,14 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             [
                 "Force disable removing of duplicate frames from input video.",
                 "Overrides --remove-duplicate-frames option.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
-        "--deinterlace", "-di", action="store_true", help="Apply bwdif deinterlacing."
+        "--deinterlace",
+        "-di",
+        action="store_true",
+        help="Apply bwdif deinterlacing.",
     )
     parser.add_argument(
         "--expand-color-range",
@@ -397,7 +418,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 "When fade loop is enabled, set the duration of the fade for both clip start and end.",
                 "The fade duration is clamped to a minimum of 0.1 seconds",
                 "and a maximum of 40%% of the output clip duration.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -406,7 +427,9 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         type=float,
         dest="audioFade",
         default=0,
-        help=("Fade the audio in at start and out at end by the specified duration in seconds."),
+        help=(
+            "Fade the audio in at start and out at end by the specified duration in seconds."
+        ),
     )
     parser.add_argument(
         "--encode-speed",
@@ -423,7 +446,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             [
                 "Set constant rate factor (crf). Default is 30 for video file input.",
                 "Automatically set to a factor of the detected video bitrate",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -441,8 +464,8 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         help=" ".join(
             [
                 "Set target max bitrate in kilobits/s. Constrains bitrate of complex scenes."
-                "Automatically set based on detected video bitrate."
-            ]
+                "Automatically set based on detected video bitrate.",
+            ],
         ),
     )
     parser.add_argument(
@@ -458,7 +481,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 "vp9 is the default and most tested video codec with yt_clipper.",
                 "vp9 generally offers a better quality-size trade-off than vp8.",
                 "h264 was added more recently and is not as well tested as vp9.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -471,7 +494,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 "Disable reducing output clip sutter when using the h264 output video codec.",
                 "When disabled, output clips will all use the input video framerate and slowed down clips may have duplicate frames that cause some stuttering.",
                 "This may be useful when merging h264 videos however as in some cases keeping the same framerate results in smoother transitions between clips.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -484,7 +507,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 "Automatically download and add subtitles from YouTube in the specified language.",
                 "Subtitles will be burned (hardcoded) into the video.",
                 "The argument to this option is a two-letter language code (eg en, fr, ko, ja).",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -497,7 +520,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 "Provide a subtitles file in vtt, sbv, or srt format.",
                 "Subtitles will be burned (hardcoded) into the video.",
                 "This option will take precedence over `--auto-subs-lang`.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -510,7 +533,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 "Specify an ASS format string for styling subtitles.",
                 "The provided styles will override those specified in the subs file.",
                 "See https://fileformats.fandom.com/wiki/SubStation_Alpha#Styles_section.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -522,7 +545,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             [
                 "Disable automatically scaling the crop resolution",
                 "when a mismatch with video resolution is detected.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -532,7 +555,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         help=" ".join(
             [
                 "Enable preview mode. Skips generating clips and instead prompts for marker pairs to preview.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -560,7 +583,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 "The only metadata currently added is the videoTitle from the markers .json file.",
                 "Also tries to strip any other metadata that may otherwise be added.",
                 "Some basic video properties such as the duration or muxing app will remain.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -578,7 +601,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 "to use double quotes for the outermost quotes due to a bug.",
                 "Arguments that conflict with the arguments automatically added ",
                 "by yt_clipper may cause errors.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -592,7 +615,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 "Target file size in megabytes.",
                 "A target size of 0 or less means unlimited.",
                 "Note that this will use an estimated a constant bitrate for encoding.",
-            ]
+            ],
         ),
     )
     parser.add_argument(
@@ -644,7 +667,9 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
     return parser
 
 
-def getArgs(clipper_paths: ClipperPaths) -> Tuple[Dict[str, Any], List[str], List[str], List[str]]:
+def getArgs(
+    clipper_paths: ClipperPaths,
+) -> Tuple[Dict[str, Any], List[str], List[str], List[str]]:
     parser = getArgParser(clipper_paths)
 
     argFiles: List[str] = parser.parse_known_args()[0].argFiles
@@ -653,10 +678,11 @@ def getArgs(clipper_paths: ClipperPaths) -> Tuple[Dict[str, Any], List[str], Lis
     defaultArgs: List[str] = []
     for argFile in argFiles:
         args = []
-        if Path(argFile).is_file():
-            with open(argFile, "r", encoding="utf-8") as f:
-                lines = [l.lstrip() for l in f.readlines()]
-                lines = "".join([l for l in lines if not l.startswith("#")])
+        argFilePath = Path(argFile)
+        if argFilePath.is_file():
+            with Path.open(argFilePath, encoding="utf-8") as f:
+                lines = [line.lstrip() for line in f.readlines()]
+                lines = "".join([line for line in lines if not line.startswith("#")])
                 args = lines.split()
                 defaultArgs += args
 
@@ -679,19 +705,18 @@ def getVersionString(ffmpeg_path: str) -> str:
 
 
 class ArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
-    def _get_help_string(self, action) -> Optional[str]:
+    def _get_help_string(self, action: argparse.Action) -> Optional[str]:
         if action.help is None:
             return None
 
         help_str = action.help
-        if "%(default)" not in action.help:
-            if action.default is not argparse.SUPPRESS:
-                defaulting_nargs = [argparse.OPTIONAL, argparse.ZERO_OR_MORE]
-                if action.option_strings or action.nargs in defaulting_nargs:
-                    if isinstance(action.default, str):
-                        help_str += " (default: %(default)r)"
-                    else:
-                        help_str += " (default: %(default)s)"
+        if "%(default)" not in action.help and action.default is not argparse.SUPPRESS:
+            defaulting_nargs = [argparse.OPTIONAL, argparse.ZERO_OR_MORE]
+            if action.option_strings or action.nargs in defaulting_nargs:
+                if isinstance(action.default, str):
+                    help_str += " (default: %(default)r)"
+                else:
+                    help_str += " (default: %(default)s)"
         return help_str
 
 
@@ -763,7 +788,7 @@ def getDenoisePreset(level: int) -> DictStrAny:
     return denoisePreset
 
 
-def getYoutubeDLAlternativeVersion(module: str):
+def getYoutubeDLAlternativeVersion(module: str) -> str:
     try:
         youtube_dl_alternative = importlib.import_module(module)
         return "v" + youtube_dl_alternative.version.__version__

@@ -18,10 +18,10 @@
   },
   "scripts": {
     "pretty:ts": "npx prettier \"src/**/*.{ts,js,json}\" --write",
-    "pretty:py": "poetry run isort src/clipper && poetry run black src/clipper",
+    "pretty:py": "poetry run ruff check --select I --fix src/clipper && poetry run ruff format src/clipper",
     "test:py": "poetry run pytest src/clipper -s --cov=src/clipper --cov-report=html -m \"not slow\"",
     "test:py:slow": "poetry run pytest src/clipper -s --cov=src/clipper --cov-report=html",
-    "lint:py": "poetry run pylint src/clipper",
+    "lint:py": "poetry run ruff check src/clipper",
     "build:ts": "npx tsc --watch",
     "build:ts:ne": "npx tsc --noEmit --watch",
     "build:ts:p": "run-s -c build:ts pretty",

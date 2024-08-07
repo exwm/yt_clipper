@@ -19,34 +19,38 @@ def get_available_youtube_dl_alternative() -> str:
         return YOUTUBE_DL_ALTERNATIVE_YOUTUBE_DL
 
     print(
-        f"No supported youtube_dl alternatives available. SUPPORTED_YOUTUBE_DL_ALTERNATIVES={SUPPORTED_YOUTUBE_DL_ALTERNATIVES}'"
+        f"No supported youtube_dl alternatives available. SUPPORTED_YOUTUBE_DL_ALTERNATIVES={SUPPORTED_YOUTUBE_DL_ALTERNATIVES}'",
     )
     print("Exiting...")
     sys.exit(1)
 
 
-def import_youtube_dl_alternative(youtube_dl_alternative: str):
+def import_youtube_dl_alternative(youtube_dl_alternative: str):  # noqa: ANN201
     if is_module_available(youtube_dl_alternative):
         if youtube_dl_alternative == "yt_dlp":
             import yt_dlp as youtube_dl  # pylint: disable=redefined-outer-name
         else:
             import youtube_dl
     else:
-        logger.fatal(f"Could not find requested yotube_dl alternative '{youtube_dl_alternative}'")
+        logger.fatal(
+            f"Could not find requested yotube_dl alternative '{youtube_dl_alternative}'",
+        )
         logger.fatal("Exiting...")
         sys.exit(1)
 
     return youtube_dl
 
 
-def import_available_youtube_dl_alternative():
+def import_available_youtube_dl_alternative():  # noqa: ANN201
     available_youtube_dl_alternative = get_available_youtube_dl_alternative()
-    youtube_dl_alternative = import_youtube_dl_alternative(available_youtube_dl_alternative)
+    youtube_dl_alternative = import_youtube_dl_alternative(
+        available_youtube_dl_alternative,
+    )
     return youtube_dl_alternative
 
 
-def set_youtube_dl_alternative(youtube_dl_alternative: str):
-    global youtube_dl  # pylint: disable=global-statement
+def set_youtube_dl_alternative(youtube_dl_alternative: str) -> None:
+    global youtube_dl  # pylint: disable=global-statement  # noqa: PLW0603
     youtube_dl = import_youtube_dl_alternative(youtube_dl_alternative)
 
 

@@ -21,7 +21,7 @@ from clipper.ytc_logger import logger
 
 
 def loadSettings(settings: Settings) -> None:
-    with open(settings["json"], "r", encoding="utf-8-sig") as file:
+    with Path.open(Path(settings["json"]), encoding="utf-8-sig") as file:
         markersJson = file.read()
         markersDict = json.loads(markersJson)
         settings.update(markersDict)
@@ -31,16 +31,20 @@ def loadSettings(settings: Settings) -> None:
         settings["platform"] = settings.get("platform", "youtube")
 
         settings["videoPageURL"] = getVideoPageURL(
-            settings, settings["platform"], settings["videoID"]
+            settings,
+            settings["platform"],
+            settings["videoID"],
         )
         settings["videoTitle"] = re.sub('"', "", settings["videoTitle"])
         settings["markersDataFileStem"] = Path(settings["json"]).stem
 
         if settings["markersDataFileStem"] != settings["markersDataFileStem"].rstrip():
             logger.fatal(
-                "FATAL: Markers data file name stem (excluding .json extension) must not end in whitespace."
+                "FATAL: Markers data file name stem (excluding .json extension) must not end in whitespace.",
             )
-            logger.fatal(f"""markersDataFileStem={repr(settings["markersDataFileStem"])}.""")
+            logger.fatal(
+                f"""markersDataFileStem={settings["markersDataFileStem"]!r}.""",
+            )
             logger.fatal("Exiting...")
             sys.exit(1)
         settings["titleSuffix"] = settings["markersDataFileStem"]
@@ -56,14 +60,18 @@ def getInputVideo(cs: ClipperState) -> None:
     settings = cs.settings
     cp = cs.clipper_paths
 
-    input_video_pattern = r"^" + re.escape(settings["downloadVideoNameStem"]) + r"\.[^.]+$"
+    input_video_pattern = (
+        r"^" + re.escape(settings["downloadVideoNameStem"]) + r"\.[^.]+$"
+    )
     potentialInputVideos = [
         f"{cp.clipsPath}/{iv}"
         for iv in os.listdir(cp.clipsPath)
         if re.search(input_video_pattern, iv)
     ]
 
-    settings["automaticFetching"] = not settings["inputVideo"] and not settings["downloadVideo"]
+    settings["automaticFetching"] = (
+        not settings["inputVideo"] and not settings["downloadVideo"]
+    )
 
     if (
         settings["automaticFetching"]
@@ -74,50 +82,58 @@ def getInputVideo(cs: ClipperState) -> None:
         logger.info(f"Found potential input video at path {potentialInputVideos[0]}.")
         if len(potentialInputVideos) > 1:
             logger.warning(
-                f"Also found the following other potential input videos {potentialInputVideos[1:]}."
+                f"Also found the following other potential input videos {potentialInputVideos[1:]}.",
             )
         settings["inputVideo"] = potentialInputVideos[0]
 
     if settings["automaticFetching"] and settings["preview"]:
         logger.warning(
-            "Preview mode was enabled without providing a local input video and video downloading disabled."
+            "Preview mode was enabled without providing a local input video and video downloading disabled.",
         )
         logger.warning(
-            "Automatic fetching of video stream chunks provides a poor preview experience."
+            "Automatic fetching of video stream chunks provides a poor preview experience.",
         )
         logger.warning(
-            "Automatically fetched video previews can only loop up to 32767 frames (~9 min at 60fps)."
+            "Automatically fetched video previews can only loop up to 32767 frames (~9 min at 60fps).",
         )
         logger.warning(
             "When previewing, a local video file uses less memory and does not require re-streaming from the"
-            "internet on seek with right-click."
+            "internet on seek with right-click.",
         )
-        logger.warning("A local video also enables toggling of video correction filters with W.")
+        logger.warning(
+            "A local video also enables toggling of video correction filters with W.",
+        )
         if not settings["noAutoFindInputVideo"] and len(potentialInputVideos) > 0:
-            logger.info(f"Found potential input video at path {potentialInputVideos[0]}.")
-            useFoundInputVideo = input(r"Would you like to use this input video? (y/n): ")
+            logger.info(
+                f"Found potential input video at path {potentialInputVideos[0]}.",
+            )
+            useFoundInputVideo = input(
+                r"Would you like to use this input video? (y/n): ",
+            )
             if useFoundInputVideo in {"yes", "y"}:
                 settings["inputVideo"] = potentialInputVideos[0]
 
         if not settings["inputVideo"]:
             try:
                 logger.info(
-                    "You may be able to drag and drop the input video file at the following prompt."
+                    "You may be able to drag and drop the input video file at the following prompt.",
                 )
                 settings["inputVideo"] = input(
-                    f"Specify an input video path OR press ENTER to continue without doing so: "
+                    f"Specify an input video path OR press ENTER to continue without doing so: ",
                 )
                 if settings["inputVideo"] == "":
                     logger.info(
                         f"The video can also be downloaded before previewing to the path: "
-                        f'"{settings["downloadVideoPath"]}"'
+                        f'"{settings["downloadVideoPath"]}"',
                     )
-                    logger.info("Note the file extension will be automatically determined.")
                     logger.info(
-                        "If the file already exists it will be used as is without re-downloading."
+                        "Note the file extension will be automatically determined.",
+                    )
+                    logger.info(
+                        "If the file already exists it will be used as is without re-downloading.",
                     )
                     downloadVideo = input(
-                        f"Would you like to automatically download the video? (y/n): "
+                        f"Would you like to automatically download the video? (y/n): ",
                     )
                     if downloadVideo in {"yes", "y"}:
                         settings["downloadVideo"] = True
@@ -127,7 +143,7 @@ def getInputVideo(cs: ClipperState) -> None:
     if settings["inputVideo"]:
         if not Path(settings["inputVideo"]).is_file():
             logger.critical(
-                f'Input video file "{settings["inputVideo"]}" does not exist or is not a file.'
+                f'Input video file "{settings["inputVideo"]}" does not exist or is not a file.',
             )
             logger.critical(f"Exiting...")
             sys.exit(1)
@@ -140,7 +156,10 @@ def getVideoInfo(cs: ClipperState) -> None:
 
     UNSUPPORTED_VIDEO_STREAMING_PROTOCOLS = ["m3u8", "m3u8_native"]
 
-    if not settings["enableVideoStreamingProtocolHLS"] and settings["platform"] != KnownPlatform.afreecatv.name:
+    if (
+        not settings["enableVideoStreamingProtocolHLS"]
+        and settings["platform"] != KnownPlatform.afreecatv.name
+    ):
         logger.notice("HLS streaming protocol (m3u8) is disabled.")
         disableVideoStreamingProtocols(settings, UNSUPPORTED_VIDEO_STREAMING_PROTOCOLS)
 
@@ -153,25 +172,30 @@ def getVideoInfo(cs: ClipperState) -> None:
         and settings["platform"] != KnownPlatform.afreecatv.name
     ):
         logger.warning(
-            f'In streaming mode, got video with unsupported streaming protocol {videoInfo["protocol"]}.'
+            f'In streaming mode, got video with unsupported streaming protocol {videoInfo["protocol"]}.',
         )
-        logger.warning(f"Unsupported streaming protocols: {UNSUPPORTED_VIDEO_STREAMING_PROTOCOLS}")
         logger.warning(
-            f"m3u8 and m3u8_native streaming protocols may require downloading the entire video before trimming and may occasionally fail anyways"
+            f"Unsupported streaming protocols: {UNSUPPORTED_VIDEO_STREAMING_PROTOCOLS}",
+        )
+        logger.warning(
+            f"m3u8 and m3u8_native streaming protocols may require downloading the entire video before trimming and may occasionally fail anyways",
         )
 
         logger.warning(
-            f"To avoid processing failures due to streaming m3u8/m3u8 native, consider downloading the video first either automatically with --download-video or the yt_clipper_auto_download helper script or manually and then specifying the video with --input-video or the yt_clipper_auto_input_video helper script"
+            f"To avoid processing failures due to streaming m3u8/m3u8 native, consider downloading the video first either automatically with --download-video or the yt_clipper_auto_download helper script or manually and then specifying the video with --input-video or the yt_clipper_auto_input_video helper script",
         )
 
         response = input(r"Disable potentially unsupported protocols? (y/n): ")
         if response in {"yes", "y"}:
             logger.info(f"Retrying with potentially unsupported protocols disabled.")
-            disableVideoStreamingProtocols(settings, UNSUPPORTED_VIDEO_STREAMING_PROTOCOLS)
+            disableVideoStreamingProtocols(
+                settings,
+                UNSUPPORTED_VIDEO_STREAMING_PROTOCOLS,
+            )
             videoInfo, audioInfo = _getVideoInfo(cs)
         else:
             logger.warning(
-                f'Continuing with potentially unsupported protocol {videoInfo["protocol"]}'
+                f'Continuing with potentially unsupported protocol {videoInfo["protocol"]}',
             )
 
     if settings["downloadVideo"]:
@@ -183,7 +207,7 @@ def getVideoInfo(cs: ClipperState) -> None:
     getMoreVideoInfo(cs, videoInfo, audioInfo)
 
 
-def disableVideoStreamingProtocols(settings: Settings, protocols: List[str]):
+def disableVideoStreamingProtocols(settings: Settings, protocols: List[str]) -> None:
     disableClause = "".join(f"[protocol!={protocol}]" for protocol in protocols)
     settings["format"] = f'({settings["format"]}){disableClause}'
 
@@ -213,10 +237,16 @@ def _getVideoInfo(cs: ClipperState) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     importlib.reload(ytdl_importer.youtube_dl)
     with ytdl_importer.youtube_dl.YoutubeDL(ydl_opts) as ydl:
         if settings["downloadVideo"]:
-            ydl_info: Dict[str, Any] = ydl.extract_info(settings["videoPageURL"], download=True)  # type: ignore
+            ydl_info: Dict[str, Any] = ydl.extract_info(
+                settings["videoPageURL"],
+                download=True,
+            )  # type: ignore
             settings["downloadVideoPath"] = f'{settings["downloadVideoPath"]}.mkv'
         else:
-            ydl_info: Dict[str, Any] = ydl.extract_info(settings["videoPageURL"], download=False)  # type: ignore
+            ydl_info: Dict[str, Any] = ydl.extract_info(
+                settings["videoPageURL"],
+                download=False,
+            )  # type: ignore
 
     settings["videoType"] = ydl_info.get("_type")
 
@@ -273,26 +303,48 @@ def getMoreVideoInfo(cs: ClipperState, videoInfo: Dict, audioInfo: Dict) -> None
     if "r_frame_rate" not in settings:
         DEFAULT_VIDEO_FPS = 30
         if videoInfo["fps"] is None:
-            logger.warning(f"Could not determine video fps. Assuming {DEFAULT_VIDEO_FPS} fps.")
+            logger.warning(
+                f"Could not determine video fps. Assuming {DEFAULT_VIDEO_FPS} fps.",
+            )
         settings["r_frame_rate"] = (
             videoInfo["fps"] if videoInfo["fps"] is not None else DEFAULT_VIDEO_FPS
         )
 
     logger.report(f'Video Title: {settings["videoTitle"]}')
 
-    videoFormat = util.dictTryGetKeys(videoInfo, "vcodec", "format", default=UNKNOWN_PROPERTY)
-    videoFormatID = util.dictTryGetKeys(videoInfo, "format_id", default=UNKNOWN_PROPERTY)
-    audioFormat = util.dictTryGetKeys(audioInfo, "acodec", "format", default=UNKNOWN_PROPERTY)
-    audioFormatID = util.dictTryGetKeys(audioInfo, "format_id", default=UNKNOWN_PROPERTY)
+    videoFormat = util.dictTryGetKeys(
+        videoInfo,
+        "vcodec",
+        "format",
+        default=UNKNOWN_PROPERTY,
+    )
+    videoFormatID = util.dictTryGetKeys(
+        videoInfo,
+        "format_id",
+        default=UNKNOWN_PROPERTY,
+    )
+    audioFormat = util.dictTryGetKeys(
+        audioInfo,
+        "acodec",
+        "format",
+        default=UNKNOWN_PROPERTY,
+    )
+    audioFormatID = util.dictTryGetKeys(
+        audioInfo,
+        "format_id",
+        default=UNKNOWN_PROPERTY,
+    )
 
     logger.report(f"Video Format: {videoFormat} ({videoFormatID})")
     # TODO: improve detection of when unique audio stream format information is available
     if videoFormat != audioFormat:
         logger.report(f"Audio Format: {audioFormat} ({audioFormatID})")
 
-    logger.report(f'Video Width: {settings["width"]}, Video Height: {settings["height"]}')
     logger.report(
-        f'Video FPS: {settings["r_frame_rate"]}, Video Bitrate: {settings["bit_rate"]}kbps'
+        f'Video Width: {settings["width"]}, Video Height: {settings["height"]}',
+    )
+    logger.report(
+        f'Video FPS: {settings["r_frame_rate"]}, Video Bitrate: {settings["bit_rate"]}kbps',
     )
 
     autoSetCropMultiples(settings)
@@ -304,26 +356,28 @@ def getGlobalSettings(cs: ClipperState) -> None:
 
     logger.report(f'Video Page URL: {settings["videoPageURL"]}')
     logger.report(
-        f'Merge List: {settings["markerPairMergeList"] if settings["markerPairMergeList"] else "None"}'
+        f'Merge List: {settings["markerPairMergeList"] if settings["markerPairMergeList"] else "None"}',
     )
 
     if settings["subsFilePath"] == "" and settings["autoSubsLang"] != "":
         getSubs(cs)
         if not Path(settings["subsFilePath"]).is_file():
             logger.critical(
-                f'Could not download subtitles with language id {settings["autoSubsLang"]}.'
+                f'Could not download subtitles with language id {settings["autoSubsLang"]}.',
             )
             sys.exit(1)
     elif settings["subsFilePath"] != "":
         if not Path(settings["subsFilePath"]).is_file():
-            logger.critical(f'Could not find subtitles file at "{settings["subsFilePath"]}"')
+            logger.critical(
+                f'Could not find subtitles file at "{settings["subsFilePath"]}"',
+            )
             sys.exit(1)
         else:
             logger.success(f'Found subtitles file at "{settings["subsFilePath"]}"')
 
     if settings["subsFilePath"] != "":
-        subsPath = f"{cp.clipsPath}/subs"
-        os.makedirs(subsPath, exist_ok=True)
+        subsPath = Path(f"{cp.clipsPath}/subs")
+        subsPath.mkdir(parents=True, exist_ok=True)
         subs_ext = Path(settings["subsFilePath"]).suffix
         if subs_ext not in [".vtt", ".sbv", ".srt"]:
             logger.error(f"Unknown subtitle file extension {subs_ext}.")
@@ -345,17 +399,13 @@ def getGlobalSettings(cs: ClipperState) -> None:
 
     logger.info("-" * 80)
     unknownColorSpaceMsg = "unknown (bt709 will be assumed for color range operations)"
-    globalColorSpaceMsg = (
-        f'{settings["color_space"] if settings["color_space"] else unknownColorSpaceMsg}'
-    )
+    globalColorSpaceMsg = f'{settings["color_space"] if settings["color_space"] else unknownColorSpaceMsg}'
     logger.info(
-        (
-            f'Automatically determined encoding settings: CRF: {encodeSettings["crf"]} (0-63), '
-            + f'Auto Target Max Bitrate: {encodeSettings["autoTargetMaxBitrate"]}kbps, '
-            + f"Detected Color Space: {globalColorSpaceMsg}, "
-            + f'Two-pass Encoding Enabled: {encodeSettings["twoPass"]}, '
-            + f'Encoding Speed: {encodeSettings["encodeSpeed"]} (0-5)'
-        )
+        f'Automatically determined encoding settings: CRF: {encodeSettings["crf"]} (0-63), '
+        + f'Auto Target Max Bitrate: {encodeSettings["autoTargetMaxBitrate"]}kbps, '
+        + f"Detected Color Space: {globalColorSpaceMsg}, "
+        + f'Two-pass Encoding Enabled: {encodeSettings["twoPass"]}, '
+        + f'Encoding Speed: {encodeSettings["encodeSpeed"]} (0-5)',
     )
 
     encodeSettings = {**encodeSettings, **settings}
@@ -370,35 +420,37 @@ def getGlobalSettings(cs: ClipperState) -> None:
     )
     minterpFPSMsg = f"Target FPS: {getMinterpFPS(settings, None)}, "
     logger.info(
-        (
-            f'Global Encoding Settings: Video Codec: {settings["videoCodec"]}, CRF: {encodeSettings["crf"]} (0-63), '
-            + f'Detected Bitrate: {settings["bit_rate"]}kbps, '
-            + f"Global Target Bitrate: {globalTargetBitrateMsg}, "
-            + f'Two-pass Encoding Enabled: {encodeSettings["twoPass"]}, '
-            + f'Encoding Speed: {encodeSettings["encodeSpeed"]} (0-5), '
-            + f'Audio Enabled: {settings["audio"]}, '
-            + f'Denoise: {settings["denoise"]["desc"]}, Rotate: {settings["rotate"]}, '
-            + f'Expand Color Range Enabled: {settings["expandColorRange"]}, '
-            + f'Speed Maps Enabled: {settings["enableSpeedMaps"]}, '
-            + f'Minterpolation Mode: {settings["minterpMode"]}, '
-            + minterpFPSMsg
-            + f'Special Looping: {settings["loop"]}, '
-            + (f'Fade Duration: {settings["fadeDuration"]}, ' if settings["loop"] == "fade" else "")
-            + f'Video Stabilization Strength: {settings["videoStabilization"]["desc"]}, '
-            + f"Video Stabilization Max Angle: "
-            + (
-                f'{settings["videoStabilizationMaxAngle"]} degrees, '
-                if settings["videoStabilizationMaxAngle"] >= 0
-                else "Unlimited, "
-            )
-            + f"Video Stabilization Max Shift: "
-            + (
-                f'{settings["videoStabilizationMaxShift"]} pixels, '
-                if settings["videoStabilizationMaxShift"] >= 0
-                else "Unlimited, "
-            )
-            + f'Video Stabilization Dynamic Zoom: {settings["videoStabilizationDynamicZoom"]}'
+        f'Global Encoding Settings: Video Codec: {settings["videoCodec"]}, CRF: {encodeSettings["crf"]} (0-63), '
+        + f'Detected Bitrate: {settings["bit_rate"]}kbps, '
+        + f"Global Target Bitrate: {globalTargetBitrateMsg}, "
+        + f'Two-pass Encoding Enabled: {encodeSettings["twoPass"]}, '
+        + f'Encoding Speed: {encodeSettings["encodeSpeed"]} (0-5), '
+        + f'Audio Enabled: {settings["audio"]}, '
+        + f'Denoise: {settings["denoise"]["desc"]}, Rotate: {settings["rotate"]}, '
+        + f'Expand Color Range Enabled: {settings["expandColorRange"]}, '
+        + f'Speed Maps Enabled: {settings["enableSpeedMaps"]}, '
+        + f'Minterpolation Mode: {settings["minterpMode"]}, '
+        + minterpFPSMsg
+        + f'Special Looping: {settings["loop"]}, '
+        + (
+            f'Fade Duration: {settings["fadeDuration"]}, '
+            if settings["loop"] == "fade"
+            else ""
         )
+        + f'Video Stabilization Strength: {settings["videoStabilization"]["desc"]}, '
+        + f"Video Stabilization Max Angle: "
+        + (
+            f'{settings["videoStabilizationMaxAngle"]} degrees, '
+            if settings["videoStabilizationMaxAngle"] >= 0
+            else "Unlimited, "
+        )
+        + f"Video Stabilization Max Shift: "
+        + (
+            f'{settings["videoStabilizationMaxShift"]} pixels, '
+            if settings["videoStabilizationMaxShift"] >= 0
+            else "Unlimited, "
+        )
+        + f'Video Stabilization Dynamic Zoom: {settings["videoStabilizationDynamicZoom"]}',
     )
 
 
@@ -414,22 +466,32 @@ def autoSetCropMultiples(settings: Settings) -> None:
         logger.info("Crop resolution does not match video resolution")
         if settings["cropResWidth"] != settings["width"]:
             logger.info(
-                f'Crop resolution width ({settings["cropResWidth"]}) not equal to video width ({settings["width"]})'
+                f'Crop resolution width ({settings["cropResWidth"]}) not equal to video width ({settings["width"]})',
             )
         if settings["cropResHeight"] != settings["height"]:
             logger.info(
-                f'Crop resolution height ({settings["cropResHeight"]}) not equal to video height ({settings["height"]})'
+                f'Crop resolution height ({settings["cropResHeight"]}) not equal to video height ({settings["height"]})',
             )
 
         if not settings["noAutoScaleCropRes"]:
-            logger.info(f"Crop X offset and width will be multiplied by {cropMultipleX}")
-            logger.info(f"Crop Y offset and height will be multiplied by {cropMultipleY}")
-            settings.update({"cropMultipleX": cropMultipleX, "cropMultipleY": cropMultipleY})
+            logger.info(
+                f"Crop X offset and width will be multiplied by {cropMultipleX}",
+            )
+            logger.info(
+                f"Crop Y offset and height will be multiplied by {cropMultipleY}",
+            )
+            settings.update(
+                {"cropMultipleX": cropMultipleX, "cropMultipleY": cropMultipleY},
+            )
         else:
             logger.info(f"Auto scale crop resolution disabled in settings.")
 
 
-def filterDash(cs: ClipperState, dashManifestUrl: str, dashFormatIDs: List[str]) -> str:
+def filterDash(
+    cs: ClipperState,
+    dashManifestUrl: str,
+    dashFormatIDs: List[str],
+) -> Path:
     cp = cs.clipper_paths
 
     from urllib import request
@@ -444,8 +506,8 @@ def filterDash(cs: ClipperState, dashManifestUrl: str, dashFormatIDs: List[str])
         if elementId not in dashFormatIDs:
             rep.parentNode.removeChild(rep)
 
-    filteredDashPath = f"{cp.clipsPath}/filtered-dash.xml"
-    with open(filteredDashPath, "w+", encoding="utf-8") as filteredDash:
+    filteredDashPath = Path(f"{cp.clipsPath}/filtered-dash.xml")
+    with filteredDashPath.open("w+", encoding="utf-8") as filteredDash:
         filteredDash.write(dashdom.toxml())
 
     return filteredDashPath

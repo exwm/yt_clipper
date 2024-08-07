@@ -1,6 +1,7 @@
 import pytest
 
 from clipper import ffmpeg_filter
+from clipper.clipper_types import CropMap
 
 SMALL_CROP_MAP = [
     {"x": 7.130523, "y": 0, "crop": "109:426:540:960"},
@@ -28,16 +29,21 @@ LARGE_REDUNDANT_CROP_MAP = [
 ]
 
 
-def test_getCropFilter(snapshot):
+def test_getCropFilter(snapshot: str) -> None:
     cropFilter = ffmpeg_filter.getCropFilter(
-        "109:426:540:960", LARGE_REDUNDANT_CROP_MAP, 60, easeType="easeOutCubic"
+        "109:426:540:960",
+        LARGE_REDUNDANT_CROP_MAP,
+        60,
+        easeType="easeOutCubic",
     )
     assert cropFilter == snapshot
 
 
-def test_getZoomPanFilter(snapshot):
+def test_getZoomPanFilter(snapshot: str) -> None:
     cropFilter, _maxSize = ffmpeg_filter.getZoomPanFilter(
-        LARGE_REDUNDANT_CROP_MAP, 60, easeType="easeOutCubic"
+        LARGE_REDUNDANT_CROP_MAP,
+        60,
+        easeType="easeOutCubic",
     )
     assert cropFilter == snapshot
 
@@ -46,11 +52,19 @@ def test_getZoomPanFilter(snapshot):
     "cropMap",
     [SMALL_CROP_MAP, MEDIUM_CROP_MAP],
 )
-def test_small_getCropFilter(cropMap):
+def test_small_getCropFilter(cropMap: CropMap) -> None:
     cropFilterOld = ffmpeg_filter.getCropFilterOld(
-        "109:426:540:960", cropMap, 60, easeType="linear"
+        "109:426:540:960",
+        cropMap,
+        60,
+        easeType="linear",
     )
-    cropFilter = ffmpeg_filter.getCropFilter("109:426:540:960", cropMap, 60, easeType="linear")
+    cropFilter = ffmpeg_filter.getCropFilter(
+        "109:426:540:960",
+        cropMap,
+        60,
+        easeType="linear",
+    )
 
     cropFilterOld = cropFilterOld.split(":")
     cropFilter = cropFilter.split(":")
@@ -64,10 +78,18 @@ def test_small_getCropFilter(cropMap):
     "cropMap",
     [SMALL_CROP_MAP, MEDIUM_CROP_MAP],
 )
-def test_small_getZoomPanFilter(cropMap):
-    cropFilterOld, _maxSize = ffmpeg_filter.getZoomPanFilterOld(cropMap, 60, easeType="linear")
+def test_small_getZoomPanFilter(cropMap: CropMap) -> None:
+    cropFilterOld, _maxSize = ffmpeg_filter.getZoomPanFilterOld(
+        cropMap,
+        60,
+        easeType="linear",
+    )
     cropFilterOld = cropFilterOld.split(":")
-    cropFilter, _maxSize = ffmpeg_filter.getZoomPanFilter(cropMap, 60, easeType="linear")
+    cropFilter, _maxSize = ffmpeg_filter.getZoomPanFilter(
+        cropMap,
+        60,
+        easeType="linear",
+    )
     cropFilter = cropFilter.split(":")
     assert len(cropFilterOld) == len(cropFilter)
     for exprOld, expr in zip(cropFilterOld, cropFilter):

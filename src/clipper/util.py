@@ -9,7 +9,7 @@ def is_module_available(mod: str) -> bool:
     return importlib_util.find_spec(mod) is not None
 
 
-def dictTryGetKeys(d: Dict, *keys: str, default=None) -> Any:
+def dictTryGetKeys(d: Dict, *keys: str, default: Any = None) -> Any:  # noqa: ANN401
     for key in keys:
         value = d.get(key)
         if value is not None:
