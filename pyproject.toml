@@ -17,17 +17,17 @@ coloredlogs = "^15.0.1"
 notify-py = "^0.3.3"
 verboselogs = "^1.7"
 webvtt-py = "^0.4.6"
-certifi = ">=2021.10.8"
+certifi = ">=2024.7.4"
 
 [tool.poetry.group.dev.dependencies]
 pyinstaller = "6.9.0"
 bumpit = "^0.8.0"
-syrupy = "^4.0.8"
-ruff = "0.5.6"
+syrupy = "^4.6.1"
+ruff = "0.5.7"
 
 [tool.poetry.group.test.dependencies]
-pytest = "^7.0.0"
-pytest-cov = "^4.0.0"
+pytest = "^8.3.2"
+pytest-cov = "^5.0.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
