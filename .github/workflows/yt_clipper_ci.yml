@@ -124,7 +124,7 @@ jobs:
         run: |
           poetry install --no-interaction --no-root
 
-      - name: Lint with pylint
+      - name: Lint with ruff
         run: |
           npm run lint:py
 

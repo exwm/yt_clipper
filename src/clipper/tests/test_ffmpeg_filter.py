@@ -62,7 +62,6 @@ def test_small_getCropFilter(cropMap: CropMap, snapshot: str) -> None:
     assert ffmpegFilter == snapshot
 
 
-
 @pytest.mark.parametrize(
     "cropMap",
     [SMALL_CROP_MAP, MEDIUM_CROP_MAP],
@@ -74,4 +73,3 @@ def test_small_getZoomPanFilter(cropMap: CropMap, snapshot: str) -> None:
         easeType="linear",
     )
     assert ffmpegFilter == snapshot
-
