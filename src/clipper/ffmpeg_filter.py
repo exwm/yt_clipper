@@ -580,3 +580,15 @@ def getEasingExpression(
 
     easingExpression = f"({easeA}+({easeB}-{easeA})*{ease})"
     return easingExpression
+
+
+def videoStabilizationGammaFixFilter(filter_to_wrap: str) -> str:
+    gammaCorrectionFactor = 0.6
+
+    wrapped_filter = (
+        f"lutyuv=y=gammaval({gammaCorrectionFactor}),"
+        + filter_to_wrap
+        + f",lutyuv=y=gammaval(1/{gammaCorrectionFactor})"
+    )
+
+    return wrapped_filter

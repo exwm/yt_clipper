@@ -29,6 +29,7 @@ from clipper.ffmpeg_filter import (
     getSpeedFilterAndDuration,
     getSubsFilter,
     getZoomPanFilter,
+    videoStabilizationGammaFixFilter,
 )
 from clipper.platforms import getFfmpegHeaders
 from clipper.util import escapeSingleQuotesFFmpeg, getTrimmedBase64Hash
@@ -473,15 +474,13 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
 
         shakyClipPath = f'{shakyPath}/{mp["fileNameStem"]}-shaky.{mp["fileNameSuffix"]}'
 
-        videoStabilizationLowContrastGammaCorrection = 0.6
-
         video_filter += "[shaky];[shaky]"
         vidstabdetectFilter = (
             video_filter
-            + f"lutyuv=y=gammaval({videoStabilizationLowContrastGammaCorrection}),"
             + f"""vidstabdetect=result='{transformPath}':shakiness={vidstab["shakiness"]}"""
-            + f",lutyuv=y=gammaval(1/{videoStabilizationLowContrastGammaCorrection})"
         )
+
+        vidstabdetectFilter = videoStabilizationGammaFixFilter(vidstabdetectFilter)
 
         if mps["videoStabilizationMaxAngle"] < 0:
             mps["videoStabilizationMaxAngle"] = -1
@@ -492,7 +491,6 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
 
         vidstabtransformFilter = (
             video_filter
-            + f"lutyuv=y=gammaval({videoStabilizationLowContrastGammaCorrection}),"
             + f"""vidstabtransform=input='{transformPath}':smoothing={vidstab["smoothing"]}"""
             + f""":maxangle={mps["videoStabilizationMaxAngle"]}"""
             + f""":maxshift={mps["videoStabilizationMaxShift"]}"""
@@ -501,9 +499,7 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
         if mps["videoStabilizationDynamicZoom"]:
             vidstabtransformFilter += f':optzoom=2:zoomspeed={vidstab["zoomspeed"]}'
 
-        vidstabtransformFilter += (
-            f",lutyuv=y=gammaval(1/{videoStabilizationLowContrastGammaCorrection})"
-        )
+        vidstabtransformFilter = videoStabilizationGammaFixFilter(vidstabtransformFilter)
 
         if "minterpMode" in mps and mps["minterpMode"] != "None":
             vidstabtransformFilter += getMinterpFilter(mp, mps)
