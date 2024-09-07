@@ -269,7 +269,10 @@ def _getVideoInfo(cs: ClipperState) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         audioInfo = videoInfo
         settings["mergedStreams"] = True
 
-    # print(json.dumps(videoInfo))
+    # logger.important(f"videoInfo={json.dumps(videoInfo)}")
+
+    dynamic_range: str = videoInfo.get("dynamic_range", "")
+    settings["inputIsHDR"] = settings.get("inputIsHDR") or dynamic_range.lower().startswith("hdr")
 
     return videoInfo, audioInfo
 
@@ -342,7 +345,9 @@ def getMoreVideoInfo(cs: ClipperState, videoInfo: Dict, audioInfo: Dict) -> None
     logger.report(
         f'Video FPS: {settings["r_frame_rate"]}, Video Bitrate: {settings["bit_rate"]}kbps',
     )
-
+    logger.report(
+        f'Video Dynamic Range: {videoInfo.get("dynamic_range")}',
+    )
     autoSetCropMultiples(settings)
 
 

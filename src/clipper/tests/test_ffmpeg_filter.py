@@ -40,57 +40,38 @@ def test_getCropFilter(snapshot: str) -> None:
 
 
 def test_getZoomPanFilter(snapshot: str) -> None:
-    cropFilter, _maxSize = ffmpeg_filter.getZoomPanFilter(
+    ffmpegFilter, _maxSize = ffmpeg_filter.getZoomPanFilter(
         LARGE_REDUNDANT_CROP_MAP,
         60,
         easeType="easeOutCubic",
     )
-    assert cropFilter == snapshot
+    assert ffmpegFilter == snapshot
 
 
 @pytest.mark.parametrize(
     "cropMap",
     [SMALL_CROP_MAP, MEDIUM_CROP_MAP],
 )
-def test_small_getCropFilter(cropMap: CropMap) -> None:
-    cropFilterOld = ffmpeg_filter.getCropFilterOld(
+def test_small_getCropFilter(cropMap: CropMap, snapshot: str) -> None:
+    ffmpegFilter = ffmpeg_filter.getCropFilter(
         "109:426:540:960",
         cropMap,
         60,
         easeType="linear",
     )
-    cropFilter = ffmpeg_filter.getCropFilter(
-        "109:426:540:960",
-        cropMap,
-        60,
-        easeType="linear",
-    )
+    assert ffmpegFilter == snapshot
 
-    cropFilterOld = cropFilterOld.split(":")
-    cropFilter = cropFilter.split(":")
-
-    assert len(cropFilterOld) == len(cropFilter)
-    for exprOld, expr in zip(cropFilterOld, cropFilter):
-        assert exprOld == expr
 
 
 @pytest.mark.parametrize(
     "cropMap",
     [SMALL_CROP_MAP, MEDIUM_CROP_MAP],
 )
-def test_small_getZoomPanFilter(cropMap: CropMap) -> None:
-    cropFilterOld, _maxSize = ffmpeg_filter.getZoomPanFilterOld(
+def test_small_getZoomPanFilter(cropMap: CropMap, snapshot: str) -> None:
+    ffmpegFilter, _maxSize = ffmpeg_filter.getZoomPanFilter(
         cropMap,
         60,
         easeType="linear",
     )
-    cropFilterOld = cropFilterOld.split(":")
-    cropFilter, _maxSize = ffmpeg_filter.getZoomPanFilter(
-        cropMap,
-        60,
-        easeType="linear",
-    )
-    cropFilter = cropFilter.split(":")
-    assert len(cropFilterOld) == len(cropFilter)
-    for exprOld, expr in zip(cropFilterOld, cropFilter):
-        assert exprOld == expr
+    assert ffmpegFilter == snapshot
+

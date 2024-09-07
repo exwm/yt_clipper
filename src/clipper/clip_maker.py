@@ -150,8 +150,9 @@ def getMarkerPairSettings(  # noqa: PLR0912
     mp["maxSize"] = cropComponents["w"] * cropComponents["h"]
     if mp["isZoomPanCrop"]:
         mp["cropFilter"], mp["maxSize"] = getZoomPanFilter(
-            mp["cropMap"],
-            mps["r_frame_rate"],
+            cropMap=mp["cropMap"],
+            fps=mps["r_frame_rate"],
+            inputIsHDR=settings["inputIsHDR"],
         )
     elif mp["isPanningCrop"]:
         mp["cropFilter"] = getCropFilter(mp["crop"], mp["cropMap"], mps["r_frame_rate"])

@@ -52,6 +52,13 @@ def ffprobeVideoProperties(cs: ClipperState, videoURL: str) -> Optional[DictStrA
         else:
             logger.warning(f"Ignoring estimated bit rate from ffprobe as it is 0.")
 
+        logger.important(f"ffprobeData={ffprobeData}")
+        color_transfer = ffprobeData.get("color_transfer")
+        settings["inputIsHDR"] = settings.get("inputIsHDR") or color_transfer in (
+            "smpte2084",
+            "arib-std-b67",
+        )
+
         return ffprobeData["streams"][0]
 
     return None
