@@ -427,9 +427,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         type=float,
         dest="audioFade",
         default=0,
-        help=(
-            "Fade the audio in at start and out at end by the specified duration in seconds."
-        ),
+        help=("Fade the audio in at start and out at end by the specified duration in seconds."),
     )
     parser.add_argument(
         "--encode-speed",

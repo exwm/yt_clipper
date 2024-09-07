@@ -8,7 +8,7 @@ from clipper.yt_clipper import main
 this_dir = pathlib.Path(__file__).parent.resolve()
 
 
-@pytest.mark.slow()
+@pytest.mark.slow
 def test_get_version_info(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture,
@@ -24,7 +24,7 @@ def test_get_version_info(
     assert "ffmpeg" in out
 
 
-@pytest.mark.slow()
+@pytest.mark.slow
 def test_make_clip(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture,
@@ -50,7 +50,7 @@ def test_make_clip(
     print(out, err)
 
 
-@pytest.mark.slow()
+@pytest.mark.slow
 def test_make_clip_with_local_input_video(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture,

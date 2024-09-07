@@ -60,18 +60,14 @@ def getInputVideo(cs: ClipperState) -> None:
     settings = cs.settings
     cp = cs.clipper_paths
 
-    input_video_pattern = (
-        r"^" + re.escape(settings["downloadVideoNameStem"]) + r"\.[^.]+$"
-    )
+    input_video_pattern = r"^" + re.escape(settings["downloadVideoNameStem"]) + r"\.[^.]+$"
     potentialInputVideos = [
         f"{cp.clipsPath}/{iv}"
         for iv in os.listdir(cp.clipsPath)
         if re.search(input_video_pattern, iv)
     ]
 
-    settings["automaticFetching"] = (
-        not settings["inputVideo"] and not settings["downloadVideo"]
-    )
+    settings["automaticFetching"] = not settings["inputVideo"] and not settings["downloadVideo"]
 
     if (
         settings["automaticFetching"]
@@ -399,7 +395,9 @@ def getGlobalSettings(cs: ClipperState) -> None:
 
     logger.info("-" * 80)
     unknownColorSpaceMsg = "unknown (bt709 will be assumed for color range operations)"
-    globalColorSpaceMsg = f'{settings["color_space"] if settings["color_space"] else unknownColorSpaceMsg}'
+    globalColorSpaceMsg = (
+        f'{settings["color_space"] if settings["color_space"] else unknownColorSpaceMsg}'
+    )
     logger.info(
         f'Automatically determined encoding settings: CRF: {encodeSettings["crf"]} (0-63), '
         + f'Auto Target Max Bitrate: {encodeSettings["autoTargetMaxBitrate"]}kbps, '
@@ -432,11 +430,7 @@ def getGlobalSettings(cs: ClipperState) -> None:
         + f'Minterpolation Mode: {settings["minterpMode"]}, '
         + minterpFPSMsg
         + f'Special Looping: {settings["loop"]}, '
-        + (
-            f'Fade Duration: {settings["fadeDuration"]}, '
-            if settings["loop"] == "fade"
-            else ""
-        )
+        + (f'Fade Duration: {settings["fadeDuration"]}, ' if settings["loop"] == "fade" else "")
         + f'Video Stabilization Strength: {settings["videoStabilization"]["desc"]}, '
         + f"Video Stabilization Max Angle: "
         + (

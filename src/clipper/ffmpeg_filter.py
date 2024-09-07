@@ -23,9 +23,7 @@ def getSubs(cs: ClipperState) -> None:
     settings = cs.settings
 
     settings["subsFileStem"] = f'{cp.clipsPath}/subs/{settings["titleSuffix"]}'
-    settings["subsFilePath"] = (
-        f'{settings["subsFileStem"]}.{settings["autoSubsLang"]}.vtt'
-    )
+    settings["subsFilePath"] = f'{settings["subsFileStem"]}.{settings["autoSubsLang"]}.vtt'
 
     ydl_opts = {
         "skip_download": True,
@@ -134,9 +132,7 @@ def getMinterpFilter(mp: Dict[str, Any], mps: Dict[str, Any]) -> str:
         minterpEnable = ""
 
     if minterpFPS is not None:
-        minterpFilter = (
-            f""",minterpolate={minterpEnable}fps=({minterpFPS}):mi_mode=mci"""
-        )
+        minterpFilter = f""",minterpolate={minterpEnable}fps=({minterpFPS}):mi_mode=mci"""
         minterpFilter += f""":mc_mode=aobmc:me_mode=bidir:vsbmc=1"""
         sp = max(mps["minterpSearchParam"], 4)
         minterpFilter += f""":search_param={sp}:scd_threshold=8:mb_size=16"""
@@ -162,11 +158,7 @@ def getMinterpFPS(
     maxFPS = maxSpeed * videoFPS
 
     minterpFPS = None
-    if (
-        minterpMode == "Numeric"
-        and "minterpFPS" in mps
-        and mps["minterpFPS"] is not None
-    ):
+    if minterpMode == "Numeric" and "minterpFPS" in mps and mps["minterpFPS"] is not None:
         minterpFPS = min(120, mps["minterpFPS"])
     if minterpMode == "MaxSpeed":
         minterpFPS = maxFPS
@@ -215,9 +207,7 @@ def getSubsFilter(
     subsStart = mp["start"]
     subsEnd = mp["end"]
     vtt._captions = [  # pylint: disable=protected-access
-        c
-        for c in vtt.captions
-        if c.start_in_seconds < subsEnd and c.end_in_seconds > subsStart
+        c for c in vtt.captions if c.start_in_seconds < subsEnd and c.end_in_seconds > subsStart
     ]
     for _i, caption in enumerate(vtt.captions):
         start = caption.start_in_seconds
@@ -765,9 +755,7 @@ def getEasingExpression(
     elif easingFunc == "easeOutCircle":
         ease = f"sqrt(1-{easeM}^2)"
     elif easingFunc == "easeInOutCircle":
-        ease = (
-            f"if(lt({easeT},1), (1-sqrt(1-{easeT}^2))*0.5, (sqrt(1-4*{easeM}^2)+1)*0.5)"
-        )
+        ease = f"if(lt({easeT},1), (1-sqrt(1-{easeT}^2))*0.5, (sqrt(1-4*{easeM}^2)+1)*0.5)"
     else:
         return None
 
