@@ -567,7 +567,9 @@ async function loadytClipper() {
     if (platform === VideoPlatforms.youtube) {
       const playerData = player.getVideoData();
       videoInfo.id = playerData.video_id;
+      videoInfo.videoUrl += '?v=' + videoInfo.id;
       videoInfo.title = playerData.title;
+
       video.seekTo = (time) => player.seekTo(time);
     } else if (platform === VideoPlatforms.vlive) {
       const location = window.location;
