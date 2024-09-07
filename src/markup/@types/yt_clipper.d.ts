@@ -18,6 +18,7 @@ interface Settings {
   crf?: number;
   targetMaxBitrate?: number;
   rotate?: '0' | 'clock' | 'cclock';
+  enableHDR?: boolean;
   gamma?: number;
   twoPass?: boolean;
   denoise?: Denoise;
@@ -78,6 +79,7 @@ interface MarkerConfig {
 
 interface MarkerPairOverrides {
   titlePrefix?: string;
+  enableHDR?: boolean;
   gamma?: number;
   encodeSpeed?: number;
   crf?: number;

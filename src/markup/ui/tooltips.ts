@@ -48,7 +48,7 @@ export namespace Tooltips {
 
   export const rotateTooltip = stripIndent`
     Correct video rotation by rotating the input video clockwise or counterclockwise by 90 degrees.
-    Note that the YouTube video rotate preview using the R/Alt+R shortcuts does NOT affect the output video. 
+    Note that the YouTube video rotate preview using the R/Alt+R shortcuts does NOT affect the output video.
     `;
 
   export const mergeListTooltip = stripIndent`
@@ -93,6 +93,10 @@ export namespace Tooltips {
     Significantly reduces encode speed.
     `;
 
+  export const hdrTooltip = stripIndent`
+    Enabling HDR (high dynamic range) may improve the output video's image vibrancy and colors at the expense of file size and playback compatibility.
+    `;
+
   export const gammaTooltip = stripIndent`
     A gamma function is used to map input luminance values to output luminance values or vice versa.
     Note that the gamma preview is not accurate. Use the offline previewer for more accurate gamma preview.
@@ -104,11 +108,6 @@ export namespace Tooltips {
     Use the gamma preview toggle (Alt+C) to set the gamma to taste.
     `;
 
-  export const expandColorRangeTooltip = stripIndent`
-    This filter tries to enhance the vividness of colors, make shadows darker, and make highlights brighter.
-    The result may not be accurate and your mileage will vary depending on the input video.
-    `;
-
   export const denoiseTooltip = stripIndent`
     Reduce noise, static, and blockiness at the cost of some encoding speed.
     Improves compression efficiency and thus reduces file sizes.
@@ -116,7 +115,7 @@ export namespace Tooltips {
     `;
 
   export const minterpModeTooltip = stripIndent`
-    Motion interpolation (minterp for short) is sometimes called optical flow, super slowmo, or just interpolation. 
+    Motion interpolation (minterp for short) is sometimes called optical flow, super slowmo, or just interpolation.
     Motion interpolation is typically used to increase fps and achieve smoother slow motion.
     Motion interpolation is in Numeric mode by default. This requires a valid fps (10-120) input to work.
     A higher fps value requires more resources and time to encode.
@@ -165,9 +164,9 @@ export namespace Tooltips {
     Switching from zoompan to pan-only mode requires removing zooms.
     That is, all crop points must be made to have the same size.
     This can be the (s)mallest, (l)argest or (a)verage size in the crop map.
-    
+
     Enter 's' for ${sw}x${sh}, 'l' for ${lw}x${lh}, or 'a' for ${aw}x${ah}.
-    
+
     *Note that choosing (l)argest or (a)verage will shift crops as necessary.
   `;
   }

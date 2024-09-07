@@ -430,7 +430,7 @@ def getGlobalSettings(cs: ClipperState) -> None:
         + f'Encoding Speed: {encodeSettings["encodeSpeed"]} (0-5), '
         + f'Audio Enabled: {settings["audio"]}, '
         + f'Denoise: {settings["denoise"]["desc"]}, Rotate: {settings["rotate"]}, '
-        + f'Expand Color Range Enabled: {settings["expandColorRange"]}, '
+        + f'HDR (High Dynamic Range) Output Enabled: {settings["enableHDR"]}, '
         + f'Speed Maps Enabled: {settings["enableSpeedMaps"]}, '
         + f'Minterpolation Mode: {settings["minterpMode"]}, '
         + minterpFPSMsg

@@ -2152,6 +2152,7 @@ async function loadytClipper() {
           settings.targetMaxBitrate != null ? settings.targetMaxBitrate : ''
         }" placeholder="Auto" style="min-width:4em"></input>
       </div>
+
       <div class="settings-editor-input-div" title="${Tooltips.twoPassTooltip}">
         <span>Two-Pass</span>
         <select id="two-pass-input">
@@ -2160,12 +2161,23 @@ async function loadytClipper() {
           <option ${settings.twoPass ? 'selected' : ''}>Enabled</option>
         </select>
       </div>
+
       <div class="settings-editor-input-div" title="${Tooltips.gammaTooltip}">
         <span>Gamma (0-4)</span>
         <input id="gamma-input" type="number" min="0.01" max="4.00" step="0.01" value="${
           settings.gamma != null ? settings.gamma : ''
         }" placeholder="1" style="min-width:4em"></input>
       </div>
+
+      <div class="settings-editor-input-div" title="${Tooltips.hdrTooltip}">
+        <span>Enable HDR</span>
+        <select id="enable-hdr-input">
+          <option value="Default" ${settings.enableHDR == null ? 'selected' : ''}>(Disabled)</option>
+          <option ${settings.enableHDR === false ? 'selected' : ''}>Disabled</option>
+          <option ${settings.enableHDR ? 'selected' : ''}>Enabled</option>
+        </select>
+      </div>
+
       <div class="settings-editor-input-div" title="${Tooltips.denoiseTooltip}">
         <span>Denoise</span>
         <select id="denoise-input">
@@ -2257,6 +2269,7 @@ async function loadytClipper() {
       ['speed-input', 'newMarkerSpeed', 'number'],
       ['title-suffix-input', 'titleSuffix', 'string'],
       ['merge-list-input', 'markerPairMergeList', 'string'],
+      ['enable-hdr-input', 'enableHDR', 'ternary'],
       ['gamma-input', 'gamma', 'number'],
       ['encode-speed-input', 'encodeSpeed', 'number'],
       ['crf-input', 'crf', 'number'],
@@ -2644,13 +2657,26 @@ async function loadytClipper() {
         <div class="settings-editor-input-div" title="${Tooltips.twoPassTooltip}">
           <span>Two-Pass</span>
           <select id="two-pass-input">
-            <option value="Default" ${
-              overrides.twoPass == null ? 'selected' : ''
-            }>${ternaryToString(settings.twoPass)}</option>
+            <option value="Default" ${overrides.twoPass == null ? 'selected' : ''}>
+              ${ternaryToString(settings.twoPass)}
+            </option>
             <option ${overrides.twoPass === false ? 'selected' : ''}>Disabled</option>
             <option ${overrides.twoPass ? 'selected' : ''}>Enabled</option>
           </select>
         </div>
+
+      <div class="settings-editor-input-div" title="${Tooltips.hdrTooltip}">
+        <span>Enable HDR</span>
+        <select id="enable-hdr-input">
+          <option value="Default" ${overrides.enableHDR == null ? 'selected' : ''}>
+            ${ternaryToString(settings.enableHDR)}
+          </option>
+          <option ${overrides.enableHDR === false ? 'selected' : ''}>Disabled</option>
+          <option ${overrides.enableHDR ? 'selected' : ''}>Enabled</option>
+        </select>
+      </div>
+
+      </div>
         <div class="settings-editor-input-div" title="${Tooltips.gammaTooltip}">
           <span>Gamma (0-4)</span>
           <input id="gamma-input" type="number" min="0.01" max="4.00" step="0.01" value="${
@@ -2659,6 +2685,7 @@ async function loadytClipper() {
             settings.gamma != null ? settings.gamma : '1'
           }" style="min-width:4em"></input>
         </div>
+
         <div class="settings-editor-input-div" title="${Tooltips.denoiseTooltip}">
           <span>Denoise</span>
           <select id="denoise-input">
@@ -2777,6 +2804,7 @@ async function loadytClipper() {
 
     const overrideInputConfigs = [
       ['title-prefix-input', 'titlePrefix', 'string'],
+      ['enable-hdr-input', 'enableHDR', 'ternary'],
       ['gamma-input', 'gamma', 'number'],
       ['encode-speed-input', 'encodeSpeed', 'number'],
       ['crf-input', 'crf', 'number'],

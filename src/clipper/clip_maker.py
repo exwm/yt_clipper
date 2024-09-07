@@ -165,8 +165,8 @@ def getMarkerPairSettings(  # noqa: PLR0912
 
     # relax bitrate crop factor assuming that most crops include complex parts
     # of the video and exclude simpler parts
-    bitrateRelaxationFactor = 0.8
-    bitrateCropFactor = min(1, bitrateCropFactor**bitrateRelaxationFactor)
+    bitrateCropRelaxationFactor = 0.8
+    bitrateCropFactor = min(1, bitrateCropFactor**bitrateCropRelaxationFactor)
 
     bitrateSpeedFactor = mp["averageSpeed"]
     mps["minterpFPS"] = getMinterpFPS(mps, mp["speedMap"])
@@ -176,7 +176,9 @@ def getMarkerPairSettings(  # noqa: PLR0912
         )
         bitrateSpeedFactor **= 0.5
 
-    bitrateFactor = bitrateCropFactor * bitrateSpeedFactor
+    bitrateHDRFactor = 1.1 if mps["inputIsHDR"] else 1
+
+    bitrateFactor = min(1, bitrateCropFactor * bitrateSpeedFactor * bitrateHDRFactor)
 
     globalEncodeSettings = getDefaultEncodeSettings(mps["bit_rate"])
     autoMarkerPairEncodeSettings = getDefaultEncodeSettings(
@@ -195,7 +197,7 @@ def getMarkerPairSettings(  # noqa: PLR0912
         + f"Bitrate Crop Factor: {bitrateCropFactor}, Bitrate Speed Factor {bitrateSpeedFactor}, "
         + f'Adjusted Target Max Bitrate: {mps["autoTargetMaxBitrate"]}kbps, '
         + f'Two-pass Encoding Enabled: {mps["twoPass"]}, Encoding Speed: {mps["encodeSpeed"]} (0-5), '
-        + f'Expand Color Range Enabled: {mps["expandColorRange"]}, '
+        + f'HDR (High Dynamic Range) Output Enabled: {mps["enableHDR"]}, '
         + f'Audio Enabled: {mps["audio"]}, Denoise: {mps["denoise"]["desc"]}, '
         + f'Marker Pair {markerPairIndex + 1} is of variable speed: {mp["isVariableSpeed"]}, '
         + f'Speed Maps Enabled: {mps["enableSpeedMaps"]}, '
@@ -367,8 +369,6 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
 
     if 0 <= mps["gamma"] <= 4 and mps["gamma"] != 1:
         video_filter += f',lutyuv=y=gammaval({mps["gamma"]})'
-    if mps["expandColorRange"]:
-        video_filter += f',colorspace=all={settings["color_space"] if settings["color_space"] else "bt709"}:range=pc'
     if mps["denoise"]["enabled"]:
         video_filter += f',hqdn3d=luma_spatial={mps["denoise"]["lumaSpatial"]}'
     # if mps["scale"]:
@@ -654,10 +654,21 @@ def getFfmpegVideoCodecVpx(
     else:
         fps_arg = "-fps_mode vfr"
 
+    sdr_args = "-pix_fmt yuv420p"
+    hdr_args = "-profile:v 2 -pix_fmt yuv420p10le -color_primaries bt2020 -color_trc smpte2084 -colorspace bt2020nc"
+
+    dynamic_range_args = sdr_args
+    if mps["enableHDR"]:
+        if videoCodec == "vp8":
+            logger.warning("HDR output was requested but vp8 does not support HDR.")
+        else:
+            dynamic_range_args = hdr_args
+
     video_codec_args = " ".join(
         (
             f"-c:v libvpx-vp9" if videoCodec != "vp8" else f"-c:v libvpx",
-            f"-pix_fmt yuv420p -slices 8",
+            dynamic_range_args,
+            f"-slices 8",
             f"-aq-mode 4 -row-mt 1 -tile-columns 6 -tile-rows 2" if videoCodec != "vp8" else "",
             f'-qmin {qmin} -crf {mps["crf"]} -qmax {qmax}' if mps["targetSize"] <= 0 else "",
             f'-b:v {mps["targetMaxBitrate"]}k' if cbr is None else f"-b:v {cbr}MB",
@@ -691,10 +702,21 @@ def getFfmpegVideoCodecH264(
     # The me_method and me_range have a fairly significant impact on encoding speed and could be tweaked
     # Currently going with a high me_method (umh vs the default hex), and a moderate me_range (32 for higher resolutions vs the default 16)
     me_range = 16 if pixel_count < (1800 * 1000) else 32
+
+    sdr_args = "-pix_fmt yuv420p"
+    hdr_args = (
+        "-pix_fmt yuv420p10le -color_primaries bt2020 -color_trc smpte2084 -colorspace bt2020nc"
+    )
+
+    dynamic_range_args = sdr_args
+    if mps["enableHDR"]:
+        dynamic_range_args = hdr_args
+
     video_codec_args = " ".join(
         (
             f"-c:v libx264",
-            f"-pix_fmt yuv420p",
+            f"-movflags write_colr",
+            dynamic_range_args,
             f"-aq-mode 4",
             f'-qmin {qmin} -crf {mps["crf"]} -qmax {qmax}' if mps["targetSize"] <= 0 else "",
             f'-b:v {mps["targetMaxBitrate"]}k' if cbr is None else f"-b:v {cbr}MB",

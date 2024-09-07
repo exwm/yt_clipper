@@ -392,11 +392,10 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         help="Apply bwdif deinterlacing.",
     )
     parser.add_argument(
-        "--expand-color-range",
-        "-ecr",
-        dest="expandColorRange",
+        "--enable-hdr",
+        dest="enableHDR",
         action="store_true",
-        help="Expand the output video color range to full (0-255).",
+        help="Use HDR (high dynamic range) for output videos. Typically this improves image vibrancy and colors at the expense of file size and playback compatibility.",
     )
     parser.add_argument(
         "--loop",
