@@ -47,6 +47,28 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--log-level",
+        dest="logLevel",
+        type=int,
+        default=15,  # VERBOSE
+        help=" ".join(
+            [
+                "Change the log level of yt-clipper. Should be between 0 and 56.",
+                "All logs above the chosen level will be shown and the rest will be hidden.",
+                """Log Level Reference:
+                  CRITICAL = 50
+                  FATAL = CRITICAL
+                  ERROR = 40
+                  WARNING = 30
+                  WARN = WARNING
+                  INFO = 20
+                  DEBUG = 10
+                  NOTSET = 0
+                """,
+            ],
+        ),
+    )
+    parser.add_argument(
         "--input-video",
         "-i",
         dest="inputVideo",

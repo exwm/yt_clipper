@@ -46,6 +46,8 @@ def main() -> None:
     logger.report(f"{getFfmpegVersion(cs.clipper_paths.ffmpegPath)}")
     logger.info("-" * 80)
 
+    logger.debug(f"The following  arguments were read from the command line {sys.argv[1:]}:")
+
     if defArgs:
         logger.notice(f"The following default arguments were read from {argFiles}:")
         logger.notice(defArgs)

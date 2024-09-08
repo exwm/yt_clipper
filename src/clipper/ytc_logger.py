@@ -45,13 +45,15 @@ def setUpLogger(cs: ClipperState) -> None:
     formatString = r"[%(asctime)s] (ln %(lineno)d) %(levelname)s: %(message)s"
     coloredlogs.DEFAULT_LOG_FORMAT = formatString
     coloredlogs.DEFAULT_FIELD_STYLES["levelname"] = {"color": "white"}
-    coloredlogs.DEFAULT_LEVEL_STYLES["IMPORTANT"] = {"color": 209}  # type: ignore
+    coloredlogs.DEFAULT_LEVEL_STYLES["DEBUG"] = {"color": 219}  # pink # type: ignore
+    coloredlogs.DEFAULT_LEVEL_STYLES["IMPORTANT"] = {"color": 209}  # orange  # type: ignore
     coloredlogs.DEFAULT_LEVEL_STYLES["NOTICE"] = {"color": "magenta"}
     coloredlogs.DEFAULT_LEVEL_STYLES["HEADER"] = {"color": "blue"}
     coloredlogs.DEFAULT_LEVEL_STYLES["REPORT"] = {"color": "cyan"}
 
     datefmt = "%y-%m-%d %H:%M:%S"
-    coloredlogs.install(level=logging.DEBUG, datefmt=datefmt)
+    log_level = settings.get("logLevel") or verboselogs.VERBOSE
+    coloredlogs.install(level=log_level, datefmt=datefmt)
 
     coloredFormatter = coloredlogs.ColoredFormatter(datefmt=datefmt)
 
