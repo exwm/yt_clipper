@@ -77,6 +77,13 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--fast-trim",
+        "-ft",
+        action="store_true",
+        dest="fastTrim",
+        help="Enable fast trim mode. Generates output clips very quickly by skipping re-encoding. The output will use the same video and audio codec as the input. Will output video clips with imprecise time trim and will disable most features including crop and speed.",
+    )
+    parser.add_argument(
         "--overlay",
         "-ov",
         dest="overlayPath",

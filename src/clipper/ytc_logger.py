@@ -6,6 +6,15 @@ import verboselogs
 
 from clipper.clipper_types import ClipperState
 
+# CRITICAL = 50
+# FATAL = CRITICAL
+# ERROR = 40
+# WARNING = 30
+# WARN = WARNING
+# INFO = 20
+# DEBUG = 10
+# NOTSET = 0
+
 
 class YTCLogger(verboselogs.VerboseLogger):
     def important(self, msg: str, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
@@ -42,7 +51,7 @@ def setUpLogger(cs: ClipperState) -> None:
     coloredlogs.DEFAULT_LEVEL_STYLES["REPORT"] = {"color": "cyan"}
 
     datefmt = "%y-%m-%d %H:%M:%S"
-    coloredlogs.install(level=verboselogs.VERBOSE, datefmt=datefmt)
+    coloredlogs.install(level=logging.DEBUG, datefmt=datefmt)
 
     coloredFormatter = coloredlogs.ColoredFormatter(datefmt=datefmt)
 

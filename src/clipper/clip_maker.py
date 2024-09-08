@@ -56,7 +56,15 @@ def getMarkerPairSettings(  # noqa: PLR0912
             mps["titlePrefix"] = cleanFileName(mps["titlePrefix"])
         titlePrefix = f'{mps["titlePrefix"] + "-" if "titlePrefix" in mps else ""}'
         mp["fileNameStem"] = f'{titlePrefix}{mps["titleSuffix"]}-{markerPairIndex + 1}'
-        mp["fileNameSuffix"] = "mp4" if mps["videoCodec"] == "h264" else "webm"
+
+        if mps["fastTrim"]:
+            if mps["inputVideo"]:
+                mp["fileNameSuffix"] = Path(mps["inputVideo"]).suffix.removeprefix(".")
+            else:
+                mp["fileNameSuffix"] = mps["ext"]
+        else:
+            mp["fileNameSuffix"] = "mp4" if mps["videoCodec"] == "h264" else "webm"
+
         mp["fileName"] = f'{mp["fileNameStem"]}.{mp["fileNameSuffix"]}'
         mp["filePath"] = f'{cp.clipsPath}/{mp["fileName"]}'
         mp["exists"] = checkClipExists(
@@ -237,6 +245,63 @@ def findVideoPart(mp: DictStrAny, mps: DictStrAny) -> Optional[DictStrAny]:
     return None
 
 
+FFMPEG_NETWORK_INPUT_FLAGS = (
+    r"-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+)
+
+
+def fastTrimClip(
+    cs: ClipperState,
+    markerPairIndex: int,
+    mp: DictStrAny,
+    mps: DictStrAny,
+) -> Optional[Dict[str, Any]]:
+    settings = cs.settings
+    cp = cs.clipper_paths
+    inputs = ""
+
+    if mp["isVariableSpeed"] or mps["loop"] != "none":
+        mps["audio"] = False
+
+    if mps["audio"]:
+        aStart = mp["start"] + mps["audioDelay"]
+        aEnd = mp["end"] + mps["audioDelay"]
+        # aDuration = aEnd - aStart
+        # ffplay previewing does not support multiple inputs
+        # if an input video is provided or previewing is on, there is only one input
+        if not mps["inputVideo"] and not settings["preview"]:
+            inputs += FFMPEG_NETWORK_INPUT_FLAGS
+            inputs += f' -ss {aStart} -to {aEnd} -i "{mps["audioDownloadURL"]}" '
+        # when streaming the required chunks from the internet the video and audio inputs are separate
+        else:
+            mps["audio"] = False
+            logger.warning(
+                "Audio disabled when previewing without an input video over non-dash protocol.",
+            )
+
+    if not mps["inputVideo"]:
+        inputs += FFMPEG_NETWORK_INPUT_FLAGS
+
+    videoStart = mp["start"]
+    videoEnd = mp["end"]
+    if mps["inputVideo"]:
+        inputs += f' -ss {videoStart} -to {videoEnd} -i "{mps["inputVideo"]}" '
+    elif mps["videoType"] != "multi_video":
+        inputs += f' -ss {videoStart} -to {videoEnd} -i "{mps["videoDownloadURL"]}" '
+    elif "videoPart" in mp:
+        videoPart = mp["videoPart"]
+        inputs += f' -ss {videoStart} -to {videoEnd} -i "{videoPart["url"]}" '
+    else:
+        logger.error(
+            f'Failed to generate: "{mp["fileName"]}". The marker pair defines a clip that spans multiple video parts which is not currently supported.',
+        )
+        return None
+
+    ffmpegCommand = getFfmpegCommandFastTrim(cp, inputs, mp, mps)
+
+    return runffmpegCommand(settings, [ffmpegCommand], markerPairIndex, mp)
+
+
 def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]:  # noqa: PLR0912
     settings = cs.settings
     cp = cs.clipper_paths
@@ -246,6 +311,12 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
     if mp["exists"] and not mps["overwrite"]:
         return {**(settings["markerPairs"][markerPairIndex]), **mp}
 
+    if mps["fastTrim"]:
+        logger.notice(
+            f"Fast-trim enabled for marker pair {markerPairIndex}. Features that require re-encoding (including crop and speed) will be disabled.",
+        )
+        return fastTrimClip(cs, markerPairIndex, mp, mps)
+
     inputs = ""
     audio_filter = ""
     video_filter = ""
@@ -253,7 +324,6 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
     if mp["isVariableSpeed"] or mps["loop"] != "none":
         mps["audio"] = False
 
-    inputFlags = r"-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5"
     if mps["audio"]:
         aStart = mp["start"] + mps["audioDelay"]
         aEnd = mp["end"] + mps["audioDelay"]
@@ -261,7 +331,7 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
         # ffplay previewing does not support multiple inputs
         # if an input video is provided or previewing is on, there is only one input
         if not mps["inputVideo"] and not settings["preview"]:
-            inputs += inputFlags
+            inputs += FFMPEG_NETWORK_INPUT_FLAGS
             inputs += f' -ss {aStart} -to {aEnd} -i "{mps["audioDownloadURL"]}" '
 
         # preview mode does not start each clip at time 0 unlike encoding mode
@@ -283,7 +353,7 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
             audio_filter += f',{mps["extraAudioFilters"]}'
 
     if not mps["inputVideo"]:
-        inputs += inputFlags
+        inputs += FFMPEG_NETWORK_INPUT_FLAGS
 
     if mps["inputVideo"]:
         inputs += f' -ss {mp["start"]} -i "{mps["inputVideo"]}" '
@@ -309,7 +379,16 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
             + f'({mps["targetSize"]} MB / ~{round(mp["outputDuration"],3)} s).',
         )
 
-    ffmpegCommand = getFfmpegCommand(audio_filter, cbr, cp, inputs, mp, mps, qmax, qmin)
+    ffmpegCommand = getFfmpegCommandWithoutVideoFilter(
+        audio_filter,
+        cbr,
+        cp,
+        inputs,
+        mp,
+        mps,
+        qmax,
+        qmin,
+    )
 
     if not mps["preview"]:
         video_filter += f'trim=0:{mp["duration"]}'
@@ -574,7 +653,7 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
     return runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp)
 
 
-def getFfmpegCommand(
+def getFfmpegCommandWithoutVideoFilter(
     audio_filter: str,
     cbr: Optional[int],
     cp: ClipperPaths,
@@ -612,6 +691,36 @@ def getFfmpegCommand(
             video_output_args,
             f'{mps["extraFfmpegArgs"]}',
             " ",
+        ),
+    )
+
+
+def getFfmpegCommandFastTrim(
+    cp: ClipperPaths,
+    inputs: str,
+    mp: DictStrAny,
+    mps: DictStrAny,
+) -> str:
+    overwriteArg = " -y " if mps["overwrite"] else " -n "
+
+    return " ".join(
+        (
+            cp.ffmpegPath,
+            overwriteArg,
+            f"-hide_banner",
+            getFfmpegHeaders(mps["platform"]),
+            inputs,
+            f"-benchmark",
+            # f'-loglevel 56',
+            f"-c copy",
+            (
+                f'-metadata title="{mps["videoTitle"]}"'
+                if not mps["removeMetadata"]
+                else "-map_metadata -1"
+            ),
+            f"" if mps["audio"] else "-an",
+            f'{mps["extraFfmpegArgs"]}',
+            f'{mp["filePath"]}' " ",
         ),
     )
 

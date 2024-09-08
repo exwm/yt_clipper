@@ -51,6 +51,33 @@ def test_make_clip(
 
 
 @pytest.mark.slow
+def test_make_clip_fast_trim(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture,
+) -> None:
+    with monkeypatch.context() as m:
+        m.setattr(
+            sys,
+            "argv",
+            [
+                "yt_clipper.py",
+                "--markers-json",
+                f'{this_dir / "testdata" / "test-with-dynamic.json"}',
+                "--overwrite",
+                "--fast-trim",
+            ],
+        )
+        main()
+    out, err = capsys.readouterr()
+    # assert no warnings from a yt-dlp extractor
+    assert "WARNING: [" not in out
+    # assert no errors
+    assert "error" not in out
+    assert "ERROR" not in out
+    print(out, err)
+
+
+@pytest.mark.slow
 def test_make_clip_with_local_input_video(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture,
