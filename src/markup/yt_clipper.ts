@@ -638,7 +638,7 @@ async function loadytClipper() {
     const isCropBlockingChartVisible =
       isCurrentChartVisible && currentChartInput && currentChartInput.type !== 'crop';
     if (
-      e.key === 'Control' &&
+      (e.key === 'Control' || e.key === 'Meta') &&
       isHotkeysEnabled &&
       !e.repeat &&
       isCropOverlayVisible &&
@@ -650,7 +650,7 @@ async function loadytClipper() {
   }
 
   function removeCropHoverListener(e: KeyboardEvent) {
-    if (e.key === 'Control') {
+    if (e.key === 'Control' || e.key === 'Meta') {
       document.removeEventListener('pointermove', cropHoverHandler, true);
       showPlayerControls();
       hooks.cropMouseManipulation.style.removeProperty('cursor');
@@ -4102,15 +4102,19 @@ async function loadytClipper() {
 
   let endCropMouseManipulation: (e, forceEndDrag?: boolean) => void;
 
+  function ctrlOrCommand(e: PointerEvent) {
+    return e.ctrlKey || e.metaKey
+  }
+
   function addCropMouseManipulationListener() {
     hooks.cropMouseManipulation.addEventListener('pointerdown', cropMouseManipulationHandler, {
       capture: true,
     });
-    function cropMouseManipulationHandler(e) {
+    function cropMouseManipulationHandler(e: PointerEvent) {
       const isCropBlockingChartVisible =
         isCurrentChartVisible && currentChartInput && currentChartInput.type !== 'crop';
       if (
-        e.ctrlKey &&
+        ctrlOrCommand(e) &&
         isSettingsEditorOpen &&
         isCropOverlayVisible &&
         !isDrawingCrop &&
@@ -4128,7 +4132,7 @@ async function loadytClipper() {
 
         const { isDynamicCrop, enableZoomPan, initCropMap } = getCropMapProperties();
 
-        endCropMouseManipulation = (e, forceEnd = false) => {
+        endCropMouseManipulation = (e: PointerEvent, forceEnd = false) => {
           if (forceEnd) {
             document.removeEventListener('pointerup', endCropMouseManipulation, {
               capture: true,
@@ -4150,7 +4154,7 @@ async function loadytClipper() {
           document.removeEventListener('pointermove', cropResizeHandler);
 
           showPlayerControls();
-          if (!forceEnd && e.ctrlKey) {
+          if (!forceEnd && ctrlOrCommand(e)) {
             if (cursor) hooks.cropMouseManipulation.style.cursor = cursor;
             updateCropHoverCursor(e);
             document.addEventListener('pointermove', cropHoverHandler, true);
@@ -4499,7 +4503,7 @@ async function loadytClipper() {
     } else {
       finishDrawingCrop(true, e.pointerId);
     }
-    if (e.ctrlKey) {
+    if (ctrlOrCommand(e)) {
       document.addEventListener('pointermove', cropHoverHandler, true);
     }
   }
