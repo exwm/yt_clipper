@@ -544,6 +544,15 @@ There is an installation that does not require the dependencies below.
 4. All generated webm clips will be placed in `./webms/<markers-json-filename>`.
 5. Windows users may require [Microsoft Visual C++ 2010 Redistributable Package (x86)](https://www.microsoft.com/en-US/download/details.aspx?id=5555).
 
+## Linux Installation
+
+The clipper script requires Python version 3.8, while many distros will have a more recent version of python. This can be dealt with using [pipx](https://pipx.pypa.io):
+```bash
+pipx install git+https://github.com/exwm/yt_clipper --python 3.8 --fetch-missing-python
+```
+
+The package can be updated by running `pipx upgrade clipper`.
+
 ## Manual and Beta/Alpha Version Installation
 
 **Markup script (js):** (1) Find the `yt_clipper*.js` file in the github release assets, (2) right-click > `copy address`, (3) open user script extension dashboard, (4) find and use option to add a script via url (in tampermonkey, utilities tab > `install from url`; in violentmonkey, `+` button at top > `install from url`).
