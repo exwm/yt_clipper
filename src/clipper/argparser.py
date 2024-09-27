@@ -693,6 +693,16 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         default="yt_dlp",
         help="Choose a youtube_dl alternative for downloading videos.",
     )
+
+    parser.add_argument(
+      "--cookiefile",
+      "-cf",
+      dest="cookiefile",
+      default="",
+      help="Specify the path to a Netscape formatted cookies file to be used by youtube_dl. Use this option when sign "
+           "in is required by the video platform. On how to obtain the cookies file, "
+           "see https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp",
+    )
     return parser
 
 
