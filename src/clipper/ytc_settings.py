@@ -223,6 +223,9 @@ def _getVideoInfo(cs: ClipperState) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         "youtube_include_dash_manifest": False,
     }
 
+    if settings["cookies"] != "":
+        ydl_opts["cookiefile"] = settings["cookies"]
+
     if settings["username"] != "" or settings["password"] != "":
         ydl_opts["username"] = settings["username"]
         ydl_opts["password"] = settings["password"]
@@ -287,7 +290,7 @@ def getMoreVideoInfo(cs: ClipperState, videoInfo: Dict, audioInfo: Dict) -> None
         settings["videoType"] = "local_video"
         probedSettings = ffprobeVideoProperties(cs, settings["inputVideo"])
     else:
-        probedSettings = ffprobeVideoProperties(cs, settings["videoDownloadURL"])
+        probedSettings = ffprobeVideoProperties(cs, settings["videoDownloadURL"]) if not settings['cookies'] else None
 
     settings.update(videoInfo)
     if probedSettings is not None:
