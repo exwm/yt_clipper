@@ -290,7 +290,7 @@ def getMoreVideoInfo(cs: ClipperState, videoInfo: Dict, audioInfo: Dict) -> None
         settings["videoType"] = "local_video"
         probedSettings = ffprobeVideoProperties(cs, settings["inputVideo"])
     else:
-        probedSettings = ffprobeVideoProperties(cs, settings["videoDownloadURL"]) if not settings['cookies'] else None
+        probedSettings = ffprobeVideoProperties(cs, settings["videoDownloadURL"])
 
     settings.update(videoInfo)
     if probedSettings is not None:
