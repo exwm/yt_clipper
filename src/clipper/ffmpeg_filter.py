@@ -34,6 +34,9 @@ def getSubs(cs: ClipperState) -> None:
         "cachedir": False,
     }
 
+    if settings["cookiefile"] != "":
+        ydl_opts["cookiefile"] = settings["cookiefile"]
+
     importlib.reload(ytdl_importer.youtube_dl)
     with ytdl_importer.youtube_dl.YoutubeDL(ydl_opts) as ydl:
         ydl.download([settings["videoPageURL"]])
