@@ -2,36 +2,66 @@
 
 ## Setup
 
-1. Prerequisites:
+```bash
+# Fork and clone the repository
+git clone git@github.com:<YOUR-FORK/USERNAME>/yt_clipper.git
+cd yt_clipper
+```
 
-    - [Node.js](https://nodejs.org/) v10.0.0 or higher
-    - [Python 3](https://www.python.org/)
-    - [FFmpeg](https://ffmpeg.org/)
+### Markup Script (Browser User Script)
 
-2. In a terminal:
+Prerequisites:
 
-    ```bash
-    # Fork and clone the repository
-    git clone git@github.com:<YOUR-FORK/USERNAME>/yt_clipper.git
-    cd yt_clipper
+- [Node.js](https://nodejs.org/)
+  - See `engines` constraint in `package.json` for supported versions
 
-    # Install yarn
-    npm install --global yarn
+```bash
+# Install yarn globally
+npm install --global yarn
 
-    # Install js dependencies with yarn
-    yarn
+# Install js dependencies with yarn
+yarn
 
-    # Build and bundle markup script in watch mode with typchecking
-    yarn run bundle:tc:w
+# Build and bundle markup script in watch mode with typechecking
+# Builds will be placed in ./dist/js
+yarn run bundle:tc:w
 
-    # Bundle markup script for release
-    yarn run bundle:prod
+# Bundle markup script for release
+yarn run bundle:prod
 
-    # Build python executable
-    pip install -r src/clipper/requirements.dev.txt
-    yarn run build:py
-    mkdir -p ./dist/py/bin/  # place ffmpeg binaries here (ffmpeg, ffplay, and ffprobe)
+# Install the user script in your browser using a user script manager extension
+```
 
-    # Build all and run prettier formatting
-    yarn run build:all
-    ```
+### Clipper Script (Python)
+
+Prerequisites:
+
+- [Python 3](https://www.python.org/)
+  - See `python` version constraint in `pyproject.toml`
+- [Poetry](https://python-poetry.org/)
+  - See also <https://python-poetry.org/docs/managing-environments/>
+- [FFmpeg](https://ffmpeg.org/)
+
+```bash
+# Install dependencies
+poetry install
+
+# Run yt_clipper via poetry
+poetry run yt_clipper
+
+# Run unit tests
+yarn run test:py
+
+# Run unit tests and integration tests
+yarn run test:py:slow
+
+# Build clipper executable
+yarn run build:py # executable will be placed in ./dist/py
+mkdir -p ./dist/py/bin/  # place ffmpeg binaries here (ffmpeg, ffplay, and ffprobe)
+```
+
+## Pre Commit Checks
+
+A few simple pre-commit checks are automatically run by the `pre-commit` node package on commit. See the `pre-commit` config in `package.json`.
+
+You can still force a commit by telling git to skip the pre-commit hooks by committing using `--no-verify`.
