@@ -692,11 +692,12 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-      "--cookies",
-      "-c",
-      dest="cookies",
+      "--cookiefile",
+      "-cf",
+      dest="cookiefile",
       default="",
-      help="Specify the path to a cookies file to be used by youtube_dl.",
+      help="Specify the path to a Netscape formatted cookies file to be used by youtube_dl. Use this option when sign "
+           "in is required by the video platform.",
     )
     return parser
 

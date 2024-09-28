@@ -223,8 +223,8 @@ def _getVideoInfo(cs: ClipperState) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         "youtube_include_dash_manifest": False,
     }
 
-    if settings["cookies"] != "":
-        ydl_opts["cookiefile"] = settings["cookies"]
+    if settings["cookiefile"] != "":
+        ydl_opts["cookiefile"] = settings["cookiefile"]
 
     if settings["username"] != "" or settings["password"] != "":
         ydl_opts["username"] = settings["username"]
