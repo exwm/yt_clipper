@@ -22,6 +22,7 @@
     "test:py": "poetry run pytest src/clipper -s --cov=src/clipper --cov-report=html -m \"not slow\"",
     "test:py:slow": "poetry run pytest src/clipper -s --cov=src/clipper --cov-report=html",
     "lint:py": "poetry run ruff check src/clipper",
+    "lint:py:fix": "yarn run lint:py --fix",
     "build:ts": "npx tsc --watch",
     "build:ts:ne": "npx tsc --noEmit --watch",
     "build:ts:p": "run-s -c build:ts pretty",

@@ -1,3 +1,4 @@
+import contextlib
 import importlib
 import json
 import os
@@ -159,7 +160,7 @@ def getVideoInfo(cs: ClipperState) -> None:
         logger.notice("HLS streaming protocol (m3u8) is disabled.")
         disableVideoStreamingProtocols(settings, UNSUPPORTED_VIDEO_STREAMING_PROTOCOLS)
 
-    videoInfo, audioInfo = _getVideoInfo(cs)
+    videoInfo, audioInfo, formats_table = _getVideoInfo(cs)
 
     if (
         not settings["downloadVideo"]
@@ -188,7 +189,7 @@ def getVideoInfo(cs: ClipperState) -> None:
                 settings,
                 UNSUPPORTED_VIDEO_STREAMING_PROTOCOLS,
             )
-            videoInfo, audioInfo = _getVideoInfo(cs)
+            videoInfo, audioInfo, formats_table = _getVideoInfo(cs)
         else:
             logger.warning(
                 f'Continuing with potentially unsupported protocol {videoInfo["protocol"]}',
@@ -200,7 +201,7 @@ def getVideoInfo(cs: ClipperState) -> None:
         settings["videoDownloadURL"] = videoInfo["url"]
         settings["audioDownloadURL"] = audioInfo["url"]
 
-    getMoreVideoInfo(cs, videoInfo, audioInfo)
+    getMoreVideoInfo(cs, videoInfo, audioInfo, formats_table)
 
 
 def disableVideoStreamingProtocols(settings: Settings, protocols: List[str]) -> None:
@@ -208,7 +209,7 @@ def disableVideoStreamingProtocols(settings: Settings, protocols: List[str]) -> 
     settings["format"] = f'({settings["format"]}){disableClause}'
 
 
-def _getVideoInfo(cs: ClipperState) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+def _getVideoInfo(cs: ClipperState) -> Tuple[Dict[str, Any], Dict[str, Any], str]:
     settings = cs.settings
     cp = cs.clipper_paths
 
@@ -243,6 +244,9 @@ def _getVideoInfo(cs: ClipperState) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                 settings["videoPageURL"],
                 download=False,
             )  # type: ignore
+        formats_table = ""
+        with contextlib.suppress(Exception):
+            formats_table = ydl.render_formats_table(ydl_info)
 
     settings["videoType"] = ydl_info.get("_type")
 
@@ -274,10 +278,12 @@ def _getVideoInfo(cs: ClipperState) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     dynamic_range: str = videoInfo.get("dynamic_range", "")
     settings["inputIsHDR"] = settings.get("inputIsHDR") or dynamic_range.lower().startswith("hdr")
 
-    return videoInfo, audioInfo
+    return videoInfo, audioInfo, formats_table
 
 
-def getMoreVideoInfo(cs: ClipperState, videoInfo: Dict, audioInfo: Dict) -> None:
+def getMoreVideoInfo(
+    cs: ClipperState, videoInfo: Dict, audioInfo: Dict, formats_table: str,
+) -> None:
     settings = cs.settings
 
     # TODO: ffprobe all streams including audio
@@ -333,6 +339,15 @@ def getMoreVideoInfo(cs: ClipperState, videoInfo: Dict, audioInfo: Dict) -> None
         "format_id",
         default=UNKNOWN_PROPERTY,
     )
+
+    if formats_table:
+        formats_table = re.sub(
+            string=formats_table, pattern=rf"m{videoFormatID}", repl=f"m✅{videoFormatID}",
+        )
+        formats_table = re.sub(
+            string=formats_table, pattern=rf"m{audioFormatID}", repl=f"m✅{audioFormatID}",
+        )
+        logger.info(f"Found the following audio/video formats: \n{formats_table}")
 
     logger.report(f"Video Format: {videoFormat} ({videoFormatID})")
     # TODO: improve detection of when unique audio stream format information is available
@@ -392,7 +407,7 @@ def getGlobalSettings(cs: ClipperState) -> None:
                 sys.exit(1)
 
     if settings["inputVideo"]:
-        getMoreVideoInfo(cs, {}, {})
+        getMoreVideoInfo(cs, {}, {}, "")
     else:
         getVideoInfo(cs)
 
