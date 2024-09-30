@@ -18,6 +18,7 @@ from clipper.clipper_types import (
     MissingMergeInput,
     Settings,
 )
+from clipper.ffmpeg_codec import getFfmpegVideoCodecArgs
 from clipper.ffmpeg_filter import (
     autoScaleCropMap,
     getAutoScaledCropComponents,
@@ -29,7 +30,9 @@ from clipper.ffmpeg_filter import (
     getSpeedFilterAndDuration,
     getSubsFilter,
     getZoomPanFilter,
+    isHardwareAcceleratedVideoCodec,
     videoStabilizationGammaFixFilter,
+    wrapVideoFilterForHardwareAcceleration,
 )
 from clipper.platforms import getFfmpegHeaders
 from clipper.util import escapeSingleQuotesFFmpeg, getTrimmedBase64Hash
@@ -63,7 +66,9 @@ def getMarkerPairSettings(  # noqa: PLR0912
             else:
                 mp["fileNameSuffix"] = mps["ext"]
         else:
-            mp["fileNameSuffix"] = "mp4" if mps["videoCodec"] == "h264" else "webm"
+            mp["fileNameSuffix"] = (
+                "mp4" if mps["videoCodec"] in {"h264", "h264_nvenc", "h264_vulkan"} else "webm"
+            )
 
         mp["fileName"] = f'{mp["fileNameStem"]}.{mp["fileNameSuffix"]}'
         mp["filePath"] = f'{cp.clipsPath}/{mp["fileName"]}'
@@ -186,7 +191,14 @@ def getMarkerPairSettings(  # noqa: PLR0912
 
     bitrateHDRFactor = 1.1 if mps["inputIsHDR"] else 1
 
-    bitrateFactor = min(1, bitrateCropFactor * bitrateSpeedFactor * bitrateHDRFactor)
+    bitrateHardwareAccelerationFactor = (
+        1.1 if isHardwareAcceleratedVideoCodec(mps["videoCodec"]) else 1
+    )
+
+    bitrateFactor = (
+        min(1, bitrateCropFactor * bitrateSpeedFactor * bitrateHDRFactor)
+        * bitrateHardwareAccelerationFactor
+    )
 
     globalEncodeSettings = getDefaultEncodeSettings(mps["bit_rate"])
     autoMarkerPairEncodeSettings = getDefaultEncodeSettings(
@@ -587,6 +599,10 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
             vidstabdetectFilter += loop_filter
             vidstabtransformFilter += loop_filter
 
+        if isHardwareAcceleratedVideoCodec(mps["videoCodec"]):
+            vidstabdetectFilter = wrapVideoFilterForHardwareAcceleration(vidstabdetectFilter)
+            vidstabtransformFilter = wrapVideoFilterForHardwareAcceleration(vidstabtransformFilter)
+
         if len(video_filter) > MAX_VFILTER_SIZE:
             logger.info(f"Video filter is larger than {MAX_VFILTER_SIZE} characters.")
             logger.info(
@@ -621,6 +637,9 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
 
         if mps["loop"] != "none":
             video_filter += loop_filter
+
+        if isHardwareAcceleratedVideoCodec(mps["videoCodec"]):
+            video_filter = wrapVideoFilterForHardwareAcceleration(video_filter)
 
         if len(video_filter) > MAX_VFILTER_SIZE:
             logger.info(f"Video filter is larger than {MAX_VFILTER_SIZE} characters.")
@@ -663,7 +682,7 @@ def getFfmpegCommandWithoutVideoFilter(
     qmax: int,
     qmin: int,
 ) -> str:
-    video_codec_args, video_output_args = getFfmpegVideoCodec(
+    video_codec_args, video_codec_input_args, video_codec_output_args = getFfmpegVideoCodecArgs(
         mps["videoCodec"],
         cbr=cbr,
         mp=mp,
@@ -672,23 +691,36 @@ def getFfmpegCommandWithoutVideoFilter(
         qmin=qmin,
     )
 
+    audio_codec_args = "-an"
+    if mps["audio"]:
+        audio_codec_args = " ".join(
+            (
+                f"-af {audio_filter}",
+                ###
+                f"-c:a libopus -b:a 128k"
+                if mps["videoCodec"] != "vp8"
+                else f"-c:a libvorbis -q:a 7",
+            ),
+        )
+
     return " ".join(
         (
             cp.ffmpegPath,
             f"-hide_banner",
             getFfmpegHeaders(mps["platform"]),
+            video_codec_input_args,
             inputs,
             f"-benchmark",
             # f'-loglevel 56',
             video_codec_args,
-            (f"-c:a libopus -b:a 128k" if mps["videoCodec"] != "vp8" else f"-c:a libvorbis -q:a 7"),
+            audio_codec_args,
             (
                 f'-metadata title="{mps["videoTitle"]}"'
                 if not mps["removeMetadata"]
                 else "-map_metadata -1"
             ),
             f"-af {audio_filter}" if mps["audio"] else "-an",
-            video_output_args,
+            video_codec_output_args,
             f'{mps["extraFfmpegArgs"]}',
             " ",
         ),
@@ -723,134 +755,6 @@ def getFfmpegCommandFastTrim(
             f'{mp["filePath"]}' " ",
         ),
     )
-
-
-def getFfmpegVideoCodec(
-    videoCodec: str,
-    cbr: Optional[int],
-    mp: DictStrAny,
-    mps: DictStrAny,
-    qmax: int,
-    qmin: int,
-) -> Tuple[str, str]:
-    if videoCodec in {"vp9", "vp8"}:
-        return getFfmpegVideoCodecVpx(
-            videoCodec=videoCodec,
-            cbr=cbr,
-            mp=mp,
-            mps=mps,
-            qmax=qmax,
-            qmin=qmin,
-        )
-    if videoCodec == "h264":
-        return getFfmpegVideoCodecH264(cbr=cbr, mp=mp, mps=mps, qmax=qmax, qmin=qmin)
-
-    raise ValueError(f"Invalid video codec: {videoCodec}")
-
-
-def getFfmpegVideoCodecVpx(
-    videoCodec: str,
-    cbr: Optional[int],
-    mp: DictStrAny,
-    mps: DictStrAny,
-    qmax: int,
-    qmin: int,
-) -> Tuple[str, str]:
-    if mps["minterpFPS"] is not None:
-        fps_arg = f'-r {mps["minterpFPS"]}'
-    elif not mp["isVariableSpeed"]:
-        fps_arg = f'-r ({mps["r_frame_rate"]}*{mp["speed"]})'
-    else:
-        fps_arg = "-fps_mode vfr"
-
-    sdr_args = "-pix_fmt yuv420p"
-    hdr_args = "-profile:v 2 -pix_fmt yuv420p10le -color_primaries bt2020 -color_trc smpte2084 -colorspace bt2020nc"
-
-    dynamic_range_args = sdr_args
-    if mps["enableHDR"]:
-        if videoCodec == "vp8":
-            logger.warning("HDR output was requested but vp8 does not support HDR.")
-        else:
-            dynamic_range_args = hdr_args
-
-    video_codec_args = " ".join(
-        (
-            f"-c:v libvpx-vp9" if videoCodec != "vp8" else f"-c:v libvpx",
-            dynamic_range_args,
-            f"-slices 8",
-            f"-aq-mode 4 -row-mt 1 -tile-columns 6 -tile-rows 2" if videoCodec != "vp8" else "",
-            f'-qmin {qmin} -crf {mps["crf"]} -qmax {qmax}' if mps["targetSize"] <= 0 else "",
-            f'-b:v {mps["targetMaxBitrate"]}k' if cbr is None else f"-b:v {cbr}MB",
-            f'-force_key_frames 1 -g {mp["averageSpeed"] * Fraction(mps["r_frame_rate"])}',
-        ),
-    )
-    video_output_args = " ".join(("-f webm", fps_arg))
-    return video_codec_args, video_output_args
-
-
-def getFfmpegVideoCodecH264(
-    cbr: Optional[int],
-    mp: DictStrAny,
-    mps: DictStrAny,
-    qmax: int,
-    qmin: int,
-) -> Tuple[str, str]:
-    """Following recommendations from https://www.lighterra.com/papers/videoencodingh264"""
-    fps_arg = ""
-    if not mps["h264DisableReduceStutter"]:
-        if mps["minterpFPS"] is not None:
-            fps_arg = f'-r {mps["minterpFPS"]}'
-        elif not mp["isVariableSpeed"]:
-            fps_arg = f'-r ({mps["r_frame_rate"]}*{mp["speed"]})'
-
-    if mp["isVariableSpeed"]:
-        fps_arg = "-fps_mode vfr"
-
-    pixel_count = mps["width"] * mps["height"]
-
-    # The me_method and me_range have a fairly significant impact on encoding speed and could be tweaked
-    # Currently going with a high me_method (umh vs the default hex), and a moderate me_range (32 for higher resolutions vs the default 16)
-    me_range = 16 if pixel_count < (1800 * 1000) else 32
-
-    sdr_args = "-pix_fmt yuv420p"
-    hdr_args = (
-        "-pix_fmt yuv420p10le -color_primaries bt2020 -color_trc smpte2084 -colorspace bt2020nc"
-    )
-
-    dynamic_range_args = sdr_args
-    if mps["enableHDR"]:
-        dynamic_range_args = hdr_args
-
-    video_codec_args = " ".join(
-        (
-            f"-c:v libx264",
-            f"-movflags write_colr",
-            dynamic_range_args,
-            f"-aq-mode 4",
-            f'-qmin {qmin} -crf {mps["crf"]} -qmax {qmax}' if mps["targetSize"] <= 0 else "",
-            f'-b:v {mps["targetMaxBitrate"]}k' if cbr is None else f"-b:v {cbr}MB",
-            f'-force_key_frames 1 -g {mp["averageSpeed"] * Fraction(mps["r_frame_rate"])}',
-            # video_track_timescale = 2^4 * 3^2 * 5^2 * 7 * 11 * 13 * 23, max is ~2E9
-            f" -video_track_timescale 82882800",
-            "-refs 4",
-            "-qmin 3",
-            "-qcomp 0.9",
-            "-rc-lookahead 40",
-            "-weightb 1 -weightp 2",
-            "-direct-pred auto",
-            "-b-pyramid none",
-            "-me_method umh",
-            f"-me_range {me_range}",
-            "-psy-rd 1.0:1.0",
-            "-fastfirstpass 1",
-            "-keyint_min 1",
-            "-trellis 2",
-            "-x264-params rc-lookahead=40",
-        ),
-    )
-
-    video_output_args = " ".join(("-f mp4", fps_arg))
-    return video_codec_args, video_output_args
 
 
 def runffmpegCommand(

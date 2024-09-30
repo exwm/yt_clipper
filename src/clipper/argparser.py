@@ -499,7 +499,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         "-vc",
         dest="videoCodec",
         default="vp9",
-        choices=["vp9", "vp8", "h264"],
+        choices=["vp9", "vp8", "h264", "h264_vulkan"],
         help=" ".join(
             [
                 "Select a video codec for video encoding."
@@ -507,6 +507,9 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 "vp9 is the default and most tested video codec with yt_clipper.",
                 "vp9 generally offers a better quality-size trade-off than vp8.",
                 "h264 was added more recently and is not as well tested as vp9.",
+                "h264_vulkan uses hardware acceleration (typically a discrete GPU) for faster encodes at the cost of some quality.",
+                "h264_vulkan uses the Vulkan technology which is supported on Linux and Windows across most modern GPUs (AMD/NVIDIA/Intel). MacOS and iOS are not yet supported. Requires ffmpeg >= 7.1.",
+                "If you have issues with hardware acceleration, ensure you have the latest drivers.",
             ],
         ),
     )
