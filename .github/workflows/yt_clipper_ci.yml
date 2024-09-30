@@ -176,14 +176,14 @@ jobs:
           zip -r ${{env.FULL_NAME}}.zip ./${{env.FULL_NAME}}/
 
       - name: Upload clipper script installation artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: ${{env.FULL_NAME}}.zip
           path: ./artifact/py/${{env.FULL_NAME}}.zip
 
       - name: Upload markup script installation artifact
         if: matrix.shortos == 'macos'
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: ${{env.NOPLAT_NAME}}.js
           path: ./artifact/js/${{env.NOPLAT_NAME}}.js
@@ -200,15 +200,15 @@ jobs:
           echo "FULL_NAME_WIN=${{env.NAME}}_win_${{env.VERSION}}" >> $GITHUB_ENV
           echo "FULL_NAME_MAC=${{env.NAME}}_macos_${{env.VERSION}}" >> $GITHUB_ENV
 
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
           name: ${{env.FULL_NAME_WIN}}.zip
 
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
           name: ${{env.FULL_NAME_MAC}}.zip
 
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
           name: ${{env.FULL_NAME}}.js
 
