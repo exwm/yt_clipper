@@ -103,6 +103,7 @@ YouTube is the primary video platform supported by yt_clipper. Other supported p
   - [User Script Tips](#user-script-tips)
   - [Clipper Script Tips](#clipper-script-tips)
 - [Encoding Settings Guide](#encoding-settings-guide)
+  - [Video Codecs](#video-codecs)
   - [Articles on CRF and vp9 Encoding](#articles-on-crf-and-vp9-encoding)
   - [Tips and Settings](#tips-and-settings)
     - [Markup Script Tips](#markup-script-tips)
@@ -113,6 +114,7 @@ YouTube is the primary video platform supported by yt_clipper. Other supported p
   - [Clipper Default Arguments Files](#clipper-default-arguments-files)
 - [Clipper Script Preview Shortcuts](#clipper-script-preview-shortcuts)
 - [Clipper Script Installation](#clipper-script-installation)
+  - [Linux Installation](#linux-installation)
   - [Manual and Beta/Alpha Version Installation](#manual-and-betaalpha-version-installation)
   - [Additional Helper Scripts](#additional-helper-scripts)
     - [Utility Scripts](#utility-scripts)
@@ -459,6 +461,18 @@ The usual crop shortcuts have different effects than usual in this mode as descr
 
 # Encoding Settings Guide
 
+## Video Codecs
+
+The default video codec used by yt_clipper for encoding video clips is vp9 which is typically stored in a webm container in a file with the `.webm` extension. h264 and the newer h265/hevc are typically stored in an mp4 container.
+
+You can use the `--video-codec` option to change video codecs. The clipper script help text (`yt_clipper --help`) is kept updated with the available video codecs.
+
+Hardware-accelerated codecs use your GPU (or sometimes other hardware like your CPU) for faster encodes at the cost of some quality. Support for these codecs depends on your hardware and your operating system.
+
+The Vulkan technology is supported by Linux and Windows across most modern GPUs (AMD/NVIDIA/Intel). MacOS and iOS are not yet supported. It requires ffmpeg >= 7.1.
+
+yt_clipper supports `h264_vulkan` for Vulkan-based hardware-accleration of h264 encoding.
+
 ## Articles on CRF and vp9 Encoding
 
 1. [Basic crf guide](https://slhck.info/video/2017/02/24/crf-guide.html)
@@ -495,16 +509,20 @@ The usual crop shortcuts have different effects than usual in this mode as descr
 
 # Clipper Script Usage
 
+On the command line, the clipper script can be be used as a typical CLI program assuming you've installed it and added it to your PATH.
+
+Example commands:
+
 ```sh
-python ./yt_clipper.py -h # Prints help. Details all options and arguments.
+yt_clipper -h # Prints help. Details all options and arguments.
 
-python ./yt_clipper.py --markers-json markers.json # automatically generate webms using markers json
+yt_clipper --markers-json markers.json # automatically generate webms using markers json
 
-python ./yt_clipper.py -j markers.json --input-video ./clip.webm  # provide a local input video
+yt_clipper -j markers.json --input-video ./clip.webm  # provide a local input video
 
-python ./yt_clipper.py -j markers.json --preview  # preview marker pairs using ffplay
+yt_clipper -j markers.json --preview  # preview marker pairs using ffplay
 
-python ./yt_clipper.py -j markers.json --format bestvideo[width<=1080] # specify download format used by youtube-dl
+yt_clipper -j markers.json --format bestvideo[width<=1080] # specify download format used by youtube-dl
 ```
 
 ## Clipper Default Arguments Files
