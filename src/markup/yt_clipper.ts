@@ -21,7 +21,6 @@
 // @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@0.7.0/dist/chartjs-plugin-datalabels.min.js
 // @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-style@latest/dist/chartjs-plugin-style.min.js
 // @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@0.5.7/chartjs-plugin-annotation.min.js
-// @require      https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js
 // @run-at       document-end
 // @match        http*://*.youtube.com/*
 // @match        http*://*.vlive.tv/video/*

@@ -1,20 +1,22 @@
 {
   "name": "yt_clipper",
+  "description": "Mark up YouTube videos and quickly generate clipped webms.",
   "author": "exwm",
-  "homepage": "https://openuserjs.org/scripts/elwm/yt_clipper",
   "version": "5.25.0",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/exwm/yt_clipper"
   },
-  "description": "Mark up YouTube videos and quickly generate clipped webms.",
-  "main": "./src/markup/yt_clipper.ts",
-  "browserslist": [
-    "since 2019 and > 0.5% and not op_mini all and not IE 11"
-  ],
-  "engines": {
-    "node": "^20.16"
+  "homepage": "https://openuserjs.org/scripts/elwm/yt_clipper",
+  "source": "src/markup/yt_clipper.ts",
+  "targets": {
+    "userscript": {
+      "distDir": "./dist/js",
+      "engines": {
+        "browsers": "since 2019 and > 0.5% and not op_mini all and not IE 11"
+      }
+    }
   },
   "scripts": {
     "pretty:ts": "npx prettier \"src/**/*.{ts,js,json}\" --write",
@@ -28,9 +30,9 @@
     "build:ts:p": "run-s -c build:ts pretty",
     "build:py": "poetry run pyinstaller ./src/clipper/yt_clipper.py -F --workpath ./dist/py/work/ --distpath ./dist/py/ --specpath ./dist/py/spec",
     "build:all": "run-s -c build:ts:p build:py",
-    "bundle:w": "npx parcel watch --out-dir ./dist/js --no-hmr ./src/markup/yt_clipper.ts",
+    "bundle:w": "npx parcel watch --no-scope-hoist --no-optimize --no-hmr",
     "bundle:tc:w": "run-p -c build:ts:ne bundle:w",
-    "bundle:prod": "npx parcel build --no-minify --out-dir ./dist/js ./src/markup/yt_clipper.ts",
+    "bundle:prod": "npx parcel build --no-scope-hoist --no-optimize",
     "clean:dist": "rm -r ./dist/*",
     "clean:sandbox": "rm -r ./sandbox/*",
     "version:patch": "npx commit-and-tag-version -r patch && poetry run bumpit -p patch || true",
@@ -46,32 +48,32 @@
   ],
   "dependencies": {
     "common-tags": "^1.8.2",
-    "d3-drag": "^1.2.4",
-    "d3-ease": "^1.0.5",
-    "d3-selection": "^1.4.0",
+    "d3-drag": "^1.2.5",
+    "d3-ease": "^1.0.7",
+    "d3-selection": "^1.4.2",
+    "dompurify": "^3.1.7",
     "file-saver": "^2.0.5",
     "immer": "^9.0.12",
     "lodash.clonedeep": "^4.5.0",
     "lodash.isequal": "^4.5.0"
   },
   "devDependencies": {
-    "@types/chart.js": "^2.9.37",
-    "@types/common-tags": "^1.8.1",
-    "@types/d3-ease": "^1.0.9",
+    "@types/chart.js": "^2.9.41",
+    "@types/common-tags": "^1.8.4",
+    "@types/d3-ease": "^1.0.13",
     "@types/dompurify": "^3.0.5",
-    "@types/file-saver": "^2.0.5",
+    "@types/file-saver": "^2.0.7",
     "@types/jszip": "^3.4.1",
-    "browserslist": "^4.23.2",
+    "browserslist": "^4.24.0",
+    "commit-and-tag-version": "12.4.4",
     "npm-run-all": "^4.1.5",
-    "parcel-bundler": "^1.12.5",
+    "parcel": "^2.12.0",
     "pre-commit": "^1.2.2",
     "prettier": "^3.3.3",
-    "commit-and-tag-version": "12.4.1",
-    "typescript": "^5.5.4"
+    "typescript": "^5.6.2"
   },
   "alias": {
     "jszip": ".parcel-globals/jszip.js",
-    "chart.js": ".parcel-globals/chart.js.js",
-    "dompurify": ".parcel-globals/dompurify.js"
+    "chart.js": ".parcel-globals/chart.js.js"
   }
 }

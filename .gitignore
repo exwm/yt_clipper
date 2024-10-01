@@ -26,6 +26,7 @@ webms/
 
 # parcel cache
 .cache
+.parcel-cache
 
 typings/
 lib/*.js
