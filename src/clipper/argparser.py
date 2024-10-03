@@ -69,6 +69,18 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--no-rich-logs",
+        dest="noRichLogs",
+        action="store_true",
+        default=False,
+        help=" ".join(
+            [
+                "Disable rich colored logging introduced in v5.26 (3 column layout with syntactical highlighting)."
+                "Use simpler colored logging instead.",
+            ],
+        ),
+    )
+    parser.add_argument(
         "--input-video",
         "-i",
         dest="inputVideo",

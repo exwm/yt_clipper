@@ -43,7 +43,7 @@ def main() -> None:
     logger.report(
         f"{youtube_dl_alternative} version: {ytdl_importer.youtube_dl.version.__version__}",
     )
-    logger.report(f"{getFfmpegVersion(cs.clipper_paths.ffmpegPath)}")
+    logger.report(f"{getFfmpegVersion(cs.clipper_paths.ffmpegPath)}", extra={"highlighter": None})
     logger.info("-" * 80)
 
     logger.debug(f"The following  arguments were read from the command line {sys.argv[1:]}:")

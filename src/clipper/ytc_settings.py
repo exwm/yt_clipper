@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+from rich.text import Text
+
 from clipper import util, ytdl_importer
 from clipper.clip_maker import getDefaultEncodeSettings
 from clipper.clipper_types import (
@@ -18,7 +20,7 @@ from clipper.clipper_types import (
 from clipper.ffmpeg_filter import getMinterpFPS, getSubs
 from clipper.ffprobe import ffprobeVideoProperties
 from clipper.platforms import getVideoPageURL
-from clipper.ytc_logger import logger
+from clipper.ytc_logger import logger, printToLogFile
 
 
 def loadSettings(settings: Settings) -> None:
@@ -285,7 +287,10 @@ def _getVideoInfo(cs: ClipperState) -> Tuple[Dict[str, Any], Dict[str, Any], str
 
 
 def getMoreVideoInfo(
-    cs: ClipperState, videoInfo: Dict, audioInfo: Dict, formats_table: str,
+    cs: ClipperState,
+    videoInfo: Dict,
+    audioInfo: Dict,
+    formats_table: str,
 ) -> None:
     settings = cs.settings
 
@@ -318,7 +323,10 @@ def getMoreVideoInfo(
             videoInfo["fps"] if videoInfo["fps"] is not None else DEFAULT_VIDEO_FPS
         )
 
-    logger.report(f'Video Title: {settings["videoTitle"]}')
+    videoTitleStyle = "" if settings["noRichLogs"] else "[green]"
+    logger.report(
+        f'Video Title: {videoTitleStyle}{settings["videoTitle"]}', extra={"highlighter": None},
+    )
 
     videoFormat = util.dictTryGetKeys(
         videoInfo,
@@ -344,13 +352,23 @@ def getMoreVideoInfo(
     )
 
     if formats_table:
+        formats_table_text = Text.from_ansi(formats_table)
         formats_table = re.sub(
-            string=formats_table, pattern=rf"m{videoFormatID}", repl=f"m✅{videoFormatID}",
+            string=formats_table,
+            pattern=rf"m{videoFormatID}",
+            repl=f"m✅{videoFormatID}",
         )
         formats_table = re.sub(
-            string=formats_table, pattern=rf"m{audioFormatID}", repl=f"m✅{audioFormatID}",
+            string=formats_table,
+            pattern=rf"m{audioFormatID}",
+            repl=f"m✅{audioFormatID}",
         )
-        logger.info(f"Found the following audio/video formats: \n{formats_table}")
+        logger.info(
+            f"Found the following audio/video formats: \n",
+        )
+        # print without logger to use full console width
+        print(formats_table)
+        printToLogFile(cs.clipper_paths, f"{formats_table_text}\n")
 
     logger.report(f"Video Format: {videoFormat} ({videoFormatID})")
     # TODO: improve detection of when unique audio stream format information is available
