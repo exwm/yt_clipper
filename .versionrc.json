@@ -7,7 +7,7 @@
     { "type": "feat", "section": "Features" },
     { "type": "fix", "section": "Bug Fixes" },
     { "type": "mdeps", "section": "Major Dependency Upgrades" },
-    { "type": "docs", "hidden": false },
+    { "type": "docs", "section": "Documentation Updates" },
     { "type": "chore", "hidden": true },
     { "type": "style", "hidden": true },
     { "type": "refactor", "hidden": true },
