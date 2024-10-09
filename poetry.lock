@@ -1319,13 +1319,13 @@ files = [
 
 [[package]]
 name = "yt-dlp"
-version = "2024.9.27"
+version = "2024.10.7"
 description = "A feature-rich command-line audio/video downloader"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "yt_dlp-2024.9.27-py3-none-any.whl", hash = "sha256:2717468dd697fcfcf9a89f493ba30a3830cdfb276c09750e5b561b08b9ef5f69"},
-    {file = "yt_dlp-2024.9.27.tar.gz", hash = "sha256:86605542e17e2e23ad23145b637ec308133762a15a5dedac4ae50b7973237026"},
+    {file = "yt_dlp-2024.10.7-py3-none-any.whl", hash = "sha256:9e336ae663bfd7ad3ea1c02e722747388172719efc0fc39a807dace3073aa704"},
+    {file = "yt_dlp-2024.10.7.tar.gz", hash = "sha256:0baf1ab517c9748d7e337ced91c5543c36fc16246a9ebedac32ebf20c1998ceb"},
 ]
 
 [package.dependencies]
@@ -1341,12 +1341,12 @@ websockets = ">=13.0"
 [package.extras]
 build = ["build", "hatchling", "pip", "setuptools (>=71.0.2)", "wheel"]
 curl-cffi = ["curl-cffi (==0.5.10)", "curl-cffi (>=0.5.10,!=0.6.*,<0.7.2)"]
-dev = ["autopep8 (>=2.0,<3.0)", "pre-commit", "pytest (>=8.1,<9.0)", "ruff (>=0.6.0,<0.7.0)"]
+dev = ["autopep8 (>=2.0,<3.0)", "pre-commit", "pytest (>=8.1,<9.0)", "pytest-rerunfailures (>=14.0,<15.0)", "ruff (>=0.6.0,<0.7.0)"]
 py2exe = ["py2exe (>=0.12)"]
 pyinstaller = ["pyinstaller (>=6.10.0)"]
 secretstorage = ["cffi", "secretstorage"]
 static-analysis = ["autopep8 (>=2.0,<3.0)", "ruff (>=0.6.0,<0.7.0)"]
-test = ["pytest (>=8.1,<9.0)"]
+test = ["pytest (>=8.1,<9.0)", "pytest-rerunfailures (>=14.0,<15.0)"]
 
 [[package]]
 name = "zipp"
@@ -1366,4 +1366,4 @@ test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "43a2a8f52e009bc7c581406516a2fed3deb54dfec0d00c6314350b62119d3ec7"
+content-hash = "0f796bfdad6dc663f062faea01cd6e2b0dd2b6bdbac14015124aa65940e66a56"

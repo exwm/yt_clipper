@@ -11,7 +11,7 @@ yt_clipper = 'clipper.yt_clipper:main'
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.13"
-yt-dlp = "2024.9.27"
+yt-dlp = "2024.10.07"
 youtube-dl = "2021.12.17"
 coloredlogs = "^15.0.1"
 notify-py = "^0.3.3"
