@@ -1,13 +1,14 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
-  ],
-    "packageRules": [
+  "extends": ["config:recommended"],
+  "packageRules": [
     {
       "packagePatterns": ["*"],
       "excludePackagePatterns": ["yt-dlp"],
-      "enabled": false
+      "enabled": false,
+      "semanticCommits": "enabled",
+      "semanticCommitType": "mdeps",
+      "semanticCommitScope": "clipper"
     }
   ]
 }
