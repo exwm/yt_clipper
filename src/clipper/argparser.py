@@ -1,7 +1,9 @@
 import argparse
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
+
+from rich_argparse import ArgumentDefaultsRichHelpFormatter
 
 from clipper.clipper_types import ClipperPaths, DictStrAny
 from clipper.ffmpeg_version import getFfmpegVersion
@@ -12,7 +14,7 @@ from clipper.ytdl import ytdl_bin_get_version
 def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Generate clips from input video.",
-        formatter_class=ArgumentDefaultsHelpFormatter,
+        formatter_class=ArgumentDefaultsRichHelpFormatter,
     )
     parser.add_argument(
         "-v",
@@ -20,6 +22,16 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         action="version",
         version=getVersionString(clipper_paths),
     )
+
+    logging_options = parser.add_argument_group("Logging Options")
+    other_options = parser.add_argument_group("Other Options")
+    input_options = parser.add_argument_group("Input Options")
+    ytdl_options = parser.add_argument_group("yt-dlp Options")
+
+    output_options = parser.add_argument_group("Output Options")
+    afilter_options = parser.add_argument_group("Audio Filter Options")
+    vfilter_options = parser.add_argument_group("Video Filter Options")
+
     parser.add_argument(
         "--markers-json",
         "-j",
@@ -45,7 +57,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    logging_options.add_argument(
         "--log-level",
         dest="logLevel",
         type=int,
@@ -55,19 +67,24 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
                 "Change the log level of yt-clipper. Should be between 0 and 56.",
                 "All logs above the chosen level will be shown and the rest will be hidden.",
                 """Log Level Reference:
-                  CRITICAL = 50
-                  FATAL = CRITICAL
-                  ERROR = 40
-                  WARNING = 30
-                  WARN = WARNING
-                  INFO = 20
-                  DEBUG = 10
-                  NOTSET = 0
+                  CRITICAL = 50;
+                  FATAL = CRITICAL;
+                  ERROR = 40;
+                  REPORT = 34;
+                  HEADER = 33;
+                  NOTICE = 32;
+                  WARNING = 30;
+                  WARN = WARNING;
+                  IMPORTANT = 29;
+                  INFO = 20;
+                  VERBOSE = 15;
+                  DEBUG = 10;
+                  NOTSET = 0;
                 """,
             ],
         ),
     )
-    parser.add_argument(
+    logging_options.add_argument(
         "--no-rich-logs",
         dest="noRichLogs",
         action="store_true",
@@ -79,14 +96,15 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+
+    input_options.add_argument(
         "--input-video",
         "-i",
         dest="inputVideo",
         default="",
         help="Input video path.",
     )
-    parser.add_argument(
+    input_options.add_argument(
         "--download-video",
         "-dv",
         action="store_true",
@@ -109,21 +127,21 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    output_options.add_argument(
         "--fast-trim",
         "-ft",
         action="store_true",
         dest="fastTrim",
         help="Enable fast trim mode. Generates output clips very quickly by skipping re-encoding. The output will use the same video and audio codec as the input. Will output video clips with imprecise time trim and will disable most features including crop and speed.",
     )
-    parser.add_argument(
+    vfilter_options.add_argument(
         "--overlay",
         "-ov",
         dest="overlayPath",
         default="",
         help="Overlay image path.",
     )
-    parser.add_argument(
+    vfilter_options.add_argument(
         "--multiply-crop",
         "-mc",
         type=float,
@@ -136,7 +154,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    vfilter_options.add_argument(
         "--multiply-crop-x",
         "-mcx",
         type=float,
@@ -144,7 +162,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         default=1,
         help="Multiply all x crop dimensions by an integer.",
     )
-    parser.add_argument(
+    vfilter_options.add_argument(
         "--multiply-crop-y",
         "-mcy",
         type=float,
@@ -152,7 +170,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         default=1,
         help="Multiply all y crop dimensions by an integer.",
     )
-    parser.add_argument(
+    input_options.add_argument(
         "--only",
         default="",
         help=" ".join(
@@ -163,7 +181,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    input_options.add_argument(
         "--except",
         default="",
         help=" ".join(
@@ -174,19 +192,14 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
-        "--audio",
-        "-a",
-        action="store_true",
-        help="Enable audio in output webms.",
-    )
-    parser.add_argument(
+    input_options.add_argument(
         "--format",
         "-f",
         default="(bestvideo+(bestaudio[acodec=opus]/bestaudio))/best",
         help="Specify format string passed to yt-dlp.",
     )
-    parser.add_argument(
+
+    input_options.add_argument(
         "--format-sort",
         "-S",
         dest="formatSort",
@@ -206,21 +219,29 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+
+    output_options.add_argument(
+        "--audio",
+        "-a",
+        action="store_true",
+        help="Enable audio in output webms.",
+    )
+
+    vfilter_options.add_argument(
         "--extra-video-filters",
         "-evf",
         dest="extraVideoFilters",
         default="",
         help="Specify any extra video filters to be passed to ffmpeg.",
     )
-    parser.add_argument(
+    afilter_options.add_argument(
         "--extra-audio-filters",
         "-eaf",
         dest="extraAudioFilters",
         default="",
         help="Specify any extra audio filters to be passed to ffmpeg.",
     )
-    parser.add_argument(
+    vfilter_options.add_argument(
         "--minterp-mode",
         "-mm",
         dest="minterpMode",
@@ -236,7 +257,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    vfilter_options.add_argument(
         "--minterp-fps",
         "-mf",
         dest="minterpFPS",
@@ -251,7 +272,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    vfilter_options.add_argument(
         "--minterp-search-parameter",
         "-msp",
         dest="minterpSearchParam",
@@ -267,7 +288,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    vfilter_options.add_argument(
         "--enable-minterp-enhancements",
         "-eme",
         action="store_true",
@@ -286,7 +307,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    vfilter_options.add_argument(
         "--delay",
         "-d",
         type=float,
@@ -300,7 +321,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    afilter_options.add_argument(
         "--audio-delay",
         "-ad",
         type=float,
@@ -314,7 +335,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    vfilter_options.add_argument(
         "--gamma",
         "-ga",
         type=float,
@@ -327,14 +348,14 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    vfilter_options.add_argument(
         "--rotate",
         "-r",
         choices=["", "clock", "cclock"],
         default="",
         help="Rotate video 90 degrees clockwise or counter-clockwise.",
     )
-    parser.add_argument(
+    vfilter_options.add_argument(
         "--denoise",
         "-dn",
         type=int,
@@ -347,7 +368,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    vfilter_options.add_argument(
         "--video-stabilization",
         "-vs",
         dest="videoStabilization",
@@ -361,7 +382,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    vfilter_options.add_argument(
         "--video-stabilization-dynamic-zoom",
         "-vsdz",
         dest="videoStabilizationDynamicZoom",
@@ -373,7 +394,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    vfilter_options.add_argument(
         "--video-stabilization-max-angle",
         "-vsma",
         dest="videoStabilizationMaxAngle",
@@ -387,7 +408,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    vfilter_options.add_argument(
         "--video-stabilization-max-shift",
         "-vsms",
         dest="videoStabilizationMaxShift",
@@ -401,7 +422,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    vfilter_options.add_argument(
         "--remove-duplicate-frames",
         "-rdf",
         dest="dedupe",
@@ -413,7 +434,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    vfilter_options.add_argument(
         "--no-remove-duplicate-frames",
         "-nrdf",
         dest="noDedupe",
@@ -425,19 +446,19 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    vfilter_options.add_argument(
         "--deinterlace",
         "-di",
         action="store_true",
         help="Apply bwdif deinterlacing.",
     )
-    parser.add_argument(
+    vfilter_options.add_argument(
         "--enable-hdr",
         dest="enableHDR",
         action="store_true",
         help="Use HDR (high dynamic range) for output videos. Typically this improves image vibrancy and colors at the expense of file size and playback compatibility.",
     )
-    parser.add_argument(
+    vfilter_options.add_argument(
         "--loop",
         "-l",
         dest="loop",
@@ -446,7 +467,16 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         help="Apply special looping effect to marker pair clips. "
         "For a forward-reverse or ping-pong loop use fwrev. For a cross-fading loop use fade.",
     )
-    parser.add_argument(
+
+    vfilter_options.add_argument(
+        "--no-speed-maps",
+        "-nsm",
+        dest="noSpeedMaps",
+        action="store_true",
+        help="Disable speed maps for time-variable speed.",
+    )
+
+    vfilter_options.add_argument(
         "--fade-duration",
         "-fd",
         type=float,
@@ -460,7 +490,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    afilter_options.add_argument(
         "--audio-fade",
         "-af",
         type=float,
@@ -468,7 +498,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         default=0,
         help=("Fade the audio in at start and out at end by the specified duration in seconds."),
     )
-    parser.add_argument(
+    output_options.add_argument(
         "--encode-speed",
         "-s",
         type=int,
@@ -476,7 +506,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         choices=range(0, 6),
         help="Set the vp9 encoding speed.",
     )
-    parser.add_argument(
+    output_options.add_argument(
         "--crf",
         type=int,
         help=" ".join(
@@ -486,14 +516,14 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    output_options.add_argument(
         "--two-pass",
         "-tp",
         dest="twoPass",
         action="store_true",
         help="Enable two-pass encoding. Improves quality at the cost of encoding speed.",
     )
-    parser.add_argument(
+    output_options.add_argument(
         "--target-max-bitrate",
         "-b",
         dest="targetMaxBitrate",
@@ -505,7 +535,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    output_options.add_argument(
         "--video-codec",
         "-vc",
         dest="videoCodec",
@@ -524,7 +554,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    output_options.add_argument(
         "--h264-disable-reduce-stutter",
         "-h264-drs",
         dest="h264DisableReduceStutter",
@@ -537,7 +567,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    output_options.add_argument(
         "--auto-subs-lang",
         "-asl",
         dest="autoSubsLang",
@@ -550,7 +580,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    output_options.add_argument(
         "--subs-file",
         "-sf",
         dest="subsFilePath",
@@ -563,7 +593,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    output_options.add_argument(
         "--subs-style",
         "-ss",
         dest="subsStyle",
@@ -576,7 +606,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    output_options.add_argument(
         "--no-auto-scale-crop-res",
         "-nascr",
         dest="noAutoScaleCropRes",
@@ -588,7 +618,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    other_options.add_argument(
         "--preview",
         "-p",
         action="store_true",
@@ -598,21 +628,15 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    input_options.add_argument(
         "--no-auto-find-input-video",
         "-nafiv",
         dest="noAutoFindInputVideo",
         action="store_true",
         help="Disable automatic detection and usage of input video when not in preview mode.",
     )
-    parser.add_argument(
-        "--no-speed-maps",
-        "-nsm",
-        dest="noSpeedMaps",
-        action="store_true",
-        help="Disable speed maps for time-variable speed.",
-    )
-    parser.add_argument(
+
+    output_options.add_argument(
         "--remove-metadata",
         "-rm",
         dest="removeMetadata",
@@ -626,7 +650,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    output_options.add_argument(
         "--extra-ffmpeg-args",
         "-efa",
         dest="extraFfmpegArgs",
@@ -644,7 +668,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    output_options.add_argument(
         "--target-size",
         "-ts",
         dest="targetSize",
@@ -658,14 +682,14 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             ],
         ),
     )
-    parser.add_argument(
+    other_options.add_argument(
         "--notify-on-completion",
         "-noc",
         dest="notifyOnCompletion",
         action="store_true",
         help="Display a system notification when yt_clipper completes the current run.",
     )
-    parser.add_argument(
+    output_options.add_argument(
         "--overwrite",
         "-ow",
         dest="overwrite",
@@ -673,7 +697,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         help="Regenerate and overwrite existing clips.",
     )
 
-    parser.add_argument(
+    input_options.add_argument(
         "--enable-video-streaming-protocol-hls",
         "-evsp-hls",
         dest="enableVideoStreamingProtocolHLS",
@@ -681,14 +705,14 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         help="Enable use of the HLS (HTTP live streaming) video streaming protocol. Typically this involves the use of a m3u8 manifest file with a list of video segments. HLS is a relatively unreliable protocol and support for it in ffmpeg is not robust, often leading to errors during clip generation. Thus, HLS is disabled by default. However, some platforms only offer HLS (e.g. AfreecaTV for which HLS is allowed by default) and in other cases HLS may be the highest quality video stream. If HLS is required, consider downloading the video first either automatically with --download-video or the yt_clipper_auto_download helper script or manually and then specifying the video with --input-video or the yt_clipper_auto_input_video helper script.",
     )
 
-    parser.add_argument(
+    ytdl_options.add_argument(
         "--ytdl-username",
         "-yu",
         dest="username",
         default="",
         help="Username passed to youtube-dl for authentication.",
     )
-    parser.add_argument(
+    ytdl_options.add_argument(
         "--ytdl-password",
         "-yp",
         dest="password",
@@ -696,7 +720,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         help="Password passed to youtube-dl for authentication.",
     )
 
-    parser.add_argument(
+    ytdl_options.add_argument(
         "--cookiefile",
         "-cf",
         dest="cookiefile",
@@ -743,22 +767,6 @@ def getArgs(
 
 def getVersionString(cp: ClipperPaths) -> str:
     return f"""%(prog)s v{__version__}, yt_dlp {ytdl_bin_get_version(cp)}, ffmpeg: {getFfmpegVersion(cp.ffmpegPath)}"""
-
-
-class ArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
-    def _get_help_string(self, action: argparse.Action) -> Optional[str]:
-        if action.help is None:
-            return None
-
-        help_str = action.help
-        if "%(default)" not in action.help and action.default is not argparse.SUPPRESS:
-            defaulting_nargs = [argparse.OPTIONAL, argparse.ZERO_OR_MORE]
-            if action.option_strings or action.nargs in defaulting_nargs:
-                if isinstance(action.default, str):
-                    help_str += " (default: %(default)r)"
-                else:
-                    help_str += " (default: %(default)s)"
-        return help_str
 
 
 def getVidstabPreset(level: int) -> DictStrAny:

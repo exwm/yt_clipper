@@ -18,6 +18,7 @@ verboselogs = "^1.7"
 webvtt-py = "^0.4.6"
 certifi = ">=2024.7.4"
 rich = "^13.9.1"
+rich-argparse = "^1.5.2"
 
 [tool.poetry.group.dev.dependencies]
 pyinstaller = "6.9.0"
