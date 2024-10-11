@@ -26,7 +26,7 @@ UNKNOWN_PROPERTY = "unknown"
 def main() -> None:
     cs = clipper_types.ClipperState()
 
-    args, unknown, defArgs, argFiles = argparser.getArgs()
+    args, unknown, argsFromArgFiles, argFiles, argsFromArgFilesMap = argparser.getArgs()
 
     cs.settings.update({"color_space": None, **args})
     ytc_settings.loadSettings(cs.settings)
@@ -50,9 +50,9 @@ def main() -> None:
 
     logger.debug(f"The following  arguments were read from the command line {sys.argv[1:]}:")
 
-    if defArgs:
+    if argsFromArgFiles:
         logger.notice(f"The following default arguments were read from {argFiles}:")
-        logger.notice(defArgs)
+        logger.notice(argsFromArgFilesMap)
         logger.info("-" * 80)
     elif argFiles:
         logger.notice(f"No uncommented arguments were found in {argFiles}")

@@ -1,7 +1,7 @@
 import argparse
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, OrderedDict, Tuple
 
 from rich_argparse import ArgumentDefaultsRichHelpFormatter
 
@@ -55,7 +55,8 @@ def getArgParser() -> argparse.ArgumentParser:
         "--arg-files",
         nargs="*",
         dest="argFiles",
-        default=["default_args.txt"],
+        default=["default_args.txt"]
+        + (["../yt_clipper_default_args.txt"] if getattr(sys, "frozen", False) else []),
         help=" ".join(
             [
                 "List of paths to files to read arguments from.",
@@ -756,13 +757,14 @@ def getArgParser() -> argparse.ArgumentParser:
     return parser
 
 
-def getArgs() -> Tuple[Dict[str, Any], List[str], List[str], List[str]]:
+def getArgs() -> Tuple[Dict[str, Any], List[str], List[str], List[str], Dict[str, List[str]]]:
     parser = getArgParser()
 
     argFiles: List[str] = parser.parse_known_args()[0].argFiles
 
     argv = sys.argv[1:]
-    defaultArgs: List[str] = []
+    argsFromArgFiles: List[str] = []
+    argsFromArgFilesMap: Dict[str, List[str]] = OrderedDict()
     for argFile in argFiles:
         args = []
         argFilePath = Path(argFile)
@@ -771,9 +773,10 @@ def getArgs() -> Tuple[Dict[str, Any], List[str], List[str], List[str]]:
                 lines = [line.lstrip() for line in f.readlines()]
                 lines = "".join([line for line in lines if not line.startswith("#")])
                 args = lines.split()
-                defaultArgs += args
+                argsFromArgFiles += args
+                argsFromArgFilesMap[argFile] = args
 
-    argv = defaultArgs + argv
+    argv = argsFromArgFiles + argv
     args, unknown = parser.parse_known_args(argv)
     args = vars(args)
 
@@ -784,7 +787,7 @@ def getArgs() -> Tuple[Dict[str, Any], List[str], List[str], List[str]]:
     args["videoStabilization"] = getVidstabPreset(args["videoStabilization"])
     args["denoise"] = getDenoisePreset(args["denoise"])
 
-    return args, unknown, defaultArgs, argFiles
+    return args, unknown, argsFromArgFiles, argFiles, argsFromArgFilesMap
 
 
 def getVersionFormatString() -> str:
