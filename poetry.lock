@@ -1307,17 +1307,6 @@ files = [
 dev = ["black (>=19.3b0)", "pytest (>=4.6.2)"]
 
 [[package]]
-name = "youtube-dl"
-version = "2021.12.17"
-description = "YouTube video downloader"
-optional = false
-python-versions = "*"
-files = [
-    {file = "youtube_dl-2021.12.17-py2.py3-none-any.whl", hash = "sha256:f1336d5de68647e0364a47b3c0712578e59ec76f02048ff5c50ef1c69d79cd55"},
-    {file = "youtube_dl-2021.12.17.tar.gz", hash = "sha256:bc59e86c5d15d887ac590454511f08ce2c47698d5a82c27bfe27b5d814bbaed2"},
-]
-
-[[package]]
 name = "yt-dlp"
 version = "2024.10.7"
 description = "A feature-rich command-line audio/video downloader"
@@ -1366,4 +1355,4 @@ test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "0f796bfdad6dc663f062faea01cd6e2b0dd2b6bdbac14015124aa65940e66a56"
+content-hash = "a0b03a1b97b134f4ce7ee4a599ad52a210588664357721433762e819d1216711"

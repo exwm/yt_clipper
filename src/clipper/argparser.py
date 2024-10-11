@@ -1,5 +1,4 @@
 import argparse
-import importlib
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -7,7 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from clipper.clipper_types import ClipperPaths, DictStrAny
 from clipper.ffmpeg_version import getFfmpegVersion
 from clipper.version import __version__
-from clipper.ytdl_importer import SUPPORTED_YOUTUBE_DL_ALTERNATIVES
+from clipper.ytdl import ytdl_bin_get_version
 
 
 def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
@@ -19,7 +18,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         "-v",
         "--version",
         action="version",
-        version=getVersionString(clipper_paths.ffmpegPath),
+        version=getVersionString(clipper_paths),
     )
     parser.add_argument(
         "--markers-json",
@@ -185,7 +184,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         "--format",
         "-f",
         default="(bestvideo+(bestaudio[acodec=opus]/bestaudio))/best",
-        help="Specify format string passed to youtube-dl alternative.",
+        help="Specify format string passed to yt-dlp.",
     )
     parser.add_argument(
         "--format-sort",
@@ -199,9 +198,9 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
             [
                 "Specify the sorting used to determine the best audio and video formats to download for generating clips."
                 "The sorting is specified as a comma-separated list of sort fields that describe audio/video formats."
-                "The list of sort fields is passed to the youtube_dl alternative (not supported by: youtube_dl).",
-                "See the documentation of the youtube-dl alternative for the details on available sort fields.",
-                "The default sort used by yt_clipper is similar to the yt_dlp default",
+                "The list of sort fields is passed to yt_dlp.",
+                "See the documentation of yt-dlp for the details on available sort fields.",
+                "The default sort used by yt-dlp is similar to the yt-dlp default",
                 "except higher filesize and bitrate are preferred over a codec hierarchy.",
                 "This default sort is closer to the behavior of youtube_dl but not the same.",
             ],
@@ -698,22 +697,13 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "--youtube-dl-alternative",
-        "-ytdla",
-        dest="youtubeDLAlternative",
-        choices=SUPPORTED_YOUTUBE_DL_ALTERNATIVES,
-        default="yt_dlp",
-        help="Choose a youtube_dl alternative for downloading videos.",
-    )
-
-    parser.add_argument(
-      "--cookiefile",
-      "-cf",
-      dest="cookiefile",
-      default="",
-      help="Specify the path to a Netscape formatted cookies file to be used by youtube_dl. Use this option when sign "
-           "in is required by the video platform. On how to obtain the cookies file, "
-           "see https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp",
+        "--cookiefile",
+        "-cf",
+        dest="cookiefile",
+        default="",
+        help="Specify the path to a Netscape formatted cookies file to be used by yt-dlp. Use this option when sign "
+        "in is required by the video platform. On how to obtain the cookies file, "
+        "see https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp",
     )
     return parser
 
@@ -751,8 +741,8 @@ def getArgs(
     return args, unknown, defaultArgs, argFiles
 
 
-def getVersionString(ffmpeg_path: str) -> str:
-    return f"""%(prog)s v{__version__}, youtube_dl {getYoutubeDLAlternativeVersion("youtube_dl")}, yt_dlp {getYoutubeDLAlternativeVersion("yt_dlp")}, ffmpeg: {getFfmpegVersion(ffmpeg_path)}"""
+def getVersionString(cp: ClipperPaths) -> str:
+    return f"""%(prog)s v{__version__}, yt_dlp {ytdl_bin_get_version(cp)}, ffmpeg: {getFfmpegVersion(cp.ffmpegPath)}"""
 
 
 class ArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
@@ -837,11 +827,3 @@ def getDenoisePreset(level: int) -> DictStrAny:
     elif level == 5:
         denoisePreset = {"enabled": True, "lumaSpatial": 8, "desc": "Very Strong"}
     return denoisePreset
-
-
-def getYoutubeDLAlternativeVersion(module: str) -> str:
-    try:
-        youtube_dl_alternative = importlib.import_module(module)
-        return "v" + youtube_dl_alternative.version.__version__
-    except ModuleNotFoundError:
-        return "vNotFound"

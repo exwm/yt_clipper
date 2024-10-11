@@ -20,6 +20,7 @@ class ClipperPaths:
     ffmpegPath: str = "ffmpeg"
     ffprobePath: str = "ffprobe"
     ffplayPath: str = "ffplay"
+    ytdlPath: str = "yt-dlp"
     clipsPath: str = "./webms"
     tempPath: str = "./temp"
     logFilePath: str = ""

@@ -1,4 +1,3 @@
-import importlib
 import sys
 from fractions import Fraction
 from functools import reduce
@@ -6,7 +5,7 @@ from math import floor, log
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
-from clipper import util, ytdl_importer
+from clipper import util
 from clipper.clipper_types import (
     ClipperState,
     CropMap,
@@ -16,30 +15,6 @@ from clipper.clipper_types import (
     SpeedMap,
 )
 from clipper.ytc_logger import logger
-
-
-def getSubs(cs: ClipperState) -> None:
-    cp = cs.clipper_paths
-    settings = cs.settings
-
-    settings["subsFileStem"] = f'{cp.clipsPath}/subs/{settings["titleSuffix"]}'
-    settings["subsFilePath"] = f'{settings["subsFileStem"]}.{settings["autoSubsLang"]}.vtt'
-
-    ydl_opts = {
-        "skip_download": True,
-        "writesubtitles": True,
-        "subtitlesformat": "vtt",
-        "subtitleslangs": [settings["autoSubsLang"]],
-        "outtmpl": f'{settings["subsFileStem"]}',
-        "cachedir": False,
-    }
-
-    if settings["cookiefile"] != "":
-        ydl_opts["cookiefile"] = settings["cookiefile"]
-
-    importlib.reload(ytdl_importer.youtube_dl)
-    with ytdl_importer.youtube_dl.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([settings["videoPageURL"]])
 
 
 def autoScaleCropMap(cropMap: List[Dict[str, Any]], settings: Settings) -> None:

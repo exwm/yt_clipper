@@ -1,5 +1,3 @@
-import contextlib
-import importlib
 import json
 import os
 import re
@@ -9,7 +7,7 @@ from typing import Any, Dict, List, Tuple
 
 from rich.text import Text
 
-from clipper import util, ytdl_importer
+from clipper import util
 from clipper.clip_maker import getDefaultEncodeSettings
 from clipper.clipper_types import (
     UNKNOWN_PROPERTY,
@@ -17,10 +15,11 @@ from clipper.clipper_types import (
     KnownPlatform,
     Settings,
 )
-from clipper.ffmpeg_filter import getMinterpFPS, getSubs
+from clipper.ffmpeg_filter import getMinterpFPS
 from clipper.ffprobe import ffprobeVideoProperties
 from clipper.platforms import getVideoPageURL
 from clipper.ytc_logger import logger, printToLogFile
+from clipper.ytdl import ytdl_bin_get_subs, ytdl_bin_get_video_info
 
 
 def loadSettings(settings: Settings) -> None:
@@ -213,51 +212,14 @@ def disableVideoStreamingProtocols(settings: Settings, protocols: List[str]) -> 
 
 def _getVideoInfo(cs: ClipperState) -> Tuple[Dict[str, Any], Dict[str, Any], str]:
     settings = cs.settings
-    cp = cs.clipper_paths
 
-    ydl_opts = {
-        "format": settings["format"],
-        "forceurl": True,
-        "format_sort": ",".join(settings["formatSort"]).split(","),
-        "merge_output_format": "mkv",
-        "verbose": True,
-        "outtmpl": f'{settings["downloadVideoPath"]}.%(ext)s',
-        "cachedir": False,
-        "youtube_include_dash_manifest": False,
-    }
+    ytdl_info, formats_table = ytdl_bin_get_video_info(cs)
 
-    if settings["cookiefile"] != "":
-        ydl_opts["cookiefile"] = settings["cookiefile"]
-
-    if settings["username"] != "" or settings["password"] != "":
-        ydl_opts["username"] = settings["username"]
-        ydl_opts["password"] = settings["password"]
-
-    if getattr(sys, "frozen", False):
-        ydl_opts["ffmpeg_location"] = cp.ffmpegPath
-
-    importlib.reload(ytdl_importer.youtube_dl)
-    with ytdl_importer.youtube_dl.YoutubeDL(ydl_opts) as ydl:
-        if settings["downloadVideo"]:
-            ydl_info: Dict[str, Any] = ydl.extract_info(
-                settings["videoPageURL"],
-                download=True,
-            )  # type: ignore
-            settings["downloadVideoPath"] = f'{settings["downloadVideoPath"]}.mkv'
-        else:
-            ydl_info: Dict[str, Any] = ydl.extract_info(
-                settings["videoPageURL"],
-                download=False,
-            )  # type: ignore
-        formats_table = ""
-        with contextlib.suppress(Exception):
-            formats_table = ydl.render_formats_table(ydl_info)
-
-    settings["videoType"] = ydl_info.get("_type")
+    settings["videoType"] = ytdl_info.get("_type")
 
     settings["videoParts"] = []
     if settings["videoType"] == "multi_video":
-        settings["videoParts"] = ydl_info["entries"]
+        settings["videoParts"] = ytdl_info["entries"]
 
     videoPartsStart = 0
     for videoPart in settings["videoParts"]:
@@ -265,12 +227,12 @@ def _getVideoInfo(cs: ClipperState) -> Tuple[Dict[str, Any], Dict[str, Any], str
         videoPart["end"] = videoPart["start"] + videoPart["duration"]
         videoPartsStart += videoPart["duration"]
 
-    if "requested_formats" in ydl_info:
-        videoInfo = ydl_info["requested_formats"][0]
-        audioInfo = ydl_info["requested_formats"][1]
+    if "requested_formats" in ytdl_info:
+        videoInfo = ytdl_info["requested_formats"][0]
+        audioInfo = ytdl_info["requested_formats"][1]
         settings["mergedStreams"] = False
     elif settings["videoType"] != "multi_video":
-        videoInfo = ydl_info
+        videoInfo = ytdl_info
         audioInfo = videoInfo
         settings["mergedStreams"] = True
     else:
@@ -325,7 +287,8 @@ def getMoreVideoInfo(
 
     videoTitleStyle = "" if settings["noRichLogs"] else "[green]"
     logger.report(
-        f'Video Title: {videoTitleStyle}{settings["videoTitle"]}', extra={"highlighter": None},
+        f'Video Title: {videoTitleStyle}{settings["videoTitle"]}',
+        extra={"highlighter": None},
     )
 
     videoFormat = util.dictTryGetKeys(
@@ -397,7 +360,7 @@ def getGlobalSettings(cs: ClipperState) -> None:
     )
 
     if settings["subsFilePath"] == "" and settings["autoSubsLang"] != "":
-        getSubs(cs)
+        ytdl_bin_get_subs(cs)
         if not Path(settings["subsFilePath"]).is_file():
             logger.critical(
                 f'Could not download subtitles with language id {settings["autoSubsLang"]}.',

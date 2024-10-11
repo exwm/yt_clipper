@@ -87,36 +87,34 @@ class YTCLogger(verboselogs.VerboseLogger):
     def set_no_rich_logs(self) -> None:
         self.no_rich_logs = True
 
-    def success(self, msg: str, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
+    def success(self, msg: object, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
         self.log(verboselogs.SUCCESS, msg, *args, **kwargs)
 
-    def info(self, msg: str, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
+    def info(self, msg: object, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
         self.log(logging.INFO, msg, *args, **kwargs)
 
-    def warning(self, msg: str, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
+    def warning(self, msg: object, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
         self.log(logging.WARNING, msg, *args, **kwargs)
 
-    def error(self, msg: str, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
+    def error(self, msg: object, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
         self.log(logging.ERROR, msg, *args, **kwargs)
 
-    def debug(self, msg: str, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
+    def debug(self, msg: object, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
         self.log(logging.DEBUG, msg, *args, **kwargs)
 
-    def verbose(self, msg: str, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
+    def verbose(self, msg: object, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
         self.log(verboselogs.VERBOSE, msg, *args, **kwargs)
 
-    def important(self, msg: str, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
+    def important(self, msg: object, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
         self.log(IMPORTANT, msg, *args, **kwargs)
 
-    def notice(self, msg: str, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
+    def notice(self, msg: object, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
         self.log(NOTICE, msg, *args, **kwargs)
 
-    def header(self, msg: str, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
-        # msg = f"[dodger_blue2]{msg}"
-        # kwargs["extra"] = {"markup": True}
+    def header(self, msg: object, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
         self.log(HEADER, msg, *args, **kwargs)
 
-    def report(self, msg: str, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
+    def report(self, msg: object, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
         self.log(REPORT, msg, *args, **kwargs)
 
 

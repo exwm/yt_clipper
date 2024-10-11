@@ -13,12 +13,12 @@ from clipper import (
     util,
     ytc_logger,
     ytc_settings,
-    ytdl_importer,
 )
 from clipper.clipper_types import ClipperState
 from clipper.ffmpeg_version import getFfmpegVersion
 from clipper.version import __version__
 from clipper.ytc_logger import logger
+from clipper.ytdl import ytdl_bin_get_version
 
 UNKNOWN_PROPERTY = "unknown"
 
@@ -36,12 +36,9 @@ def main() -> None:
 
     ytc_logger.setUpLogger(cs)
 
-    youtube_dl_alternative = cs.settings["youtubeDLAlternative"]
-    ytdl_importer.import_youtube_dl_alternative(youtube_dl_alternative)
-
     logger.report(f"yt_clipper version: {__version__}")
     logger.report(
-        f"{youtube_dl_alternative} version: {ytdl_importer.youtube_dl.version.__version__}",
+        f"yt-dlp version: {ytdl_bin_get_version(cs.clipper_paths)}",
     )
     logger.report(f"{getFfmpegVersion(cs.clipper_paths.ffmpegPath)}", extra={"highlighter": None})
     logger.info("-" * 80)
@@ -88,11 +85,16 @@ def setupDepPaths(cs: ClipperState) -> None:
         cp.ffmpegPath = "./bin/ffmpeg"
         cp.ffprobePath = "./bin/ffprobe"
         cp.ffplayPath = "./bin/ffplay"
+        cp.ytdlPath = "./bin/yt-dlp"
         if sys.platform == "win32":
             cp.ffmpegPath += ".exe"
             cp.ffprobePath += ".exe"
             cp.ffplayPath += ".exe"
+            cp.ytdlPath += ".exe"
+
         if sys.platform == "darwin":
+            cp.ytdlPath += "_macos"
+
             certifi_cacert_path = certifi.where()
             os.environ["SSL_CERT_FILE"] = certifi_cacert_path
             os.environ["REQUESTS_CA_BUNDLE"] = certifi_cacert_path

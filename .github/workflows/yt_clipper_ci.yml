@@ -32,12 +32,14 @@ jobs:
             shortos: win
             ffmpeg_dl_name: ffmpeg-7.1-full_build-shared
             ffmpeg_dl_prefix: 'https://github.com/GyanD/codexffmpeg/releases/download/7.1'
+            yt-dlp_download_url: 'https://github.com/yt-dlp/yt-dlp/releases/download/2024.10.07/yt-dlp.exe'
           - os: macos-13
             shortos: macos
             ffmpeg_dl_url: 'https://evermeet.cx/ffmpeg/ffmpeg-7.1.7z'
             ffprobe_dl_url: 'https://evermeet.cx/ffmpeg/ffprobe-7.1.7z'
             ffplay_dl_url: 'https://evermeet.cx/ffmpeg/ffplay-7.1.7z'
             ffmpeg_info_url: 'https://evermeet.cx/ffmpeg/info/7.1'
+            yt-dlp_download_url: 'https://github.com/yt-dlp/yt-dlp/releases/download/2024.10.07/yt-dlp_macos'
 
     steps:
       - name: Set env
@@ -95,6 +97,18 @@ jobs:
 
           ls -laR
 
+      - name: Download yt-dlp dependency
+        shell: bash
+        run: |
+          cd ./bindeps
+          mkdir -p yt-dlp/bin
+          cd yt-dlp/bin
+          curl -O -L ${{ matrix.yt-dlp_download_url }}
+
+          chmod -v +x *
+
+          ls -laR
+
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
@@ -140,6 +154,8 @@ jobs:
         run: |
           mv ./bindeps/ffmpeg/bin/* ./artifact/py/${{env.FULL_NAME}}/bin/
           mv ./bindeps/ffmpeg/*.txt ./artifact/py/${{env.FULL_NAME}}/bin/
+          mv ./bindeps/yt-dlp/bin/* ./artifact/py/${{env.FULL_NAME}}/bin/
+
           cp ./src/clipper/include/* ./artifact/py/${{env.FULL_NAME}}/
           cp ./src/clipper/${{matrix.shortos}}_helpers/* ./artifact/py/${{env.FULL_NAME}}/
           mkdir -p ./artifact/py/${{env.FULL_NAME}}/yt-dlp-plugins/ytc
