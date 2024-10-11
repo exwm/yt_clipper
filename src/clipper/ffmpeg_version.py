@@ -5,7 +5,7 @@ def getFfmpegVersion(ffmpeg_path: str) -> str:
     try:
         with Popen([ffmpeg_path, "-version"], stdout=PIPE, stderr=PIPE) as proc:
             version_line = (
-                proc.stdout.readline().decode("utf-8").rstrip().replace("version", "version:")
+                proc.stdout.readline().decode("utf-8").rstrip().replace("version", "")
                 if proc.stdout is not None
                 else "unknown"
             )

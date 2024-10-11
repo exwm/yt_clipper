@@ -25,12 +25,17 @@ UNKNOWN_PROPERTY = "unknown"
 
 def main() -> None:
     cs = clipper_types.ClipperState()
-    setupDepPaths(cs)
 
-    args, unknown, defArgs, argFiles = argparser.getArgs(cs.clipper_paths)
+    args, unknown, defArgs, argFiles = argparser.getArgs()
 
     cs.settings.update({"color_space": None, **args})
     ytc_settings.loadSettings(cs.settings)
+
+    setupDepPaths(cs)
+
+    if cs.settings["printVersions"]:
+        print(argparser.getDepVersionsString(cs.clipper_paths))
+        sys.exit(0)
 
     setupOutputPaths(cs)
 
@@ -79,13 +84,14 @@ def main() -> None:
 
 
 def setupDepPaths(cs: ClipperState) -> None:
+    settings = cs.settings
     cp = cs.clipper_paths
 
     if getattr(sys, "frozen", False):
         cp.ffmpegPath = "./bin/ffmpeg"
         cp.ffprobePath = "./bin/ffprobe"
         cp.ffplayPath = "./bin/ffplay"
-        cp.ytdlPath = "./bin/yt-dlp"
+
         if sys.platform == "win32":
             cp.ffmpegPath += ".exe"
             cp.ffprobePath += ".exe"
@@ -98,6 +104,9 @@ def setupDepPaths(cs: ClipperState) -> None:
             certifi_cacert_path = certifi.where()
             os.environ["SSL_CERT_FILE"] = certifi_cacert_path
             os.environ["REQUESTS_CA_BUNDLE"] = certifi_cacert_path
+
+    if settings["ytdlLocation"]:
+        cp.ytdlPath = settings["ytdlLocation"]
 
 
 def setupOutputPaths(cs: ClipperState) -> None:

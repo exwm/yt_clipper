@@ -11,3 +11,5 @@
 # --two-pass
 # -di -dn 2
 # --youtube-dl-alternative yt_dlp
+# --video-codec h264_vulkan
+# --ytdl-location yt-dlp

@@ -11,7 +11,7 @@ from clipper.version import __version__
 from clipper.ytdl import ytdl_bin_get_version
 
 
-def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
+def getArgParser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Generate clips from input video.",
         formatter_class=ArgumentDefaultsRichHelpFormatter,
@@ -20,9 +20,15 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         "-v",
         "--version",
         action="version",
-        version=getVersionString(clipper_paths),
+        version=getVersionFormatString(),
     )
-
+    parser.add_argument(
+        "--print-versions",
+        dest="printVersions",
+        action="store_true",
+        default=False,
+        help="Print version information for yt_clipper and its dependencies.",
+    )
     logging_options = parser.add_argument_group("Logging Options")
     other_options = parser.add_argument_group("Other Options")
     input_options = parser.add_argument_group("Input Options")
@@ -35,7 +41,7 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
     parser.add_argument(
         "--markers-json",
         "-j",
-        required=True,
+        required="--print-versions" not in sys.argv,
         dest="json",
         help=" ".join(
             [
@@ -729,13 +735,29 @@ def getArgParser(clipper_paths: ClipperPaths) -> argparse.ArgumentParser:
         "in is required by the video platform. On how to obtain the cookies file, "
         "see https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp",
     )
+
+    ytdl_options.add_argument(
+        "--ytdl-location",
+        dest="ytdlLocation",
+        default="",
+        help="Specify a location for yt-dlp on your system."
+        "If a relative or absolute path is given, the yt-dlp installed at that location is used."
+        "Otherwise the system PATH will be searched.",
+    )
+
+    ytdl_options.add_argument(
+        "--no-ytdl-auto-update",
+        dest="ytdlAutoUpdate",
+        action="store_false",
+        default=True,
+        help="Disable automatic yt-dlp updates when running a frozen release of yt_clipper.",
+    )
+
     return parser
 
 
-def getArgs(
-    clipper_paths: ClipperPaths,
-) -> Tuple[Dict[str, Any], List[str], List[str], List[str]]:
-    parser = getArgParser(clipper_paths)
+def getArgs() -> Tuple[Dict[str, Any], List[str], List[str], List[str]]:
+    parser = getArgParser()
 
     argFiles: List[str] = parser.parse_known_args()[0].argFiles
 
@@ -765,8 +787,12 @@ def getArgs(
     return args, unknown, defaultArgs, argFiles
 
 
-def getVersionString(cp: ClipperPaths) -> str:
-    return f"""%(prog)s v{__version__}, yt_dlp {ytdl_bin_get_version(cp)}, ffmpeg: {getFfmpegVersion(cp.ffmpegPath)}"""
+def getVersionFormatString() -> str:
+    return f"""%(prog)s v{__version__}"""
+
+
+def getDepVersionsString(cp: ClipperPaths) -> str:
+    return f"""yt_clipper: {__version__}\nyt_dlp: {ytdl_bin_get_version(cp)}{getFfmpegVersion(cp.ffmpegPath)}"""
 
 
 def getVidstabPreset(level: int) -> DictStrAny:
