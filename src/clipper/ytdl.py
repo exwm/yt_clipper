@@ -43,10 +43,10 @@ def ytdl_bin_get_args_base(cs: ClipperState) -> List[str]:
     if getattr(sys, "frozen", False):
         ytdl_args.extend(["--ffmpeg-location", shlex.quote(cp.ffmpegPath)])
 
-    cookiefile = settings["cookiefile"]
+    cookies = settings["cookiefile"]
 
-    if cookiefile != "":
-        ytdl_args.extend(["--cookiefile", shlex.quote(cookiefile)])
+    if cookies != "":
+        ytdl_args.extend(["--cookies", shlex.quote(cookies)])
 
     if settings["username"] != "" or settings["password"] != "":
         ytdl_args.extend(["--username", shlex.quote(settings["username"])])
@@ -132,52 +132,6 @@ def ytdl_bin_update(cs: ClipperState) -> None:
         logger.success(f"yt-dlp is up to date {ytdl_new_version}")
 
 
-def ytdl_lib_get_video_info(cs: ClipperState) -> Tuple[Dict, str]:
-    settings = cs.settings
-    cp = cs.clipper_paths
-
-    ytdl_opts = {
-        "format": settings["format"],
-        "forceurl": True,
-        "format_sort": ",".join(settings["formatSort"]).split(","),
-        "merge_output_format": "mkv",
-        "verbose": True,
-        "outtmpl": f'{settings["downloadVideoPath"]}.%(ext)s',
-        "cachedir": False,
-        "youtube_include_dash_manifest": False,
-    }
-
-    if settings["cookiefile"] != "":
-        ytdl_opts["cookiefile"] = settings["cookiefile"]
-
-    if settings["username"] != "" or settings["password"] != "":
-        ytdl_opts["username"] = settings["username"]
-        ytdl_opts["password"] = settings["password"]
-
-    if getattr(sys, "frozen", False):
-        ytdl_opts["ffmpeg_location"] = cp.ffmpegPath
-
-    importlib.reload(yt_dlp)
-    with yt_dlp.YoutubeDL(ytdl_opts) as ytdl:
-        if settings["downloadVideo"]:
-            ytdl_info: Dict[str, Any] = ytdl.extract_info(
-                settings["videoPageURL"],
-                download=True,
-            )  # type: ignore
-            settings["downloadVideoPath"] = f'{settings["downloadVideoPath"]}.mkv'
-        else:
-            ytdl_info: Dict[str, Any] = ytdl.extract_info(
-                settings["videoPageURL"],
-                download=False,
-            )  # type: ignore
-
-        formats_table = ""
-        with contextlib.suppress(Exception):
-            formats_table = ytdl.render_formats_table(ytdl_info) or ""
-
-    return ytdl_info, formats_table
-
-
 def ytdl_bin_get_subs(cs: ClipperState) -> None:
     cp = cs.clipper_paths
     settings = cs.settings
@@ -201,27 +155,3 @@ def ytdl_bin_get_subs(cs: ClipperState) -> None:
     # fmt: on
 
     subprocess.run(args=ytdl_args, check=True)
-
-
-def ytdl_lib_get_subs(cs: ClipperState) -> None:
-    cp = cs.clipper_paths
-    settings = cs.settings
-
-    settings["subsFileStem"] = f'{cp.clipsPath}/subs/{settings["titleSuffix"]}'
-    settings["subsFilePath"] = f'{settings["subsFileStem"]}.{settings["autoSubsLang"]}.vtt'
-
-    ytdl_opts = {
-        "skip_download": True,
-        "writesubtitles": True,
-        "subtitlesformat": "vtt",
-        "subtitleslangs": [settings["autoSubsLang"]],
-        "outtmpl": f'{settings["subsFileStem"]}',
-        "cachedir": False,
-    }
-
-    if settings["cookiefile"] != "":
-        ytdl_opts["cookiefile"] = settings["cookiefile"]
-
-    importlib.reload(yt_dlp)
-    with yt_dlp.YoutubeDL(ytdl_opts) as ytdl:
-        ytdl.download([settings["videoPageURL"]])

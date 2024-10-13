@@ -732,6 +732,7 @@ def getArgParser() -> argparse.ArgumentParser:
         "-cf",
         dest="cookiefile",
         default="",
+        metavar="FILE",
         help="Specify the path to a Netscape formatted cookies file to be used by yt-dlp. Use this option when sign "
         "in is required by the video platform. On how to obtain the cookies file, "
         "see https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp",
