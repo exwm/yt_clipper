@@ -728,9 +728,9 @@ def getArgParser() -> argparse.ArgumentParser:
     )
 
     ytdl_options.add_argument(
-        "--cookiefile",
-        "-cf",
-        dest="cookiefile",
+        "--cookies",
+        "-c",
+        dest="cookies",
         default="",
         help="Specify the path to a Netscape formatted cookies file to be used by yt-dlp. Use this option when sign "
         "in is required by the video platform. On how to obtain the cookies file, "

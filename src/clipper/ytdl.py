@@ -43,10 +43,10 @@ def ytdl_bin_get_args_base(cs: ClipperState) -> List[str]:
     if getattr(sys, "frozen", False):
         ytdl_args.extend(["--ffmpeg-location", shlex.quote(cp.ffmpegPath)])
 
-    cookiefile = settings["cookiefile"]
+    cookies = settings["cookies"]
 
-    if cookiefile != "":
-        ytdl_args.extend(["--cookiefile", shlex.quote(cookiefile)])
+    if cookies != "":
+        ytdl_args.extend(["--cookies", shlex.quote(cookies)])
 
     if settings["username"] != "" or settings["password"] != "":
         ytdl_args.extend(["--username", shlex.quote(settings["username"])])
@@ -147,8 +147,8 @@ def ytdl_lib_get_video_info(cs: ClipperState) -> Tuple[Dict, str]:
         "youtube_include_dash_manifest": False,
     }
 
-    if settings["cookiefile"] != "":
-        ytdl_opts["cookiefile"] = settings["cookiefile"]
+    if settings["cookies"] != "":
+        ytdl_opts["cookies"] = settings["cookies"]
 
     if settings["username"] != "" or settings["password"] != "":
         ytdl_opts["username"] = settings["username"]
@@ -219,8 +219,8 @@ def ytdl_lib_get_subs(cs: ClipperState) -> None:
         "cachedir": False,
     }
 
-    if settings["cookiefile"] != "":
-        ytdl_opts["cookiefile"] = settings["cookiefile"]
+    if settings["cookies"] != "":
+        ytdl_opts["cookies"] = settings["cookies"]
 
     importlib.reload(yt_dlp)
     with yt_dlp.YoutubeDL(ytdl_opts) as ytdl:
