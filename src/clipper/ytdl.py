@@ -1,12 +1,8 @@
-import contextlib
-import importlib
 import json
 import shlex
 import subprocess
 import sys
-from typing import Any, Dict, List, Tuple
-
-import yt_dlp
+from typing import Dict, List, Tuple
 
 from clipper.clipper_types import ClipperPaths, ClipperState
 from clipper.ytc_logger import logger
