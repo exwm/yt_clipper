@@ -21,6 +21,7 @@
   "scripts": {
     "pretty:ts": "npx prettier \"src/**/*.{ts,js,json}\" --write",
     "pretty:py": "poetry run ruff check --select I --fix src/clipper && poetry run ruff format src/clipper",
+    "pretty:py:check": "poetry run ruff format --check src/clipper",
     "test:py": "poetry run pytest src/clipper -s --cov=src/clipper --cov-report=html -m \"not slow\"",
     "test:py:slow": "poetry run pytest src/clipper --cov=src/clipper --cov-report=html",
     "lint:py": "poetry run ruff check src/clipper",
