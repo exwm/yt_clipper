@@ -43,7 +43,7 @@ def ytdl_bin_get_args_base(cs: ClipperState) -> List[str]:
     if getattr(sys, "frozen", False):
         ytdl_args.extend(["--ffmpeg-location", shlex.quote(cp.ffmpegPath)])
 
-    cookies = settings["cookies"]
+    cookies = settings["cookiefile"]
 
     if cookies != "":
         ytdl_args.extend(["--cookies", shlex.quote(cookies)])
