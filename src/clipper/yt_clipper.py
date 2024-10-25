@@ -91,6 +91,7 @@ def setupDepPaths(cs: ClipperState) -> None:
         cp.ffmpegPath = "./bin/ffmpeg"
         cp.ffprobePath = "./bin/ffprobe"
         cp.ffplayPath = "./bin/ffplay"
+        cp.ytdlPath = "./bin/yt-dlp"
 
         if sys.platform == "win32":
             cp.ffmpegPath += ".exe"
