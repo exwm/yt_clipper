@@ -41,6 +41,8 @@ def main() -> None:
 
     ytc_logger.setUpLogger(cs)
 
+    logger.debug(f"yt-dlp path set: {cs.clipper_paths.ytdlPath}")
+
     logger.report(f"yt_clipper version: {__version__}")
     logger.report(
         f"yt-dlp version: {ytdl_bin_get_version(cs.clipper_paths)}",

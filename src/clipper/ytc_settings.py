@@ -23,9 +23,20 @@ from clipper.ytdl import ytdl_bin_get_subs, ytdl_bin_get_video_info
 
 
 def loadSettings(settings: Settings) -> None:
-    with Path.open(Path(settings["json"]), encoding="utf-8-sig") as file:
+    markers_json_path = Path(settings["json"])
+    with Path.open(markers_json_path, encoding="utf-8-sig") as file:
         markersJson = file.read()
-        markersDict = json.loads(markersJson)
+        try:
+            markersDict = json.loads(markersJson)
+        except json.JSONDecodeError as e:
+            logger.critical(f"CRITICAL: Markers JSON file is invalid.\n    {e}")
+            print()
+            if markers_json_path.suffix != ".json":
+                print(f"WARNING: Markers JSON file does not have expected extension .json.")
+                print()
+            print(f"DEBUG: Markers JSON file at path '{settings["json"]}' has initial content:\n {markersJson[:200]}]\n...")
+            sys.exit(1)
+
         settings.update(markersDict)
 
         if "markers" in settings and "markerPairs" not in settings:
@@ -38,7 +49,7 @@ def loadSettings(settings: Settings) -> None:
             settings["videoID"],
         )
         settings["videoTitle"] = re.sub('"', "", settings["videoTitle"])
-        settings["markersDataFileStem"] = Path(settings["json"]).stem
+        settings["markersDataFileStem"] = markers_json_path.stem
 
         if settings["markersDataFileStem"] != settings["markersDataFileStem"].rstrip():
             logger.fatal(
