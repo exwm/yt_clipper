@@ -23,9 +23,7 @@ jobs:
     strategy:
       max-parallel: 4
       matrix:
-        python-version: ['3.12.x']
         node-version: ['20.16.x']
-        poetry-version: ['1.8.3']
         os: [windows-latest, macos-13]
         include:
           - os: windows-latest
@@ -49,6 +47,8 @@ jobs:
           echo "NOPLAT_NAME=${{env.NAME}}_${{env.VERSION}}" >> $GITHUB_ENV
 
       - uses: actions/checkout@v3
+        with:
+          persist-credentials: false
 
       - name: Set up dirs
         shell: bash
@@ -109,6 +109,9 @@ jobs:
 
           ls -laR
 
+      - name: Setup just
+        uses: extractions/setup-just@v2
+
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
@@ -124,30 +127,33 @@ jobs:
           key: yarn-${{ matrix.os }}-${{ hashFiles('**/yarn.lock') }}
       - run: yarn install --frozen-lockfile
 
-      - run: yarn run bundle:prod
+      - run: just bundle-prod
 
-      - name: Install poetry
-        run: pipx install poetry
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
-          python-version: ${{ matrix.python-version }}
-          cache: 'poetry'
+          version: '0.7.2'
+          enable-cache: true
+          cache-dependency-glob: 'uv.lock'
 
-      - name: Install clipper python dependencies
-        run: |
-          poetry install --no-interaction --no-root
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install the project
+        run: uv sync --all-extras --dev
 
       - name: Lint with ruff
-        run: |
-          npm run lint:py
+        run: just lint-py
 
       - name: Run clipper tests
-        run: |
-          npm run test:py
+        run: just test-py
 
       - name: Generate executable
-        run: npm run build:py
+        run: just build-py
+
+      # Done with uv
+      - name: Minimize uv cache
+        run: uv cache prune --ci
 
       - name: Copy artifacts
         shell: bash

@@ -1,39 +1,47 @@
-[tool.poetry]
+[project]
 name = "clipper"
 version = "5.28.0"
 description = "Quickly generate clipped webms."
-authors = ["exwm <rjvgb@protonmail.com>"]
-license = "MIT"
+authors = [{ name = "exwm", email = "rjvgb@protonmail.com" }]
+requires-python = ">=3.9,<3.13"
 readme = "readme.md"
+license = "MIT"
+dependencies = [
+    "yt-dlp==2024.10.07",
+    "coloredlogs>=15.0.1,<16",
+    "notify-py>=0.3.3,<0.4",
+    "verboselogs~=1.7",
+    "webvtt-py>=0.4.6,<0.5",
+    "certifi>=2024.7.4",
+    "rich>=13.9.1,<14",
+    "rich-argparse>=1.5.2,<2",
+]
 
-[tool.poetry.scripts]
-yt_clipper = 'clipper.yt_clipper:main'
+[project.scripts]
+yt_clipper = "clipper.yt_clipper:main"
 
-[tool.poetry.dependencies]
-python = ">=3.9,<3.13"
-yt-dlp = "2024.10.07"
-coloredlogs = "^15.0.1"
-notify-py = "^0.3.3"
-verboselogs = "^1.7"
-webvtt-py = "^0.4.6"
-certifi = ">=2024.7.4"
-rich = "^13.9.1"
-rich-argparse = "^1.5.2"
+[dependency-groups]
+dev = [
+    "pyinstaller==6.9.0",
+    "bumpit>=0.8.0,<0.9",
+    "ruff==0.6.8",
+    "pillow>=10.4.0,<11",
+]
+test = [
+    "pytest>=8.3.3,<9",
+    "pytest-cov>=5.0.0,<6",
+    "syrupy>=4.7.1,<5",
+]
 
-[tool.poetry.group.dev.dependencies]
-pyinstaller = "6.9.0"
-bumpit = "^0.8.0"
-ruff = "0.6.8"
-pillow = "^10.4.0"
-
-[tool.poetry.group.test.dependencies]
-pytest = "^8.3.3"
-pytest-cov = "^5.0.0"
-syrupy = "^4.7.1"
+[tool.uv]
+default-groups = [
+    "dev",
+    "test",
+]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.7.3,<0.8.0"]
+build-backend = "uv_build"
 
 [tool.black]
 line-length = 100
