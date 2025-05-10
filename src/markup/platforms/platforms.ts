@@ -218,7 +218,7 @@ const ytclipperSelectors = {
   flashMessage: '#ytc-editor',
   cropOverlay: '#my-video',
   cropMouseManipulation: '#my-video',
-  speedChartContainer: '#my-video',
+  speedChartContainer: 'video',
   cropChartContainer: '#ytc-editor',
   controls: '.vjs-control-bar',
   controlsGradient: '.vjs-control-bar',
