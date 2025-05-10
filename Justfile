@@ -26,7 +26,7 @@ test-py-slow:
 lint-py:
   uv run ruff check src/clipper
 lint-py-fix:
-  yarn run lint-py --fix
+  uv run ruff check src/clipper --fix
 
 poetry-sync:
   poetry lock --no-update && poetry install --sync

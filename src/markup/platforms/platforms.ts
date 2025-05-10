@@ -6,6 +6,7 @@ const vliveCSS: string = readFileSync(__dirname + '/css/vlive.css', 'utf8');
 const naver_tvCSS: string = readFileSync(__dirname + '/css/naver_tv.css', 'utf8');
 const weverseCSS: string = readFileSync(__dirname + '/css/weverse.css', 'utf8');
 const afreecatvCSS: string = readFileSync(__dirname + '/css/afreecatv.css', 'utf8');
+const ytclipperCSS: string = readFileSync(__dirname + '/css/yt_clipper.css', 'utf8');
 
 export enum VideoPlatforms {
   youtube = 'youtube',
@@ -13,6 +14,7 @@ export enum VideoPlatforms {
   weverse = 'weverse',
   naver_tv = 'naver_tv',
   afreecatv = 'afreecatv',
+  yt_clipper = 'ytc_generic',
 }
 type VideoPlatform<T extends string | HTMLElement> = {
   // Contains the video element, progress bars, and controls.
@@ -67,6 +69,12 @@ export function getPlatform() {
     return VideoPlatforms.naver_tv;
   } else if (host.includes('afreecatv.com')) {
     return VideoPlatforms.afreecatv;
+  } else if (
+    host.includes('exwm.github.io') ||
+    host.includes('127.0.0.1') ||
+    host.includes('localhost')
+  ) {
+    return VideoPlatforms.yt_clipper;
   } else {
     return VideoPlatforms.youtube;
   }
@@ -193,6 +201,30 @@ const afreecatvSelectors = {
   shortcutsTableButton: 'div[class~=right_ctrl]',
 };
 
+const ytclipperSelectors = {
+  playerContainer: 'div[id=ytc-media-player-container]',
+  player: '#my-video',
+  playerClickZone: 'div[id=ytc-media-player-container]',
+  videoContainer: 'div[id=ytc-media-player-container]',
+  video: 'video',
+  progressBar: '.vjs-progress-control',
+  markersDiv: '.vjs-progress-control',
+  markerNumberingsDiv: '.vjs-progress-control',
+  theaterModeIndicator: 'placeholder',
+  settingsEditor: '#ytc-editor',
+  settingsEditorTheater: '#ytc-editor',
+  shortcutsTable: '#ytc-editor',
+  frameCapturerProgressBar: '#ytc-editor',
+  flashMessage: '#ytc-editor',
+  cropOverlay: '#my-video',
+  cropMouseManipulation: '#my-video',
+  speedChartContainer: '#my-video',
+  cropChartContainer: '#ytc-editor',
+  controls: '.vjs-control-bar',
+  controlsGradient: '.vjs-control-bar',
+  shortcutsTableButton: '.vjs-fullscreen-control',
+};
+
 interface videoPlatformData {
   selectors: VideoPlatformSelectors;
   css: string;
@@ -223,10 +255,16 @@ const afreecaData: videoPlatformData = {
   css: afreecatvCSS,
 };
 
+const ytclipperData: videoPlatformData = {
+  selectors: ytclipperSelectors,
+  css: ytclipperCSS,
+};
+
 export const videoPlatformDataRecords: Record<VideoPlatforms, videoPlatformData> = {
   [VideoPlatforms.youtube]: youtubeData,
   [VideoPlatforms.weverse]: weverseData,
   [VideoPlatforms.vlive]: vliveData,
   [VideoPlatforms.naver_tv]: naver_tvData,
   [VideoPlatforms.afreecatv]: afreecaData,
+  [VideoPlatforms.yt_clipper]: ytclipperData,
 };

@@ -29,6 +29,19 @@ def getVideoPageURL(settings: Settings, platform: str, videoID: str) -> str:
         return f"https://tv.naver.com/v/{videoID}"
     if platform == KnownPlatform.afreecatv.name:
         return settings["videoUrl"]
+    if platform == KnownPlatform.ytc_generic.name:
+        if settings["inputVideo"]:
+            return "unknown_video_url_for_input_video"
+        logger.warning("Video page URL not found and no local input video was provided.")
+        logger.warning(
+            "Enter a video page URL at the prompt below OR rerun with an input video (e.g. by using the input video helper script).",
+        )
+        videoPageUrl = input("Please enter a compatible video page URL for processing markers: ")
+        if videoPageUrl:
+            return videoPageUrl
+
+        logger.fatal(f"Neither video page URL nor input video provided.")
+        sys.exit(1)
 
     logger.fatal(f"Unknown platform: {platform}")
     sys.exit(1)

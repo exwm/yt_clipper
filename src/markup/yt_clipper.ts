@@ -28,6 +28,8 @@
 // @match        http*://weverse.io/*
 // @match        https*://tv.naver.com/*
 // @match        https*://*.afreecatv.com/*
+// @match        https*://exwm.github.io/yt_clipper/*
+
 // @noframes
 // dummy grant to enable sandboxing
 // @grant         GM_getValue
@@ -519,7 +521,12 @@ async function loadytClipper() {
   const selectors = videoPlatformDataRecords[platform].selectors;
 
   player = await retryUntilTruthyResult(() => document.querySelector(selectors.player));
-  video = await retryUntilTruthyResult(() => player.querySelector(selectors.video));
+  if (platform === VideoPlatforms.yt_clipper) {
+    video = await retryUntilTruthyResult(() => document.querySelector(selectors.video));
+    player = await retryUntilTruthyResult(() => document.querySelector(selectors.player));
+  } else {
+    video = await retryUntilTruthyResult(() => player.querySelector(selectors.video));
+  }
 
   await retryUntilTruthyResult(() => video.readyState != 0);
   await retryUntilTruthyResult(
@@ -593,6 +600,9 @@ async function loadytClipper() {
       if (location.pathname.includes('media') || location.pathname.includes('live')) {
         if (videoInfo.id == null) videoInfo.id = location.pathname.split('/')[3];
       }
+    } else if (platform === VideoPlatforms.yt_clipper) {
+      videoInfo.id = 'unknown';
+      videoInfo.title = document.querySelector('#ytc-video-title').textContent;
     } else if (platform === VideoPlatforms.afreecatv) {
       videoInfo.id = location.pathname.split('/')[2];
       videoInfo.title = document.querySelector('div[class~=broadcast_title]')?.textContent;
@@ -866,7 +876,11 @@ async function loadytClipper() {
     startMarkerNumberings = markerNumberingsDiv.children[0] as SVGSVGElement;
     endMarkerNumberings = markerNumberingsDiv.children[1] as SVGSVGElement;
 
-    if ([VideoPlatforms.weverse, VideoPlatforms.naver_tv].includes(platform)) {
+    if (
+      [VideoPlatforms.weverse, VideoPlatforms.naver_tv, VideoPlatforms.yt_clipper].includes(
+        platform
+      )
+    ) {
       hooks.markerNumberingsDiv.prepend(markerNumberingsDiv);
       hooks.markersDiv.prepend(markersDiv);
     } else {
@@ -3543,7 +3557,11 @@ async function loadytClipper() {
       shortcutsTableToggleButton.classList.add('btn_statistics');
     }
 
-    hooks.shortcutsTableButton.insertAdjacentElement('afterbegin', shortcutsTableToggleButton);
+    if (platform === VideoPlatforms.yt_clipper) {
+      hooks.shortcutsTableButton.parentElement.insertBefore(shortcutsTableToggleButton, hooks.shortcutsTableButton);
+    } else {
+      hooks.shortcutsTableButton.insertAdjacentElement('afterbegin', shortcutsTableToggleButton);
+    }
   }
 
   function showShortcutsTableToggleButton() {
@@ -4102,7 +4120,7 @@ async function loadytClipper() {
   let endCropMouseManipulation: (e, forceEndDrag?: boolean) => void;
 
   function ctrlOrCommand(e: PointerEvent) {
-    return e.ctrlKey || e.metaKey
+    return e.ctrlKey || e.metaKey;
   }
 
   function addCropMouseManipulationListener() {

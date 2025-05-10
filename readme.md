@@ -61,6 +61,9 @@ YouTube is the primary video platform supported by yt_clipper. Other supported p
 2. Weverse (at least Weverse Lives)
 3. Naver TV
 4. AfreecaTV (at least VODs)
+5. Local storage videos (<https://exwm.github.io/yt_clipper/>)
+  1. If the platform you want to use isn't directly supported, you can download the video manually and then use the yt_clipper generic video platform.
+  2. Load a video from local storage by dragging and dropping the video onto the player, then activate the yt_clipper markup script as usual.
 
 ## AfreecaTV Support Notes
 

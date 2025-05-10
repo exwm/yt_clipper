@@ -67,6 +67,7 @@ ignore = [
   "RET504",  # uncessary assignment to variable before return
   "PTH103",  # `os.makedirs()` should be replaced by `Path.mkdir(parents=True)`
   "PTH123",  #`open()` should be replaced by `Path.open()`
+  "PLR0911", # Too many return statements
 
 ]
 

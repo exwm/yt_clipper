@@ -43,14 +43,17 @@ def ffprobeVideoProperties(cs: ClipperState, videoURL: str) -> Optional[DictStrA
         logger.info("Detecting video properties with ffprobe")
         ffprobeData = json.loads(ffprobeOutput)
 
-        bit_rate = int(int(ffprobeData["format"]["bit_rate"]) / 1000)
+        if "bit_rate" in ffprobeData["format"]:
+            bit_rate = int(int(ffprobeData["format"]["bit_rate"]) / 1000)
 
-        if bit_rate > 0:
-            ffprobeData["streams"][0]["bit_rate"] = int(
-                int(ffprobeData["format"]["bit_rate"]) / 1000,
-            )
+            if bit_rate > 0:
+                ffprobeData["streams"][0]["bit_rate"] = int(
+                    int(ffprobeData["format"]["bit_rate"]) / 1000,
+                )
+            else:
+                logger.warning(f"Ignoring estimated bit rate from ffprobe as it is 0.")
         else:
-            logger.warning(f"Ignoring estimated bit rate from ffprobe as it is 0.")
+            logger.warning(f"Could not find bit_rate in ffprobe results.")
 
         logger.debug(f"ffprobeData={ffprobeOutput}")
         color_transfer = ffprobeData.get("color_transfer")

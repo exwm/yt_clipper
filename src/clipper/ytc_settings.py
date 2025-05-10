@@ -34,7 +34,9 @@ def loadSettings(settings: Settings) -> None:
             if markers_json_path.suffix != ".json":
                 print(f"WARNING: Markers JSON file does not have expected extension .json.")
                 print()
-            print(f"DEBUG: Markers JSON file at path '{settings["json"]}' has initial content:\n {markersJson[:200]}]\n...")
+            print(
+                f"DEBUG: Markers JSON file at path '{settings["json"]}' has initial content:\n {markersJson[:200]}]\n...",
+            )
             sys.exit(1)
 
         settings.update(markersDict)
@@ -48,6 +50,7 @@ def loadSettings(settings: Settings) -> None:
             settings["platform"],
             settings["videoID"],
         )
+
         settings["videoTitle"] = re.sub('"', "", settings["videoTitle"])
         settings["markersDataFileStem"] = markers_json_path.stem
 
