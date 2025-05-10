@@ -1,11 +1,167 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
-</head>
-<body>
- <h1>hello</h1>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>yt_clipper Editor</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/video.js@8.22.0/dist/video-js.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background-color: #000;
+      }
+
+      #ytc-media-player-container {
+        height: 80vh;
+        width: 98vw;
+        background-color: #000;
+        margin-left: 1vw;
+        margin-right: 1vw;
+        padding-bottom: 35px;
+        position: relative;
+      }
+
+      #ytc-video-title {
+        color: white;
+        padding: 2px;
+        margin-left: 1vw;
+        margin-right: 1vw;
+      }
+
+      /* Apply to raw <video> elements */
+      video:focus-visible {
+        outline: none !important;
+        box-shadow: none !important;
+      }
+
+      /* Apply to Video.js' tech element */
+      .vjs-tech:focus-visible {
+        outline: none !important;
+        box-shadow: none !important;
+      }
+
+      media-player,
+      #my-video {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .vjs-volume-panel.vjs-hover {
+        width: auto !important; /* Prevents it from collapsing */
+        opacity: 1 !important; /* Forces it visible */
+        visibility: visible !important;
+      }
+      .vjs-volume-panel {
+        width: auto !important;
+      }
+
+      .video-js .vjs-remaining-time {
+        display: none !important;
+      }
+
+      .video-js .vjs-duration {
+        display: inline-block !important;
+      }
+
+      .video-js .vjs-current-time {
+        display: inline-block !important;
+      }
+
+      .video-js .vjs-control-bar {
+        background-color: rgba(43, 51, 63, 0);
+      }
+
+      .video-js .vjs-control-bar {
+        display: flex;
+        flex-wrap: wrap;
+        flex-direction: row;
+      }
+
+      .video-js .vjs-progress-control {
+        order: -1; /* Move to top */
+        width: 100%;
+        margin-bottom: 5px; /* spacing from the rest */
+      }
+      .video-js .vjs-progress-control .vjs-progress-holder {
+        margin: 0;
+      }
+
+      .video-js .vjs-slider {
+        margin: 0;
+      }
+      /* Override default hiding behavior */
+      .video-js.vjs-user-inactive .vjs-control-bar {
+        opacity: 0;
+        transition: opacity 0.4s ease;
+        pointer-events: none; /* Optional: avoid interaction when hidden */
+      }
+
+      /* Ensure control bar is visible when user is active */
+      .video-js .vjs-control-bar {
+        opacity: 1;
+        transition: opacity 0.4s ease;
+      }
+    </style>
+    <script src="https://cdn.vidstack.io/player@1.11.21" type="module"></script>
+    <script>
+      let videoLoaded = false;
+
+      document.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (videoLoaded) return;
+
+        const file = e.dataTransfer.files?.[0];
+        if (file && file.type.startsWith('video/')) {
+          const url = URL.createObjectURL(file);
+          document.querySelector('video').src = url;
+          document.querySelector('#ytc-video-title').textContent = file.name;
+          videoLoaded = true
+        }
+      });
+      document.addEventListener('dragover', (e) => e.preventDefault());
+    </script>
+  </head>
+  <body>
+    <div id="ytc-media-player-container">
+      <video
+        id="my-video"
+        class="video-js vjs-default-skin"
+        controls
+        preload="auto"
+        width="100%"
+        height="100%"
+        data-setup="{}"
+      >
+        <p class="vjs-no-js">
+          To view this video please enable JavaScript, and consider upgrading to a web browser that
+          <a href="https://videojs.com/html5-video-support/" target="_blank"
+            >supports HTML5 video</a
+          >
+        </p>
+      </video>
+    </div>
+
+    <div id="ytc-editor"></div>
+
+    <h2 id="ytc-video-title">
+      To load a video, drag and drop it onto the player. Then activate the markup user script.
+    </h2>
+
+    <script src="https://cdn.jsdelivr.net/npm/video.js@8.22.0/dist/video.min.js"></script>
+    <script>
+      videojs('my-video', {
+        playbackRates: [0.25, 0.5, 1, 1.25, 1.5, 1.75, 2],
+        enableSmoothSeeking: true,
+        userInactiveTimeout: 0,
+        controlBar: {},
+      });
+    </script>
+  </body>
 </html>
