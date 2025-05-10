@@ -7,13 +7,16 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
-* **markup+clipper:** support yt_clipper generic video platform ([ea150e3](https://github.com/exwm/yt_clipper/commit/ea150e3a44559e79e3f25093c0a568447617fb1f))
+* **markup+clipper:** support yt_clipper generic video platform (<https://exwm.github.io/yt_clipper/>) ([ea150e3](https://github.com/exwm/yt_clipper/commit/ea150e3a44559e79e3f25093c0a568447617fb1f))
+  * If the platform you want to use isn't directly supported, you can download the video manually and then use the yt_clipper generic video platform.
+  * Load a video from local storage by dragging and dropping the video onto the player, then activate the yt_clipper markup script as usual.
 
 ## [5.28.0](https://github.com/exwm/yt_clipper/compare/v5.27.0...v5.28.0) (2024-10-25)
 
 ### Features
 
 * **clipper:** on failure to parse markers JSON file, print friendlier error messages and debug info ([2c7fc9e](https://github.com/exwm/yt_clipper/commit/2c7fc9e07c52e805187942236f299f0870361a69))
+
 
 ### Bug Fixes
 
