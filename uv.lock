@@ -267,7 +267,7 @@ wheels = [
 
 [[package]]
 name = "clipper"
-version = "5.29.0"
+version = "5.30.0"
 source = { editable = "." }
 dependencies = [
     { name = "certifi" },
