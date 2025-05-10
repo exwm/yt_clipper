@@ -44,6 +44,23 @@ export class Crop {
   public set cropString(cropString: string) {
     [this._x, this._y, this._w, this._h] = Crop.getCropComponents(cropString);
   }
+  public get rotatedCropStringClockWise() {
+    let [x, y, w, h] = this.cropComponents;
+    // bottom edge
+    y = this.maxH - (y + h);
+    [x, y, w, h] = [y, x, h, w];
+
+    return [x, y, w, h].join(':');
+  }
+  public get rotatedCropStringCounterClockWise() {
+    let [x, y, w, h] = this.cropComponents;
+    // right edge
+    x = this.maxW - (x + w);
+    [x, y, w, h] = [y, x, h, w];
+
+    return [x, y, w, h].join(':');
+  }
+
   public setCropStringSafe(cropString: string, shouldMaintainCropAspectRatio = false) {
     const [nx, ny, nw, nh] = Crop.getCropComponents(cropString);
     const isDrag = nw === this._w && nh === this._h;

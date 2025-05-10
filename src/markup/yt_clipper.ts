@@ -785,11 +785,20 @@ async function loadytClipper() {
     }
 
     const cropPoint = cropChartData[currentCropPointIndex] as CropPoint;
-    cropInput.value = cropPoint.crop;
+    setCropInputValue(cropPoint.crop);
+
     highlightSpeedAndCropInputs();
     if (isCurrentChartVisible && currentChartInput.type === 'crop') {
       currentChartInput?.chart?.update();
     }
+  }
+
+  function setCropInputValue(cropString: string) {
+    const rotatedCropString = getRotatedCropString(cropString);
+    if (rotatedCropString !== cropString) {
+      cropInputLabel.textContent = `Crop (Rotated: ${rotatedCropString})`;
+    }
+    cropInput.value = cropString;
   }
 
   function inheritCropPointCrop(e: WheelEvent) {
@@ -3323,7 +3332,7 @@ async function loadytClipper() {
     const cropString = settings.newMarkerCrop;
     const multipliedCropString = multiplyCropString(cropMultipleX, cropMultipleY, cropString);
     settings.newMarkerCrop = multipliedCropString;
-    cropInput.value = multipliedCropString;
+    setCropInputValue(multipliedCropString);
 
     markerPairs.forEach((markerPair) => {
       multiplyMarkerPairCrops(markerPair, cropMultipleX, cropMultipleY);
@@ -3558,7 +3567,10 @@ async function loadytClipper() {
     }
 
     if (platform === VideoPlatforms.yt_clipper) {
-      hooks.shortcutsTableButton.parentElement.insertBefore(shortcutsTableToggleButton, hooks.shortcutsTableButton);
+      hooks.shortcutsTableButton.parentElement.insertBefore(
+        shortcutsTableToggleButton,
+        hooks.shortcutsTableButton
+      );
     } else {
       hooks.shortcutsTableButton.insertAdjacentElement('afterbegin', shortcutsTableToggleButton);
     }
@@ -3820,16 +3832,16 @@ async function loadytClipper() {
   let cropDiv: HTMLDivElement;
   let cropSvg: SVGSVGElement;
   let cropDim: SVGRectElement;
-  let cropRect: Element;
-  let cropRectBorder: Element;
-  let cropRectBorderBlack: Element;
-  let cropRectBorderWhite: Element;
-  let cropChartSectionStart: Element;
-  let cropChartSectionStartBorderGreen: Element;
-  let cropChartSectionStartBorderWhite: Element;
+  let cropRect: SVGRectElement;
+  let cropRectBorder: SVGRectElement;
+  let cropRectBorderBlack: SVGRectElement;
+  let cropRectBorderWhite: SVGRectElement;
+  let cropChartSectionStart: SVGRectElement;
+  let cropChartSectionStartBorderGreen: SVGRectElement;
+  let cropChartSectionStartBorderWhite: SVGRectElement;
   let cropChartSectionEnd: Element;
-  let cropChartSectionEndBorderYellow: Element;
-  let cropChartSectionEndBorderWhite: Element;
+  let cropChartSectionEndBorderYellow: SVGRectElement;
+  let cropChartSectionEndBorderWhite: SVGRectElement;
   let cropCrossHair: Element;
   let cropCrossHairXBlack: Element;
   let cropCrossHairXWhite: Element;
@@ -3946,6 +3958,11 @@ async function loadytClipper() {
       if (cropSvg) {
         cropSvg.setAttribute('width', '0');
       }
+      const cropString = getRelevantCropString();
+      setCropOverlay(cropRect, cropString);
+      setCropOverlay(cropRectBorder, cropString);
+      setCropOverlay(cropRectBorderBlack, cropString);
+      setCropOverlay(cropRectBorderWhite, cropString);
     }
   }
 
@@ -3976,30 +3993,53 @@ async function loadytClipper() {
     setCropOverlayDimensions(cropRect, x, y, w, h);
   }
 
-  function setCropOverlayDimensions(cropRect: Element, x: number, y: number, w: number, h: number) {
+  function setCropOverlayDimensions(
+    cropRect: Element,
+    inX: number,
+    inY: number,
+    inW: number,
+    inH: number
+  ) {
     if (cropRect) {
+      let x = (inX / settings.cropResWidth) * 100;
+      let y = (inY / settings.cropResHeight) * 100;
+      let w = (inW / settings.cropResWidth) * 100;
+      let h = (inH / settings.cropResHeight) * 100;
+
+      [x, y, w, h] = getRotatedCropComponents([x, y, w, h], 100, 100);
+
       const cropRectAttrs = {
-        x: `${(x / settings.cropResWidth) * 100}%`,
-        y: `${(y / settings.cropResHeight) * 100}%`,
-        width: `${(w / settings.cropResWidth) * 100}%`,
-        height: `${(h / settings.cropResHeight) * 100}%`,
+        x: `${x}%`,
+        y: `${y}%`,
+        width: `${w}%`,
+        height: `${h}%`,
       };
+
       setAttributes(cropRect, cropRectAttrs);
     }
   }
 
   function setCropCrossHair(cropCrossHair: Element, cropString: string) {
-    const [x, y, w, h] = getCropComponents(cropString);
+    const [x, y, w, h] = getRotatedCropComponents(getCropComponents(cropString));
+
     if (cropCrossHair) {
       const [x1M, x2M, y1M, y2M] =
         cropCrossHair.getAttribute('type') === 'x' ? [0, 1, 0.5, 0.5] : [0.5, 0.5, 0, 1];
 
-      const cropCrossHairAttrs = {
+      let cropCrossHairAttrs = {
         x1: `${((x + x1M * w) / settings.cropResWidth) * 100}%`,
         x2: `${((x + x2M * w) / settings.cropResWidth) * 100}%`,
         y1: `${((y + y1M * h) / settings.cropResHeight) * 100}%`,
         y2: `${((y + y2M * h) / settings.cropResHeight) * 100}%`,
       };
+      if (rotation === 90 || rotation === -90) {
+        cropCrossHairAttrs = {
+          x1: `${((x + x1M * w) / settings.cropResHeight) * 100}%`,
+          x2: `${((x + x2M * w) / settings.cropResHeight) * 100}%`,
+          y1: `${((y + y1M * h) / settings.cropResWidth) * 100}%`,
+          y2: `${((y + y2M * h) / settings.cropResWidth) * 100}%`,
+        };
+      }
       setAttributes(cropCrossHair, cropCrossHairAttrs);
     }
   }
@@ -4058,6 +4098,16 @@ async function loadytClipper() {
     } else {
       return settings.newMarkerCrop;
     }
+  }
+
+  function getRelevantCropRect() {
+    if (!isSettingsEditorOpen) return null;
+    if (!updateDynamicCropOverlays)
+      if (!wasGlobalSettingsEditorOpen) {
+        return cropRect;
+      } else {
+        return;
+      }
   }
 
   function addScrubVideoHandler() {
@@ -4182,83 +4232,109 @@ async function loadytClipper() {
           document.addEventListener('keydown', addCropHoverListener, true);
         };
 
-        let cropResizeHandler;
         if (!cursor) {
           return;
-        } else {
-          document.addEventListener('click', blockVideoPause, {
-            once: true,
-            capture: true,
-          });
-          document.removeEventListener('pointermove', cropHoverHandler, true);
-          document.removeEventListener('keydown', addCropHoverListener, true);
-          document.removeEventListener('keyup', removeCropHoverListener, true);
-
-          e.preventDefault();
-          hooks.cropMouseManipulation.setPointerCapture(pointerId);
-
-          if (cursor === 'grab') {
-            hooks.cropMouseManipulation.style.cursor = 'grabbing';
-            document.addEventListener('pointermove', dragCropHandler);
-          } else {
-            cropResizeHandler = (e: MouseEvent) => getCropResizeHandler(e, cursor);
-            document.addEventListener('pointermove', cropResizeHandler);
-          }
-
-          document.addEventListener('pointerup', endCropMouseManipulation, {
-            once: true,
-            capture: true,
-          });
-
-          hidePlayerControls();
-          isMouseManipulatingCrop = true;
         }
 
+        let cropResizeHandler;
+
+        document.addEventListener('click', blockVideoPause, {
+          once: true,
+          capture: true,
+        });
+        document.removeEventListener('pointermove', cropHoverHandler, true);
+        document.removeEventListener('keydown', addCropHoverListener, true);
+        document.removeEventListener('keyup', removeCropHoverListener, true);
+
+        e.preventDefault();
+        hooks.cropMouseManipulation.setPointerCapture(pointerId);
+
+        if (cursor === 'grab') {
+          hooks.cropMouseManipulation.style.cursor = 'grabbing';
+          document.addEventListener('pointermove', dragCropHandler);
+        } else {
+          cropResizeHandler = (e: MouseEvent) => getCropResizeHandler(e, cursor);
+          document.addEventListener('pointermove', cropResizeHandler);
+        }
+
+        document.addEventListener('pointerup', endCropMouseManipulation, {
+          once: true,
+          capture: true,
+        });
+
+        hidePlayerControls();
+        isMouseManipulatingCrop = true;
+
         function dragCropHandler(e: PointerEvent) {
+          const shouldMaintainCropX = e.shiftKey;
+          const shouldMaintainCropY = e.altKey;
+
           const dragPosX = e.clientX - videoRect.left;
           const dragPosY = e.clientY - videoRect.top;
           const changeX = dragPosX - clickPosX;
           const changeY = dragPosY - clickPosY;
-          let changeXScaled = Math.round((changeX / videoRect.width) * settings.cropResWidth);
+          let changeXScaled = Math.round((changeX / videoRect.width) * cropResWidth);
+          let changeYScaled = Math.round((changeY / videoRect.height) * cropResHeight);
+          let crop = new Crop(ix, iy, iw, ih, cropResWidth, cropResHeight);
 
-          let changeYScaled = Math.round((changeY / videoRect.height) * settings.cropResHeight);
-          const crop = new Crop(ix, iy, iw, ih, cropResWidth, cropResHeight);
-          const shouldMaintainCropX = e.shiftKey;
-          const shouldMaintainCropY = e.altKey;
+          if (rotation === 90) {
+            changeXScaled = Math.round((changeX / videoRect.width) * cropResHeight);
+            changeYScaled = Math.round((changeY / videoRect.height) * cropResWidth);
+            crop = new Crop(cropResHeight - iy - ih, ix, ih, iw, cropResHeight, cropResWidth);
+          } else if (rotation === -90) {
+            changeXScaled = Math.round((changeX / videoRect.width) * cropResHeight);
+            changeYScaled = Math.round((changeY / videoRect.height) * cropResWidth);
+            crop = new Crop(iy, cropResWidth - ix - iw, ih, iw, cropResHeight, cropResWidth);
+          }
+
           if (shouldMaintainCropX) changeXScaled = 0;
           if (shouldMaintainCropY) changeYScaled = 0;
           crop.panX(changeXScaled);
           crop.panY(changeYScaled);
 
-          updateCropString(crop.cropString, false, false, initCropMap);
+          updateCropStringWithCrop(crop, false, false, initCropMap);
         }
 
         function getCropResizeHandler(e: PointerEvent, cursor: string) {
-          const dragPosX = e.clientX - videoRect.left;
-          const changeX = dragPosX - clickPosX;
-          let deltaX = (changeX / videoRect.width) * settings.cropResWidth;
-          const dragPosY = e.clientY - videoRect.top;
-          const changeY = dragPosY - clickPosY;
-          let deltaY = (changeY / videoRect.height) * settings.cropResHeight;
           const shouldMaintainCropAspectRatio =
             ((!enableZoomPan || !isDynamicCrop) && e.altKey) ||
             (enableZoomPan && isDynamicCrop && !e.altKey);
+
+          const dragPosX = e.clientX - videoRect.left;
+          const changeX = dragPosX - clickPosX;
+          const dragPosY = e.clientY - videoRect.top;
+          const changeY = dragPosY - clickPosY;
+          let changeXScaled = (changeX / videoRect.width) * settings.cropResWidth;
+          let changeYScaled = (changeY / videoRect.height) * settings.cropResHeight;
+
           const shouldResizeCenterOut = e.shiftKey;
-          const crop = new Crop(ix, iy, iw, ih, cropResWidth, cropResHeight);
+          let crop = new Crop(ix, iy, iw, ih, cropResWidth, cropResHeight);
+
+          if (rotation === 90) {
+            changeXScaled = (changeX / videoRect.width) * cropResHeight;
+            changeYScaled = (changeY / videoRect.height) * cropResWidth;
+            crop = new Crop(cropResHeight - iy - ih, ix, ih, iw, cropResHeight, cropResWidth);
+          } else if (rotation === -90) {
+            changeXScaled = Math.round((changeX / videoRect.width) * cropResHeight);
+            changeYScaled = Math.round((changeY / videoRect.height) * cropResWidth);
+            crop = new Crop(iy, cropResWidth - ix - iw, ih, iw, cropResHeight, cropResWidth);
+          }
+
           resizeCrop(
             crop,
             cursor,
-            deltaX,
-            deltaY,
+            changeXScaled,
+            changeYScaled,
             shouldMaintainCropAspectRatio,
             shouldResizeCenterOut
           );
-          updateCropString(crop.cropString, false, false, initCropMap);
+          updateCropStringWithCrop(crop, false, false, initCropMap);
         }
       }
     }
   }
 
+  // mutates crop
   function resizeCrop(
     crop: Crop,
     cursor: string,
@@ -4266,7 +4342,7 @@ async function loadytClipper() {
     deltaY: number,
     shouldMaintainCropAspectRatio = false,
     shouldResizeCenterOut = false
-  ) {
+  ): void {
     const isWResize = ['w-resize', 'nw-resize', 'sw-resize'].includes(cursor);
     const isNResize = ['n-resize', 'nw-resize', 'ne-resize'].includes(cursor);
     if (isWResize) deltaX = -deltaX;
@@ -4331,14 +4407,57 @@ async function loadytClipper() {
     }
   }
 
-  function getMouseCropHoverRegion(e: PointerEvent, cropString?: string) {
-    cropString = cropString ?? getRelevantCropString();
-    const [x, y, w, h] = getCropComponents(cropString);
+  function getClickPosScaled(e: PointerEvent): number[] {
     const videoRect = video.getBoundingClientRect();
-    const clickPosX = e.clientX - videoRect.left;
-    const clickPosY = e.clientY - videoRect.top;
-    const clickPosXScaled = (clickPosX / videoRect.width) * settings.cropResWidth;
-    const clickPosYScaled = (clickPosY / videoRect.height) * settings.cropResHeight;
+    let { width, height, top, left } = videoRect;
+
+    let clickPosX = e.clientX - left;
+    let clickPosY = e.clientY - top;
+
+    let clickPosXScaled = (clickPosX / width) * settings.cropResWidth;
+    let clickPosYScaled = (clickPosY / height) * settings.cropResHeight;
+
+    if (rotation === 90 || rotation === -90) {
+      clickPosXScaled = (clickPosX / width) * settings.cropResHeight;
+      clickPosYScaled = (clickPosY / height) * settings.cropResWidth;
+    }
+
+    return [clickPosXScaled, clickPosYScaled];
+  }
+
+  function rotateCropComponentsClockWise(cropComponents: number[], maxHeight?: number) {
+    if (maxHeight == null) {
+      maxHeight = settings.cropResHeight;
+    }
+
+    let [x, y, w, h] = cropComponents;
+    y = maxHeight - (y + h);
+    [x, y, w, h] = [y, x, h, w];
+    return [x, y, w, h];
+  }
+
+  function rotateCropComponentsCounterClockWise(cropComponents: number[], maxWidth?: number) {
+    if (maxWidth == null) {
+      maxWidth = settings.cropResWidth;
+    }
+
+    let [x, y, w, h] = cropComponents;
+    x = maxWidth - (x + w);
+    [x, y, w, h] = [y, x, h, w];
+    return [x, y, w, h];
+  }
+
+  function getMouseCropHoverRegion(e: PointerEvent, cropString?: string): string {
+    cropString = cropString ?? getRelevantCropString();
+    let [x, y, w, h] = getCropComponents(cropString);
+
+    const [clickPosXScaled, clickPosYScaled] = getClickPosScaled(e);
+
+    if (rotation === 90) {
+      [x, y, w, h] = rotateCropComponentsClockWise([x, y, w, h]);
+    } else if (rotation === -90) {
+      [x, y, w, h] = rotateCropComponentsCounterClockWise([x, y, w, h]);
+    }
 
     const slMultiplier = Math.min(settings.cropResWidth, settings.cropResHeight) / 1080;
     const sl = Math.ceil(Math.min(w, h) * slMultiplier * 0.1);
@@ -4424,7 +4543,7 @@ async function loadytClipper() {
   let drawCropHandler: EventListener;
   let shouldFinishDrawMaintainAspectRatio = false;
   function beginDraw(e: PointerEvent) {
-    if (e.button == 0 && !drawCropHandler) {
+    if (e.button === 0 && !drawCropHandler) {
       e.preventDefault();
       hooks.cropMouseManipulation.setPointerCapture(e.pointerId);
 
@@ -4434,12 +4553,12 @@ async function loadytClipper() {
       const videoRect = video.getBoundingClientRect();
       const clickPosX = e.clientX - videoRect.left;
       const clickPosY = e.clientY - videoRect.top;
-      const ix = (clickPosX / videoRect.width) * cropResWidth;
-      const iy = (clickPosY / videoRect.height) * cropResHeight;
+
+      const [clickPosXScaled, clickPosYScaled] = getClickPosScaled(e);
 
       const { isDynamicCrop, enableZoomPan } = getCropMapProperties();
 
-      const initCrop = !wasGlobalSettingsEditorOpen
+      const prevCrop = !wasGlobalSettingsEditorOpen
         ? initDrawCropMap[currentCropPointIndex].crop
         : prevNewMarkerCrop;
       const shouldMaintainCropAspectRatio =
@@ -4447,50 +4566,94 @@ async function loadytClipper() {
         (enableZoomPan && isDynamicCrop && !e.altKey);
       shouldFinishDrawMaintainAspectRatio = shouldMaintainCropAspectRatio;
 
-      const [px, py, pw, ph] = getCropComponents(initCrop);
+      // rotate aspect ratio in rotated mode?
+      let [prevCropX, prevCropY, prevCropW, prevCropH] = getCropComponents(prevCrop);
+      if (rotation === 90 || rotation === -90) {
+        [prevCropW, prevCropH] = [prevCropH, prevCropH];
+      }
 
-      const par = pw <= 0 || ph <= 0 ? 1 : pw / ph;
+      const prevCropAspectRatio = prevCropW <= 0 || prevCropH <= 0 ? 1 : prevCropW / prevCropH;
 
-      const crop = new Crop(ix, iy, Crop.minW, Crop.minH, cropResWidth, cropResHeight);
+      let crop = new Crop(
+        clickPosXScaled,
+        clickPosYScaled,
+        Crop.minW,
+        Crop.minH,
+        cropResWidth,
+        cropResHeight
+      );
 
-      updateCropString(crop.cropString, false, false, initDrawCropMap);
+      if (rotation === 90 || rotation === -90) {
+        // We already rotated clickPosXScaled and clickPosYScaled, so we don't need to do it again here
+        crop = new Crop(
+          clickPosXScaled,
+          clickPosYScaled,
+          Crop.minH,
+          Crop.minW,
+          cropResHeight,
+          cropResWidth
+        );
+      }
+
+      updateCropStringWithCrop(crop, false, false, initDrawCropMap);
 
       const { initCropMap: zeroCropMap } = getCropMapProperties();
 
-      drawCropHandler = function (e: PointerEvent) {
-        const dragPosX = e.clientX - videoRect.left;
-        const changeX = dragPosX - clickPosX;
-        let deltaX = (changeX / videoRect.width) * cropResWidth;
-        const dragPosY = e.clientY - videoRect.top;
-        const changeY = dragPosY - clickPosY;
-        let deltaY = (changeY / videoRect.height) * cropResHeight;
-
+      drawCropHandler = (e: PointerEvent) => {
         const shouldMaintainCropAspectRatio =
           ((!enableZoomPan || !isDynamicCrop) && e.altKey) ||
           (enableZoomPan && isDynamicCrop && !e.altKey);
         shouldFinishDrawMaintainAspectRatio = shouldMaintainCropAspectRatio;
-
         const shouldResizeCenterOut = e.shiftKey;
 
-        const crop = new Crop(ix, iy, Crop.minW, Crop.minH, cropResWidth, cropResHeight);
-        crop.defaultAspectRatio = par;
+        const dragPosX = e.clientX - videoRect.left;
+        const changeX = dragPosX - clickPosX;
+        const dragPosY = e.clientY - videoRect.top;
+        const changeY = dragPosY - clickPosY;
+
+        let changeXScaled = (changeX / videoRect.width) * cropResWidth;
+        let changeYScaled = (changeY / videoRect.height) * cropResHeight;
+
+        let crop = new Crop(
+          clickPosXScaled,
+          clickPosYScaled,
+          Crop.minW,
+          Crop.minH,
+          cropResWidth,
+          cropResHeight
+        );
+
+        if (rotation === 90 || rotation === -90) {
+          changeXScaled = (changeX / videoRect.width) * cropResHeight;
+          changeYScaled = (changeY / videoRect.height) * cropResWidth;
+          crop = new Crop(
+            clickPosXScaled,
+            clickPosYScaled,
+            Crop.minH,
+            Crop.minW,
+            cropResHeight,
+            cropResWidth
+          );
+        }
+
+        crop.defaultAspectRatio = prevCropAspectRatio;
 
         let cursor: string;
-        if (deltaX >= 0 && deltaY < 0) cursor = 'ne-resize';
-        if (deltaX >= 0 && deltaY >= 0) cursor = 'se-resize';
-        if (deltaX < 0 && deltaY >= 0) cursor = 'sw-resize';
-        if (deltaX < 0 && deltaY < 0) cursor = 'nw-resize';
+        if (changeXScaled >= 0 && changeYScaled < 0) cursor = 'ne-resize';
+        if (changeXScaled >= 0 && changeYScaled >= 0) cursor = 'se-resize';
+        if (changeXScaled < 0 && changeYScaled >= 0) cursor = 'sw-resize';
+        if (changeXScaled < 0 && changeYScaled < 0) cursor = 'nw-resize';
 
         resizeCrop(
           crop,
           cursor,
-          deltaX,
-          deltaY,
+          changeXScaled,
+          changeYScaled,
           shouldMaintainCropAspectRatio,
           shouldResizeCenterOut
         );
 
-        updateCropString(crop.cropString, false, false, zeroCropMap);
+        updateCropStringWithCrop(crop, false, false, zeroCropMap);
       };
 
       document.addEventListener('pointermove', drawCropHandler);
@@ -4702,7 +4865,7 @@ async function loadytClipper() {
     return { isDynamicCrop, enableZoomPan, initCropMap };
   }
 
-  function getCropComponents(cropString?: string) {
+  function getCropComponents(cropString?: string): number[] {
     if (!cropString && isSettingsEditorOpen) {
       if (!wasGlobalSettingsEditorOpen && prevSelectedMarkerPairIndex != null) {
         cropString = markerPairs[prevSelectedMarkerPairIndex].crop;
@@ -4734,9 +4897,51 @@ async function loadytClipper() {
     return cropArray;
   }
 
+  function getRotatedCropComponents(
+    cropComponents: number[],
+    maxWidth?: number,
+    maxHeight?: number
+  ): number[] {
+    let [x, y, w, h] = cropComponents;
+
+    if (rotation === 90) {
+      [x, y, w, h] = rotateCropComponentsClockWise([x, y, w, h], maxWidth);
+    } else if (rotation === -90) {
+      [x, y, w, h] = rotateCropComponentsCounterClockWise([x, y, w, h], maxHeight);
+    }
+
+    return [x, y, w, h];
+  }
+
+  function getRotatedCropString(cropString: string): string {
+    let [x, y, w, h] = getCropComponents(cropString);
+
+    [x, y, w, h] = getRotatedCropComponents([x, y, w, h]);
+
+    return getCropString(x, y, w, h);
+  }
+
   function getNumericCropString(cropString: string) {
     const [x, y, w, h] = getCropComponents(cropString);
     return getCropString(x, y, w, h);
+  }
+
+  function updateCropStringWithCrop(
+    crop: Crop,
+    shouldRerenderCharts = false,
+    forceCropConstraints = false,
+    initCropMap?: CropPoint[]
+  ) {
+    let newCropString: string;
+    if (rotation === 90) {
+      newCropString = crop.rotatedCropStringCounterClockWise;
+    } else if (rotation === -90) {
+      newCropString = crop.rotatedCropStringClockWise;
+    } else {
+      newCropString = crop.cropString;
+    }
+
+    return updateCropString(newCropString, shouldRerenderCharts, forceCropConstraints, initCropMap);
   }
 
   function updateCropString(
@@ -4859,7 +5064,8 @@ async function loadytClipper() {
   function renderCropForm(crop) {
     const [x, y, w, h] = getCropComponents(crop);
 
-    cropInput.value = crop;
+    setCropInputValue(crop);
+
     const cropAspectRatio = (w / h).toFixed(13);
     cropAspectRatioSpan && (cropAspectRatioSpan.textContent = cropAspectRatio);
   }
@@ -5427,7 +5633,7 @@ async function loadytClipper() {
       const markerPair = markerPairs[prevSelectedMarkerPairIndex];
       const cropMap = markerPair.cropMap;
       if (isStaticCrop(cropMap)) {
-        cropInput.value = newCrop;
+        setCropInputValue(newCrop);
         renderSpeedAndCropUI();
       }
     }

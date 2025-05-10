@@ -33,13 +33,13 @@ export function getRotatedVideoCSS(rotation: number) {
           transform: rotate(${rotation}deg) !important;
         }
         #full-bleed-container {
-          height: 100vh !important;
+          height: 85vh !important;
           max-height: none !important;
         }
         #page-manager {
           margin-top: 0px !important;
         }
-        #masthead #container {
+        #masthead {
           display: none !important;
         }
       `;
