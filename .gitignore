@@ -20,6 +20,7 @@ __pycache__
 # compiling, testing, and debugging sandboxes
 sandbox/
 misc/
+.sandbox
 
 # other binaries and artifacts
 webms/
