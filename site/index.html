@@ -118,25 +118,64 @@
         e.preventDefault();
 
         const clipboardData = e.clipboardData || window.clipboardData;
-        const url = clipboardData.getData('text');
+        const pastedText = clipboardData.getData('text');
+        const videoLoaded = loadVideoFromPaste(pastedText);
 
-        document.querySelector('video').src = url;
-        document.querySelector('#ytc-video-title').textContent = url;
-        installVideojs();
-
-        document.removeEventListener('paste', handlePaste);
+        if (videoLoaded) {
+          installVideojs();
+          document.removeEventListener('paste', handlePaste);
+        }
       }
 
       function handleDrop(e) {
         e.preventDefault();
-        const videoLoaded = loadVideo(e);
+        const videoLoaded = loadVideoFromDrop(e);
+
         if (videoLoaded) {
           installVideojs();
           document.removeEventListener('drop', handleDrop);
         }
       }
 
-      function loadVideo(e) {
+      function loadVideoFromPaste(pastedText) {
+        if (!pastedText.includes('\n')) {
+          const url = pastedText.trim();
+          const extension = getFileExtensionFromUrl(url);
+
+          if (extension === 'm3u8') {
+            loadHlsVideo(url);
+          } else {
+            document.querySelector('video').src = url;
+            document.querySelector('#ytc-video-title').textContent = url;
+          }
+          videoLoaded = true;
+        } else {
+          const links = pastedText.split('\n', 2);
+          const videoLink = links[0].trim();
+          const audioLink = links[1].trim();
+          if (getFileExtensionFromUrl(videoLink) === 'm3u8') {
+            loadHlsVideoAndAudio(videoLink, audioLink);
+          }
+          videoLoaded = true;
+        }
+
+        return videoLoaded;
+      }
+
+      function loadHlsVideoAndAudio(videoLink, audioLink) {
+        const masterPlaylist = `#EXTM3U
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="Default",DEFAULT=YES,AUTOSELECT=YES,URI="${audioLink}"
+#EXT-X-STREAM-INF:BANDWIDTH=2000000,CODECS="avc1.640034",AUDIO="aac"
+${videoLink}
+`;
+
+        const blob = new Blob([masterPlaylist], { type: 'application/vnd.apple.mpegurl' });
+        const masterUrl = URL.createObjectURL(blob);
+
+        loadHlsVideo(masterUrl);
+      }
+
+      function loadVideoFromDrop(e) {
         let videoLoaded = false;
 
         const file = e.dataTransfer.files?.[0];
@@ -146,25 +185,6 @@
           const url = URL.createObjectURL(file);
           document.querySelector('video').src = url;
           document.querySelector('#ytc-video-title').textContent = file.name;
-          videoLoaded = true;
-        } else if (!data.includes('\n') && data.endsWith('.m3u8')) {
-          loadHlsVideo(data);
-          videoLoaded = true;
-        } else if (data) {
-          const links = data.split('\n', 2);
-          const videoM3U8 = links[0].trim();
-          const audioM3U8 = links[1].trim();
-
-          const masterPlaylist = `#EXTM3U
-#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="Default",DEFAULT=YES,AUTOSELECT=YES,URI="${audioM3U8}"
-#EXT-X-STREAM-INF:BANDWIDTH=1500000,CODECS="avc1.640034",AUDIO="aac"
-${videoM3U8}
-`;
-
-          const blob = new Blob([masterPlaylist], { type: 'application/vnd.apple.mpegurl' });
-          const masterUrl = URL.createObjectURL(blob);
-
-          loadHlsVideo(masterUrl);
           videoLoaded = true;
         }
 
@@ -183,6 +203,19 @@ ${videoM3U8}
           video.src = hlsUrl;
           video.addEventListener('loadedmetadata', () => video.play());
         }
+      }
+
+      function getFileExtensionFromUrl(urlString) {
+        if (typeof urlString !== 'string') return null;
+
+        const pathPart = urlString.split('?')[0].split('#')[0];
+        const segments = pathPart.split('/');
+        const filename = segments.pop();
+
+        if (!filename || !filename.includes('.')) return null;
+
+        const parts = filename.split('.');
+        return parts.length > 1 ? parts.pop().toLowerCase() : null;
       }
 
       function installVideojs() {
@@ -217,7 +250,8 @@ ${videoM3U8}
     <div id="ytc-editor"></div>
 
     <h2 id="ytc-video-title">
-      To load a video, drag and drop it onto the player OR paste a direct video URL anywhere (e.g. with ctrl+v). Then activate the markup user script.
+      To load a local video, drag and drop it onto the player OR paste a direct video URL anywhere
+      (e.g. with ctrl+v). Then activate the markup user script.
     </h2>
 
     <script src="https://cdn.jsdelivr.net/npm/video.js@8.22.0/dist/video.min.js"></script>
