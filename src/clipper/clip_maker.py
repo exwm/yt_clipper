@@ -9,6 +9,9 @@ from math import pi
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional, Set, Tuple
 
+import rich
+import rich.markup
+
 from clipper.clipper_types import (
     BadMergeInput,
     ClipperPaths,
@@ -304,8 +307,9 @@ def fastTrimClip(
         videoPart = mp["videoPart"]
         inputs += f' -ss {videoStart} -to {videoEnd} -i "{videoPart["url"]}" '
     else:
+        fileName = rich.markup.escape(mp["fileName"])
         logger.error(
-            f'Failed to generate: "{mp["fileName"]}". The marker pair defines a clip that spans multiple video parts which is not currently supported.',
+            f'Failed to generate: "{fileName}". The marker pair defines a clip that spans multiple video parts which is not currently supported.',
         )
         return None
 
@@ -375,8 +379,9 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
         videoPart = mp["videoPart"]
         inputs += f' -ss {mp["start"]} -i "{videoPart["url"]}" '
     else:
+        fileName = rich.markup.escape(mp["fileName"])
         logger.error(
-            f'Failed to generate: "{mp["fileName"]}". The marker pair defines a clip that spans multiple video parts which is not currently supported.',
+            f'Failed to generate: "{fileName}". The marker pair defines a clip that spans multiple video parts which is not currently supported.',
         )
         return None
 
@@ -666,7 +671,8 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
 
     if not (1 <= len(ffmpegCommands) <= 2):  # pylint: disable=superfluous-parens
         logger.error(f"ffmpeg command could not be built.\n")
-        logger.error(f'Failed to generate: {mp["fileName"]}\n')
+        fileName = rich.markup.escape(mp["fileName"])
+        logger.error(f"Failed to generate: {fileName}\n")
         return {**(settings["markerPairs"][markerPairIndex])}
 
     return runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp)
@@ -794,12 +800,13 @@ def runffmpegCommand(
         logger.verbose(f"Using ffmpeg command: {printablePass2}\n")
         ffmpegProcess = subprocess.run(shlex.split(ffmpegPass2), check=False)
 
+    fileName = rich.markup.escape(mp["fileName"])
     mp["returncode"] = ffmpegProcess.returncode
     if mp["returncode"] == 0:
-        logger.success(f'Successfuly generated: "{mp["fileName"]}"')
+        logger.success(f'Successfuly generated: "{fileName}"')
     else:
         logger.error(
-            f'Failed to generate: "{mp["fileName"]}" (error code: {mp["returncode"]}).',
+            f'Failed to generate: "{fileName}" (error code: {mp["returncode"]}).',
         )
 
     return {**(settings["markerPairs"][markerPairIndex]), **mp}
