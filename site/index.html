@@ -219,14 +219,61 @@ ${videoLink}
       }
 
       function installVideojs() {
-        videojs('my-video', {
+        const player = videojs('my-video', {
           playbackRates: [0.25, 0.5, 1, 1.25, 1.5, 1.75, 2],
           enableSmoothSeeking: true,
           userInactiveTimeout: 0,
           controlBar: {},
         });
+
+        // Prevent default behavior like scrolling when spacebar is pressed
+        document.addEventListener('keydown', function (event) {
+          const activeTag = document.activeElement.tagName;
+          const isTyping = ['INPUT', 'TEXTAREA', 'BUTTON'].includes(activeTag);
+          const SEEK_STEP = 1;
+          const DEFAULT_FPS = 30;
+          const FRAME_STEP = 1 / DEFAULT_FPS;
+
+          if (isTyping) return;
+
+          if (event.code === 'Space' || event.code === 'KeyK') {
+            event.preventDefault();
+            if (player.paused()) {
+              player.play();
+            } else {
+              player.pause();
+            }
+          }
+
+          switch (event.code) {
+            case 'KeyM':
+              event.preventDefault();
+              player.muted(!player.muted());
+              break;
+            case 'KeyJ':
+              event.preventDefault();
+              player.currentTime(Math.max(0, player.currentTime() - SEEK_STEP));
+              break;
+            case 'KeyL':
+              event.preventDefault();
+              player.currentTime(Math.min(player.duration(), player.currentTime() + SEEK_STEP));
+              break;
+            case 'Comma':
+              event.preventDefault();
+              if (!player.paused()) player.pause();
+              player.currentTime(Math.max(0, player.currentTime() - FRAME_STEP));
+              break;
+            case 'Period':
+              event.preventDefault();
+              if (!player.paused()) player.pause();
+              player.currentTime(Math.min(player.duration(), player.currentTime() + FRAME_STEP));
+              break;
+          }
+        });
       }
     </script>
+
+    <script></script>
   </head>
   <body>
     <div id="ytc-media-player-container">
