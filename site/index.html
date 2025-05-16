@@ -119,21 +119,22 @@
 
         const clipboardData = e.clipboardData || window.clipboardData;
         const pastedText = clipboardData.getData('text');
-        const videoLoaded = loadVideoFromPaste(pastedText);
 
-        if (videoLoaded) {
-          installVideojs();
-          document.removeEventListener('paste', handlePaste);
-        }
+        const videoLoaded = loadVideoFromPaste(pastedText);
+        finalizeVideoLoad(videoLoaded);
       }
 
       function handleDrop(e) {
         e.preventDefault();
         const videoLoaded = loadVideoFromDrop(e);
+        finalizeVideoLoad(videoLoaded);
+      }
 
+      function finalizeVideoLoad(videoLoaded) {
         if (videoLoaded) {
           installVideojs();
           document.removeEventListener('drop', handleDrop);
+          document.removeEventListener('paste', handlePaste);
         }
       }
 
