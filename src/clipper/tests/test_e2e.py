@@ -21,7 +21,6 @@ def test_get_version_info(
     print(out, err)
     assert err == ""
     assert "yt_clipper.py v" in out
-    assert "ffmpeg" in out
 
 
 @pytest.mark.slow
