@@ -1,4 +1,4 @@
-current_version: "5.30.0"
+current_version: "5.31.0"
 base_branch: "master"
 strategy:
   name: "semver"
@@ -14,3 +14,4 @@ tracked_files:
   - .github/workflows/yt_clipper_ci.yml
   - src/markup/yt_clipper.ts
   - pyproject.toml
+  - uv.lock

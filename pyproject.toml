@@ -1,6 +1,6 @@
 [project]
 name = "clipper"
-version = "5.30.0"
+version = "5.31.0"
 description = "Quickly generate clipped webms."
 authors = [{ name = "exwm", email = "rjvgb@protonmail.com" }]
 requires-python = ">=3.9,<3.13"
