@@ -123,6 +123,8 @@ import {
   timeRounder,
   toHHMMSSTrimmed,
 } from './util/util';
+import { injectModal, startDrawZoomedRegion, disableCropPreview } from './crop/crop-preview';
+
 const ytClipperCSS = readFileSync(__dirname + '/ui/css/yt-clipper.css', 'utf8');
 const shortcutsTableHTML = readFileSync(
   __dirname + '/ui/shortcuts-table/shortcuts-table.html',
@@ -289,6 +291,9 @@ async function loadytClipper() {
           } else if (e.ctrlKey && !e.altKey && e.shiftKey) {
             blockEvent(e);
             toggleCropCrossHair();
+          } else if (e.ctrlKey && e.altKey && !e.shiftKey) {
+            blockEvent(e);
+            toggleCropPreview();
           }
           break;
         case 'KeyR':
@@ -4767,6 +4772,35 @@ async function loadytClipper() {
     }
   }
 
+  let cropPreviewEnabled = false;
+  function toggleCropPreview() {
+    if (cropPreviewEnabled) {
+      flashMessage('Disabled crop preview', 'red');
+      cropPreviewEnabled = false;
+      disableCropPreview();
+    } else {
+      flashMessage('Enabled crop preview', 'green');
+      cropPreviewEnabled = true;
+      injectModal(video, toggleCropPreview, getCropPreviewMouseTimeSetter);
+      enableCropPreview();
+    }
+  }
+
+  function enableCropPreview() {
+    startDrawZoomedRegion(getZoomRegion);
+  }
+
+  function getZoomRegion() {
+    const dynamicCropComponents = getDynamicCropComponents();
+    if (dynamicCropComponents == null) {
+      const cropString = getRelevantCropString();
+      const scaledCropComponents = getVideoScaledCropComponentsFromCropString(cropString);
+      return scaledCropComponents;
+    } else {
+      return getVideoScaledCropComponents(dynamicCropComponents);
+    }
+  }
+
   let arrowKeyCropAdjustmentEnabled = false;
   function toggleArrowKeyCropAdjustment() {
     if (arrowKeyCropAdjustmentEnabled) {
@@ -4895,6 +4929,25 @@ async function loadytClipper() {
       return cropComponent;
     });
     return cropArray;
+  }
+
+  function getVideoScaledCropComponentsFromCropString(cropString?: string) {
+    const cropComponents = getCropComponents(cropString);
+    return getVideoScaledCropComponents(cropComponents);
+  }
+
+  function getVideoScaledCropComponents(cropComponents) {
+    const [x, y, w, h] = cropComponents;
+
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
+
+    return [
+      videoWidth * (x / settings.cropResWidth),
+      videoHeight * (y / settings.cropResHeight),
+      videoWidth * (w / settings.cropResWidth),
+      videoHeight * (h / settings.cropResHeight),
+    ];
   }
 
   function getRotatedCropComponents(
@@ -5271,6 +5324,49 @@ async function loadytClipper() {
     }
   }
 
+  function getCropPreviewMouseTimeSetter(modalContainer: HTMLCanvasElement) {
+    function getSeekTime(e: MouseEvent) {
+      const rect = modalContainer.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const scaledX = x / rect.width;
+
+      const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+      const duration = markerPair.end - markerPair.start;
+      const seekTime = markerPair.start + scaledX * duration;
+      return seekTime;
+    }
+
+    return function seekHandler(e) {
+      if (e.buttons !== 2) return;
+      blockEvent(e);
+      // shift+right-click context menu opens screenshot tool in firefox 67.0.2
+
+      function seekDragHandler(e) {
+        const seekTime = timeRounder(getSeekTime(e));
+
+        if (Math.abs(video.getCurrentTime() - seekTime) >= 0.01) {
+          seekToSafe(video, seekTime);
+        }
+      }
+
+      seekDragHandler(e);
+
+      function seekDragEnd(e) {
+        blockEvent(e);
+        modalContainer.releasePointerCapture(e.pointerId);
+        document.removeEventListener('pointermove', seekDragHandler);
+      }
+
+      modalContainer.setPointerCapture(e.pointerId);
+      document.addEventListener('pointermove', seekDragHandler);
+      document.addEventListener('pointerup', seekDragEnd, { once: true });
+      document.addEventListener('contextmenu', blockEvent, {
+        once: true,
+        capture: true,
+      });
+    };
+  }
+
   function getMouseChartTimeAnnotationSetter(chartInput: ChartInput) {
     return function mouseChartTimeAnnotationSetter(e) {
       if (e.buttons !== 2) return;
@@ -5483,6 +5579,44 @@ async function loadytClipper() {
     }
   }
 
+  function getDynamicCropComponents(): number[] {
+    if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
+      const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+      const cropMap = markerPair.cropMap;
+      const chartData = cropMap;
+      const isDynamicCrop = !isStaticCrop(cropMap);
+      if (!isDynamicCrop) {
+        return null;
+      }
+
+      const sectStart = chartData[currentCropChartSection[0]];
+      const sectEnd = chartData[currentCropChartSection[1]];
+
+      return getEasedCropComponents(sectStart, sectEnd);
+    }
+
+    return null;
+  }
+
+  function getEasedCropComponents(sectStart, sectEnd) {
+    const [startX, startY, startW, startH] = getCropComponents(sectStart.crop);
+    const [endX, endY, endW, endH] = getCropComponents(sectEnd.crop);
+
+    const currentTime = video.currentTime;
+    const clampedTime = clampNumber(currentTime, sectStart.x, sectEnd.x);
+    const easingFunc = sectEnd.easeIn == 'instant' ? easeInInstant : easeSinInOut;
+    const [easedX, easedY, easedW, easedH] = [
+      [startX, endX],
+      [startY, endY],
+      [startW, endW],
+      [startH, endH],
+    ].map((pair) =>
+      getEasedValue(easingFunc, pair[0], pair[1], sectStart.x, sectEnd.x, clampedTime)
+    );
+
+    return [easedX, easedY, easedW, easedH];
+  }
+
   const easeInInstant = (nt) => (nt === 0 ? 0 : 1);
   function updateDynamicCropOverlays(
     chartData: CropPoint[],
@@ -5499,9 +5633,9 @@ async function loadytClipper() {
       cropRectBorder.style.opacity = '1';
       return;
     }
-
     const sectStart = chartData[currentCropChartSection[0]];
     const sectEnd = chartData[currentCropChartSection[1]];
+
     [cropChartSectionStartBorderGreen, cropChartSectionStartBorderWhite].map((cropRect) =>
       setCropOverlay(cropRect, sectStart.crop)
     );
@@ -5523,19 +5657,7 @@ async function loadytClipper() {
       cropChartSectionEnd.setAttribute('opacity', '0.8');
     }
 
-    const [startX, startY, startW, startH] = getCropComponents(sectStart.crop);
-    const [endX, endY, endW, endH] = getCropComponents(sectEnd.crop);
-
-    const clampedTime = clampNumber(currentTime, sectStart.x, sectEnd.x);
-    const easingFunc = sectEnd.easeIn == 'instant' ? easeInInstant : easeSinInOut;
-    const [easedX, easedY, easedW, easedH] = [
-      [startX, endX],
-      [startY, endY],
-      [startW, endW],
-      [startH, endH],
-    ].map((pair) =>
-      getEasedValue(easingFunc, pair[0], pair[1], sectStart.x, sectEnd.x, clampedTime)
-    );
+    const [easedX, easedY, easedW, easedH] = getEasedCropComponents(sectStart, sectEnd);
 
     [cropRect, cropRectBorderBlack, cropRectBorderWhite].map((cropRect) =>
       setCropOverlayDimensions(cropRect, easedX, easedY, easedW, easedH)

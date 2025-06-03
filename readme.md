@@ -270,6 +270,8 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 **Shift+C:** Toggle auto looping of currently selected marker pair.
 
+**Ctrl+Alt+X:** Toggle previewing crop in modal window. The modal window can be left+clicked to play/pause and right-clicked to seek the video.
+
 **Ctrl+Shift+C:** Toggle auto crop chart section looping. This setting takes precedence over auto marker pair looping.
 
 **Alt+C:** Toggle auto previewing gamma correction setting when between a marker pair.
