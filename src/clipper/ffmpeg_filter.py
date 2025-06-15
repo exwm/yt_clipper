@@ -573,7 +573,7 @@ def videoStabilizationGammaFixFilter(filter_to_wrap: str) -> str:
 
 
 def wrapVideoFilterForHardwareAcceleration(video_filter: str) -> str:
-    return f"format=nv12,hwupload,hwdownload,format=nv12,{video_filter},format=nv12,hwupload"
+    return f"hwdownload,format=nv12,{video_filter},format=nv12,hwupload"
 
 
 def isHardwareAcceleratedVideoCodec(codec: str) -> bool:

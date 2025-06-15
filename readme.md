@@ -477,6 +477,8 @@ The Vulkan technology is supported by Linux and Windows across most modern GPUs 
 
 yt_clipper supports `h264_vulkan` for Vulkan-based hardware-accleration of h264 encoding.
 
+yt_clipper also supports `h264_nvenc` for NVIDIA GPU hardware-accelerated h264 encoding. This requires an NVIDIA GPU with NVENC support (most modern NVIDIA GPUs) and ffmpeg compiled with nvenc support. It is supported on Windows and Linux.
+
 ## Articles on CRF and vp9 Encoding
 
 1. [Basic crf guide](https://slhck.info/video/2017/02/24/crf-guide.html)

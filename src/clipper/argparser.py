@@ -547,7 +547,7 @@ def getArgParser() -> argparse.ArgumentParser:
         "-vc",
         dest="videoCodec",
         default="vp9",
-        choices=["vp9", "vp8", "h264", "h264_vulkan"],
+        choices=["vp9", "vp8", "h264", "h264_vulkan", "h264_nvenc"],
         help=" ".join(
             [
                 "Select a video codec for video encoding."
@@ -557,6 +557,8 @@ def getArgParser() -> argparse.ArgumentParser:
                 "h264 was added more recently and is not as well tested as vp9.",
                 "h264_vulkan uses hardware acceleration (typically a discrete GPU) for faster encodes at the cost of some quality.",
                 "h264_vulkan uses the Vulkan technology which is supported on Linux and Windows across most modern GPUs (AMD/NVIDIA/Intel). MacOS and iOS are not yet supported. Requires ffmpeg >= 7.1.",
+                "h264_nvenc uses NVIDIA GPU hardware acceleration for faster encodes at the cost of some quality.",
+                "h264_nvenc is supported on Windows and Linux with NVIDIA GPUs that have NVENC support (most modern NVIDIA GPUs). Requires ffmpeg with nvenc support.",
                 "If you have issues with hardware acceleration, ensure you have the latest drivers.",
             ],
         ),
