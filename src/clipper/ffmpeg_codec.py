@@ -230,6 +230,7 @@ def getFfmpegVideoCodecH264Nvenc(
         fps_arg = "-fps_mode vfr"
 
     sdr_args = "-pix_fmt cuda"
+    # h264_nvenc does not support 10-bit HDR output
     hdr_args = "-pix_fmt cuda -color_primaries bt2020 -color_trc smpte2084 -colorspace bt2020nc"
 
     dynamic_range_args = sdr_args
