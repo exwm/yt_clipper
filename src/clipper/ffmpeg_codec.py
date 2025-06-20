@@ -236,7 +236,7 @@ def getFfmpegVideoCodecH264Nvenc(
     dynamic_range_args = sdr_args
     if mps["enableHDR"]:
         dynamic_range_args = hdr_args
-    
+
     video_codec_args = " ".join(
         (
             f"-c:v h264_nvenc",
