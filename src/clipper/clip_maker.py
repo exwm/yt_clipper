@@ -606,10 +606,12 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
 
         if isHardwareAcceleratedVideoCodec(mps["videoCodec"]):
             vidstabdetectFilter = wrapVideoFilterForHardwareAcceleration(
-                mps["videoCodec"], vidstabdetectFilter
+                mps["videoCodec"],
+                vidstabdetectFilter,
             )
             vidstabtransformFilter = wrapVideoFilterForHardwareAcceleration(
-                mps["videoCodec"], vidstabtransformFilter
+                mps["videoCodec"],
+                vidstabtransformFilter,
             )
 
         if len(video_filter) > MAX_VFILTER_SIZE:
