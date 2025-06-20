@@ -229,9 +229,8 @@ def getFfmpegVideoCodecH264Nvenc(
     if mp["isVariableSpeed"]:
         fps_arg = "-fps_mode vfr"
 
-    sdr_args = "-pix_fmt nv12"
-    # NVENC supports yuv420p10le for 10-bit encoding
-    hdr_args = "-pix_fmt yuv420p10le -color_primaries bt2020 -color_trc smpte2084 -colorspace bt2020nc"
+    sdr_args = "-pix_fmt cuda"
+    hdr_args = "-pix_fmt cuda -color_primaries bt2020 -color_trc smpte2084 -colorspace bt2020nc"
 
     dynamic_range_args = sdr_args
     if mps["enableHDR"]:
@@ -242,27 +241,25 @@ def getFfmpegVideoCodecH264Nvenc(
             f"-c:v h264_nvenc",
             f"-movflags write_colr",
             dynamic_range_args,
-            "-preset medium",
             "-rc vbr",
-            "-tune hq",
             # CQ (Constant Quality) mode settings - only when not using CBR
             f"-cq {mps['crf']}" if cbr is None and mps["targetSize"] <= 0 else "",
+            f"-qmin 3 -qmax {qmax}" if mps["targetSize"] <= 0 else "",
             f'-b:v {mps["targetMaxBitrate"]}k' if cbr is None else f"-b:v {cbr}MB",
             f'-maxrate {mps["targetMaxBitrate"]*2}k' if cbr is None else f"-maxrate {cbr*2}MB",
-            f'-bufsize {mps["targetMaxBitrate"]}k' if cbr is None else f"-bufsize {cbr}MB",
             f'-force_key_frames 1 -g {mp["averageSpeed"] * Fraction(mps["r_frame_rate"])}',
-            # NVENC specific settings - conservative settings for compatibility
-            "-profile:v high",
-            "-level 4.1",
-            "-bf 2",  # Reduced from 3 to 2 for better compatibility
-            # Remove -refs option as it's not well supported on all NVENC hardware
-            # Using only well-supported NVENC options
-            "-aq-mode spatial",
-            "-aq-strength 8",
+            "-qcomp 0.9",
+            # NVENC specific settings - optimized for latency tolerant high quality encoding
+            "-tune hq",
+            "-preset p6",
+            "-bf 4",  # There are no devices that support more than 4 B-frames currently
+            "-rc-lookahead 40",
+            "-spatial-aq 1",
+            "-aq-strength 12",
             "-keyint_min 1",
         ),
     )
 
-    video_codec_input_args = ""
+    video_codec_input_args = "-hwaccel cuda -hwaccel_output_format cuda"
     video_codec_output_args = " ".join(("-f mp4", fps_arg))
     return video_codec_args, video_codec_input_args, video_codec_output_args
