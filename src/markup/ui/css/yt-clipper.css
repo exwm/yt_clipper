@@ -330,7 +330,7 @@
   width: 90vw;
   height: 90vh;
   background: black;
-  border-radius: 10px;
+  border-radius: 0px;
   overflow: hidden;
   display: flex;
   justify-content: center;
