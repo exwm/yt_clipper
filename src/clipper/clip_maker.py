@@ -605,8 +605,14 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
             vidstabtransformFilter += loop_filter
 
         if isHardwareAcceleratedVideoCodec(mps["videoCodec"]):
-            vidstabdetectFilter = wrapVideoFilterForHardwareAcceleration(vidstabdetectFilter)
-            vidstabtransformFilter = wrapVideoFilterForHardwareAcceleration(vidstabtransformFilter)
+            vidstabdetectFilter = wrapVideoFilterForHardwareAcceleration(
+                mps["videoCodec"],
+                vidstabdetectFilter,
+            )
+            vidstabtransformFilter = wrapVideoFilterForHardwareAcceleration(
+                mps["videoCodec"],
+                vidstabtransformFilter,
+            )
 
         if len(video_filter) > MAX_VFILTER_SIZE:
             logger.info(f"Video filter is larger than {MAX_VFILTER_SIZE} characters.")
@@ -644,7 +650,7 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
             video_filter += loop_filter
 
         if isHardwareAcceleratedVideoCodec(mps["videoCodec"]):
-            video_filter = wrapVideoFilterForHardwareAcceleration(video_filter)
+            video_filter = wrapVideoFilterForHardwareAcceleration(mps["videoCodec"], video_filter)
 
         if len(video_filter) > MAX_VFILTER_SIZE:
             logger.info(f"Video filter is larger than {MAX_VFILTER_SIZE} characters.")
