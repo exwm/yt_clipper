@@ -475,6 +475,9 @@ Hardware-accelerated codecs use your GPU (or sometimes other hardware like your 
 
 The Vulkan technology is supported by Linux and Windows across most modern GPUs (AMD/NVIDIA/Intel). MacOS and iOS are not yet supported. It requires ffmpeg >= 7.1.
 
+Newer NVIDIA drivers may not work with vulkan-accelerated codecs. As of 2025-06-24 at least the following driver versions are confirmed to work:  565.90, 572.16.
+
+
 yt_clipper supports `h264_vulkan` for Vulkan-based hardware-accleration of h264 encoding.
 
 yt_clipper also supports `h264_nvenc` for NVIDIA GPU hardware-accelerated h264 encoding. This requires an NVIDIA GPU with NVENC support (most modern NVIDIA GPUs) and ffmpeg compiled with nvenc support. It is supported on Windows and Linux.
