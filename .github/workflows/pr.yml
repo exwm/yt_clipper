@@ -15,9 +15,7 @@ jobs:
     strategy:
       max-parallel: 4
       matrix:
-        python-version: ['3.12.x']
         node-version: ['20.16.x']
-        poetry-version: ['1.8.3']
         os: [macos-13]
         include:
           - os: macos-13
@@ -26,33 +24,34 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+      # - name: Use Node.js ${{ matrix.node-version }}
+      #   uses: actions/setup-node@v4
+      #   with:
+      #     node-version: ${{ matrix.node-version }}
+      #     cache: 'yarn'
+      #     architecture: 'x64'
+
+      - name: Setup just
+        uses: extractions/setup-just@v2
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'yarn'
-          architecture: 'x64'
+          version: '0.7.2'
+          enable-cache: true
+          cache-dependency-glob: 'uv.lock'
 
-      - name: Install poetry
-        run: pipx install poetry
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: 'poetry'
+      - name: Set up Python
+        run: uv python install
 
-      - name: Install clipper python dependencies
-        run: |
-          poetry install --no-interaction --no-root
+      - name: Install the project
+        run: uv sync --all-extras --dev
 
-      - name: Lint
-        run: |
-          npm run lint:py
-
-      - name: Check format
-        run: |
-          npm run pretty:py:check
+      - name: Lint with ruff
+        run: just lint-py
 
       - name: Run clipper tests
-        run: |
-          npm run test:py
+        run: just test-py
+
+      - name: Minimize uv cache
+        run: uv cache prune --ci
