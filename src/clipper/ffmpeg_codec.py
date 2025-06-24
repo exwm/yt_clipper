@@ -114,6 +114,7 @@ def getFfmpegVideoCodecH264(
             f"-c:v libx264",
             f"-movflags write_colr",
             dynamic_range_args,
+            # h264 crf is between 0 and 51 (same as qp)
             f'-qmin 3 -crf {mps["crf"]} -qmax {qmax}' if mps["targetSize"] <= 0 else "",
             f'-b:v {mps["targetMaxBitrate"]}k' if cbr is None else f"-b:v {cbr}MB",
             f'-force_key_frames 1 -g {mp["averageSpeed"] * Fraction(mps["r_frame_rate"])}',
@@ -179,6 +180,7 @@ def getFfmpegVideoCodecH264Vulkan(
             # i_qfactor = QP factor between P and I frames,
             # b_qfactor = between P and B frames.
             "-i_qfactor 0.75 -b_qfactor 1.1",
+            # doesn't support crf, qp ranges from -1 to 255
             f"-qmin 3 -qmax {qmax}" if mps["targetSize"] <= 0 else "",
             f'-b:v {mps["targetMaxBitrate"]}k' if cbr is None else f"-b:v {cbr}MB",
             f'-bufsize {mps["targetMaxBitrate"]}k' if cbr is None else f"-bufsize {cbr}MB",
@@ -242,22 +244,33 @@ def getFfmpegVideoCodecH264Nvenc(
             f"-c:v h264_nvenc",
             f"-movflags write_colr",
             dynamic_range_args,
-            "-rc vbr",
-            # CQ (Constant Quality) mode settings - only when not using CBR
+            # vbr_hq is deprecated
+            "-rc vbr" if cbr is None else "-rc cbr",
+            # h264_nvenc cq should be equivalent to h264 crf and is between 0 and 51 (same as qp)
+            # h264_nvenc doesn't support modes like constrained encoding / VBV (Video Buffering Verifier)
+            # so we remove the -cq option when in cbr mode
             f"-cq {mps['crf']}" if cbr is None and mps["targetSize"] <= 0 else "",
             f"-qmin 3 -qmax {qmax}" if mps["targetSize"] <= 0 else "",
             f'-b:v {mps["targetMaxBitrate"]}k' if cbr is None else f"-b:v {cbr}MB",
             f'-maxrate {mps["targetMaxBitrate"]*2}k' if cbr is None else f"-maxrate {cbr*2}MB",
             f'-force_key_frames 1 -g {mp["averageSpeed"] * Fraction(mps["r_frame_rate"])}',
+            # video_track_timescale = 2^4 * 3^2 * 5^2 * 7 * 11 * 13 * 23, max is ~2E9
+            f" -video_track_timescale 82882800",
             "-qcomp 0.9",
             # NVENC specific settings - optimized for latency tolerant high quality encoding
             "-tune hq",
             "-preset p6",
-            "-bf 4",  # There are no devices that support more than 4 B-frames currently
-            "-rc-lookahead 40",
+            # There are no devices that support more than 4 B-frames currently
+            "-bf 4",
+            # rc-lookahead default is 40, diminishing returns beyond 60
+            # although expensive, it may be worth it for gpu encodes which often have lower quality
+            "-rc-lookahead 60",
             "-spatial-aq 1",
+            "-temporal_aq 1",
             "-aq-strength 12",
             "-keyint_min 1",
+            # weighted predictions are not supported with b-frames with nvenc
+            # "-weighted_pred 1",
         ),
     )
 
