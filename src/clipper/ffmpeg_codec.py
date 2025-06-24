@@ -209,7 +209,7 @@ def getFfmpegVideoCodecH264Vulkan(
         ),
     )
 
-    video_codec_input_args = "-hwaccel vulkan -hwaccel_output_format vulkan"
+    video_codec_input_args = """-init_hw_device "vulkan=vk:0" -hwaccel_output_format vulkan """
     video_codec_output_args = " ".join(("-f mp4", fps_arg))
     return video_codec_args, video_codec_input_args, video_codec_output_args
 

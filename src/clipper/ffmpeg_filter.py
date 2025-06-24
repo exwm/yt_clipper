@@ -578,7 +578,7 @@ def wrapVideoFilterForHardwareAcceleration(videoCodec: str, video_filter: str) -
         # We convert it to yuv444 pixel format in VRAM, download to system mem, and ensure we remain in yuv444p to avoid chroma subsampling artifacts
         return f"scale_cuda=format=yuv444p,hwdownload,format=yuv444p,{video_filter},hwupload_cuda"
 
-    return f"format=nv12,hwupload,hwdownload,format=nv12,{video_filter},format=nv12,hwupload"
+    return f"format=yuv444p,{video_filter},format=nv12,hwupload"
 
 
 def isHardwareAcceleratedVideoCodec(codec: str) -> bool:
