@@ -4,7 +4,7 @@ import { VideoPlatforms } from '../platforms/platforms';
 
 export function sanitizeHtml(html: string, forceBody: boolean = false): string | TrustedHTML {
   const trustedHtml = DOMPurify.sanitize(html, {
-    USE_PROFILES: { html: true, svg: true },
+    USE_PROFILES: { html: true, svg: true , svgFilters: true },
     RETURN_TRUSTED_TYPE: Boolean(window.TrustedHTML),
     FORCE_BODY: forceBody
   });
