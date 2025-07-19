@@ -558,6 +558,8 @@ async function loadytClipper() {
   function isTheatreMode() {
     if (platform === VideoPlatforms.youtube) {
       return hooks.theaterModeIndicator.theater;
+    } else if (platform === VideoPlatforms.yt_clipper) {
+      return true
     }
   }
 
@@ -984,6 +986,7 @@ async function loadytClipper() {
       window.dispatchEvent(new Event('resize'));
       document.removeEventListener('fullscreenchange', fullscreenRotateVideoHandler);
     }
+    resizeCropOverlay()
   }
 
   function fullscreenRotateVideoHandler() {
