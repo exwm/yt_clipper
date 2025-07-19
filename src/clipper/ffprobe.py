@@ -42,12 +42,13 @@ def ffprobeVideoProperties(cs: ClipperState, videoURL: str) -> Optional[DictStrA
         logger.info("-" * 80)
         logger.info("Detecting video properties with ffprobe")
         ffprobeData = json.loads(ffprobeOutput)
+        ffprobeStreamData = ffprobeData["streams"][0]
 
         if "bit_rate" in ffprobeData["format"]:
             bit_rate = int(int(ffprobeData["format"]["bit_rate"]) / 1000)
 
             if bit_rate > 0:
-                ffprobeData["streams"][0]["bit_rate"] = int(
+                ffprobeStreamData["bit_rate"] = int(
                     int(ffprobeData["format"]["bit_rate"]) / 1000,
                 )
             else:
@@ -55,13 +56,16 @@ def ffprobeVideoProperties(cs: ClipperState, videoURL: str) -> Optional[DictStrA
         else:
             logger.warning(f"Could not find bit_rate in ffprobe results.")
 
-        logger.debug(f"ffprobeData={ffprobeOutput}")
-        color_transfer = ffprobeData.get("color_transfer")
+        logger.debug(f"ffprobeData={ffprobeData}")
+        color_transfer = ffprobeStreamData.get("color_transfer")
+        if not color_transfer:
+            logger.warning(f"Could not find color_transfer in ffprobe results.")
+
         settings["inputIsHDR"] = settings.get("inputIsHDR") or color_transfer in (
             "smpte2084",
             "arib-std-b67",
         )
 
-        return ffprobeData["streams"][0]
+        return ffprobeStreamData
 
     return None
