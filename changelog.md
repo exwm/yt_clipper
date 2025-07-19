@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [5.33.0](https://github.com/exwm/yt_clipper/compare/v5.32.0...v5.33.0) (2025-07-19)
+
+
+### Features
+
+* **markup:** support previewing rotation on yt_clipper video editor page ([48789d9](https://github.com/exwm/yt_clipper/commit/48789d90357dda9b5fe760a5a9098808242ef308))
+
+
+### Bug Fixes
+
+* **clipper:** avoid artifacting when hdr input or output is enabled ([cd652b4](https://github.com/exwm/yt_clipper/commit/cd652b49dc91c8194bfaab03d12acc79da2e2412))
+* **clipper:** ffprobe should find color_transer in stream data ([31d0885](https://github.com/exwm/yt_clipper/commit/31d0885b87b2b6492a522552793ce6b884929712))
+* **markup:** gamma preview should work with html sanitization ([9b13487](https://github.com/exwm/yt_clipper/commit/9b13487bd9627884c7ff8dc4503cfb74d039e9fb))
+
 ## [5.32.0](https://github.com/exwm/yt_clipper/compare/v5.31.0...v5.32.0) (2025-06-24)
 
 
