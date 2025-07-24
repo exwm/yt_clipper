@@ -10,16 +10,16 @@
 // @namespace    https://github.com/exwm
 // @homepage     https://github.com/exwm/yt_clipper
 // @supportURL   https://github.com/exwm/yt_clipper/issues
-// @downloadURL  https://openuserjs.org/src/scripts/elwm/yt_clipper.user.js
-// @updateURL    https://openuserjs.org/meta/elwm/yt_clipper.meta.js
+// @downloadURL  https://update.greasyfork.org/scripts/543460/yt_clipper.user.js
+// @updateURL    https://update.greasyfork.org/scripts/543460/yt_clipper.meta.js
 // @icon         https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/pepe-clipper.gif
 // @license      MIT
 // @require      https://cdn.jsdelivr.net/npm/jszip@3.4.0/dist/jszip.min.js
-// @require      https://rawcdn.githack.com/exwm/Chart.js/141fe542034bc127b0a932de25d0c4f351f3bce1/dist/Chart.min.js
+// @require      https://cdn.jsdelivr.net/gh/exwm/Chart.js@141fe542034bc127b0a932de25d0c4f351f3bce1/dist/Chart.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js
-// @require      https://rawcdn.githack.com/exwm/chartjs-plugin-zoom/b1adf6115d5816cabf0d82fba87950a32f7f965e/dist/chartjs-plugin-zoom.min.js
+// @require      https://cdn.jsdelivr.net/gh/exwm/chartjs-plugin-zoom@b1adf6115d5816cabf0d82fba87950a32f7f965e/dist/chartjs-plugin-zoom.min.js
 // @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@0.7.0/dist/chartjs-plugin-datalabels.min.js
-// @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-style@latest/dist/chartjs-plugin-style.min.js
+// @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-style@0.5.0/dist/chartjs-plugin-style.min.js
 // @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@0.5.7/chartjs-plugin-annotation.min.js
 // @run-at       document-end
 // @match        http*://*.youtube.com/*
@@ -559,7 +559,7 @@ async function loadytClipper() {
     if (platform === VideoPlatforms.youtube) {
       return hooks.theaterModeIndicator.theater;
     } else if (platform === VideoPlatforms.yt_clipper) {
-      return true
+      return true;
     }
   }
 
@@ -986,7 +986,7 @@ async function loadytClipper() {
       window.dispatchEvent(new Event('resize'));
       document.removeEventListener('fullscreenchange', fullscreenRotateVideoHandler);
     }
-    resizeCropOverlay()
+    resizeCropOverlay();
   }
 
   function fullscreenRotateVideoHandler() {
