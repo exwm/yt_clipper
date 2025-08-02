@@ -543,11 +543,9 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
             mps,
         )
 
-    ffmpegCommands = []
+    ffmpegCommands: list[str] = []
 
     MAX_VFILTER_SIZE = 10_000
-    filterPathPass1 = f"{cp.clipsPath}/temp/vfilter-{markerPairIndex+1}-pass1.txt"
-    filterPathPass2 = f"{cp.clipsPath}/temp/vfilter-{markerPairIndex+1}-pass2.txt"
 
     overwriteArg = " -y " if mps["overwrite"] else " -n "
     vidstabEnabled = mps["videoStabilization"]["enabled"]
@@ -618,16 +616,26 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
             )
 
         if len(video_filter) > MAX_VFILTER_SIZE:
+            filterPathVidStabDetectPass = (
+                f"{cp.clipsPath}/temp/vfilter-{markerPairIndex+1}-pass1.txt"
+            )
+            filterPathVidStabTransformPass = (
+                f"{cp.clipsPath}/temp/vfilter-{markerPairIndex+1}-pass2.txt"
+            )
             logger.info(f"Video filter is larger than {MAX_VFILTER_SIZE} characters.")
             logger.info(
-                f'Video filter will be written to "{filterPathPass1}" and "{filterPathPass2}"',
+                f'Video filter will be written to "{filterPathVidStabDetectPass}" and "{filterPathVidStabTransformPass}"',
             )
-            with open(filterPathPass1, "w", encoding="utf-8") as f:
+            with open(filterPathVidStabDetectPass, "w", encoding="utf-8") as f:
                 f.write(vidstabdetectFilter)
-            with open(filterPathPass2, "w", encoding="utf-8") as f:
+            with open(filterPathVidStabTransformPass, "w", encoding="utf-8") as f:
                 f.write(vidstabtransformFilter)
-            ffmpegVidstabdetect = ffmpegCommand + f' -filter_script:v "{filterPathPass1}" '
-            ffmpegVidstabtransform = ffmpegCommand + f' -filter_script:v "{filterPathPass2}" '
+            ffmpegVidstabdetect = (
+                ffmpegCommand + f' -filter_script:v "{filterPathVidStabDetectPass}" '
+            )
+            ffmpegVidstabtransform = (
+                ffmpegCommand + f' -filter_script:v "{filterPathVidStabTransformPass}" '
+            )
         else:
             ffmpegVidstabdetect = ffmpegCommand + f'-vf "{vidstabdetectFilter}" '
             ffmpegVidstabtransform = ffmpegCommand + f'-vf "{vidstabtransformFilter}" '
@@ -643,7 +651,7 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
 
         ffmpegVidstabdetect += f' "{shakyClipPath}"'
         ffmpegVidstabtransform += f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
-        ffmpegCommands: List[str] = [ffmpegVidstabdetect, ffmpegVidstabtransform]
+        ffmpegCommands = [ffmpegVidstabdetect, ffmpegVidstabtransform]
 
     if not vidstabEnabled:
         if "minterpMode" in mps and mps["minterpMode"] != "None":
@@ -656,6 +664,7 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
             video_filter = wrapVideoFilterForHardwareAcceleration(mps["videoCodec"], video_filter)
 
         if len(video_filter) > MAX_VFILTER_SIZE:
+            filterPathPass1 = f"{cp.clipsPath}/temp/vfilter-{markerPairIndex+1}-pass1.txt"
             logger.info(f"Video filter is larger than {MAX_VFILTER_SIZE} characters.")
             logger.info(f'Video filter will be written to "{filterPathPass1}"')
             with open(filterPathPass1, "w", encoding="utf-8") as f:
@@ -999,9 +1008,9 @@ def markerPairsCSVToList(markerPairsCSV: str) -> List[int]:
     markerPairsList = []
     for mergeRange in markerPairsMergeRanges:
         if "-" in mergeRange:
-            mergeRange = mergeRange.split("-")  # noqa: PLW2901
-            startPair = int(mergeRange[0])
-            endPair = int(mergeRange[1])
+            mergeRangeSplit = mergeRange.split("-")
+            startPair = int(mergeRangeSplit[0])
+            endPair = int(mergeRangeSplit[1])
             if startPair <= endPair:
                 for i in range(startPair, endPair + 1):
                     markerPairsList.append(i)  # noqa: PERF402
