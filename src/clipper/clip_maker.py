@@ -976,6 +976,7 @@ def checkClipExists(
     skip: bool = False,
 ) -> bool:
     fileExists = Path(filePath).is_file()
+    fileName = rich.markup.escape(fileName)
     if skip:
         logger.notice(f'Skipped generating: "{fileName}"')
     elif overwrite:
