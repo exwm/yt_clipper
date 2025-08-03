@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [5.34.0](https://github.com/exwm/yt_clipper/compare/v5.33.0...v5.34.0) (2025-08-03)
+
+
+### Bug Fixes
+
+* **clipper:** input videos with display-only rotation should be correctly cropped ([3725886](https://github.com/exwm/yt_clipper/commit/3725886c403ced52641af98991805e799339152c))
+* **clipper:** missed escaping of filename in some logs ([a78e90f](https://github.com/exwm/yt_clipper/commit/a78e90f35b25d3e7095ebce1ba60fd53b72f4501))
+* **clipper:** vidstabtransform filter should be injected when video stabilization is enabled and video filter is large ([#62](https://github.com/exwm/yt_clipper/issues/62)) ([6ae8704](https://github.com/exwm/yt_clipper/commit/6ae870446d38788cf846b8168c9714d63b94a6ff))
+
 ## [5.33.0](https://github.com/exwm/yt_clipper/compare/v5.32.0...v5.33.0) (2025-07-19)
 
 
