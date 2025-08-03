@@ -41,8 +41,10 @@ def ffprobeVideoProperties(cs: ClipperState, videoURL: str) -> Optional[DictStrA
         ffprobeOutput = ffprobeOutput.decode("utf-8")
         logger.info("-" * 80)
         logger.info("Detecting video properties with ffprobe")
+        logger.debug(f"ffprobeOutput={ffprobeOutput}")
+
         ffprobeData = json.loads(ffprobeOutput)
-        ffprobeStreamData = ffprobeData["streams"][0]
+        ffprobeStreamData: dict = ffprobeData["streams"][0]
 
         if "bit_rate" in ffprobeData["format"]:
             bit_rate = int(int(ffprobeData["format"]["bit_rate"]) / 1000)
@@ -56,7 +58,6 @@ def ffprobeVideoProperties(cs: ClipperState, videoURL: str) -> Optional[DictStrA
         else:
             logger.warning(f"Could not find bit_rate in ffprobe results.")
 
-        logger.debug(f"ffprobeData={ffprobeData}")
         color_transfer = ffprobeStreamData.get("color_transfer")
         if not color_transfer:
             logger.warning(f"Could not find color_transfer in ffprobe results.")
@@ -66,6 +67,50 @@ def ffprobeVideoProperties(cs: ClipperState, videoURL: str) -> Optional[DictStrA
             "arib-std-b67",
         )
 
+        displayMatrixRotation = getDisplayMatrixRotation(ffprobeStreamData)
+
+        if displayMatrixRotation:
+            logger.notice(
+                f"Input video includes a display-only rotation. To correct for cropping done with the display-only rotation, the input video width and height metadata will be swapped before processing.",
+            )
+            getInputRotationCorrection(
+                displayMatrixRotation,
+                ffprobeStreamData,
+            )
+
         return ffprobeStreamData
 
     return None
+
+
+def getDisplayMatrix(ffprobeStreamData: dict) -> Optional[dict]:
+    sideDataList: Optional[list[dict]] = ffprobeStreamData.get("side_data_list")
+
+    if not sideDataList:
+        return None
+
+    displayMatrix: list[dict] = list(
+        filter(lambda data: data.get("side_data_type") == "Display Matrix", sideDataList),
+    )
+
+    return displayMatrix[0] if displayMatrix else None
+
+
+def getDisplayMatrixRotation(ffprobeStreamData: dict) -> Optional[int]:
+    displayMatrix = getDisplayMatrix(ffprobeStreamData)
+    if not displayMatrix:
+        return None
+
+    return displayMatrix.get("rotation")
+
+
+def getInputRotationCorrection(rotation: int, ffprobeStreamData: dict) -> None:
+    if rotation in (-90, 90):
+        ffprobeStreamData["width"], ffprobeStreamData["height"] = (
+            ffprobeStreamData["height"],
+            ffprobeStreamData["width"],
+        )
+    else:
+        logger.warning(
+            "Input video has a non-orthogonal display-only rotation (neither 90 nor -90 degrees). This is not currently corrected for.",
+        )
