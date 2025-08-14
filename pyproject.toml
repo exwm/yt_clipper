@@ -7,7 +7,7 @@ requires-python = ">=3.9,<3.13"
 readme = "readme.md"
 license = "MIT"
 dependencies = [
-    "yt-dlp==2025.06.09",
+    "yt-dlp==2025.8.11",
     "coloredlogs>=15.0.1,<16",
     "notify-py>=0.3.3,<0.4",
     "verboselogs~=1.7",
