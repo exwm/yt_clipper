@@ -230,7 +230,7 @@ jobs:
 
   release:
     needs: build
-    runs-on: macos-13
+    runs-on: macos-latest
 
     steps:
       - name: Set env
