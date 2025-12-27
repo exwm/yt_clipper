@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [5.38.0](https://github.com/exwm/yt_clipper/compare/v5.37.0...v5.38.0) (2025-12-27)
+
+
+### Bug Fixes
+
+* **clipper:** escape file path in error log when missing required input for merge ([52caa2a](https://github.com/exwm/yt_clipper/commit/52caa2ae2c677304b7e4b374bb876b34f5b426d9))
+* **clipper:** ffprobe fps detection could be significantly off for variable frame rate input ([8d8efa7](https://github.com/exwm/yt_clipper/commit/8d8efa7d7e016c96a0af67f60d7ab50f213e7b8a))
+
 ## [5.37.0](https://github.com/exwm/yt_clipper/compare/v5.36.0...v5.37.0) (2025-12-04)
 
 
