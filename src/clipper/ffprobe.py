@@ -2,6 +2,7 @@ import json
 import shlex
 import subprocess
 import time
+from fractions import Fraction
 from typing import Optional
 
 from clipper.clipper_types import ClipperState, DictStrAny
@@ -39,8 +40,7 @@ def ffprobeVideoProperties(cs: ClipperState, videoURL: str) -> Optional[DictStrA
                 continue
             return None
 
-
-        ffprobeOutput: str = ffprobeOutput.decode("utf-8") # type: ignore [assignment]
+        ffprobeOutput: str = ffprobeOutput.decode("utf-8")  # type: ignore [assignment]
         logger.info("-" * 80)
         logger.info("Detecting video properties with ffprobe")
         logger.debug(f"ffprobeOutput={ffprobeOutput}")
@@ -63,6 +63,11 @@ def ffprobeVideoProperties(cs: ClipperState, videoURL: str) -> Optional[DictStrA
         color_transfer = ffprobeStreamData.get("color_transfer")
         if not color_transfer:
             logger.warning(f"Could not find color_transfer in ffprobe results.")
+
+        ffprobeStreamData["r_frame_rate"] = getFrameRate(
+            ffprobeStreamData["r_frame_rate"],
+            ffprobeStreamData.get("avg_frame_rate"),
+        )
 
         settings["inputIsHDR"] = settings.get("inputIsHDR") or color_transfer in (
             "smpte2084",
@@ -116,3 +121,47 @@ def getInputRotationCorrection(rotation: int, ffprobeStreamData: dict) -> None:
         logger.warning(
             "Input video has a non-orthogonal display-only rotation (neither 90 nor -90 degrees). This is not currently corrected for.",
         )
+
+
+def getFrameRate(
+    r_frame_rate: Optional[str],
+    avg_frame_rate: Optional[str],
+    *,
+    tolerance: float = 0.1,
+) -> Optional[str]:
+    """
+    Return r_frame_rate if it is sufficiently close to avg_frame_rate,
+    otherwise return avg_frame_rate.
+
+    """
+    if not r_frame_rate and not avg_frame_rate:
+        logger.warning("ffprobe did not detect r_frame_rate or avg_frame_rate.")
+        return None
+
+    if not r_frame_rate:
+        logger.warning("ffprobe did not detect r_frame_rate.")
+        return avg_frame_rate
+
+    if not avg_frame_rate:
+        logger.warning("ffprobe did not detect avg_frame_rate.")
+        return r_frame_rate
+
+    try:
+        r = Fraction(r_frame_rate)
+        avg = Fraction(avg_frame_rate)
+    except Exception as e:
+        logger.warning(f"Could not parse ffprobe frame rate: {e}")
+        return r_frame_rate
+
+    # Relative difference
+    diff = abs(r - avg) / avg
+
+    if diff <= tolerance:
+        frame_rate = r_frame_rate
+    else:
+        logger.notice(
+            f"r_frame_rate differs significantly from avg_frame_rate. Using avg_frame_rate instead. r_frame_rate={float(r)}, avg_frame_rate={float(avg)}",
+        )
+        frame_rate = avg_frame_rate
+
+    return frame_rate
