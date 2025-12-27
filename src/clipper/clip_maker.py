@@ -928,8 +928,9 @@ def mergeClips(cs: ClipperState) -> None:  # noqa: PLR0912
             continue
         except MissingMergeInput:
             logger.error(f"Aborting generation of clip with merge list {mergeList}.")
+            filePathEscaped = rich.markup.escape(markerPair["filePath"])
             logger.error(
-                f'Missing required input clip with path {markerPair["filePath"]}.',
+                f'Missing required input clip with path {filePathEscaped}.',
             )
             continue
         except MissingMarkerPairFilePath:
