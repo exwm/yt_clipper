@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from fractions import Fraction
 from typing import Optional, Tuple
 
@@ -51,7 +52,9 @@ def getFfmpegVideoCodecVpx(
         fps_arg = "-fps_mode vfr"
 
     sdr_args = "-pix_fmt yuv420p"
-    hdr_args = "-profile:v 2 -pix_fmt yuv420p10le -color_primaries bt2020 -color_trc smpte2084 -colorspace bt2020nc"
+    # Set profile 2: color depth: 10 or 12 bit; chroma subsampling: 4:2:0
+    # See https://www.webmproject.org/vp9/profiles/
+    hdr_args = f"-pix_fmt yuv420p10le -profile:v 2 {dynamic_range.hdr_args_for_output_metadata}"
 
     dynamic_range_args = sdr_args
     if mps["enableHDR"]:
@@ -101,9 +104,7 @@ def getFfmpegVideoCodecH264(
     me_range = 16 if pixel_count < (1800 * 1000) else 32
 
     sdr_args = "-pix_fmt yuv420p"
-    hdr_args = (
-        "-pix_fmt yuv420p10le -color_primaries bt2020 -color_trc smpte2084 -colorspace bt2020nc"
-    )
+    hdr_args = f"-pix_fmt yuv420p10le {dynamic_range.hdr_args_for_output_metadata}"
 
     dynamic_range_args = sdr_args
     if mps["enableHDR"]:
@@ -150,6 +151,16 @@ def getFfmpegVideoCodecH264Vulkan(
     qmax: int,
     qmin: int,
 ) -> Tuple[str, str, str]:
+    """
+    HDR -> SDR:
+      Tends to give highly artifacted output with various tonemapping approaches
+
+    HDR Output:
+      Doesn't support 10-bit formats
+      x2rgb10 may better support 10-bit HDR output with vulkan in the future
+      It doesn't seem to be allowed currently however, only the vulkan pixel format works with vulkan encoders
+      See https://patchwork.ffmpeg.org/project/ffmpeg/patch/1587532983-20287-1-git-send-email-fei.w.wang@intel.com/#55407
+    """
     fps_arg = ""
     if not mps["h264DisableReduceStutter"]:
         if mps["minterpFPS"] is not None:
@@ -160,15 +171,15 @@ def getFfmpegVideoCodecH264Vulkan(
     if mp["isVariableSpeed"]:
         fps_arg = "-fps_mode vfr"
 
-    sdr_args = "-pix_fmt vulkan"
-    # x2rgb10 may better support 10-bit HDR output with vulkan in the future
-    # It doesn't seem to be allowed currently however, only the vulkan pixel format works with vulkan encoders
-    # See https://patchwork.ffmpeg.org/project/ffmpeg/patch/1587532983-20287-1-git-send-email-fei.w.wang@intel.com/#55407
-    hdr_args = "-pix_fmt vulkan -color_primaries bt2020 -color_trc smpte2084 -colorspace bt2020nc"
+    sdr_args = f"-pix_fmt vulkan "
+
+    hdr_args = f"-pix_fmt vulkan  {dynamic_range.hdr_args_for_output_metadata}"
 
     dynamic_range_args = sdr_args
+
     if mps["enableHDR"]:
         dynamic_range_args = hdr_args
+
     video_codec_args = " ".join(
         (
             f"-c:v h264_vulkan",
@@ -177,6 +188,9 @@ def getFfmpegVideoCodecH264Vulkan(
             "-quality 0",
             "-rc_mode vbr",
             "-tune hq",
+            # h264_vulkan seems to artifact when left to auto pick level and the input is HDR
+            # TODO: Evaluate if setting level dynamically would be safer
+            "-level 6.2",
             # i_qfactor = QP factor between P and I frames,
             # b_qfactor = between P and B frames.
             "-i_qfactor 0.75 -b_qfactor 1.1",
@@ -221,6 +235,11 @@ def getFfmpegVideoCodecH264Nvenc(
     qmax: int,
     qmin: int,
 ) -> Tuple[str, str, str]:
+    """
+    HDR Output:
+      10-bit encode typically not supported.
+    """
+
     fps_arg = ""
     if not mps["h264DisableReduceStutter"]:
         if mps["minterpFPS"] is not None:
@@ -231,9 +250,9 @@ def getFfmpegVideoCodecH264Nvenc(
     if mp["isVariableSpeed"]:
         fps_arg = "-fps_mode vfr"
 
-    sdr_args = "-pix_fmt cuda"
+    sdr_args = f"-pix_fmt cuda"
     # h264_nvenc does not support 10-bit HDR output
-    hdr_args = "-pix_fmt cuda -color_primaries bt2020 -color_trc smpte2084 -colorspace bt2020nc"
+    hdr_args = f"-pix_fmt cuda {dynamic_range.hdr_args_for_output_metadata}"
 
     dynamic_range_args = sdr_args
     if mps["enableHDR"]:
@@ -287,6 +306,28 @@ def wrapVideoFilterForHardwareAcceleration(videoCodec: str, video_filter: str) -
     if "nvenc" in videoCodec:
         # Frame data is in VRAM assuming cuda is used for decoding
         # We convert it to yuv444 pixel format in VRAM, download to system mem, and ensure we remain in yuv444p to avoid chroma subsampling artifacts
-        return f"scale_cuda=format=yuv444p,hwdownload,format=yuv444p,{video_filter},hwupload_cuda"
+        return f"scale_cuda=format=yuv444p,hwdownload,format=yuv444p,{video_filter},format=nv12,hwupload_cuda"
 
     return f"format=yuv444p,{video_filter},format=nv12,hwupload"
+
+
+@dataclass
+class dynamic_range:
+    # most video content uses tv (limited) color range regardless of sdr or hdr
+    # ffmpeg will typically use the same value as the input so we omit it from the output metadata args
+    common_video_color_range = "tv"
+    # We only use this for codecs where not explicitly settings sdr output metadata args causes issues
+    # typically ffmpeg will leave it unknown or infer something that works reasonably
+    sdr_args_for_output_metadata = "-colorspace bt709  -color_primaries bt709  -color_trc bt709"
+    # h264: ffmpeg automatically sets profile to high10 with hdr output metadata and yuv420p10le format so we omit it here
+    hdr_args_for_output_metadata = (
+        "-colorspace bt2020nc -color_primaries bt2020 -color_trc arib-std-b67"
+    )
+    tonemap_args_to_sdr_libeplacebo = "hwupload,libplacebo=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv:tonemapping=mobius:format=nv12"
+    # requires video_codec_input_args = " -init_hw_device opencl=ocl:0 -filter_hw_device ocl" so we don't have cuda frames but opencl frames
+    tonemap_args_to_sdr_opencl = "format=p010le,hwupload,tonemap_opencl=tonemap=mobius:t=bt709:p=bt709:m=bt709:r=tv:format=nv12"
+    tonemap_args_to_sdr_cpu_tonemap = "hwdownload,format=p010le,\
+zscale=transfer=arib-std-b67:primaries=bt2020:matrix=bt2020nc:range=tv,\
+zscale=transfer=linear,format=gbrpf32le,\
+tonemap=mobius,\
+zscale=transfer=bt709:primaries=bt709:matrix=bt709:range=tv:dither=error_diffusion,"
