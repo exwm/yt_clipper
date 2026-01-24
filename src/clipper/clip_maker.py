@@ -22,6 +22,7 @@ from clipper.clipper_types import (
     Settings,
 )
 from clipper.ffmpeg_codec import (
+    getContainerForCodec,
     getFfmpegVideoCodecArgs,
     isHardwareAcceleratedVideoCodec,
     wrapVideoFilterForHardwareAcceleration,
@@ -943,7 +944,7 @@ def mergeClips(cs: ClipperState) -> None:  # noqa: PLR0912
             inputsTxt.write(inputs)
 
         # TODO: Test merging of clips of different video codecs
-        mergedFileNameSuffix = "mp4" if settings["videoCodec"] == "h264" else "webm"
+        mergedFileNameSuffix = getContainerForCodec(settings["videoCodec"])
         if titlePrefixesConsistent:
             mergedFileName = (
                 f'{mergeTitlePrefix}-{settings["titleSuffix"]}-({merge}).{mergedFileNameSuffix}'

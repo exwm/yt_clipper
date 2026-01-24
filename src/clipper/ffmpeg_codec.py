@@ -302,6 +302,13 @@ def isHardwareAcceleratedVideoCodec(codec: str) -> bool:
     return any(codec.endswith(codec_ext) for codec_ext in ["nvenc", "vulkan"])
 
 
+def getContainerForCodec(codec: str) -> str:
+    if any((x in codec) for x in ["vp8", "vp9"]):
+        return "webm"
+
+    return "mp4"
+
+
 def wrapVideoFilterForHardwareAcceleration(videoCodec: str, video_filter: str) -> str:
     if "nvenc" in videoCodec:
         # Frame data is in VRAM assuming cuda is used for decoding
