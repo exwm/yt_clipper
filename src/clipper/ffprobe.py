@@ -6,6 +6,7 @@ from fractions import Fraction
 from typing import Optional
 
 from clipper.clipper_types import ClipperState, DictStrAny
+from clipper.pix_fmt_bit_depth import PIX_FMT_BIT_DEPTH_MAP
 from clipper.platforms import getFfmpegHeaders
 from clipper.ytc_logger import logger
 
@@ -72,6 +73,13 @@ def ffprobeVideoProperties(cs: ClipperState, videoURL: str) -> Optional[DictStrA
         settings["inputIsHDR"] = settings.get("inputIsHDR") or color_transfer in (
             "smpte2084",
             "arib-std-b67",
+        )
+
+        settings["inputPixelFormat"] = ffprobeStreamData.get("pix_fmt")
+
+        settings["inputBitDepth"] = getColorBitDepth(
+            ffprobeStreamData,
+            settings["inputPixelFormat"],
         )
 
         displayMatrixRotation = getDisplayMatrixRotation(ffprobeStreamData)
@@ -165,3 +173,18 @@ def getFrameRate(
         frame_rate = avg_frame_rate
 
     return frame_rate
+
+
+def getColorBitDepth(
+    ffprobeStreamData: dict[str, str],
+    pix_fmt: Optional[str],
+) -> Optional[int]:
+    if pix_fmt and pix_fmt in PIX_FMT_BIT_DEPTH_MAP:
+        return PIX_FMT_BIT_DEPTH_MAP[pix_fmt]
+
+    bits_per_raw_sample = ffprobeStreamData.get("bits_per_raw_sample")
+    if bits_per_raw_sample and bits_per_raw_sample.isdigit():
+        return int(bits_per_raw_sample)
+
+    # Unknown or non-standard
+    return None

@@ -417,7 +417,7 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
     if mps["preview"] and not settings["inputVideo"]:
         video_filter += f",loop=loop=-1:size=(32767)"
 
-    if mps["enableHDR"] or settings["inputIsHDR"]:
+    if mps["enableHDR"] or settings["inputIsHDR"] or settings["inputBitDepth"] > 8:
         video_filter += f",format=yuv444p10le"
 
     ### Crop Filter ###
