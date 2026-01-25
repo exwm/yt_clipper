@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [5.39.0](https://github.com/exwm/yt_clipper/compare/v5.38.0...v5.39.0) (2026-01-25)
+
+
+### Features
+
+* **clipper:** exit when given unknown arguments ([abe881d](https://github.com/exwm/yt_clipper/commit/abe881ddc188ffa4590f8ea407983f0ef2644eb3))
+
+
+### Bug Fixes
+
+* **clipper:** --download-video not working becuase video url not given in yt-dlp command ([d83e570](https://github.com/exwm/yt_clipper/commit/d83e5704eb2f3821966047afb082ec28c9338509))
+* **clipper:** h264 artifacting on 10-bit sdr input ([4ab4ff5](https://github.com/exwm/yt_clipper/commit/4ab4ff5095d6076224b0babc5ef6227f909cd03e))
+* **clipper:** h264_vulkan artifacting when going from HDR -> SDR ([b6a5fce](https://github.com/exwm/yt_clipper/commit/b6a5fce36e9c7bd7f3b347169b1bd90cedc78f6a))
+* **clipper:** merge clips should use mp4 for h264* codecs ([82dbdaf](https://github.com/exwm/yt_clipper/commit/82dbdaf90d637a96a47da4d8d2f3bbefb739a799))
+
+
+### Documentation Updates
+
+* **readme:** add dynamic crop video tut link ([840b183](https://github.com/exwm/yt_clipper/commit/840b18329072ba54092f94964afe5c32f9516ef9))
+
 ## [5.38.0](https://github.com/exwm/yt_clipper/compare/v5.37.0...v5.38.0) (2025-12-27)
 
 
