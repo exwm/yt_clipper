@@ -1,5 +1,4 @@
 import json
-import shlex
 import subprocess
 import sys
 from typing import Dict, List, Tuple
@@ -30,8 +29,8 @@ def ytdl_bin_get_args_base(cs: ClipperState) -> List[str]:
       "--verbose",
       "--merge-output-format", "mkv",
       "--format", settings["format"],
-      "--format-sort", shlex.quote(",".join(settings["formatSort"])),
-      "--output", shlex.quote(f'{settings["downloadVideoPath"]}.%(ext)s'),
+      "--format-sort", ",".join(settings["formatSort"]),
+      "--output", f'{settings["downloadVideoPath"]}.%(ext)s',
     ]
     # fmt: on
 
@@ -41,11 +40,11 @@ def ytdl_bin_get_args_base(cs: ClipperState) -> List[str]:
     cookies = settings["cookiefile"]
 
     if cookies != "":
-        ytdl_args.extend(["--cookies", shlex.quote(cookies)])
+        ytdl_args.extend(["--cookies", cookies])
 
     if settings["username"] != "" or settings["password"] != "":
-        ytdl_args.extend(["--username", shlex.quote(settings["username"])])
-        ytdl_args.extend(["--password", shlex.quote(settings["password"])])
+        ytdl_args.extend(["--username", settings["username"]])
+        ytdl_args.extend(["--password", settings["password"]])
 
     return ytdl_args
 
@@ -83,7 +82,9 @@ def ytdl_bin_get_video_info(cs: ClipperState) -> Tuple[Dict, str]:
 
     # Download the full video if requested by user
     if settings["downloadVideo"]:
-        subprocess.run(args=ytdl_args, check=True)
+        ytdl_args_download = ytdl_args.copy()
+        ytdl_args_download.extend([settings["videoPageURL"]])
+        subprocess.run(args=ytdl_args_download, check=True)
         settings["downloadVideoPath"] = f"{settings['downloadVideoPath']}.mkv"
 
     return ytdl_info, formats_table
@@ -143,7 +144,7 @@ def ytdl_bin_get_subs(cs: ClipperState) -> None:
             "--write-subs",
             "--sub-format", "vtt",
             "--sub-langs", settings["autoSubsLang"],
-            "--output", shlex.quote(settings["subsFileStem"]),
+            "--output", settings["subsFileStem"],
             settings["videoPageURL"],
         ],
     )
