@@ -35,7 +35,7 @@ def loadSettingsFromMarkersJson(settings: Settings) -> None:
                 print(f"WARNING: Markers JSON file does not have expected extension .json.")
                 print()
             print(
-                f"DEBUG: Markers JSON file at path '{settings["json"]}' has initial content:\n {markersJson[:200]}]\n...",
+                f"""DEBUG: Markers JSON file at path '{settings["json"]}' has initial content:\n {markersJson[:200]}]\n...""",
             )
             sys.exit(1)
 
@@ -65,7 +65,7 @@ def loadSettingsFromMarkersJson(settings: Settings) -> None:
             sys.exit(1)
         settings["titleSuffix"] = settings["markersDataFileStem"]
 
-        settings["downloadVideoNameStem"] = f'{settings["titleSuffix"]}-full'
+        settings["downloadVideoNameStem"] = f"{settings['titleSuffix']}-full"
 
         settings["mergedStreams"] = False
         if "enableSpeedMaps" not in settings:
@@ -79,7 +79,7 @@ def getInputVideo(cs: ClipperState) -> None:
     input_video_pattern = r"^" + re.escape(settings["downloadVideoNameStem"]) + r"\.[^.]+$"
     potentialInputVideos = [
         f"{cp.clipsPath}/{iv}"
-        for iv in os.listdir(cp.clipsPath)
+        for iv in os.listdir(cp.clipsPath)  # noqa: PTH208
         if re.search(input_video_pattern, iv)
     ]
 
@@ -184,7 +184,7 @@ def getVideoInfo(cs: ClipperState) -> None:
         and settings["platform"] != KnownPlatform.afreecatv.name
     ):
         logger.warning(
-            f'In streaming mode, got video with unsupported streaming protocol {videoInfo["protocol"]}.',
+            f"In streaming mode, got video with unsupported streaming protocol {videoInfo['protocol']}.",
         )
         logger.warning(
             f"Unsupported streaming protocols: {UNSUPPORTED_VIDEO_STREAMING_PROTOCOLS}",
@@ -207,7 +207,7 @@ def getVideoInfo(cs: ClipperState) -> None:
             videoInfo, audioInfo, formats_table = _getVideoInfo(cs)
         else:
             logger.warning(
-                f'Continuing with potentially unsupported protocol {videoInfo["protocol"]}',
+                f"Continuing with potentially unsupported protocol {videoInfo['protocol']}",
             )
 
     if settings["downloadVideo"]:
@@ -221,7 +221,7 @@ def getVideoInfo(cs: ClipperState) -> None:
 
 def disableVideoStreamingProtocols(settings: Settings, protocols: List[str]) -> None:
     disableClause = "".join(f"[protocol!={protocol}]" for protocol in protocols)
-    settings["format"] = f'({settings["format"]}){disableClause}'
+    settings["format"] = f"({settings['format']}){disableClause}"
 
 
 def _getVideoInfo(cs: ClipperState) -> Tuple[Dict[str, Any], Dict[str, Any], str]:
@@ -317,7 +317,7 @@ def getMoreVideoInfo(  # noqa: PLR0912 (too-many-branches)
 
     videoTitleStyle = "" if settings["noRichLogs"] else "[green]"
     logger.report(
-        f'Video Title: {videoTitleStyle}{settings["videoTitle"]}',
+        f"Video Title: {videoTitleStyle}{settings['videoTitle']}",
         extra={"highlighter": None},
     )
 
@@ -369,13 +369,13 @@ def getMoreVideoInfo(  # noqa: PLR0912 (too-many-branches)
         logger.report(f"Audio Format: {audioFormat} ({audioFormatID})")
 
     logger.report(
-        f'Video Width: {settings["width"]}, Video Height: {settings["height"]}',
+        f"Video Width: {settings['width']}, Video Height: {settings['height']}",
     )
     logger.report(
-        f'Video FPS: {settings["r_frame_rate"]}, Video Bitrate: {settings["bit_rate"]}kbps',
+        f"Video FPS: {settings['r_frame_rate']}, Video Bitrate: {settings['bit_rate']}kbps",
     )
     logger.report(
-        f'Video Dynamic Range: {videoInfo.get("dynamic_range")}, Pixel Format: {settings.get("inputPixelFormat")}, Bit Depth: {settings.get("inputBitDepth")}',
+        f"Video Dynamic Range: {videoInfo.get('dynamic_range')}, Pixel Format: {settings.get('inputPixelFormat')}, Bit Depth: {settings.get('inputBitDepth')}",
     )
     autoSetCropMultiples(settings)
 
@@ -384,16 +384,16 @@ def getGlobalSettings(cs: ClipperState) -> None:
     settings = cs.settings
     cp = cs.clipper_paths
 
-    logger.report(f'Video Page URL: {settings["videoPageURL"]}')
+    logger.report(f"Video Page URL: {settings['videoPageURL']}")
     logger.report(
-        f'Merge List: {settings["markerPairMergeList"] if settings["markerPairMergeList"] else "None"}',
+        f"Merge List: {settings['markerPairMergeList'] if settings['markerPairMergeList'] else 'None'}",
     )
 
     if settings["subsFilePath"] == "" and settings["autoSubsLang"] != "":
         ytdl_bin_get_subs(cs)
         if not Path(settings["subsFilePath"]).is_file():
             logger.critical(
-                f'Could not download subtitles with language id {settings["autoSubsLang"]}.',
+                f"Could not download subtitles with language id {settings['autoSubsLang']}.",
             )
             sys.exit(1)
     elif settings["subsFilePath"] != "":
@@ -430,14 +430,14 @@ def getGlobalSettings(cs: ClipperState) -> None:
     logger.info("-" * 80)
     unknownColorSpaceMsg = "unknown (bt709 will be assumed for color range operations)"
     globalColorSpaceMsg = (
-        f'{settings["color_space"] if settings["color_space"] else unknownColorSpaceMsg}'
+        f"{settings['color_space'] if settings['color_space'] else unknownColorSpaceMsg}"
     )
     logger.info(
-        f'Automatically determined encoding settings: CRF: {encodeSettings["crf"]} (0-63), '
-        + f'Auto Target Max Bitrate: {encodeSettings["autoTargetMaxBitrate"]}kbps, '
+        f"Automatically determined encoding settings: CRF: {encodeSettings['crf']} (0-63), "
+        + f"Auto Target Max Bitrate: {encodeSettings['autoTargetMaxBitrate']}kbps, "
         + f"Detected Color Space: {globalColorSpaceMsg}, "
-        + f'Two-pass Encoding Enabled: {encodeSettings["twoPass"]}, '
-        + f'Encoding Speed: {encodeSettings["encodeSpeed"]} (0-5)',
+        + f"Two-pass Encoding Enabled: {encodeSettings['twoPass']}, "
+        + f"Encoding Speed: {encodeSettings['encodeSpeed']} (0-5)",
     )
 
     encodeSettings = {**encodeSettings, **settings}
@@ -446,39 +446,39 @@ def getGlobalSettings(cs: ClipperState) -> None:
 
     logger.info("-" * 80)
     globalTargetBitrateMsg = (
-        f'{encodeSettings["targetMaxBitrate"]}kbps'
+        f"{encodeSettings['targetMaxBitrate']}kbps"
         if "targetMaxBitrate" in encodeSettings
         else "Auto"
     )
     minterpFPSMsg = f"Target FPS: {getMinterpFPS(settings, None)}, "
     logger.info(
-        f'Global Encoding Settings: Video Codec: {settings["videoCodec"]}, CRF: {encodeSettings["crf"]} (0-63), '
-        + f'Detected Bitrate: {settings["bit_rate"]}kbps, '
+        f"Global Encoding Settings: Video Codec: {settings['videoCodec']}, CRF: {encodeSettings['crf']} (0-63), "
+        + f"Detected Bitrate: {settings['bit_rate']}kbps, "
         + f"Global Target Bitrate: {globalTargetBitrateMsg}, "
-        + f'Two-pass Encoding Enabled: {encodeSettings["twoPass"]}, '
-        + f'Encoding Speed: {encodeSettings["encodeSpeed"]} (0-5), '
-        + f'Audio Enabled: {settings["audio"]}, '
-        + f'Denoise: {settings["denoise"]["desc"]}, Rotate: {settings["rotate"]}, '
-        + f'HDR (High Dynamic Range) Output Enabled: {settings["enableHDR"]}, '
-        + f'Speed Maps Enabled: {settings["enableSpeedMaps"]}, '
-        + f'Minterpolation Mode: {settings["minterpMode"]}, '
+        + f"Two-pass Encoding Enabled: {encodeSettings['twoPass']}, "
+        + f"Encoding Speed: {encodeSettings['encodeSpeed']} (0-5), "
+        + f"Audio Enabled: {settings['audio']}, "
+        + f"Denoise: {settings['denoise']['desc']}, Rotate: {settings['rotate']}, "
+        + f"HDR (High Dynamic Range) Output Enabled: {settings['enableHDR']}, "
+        + f"Speed Maps Enabled: {settings['enableSpeedMaps']}, "
+        + f"Minterpolation Mode: {settings['minterpMode']}, "
         + minterpFPSMsg
-        + f'Special Looping: {settings["loop"]}, '
-        + (f'Fade Duration: {settings["fadeDuration"]}, ' if settings["loop"] == "fade" else "")
-        + f'Video Stabilization Strength: {settings["videoStabilization"]["desc"]}, '
+        + f"Special Looping: {settings['loop']}, "
+        + (f"Fade Duration: {settings['fadeDuration']}, " if settings["loop"] == "fade" else "")
+        + f"Video Stabilization Strength: {settings['videoStabilization']['desc']}, "
         + f"Video Stabilization Max Angle: "
         + (
-            f'{settings["videoStabilizationMaxAngle"]} degrees, '
+            f"{settings['videoStabilizationMaxAngle']} degrees, "
             if settings["videoStabilizationMaxAngle"] >= 0
             else "Unlimited, "
         )
         + f"Video Stabilization Max Shift: "
         + (
-            f'{settings["videoStabilizationMaxShift"]} pixels, '
+            f"{settings['videoStabilizationMaxShift']} pixels, "
             if settings["videoStabilizationMaxShift"] >= 0
             else "Unlimited, "
         )
-        + f'Video Stabilization Dynamic Zoom: {settings["videoStabilizationDynamicZoom"]}',
+        + f"Video Stabilization Dynamic Zoom: {settings['videoStabilizationDynamicZoom']}",
     )
 
 
@@ -494,11 +494,11 @@ def autoSetCropMultiples(settings: Settings) -> None:
         logger.info("Crop resolution does not match video resolution")
         if settings["cropResWidth"] != settings["width"]:
             logger.info(
-                f'Crop resolution width ({settings["cropResWidth"]}) not equal to video width ({settings["width"]})',
+                f"Crop resolution width ({settings['cropResWidth']}) not equal to video width ({settings['width']})",
             )
         if settings["cropResHeight"] != settings["height"]:
             logger.info(
-                f'Crop resolution height ({settings["cropResHeight"]}) not equal to video height ({settings["height"]})',
+                f"Crop resolution height ({settings['cropResHeight']}) not equal to video height ({settings['height']})",
             )
 
         if not settings["noAutoScaleCropRes"]:

@@ -130,10 +130,10 @@ def setupClipperPaths(cs: ClipperState) -> None:
 def setupOutputPaths(cs: ClipperState) -> None:
     settings = cs.settings
     cp = cs.clipper_paths
-    cp.clipsPath += f'/{settings["titleSuffix"]}'
+    cp.clipsPath += f"/{settings['titleSuffix']}"
 
     os.makedirs(f"{cp.clipsPath}/temp", exist_ok=True)
-    settings["downloadVideoPath"] = f'{cp.clipsPath}/{settings["downloadVideoNameStem"]}'
+    settings["downloadVideoPath"] = f"{cp.clipsPath}/{settings['downloadVideoNameStem']}"
 
 
 def enableMinterpEnhancements(cm: ClipperState) -> None:

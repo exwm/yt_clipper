@@ -163,7 +163,7 @@ def setUpLoggerWithRich(cs: ClipperState) -> None:
     if settings["preview"]:
         return
 
-    cp.logFilePath = f'{cp.clipsPath}/{settings["titleSuffix"]}.log'
+    cp.logFilePath = f"{cp.clipsPath}/{settings['titleSuffix']}.log"
     # assume file will be closed by rich.console.Console or else at program exit
     f = open(cp.logFilePath, "a", encoding="utf-8")  # noqa: SIM115
     rich_file_log_handler = get_rich_log_handler(level=base_log_level, file=f, color=False)
@@ -230,7 +230,7 @@ def setUpLoggerWithColoredLogs(cs: ClipperState) -> None:
     logger.addHandler(reportHandlerColored)
 
     if not settings["preview"]:
-        cp.logFilePath = f'{cp.clipsPath}/{settings["titleSuffix"]}.log'
+        cp.logFilePath = f"{cp.clipsPath}/{settings['titleSuffix']}.log"
         fileHandler = logging.FileHandler(
             filename=cp.logFilePath,
             mode="a",

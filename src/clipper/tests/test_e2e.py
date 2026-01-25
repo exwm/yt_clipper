@@ -35,7 +35,7 @@ def test_make_clip(
             [
                 "yt_clipper.py",
                 "--markers-json",
-                f'{this_dir / "testdata" / "test-with-dynamic.json"}',
+                f"{this_dir / 'testdata' / 'test-with-dynamic.json'}",
                 "--overwrite",
             ],
         )
@@ -61,7 +61,7 @@ def test_make_clip_vulkan(
             [
                 "yt_clipper.py",
                 "--markers-json",
-                f'{this_dir / "testdata" / "test-with-dynamic.json"}',
+                f"{this_dir / 'testdata' / 'test-with-dynamic.json'}",
                 "--overwrite",
                 "--video-codec h264_vulkan",
             ],
@@ -88,7 +88,7 @@ def test_make_clip_fast_trim(
             [
                 "yt_clipper.py",
                 "--markers-json",
-                f'{this_dir / "testdata" / "test-with-dynamic.json"}',
+                f"{this_dir / 'testdata' / 'test-with-dynamic.json'}",
                 "--overwrite",
                 "--fast-trim",
             ],
@@ -115,9 +115,9 @@ def test_make_clip_with_local_input_video(
             [
                 "yt_clipper.py",
                 "--markers-json",
-                f'{this_dir / "testdata" / "test-with-dynamic.json"}',
+                f"{this_dir / 'testdata' / 'test-with-dynamic.json'}",
                 "--input-video",
-                f'{this_dir / "testdata" / "test-with-dynamic.mp4"}',
+                f"{this_dir / 'testdata' / 'test-with-dynamic.mp4'}",
                 "--overwrite",
             ],
         )
@@ -143,9 +143,9 @@ def test_make_clip_nvenc_with_local_input_video(
             [
                 "yt_clipper.py",
                 "--markers-json",
-                f'{this_dir / "testdata" / "test-with-dynamic.json"}',
+                f"{this_dir / 'testdata' / 'test-with-dynamic.json'}",
                 "--input-video",
-                f'{this_dir / "testdata" / "test-with-dynamic.mp4"}',
+                f"{this_dir / 'testdata' / 'test-with-dynamic.mp4'}",
                 "--overwrite",
                 "--video-codec h264_nvenc",
             ],

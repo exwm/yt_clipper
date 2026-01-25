@@ -45,9 +45,9 @@ def getFfmpegVideoCodecVpx(
     qmin: int,
 ) -> Tuple[str, str, str]:
     if mps["minterpFPS"] is not None:
-        fps_arg = f'-r {mps["minterpFPS"]}'
+        fps_arg = f"-r {mps['minterpFPS']}"
     elif not mp["isVariableSpeed"]:
-        fps_arg = f'-r ({mps["r_frame_rate"]}*{mp["speed"]})'
+        fps_arg = f"-r ({mps['r_frame_rate']}*{mp['speed']})"
     else:
         fps_arg = "-fps_mode vfr"
 
@@ -69,9 +69,9 @@ def getFfmpegVideoCodecVpx(
             dynamic_range_args,
             f"-slices 8",
             f"-aq-mode 4 -row-mt 1 -tile-columns 6 -tile-rows 2" if videoCodec != "vp8" else "",
-            f'-qmin {qmin} -crf {mps["crf"]} -qmax {qmax}' if mps["targetSize"] <= 0 else "",
-            f'-b:v {mps["targetMaxBitrate"]}k' if cbr is None else f"-b:v {cbr}MB",
-            f'-force_key_frames 1 -g {mp["averageSpeed"] * Fraction(mps["r_frame_rate"])}',
+            f"-qmin {qmin} -crf {mps['crf']} -qmax {qmax}" if mps["targetSize"] <= 0 else "",
+            f"-b:v {mps['targetMaxBitrate']}k" if cbr is None else f"-b:v {cbr}MB",
+            f"-force_key_frames 1 -g {mp['averageSpeed'] * Fraction(mps['r_frame_rate'])}",
         ),
     )
     video_codec_input_args = ""
@@ -90,9 +90,9 @@ def getFfmpegVideoCodecH264(
     fps_arg = ""
     if not mps["h264DisableReduceStutter"]:
         if mps["minterpFPS"] is not None:
-            fps_arg = f'-r {mps["minterpFPS"]}'
+            fps_arg = f"-r {mps['minterpFPS']}"
         elif not mp["isVariableSpeed"]:
-            fps_arg = f'-r ({mps["r_frame_rate"]}*{mp["speed"]})'
+            fps_arg = f"-r ({mps['r_frame_rate']}*{mp['speed']})"
 
     if mp["isVariableSpeed"]:
         fps_arg = "-fps_mode vfr"
@@ -116,9 +116,9 @@ def getFfmpegVideoCodecH264(
             f"-movflags write_colr",
             dynamic_range_args,
             # h264 crf is between 0 and 51 (same as qp)
-            f'-qmin 3 -crf {mps["crf"]} -qmax {qmax}' if mps["targetSize"] <= 0 else "",
-            f'-b:v {mps["targetMaxBitrate"]}k' if cbr is None else f"-b:v {cbr}MB",
-            f'-force_key_frames 1 -g {mp["averageSpeed"] * Fraction(mps["r_frame_rate"])}',
+            f"-qmin 3 -crf {mps['crf']} -qmax {qmax}" if mps["targetSize"] <= 0 else "",
+            f"-b:v {mps['targetMaxBitrate']}k" if cbr is None else f"-b:v {cbr}MB",
+            f"-force_key_frames 1 -g {mp['averageSpeed'] * Fraction(mps['r_frame_rate'])}",
             # video_track_timescale = 2^4 * 3^2 * 5^2 * 7 * 11 * 13 * 23, max is ~2E9
             f" -video_track_timescale 82882800",
             "-bf 5",
@@ -164,9 +164,9 @@ def getFfmpegVideoCodecH264Vulkan(
     fps_arg = ""
     if not mps["h264DisableReduceStutter"]:
         if mps["minterpFPS"] is not None:
-            fps_arg = f'-r {mps["minterpFPS"]}'
+            fps_arg = f"-r {mps['minterpFPS']}"
         elif not mp["isVariableSpeed"]:
-            fps_arg = f'-r ({mps["r_frame_rate"]}*{mp["speed"]})'
+            fps_arg = f"-r ({mps['r_frame_rate']}*{mp['speed']})"
 
     if mp["isVariableSpeed"]:
         fps_arg = "-fps_mode vfr"
@@ -196,10 +196,10 @@ def getFfmpegVideoCodecH264Vulkan(
             "-i_qfactor 0.75 -b_qfactor 1.1",
             # doesn't support crf, qp ranges from -1 to 255
             f"-qmin 3 -qmax {qmax}" if mps["targetSize"] <= 0 else "",
-            f'-b:v {mps["targetMaxBitrate"]}k' if cbr is None else f"-b:v {cbr}MB",
-            f'-bufsize {mps["targetMaxBitrate"]}k' if cbr is None else f"-bufsize {cbr}MB",
-            f'-maxrate {mps["targetMaxBitrate"]*4}k' if cbr is None else f"-maxrate {cbr*4}MB",
-            f'-force_key_frames 1 -g {mp["averageSpeed"] * Fraction(mps["r_frame_rate"])}',
+            f"-b:v {mps['targetMaxBitrate']}k" if cbr is None else f"-b:v {cbr}MB",
+            f"-bufsize {mps['targetMaxBitrate']}k" if cbr is None else f"-bufsize {cbr}MB",
+            f"-maxrate {mps['targetMaxBitrate'] * 4}k" if cbr is None else f"-maxrate {cbr * 4}MB",
+            f"-force_key_frames 1 -g {mp['averageSpeed'] * Fraction(mps['r_frame_rate'])}",
             # video_track_timescale = 2^4 * 3^2 * 5^2 * 7 * 11 * 13 * 23, max is ~2E9
             f" -video_track_timescale 82882800",
             "-qcomp 0.9",
@@ -243,9 +243,9 @@ def getFfmpegVideoCodecH264Nvenc(
     fps_arg = ""
     if not mps["h264DisableReduceStutter"]:
         if mps["minterpFPS"] is not None:
-            fps_arg = f'-r {mps["minterpFPS"]}'
+            fps_arg = f"-r {mps['minterpFPS']}"
         elif not mp["isVariableSpeed"]:
-            fps_arg = f'-r ({mps["r_frame_rate"]}*{mp["speed"]})'
+            fps_arg = f"-r ({mps['r_frame_rate']}*{mp['speed']})"
 
     if mp["isVariableSpeed"]:
         fps_arg = "-fps_mode vfr"
@@ -270,9 +270,9 @@ def getFfmpegVideoCodecH264Nvenc(
             # so we remove the -cq option when in cbr mode
             f"-cq {mps['crf']}" if cbr is None and mps["targetSize"] <= 0 else "",
             f"-qmin 3 -qmax {qmax}" if mps["targetSize"] <= 0 else "",
-            f'-b:v {mps["targetMaxBitrate"]}k' if cbr is None else f"-b:v {cbr}MB",
-            f'-maxrate {mps["targetMaxBitrate"]*2}k' if cbr is None else f"-maxrate {cbr*2}MB",
-            f'-force_key_frames 1 -g {mp["averageSpeed"] * Fraction(mps["r_frame_rate"])}',
+            f"-b:v {mps['targetMaxBitrate']}k" if cbr is None else f"-b:v {cbr}MB",
+            f"-maxrate {mps['targetMaxBitrate'] * 2}k" if cbr is None else f"-maxrate {cbr * 2}MB",
+            f"-force_key_frames 1 -g {mp['averageSpeed'] * Fraction(mps['r_frame_rate'])}",
             # video_track_timescale = 2^4 * 3^2 * 5^2 * 7 * 11 * 13 * 23, max is ~2E9
             f" -video_track_timescale 82882800",
             "-qcomp 0.9",

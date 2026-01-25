@@ -52,7 +52,7 @@ def getAutoScaledCropComponents(
         cropComponents["w"] = util.floorToEven(cropComponents["w"])
         cropComponents["h"] = util.floorToEven(cropComponents["h"])
 
-    scaledCropString = f"""{cropComponents['x']}:{cropComponents['y']}:{cropComponents['w']}:{cropComponents['h']}"""
+    scaledCropString = f"""{cropComponents["x"]}:{cropComponents["y"]}:{cropComponents["w"]}:{cropComponents["h"]}"""
 
     return scaledCropString, cropComponents
 
@@ -96,14 +96,14 @@ def getMinterpFilter(mp: Dict[str, Any], mps: Dict[str, Any]) -> str:
                 f"speedChange: {speedChange}, startSpeed: {startSpeed}, targetSpeed: {round(targetSpeed, 2)}",
             )
             if speedChange != 0 or startSpeed < round(targetSpeed, 2):
-                logger.debug(f'minterp enabled for section: {left["x"]}, {right["x"]}')
+                logger.debug(f"minterp enabled for section: {left['x']}, {right['x']}")
                 sectStart = outDurs[sect]
                 sectEnd = outDurs[sect + 1]
                 minterpEnable.append(f"between(t,{sectStart},{sectEnd})")
 
     if mps["enableMinterpEnhancements"]:
         if len(minterpEnable) > 0:
-            minterpEnable = f"""enable='{'+'.join(minterpEnable)}':"""
+            minterpEnable = f"""enable='{"+".join(minterpEnable)}':"""
         else:
             minterpEnable = "enable=0:"
     else:
@@ -196,7 +196,7 @@ def getSubsFilter(
         caption.end = caption._to_timestamp(  # pylint: disable=protected-access
             min(subsEnd - subsStart, end - subsStart),
         )
-    tmp_subs_path = f'{cp.clipsPath}/subs/{mps["titleSuffix"]}-{markerPairIndex+1}.vtt'
+    tmp_subs_path = f"{cp.clipsPath}/subs/{mps['titleSuffix']}-{markerPairIndex + 1}.vtt"
     vtt.save(tmp_subs_path)
     subs_filter = f""",subtitles='{tmp_subs_path}':force_style='{mps["subsStyle"]}'"""
 
@@ -210,7 +210,7 @@ def getSpeedFilterAndDuration(
 ) -> Tuple[str, ExtendedRealNumber, List[ExtendedRealNumber]]:
     if not mp["isVariableSpeed"]:
         duration = mp["duration"] / mp["speed"]
-        return f'setpts=(PTS-STARTPTS)/{mp["speed"]}', duration, [0, duration]
+        return f"setpts=(PTS-STARTPTS)/{mp['speed']}", duration, [0, duration]
 
     video_filter_speed_map = ""
     setpts = ""
@@ -507,7 +507,7 @@ def getZoomPanFilter(
     zoomYExpr = getEaseFilterExpr(easingsZoomY, timeExpr=ZOOM_PAN_TIME_EXPR)
 
     zoomPanFilter = ""
-    targetSize = f"{round(1*maxWidth)}x{round(1*maxHeight)}"
+    targetSize = f"{round(1 * maxWidth)}x{round(1 * maxHeight)}"
     # Prescale filter to reduce jitter caused by the rounding of the panning done by zoompan.
     if panScale > 1:
         zoomPanFilter += f"scale=w={panScale}*iw:h={panScale}*ih,"
@@ -539,12 +539,14 @@ def floorToEven(x: Union[int, str, float]) -> int:
     x = int(x)
     return x & ~1
 
+
 def getFrameTimeBetweenLeftFrames(time: float, fps: float) -> float:
-  leftFrameIndex = floor(time * fps)
+    leftFrameIndex = floor(time * fps)
 
-  midpointTime = (leftFrameIndex - 0.5) / fps
+    midpointTime = (leftFrameIndex - 0.5) / fps
 
-  return midpointTime
+    return midpointTime
+
 
 def getEasingExpression(
     easingFunc: str,

@@ -24,7 +24,7 @@ yt_clipper = "clipper.yt_clipper:main"
 dev = [
     "pyinstaller==6.9.0",
     "bumpit>=0.8.0,<0.9",
-    "ruff==0.6.8",
+    "ruff==0.14.14",
     "pillow>=10.4.0,<11",
 ]
 test = [

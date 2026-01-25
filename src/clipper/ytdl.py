@@ -84,7 +84,7 @@ def ytdl_bin_get_video_info(cs: ClipperState) -> Tuple[Dict, str]:
     # Download the full video if requested by user
     if settings["downloadVideo"]:
         subprocess.run(args=ytdl_args, check=True)
-        settings["downloadVideoPath"] = f'{settings["downloadVideoPath"]}.mkv'
+        settings["downloadVideoPath"] = f"{settings['downloadVideoPath']}.mkv"
 
     return ytdl_info, formats_table
 
@@ -131,8 +131,8 @@ def ytdl_bin_get_subs(cs: ClipperState) -> None:
     cp = cs.clipper_paths
     settings = cs.settings
 
-    settings["subsFileStem"] = f'{cp.clipsPath}/subs/{settings["titleSuffix"]}'
-    settings["subsFilePath"] = f'{settings["subsFileStem"]}.{settings["autoSubsLang"]}.vtt'
+    settings["subsFileStem"] = f"{cp.clipsPath}/subs/{settings['titleSuffix']}"
+    settings["subsFilePath"] = f"{settings['subsFileStem']}.{settings['autoSubsLang']}.vtt"
 
     ytdl_args = ytdl_bin_get_args_base(cs)
 
