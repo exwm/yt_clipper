@@ -5,9 +5,10 @@ It provides a graphical UI for video editing that creates instructions in `json`
 These instruction files are small and in plain text so they can be easily read, modified, and shared with others.
 The `clipper script` component provides a way to process these instructions and generate the clips you want.
 
-# Video Quick Start
+# Video Tutorials
 
-For a video quickstart check out this video: <https://imgur.com/a/gQ4KItt>
+- For a video quickstart check out this video: <https://imgur.com/a/gQ4KItt>
+- For a video covering the dynamic crop feature see: <https://files.catbox.moe/cakyfg.mp4>
 
 # Quick Start Guide
 
@@ -78,7 +79,7 @@ YouTube is the primary video platform supported by yt_clipper. Other supported p
 # Table of Contents
 
 - [yt\_clipper](#yt_clipper)
-- [Video Quick Start](#video-quick-start)
+- [Video Tutorials](#video-tutorials)
 - [Quick Start Guide](#quick-start-guide)
 - [Notices](#notices)
 - [Browser Support](#browser-support)
