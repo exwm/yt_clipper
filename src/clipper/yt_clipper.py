@@ -62,11 +62,10 @@ def main() -> None:
         logger.info("-" * 80)
 
     if unknown:
-        logger.notice(
+        logger.error(
             f"The following unknown arguments were provided and were ignored:",
         )
-        logger.notice(unknown)
-        logger.info("-" * 80)
+        sys.exit(1)
 
     enableMinterpEnhancements(cs)
 

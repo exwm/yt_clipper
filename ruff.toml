@@ -62,13 +62,12 @@ select = [
 ignore = [
   "F541",    # f-string without any placeholders
   "PLR0915", # Too many statements
-  "ANN101",  # missing-type-self
   "PLR2004", # Magic value used in comparison
   "RET504",  # uncessary assignment to variable before return
   "PTH103",  # `os.makedirs()` should be replaced by `Path.mkdir(parents=True)`
   "PTH123",  #`open()` should be replaced by `Path.open()`
   "PLR0911", # Too many return statements
-
+  "PLC0415", # `import` should be at the top-level of a file
 ]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
