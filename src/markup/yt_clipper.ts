@@ -123,7 +123,8 @@ import {
   timeRounder,
   toHHMMSSTrimmed,
 } from './util/util';
-import { injectModal, startDrawZoomedRegion, disableCropPreview } from './crop/crop-preview';
+import { prevGammaVal, setPrevGammaVal } from './util/previewGamma';
+import { injectModal, startDrawZoomedRegion, disableCropPreview, toggleCropPreviewGammaPreview } from './crop/crop-preview';
 
 const ytClipperCSS = readFileSync(__dirname + '/ui/css/yt-clipper.css', 'utf8');
 const shortcutsTableHTML = readFileSync(
@@ -1059,7 +1060,7 @@ function addForeignEventListeners() {
   });
 }
 
-function getShortestActiveMarkerPair(currentTime: number | null): MarkerPair {
+function getShortestActiveMarkerPair(currentTime?: number): MarkerPair {
   if (currentTime == null) currentTime = video.getCurrentTime();
 
   if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen && prevSelectedMarkerPairIndex != null) {
@@ -1274,7 +1275,7 @@ function loopMarkerPair() {
 }
 
 let gammaFilterDiv: HTMLDivElement;
-let isGammaPreviewOn = false;
+export let isGammaPreviewOn = false;
 let gammaR: SVGFEFuncRElement;
 let gammaG: SVGFEFuncGElement;
 let gammaB: SVGFEFuncBElement;
@@ -1315,9 +1316,9 @@ export function toggleGammaPreview() {
     isGammaPreviewOn = false;
     flashMessage('Gamma preview disabled', 'red');
   }
+  toggleCropPreviewGammaPreview()
 }
 
-let prevGammaVal = 1;
 function gammaPreviewHandler() {
   const shortestActiveMarkerPair = getShortestActiveMarkerPair();
 
@@ -1326,7 +1327,7 @@ function gammaPreviewHandler() {
 
   if (markerPairGamma == 1) {
     if (video.style.filter) video.style.filter = null;
-    prevGammaVal = 1;
+    setPrevGammaVal(1)
   } else if (prevGammaVal !== markerPairGamma) {
     // console.log(`Updating gamma from ${prevGammaVal} to ${markerPairGamma}`);
     gammaR.exponent.baseVal = markerPairGamma;
@@ -1335,7 +1336,7 @@ function gammaPreviewHandler() {
     // force re-render of filter (possible bug with chrome and other browsers?)
     if (!video.style.filter) video.style.filter = 'url(#gamma-filter)';
     gammaFilterSvg.setAttribute('width', '0');
-    prevGammaVal = markerPairGamma;
+    setPrevGammaVal(markerPairGamma)
   }
 
   if (isGammaPreviewOn) {

@@ -345,7 +345,7 @@
   align-items: center;
 }
 
-#ytc-zoom-canvas {
+#ytc-zoom-canvas, #ytc-zoom-canvas-webgl {
   width: 100%;
   height: 100%;
   object-fit: contain; /* Maintain aspect ratio */

@@ -1,6 +1,10 @@
 import { html } from 'common-tags';
 import { deleteElement, htmlToElement } from '../util/util';
-import { video } from '../yt_clipper';
+import { isGammaPreviewOn, video } from '../yt_clipper';
+import { createWebGLGammaRenderer, prevGammaVal, WebGLGammaRenderer } from '../util/previewGamma';
+
+var cropPreviewCanvas: HTMLCanvasElement = null;
+var gammaRenderer: WebGLGammaRenderer = null;
 
 export function injectModal(
   video: HTMLVideoElement,
@@ -23,6 +27,11 @@ export function injectModal(
 
   const modalContent = document.getElementById('ytc-modal-content');
 
+  cropPreviewCanvas = document.getElementById('ytc-zoom-canvas') as HTMLCanvasElement;
+
+  gammaRenderer = createWebGLGammaRenderer(cropPreviewCanvas);
+  cropPreviewCanvas.insertAdjacentElement('afterend', gammaRenderer.outputCanvas);
+
   modalElement.addEventListener('click', (e) => {
     if (!modalContent.contains(e.target)) {
       toggleCallback();
@@ -42,6 +51,8 @@ export function injectModal(
   const cropPreviewMouseTimeSetter = getCropPreviewMouseTimeSetter(modalContent);
 
   modalElement.addEventListener('pointerdown', cropPreviewMouseTimeSetter, true);
+
+  toggleCropPreviewGammaPreview();
 }
 
 export function disableCropPreview() {
@@ -50,17 +61,16 @@ export function disableCropPreview() {
 }
 
 export function startDrawZoomedRegion(getZoomRegion: Function) {
-  const canvas: HTMLCanvasElement = document.getElementById('ytc-zoom-canvas');
-  const ctx = canvas.getContext('2d');
+  const ctx = cropPreviewCanvas.getContext('2d');
   const modal = document.getElementById('ytc-zoom-modal');
   const modalContent = document.getElementsByClassName('ytc-modal-content')[0];
 
   const [x, y, w, h] = getZoomRegion();
 
-  canvas.width = w;
-  canvas.height = h;
+  cropPreviewCanvas.width = w;
+  cropPreviewCanvas.height = h;
 
-  drawZoomedRegion(getZoomRegion, canvas, ctx, modal, modalContent);
+  drawZoomedRegion(getZoomRegion, cropPreviewCanvas, ctx, modal, modalContent);
 }
 
 function drawZoomedRegion(
@@ -80,7 +90,13 @@ function drawZoomedRegion(
 
     ctx.drawImage(video, x, y, w, h, 0, 0, canvas.width, canvas.height);
 
-    video.requestVideoFrameCallback(() => drawZoomedRegion(getZoomRegion, canvas, ctx, modal, modalContent));
+    if (isGammaPreviewOn) {
+      gammaRenderer.render(canvas, prevGammaVal);
+    }
+
+    video.requestVideoFrameCallback(() =>
+      drawZoomedRegion(getZoomRegion, canvas, ctx, modal, modalContent)
+    );
   }
 }
 
@@ -99,4 +115,18 @@ function resizeModalToAspect(modalContent: HTMLElement, width: number, height: n
 
   modalContent.style.width = `${modalWidth}px`;
   modalContent.style.height = `${modalHeight}px`;
+}
+
+export function toggleCropPreviewGammaPreview() {
+  if (!cropPreviewCanvas || !gammaRenderer) {
+    return;
+  }
+
+  if (isGammaPreviewOn) {
+    cropPreviewCanvas.style.display = 'none';
+    gammaRenderer.outputCanvas.style.display = '';
+  } else {
+    cropPreviewCanvas.style.display = '';
+    gammaRenderer.outputCanvas.style.display = 'none';
+  }
 }
