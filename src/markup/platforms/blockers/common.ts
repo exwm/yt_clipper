@@ -18,7 +18,7 @@ function disablePreventMouseZoom() {
 }
 
 function stopWheelZoom(e: MouseEvent) {
-  if (e.ctrlKey || e.shiftKey) {
+  if (e.ctrlKey || e.shiftKey || e.altKey) {
     e.preventDefault();
   }
 }
