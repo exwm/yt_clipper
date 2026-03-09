@@ -97,7 +97,7 @@ const youtubeSelectors: VideoPlatformSelectors = {
   cropMouseManipulation: '.html5-video-container',
   speedChartContainer: '.html5-video-container',
   cropChartContainer: '#columns',
-  markerNumberingsDiv: '.ytp-chrome-bottom',
+  markerNumberingsDiv: '.ytp-progress-bar',
   controls: '.ytp-chrome-bottom',
   controlsGradient: '.ytp-gradient-bottom',
   shortcutsTableButton: '.ytp-right-controls',
