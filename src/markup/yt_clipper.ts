@@ -685,6 +685,11 @@ function addCropHoverListener(e: KeyboardEvent) {
 function removeCropHoverListener(e: KeyboardEvent) {
   if (e.key === 'Control' || e.key === 'Meta') {
     document.removeEventListener('pointermove', cropHoverHandler, true);
+    if (cropHoverRafId) {
+      cancelAnimationFrame(cropHoverRafId);
+      cropHoverRafId = 0;
+      pendingCropHoverEvent = null;
+    }
     showPlayerControls();
     hooks.cropMouseManipulation.style.removeProperty('cursor');
     // Reset anchor to default (top-left) for the next crop modification session
@@ -692,8 +697,23 @@ function removeCropHoverListener(e: KeyboardEvent) {
   }
 }
 
-function cropHoverHandler(e) {
+let cropHoverRafId = 0;
+let pendingCropHoverEvent: PointerEvent | null = null;
+
+function cropHoverHandler(e: PointerEvent) {
   if (isSettingsEditorOpen && isCropOverlayVisible && !isDrawingCrop) {
+    pendingCropHoverEvent = e;
+    if (!cropHoverRafId) {
+      cropHoverRafId = requestAnimationFrame(processCropHover);
+    }
+  }
+}
+
+function processCropHover() {
+  cropHoverRafId = 0;
+  const e = pendingCropHoverEvent;
+  pendingCropHoverEvent = null;
+  if (e && isSettingsEditorOpen && isCropOverlayVisible && !isDrawingCrop) {
     updateCropHoverCursor(e);
   }
 }
@@ -3975,11 +3995,16 @@ function createCropOverlay(cropString: string) {
   isCropOverlayVisible = true;
 }
 
+let rerenderCropRafId = 0;
+
 function resizeCropOverlay() {
-  requestAnimationFrame(forceRerenderCrop);
+  if (!rerenderCropRafId) {
+    rerenderCropRafId = requestAnimationFrame(forceRerenderCrop);
+  }
 }
 
 function forceRerenderCrop() {
+  rerenderCropRafId = 0;
   centerVideo();
   if (cropDiv) {
     const videoRect = video.getBoundingClientRect();
@@ -3994,10 +4019,11 @@ function forceRerenderCrop() {
       cropSvg.setAttribute('width', '0');
     }
     const cropString = getRelevantCropString();
-    setCropOverlay(cropRect, cropString);
-    setCropOverlay(cropRectBorder, cropString);
-    setCropOverlay(cropRectBorderBlack, cropString);
-    setCropOverlay(cropRectBorderWhite, cropString);
+    const [cx, cy, cw, ch] = getCropComponents(cropString);
+    setCropOverlayDimensions(cropRect, cx, cy, cw, ch);
+    setCropOverlayDimensions(cropRectBorder, cx, cy, cw, ch);
+    setCropOverlayDimensions(cropRectBorderBlack, cx, cy, cw, ch);
+    setCropOverlayDimensions(cropRectBorderWhite, cx, cy, cw, ch);
   }
 }
 
@@ -4234,6 +4260,11 @@ function addCropMouseManipulationListener() {
 
       const { isDynamicCrop, enableZoomPan, initCropMap } = getCropMapProperties();
 
+      let pendingCropDragEvent: PointerEvent | null = null;
+      let cropDragRafId = 0;
+      let pendingCropResizeEvent: PointerEvent | null = null;
+      let cropResizeRafId = 0;
+
       endCropMouseManipulation = (e: PointerEvent, forceEnd = false) => {
         if (forceEnd) {
           document.removeEventListener('pointerup', endCropMouseManipulation, {
@@ -4241,6 +4272,16 @@ function addCropMouseManipulationListener() {
           });
         }
         isMouseManipulatingCrop = false;
+        if (cropDragRafId) {
+          cancelAnimationFrame(cropDragRafId);
+          cropDragRafId = 0;
+          processDragCrop();
+        }
+        if (cropResizeRafId) {
+          cancelAnimationFrame(cropResizeRafId);
+          cropResizeRafId = 0;
+          processResizeCrop();
+        }
 
         hooks.cropMouseManipulation.releasePointerCapture(pointerId);
 
@@ -4288,7 +4329,12 @@ function addCropMouseManipulationListener() {
         hooks.cropMouseManipulation.style.cursor = 'grabbing';
         document.addEventListener('pointermove', dragCropHandler);
       } else {
-        cropResizeHandler = (e: MouseEvent) => getCropResizeHandler(e, cursor);
+        cropResizeHandler = (e: PointerEvent) => {
+          pendingCropResizeEvent = e;
+          if (!cropResizeRafId) {
+            cropResizeRafId = requestAnimationFrame(processResizeCrop);
+          }
+        };
         document.addEventListener('pointermove', cropResizeHandler);
       }
 
@@ -4301,6 +4347,18 @@ function addCropMouseManipulationListener() {
       isMouseManipulatingCrop = true;
 
       function dragCropHandler(e: PointerEvent) {
+        pendingCropDragEvent = e;
+        if (!cropDragRafId) {
+          cropDragRafId = requestAnimationFrame(processDragCrop);
+        }
+      }
+
+      function processDragCrop() {
+        cropDragRafId = 0;
+        const e = pendingCropDragEvent;
+        pendingCropDragEvent = null;
+        if (!e) return;
+
         const shouldMaintainCropX = e.shiftKey;
         const shouldMaintainCropY = e.altKey;
 
@@ -4364,6 +4422,13 @@ function addCropMouseManipulationListener() {
           shouldResizeCenterOut
         );
         updateCropStringWithCrop(crop, false, false, initCropMap);
+      }
+
+      function processResizeCrop() {
+        cropResizeRafId = 0;
+        const e = pendingCropResizeEvent;
+        pendingCropResizeEvent = null;
+        if (e) getCropResizeHandler(e, cursor);
       }
     }
   }
@@ -5031,6 +5096,8 @@ function updateCropStringWithCrop(
   return updateCropString(newCropString, shouldRerenderCharts, forceCropConstraints, initCropMap);
 }
 
+let lastRenderedCropString: string | null = null;
+
 function updateCropString(
   cropString: string,
   shouldRerenderCharts = false,
@@ -5090,7 +5157,10 @@ function updateCropString(
     saveMarkerPairHistory(draft, markerPair, shouldRerenderCharts);
   }
 
-  renderSpeedAndCropUI(shouldRerenderCharts);
+  if (cropString !== lastRenderedCropString || shouldRerenderCharts) {
+    lastRenderedCropString = cropString;
+    renderSpeedAndCropUI(shouldRerenderCharts);
+  }
 }
 
 function renderSpeedAndCropUI(rerenderCharts = true, updateCurrentCropPoint = false) {
