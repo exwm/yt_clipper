@@ -273,6 +273,10 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 **Shift+C:** Toggle auto looping of currently selected marker pair.
 
+**Ctrl+Alt+X:** Toggle previewing crop in pop-out window.
+
+  ![yt_clipper_crop_preview.png](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_crop_preview_pop_out.png)
+
 **Ctrl+Alt+X:** Toggle previewing crop in modal window. The modal window can be left+clicked to play/pause and right-clicked to seek the video.
 
 **Ctrl+Shift+C:** Toggle auto crop chart section looping. This setting takes precedence over auto marker pair looping.

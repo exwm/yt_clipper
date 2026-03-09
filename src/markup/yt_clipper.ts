@@ -124,7 +124,15 @@ import {
   toHHMMSSTrimmed,
 } from './util/util';
 import { prevGammaVal, setPrevGammaVal } from './util/previewGamma';
-import { injectModal, startDrawZoomedRegion, disableCropPreview, toggleCropPreviewGammaPreview } from './crop/crop-preview';
+import {
+  startCropPreview,
+  startDrawZoomedRegion,
+  disableCropPreview,
+  toggleCropPreviewGammaPreview,
+  triggerCropPreviewRedraw,
+  resetCropPreviewAnchor,
+  cropPreviewMode,
+} from './crop/crop-preview';
 
 const ytClipperCSS = readFileSync(__dirname + '/ui/css/yt-clipper.css', 'utf8');
 const shortcutsTableHTML = readFileSync(
@@ -376,6 +384,9 @@ function hotkeys(e: KeyboardEvent) {
       } else if (e.ctrlKey && e.altKey && !e.shiftKey) {
         blockEvent(e);
         toggleCropPreview();
+      } else if (!e.ctrlKey && !e.altKey && e.shiftKey) {
+        blockEvent(e);
+        toggleCropPreview('pop-out');
       }
       break;
     case 'KeyR':
@@ -676,6 +687,8 @@ function removeCropHoverListener(e: KeyboardEvent) {
     document.removeEventListener('pointermove', cropHoverHandler, true);
     showPlayerControls();
     hooks.cropMouseManipulation.style.removeProperty('cursor');
+    // Reset anchor to default (top-left) for the next crop modification session
+    resetCropPreviewAnchor();
   }
 }
 
@@ -804,7 +817,7 @@ function selectCropPointWithMouseWheel(e: WheelEvent) {
   }
 
   if (!isCropChartLoopingOn) {
-    triggerCropChartLoop();
+    triggerCropChartUpdates();
   }
 
   const cropPoint = cropChartData[currentCropPointIndex] as CropPoint;
@@ -939,7 +952,7 @@ let rotatedVideoStyle: HTMLStyleElement;
 let adjustRotatedVideoPositionStyle: HTMLStyleElement;
 let fullscreenRotatedVideoStyle: HTMLStyleElement;
 let rotatedVideoPreviewsStyle: HTMLStyleElement;
-let rotation = 0;
+export let rotation = 0;
 function rotateVideo(direction: string) {
   if (direction === 'clock') {
     rotation = rotation === 0 ? 90 : 0;
@@ -997,6 +1010,7 @@ function rotateVideo(direction: string) {
     document.removeEventListener('fullscreenchange', fullscreenRotateVideoHandler);
   }
   resizeCropOverlay();
+  triggerCropPreviewRedraw();
 }
 
 function fullscreenRotateVideoHandler() {
@@ -1237,41 +1251,52 @@ function toggleMarkerPairLoop() {
 }
 
 function loopMarkerPair() {
-  if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
-    if (prevSelectedMarkerPairIndex != null) {
-      const markerPair = markerPairs[prevSelectedMarkerPairIndex];
-      const chartLoop: ChartLoop = currentChartInput
-        ? markerPair[currentChartInput.chartLoopKey]
-        : null;
-      if (
-        chartLoop &&
-        chartLoop.enabled &&
-        chartLoop.start > markerPair.start &&
-        chartLoop.end < markerPair.end &&
-        chartLoop.start < chartLoop.end
-      ) {
-        const isTimeBetweenChartLoop =
-          chartLoop.start <= video.getCurrentTime() && video.getCurrentTime() <= chartLoop.end;
-        if (!isTimeBetweenChartLoop) {
-          seekToSafe(video, chartLoop.start);
-        }
-      } else if (
-        (isCropChartLoopingOn && isCurrentChartVisible && currentChartInput.type === 'crop') ||
-        (cropChartInput.chart && (isMouseManipulatingCrop || isDrawingCrop))
-      ) {
-        shouldTriggerCropChartLoop = false;
-        cropChartSectionLoop();
-      } else if (isMarkerLoopPreviewOn) {
-        const isTimeBetweenMarkerPair =
-          markerPair.start <= video.getCurrentTime() && video.getCurrentTime() <= markerPair.end;
-        if (!isTimeBetweenMarkerPair) {
-          seekToSafe(video, markerPair.start);
-        }
-      }
-    }
+  requestAnimationFrame(loopMarkerPair);
+
+  if (!isMarkerLoopPreviewOn && !isCropChartLoopingOn) {
+    return;
   }
 
-  setTimeout(loopMarkerPair, 4);
+  if (!isSettingsEditorOpen || wasGlobalSettingsEditorOpen) {
+    return;
+  }
+  if (prevSelectedMarkerPairIndex == null) {
+    return;
+  }
+  if (video.seeking) {
+    return;
+  }
+
+  const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+  const chartLoop: ChartLoop = currentChartInput
+    ? markerPair[currentChartInput.chartLoopKey]
+    : null;
+
+  if (
+    chartLoop &&
+    chartLoop.enabled &&
+    chartLoop.start > markerPair.start &&
+    chartLoop.end < markerPair.end &&
+    chartLoop.start < chartLoop.end
+  ) {
+    const isTimeBetweenChartLoop =
+      chartLoop.start <= video.getCurrentTime() && video.getCurrentTime() <= chartLoop.end;
+    if (!isTimeBetweenChartLoop) {
+      seekToSafe(video, chartLoop.start);
+    }
+  } else if (
+    (isCropChartLoopingOn && isCurrentChartVisible && currentChartInput.type === 'crop') ||
+    (cropChartInput.chart && (isMouseManipulatingCrop || isDrawingCrop))
+  ) {
+    shouldTriggerCropChartUpdates = false;
+    cropChartSectionLoop();
+  } else if (isMarkerLoopPreviewOn) {
+    const isTimeBetweenMarkerPair =
+      markerPair.start <= video.getCurrentTime() && video.getCurrentTime() <= markerPair.end;
+    if (!isTimeBetweenMarkerPair) {
+      seekToSafe(video, markerPair.start);
+    }
+  }
 }
 
 let gammaFilterDiv: HTMLDivElement;
@@ -1316,7 +1341,7 @@ export function toggleGammaPreview() {
     isGammaPreviewOn = false;
     flashMessage('Gamma preview disabled', 'red');
   }
-  toggleCropPreviewGammaPreview()
+  toggleCropPreviewGammaPreview();
 }
 
 function gammaPreviewHandler() {
@@ -1327,7 +1352,7 @@ function gammaPreviewHandler() {
 
   if (markerPairGamma == 1) {
     if (video.style.filter) video.style.filter = null;
-    setPrevGammaVal(1)
+    setPrevGammaVal(1);
   } else if (prevGammaVal !== markerPairGamma) {
     // console.log(`Updating gamma from ${prevGammaVal} to ${markerPairGamma}`);
     gammaR.exponent.baseVal = markerPairGamma;
@@ -1336,7 +1361,7 @@ function gammaPreviewHandler() {
     // force re-render of filter (possible bug with chrome and other browsers?)
     if (!video.style.filter) video.style.filter = 'url(#gamma-filter)';
     gammaFilterSvg.setAttribute('width', '0');
-    setPrevGammaVal(markerPairGamma)
+    setPrevGammaVal(markerPairGamma);
   }
 
   if (isGammaPreviewOn) {
@@ -4778,7 +4803,7 @@ function toggleCropCrossHair() {
 }
 
 let cropPreviewEnabled = false;
-function toggleCropPreview() {
+function toggleCropPreview(mode: cropPreviewMode = 'modal') {
   if (cropPreviewEnabled) {
     flashMessage('Disabled crop preview', 'red');
     cropPreviewEnabled = false;
@@ -4786,7 +4811,12 @@ function toggleCropPreview() {
   } else {
     flashMessage('Enabled crop preview', 'green');
     cropPreviewEnabled = true;
-    injectModal(video, toggleCropPreview, getCropPreviewMouseTimeSetter);
+    const onCropPreviewDisabled = () => {
+      if (!cropPreviewEnabled) return;
+      cropPreviewEnabled = false;
+      flashMessage('Disabled crop preview', 'red');
+    };
+    startCropPreview(video, onCropPreviewDisabled, getCropPreviewMouseTimeSetter, getZoomRegion, mode);
     enableCropPreview();
   }
 }
@@ -5101,6 +5131,7 @@ function renderSpeedAndCropUI(rerenderCharts = true, updateCurrentCropPoint = fa
       renderStaticCropOverlay(crop);
     }
     highlightSpeedAndCropInputs();
+    triggerCropPreviewRedraw();
   }
 }
 
@@ -5526,10 +5557,11 @@ function toggleCropChartLooping() {
   }
 }
 
-let shouldTriggerCropChartLoop = false;
-export function triggerCropChartLoop() {
-  shouldTriggerCropChartLoop = true;
+let shouldTriggerCropChartUpdates = false;
+export function triggerCropChartUpdates() {
+  shouldTriggerCropChartUpdates = true;
   cropChartPreviewHandler(false);
+  triggerCropPreviewRedraw();
 }
 
 function cropChartPreviewHandler(loop = true) {
@@ -5541,12 +5573,12 @@ function cropChartPreviewHandler(loop = true) {
     const isCropChartVisible =
       currentChartInput && currentChartInput.type == 'crop' && isCurrentChartVisible;
     if (
-      shouldTriggerCropChartLoop ||
+      shouldTriggerCropChartUpdates ||
       // assume auto time-based update not required for crop chart section if looping section
       (isCropChartLoopingOn && isCropChartVisible) ||
       (cropChartInput.chart && (isMouseManipulatingCrop || isDrawingCrop))
     ) {
-      shouldTriggerCropChartLoop = false;
+      shouldTriggerCropChartUpdates = false;
       cropChartSectionLoop();
     } else if (isDynamicCrop) {
       setCurrentCropPointWithCurrentTime();

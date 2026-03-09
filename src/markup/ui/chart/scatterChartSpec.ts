@@ -6,7 +6,7 @@ import { seekToSafe, timeRounder } from '../../util/util';
 import {
   markerPairs,
   prevSelectedMarkerPairIndex,
-  triggerCropChartLoop,
+  triggerCropChartUpdates,
   video,
 } from '../../yt_clipper';
 import { getInputUpdater, grey, lightgrey, medgrey, roundX, roundY, sortX } from './chartutil';
@@ -336,7 +336,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
       if (datum) {
         const index = datum['_index'];
         setCurrentCropPoint(this, index, mode);
-        triggerCropChartLoop();
+        triggerCropChartUpdates();
       }
     }
   }

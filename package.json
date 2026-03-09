@@ -14,13 +14,16 @@
     "userscript": {
       "distDir": "./dist/js",
       "engines": {
-        "browsers": "since 2019 and > 0.5% and not op_mini all and not IE 11"
+        "browsers": [
+          "since 2019 and > 0.5% and not op_mini all and not IE 11"
+        ]
       }
     }
   },
   "scripts": {
     "lint:py": "just lint-py",
     "test:py": "just test-py",
+    "test": "jest",
     "precommit-msg": "echo 'Pre-commit checks...' && exit 0"
   },
   "pre-commit": [
@@ -36,24 +39,30 @@
     "dompurify": "^3.1.7",
     "file-saver": "^2.0.5",
     "immer": "^9.0.12",
+    "interactjs": "^1.10.27",
+    "lit": "^3.3.2",
     "lodash.clonedeep": "^4.5.0",
     "lodash.isequal": "^4.5.0"
   },
   "devDependencies": {
+    "@parcel/transformer-typescript-tsc": "^2.16.4",
     "@types/chart.js": "^2.9.41",
     "@types/common-tags": "^1.8.4",
     "@types/d3-ease": "^1.0.13",
     "@types/dompurify": "^3.0.5",
     "@types/file-saver": "^2.0.7",
+    "@types/jest": "^30.0.0",
     "@types/jszip": "^3.4.1",
-    "browserslist": "^4.24.0",
+    "browserslist": "^4.28.1",
     "commit-and-tag-version": "12.4.4",
+    "jest": "^30.2.0",
     "npm-run-all": "^4.1.5",
-    "parcel": "^2.12.0",
+    "parcel": "^2.16.4",
     "pre-commit": "^1.2.2",
     "prettier": "^3.3.3",
     "typescript": "^5.6.2",
-    "yarn-audit-fix": "^10.1.1"
+    "yarn-audit-fix": "^10.1.1",
+    "ts-jest": "^29.4.6"
   },
   "alias": {
     "jszip": ".parcel-globals/jszip.js",

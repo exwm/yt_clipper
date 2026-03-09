@@ -21,6 +21,7 @@ __pycache__
 sandbox/
 misc/
 .sandbox
+.claude
 
 # other binaries and artifacts
 webms/
