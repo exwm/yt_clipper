@@ -2380,6 +2380,8 @@ function createGlobalSettingsEditor() {
   addMarkerPairMergeListDurationsListener();
   addCropInputHotkeys();
   highlightModifiedSettings(settingsInputsConfigsHighlightable, settings);
+  showCropOverlay();
+  triggerCropPreviewRedraw();
 }
 function addSettingsInputListeners(inputs: string[][], target, highlightable = false) {
   inputs.forEach((input) => {
@@ -2399,11 +2401,13 @@ function addSettingsInputListeners(inputs: string[][], target, highlightable = f
 
 function deleteSettingsEditor() {
   const settingsEditorDiv = document.getElementById('settings-editor-div');
-  hideCropOverlay();
   deleteElement(settingsEditorDiv);
   isSettingsEditorOpen = false;
   wasGlobalSettingsEditorOpen = false;
   markerHotkeysEnabled = false;
+
+  hideCropOverlay();
+  triggerCropPreviewRedraw();
 }
 
 let isExtraSettingsEditorEnabled = false;
@@ -2567,6 +2571,7 @@ function toggleOnMarkerPairEditor(targetMarker: SVGRectElement) {
   loadChartData(speedChartInput);
   loadChartData(cropChartInput);
   showCropOverlay();
+  triggerCropPreviewRedraw();
   if (isChartEnabled) {
     showChart();
   }
@@ -4153,7 +4158,7 @@ function showPlayerControls() {
 }
 
 function getRelevantCropString() {
-  if (!isSettingsEditorOpen) return null;
+  if (!isSettingsEditorOpen) return settings.newMarkerCrop;
   if (!wasGlobalSettingsEditorOpen) {
     return markerPairs[prevSelectedMarkerPairIndex].cropMap[currentCropPointIndex].crop;
   } else {
