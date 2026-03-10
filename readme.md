@@ -274,9 +274,9 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 **Shift+C:** Toggle auto looping of currently selected marker pair.
 
-**Ctrl+Alt+X:** Toggle previewing crop in pop-out window.
+**Shift+X:** Toggle previewing crop in pop-out window.
 
-  ![yt_clipper_crop_preview.png](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_crop_preview_pop_out.png)
+  <img src="https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_crop_preview_pop_out.png" alt="yt_clipper_crop_preview.png" width="500">
 
 **Ctrl+Alt+X:** Toggle previewing crop in modal window. The modal window can be left+clicked to play/pause and right-clicked to seek the video.
 
