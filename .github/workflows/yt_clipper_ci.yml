@@ -12,7 +12,7 @@ on:
 # Can work around to some degree using set-env
 env:
   NAME: yt_clipper
-  VERSION: "5.39.0"
+  VERSION: "5.40.0"
   VIDEO2X_VERSION: "6.4.0"
 
 jobs:

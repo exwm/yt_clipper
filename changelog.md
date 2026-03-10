@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [5.40.0](https://github.com/exwm/yt_clipper/compare/v5.39.0...v5.40.0) (2026-03-10)
+
+
+### Features
+
+* **clipper+markup:** add ai motion interpolation with video2x ([45d1c3c](https://github.com/exwm/yt_clipper/commit/45d1c3ca8939836a09262c4eb4632e59d2dd8619))
+* **clipper:** shift+x opens crop preview in pop up window ([48a3e1e](https://github.com/exwm/yt_clipper/commit/48a3e1e679705f8762e2da3802e909e7710edda8))
+* **markup:** crop preview (ctrl+alt+x) shows hq gamma preview ([912ffc8](https://github.com/exwm/yt_clipper/commit/912ffc87224642b98bb21a1f8e4bfacf84b23762))
+
+
+### Bug Fixes
+
+* **markup:** alt+mousewheel should jump to crop points ([d54246f](https://github.com/exwm/yt_clipper/commit/d54246f31ab96c3784c06c7f13fa26870fd618d9))
+* **markup:** yt: marker numbers should hide when progress bar hidden ([ec5980d](https://github.com/exwm/yt_clipper/commit/ec5980d94616e432ff8a851b25c15f5be39c0aef))
+
 ## [5.39.0](https://github.com/exwm/yt_clipper/compare/v5.38.0...v5.39.0) (2026-01-25)
 
 
