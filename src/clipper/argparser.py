@@ -159,15 +159,15 @@ def add_vfilter_options(vfilter_options: argparse._ArgumentGroup) -> None:
         default="",
         help="Specify any extra video filters to be passed to ffmpeg.",
     )
-
     vfilter_options.add_argument(
-        "--minterp-mode",
-        "-mm",
+        "--legacy-minterp-mode",
+        "-lmm",
         dest="minterpMode",
         default="Numeric",
         choices=["Numeric", "None", "MaxSpeed", "VideoFPS", "MaxSpeedx2", "VideoFPSx2"],
         help=" ".join(
             [
+                "Applies only to ffmpeg-based motion interpolation. Deprecated and scheduled for removal."
                 "Motion interpolation is Enabled by default in a numeric mode.",
                 "In numeric mode, specify a valid target fps value in --minterp-fps.",
                 "In MaxSpeed mode, targets the fps of the highest speed seen in the dynamic speed chart.",
@@ -183,11 +183,48 @@ def add_vfilter_options(vfilter_options: argparse._ArgumentGroup) -> None:
         type=int,
         help=" ".join(
             [
+                "Applies only to ffmpeg-based motion interpolation. Deprecated and scheduled for removal."
                 "Input an fps value from 10-120 to add interpolated frames and achieve smooth slow motion.",
                 "Motion interpolation mode must be set to Numeric.",
                 "This filter is resource intensive and will take longer to process the higher the target fps.",
                 "Motion interpolation can and will introduce artifacting (visual glitches).",
                 "Artifacting increases with the speed and complexity of the video.",
+            ],
+        ),
+    )
+    vfilter_options.add_argument(
+        "--minterp-fps-multiplier",
+        "-mfm",
+        dest="minterpFpsMultiplier",
+        default=1,
+        type=int,
+        help=" ".join(
+            [
+                "Motion interpolation fps multiplier.",
+                "The default value of 1 disables motion interpolation."
+                "Values greater than 1 will enable motion interpolation, increasing the fps of the given clip by the multiplier."
+                "Motion interpolation can  introduce artifacting (visual glitches).",
+                "Artifacting increases with the speed and complexity of the video.",
+            ],
+        ),
+    )
+    vfilter_options.add_argument(
+        "--minterp-tool",
+        "-mt",
+        dest="minterpTool",
+        choices=["ffmpeg", "video2x"],
+        default="video2x",
+        help=" ".join(
+            [
+                "Select the tool used for motion interpolation.",
+                "video2x uses the video2x post-processor with the RIFE model for higher quality interpolation.",
+                "video2x requires a vulkan-capable GPU. See also https://github.com/k4yt3x/video2x/.",
+                "video2x must be installed and available either in ./bin/video2x in frozen releases or on the system PATH.",
+                "video2x can be downloaded separately from https://github.com/k4yt3x/video2x/releases."
+                "video2x does not yet support hardware-accelerated encoders like h264_vulkan or h264_nvenc."
+                "ffmpeg-based motion interpolation is deprecated and scheduled to be removed."
+                "ffmpeg-based motion interpolation requires --minterp-fps or a non-Numeric minterp mode to have effect.",
+                "ffmpeg uses the built-in minterp filter.",
             ],
         ),
     )

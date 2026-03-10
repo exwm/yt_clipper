@@ -25,8 +25,9 @@ interface Settings {
   audio?: boolean;
   videoStabilization?: VideoStabilization;
   videoStabilizationDynamicZoom?: boolean;
-  minterpMode?: string | boolean;
-  minterpFPS?: number;
+  // minterpMode?: string | boolean;
+  // minterpFPS?: number;
+  minterpFpsMultiplier?: number;
   loop?: Loop;
   fadeDuration?: number;
 }
@@ -89,8 +90,9 @@ interface MarkerPairOverrides {
   audio?: boolean;
   videoStabilization?: VideoStabilization;
   videoStabilizationDynamicZoom?: boolean;
-  minterpMode?: string | boolean;
-  minterpFPS?: number;
+  // minterpMode?: string | boolean;
+  // minterpFPS?: number;
+  minterpFpsMultiplier?: number;
   loop?: Loop;
   fadeDuration?: number;
 }

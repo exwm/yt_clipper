@@ -461,7 +461,9 @@ def getGlobalSettings(cs: ClipperState) -> None:
         + f"Denoise: {settings['denoise']['desc']}, Rotate: {settings['rotate']}, "
         + f"HDR (High Dynamic Range) Output Enabled: {settings['enableHDR']}, "
         + f"Speed Maps Enabled: {settings['enableSpeedMaps']}, "
-        + f"Minterpolation Mode: {settings['minterpMode']}, "
+        + f"Motion Interpolation FPS Multiplier: {settings['minterpFpsMultiplier']}, "
+        + f"Motion Interpolation Mode: {settings['minterpMode']}, "
+        + f"Motion Interpolation Tool: {settings['minterpTool']}, "
         + minterpFPSMsg
         + f"Special Looping: {settings['loop']}, "
         + (f"Fade Duration: {settings['fadeDuration']}, " if settings["loop"] == "fade" else "")

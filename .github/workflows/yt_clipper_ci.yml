@@ -13,6 +13,7 @@ on:
 env:
   NAME: yt_clipper
   VERSION: "5.39.0"
+  VIDEO2X_VERSION: "6.4.0"
 
 jobs:
   build:
@@ -32,6 +33,7 @@ jobs:
             ffmpeg_dl_prefix: 'https://github.com/GyanD/codexffmpeg/releases/download/8.0.1'
             yt-dlp_download_url: 'https://github.com/yt-dlp/yt-dlp/releases/download/2025.11.12/yt-dlp.exe'
             deno_download_url: "https://github.com/denoland/deno/releases/download/v2.5.6/deno-x86_64-pc-windows-msvc.zip"
+            video2x_download_url: 'https://github.com/k4yt3x/video2x/releases/download/6.4.0/video2x-qt6-windows-amd64.zip'
           - os: macos-latest
             shortos: macos
             ffmpeg_dl_url: 'https://evermeet.cx/ffmpeg/ffmpeg-8.0.1.7z'
@@ -47,6 +49,7 @@ jobs:
         run: |
           echo "FULL_NAME=${{env.NAME}}_${{matrix.shortos}}_${{env.VERSION}}" >> $GITHUB_ENV
           echo "NOPLAT_NAME=${{env.NAME}}_${{env.VERSION}}" >> $GITHUB_ENV
+          echo "FULL_NAME_WIN_FULL=${{env.NAME}}_win_${{env.VERSION}}_full" >> $GITHUB_ENV
 
       - uses: actions/checkout@v3
         with:
@@ -126,6 +129,18 @@ jobs:
 
           ls -laR
 
+      - name: Download video2x dependency (windows)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          cd ./bindeps
+          mkdir -p video2x
+          curl -o ./video2x.zip -L ${{ matrix.video2x_download_url }}
+          7z x ./video2x.zip -o./video2x
+          rm -f ./video2x.zip
+          echo "${{ env.VIDEO2X_VERSION }}" > ./video2x/version.txt
+          ls -laR ./video2x
+
       - name: Setup just
         uses: extractions/setup-just@v2
 
@@ -186,6 +201,15 @@ jobs:
           cp -R ./src/clipper/yt-dlp-plugins/ytc/ ./artifact/py/${{env.FULL_NAME}}/yt-dlp-plugins/
           cp ./dist/py/yt_clipper* ./artifact/py/${{env.FULL_NAME}}/
 
+      - name: Copy full artifacts (windows)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          mkdir -p ./artifact/py/${{env.FULL_NAME_WIN_FULL}}/
+          cp -r ./artifact/py/${{env.FULL_NAME}}/* ./artifact/py/${{env.FULL_NAME_WIN_FULL}}/
+          mkdir -p ./artifact/py/${{env.FULL_NAME_WIN_FULL}}/bin/video2x
+          cp -r ./bindeps/video2x/* ./artifact/py/${{env.FULL_NAME_WIN_FULL}}/bin/video2x/
+
       - name: Print clipper install version (windows)
         if: matrix.os == 'windows-latest'
         run: |
@@ -209,6 +233,12 @@ jobs:
         run: |
           Compress-Archive ./artifact/py/${{env.FULL_NAME}}/ ./artifact/py/${{env.FULL_NAME}}.zip
 
+      - name: Zip full artifacts on windows
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: |
+          Compress-Archive ./artifact/py/${{env.FULL_NAME_WIN_FULL}}/ ./artifact/py/${{env.FULL_NAME_WIN_FULL}}.zip
+
       - name: Zip artifacts on non-windows systems
         if: matrix.os != 'windows-latest'
         run: |
@@ -220,6 +250,13 @@ jobs:
         with:
           name: ${{env.FULL_NAME}}.zip
           path: ./artifact/py/${{env.FULL_NAME}}.zip
+
+      - name: Upload full clipper script installation artifact (windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{env.FULL_NAME_WIN_FULL}}.zip
+          path: ./artifact/py/${{env.FULL_NAME_WIN_FULL}}.zip
 
       - name: Upload markup script installation artifact
         if: matrix.shortos == 'macos'
@@ -239,10 +276,15 @@ jobs:
           echo "FULL_NAME=${{env.NAME}}_${{env.VERSION}}" >> $GITHUB_ENV
           echo "FULL_NAME_WIN=${{env.NAME}}_win_${{env.VERSION}}" >> $GITHUB_ENV
           echo "FULL_NAME_MAC=${{env.NAME}}_macos_${{env.VERSION}}" >> $GITHUB_ENV
+          echo "FULL_NAME_WIN_FULL=${{env.NAME}}_win_${{env.VERSION}}_full" >> $GITHUB_ENV
 
       - uses: actions/download-artifact@v4
         with:
           name: ${{env.FULL_NAME_WIN}}.zip
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{env.FULL_NAME_WIN_FULL}}.zip
 
       - uses: actions/download-artifact@v4
         with:
@@ -272,6 +314,17 @@ jobs:
           upload_url: ${{steps.create_release.outputs.upload_url}}
           asset_path: ${{env.FULL_NAME_WIN}}.zip
           asset_name: ${{env.FULL_NAME_WIN}}.zip
+          asset_content_type: application/zip
+
+      - name: Upload release asset (win full)
+        id: upload-release-asset-win-full
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          upload_url: ${{steps.create_release.outputs.upload_url}}
+          asset_path: ${{env.FULL_NAME_WIN_FULL}}.zip
+          asset_name: ${{env.FULL_NAME_WIN_FULL}}.zip
           asset_content_type: application/zip
 
       - name: Upload release asset (mac)

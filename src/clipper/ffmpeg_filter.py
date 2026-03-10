@@ -127,23 +127,29 @@ def getMinterpFPS(
     mps: DictStrAny,
     speedMap: Union[SpeedMap, None],
 ) -> Union[ExtendedRealNumber, None]:
-    minterpMode = mps["minterpMode"]
     if mps["r_frame_rate"] is None:
         return None
     videoFPS = Fraction(mps["r_frame_rate"])
 
-    maxSpeed = getMaxSpeed(speedMap)
-    maxFPS = maxSpeed * videoFPS
+    maxClipSpeed = getMaxSpeed(speedMap)
+    maxClipFPS = maxClipSpeed * videoFPS
+    averageClipSpeed = getAverageSpeed(speedMap, videoFPS)
+    averageClipFPS = averageClipSpeed * videoFPS
+
+    if mps["minterpFpsMultiplier"] > 1:
+        return mps["minterpFpsMultiplier"] * averageClipFPS
 
     minterpFPS = None
+    minterpMode = mps["minterpMode"]
     if minterpMode == "Numeric" and "minterpFPS" in mps and mps["minterpFPS"] is not None:
         minterpFPS = min(120, mps["minterpFPS"])
+
     if minterpMode == "MaxSpeed":
-        minterpFPS = maxFPS
+        minterpFPS = maxClipFPS
     elif minterpMode == "VideoFPS":
         minterpFPS = videoFPS
     elif minterpMode == "MaxSpeedx2":
-        minterpFPS = 2 * maxFPS
+        minterpFPS = 2 * maxClipFPS
     elif minterpMode == "VideoFPSx2":
         minterpFPS = 2 * videoFPS
 
@@ -282,7 +288,10 @@ def getSpeedFilterAndDuration(
     return video_filter_speed_map, outputDuration, outputDurations
 
 
-def getAverageSpeed(speedMap: SpeedMap, fps: Union[float, Fraction]) -> float:
+def getAverageSpeed(speedMap: Optional[SpeedMap], fps: Union[float, Fraction]) -> float:
+    if speedMap is None:
+        return 1
+
     fps = Fraction(fps)
     # Account for marker pair start time as trim filter sets start time to ~0
     speedMapStartTime = speedMap[0]["x"]

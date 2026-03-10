@@ -30,6 +30,8 @@ def ytdl_bin_get_args_base(cs: ClipperState) -> List[str]:
       "--merge-output-format", "mkv",
       "--format", settings["format"],
       "--format-sort", ",".join(settings["formatSort"]),
+      "--check-formats",
+      "--extractor-args", "generic:impersonate",
       "--output", f'{settings["downloadVideoPath"]}.%(ext)s',
     ]
     # fmt: on

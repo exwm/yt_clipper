@@ -42,6 +42,7 @@ from clipper.ffmpeg_filter import (
 )
 from clipper.platforms import getFfmpegHeaders
 from clipper.util import escapeSingleQuotesFFmpeg, getTrimmedBase64Hash
+from clipper.video2x import runVideo2xCommand
 from clipper.ytc_logger import logger
 
 
@@ -49,6 +50,8 @@ def getMarkerPairSettings(  # noqa: PLR0912
     cs: ClipperState,
     markerPairIndex: int,
     skip: bool = False,
+    enableMinterpFpsBitrateFactor: bool = False,
+    enableLogging: bool = True,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     settings = cs.settings
     cp = cs.clipper_paths
@@ -180,6 +183,60 @@ def getMarkerPairSettings(  # noqa: PLR0912
         cc = cropComponents
         mp["cropFilter"] = f"""crop='x={cc["x"]}:y={cc["y"]}:w={cc["w"]}:h={cc["h"]}:exact=1'"""
 
+    mps, bitrateFactor, bitrateCropFactor, bitrateFpsFactor = updateEncodeSettings(
+        settings,
+        mp,
+        mps,
+        enableMinterpFpsBitrateFactor,
+    )
+
+    if enableLogging:
+        titlePrefixLogMsg = f"Title Prefix: {mps.get('titlePrefix', '')}"
+        logger.info("-" * 80)
+        minterpFPSMsg = f"Target FPS: {mps['minterpFPS']}, "
+        logger.info(
+            f"Marker Pair {markerPairIndex + 1} Settings: {titlePrefixLogMsg}, "
+            + f"Video Codec: {mps['videoCodec']}, CRF: {mps['crf']} (0-63), Target Bitrate: {mps['targetMaxBitrate']}kbps, "
+            + f"Bitrate Factor: {bitrateFactor}, Bitrate Crop Factor: {bitrateCropFactor}, Bitrate Speed Factor {bitrateFpsFactor}, "
+            + f"Adjusted Auto Target Max Bitrate: {mps['autoTargetMaxBitrate']}kbps, "
+            + f"Two-pass Encoding Enabled: {mps['twoPass']}, Encoding Speed: {mps['encodeSpeed']} (0-5), "
+            + f"HDR (High Dynamic Range) Output Enabled: {mps['enableHDR']}, "
+            + f"Audio Enabled: {mps['audio']}, Denoise: {mps['denoise']['desc']}, "
+            + f"Marker Pair {markerPairIndex + 1} is of variable speed: {mp['isVariableSpeed']}, "
+            + f"Speed Maps Enabled: {mps['enableSpeedMaps']}, "
+            + f"Motion Interpolation FPS Multiplier: {mps['minterpFpsMultiplier']}, "
+            + f"Motion Interpolation Mode: {mps['minterpMode']}, "
+            + f"Motion Interpolation  Tool: {mps['minterpTool']}, "
+            + minterpFPSMsg
+            + f"Special Looping: {mps['loop']}, "
+            + (f"Fade Duration: {mps['fadeDuration']}s, " if mps["loop"] == "fade" else "")
+            + f"Final Output Duration: {mp['outputDuration']}, "
+            + f"Video Stabilization: {mps['videoStabilization']['desc']}, "
+            + f"Video Stabilization Max Angle: "
+            + (
+                f"{mps['videoStabilizationMaxAngle']} degrees, "
+                if mps["videoStabilizationMaxAngle"] >= 0
+                else "Unlimited, "
+            )
+            + f"Video Stabilization Max Shift: "
+            + (
+                f"{mps['videoStabilizationMaxShift']} pixels, "
+                if mps["videoStabilizationMaxShift"] >= 0
+                else "Unlimited, "
+            )
+            + f"Video Stabilization Dynamic Zoom: {mps['videoStabilizationDynamicZoom']}",
+        )
+        logger.info("-" * 80)
+
+    return (mp, mps)
+
+
+def updateEncodeSettings(
+    settings: DictStrAny,
+    mp: DictStrAny,
+    mps: DictStrAny,
+    enableMinterpFpsBitrateFactor: bool = False,
+) -> Tuple[DictStrAny, float | int, int, int]:
     bitrateCropFactor = (mp["maxSize"]) / (settings["width"] * settings["height"])
 
     # relax bitrate crop factor assuming that most crops include complex parts
@@ -187,13 +244,27 @@ def getMarkerPairSettings(  # noqa: PLR0912
     bitrateCropRelaxationFactor = 0.8
     bitrateCropFactor = min(1, bitrateCropFactor**bitrateCropRelaxationFactor)
 
-    bitrateSpeedFactor = mp["averageSpeed"]
+    # When user slows down the clip, the fps is reduced and we can reduce the bitrate
+    # as fewer bits are needed per unit time
+    # A longer/slower clip is perceptually easier to scrutinize so we relax the factor slightly
+    bitrateFpsFactor = mp["averageSpeed"] ** 0.8
+
+    # When motion interpolation is used, the fps is increased
+    # The source bitrate is based on the source fps
+    # we might slow this fps down and then use motion interpolation to increase it
+
+    # Thus more bitrate is warranted to encode the extra frames
+    # These extra frames will have fewer differences between neighboring frames so we can relax the factor
     mps["minterpFPS"] = getMinterpFPS(mps, mp["speedMap"])
-    if mps["minterpFPS"] is not None:
-        bitrateSpeedFactor = mps["minterpFPS"] / (
-            mp["averageSpeed"] * Fraction(mps["r_frame_rate"])
+    if mps["minterpFPS"] is not None and enableMinterpFpsBitrateFactor:
+        averageSourceFps = float(Fraction(mps["avg_frame_rate"]))
+        clipFpsAfterMinterp = mps["minterpFPS"]
+        bitrateFpsFactor = clipFpsAfterMinterp / averageSourceFps
+        bitrateFpsFactor **= 0.7
+
+        logger.verbose(
+            f"Calculated bitrateFpsFactor for motion interpolation compensation. averageSourceFps={averageSourceFps}, clipFpsAfterMinterp={clipFpsAfterMinterp}, bitrateFpsFactor={bitrateFpsFactor}",
         )
-        bitrateSpeedFactor **= 0.5
 
     bitrateHDRFactor = 1.1 if mps["inputIsHDR"] else 1
 
@@ -202,7 +273,8 @@ def getMarkerPairSettings(  # noqa: PLR0912
     )
 
     bitrateFactor = (
-        min(1, bitrateCropFactor * bitrateSpeedFactor * bitrateHDRFactor)
+        # Don't allow the bitrate to be larger than the source bitrate by making 1 the max bitrateFactor
+        min(1, bitrateCropFactor * bitrateFpsFactor * bitrateHDRFactor)
         * bitrateHardwareAccelerationFactor
     )
 
@@ -214,42 +286,10 @@ def getMarkerPairSettings(  # noqa: PLR0912
     if "targetMaxBitrate" not in mps:
         mps["targetMaxBitrate"] = mps["autoTargetMaxBitrate"]
 
-    titlePrefixLogMsg = f"Title Prefix: {mps.get('titlePrefix', '')}"
-    logger.info("-" * 80)
-    minterpFPSMsg = f"Target FPS: {mps['minterpFPS']}, "
-    logger.info(
-        f"Marker Pair {markerPairIndex + 1} Settings: {titlePrefixLogMsg}, "
-        + f"Video Codec: {mps['videoCodec']}, CRF: {mps['crf']} (0-63), Target Bitrate: {mps['targetMaxBitrate']}, "
-        + f"Bitrate Crop Factor: {bitrateCropFactor}, Bitrate Speed Factor {bitrateSpeedFactor}, "
-        + f"Adjusted Target Max Bitrate: {mps['autoTargetMaxBitrate']}kbps, "
-        + f"Two-pass Encoding Enabled: {mps['twoPass']}, Encoding Speed: {mps['encodeSpeed']} (0-5), "
-        + f"HDR (High Dynamic Range) Output Enabled: {mps['enableHDR']}, "
-        + f"Audio Enabled: {mps['audio']}, Denoise: {mps['denoise']['desc']}, "
-        + f"Marker Pair {markerPairIndex + 1} is of variable speed: {mp['isVariableSpeed']}, "
-        + f"Speed Maps Enabled: {mps['enableSpeedMaps']}, "
-        + f"Minterpolation Mode: {mps['minterpMode']}, "
-        + minterpFPSMsg
-        + f"Special Looping: {mps['loop']}, "
-        + (f"Fade Duration: {mps['fadeDuration']}s, " if mps["loop"] == "fade" else "")
-        + f"Final Output Duration: {mp['outputDuration']}, "
-        + f"Video Stabilization: {mps['videoStabilization']['desc']}, "
-        + f"Video Stabilization Max Angle: "
-        + (
-            f"{mps['videoStabilizationMaxAngle']} degrees, "
-            if mps["videoStabilizationMaxAngle"] >= 0
-            else "Unlimited, "
-        )
-        + f"Video Stabilization Max Shift: "
-        + (
-            f"{mps['videoStabilizationMaxShift']} pixels, "
-            if mps["videoStabilizationMaxShift"] >= 0
-            else "Unlimited, "
-        )
-        + f"Video Stabilization Dynamic Zoom: {mps['videoStabilizationDynamicZoom']}",
+    logger.verbose(
+        f"bitrateFactor={bitrateFactor}, bitrateCropFactor={bitrateCropFactor}, bitrateFpsFactor={bitrateFpsFactor}",
     )
-    logger.info("-" * 80)
-
-    return (mp, mps)
+    return mps, bitrateFactor, bitrateCropFactor, bitrateFpsFactor
 
 
 def findVideoPart(mp: DictStrAny, mps: DictStrAny) -> Optional[DictStrAny]:
@@ -336,6 +376,15 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
         )
         return fastTrimClip(cs, markerPairIndex, mp, mps)
 
+    v2x_enabled = mps["minterpTool"] == "video2x" and mps["minterpFpsMultiplier"] > 1
+    if v2x_enabled:
+        mp["v2xFinalFilePath"] = mp["filePath"]
+        pre_v2x_dir = f"{cp.clipsPath}/{cp.tempPath}/pre-v2x"
+        os.makedirs(pre_v2x_dir, exist_ok=True)
+        mp["filePath"] = f"{pre_v2x_dir}/{mp['fileNameStem']}.{mp['fileNameSuffix']}"
+        pre_v2x_file = Path(mp["filePath"])
+        mp["preV2xExists"] = pre_v2x_file.is_file() and pre_v2x_file.stat().st_size > 0
+
     inputs = ""
     audio_filter = ""
     video_filter = ""
@@ -388,9 +437,6 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
         )
         return None
 
-    qmax: int = max(min(mps["crf"] + 13, 63), 34)
-    qmin: int = min(mps["crf"], 15)
-
     cbr = None
     if mps["targetSize"] > 0:
         cbr = mps["targetSize"] / mp["outputDuration"]
@@ -399,16 +445,7 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
             + f"({mps['targetSize']} MB / ~{round(mp['outputDuration'], 3)} s).",
         )
 
-    ffmpegCommand = getFfmpegCommandWithoutVideoFilter(
-        audio_filter,
-        cbr,
-        cp,
-        inputs,
-        mp,
-        mps,
-        qmax,
-        qmin,
-    )
+    ffmpegCommand = getFfmpegCommandWithoutVideoFilter(audio_filter, cbr, cp, inputs, mp, mps)
 
     if not mps["preview"]:
         video_filter += f"trim=0:{mp['duration']}"
@@ -603,7 +640,7 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
 
         vidstabtransformFilter = videoStabilizationGammaFixFilter(vidstabtransformFilter)
 
-        if "minterpMode" in mps and mps["minterpMode"] != "None":
+        if mps["minterpTool"] == "ffmpeg" and "minterpMode" in mps and mps["minterpMode"] != "None":
             vidstabtransformFilter += getMinterpFilter(mp, mps)
 
         if mps["loop"] != "none":
@@ -659,7 +696,7 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
         ffmpegCommands = [ffmpegVidstabdetect, ffmpegVidstabtransform]
 
     if not vidstabEnabled:
-        if "minterpMode" in mps and mps["minterpMode"] != "None":
+        if mps["minterpTool"] == "ffmpeg" and "minterpMode" in mps and mps["minterpMode"] != "None":
             video_filter += getMinterpFilter(mp, mps)
 
         if mps["loop"] != "none":
@@ -698,7 +735,30 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
         logger.error(f"Failed to generate: {fileName}\n")
         return {**(settings["markerPairs"][markerPairIndex])}
 
-    return runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp)
+    if not v2x_enabled:
+        return runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp)
+
+    if mp.get("preV2xExists"):
+        logger.notice(f'Skipping ffmpeg - using existing pre-v2x intermediate: "{mp["filePath"]}"')
+    else:
+        result = runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp)
+        if result.get("returncode") != 0:
+            return None
+
+    mps, _, _, _ = updateEncodeSettings(
+        settings,
+        mp,
+        mps,
+        True,
+    )
+    video_codec_args, _, _ = getFfmpegVideoCodecArgs(
+        mps["videoCodec"],
+        cbr=cbr,
+        mp=mp,
+        mps=mps,
+    )
+
+    return runVideo2xCommand(cs, mp, mps, video_codec_args)
 
 
 def getFfmpegCommandWithoutVideoFilter(
@@ -708,16 +768,12 @@ def getFfmpegCommandWithoutVideoFilter(
     inputs: str,
     mp: DictStrAny,
     mps: DictStrAny,
-    qmax: int,
-    qmin: int,
 ) -> str:
     video_codec_args, video_codec_input_args, video_codec_output_args = getFfmpegVideoCodecArgs(
         mps["videoCodec"],
         cbr=cbr,
         mp=mp,
         mps=mps,
-        qmax=qmax,
-        qmin=qmin,
     )
 
     audio_codec_args = "-an"
@@ -1044,6 +1100,8 @@ def cleanFileName(fileName: str) -> str:
 
 
 def getDefaultEncodeSettings(videobr: int) -> DictStrAny:
+    logger.verbose(f"getDefaultEncodeSettings videobr={videobr}")
+
     # switch to constant quality mode if no bitrate specified
     if videobr is None:
         encodeSettings = {

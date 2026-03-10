@@ -91,7 +91,9 @@ def setupClipperPaths(cs: ClipperState) -> None:
 
     ffmpeg_tools_dir = settings.get("ffmpegToolsDir")
 
-    if getattr(sys, "frozen", False) or ffmpeg_tools_dir:
+    is_frozen_release = getattr(sys, "frozen", False)
+
+    if is_frozen_release or ffmpeg_tools_dir:
         ffmpeg_tools_dir = ffmpeg_tools_dir if ffmpeg_tools_dir else "./bin"
         cp.ffmpegPath = f"{ffmpeg_tools_dir}/ffmpeg"
         cp.ffprobePath = f"{ffmpeg_tools_dir}/ffprobe"
@@ -104,7 +106,7 @@ def setupClipperPaths(cs: ClipperState) -> None:
 
     ytdl_dir = settings.get("ytdlDir")
 
-    if getattr(sys, "frozen", False) or ytdl_dir:
+    if is_frozen_release or ytdl_dir:
         ytdl_dir = ytdl_dir if ytdl_dir else "./bin"
 
         cp.ytdlPath = f"{ytdl_dir}/yt-dlp"
@@ -115,15 +117,23 @@ def setupClipperPaths(cs: ClipperState) -> None:
         if sys.platform == "win32":
             cp.ytdlPath += ".exe"
 
-    if sys.platform == "darwin":
-        certifi_cacert_path = certifi.where()
-        os.environ["SSL_CERT_FILE"] = certifi_cacert_path
-        os.environ["REQUESTS_CA_BUNDLE"] = certifi_cacert_path
+    if is_frozen_release:
+        video2x_dir = "./bin/video2x"
+        cp.video2xPath = f"{video2x_dir}/video2x"
 
+        if sys.platform == "win32":
+            cp.video2xPath += ".exe"
+
+    cp.video2xPath = shlex.quote(cp.video2xPath)
     cp.ffmpegPath = shlex.quote(cp.ffmpegPath)
     cp.ffprobePath = shlex.quote(cp.ffprobePath)
     cp.ffplayPath = shlex.quote(cp.ffplayPath)
     cp.ytdlPath = shlex.quote(cp.ytdlPath)
+
+    if sys.platform == "darwin":
+        certifi_cacert_path = certifi.where()
+        os.environ["SSL_CERT_FILE"] = certifi_cacert_path
+        os.environ["REQUESTS_CA_BUNDLE"] = certifi_cacert_path
 
 
 def setupOutputPaths(cs: ClipperState) -> None:

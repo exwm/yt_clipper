@@ -2125,8 +2125,9 @@ function createGlobalSettingsEditor() {
   const { cropRes, cropResWidth, cropResHeight } = getDefaultCropRes();
   const cropResX2 = `${cropResWidth * 2}x${cropResHeight * 2}`;
   const resList = `<option value="${cropRes}"><option value="${cropResX2}">`;
-  const minterpMode = settings.minterpMode;
-  const minterpFPS = settings.minterpFPS;
+  // const minterpMode = settings.minterpMode;
+  // const minterpFPS = settings.minterpFPS;
+  const minterpFpsMultiplier = settings.minterpFpsMultiplier;
   const denoise = settings.denoise;
   const denoiseDesc = denoise ? denoise.desc : null;
   const vidstab = settings.videoStabilization;
@@ -2271,30 +2272,11 @@ function createGlobalSettingsEditor() {
         </select>
       </div>
       <div class="settings-editor-input-div">
-        <div  title="${Tooltips.minterpModeTooltip}">
-          <span>Minterpolation</span>
-          <select id="minterp-mode-input">
-            <option value="Default" ${minterpMode == null ? 'selected' : ''}>(Numeric)</option>
-            <option ${minterpMode === 'None' ? 'selected' : ''}>None</option>
-            <option value="MaxSpeed" ${
-              minterpMode == 'MaxSpeed' ? 'selected' : ''
-            }>MaxSpeed</option>
-            <option value="VideoFPS" ${
-              minterpMode == 'VideoFPS' ? 'selected' : ''
-            }>VideoFPS</option>
-            <option value="MaxSpeedx2" ${
-              minterpMode == 'MaxSpeedx2' ? 'selected' : ''
-            }>MaxSpeedx2</option>
-            <option value="VideoFPSx2" ${
-              minterpMode == 'VideoFPSx2' ? 'selected' : ''
-            }>VideoFPSx2</option>
-          </select>
-        </div>
-        <div  title="${Tooltips.minterpFPSTooltip}">
-          <span>FPS</span>
-          <input id="minterp-fps-input" type="number" min="10" max="120" step="1" value="${
-            minterpFPS ?? ''
-          }" placeholder="" style="min-width:2em"></input>
+        <div  title="${Tooltips.minterpFpsMultiplierTooltip}">
+          <span>FPS Multiplier</span>
+          <input id="minterp-fps-multiplier-input" type="number" min="1" max="5" step="1" value="${
+            minterpFpsMultiplier ?? ''
+          }" placeholder=1 style="min-width:2em"></input>
         </div>
       </div>
       <div class="settings-editor-input-div multi-input-div" title="${Tooltips.vidstabTooltip}">
@@ -2361,8 +2343,9 @@ function createGlobalSettingsEditor() {
     ['two-pass-input', 'twoPass', 'ternary'],
     ['audio-input', 'audio', 'ternary'],
     ['denoise-input', 'denoise', 'preset'],
-    ['minterp-mode-input', 'minterpMode', 'inheritableString'],
-    ['minterp-fps-input', 'minterpFPS', 'number'],
+    // ['minterp-mode-input', 'minterpMode', 'inheritableString'],
+    // ['minterp-fps-input', 'minterpFPS', 'number'],
+    ['minterp-fps-multiplier-input', 'minterpFpsMultiplier', 'number'],
     ['video-stabilization-input', 'videoStabilization', 'preset'],
     ['video-stabilization-dynamic-zoom-input', 'videoStabilizationDynamicZoom', 'ternary'],
     ['loop-input', 'loop', 'inheritableString'],
@@ -2652,8 +2635,9 @@ function createMarkerPairEditor(targetMarker: SVGRectElement) {
     ? `(${settings.videoStabilization.desc})`
     : '(Disabled)';
   const vidstabDynamicZoomEnabled = overrides.videoStabilizationDynamicZoom;
-  const minterpMode = overrides.minterpMode;
-  const minterpFPS = overrides.minterpFPS;
+  // const minterpMode = overrides.minterpMode;
+  // const minterpFPS = overrides.minterpFPS;
+  const minterpFpsMultiplier = overrides.minterpFpsMultiplier;
   const denoise = overrides.denoise;
   const denoiseDesc = denoise ? denoise.desc : null;
   const denoiseDescGlobal = settings.denoise ? `(${settings.denoise.desc})` : '(Disabled)';
@@ -2789,33 +2773,11 @@ function createMarkerPairEditor(targetMarker: SVGRectElement) {
           </select>
         </div>
         <div class="settings-editor-input-div">
-          <div title="${Tooltips.minterpModeTooltip}">
-            <span>Minterpolation</span>
-            <select id="minterp-mode-input">
-              <option value="Default" ${minterpMode == null ? 'selected' : ''}>${
-                settings.minterpMode != null ? `(${settings.minterpMode})` : '(Numeric)'
-              }</option>
-              <option ${minterpMode === 'None' ? 'selected' : ''}>None</option>
-              <option ${minterpMode === 'Numeric' ? 'selected' : ''}>Numeric</option>
-              <option value="MaxSpeed" ${
-                minterpMode == 'MaxSpeed' ? 'selected' : ''
-              }>MaxSpeed</option>
-              <option value="VideoFPS" ${
-                minterpMode == 'VideoFPS' ? 'selected' : ''
-              }>VideoFPS</option>
-              <option value="MaxSpeedx2" ${
-                minterpMode == 'MaxSpeedx2' ? 'selected' : ''
-              }>MaxSpeedx2</option>
-              <option value="VideoFPSx2" ${
-                minterpMode == 'VideoFPSx2' ? 'selected' : ''
-              }>VideoFPSx2</option>
-            </select>
-          </div>
-          <div title="${Tooltips.minterpFPSTooltip}">
-            <span>FPS</span>
-            <input id="minterp-fps-input" type="number" min="10" max="120" step="1" value="${
-              minterpFPS ?? ''
-            }" placeholder="" style="min-width:2em"></input>
+          <div title="${Tooltips.minterpFpsMultiplierTooltip}">
+            <span>FPS Multiplier</span>
+            <input id="minterp-fps-multiplier-input" type="number" min="1" max="5" step="1" value="${
+              minterpFpsMultiplier ?? ''
+            }" placeholder="1" style="min-width:2em"></input>
           </div>
         </div>
         <div class="settings-editor-input-div multi-input-div" title="${Tooltips.vidstabTooltip}">
@@ -2897,8 +2859,9 @@ function createMarkerPairEditor(targetMarker: SVGRectElement) {
     ['target-max-bitrate-input', 'targetMaxBitrate', 'number'],
     ['two-pass-input', 'twoPass', 'ternary'],
     ['audio-input', 'audio', 'ternary'],
-    ['minterp-mode-input', 'minterpMode', 'inheritableString'],
-    ['minterp-fps-input', 'minterpFPS', 'number'],
+    // ['minterp-mode-input', 'minterpMode', 'inheritableString'],
+    // ['minterp-fps-input', 'minterpFPS', 'number'],
+    ['minterp-fps-multiplier-input', 'minterpFpsMultiplier', 'number'],
     ['denoise-input', 'denoise', 'preset'],
     ['video-stabilization-input', 'videoStabilization', 'preset'],
     ['video-stabilization-dynamic-zoom-input', 'videoStabilizationDynamicZoom', 'ternary'],
@@ -4886,7 +4849,13 @@ function toggleCropPreview(mode: cropPreviewMode = 'modal') {
       cropPreviewEnabled = false;
       flashMessage('Disabled crop preview', 'red');
     };
-    startCropPreview(video, onCropPreviewDisabled, getCropPreviewMouseTimeSetter, getZoomRegion, mode);
+    startCropPreview(
+      video,
+      onCropPreviewDisabled,
+      getCropPreviewMouseTimeSetter,
+      getZoomRegion,
+      mode
+    );
     enableCropPreview();
   }
 }

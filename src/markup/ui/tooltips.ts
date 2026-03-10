@@ -114,24 +114,32 @@ export namespace Tooltips {
     Higher strength presets may result in oversmoothing of details.
     `;
 
-  export const minterpModeTooltip = stripIndent`
-    Motion interpolation (minterp for short) is sometimes called optical flow, super slowmo, or just interpolation.
-    Motion interpolation is typically used to increase fps and achieve smoother slow motion.
-    Motion interpolation is in Numeric mode by default. This requires a valid fps (10-120) input to work.
-    A higher fps value requires more resources and time to encode.
-    Motion interpolation can and will introduce artifacting (visual glitches).
-    Artifacting increases with the speed and complexity of the video.
-    In MaxSpeed mode, motion interpolation targets the fps of the highest speed seen in the dynamic speed chart.
-    This helps smooth out motion when using dynamic speed with reasonable resource efficiency.
-    In VideoFPS mode, motion interpolation targets the fps of the input video.
-    MaxSpeedx2 and VideoFPSx2 modes double the target fps from the previous two modes.
-    `;
+  // export const minterpModeTooltip = stripIndent`
+  //   Motion interpolation (minterp for short) is sometimes called optical flow, super slowmo, or just interpolation.
+  //   Motion interpolation is typically used to increase fps and achieve smoother slow motion.
+  //   Motion interpolation is in Numeric mode by default. This requires a valid fps (10-120) input to work.
+  //   A higher fps value requires more resources and time to encode.
+  //   Motion interpolation can and will introduce artifacting (visual glitches).
+  //   Artifacting increases with the speed and complexity of the video.
+  //   In MaxSpeed mode, motion interpolation targets the fps of the highest speed seen in the dynamic speed chart.
+  //   This helps smooth out motion when using dynamic speed with reasonable resource efficiency.
+  //   In VideoFPS mode, motion interpolation targets the fps of the input video.
+  //   MaxSpeedx2 and VideoFPSx2 modes double the target fps from the previous two modes.
+  //   `;
 
-  export const minterpFPSTooltip = stripIndent`
-    Input an fps value from 10-120 to add interpolated frames and achieve smooth slow motion.
-    Motion interpolation mode must be set to Numeric.
-    Motion interpolation is resource intensive and will take longer to process the higher the target fps.
-    Motion interpolation can and will introduce artifacting (visual glitches).
+  // export const minterpFPSTooltip = stripIndent`
+  //   Input an fps value from 10-120 to add interpolated frames and achieve smooth slow motion.
+  //   Motion interpolation mode must be set to Numeric.
+  //   Motion interpolation is resource intensive and will take longer to process the higher the target fps.
+  //   Motion interpolation can and will introduce artifacting (visual glitches).
+  //   Artifacting increases with the speed and complexity of the video.
+  //   `;
+
+  export const minterpFpsMultiplierTooltip = stripIndent`
+    Input an fps multiplier value from 2-5 to enable motion interpolation and multiply clip fps.
+    A value of 1 (default) means motion interpolation is disabled.
+    Generates interpolated video frames to achieve smooth slow motion using video2x.
+    Motion interpolation can introduce artifacting (visual glitches).
     Artifacting increases with the speed and complexity of the video.
     `;
 

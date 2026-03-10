@@ -25,6 +25,7 @@ misc/
 
 # other binaries and artifacts
 webms/
+bin/
 
 # parcel cache
 .cache

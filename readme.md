@@ -124,6 +124,7 @@ YouTube is the primary video platform supported by yt_clipper. Other supported p
       - [Merge Utility Script](#merge-utility-script)
 - [All Releases](#all-releases)
 - [Clipper Script Dependencies](#clipper-script-dependencies)
+  - [Motion Interpolation](#motion-interpolation)
 - [Changelog](#changelog)
 
 # Terminology and Installation
@@ -579,6 +580,7 @@ There is an installation that does not require the dependencies below.
 
 1. Extract the appropriate zip file anywhere:
    - Go to <https://github.com/exwm/yt_clipper/releases> and pick a release. In the assets, find the appropriate file for your platform.
+   - **Windows users:** A `_full` variant (e.g. `yt_clipper_win_*_full.zip`) is available that bundles [video2x](https://github.com/k4yt3x/video2x) in `bin/video2x/`. This enables [motion interpolation](#motion-interpolation) without any additional setup.
 2. Simply drag and drop the markers .json file onto the `yt_clipper_auto.bat` file on Windows or at the terminal prompt after executing `yt_clipper_auto` on Mac.
 3. Use `Ctrl+C` if you need to cancel the process.
 4. All generated webm clips will be placed in `./webms/<markers-json-filename>`.
@@ -682,6 +684,20 @@ These dependencies must be manually installed when not using the clipper script 
 - ffmpeg must be in your path: (<https://www.ffmpeg.org/download.html>).
 - install required python packages as listed in the `requirements.txt`:
   - `pip install -r ./src/clipper/requirements.txt`
+
+## Motion Interpolation
+
+Motion interpolation (frame rate multiplication using AI) is powered by [video2x](https://github.com/k4yt3x/video2x) and is only supported on **Windows** and **Linux** for now.
+
+To use it, video2x must be available at `bin/video2x/` in the clipper script installation or on the system PATH if using the script directly:
+
+- **Easiest:** Download the `yt_clipper_win_*_full.zip` release — video2x v6.4.0 is pre-bundled at `bin/video2x/`.
+- **Manual:** Download [video2x-qt6-windows-amd64.zip](https://github.com/k4yt3x/video2x/releases/download/6.4.0/video2x-qt6-windows-amd64.zip), extract it, and place the contents in `bin/video2x/` inside your clipper installation directory.
+
+Once installed, enable motion interpolation on a marker pair by setting `FPS Multiplier` to a value greater than 1 (e.g. `2` to double the frame rate). The RIFE model is used for interpolation. Hardware-accelerated encoders do not yet work with video2x.
+
+Note that video2x requires a vulkan-capable GPU. See also <https://github.com/k4yt3x/video2x>.
+
 
 # Changelog
 

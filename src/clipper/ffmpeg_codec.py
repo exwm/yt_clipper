@@ -11,9 +11,10 @@ def getFfmpegVideoCodecArgs(
     cbr: Optional[int],
     mp: DictStrAny,
     mps: DictStrAny,
-    qmax: int,
-    qmin: int,
 ) -> Tuple[str, str, str]:
+    qmax: int = max(min(mps["crf"] + 13, 63), 34)
+    qmin: int = min(mps["crf"], 15)
+
     if videoCodec in {"vp9", "vp8"}:
         return getFfmpegVideoCodecVpx(
             videoCodec=videoCodec,
@@ -36,6 +37,11 @@ def getFfmpegVideoCodecArgs(
     raise ValueError(f"Invalid video codec: {videoCodec}")
 
 
+# ---------------------------------------------------------------------------
+# Per-codec helpers
+# ---------------------------------------------------------------------------
+
+
 def getFfmpegVideoCodecVpx(
     videoCodec: str,
     cbr: Optional[int],
@@ -44,7 +50,7 @@ def getFfmpegVideoCodecVpx(
     qmax: int,
     qmin: int,
 ) -> Tuple[str, str, str]:
-    if mps["minterpFPS"] is not None:
+    if mps["minterpFPS"] is not None and mps["minterpTool"] == "ffmpeg":
         fps_arg = f"-r {mps['minterpFPS']}"
     elif not mp["isVariableSpeed"]:
         fps_arg = f"-r ({mps['r_frame_rate']}*{mp['speed']})"
@@ -89,7 +95,7 @@ def getFfmpegVideoCodecH264(
     """Following recommendations from https://www.lighterra.com/papers/videoencodingh264"""
     fps_arg = ""
     if not mps["h264DisableReduceStutter"]:
-        if mps["minterpFPS"] is not None:
+        if mps["minterpFPS"] is not None and mps["minterpTool"] == "ffmpeg":
             fps_arg = f"-r {mps['minterpFPS']}"
         elif not mp["isVariableSpeed"]:
             fps_arg = f"-r ({mps['r_frame_rate']}*{mp['speed']})"
@@ -163,7 +169,7 @@ def getFfmpegVideoCodecH264Vulkan(
     """
     fps_arg = ""
     if not mps["h264DisableReduceStutter"]:
-        if mps["minterpFPS"] is not None:
+        if mps["minterpFPS"] is not None and mps["minterpTool"] == "ffmpeg":
             fps_arg = f"-r {mps['minterpFPS']}"
         elif not mp["isVariableSpeed"]:
             fps_arg = f"-r ({mps['r_frame_rate']}*{mp['speed']})"
@@ -242,7 +248,7 @@ def getFfmpegVideoCodecH264Nvenc(
 
     fps_arg = ""
     if not mps["h264DisableReduceStutter"]:
-        if mps["minterpFPS"] is not None:
+        if mps["minterpFPS"] is not None and mps["minterpTool"] == "ffmpeg":
             fps_arg = f"-r {mps['minterpFPS']}"
         elif not mp["isVariableSpeed"]:
             fps_arg = f"-r ({mps['r_frame_rate']}*{mp['speed']})"
