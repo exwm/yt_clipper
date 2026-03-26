@@ -164,6 +164,11 @@ jobs:
           echo "${{ env.VIDEO2X_VERSION }}" > ./video2x/version.txt
           ls -laR ./video2x
 
+      - name: Disable Windows Defender realtime scanning
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: Set-MpPreference -DisableRealtimeMonitoring $true
+
       - name: Setup just
         uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3 (3.1.0)
 
@@ -251,15 +256,10 @@ jobs:
 
       - name: Zip artifacts on windows
         if: matrix.os == 'windows-latest'
-        shell: powershell
+        shell: bash
         run: |
-          Compress-Archive ./artifact/py/${{env.FULL_NAME}}/ ./artifact/py/${{env.FULL_NAME}}.zip
-
-      - name: Zip full artifacts on windows
-        if: matrix.os == 'windows-latest'
-        shell: powershell
-        run: |
-          Compress-Archive ./artifact/py/${{env.FULL_NAME_WIN_FULL}}/ ./artifact/py/${{env.FULL_NAME_WIN_FULL}}.zip
+          7z a ./artifact/py/${{env.FULL_NAME}}.zip ./artifact/py/${{env.FULL_NAME}}/
+          7z a ./artifact/py/${{env.FULL_NAME_WIN_FULL}}.zip ./artifact/py/${{env.FULL_NAME_WIN_FULL}}/
 
       - name: Zip artifacts on non-windows systems
         if: matrix.os != 'windows-latest'
