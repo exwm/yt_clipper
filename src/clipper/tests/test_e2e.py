@@ -63,7 +63,8 @@ def test_make_clip_vulkan(
                 "--markers-json",
                 f"{this_dir / 'testdata' / 'test-with-dynamic.json'}",
                 "--overwrite",
-                "--video-codec h264_vulkan",
+                "--video-codec",
+                "h264_vulkan",
             ],
         )
         main()
@@ -147,7 +148,8 @@ def test_make_clip_nvenc_with_local_input_video(
                 "--input-video",
                 f"{this_dir / 'testdata' / 'test-with-dynamic.mp4'}",
                 "--overwrite",
-                "--video-codec h264_nvenc",
+                "--video-codec",
+                "h264_nvenc",
             ],
         )
         main()
