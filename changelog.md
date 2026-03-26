@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [5.41.0](https://github.com/exwm/yt_clipper/compare/v5.40.0...v5.41.0) (2026-03-26)
+
+
+### Features
+
+* **clipper+markup:** support dynamic speed with motion interpolation and improve its quality + preserve metadata in interpolated output ([10d234c](https://github.com/exwm/yt_clipper/commit/10d234ce78f35e0561dbf149ea043641d18f34fb))
+  * Depends on forked version of video2x (v6.5.0-exwm)
+
+  * BREAKING CHANGE: a value of 0 for FPS multiplier now disables disables motion interpolation.
+  * A value of 1 targets the original source video fps, compensating for slowdown.
+  * Higher values (e.g. 2) target N x source fps for extra-smooth slow motion.
+
+### Bug Fixes
+
+* **clipper:** unknown args should be logged before exit ([6667332](https://github.com/exwm/yt_clipper/commit/6667332c7466e54eb0f31433696d63b9e49c094d))
+
+
+### Documentation Updates
+
+* **readme:** minor hotkey fix ([c4c9a50](https://github.com/exwm/yt_clipper/commit/c4c9a50fc6fc65afe0e1d56bc9a92a84c040a0d9))
+
 ## [5.40.0](https://github.com/exwm/yt_clipper/compare/v5.39.0...v5.40.0) (2026-03-10)
 
 

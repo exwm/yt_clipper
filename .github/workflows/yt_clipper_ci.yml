@@ -9,7 +9,7 @@ on:
 
 env:
   NAME: yt_clipper
-  VERSION: "5.40.0"
+  VERSION: "5.41.0"
 
   FFMPEG_VERSION: "8.0.1"
   FFMPEG_WIN_BASE_URL: https://github.com/GyanD/codexffmpeg/releases/download
