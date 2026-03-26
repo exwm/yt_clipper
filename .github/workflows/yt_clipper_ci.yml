@@ -7,16 +7,27 @@ on:
       - release/*
       - test-ci
 
-# Workflow env variables not yet available at job level
-# See https://github.community/t/how-to-set-and-access-a-workflow-variable/17335/14
-# Can work around to some degree using set-env
 env:
   NAME: yt_clipper
   VERSION: "5.40.0"
-  VIDEO2X_VERSION: "6.4.0"
+
+  FFMPEG_VERSION: "8.0.1"
+  FFMPEG_WIN_BASE_URL: https://github.com/GyanD/codexffmpeg/releases/download
+  FFMPEG_MAC_BASE_URL: https://evermeet.cx/ffmpeg
+
+  YTDLP_VERSION: "2026.03.17"
+  YTDLP_BASE_URL: https://github.com/yt-dlp/yt-dlp/releases/download
+
+  DENO_VERSION: "2.5.6"
+  DENO_BASE_URL: https://github.com/denoland/deno/releases/download
+
+  VIDEO2X_VERSION: "6.5.0-exwm"
+  VIDEO2X_BASE_URL: https://github.com/exwm/video2x/releases/download
 
 jobs:
   build:
+    permissions:
+      contents: read
     defaults:
       run:
         shell: bash
@@ -29,19 +40,12 @@ jobs:
         include:
           - os: windows-latest
             shortos: win
-            ffmpeg_dl_name: ffmpeg-8.0.1-full_build-shared
-            ffmpeg_dl_prefix: 'https://github.com/GyanD/codexffmpeg/releases/download/8.0.1'
-            yt-dlp_download_url: 'https://github.com/yt-dlp/yt-dlp/releases/download/2025.11.12/yt-dlp.exe'
-            deno_download_url: "https://github.com/denoland/deno/releases/download/v2.5.6/deno-x86_64-pc-windows-msvc.zip"
-            video2x_download_url: 'https://github.com/k4yt3x/video2x/releases/download/6.4.0/video2x-qt6-windows-amd64.zip'
+            yt-dlp_filename: yt-dlp.exe
+            deno_filename: deno-x86_64-pc-windows-msvc.zip
           - os: macos-latest
             shortos: macos
-            ffmpeg_dl_url: 'https://evermeet.cx/ffmpeg/ffmpeg-8.0.1.7z'
-            ffprobe_dl_url: 'https://evermeet.cx/ffmpeg/ffprobe-8.0.1.7z'
-            ffplay_dl_url: 'https://evermeet.cx/ffmpeg/ffplay-8.0.1.7z'
-            ffmpeg_info_url: 'https://evermeet.cx/ffmpeg/info/8.0.1'
-            yt-dlp_download_url: "https://github.com/yt-dlp/yt-dlp/releases/download/2025.11.12/yt-dlp_macos"
-            deno_download_url: "https://github.com/denoland/deno/releases/download/v2.5.6/deno-aarch64-apple-darwin.zip"
+            yt-dlp_filename: yt-dlp_macos
+            deno_filename: deno-aarch64-apple-darwin.zip
 
     steps:
       - name: Set env
@@ -50,8 +54,27 @@ jobs:
           echo "FULL_NAME=${{env.NAME}}_${{matrix.shortos}}_${{env.VERSION}}" >> $GITHUB_ENV
           echo "NOPLAT_NAME=${{env.NAME}}_${{env.VERSION}}" >> $GITHUB_ENV
           echo "FULL_NAME_WIN_FULL=${{env.NAME}}_win_${{env.VERSION}}_full" >> $GITHUB_ENV
+          echo "YTDLP_DL_URL=${{ env.YTDLP_BASE_URL }}/${{ env.YTDLP_VERSION }}/${{ matrix.yt-dlp_filename }}" >> $GITHUB_ENV
+          echo "DENO_DL_URL=${{ env.DENO_BASE_URL }}/v${{ env.DENO_VERSION }}/${{ matrix.deno_filename }}" >> $GITHUB_ENV
 
-      - uses: actions/checkout@v3
+      - name: Set env (windows)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          echo "FFMPEG_DL_NAME=ffmpeg-${{ env.FFMPEG_VERSION }}-full_build-shared" >> $GITHUB_ENV
+          echo "FFMPEG_DL_PREFIX=${{ env.FFMPEG_WIN_BASE_URL }}/${{ env.FFMPEG_VERSION }}" >> $GITHUB_ENV
+          echo "VIDEO2X_DL_URL=${{ env.VIDEO2X_BASE_URL }}/v${{ env.VIDEO2X_VERSION }}/video2x-windows-amd64.zip" >> $GITHUB_ENV
+
+      - name: Set env (macos)
+        if: matrix.shortos == 'macos'
+        shell: bash
+        run: |
+          echo "FFMPEG_DL_URL=${{ env.FFMPEG_MAC_BASE_URL }}/ffmpeg-${{ env.FFMPEG_VERSION }}.7z" >> $GITHUB_ENV
+          echo "FFPROBE_DL_URL=${{ env.FFMPEG_MAC_BASE_URL }}/ffprobe-${{ env.FFMPEG_VERSION }}.7z" >> $GITHUB_ENV
+          echo "FFPLAY_DL_URL=${{ env.FFMPEG_MAC_BASE_URL }}/ffplay-${{ env.FFMPEG_VERSION }}.7z" >> $GITHUB_ENV
+          echo "FFMPEG_INFO_URL=${{ env.FFMPEG_MAC_BASE_URL }}/info/${{ env.FFMPEG_VERSION }}" >> $GITHUB_ENV
+
+      - uses: actions/checkout@v4
         with:
           persist-credentials: false
 
@@ -66,9 +89,9 @@ jobs:
         shell: bash
         run: |
           cd ./bindeps
-          curl -o ./ffmpeg.zip -L ${{ format('{0}/{1}.7z', matrix.ffmpeg_dl_prefix, matrix.ffmpeg_dl_name) }}
+          curl -o ./ffmpeg.zip -L $FFMPEG_DL_PREFIX/$FFMPEG_DL_NAME.7z
           7z x ./ffmpeg.zip
-          mv ./${{matrix.ffmpeg_dl_name}} ffmpeg
+          mv ./$FFMPEG_DL_NAME ffmpeg
 
           ./ffmpeg/bin/ffmpeg -version > version.txt
           mv version.txt ffmpeg
@@ -83,10 +106,10 @@ jobs:
           mkdir temp
           cd temp
 
-          curl -o ./ffmpeg.7z -L ${{matrix.ffmpeg_dl_url}}
-          curl -o ./ffprobe.7z -L ${{matrix.ffprobe_dl_url}}
-          curl -o ./ffplay.7z -L ${{matrix.ffplay_dl_url}}
-          curl -o version.txt -L ${{matrix.ffmpeg_info_url}}
+          curl -o ./ffmpeg.7z  -L $FFMPEG_DL_URL
+          curl -o ./ffprobe.7z -L $FFPROBE_DL_URL
+          curl -o ./ffplay.7z  -L $FFPLAY_DL_URL
+          curl -o version.txt  -L $FFMPEG_INFO_URL
 
           7z x ./ffmpeg.7z
           7z x ./ffprobe.7z
@@ -108,7 +131,7 @@ jobs:
           cd ./bindeps
           mkdir -p yt-dlp/bin
           cd yt-dlp/bin
-          curl -O -L ${{ matrix.yt-dlp_download_url }}
+          curl -O -L $YTDLP_DL_URL
 
           chmod -v +x *
 
@@ -121,7 +144,7 @@ jobs:
           mkdir -p deno/bin
           cd deno/bin
 
-          curl -o ./deno.zip -L ${{ matrix.deno_download_url }}
+          curl -o ./deno.zip -L $DENO_DL_URL
           7z x ./deno.zip
           rm -f ./deno.zip
 
@@ -135,25 +158,24 @@ jobs:
         run: |
           cd ./bindeps
           mkdir -p video2x
-          curl -o ./video2x.zip -L ${{ matrix.video2x_download_url }}
+          curl -o ./video2x.zip -L $VIDEO2X_DL_URL
           7z x ./video2x.zip -o./video2x
           rm -f ./video2x.zip
           echo "${{ env.VIDEO2X_VERSION }}" > ./video2x/version.txt
           ls -laR ./video2x
 
       - name: Setup just
-        uses: extractions/setup-just@v2
+        uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3 (3.1.0)
 
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: "yarn"
-          architecture: "x64"
 
       - name: Load cached node_modules
         id: cached-node_modules
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: node_modules
           key: yarn-${{ matrix.os }}-${{ hashFiles('**/yarn.lock') }}
@@ -162,7 +184,7 @@ jobs:
       - run: just bundle-prod
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
           version: "0.9.26"
           enable-cache: true
@@ -267,6 +289,8 @@ jobs:
 
   release:
     needs: build
+    permissions:
+      contents: write
     runs-on: macos-latest
 
     steps:
@@ -294,57 +318,15 @@ jobs:
         with:
           name: ${{env.FULL_NAME}}.js
 
-      - name: Create release
-        id: create_release
-        uses: actions/create-release@v1
+      - name: Create release and upload assets
+        run: |
+          gh release create v${{env.VERSION}} \
+            --repo ${{github.repository}} \
+            --title "${{env.NAME}} v${{env.VERSION}} [${{env.DATE}}]" \
+            --draft \
+            ${{env.FULL_NAME_WIN}}.zip \
+            ${{env.FULL_NAME_WIN_FULL}}.zip \
+            ${{env.FULL_NAME_MAC}}.zip \
+            ${{env.FULL_NAME}}.js
         env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-        with:
-          tag_name: v${{env.VERSION}}
-          release_name: ${{env.NAME}} v${{env.VERSION}} [${{env.DATE}}]
-          draft: true
-          prerelease: false
-
-      - name: Upload release asset (win)
-        id: upload-release-asset-win
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-        with:
-          upload_url: ${{steps.create_release.outputs.upload_url}}
-          asset_path: ${{env.FULL_NAME_WIN}}.zip
-          asset_name: ${{env.FULL_NAME_WIN}}.zip
-          asset_content_type: application/zip
-
-      - name: Upload release asset (win full)
-        id: upload-release-asset-win-full
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-        with:
-          upload_url: ${{steps.create_release.outputs.upload_url}}
-          asset_path: ${{env.FULL_NAME_WIN_FULL}}.zip
-          asset_name: ${{env.FULL_NAME_WIN_FULL}}.zip
-          asset_content_type: application/zip
-
-      - name: Upload release asset (mac)
-        id: upload-release-asset-mac
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-        with:
-          upload_url: ${{steps.create_release.outputs.upload_url}}
-          asset_path: ${{env.FULL_NAME_MAC}}.zip
-          asset_name: ${{env.FULL_NAME_MAC}}.zip
-          asset_content_type: application/zip
-
-      - name: Upload release asset (markup)
-        id: upload-release-asset-markup
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-        with:
-          upload_url: ${{steps.create_release.outputs.upload_url}}
-          asset_path: ${{env.FULL_NAME}}.js
-          asset_name: ${{env.FULL_NAME}}.js
-          asset_content_type: text/javascript
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
