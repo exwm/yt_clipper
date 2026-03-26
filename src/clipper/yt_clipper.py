@@ -51,7 +51,7 @@ def main() -> None:
     logger.report(f"{getFfmpegVersion(cs.clipper_paths.ffmpegPath)}", extra={"highlighter": None})
     logger.info("-" * 80)
 
-    logger.debug(f"The following  arguments were read from the command line {sys.argv[1:]}:")
+    logger.debug(f"The following arguments were read from the command line {sys.argv[1:]}:")
 
     if argsFromArgFiles:
         logger.notice(f"The following default arguments were read from {argFiles}:")
@@ -63,7 +63,7 @@ def main() -> None:
 
     if unknown:
         logger.error(
-            f"The following unknown arguments were provided and were ignored:",
+            f"The following unknown arguments were provided and were ignored: {unknown}",
         )
         sys.exit(1)
 
