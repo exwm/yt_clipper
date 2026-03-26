@@ -196,14 +196,16 @@ def add_vfilter_options(vfilter_options: argparse._ArgumentGroup) -> None:
         "--minterp-fps-multiplier",
         "-mfm",
         dest="minterpFpsMultiplier",
-        default=1,
-        type=int,
+        default=0,
+        type=float,
         help=" ".join(
             [
-                "Motion interpolation fps multiplier.",
-                "The default value of 1 disables motion interpolation."
-                "Values greater than 1 will enable motion interpolation, increasing the fps of the given clip by the multiplier."
-                "Motion interpolation can  introduce artifacting (visual glitches).",
+                "Input an fps multiplier (>= 1) to enable motion interpolation via video2x RIFE.",
+                "A value of 0 (default) disables motion interpolation.",
+                "A value of 1 targets the original source video fps, compensating for slowdown.",
+                "Higher values (e.g. 2) target N x source fps for extra-smooth slow motion.",
+                "Setting an fps multiplier that is an integer multiple of the static speed (e.g. 1.2 = 2 * 0.6) will preserve original frames when doing motion interpolation.",
+                "Motion interpolation can introduce artifacting (visual glitches).",
                 "Artifacting increases with the speed and complexity of the video.",
             ],
         ),

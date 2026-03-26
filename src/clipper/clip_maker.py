@@ -33,6 +33,7 @@ from clipper.ffmpeg_filter import (
     getAverageSpeed,
     getCropFilter,
     getEasingExpression,
+    getMinSpeed,
     getMinterpFilter,
     getMinterpFPS,
     getSpeedFilterAndDuration,
@@ -376,7 +377,18 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
         )
         return fastTrimClip(cs, markerPairIndex, mp, mps)
 
-    v2x_enabled = mps["minterpTool"] == "video2x" and mps["minterpFpsMultiplier"] > 1
+    v2x_enabled = mps["minterpTool"] == "video2x" and mps["minterpFpsMultiplier"] > 0
+    if v2x_enabled:
+        videoFPS = Fraction(mps["r_frame_rate"])
+        target_fps = mps["minterpFpsMultiplier"] * videoFPS
+        min_clip_fps = getMinSpeed(mp.get("speedMap")) * videoFPS
+        if target_fps <= min_clip_fps:
+            logger.info(
+                f"Skipping motion interpolation for marker pair {markerPairIndex + 1}: "
+                f"target fps ({float(target_fps):.3g}) is not greater than minimum clip fps "
+                f"({float(min_clip_fps):.3g}) — no frames need interpolation.",
+            )
+            v2x_enabled = False
     if v2x_enabled:
         mp["v2xFinalFilePath"] = mp["filePath"]
         pre_v2x_dir = f"{cp.clipsPath}/{cp.tempPath}/pre-v2x"

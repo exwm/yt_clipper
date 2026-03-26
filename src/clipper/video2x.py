@@ -1,5 +1,6 @@
 import shlex
 import subprocess
+from fractions import Fraction
 from pathlib import Path
 from typing import List, Tuple
 
@@ -33,8 +34,6 @@ ignore_options = [
     "-slices",
     # not expoded by video2x for AVCodecContext
     "-force_key_frames",
-    # for now just let video2x decide bitrate based on crf
-    "-b:v",
 ]
 
 
@@ -77,7 +76,20 @@ def buildVideo2xArgs(
 
     extra_encoder_args = " ".join(encoder_options)
 
-    minterpFpsMultiplier = mps["minterpFpsMultiplier"]
+    videoFPS = Fraction(mps["r_frame_rate"])
+    fpsMultiplier = mps["minterpFpsMultiplier"]
+    targetFps = fpsMultiplier * videoFPS
+
+    isVariableSpeed = mp.get("isVariableSpeed", False)
+    if isVariableSpeed:
+        fps_arg = f"--vfr-min-fps {float(targetFps)}"
+    else:
+        speed = mp.get("speed", 1.0)
+        ratio = Fraction(fpsMultiplier) / Fraction(speed)
+        if ratio.denominator == 1 and int(ratio) >= 2:
+            fps_arg = f"--frame-rate-mul {int(ratio)}"
+        else:
+            fps_arg = f"--vfr-min-fps {float(targetFps)}"
 
     return " ".join(
         filter(
@@ -85,9 +97,10 @@ def buildVideo2xArgs(
             [
                 f'-i "{pre_v2x_path}"',
                 f'-o "{final_path}"',
-                f"--frame-rate-mul {minterpFpsMultiplier}",
+                fps_arg,
                 "--processor rife",
                 "--rife-model rife-v4.26",
+                "--preserve-metadata",
                 f"-c {codec}",
                 extra_encoder_args,
             ],

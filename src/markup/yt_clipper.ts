@@ -1197,6 +1197,17 @@ function updateSpeedInputLabel(text: string) {
   }
 }
 
+function getMinterpFpsMulSuffix(mul: number, speed: number) {
+  const n = mul > 0 ? Math.round(mul / speed) : 0;
+  return n >= 1 && Math.abs(mul / speed - n) < 1e-9 ? ` (${n}x)` : '';
+}
+
+function updateMinterpFpsMulLabel(markerPair) {
+  if (!isSettingsEditorOpen || minterpFpsMulLabelSpan == null) return;
+  const mul = (markerPair.overrides.minterpFpsMultiplier ?? settings.minterpFpsMultiplier ?? 0) as number;
+  minterpFpsMulLabelSpan.textContent = `FPS Multiplier${getMinterpFpsMulSuffix(mul, markerPair.speed)}`;
+}
+
 const defaultSpeedRoundPrecision = 2;
 function getSpeedMapping(
   speedMap: SpeedPoint[],
@@ -2274,9 +2285,13 @@ function createGlobalSettingsEditor() {
       <div class="settings-editor-input-div">
         <div  title="${Tooltips.minterpFpsMultiplierTooltip}">
           <span>FPS Multiplier</span>
-          <input id="minterp-fps-multiplier-input" type="number" min="1" max="5" step="1" value="${
-            minterpFpsMultiplier ?? ''
-          }" placeholder=1 style="min-width:2em"></input>
+          <div class="fps-mul-stepper">
+            <button class="fps-mul-step-btn" data-step="-1">−1</button>
+            <input id="minterp-fps-multiplier-input" type="number" min="0" max="5" step="0.05" value="${
+              minterpFpsMultiplier ?? ''
+            }" placeholder="0" style="min-width:2em"></input>
+            <button class="fps-mul-step-btn" data-step="+1">+1</button>
+          </div>
         </div>
       </div>
       <div class="settings-editor-input-div multi-input-div" title="${Tooltips.vidstabTooltip}">
@@ -2354,6 +2369,7 @@ function createGlobalSettingsEditor() {
 
   addSettingsInputListeners(settingsInputsConfigs, settings, false);
   addSettingsInputListeners(settingsInputsConfigsHighlightable, settings, true);
+  bindFpsMulStepBtns();
 
   cropInput = document.getElementById('crop-input') as HTMLInputElement;
   cropAspectRatioSpan = document.getElementById('crop-aspect-ratio') as HTMLSpanElement;
@@ -2366,6 +2382,26 @@ function createGlobalSettingsEditor() {
   showCropOverlay();
   triggerCropPreviewRedraw();
 }
+function bindFpsMulStepBtns() {
+  document.querySelectorAll<HTMLButtonElement>('.fps-mul-step-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const input = btn
+        .closest<HTMLElement>('.fps-mul-stepper')!
+        .querySelector<HTMLInputElement>('input[type="number"]')!;
+      const cur = parseFloat(input.value) || 0;
+      const stepDir = parseInt(btn.dataset.step!, 10);
+      const min = parseFloat(input.min) || 0;
+      const max = parseFloat(input.max) || Infinity;
+      const next =
+        stepDir > 0
+          ? Math.min(max, Math.floor(cur) + stepDir)
+          : Math.max(min, Math.ceil(cur) + stepDir);
+      input.value = String(next);
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  });
+}
+
 function addSettingsInputListeners(inputs: string[][], target, highlightable = false) {
   inputs.forEach((input) => {
     const id = input[0];
@@ -2608,6 +2644,7 @@ function toggleAutoHideUnselectedMarkerPairs(e: KeyboardEvent) {
 }
 
 let speedInputLabel: HTMLInputElement;
+let minterpFpsMulLabelSpan: HTMLSpanElement;
 let cropInputLabel: HTMLInputElement;
 let cropInput: HTMLInputElement;
 let speedInput: HTMLInputElement;
@@ -2638,6 +2675,8 @@ function createMarkerPairEditor(targetMarker: SVGRectElement) {
   // const minterpMode = overrides.minterpMode;
   // const minterpFPS = overrides.minterpFPS;
   const minterpFpsMultiplier = overrides.minterpFpsMultiplier;
+  const effectiveMinterpMul = (minterpFpsMultiplier ?? settings.minterpFpsMultiplier ?? 0) as number;
+  const minterpFpsMulLabel = getMinterpFpsMulSuffix(effectiveMinterpMul, speed);
   const denoise = overrides.denoise;
   const denoiseDesc = denoise ? denoise.desc : null;
   const denoiseDescGlobal = settings.denoise ? `(${settings.denoise.desc})` : '(Disabled)';
@@ -2774,10 +2813,14 @@ function createMarkerPairEditor(targetMarker: SVGRectElement) {
         </div>
         <div class="settings-editor-input-div">
           <div title="${Tooltips.minterpFpsMultiplierTooltip}">
-            <span>FPS Multiplier</span>
-            <input id="minterp-fps-multiplier-input" type="number" min="1" max="5" step="1" value="${
-              minterpFpsMultiplier ?? ''
-            }" placeholder="1" style="min-width:2em"></input>
+            <span id="minterp-fps-mul-label">FPS Multiplier${minterpFpsMulLabel}</span>
+            <div class="fps-mul-stepper">
+              <button class="fps-mul-step-btn" data-step="-1">−1</button>
+              <input id="minterp-fps-multiplier-input" type="number" min="0" max="5" step="0.05" value="${
+                minterpFpsMultiplier ?? ''
+              }" placeholder="0" style="min-width:2em"></input>
+              <button class="fps-mul-step-btn" data-step="+1">+1</button>
+            </div>
           </div>
         </div>
         <div class="settings-editor-input-div multi-input-div" title="${Tooltips.vidstabTooltip}">
@@ -2869,10 +2912,14 @@ function createMarkerPairEditor(targetMarker: SVGRectElement) {
     ['fade-duration-input', 'fadeDuration', 'number'],
   ];
   addSettingsInputListeners(overrideInputConfigs, markerPair.overrides, true);
+  bindFpsMulStepBtns();
   markerPairNumberInput = document.getElementById('marker-pair-number-input') as HTMLInputElement;
   markerPairNumberInput.addEventListener('change', markerPairNumberInputHandler);
   speedInputLabel = document.getElementById('speed-input-label') as HTMLInputElement;
   speedInput = document.getElementById('speed-input') as HTMLInputElement;
+  minterpFpsMulLabelSpan = document.getElementById('minterp-fps-mul-label') as HTMLSpanElement;
+  document.getElementById('speed-input').addEventListener('change', () => updateMinterpFpsMulLabel(markerPair));
+  document.getElementById('minterp-fps-multiplier-input').addEventListener('change', () => updateMinterpFpsMulLabel(markerPair));
   cropInputLabel = document.getElementById('crop-input-label') as HTMLInputElement;
   cropInput = document.getElementById('crop-input') as HTMLInputElement;
   cropAspectRatioSpan = document.getElementById('crop-aspect-ratio') as HTMLSpanElement;
@@ -2932,6 +2979,8 @@ function highlightModifiedSettings(inputs: string[][], target) {
       let label = inputElem.previousElementSibling;
       if (id === 'rotate-90-clock' || id === 'rotate-90-counterclock')
         label = inputElem.parentElement.getElementsByTagName('span')[0];
+      if (id === 'minterp-fps-multiplier-input')
+        label = inputElem.closest('.fps-mul-stepper').parentElement.querySelector('span');
 
       if (storedTargetValue == null) {
         inputElem.classList.add(inheritedSettingsLabelHighlight);

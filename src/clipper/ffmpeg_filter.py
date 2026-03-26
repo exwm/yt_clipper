@@ -133,11 +133,9 @@ def getMinterpFPS(
 
     maxClipSpeed = getMaxSpeed(speedMap)
     maxClipFPS = maxClipSpeed * videoFPS
-    averageClipSpeed = getAverageSpeed(speedMap, videoFPS)
-    averageClipFPS = averageClipSpeed * videoFPS
 
-    if mps["minterpFpsMultiplier"] > 1:
-        return mps["minterpFpsMultiplier"] * averageClipFPS
+    if mps["minterpFpsMultiplier"] > 0:
+        return mps["minterpFpsMultiplier"] * videoFPS
 
     minterpFPS = None
     minterpMode = mps["minterpMode"]
@@ -165,6 +163,12 @@ def getMaxSpeed(speedMap: Union[SpeedMap, None]) -> float:
             maxSpeed = max(maxSpeed, speedPoint["y"])
 
     return maxSpeed
+
+
+def getMinSpeed(speedMap: Union[SpeedMap, None]) -> float:
+    if speedMap is None:
+        return 1.0
+    return min(pt["y"] for pt in speedMap)
 
 
 def getSubsFilter(

@@ -136,11 +136,17 @@ export namespace Tooltips {
   //   `;
 
   export const minterpFpsMultiplierTooltip = stripIndent`
-    Input an fps multiplier value from 2-5 to enable motion interpolation and multiply clip fps.
-    A value of 1 (default) means motion interpolation is disabled.
-    Generates interpolated video frames to achieve smooth slow motion using video2x.
+    Input an fps multiplier (≥ 1) to enable motion interpolation via video2x RIFE.
+    A value of 0 (default) disables motion interpolation.
+    A value of 1 targets the original source video fps, compensating for slowdown.
+    Higher values (e.g. 2) target N x source fps for extra-smooth slow motion.
+    Use −1/+1 buttons for integer steps, or type/arrow for 0.05 precision.
     Motion interpolation can introduce artifacting (visual glitches).
     Artifacting increases with the speed and complexity of the video.
+
+    Setting an fps multiplier that is an integer multiple of the static speed (e.g. 1.2 = 2 * 0.6)
+    will preserve original frames when doing motion interpolating.
+    This is indicated with the clip fps multiplier in parantheses after the input label.
     `;
 
   export const vidstabTooltip = stripIndent`
