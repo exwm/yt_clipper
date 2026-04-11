@@ -1,3 +1,17 @@
+export function hideElements(...selectors: string[]) {
+  for (const sel of selectors) {
+    const el = document.querySelector<HTMLElement>(sel);
+    if (el) el.style.display = 'none';
+  }
+}
+
+export function showElements(...selectors: string[]) {
+  for (const sel of selectors) {
+    const el = document.querySelector<HTMLElement>(sel);
+    if (el) el.style.removeProperty('display');
+  }
+}
+
 export function enableCommonBlockers() {
   enablePreventMouseZoom();
   enablePreventSpaceScroll();

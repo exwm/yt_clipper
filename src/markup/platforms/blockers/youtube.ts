@@ -1,11 +1,18 @@
+import { hideElements, showElements } from './common';
+
+const hiddenOnActivation = ['.ytp-overlays-container'];
+
 export function enableYTBlockers() {
   enablePreventSideBarPull();
   enablePreventAltDefault();
+  hideElements(...hiddenOnActivation);
 }
 export function disableYTBlockers() {
   disablePreventSideBarPull();
   disablePreventAltDefault();
+  showElements(...hiddenOnActivation);
 }
+
 function enablePreventAltDefault() {
   window.addEventListener('keyup', preventAltDefaultHandler, true);
 }
