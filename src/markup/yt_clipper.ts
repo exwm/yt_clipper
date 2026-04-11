@@ -133,12 +133,15 @@ import {
   resetCropPreviewAnchor,
   cropPreviewMode,
 } from './crop/crop-preview';
+import {
+  CommandPalette,
+  HotkeyEngine,
+  renderShortcutsTable,
+  ShortcutRegistry,
+} from '../command-palette';
+import { createShortcutDefinitions } from './shortcut-definitions';
 
 const ytClipperCSS = readFileSync(__dirname + '/ui/css/yt-clipper.css', 'utf8');
-const shortcutsTableHTML = readFileSync(
-  __dirname + '/ui/shortcuts-table/shortcuts-table.html',
-  'utf8'
-);
 const shortcutsTableStyle = readFileSync(
   __dirname + '/ui/shortcuts-table/shortcuts-table.css',
   'utf8'
@@ -218,16 +221,94 @@ function init() {
   loopMarkerPair();
 }
 
+let shortcutRegistry: ShortcutRegistry | null = null;
+let hotkeyEngine: HotkeyEngine | null = null;
+let commandPalette: CommandPalette | null = null;
+
+function initShortcutSystem() {
+  if (shortcutRegistry) return;
+  shortcutRegistry = new ShortcutRegistry();
+  shortcutRegistry.registerAll(
+    createShortcutDefinitions({
+      showShortcutsReference: () => toggleShortcutsTable(),
+      addMarker: () => addMarker(),
+      moveMarkerToCurrentTime: (which) =>
+        moveMarker(
+          which === 'start'
+            ? (enableMarkerHotkeys as any).startMarker
+            : (enableMarkerHotkeys as any).endMarker
+        ),
+      addChartPoint: () => addChartPoint(),
+      duplicateSelectedMarkerPair: () => duplicateSelectedMarkerPair(),
+      saveMarkersAndSettings: () => saveMarkersAndSettings(),
+      copyMarkersToClipboard: () => copyToClipboard(getClipperInputJSON()),
+      toggleForceSetSpeed: () => toggleForceSetSpeed(),
+      cycleForceSetSpeedValueDown: () => cycleForceSetSpeedValueDown(),
+      updateAllMarkerPairSpeedsToDefault: () => updateAllMarkerPairSpeeds(settings.newMarkerSpeed),
+      captureFrame: () => captureFrame(),
+      saveCapturedFrames: () => saveCapturedFrames(),
+      toggleGlobalSettingsEditor: () => toggleGlobalSettingsEditor(),
+      toggleMarkerPairOverridesEditor: () => toggleMarkerPairOverridesEditor(),
+      toggleMarkerPairSpeedPreview: () => toggleMarkerPairSpeedPreview(),
+      toggleMarkerPairLoop: () => toggleMarkerPairLoop(),
+      toggleGammaPreview: () => toggleGammaPreview(),
+      toggleFadeLoopPreview: () => toggleFadeLoopPreview(),
+      toggleCropChartLooping: () => toggleCropChartLooping(),
+      toggleAllPreviews: () => toggleAllPreviews(),
+      toggleMarkersDataCommands: () => toggleMarkersDataCommands(),
+      toggleSpeedChart: () => toggleChart(speedChartInput),
+      toggleChartLoop: () => toggleChartLoop(),
+      toggleCropChart: () => toggleChart(cropChartInput),
+      undoMarker: () => undoMarker(),
+      redoMarker: () => redoMarker(),
+      undoMarkerPairChange: () => undoRedoMarkerPairChange('undo'),
+      redoMarkerPairChange: () => undoRedoMarkerPairChange('redo'),
+      deleteMarkerPair: () => deleteMarkerPair(),
+      drawCrop: () => drawCrop(),
+      toggleArrowKeyCropAdjustment: () => toggleArrowKeyCropAdjustment(),
+      updateAllMarkerPairCropsToDefault: () => updateAllMarkerPairCrops(settings.newMarkerCrop),
+      cycleCropDimOpacity: () => cycleCropDimOpacity(),
+      toggleCropCrossHair: () => toggleCropCrossHair(),
+      toggleCropPreviewModal: () => toggleCropPreview('modal'),
+      toggleCropPreviewPopOut: () => toggleCropPreview('pop-out'),
+      rotateVideoClock: () => rotateVideo('clock'),
+      rotateVideoCClock: () => rotateVideo('cclock'),
+      toggleBigVideoPreviews: () => toggleBigVideoPreviews(),
+      flashNotTheatreMode: () =>
+        flashMessage('Please switch to theater mode to rotate video.', 'red'),
+      flattenVRVideo: () => flattenVRVideo(hooks.videoContainer as HTMLDivElement, video),
+      openSubsEditor: () => openSubsEditor(settings.videoID),
+      jumpToNearestMarkerOrPair: (e) => jumpToNearestMarkerOrPair(e, e.code),
+      togglePrevSelectedMarkerPair: () => togglePrevSelectedMarkerPair(),
+      toggleAutoHideUnselectedMarkerPairs: (e) => toggleAutoHideUnselectedMarkerPairs(e),
+
+      isMarkerHotkeysEnabled: () => markerHotkeysEnabled,
+      isTheatreMode: () => isTheatreMode(),
+      isArrowKeyCropAdjustmentDisabled: () => !arrowKeyCropAdjustmentEnabled,
+    })
+  );
+
+  hotkeyEngine = new HotkeyEngine(shortcutRegistry);
+  hotkeyEngine.setBlocker((e) => blockEvent(e));
+  hotkeyEngine.setEnabled(isHotkeysEnabled);
+
+  commandPalette = new CommandPalette(shortcutRegistry, {
+    zIndex: 99999,
+    onOpenReference: () => toggleShortcutsTable(),
+  });
+}
+
 function hotkeys(e: KeyboardEvent) {
   if (!ready) {
     console.log('yt_clipper not yet ready to process hotkeys.');
-
     return;
   }
 
   if (!e.ctrlKey && e.shiftKey && e.altKey && e.code === 'KeyA') {
     isHotkeysEnabled = !isHotkeysEnabled;
     initOnce();
+    initShortcutSystem();
+    hotkeyEngine?.setEnabled(isHotkeysEnabled);
     if (isHotkeysEnabled) {
       showShortcutsTableToggleButton();
       enableCommonBlockers();
@@ -243,190 +324,20 @@ function hotkeys(e: KeyboardEvent) {
       }
       flashMessage('Disabled Hotkeys', 'red');
     }
-  }
-
-  if (!isHotkeysEnabled) {
     return;
   }
 
-  switch (e.code) {
-    case 'KeyA':
-      if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
-        blockEvent(e);
-        addMarker();
-      } else if (!e.ctrlKey && e.shiftKey && !e.altKey && markerHotkeysEnabled) {
-        blockEvent(e);
-        moveMarker(enableMarkerHotkeys.endMarker);
-      } else if (!e.ctrlKey && !e.shiftKey && e.altKey && markerHotkeysEnabled) {
-        blockEvent(e);
-        addChartPoint();
-      } else if (e.ctrlKey && e.shiftKey && !e.altKey) {
-        blockEvent(e);
-        duplicateSelectedMarkerPair();
-      }
-      break;
-    case 'KeyS':
-      if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
-        blockEvent(e);
-        saveMarkersAndSettings();
-      } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
-        blockEvent(e);
-        copyToClipboard(getClipperInputJSON());
-      }
-      break;
-    case 'KeyQ':
-      if (!e.ctrlKey && !e.altKey && e.shiftKey && markerHotkeysEnabled) {
-        blockEvent(e);
-        moveMarker(enableMarkerHotkeys.startMarker);
-      } else if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
-        blockEvent(e);
-        toggleForceSetSpeed();
-      } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
-        blockEvent(e);
-        cycleForceSetSpeedValueDown();
-      } else if (!e.ctrlKey && e.altKey && e.shiftKey) {
-        blockEvent(e);
-        updateAllMarkerPairSpeeds(settings.newMarkerSpeed);
-      }
-      break;
-    case 'KeyE':
-      if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
-        blockEvent(e);
-        captureFrame();
-      } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
-        blockEvent(e);
-        saveCapturedFrames();
-      }
-      break;
-    case 'KeyW':
-      if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
-        blockEvent(e);
-        toggleGlobalSettingsEditor();
-      } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
-        blockEvent(e);
-        toggleMarkerPairOverridesEditor();
-      }
-      break;
-    case 'KeyC':
-      if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
-        blockEvent(e);
-        toggleMarkerPairSpeedPreview();
-      } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
-        blockEvent(e);
-        toggleMarkerPairLoop();
-      } else if (!e.ctrlKey && !e.shiftKey && e.altKey) {
-        blockEvent(e);
-        toggleGammaPreview();
-      } else if (!e.ctrlKey && e.shiftKey && e.altKey) {
-        blockEvent(e);
-        toggleFadeLoopPreview();
-      } else if (e.ctrlKey && e.shiftKey && !e.altKey) {
-        blockEvent(e);
-        toggleCropChartLooping();
-      } else if (e.ctrlKey && e.shiftKey && e.altKey) {
-        blockEvent(e);
-        toggleAllPreviews();
-      }
-      break;
-    case 'KeyG':
-      if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
-        blockEvent(e);
-        toggleMarkersDataCommands();
-      }
-      break;
-    case 'KeyD':
-      // alt+shift+D does not work in chrome 75.0.3770.100
-      if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
-        blockEvent(e);
-        toggleChart(speedChartInput);
-      } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
-        blockEvent(e);
-        toggleChartLoop();
-      } else if (!e.ctrlKey && !e.shiftKey && e.altKey) {
-        blockEvent(e);
-        toggleChart(cropChartInput);
-      }
-      break;
-    case 'KeyZ':
-      if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
-        blockEvent(e);
-        undoMarker();
-      } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
-        blockEvent(e);
-        redoMarker();
-      } else if (!e.ctrlKey && !e.shiftKey && e.altKey) {
-        blockEvent(e);
-        undoRedoMarkerPairChange('undo');
-      } else if (!e.ctrlKey && e.shiftKey && e.altKey) {
-        blockEvent(e);
-        undoRedoMarkerPairChange('redo');
-      } else if (e.ctrlKey && e.shiftKey && e.altKey && markerHotkeysEnabled) {
-        blockEvent(e);
-        deleteMarkerPair();
-      }
-      break;
-    case 'KeyX':
-      if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
-        blockEvent(e);
-        drawCrop();
-      } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
-        blockEvent(e);
-        toggleArrowKeyCropAdjustment();
-      } else if (!e.ctrlKey && e.altKey && e.shiftKey) {
-        blockEvent(e);
-        updateAllMarkerPairCrops(settings.newMarkerCrop);
-      } else if (e.ctrlKey && !e.altKey && !e.shiftKey) {
-        blockEvent(e);
-        cycleCropDimOpacity();
-      } else if (e.ctrlKey && !e.altKey && e.shiftKey) {
-        blockEvent(e);
-        toggleCropCrossHair();
-      } else if (e.ctrlKey && e.altKey && !e.shiftKey) {
-        blockEvent(e);
-        toggleCropPreview();
-      } else if (!e.ctrlKey && !e.altKey && e.shiftKey) {
-        blockEvent(e);
-        toggleCropPreview('pop-out');
-      }
-      break;
-    case 'KeyR':
-      if (!e.ctrlKey && !e.shiftKey && !e.altKey && isTheatreMode()) {
-        blockEvent(e);
-        rotateVideo('clock');
-      } else if (!e.ctrlKey && !e.shiftKey && e.altKey && isTheatreMode()) {
-        blockEvent(e);
-        rotateVideo('cclock');
-      } else if (!e.ctrlKey && e.shiftKey && !e.altKey) {
-        blockEvent(e);
-        toggleBigVideoPreviews();
-      } else if (!e.ctrlKey && !e.shiftKey && !isTheatreMode()) {
-        blockEvent(e);
-        flashMessage('Please switch to theater mode to rotate video.', 'red');
-      }
-      break;
-    case 'KeyF':
-      if (!e.ctrlKey && e.shiftKey && !e.altKey) {
-        blockEvent(e);
-        flattenVRVideo(hooks.videoContainer, video);
-      } else if (!e.ctrlKey && !e.shiftKey && e.altKey) {
-        blockEvent(e);
-        openSubsEditor(settings.videoID);
-      }
-      break;
-    case 'ArrowLeft':
-    case 'ArrowRight':
-      jumpToNearestMarkerOrPair(e, e.code);
-      break;
-    case 'ArrowUp':
-      if (e.ctrlKey && !arrowKeyCropAdjustmentEnabled) {
-        blockEvent(e);
-        togglePrevSelectedMarkerPair();
-      }
-      break;
-    case 'ArrowDown':
-      toggleAutoHideUnselectedMarkerPairs(e);
-      break;
+  if (!isHotkeysEnabled) return;
+
+  if (!e.ctrlKey && e.shiftKey && !e.altKey && e.code === 'KeyE') {
+    blockEvent(e);
+    commandPalette?.toggle();
+    return;
   }
+
+  if (commandPalette?.isOpen()) return;
+
+  hotkeyEngine?.dispatch(e);
 }
 
 let autoSaveIntervalId;
@@ -3644,7 +3555,9 @@ function addMarkerPairMergeListDurationsListener() {
 let shortcutsTableToggleButton: HTMLButtonElement;
 function injectToggleShortcutsTableButton() {
   shortcutsTableToggleButton = htmlToElement(shortcutsTableToggleButtonHTML) as HTMLButtonElement;
-  shortcutsTableToggleButton.onclick = toggleShortcutsTable;
+  shortcutsTableToggleButton.classList.add('yt-clipper-palette-button');
+  shortcutsTableToggleButton.title = 'Open yt_clipper Command Palette (Ctrl+Shift+P)';
+  shortcutsTableToggleButton.onclick = () => commandPalette?.toggle();
 
   if ([VideoPlatforms.weverse, VideoPlatforms.naver_tv].includes(platform)) {
     shortcutsTableToggleButton.classList.add(
@@ -3682,10 +3595,11 @@ function hideShortcutsTableToggleButton() {
 let shortcutsTableContainer: HTMLDivElement;
 function toggleShortcutsTable() {
   if (!shortcutsTableContainer) {
+    initShortcutSystem();
     injectCSS(shortcutsTableStyle, 'shortcutsTableStyle');
     shortcutsTableContainer = document.createElement('div');
     shortcutsTableContainer.setAttribute('id', 'shortcutsTableContainer');
-    safeSetInnerHtml(shortcutsTableContainer, shortcutsTableHTML);
+    safeSetInnerHtml(shortcutsTableContainer, renderShortcutsTable(shortcutRegistry!));
     hooks.shortcutsTable.insertAdjacentElement('beforebegin', shortcutsTableContainer);
   } else if (shortcutsTableContainer.style.display !== 'none') {
     shortcutsTableContainer.style.display = 'none';

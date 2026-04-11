@@ -35,6 +35,9 @@
   0% {
     opacity: 1;
   }
+  85% {
+    opacity: 1;
+  }
   100% {
     opacity: 0;
   }
@@ -64,6 +67,103 @@
   animation-name: flash;
   animation-duration: 5s;
   animation-fill-mode: forwards;
+  border-left: 3px solid transparent;
+}
+
+.flash-info {
+  border-left-color: #6cb7ff;
+}
+
+.flash-success {
+  border-left-color: #3ac36a;
+  background: linear-gradient(to right, rgba(58, 195, 106, 0.18), var(--dark-grey) 60%);
+}
+
+.flash-warn {
+  border-left-color: #f5a623;
+  background: linear-gradient(to right, rgba(245, 166, 35, 0.2), var(--dark-grey) 60%);
+}
+
+.flash-warn .flash-msg {
+  color: #ffc661 !important;
+  font-weight: 600;
+}
+
+.flash-error {
+  border-left-color: var(--bright-red);
+  background: linear-gradient(to right, rgba(237, 28, 63, 0.28), var(--dark-grey) 60%);
+  box-shadow: 2px 2px 3px 0px var(--darker-grey), 0 0 0 1px rgba(237, 28, 63, 0.4);
+}
+
+.flash-error .flash-msg {
+  color: #ff6b85 !important;
+  font-weight: 700;
+}
+
+.flash-count {
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--lighter-grey);
+  font-size: 9pt;
+  font-weight: 700;
+}
+
+#ytc-stale-video-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 4px;
+  padding: 10px 14px;
+  background: linear-gradient(to right, rgba(237, 28, 63, 0.28), var(--dark-grey) 60%);
+  border: 1px solid rgba(237, 28, 63, 0.6);
+  border-left: 4px solid var(--bright-red);
+  border-radius: 3px;
+  color: var(--lighter-grey);
+  font-size: 11pt;
+  box-shadow: 2px 2px 3px 0px var(--darker-grey), 0 0 0 1px rgba(237, 28, 63, 0.4);
+  position: relative;
+  z-index: 100;
+}
+
+.ytc-stale-banner-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--bright-red);
+  color: #fff;
+  font-weight: 900;
+  font-size: 13pt;
+  line-height: 1;
+}
+
+.ytc-stale-banner-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ytc-stale-banner-text strong {
+  color: #ff6b85;
+  font-weight: 700;
+}
+
+.ytc-stale-banner-videoid {
+  display: inline-block;
+  padding: 1px 6px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(237, 28, 63, 0.5);
+  border-radius: 3px;
+  color: #ffb3c0;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 10pt;
+  font-weight: 600;
 }
 
 .marker {
@@ -330,9 +430,46 @@
 }
 
 #shortcutsTableToggleButton {
-  cursor: help;
+  cursor: pointer;
   position: relative;
   float: left;
+}
+
+@keyframes ytc-palette-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 0 rgba(255, 120, 140, 0)) brightness(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 2px rgba(255, 120, 140, 0.45)) brightness(1.12);
+  }
+}
+
+#shortcutsTableToggleButton.yt-clipper-palette-button svg {
+  transform: scale(1.35);
+  transform-origin: center center;
+  transition: transform 0.15s;
+}
+
+#shortcutsTableToggleButton.yt-clipper-palette-button svg path {
+  fill: #ff6b85 !important;
+  transition: fill 0.15s;
+}
+
+/* #shortcutsTableToggleButton.yt-clipper-palette-button {
+  animation: ytc-palette-pulse 3.6s ease-in-out infinite;
+} */
+
+#shortcutsTableToggleButton.yt-clipper-palette-button:hover {
+  animation: none;
+  filter: drop-shadow(0 0 4px rgba(255, 120, 140, 0.8)) brightness(1.25);
+}
+
+#shortcutsTableToggleButton.yt-clipper-palette-button:hover svg path {
+  fill: #fff !important;
+}
+
+#shortcutsTableToggleButton.yt-clipper-palette-button:hover svg {
+  transform: scale(1.5);
 }
 
 .ytc-modal {

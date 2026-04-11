@@ -28,12 +28,97 @@ let flashMessageHook: HTMLElement;
 export function setFlashMessageHook(hook: HTMLElement) {
   flashMessageHook = hook;
 }
-export function flashMessage(msg: string, color: string, lifetime = 3000) {
+
+export type FlashSeverity = 'info' | 'success' | 'warn' | 'error';
+
+const SEVERITY_DEFAULT_LIFETIME: Record<FlashSeverity, number> = {
+  info: 3000,
+  success: 3000,
+  warn: 6000,
+  error: 12000,
+};
+
+const SEVERITY_ICON: Record<FlashSeverity, string> = {
+  info: '',
+  success: '\u2713 ',
+  warn: '\u26A0 ',
+  error: '\u2716 ',
+};
+
+interface ActiveFlash {
+  div: HTMLDivElement;
+  countEl: HTMLSpanElement;
+  timeoutId: number;
+  count: number;
+  lifetime: number;
+}
+
+const activeFlashes = new Map<string, ActiveFlash>();
+
+function inferSeverityFromColor(color: string): FlashSeverity {
+  const c = color.toLowerCase().trim();
+  if (c === 'red' || c === 'crimson' || c === 'tomato' || c.includes('rgb(237')) {
+    return 'error';
+  }
+  if (c === 'orange' || c === 'yellow' || c === 'gold' || c === 'darkorange') {
+    return 'warn';
+  }
+  if (c === 'green' || c === 'lime' || c === 'lightgreen' || c === 'limegreen') {
+    return 'success';
+  }
+  return 'info';
+}
+
+export function flashMessage(
+  msg: string,
+  color: string,
+  lifetime?: number,
+  severity?: FlashSeverity,
+) {
+  if (!flashMessageHook) return;
+  const sev: FlashSeverity = severity ?? inferSeverityFromColor(color);
+  const life = lifetime ?? SEVERITY_DEFAULT_LIFETIME[sev];
+  const key = sev + '\u0000' + msg;
+
+  const existing = activeFlashes.get(key);
+  if (existing) {
+    existing.count += 1;
+    existing.countEl.textContent = ' \u00D7' + existing.count;
+    existing.countEl.style.display = 'inline';
+    existing.div.classList.remove('flash-div');
+    void existing.div.offsetWidth;
+    existing.div.classList.add('flash-div');
+    existing.div.style.animationDuration = life + 'ms';
+    clearTimeout(existing.timeoutId);
+    existing.timeoutId = window.setTimeout(() => {
+      deleteElement(existing.div);
+      activeFlashes.delete(key);
+    }, life);
+    return;
+  }
+
   const flashDiv = document.createElement('div');
-  flashDiv.setAttribute('class', 'msg-div flash-div');
-  safeSetInnerHtml(flashDiv, `<span class="flash-msg" style="color:${color}">${msg}</span>`);
+  flashDiv.className = 'msg-div flash-div flash-' + sev;
+  flashDiv.style.animationDuration = life + 'ms';
+
+  const textSpan = document.createElement('span');
+  textSpan.className = 'flash-msg';
+  textSpan.textContent = SEVERITY_ICON[sev] + msg;
+  flashDiv.appendChild(textSpan);
+
+  const countEl = document.createElement('span');
+  countEl.className = 'flash-count';
+  countEl.style.display = 'none';
+  flashDiv.appendChild(countEl);
+
   flashMessageHook.insertAdjacentElement('beforebegin', flashDiv);
-  setTimeout(() => deleteElement(flashDiv), lifetime);
+
+  const timeoutId = window.setTimeout(() => {
+    deleteElement(flashDiv);
+    activeFlashes.delete(key);
+  }, life);
+
+  activeFlashes.set(key, { div: flashDiv, countEl, timeoutId, count: 1, lifetime: life });
 }
 
 export async function retryUntilTruthyResult<R>(fn: () => R, wait = 200) {
