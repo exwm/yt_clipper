@@ -779,8 +779,21 @@ function moveMarkerByFrameHandler(event: WheelEvent) {
     Math.abs(event.deltaY) > 0 &&
     isSettingsEditorOpen &&
     !wasGlobalSettingsEditorOpen &&
-    prevSelectedEndMarker
+    prevSelectedEndMarker &&
+    !video.seeking
   ) {
+    if (!video.paused) {
+      video.pause();
+    }
+    isMarkerSeekPending = true;
+    if (markerSeekDebounceTimeout !== null) {
+      clearTimeout(markerSeekDebounceTimeout);
+    }
+    markerSeekDebounceTimeout = setTimeout(() => {
+      markerSeekDebounceTimeout = null;
+      isMarkerSeekPending = false;
+    }, 500);
+
     const fps = getFPS();
     let targetMarker = prevSelectedEndMarker;
     const markerPair = markerPairs[prevSelectedMarkerPairIndex];
@@ -794,12 +807,11 @@ function moveMarkerByFrameHandler(event: WheelEvent) {
     if (event.deltaY > 0) {
       newMarkerTime = targetMarkerTime - 1 / fps;
       moveMarker(targetMarker, Math.max(0, newMarkerTime));
-    } else if (event.deltaY < 0) {
+    } else {
       newMarkerTime = targetMarkerTime + 1 / fps;
       moveMarker(targetMarker, Math.min(getVideoDuration(platform, video), newMarkerTime));
     }
 
-    video.pause();
     seekToSafe(video, newMarkerTime);
   }
 }
@@ -1204,7 +1216,9 @@ function getMinterpFpsMulSuffix(mul: number, speed: number) {
 
 function updateMinterpFpsMulLabel(markerPair) {
   if (!isSettingsEditorOpen || minterpFpsMulLabelSpan == null) return;
-  const mul = (markerPair.overrides.minterpFpsMultiplier ?? settings.minterpFpsMultiplier ?? 0) as number;
+  const mul = (markerPair.overrides.minterpFpsMultiplier ??
+    settings.minterpFpsMultiplier ??
+    0) as number;
   minterpFpsMulLabelSpan.textContent = `FPS Multiplier${getMinterpFpsMulSuffix(mul, markerPair.speed)}`;
 }
 
@@ -1271,6 +1285,8 @@ function getInterpolatedSpeed(
 }
 
 let isMarkerLoopPreviewOn = false;
+let isMarkerSeekPending = false;
+let markerSeekDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
 function toggleMarkerPairLoop() {
   if (isMarkerLoopPreviewOn) {
     isMarkerLoopPreviewOn = false;
@@ -1321,7 +1337,7 @@ function loopMarkerPair() {
   ) {
     shouldTriggerCropChartUpdates = false;
     cropChartSectionLoop();
-  } else if (isMarkerLoopPreviewOn) {
+  } else if (isMarkerLoopPreviewOn && !isMarkerSeekPending) {
     const isTimeBetweenMarkerPair =
       markerPair.start <= video.getCurrentTime() && video.getCurrentTime() <= markerPair.end;
     if (!isTimeBetweenMarkerPair) {
@@ -2675,7 +2691,9 @@ function createMarkerPairEditor(targetMarker: SVGRectElement) {
   // const minterpMode = overrides.minterpMode;
   // const minterpFPS = overrides.minterpFPS;
   const minterpFpsMultiplier = overrides.minterpFpsMultiplier;
-  const effectiveMinterpMul = (minterpFpsMultiplier ?? settings.minterpFpsMultiplier ?? 0) as number;
+  const effectiveMinterpMul = (minterpFpsMultiplier ??
+    settings.minterpFpsMultiplier ??
+    0) as number;
   const minterpFpsMulLabel = getMinterpFpsMulSuffix(effectiveMinterpMul, speed);
   const denoise = overrides.denoise;
   const denoiseDesc = denoise ? denoise.desc : null;
@@ -2918,8 +2936,12 @@ function createMarkerPairEditor(targetMarker: SVGRectElement) {
   speedInputLabel = document.getElementById('speed-input-label') as HTMLInputElement;
   speedInput = document.getElementById('speed-input') as HTMLInputElement;
   minterpFpsMulLabelSpan = document.getElementById('minterp-fps-mul-label') as HTMLSpanElement;
-  document.getElementById('speed-input').addEventListener('change', () => updateMinterpFpsMulLabel(markerPair));
-  document.getElementById('minterp-fps-multiplier-input').addEventListener('change', () => updateMinterpFpsMulLabel(markerPair));
+  document
+    .getElementById('speed-input')
+    .addEventListener('change', () => updateMinterpFpsMulLabel(markerPair));
+  document
+    .getElementById('minterp-fps-multiplier-input')
+    .addEventListener('change', () => updateMinterpFpsMulLabel(markerPair));
   cropInputLabel = document.getElementById('crop-input-label') as HTMLInputElement;
   cropInput = document.getElementById('crop-input') as HTMLInputElement;
   cropAspectRatioSpan = document.getElementById('crop-aspect-ratio') as HTMLSpanElement;
