@@ -1489,14 +1489,12 @@ function toggleAllPreviews() {
     !isMarkerLoopPreviewOn && toggleMarkerPairLoop();
     !isGammaPreviewOn && toggleGammaPreview();
     !isFadeLoopPreviewOn && toggleFadeLoopPreview();
-    !isCropChartLoopingOn && toggleCropChartLooping();
     isAllPreviewsOn = true;
   } else {
     isSpeedPreviewOn && toggleMarkerPairSpeedPreview();
     isMarkerLoopPreviewOn && toggleMarkerPairLoop();
     isGammaPreviewOn && toggleGammaPreview();
     isFadeLoopPreviewOn && toggleFadeLoopPreview();
-    isCropChartLoopingOn && toggleCropChartLooping();
     isAllPreviewsOn = false;
   }
 }

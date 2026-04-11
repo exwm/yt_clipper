@@ -288,9 +288,9 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 - Note that fade duration defaults to 0.7 seconds and is clamped to a minimum of 0.1 seconds and a maximum of 40% of the output clip duration.
 
-**Ctrl+Alt+Shift+C:** Toggle all previews.
+**Ctrl+Alt+Shift+C:** Toggle essential previews.
 
-- If any preview feature is disabled, turns it on. If all preview features are enabled, disables all of them.
+- If any preview feature is disabled, turns it on. If all preview features are enabled, disables all of them. Excludes dynamic crop chart section looping.
 
 - Works only when in fullscreen mode or theater mode.
 - **Note that this does not yet work with drawing and previewing crops and should be disabled when doing so.**
