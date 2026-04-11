@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [5.42.0](https://github.com/exwm/yt_clipper/compare/v5.41.0...v5.42.0) (2026-04-11)
+
+
+### Bug Fixes
+
+* **markup:** move marker by frame (alt+shift+mousewheel) should not jump to start when marker pair looping is enabled ([f9f6c23](https://github.com/exwm/yt_clipper/commit/f9f6c23452d180b20d916c9ee26be842c15747f0))
+* **markup:** yt: hide yt overlays that may interfere with cropping ([fcc83fa](https://github.com/exwm/yt_clipper/commit/fcc83fa734fea302169efc66747801a3ad5034f5))
+
 ## [5.41.0](https://github.com/exwm/yt_clipper/compare/v5.40.0...v5.41.0) (2026-03-26)
 
 
