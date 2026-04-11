@@ -69,6 +69,7 @@ import {
   VideoPlatformHooks,
   VideoPlatforms,
 } from './platforms/platforms';
+import { PlatformNavObserver } from './platforms/navigation';
 import './ui/chart/chart.js-drag-data-plugin';
 import { cubicInOutTension, sortX } from './ui/chart/chartutil';
 import {
@@ -110,7 +111,6 @@ import {
   htmlToElement,
   htmlToSVGElement,
   injectCSS,
-  once,
   observeVideoElementChange,
   retryUntilTruthyResult,
   roundValue,
@@ -176,9 +176,7 @@ let ready = false;
 
 loadytClipper();
 
-async function loadytClipper() {
-  console.log('Loading yt_clipper markup script...');
-
+async function resolvePlayerAndVideo() {
   player = await retryUntilTruthyResult(() => document.querySelector(selectors.player));
   if (platform === VideoPlatforms.yt_clipper) {
     video = await retryUntilTruthyResult(() => document.querySelector(selectors.video));
@@ -198,10 +196,143 @@ async function loadytClipper() {
     );
   }
   video.classList.add('yt-clipper-video');
-  ready = true;
 }
 
-const initOnce = once(init, this);
+async function loadytClipper() {
+  console.log('Loading yt_clipper markup script...');
+  await resolvePlayerAndVideo();
+  ready = true;
+  startNavigationWatcher();
+}
+
+let initOnceCalled = false;
+function initOnce() {
+  if (initOnceCalled) return;
+  initOnceCalled = true;
+  init();
+}
+
+let navObserver: PlatformNavObserver | null = null;
+let isStaleVideo = false;
+let navResolveInFlight = false;
+
+function startNavigationWatcher() {
+  if (navObserver) return;
+  navObserver = videoPlatformDataRecords[platform].createNavObserver();
+  navObserver.start(handleNavigation);
+}
+
+async function handleNavigation() {
+  if (!initOnceCalled) {
+    if (navResolveInFlight) return;
+    navResolveInFlight = true;
+    ready = false;
+    try {
+      await resolvePlayerAndVideo();
+      ready = true;
+    } catch (e) {
+      console.error('yt_clipper: failed to re-resolve player/video after navigation', e);
+    } finally {
+      navResolveInFlight = false;
+    }
+    return;
+  }
+
+  const loadedVideoID = settings?.videoID ?? null;
+  const currentPageVideoID = getCurrentPageVideoID();
+
+  if (isStaleVideo) {
+    if (
+      loadedVideoID != null &&
+      currentPageVideoID != null &&
+      currentPageVideoID === loadedVideoID
+    ) {
+      clearStaleVideoState();
+    }
+    return;
+  }
+
+  if (
+    loadedVideoID != null &&
+    currentPageVideoID != null &&
+    currentPageVideoID === loadedVideoID
+  ) {
+    return;
+  }
+
+  isStaleVideo = true;
+  disableCommonBlockers();
+  if (platform === VideoPlatforms.youtube) {
+    disableYTBlockers();
+  }
+  showStaleVideoBanner();
+}
+
+function getCurrentPageVideoID(): string | null {
+  try {
+    if (platform === VideoPlatforms.youtube) {
+      const data = (player as any)?.getVideoData?.();
+      return data?.video_id ?? null;
+    } else if (platform === VideoPlatforms.vlive) {
+      const preloadedState = (window as any).unsafeWindow?.__PRELOADED_STATE__;
+      const videoParams = preloadedState?.postDetail?.post?.officialVideo;
+      let id = videoParams?.videoSeq;
+      if (id == null && location.pathname.includes('video')) {
+        id = location.pathname.split('/')[2];
+      }
+      return id ?? null;
+    } else if (platform === VideoPlatforms.naver_tv) {
+      return location.pathname.split('/')[2] ?? null;
+    } else if (platform === VideoPlatforms.weverse) {
+      if (location.pathname.includes('media') || location.pathname.includes('live')) {
+        return location.pathname.split('/')[3] ?? null;
+      }
+      return null;
+    } else if (platform === VideoPlatforms.yt_clipper) {
+      return 'unknown';
+    } else if (platform === VideoPlatforms.afreecatv) {
+      return location.pathname.split('/')[2] ?? null;
+    }
+  } catch (e) {
+    console.error('yt_clipper: failed to read current page video id', e);
+  }
+  return null;
+}
+
+function clearStaleVideoState() {
+  isStaleVideo = false;
+  hideStaleVideoBanner();
+  if (isHotkeysEnabled) {
+    enableCommonBlockers();
+    if (platform === VideoPlatforms.youtube) {
+      enableYTBlockers();
+    }
+  }
+}
+
+let staleVideoBannerEl: HTMLDivElement | null = null;
+function showStaleVideoBanner() {
+  if (staleVideoBannerEl) return;
+  const loadedVideoID = settings?.videoID ?? 'unknown';
+  staleVideoBannerEl = htmlToElement(`
+    <div id="ytc-stale-video-banner">
+      <span class="ytc-stale-banner-icon">!</span>
+      <div class="ytc-stale-banner-text">
+        <strong>Video changed</strong>
+        <span>yt_clipper was loaded from video with id <code class="ytc-stale-banner-videoid">${loadedVideoID}</code> and may behave unexpectedly on other videos. Navigate back to resume, or refresh the page to reload yt_clipper.</span>
+      </div>
+    </div>
+  `) as HTMLDivElement;
+
+  hooks.flashMessage.insertAdjacentElement('afterbegin', staleVideoBannerEl);
+}
+
+function hideStaleVideoBanner() {
+  if (staleVideoBannerEl) {
+    staleVideoBannerEl.remove();
+    staleVideoBannerEl = null;
+  }
+}
 function init() {
   //immer
   immerEnableAllPlugins();
@@ -305,6 +436,13 @@ function hotkeys(e: KeyboardEvent) {
   }
 
   if (!e.ctrlKey && e.shiftKey && e.altKey && e.code === 'KeyA') {
+    if (isStaleVideo) {
+      flashMessage(
+        'Video changed since yt_clipper loaded. Reload the page to continue clipping.',
+        'red'
+      );
+      return;
+    }
     isHotkeysEnabled = !isHotkeysEnabled;
     initOnce();
     initShortcutSystem();

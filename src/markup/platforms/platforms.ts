@@ -1,5 +1,11 @@
 import { querySelectors } from '../util/util';
 import { readFileSync } from 'fs';
+import {
+  createHistoryApiNavObserver,
+  createNoopNavObserver,
+  createYouTubeNavObserver,
+  PlatformNavObserver,
+} from './navigation';
 
 const youtubeCSS: string = '';
 const vliveCSS: string = readFileSync(__dirname + '/css/vlive.css', 'utf8');
@@ -228,36 +234,43 @@ const ytclipperSelectors = {
 interface videoPlatformData {
   selectors: VideoPlatformSelectors;
   css: string;
+  createNavObserver: () => PlatformNavObserver;
 }
 
 const youtubeData: videoPlatformData = {
   selectors: youtubeSelectors,
   css: youtubeCSS,
+  createNavObserver: createYouTubeNavObserver,
 };
 
 const vliveData: videoPlatformData = {
   selectors: vliveSelectors,
   css: vliveCSS,
+  createNavObserver: createHistoryApiNavObserver,
 };
 
 const weverseData: videoPlatformData = {
   selectors: weverseSelectors,
   css: weverseCSS,
+  createNavObserver: createHistoryApiNavObserver,
 };
 
 const naver_tvData: videoPlatformData = {
   selectors: naver_tvSelectors,
   css: naver_tvCSS,
+  createNavObserver: createHistoryApiNavObserver,
 };
 
 const afreecaData: videoPlatformData = {
   selectors: afreecatvSelectors,
   css: afreecatvCSS,
+  createNavObserver: createHistoryApiNavObserver,
 };
 
 const ytclipperData: videoPlatformData = {
   selectors: ytclipperSelectors,
   css: ytclipperCSS,
+  createNavObserver: createNoopNavObserver,
 };
 
 export const videoPlatformDataRecords: Record<VideoPlatforms, videoPlatformData> = {
