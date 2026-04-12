@@ -728,10 +728,13 @@ export function beginDraw(e: PointerEvent) {
 
     const { isDynamicCrop, enableZoomPan } = getCropMapProperties();
 
-    assertDefined(initDrawCropMap);
-    const prevCrop = !appState.wasGlobalSettingsEditorOpen
-      ? initDrawCropMap[appState.currentCropPointIndex].crop
-      : prevNewMarkerCrop;
+    let prevCrop: string;
+    if (!appState.wasGlobalSettingsEditorOpen) {
+      assertDefined(initDrawCropMap);
+      prevCrop = initDrawCropMap[appState.currentCropPointIndex].crop;
+    } else {
+      prevCrop = prevNewMarkerCrop;
+    }
     const shouldMaintainCropAspectRatio = ((!enableZoomPan || !isDynamicCrop) && e.altKey) ||
       (enableZoomPan && isDynamicCrop && !e.altKey);
     shouldFinishDrawMaintainAspectRatio = shouldMaintainCropAspectRatio;

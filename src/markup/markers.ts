@@ -623,6 +623,9 @@ export function enableMarkerHotkeys(endMarker: SVGRectElement) {
   enableMarkerHotkeysData.startMarker = endMarker.previousSibling as SVGRectElement;
 }
 
+export function getActiveStartMarker() { return enableMarkerHotkeysData.startMarker; }
+export function getActiveEndMarker() { return enableMarkerHotkeysData.endMarker; }
+
 export function moveMarker(
   marker: SVGRectElement,
   newTime?: number,
@@ -731,9 +734,13 @@ export function deleteMarkerPair(idx?: number) {
   const markerPair = appState.markerPairs[idx];
 
   const me = new PointerEvent('pointerover', { shiftKey: true });
-  (enableMarkerHotkeys as any).endMarker.dispatchEvent(me);
-  deleteElement((enableMarkerHotkeys as any).endMarker);
-  deleteElement((enableMarkerHotkeys as any).startMarker);
+  if (enableMarkerHotkeysData.endMarker) {
+    enableMarkerHotkeysData.endMarker.dispatchEvent(me);
+    deleteElement(enableMarkerHotkeysData.endMarker);
+  }
+  if (enableMarkerHotkeysData.startMarker) {
+    deleteElement(enableMarkerHotkeysData.startMarker);
+  }
   deleteElement(markerPair.startNumbering);
   deleteElement(markerPair.endNumbering);
   hideSelectedMarkerPairOverlay(true);
@@ -745,8 +752,8 @@ export function deleteMarkerPair(idx?: number) {
 export function clearPrevSelectedMarkerPairReferences() {
   appState.prevSelectedMarkerPairIndex = null as any;
   appState.prevSelectedEndMarker = null as any;
-  (enableMarkerHotkeys as any).startMarker = null;
-  (enableMarkerHotkeys as any).endMarker = null;
+  enableMarkerHotkeysData.startMarker = null;
+  enableMarkerHotkeysData.endMarker = null;
   appState.markerHotkeysEnabled = false;
 }
 export let selectedStartMarkerOverlay: HTMLElement;

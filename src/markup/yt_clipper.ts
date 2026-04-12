@@ -96,7 +96,8 @@ import {
   addMarker,
   deleteMarkerPair,
   duplicateSelectedMarkerPair,
-  enableMarkerHotkeys,
+  getActiveStartMarker,
+  getActiveEndMarker,
   initMarkersContainer,
   jumpToNearestMarkerOrPair,
   loopMarkerPair,
@@ -188,12 +189,10 @@ export function initShortcutSystem() {
     createShortcutDefinitions({
       showShortcutsReference: () => { toggleShortcutsTable(); },
       addMarker: () => { addMarker(); },
-      moveMarkerToCurrentTime: (which) =>
-        { moveMarker(
-          which === 'start'
-            ? (enableMarkerHotkeys as any).startMarker
-            : (enableMarkerHotkeys as any).endMarker
-        ); },
+      moveMarkerToCurrentTime: (which) => {
+        const marker = which === 'start' ? getActiveStartMarker() : getActiveEndMarker();
+        if (marker) moveMarker(marker);
+      },
       addChartPoint: () => { addChartPoint(); },
       duplicateSelectedMarkerPair: () => { duplicateSelectedMarkerPair(); },
       saveMarkersAndSettings: () => { saveMarkersAndSettings(); },

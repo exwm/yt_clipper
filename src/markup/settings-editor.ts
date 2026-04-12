@@ -95,9 +95,11 @@ export function toggleMarkerPairOverridesEditor() {
 }
 
 export let cropInputLabel: HTMLInputElement;
+export function setCropInputLabel(el: HTMLInputElement) { cropInputLabel = el; }
 export let cropInput: HTMLInputElement;
 export function setCropInput(el: HTMLInputElement) { cropInput = el; }
 export let enableZoomPanInput: HTMLInputElement;
+export function setEnableZoomPanInput(el: HTMLInputElement) { enableZoomPanInput = el; }
 export let cropAspectRatioSpan: HTMLSpanElement;
 export function setCropAspectRatioSpan(el: HTMLSpanElement) { cropAspectRatioSpan = el; }
 export function highlightModifiedSettings(inputs: string[][], target) {

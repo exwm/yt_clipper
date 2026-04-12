@@ -18,6 +18,10 @@ import {
   deleteSettingsEditor,
   highlightModifiedSettings,
   isExtraSettingsEditorEnabled,
+  setCropInput,
+  setCropInputLabel,
+  setCropAspectRatioSpan,
+  setEnableZoomPanInput,
 } from './settings-editor';
 import { getMinterpFpsMulSuffix, updateMinterpFpsMulLabel, updateSpeedInputLabel } from './speed';
 import { setCurrentCropPoint } from './ui/chart/cropchart/cropChartSpec';
@@ -299,6 +303,10 @@ export function createMarkerPairEditor(targetMarker: SVGRectElement) {
   appState.enableZoomPanInput = document.getElementById(
     'enable-zoom-pan-input'
   ) as HTMLInputElement;
+  setCropInputLabel(appState.cropInputLabel);
+  setCropInput(appState.cropInput);
+  setCropAspectRatioSpan(appState.cropAspectRatioSpan);
+  setEnableZoomPanInput(appState.enableZoomPanInput);
   appState.isSettingsEditorOpen = true;
   appState.wasGlobalSettingsEditorOpen = false;
 
