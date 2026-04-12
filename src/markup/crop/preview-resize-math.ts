@@ -91,7 +91,18 @@ export type ARChangeResult = {
  * only if the new size would overflow the viewport on that axis.
  */
 export function computeARChange(p: ARChangeParams): ARChangeResult {
-  const { x, y, width, height, minWidth, minHeight, newAR, viewportW, viewportH, lockDimension = 'width' } = p;
+  const {
+    x,
+    y,
+    width,
+    height,
+    minWidth,
+    minHeight,
+    newAR,
+    viewportW,
+    viewportH,
+    lockDimension = 'width',
+  } = p;
   // Use provided anchor preferences, defaulting to left/top
   const preferredAnchorX = p.anchorX ?? 'left';
   const preferredAnchorY = p.anchorY ?? 'top';
@@ -114,12 +125,24 @@ export function computeARChange(p: ARChangeParams): ARChangeResult {
   }
 
   // Scale down to fit viewport while maintaining AR
-  if (newW > viewportW) { newW = viewportW; newH = newW / newAR; }
-  if (newH > viewportH) { newH = viewportH; newW = newH * newAR; }
+  if (newW > viewportW) {
+    newW = viewportW;
+    newH = newW / newAR;
+  }
+  if (newH > viewportH) {
+    newH = viewportH;
+    newW = newH * newAR;
+  }
 
   // Enforce minimums while maintaining AR
-  if (newW < minWidth) { newW = minWidth; newH = newW / newAR; }
-  if (newH < minHeight) { newH = minHeight; newW = newH * newAR; }
+  if (newW < minWidth) {
+    newW = minWidth;
+    newH = newW / newAR;
+  }
+  if (newH < minHeight) {
+    newH = minHeight;
+    newW = newH * newAR;
+  }
 
   const finalW = Math.round(newW);
   const finalH = Math.round(newH);

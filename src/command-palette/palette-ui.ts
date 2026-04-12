@@ -54,14 +54,14 @@ export class CommandPalette {
   private currentQuery = '';
   private keydownHandler: (e: KeyboardEvent) => void;
 
-  constructor(private registry: ShortcutRegistry, options: CommandPaletteOptions = {}) {
+  constructor(
+    private registry: ShortcutRegistry,
+    options: CommandPaletteOptions = {}
+  ) {
     this.container = options.container ?? document.body;
     this.zIndex = options.zIndex ?? 99999;
     this.maxLastSearches = Math.max(0, options.maxLastSearches ?? DEFAULT_MAX_LAST_SEARCHES);
-    this.maxRecentCommands = Math.max(
-      0,
-      options.maxRecentCommands ?? DEFAULT_MAX_RECENT_COMMANDS,
-    );
+    this.maxRecentCommands = Math.max(0, options.maxRecentCommands ?? DEFAULT_MAX_RECENT_COMMANDS);
     this.onOpenReference = options.onOpenReference ?? null;
     this.keydownHandler = (e) => this.handleKeydown(e);
     this.lastSearches = loadLastSearches(this.maxLastSearches);
@@ -585,11 +585,7 @@ function makeFooterHint(key: string, label: string): HTMLElement {
   return hint;
 }
 
-function appendHighlightedText(
-  parent: HTMLElement,
-  text: string,
-  indexes: number[],
-): void {
+function appendHighlightedText(parent: HTMLElement, text: string, indexes: number[]): void {
   if (!indexes || indexes.length === 0) {
     parent.appendChild(document.createTextNode(text));
     return;
@@ -659,10 +655,7 @@ function appendDisplayKey(parent: HTMLElement, displayKey: string, query: string
   });
 }
 
-function computeKeyMatchPositions(
-  parts: string[],
-  query: string,
-): Map<number, Set<number>> {
+function computeKeyMatchPositions(parts: string[], query: string): Map<number, Set<number>> {
   const result = new Map<number, Set<number>>();
   const normalizedQuery = query.toLowerCase().replace(/[\s+]/g, '');
   if (normalizedQuery === '') return result;

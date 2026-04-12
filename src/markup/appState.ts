@@ -20,6 +20,7 @@ export interface AppState {
   prevSelectedMarkerPairIndex: number;
 
   settings: Settings;
+  videoInfo: { [index: string]: any };
   rotation: number;
   startTime: number;
 
@@ -39,6 +40,16 @@ export interface AppState {
   isGammaPreviewOn: boolean;
   isCropChartLoopingOn: boolean;
   isAllPreviewsOn: boolean;
+
+  currentCropPointIndex: number;
+
+  // Speed module shared state
+  speedInputLabel: HTMLInputElement | null;
+  minterpFpsMulLabelSpan: HTMLSpanElement | null;
+  speedInput: HTMLInputElement | null;
+  easingMode: 'linear' | 'cubicInOut';
+  forceSetSpeedValue: number;
+  isForceSetSpeedOn: boolean;
 }
 
 export const appState: AppState = {
@@ -60,6 +71,7 @@ export const appState: AppState = {
   prevSelectedMarkerPairIndex: null as any,
 
   settings: null as any,
+  videoInfo: {},
   rotation: 0,
   startTime: 0.0,
 
@@ -79,4 +91,14 @@ export const appState: AppState = {
   isGammaPreviewOn: false,
   isCropChartLoopingOn: false,
   isAllPreviewsOn: false,
+
+  currentCropPointIndex: 0,
+
+  // Speed module shared state
+  speedInputLabel: null,
+  minterpFpsMulLabelSpan: null,
+  speedInput: null,
+  easingMode: 'linear',
+  forceSetSpeedValue: 1,
+  isForceSetSpeedOn: false,
 };

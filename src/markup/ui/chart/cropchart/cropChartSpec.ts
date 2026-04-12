@@ -1,12 +1,12 @@
 import Chart, { ChartConfiguration, ChartPoint } from 'chart.js';
 import { CropPoint } from '../../../@types/yt_clipper';
+import { appState } from '../../../appState';
 import { clampNumber } from '../../../util/util';
 import { medgrey } from '../chartutil';
 import { scatterChartSpec } from '../scatterChartSpec';
 import isEqual from 'lodash.isequal';
 
 const inputId = 'crop-input';
-export let currentCropPointIndex: number = 0;
 export enum cropChartMode {
   Start,
   End,
@@ -24,22 +24,28 @@ export function setCurrentCropPoint(
 ) {
   const maxIndex = cropChart ? cropChart.data.datasets[0].data.length - 1 : 1;
   const newCropPointIndex = clampNumber(cropPointIndex, 0, maxIndex);
-  const cropPointIndexChanged = currentCropPointIndex !== newCropPointIndex;
-  currentCropPointIndex = newCropPointIndex;
+  const cropPointIndexChanged = appState.currentCropPointIndex !== newCropPointIndex;
+  appState.currentCropPointIndex = newCropPointIndex;
 
   const oldCropChartSection = currentCropChartSection;
 
-  if (currentCropPointIndex <= 0) {
+  if (appState.currentCropPointIndex <= 0) {
     setCropChartMode(cropChartMode.Start);
     setCurrentCropChartSection(cropChart, [0, 1]);
-  } else if (currentCropPointIndex >= maxIndex) {
+  } else if (appState.currentCropPointIndex >= maxIndex) {
     setCropChartMode(cropChartMode.End);
     setCurrentCropChartSection(cropChart, [maxIndex - 1, maxIndex]);
   } else {
     if (mode != null) currentCropChartMode = mode;
     currentCropChartMode === cropChartMode.Start
-      ? setCurrentCropChartSection(cropChart, [currentCropPointIndex, currentCropPointIndex + 1])
-      : setCurrentCropChartSection(cropChart, [currentCropPointIndex - 1, currentCropPointIndex]);
+      ? setCurrentCropChartSection(cropChart, [
+          appState.currentCropPointIndex,
+          appState.currentCropPointIndex + 1,
+        ])
+      : setCurrentCropChartSection(cropChart, [
+          appState.currentCropPointIndex - 1,
+          appState.currentCropPointIndex,
+        ]);
   }
   const cropChartSectionChanged = !isEqual(currentCropChartSection, oldCropChartSection);
   if ((cropPointIndexChanged || cropChartSectionChanged) && cropChart) {
@@ -67,7 +73,7 @@ export function setCurrentCropChartSection(
 
 export const updateCurrentCropPoint = function (cropChart: Chart, cropString: string) {
   const cropChartData = cropChart.data.datasets[0].data;
-  const cropPoint = cropChartData[currentCropPointIndex] as CropPoint;
+  const cropPoint = cropChartData[appState.currentCropPointIndex] as CropPoint;
   cropPoint.crop = cropString;
   cropChart.update();
 };
@@ -89,7 +95,7 @@ export const cropPointXYFormatter = (point, ctx) => {
 
 function getCropPointStyle(ctx) {
   const index = ctx.dataIndex;
-  return index === currentCropPointIndex ? 'rectRounded' : 'circle';
+  return index === appState.currentCropPointIndex ? 'rectRounded' : 'circle';
 }
 
 function getCropPointColor(ctx) {
@@ -110,17 +116,17 @@ function getCropPointBackgroundOverlayColor(ctx) {
 
 function getCropPointBorderColor(ctx) {
   const index = ctx.dataIndex;
-  return index === currentCropPointIndex ? 'black' : medgrey(0.9);
+  return index === appState.currentCropPointIndex ? 'black' : medgrey(0.9);
 }
 
 function getCropPointBorderWidth(ctx) {
   const index = ctx.dataIndex;
-  return index === currentCropPointIndex ? 2 : 1;
+  return index === appState.currentCropPointIndex ? 2 : 1;
 }
 
 function getCropPointRadius(ctx) {
   const index = ctx.dataIndex;
-  return index === currentCropPointIndex ? 6 : 4;
+  return index === appState.currentCropPointIndex ? 6 : 4;
 }
 
 const cropChartConfig: ChartConfiguration = {

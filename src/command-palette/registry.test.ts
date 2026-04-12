@@ -66,7 +66,12 @@ describe('ShortcutRegistry', () => {
     expect(Array.from(basic.keys())).toEqual(['Marker', 'Cropping']);
     expect(basic.get('Marker')!.map((d) => d.id)).toEqual(['a', 'b']);
     expect(basic.get('Cropping')!.map((d) => d.id)).toEqual(['c']);
-    expect(grouped.get('Advanced')!.get('Markup')!.map((d) => d.id)).toEqual(['d']);
+    expect(
+      grouped
+        .get('Advanced')!
+        .get('Markup')!
+        .map((d) => d.id)
+    ).toEqual(['d']);
   });
 
   test('getByBinding returns exact match on code + modifiers', () => {
@@ -87,7 +92,10 @@ describe('ShortcutRegistry', () => {
   test('getByBinding returns empty when no match', () => {
     const reg = new ShortcutRegistry();
     reg.register(
-      makeDef({ id: 'a', binding: { code: 'KeyA', modifiers: { ctrl: false, shift: false, alt: false } } }),
+      makeDef({
+        id: 'a',
+        binding: { code: 'KeyA', modifiers: { ctrl: false, shift: false, alt: false } },
+      })
     );
     expect(reg.getByBinding('KeyB', { ctrl: false, shift: false, alt: false })).toEqual([]);
     expect(reg.getByBinding('KeyA', { ctrl: true, shift: false, alt: false })).toEqual([]);
@@ -100,9 +108,15 @@ describe('ShortcutRegistry', () => {
       binding: { code: 'ArrowLeft', modifiers: {} },
     });
     reg.register(wildcard);
-    expect(reg.getByBinding('ArrowLeft', { ctrl: false, shift: false, alt: false })).toEqual([wildcard]);
-    expect(reg.getByBinding('ArrowLeft', { ctrl: true, shift: false, alt: false })).toEqual([wildcard]);
-    expect(reg.getByBinding('ArrowLeft', { ctrl: false, shift: true, alt: true })).toEqual([wildcard]);
+    expect(reg.getByBinding('ArrowLeft', { ctrl: false, shift: false, alt: false })).toEqual([
+      wildcard,
+    ]);
+    expect(reg.getByBinding('ArrowLeft', { ctrl: true, shift: false, alt: false })).toEqual([
+      wildcard,
+    ]);
+    expect(reg.getByBinding('ArrowLeft', { ctrl: false, shift: true, alt: true })).toEqual([
+      wildcard,
+    ]);
   });
 
   test('getByBinding ignores shortcuts with null binding', () => {

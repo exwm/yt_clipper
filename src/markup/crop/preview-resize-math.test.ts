@@ -101,7 +101,12 @@ describe('left handle', () => {
 
 describe('bottom handle', () => {
   it('grows height and width proportionally', () => {
-    const r = computeARLockedResize({ ...BASE, edges: edges(false, false, false, true), dx: 0, dy: 100 });
+    const r = computeARLockedResize({
+      ...BASE,
+      edges: edges(false, false, false, true),
+      dx: 0,
+      dy: 100,
+    });
     expect(r.h).toBe(325);
     expectAR(r.w, r.h, AR_16_9);
     expect(r.x).toBe(BASE.startX); // left edge fixed
@@ -109,7 +114,12 @@ describe('bottom handle', () => {
   });
 
   it('shrinks height and width proportionally', () => {
-    const r = computeARLockedResize({ ...BASE, edges: edges(false, false, false, true), dx: 0, dy: -100 });
+    const r = computeARLockedResize({
+      ...BASE,
+      edges: edges(false, false, false, true),
+      dx: 0,
+      dy: -100,
+    });
     expect(r.h).toBe(125);
     expectAR(r.w, r.h, AR_16_9);
     expect(r.x).toBe(BASE.startX);
@@ -117,14 +127,24 @@ describe('bottom handle', () => {
   });
 
   it('clamps to minH and maintains AR', () => {
-    const r = computeARLockedResize({ ...BASE, edges: edges(false, false, false, true), dx: 0, dy: -300 });
+    const r = computeARLockedResize({
+      ...BASE,
+      edges: edges(false, false, false, true),
+      dx: 0,
+      dy: -300,
+    });
     expect(r.h).toBeGreaterThanOrEqual(BASE.minH);
     expect(r.w).toBeGreaterThanOrEqual(BASE.minW);
     expectAR(r.w, r.h, AR_16_9);
   });
 
   it('top and left edges stay fixed', () => {
-    const r = computeARLockedResize({ ...BASE, edges: edges(false, false, false, true), dx: 0, dy: 80 });
+    const r = computeARLockedResize({
+      ...BASE,
+      edges: edges(false, false, false, true),
+      dx: 0,
+      dy: 80,
+    });
     expect(r.x).toBe(BASE.startX);
     expect(r.y).toBe(BASE.startY);
   });
@@ -134,15 +154,25 @@ describe('bottom handle', () => {
 
 describe('top handle', () => {
   it('grows height upward (bottom+right edges fixed)', () => {
-    const r = computeARLockedResize({ ...BASE, edges: edges(false, false, true, false), dx: 0, dy: -100 });
+    const r = computeARLockedResize({
+      ...BASE,
+      edges: edges(false, false, true, false),
+      dx: 0,
+      dy: -100,
+    });
     expect(r.h).toBe(325);
     expectAR(r.w, r.h, AR_16_9);
     expect(bottom(r)).toBe(BASE.startY + BASE.startH); // bottom fixed
-    expect(right(r)).toBe(BASE.startX + BASE.startW);  // right fixed
+    expect(right(r)).toBe(BASE.startX + BASE.startW); // right fixed
   });
 
   it('shrinks height downward (bottom+right edges fixed)', () => {
-    const r = computeARLockedResize({ ...BASE, edges: edges(false, false, true, false), dx: 0, dy: 100 });
+    const r = computeARLockedResize({
+      ...BASE,
+      edges: edges(false, false, true, false),
+      dx: 0,
+      dy: 100,
+    });
     expect(r.h).toBe(125);
     expectAR(r.w, r.h, AR_16_9);
     expect(bottom(r)).toBe(BASE.startY + BASE.startH);
@@ -150,7 +180,12 @@ describe('top handle', () => {
   });
 
   it('clamps to minH with bottom+right anchor', () => {
-    const r = computeARLockedResize({ ...BASE, edges: edges(false, false, true, false), dx: 0, dy: 300 });
+    const r = computeARLockedResize({
+      ...BASE,
+      edges: edges(false, false, true, false),
+      dx: 0,
+      dy: 300,
+    });
     expect(r.h).toBeGreaterThanOrEqual(BASE.minH);
     expect(r.w).toBeGreaterThanOrEqual(BASE.minW);
     expectAR(r.w, r.h, AR_16_9);
@@ -160,7 +195,12 @@ describe('top handle', () => {
 
   it('can grow past the top of the viewport (y may go negative)', () => {
     const nearTop = { ...BASE, startY: 10 };
-    const r = computeARLockedResize({ ...nearTop, edges: edges(false, false, true, false), dx: 0, dy: -200 });
+    const r = computeARLockedResize({
+      ...nearTop,
+      edges: edges(false, false, true, false),
+      dx: 0,
+      dy: -200,
+    });
     expect(r.y).toBeLessThan(0);
     expectAR(r.w, r.h, AR_16_9);
   });
@@ -170,7 +210,12 @@ describe('top handle', () => {
 
 describe('bottom-right corner', () => {
   it('grows from bottom-right (top+left fixed)', () => {
-    const r = computeARLockedResize({ ...BASE, edges: edges(false, true, false, true), dx: 100, dy: 50 });
+    const r = computeARLockedResize({
+      ...BASE,
+      edges: edges(false, true, false, true),
+      dx: 100,
+      dy: 50,
+    });
     // width-primary, uses dx
     expect(r.w).toBe(500);
     expectAR(r.w, r.h, AR_16_9);
@@ -179,7 +224,12 @@ describe('bottom-right corner', () => {
   });
 
   it('shrinks from bottom-right', () => {
-    const r = computeARLockedResize({ ...BASE, edges: edges(false, true, false, true), dx: -80, dy: -45 });
+    const r = computeARLockedResize({
+      ...BASE,
+      edges: edges(false, true, false, true),
+      dx: -80,
+      dy: -45,
+    });
     expect(r.w).toBe(320);
     expectAR(r.w, r.h, AR_16_9);
   });
@@ -187,7 +237,12 @@ describe('bottom-right corner', () => {
 
 describe('bottom-left corner', () => {
   it('grows from bottom-left (right edge fixed)', () => {
-    const r = computeARLockedResize({ ...BASE, edges: edges(true, false, false, true), dx: -100, dy: 50 });
+    const r = computeARLockedResize({
+      ...BASE,
+      edges: edges(true, false, false, true),
+      dx: -100,
+      dy: 50,
+    });
     expect(r.w).toBe(500);
     expectAR(r.w, r.h, AR_16_9);
     expect(right(r)).toBe(BASE.startX + BASE.startW);
@@ -197,25 +252,40 @@ describe('bottom-left corner', () => {
 
 describe('top-right corner', () => {
   it('grows from top-right (left+bottom fixed)', () => {
-    const r = computeARLockedResize({ ...BASE, edges: edges(false, true, true, false), dx: 100, dy: -50 });
+    const r = computeARLockedResize({
+      ...BASE,
+      edges: edges(false, true, true, false),
+      dx: 100,
+      dy: -50,
+    });
     expect(r.w).toBe(500);
     expectAR(r.w, r.h, AR_16_9);
-    expect(r.x).toBe(BASE.startX);                     // left fixed
-    expect(bottom(r)).toBe(BASE.startY + BASE.startH);  // bottom fixed
+    expect(r.x).toBe(BASE.startX); // left fixed
+    expect(bottom(r)).toBe(BASE.startY + BASE.startH); // bottom fixed
   });
 });
 
 describe('top-left corner', () => {
   it('grows from top-left (right+bottom fixed)', () => {
-    const r = computeARLockedResize({ ...BASE, edges: edges(true, false, true, false), dx: -100, dy: -50 });
+    const r = computeARLockedResize({
+      ...BASE,
+      edges: edges(true, false, true, false),
+      dx: -100,
+      dy: -50,
+    });
     expect(r.w).toBe(500);
     expectAR(r.w, r.h, AR_16_9);
-    expect(right(r)).toBe(BASE.startX + BASE.startW);   // right fixed
-    expect(bottom(r)).toBe(BASE.startY + BASE.startH);  // bottom fixed
+    expect(right(r)).toBe(BASE.startX + BASE.startW); // right fixed
+    expect(bottom(r)).toBe(BASE.startY + BASE.startH); // bottom fixed
   });
 
   it('shrinks from top-left (right+bottom fixed)', () => {
-    const r = computeARLockedResize({ ...BASE, edges: edges(true, false, true, false), dx: 100, dy: 50 });
+    const r = computeARLockedResize({
+      ...BASE,
+      edges: edges(true, false, true, false),
+      dx: 100,
+      dy: 50,
+    });
     expect(r.w).toBe(300);
     expectAR(r.w, r.h, AR_16_9);
     expect(right(r)).toBe(BASE.startX + BASE.startW);
@@ -227,25 +297,53 @@ describe('top-left corner', () => {
 
 describe('min-size clamping', () => {
   it('right: minW clamps width and AR is maintained', () => {
-    const r = computeARLockedResize({ ...BASE, startW: 170, startH: 96, edges: edges(false, true), dx: -20, dy: 0 });
+    const r = computeARLockedResize({
+      ...BASE,
+      startW: 170,
+      startH: 96,
+      edges: edges(false, true),
+      dx: -20,
+      dy: 0,
+    });
     expect(r.w).toBeGreaterThanOrEqual(BASE.minW);
     expectAR(r.w, r.h, AR_16_9);
   });
 
   it('bottom: minH clamps height and AR is maintained', () => {
-    const r = computeARLockedResize({ ...BASE, startW: 180, startH: 100, edges: edges(false, false, false, true), dx: 0, dy: -20 });
+    const r = computeARLockedResize({
+      ...BASE,
+      startW: 180,
+      startH: 100,
+      edges: edges(false, false, false, true),
+      dx: 0,
+      dy: -20,
+    });
     expect(r.h).toBeGreaterThanOrEqual(BASE.minH);
     expectAR(r.w, r.h, AR_16_9);
   });
 
   it('at exactly min size, further shrinking is blocked', () => {
-    const r = computeARLockedResize({ ...BASE, startW: 160, startH: 90, edges: edges(false, true), dx: -50, dy: 0 });
+    const r = computeARLockedResize({
+      ...BASE,
+      startW: 160,
+      startH: 90,
+      edges: edges(false, true),
+      dx: -50,
+      dy: 0,
+    });
     expect(r.w).toBe(160);
     expect(r.h).toBe(90);
   });
 
   it('at exactly min size, growing still works', () => {
-    const r = computeARLockedResize({ ...BASE, startW: 160, startH: 90, edges: edges(false, true), dx: 40, dy: 0 });
+    const r = computeARLockedResize({
+      ...BASE,
+      startW: 160,
+      startH: 90,
+      edges: edges(false, true),
+      dx: 40,
+      dy: 0,
+    });
     expect(r.w).toBe(200);
     expectAR(r.w, r.h, AR_16_9);
   });
@@ -256,7 +354,13 @@ describe('min-size clamping', () => {
 describe('max-size clamping (viewport bounds)', () => {
   it('right: maxW blocks growth and AR is maintained', () => {
     // drag would grow to 600, but maxW=450 caps it
-    const r = computeARLockedResize({ ...BASE, edges: edges(false, true), dx: 200, dy: 0, maxW: 450 });
+    const r = computeARLockedResize({
+      ...BASE,
+      edges: edges(false, true),
+      dx: 200,
+      dy: 0,
+      maxW: 450,
+    });
     expect(r.w).toBeLessThanOrEqual(450);
     expectAR(r.w, r.h, AR_16_9);
     expect(r.x).toBe(BASE.startX); // left edge fixed
@@ -264,13 +368,25 @@ describe('max-size clamping (viewport bounds)', () => {
 
   it('right: maxH caps the derived height and propagates back to width', () => {
     // drag grows width, but derived height would exceed maxH=270
-    const r = computeARLockedResize({ ...BASE, edges: edges(false, true), dx: 200, dy: 0, maxH: 270 });
+    const r = computeARLockedResize({
+      ...BASE,
+      edges: edges(false, true),
+      dx: 200,
+      dy: 0,
+      maxH: 270,
+    });
     expect(r.h).toBeLessThanOrEqual(270);
     expectAR(r.w, r.h, AR_16_9);
   });
 
   it('bottom: maxH blocks growth and AR is maintained', () => {
-    const r = computeARLockedResize({ ...BASE, edges: edges(false, false, false, true), dx: 0, dy: 200, maxH: 350 });
+    const r = computeARLockedResize({
+      ...BASE,
+      edges: edges(false, false, false, true),
+      dx: 0,
+      dy: 200,
+      maxH: 350,
+    });
     expect(r.h).toBeLessThanOrEqual(350);
     expectAR(r.w, r.h, AR_16_9);
     expect(r.x).toBe(BASE.startX);
@@ -278,14 +394,26 @@ describe('max-size clamping (viewport bounds)', () => {
   });
 
   it('bottom: maxW caps the derived width and propagates back to height', () => {
-    const r = computeARLockedResize({ ...BASE, edges: edges(false, false, false, true), dx: 0, dy: 200, maxW: 500 });
+    const r = computeARLockedResize({
+      ...BASE,
+      edges: edges(false, false, false, true),
+      dx: 0,
+      dy: 200,
+      maxW: 500,
+    });
     expect(r.w).toBeLessThanOrEqual(500);
     expectAR(r.w, r.h, AR_16_9);
   });
 
   it('left: maxW (= startX+startW) blocks leftward growth and AR is maintained', () => {
     // left handle anchors right edge; maxW = startX+startW = 500 (can grow from x=100 all the way to x=0)
-    const r = computeARLockedResize({ ...BASE, edges: edges(true, false), dx: -300, dy: 0, maxW: BASE.startX + BASE.startW });
+    const r = computeARLockedResize({
+      ...BASE,
+      edges: edges(true, false),
+      dx: -300,
+      dy: 0,
+      maxW: BASE.startX + BASE.startW,
+    });
     expect(r.w).toBeLessThanOrEqual(BASE.startX + BASE.startW);
     expectAR(r.w, r.h, AR_16_9);
     expect(right(r)).toBe(BASE.startX + BASE.startW); // right edge fixed
@@ -293,27 +421,56 @@ describe('max-size clamping (viewport bounds)', () => {
 
   it('top: maxH (= startY+startH) blocks upward growth and AR is maintained', () => {
     // top handle anchors bottom edge; maxH = startY+startH = 325
-    const r = computeARLockedResize({ ...BASE, edges: edges(false, false, true, false), dx: 0, dy: -300, maxH: BASE.startY + BASE.startH });
+    const r = computeARLockedResize({
+      ...BASE,
+      edges: edges(false, false, true, false),
+      dx: 0,
+      dy: -300,
+      maxH: BASE.startY + BASE.startH,
+    });
     expect(r.h).toBeLessThanOrEqual(BASE.startY + BASE.startH);
     expectAR(r.w, r.h, AR_16_9);
     expect(bottom(r)).toBe(BASE.startY + BASE.startH); // bottom edge fixed
   });
 
   it('at exactly max size, further growing is blocked', () => {
-    const r = computeARLockedResize({ ...BASE, startW: 400, startH: 225, edges: edges(false, true), dx: 100, dy: 0, maxW: 400 });
+    const r = computeARLockedResize({
+      ...BASE,
+      startW: 400,
+      startH: 225,
+      edges: edges(false, true),
+      dx: 100,
+      dy: 0,
+      maxW: 400,
+    });
     expect(r.w).toBe(400);
     expect(r.h).toBe(225);
   });
 
   it('at max size, shrinking still works', () => {
-    const r = computeARLockedResize({ ...BASE, startW: 400, startH: 225, edges: edges(false, true), dx: -100, dy: 0, maxW: 400 });
+    const r = computeARLockedResize({
+      ...BASE,
+      startW: 400,
+      startH: 225,
+      edges: edges(false, true),
+      dx: -100,
+      dy: 0,
+      maxW: 400,
+    });
     expect(r.w).toBe(300);
     expectAR(r.w, r.h, AR_16_9);
   });
 
   it('bottom-right corner: both maxW and maxH constrain correctly', () => {
     // width-primary, so maxW is the binding constraint
-    const r = computeARLockedResize({ ...BASE, edges: edges(false, true, false, true), dx: 200, dy: 200, maxW: 500, maxH: 400 });
+    const r = computeARLockedResize({
+      ...BASE,
+      edges: edges(false, true, false, true),
+      dx: 200,
+      dy: 200,
+      maxW: 500,
+      maxH: 400,
+    });
     expect(r.w).toBeLessThanOrEqual(500);
     expect(r.h).toBeLessThanOrEqual(400);
     expectAR(r.w, r.h, AR_16_9);
@@ -331,18 +488,35 @@ describe('wide AR (3:1)', () => {
   });
 
   it('bottom: maintains wide AR', () => {
-    const r = computeARLockedResize({ ...WIDE, edges: edges(false, false, false, true), dx: 0, dy: 30 });
+    const r = computeARLockedResize({
+      ...WIDE,
+      edges: edges(false, false, false, true),
+      dx: 0,
+      dy: 30,
+    });
     expectAR(r.w, r.h, AR_WIDE);
   });
 
   it('top: bottom+right fixed, maintains wide AR', () => {
-    const r = computeARLockedResize({ ...WIDE, edges: edges(false, false, true, false), dx: 0, dy: -30 });
+    const r = computeARLockedResize({
+      ...WIDE,
+      edges: edges(false, false, true, false),
+      dx: 0,
+      dy: -30,
+    });
     expectAR(r.w, r.h, AR_WIDE);
     expect(bottom(r)).toBe(WIDE.startY + WIDE.startH);
   });
 
   it('clamps to minW, derives height from AR', () => {
-    const r = computeARLockedResize({ ...WIDE, startW: 170, startH: 57, edges: edges(false, true), dx: -20, dy: 0 });
+    const r = computeARLockedResize({
+      ...WIDE,
+      startW: 170,
+      startH: 57,
+      edges: edges(false, true),
+      dx: -20,
+      dy: 0,
+    });
     expect(r.w).toBeGreaterThanOrEqual(BASE.minW);
     expectAR(r.w, r.h, AR_WIDE);
   });
@@ -352,7 +526,12 @@ describe('tall AR (0.5:1)', () => {
   const TALL = { ...BASE, ar: AR_TALL, startW: Math.round(BASE.startH * AR_TALL) }; // 112x225
 
   it('bottom: maintains tall AR', () => {
-    const r = computeARLockedResize({ ...TALL, edges: edges(false, false, false, true), dx: 0, dy: 50 });
+    const r = computeARLockedResize({
+      ...TALL,
+      edges: edges(false, false, false, true),
+      dx: 0,
+      dy: 50,
+    });
     expectAR(r.w, r.h, AR_TALL);
   });
 
@@ -362,7 +541,14 @@ describe('tall AR (0.5:1)', () => {
   });
 
   it('clamps to minH, derives width from AR', () => {
-    const r = computeARLockedResize({ ...TALL, startH: 100, startW: 50, edges: edges(false, false, false, true), dx: 0, dy: -20 });
+    const r = computeARLockedResize({
+      ...TALL,
+      startH: 100,
+      startW: 50,
+      edges: edges(false, false, false, true),
+      dx: 0,
+      dy: -20,
+    });
     expect(r.h).toBeGreaterThanOrEqual(BASE.minH);
     expectAR(r.w, r.h, AR_TALL);
   });
@@ -372,25 +558,51 @@ describe('tall AR (0.5:1)', () => {
 
 describe('anchor invariants', () => {
   it('right handle: fixed edges stay fixed regardless of starting position', () => {
-    const r = computeARLockedResize({ ...BASE, startX: 50, startY: 200, edges: edges(false, true), dx: 120, dy: 0 });
+    const r = computeARLockedResize({
+      ...BASE,
+      startX: 50,
+      startY: 200,
+      edges: edges(false, true),
+      dx: 120,
+      dy: 0,
+    });
     expect(r.x).toBe(50);
     expect(r.y).toBe(200);
   });
 
   it('left handle: right edge stays fixed regardless of starting position', () => {
-    const startX = 300, startW = 400;
-    const r = computeARLockedResize({ ...BASE, startX, startW, edges: edges(true, false), dx: -80, dy: 0 });
+    const startX = 300,
+      startW = 400;
+    const r = computeARLockedResize({
+      ...BASE,
+      startX,
+      startW,
+      edges: edges(true, false),
+      dx: -80,
+      dy: 0,
+    });
     expect(right(r)).toBe(startX + startW);
   });
 
   it('top handle: bottom edge stays fixed after large upward drag', () => {
     const startY = 50;
-    const r = computeARLockedResize({ ...BASE, startY, edges: edges(false, false, true, false), dx: 0, dy: -200 });
+    const r = computeARLockedResize({
+      ...BASE,
+      startY,
+      edges: edges(false, false, true, false),
+      dx: 0,
+      dy: -200,
+    });
     expect(bottom(r)).toBe(startY + BASE.startH);
   });
 
   it('bottom handle: top and left edges stay fixed after large downward drag', () => {
-    const r = computeARLockedResize({ ...BASE, edges: edges(false, false, false, true), dx: 0, dy: 300 });
+    const r = computeARLockedResize({
+      ...BASE,
+      edges: edges(false, false, false, true),
+      dx: 0,
+      dy: 300,
+    });
     expect(r.x).toBe(BASE.startX);
     expect(r.y).toBe(BASE.startY);
   });
@@ -399,7 +611,16 @@ describe('anchor invariants', () => {
 // ─── computeARChange ─────────────────────────────────────────────────────────
 
 /** Base state for AR-change tests: 400×225 preview in a 1280×720 viewport */
-const AC_BASE = { x: 100, y: 100, width: 400, height: 225, minWidth: 160, minHeight: 90, viewportW: 1280, viewportH: 720 };
+const AC_BASE = {
+  x: 100,
+  y: 100,
+  width: 400,
+  height: 225,
+  minWidth: 160,
+  minHeight: 90,
+  viewportW: 1280,
+  viewportH: 720,
+};
 
 describe('computeARChange — AR maintained', () => {
   it('switching to a wider AR keeps result within AR tolerance', () => {
@@ -710,25 +931,70 @@ describe('computeARChange — anchor preference tracking', () => {
     let height = nearRight.height;
 
     // Grow wider (AR increases) - triggers overflow
-    let r = computeARChange({ ...AC_BASE, x, y, width, height, newAR: 3, anchorX: rightAnchor, startModX });
+    let r = computeARChange({
+      ...AC_BASE,
+      x,
+      y,
+      width,
+      height,
+      newAR: 3,
+      anchorX: rightAnchor,
+      startModX,
+    });
     expect(r.anchorX).toBe('right');
-    x = r.x; y = r.y; width = r.width; height = r.height;
+    x = r.x;
+    y = r.y;
+    width = r.width;
+    height = r.height;
     const rightEdge = x + width;
 
     // Grow even wider - still overflowing
-    r = computeARChange({ ...AC_BASE, x, y, width, height, newAR: 4, anchorX: rightAnchor, startModX });
+    r = computeARChange({
+      ...AC_BASE,
+      x,
+      y,
+      width,
+      height,
+      newAR: 4,
+      anchorX: rightAnchor,
+      startModX,
+    });
     expect(r.anchorX).toBe('right');
-    x = r.x; y = r.y; width = r.width; height = r.height;
+    x = r.x;
+    y = r.y;
+    width = r.width;
+    height = r.height;
     expect(x + width).toBe(rightEdge); // right edge still fixed
 
     // Shrink back - still overflowing
-    r = computeARChange({ ...AC_BASE, x, y, width, height, newAR: 3, anchorX: rightAnchor, startModX });
+    r = computeARChange({
+      ...AC_BASE,
+      x,
+      y,
+      width,
+      height,
+      newAR: 3,
+      anchorX: rightAnchor,
+      startModX,
+    });
     expect(r.anchorX).toBe('right');
-    x = r.x; y = r.y; width = r.width; height = r.height;
+    x = r.x;
+    y = r.y;
+    width = r.width;
+    height = r.height;
     expect(x + width).toBe(rightEdge); // right edge still fixed
 
     // Shrink to original - still overflowing
-    r = computeARChange({ ...AC_BASE, x, y, width, height, newAR: 16/9, anchorX: rightAnchor, startModX });
+    r = computeARChange({
+      ...AC_BASE,
+      x,
+      y,
+      width,
+      height,
+      newAR: 16 / 9,
+      anchorX: rightAnchor,
+      startModX,
+    });
     expect(r.anchorX).toBe('right');
     expect(r.x + r.width).toBe(rightEdge); // right edge still fixed
   });
@@ -746,25 +1012,70 @@ describe('computeARChange — anchor preference tracking', () => {
     let height = nearBottom.height;
 
     // Grow taller (AR decreases) - triggers overflow
-    let r = computeARChange({ ...AC_BASE, x, y, width, height, newAR: 0.5, anchorY: bottomAnchor, startModY });
+    let r = computeARChange({
+      ...AC_BASE,
+      x,
+      y,
+      width,
+      height,
+      newAR: 0.5,
+      anchorY: bottomAnchor,
+      startModY,
+    });
     expect(r.anchorY).toBe('bottom');
-    x = r.x; y = r.y; width = r.width; height = r.height;
+    x = r.x;
+    y = r.y;
+    width = r.width;
+    height = r.height;
     const bottomEdge = y + height;
 
     // Grow even taller - still overflowing
-    r = computeARChange({ ...AC_BASE, x, y, width, height, newAR: 0.3, anchorY: bottomAnchor, startModY });
+    r = computeARChange({
+      ...AC_BASE,
+      x,
+      y,
+      width,
+      height,
+      newAR: 0.3,
+      anchorY: bottomAnchor,
+      startModY,
+    });
     expect(r.anchorY).toBe('bottom');
-    x = r.x; y = r.y; width = r.width; height = r.height;
+    x = r.x;
+    y = r.y;
+    width = r.width;
+    height = r.height;
     expect(y + height).toBe(bottomEdge); // bottom edge still fixed
 
     // Shrink back - still overflowing
-    r = computeARChange({ ...AC_BASE, x, y, width, height, newAR: 0.5, anchorY: bottomAnchor, startModY });
+    r = computeARChange({
+      ...AC_BASE,
+      x,
+      y,
+      width,
+      height,
+      newAR: 0.5,
+      anchorY: bottomAnchor,
+      startModY,
+    });
     expect(r.anchorY).toBe('bottom');
-    x = r.x; y = r.y; width = r.width; height = r.height;
+    x = r.x;
+    y = r.y;
+    width = r.width;
+    height = r.height;
     expect(y + height).toBe(bottomEdge); // bottom edge still fixed
 
     // Shrink to original - still overflowing
-    r = computeARChange({ ...AC_BASE, x, y, width, height, newAR: 16/9, anchorY: bottomAnchor, startModY });
+    r = computeARChange({
+      ...AC_BASE,
+      x,
+      y,
+      width,
+      height,
+      newAR: 16 / 9,
+      anchorY: bottomAnchor,
+      startModY,
+    });
     expect(r.anchorY).toBe('bottom');
     expect(r.y + r.height).toBe(bottomEdge); // bottom edge still fixed
   });
@@ -897,23 +1208,38 @@ describe('computeARChange — anchor switches back to default when overflow reso
 
     // Step 2: Grow more - anchor stays at right
     const r2 = computeARChange({
-      ...AC_BASE, x: r1.x, y: r1.y, width: r1.width, height: r1.height,
-      newAR: 4, anchorX: 'right',
+      ...AC_BASE,
+      x: r1.x,
+      y: r1.y,
+      width: r1.width,
+      height: r1.height,
+      newAR: 4,
+      anchorX: 'right',
     });
     expect(r2.anchorX).toBe('right'); // anchor stays sticky
 
     // Step 3: Shrink a bit - anchor still stays at right
     const r3 = computeARChange({
-      ...AC_BASE, x: r2.x, y: r2.y, width: r2.width, height: r2.height,
-      newAR: 3, anchorX: 'right',
+      ...AC_BASE,
+      x: r2.x,
+      y: r2.y,
+      width: r2.width,
+      height: r2.height,
+      newAR: 3,
+      anchorX: 'right',
     });
     expect(r3.anchorX).toBe('right'); // anchor still sticky
 
     // Step 4: Shrink enough that it would fit with left anchor
     // But anchor stays at right because we're still in the same modification session
     const r4 = computeARChange({
-      ...AC_BASE, x: r3.x, y: r3.y, width: r3.width, height: r3.height,
-      newAR: 1, anchorX: 'right',
+      ...AC_BASE,
+      x: r3.x,
+      y: r3.y,
+      width: r3.width,
+      height: r3.height,
+      newAR: 1,
+      anchorX: 'right',
     });
     // Anchor stays at right - it only resets when Ctrl is released (via resetAnchor)
     expect(r4.anchorX).toBe('right');
@@ -930,15 +1256,25 @@ describe('computeARChange — anchor switches back to default when overflow reso
 
     // Step 2: Grow more - anchor stays at bottom
     const r2 = computeARChange({
-      ...AC_BASE, x: r1.x, y: r1.y, width: r1.width, height: r1.height,
-      newAR: 0.4, anchorY: 'bottom',
+      ...AC_BASE,
+      x: r1.x,
+      y: r1.y,
+      width: r1.width,
+      height: r1.height,
+      newAR: 0.4,
+      anchorY: 'bottom',
     });
     expect(r2.anchorY).toBe('bottom'); // anchor stays sticky
 
     // Step 3: Shrink - anchor still stays at bottom
     const r3 = computeARChange({
-      ...AC_BASE, x: r2.x, y: r2.y, width: r2.width, height: r2.height,
-      newAR: 1.5, anchorY: 'bottom',
+      ...AC_BASE,
+      x: r2.x,
+      y: r2.y,
+      width: r2.width,
+      height: r2.height,
+      newAR: 1.5,
+      anchorY: 'bottom',
     });
     // Anchor stays at bottom - only resets when Ctrl is released (via resetAnchor)
     expect(r3.anchorY).toBe('bottom');

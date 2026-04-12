@@ -24,7 +24,12 @@ export type FloatingVideoPreviewOptions = {
   /** If set, the next popout window will open at this screen position/size. */
   initialPopoutBounds?: { screenX: number; screenY: number; width: number; height: number };
   /** Called just before a popped-out window closes, with its final screen position/size. */
-  onPopoutClose?: (bounds: { screenX: number; screenY: number; width: number; height: number }) => void;
+  onPopoutClose?: (bounds: {
+    screenX: number;
+    screenY: number;
+    width: number;
+    height: number;
+  }) => void;
 };
 
 export type FloatingVideoPreviewHandle = {
@@ -328,7 +333,10 @@ export function mountFloatingVideoPreview(
       if (rotationChanged) {
         // Swap width and height to reflect the landscape↔portrait flip
         const swappedW = Math.max(state.minWidth, Math.min(state.height, hostRect.width - state.x));
-        const swappedH = Math.max(state.minHeight, Math.min(state.width, hostRect.height - state.y));
+        const swappedH = Math.max(
+          state.minHeight,
+          Math.min(state.width, hostRect.height - state.y)
+        );
         state.width = swappedW;
         state.height = swappedH;
         state.aspectRatio = newAR;
@@ -357,17 +365,25 @@ export function mountFloatingVideoPreview(
         }
 
         const r = computeARChange({
-          x: state.x, y: state.y, width: state.width, height: state.height,
-          minWidth: state.minWidth, minHeight: state.minHeight,
-          newAR, viewportW: hostRect.width, viewportH: hostRect.height,
+          x: state.x,
+          y: state.y,
+          width: state.width,
+          height: state.height,
+          minWidth: state.minWidth,
+          minHeight: state.minHeight,
+          newAR,
+          viewportW: hostRect.width,
+          viewportH: hostRect.height,
           lockDimension,
           anchorX,
           anchorY,
           startModX,
           startModY,
         });
-        state.x = r.x; state.y = r.y;
-        state.width = r.width; state.height = r.height;
+        state.x = r.x;
+        state.y = r.y;
+        state.width = r.width;
+        state.height = r.height;
         state.aspectRatio = newAR;
         // Update anchor tracking based on which anchors were actually used
         anchorX = r.anchorX;
@@ -538,8 +554,12 @@ export function mountFloatingVideoPreview(
       const scale = Math.min(vpW / fcw, vpH / fch);
       const displayW = Math.floor(fcw * scale);
       const displayH = Math.floor(fch * scale);
-      if (canvas.width !== fcw || canvas.height !== fch ||
-          canvas.style.width !== displayW + 'px' || canvas.style.height !== displayH + 'px') {
+      if (
+        canvas.width !== fcw ||
+        canvas.height !== fch ||
+        canvas.style.width !== displayW + 'px' ||
+        canvas.style.height !== displayH + 'px'
+      ) {
         canvas.width = fcw;
         canvas.height = fch;
         canvas.style.width = displayW + 'px';
@@ -578,7 +598,12 @@ export function mountFloatingVideoPreview(
       if (popupLoopId !== null) source.cancelVideoFrameCallback(popupLoopId);
       popupGammaRenderer?.destroy();
       popupGammaRenderer = null;
-      onPopoutClose?.({ screenX: popup.screenX, screenY: popup.screenY, width: popup.outerWidth, height: popup.outerHeight });
+      onPopoutClose?.({
+        screenX: popup.screenX,
+        screenY: popup.screenY,
+        width: popup.outerWidth,
+        height: popup.outerHeight,
+      });
       popupWindow = null;
       redraw = () => {};
       onDestroy?.();
@@ -623,7 +648,12 @@ export function mountFloatingVideoPreview(
 
     void vid.play().catch(() => {});
     popup.addEventListener('beforeunload', () => {
-      onPopoutClose?.({ screenX: popup.screenX, screenY: popup.screenY, width: popup.outerWidth, height: popup.outerHeight });
+      onPopoutClose?.({
+        screenX: popup.screenX,
+        screenY: popup.screenY,
+        width: popup.outerWidth,
+        height: popup.outerHeight,
+      });
       popupWindow = null;
       onDestroy?.();
     });

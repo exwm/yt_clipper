@@ -6,11 +6,7 @@ import { seekToSafe, timeRounder } from '../../util/util';
 import { triggerCropChartUpdates } from '../../yt_clipper';
 import { appState } from '../../appState';
 import { getInputUpdater, grey, lightgrey, medgrey, roundX, roundY, sortX } from './chartutil';
-import {
-  cropChartMode,
-  currentCropPointIndex,
-  setCurrentCropPoint,
-} from './cropchart/cropChartSpec';
+import { cropChartMode, setCurrentCropPoint } from './cropchart/cropChartSpec';
 
 export const scatterChartDefaults: ChartOptions & ChartFontOptions = {
   defaultColor: 'rgba(255, 255, 255, 1)',
@@ -114,9 +110,9 @@ export const addCropPoint = function (time: number) {
 
     const cropPointIndex = draft.cropMap.map((cropPoint) => cropPoint.x).indexOf(time);
 
-    // console.log(currentCropPointIndex, cropPointIndex);
-    if (currentCropPointIndex >= cropPointIndex) {
-      setCurrentCropPoint(this, currentCropPointIndex + 1);
+    // console.log(appState.currentCropPointIndex, cropPointIndex);
+    if (appState.currentCropPointIndex >= cropPointIndex) {
+      setCurrentCropPoint(this, appState.currentCropPointIndex + 1);
     }
 
     if (cropPointIndex > 0) {
@@ -191,7 +187,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
       const draftMap = chartType === 'crop' ? draft.cropMap : draft.speedMap;
 
       let currentCropPointXPreSort =
-        chartType === 'crop' ? draftMap[currentCropPointIndex].x : null;
+        chartType === 'crop' ? draftMap[appState.currentCropPointIndex].x : null;
 
       draftMap.sort(sortX);
 
@@ -267,11 +263,11 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
             saveMarkerPairHistory(draft, markerPair);
             this.data.datasets[0].data = markerPair.cropMap;
 
-            if (currentCropPointIndex >= index) {
-              setCurrentCropPoint(this, currentCropPointIndex - 1);
+            if (appState.currentCropPointIndex >= index) {
+              setCurrentCropPoint(this, appState.currentCropPointIndex - 1);
             }
 
-            updateInput(markerPair.cropMap[currentCropPointIndex].crop);
+            updateInput(markerPair.cropMap[appState.currentCropPointIndex].crop);
           } else {
             saveMarkerPairHistory(draft, markerPair);
             this.data.datasets[0].data = markerPair.speedMap;

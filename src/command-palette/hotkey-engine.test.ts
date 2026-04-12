@@ -21,7 +21,7 @@ function makeDef(partial: Partial<ShortcutDefinition> & { id: string }): Shortcu
 
 function keydown(
   code: string,
-  modifiers: { ctrl?: boolean; shift?: boolean; alt?: boolean } = {},
+  modifiers: { ctrl?: boolean; shift?: boolean; alt?: boolean } = {}
 ): KeyboardEvent {
   return new KeyboardEvent('keydown', {
     code,
@@ -40,7 +40,7 @@ describe('HotkeyEngine', () => {
         id: 'a',
         binding: { code: 'KeyA', modifiers: { ctrl: false, shift: false, alt: false } },
         handler,
-      }),
+      })
     );
     const engine = new HotkeyEngine(reg);
     engine.dispatch(keydown('KeyA'));
@@ -55,7 +55,7 @@ describe('HotkeyEngine', () => {
         id: 'a',
         binding: { code: 'KeyA', modifiers: { ctrl: false, shift: false, alt: false } },
         handler,
-      }),
+      })
     );
     const engine = new HotkeyEngine(reg);
     engine.setEnabled(false);
@@ -72,7 +72,7 @@ describe('HotkeyEngine', () => {
         binding: { code: 'KeyA', modifiers: { ctrl: false, shift: false, alt: false } },
         handler,
         guard: () => false,
-      }),
+      })
     );
     const engine = new HotkeyEngine(reg);
     engine.dispatch(keydown('KeyA'));
@@ -89,7 +89,7 @@ describe('HotkeyEngine', () => {
         id: 'a',
         binding: { code: 'KeyA', modifiers: { ctrl: false, shift: false, alt: false } },
         handler,
-      }),
+      })
     );
     const engine = new HotkeyEngine(reg);
     engine.setBlocker(blocker);
@@ -140,7 +140,7 @@ describe('HotkeyEngine', () => {
         id: 'display',
         binding: { code: 'KeyA', modifiers: { ctrl: false, shift: false, alt: false } },
         handler: null,
-      }),
+      })
     );
     const engine = new HotkeyEngine(reg);
     expect(() => engine.dispatch(keydown('KeyA'))).not.toThrow();
@@ -154,7 +154,7 @@ describe('HotkeyEngine', () => {
         id: 'a',
         binding: { code: 'KeyA', modifiers: { ctrl: false, shift: false, alt: false } },
         handler,
-      }),
+      })
     );
     const engine = new HotkeyEngine(reg);
     engine.attach(document);

@@ -16,7 +16,17 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
-    "newLine": "LF"
+    "newLine": "LF",
+    "types": [
+      "chart.js",
+      "common-tags",
+      "d3-ease",
+      "dompurify",
+      "file-saver",
+      "jest",
+      "jszip",
+      "node"
+    ]
   },
   "include": [
     "src/**/*",
@@ -24,5 +34,5 @@
   "exclude": [
     "node_modules",
     "**/*.spec.ts"
-  ]
+  ],
 }

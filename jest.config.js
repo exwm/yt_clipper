@@ -5,7 +5,12 @@ module.exports = {
   globals: {
     'ts-jest': {
       tsconfig: 'tsconfig.jest.json',
+      diagnostics: false,
     },
   },
   testMatch: ['**/*.test.ts'],
+  moduleNameMapper: {
+    '^chart\\.js$': '<rootDir>/src/markup/__mocks__/chart.js.js',
+    '^jszip$': '<rootDir>/src/markup/__mocks__/jszip.js',
+  },
 };

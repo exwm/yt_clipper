@@ -27,20 +27,18 @@ describe('renderDisplayKey', () => {
 
   test('three-modifier compound', () => {
     expect(renderDisplayKey('Ctrl + Alt + Shift + Z')).toBe(
-      '<kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd>',
+      '<kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd>'
     );
   });
 
   test('alternatives with spaced slash', () => {
     expect(renderDisplayKey('Z / Shift + Z')).toBe(
-      '<kbd>Z</kbd> / <kbd>Shift</kbd> + <kbd>Z</kbd>',
+      '<kbd>Z</kbd> / <kbd>Shift</kbd> + <kbd>Z</kbd>'
     );
   });
 
   test('alternatives with unspaced slash', () => {
-    expect(renderDisplayKey('Shift + Q/A')).toBe(
-      '<kbd>Shift</kbd> + <kbd>Q</kbd>/<kbd>A</kbd>',
-    );
+    expect(renderDisplayKey('Shift + Q/A')).toBe('<kbd>Shift</kbd> + <kbd>Q</kbd>/<kbd>A</kbd>');
   });
 
   test('escapes angle brackets', () => {
@@ -49,13 +47,13 @@ describe('renderDisplayKey', () => {
 
   test('"or" connector', () => {
     expect(renderDisplayKey('< / > or Shift + Mousewheel')).toBe(
-      '<kbd>&lt;</kbd> / <kbd>&gt;</kbd> or <kbd>Shift</kbd> + <kbd>Mousewheel</kbd>',
+      '<kbd>&lt;</kbd> / <kbd>&gt;</kbd> or <kbd>Shift</kbd> + <kbd>Mousewheel</kbd>'
     );
   });
 
   test('multi-word token kept together', () => {
     expect(renderDisplayKey('Alt + Mousewheel Down')).toBe(
-      '<kbd>Alt</kbd> + <kbd>Mousewheel Down</kbd>',
+      '<kbd>Alt</kbd> + <kbd>Mousewheel Down</kbd>'
     );
   });
 
@@ -80,7 +78,7 @@ describe('renderShortcutsTable', () => {
         section: 'Basic Features',
         category: 'Marker Shortcuts',
         essential: true,
-      }),
+      })
     );
     const html = renderShortcutsTable(reg);
     expect(html).toContain('<h2>Basic Features</h2>');
@@ -92,9 +90,7 @@ describe('renderShortcutsTable', () => {
 
   test('non-essential row has no class', () => {
     const reg = new ShortcutRegistry();
-    reg.register(
-      makeDef({ id: 'a', description: 'Foo', displayKey: 'A', essential: false }),
-    );
+    reg.register(makeDef({ id: 'a', description: 'Foo', displayKey: 'A', essential: false }));
     const html = renderShortcutsTable(reg);
     expect(html).not.toContain('class="essential-row"');
     expect(html).toContain('<tr>');
@@ -107,7 +103,7 @@ describe('renderShortcutsTable', () => {
         id: 'a',
         description: 'Adjust crop',
         displayNote: 'Place cursor on target value',
-      }),
+      })
     );
     const html = renderShortcutsTable(reg);
     expect(html).toContain('<pre>Place cursor on target value</pre>');
