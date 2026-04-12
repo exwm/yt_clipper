@@ -60,7 +60,9 @@ type VideoPlatformSelectors = VideoPlatform<string>;
 export type VideoPlatformHooks = VideoPlatform<HTMLElement>;
 
 export function getVideoPlatformHooks(selectors: VideoPlatformSelectors): VideoPlatformHooks {
-  return querySelectors(selectors as unknown as Record<string, string>) as unknown as VideoPlatformHooks;
+  return querySelectors(
+    selectors as unknown as Record<string, string>
+  ) as unknown as VideoPlatformHooks;
 }
 
 export function getPlatform() {

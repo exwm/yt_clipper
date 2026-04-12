@@ -60,10 +60,7 @@ export function toggleGammaPreview() {
 function gammaPreviewHandler() {
   const shortestActiveMarkerPair = getShortestActiveMarkerPair();
 
-  const markerPairGamma =
-    (shortestActiveMarkerPair?.overrides.gamma) ??
-    appState.settings.gamma ??
-    1;
+  const markerPairGamma = shortestActiveMarkerPair?.overrides.gamma ?? appState.settings.gamma ?? 1;
 
   if (markerPairGamma == 1) {
     if (appState.video.style.filter) appState.video.style.filter = null as any;

@@ -10,7 +10,9 @@ export function createYouTubeNavObserver(): PlatformNavObserver {
   let handler: EventListener | null = null;
   return {
     start(onNavigate) {
-      handler = () => { onNavigate(); };
+      handler = () => {
+        onNavigate();
+      };
       document.addEventListener('yt-navigate-finish', handler);
     },
     stop() {
@@ -83,7 +85,9 @@ function installHistoryApiHook() {
   };
 }
 export let isStaleVideo = false;
-export function setIsStaleVideo(value: boolean) { isStaleVideo = value; }
+export function setIsStaleVideo(value: boolean) {
+  isStaleVideo = value;
+}
 export function getCurrentPageVideoID(): string | null {
   const platform = getPlatform();
   try {
@@ -115,4 +119,3 @@ export function getCurrentPageVideoID(): string | null {
   }
   return null;
 }
-

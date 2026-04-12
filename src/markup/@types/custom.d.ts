@@ -4,9 +4,7 @@
 // which doesn't support named imports. This module declaration bridges the gap.
 declare module 'chart.js' {
   export default Chart;
-  export {
-    Chart,
-  };
+  export { Chart };
   export type ChartConfiguration = Chart.ChartConfiguration;
   export type ChartOptions = Chart.ChartOptions;
   export type ChartDataSets = Chart.ChartDataSets;

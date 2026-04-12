@@ -143,7 +143,9 @@ describe('HotkeyEngine', () => {
       })
     );
     const engine = new HotkeyEngine(reg);
-    expect(() => { engine.dispatch(keydown('KeyA')); }).not.toThrow();
+    expect(() => {
+      engine.dispatch(keydown('KeyA'));
+    }).not.toThrow();
   });
 
   test('attach listens to the target and detach removes listener', () => {

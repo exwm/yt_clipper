@@ -4,7 +4,15 @@ import { getMarkerPairHistory, saveMarkerPairHistory } from '../../util/undoredo
 import { seekToSafe, timeRounder } from '../../util/util';
 import { triggerCropChartUpdates } from '../../charts';
 import { appState } from '../../appState';
-import { getInputUpdater, grey, lightgrey, medgrey, roundX, roundY, sortX } from './chartPrimitives';
+import {
+  getInputUpdater,
+  grey,
+  lightgrey,
+  medgrey,
+  roundX,
+  roundY,
+  sortX,
+} from './chartPrimitives';
 import { cropChartMode, setCurrentCropPoint } from './cropchart/cropChartSpec';
 
 export const scatterChartDefaults: ChartOptions & ChartFontOptions = {

@@ -173,9 +173,10 @@ export function deleteElement(elem: Element) {
   }
 }
 
-export function querySelectors<
-  S extends Record<string, string>,
->(selectors: S, root: ParentNode = document): { [key in keyof S]: HTMLElement } {
+export function querySelectors<S extends Record<string, string>>(
+  selectors: S,
+  root: ParentNode = document
+): { [key in keyof S]: HTMLElement } {
   type T = { [key in keyof S]: HTMLElement };
   const elements: Partial<T> = {};
   for (const key in selectors) {
@@ -197,7 +198,9 @@ export function once(fn: Function, context: any) {
 }
 
 export function setAttributes(el: Element, attrs: Record<string, string>) {
-  Object.keys(attrs).forEach((key) => { el.setAttribute(key, attrs[key]); });
+  Object.keys(attrs).forEach((key) => {
+    el.setAttribute(key, attrs[key]);
+  });
 }
 
 export function copyToClipboard(str: string) {
@@ -447,7 +450,9 @@ export function injectProgressBar(color: string, tag: string) {
   progressDiv.setAttribute('class', 'msg-div');
   progressDiv.addEventListener('done', () => {
     progressDiv.setAttribute('class', 'msg-div flash-div');
-    setTimeout(() => { deleteElement(progressDiv); }, 2500);
+    setTimeout(() => {
+      deleteElement(progressDiv);
+    }, 2500);
   });
   safeSetInnerHtml(
     progressDiv,

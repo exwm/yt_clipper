@@ -10,7 +10,9 @@ export class HotkeyEngine {
   private listener: (e: KeyboardEvent) => void;
 
   constructor(private registry: ShortcutRegistry) {
-    this.listener = (e: KeyboardEvent) => { this.dispatch(e); };
+    this.listener = (e: KeyboardEvent) => {
+      this.dispatch(e);
+    };
   }
 
   attach(target: EventTarget): void {

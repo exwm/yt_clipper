@@ -3,11 +3,7 @@ import cloneDeep from 'lodash.clonedeep';
 import { ChartLoop, MarkerConfig, MarkerPair, MarkerPairHistory } from './@types/yt_clipper';
 import { appState } from './appState';
 import { initAutoSave } from './auto-save';
-import {
-  chartState,
-  cropChartSectionLoop,
-  renderSpeedAndCropUI,
-} from './charts';
+import { chartState, cropChartSectionLoop, renderSpeedAndCropUI } from './charts';
 import { isDrawingCrop, isMouseManipulatingCrop } from './crop-overlay';
 import { getCropMultiples, getDefaultCropRes, multiplyMarkerPairCrops } from './crop-utils';
 import { toggleOffGlobalSettingsEditor } from './global-settings-editor';
@@ -623,8 +619,12 @@ export function enableMarkerHotkeys(endMarker: SVGRectElement) {
   enableMarkerHotkeysData.startMarker = endMarker.previousSibling as SVGRectElement;
 }
 
-export function getActiveStartMarker() { return enableMarkerHotkeysData.startMarker; }
-export function getActiveEndMarker() { return enableMarkerHotkeysData.endMarker; }
+export function getActiveStartMarker() {
+  return enableMarkerHotkeysData.startMarker;
+}
+export function getActiveEndMarker() {
+  return enableMarkerHotkeysData.endMarker;
+}
 
 export function moveMarker(
   marker: SVGRectElement,

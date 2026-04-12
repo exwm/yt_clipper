@@ -718,7 +718,9 @@ export function mountFloatingVideoPreview(
         <div class="floating-video-preview-topbar-btns">
           <button
             class="floating-video-preview-close-btn"
-            @click=${() => { popOut(); }}
+            @click=${() => {
+              popOut();
+            }}
             aria-label="Pop out preview"
             title="Pop out to window"
           >
@@ -740,7 +742,9 @@ export function mountFloatingVideoPreview(
             : ''}
           <button
             class="floating-video-preview-close-btn"
-            @click=${() => { destroy(); }}
+            @click=${() => {
+              destroy();
+            }}
             aria-label="Close preview"
             title="Close preview"
           >
@@ -760,7 +764,12 @@ export function mountFloatingVideoPreview(
 
     const shell = shellEl;
 
-    interface ResizeEdges { left: boolean; right: boolean; top: boolean; bottom: boolean }
+    interface ResizeEdges {
+      left: boolean;
+      right: boolean;
+      top: boolean;
+      bottom: boolean;
+    }
 
     const getResizeMargin = (w: number, h: number): number => {
       // Scale margin with preview size: 15% of smaller dimension, clamped to [8, 25]
@@ -959,7 +968,9 @@ export function mountFloatingVideoPreview(
   return {
     element: host,
     destroy,
-    redraw: () => { redraw(); },
+    redraw: () => {
+      redraw();
+    },
     closePopup,
     getState: () => ({ x: state.x, y: state.y, width: state.width, height: state.height }),
     popOut,

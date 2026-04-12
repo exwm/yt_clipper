@@ -89,7 +89,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Marker Shortcuts',
       essential: false,
       binding: null,
-      handler: () => { deps.showShortcutsReference(); },
+      handler: () => {
+        deps.showShortcutsReference();
+      },
       executable: true,
     },
     {
@@ -100,7 +102,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Marker Shortcuts',
       essential: true,
       binding: { code: 'KeyA', modifiers: { ctrl: false, shift: false, alt: false } },
-      handler: () => { deps.addMarker(); },
+      handler: () => {
+        deps.addMarker();
+      },
       executable: true,
     },
     {
@@ -133,7 +137,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Marker Shortcuts',
       essential: false,
       binding: { code: 'KeyW', modifiers: { ctrl: false, shift: true, alt: false } },
-      handler: () => { deps.toggleMarkerPairOverridesEditor(); },
+      handler: () => {
+        deps.toggleMarkerPairOverridesEditor();
+      },
       executable: true,
     },
     {
@@ -144,7 +150,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Marker Shortcuts',
       essential: false,
       binding: { code: 'KeyA', modifiers: { ctrl: true, shift: true, alt: false } },
-      handler: () => { deps.duplicateSelectedMarkerPair(); },
+      handler: () => {
+        deps.duplicateSelectedMarkerPair();
+      },
       executable: true,
     },
     {
@@ -155,7 +163,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Marker Shortcuts',
       essential: true,
       binding: { code: 'KeyZ', modifiers: { ctrl: false, shift: false, alt: false } },
-      handler: () => { deps.undoMarker(); },
+      handler: () => {
+        deps.undoMarker();
+      },
       executable: true,
     },
     {
@@ -166,7 +176,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Marker Shortcuts',
       essential: true,
       binding: { code: 'KeyZ', modifiers: { ctrl: false, shift: true, alt: false } },
-      handler: () => { deps.redoMarker(); },
+      handler: () => {
+        deps.redoMarker();
+      },
       executable: true,
     },
     {
@@ -177,7 +189,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Marker Shortcuts',
       essential: true,
       binding: { code: 'KeyZ', modifiers: { ctrl: true, shift: true, alt: true } },
-      handler: () => { deps.deleteMarkerPair(); },
+      handler: () => {
+        deps.deleteMarkerPair();
+      },
       guard: markerGuard,
       executable: true,
     },
@@ -189,7 +203,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Marker Shortcuts',
       essential: true,
       binding: { code: 'KeyQ', modifiers: { ctrl: false, shift: true, alt: false } },
-      handler: () => { deps.moveMarkerToCurrentTime('start'); },
+      handler: () => {
+        deps.moveMarkerToCurrentTime('start');
+      },
       guard: markerGuard,
       executable: true,
     },
@@ -201,7 +217,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Marker Shortcuts',
       essential: true,
       binding: { code: 'KeyA', modifiers: { ctrl: false, shift: true, alt: false } },
-      handler: () => { deps.moveMarkerToCurrentTime('end'); },
+      handler: () => {
+        deps.moveMarkerToCurrentTime('end');
+      },
       guard: markerGuard,
       executable: true,
     },
@@ -235,7 +253,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Marker Shortcuts',
       essential: true,
       binding: { code: 'KeyZ', modifiers: { ctrl: false, shift: false, alt: true } },
-      handler: () => { deps.undoMarkerPairChange(); },
+      handler: () => {
+        deps.undoMarkerPairChange();
+      },
       executable: true,
     },
     {
@@ -246,7 +266,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Marker Shortcuts',
       essential: true,
       binding: { code: 'KeyZ', modifiers: { ctrl: false, shift: true, alt: true } },
-      handler: () => { deps.redoMarkerPairChange(); },
+      handler: () => {
+        deps.redoMarkerPairChange();
+      },
       executable: true,
     },
     {
@@ -257,7 +279,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Marker Shortcuts',
       essential: false,
       binding: { code: 'ArrowUp', modifiers: { ctrl: true, shift: false, alt: false } },
-      handler: () => { deps.togglePrevSelectedMarkerPair(); },
+      handler: () => {
+        deps.togglePrevSelectedMarkerPair();
+      },
       guard: cropAdjDisabled,
       executable: true,
     },
@@ -269,7 +293,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Marker Shortcuts',
       essential: false,
       binding: { code: 'ArrowDown', modifiers: { ctrl: true, shift: false, alt: false } },
-      handler: (e) => { deps.toggleAutoHideUnselectedMarkerPairs(e); },
+      handler: (e) => {
+        deps.toggleAutoHideUnselectedMarkerPairs(e);
+      },
       guard: cropAdjDisabled,
       executable: true,
     },
@@ -281,7 +307,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Marker Shortcuts',
       essential: true,
       binding: { code: 'ArrowLeft', modifiers: { ctrl: true, shift: false, alt: false } },
-      handler: (e) => { deps.jumpToNearestMarkerOrPair(e); },
+      handler: (e) => {
+        deps.jumpToNearestMarkerOrPair(e);
+      },
       guard: cropAdjDisabled,
       executable: true,
     },
@@ -293,7 +321,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Marker Shortcuts',
       essential: true,
       binding: { code: 'ArrowRight', modifiers: { ctrl: true, shift: false, alt: false } },
-      handler: (e) => { deps.jumpToNearestMarkerOrPair(e); },
+      handler: (e) => {
+        deps.jumpToNearestMarkerOrPair(e);
+      },
       guard: cropAdjDisabled,
       executable: true,
     },
@@ -305,7 +335,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Marker Shortcuts',
       essential: false,
       binding: { code: 'ArrowLeft', modifiers: { ctrl: false, shift: false, alt: true } },
-      handler: (e) => { deps.jumpToNearestMarkerOrPair(e); },
+      handler: (e) => {
+        deps.jumpToNearestMarkerOrPair(e);
+      },
       guard: cropAdjDisabled,
       executable: true,
     },
@@ -317,7 +349,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Marker Shortcuts',
       essential: false,
       binding: { code: 'ArrowRight', modifiers: { ctrl: false, shift: false, alt: true } },
-      handler: (e) => { deps.jumpToNearestMarkerOrPair(e); },
+      handler: (e) => {
+        deps.jumpToNearestMarkerOrPair(e);
+      },
       guard: cropAdjDisabled,
       executable: true,
     },
@@ -329,7 +363,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Marker Shortcuts',
       essential: false,
       binding: { code: 'ArrowLeft', modifiers: { ctrl: true, shift: false, alt: true } },
-      handler: (e) => { deps.jumpToNearestMarkerOrPair(e); },
+      handler: (e) => {
+        deps.jumpToNearestMarkerOrPair(e);
+      },
       guard: cropAdjDisabled,
       executable: true,
     },
@@ -341,7 +377,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Marker Shortcuts',
       essential: false,
       binding: { code: 'ArrowRight', modifiers: { ctrl: true, shift: false, alt: true } },
-      handler: (e) => { deps.jumpToNearestMarkerOrPair(e); },
+      handler: (e) => {
+        deps.jumpToNearestMarkerOrPair(e);
+      },
       guard: cropAdjDisabled,
       executable: true,
     },
@@ -355,7 +393,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Global Settings Editor Shortcuts',
       essential: true,
       binding: { code: 'KeyW', modifiers: { ctrl: false, shift: false, alt: false } },
-      handler: () => { deps.toggleGlobalSettingsEditor(); },
+      handler: () => {
+        deps.toggleGlobalSettingsEditor();
+      },
       executable: true,
     },
     {
@@ -377,7 +417,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Global Settings Editor Shortcuts',
       essential: false,
       binding: { code: 'KeyQ', modifiers: { ctrl: false, shift: true, alt: true } },
-      handler: () => { deps.updateAllMarkerPairSpeedsToDefault(); },
+      handler: () => {
+        deps.updateAllMarkerPairSpeedsToDefault();
+      },
       executable: true,
     },
     {
@@ -388,7 +430,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Global Settings Editor Shortcuts',
       essential: false,
       binding: { code: 'KeyX', modifiers: { ctrl: false, shift: true, alt: true } },
-      handler: () => { deps.updateAllMarkerPairCropsToDefault(); },
+      handler: () => {
+        deps.updateAllMarkerPairCropsToDefault();
+      },
       executable: true,
     },
 
@@ -401,7 +445,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Cropping Shortcuts',
       essential: true,
       binding: { code: 'KeyX', modifiers: { ctrl: false, shift: false, alt: false } },
-      handler: () => { deps.drawCrop(); },
+      handler: () => {
+        deps.drawCrop();
+      },
       executable: true,
     },
     {
@@ -434,7 +480,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Cropping Shortcuts',
       essential: true,
       binding: { code: 'KeyX', modifiers: { ctrl: true, shift: false, alt: false } },
-      handler: () => { deps.cycleCropDimOpacity(); },
+      handler: () => {
+        deps.cycleCropDimOpacity();
+      },
       executable: true,
     },
     {
@@ -445,7 +493,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Cropping Shortcuts',
       essential: false,
       binding: { code: 'KeyX', modifiers: { ctrl: true, shift: true, alt: false } },
-      handler: () => { deps.toggleCropCrossHair(); },
+      handler: () => {
+        deps.toggleCropCrossHair();
+      },
       executable: true,
     },
     {
@@ -500,7 +550,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Cropping Shortcuts',
       essential: false,
       binding: { code: 'KeyX', modifiers: { ctrl: false, shift: false, alt: true } },
-      handler: () => { deps.toggleArrowKeyCropAdjustment(); },
+      handler: () => {
+        deps.toggleArrowKeyCropAdjustment();
+      },
       executable: true,
     },
     {
@@ -580,7 +632,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Preview Shortcuts',
       essential: true,
       binding: { code: 'KeyC', modifiers: { ctrl: false, shift: false, alt: false } },
-      handler: () => { deps.toggleMarkerPairSpeedPreview(); },
+      handler: () => {
+        deps.toggleMarkerPairSpeedPreview();
+      },
       executable: true,
     },
     {
@@ -591,7 +645,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Preview Shortcuts',
       essential: true,
       binding: { code: 'KeyC', modifiers: { ctrl: false, shift: true, alt: false } },
-      handler: () => { deps.toggleMarkerPairLoop(); },
+      handler: () => {
+        deps.toggleMarkerPairLoop();
+      },
       executable: true,
     },
     {
@@ -602,7 +658,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Preview Shortcuts',
       essential: true,
       binding: { code: 'KeyX', modifiers: { ctrl: false, shift: true, alt: false } },
-      handler: () => { deps.toggleCropPreviewPopOut(); },
+      handler: () => {
+        deps.toggleCropPreviewPopOut();
+      },
       executable: true,
     },
     {
@@ -613,7 +671,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Preview Shortcuts',
       essential: true,
       binding: { code: 'KeyX', modifiers: { ctrl: true, shift: false, alt: true } },
-      handler: () => { deps.toggleCropPreviewModal(); },
+      handler: () => {
+        deps.toggleCropPreviewModal();
+      },
       executable: true,
     },
     {
@@ -624,7 +684,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Preview Shortcuts',
       essential: false,
       binding: { code: 'KeyC', modifiers: { ctrl: true, shift: true, alt: false } },
-      handler: () => { deps.toggleCropChartLooping(); },
+      handler: () => {
+        deps.toggleCropChartLooping();
+      },
       executable: true,
     },
     {
@@ -635,7 +697,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Preview Shortcuts',
       essential: false,
       binding: { code: 'KeyC', modifiers: { ctrl: false, shift: false, alt: true } },
-      handler: () => { deps.toggleGammaPreview(); },
+      handler: () => {
+        deps.toggleGammaPreview();
+      },
       executable: true,
     },
     {
@@ -646,7 +710,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Preview Shortcuts',
       essential: false,
       binding: { code: 'KeyC', modifiers: { ctrl: false, shift: true, alt: true } },
-      handler: () => { deps.toggleFadeLoopPreview(); },
+      handler: () => {
+        deps.toggleFadeLoopPreview();
+      },
       executable: true,
     },
     {
@@ -657,7 +723,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Preview Shortcuts',
       essential: true,
       binding: { code: 'KeyC', modifiers: { ctrl: true, shift: true, alt: true } },
-      handler: () => { deps.toggleAllPreviews(); },
+      handler: () => {
+        deps.toggleAllPreviews();
+      },
       executable: true,
     },
     {
@@ -668,7 +736,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Preview Shortcuts',
       essential: false,
       binding: { code: 'KeyQ', modifiers: { ctrl: false, shift: false, alt: false } },
-      handler: () => { deps.toggleForceSetSpeed(); },
+      handler: () => {
+        deps.toggleForceSetSpeed();
+      },
       executable: true,
     },
     {
@@ -679,7 +749,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Preview Shortcuts',
       essential: false,
       binding: { code: 'KeyQ', modifiers: { ctrl: false, shift: false, alt: true } },
-      handler: () => { deps.cycleForceSetSpeedValueDown(); },
+      handler: () => {
+        deps.cycleForceSetSpeedValueDown();
+      },
       executable: true,
     },
     {
@@ -717,7 +789,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Preview Shortcuts',
       essential: false,
       binding: { code: 'KeyR', modifiers: { ctrl: false, shift: true, alt: false } },
-      handler: () => { deps.toggleBigVideoPreviews(); },
+      handler: () => {
+        deps.toggleBigVideoPreviews();
+      },
       executable: true,
     },
 
@@ -730,7 +804,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Frame Capturer Shortcuts',
       essential: false,
       binding: { code: 'KeyE', modifiers: { ctrl: false, shift: false, alt: false } },
-      handler: () => { deps.captureFrame(); },
+      handler: () => {
+        deps.captureFrame();
+      },
       executable: true,
     },
     {
@@ -741,7 +817,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Frame Capturer Shortcuts',
       essential: false,
       binding: { code: 'KeyE', modifiers: { ctrl: false, shift: false, alt: true } },
-      handler: () => { deps.saveCapturedFrames(); },
+      handler: () => {
+        deps.saveCapturedFrames();
+      },
       executable: true,
     },
 
@@ -754,7 +832,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Saving and Loading Shortcuts',
       essential: true,
       binding: { code: 'KeyS', modifiers: { ctrl: false, shift: false, alt: false } },
-      handler: () => { deps.saveMarkersAndSettings(); },
+      handler: () => {
+        deps.saveMarkersAndSettings();
+      },
       executable: true,
     },
     {
@@ -765,7 +845,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Saving and Loading Shortcuts',
       essential: false,
       binding: { code: 'KeyS', modifiers: { ctrl: false, shift: false, alt: true } },
-      handler: () => { deps.copyMarkersToClipboard(); },
+      handler: () => {
+        deps.copyMarkersToClipboard();
+      },
       executable: true,
     },
     {
@@ -776,7 +858,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Saving and Loading Shortcuts',
       essential: false,
       binding: { code: 'KeyG', modifiers: { ctrl: false, shift: false, alt: false } },
-      handler: () => { deps.toggleMarkersDataCommands(); },
+      handler: () => {
+        deps.toggleMarkersDataCommands();
+      },
       executable: true,
     },
 
@@ -789,7 +873,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Miscellaneous Shortcuts',
       essential: false,
       binding: { code: 'KeyF', modifiers: { ctrl: false, shift: true, alt: false } },
-      handler: () => { deps.flattenVRVideo(); },
+      handler: () => {
+        deps.flattenVRVideo();
+      },
       executable: true,
     },
     {
@@ -800,7 +886,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Miscellaneous Shortcuts',
       essential: false,
       binding: { code: 'KeyF', modifiers: { ctrl: false, shift: false, alt: true } },
-      handler: () => { deps.openSubsEditor(); },
+      handler: () => {
+        deps.openSubsEditor();
+      },
       executable: true,
     },
 
@@ -824,7 +912,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'General Chart Shortcuts',
       essential: false,
       binding: { code: 'KeyA', modifiers: { ctrl: false, shift: false, alt: true } },
-      handler: () => { deps.addChartPoint(); },
+      handler: () => {
+        deps.addChartPoint();
+      },
       guard: markerGuard,
       executable: true,
     },
@@ -902,7 +992,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'General Chart Shortcuts',
       essential: false,
       binding: { code: 'KeyD', modifiers: { ctrl: false, shift: true, alt: false } },
-      handler: () => { deps.toggleChartLoop(); },
+      handler: () => {
+        deps.toggleChartLoop();
+      },
       executable: true,
     },
 
@@ -915,7 +1007,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Speed Chart Shortcuts',
       essential: true,
       binding: { code: 'KeyD', modifiers: { ctrl: false, shift: false, alt: false } },
-      handler: () => { deps.toggleSpeedChart(); },
+      handler: () => {
+        deps.toggleSpeedChart();
+      },
       executable: true,
     },
 
@@ -928,7 +1022,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       category: 'Crop Chart Shortcuts',
       essential: true,
       binding: { code: 'KeyD', modifiers: { ctrl: false, shift: false, alt: true } },
-      handler: () => { deps.toggleCropChart(); },
+      handler: () => {
+        deps.toggleCropChart();
+      },
       executable: true,
     },
     {

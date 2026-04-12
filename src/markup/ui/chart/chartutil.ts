@@ -8,7 +8,16 @@ import { getInterpolatedSpeed } from '../../speed';
 import { MarkerPair } from '../../@types/yt_clipper';
 import { sortX } from './chartPrimitives';
 
-export { sortX, lightgrey, medgrey, grey, cubicInOutTension, roundX, roundY, getInputUpdater } from './chartPrimitives';
+export {
+  sortX,
+  lightgrey,
+  medgrey,
+  grey,
+  cubicInOutTension,
+  roundX,
+  roundY,
+  getInputUpdater,
+} from './chartPrimitives';
 
 export function addChartPoint() {
   if (appState.isChartEnabled && appState.isCurrentChartVisible) {
@@ -30,9 +39,10 @@ export function stretchPointMap(_draft, pointMap, pointType, toTime, type) {
   const rightPoint = pointMap[sectEnd];
   const targetPoint = type === 'start' ? leftPoint : rightPoint;
 
-  const isSectionStatic = pointType === 'crop'
-    ? cropStringsEqual(leftPoint.crop, rightPoint.crop)
-    : leftPoint.y === rightPoint.y;
+  const isSectionStatic =
+    pointType === 'crop'
+      ? cropStringsEqual(leftPoint.crop, rightPoint.crop)
+      : leftPoint.y === rightPoint.y;
 
   if (isSectionStatic) {
     targetPoint.x = toTime;
@@ -87,7 +97,8 @@ export function shrinkPointMap(draft, pointMap, pointType, toTime, type) {
   targetPoint.x = toTime;
 
   pointMap = pointMap.filter((point) => {
-    const keepPoint = point === targetPoint || (type === 'start' ? point.x > toTime : point.x < toTime);
+    const keepPoint =
+      point === targetPoint || (type === 'start' ? point.x > toTime : point.x < toTime);
     return keepPoint;
   });
 
@@ -115,4 +126,3 @@ export function rerenderCurrentChart() {
     chartState.currentChartInput.chart.update();
   }
 }
-

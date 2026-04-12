@@ -63,7 +63,9 @@ export class CommandPalette {
     this.maxLastSearches = Math.max(0, options.maxLastSearches ?? DEFAULT_MAX_LAST_SEARCHES);
     this.maxRecentCommands = Math.max(0, options.maxRecentCommands ?? DEFAULT_MAX_RECENT_COMMANDS);
     this.onOpenReference = options.onOpenReference ?? null;
-    this.keydownHandler = (e) => { this.handleKeydown(e); };
+    this.keydownHandler = (e) => {
+      this.handleKeydown(e);
+    };
     this.lastSearches = loadLastSearches(this.maxLastSearches);
     this.recentCommandIds = loadRecentCommands(this.maxRecentCommands);
     this.preserveOrder = loadPreserveOrder();
@@ -139,7 +141,9 @@ export class CommandPalette {
     const essentialCheckbox = document.createElement('input');
     essentialCheckbox.type = 'checkbox';
     essentialCheckbox.className = 'cmdp-essential-checkbox';
-    essentialCheckbox.addEventListener('change', () => { this.refreshResults(search.value); });
+    essentialCheckbox.addEventListener('change', () => {
+      this.refreshResults(search.value);
+    });
     const essentialText = document.createElement('span');
     essentialText.className = 'cmdp-essential-filter-text';
     essentialText.textContent = 'essential only';

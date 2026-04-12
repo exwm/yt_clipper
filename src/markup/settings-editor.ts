@@ -51,7 +51,9 @@ export function addSettingsInputListeners(inputs: string[][], target, highlighta
     inputElem.addEventListener('blur', () => (appState.isHotkeysEnabled = true), false);
     inputElem.addEventListener(
       'change',
-      (e) => { updateSettingsValue(e, id, target, targetProperty, valueType, highlightable); },
+      (e) => {
+        updateSettingsValue(e, id, target, targetProperty, valueType, highlightable);
+      },
       false
     );
   });
@@ -95,13 +97,21 @@ export function toggleMarkerPairOverridesEditor() {
 }
 
 export let cropInputLabel: HTMLInputElement;
-export function setCropInputLabel(el: HTMLInputElement) { cropInputLabel = el; }
+export function setCropInputLabel(el: HTMLInputElement) {
+  cropInputLabel = el;
+}
 export let cropInput: HTMLInputElement;
-export function setCropInput(el: HTMLInputElement) { cropInput = el; }
+export function setCropInput(el: HTMLInputElement) {
+  cropInput = el;
+}
 export let enableZoomPanInput: HTMLInputElement;
-export function setEnableZoomPanInput(el: HTMLInputElement) { enableZoomPanInput = el; }
+export function setEnableZoomPanInput(el: HTMLInputElement) {
+  enableZoomPanInput = el;
+}
 export let cropAspectRatioSpan: HTMLSpanElement;
-export function setCropAspectRatioSpan(el: HTMLSpanElement) { cropAspectRatioSpan = el; }
+export function setCropAspectRatioSpan(el: HTMLSpanElement) {
+  cropAspectRatioSpan = el;
+}
 export function highlightModifiedSettings(inputs: string[][], target) {
   if (appState.isSettingsEditorOpen) {
     const markerPairSettingsLabelHighlight = 'marker-pair-settings-editor-highlighted-label';
@@ -560,7 +570,10 @@ export let shortcutsTableContainer: HTMLDivElement;
 export function toggleShortcutsTable() {
   if (!shortcutsTableContainer) {
     initShortcutSystem();
-    assertDefined(shortcutRegistry, 'shortcutRegistry must be initialized before rendering shortcuts table');
+    assertDefined(
+      shortcutRegistry,
+      'shortcutRegistry must be initialized before rendering shortcuts table'
+    );
     injectCSS(shortcutsTableStyle, 'shortcutsTableStyle');
     shortcutsTableContainer = document.createElement('div');
     shortcutsTableContainer.setAttribute('id', 'shortcutsTableContainer');

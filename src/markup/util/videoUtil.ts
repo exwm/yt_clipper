@@ -5,12 +5,15 @@ import { isDrawingCrop } from '../crop-overlay';
 import { isMouseManipulatingCrop } from '../crop-overlay';
 import { blockEvent, seekBySafe } from './util';
 
-export let prevVideoWidth: number;export function getFPS(defaultFPS: number | null = 60) {
+export let prevVideoWidth: number;
+export function getFPS(defaultFPS: number | null = 60) {
   let fps: number;
   try {
-    if (appState.videoInfo.fps != null &&
+    if (
+      appState.videoInfo.fps != null &&
       appState.video.videoWidth != null &&
-      prevVideoWidth === appState.video.videoWidth) {
+      prevVideoWidth === appState.video.videoWidth
+    ) {
       fps = appState.videoInfo.fps;
     } else if (getPlatform() === VideoPlatforms.youtube) {
       appState.videoInfo.fps = parseFloat(
@@ -47,7 +50,8 @@ export function hidePlayerControls() {
 }
 export function showPlayerControls() {
   appState.hooks.controls.style.display = appState.hooks.controls.originalDisplay ?? '';
-  appState.hooks.controlsGradient.style.display = appState.hooks.controlsGradient.originalDisplay ?? '';
+  appState.hooks.controlsGradient.style.display =
+    appState.hooks.controlsGradient.originalDisplay ?? '';
 }
 export function addScrubVideoHandler() {
   appState.hooks.cropMouseManipulation.addEventListener('pointerdown', scrubVideoHandler, {
@@ -55,13 +59,18 @@ export function addScrubVideoHandler() {
   });
 }
 export function scrubVideoHandler(e) {
-  const isCropBlockingChartVisible = appState.isCurrentChartVisible && chartState.currentChartInput && chartState.currentChartInput.type !== 'crop';
-  if (!e.ctrlKey &&
+  const isCropBlockingChartVisible =
+    appState.isCurrentChartVisible &&
+    chartState.currentChartInput &&
+    chartState.currentChartInput.type !== 'crop';
+  if (
+    !e.ctrlKey &&
     e.altKey &&
     !e.shiftKey &&
     !isMouseManipulatingCrop &&
     !isDrawingCrop &&
-    !isCropBlockingChartVisible) {
+    !isCropBlockingChartVisible
+  ) {
     blockEvent(e);
     document.addEventListener('click', blockVideoPause, {
       once: true,
@@ -100,4 +109,3 @@ export function scrubVideoHandler(e) {
 export function blockVideoPause(e) {
   e.stopImmediatePropagation();
 }
-

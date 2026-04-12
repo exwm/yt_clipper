@@ -87,7 +87,9 @@ export function clearYTClipperLocalStorage() {
     `);
 
   if (clearAll) {
-    entries.map((x) => { localStorage.removeItem(x); });
+    entries.map((x) => {
+      localStorage.removeItem(x);
+    });
     flashMessage(`Cleared ${nEntries} markers data files.`, 'olive');
   }
 }
@@ -114,11 +116,7 @@ export function downloadAutoSavedMarkersData() {
   entries.forEach((entry) => {
     const data = localStorage.getItem(entry);
     assertDefined(data, `Expected localStorage entry for ${entry}`);
-    markersZip.file(
-      entry.replace(localStorageKeyPrefix, '') + '.json',
-      data,
-      { binary: false }
-    );
+    markersZip.file(entry.replace(localStorageKeyPrefix, '') + '.json', data, { binary: false });
   });
 
   const progressDiv = injectProgressBar('green', 'Markers Data');

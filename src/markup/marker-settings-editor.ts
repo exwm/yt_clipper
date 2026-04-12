@@ -71,9 +71,7 @@ export function createMarkerPairEditor(targetMarker: SVGRectElement) {
   // const minterpMode = overrides.minterpMode;
   // const minterpFPS = overrides.minterpFPS;
   const minterpFpsMultiplier = overrides.minterpFpsMultiplier;
-  const effectiveMinterpMul = (minterpFpsMultiplier ??
-    appState.settings.minterpFpsMultiplier ??
-    0);
+  const effectiveMinterpMul = minterpFpsMultiplier ?? appState.settings.minterpFpsMultiplier ?? 0;
   const minterpFpsMulLabel = getMinterpFpsMulSuffix(effectiveMinterpMul, speed);
   const denoise = overrides.denoise;
   const denoiseDesc = denoise ? denoise.desc : null;
@@ -289,13 +287,15 @@ export function createMarkerPairEditor(targetMarker: SVGRectElement) {
 
   const speedInput = document.getElementById('speed-input');
   assertDefined(speedInput, 'speed-input element not found');
-  speedInput.addEventListener('change', () => { updateMinterpFpsMulLabel(markerPair); });
+  speedInput.addEventListener('change', () => {
+    updateMinterpFpsMulLabel(markerPair);
+  });
 
-  const minterpFpsMultiplierInput = document.getElementById(
-    'minterp-fps-multiplier-input'
-  );
+  const minterpFpsMultiplierInput = document.getElementById('minterp-fps-multiplier-input');
   assertDefined(minterpFpsMultiplierInput, 'minterp-fps-multiplier-input element not found');
-  minterpFpsMultiplierInput.addEventListener('change', () => { updateMinterpFpsMulLabel(markerPair); });
+  minterpFpsMultiplierInput.addEventListener('change', () => {
+    updateMinterpFpsMulLabel(markerPair);
+  });
 
   appState.cropInputLabel = document.getElementById('crop-input-label') as HTMLInputElement;
   appState.cropInput = document.getElementById('crop-input') as HTMLInputElement;
@@ -334,9 +334,15 @@ export function markerPairNumberInputHandler(e: Event) {
   // if target succeedes current marker pair, move pair after target
   if (newIdx > appState.prevSelectedMarkerPairIndex) {
     assertDefined(targetMarkerRect.nextElementSibling, 'targetMarkerRect has no next sibling');
-    assertDefined(targetMarkerRect.nextElementSibling.nextElementSibling, 'targetMarkerRect has no second next sibling');
+    assertDefined(
+      targetMarkerRect.nextElementSibling.nextElementSibling,
+      'targetMarkerRect has no second next sibling'
+    );
     targetMarkerRect = targetMarkerRect.nextElementSibling.nextElementSibling;
-    assertDefined(targetStartNumbering.nextElementSibling, 'targetStartNumbering has no next sibling');
+    assertDefined(
+      targetStartNumbering.nextElementSibling,
+      'targetStartNumbering has no next sibling'
+    );
     targetStartNumbering = targetStartNumbering.nextElementSibling;
     assertDefined(targetEndNumbering.nextElementSibling, 'targetEndNumbering has no next sibling');
     targetEndNumbering = targetEndNumbering.nextElementSibling;
@@ -436,7 +442,10 @@ export function toggleOffMarkerPairEditor(hardHide = false) {
   hideCropOverlay();
   hideChart();
   appState.prevSelectedEndMarker.classList.remove('selected-marker');
-  assertDefined(appState.prevSelectedEndMarker.previousElementSibling, 'prevSelectedEndMarker has no previous sibling');
+  assertDefined(
+    appState.prevSelectedEndMarker.previousElementSibling,
+    'prevSelectedEndMarker has no previous sibling'
+  );
   appState.prevSelectedEndMarker.previousElementSibling.classList.remove('selected-marker');
   const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
   markerPair.startNumbering.classList.remove('selectedMarkerNumbering');

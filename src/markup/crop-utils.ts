@@ -211,14 +211,19 @@ export function getDefaultCropRes() {
     cropResHeight,
     cropRes,
   };
-}export function setCropInputValue(cropString: string) {
+}
+export function setCropInputValue(cropString: string) {
   const rotatedCropString = getRotatedCropString(cropString);
   if (rotatedCropString !== cropString) {
     cropInputLabel.textContent = `Crop (Rotated: ${rotatedCropString})`;
   }
   cropInput.value = cropString;
 }
-export function setCropString(markerPair: MarkerPair, newCrop: string, forceCropConstraints = false) {
+export function setCropString(
+  markerPair: MarkerPair,
+  newCrop: string,
+  forceCropConstraints = false
+) {
   const prevCrop = markerPair.cropMap[appState.currentCropPointIndex].crop;
   const { isDynamicCrop, enableZoomPan, initCropMap } = getCropMapProperties();
   const shouldMaintainCropAspectRatio = enableZoomPan && isDynamicCrop;
@@ -239,7 +244,9 @@ export function multiplyAllCrops(cropMultipleX: number, cropMultipleY: number) {
 export function getRelevantCropString() {
   if (!appState.isSettingsEditorOpen) return appState.settings.newMarkerCrop;
   if (!appState.wasGlobalSettingsEditorOpen) {
-    return appState.markerPairs[appState.prevSelectedMarkerPairIndex].cropMap[appState.currentCropPointIndex].crop;
+    return appState.markerPairs[appState.prevSelectedMarkerPairIndex].cropMap[
+      appState.currentCropPointIndex
+    ].crop;
   } else {
     return appState.settings.newMarkerCrop;
   }
@@ -351,4 +358,3 @@ export function updateCropString(
     renderSpeedAndCropUI(shouldRerenderCharts);
   }
 }
-

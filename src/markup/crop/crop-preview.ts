@@ -4,7 +4,11 @@ import { appState } from '../appState';
 import { createWebGLGammaRenderer, prevGammaVal, WebGLGammaRenderer } from '../util/previewGamma';
 import { FloatingVideoPreviewHandle, mountFloatingVideoPreview } from './video-preview-element';
 import { getCropPreviewMouseTimeSetter, getDynamicCropComponents } from '../charts';
-import { getRelevantCropString, getVideoScaledCropComponentsFromCropString, getVideoScaledCropComponents } from '../crop-utils';
+import {
+  getRelevantCropString,
+  getVideoScaledCropComponentsFromCropString,
+  getVideoScaledCropComponents,
+} from '../crop-utils';
 
 let cropPreviewCanvas: HTMLCanvasElement | null = null;
 let gammaRenderer: WebGLGammaRenderer | null = null;
@@ -164,9 +168,9 @@ function drawZoomedRegion(
       gammaRenderer.render(canvas, prevGammaVal);
     }
 
-    appState.video.requestVideoFrameCallback(() =>
-      { drawZoomedRegion(getZoomRegion, canvas, ctx, modal, modalContent); }
-    );
+    appState.video.requestVideoFrameCallback(() => {
+      drawZoomedRegion(getZoomRegion, canvas, ctx, modal, modalContent);
+    });
   }
 }
 
@@ -209,7 +213,8 @@ export function toggleCropPreviewGammaPreview() {
     gammaRenderer.outputCanvas.style.display = 'none';
   }
 }
-export let cropPreviewEnabled = false;export function toggleCropPreview(mode: cropPreviewMode = 'modal') {
+export let cropPreviewEnabled = false;
+export function toggleCropPreview(mode: cropPreviewMode = 'modal') {
   if (cropPreviewEnabled) {
     flashMessage('Disabled crop preview', 'red');
     cropPreviewEnabled = false;
@@ -236,7 +241,6 @@ export function enableCropPreview() {
   startDrawZoomedRegion(getZoomRegion);
 }
 
-
 export function getZoomRegion(): [number, number, number, number] {
   const dynamicCropComponents = getDynamicCropComponents();
   if (dynamicCropComponents == null) {
@@ -247,4 +251,3 @@ export function getZoomRegion(): [number, number, number, number] {
     return getVideoScaledCropComponents(dynamicCropComponents);
   }
 }
-

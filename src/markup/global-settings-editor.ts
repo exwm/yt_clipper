@@ -5,7 +5,15 @@ import { getCropComponents, getDefaultCropRes } from './crop-utils';
 import { triggerCropPreviewRedraw } from './crop/crop-preview';
 import { toggleOffMarkerPairEditor } from './marker-settings-editor';
 import { injectYtcWidget } from './save-load';
-import { addCropInputHotkeys, addSettingsInputListeners, deleteSettingsEditor, highlightModifiedSettings, isExtraSettingsEditorEnabled, setCropInput, setCropAspectRatioSpan } from './settings-editor';
+import {
+  addCropInputHotkeys,
+  addSettingsInputListeners,
+  deleteSettingsEditor,
+  highlightModifiedSettings,
+  isExtraSettingsEditorEnabled,
+  setCropInput,
+  setCropAspectRatioSpan,
+} from './settings-editor';
 import { Tooltips } from './ui/tooltips';
 import { assertDefined, safeSetInnerHtml, toHHMMSSTrimmed } from './util/util';
 

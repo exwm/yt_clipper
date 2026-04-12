@@ -181,7 +181,9 @@ export function captureFrame() {
   };
   (frameDiv.getElementsByClassName('delete')[0] as HTMLElement).onclick = () => {
     frameDiv.setAttribute('class', 'frame-div flash-div');
-    setTimeout(() => { deleteElement(frameDiv); }, 300);
+    setTimeout(() => {
+      deleteElement(frameDiv);
+    }, 300);
   };
 
   const framesDiv = frameCaptureViewerDoc.getElementById('frames-div');

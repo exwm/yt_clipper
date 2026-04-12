@@ -187,58 +187,140 @@ export function initShortcutSystem() {
   shortcutRegistry = new ShortcutRegistry();
   shortcutRegistry.registerAll(
     createShortcutDefinitions({
-      showShortcutsReference: () => { toggleShortcutsTable(); },
-      addMarker: () => { addMarker(); },
+      showShortcutsReference: () => {
+        toggleShortcutsTable();
+      },
+      addMarker: () => {
+        addMarker();
+      },
       moveMarkerToCurrentTime: (which) => {
         const marker = which === 'start' ? getActiveStartMarker() : getActiveEndMarker();
         if (marker) moveMarker(marker);
       },
-      addChartPoint: () => { addChartPoint(); },
-      duplicateSelectedMarkerPair: () => { duplicateSelectedMarkerPair(); },
-      saveMarkersAndSettings: () => { saveMarkersAndSettings(); },
-      copyMarkersToClipboard: () => { copyToClipboard(getClipperInputJSON()); },
-      toggleForceSetSpeed: () => { toggleForceSetSpeed(); },
-      cycleForceSetSpeedValueDown: () => { cycleForceSetSpeedValueDown(); },
-      updateAllMarkerPairSpeedsToDefault: () =>
-        { updateAllMarkerPairSpeeds(appState.settings.newMarkerSpeed, renderSpeedAndCropUI); },
+      addChartPoint: () => {
+        addChartPoint();
+      },
+      duplicateSelectedMarkerPair: () => {
+        duplicateSelectedMarkerPair();
+      },
+      saveMarkersAndSettings: () => {
+        saveMarkersAndSettings();
+      },
+      copyMarkersToClipboard: () => {
+        copyToClipboard(getClipperInputJSON());
+      },
+      toggleForceSetSpeed: () => {
+        toggleForceSetSpeed();
+      },
+      cycleForceSetSpeedValueDown: () => {
+        cycleForceSetSpeedValueDown();
+      },
+      updateAllMarkerPairSpeedsToDefault: () => {
+        updateAllMarkerPairSpeeds(appState.settings.newMarkerSpeed, renderSpeedAndCropUI);
+      },
       captureFrame: () => captureFrame(),
-      saveCapturedFrames: () => { saveCapturedFrames(); },
-      toggleGlobalSettingsEditor: () => { toggleGlobalSettingsEditor(); },
-      toggleMarkerPairOverridesEditor: () => { toggleMarkerPairOverridesEditor(); },
-      toggleMarkerPairSpeedPreview: () => { toggleMarkerPairSpeedPreview(); },
-      toggleMarkerPairLoop: () => { toggleMarkerPairLoop(); },
-      toggleGammaPreview: () => { toggleGammaPreview(); },
-      toggleFadeLoopPreview: () => { toggleFadeLoopPreview(); },
-      toggleCropChartLooping: () => { toggleCropChartLooping(); },
-      toggleAllPreviews: () => { toggleAllPreviews(); },
-      toggleMarkersDataCommands: () => { toggleMarkersDataCommands(); },
-      toggleSpeedChart: () => { toggleChart(chartState.speedChartInput); },
-      toggleChartLoop: () => { toggleChartLoop(); },
-      toggleCropChart: () => { toggleChart(chartState.cropChartInput); },
-      undoMarker: () => { undoMarker(); },
-      redoMarker: () => { redoMarker(); },
-      undoMarkerPairChange: () => { undoRedoMarkerPairChange('undo'); },
-      redoMarkerPairChange: () => { undoRedoMarkerPairChange('redo'); },
-      deleteMarkerPair: () => { deleteMarkerPair(); },
-      drawCrop: () => { drawCrop(); },
-      toggleArrowKeyCropAdjustment: () => { toggleArrowKeyCropAdjustment(); },
-      updateAllMarkerPairCropsToDefault: () =>
-        { updateAllMarkerPairCrops(appState.settings.newMarkerCrop); },
-      cycleCropDimOpacity: () => { cycleCropDimOpacity(); },
-      toggleCropCrossHair: () => { toggleCropCrossHair(); },
-      toggleCropPreviewModal: () => { toggleCropPreview('modal'); },
-      toggleCropPreviewPopOut: () => { toggleCropPreview('pop-out'); },
-      rotateVideoClock: () => { rotateVideo('clock'); },
-      rotateVideoCClock: () => { rotateVideo('cclock'); },
-      toggleBigVideoPreviews: () => { toggleBigVideoPreviews(); },
-      flashNotTheatreMode: () =>
-        { flashMessage('Please switch to theater mode to rotate video.', 'red'); },
-      flattenVRVideo: () =>
-        { flattenVRVideo(appState.hooks.videoContainer as HTMLDivElement, appState.video); },
-      openSubsEditor: () => { openSubsEditor(appState.settings.videoID); },
-      jumpToNearestMarkerOrPair: (e) => { jumpToNearestMarkerOrPair(e, e.code); },
-      togglePrevSelectedMarkerPair: () => { togglePrevSelectedMarkerPair(); },
-      toggleAutoHideUnselectedMarkerPairs: (e) => { toggleAutoHideUnselectedMarkerPairs(e); },
+      saveCapturedFrames: () => {
+        saveCapturedFrames();
+      },
+      toggleGlobalSettingsEditor: () => {
+        toggleGlobalSettingsEditor();
+      },
+      toggleMarkerPairOverridesEditor: () => {
+        toggleMarkerPairOverridesEditor();
+      },
+      toggleMarkerPairSpeedPreview: () => {
+        toggleMarkerPairSpeedPreview();
+      },
+      toggleMarkerPairLoop: () => {
+        toggleMarkerPairLoop();
+      },
+      toggleGammaPreview: () => {
+        toggleGammaPreview();
+      },
+      toggleFadeLoopPreview: () => {
+        toggleFadeLoopPreview();
+      },
+      toggleCropChartLooping: () => {
+        toggleCropChartLooping();
+      },
+      toggleAllPreviews: () => {
+        toggleAllPreviews();
+      },
+      toggleMarkersDataCommands: () => {
+        toggleMarkersDataCommands();
+      },
+      toggleSpeedChart: () => {
+        toggleChart(chartState.speedChartInput);
+      },
+      toggleChartLoop: () => {
+        toggleChartLoop();
+      },
+      toggleCropChart: () => {
+        toggleChart(chartState.cropChartInput);
+      },
+      undoMarker: () => {
+        undoMarker();
+      },
+      redoMarker: () => {
+        redoMarker();
+      },
+      undoMarkerPairChange: () => {
+        undoRedoMarkerPairChange('undo');
+      },
+      redoMarkerPairChange: () => {
+        undoRedoMarkerPairChange('redo');
+      },
+      deleteMarkerPair: () => {
+        deleteMarkerPair();
+      },
+      drawCrop: () => {
+        drawCrop();
+      },
+      toggleArrowKeyCropAdjustment: () => {
+        toggleArrowKeyCropAdjustment();
+      },
+      updateAllMarkerPairCropsToDefault: () => {
+        updateAllMarkerPairCrops(appState.settings.newMarkerCrop);
+      },
+      cycleCropDimOpacity: () => {
+        cycleCropDimOpacity();
+      },
+      toggleCropCrossHair: () => {
+        toggleCropCrossHair();
+      },
+      toggleCropPreviewModal: () => {
+        toggleCropPreview('modal');
+      },
+      toggleCropPreviewPopOut: () => {
+        toggleCropPreview('pop-out');
+      },
+      rotateVideoClock: () => {
+        rotateVideo('clock');
+      },
+      rotateVideoCClock: () => {
+        rotateVideo('cclock');
+      },
+      toggleBigVideoPreviews: () => {
+        toggleBigVideoPreviews();
+      },
+      flashNotTheatreMode: () => {
+        flashMessage('Please switch to theater mode to rotate video.', 'red');
+      },
+      flattenVRVideo: () => {
+        flattenVRVideo(appState.hooks.videoContainer as HTMLDivElement, appState.video);
+      },
+      openSubsEditor: () => {
+        openSubsEditor(appState.settings.videoID);
+      },
+      jumpToNearestMarkerOrPair: (e) => {
+        jumpToNearestMarkerOrPair(e, e.code);
+      },
+      togglePrevSelectedMarkerPair: () => {
+        togglePrevSelectedMarkerPair();
+      },
+      toggleAutoHideUnselectedMarkerPairs: (e) => {
+        toggleAutoHideUnselectedMarkerPairs(e);
+      },
 
       isMarkerHotkeysEnabled: () => appState.markerHotkeysEnabled,
       isTheatreMode: () => isTheatreMode(),
@@ -247,12 +329,16 @@ export function initShortcutSystem() {
   );
 
   hotkeyEngine = new HotkeyEngine(shortcutRegistry);
-  hotkeyEngine.setBlocker((e) => { blockEvent(e); });
+  hotkeyEngine.setBlocker((e) => {
+    blockEvent(e);
+  });
   hotkeyEngine.setEnabled(appState.isHotkeysEnabled);
 
   commandPalette = new CommandPalette(shortcutRegistry, {
     zIndex: 99999,
-    onOpenReference: () => { toggleShortcutsTable(); },
+    onOpenReference: () => {
+      toggleShortcutsTable();
+    },
   });
 }
 
@@ -350,7 +436,9 @@ function initVideoInfo() {
     appState.videoInfo.videoUrl += '?v=' + appState.videoInfo.id;
     appState.videoInfo.title = playerData.title;
 
-    appState.video.seekTo = (time) => { (appState.player as YTPlayer).seekTo(time); };
+    appState.video.seekTo = (time) => {
+      (appState.player as YTPlayer).seekTo(time);
+    };
   } else if (platform === VideoPlatforms.vlive) {
     const location = window.location;
 
@@ -360,8 +448,7 @@ function initVideoInfo() {
     appState.videoInfo.title = videoParams?.title;
     if (location.pathname.includes('video')) {
       appState.videoInfo.id ??= location.pathname.split('/')[2];
-      appState.videoInfo.title ??=
-        document.querySelector('[class*="video_title"]')?.textContent;
+      appState.videoInfo.title ??= document.querySelector('[class*="video_title"]')?.textContent;
     }
   } else if (platform === VideoPlatforms.naver_tv) {
     appState.videoInfo.id = location.pathname.split('/')[2];

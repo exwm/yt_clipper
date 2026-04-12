@@ -8,10 +8,13 @@ import { platform, initOnceCalled } from './yt_clipper';
 import { getCurrentPageVideoID } from './platforms/navigation';
 import { htmlToElement } from './util/util';
 
-export let navObserver: PlatformNavObserver | null = null;export function startNavigationWatcher() {
+export let navObserver: PlatformNavObserver | null = null;
+export function startNavigationWatcher() {
   if (navObserver) return;
   navObserver = videoPlatformDataRecords[platform].createNavObserver();
-  navObserver.start(() => { void handleNavigation(); });
+  navObserver.start(() => {
+    void handleNavigation();
+  });
 }
 export async function handleNavigation() {
   if (!initOnceCalled) {
@@ -33,9 +36,11 @@ export async function handleNavigation() {
   const currentPageVideoID = getCurrentPageVideoID();
 
   if (isStaleVideo) {
-    if (loadedVideoID != null &&
+    if (
+      loadedVideoID != null &&
       currentPageVideoID != null &&
-      currentPageVideoID === loadedVideoID) {
+      currentPageVideoID === loadedVideoID
+    ) {
       clearStaleVideoState();
     }
     return;
@@ -85,4 +90,3 @@ export function hideStaleVideoBanner() {
   }
 }
 export let staleVideoBannerEl: HTMLDivElement | null = null;
-
