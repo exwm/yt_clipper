@@ -9,6 +9,7 @@ import {
   deleteElement,
   toHHMMSSTrimmed,
   getVideoDuration,
+  assertDefined,
 } from './util/util';
 import { injectProgressBar } from './util/util';
 import { getFPS } from './util/videoUtil';
@@ -89,7 +90,7 @@ const frameCaptureViewerBodyHTML = `\
         <div id="frames-div"><strong></strong></div>
         `;
 
-export async function captureFrame() {
+export function captureFrame() {
   const currentTime = appState.video.getCurrentTime();
   for (let i = 0; i < appState.video.buffered.length; i++) {
     console.log(appState.video.buffered.start(i), appState.video.buffered.end(i));
@@ -107,13 +108,16 @@ export async function captureFrame() {
   }
 
   const canvas = document.createElement('canvas');
-  const context = canvas.getContext('2d')!;
+  const context = canvas.getContext('2d');
+  assertDefined(context, 'Failed to get 2d canvas context');
   let resString: string;
   if (appState.isSettingsEditorOpen) {
     const cropMultipleX = appState.video.videoWidth / appState.settings.cropResWidth;
     const cropMultipleY = appState.video.videoHeight / appState.settings.cropResHeight;
     if (!appState.wasGlobalSettingsEditorOpen) {
-      const idx = parseInt(appState.prevSelectedEndMarker.getAttribute('data-idx')!, 10) - 1;
+      const dataIdx = appState.prevSelectedEndMarker.getAttribute('data-idx');
+      assertDefined(dataIdx, 'Expected data-idx attribute on end marker');
+      const idx = parseInt(dataIdx, 10) - 1;
       const markerPair = appState.markerPairs[idx];
       resString = multiplyCropString(cropMultipleX, cropMultipleY, markerPair.crop);
     } else {
@@ -141,11 +145,13 @@ export async function captureFrame() {
     context.drawImage(appState.video, 0, 0, appState.video.videoWidth, appState.video.videoHeight);
   }
   if (!frameCaptureViewerWindow || !frameCaptureViewerDoc || frameCaptureViewerWindow.closed) {
-    frameCaptureViewerWindow = window.open(
+    const newWindow = window.open(
       '',
       'window',
       `height=${window.innerHeight}, width=${window.innerWidth}`
-    )!;
+    );
+    assertDefined(newWindow, 'Failed to open frame capture viewer window');
+    frameCaptureViewerWindow = newWindow;
     frameCaptureViewerDoc = frameCaptureViewerWindow.document;
     safeSetInnerHtml(frameCaptureViewerDoc.head, getFrameCaptureViewerHeadHTML(), true);
     safeSetInnerHtml(frameCaptureViewerDoc.body, frameCaptureViewerBodyHTML, true);
@@ -168,7 +174,10 @@ export async function captureFrame() {
   frameDiv.appendChild(canvas);
 
   (frameDiv.getElementsByClassName('download')[0] as HTMLElement).onclick = () => {
-    canvas.toBlob((blob) => { saveAs(blob!, (canvas as any).fileName); });
+    canvas.toBlob((blob) => {
+      assertDefined(blob, 'Failed to create blob from canvas');
+      saveAs(blob, (canvas as any).fileName);
+    });
   };
   (frameDiv.getElementsByClassName('delete')[0] as HTMLElement).onclick = () => {
     frameDiv.setAttribute('class', 'frame-div flash-div');
@@ -176,7 +185,8 @@ export async function captureFrame() {
   };
 
   const framesDiv = frameCaptureViewerDoc.getElementById('frames-div');
-  framesDiv!.appendChild(frameDiv);
+  assertDefined(framesDiv, 'Expected frames-div element in frame capture viewer');
+  framesDiv.appendChild(frameDiv);
   flashMessage(`Captured frame: ${frameFileName}`, 'green');
 }
 
@@ -196,7 +206,10 @@ export function getFrameCount(seconds: number) {
 
 function canvasBlobToPromise(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise((resolve) => {
-    canvas.toBlob((blob) => { resolve(blob!); });
+    canvas.toBlob((blob) => {
+      assertDefined(blob, 'Failed to create blob from canvas');
+      resolve(blob);
+    });
   });
 }
 
@@ -213,7 +226,9 @@ export function saveCapturedFrames() {
     return;
   }
   const zip = new JSZip();
-  const framesZip = zip.folder(appState.settings.titleSuffix)!.folder('frames');
+  const titleFolder = zip.folder(appState.settings.titleSuffix);
+  assertDefined(titleFolder, 'Failed to create zip folder');
+  const framesZip = titleFolder.folder('frames');
   const frames = frameCaptureViewerDoc.getElementsByTagName('canvas');
   if (frames.length === 0) {
     flashMessage('No frames to zip.', 'olive');
@@ -221,15 +236,17 @@ export function saveCapturedFrames() {
   }
 
   isFrameCapturerZippingInProgress = true;
+  assertDefined(framesZip, 'Failed to create frames zip folder');
   Array.from(frames).forEach((frame) => {
-    framesZip!.file((frame as any).fileName, canvasBlobToPromise(frame), { binary: true });
+    framesZip.file((frame as any).fileName, canvasBlobToPromise(frame), { binary: true });
   });
   const progressDiv = injectProgressBar('green', 'Frame Capturer');
   const progressSpan = progressDiv.firstElementChild;
-  zip
+  assertDefined(progressSpan, 'Expected progress span in progress bar');
+  void zip
     .generateAsync({ type: 'blob' }, (metadata) => {
       const percent = metadata.percent.toFixed(2) + '%';
-      progressSpan!.textContent = `Frame Capturer Zipping Progress: ${percent}`;
+      progressSpan.textContent = `Frame Capturer Zipping Progress: ${percent}`;
     })
     .then((blob) => {
       saveAs(blob, `${appState.settings.titleSuffix}-frames.zip`);

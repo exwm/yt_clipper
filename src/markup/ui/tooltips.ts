@@ -1,5 +1,6 @@
 import { stripIndent } from 'common-tags';
 
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace Tooltips {
   export const markerPairNumberTooltip = stripIndent`
     Enter a new marker pair number here to reorder marker pairs.

@@ -20,8 +20,7 @@ export function rotateVideo(direction: string) {
     appState.rotation = appState.rotation === 0 ? -90 : 0;
   }
   if (appState.rotation === 90 || appState.rotation === -90) {
-    let scale = 1;
-    scale = 1 / appState.videoInfo.aspectRatio;
+    const scale = 1 / appState.videoInfo.aspectRatio;
     rotatedVideoCSS = getRotatedVideoCSS(appState.rotation);
     rotatedVideoPreviewsCSS = `\
         .ytp-tooltip {
@@ -38,7 +37,7 @@ export function rotateVideo(direction: string) {
         margin-left: auto;
       }
       `;
-    if (!document.fullscreen) {
+    if (document.fullscreenElement == null) {
       adjustRotatedVideoPositionStyle = injectCSS(
         adjustRotatedVideoPositionCSS,
         'adjust-rotated-video-position-css'
@@ -55,7 +54,7 @@ export function rotateVideo(direction: string) {
       rotatedVideoPreviewsCSS,
       'yt-clipper-rotated-video-previews-css'
     );
-    deleteElement(bigVideoPreviewsStyle!);
+    if (bigVideoPreviewsStyle) deleteElement(bigVideoPreviewsStyle);
     bigVideoPreviewsStyle = null;
     window.dispatchEvent(new Event('resize'));
     document.addEventListener('fullscreenchange', fullscreenRotateVideoHandler);
@@ -64,7 +63,7 @@ export function rotateVideo(direction: string) {
     deleteElement(adjustRotatedVideoPositionStyle);
     deleteElement(fullscreenRotatedVideoStyle);
     deleteElement(rotatedVideoPreviewsStyle);
-    deleteElement(bigVideoPreviewsStyle!);
+    if (bigVideoPreviewsStyle) deleteElement(bigVideoPreviewsStyle);
     bigVideoPreviewsStyle = null;
     window.dispatchEvent(new Event('resize'));
     document.removeEventListener('fullscreenchange', fullscreenRotateVideoHandler);
@@ -74,7 +73,7 @@ export function rotateVideo(direction: string) {
 }
 
 export function fullscreenRotateVideoHandler() {
-  if (document.fullscreen) {
+  if (document.fullscreenElement != null) {
     deleteElement(rotatedVideoStyle);
     deleteElement(adjustRotatedVideoPositionStyle);
     fullscreenRotatedVideoStyle = injectCSS(

@@ -2,7 +2,7 @@ import { stripIndent } from 'common-tags';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import { appState } from './appState';
-import { flashMessage } from './util/util';
+import { assertDefined, flashMessage } from './util/util';
 import { getClipperInputData, loadClipperInputJSON, deleteMarkersDataCommands } from './save-load';
 import { injectProgressBar } from './util/util';
 
@@ -25,7 +25,7 @@ export function saveClipperInputDataToLocalStorage() {
   try {
     localStorage.setItem(key, JSON.stringify(data, null, 2));
   } catch (e) {
-    if (e instanceof DOMException && e.code == DOMException.QUOTA_EXCEEDED_ERR) {
+    if (e instanceof DOMException && e.name === 'QuotaExceededError') {
       const markersDataFiles = getMarkersDataEntriesFromLocalStorage();
       flashMessage(
         `Failed to save markers data.
@@ -35,7 +35,7 @@ export function saveClipperInputDataToLocalStorage() {
         4500
       );
     } else {
-      flashMessage(`Failed to save markers data. Error: ${e}`, 'red');
+      flashMessage(`Failed to save markers data. Error: ${String(e)}`, 'red');
     }
   }
 }
@@ -110,20 +110,24 @@ export function downloadAutoSavedMarkersData() {
   const markersZipFolderName = 'yt_clipper_markers_data_' + now.toISOString();
   const markersZip = zip.folder(markersZipFolderName);
 
+  assertDefined(markersZip, 'Failed to create zip folder');
   entries.forEach((entry) => {
-    markersZip!.file(
+    const data = localStorage.getItem(entry);
+    assertDefined(data, `Expected localStorage entry for ${entry}`);
+    markersZip.file(
       entry.replace(localStorageKeyPrefix, '') + '.json',
-      localStorage.getItem(entry)!,
+      data,
       { binary: false }
     );
   });
 
   const progressDiv = injectProgressBar('green', 'Markers Data');
   const progressSpan = progressDiv.firstElementChild;
-  zip
+  assertDefined(progressSpan, 'Expected progress bar to have a child element');
+  void zip
     .generateAsync({ type: 'blob' }, (metadata) => {
       const percent = metadata.percent.toFixed(2) + '%';
-      progressSpan!.textContent = `Markers Data Zipping Progress: ${percent}`;
+      progressSpan.textContent = `Markers Data Zipping Progress: ${percent}`;
     })
     .then((blob) => {
       saveAs(blob, markersZipFolderName + '.zip');

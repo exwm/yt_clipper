@@ -62,9 +62,7 @@ export function getVideoScaledCropComponents(cropComponents): [number, number, n
 }
 
 export function rotateCropComponentsClockWise(cropComponents: number[], maxHeight?: number) {
-  if (maxHeight == null) {
-    maxHeight = appState.settings.cropResHeight;
-  }
+  maxHeight ??= appState.settings.cropResHeight;
 
   let [x, y, w, h] = cropComponents;
   y = maxHeight - (y + h);
@@ -73,9 +71,7 @@ export function rotateCropComponentsClockWise(cropComponents: number[], maxHeigh
 }
 
 export function rotateCropComponentsCounterClockWise(cropComponents: number[], maxWidth?: number) {
-  if (maxWidth == null) {
-    maxWidth = appState.settings.cropResWidth;
-  }
+  maxWidth ??= appState.settings.cropResWidth;
 
   let [x, y, w, h] = cropComponents;
   x = maxWidth - (x + w);
@@ -302,8 +298,8 @@ export function updateCropString(
   const [nx, ny, nw, nh] = getCropComponents(cropString);
   cropString = getCropString(nx, ny, nw, nh);
 
-  let wasDynamicCrop = false;
-  let enableZoomPan = false;
+  let wasDynamicCrop = false; // eslint-disable-line no-useless-assignment
+  let enableZoomPan = false; // eslint-disable-line no-useless-assignment
   if (!appState.wasGlobalSettingsEditorOpen) {
     const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     enableZoomPan = markerPair.enableZoomPan;

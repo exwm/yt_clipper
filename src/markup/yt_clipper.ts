@@ -142,7 +142,7 @@ export const shortcutsTableToggleButtonHTML = readFileSync(
 export const platform = getPlatform();
 export const selectors = videoPlatformDataRecords[platform].selectors;
 
-loadytClipper();
+void loadytClipper();
 
 async function loadytClipper() {
   console.log('Loading yt_clipper markup script...');
@@ -360,9 +360,9 @@ function initVideoInfo() {
     appState.videoInfo.id = videoParams?.videoSeq;
     appState.videoInfo.title = videoParams?.title;
     if (location.pathname.includes('video')) {
-      if (appState.videoInfo.id == null) appState.videoInfo.id = location.pathname.split('/')[2];
-      if (appState.videoInfo.title == null)
-        appState.videoInfo.title = document.querySelector('[class*="video_title"]')?.textContent;
+      appState.videoInfo.id ??= location.pathname.split('/')[2];
+      appState.videoInfo.title ??=
+        document.querySelector('[class*="video_title"]')?.textContent;
     }
   } else if (platform === VideoPlatforms.naver_tv) {
     appState.videoInfo.id = location.pathname.split('/')[2];
@@ -373,12 +373,12 @@ function initVideoInfo() {
     appState.videoInfo.title = document.querySelector('h2[class*=TitleView_title]')?.textContent;
 
     if (location.pathname.includes('media') || location.pathname.includes('live')) {
-      if (appState.videoInfo.id == null) appState.videoInfo.id = location.pathname.split('/')[3];
+      appState.videoInfo.id ??= location.pathname.split('/')[3];
     }
   } else if (platform === VideoPlatforms.yt_clipper) {
     appState.videoInfo.id = 'unknown';
-    const videoTile = document.querySelector('#ytc-video-title')!;
-    appState.videoInfo.title = videoTile.textContent;
+    const videoTile = document.querySelector('#ytc-video-title');
+    appState.videoInfo.title = videoTile?.textContent;
   } else if (platform === VideoPlatforms.afreecatv) {
     appState.videoInfo.id = location.pathname.split('/')[2];
     appState.videoInfo.title = document.querySelector('div[class~=broadcast_title]')?.textContent;

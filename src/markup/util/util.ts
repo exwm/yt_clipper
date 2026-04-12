@@ -3,6 +3,12 @@ import { SpeedPoint } from '../@types/yt_clipper';
 import { VideoPlatforms } from '../platforms/platforms';
 import { appState, VideoElement } from '../appState';
 
+export function assertDefined<T>(value: T | null | undefined, msg?: string): asserts value is T {
+  if (value == null) {
+    throw new Error(msg ?? 'Expected value to be defined');
+  }
+}
+
 export function sanitizeHtml(html: string, forceBody = false): string | TrustedHTML {
   const trustedHtml = DOMPurify.sanitize(html, {
     USE_PROFILES: { html: true, svg: true, svgFilters: true },
@@ -15,9 +21,9 @@ export function sanitizeHtml(html: string, forceBody = false): string | TrustedH
   }
 
   if (window.TrustedHTML) {
-    return trustedHtml;
+    return trustedHtml as unknown as TrustedHTML;
   } else {
-    return trustedHtml.toString();
+    return trustedHtml;
   }
 }
 
@@ -128,7 +134,7 @@ export async function retryUntilTruthyResult<R>(fn: () => R, wait = 200) {
     console.debug(
       `Retrying function: ${
         fn.name || 'arrow'
-      } with body ${fn.toString()} because result was ${result}`
+      } with body ${fn.toString()} because result was ${String(result)}`
     );
     result = fn();
     await sleep(wait);
@@ -162,34 +168,35 @@ export function htmlToSVGElement(html: string) {
 }
 
 export function deleteElement(elem: Element) {
-  if (elem && elem.parentElement) {
+  if (elem?.parentElement) {
     elem.parentElement.removeChild(elem);
   }
 }
 
 export function querySelectors<
   S extends Record<string, string>,
-  T extends { [key in keyof S]: HTMLElement },
->(selectors: S, root: ParentNode = document): T {
+>(selectors: S, root: ParentNode = document): { [key in keyof S]: HTMLElement } {
+  type T = { [key in keyof S]: HTMLElement };
   const elements: Partial<T> = {};
   for (const key in selectors) {
-    elements[key] = root.querySelector(selectors[key]);
+    // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style
+    elements[key] = root.querySelector(selectors[key]) as T[Extract<keyof S, string>];
   }
   return elements as T;
 }
 
 export function once(fn: Function, context: any) {
   let result: Function | null = null;
-  return function (this: any) {
+  return function (this: any, ...args: any[]) {
     if (fn) {
-      result = fn.apply(context || this, arguments);
+      result = fn.apply(context ?? this, args);
       fn = null as any;
     }
     return result;
   };
 }
 
-export function setAttributes(el: Element, attrs: {}) {
+export function setAttributes(el: Element, attrs: Record<string, string>) {
   Object.keys(attrs).forEach((key) => { el.setAttribute(key, attrs[key]); });
 }
 
@@ -198,7 +205,7 @@ export function copyToClipboard(str: string) {
   el.value = str;
   document.body.appendChild(el);
   el.select();
-  document.execCommand('copy');
+  document.execCommand('copy'); // eslint-disable-line @typescript-eslint/no-deprecated
   document.body.removeChild(el);
 }
 
@@ -220,7 +227,7 @@ export function clampNumber(number: number, min: number, max: number) {
   return Math.max(min, Math.min(number, max));
 }
 export function toHHMMSS(seconds: number) {
-  return new Date(seconds * 1000).toISOString().substr(11, 12);
+  return new Date(seconds * 1000).toISOString().substring(11, 23);
 }
 
 export function toHHMMSSTrimmed(seconds: number) {
@@ -235,29 +242,25 @@ export function bsearch<A, B>(
   haystack: ArrayLike<A>,
   needle: B,
   comparator: (a: A, b: B, index?: number, haystack?: ArrayLike<A>) => any,
-  low?: number,
-  high?: number
+  lowParam?: number,
+  highParam?: number
 ): [number, number] {
   let mid, cmp;
 
-  if (low === undefined) low = 0;
-  else {
-    low = low | 0;
-    if (low < 0 || low >= haystack.length) throw new RangeError('invalid lower bound');
-  }
+  let low: number = lowParam ?? 0;
+  low = low | 0;
+  if (low < 0 || low >= haystack.length) throw new RangeError('invalid lower bound');
 
-  if (high === undefined) high = haystack.length - 1;
-  else {
-    high = high | 0;
-    if (high < low || high >= haystack.length) throw new RangeError('invalid upper bound');
-  }
+  let high: number = highParam ?? haystack.length - 1;
+  high = high | 0;
+  if (high < low || high >= haystack.length) throw new RangeError('invalid upper bound');
 
-  while (low! <= high) {
+  while (low <= high) {
     // The naive `low + high >>> 1` could fail for array lengths > 2**31
     // because `>>>` converts its operands to int32. `low + (high - low >>> 1)`
     // works for array lengths <= 2**32-1 which is also Javascript's max array
     // length.
-    mid = low! + ((high - low!) >>> 1);
+    mid = low + ((high - low) >>> 1);
     cmp = +comparator(haystack[mid], needle, mid, haystack);
 
     // Too low.
@@ -269,7 +272,7 @@ export function bsearch<A, B>(
   }
 
   // Key not found.
-  return [high, low!];
+  return [high, low];
 }
 
 export function getEasedValue(
@@ -284,8 +287,7 @@ export function getEasedValue(
   const duration = endTime - startTime;
   const valueDelta = endValue - startValue;
 
-  let easedValuePercentage: number;
-  easedValuePercentage = easingFunc(elapsed / duration);
+  const easedValuePercentage = easingFunc(elapsed / duration);
 
   const easedValue = startValue + valueDelta * easedValuePercentage;
   return easedValue;
@@ -315,7 +317,7 @@ export function getCropString(x: number, y: number, w: number, h: number) {
 }
 export function ternaryToString(ternary?: boolean, def?: string) {
   if (ternary == null) {
-    return def != null ? def : '(Disabled)';
+    return def ?? '(Disabled)';
   } else if (ternary) {
     return '(Enabled)';
   } else if (!ternary) {

@@ -7,7 +7,7 @@ import { toggleOffMarkerPairEditor } from './marker-settings-editor';
 import { injectYtcWidget } from './save-load';
 import { addCropInputHotkeys, addSettingsInputListeners, deleteSettingsEditor, highlightModifiedSettings, isExtraSettingsEditorEnabled, setCropInput, setCropAspectRatioSpan } from './settings-editor';
 import { Tooltips } from './ui/tooltips';
-import { safeSetInnerHtml, toHHMMSSTrimmed } from './util/util';
+import { assertDefined, safeSetInnerHtml, toHHMMSSTrimmed } from './util/util';
 
 export function toggleGlobalSettingsEditor() {
   if (appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen) {
@@ -28,6 +28,7 @@ export function createGlobalSettingsEditor() {
   createCropOverlay(appState.settings.newMarkerCrop);
   const globalSettingsEditorDiv = document.createElement('div');
   const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_x, _y, w, h] = getCropComponents(appState.settings.newMarkerCrop);
   const cropAspectRatio = (w / h).toFixed(13);
   const numOrRange = `(\\d{1,2})|(\\d{1,2}-\\d{1,2})`;
@@ -93,9 +94,7 @@ export function createGlobalSettingsEditor() {
       <div id="merge-list-div" class="settings-editor-input-div" title="${Tooltips.mergeListTooltip}">
           <span style="display:inline">Merge List: </span>
           <input id="merge-list-input" pattern="${mergeListInputValidation}" value="${
-            appState.settings.markerPairMergeList != null
-              ? appState.settings.markerPairMergeList
-              : ''
+            appState.settings.markerPairMergeList ?? ''
           }" placeholder="None" style="min-width:15em">
       </div>
       <div class="settings-editor-input-div">
@@ -116,15 +115,15 @@ export function createGlobalSettingsEditor() {
       </div>
       <div class="settings-editor-input-div" title="${Tooltips.encodeSpeedTooltip}">
         <span>Encode Speed (0-5)</span>
-        <input id="encode-speed-input" type="number" min="0" max="5" step="1" value="${appState.settings.encodeSpeed != null ? appState.settings.encodeSpeed : ''}" placeholder="Auto" style="min-width:4em"></input>
+        <input id="encode-speed-input" type="number" min="0" max="5" step="1" value="${appState.settings.encodeSpeed ?? ''}" placeholder="Auto" style="min-width:4em"></input>
       </div>
       <div class="settings-editor-input-div" title="${Tooltips.CRFTooltip}">
         <span>CRF (0-63)</span>
-        <input id="crf-input" type="number" min="0" max="63" step="1" value="${appState.settings.crf != null ? appState.settings.crf : ''}" placeholder="Auto" style="min-width:4em"></input>
+        <input id="crf-input" type="number" min="0" max="63" step="1" value="${appState.settings.crf ?? ''}" placeholder="Auto" style="min-width:4em"></input>
       </div>
       <div class="settings-editor-input-div" title="${Tooltips.targetBitrateTooltip}">
         <span>Target Bitrate (kb/s)</span>
-        <input id="target-max-bitrate-input" type="number" min="0" max="1e5"step="100" value="${appState.settings.targetMaxBitrate != null ? appState.settings.targetMaxBitrate : ''}" placeholder="Auto" style="min-width:4em"></input>
+        <input id="target-max-bitrate-input" type="number" min="0" max="1e5"step="100" value="${appState.settings.targetMaxBitrate ?? ''}" placeholder="Auto" style="min-width:4em"></input>
       </div>
 
       <div class="settings-editor-input-div" title="${Tooltips.twoPassTooltip}">
@@ -138,7 +137,7 @@ export function createGlobalSettingsEditor() {
 
       <div class="settings-editor-input-div" title="${Tooltips.gammaTooltip}">
         <span>Gamma (0-4)</span>
-        <input id="gamma-input" type="number" min="0.01" max="4.00" step="0.01" value="${appState.settings.gamma != null ? appState.settings.gamma : ''}" placeholder="1" style="min-width:4em"></input>
+        <input id="gamma-input" type="number" min="0.01" max="4.00" step="0.01" value="${appState.settings.gamma ?? ''}" placeholder="1" style="min-width:4em"></input>
       </div>
 
       <div class="settings-editor-input-div" title="${Tooltips.hdrTooltip}">
@@ -205,7 +204,7 @@ export function createGlobalSettingsEditor() {
         </div>
         <div title="${Tooltips.fadeDurationTooltip}">
           <span>Fade Duration</span>
-          <input id="fade-duration-input" type="number" min="0.1" step="0.1" value="${appState.settings.fadeDuration != null ? appState.settings.fadeDuration : ''}" placeholder="0.7" style="width:7em"></input>
+          <input id="fade-duration-input" type="number" min="0.1" step="0.1" value="${appState.settings.fadeDuration ?? ''}" placeholder="0.7" style="width:7em"></input>
         </div>
       </div>
     </fieldset>
@@ -258,11 +257,12 @@ export function createGlobalSettingsEditor() {
 export function bindFpsMulStepBtns() {
   document.querySelectorAll<HTMLButtonElement>('.fps-mul-step-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const input = btn
-        .closest<HTMLElement>('.fps-mul-stepper')!
-        .querySelector<HTMLInputElement>('input[type="number"]')!;
+      const stepper = btn.closest<HTMLElement>('.fps-mul-stepper');
+      assertDefined(stepper);
+      const input = stepper.querySelector<HTMLInputElement>('input[type="number"]');
+      assertDefined(input);
       const cur = parseFloat(input.value) || 0;
-      const stepDir = parseInt(btn.dataset.step!, 10);
+      const stepDir = parseInt(btn.dataset.step ?? '', 10);
       const min = parseFloat(input.min) || 0;
       const max = parseFloat(input.max) || Infinity;
       const next =
@@ -310,8 +310,10 @@ export function getMarkerPairMergeListDurations(
 export function addMarkerPairMergeListDurationsListener() {
   const markerPairMergeListInput = document.getElementById('merge-list-input');
   const markerPairMergeListDurationsSpan = document.getElementById('merge-list-durations');
-  markerPairMergeListInput!.addEventListener('change', () => {
+  assertDefined(markerPairMergeListInput);
+  assertDefined(markerPairMergeListDurationsSpan);
+  markerPairMergeListInput.addEventListener('change', () => {
     const markerPairMergelistDurations = getMarkerPairMergeListDurations();
-    markerPairMergeListDurationsSpan!.textContent = markerPairMergelistDurations;
+    markerPairMergeListDurationsSpan.textContent = markerPairMergelistDurations;
   });
 }

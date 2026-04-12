@@ -316,9 +316,9 @@ export function mountFloatingVideoPreview(
   };
 
   const drawFrame = (): void => {
-    if (destroyed || !cropCanvasEl || !state.sourceVideo) return;
+    if (destroyed || !cropCanvasEl || !state.sourceVideo || !getSourceRect) return;
     const source = state.sourceVideo;
-    const [sx, sy, sw, sh] = getSourceRect!();
+    const [sx, sy, sw, sh] = getSourceRect();
     const isRotated = appState.rotation === 90 || appState.rotation === -90;
     const canvasW = isRotated ? sh : sw;
     const canvasH = isRotated ? sw : sh;
@@ -414,7 +414,7 @@ export function mountFloatingVideoPreview(
       ctx.restore();
 
       if (appState.isGammaPreviewOn) {
-        if (!gammaRenderer) gammaRenderer = createWebGLGammaRenderer(cropCanvasEl);
+        gammaRenderer ??= createWebGLGammaRenderer(cropCanvasEl);
         gammaRenderer.render(cropCanvasEl, prevGammaVal);
         ctx.drawImage(gammaRenderer.outputCanvas, 0, 0);
       }
@@ -515,7 +515,8 @@ export function mountFloatingVideoPreview(
   };
 
   const popOutWithSourceRect = (source: HTMLVideoElement): void => {
-    const [, , sw, sh] = getSourceRect!();
+    if (!getSourceRect) return;
+    const [, , sw, sh] = getSourceRect();
     const pb = initialPopoutBounds;
     // When rotated 90° or -90°, swap width and height for the popup window
     const isRotated = appState.rotation === 90 || appState.rotation === -90;
@@ -544,7 +545,8 @@ export function mountFloatingVideoPreview(
     let popupGammaRenderer: WebGLGammaRenderer | null = null;
     const drawOnce = (): void => {
       if (popup.closed || !ctx) return;
-      const [sx, sy, fsw, fsh] = getSourceRect!();
+      if (!getSourceRect) return;
+      const [sx, sy, fsw, fsh] = getSourceRect();
       // Canvas dimensions are swapped when rotated — check live since rotation can change after pop-out
       const isNowRotated = appState.rotation === 90 || appState.rotation === -90;
       const fcw = isNowRotated ? fsh : fsw;
@@ -582,7 +584,7 @@ export function mountFloatingVideoPreview(
       ctx.restore();
 
       if (appState.isGammaPreviewOn) {
-        if (!popupGammaRenderer) popupGammaRenderer = createWebGLGammaRenderer(canvas);
+        popupGammaRenderer ??= createWebGLGammaRenderer(canvas);
         popupGammaRenderer.render(canvas, prevGammaVal);
         ctx.drawImage(popupGammaRenderer.outputCanvas, 0, 0);
       }

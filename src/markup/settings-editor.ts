@@ -21,6 +21,7 @@ import { updateMarkerPairSpeed } from './speed';
 import { Tooltips } from './ui/tooltips';
 import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
 import {
+  assertDefined,
   blockEvent,
   deleteElement,
   flashMessage,
@@ -43,7 +44,8 @@ export function addSettingsInputListeners(inputs: string[][], target, highlighta
     const id = input[0];
     const targetProperty = input[1];
     const valueType = input[2] || 'string';
-    const inputElem = document.getElementById(id)!;
+    const inputElem = document.getElementById(id);
+    assertDefined(inputElem, `Settings input element not found: ${id}`);
 
     inputElem.addEventListener('focus', () => (appState.isHotkeysEnabled = false), false);
     inputElem.addEventListener('blur', () => (appState.isHotkeysEnabled = true), false);
@@ -55,7 +57,8 @@ export function addSettingsInputListeners(inputs: string[][], target, highlighta
   });
 }
 export function deleteSettingsEditor() {
-  const settingsEditorDiv = document.getElementById('settings-editor-div')!;
+  const settingsEditorDiv = document.getElementById('settings-editor-div');
+  assertDefined(settingsEditorDiv, 'Settings editor div not found');
   deleteElement(settingsEditorDiv);
   appState.isSettingsEditorOpen = false;
   appState.wasGlobalSettingsEditorOpen = false;
@@ -114,9 +117,9 @@ export function highlightModifiedSettings(inputs: string[][], target) {
 
       let label = inputElem.previousElementSibling;
       if (id === 'rotate-90-clock' || id === 'rotate-90-counterclock')
-        label = inputElem.parentElement!.getElementsByTagName('span')[0];
+        label = inputElem.parentElement?.getElementsByTagName('span')[0] ?? null;
       if (id === 'minterp-fps-multiplier-input')
-        label = inputElem.closest('.fps-mul-stepper')!.parentElement!.querySelector('span');
+        label = inputElem.closest('.fps-mul-stepper')?.parentElement?.querySelector('span') ?? null;
 
       if (storedTargetValue == null) {
         inputElem.classList.add(inheritedSettingsLabelHighlight);
@@ -372,10 +375,11 @@ export function addCropInputHotkeys() {
       ke.code === 'Space' ||
       (!ke.ctrlKey &&
         !ke.altKey &&
-        66 <= ke.which &&
-        ke.which <= 90 &&
+        ke.code.startsWith('Key') &&
+        ke.code >= 'KeyB' &&
+        ke.code <= 'KeyZ' &&
         !(ke.code === 'KeyI' || ke.code === 'KeyW' || ke.code === 'KeyH')) ||
-      (ke.which === 65 && (ke.ctrlKey || ke.altKey)) // blur on KeyA with ctrl or alt modifiers
+      (ke.code === 'KeyA' && (ke.ctrlKey || ke.altKey)) // blur on KeyA with ctrl or alt modifiers
     ) {
       blockEvent(ke);
       cropInput.blur();
@@ -527,7 +531,9 @@ export function injectToggleCommandPaletteButton() {
   }
 
   if (platform === VideoPlatforms.yt_clipper) {
-    appState.hooks.shortcutsTableButton.parentElement!.insertBefore(
+    const shortcutsTableButtonParent = appState.hooks.shortcutsTableButton.parentElement;
+    assertDefined(shortcutsTableButtonParent, 'shortcutsTableButton has no parentElement');
+    shortcutsTableButtonParent.insertBefore(
       commandPaletteToggleButton,
       appState.hooks.shortcutsTableButton
     );
@@ -552,10 +558,11 @@ export let shortcutsTableContainer: HTMLDivElement;
 export function toggleShortcutsTable() {
   if (!shortcutsTableContainer) {
     initShortcutSystem();
+    assertDefined(shortcutRegistry, 'shortcutRegistry must be initialized before rendering shortcuts table');
     injectCSS(shortcutsTableStyle, 'shortcutsTableStyle');
     shortcutsTableContainer = document.createElement('div');
     shortcutsTableContainer.setAttribute('id', 'shortcutsTableContainer');
-    safeSetInnerHtml(shortcutsTableContainer, renderShortcutsTable(shortcutRegistry!));
+    safeSetInnerHtml(shortcutsTableContainer, renderShortcutsTable(shortcutRegistry));
     appState.hooks.shortcutsTable.insertAdjacentElement('beforebegin', shortcutsTableContainer);
   } else if (shortcutsTableContainer.style.display !== 'none') {
     shortcutsTableContainer.style.display = 'none';
@@ -644,7 +651,7 @@ export function arrowKeyCropAdjustmentHandler(ke: KeyboardEvent) {
   }
 }
 export function renderCropForm(crop) {
-  const [_x, _y, w, h] = getCropComponents(crop);
+  const [, , w, h] = getCropComponents(crop);
 
   setCropInputValue(crop);
 

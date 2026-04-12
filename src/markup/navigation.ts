@@ -11,7 +11,7 @@ import { htmlToElement } from './util/util';
 export let navObserver: PlatformNavObserver | null = null;export function startNavigationWatcher() {
   if (navObserver) return;
   navObserver = videoPlatformDataRecords[platform].createNavObserver();
-  navObserver.start(handleNavigation);
+  navObserver.start(() => { void handleNavigation(); });
 }
 export async function handleNavigation() {
   if (!initOnceCalled) {

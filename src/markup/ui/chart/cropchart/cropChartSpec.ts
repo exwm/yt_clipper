@@ -1,7 +1,7 @@
 import Chart, { ChartConfiguration, ChartPoint } from 'chart.js';
 import { CropPoint } from '../../../@types/yt_clipper';
 import { appState } from '../../../appState';
-import { clampNumber } from '../../../util/util';
+import { assertDefined, clampNumber } from '../../../util/util';
 import { medgrey } from '../chartPrimitives';
 import { scatterChartSpec } from '../scatterChartSpec';
 import isEqual from 'lodash.isequal';
@@ -22,7 +22,7 @@ export function setCurrentCropPoint(
   cropPointIndex: number,
   mode?: cropChartMode
 ) {
-  const maxIndex = cropChart ? cropChart.data.datasets![0].data!.length - 1 : 1;
+  const maxIndex = cropChart?.data.datasets?.[0].data ? cropChart.data.datasets[0].data.length - 1 : 1;
   const newCropPointIndex = clampNumber(cropPointIndex, 0, maxIndex);
   const cropPointIndexChanged = appState.currentCropPointIndex !== newCropPointIndex;
   appState.currentCropPointIndex = newCropPointIndex;
@@ -58,7 +58,7 @@ export function setCurrentCropChartSection(
   cropChart: Chart | null,
   [left, right]: [number, number]
 ) {
-  const maxIndex = cropChart ? cropChart.data.datasets![0].data!.length - 1 : 1;
+  const maxIndex = cropChart?.data.datasets?.[0].data ? cropChart.data.datasets[0].data.length - 1 : 1;
 
   if (left <= 0) {
     currentCropChartSection = [0, 1];
@@ -72,8 +72,11 @@ export function setCurrentCropChartSection(
 }
 
 export const updateCurrentCropPoint = function (cropChart: Chart, cropString: string) {
-  const cropChartData = cropChart.data.datasets![0].data;
-  const cropPoint = cropChartData![appState.currentCropPointIndex] as CropPoint;
+  const cropChartDatasets = cropChart.data.datasets;
+  assertDefined(cropChartDatasets, 'Expected crop chart datasets');
+  const cropChartData = cropChartDatasets[0].data;
+  assertDefined(cropChartData, 'Expected crop chart data');
+  const cropPoint = cropChartData[appState.currentCropPointIndex] as CropPoint;
   cropPoint.crop = cropString;
   cropChart.update();
 };
@@ -167,7 +170,7 @@ const cropChartConfig: ChartConfiguration = {
 };
 
 export function getCropChartConfig(isCropChartPanOnly: boolean): ChartConfiguration {
-  let cropChartConfigOverrides: ChartConfiguration = {};
+  let cropChartConfigOverrides: ChartConfiguration = {}; // eslint-disable-line no-useless-assignment
   if (isCropChartPanOnly) {
     cropChartConfigOverrides = {
       options: { plugins: { datalabels: { formatter: cropPointXYFormatter } } },

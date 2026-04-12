@@ -1,7 +1,7 @@
 import { appState } from './appState';
 import { getCropComponents, getRotatedCropComponents, rotateCropComponentsClockWise, rotateCropComponentsCounterClockWise } from './crop-utils';
 import { resetCropPreviewAnchor } from './crop/crop-preview';
-import { deleteElement, flashMessage, getCropString, safeSetInnerHtml, setAttributes } from './util/util';
+import { assertDefined, deleteElement, flashMessage, getCropString, safeSetInnerHtml, setAttributes } from './util/util';
 import { updateCropString } from './crop-utils';
 import { chartState, renderSpeedAndCropUI, getCropMapProperties } from './charts';
 import { updateCropStringWithCrop } from './crop-utils';
@@ -168,14 +168,21 @@ export const cropOverlayElements = {
   cropOverlayElements.cropCrossHairXWhite = document.getElementById('cropCrossHairXWhite');
   cropOverlayElements.cropCrossHairYBlack = document.getElementById('cropCrossHairYBlack');
   cropOverlayElements.cropCrossHairYWhite = document.getElementById('cropCrossHairYWhite');
+  assertDefined(cropOverlayElements.cropCrossHairXBlack);
+  assertDefined(cropOverlayElements.cropCrossHairXWhite);
+  assertDefined(cropOverlayElements.cropCrossHairYBlack);
+  assertDefined(cropOverlayElements.cropCrossHairYWhite);
   cropOverlayElements.cropCrossHairs = [
-    cropOverlayElements.cropCrossHairXBlack!,
-    cropOverlayElements.cropCrossHairXWhite!,
-    cropOverlayElements.cropCrossHairYBlack!,
-    cropOverlayElements.cropCrossHairYWhite!,
+    cropOverlayElements.cropCrossHairXBlack,
+    cropOverlayElements.cropCrossHairXWhite,
+    cropOverlayElements.cropCrossHairYBlack,
+    cropOverlayElements.cropCrossHairYWhite,
   ];
 
-  [cropOverlayElements.cropRect, cropOverlayElements.cropRectBorderBlack, cropOverlayElements.cropRectBorderWhite].map((cropRect) => { setCropOverlay(cropRect!, cropString); }
+  assertDefined(cropOverlayElements.cropRect);
+  assertDefined(cropOverlayElements.cropRectBorderBlack);
+  assertDefined(cropOverlayElements.cropRectBorderWhite);
+  [cropOverlayElements.cropRect, cropOverlayElements.cropRectBorderBlack, cropOverlayElements.cropRectBorderWhite].map((cropRect) => { setCropOverlay(cropRect, cropString); }
   );
   cropOverlayElements.cropCrossHairs.map((cropCrossHair) => { setCropCrossHair(cropCrossHair, cropString); });
   appState.isCropOverlayVisible = true;
@@ -192,9 +199,9 @@ export function forceRerenderCrop() {
   if (cropDiv) {
     const videoRect = appState.video.getBoundingClientRect();
     const videoContainerRect = appState.hooks.videoContainer.getBoundingClientRect();
-    let { width, height, top, left } = videoRect;
-    top = top - videoContainerRect.top;
-    left = left - videoContainerRect.left;
+    const { width, height } = videoRect;
+    const top = videoRect.top - videoContainerRect.top;
+    const left = videoRect.left - videoContainerRect.left;
     const styles = [width, height, top, left].map((e) => `${Math.floor(e)}px`);
 
     Object.assign(cropDiv.style, { width: styles[0], height: styles[1], top: styles[2], left: styles[3], position: 'absolute' });
@@ -203,10 +210,14 @@ export function forceRerenderCrop() {
     }
     const cropString = getRelevantCropString();
     const [cx, cy, cw, ch] = getCropComponents(cropString);
-    setCropOverlayDimensions(cropOverlayElements.cropRect!, cx, cy, cw, ch);
-    setCropOverlayDimensions(cropOverlayElements.cropRectBorder!, cx, cy, cw, ch);
-    setCropOverlayDimensions(cropOverlayElements.cropRectBorderBlack!, cx, cy, cw, ch);
-    setCropOverlayDimensions(cropOverlayElements.cropRectBorderWhite!, cx, cy, cw, ch);
+    assertDefined(cropOverlayElements.cropRect);
+    assertDefined(cropOverlayElements.cropRectBorder);
+    assertDefined(cropOverlayElements.cropRectBorderBlack);
+    assertDefined(cropOverlayElements.cropRectBorderWhite);
+    setCropOverlayDimensions(cropOverlayElements.cropRect, cx, cy, cw, ch);
+    setCropOverlayDimensions(cropOverlayElements.cropRectBorder, cx, cy, cw, ch);
+    setCropOverlayDimensions(cropOverlayElements.cropRectBorderBlack, cx, cy, cw, ch);
+    setCropOverlayDimensions(cropOverlayElements.cropRectBorderWhite, cx, cy, cw, ch);
   }
 }
 export function centerVideo() {
@@ -308,7 +319,7 @@ export function hideCropOverlay() {
 }
 export function deleteCropOverlay() {
   const cropDiv = document.getElementById('crop-div');
-  deleteElement(cropDiv!);
+  if (cropDiv) deleteElement(cropDiv);
   appState.isCropOverlayVisible = false;
 }
 export let isMouseManipulatingCrop = false;
@@ -717,17 +728,18 @@ export function beginDraw(e: PointerEvent) {
 
     const { isDynamicCrop, enableZoomPan } = getCropMapProperties();
 
+    assertDefined(initDrawCropMap);
     const prevCrop = !appState.wasGlobalSettingsEditorOpen
-      ? initDrawCropMap![appState.currentCropPointIndex].crop
+      ? initDrawCropMap[appState.currentCropPointIndex].crop
       : prevNewMarkerCrop;
     const shouldMaintainCropAspectRatio = ((!enableZoomPan || !isDynamicCrop) && e.altKey) ||
       (enableZoomPan && isDynamicCrop && !e.altKey);
     shouldFinishDrawMaintainAspectRatio = shouldMaintainCropAspectRatio;
 
     // rotate aspect ratio in rotated mode?
-    let [_prevCropX, _prevCropY, prevCropW, prevCropH] = getCropComponents(prevCrop);
+    let [, , prevCropW, prevCropH] = getCropComponents(prevCrop);
     if (appState.rotation === 90 || appState.rotation === -90) {
-      [prevCropW, prevCropH] = [prevCropH, prevCropH];
+      [prevCropW, prevCropH] = [prevCropH, prevCropW];
     }
 
     const prevCropAspectRatio = prevCropW <= 0 || prevCropH <= 0 ? 1 : prevCropW / prevCropH;
@@ -845,7 +857,9 @@ export function finishDrawingCrop(shouldRevertCrop: boolean, pointerId?: number)
   if (pointerId != null) appState.hooks.cropMouseManipulation.releasePointerCapture(pointerId);
   appState.hooks.cropMouseManipulation.style.cursor = 'auto';
   appState.hooks.cropMouseManipulation.removeEventListener('pointerdown', beginDrawHandler, true);
-  document.removeEventListener('pointermove', drawCropHandler!);
+  if (drawCropHandler) {
+    document.removeEventListener('pointermove', drawCropHandler);
+  }
   document.removeEventListener('pointerup', endDraw, true);
   drawCropHandler = null;
   isDrawingCrop = false;
@@ -867,20 +881,21 @@ export function finishDrawingCrop(shouldRevertCrop: boolean, pointerId?: number)
   }
 
   if (!appState.wasGlobalSettingsEditorOpen) {
+    assertDefined(initDrawCropMap);
     const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     const cropMap = markerPair.cropMap;
     if (shouldRevertCrop) {
       const draft = createDraft(getMarkerPairHistory(markerPair));
-      draft.cropMap = initDrawCropMap!;
+      draft.cropMap = initDrawCropMap;
       saveMarkerPairHistory(draft, markerPair, false);
       renderSpeedAndCropUI();
     } else {
       const newCrop = transformCropWithPushBack(
-        initDrawCropMap![appState.currentCropPointIndex].crop,
+        initDrawCropMap[appState.currentCropPointIndex].crop,
         cropMap[appState.currentCropPointIndex].crop,
         shouldFinishDrawMaintainAspectRatio
       );
-      updateCropString(newCrop, true, false, initDrawCropMap ?? undefined);
+      updateCropString(newCrop, true, false, initDrawCropMap);
     }
   }
   shouldRevertCrop
@@ -918,7 +933,7 @@ export function toggleCropCrossHair() {
 export function renderStaticCropOverlay(crop) {
   const [x, y, w, h] = getCropComponents(crop);
 
-  [cropOverlayElements.cropRect, cropOverlayElements.cropRectBorderBlack, cropOverlayElements.cropRectBorderWhite].map((cropRect) => { setCropOverlayDimensions(cropRect!, x, y, w, h); }
+  [cropOverlayElements.cropRect, cropOverlayElements.cropRectBorderBlack, cropOverlayElements.cropRectBorderWhite].map((cropRect) => { if (cropRect) setCropOverlayDimensions(cropRect, x, y, w, h); }
   );
   if (cropCrossHairEnabled && cropOverlayElements.cropCrossHair) {
     cropOverlayElements.cropCrossHairs.map((cropCrossHair) => { setCropCrossHair(cropCrossHair, getCropString(x, y, w, h)); }

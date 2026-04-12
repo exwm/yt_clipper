@@ -24,6 +24,7 @@ import { setCurrentCropPoint } from './ui/chart/cropchart/cropChartSpec';
 import { autoHideUnselectedMarkerPairsCSS } from './ui/css/css';
 import { Tooltips } from './ui/tooltips';
 import {
+  assertDefined,
   blockEvent,
   deleteElement,
   flashMessage,
@@ -42,7 +43,8 @@ export function toggleMarkerPairEditorHandler(e: PointerEvent, targetMarker?: SV
 }
 export let markerPairNumberInput: HTMLInputElement;
 export function createMarkerPairEditor(targetMarker: SVGRectElement) {
-  const idx = targetMarker.getAttribute('data-idx')!;
+  const idx = targetMarker.getAttribute('data-idx');
+  assertDefined(idx, 'targetMarker missing data-idx attribute');
   const markerPairIndex = parseInt(idx, 10) - 1;
   const markerPair = appState.markerPairs[markerPairIndex];
   const endTime = toHHMMSSTrimmed(markerPair.end);
@@ -51,7 +53,7 @@ export function createMarkerPairEditor(targetMarker: SVGRectElement) {
   const speedAdjustedDuration = toHHMMSSTrimmed((markerPair.end - markerPair.start) / speed);
   const crop = markerPair.crop;
   const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
-  const [_x, _y, w, h] = getCropComponents(crop);
+  const [, , w, h] = getCropComponents(crop);
   const cropAspectRatio = (w / h).toFixed(13);
 
   const settingsEditorDiv = document.createElement('div');
@@ -109,7 +111,7 @@ export function createMarkerPairEditor(targetMarker: SVGRectElement) {
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.titlePrefixTooltip}">
           <span>Title Prefix</span>
-          <input id="title-prefix-input" value="${overrides.titlePrefix != null ? overrides.titlePrefix : ''}" placeholder="None" style="width:20ch;text-align:right"></input>
+          <input id="title-prefix-input" value="${overrides.titlePrefix ?? ''}" placeholder="None" style="width:20ch;text-align:right"></input>
         </div>
         <div class="settings-editor-input-div settings-info-display" title="${Tooltips.timeDurationTooltip}">
           <span>Time:</span>
@@ -135,15 +137,15 @@ export function createMarkerPairEditor(targetMarker: SVGRectElement) {
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.encodeSpeedTooltip}">
           <span>Encode Speed (0-5)</span>
-          <input id="encode-speed-input" type="number" min="0" max="5" step="1" value="${overrides.encodeSpeed != null ? overrides.encodeSpeed : ''}" placeholder="${appState.settings.encodeSpeed || 'Auto'}"  style="min-width:4em"></input>
+          <input id="encode-speed-input" type="number" min="0" max="5" step="1" value="${overrides.encodeSpeed ?? ''}" placeholder="${appState.settings.encodeSpeed ?? 'Auto'}"  style="min-width:4em"></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.CRFTooltip}">
           <span>CRF (0-63)</span>
-          <input id="crf-input" type="number" min="0" max="63" step="1" value="${overrides.crf != null ? overrides.crf : ''}" placeholder="${appState.settings.crf != null ? appState.settings.crf : 'Auto'}" style="min-width:4em"></input>
+          <input id="crf-input" type="number" min="0" max="63" step="1" value="${overrides.crf ?? ''}" placeholder="${appState.settings.crf ?? 'Auto'}" style="min-width:4em"></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.targetBitrateTooltip}">
           <span>Bitrate (kb/s)</span>
-          <input id="target-max-bitrate-input" type="number" min="0" max="10e5" step="100" value="${overrides.targetMaxBitrate != null ? overrides.targetMaxBitrate : ''}" placeholder="${appState.settings.targetMaxBitrate || 'Auto'}" style="min-width:4em"></input>
+          <input id="target-max-bitrate-input" type="number" min="0" max="10e5" step="100" value="${overrides.targetMaxBitrate ?? ''}" placeholder="${appState.settings.targetMaxBitrate ?? 'Auto'}" style="min-width:4em"></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.twoPassTooltip}">
           <span>Two-Pass</span>
@@ -170,7 +172,7 @@ export function createMarkerPairEditor(targetMarker: SVGRectElement) {
       </div>
         <div class="settings-editor-input-div" title="${Tooltips.gammaTooltip}">
           <span>Gamma (0-4)</span>
-          <input id="gamma-input" type="number" min="0.01" max="4.00" step="0.01" value="${overrides.gamma != null ? overrides.gamma : ''}" placeholder="${appState.settings.gamma != null ? appState.settings.gamma : '1'}" style="min-width:4em"></input>
+          <input id="gamma-input" type="number" min="0.01" max="4.00" step="0.01" value="${overrides.gamma ?? ''}" placeholder="${appState.settings.gamma ?? '1'}" style="min-width:4em"></input>
         </div>
 
         <div class="settings-editor-input-div" title="${Tooltips.denoiseTooltip}">
@@ -230,7 +232,7 @@ export function createMarkerPairEditor(targetMarker: SVGRectElement) {
           </div>
           <div title="${Tooltips.fadeDurationTooltip}">
             <span>Fade Duration</span>
-            <input id="fade-duration-input" type="number" min="0.1" step="0.1" value="${overrides.fadeDuration != null ? overrides.fadeDuration : ''}" placeholder="${appState.settings.fadeDuration != null ? appState.settings.fadeDuration : '0.7'}" style="width:7em"></input>
+            <input id="fade-duration-input" type="number" min="0.1" step="0.1" value="${overrides.fadeDuration ?? ''}" placeholder="${appState.settings.fadeDuration ?? '0.7'}" style="width:7em"></input>
           </div>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.enableZoomPanTooltip}">
@@ -281,12 +283,14 @@ export function createMarkerPairEditor(targetMarker: SVGRectElement) {
     'minterp-fps-mul-label'
   ) as HTMLSpanElement;
 
-  const speedInput = document.getElementById('speed-input')!;
+  const speedInput = document.getElementById('speed-input');
+  assertDefined(speedInput, 'speed-input element not found');
   speedInput.addEventListener('change', () => { updateMinterpFpsMulLabel(markerPair); });
 
   const minterpFpsMultiplierInput = document.getElementById(
     'minterp-fps-multiplier-input'
-  )!;
+  );
+  assertDefined(minterpFpsMultiplierInput, 'minterp-fps-multiplier-input element not found');
   minterpFpsMultiplierInput.addEventListener('change', () => { updateMinterpFpsMulLabel(markerPair); });
 
   appState.cropInputLabel = document.getElementById('crop-input-label') as HTMLInputElement;
@@ -321,12 +325,17 @@ export function markerPairNumberInputHandler(e: Event) {
   let targetEndNumbering = appState.endMarkerNumberings.children[newIdx];
   // if target succeedes current marker pair, move pair after target
   if (newIdx > appState.prevSelectedMarkerPairIndex) {
-    targetMarkerRect = targetMarkerRect.nextElementSibling!.nextElementSibling!;
-    targetStartNumbering = targetStartNumbering.nextElementSibling!;
-    targetEndNumbering = targetEndNumbering.nextElementSibling!;
+    assertDefined(targetMarkerRect.nextElementSibling, 'targetMarkerRect has no next sibling');
+    assertDefined(targetMarkerRect.nextElementSibling.nextElementSibling, 'targetMarkerRect has no second next sibling');
+    targetMarkerRect = targetMarkerRect.nextElementSibling.nextElementSibling;
+    assertDefined(targetStartNumbering.nextElementSibling, 'targetStartNumbering has no next sibling');
+    targetStartNumbering = targetStartNumbering.nextElementSibling;
+    assertDefined(targetEndNumbering.nextElementSibling, 'targetEndNumbering has no next sibling');
+    targetEndNumbering = targetEndNumbering.nextElementSibling;
   }
 
-  const prevSelectedStartMarker = appState.prevSelectedEndMarker.previousElementSibling!;
+  const prevSelectedStartMarker = appState.prevSelectedEndMarker.previousElementSibling;
+  assertDefined(prevSelectedStartMarker, 'prevSelectedEndMarker has no previous sibling');
   // if target precedes current marker pair, move pair before target
   appState.markersSvg.insertBefore(prevSelectedStartMarker, targetMarkerRect);
   appState.markersSvg.insertBefore(appState.prevSelectedEndMarker, targetMarkerRect);
@@ -378,7 +387,8 @@ export function toggleAutoHideUnselectedMarkerPairs(e: KeyboardEvent) {
 // Assumes targetMarker is an end marker
 export function toggleOnMarkerPairEditor(targetMarker: SVGRectElement) {
   appState.prevSelectedEndMarker = targetMarker;
-  const idx = appState.prevSelectedEndMarker.getAttribute('data-idx')!;
+  const idx = appState.prevSelectedEndMarker.getAttribute('data-idx');
+  assertDefined(idx, 'prevSelectedEndMarker missing data-idx attribute');
 
   const selectedMarkerPairIndex = parseInt(idx) - 1;
   if (selectedMarkerPairIndex !== appState.prevSelectedMarkerPairIndex) {
@@ -400,7 +410,8 @@ export function toggleOnMarkerPairEditor(targetMarker: SVGRectElement) {
   }
 
   targetMarker.classList.add('selected-marker');
-  targetMarker.previousElementSibling!.classList.add('selected-marker');
+  assertDefined(targetMarker.previousElementSibling, 'targetMarker has no previous sibling');
+  targetMarker.previousElementSibling.classList.add('selected-marker');
   const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
   markerPair.startNumbering.classList.add('selectedMarkerNumbering');
   markerPair.endNumbering.classList.add('selectedMarkerNumbering');
@@ -417,7 +428,8 @@ export function toggleOffMarkerPairEditor(hardHide = false) {
   hideCropOverlay();
   hideChart();
   appState.prevSelectedEndMarker.classList.remove('selected-marker');
-  appState.prevSelectedEndMarker.previousElementSibling!.classList.remove('selected-marker');
+  assertDefined(appState.prevSelectedEndMarker.previousElementSibling, 'prevSelectedEndMarker has no previous sibling');
+  appState.prevSelectedEndMarker.previousElementSibling.classList.remove('selected-marker');
   const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
   markerPair.startNumbering.classList.remove('selectedMarkerNumbering');
   markerPair.endNumbering.classList.remove('selectedMarkerNumbering');

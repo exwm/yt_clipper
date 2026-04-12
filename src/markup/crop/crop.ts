@@ -213,8 +213,8 @@ export class Crop {
     return delta;
   }
 
-  resizeN(delta: number, _shouldClamp = true) {
-    delta = this.clampResizeN(delta);
+  resizeN(delta: number, shouldClamp = true) {
+    if (shouldClamp) delta = this.clampResizeN(delta);
     this._y -= delta;
     this._h += delta;
     return delta;
@@ -457,7 +457,7 @@ export function getMinMaxAvgCropPoint(cropMap: CropPoint[], cropRes: string) {
 
   let [minSize, minSizeW, minSizeH] = [Infinity, Infinity, Infinity];
   let [maxSize, maxSizeW, maxSizeH] = [-Infinity, -Infinity, -Infinity];
-  let [avgSize, avgSizeW, avgSizeH] = [0, 0, 0];
+  let avgSizeW = 0;
   cropMap.forEach((cropPoint, i) => {
     const { w, h, size } = getCropSize(cropPoint.crop, cropRes);
     if (size < minSize) {
@@ -469,9 +469,9 @@ export function getMinMaxAvgCropPoint(cropMap: CropPoint[], cropRes: string) {
     avgSizeW += (w - avgSizeW) / (i + 1);
   });
 
-  avgSizeH = Math.floor(avgSizeW / aspectRatio);
+  const avgSizeH = Math.floor(avgSizeW / aspectRatio);
   avgSizeW = Math.floor(avgSizeW);
-  avgSize = avgSizeW * avgSizeH;
+  const avgSize = avgSizeW * avgSizeH;
 
   return { minSizeW, minSizeH, minSize, maxSizeW, maxSizeH, maxSize, avgSizeW, avgSizeH, avgSize };
 }

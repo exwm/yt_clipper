@@ -61,8 +61,8 @@ function gammaPreviewHandler() {
   const shortestActiveMarkerPair = getShortestActiveMarkerPair();
 
   const markerPairGamma =
-    (shortestActiveMarkerPair?.overrides.gamma) ||
-    appState.settings.gamma ||
+    (shortestActiveMarkerPair?.overrides.gamma) ??
+    appState.settings.gamma ??
     1;
 
   if (markerPairGamma == 1) {
@@ -129,7 +129,7 @@ export function getFadeBounds(markerPair: MarkerPair, currentTime: number): numb
   const end = Math.ceil(markerPair.end * 1e6) / 1e6;
   const inputDuration = end - start;
   const outputDuration = markerPair.outputDuration;
-  let fadeDuration = markerPair.overrides.fadeDuration || appState.settings.fadeDuration || 0.5;
+  let fadeDuration = markerPair.overrides.fadeDuration ?? appState.settings.fadeDuration ?? 0.5;
   fadeDuration = Math.min(fadeDuration, 0.4 * outputDuration);
   const fadeInStartP = 0;
   const fadeInEndP = fadeDuration / outputDuration;

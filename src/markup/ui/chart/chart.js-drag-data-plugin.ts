@@ -154,7 +154,7 @@ function updateData(chartInstance, callback) {
         if (datumRef.y !== undefined) {
           datumRef.y = proposedDatum.y;
         } else {
-          datumRef = proposedDatum;
+          datumRef = proposedDatum; // eslint-disable-line no-useless-assignment
         }
       }
 

@@ -1,5 +1,5 @@
 import { html } from 'common-tags';
-import { deleteElement, flashMessage, htmlToElement } from '../util/util';
+import { assertDefined, deleteElement, flashMessage, htmlToElement } from '../util/util';
 import { appState } from '../appState';
 import { createWebGLGammaRenderer, prevGammaVal, WebGLGammaRenderer } from '../util/previewGamma';
 import { FloatingVideoPreviewHandle, mountFloatingVideoPreview } from './video-preview-element';
@@ -46,7 +46,7 @@ export function startCropPreview(
 
     setTimeout(() => {
       modalElement.addEventListener('click', (e) => {
-        if (!modalContent!.contains(e.target as Node)) {
+        if (!modalContent?.contains(e.target as Node)) {
           deleteElement(modalElement);
           toggleCallback();
         }
@@ -54,9 +54,9 @@ export function startCropPreview(
     }, 0);
 
     modalElement.addEventListener('click', (e) => {
-      if (modalContent!.contains(e.target as Node)) {
+      if (modalContent?.contains(e.target as Node)) {
         if (video.paused) {
-          video.play();
+          void video.play();
         } else {
           video.pause();
         }
@@ -124,7 +124,7 @@ export function disableCropPreview() {
   floatingPreviewHandle?.destroy(true);
   floatingPreviewHandle = null;
   const modal = document.getElementById('ytc-zoom-modal');
-  deleteElement(modal!);
+  if (modal) deleteElement(modal);
 }
 
 export function startDrawZoomedRegion(getZoomRegion: Function) {
@@ -133,12 +133,14 @@ export function startDrawZoomedRegion(getZoomRegion: Function) {
   const modal = document.getElementById('ytc-zoom-modal');
   const modalContent = document.getElementsByClassName('ytc-modal-content')[0];
 
-  const [_x, _y, w, h] = getZoomRegion();
+  const [, , w, h] = getZoomRegion();
 
   cropPreviewCanvas.width = w;
   cropPreviewCanvas.height = h;
 
-  drawZoomedRegion(getZoomRegion, cropPreviewCanvas, ctx!, modal!, modalContent as HTMLElement);
+  assertDefined(ctx, 'Could not get 2d context from crop preview canvas');
+  assertDefined(modal, 'Could not find ytc-zoom-modal element');
+  drawZoomedRegion(getZoomRegion, cropPreviewCanvas, ctx, modal, modalContent as HTMLElement);
 }
 
 function drawZoomedRegion(
@@ -158,8 +160,8 @@ function drawZoomedRegion(
 
     ctx.drawImage(appState.video, x, y, w, h, 0, 0, canvas.width, canvas.height);
 
-    if (appState.isGammaPreviewOn) {
-      gammaRenderer!.render(canvas, prevGammaVal);
+    if (appState.isGammaPreviewOn && gammaRenderer) {
+      gammaRenderer.render(canvas, prevGammaVal);
     }
 
     appState.video.requestVideoFrameCallback(() =>

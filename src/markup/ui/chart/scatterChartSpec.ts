@@ -197,7 +197,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
       if (chartType === 'crop') {
         const newCurrentCropPointIndex = draftMap
           .map((cropPoint) => cropPoint.x)
-          .indexOf(currentCropPointXPreSort!);
+          .indexOf(currentCropPointXPreSort ?? -1);
         setCurrentCropPoint(chartInstance, newCurrentCropPointIndex);
       }
       chartInstance.options.plugins.zoom.pan.enabled = true;

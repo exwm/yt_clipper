@@ -37,6 +37,7 @@ import {
   undo,
 } from './util/undoredo';
 import {
+  assertDefined,
   blockEvent,
   clampNumber,
   deleteElement,
@@ -241,19 +242,24 @@ export function jumpToNearestMarkerPair(
   keyCode: string
 ) {
   blockEvent(e);
-  const idx = targetEndMarker.getAttribute('data-idx')!;
+  const idx = targetEndMarker.getAttribute('data-idx');
+  assertDefined(idx, 'Expected data-idx attribute on end marker');
   let index = parseInt(idx) - 1;
+  const currentEndMarker = enableMarkerHotkeysData.endMarker;
+  assertDefined(currentEndMarker, 'Expected enableMarkerHotkeysData.endMarker to be defined');
   if (keyCode === 'ArrowLeft' && index > 0) {
-    targetEndMarker = enableMarkerHotkeysData.endMarker!.previousElementSibling!
-      .previousElementSibling as SVGRectElement;
+    const prevSibling = currentEndMarker.previousElementSibling;
+    assertDefined(prevSibling, 'Expected previous sibling of end marker');
+    targetEndMarker = prevSibling.previousElementSibling as SVGRectElement;
     targetEndMarker && toggleMarkerPairEditor(targetEndMarker);
     if (e.ctrlKey) {
       index--;
       seekToSafe(appState.video, appState.markerPairs[index].start);
     }
   } else if (keyCode === 'ArrowRight' && index < appState.markerPairs.length - 1) {
-    targetEndMarker = enableMarkerHotkeysData.endMarker!.nextElementSibling!
-      .nextElementSibling as SVGRectElement;
+    const nextSibling = currentEndMarker.nextElementSibling;
+    assertDefined(nextSibling, 'Expected next sibling of end marker');
+    targetEndMarker = nextSibling.nextElementSibling as SVGRectElement;
     targetEndMarker && toggleMarkerPairEditor(targetEndMarker);
     if (e.ctrlKey) {
       index++;
@@ -267,7 +273,7 @@ export let prevTime: number | null;
 export function jumpToNearestMarker(e: KeyboardEvent, currentTime: number, keyCode: string) {
   blockEvent(e);
   let minTime: number = currentTime;
-  currentTime = prevTime != null ? prevTime : currentTime;
+  currentTime = prevTime ?? currentTime;
   let markerTimes: number[] = [];
   appState.markerPairs.forEach((markerPair) => {
     markerTimes.push(markerPair.start);
@@ -369,30 +375,32 @@ export function addMarker(markerConfig: MarkerConfig = {}) {
   console.log(appState.markerPairs);
 }
 export function pushMarkerPairsArray(currentTime: number, markerPairConfig: MarkerConfig) {
-  const speed = markerPairConfig.speed || appState.settings.newMarkerSpeed;
-  const crop = markerPairConfig.crop || appState.settings.newMarkerCrop;
+  const speed = markerPairConfig.speed ?? appState.settings.newMarkerSpeed;
+  const crop = markerPairConfig.crop ?? appState.settings.newMarkerCrop;
+  assertDefined(markerPairConfig.startNumbering, 'Expected startNumbering in markerPairConfig');
+  assertDefined(markerPairConfig.endNumbering, 'Expected endNumbering in markerPairConfig');
   const newMarkerPair: MarkerPair = {
     start: appState.startTime,
     end: currentTime,
     speed,
-    speedMap: markerPairConfig.speedMap || [
+    speedMap: markerPairConfig.speedMap ?? [
       { x: appState.startTime, y: speed },
       { x: currentTime, y: speed },
     ],
-    speedChartLoop: markerPairConfig.speedChartLoop || { enabled: true },
+    speedChartLoop: markerPairConfig.speedChartLoop ?? { enabled: true },
     crop,
-    cropMap: markerPairConfig.cropMap || [
+    cropMap: markerPairConfig.cropMap ?? [
       { x: appState.startTime, y: 0, crop: crop },
       { x: currentTime, y: 0, crop: crop },
     ],
-    cropChartLoop: markerPairConfig.cropChartLoop || { enabled: true },
+    cropChartLoop: markerPairConfig.cropChartLoop ?? { enabled: true },
     enableZoomPan: markerPairConfig.enableZoomPan ?? false,
     cropRes: appState.settings.cropRes,
-    outputDuration: markerPairConfig.outputDuration || currentTime - appState.startTime,
-    startNumbering: markerPairConfig.startNumbering!,
-    endNumbering: markerPairConfig.endNumbering!,
-    overrides: markerPairConfig.overrides || {},
-    undoredo: markerPairConfig.undoredo || { history: [], index: -1 },
+    outputDuration: markerPairConfig.outputDuration ?? currentTime - appState.startTime,
+    startNumbering: markerPairConfig.startNumbering,
+    endNumbering: markerPairConfig.endNumbering,
+    overrides: markerPairConfig.overrides ?? {},
+    undoredo: markerPairConfig.undoredo ?? { history: [], index: -1 },
   };
   if (newMarkerPair.undoredo.history.length === 0) {
     const draft = createDraft(getMarkerPairHistory(newMarkerPair));
@@ -416,7 +424,7 @@ export function addMarkerPairNumberings(
   endProgressPos: number,
   endMarker: SVGRectElement
 ) {
-  let startNumbering = htmlToSVGElement(`\
+  const startNumberingSvg = htmlToSVGElement(`\
         <svg>\
         <text class="markerNumbering startMarkerNumbering" data-idx="${idx}"\
           x="${startProgressPos}%" y="11.5px"
@@ -425,9 +433,10 @@ export function addMarkerPairNumberings(
         ${idx}\
         </text>\
         </svg>\
-        `)!;
-  startNumbering = startNumbering.children[0] as SVGElement;
-  let endNumbering = htmlToSVGElement(`\
+        `);
+  assertDefined(startNumberingSvg, 'Expected start numbering SVG element');
+  const startNumbering = startNumberingSvg.children[0] as SVGElement;
+  const endNumberingSvg = htmlToSVGElement(`\
         <svg>\
         <text class="markerNumbering endMarkerNumbering" data-idx="${idx}"\
           x="${endProgressPos}%" y="11.5px"
@@ -436,8 +445,9 @@ export function addMarkerPairNumberings(
         ${idx}\
         </text>\
         </svg>\
-        `)!;
-  endNumbering = endNumbering.children[0] as SVGElement;
+        `);
+  assertDefined(endNumberingSvg, 'Expected end numbering SVG element');
+  const endNumbering = endNumberingSvg.children[0] as SVGElement;
 
   const startNumberingText = appState.startMarkerNumberings.appendChild(
     startNumbering
@@ -476,7 +486,9 @@ export function undoMarker() {
     deleteElement(markerPair.startNumbering);
     deleteElement(markerPair.endNumbering);
     appState.startTime = markerPair.start;
-    appState.markerPairsHistory.push(appState.markerPairs.pop()!);
+    const removedPair = appState.markerPairs.pop();
+    assertDefined(removedPair, 'Expected marker pair to exist when undoing');
+    appState.markerPairsHistory.push(removedPair);
     console.log(appState.markerPairs);
     updateMarkerPairEditor();
   }
@@ -516,7 +528,9 @@ export function markerNumberingMouseDownHandler(e: PointerEvent) {
   const targetStartMarker = targetEndMarker.previousSibling as SVGRectElement;
   const targetMarker = numberingType === 'start' ? targetStartMarker : targetEndMarker;
 
-  const markerPairIndex = parseInt(numbering.getAttribute('data-idx')!) - 1;
+  const dataIdx = numbering.getAttribute('data-idx');
+  assertDefined(dataIdx, 'Expected data-idx attribute on numbering');
+  const markerPairIndex = parseInt(dataIdx) - 1;
   const markerPair = appState.markerPairs[markerPairIndex];
   const markerTime = numberingType === 'start' ? markerPair.start : markerPair.end;
 
@@ -616,10 +630,12 @@ export function moveMarker(
   adjustCharts = true
 ) {
   const type = marker.getAttribute('type') as 'start' | 'end';
-  const idx = parseInt(marker.getAttribute('data-idx')!) - 1;
+  const dataIdx = marker.getAttribute('data-idx');
+  assertDefined(dataIdx, 'Expected data-idx attribute on marker');
+  const idx = parseInt(dataIdx) - 1;
   const markerPair = appState.markerPairs[idx];
 
-  const toTime = newTime != null ? newTime : appState.video.getCurrentTime();
+  const toTime = newTime ?? appState.video.getCurrentTime();
 
   if (type === 'start' && toTime >= markerPair.end) {
     flashMessage('Start marker cannot be placed after or at end marker', 'red');
@@ -661,17 +677,21 @@ export function renderMarkerPair(markerPair, markerPairIndex) {
   const startProgressPos = (markerPair.start / getVideoDuration(platform, appState.video)) * 100;
   const endProgressPos = (markerPair.end / getVideoDuration(platform, appState.video)) * 100;
 
-  startMarker!.setAttribute('x', `${startProgressPos}%`);
+  assertDefined(startMarker, 'Expected start marker element');
+  assertDefined(endMarker, 'Expected end marker element');
+  startMarker.setAttribute('x', `${startProgressPos}%`);
   startMarkerNumbering.setAttribute('x', `${startProgressPos}%`);
   selectedStartMarkerOverlay.setAttribute('x', `${startProgressPos}%`);
-  endMarker!.setAttribute('x', `${endProgressPos}%`);
+  endMarker.setAttribute('x', `${endProgressPos}%`);
   endMarkerNumbering.setAttribute('x', `${endProgressPos}%`);
   selectedEndMarkerOverlay.setAttribute('x', `${endProgressPos}%`);
 
   const startMarkerTimeSpan = document.getElementById(`start-time`);
   const endMarkerTimeSpan = document.getElementById(`end-time`);
-  startMarkerTimeSpan!.textContent = toHHMMSSTrimmed(markerPair.start);
-  endMarkerTimeSpan!.textContent = toHHMMSSTrimmed(markerPair.end);
+  assertDefined(startMarkerTimeSpan, 'Expected start-time element');
+  assertDefined(endMarkerTimeSpan, 'Expected end-time element');
+  startMarkerTimeSpan.textContent = toHHMMSSTrimmed(markerPair.start);
+  endMarkerTimeSpan.textContent = toHHMMSSTrimmed(markerPair.end);
   updateMarkerPairDuration(markerPair);
 }
 export function undoRedoMarkerPairChange(dir: 'undo' | 'redo') {
@@ -707,7 +727,7 @@ export function undoRedoMarkerPairChange(dir: 'undo' | 'redo') {
   }
 }
 export function deleteMarkerPair(idx?: number) {
-  if (idx == null) idx = appState.prevSelectedMarkerPairIndex;
+  idx ??= appState.prevSelectedMarkerPairIndex;
   const markerPair = appState.markerPairs[idx];
 
   const me = new PointerEvent('pointerover', { shiftKey: true });
@@ -733,14 +753,22 @@ export let selectedStartMarkerOverlay: HTMLElement;
 export let selectedEndMarkerOverlay: HTMLElement;
 export function highlightSelectedMarkerPair(currentMarker: SVGRectElement) {
   if (!selectedStartMarkerOverlay) {
-    selectedStartMarkerOverlay = document.getElementById('selected-start-marker-overlay')!;
+    const el = document.getElementById('selected-start-marker-overlay');
+    assertDefined(el, 'Expected selected-start-marker-overlay element');
+    selectedStartMarkerOverlay = el;
   }
   if (!selectedEndMarkerOverlay) {
-    selectedEndMarkerOverlay = document.getElementById('selected-end-marker-overlay')!;
+    const el = document.getElementById('selected-end-marker-overlay');
+    assertDefined(el, 'Expected selected-end-marker-overlay element');
+    selectedEndMarkerOverlay = el;
   }
   const startMarker = currentMarker.previousSibling as SVGRectElement;
-  selectedStartMarkerOverlay.setAttribute('x', startMarker.getAttribute('x')!);
-  selectedEndMarkerOverlay.setAttribute('x', currentMarker.getAttribute('x')!);
+  const startX = startMarker.getAttribute('x');
+  assertDefined(startX, 'Expected x attribute on start marker');
+  const endX = currentMarker.getAttribute('x');
+  assertDefined(endX, 'Expected x attribute on current marker');
+  selectedStartMarkerOverlay.setAttribute('x', startX);
+  selectedEndMarkerOverlay.setAttribute('x', endX);
   selectedStartMarkerOverlay.classList.remove('selected-marker-overlay-hidden');
   selectedEndMarkerOverlay.classList.remove('selected-marker-overlay-hidden');
   appState.selectedMarkerPairOverlay.style.display = 'block';
@@ -767,7 +795,8 @@ export function updateMarkerPairDuration(markerPair: MarkerPair) {
 }
 export function renumberMarkerPairs() {
   const markersSvg = document.getElementById('markers-svg');
-  Array.from(markersSvg!.children).forEach((markerRect, idx) => {
+  assertDefined(markersSvg, 'Expected markers-svg element');
+  Array.from(markersSvg.children).forEach((markerRect, idx) => {
     // renumber markers by pair starting with index 1
     const newIdx = Math.floor((idx + 2) / 2);
     markerRect.setAttribute('data-idx', newIdx.toString());

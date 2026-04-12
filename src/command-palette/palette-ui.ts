@@ -329,7 +329,9 @@ export class CommandPalette {
       }
       let bucket = bucketByKey.get(key);
       if (!bucket) {
-        categoriesBySection.get(section)!.push(category);
+        const sectionCategories = categoriesBySection.get(section);
+        if (sectionCategories == null) throw new Error(`Missing section: ${section}`);
+        sectionCategories.push(category);
         bucket = [];
         bucketByKey.set(key, bucket);
       }
@@ -338,9 +340,12 @@ export class CommandPalette {
 
     for (const section of sectionOrder) {
       this.visibleEntries.push({ kind: 'section', label: section });
-      for (const category of categoriesBySection.get(section)!) {
+      const sectionCategories = categoriesBySection.get(section);
+      if (sectionCategories == null) throw new Error(`Missing section: ${section}`);
+      for (const category of sectionCategories) {
         this.visibleEntries.push({ kind: 'category', label: category });
-        const bucket = bucketByKey.get(section + '\u0000' + category)!;
+        const bucket = bucketByKey.get(section + '\u0000' + category);
+        if (bucket == null) throw new Error(`Missing bucket: ${section}/${category}`);
         for (const result of bucket) {
           this.pushItem(result);
         }
@@ -417,19 +422,20 @@ export class CommandPalette {
       return;
     }
 
+    const resultsEl = this.resultsEl;
     this.visibleEntries.forEach((entry, idx) => {
       if (entry.kind === 'section') {
         const el = document.createElement('div');
         el.className = 'cmdp-section';
         el.textContent = entry.label;
-        this.resultsEl!.appendChild(el);
+        resultsEl.appendChild(el);
         return;
       }
       if (entry.kind === 'category') {
         const el = document.createElement('div');
         el.className = 'cmdp-category';
         el.textContent = entry.label;
-        this.resultsEl!.appendChild(el);
+        resultsEl.appendChild(el);
         return;
       }
       const item = document.createElement('div');
@@ -493,7 +499,7 @@ export class CommandPalette {
         }
       });
 
-      this.resultsEl!.appendChild(item);
+      resultsEl.appendChild(item);
     });
 
     const highlighted = this.resultsEl.querySelector('.cmdp-highlighted');

@@ -14,7 +14,7 @@ export let prevVideoWidth: number;export function getFPS(defaultFPS: number | nu
       fps = appState.videoInfo.fps;
     } else if (getPlatform() === VideoPlatforms.youtube) {
       appState.videoInfo.fps = parseFloat(
-        /@(\d+)/.exec((appState.player as YTPlayer).getStatsForNerds().resolution)![1]
+        /@(\d+)/.exec((appState.player as YTPlayer).getStatsForNerds().resolution)?.[1] ?? '60'
       );
       fps = appState.videoInfo.fps;
     } else {

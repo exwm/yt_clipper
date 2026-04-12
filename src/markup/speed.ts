@@ -12,7 +12,7 @@ const defaultRoundSpeedMapEasing = 0.05;
 const defaultSpeedRoundPrecision = 2;
 
 export function getShortestActiveMarkerPair(currentTime?: number): MarkerPair {
-  if (currentTime == null) currentTime = appState.video.getCurrentTime();
+  currentTime ??= appState.video.getCurrentTime();
 
   if (
     appState.isSettingsEditorOpen &&
@@ -38,7 +38,7 @@ export function getShortestActiveMarkerPair(currentTime?: number): MarkerPair {
   });
 
   if (activeMarkerPairs.length === 0) {
-    return null!;
+    return null as unknown as MarkerPair;
   }
 
   const shortestActiveMarkerPair = activeMarkerPairs.reduce((prev, cur) => {
@@ -183,14 +183,14 @@ export function getInterpolatedSpeed(
 ) {
   const elapsed = time - left.x;
   const duration = right.x - left.x;
-  let easedTimePercentage: number;
+  let easedTimePercentage = 0;
   if (appState.easingMode === 'cubicInOut') {
     easedTimePercentage = easeCubicInOut(elapsed / duration);
   } else if (appState.easingMode === 'linear') {
     easedTimePercentage = elapsed / duration;
   }
   const change = right.y - left.y;
-  const rawSpeed = left.y + change * easedTimePercentage! || right.y;
+  const rawSpeed = left.y + change * easedTimePercentage || right.y;
   const roundedSpeed =
     roundMultiple > 0 ? roundValue(rawSpeed, roundMultiple, roundPrecision) : rawSpeed;
   return roundedSpeed;
@@ -252,9 +252,9 @@ export function updateAllMarkerPairSpeeds(newSpeed: number, renderSpeedAndCropUI
   if (appState.isSettingsEditorOpen) {
     if (appState.wasGlobalSettingsEditorOpen) {
       const markerPairMergeListInput = document.getElementById('merge-list-input');
-      markerPairMergeListInput!.dispatchEvent(new Event('change'));
+      markerPairMergeListInput?.dispatchEvent(new Event('change'));
     } else {
-      appState.speedInput!.value = newSpeed.toString();
+      if (appState.speedInput) appState.speedInput.value = newSpeed.toString();
       renderSpeedAndCropUI();
     }
   }
