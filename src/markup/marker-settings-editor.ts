@@ -191,11 +191,12 @@ export function createMarkerPairEditor(targetMarker: SVGRectElement) {
         </div>
         <div class="settings-editor-input-div">
           <div title="${Tooltips.minterpFpsMultiplierTooltip}">
-            <span id="minterp-fps-mul-label">FPS Multiplier${minterpFpsMulLabel}</span>
+            <span id="minterp-fps-mul-label">Src FPS Multiplier</span>
             <div class="fps-mul-stepper">
               <button class="fps-mul-step-btn" data-step="-1">−1</button>
-              <input id="minterp-fps-multiplier-input" type="number" min="0" max="5" step="0.05" value="${minterpFpsMultiplier ?? ''}" placeholder="0" style="min-width:2em"></input>
+              <input id="minterp-fps-multiplier-input" class="fps-mul-input" type="number" min="0" max="5" step="0.05" value="${minterpFpsMultiplier ?? ''}" placeholder="0"></input>
               <button class="fps-mul-step-btn" data-step="+1">+1</button>
+              <span id="minterp-fps-mul-suffix" class="fps-mul-suffix">${minterpFpsMulLabel}</span>
             </div>
           </div>
         </div>
@@ -281,8 +282,8 @@ export function createMarkerPairEditor(targetMarker: SVGRectElement) {
   markerPairNumberInput.addEventListener('change', markerPairNumberInputHandler);
   appState.speedInputLabel = document.getElementById('speed-input-label') as HTMLInputElement;
   appState.speedInput = document.getElementById('speed-input') as HTMLInputElement;
-  appState.minterpFpsMulLabelSpan = document.getElementById(
-    'minterp-fps-mul-label'
+  appState.minterpFpsMulSuffixSpan = document.getElementById(
+    'minterp-fps-mul-suffix'
   ) as HTMLSpanElement;
 
   const speedInput = document.getElementById('speed-input');

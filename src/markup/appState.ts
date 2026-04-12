@@ -57,7 +57,7 @@ export interface AppState {
 
   // Speed module shared state
   speedInputLabel: HTMLInputElement | null;
-  minterpFpsMulLabelSpan: HTMLSpanElement | null;
+  minterpFpsMulSuffixSpan: HTMLSpanElement | null;
   speedInput: HTMLInputElement | null;
   easingMode: 'linear' | 'cubicInOut';
   forceSetSpeedValue: number;
@@ -113,7 +113,7 @@ export const appState: AppState = {
 
   // Speed module shared state
   speedInputLabel: null,
-  minterpFpsMulLabelSpan: null,
+  minterpFpsMulSuffixSpan: null,
   speedInput: null,
   easingMode: 'linear',
   forceSetSpeedValue: 1,

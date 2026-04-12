@@ -326,11 +326,22 @@
   width: auto;
 }
 
+.fps-mul-input {
+  width: 3.5em !important;
+}
+
+.fps-mul-suffix {
+  color: var(--med-light-grey);
+  font-size: 9pt;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
 .fps-mul-step-btn {
   background: var(--lighter-grey);
   color: #333;
   border: 1px solid var(--med-grey);
-  border-radius: 3px;
+  border-radius: 999px;
   padding: 0 5px;
   cursor: pointer;
   font-weight: bold;

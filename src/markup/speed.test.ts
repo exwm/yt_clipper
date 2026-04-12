@@ -61,7 +61,7 @@ beforeEach(() => {
   appState.forceSetSpeedValue = 1;
   appState.isForceSetSpeedOn = false;
   appState.speedInputLabel = null;
-  appState.minterpFpsMulLabelSpan = null;
+  appState.minterpFpsMulSuffixSpan = null;
   appState.speedInput = null;
 });
 
@@ -174,10 +174,12 @@ describe('getInterpolatedSpeed', () => {
 
 describe('getMinterpFpsMulSuffix', () => {
   test.each([
-    { mul: 2, speed: 1, expected: ' (2x)' },
+    { mul: 2, speed: 1, expected: ' → 2.00× clip' },
     { mul: 0, speed: 1, expected: '' },
-    { mul: 3, speed: 1.5, expected: ' (2x)' },
-    { mul: 1, speed: 3, expected: '' },
+    { mul: 3, speed: 1.5, expected: ' → 2.00× clip' },
+    { mul: 1, speed: 3, expected: ' → 0.33× clip' },
+    { mul: 2, speed: 0.5, expected: ' → 4.00× clip' },
+    { mul: 1, speed: 0.6, expected: ' → 1.67× clip' },
   ])('mul=$mul, speed=$speed → "$expected"', ({ mul, speed, expected }) => {
     expect(getMinterpFpsMulSuffix(mul, speed)).toBe(expected);
   });

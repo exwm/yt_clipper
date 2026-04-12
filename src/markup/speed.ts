@@ -123,16 +123,17 @@ export function updateSpeedInputLabel(text: string) {
 }
 
 export function getMinterpFpsMulSuffix(mul: number, speed: number) {
-  const n = mul > 0 ? Math.round(mul / speed) : 0;
-  return n >= 1 && Math.abs(mul / speed - n) < 1e-9 ? ` (${n}x)` : '';
+  if (mul <= 0 || speed <= 0) return '';
+  const ratio = mul / speed;
+  return ` → ${ratio.toFixed(2)}× clip`;
 }
 
 export function updateMinterpFpsMulLabel(markerPair) {
-  if (!appState.isSettingsEditorOpen || appState.minterpFpsMulLabelSpan == null) return;
+  if (!appState.isSettingsEditorOpen || appState.minterpFpsMulSuffixSpan == null) return;
   const mul = (markerPair.overrides.minterpFpsMultiplier ??
     appState.settings.minterpFpsMultiplier ??
     0) as number;
-  appState.minterpFpsMulLabelSpan.textContent = `FPS Multiplier${getMinterpFpsMulSuffix(mul, markerPair.speed)}`;
+  appState.minterpFpsMulSuffixSpan.textContent = getMinterpFpsMulSuffix(mul, markerPair.speed);
 }
 
 export function getSpeedMapping(
