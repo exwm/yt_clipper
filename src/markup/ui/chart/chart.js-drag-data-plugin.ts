@@ -2,7 +2,7 @@ import Chart from 'chart.js';
 import { drag } from 'd3-drag';
 import { select, event } from 'd3-selection';
 import { createDraft, finishDraft } from 'immer';
-import { markerPairs, prevSelectedMarkerPairIndex } from '../../yt_clipper';
+import { appState } from '../../appState';
 
 let element, scale, scaleX, radar;
 
@@ -159,7 +159,7 @@ function updateData(chartInstance, callback) {
       }
 
       const newState = finishDraft(dataRef);
-      const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+      const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
       chartInstance.data.datasets[datasetIndex].data = newState;
       shouldChartUpdate.chartType === 'crop'
         ? (markerPair.cropMap = newState)

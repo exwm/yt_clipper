@@ -3,12 +3,8 @@ import { createDraft } from 'immer';
 import { CropPoint } from '../../@types/yt_clipper';
 import { getMarkerPairHistory, saveMarkerPairHistory } from '../../util/undoredo';
 import { seekToSafe, timeRounder } from '../../util/util';
-import {
-  markerPairs,
-  prevSelectedMarkerPairIndex,
-  triggerCropChartUpdates,
-  video,
-} from '../../yt_clipper';
+import { triggerCropChartUpdates } from '../../yt_clipper';
+import { appState } from '../../appState';
 import { getInputUpdater, grey, lightgrey, medgrey, roundX, roundY, sortX } from './chartutil';
 import {
   cropChartMode,
@@ -79,7 +75,7 @@ export const addSpeedPoint = function (time, speed) {
     time = roundX(time);
     speed = roundY(speed);
 
-    const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+    const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     const initialState = getMarkerPairHistory(markerPair);
     const draft = createDraft(initialState);
 
@@ -105,7 +101,7 @@ export const addCropPoint = function (time: number) {
     }
     time = roundX(time);
 
-    const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+    const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     const initialState = getMarkerPairHistory(markerPair);
     const draft = createDraft(initialState);
 
@@ -142,7 +138,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
       chartInstance.options.plugins.zoom.pan.enabled = false;
       e.target.style.cursor = 'grabbing';
       if (chartType === 'crop') {
-        seekToSafe(video, timeRounder(value.x));
+        seekToSafe(appState.video, timeRounder(value.x));
       }
       chartInstance.update();
     }
@@ -175,7 +171,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
       }
 
       if (chartType === 'crop' && shouldDrag.dragX && fromValue.x != toValue.x) {
-        seekToSafe(video, timeRounder(toValue.x));
+        seekToSafe(appState.video, timeRounder(toValue.x));
       }
       return shouldDrag;
     } else {
@@ -190,7 +186,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
   const onDragEnd = function (e, chartInstance, datasetIndex, index, value) {
     // console.log(datasetIndex, index, value);
     if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
-      const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+      const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
       const draft = createDraft(getMarkerPairHistory(markerPair));
       const draftMap = chartType === 'crop' ? draft.cropMap : draft.speedMap;
 
@@ -251,7 +247,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
         let scatterChartMinBound = this.options.scales.xAxes[0].ticks.min;
         let scatterChartMaxBound = this.options.scales.xAxes[0].ticks.max;
 
-        const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+        const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
         const initialState = getMarkerPairHistory(markerPair);
         const draft = createDraft(initialState);
 
@@ -300,7 +296,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
           const datasetIndex = datum['_datasetIndex'];
           const index = datum['_index'];
 
-          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+          const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
           const initialState = getMarkerPairHistory(markerPair);
           const draft = createDraft(initialState);
 

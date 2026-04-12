@@ -1,6 +1,6 @@
 import { html, render } from 'lit-html';
 import { createWebGLGammaRenderer, prevGammaVal, WebGLGammaRenderer } from '../util/previewGamma';
-import { isGammaPreviewOn, rotation } from '../yt_clipper';
+import { appState } from '../appState';
 import { computeARChange, computeARLockedResize } from './preview-resize-math';
 
 export type FloatingVideoPreviewOptions = {
@@ -314,7 +314,7 @@ export function mountFloatingVideoPreview(
     if (destroyed || !cropCanvasEl || !state.sourceVideo) return;
     const source = state.sourceVideo;
     const [sx, sy, sw, sh] = getSourceRect();
-    const isRotated = rotation === 90 || rotation === -90;
+    const isRotated = appState.rotation === 90 || appState.rotation === -90;
     const canvasW = isRotated ? sh : sw;
     const canvasH = isRotated ? sw : sh;
     if (cropCanvasEl.width !== canvasW) cropCanvasEl.width = canvasW;
@@ -384,11 +384,11 @@ export function mountFloatingVideoPreview(
     const ctx = cropCanvasEl.getContext('2d');
     if (ctx) {
       ctx.save();
-      if (rotation === 90) {
+      if (appState.rotation === 90) {
         ctx.translate(canvasW, 0);
         ctx.rotate(Math.PI / 2);
         ctx.drawImage(source, sx, sy, sw, sh, 0, 0, sw, sh);
-      } else if (rotation === -90) {
+      } else if (appState.rotation === -90) {
         ctx.translate(0, canvasH);
         ctx.rotate(-Math.PI / 2);
         ctx.drawImage(source, sx, sy, sw, sh, 0, 0, sw, sh);
@@ -397,7 +397,7 @@ export function mountFloatingVideoPreview(
       }
       ctx.restore();
 
-      if (isGammaPreviewOn) {
+      if (appState.isGammaPreviewOn) {
         if (!gammaRenderer) gammaRenderer = createWebGLGammaRenderer(cropCanvasEl);
         gammaRenderer.render(cropCanvasEl, prevGammaVal);
         ctx.drawImage(gammaRenderer.outputCanvas, 0, 0);
@@ -502,7 +502,7 @@ export function mountFloatingVideoPreview(
     const [, , sw, sh] = getSourceRect!();
     const pb = initialPopoutBounds;
     // When rotated 90° or -90°, swap width and height for the popup window
-    const isRotated = rotation === 90 || rotation === -90;
+    const isRotated = appState.rotation === 90 || appState.rotation === -90;
     const popupW = isRotated ? sh : sw;
     const popupH = isRotated ? sw : sh;
     const features = `popup=yes,width=${pb?.width ?? popupW},height=${pb?.height ?? popupH}${pb ? `,left=${pb.screenX},top=${pb.screenY}` : ''}`;
@@ -530,7 +530,7 @@ export function mountFloatingVideoPreview(
       if (popup.closed || !ctx) return;
       const [sx, sy, fsw, fsh] = getSourceRect!();
       // Canvas dimensions are swapped when rotated — check live since rotation can change after pop-out
-      const isNowRotated = rotation === 90 || rotation === -90;
+      const isNowRotated = appState.rotation === 90 || appState.rotation === -90;
       const fcw = isNowRotated ? fsh : fsw;
       const fch = isNowRotated ? fsw : fsh;
       const vpW = popup.innerWidth || fcw;
@@ -548,11 +548,11 @@ export function mountFloatingVideoPreview(
 
       // Apply rotation transform if needed
       ctx.save();
-      if (rotation === 90) {
+      if (appState.rotation === 90) {
         ctx.translate(canvas.width, 0);
         ctx.rotate(Math.PI / 2);
         ctx.drawImage(source, sx, sy, fsw, fsh, 0, 0, fsw, fsh);
-      } else if (rotation === -90) {
+      } else if (appState.rotation === -90) {
         ctx.translate(0, canvas.height);
         ctx.rotate(-Math.PI / 2);
         ctx.drawImage(source, sx, sy, fsw, fsh, 0, 0, fsw, fsh);
@@ -561,7 +561,7 @@ export function mountFloatingVideoPreview(
       }
       ctx.restore();
 
-      if (isGammaPreviewOn) {
+      if (appState.isGammaPreviewOn) {
         if (!popupGammaRenderer) popupGammaRenderer = createWebGLGammaRenderer(canvas);
         popupGammaRenderer.render(canvas, prevGammaVal);
         ctx.drawImage(popupGammaRenderer.outputCanvas, 0, 0);

@@ -1,6 +1,6 @@
 import { html } from 'common-tags';
 import { deleteElement, htmlToElement } from '../util/util';
-import { isGammaPreviewOn, rotation, video } from '../yt_clipper';
+import { appState } from '../appState';
 import { createWebGLGammaRenderer, prevGammaVal, WebGLGammaRenderer } from '../util/previewGamma';
 import { FloatingVideoPreviewHandle, mountFloatingVideoPreview } from './video-preview-element';
 
@@ -75,7 +75,7 @@ export function startCropPreview(
   }
 
   const [, , w, h] = getSourceRect?.() ?? [0, 0, 16, 9];
-  const isRotated = rotation === 90 || rotation === -90;
+  const isRotated = appState.rotation === 90 || appState.rotation === -90;
   let wasPopoutInThisSession = false;
   floatingPreviewHandle = mountFloatingVideoPreview(video, {
     getSourceRect,
@@ -115,7 +115,7 @@ export function disableCropPreview() {
   const wasPopped = floatingPreviewHandle?.isPopped() ?? false;
   floatingPreviewHandle?.closePopup(); // if wasPopped: fires beforeunload → onPopoutClose + onDestroy
   if (!wasPopped && floatingPreviewHandle) {
-    // Was floating (not popped out) and destroy will be silent — capture state now
+    // Was floating (not popped out) and destroy will be silent — capture appState now
     lastMiniState = floatingPreviewHandle.getState();
     lastPopoutBounds = null;
   }
@@ -154,13 +154,13 @@ function drawZoomedRegion(
 
     resizeModalToAspect(modalContent, w, h);
 
-    ctx.drawImage(video, x, y, w, h, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(appState.video, x, y, w, h, 0, 0, canvas.width, canvas.height);
 
-    if (isGammaPreviewOn) {
+    if (appState.isGammaPreviewOn) {
       gammaRenderer.render(canvas, prevGammaVal);
     }
 
-    video.requestVideoFrameCallback(() =>
+    appState.video.requestVideoFrameCallback(() =>
       drawZoomedRegion(getZoomRegion, canvas, ctx, modal, modalContent)
     );
   }
@@ -197,7 +197,7 @@ export function toggleCropPreviewGammaPreview() {
     return;
   }
 
-  if (isGammaPreviewOn) {
+  if (appState.isGammaPreviewOn) {
     cropPreviewCanvas.style.display = 'none';
     gammaRenderer.outputCanvas.style.display = '';
   } else {

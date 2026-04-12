@@ -66,7 +66,6 @@ import {
   getPlatform,
   getVideoPlatformHooks,
   videoPlatformDataRecords,
-  VideoPlatformHooks,
   VideoPlatforms,
 } from './platforms/platforms';
 import { PlatformNavObserver } from './platforms/navigation';
@@ -140,6 +139,7 @@ import {
   ShortcutRegistry,
 } from '../command-palette';
 import { createShortcutDefinitions } from './shortcut-definitions';
+import { appState } from './appState';
 
 const ytClipperCSS = readFileSync(__dirname + '/ui/css/yt-clipper.css', 'utf8');
 const shortcutsTableStyle = readFileSync(
@@ -151,57 +151,37 @@ const shortcutsTableToggleButtonHTML = readFileSync(
   'utf8'
 );
 
-export let player: HTMLElement;
-export let video: HTMLVideoElement;
-export let markerPairs: MarkerPair[] = [];
-export let prevSelectedMarkerPairIndex: number = null;
-export let isCropChartLoopingOn = false;
-
 const platform = getPlatform();
 const selectors = videoPlatformDataRecords[platform].selectors;
-
-let start = true;
-let markerHotkeysEnabled = false;
-let isSettingsEditorOpen = false;
-let wasGlobalSettingsEditorOpen = false;
-let isCropOverlayVisible = false;
-let isCurrentChartVisible = false;
-
-let markerPairsHistory: MarkerPair[] = [];
-
-let startTime = 0.0;
-let isHotkeysEnabled = false;
-let prevSelectedEndMarker: SVGRectElement = null;
-let ready = false;
 
 loadytClipper();
 
 async function resolvePlayerAndVideo() {
-  player = await retryUntilTruthyResult(() => document.querySelector(selectors.player));
+  appState.player = await retryUntilTruthyResult(() => document.querySelector(selectors.player));
   if (platform === VideoPlatforms.yt_clipper) {
-    video = await retryUntilTruthyResult(() => document.querySelector(selectors.video));
-    player = await retryUntilTruthyResult(() => document.querySelector(selectors.player));
+    appState.video = await retryUntilTruthyResult(() => document.querySelector(selectors.video));
+    appState.player = await retryUntilTruthyResult(() => document.querySelector(selectors.player));
   } else {
-    video = await retryUntilTruthyResult(() => player.querySelector(selectors.video));
+    appState.video = await retryUntilTruthyResult(() => appState.player.querySelector(selectors.video));
   }
 
-  await retryUntilTruthyResult(() => video.readyState != 0);
+  await retryUntilTruthyResult(() => appState.video.readyState != 0);
   await retryUntilTruthyResult(
-    () => video.videoWidth * video.videoHeight * getVideoDuration(platform, video)
+    () => appState.video.videoWidth * appState.video.videoHeight * getVideoDuration(platform, appState.video)
   );
   if (platform === 'vlive') {
-    await retryUntilTruthyResult(() => !video.src.startsWith('data:video'));
+    await retryUntilTruthyResult(() => !appState.video.src.startsWith('data:video'));
     await retryUntilTruthyResult(
-      () => video.videoWidth * video.videoHeight * getVideoDuration(platform, video)
+      () => appState.video.videoWidth * appState.video.videoHeight * getVideoDuration(platform, appState.video)
     );
   }
-  video.classList.add('yt-clipper-video');
+  appState.video.classList.add('yt-clipper-video');
 }
 
 async function loadytClipper() {
   console.log('Loading yt_clipper markup script...');
   await resolvePlayerAndVideo();
-  ready = true;
+  appState.isReady = true;
   startNavigationWatcher();
 }
 
@@ -226,10 +206,10 @@ async function handleNavigation() {
   if (!initOnceCalled) {
     if (navResolveInFlight) return;
     navResolveInFlight = true;
-    ready = false;
+    appState.isReady = false;
     try {
       await resolvePlayerAndVideo();
-      ready = true;
+      appState.isReady = true;
     } catch (e) {
       console.error('yt_clipper: failed to re-resolve player/video after navigation', e);
     } finally {
@@ -238,7 +218,7 @@ async function handleNavigation() {
     return;
   }
 
-  const loadedVideoID = settings?.videoID ?? null;
+  const loadedVideoID = appState.settings?.videoID ?? null;
   const currentPageVideoID = getCurrentPageVideoID();
 
   if (isStaleVideo) {
@@ -271,7 +251,7 @@ async function handleNavigation() {
 function getCurrentPageVideoID(): string | null {
   try {
     if (platform === VideoPlatforms.youtube) {
-      const data = (player as any)?.getVideoData?.();
+      const data = (appState.player as any)?.getVideoData?.();
       return data?.video_id ?? null;
     } else if (platform === VideoPlatforms.vlive) {
       const preloadedState = (window as any).unsafeWindow?.__PRELOADED_STATE__;
@@ -302,7 +282,7 @@ function getCurrentPageVideoID(): string | null {
 function clearStaleVideoState() {
   isStaleVideo = false;
   hideStaleVideoBanner();
-  if (isHotkeysEnabled) {
+  if (appState.isHotkeysEnabled) {
     enableCommonBlockers();
     if (platform === VideoPlatforms.youtube) {
       enableYTBlockers();
@@ -313,18 +293,18 @@ function clearStaleVideoState() {
 let staleVideoBannerEl: HTMLDivElement | null = null;
 function showStaleVideoBanner() {
   if (staleVideoBannerEl) return;
-  const loadedVideoID = settings?.videoID ?? 'unknown';
+  const loadedVideoID = appState.settings?.videoID ?? 'unknown';
   staleVideoBannerEl = htmlToElement(`
     <div id="ytc-stale-video-banner">
       <span class="ytc-stale-banner-icon">!</span>
       <div class="ytc-stale-banner-text">
         <strong>Video changed</strong>
-        <span>yt_clipper was loaded from video with id <code class="ytc-stale-banner-videoid">${loadedVideoID}</code> and may behave unexpectedly on other videos. Navigate back to resume, or refresh the page to reload yt_clipper.</span>
+        <span>yt_clipper was loaded from appState.video with id <code class="ytc-stale-banner-videoid">${loadedVideoID}</code> and may behave unexpectedly on other videos. Navigate back to resume, or refresh the page to reload yt_clipper.</span>
       </div>
     </div>
   `) as HTMLDivElement;
 
-  hooks.flashMessage.insertAdjacentElement('afterbegin', staleVideoBannerEl);
+  appState.hooks.flashMessage.insertAdjacentElement('afterbegin', staleVideoBannerEl);
 }
 
 function hideStaleVideoBanner() {
@@ -375,7 +355,7 @@ function initShortcutSystem() {
       copyMarkersToClipboard: () => copyToClipboard(getClipperInputJSON()),
       toggleForceSetSpeed: () => toggleForceSetSpeed(),
       cycleForceSetSpeedValueDown: () => cycleForceSetSpeedValueDown(),
-      updateAllMarkerPairSpeedsToDefault: () => updateAllMarkerPairSpeeds(settings.newMarkerSpeed),
+      updateAllMarkerPairSpeedsToDefault: () => updateAllMarkerPairSpeeds(appState.settings.newMarkerSpeed),
       captureFrame: () => captureFrame(),
       saveCapturedFrames: () => saveCapturedFrames(),
       toggleGlobalSettingsEditor: () => toggleGlobalSettingsEditor(),
@@ -397,7 +377,7 @@ function initShortcutSystem() {
       deleteMarkerPair: () => deleteMarkerPair(),
       drawCrop: () => drawCrop(),
       toggleArrowKeyCropAdjustment: () => toggleArrowKeyCropAdjustment(),
-      updateAllMarkerPairCropsToDefault: () => updateAllMarkerPairCrops(settings.newMarkerCrop),
+      updateAllMarkerPairCropsToDefault: () => updateAllMarkerPairCrops(appState.settings.newMarkerCrop),
       cycleCropDimOpacity: () => cycleCropDimOpacity(),
       toggleCropCrossHair: () => toggleCropCrossHair(),
       toggleCropPreviewModal: () => toggleCropPreview('modal'),
@@ -407,13 +387,13 @@ function initShortcutSystem() {
       toggleBigVideoPreviews: () => toggleBigVideoPreviews(),
       flashNotTheatreMode: () =>
         flashMessage('Please switch to theater mode to rotate video.', 'red'),
-      flattenVRVideo: () => flattenVRVideo(hooks.videoContainer as HTMLDivElement, video),
-      openSubsEditor: () => openSubsEditor(settings.videoID),
+      flattenVRVideo: () => flattenVRVideo(appState.hooks.videoContainer as HTMLDivElement, appState.video),
+      openSubsEditor: () => openSubsEditor(appState.settings.videoID),
       jumpToNearestMarkerOrPair: (e) => jumpToNearestMarkerOrPair(e, e.code),
       togglePrevSelectedMarkerPair: () => togglePrevSelectedMarkerPair(),
       toggleAutoHideUnselectedMarkerPairs: (e) => toggleAutoHideUnselectedMarkerPairs(e),
 
-      isMarkerHotkeysEnabled: () => markerHotkeysEnabled,
+      isMarkerHotkeysEnabled: () => appState.markerHotkeysEnabled,
       isTheatreMode: () => isTheatreMode(),
       isArrowKeyCropAdjustmentDisabled: () => !arrowKeyCropAdjustmentEnabled,
     })
@@ -421,7 +401,7 @@ function initShortcutSystem() {
 
   hotkeyEngine = new HotkeyEngine(shortcutRegistry);
   hotkeyEngine.setBlocker((e) => blockEvent(e));
-  hotkeyEngine.setEnabled(isHotkeysEnabled);
+  hotkeyEngine.setEnabled(appState.isHotkeysEnabled);
 
   commandPalette = new CommandPalette(shortcutRegistry, {
     zIndex: 99999,
@@ -430,7 +410,7 @@ function initShortcutSystem() {
 }
 
 function hotkeys(e: KeyboardEvent) {
-  if (!ready) {
+  if (!appState.isReady) {
     console.log('yt_clipper not yet ready to process hotkeys.');
     return;
   }
@@ -443,11 +423,11 @@ function hotkeys(e: KeyboardEvent) {
       );
       return;
     }
-    isHotkeysEnabled = !isHotkeysEnabled;
+    appState.isHotkeysEnabled = !appState.isHotkeysEnabled;
     initOnce();
     initShortcutSystem();
-    hotkeyEngine?.setEnabled(isHotkeysEnabled);
-    if (isHotkeysEnabled) {
+    hotkeyEngine?.setEnabled(appState.isHotkeysEnabled);
+    if (appState.isHotkeysEnabled) {
       showShortcutsTableToggleButton();
       enableCommonBlockers();
       if (platform === VideoPlatforms.youtube) {
@@ -465,7 +445,7 @@ function hotkeys(e: KeyboardEvent) {
     return;
   }
 
-  if (!isHotkeysEnabled) return;
+  if (!appState.isHotkeysEnabled) return;
 
   if (!e.ctrlKey && e.shiftKey && !e.altKey && e.code === 'KeyE') {
     blockEvent(e);
@@ -491,7 +471,7 @@ function initAutoSave() {
 const localStorageKeyPrefix = 'yt_clipper';
 function saveClipperInputDataToLocalStorage() {
   const date = Date.now(); /*  */
-  const key = `${localStorageKeyPrefix}_${settings.videoTag}`;
+  const key = `${localStorageKeyPrefix}_${appState.settings.videoTag}`;
   const data = getClipperInputData(date);
   try {
     localStorage.setItem(key, JSON.stringify(data, null, 2));
@@ -512,14 +492,14 @@ function saveClipperInputDataToLocalStorage() {
 }
 
 function loadClipperInputDataFromLocalStorage() {
-  if (markerPairs.length === 0) {
-    const key = `${localStorageKeyPrefix}_${settings.videoTag}`;
+  if (appState.markerPairs.length === 0) {
+    const key = `${localStorageKeyPrefix}_${appState.settings.videoTag}`;
     const clipperInputJSON = localStorage.getItem(key);
     if (clipperInputJSON != null) {
       const clipperInputData = JSON.parse(clipperInputJSON);
       const date = new Date(clipperInputData.date);
       const confirmLoad = confirm(stripIndent`
-        The last auto-saved markers data for video ${settings.videoTag} will be restored.
+        The last auto-saved markers data for appState.video ${appState.settings.videoTag} will be restored.
         This data was saved on ${date}.
         It contains ${clipperInputData.markerPairs.length} marker pair(s).\n
         Proceed to restore markers data?
@@ -529,7 +509,7 @@ function loadClipperInputDataFromLocalStorage() {
         deleteMarkersDataCommands();
       }
     } else {
-      flashMessage(`No markers data found in local storage for video ${settings.videoTag}.`, 'red');
+      flashMessage(`No markers data found in local storage for appState.video ${appState.settings.videoTag}.`, 'red');
     }
   } else {
     flashMessage('Please delete all marker pairs before restoring markers data.', 'red');
@@ -611,19 +591,16 @@ function addEventListeners() {
   document.body.addEventListener('wheel', inheritCropPointCrop, { passive: false });
 }
 
-let settingsEditorHook: HTMLElement;
-
-let hooks: VideoPlatformHooks = {} as VideoPlatformHooks;
 function initHooks() {
-  hooks = getVideoPlatformHooks(selectors);
-  setFlashMessageHook(hooks.flashMessage);
+  appState.hooks = getVideoPlatformHooks(selectors);
+  setFlashMessageHook(appState.hooks.flashMessage);
   updateSettingsEditorHook();
-  hooks.progressBar.removeAttribute('draggable');
+  appState.hooks.progressBar.removeAttribute('draggable');
 }
 
 function isTheatreMode() {
   if (platform === VideoPlatforms.youtube) {
-    return hooks.theaterModeIndicator.theater;
+    return appState.hooks.theaterModeIndicator.theater;
   } else if (platform === VideoPlatforms.yt_clipper) {
     return true;
   }
@@ -632,24 +609,24 @@ function isTheatreMode() {
 type VideoInfo = { [index: string]: any };
 const videoInfo: VideoInfo = {};
 function initVideoInfo() {
-  videoInfo.aspectRatio = video.videoWidth / video.videoHeight;
+  videoInfo.aspectRatio = appState.video.videoWidth / appState.video.videoHeight;
   videoInfo.isVerticalVideo = videoInfo.aspectRatio <= 1;
   const url = window.location.origin + window.location.pathname;
   videoInfo.videoUrl = url;
   videoInfo.fps = getFPS();
 
-  video.seekTo = (time) => (video.currentTime = time);
-  video.getCurrentTime = () => {
-    return video.currentTime;
+  appState.video.seekTo = (time) => (appState.video.currentTime = time);
+  appState.video.getCurrentTime = () => {
+    return appState.video.currentTime;
   };
 
   if (platform === VideoPlatforms.youtube) {
-    const playerData = player.getVideoData();
+    const playerData = appState.player.getVideoData();
     videoInfo.id = playerData.video_id;
     videoInfo.videoUrl += '?v=' + videoInfo.id;
     videoInfo.title = playerData.title;
 
-    video.seekTo = (time) => player.seekTo(time);
+    appState.video.seekTo = (time) => appState.player.seekTo(time);
   } else if (platform === VideoPlatforms.vlive) {
     const location = window.location;
 
@@ -680,11 +657,11 @@ function initVideoInfo() {
     videoInfo.id = location.pathname.split('/')[2];
     videoInfo.title = document.querySelector('div[class~=broadcast_title]')?.textContent;
 
-    video.getCurrentTime = () => {
+    appState.video.getCurrentTime = () => {
       return unsafeWindow.vodCore.playerController._playingTime;
     };
 
-    video.seekTo = (time) => {
+    appState.video.seekTo = (time) => {
       unsafeWindow.vodCore.seek(time);
     };
   }
@@ -696,12 +673,12 @@ function initVideoInfo() {
 }
 
 function initObservers() {
-  new ResizeObserver(resizeCropOverlay).observe(hooks.videoContainer);
+  new ResizeObserver(resizeCropOverlay).observe(appState.hooks.videoContainer);
 
   if (platform === VideoPlatforms.afreecatv) {
-    observeVideoElementChange(hooks.videoContainer, (addedNodes: NodeList) => {
-      video = addedNodes[0] as HTMLVideoElement;
-      video.classList.add('yt-clipper-video');
+    observeVideoElementChange(appState.hooks.videoContainer, (addedNodes: NodeList) => {
+      appState.video = addedNodes[0] as HTMLVideoElement;
+      appState.video.classList.add('yt-clipper-video');
       initVideoInfo();
     });
   }
@@ -709,21 +686,21 @@ function initObservers() {
 
 function updateSettingsEditorHook() {
   if (isTheatreMode()) {
-    settingsEditorHook = hooks.settingsEditorTheater;
+    appState.settingsEditorHook = appState.hooks.settingsEditorTheater;
   } else {
-    settingsEditorHook = hooks.settingsEditor;
+    appState.settingsEditorHook = appState.hooks.settingsEditor;
   }
 }
 addEventListeners();
 
 function addCropHoverListener(e: KeyboardEvent) {
   const isCropBlockingChartVisible =
-    isCurrentChartVisible && currentChartInput && currentChartInput.type !== 'crop';
+    appState.isCurrentChartVisible && currentChartInput && currentChartInput.type !== 'crop';
   if (
     (e.key === 'Control' || e.key === 'Meta') &&
-    isHotkeysEnabled &&
+    appState.isHotkeysEnabled &&
     !e.repeat &&
-    isCropOverlayVisible &&
+    appState.isCropOverlayVisible &&
     !isDrawingCrop &&
     !isCropBlockingChartVisible
   ) {
@@ -740,7 +717,7 @@ function removeCropHoverListener(e: KeyboardEvent) {
       pendingCropHoverEvent = null;
     }
     showPlayerControls();
-    hooks.cropMouseManipulation.style.removeProperty('cursor');
+    appState.hooks.cropMouseManipulation.style.removeProperty('cursor');
     // Reset anchor to default (top-left) for the next crop modification session
     resetCropPreviewAnchor();
   }
@@ -750,7 +727,7 @@ let cropHoverRafId = 0;
 let pendingCropHoverEvent: PointerEvent | null = null;
 
 function cropHoverHandler(e: PointerEvent) {
-  if (isSettingsEditorOpen && isCropOverlayVisible && !isDrawingCrop) {
+  if (appState.isSettingsEditorOpen && appState.isCropOverlayVisible && !isDrawingCrop) {
     pendingCropHoverEvent = e;
     if (!cropHoverRafId) {
       cropHoverRafId = requestAnimationFrame(processCropHover);
@@ -762,7 +739,7 @@ function processCropHover() {
   cropHoverRafId = 0;
   const e = pendingCropHoverEvent;
   pendingCropHoverEvent = null;
-  if (e && isSettingsEditorOpen && isCropOverlayVisible && !isDrawingCrop) {
+  if (e && appState.isSettingsEditorOpen && appState.isCropOverlayVisible && !isDrawingCrop) {
     updateCropHoverCursor(e);
   }
 }
@@ -772,21 +749,21 @@ function updateCropHoverCursor(e) {
 
   if (cursor) {
     hidePlayerControls();
-    hooks.cropMouseManipulation.style.cursor = cursor;
+    appState.hooks.cropMouseManipulation.style.cursor = cursor;
   } else {
     showPlayerControls();
-    hooks.cropMouseManipulation.style.removeProperty('cursor');
+    appState.hooks.cropMouseManipulation.style.removeProperty('cursor');
   }
 }
 
 function togglePrevSelectedMarkerPair() {
   if (enableMarkerHotkeys.endMarker) {
     toggleMarkerPairEditor(enableMarkerHotkeys.endMarker);
-  } else if (prevSelectedEndMarker) {
-    toggleMarkerPairEditor(prevSelectedEndMarker);
+  } else if (appState.prevSelectedEndMarker) {
+    toggleMarkerPairEditor(appState.prevSelectedEndMarker);
   } else {
-    const firstEndMarker = markersSvg.firstElementChild
-      ? (markersSvg.firstElementChild.nextElementSibling as SVGRectElement)
+    const firstEndMarker = appState.markersSvg.firstElementChild
+      ? (appState.markersSvg.firstElementChild.nextElementSibling as SVGRectElement)
       : null;
     if (firstEndMarker) toggleMarkerPairEditor(firstEndMarker);
   }
@@ -795,7 +772,7 @@ function togglePrevSelectedMarkerPair() {
 let mouseWheelFrameSkipRate = 1;
 function mouseWheelFrameSkipHandler(event: WheelEvent) {
   if (
-    isHotkeysEnabled &&
+    appState.isHotkeysEnabled &&
     !event.ctrlKey &&
     !event.altKey &&
     event.shiftKey &&
@@ -803,15 +780,15 @@ function mouseWheelFrameSkipHandler(event: WheelEvent) {
   ) {
     let fps = getFPS();
     if (event.deltaY < 0) {
-      seekBySafe(video, mouseWheelFrameSkipRate / fps);
+      seekBySafe(appState.video, mouseWheelFrameSkipRate / fps);
     } else if (event.deltaY > 0) {
-      seekBySafe(video, -mouseWheelFrameSkipRate / fps);
+      seekBySafe(appState.video, -mouseWheelFrameSkipRate / fps);
     }
   }
 }
 
 function changeMouseWheelFrameSkipRateHandler(event: MouseEvent) {
-  if (isHotkeysEnabled && !event.ctrlKey && !event.altKey && event.shiftKey && event.button == 1) {
+  if (appState.isHotkeysEnabled && !event.ctrlKey && !event.altKey && event.shiftKey && event.button == 1) {
     event.preventDefault();
     mouseWheelFrameSkipRate += 1;
     if (mouseWheelFrameSkipRate > 4) mouseWheelFrameSkipRate = 1;
@@ -821,18 +798,18 @@ function changeMouseWheelFrameSkipRateHandler(event: MouseEvent) {
 
 function moveMarkerByFrameHandler(event: WheelEvent) {
   if (
-    isHotkeysEnabled &&
+    appState.isHotkeysEnabled &&
     !event.ctrlKey &&
     event.altKey &&
     event.shiftKey &&
     Math.abs(event.deltaY) > 0 &&
-    isSettingsEditorOpen &&
-    !wasGlobalSettingsEditorOpen &&
-    prevSelectedEndMarker &&
-    !video.seeking
+    appState.isSettingsEditorOpen &&
+    !appState.wasGlobalSettingsEditorOpen &&
+    appState.prevSelectedEndMarker &&
+    !appState.video.seeking
   ) {
-    if (!video.paused) {
-      video.pause();
+    if (!appState.video.paused) {
+      appState.video.pause();
     }
     isMarkerSeekPending = true;
     if (markerSeekDebounceTimeout !== null) {
@@ -844,11 +821,11 @@ function moveMarkerByFrameHandler(event: WheelEvent) {
     }, 500);
 
     const fps = getFPS();
-    let targetMarker = prevSelectedEndMarker;
-    const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+    let targetMarker = appState.prevSelectedEndMarker;
+    const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     let targetMarkerTime = markerPair.end;
     if (event.pageX < window.innerWidth / 2) {
-      targetMarker = prevSelectedEndMarker.previousElementSibling as SVGRectElement;
+      targetMarker = appState.prevSelectedEndMarker.previousElementSibling as SVGRectElement;
       targetMarkerTime = markerPair.start;
     }
 
@@ -858,15 +835,15 @@ function moveMarkerByFrameHandler(event: WheelEvent) {
       moveMarker(targetMarker, Math.max(0, newMarkerTime));
     } else {
       newMarkerTime = targetMarkerTime + 1 / fps;
-      moveMarker(targetMarker, Math.min(getVideoDuration(platform, video), newMarkerTime));
+      moveMarker(targetMarker, Math.min(getVideoDuration(platform, appState.video), newMarkerTime));
     }
 
-    seekToSafe(video, newMarkerTime);
+    seekToSafe(appState.video, newMarkerTime);
   }
 }
 
 function selectCropPointWithMouseWheel(e: WheelEvent) {
-  if (isHotkeysEnabled && !e.ctrlKey && e.altKey && !e.shiftKey) {
+  if (appState.isHotkeysEnabled && !e.ctrlKey && e.altKey && !e.shiftKey) {
     blockEvent(e);
   } else {
     return;
@@ -877,9 +854,9 @@ function selectCropPointWithMouseWheel(e: WheelEvent) {
 
   if (
     Math.abs(e.deltaY) > 0 &&
-    isSettingsEditorOpen &&
-    !wasGlobalSettingsEditorOpen &&
-    prevSelectedEndMarker &&
+    appState.isSettingsEditorOpen &&
+    !appState.wasGlobalSettingsEditorOpen &&
+    appState.prevSelectedEndMarker &&
     cropChartInput.chart
   ) {
     if (e.deltaY < 0) {
@@ -897,7 +874,7 @@ function selectCropPointWithMouseWheel(e: WheelEvent) {
     }
   }
 
-  if (!isCropChartLoopingOn) {
+  if (!appState.isCropChartLoopingOn) {
     triggerCropChartUpdates();
   }
 
@@ -905,7 +882,7 @@ function selectCropPointWithMouseWheel(e: WheelEvent) {
   setCropInputValue(cropPoint.crop);
 
   highlightSpeedAndCropInputs();
-  if (isCurrentChartVisible && currentChartInput.type === 'crop') {
+  if (appState.isCurrentChartVisible && currentChartInput.type === 'crop') {
     currentChartInput?.chart?.update();
   }
 }
@@ -920,18 +897,18 @@ function setCropInputValue(cropString: string) {
 
 function inheritCropPointCrop(e: WheelEvent) {
   if (
-    isHotkeysEnabled &&
+    appState.isHotkeysEnabled &&
     e.ctrlKey &&
     e.altKey &&
     e.shiftKey &&
     Math.abs(e.deltaY) > 0 &&
-    isSettingsEditorOpen &&
-    !wasGlobalSettingsEditorOpen &&
-    prevSelectedEndMarker &&
+    appState.isSettingsEditorOpen &&
+    !appState.wasGlobalSettingsEditorOpen &&
+    appState.prevSelectedEndMarker &&
     cropChartInput.chart
   ) {
     blockEvent(e);
-    const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+    const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     const cropMap = markerPair.cropMap;
     const cropPoint = cropMap[currentCropPointIndex];
     const oldCrop = cropPoint.crop;
@@ -953,15 +930,8 @@ function inheritCropPointCrop(e: WheelEvent) {
   }
 }
 
-let settings: Settings;
-let markersSvg: SVGSVGElement;
-let markersDiv: HTMLDivElement;
-let markerNumberingsDiv: HTMLDivElement;
-let selectedMarkerPairOverlay: SVGSVGElement;
-let startMarkerNumberings: SVGSVGElement;
-let endMarkerNumberings: SVGSVGElement;
 function initMarkersContainer() {
-  settings = {
+  appState.settings = {
     platform: platform,
     videoID: videoInfo.id,
     videoTitle: videoInfo.title,
@@ -974,10 +944,10 @@ function initMarkersContainer() {
     markerPairMergeList: '',
     ...getDefaultCropRes(),
   };
-  markersDiv = document.createElement('div');
-  markersDiv.setAttribute('id', 'markers-div');
+  appState.markersDiv = document.createElement('div');
+  appState.markersDiv.setAttribute('id', 'markers-div');
   safeSetInnerHtml(
-    markersDiv,
+    appState.markersDiv,
     `
         <svg id="markers-svg"></svg>
         <svg id="selected-marker-pair-overlay" style="display:none">
@@ -987,29 +957,29 @@ function initMarkersContainer() {
       `
   );
 
-  markersSvg = markersDiv.children[0] as SVGSVGElement;
-  selectedMarkerPairOverlay = markersDiv.children[1] as SVGSVGElement;
+  appState.markersSvg = appState.markersDiv.children[0] as SVGSVGElement;
+  appState.selectedMarkerPairOverlay = appState.markersDiv.children[1] as SVGSVGElement;
 
-  markerNumberingsDiv = document.createElement('div');
-  markerNumberingsDiv.setAttribute('id', 'marker-numberings-div');
+  appState.markerNumberingsDiv = document.createElement('div');
+  appState.markerNumberingsDiv.setAttribute('id', 'marker-numberings-div');
   safeSetInnerHtml(
-    markerNumberingsDiv,
+    appState.markerNumberingsDiv,
     `
         <svg id="start-marker-numberings"></svg>
         <svg id="end-marker-numberings"></svg>
       `
   );
-  startMarkerNumberings = markerNumberingsDiv.children[0] as SVGSVGElement;
-  endMarkerNumberings = markerNumberingsDiv.children[1] as SVGSVGElement;
+  appState.startMarkerNumberings = appState.markerNumberingsDiv.children[0] as SVGSVGElement;
+  appState.endMarkerNumberings = appState.markerNumberingsDiv.children[1] as SVGSVGElement;
 
   if (
     [VideoPlatforms.weverse, VideoPlatforms.naver_tv, VideoPlatforms.yt_clipper].includes(platform)
   ) {
-    hooks.markerNumberingsDiv.prepend(markerNumberingsDiv);
-    hooks.markersDiv.prepend(markersDiv);
+    appState.hooks.markerNumberingsDiv.prepend(appState.markerNumberingsDiv);
+    appState.hooks.markersDiv.prepend(appState.markersDiv);
   } else {
-    hooks.markersDiv.appendChild(markersDiv);
-    hooks.markerNumberingsDiv.appendChild(markerNumberingsDiv);
+    appState.hooks.markersDiv.appendChild(appState.markersDiv);
+    appState.hooks.markerNumberingsDiv.appendChild(appState.markerNumberingsDiv);
   }
 
   videoInfo.fps = getFPS();
@@ -1033,29 +1003,28 @@ let rotatedVideoStyle: HTMLStyleElement;
 let adjustRotatedVideoPositionStyle: HTMLStyleElement;
 let fullscreenRotatedVideoStyle: HTMLStyleElement;
 let rotatedVideoPreviewsStyle: HTMLStyleElement;
-export let rotation = 0;
 function rotateVideo(direction: string) {
   if (direction === 'clock') {
-    rotation = rotation === 0 ? 90 : 0;
+    appState.rotation = appState.rotation === 0 ? 90 : 0;
   } else if (direction === 'cclock') {
-    rotation = rotation === 0 ? -90 : 0;
+    appState.rotation = appState.rotation === 0 ? -90 : 0;
   }
-  if (rotation === 90 || rotation === -90) {
+  if (appState.rotation === 90 || appState.rotation === -90) {
     let scale = 1;
     scale = 1 / videoInfo.aspectRatio;
-    rotatedVideoCSS = getRotatedVideoCSS(rotation);
+    rotatedVideoCSS = getRotatedVideoCSS(appState.rotation);
     rotatedVideoPreviewsCSS = `\
         .ytp-tooltip {
-          transform: translateY(-15%) rotate(${rotation}deg) !important;
+          transform: translateY(-15%) rotate(${appState.rotation}deg) !important;
         }
         .ytp-tooltip-text-wrapper {
-          transform: rotate(${-rotation}deg) !important;
+          transform: rotate(${-appState.rotation}deg) !important;
           opacity: 0.6;
         }
       `;
     fullscreenRotatedVideoCSS = `
-      .yt-clipper-video {
-        transform: rotate(${rotation}deg) scale(${scale}) !important;
+      .yt-clipper-appState.video {
+        transform: rotate(${appState.rotation}deg) scale(${scale}) !important;
         margin-left: auto;
       }
       `;
@@ -1120,13 +1089,13 @@ function toggleBigVideoPreviews() {
     .ytp-tooltip {
       left: 45% !important;
       transform: ${
-        rotation ? `translateY(-285%) rotate(${rotation}deg)` : 'translateY(-160%) '
+        appState.rotation ? `translateY(-285%) rotate(${appState.rotation}deg)` : 'translateY(-160%) '
       } scale(4) !important;
       padding: 1px !important;
       border-radius: 1px !important;
     }
     .ytp-tooltip-text-wrapper {
-      transform: scale(0.5) ${rotation ? `rotate(${-rotation}deg)` : ''}!important;
+      transform: scale(0.5) ${appState.rotation ? `rotate(${-appState.rotation}deg)` : ''}!important;
       opacity: 0.6;
     }
     `;
@@ -1143,11 +1112,11 @@ function addForeignEventListeners() {
   selectors.forEach((selector) => {
     const inputs = document.querySelectorAll(selector);
     for (const input of Array.from(inputs)) {
-      if (isHotkeysEnabled) {
-        input.addEventListener('focus', () => (isHotkeysEnabled = false), {
+      if (appState.isHotkeysEnabled) {
+        input.addEventListener('focus', () => (appState.isHotkeysEnabled = false), {
           capture: true,
         });
-        input.addEventListener('blur', () => (isHotkeysEnabled = true), {
+        input.addEventListener('blur', () => (appState.isHotkeysEnabled = true), {
           capture: true,
         });
       }
@@ -1156,10 +1125,10 @@ function addForeignEventListeners() {
 }
 
 function getShortestActiveMarkerPair(currentTime?: number): MarkerPair {
-  if (currentTime == null) currentTime = video.getCurrentTime();
+  if (currentTime == null) currentTime = appState.video.getCurrentTime();
 
-  if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen && prevSelectedMarkerPairIndex != null) {
-    const selectedMarkerPair = markerPairs[prevSelectedMarkerPairIndex];
+  if (appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen && appState.prevSelectedMarkerPairIndex != null) {
+    const selectedMarkerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     if (
       currentTime >= Math.floor(selectedMarkerPair.start * 1e6) / 1e6 &&
       currentTime <= Math.ceil(selectedMarkerPair.end * 1e6) / 1e6
@@ -1167,7 +1136,7 @@ function getShortestActiveMarkerPair(currentTime?: number): MarkerPair {
       return selectedMarkerPair;
     }
   }
-  const activeMarkerPairs = markerPairs.filter((markerPair) => {
+  const activeMarkerPairs = appState.markerPairs.filter((markerPair) => {
     if (
       currentTime >= Math.floor(markerPair.start * 1e6) / 1e6 &&
       currentTime <= Math.ceil(markerPair.end * 1e6) / 1e6
@@ -1207,7 +1176,7 @@ let prevSpeed = 1;
 const defaultRoundSpeedMapEasing = 0.05;
 function updateSpeed() {
   if (!isSpeedPreviewOn && !isForceSetSpeedOn) {
-    video.playbackRate = 1;
+    appState.video.playbackRate = 1;
     prevSpeed = 1;
     updateSpeedInputLabel('Speed');
 
@@ -1216,7 +1185,7 @@ function updateSpeed() {
 
   if (isForceSetSpeedOn) {
     if (prevSpeed !== forceSetSpeedValue) {
-      video.playbackRate = forceSetSpeedValue;
+      appState.video.playbackRate = forceSetSpeedValue;
       prevSpeed = forceSetSpeedValue;
       updateSpeedInputLabel(`Speed (${forceSetSpeedValue.toFixed(2)})`);
     }
@@ -1231,7 +1200,7 @@ function updateSpeed() {
     let markerPairSpeed: number;
 
     if (isVariableSpeed(shortestActiveMarkerPair.speedMap)) {
-      markerPairSpeed = getSpeedMapping(shortestActiveMarkerPair.speedMap, video.getCurrentTime());
+      markerPairSpeed = getSpeedMapping(shortestActiveMarkerPair.speedMap, appState.video.getCurrentTime());
     } else {
       markerPairSpeed = shortestActiveMarkerPair.speed;
     }
@@ -1244,7 +1213,7 @@ function updateSpeed() {
   }
 
   if (prevSpeed !== newSpeed) {
-    video.playbackRate = newSpeed;
+    appState.video.playbackRate = newSpeed;
     prevSpeed = newSpeed;
     updateSpeedInputLabel('Speed');
   }
@@ -1253,7 +1222,7 @@ function updateSpeed() {
 }
 
 function updateSpeedInputLabel(text: string) {
-  if (isSettingsEditorOpen && speedInputLabel != null) {
+  if (appState.isSettingsEditorOpen && speedInputLabel != null) {
     speedInputLabel.textContent = text;
   }
 }
@@ -1264,9 +1233,9 @@ function getMinterpFpsMulSuffix(mul: number, speed: number) {
 }
 
 function updateMinterpFpsMulLabel(markerPair) {
-  if (!isSettingsEditorOpen || minterpFpsMulLabelSpan == null) return;
+  if (!appState.isSettingsEditorOpen || minterpFpsMulLabelSpan == null) return;
   const mul = (markerPair.overrides.minterpFpsMultiplier ??
-    settings.minterpFpsMultiplier ??
+    appState.settings.minterpFpsMultiplier ??
     0) as number;
   minterpFpsMulLabelSpan.textContent = `FPS Multiplier${getMinterpFpsMulSuffix(mul, markerPair.speed)}`;
 }
@@ -1301,7 +1270,7 @@ function getSpeedMapping(
     const speed = getInterpolatedSpeed(
       left,
       right,
-      video.getCurrentTime(),
+      appState.video.getCurrentTime(),
       roundMultiple,
       roundPrecision
     );
@@ -1349,21 +1318,21 @@ function toggleMarkerPairLoop() {
 function loopMarkerPair() {
   requestAnimationFrame(loopMarkerPair);
 
-  if (!isMarkerLoopPreviewOn && !isCropChartLoopingOn) {
+  if (!isMarkerLoopPreviewOn && !appState.isCropChartLoopingOn) {
     return;
   }
 
-  if (!isSettingsEditorOpen || wasGlobalSettingsEditorOpen) {
+  if (!appState.isSettingsEditorOpen || appState.wasGlobalSettingsEditorOpen) {
     return;
   }
-  if (prevSelectedMarkerPairIndex == null) {
+  if (appState.prevSelectedMarkerPairIndex == null) {
     return;
   }
-  if (video.seeking) {
+  if (appState.video.seeking) {
     return;
   }
 
-  const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+  const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
   const chartLoop: ChartLoop = currentChartInput
     ? markerPair[currentChartInput.chartLoopKey]
     : null;
@@ -1376,27 +1345,26 @@ function loopMarkerPair() {
     chartLoop.start < chartLoop.end
   ) {
     const isTimeBetweenChartLoop =
-      chartLoop.start <= video.getCurrentTime() && video.getCurrentTime() <= chartLoop.end;
+      chartLoop.start <= appState.video.getCurrentTime() && appState.video.getCurrentTime() <= chartLoop.end;
     if (!isTimeBetweenChartLoop) {
-      seekToSafe(video, chartLoop.start);
+      seekToSafe(appState.video, chartLoop.start);
     }
   } else if (
-    (isCropChartLoopingOn && isCurrentChartVisible && currentChartInput.type === 'crop') ||
+    (appState.isCropChartLoopingOn && appState.isCurrentChartVisible && currentChartInput.type === 'crop') ||
     (cropChartInput.chart && (isMouseManipulatingCrop || isDrawingCrop))
   ) {
     shouldTriggerCropChartUpdates = false;
     cropChartSectionLoop();
   } else if (isMarkerLoopPreviewOn && !isMarkerSeekPending) {
     const isTimeBetweenMarkerPair =
-      markerPair.start <= video.getCurrentTime() && video.getCurrentTime() <= markerPair.end;
+      markerPair.start <= appState.video.getCurrentTime() && appState.video.getCurrentTime() <= markerPair.end;
     if (!isTimeBetweenMarkerPair) {
-      seekToSafe(video, markerPair.start);
+      seekToSafe(appState.video, markerPair.start);
     }
   }
 }
 
 let gammaFilterDiv: HTMLDivElement;
-export let isGammaPreviewOn = false;
 let gammaR: SVGFEFuncRElement;
 let gammaG: SVGFEFuncGElement;
 let gammaB: SVGFEFuncBElement;
@@ -1427,14 +1395,14 @@ export function toggleGammaPreview() {
     gammaG = document.getElementById('gamma-g') as unknown as SVGFEFuncGElement;
     gammaB = document.getElementById('gamma-b') as unknown as SVGFEFuncBElement;
   }
-  if (!isGammaPreviewOn) {
-    video.style.filter = 'url(#gamma-filter)';
-    isGammaPreviewOn = true;
+  if (!appState.isGammaPreviewOn) {
+    appState.video.style.filter = 'url(#gamma-filter)';
+    appState.isGammaPreviewOn = true;
     requestAnimationFrame(gammaPreviewHandler);
     flashMessage('Gamma preview enabled', 'green');
   } else {
-    video.style.filter = null;
-    isGammaPreviewOn = false;
+    appState.video.style.filter = null;
+    appState.isGammaPreviewOn = false;
     flashMessage('Gamma preview disabled', 'red');
   }
   toggleCropPreviewGammaPreview();
@@ -1444,10 +1412,10 @@ function gammaPreviewHandler() {
   const shortestActiveMarkerPair = getShortestActiveMarkerPair();
 
   const markerPairGamma =
-    (shortestActiveMarkerPair && shortestActiveMarkerPair.overrides.gamma) || settings.gamma || 1;
+    (shortestActiveMarkerPair && shortestActiveMarkerPair.overrides.gamma) || appState.settings.gamma || 1;
 
   if (markerPairGamma == 1) {
-    if (video.style.filter) video.style.filter = null;
+    if (appState.video.style.filter) appState.video.style.filter = null;
     setPrevGammaVal(1);
   } else if (prevGammaVal !== markerPairGamma) {
     // console.log(`Updating gamma from ${prevGammaVal} to ${markerPairGamma}`);
@@ -1455,12 +1423,12 @@ function gammaPreviewHandler() {
     gammaG.exponent.baseVal = markerPairGamma;
     gammaB.exponent.baseVal = markerPairGamma;
     // force re-render of filter (possible bug with chrome and other browsers?)
-    if (!video.style.filter) video.style.filter = 'url(#gamma-filter)';
+    if (!appState.video.style.filter) appState.video.style.filter = 'url(#gamma-filter)';
     gammaFilterSvg.setAttribute('width', '0');
     setPrevGammaVal(markerPairGamma);
   }
 
-  if (isGammaPreviewOn) {
+  if (appState.isGammaPreviewOn) {
     requestAnimationFrame(gammaPreviewHandler);
   }
 }
@@ -1473,31 +1441,31 @@ function toggleFadeLoopPreview() {
     flashMessage('Fade loop preview enabled', 'green');
   } else {
     isFadeLoopPreviewOn = false;
-    video.style.opacity = '1';
+    appState.video.style.opacity = '1';
     flashMessage('Fade loop preview disabled', 'red');
   }
 }
 
 function fadeLoopPreviewHandler() {
-  const currentTime = video.getCurrentTime();
+  const currentTime = appState.video.getCurrentTime();
   const shortestActiveMarkerPair = getShortestActiveMarkerPair();
   if (
     shortestActiveMarkerPair &&
     (shortestActiveMarkerPair.overrides.loop === 'fade' ||
-      (shortestActiveMarkerPair.overrides.loop == null && settings.loop === 'fade'))
+      (shortestActiveMarkerPair.overrides.loop == null && appState.settings.loop === 'fade'))
   ) {
     const currentTimeP = getFadeBounds(shortestActiveMarkerPair, currentTime);
     if (currentTimeP == null) {
-      video.style.opacity = '1';
+      appState.video.style.opacity = '1';
     } else {
       let currentTimeEased = Math.max(0.1, easeCubicInOut(currentTimeP));
-      video.style.opacity = currentTimeEased.toString();
-      // console.log(video.style.opacity);
+      appState.video.style.opacity = currentTimeEased.toString();
+      // console.log(appState.video.style.opacity);
     }
   } else {
-    video.style.opacity = '1';
+    appState.video.style.opacity = '1';
   }
-  isFadeLoopPreviewOn ? requestAnimationFrame(fadeLoopPreviewHandler) : (video.style.opacity = '1');
+  isFadeLoopPreviewOn ? requestAnimationFrame(fadeLoopPreviewHandler) : (appState.video.style.opacity = '1');
 }
 
 function getFadeBounds(markerPair: MarkerPair, currentTime: number): number | null {
@@ -1505,7 +1473,7 @@ function getFadeBounds(markerPair: MarkerPair, currentTime: number): number | nu
   const end = Math.ceil(markerPair.end * 1e6) / 1e6;
   const inputDuration = end - start;
   const outputDuration = markerPair.outputDuration;
-  let fadeDuration = markerPair.overrides.fadeDuration || settings.fadeDuration || 0.5;
+  let fadeDuration = markerPair.overrides.fadeDuration || appState.settings.fadeDuration || 0.5;
   fadeDuration = Math.min(fadeDuration, 0.4 * outputDuration);
   const fadeInStartP = 0;
   const fadeInEndP = fadeDuration / outputDuration;
@@ -1525,35 +1493,34 @@ function getFadeBounds(markerPair: MarkerPair, currentTime: number): number | nu
   }
 }
 
-let isAllPreviewsOn = false;
 function toggleAllPreviews() {
-  isAllPreviewsOn =
+  appState.isAllPreviewsOn =
     isSpeedPreviewOn &&
     isMarkerLoopPreviewOn &&
-    isGammaPreviewOn &&
+    appState.isGammaPreviewOn &&
     isFadeLoopPreviewOn &&
-    isCropChartLoopingOn;
-  if (!isAllPreviewsOn) {
+    appState.isCropChartLoopingOn;
+  if (!appState.isAllPreviewsOn) {
     !isSpeedPreviewOn && toggleMarkerPairSpeedPreview();
     !isMarkerLoopPreviewOn && toggleMarkerPairLoop();
-    !isGammaPreviewOn && toggleGammaPreview();
+    !appState.isGammaPreviewOn && toggleGammaPreview();
     !isFadeLoopPreviewOn && toggleFadeLoopPreview();
-    isAllPreviewsOn = true;
+    appState.isAllPreviewsOn = true;
   } else {
     isSpeedPreviewOn && toggleMarkerPairSpeedPreview();
     isMarkerLoopPreviewOn && toggleMarkerPairLoop();
-    isGammaPreviewOn && toggleGammaPreview();
+    appState.isGammaPreviewOn && toggleGammaPreview();
     isFadeLoopPreviewOn && toggleFadeLoopPreview();
-    isAllPreviewsOn = false;
+    appState.isAllPreviewsOn = false;
   }
 }
 
 function jumpToNearestMarkerOrPair(e: KeyboardEvent, keyCode: string) {
   if (!arrowKeyCropAdjustmentEnabled) {
     if (e.ctrlKey && !e.altKey && !e.shiftKey) {
-      jumpToNearestMarker(e, video.getCurrentTime(), keyCode);
+      jumpToNearestMarker(e, appState.video.getCurrentTime(), keyCode);
     } else if (e.altKey && !e.shiftKey) {
-      if (!e.ctrlKey && !(isSettingsEditorOpen && !wasGlobalSettingsEditorOpen)) {
+      if (!e.ctrlKey && !(appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen)) {
         blockEvent(e);
         togglePrevSelectedMarkerPair();
       }
@@ -1576,14 +1543,14 @@ function jumpToNearestMarkerPair(
     targetEndMarker && toggleMarkerPairEditor(targetEndMarker);
     if (e.ctrlKey) {
       index--;
-      seekToSafe(video, markerPairs[index].start);
+      seekToSafe(appState.video, appState.markerPairs[index].start);
     }
-  } else if (keyCode === 'ArrowRight' && index < markerPairs.length - 1) {
+  } else if (keyCode === 'ArrowRight' && index < appState.markerPairs.length - 1) {
     targetEndMarker = enableMarkerHotkeys.endMarker.nextElementSibling.nextElementSibling;
     targetEndMarker && toggleMarkerPairEditor(targetEndMarker);
     if (e.ctrlKey) {
       index++;
-      seekToSafe(video, markerPairs[index].start);
+      seekToSafe(appState.video, appState.markerPairs[index].start);
     }
   }
 }
@@ -1596,13 +1563,13 @@ function jumpToNearestMarker(e: KeyboardEvent, currentTime: number, keyCode: str
   let minTime: number;
   currentTime = prevTime != null ? prevTime : currentTime;
   let markerTimes: number[] = [];
-  markerPairs.forEach((markerPair) => {
+  appState.markerPairs.forEach((markerPair) => {
     markerTimes.push(markerPair.start);
     markerTimes.push(markerPair.end);
   });
 
-  if (start === false) {
-    markerTimes.push(startTime);
+  if (appState.isNextMarkerStart === false) {
+    markerTimes.push(appState.startTime);
   }
   markerTimes = markerTimes.map((markerTime) => parseFloat(markerTime.toFixed(6)));
   if (keyCode === 'ArrowLeft') {
@@ -1628,11 +1595,11 @@ function jumpToNearestMarker(e: KeyboardEvent, currentTime: number, keyCode: str
     dblJump = 0;
     prevTime = null;
     if (minTime !== currentTime && minTime != Infinity && minTime != -Infinity)
-      seekToSafe(video, minTime);
+      seekToSafe(appState.video, minTime);
   } else {
     prevTime = currentTime;
     if (minTime !== currentTime && minTime != Infinity && minTime != -Infinity)
-      seekToSafe(video, minTime);
+      seekToSafe(appState.video, minTime);
     dblJump = setTimeout(() => {
       dblJump = 0;
       prevTime = null;
@@ -1644,11 +1611,11 @@ function saveMarkersAndSettings() {
   const settingsJSON = getClipperInputJSON();
 
   const blob = new Blob([settingsJSON], { type: 'application/json;charset=utf-8' });
-  saveAs(blob, `${settings.titleSuffix || `[${settings.videoID}]`}.json`);
+  saveAs(blob, `${appState.settings.titleSuffix || `[${appState.settings.videoID}]`}.json`);
 }
 
 function getClipperInputData(date?) {
-  markerPairs.forEach((markerPair: MarkerPair, index: number) => {
+  appState.markerPairs.forEach((markerPair: MarkerPair, index: number) => {
     const speed = markerPair.speed;
     if (typeof speed === 'string') {
       markerPair.speed = Number(speed);
@@ -1656,7 +1623,7 @@ function getClipperInputData(date?) {
     }
   });
 
-  const markerPairsNumbered = markerPairs.map((markerPair, idx) => {
+  const markerPairsNumbered = appState.markerPairs.map((markerPair, idx) => {
     const markerPairNumbered = {
       number: idx + 1,
       ...markerPair,
@@ -1675,7 +1642,7 @@ function getClipperInputData(date?) {
   });
 
   const clipperInputData = {
-    ...settings,
+    ...appState.settings,
     version: __version__,
     markerPairs: markerPairsNumbered,
     date: date ?? undefined,
@@ -1789,10 +1756,10 @@ function injectYtcWidget(widget: HTMLDivElement) {
   updateSettingsEditorHook();
 
   if (isTheatreMode()) {
-    settingsEditorHook.insertAdjacentElement('afterend', widget);
+    appState.settingsEditorHook.insertAdjacentElement('afterend', widget);
   } else {
     widget.style.position = 'relative';
-    settingsEditorHook.insertAdjacentElement('beforebegin', widget);
+    appState.settingsEditorHook.insertAdjacentElement('beforebegin', widget);
   }
 }
 
@@ -1833,11 +1800,11 @@ function loadClipperInputJSON(json) {
 
     if (!markersData.markerPairs) {
       flashMessage(
-        'Could not find markers or markerPairs field. Could not load marker data.',
+        'Could not find markers or appState.markerPairs field. Could not load marker data.',
         'red'
       );
     }
-    // copy markersJson to settings object less markerPairs field
+    // copy markersJson to appState.settings object less markerPairs field
     const { markerPairs: _markerPairs, ...loadedSettings } = markersData;
 
     delete loadedSettings.videoID;
@@ -1845,7 +1812,7 @@ function loadClipperInputJSON(json) {
     delete loadedSettings.isVerticalVideo;
     delete loadedSettings.version;
 
-    settings = { ...settings, ...loadedSettings };
+    appState.settings = { ...appState.settings, ...loadedSettings };
 
     addMarkerPairs(markersData.markerPairs);
   }
@@ -1884,12 +1851,12 @@ function receivedMarkersArray(e: ProgressEvent) {
 
   markersJson.markerPairs = markersJson.markerPairs.flat(1);
   for (let i = 0; i < markersJson.markerPairs.length; i = i + 4) {
-    console.log(markerPairs);
+    console.log(appState.markerPairs);
     const start = timeRounder(markersJson.markerPairs[i]);
     const end = timeRounder(markersJson.markerPairs[i + 1]);
     const speed = speedRounder(1 / markersJson.markerPairs[i + 2]);
     const cropString = markersJson.markerPairs[i + 3];
-    // const crop = Crop.fromCropString(cropString, settings.cropRes);
+    // const crop = Crop.fromCropString(cropString, appState.settings.cropRes);
     const startMarkerConfig: MarkerConfig = {
       time: start,
       type: 'start',
@@ -1914,37 +1881,37 @@ const marker_attrs = {
 };
 
 function addMarker(markerConfig: MarkerConfig = {}) {
-  const preciseCurrentTime = markerConfig.time ?? video.getCurrentTime();
-  // TODO: Calculate video fps precisely so current frame time
+  const preciseCurrentTime = markerConfig.time ?? appState.video.getCurrentTime();
+  // TODO: Calculate appState.video fps precisely so current frame time
   // is accurately determined.
   // const currentFrameTime = getCurrentFrameTime(roughCurrentTime);
   const currentFrameTime = preciseCurrentTime;
-  const progressPos = (currentFrameTime / getVideoDuration(platform, video)) * 100;
+  const progressPos = (currentFrameTime / getVideoDuration(platform, appState.video)) * 100;
 
-  if (!start && currentFrameTime <= startTime) {
+  if (!appState.isNextMarkerStart && currentFrameTime <= appState.startTime) {
     flashMessage('End marker must be after start marker.', 'red');
     return;
   }
 
   const marker = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-  markersSvg.appendChild(marker);
+  appState.markersSvg.appendChild(marker);
 
   setAttributes(marker, marker_attrs);
   marker.setAttribute('x', `${progressPos}%`);
-  const rectIdx = markerPairs.length + 1;
+  const rectIdx = appState.markerPairs.length + 1;
   marker.setAttribute('data-idx', rectIdx.toString());
 
-  if (start === true) {
+  if (appState.isNextMarkerStart === true) {
     marker.classList.add('start-marker');
     marker.setAttribute('type', 'start');
     marker.setAttribute('z-index', '1');
-    startTime = currentFrameTime;
+    appState.startTime = currentFrameTime;
   } else {
     marker.addEventListener('pointerover', toggleMarkerPairEditorHandler, false);
     marker.classList.add('end-marker');
     marker.setAttribute('type', 'end');
     marker.setAttribute('z-index', '2');
-    const startProgressPos = (startTime / getVideoDuration(platform, video)) * 100;
+    const startProgressPos = (appState.startTime / getVideoDuration(platform, appState.video)) * 100;
     const [startNumbering, endNumbering] = addMarkerPairNumberings(
       rectIdx,
       startProgressPos,
@@ -1958,18 +1925,18 @@ function addMarker(markerConfig: MarkerConfig = {}) {
     updateMarkerPairEditor();
   }
 
-  start = !start;
-  console.log(markerPairs);
+  appState.isNextMarkerStart = !appState.isNextMarkerStart;
+  console.log(appState.markerPairs);
 }
 
 let prevVideoWidth: number;
 function getFPS(defaultFPS: number | null = 60) {
   let fps: number;
   try {
-    if (videoInfo.fps != null && video.videoWidth != null && prevVideoWidth === video.videoWidth) {
+    if (videoInfo.fps != null && appState.video.videoWidth != null && prevVideoWidth === appState.video.videoWidth) {
       fps = videoInfo.fps;
     } else if (platform === VideoPlatforms.youtube) {
-      videoInfo.fps = parseFloat(player.getStatsForNerds().resolution.match(/@(\d+)/)[1]);
+      videoInfo.fps = parseFloat(appState.player.getStatsForNerds().resolution.match(/@(\d+)/)[1]);
       fps = videoInfo.fps;
     } else {
       fps = defaultFPS;
@@ -1978,14 +1945,14 @@ function getFPS(defaultFPS: number | null = 60) {
     console.log('Could not detect fps', e);
     fps = defaultFPS; // by default parameter value assume high fps to avoid skipping frames
   }
-  prevVideoWidth = video.videoWidth;
+  prevVideoWidth = appState.video.videoWidth;
   return fps;
 }
 
 function getCurrentFrameTimeOrCurrentTime(currentTime: number): number {
   let currentFrameTime: number;
   let fps = getFPS(null);
-  // If fps cannot be detected use precise time reported by video player
+  // If fps cannot be detected use precise time reported by appState.video appState.player
   // instead of estimating nearest frame time
   fps ? (currentFrameTime = Math.floor(currentTime * fps) / fps) : (currentFrameTime = currentTime);
   return currentFrameTime;
@@ -2001,26 +1968,26 @@ function getFrameTimeBetweenLeftFrames(currentTime: number): number {
 }
 
 function pushMarkerPairsArray(currentTime: number, markerPairConfig: MarkerConfig) {
-  const speed = markerPairConfig.speed || settings.newMarkerSpeed;
-  const crop = markerPairConfig.crop || settings.newMarkerCrop;
+  const speed = markerPairConfig.speed || appState.settings.newMarkerSpeed;
+  const crop = markerPairConfig.crop || appState.settings.newMarkerCrop;
   const newMarkerPair: MarkerPair = {
-    start: startTime,
+    start: appState.startTime,
     end: currentTime,
     speed,
     speedMap: markerPairConfig.speedMap || [
-      { x: startTime, y: speed },
+      { x: appState.startTime, y: speed },
       { x: currentTime, y: speed },
     ],
     speedChartLoop: markerPairConfig.speedChartLoop || { enabled: true },
     crop,
     cropMap: markerPairConfig.cropMap || [
-      { x: startTime, y: 0, crop: crop },
+      { x: appState.startTime, y: 0, crop: crop },
       { x: currentTime, y: 0, crop: crop },
     ],
     cropChartLoop: markerPairConfig.cropChartLoop || { enabled: true },
     enableZoomPan: markerPairConfig.enableZoomPan ?? false,
-    cropRes: settings.cropRes,
-    outputDuration: markerPairConfig.outputDuration || currentTime - startTime,
+    cropRes: appState.settings.cropRes,
+    outputDuration: markerPairConfig.outputDuration || currentTime - appState.startTime,
     startNumbering: markerPairConfig.startNumbering,
     endNumbering: markerPairConfig.endNumbering,
     overrides: markerPairConfig.overrides || {},
@@ -2030,16 +1997,16 @@ function pushMarkerPairsArray(currentTime: number, markerPairConfig: MarkerConfi
     const draft = createDraft(getMarkerPairHistory(newMarkerPair));
     saveMarkerPairHistory(draft, newMarkerPair);
   }
-  markerPairs.push(newMarkerPair);
+  appState.markerPairs.push(newMarkerPair);
   initAutoSave();
 }
 
 function updateMarkerPairEditor() {
-  if (isSettingsEditorOpen) {
+  if (appState.isSettingsEditorOpen) {
     const markerPairCountLabel = document.getElementById('marker-pair-count-label');
     if (markerPairCountLabel) {
-      markerPairCountLabel.textContent = markerPairs.length.toString();
-      markerPairNumberInput.setAttribute('max', markerPairs.length.toString());
+      markerPairCountLabel.textContent = appState.markerPairs.length.toString();
+      markerPairNumberInput.setAttribute('max', appState.markerPairs.length.toString());
     }
   }
 }
@@ -2073,8 +2040,8 @@ function addMarkerPairNumberings(
         `);
   endNumbering = endNumbering.children[0];
 
-  const startNumberingText = startMarkerNumberings.appendChild(startNumbering) as SVGTextElement;
-  const endNumberingText = endMarkerNumberings.appendChild(endNumbering) as SVGTextElement;
+  const startNumberingText = appState.startMarkerNumberings.appendChild(startNumbering) as SVGTextElement;
+  const endNumberingText = appState.endMarkerNumberings.appendChild(endNumbering) as SVGTextElement;
 
   endNumberingText.marker = endMarker;
   startNumberingText.marker = endMarker;
@@ -2086,13 +2053,13 @@ function addMarkerPairNumberings(
 }
 
 function undoMarker() {
-  const targetMarker = markersSvg.lastElementChild;
+  const targetMarker = appState.markersSvg.lastElementChild;
   if (!targetMarker) return;
 
   const targetMarkerType = targetMarker.getAttribute('type');
   // toggle off marker pair editor before undoing a selected marker pair
-  if (targetMarkerType === 'end' && prevSelectedMarkerPairIndex >= markerPairs.length - 1) {
-    if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
+  if (targetMarkerType === 'end' && appState.prevSelectedMarkerPairIndex >= appState.markerPairs.length - 1) {
+    if (appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen) {
       toggleOffMarkerPairEditor(true);
     } else {
       hideSelectedMarkerPairOverlay(true);
@@ -2102,33 +2069,33 @@ function undoMarker() {
 
   deleteElement(targetMarker);
   if (targetMarkerType === 'end') {
-    const markerPair = markerPairs[markerPairs.length - 1];
+    const markerPair = appState.markerPairs[appState.markerPairs.length - 1];
     deleteElement(markerPair.startNumbering);
     deleteElement(markerPair.endNumbering);
-    startTime = markerPair.start;
-    markerPairsHistory.push(markerPairs.pop());
-    console.log(markerPairs);
+    appState.startTime = markerPair.start;
+    appState.markerPairsHistory.push(appState.markerPairs.pop());
+    console.log(appState.markerPairs);
     updateMarkerPairEditor();
   }
-  start = !start;
+  appState.isNextMarkerStart = !appState.isNextMarkerStart;
 }
 
 function redoMarker() {
-  if (markerPairsHistory.length > 0) {
-    const markerPairToRestore = markerPairsHistory[markerPairsHistory.length - 1];
-    if (start) {
+  if (appState.markerPairsHistory.length > 0) {
+    const markerPairToRestore = appState.markerPairsHistory[appState.markerPairsHistory.length - 1];
+    if (appState.isNextMarkerStart) {
       addMarker({ time: markerPairToRestore.start });
     } else {
-      markerPairsHistory.pop();
+      appState.markerPairsHistory.pop();
       addMarker({ ...markerPairToRestore, time: markerPairToRestore.end });
     }
   }
 }
 
 function duplicateSelectedMarkerPair() {
-  const markerPairIndex = prevSelectedMarkerPairIndex;
+  const markerPairIndex = appState.prevSelectedMarkerPairIndex;
   if (markerPairIndex != null) {
-    const markerPair = cloneDeep(markerPairs[markerPairIndex]);
+    const markerPair = cloneDeep(appState.markerPairs[markerPairIndex]);
     addMarkerPairs([markerPair]);
     flashMessage(`Duplicated marker pair ${markerPairIndex + 1}.`, 'green');
   } else {
@@ -2137,11 +2104,11 @@ function duplicateSelectedMarkerPair() {
 }
 
 function addChartPoint() {
-  if (isChartEnabled && isCurrentChartVisible) {
+  if (appState.isChartEnabled && appState.isCurrentChartVisible) {
     if (currentChartInput.type == 'speed') {
-      addSpeedPoint.call(currentChartInput.chart, video.getCurrentTime(), 1);
+      addSpeedPoint.call(currentChartInput.chart, appState.video.getCurrentTime(), 1);
     } else if (currentChartInput.type == 'crop') {
-      addCropPoint.call(currentChartInput.chart, video.getCurrentTime());
+      addCropPoint.call(currentChartInput.chart, appState.video.getCurrentTime());
     }
   }
 }
@@ -2150,7 +2117,7 @@ let forceSetSpeedValue = 1;
 function cycleForceSetSpeedValueDown() {
   forceSetSpeedValue = forceSetSpeedValue - 0.25;
   if (forceSetSpeedValue <= 0) forceSetSpeedValue = 1;
-  flashMessage(`Force set video speed value set to ${forceSetSpeedValue}`, 'green');
+  flashMessage(`Force set appState.video speed value set to ${forceSetSpeedValue}`, 'green');
 }
 
 let isForceSetSpeedOn = false;
@@ -2168,10 +2135,10 @@ function toggleForceSetSpeed() {
 }
 
 function toggleGlobalSettingsEditor() {
-  if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
+  if (appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen) {
     toggleOffMarkerPairEditor();
   }
-  if (wasGlobalSettingsEditorOpen) {
+  if (appState.wasGlobalSettingsEditorOpen) {
     toggleOffGlobalSettingsEditor();
   } else {
     createGlobalSettingsEditor();
@@ -2185,10 +2152,10 @@ function toggleOffGlobalSettingsEditor() {
 }
 
 function createGlobalSettingsEditor() {
-  createCropOverlay(settings.newMarkerCrop);
+  createCropOverlay(appState.settings.newMarkerCrop);
   const globalSettingsEditorDiv = document.createElement('div');
   const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
-  const [x, y, w, h] = getCropComponents(settings.newMarkerCrop);
+  const [x, y, w, h] = getCropComponents(appState.settings.newMarkerCrop);
   const cropAspectRatio = (w / h).toFixed(13);
   const numOrRange = `(\\d{1,2})|(\\d{1,2}-\\d{1,2})`;
   const csvRange = `(${numOrRange})*(,(${numOrRange}))*`;
@@ -2199,14 +2166,14 @@ function createGlobalSettingsEditor() {
   const { cropRes, cropResWidth, cropResHeight } = getDefaultCropRes();
   const cropResX2 = `${cropResWidth * 2}x${cropResHeight * 2}`;
   const resList = `<option value="${cropRes}"><option value="${cropResX2}">`;
-  // const minterpMode = settings.minterpMode;
-  // const minterpFPS = settings.minterpFPS;
-  const minterpFpsMultiplier = settings.minterpFpsMultiplier;
-  const denoise = settings.denoise;
+  // const minterpMode = appState.settings.minterpMode;
+  // const minterpFPS = appState.settings.minterpFPS;
+  const minterpFpsMultiplier = appState.settings.minterpFpsMultiplier;
+  const denoise = appState.settings.denoise;
   const denoiseDesc = denoise ? denoise.desc : null;
-  const vidstab = settings.videoStabilization;
+  const vidstab = appState.settings.videoStabilization;
   const vidstabDesc = vidstab ? vidstab.desc : null;
-  const vidstabDynamicZoomEnabled = settings.videoStabilizationDynamicZoom;
+  const vidstabDynamicZoomEnabled = appState.settings.videoStabilizationDynamicZoom;
   const markerPairMergelistDurations = getMarkerPairMergeListDurations();
   const globalEncodeSettingsEditorDisplay = isExtraSettingsEditorEnabled ? 'block' : 'none';
   globalSettingsEditorDiv.setAttribute('id', 'settings-editor-div');
@@ -2219,13 +2186,13 @@ function createGlobalSettingsEditor() {
       <div class="settings-editor-input-div" title="${Tooltips.speedTooltip}">
         <span>Speed</span>
         <input id="speed-input" type="number" placeholder="speed" value="${
-          settings.newMarkerSpeed
+          appState.settings.newMarkerSpeed
         }" step="0.05" min="0.05" max="2" style="width:7ch">
       </div>
       <div class="settings-editor-input-div" title="${Tooltips.cropTooltip}">
         <span>Crop</span>
         <input id="crop-input" value="${
-          settings.newMarkerCrop
+          appState.settings.newMarkerCrop
         }" pattern="${cropInputValidation}" style="width:21ch" required>
       </div>
       <div class="settings-editor-input-div  settings-info-display">
@@ -2239,13 +2206,13 @@ function createGlobalSettingsEditor() {
       <div class="settings-editor-input-div" title="${Tooltips.titleSuffixTooltip}">
         <span>Title Suffix</span>
         <input id="title-suffix-input" value="${
-          settings.titleSuffix
+          appState.settings.titleSuffix
         }" style="background-color:lightgreen;min-width:20em;text-align:right" required>
       </div>
       <div class="settings-editor-input-div" title="${Tooltips.cropResolutionTooltip}">
         <span>Crop Resolution</span>
         <input id="crop-res-input" list="resolutions" pattern="${cropResInputValidation}" value="${
-          settings.cropRes
+          appState.settings.cropRes
         }" style="width:14ch" required>
         <datalist id="resolutions" autocomplete="off">${resList}</datalist>
       </div>
@@ -2254,15 +2221,15 @@ function createGlobalSettingsEditor() {
       }">
         <span style="display:inline">Rotate: </span>
         <input id="rotate-0" type="radio" name="rotate" value="0" ${
-          settings.rotate == null || settings.rotate === '0' ? 'checked' : ''
+          appState.settings.rotate == null || appState.settings.rotate === '0' ? 'checked' : ''
         }></input>
         <label for="rotate-0">0&#x00B0; </label>
         <input id="rotate-90-clock" type="radio" value="clock" name="rotate" ${
-          settings.rotate === 'clock' ? 'checked' : ''
+          appState.settings.rotate === 'clock' ? 'checked' : ''
         }></input>
         <label for="rotate-90-clock">90&#x00B0; &#x27F3;</label>
         <input id="rotate-90-counterclock" type="radio" value="cclock" name="rotate" ${
-          settings.rotate === 'cclock' ? 'checked' : ''
+          appState.settings.rotate === 'cclock' ? 'checked' : ''
         }></input>
         <label for="rotate-90-counterclock">90&#x00B0; &#x27F2;</label>
       </div>
@@ -2271,7 +2238,7 @@ function createGlobalSettingsEditor() {
       }">
           <span style="display:inline">Merge List: </span>
           <input id="merge-list-input" pattern="${mergeListInputValidation}" value="${
-            settings.markerPairMergeList != null ? settings.markerPairMergeList : ''
+            appState.settings.markerPairMergeList != null ? appState.settings.markerPairMergeList : ''
           }" placeholder="None" style="min-width:15em">
       </div>
       <div class="settings-editor-input-div">
@@ -2285,52 +2252,52 @@ function createGlobalSettingsEditor() {
       <div class="settings-editor-input-div" title="${Tooltips.audioTooltip}">
         <span>Audio</span>
         <select id="audio-input">
-          <option value="Default" ${settings.audio == null ? 'selected' : ''}>(Disabled)</option>
-          <option ${settings.audio === false ? 'selected' : ''}>Disabled</option>
-          <option ${settings.audio ? 'selected' : ''}>Enabled</option>
+          <option value="Default" ${appState.settings.audio == null ? 'selected' : ''}>(Disabled)</option>
+          <option ${appState.settings.audio === false ? 'selected' : ''}>Disabled</option>
+          <option ${appState.settings.audio ? 'selected' : ''}>Enabled</option>
         </select>
       </div>
       <div class="settings-editor-input-div" title="${Tooltips.encodeSpeedTooltip}">
         <span>Encode Speed (0-5)</span>
         <input id="encode-speed-input" type="number" min="0" max="5" step="1" value="${
-          settings.encodeSpeed != null ? settings.encodeSpeed : ''
+          appState.settings.encodeSpeed != null ? appState.settings.encodeSpeed : ''
         }" placeholder="Auto" style="min-width:4em"></input>
       </div>
       <div class="settings-editor-input-div" title="${Tooltips.CRFTooltip}">
         <span>CRF (0-63)</span>
         <input id="crf-input" type="number" min="0" max="63" step="1" value="${
-          settings.crf != null ? settings.crf : ''
+          appState.settings.crf != null ? appState.settings.crf : ''
         }" placeholder="Auto" style="min-width:4em"></input>
       </div>
       <div class="settings-editor-input-div" title="${Tooltips.targetBitrateTooltip}">
         <span>Target Bitrate (kb/s)</span>
         <input id="target-max-bitrate-input" type="number" min="0" max="1e5"step="100" value="${
-          settings.targetMaxBitrate != null ? settings.targetMaxBitrate : ''
+          appState.settings.targetMaxBitrate != null ? appState.settings.targetMaxBitrate : ''
         }" placeholder="Auto" style="min-width:4em"></input>
       </div>
 
       <div class="settings-editor-input-div" title="${Tooltips.twoPassTooltip}">
         <span>Two-Pass</span>
         <select id="two-pass-input">
-          <option value="Default" ${settings.twoPass == null ? 'selected' : ''}>(Disabled)</option>
-          <option ${settings.twoPass === false ? 'selected' : ''}>Disabled</option>
-          <option ${settings.twoPass ? 'selected' : ''}>Enabled</option>
+          <option value="Default" ${appState.settings.twoPass == null ? 'selected' : ''}>(Disabled)</option>
+          <option ${appState.settings.twoPass === false ? 'selected' : ''}>Disabled</option>
+          <option ${appState.settings.twoPass ? 'selected' : ''}>Enabled</option>
         </select>
       </div>
 
       <div class="settings-editor-input-div" title="${Tooltips.gammaTooltip}">
         <span>Gamma (0-4)</span>
         <input id="gamma-input" type="number" min="0.01" max="4.00" step="0.01" value="${
-          settings.gamma != null ? settings.gamma : ''
+          appState.settings.gamma != null ? appState.settings.gamma : ''
         }" placeholder="1" style="min-width:4em"></input>
       </div>
 
       <div class="settings-editor-input-div" title="${Tooltips.hdrTooltip}">
         <span>Enable HDR</span>
         <select id="enable-hdr-input">
-          <option value="Default" ${settings.enableHDR == null ? 'selected' : ''}>(Disabled)</option>
-          <option ${settings.enableHDR === false ? 'selected' : ''}>Disabled</option>
-          <option ${settings.enableHDR ? 'selected' : ''}>Enabled</option>
+          <option value="Default" ${appState.settings.enableHDR == null ? 'selected' : ''}>(Disabled)</option>
+          <option ${appState.settings.enableHDR === false ? 'selected' : ''}>Disabled</option>
+          <option ${appState.settings.enableHDR ? 'selected' : ''}>Enabled</option>
         </select>
       </div>
 
@@ -2385,16 +2352,16 @@ function createGlobalSettingsEditor() {
         <div>
           <span>Loop</span>
           <select id="loop-input">
-          <option value="Default" ${settings.loop == null ? 'selected' : ''}>(none)</option>
-          <option ${settings.loop === 'none' ? 'selected' : ''}>none</option>
-            <option ${settings.loop === 'fwrev' ? 'selected' : ''}>fwrev</option>
-            <option ${settings.loop === 'fade' ? 'selected' : ''}>fade</option>
+          <option value="Default" ${appState.settings.loop == null ? 'selected' : ''}>(none)</option>
+          <option ${appState.settings.loop === 'none' ? 'selected' : ''}>none</option>
+            <option ${appState.settings.loop === 'fwrev' ? 'selected' : ''}>fwrev</option>
+            <option ${appState.settings.loop === 'fade' ? 'selected' : ''}>fade</option>
           </select>
         </div>
         <div title="${Tooltips.fadeDurationTooltip}">
           <span>Fade Duration</span>
           <input id="fade-duration-input" type="number" min="0.1" step="0.1" value="${
-            settings.fadeDuration != null ? settings.fadeDuration : ''
+            appState.settings.fadeDuration != null ? appState.settings.fadeDuration : ''
           }" placeholder="0.7" style="width:7em"></input>
         </div>
       </div>
@@ -2430,18 +2397,18 @@ function createGlobalSettingsEditor() {
     ['fade-duration-input', 'fadeDuration', 'number'],
   ];
 
-  addSettingsInputListeners(settingsInputsConfigs, settings, false);
-  addSettingsInputListeners(settingsInputsConfigsHighlightable, settings, true);
+  addSettingsInputListeners(settingsInputsConfigs, appState.settings, false);
+  addSettingsInputListeners(settingsInputsConfigsHighlightable, appState.settings, true);
   bindFpsMulStepBtns();
 
   cropInput = document.getElementById('crop-input') as HTMLInputElement;
   cropAspectRatioSpan = document.getElementById('crop-aspect-ratio') as HTMLSpanElement;
 
-  wasGlobalSettingsEditorOpen = true;
-  isSettingsEditorOpen = true;
+  appState.wasGlobalSettingsEditorOpen = true;
+  appState.isSettingsEditorOpen = true;
   addMarkerPairMergeListDurationsListener();
   addCropInputHotkeys();
-  highlightModifiedSettings(settingsInputsConfigsHighlightable, settings);
+  highlightModifiedSettings(settingsInputsConfigsHighlightable, appState.settings);
   showCropOverlay();
   triggerCropPreviewRedraw();
 }
@@ -2471,8 +2438,8 @@ function addSettingsInputListeners(inputs: string[][], target, highlightable = f
     const targetProperty = input[1];
     const valueType = input[2] || 'string';
     const inputElem = document.getElementById(id);
-    inputElem.addEventListener('focus', () => (isHotkeysEnabled = false), false);
-    inputElem.addEventListener('blur', () => (isHotkeysEnabled = true), false);
+    inputElem.addEventListener('focus', () => (appState.isHotkeysEnabled = false), false);
+    inputElem.addEventListener('blur', () => (appState.isHotkeysEnabled = true), false);
     inputElem.addEventListener(
       'change',
       (e) => updateSettingsValue(e, id, target, targetProperty, valueType, highlightable),
@@ -2484,9 +2451,9 @@ function addSettingsInputListeners(inputs: string[][], target, highlightable = f
 function deleteSettingsEditor() {
   const settingsEditorDiv = document.getElementById('settings-editor-div');
   deleteElement(settingsEditorDiv);
-  isSettingsEditorOpen = false;
-  wasGlobalSettingsEditorOpen = false;
-  markerHotkeysEnabled = false;
+  appState.isSettingsEditorOpen = false;
+  appState.wasGlobalSettingsEditorOpen = false;
+  appState.markerHotkeysEnabled = false;
 
   hideCropOverlay();
   triggerCropPreviewRedraw();
@@ -2494,7 +2461,7 @@ function deleteSettingsEditor() {
 
 let isExtraSettingsEditorEnabled = false;
 function toggleMarkerPairOverridesEditor() {
-  if (isSettingsEditorOpen) {
+  if (appState.isSettingsEditorOpen) {
     const markerPairOverridesEditor = document.getElementById('marker-pair-overrides');
     if (markerPairOverridesEditor) {
       if (markerPairOverridesEditor.style.display === 'none') {
@@ -2534,23 +2501,23 @@ function markerNumberingMouseDownHandler(e: PointerEvent) {
   const targetMarker = numberingType === 'start' ? targetStartMarker : targetEndMarker;
 
   const markerPairIndex = parseInt(numbering.getAttribute('data-idx')) - 1;
-  const markerPair = markerPairs[markerPairIndex];
+  const markerPair = appState.markerPairs[markerPairIndex];
   const markerTime = numberingType === 'start' ? markerPair.start : markerPair.end;
 
   // open editor of target marker corresponding to clicked numbering
-  if (!isSettingsEditorOpen) {
+  if (!appState.isSettingsEditorOpen) {
     toggleOnMarkerPairEditor(targetEndMarker);
   } else {
-    if (wasGlobalSettingsEditorOpen) {
+    if (appState.wasGlobalSettingsEditorOpen) {
       toggleOffGlobalSettingsEditor();
       toggleOnMarkerPairEditor(targetEndMarker);
-    } else if (prevSelectedEndMarker != targetEndMarker) {
+    } else if (appState.prevSelectedEndMarker != targetEndMarker) {
       toggleOffMarkerPairEditor();
       toggleOnMarkerPairEditor(targetEndMarker);
     }
   }
 
-  seekToSafe(video, markerTime);
+  seekToSafe(appState.video, markerTime);
 
   if (!e.altKey) return;
 
@@ -2558,40 +2525,40 @@ function markerNumberingMouseDownHandler(e: PointerEvent) {
   numbering.setPointerCapture(pointerId);
 
   const numberingRect = numbering.getBoundingClientRect();
-  const progressBarRect = hooks.progressBar.getBoundingClientRect();
+  const progressBarRect = appState.hooks.progressBar.getBoundingClientRect();
   const offsetX = e.pageX - numberingRect.left - numberingRect.width / 2;
   const offsetY = e.pageY - numberingRect.top;
   let prevPageX = e.pageX;
   let prevZoom = 1;
   function getDragTime(e: PointerEvent) {
     let newTime =
-      (getVideoDuration(platform, video) * (e.pageX - offsetX - progressBarRect.left)) /
+      (getVideoDuration(platform, appState.video) * (e.pageX - offsetX - progressBarRect.left)) /
       progressBarRect.width;
     let prevTime =
-      (getVideoDuration(platform, video) * (prevPageX - offsetX - progressBarRect.left)) /
+      (getVideoDuration(platform, appState.video) * (prevPageX - offsetX - progressBarRect.left)) /
       progressBarRect.width;
-    const zoom = clampNumber((e.pageY - offsetY) / video.clientHeight, 0, 1);
+    const zoom = clampNumber((e.pageY - offsetY) / appState.video.clientHeight, 0, 1);
     const zoomDelta = Math.abs(zoom - prevZoom);
     prevZoom = zoom;
     prevPageX = e.pageX;
 
-    if (zoomDelta >= 0.0001) return video.getCurrentTime();
+    if (zoomDelta >= 0.0001) return appState.video.getCurrentTime();
     let timeDelta = roundValue(zoom * (newTime - prevTime), 0.01, 2);
-    if (Math.abs(timeDelta) < 0.01) return video.getCurrentTime();
+    if (Math.abs(timeDelta) < 0.01) return appState.video.getCurrentTime();
 
-    let time = video.getCurrentTime() + timeDelta;
+    let time = appState.video.getCurrentTime() + timeDelta;
     time =
       numberingType === 'start'
         ? clampNumber(time, 0, markerPair.end - 1e-3)
-        : clampNumber(time, markerPair.start + 1e-3, getVideoDuration(platform, video));
+        : clampNumber(time, markerPair.start + 1e-3, getVideoDuration(platform, appState.video));
     return time;
   }
 
   function dragNumbering(e: PointerEvent) {
     const time = getDragTime(e);
-    if (Math.abs(time - video.getCurrentTime()) < 0.01) return;
+    if (Math.abs(time - appState.video.getCurrentTime()) < 0.01) return;
     moveMarker(targetMarker, time, false, false);
-    seekToSafe(video, time);
+    seekToSafe(appState.video, time);
   }
 
   document.addEventListener('pointermove', dragNumbering);
@@ -2620,50 +2587,49 @@ function toggleMarkerPairEditorHandler(e: PointerEvent, targetMarker?: SVGRectEl
   }
 }
 
-let isChartEnabled = false;
 function toggleMarkerPairEditor(targetMarker: SVGRectElement) {
   // if target marker is previously selected marker: toggle target on/off
-  if (prevSelectedEndMarker === targetMarker && !wasGlobalSettingsEditorOpen) {
-    isSettingsEditorOpen ? toggleOffMarkerPairEditor() : toggleOnMarkerPairEditor(targetMarker);
+  if (appState.prevSelectedEndMarker === targetMarker && !appState.wasGlobalSettingsEditorOpen) {
+    appState.isSettingsEditorOpen ? toggleOffMarkerPairEditor() : toggleOnMarkerPairEditor(targetMarker);
 
-    // otherwise switching from a different marker pair or from global settings editor
+    // otherwise switching from a different marker pair or from global appState.settings editor
   } else {
-    // delete current settings editor appropriately
-    if (isSettingsEditorOpen) {
-      wasGlobalSettingsEditorOpen ? toggleOffGlobalSettingsEditor() : toggleOffMarkerPairEditor();
+    // delete current appState.settings editor appropriately
+    if (appState.isSettingsEditorOpen) {
+      appState.wasGlobalSettingsEditorOpen ? toggleOffGlobalSettingsEditor() : toggleOffMarkerPairEditor();
     }
-    // create new marker pair settings editor
+    // create new marker pair appState.settings editor
     toggleOnMarkerPairEditor(targetMarker);
   }
 }
 
 function toggleOnMarkerPairEditor(targetMarker: SVGRectElement) {
-  prevSelectedEndMarker = targetMarker;
-  const selectedMarkerPairIndex = parseInt(prevSelectedEndMarker.getAttribute('data-idx')) - 1;
-  if (selectedMarkerPairIndex !== prevSelectedMarkerPairIndex) {
+  appState.prevSelectedEndMarker = targetMarker;
+  const selectedMarkerPairIndex = parseInt(appState.prevSelectedEndMarker.getAttribute('data-idx')) - 1;
+  if (selectedMarkerPairIndex !== appState.prevSelectedMarkerPairIndex) {
     setCurrentCropPoint(null, 0);
   }
-  prevSelectedMarkerPairIndex = selectedMarkerPairIndex;
+  appState.prevSelectedMarkerPairIndex = selectedMarkerPairIndex;
 
   highlightSelectedMarkerPair(targetMarker);
   enableMarkerHotkeys(targetMarker);
-  // creating editor sets isSettingsEditorOpen to true
+  // creating editor sets appState.isSettingsEditorOpen to true
   createMarkerPairEditor(targetMarker);
   addCropInputHotkeys();
   loadChartData(speedChartInput);
   loadChartData(cropChartInput);
   showCropOverlay();
   triggerCropPreviewRedraw();
-  if (isChartEnabled) {
+  if (appState.isChartEnabled) {
     showChart();
   }
 
   targetMarker.classList.add('selected-marker');
   targetMarker.previousElementSibling.classList.add('selected-marker');
-  const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+  const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
   markerPair.startNumbering.classList.add('selectedMarkerNumbering');
   markerPair.endNumbering.classList.add('selectedMarkerNumbering');
-  if (isAutoHideUnselectedMarkerPairsOn) {
+  if (appState.isAutoHideUnselectedMarkerPairsOn) {
     autoHideUnselectedMarkerPairsStyle = injectCSS(
       autoHideUnselectedMarkerPairsCSS,
       'auto-hide-unselected-marker-pairs-css'
@@ -2676,31 +2642,30 @@ function toggleOffMarkerPairEditor(hardHide = false) {
   hideSelectedMarkerPairOverlay(hardHide);
   hideCropOverlay();
   hideChart();
-  prevSelectedEndMarker.classList.remove('selected-marker');
-  prevSelectedEndMarker.previousElementSibling.classList.remove('selected-marker');
-  const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+  appState.prevSelectedEndMarker.classList.remove('selected-marker');
+  appState.prevSelectedEndMarker.previousElementSibling.classList.remove('selected-marker');
+  const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
   markerPair.startNumbering.classList.remove('selectedMarkerNumbering');
   markerPair.endNumbering.classList.remove('selectedMarkerNumbering');
-  if (isAutoHideUnselectedMarkerPairsOn) {
+  if (appState.isAutoHideUnselectedMarkerPairsOn) {
     deleteElement(autoHideUnselectedMarkerPairsStyle);
   }
 }
 
 let autoHideUnselectedMarkerPairsStyle: HTMLStyleElement;
-let isAutoHideUnselectedMarkerPairsOn = false;
 function toggleAutoHideUnselectedMarkerPairs(e: KeyboardEvent) {
   if (e.ctrlKey && !arrowKeyCropAdjustmentEnabled) {
     blockEvent(e);
-    if (!isAutoHideUnselectedMarkerPairsOn) {
+    if (!appState.isAutoHideUnselectedMarkerPairsOn) {
       autoHideUnselectedMarkerPairsStyle = injectCSS(
         autoHideUnselectedMarkerPairsCSS,
         'auto-hide-unselected-marker-pairs-css'
       );
-      isAutoHideUnselectedMarkerPairsOn = true;
+      appState.isAutoHideUnselectedMarkerPairsOn = true;
       flashMessage('Auto-hiding of unselected marker pairs enabled', 'green');
     } else {
       deleteElement(autoHideUnselectedMarkerPairsStyle);
-      isAutoHideUnselectedMarkerPairsOn = false;
+      appState.isAutoHideUnselectedMarkerPairsOn = false;
       flashMessage('Auto-hiding of unselected marker pairs disabled', 'red');
     }
   }
@@ -2716,7 +2681,7 @@ let cropAspectRatioSpan: HTMLSpanElement;
 let markerPairNumberInput: HTMLInputElement;
 function createMarkerPairEditor(targetMarker: SVGRectElement) {
   const markerPairIndex = parseInt(targetMarker.getAttribute('data-idx'), 10) - 1;
-  const markerPair = markerPairs[markerPairIndex];
+  const markerPair = appState.markerPairs[markerPairIndex];
   const startTime = toHHMMSSTrimmed(markerPair.start);
   const endTime = toHHMMSSTrimmed(markerPair.end);
   const speed = markerPair.speed;
@@ -2731,20 +2696,20 @@ function createMarkerPairEditor(targetMarker: SVGRectElement) {
   const overrides = markerPair.overrides;
   const vidstab = overrides.videoStabilization;
   const vidstabDesc = vidstab ? vidstab.desc : null;
-  const vidstabDescGlobal = settings.videoStabilization
-    ? `(${settings.videoStabilization.desc})`
+  const vidstabDescGlobal = appState.settings.videoStabilization
+    ? `(${appState.settings.videoStabilization.desc})`
     : '(Disabled)';
   const vidstabDynamicZoomEnabled = overrides.videoStabilizationDynamicZoom;
   // const minterpMode = overrides.minterpMode;
   // const minterpFPS = overrides.minterpFPS;
   const minterpFpsMultiplier = overrides.minterpFpsMultiplier;
   const effectiveMinterpMul = (minterpFpsMultiplier ??
-    settings.minterpFpsMultiplier ??
+    appState.settings.minterpFpsMultiplier ??
     0) as number;
   const minterpFpsMulLabel = getMinterpFpsMulSuffix(effectiveMinterpMul, speed);
   const denoise = overrides.denoise;
   const denoiseDesc = denoise ? denoise.desc : null;
-  const denoiseDescGlobal = settings.denoise ? `(${settings.denoise.desc})` : '(Disabled)';
+  const denoiseDescGlobal = appState.settings.denoise ? `(${appState.settings.denoise.desc})` : '(Disabled)';
   const overridesEditorDisplay = isExtraSettingsEditorEnabled ? 'block' : 'none';
   createCropOverlay(crop);
 
@@ -2757,10 +2722,10 @@ function createMarkerPairEditor(targetMarker: SVGRectElement) {
           <input id="marker-pair-number-input"
             title="${Tooltips.markerPairNumberTooltip}"
             type="number" value="${markerPairIndex + 1}"
-            step="1" min="1" max="${markerPairs.length}" style="width:3em" required>
+            step="1" min="1" max="${appState.markerPairs.length}" style="width:3em" required>
           </input>
           /
-          <span id="marker-pair-count-label">${markerPairs.length}</span>
+          <span id="marker-pair-count-label">${appState.markerPairs.length}</span>
           Settings\
         </legend>
         <div class="settings-editor-input-div" title="${Tooltips.speedTooltip}">
@@ -2788,7 +2753,7 @@ function createMarkerPairEditor(targetMarker: SVGRectElement) {
           Tooltips.timeDurationTooltip
         }">
           <span>Time:</span>
-          <span id="start-time">${startTime}</span>
+          <span id="start-time">${appState.startTime}</span>
           <span> - </span>
           <span id="end-time">${endTime}</span>
           <br>
@@ -2802,7 +2767,7 @@ function createMarkerPairEditor(targetMarker: SVGRectElement) {
           <span>Audio</span>
           <select id="audio-input">
             <option value="Default" ${overrides.audio == null ? 'selected' : ''}>${ternaryToString(
-              settings.audio
+              appState.settings.audio
             )}</option>
             <option ${overrides.audio === false ? 'selected' : ''}>Disabled</option>
             <option ${overrides.audio ? 'selected' : ''}>Enabled</option>
@@ -2812,27 +2777,27 @@ function createMarkerPairEditor(targetMarker: SVGRectElement) {
           <span>Encode Speed (0-5)</span>
           <input id="encode-speed-input" type="number" min="0" max="5" step="1" value="${
             overrides.encodeSpeed != null ? overrides.encodeSpeed : ''
-          }" placeholder="${settings.encodeSpeed || 'Auto'}"  style="min-width:4em"></input>
+          }" placeholder="${appState.settings.encodeSpeed || 'Auto'}"  style="min-width:4em"></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.CRFTooltip}">
           <span>CRF (0-63)</span>
           <input id="crf-input" type="number" min="0" max="63" step="1" value="${
             overrides.crf != null ? overrides.crf : ''
           }" placeholder="${
-            settings.crf != null ? settings.crf : 'Auto'
+            appState.settings.crf != null ? appState.settings.crf : 'Auto'
           }" style="min-width:4em"></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.targetBitrateTooltip}">
           <span>Bitrate (kb/s)</span>
           <input id="target-max-bitrate-input" type="number" min="0" max="10e5" step="100" value="${
             overrides.targetMaxBitrate != null ? overrides.targetMaxBitrate : ''
-          }" placeholder="${settings.targetMaxBitrate || 'Auto'}" style="min-width:4em"></input>
+          }" placeholder="${appState.settings.targetMaxBitrate || 'Auto'}" style="min-width:4em"></input>
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.twoPassTooltip}">
           <span>Two-Pass</span>
           <select id="two-pass-input">
             <option value="Default" ${overrides.twoPass == null ? 'selected' : ''}>
-              ${ternaryToString(settings.twoPass)}
+              ${ternaryToString(appState.settings.twoPass)}
             </option>
             <option ${overrides.twoPass === false ? 'selected' : ''}>Disabled</option>
             <option ${overrides.twoPass ? 'selected' : ''}>Enabled</option>
@@ -2843,7 +2808,7 @@ function createMarkerPairEditor(targetMarker: SVGRectElement) {
         <span>Enable HDR</span>
         <select id="enable-hdr-input">
           <option value="Default" ${overrides.enableHDR == null ? 'selected' : ''}>
-            ${ternaryToString(settings.enableHDR)}
+            ${ternaryToString(appState.settings.enableHDR)}
           </option>
           <option ${overrides.enableHDR === false ? 'selected' : ''}>Disabled</option>
           <option ${overrides.enableHDR ? 'selected' : ''}>Enabled</option>
@@ -2856,7 +2821,7 @@ function createMarkerPairEditor(targetMarker: SVGRectElement) {
           <input id="gamma-input" type="number" min="0.01" max="4.00" step="0.01" value="${
             overrides.gamma != null ? overrides.gamma : ''
           }" placeholder="${
-            settings.gamma != null ? settings.gamma : '1'
+            appState.settings.gamma != null ? appState.settings.gamma : '1'
           }" style="min-width:4em"></input>
         </div>
 
@@ -2911,7 +2876,7 @@ function createMarkerPairEditor(targetMarker: SVGRectElement) {
             <select id="video-stabilization-dynamic-zoom-input">
               <option value="Default" ${
                 vidstabDynamicZoomEnabled == null ? 'selected' : ''
-              }>${ternaryToString(settings.videoStabilizationDynamicZoom)}</option>
+              }>${ternaryToString(appState.settings.videoStabilizationDynamicZoom)}</option>
               <option ${vidstabDynamicZoomEnabled === false ? 'selected' : ''}>Disabled</option>
               <option ${vidstabDynamicZoomEnabled ? 'selected' : ''}>Enabled</option>
             </select>
@@ -2922,7 +2887,7 @@ function createMarkerPairEditor(targetMarker: SVGRectElement) {
             <span>Loop</span>
             <select id="loop-input">
               <option value="Default" ${overrides.loop == null ? 'selected' : ''}>${
-                settings.loop != null ? `(${settings.loop})` : '(none)'
+                appState.settings.loop != null ? `(${appState.settings.loop})` : '(none)'
               }</option>
               <option ${overrides.loop === 'none' ? 'selected' : ''}>none</option>
               <option ${overrides.loop === 'fwrev' ? 'selected' : ''}>fwrev</option>
@@ -2934,7 +2899,7 @@ function createMarkerPairEditor(targetMarker: SVGRectElement) {
             <input id="fade-duration-input" type="number" min="0.1" step="0.1" value="${
               overrides.fadeDuration != null ? overrides.fadeDuration : ''
             }" placeholder="${
-              settings.fadeDuration != null ? settings.fadeDuration : '0.7'
+              appState.settings.fadeDuration != null ? appState.settings.fadeDuration : '0.7'
             }" style="width:7em"></input>
           </div>
         </div>
@@ -2993,8 +2958,8 @@ function createMarkerPairEditor(targetMarker: SVGRectElement) {
   cropInput = document.getElementById('crop-input') as HTMLInputElement;
   cropAspectRatioSpan = document.getElementById('crop-aspect-ratio') as HTMLSpanElement;
   enableZoomPanInput = document.getElementById('enable-zoom-pan-input') as HTMLInputElement;
-  isSettingsEditorOpen = true;
-  wasGlobalSettingsEditorOpen = false;
+  appState.isSettingsEditorOpen = true;
+  appState.wasGlobalSettingsEditorOpen = false;
 
   if (isForceSetSpeedOn) {
     updateSpeedInputLabel(`Speed (${forceSetSpeedValue.toFixed(2)})`);
@@ -3004,41 +2969,41 @@ function createMarkerPairEditor(targetMarker: SVGRectElement) {
 }
 
 function markerPairNumberInputHandler(e: Event) {
-  const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+  const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
   const startNumbering = markerPair.startNumbering;
   const endNumbering = markerPair.endNumbering;
   const newIdx = e.target.value - 1;
-  markerPairs.splice(newIdx, 0, ...markerPairs.splice(prevSelectedMarkerPairIndex, 1));
+  appState.markerPairs.splice(newIdx, 0, ...appState.markerPairs.splice(appState.prevSelectedMarkerPairIndex, 1));
 
-  let targetMarkerRect = markersSvg.children[newIdx * 2];
-  let targetStartNumbering = startMarkerNumberings.children[newIdx];
-  let targetEndNumbering = endMarkerNumberings.children[newIdx];
+  let targetMarkerRect = appState.markersSvg.children[newIdx * 2];
+  let targetStartNumbering = appState.startMarkerNumberings.children[newIdx];
+  let targetEndNumbering = appState.endMarkerNumberings.children[newIdx];
   // if target succeedes current marker pair, move pair after target
-  if (newIdx > prevSelectedMarkerPairIndex) {
+  if (newIdx > appState.prevSelectedMarkerPairIndex) {
     targetMarkerRect = targetMarkerRect.nextElementSibling.nextElementSibling;
     targetStartNumbering = targetStartNumbering.nextElementSibling;
     targetEndNumbering = targetEndNumbering.nextElementSibling;
   }
 
-  const prevSelectedStartMarker = prevSelectedEndMarker.previousElementSibling;
+  const prevSelectedStartMarker = appState.prevSelectedEndMarker.previousElementSibling;
   // if target precedes current marker pair, move pair before target
-  markersSvg.insertBefore(prevSelectedStartMarker, targetMarkerRect);
-  markersSvg.insertBefore(prevSelectedEndMarker, targetMarkerRect);
-  startMarkerNumberings.insertBefore(startNumbering, targetStartNumbering);
-  endMarkerNumberings.insertBefore(endNumbering, targetEndNumbering);
+  appState.markersSvg.insertBefore(prevSelectedStartMarker, targetMarkerRect);
+  appState.markersSvg.insertBefore(appState.prevSelectedEndMarker, targetMarkerRect);
+  appState.startMarkerNumberings.insertBefore(startNumbering, targetStartNumbering);
+  appState.endMarkerNumberings.insertBefore(endNumbering, targetEndNumbering);
 
   renumberMarkerPairs();
-  prevSelectedMarkerPairIndex = newIdx;
+  appState.prevSelectedMarkerPairIndex = newIdx;
 }
 
 function highlightModifiedSettings(inputs: string[][], target) {
-  if (isSettingsEditorOpen) {
+  if (appState.isSettingsEditorOpen) {
     const markerPairSettingsLabelHighlight = 'marker-pair-settings-editor-highlighted-label';
     const globalSettingsLabelHighlight = 'global-settings-editor-highlighted-label';
     const inheritedSettingsLabelHighlight = 'inherited-settings-highlighted-label';
     let markerPair: MarkerPair;
-    if (!wasGlobalSettingsEditorOpen && prevSelectedMarkerPairIndex != null) {
-      markerPair = markerPairs[prevSelectedMarkerPairIndex];
+    if (!appState.wasGlobalSettingsEditorOpen && appState.prevSelectedMarkerPairIndex != null) {
+      markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     }
     inputs.forEach((input) => {
       const [id, targetProperty, valueType] = input;
@@ -3062,13 +3027,13 @@ function highlightModifiedSettings(inputs: string[][], target) {
         storedTargetValue === '' ||
         (valueType === 'bool' && storedTargetValue === false);
 
-      if (target === settings) {
+      if (target === appState.settings) {
         shouldRemoveHighlight ||=
-          (id === 'title-suffix-input' && storedTargetValue == `[${settings.videoID}]`) ||
+          (id === 'title-suffix-input' && storedTargetValue == `[${appState.settings.videoID}]`) ||
           (id === 'speed-input' && storedTargetValue === 1) ||
           (id === 'crop-input' &&
             (storedTargetValue === '0:0:iw:ih' ||
-              storedTargetValue === `0:0:${settings.cropResWidth}:${settings.cropResHeight}`)) ||
+              storedTargetValue === `0:0:${appState.settings.cropResWidth}:${appState.settings.cropResHeight}`)) ||
           id === 'rotate-0';
       }
 
@@ -3078,13 +3043,13 @@ function highlightModifiedSettings(inputs: string[][], target) {
         return;
       }
 
-      if (target === settings) {
+      if (target === appState.settings) {
         label.classList.add(globalSettingsLabelHighlight);
       } else {
         let settingsProperty = targetProperty;
         if (targetProperty === 'speed') settingsProperty = 'newMarkerSpeed';
         if (targetProperty === 'crop') settingsProperty = 'newMarkerCrop';
-        let globalValue = settings[settingsProperty];
+        let globalValue = appState.settings[settingsProperty];
         let shouldApplyGlobalHighlight = storedTargetValue === globalValue;
         if (targetProperty === 'crop') {
           shouldApplyGlobalHighlight = cropStringsEqual(storedTargetValue, globalValue);
@@ -3104,7 +3069,7 @@ function highlightModifiedSettings(inputs: string[][], target) {
 }
 
 function enableMarkerHotkeys(endMarker: SVGRectElement) {
-  markerHotkeysEnabled = true;
+  appState.markerHotkeysEnabled = true;
   enableMarkerHotkeys.endMarker = endMarker;
   enableMarkerHotkeys.startMarker = endMarker.previousSibling;
 }
@@ -3117,9 +3082,9 @@ function moveMarker(
 ) {
   const type = marker.getAttribute('type') as 'start' | 'end';
   const idx = parseInt(marker.getAttribute('data-idx')) - 1;
-  const markerPair = markerPairs[idx];
+  const markerPair = appState.markerPairs[idx];
 
-  const toTime = newTime != null ? newTime : video.getCurrentTime();
+  const toTime = newTime != null ? newTime : appState.video.getCurrentTime();
 
   if (type === 'start' && toTime >= markerPair.end) {
     flashMessage('Start marker cannot be placed after or at end marker', 'red');
@@ -3193,7 +3158,7 @@ function shrinkPointMap(draft, pointMap, pointType, toTime, type) {
   if (pointType === 'crop') {
     let toCropString = getInterpolatedCrop(leftPoint, rightPoint, toTime);
     let [x, y, w, h] = getCropComponents(targetPoint.crop);
-    const toCrop = new Crop(x, y, w, h, settings.cropResWidth, settings.cropResHeight);
+    const toCrop = new Crop(x, y, w, h, appState.settings.cropResWidth, appState.settings.cropResHeight);
     toCrop.setCropStringSafe(toCropString, draft.enableZoomPan);
     targetPoint.crop = toCrop.cropString;
     setAspectRatioForAllPoints(toCrop.aspectRatio, pointMap, pointMap, targetPointIndex);
@@ -3215,12 +3180,12 @@ function shrinkPointMap(draft, pointMap, pointType, toTime, type) {
 }
 
 function renderMarkerPair(markerPair, markerPairIndex) {
-  const startMarker = markersSvg.querySelector(`.start-marker[data-idx="${markerPairIndex + 1}"]`);
-  const endMarker = markersSvg.querySelector(`.end-marker[data-idx="${markerPairIndex + 1}"]`);
-  const startMarkerNumbering = startMarkerNumberings.children[markerPairIndex];
-  const endMarkerNumbering = endMarkerNumberings.children[markerPairIndex];
-  const startProgressPos = (markerPair.start / getVideoDuration(platform, video)) * 100;
-  const endProgressPos = (markerPair.end / getVideoDuration(platform, video)) * 100;
+  const startMarker = appState.markersSvg.querySelector(`.start-marker[data-idx="${markerPairIndex + 1}"]`);
+  const endMarker = appState.markersSvg.querySelector(`.end-marker[data-idx="${markerPairIndex + 1}"]`);
+  const startMarkerNumbering = appState.startMarkerNumberings.children[markerPairIndex];
+  const endMarkerNumbering = appState.endMarkerNumberings.children[markerPairIndex];
+  const startProgressPos = (markerPair.start / getVideoDuration(platform, appState.video)) * 100;
+  const endProgressPos = (markerPair.end / getVideoDuration(platform, appState.video)) * 100;
 
   startMarker.setAttribute('x', `${startProgressPos}%`);
   startMarkerNumbering.setAttribute('x', `${startProgressPos}%`);
@@ -3251,7 +3216,7 @@ function updateCharts(markerPair: MarkerPair, rerender = true) {
 }
 
 function rerenderCurrentChart() {
-  if (isCurrentChartVisible && currentChartInput && currentChartInput.chart) {
+  if (appState.isCurrentChartVisible && currentChartInput && currentChartInput.chart) {
     currentChartInput.chart.update();
   }
 }
@@ -3369,12 +3334,12 @@ function updateSettingsValue(
 
     if (targetProperty === 'cropRes') {
       const { cropMultipleX, cropMultipleY, newWidth, newHeight } = getCropMultiples(
-        settings.cropRes,
+        appState.settings.cropRes,
         newValue
       );
-      settings.cropRes = newValue;
-      settings.cropResWidth = newWidth;
-      settings.cropResHeight = newHeight;
+      appState.settings.cropRes = newValue;
+      appState.settings.cropResWidth = newWidth;
+      appState.settings.cropResHeight = newHeight;
       Crop._minW = Math.round(Crop.minW * cropMultipleX);
       Crop._minH = Math.round(Crop.minH * cropMultipleY);
       multiplyAllCrops(cropMultipleX, cropMultipleY);
@@ -3386,24 +3351,24 @@ function updateSettingsValue(
     }
 
     if (targetProperty === 'speed') {
-      const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+      const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
       updateMarkerPairSpeed(markerPair, newValue);
       renderSpeedAndCropUI();
     }
 
     if (targetProperty === 'enableZoomPan') {
-      const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+      const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
       const cropMap = markerPair.cropMap;
       const draft = createDraft(getMarkerPairHistory(markerPair));
 
       const cropString = cropMap[currentCropPointIndex].crop;
       const enableZoomPan = newValue;
-      const cropRes = settings.cropRes;
+      const cropRes = appState.settings.cropRes;
       if (!enableZoomPan && isVariableSize(cropMap, cropRes)) {
-        video.pause();
+        appState.video.pause();
         const { minSizeW, minSizeH, maxSizeW, maxSizeH, avgSizeW, avgSizeH } =
           getMinMaxAvgCropPoint(cropMap, cropRes);
-        const crop = Crop.fromCropString(cropString, settings.cropRes);
+        const crop = Crop.fromCropString(cropString, appState.settings.cropRes);
         const tooltip = Tooltips.zoomPanToPanOnlyTooltip(
           minSizeW,
           minSizeH,
@@ -3470,12 +3435,12 @@ function getCropMultiples(oldCropRes: string, newCropRes: string) {
   return { cropMultipleX, cropMultipleY, newWidth, newHeight };
 }
 function multiplyAllCrops(cropMultipleX: number, cropMultipleY: number) {
-  const cropString = settings.newMarkerCrop;
+  const cropString = appState.settings.newMarkerCrop;
   const multipliedCropString = multiplyCropString(cropMultipleX, cropMultipleY, cropString);
-  settings.newMarkerCrop = multipliedCropString;
+  appState.settings.newMarkerCrop = multipliedCropString;
   setCropInputValue(multipliedCropString);
 
-  markerPairs.forEach((markerPair) => {
+  appState.markerPairs.forEach((markerPair) => {
     multiplyMarkerPairCrops(markerPair, cropMultipleX, cropMultipleY);
   });
 }
@@ -3485,7 +3450,7 @@ function multiplyMarkerPairCrops(
   cropMultipleX: number,
   cropMultipleY: number
 ) {
-  markerPair.cropRes = settings.cropRes;
+  markerPair.cropRes = appState.settings.cropRes;
   const draft = createDraft(getMarkerPairHistory(markerPair));
   draft.cropMap.forEach((cropPoint, idx) => {
     const multipliedCropString = multiplyCropString(cropMultipleX, cropMultipleY, cropPoint.crop);
@@ -3505,7 +3470,7 @@ function multiplyCropString(cropMultipleX: number, cropMultipleY: number, cropSt
   return multipliedCropString;
 }
 
-function getMarkerPairMergeListDurations(markerPairMergeList = settings.markerPairMergeList) {
+function getMarkerPairMergeListDurations(markerPairMergeList = appState.settings.markerPairMergeList) {
   const durations = [];
   for (let merge of markerPairMergeList.split(';')) {
     let duration = 0;
@@ -3518,15 +3483,15 @@ function getMarkerPairMergeListDurations(markerPairMergeList = settings.markerPa
           [mergeRangeStart, mergeRangeEnd] = [mergeRangeEnd, mergeRangeStart];
         }
         for (let idx = mergeRangeStart; idx <= mergeRangeEnd; idx++) {
-          if (!isNaN(idx) && idx >= 0 && idx < markerPairs.length) {
-            const marker = markerPairs[idx];
+          if (!isNaN(idx) && idx >= 0 && idx < appState.markerPairs.length) {
+            const marker = appState.markerPairs[idx];
             duration += (marker.end - marker.start) / marker.speed;
           }
         }
       } else {
         const idx = parseInt(mergeRange, 10) - 1;
-        if (!isNaN(idx) && idx >= 0 && idx < markerPairs.length) {
-          const marker = markerPairs[idx];
+        if (!isNaN(idx) && idx >= 0 && idx < appState.markerPairs.length) {
+          const marker = appState.markerPairs[idx];
           duration += (marker.end - marker.start) / marker.speed;
         }
       }
@@ -3578,8 +3543,8 @@ function addCropInputHotkeys() {
         typeof cropArray[cropTarget] === 'number';
       if (!isValidCropTarget) return;
 
-      if (ke.code === 'KeyA' && !wasGlobalSettingsEditorOpen) {
-        const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+      if (ke.code === 'KeyA' && !appState.wasGlobalSettingsEditorOpen) {
+        const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
         const initState = getMarkerPairHistory(markerPair);
         const draft = createDraft(initState);
         const draftCropMap = draft.cropMap;
@@ -3645,8 +3610,8 @@ function addCropInputHotkeys() {
 
         const { isDynamicCrop, enableZoomPan } = getCropMapProperties();
         const shouldMaintainCropAspectRatio = enableZoomPan && isDynamicCrop;
-        const cropResWidth = settings.cropResWidth;
-        const cropResHeight = settings.cropResHeight;
+        const cropResWidth = appState.settings.cropResWidth;
+        const cropResHeight = appState.settings.cropResHeight;
         const crop = new Crop(ix, iy, iw, ih, cropResWidth, cropResHeight);
 
         // without modifiers move crop x/y offset
@@ -3710,12 +3675,12 @@ function injectToggleShortcutsTableButton() {
   }
 
   if (platform === VideoPlatforms.yt_clipper) {
-    hooks.shortcutsTableButton.parentElement.insertBefore(
+    appState.hooks.shortcutsTableButton.parentElement.insertBefore(
       shortcutsTableToggleButton,
-      hooks.shortcutsTableButton
+      appState.hooks.shortcutsTableButton
     );
   } else {
-    hooks.shortcutsTableButton.insertAdjacentElement('afterbegin', shortcutsTableToggleButton);
+    appState.hooks.shortcutsTableButton.insertAdjacentElement('afterbegin', shortcutsTableToggleButton);
   }
 }
 
@@ -3738,7 +3703,7 @@ function toggleShortcutsTable() {
     shortcutsTableContainer = document.createElement('div');
     shortcutsTableContainer.setAttribute('id', 'shortcutsTableContainer');
     safeSetInnerHtml(shortcutsTableContainer, renderShortcutsTable(shortcutRegistry!));
-    hooks.shortcutsTable.insertAdjacentElement('beforebegin', shortcutsTableContainer);
+    appState.hooks.shortcutsTable.insertAdjacentElement('beforebegin', shortcutsTableContainer);
   } else if (shortcutsTableContainer.style.display !== 'none') {
     shortcutsTableContainer.style.display = 'none';
   } else {
@@ -3816,14 +3781,14 @@ const frameCaptureViewerBodyHTML = `\
 let frameCaptureViewerWindow: Window;
 let frameCaptureViewerDoc: Document;
 async function captureFrame() {
-  const currentTime = video.getCurrentTime();
-  for (let i = 0; i < video.buffered.length; i++) {
-    console.log(video.buffered.start(i), video.buffered.end(i));
-    if (video.buffered.start(i) <= currentTime && currentTime <= video.buffered.end(i)) {
+  const currentTime = appState.video.getCurrentTime();
+  for (let i = 0; i < appState.video.buffered.length; i++) {
+    console.log(appState.video.buffered.start(i), appState.video.buffered.end(i));
+    if (appState.video.buffered.start(i) <= currentTime && currentTime <= appState.video.buffered.end(i)) {
       break;
     }
 
-    if (i === video.buffered.length - 1) {
+    if (i === appState.video.buffered.length - 1) {
       flashMessage('Frame not captured. Video has not yet buffered the frame.', 'red');
       return;
     }
@@ -3832,17 +3797,17 @@ async function captureFrame() {
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
   let resString: string;
-  if (isSettingsEditorOpen) {
-    const cropMultipleX = video.videoWidth / settings.cropResWidth;
-    const cropMultipleY = video.videoHeight / settings.cropResHeight;
-    if (!wasGlobalSettingsEditorOpen) {
-      const idx = parseInt(prevSelectedEndMarker.getAttribute('data-idx'), 10) - 1;
-      const markerPair = markerPairs[idx];
+  if (appState.isSettingsEditorOpen) {
+    const cropMultipleX = appState.video.videoWidth / appState.settings.cropResWidth;
+    const cropMultipleY = appState.video.videoHeight / appState.settings.cropResHeight;
+    if (!appState.wasGlobalSettingsEditorOpen) {
+      const idx = parseInt(appState.prevSelectedEndMarker.getAttribute('data-idx'), 10) - 1;
+      const markerPair = appState.markerPairs[idx];
       resString = multiplyCropString(cropMultipleX, cropMultipleY, markerPair.crop);
     } else {
-      resString = multiplyCropString(cropMultipleX, cropMultipleY, settings.newMarkerCrop);
+      resString = multiplyCropString(cropMultipleX, cropMultipleY, appState.settings.newMarkerCrop);
     }
-    const cropRes = Crop.getMultipliedCropRes(settings.cropRes, cropMultipleX, cropMultipleY);
+    const cropRes = Crop.getMultipliedCropRes(appState.settings.cropRes, cropMultipleX, cropMultipleY);
     const [x, y, w, h] = Crop.getCropComponents(resString, cropRes);
 
     canvas.width = w;
@@ -3851,13 +3816,13 @@ async function captureFrame() {
       canvas.style.height = '96vh';
       canvas.style.width = 'auto';
     }
-    context.drawImage(video, x, y, w, h, 0, 0, w, h);
+    context.drawImage(appState.video, x, y, w, h, 0, 0, w, h);
     resString = `x${x}y${y}w${w}h${h}`;
   } else {
-    resString = `x0y0w${video.videoWidth}h${video.videoHeight}`;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+    resString = `x0y0w${appState.video.videoWidth}h${appState.video.videoHeight}`;
+    canvas.width = appState.video.videoWidth;
+    canvas.height = appState.video.videoHeight;
+    context.drawImage(appState.video, 0, 0, appState.video.videoWidth, appState.video.videoHeight);
   }
   if (!frameCaptureViewerWindow || !frameCaptureViewerDoc || frameCaptureViewerWindow.closed) {
     frameCaptureViewerWindow = window.open(
@@ -3872,7 +3837,7 @@ async function captureFrame() {
   const frameDiv = document.createElement('div');
   frameDiv.setAttribute('class', 'frame-div');
   const frameCount = getFrameCount(currentTime);
-  const frameFileName = `${settings.titleSuffix}-${resString}-@${currentTime}s(${toHHMMSSTrimmed(
+  const frameFileName = `${appState.settings.titleSuffix}-${resString}-@${currentTime}s(${toHHMMSSTrimmed(
     currentTime
   ).replace(':', ';')})-f${frameCount.frameNumber}(${frameCount.totalFrames})`;
   safeSetInnerHtml(
@@ -3905,7 +3870,7 @@ function getFrameCount(seconds: number) {
   let totalFrames: number | string;
   if (fps) {
     frameNumber = Math.floor(seconds * fps);
-    totalFrames = Math.floor(getVideoDuration(platform, video) * fps);
+    totalFrames = Math.floor(getVideoDuration(platform, appState.video) * fps);
   } else {
     frameNumber = 'Unknown';
     totalFrames = 'Unknown';
@@ -3933,7 +3898,7 @@ function saveCapturedFrames() {
     return;
   }
   const zip = new JSZip();
-  const framesZip = zip.folder(settings.titleSuffix).folder('frames');
+  const framesZip = zip.folder(appState.settings.titleSuffix).folder('frames');
   const frames = frameCaptureViewerDoc.getElementsByTagName('canvas');
   if (frames.length === 0) {
     flashMessage('No frames to zip.', 'olive');
@@ -3952,7 +3917,7 @@ function saveCapturedFrames() {
       progressSpan.textContent = `Frame Capturer Zipping Progress: ${percent}`;
     })
     .then((blob) => {
-      saveAs(blob, `${settings.titleSuffix}-frames.zip`);
+      saveAs(blob, `${appState.settings.titleSuffix}-frames.zip`);
       progressDiv.dispatchEvent(new Event('done'));
       isFrameCapturerZippingInProgress = false;
     });
@@ -3969,7 +3934,7 @@ function injectProgressBar(color: string, tag: string) {
     progressDiv,
     `<span class="flash-msg" style="color:${color}"> ${tag} Zipping Progress: 0%</span>`
   );
-  hooks.frameCapturerProgressBar.insertAdjacentElement('beforebegin', progressDiv);
+  appState.hooks.frameCapturerProgressBar.insertAdjacentElement('beforebegin', progressDiv);
   return progressDiv;
 }
 
@@ -4050,7 +4015,7 @@ function createCropOverlay(cropString: string) {
       `
   );
   resizeCropOverlay();
-  hooks.cropOverlay.insertAdjacentElement('afterend', cropDiv);
+  appState.hooks.cropOverlay.insertAdjacentElement('afterend', cropDiv);
   cropSvg = cropDiv.firstElementChild as SVGSVGElement;
   cropDim = document.getElementById('cropDim');
   cropRect = document.getElementById('cropRect');
@@ -4081,7 +4046,7 @@ function createCropOverlay(cropString: string) {
     setCropOverlay(cropRect, cropString)
   );
   cropCrossHairs.map((cropCrossHair) => setCropCrossHair(cropCrossHair, cropString));
-  isCropOverlayVisible = true;
+  appState.isCropOverlayVisible = true;
 }
 
 let rerenderCropRafId = 0;
@@ -4096,8 +4061,8 @@ function forceRerenderCrop() {
   rerenderCropRafId = 0;
   centerVideo();
   if (cropDiv) {
-    const videoRect = video.getBoundingClientRect();
-    const videoContainerRect = hooks.videoContainer.getBoundingClientRect();
+    const videoRect = appState.video.getBoundingClientRect();
+    const videoContainerRect = appState.hooks.videoContainer.getBoundingClientRect();
     let { width, height, top, left } = videoRect;
     top = top - videoContainerRect.top;
     left = left - videoContainerRect.left;
@@ -4117,9 +4082,9 @@ function forceRerenderCrop() {
 }
 
 function centerVideo() {
-  const videoContainerRect = hooks.videoContainer.getBoundingClientRect();
+  const videoContainerRect = appState.hooks.videoContainer.getBoundingClientRect();
   let width, height;
-  if (rotation === 0) {
+  if (appState.rotation === 0) {
     height = videoContainerRect.height;
     width = height * videoInfo.aspectRatio;
     width = Math.floor(Math.min(width, videoContainerRect.width));
@@ -4135,7 +4100,7 @@ function centerVideo() {
   let top = videoContainerRect.height / 2 - height / 2;
 
   [width, height, top, left] = [width, height, top, left].map((e) => `${Math.round(e)}px`);
-  Object.assign(video.style, { width, height, top, left, position: 'absolute' });
+  Object.assign(appState.video.style, { width, height, top, left, position: 'absolute' });
 }
 
 function setCropOverlay(cropRect: Element, cropString: string) {
@@ -4151,10 +4116,10 @@ function setCropOverlayDimensions(
   inH: number
 ) {
   if (cropRect) {
-    let x = (inX / settings.cropResWidth) * 100;
-    let y = (inY / settings.cropResHeight) * 100;
-    let w = (inW / settings.cropResWidth) * 100;
-    let h = (inH / settings.cropResHeight) * 100;
+    let x = (inX / appState.settings.cropResWidth) * 100;
+    let y = (inY / appState.settings.cropResHeight) * 100;
+    let w = (inW / appState.settings.cropResWidth) * 100;
+    let h = (inH / appState.settings.cropResHeight) * 100;
 
     [x, y, w, h] = getRotatedCropComponents([x, y, w, h], 100, 100);
 
@@ -4177,17 +4142,17 @@ function setCropCrossHair(cropCrossHair: Element, cropString: string) {
       cropCrossHair.getAttribute('type') === 'x' ? [0, 1, 0.5, 0.5] : [0.5, 0.5, 0, 1];
 
     let cropCrossHairAttrs = {
-      x1: `${((x + x1M * w) / settings.cropResWidth) * 100}%`,
-      x2: `${((x + x2M * w) / settings.cropResWidth) * 100}%`,
-      y1: `${((y + y1M * h) / settings.cropResHeight) * 100}%`,
-      y2: `${((y + y2M * h) / settings.cropResHeight) * 100}%`,
+      x1: `${((x + x1M * w) / appState.settings.cropResWidth) * 100}%`,
+      x2: `${((x + x2M * w) / appState.settings.cropResWidth) * 100}%`,
+      y1: `${((y + y1M * h) / appState.settings.cropResHeight) * 100}%`,
+      y2: `${((y + y2M * h) / appState.settings.cropResHeight) * 100}%`,
     };
-    if (rotation === 90 || rotation === -90) {
+    if (appState.rotation === 90 || appState.rotation === -90) {
       cropCrossHairAttrs = {
-        x1: `${((x + x1M * w) / settings.cropResHeight) * 100}%`,
-        x2: `${((x + x2M * w) / settings.cropResHeight) * 100}%`,
-        y1: `${((y + y1M * h) / settings.cropResWidth) * 100}%`,
-        y2: `${((y + y2M * h) / settings.cropResWidth) * 100}%`,
+        x1: `${((x + x1M * w) / appState.settings.cropResHeight) * 100}%`,
+        x2: `${((x + x2M * w) / appState.settings.cropResHeight) * 100}%`,
+        y1: `${((y + y1M * h) / appState.settings.cropResWidth) * 100}%`,
+        y2: `${((y + y2M * h) / appState.settings.cropResWidth) * 100}%`,
       };
     }
     setAttributes(cropCrossHair, cropCrossHairAttrs);
@@ -4204,7 +4169,7 @@ function cycleCropDimOpacity() {
 function showCropOverlay() {
   if (cropSvg) {
     cropSvg.style.display = 'block';
-    isCropOverlayVisible = true;
+    appState.isCropOverlayVisible = true;
   }
 }
 
@@ -4217,43 +4182,43 @@ function hideCropOverlay() {
   }
   if (cropSvg) {
     cropSvg.style.display = 'none';
-    isCropOverlayVisible = false;
+    appState.isCropOverlayVisible = false;
   }
 }
 
 function deleteCropOverlay() {
   const cropDiv = document.getElementById('crop-div');
   deleteElement(cropDiv);
-  isCropOverlayVisible = false;
+  appState.isCropOverlayVisible = false;
 }
 
 function hidePlayerControls() {
-  hooks.controls.originalDisplay = hooks.controls.originalDisplay ?? hooks.controls.style.display;
-  hooks.controlsGradient.originalDisplay =
-    hooks.controlsGradient.originalDisplay ?? hooks.controlsGradient.style.display;
+  appState.hooks.controls.originalDisplay = appState.hooks.controls.originalDisplay ?? appState.hooks.controls.style.display;
+  appState.hooks.controlsGradient.originalDisplay =
+    appState.hooks.controlsGradient.originalDisplay ?? appState.hooks.controlsGradient.style.display;
 
-  hooks.controls.style.display = 'none';
-  hooks.controlsGradient.style.display = 'none';
+  appState.hooks.controls.style.display = 'none';
+  appState.hooks.controlsGradient.style.display = 'none';
 }
 
 function showPlayerControls() {
-  hooks.controls.style.display = hooks.controls.originalDisplay;
-  hooks.controlsGradient.style.display = hooks.controlsGradient.originalDisplay;
+  appState.hooks.controls.style.display = appState.hooks.controls.originalDisplay;
+  appState.hooks.controlsGradient.style.display = appState.hooks.controlsGradient.originalDisplay;
 }
 
 function getRelevantCropString() {
-  if (!isSettingsEditorOpen) return settings.newMarkerCrop;
-  if (!wasGlobalSettingsEditorOpen) {
-    return markerPairs[prevSelectedMarkerPairIndex].cropMap[currentCropPointIndex].crop;
+  if (!appState.isSettingsEditorOpen) return appState.settings.newMarkerCrop;
+  if (!appState.wasGlobalSettingsEditorOpen) {
+    return appState.markerPairs[appState.prevSelectedMarkerPairIndex].cropMap[currentCropPointIndex].crop;
   } else {
-    return settings.newMarkerCrop;
+    return appState.settings.newMarkerCrop;
   }
 }
 
 function getRelevantCropRect() {
-  if (!isSettingsEditorOpen) return null;
+  if (!appState.isSettingsEditorOpen) return null;
   if (!updateDynamicCropOverlays)
-    if (!wasGlobalSettingsEditorOpen) {
+    if (!appState.wasGlobalSettingsEditorOpen) {
       return cropRect;
     } else {
       return;
@@ -4261,14 +4226,14 @@ function getRelevantCropRect() {
 }
 
 function addScrubVideoHandler() {
-  hooks.cropMouseManipulation.addEventListener('pointerdown', scrubVideoHandler, {
+  appState.hooks.cropMouseManipulation.addEventListener('pointerdown', scrubVideoHandler, {
     capture: true,
   });
 }
 
 function scrubVideoHandler(e) {
   const isCropBlockingChartVisible =
-    isCurrentChartVisible && currentChartInput && currentChartInput.type !== 'crop';
+    appState.isCurrentChartVisible && currentChartInput && currentChartInput.type !== 'crop';
   if (
     !e.ctrlKey &&
     e.altKey &&
@@ -4282,11 +4247,11 @@ function scrubVideoHandler(e) {
       once: true,
       capture: true,
     });
-    const videoRect = video.getBoundingClientRect();
+    const videoRect = appState.video.getBoundingClientRect();
     let prevClickPosX = e.clientX - videoRect.left;
     let prevClickPosY = e.clientY - videoRect.top;
     const pointerId = e.pointerId;
-    video.setPointerCapture(pointerId);
+    appState.video.setPointerCapture(pointerId);
 
     const baseWidth = 1920;
     function dragHandler(e: PointerEvent) {
@@ -4297,14 +4262,14 @@ function scrubVideoHandler(e) {
       const dragPosY = e.clientY - videoRect.top;
       const changeX = (dragPosX - prevClickPosX) * pixelRatio * widthMultiple;
       const seekBy = changeX * (1 / videoInfo.fps);
-      seekBySafe(video, seekBy);
+      seekBySafe(appState.video, seekBy);
       prevClickPosX = e.clientX - videoRect.left;
     }
 
     function endDragHandler(e: PointerEvent) {
       blockEvent(e);
       document.removeEventListener('pointermove', dragHandler);
-      video.releasePointerCapture(pointerId);
+      appState.video.releasePointerCapture(pointerId);
     }
 
     document.addEventListener('pointermove', dragHandler);
@@ -4324,24 +4289,24 @@ function ctrlOrCommand(e: PointerEvent) {
 }
 
 function addCropMouseManipulationListener() {
-  hooks.cropMouseManipulation.addEventListener('pointerdown', cropMouseManipulationHandler, {
+  appState.hooks.cropMouseManipulation.addEventListener('pointerdown', cropMouseManipulationHandler, {
     capture: true,
   });
   function cropMouseManipulationHandler(e: PointerEvent) {
     const isCropBlockingChartVisible =
-      isCurrentChartVisible && currentChartInput && currentChartInput.type !== 'crop';
+      appState.isCurrentChartVisible && currentChartInput && currentChartInput.type !== 'crop';
     if (
       ctrlOrCommand(e) &&
-      isSettingsEditorOpen &&
-      isCropOverlayVisible &&
+      appState.isSettingsEditorOpen &&
+      appState.isCropOverlayVisible &&
       !isDrawingCrop &&
       !isCropBlockingChartVisible
     ) {
       const cropString = getRelevantCropString();
       const [ix, iy, iw, ih] = getCropComponents(cropString);
-      const cropResWidth = settings.cropResWidth;
-      const cropResHeight = settings.cropResHeight;
-      const videoRect = video.getBoundingClientRect();
+      const cropResWidth = appState.settings.cropResWidth;
+      const cropResHeight = appState.settings.cropResHeight;
+      const videoRect = appState.video.getBoundingClientRect();
       const clickPosX = e.clientX - videoRect.left;
       const clickPosY = e.clientY - videoRect.top;
       const cursor = getMouseCropHoverRegion(e, cropString);
@@ -4372,10 +4337,10 @@ function addCropMouseManipulationListener() {
           processResizeCrop();
         }
 
-        hooks.cropMouseManipulation.releasePointerCapture(pointerId);
+        appState.hooks.cropMouseManipulation.releasePointerCapture(pointerId);
 
-        if (!wasGlobalSettingsEditorOpen) {
-          const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+        if (!appState.wasGlobalSettingsEditorOpen) {
+          const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
           const draft = createDraft(getMarkerPairHistory(markerPair));
           saveMarkerPairHistory(draft, markerPair);
         }
@@ -4387,11 +4352,11 @@ function addCropMouseManipulationListener() {
 
         showPlayerControls();
         if (!forceEnd && ctrlOrCommand(e)) {
-          if (cursor) hooks.cropMouseManipulation.style.cursor = cursor;
+          if (cursor) appState.hooks.cropMouseManipulation.style.cursor = cursor;
           updateCropHoverCursor(e);
           document.addEventListener('pointermove', cropHoverHandler, true);
         } else {
-          hooks.cropMouseManipulation.style.removeProperty('cursor');
+          appState.hooks.cropMouseManipulation.style.removeProperty('cursor');
         }
         document.addEventListener('keyup', removeCropHoverListener, true);
         document.addEventListener('keydown', addCropHoverListener, true);
@@ -4412,10 +4377,10 @@ function addCropMouseManipulationListener() {
       document.removeEventListener('keyup', removeCropHoverListener, true);
 
       e.preventDefault();
-      hooks.cropMouseManipulation.setPointerCapture(pointerId);
+      appState.hooks.cropMouseManipulation.setPointerCapture(pointerId);
 
       if (cursor === 'grab') {
-        hooks.cropMouseManipulation.style.cursor = 'grabbing';
+        appState.hooks.cropMouseManipulation.style.cursor = 'grabbing';
         document.addEventListener('pointermove', dragCropHandler);
       } else {
         cropResizeHandler = (e: PointerEvent) => {
@@ -4459,11 +4424,11 @@ function addCropMouseManipulationListener() {
         let changeYScaled = Math.round((changeY / videoRect.height) * cropResHeight);
         let crop = new Crop(ix, iy, iw, ih, cropResWidth, cropResHeight);
 
-        if (rotation === 90) {
+        if (appState.rotation === 90) {
           changeXScaled = Math.round((changeX / videoRect.width) * cropResHeight);
           changeYScaled = Math.round((changeY / videoRect.height) * cropResWidth);
           crop = new Crop(cropResHeight - iy - ih, ix, ih, iw, cropResHeight, cropResWidth);
-        } else if (rotation === -90) {
+        } else if (appState.rotation === -90) {
           changeXScaled = Math.round((changeX / videoRect.width) * cropResHeight);
           changeYScaled = Math.round((changeY / videoRect.height) * cropResWidth);
           crop = new Crop(iy, cropResWidth - ix - iw, ih, iw, cropResHeight, cropResWidth);
@@ -4486,17 +4451,17 @@ function addCropMouseManipulationListener() {
         const changeX = dragPosX - clickPosX;
         const dragPosY = e.clientY - videoRect.top;
         const changeY = dragPosY - clickPosY;
-        let changeXScaled = (changeX / videoRect.width) * settings.cropResWidth;
-        let changeYScaled = (changeY / videoRect.height) * settings.cropResHeight;
+        let changeXScaled = (changeX / videoRect.width) * appState.settings.cropResWidth;
+        let changeYScaled = (changeY / videoRect.height) * appState.settings.cropResHeight;
 
         const shouldResizeCenterOut = e.shiftKey;
         let crop = new Crop(ix, iy, iw, ih, cropResWidth, cropResHeight);
 
-        if (rotation === 90) {
+        if (appState.rotation === 90) {
           changeXScaled = (changeX / videoRect.width) * cropResHeight;
           changeYScaled = (changeY / videoRect.height) * cropResWidth;
           crop = new Crop(cropResHeight - iy - ih, ix, ih, iw, cropResHeight, cropResWidth);
-        } else if (rotation === -90) {
+        } else if (appState.rotation === -90) {
           changeXScaled = Math.round((changeX / videoRect.width) * cropResHeight);
           changeYScaled = Math.round((changeY / videoRect.height) * cropResWidth);
           crop = new Crop(iy, cropResWidth - ix - iw, ih, iw, cropResHeight, cropResWidth);
@@ -4597,18 +4562,18 @@ function resizeCrop(
 }
 
 function getClickPosScaled(e: PointerEvent): number[] {
-  const videoRect = video.getBoundingClientRect();
+  const videoRect = appState.video.getBoundingClientRect();
   let { width, height, top, left } = videoRect;
 
   let clickPosX = e.clientX - left;
   let clickPosY = e.clientY - top;
 
-  let clickPosXScaled = (clickPosX / width) * settings.cropResWidth;
-  let clickPosYScaled = (clickPosY / height) * settings.cropResHeight;
+  let clickPosXScaled = (clickPosX / width) * appState.settings.cropResWidth;
+  let clickPosYScaled = (clickPosY / height) * appState.settings.cropResHeight;
 
-  if (rotation === 90 || rotation === -90) {
-    clickPosXScaled = (clickPosX / width) * settings.cropResHeight;
-    clickPosYScaled = (clickPosY / height) * settings.cropResWidth;
+  if (appState.rotation === 90 || appState.rotation === -90) {
+    clickPosXScaled = (clickPosX / width) * appState.settings.cropResHeight;
+    clickPosYScaled = (clickPosY / height) * appState.settings.cropResWidth;
   }
 
   return [clickPosXScaled, clickPosYScaled];
@@ -4616,7 +4581,7 @@ function getClickPosScaled(e: PointerEvent): number[] {
 
 function rotateCropComponentsClockWise(cropComponents: number[], maxHeight?: number) {
   if (maxHeight == null) {
-    maxHeight = settings.cropResHeight;
+    maxHeight = appState.settings.cropResHeight;
   }
 
   let [x, y, w, h] = cropComponents;
@@ -4627,7 +4592,7 @@ function rotateCropComponentsClockWise(cropComponents: number[], maxHeight?: num
 
 function rotateCropComponentsCounterClockWise(cropComponents: number[], maxWidth?: number) {
   if (maxWidth == null) {
-    maxWidth = settings.cropResWidth;
+    maxWidth = appState.settings.cropResWidth;
   }
 
   let [x, y, w, h] = cropComponents;
@@ -4642,13 +4607,13 @@ function getMouseCropHoverRegion(e: PointerEvent, cropString?: string): string {
 
   const [clickPosXScaled, clickPosYScaled] = getClickPosScaled(e);
 
-  if (rotation === 90) {
+  if (appState.rotation === 90) {
     [x, y, w, h] = rotateCropComponentsClockWise([x, y, w, h]);
-  } else if (rotation === -90) {
+  } else if (appState.rotation === -90) {
     [x, y, w, h] = rotateCropComponentsCounterClockWise([x, y, w, h]);
   }
 
-  const slMultiplier = Math.min(settings.cropResWidth, settings.cropResHeight) / 1080;
+  const slMultiplier = Math.min(appState.settings.cropResWidth, appState.settings.cropResHeight) / 1080;
   const sl = Math.ceil(Math.min(w, h) * slMultiplier * 0.1);
   const edgeOffset = 30 * slMultiplier;
   let cursor: string;
@@ -4699,24 +4664,24 @@ let beginDrawHandler: (e: PointerEvent) => void;
 function drawCrop() {
   if (isDrawingCrop) {
     finishDrawingCrop(true);
-  } else if (isCurrentChartVisible && currentChartInput && currentChartInput.type !== 'crop') {
+  } else if (appState.isCurrentChartVisible && currentChartInput && currentChartInput.type !== 'crop') {
     flashMessage('Please toggle off the speed chart before drawing crop', 'olive');
   } else if (isMouseManipulatingCrop) {
     flashMessage('Please finish dragging or resizing before drawing crop', 'olive');
-  } else if (isSettingsEditorOpen && isCropOverlayVisible) {
+  } else if (appState.isSettingsEditorOpen && appState.isCropOverlayVisible) {
     isDrawingCrop = true;
 
     ({ initCropMap: initDrawCropMap } = getCropMapProperties());
-    prevNewMarkerCrop = settings.newMarkerCrop;
+    prevNewMarkerCrop = appState.settings.newMarkerCrop;
 
     Crop.shouldConstrainMinDimensions = false;
     document.removeEventListener('keydown', addCropHoverListener, true);
     document.removeEventListener('pointermove', cropHoverHandler, true);
     hidePlayerControls();
-    hooks.cropMouseManipulation.style.removeProperty('cursor');
-    hooks.cropMouseManipulation.style.cursor = 'crosshair';
+    appState.hooks.cropMouseManipulation.style.removeProperty('cursor');
+    appState.hooks.cropMouseManipulation.style.cursor = 'crosshair';
     beginDrawHandler = (e: PointerEvent) => beginDraw(e);
-    hooks.cropMouseManipulation.addEventListener('pointerdown', beginDrawHandler, {
+    appState.hooks.cropMouseManipulation.addEventListener('pointerdown', beginDrawHandler, {
       once: true,
       capture: true,
     });
@@ -4734,12 +4699,12 @@ let shouldFinishDrawMaintainAspectRatio = false;
 function beginDraw(e: PointerEvent) {
   if (e.button === 0 && !drawCropHandler) {
     e.preventDefault();
-    hooks.cropMouseManipulation.setPointerCapture(e.pointerId);
+    appState.hooks.cropMouseManipulation.setPointerCapture(e.pointerId);
 
-    const cropResWidth = settings.cropResWidth;
-    const cropResHeight = settings.cropResHeight;
+    const cropResWidth = appState.settings.cropResWidth;
+    const cropResHeight = appState.settings.cropResHeight;
 
-    const videoRect = video.getBoundingClientRect();
+    const videoRect = appState.video.getBoundingClientRect();
     const clickPosX = e.clientX - videoRect.left;
     const clickPosY = e.clientY - videoRect.top;
 
@@ -4747,7 +4712,7 @@ function beginDraw(e: PointerEvent) {
 
     const { isDynamicCrop, enableZoomPan } = getCropMapProperties();
 
-    const prevCrop = !wasGlobalSettingsEditorOpen
+    const prevCrop = !appState.wasGlobalSettingsEditorOpen
       ? initDrawCropMap[currentCropPointIndex].crop
       : prevNewMarkerCrop;
     const shouldMaintainCropAspectRatio =
@@ -4757,7 +4722,7 @@ function beginDraw(e: PointerEvent) {
 
     // rotate aspect ratio in rotated mode?
     let [prevCropX, prevCropY, prevCropW, prevCropH] = getCropComponents(prevCrop);
-    if (rotation === 90 || rotation === -90) {
+    if (appState.rotation === 90 || appState.rotation === -90) {
       [prevCropW, prevCropH] = [prevCropH, prevCropH];
     }
 
@@ -4772,7 +4737,7 @@ function beginDraw(e: PointerEvent) {
       cropResHeight
     );
 
-    if (rotation === 90 || rotation === -90) {
+    if (appState.rotation === 90 || appState.rotation === -90) {
       // We already rotated clickPosXScaled and clickPosYScaled, so we don't need to do it again here
       crop = new Crop(
         clickPosXScaled,
@@ -4812,7 +4777,7 @@ function beginDraw(e: PointerEvent) {
         cropResHeight
       );
 
-      if (rotation === 90 || rotation === -90) {
+      if (appState.rotation === 90 || appState.rotation === -90) {
         changeXScaled = (changeX / videoRect.width) * cropResHeight;
         changeYScaled = (changeY / videoRect.height) * cropResWidth;
         crop = new Crop(
@@ -4880,9 +4845,9 @@ function endDraw(e: PointerEvent) {
 function finishDrawingCrop(shouldRevertCrop: boolean, pointerId?: number) {
   Crop.shouldConstrainMinDimensions = true;
 
-  if (pointerId != null) hooks.cropMouseManipulation.releasePointerCapture(pointerId);
-  hooks.cropMouseManipulation.style.cursor = 'auto';
-  hooks.cropMouseManipulation.removeEventListener('pointerdown', beginDrawHandler, true);
+  if (pointerId != null) appState.hooks.cropMouseManipulation.releasePointerCapture(pointerId);
+  appState.hooks.cropMouseManipulation.style.cursor = 'auto';
+  appState.hooks.cropMouseManipulation.removeEventListener('pointerdown', beginDrawHandler, true);
   document.removeEventListener('pointermove', drawCropHandler);
   document.removeEventListener('pointerup', endDraw, true);
   drawCropHandler = null;
@@ -4890,22 +4855,22 @@ function finishDrawingCrop(shouldRevertCrop: boolean, pointerId?: number) {
   showPlayerControls();
   document.addEventListener('keydown', addCropHoverListener, true);
 
-  if (wasGlobalSettingsEditorOpen) {
+  if (appState.wasGlobalSettingsEditorOpen) {
     if (shouldRevertCrop) {
-      settings.newMarkerCrop = prevNewMarkerCrop;
+      appState.settings.newMarkerCrop = prevNewMarkerCrop;
     } else {
       const newCrop = transformCropWithPushBack(
         prevNewMarkerCrop,
-        settings.newMarkerCrop,
+        appState.settings.newMarkerCrop,
         shouldFinishDrawMaintainAspectRatio
       );
-      settings.newMarkerCrop = newCrop;
+      appState.settings.newMarkerCrop = newCrop;
     }
-    updateCropString(settings.newMarkerCrop, true);
+    updateCropString(appState.settings.newMarkerCrop, true);
   }
 
-  if (!wasGlobalSettingsEditorOpen) {
-    const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+  if (!appState.wasGlobalSettingsEditorOpen) {
+    const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     const cropMap = markerPair.cropMap;
     if (shouldRevertCrop) {
       const draft = createDraft(getMarkerPairHistory(markerPair));
@@ -4935,7 +4900,7 @@ function transformCropWithPushBack(
   const [nx, ny, nw, nh] = getCropComponents(newCrop);
   const dw = nw - iw;
   const dh = nh - ih;
-  const crop = Crop.fromCropString(getCropString(0, 0, iw, ih), settings.cropRes);
+  const crop = Crop.fromCropString(getCropString(0, 0, iw, ih), appState.settings.cropRes);
   shouldMaintainCropAspectRatio ? crop.resizeSEAspectRatioLocked(dh, dw) : crop.resizeSE(dh, dw);
   crop.panX(nx);
   crop.panY(ny);
@@ -4971,7 +4936,7 @@ function toggleCropPreview(mode: cropPreviewMode = 'modal') {
       flashMessage('Disabled crop preview', 'red');
     };
     startCropPreview(
-      video,
+      appState.video,
       onCropPreviewDisabled,
       getCropPreviewMouseTimeSetter,
       getZoomRegion,
@@ -5010,7 +4975,7 @@ function toggleArrowKeyCropAdjustment() {
 }
 
 function arrowKeyCropAdjustmentHandler(ke: KeyboardEvent) {
-  if (isSettingsEditorOpen) {
+  if (appState.isSettingsEditorOpen) {
     if (
       cropInput !== document.activeElement &&
       ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(ke.code) > -1
@@ -5031,8 +4996,8 @@ function arrowKeyCropAdjustmentHandler(ke: KeyboardEvent) {
       const { isDynamicCrop, enableZoomPan, initCropMap } = getCropMapProperties();
 
       const shouldMaintainCropAspectRatio = enableZoomPan && isDynamicCrop;
-      const cropResWidth = settings.cropResWidth;
-      const cropResHeight = settings.cropResHeight;
+      const cropResWidth = appState.settings.cropResWidth;
+      const cropResHeight = appState.settings.cropResHeight;
       const crop = new Crop(ix, iy, iw, ih, cropResWidth, cropResHeight);
 
       // without modifiers move crop x/y offset
@@ -5082,8 +5047,8 @@ function getCropMapProperties() {
   let isDynamicCrop = false;
   let enableZoomPan = false;
   let initCropMap = null;
-  if (!wasGlobalSettingsEditorOpen) {
-    const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+  if (!appState.wasGlobalSettingsEditorOpen) {
+    const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     const cropMap = markerPair.cropMap;
     const draftCropMap = createDraft(cropMap);
     initCropMap = finishDraft(draftCropMap);
@@ -5094,11 +5059,11 @@ function getCropMapProperties() {
 }
 
 function getCropComponents(cropString?: string): number[] {
-  if (!cropString && isSettingsEditorOpen) {
-    if (!wasGlobalSettingsEditorOpen && prevSelectedMarkerPairIndex != null) {
-      cropString = markerPairs[prevSelectedMarkerPairIndex].crop;
+  if (!cropString && appState.isSettingsEditorOpen) {
+    if (!appState.wasGlobalSettingsEditorOpen && appState.prevSelectedMarkerPairIndex != null) {
+      cropString = appState.markerPairs[appState.prevSelectedMarkerPairIndex].crop;
     } else {
-      cropString = settings.newMarkerCrop;
+      cropString = appState.settings.newMarkerCrop;
     }
   }
 
@@ -5110,15 +5075,15 @@ function getCropComponents(cropString?: string): number[] {
   const cropArray = cropString.split(':').map((cropStringComponent, i) => {
     let cropComponent: number;
     if (cropStringComponent === 'iw') {
-      cropComponent = settings.cropResWidth;
+      cropComponent = appState.settings.cropResWidth;
     } else if (cropStringComponent === 'ih') {
-      cropComponent = settings.cropResHeight;
+      cropComponent = appState.settings.cropResHeight;
     } else if (i % 2 == 0) {
       cropComponent = parseFloat(cropStringComponent);
-      cropComponent = Math.min(Math.round(cropComponent), settings.cropResWidth);
+      cropComponent = Math.min(Math.round(cropComponent), appState.settings.cropResWidth);
     } else {
       cropComponent = parseFloat(cropStringComponent);
-      cropComponent = Math.min(Math.round(cropComponent), settings.cropResHeight);
+      cropComponent = Math.min(Math.round(cropComponent), appState.settings.cropResHeight);
     }
     return cropComponent;
   });
@@ -5133,14 +5098,14 @@ function getVideoScaledCropComponentsFromCropString(cropString?: string) {
 function getVideoScaledCropComponents(cropComponents) {
   const [x, y, w, h] = cropComponents;
 
-  const videoWidth = video.videoWidth;
-  const videoHeight = video.videoHeight;
+  const videoWidth = appState.video.videoWidth;
+  const videoHeight = appState.video.videoHeight;
 
   return [
-    videoWidth * (x / settings.cropResWidth),
-    videoHeight * (y / settings.cropResHeight),
-    videoWidth * (w / settings.cropResWidth),
-    videoHeight * (h / settings.cropResHeight),
+    videoWidth * (x / appState.settings.cropResWidth),
+    videoHeight * (y / appState.settings.cropResHeight),
+    videoWidth * (w / appState.settings.cropResWidth),
+    videoHeight * (h / appState.settings.cropResHeight),
   ];
 }
 
@@ -5151,9 +5116,9 @@ function getRotatedCropComponents(
 ): number[] {
   let [x, y, w, h] = cropComponents;
 
-  if (rotation === 90) {
+  if (appState.rotation === 90) {
     [x, y, w, h] = rotateCropComponentsClockWise([x, y, w, h], maxWidth);
-  } else if (rotation === -90) {
+  } else if (appState.rotation === -90) {
     [x, y, w, h] = rotateCropComponentsCounterClockWise([x, y, w, h], maxHeight);
   }
 
@@ -5180,9 +5145,9 @@ function updateCropStringWithCrop(
   initCropMap?: CropPoint[]
 ) {
   let newCropString: string;
-  if (rotation === 90) {
+  if (appState.rotation === 90) {
     newCropString = crop.rotatedCropStringCounterClockWise;
-  } else if (rotation === -90) {
+  } else if (appState.rotation === -90) {
     newCropString = crop.rotatedCropStringClockWise;
   } else {
     newCropString = crop.cropString;
@@ -5199,7 +5164,7 @@ function updateCropString(
   forceCropConstraints = false,
   initCropMap?: CropPoint[]
 ) {
-  if (!isSettingsEditorOpen) throw new Error('No editor was open when trying to update crop.');
+  if (!appState.isSettingsEditorOpen) throw new Error('No editor was open when trying to update crop.');
 
   let draft;
   const [nx, ny, nw, nh] = getCropComponents(cropString);
@@ -5207,8 +5172,8 @@ function updateCropString(
 
   let wasDynamicCrop = false;
   let enableZoomPan = false;
-  if (!wasGlobalSettingsEditorOpen) {
-    const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+  if (!appState.wasGlobalSettingsEditorOpen) {
+    const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     enableZoomPan = markerPair.enableZoomPan;
 
     const initState = getMarkerPairHistory(markerPair);
@@ -5244,11 +5209,11 @@ function updateCropString(
 
     draft.crop = draftCropMap[0].crop;
   } else {
-    settings.newMarkerCrop = cropString;
+    appState.settings.newMarkerCrop = cropString;
   }
 
-  if (!wasGlobalSettingsEditorOpen) {
-    const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+  if (!appState.wasGlobalSettingsEditorOpen) {
+    const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     saveMarkerPairHistory(draft, markerPair, shouldRerenderCharts);
   }
 
@@ -5259,13 +5224,13 @@ function updateCropString(
 }
 
 function renderSpeedAndCropUI(rerenderCharts = true, updateCurrentCropPoint = false) {
-  if (isSettingsEditorOpen) {
-    if (!wasGlobalSettingsEditorOpen) {
-      const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+  if (appState.isSettingsEditorOpen) {
+    if (!appState.wasGlobalSettingsEditorOpen) {
+      const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
       updateCharts(markerPair, rerenderCharts);
       // avoid updating current crop point unless crop map times have changed
       if (updateCurrentCropPoint) setCurrentCropPointWithCurrentTime();
-      renderMarkerPair(markerPair, prevSelectedMarkerPairIndex);
+      renderMarkerPair(markerPair, appState.prevSelectedMarkerPairIndex);
 
       speedInput.value = markerPair.speed.toString();
 
@@ -5278,7 +5243,7 @@ function renderSpeedAndCropUI(rerenderCharts = true, updateCurrentCropPoint = fa
       if (!isDynamicCrop) {
         renderStaticCropOverlay(crop);
       } else {
-        updateDynamicCropOverlays(cropMap, video.getCurrentTime(), isDynamicCrop);
+        updateDynamicCropOverlays(cropMap, appState.video.getCurrentTime(), isDynamicCrop);
       }
 
       const enableZoomPan = markerPair.enableZoomPan;
@@ -5291,7 +5256,7 @@ function renderSpeedAndCropUI(rerenderCharts = true, updateCurrentCropPoint = fa
         cropChartInput.chartSpec = getCropChartConfig(enableZoomPan);
       }
     } else {
-      const crop = settings.newMarkerCrop;
+      const crop = appState.settings.newMarkerCrop;
       renderCropForm(crop);
       renderStaticCropOverlay(crop);
     }
@@ -5324,16 +5289,16 @@ function renderCropForm(crop) {
 }
 
 function highlightSpeedAndCropInputs() {
-  if (wasGlobalSettingsEditorOpen) {
+  if (appState.wasGlobalSettingsEditorOpen) {
     highlightModifiedSettings(
       [
         ['crop-input', 'newMarkerCrop', 'string'],
         ['speed-input', 'newMarkerSpeed', 'number'],
       ],
-      settings
+      appState.settings
     );
   } else {
-    const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+    const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     highlightModifiedSettings(
       [
         ['crop-input', 'crop', 'string'],
@@ -5356,8 +5321,8 @@ function setCropComponentForAllPoints(
     const [ix, iy, iw, ih] = getCropComponents(initCrop ?? cropPoint.crop);
     const nw = newCrop.w ?? iw;
     const nh = newCrop.h ?? ih;
-    const nx = newCrop.x ?? clampNumber(ix, 0, settings.cropResWidth - nw);
-    const ny = newCrop.y ?? clampNumber(iy, 0, settings.cropResHeight - nh);
+    const nx = newCrop.x ?? clampNumber(ix, 0, appState.settings.cropResWidth - nw);
+    const ny = newCrop.y ?? clampNumber(iy, 0, appState.settings.cropResHeight - nh);
     cropPoint.crop = `${nx}:${ny}:${nw}:${nh}`;
   });
 }
@@ -5369,8 +5334,8 @@ function setAspectRatioForAllPoints(
   referencePointIndex = currentCropPointIndex
 ) {
   Crop.shouldConstrainMinDimensions = false;
-  const cropResWidth = settings.cropResWidth;
-  const cropResHeight = settings.cropResHeight;
+  const cropResWidth = appState.settings.cropResWidth;
+  const cropResHeight = appState.settings.cropResHeight;
   draftCropMap.forEach((cropPoint, i) => {
     if (i === referencePointIndex) return;
     const initCrop = initialCropMap[i].crop;
@@ -5402,7 +5367,7 @@ function cropStringsEqual(a: string, b: string): boolean {
 
 function updateChart(type: 'crop' | 'speed' = 'crop') {
   if (
-    isCurrentChartVisible &&
+    appState.isCurrentChartVisible &&
     currentChartInput &&
     currentChartInput.chart &&
     currentChartInput.type === type
@@ -5447,15 +5412,15 @@ let cropChartInput: ChartInput = {
 };
 let currentChartInput: ChartInput;
 function initChartHooks() {
-  speedChartInput.chartContainerHook = hooks.speedChartContainer;
-  cropChartInput.chartContainerHook = hooks.cropChartContainer;
+  speedChartInput.chartContainerHook = appState.hooks.speedChartContainer;
+  cropChartInput.chartContainerHook = appState.hooks.cropChartContainer;
 }
 
 Chart.helpers.merge(Chart.defaults.global, scatterChartDefaults);
 function toggleChart(chartInput: ChartInput) {
-  if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen && prevSelectedMarkerPairIndex != null) {
+  if (appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen && appState.prevSelectedMarkerPairIndex != null) {
     if (!chartInput.chart) {
-      if (currentChartInput && isCurrentChartVisible) {
+      if (currentChartInput && appState.isCurrentChartVisible) {
         hideChart();
       }
 
@@ -5501,8 +5466,8 @@ function toggleChart(chartInput: ChartInput) {
         true
       );
 
-      isCurrentChartVisible = true;
-      isChartEnabled = true;
+      appState.isCurrentChartVisible = true;
+      appState.isChartEnabled = true;
 
       updateChartTimeAnnotation();
       cropChartPreviewHandler();
@@ -5513,7 +5478,7 @@ function toggleChart(chartInput: ChartInput) {
         currentChartInput = chartInput;
       }
       toggleCurrentChartVisibility();
-      isChartEnabled = isCurrentChartVisible;
+      appState.isChartEnabled = appState.isCurrentChartVisible;
     }
   } else {
     flashMessage('Please open a marker pair editor before toggling a chart input.', 'olive');
@@ -5526,7 +5491,7 @@ function getCropPreviewMouseTimeSetter(modalContainer: HTMLCanvasElement) {
     const x = e.clientX - rect.left;
     const scaledX = x / rect.width;
 
-    const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+    const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     const duration = markerPair.end - markerPair.start;
     const seekTime = markerPair.start + scaledX * duration;
     return seekTime;
@@ -5540,8 +5505,8 @@ function getCropPreviewMouseTimeSetter(modalContainer: HTMLCanvasElement) {
     function seekDragHandler(e) {
       const seekTime = timeRounder(getSeekTime(e));
 
-      if (Math.abs(video.getCurrentTime() - seekTime) >= 0.01) {
-        seekToSafe(video, seekTime);
+      if (Math.abs(appState.video.getCurrentTime() - seekTime) >= 0.01) {
+        seekToSafe(appState.video, seekTime);
       }
     }
 
@@ -5568,14 +5533,14 @@ function getMouseChartTimeAnnotationSetter(chartInput: ChartInput) {
     if (e.buttons !== 2) return;
     blockEvent(e);
     const chart = chartInput.chart;
-    const chartLoop = markerPairs[prevSelectedMarkerPairIndex][chartInput.chartLoopKey];
+    const chartLoop = appState.markerPairs[appState.prevSelectedMarkerPairIndex][chartInput.chartLoopKey];
     // shift+right-click context menu opens screenshot tool in firefox 67.0.2
 
     function chartTimeAnnotationDragHandler(e) {
       const time = timeRounder(chart.scales['x-axis-1'].getValueForPixel(e.offsetX));
       chart.config.options.annotation.annotations[0].value = time;
-      if (Math.abs(video.getCurrentTime() - time) >= 0.01) {
-        seekToSafe(video, time);
+      if (Math.abs(appState.video.getCurrentTime() - time) >= 0.01) {
+        seekToSafe(appState.video, time);
       }
       if (!e.ctrlKey && !e.altKey && e.shiftKey) {
         chart.config.options.annotation.annotations[1].value = time;
@@ -5623,9 +5588,9 @@ function toggleSpeedChartEasing(chartInput: ChartInput) {
 }
 
 function toggleChartLoop() {
-  if (currentChartInput && isCurrentChartVisible && prevSelectedMarkerPairIndex != null) {
+  if (currentChartInput && appState.isCurrentChartVisible && appState.prevSelectedMarkerPairIndex != null) {
     const chart = currentChartInput.chart;
-    const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+    const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     const chartLoop = markerPair[currentChartInput.chartLoopKey];
     if (chartLoop.enabled) {
       chartLoop.enabled = false;
@@ -5643,8 +5608,8 @@ function toggleChartLoop() {
 }
 
 function initializeChartData(chartConfig: ChartConfiguration, dataMapKey: string) {
-  if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen && prevSelectedMarkerPairIndex != null) {
-    const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+  if (appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen && appState.prevSelectedMarkerPairIndex != null) {
+    const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     const dataMap = markerPair[dataMapKey];
     chartConfig.data.datasets[0].data = dataMap;
     updateChartBounds(chartConfig, markerPair.start, markerPair.end);
@@ -5654,17 +5619,17 @@ function initializeChartData(chartConfig: ChartConfiguration, dataMapKey: string
 function loadChartData(chartInput: ChartInput) {
   if (chartInput && chartInput.chart) {
     if (
-      isSettingsEditorOpen &&
-      !wasGlobalSettingsEditorOpen &&
-      prevSelectedMarkerPairIndex != null
+      appState.isSettingsEditorOpen &&
+      !appState.wasGlobalSettingsEditorOpen &&
+      appState.prevSelectedMarkerPairIndex != null
     ) {
-      const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+      const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
       const dataMapKey = chartInput.dataMapKey;
       const dataMap = markerPair[dataMapKey];
       const chart = chartInput.chart;
       chart.data.datasets[0].data = dataMap;
       updateChartBounds(chart.config, markerPair.start, markerPair.end);
-      if (isCurrentChartVisible && currentChartInput === chartInput) chart.update();
+      if (appState.isCurrentChartVisible && currentChartInput === chartInput) chart.update();
     }
   }
 }
@@ -5688,9 +5653,9 @@ function updateChartBounds(chartConfig: ChartConfiguration, start, end) {
 
 let prevChartTime: number;
 function updateChartTimeAnnotation() {
-  if (isCurrentChartVisible) {
-    if (prevChartTime !== video.getCurrentTime()) {
-      const time = video.getCurrentTime();
+  if (appState.isCurrentChartVisible) {
+    if (prevChartTime !== appState.video.getCurrentTime()) {
+      const time = appState.video.getCurrentTime();
       prevChartTime = time;
       const chart = currentChartInput.chart;
       chart.config.options.annotation.annotations[0].value = clampNumber(
@@ -5713,11 +5678,11 @@ function updateChartTimeAnnotation() {
 }
 
 function toggleCropChartLooping() {
-  if (!isCropChartLoopingOn) {
-    isCropChartLoopingOn = true;
+  if (!appState.isCropChartLoopingOn) {
+    appState.isCropChartLoopingOn = true;
     flashMessage('Dynamic crop looping enabled', 'green');
   } else {
-    isCropChartLoopingOn = false;
+    appState.isCropChartLoopingOn = false;
     flashMessage('Dynamic crop looping  disabled', 'red');
   }
 }
@@ -5731,16 +5696,16 @@ export function triggerCropChartUpdates() {
 
 function cropChartPreviewHandler(loop = true) {
   const chart = cropChartInput.chart;
-  if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen && chart) {
+  if (appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen && chart) {
     const chartData = chart?.data.datasets[0].data as CropPoint[];
-    const time = video.getCurrentTime();
+    const time = appState.video.getCurrentTime();
     const isDynamicCrop = !isStaticCrop(chartData);
     const isCropChartVisible =
-      currentChartInput && currentChartInput.type == 'crop' && isCurrentChartVisible;
+      currentChartInput && currentChartInput.type == 'crop' && appState.isCurrentChartVisible;
     if (
       shouldTriggerCropChartUpdates ||
       // assume auto time-based update not required for crop chart section if looping section
-      (isCropChartLoopingOn && isCropChartVisible) ||
+      (appState.isCropChartLoopingOn && isCropChartVisible) ||
       (cropChartInput.chart && (isMouseManipulatingCrop || isDrawingCrop))
     ) {
       shouldTriggerCropChartUpdates = false;
@@ -5759,7 +5724,7 @@ function cropChartPreviewHandler(loop = true) {
   }
 
   if (loop) {
-    video.requestVideoFrameCallback(() => cropChartPreviewHandler(loop));
+    appState.video.requestVideoFrameCallback(() => cropChartPreviewHandler(loop));
   }
 }
 
@@ -5767,7 +5732,7 @@ function setCurrentCropPointWithCurrentTime() {
   const cropChart = cropChartInput.chart;
   if (cropChart) {
     const chartData = cropChart.data.datasets[0].data as CropPoint[];
-    const time = video.getCurrentTime();
+    const time = appState.video.getCurrentTime();
     const searchCropPoint = { x: time, y: 0, crop: '' };
     let [istart, iend] = currentCropChartSection;
     let [start, end] = bsearch(chartData, searchCropPoint, sortX);
@@ -5782,8 +5747,8 @@ function setCurrentCropPointWithCurrentTime() {
 }
 
 function getDynamicCropComponents(): number[] {
-  if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
-    const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+  if (appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen) {
+    const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     const cropMap = markerPair.cropMap;
     const chartData = cropMap;
     const isDynamicCrop = !isStaticCrop(cropMap);
@@ -5804,7 +5769,7 @@ function getEasedCropComponents(sectStart: CropPoint, sectEnd: CropPoint) {
   const [startX, startY, startW, startH] = getCropComponents(sectStart.crop);
   const [endX, endY, endW, endH] = getCropComponents(sectEnd.crop);
 
-  const currentTime = video.getCurrentTime();
+  const currentTime = appState.video.getCurrentTime();
 
   const clampedCurrentTime = clampNumber(currentTime, sectStart.x, sectEnd.x);
   const easingFunc = sectEnd.easeIn == 'instant' ? easeInInstant : easeSinInOut;
@@ -5899,8 +5864,8 @@ function getInterpolatedCrop(sectStart: CropPoint, sectEnd: CropPoint, time: num
 }
 
 function cropChartSectionLoop() {
-  if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
-    if (prevSelectedMarkerPairIndex != null) {
+  if (appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen) {
+    if (appState.prevSelectedMarkerPairIndex != null) {
       const chart = cropChartInput.chart;
       if (chart == null) return;
       const chartData = chart.data.datasets[0].data;
@@ -5908,22 +5873,22 @@ function cropChartSectionLoop() {
       const sectStart = chartData[start].x;
       const sectEnd = chartData[end].x;
       const isTimeBetweenCropChartSection =
-        sectStart <= video.getCurrentTime() && video.getCurrentTime() <= sectEnd;
+        sectStart <= appState.video.getCurrentTime() && appState.video.getCurrentTime() <= sectEnd;
 
       if (!isTimeBetweenCropChartSection) {
-        seekToSafe(video, sectStart);
+        seekToSafe(appState.video, sectStart);
       }
     }
   }
 }
 
 function updateAllMarkerPairSpeeds(newSpeed: number) {
-  markerPairs.forEach((markerPair) => {
+  appState.markerPairs.forEach((markerPair) => {
     updateMarkerPairSpeed(markerPair, newSpeed);
   });
 
-  if (isSettingsEditorOpen) {
-    if (wasGlobalSettingsEditorOpen) {
+  if (appState.isSettingsEditorOpen) {
+    if (appState.wasGlobalSettingsEditorOpen) {
       const markerPairMergeListInput = document.getElementById('merge-list-input');
       markerPairMergeListInput.dispatchEvent(new Event('change'));
     } else {
@@ -5948,7 +5913,7 @@ function updateMarkerPairSpeed(markerPair: MarkerPair, newSpeed: number) {
 }
 
 function updateAllMarkerPairCrops(newCrop: string) {
-  markerPairs.forEach((markerPair) => {
+  appState.markerPairs.forEach((markerPair) => {
     const draft = createDraft(getMarkerPairHistory(markerPair));
     const cropMap = draft.cropMap;
     if (isStaticCrop(cropMap)) {
@@ -5959,8 +5924,8 @@ function updateAllMarkerPairCrops(newCrop: string) {
     saveMarkerPairHistory(draft, markerPair);
   });
 
-  if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen) {
-    const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+  if (appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen) {
+    const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     const cropMap = markerPair.cropMap;
     if (isStaticCrop(cropMap)) {
       setCropInputValue(newCrop);
@@ -5972,8 +5937,8 @@ function updateAllMarkerPairCrops(newCrop: string) {
 }
 
 function undoRedoMarkerPairChange(dir: 'undo' | 'redo') {
-  if (isSettingsEditorOpen && !wasGlobalSettingsEditorOpen && prevSelectedMarkerPairIndex != null) {
-    const markerPair = markerPairs[prevSelectedMarkerPairIndex];
+  if (appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen && appState.prevSelectedMarkerPairIndex != null) {
+    const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     const newState =
       dir === 'undo'
         ? undo(markerPair.undoredo, () => null)
@@ -5983,10 +5948,10 @@ function undoRedoMarkerPairChange(dir: 'undo' | 'redo') {
     } else {
       Object.assign(markerPair, newState);
 
-      if (markerPair.cropRes !== settings.cropRes) {
+      if (markerPair.cropRes !== appState.settings.cropRes) {
         const { cropMultipleX, cropMultipleY } = getCropMultiples(
           markerPair.cropRes,
-          settings.cropRes
+          appState.settings.cropRes
         );
         multiplyMarkerPairCrops(markerPair, cropMultipleX, cropMultipleY);
       }
@@ -6001,8 +5966,8 @@ function undoRedoMarkerPairChange(dir: 'undo' | 'redo') {
 }
 
 function deleteMarkerPair(idx?: number) {
-  if (idx == null) idx = prevSelectedMarkerPairIndex;
-  const markerPair = markerPairs[idx];
+  if (idx == null) idx = appState.prevSelectedMarkerPairIndex;
+  const markerPair = appState.markerPairs[idx];
 
   const me = new PointerEvent('pointerover', { shiftKey: true });
   enableMarkerHotkeys.endMarker.dispatchEvent(me);
@@ -6013,16 +5978,16 @@ function deleteMarkerPair(idx?: number) {
   hideSelectedMarkerPairOverlay(true);
   renumberMarkerPairs();
 
-  markerPairs.splice(idx, 1);
+  appState.markerPairs.splice(idx, 1);
   clearPrevSelectedMarkerPairReferences();
 }
 
 function clearPrevSelectedMarkerPairReferences() {
-  prevSelectedMarkerPairIndex = null;
-  prevSelectedEndMarker = null;
+  appState.prevSelectedMarkerPairIndex = null;
+  appState.prevSelectedEndMarker = null;
   enableMarkerHotkeys.startMarker = null;
   enableMarkerHotkeys.endMarker = null;
-  markerHotkeysEnabled = false;
+  appState.markerHotkeysEnabled = false;
 }
 
 let selectedStartMarkerOverlay: HTMLElement;
@@ -6039,7 +6004,7 @@ function highlightSelectedMarkerPair(currentMarker: SVGRectElement) {
   selectedEndMarkerOverlay.setAttribute('x', currentMarker.getAttribute('x'));
   selectedStartMarkerOverlay.classList.remove('selected-marker-overlay-hidden');
   selectedEndMarkerOverlay.classList.remove('selected-marker-overlay-hidden');
-  selectedMarkerPairOverlay.style.display = 'block';
+  appState.selectedMarkerPairOverlay.style.display = 'block';
 }
 
 function updateMarkerPairDuration(markerPair: MarkerPair) {
@@ -6071,13 +6036,13 @@ function renumberMarkerPairs() {
     markerRect.setAttribute('data-idx', newIdx);
   });
 
-  startMarkerNumberings.childNodes.forEach((startNumbering, idx) => {
+  appState.startMarkerNumberings.childNodes.forEach((startNumbering, idx) => {
     const newIdx = idx + 1;
     startNumbering.setAttribute('data-idx', newIdx);
     startNumbering.textContent = newIdx.toString();
   });
 
-  endMarkerNumberings.childNodes.forEach((endNumbering, idx) => {
+  appState.endMarkerNumberings.childNodes.forEach((endNumbering, idx) => {
     const newIdx = idx + 1;
     endNumbering.setAttribute('data-idx', newIdx);
     endNumbering.textContent = newIdx.toString();
@@ -6086,7 +6051,7 @@ function renumberMarkerPairs() {
 
 function hideSelectedMarkerPairOverlay(hardHide = false) {
   if (hardHide) {
-    selectedMarkerPairOverlay.style.display = 'none';
+    appState.selectedMarkerPairOverlay.style.display = 'none';
   } else {
     selectedStartMarkerOverlay.classList.add('selected-marker-overlay-hidden');
     selectedEndMarkerOverlay.classList.add('selected-marker-overlay-hidden');
@@ -6099,7 +6064,7 @@ function showChart() {
       finishDrawingCrop(true);
     }
     currentChartInput.chartContainer.style.display = 'block';
-    isCurrentChartVisible = true;
+    appState.isCurrentChartVisible = true;
     currentChartInput.chart.update();
     // force chart time annotation to update
     prevChartTime = -1;
@@ -6109,12 +6074,12 @@ function showChart() {
 function hideChart() {
   if (currentChartInput && currentChartInput.chartContainer) {
     currentChartInput.chartContainer.style.display = 'none';
-    isCurrentChartVisible = false;
+    appState.isCurrentChartVisible = false;
   }
 }
 
 function toggleCurrentChartVisibility() {
-  if (!isCurrentChartVisible) {
+  if (!appState.isCurrentChartVisible) {
     showChart();
   } else {
     hideChart();
