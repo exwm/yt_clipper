@@ -89,17 +89,22 @@ YouTube is the primary video platform supported by yt_clipper. Other supported p
 - [Table of Contents](#table-of-contents)
 - [Terminology and Installation](#terminology-and-installation)
 - [Markup Script Shortcuts](#markup-script-shortcuts)
-  - [Marker Shortcuts](#marker-shortcuts)
+  - [General Shortcuts](#general-shortcuts)
+  - [Marker Editing Shortcuts](#marker-editing-shortcuts)
+  - [Marker Timing Shortcuts](#marker-timing-shortcuts)
+  - [Marker Navigation Shortcuts](#marker-navigation-shortcuts)
+  - [Global Settings Editor Shortcuts](#global-settings-editor-shortcuts)
   - [Cropping Shortcuts](#cropping-shortcuts)
-  - [Video Playback and Preview Shortcuts](#video-playback-and-preview-shortcuts)
-  - [Frame Capturing Shortcuts](#frame-capturing-shortcuts)
-  - [Save and Load Shortcuts](#save-and-load-shortcuts)
+  - [Playback Shortcuts](#playback-shortcuts)
+  - [Preview Shortcuts](#preview-shortcuts)
+  - [Frame Capturer Shortcuts](#frame-capturer-shortcuts)
+  - [Saving and Loading Shortcuts](#saving-and-loading-shortcuts)
   - [Miscellaneous Shortcuts](#miscellaneous-shortcuts)
   - [Dynamic Speed and Crop Shortcuts](#dynamic-speed-and-crop-shortcuts)
-    - [Common Dynamic Chart Shortcuts](#common-dynamic-chart-shortcuts)
-    - [Dynamic Speed Chart Shortcuts](#dynamic-speed-chart-shortcuts)
-    - [Dynamic Crop Chart Shortcuts](#dynamic-crop-chart-shortcuts)
-    - [ZoompPan Mode](#zoomppan-mode)
+    - [General Chart Shortcuts](#general-chart-shortcuts)
+    - [Speed Chart Shortcuts](#speed-chart-shortcuts)
+    - [Crop Chart Shortcuts](#crop-chart-shortcuts)
+    - [ZoomPan Mode Crop Chart Shortcuts](#zoompan-mode-crop-chart-shortcuts)
     - [Dynamic Crop Tips](#dynamic-crop-tips)
 - [Useful YouTube Controls](#useful-youtube-controls)
 - [Tips](#tips)
@@ -142,13 +147,17 @@ First ensure the script is active on the page by checking your user script exten
 
 - ![yt_clipper_active_on_page](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_active_on_page.png)
 
+## General Shortcuts
+
 **Alt+Shift+A:** Toggle hotkeys on/off. A green message will flash below the video indicating hotkeys are enabled.
 
-A shortcuts reference can be toggled by clicking the scissor icon in the video controls bar.
+**Shift+E:** Open command palette to search and execute all shortcuts. Can also be opened with the scissors button in the right side of the video player controls.
 
-- ![yt_clipper_shortcuts_table](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_shortcuts_table.png)
+  ![yt_clipper_command_palette](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_command_palette.png)
 
-## Marker Shortcuts
+A shortcuts reference can also be toggled by clicking the `full reference` button in the footer of the command palette.
+
+## Marker Editing Shortcuts
 
 **A:** Add marker at current time (start = green, end = yellow, selected = black center). Multiple marker pairs can be added simultaneously.
 
@@ -166,27 +175,45 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 - Edit pair crop or speed multiplier.
 - Edit `Title Prefix` that will be prepended to the `Title Suffix` and used in the webm name for the marker pair.
 
-**Ctrl+Up**: Select/deselect the most recently selected marker pair or else the first available pair.
+**Shift+W:** Toggle marker pair overrides editor when a marker pair is selected.
 
-**Ctrl+Down**: Toggle auto-hiding of unselected marker pairs. Hidden marker pairs cannot be selected with the mouse.
+**Ctrl+Shift+A:** Duplicate selected or previously selected marker pair.
 
-**Adjusting marker position/time:**
+**Alt+Z:** Undo time, speed, and crop changes of selected pair.
 
-- While a pair is selected use **Shift+Q/Shift+A** to move the start/end marker to current time.
-  - Adjust marker position more precisely by first using the **<** and **>** keys to seek videos frame by frame.
-- Use **Alt+Shift+Mousewheel** and scroll up/down to move marker one frame forward/backward.
-  - When performed on the left half of the window moves the start marker and on the right half the end marker.
-- **Alt+Click+Drag** a marker numbering to quickly make rough adjustments to the marker's time.
-- Use **Alt+Z/Alt+Shift+Z** to undo/redo marker moves as well as speed and crop changes.
-  - Undo/redo history is kept separately for each marker pair.
-**Navigating marker pairs without the mouse:**
+**Alt+Shift+Z:** Redo time, speed, and crop changes of selected pair.
 
-- Jumping to and selecting marker pairs without the mouse
-  - **Ctrl+Left/Right:** Jumps to the nearest previous/next marker.
-  - **Alt+Left/Right:** Select the next/previous marker pair relative to the currently or previously selected pair.
-  - **Ctrl+Alt+Left/Right:** Select the next/previous marker pair _and jump to its start marker_.
+- Undo/redo history is kept separately for each marker pair.
 
-**W:** Global settings editor:
+## Marker Timing Shortcuts
+
+**Shift+Q:** Move start marker of selected pair to current time.
+
+**Shift+A:** Move end marker of selected pair to current time.
+
+- Adjust marker position more precisely by first using the **<** and **>** keys to seek videos frame by frame.
+
+**Alt+Shift+Mousewheel:** Move marker one frame forward/backward.
+
+- When performed on the left half of the window moves the start marker and on the right half the end marker.
+
+**Alt+Click+Drag:** Drag a marker numbering to quickly make rough adjustments to the marker's time.
+
+## Marker Navigation Shortcuts
+
+**Ctrl+Up:** Select/deselect the most recently selected marker pair or else the first available pair.
+
+**Ctrl+Down:** Toggle auto-hiding of unselected marker pairs. Hidden marker pairs cannot be selected with the mouse.
+
+**Ctrl+Left/Right:** Jump to the nearest previous/next marker.
+
+**Alt+Left/Right:** Select the next/previous marker pair relative to the currently or previously selected pair.
+
+**Ctrl+Alt+Left/Right:** Select the next/previous marker pair _and jump to its start marker_.
+
+## Global Settings Editor Shortcuts
+
+**W:** Toggle global settings editor.
   ![yt_clipper_globals_editor](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_globals_editor.png)
 
 1. Modified global settings are accented red.
@@ -205,7 +232,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
    - By default the `Title Suffix` is the YouTube video ID in square brackets (e.g., \[Bey4XXJAqS8\]).
    - The `Title Suffix` is used for the name of the folder containing all generated webms.
 
-**Shift+W:** Open additional settings when the global settings editor or a marker pair editor is open.
+**Shift+W:** Open additional encoding settings when the global settings editor or a marker pair editor is open.
 
 - Settings left blank with a placeholder of `Auto` will be automatically calculated based on the input video bitrate and other video properties. This is the recommended default.
 - Marker pair settings are overrides that if set will override the global value for that marker pair only.
@@ -217,7 +244,9 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 - Global Encode Settings:
   - ![yt_clipper_globals_editor_additional_settings](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_globals_editor_additional_settings.png)
 
-**Alt+Shift+Q/alt+Shift+X:** Update all existing markers to default new marker speed (**Q**) or crop (**X**).
+**Alt+Shift+Q:** Update all existing markers to default new marker speed.
+
+**Alt+Shift+X:** Update all existing markers to default new marker crop.
 
 - Set the default new marker speed or crop using **W**.
 
@@ -225,16 +254,15 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 **X:** When marker or defaults editor is open, begin drawing crop.
 
-- **Click+Drag** on the video to set draw a rectangular crop.
-
+- **Click+Drag** on the video to draw a rectangular crop.
 - While drawing crop, pressing **X** again will cancel drawing.
-
 - Crop is given as `x-offset:y-offset:width:height`. Each value is a positive integer in pixels. `Width` and `height` can also be `iw` and `ih` respectively for input width and input height.
 
 **Ctrl+X:** Cycle crop dim opacity by 25% plus one stop point at 90%.
+
 **Ctrl+Shift+X:** Toggle crop crosshair.
 
-**Mouse-Based crop Adjustment:**
+**Mouse-Based Crop Adjustment:**
 
 - **Ctrl+Hover:** Indicate potential drag action when hovering over crop.
 - **Ctrl+Click+Drag:** Drag and move crop or resize crop in the indicated directions.
@@ -246,7 +274,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
   ![yt_clipper_crop_preview.png](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_crop_preview.png)
 
-**Arrow Key Crop Adjustment**:
+**Arrow Key Crop Adjustment:**
 
 - When a crop input box has focus:
   - **UpArrow/DownArrow:** Increment/decrement the value indicated by the current cursor position by `10`.
@@ -259,7 +287,7 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
   - **Alt** sets the amount to `1`, **Shift** to `50`, **Alt+Shift** to `100`.
 - The resulting crop values are clamped to valid values.
 
-## Video Playback and Preview Shortcuts
+## Playback Shortcuts
 
 **Shift+Mousewheel:** Scroll the mouse wheel up/down over the video to skip/seek forward/backward 1 (default) frames per tick.
 
@@ -274,13 +302,19 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 **Shift+C:** Toggle auto looping of currently selected marker pair.
 
+**Ctrl+Shift+C:** Toggle auto crop chart section looping. This setting takes precedence over auto marker pair looping.
+
+**Q:** Toggle auto force setting of video playback speed. Takes precedence over any marker pair speed. This can be useful to try out different playback speeds without modifying settings.
+
+**Alt+Q:** Cycle the force-set video speed down by 0.25. Use **Q** to toggle force setting video speed.
+
+## Preview Shortcuts
+
 **Shift+X:** Toggle previewing crop in pop-out window.
 
   <img src="https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_crop_preview_pop_out.png" alt="yt_clipper_crop_preview.png" width="500">
 
-**Ctrl+Alt+X:** Toggle previewing crop in modal window. The modal window can be left+clicked to play/pause and right-clicked to seek the video.
-
-**Ctrl+Shift+C:** Toggle auto crop chart section looping. This setting takes precedence over auto marker pair looping.
+**Ctrl+Alt+X:** Toggle previewing crop in modal window. The modal window can be left-clicked to play/pause and right-clicked to seek the video.
 
 **Alt+C:** Toggle auto previewing gamma correction setting when between a marker pair.
 
@@ -291,22 +325,17 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 **Ctrl+Alt+Shift+C:** Toggle essential previews.
 
 - If any preview feature is disabled, turns it on. If all preview features are enabled, disables all of them. Excludes dynamic crop chart section looping.
-
 - Works only when in fullscreen mode or theater mode.
 - **Note that this does not yet work with drawing and previewing crops and should be disabled when doing so.**
 - **This feature is only for watching or previewing the video, and does not affect webm output.**
-
-**Shift+R:** Toggle big video previews on video progress bar hover.
-
-**Q:** Toggle auto force setting of video playback speed. Takes precedence over any marker pair speed. This can be useful to try out different playback speeds without modifying settings.
-
-**Alt+Q:** Cycle the force-set video speed down by 0.25. Use **Q** to toggle force settings video speed.
 
 **R/Alt+R:** Toggle between a 90 degree clockwise/counter-clockwise rotation and no rotation.
 
 - Note that this is only a preview and you must set the rotation in the global settings editor opened with **W** to rotate the output video.
 
-## Frame Capturing Shortcuts
+**Shift+R:** Toggle big video previews on video progress bar hover.
+
+## Frame Capturer Shortcuts
 
 **E:** Capture frame at current time of video at currently selected video quality/resolution.
 
@@ -317,14 +346,14 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
   ![yt_clipper_frame_capturer](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_frame_capturer.png)
 
-**Alt+E** Trigger zipping of all captured frames for download.
+**Alt+E:** Zip and download all captured frames.
 
-## Save and Load Shortcuts
+## Saving and Loading Shortcuts
 
 **S:** Save markers info to a `.json` file.
 
-- Can be dropped onto the clipper script installation's helper scrips like `yt_clipper_auto` on Windows. On Mac, run the helper script and try dragging and dropping in the window that opens up when prompted.
-- When using the python source of the `clipper script` use`--json/-j` and pass the path of the markers data file.
+- Can be dropped onto the clipper script installation's helper scripts like `yt_clipper_auto` on Windows. On Mac, run the helper script and try dragging and dropping in the window that opens up when prompted.
+- When using the python source of the `clipper script` use `--json/-j` and pass the path of the markers data file.
 
 **Alt+S:** Copy markers `json` data to clipboard. Useful if saving breaks.
 
@@ -337,9 +366,11 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 **Shift+F:** Flatten a VR video to make it easier to crop.
 
+**Alt+F:** Open YouTube subtitles editor.
+
 ## Dynamic Speed and Crop Shortcuts
 
-### Common Dynamic Chart Shortcuts
+### General Chart Shortcuts
 
 **D:** Toggle dynamic speed chart.
 
@@ -353,9 +384,9 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 **Right-Click:** Seek to time on bottom time-axis when clicking anywhere in chart area.
 
-**Alt+Right-Click/Ctrl+Alt+Right-Click:** Set chart looping start/end marker.
+**Shift/Alt+Right-Click:** Set chart looping start/end marker.
 
-**Shift+D:** Toggle chart loop markers
+**Shift+D:** Toggle chart loop markers.
 
 - Note that chart loop markers only work when speed previewing is on with **C**.
 
@@ -365,13 +396,9 @@ A shortcuts reference can be toggled by clicking the scissor icon in the video c
 
 **Click+Drag:** Drag a point to move it or drag chart area to pan when zoomed in.
 
-**Alt+Z/Alt+Shift+Z:** Undo/redo marker moves as well as speed and crop changes.
+### Speed Chart Shortcuts
 
-- Undo/redo history is kept separately for each marker pair.
-
-### Dynamic Speed Chart Shortcuts
-
-See [Common Dynamic Chart Shortcuts](#common-dynamic-chart-shortcuts) for shortcuts shared between dynamic charts
+See [General Chart Shortcuts](#general-chart-shortcuts) for shortcuts shared between dynamic charts
 like adding and removing points.
 
 **D:** Toggle dynamic speed chart.
@@ -384,21 +411,21 @@ like adding and removing points.
 - YouTube playback speed can only be set to a multiple of `0.05` and greater than or equal to `0.25`.
 - Audio is not compatible with dynamic speed.
 
-### Dynamic Crop Chart Shortcuts
+### Crop Chart Shortcuts
 
-See [Common Dynamic Chart Shortcuts](#common-dynamic-chart-shortcuts) for shortcuts shared between dynamic charts
+See [General Chart Shortcuts](#general-chart-shortcuts) for shortcuts shared between dynamic charts
 like adding and removing points.
 
 Dynamic crop allows for panning a crop in the default `pan-only` mode.
 In `pan-only` mode the crops of all crop chart points are maintained equal.
-For zooming and panning, enable  `zoompan` mode from the marker pair settings extended options (**Shift+W**).
+For zooming and panning, enable `zoompan` mode from the marker pair settings extended options (**Shift+W**).
 In `zoompan` mode crops can change size for a zooming effect, but their aspect ratios are maintained equal.
 
 **Alt+D:** Toggle dynamic crop chart.
 
-**Left-Click:** Left-click a crop chart point to seek to it's time.
+**Left-Click:** Left-click a crop chart point to seek to its time.
 
-**Left-Click+Drag:** Left-click and drag a crop chart point to change it's time and seek/scrub the video.
+**Left-Click+Drag:** Left-click and drag a crop chart point to change its time and seek/scrub the video.
 
 **Ctrl+Shift+C:** Toggle auto crop chart section looping.
 
@@ -410,7 +437,7 @@ In `zoompan` mode crops can change size for a zooming effect, but their aspect r
 **Ctrl/Alt+Mouseover:** Select point as start/end of crop section.
 
 - When the currently selected point is green then you are in start mode, and if it is yellow you are in end mode.
-- The selected point's crop is editable and it's crop appears more brightly in a matching color (green or yellow).
+- The selected point's crop is editable and its crop appears more brightly in a matching color (green or yellow).
 - As the video time changes, the currently selected point is automatically updated to the start or end point of the new section maintaining the current mode where possible.
 - Selected points have a black border and are square. Unselected points are circular.
 
@@ -426,17 +453,17 @@ In `zoompan` mode crops can change size for a zooming effect, but their aspect r
 - Points with instant easing enabled are darkened.
 - Instant easing means that any pan or zoom from a previous point will happen instantly, causing the crop to jump.
 - This is useful if there is a scene change in the video or very fast movement.
-- Before version 5.37.0, instant easeing would transition to the next (right) crop immediately.
+- Before version 5.37.0, instant easing would transition to the next (right) crop immediately.
   Typically you would want to hold the previous crop and then transition on the last frame.
   This meant you would need to add an extra point to hold the previous crop.
-- Since version 5.37.0, instant easing holds the previous crop and on the last frame instantly transitions to the the next crop.
+- Since version 5.37.0, instant easing holds the previous crop and on the last frame instantly transitions to the next crop.
   The recommendation now is to just add a point on the first frame that the scene changes and adjust the crop to match the new scene.
 
 **A/Shift+A:** Set target crop component of all points following/preceding the currently selected point. Select crop components by placing your cursor in the crop input field in the marker pair settings.
 
-- For example, let's say you want to align the X-position of all points following the currently selected point. Place your cursor by clicking in the crop input field in the first value. For example  `10|0:100:920:1080` where the `|` represents your cursor. Now hit the **A** key and all following crop points will have an X-Position of `100`.
+- For example, let's say you want to align the X-position of all points following the currently selected point. Place your cursor by clicking in the crop input field in the first value. For example `10|0:100:920:1080` where the `|` represents your cursor. Now hit the **A** key and all following crop points will have an X-Position of `100`.
 
-### ZoompPan Mode
+### ZoomPan Mode Crop Chart Shortcuts
 
 In `zoompan` mode crops can change size for a zooming effect, but their aspect ratios are maintained equal.
 The usual crop shortcuts have different effects than usual in this mode as described here.
