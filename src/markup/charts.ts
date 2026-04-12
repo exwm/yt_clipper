@@ -9,7 +9,8 @@ import { cropCrossHairEnabled, cropOverlayElements, finishDrawingCrop, isDrawing
 import { getCropComponents, isStaticCrop, setCropInputValue } from './crop-utils';
 import { triggerCropPreviewRedraw } from './crop/crop-preview';
 import { renderMarkerPair } from './markers';
-import { sortX, updateCharts } from './ui/chart/chartutil';
+import { sortX } from './ui/chart/chartPrimitives';
+import { updateCharts } from './ui/chart/chartutil';
 import { speedChartSpec } from './ui/chart/speedchart/speedChartSpec';
 import { Chart, ChartConfiguration } from 'chart.js';
 import { scatterChartDefaults } from './ui/chart/scatterChartSpec';

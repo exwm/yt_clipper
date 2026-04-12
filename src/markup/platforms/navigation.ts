@@ -1,6 +1,5 @@
 import { appState } from '../appState';
-import { platform } from '../yt_clipper';
-import { VideoPlatforms } from './platforms';
+import { getPlatform, VideoPlatforms } from './platforms';
 
 export interface PlatformNavObserver {
   start(onNavigate: () => void): void;
@@ -86,6 +85,7 @@ function installHistoryApiHook() {
 export let isStaleVideo = false;
 export function setIsStaleVideo(value: boolean) { isStaleVideo = value; }
 export function getCurrentPageVideoID(): string | null {
+  const platform = getPlatform();
   try {
     if (platform === VideoPlatforms.youtube) {
       const data = (appState.player as any)?.getVideoData?.();

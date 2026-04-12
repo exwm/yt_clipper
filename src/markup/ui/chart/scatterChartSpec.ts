@@ -4,14 +4,14 @@ import { getMarkerPairHistory, saveMarkerPairHistory } from '../../util/undoredo
 import { seekToSafe, timeRounder } from '../../util/util';
 import { triggerCropChartUpdates } from '../../charts';
 import { appState } from '../../appState';
-import { getInputUpdater, grey, lightgrey, medgrey, roundX, roundY, sortX } from './chartutil';
+import { getInputUpdater, grey, lightgrey, medgrey, roundX, roundY, sortX } from './chartPrimitives';
 import { cropChartMode, setCurrentCropPoint } from './cropchart/cropChartSpec';
 
 export const scatterChartDefaults: ChartOptions & ChartFontOptions = {
   defaultColor: 'rgba(255, 255, 255, 1)',
   defaultFontSize: 16,
   defaultFontStyle: 'bold',
-  defaultFontColor: lightgrey(1),
+  defaultFontColor: 'rgba(120, 120, 120, 1)', // lightgrey(1) — inlined to break circular init dependency
   maintainAspectRatio: false,
   hover: { mode: 'nearest' },
   animation: { duration: 0 },

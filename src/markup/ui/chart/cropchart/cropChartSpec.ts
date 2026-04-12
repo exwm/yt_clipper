@@ -2,7 +2,7 @@ import Chart, { ChartConfiguration, ChartPoint } from 'chart.js';
 import { CropPoint } from '../../../@types/yt_clipper';
 import { appState } from '../../../appState';
 import { clampNumber } from '../../../util/util';
-import { medgrey } from '../chartutil';
+import { medgrey } from '../chartPrimitives';
 import { scatterChartSpec } from '../scatterChartSpec';
 import isEqual from 'lodash.isequal';
 

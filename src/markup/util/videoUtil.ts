@@ -1,6 +1,5 @@
 import { appState, YTPlayer } from '../appState';
-import { VideoPlatforms } from '../platforms/platforms';
-import { platform } from '../yt_clipper';
+import { getPlatform, VideoPlatforms } from '../platforms/platforms';
 import { chartState } from '../charts';
 import { isDrawingCrop } from '../crop-overlay';
 import { isMouseManipulatingCrop } from '../crop-overlay';
@@ -13,7 +12,7 @@ export let prevVideoWidth: number;export function getFPS(defaultFPS: number | nu
       appState.video.videoWidth != null &&
       prevVideoWidth === appState.video.videoWidth) {
       fps = appState.videoInfo.fps;
-    } else if (platform === VideoPlatforms.youtube) {
+    } else if (getPlatform() === VideoPlatforms.youtube) {
       appState.videoInfo.fps = parseFloat(
         /@(\d+)/.exec((appState.player as YTPlayer).getStatsForNerds().resolution)![1]
       );

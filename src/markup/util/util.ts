@@ -173,7 +173,7 @@ export function querySelectors<
 >(selectors: S, root: ParentNode = document): T {
   const elements: Partial<T> = {};
   for (const key in selectors) {
-    elements[key] = root.querySelector(selectors[key]) as any;
+    elements[key] = root.querySelector(selectors[key]);
   }
   return elements as T;
 }
@@ -252,12 +252,12 @@ export function bsearch<A, B>(
     if (high < low || high >= haystack.length) throw new RangeError('invalid upper bound');
   }
 
-  while (low! <= high!) {
+  while (low! <= high) {
     // The naive `low + high >>> 1` could fail for array lengths > 2**31
     // because `>>>` converts its operands to int32. `low + (high - low >>> 1)`
     // works for array lengths <= 2**32-1 which is also Javascript's max array
     // length.
-    mid = low! + ((high! - low!) >>> 1);
+    mid = low! + ((high - low!) >>> 1);
     cmp = +comparator(haystack[mid], needle, mid, haystack);
 
     // Too low.
@@ -269,7 +269,7 @@ export function bsearch<A, B>(
   }
 
   // Key not found.
-  return [high!, low!];
+  return [high, low!];
 }
 
 export function getEasedValue(

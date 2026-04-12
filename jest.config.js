@@ -12,5 +12,6 @@ module.exports = {
   moduleNameMapper: {
     '^chart\\.js$': '<rootDir>/src/markup/__mocks__/chart.js.js',
     '^jszip$': '<rootDir>/src/markup/__mocks__/jszip.js',
+    '^lit-html$': '<rootDir>/src/markup/__mocks__/lit-html.js',
   },
 };

@@ -1,10 +1,19 @@
 jest.mock('./yt_clipper', () => ({
-  getFPS: jest.fn(),
-  injectProgressBar: jest.fn(),
+  platform: 'youtube',
+  isTheatreMode: jest.fn().mockReturnValue(false),
+  updateSettingsEditorHook: jest.fn(),
+  initOnceCalled: false,
+  shortcutRegistry: null,
+  shortcutsTableStyle: '',
+  shortcutsTableToggleButtonHTML: '',
 }));
 
 jest.mock('./platforms/platforms', () => ({
   getPlatform: () => 'youtube',
+}));
+
+jest.mock('./util/videoUtil', () => ({
+  getFPS: jest.fn(),
 }));
 
 jest.mock('./util/util', () => ({

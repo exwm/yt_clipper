@@ -1,6 +1,6 @@
 import Chart from 'chart.js';
 import { ChartConfiguration, ChartPoint } from 'chart.js';
-import { medgrey, lightgrey } from '../chartutil';
+import { medgrey, lightgrey } from '../chartPrimitives';
 import { scatterChartSpec, getScatterPointColor } from '../scatterChartSpec';
 
 const inputId = 'speed-input';

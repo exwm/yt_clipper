@@ -1,3 +1,15 @@
+// Mock yt_clipper to prevent module-level getPlatform() call (accesses window)
+jest.mock('./yt_clipper', () => ({
+  platform: 'youtube',
+  selectors: {},
+  isTheatreMode: jest.fn().mockReturnValue(false),
+  updateSettingsEditorHook: jest.fn(),
+  initOnceCalled: false,
+  shortcutRegistry: null,
+  shortcutsTableStyle: '',
+  shortcutsTableToggleButtonHTML: '',
+}));
+
 import {
   getCropComponents,
   getVideoScaledCropComponents,
