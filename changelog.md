@@ -2,13 +2,30 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
-## [5.42.0](https://github.com/exwm/yt_clipper/compare/v5.41.0...v5.42.0) (2026-04-11)
+## [5.43.0](https://github.com/exwm/yt_clipper/compare/v5.41.0...v5.43.0) (2026-04-12)
+
+
+### Features
+
+* **markup:** add searchable command palette (shift+e) ([c7308ef](https://github.com/exwm/yt_clipper/commit/c7308ef0995c9216968d440e8ca479164e1a65ae))
+* **markup:** Ctrl+Alt+Shift+C to toggle essential previews now excludes dynamic crop chart looping ([dfac3fe](https://github.com/exwm/yt_clipper/commit/dfac3fe0d67cfe7ff9ba3ee62a29abe538a35341))
+* **markup:** make it clearer that (Source) FPS Multiplier targts source video FPS, always show derived clip fps multiplier ([95c0a92](https://github.com/exwm/yt_clipper/commit/95c0a9260b9be1ed4b464d9af252f1bbe8564966))
+* **markup:** reorganize command shortcuts and improve command palette ux ([5946cf1](https://github.com/exwm/yt_clipper/commit/5946cf13cb15e75eaa94c3d5208ed8809e6b5c4c))
+* **markup:** show warning when navigating to different video after activating yt_clipper ([c93f3ba](https://github.com/exwm/yt_clipper/commit/c93f3ba933bc62d05582d244154a2df853ae762d))
 
 
 ### Bug Fixes
 
+* **markup:** crop crosshair should rotate when video is rotated ([3f7545e](https://github.com/exwm/yt_clipper/commit/3f7545eb5f1b55fd9aa3a243b8997aedc7c620fe))
 * **markup:** move marker by frame (alt+shift+mousewheel) should not jump to start when marker pair looping is enabled ([f9f6c23](https://github.com/exwm/yt_clipper/commit/f9f6c23452d180b20d916c9ee26be842c15747f0))
 * **markup:** yt: hide yt overlays that may interfere with cropping ([fcc83fa](https://github.com/exwm/yt_clipper/commit/fcc83fa734fea302169efc66747801a3ad5034f5))
+* **markup:** move marker by frame (alt+shift+mousewheel) should not jump to start when marker pair looping is enabled ([f9f6c23](https://github.com/exwm/yt_clipper/commit/f9f6c23452d180b20d916c9ee26be842c15747f0))
+* **markup:** yt: hide yt overlays that may interfere with cropping ([fcc83fa](https://github.com/exwm/yt_clipper/commit/fcc83fa734fea302169efc66747801a3ad5034f5))
+
+### Documentation Updates
+
+* **readme:** update shortcuts organization to match new command palette ([e1a1aeb](https://github.com/exwm/yt_clipper/commit/e1a1aebdecc0f3b6249835d5c90eadfe13d0ab88))
+
 
 ## [5.41.0](https://github.com/exwm/yt_clipper/compare/v5.40.0...v5.41.0) (2026-03-26)
 
