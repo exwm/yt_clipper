@@ -1,6 +1,6 @@
 import { saveAs } from 'file-saver';
 import { MarkerConfig, MarkerPair, SpeedPoint } from './@types/yt_clipper';
-import { appState } from './appState';
+import { __version__, appState } from './appState';
 import {
   getMarkersDataEntriesFromLocalStorage,
   loadClipperInputDataFromLocalStorage,
@@ -18,8 +18,6 @@ import {
 } from './util/util';
 import { isTheatreMode, updateSettingsEditorHook } from './yt_clipper';
 import { addMarker } from './markers';
-
-const __version__ = '5.42.0';
 
 export function saveMarkersAndSettings() {
   const settingsJSON = getClipperInputJSON();

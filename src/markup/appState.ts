@@ -1,5 +1,6 @@
 import { MarkerPair, Settings } from './@types/yt_clipper';
 import { VideoPlatformHooks } from './platforms/platforms';
+export const __version__ = '5.42.0';
 
 export type VideoElement = HTMLVideoElement & {
   getCurrentTime: () => number;

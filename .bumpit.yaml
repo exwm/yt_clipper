@@ -13,5 +13,6 @@ tracked_files:
   - src/clipper/version.py
   - .github/workflows/yt_clipper_ci.yml
   - src/markup/yt_clipper.ts
+  - src/markup/appState.ts
   - pyproject.toml
   - uv.lock
