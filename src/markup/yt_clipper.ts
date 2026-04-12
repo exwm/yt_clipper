@@ -334,10 +334,18 @@ export function initShortcutSystem() {
   });
   hotkeyEngine.setEnabled(appState.isHotkeysEnabled);
 
+  let wasPausedBeforeOpen = false;
   commandPalette = new CommandPalette(shortcutRegistry, {
     zIndex: 99999,
     onOpenReference: () => {
       toggleShortcutsTable();
+    },
+    onOpen: () => {
+      wasPausedBeforeOpen = appState.video.paused;
+      if (!wasPausedBeforeOpen) appState.video.pause();
+    },
+    onClose: () => {
+      if (!wasPausedBeforeOpen) void appState.video.play();
     },
   });
 }

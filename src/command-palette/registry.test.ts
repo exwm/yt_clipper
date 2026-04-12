@@ -5,7 +5,7 @@ function makeDef(partial: Partial<ShortcutDefinition> & { id: string }): Shortcu
   return {
     description: partial.description ?? `desc-${partial.id}`,
     displayKey: partial.displayKey ?? '',
-    section: partial.section ?? 'Basic Features',
+    section: partial.section ?? 'Markup',
     category: partial.category ?? 'Marker Shortcuts',
     essential: partial.essential ?? false,
     binding: partial.binding ?? null,

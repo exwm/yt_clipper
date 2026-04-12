@@ -31,6 +31,8 @@ export interface CommandPaletteOptions {
   maxLastSearches?: number;
   maxRecentCommands?: number;
   onOpenReference?: () => void;
+  onOpen?: () => void;
+  onClose?: () => void;
 }
 
 export type MatchKind = 'exactKey' | 'partialKey' | 'fuzzy';

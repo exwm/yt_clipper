@@ -49,8 +49,10 @@ bundle-w:
   npx parcel watch --no-scope-hoist --no-optimize --no-hmr
 bundle-tc-w:
   run-p -c build-ts-ne bundle-w
+lint-ts:
+  npx tsc --noEmit && npx eslint ./src/markup ./src/command-palette
 bundle-prod:
-  npx parcel build --no-scope-hoist --no-optimize
+  just lint-ts && npx parcel build --no-scope-hoist --no-optimize
 
 clean-dist:
   rm -r ./dist/*

@@ -5,11 +5,33 @@ import { CommandPaletteOptions, MatchKind, SearchResult, ShortcutDefinition } fr
 const STYLE_ELEMENT_ID = 'cmdp-styles';
 const DISPLAY_KEY_SEPARATOR_RE = /(\s*\+\s*|\s*\/\s*|\s*,\s*|\s+or\s+)/g;
 const LAST_SEARCHES_STORAGE_KEY = 'cmdp-last-searches';
-const DEFAULT_MAX_LAST_SEARCHES = 1;
+const DEFAULT_MAX_LAST_SEARCHES = 3;
 const SORT_MODE_STORAGE_KEY = 'cmdp-sort-mode';
 const RECENT_COMMANDS_STORAGE_KEY = 'cmdp-recent-commands';
 const DEFAULT_MAX_RECENT_COMMANDS = 3;
 const RECENT_SECTION_LABEL = 'Recently used';
+const DISABLED_CATEGORIES_STORAGE_KEY = 'cmdp-disabled-categories';
+const ESSENTIAL_ONLY_STORAGE_KEY = 'cmdp-essential-only';
+const EXECUTABLE_ONLY_STORAGE_KEY = 'cmdp-executable-only';
+const EXPANDED_SECTIONS_STORAGE_KEY = 'cmdp-expanded-sections';
+const AUTO_PAUSE_STORAGE_KEY = 'cmdp-auto-pause';
+const CATEGORY_SHORT_LABELS: Record<string, string> = {
+  'General Shortcuts': 'General',
+  'Marker Editing Shortcuts': 'Editing',
+  'Marker Timing Shortcuts': 'Timing',
+  'Marker Navigation Shortcuts': 'Navigation',
+  'Cropping Shortcuts': 'Cropping',
+  'Global Settings Editor Shortcuts': 'Settings',
+  'Playback Shortcuts': 'Playback',
+  'Preview Shortcuts': 'Preview',
+  'Saving and Loading Shortcuts': 'Save/Load',
+  'Frame Capturer Shortcuts': 'Frames',
+  'Miscellaneous Shortcuts': 'Misc',
+  'General Chart Shortcuts': 'Charts',
+  'Speed Chart Shortcuts': 'Speed Chart',
+  'Crop Chart Shortcuts': 'Crop Chart',
+  'ZoomPan Mode Crop Chart Shortcuts': 'ZoomPan',
+};
 
 type SelectCallback = (shortcut: ShortcutDefinition) => void;
 
@@ -28,6 +50,7 @@ interface VisibleSection {
 interface VisibleCategory {
   kind: 'category';
   label: string;
+  disabled?: boolean;
 }
 
 type VisibleEntry = VisibleItem | VisibleSection | VisibleCategory;
@@ -39,6 +62,16 @@ export class CommandPalette {
   private searchInput: HTMLInputElement | null = null;
   private resultsEl: HTMLDivElement | null = null;
   private essentialFilterEl: HTMLInputElement | null = null;
+  private executableFilterEl: HTMLInputElement | null = null;
+  private disabledCategories = new Set<string>();
+  private essentialOnly = false;
+  private executableOnly = false;
+  private counterEl: HTMLSpanElement | null = null;
+  private itemNumber = 0;
+  private categoryPillCounts = new Map<string, HTMLSpanElement>();
+  private categoryFiltersEl: HTMLDivElement | null = null;
+  private allCategories: string[] = [];
+  private updateTabCounts: (() => void) | null = null;
 
   private lastSearchesContainerEl: HTMLDivElement | null = null;
   private lastSearches: string[] = [];
@@ -46,7 +79,10 @@ export class CommandPalette {
   private maxRecentCommands: number;
   private recentCommandIds: string[] = [];
   private preserveOrder = false;
+  private autoPause = false;
   private onOpenReference: (() => void) | null = null;
+  private onOpenCallback: (() => void) | null = null;
+  private onCloseCallback: (() => void) | null = null;
   private selectCallback: SelectCallback | null = null;
   private highlightIndex = 0;
   private visibleEntries: VisibleEntry[] = [];
@@ -63,17 +99,24 @@ export class CommandPalette {
     this.maxLastSearches = Math.max(0, options.maxLastSearches ?? DEFAULT_MAX_LAST_SEARCHES);
     this.maxRecentCommands = Math.max(0, options.maxRecentCommands ?? DEFAULT_MAX_RECENT_COMMANDS);
     this.onOpenReference = options.onOpenReference ?? null;
+    this.onOpenCallback = options.onOpen ?? null;
+    this.onCloseCallback = options.onClose ?? null;
     this.keydownHandler = (e) => {
       this.handleKeydown(e);
     };
     this.lastSearches = loadLastSearches(this.maxLastSearches);
     this.recentCommandIds = loadRecentCommands(this.maxRecentCommands);
     this.preserveOrder = loadPreserveOrder();
+    this.autoPause = loadBooleanPref(AUTO_PAUSE_STORAGE_KEY);
+    this.disabledCategories = loadDisabledCategories();
+    this.essentialOnly = loadBooleanPref(ESSENTIAL_ONLY_STORAGE_KEY);
+    this.executableOnly = loadBooleanPref(EXECUTABLE_ONLY_STORAGE_KEY);
     ensureStyles();
   }
 
   open(): void {
     if (this.overlay) return;
+    if (this.autoPause) this.onOpenCallback?.();
     this.build();
     this.refreshResults('');
     this.searchInput?.focus();
@@ -82,12 +125,17 @@ export class CommandPalette {
 
   close(): void {
     if (!this.overlay) return;
+    const query = this.searchInput?.value.trim() ?? '';
+    if (query) this.saveSearch(query);
+    if (this.autoPause) this.onCloseCallback?.();
     document.removeEventListener('keydown', this.keydownHandler, true);
     this.overlay.remove();
     this.overlay = null;
     this.searchInput = null;
     this.resultsEl = null;
     this.essentialFilterEl = null;
+    this.executableFilterEl = null;
+    this.counterEl = null;
 
     this.lastSearchesContainerEl = null;
     this.visibleEntries = [];
@@ -127,21 +175,56 @@ export class CommandPalette {
     search.placeholder = 'Search shortcuts...';
     search.autocomplete = 'off';
     search.spellcheck = false;
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.className = 'cmdp-search-clear';
+    clearBtn.textContent = '\u00D7';
+    clearBtn.title = 'Clear search';
+    clearBtn.style.display = 'none';
+    clearBtn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      search.value = '';
+      clearBtn.style.display = 'none';
+      search.focus();
+      this.refreshResults('');
+    });
     search.addEventListener('input', () => {
-      this.recordSearch(search.value);
+      clearBtn.style.display = search.value ? '' : 'none';
       this.refreshResults(search.value);
     });
+    const counter = document.createElement('span');
+    counter.className = 'cmdp-counter';
     searchRow.appendChild(search);
+    searchRow.appendChild(clearBtn);
+    searchRow.appendChild(counter);
     palette.appendChild(searchRow);
+
+    const lastSearchesRow = document.createElement('div');
+    lastSearchesRow.className = 'cmdp-last-searches-row';
+    const lastSearchesLabel = document.createElement('span');
+    lastSearchesLabel.className = 'cmdp-region-label cmdp-help-text';
+    lastSearchesLabel.textContent = 'Recent';
+    lastSearchesRow.appendChild(lastSearchesLabel);
+    const lastSearches = document.createElement('div');
+    lastSearches.className = 'cmdp-last-searches';
+    lastSearchesRow.appendChild(lastSearches);
+    palette.appendChild(lastSearchesRow);
 
     const filters = document.createElement('div');
     filters.className = 'cmdp-filters';
+    const filtersLabel = document.createElement('span');
+    filtersLabel.className = 'cmdp-region-label cmdp-help-text';
+    filtersLabel.textContent = 'Options';
+    filters.appendChild(filtersLabel);
     const essentialLabel = document.createElement('label');
     essentialLabel.className = 'cmdp-essential-filter';
     const essentialCheckbox = document.createElement('input');
     essentialCheckbox.type = 'checkbox';
     essentialCheckbox.className = 'cmdp-essential-checkbox';
+    essentialCheckbox.checked = this.essentialOnly;
     essentialCheckbox.addEventListener('change', () => {
+      this.essentialOnly = essentialCheckbox.checked;
+      saveBooleanPref(ESSENTIAL_ONLY_STORAGE_KEY, this.essentialOnly);
       this.refreshResults(search.value);
     });
     const essentialText = document.createElement('span');
@@ -171,11 +254,280 @@ export class CommandPalette {
     sortLabel.appendChild(sortText);
     filters.appendChild(sortLabel);
 
-    const lastSearches = document.createElement('div');
-    lastSearches.className = 'cmdp-last-searches';
-    filters.appendChild(lastSearches);
+    const executableLabel = document.createElement('label');
+    executableLabel.className = 'cmdp-executable-filter';
+    executableLabel.title = 'Show only shortcuts that can be executed from the palette.';
+    const executableCheckbox = document.createElement('input');
+    executableCheckbox.type = 'checkbox';
+    executableCheckbox.className = 'cmdp-executable-checkbox';
+    executableCheckbox.checked = this.executableOnly;
+    executableCheckbox.addEventListener('change', () => {
+      this.executableOnly = executableCheckbox.checked;
+      saveBooleanPref(EXECUTABLE_ONLY_STORAGE_KEY, this.executableOnly);
+      this.refreshResults(search.value);
+    });
+    const executableText = document.createElement('span');
+    executableText.className = 'cmdp-executable-filter-text';
+    executableText.textContent = 'executable only';
+    executableLabel.appendChild(executableCheckbox);
+    executableLabel.appendChild(executableText);
+    filters.appendChild(executableLabel);
+
+    const autoPauseLabel = document.createElement('label');
+    autoPauseLabel.className = 'cmdp-autopause-filter';
+    autoPauseLabel.title =
+      'Automatically pause the video when the palette opens and resume on close.';
+    const autoPauseCheckbox = document.createElement('input');
+    autoPauseCheckbox.type = 'checkbox';
+    autoPauseCheckbox.className = 'cmdp-autopause-checkbox';
+    autoPauseCheckbox.checked = this.autoPause;
+    autoPauseCheckbox.addEventListener('change', () => {
+      this.autoPause = autoPauseCheckbox.checked;
+      saveBooleanPref(AUTO_PAUSE_STORAGE_KEY, this.autoPause);
+    });
+    const autoPauseText = document.createElement('span');
+    autoPauseText.className = 'cmdp-autopause-filter-text';
+    autoPauseText.textContent = 'auto pause';
+    autoPauseLabel.appendChild(autoPauseCheckbox);
+    autoPauseLabel.appendChild(autoPauseText);
+    filters.appendChild(autoPauseLabel);
+
+    const optionsResetBtn = document.createElement('button');
+    optionsResetBtn.type = 'button';
+    optionsResetBtn.className = 'cmdp-reset-settings';
+    optionsResetBtn.textContent = 'reset';
+    optionsResetBtn.title = 'Reset options to defaults';
+    optionsResetBtn.addEventListener('click', () => {
+      this.essentialOnly = false;
+      this.executableOnly = false;
+      this.preserveOrder = false;
+      this.autoPause = false;
+      saveBooleanPref(ESSENTIAL_ONLY_STORAGE_KEY, false);
+      saveBooleanPref(EXECUTABLE_ONLY_STORAGE_KEY, false);
+      saveBooleanPref(AUTO_PAUSE_STORAGE_KEY, false);
+      savePreserveOrder(false);
+      essentialCheckbox.checked = false;
+      executableCheckbox.checked = false;
+      sortCheckbox.checked = false;
+      autoPauseCheckbox.checked = false;
+      this.refreshResults(search.value);
+    });
+    filters.appendChild(optionsResetBtn);
 
     palette.appendChild(filters);
+
+    const categoryFilters = document.createElement('div');
+    categoryFilters.className = 'cmdp-category-filters';
+
+    const allCategories: string[] = [];
+    const seenCategories = new Set<string>();
+    for (const def of this.registry.getAll()) {
+      if (!seenCategories.has(def.category)) {
+        seenCategories.add(def.category);
+        allCategories.push(def.category);
+      }
+    }
+
+    const grouped = this.registry.getGrouped();
+    const sectionEntries = [...grouped.entries()];
+
+    // Tab bar
+    const tabBar = document.createElement('div');
+    tabBar.className = 'cmdp-tab-bar';
+
+    // Tab panel (shows active tab's category pills)
+    const tabPanel = document.createElement('div');
+    tabPanel.className = 'cmdp-tab-panel';
+
+    const tabs: HTMLElement[] = [];
+    const panels: HTMLElement[] = [];
+    let activeTabIdx = 0;
+    try {
+      const saved = localStorage.getItem(EXPANDED_SECTIONS_STORAGE_KEY);
+      if (saved) {
+        const idx = sectionEntries.findIndex(([name]) => name === saved);
+        if (idx >= 0) activeTabIdx = idx;
+      }
+    } catch {
+      // ignore
+    }
+
+    const updateTabCount = (tab: HTMLElement, sectionCats: string[]): void => {
+      const enabled = sectionCats.filter((c) => !this.disabledCategories.has(c)).length;
+      const badge = tab.querySelector('.cmdp-tab-count');
+      if (badge) badge.textContent = `${enabled}/${sectionCats.length}`;
+    };
+
+    sectionEntries.forEach(([sectionName, categories], idx) => {
+      const sectionCats = [...categories.keys()];
+
+      // Tab button
+      const tab = document.createElement('div');
+      tab.className = 'cmdp-tab';
+      if (idx === activeTabIdx) tab.classList.add('cmdp-tab-active');
+      tab.dataset.section = sectionName;
+
+      const tabText = document.createElement('span');
+      tabText.textContent = sectionName;
+      tab.appendChild(tabText);
+
+      const tabCount = document.createElement('span');
+      tabCount.className = 'cmdp-tab-count';
+      const enabled = sectionCats.filter((c) => !this.disabledCategories.has(c)).length;
+      tabCount.textContent = `${enabled}/${sectionCats.length}`;
+      tab.appendChild(tabCount);
+
+      tabs.push(tab);
+      tabBar.appendChild(tab);
+
+      // Panel content
+      const panel = document.createElement('div');
+      panel.className = 'cmdp-tab-content';
+      if (idx !== activeTabIdx) panel.style.display = 'none';
+
+      for (const cat of sectionCats) {
+        const pill = document.createElement('div');
+        pill.className = 'cmdp-category-pill';
+        pill.dataset.category = cat;
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'cmdp-category-checkbox';
+        checkbox.checked = !this.disabledCategories.has(cat);
+
+        const text = document.createElement('span');
+        text.textContent = CATEGORY_SHORT_LABELS[cat] ?? cat;
+
+        const jumpBtn = document.createElement('button');
+        jumpBtn.type = 'button';
+        jumpBtn.className = 'cmdp-category-jump';
+        jumpBtn.title = 'Jump to ' + (CATEGORY_SHORT_LABELS[cat] ?? cat);
+
+        const soloBtn = document.createElement('button');
+        soloBtn.type = 'button';
+        soloBtn.className = 'cmdp-category-solo';
+        soloBtn.title =
+          'Solo — show only ' + (CATEGORY_SHORT_LABELS[cat] ?? cat) + '. Click again to unsolo.';
+
+        pill.addEventListener('click', (e) => {
+          if (jumpBtn.contains(e.target as Node)) return;
+          if (soloBtn.contains(e.target as Node)) return;
+          checkbox.checked = !checkbox.checked;
+          if (checkbox.checked) {
+            this.disabledCategories.delete(cat);
+          } else {
+            this.disabledCategories.add(cat);
+          }
+          saveDisabledCategories(this.disabledCategories);
+          this.refreshResults(search.value);
+          this.syncCategoryCheckboxes(categoryFilters);
+        });
+
+        jumpBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (this.disabledCategories.has(cat)) {
+            this.disabledCategories.delete(cat);
+            checkbox.checked = true;
+            saveDisabledCategories(this.disabledCategories);
+            this.refreshResults(search.value);
+          }
+          setTimeout(() => {
+            if (!this.resultsEl) return;
+            const anchor = this.resultsEl.querySelector<HTMLElement>(
+              `.cmdp-category-anchor[data-category="${CSS.escape(cat)}"]`
+            );
+            if (anchor) {
+              const sectionHeader = anchor.previousElementSibling?.classList.contains(
+                'cmdp-section'
+              )
+                ? (anchor.previousElementSibling as HTMLElement)
+                : this.resultsEl.querySelector<HTMLElement>('.cmdp-section');
+              const stickyOffset = sectionHeader?.offsetHeight ?? 0;
+              this.resultsEl.scrollTop = anchor.offsetTop - stickyOffset;
+            }
+            const header = this.resultsEl.querySelector<HTMLElement>(
+              `.cmdp-category[data-category="${CSS.escape(cat)}"]`
+            );
+            if (header) {
+              header.classList.remove('cmdp-flash');
+              void header.offsetWidth;
+              header.classList.add('cmdp-flash');
+              let sibling = header.nextElementSibling;
+              while (
+                sibling &&
+                !sibling.classList.contains('cmdp-category') &&
+                !sibling.classList.contains('cmdp-category-anchor') &&
+                !sibling.classList.contains('cmdp-section')
+              ) {
+                if (sibling.classList.contains('cmdp-item')) {
+                  sibling.classList.remove('cmdp-flash');
+                  void (sibling as HTMLElement).offsetWidth;
+                  sibling.classList.add('cmdp-flash');
+                }
+                sibling = sibling.nextElementSibling;
+              }
+            }
+          }, 0);
+        });
+
+        soloBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.toggleSolo(cat);
+        });
+
+        const countSpan = document.createElement('span');
+        countSpan.className = 'cmdp-pill-count';
+        this.categoryPillCounts.set(cat, countSpan);
+
+        pill.appendChild(jumpBtn);
+        pill.appendChild(checkbox);
+        pill.appendChild(text);
+        pill.appendChild(countSpan);
+        pill.appendChild(soloBtn);
+        panel.appendChild(pill);
+      }
+
+      panels.push(panel);
+      tabPanel.appendChild(panel);
+
+      // Tab click: switch active tab
+      tab.addEventListener('click', () => {
+        tabs.forEach((t) => t.classList.remove('cmdp-tab-active'));
+        panels.forEach((p) => (p.style.display = 'none'));
+        tab.classList.add('cmdp-tab-active');
+        panel.style.display = '';
+        try {
+          localStorage.setItem(EXPANDED_SECTIONS_STORAGE_KEY, sectionName);
+        } catch {
+          // ignore
+        }
+      });
+    });
+
+    const resetBtn = document.createElement('button');
+    resetBtn.type = 'button';
+    resetBtn.className = 'cmdp-reset-settings';
+    resetBtn.textContent = 'reset';
+    resetBtn.title = 'Reset category filters to defaults';
+    resetBtn.addEventListener('click', () => {
+      this.disabledCategories.clear();
+      saveDisabledCategories(this.disabledCategories);
+      this.syncCategoryCheckboxes(categoryFilters);
+      this.refreshResults(search.value);
+    });
+    tabBar.appendChild(resetBtn);
+
+    categoryFilters.appendChild(tabBar);
+    categoryFilters.appendChild(tabPanel);
+
+    this.categoryFiltersEl = categoryFilters;
+    this.allCategories = allCategories;
+    this.updateTabCounts = () => {
+      sectionEntries.forEach(([, categories], idx) => {
+        updateTabCount(tabs[idx], [...categories.keys()]);
+      });
+    };
+    palette.appendChild(categoryFilters);
 
     const results = document.createElement('div');
     results.className = 'cmdp-results';
@@ -184,11 +536,13 @@ export class CommandPalette {
     const footer = document.createElement('div');
     footer.className = 'cmdp-footer';
     const hints = document.createElement('div');
-    hints.className = 'cmdp-footer-hints';
+    hints.className = 'cmdp-footer-hints cmdp-help-text';
     hints.appendChild(makeFooterHint('\u2191\u2193', 'navigate'));
     hints.appendChild(makeFooterHint('\u21b5', 'execute'));
     hints.appendChild(makeFooterHint('esc', 'close'));
     footer.appendChild(hints);
+    const footerLinks = document.createElement('div');
+    footerLinks.className = 'cmdp-footer-links';
     if (this.onOpenReference) {
       const refLink = document.createElement('button');
       refLink.type = 'button';
@@ -202,8 +556,17 @@ export class CommandPalette {
         this.close();
         cb?.();
       });
-      footer.appendChild(refLink);
+      footerLinks.appendChild(refLink);
     }
+    const homeLink = document.createElement('a');
+    homeLink.className = 'cmdp-footer-reference';
+    homeLink.href = 'https://github.com/exwm/yt_clipper';
+    homeLink.target = '_blank';
+    homeLink.rel = 'noopener noreferrer';
+    homeLink.title = 'yt_clipper on GitHub';
+    homeLink.textContent = 'GitHub';
+    footerLinks.appendChild(homeLink);
+    footer.appendChild(footerLinks);
     palette.appendChild(footer);
 
     overlay.appendChild(palette);
@@ -213,26 +576,22 @@ export class CommandPalette {
     this.searchInput = search;
     this.resultsEl = results;
     this.essentialFilterEl = essentialCheckbox;
+    this.executableFilterEl = executableCheckbox;
+    this.counterEl = counter;
 
     this.lastSearchesContainerEl = lastSearches;
     this.renderLastSearches();
   }
 
-  private recordSearch(value: string): void {
-    const trimmed = value.trim();
-    if (trimmed === '') {
-      this.renderLastSearches();
-      return;
-    }
+  private saveSearch(query: string): void {
     if (this.maxLastSearches === 0) return;
-    const existingIdx = this.lastSearches.indexOf(trimmed);
+    const existingIdx = this.lastSearches.indexOf(query);
     if (existingIdx >= 0) this.lastSearches.splice(existingIdx, 1);
-    this.lastSearches.unshift(trimmed);
+    this.lastSearches.unshift(query);
     if (this.lastSearches.length > this.maxLastSearches) {
       this.lastSearches.length = this.maxLastSearches;
     }
     saveLastSearches(this.lastSearches);
-    this.renderLastSearches();
   }
 
   private renderLastSearches(): void {
@@ -263,6 +622,7 @@ export class CommandPalette {
   private refreshResults(query: string): void {
     if (!this.resultsEl) return;
     const essentialOnly = !!this.essentialFilterEl?.checked;
+    const executableOnly = !!this.executableFilterEl?.checked;
     const trimmed = query.trim();
     this.currentQuery = trimmed;
 
@@ -281,6 +641,10 @@ export class CommandPalette {
       candidates = candidates.filter((r) => r.shortcut.essential);
     }
 
+    if (executableOnly) {
+      candidates = candidates.filter((r) => r.shortcut.executable && !!r.shortcut.handler);
+    }
+
     this.visibleEntries = [];
     this.executableIndexes = [];
 
@@ -297,6 +661,11 @@ export class CommandPalette {
     this.highlightIndex = this.pickInitialHighlight();
     this.paintResults();
     this.renderLastSearches();
+    const realItemCount = candidates.filter(
+      (r) => !this.disabledCategories.has(r.shortcut.category)
+    ).length;
+    this.updateCounter(realItemCount);
+    this.updateCategoryPillCounts(candidates);
   }
 
   private buildRecentEntries(essentialOnly: boolean): void {
@@ -347,11 +716,14 @@ export class CommandPalette {
       const sectionCategories = categoriesBySection.get(section);
       if (sectionCategories == null) throw new Error(`Missing section: ${section}`);
       for (const category of sectionCategories) {
-        this.visibleEntries.push({ kind: 'category', label: category });
-        const bucket = bucketByKey.get(section + '\u0000' + category);
-        if (bucket == null) throw new Error(`Missing bucket: ${section}/${category}`);
-        for (const result of bucket) {
-          this.pushItem(result);
+        const disabled = this.disabledCategories.has(category);
+        this.visibleEntries.push({ kind: 'category', label: category, disabled });
+        if (!disabled) {
+          const bucket = bucketByKey.get(section + '\u0000' + category);
+          if (bucket == null) throw new Error(`Missing bucket: ${section}/${category}`);
+          for (const result of bucket) {
+            this.pushItem(result);
+          }
         }
       }
     }
@@ -381,9 +753,12 @@ export class CommandPalette {
     for (const [section, categories] of bySection) {
       this.visibleEntries.push({ kind: 'section', label: section });
       for (const [category, items] of categories) {
-        this.visibleEntries.push({ kind: 'category', label: category });
-        for (const result of items) {
-          this.pushItem(result);
+        const disabled = this.disabledCategories.has(category);
+        this.visibleEntries.push({ kind: 'category', label: category, disabled });
+        if (!disabled) {
+          for (const result of items) {
+            this.pushItem(result);
+          }
         }
       }
     }
@@ -416,29 +791,116 @@ export class CommandPalette {
 
   private paintResults(): void {
     if (!this.resultsEl) return;
+    this.itemNumber = 0;
     while (this.resultsEl.firstChild) this.resultsEl.removeChild(this.resultsEl.firstChild);
 
     if (this.visibleEntries.length === 0) {
       const empty = document.createElement('div');
-      empty.className = 'cmdp-empty';
+      empty.className = 'cmdp-empty cmdp-help-text';
       empty.textContent = 'No shortcuts match your search.';
       this.resultsEl.appendChild(empty);
       return;
     }
 
+    // Pre-compute item counts per section and category for display
+    const sectionCounts = new Map<number, number>();
+    const categoryCounts = new Map<number, number>();
+    let lastSectionIdx = -1;
+    let lastCategoryIdx = -1;
+    for (let i = 0; i < this.visibleEntries.length; i++) {
+      const e = this.visibleEntries[i];
+      if (e.kind === 'section') lastSectionIdx = i;
+      else if (e.kind === 'category') lastCategoryIdx = i;
+      else if (e.kind === 'item') {
+        if (lastSectionIdx >= 0)
+          sectionCounts.set(lastSectionIdx, (sectionCounts.get(lastSectionIdx) ?? 0) + 1);
+        if (lastCategoryIdx >= 0)
+          categoryCounts.set(lastCategoryIdx, (categoryCounts.get(lastCategoryIdx) ?? 0) + 1);
+      }
+    }
+
+    // Pre-compute total counts per section and category from full registry
+    const totalBySection = new Map<string, number>();
+    const totalByCategory = new Map<string, number>();
+    for (const def of this.registry.getAll()) {
+      totalBySection.set(def.section, (totalBySection.get(def.section) ?? 0) + 1);
+      totalByCategory.set(def.category, (totalByCategory.get(def.category) ?? 0) + 1);
+    }
+
     const resultsEl = this.resultsEl;
+    let sectionNumber = 0;
+    let categoryNumber = 0;
+
     this.visibleEntries.forEach((entry, idx) => {
       if (entry.kind === 'section') {
+        categoryNumber = 0;
         const el = document.createElement('div');
         el.className = 'cmdp-section';
-        el.textContent = entry.label;
+        const isRealSection = totalBySection.has(entry.label);
+        if (isRealSection) {
+          sectionNumber++;
+          this.itemNumber = 0;
+          const filtered = sectionCounts.get(idx) ?? 0;
+          const total = totalBySection.get(entry.label) ?? 0;
+          const countStr = filtered === total ? String(total) : `${filtered}/${total}`;
+          el.textContent = `${toRoman(sectionNumber)}. ${entry.label}`;
+          const countEl = document.createElement('span');
+          countEl.className = 'cmdp-header-count';
+          countEl.textContent = countStr;
+          el.appendChild(countEl);
+        } else {
+          el.textContent = entry.label;
+        }
         resultsEl.appendChild(el);
         return;
       }
       if (entry.kind === 'category') {
+        categoryNumber++;
+        const anchor = document.createElement('div');
+        anchor.className = 'cmdp-category-anchor';
+        anchor.dataset.category = entry.label;
+        resultsEl.appendChild(anchor);
         const el = document.createElement('div');
         el.className = 'cmdp-category';
-        el.textContent = entry.label;
+        el.dataset.category = entry.label;
+        if (entry.disabled) el.classList.add('cmdp-category-disabled');
+        const filtered = categoryCounts.get(idx) ?? 0;
+        const total = totalByCategory.get(entry.label) ?? 0;
+        const countStr = filtered === total ? String(total) : `${filtered}/${total}`;
+        el.textContent = `${categoryNumber}. ${entry.label}`;
+        const countEl = document.createElement('span');
+        countEl.className = 'cmdp-header-count';
+        countEl.textContent = entry.disabled ? `hidden \u2022 ${total}` : countStr;
+        el.appendChild(countEl);
+        const catToggle = document.createElement('input');
+        catToggle.type = 'checkbox';
+        catToggle.className = 'cmdp-category-header-toggle';
+        catToggle.checked = !entry.disabled;
+        catToggle.title = 'Toggle category visibility';
+        catToggle.addEventListener('change', (e) => {
+          e.stopPropagation();
+          if (catToggle.checked) {
+            this.disabledCategories.delete(entry.label);
+          } else {
+            this.disabledCategories.add(entry.label);
+          }
+          saveDisabledCategories(this.disabledCategories);
+          if (this.categoryFiltersEl) this.syncCategoryCheckboxes(this.categoryFiltersEl);
+          this.refreshResults(this.searchInput?.value ?? '');
+        });
+        el.appendChild(catToggle);
+        const catSoloBtn = document.createElement('button');
+        catSoloBtn.type = 'button';
+        catSoloBtn.className = 'cmdp-category-solo cmdp-category-header-solo';
+        catSoloBtn.title =
+          'Solo — show only ' +
+          (CATEGORY_SHORT_LABELS[entry.label] ?? entry.label) +
+          '. Click again to unsolo.';
+        catSoloBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.toggleSolo(entry.label);
+        });
+        el.appendChild(catSoloBtn);
         resultsEl.appendChild(el);
         return;
       }
@@ -450,6 +912,12 @@ export class CommandPalette {
       if (entry.shortcut.essential) item.classList.add('cmdp-essential');
       if (entry.matchKind === 'exactKey') item.classList.add('cmdp-key-match-exact');
       else if (entry.matchKind === 'partialKey') item.classList.add('cmdp-key-match-partial');
+
+      this.itemNumber++;
+      const num = document.createElement('span');
+      num.className = 'cmdp-item-num';
+      num.textContent = String(this.itemNumber);
+      item.appendChild(num);
 
       const desc = document.createElement('div');
       desc.className = 'cmdp-item-desc';
@@ -566,6 +1034,94 @@ export class CommandPalette {
     }
   }
 
+  private toggleSolo(category: string): void {
+    const isSoloed =
+      !this.disabledCategories.has(category) &&
+      this.disabledCategories.size === this.allCategories.length - 1;
+    this.disabledCategories.clear();
+    if (!isSoloed) {
+      for (const other of this.allCategories) {
+        if (other !== category) this.disabledCategories.add(other);
+      }
+    }
+    saveDisabledCategories(this.disabledCategories);
+    if (this.categoryFiltersEl) this.syncCategoryCheckboxes(this.categoryFiltersEl);
+    this.refreshResults(this.searchInput?.value ?? '');
+
+    if (this.resultsEl) {
+      if (!isSoloed) {
+        const anchor = this.resultsEl.querySelector<HTMLElement>(
+          `.cmdp-category-anchor[data-category="${CSS.escape(category)}"]`
+        );
+        if (anchor) {
+          const sectionHeader = anchor.previousElementSibling?.classList.contains('cmdp-section')
+            ? (anchor.previousElementSibling as HTMLElement)
+            : this.resultsEl.querySelector<HTMLElement>('.cmdp-section');
+          const stickyOffset = sectionHeader?.offsetHeight ?? 0;
+          this.resultsEl.scrollTop = anchor.offsetTop - stickyOffset;
+        }
+      } else {
+        this.resultsEl.scrollTop = 0;
+      }
+    }
+
+    if (!isSoloed && this.resultsEl) {
+      let pastFirstCategory = false;
+      let inEnabledCategory = false;
+      for (const el of this.resultsEl.children) {
+        if (el.classList.contains('cmdp-category')) {
+          pastFirstCategory = true;
+          inEnabledCategory = !el.classList.contains('cmdp-category-disabled');
+        }
+        if (
+          pastFirstCategory &&
+          inEnabledCategory &&
+          (el.classList.contains('cmdp-category') || el.classList.contains('cmdp-item'))
+        ) {
+          el.classList.remove('cmdp-flash');
+          void (el as HTMLElement).offsetWidth;
+          el.classList.add('cmdp-flash');
+        }
+      }
+    }
+  }
+
+  private syncCategoryCheckboxes(container: HTMLElement): void {
+    container.querySelectorAll<HTMLElement>('.cmdp-category-pill').forEach((pill) => {
+      const cat = pill.dataset.category ?? '';
+      const cb = pill.querySelector<HTMLInputElement>('.cmdp-category-checkbox');
+      if (cb) cb.checked = !this.disabledCategories.has(cat);
+    });
+    if (this.updateTabCounts) this.updateTabCounts();
+  }
+
+  private updateCounter(filtered: number): void {
+    if (!this.counterEl) return;
+    const total = this.registry.getAll().length;
+    this.counterEl.textContent = filtered === total ? String(total) : `${filtered}/${total}`;
+  }
+
+  private updateCategoryPillCounts(candidates: SearchResult[]): void {
+    if (this.categoryPillCounts.size === 0) return;
+
+    const filteredCounts = new Map<string, number>();
+    for (const c of candidates) {
+      const cat = c.shortcut.category;
+      filteredCounts.set(cat, (filteredCounts.get(cat) ?? 0) + 1);
+    }
+
+    const totalCounts = new Map<string, number>();
+    for (const def of this.registry.getAll()) {
+      totalCounts.set(def.category, (totalCounts.get(def.category) ?? 0) + 1);
+    }
+
+    for (const [cat, el] of this.categoryPillCounts) {
+      const filtered = filteredCounts.get(cat) ?? 0;
+      const total = totalCounts.get(cat) ?? 0;
+      el.textContent = filtered === total ? String(total) : `${filtered}/${total}`;
+    }
+  }
+
   private recordExecution(id: string): void {
     if (this.maxRecentCommands <= 0) return;
     const existingIdx = this.recentCommandIds.indexOf(id);
@@ -576,6 +1132,24 @@ export class CommandPalette {
     }
     saveRecentCommands(this.recentCommandIds);
   }
+}
+
+function toRoman(n: number): string {
+  const numerals: [number, string][] = [
+    [10, 'X'],
+    [9, 'IX'],
+    [5, 'V'],
+    [4, 'IV'],
+    [1, 'I'],
+  ];
+  let result = '';
+  for (const [value, symbol] of numerals) {
+    while (n >= value) {
+      result += symbol;
+      n -= value;
+    }
+  }
+  return result;
 }
 
 function ensureStyles(): void {
@@ -766,6 +1340,42 @@ function loadRecentCommands(max: number): string[] {
 function saveRecentCommands(ids: string[]): void {
   try {
     localStorage.setItem(RECENT_COMMANDS_STORAGE_KEY, JSON.stringify(ids));
+  } catch {
+    // storage disabled or quota exceeded; silently skip
+  }
+}
+
+function loadBooleanPref(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function saveBooleanPref(key: string, value: boolean): void {
+  try {
+    localStorage.setItem(key, value ? 'true' : 'false');
+  } catch {
+    // storage disabled or quota exceeded; silently skip
+  }
+}
+
+function loadDisabledCategories(): Set<string> {
+  try {
+    const raw = localStorage.getItem(DISABLED_CATEGORIES_STORAGE_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((v): v is string => typeof v === 'string' && v !== ''));
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDisabledCategories(categories: Set<string>): void {
+  try {
+    localStorage.setItem(DISABLED_CATEGORIES_STORAGE_KEY, JSON.stringify([...categories]));
   } catch {
     // storage disabled or quota exceeded; silently skip
   }

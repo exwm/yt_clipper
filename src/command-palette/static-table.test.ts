@@ -6,7 +6,7 @@ function makeDef(partial: Partial<ShortcutDefinition> & { id: string }): Shortcu
   return {
     description: partial.description ?? `desc-${partial.id}`,
     displayKey: partial.displayKey ?? '',
-    section: partial.section ?? 'Basic Features',
+    section: partial.section ?? 'Markup',
     category: partial.category ?? 'Marker Shortcuts',
     essential: partial.essential ?? false,
     binding: partial.binding ?? null,
@@ -75,13 +75,13 @@ describe('renderShortcutsTable', () => {
         id: 'a',
         description: 'Add marker',
         displayKey: 'A',
-        section: 'Basic Features',
+        section: 'Markup',
         category: 'Marker Shortcuts',
         essential: true,
       })
     );
     const html = renderShortcutsTable(reg);
-    expect(html).toContain('<h2>Basic Features</h2>');
+    expect(html).toContain('<h2>Markup</h2>');
     expect(html).toContain('<th colspan="2">Marker Shortcuts</th>');
     expect(html).toContain('<tr class="essential-row">');
     expect(html).toContain('<td>Add marker</td>');
@@ -112,13 +112,13 @@ describe('renderShortcutsTable', () => {
   test('groups by section then category in insertion order', () => {
     const reg = new ShortcutRegistry();
     reg.registerAll([
-      makeDef({ id: 'a', section: 'Basic Features', category: 'Marker Shortcuts' }),
-      makeDef({ id: 'b', section: 'Basic Features', category: 'Cropping Shortcuts' }),
-      makeDef({ id: 'c', section: 'Advanced Features', category: 'Chart Shortcuts' }),
+      makeDef({ id: 'a', section: 'Markup', category: 'Marker Shortcuts' }),
+      makeDef({ id: 'b', section: 'Markup', category: 'Cropping Shortcuts' }),
+      makeDef({ id: 'c', section: 'Dynamic Effects', category: 'Chart Shortcuts' }),
     ]);
     const html = renderShortcutsTable(reg);
-    const basicIdx = html.indexOf('<h2>Basic Features</h2>');
-    const advancedIdx = html.indexOf('<h2>Advanced Features</h2>');
+    const basicIdx = html.indexOf('<h2>Markup</h2>');
+    const advancedIdx = html.indexOf('<h2>Dynamic Effects</h2>');
     const markerIdx = html.indexOf('Marker Shortcuts');
     const cropIdx = html.indexOf('Cropping Shortcuts');
     const chartIdx = html.indexOf('Chart Shortcuts');
