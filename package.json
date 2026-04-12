@@ -46,6 +46,7 @@
     "lodash.isequal": "^4.5.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@parcel/transformer-typescript-tsc": "^2.16.4",
     "@types/chart.js": "^2.9.41",
     "@types/common-tags": "^1.8.4",
@@ -56,6 +57,7 @@
     "@types/jszip": "^3.4.1",
     "browserslist": "^4.28.1",
     "commit-and-tag-version": "12.4.4",
+    "eslint": "^10.2.0",
     "jest": "^30.2.0",
     "jest-environment-jsdom": "^30.3.0",
     "npm-run-all": "^4.1.5",
@@ -63,7 +65,8 @@
     "pre-commit": "^1.2.2",
     "prettier": "^3.3.3",
     "ts-jest": "^29.4.6",
-    "typescript": "^5.6.2",
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.58.1",
     "yarn-audit-fix": "^10.1.1"
   },
   "alias": {

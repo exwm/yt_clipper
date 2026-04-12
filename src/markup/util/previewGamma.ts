@@ -4,11 +4,11 @@ export function setPrevGammaVal(gammaVal: number) {
   prevGammaVal = gammaVal;
 }
 
-export type WebGLGammaRenderer = {
+export interface WebGLGammaRenderer {
   outputCanvas: HTMLCanvasElement;
   render: (sourceCanvas: HTMLCanvasElement, gamma: number) => void;
   destroy: () => void;
-};
+}
 
 const VERTEX_SHADER_SOURCE = `#version 300 es
 precision highp float;
@@ -110,7 +110,7 @@ export function createWebGLGammaRenderer(sourceCanvas: HTMLCanvasElement): WebGL
   outputCanvas.width = sourceCanvas.width;
   outputCanvas.height = sourceCanvas.height;
 
-  const gl = outputCanvas.getContext('webgl2', {
+  const gl: WebGL2RenderingContext | null = outputCanvas.getContext('webgl2', {
     // Required so the DOM compositor can read the finished frame;
     // without this the buffer may be cleared after compositing.
     preserveDrawingBuffer: true,
@@ -190,6 +190,8 @@ export function createWebGLGammaRenderer(sourceCanvas: HTMLCanvasElement): WebGL
     outputCanvas.width = sourceCanvas.width;
     outputCanvas.height = sourceCanvas.height;
 
+    if (!gl) throw new Error('WebGL2RenderingContext is null');
+
     gl.viewport(0, 0, outputCanvas.width, outputCanvas.height);
     gl.useProgram(program);
     gl.bindVertexArray(vao);
@@ -213,6 +215,8 @@ export function createWebGLGammaRenderer(sourceCanvas: HTMLCanvasElement): WebGL
   }
 
   function destroy(): void {
+    if (!gl) throw new Error('WebGL2RenderingContext is null');
+
     gl.deleteTexture(texture);
     gl.deleteBuffer(buffer);
     gl.deleteVertexArray(vao);

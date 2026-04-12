@@ -1,9 +1,8 @@
 import { ChartConfiguration, ChartFontOptions, ChartOptions } from 'chart.js';
 import { createDraft } from 'immer';
-import { CropPoint } from '../../@types/yt_clipper';
 import { getMarkerPairHistory, saveMarkerPairHistory } from '../../util/undoredo';
 import { seekToSafe, timeRounder } from '../../util/util';
-import { triggerCropChartUpdates } from '../../yt_clipper';
+import { triggerCropChartUpdates } from '../../charts';
 import { appState } from '../../appState';
 import { getInputUpdater, grey, lightgrey, medgrey, roundX, roundY, sortX } from './chartutil';
 import { cropChartMode, setCurrentCropPoint } from './cropchart/cropChartSpec';
@@ -19,8 +18,8 @@ export const scatterChartDefaults: ChartOptions & ChartFontOptions = {
 };
 
 export function getScatterPointColor(context) {
-  var index = context.dataIndex;
-  var value = context.dataset.data[index];
+  const index = context.dataIndex;
+  const value = context.dataset.data[index];
   return value.y <= 1
     ? `rgba(255, ${100 * value.y}, 100, 0.9)`
     : `rgba(${130 - 90 * (value.y - 1)}, 100, 245, 0.9)`;
@@ -54,7 +53,7 @@ function alignDataLabel(context) {
   }
 }
 
-export const addSpeedPoint = function (time, speed) {
+export const addSpeedPoint = function (this: any, time, speed) {
   // console.log(element, dataAtClick);
 
   if (time && speed) {
@@ -87,7 +86,7 @@ export const addSpeedPoint = function (time, speed) {
   }
 };
 
-export const addCropPoint = function (time: number) {
+export const addCropPoint = function (this: any, time: number) {
   // console.log(element, dataAtClick);
 
   if (time) {
@@ -128,7 +127,7 @@ export const addCropPoint = function (time: number) {
 export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartConfiguration {
   const updateInput = getInputUpdater(inputId);
 
-  const onDragStart = function (e, chartInstance, element, value) {
+  const onDragStart = function (e, chartInstance, _element, value) {
     // console.log(arguments);
     if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
       chartInstance.options.plugins.zoom.pan.enabled = false;
@@ -140,7 +139,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
     }
   };
 
-  const onDrag = function (e, chartInstance, datasetIndex, index, fromValue, toValue) {
+  const onDrag = function (e, chartInstance, _datasetIndex, _index, fromValue, toValue) {
     // console.log(datasetIndex, index, fromValue, toValue);
     if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
       const shouldDrag = {
@@ -179,14 +178,14 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
     }
   };
 
-  const onDragEnd = function (e, chartInstance, datasetIndex, index, value) {
+  const onDragEnd = function (e, chartInstance, _datasetIndex, index, value) {
     // console.log(datasetIndex, index, value);
     if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
       const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
       const draft = createDraft(getMarkerPairHistory(markerPair));
       const draftMap = chartType === 'crop' ? draft.cropMap : draft.speedMap;
 
-      let currentCropPointXPreSort =
+      const currentCropPointXPreSort =
         chartType === 'crop' ? draftMap[appState.currentCropPointIndex].x : null;
 
       draftMap.sort(sortX);
@@ -198,7 +197,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
       if (chartType === 'crop') {
         const newCurrentCropPointIndex = draftMap
           .map((cropPoint) => cropPoint.x)
-          .indexOf(currentCropPointXPreSort);
+          .indexOf(currentCropPointXPreSort!);
         setCurrentCropPoint(chartInstance, newCurrentCropPointIndex);
       }
       chartInstance.options.plugins.zoom.pan.enabled = true;
@@ -209,7 +208,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
     }
   };
 
-  const onClick = function (event: MouseEvent, dataAtClick) {
+  const onClick = function (this: any, event: MouseEvent, dataAtClick) {
     event.stopImmediatePropagation();
     // add chart points on shift+left-click
     if (
@@ -238,10 +237,9 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
     ) {
       const datum = dataAtClick[0];
       if (datum) {
-        const datasetIndex = datum['_datasetIndex'];
-        const index = datum['_index'];
-        let scatterChartMinBound = this.options.scales.xAxes[0].ticks.min;
-        let scatterChartMaxBound = this.options.scales.xAxes[0].ticks.max;
+        const index = datum._index;
+        const scatterChartMinBound = this.options.scales.xAxes[0].ticks.min;
+        const scatterChartMaxBound = this.options.scales.xAxes[0].ticks.max;
 
         const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
         const initialState = getMarkerPairHistory(markerPair);
@@ -289,8 +287,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
       if (chartType === 'crop') {
         const datum = dataAtClick[0];
         if (datum) {
-          const datasetIndex = datum['_datasetIndex'];
-          const index = datum['_index'];
+          const index = datum._index;
 
           const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
           const initialState = getMarkerPairHistory(markerPair);
@@ -313,8 +310,8 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
     }
   };
 
-  function onHover(e: MouseEvent, chartElements) {
-    e.target.style.cursor = chartElements[0] ? 'grab' : 'default';
+  function onHover(this: any, e: MouseEvent, chartElements) {
+    (e.target as HTMLElement).style.cursor = chartElements[0] ? 'grab' : 'default';
     if (chartType === 'crop' && !e.shiftKey && chartElements.length === 1) {
       let mode: cropChartMode;
       if (e.ctrlKey && !e.altKey) {
@@ -326,7 +323,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
       }
       const datum = chartElements[0];
       if (datum) {
-        const index = datum['_index'];
+        const index = datum._index;
         setCurrentCropPoint(this, index, mode);
         triggerCropChartUpdates();
       }

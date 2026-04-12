@@ -50,7 +50,7 @@ export function toggleGammaPreview() {
     requestAnimationFrame(gammaPreviewHandler);
     flashMessage('Gamma preview enabled', 'green');
   } else {
-    appState.video.style.filter = null;
+    appState.video.style.filter = null as any;
     appState.isGammaPreviewOn = false;
     flashMessage('Gamma preview disabled', 'red');
   }
@@ -61,12 +61,12 @@ function gammaPreviewHandler() {
   const shortestActiveMarkerPair = getShortestActiveMarkerPair();
 
   const markerPairGamma =
-    (shortestActiveMarkerPair && shortestActiveMarkerPair.overrides.gamma) ||
+    (shortestActiveMarkerPair?.overrides.gamma) ||
     appState.settings.gamma ||
     1;
 
   if (markerPairGamma == 1) {
-    if (appState.video.style.filter) appState.video.style.filter = null;
+    if (appState.video.style.filter) appState.video.style.filter = null as any;
     setPrevGammaVal(1);
   } else if (prevGammaVal !== markerPairGamma) {
     // console.log(`Updating gamma from ${prevGammaVal} to ${markerPairGamma}`);
@@ -113,7 +113,7 @@ function fadeLoopPreviewHandler() {
     if (currentTimeP == null) {
       appState.video.style.opacity = '1';
     } else {
-      let currentTimeEased = Math.max(0.1, easeCubicInOut(currentTimeP));
+      const currentTimeEased = Math.max(0.1, easeCubicInOut(currentTimeP));
       appState.video.style.opacity = currentTimeEased.toString();
     }
   } else {

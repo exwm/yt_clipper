@@ -34,7 +34,7 @@ describe('ShortcutRegistry', () => {
   test('register throws on duplicate id', () => {
     const reg = new ShortcutRegistry();
     reg.register(makeDef({ id: 'a' }));
-    expect(() => reg.register(makeDef({ id: 'a' }))).toThrow(/duplicate/);
+    expect(() => { reg.register(makeDef({ id: 'a' })); }).toThrow(/duplicate/);
   });
 
   test('unregister removes shortcut by id', () => {
@@ -48,7 +48,7 @@ describe('ShortcutRegistry', () => {
   test('unregister is a no-op for unknown id', () => {
     const reg = new ShortcutRegistry();
     reg.register(makeDef({ id: 'a' }));
-    expect(() => reg.unregister('missing')).not.toThrow();
+    expect(() => { reg.unregister('missing'); }).not.toThrow();
     expect(reg.getAll()).toHaveLength(1);
   });
 

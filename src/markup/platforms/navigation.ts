@@ -1,3 +1,7 @@
+import { appState } from '../appState';
+import { platform } from '../yt_clipper';
+import { VideoPlatforms } from './platforms';
+
 export interface PlatformNavObserver {
   start(onNavigate: () => void): void;
   stop(): void;
@@ -7,7 +11,7 @@ export function createYouTubeNavObserver(): PlatformNavObserver {
   let handler: EventListener | null = null;
   return {
     start(onNavigate) {
-      handler = () => onNavigate();
+      handler = () => { onNavigate(); };
       document.addEventListener('yt-navigate-finish', handler);
     },
     stop() {
@@ -69,13 +73,46 @@ function installHistoryApiHook() {
   };
 
   history.pushState = function (...args) {
-    const ret = origPushState.apply(this, args as Parameters<typeof origPushState>);
+    const ret = origPushState.apply(this, args);
     dispatchIfChanged();
     return ret;
   };
   history.replaceState = function (...args) {
-    const ret = origReplaceState.apply(this, args as Parameters<typeof origReplaceState>);
+    const ret = origReplaceState.apply(this, args);
     dispatchIfChanged();
     return ret;
   };
 }
+export let isStaleVideo = false;
+export function setIsStaleVideo(value: boolean) { isStaleVideo = value; }
+export function getCurrentPageVideoID(): string | null {
+  try {
+    if (platform === VideoPlatforms.youtube) {
+      const data = (appState.player as any)?.getVideoData?.();
+      return data?.video_id ?? null;
+    } else if (platform === VideoPlatforms.vlive) {
+      const preloadedState = (window as any).unsafeWindow?.__PRELOADED_STATE__;
+      const videoParams = preloadedState?.postDetail?.post?.officialVideo;
+      let id = videoParams?.videoSeq;
+      if (id == null && location.pathname.includes('video')) {
+        id = location.pathname.split('/')[2];
+      }
+      return id ?? null;
+    } else if (platform === VideoPlatforms.naver_tv) {
+      return location.pathname.split('/')[2] ?? null;
+    } else if (platform === VideoPlatforms.weverse) {
+      if (location.pathname.includes('media') || location.pathname.includes('live')) {
+        return location.pathname.split('/')[3] ?? null;
+      }
+      return null;
+    } else if (platform === VideoPlatforms.yt_clipper) {
+      return 'unknown';
+    } else if (platform === VideoPlatforms.afreecatv) {
+      return location.pathname.split('/')[2] ?? null;
+    }
+  } catch (e) {
+    console.error('yt_clipper: failed to read current page video id', e);
+  }
+  return null;
+}
+

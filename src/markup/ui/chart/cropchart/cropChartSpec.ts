@@ -22,7 +22,7 @@ export function setCurrentCropPoint(
   cropPointIndex: number,
   mode?: cropChartMode
 ) {
-  const maxIndex = cropChart ? cropChart.data.datasets[0].data.length - 1 : 1;
+  const maxIndex = cropChart ? cropChart.data.datasets![0].data!.length - 1 : 1;
   const newCropPointIndex = clampNumber(cropPointIndex, 0, maxIndex);
   const cropPointIndexChanged = appState.currentCropPointIndex !== newCropPointIndex;
   appState.currentCropPointIndex = newCropPointIndex;
@@ -58,7 +58,7 @@ export function setCurrentCropChartSection(
   cropChart: Chart | null,
   [left, right]: [number, number]
 ) {
-  const maxIndex = cropChart ? cropChart.data.datasets[0].data.length - 1 : 1;
+  const maxIndex = cropChart ? cropChart.data.datasets![0].data!.length - 1 : 1;
 
   if (left <= 0) {
     currentCropChartSection = [0, 1];
@@ -72,8 +72,8 @@ export function setCurrentCropChartSection(
 }
 
 export const updateCurrentCropPoint = function (cropChart: Chart, cropString: string) {
-  const cropChartData = cropChart.data.datasets[0].data;
-  const cropPoint = cropChartData[appState.currentCropPointIndex] as CropPoint;
+  const cropChartData = cropChart.data.datasets![0].data;
+  const cropPoint = cropChartData![appState.currentCropPointIndex] as CropPoint;
   cropPoint.crop = cropString;
   cropChart.update();
 };
@@ -145,7 +145,7 @@ const cropChartConfig: ChartConfiguration = {
         backgroundOverlayColor: getCropPointBackgroundOverlayColor,
         backgroundOverlayMode: 'multiply',
         pointHitRadius: 3,
-      },
+      } as any,
     ],
   },
   options: {

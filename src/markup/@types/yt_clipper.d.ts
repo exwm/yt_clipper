@@ -129,11 +129,11 @@ interface CropPoint {
 }
 
 interface ChartInput {
-  chart: Chart;
+  chart: Chart | null;
   type: 'speed' | 'crop';
-  chartContainer: HTMLDivElement;
+  chartContainer: HTMLDivElement | null;
   chartContainerId: string;
-  chartContainerHook: HTMLElement;
+  chartContainerHook: HTMLElement | null;
   chartContainerHookPosition: 'beforebegin' | 'afterbegin' | 'beforeend' | 'afterend';
   chartContainerStyle: string;
   chartCanvasHTML: string;

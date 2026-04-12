@@ -4,7 +4,7 @@ import JSZip from 'jszip';
 import { appState } from './appState';
 import { flashMessage } from './util/util';
 import { getClipperInputData, loadClipperInputJSON, deleteMarkersDataCommands } from './save-load';
-import { injectProgressBar } from './yt_clipper';
+import { injectProgressBar } from './util/util';
 
 let autoSaveIntervalId;
 const localStorageKeyPrefix = 'yt_clipper';
@@ -87,7 +87,7 @@ export function clearYTClipperLocalStorage() {
     `);
 
   if (clearAll) {
-    entries.map((x) => localStorage.removeItem(x));
+    entries.map((x) => { localStorage.removeItem(x); });
     flashMessage(`Cleared ${nEntries} markers data files.`, 'olive');
   }
 }
@@ -111,9 +111,9 @@ export function downloadAutoSavedMarkersData() {
   const markersZip = zip.folder(markersZipFolderName);
 
   entries.forEach((entry) => {
-    markersZip.file(
+    markersZip!.file(
       entry.replace(localStorageKeyPrefix, '') + '.json',
-      localStorage.getItem(entry),
+      localStorage.getItem(entry)!,
       { binary: false }
     );
   });
@@ -123,7 +123,7 @@ export function downloadAutoSavedMarkersData() {
   zip
     .generateAsync({ type: 'blob' }, (metadata) => {
       const percent = metadata.percent.toFixed(2) + '%';
-      progressSpan.textContent = `Markers Data Zipping Progress: ${percent}`;
+      progressSpan!.textContent = `Markers Data Zipping Progress: ${percent}`;
     })
     .then((blob) => {
       saveAs(blob, markersZipFolderName + '.zip');

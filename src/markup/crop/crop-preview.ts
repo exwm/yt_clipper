@@ -1,14 +1,16 @@
 import { html } from 'common-tags';
-import { deleteElement, htmlToElement } from '../util/util';
+import { deleteElement, flashMessage, htmlToElement } from '../util/util';
 import { appState } from '../appState';
 import { createWebGLGammaRenderer, prevGammaVal, WebGLGammaRenderer } from '../util/previewGamma';
 import { FloatingVideoPreviewHandle, mountFloatingVideoPreview } from './video-preview-element';
+import { getCropPreviewMouseTimeSetter, getDynamicCropComponents } from '../charts';
+import { getRelevantCropString, getVideoScaledCropComponentsFromCropString, getVideoScaledCropComponents } from '../crop-utils';
 
-var cropPreviewCanvas: HTMLCanvasElement = null;
-var gammaRenderer: WebGLGammaRenderer = null;
-var floatingPreviewHandle: FloatingVideoPreviewHandle = null;
-var lastMiniState: { x: number; y: number; width: number; height: number } | null = null;
-var lastPopoutBounds: { screenX: number; screenY: number; width: number; height: number } | null =
+let cropPreviewCanvas: HTMLCanvasElement | null = null;
+let gammaRenderer: WebGLGammaRenderer | null = null;
+let floatingPreviewHandle: FloatingVideoPreviewHandle | null = null;
+let lastMiniState: { x: number; y: number; width: number; height: number } | null = null;
+let lastPopoutBounds: { screenX: number; screenY: number; width: number; height: number } | null =
   null;
 
 export type cropPreviewMode = 'modal' | 'pop-out' | 'floating';
@@ -44,7 +46,7 @@ export function startCropPreview(
 
     setTimeout(() => {
       modalElement.addEventListener('click', (e) => {
-        if (!modalContent.contains(e.target as Node)) {
+        if (!modalContent!.contains(e.target as Node)) {
           deleteElement(modalElement);
           toggleCallback();
         }
@@ -52,7 +54,7 @@ export function startCropPreview(
     }, 0);
 
     modalElement.addEventListener('click', (e) => {
-      if (modalContent.contains(e.target as Node)) {
+      if (modalContent!.contains(e.target as Node)) {
         if (video.paused) {
           video.play();
         } else {
@@ -84,7 +86,7 @@ export function startCropPreview(
     initialY: lastMiniState?.y,
     initialWidth: lastMiniState?.width,
     initialHeight: lastMiniState?.height,
-    initialPopoutBounds: lastPopoutBounds,
+    initialPopoutBounds: lastPopoutBounds ?? undefined,
     onPopoutClose: (bounds) => {
       lastPopoutBounds = bounds;
       wasPopoutInThisSession = true;
@@ -122,7 +124,7 @@ export function disableCropPreview() {
   floatingPreviewHandle?.destroy(true);
   floatingPreviewHandle = null;
   const modal = document.getElementById('ytc-zoom-modal');
-  deleteElement(modal);
+  deleteElement(modal!);
 }
 
 export function startDrawZoomedRegion(getZoomRegion: Function) {
@@ -131,12 +133,12 @@ export function startDrawZoomedRegion(getZoomRegion: Function) {
   const modal = document.getElementById('ytc-zoom-modal');
   const modalContent = document.getElementsByClassName('ytc-modal-content')[0];
 
-  const [x, y, w, h] = getZoomRegion();
+  const [_x, _y, w, h] = getZoomRegion();
 
   cropPreviewCanvas.width = w;
   cropPreviewCanvas.height = h;
 
-  drawZoomedRegion(getZoomRegion, cropPreviewCanvas, ctx, modal, modalContent);
+  drawZoomedRegion(getZoomRegion, cropPreviewCanvas, ctx!, modal!, modalContent as HTMLElement);
 }
 
 function drawZoomedRegion(
@@ -157,11 +159,11 @@ function drawZoomedRegion(
     ctx.drawImage(appState.video, x, y, w, h, 0, 0, canvas.width, canvas.height);
 
     if (appState.isGammaPreviewOn) {
-      gammaRenderer.render(canvas, prevGammaVal);
+      gammaRenderer!.render(canvas, prevGammaVal);
     }
 
     appState.video.requestVideoFrameCallback(() =>
-      drawZoomedRegion(getZoomRegion, canvas, ctx, modal, modalContent)
+      { drawZoomedRegion(getZoomRegion, canvas, ctx, modal, modalContent); }
     );
   }
 }
@@ -205,3 +207,42 @@ export function toggleCropPreviewGammaPreview() {
     gammaRenderer.outputCanvas.style.display = 'none';
   }
 }
+export let cropPreviewEnabled = false;export function toggleCropPreview(mode: cropPreviewMode = 'modal') {
+  if (cropPreviewEnabled) {
+    flashMessage('Disabled crop preview', 'red');
+    cropPreviewEnabled = false;
+    disableCropPreview();
+  } else {
+    flashMessage('Enabled crop preview', 'green');
+    cropPreviewEnabled = true;
+    const onCropPreviewDisabled = () => {
+      if (!cropPreviewEnabled) return;
+      cropPreviewEnabled = false;
+      flashMessage('Disabled crop preview', 'red');
+    };
+    startCropPreview(
+      appState.video,
+      onCropPreviewDisabled,
+      getCropPreviewMouseTimeSetter,
+      getZoomRegion,
+      mode
+    );
+    enableCropPreview();
+  }
+}
+export function enableCropPreview() {
+  startDrawZoomedRegion(getZoomRegion);
+}
+
+
+export function getZoomRegion(): [number, number, number, number] {
+  const dynamicCropComponents = getDynamicCropComponents();
+  if (dynamicCropComponents == null) {
+    const cropString = getRelevantCropString();
+    const scaledCropComponents = getVideoScaledCropComponentsFromCropString(cropString);
+    return scaledCropComponents;
+  } else {
+    return getVideoScaledCropComponents(dynamicCropComponents);
+  }
+}
+

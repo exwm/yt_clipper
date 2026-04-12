@@ -27,7 +27,7 @@ jest.mock('file-saver', () => ({ saveAs: jest.fn() }));
 jest.mock('jszip', () => jest.fn());
 
 import { getFrameCount } from './frame-capture';
-import { getFPS } from './yt_clipper';
+import { getFPS } from './util/videoUtil';
 import { getVideoDuration } from './util/util';
 import { appState } from './appState';
 

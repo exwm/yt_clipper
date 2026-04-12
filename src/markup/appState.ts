@@ -1,9 +1,21 @@
 import { MarkerPair, Settings } from './@types/yt_clipper';
 import { VideoPlatformHooks } from './platforms/platforms';
 
+export type VideoElement = HTMLVideoElement & {
+  getCurrentTime: () => number;
+  seekTo: (time: number) => void;
+};
+
+export interface YTPlayer extends HTMLElement {
+  seekTo(time: number): void;
+  getVideoData(): { video_id: string; title: string; [key: string]: any };
+  getStatsForNerds(): { resolution: string; [key: string]: any };
+  theater?: boolean;
+}
+
 export interface AppState {
   player: HTMLElement;
-  video: HTMLVideoElement;
+  video: VideoElement;
   hooks: VideoPlatformHooks;
   settingsEditorHook: HTMLElement;
 
@@ -20,7 +32,7 @@ export interface AppState {
   prevSelectedMarkerPairIndex: number;
 
   settings: Settings;
-  videoInfo: { [index: string]: any };
+  videoInfo: Record<string, any>;
   rotation: number;
   startTime: number;
 
@@ -50,6 +62,11 @@ export interface AppState {
   easingMode: 'linear' | 'cubicInOut';
   forceSetSpeedValue: number;
   isForceSetSpeedOn: boolean;
+
+  cropInputLabel: HTMLInputElement | null;
+  cropInput: HTMLInputElement | null;
+  cropAspectRatioSpan: HTMLSpanElement | null;
+  enableZoomPanInput: HTMLInputElement | null;
 }
 
 export const appState: AppState = {
@@ -101,4 +118,9 @@ export const appState: AppState = {
   easingMode: 'linear',
   forceSetSpeedValue: 1,
   isForceSetSpeedOn: false,
+
+  cropInputLabel: null,
+  cropInput: null,
+  cropAspectRatioSpan: null,
+  enableZoomPanInput: null,
 };

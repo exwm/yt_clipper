@@ -22,13 +22,13 @@ export function disableCommonBlockers() {
 }
 
 function enablePreventMouseZoom() {
-  window.addEventListener('mousewheel', stopWheelZoom, { passive: false });
-  window.addEventListener('DOMMouseScroll', stopWheelZoom, { passive: false });
+  window.addEventListener('mousewheel', stopWheelZoom as EventListener, { passive: false });
+  window.addEventListener('DOMMouseScroll', stopWheelZoom as EventListener, { passive: false });
 }
 
 function disablePreventMouseZoom() {
-  window.removeEventListener('mousewheel', stopWheelZoom);
-  window.removeEventListener('DOMMouseScroll', stopWheelZoom);
+  window.removeEventListener('mousewheel', stopWheelZoom as EventListener);
+  window.removeEventListener('DOMMouseScroll', stopWheelZoom as EventListener);
 }
 
 function stopWheelZoom(e: MouseEvent) {

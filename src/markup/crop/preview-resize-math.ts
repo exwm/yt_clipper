@@ -1,11 +1,11 @@
-export type ResizeEdges = {
+export interface ResizeEdges {
   left: boolean;
   right: boolean;
   top: boolean;
   bottom: boolean;
-};
+}
 
-export type ResizeParams = {
+export interface ResizeParams {
   startX: number;
   startY: number;
   startW: number;
@@ -20,16 +20,16 @@ export type ResizeParams = {
   edges: ResizeEdges;
   dx: number;
   dy: number;
-};
+}
 
-export type ResizeResult = {
+export interface ResizeResult {
   x: number;
   y: number;
   w: number;
   h: number;
-};
+}
 
-export type ARChangeParams = {
+export interface ARChangeParams {
   x: number;
   y: number;
   width: number;
@@ -49,9 +49,9 @@ export type ARChangeParams = {
   startModX?: number;
   /** Starting y position when modification began. Used to determine when overflow is "undone". */
   startModY?: number;
-};
+}
 
-export type ARChangeResult = {
+export interface ARChangeResult {
   x: number;
   y: number;
   width: number;
@@ -60,7 +60,7 @@ export type ARChangeResult = {
   anchorX: 'left' | 'right';
   /** Which y anchor was used for this computation. */
   anchorY: 'top' | 'bottom';
-};
+}
 
 /**
  * Computes new position and size when the source crop aspect ratio changes.
@@ -157,17 +157,7 @@ export function computeARChange(p: ARChangeParams): ARChangeResult {
   let usedAnchorX: 'left' | 'right';
   let usedAnchorY: 'top' | 'bottom';
 
-  // Get the starting modification position (if provided)
-  // This is used to determine when the user has "undone" the overflow
-  const startModX = p.startModX;
-  const startModY = p.startModY;
-
   // First, try the default (left/top) anchor to see if it works without overflow.
-  const leftAnchoredX = x;
-  const leftAnchoredOverflows = leftAnchoredX + finalW > viewportW;
-
-  const topAnchoredY = y;
-  const topAnchoredOverflows = topAnchoredY + finalH > viewportH;
 
   if (preferredAnchorX === 'right') {
     // User previously had right anchor (from overflow).

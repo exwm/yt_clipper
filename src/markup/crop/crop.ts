@@ -13,7 +13,6 @@ export class Crop {
   public static get minH() {
     return Crop.shouldConstrainMinDimensions ? Crop._minH : 0;
   }
-  private _history: string[] = [];
   private _defaultAspectRatio = 1;
   constructor(
     private _x: number,
@@ -67,8 +66,8 @@ export class Crop {
 
     const maxX = isDrag ? this.maxW - this._w : this.maxW - Crop.minW;
     const maxY = isDrag ? this.maxH - this._h : this.maxH - Crop.minH;
-    let cx = clampNumber(nx, Crop.minX, maxX);
-    let cy = clampNumber(ny, Crop.minY, maxY);
+    const cx = clampNumber(nx, Crop.minX, maxX);
+    const cy = clampNumber(ny, Crop.minY, maxY);
 
     const maxW = this.maxW - cx;
     const maxH = this.maxH - cy;
@@ -214,7 +213,7 @@ export class Crop {
     return delta;
   }
 
-  resizeN(delta: number, shouldClamp = true) {
+  resizeN(delta: number, _shouldClamp = true) {
     delta = this.clampResizeN(delta);
     this._y -= delta;
     this._h += delta;
@@ -412,7 +411,7 @@ export class Crop {
   }
   resizeNESWAspectRatioLocked(deltaY: number, deltaX: number) {
     const [a, b] = this.aspectRatioPair;
-    let isExpand = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX >= 0 : deltaY >= 0;
+    const isExpand = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX >= 0 : deltaY >= 0;
     deltaX *= a;
     deltaY *= b;
 

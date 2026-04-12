@@ -1,8 +1,9 @@
 import DOMPurify from 'dompurify';
 import { SpeedPoint } from '../@types/yt_clipper';
 import { VideoPlatforms } from '../platforms/platforms';
+import { appState, VideoElement } from '../appState';
 
-export function sanitizeHtml(html: string, forceBody: boolean = false): string | TrustedHTML {
+export function sanitizeHtml(html: string, forceBody = false): string | TrustedHTML {
   const trustedHtml = DOMPurify.sanitize(html, {
     USE_PROFILES: { html: true, svg: true, svgFilters: true },
     RETURN_TRUSTED_TYPE: Boolean(window.TrustedHTML),
@@ -20,8 +21,8 @@ export function sanitizeHtml(html: string, forceBody: boolean = false): string |
   }
 }
 
-export function safeSetInnerHtml(e: HTMLOrSVGElement, html: string, forceBody: boolean = false) {
-  e.innerHTML = sanitizeHtml(html, forceBody);
+export function safeSetInnerHtml(e: HTMLOrSVGElement, html: string, forceBody = false) {
+  (e as HTMLElement).innerHTML = sanitizeHtml(html, forceBody) as string;
 }
 
 let flashMessageHook: HTMLElement;
@@ -167,29 +168,29 @@ export function deleteElement(elem: Element) {
 }
 
 export function querySelectors<
-  S extends { [key: string]: string },
+  S extends Record<string, string>,
   T extends { [key in keyof S]: HTMLElement },
 >(selectors: S, root: ParentNode = document): T {
   const elements: Partial<T> = {};
   for (const key in selectors) {
-    elements[key] = root.querySelector(selectors[key]);
+    elements[key] = root.querySelector(selectors[key]) as any;
   }
   return elements as T;
 }
 
 export function once(fn: Function, context: any) {
-  var result: Function;
-  return function () {
+  let result: Function | null = null;
+  return function (this: any) {
     if (fn) {
       result = fn.apply(context || this, arguments);
-      fn = null;
+      fn = null as any;
     }
     return result;
   };
 }
 
 export function setAttributes(el: Element, attrs: {}) {
-  Object.keys(attrs).forEach((key) => el.setAttribute(key, attrs[key]));
+  Object.keys(attrs).forEach((key) => { el.setAttribute(key, attrs[key]); });
 }
 
 export function copyToClipboard(str: string) {
@@ -237,7 +238,7 @@ export function bsearch<A, B>(
   low?: number,
   high?: number
 ): [number, number] {
-  var mid, cmp;
+  let mid, cmp;
 
   if (low === undefined) low = 0;
   else {
@@ -251,12 +252,12 @@ export function bsearch<A, B>(
     if (high < low || high >= haystack.length) throw new RangeError('invalid upper bound');
   }
 
-  while (low <= high) {
+  while (low! <= high!) {
     // The naive `low + high >>> 1` could fail for array lengths > 2**31
     // because `>>>` converts its operands to int32. `low + (high - low >>> 1)`
     // works for array lengths <= 2**32-1 which is also Javascript's max array
     // length.
-    mid = low + ((high - low) >>> 1);
+    mid = low! + ((high! - low!) >>> 1);
     cmp = +comparator(haystack[mid], needle, mid, haystack);
 
     // Too low.
@@ -268,7 +269,7 @@ export function bsearch<A, B>(
   }
 
   // Key not found.
-  return [high, low];
+  return [high!, low!];
 }
 
 export function getEasedValue(
@@ -290,7 +291,7 @@ export function getEasedValue(
   return easedValue;
 }
 
-export function seekToSafe(video: HTMLVideoElement, newTime: number) {
+export function seekToSafe(video: VideoElement, newTime: number) {
   newTime = clampNumber(newTime, 0, video.duration);
   if (!isNaN(newTime) && video.getCurrentTime() != newTime && !video.seeking) {
     try {
@@ -300,7 +301,7 @@ export function seekToSafe(video: HTMLVideoElement, newTime: number) {
     }
   }
 }
-export function seekBySafe(video: HTMLVideoElement, timeDelta: number) {
+export function seekBySafe(video: VideoElement, timeDelta: number) {
   const newTime = video.getCurrentTime() + timeDelta;
   seekToSafe(video, newTime);
 }
@@ -312,12 +313,12 @@ export function blockEvent(e) {
 export function getCropString(x: number, y: number, w: number, h: number) {
   return `${x}:${y}:${w}:${h}`;
 }
-export function ternaryToString(ternary: boolean, def?: string) {
+export function ternaryToString(ternary?: boolean, def?: string) {
   if (ternary == null) {
     return def != null ? def : '(Disabled)';
-  } else if (ternary === true) {
+  } else if (ternary) {
     return '(Enabled)';
-  } else if (ternary === false) {
+  } else if (!ternary) {
     return '(Disabled)';
   } else {
     return null;
@@ -349,7 +350,7 @@ export function getOutputDuration(speedMap: SpeedPoint[], fps = 30) {
     let sectEnd = right.x - speedMapStartTime - startt;
     // Account for last input frame delay due to potentially imprecise trim
     if (sect === nSects - 1) {
-      sectEnd = Math.floor(right['x'] / frameDur) * frameDur;
+      sectEnd = Math.floor(right.x / frameDur) * frameDur;
       // When trim is frame-precise, the frame that begins at the marker pair end time is not included
       if (right.x - sectEnd < 1e-10) sectEnd = sectEnd - frameDur;
       sectEnd = sectEnd - speedMapStartTime - startt;
@@ -428,7 +429,7 @@ export function getVideoDuration(platform: VideoPlatforms, video: HTMLVideoEleme
 
   if (platform === VideoPlatforms.afreecatv) {
     let duration = 0;
-    for (let videoPart of unsafeWindow.vodCore.playerController.fileItems) {
+    for (const videoPart of (unsafeWindow as any).vodCore.playerController.fileItems) {
       duration += videoPart.duration;
     }
 
@@ -438,4 +439,18 @@ export function getVideoDuration(platform: VideoPlatforms, video: HTMLVideoEleme
   }
 
   return videoDuration;
+}
+export function injectProgressBar(color: string, tag: string) {
+  const progressDiv = document.createElement('div');
+  progressDiv.setAttribute('class', 'msg-div');
+  progressDiv.addEventListener('done', () => {
+    progressDiv.setAttribute('class', 'msg-div flash-div');
+    setTimeout(() => { deleteElement(progressDiv); }, 2500);
+  });
+  safeSetInnerHtml(
+    progressDiv,
+    `<span class="flash-msg" style="color:${color}"> ${tag} Zipping Progress: 0%</span>`
+  );
+  appState.hooks.frameCapturerProgressBar.insertAdjacentElement('beforebegin', progressDiv);
+  return progressDiv;
 }

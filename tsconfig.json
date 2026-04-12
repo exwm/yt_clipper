@@ -8,14 +8,17 @@
     "module": "es2015",
     "allowSyntheticDefaultImports": true,
     "moduleResolution": "Node",
+    "ignoreDeprecations": "6.0",
     "noImplicitAny": false,
     "removeComments": false,
     "preserveConstEnums": true,
+    "rootDir": "./src",
     "sourceMap": true,
     "outDir": "./dist/js/",
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
+    "skipLibCheck": true,
     "newLine": "LF",
     "types": [
       "chart.js",
@@ -29,10 +32,13 @@
     ]
   },
   "include": [
-    "src/**/*",
+    "src/markup/**/*",
+    "src/command-palette/**/*",
+    "eslint.config.mjs"
   ],
   "exclude": [
     "node_modules",
-    "**/*.spec.ts"
+    "**/*.spec.ts",
+    "**/*.test.ts"
   ],
 }

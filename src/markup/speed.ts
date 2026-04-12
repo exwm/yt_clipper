@@ -38,7 +38,7 @@ export function getShortestActiveMarkerPair(currentTime?: number): MarkerPair {
   });
 
   if (activeMarkerPairs.length === 0) {
-    return null;
+    return null!;
   }
 
   const shortestActiveMarkerPair = activeMarkerPairs.reduce((prev, cur) => {
@@ -147,8 +147,8 @@ export function getSpeedMapping(
   }
 
   len--;
-  let left: SpeedPoint;
-  let right: SpeedPoint;
+  let left: SpeedPoint | undefined;
+  let right: SpeedPoint | undefined;
   for (let i = 0; i < len; ++i) {
     if (speedMap[i].x <= time && time <= speedMap[i + 1].x) {
       left = speedMap[i];
@@ -190,7 +190,7 @@ export function getInterpolatedSpeed(
     easedTimePercentage = elapsed / duration;
   }
   const change = right.y - left.y;
-  const rawSpeed = left.y + change * easedTimePercentage || right.y;
+  const rawSpeed = left.y + change * easedTimePercentage! || right.y;
   const roundedSpeed =
     roundMultiple > 0 ? roundValue(rawSpeed, roundMultiple, roundPrecision) : rawSpeed;
   return roundedSpeed;
@@ -252,9 +252,9 @@ export function updateAllMarkerPairSpeeds(newSpeed: number, renderSpeedAndCropUI
   if (appState.isSettingsEditorOpen) {
     if (appState.wasGlobalSettingsEditorOpen) {
       const markerPairMergeListInput = document.getElementById('merge-list-input');
-      markerPairMergeListInput.dispatchEvent(new Event('change'));
+      markerPairMergeListInput!.dispatchEvent(new Event('change'));
     } else {
-      appState.speedInput.value = newSpeed.toString();
+      appState.speedInput!.value = newSpeed.toString();
       renderSpeedAndCropUI();
     }
   }

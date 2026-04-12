@@ -3,8 +3,12 @@ import { createDraft } from 'immer';
 import { CropPoint, MarkerPair } from './@types/yt_clipper';
 import { Crop } from './crop/crop';
 import { appState } from './appState';
-import { clampNumber, getCropString } from './util/util';
+import { clampNumber, flashMessage, getCropString } from './util/util';
 import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
+import { cropInput } from './settings-editor';
+import { cropInputLabel } from './settings-editor';
+import { getCropMapProperties, renderSpeedAndCropUI } from './charts';
+import { transformCropWithPushBack } from './crop-overlay';
 
 export function getCropComponents(cropString?: string): number[] {
   if (!cropString && appState.isSettingsEditorOpen) {
@@ -43,7 +47,7 @@ export function getVideoScaledCropComponentsFromCropString(cropString?: string) 
   return getVideoScaledCropComponents(cropComponents);
 }
 
-export function getVideoScaledCropComponents(cropComponents) {
+export function getVideoScaledCropComponents(cropComponents): [number, number, number, number] {
   const [x, y, w, h] = cropComponents;
 
   const videoWidth = appState.video.videoWidth;
@@ -198,3 +202,157 @@ export function setAspectRatioForAllPoints(
   });
   Crop.shouldConstrainMinDimensions = true;
 }
+export function getDefaultCropRes() {
+  const cropResWidth = appState.videoInfo.isVerticalVideo
+    ? Math.round(1920 * appState.videoInfo.aspectRatio)
+    : 1920;
+  const cropResHeight = appState.videoInfo.isVerticalVideo
+    ? 1920
+    : Math.round(1920 / appState.videoInfo.aspectRatio);
+  const cropRes = `${cropResWidth}x${cropResHeight}`;
+  return {
+    cropResWidth,
+    cropResHeight,
+    cropRes,
+  };
+}export function setCropInputValue(cropString: string) {
+  const rotatedCropString = getRotatedCropString(cropString);
+  if (rotatedCropString !== cropString) {
+    cropInputLabel.textContent = `Crop (Rotated: ${rotatedCropString})`;
+  }
+  cropInput.value = cropString;
+}
+export function setCropString(markerPair: MarkerPair, newCrop: string, forceCropConstraints = false) {
+  const prevCrop = markerPair.cropMap[appState.currentCropPointIndex].crop;
+  const { isDynamicCrop, enableZoomPan, initCropMap } = getCropMapProperties();
+  const shouldMaintainCropAspectRatio = enableZoomPan && isDynamicCrop;
+  const crop = transformCropWithPushBack(prevCrop, newCrop, shouldMaintainCropAspectRatio);
+
+  updateCropString(crop, true, forceCropConstraints, initCropMap ?? undefined);
+}
+export function multiplyAllCrops(cropMultipleX: number, cropMultipleY: number) {
+  const cropString = appState.settings.newMarkerCrop;
+  const multipliedCropString = multiplyCropString(cropMultipleX, cropMultipleY, cropString);
+  appState.settings.newMarkerCrop = multipliedCropString;
+  setCropInputValue(multipliedCropString);
+
+  appState.markerPairs.forEach((markerPair) => {
+    multiplyMarkerPairCrops(markerPair, cropMultipleX, cropMultipleY);
+  });
+}
+export function getRelevantCropString() {
+  if (!appState.isSettingsEditorOpen) return appState.settings.newMarkerCrop;
+  if (!appState.wasGlobalSettingsEditorOpen) {
+    return appState.markerPairs[appState.prevSelectedMarkerPairIndex].cropMap[appState.currentCropPointIndex].crop;
+  } else {
+    return appState.settings.newMarkerCrop;
+  }
+}
+export function updateCropStringWithCrop(
+  crop: Crop,
+  shouldRerenderCharts = false,
+  forceCropConstraints = false,
+  initCropMap?: CropPoint[]
+) {
+  let newCropString: string;
+  if (appState.rotation === 90) {
+    newCropString = crop.rotatedCropStringCounterClockWise;
+  } else if (appState.rotation === -90) {
+    newCropString = crop.rotatedCropStringClockWise;
+  } else {
+    newCropString = crop.cropString;
+  }
+
+  updateCropString(newCropString, shouldRerenderCharts, forceCropConstraints, initCropMap);
+}
+export let lastRenderedCropString: string | null = null;
+export function updateAllMarkerPairCrops(newCrop: string) {
+  appState.markerPairs.forEach((markerPair) => {
+    const draft = createDraft(getMarkerPairHistory(markerPair));
+    const cropMap = draft.cropMap;
+    if (isStaticCrop(cropMap)) {
+      draft.crop = newCrop;
+      cropMap[0].crop = newCrop;
+      cropMap[1].crop = newCrop;
+    }
+    saveMarkerPairHistory(draft, markerPair);
+  });
+
+  if (appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen) {
+    const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+    const cropMap = markerPair.cropMap;
+    if (isStaticCrop(cropMap)) {
+      setCropInputValue(newCrop);
+      renderSpeedAndCropUI();
+    }
+  }
+
+  flashMessage(`All static marker crops updated to ${newCrop}`, 'olive');
+}
+export function updateCropString(
+  cropString: string,
+  shouldRerenderCharts = false,
+  forceCropConstraints = false,
+  initCropMap?: CropPoint[]
+) {
+  if (!appState.isSettingsEditorOpen)
+    throw new Error('No editor was open when trying to update crop.');
+
+  let draft;
+  const [nx, ny, nw, nh] = getCropComponents(cropString);
+  cropString = getCropString(nx, ny, nw, nh);
+
+  let wasDynamicCrop = false;
+  let enableZoomPan = false;
+  if (!appState.wasGlobalSettingsEditorOpen) {
+    const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+    enableZoomPan = markerPair.enableZoomPan;
+
+    const initState = getMarkerPairHistory(markerPair);
+    draft = createDraft(initState);
+    if (initCropMap == null)
+      throw new Error('No initial crop map given when modifying marker pair crop.');
+
+    const draftCropMap: CropPoint[] = draft.cropMap;
+    wasDynamicCrop =
+      !isStaticCrop(initCropMap) ||
+      (initCropMap.length === 2 && appState.currentCropPointIndex === 1);
+
+    const draftCropPoint = draftCropMap[appState.currentCropPointIndex];
+    const initCrop = initCropMap[appState.currentCropPointIndex].crop;
+    if (initCrop == null) throw new Error('Init crop undefined.');
+
+    draftCropPoint.crop = cropString;
+
+    if (wasDynamicCrop) {
+      if (!enableZoomPan || forceCropConstraints) {
+        setCropComponentForAllPoints({ w: nw, h: nh }, draftCropMap, initCropMap);
+      } else if (enableZoomPan || forceCropConstraints) {
+        const aspectRatio = nw / nh;
+        setAspectRatioForAllPoints(aspectRatio, draftCropMap, initCropMap);
+      }
+    }
+
+    const maxIndex = draftCropMap.length - 1;
+    const isSecondLastPoint = appState.currentCropPointIndex === maxIndex - 1;
+    const isLastSectionStatic = cropStringsEqual(initCrop, initCropMap[maxIndex].crop);
+    if (isSecondLastPoint && isLastSectionStatic) {
+      draftCropMap[maxIndex].crop = cropString;
+    }
+
+    draft.crop = draftCropMap[0].crop;
+  } else {
+    appState.settings.newMarkerCrop = cropString;
+  }
+
+  if (!appState.wasGlobalSettingsEditorOpen) {
+    const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+    saveMarkerPairHistory(draft, markerPair, shouldRerenderCharts);
+  }
+
+  if (cropString !== lastRenderedCropString || shouldRerenderCharts) {
+    lastRenderedCropString = cropString;
+    renderSpeedAndCropUI(shouldRerenderCharts);
+  }
+}
+

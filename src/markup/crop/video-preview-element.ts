@@ -3,7 +3,7 @@ import { createWebGLGammaRenderer, prevGammaVal, WebGLGammaRenderer } from '../u
 import { appState } from '../appState';
 import { computeARChange, computeARLockedResize } from './preview-resize-math';
 
-export type FloatingVideoPreviewOptions = {
+export interface FloatingVideoPreviewOptions {
   parent?: HTMLElement;
   initialX?: number;
   initialY?: number;
@@ -30,9 +30,9 @@ export type FloatingVideoPreviewOptions = {
     width: number;
     height: number;
   }) => void;
-};
+}
 
-export type FloatingVideoPreviewHandle = {
+export interface FloatingVideoPreviewHandle {
   element: HTMLDivElement;
   destroy: (silent?: boolean) => void;
   /** Trigger a one-shot redraw — fires even when the video is paused. */
@@ -47,9 +47,9 @@ export type FloatingVideoPreviewHandle = {
   isPopped: () => boolean;
   /** Reset anchor to default (top-left) for the next crop modification session. */
   resetAnchor: () => void;
-};
+}
 
-type FloatingVideoPreviewState = {
+interface FloatingVideoPreviewState {
   sourceVideo: HTMLVideoElement | null;
   x: number;
   y: number;
@@ -62,7 +62,7 @@ type FloatingVideoPreviewState = {
   mirror: boolean;
   controlsVisible: boolean;
   dragging: boolean;
-};
+}
 
 const STYLE_ID = 'floating-video-preview-lit-html-styles';
 
@@ -259,7 +259,7 @@ export function mountFloatingVideoPreview(
   let cropLoopSource: HTMLVideoElement | null = null;
   let shellEl: HTMLDivElement | null = null;
   let controlsHideTimer: number | null = null;
-  const sourceCleanup: Array<() => void> = [];
+  const sourceCleanup: (() => void)[] = [];
   let destroyed = false;
   let popupWindow: Window | null = null;
   // Track previous source dimensions to determine which changed
@@ -318,7 +318,7 @@ export function mountFloatingVideoPreview(
   const drawFrame = (): void => {
     if (destroyed || !cropCanvasEl || !state.sourceVideo) return;
     const source = state.sourceVideo;
-    const [sx, sy, sw, sh] = getSourceRect();
+    const [sx, sy, sw, sh] = getSourceRect!();
     const isRotated = appState.rotation === 90 || appState.rotation === -90;
     const canvasW = isRotated ? sh : sw;
     const canvasH = isRotated ? sw : sh;
@@ -377,8 +377,8 @@ export function mountFloatingVideoPreview(
           lockDimension,
           anchorX,
           anchorY,
-          startModX,
-          startModY,
+          startModX: startModX ?? undefined,
+          startModY: startModY ?? undefined,
         });
         state.x = r.x;
         state.y = r.y;
@@ -716,7 +716,7 @@ export function mountFloatingVideoPreview(
         <div class="floating-video-preview-topbar-btns">
           <button
             class="floating-video-preview-close-btn"
-            @click=${() => popOut()}
+            @click=${() => { popOut(); }}
             aria-label="Pop out preview"
             title="Pop out to window"
           >
@@ -738,7 +738,7 @@ export function mountFloatingVideoPreview(
             : ''}
           <button
             class="floating-video-preview-close-btn"
-            @click=${() => destroy()}
+            @click=${() => { destroy(); }}
             aria-label="Close preview"
             title="Close preview"
           >
@@ -758,7 +758,7 @@ export function mountFloatingVideoPreview(
 
     const shell = shellEl;
 
-    type ResizeEdges = { left: boolean; right: boolean; top: boolean; bottom: boolean };
+    interface ResizeEdges { left: boolean; right: boolean; top: boolean; bottom: boolean }
 
     const getResizeMargin = (w: number, h: number): number => {
       // Scale margin with preview size: 15% of smaller dimension, clamped to [8, 25]
@@ -957,7 +957,7 @@ export function mountFloatingVideoPreview(
   return {
     element: host,
     destroy,
-    redraw: () => redraw(),
+    redraw: () => { redraw(); },
     closePopup,
     getState: () => ({ x: state.x, y: state.y, width: state.width, height: state.height }),
     popOut,

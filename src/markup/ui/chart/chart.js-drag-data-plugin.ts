@@ -12,11 +12,11 @@ function getElement(chartInstance, callback) {
       const e = event.sourceEvent;
       element = chartInstance.getElementAtEvent(e)[0];
       radar = chartInstance.config.type == 'radar';
-      let scaleName = radar ? '_scale' : '_yScale';
+      const scaleName = radar ? '_scale' : '_yScale';
 
       if (element) {
         if (
-          chartInstance.data.datasets[element['_datasetIndex']].dragData === false ||
+          chartInstance.data.datasets[element._datasetIndex].dragData === false ||
           element[scaleName].options.dragData === false
         ) {
           element = null;
@@ -24,13 +24,13 @@ function getElement(chartInstance, callback) {
         }
 
         scale = element[scaleName].id;
-        if (element['_xScale']) {
-          scaleX = element['_xScale'].id;
+        if (element._xScale) {
+          scaleX = element._xScale.id;
         }
 
         if (typeof callback === 'function' && element) {
-          const datasetIndex = element['_datasetIndex'];
-          const index = element['_index'];
+          const datasetIndex = element._datasetIndex;
+          const index = element._index;
           const value = chartInstance.data.datasets[datasetIndex].data[index];
           if (callback(e, chartInstance, element, value) === false) {
             element = null;
@@ -57,8 +57,8 @@ function updateData(chartInstance, callback) {
   return () => {
     if (element && event) {
       const e = event.sourceEvent;
-      const datasetIndex = element['_datasetIndex'];
-      const index = element['_index'];
+      const datasetIndex = element._datasetIndex;
+      const index = element._index;
       const roundMultipleX = chartInstance.options.dragDataRoundMultipleX;
       const roundPrecisionX = chartInstance.options.dragDataRoundPrecisionX;
       const roundMultipleY = chartInstance.options.dragDataRoundMultipleY;
@@ -83,9 +83,9 @@ function updateData(chartInstance, callback) {
           x = e.clientX - chartInstance.canvas.getBoundingClientRect().left;
           y = e.clientY - chartInstance.canvas.getBoundingClientRect().top;
         }
-        let rScale = chartInstance.scales[scale];
-        let d = Math.sqrt(Math.pow(x - rScale.xCenter, 2) + Math.pow(y - rScale.yCenter, 2));
-        let scalingFactor = rScale.drawingArea / (rScale.max - rScale.min);
+        const rScale = chartInstance.scales[scale];
+        const d = Math.sqrt(Math.pow(x - rScale.xCenter, 2) + Math.pow(y - rScale.yCenter, 2));
+        const scalingFactor = rScale.drawingArea / (rScale.max - rScale.min);
         if (rScale.options.ticks.reverse) {
           v = rScale.max - d / scalingFactor;
         } else {
@@ -176,8 +176,8 @@ function dragEndCallback(chartInstance, callback) {
   return () => {
     if (typeof callback === 'function' && element) {
       const e = event.sourceEvent;
-      const datasetIndex = element['_datasetIndex'];
-      const index = element['_index'];
+      const datasetIndex = element._datasetIndex;
+      const index = element._index;
       const value = chartInstance.data.datasets[datasetIndex].data[index];
       return callback(e, chartInstance, datasetIndex, index, value);
     }

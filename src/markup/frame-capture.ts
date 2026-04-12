@@ -10,7 +10,8 @@ import {
   toHHMMSSTrimmed,
   getVideoDuration,
 } from './util/util';
-import { getFPS, injectProgressBar } from './yt_clipper';
+import { injectProgressBar } from './util/util';
+import { getFPS } from './util/videoUtil';
 import { multiplyCropString } from './crop-utils';
 
 const platform = getPlatform();
@@ -108,13 +109,13 @@ export async function captureFrame() {
   }
 
   const canvas = document.createElement('canvas');
-  const context = canvas.getContext('2d');
+  const context = canvas.getContext('2d')!;
   let resString: string;
   if (appState.isSettingsEditorOpen) {
     const cropMultipleX = appState.video.videoWidth / appState.settings.cropResWidth;
     const cropMultipleY = appState.video.videoHeight / appState.settings.cropResHeight;
     if (!appState.wasGlobalSettingsEditorOpen) {
-      const idx = parseInt(appState.prevSelectedEndMarker.getAttribute('data-idx'), 10) - 1;
+      const idx = parseInt(appState.prevSelectedEndMarker.getAttribute('data-idx')!, 10) - 1;
       const markerPair = appState.markerPairs[idx];
       resString = multiplyCropString(cropMultipleX, cropMultipleY, markerPair.crop);
     } else {
@@ -146,7 +147,7 @@ export async function captureFrame() {
       '',
       'window',
       `height=${window.innerHeight}, width=${window.innerWidth}`
-    );
+    )!;
     frameCaptureViewerDoc = frameCaptureViewerWindow.document;
     safeSetInnerHtml(frameCaptureViewerDoc.head, getFrameCaptureViewerHeadHTML(), true);
     safeSetInnerHtml(frameCaptureViewerDoc.body, frameCaptureViewerBodyHTML, true);
@@ -165,24 +166,24 @@ export async function captureFrame() {
       <button class="delete">Delete Frame</button>
       `
   );
-  canvas.fileName = `${frameFileName}.png`;
+  (canvas as any).fileName = `${frameFileName}.png`;
   frameDiv.appendChild(canvas);
 
-  frameDiv.getElementsByClassName('download')[0].onclick = () => {
-    canvas.toBlob((blob) => saveAs(blob, canvas.fileName));
+  (frameDiv.getElementsByClassName('download')[0] as HTMLElement).onclick = () => {
+    canvas.toBlob((blob) => { saveAs(blob!, (canvas as any).fileName); });
   };
-  frameDiv.getElementsByClassName('delete')[0].onclick = () => {
+  (frameDiv.getElementsByClassName('delete')[0] as HTMLElement).onclick = () => {
     frameDiv.setAttribute('class', 'frame-div flash-div');
-    setTimeout(() => deleteElement(frameDiv), 300);
+    setTimeout(() => { deleteElement(frameDiv); }, 300);
   };
 
   const framesDiv = frameCaptureViewerDoc.getElementById('frames-div');
-  framesDiv.appendChild(frameDiv);
+  framesDiv!.appendChild(frameDiv);
   flashMessage(`Captured frame: ${frameFileName}`, 'green');
 }
 
 export function getFrameCount(seconds: number) {
-  let fps = getFPS(null);
+  const fps = getFPS(null);
   let frameNumber: number | string;
   let totalFrames: number | string;
   if (fps) {
@@ -197,7 +198,7 @@ export function getFrameCount(seconds: number) {
 
 function canvasBlobToPromise(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise((resolve) => {
-    canvas.toBlob((blob) => resolve(blob));
+    canvas.toBlob((blob) => { resolve(blob!); });
   });
 }
 
@@ -214,7 +215,7 @@ export function saveCapturedFrames() {
     return;
   }
   const zip = new JSZip();
-  const framesZip = zip.folder(appState.settings.titleSuffix).folder('frames');
+  const framesZip = zip.folder(appState.settings.titleSuffix)!.folder('frames');
   const frames = frameCaptureViewerDoc.getElementsByTagName('canvas');
   if (frames.length === 0) {
     flashMessage('No frames to zip.', 'olive');
@@ -223,14 +224,14 @@ export function saveCapturedFrames() {
 
   isFrameCapturerZippingInProgress = true;
   Array.from(frames).forEach((frame) => {
-    framesZip.file(frame.fileName, canvasBlobToPromise(frame), { binary: true });
+    framesZip!.file((frame as any).fileName, canvasBlobToPromise(frame), { binary: true });
   });
   const progressDiv = injectProgressBar('green', 'Frame Capturer');
   const progressSpan = progressDiv.firstElementChild;
   zip
     .generateAsync({ type: 'blob' }, (metadata) => {
       const percent = metadata.percent.toFixed(2) + '%';
-      progressSpan.textContent = `Frame Capturer Zipping Progress: ${percent}`;
+      progressSpan!.textContent = `Frame Capturer Zipping Progress: ${percent}`;
     })
     .then((blob) => {
       saveAs(blob, `${appState.settings.titleSuffix}-frames.zip`);

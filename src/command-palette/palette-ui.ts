@@ -39,13 +39,13 @@ export class CommandPalette {
   private searchInput: HTMLInputElement | null = null;
   private resultsEl: HTMLDivElement | null = null;
   private essentialFilterEl: HTMLInputElement | null = null;
-  private sortFilterEl: HTMLInputElement | null = null;
+
   private lastSearchesContainerEl: HTMLDivElement | null = null;
   private lastSearches: string[] = [];
   private maxLastSearches: number;
   private maxRecentCommands: number;
   private recentCommandIds: string[] = [];
-  private preserveOrder: boolean = false;
+  private preserveOrder = false;
   private onOpenReference: (() => void) | null = null;
   private selectCallback: SelectCallback | null = null;
   private highlightIndex = 0;
@@ -63,7 +63,7 @@ export class CommandPalette {
     this.maxLastSearches = Math.max(0, options.maxLastSearches ?? DEFAULT_MAX_LAST_SEARCHES);
     this.maxRecentCommands = Math.max(0, options.maxRecentCommands ?? DEFAULT_MAX_RECENT_COMMANDS);
     this.onOpenReference = options.onOpenReference ?? null;
-    this.keydownHandler = (e) => this.handleKeydown(e);
+    this.keydownHandler = (e) => { this.handleKeydown(e); };
     this.lastSearches = loadLastSearches(this.maxLastSearches);
     this.recentCommandIds = loadRecentCommands(this.maxRecentCommands);
     this.preserveOrder = loadPreserveOrder();
@@ -86,7 +86,7 @@ export class CommandPalette {
     this.searchInput = null;
     this.resultsEl = null;
     this.essentialFilterEl = null;
-    this.sortFilterEl = null;
+
     this.lastSearchesContainerEl = null;
     this.visibleEntries = [];
     this.executableIndexes = [];
@@ -139,7 +139,7 @@ export class CommandPalette {
     const essentialCheckbox = document.createElement('input');
     essentialCheckbox.type = 'checkbox';
     essentialCheckbox.className = 'cmdp-essential-checkbox';
-    essentialCheckbox.addEventListener('change', () => this.refreshResults(search.value));
+    essentialCheckbox.addEventListener('change', () => { this.refreshResults(search.value); });
     const essentialText = document.createElement('span');
     essentialText.className = 'cmdp-essential-filter-text';
     essentialText.textContent = 'essential only';
@@ -209,7 +209,7 @@ export class CommandPalette {
     this.searchInput = search;
     this.resultsEl = results;
     this.essentialFilterEl = essentialCheckbox;
-    this.sortFilterEl = sortCheckbox;
+
     this.lastSearchesContainerEl = lastSearches;
     this.renderLastSearches();
   }
@@ -543,7 +543,7 @@ export class CommandPalette {
 
   private executeAt(idx: number): void {
     const entry = this.visibleEntries[idx];
-    if (!entry || entry.kind !== 'item') return;
+    if (entry?.kind !== 'item') return;
     const def = entry.shortcut;
     if (!def.executable || !def.handler) return;
     this.recordExecution(def.id);
@@ -618,7 +618,7 @@ function appendHighlightedText(parent: HTMLElement, text: string, indexes: numbe
   flush();
 }
 
-function appendDisplayKey(parent: HTMLElement, displayKey: string, query: string = ''): void {
+function appendDisplayKey(parent: HTMLElement, displayKey: string, query = ''): void {
   if (displayKey === '') return;
   const parts = displayKey.split(DISPLAY_KEY_SEPARATOR_RE);
   const matchedPositions = computeKeyMatchPositions(parts, query);
@@ -661,7 +661,7 @@ function computeKeyMatchPositions(parts: string[], query: string): Map<number, S
   if (normalizedQuery === '') return result;
 
   let normalized = '';
-  const origins: Array<{ partIdx: number; charIdx: number }> = [];
+  const origins: { partIdx: number; charIdx: number }[] = [];
   parts.forEach((part, partIdx) => {
     if (partIdx % 2 === 1) return;
     for (let i = 0; i < part.length; i++) {

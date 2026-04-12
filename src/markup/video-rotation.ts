@@ -2,7 +2,7 @@ import { appState } from './appState';
 import { triggerCropPreviewRedraw } from './crop/crop-preview';
 import { adjustRotatedVideoPositionCSS, getRotatedVideoCSS } from './ui/css/css';
 import { deleteElement, injectCSS } from './util/util';
-import { resizeCropOverlay } from './yt_clipper';
+import { resizeCropOverlay } from './crop-overlay';
 
 let rotatedVideoCSS: string;
 let fullscreenRotatedVideoCSS: string;
@@ -11,7 +11,7 @@ let rotatedVideoStyle: HTMLStyleElement;
 let adjustRotatedVideoPositionStyle: HTMLStyleElement;
 let fullscreenRotatedVideoStyle: HTMLStyleElement;
 let rotatedVideoPreviewsStyle: HTMLStyleElement;
-let bigVideoPreviewsStyle: HTMLStyleElement;
+let bigVideoPreviewsStyle: HTMLStyleElement | null;
 
 export function rotateVideo(direction: string) {
   if (direction === 'clock') {
@@ -55,7 +55,7 @@ export function rotateVideo(direction: string) {
       rotatedVideoPreviewsCSS,
       'yt-clipper-rotated-video-previews-css'
     );
-    deleteElement(bigVideoPreviewsStyle);
+    deleteElement(bigVideoPreviewsStyle!);
     bigVideoPreviewsStyle = null;
     window.dispatchEvent(new Event('resize'));
     document.addEventListener('fullscreenchange', fullscreenRotateVideoHandler);
@@ -64,7 +64,7 @@ export function rotateVideo(direction: string) {
     deleteElement(adjustRotatedVideoPositionStyle);
     deleteElement(fullscreenRotatedVideoStyle);
     deleteElement(rotatedVideoPreviewsStyle);
-    deleteElement(bigVideoPreviewsStyle);
+    deleteElement(bigVideoPreviewsStyle!);
     bigVideoPreviewsStyle = null;
     window.dispatchEvent(new Event('resize'));
     document.removeEventListener('fullscreenchange', fullscreenRotateVideoHandler);

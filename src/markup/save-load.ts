@@ -15,7 +15,8 @@ import {
   speedRounder,
   timeRounder,
 } from './util/util';
-import { addMarker, isTheatreMode, updateSettingsEditorHook } from './yt_clipper';
+import { isTheatreMode, updateSettingsEditorHook } from './yt_clipper';
+import { addMarker } from './markers';
 
 const __version__ = '5.42.0';
 
@@ -70,7 +71,7 @@ export function getClipperInputJSON() {
 export function isVariableSpeed(speedMap: SpeedPoint[]) {
   if (speedMap.length < 2) return false;
 
-  let isVarSpeed = speedMap.some((speedPoint, i) => {
+  const isVarSpeed = speedMap.some((speedPoint, i) => {
     if (i === speedMap.length - 1) return false;
 
     return speedPoint.y !== speedMap[i + 1].y;
@@ -151,15 +152,17 @@ export function toggleMarkersDataCommands() {
 
     injectYtcWidget(markersDataCommandsDiv);
 
-    const fileUploadButton = document.getElementById('upload-markers-json');
+    const fileUploadButton = document.getElementById('upload-markers-json')!;
     fileUploadButton.onclick = loadMarkersJson;
-    const markersArrayUploadButton = document.getElementById('upload-markers-array');
+    const markersArrayUploadButton = document.getElementById('upload-markers-array')!;
     markersArrayUploadButton.onclick = loadMarkersArray;
-    const restoreMarkersDataButton = document.getElementById('restore-markers-data');
+    const restoreMarkersDataButton = document.getElementById('restore-markers-data')!;
     restoreMarkersDataButton.onclick = loadClipperInputDataFromLocalStorage;
-    const downloadMarkersDataButton = document.getElementById('download-markers-data');
+    const downloadMarkersDataButton = document.getElementById(
+      'download-markers-data'
+    )!;
     downloadMarkersDataButton.onclick = downloadAutoSavedMarkersData;
-    const clearMarkersDataButton = document.getElementById('clear-markers-data');
+    const clearMarkersDataButton = document.getElementById('clear-markers-data')!;
     clearMarkersDataButton.onclick = clearYTClipperLocalStorage;
   }
 }
@@ -176,21 +179,21 @@ export function injectYtcWidget(widget: HTMLDivElement) {
 }
 
 function loadMarkersJson() {
-  const input = document.getElementById('markers-json-input');
-  if (input.files.length === 0) return;
+  const input = document.getElementById('markers-json-input') as HTMLInputElement;
+  if (input.files!.length === 0) return;
   console.log(input.files);
-  const file = input.files[0];
+  const file = input.files![0];
   const fr = new FileReader();
-  fr.onload = (e) => loadClipperInputJSON(e.target.result);
+  fr.onload = (e) => { loadClipperInputJSON((e.target!).result); };
   fr.readAsText(file);
   deleteMarkersDataCommands();
 }
 
 function loadMarkersArray() {
-  const input = document.getElementById('markers-array-input');
-  if (input.files.length === 0) return;
+  const input = document.getElementById('markers-array-input') as HTMLInputElement;
+  if (input.files!.length === 0) return;
   console.log(input.files);
-  const file = input.files[0];
+  const file = input.files![0];
   const fr = new FileReader();
   fr.onload = receivedMarkersArray;
   fr.readAsText(file);
@@ -255,8 +258,8 @@ export function addMarkerPairs(markerPairs: MarkerPair[]) {
 }
 
 function receivedMarkersArray(e: ProgressEvent) {
-  const lines = e.target.result;
-  const markersJson = JSON.parse(lines);
+  const lines = (e.target as FileReader).result;
+  const markersJson = JSON.parse(lines as string);
   console.log(markersJson);
 
   flashMessage('Loading markers...', 'green');

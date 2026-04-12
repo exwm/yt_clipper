@@ -7,7 +7,7 @@ import {
   PlatformNavObserver,
 } from './navigation';
 
-const youtubeCSS: string = '';
+const youtubeCSS = '';
 const vliveCSS: string = readFileSync(__dirname + '/css/vlive.css', 'utf8');
 const naver_tvCSS: string = readFileSync(__dirname + '/css/naver_tv.css', 'utf8');
 const weverseCSS: string = readFileSync(__dirname + '/css/weverse.css', 'utf8');
@@ -22,7 +22,7 @@ export enum VideoPlatforms {
   afreecatv = 'afreecatv',
   yt_clipper = 'ytc_generic',
 }
-type VideoPlatform<T extends string | HTMLElement> = {
+interface VideoPlatform<T extends string | HTMLElement> {
   // Contains the video element, progress bars, and controls.
   playerContainer: T;
   // Contains the video element, progress bars, and controls. Is contained by playerContainer
@@ -53,14 +53,14 @@ type VideoPlatform<T extends string | HTMLElement> = {
   controlsGradient: T;
   shortcutsTableButton: T;
   playerClickZone: T;
-};
+}
 
 type VideoPlatformSelectors = VideoPlatform<string>;
 
 export type VideoPlatformHooks = VideoPlatform<HTMLElement>;
 
 export function getVideoPlatformHooks(selectors: VideoPlatformSelectors): VideoPlatformHooks {
-  return querySelectors(selectors);
+  return querySelectors(selectors as unknown as Record<string, string>) as unknown as VideoPlatformHooks;
 }
 
 export function getPlatform() {
