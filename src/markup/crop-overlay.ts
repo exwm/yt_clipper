@@ -257,6 +257,11 @@ export function forceRerenderCrop() {
     setCropOverlayDimensions(cropOverlayElements.cropRectBorder, cx, cy, cw, ch);
     setCropOverlayDimensions(cropOverlayElements.cropRectBorderBlack, cx, cy, cw, ch);
     setCropOverlayDimensions(cropOverlayElements.cropRectBorderWhite, cx, cy, cw, ch);
+    if (cropCrossHairEnabled && cropOverlayElements.cropCrossHair) {
+      cropOverlayElements.cropCrossHairs.map((crossHair) => {
+        setCropCrossHair(crossHair, cropString);
+      });
+    }
   }
 }
 export function centerVideo() {

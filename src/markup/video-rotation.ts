@@ -22,9 +22,10 @@ export function rotateVideo(direction: string) {
   if (appState.rotation === 90 || appState.rotation === -90) {
     const scale = 1 / appState.videoInfo.aspectRatio;
     rotatedVideoCSS = getRotatedVideoCSS(appState.rotation);
+    const tooltipOffset = Math.round(((appState.videoInfo.aspectRatio - 1) / 2) * 100);
     rotatedVideoPreviewsCSS = `\
         .ytp-tooltip {
-          transform: translateY(-15%) rotate(${appState.rotation}deg) !important;
+          transform: translateY(-${tooltipOffset}%) rotate(${appState.rotation}deg) !important;
         }
         .ytp-tooltip-text-wrapper {
           transform: rotate(${-appState.rotation}deg) !important;

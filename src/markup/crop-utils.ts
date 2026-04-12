@@ -213,8 +213,9 @@ export function getDefaultCropRes() {
   };
 }
 export function setCropInputValue(cropString: string) {
+  if (!cropInput) return;
   const rotatedCropString = getRotatedCropString(cropString);
-  if (rotatedCropString !== cropString) {
+  if (rotatedCropString !== cropString && cropInputLabel) {
     cropInputLabel.textContent = `Crop (Rotated: ${rotatedCropString})`;
   }
   cropInput.value = cropString;
