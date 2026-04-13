@@ -20,11 +20,11 @@ All notable changes to this project will be documented in this file. See [commit
 * **markup:** move marker by frame (alt+shift+mousewheel) should not jump to start when marker pair looping is enabled ([f9f6c23](https://github.com/exwm/yt_clipper/commit/f9f6c23452d180b20d916c9ee26be842c15747f0))
 * **markup:** yt: hide yt overlays that may interfere with cropping ([fcc83fa](https://github.com/exwm/yt_clipper/commit/fcc83fa734fea302169efc66747801a3ad5034f5))
 * **markup:** move marker by frame (alt+shift+mousewheel) should not jump to start when marker pair looping is enabled ([f9f6c23](https://github.com/exwm/yt_clipper/commit/f9f6c23452d180b20d916c9ee26be842c15747f0))
-* **markup:** yt: hide yt overlays that may interfere with cropping ([fcc83fa](https://github.com/exwm/yt_clipper/commit/fcc83fa734fea302169efc66747801a3ad5034f5))
+
 
 ### Documentation Updates
 
-* **readme:** update shortcuts organization to match new command palette ([e1a1aeb](https://github.com/exwm/yt_clipper/commit/e1a1aebdecc0f3b6249835d5c90eadfe13d0ab88))
+* **readme:** update shortcuts organization to match new command palette ([2676e66c](https://github.com/exwm/yt_clipper/commit/2676e66cdbd0575cb81bab825889159de209df4c))
 
 
 ## [5.41.0](https://github.com/exwm/yt_clipper/compare/v5.40.0...v5.41.0) (2026-03-26)
