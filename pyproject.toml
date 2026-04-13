@@ -12,7 +12,7 @@ dependencies = [
     "notify-py>=0.3.3,<0.4",
     "verboselogs~=1.7",
     "webvtt-py>=0.4.6,<0.5",
-    "certifi>=2024.7.4",
+    "certifi>=2026.2.25",
     "rich>=13.9.1,<14",
     "rich-argparse>=1.5.2,<2",
 ]
