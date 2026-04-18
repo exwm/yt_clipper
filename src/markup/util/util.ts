@@ -31,6 +31,11 @@ export function safeSetInnerHtml(e: HTMLOrSVGElement, html: string, forceBody = 
   (e as HTMLElement).innerHTML = sanitizeHtml(html, forceBody) as string;
 }
 
+export function setInputValueById(root: ParentNode, id: string, value: string | null | undefined) {
+  const el = root.querySelector<HTMLInputElement | HTMLTextAreaElement>(`#${CSS.escape(id)}`);
+  if (el) el.value = value ?? '';
+}
+
 let flashMessageHook: HTMLElement;
 export function setFlashMessageHook(hook: HTMLElement) {
   flashMessageHook = hook;

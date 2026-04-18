@@ -34,6 +34,7 @@ import {
   flashMessage,
   injectCSS,
   safeSetInnerHtml,
+  setInputValueById,
   ternaryToString,
   toHHMMSSTrimmed,
 } from './util/util';
@@ -103,7 +104,7 @@ export function createMarkerPairEditor(targetMarker: SVGRectElement) {
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.cropTooltip}">
           <span id="crop-input-label">Crop</span>
-          <input id="crop-input" value="${crop}" pattern="${cropInputValidation}"
+          <input id="crop-input" pattern="${cropInputValidation}"
           style="width:20ch" required></input>
         </div>
         <div class="settings-editor-input-div settings-info-display">
@@ -113,7 +114,7 @@ export function createMarkerPairEditor(targetMarker: SVGRectElement) {
         </div>
         <div class="settings-editor-input-div" title="${Tooltips.titlePrefixTooltip}">
           <span>Title Prefix</span>
-          <input id="title-prefix-input" value="${overrides.titlePrefix ?? ''}" placeholder="None" style="width:20ch;text-align:right"></input>
+          <input id="title-prefix-input" placeholder="None" style="width:20ch;text-align:right"></input>
         </div>
         <div class="settings-editor-input-div settings-info-display" title="${Tooltips.timeDurationTooltip}">
           <span>Time:</span>
@@ -248,6 +249,9 @@ export function createMarkerPairEditor(targetMarker: SVGRectElement) {
       </fieldset>
       `
   );
+
+  setInputValueById(settingsEditorDiv, 'crop-input', crop);
+  setInputValueById(settingsEditorDiv, 'title-prefix-input', overrides.titlePrefix ?? '');
 
   injectYtcWidget(settingsEditorDiv);
 

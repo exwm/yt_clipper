@@ -15,7 +15,7 @@ import {
   setCropAspectRatioSpan,
 } from './settings-editor';
 import { Tooltips } from './ui/tooltips';
-import { assertDefined, safeSetInnerHtml, toHHMMSSTrimmed } from './util/util';
+import { assertDefined, safeSetInnerHtml, setInputValueById, toHHMMSSTrimmed } from './util/util';
 
 export function toggleGlobalSettingsEditor() {
   if (appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen) {
@@ -71,7 +71,7 @@ export function createGlobalSettingsEditor() {
       </div>
       <div class="settings-editor-input-div" title="${Tooltips.cropTooltip}">
         <span>Crop</span>
-        <input id="crop-input" value="${appState.settings.newMarkerCrop}" pattern="${cropInputValidation}" style="width:21ch" required>
+        <input id="crop-input" pattern="${cropInputValidation}" style="width:21ch" required>
       </div>
       <div class="settings-editor-input-div  settings-info-display">
         <span>Crop Aspect Ratio</span>
@@ -83,11 +83,11 @@ export function createGlobalSettingsEditor() {
       <legend class="global-settings-editor-highlighted-label settings-editor-panel-label">Global Settings</legend>
       <div class="settings-editor-input-div" title="${Tooltips.titleSuffixTooltip}">
         <span>Title Suffix</span>
-        <input id="title-suffix-input" value="${appState.settings.titleSuffix}" style="background-color:lightgreen;min-width:20em;text-align:right" required>
+        <input id="title-suffix-input" style="background-color:lightgreen;min-width:20em;text-align:right" required>
       </div>
       <div class="settings-editor-input-div" title="${Tooltips.cropResolutionTooltip}">
         <span>Crop Resolution</span>
-        <input id="crop-res-input" list="resolutions" pattern="${cropResInputValidation}" value="${appState.settings.cropRes}" style="width:14ch" required>
+        <input id="crop-res-input" list="resolutions" pattern="${cropResInputValidation}" style="width:14ch" required>
         <datalist id="resolutions" autocomplete="off">${resList}</datalist>
       </div>
       <div id="global-settings-rotate" class="settings-editor-input-div" title="${Tooltips.rotateTooltip}">
@@ -101,9 +101,7 @@ export function createGlobalSettingsEditor() {
       </div>
       <div id="merge-list-div" class="settings-editor-input-div" title="${Tooltips.mergeListTooltip}">
           <span style="display:inline">Merge List: </span>
-          <input id="merge-list-input" pattern="${mergeListInputValidation}" value="${
-            appState.settings.markerPairMergeList ?? ''
-          }" placeholder="None" style="min-width:15em">
+          <input id="merge-list-input" pattern="${mergeListInputValidation}" placeholder="None" style="min-width:15em">
       </div>
       <div class="settings-editor-input-div">
         <span style="display:inline">Merge Durations: </span>
@@ -218,6 +216,15 @@ export function createGlobalSettingsEditor() {
       </div>
     </fieldset>
     `
+  );
+
+  setInputValueById(globalSettingsEditorDiv, 'crop-input', appState.settings.newMarkerCrop);
+  setInputValueById(globalSettingsEditorDiv, 'title-suffix-input', appState.settings.titleSuffix);
+  setInputValueById(globalSettingsEditorDiv, 'crop-res-input', appState.settings.cropRes);
+  setInputValueById(
+    globalSettingsEditorDiv,
+    'merge-list-input',
+    appState.settings.markerPairMergeList ?? ''
   );
 
   injectYtcWidget(globalSettingsEditorDiv);
