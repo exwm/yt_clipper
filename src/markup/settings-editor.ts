@@ -17,6 +17,7 @@ import {
 import { Crop, getMinMaxAvgCropPoint, isVariableSize } from './crop/crop';
 import { triggerCropPreviewRedraw } from './crop/crop-preview';
 import { VideoPlatforms } from './platforms/platforms';
+import { presetsMap } from './presets';
 import { updateMarkerPairSpeed } from './speed';
 import { Tooltips } from './ui/tooltips';
 import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
@@ -185,61 +186,7 @@ export function highlightModifiedSettings(inputs: string[][], target) {
     });
   }
 }
-export const presetsMap = {
-  videoStabilization: {
-    Disabled: { desc: 'Disabled', enabled: false },
-    'Very Weak': {
-      desc: 'Very Weak',
-      enabled: true,
-      shakiness: 2,
-      smoothing: 2,
-      zoomspeed: 0.05,
-    },
-    Weak: {
-      desc: 'Weak',
-      enabled: true,
-      shakiness: 4,
-      smoothing: 4,
-      zoomspeed: 0.1,
-    },
-    Medium: {
-      desc: 'Medium',
-      enabled: true,
-      shakiness: 6,
-      smoothing: 6,
-      zoomspeed: 0.2,
-    },
-    Strong: {
-      desc: 'Strong',
-      enabled: true,
-      shakiness: 8,
-      smoothing: 10,
-      zoomspeed: 0.3,
-    },
-    'Very Strong': {
-      desc: 'Very Strong',
-      enabled: true,
-      shakiness: 10,
-      smoothing: 16,
-      zoomspeed: 0.4,
-    },
-    Strongest: {
-      desc: 'Strongest',
-      enabled: true,
-      shakiness: 10,
-      smoothing: 22,
-      zoomspeed: 0.5,
-    },
-  },
-  denoise: {
-    Disabled: { enabled: false, desc: 'Disabled' },
-    'Very Weak': { enabled: true, lumaSpatial: 1, desc: 'Very Weak' },
-    Weak: { enabled: true, lumaSpatial: 2, desc: 'Weak' },
-    Medium: { enabled: true, lumaSpatial: 4, desc: 'Medium' },
-    Strong: { enabled: true, lumaSpatial: 6, desc: 'Strong' },
-    'Very Strong': { enabled: true, lumaSpatial: 8, desc: 'Very Strong' },
-  },
-};
+export { presetsMap };
 export function updateSettingsValue(
   e: Event,
   id: string,

@@ -1,13 +1,13 @@
 import { saveAs } from 'file-saver';
-import { MarkerConfig, MarkerPair, SpeedPoint } from './@types/yt_clipper';
-import { __version__, appState } from './appState';
+import { MarkerConfig, MarkerPair, SpeedPoint } from '../@types/yt_clipper';
+import { __version__, appState } from '../appState';
 import {
   getMarkersDataEntriesFromLocalStorage,
   loadClipperInputDataFromLocalStorage,
   downloadAutoSavedMarkersData,
   clearYTClipperLocalStorage,
-} from './auto-save';
-import { isStaticCrop } from './crop-utils';
+} from '../auto-save';
+import { isStaticCrop } from '../crop-utils';
 import {
   safeSetInnerHtml,
   deleteElement,
@@ -15,9 +15,9 @@ import {
   speedRounder,
   timeRounder,
   assertDefined,
-} from './util/util';
-import { isTheatreMode, updateSettingsEditorHook } from './yt_clipper';
-import { addMarker } from './markers';
+} from '../util/util';
+import { isTheatreMode, updateSettingsEditorHook } from '../yt_clipper';
+import { addMarker } from '../markers';
 
 export function saveMarkersAndSettings() {
   const settingsJSON = getClipperInputJSON();

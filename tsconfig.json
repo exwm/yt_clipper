@@ -28,7 +28,8 @@
       "file-saver",
       "jest",
       "jszip",
-      "node"
+      "node",
+      "trusted-types"
     ]
   },
   "include": [

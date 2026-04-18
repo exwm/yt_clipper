@@ -77,6 +77,8 @@ import {
   saveMarkersAndSettings,
   getClipperInputJSON,
   toggleMarkersDataCommands,
+  copyShareableUrl,
+  tryLoadSharedMarkers,
 } from './save-load';
 import { updateAllMarkerPairCrops } from './crop-utils';
 import { toggleGlobalSettingsEditor } from './global-settings-editor';
@@ -208,6 +210,9 @@ export function initShortcutSystem() {
       },
       copyMarkersToClipboard: () => {
         copyToClipboard(getClipperInputJSON());
+      },
+      copyShareableUrl: () => {
+        void copyShareableUrl();
       },
       toggleForceSetSpeed: () => {
         toggleForceSetSpeed();
@@ -375,6 +380,7 @@ function hotkeys(e: KeyboardEvent) {
         enableYTBlockers();
       }
       flashMessage('Enabled Hotkeys', 'green');
+      void tryLoadSharedMarkers();
     } else {
       hideCommandPaletteToggleButton();
       disableCommonBlockers();

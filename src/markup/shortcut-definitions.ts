@@ -8,6 +8,7 @@ export interface ShortcutDeps {
   duplicateSelectedMarkerPair: () => void;
   saveMarkersAndSettings: () => void;
   copyMarkersToClipboard: () => void;
+  copyShareableUrl: () => void;
   toggleForceSetSpeed: () => void;
   cycleForceSetSpeedValueDown: () => void;
   updateAllMarkerPairSpeedsToDefault: () => void;
@@ -855,6 +856,19 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: { code: 'KeyS', modifiers: { ctrl: false, shift: false, alt: true } },
       handler: () => {
         deps.copyMarkersToClipboard();
+      },
+      executable: true,
+    },
+    {
+      id: 'copyShareableUrl',
+      description: 'Copy shareable URL with embedded markers to clipboard',
+      displayKey: 'Shift + S',
+      section: 'Playback & Export',
+      category: 'Saving and Loading Shortcuts',
+      essential: false,
+      binding: { code: 'KeyS', modifiers: { ctrl: false, shift: true, alt: false } },
+      handler: () => {
+        deps.copyShareableUrl();
       },
       executable: true,
     },

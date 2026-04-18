@@ -526,3 +526,96 @@
   object-fit: contain; /* Maintain aspect ratio */
   background: black; /* Letterboxing */
 }
+
+.ytc-share-modal {
+  z-index: 2147483000;
+}
+
+.ytc-share-modal-box {
+  width: min(90vw, 900px);
+  max-height: 85vh;
+  background: var(--dark-grey);
+  color: var(--light-grey);
+  border: 1px solid var(--med-grey);
+  border-radius: 4px;
+  box-shadow: 4px 4px 12px 0px var(--darker-grey);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 10pt;
+  font-weight: 500;
+}
+
+.ytc-share-modal-title {
+  color: var(--lighter-grey);
+  font-size: 13pt;
+  font-weight: 700;
+}
+
+.ytc-share-modal-warning {
+  padding: 8px 10px;
+  border-left: 3px solid #f5a623;
+  background: linear-gradient(to right, rgba(245, 166, 35, 0.2), var(--dark-grey) 60%);
+  color: #ffc661;
+  font-weight: 600;
+  font-size: 10pt;
+}
+
+.ytc-share-modal-summary {
+  color: var(--light-grey);
+}
+
+.ytc-share-modal-summary b {
+  color: var(--lighter-grey);
+}
+
+.ytc-share-modal-json {
+  flex: 1;
+  min-height: 12em;
+  max-height: 50vh;
+  margin: 0;
+  padding: 10px 12px;
+  overflow: auto;
+  background: var(--darker-grey);
+  border: 1px solid var(--med-grey);
+  border-radius: 2px;
+  color: var(--light-grey);
+  font-family: 'Consolas', 'Menlo', 'Monaco', monospace;
+  font-size: 10pt;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.ytc-share-modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.ytc-share-modal-actions input[type='button'] {
+  padding: 5px 14px;
+  background: var(--dark-grey);
+  color: var(--light-grey);
+  border: 1px solid var(--med-grey);
+  border-radius: 2px;
+  font-size: 10pt;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.ytc-share-modal-actions input[type='button']:hover {
+  background: var(--med-grey);
+  color: var(--lighter-grey);
+}
+
+.ytc-share-modal-actions .ytc-share-modal-load {
+  border-color: #f5a623;
+  color: #ffc661;
+  font-weight: 700;
+}
+
+.ytc-share-modal-actions .ytc-share-modal-load:hover {
+  background: rgba(245, 166, 35, 0.25);
+  color: #ffd894;
+}
