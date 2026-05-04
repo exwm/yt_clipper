@@ -615,9 +615,9 @@ There is an installation that does not require the dependencies below.
 
 ## Linux Installation
 
-The clipper script requires Python version 3.8, while many distros will have a more recent version of python. This can be dealt with using [pipx](https://pipx.pypa.io):
+The clipper script requires Python version 3.12, while many distros will have a more recent version of python. This can be dealt with using [pipx](https://pipx.pypa.io):
 ```bash
-pipx install git+https://github.com/exwm/yt_clipper --python 3.8 --fetch-missing-python
+pipx install git+https://github.com/exwm/yt_clipper --python 3.12 --fetch-missing-python
 ```
 
 The package can be updated by running `pipx upgrade clipper`.
