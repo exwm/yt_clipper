@@ -29,6 +29,7 @@ from clipper.previews.shared import (
     computePreviewDimensions,
     getPreviewSiblingPath,
     isHdrSource,
+    probeVideoDimensions,
     runFfmpegPreviewCommand,
 )
 from clipper.ytc_logger import Subsystem, make_subsystem_logger
@@ -243,11 +244,21 @@ def makeWebpPreview(
         )
         return webpFilePath
 
-    sourceWidth = int(mps.get("width") or 0)
-    sourceHeight = int(mps.get("height") or 0)
-    if sourceWidth <= 0 or sourceHeight <= 0:
+    # Use the finished clip's real dimensions, not the source video's. The clip
+    # may have been cropped, rotated, or resized by the main encode pipeline,
+    # in which case its aspect ratio differs from the source. Feeding the
+    # source aspect into the scale filter would stretch/squash the preview.
+    # mps width/height are the original source dims and are kept only as a
+    # fallback for the (rare) case where ffprobe on the clip itself fails.
+    inputDimensions = probeVideoDimensions(cp, clipFilePath)
+    if inputDimensions is not None:
+        inputWidth, inputHeight = inputDimensions
+    else:
+        inputWidth = int(mps.get("width") or 0)
+        inputHeight = int(mps.get("height") or 0)
+    if inputWidth <= 0 or inputHeight <= 0:
         logger.warning(
-            "Skipping WebP preview: source width/height unknown on marker pair settings.",
+            "Skipping WebP preview: could not determine clip width/height.",
         )
         return None
 
@@ -262,16 +273,16 @@ def makeWebpPreview(
         )
 
     previewWidth, previewHeight = computePreviewDimensions(
-        sourceWidth,
-        sourceHeight,
+        inputWidth,
+        inputHeight,
         tiers=WEBP_PREVIEW_DIM_TIERS,
         override=mps.get("previewMaxDim") or None,
     )
 
     quality = pickPreviewQuality(
         sourceCrf=mps.get("crf"),
-        sourceWidth=sourceWidth,
-        sourceHeight=sourceHeight,
+        sourceWidth=inputWidth,
+        sourceHeight=inputHeight,
         previewWidth=previewWidth,
         previewHeight=previewHeight,
         override=mps.get("previewQuality"),
