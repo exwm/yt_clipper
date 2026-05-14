@@ -136,7 +136,7 @@ interface ChartInput {
   chartContainerHook: HTMLElement | null;
   chartContainerHookPosition: 'beforebegin' | 'afterbegin' | 'beforeend' | 'afterend';
   chartContainerStyle: string;
-  chartCanvasHTML: string;
+  chartCanvasTemplate: import('lit-html').TemplateResult;
   chartCanvasId: string;
   chartSpec: ChartConfiguration;
   minBound: number;

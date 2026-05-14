@@ -1,5 +1,11 @@
-import { presetsMap } from '../presets';
-import { CropPoint, Denoise, MarkerPair, SpeedPoint, VideoStabilization } from '../@types/yt_clipper';
+import { presetsMap } from '../features/settings/presets';
+import {
+  CropPoint,
+  Denoise,
+  MarkerPair,
+  SpeedPoint,
+  VideoStabilization,
+} from '../@types/yt_clipper';
 
 export const SHARE_FORMAT_VERSION = 0x01;
 
@@ -251,7 +257,9 @@ function findDenoiseId(d: Denoise): number {
 function findVStabId(v: VideoStabilization): number {
   const idx = VSTAB_PRESET_ORDER.indexOf(v.desc as (typeof VSTAB_PRESET_ORDER)[number]);
   if (idx < 0) {
-    console.warn(`share-format: unknown videoStabilization preset "${v.desc}", snapping to Disabled`);
+    console.warn(
+      `share-format: unknown videoStabilization preset "${v.desc}", snapping to Disabled`
+    );
     return 0;
   }
   return idx;

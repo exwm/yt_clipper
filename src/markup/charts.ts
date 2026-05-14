@@ -18,18 +18,17 @@ import {
   flashMessage,
   getCropString,
   getEasedValue,
-  htmlToElement,
-  safeSetInnerHtml,
   seekToSafe,
   timeRounder,
 } from './util/util';
+import { html, render } from 'lit-html';
 import { updateCropString } from './crop-utils';
 import {
   cropInputLabel,
   highlightSpeedAndCropInputs,
   renderCropForm,
   enableZoomPanInput,
-} from './settings-editor';
+} from './features/settings/settings-editor';
 import {
   cropCrossHairEnabled,
   cropOverlayElements,
@@ -62,7 +61,11 @@ export const chartState = {
     chartContainerHookPosition: 'afterend',
     chartContainerStyle:
       'width: 100%; height: calc(100% - 20px); position: relative; z-index: 55; opacity:0.8;',
-    chartCanvasHTML: `<canvas id="speedChartCanvas" width="1600px" height="900px"></canvas>`,
+    chartCanvasTemplate: html`<canvas
+      id="speedChartCanvas"
+      width="1600px"
+      height="900px"
+    ></canvas>`,
     chartSpec: speedChartSpec,
     chartCanvasId: 'speedChartCanvas',
     minBound: 0,
@@ -78,7 +81,7 @@ export const chartState = {
     chartContainerHook: null,
     chartContainerHookPosition: 'beforebegin',
     chartContainerStyle: 'display:flex',
-    chartCanvasHTML: `<canvas id="cropChartCanvas" width="1600px" height="87px"></canvas>`,
+    chartCanvasTemplate: html`<canvas id="cropChartCanvas" width="1600px" height="87px"></canvas>`,
     chartCanvasId: 'cropChartCanvas',
     chartSpec: getCropChartConfig(false),
     minBound: 0,
@@ -252,15 +255,10 @@ export function toggleChart(chartInput: ChartInput) {
       chartState.currentChartInput = chartInput;
 
       initializeChartData(chartInput.chartSpec, chartInput.dataMapKey);
-      chartInput.chartContainer = htmlToElement(
-        `
-            <div
-              id="${chartInput.chartContainerId}"
-              style="${chartInput.chartContainerStyle}"
-            ></div>
-          `
-      ) as HTMLDivElement;
-      safeSetInnerHtml(chartInput.chartContainer, chartInput.chartCanvasHTML);
+      chartInput.chartContainer = document.createElement('div');
+      chartInput.chartContainer.id = chartInput.chartContainerId;
+      chartInput.chartContainer.setAttribute('style', chartInput.chartContainerStyle);
+      render(chartInput.chartCanvasTemplate, chartInput.chartContainer);
       assertDefined(chartInput.chartContainerHook);
       chartInput.chartContainerHook.insertAdjacentElement(
         chartInput.chartContainerHookPosition,

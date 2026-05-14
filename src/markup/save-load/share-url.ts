@@ -1,13 +1,9 @@
+import { html, render, TemplateResult } from 'lit-html';
 import { MarkerPair } from '../@types/yt_clipper';
 import { __version__, appState } from '../appState';
+import { ModalShell } from '../components/modal';
 import { isStaticCrop } from '../crop-utils';
-import {
-  assertDefined,
-  copyToClipboard,
-  deleteElement,
-  flashMessage,
-  safeSetInnerHtml,
-} from '../util/util';
+import { copyToClipboard, deleteElement, flashMessage } from '../util/util';
 import { isVariableSpeed, loadClipperInputJSON } from './save-load';
 import {
   SHARE_FORMAT_VERSION,
@@ -30,8 +26,7 @@ function base64UrlEncode(bytes: Uint8Array): string {
 }
 
 function base64UrlDecode(str: string): Uint8Array {
-  const padded =
-    str.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (str.length % 4)) % 4);
+  const padded = str.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (str.length % 4)) % 4);
   const binary = atob(padded);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -225,10 +220,7 @@ export async function tryLoadSharedMarkers() {
   } catch (err) {
     if (err instanceof DecompressionTooLargeError) {
       console.error('Shared URL payload exceeds size limit', err);
-      flashMessage(
-        'Shared URL payload is too large — refusing to decompress.',
-        'red'
-      );
+      flashMessage('Shared URL payload is too large — refusing to decompress.', 'red');
       stripSharedMarkersFromUrl();
       return;
     }
@@ -290,61 +282,58 @@ function deleteSharedMarkersModal() {
   if (el) deleteElement(el);
 }
 
+interface SharedMarkersModalProps {
+  pairCount: number;
+  title: string;
+  prettyJson: string;
+  onLoad: () => void;
+  onDismiss: () => void;
+  onCopy: () => void;
+  onBackdropClick: () => void;
+}
+
+function SharedMarkersModal(p: SharedMarkersModalProps): TemplateResult {
+  const body = html`
+    <div class="ytc-share-modal-summary">
+      Pairs: <b>${p.pairCount}</b> &nbsp;·&nbsp; Title: <b>${p.title}</b>
+    </div>
+    <pre class="ytc-share-modal-json">${p.prettyJson}</pre>
+  `;
+  const actions = html`
+    <input type="button" value="Copy JSON" @click=${p.onCopy} />
+    <input type="button" value="Dismiss" @click=${p.onDismiss} />
+    <input type="button" class="ytc-share-modal-load" value="Load" @click=${p.onLoad} />
+  `;
+  return ModalShell({
+    id: MODAL_ID,
+    extraClass: 'ytc-share-modal',
+    title: 'Load shared markers?',
+    warning:
+      '⚠ Review the JSON below before loading. Shared URLs come from untrusted sources; loading will overwrite your current settings and add these marker pairs.',
+    children: body,
+    actions,
+    onBackdropClick: p.onBackdropClick,
+  });
+}
+
 function showSharedMarkersModal(payload: SharePayload, prettyJson: string, compactJson: string) {
   deleteSharedMarkersModal();
 
-  const modal = document.createElement('div');
-  modal.setAttribute('id', MODAL_ID);
-  modal.setAttribute('class', 'ytc-modal ytc-share-modal');
+  const host = document.createElement('div');
+  document.body.appendChild(host);
 
   const pairCount = payload.markerPairs.length;
   const title = payload.settings.titleSuffix ?? '(none)';
 
-  safeSetInnerHtml(
-    modal,
-    `
-      <div class="ytc-share-modal-box">
-        <div class="ytc-share-modal-title">Load shared markers?</div>
-        <div class="ytc-share-modal-warning">
-          ⚠ Review the JSON below before loading. Shared URLs come from untrusted sources; loading will overwrite your current settings and add these marker pairs.
-        </div>
-        <div class="ytc-share-modal-summary">
-          Pairs: <b id="shared-markers-pair-count"></b> &nbsp;·&nbsp;
-          Title: <b id="shared-markers-title"></b>
-        </div>
-        <pre id="shared-markers-preview-json" class="ytc-share-modal-json"></pre>
-        <div class="ytc-share-modal-actions">
-          <input type="button" id="shared-markers-copy" value="Copy JSON" />
-          <input type="button" id="shared-markers-dismiss" value="Dismiss" />
-          <input type="button" id="shared-markers-load" class="ytc-share-modal-load" value="Load" />
-        </div>
-      </div>
-    `
-  );
-
-  const pairCountEl = modal.querySelector('#shared-markers-pair-count');
-  const titleEl = modal.querySelector('#shared-markers-title');
-  const jsonEl = modal.querySelector('#shared-markers-preview-json');
-  assertDefined(pairCountEl, 'Expected shared-markers-pair-count element');
-  assertDefined(titleEl, 'Expected shared-markers-title element');
-  assertDefined(jsonEl, 'Expected shared-markers-preview-json element');
-  pairCountEl.textContent = String(pairCount);
-  titleEl.textContent = title;
-  jsonEl.textContent = prettyJson;
-
-  document.body.appendChild(modal);
-
-  const loadButton = document.getElementById('shared-markers-load');
-  const dismissButton = document.getElementById('shared-markers-dismiss');
-  const copyButton = document.getElementById('shared-markers-copy');
-  assertDefined(loadButton, 'Expected shared-markers-load button');
-  assertDefined(dismissButton, 'Expected shared-markers-dismiss button');
-  assertDefined(copyButton, 'Expected shared-markers-copy button');
+  const cleanup = () => {
+    document.removeEventListener('keydown', onKeydown, true);
+    deleteSharedMarkersModal();
+    if (host.parentNode) host.parentNode.removeChild(host);
+  };
 
   const dismiss = () => {
     stripSharedMarkersFromUrl();
-    deleteSharedMarkersModal();
-    document.removeEventListener('keydown', onKeydown, true);
+    cleanup();
     flashMessage('Dismissed shared markers URL.', 'olive');
   };
 
@@ -357,27 +346,35 @@ function showSharedMarkersModal(payload: SharePayload, prettyJson: string, compa
   };
   document.addEventListener('keydown', onKeydown, true);
 
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) dismiss();
-  });
-
-  loadButton.onclick = () => {
+  const onLoad = () => {
     try {
       loadClipperInputJSON(compactJson);
       flashMessage(`Loaded ${pairCount} marker pair(s) from shared URL.`, 'green');
       stripSharedMarkersFromUrl();
-      deleteSharedMarkersModal();
-      document.removeEventListener('keydown', onKeydown, true);
+      cleanup();
     } catch (err) {
       console.error('Failed to apply shared markers', err);
       flashMessage('Failed to apply shared markers. See console.', 'red');
     }
   };
-  dismissButton.onclick = dismiss;
-  copyButton.onclick = () => {
+
+  const onCopy = () => {
     copyToClipboard(prettyJson);
     flashMessage('Copied decoded JSON to clipboard.', 'green');
   };
+
+  render(
+    SharedMarkersModal({
+      pairCount,
+      title,
+      prettyJson,
+      onLoad,
+      onDismiss: dismiss,
+      onCopy,
+      onBackdropClick: dismiss,
+    }),
+    host
+  );
 }
 
 export const __testing = { SHARE_FORMAT_VERSION, SHARE_FRAGMENT_RE };

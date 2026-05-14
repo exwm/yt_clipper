@@ -6,7 +6,7 @@ import { isStaleVideo, setIsStaleVideo, PlatformNavObserver } from './platforms/
 import { videoPlatformDataRecords, VideoPlatforms } from './platforms/platforms';
 import { platform, initOnceCalled } from './yt_clipper';
 import { getCurrentPageVideoID } from './platforms/navigation';
-import { htmlToElement } from './util/util';
+import { html, render } from 'lit-html';
 
 export let navObserver: PlatformNavObserver | null = null;
 export function startNavigationWatcher() {
@@ -68,18 +68,27 @@ export function clearStaleVideoState() {
     }
   }
 }
-export function showStaleVideoBanner() {
-  if (staleVideoBannerEl) return;
-  const loadedVideoID = appState.settings?.videoID ?? 'unknown';
-  staleVideoBannerEl = htmlToElement(`
+function StaleVideoBannerTemplate(loadedVideoID: string) {
+  return html`
     <div id="ytc-stale-video-banner">
       <span class="ytc-stale-banner-icon">!</span>
       <div class="ytc-stale-banner-text">
         <strong>Video changed</strong>
-        <span>yt_clipper was loaded from appState.video with id <code class="ytc-stale-banner-videoid">${loadedVideoID}</code> and may behave unexpectedly on other videos. Navigate back to resume, or refresh the page to reload yt_clipper.</span>
+        <span>
+          yt_clipper was loaded from appState.video with id
+          <code class="ytc-stale-banner-videoid">${loadedVideoID}</code> and may behave unexpectedly
+          on other videos. Navigate back to resume, or refresh the page to reload yt_clipper.
+        </span>
       </div>
     </div>
-  `) as HTMLDivElement;
+  `;
+}
+export function showStaleVideoBanner() {
+  if (staleVideoBannerEl) return;
+  const loadedVideoID = appState.settings?.videoID ?? 'unknown';
+  const container = document.createElement('div');
+  render(StaleVideoBannerTemplate(loadedVideoID), container);
+  staleVideoBannerEl = container.firstElementChild as HTMLDivElement;
 
   appState.hooks.flashMessage.insertAdjacentElement('afterbegin', staleVideoBannerEl);
 }

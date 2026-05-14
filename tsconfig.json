@@ -24,7 +24,6 @@
       "chart.js",
       "common-tags",
       "d3-ease",
-      "dompurify",
       "file-saver",
       "jest",
       "jszip",

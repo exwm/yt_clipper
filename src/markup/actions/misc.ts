@@ -18,5 +18,6 @@ export function flattenVRVideo(videoContainer: HTMLDivElement, video: HTMLVideoE
 }
 export function openSubsEditor(videoID) {
   const url = `https://www.youtube.com/timedtext_video?ref=player&v=${videoID}`;
+  // eslint-disable-next-line local/no-url-attribute-interpolation -- videoID is read from YouTube's DOM via getCurrentPageVideoID(); the host-page trust root governs its value, and the URL scheme is hardcoded https.
   window.open(url, '_blank');
 }

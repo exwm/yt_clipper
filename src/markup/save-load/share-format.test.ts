@@ -1,4 +1,4 @@
-import { presetsMap } from '../presets';
+import { presetsMap } from '../features/settings/presets';
 import {
   ByteReader,
   ByteWriter,

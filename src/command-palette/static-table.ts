@@ -1,70 +1,65 @@
+import { html, nothing, TemplateResult } from 'lit-html';
 import { ShortcutRegistry } from './registry';
 import { ShortcutDefinition } from './types';
 
 const SEPARATOR_RE = /(\s*\+\s*|\s*\/\s*|\s*,\s*|\s+or\s+)/g;
 
-export function renderShortcutsTable(registry: ShortcutRegistry): string {
-  const grouped = registry.getGrouped();
-  const parts: string[] = [];
-  for (const [section, categories] of grouped) {
-    parts.push(`<h2>${escapeHtml(section)}</h2>`);
+export function renderShortcutsTable(registry: ShortcutRegistry): TemplateResult {
+  const sections: TemplateResult[] = [];
+  for (const [section, categories] of registry.getGrouped()) {
+    const tables: TemplateResult[] = [];
     for (const [category, shortcuts] of categories) {
-      parts.push(renderCategoryTable(category, shortcuts));
+      tables.push(renderCategoryTable(category, shortcuts));
     }
+    sections.push(
+      html`<h2>${section}</h2>
+        ${tables}`
+    );
   }
-  return parts.join('\n');
+  return html`${sections}`;
 }
 
-function renderCategoryTable(category: string, shortcuts: ShortcutDefinition[]): string {
-  const rows = shortcuts.map(renderRow).join('\n');
-  return [
-    '<table>',
-    '  <thead>',
-    '    <tr>',
-    `      <th colspan="2">${escapeHtml(category)}</th>`,
-    '    </tr>',
-    '    <tr>',
-    '      <th>Action</th>',
-    '      <th>Shortcut</th>',
-    '    </tr>',
-    '  </thead>',
-    '  <tbody>',
-    rows,
-    '  </tbody>',
-    '</table>',
-  ].join('\n');
+function renderCategoryTable(category: string, shortcuts: ShortcutDefinition[]): TemplateResult {
+  return html`
+    <table>
+      <thead>
+        <tr>
+          <th colspan="2">${category}</th>
+        </tr>
+        <tr>
+          <th>Action</th>
+          <th>Shortcut</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${shortcuts.map(renderRow)}
+      </tbody>
+    </table>
+  `;
 }
 
-function renderRow(def: ShortcutDefinition): string {
-  const rowClass = def.essential ? ' class="essential-row"' : '';
+function renderRow(def: ShortcutDefinition): TemplateResult {
   const shortcutCell = def.displayNote
-    ? `<pre>${escapeHtml(def.displayNote)}</pre>`
+    ? html`<pre>${def.displayNote}</pre>`
     : renderDisplayKey(def.displayKey);
-  return [
-    `    <tr${rowClass}>`,
-    `      <td>${escapeHtml(def.description)}</td>`,
-    `      <td>${shortcutCell}</td>`,
-    `    </tr>`,
-  ].join('\n');
+  return def.essential
+    ? html`<tr class="essential-row">
+        <td>${def.description}</td>
+        <td>${shortcutCell}</td>
+      </tr>`
+    : html`<tr>
+        <td>${def.description}</td>
+        <td>${shortcutCell}</td>
+      </tr>`;
 }
 
-export function renderDisplayKey(displayKey: string): string {
-  if (displayKey === '') return '';
+export function renderDisplayKey(displayKey: string): TemplateResult | typeof nothing {
+  if (displayKey === '') return nothing;
   const parts = displayKey.split(SEPARATOR_RE);
-  return parts
-    .map((part, idx) => {
-      if (idx % 2 === 1) return escapeHtml(part);
-      if (part === '') return '';
-      return `<kbd>${escapeHtml(part)}</kbd>`;
-    })
-    .join('');
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+  const nodes = parts.map((part, idx) => {
+    if (idx % 2 === 1) return part;
+    if (part === '') return nothing;
+    return html`<kbd>${part}</kbd>`;
+  });
+  return html`${nodes}`;
 }

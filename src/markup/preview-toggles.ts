@@ -9,7 +9,8 @@ import {
   getIsMarkerLoopPreviewOn,
   toggleMarkerPairLoop,
 } from './speed';
-import { flashMessage, safeSetInnerHtml } from './util/util';
+import { html, render } from 'lit-html';
+import { flashMessage } from './util/util';
 import { prevGammaVal, setPrevGammaVal } from './util/previewGamma';
 
 let gammaFilterDiv: HTMLDivElement;
@@ -18,26 +19,25 @@ let gammaG: SVGFEFuncGElement;
 let gammaB: SVGFEFuncBElement;
 let gammaFilterSvg: SVGSVGElement;
 
+const gammaFilterSvgTemplate = html`
+  <svg id="gamma-filter-svg" xmlns="http://www.w3.org/2000/svg" width="0" height="0">
+    <defs>
+      <filter id="gamma-filter">
+        <feComponentTransfer id="gamma-filter-comp-transfer">
+          <feFuncR id="gamma-r" type="gamma" offset="0" amplitude="1"></feFuncR>
+          <feFuncG id="gamma-g" type="gamma" offset="0" amplitude="1"></feFuncG>
+          <feFuncB id="gamma-b" type="gamma" offset="0" amplitude="1"></feFuncB>
+        </feComponentTransfer>
+      </filter>
+    </defs>
+  </svg>
+`;
+
 export function toggleGammaPreview() {
   if (!gammaFilterDiv) {
     gammaFilterDiv = document.createElement('div');
     gammaFilterDiv.setAttribute('id', 'gamma-filter-div');
-    safeSetInnerHtml(
-      gammaFilterDiv,
-      `
-      <svg id="gamma-filter-svg" xmlns="http://www.w3.org/2000/svg" width="0" height="0">
-        <defs>
-          <filter id="gamma-filter">
-            <feComponentTransfer id="gamma-filter-comp-transfer">
-              <feFuncR id="gamma-r" type="gamma" offset="0" amplitude="1"></feFuncR>
-              <feFuncG id="gamma-g" type="gamma" offset="0" amplitude="1"></feFuncG>
-              <feFuncB id="gamma-b" type="gamma" offset="0" amplitude="1"></feFuncB>
-            </feComponentTransfer>
-          </filter>
-        </defs>
-      </svg>
-      `
-    );
+    render(gammaFilterSvgTemplate, gammaFilterDiv);
     document.body.appendChild(gammaFilterDiv);
     gammaFilterSvg = gammaFilterDiv.firstElementChild as SVGSVGElement;
     gammaR = document.getElementById('gamma-r') as unknown as SVGFEFuncRElement;

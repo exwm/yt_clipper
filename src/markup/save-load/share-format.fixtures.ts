@@ -1,5 +1,5 @@
 import { CropPoint, Denoise, VideoStabilization } from '../@types/yt_clipper';
-import { presetsMap } from '../presets';
+import { presetsMap } from '../features/settings/presets';
 import {
   DENOISE_PRESET_ORDER,
   LOOP_ORDER,

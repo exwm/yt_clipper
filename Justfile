@@ -52,7 +52,7 @@ bundle-tc-w:
 lint-ts:
   npx tsc --noEmit && npx eslint ./src/markup ./src/command-palette
 bundle-prod:
-  just lint-ts && npx parcel build --no-scope-hoist --no-optimize
+  just pretty-ts && just lint-ts && npx parcel build --no-scope-hoist --no-optimize
 
 clean-dist:
   rm -r ./dist/*

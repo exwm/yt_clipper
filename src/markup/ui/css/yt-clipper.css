@@ -322,6 +322,16 @@
   gap: 2px;
 }
 
+#title-suffix-input {
+  background-color: lightgreen;
+  min-width: 20em;
+  text-align: right;
+}
+
+#title-prefix-input {
+  text-align: right;
+}
+
 .fps-mul-stepper input[type='number'] {
   width: auto;
 }

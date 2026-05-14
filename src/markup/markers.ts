@@ -6,17 +6,17 @@ import { initAutoSave } from './auto-save';
 import { chartState, cropChartSectionLoop, renderSpeedAndCropUI } from './charts';
 import { isDrawingCrop, isMouseManipulatingCrop } from './crop-overlay';
 import { getCropMultiples, getDefaultCropRes, multiplyMarkerPairCrops } from './crop-utils';
-import { toggleOffGlobalSettingsEditor } from './global-settings-editor';
+import { toggleOffGlobalSettingsEditor } from './features/settings/global-settings-editor';
 import {
   markerPairNumberInput,
   toggleMarkerPairEditor,
   toggleMarkerPairEditorHandler,
   toggleOffMarkerPairEditor,
   toggleOnMarkerPairEditor,
-} from './marker-settings-editor';
+} from './features/settings/marker-settings-editor';
 import { VideoPlatforms } from './platforms/platforms';
 import { addMarkerPairs, isVariableSpeed } from './save-load';
-import { arrowKeyCropAdjustmentEnabled } from './settings-editor';
+import { arrowKeyCropAdjustmentEnabled } from './features/settings/settings-editor';
 import {
   getIsMarkerLoopPreviewOn,
   isMarkerSeekPending,
@@ -40,13 +40,12 @@ import {
   flashMessage,
   getOutputDuration,
   getVideoDuration,
-  htmlToSVGElement,
   roundValue,
-  safeSetInnerHtml,
   seekToSafe,
   setAttributes,
   toHHMMSSTrimmed,
 } from './util/util';
+import { html, render, svg } from 'lit-html';
 import { getFPS } from './util/videoUtil';
 import { platform } from './yt_clipper';
 
@@ -109,6 +108,34 @@ export function moveMarkerByFrameHandler(event: WheelEvent) {
     seekToSafe(appState.video, newMarkerTime);
   }
 }
+
+const markersSvgTemplate = html`
+  <svg id="markers-svg"></svg>
+  <svg id="selected-marker-pair-overlay" style="display:none">
+    <rect
+      id="selected-start-marker-overlay"
+      class="selected-marker-overlay"
+      width="1px"
+      height="8px"
+      y="3.5px"
+      shape-rendering="crispEdges"
+    ></rect>
+    <rect
+      id="selected-end-marker-overlay"
+      class="selected-marker-overlay"
+      width="1px"
+      height="8px"
+      y="3.5px"
+      shape-rendering="crispEdges"
+    ></rect>
+  </svg>
+`;
+
+const markerNumberingsTemplate = html`
+  <svg id="start-marker-numberings"></svg>
+  <svg id="end-marker-numberings"></svg>
+`;
+
 export function initMarkersContainer() {
   appState.settings = {
     platform: platform,
@@ -125,29 +152,14 @@ export function initMarkersContainer() {
   };
   appState.markersDiv = document.createElement('div');
   appState.markersDiv.setAttribute('id', 'markers-div');
-  safeSetInnerHtml(
-    appState.markersDiv,
-    `
-        <svg id="markers-svg"></svg>
-        <svg id="selected-marker-pair-overlay" style="display:none">
-          <rect id="selected-start-marker-overlay"  class="selected-marker-overlay" width="1px" height="8px" y="3.5px" shape-rendering="crispEdges"></rect>
-          <rect id="selected-end-marker-overlay"  class="selected-marker-overlay" width="1px" height="8px" y="3.5px" shape-rendering="crispEdges"></rect>
-        </svg>
-      `
-  );
+  render(markersSvgTemplate, appState.markersDiv);
 
   appState.markersSvg = appState.markersDiv.children[0] as SVGSVGElement;
   appState.selectedMarkerPairOverlay = appState.markersDiv.children[1] as SVGSVGElement;
 
   appState.markerNumberingsDiv = document.createElement('div');
   appState.markerNumberingsDiv.setAttribute('id', 'marker-numberings-div');
-  safeSetInnerHtml(
-    appState.markerNumberingsDiv,
-    `
-        <svg id="start-marker-numberings"></svg>
-        <svg id="end-marker-numberings"></svg>
-      `
-  );
+  render(markerNumberingsTemplate, appState.markerNumberingsDiv);
   appState.startMarkerNumberings = appState.markerNumberingsDiv.children[0] as SVGSVGElement;
   appState.endMarkerNumberings = appState.markerNumberingsDiv.children[1] as SVGSVGElement;
 
@@ -414,41 +426,40 @@ export function updateMarkerPairEditor() {
     }
   }
 }
+function renderNumberingText(
+  parent: SVGSVGElement,
+  cls: 'startMarkerNumbering' | 'endMarkerNumbering',
+  idx: number,
+  progressPos: number
+): SVGTextElement {
+  const container = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  render(
+    svg`<text class="markerNumbering ${cls}" data-idx=${idx} x="${progressPos}%" y="11.5px" text-anchor="middle">${idx}</text>`,
+    container
+  );
+  const numbering = container.children[0] as SVGTextElement;
+  parent.appendChild(numbering);
+  return numbering;
+}
+
 export function addMarkerPairNumberings(
   idx: number,
   startProgressPos: number,
   endProgressPos: number,
   endMarker: SVGRectElement
 ) {
-  const startNumberingSvg = htmlToSVGElement(`\
-        <svg>\
-        <text class="markerNumbering startMarkerNumbering" data-idx="${idx}"\
-          x="${startProgressPos}%" y="11.5px"
-          text-anchor="middle"
-        >\
-        ${idx}\
-        </text>\
-        </svg>\
-        `);
-  assertDefined(startNumberingSvg, 'Expected start numbering SVG element');
-  const startNumbering = startNumberingSvg.children[0] as SVGElement;
-  const endNumberingSvg = htmlToSVGElement(`\
-        <svg>\
-        <text class="markerNumbering endMarkerNumbering" data-idx="${idx}"\
-          x="${endProgressPos}%" y="11.5px"
-          text-anchor="middle"
-        >\
-        ${idx}\
-        </text>\
-        </svg>\
-        `);
-  assertDefined(endNumberingSvg, 'Expected end numbering SVG element');
-  const endNumbering = endNumberingSvg.children[0] as SVGElement;
-
-  const startNumberingText = appState.startMarkerNumberings.appendChild(
-    startNumbering
-  ) as SVGTextElement;
-  const endNumberingText = appState.endMarkerNumberings.appendChild(endNumbering) as SVGTextElement;
+  const startNumberingText = renderNumberingText(
+    appState.startMarkerNumberings,
+    'startMarkerNumbering',
+    idx,
+    startProgressPos
+  );
+  const endNumberingText = renderNumberingText(
+    appState.endMarkerNumberings,
+    'endMarkerNumbering',
+    idx,
+    endProgressPos
+  );
 
   (endNumberingText as any).marker = endMarker;
   (startNumberingText as any).marker = endMarker;

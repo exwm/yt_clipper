@@ -1,9 +1,9 @@
 import { createDraft } from 'immer';
-import { renderShortcutsTable } from '../command-palette';
-import { MarkerPair, MarkerPairOverrides, Settings } from './@types/yt_clipper';
-import { appState } from './appState';
-import { getCropMapProperties, renderSpeedAndCropUI } from './charts';
-import { hideCropOverlay, resizeCrop, transformCropWithPushBack } from './crop-overlay';
+import { renderShortcutsTable } from '../../../command-palette';
+import { MarkerPair, MarkerPairOverrides, Settings } from '../../@types/yt_clipper';
+import { appState } from '../../appState';
+import { getCropMapProperties, renderSpeedAndCropUI } from '../../charts';
+import { hideCropOverlay, resizeCrop, transformCropWithPushBack } from '../../crop-overlay';
 import {
   cropStringsEqual,
   getCropComponents,
@@ -13,51 +13,102 @@ import {
   setCropInputValue,
   setCropString,
   updateCropString,
-} from './crop-utils';
-import { Crop, getMinMaxAvgCropPoint, isVariableSize } from './crop/crop';
-import { triggerCropPreviewRedraw } from './crop/crop-preview';
-import { VideoPlatforms } from './platforms/platforms';
+} from '../../crop-utils';
+import { Crop, getMinMaxAvgCropPoint, isVariableSize } from '../../crop/crop';
+import { triggerCropPreviewRedraw } from '../../crop/crop-preview';
+import { VideoPlatforms } from '../../platforms/platforms';
 import { presetsMap } from './presets';
-import { updateMarkerPairSpeed } from './speed';
-import { Tooltips } from './ui/tooltips';
-import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
+import { updateMarkerPairSpeed } from '../../speed';
+import { Tooltips } from '../../ui/tooltips';
+import { getMarkerPairHistory, saveMarkerPairHistory } from '../../util/undoredo';
 import {
   assertDefined,
   blockEvent,
   deleteElement,
   flashMessage,
   getCropString,
-  htmlToElement,
   injectCSS,
-  safeSetInnerHtml,
-} from './util/util';
+} from '../../util/util';
+import { render } from 'lit-html';
+import { shortcutsTableToggleButtonTemplate } from '../../ui/shortcuts-table/toggle-button';
 import {
   commandPalette,
   initShortcutSystem,
   platform,
   shortcutRegistry,
   shortcutsTableStyle,
-  shortcutsTableToggleButtonHTML,
-} from './yt_clipper';
+} from '../../yt_clipper';
 
-export function addSettingsInputListeners(inputs: string[][], target, highlightable = false) {
-  inputs.forEach((input) => {
-    const id = input[0];
-    const targetProperty = input[1];
-    const valueType = input[2] || 'string';
-    const inputElem = document.getElementById(id);
-    assertDefined(inputElem, `Settings input element not found: ${id}`);
+export function gateHotkeys(el: Element | undefined) {
+  if (!el) return;
+  el.addEventListener('focus', disableHotkeys, false);
+  el.addEventListener('blur', enableHotkeys, false);
+}
+function disableHotkeys() {
+  appState.isHotkeysEnabled = false;
+}
+function enableHotkeys() {
+  appState.isHotkeysEnabled = true;
+}
 
-    inputElem.addEventListener('focus', () => (appState.isHotkeysEnabled = false), false);
-    inputElem.addEventListener('blur', () => (appState.isHotkeysEnabled = true), false);
-    inputElem.addEventListener(
-      'change',
-      (e) => {
-        updateSettingsValue(e, id, target, targetProperty, valueType, highlightable);
-      },
-      false
-    );
-  });
+export type SettingsTarget = Settings | MarkerPair | MarkerPairOverrides;
+export type SettingsValueType =
+  | 'string'
+  | 'number'
+  | 'bool'
+  | 'ternary'
+  | 'preset'
+  | 'inheritableString';
+
+export interface SettingsInput<T> {
+  id: string;
+  field: keyof T & string;
+  type: SettingsValueType;
+}
+
+export interface BoundInput {
+  id: string;
+  onChange: (e: Event) => void;
+}
+
+export interface BindOptions {
+  highlightable?: boolean;
+  afterChange?: (e: Event) => void;
+}
+
+export type FieldBinder = (
+  id: string,
+  field: string,
+  type: SettingsValueType,
+  opts?: BindOptions
+) => BoundInput;
+
+export interface SettingsBinder<T> {
+  bind(
+    id: string,
+    field: keyof T & string,
+    type: SettingsValueType,
+    opts?: BindOptions
+  ): BoundInput;
+  all(): readonly SettingsInput<T>[];
+}
+
+export function createBindings<T extends SettingsTarget>(target: T): SettingsBinder<T> {
+  const collected: SettingsInput<T>[] = [];
+  return {
+    bind(id, field, type, opts) {
+      const highlightable = opts?.highlightable ?? true;
+      if (highlightable) collected.push({ id, field, type });
+      return {
+        id,
+        onChange: (e: Event) => {
+          updateSettingsValue(e, id, target, field, type, highlightable);
+          opts?.afterChange?.(e);
+        },
+      };
+    },
+    all: () => collected,
+  };
 }
 export function deleteSettingsEditor() {
   const settingsEditorDiv = document.getElementById('settings-editor-div');
@@ -113,7 +164,10 @@ export let cropAspectRatioSpan: HTMLSpanElement;
 export function setCropAspectRatioSpan(el: HTMLSpanElement) {
   cropAspectRatioSpan = el;
 }
-export function highlightModifiedSettings(inputs: string[][], target) {
+export function highlightModifiedSettings(
+  inputs: readonly { id: string; field: string; type: SettingsValueType }[],
+  target: SettingsTarget
+) {
   if (appState.isSettingsEditorOpen) {
     const markerPairSettingsLabelHighlight = 'marker-pair-settings-editor-highlighted-label';
     const globalSettingsLabelHighlight = 'global-settings-editor-highlighted-label';
@@ -123,7 +177,7 @@ export function highlightModifiedSettings(inputs: string[][], target) {
       markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     }
     inputs.forEach((input) => {
-      const [id, targetProperty, valueType] = input;
+      const { id, field: targetProperty, type: valueType } = input;
       const inputElem = document.getElementById(id);
       if (!inputElem) return;
       const storedTargetValue = target[targetProperty];
@@ -190,9 +244,9 @@ export { presetsMap };
 export function updateSettingsValue(
   e: Event,
   id: string,
-  target: Settings | MarkerPair | MarkerPairOverrides,
+  target: SettingsTarget,
   targetProperty: string,
-  valueType: string,
+  valueType: SettingsValueType,
   highlightable: boolean
 ) {
   const inputTarget = e.target as HTMLInputElement;
@@ -326,7 +380,8 @@ export function updateSettingsValue(
     }
   }
 
-  if (highlightable) highlightModifiedSettings([[id, targetProperty, valueType]], target);
+  if (highlightable)
+    highlightModifiedSettings([{ id, field: targetProperty, type: valueType }], target);
 }
 export function addCropInputHotkeys() {
   cropInput.addEventListener('keydown', (ke: KeyboardEvent) => {
@@ -472,7 +527,9 @@ export function addCropInputHotkeys() {
 }
 export let commandPaletteToggleButton: HTMLButtonElement;
 export function injectToggleCommandPaletteButton() {
-  commandPaletteToggleButton = htmlToElement(shortcutsTableToggleButtonHTML) as HTMLButtonElement;
+  const container = document.createElement('div');
+  render(shortcutsTableToggleButtonTemplate, container);
+  commandPaletteToggleButton = container.firstElementChild as HTMLButtonElement;
   commandPaletteToggleButton.classList.add('yt-clipper-palette-button');
   commandPaletteToggleButton.title = 'Open yt_clipper Command Palette (Ctrl+Shift+P)';
   commandPaletteToggleButton.onclick = () => commandPalette?.toggle();
@@ -524,7 +581,7 @@ export function toggleShortcutsTable() {
     injectCSS(shortcutsTableStyle, 'shortcutsTableStyle');
     shortcutsTableContainer = document.createElement('div');
     shortcutsTableContainer.setAttribute('id', 'shortcutsTableContainer');
-    safeSetInnerHtml(shortcutsTableContainer, renderShortcutsTable(shortcutRegistry));
+    render(renderShortcutsTable(shortcutRegistry), shortcutsTableContainer);
     appState.hooks.shortcutsTable.insertAdjacentElement('beforebegin', shortcutsTableContainer);
   } else if (shortcutsTableContainer.style.display !== 'none') {
     shortcutsTableContainer.style.display = 'none';
@@ -624,8 +681,8 @@ export function highlightSpeedAndCropInputs() {
   if (appState.wasGlobalSettingsEditorOpen) {
     highlightModifiedSettings(
       [
-        ['crop-input', 'newMarkerCrop', 'string'],
-        ['speed-input', 'newMarkerSpeed', 'number'],
+        { id: 'crop-input', field: 'newMarkerCrop', type: 'string' },
+        { id: 'speed-input', field: 'newMarkerSpeed', type: 'number' },
       ],
       appState.settings
     );
@@ -633,9 +690,9 @@ export function highlightSpeedAndCropInputs() {
     const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     highlightModifiedSettings(
       [
-        ['crop-input', 'crop', 'string'],
-        ['speed-input', 'speed', 'number'],
-        ['enable-zoom-pan-input', 'enableZoomPan', 'bool'],
+        { id: 'crop-input', field: 'crop', type: 'string' },
+        { id: 'speed-input', field: 'speed', type: 'number' },
+        { id: 'enable-zoom-pan-input', field: 'enableZoomPan', type: 'bool' },
       ],
       markerPair
     );

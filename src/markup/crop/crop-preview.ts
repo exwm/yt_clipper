@@ -1,5 +1,5 @@
-import { html } from 'common-tags';
-import { assertDefined, deleteElement, flashMessage, htmlToElement } from '../util/util';
+import { html, render } from 'lit-html';
+import { assertDefined, deleteElement, flashMessage } from '../util/util';
 import { appState } from '../appState';
 import { createWebGLGammaRenderer, prevGammaVal, WebGLGammaRenderer } from '../util/previewGamma';
 import { FloatingVideoPreviewHandle, mountFloatingVideoPreview } from './video-preview-element';
@@ -19,6 +19,16 @@ let lastPopoutBounds: { screenX: number; screenY: number; width: number; height:
 
 export type cropPreviewMode = 'modal' | 'pop-out' | 'floating';
 
+const cropPreviewModalTemplate = html`
+  <div id="ytc-zoom-modal" class="ytc-modal">
+    <div id="ytc-modal-content" class="ytc-modal-content">
+      <div class="ytc-canvas-wrapper">
+        <canvas id="ytc-zoom-canvas"></canvas>
+      </div>
+    </div>
+  </div>
+`;
+
 export function startCropPreview(
   video: HTMLVideoElement,
   toggleCallback: Function,
@@ -27,17 +37,9 @@ export function startCropPreview(
   mode: cropPreviewMode = 'modal'
 ) {
   const mountModal = (): void => {
-    const modalHTML = html`
-      <div id="ytc-zoom-modal" class="ytc-modal">
-        <div id="ytc-modal-content" class="ytc-modal-content">
-          <div class="ytc-canvas-wrapper">
-            <canvas id="ytc-zoom-canvas"></canvas>
-          </div>
-        </div>
-      </div>
-    `;
-
-    const modalElement = htmlToElement(modalHTML) as HTMLElement;
+    const container = document.createElement('div');
+    render(cropPreviewModalTemplate, container);
+    const modalElement = container.firstElementChild as HTMLElement;
 
     document.body.insertAdjacentElement('afterbegin', modalElement);
 

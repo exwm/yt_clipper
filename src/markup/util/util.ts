@@ -1,4 +1,4 @@
-import DOMPurify from 'dompurify';
+import { html, render } from 'lit-html';
 import { SpeedPoint } from '../@types/yt_clipper';
 import { VideoPlatforms } from '../platforms/platforms';
 import { appState, VideoElement } from '../appState';
@@ -7,33 +7,6 @@ export function assertDefined<T>(value: T | null | undefined, msg?: string): ass
   if (value == null) {
     throw new Error(msg ?? 'Expected value to be defined');
   }
-}
-
-export function sanitizeHtml(html: string, forceBody = false): string | TrustedHTML {
-  const trustedHtml = DOMPurify.sanitize(html, {
-    USE_PROFILES: { html: true, svg: true, svgFilters: true },
-    RETURN_TRUSTED_TYPE: Boolean(window.TrustedHTML),
-    FORCE_BODY: forceBody,
-  });
-
-  if (DOMPurify.removed.length > 0) {
-    console.warn('Sanitized html. removed elements = ', DOMPurify.removed);
-  }
-
-  if (window.TrustedHTML) {
-    return trustedHtml as unknown as TrustedHTML;
-  } else {
-    return trustedHtml;
-  }
-}
-
-export function safeSetInnerHtml(e: HTMLOrSVGElement, html: string, forceBody = false) {
-  (e as HTMLElement).innerHTML = sanitizeHtml(html, forceBody) as string;
-}
-
-export function setInputValueById(root: ParentNode, id: string, value: string | null | undefined) {
-  const el = root.querySelector<HTMLInputElement | HTMLTextAreaElement>(`#${CSS.escape(id)}`);
-  if (el) el.value = value ?? '';
 }
 
 let flashMessageHook: HTMLElement;
@@ -154,24 +127,10 @@ export function sleep(ms: number) {
 export function injectCSS(css: string, id: string) {
   const style = document.createElement('style');
   style.setAttribute('id', id);
-  safeSetInnerHtml(style, css);
+  style.textContent = css;
   document.body.appendChild(style);
   return style;
 }
-export function htmlToElement(html: string) {
-  const template = document.createElement('template');
-  html = html.trim(); // Never return a text node of whitespace as the result
-  safeSetInnerHtml(template, html);
-  return template.content.firstChild;
-}
-
-export function htmlToSVGElement(html: string) {
-  const template = document.createElementNS('http://www.w3.org/2000/svg', 'template');
-  html = html.trim(); // Never return a text node of whitespace as the result
-  safeSetInnerHtml(template, html);
-  return template.firstElementChild;
-}
-
 export function deleteElement(elem: Element) {
   if (elem?.parentElement) {
     elem.parentElement.removeChild(elem);
@@ -459,9 +418,9 @@ export function injectProgressBar(color: string, tag: string) {
       deleteElement(progressDiv);
     }, 2500);
   });
-  safeSetInnerHtml(
-    progressDiv,
-    `<span class="flash-msg" style="color:${color}"> ${tag} Zipping Progress: 0%</span>`
+  render(
+    html`<span class="flash-msg" style="color:${color}"> ${tag} Zipping Progress: 0%</span>`,
+    progressDiv
   );
   appState.hooks.frameCapturerProgressBar.insertAdjacentElement('beforebegin', progressDiv);
   return progressDiv;

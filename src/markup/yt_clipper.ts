@@ -81,7 +81,7 @@ import {
   tryLoadSharedMarkers,
 } from './save-load';
 import { updateAllMarkerPairCrops } from './crop-utils';
-import { toggleGlobalSettingsEditor } from './global-settings-editor';
+import { toggleGlobalSettingsEditor } from './features/settings/global-settings-editor';
 import { resolvePlayerAndVideo } from './bootstrap';
 import { startNavigationWatcher } from './navigation';
 import { isStaleVideo } from './platforms/navigation';
@@ -120,6 +120,7 @@ import {
   toggleChartLoop,
   toggleCropChartLooping,
 } from './charts';
+import { installLitUrlSanitizer } from './util/url-sanitizer';
 import { addScrubVideoHandler, getFPS } from './util/videoUtil';
 import {
   arrowKeyCropAdjustmentEnabled,
@@ -129,16 +130,12 @@ import {
   toggleArrowKeyCropAdjustment,
   toggleMarkerPairOverridesEditor,
   toggleShortcutsTable,
-} from './settings-editor';
-import { toggleAutoHideUnselectedMarkerPairs } from './marker-settings-editor';
+} from './features/settings/settings-editor';
+import { toggleAutoHideUnselectedMarkerPairs } from './features/settings/marker-settings-editor';
 
 const ytClipperCSS = readFileSync(__dirname + '/ui/css/yt-clipper.css', 'utf8');
 export const shortcutsTableStyle = readFileSync(
   __dirname + '/ui/shortcuts-table/shortcuts-table.css',
-  'utf8'
-);
-export const shortcutsTableToggleButtonHTML = readFileSync(
-  __dirname + '/ui/shortcuts-table/shortcuts-table-toggle-button.html',
   'utf8'
 );
 
@@ -164,6 +161,12 @@ function initOnce() {
 function init() {
   //immer
   immerEnableAllPlugins();
+
+  // Install lit-html URL sanitizer as defense-in-depth against dangerous URL
+  // schemes (javascript:/data:/vbscript:) in template bindings. Must run
+  // before any render() call — lit-html captures the factory at template
+  // instantiation time.
+  installLitUrlSanitizer();
 
   //yt-clipper
   injectCSS(ytClipperCSS, 'yt-clipper-css');

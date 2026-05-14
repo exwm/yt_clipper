@@ -474,6 +474,7 @@ export function mountFloatingVideoPreview(
 
     if (source.currentSrc && preview.src !== source.currentSrc) {
       preview.srcObject = null;
+      // eslint-disable-next-line local/no-url-attribute-interpolation -- source is a YouTube HTMLVideoElement; currentSrc is browser-generated (typically blob: from MSE), not attacker-controllable.
       preview.src = source.currentSrc;
       preview.currentTime = source.currentTime || 0;
       void preview.play().catch(() => {});
@@ -644,6 +645,7 @@ export function mountFloatingVideoPreview(
     if (stream) {
       vid.srcObject = stream;
     } else if (source.currentSrc) {
+      // eslint-disable-next-line local/no-url-attribute-interpolation -- source is a YouTube HTMLVideoElement; currentSrc is browser-generated (typically blob: from MSE), not attacker-controllable.
       vid.src = source.currentSrc;
       vid.currentTime = source.currentTime;
     }

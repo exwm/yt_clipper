@@ -1,10 +1,10 @@
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
+import { html, render } from 'lit-html';
 import { Crop } from './crop/crop';
 import { getPlatform } from './platforms/platforms';
 import { appState } from './appState';
 import {
-  safeSetInnerHtml,
   flashMessage,
   deleteElement,
   toHHMMSSTrimmed,
@@ -19,76 +19,83 @@ let frameCaptureViewerWindow: Window;
 let frameCaptureViewerDoc: Document;
 let isFrameCapturerZippingInProgress = false;
 
-function getFrameCaptureViewerHeadHTML() {
-  return `
-      <title>yt_clipper Frame Capture Viewer</title>
-      <style>
-        body {
-          margin: 0px;
-          text-align: center;
+function FrameCaptureViewerHeadTemplate() {
+  const canvasSizeRule = appState.videoInfo.aspectRatio > 1 ? 'width: 98%;' : 'height: 96vh;';
+  return html`
+    <title>yt_clipper Frame Capture Viewer</title>
+    <style>
+      body {
+        margin: 0px;
+        text-align: center;
+      }
+      #frames-div {
+        font-family: Helvetica;
+        background-color: rgb(160, 50, 20);
+        margin: 0 auto;
+        padding: 2px;
+        width: 99%;
+        text-align: center;
+      }
+      .frame-div {
+        margin: 2px;
+        padding: 2px;
+        border: 2px black solid;
+        font-weight: bold;
+        color: black;
+        text-align: center;
+      }
+      figcaption {
+        display: inline-block;
+        margin: 2px;
+      }
+      button {
+        display: inline-block;
+        font-weight: bold;
+        margin-bottom: 2px;
+        cursor: pointer;
+        border: 2px solid black;
+        border-radius: 4px;
+      }
+      button.download {
+        background-color: rgb(66, 134, 244);
+      }
+      button.delete {
+        background-color: red;
+      }
+      button:hover {
+        box-shadow: 2px 4px 4px 0 rgba(0, 0, 0, 0.2);
+      }
+      canvas {
+        display: block;
+        margin: 0 auto;
+        ${canvasSizeRule}
+      }
+      @keyframes flash {
+        0% {
+          opacity: 1;
         }
-        #frames-div {
-          font-family: Helvetica;
-          background-color: rgb(160,50,20);
-          margin: 0 auto;
-          padding: 2px;
-          width: 99%;
-          text-align: center;
+        100% {
+          opacity: 0.5;
         }
-        .frame-div {
-          margin: 2px;
-          padding: 2px;
-          border: 2px black solid;
-          font-weight: bold;
-          color: black;
-          text-align: center;
-        }
-        figcaption {
-          display: inline-block;
-          margin: 2px;
-        }
-        button {
-          display: inline-block;
-          font-weight: bold;
-          margin-bottom: 2px;
-          cursor: pointer;
-          border: 2px solid black;
-          border-radius: 4px;
-        }
-        button.download {
-          background-color: rgb(66, 134, 244);
-        }
-        button.delete {
-          background-color: red;
-        }
-        button:hover {
-          box-shadow: 2px 4px 4px 0 rgba(0,0,0,0.2);
-        }
-        canvas {
-          display: block;
-          margin: 0 auto;
-          ${appState.videoInfo.aspectRatio > 1 ? 'width: 98%;' : 'height: 96vh;'}
-        }
-        @keyframes flash {
-          0% {
-            opacity: 1;
-          }
-          100% {
-            opacity: 0.5;
-          }
-        }
-        .flash-div {
-          animation-name: flash;
-          animation-duration: 0.5s;
-          animation-fill-mode: forwards;
-        }
-        </style>
-      `;
+      }
+      .flash-div {
+        animation-name: flash;
+        animation-duration: 0.5s;
+        animation-fill-mode: forwards;
+      }
+    </style>
+  `;
 }
 
-const frameCaptureViewerBodyHTML = `\
-        <div id="frames-div"><strong></strong></div>
-        `;
+const frameCaptureViewerBodyTemplate = html`<div id="frames-div"><strong></strong></div>`;
+
+function FrameCaptionTemplate(width: number, height: number, frameFileName: string) {
+  return html`
+    <figcaption>Resolution: ${width}x${height} Name: ${frameFileName}</figcaption>
+    <button class="download">Download Frame</button>
+    <button class="delete">Delete Frame</button>
+  `;
+}
 
 export function captureFrame() {
   const currentTime = appState.video.getCurrentTime();
@@ -153,8 +160,8 @@ export function captureFrame() {
     assertDefined(newWindow, 'Failed to open frame capture viewer window');
     frameCaptureViewerWindow = newWindow;
     frameCaptureViewerDoc = frameCaptureViewerWindow.document;
-    safeSetInnerHtml(frameCaptureViewerDoc.head, getFrameCaptureViewerHeadHTML(), true);
-    safeSetInnerHtml(frameCaptureViewerDoc.body, frameCaptureViewerBodyHTML, true);
+    render(FrameCaptureViewerHeadTemplate(), frameCaptureViewerDoc.head);
+    render(frameCaptureViewerBodyTemplate, frameCaptureViewerDoc.body);
   }
   const frameDiv = document.createElement('div');
   frameDiv.setAttribute('class', 'frame-div');
@@ -162,14 +169,7 @@ export function captureFrame() {
   const frameFileName = `${appState.settings.titleSuffix}-${resString}-@${currentTime}s(${toHHMMSSTrimmed(
     currentTime
   ).replace(':', ';')})-f${frameCount.frameNumber}(${frameCount.totalFrames})`;
-  safeSetInnerHtml(
-    frameDiv,
-    `
-      <figcaption>Resolution: ${canvas.width}x${canvas.height} Name: ${frameFileName}</figcaption>
-      <button class="download">Download Frame</button>
-      <button class="delete">Delete Frame</button>
-      `
-  );
+  render(FrameCaptionTemplate(canvas.width, canvas.height, frameFileName), frameDiv);
   (canvas as any).fileName = `${frameFileName}.png`;
   frameDiv.appendChild(canvas);
 

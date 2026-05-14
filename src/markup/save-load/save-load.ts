@@ -7,9 +7,9 @@ import {
   downloadAutoSavedMarkersData,
   clearYTClipperLocalStorage,
 } from '../auto-save';
+import { html, render } from 'lit-html';
 import { isStaticCrop } from '../crop-utils';
 import {
-  safeSetInnerHtml,
   deleteElement,
   flashMessage,
   speedRounder,
@@ -88,6 +88,42 @@ export function deleteMarkersDataCommands() {
   return false;
 }
 
+const markersUploadTemplate = html`
+  <fieldset>
+    <legend>Load markers data from an uploaded markers .json file.</legend>
+    <input type="file" id="markers-json-input" />
+    <input type="button" id="upload-markers-json" value="Load" />
+  </fieldset>
+  <fieldset hidden>
+    <legend>Upload a markers array file.</legend>
+    <input type="file" id="markers-array-input" />
+    <input type="button" id="upload-markers-array" value="Load" />
+  </fieldset>
+`;
+
+function RestoreMarkersTemplate(markersDataFilesCount: number | undefined) {
+  return html`
+    <fieldset>
+      <legend>Restore auto-saved markers data from browser local storage.</legend>
+      <input type="button" id="restore-markers-data" value="Restore" />
+    </fieldset>
+    <fieldset>
+      <legend>
+        Zip and download ${markersDataFilesCount} auto-saved markers data files from browser local
+        storage.
+      </legend>
+      <input type="button" id="download-markers-data" value="Download" />
+    </fieldset>
+  `;
+}
+
+const clearMarkersTemplate = html`
+  <fieldset>
+    <legend>Clear all markers data files from browser local storage.</legend>
+    <input type="button" id="clear-markers-data" value="Clear" style="color:red" />
+  </fieldset>
+`;
+
 export function toggleMarkersDataCommands() {
   if (!deleteMarkersDataCommands()) {
     const markersDataCommandsDiv = document.createElement('div');
@@ -95,55 +131,18 @@ export function toggleMarkersDataCommands() {
 
     const markersUploadDiv = document.createElement('div');
     markersUploadDiv.setAttribute('class', 'long-msg-div');
-    safeSetInnerHtml(
-      markersUploadDiv,
-      `
-        <fieldset>
-          <legend>Load markers data from an uploaded markers .json file.</legend>
-          <input type="file" id="markers-json-input" />
-          <input type="button" id="upload-markers-json" value="Load" />
-        </fieldset>
-        <fieldset hidden>
-          <legend>Upload a markers array file.</legend>
-          <input type="file" id="markers-array-input" />
-          <input type="button" id="upload-markers-array" value="Load" />
-        </fieldset>
-      `
-    );
+    render(markersUploadTemplate, markersUploadDiv);
 
     const restoreMarkersDataDiv = document.createElement('div');
     restoreMarkersDataDiv.setAttribute('class', 'long-msg-div');
 
     const markersDataFiles = getMarkersDataEntriesFromLocalStorage();
 
-    safeSetInnerHtml(
-      restoreMarkersDataDiv,
-      `
-        <fieldset>
-          <legend>Restore auto-saved markers data from browser local storage.</legend>
-          <input type="button" id="restore-markers-data" value="Restore" />
-        </fieldset>
-        <fieldset>
-          <legend>
-            Zip and download ${markersDataFiles?.length} auto-saved markers data files from browser
-            local storage.
-          </legend>
-          <input type="button" id="download-markers-data" value="Download" />
-        </fieldset>
-      `
-    );
+    render(RestoreMarkersTemplate(markersDataFiles?.length), restoreMarkersDataDiv);
 
     const clearMarkersDataDiv = document.createElement('div');
     clearMarkersDataDiv.setAttribute('class', 'long-msg-div');
-    safeSetInnerHtml(
-      clearMarkersDataDiv,
-      `
-        <fieldset>
-          <legend>Clear all markers data files from browser local storage.</legend>
-          <input type="button" id="clear-markers-data" value="Clear" style="color:red" />
-        </fieldset>
-      `
-    );
+    render(clearMarkersTemplate, clearMarkersDataDiv);
 
     markersDataCommandsDiv.appendChild(markersUploadDiv);
     markersDataCommandsDiv.appendChild(restoreMarkersDataDiv);

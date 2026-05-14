@@ -5,7 +5,6 @@ jest.mock('./yt_clipper', () => ({
   initOnceCalled: false,
   shortcutRegistry: null,
   shortcutsTableStyle: '',
-  shortcutsTableToggleButtonHTML: '',
 }));
 
 jest.mock('./platforms/platforms', () => ({
@@ -17,7 +16,6 @@ jest.mock('./util/videoUtil', () => ({
 }));
 
 jest.mock('./util/util', () => ({
-  safeSetInnerHtml: jest.fn(),
   flashMessage: jest.fn(),
   deleteElement: jest.fn(),
   toHHMMSSTrimmed: (t: number) => t.toFixed(2),

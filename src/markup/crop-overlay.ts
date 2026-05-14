@@ -6,12 +6,12 @@ import {
   rotateCropComponentsCounterClockWise,
 } from './crop-utils';
 import { resetCropPreviewAnchor } from './crop/crop-preview';
+import { html, render } from 'lit-html';
 import {
   assertDefined,
   deleteElement,
   flashMessage,
   getCropString,
-  safeSetInnerHtml,
   setAttributes,
 } from './util/util';
 import { updateCropString } from './crop-utils';
@@ -110,60 +110,153 @@ export const cropOverlayElements = {
   cropChartSectionEndBorderYellow: null as Element | null,
   cropChartSectionEndBorderWhite: null as Element | null,
 };
+function CropOverlayTemplate(fillOpacity: number, crossHairDisplay: string) {
+  return html`
+    <svg id="crop-svg">
+      <defs>
+        <mask id="cropMask">
+          <rect x="0" y="0" width="100%" height="100%" fill="white" />
+          <rect id="cropRect" x="0" y="0" width="100%" height="100%" fill="black" />
+        </mask>
+      </defs>
+      <rect
+        id="cropDim"
+        mask="url(#cropMask)"
+        x="0"
+        y="0"
+        width="100%"
+        height="100%"
+        fill="black"
+        fill-opacity=${fillOpacity}
+      />
+
+      <g id="cropChartSectionStart" opacity="0.7" shape-rendering="geometricPrecision">
+        <rect
+          id="cropChartSectionStartBorderGreen"
+          x="0"
+          y="0"
+          width="0%"
+          height="0%"
+          fill="none"
+          stroke="lime"
+          stroke-width="1px"
+        />
+        <rect
+          id="cropChartSectionStartBorderWhite"
+          x="0"
+          y="0"
+          width="0%"
+          height="0%"
+          fill="none"
+          stroke="black"
+          stroke-width="1px"
+          stroke-dasharray="5 10"
+        />
+      </g>
+      <g id="cropChartSectionEnd" opacity="0.7" shape-rendering="geometricPrecision">
+        <rect
+          id="cropChartSectionEndBorderYellow"
+          x="0"
+          y="0"
+          width="0%"
+          height="0%"
+          fill="none"
+          stroke="yellow"
+          stroke-width="1px"
+        />
+        <rect
+          id="cropChartSectionEndBorderWhite"
+          x="0"
+          y="0"
+          width="0%"
+          height="0%"
+          fill="none"
+          stroke="black"
+          stroke-width="1px"
+          stroke-dasharray="5 10"
+        />
+      </g>
+
+      <g id="cropRectBorder" opacity="1" shape-rendering="geometricPrecision">
+        <rect
+          id="cropRectBorderBlack"
+          x="0"
+          y="0"
+          width="100%"
+          height="100%"
+          fill="none"
+          stroke="black"
+          stroke-width="1px"
+          stroke-opacity="0.8"
+        />
+        <rect
+          id="cropRectBorderWhite"
+          x="0"
+          y="0"
+          width="100%"
+          height="100%"
+          fill="none"
+          stroke="white"
+          stroke-width="1px"
+          stroke-dasharray="5 5"
+          stroke-opacity="0.8"
+        ></rect>
+        <g id="cropCrossHair" opacity="0.9" stroke="white" display=${crossHairDisplay}>
+          <line
+            id="cropCrossHairXBlack"
+            x1="0"
+            y1="50%"
+            x2="100%"
+            y2="50%"
+            stroke="black"
+            stroke-width="1px"
+            type="x"
+          />
+          <line
+            id="cropCrossHairXWhite"
+            x1="0"
+            y1="50%"
+            x2="100%"
+            y2="50%"
+            stroke-width="1px"
+            stroke-dasharray="5 5"
+            type="x"
+          />
+
+          <line
+            id="cropCrossHairYBlack"
+            x1="50%"
+            y1="0"
+            x2="50%"
+            y2="100%"
+            stroke="black"
+            stroke-width="1px"
+            type="y"
+          />
+          <line
+            id="cropCrossHairYWhite"
+            x1="50%"
+            y1="0"
+            x2="50%"
+            y2="100%"
+            stroke-width="1px"
+            stroke-dasharray="5 5"
+            type="y"
+          />
+        </g>
+      </g>
+    </svg>
+  `;
+}
+
 export function createCropOverlay(cropString: string) {
   deleteCropOverlay();
 
   cropDiv = document.createElement('div');
   cropDiv.setAttribute('id', 'crop-div');
-  safeSetInnerHtml(
-    cropDiv,
-    `
-        <svg id="crop-svg">
-          <defs>
-            <mask id="cropMask">
-              <rect x="0" y="0" width="100%" height="100%" fill="white" />
-              <rect id="cropRect" x="0" y="0" width="100%" height="100%" fill="black" />
-            </mask>
-          </defs>
-          <rect id="cropDim" mask="url(#cropMask)" x="0" y="0" width="100%" height="100%"
-            fill="black" fill-opacity="${cropDims[cropDimIndex]}"
-          />
-
-          <g id="cropChartSectionStart" opacity="0.7" shape-rendering="geometricPrecision">
-            <rect id="cropChartSectionStartBorderGreen" x="0" y="0" width="0%" height="0%" fill="none"
-              stroke="lime" stroke-width="1px"
-            />
-            <rect id="cropChartSectionStartBorderWhite" x="0" y="0" width="0%" height="0%" fill="none"
-              stroke="black" stroke-width="1px" stroke-dasharray="5 10"
-            />
-          </g>
-          <g id="cropChartSectionEnd" opacity="0.7" shape-rendering="geometricPrecision">
-            <rect id="cropChartSectionEndBorderYellow" x="0" y="0" width="0%" height="0%" fill="none"
-              stroke="yellow" stroke-width="1px"
-            />
-            <rect id="cropChartSectionEndBorderWhite" x="0" y="0" width="0%" height="0%" fill="none"
-              stroke="black" stroke-width="1px" stroke-dasharray="5 10"
-            />
-          </g>
-
-          <g id="cropRectBorder" opacity="1" shape-rendering="geometricPrecision">
-            <rect id="cropRectBorderBlack" x="0" y="0" width="100%" height="100%" fill="none"
-              stroke="black" stroke-width="1px" stroke-opacity="0.8"
-            />
-            <rect id="cropRectBorderWhite" x="0" y="0" width="100%" height="100%" fill="none"
-            stroke="white" stroke-width="1px" stroke-dasharray="5 5" stroke-opacity="0.8"
-            >
-            </rect>
-            <g id="cropCrossHair" opacity="0.9" stroke="white" display="${cropCrossHairEnabled ? 'block' : 'none'}">
-              <line id="cropCrossHairXBlack" x1="0" y1="50%" x2="100%" y2="50%" stroke="black" stroke-width="1px" type="x"/>
-              <line id="cropCrossHairXWhite" x1="0" y1="50%" x2="100%" y2="50%" stroke-width="1px" stroke-dasharray="5 5" type="x"/>
-
-              <line id="cropCrossHairYBlack" x1="50%" y1="0" x2="50%" y2="100%" stroke="black" stroke-width="1px" type="y"/>
-              <line id="cropCrossHairYWhite" x1="50%" y1="0" x2="50%" y2="100%" stroke-width="1px" stroke-dasharray="5 5" type="y"/>
-            </g>
-          </g>
-        </svg>
-      `
+  render(
+    CropOverlayTemplate(cropDims[cropDimIndex], cropCrossHairEnabled ? 'block' : 'none'),
+    cropDiv
   );
   resizeCropOverlay();
   appState.hooks.cropOverlay.insertAdjacentElement('afterend', cropDiv);

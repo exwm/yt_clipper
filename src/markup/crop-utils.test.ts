@@ -7,7 +7,6 @@ jest.mock('./yt_clipper', () => ({
   initOnceCalled: false,
   shortcutRegistry: null,
   shortcutsTableStyle: '',
-  shortcutsTableToggleButtonHTML: '',
 }));
 
 import {

@@ -5,8 +5,8 @@ import { Crop } from './crop/crop';
 import { appState } from './appState';
 import { clampNumber, flashMessage, getCropString } from './util/util';
 import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
-import { cropInput } from './settings-editor';
-import { cropInputLabel } from './settings-editor';
+import { cropInput } from './features/settings/settings-editor';
+import { cropInputLabel } from './features/settings/settings-editor';
 import { getCropMapProperties, renderSpeedAndCropUI } from './charts';
 import { transformCropWithPushBack } from './crop-overlay';
 
