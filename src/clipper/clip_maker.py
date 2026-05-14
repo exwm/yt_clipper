@@ -42,6 +42,7 @@ from clipper.ffmpeg_filter import (
     videoStabilizationGammaFixFilter,
 )
 from clipper.platforms import getFfmpegHeaders
+from clipper.previews import makePreview, mergePreviews
 from clipper.util import escapeSingleQuotesFFmpeg, getTrimmedBase64Hash
 from clipper.video2x import runVideo2xCommand
 from clipper.ytc_logger import logger
@@ -1033,14 +1034,31 @@ def mergeClips(cs: ClipperState) -> None:  # noqa: PLR0912
         )
 
         mergedFileNameEscaped = rich.markup.escape(mergedFileName)
+        mergedClipReady = mergeFileExists and not settings["overwrite"]
         if not mergeFileExists or settings["overwrite"]:
             logger.info(f"Using ffmpeg command: {ffmpegConcatCmd}")
             ffmpegProcess = subprocess.run(shlex.split(ffmpegConcatCmd), check=False)
             if ffmpegProcess.returncode == 0:
                 logger.success(f'Successfuly generated: "{mergedFileNameEscaped}"\n')
+                mergedClipReady = True
             else:
                 logger.info(f'Failed to generate: "{mergedFileNameEscaped}"\n')
                 logger.error(f"ffmpeg error code: {ffmpegProcess.returncode}\n")
+
+        if mergedClipReady and settings.get("previewFormat", "none") != "none":
+            previewPaths = [
+                settings["markerPairs"][i - 1].get("previewFilePath")
+                for i in mergeList
+            ]
+            previewPaths = [path for path in previewPaths if path]
+            if previewPaths:
+                mergePreviews(
+                    cp,
+                    previewPaths,
+                    mergedFilePath,
+                    settings["previewFormat"],
+                    settings["overwrite"],
+                )
 
         with contextlib.suppress(OSError, FileNotFoundError):
             os.remove(inputsTxtPath)  # noqa: PTH107
@@ -1215,6 +1233,7 @@ def makeClips(cs: ClipperState) -> None:
     for markerPairIndex, _marker in enumerate(settings["markerPairs"]):
         if markerPairIndex in markerPairQueue:
             settings["markerPairs"][markerPairIndex] = makeClip(cs, markerPairIndex)
+            generatePreviewForMarkerPair(cs, markerPairIndex)
         else:
             mp, _mps = getMarkerPairSettings(cs, markerPairIndex, True)
             settings["markerPairs"][markerPairIndex] = {
@@ -1224,6 +1243,37 @@ def makeClips(cs: ClipperState) -> None:
 
     if settings["markerPairMergeList"] != "":
         mergeClips(cs)
+
+
+def generatePreviewForMarkerPair(cs: ClipperState, markerPairIndex: int) -> None:
+    """Generate the animated preview sibling for a just-produced clip.
+
+    Placed at the makeClips-loop level rather than inside makeClip so that
+    fastTrimClip's early-return path is also covered. No-op when previews
+    are disabled or the clip was not produced.
+    """
+    settings = cs.settings
+    if settings.get("previewFormat", "none") == "none":
+        return
+    markerPair = settings["markerPairs"][markerPairIndex]
+    if not markerPair:
+        return
+    clipFileOnDisk = markerPair.get("returncode") == 0 or markerPair.get("exists")
+    if not clipFileOnDisk:
+        return
+    clipFilePath = markerPair.get("filePath")
+    if not clipFilePath:
+        return
+    mps = {**settings, **markerPair.get("overrides", {})}
+    previewPath = makePreview(
+        cs.clipper_paths,
+        clipFilePath,
+        settings["previewFormat"],
+        mps,
+        settings["overwrite"],
+    )
+    if previewPath:
+        markerPair["previewFilePath"] = previewPath
 
 
 def previewClips(cs: ClipperState) -> None:

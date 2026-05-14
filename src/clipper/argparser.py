@@ -611,6 +611,61 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
         ),
     )
     output_options.add_argument(
+        "--preview-format",
+        "-pvf",
+        dest="previewFormat",
+        default="none",
+        choices=["none", "avif", "webp"],
+        help=" ".join(
+            [
+                "Generate a downscaled preview sibling file next to each clip (and merged output) in the chosen format.",
+                "'avif' produces an animated AVIF at reduced resolution, picked from source resolution.",
+                "Requires ffmpeg >= 6.1 for the AVIF muxer (libsvtav1 shipped since 4.4).",
+                "'webp' produces an animated WebP with broader browser support (older Safari, webmail, Firefox < 113) at a small file-size penalty vs. AVIF.",
+                "WebP uses libwebp method-6 (max effort) to narrow that gap; expect ~2-3x the encode time of AVIF per preview.",
+                "Some formats (future) may support audio; 'avif' and 'webp' do not.",
+                "Default: 'none' (no preview generated).",
+            ],
+        ),
+    )
+    output_options.add_argument(
+        "--preview-max-dim",
+        "-pvmd",
+        dest="previewMaxDim",
+        type=int,
+        default=0,
+        help=" ".join(
+            [
+                "Override the auto-picked max dimension (longest edge in pixels, aspect ratio preserved).",
+                "0 = auto, picked from source resolution:",
+                "4K->720, 1440p->640, 1080p->540, 720p->480, 480p->360, <480p->match source.",
+            ],
+        ),
+    )
+    output_options.add_argument(
+        "--preview-quality",
+        "-pvq",
+        dest="previewQuality",
+        type=int,
+        default=-1,
+        help=" ".join(
+            [
+                "Override the auto-picked quality for the preview encode. -1 = auto.",
+                "AVIF (SVT-AV1 CRF scale, 0-63, lower = better): auto falls in 28-45 band derived from source bitrate, source CRF, and downsample ratio.",
+                "WebP (libwebp quality scale, 0-100, higher = better): auto falls in 60-80 band derived from downsample ratio, preview long edge, and source CRF ceiling.",
+                "Note the two scales run in opposite directions; supply a value on the selected format's scale.",
+            ],
+        ),
+    )
+    output_options.add_argument(
+        "--preview-preset",
+        "-pvp",
+        dest="previewPreset",
+        type=int,
+        default=8,
+        help="Encoder preset for preview encode (SVT-AV1: 0=slowest/best, 13=fastest). Default: 8.",
+    )
+    output_options.add_argument(
         "--auto-subs-lang",
         "-asl",
         dest="autoSubsLang",
