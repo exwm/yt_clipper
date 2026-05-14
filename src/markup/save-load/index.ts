@@ -7,6 +7,7 @@ export {
   toggleMarkersDataCommands,
   injectYtcWidget,
   loadClipperInputJSON,
+  applyClipperInput,
   addMarkerPairs,
 } from './save-load';
 

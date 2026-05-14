@@ -40,6 +40,7 @@
 import { readFileSync } from 'fs';
 import { enableAllPlugins as immerEnableAllPlugins } from 'immer';
 import { flattenVRVideo, openSubsEditor } from './actions/misc';
+import { featureFlags } from './feature-flags';
 import { disableCommonBlockers, enableCommonBlockers } from './platforms/blockers/common';
 import { disableYTBlockers, enableYTBlockers } from './platforms/blockers/youtube';
 import {
@@ -383,7 +384,7 @@ function hotkeys(e: KeyboardEvent) {
         enableYTBlockers();
       }
       flashMessage('Enabled Hotkeys', 'green');
-      void tryLoadSharedMarkers();
+      if (featureFlags.shareLink) void tryLoadSharedMarkers();
     } else {
       hideCommandPaletteToggleButton();
       disableCommonBlockers();

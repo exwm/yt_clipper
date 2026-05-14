@@ -8,7 +8,6 @@ import {
   VSTAB_PRESET_ORDER,
   deserializeBinary,
   serializeBinary,
-  slugify,
 } from './share-format';
 import {
   boundaryFixture,
@@ -91,23 +90,6 @@ describe('share-format preset guards', () => {
   });
 });
 
-describe('share-format slugify', () => {
-  test.each([
-    ['', ''],
-    ['Hello World', 'hello-world'],
-    ['  multiple   spaces  ', 'multiple-spaces'],
-    ['日本 clip 2026', 'clip-2026'],
-    ['---dashes-and-!@#-symbols---', 'dashes-and-symbols'],
-  ])('%s -> %s', (input, expected) => {
-    expect(slugify(input)).toBe(expected);
-  });
-
-  test('truncates to 40 chars', () => {
-    const long = 'a'.repeat(200);
-    expect(slugify(long).length).toBeLessThanOrEqual(40);
-  });
-});
-
 describe('share-format roundtrip', () => {
   const fixtures = [
     ['minimal', minimalFixture],
@@ -130,19 +112,19 @@ describe('share-format roundtrip', () => {
 });
 
 describe('share-format byte budget', () => {
-  test('minimal fixture is under 75 B', () => {
+  test('minimal fixture is under 32 B', () => {
     const bytes = serializeBinary(minimalFixture);
-    expect(bytes.byteLength).toBeLessThan(75);
+    expect(bytes.byteLength).toBeLessThan(32);
   });
 
-  test('kitchenSink fixture is under 80 B', () => {
+  test('kitchenSink fixture is under 72 B', () => {
     const bytes = serializeBinary(kitchenSinkFixture);
-    expect(bytes.byteLength).toBeLessThan(80);
+    expect(bytes.byteLength).toBeLessThan(72);
   });
 
-  test('50-pair static fixture is under 800 B', () => {
+  test('50-pair static fixture is under 475 B', () => {
     const bytes = serializeBinary(manyPairsFixture);
-    expect(bytes.byteLength).toBeLessThan(800);
+    expect(bytes.byteLength).toBeLessThan(475);
   });
 });
 

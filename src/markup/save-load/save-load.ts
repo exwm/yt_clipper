@@ -9,15 +9,17 @@ import {
 } from '../auto-save';
 import { html, render } from 'lit-html';
 import { isStaticCrop } from '../crop-utils';
-import {
-  deleteElement,
-  flashMessage,
-  speedRounder,
-  timeRounder,
-  assertDefined,
-} from '../util/util';
+import { deleteElement, flashMessage, assertDefined } from '../util/util';
 import { isTheatreMode, updateSettingsEditorHook } from '../yt_clipper';
 import { addMarker } from '../markers';
+import { showLoadMarkersReviewModal } from './load-markers-review';
+import {
+  ClipperInput,
+  ClipperInputValidationError,
+  ParseResult,
+  parseClipperInputJSON,
+  toApplicableSettings,
+} from './parse-clipper-input';
 
 export function saveMarkersAndSettings() {
   const settingsJSON = getClipperInputJSON();
@@ -94,11 +96,6 @@ const markersUploadTemplate = html`
     <input type="file" id="markers-json-input" />
     <input type="button" id="upload-markers-json" value="Load" />
   </fieldset>
-  <fieldset hidden>
-    <legend>Upload a markers array file.</legend>
-    <input type="file" id="markers-array-input" />
-    <input type="button" id="upload-markers-array" value="Load" />
-  </fieldset>
 `;
 
 function RestoreMarkersTemplate(markersDataFilesCount: number | undefined) {
@@ -151,17 +148,14 @@ export function toggleMarkersDataCommands() {
     injectYtcWidget(markersDataCommandsDiv);
 
     const fileUploadButton = document.getElementById('upload-markers-json');
-    const markersArrayUploadButton = document.getElementById('upload-markers-array');
     const restoreMarkersDataButton = document.getElementById('restore-markers-data');
     const downloadMarkersDataButton = document.getElementById('download-markers-data');
     const clearMarkersDataButton = document.getElementById('clear-markers-data');
     assertDefined(fileUploadButton, 'Expected upload-markers-json button');
-    assertDefined(markersArrayUploadButton, 'Expected upload-markers-array button');
     assertDefined(restoreMarkersDataButton, 'Expected restore-markers-data button');
     assertDefined(downloadMarkersDataButton, 'Expected download-markers-data button');
     assertDefined(clearMarkersDataButton, 'Expected clear-markers-data button');
     fileUploadButton.onclick = loadMarkersJson;
-    markersArrayUploadButton.onclick = loadMarkersArray;
     restoreMarkersDataButton.onclick = loadClipperInputDataFromLocalStorage;
     downloadMarkersDataButton.onclick = downloadAutoSavedMarkersData;
     clearMarkersDataButton.onclick = clearYTClipperLocalStorage;
@@ -182,59 +176,69 @@ export function injectYtcWidget(widget: HTMLDivElement) {
 function loadMarkersJson() {
   const input = document.getElementById('markers-json-input') as HTMLInputElement;
   if (!input.files || input.files.length === 0) return;
-  console.log(input.files);
   const file = input.files[0];
   const fr = new FileReader();
   fr.onload = (e) => {
     assertDefined(e.target, 'Expected FileReader event target');
-    loadClipperInputJSON(e.target.result);
+    const text = typeof e.target.result === 'string' ? e.target.result : '';
+    showMarkersJsonReviewModal(file.name, text);
   };
   fr.readAsText(file);
   deleteMarkersDataCommands();
 }
 
-function loadMarkersArray() {
-  const input = document.getElementById('markers-array-input') as HTMLInputElement;
-  if (!input.files || input.files.length === 0) return;
-  console.log(input.files);
-  const file = input.files[0];
-  const fr = new FileReader();
-  fr.onload = receivedMarkersArray;
-  fr.readAsText(file);
-  deleteMarkersDataCommands();
+function showMarkersJsonReviewModal(fileName: string, text: string) {
+  let result: ParseResult;
+  try {
+    result = parseClipperInputJSON(text);
+  } catch (err) {
+    if (err instanceof ClipperInputValidationError) {
+      console.error('Failed to parse clipper input', err);
+      flashMessage(`${fileName}: ${err.message}`, 'red');
+      return;
+    }
+    throw err;
+  }
+  const pairCount = result.input.markerPairs.length;
+
+  showLoadMarkersReviewModal({
+    modalTitle: 'Load markers from file?',
+    warning: `⚠ Review before loading. Loading will overwrite current settings and add ${pairCount} marker pair(s).`,
+    sourceLabel: `file: ${fileName}`,
+    payload: result.input,
+    issues: result.issues,
+    onLoad: () => {
+      applyClipperInput(result.input);
+      flashMessage(`Loaded ${pairCount} marker pair(s) from ${fileName}.`, 'green');
+    },
+  });
 }
 
-export function loadClipperInputJSON(json) {
-  const markersData = JSON.parse(json);
-  console.log(markersData);
+/** Apply an already-parsed ClipperInput to appState. Safe because:
+ *   - parser stripped __proto__/constructor/prototype keys at load boundary.
+ *   - parser allowlisted to known Settings keys only.
+ *   - toApplicableSettings drops source-environment keys (videoID/title/...).
+ *   - Object spread creates own data properties, never triggers setters. */
+export function applyClipperInput(input: ClipperInput): void {
+  appState.settings = { ...appState.settings, ...toApplicableSettings(input) };
+  addMarkerPairs(input.markerPairs as MarkerPair[]);
+}
+
+export function loadClipperInputJSON(json: string) {
+  let result: ParseResult;
+  try {
+    result = parseClipperInputJSON(json);
+  } catch (err) {
+    if (err instanceof ClipperInputValidationError) {
+      console.error('Failed to parse clipper input', err);
+      flashMessage(err.message, 'red');
+      return;
+    }
+    throw err;
+  }
 
   flashMessage('Loading markers data...', 'green');
-
-  if (markersData) {
-    // move markers field to marker Pairs for backwards compat)
-    if (markersData.markers && !markersData.markerPairs) {
-      markersData.markerPairs = markersData.markers;
-      delete markersData.markers;
-    }
-
-    if (!markersData.markerPairs) {
-      flashMessage(
-        'Could not find markers or appState.markerPairs field. Could not load marker data.',
-        'red'
-      );
-    }
-    // copy markersJson to appState.settings object less markerPairs field
-    const { markerPairs: _markerPairs, ...loadedSettings } = markersData; // eslint-disable-line @typescript-eslint/no-unused-vars
-
-    delete loadedSettings.videoID;
-    delete loadedSettings.videoTitle;
-    delete loadedSettings.isVerticalVideo;
-    delete loadedSettings.version;
-
-    appState.settings = { ...appState.settings, ...loadedSettings };
-
-    addMarkerPairs(markersData.markerPairs);
-  }
+  applyClipperInput(result.input);
 }
 
 export function addMarkerPairs(markerPairs: MarkerPair[]) {
@@ -259,33 +263,4 @@ export function addMarkerPairs(markerPairs: MarkerPair[]) {
     addMarker(startMarkerConfig);
     addMarker(endMarkerConfig);
   });
-}
-
-function receivedMarkersArray(e: ProgressEvent) {
-  const lines = (e.target as FileReader).result;
-  const markersJson = JSON.parse(lines as string);
-  console.log(markersJson);
-
-  flashMessage('Loading markers...', 'green');
-
-  markersJson.markerPairs = markersJson.markerPairs.flat(1);
-  for (let i = 0; i < markersJson.markerPairs.length; i = i + 4) {
-    console.log(appState.markerPairs);
-    const start = timeRounder(markersJson.markerPairs[i]);
-    const end = timeRounder(markersJson.markerPairs[i + 1]);
-    const speed = speedRounder(1 / markersJson.markerPairs[i + 2]);
-    const cropString = markersJson.markerPairs[i + 3];
-    const startMarkerConfig: MarkerConfig = {
-      time: start,
-      type: 'start',
-    };
-    const endMarkerConfig: MarkerConfig = {
-      time: end,
-      type: 'end',
-      crop: cropString,
-      speed: speed,
-    };
-    addMarker(startMarkerConfig);
-    addMarker(endMarkerConfig);
-  }
 }

@@ -1,4 +1,5 @@
 import { ShortcutDefinition } from '../command-palette';
+import { featureFlags } from './feature-flags';
 
 export interface ShortcutDeps {
   showShortcutsReference: () => void;
@@ -871,6 +872,11 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.copyShareableUrl();
       },
       executable: true,
+      // Gated by the `shareLink` flag — when off, both the Share chip
+      // in the Data group AND the Shift+S key binding skip via the
+      // shared guard check in `hints-bar.ts` and `hotkey-engine.ts`.
+      // Flip in `feature-flags.ts` to re-enable.
+      guard: () => featureFlags.shareLink,
     },
     {
       id: 'toggleMarkersDataCommands',

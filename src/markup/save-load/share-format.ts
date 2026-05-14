@@ -12,6 +12,18 @@ export const SHARE_FORMAT_VERSION = 0x01;
 export const MAX_PAIR_COUNT = 10_000;
 export const MAX_MAP_POINT_COUNT = 10_000;
 
+// Starting capacity for ByteWriter's backing buffer. Sized to fit a typical
+// small share (≤ ~100 B) in one allocation; grows by doubling on overflow.
+const INITIAL_BUFFER_SIZE = 256;
+
+// Upper bound on bytes consumed by a single varuint — enough headroom for any
+// value that real fields produce, and tight enough to terminate on corrupted
+// input rather than reading forever.
+const VARUINT_MAX_BYTES = 9;
+
+// ffmpeg crop filter expects exactly "x:y:w:h" (4 colon-separated parts).
+const CROP_PART_COUNT = 4;
+
 export class ShareFormatLimitError extends Error {
   constructor(message: string) {
     super(message);
@@ -41,7 +53,7 @@ export const VSTAB_PRESET_ORDER = [
 export const LOOP_ORDER = ['none', 'fwrev', 'fade'] as const;
 
 export class ByteWriter {
-  private buf = new Uint8Array(256);
+  private buf = new Uint8Array(INITIAL_BUFFER_SIZE);
   length = 0;
 
   private ensure(n: number) {
@@ -111,7 +123,7 @@ export class ByteReader {
   readVaruint(): number {
     let result = 0;
     let mult = 1;
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < VARUINT_MAX_BYTES; i++) {
       const byte = this.readByte();
       result += (byte & 0x7f) * mult;
       if ((byte & 0x80) === 0) return result;
@@ -138,29 +150,43 @@ export class ByteReader {
   }
 }
 
-function writeCrop(w: ByteWriter, crop: string) {
+// Parse a "x:y:w:h" crop string into its parts plus a bitmask indicating which
+// slots hold the literal keywords `iw` / `ih`. Slot i uses `iw` when i is even,
+// `ih` when odd. Shared by writeCrop and writeCropMap — both need the same
+// validation and literal detection before emitting bytes.
+function parseCrop(crop: string): { parts: string[]; literalFlags: number } {
   const parts = crop.split(':');
-  if (parts.length !== 4) throw new Error(`share-format: crop must have 4 parts, got "${crop}"`);
-  let flags = 0;
-  for (let i = 0; i < 4; i++) {
-    const expected = i % 2 === 0 ? 'iw' : 'ih';
-    if (parts[i] === expected) flags |= 1 << i;
+  if (parts.length !== CROP_PART_COUNT) {
+    throw new Error(`share-format: crop must have ${CROP_PART_COUNT} parts, got "${crop}"`);
   }
-  w.writeByte(flags);
-  for (let i = 0; i < 4; i++) {
-    if (flags & (1 << i)) continue;
-    const n = parseInt(parts[i], 10);
-    if (!Number.isFinite(n) || n < 0) {
-      throw new Error(`share-format: non-numeric crop part "${parts[i]}" in "${crop}"`);
-    }
-    w.writeVaruint(n);
+  let literalFlags = 0;
+  for (let i = 0; i < CROP_PART_COUNT; i++) {
+    if (parts[i] === (i % 2 === 0 ? 'iw' : 'ih')) literalFlags |= 1 << i;
+  }
+  return { parts, literalFlags };
+}
+
+function parseCropNumeric(parts: string[], i: number, crop: string): number {
+  const n = parseInt(parts[i], 10);
+  if (!Number.isFinite(n) || n < 0) {
+    throw new Error(`share-format: non-numeric crop part "${parts[i]}" in "${crop}"`);
+  }
+  return n;
+}
+
+function writeCrop(w: ByteWriter, crop: string) {
+  const { parts, literalFlags } = parseCrop(crop);
+  w.writeByte(literalFlags);
+  for (let i = 0; i < CROP_PART_COUNT; i++) {
+    if (literalFlags & (1 << i)) continue;
+    w.writeVaruint(parseCropNumeric(parts, i, crop));
   }
 }
 
 function readCrop(r: ByteReader): string {
   const flags = r.readByte();
   const parts: string[] = [];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < CROP_PART_COUNT; i++) {
     if (flags & (1 << i)) {
       parts.push(i % 2 === 0 ? 'iw' : 'ih');
     } else {
@@ -168,14 +194,6 @@ function readCrop(r: ByteReader): string {
     }
   }
   return parts.join(':');
-}
-
-export function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 40);
 }
 
 export function quantizeTime(seconds: number): number {
@@ -204,6 +222,13 @@ const PAIR_BIT_SPEED_MAP = 1 << 0;
 const PAIR_BIT_CROP_MAP = 1 << 1;
 const PAIR_BIT_ZOOM_PAN = 1 << 2;
 const PAIR_BIT_OVERRIDES = 1 << 3;
+const PAIR_BIT_DEFAULT_SPEED = 1 << 4;
+
+const SPEED_DEFAULT_CENTIPOINT = 100;
+
+// cropMap point flag byte: bits 0-3 mark iw/ih literals per slot (x,y,w,h),
+// bit 4 marks easeIn='instant'. Kept in one byte vs. flags + separate easeIn byte.
+const CROP_MAP_FLAG_EASE_IN = 1 << 4;
 
 const OV_BIT_TITLE_PREFIX = 1 << 0;
 const OV_BIT_ENABLE_HDR = 1 << 1;
@@ -276,6 +301,11 @@ function vstabPresetFromId(id: number): VideoStabilization {
 }
 
 function writeSpeedMap(w: ByteWriter, points: SpeedPoint[]) {
+  if (points.length > MAX_MAP_POINT_COUNT) {
+    throw new ShareFormatLimitError(
+      `share-format: speedMap count ${points.length} exceeds limit ${MAX_MAP_POINT_COUNT}`
+    );
+  }
   w.writeVaruint(points.length);
   let prevX = 0;
   for (const p of points) {
@@ -303,15 +333,35 @@ function readSpeedMap(r: ByteReader): SpeedPoint[] {
   return points;
 }
 
+// cropMap point encoding:
+//   varsint(Δx)
+//   flagsByte: bits 0-3 = is-literal (iw/ih) per slot {x,y,w,h}; bit 4 = easeIn='instant'
+//   for each numeric slot (not literal): varsint(value - lastNumeric[slot])
+// Literal slots contribute nothing; lastNumeric tracks the last *numeric* value per
+// slot across the whole cropMap (init 0), so a repeated crop compresses to 4 zero deltas.
 function writeCropMap(w: ByteWriter, points: CropPoint[]) {
+  if (points.length > MAX_MAP_POINT_COUNT) {
+    throw new ShareFormatLimitError(
+      `share-format: cropMap count ${points.length} exceeds limit ${MAX_MAP_POINT_COUNT}`
+    );
+  }
   w.writeVaruint(points.length);
   let prevX = 0;
+  const lastNumeric = [0, 0, 0, 0];
   for (const p of points) {
     const x = quantizeTime(p.x);
     w.writeVarsint(x - prevX);
     prevX = x;
-    writeCrop(w, p.crop);
-    w.writeByte(p.easeIn === 'instant' ? 1 : 0);
+    const { parts, literalFlags } = parseCrop(p.crop);
+    let flags = literalFlags;
+    if (p.easeIn === 'instant') flags |= CROP_MAP_FLAG_EASE_IN;
+    w.writeByte(flags);
+    for (let i = 0; i < CROP_PART_COUNT; i++) {
+      if (literalFlags & (1 << i)) continue;
+      const n = parseCropNumeric(parts, i, p.crop);
+      w.writeVarsint(n - lastNumeric[i]);
+      lastNumeric[i] = n;
+    }
   }
 }
 
@@ -324,16 +374,30 @@ function readCropMap(r: ByteReader): CropPoint[] {
   }
   const points: CropPoint[] = [];
   let prevX = 0;
+  const lastNumeric = [0, 0, 0, 0];
   for (let i = 0; i < count; i++) {
     prevX += r.readVarsint();
-    const crop = readCrop(r);
     const flags = r.readByte();
-    const point: CropPoint = { x: dequantizeTime(prevX), y: 0, crop };
-    if (flags & 1) point.easeIn = 'instant';
+    const parts: string[] = [];
+    for (let j = 0; j < CROP_PART_COUNT; j++) {
+      if (flags & (1 << j)) {
+        parts.push(j % 2 === 0 ? 'iw' : 'ih');
+      } else {
+        lastNumeric[j] += r.readVarsint();
+        parts.push(String(lastNumeric[j]));
+      }
+    }
+    const point: CropPoint = { x: dequantizeTime(prevX), y: 0, crop: parts.join(':') };
+    if (flags & CROP_MAP_FLAG_EASE_IN) point.easeIn = 'instant';
     points.push(point);
   }
   return points;
 }
+
+// Overrides: a varuint mask selects which fields are present, then non-enum fields
+// are written in order, then (if any of DENOISE/VSTAB/LOOP is set) one packed
+// enum byte carries all three small-domain enums: denoise (3 bits) | vstab (3 bits) | loop (2 bits).
+const OV_ENUM_MASK = OV_BIT_DENOISE | OV_BIT_VSTAB | OV_BIT_LOOP;
 
 function writeOverrides(w: ByteWriter, o: MarkerPair['overrides']) {
   let mask = 0;
@@ -358,14 +422,15 @@ function writeOverrides(w: ByteWriter, o: MarkerPair['overrides']) {
   if (o.encodeSpeed != null) w.writeVaruint(quantizeCentipoint(o.encodeSpeed));
   if (o.crf != null) w.writeVaruint(o.crf);
   if (o.targetMaxBitrate != null) w.writeVaruint(o.targetMaxBitrate);
-  if (o.denoise != null) w.writeByte(findDenoiseId(o.denoise));
-  if (o.videoStabilization != null) w.writeByte(findVStabId(o.videoStabilization));
   if (o.minterpFpsMultiplier != null) w.writeVaruint(quantizeCentipoint(o.minterpFpsMultiplier));
-  if (o.loop != null) {
-    const idx = LOOP_ORDER.indexOf(o.loop);
-    w.writeByte(idx < 0 ? 0 : idx);
-  }
   if (o.fadeDuration != null) w.writeVaruint(quantizeCentipoint(o.fadeDuration));
+  if (mask & OV_ENUM_MASK) {
+    const d = o.denoise != null ? findDenoiseId(o.denoise) : 0;
+    const v = o.videoStabilization != null ? findVStabId(o.videoStabilization) : 0;
+    const idx = o.loop != null ? LOOP_ORDER.indexOf(o.loop) : 0;
+    const l = idx < 0 ? 0 : idx;
+    w.writeByte((d & 0x07) | ((v & 0x07) << 3) | ((l & 0x03) << 6));
+  }
 }
 
 function readOverrides(r: ByteReader): MarkerPair['overrides'] {
@@ -378,32 +443,28 @@ function readOverrides(r: ByteReader): MarkerPair['overrides'] {
   if (mask & OV_BIT_CRF) o.crf = r.readVaruint();
   if (mask & OV_BIT_TARGET_MAX_BITRATE) o.targetMaxBitrate = r.readVaruint();
   if (mask & OV_BIT_TWO_PASS) o.twoPass = true;
-  if (mask & OV_BIT_DENOISE) o.denoise = denoisePresetFromId(r.readByte());
   if (mask & OV_BIT_AUDIO) o.audio = true;
-  if (mask & OV_BIT_VSTAB) o.videoStabilization = vstabPresetFromId(r.readByte());
   if (mask & OV_BIT_VSTAB_DZ) o.videoStabilizationDynamicZoom = true;
   if (mask & OV_BIT_MINTERP_FPS_MUL) o.minterpFpsMultiplier = dequantizeCentipoint(r.readVaruint());
-  if (mask & OV_BIT_LOOP) {
-    const idx = r.readByte();
-    o.loop = LOOP_ORDER[idx] ?? 'none';
-  }
   if (mask & OV_BIT_FADE_DURATION) o.fadeDuration = dequantizeCentipoint(r.readVaruint());
+  if (mask & OV_ENUM_MASK) {
+    const enumByte = r.readByte();
+    if (mask & OV_BIT_DENOISE) o.denoise = denoisePresetFromId(enumByte & 0x07);
+    if (mask & OV_BIT_VSTAB) o.videoStabilization = vstabPresetFromId((enumByte >> 3) & 0x07);
+    if (mask & OV_BIT_LOOP) o.loop = LOOP_ORDER[(enumByte >> 6) & 0x03] ?? 'none';
+  }
   return o;
 }
 
-export function serializeBinary(payload: SharePayload): Uint8Array {
-  const w = new ByteWriter();
-  w.writeByte(SHARE_FORMAT_VERSION);
+function writeSettings(w: ByteWriter, s: ShareableSettings) {
+  let mask = 0;
+  if (s.cropResWidth != null && s.cropResHeight != null) mask |= SETTINGS_BIT_CROP_RES;
+  if (s.titleSuffix) mask |= SETTINGS_BIT_TITLE_SUFFIX;
+  if (s.newMarkerSpeed != null && s.newMarkerSpeed !== 1) mask |= SETTINGS_BIT_NEW_MARKER_SPEED;
+  if (s.newMarkerCrop) mask |= SETTINGS_BIT_NEW_MARKER_CROP;
+  if (s.markerPairMergeList) mask |= SETTINGS_BIT_MERGE_LIST;
 
-  const s = payload.settings;
-  let sMask = 0;
-  if (s.cropResWidth != null && s.cropResHeight != null) sMask |= SETTINGS_BIT_CROP_RES;
-  if (s.titleSuffix) sMask |= SETTINGS_BIT_TITLE_SUFFIX;
-  if (s.newMarkerSpeed != null && s.newMarkerSpeed !== 1) sMask |= SETTINGS_BIT_NEW_MARKER_SPEED;
-  if (s.newMarkerCrop) sMask |= SETTINGS_BIT_NEW_MARKER_CROP;
-  if (s.markerPairMergeList) sMask |= SETTINGS_BIT_MERGE_LIST;
-
-  w.writeVaruint(sMask);
+  w.writeVaruint(mask);
   if (s.cropResWidth != null && s.cropResHeight != null) {
     w.writeVaruint(s.cropResWidth);
     w.writeVaruint(s.cropResHeight);
@@ -414,37 +475,96 @@ export function serializeBinary(payload: SharePayload): Uint8Array {
   }
   if (s.newMarkerCrop) writeCrop(w, s.newMarkerCrop);
   if (s.markerPairMergeList) w.writeStr(s.markerPairMergeList);
+}
 
+function readSettings(r: ByteReader): ShareableSettings {
+  const mask = r.readVaruint();
+  const settings: ShareableSettings = {};
+  if (mask & SETTINGS_BIT_CROP_RES) {
+    settings.cropResWidth = r.readVaruint();
+    settings.cropResHeight = r.readVaruint();
+  }
+  if (mask & SETTINGS_BIT_TITLE_SUFFIX) settings.titleSuffix = r.readStr();
+  if (mask & SETTINGS_BIT_NEW_MARKER_SPEED) {
+    settings.newMarkerSpeed = dequantizeCentipoint(r.readVaruint());
+  }
+  if (mask & SETTINGS_BIT_NEW_MARKER_CROP) settings.newMarkerCrop = readCrop(r);
+  if (mask & SETTINGS_BIT_MERGE_LIST) settings.markerPairMergeList = r.readStr();
+  return settings;
+}
+
+// Pair layout: mask varuint, then start (abs varuint for index 0, else Δ varsint),
+// duration varuint, optional speed varuint, crop, and optional sub-blocks in the
+// order speedMap → cropMap → overrides. Returns the pair's quantized start in ms
+// so the caller can thread the delta state forward.
+function writePair(w: ByteWriter, p: ShareablePair, index: number, prevStart: number): number {
+  const speedCenti = quantizeCentipoint(p.speed);
+
+  let mask = 0;
+  if (p.speedMap && p.speedMap.length > 0) mask |= PAIR_BIT_SPEED_MAP;
+  if (p.cropMap && p.cropMap.length > 0) mask |= PAIR_BIT_CROP_MAP;
+  if (p.enableZoomPan === true) mask |= PAIR_BIT_ZOOM_PAN;
+  if (p.overrides && Object.keys(p.overrides).length > 0) mask |= PAIR_BIT_OVERRIDES;
+  if (speedCenti === SPEED_DEFAULT_CENTIPOINT) mask |= PAIR_BIT_DEFAULT_SPEED;
+  w.writeVaruint(mask);
+
+  const startMs = quantizeTime(p.start);
+  if (index === 0) w.writeVaruint(startMs);
+  else w.writeVarsint(startMs - prevStart);
+
+  const durationMs = Math.max(0, quantizeTime(p.end) - startMs);
+  w.writeVaruint(durationMs);
+  if (!(mask & PAIR_BIT_DEFAULT_SPEED)) w.writeVaruint(speedCenti);
+  writeCrop(w, p.crop);
+
+  if (p.speedMap && p.speedMap.length > 0) writeSpeedMap(w, p.speedMap);
+  if (p.cropMap && p.cropMap.length > 0) writeCropMap(w, p.cropMap);
+  if (p.overrides && Object.keys(p.overrides).length > 0) writeOverrides(w, p.overrides);
+
+  return startMs;
+}
+
+function readPair(
+  r: ByteReader,
+  index: number,
+  prevStart: number
+): { pair: ShareablePair; startMs: number } {
+  const mask = r.readVaruint();
+  const startMs = index === 0 ? r.readVaruint() : prevStart + r.readVarsint();
+  const durationMs = r.readVaruint();
+  const speed =
+    mask & PAIR_BIT_DEFAULT_SPEED
+      ? dequantizeCentipoint(SPEED_DEFAULT_CENTIPOINT)
+      : dequantizeCentipoint(r.readVaruint());
+  const crop = readCrop(r);
+
+  const pair: ShareablePair = {
+    start: dequantizeTime(startMs),
+    end: dequantizeTime(startMs + durationMs),
+    speed,
+    crop,
+  };
+  if (mask & PAIR_BIT_ZOOM_PAN) pair.enableZoomPan = true;
+  if (mask & PAIR_BIT_SPEED_MAP) pair.speedMap = readSpeedMap(r);
+  if (mask & PAIR_BIT_CROP_MAP) pair.cropMap = readCropMap(r);
+  if (mask & PAIR_BIT_OVERRIDES) pair.overrides = readOverrides(r);
+  return { pair, startMs };
+}
+
+export function serializeBinary(payload: SharePayload): Uint8Array {
+  if (payload.markerPairs.length > MAX_PAIR_COUNT) {
+    throw new ShareFormatLimitError(
+      `share-format: pair count ${payload.markerPairs.length} exceeds limit ${MAX_PAIR_COUNT}`
+    );
+  }
+  const w = new ByteWriter();
+  w.writeByte(SHARE_FORMAT_VERSION);
+  writeSettings(w, payload.settings);
   w.writeVaruint(payload.markerPairs.length);
-
   let prevStart = 0;
   for (let i = 0; i < payload.markerPairs.length; i++) {
-    const p = payload.markerPairs[i];
-    let pMask = 0;
-    if (p.speedMap && p.speedMap.length > 0) pMask |= PAIR_BIT_SPEED_MAP;
-    if (p.cropMap && p.cropMap.length > 0) pMask |= PAIR_BIT_CROP_MAP;
-    if (p.enableZoomPan === true) pMask |= PAIR_BIT_ZOOM_PAN;
-    if (p.overrides && Object.keys(p.overrides).length > 0) pMask |= PAIR_BIT_OVERRIDES;
-    w.writeVaruint(pMask);
-
-    const startMs = quantizeTime(p.start);
-    if (i === 0) {
-      w.writeVaruint(startMs);
-    } else {
-      w.writeVarsint(startMs - prevStart);
-    }
-    prevStart = startMs;
-
-    const durationMs = Math.max(0, quantizeTime(p.end) - startMs);
-    w.writeVaruint(durationMs);
-    w.writeVaruint(quantizeCentipoint(p.speed));
-    writeCrop(w, p.crop);
-
-    if (p.speedMap && p.speedMap.length > 0) writeSpeedMap(w, p.speedMap);
-    if (p.cropMap && p.cropMap.length > 0) writeCropMap(w, p.cropMap);
-    if (p.overrides && Object.keys(p.overrides).length > 0) writeOverrides(w, p.overrides);
+    prevStart = writePair(w, payload.markerPairs[i], i, prevStart);
   }
-
   return w.toUint8Array();
 }
 
@@ -454,20 +574,7 @@ export function deserializeBinary(bytes: Uint8Array): SharePayload {
   if (version !== SHARE_FORMAT_VERSION) {
     throw new UnsupportedShareVersionError(version);
   }
-
-  const sMask = r.readVaruint();
-  const settings: ShareableSettings = {};
-  if (sMask & SETTINGS_BIT_CROP_RES) {
-    settings.cropResWidth = r.readVaruint();
-    settings.cropResHeight = r.readVaruint();
-  }
-  if (sMask & SETTINGS_BIT_TITLE_SUFFIX) settings.titleSuffix = r.readStr();
-  if (sMask & SETTINGS_BIT_NEW_MARKER_SPEED) {
-    settings.newMarkerSpeed = dequantizeCentipoint(r.readVaruint());
-  }
-  if (sMask & SETTINGS_BIT_NEW_MARKER_CROP) settings.newMarkerCrop = readCrop(r);
-  if (sMask & SETTINGS_BIT_MERGE_LIST) settings.markerPairMergeList = r.readStr();
-
+  const settings = readSettings(r);
   const pairCount = r.readVaruint();
   if (pairCount > MAX_PAIR_COUNT) {
     throw new ShareFormatLimitError(
@@ -477,26 +584,10 @@ export function deserializeBinary(bytes: Uint8Array): SharePayload {
   const markerPairs: ShareablePair[] = [];
   let prevStart = 0;
   for (let i = 0; i < pairCount; i++) {
-    const pMask = r.readVaruint();
-    const startMs = i === 0 ? r.readVaruint() : prevStart + r.readVarsint();
-    prevStart = startMs;
-    const durationMs = r.readVaruint();
-    const speed = dequantizeCentipoint(r.readVaruint());
-    const crop = readCrop(r);
-
-    const pair: ShareablePair = {
-      start: dequantizeTime(startMs),
-      end: dequantizeTime(startMs + durationMs),
-      speed,
-      crop,
-    };
-    if (pMask & PAIR_BIT_ZOOM_PAN) pair.enableZoomPan = true;
-    if (pMask & PAIR_BIT_SPEED_MAP) pair.speedMap = readSpeedMap(r);
-    if (pMask & PAIR_BIT_CROP_MAP) pair.cropMap = readCropMap(r);
-    if (pMask & PAIR_BIT_OVERRIDES) pair.overrides = readOverrides(r);
+    const { pair, startMs } = readPair(r, i, prevStart);
     markerPairs.push(pair);
+    prevStart = startMs;
   }
-
   return { settings, markerPairs };
 }
 

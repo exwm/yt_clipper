@@ -1,10 +1,10 @@
-import { html, render, TemplateResult } from 'lit-html';
 import { MarkerPair } from '../@types/yt_clipper';
 import { __version__, appState } from '../appState';
-import { ModalShell } from '../components/modal';
 import { isStaticCrop } from '../crop-utils';
-import { copyToClipboard, deleteElement, flashMessage } from '../util/util';
-import { isVariableSpeed, loadClipperInputJSON } from './save-load';
+import { copyToClipboard, flashMessage } from '../util/util';
+import { showLoadMarkersReviewModal } from './load-markers-review';
+import { applyClipperInput, isVariableSpeed } from './save-load';
+import { ClipperInputValidationError, parseClipperInput, ParseResult } from './parse-clipper-input';
 import {
   SHARE_FORMAT_VERSION,
   ShareFormatLimitError,
@@ -14,10 +14,9 @@ import {
   UnsupportedShareVersionError,
   deserializeBinary,
   serializeBinary,
-  slugify,
 } from './share-format';
 
-const SHARE_FRAGMENT_RE = /#ytc\/markers\/([^/]+)\/([^/]+)\/([^/]+)\/([A-Za-z0-9_-]+)/;
+const SHARE_FRAGMENT_RE = /#ytc\/markers\/([^/]+)\/([^/]+)\/([A-Za-z0-9_-]+)/;
 
 function base64UrlEncode(bytes: Uint8Array): string {
   let binary = '';
@@ -42,6 +41,13 @@ async function compressBytes(bytes: Uint8Array): Promise<Uint8Array> {
 }
 
 const MAX_DECOMPRESSED_BYTES = 256 * 1024;
+
+/** Hard cap on the base64 fragment length before we even attempt to decode
+ *  it. Chosen at ~4× the bound implied by `MAX_DECOMPRESSED_BYTES` so any
+ *  legitimately-encoded payload that decompresses within the cap easily
+ *  fits, while a maliciously-large fragment is refused before it can
+ *  consume CPU/memory on base64 + decompression. */
+const MAX_BASE64_FRAGMENT_LEN = 1024 * 1024;
 
 export class DecompressionTooLargeError extends Error {
   constructor(public readonly limit: number) {
@@ -122,14 +128,12 @@ function pad2(n: number): string {
   return n < 10 ? `0${n}` : String(n);
 }
 
-function buildSlugAndDate(): { slug: string; date: string; time: string } {
-  const suffix = appState.settings.titleSuffix ?? '';
-  const videoID = appState.settings.videoID ?? 'clip';
-  const slug = slugify(suffix) || slugify(videoID) || 'clip';
+// UTC so the share URL doesn't leak the author's local timezone offset.
+function buildUtcDate(): { date: string; time: string } {
   const d = new Date();
-  const date = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-  const time = `${pad2(d.getHours())}-${pad2(d.getMinutes())}-${pad2(d.getSeconds())}`;
-  return { slug, date, time };
+  const date = `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
+  const time = `${pad2(d.getUTCHours())}-${pad2(d.getUTCMinutes())}-${pad2(d.getUTCSeconds())}`;
+  return { date, time };
 }
 
 export async function copyShareableUrl() {
@@ -138,10 +142,10 @@ export async function copyShareableUrl() {
     const bytes = serializeBinary(payload);
     const compressed = await compressBytes(bytes);
     const encoded = base64UrlEncode(compressed);
-    const { slug, date, time } = buildSlugAndDate();
+    const { date, time } = buildUtcDate();
 
     const baseUrl = location.href.split('#')[0];
-    const shareUrl = `${baseUrl}#ytc/markers/${slug}/${date}/${time}/${encoded}`;
+    const shareUrl = `${baseUrl}#ytc/markers/${date}/${time}/${encoded}`;
 
     if (shareUrl.length > 6000) {
       flashMessage(
@@ -162,7 +166,7 @@ function readSharedMarkersFromUrl(): string | null {
   const hash = location.hash;
   if (!hash) return null;
   const match = SHARE_FRAGMENT_RE.exec(hash);
-  return match ? match[4] : null;
+  return match ? match[3] : null;
 }
 
 function stripSharedMarkersFromUrl() {
@@ -201,6 +205,23 @@ export async function tryLoadSharedMarkers() {
       'Shared markers detected in URL but existing markers present — clear them first to load.',
       'olive'
     );
+    return;
+  }
+
+  // Refuse oversized fragments before paying the base64 + decompression
+  // cost. The downstream `MAX_DECOMPRESSED_BYTES` cap (256 KB) is enforced
+  // per chunk during inflate, but reaching it requires walking the entire
+  // base64 string + spinning up a DecompressionStream. This pre-check
+  // shortcuts that work on a maliciously-large URL fragment.
+  if (encoded.length > MAX_BASE64_FRAGMENT_LEN) {
+    console.error(
+      'Shared URL payload base64 length',
+      encoded.length,
+      'exceeds limit',
+      MAX_BASE64_FRAGMENT_LEN
+    );
+    flashMessage('Shared URL payload is too large — refusing to decode.', 'red');
+    stripSharedMarkersFromUrl();
     return;
   }
 
@@ -260,121 +281,55 @@ export async function tryLoadSharedMarkers() {
     return;
   }
 
-  let prettyJson: string;
-  let compactJson: string;
+  let clipperInput: ReturnType<typeof payloadToClipperInputObject>;
   try {
-    const obj = payloadToClipperInputObject(payload);
-    prettyJson = JSON.stringify(obj, null, 2);
-    compactJson = JSON.stringify(obj);
+    clipperInput = payloadToClipperInputObject(payload);
   } catch (err) {
     console.error('Failed to format shared markers JSON', err);
     flashMessage('Failed to format shared markers. See console.', 'red');
     return;
   }
 
-  showSharedMarkersModal(payload, prettyJson, compactJson);
+  showSharedMarkersModal(clipperInput);
 }
 
-const MODAL_ID = 'shared-markers-modal';
+function showSharedMarkersModal(clipperInput: ReturnType<typeof payloadToClipperInputObject>) {
+  let result: ParseResult;
+  try {
+    result = parseClipperInput(clipperInput);
+  } catch (err) {
+    if (err instanceof ClipperInputValidationError) {
+      console.error('Shared URL payload failed validation', err);
+      flashMessage(`Shared URL payload rejected: ${err.message}`, 'red');
+      stripSharedMarkersFromUrl();
+      return;
+    }
+    throw err;
+  }
 
-function deleteSharedMarkersModal() {
-  const el = document.getElementById(MODAL_ID);
-  if (el) deleteElement(el);
-}
+  const pairCount = result.input.markerPairs.length;
 
-interface SharedMarkersModalProps {
-  pairCount: number;
-  title: string;
-  prettyJson: string;
-  onLoad: () => void;
-  onDismiss: () => void;
-  onCopy: () => void;
-  onBackdropClick: () => void;
-}
-
-function SharedMarkersModal(p: SharedMarkersModalProps): TemplateResult {
-  const body = html`
-    <div class="ytc-share-modal-summary">
-      Pairs: <b>${p.pairCount}</b> &nbsp;·&nbsp; Title: <b>${p.title}</b>
-    </div>
-    <pre class="ytc-share-modal-json">${p.prettyJson}</pre>
-  `;
-  const actions = html`
-    <input type="button" value="Copy JSON" @click=${p.onCopy} />
-    <input type="button" value="Dismiss" @click=${p.onDismiss} />
-    <input type="button" class="ytc-share-modal-load" value="Load" @click=${p.onLoad} />
-  `;
-  return ModalShell({
-    id: MODAL_ID,
-    extraClass: 'ytc-share-modal',
-    title: 'Load shared markers?',
-    warning:
-      '⚠ Review the JSON below before loading. Shared URLs come from untrusted sources; loading will overwrite your current settings and add these marker pairs.',
-    children: body,
-    actions,
-    onBackdropClick: p.onBackdropClick,
+  showLoadMarkersReviewModal({
+    modalTitle: 'Load shared markers?',
+    warning: `⚠ Review the JSON below before loading. Shared URLs come from untrusted sources.\nLoading will overwrite your current settings and add ${pairCount} marker pair(s).`,
+    sourceLabel: 'shared URL',
+    payload: result.input,
+    issues: result.issues,
+    onLoad: () => {
+      applyClipperInput(result.input);
+      flashMessage(`Loaded ${pairCount} marker pair(s) from shared URL.`, 'green');
+      stripSharedMarkersFromUrl();
+    },
+    onDismiss: () => {
+      stripSharedMarkersFromUrl();
+      flashMessage('Dismissed shared markers URL.', 'olive');
+    },
   });
 }
 
-function showSharedMarkersModal(payload: SharePayload, prettyJson: string, compactJson: string) {
-  deleteSharedMarkersModal();
-
-  const host = document.createElement('div');
-  document.body.appendChild(host);
-
-  const pairCount = payload.markerPairs.length;
-  const title = payload.settings.titleSuffix ?? '(none)';
-
-  const cleanup = () => {
-    document.removeEventListener('keydown', onKeydown, true);
-    deleteSharedMarkersModal();
-    if (host.parentNode) host.parentNode.removeChild(host);
-  };
-
-  const dismiss = () => {
-    stripSharedMarkersFromUrl();
-    cleanup();
-    flashMessage('Dismissed shared markers URL.', 'olive');
-  };
-
-  const onKeydown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      e.stopImmediatePropagation();
-      e.preventDefault();
-      dismiss();
-    }
-  };
-  document.addEventListener('keydown', onKeydown, true);
-
-  const onLoad = () => {
-    try {
-      loadClipperInputJSON(compactJson);
-      flashMessage(`Loaded ${pairCount} marker pair(s) from shared URL.`, 'green');
-      stripSharedMarkersFromUrl();
-      cleanup();
-    } catch (err) {
-      console.error('Failed to apply shared markers', err);
-      flashMessage('Failed to apply shared markers. See console.', 'red');
-    }
-  };
-
-  const onCopy = () => {
-    copyToClipboard(prettyJson);
-    flashMessage('Copied decoded JSON to clipboard.', 'green');
-  };
-
-  render(
-    SharedMarkersModal({
-      pairCount,
-      title,
-      prettyJson,
-      onLoad,
-      onDismiss: dismiss,
-      onCopy,
-      onBackdropClick: dismiss,
-    }),
-    host
-  );
-}
-
-export const __testing = { SHARE_FORMAT_VERSION, SHARE_FRAGMENT_RE };
+export const __testing = {
+  SHARE_FORMAT_VERSION,
+  SHARE_FRAGMENT_RE,
+  MAX_BASE64_FRAGMENT_LEN,
+  MAX_DECOMPRESSED_BYTES,
+};

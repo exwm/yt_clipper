@@ -73,6 +73,21 @@ export const urlSanitizerFactory: SanitizerFactory = (_node, name, type) =>
 // before the first `render()` invocation — lit-html caches the factory at
 // template instantiation time, so a late install has no effect on templates
 // already rendered.
+//
+// IMPORTANT: lit-html's sanitizer hooks are compiled out of the production
+// build via `ENABLE_EXTRA_SECURITY_HOOKS = false`. In production bundles,
+// `render.setSanitizer` does not exist — we guard against that or init will
+// throw a TypeError. In dev/test builds the hook is present and the
+// sanitizer runs. Effective in production only if Parcel is configured to
+// resolve `lit-html` → `lit-html/development/lit-html.js` (not the default).
+// That's a deliberate tradeoff (bundle size + perf for defense-in-depth) and
+// we don't take it — our primary defense is the `local/no-url-attribute-
+// interpolation` ESLint rule plus lit-html's built-in structural safety,
+// which together prevent dynamic URLs from reaching template bindings at
+// dev time and prevent HTML injection at runtime regardless.
 export function installLitUrlSanitizer(): void {
-  render.setSanitizer(urlSanitizerFactory);
+  const setSanitizer = (render as unknown as { setSanitizer?: typeof render.setSanitizer })
+    .setSanitizer;
+  if (typeof setSanitizer !== 'function') return;
+  setSanitizer(urlSanitizerFactory);
 }

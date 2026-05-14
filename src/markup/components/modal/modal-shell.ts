@@ -3,7 +3,12 @@ import { html, TemplateResult, nothing } from 'lit-html';
 export interface ModalShellProps {
   id?: string;
   title: string;
-  warning?: string;
+  /** Plain text gets rendered via lit-html text-context (auto-escaped).
+   *  A `TemplateResult` is rendered as-is — callers that need to
+   *  interpolate user-controlled state should pass a template that
+   *  delimits the state in `<code>` so it can't visually pretend to be
+   *  modal chrome (social-engineering defense). */
+  warning?: string | TemplateResult;
   children: TemplateResult;
   actions: TemplateResult;
   extraClass?: string;

@@ -1,9 +1,16 @@
 import { stripIndent } from 'common-tags';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
+import { html } from 'lit-html';
 import { appState } from './appState';
 import { assertDefined, flashMessage } from './util/util';
-import { getClipperInputData, loadClipperInputJSON, deleteMarkersDataCommands } from './save-load';
+import { applyClipperInput, getClipperInputData, deleteMarkersDataCommands } from './save-load';
+import { showLoadMarkersReviewModal } from './save-load/load-markers-review';
+import {
+  ClipperInputValidationError,
+  parseClipperInputJSON,
+  ParseResult,
+} from './save-load/parse-clipper-input';
 import { injectProgressBar } from './util/util';
 
 let autoSaveIntervalId;
@@ -41,31 +48,55 @@ export function saveClipperInputDataToLocalStorage() {
 }
 
 export function loadClipperInputDataFromLocalStorage() {
-  if (appState.markerPairs.length === 0) {
-    const key = `${localStorageKeyPrefix}_${appState.settings.videoTag}`;
-    const clipperInputJSON = localStorage.getItem(key);
-    if (clipperInputJSON != null) {
-      const clipperInputData = JSON.parse(clipperInputJSON);
-      const date = new Date(clipperInputData.date);
-      const confirmLoad = confirm(stripIndent`
-        The last auto-saved markers data for appState.video ${appState.settings.videoTag} will be restored.
-        This data was saved on ${date}.
-        It contains ${clipperInputData.markerPairs.length} marker pair(s).\n
-        Proceed to restore markers data?
-      `);
-      if (confirmLoad) {
-        loadClipperInputJSON(clipperInputJSON);
-        deleteMarkersDataCommands();
-      }
-    } else {
-      flashMessage(
-        `No markers data found in local storage for appState.video ${appState.settings.videoTag}.`,
-        'red'
-      );
-    }
-  } else {
+  if (appState.markerPairs.length !== 0) {
     flashMessage('Please delete all marker pairs before restoring markers data.', 'red');
+    return;
   }
+
+  const key = `${localStorageKeyPrefix}_${appState.settings.videoTag}`;
+  const clipperInputJSON = localStorage.getItem(key);
+  if (clipperInputJSON == null) {
+    flashMessage(
+      `No markers data found in local storage for appState.video ${appState.settings.videoTag}.`,
+      'red'
+    );
+    return;
+  }
+
+  let result: ParseResult;
+  try {
+    result = parseClipperInputJSON(clipperInputJSON);
+  } catch (err) {
+    if (err instanceof ClipperInputValidationError) {
+      console.error('Failed to parse auto-saved markers data', err);
+      flashMessage(`Failed to parse auto-saved markers data: ${err.message}`, 'red');
+      return;
+    }
+    throw err;
+  }
+
+  const date = new Date(result.input.date ?? NaN);
+  const pairCount = result.input.markerPairs.length;
+
+  showLoadMarkersReviewModal({
+    modalTitle: 'Restore auto-saved markers?',
+    // `videoTag` is rendered inside `<code>` so its boundary is visually
+    // unambiguous. Even though `videoTag` is no longer accepted from
+    // loaded JSON (see KEY_POLICY in parse-clipper-input.ts), keeping
+    // the delimiter defends against any future path that lets a
+    // user-controlled string reach modal chrome.
+    warning: html`⚠ The last auto-saved markers data for video
+      <code>${appState.settings.videoTag}</code> will be restored. Saved on ${String(date)}.
+      Contains ${pairCount} marker pair(s).`,
+    sourceLabel: 'auto-saved data',
+    payload: result.input,
+    issues: result.issues,
+    onLoad: () => {
+      applyClipperInput(result.input);
+      deleteMarkersDataCommands();
+      flashMessage(`Restored ${pairCount} marker pair(s) from auto-save.`, 'green');
+    },
+  });
 }
 
 export function getMarkersDataEntriesFromLocalStorage(): string[] {
