@@ -1,7 +1,9 @@
 import sys
 
 from clipper.clipper_types import KnownPlatform, Settings
-from clipper.ytc_logger import logger
+from clipper.ytc_logger import Subsystem, make_subsystem_logger
+
+logger = make_subsystem_logger(Subsystem.PLATFORMS)
 
 
 def getFfmpegHeaders(platform: str) -> str:

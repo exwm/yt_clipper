@@ -28,7 +28,7 @@ from dataclasses import replace
 from typing import Callable
 
 from clipper.quality import VmafSummary
-from clipper.ytc_logger import logger
+from clipper.ytc_logger import Subsystem, make_subsystem_logger
 
 from .predicates import (
     _calibration_says_phase3_hopeless,
@@ -52,6 +52,8 @@ from .types import (
     TrialMeasurement,
     min_frames_for_low_percentile,
 )
+
+logger = make_subsystem_logger(Subsystem.CRF_SEARCH)
 
 # ---------------------------------------------------------------------------
 # Sampling
@@ -731,7 +733,7 @@ def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow
                             fallback.summary, fallback_pct,
                         )
                         logger.notice(
-                            f"crf-search: target {user_pct_label} unreachable "
+                            f"target {user_pct_label} unreachable "
                             f"on this clip; settling via {label} fallback at "
                             f"crf={optimal_crf} ({label}={fallback_value:.2f} "
                             f"clears relaxed target "
@@ -739,7 +741,7 @@ def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow
                         )
                     else:
                         logger.notice(
-                            f"crf-search: percentile target unreachable on "
+                            f"percentile target unreachable on "
                             f"this clip; settling via {label} fallback at "
                             f"crf={optimal_crf} (mean={fallback.summary.mean:.2f} "
                             f"clears relaxed target "
@@ -796,8 +798,8 @@ def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow
             safety_margin=phase2_fast_fail_margin,
         )
         if skip_phase2:
-            logger.notice(
-                f"crf-search: fast-fail predicting Phase 2 would fail "
+            logger.info(
+                f"fast-fail predicting Phase 2 would fail "
                 f"at crf={candidate_crf} ({fast_fail_reason}); skipping "
                 f"to Phase 3 step-down.",
             )
@@ -848,8 +850,8 @@ def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow
                 (target.crf_min + candidate_crf) // 2,
             )
             if calibration_probe_crf < candidate_crf:
-                logger.notice(
-                    f"crf-search: Phase 1 had only "
+                logger.info(
+                    f"Phase 1 had only "
                     f"{phase1_trial_count} trial(s); probing "
                     f"single-window at crf={calibration_probe_crf} to "
                     f"enable calibration check before step-down.",
@@ -886,7 +888,7 @@ def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow
         relaxation_cap=target_relaxation_cap,
     ):
         logger.notice(
-            f"crf-search: Phase 2 vs Phase 1 calibration says no CRF >= "
+            f"Phase 2 vs Phase 1 calibration says no CRF >= "
             f"{target.crf_min} will reach the cap-relaxed percentile "
             f"target; skipping step-down and bisection, proceeding to "
             f"cascade fallback.",
@@ -911,8 +913,8 @@ def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow
 
     last_step_down_failure = candidate_crf
     if skip_step_down:
-        logger.notice(
-            "crf-search: calibration predicts step-down's max "
+        logger.info(
+            "calibration predicts step-down's max "
             "improvement won't close Phase 2's deficit on the "
             "limiting axis; skipping step-down and going directly "
             f"to bisection over crf_min={target.crf_min} to "
@@ -980,7 +982,7 @@ def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow
         relaxation_cap=target_relaxation_cap,
     ):
         logger.notice(
-            "crf-search: refinement extrapolation says no CRF >= "
+            "refinement extrapolation says no CRF >= "
             f"{target.crf_min} will reach the cap-relaxed percentile "
             "target; skipping bisection and proceeding to cascade fallback.",
         )

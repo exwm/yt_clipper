@@ -4,7 +4,10 @@ import sys
 from typing import Dict, List, Tuple
 
 from clipper.clipper_types import ClipperPaths, ClipperState
-from clipper.ytc_logger import logger
+from clipper.log_helpers import subprocess_block
+from clipper.ytc_logger import Subsystem, make_subsystem_logger
+
+logger = make_subsystem_logger(Subsystem.YTDL)
 
 
 def ytdl_bin_get_version(cp: ClipperPaths) -> str:
@@ -86,7 +89,9 @@ def ytdl_bin_get_video_info(cs: ClipperState) -> Tuple[Dict, str]:
     if settings["downloadVideo"]:
         ytdl_args_download = ytdl_args.copy()
         ytdl_args_download.extend([settings["videoPageURL"]])
-        subprocess.run(args=ytdl_args_download, check=True)
+        with subprocess_block("yt-dlp", logger=logger, action="download") as block:
+            process = subprocess.run(args=ytdl_args_download, check=True)
+            block.set_returncode(process.returncode)
         settings["downloadVideoPath"] = f"{settings['downloadVideoPath']}.mkv"
 
     return ytdl_info, formats_table
@@ -114,12 +119,13 @@ def ytdl_bin_update(cs: ClipperState) -> None:
     ytdl_old_version = ytdl_bin_get_version(cp)
 
     try:
-        logger.info("Checking for yt-dlp updates.")
-        subprocess.run(
-            args=[cp.ytdlPath, "--update"],
-            check=True,
-            shell=False,
-        )
+        with subprocess_block("yt-dlp", logger=logger, action="update") as block:
+            process = subprocess.run(
+                args=[cp.ytdlPath, "--update"],
+                check=True,
+                shell=False,
+            )
+            block.set_returncode(process.returncode)
     except subprocess.CalledProcessError:
         logger.warning("Failed to update yt-dlp. Try manually updating.")
 
@@ -152,4 +158,6 @@ def ytdl_bin_get_subs(cs: ClipperState) -> None:
     )
     # fmt: on
 
-    subprocess.run(args=ytdl_args, check=True)
+    with subprocess_block("yt-dlp", logger=logger, action="fetch subtitles") as block:
+        process = subprocess.run(args=ytdl_args, check=True)
+        block.set_returncode(process.returncode)

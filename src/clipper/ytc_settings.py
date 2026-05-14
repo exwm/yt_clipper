@@ -17,9 +17,18 @@ from clipper.clipper_types import (
 )
 from clipper.ffmpeg_filter import getMinterpFPS
 from clipper.ffprobe import ffprobeVideoProperties
+from clipper.log_helpers import (
+    LogPath,
+    build_auto_encode_settings_snapshot,
+    build_global_settings_snapshot,
+    log_settings_dump,
+    render_settings_table,
+)
 from clipper.platforms import getVideoPageURL
-from clipper.ytc_logger import logger, printToLogFile
+from clipper.ytc_logger import Subsystem, make_subsystem_logger, printToLogFile
 from clipper.ytdl import ytdl_bin_get_subs, ytdl_bin_get_video_info
+
+logger = make_subsystem_logger(Subsystem.SETTINGS)
 
 
 def loadSettingsFromMarkersJson(settings: Settings) -> None:
@@ -160,7 +169,7 @@ def getInputVideo(cs: ClipperState) -> None:
             logger.critical(f"Exiting...")
             sys.exit(1)
         else:
-            logger.info(f'Using input video file "{settings["inputVideo"]}".')
+            logger.info(f"Using input video file {LogPath(settings['inputVideo'])}.")
 
 
 def getVideoInfo(cs: ClipperState) -> None:
@@ -399,11 +408,11 @@ def getGlobalSettings(cs: ClipperState) -> None:
     elif settings["subsFilePath"] != "":
         if not Path(settings["subsFilePath"]).is_file():
             logger.critical(
-                f'Could not find subtitles file at "{settings["subsFilePath"]}"',
+                f"Could not find subtitles file at {LogPath(settings['subsFilePath'])}",
             )
             sys.exit(1)
         else:
-            logger.success(f'Found subtitles file at "{settings["subsFilePath"]}"')
+            logger.success(f"Found subtitles file at {LogPath(settings['subsFilePath'])}")
 
     if settings["subsFilePath"] != "":
         subsPath = Path(f"{cp.clipsPath}/subs")
@@ -427,61 +436,32 @@ def getGlobalSettings(cs: ClipperState) -> None:
 
     encodeSettings = getDefaultEncodeSettings(settings["bit_rate"])
 
-    logger.info("-" * 80)
-    unknownColorSpaceMsg = "unknown (bt709 will be assumed for color range operations)"
-    globalColorSpaceMsg = (
-        f"{settings['color_space'] if settings['color_space'] else unknownColorSpaceMsg}"
-    )
-    logger.info(
-        f"Automatically determined encoding settings: CRF: {encodeSettings['crf']} (0-63), "
-        + f"Auto Target Max Bitrate: {encodeSettings['autoTargetMaxBitrate']}kbps, "
-        + f"Detected Color Space: {globalColorSpaceMsg}, "
-        + f"Two-pass Encoding Enabled: {encodeSettings['twoPass']}, "
-        + f"Encoding Speed: {encodeSettings['encodeSpeed']} (0-5)",
-    )
+    log_settings_dump(logger.info, render_settings_table(
+        build_auto_encode_settings_snapshot(
+            encodeSettings, color_space=settings["color_space"],
+        ),
+        title="Auto-determined encoding settings",
+        markup=True,
+    ))
 
     encodeSettings = {**encodeSettings, **settings}
     if "targetMaxBitrate" not in encodeSettings:
         encodeSettings["targetMaxBitrate"] = encodeSettings["autoTargetMaxBitrate"]
 
-    logger.info("-" * 80)
     globalTargetBitrateMsg = (
         f"{encodeSettings['targetMaxBitrate']}kbps"
         if "targetMaxBitrate" in encodeSettings
-        else "Auto"
+        else "auto"
     )
-    minterpFPSMsg = f"Target FPS: {getMinterpFPS(settings, None)}, "
-    logger.info(
-        f"Global Encoding Settings: Video Codec: {settings['videoCodec']}, CRF: {encodeSettings['crf']} (0-63), "
-        + f"Detected Bitrate: {settings['bit_rate']}kbps, "
-        + f"Global Target Bitrate: {globalTargetBitrateMsg}, "
-        + f"Two-pass Encoding Enabled: {encodeSettings['twoPass']}, "
-        + f"Encoding Speed: {encodeSettings['encodeSpeed']} (0-5), "
-        + f"Audio Enabled: {settings['audio']}, "
-        + f"Denoise: {settings['denoise']['desc']}, Rotate: {settings['rotate']}, "
-        + f"HDR (High Dynamic Range) Output Enabled: {settings['enableHDR']}, "
-        + f"Speed Maps Enabled: {settings['enableSpeedMaps']}, "
-        + f"Motion Interpolation FPS Multiplier: {settings['minterpFpsMultiplier']}, "
-        + f"Motion Interpolation Mode: {settings['minterpMode']}, "
-        + f"Motion Interpolation Tool: {settings['minterpTool']}, "
-        + minterpFPSMsg
-        + f"Special Looping: {settings['loop']}, "
-        + (f"Fade Duration: {settings['fadeDuration']}, " if settings["loop"] == "fade" else "")
-        + f"Video Stabilization Strength: {settings['videoStabilization']['desc']}, "
-        + f"Video Stabilization Max Angle: "
-        + (
-            f"{settings['videoStabilizationMaxAngle']} degrees, "
-            if settings["videoStabilizationMaxAngle"] >= 0
-            else "Unlimited, "
-        )
-        + f"Video Stabilization Max Shift: "
-        + (
-            f"{settings['videoStabilizationMaxShift']} pixels, "
-            if settings["videoStabilizationMaxShift"] >= 0
-            else "Unlimited, "
-        )
-        + f"Video Stabilization Dynamic Zoom: {settings['videoStabilizationDynamicZoom']}",
-    )
+    log_settings_dump(logger.info, render_settings_table(
+        build_global_settings_snapshot(
+            encodeSettings,
+            minterp_fps=getMinterpFPS(settings, None),
+            target_max_bitrate_text=globalTargetBitrateMsg,
+        ),
+        title="Global encoding settings",
+        markup=True,
+    ))
 
 
 def autoSetCropMultiples(settings: Settings) -> None:
@@ -492,7 +472,7 @@ def autoSetCropMultiples(settings: Settings) -> None:
         settings["cropResWidth"] != settings["width"]
         or settings["cropResHeight"] != settings["height"]
     ):
-        logger.info("-" * 80)
+        logger.rule()
         logger.info("Crop resolution does not match video resolution")
         if settings["cropResWidth"] != settings["width"]:
             logger.info(

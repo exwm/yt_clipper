@@ -229,6 +229,11 @@ def format_prior_run_deltas_block(
 
     Returns the empty string if no clip has any priors.
     """
+    from rich import box
+    from rich.table import Table
+
+    from clipper.log_helpers import render_rich_table_to_text
+
     visible: list[tuple[str, list[PriorRunDelta]]] = [
         (label, rows)
         for label, rows in rows_per_clip
@@ -236,12 +241,23 @@ def format_prior_run_deltas_block(
     ]
     if not visible:
         return ""
-    lines: list[str] = [
+    header = (
         f"prior-run deltas (* = current run, kbps@tgt = "
-        f"interpolated bitrate at p_low={target_vmaf_low}):",
-        f"  {'pair':<5} {'config':<32} {'kbps@tgt':>9} "
-        f"{'Δ kbps':>8} {'crf':>5} {'Δ crf':>6}",
-    ]
+        f"interpolated bitrate at p_low={target_vmaf_low}):"
+    )
+    table = Table(
+        box=box.SIMPLE_HEAD,
+        show_edge=False,
+        pad_edge=False,
+        padding=(0, 1),
+        collapse_padding=True,
+    )
+    table.add_column("pair", justify="left")
+    table.add_column("config", justify="left", no_wrap=True)
+    table.add_column("kbps@tgt", justify="right")
+    table.add_column("Δ kbps", justify="right")
+    table.add_column("crf", justify="right")
+    table.add_column("Δ crf", justify="right")
     for clip_label, rows in visible:
         for row in rows:
             kbps = (
@@ -264,8 +280,5 @@ def format_prior_run_deltas_block(
             )
             label_marker = "*" if row.is_current else " "
             label = f"{label_marker} {row.config_label}"
-            lines.append(
-                f"  {clip_label:<5} {label:<32} {kbps:>9} "
-                f"{d_kbps:>8} {crf_str:>5} {d_crf:>6}",
-            )
-    return "\n".join(lines)
+            table.add_row(clip_label, label, kbps, d_kbps, crf_str, d_crf)
+    return "\n".join([header, "", render_rich_table_to_text(table, width=140)])

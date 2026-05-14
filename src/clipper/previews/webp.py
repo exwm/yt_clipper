@@ -21,9 +21,8 @@ as such.
 from pathlib import Path
 from typing import List, Optional
 
-import rich.markup
-
 from clipper.clipper_types import ClipperPaths, DictStrAny
+from clipper.log_helpers import LogPath
 from clipper.previews.shared import (
     DEFAULT_PREVIEW_DIM_TIERS,
     buildScaleFilter,
@@ -32,7 +31,9 @@ from clipper.previews.shared import (
     isHdrSource,
     runFfmpegPreviewCommand,
 )
-from clipper.ytc_logger import logger
+from clipper.ytc_logger import Subsystem, make_subsystem_logger
+
+logger = make_subsystem_logger(Subsystem.PREVIEWS)
 
 # ---------------------------------------------------------------------------
 # Encoder constants — decisions and sources
@@ -237,8 +238,8 @@ def makeWebpPreview(
 
     if Path(webpFilePath).is_file() and not overwrite:
         logger.notice(
-            f'Skipped existing {WEBP_PREVIEW_LABEL}: '
-            f'"{rich.markup.escape(Path(webpFilePath).name)}"',
+            f"Skipped existing {WEBP_PREVIEW_LABEL}: "
+            f"{LogPath(Path(webpFilePath).name)}",
         )
         return webpFilePath
 

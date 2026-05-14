@@ -8,7 +8,9 @@ from typing import Optional
 from clipper.clipper_types import ClipperState, DictStrAny
 from clipper.pix_fmt_bit_depth import PIX_FMT_BIT_DEPTH_MAP
 from clipper.platforms import getFfmpegHeaders
-from clipper.ytc_logger import logger
+from clipper.ytc_logger import Subsystem, make_subsystem_logger
+
+logger = make_subsystem_logger(Subsystem.FFPROBE)
 
 
 def ffprobeVideoProperties(cs: ClipperState, videoURL: str) -> Optional[DictStrAny]:
@@ -42,7 +44,6 @@ def ffprobeVideoProperties(cs: ClipperState, videoURL: str) -> Optional[DictStrA
             return None
 
         ffprobeOutput: str = ffprobeOutput.decode("utf-8")  # type: ignore [assignment]
-        logger.info("-" * 80)
         logger.info("Detecting video properties with ffprobe")
         logger.debug(f"ffprobeOutput={ffprobeOutput}")
 

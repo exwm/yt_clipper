@@ -3,7 +3,9 @@ from fractions import Fraction
 from typing import Optional, Tuple
 
 from clipper.clipper_types import DictStrAny
-from clipper.ytc_logger import logger
+from clipper.ytc_logger import Subsystem, make_subsystem_logger
+
+logger = make_subsystem_logger(Subsystem.FFMPEG_CODEC)
 
 
 def getFfmpegVideoCodecArgs(

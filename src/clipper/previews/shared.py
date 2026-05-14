@@ -16,10 +16,11 @@ import subprocess
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-import rich.markup
-
 from clipper.clipper_types import ClipperPaths, DictStrAny
-from clipper.ytc_logger import logger
+from clipper.log_helpers import LogPath
+from clipper.ytc_logger import Subsystem, make_subsystem_logger
+
+logger = make_subsystem_logger(Subsystem.PREVIEWS)
 
 # Default source-resolution tiers for picking a preview long edge. Indexed by
 # source SHORT edge — the standard "Np" resolution naming, where 1080p means a
@@ -158,12 +159,12 @@ def runFfmpegPreviewCommand(
     """
     logger.verbose(f"Using ffmpeg command: {command}\n")
     result = subprocess.run(shlex.split(command), check=False)
-    fileNameEscaped = rich.markup.escape(Path(outPath).name)
+    out_log = LogPath(Path(outPath).name)
     if result.returncode == 0:
-        logger.success(f'Successfuly generated {previewLabel}: "{fileNameEscaped}"')
+        logger.success(f"Successfully generated {previewLabel}: {out_log}")
         return outPath
     logger.error(
-        f'Failed to generate {previewLabel}: "{fileNameEscaped}" '
+        f"Failed to generate {previewLabel}: {out_log} "
         f"(error code: {result.returncode}).",
     )
     return None
@@ -204,7 +205,7 @@ def concatCopyPreviewVideos(
         f'-f concat -safe 0 -i "{inputsTxtPath}" -c copy "{outputPath}"'
     )
     logger.info(
-        f'Concat-copy merging into "{rich.markup.escape(Path(outputPath).name)}".',
+        f"Concat-copy merging into {LogPath(Path(outputPath).name)}.",
     )
     try:
         return runFfmpegPreviewCommand(concatCommand, outputPath, previewLabel)

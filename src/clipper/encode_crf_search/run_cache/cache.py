@@ -145,10 +145,11 @@ def evaluate_cache_reuse(
         # Worth flagging so the operator knows there's orphaned data.
         # The decision is still a hit/miss based on the valid prior;
         # this is just provenance.
+        from clipper.log_helpers import LogPath
         from clipper.ytc_logger import logger
         logger.verbose(
             f"run-cache: skipped {skipped_count} unreadable run file(s) "
-            f"at {fingerprint_dir} before finding a valid prior "
+            f"at {LogPath(fingerprint_dir)} before finding a valid prior "
             f"({prior.run_id}). Stale files can be deleted safely.",
         )
 

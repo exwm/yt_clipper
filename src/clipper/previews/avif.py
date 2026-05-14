@@ -18,9 +18,8 @@ or parameter. Project-specific heuristics (CRF adjustments) are marked as such.
 from pathlib import Path
 from typing import List, Optional
 
-import rich.markup
-
 from clipper.clipper_types import ClipperPaths, DictStrAny
+from clipper.log_helpers import LogPath
 from clipper.previews.shared import (
     DEFAULT_PREVIEW_DIM_TIERS,
     buildScaleFilter,
@@ -31,7 +30,9 @@ from clipper.previews.shared import (
     probeVideoDimensions,
     runFfmpegPreviewCommand,
 )
-from clipper.ytc_logger import logger
+from clipper.ytc_logger import Subsystem, make_subsystem_logger
+
+logger = make_subsystem_logger(Subsystem.PREVIEWS)
 
 # ---------------------------------------------------------------------------
 # Encoder constants — decisions and sources
@@ -302,8 +303,8 @@ def makeAvifPreview(
 
     if Path(avifFilePath).is_file() and not overwrite:
         logger.notice(
-            f'Skipped existing {AVIF_PREVIEW_LABEL}: '
-            f'"{rich.markup.escape(Path(avifFilePath).name)}"',
+            f"Skipped existing {AVIF_PREVIEW_LABEL}: "
+            f"{LogPath(Path(avifFilePath).name)}",
         )
         return avifFilePath
 
@@ -375,8 +376,8 @@ def mergeAvifPreviews(
 
     if Path(mergedPreviewPath).is_file() and not overwrite:
         logger.notice(
-            f'Skipped existing {AVIF_MERGED_PREVIEW_LABEL}: '
-            f'"{rich.markup.escape(Path(mergedPreviewPath).name)}"',
+            f"Skipped existing {AVIF_MERGED_PREVIEW_LABEL}: "
+            f"{LogPath(Path(mergedPreviewPath).name)}",
         )
         return mergedPreviewPath
 

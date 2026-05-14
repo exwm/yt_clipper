@@ -46,13 +46,14 @@ from typing import Any, Callable
 
 from clipper.clipper_types import ClipperState
 from clipper.ffmpeg_codec import getFfmpegVideoCodecArgs
+from clipper.log_helpers import LogPath
 from clipper.quality import (
     VmafSummary,
     measure_per_frame_vmaf_neg,
     summarize_vmaf,
 )
 from clipper.version import __version__ as YT_CLIPPER_VERSION
-from clipper.ytc_logger import logger
+from clipper.ytc_logger import Subsystem, make_subsystem_logger
 
 from .curve_fit import (
     ALGORITHM_VERSION,
@@ -98,6 +99,8 @@ from .types import (
     get_low_percentile_value,
     min_frames_for_low_percentile,
 )
+
+logger = make_subsystem_logger(Subsystem.CRF_SEARCH)
 
 # ---------------------------------------------------------------------------
 # Reference encode picks
@@ -166,7 +169,7 @@ def _emit_chart_for_cached_result(
         fit = fit_curves(deduped, target=target)
     except Exception as exc:
         logger.verbose(
-            f"crf-search: failed to rebuild fit from cached probes "
+            f"failed to rebuild fit from cached probes "
             f"({exc.__class__.__name__}: {exc}); skipping chart replay.",
         )
         return
@@ -189,7 +192,7 @@ def _emit_chart_for_cached_result(
         reference=reference,
     )
     summary_line = (
-        f"crf-search curve-fit (cached): {len(fit.valid_probes)}/"
+        f"curve-fit (cached): {len(fit.valid_probes)}/"
         f"{len(deduped)} valid probes; chose crf="
         f"{cached_result.optimal_crf} (replayed from prior run; "
         f"target_low={target.target_vmaf_low}, "
@@ -365,7 +368,7 @@ def _emit_final_encode_sidecar_signal(
         expected_picked_crf=picked_crf,
     )
     if check.status == "match":
-        logger.notice(
+        logger.info(
             f"final encode: {output_path.name} already exists with "
             f"matching settings + crf={picked_crf}; skipped (use "
             f"--overwrite to force re-encode).",
@@ -565,6 +568,11 @@ def format_aggregated_search_summary_log_block(
     if not clip_summaries:
         return ""
 
+    from rich import box
+    from rich.table import Table
+
+    from clipper.log_helpers import render_rich_table_to_text
+
     # Pull the configured target percentile from the first clip's result;
     # all clips in a single run share the same target so this is safe.
     first_target = clip_summaries[0].result.target
@@ -576,19 +584,31 @@ def format_aggregated_search_summary_log_block(
         return f"*p{pct}" if target_low_pct == pct else f"p{pct}"
 
     header = (
-        "crf-search aggregate summary across all marker pairs "
+        "aggregate summary across all marker pairs "
         f"(* = enforced low-percentile target; "
         f"kbps@tgt = predicted bitrate at the target VMAF, "
         f"the apples-to-apples cross-config efficiency metric):"
     )
-    column_header = (
-        f"  {'clip':<5} {'crf':>4} {'mean':>7} "
-        f"{_label(1):>5} {_label(5):>5} {_label(10):>6} "
-        f"{_label(15):>6} {_label(20):>6} {_label(25):>6} "
-        f"{'kbps':>7} {'kbps@tgt':>9} {'size_MB':>8} "
-        f"{'size%':>6} {'trials':>7} {'time':>8} {'sample%':>8} file"
+
+    table = Table(
+        box=box.SIMPLE_HEAD,
+        show_edge=False,
+        pad_edge=False,
+        padding=(0, 1),
+        collapse_padding=True,
     )
-    lines: list[str] = [header, column_header]
+    for col_name in ("clip", "crf", "mean", _label(1), _label(5), _label(10),
+                     _label(15), _label(20), _label(25), "kbps", "kbps@tgt",
+                     "size_MB", "size%", "trials", "time", "sample%"):
+        table.add_column(
+            col_name,
+            justify="left" if col_name == "clip" else "right",
+        )
+    # The file name is intentionally not a column here — the per-clip
+    # success NOTICE earlier in the run already names every file. This
+    # table is for cross-clip comparison; the clip index identifies each
+    # row unambiguously.
+
     for clip in clip_summaries:
         result = clip.result
         crf = str(result.optimal_crf) if result.optimal_crf is not None else "fail"
@@ -601,8 +621,8 @@ def format_aggregated_search_summary_log_block(
             p20 = f"{result.optimal_summary.p20:.2f}"
             p25 = f"{result.optimal_summary.p25:.2f}"
         else:
-            mean = "  -  "
-            p1 = p5 = p10 = p15 = p20 = p25 = "  -  "
+            mean = "-"
+            p1 = p5 = p10 = p15 = p20 = p25 = "-"
         # size% of the OPTIMAL trial relative to reference, plus the
         # absolute kbps and predicted final-encode size from the same
         # trial (if any matched the optimal CRF — fail-cases skip).
@@ -644,14 +664,11 @@ def format_aggregated_search_summary_log_block(
             else "-"
         )
         clip_label = f"#{clip.marker_pair_index + 1}"
-        lines.append(
-            f"  {clip_label:<5} {crf:>4} {mean:>7} "
-            f"{p1:>5} {p5:>5} {p10:>6} "
-            f"{p15:>6} {p20:>6} {p25:>6} "
-            f"{kbps_str:>7} {kbps_at_target_str:>9} {size_mb_str:>8} "
-            f"{size_pct:>6} {len(result.trials):>7} "
-            f"{result.search_seconds:>7.1f}s {sample_pct:>8} "
-            f"{clip.file_name_stem}",
+        table.add_row(
+            clip_label, crf, mean, p1, p5, p10, p15, p20, p25,
+            kbps_str, kbps_at_target_str, size_mb_str, size_pct,
+            str(len(result.trials)),
+            f"{result.search_seconds:.1f}s", sample_pct,
         )
 
     lines: list[str] = [header, "", render_rich_table_to_text(table, width=140)]
@@ -663,6 +680,8 @@ def format_aggregated_search_summary_log_block(
     # directly next to the aggregate table for easy skimming.
     baseline_block = _format_baseline_deltas_block(clip_summaries, target_low_pct)
     lines.extend(["", baseline_block] if baseline_block else [])
+
+    lines: list[str] = [header, "", render_rich_table_to_text(table, width=140)]
 
     # Auto-delta block: per-clip prior-run comparisons against
     # distinct encoder configurations seen on the same pair. Skipped
@@ -906,7 +925,7 @@ def _compute_run_fingerprints(
         )
     except Exception as exc:
         logger.verbose(
-            f"crf-search: fingerprint codec-args derivation failed "
+            f"fingerprint codec-args derivation failed "
             f"({exc.__class__.__name__}: {exc}); falling back to "
             f"extras-only fingerprint.",
         )
@@ -990,7 +1009,7 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
         )
         if target_vmaf_low_pct not in SUPPORTED_LOW_PERCENTILES:
             logger.warning(
-                f"crf-search: unsupported --crf-search-target-vmaf-low-percentile "
+                f"unsupported --crf-search-target-vmaf-low-percentile "
                 f"{target_vmaf_low_pct}; falling back to "
                 f"{DEFAULT_LOW_PERCENTILE}.",
             )
@@ -1025,8 +1044,8 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
             and CrfSearchTarget.crf_min <= prior_optimal_crf <= CrfSearchTarget.crf_absolute_max
         ):
             crf_max_for_search = prior_optimal_crf
-            logger.notice(
-                f"crf-search: marker pair {markerPairIndex + 1}: using "
+            logger.info(
+                f"using "
                 f"prior pair's optimal crf={prior_optimal_crf} as starting "
                 f"upper bound (galloping expansion will probe higher if "
                 f"this clip compresses better).",
@@ -1099,8 +1118,8 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
         per_window_frame_estimate = sample_total_frames_estimate // max(1, len(sample_windows))
 
         low_pct_label = f"p{target.target_vmaf_low_pct}"
-        logger.notice(
-            f"crf-search: marker pair {markerPairIndex + 1}: "
+        logger.info(
+            f""
             f"{len(sample_windows)} sample windows "
             f"(~{sample_total_frames_estimate} frames at full sampling, "
             f"~{per_window_frame_estimate} per phase-1 trial; "
@@ -1156,8 +1175,8 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
             )
         except OSError as exc:
             logger.warning(
-                f"crf-search: failed to write fingerprint sidecar "
-                f"({fingerprint_dir}/config.json): {exc}",
+                f"failed to write fingerprint sidecar "
+                f"({LogPath(fingerprint_dir / 'config.json')}): {exc}",
             )
 
         # Pair identity: enables the cache gate to detect a marker-pair
@@ -1223,8 +1242,8 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
         # source. The NOTICE-level lines below cover the operator-facing
         # decision; this is the deeper context.
         logger.verbose(
-            f"crf-search: cache lookup for pair {markerPairIndex + 1}: "
-            f"pair_dir={pair_dir} "
+            f"cache lookup for pair {markerPairIndex + 1}: "
+            f"pair_dir={LogPath(pair_dir)} "
             f"encoder_fp={fingerprints.encoder_fingerprint} "
             f"search_fp={fingerprints.search_fingerprint} "
             f"algo_v={ALGORITHM_VERSION} "
@@ -1242,8 +1261,8 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
                     fp.write(json.dumps(record) + "\n")
             except OSError as exc:
                 logger.warning(
-                    f"crf-search: failed to write trials metadata "
-                    f"({trials_metadata_path}): {exc}",
+                    f"failed to write trials metadata "
+                    f"({LogPath(trials_metadata_path)}): {exc}",
                 )
 
         # First record: run_header. Pinpoints which run this JSONL is, what
@@ -1299,15 +1318,15 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
                 fingerprint_dir, trial_file_stem,
             )
             if removed:
-                logger.notice(
-                    f"crf-search: marker pair {markerPairIndex + 1}: "
+                logger.info(
+                    f""
                     f"cleaned up {len(removed)} orphan trial file(s) "
                     f"with no completed JSONL record (interrupted prior "
                     f"encodes)",
                 )
         except OSError as exc:
             logger.verbose(
-                f"crf-search: orphan trial cleanup failed ({exc}); "
+                f"orphan trial cleanup failed ({exc}); "
                 f"existing trial files will be trusted as-is.",
             )
 
@@ -1326,16 +1345,16 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
         if primed_from_history:
             trial_measurement_cache.update(primed_from_history)
             logger.verbose(
-                f"crf-search: primed {len(primed_from_history)} trial "
+                f"primed {len(primed_from_history)} trial "
                 f"measurements from prior history at "
-                f"{fingerprint_dir} (used by partial-hit cache + by "
+                f"{LogPath(fingerprint_dir)} (used by partial-hit cache + by "
                 f"the search loop's trial_measurement_cache)",
             )
 
         cached_result: CrfSearchResult | None = None
         if cache_decision.kind == "full" and cache_decision.prior_run is not None:
-            logger.notice(
-                f"crf-search: marker pair {markerPairIndex + 1}: "
+            logger.info(
+                f""
                 f"cache HIT (full) — reusing prior run "
                 f"{cache_decision.prior_run.run_id}, search skipped. "
                 f"{cache_decision.reason}",
@@ -1366,7 +1385,7 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
                             _append_trials_metadata_line(rec)
             except OSError as exc:
                 logger.verbose(
-                    f"crf-search: failed to mirror prior trials into "
+                    f"failed to mirror prior trials into "
                     f"new JSONL ({exc}); cache hit still proceeds.",
                 )
 
@@ -1393,8 +1412,8 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
             # Trial-measurement priming already happened above
             # (always-on harvest from the fingerprint dir). This branch
             # just logs the partial-hit verdict.
-            logger.notice(
-                f"crf-search: marker pair {markerPairIndex + 1}: "
+            logger.info(
+                f""
                 f"cache HIT (partial) — encoder matches, search params "
                 f"differ; {len(primed_from_history)} trial measurements "
                 f"primed from prior runs. {cache_decision.reason}",
@@ -1402,8 +1421,8 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
         elif cache_decision.prior_run is not None:
             # Gate failed but a prior parsed cleanly — name the
             # failing check.
-            logger.notice(
-                f"crf-search: marker pair {markerPairIndex + 1}: "
+            logger.info(
+                f""
                 f"cache MISS — prior run {cache_decision.prior_run.run_id} "
                 f"found but stale; re-running fresh. "
                 f"Reason: {cache_decision.reason}",
@@ -1414,8 +1433,8 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
             # parse (predates the run_header schema, was truncated
             # mid-write, or crashed before writing search_result).
             # The decision's reason text distinguishes these cases.
-            logger.notice(
-                f"crf-search: marker pair {markerPairIndex + 1}: "
+            logger.info(
+                f""
                 f"cache MISS — {cache_decision.reason} "
                 f"(running fresh; encoder_fp="
                 f"{fingerprints.encoder_fingerprint}).",
@@ -1491,7 +1510,7 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
                 )
             except Exception as exc:
                 logger.warning(
-                    f"crf-search: VMAF measurement failed for window "
+                    f"VMAF measurement failed for window "
                     f"{window_index + 1} of trial crf={crf}: {exc}",
                 )
                 return None
@@ -1504,7 +1523,7 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
         # whose Phase 2 fails-fast (rare) hasn't paid for unused refs.
         if get_or_encode_reference_window(middle_window_index) is None:
             logger.warning(
-                f"crf-search: marker pair {markerPairIndex + 1}: reference "
+                f"reference "
                 f"encode failed for middle window; falling back to normal "
                 f"makeClip without search.",
             )
@@ -1597,8 +1616,8 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
                 else f"all {len(window_indices)} windows"
             )
             verb = "reusing" if all_cached else "encoding"
-            logger.notice(
-                f"crf-search trial {trial_counter['n']}: {verb} crf={crf} ({label})...",
+            logger.info(
+                f"trial {trial_counter['n']}: {verb} crf={crf} ({label})...",
             )
             per_frame_combined: list[float] = []
             encoded_size_total = 0
@@ -1684,22 +1703,32 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
                 if trial_counter["n"] in cached_trial_numbers
                 else f"{trial.encode_seconds:.1f}s"
             )
-            logger.notice(
-                f"crf-search{phase_label} trial {trial_counter['n']}: "
-                f"crf={trial.crf} -> "
-                f"mean={trial.summary.mean:.2f} "
-                f"{_marker(1)}p1={trial.summary.p1:.2f} "
-                f"{_marker(5)}p5={trial.summary.p5:.2f} "
-                f"{_marker(10)}p10={trial.summary.p10:.2f} "
-                f"{_marker(15)}p15={trial.summary.p15:.2f} "
-                f"{_marker(20)}p20={trial.summary.p20:.2f} "
-                f"{_marker(25)}p25={trial.summary.p25:.2f} "
-                f"bitrate={trial.bitrate_kbps:.0f}kbps "
-                f"est_size={est_size_mb:.1f}MB "
-                f"size={trial.size_percent_of_reference:.0f}% "
-                f"frames={trial.summary.frame_count} "
-                f"windows={trial.windows_used}/{trial.windows_total} "
-                f"{verdict} ({checks}) "
+            # Column-align per-trial metrics so trials read as a
+            # vertical scan: trial number / crf / mean / each pX /
+            # kbps / size / size% / frames / windows / verdict /
+            # checks / timing each get a fixed width. Percentile
+            # chunks use a 10-char column so ``*p1=92.30`` and
+            # `` p10=92.30`` end at the same offset.
+            def _pct_col(pct: int) -> str:
+                val = getattr(trial.summary, f"p{pct}")
+                chunk = f"{_marker(pct)}p{pct}={val:.2f}"
+                # 11-char column absorbs the worst case ``*p10=100.00``
+                # so chunks line up regardless of whether the percentile
+                # is 1 / 5 (2-char name) or 10 / 15 / 20 / 25 (3-char).
+                return f"{chunk:<11}"
+            phase_prefix = f"{phase_label.lstrip()} " if phase_label else ""
+            logger.info(
+                f"{phase_prefix}trial {trial_counter['n']:>2}: "
+                f"crf={trial.crf:>2} -> "
+                f"mean={trial.summary.mean:>6.2f}  "
+                f"{_pct_col(1)} {_pct_col(5)} {_pct_col(10)} "
+                f"{_pct_col(15)} {_pct_col(20)} {_pct_col(25)} "
+                f"kbps={trial.bitrate_kbps:>6.0f}  "
+                f"est={est_size_mb:>5.1f}MB  "
+                f"size={trial.size_percent_of_reference:>3.0f}%  "
+                f"frames={trial.summary.frame_count:>5}  "
+                f"win={trial.windows_used}/{trial.windows_total}  "
+                f"{verdict} ({checks})  "
                 f"[{timing_tag}]",
             )
             per_frame = pending_trial_per_frame.pop(trial_counter["n"], [])
@@ -1826,8 +1855,8 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
                                     phase="baseline",
                                     bitrate_kbps=baseline_kbps,
                                 )
-                                logger.notice(
-                                    f"crf-search baseline (yt_clipper auto-pick): "
+                                logger.info(
+                                    f"baseline (yt_clipper auto-pick): "
                                     f"crf={auto_crf} maxrate={auto_max_bitrate}kbps -> "
                                     f"mean={baseline_summary.mean:.2f} "
                                     f"p{target.target_vmaf_low_pct}="
@@ -1836,10 +1865,10 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
                                 )
                             except Exception as exc:
                                 logger.warning(
-                                    f"crf-search: baseline VMAF measurement failed: {exc}",
+                                    f"baseline VMAF measurement failed: {exc}",
                                 )
             except Exception as exc:
-                logger.warning(f"crf-search: baseline auto-pick probe failed: {exc}")
+                logger.warning(f"baseline auto-pick probe failed: {exc}")
 
         # ---- Run the search ------------------------------------------------
         # ``reference_size_bytes`` here is a best-effort total used for
@@ -2063,7 +2092,7 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
                 )
         except OSError as exc:
             logger.verbose(
-                f"crf-search: could not load prior runs for delta render "
+                f"could not load prior runs for delta render "
                 f"({exc}); skipping auto-delta block.",
             )
 
@@ -2079,7 +2108,7 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
         )
         if result.optimal_crf is None or result.optimal_summary is None:
             logger.warning(
-                f"crf-search: marker pair {markerPairIndex + 1}: no trial "
+                f"no trial "
                 f"cleared targets even at crf={target.crf_min}; final encode "
                 f"will use crf={target.crf_min} (best effort). "
                 f"[{len(result.trials)} trials, "
@@ -2131,7 +2160,7 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
                 else 0.0
             )
             logger.report(
-                f"crf-search: marker pair {markerPairIndex + 1}: optimal "
+                f"optimal "
                 f"crf={final_crf} mean={result.optimal_summary.mean:.2f} "
                 f"{low_pct_label}={optimal_low_value:.2f} "
                 f"(p1={result.optimal_summary.p1:.2f} "
@@ -2180,6 +2209,7 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
             settings["crf"] = final_crf
             settings["targetMaxBitrate"] = 0
             settings["autoTargetMaxBitrate"] = 0
+            logger.rule(title=f"Encode ({markerPairIndex + 1})", sub=True)
             final_marker = makeClip(cs, markerPairIndex)
         finally:
             if original_user_crf is None:
@@ -2213,6 +2243,36 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
                     encode_decision_threshold=encode_decision_threshold,
                 )
 
+        # ---- Per-clip headline ---------------------------------------------
+        # NOTICE-level one-liner: picked CRF + key VMAF metrics + bitrate
+        # + output file. Lands in the on-disk Summary Report so the
+        # operator can scan every clip's outcome without parsing the full
+        # aggregate table. Skipped if the search failed or if the encode
+        # didn't actually produce a file.
+        encoded_ok = final_marker is not None and (
+            final_marker.get("returncode") == 0 or final_marker.get("exists")
+        )
+        if (
+            encoded_ok
+            and result.optimal_summary is not None
+            and result.optimal_crf is not None
+            and final_marker is not None
+        ):
+            optimal = result.optimal_summary
+            target_pct_label = f"p{target.target_vmaf_low_pct}"
+            low_value = get_low_percentile_value(optimal, target.target_vmaf_low_pct)
+            kbps_str = ""
+            for trial in result.trials:
+                if trial.crf == result.optimal_crf:
+                    kbps_str = f"  kbps={trial.bitrate_kbps:.0f}"
+                    break
+            file_name = final_marker.get("fileName", "")
+            logger.notice(
+                f"done: crf={result.optimal_crf}  mean={optimal.mean:.2f}  "
+                f"{target_pct_label}={low_value:.2f}{kbps_str}  "
+                f"-> {LogPath(file_name)}",
+            )
+
         # Stash the search result on the returned marker so the makeClips
         # loop can collect it for the cross-clip aggregate summary. The
         # auto-delta rows also ride along here — clip_maker passes them
@@ -2224,7 +2284,7 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
         return final_marker
     except Exception as exc:
         logger.warning(
-            f"crf-search for marker pair {markerPairIndex + 1} failed "
+            f"marker pair {markerPairIndex + 1} failed "
             f"(non-fatal, falling back to normal makeClip): {exc}",
         )
         settings["markerPairs"][markerPairIndex] = copy.deepcopy(
@@ -2347,7 +2407,7 @@ def _encode_windows_for_marker_pair(  # noqa: PLR0913 — keyword-only params; b
             # important info (which trial passed, final CRF) stays at
             # NOTICE / REPORT.
             logger.verbose(
-                f"crf-search: encoding {label} window {window_index + 1}/"
+                f"encoding {label} window {window_index + 1}/"
                 f"{len(windows)} suffix={suffix} "
                 f"range=[{window.start:.3f}, {window.end:.3f}]",
             )
@@ -2359,15 +2419,15 @@ def _encode_windows_for_marker_pair(  # noqa: PLR0913 — keyword-only params; b
             )
             if not marker:
                 logger.warning(
-                    f"crf-search: {label} window {window_index + 1} "
+                    f"{label} window {window_index + 1} "
                     f"produced no marker; aborting this pass.",
                 )
                 return []
             file_path = marker.get("filePath")
             if not file_path or not Path(file_path).is_file():
                 logger.warning(
-                    f"crf-search: {label} window {window_index + 1} did "
-                    f"not produce a file at {file_path!r}; aborting this pass.",
+                    f"{label} window {window_index + 1} did "
+                    f"not produce a file at {LogPath(file_path)}; aborting this pass.",
                 )
                 return []
             output_paths.append(Path(file_path))

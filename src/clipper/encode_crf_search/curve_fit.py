@@ -46,7 +46,7 @@ import time
 from dataclasses import dataclass, field, replace
 from typing import Callable, Generator, Literal
 
-from clipper.ytc_logger import logger
+from clipper.ytc_logger import Subsystem, make_subsystem_logger
 
 from .search import _build_trial_from_measurement
 from .types import (
@@ -56,6 +56,8 @@ from .types import (
     TrialMeasurement,
     get_low_percentile_value,
 )
+
+logger = make_subsystem_logger(Subsystem.CRF_SEARCH)
 
 # Algorithm version: bumped manually whenever curve-fit logic changes in
 # a way that would meaningfully shift outcomes for the same input data.
@@ -1257,7 +1259,7 @@ def find_crf_via_curve_fit(
         else "n/a"
     )
     summary_line = (
-        f"crf-search curve-fit: {len(fit.valid_probes)}/{len(trials)} valid probes; "
+        f"curve-fit: {len(fit.valid_probes)}/{len(trials)} valid probes; "
         f"chose crf={chosen_crf} via {chosen_curve}+{chosen_heuristic} "
         f"(target_low={target.target_vmaf_low}, low_pct=p{target.target_vmaf_low_pct}); "
         f"compressibility={compressibility.mean_kbps_per_vmaf:.0f} kbps/p"

@@ -14,7 +14,9 @@ from clipper.clipper_types import (
     Settings,
     SpeedMap,
 )
-from clipper.ytc_logger import logger
+from clipper.ytc_logger import Subsystem, make_subsystem_logger
+
+logger = make_subsystem_logger(Subsystem.FFMPEG_FILTER)
 
 
 def autoScaleCropMap(cropMap: List[Dict[str, Any]], settings: Settings) -> None:
@@ -188,7 +190,7 @@ def getSubsFilter(
     elif subs_ext == ".srt":
         vtt = webvtt.from_srt(mps["subsFilePath"])
     else:
-        logger.critical(f"Uknown subtitle file extension {subs_ext}.")
+        logger.critical(f"Unknown subtitle file extension {subs_ext}.")
         logger.critical("Only .vtt, .sbv, and .srt are supported for now.")
         sys.exit(1)
 
@@ -324,7 +326,6 @@ def getCropFilter(
     fps: Union[float, Fraction],
     easeType: str = "easeInOutSine",
 ) -> str:
-    logger.info("-" * 80)
     fps = Fraction(fps)
 
     firstTime = cropMap[0]["x"]

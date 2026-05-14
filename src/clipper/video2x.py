@@ -7,7 +7,10 @@ from typing import List, Tuple
 import rich.markup
 
 from clipper.clipper_types import ClipperState, DictStrAny
-from clipper.ytc_logger import logger
+from clipper.log_helpers import LogPath, subprocess_block
+from clipper.ytc_logger import Subsystem, make_subsystem_logger
+
+logger = make_subsystem_logger(Subsystem.VIDEO2X)
 
 _VIDEO2X_CODEC_MAP = {
     "h264": "libx264",
@@ -127,15 +130,17 @@ def runVideo2xCommand(
     args = [cp.video2xPath]
     args.extend(shlex.split(args_str))
 
-    fileName = rich.markup.escape(mp["fileName"])
-    logger.info(f"Running video2x for motion interpolation: {fileName}")
+    file_log = LogPath(mp["fileName"])
+    logger.info(f"Running video2x for motion interpolation: {file_log}")
     logger.verbose(f"Using video2x command: {rich.markup.escape(' '.join(args))}\n")
 
     try:
-        process = subprocess.run(
-            args=args,
-            check=False,
-        )
+        with subprocess_block("video2x", logger=logger, action="motion interpolation") as block:
+            process = subprocess.run(
+                args=args,
+                check=False,
+            )
+            block.set_returncode(process.returncode)
     except FileNotFoundError:
         logger.error(
             f"video2x not found at '{cp.video2xPath}'. "
@@ -149,13 +154,13 @@ def runVideo2xCommand(
     mp = {**mp, "filePath": final_path}
 
     if process.returncode == 0:
-        logger.success(f'video2x successfully generated: "{fileName}"')
+        logger.success(f"video2x successfully generated: {file_log}")
     elif process.returncode == 3221225477:
         if Path(final_path).is_file() and Path(final_path).stat().st_size > 0:
             logger.verbose(f"video2x succeeded with warnings. (status code: {process.returncode})")
     else:
         logger.error(
-            f'video2x failed for: "{fileName}" (error code: {process.returncode}).',
+            f"video2x failed for: {file_log} (error code: {process.returncode}).",
         )
         mp["returncode"] = process.returncode
 

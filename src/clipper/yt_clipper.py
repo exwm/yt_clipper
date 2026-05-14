@@ -18,8 +18,10 @@ from clipper import (
 from clipper.clipper_types import ClipperPaths, ClipperState
 from clipper.ffmpeg_version import getFfmpegVersion
 from clipper.version import __version__
-from clipper.ytc_logger import logger
+from clipper.ytc_logger import Subsystem, make_subsystem_logger
 from clipper.ytdl import ytdl_bin_get_version
+
+logger = make_subsystem_logger(Subsystem.CLI)
 
 UNKNOWN_PROPERTY = "unknown"
 
@@ -44,22 +46,30 @@ def main() -> None:
 
     logger.debug(f"clipper paths set up: {cs.clipper_paths}")
 
+    # Absolute-date anchor at the top of the run. Per-line
+    # timestamps are HH:MM:SS only (see DATE_FORMAT in ytc_logger);
+    # this line gives the on-disk log file a date so a postmortem
+    # days later can recover the calendar context.
+    from datetime import datetime, timezone
+    logger.report(
+        f"run started at {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}",
+    )
     logger.report(f"yt_clipper version: {__version__}")
     logger.report(
         f"yt-dlp version: {ytdl_bin_get_version(cs.clipper_paths)}",
     )
     logger.report(f"{getFfmpegVersion(cs.clipper_paths.ffmpegPath)}", extra={"highlighter": None})
-    logger.info("-" * 80)
+    logger.rule()
 
     logger.debug(f"The following arguments were read from the command line {sys.argv[1:]}:")
 
     if argsFromArgFiles:
         logger.notice(f"The following default arguments were read from {argFiles}:")
         logger.notice(argsFromArgFilesMap)
-        logger.info("-" * 80)
+        logger.rule(title="Setup")
     elif argFiles:
         logger.notice(f"No uncommented arguments were found in {argFiles}")
-        logger.info("-" * 80)
+        logger.rule(title="Setup")
 
     if unknown:
         logger.error(
@@ -69,17 +79,42 @@ def main() -> None:
 
     enableMinterpEnhancements(cs)
 
-    ytc_settings.getInputVideo(cs)
+    # Ctrl+C during any of setup / clipping bubbles up here as
+    # ``KeyboardInterrupt``. We catch it at the top level so the
+    # operator gets a clean ``cancelled by user`` NOTICE plus the
+    # partial timing + summary report (showing what got done before
+    # the interrupt) instead of a Python traceback. The pair_context
+    # contextvar is still set on the current pair so the chip on the
+    # NOTICE line names which pair was being worked on.
+    exit_code = 0
+    try:
+        ytc_settings.getInputVideo(cs)
+        ytc_settings.getGlobalSettings(cs)
 
-    ytc_settings.getGlobalSettings(cs)
+        logger.rule(title="Clipping")
+        if not cs.settings["preview"]:
+            clip_maker.makeClips(cs)
+        else:
+            clip_maker.previewClips(cs)
+    except KeyboardInterrupt:
+        logger.notice("cancelled by user (Ctrl+C)")
+        exit_code = 130  # standard shell convention for SIGINT termination
 
-    logger.info("-" * 80)
-    if not cs.settings["preview"]:
-        clip_maker.makeClips(cs)
-    else:
-        clip_maker.previewClips(cs)
+    # Emit per-stage timing block before the Summary Report so it
+    # lands in the report stream and the on-disk log file alongside
+    # the other aggregate outputs. A second Ctrl+C during cleanup
+    # would be confusing; suppress and continue to printReport.
+    from clipper.log_helpers import render_timing_summary
+    try:
+        timing_block = render_timing_summary()
+        if timing_block:
+            logger.report(timing_block)
+        ytc_logger.printReport(cs)
+    except KeyboardInterrupt:
+        pass
 
-    ytc_logger.printReport(cs)
+    if exit_code != 0:
+        sys.exit(exit_code)
 
     if cs.settings["notifyOnCompletion"]:
         util.notifyOnComplete(cs.settings["titleSuffix"])
