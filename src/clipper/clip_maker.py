@@ -1,4 +1,5 @@
 import contextlib
+import copy
 import os
 import re
 import shlex
@@ -54,7 +55,22 @@ def getMarkerPairSettings(  # noqa: PLR0912
     skip: bool = False,
     enableMinterpFpsBitrateFactor: bool = False,
     enableLogging: bool = True,
+    outputSuffix: str = "",
+    outputDir: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Resolve per-marker-pair settings + filenames.
+
+    ``outputSuffix`` (e.g. ``".crfsearch-trial-crf26"``) is appended to
+    ``fileNameStem`` to differentiate output files for non-production
+    encode passes such as the empirical CRF binary search's trial encodes.
+    Empty string (default) keeps production behavior unchanged.
+
+    ``outputDir`` overrides the directory where ``mp["filePath"]`` lands.
+    Defaults to ``cp.clipsPath`` (the user-facing clip output directory).
+    Trial / reference encodes for the CRF binary search pass a temp
+    subdirectory here so search artifacts don't clutter the user's
+    clip output folder.
+    """
     settings = cs.settings
     cp = cs.clipper_paths
 
@@ -69,7 +85,9 @@ def getMarkerPairSettings(  # noqa: PLR0912
         if "titlePrefix" in mps:
             mps["titlePrefix"] = cleanFileName(mps["titlePrefix"])
         titlePrefix = f"{mps['titlePrefix'] + '-' if 'titlePrefix' in mps else ''}"
-        mp["fileNameStem"] = f"{titlePrefix}{mps['titleSuffix']}-{markerPairIndex + 1}"
+        mp["fileNameStem"] = (
+            f"{titlePrefix}{mps['titleSuffix']}-{markerPairIndex + 1}{outputSuffix}"
+        )
 
         if mps["fastTrim"]:
             if mps["inputVideo"]:
@@ -82,7 +100,8 @@ def getMarkerPairSettings(  # noqa: PLR0912
             )
 
         mp["fileName"] = f"{mp['fileNameStem']}.{mp['fileNameSuffix']}"
-        mp["filePath"] = f"{cp.clipsPath}/{mp['fileName']}"
+        resolved_output_dir = outputDir if outputDir is not None else cp.clipsPath
+        mp["filePath"] = f"{resolved_output_dir}/{mp['fileName']}"
         mp["exists"] = checkClipExists(
             mp["fileName"],
             mp["filePath"],
@@ -191,6 +210,15 @@ def getMarkerPairSettings(  # noqa: PLR0912
         mps,
         enableMinterpFpsBitrateFactor,
     )
+
+    # Surface the resolved auto-encode picks onto mp so callers that only
+    # see the marker-pair return value (e.g. the CRF-search trial loop) can
+    # read what the encoder actually used. Without this, mp comes back
+    # without a "crf" key and trial summaries can't display the CRF that
+    # produced the measured VMAF.
+    for _resolvedKey in ("crf", "autoTargetMaxBitrate", "encodeSpeed", "videoCodec"):
+        if _resolvedKey in mps:
+            mp[_resolvedKey] = mps[_resolvedKey]
 
     if enableLogging:
         titlePrefixLogMsg = f"Title Prefix: {mps.get('titlePrefix', '')}"
@@ -363,11 +391,36 @@ def fastTrimClip(
     return runffmpegCommand(settings, [ffmpegCommand], markerPairIndex, mp)
 
 
-def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]:  # noqa: PLR0912
+def makeClip(  # noqa: PLR0912
+    cs: ClipperState,
+    markerPairIndex: int,
+    *,
+    outputSuffix: str = "",
+    outputDir: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Encode one marker pair.
+
+    ``outputSuffix`` (e.g. ``".crfsearch-trial-crf26"``) is appended to the
+    output filename so non-production trial encodes (the empirical CRF
+    binary search) don't collide with the user's main output. Empty
+    string (default) keeps production behavior. The suffix flows through
+    ``getMarkerPairSettings`` so the existing exists/cache check naturally
+    skips already-produced reference encodes when running with the same
+    suffix on a re-run.
+
+    ``outputDir`` redirects the encode's output file to a non-default
+    directory (default: the user's clip output directory). Used by the
+    CRF binary search to write trial / reference encodes into a temp
+    subdirectory rather than mixing them with user-facing clip outputs.
+    """
     settings = cs.settings
     cp = cs.clipper_paths
 
-    mp, mps = getMarkerPairSettings(cs, markerPairIndex)
+    mp, mps = getMarkerPairSettings(
+        cs, markerPairIndex,
+        outputSuffix=outputSuffix,
+        outputDir=outputDir,
+    )
 
     if mp["exists"] and not mps["overwrite"]:
         return {**(settings["markerPairs"][markerPairIndex]), **mp}
@@ -396,7 +449,11 @@ def makeClip(cs: ClipperState, markerPairIndex: int) -> Optional[Dict[str, Any]]
         os.makedirs(pre_v2x_dir, exist_ok=True)
         mp["filePath"] = f"{pre_v2x_dir}/{mp['fileNameStem']}.{mp['fileNameSuffix']}"
         pre_v2x_file = Path(mp["filePath"])
-        mp["preV2xExists"] = pre_v2x_file.is_file() and pre_v2x_file.stat().st_size > 0
+        mp["preV2xExists"] = (
+            pre_v2x_file.is_file()
+            and pre_v2x_file.stat().st_size > 0
+            and not mps["overwrite"]
+        )
 
     inputs = ""
     audio_filter = ""
@@ -801,15 +858,24 @@ def getFfmpegCommandWithoutVideoFilter(
             ),
         )
 
+    # Quiet flag set used by short-lived encodes (e.g. CRF binary-search
+    # trials) where ffmpeg's per-frame progress output to stderr would
+    # drown the log. Set to True via mps["quietFfmpeg"] from the trial
+    # orchestrator; defaults to False so production encodes show their
+    # usual progress.
+    quiet_flags = (
+        "-loglevel warning -nostats" if mps.get("quietFfmpeg") else ""
+    )
+
     return " ".join(
         (
             cp.ffmpegPath,
             f"-hide_banner",
+            quiet_flags,
             getFfmpegHeaders(mps["platform"]),
             video_codec_input_args,
             inputs,
             f"-benchmark",
-            # f'-loglevel 56',
             video_codec_args,
             audio_codec_args,
             (
@@ -895,7 +961,14 @@ def runffmpegCommand(
     fileName = rich.markup.escape(mp["fileName"])
     mp["returncode"] = ffmpegProcess.returncode
     if mp["returncode"] == 0:
-        logger.success(f'Successfuly generated: "{fileName}"')
+        # Demote the success log to verbose during quiet-ffmpeg encodes
+        # (CRF binary search trials run many ffmpeg invocations per clip
+        # and don't need a SUCCESS line per window — the search emits its
+        # own per-trial summary which is the real signal).
+        if settings.get("quietFfmpeg"):
+            logger.verbose(f'Successfuly generated: "{fileName}"')
+        else:
+            logger.success(f'Successfuly generated: "{fileName}"')
     else:
         logger.error(
             f'Failed to generate: "{fileName}" (error code: {mp["returncode"]}).',
@@ -1230,9 +1303,52 @@ def makeClips(cs: ClipperState) -> None:
             f"Processing the following set of marker pairs: {printableMarkerPairQueue}",
         )
 
+    # Per-clip CRF-search outcomes accumulated across the whole run so we
+    # can emit one consolidated summary as the LAST report-level log.
+    # Mid-run per-clip lines still emit live; the aggregate table groups
+    # everything together at the bottom of the final Summary Report for
+    # easy scanning / copying.
+    crfSearchSummaries: List[Any] = []
+
     for markerPairIndex, _marker in enumerate(settings["markerPairs"]):
         if markerPairIndex in markerPairQueue:
-            settings["markerPairs"][markerPairIndex] = makeClip(cs, markerPairIndex)
+            if settings.get("crfSearch"):
+                # Snapshot the pristine marker before any encode so the
+                # search orchestrator can restore a fresh state between
+                # trial encodes — getMarkerPairSettings is non-idempotent
+                # (compounds delay shifts on mp.start/end, multiplies the
+                # crop by cropMultipleX/Y, mutates speedMap point x-coords).
+                # Re-running it on an already mutated marker double-shifts
+                # timestamps and clamps the crop to the full source frame.
+                from clipper.encode_crf_search import (
+                    ClipSearchSummary,
+                    run_crf_search_for_marker_pair,
+                )
+                originalMarkerSnapshot = copy.deepcopy(
+                    settings["markerPairs"][markerPairIndex],
+                )
+                resultMarker = run_crf_search_for_marker_pair(
+                    cs, markerPairIndex,
+                    originalMarkerSnapshot=originalMarkerSnapshot,
+                )
+                settings["markerPairs"][markerPairIndex] = resultMarker
+                # Collect the search result for the cross-clip aggregate;
+                # the orchestrator stashes it on the marker dict.
+                if resultMarker is not None:
+                    searchResult = resultMarker.get("crfSearchResult")
+                    if searchResult is not None:
+                        priorRunDeltas = resultMarker.get("priorRunDeltas") or ()
+                        crfSearchSummaries.append(ClipSearchSummary(
+                            marker_pair_index=markerPairIndex,
+                            file_name_stem=resultMarker.get(
+                                "fileNameStem",
+                                f"clip-{markerPairIndex + 1}",
+                            ),
+                            result=searchResult,
+                            prior_run_deltas=tuple(priorRunDeltas),
+                        ))
+            else:
+                settings["markerPairs"][markerPairIndex] = makeClip(cs, markerPairIndex)
             generatePreviewForMarkerPair(cs, markerPairIndex)
         else:
             mp, _mps = getMarkerPairSettings(cs, markerPairIndex, True)
@@ -1240,6 +1356,16 @@ def makeClips(cs: ClipperState) -> None:
                 **(settings["markerPairs"][markerPairIndex]),
                 **mp,
             }
+
+    if crfSearchSummaries:
+        from clipper.encode_crf_search import (
+            format_aggregated_search_summary_log_block,
+        )
+        aggregateBlock = format_aggregated_search_summary_log_block(
+            crfSearchSummaries,
+        )
+        if aggregateBlock:
+            logger.report(aggregateBlock)
 
     if settings["markerPairMergeList"] != "":
         mergeClips(cs)

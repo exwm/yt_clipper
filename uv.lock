@@ -134,7 +134,9 @@ source = { editable = "." }
 dependencies = [
     { name = "certifi" },
     { name = "coloredlogs" },
+    { name = "ffmpeg-quality-metrics" },
     { name = "notify-py" },
+    { name = "plotille" },
     { name = "rich" },
     { name = "rich-argparse" },
     { name = "verboselogs" },
@@ -159,12 +161,14 @@ test = [
 requires-dist = [
     { name = "certifi", specifier = ">=2026.2.25" },
     { name = "coloredlogs", specifier = ">=15.0.1,<16" },
+    { name = "ffmpeg-quality-metrics", specifier = ">=3.11.3,<4" },
     { name = "notify-py", specifier = ">=0.3.3,<0.4" },
+    { name = "plotille", specifier = ">=6.0.5" },
     { name = "rich", specifier = ">=13.9.1,<14" },
     { name = "rich-argparse", specifier = ">=1.5.2,<2" },
     { name = "verboselogs", specifier = "~=1.7" },
     { name = "webvtt-py", specifier = ">=0.4.6,<0.5" },
-    { name = "yt-dlp", extras = ["default"], specifier = "==2026.3.3" },
+    { name = "yt-dlp", extras = ["default"], specifier = "==2026.3.17" },
 ]
 
 [package.metadata.requires-dev]
@@ -230,6 +234,31 @@ name = "docopt"
 version = "0.6.2"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/a2/55/8f8cab2afd404cf578136ef2cc5dfb50baa1761b68c9da1fb1e4eed343c9/docopt-0.6.2.tar.gz", hash = "sha256:49b3a825280bd66b3aa83585ef59c4a8c82f2c8a522dbe754a8bc8d08c85c491", size = 25901, upload-time = "2014-06-16T11:18:57.406Z" }
+
+[[package]]
+name = "ffmpeg-progress-yield"
+version = "1.1.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/36/eb/f4836c4c30cef5f26cb0d77fa16938303665f87c1e0f64c2812d00706ecf/ffmpeg_progress_yield-1.1.3.tar.gz", hash = "sha256:79bf782a6d6bf9be64bea1d3b7a0f777f11057705935128a225970db74dedf85", size = 10012, upload-time = "2026-03-30T15:38:45.453Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fd/c7/c42ce9353ae6b70bd920856a97736ac81e068901fb537126365e6735f1c8/ffmpeg_progress_yield-1.1.3-py3-none-any.whl", hash = "sha256:4eb4948a72414608c7b05c8061aff85ff47e31e33f629abc22d08d0b03196c62", size = 12709, upload-time = "2026-03-30T15:38:44.575Z" },
+]
+
+[[package]]
+name = "ffmpeg-quality-metrics"
+version = "3.11.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "ffmpeg-progress-yield" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6c/8d/583daae64d46ee4d8d47fe1fbb92f27432ed10db4a7138715095893be339/ffmpeg_quality_metrics-3.11.3.tar.gz", hash = "sha256:ffe080af758806e94c0487fc7d297c59afe59c093c9710f33fbbb588aa058c9c", size = 58688, upload-time = "2026-03-30T17:23:52.564Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3f/23/17c2155fe3ac1d027c4b77616f770953d26250e4230a3616dfc4e38809e8/ffmpeg_quality_metrics-3.11.3-py3-none-any.whl", hash = "sha256:c2a5d7a23631bf313abe844d31d15609175e45102dc61f9ae20e597074a1cf56", size = 61113, upload-time = "2026-03-30T17:23:51.419Z" },
+]
 
 [[package]]
 name = "humanfriendly"
@@ -373,6 +402,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/55/04/5e6de6e6120451ec0c24516c41dbaf80cce1b6451f96561235ef2429da2e/pillow-10.4.0-cp312-cp312-win32.whl", hash = "sha256:7dfecdbad5c301d7b5bde160150b4db4c659cee2b69589705b6f8a0c509d9f42", size = 2235690, upload-time = "2024-07-01T09:46:36.587Z" },
     { url = "https://files.pythonhosted.org/packages/74/0a/d4ce3c44bca8635bd29a2eab5aa181b654a734a29b263ca8efe013beea98/pillow-10.4.0-cp312-cp312-win_amd64.whl", hash = "sha256:1d846aea995ad352d4bdcc847535bd56e0fd88d36829d2c90be880ef1ee4668a", size = 2554951, upload-time = "2024-07-01T09:46:38.777Z" },
     { url = "https://files.pythonhosted.org/packages/b5/ca/184349ee40f2e92439be9b3502ae6cfc43ac4b50bc4fc6b3de7957563894/pillow-10.4.0-cp312-cp312-win_arm64.whl", hash = "sha256:e553cad5179a66ba15bb18b353a19020e73a7921296a7979c4a2b7f6a5cd57f9", size = 2243427, upload-time = "2024-07-01T09:46:43.15Z" },
+]
+
+[[package]]
+name = "plotille"
+version = "6.0.5"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/46/51/a6093145179139e7dffc01aa499b0169c91154a743197a3fd16252a9e90d/plotille-6.0.5.tar.gz", hash = "sha256:26d2cef5d4feb8632c9710442ad49fc57f9d5b20881c21ac7954c76208b5600b", size = 58167, upload-time = "2026-02-17T14:30:31.323Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/08/b7/a098cacb7f81f617157cb9c9c7c5ac66b6ac886075722d443e8e25b5a4b8/plotille-6.0.5-py3-none-any.whl", hash = "sha256:c35be42f8aa080853904d123894194a5ea7e095bdeb76d7b61fd41c89cdeaeee", size = 62532, upload-time = "2026-02-17T14:30:30.235Z" },
 ]
 
 [[package]]
@@ -615,6 +653,18 @@ wheels = [
 ]
 
 [[package]]
+name = "tqdm"
+version = "4.67.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/09/a9/6ba95a270c6f1fbcd8dac228323f2777d886cb206987444e4bce66338dd4/tqdm-4.67.3.tar.gz", hash = "sha256:7d825f03f89244ef73f1d4ce193cb1774a8179fd96f31d7e1dcde62092b960bb", size = 169598, upload-time = "2026-02-03T17:35:53.048Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/16/e1/3079a9ff9b8e11b846c6ac5c8b5bfb7ff225eee721825310c91b3b50304f/tqdm-4.67.3-py3-none-any.whl", hash = "sha256:ee1e4c0e59148062281c49d80b25b67771a127c85fc9676d3be5f243206826bf", size = 78374, upload-time = "2026-02-03T17:35:50.982Z" },
+]
+
+[[package]]
 name = "urllib3"
 version = "2.6.3"
 source = { registry = "https://pypi.org/simple" }
@@ -672,11 +722,11 @@ wheels = [
 
 [[package]]
 name = "yt-dlp"
-version = "2026.3.3"
+version = "2026.3.17"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/66/6f/7427d23609353e5ef3470ff43ef551b8bd7b166dd4fef48957f0d0e040fe/yt_dlp-2026.3.3.tar.gz", hash = "sha256:3db7969e3a8964dc786bdebcffa2653f31123bf2a630f04a17bdafb7bbd39952", size = 3118658, upload-time = "2026-03-03T16:54:53.909Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8b/34/7c6b4e3f89cb6416d2cd7ab6dab141a1df97ab0fb22d15816db2c92148c9/yt_dlp-2026.3.17.tar.gz", hash = "sha256:ba7aa31d533f1ffccfe70e421596d7ca8ff0bf1398dc6bb658b7d9dec057d2c9", size = 3119221, upload-time = "2026-03-17T23:43:00.244Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7e/a4/8b5cd28ab87aef48ef15e74241befec3445496327db028f34147a9e0f14f/yt_dlp-2026.3.3-py3-none-any.whl", hash = "sha256:166c6e68c49ba526474bd400e0129f58aa522c2896204aa73be669c3d2f15e63", size = 3315599, upload-time = "2026-03-03T16:54:51.899Z" },
+    { url = "https://files.pythonhosted.org/packages/cd/13/5093bcb954878e50f7217fd2ab94282b53934022e4e4a03265582da83bf5/yt_dlp-2026.3.17-py3-none-any.whl", hash = "sha256:32992db94303a8a5d211a183f2174834fe7f8c29d83ed2e7a324eae97a8f26d8", size = 3315134, upload-time = "2026-03-17T23:42:57.863Z" },
 ]
 
 [package.optional-dependencies]
@@ -694,9 +744,9 @@ default = [
 
 [[package]]
 name = "yt-dlp-ejs"
-version = "0.5.0"
+version = "0.8.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/6b/0d/b9e4ab1b47cdeba0842df634b74b3c0144307640ad5b632a5e189c4ab7ce/yt_dlp_ejs-0.5.0.tar.gz", hash = "sha256:8dfae59e418232f485253dcf8e197fefa232423c3af7824fe19e4517b173293b", size = 98925, upload-time = "2026-02-21T19:29:16.844Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d3/e6/cceb9530e8f4e5940f6f7822d90e9d94f1b85343329a16baaf47bbbb3de1/yt_dlp_ejs-0.8.0.tar.gz", hash = "sha256:d5fa1639f63b5c4af8d932495f60689d5370f1a095782c944f7f62a303eb104e", size = 96571, upload-time = "2026-03-17T22:49:19.299Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7e/5b/1283356b70d4893a8a050cee15092e1b08ea15310b94365f88067146721b/yt_dlp_ejs-0.5.0-py3-none-any.whl", hash = "sha256:674fc0efea741d3100cdf3f0f9e123150715ee41edf47ea7a62fbdeda204bdec", size = 54032, upload-time = "2026-02-21T19:29:15.408Z" },
+    { url = "https://files.pythonhosted.org/packages/e3/bd/520769863744b669440a924271a6159ddd82ad5ae26b4ac4d4b69e9f8d44/yt_dlp_ejs-0.8.0-py3-none-any.whl", hash = "sha256:79300e5fca7f937a1eeede11f0456862c1b41107ce1d726871e0207424f4bdb4", size = 53443, upload-time = "2026-03-17T22:49:17.736Z" },
 ]
