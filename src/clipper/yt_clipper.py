@@ -97,7 +97,7 @@ def main() -> None:
         else:
             clip_maker.previewClips(cs)
     except KeyboardInterrupt:
-        logger.notice("cancelled by user (Ctrl+C)")
+        logger.critical("cancelled by user (Ctrl+C)")
         exit_code = 130  # standard shell convention for SIGINT termination
 
     # Emit per-stage timing block before the Summary Report so it

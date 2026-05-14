@@ -16,8 +16,10 @@ import subprocess
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+import rich.markup
+
 from clipper.clipper_types import ClipperPaths, DictStrAny
-from clipper.log_helpers import LogPath
+from clipper.log_helpers import LogPath, run_ffmpeg_with_progress
 from clipper.ytc_logger import Subsystem, make_subsystem_logger
 
 logger = make_subsystem_logger(Subsystem.PREVIEWS)
@@ -157,15 +159,29 @@ def runFfmpegPreviewCommand(
     ``previewLabel`` names the artifact in logs (e.g. ``"AVIF preview"``,
     ``"merged AVIF preview"``) so every format module reports consistently.
     """
-    logger.verbose(f"Using ffmpeg command: {command}\n")
-    result = subprocess.run(shlex.split(command), check=False)
+    logger.info(f"Encoding {previewLabel}...")
+    # ``rich.markup.escape`` so paths / metadata values containing
+    # ``[...]`` tokens don't get parsed as style spans and stripped
+    # from the rendered command line. Same convention :class:`LogPath`
+    # uses internally for path interpolations.
+    logger.verbose(
+        f"Using ffmpeg command: {rich.markup.escape(command)}\n",
+    )
+    # total_frames=0 → pulsing bar with elapsed only. Preview clip
+    # frame count isn't known at this call site; the tracker still
+    # gives a visible signal that the subprocess is alive.
+    returncode = run_ffmpeg_with_progress(
+        command,
+        total_frames=0,
+        label=previewLabel,
+    )
     out_log = LogPath(Path(outPath).name)
-    if result.returncode == 0:
+    if returncode == 0:
         logger.success(f"Successfully generated {previewLabel}: {out_log}")
         return outPath
     logger.error(
         f"Failed to generate {previewLabel}: {out_log} "
-        f"(error code: {result.returncode}).",
+        f"(error code: {returncode}).",
     )
     return None
 

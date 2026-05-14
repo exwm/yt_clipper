@@ -10,6 +10,8 @@ from math import pi
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional, Set, Tuple
 
+import rich.markup
+
 from clipper.clipper_types import (
     BadMergeInput,
     ClipperPaths,
@@ -43,6 +45,9 @@ from clipper.log_helpers import (
     LogPath,
     build_marker_pair_settings_snapshot,
     emit_marker_pair_settings_log,
+    get_active_search_progress,
+    run_ffmpeg_with_progress,
+    substitute_filter_graphs,
     time_stage,
 )
 from clipper.platforms import getFfmpegHeaders
@@ -845,14 +850,15 @@ def getFfmpegCommandWithoutVideoFilter(
             ),
         )
 
-    # Quiet flag set used by short-lived encodes (e.g. CRF binary-search
-    # trials) where ffmpeg's per-frame progress output to stderr would
-    # drown the log. Set to True via mps["quietFfmpeg"] from the trial
-    # orchestrator; defaults to False so production encodes show their
-    # usual progress.
-    quiet_flags = (
-        "-loglevel warning -nostats" if mps.get("quietFfmpeg") else ""
-    )
+    # No quieting flags: ``-loglevel warning`` suppresses ffmpeg's
+    # stats line in many ffmpeg builds (it's emitted at INFO level),
+    # which would kill the bar for trial encodes. Instead we let
+    # ffmpeg emit normally and rely on the progress tracker's stderr
+    # reader to filter — see ``silent_non_progress`` below: for
+    # trial encodes, the tracker drops decoder/encoder setup chatter
+    # silently so the terminal stays clean while the bar still
+    # advances from the stats line's ``frame=N``.
+    quiet_flags = ""
 
     return " ".join(
         (
@@ -908,45 +914,153 @@ def getFfmpegCommandFastTrim(
     )
 
 
-def runffmpegCommand(
+def _estimate_encoded_frames(settings: Settings, mp: DictStrAny) -> int:
+    """Rough estimate of the number of frames the upcoming ffmpeg
+    encode will produce. Used as the ``total`` for the progress bar
+    so it can render a percent + ETA; off by ~10-20% is fine — the
+    bar still tracks meaningfully."""
+    output_duration = float(mp.get("outputDuration", 0) or 0)
+    if output_duration <= 0:
+        return 0
+    fps_raw = settings.get("r_frame_rate") or 30
+    try:
+        fps = float(Fraction(str(fps_raw)))
+    except (ValueError, ZeroDivisionError):
+        fps = 30.0
+    return max(0, round(output_duration * fps))
+
+
+def runffmpegCommand(  # noqa: PLR0912 — encode kind branching + filter-graph substitute is part of the encode-dispatch surface
     settings: Settings,
     ffmpegCommands: List[str],
     markerPairIndex: int,
     mp: DictStrAny,
 ) -> DictStrAny:
-    ffmpegPass1 = ffmpegCommands[0]
-    if len(ffmpegCommands) == 2:
-        logger.info("Running first pass...")
+    total_frames = _estimate_encoded_frames(settings, mp)
+    n_passes = len(ffmpegCommands)
 
     input_redaction_pattern = r"(-i[\s]+\".*?\"[\s]+)+"
-    nInputs = len(re.findall(input_redaction_pattern, ffmpegPass1))
+    nInputs = len(re.findall(input_redaction_pattern, ffmpegCommands[0]))
 
-    printablePass1 = re.sub(
-        input_redaction_pattern,
-        r"-i ... ",
-        ffmpegPass1,
-        count=nInputs,
-    )
+    returncode = 0
+    # Callers (e.g. the CRF-search orchestrator's reference and
+    # baseline encodes) can override the generic "encoding" label
+    # via the ``ffmpegProgressLabel`` setting so the operator sees
+    # context-aware text in the spinner row — "CRF search —
+    # reference encode" reads as belonging to a search; bare
+    # "encoding" reads like a final user-facing encode and is
+    # confusing when it appears mid-search.
+    base_label = settings.get("ffmpegProgressLabel") or "encoding"
+    for pass_idx, cmd in enumerate(ffmpegCommands):
+        pass_num = pass_idx + 1
+        if n_passes == 2:
+            logger.info(f"Running {'first' if pass_num == 1 else 'second'} pass...")
+            label = f"{base_label} (pass {pass_num}/2)"
+        else:
+            label = base_label
 
-    logger.verbose(f"Using ffmpeg command: {printablePass1}\n")
-    ffmpegProcess = subprocess.run(shlex.split(ffmpegPass1), check=False)
-
-    if len(ffmpegCommands) == 2:
-        ffmpegPass2 = ffmpegCommands[1]
-
-        printablePass2 = re.sub(
+        printable = re.sub(
             input_redaction_pattern,
             r"-i ... ",
-            ffmpegPass2,
+            cmd,
             count=nInputs,
         )
+        # When a CRF search is active, deduplicate the multi-thousand-
+        # char ``-vf "..."`` filter graphs that repeat across every
+        # trial / reference encode. ``substitute_filter_graphs``
+        # checks the per-search registry: returns the cmd unchanged
+        # (and an empty new-entries list) outside a search; otherwise
+        # registers each long filter graph with an integer id, emits
+        # one ``filter-graph #N: <expr>`` VERBOSE line per new entry,
+        # and replaces the inline filter with ``<filter-graph #N>``
+        # in the printed command. Trial commands then read as a
+        # tight one-liner instead of burying the rest of the log.
+        #
+        # ``rich.markup.escape`` on the expr is load-bearing —
+        # complex filtergraphs contain ``[stream_label]`` tokens
+        # which rich would parse as style spans and strip from the
+        # rendered output (the on-disk log file would still get
+        # the bracketed form via the file handler, but the
+        # terminal would lose them).
+        printable, new_filter_graphs = substitute_filter_graphs(printable)
+        for graph_id, expr in new_filter_graphs:
+            logger.verbose(
+                f"filter-graph #{graph_id}: {rich.markup.escape(expr)}",
+            )
+        # ``rich.markup.escape`` on the whole printable command — same
+        # convention :class:`LogPath` uses internally to neutralize
+        # rich-markup-meaningful brackets in paths. The ffmpeg command
+        # contains output paths, ``-metadata title="..."`` values, and
+        # filter content that legitimately include ``[`` / ``]`` (e.g.
+        # ``[youtube@w1btGccD060]`` in download-derived filenames, or
+        # ``[stream_label]`` tokens in complex filtergraphs). Without
+        # escaping, rich treats those as style-span opens, strips them
+        # from the rendered output, and the operator sees a mangled
+        # command line. Angle-bracket placeholders like
+        # ``<filter-graph #1>`` pass through untouched (escape only
+        # affects square brackets).
+        logger.verbose(
+            f"Using ffmpeg command: {rich.markup.escape(printable)}\n",
+        )
 
-        logger.info("Running second pass...")
-        logger.verbose(f"Using ffmpeg command: {printablePass2}\n")
-        ffmpegProcess = subprocess.run(shlex.split(ffmpegPass2), check=False)
+        # Every ffmpeg invocation gets a progress display. The CRF-
+        # search orchestrator binds a ``SearchProgressTracker`` to
+        # the current context for the duration of a search; when one
+        # is active AND this is a trial encode (``quietFfmpeg``),
+        # route through the shared search-level display instead of
+        # spawning a per-trial Live. That collapses the per-trial
+        # spinner into a single counter advancing across all trials,
+        # which is what the operator actually wants to see during a
+        # multi-minute search.
+        #
+        # No active search tracker (e.g. final encode, preview, or a
+        # trial that somehow runs outside an orchestrator scope):
+        # - ``silent_non_progress=True`` (trial) drops decoder /
+        #   encoder setup banners that would otherwise repeat per
+        #   trial-window and flood the log.
+        # - ``spinner_only=True`` (trial) switches the Live display
+        #   from a full progress bar to just a spinner + label + the
+        #   transient stats line. Trial encodes are dominated by
+        #   ffmpeg setup time; a bar sitting at ``0/N`` for most of
+        #   that and then jumping to done is more misleading than
+        #   helpful.
+        is_trial = bool(settings.get("quietFfmpeg"))
+        search_tracker = get_active_search_progress() if is_trial else None
+        if search_tracker is not None:
+            # Three encode "kinds" route through the search tracker:
+            # - search trials (``crfSearchTrialEncode=True``): bump
+            #   the trial counter and render ``"trial N {suffix}"``
+            #   where suffix is e.g. ``"(crf=27 w1 3.2-4.0s)"``.
+            # - reference / baseline phase encodes (the default when
+            #   the flag isn't set): take the full label verbatim
+            #   so the operator sees the same row format as trials
+            #   but with no implication about trial numbering.
+            # See the orchestrator's settings_overrides for where
+            # each kind is configured.
+            phase_label = settings.get("ffmpegProgressLabel") or ""
+            if settings.get("crfSearchTrialEncode"):
+                returncode = search_tracker.run_trial_ffmpeg(
+                    cmd, label=phase_label,
+                )
+            else:
+                returncode = search_tracker.run_phase_ffmpeg(
+                    cmd, label=phase_label,
+                )
+        else:
+            returncode = run_ffmpeg_with_progress(
+                cmd,
+                total_frames=total_frames,
+                label=label,
+                silent_non_progress=is_trial,
+                spinner_only=is_trial,
+            )
+
+        if returncode != 0:
+            # Don't run pass 2 if pass 1 failed.
+            break
 
     file_name_log = LogPath(mp["fileName"])
-    mp["returncode"] = ffmpegProcess.returncode
+    mp["returncode"] = returncode
     if mp["returncode"] == 0:
         # Demote the success log to verbose during quiet-ffmpeg encodes
         # (CRF binary search trials run many ffmpeg invocations per clip
@@ -1095,7 +1209,13 @@ def mergeClips(cs: ClipperState) -> None:  # noqa: PLR0912
         merged_file_log = LogPath(mergedFileName)
         mergedClipReady = mergeFileExists and not settings["overwrite"]
         if not mergeFileExists or settings["overwrite"]:
-            logger.info(f"Using ffmpeg command: {ffmpegConcatCmd}")
+            # Escape ``[...]`` tokens in the embedded paths so rich
+            # doesn't parse them as style spans and strip pieces of
+            # the command. Same convention as the runffmpegCommand
+            # log site above.
+            logger.info(
+                f"Using ffmpeg command: {rich.markup.escape(ffmpegConcatCmd)}",
+            )
             ffmpegProcess = subprocess.run(shlex.split(ffmpegConcatCmd), check=False)
             if ffmpegProcess.returncode == 0:
                 logger.success(f"Successfully generated: {merged_file_log}\n")

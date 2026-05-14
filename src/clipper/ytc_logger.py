@@ -365,6 +365,11 @@ def setUpLoggerWithRich(cs: ClipperState) -> None:
     verboselogs.add_log_level(REPORT, "REPORT")
 
     rich_log_handler = get_rich_log_handler(level=base_log_level)
+    # Publish the terminal handler's console so live-display callers
+    # (rich.live.Live wrapped trackers) can share it. See
+    # :func:`get_terminal_log_console`.
+    global _terminal_log_console  # noqa: PLW0603 — single-writer publication of the shared console
+    _terminal_log_console = rich_log_handler.console
     rich_colored_report_log_handler = get_rich_log_handler(
         level=NOTICE,
         file=cs.reportStreamColored,
@@ -418,6 +423,31 @@ def get_rich_log_handler(
     log_handler.setLevel(level)
 
     return log_handler
+
+
+# Module-level handle on the RichHandler's terminal-facing console.
+# Anything that wants to render a rich.live.Live block while the
+# logger is also writing log lines MUST use this exact Console
+# instance, otherwise the Live's anti-clobber logic (which lifts
+# the live region above incoming console.print calls) doesn't fire
+# and log lines smear across the live region. Set by
+# :func:`setUpLoggerWithRich` once the terminal handler is built.
+_terminal_log_console: Console | None = None
+
+
+def get_terminal_log_console() -> Console | None:
+    """Return the RichHandler's terminal console, or ``None`` if the
+    rich path isn't set up (e.g. ``--no-rich-logs`` mode, or the
+    logger hasn't been initialised yet).
+
+    The search progress tracker (and per-encode tracker) call this
+    to share a console with the logger so rich coordinates live-
+    region updates against incoming log lines. Without sharing, each
+    log line during an active Live writes through a separate Console
+    that doesn't know about the live region, leaving the spinner /
+    bar smeared into the log line on the same row.
+    """
+    return _terminal_log_console
 
 
 def setUpLoggerWithColoredLogs(cs: ClipperState) -> None:

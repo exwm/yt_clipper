@@ -1272,7 +1272,18 @@ def find_crf_via_curve_fit(
         baseline=baseline_trial,
         reference=reference_marker,
     )
-    logger.notice("\n".join([summary_line, *chart_lines]))
+    # ``highlighter=None`` disables rich's default ReprHighlighter
+    # for this record. The highlighter has an ``attrib_name`` regex
+    # that matches identifiers before ``=`` and colors them yellow —
+    # which overrides our explicit ``[bright_X]`` legend markup
+    # ("yellow=probes", "cyan=curve" etc. all came out yellow). The
+    # ``blue ▲=`` / ``magenta ★=`` keys survived only because the
+    # space + glyph broke the attrib_name regex. Suppressing the
+    # highlighter lets our markup decide every color.
+    logger.notice(
+        "\n".join([summary_line, *chart_lines]),
+        extra={"highlighter": None},
+    )
     return search_result, curve_fit_result
 
 

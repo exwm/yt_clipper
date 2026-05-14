@@ -46,7 +46,10 @@ from typing import Any, Callable
 
 from clipper.clipper_types import ClipperState
 from clipper.ffmpeg_codec import getFfmpegVideoCodecArgs
-from clipper.log_helpers import LogPath
+from clipper.log_helpers import (
+    LogPath,
+    track_crf_search_progress,
+)
 from clipper.quality import (
     VmafSummary,
     measure_per_frame_vmaf_neg,
@@ -198,7 +201,13 @@ def _emit_chart_for_cached_result(
         f"target_low={target.target_vmaf_low}, "
         f"low_pct=p{target.target_vmaf_low_pct})"
     )
-    logger.notice("\n".join([summary_line, *chart_lines]))
+    # See curve_fit's matching notice — disabling rich's
+    # ReprHighlighter is required so the legend's bright_X markup
+    # isn't clobbered by attrib_name yellow on the "key=" tokens.
+    logger.notice(
+        "\n".join([summary_line, *chart_lines]),
+        extra={"highlighter": None},
+    )
 
 
 def _baseline_from_prior_jsonl(jsonl_path: Path) -> CrfSearchTrial | None:
@@ -1456,6 +1465,21 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
                 settings_overrides={
                     **reference_picks,
                     **_TRIAL_PIPELINE_OVERRIDES,
+                    # Surface "CRF search — reference encode (crf=N
+                    # wK)" on the spinner row instead of the generic
+                    # "encoding" label. Including the CRF + window
+                    # matches the format used by trial encodes (via
+                    # the search tracker) and the baseline probe
+                    # below — every CRF-search-context encode the
+                    # operator sees on the spinner reads the same
+                    # way.
+                    "ffmpegProgressLabel": (
+                        "CRF search — reference encode "
+                        f"(crf={reference_picks['crf']} "
+                        f"w{window_index + 1} "
+                        f"{sample_windows[window_index].start:.1f}"
+                        f"-{sample_windows[window_index].end:.1f}s)"
+                    ),
                 },
                 suffix_template=REFERENCE_SUFFIX_TEMPLATE,
                 label=f"reference window {window_index + 1}",
@@ -1492,7 +1516,33 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
                 markerPairIndex=markerPairIndex,
                 originalMarkerSnapshot=originalMarkerSnapshot,
                 windows=sample_windows,
-                settings_overrides={"crf": crf, **_TRIAL_PIPELINE_OVERRIDES},
+                settings_overrides={
+                    "crf": crf,
+                    **_TRIAL_PIPELINE_OVERRIDES,
+                    # ``crfSearchTrialEncode=True`` tells the search
+                    # tracker (via runffmpegCommand) this is a probe
+                    # — bump the "trial N" counter and treat the
+                    # label as a SUFFIX. Reference / baseline
+                    # encodes omit this flag so their full label is
+                    # shown verbatim, and the counter doesn't tick
+                    # for them.
+                    "crfSearchTrialEncode": True,
+                    # Suffix appended after the search tracker's
+                    # "CRF search — trial N" — surfaces the CRF +
+                    # window of the currently-encoding probe on the
+                    # spinner row so the operator can see context
+                    # in real time. The ``start-end`` timestamps
+                    # name *which* slice of the clip is being probed
+                    # (sampled windows are scattered across the
+                    # clip's middle 80%), so the operator can map
+                    # the spinner back to the source video without
+                    # cross-referencing the JSONL.
+                    "ffmpegProgressLabel": (
+                        f"(crf={crf} w{window_index + 1} "
+                        f"{sample_windows[window_index].start:.1f}"
+                        f"-{sample_windows[window_index].end:.1f}s)"
+                    ),
+                },
                 suffix_template=TRIAL_SUFFIX_TEMPLATE,
                 label=f"trial crf={crf} window {window_index + 1}",
                 output_dir=fingerprint_dir,
@@ -1517,6 +1567,26 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
             size_bytes = trial_path.stat().st_size if trial_path.is_file() else 0
             trial_measurement_cache[key] = (per_frame, size_bytes, trial_path)
             return per_frame, size_bytes, trial_path
+
+        # ---- Outer search-progress tracker scope ---------------------------
+        # Open ONE :class:`SearchProgressTracker` here — BEFORE the
+        # eager middle-reference encode below — so EVERY ffmpeg
+        # invocation in this search (eager reference, baseline, lazy
+        # references, trials) sees the same active scope. Critically,
+        # this also activates the filter-graph registry used by
+        # ``substitute_filter_graphs`` in ``runffmpegCommand``: the
+        # registry is bound by ``track_crf_search_progress``, so the
+        # eager reference encode at line below would otherwise log its
+        # full ``-vf "..."`` filter graph inline (no registry → no
+        # substitution).
+        #
+        # Manual ``__enter__`` / ``__exit__`` instead of a ``with``
+        # block to avoid re-indenting the ~500 lines of search +
+        # baseline + result-finalization that follow.
+        outer_search_progress_cm: Any = None
+        if cached_result is None:
+            outer_search_progress_cm = track_crf_search_progress()
+            outer_search_progress_cm.__enter__()
 
         # Eagerly encode the middle reference up-front so Phase 1 starts
         # immediately. The other reference windows stay lazy so a clip
@@ -1674,6 +1744,13 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
             )
 
         def on_trial_complete(trial: CrfSearchTrial) -> None:
+            # The search-level progress display advances its trial
+            # counter inside ``run_trial_ffmpeg`` (on encode start),
+            # not here — so the spinner can show the *current*
+            # trial's CRF in real time rather than the previous
+            # trial's. Nothing to do here for the progress display;
+            # this callback only logs the per-trial summary line
+            # below and persists the JSONL record.
             verdict = "PASS" if trial.passed else "FAIL"
             checks = f"mean+{low_pct_label}" if trial.low_pct_enforced else "mean only"
             # Show all six low percentiles for visibility; mark the one
@@ -1769,6 +1846,13 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
                 "per_frame_vmaf": [round(v, 2) for v in per_frame],
             })
 
+        # (The outer ``SearchProgressTracker`` and its filter-graph
+        # registry are already opened earlier — before the eager
+        # middle-reference encode — so every ffmpeg invocation in
+        # this search shares the same scope. See that block for the
+        # rationale. The unmatched ``__exit__`` is at the bottom of
+        # the search dispatch.)
+
         # ---- Baseline auto-pick probe -------------------------------------
         # Encode at the (CRF, max-bitrate) pair that yt_clipper would
         # auto-pick if --crf-search were OFF. Lets the operator
@@ -1801,6 +1885,17 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
                         "crf": auto_crf,
                         "targetMaxBitrate": auto_max_bitrate,
                         "autoTargetMaxBitrate": auto_max_bitrate,
+                        # See the reference-encode call site for
+                        # rationale — the operator needs to know
+                        # what's running on the spinner row.
+                        "ffmpegProgressLabel": (
+                            "CRF search — baseline auto-pick "
+                            f"(crf={auto_crf} "
+                            f"maxrate={auto_max_bitrate}kbps "
+                            f"w{middle_window_index + 1} "
+                            f"{sample_windows[middle_window_index].start:.1f}"
+                            f"-{sample_windows[middle_window_index].end:.1f}s)"
+                        ),
                     }
                     baseline_paths = _encode_windows_for_marker_pair(
                         cs=cs,
@@ -1889,16 +1984,24 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
             # Old strict-pass/fail Phase 1/2/3 architecture with cascade
             # fallback. Kept for rollback during the curve-fit transition;
             # selection happens via --crf-search-algorithm.
-            result = legacy_find_optimal_crf_two_phase(
-                target=target,
-                n_windows=len(sample_windows),
-                middle_window_index=middle_window_index,
-                evaluate_trial_for_windows=evaluate_trial_for_windows,
-                sample_windows=sample_windows,
-                reference_size_bytes=full_reference_size_bytes,
-                final_frames_estimate=final_frames_estimate,
-                on_trial_complete=on_trial_complete,
-            )
+            #
+            # The ``track_crf_search_progress`` context manager opens a
+            # single Live display that spans every trial in the search,
+            # so the operator sees ``CRF search — trial N`` advance
+            # across all probes plus the current trial's ffmpeg stats
+            # line — instead of a fresh per-trial spinner that resets
+            # every encode.
+            with track_crf_search_progress():
+                result = legacy_find_optimal_crf_two_phase(
+                    target=target,
+                    n_windows=len(sample_windows),
+                    middle_window_index=middle_window_index,
+                    evaluate_trial_for_windows=evaluate_trial_for_windows,
+                    sample_windows=sample_windows,
+                    reference_size_bytes=full_reference_size_bytes,
+                    final_frames_estimate=final_frames_estimate,
+                    on_trial_complete=on_trial_complete,
+                )
         else:
             # Default: curve-fit. Probe a few CRFs with the middle window
             # only (1-window probes — curve-fit averages noise across CRF
@@ -1910,15 +2013,19 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
             def probe_at_crf(crf: int) -> TrialMeasurement:
                 return evaluate_trial_for_windows(crf, [middle_window_index])
 
-            result, curve_fit_result = find_crf_via_curve_fit(
-                target=target,
-                evaluate_at_crf=probe_at_crf,
-                on_trial_complete=on_trial_complete,
-                final_frames_estimate=final_frames_estimate,
-                reference_size_bytes=full_reference_size_bytes,
-                baseline_trial=baseline_trial,
-                reference_marker=reference_marker,
-            )
+            # See the legacy-bisection branch above for the
+            # ``track_crf_search_progress`` rationale — same display
+            # spans every curve-fit probe + refit + refinement trial.
+            with track_crf_search_progress():
+                result, curve_fit_result = find_crf_via_curve_fit(
+                    target=target,
+                    evaluate_at_crf=probe_at_crf,
+                    on_trial_complete=on_trial_complete,
+                    final_frames_estimate=final_frames_estimate,
+                    reference_size_bytes=full_reference_size_bytes,
+                    baseline_trial=baseline_trial,
+                    reference_marker=reference_marker,
+                )
             # Curve-fit fills the result without sample_windows (it
             # doesn't know about them); attach now. Also attach the
             # baseline trial here so the summary block's
@@ -2024,6 +2131,14 @@ def run_crf_search_for_marker_pair(  # noqa: PLR0912 — phased orchestration wi
                     else None
                 ),
             })
+
+        # Close the outer search-progress tracker (opened before
+        # baseline). All encodes belonging to this search have
+        # completed by this point; the JSONL tail below does no
+        # encoding, so keeping the Live region closed during that
+        # avoids needlessly redrawing it.
+        if outer_search_progress_cm is not None:
+            outer_search_progress_cm.__exit__(None, None, None)
 
         # Tail of the trials JSONL: the search verdict + summary stats so
         # the file is self-contained for offline analysis without needing
