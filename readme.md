@@ -197,7 +197,7 @@ A shortcuts reference can also be toggled by clicking the `full reference` butto
 
 - When performed on the left half of the window moves the start marker and on the right half the end marker.
 
-**Alt+Click+Drag:** Drag a marker numbering to quickly make rough adjustments to the marker's time.
+**Alt+Click+Drag:** Drag a marker numbering horizontally to reposition the marker — the marker tracks the cursor's position on the progress bar.
 
 ## Marker Navigation Shortcuts
 

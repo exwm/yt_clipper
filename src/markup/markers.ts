@@ -40,7 +40,6 @@ import {
   flashMessage,
   getOutputDuration,
   getVideoDuration,
-  roundValue,
   seekToSafe,
   setAttributes,
   toHHMMSSTrimmed,
@@ -563,39 +562,52 @@ export function markerNumberingMouseDownHandler(e: PointerEvent) {
 
   const numberingRect = numbering.getBoundingClientRect();
   const progressBarRect = appState.hooks.progressBar.getBoundingClientRect();
+  // `offsetX` preserves the grip point: wherever on the numbering label
+  // the user clicked, that point stays under the cursor for the duration
+  // of the drag. Subtracting it from `e.pageX` recovers the time-equivalent
+  // of the numbering's centre.
   const offsetX = e.pageX - numberingRect.left - numberingRect.width / 2;
-  const offsetY = e.pageY - numberingRect.top;
-  let prevPageX = e.pageX;
-  let prevZoom = 1;
-  function getDragTime(e: PointerEvent) {
-    const newTime =
-      (getVideoDuration(platform, appState.video) * (e.pageX - offsetX - progressBarRect.left)) /
-      progressBarRect.width;
-    const prevTime =
-      (getVideoDuration(platform, appState.video) * (prevPageX - offsetX - progressBarRect.left)) /
-      progressBarRect.width;
-    const zoom = clampNumber((e.pageY - offsetY) / appState.video.clientHeight, 0, 1);
-    const zoomDelta = Math.abs(zoom - prevZoom);
-    prevZoom = zoom;
-    prevPageX = e.pageX;
-
-    if (zoomDelta >= 0.0001) return appState.video.getCurrentTime();
-    const timeDelta = roundValue(zoom * (newTime - prevTime), 0.01, 2);
-    if (Math.abs(timeDelta) < 0.01) return appState.video.getCurrentTime();
-
-    let time = appState.video.getCurrentTime() + timeDelta;
-    time =
-      numberingType === 'start'
-        ? clampNumber(time, 0, markerPair.end - 1e-3)
-        : clampNumber(time, markerPair.start + 1e-3, getVideoDuration(platform, appState.video));
-    return time;
+  /** Absolute positioning — the marker's time tracks the cursor's
+   *  horizontal position on the progress bar 1:1, mirroring how
+   *  `scrubVideoHandler` handles Alt+Drag on the video itself. The
+   *  previous implementation modulated motion by vertical cursor
+   *  position (precision-scaling) and short-circuited on any vertical
+   *  movement, which together produced visible jitter and rubber-band
+   *  during normal horizontal drags. */
+  function getDragTime(e: PointerEvent): number {
+    const duration = getVideoDuration(platform, appState.video);
+    const x = e.pageX - offsetX - progressBarRect.left;
+    const time = (duration * x) / progressBarRect.width;
+    return numberingType === 'start'
+      ? clampNumber(time, 0, markerPair.end - 1e-3)
+      : clampNumber(time, markerPair.start + 1e-3, duration);
   }
 
-  function dragNumbering(e: PointerEvent) {
+  // Coalesce pointermove events with requestAnimationFrame so the marker
+  // visual updates at the screen refresh rate (~60 Hz) instead of the
+  // raw pointer event rate (often 100–250 Hz). Same pattern as the crop
+  // drag/hover handlers in crop-overlay.ts — without it `moveMarker`
+  // (which re-renders markers + crops) and `seekToSafe` get called 2-4×
+  // per frame and the marker visibly lags the cursor.
+  let dragRafId = 0;
+  let pendingDragEvent: PointerEvent | null = null;
+
+  function processDragNumbering(): void {
+    dragRafId = 0;
+    const e = pendingDragEvent;
+    pendingDragEvent = null;
+    if (!e) return;
     const time = getDragTime(e);
     if (Math.abs(time - appState.video.getCurrentTime()) < 0.01) return;
     moveMarker(targetMarker, time, false, false);
     seekToSafe(appState.video, time);
+  }
+
+  function dragNumbering(e: PointerEvent): void {
+    pendingDragEvent = e;
+    if (!dragRafId) {
+      dragRafId = requestAnimationFrame(processDragNumbering);
+    }
   }
 
   document.addEventListener('pointermove', dragNumbering);
@@ -603,6 +615,15 @@ export function markerNumberingMouseDownHandler(e: PointerEvent) {
   document.addEventListener(
     'pointerup',
     (e: PointerEvent) => {
+      // Cancel any pending intra-drag frame so a stale event doesn't
+      // override the final settle position. The pointerup itself runs
+      // `moveMarker(..., true, true)` synchronously below — that's the
+      // final state write and chart rebuild for the drag.
+      if (dragRafId) {
+        cancelAnimationFrame(dragRafId);
+        dragRafId = 0;
+        pendingDragEvent = null;
+      }
       document.removeEventListener('pointermove', dragNumbering);
       numbering.releasePointerCapture(pointerId);
       const time = getDragTime(e);
