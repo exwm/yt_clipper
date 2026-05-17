@@ -493,6 +493,36 @@
   transform: scale(1.5);
 }
 
+/* Hints bar toggle button — white tint so `currentColor` propagates to
+   the inner SVG. Sizing/positioning is handled per-platform below. */
+#hintsBarToggleButton.yt-clipper-hints-bar-button {
+  color: #fff;
+}
+
+/* Centers the icon inside the button slot. */
+.yt-clipper-hints-bar-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Hints bar icon — match the visual icon size of the scissors (command
+   palette) button and the native YouTube player-rail glyphs. The
+   Blender STATUSBAR svg fills its viewBox densely, so the 26 px
+   `renderUIIcon` size reads as oversized in the .ytp-button slot. The
+   yt_clipper platform CSS overrides this with a smaller scale to fit
+   the vjs control bar; this rule sets the default for YouTube and the
+   other host platforms. */
+#hintsBarToggleButton.yt-clipper-hints-bar-button svg {
+  transform: scale(0.65);
+  transform-origin: center center;
+  transition: transform 0.15s;
+}
+
+#hintsBarToggleButton.yt-clipper-hints-bar-button:hover svg {
+  transform: scale(0.73);
+}
+
 .ytc-modal {
   position: fixed;
   top: 0;

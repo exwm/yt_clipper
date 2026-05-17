@@ -25,6 +25,7 @@ import { createDraft } from 'immer';
 import { Crop } from './crop/crop';
 import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
 import { CropPoint } from './@types/yt_clipper';
+import { cropChartMode, currentCropChartMode } from './ui/chart/cropchart/cropChartSpec';
 
 export function addCropHoverListener(e: KeyboardEvent) {
   const isCropBlockingChartVisible =
@@ -89,6 +90,45 @@ export let pendingCropHoverEvent: PointerEvent | null = null;
 let cropDiv: HTMLDivElement;
 let cropSvg: SVGSVGElement;
 let cropDim: SVGRectElement;
+
+/** Returns true when the given client coords fall inside the visible crop
+ *  rectangle. Used by the hints bar to scope crop-manipulation hints to
+ *  "cursor over the crop" rather than "cursor anywhere on the video".
+ *
+ *  In dynamic-crop mode the user is manipulating ONE specific crop point
+ *  at a time — the chart mode (Start/End) tells us which one. The green
+ *  rect previews the section's start point; the yellow rect previews the
+ *  end point. Whichever matches the current chart mode is what the user's
+ *  edits actually affect, so that's the rect we hit-test against. The
+ *  time-based interpolated `cropRectBorder` (dimmed in this mode) would
+ *  give "cursor over the crop" hints for a region the user isn't editing,
+ *  which is misleading. */
+export function isMouseInsideCrop(clientX: number, clientY: number): boolean {
+  const border = getActiveCropHitRect();
+  if (!border) return false;
+  const bbox = (border as SVGGraphicsElement).getBoundingClientRect();
+  if (bbox.width === 0 || bbox.height === 0) return false;
+  return (
+    clientX >= bbox.left && clientX <= bbox.right && clientY >= bbox.top && clientY <= bbox.bottom
+  );
+}
+
+/** Picks which crop rectangle currently represents the "active" crop for
+ *  hit-testing — the time-interpolated one for static crops, or the
+ *  selected point's preview (green/yellow) when dynamic-crop overlays are
+ *  visible. Falls back to the time-based border if the chart-section
+ *  rects haven't been laid out (e.g. before first render). */
+function getActiveCropHitRect(): Element | null {
+  const start = cropOverlayElements.cropChartSectionStartBorderGreen;
+  const end = cropOverlayElements.cropChartSectionEndBorderYellow;
+  const sectionGroup = cropOverlayElements.cropChartSectionStart as HTMLElement | null;
+  const isDynamicOverlayVisible = sectionGroup?.style.display === 'block';
+  if (isDynamicOverlayVisible) {
+    const selected = currentCropChartMode === cropChartMode.Start ? start : end;
+    if (selected) return selected;
+  }
+  return cropOverlayElements.cropRectBorder;
+}
 
 export const cropOverlayElements = {
   cropRect: null as Element | null,
@@ -467,6 +507,10 @@ export function deleteCropOverlay() {
   appState.isCropOverlayVisible = false;
 }
 export let isMouseManipulatingCrop = false;
+/** Discriminates the current manipulation mode so the hints bar can show
+ *  drag-specific vs resize-specific modifier chips. Set when manipulation
+ *  begins, cleared on end. Null when not manipulating. */
+export let cropManipulationKind: 'drag' | 'resize' | null = null;
 export let endCropMouseManipulation: (e, forceEndDrag?: boolean) => void;
 export function ctrlOrCommand(e: PointerEvent) {
   return e.ctrlKey || e.metaKey;
@@ -515,6 +559,7 @@ export function addCropMouseManipulationListener() {
           });
         }
         isMouseManipulatingCrop = false;
+        cropManipulationKind = null;
         if (cropDragRafId) {
           cancelAnimationFrame(cropDragRafId);
           cropDragRafId = 0;
@@ -569,9 +614,11 @@ export function addCropMouseManipulationListener() {
       appState.hooks.cropMouseManipulation.setPointerCapture(pointerId);
 
       if (cursor === 'grab') {
+        cropManipulationKind = 'drag';
         appState.hooks.cropMouseManipulation.style.cursor = 'grabbing';
         document.addEventListener('pointermove', dragCropHandler);
       } else {
+        cropManipulationKind = 'resize';
         cropResizeHandler = (e: PointerEvent) => {
           pendingCropResizeEvent = e;
           if (!cropResizeRafId) {

@@ -44,20 +44,22 @@ export interface ShortcutDeps {
   toggleBigVideoPreviews: () => void;
   flashNotTheatreMode: () => void;
   flattenVRVideo: () => void;
-  openSubsEditor: () => void;
   jumpToNearestMarkerOrPair: (e: KeyboardEvent) => void;
   togglePrevSelectedMarkerPair: () => void;
   toggleAutoHideUnselectedMarkerPairs: (e: KeyboardEvent) => void;
+  toggleHintsBar: () => void;
 
   isMarkerHotkeysEnabled: () => boolean;
   isTheatreMode: () => boolean;
   isArrowKeyCropAdjustmentDisabled: () => boolean;
+  hasMarkerPairs: () => boolean;
 }
 
 export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinition[] {
   const markerGuard = deps.isMarkerHotkeysEnabled;
   const theatre = deps.isTheatreMode;
   const cropAdjDisabled = deps.isArrowKeyCropAdjustmentDisabled;
+  const hasMarkerPairs = deps.hasMarkerPairs;
 
   return [
     // ===== Markup / General Shortcuts =====
@@ -82,6 +84,22 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'Cmds',
+      hintContexts: ['always'],
+      hintOrder: 10,
+    },
+    {
+      id: 'toggleHintsBar',
+      description: 'Toggle contextual shortcut hints bar',
+      displayKey: 'Alt + F',
+      section: 'Markup',
+      category: 'General Shortcuts',
+      essential: true,
+      binding: { code: 'KeyF', modifiers: { ctrl: false, shift: false, alt: true } },
+      handler: () => {
+        deps.toggleHintsBar();
+      },
+      executable: true,
     },
     {
       id: 'showShortcutsReference',
@@ -110,10 +128,14 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.addMarker();
       },
       executable: true,
+      hintLabel: 'Add',
+      hintContexts: ['default', 'marker-selected'],
+      hintOrder: 100,
+      hintGroup: 'Markers',
     },
     {
       id: 'toggleEndMarkerEditor',
-      description: "Toggle targeted end marker's editor",
+      description: "Hold Shift while hovering a marker's number to open its pair editor (no seek)",
       displayKey: 'Shift + Mouseover',
       section: 'Markup',
       category: 'Marker Editing Shortcuts',
@@ -121,10 +143,14 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'Open Pair (No Seek)',
+      hintContexts: ['hover-progress-bar'],
+      hintOrder: 20,
     },
     {
       id: 'openMarkerPairEditor',
-      description: "Jump to marker numbering and open marker pair's editor",
+      description:
+        "Click a marker pair's number on the progress bar to seek to it and open the pair editor",
       displayKey: 'Click',
       section: 'Markup',
       category: 'Marker Editing Shortcuts',
@@ -132,6 +158,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'Seek + Open Pair',
+      hintContexts: ['hover-progress-bar'],
+      hintOrder: 10,
+      guard: hasMarkerPairs,
     },
     {
       id: 'toggleMarkerPairOverridesEditor',
@@ -145,6 +175,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.toggleMarkerPairOverridesEditor();
       },
       executable: true,
+      hintLabel: 'Edit',
+      hintContexts: ['marker-selected'],
+      hintOrder: 130,
+      hintGroup: 'Markers',
     },
     {
       id: 'duplicateSelectedMarkerPair',
@@ -161,7 +195,8 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     },
     {
       id: 'undoMarker',
-      description: 'Undo last marker',
+      description:
+        'Undo / redo history: pair add/remove (Z, Shift+Z) and pair edits (Alt+Z, Alt+Shift+Z)',
       displayKey: 'Z',
       section: 'Markup',
       category: 'Marker Editing Shortcuts',
@@ -171,6 +206,14 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.undoMarker();
       },
       executable: true,
+      // Pair history undo/redo. Shift is the optional modifier — render
+      // it parenthesized so one chord communicates both Z (undo) and
+      // Shift+Z (redo) without doubling the chip width.
+      hintLabel: 'Pair',
+      hintDisplayKey: '(Shift) + Z',
+      hintContexts: ['default', 'marker-selected', 'global-editor'],
+      hintOrder: 172,
+      hintGroup: 'Undo/Redo',
     },
     {
       id: 'redoMarker',
@@ -211,6 +254,14 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.undoMarkerPairChange();
       },
       executable: true,
+      // Edit history undo/redo. Only meaningful while a pair is open —
+      // kept off the bar in default / global-editor. Same parenthesized
+      // Shift treatment as the Pair chip.
+      hintLabel: 'Edit',
+      hintDisplayKey: '(Shift) + Alt + Z',
+      hintContexts: ['marker-selected'],
+      hintOrder: 174,
+      hintGroup: 'Undo/Redo',
     },
     {
       id: 'redoMarkerPairChange',
@@ -229,7 +280,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     // ===== Markup / Marker Timing Shortcuts =====
     {
       id: 'moveStartMarkerToCurrentTime',
-      description: 'Move start marker to current time',
+      description: "Snap the selected pair's start or end marker to the current playhead",
       displayKey: 'Shift + Q',
       section: 'Markup',
       category: 'Marker Timing Shortcuts',
@@ -240,6 +291,15 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       },
       guard: markerGuard,
       executable: true,
+      // Single chip for both Shift+Q (snap start) and Shift+A (snap end).
+      // `Q/A` chord-key notation (rendered as `Q / A` with a slash glyph)
+      // communicates the two-key pair under one Shift modifier so the chip
+      // stays compact while indicating both bindings.
+      hintLabel: 'Set start/end',
+      hintDisplayKey: 'Shift + Q/A',
+      hintContexts: ['marker-selected'],
+      hintOrder: 110,
+      hintGroup: 'Markers',
     },
     {
       id: 'moveEndMarkerToCurrentTime',
@@ -254,6 +314,8 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       },
       guard: markerGuard,
       executable: true,
+      // No standalone chip — folded into `moveStartMarkerToCurrentTime`'s
+      // `Set start/end` chip via the `Q/A` chord notation.
     },
     {
       id: 'dragMarkerNumbering',
@@ -265,6 +327,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'Drag Marker to Time',
+      hintContexts: ['hover-progress-bar'],
+      hintOrder: 30,
     },
     {
       id: 'moveMarkerByFrame',
@@ -276,6 +341,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'Nudge Marker by Frame',
+      hintContexts: ['hover-progress-bar'],
+      hintOrder: 40,
     },
 
     // ===== Markup / Marker Navigation Shortcuts =====
@@ -320,6 +388,22 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       },
       guard: cropAdjDisabled,
       executable: true,
+      // Anchor chip for the Nav expandable. Renders both arrows on the chord
+      // so users see they can navigate either direction; the popover details
+      // the three modes (jump-only / select-only / select+jump).
+      hintLabel: 'Nav',
+      hintDisplayKey: 'Ctrl + Left + Right',
+      // Only surfaced in `default` (no pair selected yet) — once a pair is
+      // open, navigation is less central than the pair-scoped chips, and
+      // the user already knows pairs exist.
+      hintContexts: ['default'],
+      hintOrder: 135,
+      hintGroup: 'Markers',
+      hintExpandedHelp: [
+        { key: 'Ctrl + Left + Right', label: 'Jump to nearest marker' },
+        { key: 'Alt + Left + Right', label: 'Select prev / next pair' },
+        { key: 'Ctrl + Alt + Left + Right', label: 'Select pair + jump' },
+      ],
     },
     {
       id: 'jumpToNearestNextMarker',
@@ -405,6 +489,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.toggleGlobalSettingsEditor();
       },
       executable: true,
+      hintLabel: 'Settings',
+      hintContexts: ['default'],
+      hintOrder: 200,
     },
     {
       id: 'toggleEncodingSettingsEditor',
@@ -416,6 +503,11 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'Encoding',
+      hintContexts: ['global-editor'],
+      // Ordered after Data group so it doesn't lead the global-editor lane;
+      // sits at the end as a related-but-distinct editor toggle.
+      hintOrder: 195,
     },
     {
       id: 'updateAllMarkersSpeed',
@@ -429,6 +521,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.updateAllMarkerPairSpeedsToDefault();
       },
       executable: true,
+      hintLabel: 'Speed',
+      hintContexts: ['global-editor'],
+      hintOrder: 150,
+      hintGroup: 'Apply',
     },
     {
       id: 'updateAllMarkersCrop',
@@ -442,6 +538,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.updateAllMarkerPairCropsToDefault();
       },
       executable: true,
+      hintLabel: 'Crop',
+      hintContexts: ['global-editor'],
+      hintOrder: 160,
+      hintGroup: 'Apply',
     },
 
     // ===== Markup / Cropping Shortcuts =====
@@ -457,6 +557,16 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.drawCrop();
       },
       executable: true,
+      hintLabel: 'Draw',
+      // Intentionally not in `hover-crop`: Draw is a "start a new crop"
+      // action, and surfacing it on crop-hover would split the CROP group
+      // across the hover and state lanes (Draw classifies as `hover`,
+      // Preview stays in state), creating two visible CROP groups when only
+      // one belongs. State-lane visibility via marker-selected/global-editor
+      // is enough — the user is one glance away from the chip regardless.
+      hintContexts: ['marker-selected', 'global-editor'],
+      hintOrder: 140,
+      hintGroup: 'Crop',
     },
     {
       id: 'drawCropMouse',
@@ -468,6 +578,140 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'Drag to draw',
+      hintDisplayKey: 'Drag',
+      hintContexts: ['crop-drawing'],
+      hintOrder: 10,
+    },
+    {
+      id: 'drawCropLockAR',
+      description: 'Lock aspect ratio while drawing crop',
+      displayKey: 'Alt + Drag',
+      section: 'Markup',
+      category: 'Cropping Shortcuts',
+      essential: false,
+      binding: null,
+      handler: null,
+      executable: false,
+      hintLabel: 'Lock AR',
+      hintContexts: ['crop-drawing'],
+      hintOrder: 20,
+    },
+    {
+      id: 'drawCropFromCenter',
+      description: 'Resize from center while drawing crop',
+      displayKey: 'Shift + Drag',
+      section: 'Markup',
+      category: 'Cropping Shortcuts',
+      essential: false,
+      binding: null,
+      handler: null,
+      executable: false,
+      hintLabel: 'From Center',
+      hintContexts: ['crop-drawing'],
+      hintOrder: 30,
+    },
+    {
+      id: 'cancelDrawingCrop',
+      description: 'Cancel drawing crop',
+      displayKey: 'X',
+      section: 'Markup',
+      category: 'Cropping Shortcuts',
+      essential: false,
+      binding: null,
+      handler: null,
+      executable: false,
+      hintLabel: 'Cancel',
+      hintContexts: ['crop-drawing'],
+      hintOrder: 40,
+    },
+    // ===== Mid-manipulation chips (crop-dragging / crop-resizing) =====
+    // These mirror the modifier behaviors evaluated inside the active
+    // pointermove handlers. They are pure hints — no binding — surfaced
+    // once Ctrl+click has already begun a manipulation.
+    {
+      id: 'dragCropMove',
+      description: 'Drag to move crop',
+      displayKey: 'Drag',
+      section: 'Markup',
+      category: 'Cropping Shortcuts',
+      essential: false,
+      binding: null,
+      handler: null,
+      executable: false,
+      hintLabel: 'Drag to move',
+      hintContexts: ['crop-dragging'],
+      hintOrder: 10,
+    },
+    {
+      id: 'dragCropVerticalOnly',
+      description: 'Constrain drag to vertical axis (X locked)',
+      displayKey: 'Shift + Drag',
+      section: 'Markup',
+      category: 'Cropping Shortcuts',
+      essential: false,
+      binding: null,
+      handler: null,
+      executable: false,
+      hintLabel: 'Vertical only',
+      hintContexts: ['crop-dragging'],
+      hintOrder: 20,
+    },
+    {
+      id: 'dragCropHorizontalOnly',
+      description: 'Constrain drag to horizontal axis (Y locked)',
+      displayKey: 'Alt + Drag',
+      section: 'Markup',
+      category: 'Cropping Shortcuts',
+      essential: false,
+      binding: null,
+      handler: null,
+      executable: false,
+      hintLabel: 'Horizontal only',
+      hintContexts: ['crop-dragging'],
+      hintOrder: 30,
+    },
+    {
+      id: 'resizeCropDrag',
+      description: 'Drag to resize crop',
+      displayKey: 'Drag',
+      section: 'Markup',
+      category: 'Cropping Shortcuts',
+      essential: false,
+      binding: null,
+      handler: null,
+      executable: false,
+      hintLabel: 'Drag to resize',
+      hintContexts: ['crop-resizing'],
+      hintOrder: 10,
+    },
+    {
+      id: 'resizeCropLockAR',
+      description: 'Lock aspect ratio while resizing crop',
+      displayKey: 'Alt + Drag',
+      section: 'Markup',
+      category: 'Cropping Shortcuts',
+      essential: false,
+      binding: null,
+      handler: null,
+      executable: false,
+      hintLabel: 'Lock AR',
+      hintContexts: ['crop-resizing'],
+      hintOrder: 20,
+    },
+    {
+      id: 'resizeCropFromCenter',
+      description: 'Resize crop from center',
+      displayKey: 'Shift + Drag',
+      section: 'Markup',
+      category: 'Cropping Shortcuts',
+      essential: false,
+      binding: null,
+      handler: null,
+      executable: false,
+      hintLabel: 'From Center',
+      hintContexts: ['crop-resizing'],
+      hintOrder: 30,
     },
     {
       id: 'moveOrResizeCrop',
@@ -479,6 +723,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'Move/Resize',
+      hintContexts: ['hover-crop'],
+      hintOrder: 10,
+      hintGroup: 'Resize',
     },
     {
       id: 'cycleCropDimOpacity',
@@ -492,6 +740,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.cycleCropDimOpacity();
       },
       executable: true,
+      hintLabel: 'Dim',
+      hintContexts: ['hover-crop'],
+      hintOrder: 40,
+      hintGroup: 'Display',
     },
     {
       id: 'toggleCropCrossHair',
@@ -505,6 +757,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.toggleCropCrossHair();
       },
       executable: true,
+      hintLabel: 'Crosshair',
+      hintContexts: ['hover-crop'],
+      hintOrder: 50,
+      hintGroup: 'Display',
     },
     {
       id: 'cropArLockedResize',
@@ -516,6 +772,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'Lock AR',
+      hintContexts: ['hover-crop'],
+      hintOrder: 20,
+      hintGroup: 'Resize',
     },
     {
       id: 'cropCenterOutResize',
@@ -527,6 +787,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'From Center',
+      hintContexts: ['hover-crop'],
+      hintOrder: 30,
+      hintGroup: 'Resize',
     },
     {
       id: 'cropYOnlyDrag',
@@ -565,7 +829,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     },
     {
       id: 'cropInputArrowAdjust',
-      description: 'Adjust crop input string with arrow keys',
+      description: 'Adjust crop input value at the text cursor with Up/Down arrows',
       displayKey: '',
       displayNote: 'Place cursor on target value',
       section: 'Markup',
@@ -574,6 +838,22 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      // Up/Down adjust the crop component the text cursor is on
+      // (x | y | w | h separated by `:` in the crop string). Left/Right
+      // are NOT intercepted — they're just standard text-cursor movement
+      // used to position over the target component. The popover documents
+      // the step-size modifiers from `cropChangeAmount`.
+      hintLabel: 'Adjust at cursor',
+      hintDisplayKey: 'Up + Down',
+      hintContexts: ['crop-input-focused'],
+      hintOrder: 10,
+      hintGroup: 'Crop Input',
+      hintExpandedHelp: [
+        { key: 'Up + Down', label: 'Adjust the component under the text cursor (±10)' },
+        { key: 'Alt + Arrow', label: 'Fine step (±1)' },
+        { key: 'Shift + Arrow', label: 'Coarse step (±50)' },
+        { key: 'Alt + Shift + Arrow', label: 'Coarsest step (±100)' },
+      ],
     },
     {
       id: 'cropChangeAmount',
@@ -585,6 +865,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      // Folded into `cropInputArrowAdjust`'s Adjust chip popover above.
     },
     {
       id: 'cropWidthHeightModify',
@@ -596,6 +877,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      // Note: this applies to the arrow-key crop adjustment MODE on the
+      // video overlay (toggled via Alt+X / `toggleArrowKeyCropAdjustment`),
+      // NOT to the crop input field. Left off-bar pending the wiring of
+      // an "arrow-key-crop-adjust active" hint context.
     },
 
     // ===== Playback & Export / Playback Shortcuts =====
@@ -609,6 +894,19 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'Seek',
+      hintDisplayKey: 'Shift + Wheel',
+      hintContexts: ['hover-video'],
+      // hintOrder placed in the 210+ range so the VIDEO group renders AFTER
+      // the more specific CROP group when both fire (cursor over the crop
+      // overlay, which is a sub-region of the video). Same applies to all
+      // other Video group chips.
+      hintOrder: 210,
+      hintGroup: 'Video',
+      hintExpandedHelp: [
+        { key: 'Shift + Wheel', label: 'Seek one frame' },
+        { key: '< / >', label: 'Seek one frame (keyboard)' },
+      ],
     },
     {
       id: 'cycleSeekRate',
@@ -620,6 +918,11 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'Seek Rate',
+      hintDisplayKey: 'Shift + Middle-Click',
+      hintContexts: ['hover-video'],
+      hintOrder: 220,
+      hintGroup: 'Video',
     },
     {
       id: 'scrubVideo',
@@ -631,6 +934,11 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'Scrub',
+      hintDisplayKey: 'Alt + Drag',
+      hintContexts: ['hover-video'],
+      hintOrder: 230,
+      hintGroup: 'Video',
     },
     {
       id: 'toggleMarkerPairSpeedPreview',
@@ -670,6 +978,8 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.toggleCropChartLooping();
       },
       executable: true,
+      // Folded into the `toggleAllPreviews` Previews chip popover — sits
+      // next to the other C-family preview/loop toggles.
     },
     {
       id: 'toggleForceSetSpeed',
@@ -683,6 +993,19 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.toggleForceSetSpeed();
       },
       executable: true,
+      // Anchor chip for the Q-key playback-speed-override family. The
+      // `cycleForceSetSpeedValueDown` entry below folds into this chip's
+      // popover. Hover-video context groups it with the other playback
+      // overrides (Seek / Seek Rate / Scrub).
+      hintLabel: 'Force Speed',
+      hintDisplayKey: 'Q',
+      hintContexts: ['hover-video'],
+      hintOrder: 225,
+      hintGroup: 'Video',
+      hintExpandedHelp: [
+        { key: 'Q', label: 'Toggle force-set video speed' },
+        { key: 'Alt + Q', label: 'Cycle force-set value down 0.25' },
+      ],
     },
     {
       id: 'cycleForceSetSpeedValueDown',
@@ -696,6 +1019,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.cycleForceSetSpeedValueDown();
       },
       executable: true,
+      // Folded into `toggleForceSetSpeed`'s Force Speed chip popover.
     },
 
     // ===== Playback & Export / Preview Shortcuts =====
@@ -714,7 +1038,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     },
     {
       id: 'toggleCropPreviewModal',
-      description: 'Toggle previewing crop in modal window',
+      description: 'Crop preview: modal window (Ctrl+Alt+X) or pop-out (Shift+X)',
       displayKey: 'Ctrl + Alt + X',
       section: 'Playback & Export',
       category: 'Preview Shortcuts',
@@ -724,6 +1048,14 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.toggleCropPreviewModal();
       },
       executable: true,
+      hintLabel: 'Preview',
+      hintContexts: ['marker-selected'],
+      hintOrder: 145,
+      hintGroup: 'Crop',
+      hintExpandedHelp: [
+        { key: 'Ctrl + Alt + X', label: 'Modal window' },
+        { key: 'Shift + X', label: 'Pop-out window' },
+      ],
     },
     {
       id: 'toggleGammaPreview',
@@ -753,7 +1085,8 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     },
     {
       id: 'toggleAllPreviews',
-      description: 'Toggle essential previews',
+      description:
+        'Preview toggles: speed (C), loop (Shift+C), gamma (Alt+C), fade loop (Alt+Shift+C), all (Ctrl+Alt+Shift+C)',
       displayKey: 'Ctrl + Alt + Shift + C',
       section: 'Playback & Export',
       category: 'Preview Shortcuts',
@@ -763,6 +1096,24 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.toggleAllPreviews();
       },
       executable: true,
+      hintLabel: 'Previews',
+      hintContexts: ['marker-selected'],
+      // Joins the Markers group (whose label is suppressed in marker-
+      // selected mode because it matches the MARKERS mode badge, so the
+      // group reads as "unnamed" visually). Sits between Edit (130, the
+      // pair overrides editor) and Nav (135) so the per-pair preview
+      // toggles cluster with the other per-pair editing actions.
+      hintOrder: 132,
+      hintGroup: 'Markers',
+      hintExpandedHelp: [
+        { key: 'Ctrl + Alt + Shift + C', label: 'All Previews' },
+        { key: 'C', label: 'Speed' },
+        { key: 'Shift + C', label: 'Loop' },
+        { key: 'Ctrl + Shift + C', label: 'Crop Chart Loop' },
+        { key: 'Alt + C', label: 'Gamma' },
+        { key: 'Alt + Shift + C', label: 'Fade Loop' },
+        { key: 'Shift + R', label: 'Big video preview thumbnails' },
+      ],
     },
     {
       id: 'rotateVideoClock',
@@ -777,6 +1128,19 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         else deps.flashNotTheatreMode();
       },
       executable: true,
+      // Anchor chip for the R-key rotation family. The counter-clockwise
+      // variant folds into this chip's popover. Hover-video because
+      // rotation toggles apply to the player preview directly — no marker
+      // pair required.
+      hintLabel: 'Rotate',
+      hintDisplayKey: 'R',
+      hintContexts: ['hover-video'],
+      hintOrder: 245,
+      hintGroup: 'Video',
+      hintExpandedHelp: [
+        { key: 'R', label: 'Rotate preview 90° clockwise' },
+        { key: 'Alt + R', label: 'Rotate preview 90° counter-clockwise' },
+      ],
     },
     {
       id: 'rotateVideoCClock',
@@ -790,6 +1154,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         if (theatre()) deps.rotateVideoCClock();
       },
       executable: true,
+      // Folded into `rotateVideoClock`'s Rotate chip popover.
     },
     {
       id: 'toggleBigVideoPreviews',
@@ -803,6 +1168,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.toggleBigVideoPreviews();
       },
       executable: true,
+      // Folded into the `toggleAllPreviews` Previews chip popover — it's
+      // a preview-rendering toggle, even though it shares the R key with
+      // the rotation family rather than the C-family preview toggles.
     },
 
     // ===== Playback & Export / Frame Capturer =====
@@ -818,6 +1186,18 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.captureFrame();
       },
       executable: true,
+      // Anchor chip for the E-key frame-capture family. The Alt+E zip+
+      // download variant (`saveCapturedFrames` below) folds into this
+      // chip's popover so both ends of the capture workflow are reachable
+      // from one hover.
+      hintLabel: 'Capture',
+      hintContexts: ['hover-video'],
+      hintOrder: 240,
+      hintGroup: 'Video',
+      hintExpandedHelp: [
+        { key: 'E', label: 'Capture current frame' },
+        { key: 'Alt + E', label: 'Zip + download captured frames' },
+      ],
     },
     {
       id: 'saveCapturedFrames',
@@ -831,9 +1211,14 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.saveCapturedFrames();
       },
       executable: true,
+      // Folded into `captureFrame`'s Capture chip popover.
     },
 
     // ===== Playback & Export / Saving and Loading =====
+    // DATA group: Save, Load, Copy, Share — visible in resting primaries
+    // (default + marker-selected). Save loses its `always` persistence so
+    // it can group cohesively with its siblings; the bar's mid-action modes
+    // are short-lived enough that this is an acceptable tradeoff.
     {
       id: 'saveMarkersAndSettings',
       description: 'Save markers data as json',
@@ -846,6 +1231,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.saveMarkersAndSettings();
       },
       executable: true,
+      hintLabel: 'Save',
+      hintContexts: ['default', 'marker-selected', 'global-editor'],
+      hintOrder: 178,
+      hintGroup: 'Data',
     },
     {
       id: 'copyMarkersToClipboard',
@@ -859,6 +1248,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.copyMarkersToClipboard();
       },
       executable: true,
+      hintLabel: 'Copy',
+      hintContexts: ['default', 'marker-selected', 'global-editor'],
+      hintOrder: 186,
+      hintGroup: 'Data',
     },
     {
       id: 'copyShareableUrl',
@@ -877,7 +1270,13 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       // shared guard check in `hints-bar.ts` and `hotkey-engine.ts`.
       // Flip in `feature-flags.ts` to re-enable.
       guard: () => featureFlags.shareLink,
+      hintLabel: 'Share',
+      hintContexts: ['default', 'marker-selected', 'global-editor'],
+      hintOrder: 190,
+      hintGroup: 'Data',
     },
+    // Order summary now: Previews(170) → Undo/Redo Pair(172) → Undo/Redo
+    // Edit(174) → Data Save(178) → Load(182) → Copy(186) → Share(190).
     {
       id: 'toggleMarkersDataCommands',
       description: 'Toggle markers data commands (loading, restoring, and clearing)',
@@ -890,6 +1289,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.toggleMarkersDataCommands();
       },
       executable: true,
+      hintLabel: 'Load',
+      hintContexts: ['default', 'marker-selected', 'global-editor'],
+      hintOrder: 182,
+      hintGroup: 'Data',
     },
 
     // ===== Playback & Export / Miscellaneous =====
@@ -906,19 +1309,6 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       },
       executable: true,
     },
-    {
-      id: 'openSubsEditor',
-      description: 'Open YouTube subtitles editor',
-      displayKey: 'Alt + F',
-      section: 'Playback & Export',
-      category: 'Miscellaneous Shortcuts',
-      essential: false,
-      binding: { code: 'KeyF', modifiers: { ctrl: false, shift: false, alt: true } },
-      handler: () => {
-        deps.openSubsEditor();
-      },
-      executable: true,
-    },
 
     // ===== Dynamic Effects / General Chart Shortcuts =====
     {
@@ -931,6 +1321,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'Add at Cursor',
+      hintContexts: ['hover-speed-chart', 'hover-crop-chart', 'hover-crop-chart-zoompan'],
+      hintOrder: 10,
+      hintGroup: 'Points',
     },
     {
       id: 'chartAddPointAtCurrentTime',
@@ -945,6 +1339,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       },
       guard: markerGuard,
       executable: true,
+      hintLabel: 'Add at Time',
+      hintContexts: ['hover-speed-chart', 'hover-crop-chart', 'hover-crop-chart-zoompan'],
+      hintOrder: 11,
+      hintGroup: 'Points',
     },
     {
       id: 'chartDeletePoint',
@@ -956,6 +1354,16 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'Delete',
+      hintContexts: [
+        'hover-speed-chart',
+        'hover-speed-chart-point',
+        'hover-crop-chart',
+        'hover-crop-chart-point',
+        'hover-crop-chart-zoompan',
+      ],
+      hintOrder: 20,
+      hintGroup: 'Points',
     },
     {
       id: 'chartMovePointOrPan',
@@ -967,6 +1375,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'Move',
+      hintContexts: ['hover-speed-chart-point', 'hover-crop-chart-point'],
+      hintOrder: 5,
+      hintGroup: 'Points',
     },
     {
       id: 'chartZoom',
@@ -978,6 +1390,16 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'Zoom',
+      hintContexts: [
+        'hover-speed-chart',
+        'hover-speed-chart-point',
+        'hover-crop-chart',
+        'hover-crop-chart-point',
+        'hover-crop-chart-zoompan',
+      ],
+      hintOrder: 55,
+      hintGroup: 'View',
     },
     {
       id: 'chartResetZoom',
@@ -989,6 +1411,16 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'Reset',
+      hintContexts: [
+        'hover-speed-chart',
+        'hover-speed-chart-point',
+        'hover-crop-chart',
+        'hover-crop-chart-point',
+        'hover-crop-chart-zoompan',
+      ],
+      hintOrder: 60,
+      hintGroup: 'View',
     },
     {
       id: 'chartSeekToTime',
@@ -1000,6 +1432,16 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'Seek',
+      hintContexts: [
+        'hover-speed-chart',
+        'hover-speed-chart-point',
+        'hover-crop-chart',
+        'hover-crop-chart-point',
+        'hover-crop-chart-zoompan',
+      ],
+      hintOrder: 65,
+      hintGroup: 'Playback',
     },
     {
       id: 'chartSetLoopMarker',
@@ -1011,6 +1453,8 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      // No standalone chip — folded into the `toggleChartLoop` "Loop"
+      // expandable popover below, where it sits beside the toggle binding.
     },
     {
       id: 'toggleChartLoop',
@@ -1024,6 +1468,21 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.toggleChartLoop();
       },
       executable: true,
+      hintLabel: 'Loop',
+      hintContexts: [
+        'hover-speed-chart',
+        'hover-speed-chart-point',
+        'hover-crop-chart',
+        'hover-crop-chart-point',
+        'hover-crop-chart-zoompan',
+      ],
+      hintOrder: 70,
+      hintGroup: 'Playback',
+      hintExpandedHelp: [
+        { key: 'Shift + D', label: 'Toggle loop playback' },
+        { key: 'Shift + Right-Click', label: 'Set loop start' },
+        { key: 'Alt + Right-Click', label: 'Set loop end' },
+      ],
     },
 
     // ===== Dynamic Effects / Speed Chart =====
@@ -1039,6 +1498,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.toggleSpeedChart();
       },
       executable: true,
+      hintLabel: 'Speed',
+      hintContexts: ['marker-selected'],
+      hintOrder: 150,
+      hintGroup: 'Charts',
     },
 
     // ===== Dynamic Effects / Crop Chart =====
@@ -1054,6 +1517,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.toggleCropChart();
       },
       executable: true,
+      hintLabel: 'Crop',
+      hintContexts: ['marker-selected'],
+      hintOrder: 160,
+      hintGroup: 'Charts',
     },
     {
       id: 'cropChartSelectPoint',
@@ -1065,6 +1532,18 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      // Anchor chip for the section-selection action. The `Ctrl + Hover`
+      // primary chord shows the start variant; the popover documents the
+      // matching `Alt + Hover` "set as end" variant alongside.
+      hintLabel: 'Set Start',
+      hintDisplayKey: 'Ctrl + Mouseover',
+      hintContexts: ['hover-crop-chart-point'],
+      hintOrder: 40,
+      hintGroup: 'Section',
+      hintExpandedHelp: [
+        { key: 'Ctrl + Mouseover', label: 'Set Start' },
+        { key: 'Alt + Mouseover', label: 'Set End' },
+      ],
     },
     {
       id: 'cropChartToggleModeSelectPrev',
@@ -1076,6 +1555,19 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      // Anchor chip for the wheel-driven step action (both Up and Down).
+      // Each tick is a half-step — flipping start/end mode in place or
+      // advancing/retreating to the next/prev point — so two ticks add up
+      // to one full point of section movement.
+      hintLabel: 'Step Pt',
+      hintDisplayKey: 'Alt + Wheel',
+      hintContexts: ['hover-crop-chart-point'],
+      hintOrder: 45,
+      hintGroup: 'Section',
+      hintExpandedHelp: [
+        { key: 'Alt + Mousewheel Up', label: 'Step forward' },
+        { key: 'Alt + Mousewheel Down', label: 'Step backward' },
+      ],
     },
     {
       id: 'cropChartToggleModeSelectNext',
@@ -1087,6 +1579,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      // Folded into `cropChartToggleModeSelectPrev`'s Step Pt chip.
     },
     {
       id: 'cropChartInheritCrop',
@@ -1098,6 +1591,15 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'Copy Crop',
+      hintDisplayKey: 'Ctrl + Alt + Shift + Wheel',
+      hintContexts: ['hover-crop-chart-point'],
+      hintOrder: 50,
+      hintGroup: 'Section',
+      hintExpandedHelp: [
+        { key: 'Ctrl + Alt + Shift + Mousewheel Up', label: 'Copy from next point' },
+        { key: 'Ctrl + Alt + Shift + Mousewheel Down', label: 'Copy from previous point' },
+      ],
     },
     {
       id: 'cropChartToggleEase',
@@ -1109,6 +1611,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'Ease',
+      hintContexts: ['hover-crop-chart-point'],
+      hintOrder: 30,
+      hintGroup: 'Points',
     },
     {
       id: 'cropChartSetTargetComponent',
@@ -1122,6 +1628,18 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      // Surfaced in the crop-input-focused context — the action depends on
+      // the text cursor's position inside the crop input (which component
+      // is targeted is read from where the caret sits in `x:y:w:h`).
+      hintLabel: 'Propagate Component',
+      hintDisplayKey: '(Shift) + A',
+      hintContexts: ['crop-input-focused'],
+      hintOrder: 30,
+      hintGroup: 'Crop Input',
+      hintExpandedHelp: [
+        { key: 'A', label: 'Apply component under cursor to all FOLLOWING crop points' },
+        { key: 'Shift + A', label: 'Apply component under cursor to all PRECEDING crop points' },
+      ],
     },
 
     // ===== Dynamic Effects / ZoomPan Mode Crop Chart =====
@@ -1135,6 +1653,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'AR Resize',
+      hintContexts: ['hover-crop-chart-zoompan'],
+      hintOrder: 10,
     },
     {
       id: 'zoomPanFreelyResize',
@@ -1146,6 +1667,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'Free Resize',
+      hintContexts: ['hover-crop-chart-zoompan'],
+      hintOrder: 20,
     },
     {
       id: 'zoomPanArLockedDraw',
@@ -1157,6 +1681,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'Draw AR',
+      hintContexts: ['hover-crop-chart-zoompan'],
+      hintOrder: 30,
     },
     {
       id: 'zoomPanFreelyDraw',
@@ -1168,6 +1695,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
+      hintLabel: 'Free Draw',
+      hintContexts: ['hover-crop-chart-zoompan'],
+      hintOrder: 40,
     },
   ];
 }

@@ -39,7 +39,7 @@
 
 import { readFileSync } from 'fs';
 import { enableAllPlugins as immerEnableAllPlugins } from 'immer';
-import { flattenVRVideo, openSubsEditor } from './actions/misc';
+import { flattenVRVideo } from './actions/misc';
 import { featureFlags } from './feature-flags';
 import { disableCommonBlockers, enableCommonBlockers } from './platforms/blockers/common';
 import { disableYTBlockers, enableYTBlockers } from './platforms/blockers/youtube';
@@ -123,11 +123,21 @@ import {
 } from './charts';
 import { installLitUrlSanitizer } from './util/url-sanitizer';
 import { addScrubVideoHandler, getFPS } from './util/videoUtil';
+import { mountHintsBar, setHintsBarEnabled, toggleHintsBar } from './features/hints-bar/hints-bar';
+import {
+  HoveredRegion,
+  registerHoverRegion,
+  setHoveredRegion,
+} from './features/hints-bar/hover-region';
+import { isMouseInsideCrop } from './crop-overlay';
 import {
   arrowKeyCropAdjustmentEnabled,
   hideCommandPaletteToggleButton,
+  hideHintsBarToggleButton,
   injectToggleCommandPaletteButton,
+  injectToggleHintsBarButton,
   showCommandPaletteToggleButton,
+  showHintsBarToggleButton,
   toggleArrowKeyCropAdjustment,
   toggleMarkerPairOverridesEditor,
   toggleShortcutsTable,
@@ -178,7 +188,12 @@ function init() {
   initMarkersContainer();
   initChartHooks();
   addForeignEventListeners();
+  // Order matters: the command-palette button must be injected first so
+  // the hints-bar injection can position itself directly afterend of it
+  // (see injectToggleHintsBarButton). The left-to-right result is
+  // [command palette] [hints bar] across every platform.
   injectToggleCommandPaletteButton();
+  injectToggleHintsBarButton();
   addCropMouseManipulationListener();
   addScrubVideoHandler();
   loopMarkerPair();
@@ -318,9 +333,6 @@ export function initShortcutSystem() {
       flattenVRVideo: () => {
         flattenVRVideo(appState.hooks.videoContainer as HTMLDivElement, appState.video);
       },
-      openSubsEditor: () => {
-        openSubsEditor(appState.settings.videoID);
-      },
       jumpToNearestMarkerOrPair: (e) => {
         jumpToNearestMarkerOrPair(e, e.code);
       },
@@ -330,10 +342,14 @@ export function initShortcutSystem() {
       toggleAutoHideUnselectedMarkerPairs: (e) => {
         toggleAutoHideUnselectedMarkerPairs(e);
       },
+      toggleHintsBar: () => {
+        toggleHintsBar();
+      },
 
       isMarkerHotkeysEnabled: () => appState.markerHotkeysEnabled,
       isTheatreMode: () => isTheatreMode(),
       isArrowKeyCropAdjustmentDisabled: () => !arrowKeyCropAdjustmentEnabled,
+      hasMarkerPairs: () => appState.markerPairs.length > 0,
     })
   );
 
@@ -342,6 +358,8 @@ export function initShortcutSystem() {
     blockEvent(e);
   });
   hotkeyEngine.setEnabled(appState.isHotkeysEnabled);
+
+  mountHintsBar(shortcutRegistry);
 
   let wasPausedBeforeOpen = false;
   commandPalette = new CommandPalette(shortcutRegistry, {
@@ -379,6 +397,8 @@ function hotkeys(e: KeyboardEvent) {
     hotkeyEngine?.setEnabled(appState.isHotkeysEnabled);
     if (appState.isHotkeysEnabled) {
       showCommandPaletteToggleButton();
+      showHintsBarToggleButton();
+      setHintsBarEnabled(true);
       enableCommonBlockers();
       if (platform === VideoPlatforms.youtube) {
         enableYTBlockers();
@@ -387,6 +407,8 @@ function hotkeys(e: KeyboardEvent) {
       if (featureFlags.shareLink) void tryLoadSharedMarkers();
     } else {
       hideCommandPaletteToggleButton();
+      hideHintsBarToggleButton();
+      setHintsBarEnabled(false);
       disableCommonBlockers();
       if (platform === VideoPlatforms.youtube) {
         disableYTBlockers();
@@ -426,6 +448,33 @@ function initHooks() {
   setFlashMessageHook(appState.hooks.flashMessage);
   updateSettingsEditorHook();
   appState.hooks.progressBar.removeAttribute('draggable');
+  attachVideoHoverDetector(appState.hooks.cropMouseManipulation);
+  registerHoverRegion(appState.hooks.progressBar, 'progress-bar');
+}
+
+/** Custom hover detector for the video area: distinguishes "inside the crop
+ *  rectangle" (region: 'crop') from "elsewhere on the video" (region:
+ *  'video') so the hints bar can scope crop-manipulation chips precisely. */
+function attachVideoHoverDetector(el: HTMLElement): void {
+  let inside = false;
+  let currentRegion: HoveredRegion = null;
+  const sync = (next: HoveredRegion): void => {
+    if (next === currentRegion) return;
+    currentRegion = next;
+    setHoveredRegion(next);
+  };
+  el.addEventListener('mouseenter', () => {
+    inside = true;
+  });
+  el.addEventListener('mouseleave', () => {
+    inside = false;
+    sync(null);
+  });
+  el.addEventListener('mousemove', (e) => {
+    if (!inside) return;
+    const overCrop = appState.isCropOverlayVisible && isMouseInsideCrop(e.clientX, e.clientY);
+    sync(overCrop ? 'crop' : 'video');
+  });
 }
 
 export function isTheatreMode() {

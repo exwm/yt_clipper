@@ -39,7 +39,8 @@ function joinCodeElements(keys: readonly string[]): TemplateResult {
 function describeFormatIssue(issue: DataFormatIssue): TemplateResult {
   switch (issue.kind) {
     case 'unexpectedFields':
-      return html`<code>${issue.path}</code>: removed unknown field(s) ${joinCodeElements(issue.keys)}`;
+      return html`<code>${issue.path}</code>: removed unknown field(s)
+        ${joinCodeElements(issue.keys)}`;
     case 'dangerousKeys':
       return html`<code>${issue.path}</code>: blocked reserved JavaScript key(s)
         ${joinCodeElements(issue.keys)} (could modify internal runtime behavior)`;
@@ -79,7 +80,9 @@ function ReviewModal(
               </div>`
             : nothing}
           <ul>
-            ${p.findings.map((f) => html`<li><code>${f.path}</code>: ${joinCodeElements(f.items)}</li>`)}
+            ${p.findings.map(
+              (f) => html`<li><code>${f.path}</code>: ${joinCodeElements(f.items)}</li>`
+            )}
             ${dangerousIssues.map((issue) => html`<li>${describeFormatIssue(issue)}</li>`)}
           </ul>
         </div>

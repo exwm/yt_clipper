@@ -23,6 +23,7 @@ import {
 } from './util/util';
 import { html, render } from 'lit-html';
 import { updateCropString } from './crop-utils';
+import { setHoveredRegion } from './features/hints-bar/hover-region';
 import {
   cropInputLabel,
   highlightSpeedAndCropInputs,
@@ -50,6 +51,45 @@ import { Chart, ChartConfiguration } from 'chart.js';
 import { scatterChartDefaults } from './ui/chart/scatterChartSpec';
 import { easeSinInOut } from 'd3-ease';
 import { getFrameTimeBetweenLeftFrames } from './util/videoUtil';
+import type { HoveredRegion } from './features/hints-bar/hover-region';
+
+/** Wires up hover-region tracking on a chart canvas. The mousemove handler
+ *  uses Chart.js's hit-test to flip between `{type}-chart` (cursor over the
+ *  empty canvas) and `{type}-chart-point` (cursor over a data point) so the
+ *  hints bar can surface point-manipulation chips only when relevant. */
+function attachChartHoverDetector(canvas: HTMLCanvasElement, chartInput: ChartInput): void {
+  const base: Exclude<HoveredRegion, null> =
+    chartInput.type === 'crop' ? 'crop-chart' : 'speed-chart';
+  const pointRegion: Exclude<HoveredRegion, null> =
+    chartInput.type === 'crop' ? 'crop-chart-point' : 'speed-chart-point';
+
+  let inside = false;
+  let overPoint = false;
+
+  const sync = (): void => {
+    setHoveredRegion(inside ? (overPoint ? pointRegion : base) : null);
+  };
+
+  canvas.addEventListener('mouseenter', () => {
+    inside = true;
+    sync();
+  });
+  canvas.addEventListener('mouseleave', () => {
+    inside = false;
+    overPoint = false;
+    sync();
+  });
+  canvas.addEventListener('mousemove', (e) => {
+    const chart = chartInput.chart;
+    if (!chart) return;
+    const elements = chart.getElementAtEvent(e);
+    const newOverPoint = elements.length > 0;
+    if (newOverPoint !== overPoint) {
+      overPoint = newOverPoint;
+      sync();
+    }
+  });
+}
 
 export const chartState = {
   speedChartInput: {
@@ -269,6 +309,7 @@ export function toggleChart(chartInput: ChartInput) {
 
       const chartCanvas = chartInput.chart.canvas;
       assertDefined(chartCanvas);
+      attachChartHoverDetector(chartCanvas, chartInput);
       chartCanvas.removeEventListener('wheel', chartInput.chart.$zoom._wheelHandler);
       const wheelHandler = chartInput.chart.$zoom._wheelHandler;
       chartInput.chart.$zoom._wheelHandler = (e: MouseEvent) => {

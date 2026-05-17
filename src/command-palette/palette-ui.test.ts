@@ -246,10 +246,9 @@ describe('CommandPalette — paintResults() results list', () => {
 
   test('item renders num, description, run button', () => {
     const container = setupContainer();
-    const palette = makePalette(
-      makeRegistry([makeDef({ id: 'a', description: 'My Shortcut' })]),
-      { container }
-    );
+    const palette = makePalette(makeRegistry([makeDef({ id: 'a', description: 'My Shortcut' })]), {
+      container,
+    });
     palette.open();
     const item = qs(container, '.cmdp-item');
     expect(qs(item, '.cmdp-item-num').textContent).toBe('1');
@@ -259,10 +258,9 @@ describe('CommandPalette — paintResults() results list', () => {
 
   test('non-executable shortcut has badge and disabled run button', () => {
     const container = setupContainer();
-    const palette = makePalette(
-      makeRegistry([makeDef({ id: 'a', executable: false })]),
-      { container }
-    );
+    const palette = makePalette(makeRegistry([makeDef({ id: 'a', executable: false })]), {
+      container,
+    });
     palette.open();
     const item = qs(container, '.cmdp-item');
     expect(item.classList.contains('cmdp-non-executable')).toBe(true);
@@ -364,23 +362,30 @@ describe('CommandPalette — paintResults() results list', () => {
 
   test('description matches get wrapped in <mark> on fuzzy search', () => {
     const container = setupContainer();
-    const palette = makePalette(
-      makeRegistry([makeDef({ id: 'a', description: 'Alpha bravo' })]),
-      { container }
-    );
+    const palette = makePalette(makeRegistry([makeDef({ id: 'a', description: 'Alpha bravo' })]), {
+      container,
+    });
     palette.open();
     const search = qs<HTMLInputElement>(container, '.cmdp-search');
     search.value = 'alpha';
     search.dispatchEvent(new Event('input', { bubbles: true }));
     const marks = qsAll(container, '.cmdp-item-desc mark');
     expect(marks.length).toBeGreaterThan(0);
-    expect(marks.map((m) => m.textContent).join('').toLowerCase()).toContain('alpha');
+    expect(
+      marks
+        .map((m) => m.textContent)
+        .join('')
+        .toLowerCase()
+    ).toContain('alpha');
   });
 
   test('recent section appears when recentCommandIds and empty query', () => {
     localStorage.setItem('cmdp-recent-commands', JSON.stringify(['b']));
     const container = setupContainer();
-    const defs = [makeDef({ id: 'a', description: 'Alpha' }), makeDef({ id: 'b', description: 'Bravo' })];
+    const defs = [
+      makeDef({ id: 'a', description: 'Alpha' }),
+      makeDef({ id: 'b', description: 'Bravo' }),
+    ];
     const palette = makePalette(makeRegistry(defs), { container });
     palette.open();
     const sections = qsAll(container, '.cmdp-results .cmdp-section');
@@ -418,7 +423,10 @@ describe('CommandPalette — interactions', () => {
 
   test('clear button resets search to empty', () => {
     const container = setupContainer();
-    const defs = [makeDef({ id: 'a', description: 'Alpha' }), makeDef({ id: 'b', description: 'Bravo' })];
+    const defs = [
+      makeDef({ id: 'a', description: 'Alpha' }),
+      makeDef({ id: 'b', description: 'Bravo' }),
+    ];
     const palette = makePalette(makeRegistry(defs), { container });
     palette.open();
     const search = qs<HTMLInputElement>(container, '.cmdp-search');
@@ -535,7 +543,9 @@ describe('CommandPalette — interactions', () => {
     const saved = JSON.parse(localStorage.getItem('cmdp-disabled-categories') ?? '[]');
     expect(saved).toEqual(['General Shortcuts']);
     const headers = qsAll(container, '.cmdp-results .cmdp-category');
-    const generalHeader = headers.find((h) => h.getAttribute('data-category') === 'General Shortcuts');
+    const generalHeader = headers.find(
+      (h) => h.getAttribute('data-category') === 'General Shortcuts'
+    );
     expect(generalHeader?.classList.contains('cmdp-category-disabled')).toBe(true);
   });
 
@@ -586,7 +596,10 @@ describe('CommandPalette — interactions', () => {
   test('clicking last-search pill refills search', () => {
     localStorage.setItem('cmdp-last-searches', JSON.stringify(['alpha']));
     const container = setupContainer();
-    const defs = [makeDef({ id: 'a', description: 'Alpha' }), makeDef({ id: 'b', description: 'Bravo' })];
+    const defs = [
+      makeDef({ id: 'a', description: 'Alpha' }),
+      makeDef({ id: 'b', description: 'Bravo' }),
+    ];
     const palette = makePalette(makeRegistry(defs), { container });
     palette.open();
     const pill = qs(container, '.cmdp-last-search-pill');

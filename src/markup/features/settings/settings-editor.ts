@@ -31,6 +31,8 @@ import {
 } from '../../util/util';
 import { render } from 'lit-html';
 import { shortcutsTableToggleButtonTemplate } from '../../ui/shortcuts-table/toggle-button';
+import { hintsBarToggleButtonTemplate } from '../../ui/hints-bar/toggle-button';
+import { toggleHintsBar } from '../hints-bar/hints-bar';
 import {
   commandPalette,
   initShortcutSystem,
@@ -568,6 +570,47 @@ export function showCommandPaletteToggleButton() {
 export function hideCommandPaletteToggleButton() {
   if (commandPaletteToggleButton) {
     commandPaletteToggleButton.style.display = 'none';
+  }
+}
+export let hintsBarToggleButton: HTMLButtonElement;
+export function injectToggleHintsBarButton() {
+  const container = document.createElement('div');
+  render(hintsBarToggleButtonTemplate, container);
+  hintsBarToggleButton = container.firstElementChild as HTMLButtonElement;
+  hintsBarToggleButton.classList.add('yt-clipper-hints-bar-button');
+  hintsBarToggleButton.onclick = () => toggleHintsBar();
+
+  if ([VideoPlatforms.weverse, VideoPlatforms.naver_tv].includes(platform)) {
+    hintsBarToggleButton.classList.add(
+      'pzp-button',
+      'pzp-subtitle-button',
+      'pzp-pc-subtitle-button',
+      'pzp-pc__subtitle-button'
+    );
+  }
+  if ([VideoPlatforms.afreecatv].includes(platform)) {
+    hintsBarToggleButton.classList.add('btn_statistics');
+  }
+
+  // Position relative to the command-palette button so the visible order
+  // is [command palette] [hints bar] on every platform regardless of
+  // which container is the actual insertion target. `injectToggle-
+  // CommandPaletteButton` runs first in `yt_clipper.ts`, so this is
+  // always set by the time we get here.
+  assertDefined(
+    commandPaletteToggleButton,
+    'commandPaletteToggleButton must be injected before the hints-bar toggle'
+  );
+  commandPaletteToggleButton.insertAdjacentElement('afterend', hintsBarToggleButton);
+}
+export function showHintsBarToggleButton() {
+  if (hintsBarToggleButton) {
+    hintsBarToggleButton.style.display = 'inline-block';
+  }
+}
+export function hideHintsBarToggleButton() {
+  if (hintsBarToggleButton) {
+    hintsBarToggleButton.style.display = 'none';
   }
 }
 export let shortcutsTableContainer: HTMLDivElement;

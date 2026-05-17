@@ -9,4 +9,6 @@ export type {
   ShortcutDefinition,
   CommandPaletteOptions,
   SearchResult,
+  HintContext,
+  HintModifierRequirement,
 } from './types';

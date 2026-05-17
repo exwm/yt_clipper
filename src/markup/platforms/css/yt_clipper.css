@@ -26,4 +26,54 @@
 
 #shortcutsTableToggleButton {
   width: 40px;
+  /* Override the shared CSS's `float: left` — on the yt_clipper player
+     page the toggle buttons live directly inside the Video.js
+     `.vjs-control-bar` (a flex row), not inside YouTube's nested
+     `.ytp-right-controls`. Floating yanks them out of the flex row and
+     piles them on the LEFT edge of the bar. */
+  float: none;
+  /* Push the toggle-button cluster (scissors → hints bar → fullscreen)
+     to the right end of the control bar. Video.js's default control flow
+     doesn't anchor anything to the right, so without this auto margin
+     our buttons sit immediately after the default controls (Play / Time
+     / Progress / etc.) — i.e. on the LEFT side. The auto margin absorbs
+     all leftover horizontal space before the scissors, shoving the whole
+     trailing cluster to the right edge. */
+  margin-left: auto;
+}
+
+/* Hints bar toggle button on the yt_clipper generic player page. Matches
+   the scissors button's sizing/placement so the two read as a coherent
+   pair next to the fullscreen control. */
+#hintsBarToggleButton.yt-clipper-hints-bar-button {
+  cursor: pointer;
+  position: relative;
+  width: 40px;
+  height: 100%;
+  padding: 0;
+  background: transparent;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  transition: filter 0.15s, transform 0.15s;
+}
+
+/* Scale the SVG down on yt_clipper specifically — Blender's STATUSBAR
+   glyph fills its viewBox densely, so the 26 px size used on YouTube
+   reads as oversized in the smaller vjs control bar. 0.6× brings it in
+   line visually with the scissors button next to it. */
+#hintsBarToggleButton.yt-clipper-hints-bar-button svg {
+  transform: scale(0.6);
+  transform-origin: center center;
+  transition: transform 0.15s;
+}
+
+#hintsBarToggleButton.yt-clipper-hints-bar-button:hover {
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.55)) brightness(1.2);
+}
+
+#hintsBarToggleButton.yt-clipper-hints-bar-button:hover svg {
+  transform: scale(0.7);
 }
