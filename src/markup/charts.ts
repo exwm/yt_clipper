@@ -47,6 +47,7 @@ import { renderMarkerPair } from './markers';
 import { sortX } from './ui/chart/chartPrimitives';
 import { updateCharts } from './ui/chart/chartutil';
 import { speedChartSpec } from './ui/chart/speedchart/speedChartSpec';
+import { registerActiveDragCleanup } from './util/drag-recovery';
 import { Chart, ChartConfiguration } from 'chart.js';
 import { scatterChartDefaults } from './ui/chart/scatterChartSpec';
 import { easeSinInOut } from 'd3-ease';
@@ -370,8 +371,20 @@ export function getCropPreviewMouseTimeSetter(modalContainer: HTMLCanvasElement)
   return function seekHandler(e) {
     if (e.buttons !== 2) return;
     blockEvent(e);
+    const pointerId = e.pointerId;
     // shift+right-click context menu opens screenshot tool in firefox 67.0.2
     function seekDragHandler(e) {
+      // Self-defending end check: pointermove always reports the
+      // currently-held buttons bitmask. If the right button is no longer
+      // held but we're still receiving pointermove, the browser dropped
+      // our `pointerup` — known to happen in Vivaldi (mouse gestures
+      // suppress the up event), Chrome with certain devtools docking
+      // configurations, and after a suppressed contextmenu. End the
+      // drag immediately so the cursor stops scrubbing the video.
+      if ((e.buttons & 2) === 0) {
+        cleanup();
+        return;
+      }
       const seekTime = timeRounder(getSeekTime(e));
 
       if (Math.abs(appState.video.getCurrentTime() - seekTime) >= 0.01) {
@@ -381,19 +394,45 @@ export function getCropPreviewMouseTimeSetter(modalContainer: HTMLCanvasElement)
 
     seekDragHandler(e);
 
-    function seekDragEnd(e) {
-      blockEvent(e);
-      modalContainer.releasePointerCapture(e.pointerId);
-      document.removeEventListener('pointermove', seekDragHandler);
+    let unregisterDragRecovery: () => void = () => {};
+
+    function cleanup() {
+      modalContainer.removeEventListener('pointermove', seekDragHandler);
+      modalContainer.removeEventListener('pointerup', seekDragEnd, { capture: true });
+      modalContainer.removeEventListener('pointercancel', seekDragCancel, { capture: true });
+      if (modalContainer.hasPointerCapture(pointerId)) {
+        modalContainer.releasePointerCapture(pointerId);
+      }
+      unregisterDragRecovery();
     }
 
-    modalContainer.setPointerCapture(e.pointerId);
-    document.addEventListener('pointermove', seekDragHandler);
-    document.addEventListener('pointerup', seekDragEnd, { once: true });
+    function seekDragEnd(e) {
+      blockEvent(e);
+      cleanup();
+    }
+
+    function seekDragCancel() {
+      cleanup();
+    }
+
+    modalContainer.setPointerCapture(pointerId);
+    // Attach to the captured target rather than `document` so the
+    // spec-mandated `pointercancel` reaches us when the browser
+    // implicitly releases capture — right-click drags were particularly
+    // prone to stuck-seeking because some browsers swallow `pointerup`
+    // when the user releases over a focused devtools panel or after a
+    // suppressed contextmenu.
+    modalContainer.addEventListener('pointermove', seekDragHandler);
+    modalContainer.addEventListener('pointerup', seekDragEnd, { once: true, capture: true });
+    modalContainer.addEventListener('pointercancel', seekDragCancel, {
+      once: true,
+      capture: true,
+    });
     document.addEventListener('contextmenu', blockEvent, {
       once: true,
       capture: true,
     });
+    unregisterDragRecovery = registerActiveDragCleanup(cleanup);
   };
 }
 export function getMouseChartTimeAnnotationSetter(chartInput: ChartInput) {
@@ -409,8 +448,20 @@ export function getMouseChartTimeAnnotationSetter(chartInput: ChartInput) {
       appState.markerPairs[appState.prevSelectedMarkerPairIndex][chartInput.chartLoopKey];
     assertDefined(chart.ctx);
     const chartCtx: CanvasRenderingContext2D = chart.ctx;
+    const captureTarget = chartCtx.canvas;
+    const pointerId = e.pointerId;
     // shift+right-click context menu opens screenshot tool in firefox 67.0.2
     function chartTimeAnnotationDragHandler(e) {
+      // Self-defending end check — see the matching seekDragHandler
+      // above for the rationale. Vivaldi and some Chromium-based browser
+      // configurations occasionally drop `pointerup` for right-button
+      // releases, leaving the seek tracking the cursor indefinitely.
+      // Treat a pointermove without the right button held as the
+      // implicit drag end.
+      if ((e.buttons & 2) === 0) {
+        cleanup();
+        return;
+      }
       const time = timeRounder(chart.scales['x-axis-1'].getValueForPixel(e.offsetX));
       chartOpts.annotation.annotations[0].value = time;
       if (Math.abs(appState.video.getCurrentTime() - time) >= 0.01) {
@@ -429,19 +480,51 @@ export function getMouseChartTimeAnnotationSetter(chartInput: ChartInput) {
 
     chartTimeAnnotationDragHandler(e);
 
-    function chartTimeAnnotationDragEnd(e) {
-      blockEvent(e);
-      chartCtx.canvas.releasePointerCapture(e.pointerId);
-      document.removeEventListener('pointermove', chartTimeAnnotationDragHandler);
+    let unregisterDragRecovery: () => void = () => {};
+
+    function cleanup() {
+      captureTarget.removeEventListener('pointermove', chartTimeAnnotationDragHandler);
+      captureTarget.removeEventListener('pointerup', chartTimeAnnotationDragEnd, {
+        capture: true,
+      });
+      captureTarget.removeEventListener('pointercancel', chartTimeAnnotationDragCancel, {
+        capture: true,
+      });
+      if (captureTarget.hasPointerCapture(pointerId)) {
+        captureTarget.releasePointerCapture(pointerId);
+      }
+      unregisterDragRecovery();
     }
 
-    chartCtx.canvas.setPointerCapture(e.pointerId);
-    document.addEventListener('pointermove', chartTimeAnnotationDragHandler);
-    document.addEventListener('pointerup', chartTimeAnnotationDragEnd, { once: true });
+    function chartTimeAnnotationDragEnd(e) {
+      blockEvent(e);
+      cleanup();
+    }
+
+    function chartTimeAnnotationDragCancel() {
+      cleanup();
+    }
+
+    captureTarget.setPointerCapture(pointerId);
+    // Attach to the captured canvas so `pointercancel` reaches us when
+    // the browser implicitly releases capture. Right-click drags were
+    // particularly prone to stuck-seeking because some browsers don't
+    // dispatch `pointerup` to `document` after a suppressed contextmenu
+    // or when the user releases over a focused devtools panel.
+    captureTarget.addEventListener('pointermove', chartTimeAnnotationDragHandler);
+    captureTarget.addEventListener('pointerup', chartTimeAnnotationDragEnd, {
+      once: true,
+      capture: true,
+    });
+    captureTarget.addEventListener('pointercancel', chartTimeAnnotationDragCancel, {
+      once: true,
+      capture: true,
+    });
     document.addEventListener('contextmenu', blockEvent, {
       once: true,
       capture: true,
     });
+    unregisterDragRecovery = registerActiveDragCleanup(cleanup);
   };
 }
 export function toggleChartLoop() {

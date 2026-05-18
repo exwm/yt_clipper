@@ -47,6 +47,7 @@ import {
 import { html, render, svg } from 'lit-html';
 import { getFPS } from './util/videoUtil';
 import { platform } from './yt_clipper';
+import { registerActiveDragCleanup } from './util/drag-recovery';
 
 export function togglePrevSelectedMarkerPair() {
   if (enableMarkerHotkeysData.endMarker) {
@@ -559,6 +560,12 @@ export function markerNumberingMouseDownHandler(e: PointerEvent) {
 
   const pointerId = e.pointerId;
   numbering.setPointerCapture(pointerId);
+  // The element that owns pointer capture is the same element that will
+  // receive the implicit `pointercancel` if the browser releases capture
+  // out from under us (devtools focus, alt-tab, OS pointer reassignment).
+  // Attaching all subsequent listeners here — rather than to `document` —
+  // is the spec-correct way to be sure the cleanup path runs.
+  const captureTarget = numbering;
 
   const numberingRect = numbering.getBoundingClientRect();
   const progressBarRect = appState.hooks.progressBar.getBoundingClientRect();
@@ -610,31 +617,48 @@ export function markerNumberingMouseDownHandler(e: PointerEvent) {
     }
   }
 
-  document.addEventListener('pointermove', dragNumbering);
+  captureTarget.addEventListener('pointermove', dragNumbering);
 
-  document.addEventListener(
-    'pointerup',
-    (e: PointerEvent) => {
-      // Cancel any pending intra-drag frame so a stale event doesn't
-      // override the final settle position. The pointerup itself runs
-      // `moveMarker(..., true, true)` synchronously below — that's the
-      // final state write and chart rebuild for the drag.
-      if (dragRafId) {
-        cancelAnimationFrame(dragRafId);
-        dragRafId = 0;
-        pendingDragEvent = null;
-      }
-      document.removeEventListener('pointermove', dragNumbering);
-      numbering.releasePointerCapture(pointerId);
-      const time = getDragTime(e);
-      if (Math.abs(time - markerTime) < 0.001) return;
-      moveMarker(targetMarker, time, true, true);
-    },
-    {
-      once: true,
-      capture: true,
+  let unregisterDragRecovery: () => void = () => {};
+
+  /** Idempotent cleanup — detaches every listener this handler attached,
+   *  releases the captured pointer, cancels any pending RAF. Safe to call
+   *  multiple times because each step checks first. */
+  function cleanup(): void {
+    if (dragRafId) {
+      cancelAnimationFrame(dragRafId);
+      dragRafId = 0;
+      pendingDragEvent = null;
     }
-  );
+    captureTarget.removeEventListener('pointermove', dragNumbering);
+    captureTarget.removeEventListener('pointerup', onPointerUp, { capture: true });
+    captureTarget.removeEventListener('pointercancel', onPointerCancel, { capture: true });
+    if (captureTarget.hasPointerCapture(pointerId)) {
+      captureTarget.releasePointerCapture(pointerId);
+    }
+    unregisterDragRecovery();
+  }
+
+  function onPointerUp(e: PointerEvent): void {
+    cleanup();
+    const time = getDragTime(e);
+    if (Math.abs(time - markerTime) < 0.001) return;
+    moveMarker(targetMarker, time, true, true);
+  }
+
+  function onPointerCancel(): void {
+    // Browser-initiated release (devtools, alt-tab, OS pointer
+    // reassignment). Revert to the marker's original time rather than
+    // committing the in-progress drag — the user didn't choose to land.
+    cleanup();
+  }
+
+  captureTarget.addEventListener('pointerup', onPointerUp, { once: true, capture: true });
+  captureTarget.addEventListener('pointercancel', onPointerCancel, { once: true, capture: true });
+  // Belt-and-suspenders: window.blur / tab-hidden recovery covers cases
+  // where neither pointerup nor pointercancel fires for the captured
+  // target (rapid alt-tab on Windows, certain devtools docking moves).
+  unregisterDragRecovery = registerActiveDragCleanup(cleanup);
 }
 
 const enableMarkerHotkeysData: {

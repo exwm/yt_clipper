@@ -26,6 +26,7 @@ import { Crop } from './crop/crop';
 import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
 import { CropPoint } from './@types/yt_clipper';
 import { cropChartMode, currentCropChartMode } from './ui/chart/cropchart/cropChartSpec';
+import { registerActiveDragCleanup } from './util/drag-recovery';
 
 export function addCropHoverListener(e: KeyboardEvent) {
   const isCropBlockingChartVisible =
@@ -551,13 +552,26 @@ export function addCropMouseManipulationListener() {
       let cropDragRafId = 0;
       let pendingCropResizeEvent: PointerEvent | null = null;
       let cropResizeRafId = 0;
+      // The captured-target element receives every pointer event for this
+      // drag while capture is held — including the spec-mandated
+      // `pointercancel` if the browser implicitly releases capture
+      // (devtools, alt-tab, OS pointer reassignment, etc.). Stash it as a
+      // local const so `endCropMouseManipulation` removes listeners from the
+      // exact element they were attached to even if the appState hook were
+      // swapped out mid-drag (defensive — shouldn't happen, but cheap).
+      const captureTarget = appState.hooks.cropMouseManipulation;
+      let unregisterDragRecovery: () => void = () => {};
 
       endCropMouseManipulation = (e: PointerEvent, forceEnd = false) => {
         if (forceEnd) {
-          document.removeEventListener('pointerup', endCropMouseManipulation, {
+          captureTarget.removeEventListener('pointerup', endCropMouseManipulation, {
+            capture: true,
+          });
+          captureTarget.removeEventListener('pointercancel', endCropMouseManipulation, {
             capture: true,
           });
         }
+        unregisterDragRecovery();
         isMouseManipulatingCrop = false;
         cropManipulationKind = null;
         if (cropDragRafId) {
@@ -571,7 +585,9 @@ export function addCropMouseManipulationListener() {
           processResizeCrop();
         }
 
-        appState.hooks.cropMouseManipulation.releasePointerCapture(pointerId);
+        if (captureTarget.hasPointerCapture(pointerId)) {
+          captureTarget.releasePointerCapture(pointerId);
+        }
 
         if (!appState.wasGlobalSettingsEditorOpen) {
           const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
@@ -581,16 +597,16 @@ export function addCropMouseManipulationListener() {
 
         renderSpeedAndCropUI();
 
-        document.removeEventListener('pointermove', dragCropHandler);
-        document.removeEventListener('pointermove', cropResizeHandler);
+        captureTarget.removeEventListener('pointermove', dragCropHandler);
+        captureTarget.removeEventListener('pointermove', cropResizeHandler);
 
         showPlayerControls();
-        if (!forceEnd && ctrlOrCommand(e)) {
-          if (cursor) appState.hooks.cropMouseManipulation.style.cursor = cursor;
+        if (!forceEnd && e && ctrlOrCommand(e)) {
+          if (cursor) captureTarget.style.cursor = cursor;
           updateCropHoverCursor(e);
           document.addEventListener('pointermove', cropHoverHandler, true);
         } else {
-          appState.hooks.cropMouseManipulation.style.removeProperty('cursor');
+          captureTarget.style.removeProperty('cursor');
         }
         document.addEventListener('keyup', removeCropHoverListener, true);
         document.addEventListener('keydown', addCropHoverListener, true);
@@ -615,8 +631,8 @@ export function addCropMouseManipulationListener() {
 
       if (cursor === 'grab') {
         cropManipulationKind = 'drag';
-        appState.hooks.cropMouseManipulation.style.cursor = 'grabbing';
-        document.addEventListener('pointermove', dragCropHandler);
+        captureTarget.style.cursor = 'grabbing';
+        captureTarget.addEventListener('pointermove', dragCropHandler);
       } else {
         cropManipulationKind = 'resize';
         cropResizeHandler = (e: PointerEvent) => {
@@ -625,12 +641,33 @@ export function addCropMouseManipulationListener() {
             cropResizeRafId = requestAnimationFrame(processResizeCrop);
           }
         };
-        document.addEventListener('pointermove', cropResizeHandler);
+        captureTarget.addEventListener('pointermove', cropResizeHandler);
       }
 
-      document.addEventListener('pointerup', endCropMouseManipulation, {
+      captureTarget.addEventListener('pointerup', endCropMouseManipulation, {
         once: true,
         capture: true,
+      });
+      // Mirror pointerup with pointercancel: when the browser implicitly
+      // releases pointer capture (devtools panel grabbing focus, OS
+      // reassigning pointer ownership), pointerup will not fire on the
+      // captured target but pointercancel will. Both must run the same
+      // teardown so the user never gets stuck in a manipulating state.
+      captureTarget.addEventListener(
+        'pointercancel',
+        (ev: Event) => endCropMouseManipulation(ev as PointerEvent, true),
+        {
+          once: true,
+          capture: true,
+        }
+      );
+      // Belt-and-suspenders: window.blur / tab-hidden recovery. Some
+      // sequences (rapid alt-tab on Windows, certain devtools docking
+      // transitions) drop both pointerup and pointercancel for the
+      // captured target — this is the last-resort cleanup so the state
+      // can never permanently stick.
+      unregisterDragRecovery = registerActiveDragCleanup(() => {
+        endCropMouseManipulation(null as unknown as PointerEvent, true);
       });
 
       hidePlayerControls();
@@ -873,6 +910,10 @@ export let isDrawingCrop = false;
 export let prevNewMarkerCrop = '0:0:iw:ih';
 export let initDrawCropMap: CropPoint[] | null;
 export let beginDrawHandler: (e: PointerEvent) => void;
+/** Active drag-recovery unregister for the in-flight draw, if any. Reset
+ *  to a noop after `finishDrawingCrop` runs so multiple finish-calls are
+ *  idempotent. */
+let unregisterDrawRecovery: () => void = () => {};
 export function drawCrop() {
   if (isDrawingCrop) {
     finishDrawingCrop(true);
@@ -902,6 +943,14 @@ export function drawCrop() {
     appState.hooks.cropMouseManipulation.addEventListener('pointerdown', beginDrawHandler, {
       once: true,
       capture: true,
+    });
+    // Cover both the "armed but pre-click" window and the active-drag
+    // window with the same recovery cleanup. If the user alt-tabs while
+    // the cursor is the crosshair but no draw has started, or alt-tabs
+    // mid-drag, `finishDrawingCrop(true)` reverts to the previous crop
+    // and detaches every listener this code path attached.
+    unregisterDrawRecovery = registerActiveDragCleanup(() => {
+      finishDrawingCrop(true);
     });
     flashMessage('Begin drawing crop', 'green');
   } else {
@@ -1031,9 +1080,20 @@ export function beginDraw(e: PointerEvent) {
       updateCropStringWithCrop(crop, false, false, zeroCropMap ?? undefined);
     }) as EventListener;
 
-    document.addEventListener('pointermove', drawCropHandler);
+    // Attach to the captured target so the browser-implicit
+    // `pointercancel` (devtools focus, alt-tab, OS pointer reassignment)
+    // is reliably delivered to the same element our listeners live on.
+    // The earlier `setPointerCapture` call routes every subsequent
+    // pointer event for this pointer here regardless of cursor position.
+    appState.hooks.cropMouseManipulation.addEventListener('pointermove', drawCropHandler);
 
-    document.addEventListener('pointerup', endDraw, {
+    appState.hooks.cropMouseManipulation.addEventListener('pointerup', endDraw, {
+      once: true,
+      capture: true,
+    });
+    // Mirror pointerup with pointercancel — see the matching drag/resize
+    // handler for the rationale.
+    appState.hooks.cropMouseManipulation.addEventListener('pointercancel', endDrawOnCancel, {
       once: true,
       capture: true,
     });
@@ -1046,6 +1106,13 @@ export function beginDraw(e: PointerEvent) {
   } else {
     finishDrawingCrop(true);
   }
+}
+/** Pointercancel companion for `endDraw`. The browser fires this when it
+ *  releases pointer capture without a normal pointerup — we revert the
+ *  in-progress draw rather than committing it (the user didn't choose to
+ *  finalize). */
+function endDrawOnCancel(e: Event): void {
+  finishDrawingCrop(true, (e as PointerEvent).pointerId);
 }
 export function endDraw(e: PointerEvent) {
   if (e.button === 0) {
@@ -1060,13 +1127,18 @@ export function endDraw(e: PointerEvent) {
 export function finishDrawingCrop(shouldRevertCrop: boolean, pointerId?: number) {
   Crop.shouldConstrainMinDimensions = true;
 
-  if (pointerId != null) appState.hooks.cropMouseManipulation.releasePointerCapture(pointerId);
+  unregisterDrawRecovery();
+  unregisterDrawRecovery = () => {};
+  if (pointerId != null && appState.hooks.cropMouseManipulation.hasPointerCapture?.(pointerId)) {
+    appState.hooks.cropMouseManipulation.releasePointerCapture(pointerId);
+  }
   appState.hooks.cropMouseManipulation.style.cursor = 'auto';
   appState.hooks.cropMouseManipulation.removeEventListener('pointerdown', beginDrawHandler, true);
   if (drawCropHandler) {
-    document.removeEventListener('pointermove', drawCropHandler);
+    appState.hooks.cropMouseManipulation.removeEventListener('pointermove', drawCropHandler);
   }
-  document.removeEventListener('pointerup', endDraw, true);
+  appState.hooks.cropMouseManipulation.removeEventListener('pointerup', endDraw, true);
+  appState.hooks.cropMouseManipulation.removeEventListener('pointercancel', endDrawOnCancel, true);
   drawCropHandler = null;
   isDrawingCrop = false;
   showPlayerControls();

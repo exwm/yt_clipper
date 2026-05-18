@@ -4,6 +4,7 @@ import { chartState } from '../charts';
 import { isDrawingCrop } from '../crop-overlay';
 import { isMouseManipulatingCrop } from '../crop-overlay';
 import { blockEvent, seekBySafe } from './util';
+import { registerActiveDragCleanup } from './drag-recovery';
 
 export let prevVideoWidth: number;
 export function getFPS(defaultFPS: number | null = 60) {
@@ -80,6 +81,14 @@ export function scrubVideoHandler(e) {
     let prevClickPosX = e.clientX - videoRect.left;
     const pointerId = e.pointerId;
     appState.video.setPointerCapture(pointerId);
+    // The captured element receives every subsequent pointer event for
+    // this pointer — pointermove, pointerup, and pointercancel — even when
+    // the cursor leaves the video region. Attaching listeners here rather
+    // than to `document` means the spec-mandated `pointercancel` reaches
+    // us when the browser implicitly releases capture (devtools focus,
+    // alt-tab, OS pointer reassignment), so the scrub never sticks.
+    const captureTarget = appState.video;
+    let unregisterDragRecovery: () => void = () => {};
 
     const baseWidth = 1920;
     function dragHandler(e: PointerEvent) {
@@ -93,17 +102,35 @@ export function scrubVideoHandler(e) {
       prevClickPosX = e.clientX - videoRect.left;
     }
 
-    function endDragHandler(e: PointerEvent) {
-      blockEvent(e);
-      document.removeEventListener('pointermove', dragHandler);
-      appState.video.releasePointerCapture(pointerId);
+    function cleanup(): void {
+      captureTarget.removeEventListener('pointermove', dragHandler);
+      captureTarget.removeEventListener('pointerup', endDragHandler, { capture: true });
+      captureTarget.removeEventListener('pointercancel', cancelDragHandler, { capture: true });
+      if (captureTarget.hasPointerCapture(pointerId)) {
+        captureTarget.releasePointerCapture(pointerId);
+      }
+      unregisterDragRecovery();
     }
 
-    document.addEventListener('pointermove', dragHandler);
-    document.addEventListener('pointerup', endDragHandler, {
+    function endDragHandler(e: PointerEvent) {
+      blockEvent(e);
+      cleanup();
+    }
+
+    function cancelDragHandler() {
+      cleanup();
+    }
+
+    captureTarget.addEventListener('pointermove', dragHandler);
+    captureTarget.addEventListener('pointerup', endDragHandler, {
       once: true,
       capture: true,
     });
+    captureTarget.addEventListener('pointercancel', cancelDragHandler, {
+      once: true,
+      capture: true,
+    });
+    unregisterDragRecovery = registerActiveDragCleanup(cleanup);
   }
 }
 export function blockVideoPause(e) {

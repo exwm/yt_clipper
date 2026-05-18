@@ -174,12 +174,25 @@ function updateData(chartInstance, callback) {
 
 function dragEndCallback(chartInstance, callback) {
   return () => {
-    if (typeof callback === 'function' && element) {
-      const e = event.sourceEvent;
-      const datasetIndex = element._datasetIndex;
-      const index = element._index;
-      const value = chartInstance.data.datasets[datasetIndex].data[index];
-      return callback(e, chartInstance, datasetIndex, index, value);
+    try {
+      if (typeof callback === 'function' && element) {
+        const e = event.sourceEvent;
+        const datasetIndex = element._datasetIndex;
+        const index = element._index;
+        const value = chartInstance.data.datasets[datasetIndex].data[index];
+        return callback(e, chartInstance, datasetIndex, index, value);
+      }
+    } finally {
+      // Drop references to the dragged datum and its scales so the
+      // plugin's module globals don't keep them alive between drags.
+      // Without this, `element` retains a pointer to the chart's last
+      // dragged element until the next `start` event overwrites it,
+      // which both leaks memory and could let a stale value leak into
+      // `updateData` if `event` were somehow re-entered.
+      element = null;
+      scale = null;
+      scaleX = null;
+      radar = null;
     }
   };
 }
