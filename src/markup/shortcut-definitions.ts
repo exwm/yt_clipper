@@ -53,6 +53,12 @@ export interface ShortcutDeps {
   isTheatreMode: () => boolean;
   isArrowKeyCropAdjustmentDisabled: () => boolean;
   hasMarkerPairs: () => boolean;
+  /** True when the user is actively manipulating the crop overlay
+   *  (either pan-drag or resize) AND the crop chart is the visible
+   *  chart — i.e. plain `A` will route to "add crop keyframe at
+   *  current time" instead of "add marker". Used by the contextual
+   *  `Add Pt` hint chip's guard. */
+  isInCropManipulationWithCropChart: () => boolean;
 }
 
 export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinition[] {
@@ -118,7 +124,8 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     // ===== Markup / Marker Editing Shortcuts =====
     {
       id: 'addMarker',
-      description: 'Add marker at current time',
+      description:
+        'Add marker at current time. During an active crop manipulation (pan-drag or resize) with the crop chart visible, instead drops a crop keyframe at the current time so multiple keyframes can be placed in one continuous gesture.',
       displayKey: 'A',
       section: 'Markup',
       category: 'Marker Editing Shortcuts',
@@ -132,6 +139,27 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       hintContexts: ['default', 'marker-selected'],
       hintOrder: 100,
       hintGroup: 'Markers',
+    },
+    {
+      id: 'addCropChartPointDuringDrag',
+      description:
+        'Drop a crop keyframe at the current time without releasing the crop manipulation (pan or resize). The currently-held point reverts to its last drop position; the new point becomes the live-edit target. For resize the per-keyframe variation is mostly meaningful in zoompan mode (pan-only mode keeps W/H equal across all points).',
+      displayKey: 'A',
+      section: 'Dynamic Effects',
+      category: 'Crop Chart Shortcuts',
+      essential: false,
+      // No binding — the routing happens in the `addMarker` dep, which
+      // detects the active crop manipulation (pan or resize) and
+      // dispatches to `addChartPoint` instead of `addMarker`. This
+      // entry only exists to surface the contextual chip in the hints
+      // bar during either manipulation kind.
+      binding: null,
+      handler: null,
+      executable: false,
+      hintLabel: 'Add Pt',
+      hintContexts: ['crop-dragging', 'crop-resizing'],
+      hintOrder: 5,
+      guard: deps.isInCropManipulationWithCropChart,
     },
     {
       id: 'toggleEndMarkerEditor',
@@ -670,6 +698,21 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       hintLabel: 'Horizontal only',
       hintContexts: ['crop-dragging'],
       hintOrder: 30,
+    },
+    {
+      id: 'cropPanZoomWheel',
+      description:
+        'Scroll the mouse wheel during a crop pan-drag to scale the crop around its center. Edges expand or contract uniformly so the center stays fixed. In pan-only mode the new size propagates to every crop point (mode invariant); in zoompan mode only the dragged point changes size.',
+      displayKey: 'Wheel',
+      section: 'Markup',
+      category: 'Cropping Shortcuts',
+      essential: false,
+      binding: null,
+      handler: null,
+      executable: false,
+      hintLabel: 'Zoom',
+      hintContexts: ['crop-dragging'],
+      hintOrder: 40,
     },
     {
       id: 'resizeCropDrag',
@@ -1328,7 +1371,8 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     },
     {
       id: 'chartAddPointAtCurrentTime',
-      description: 'Add chart point at current time',
+      description:
+        'Add chart point at current time. When fired mid-drag or mid-resize of a crop point, the held point reverts to its previous drop position and the new keyframe captures the current visual crop — drop multiple keyframes in one continuous gesture for rapid dynamic-crop tracking (per-keyframe size variation only applies in zoompan mode for resize).',
       displayKey: 'Alt + A',
       section: 'Dynamic Effects',
       category: 'General Chart Shortcuts',

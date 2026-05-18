@@ -9,6 +9,7 @@ import { resetCropPreviewAnchor } from './crop/crop-preview';
 import { html, render } from 'lit-html';
 import {
   assertDefined,
+  clampNumber,
   deleteElement,
   flashMessage,
   getCropString,
@@ -512,6 +513,38 @@ export let isMouseManipulatingCrop = false;
  *  drag-specific vs resize-specific modifier chips. Set when manipulation
  *  begins, cleared on end. Null when not manipulating. */
 export let cropManipulationKind: 'drag' | 'resize' | null = null;
+/** The crop string the currently-edited point should be reverted to if a
+ *  mid-drag `Alt + A` adds a new keyframe. Initially set to the
+ *  dragged point's crop at drag start, then *re-set on each Alt + A* to
+ *  the live crop value the new keyframe inherits — so a subsequent
+ *  Alt + A reverts the just-added point to *its* drop position rather
+ *  than all the way back to the drag's original point. Without this
+ *  per-keyframe update, every prior keyframe except the very last would
+ *  collapse to the original p0 crop. `null` when no drag is active. */
+export let cropDragStartCropString: string | null = null;
+export function setCropDragStartCropString(value: string | null): void {
+  cropDragStartCropString = value;
+}
+/** True for the brief window between a mid-drag `Alt + A` keypress and
+ *  the user actually releasing Alt. While set, `processDragCrop` ignores
+ *  `e.altKey` for the Y-axis lock — without this, the Alt held to fire
+ *  the Alt + A hotkey accidentally engages "horizontal-only panning"
+ *  for a frame or two and the drag visibly stutters. Auto-clears on the
+ *  first pointermove that arrives without Alt held, so an intentional
+ *  Alt re-press after the hotkey window still engages the lock. */
+let suppressAltLockUntilRelease = false;
+export function suppressNextAltLock(): void {
+  suppressAltLockUntilRelease = true;
+}
+/** Callback installed at drag-start that re-fetches the drag's
+ *  `initCropMap` snapshot from the current marker pair state. Called
+ *  from `addCropPoint` after a mid-drag insertion so subsequent
+ *  pointermove ticks see a snapshot that includes the new point —
+ *  otherwise `updateCropString` looks up the new point's index in the
+ *  pre-insert snapshot and throws "Init crop undefined" silently inside
+ *  requestAnimationFrame, freezing the drag. `null` when no drag is
+ *  active. */
+export let refreshCropDragInitState: (() => void) | null = null;
 export let endCropMouseManipulation: (e, forceEndDrag?: boolean) => void;
 export function ctrlOrCommand(e: PointerEvent) {
   return e.ctrlKey || e.metaKey;
@@ -537,16 +570,27 @@ export function addCropMouseManipulationListener() {
       !isCropBlockingChartVisible
     ) {
       const cropString = getRelevantCropString();
-      const [ix, iy, iw, ih] = getCropComponents(cropString);
+      // Mutable so the wheel-zoom-during-pan handler can re-baseline
+      // them on each tick — the pan formula computes
+      // `crop = Crop(ix, iy, iw, ih) + cursor_delta_from_clickPos`, so
+      // after a zoom updates the crop's origin/size the pan must
+      // continue from the new state instead of jumping back.
+      let [ix, iy, iw, ih] = getCropComponents(cropString);
       const cropResWidth = appState.settings.cropResWidth;
       const cropResHeight = appState.settings.cropResHeight;
       const videoRect = appState.video.getBoundingClientRect();
-      const clickPosX = e.clientX - videoRect.left;
-      const clickPosY = e.clientY - videoRect.top;
+      let clickPosX = e.clientX - videoRect.left;
+      let clickPosY = e.clientY - videoRect.top;
       const cursor = getMouseCropHoverRegion(e, cropString);
       const pointerId = e.pointerId;
 
-      const { isDynamicCrop, enableZoomPan, initCropMap } = getCropMapProperties();
+      const { isDynamicCrop, enableZoomPan } = getCropMapProperties();
+      // Mutable so a mid-drag `Alt + A` (rapid-keyframe workflow in
+      // `addCropPoint`) can refresh it to the post-insert snapshot via
+      // `refreshCropDragInitState` below — otherwise `updateCropString`
+      // looks up the new point's index in a stale snapshot and throws,
+      // which silently breaks the drag from that frame on.
+      let initCropMap = getCropMapProperties().initCropMap;
 
       let pendingCropDragEvent: PointerEvent | null = null;
       let cropDragRafId = 0;
@@ -574,6 +618,8 @@ export function addCropMouseManipulationListener() {
         unregisterDragRecovery();
         isMouseManipulatingCrop = false;
         cropManipulationKind = null;
+        cropDragStartCropString = null;
+        refreshCropDragInitState = null;
         if (cropDragRafId) {
           cancelAnimationFrame(cropDragRafId);
           cropDragRafId = 0;
@@ -599,6 +645,7 @@ export function addCropMouseManipulationListener() {
 
         captureTarget.removeEventListener('pointermove', dragCropHandler);
         captureTarget.removeEventListener('pointermove', cropResizeHandler);
+        captureTarget.removeEventListener('wheel', cropPanZoomHandler);
 
         showPlayerControls();
         if (!forceEnd && e && ctrlOrCommand(e)) {
@@ -629,10 +676,31 @@ export function addCropMouseManipulationListener() {
       e.preventDefault();
       appState.hooks.cropMouseManipulation.setPointerCapture(pointerId);
 
+      // Rapid-keyframe workflow setup, shared by both pan (drag) and
+      // resize. Snapshot the manipulated point's crop at the start so a
+      // mid-manipulation `Alt + A` can revert it while assigning the
+      // live-moved value to the new keyframe. Install the init-map
+      // refresh callback so the next pointermove after an Alt + A sees
+      // a snapshot that includes the new point. Both are cleared in
+      // endCropMouseManipulation. For resize the resulting per-keyframe
+      // variation only shows up in zoompan mode (pan-only mode keeps
+      // W/H equal across all points by mode invariant, so the revert is
+      // harmless but doesn't add per-keyframe variation).
+      cropDragStartCropString = cropString;
+      refreshCropDragInitState = () => {
+        initCropMap = getCropMapProperties().initCropMap;
+      };
+
       if (cursor === 'grab') {
         cropManipulationKind = 'drag';
         captureTarget.style.cursor = 'grabbing';
         captureTarget.addEventListener('pointermove', dragCropHandler);
+        // Wheel zoom during pan-drag: scale the crop around the cursor.
+        // `passive: false` lets us preventDefault to suppress page
+        // scroll while the user is mid-gesture. Rotation isn't handled
+        // (cursor coords would need rotation-mapping); the gesture is a
+        // no-op in that mode so it can't produce a wrong crop.
+        captureTarget.addEventListener('wheel', cropPanZoomHandler, { passive: false });
       } else {
         cropManipulationKind = 'resize';
         cropResizeHandler = (e: PointerEvent) => {
@@ -680,14 +748,92 @@ export function addCropMouseManipulationListener() {
         }
       }
 
+      /** Cursor-anchored wheel-zoom during a pan-drag. Scales the crop
+       *  so the pixel under the cursor keeps the same relative position
+       *  within the box — mirroring how image viewers, Figma, and maps
+       *  handle wheel-zoom, and preserving the "grip" the user
+       *  established when they started the pan-drag. Each tick rewrites
+       *  `ix/iy/iw/ih` + `clickPosX/Y` so subsequent pointermoves
+       *  continue panning from the new state instead of jumping back to
+       *  the original size. In pan-only mode the new W/H propagates to
+       *  every other point via `setCropComponentForAllPoints`
+       *  (mode invariant); in zoompan mode only the current point's
+       *  dimensions change. */
+      function cropPanZoomHandler(e: WheelEvent) {
+        if (e.deltaY === 0) return;
+        e.preventDefault();
+        // Rotation handling would require mapping cursor coords
+        // through the rotation matrix on every tick; skip to avoid
+        // delivering a subtly wrong crop in those modes.
+        if (appState.rotation !== 0) return;
+
+        const ZOOM_STEP = 1.05;
+        const factor = e.deltaY < 0 ? 1 / ZOOM_STEP : ZOOM_STEP;
+
+        const cursorX = e.clientX - videoRect.left;
+        const cursorY = e.clientY - videoRect.top;
+
+        // Read the CURRENT crop (mid-pan) not the drag-start values.
+        // Each pan tick writes through `updateCropString` which mutates
+        // `markerPair.cropMap` in place, so `getRelevantCropString`
+        // returns the latest on-screen state. Using the closure
+        // `ix/iy/iw/ih` here would anchor the zoom to the crop's
+        // position at drag-start, which makes the zoom visibly snap
+        // back to the original position on the first wheel tick.
+        const [curX, curY, curW, curH] = getCropComponents(getRelevantCropString());
+
+        const MIN_DIM = 16;
+        const aspectRatio = curW / curH;
+        let newW = Math.round(curW * factor);
+        newW = clampNumber(newW, MIN_DIM, cropResWidth);
+        let newH = Math.round(newW / aspectRatio);
+        newH = clampNumber(newH, MIN_DIM, cropResHeight);
+        // If H clamp forced an AR drift, pull W back so AR is preserved.
+        if (Math.abs(newW / newH - aspectRatio) > 1e-3) {
+          newW = Math.round(newH * aspectRatio);
+          newW = clampNumber(newW, MIN_DIM, cropResWidth);
+        }
+
+        // Center-out: keep the crop's geometric center fixed; edges
+        // expand/contract uniformly. Predictable since the anchor
+        // doesn't depend on where the cursor is — the user always knows
+        // what the zoom will do.
+        const centerX = curX + curW / 2;
+        const centerY = curY + curH / 2;
+        let newX = Math.round(centerX - newW / 2);
+        let newY = Math.round(centerY - newH / 2);
+        newX = clampNumber(newX, 0, Math.max(0, cropResWidth - newW));
+        newY = clampNumber(newY, 0, Math.max(0, cropResHeight - newH));
+
+        const crop = new Crop(newX, newY, newW, newH, cropResWidth, cropResHeight);
+        updateCropStringWithCrop(crop, false, false, initCropMap ?? undefined);
+
+        // Re-baseline the pan formula so subsequent pointermoves
+        // continue from the just-zoomed crop, and snap the click anchor
+        // to the current cursor so accumulated pan delta is zero at
+        // this instant. (`ix/iy/iw/ih` are the pan formula's origin —
+        // pan computes `crop = Crop(ix..ih) + (cursor - clickPos)`.)
+        ix = newX;
+        iy = newY;
+        iw = newW;
+        ih = newH;
+        clickPosX = cursorX;
+        clickPosY = cursorY;
+      }
+
       function processDragCrop() {
         cropDragRafId = 0;
         const e = pendingCropDragEvent;
         pendingCropDragEvent = null;
         if (!e) return;
 
+        // The Alt key briefly stays held while the user finishes the
+        // Alt + A hotkey, so honour `suppressAltLockUntilRelease`: skip
+        // the Y-axis lock until the user releases Alt at least once,
+        // then resume normal modifier semantics for any later re-press.
+        if (!e.altKey) suppressAltLockUntilRelease = false;
         const shouldMaintainCropX = e.shiftKey;
-        const shouldMaintainCropY = e.altKey;
+        const shouldMaintainCropY = e.altKey && !suppressAltLockUntilRelease;
 
         const dragPosX = e.clientX - videoRect.left;
         const dragPosY = e.clientY - videoRect.top;

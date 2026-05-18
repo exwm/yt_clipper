@@ -129,7 +129,7 @@ import {
   registerHoverRegion,
   setHoveredRegion,
 } from './features/hints-bar/hover-region';
-import { isMouseInsideCrop } from './crop-overlay';
+import { cropManipulationKind, isMouseInsideCrop, isMouseManipulatingCrop } from './crop-overlay';
 import {
   arrowKeyCropAdjustmentEnabled,
   hideCommandPaletteToggleButton,
@@ -212,7 +212,22 @@ export function initShortcutSystem() {
         toggleShortcutsTable();
       },
       addMarker: () => {
-        addMarker();
+        // During an active crop manipulation (pan-drag OR resize) with
+        // the crop chart visible, plain `A` reroutes to "add crop
+        // point" so the user can drop keyframes one-handed without
+        // involving Alt — Alt + A still works globally but mixes
+        // awkwardly with the Alt-Y pan lock during pan-drag. Outside
+        // this context, `A` is its usual "add marker" hotkey.
+        if (
+          isMouseManipulatingCrop &&
+          cropManipulationKind != null &&
+          appState.isCurrentChartVisible &&
+          chartState.currentChartInput?.type === 'crop'
+        ) {
+          addChartPoint();
+        } else {
+          addMarker();
+        }
       },
       moveMarkerToCurrentTime: (which) => {
         const marker = which === 'start' ? getActiveStartMarker() : getActiveEndMarker();
@@ -350,6 +365,11 @@ export function initShortcutSystem() {
       isTheatreMode: () => isTheatreMode(),
       isArrowKeyCropAdjustmentDisabled: () => !arrowKeyCropAdjustmentEnabled,
       hasMarkerPairs: () => appState.markerPairs.length > 0,
+      isInCropManipulationWithCropChart: () =>
+        isMouseManipulatingCrop &&
+        cropManipulationKind != null &&
+        appState.isCurrentChartVisible &&
+        chartState.currentChartInput?.type === 'crop',
     })
   );
 

@@ -271,6 +271,7 @@ A shortcuts reference can also be toggled by clicking the `full reference` butto
 - **Ctrl+Shift+Drag:** Center-out resize/draw of crop.
 - **Ctrl+Shift+Drag:** Horizontally-fixed (Y-only) drag of crop.
 - **Ctrl+Alt+Drag:** Vertically-fixed (X-only) drag of crop.
+- **Mousewheel during pan-drag:** Scale the crop around its center — wheel up to zoom in, wheel down to zoom out. The crop's geometric center stays fixed; edges expand or contract uniformly. Combine with pan motion to simultaneously zoom and reframe in one continuous gesture. In **pan-only** mode the new size propagates to every crop point; in **zoompan** mode only the dragged point changes size.
 
   ![yt_clipper_crop_preview.png](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_crop_preview.png)
 
@@ -379,6 +380,10 @@ A shortcuts reference can also be toggled by clicking the `full reference` butto
 **Shift+Click:** Add a point at the clicked location.
 
 **Alt+A:** Add a point at the current time.
+
+- During an active **crop manipulation** — pan-drag or resize, both started with **Ctrl+Click+Drag** on the crop overlay — with the crop chart visible, pressing **Alt+A** drops a crop keyframe at the current time. The held point reverts to its previous drop position and the new point captures the current visual crop, letting you place multiple keyframes in one continuous gesture for rapid dynamic-crop tracking.
+- The plain **A** hotkey is rerouted to this "add crop keyframe" action while a crop manipulation is active with the crop chart visible — useful for one-handed keyframe placement during a drag or resize.
+- For resize specifically, per-keyframe **size** variation only takes effect in **zoompan** mode (in pan-only mode the crop W/H is shared across all points by mode invariant, so resize-based rapid keyframing primarily affects X/Y position).
 
 **Alt+Shift+Click:** Delete a point.
 

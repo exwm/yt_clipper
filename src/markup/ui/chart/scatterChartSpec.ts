@@ -14,6 +14,14 @@ import {
   sortX,
 } from './chartPrimitives';
 import { cropChartMode, setCurrentCropPoint } from './cropchart/cropChartSpec';
+import {
+  cropDragStartCropString,
+  cropManipulationKind,
+  isMouseManipulatingCrop,
+  refreshCropDragInitState,
+  setCropDragStartCropString,
+  suppressNextAltLock,
+} from '../../crop-overlay';
 
 export const scatterChartDefaults: ChartOptions & ChartFontOptions = {
   defaultColor: 'rgba(255, 255, 255, 1)',
@@ -108,27 +116,76 @@ export const addCropPoint = function (this: any, time: number) {
     const initialState = getMarkerPairHistory(markerPair);
     const draft = createDraft(initialState);
 
+    // Rapid keyframe workflow: if the user hits `Alt + A` mid-drag OR
+    // mid-resize of a crop point, snapshot the current (live-moved)
+    // crop value, revert the manipulated point back to where it
+    // started, and assign the live value to the new keyframe. The
+    // pointermove closure keeps writing to `currentCropPointIndex`
+    // (which moves to the new point below via setCurrentCropPoint), so
+    // the user can keep sweeping the cursor and dropping keyframes
+    // without releasing the mouse — the previously-held point stays
+    // anchored at its original crop and the new point becomes the
+    // live-edit target. For resize the per-keyframe variation only
+    // shows up in zoompan mode; pan-only mode keeps W/H equal across
+    // all points by mode invariant, so the revert is harmless but
+    // doesn't add per-keyframe size differences.
+    const isLiveCropManipulation =
+      isMouseManipulatingCrop && cropManipulationKind != null && cropDragStartCropString != null;
+    const draggedPointRef = isLiveCropManipulation
+      ? draft.cropMap[appState.currentCropPointIndex]
+      : null;
+    const liveCropAtAddTime = draggedPointRef ? draggedPointRef.crop : null;
+    if (draggedPointRef && cropDragStartCropString != null) {
+      draggedPointRef.crop = cropDragStartCropString;
+    }
+
     draft.cropMap.push({
       x: time,
       y: 0,
-      crop: '0:0:iw:ih',
+      crop: liveCropAtAddTime ?? '0:0:iw:ih',
     });
     draft.cropMap.sort(sortX);
 
     const cropPointIndex = draft.cropMap.map((cropPoint) => cropPoint.x).indexOf(time);
 
-    // console.log(appState.currentCropPointIndex, cropPointIndex);
-    if (appState.currentCropPointIndex >= cropPointIndex) {
-      setCurrentCropPoint(this, appState.currentCropPointIndex + 1);
-    }
-
-    if (cropPointIndex > 0) {
+    // Skip prev-inheritance when the new point already carries the
+    // live-manipulation crop — that value IS what the user visually
+    // placed here, and inheriting from prev would discard it.
+    if (cropPointIndex > 0 && !isLiveCropManipulation) {
       const prevCropPointIndex = cropPointIndex - 1;
       draft.cropMap[cropPointIndex].crop = draft.cropMap[prevCropPointIndex].crop;
     }
 
     saveMarkerPairHistory(draft, markerPair);
     this.renderSpeedAndCropUI(true);
+
+    // Auto-select the just-added point in Start mode so the user can
+    // immediately operate on it (e.g. set its crop via the input, or
+    // wheel forward to step the section through). Called after the
+    // render so `setCurrentCropPoint`'s bounds-clamp reads the chart's
+    // new data length, not the pre-insert length. For an insertion at
+    // the very end the helper auto-falls back to End mode (Start mode
+    // would place the section out of range).
+    setCurrentCropPoint(this, cropPointIndex, cropChartMode.Start);
+
+    if (isLiveCropManipulation) {
+      // Refresh the in-progress drag's `initCropMap` snapshot so the
+      // next pointermove sees a snapshot that includes the new point —
+      // without this, `updateCropString` looks up the new point's
+      // index in the pre-insert snapshot and throws silently inside
+      // requestAnimationFrame, freezing the drag from that frame on.
+      refreshCropDragInitState?.();
+      // Re-baseline the "drag-start crop" to the value the new
+      // keyframe was just dropped at. Without this, every subsequent
+      // Alt + A would revert the just-added keyframe back to the
+      // ORIGINAL p0 crop — collapsing all intermediate keyframes to
+      // one value and leaving only the very last point usable.
+      if (liveCropAtAddTime != null) setCropDragStartCropString(liveCropAtAddTime);
+      // The Alt held to fire `Alt + A` would otherwise engage the
+      // pan handler's Y-axis lock on the next frame; tell the drag to
+      // ignore Alt until the user releases it.
+      suppressNextAltLock();
+    }
   }
 };
 
