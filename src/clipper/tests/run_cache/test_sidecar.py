@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from clipper.encode_crf_search.run_cache import (
+from clipper.sample_guided_encode.run_cache import (
     check_encode_meta_sidecar,
     write_config_sidecar,
     write_encode_meta_sidecar,

@@ -222,7 +222,7 @@ def getMarkerPairSettings(  # noqa: PLR0912
     )
 
     # Surface the resolved auto-encode picks onto mp so callers that only
-    # see the marker-pair return value (e.g. the CRF-search trial loop) can
+    # see the marker-pair return value (e.g. the sample-guided trial loop) can
     # read what the encoder actually used. Without this, mp comes back
     # without a "crf" key and trial summaries can't display the CRF that
     # produced the measured VMAF.
@@ -239,11 +239,11 @@ def getMarkerPairSettings(  # noqa: PLR0912
             bitrate_fps_factor=bitrateFpsFactor,
         )
         # ``quietFfmpeg`` is set by ``_TRIAL_PIPELINE_OVERRIDES`` (and
-        # the reference / baseline equivalents in the CRF-search
+        # the reference / baseline equivalents in the sample-guided
         # orchestrator) so every search-context encode passes
         # ``is_search_context=True``. This reframes the diff title
         # from "settings changed:" (which read as "your pair config
-        # was modified") to "CRF search using overrides:" (what's
+        # was modified") to "sample-guided encode using overrides:" (what's
         # actually happening) AND keeps the memo anchored to the
         # operator's original pair snapshot so the post-search final
         # encode still diffs against THAT, not the last trial.
@@ -943,10 +943,10 @@ def runffmpegCommand(  # noqa: PLR0912 — encode kind branching + filter-graph 
     nInputs = len(re.findall(input_redaction_pattern, ffmpegCommands[0]))
 
     returncode = 0
-    # Callers (e.g. the CRF-search orchestrator's reference and
+    # Callers (e.g. the sample-guided orchestrator's reference and
     # baseline encodes) can override the generic "encoding" label
     # via the ``ffmpegProgressLabel`` setting so the operator sees
-    # context-aware text in the spinner row — "CRF search —
+    # context-aware text in the spinner row — "sample-guided encode —
     # reference encode" reads as belonging to a search; bare
     # "encoding" reads like a final user-facing encode and is
     # confusing when it appears mid-search.
@@ -965,7 +965,7 @@ def runffmpegCommand(  # noqa: PLR0912 — encode kind branching + filter-graph 
             cmd,
             count=nInputs,
         )
-        # When a CRF search is active, deduplicate the multi-thousand-
+        # When a sample-guided encode is active, deduplicate the multi-thousand-
         # char ``-vf "..."`` filter graphs that repeat across every
         # trial / reference encode. ``substitute_filter_graphs``
         # checks the per-search registry: returns the cmd unchanged
@@ -1028,7 +1028,7 @@ def runffmpegCommand(  # noqa: PLR0912 — encode kind branching + filter-graph 
         search_tracker = get_active_search_progress() if is_trial else None
         if search_tracker is not None:
             # Three encode "kinds" route through the search tracker:
-            # - search trials (``crfSearchTrialEncode=True``): bump
+            # - search trials (``sampleGuidedEncodeTrial=True``): bump
             #   the trial counter and render ``"trial N {suffix}"``
             #   where suffix is e.g. ``"(crf=27 w1 3.2-4.0s)"``.
             # - reference / baseline phase encodes (the default when
@@ -1038,7 +1038,7 @@ def runffmpegCommand(  # noqa: PLR0912 — encode kind branching + filter-graph 
             # See the orchestrator's settings_overrides for where
             # each kind is configured.
             phase_label = settings.get("ffmpegProgressLabel") or ""
-            if settings.get("crfSearchTrialEncode"):
+            if settings.get("sampleGuidedEncodeTrial"):
                 returncode = search_tracker.run_trial_ffmpeg(
                     cmd, label=phase_label,
                 )
@@ -1407,18 +1407,18 @@ def makeClips(cs: ClipperState) -> None:
             f"Processing the following set of marker pairs: {printableMarkerPairQueue}",
         )
 
-    # Per-clip CRF-search outcomes accumulated across the whole run so we
+    # Per-clip sample-guided outcomes accumulated across the whole run so we
     # can emit one consolidated summary as the LAST report-level log.
     # Mid-run per-clip lines still emit live; the aggregate table groups
     # everything together at the bottom of the final Summary Report for
     # easy scanning / copying.
-    crfSearchSummaries: List[Any] = []
+    sampleGuidedEncodeSummaries: List[Any] = []
 
     for markerPairIndex, _marker in enumerate(settings["markerPairs"]):
         with pair_context(markerPairIndex):
             if markerPairIndex in markerPairQueue:
                 logger.rule(title=f"Marker pair {markerPairIndex + 1}")
-                if settings.get("crfSearch"):
+                if settings.get("sampleGuidedEncode"):
                     # Snapshot the pristine marker before any encode so the
                     # search orchestrator can restore a fresh state between
                     # trial encodes — getMarkerPairSettings is non-idempotent
@@ -1426,14 +1426,14 @@ def makeClips(cs: ClipperState) -> None:
                     # crop by cropMultipleX/Y, mutates speedMap point x-coords).
                     # Re-running it on an already mutated marker double-shifts
                     # timestamps and clamps the crop to the full source frame.
-                    from clipper.encode_crf_search import (
+                    from clipper.sample_guided_encode import (
                         ClipSearchSummary,
-                        run_crf_search_for_marker_pair,
+                        run_sample_guided_encode_for_marker_pair,
                     )
                     originalMarkerSnapshot = copy.deepcopy(
                         settings["markerPairs"][markerPairIndex],
                     )
-                    logger.rule(title=f"CRF search ({markerPairIndex + 1})", sub=True)
+                    logger.rule(title=f"sample-guided encode ({markerPairIndex + 1})", sub=True)
                     # Pre-emit the user's configured pair settings before
                     # the search starts. Two purposes:
                     # 1. Operators see their baseline (the full settings
@@ -1441,7 +1441,7 @@ def makeClips(cs: ClipperState) -> None:
                     # 2. The diff memo anchors on the user's original
                     #    snapshot, so every trial / reference / baseline
                     #    encode (all ``is_search_context=True``) renders
-                    #    as a focused "CRF search using overrides:" diff
+                    #    as a focused "sample-guided encode using overrides:" diff
                     #    vs the original — instead of falling through to
                     #    "no prior memo → print full table" on the first
                     #    trial. The post-search final-encode diff also
@@ -1459,7 +1459,7 @@ def makeClips(cs: ClipperState) -> None:
                         originalMarkerSnapshot,
                     )
                     with time_stage(f"({markerPairIndex + 1}) crf search + encode"):
-                        resultMarker = run_crf_search_for_marker_pair(
+                        resultMarker = run_sample_guided_encode_for_marker_pair(
                             cs, markerPairIndex,
                             originalMarkerSnapshot=originalMarkerSnapshot,
                         )
@@ -1467,10 +1467,10 @@ def makeClips(cs: ClipperState) -> None:
                     # Collect the search result for the cross-clip aggregate;
                     # the orchestrator stashes it on the marker dict.
                     if resultMarker is not None:
-                        searchResult = resultMarker.get("crfSearchResult")
+                        searchResult = resultMarker.get("sampleGuidedEncodeResult")
                         if searchResult is not None:
                             priorRunDeltas = resultMarker.get("priorRunDeltas") or ()
-                            crfSearchSummaries.append(ClipSearchSummary(
+                            sampleGuidedEncodeSummaries.append(ClipSearchSummary(
                                 marker_pair_index=markerPairIndex,
                                 file_name_stem=resultMarker.get(
                                     "fileNameStem",
@@ -1491,20 +1491,20 @@ def makeClips(cs: ClipperState) -> None:
                     **mp,
                 }
 
-    if crfSearchSummaries:
-        from clipper.encode_crf_search import (
+    if sampleGuidedEncodeSummaries:
+        from clipper.sample_guided_encode import (
             format_aggregated_search_summary_log_block,
         )
         aggregateBlock = format_aggregated_search_summary_log_block(
-            crfSearchSummaries,
+            sampleGuidedEncodeSummaries,
         )
         if aggregateBlock:
-            # Report-level emission with the crf-search subsystem
+            # Report-level emission with the sample-guided subsystem
             # prefix (this block IS the search summary; it just
             # happens to be flushed from the clip-maker loop). The
-            # crf-search logger keeps the chip honest about the
+            # sample-guided logger keeps the chip honest about the
             # source.
-            make_subsystem_logger(Subsystem.CRF_SEARCH).report(aggregateBlock)
+            make_subsystem_logger(Subsystem.SAMPLE_ENCODE).report(aggregateBlock)
 
     if settings["markerPairMergeList"] != "":
         mergeClips(cs)

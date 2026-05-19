@@ -1,13 +1,13 @@
-"""CRF-search run cache: fingerprints, history, deltas, sidecars.
+"""sample-guided run cache: fingerprints, history, deltas, sidecars.
 
-This package owns the cross-run identity story for the CRF-search
+This package owns the cross-run identity story for the sample-guided
 subsystem. The plan ships in phases; each phase adds a sibling module
 without touching prior ones:
 
 - ``fingerprint``  — phase 1: encoder + search fingerprints, the
   canonicalization recipe that makes them safe-and-stable.
 - ``history``      — phase 3: load prior-run JSONLs, reconstruct
-  ``CrfSearchResult`` for cache hits, list distinct prior configs.
+  ``SampleGuidedEncodeResult`` for cache hits, list distinct prior configs.
 - ``delta``        — phase 3: ``PriorRunDelta`` + the auto-delta block
   that the aggregate-summary formatter renders.
 - ``sidecar``      — phase 2 + 5: per-fingerprint ``config.json`` writes

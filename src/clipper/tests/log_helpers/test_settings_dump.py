@@ -413,8 +413,8 @@ def test_emit_separate_pair_indices_have_independent_memos() -> None:
 
 
 def test_emit_search_context_retitles_diff_and_skips_memo_anchor() -> None:
-    """CRF-search trial / reference / baseline calls (``is_search_context=True``)
-    must (a) frame the diff as "CRF search using overrides:" — NOT
+    """sample-guided encode trial / reference / baseline calls (``is_search_context=True``)
+    must (a) frame the diff as "sample-guided encode using overrides:" — NOT
     "settings changed:" — and (b) leave the memo pinned to the user's
     original snapshot so the post-search final-encode diff fires against
     THAT, not the last trial's snapshot."""
@@ -424,7 +424,7 @@ def test_emit_search_context_retitles_diff_and_skips_memo_anchor() -> None:
 
     # 1. Operator's original pair settings (crf=18) — non-search context
     # anchors memo. This mirrors the orchestrator's pre-emit call before
-    # the CRF search begins, which logs the operator's baseline so trial
+    # the sample-guided encode begins, which logs the operator's baseline so trial
     # encodes can diff against it.
     mps["crf"] = 18
     snap_orig = build_marker_pair_settings_snapshot(mp, mps, marker_pair_index=0)
@@ -438,7 +438,7 @@ def test_emit_search_context_retitles_diff_and_skips_memo_anchor() -> None:
     assert len(full_calls) == 1
     assert len(diff_calls) == 0
 
-    # 2. First CRF-search trial (crf=30) — search context. Diff fires
+    # 2. First sample-guided encode trial (crf=30) — search context. Diff fires
     # against the original; title must NOT say "settings changed".
     mps["crf"] = 30
     snap_trial1 = build_marker_pair_settings_snapshot(mp, mps, marker_pair_index=0)
@@ -451,7 +451,7 @@ def test_emit_search_context_retitles_diff_and_skips_memo_anchor() -> None:
         is_search_context=True,
     )
     assert len(diff_calls) == 1
-    assert "CRF search using overrides" in diff_calls[0]
+    assert "sample-guided encode using overrides" in diff_calls[0]
     assert "settings changed" not in diff_calls[0]
     assert "18 -> 30" in diff_calls[0]
     # Search-context diff is compact: single line, no section headers
@@ -462,7 +462,7 @@ def test_emit_search_context_retitles_diff_and_skips_memo_anchor() -> None:
     assert "[Encoding]" not in diff_calls[0]
     assert "[Bitrate]" not in diff_calls[0]
 
-    # 3. Second CRF-search trial (crf=27). The memo is STILL pinned to
+    # 3. Second sample-guided encode trial (crf=27). The memo is STILL pinned to
     # the original snap_orig (search-context calls don't bump the memo),
     # so the diff is 18 -> 27 (against the original) — NOT 30 -> 27
     # (which would mean the memo had been bumped to trial1).

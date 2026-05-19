@@ -1,6 +1,6 @@
-"""Pure decision predicates and calibration helpers for the CRF search.
+"""Pure decision predicates and calibration helpers for the sample-guided encode.
 
-Everything in here takes :class:`CrfSearchTrial` / :class:`VmafSummary`
+Everything in here takes :class:`SampleGuidedEncodeTrial` / :class:`VmafSummary`
 inputs and returns a verdict (bool, distance, prediction). No I/O, no
 algorithm orchestration — this module is the place to look when
 debugging "why did the search make this decision."
@@ -23,8 +23,8 @@ from __future__ import annotations
 from clipper.quality import VmafSummary
 
 from .types import (
-    CrfSearchTarget,
-    CrfSearchTrial,
+    SampleGuidedEncodeTarget,
+    SampleGuidedEncodeTrial,
     get_low_percentile_value,
     min_frames_for_low_percentile,
 )
@@ -66,7 +66,7 @@ DEFAULT_STEP_DOWN_SKIP_BUFFER: float = 0.5
 
 def is_trial_confidently_decided(
     summary: VmafSummary,
-    target: CrfSearchTarget,
+    target: SampleGuidedEncodeTarget,
     confidence_margin: float = DEFAULT_CONFIDENCE_MARGIN,
 ) -> bool:
     """Whether ``summary`` is far enough from the pass/fail boundary that
@@ -112,7 +112,7 @@ def is_trial_confidently_decided(
 
 def passes_targets(
     summary: VmafSummary,
-    target: CrfSearchTarget,
+    target: SampleGuidedEncodeTarget,
 ) -> tuple[bool, bool]:
     """Whether ``summary`` clears the user's quality targets, and whether
     the low-percentile check actually got applied.
@@ -145,7 +145,7 @@ def passes_targets(
 
 
 def _distance_to_pass_boundary(
-    summary: VmafSummary, target: CrfSearchTarget,
+    summary: VmafSummary, target: SampleGuidedEncodeTarget,
 ) -> float:
     """Signed VMAF distance from a trial's summary to the pass boundary.
 
@@ -174,7 +174,7 @@ def _distance_to_pass_boundary(
 
 def _predict_phase2_fast_fail(
     summary: VmafSummary,
-    target: CrfSearchTarget,
+    target: SampleGuidedEncodeTarget,
     *,
     n_windows: int,
     safety_margin: float,
@@ -264,8 +264,8 @@ def _phase1_to_phase2_bridge_pct(target_pct: int) -> int | None:
 
 
 def _calibration_says_step_down_wont_help(
-    trials: list[CrfSearchTrial],
-    target: CrfSearchTarget,
+    trials: list[SampleGuidedEncodeTrial],
+    target: SampleGuidedEncodeTarget,
     *,
     step_down_limit: int,
     relaxation_cap: float,
@@ -340,8 +340,8 @@ def _calibration_says_step_down_wont_help(
 
 
 def _calibration_says_phase3_hopeless(
-    trials: list[CrfSearchTrial],
-    target: CrfSearchTarget,
+    trials: list[SampleGuidedEncodeTrial],
+    target: SampleGuidedEncodeTarget,
     candidate_crf: int,
     *,
     relaxation_cap: float,
@@ -434,8 +434,8 @@ def _calibration_says_phase3_hopeless(
 
 
 def _refinement_extrapolation_says_hopeless(
-    trials: list[CrfSearchTrial],
-    target: CrfSearchTarget,
+    trials: list[SampleGuidedEncodeTrial],
+    target: SampleGuidedEncodeTarget,
     *,
     relaxation_cap: float,
     safety_buffer: float = DEFAULT_HOPELESS_EXTRAPOLATION_BUFFER,
@@ -503,12 +503,12 @@ def _refinement_extrapolation_says_hopeless(
 
 
 def _find_best_pass_at_fallback_level(
-    trials: list[CrfSearchTrial],
-    target: CrfSearchTarget,
+    trials: list[SampleGuidedEncodeTrial],
+    target: SampleGuidedEncodeTarget,
     *,
     fallback_pct: int | None,
     relaxation_cap: float,
-) -> CrfSearchTrial | None:
+) -> SampleGuidedEncodeTrial | None:
     """Find the highest-CRF Phase 2/3 trial passing at a more permissive
     fallback level than the user's chosen percentile.
 
@@ -536,7 +536,7 @@ def _find_best_pass_at_fallback_level(
     """
     relaxed_mean = target.target_vmaf_mean - relaxation_cap
     relaxed_low = target.target_vmaf_low - relaxation_cap
-    candidates: list[CrfSearchTrial] = []
+    candidates: list[SampleGuidedEncodeTrial] = []
     for trial in trials:
         if trial.phase not in {"phase2", "phase3"}:
             continue

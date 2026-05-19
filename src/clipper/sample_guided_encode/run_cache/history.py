@@ -1,8 +1,8 @@
-"""Load prior CRF-search runs from the per-fingerprint history dirs.
+"""Load prior sample-guided runs from the per-fingerprint history dirs.
 
 Phase 3 read-side companion to Phase 2's storage layout. Walks each
 ``<title>-pair{N}/<encoder_fingerprint>/`` directory under the
-crf-search temp dir, parses each ``run-*.jsonl``, and returns the
+sample-guided temp dir, parses each ``run-*.jsonl``, and returns the
 minimal subset of each run needed by the auto-delta render: the
 fingerprints, the picked CRF, the canonicalized signature, the
 encoder config summary, and a sorted list of probe ``(crf, p_low,
@@ -36,7 +36,7 @@ from typing import Any
 
 @dataclass(frozen=True)
 class PriorRun:
-    """One historical CRF-search run, loaded for delta rendering
+    """One historical sample-guided run, loaded for delta rendering
     AND cache-reuse evaluation.
 
     Holds enough state to (a) re-interpolate kbps@tgt at any target

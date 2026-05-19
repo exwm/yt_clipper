@@ -1,4 +1,4 @@
-"""Sampling, bisection, and two-phase CRF search algorithms.
+"""Sampling, bisection, and two-phase sample-guided encode algorithms.
 
 Three layers, in order of how they're built up:
 
@@ -45,15 +45,15 @@ from .types import (
     DEFAULT_N_WINDOWS,
     DEFAULT_TARGET_SAMPLE_PERCENT,
     DEFAULT_TARGET_TRIAL_FRAMES,
-    CrfSearchResult,
-    CrfSearchTarget,
-    CrfSearchTrial,
+    SampleGuidedEncodeResult,
+    SampleGuidedEncodeTarget,
+    SampleGuidedEncodeTrial,
     SampleWindow,
     TrialMeasurement,
     min_frames_for_low_percentile,
 )
 
-logger = make_subsystem_logger(Subsystem.CRF_SEARCH)
+logger = make_subsystem_logger(Subsystem.SAMPLE_ENCODE)
 
 # ---------------------------------------------------------------------------
 # Sampling
@@ -195,8 +195,8 @@ def _predict_next_bisection_crf(
     *,
     lo: int,
     hi: int,
-    trials: list[CrfSearchTrial],
-    target: CrfSearchTarget,
+    trials: list[SampleGuidedEncodeTrial],
+    target: SampleGuidedEncodeTarget,
 ) -> int:
     """Pick the next CRF to probe within ``(lo, hi)`` exclusive.
 
@@ -272,14 +272,14 @@ def _predict_next_bisection_crf(
 
 def legacy_find_optimal_crf(
     *,
-    target: CrfSearchTarget,
+    target: SampleGuidedEncodeTarget,
     evaluate_trial: Callable[[int], TrialMeasurement],
     sample_windows: list[SampleWindow] | None = None,
     reference_size_bytes: int = 0,
     final_frames_estimate: int = 0,
-    on_trial_complete: Callable[[CrfSearchTrial], None] | None = None,
+    on_trial_complete: Callable[[SampleGuidedEncodeTrial], None] | None = None,
     phase: str = "",
-) -> CrfSearchResult:
+) -> SampleGuidedEncodeResult:
     """Bisect over ``[crf_min, crf_max]`` for the largest CRF that clears
     ``target.target_vmaf_mean`` and ``target.target_vmaf_p1`` simultaneously.
 
@@ -309,7 +309,7 @@ def legacy_find_optimal_crf(
       hasn't fully closed — pragmatic stop, returns the best passing CRF
       found so far.
     """
-    trials: list[CrfSearchTrial] = []
+    trials: list[SampleGuidedEncodeTrial] = []
     best_crf: int | None = None
     best_summary: VmafSummary | None = None
 
@@ -339,14 +339,14 @@ def legacy_find_optimal_crf(
             on_trial_complete(trial)
         return passed, summary
 
-    def _build_result() -> CrfSearchResult:
+    def _build_result() -> SampleGuidedEncodeResult:
         # Combined frames the search actually encoded across every trial,
         # so callers can compare to ``final_frames_estimate`` and decide
         # whether sampling is paying off (small ratio = win, large ratio =
         # consider full-clip trials or fewer sample windows).
         search_frames = sum(t.summary.frame_count for t in trials)
         search_seconds = sum(t.encode_seconds for t in trials)
-        return CrfSearchResult(
+        return SampleGuidedEncodeResult(
             optimal_crf=best_crf,
             optimal_summary=best_summary,
             trials=trials,
@@ -476,11 +476,11 @@ def _build_trial_from_measurement(
     crf: int,
     measurement: TrialMeasurement,
     elapsed: float,
-    target_for_verdict: CrfSearchTarget,
+    target_for_verdict: SampleGuidedEncodeTarget,
     phase: str,
     reference_size_bytes: int,
-) -> CrfSearchTrial:
-    """Construct a :class:`CrfSearchTrial` from a :class:`TrialMeasurement`.
+) -> SampleGuidedEncodeTrial:
+    """Construct a :class:`SampleGuidedEncodeTrial` from a :class:`TrialMeasurement`.
 
     Centralizes the boilerplate every call site needs after running an
     evaluator: derive pass/fail from the summary, compute size-percent
@@ -504,7 +504,7 @@ def _build_trial_from_measurement(
         if ref_for_size > 0
         else 0.0
     )
-    return CrfSearchTrial(
+    return SampleGuidedEncodeTrial(
         crf=crf,
         summary=summary,
         encode_seconds=elapsed,
@@ -520,12 +520,12 @@ def _build_trial_from_measurement(
 
 
 def _relaxed_target(
-    target: CrfSearchTarget,
+    target: SampleGuidedEncodeTarget,
     *,
     depth: int,
     per_step: float,
     cap: float,
-) -> CrfSearchTarget:
+) -> SampleGuidedEncodeTarget:
     """Soften ``target``'s mean and low-percentile thresholds proportionally
     to ``depth``, capped at ``cap`` VMAF points. ``depth=0`` returns the
     original target unchanged so callers can pass through Phase 1 and
@@ -571,22 +571,22 @@ MIN_PHASE1_TRIALS_FOR_CALIBRATION: int = 2
 
 def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow with independent tuning knobs per phase; collapsing into a config object would obscure each parameter's role
     *,
-    target: CrfSearchTarget,
+    target: SampleGuidedEncodeTarget,
     n_windows: int,
     middle_window_index: int,
     evaluate_trial_for_windows: Callable[[int, list[int]], TrialMeasurement],
     sample_windows: list[SampleWindow] | None = None,
     reference_size_bytes: int = 0,
     final_frames_estimate: int = 0,
-    on_trial_complete: Callable[[CrfSearchTrial], None] | None = None,
+    on_trial_complete: Callable[[SampleGuidedEncodeTrial], None] | None = None,
     phase3_step_down_limit: int = DEFAULT_PHASE3_STEP_DOWN_LIMIT,
     phase2_fast_fail_margin: float = DEFAULT_PHASE2_FAST_FAIL_MARGIN,
     target_relaxation_per_step: float = DEFAULT_TARGET_RELAXATION_PER_STEP,
     target_relaxation_cap: float = DEFAULT_TARGET_RELAXATION_CAP,
     allow_low_pct_cascade: bool = True,
     allow_mean_only_fallback: bool = True,
-) -> CrfSearchResult:
-    """Three-phase CRF search: cheap discovery, full validation, optional refinement.
+) -> SampleGuidedEncodeResult:
+    """Three-phase sample-guided encode: cheap discovery, full validation, optional refinement.
 
     Decision flow at a glance::
 
@@ -672,20 +672,20 @@ def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow
       we need *more* bits, i.e. lower CRF. Refinement is therefore
       strictly downward.
 
-    Trial labels (``CrfSearchTrial.phase``): ``"phase1"``, ``"phase2"``,
+    Trial labels (``SampleGuidedEncodeTrial.phase``): ``"phase1"``, ``"phase2"``,
     ``"phase3"`` — surface in the per-trial log so users can see which
     pass each trial belongs to. Step-down and bisection trials both
     carry ``"phase3"``; their position in the trial list distinguishes
     them.
 
-    Returns a single :class:`CrfSearchResult` whose ``trials`` list
+    Returns a single :class:`SampleGuidedEncodeResult` whose ``trials`` list
     aggregates every probe across all three phases in invocation order.
     """
     all_window_indices = list(range(n_windows))
     middle_only = [middle_window_index]
-    all_trials: list[CrfSearchTrial] = []
+    all_trials: list[SampleGuidedEncodeTrial] = []
 
-    def collect(trial: CrfSearchTrial) -> None:
+    def collect(trial: SampleGuidedEncodeTrial) -> None:
         all_trials.append(trial)
         if on_trial_complete is not None:
             on_trial_complete(trial)
@@ -693,7 +693,7 @@ def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow
     def _build(
         optimal_crf: int | None,
         optimal_summary: VmafSummary | None,
-    ) -> CrfSearchResult:
+    ) -> SampleGuidedEncodeResult:
         # Graceful-degradation cascade when strict + relaxed search
         # found nothing. Try progressively more permissive levels:
         #   1. Higher percentile (e.g. p5 -> p10) with relaxed targets
@@ -748,7 +748,7 @@ def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow
                             f"{target.target_vmaf_mean - target_relaxation_cap:.2f}).",
                         )
                     break
-        return CrfSearchResult(
+        return SampleGuidedEncodeResult(
             optimal_crf=optimal_crf,
             optimal_summary=optimal_summary,
             trials=all_trials,

@@ -538,9 +538,9 @@ yt_clipper also supports `h264_nvenc` for NVIDIA GPU hardware-accelerated h264 e
 
 ## Quality-Targeted Encoding
 
-`--crf-search` picks a CRF per marker pair that hits a target perceptual-quality level. Each pair is encoded at a handful of trial CRFs on short sample windows of the clip. Each trial is measured with VMAF NEG against a near-transparent reference encode. The highest CRF (most compression) whose VMAF clears the target is used for the final user-facing encode.
+`--sample-guided-encode` picks a CRF per marker pair that hits a target perceptual-quality level. Each pair is encoded at a handful of trial CRFs on short sample windows of the clip. Each trial is measured with VMAF NEG against a near-transparent reference encode. The highest CRF (most compression) whose VMAF clears the target is used for the final user-facing encode.
 
-Use `--crf-search` when source bitrate alone isn't a reliable quality predictor.
+Use `--sample-guided-encode` when source bitrate alone isn't a reliable quality predictor.
 
 - The clip is a mix of source qualities (a montage of YouTube downloads at different upload bitrates, for example).
 - You want consistent output quality regardless of what kind of source you feed in.
@@ -558,7 +558,7 @@ The default targets are VMAF NEG mean `>= 95` and 5th-percentile (`p5`) `>= 93`.
 **Output:**
 
 - The aggregate summary table at the end of a run shows one row per marker pair with the picked CRF, VMAF mean and all six low percentiles, trial bitrate, predicted final-encode size, and `kbps@tgt` (the interpolated bitrate at the target VMAF, used for cross-config comparison).
-- A "delta vs baseline" line under the table shows what the search bought relative to yt_clipper's default auto-picked CRF (the encode that would have happened without `--crf-search`).
+- A "delta vs baseline" line under the table shows what the search bought relative to yt_clipper's default auto-picked CRF (the encode that would have happened without `--sample-guided-encode`).
 
 **Caveat for stabilized clips:**
 
@@ -567,10 +567,10 @@ The default targets are VMAF NEG mean `>= 95` and 5th-percentile (`p5`) `>= 93`.
 
 **Advanced sub-flags:**
 
-- `--crf-search-target-vmaf-mean`: override the VMAF NEG mean target (default `95`).
-- `--crf-search-target-vmaf-low`: override the low-percentile threshold (default scales with the chosen percentile: `p1=91, p5=93, p10=95, p15=96, p20=96.5, p25=97`).
-- `--crf-search-target-vmaf-low-percentile`: choose which percentile to enforce as the worst-case-frame target (`1`, `5`, `10`, `15`, `20`, or `25`; default `5`). All six are computed and reported regardless.
-- `--crf-search-algorithm`: `curve-fit` (default) probes a few CRFs and fits curves to pick a knee. `legacy-bisection` is the older strict-pass/fail flow, kept for rollback.
+- `--target-vmaf-mean`: override the VMAF NEG mean target (default `95`).
+- `--target-vmaf-low`: override the low-percentile threshold (default scales with the chosen percentile: `p1=91, p5=93, p10=95, p15=96, p20=96.5, p25=97`).
+- `--target-vmaf-low-percentile`: choose which percentile to enforce as the worst-case-frame target (`1`, `5`, `10`, `15`, `20`, or `25`; default `5`). All six are computed and reported regardless.
+- `--sample-guided-encode-alg`: `curve-fit` (default) probes a few CRFs and fits curves to pick a knee. `legacy-bisection` is the older strict-pass/fail flow, kept for rollback.
 
 ## Tips and Settings
 

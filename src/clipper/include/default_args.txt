@@ -13,4 +13,4 @@
 # --youtube-dl-alternative yt_dlp
 # --video-codec h264_vulkan
 # --ytdl-location yt-dlp
-# --crf-search
+# --sample-guided-encode

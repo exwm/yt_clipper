@@ -12,7 +12,7 @@ Two design decisions worth flagging:
 - **Re-interpolate, don't trust the saved value.** Each prior run's
   JSONL stores ``kbps_at_target_vmaf`` from when *that* run wrote
   it — at *that* run's target. If the user changed
-  ``--crf-search-target-vmaf-low`` since, the saved value is comparing apples
+  ``--target-vmaf-low`` since, the saved value is comparing apples
   and oranges. We reach back into the prior run's probe data and
   re-interpolate at the current target to keep the comparison
   apples-to-apples.

@@ -1,4 +1,4 @@
-"""Encoder + search fingerprints for the CRF-search run cache.
+"""Encoder + search fingerprints for the sample-guided run cache.
 
 Two fingerprints answer two distinct questions:
 

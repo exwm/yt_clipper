@@ -13,14 +13,14 @@ import json
 from pathlib import Path
 from typing import Any
 
-from clipper.encode_crf_search.run_cache import (
+from clipper.sample_guided_encode.run_cache import (
     CacheReuseDecision,
     cleanup_orphaned_trial_files,
     evaluate_cache_reuse,
     prime_trial_measurement_cache,
     reconstruct_result_from_jsonl,
 )
-from clipper.encode_crf_search.types import CrfSearchTarget, SampleWindow
+from clipper.sample_guided_encode.types import SampleGuidedEncodeTarget, SampleWindow
 
 
 def _create_trial_files(
@@ -376,7 +376,7 @@ def test_reconstruct_result_from_jsonl_returns_search_result(tmp_path: Path) -> 
             (33, {"p5": 95.0}, 13000.0),
         ],
     )
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=95.0,
         target_vmaf_low_pct=5,
@@ -403,7 +403,7 @@ def test_reconstruct_result_from_jsonl_missing_search_result_returns_none(
     jsonl_path = tmp_path / "run.jsonl"
     with jsonl_path.open("w") as fp:
         fp.write(json.dumps({"type": "run_header"}) + "\n")
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0, target_vmaf_low=95.0, target_vmaf_low_pct=5,
         crf_min=20, crf_max=42,
     )

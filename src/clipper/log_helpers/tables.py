@@ -1,6 +1,6 @@
 """Render rich tables to plain text for the logger.
 
-The CRF-search aggregate summary and the per-clip prior-run delta
+The sample-guided aggregate summary and the per-clip prior-run delta
 block are tabular outputs that previously used hand-padded f-string
 columns. ``rich.Table`` handles the alignment arithmetic and lets us
 add per-column styling without recomputing widths.

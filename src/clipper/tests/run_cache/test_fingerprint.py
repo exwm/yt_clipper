@@ -15,7 +15,7 @@ cache survives no-op refactors.
 
 from __future__ import annotations
 
-from clipper.encode_crf_search.run_cache import (
+from clipper.sample_guided_encode.run_cache import (
     canonicalize_codec_args,
     canonicalize_filter_graph,
     compute_encoder_fingerprint,

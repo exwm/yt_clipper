@@ -16,7 +16,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from clipper.encode_crf_search.run_cache import PriorRun, load_prior_runs
+from clipper.sample_guided_encode.run_cache import PriorRun, load_prior_runs
 
 
 def _make_run_jsonl(

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from clipper.encode_crf_search.run_cache import (
+from clipper.sample_guided_encode.run_cache import (
     PriorRun,
     PriorRunDelta,
     compute_prior_run_deltas,
@@ -107,7 +107,7 @@ def test_compute_prior_run_deltas_basic_comparison() -> None:
 
 def test_compute_prior_run_deltas_unbracketed_target_returns_none_kbps() -> None:
     """If the prior run's probes don't reach the current target VMAF
-    (e.g. the user changed --crf-search-target-vmaf-low to a value outside the
+    (e.g. the user changed --target-vmaf-low to a value outside the
     prior run's curve), the kbps@tgt is None and so is its delta."""
     prior = _prior(
         encoder_fingerprint="mode4",

@@ -11,7 +11,7 @@ Operators want to see how a run's time was distributed:
       pair 2 / v2x          18.5s  ( 9.0%)
       total                205.0s
 
-Without this, the only timing in logs is the per-CRF-search wall
+Without this, the only timing in logs is the per-sample-guided wall
 time inside ``search_seconds`` — there's no "stage X took Y" view
 across the whole run.
 
@@ -20,7 +20,7 @@ Usage::
     from clipper.log_helpers import time_stage
 
     with time_stage(f"pair {N} / crf search"):
-        run_crf_search_for_marker_pair(...)
+        run_sample_guided_encode_for_marker_pair(...)
 
 The context manager records elapsed time on exit, appending to a
 module-level singleton ``StageTimer``. Render the summary at run

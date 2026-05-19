@@ -1,6 +1,6 @@
 """VMAF-targeted empirical CRF binary-search driver.
 
-When the user passes ``--crf-search``, each marker pair is encoded
+When the user passes ``--sample-guided-encode``, each marker pair is encoded
 at multiple trial CRFs, measured against a near-transparent reference
 encode, and the lowest CRF (= most compression) whose VMAF NEG clears
 both the mean and the configured low-percentile target becomes the
@@ -12,9 +12,9 @@ interpolation is applied post-encoder or not.
 Package layout (each submodule is the natural import target for code
 that needs only its slice of the search):
 
-- :mod:`.types` — data shapes (:class:`CrfSearchTarget`,
-  :class:`CrfSearchTrial`, :class:`TrialMeasurement`,
-  :class:`CrfSearchResult`, :class:`SampleWindow`,
+- :mod:`.types` — data shapes (:class:`SampleGuidedEncodeTarget`,
+  :class:`SampleGuidedEncodeTrial`, :class:`TrialMeasurement`,
+  :class:`SampleGuidedEncodeResult`, :class:`SampleWindow`,
   :class:`ClipSearchSummary`), constants, and percentile-table
   helpers. No I/O, no algorithms.
 - :mod:`.predicates` — pure decision predicates: ``passes_targets``,
@@ -26,11 +26,11 @@ that needs only its slice of the search):
   (``find_optimal_crf_two_phase``). Pure algorithms; takes injected
   evaluator callbacks rather than touching the encoder pipeline.
 - :mod:`.orchestrator` — the user-facing entry point
-  ``run_crf_search_for_marker_pair`` plus the encoder integration
+  ``run_sample_guided_encode_for_marker_pair`` plus the encoder integration
   glue. Only this module knows about ``ClipperState`` / ``makeClip``.
 
 This ``__init__.py`` re-exports the names that ``clip_maker`` and the
-test suite import via ``from clipper.encode_crf_search import ...``.
+test suite import via ``from clipper.sample_guided_encode import ...``.
 The ``X as X`` aliases tell linters these are intentionally re-
 exported rather than unused.
 
@@ -70,7 +70,9 @@ from .orchestrator import (
     format_aggregated_search_summary_log_block as format_aggregated_search_summary_log_block,
 )
 from .orchestrator import reference_encode_picks_for_codec as reference_encode_picks_for_codec
-from .orchestrator import run_crf_search_for_marker_pair as run_crf_search_for_marker_pair
+from .orchestrator import (
+    run_sample_guided_encode_for_marker_pair as run_sample_guided_encode_for_marker_pair,
+)
 
 # ---------------------------------------------------------------------------
 # Predicate re-exports (passes_targets + calibration / hopeless / fallback)
@@ -141,9 +143,9 @@ from .types import MIN_FRAMES_FOR_RELIABLE_P1 as MIN_FRAMES_FOR_RELIABLE_P1
 from .types import REFERENCE_SUFFIX_TEMPLATE as REFERENCE_SUFFIX_TEMPLATE
 from .types import SUPPORTED_LOW_PERCENTILES as SUPPORTED_LOW_PERCENTILES
 from .types import TRIAL_SUFFIX_TEMPLATE as TRIAL_SUFFIX_TEMPLATE
-from .types import CrfSearchResult as CrfSearchResult
-from .types import CrfSearchTarget as CrfSearchTarget
-from .types import CrfSearchTrial as CrfSearchTrial
+from .types import SampleGuidedEncodeResult as SampleGuidedEncodeResult
+from .types import SampleGuidedEncodeTarget as SampleGuidedEncodeTarget
+from .types import SampleGuidedEncodeTrial as SampleGuidedEncodeTrial
 from .types import SampleWindow as SampleWindow
 from .types import TrialMeasurement as TrialMeasurement
 from .types import default_low_threshold_for_percentile as default_low_threshold_for_percentile

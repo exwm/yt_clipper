@@ -1,9 +1,9 @@
 """Tests for ``orchestrator._compute_run_fingerprints``.
 
 Covers the glue function that turns a settings dict + marker snapshot
-+ CrfSearchTarget into a full fingerprint bundle (encoder + search +
++ SampleGuidedEncodeTarget into a full fingerprint bundle (encoder + search +
 config summary). This is the function the orchestrator calls at the
-top of every CRF search to pin the per-run JSONL to a fingerprint
+top of every sample-guided encode to pin the per-run JSONL to a fingerprint
 subdirectory.
 
 The function itself is private (underscore prefix), but exposed here
@@ -13,8 +13,8 @@ needing a full live encode harness.
 
 from __future__ import annotations
 
-from clipper.encode_crf_search.orchestrator import _compute_run_fingerprints
-from clipper.encode_crf_search.types import CrfSearchTarget
+from clipper.sample_guided_encode.orchestrator import _compute_run_fingerprints
+from clipper.sample_guided_encode.types import SampleGuidedEncodeTarget
 
 
 def _settings(**overrides: object) -> dict[str, object]:
@@ -41,8 +41,8 @@ def _snapshot(**overrides: object) -> dict[str, object]:
     return base
 
 
-def _target() -> CrfSearchTarget:
-    return CrfSearchTarget(
+def _target() -> SampleGuidedEncodeTarget:
+    return SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=95.0,
         target_vmaf_low_pct=5,
@@ -101,11 +101,11 @@ def test_compute_run_fingerprints_search_fp_independent_of_encoder_settings() ->
 
 
 def test_compute_run_fingerprints_search_fp_flips_on_target_change() -> None:
-    target_a = CrfSearchTarget(
+    target_a = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0, target_vmaf_low=95.0, target_vmaf_low_pct=5,
         crf_min=20, crf_max=42,
     )
-    target_b = CrfSearchTarget(
+    target_b = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0, target_vmaf_low=92.0, target_vmaf_low_pct=5,
         crf_min=20, crf_max=42,
     )

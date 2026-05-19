@@ -6,11 +6,11 @@ circuit work by reusing a prior run's data:
 
 - **Full hit** ⇒ skip the search entirely. Same encoder fingerprint
   AND same search fingerprint AND every freshness gate field
-  matches. Reconstructs a ``CrfSearchResult`` from the prior JSONL
+  matches. Reconstructs a ``SampleGuidedEncodeResult`` from the prior JSONL
   and returns it; the orchestrator proceeds straight to the final
   encode at the prior's picked CRF.
 - **Partial hit** ⇒ same encoder fingerprint, different search
-  fingerprint (e.g. user changed ``--crf-search-target-vmaf-low``). Trial
+  fingerprint (e.g. user changed ``--target-vmaf-low``). Trial
   encodes are byte-equivalent — we can prime
   ``trial_measurement_cache`` with the prior run's per-frame VMAF
   measurements at each (crf, window_index) so the new search
@@ -47,9 +47,9 @@ from .history import PriorRun, _parse_prior_run
 
 if TYPE_CHECKING:
     from ..types import (
-        CrfSearchResult,
-        CrfSearchTarget,
-        CrfSearchTrial,
+        SampleGuidedEncodeResult,
+        SampleGuidedEncodeTarget,
+        SampleGuidedEncodeTrial,
         SampleWindow,
         VmafSummary,
     )
@@ -65,7 +65,7 @@ class CacheReuseDecision:
     """Outcome of the cache-reuse evaluation for one marker pair.
 
     - ``kind="full"``: caller should skip the search and use the
-      reconstructed ``CrfSearchResult`` available via
+      reconstructed ``SampleGuidedEncodeResult`` available via
       ``full_hit_reconstruct``. Final encode proceeds normally.
     - ``kind="partial"``: caller should run the search but prime
       ``trial_measurement_cache`` from the prior run via
@@ -282,18 +282,18 @@ def _pair_identity_matches(
 def reconstruct_result_from_jsonl(  # noqa: PLR0912 — straight-line record dispatch + summary fallback
     jsonl_path: Path,
     *,
-    target: CrfSearchTarget,
+    target: SampleGuidedEncodeTarget,
     sample_windows: list[SampleWindow],
     final_frames_estimate: int,
-) -> CrfSearchResult | None:
-    """Rebuild a ``CrfSearchResult`` from a prior run's JSONL.
+) -> SampleGuidedEncodeResult | None:
+    """Rebuild a ``SampleGuidedEncodeResult`` from a prior run's JSONL.
 
     For full cache hits — caller drops the result into the same slot
     the search loop would have populated, so downstream code (final
     encode, JSONL write, log render) doesn't need to know the result
     came from the cache.
 
-    Reconstructs all trial records into ``CrfSearchTrial`` objects
+    Reconstructs all trial records into ``SampleGuidedEncodeTrial`` objects
     so the kbps@tgt interpolator and the per-trial summary line
     have data to chew on. Returns ``None`` if the JSONL is missing
     the required ``search_result`` record (already filtered by
@@ -302,12 +302,12 @@ def reconstruct_result_from_jsonl(  # noqa: PLR0912 — straight-line record dis
     """
     # Local imports to avoid the encoder-search ↔ types ↔ cache cycle.
     from ..types import (
-        CrfSearchResult,
-        CrfSearchTrial,
+        SampleGuidedEncodeResult,
+        SampleGuidedEncodeTrial,
         VmafSummary,
     )
 
-    trials: list[CrfSearchTrial] = []
+    trials: list[SampleGuidedEncodeTrial] = []
     result_record: dict[str, Any] | None = None
     fit_baseline_record: dict[str, Any] | None = None
     try:
@@ -323,7 +323,7 @@ def reconstruct_result_from_jsonl(  # noqa: PLR0912 — straight-line record dis
                 rec_type = rec.get("type")
                 if rec_type == "trial":
                     trial = _trial_from_record(
-                        rec, CrfSearchTrial, VmafSummary,
+                        rec, SampleGuidedEncodeTrial, VmafSummary,
                     )
                     if trial is not None:
                         trials.append(trial)
@@ -367,15 +367,15 @@ def reconstruct_result_from_jsonl(  # noqa: PLR0912 — straight-line record dis
     # Annotating with phase="baseline" preserves the role even though
     # downstream code reads it off the dedicated ``baseline_trial``
     # field rather than scanning ``trials`` for the phase tag.
-    baseline_trial: CrfSearchTrial | None = None
+    baseline_trial: SampleGuidedEncodeTrial | None = None
     if fit_baseline_record is not None:
         baseline_record = dict(fit_baseline_record)
         baseline_record.setdefault("phase", "baseline")
         baseline_trial = _trial_from_record(
-            baseline_record, CrfSearchTrial, VmafSummary,
+            baseline_record, SampleGuidedEncodeTrial, VmafSummary,
         )
 
-    return CrfSearchResult(
+    return SampleGuidedEncodeResult(
         optimal_crf=optimal_crf,
         optimal_summary=optimal_summary,
         trials=trials,
@@ -391,10 +391,10 @@ def reconstruct_result_from_jsonl(  # noqa: PLR0912 — straight-line record dis
 
 def _trial_from_record(
     rec: dict[str, Any],
-    trial_cls: type[CrfSearchTrial],
+    trial_cls: type[SampleGuidedEncodeTrial],
     summary_cls: type[VmafSummary],
-) -> CrfSearchTrial | None:
-    """Convert one JSONL ``trial`` record back into a ``CrfSearchTrial``.
+) -> SampleGuidedEncodeTrial | None:
+    """Convert one JSONL ``trial`` record back into a ``SampleGuidedEncodeTrial``.
 
     Returns ``None`` for records missing required fields — they get
     silently dropped from the reconstructed result rather than
@@ -590,7 +590,7 @@ def prime_trial_measurement_cache(  # noqa: PLR0912 — straight-line record dis
     plus the file name stem and fingerprint dir. If the file
     actually exists on disk, the orchestrator's
     ``mp["exists"]`` check skips the encode too. If not (user
-    cleaned ``temp/crf-search/``), the cache entry is still
+    cleaned ``temp/sample-encodes/``), the cache entry is still
     populated with the pseudo-path — the encode step re-creates the
     file, the cached measurement is reused.
     """

@@ -97,7 +97,7 @@ class EncodeProgressTracker:
         # When ``silent_non_progress`` is True, stderr lines that
         # aren't ffmpeg's ``frame= ... fps= ...`` stats line are
         # dropped silently rather than scrolled above the bar. Used
-        # for CRF-search trial encodes: we want the bar to advance
+        # for sample-guided trial encodes: we want the bar to advance
         # (via the stats line) but don't want 20+ copies of the
         # decoder / encoder setup banner cluttering the log.
         #
@@ -439,7 +439,7 @@ def run_ffmpeg_with_progress(
     # Inject global flags right after the binary path so ffmpeg
     # parses them as global, not as flags applying to the (already-
     # specified) output file. ``-stats_period 0.1`` flushes progress
-    # 10x/s so short encodes (CRF-search trial windows) get visible
+    # 10x/s so short encodes (sample-guided trial windows) get visible
     # bar advances instead of jumping 0 -> done at the end.
     parts = [parts[0], "-progress", "pipe:1", "-stats_period", "0.1", *parts[1:]]
     proc = subprocess.Popen(
@@ -468,7 +468,7 @@ def run_ffmpeg_with_progress(
 
 
 # Active search-level tracker for the current execution context. Set
-# by the CRF-search orchestrator before invoking the search algorithm;
+# by the sample-guided orchestrator before invoking the search algorithm;
 # read by :func:`run_ffmpeg_with_progress` (via
 # :func:`runffmpegCommand`) so trial ffmpeg invocations route their
 # stderr through the shared search-level Live display instead of
@@ -507,7 +507,7 @@ def active_search_progress(
 
 
 # Per-search registry of ffmpeg filter-graph strings the verbose
-# command-logger has already emitted. During a CRF search a single
+# command-logger has already emitted. During a sample-guided encode a single
 # trial's ``-vf "..."`` expression can run multi-thousand chars (the
 # crop / sendcmd / scale chain — especially for dynamic crops with
 # many keyframes) and is essentially identical across 20+ trials +
@@ -521,7 +521,7 @@ def active_search_progress(
 # expr appears once with its id) while per-trial command lines stay
 # scannable.
 #
-# Scope is the active CRF search: registered graphs reset between
+# Scope is the active sample-guided encode: registered graphs reset between
 # searches so the numbering starts at 1 each time and graphs from
 # unrelated pairs don't accumulate.
 _active_filter_graph_registry: ContextVar[dict[str, int] | None] = ContextVar(
@@ -553,7 +553,7 @@ def get_active_filter_graph_registry() -> dict[str, int] | None:
 @contextmanager
 def active_filter_graph_registry() -> Generator[dict[str, int], None, None]:
     """Bind a fresh empty registry for the ``with`` block. Entered
-    by :func:`track_crf_search_progress` so every CRF search gets
+    by :func:`track_sample_guided_encode_progress` so every sample-guided encode gets
     its own numbering scheme; reset on exit so registries don't
     leak between searches."""
     registry: dict[str, int] = {}
@@ -606,9 +606,9 @@ def substitute_filter_graphs(cmd: str) -> tuple[str, list[tuple[int, str]]]:
 
 
 @contextmanager
-def track_crf_search_progress(
+def track_sample_guided_encode_progress(
     *,
-    label: str = "CRF search",
+    label: str = "sample-guided encode",
     console: Console | None = None,
 ) -> Generator[SearchProgressTracker, None, None]:
     """Bundle :class:`SearchProgressTracker` setup + contextvar
@@ -616,7 +616,7 @@ def track_crf_search_progress(
 
     Usage::
 
-        with track_crf_search_progress() as tracker:
+        with track_sample_guided_encode_progress() as tracker:
             ...run search...
 
     Equivalent to entering the tracker AND
@@ -637,7 +637,7 @@ def track_crf_search_progress(
         return
     tracker = SearchProgressTracker(label=label, console=console)
     # Open a fresh filter-graph registry alongside the tracker so
-    # every CRF search gets its own per-search ``#N`` numbering.
+    # every sample-guided encode gets its own per-search ``#N`` numbering.
     # Trial / reference / baseline ffmpeg invocations consult the
     # registry to substitute long ``-vf "..."`` expressions with
     # compact ``[filter-graph #N]`` placeholders.
@@ -646,7 +646,7 @@ def track_crf_search_progress(
 
 
 class SearchProgressTracker:
-    """Live progress display that spans an entire CRF search rather
+    """Live progress display that spans an entire sample-guided encode rather
     than a single ffmpeg invocation.
 
     Renders as a transient Live block:
@@ -654,7 +654,7 @@ class SearchProgressTracker:
     - A status line for the latest ffmpeg stats from the trial
       currently encoding (``frame= N fps= ... time= ... bitrate=
       ... speed= ...``).
-    - A spinner + ``CRF search — trial N`` counter + elapsed time.
+    - A spinner + ``sample-guided encode — trial N`` counter + elapsed time.
 
     No progress bar: the total trial count for a search isn't known
     up front (bisection may short-circuit; two-phase + curve-fit add
@@ -677,7 +677,7 @@ class SearchProgressTracker:
 
     def __init__(
         self,
-        label: str = "CRF search",
+        label: str = "sample-guided encode",
         console: Console | None = None,
     ) -> None:
         self._label = label
@@ -760,10 +760,10 @@ class SearchProgressTracker:
 
         Does NOT advance the trial counter — the displayed phase
         label takes the description verbatim
-        (e.g. ``"CRF search — reference encode (crf=18 w1 3.2-4.0s)"``)
+        (e.g. ``"sample-guided encode — reference encode (crf=18 w1 3.2-4.0s)"``)
         so the operator sees what's running with no implication
         about trial numbering. Caller passes a full label, including
-        the ``"CRF search —"`` prefix, to match the trial-row format.
+        the ``"sample-guided encode —"`` prefix, to match the trial-row format.
         """
         if label:
             self._progress.update(self._task_id, description=label)

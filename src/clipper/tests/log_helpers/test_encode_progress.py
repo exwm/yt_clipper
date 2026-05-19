@@ -14,7 +14,7 @@ from clipper.log_helpers.encode_progress import (
     get_active_filter_graph_registry,
     get_active_search_progress,
     substitute_filter_graphs,
-    track_crf_search_progress,
+    track_sample_guided_encode_progress,
 )
 
 
@@ -124,7 +124,7 @@ def _make_search_tracker() -> SearchProgressTracker:
     """Search tracker writing to an in-memory Console so tests
     don't print to the real terminal."""
     console = Console(file=io.StringIO(), force_terminal=False, no_color=True)
-    return SearchProgressTracker(label="CRF search", console=console)
+    return SearchProgressTracker(label="sample-guided encode", console=console)
 
 
 def test_search_tracker_begin_trial_advances_counter_and_label() -> None:
@@ -144,11 +144,11 @@ def test_search_tracker_begin_trial_advances_counter_and_label() -> None:
     assert tracker._progress.tasks[0].total is None
 
 
-def test_track_crf_search_progress_binds_contextvar_for_with_scope() -> None:
+def test_track_sample_guided_encode_progress_binds_contextvar_for_with_scope() -> None:
     # Outside the with-block: no active tracker.
     assert get_active_search_progress() is None
     # Inside: the yielded tracker is the active one.
-    with track_crf_search_progress(
+    with track_sample_guided_encode_progress(
         console=Console(file=io.StringIO(), force_terminal=False, no_color=True),
     ) as tracker:
         assert get_active_search_progress() is tracker
@@ -261,11 +261,11 @@ def test_active_filter_graph_registry_resets_on_exit() -> None:
     assert get_active_filter_graph_registry() is None
 
 
-def test_track_crf_search_progress_enters_filter_graph_registry() -> None:
+def test_track_sample_guided_encode_progress_enters_filter_graph_registry() -> None:
     # Reuses the in-memory console pattern from the surrounding suite.
     console = Console(file=io.StringIO(), force_terminal=False, no_color=True)
     assert get_active_filter_graph_registry() is None
-    with track_crf_search_progress(console=console):
+    with track_sample_guided_encode_progress(console=console):
         # Both contextvars active simultaneously during a search.
         assert get_active_search_progress() is not None
         assert get_active_filter_graph_registry() is not None

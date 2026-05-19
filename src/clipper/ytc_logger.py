@@ -208,7 +208,7 @@ class Subsystem:
 
     CLI = "cli"
     CLIP_MAKER = "clip-maker"
-    CRF_SEARCH = "crf-search"
+    SAMPLE_ENCODE = "sample-encode"
     FFMPEG_CODEC = "ffmpeg-codec"
     FFMPEG_FILTER = "ffmpeg-filter"
     FFPROBE = "ffprobe"
@@ -255,7 +255,7 @@ def pair_context(pair_index: int) -> Generator[None, None, None]:
 class SubsystemLogger:
     """Wraps the global ``logger`` and prefixes operator-facing
     messages with a bold subsystem chip (``clip-maker:``,
-    ``crf-search:``, etc.).
+    ``sample-guided:``, etc.).
 
     When inside a ``pair_context(N)`` scope, the chip extends to
     ``clip-maker · pair N+1:`` so every line during that pair's

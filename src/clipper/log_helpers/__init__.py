@@ -17,8 +17,8 @@ from .encode_progress import (
     get_active_search_progress,
     run_ffmpeg_with_progress,
     substitute_filter_graphs,
-    track_crf_search_progress,
     track_encode_progress,
+    track_sample_guided_encode_progress,
 )
 from .paths import LogPath, quoted_path
 from .rules import render_rule
@@ -64,6 +64,6 @@ __all__ = [
     "subprocess_block",
     "substitute_filter_graphs",
     "time_stage",
-    "track_crf_search_progress",
     "track_encode_progress",
+    "track_sample_guided_encode_progress",
 ]

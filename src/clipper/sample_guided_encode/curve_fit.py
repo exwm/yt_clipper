@@ -1,4 +1,4 @@
-"""Curve-fit + heuristic-pick CRF search algorithm.
+"""Curve-fit + heuristic-pick sample-guided encode algorithm.
 
 Replaces the strict-pass/fail bisection (``find_optimal_crf_two_phase``)
 with a probe-fit-pick pipeline:
@@ -17,7 +17,7 @@ with a probe-fit-pick pipeline:
    whose interpolated p_low stays within tolerance of target). Nine
    total picks; default is KNEE on PIECEWISE.
 5. Verify-encode at the chosen CRF (cache hit if already a probe) so
-   the returned ``CrfSearchResult`` carries a real measured summary
+   the returned ``SampleGuidedEncodeResult`` carries a real measured summary
    for downstream logging + cross-pair learning.
 
 Why this replaces bisection:
@@ -28,7 +28,7 @@ Why this replaces bisection:
 - **No noise amplification**: the curve fit averages noise across
   multiple CRF probes; a single noisy probe shifts the picked CRF by
   fractions of a step rather than several CRFs.
-- **Soft target**: ``--crf-search-target-vmaf-low`` becomes a guide rather than
+- **Soft target**: ``--target-vmaf-low`` becomes a guide rather than
   a hard cutoff. We can land near it with no strict pass/fail flag,
   side-stepping the "everything fails because the reference encode
   caps achievable VMAF" cascade-and-bail failure mode.
@@ -50,14 +50,14 @@ from clipper.ytc_logger import Subsystem, make_subsystem_logger
 
 from .search import _build_trial_from_measurement
 from .types import (
-    CrfSearchResult,
-    CrfSearchTarget,
-    CrfSearchTrial,
+    SampleGuidedEncodeResult,
+    SampleGuidedEncodeTarget,
+    SampleGuidedEncodeTrial,
     TrialMeasurement,
     get_low_percentile_value,
 )
 
-logger = make_subsystem_logger(Subsystem.CRF_SEARCH)
+logger = make_subsystem_logger(Subsystem.SAMPLE_ENCODE)
 
 # Algorithm version: bumped manually whenever curve-fit logic changes in
 # a way that would meaningfully shift outcomes for the same input data.
@@ -138,7 +138,7 @@ class CurveFit:
     walks and for knee detection.
     """
 
-    valid_probes: list[CrfSearchTrial]
+    valid_probes: list[SampleGuidedEncodeTrial]
     low_pct: int
     piecewise_eval: Callable[[int], float]
     linear_slope: float
@@ -164,10 +164,10 @@ class HeuristicPicks:
 
 @dataclass(frozen=True)
 class CurveFitSearchResult:
-    """Curve-fit specific result data attached to ``CrfSearchResult``.
+    """Curve-fit specific result data attached to ``SampleGuidedEncodeResult``.
 
     Exposed so ``orchestrator.py`` can format it into log lines + the
-    JSONL metadata file. Doesn't replace ``CrfSearchResult`` — coexists.
+    JSONL metadata file. Doesn't replace ``SampleGuidedEncodeResult`` — coexists.
     """
 
     fit: CurveFit
@@ -216,11 +216,11 @@ def select_initial_probe_crfs(
 
 
 def drop_saturated_probes(
-    probes: list[CrfSearchTrial],
+    probes: list[SampleGuidedEncodeTrial],
     *,
     low_pct: int,
     epsilon: float = DEFAULT_SATURATION_EPSILON,
-) -> list[CrfSearchTrial]:
+) -> list[SampleGuidedEncodeTrial]:
     """Remove probes whose VMAF is within ``epsilon`` of an adjacent
     probe's at a *lower* CRF (same quality at higher cost).
 
@@ -238,7 +238,7 @@ def drop_saturated_probes(
     if len(probes) < 2:
         return list(probes)
     sorted_probes = sorted(probes, key=lambda p: p.crf)
-    keep: list[CrfSearchTrial] = []
+    keep: list[SampleGuidedEncodeTrial] = []
     for i, probe in enumerate(sorted_probes):
         # Compare to the next-higher-CRF probe (if any). If they're
         # within epsilon, drop THIS probe (lower CRF, same quality).
@@ -257,7 +257,7 @@ def drop_saturated_probes(
 
 
 def _piecewise_evaluator(
-    probes: list[CrfSearchTrial],
+    probes: list[SampleGuidedEncodeTrial],
     low_pct: int,
 ) -> Callable[[int], float]:
     """Return a function that linearly interpolates p_low at any CRF
@@ -293,7 +293,7 @@ def _piecewise_evaluator(
 
 
 def _fit_global_linear(
-    probes: list[CrfSearchTrial],
+    probes: list[SampleGuidedEncodeTrial],
     low_pct: int,
 ) -> tuple[float, float]:
     """Ordinary least-squares fit ``p_low = slope * crf + intercept``.
@@ -320,7 +320,7 @@ def _fit_global_linear(
 
 
 def _fit_log(
-    probes: list[CrfSearchTrial],
+    probes: list[SampleGuidedEncodeTrial],
     low_pct: int,
     *,
     crf_max: int,
@@ -355,9 +355,9 @@ def _fit_log(
 
 
 def fit_curves(
-    probes: list[CrfSearchTrial],
+    probes: list[SampleGuidedEncodeTrial],
     *,
-    target: CrfSearchTarget,
+    target: SampleGuidedEncodeTarget,
 ) -> CurveFit:
     """Fit all three curve models to the saturation-filtered probes.
 
@@ -428,7 +428,7 @@ def _solve_for_target_crf(
 def pick_target(
     fit: CurveFit,
     *,
-    target: CrfSearchTarget,
+    target: SampleGuidedEncodeTarget,
     model: CurveModelName = "piecewise",
 ) -> int | None:
     """Highest CRF whose model-predicted p_low >= target.target_vmaf_low.
@@ -450,7 +450,7 @@ def pick_target(
 def pick_budget(
     fit: CurveFit,
     *,
-    target: CrfSearchTarget,
+    target: SampleGuidedEncodeTarget,
     tolerance: float = DEFAULT_BUDGET_TOLERANCE,
     model: CurveModelName = "piecewise",
 ) -> int | None:
@@ -473,7 +473,7 @@ def pick_budget(
 def pick_knee(
     fit: CurveFit,
     *,
-    target: CrfSearchTarget,
+    target: SampleGuidedEncodeTarget,
     steepening_threshold: float = DEFAULT_KNEE_STEEPENING_THRESHOLD,
 ) -> int | None:
     """Find the CRF just before the curve's slope steepens most.
@@ -540,9 +540,9 @@ def pick_knee(
 
 
 def needs_extra_probe(
-    probes: list[CrfSearchTrial],
+    probes: list[SampleGuidedEncodeTrial],
     *,
-    target: CrfSearchTarget,
+    target: SampleGuidedEncodeTarget,
     refit_gap_threshold: int = DEFAULT_REFIT_GAP_THRESHOLD,
 ) -> tuple[int | None, str]:
     """Decide whether an additional probe would improve the fit.
@@ -795,10 +795,10 @@ def _plotille_force_color() -> Generator[None, None, None]:
 def render_curve_ascii(  # noqa: PLR0912
     fit: CurveFit,
     *,
-    target: CrfSearchTarget,
+    target: SampleGuidedEncodeTarget,
     chosen_crf: int,
-    baseline: CrfSearchTrial | None = None,
-    reference: CrfSearchTrial | None = None,
+    baseline: SampleGuidedEncodeTrial | None = None,
+    reference: SampleGuidedEncodeTrial | None = None,
     width: int = 60,
     vmaf_height: int = 12,
     bitrate_height: int = 9,
@@ -1087,16 +1087,16 @@ def render_curve_ascii(  # noqa: PLR0912
 
 def find_crf_via_curve_fit(
     *,
-    target: CrfSearchTarget,
+    target: SampleGuidedEncodeTarget,
     evaluate_at_crf: Callable[[int], TrialMeasurement],
-    on_trial_complete: Callable[[CrfSearchTrial], None] | None = None,
+    on_trial_complete: Callable[[SampleGuidedEncodeTrial], None] | None = None,
     n_initial_probes: int = DEFAULT_INITIAL_PROBE_COUNT,
     max_probes: int = DEFAULT_MAX_PROBE_COUNT,
     final_frames_estimate: int = 0,
     reference_size_bytes: int = 0,
-    baseline_trial: CrfSearchTrial | None = None,
-    reference_marker: CrfSearchTrial | None = None,
-) -> tuple[CrfSearchResult, CurveFitSearchResult]:
+    baseline_trial: SampleGuidedEncodeTrial | None = None,
+    reference_marker: SampleGuidedEncodeTrial | None = None,
+) -> tuple[SampleGuidedEncodeResult, CurveFitSearchResult]:
     """Run the probe-fit-pick search.
 
     Probes ``n_initial_probes`` evenly-spaced CRFs across
@@ -1106,16 +1106,16 @@ def find_crf_via_curve_fit(
     fits all three curve models, computes all 3x3 heuristic picks,
     and chooses the default = KNEE on PIECEWISE (with TARGET fallback).
 
-    Returns ``(crf_search_result, curve_fit_result)``. The first matches
+    Returns ``(sample_guided_encode_result, curve_fit_result)``. The first matches
     the bisection's result shape so the orchestrator's downstream
     logging + cross-pair learning works without changes. The second
     carries curve-fit-specific data for the JSONL metadata file +
     detailed log lines.
     """
-    trials: list[CrfSearchTrial] = []
+    trials: list[SampleGuidedEncodeTrial] = []
     refit_reasons: list[str] = []
 
-    def probe_at(crf: int) -> CrfSearchTrial:
+    def probe_at(crf: int) -> SampleGuidedEncodeTrial:
         clamped = max(target.crf_min, min(target.crf_max, crf))
         start = time.perf_counter()
         measurement = evaluate_at_crf(clamped)
@@ -1226,11 +1226,11 @@ def find_crf_via_curve_fit(
         # Replace last appended trial with the re-tagged one.
         trials[-1] = verify_trial
 
-    # ---- Phase 5: build CrfSearchResult -----------------------------------
+    # ---- Phase 5: build SampleGuidedEncodeResult -----------------------------------
     # Use ``fit_target`` so the result records the effective range the
     # search actually explored (which may be wider than the input
     # target.crf_max if boundary expansion fired).
-    search_result = CrfSearchResult(
+    search_result = SampleGuidedEncodeResult(
         optimal_crf=chosen_crf,
         optimal_summary=verify_trial.summary,
         trials=trials,

@@ -84,7 +84,7 @@ def test_summarize_vmaf_percentiles_ordered_low_to_high() -> None:
 
     Locks the documented invariant that the lower percentiles report
     strictly-or-equal lower scores than higher percentiles, which the
-    auto-scaling threshold logic in CrfSearchTarget relies on.
+    auto-scaling threshold logic in SampleGuidedEncodeTarget relies on.
     """
     # Long enough that quantile interpolation has data to work with.
     scores = [80.0 + i * 0.2 for i in range(100)]  # 80..100 in 0.2 steps

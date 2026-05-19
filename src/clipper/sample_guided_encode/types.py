@@ -1,10 +1,10 @@
-"""Data shapes, constants, and percentile-table helpers for the CRF search.
+"""Data shapes, constants, and percentile-table helpers for the sample-guided encode.
 
 Pure-data layer. Everything in here is either:
 
-- A dataclass holding search inputs / outputs (``CrfSearchTarget``,
-  ``SampleWindow``, ``CrfSearchTrial``, ``TrialMeasurement``,
-  ``CrfSearchResult``).
+- A dataclass holding search inputs / outputs (``SampleGuidedEncodeTarget``,
+  ``SampleWindow``, ``SampleGuidedEncodeTrial``, ``TrialMeasurement``,
+  ``SampleGuidedEncodeResult``).
 - A constant calibrated for yt_clipper's typical workload.
 - A trivial helper that maps the user's chosen low-percentile value
   (1, 5, or 10) to its corresponding floor / threshold / summary field.
@@ -195,7 +195,7 @@ TRIAL_SUFFIX_TEMPLATE: str = ".crfsearch-trial-crf{crf}-w{window_index}"
 
 
 @dataclass(frozen=True)
-class CrfSearchTarget:
+class SampleGuidedEncodeTarget:
     """User-specified VMAF NEG floor an encode must clear to be acceptable.
 
     Two checks combine to decide pass/fail:
@@ -255,7 +255,7 @@ class SampleWindow:
 
 
 @dataclass(frozen=True)
-class CrfSearchTrial:
+class SampleGuidedEncodeTrial:
     """One step of the binary search: tried this CRF, got this VMAF."""
 
     crf: int
@@ -309,12 +309,12 @@ class TrialMeasurement:
     # scales linearly with frame count, so this kbps figure is also the
     # *predicted* bitrate of the full final encode at the same CRF —
     # enabling the orchestrator's joint CRF + maxrate decision in
-    # ``--crf-search`` mode without extra computation downstream.
+    # ``--sample-guided-encode`` mode without extra computation downstream.
     bitrate_kbps: float = 0.0
 
 
 @dataclass(frozen=True)
-class CrfSearchResult:
+class SampleGuidedEncodeResult:
     """Final outcome of a per-clip binary search.
 
     ``optimal_crf`` is ``None`` iff no trial passed (clip is harder than
@@ -331,17 +331,17 @@ class CrfSearchResult:
 
     optimal_crf: int | None
     optimal_summary: VmafSummary | None
-    trials: list[CrfSearchTrial] = field(default_factory=list)
-    target: CrfSearchTarget | None = None
+    trials: list[SampleGuidedEncodeTrial] = field(default_factory=list)
+    target: SampleGuidedEncodeTarget | None = None
     sample_windows: list[SampleWindow] = field(default_factory=list)
     reference_size_bytes: int = 0  # total ref size across sampled windows
     search_frames: int = 0  # frames encoded across all trials (sum)
     final_frames_estimate: int = 0  # estimated frame count of the final encode
     search_seconds: float = 0.0  # cumulative wall time across all trials
     # The trial measured at the CRF yt_clipper would have auto-picked
-    # if --crf-search were OFF. Encoded once at search start (or
+    # if --sample-guided-encode were OFF. Encoded once at search start (or
     # reconstructed from the prior run's ``fit`` JSONL record on a cache
     # hit); never part of the search probe set. Surfaced separately so
     # the summary block can show a "delta vs. baseline" line without
     # the picked-trial iterators having to skip a fake probe.
-    baseline_trial: CrfSearchTrial | None = None
+    baseline_trial: SampleGuidedEncodeTrial | None = None

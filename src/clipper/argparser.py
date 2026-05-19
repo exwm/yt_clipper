@@ -565,9 +565,9 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
         help="Enable two-pass encoding. Improves quality at the cost of encoding speed.",
     )
     output_options.add_argument(
-        "--crf-search",
-        "-cs",
-        dest="crfSearch",
+        "--sample-guided-encode",
+        "-sge",
+        dest="sampleGuidedEncode",
         action="store_true",
         help=" ".join(
             [
@@ -578,40 +578,40 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
                 "On very short clips (insufficient frames for stable percentile) the low-percentile check is automatically dropped and only mean is enforced.",
                 "Adds significant encode time (~3-5x normal) on first run, but a per-pair, per-encoder-fingerprint run-cache replays the picked CRF on subsequent invocations with the same encoder settings — iterating on non-encoder settings (output filename, audio toggle, etc.) does not pay the search cost again.",
                 "The aggregate summary table reports kbps@tgt (interpolated bitrate at the target VMAF) as the apples-to-apples cross-config efficiency metric.",
-                "For advanced tuning see --crf-search-target-vmaf-mean, --crf-search-target-vmaf-low, --crf-search-target-vmaf-low-percentile.",
+                "For advanced tuning see --target-vmaf-mean, --target-vmaf-low, --target-vmaf-low-percentile.",
             ],
         ),
     )
     output_options.add_argument(
-        "--crf-search-target-vmaf-mean",
-        dest="crfSearchTargetVmafMean",
+        "--target-vmaf-mean",
+        dest="targetVmafMean",
         type=float,
         default=None,
         help=" ".join(
             [
-                "Advanced: override the default VMAF NEG mean target (95) used by --crf-search.",
-                "An encode must clear BOTH --crf-search-target-vmaf-mean AND --crf-search-target-vmaf-low to be acceptable.",
-                "Has no effect unless --crf-search is also set.",
+                "Advanced: override the default VMAF NEG mean target (95) used by --sample-guided-encode.",
+                "An encode must clear BOTH --target-vmaf-mean AND --target-vmaf-low to be acceptable.",
+                "Has no effect unless --sample-guided-encode is also set.",
             ],
         ),
     )
     output_options.add_argument(
-        "--crf-search-target-vmaf-low",
-        dest="crfSearchTargetVmafLow",
+        "--target-vmaf-low",
+        dest="targetVmafLow",
         type=float,
         default=None,
         help=" ".join(
             [
-                "Advanced: override the VMAF NEG low-percentile threshold used by --crf-search.",
-                "Default scales with --crf-search-target-vmaf-low-percentile to maintain equivalent shipping-quality strictness across percentile choices: p1=91, p5=93, p10=95, p15=96, p20=96.5, p25=97.",
+                "Advanced: override the VMAF NEG low-percentile threshold used by --sample-guided-encode.",
+                "Default scales with --target-vmaf-low-percentile to maintain equivalent shipping-quality strictness across percentile choices: p1=91, p5=93, p10=95, p15=96, p20=96.5, p25=97.",
                 "The low percentile is dropped automatically on short clips with too few frames to compute it stably (mean still enforced).",
-                "Has no effect unless --crf-search is also set.",
+                "Has no effect unless --sample-guided-encode is also set.",
             ],
         ),
     )
     output_options.add_argument(
-        "--crf-search-target-vmaf-low-percentile",
-        dest="crfSearchTargetVmafLowPercentile",
+        "--target-vmaf-low-percentile",
+        dest="targetVmafLowPercentile",
         type=int,
         default=5,
         choices=[1, 5, 10, 15, 20, 25],
@@ -623,23 +623,23 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
                 "10 (p10) is more lenient (allows 10%% of frames below); useful for very short clips where p5 is still too strict.",
                 "15-25 trade worst-frame protection for higher signal-to-noise across CRF — useful when measurement noise dominates strict-target decisions.",
                 "All six percentiles are computed and reported regardless; this only chooses which is enforced as the threshold target.",
-                "Has no effect unless --crf-search is also set.",
+                "Has no effect unless --sample-guided-encode is also set.",
             ],
         ),
     )
     output_options.add_argument(
-        "--crf-search-algorithm",
-        dest="crfSearchAlgorithm",
+        "--sample-guided-encode-alg",
+        dest="sampleGuidedEncodeAlg",
         choices=["curve-fit", "legacy-bisection"],
         default="curve-fit",
         help=" ".join(
             [
-                "Advanced: which search algorithm to use under --crf-search.",
+                "Advanced: which search algorithm to use under --sample-guided-encode.",
                 "'curve-fit' (default): probe a few fixed CRFs, fit piecewise-linear / linear / log curves to (CRF, VMAF) data, pick a CRF using knee detection (with target-VMAF and budget heuristics also computed).",
                 "Deterministic: same content + same probe set always picks the same CRF, regardless of measurement noise. Soft target — handles cases where strict thresholds are unreachable due to reference-encode quality ceilings.",
                 "'legacy-bisection': the prior strict-pass/fail Phase 1/2/3 architecture with cascade fallback and step-down refinement.",
                 "Kept for rollback during the curve-fit transition; expected to be removed once curve-fit is validated on a wider corpus.",
-                "Has no effect unless --crf-search is also set.",
+                "Has no effect unless --sample-guided-encode is also set.",
             ],
         ),
     )

@@ -1,8 +1,8 @@
-"""Unit tests for ``clipper.encode_crf_search``'s pure pieces.
+"""Unit tests for ``clipper.sample_guided_encode``'s pure pieces.
 
 Covers the trial-passing predicate, sample-window selection, and the
 binary-search algorithm with mocked encode/measure callables. The
-orchestrator (``run_crf_search_for_marker_pair``) imports ``clip_maker``
+orchestrator (``run_sample_guided_encode_for_marker_pair``) imports ``clip_maker``
 and is exercised manually via smoke testing — not unit tested here.
 """
 
@@ -13,11 +13,12 @@ from typing import Callable
 
 import pytest
 
-from clipper.encode_crf_search import (
+from clipper.quality import VmafSummary
+from clipper.sample_guided_encode import (
     DEFAULT_TARGET_TRIAL_FRAMES,
-    CrfSearchResult,
-    CrfSearchTarget,
-    CrfSearchTrial,
+    SampleGuidedEncodeResult,
+    SampleGuidedEncodeTarget,
+    SampleGuidedEncodeTrial,
     TrialMeasurement,
     _calibration_says_phase3_hopeless,
     _calibration_says_step_down_wont_help,
@@ -33,7 +34,6 @@ from clipper.encode_crf_search import (
     reference_encode_picks_for_codec,
     select_sample_windows,
 )
-from clipper.quality import VmafSummary
 
 # Frame floor for the default target percentile (p5 by default). Tests
 # that exercise the "below floor -> low-percentile dropped" code path
@@ -65,17 +65,17 @@ def _summary(*, mean: float, p1: float, frame_count: int) -> VmafSummary:
     )
 
 
-def _target(mean: float = 90.0, p1: float = 85.0) -> CrfSearchTarget:
+def _target(mean: float = 90.0, p1: float = 85.0) -> SampleGuidedEncodeTarget:
     """Test helper: builds a p5-target with the given thresholds.
 
     Pinned to ``target_vmaf_low_pct=5`` so existing tests retain their
     original p5-based semantics (frame floor = 50, predicate checks p5).
     Tests verifying default-percentile behavior should construct
-    ``CrfSearchTarget`` directly. Since ``_summary`` collapses p1..p25
+    ``SampleGuidedEncodeTarget`` directly. Since ``_summary`` collapses p1..p25
     to the same value, the choice of percentile doesn't affect the
     predicate result for tests using both helpers together.
     """
-    return CrfSearchTarget(
+    return SampleGuidedEncodeTarget(
         target_vmaf_mean=mean,
         target_vmaf_low=p1,
         target_vmaf_low_pct=5,
@@ -479,9 +479,9 @@ def test_select_sample_windows_falls_back_to_legacy_default_when_final_frames_un
 
 def _run_search(
     *,
-    target: CrfSearchTarget,
+    target: SampleGuidedEncodeTarget,
     crf_to_summary: dict[int, VmafSummary],
-) -> CrfSearchResult:
+) -> SampleGuidedEncodeResult:
     """Helper: build an evaluate_trial callable and run search.
 
     Single CRF -> VmafSummary mapping; the test doesn't model progressive
@@ -510,7 +510,7 @@ def test_find_optimal_crf_picks_crf_max_when_no_expansion_headroom() -> None:
     crf_max after a single trial — expanding upward would just hit the
     cliff edge and waste a trial.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0,
         target_vmaf_low=85.0,
         crf_min=16,
@@ -538,7 +538,7 @@ def test_find_optimal_crf_expands_above_crf_max_when_headroom_available() -> Non
     above target), the search galloping-expands upward to find the real
     ceiling — crf_max is a *starting* upper bound, not a hard cap.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0,
         target_vmaf_low=85.0,
         crf_min=16,
@@ -579,7 +579,7 @@ def test_find_optimal_crf_expansion_respects_crf_absolute_max() -> None:
     """Expansion never probes above ``crf_absolute_max`` no matter how
     much VMAF headroom remains.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0,
         target_vmaf_low=85.0,
         crf_min=16,
@@ -604,7 +604,7 @@ def test_find_optimal_crf_returns_none_when_no_crf_passes() -> None:
     """If even crf_min fails, optimal_crf is None — caller falls back to a
     safe minimum CRF with a warning.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0,
         target_vmaf_low=85.0,
         crf_min=16,
@@ -625,7 +625,7 @@ def test_find_optimal_crf_bisects_to_rightmost_passing() -> None:
     """When passing CRFs are [16..28] and failing CRFs are [29..38], the
     bisection should converge on 28 as the optimal (rightmost-passing).
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0,
         target_vmaf_low=85.0,
         crf_min=16,
@@ -649,7 +649,7 @@ def test_find_optimal_crf_respects_iteration_cap() -> None:
     """``max_iterations=2`` means we run AT MOST 2 trials — never 6 just
     because the range is wide.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0,
         target_vmaf_low=85.0,
         crf_min=16,
@@ -672,7 +672,7 @@ def test_find_optimal_crf_records_trial_history_in_order() -> None:
     """Every probed CRF appears in the result's trials list, in invocation
     order. Important so callers can show the trial table to the user.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0,
         target_vmaf_low=85.0,
         crf_min=16,
@@ -703,7 +703,7 @@ def test_find_optimal_crf_passes_targets_uses_adaptive_low_percentile() -> None:
     the production default (which has a lower floor and would enforce
     the percentile at frame_count=20).
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0,
         target_vmaf_low=85.0,
         target_vmaf_low_pct=5,
@@ -728,7 +728,7 @@ def test_find_optimal_crf_passes_targets_uses_adaptive_low_percentile() -> None:
 
 
 def _trial_count_to_converge(
-    *, target: CrfSearchTarget, crf_to_summary: dict[int, VmafSummary],
+    *, target: SampleGuidedEncodeTarget, crf_to_summary: dict[int, VmafSummary],
 ) -> int:
     """How many trials does the search take to find the optimal CRF for
     a given (target, crf->summary) mapping? Used by interpolation tests
@@ -748,7 +748,7 @@ def test_interpolated_bisection_predicts_boundary_in_two_trials() -> None:
     then midpoint (pass with margin), then interpolation predicts the
     actual boundary.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         crf_min=16,
@@ -786,7 +786,7 @@ def test_interpolated_bisection_falls_back_to_midpoint_without_bracket() -> None
     interpolation has no usable data — must fall back to the standard
     midpoint so progress isn't blocked.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0, target_vmaf_low=89.0,
         crf_min=16, crf_max=34, max_iterations=8,
     )
@@ -814,7 +814,7 @@ def test_interpolated_bisection_clamps_prediction_into_range() -> None:
     strictly between them so the bisection makes progress and never
     re-tests a known CRF.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0, target_vmaf_low=89.0,
         crf_min=16, crf_max=20, max_iterations=8,
     )
@@ -845,7 +845,7 @@ def test_interpolated_bisection_converges_on_shallow_slope_at_boundary() -> None
     real clips, where each marginal passing CRF sits ~0.1-0.5 VMAF
     points above target and the curve is nearly flat.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         crf_min=16,
@@ -883,7 +883,7 @@ def test_interpolated_bisection_does_not_short_circuit_on_round_half_to_even() -
     big margin — the rounded-down prediction is rounding noise, not a
     signal that we're at the boundary.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0,
         target_vmaf_low=85.0,
         crf_min=16,
@@ -915,7 +915,7 @@ def test_interpolated_bisection_saves_trials_vs_blind_midpoint() -> None:
     independently; if the algorithm regresses to midpoint-only we'll
     notice the trial count grow back.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0, target_vmaf_low=89.0,
         crf_min=16, crf_max=42, max_iterations=10,
     )
@@ -993,17 +993,17 @@ def test_reference_picks_disable_bitrate_cap_and_pick_quality_preset() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _two_phase_target() -> CrfSearchTarget:
+def _two_phase_target() -> SampleGuidedEncodeTarget:
     """Test helper: target with p5 percentile + frame floor.
 
     Pinned to ``target_vmaf_low_pct=5`` to preserve the original test
     semantics — these two-phase tests are calibrated against the p5
     bridge prediction (single-window p10 → 3-window p5) and the p5
     frame floor (50). Tests that need different percentile semantics
-    should construct CrfSearchTarget directly. Wide CRF range so
+    should construct SampleGuidedEncodeTarget directly. Wide CRF range so
     bisection has room to actually bisect.
     """
-    return CrfSearchTarget(
+    return SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0,
         target_vmaf_low=85.0,
         target_vmaf_low_pct=5,
@@ -1374,7 +1374,7 @@ def _phase1_summary(
 def test_predict_phase2_fast_fail_skips_when_mean_clearly_below_target() -> None:
     """Mean is the same statistic at any sample size, so a Phase 1 mean
     well below target predicts Phase 2 will fail on the mean axis."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
     )
@@ -1390,7 +1390,7 @@ def test_predict_phase2_fast_fail_skips_when_p10_predicts_p5_below_target() -> N
     """For the default p5 target, single-window p10 is the bridge to
     full-windows p5. When that predictor sits below target by more than
     the safety margin, skip."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         target_vmaf_low_pct=5,
@@ -1410,7 +1410,7 @@ def test_predict_phase2_fast_fail_does_not_skip_when_within_safety_margin() -> N
     don't skip — let Phase 2 actually measure to be sure. False-positive
     avoidance: skipping a Phase 2 that would have passed costs ~1 CRF
     of compression efficiency."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         target_vmaf_low_pct=5,
@@ -1427,7 +1427,7 @@ def test_predict_phase2_fast_fail_does_not_skip_when_within_safety_margin() -> N
 def test_predict_phase2_fast_fail_does_not_skip_when_predictor_above_target() -> None:
     """When Phase 1's percentile data already clears the target, Phase 2
     is likely to pass; don't skip."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         target_vmaf_low_pct=5,
@@ -1442,7 +1442,7 @@ def test_predict_phase2_fast_fail_does_not_skip_when_predictor_above_target() ->
 def test_predict_phase2_fast_fail_uses_p5_for_p1_target() -> None:
     """For p1 target, single-window p5 is the bridge (p1 of Nx3 ≈ p3
     of N, approximated by p5)."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=85.0,
         target_vmaf_low_pct=1,
@@ -1462,7 +1462,7 @@ def test_predict_phase2_fast_fail_no_predictor_for_p10_target() -> None:
     """We don't carry single-window p20/p30 in the summary, so the p10
     target has no usable percentile bridge. Returns no-skip; Phase 2
     runs to measure directly."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         target_vmaf_low_pct=10,
@@ -1480,7 +1480,7 @@ def test_predict_phase2_fast_fail_no_skip_when_phase2_would_be_mean_only() -> No
     percentile floor, Phase 2 will be mean-only. The percentile
     prediction wouldn't gate the verdict in either direction, so don't
     skip on percentile alone (mean axis still gates as usual)."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         target_vmaf_low_pct=5,  # floor = 50 combined frames
@@ -1617,7 +1617,7 @@ def test_two_phase_fast_fail_does_not_skip_when_phase1_p10_above_target() -> Non
 def test_relaxed_target_zero_depth_returns_unchanged() -> None:
     """``depth=0`` (Phase 1 / Phase 2 in Option A) returns the original
     target. No relaxation applies until refinement begins."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0, target_vmaf_low=89.0,
     )
     relaxed = _relaxed_target(target, depth=0, per_step=0.3, cap=1.5)
@@ -1628,7 +1628,7 @@ def test_relaxed_target_zero_depth_returns_unchanged() -> None:
 def test_relaxed_target_softens_proportionally_to_depth() -> None:
     """Relaxation grows linearly with depth at ``per_step`` VMAF points
     per step, applied uniformly to mean and low-percentile targets."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0, target_vmaf_low=89.0,
     )
     for depth in (1, 2, 3, 4):
@@ -1641,7 +1641,7 @@ def test_relaxed_target_softens_proportionally_to_depth() -> None:
 def test_relaxed_target_caps_at_cap() -> None:
     """At deep enough depths, relaxation hits the cap and stops growing.
     Worst-case quality loss is bounded."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0, target_vmaf_low=89.0,
     )
     # depth x per_step would be 30; cap is 1.5.
@@ -1653,7 +1653,7 @@ def test_relaxed_target_caps_at_cap() -> None:
 def test_relaxed_target_preserves_other_target_fields() -> None:
     """Only mean and low-percentile thresholds change; CRF range,
     iteration cap, and percentile choice all carry through."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         target_vmaf_low_pct=5,
@@ -1690,7 +1690,7 @@ def test_two_phase_relaxation_accepts_borderline_step_down_trial() -> None:
     # immediately (probe crf_max, passes without expansion headroom,
     # return). Avoids the iteration-budget walk through a flat-mean
     # plateau that interpolation handles slowly.
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0,
         target_vmaf_low=85.0,
         crf_min=16,
@@ -1767,7 +1767,7 @@ def test_two_phase_relaxation_disabled_with_zero_per_step() -> None:
     further."""
     # Same shape as the relaxation-accepts test: align crf_max with the
     # Phase 1 cliff so the candidate lands at 36 in one trial.
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0,
         target_vmaf_low=85.0,
         crf_min=16,
@@ -1841,7 +1841,7 @@ def test_two_phase_relaxation_does_not_apply_to_phase2() -> None:
     Phase 2 fails strictly and step-down does kick in.
     """
     # Phase 1 cliff at crf_max so the candidate lands at 36.
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0,
         target_vmaf_low=85.0,
         crf_min=16,
@@ -1906,7 +1906,7 @@ def test_two_phase_relaxation_caps_so_quality_never_drops_below_cap() -> None:
     """Even on adversarial clips that walk through every step-down +
     bisection trial, the verdict target never softens below
     ``target - cap``."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0,
         target_vmaf_low=85.0,
         crf_min=16,
@@ -1969,11 +1969,11 @@ def _phase23_trial(
     p5: float,
     p10: float,
     phase: str = "phase3",
-) -> CrfSearchTrial:
-    """Test helper: build a Phase 2/3 CrfSearchTrial with the given
+) -> SampleGuidedEncodeTrial:
+    """Test helper: build a Phase 2/3 SampleGuidedEncodeTrial with the given
     summary fields. Other fields default to neutral values that don't
     affect the cascade logic."""
-    return CrfSearchTrial(
+    return SampleGuidedEncodeTrial(
         crf=crf,
         summary=VmafSummary(
             mean=mean,
@@ -1999,7 +1999,7 @@ def test_fallback_picks_highest_crf_passing_p10_when_p5_unreachable() -> None:
     probed CRF, but p10 clears at the smaller-CRF end. The cascade
     should land on the highest CRF whose p10 passes the relaxed target.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         target_vmaf_low_pct=5,
@@ -2024,7 +2024,7 @@ def test_fallback_excludes_phase1_trials() -> None:
     final encode (the middle window can be misleadingly easy or hard).
     Cascade must consider only Phase 2/3 trials.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
     )
     trials = [
@@ -2044,7 +2044,7 @@ def test_fallback_returns_none_when_no_trial_clears_relaxed_mean() -> None:
     """If even mean alone can't be cleared at the relaxed target, the
     clip is genuinely too hard — cascade returns None and the
     orchestrator falls back to crf_min."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
     )
     trials = [
@@ -2064,7 +2064,7 @@ def test_mean_only_fallback_picks_highest_crf_with_passing_mean() -> None:
     mean. Used as a last resort when even higher percentiles can't
     reach target.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
     )
     trials = [
@@ -2086,7 +2086,7 @@ def test_two_phase_cascade_settles_via_p10_when_p5_unreachable() -> None:
     None, the cascade in ``_build`` finds a passing trial at the p10
     fallback and returns it. Models the flash-clip pattern.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         target_vmaf_low_pct=5,
@@ -2165,7 +2165,7 @@ def test_two_phase_cascade_disabled_returns_none_without_fallback() -> None:
     clears the configured percentile at relaxed targets, even if a
     higher percentile or mean alone would have passed.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         target_vmaf_low_pct=5,
@@ -2228,7 +2228,7 @@ def test_hopeless_extrapolation_skips_when_slope_predicts_failure_at_crf_min() -
         slope ≈ 0.97 / CRF (decrease)
         extrapolated at crf=16: ~83.8 < 87.5 (cap-relaxed target)
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         target_vmaf_low_pct=5,
@@ -2249,7 +2249,7 @@ def test_hopeless_extrapolation_does_not_skip_when_extrapolation_reaches_target(
     crf_min, bisection should be allowed to run — the search may
     actually find a passing CRF.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         target_vmaf_low_pct=5,
@@ -2271,7 +2271,7 @@ def test_hopeless_extrapolation_does_not_skip_with_only_one_full_trial() -> None
     """Need at least 2 Phase 2/3 trials to fit a slope. With one,
     extrapolation isn't reliable; let bisection run to gather more
     data."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0, target_vmaf_low=89.0,
         target_vmaf_low_pct=5, crf_min=16,
     )
@@ -2286,7 +2286,7 @@ def test_hopeless_extrapolation_does_not_skip_with_only_one_full_trial() -> None
 def test_hopeless_extrapolation_ignores_phase1_trials() -> None:
     """Phase 1 single-window data isn't representative of full-windows
     behavior; only Phase 2/3 trials count toward the slope estimate."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0, target_vmaf_low=89.0,
         target_vmaf_low_pct=5, crf_min=16, crf_max=42,
     )
@@ -2307,7 +2307,7 @@ def test_hopeless_extrapolation_does_not_skip_on_anomalous_positive_slope() -> N
     """If lower CRF measured WORSE percentile (anomalous — usually
     encoder noise), don't trust the slope. Let bisection run rather
     than declaring hopeless from bad data."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0, target_vmaf_low=89.0,
         target_vmaf_low_pct=5, crf_min=16,
     )
@@ -2325,7 +2325,7 @@ def test_hopeless_extrapolation_buffer_protects_against_borderline_skip() -> Non
     """Borderline case: extrapolation lands just below the cap-relaxed
     target. The safety buffer keeps us from skipping when the gap is
     smaller than slope-estimation noise."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         target_vmaf_low_pct=5,
@@ -2350,7 +2350,7 @@ def test_two_phase_skips_bisection_on_hopeless_clip_and_uses_cascade() -> None:
     show the percentile target is unreachable. Bisection is skipped;
     the cascade fallback picks the best mean-passing CRF.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         target_vmaf_low_pct=5,
@@ -2426,13 +2426,13 @@ def _phase1_trial_for_calibration(
     crf: int,
     p10: float,
     mean: float = 92.0,
-) -> CrfSearchTrial:
+) -> SampleGuidedEncodeTrial:
     """Test helper: build a Phase 1 single-window trial with a specific
     p10 value (the bridge predictor for default p5 target). Mean is
     set to a passing value so the trial structurally resembles a real
     Phase 1 mean-only pass; the cascade tests don't depend on it.
     """
-    return CrfSearchTrial(
+    return SampleGuidedEncodeTrial(
         crf=crf,
         summary=VmafSummary(
             mean=mean,
@@ -2459,7 +2459,7 @@ def test_calibration_hopeless_triggers_on_flash_clip_pattern() -> None:
     and negative; extrapolation says no CRF in [crf_min, candidate-1]
     will close the gap.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         target_vmaf_low_pct=5,
@@ -2485,7 +2485,7 @@ def test_calibration_hopeless_does_not_trigger_when_delta_is_small() -> None:
     small), so calibrated extrapolation predicts step-down might
     actually pass at lower CRF. Don't skip; let step-down validate.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         target_vmaf_low_pct=5,
@@ -2512,7 +2512,7 @@ def test_calibration_hopeless_does_not_trigger_when_delta_is_small() -> None:
 def test_calibration_hopeless_returns_false_without_phase2() -> None:
     """No calibration possible without a Phase 2 measurement; the
     helper bails out so step-down can run normally."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=27,
     )
@@ -2528,7 +2528,7 @@ def test_calibration_hopeless_returns_false_without_phase2() -> None:
 def test_calibration_hopeless_returns_false_with_only_one_phase1_trial() -> None:
     """Need at least 2 Phase 1 trials to fit the single-window slope;
     one isn't enough."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=27,
     )
@@ -2544,7 +2544,7 @@ def test_calibration_hopeless_returns_false_with_only_one_phase1_trial() -> None
 def test_calibration_hopeless_returns_false_when_phase1_candidate_missing() -> None:
     """If Phase 1 doesn't have a measurement at the candidate CRF, we
     can't compute the calibration delta. Bail out."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=27,
     )
@@ -2563,7 +2563,7 @@ def test_calibration_hopeless_returns_false_for_p10_target() -> None:
     """No usable single-window bridge for p10 target (would need
     single p20+ which isn't in the summary). Bail out — let the
     existing step-down + slope-based hopeless check handle it."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         target_vmaf_low_pct=10,  # no bridge available
@@ -2583,7 +2583,7 @@ def test_calibration_hopeless_returns_false_on_anomalous_phase1_slope() -> None:
     """If Phase 1's slope is non-negative (lower CRF gave equal or worse
     bridge), don't trust extrapolation — could be encoder noise. Let
     step-down run."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=27,
     )
@@ -2605,7 +2605,7 @@ def test_two_phase_skips_step_down_via_phase1_phase2_calibration() -> None:
     step-down CRF will fail. Step-down is skipped entirely; cascade
     settles for mean-only.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         target_vmaf_low_pct=5,
@@ -2679,7 +2679,7 @@ def test_two_phase_extra_phase1_probe_fires_when_seeded_to_one_trial() -> None:
     one extra single-window probe at a lower CRF to give the
     calibration check enough data to fit a slope.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         target_vmaf_low_pct=5,
@@ -2752,7 +2752,7 @@ def test_two_phase_extra_phase1_probe_fires_when_seeded_to_one_trial() -> None:
 def test_two_phase_extra_phase1_probe_skipped_when_phase1_already_has_two() -> None:
     """When Phase 1's normal flow produced 2+ trials, the extra
     calibration probe is not needed and shouldn't fire."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         target_vmaf_low_pct=5,
@@ -2821,7 +2821,7 @@ def test_two_phase_extra_phase1_probe_skipped_on_narrow_range() -> None:
     probe would collide with the candidate, the extra probe is
     skipped (no useful baseline to fit). Step-down then runs
     normally — calibration silent."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         target_vmaf_low_pct=5,
@@ -2890,7 +2890,7 @@ def test_step_down_wont_help_triggers_when_deficit_exceeds_max_improvement() -> 
     step-down run". We test a slightly steeper deficit to ensure the
     skip fires cleanly.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         target_vmaf_low_pct=5,
@@ -2922,7 +2922,7 @@ def test_step_down_wont_help_does_not_trigger_when_deficit_is_closeable() -> Non
     is steep enough to bridge the gap within step_down_limit trials,
     let step-down run — it should find a passing CRF nearby.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         target_vmaf_low_pct=5,
@@ -2949,7 +2949,7 @@ def test_step_down_wont_help_does_not_trigger_when_deficit_is_closeable() -> Non
 def test_step_down_wont_help_returns_false_with_only_one_passing_phase1() -> None:
     """Need at least 2 passing Phase 1 trials to fit a slope. With one,
     extrapolation isn't reliable; let step-down run."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=35,
     )
@@ -2972,7 +2972,7 @@ def test_step_down_wont_help_returns_false_on_cliff_data() -> None:
     treat as anomaly and let step-down run rather than skip based on
     a meaningless prediction.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=35,
     )
@@ -2995,7 +2995,7 @@ def test_step_down_wont_help_returns_false_when_phase2_already_clears_relaxed() 
     """Defensive: if Phase 2 actually clears cap-relaxed target (caller
     misuse), there's no deficit to close. Let normal flow continue.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=35,
     )
@@ -3018,7 +3018,7 @@ def test_two_phase_skips_step_down_when_deficit_exceeds_max_improvement() -> Non
     more than step-down can deliver should skip step-down and let
     bisection probe the wider [crf_min, candidate-1] range directly.
     """
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
         target_vmaf_low_pct=5,
@@ -3122,7 +3122,7 @@ def _phase23_full(*, mean: float, p5: float, p10: float) -> TrialMeasurement:
 
 
 def test_two_phase_search_frames_aggregates_across_all_phases() -> None:
-    """``CrfSearchResult.search_frames`` sums frame counts from every
+    """``SampleGuidedEncodeResult.search_frames`` sums frame counts from every
     phase's trials — important for the sample-vs-final ratio surfaced in
     the per-clip log.
     """
@@ -3151,7 +3151,7 @@ def test_two_phase_search_frames_aggregates_across_all_phases() -> None:
 # ---------------------------------------------------------------------------
 
 
-from clipper.encode_crf_search.curve_fit import (  # noqa: E402
+from clipper.sample_guided_encode.curve_fit import (  # noqa: E402
     drop_saturated_probes,
     evaluate_curve,
     find_crf_via_curve_fit,
@@ -3165,11 +3165,11 @@ from clipper.encode_crf_search.curve_fit import (  # noqa: E402
 )
 
 
-def _probe(crf: int, p_low: float, mean: float | None = None) -> CrfSearchTrial:
+def _probe(crf: int, p_low: float, mean: float | None = None) -> SampleGuidedEncodeTrial:
     """Build a fake probe trial: helper for curve-fit tests where we
     care only about (crf, p_low). ``mean`` defaults to p_low + 5 so it
     clears typical mean targets without participating in the test."""
-    return CrfSearchTrial(
+    return SampleGuidedEncodeTrial(
         crf=crf,
         summary=_summary(
             mean=mean if mean is not None else p_low + 5.0,
@@ -3245,7 +3245,7 @@ def test_drop_saturated_probes_chains_saturations() -> None:
 
 
 def test_piecewise_evaluator_interpolates_within_range() -> None:
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=42,
     )
@@ -3259,7 +3259,7 @@ def test_piecewise_evaluator_interpolates_within_range() -> None:
 
 
 def test_piecewise_evaluator_clamps_outside_probe_range() -> None:
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=42,
     )
@@ -3272,7 +3272,7 @@ def test_piecewise_evaluator_clamps_outside_probe_range() -> None:
 
 
 def test_global_linear_recovers_known_slope() -> None:
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=42,
     )
@@ -3287,7 +3287,7 @@ def test_global_linear_recovers_known_slope() -> None:
 
 
 def test_pick_target_finds_highest_crf_clearing_threshold() -> None:
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=42,
     )
@@ -3300,7 +3300,7 @@ def test_pick_target_finds_highest_crf_clearing_threshold() -> None:
 
 
 def test_pick_target_returns_none_when_curve_below_target_everywhere() -> None:
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0, target_vmaf_low=95.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=42,
     )
@@ -3313,7 +3313,7 @@ def test_pick_target_returns_none_when_curve_below_target_everywhere() -> None:
 
 
 def test_pick_knee_finds_steepening_in_three_probe_curve() -> None:
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=42,
     )
@@ -3325,7 +3325,7 @@ def test_pick_knee_finds_steepening_in_three_probe_curve() -> None:
 
 
 def test_pick_knee_returns_none_for_smooth_curve() -> None:
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=42,
     )
@@ -3336,7 +3336,7 @@ def test_pick_knee_returns_none_for_smooth_curve() -> None:
 
 
 def test_pick_knee_returns_none_with_fewer_than_three_probes() -> None:
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=42,
     )
@@ -3346,7 +3346,7 @@ def test_pick_knee_returns_none_with_fewer_than_three_probes() -> None:
 
 
 def test_pick_knee_respects_steepening_threshold() -> None:
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=42,
     )
@@ -3362,7 +3362,7 @@ def test_pick_knee_respects_steepening_threshold() -> None:
 
 
 def test_pick_budget_accepts_within_tolerance_below_target() -> None:
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=42,
     )
@@ -3379,7 +3379,7 @@ def test_pick_budget_accepts_within_tolerance_below_target() -> None:
 
 
 def test_needs_extra_probe_triggers_on_saturation_collapse() -> None:
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=42,
     )
@@ -3391,7 +3391,7 @@ def test_needs_extra_probe_triggers_on_saturation_collapse() -> None:
 
 
 def test_needs_extra_probe_triggers_on_large_gap() -> None:
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=42,
     )
@@ -3404,7 +3404,7 @@ def test_needs_extra_probe_triggers_on_large_gap() -> None:
 
 
 def test_needs_extra_probe_returns_none_when_curve_is_well_covered() -> None:
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=42,
     )
@@ -3423,7 +3423,7 @@ def test_needs_extra_probe_returns_none_when_curve_is_well_covered() -> None:
 def test_find_crf_via_curve_fit_picks_via_target_on_smooth_curve() -> None:
     """Smooth (no knee) curve crossing target → TARGET fallback picks
     the highest CRF clearing target_vmaf_low."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=85.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=42,
     )
@@ -3452,7 +3452,7 @@ def test_find_crf_via_curve_fit_records_all_nine_picks() -> None:
     """Every (curve, heuristic) combination must produce an entry in
     the picks grid — even when None — so the metadata file is
     structurally consistent across runs."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=85.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=42,
     )
@@ -3479,7 +3479,7 @@ def test_find_crf_via_curve_fit_records_all_nine_picks() -> None:
 def test_find_crf_via_curve_fit_does_not_double_encode_chosen_probe() -> None:
     """When chosen_crf is already a probe, the verify-encode reuses
     that trial — no extra evaluator call beyond the initial probes."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=85.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=42,
     )
@@ -3517,7 +3517,7 @@ def test_find_crf_via_curve_fit_does_not_double_encode_chosen_probe() -> None:
 def test_render_curve_ascii_renders_probes_target_and_chosen_crf() -> None:
     """Plotille braille chart contains the chosen-CRF callout in the
     legend, the y-axis label, and the x-axis label."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=42,
     )
@@ -3538,7 +3538,7 @@ def test_render_curve_ascii_renders_probes_target_and_chosen_crf() -> None:
 
 def test_render_curve_ascii_returns_empty_for_no_probes() -> None:
     """Empty curve → empty list (caller skips logging)."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0, target_vmaf_low=89.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=42,
     )
@@ -3551,7 +3551,7 @@ def test_find_crf_via_curve_fit_records_knee_in_picks_grid() -> None:
     default chosen heuristic (default is now target). Distinct cliff
     between probes 29 and 42 → knee detects the higher-CRF end of
     the smooth segment (29)."""
-    target = CrfSearchTarget(
+    target = SampleGuidedEncodeTarget(
         target_vmaf_mean=85.0, target_vmaf_low=70.0, target_vmaf_low_pct=5,
         crf_min=16, crf_max=42,
     )

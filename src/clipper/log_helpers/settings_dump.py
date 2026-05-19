@@ -7,7 +7,7 @@ line. Two problems:
 - **Not diffable.** A single-field change (``aq-mode 0 → 2``) shows
   up as a full-line diff between two run logs, drowning the actual
   change in noise.
-- **Repeats during CRF search.** ``getMarkerPairSettings`` runs once
+- **Repeats during sample-guided encode.** ``getMarkerPairSettings`` runs once
   per trial encode; settings don't change between trials, so the
   same dump fires N times per pair.
 
@@ -37,7 +37,7 @@ SettingsSnapshot = dict[str, dict[str, str]]
 
 
 # In-process memo: marker_pair_index -> last-printed snapshot. Lets
-# subsequent calls skip emitting an identical dump (the CRF-search
+# subsequent calls skip emitting an identical dump (the sample-guided encode
 # trial-encode noise reduction win).
 _LAST_PRINTED: dict[int, SettingsSnapshot] = {}
 
@@ -393,7 +393,7 @@ def render_settings_diff(
 
     ``compact=True`` flattens every changed key/value across all
     sections into ONE line with two-space separators, with no section
-    headers — right for CRF-search trial diffs where the multi-line
+    headers — right for sample-guided encode trial diffs where the multi-line
     block repeats 20+ times per search and dominates the log. The
     section grouping is preserved by the iteration order so related
     keys stay adjacent.
@@ -486,16 +486,16 @@ def emit_marker_pair_settings_log(
     - First call for a marker pair (no prior memo): renders the full
       table and dispatches to ``log_full(message)``.
     - Subsequent call with an unchanged snapshot: emits nothing. This
-      is the trial-encode noise-reduction win — CRF search invokes
+      is the trial-encode noise-reduction win — sample-guided encode invokes
       ``getMarkerPairSettings`` per trial; only the first trial
       prints.
     - Subsequent call with a changed snapshot: renders the diff
       against the memoized prior and dispatches to ``log_diff(message)``.
 
-    ``is_search_context=True`` reframes the diff for CRF-search
+    ``is_search_context=True`` reframes the diff for sample-guided encode
     trial / reference / baseline encodes:
 
-    - Title becomes ``"Marker Pair N CRF search using overrides:"``
+    - Title becomes ``"Marker Pair N sample-guided encode using overrides:"``
       instead of the generic ``"settings changed:"`` — operators were
       reading the generic wording as "my pair settings were modified"
       when in fact the search was just probing alternative encoder
@@ -518,7 +518,7 @@ def emit_marker_pair_settings_log(
     """
     title_full = f"Marker Pair {marker_pair_index + 1} settings"
     title_diff = (
-        f"Marker Pair {marker_pair_index + 1} CRF search using overrides:"
+        f"Marker Pair {marker_pair_index + 1} sample-guided encode using overrides:"
         if is_search_context
         else f"Marker Pair {marker_pair_index + 1} settings changed:"
     )
