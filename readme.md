@@ -113,7 +113,8 @@ YouTube is the primary video platform supported by yt_clipper. Other supported p
 - [Encoding Settings Guide](#encoding-settings-guide)
   - [Video Codecs](#video-codecs)
   - [Articles on CRF and vp9 Encoding](#articles-on-crf-and-vp9-encoding)
-  - [Quality-Targeted Encoding](#quality-targeted-encoding)
+  - [Sample-Guided Encoding](#sample-guided-encoding)
+  - [Preview Format Generation](#preview-format-generation)
   - [Tips and Settings](#tips-and-settings)
     - [Markup Script Tips](#markup-script-tips)
     - [Clipper Script Tips](#clipper-script-tips-1)
@@ -157,6 +158,14 @@ First ensure the script is active on the page by checking your user script exten
   ![yt_clipper_command_palette](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_command_palette.png)
 
 A shortcuts reference can also be toggled by clicking the `full reference` button in the footer of the command palette.
+
+**Alt+F:** Toggle the contextual hints bar at the bottom of the viewport. The bar surfaces shortcut chips relevant to what's under the cursor or what you're doing.
+
+- Different chips appear while hovering the video, the crop overlay, a chart point, or while mid-drag.
+- Holding `Ctrl`, `Shift`, or `Alt` filters the chips to those that require those modifiers.
+- Expandable chips with a trailing `+` open a popover listing related chord variants on hover.
+- Click the chevron on the left edge of the bar to flip it between pinned-bottom and pinned-top.
+- The bar's visibility and position persist across page reloads.
 
 ## Marker Editing Shortcuts
 
@@ -272,7 +281,9 @@ A shortcuts reference can also be toggled by clicking the `full reference` butto
 - **Ctrl+Shift+Drag:** Center-out resize/draw of crop.
 - **Ctrl+Shift+Drag:** Horizontally-fixed (Y-only) drag of crop.
 - **Ctrl+Alt+Drag:** Vertically-fixed (X-only) drag of crop.
-- **Mousewheel during pan-drag:** Scale the crop around its center — wheel up to zoom in, wheel down to zoom out. The crop's geometric center stays fixed; edges expand or contract uniformly. Combine with pan motion to simultaneously zoom and reframe in one continuous gesture. In **pan-only** mode the new size propagates to every crop point; in **zoompan** mode only the dragged point changes size.
+- **Mousewheel during pan-drag:** Scale the crop around its center. Wheel up zooms in, wheel down zooms out. The crop's geometric center stays fixed; edges expand or contract uniformly.
+  - Combine with pan motion to zoom and reframe in one continuous gesture.
+  - In `pan-only` mode the new size propagates to every crop point. In `zoompan` mode only the dragged point changes size.
 
   ![yt_clipper_crop_preview.png](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_crop_preview.png)
 
@@ -363,12 +374,13 @@ A shortcuts reference can also be toggled by clicking the `full reference` butto
 
 - To upload and reload markers data, click `Choose File`, pick your markers `json` file, then click `Load`.
   - ![yt_clipper_load_markers](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_load_markers.png)
+- A review modal opens before the data is applied. The modal shows a JSON preview and flags any HTML-like content (e.g. `<script>`, `<iframe>`, `onerror=`, `javascript:` URLs).
+- All loaded values are rendered through escape-by-default templates so flagged content is treated as plain text. The modal lets you cancel the load if the source is untrusted.
+- The same review fires for files dropped onto the player and for auto-saved restores from browser local storage.
 
 ## Miscellaneous Shortcuts
 
 **Shift+F:** Flatten a VR video to make it easier to crop.
-
-**Alt+F:** Open YouTube subtitles editor.
 
 ## Dynamic Speed and Crop Shortcuts
 
@@ -382,9 +394,10 @@ A shortcuts reference can also be toggled by clicking the `full reference` butto
 
 **Alt+A:** Add a point at the current time.
 
-- During an active **crop manipulation** — pan-drag or resize, both started with **Ctrl+Click+Drag** on the crop overlay — with the crop chart visible, pressing **Alt+A** drops a crop keyframe at the current time. The held point reverts to its previous drop position and the new point captures the current visual crop, letting you place multiple keyframes in one continuous gesture for rapid dynamic-crop tracking.
-- The plain **A** hotkey is rerouted to this "add crop keyframe" action while a crop manipulation is active with the crop chart visible — useful for one-handed keyframe placement during a drag or resize.
-- For resize specifically, per-keyframe **size** variation only takes effect in **zoompan** mode (in pan-only mode the crop W/H is shared across all points by mode invariant, so resize-based rapid keyframing primarily affects X/Y position).
+- During an active crop manipulation (pan-drag or resize started with **Ctrl+Click+Drag** on the crop overlay) with the crop chart visible, **Alt+A** drops a crop keyframe at the current time. The held point reverts to its previous drop position and the new point captures the current visual crop.
+- This lets you place multiple keyframes in one continuous gesture for rapid dynamic-crop tracking.
+- The plain **A** hotkey is rerouted to "add crop keyframe" while a crop manipulation is active with the crop chart visible. Useful for one-handed keyframe placement during a drag or resize.
+- For resize, per-keyframe size variation only takes effect in `zoompan` mode. In `pan-only` mode the crop W/H is shared across all points, so resize-based rapid keyframing primarily affects X/Y position.
 
 **Alt+Shift+Click:** Delete a point.
 
@@ -488,6 +501,7 @@ The usual crop shortcuts have different effects than usual in this mode as descr
 - Use as few points as possible for smoother motion (each point with a crop different from its neighbors causes the crop motion to stop and then start again).
 - Try enabling video stabilization to smooth out the motion, especially if many points are used.
 - Pause the video and **Right-Click+Drag** to seek/scrub through the video. Use this to preview the crop movement with precise control.
+- For motion tracking, drop multiple crop keyframes in one continuous **Ctrl+Click+Drag** on the crop overlay: press **A** (when the crop chart is visible) or **Alt+A** at each subject position to commit a keyframe and keep dragging. Combine with the mouse wheel during the same drag to zoom the crop in/out (center-out) while panning.
 
 # Useful YouTube Controls
 
@@ -525,9 +539,11 @@ The Vulkan technology is supported by Linux and Windows across most modern GPUs 
 Newer NVIDIA drivers may not work with vulkan-accelerated codecs. As of 2025-06-24 at least the following driver versions are confirmed to work:  565.90, 572.16.
 
 
-yt_clipper supports `h264_vulkan` for Vulkan-based hardware-accleration of h264 encoding.
+yt_clipper supports `h264_vulkan` for Vulkan-based hardware-acceleration of h264 encoding.
 
 yt_clipper also supports `h264_nvenc` for NVIDIA GPU hardware-accelerated h264 encoding. This requires an NVIDIA GPU with NVENC support (most modern NVIDIA GPUs) and ffmpeg compiled with nvenc support. It is supported on Windows and Linux.
+
+For consistent output quality regardless of source bitrate, see the [Sample-Guided Encoding](#sample-guided-encoding) section below. `--sample-guided-encode` picks a per-pair CRF empirically against a VMAF target, replacing the default bitrate-driven CRF heuristic.
 
 ## Articles on CRF and vp9 Encoding
 
@@ -536,9 +552,9 @@ yt_clipper also supports `h264_nvenc` for NVIDIA GPU hardware-accelerated h264 e
 3. [Google vp9 basic encoding](https://developers.google.com/media/vp9/the-basics/)
 4. [vp9 encoding tests](https://github.com/deterenkelt/Nadeshiko/wiki/Tests.-VP9:-encoding-to-size,-part%C2%A01)
 
-## Quality-Targeted Encoding
+## Sample-Guided Encoding
 
-`--sample-guided-encode` picks a CRF per marker pair that hits a target perceptual-quality level. Each pair is encoded at a handful of trial CRFs on short sample windows of the clip. Each trial is measured with VMAF NEG against a near-transparent reference encode. The highest CRF (most compression) whose VMAF clears the target is used for the final user-facing encode.
+`--sample-guided-encode` probes a few CRF values on short sample windows of each marker pair, measures the trial encodes against a near-transparent reference using VMAF NEG, and picks the highest CRF (most compression) that clears a perceptual-quality target. That CRF is then used for the final user-facing encode of the full clip.
 
 Use `--sample-guided-encode` when source bitrate alone isn't a reliable quality predictor.
 
@@ -571,6 +587,30 @@ The default targets are VMAF NEG mean `>= 95` and 5th-percentile (`p5`) `>= 93`.
 - `--target-vmaf-low`: override the low-percentile threshold (default scales with the chosen percentile: `p1=91, p5=93, p10=95, p15=96, p20=96.5, p25=97`).
 - `--target-vmaf-low-percentile`: choose which percentile to enforce as the worst-case-frame target (`1`, `5`, `10`, `15`, `20`, or `25`; default `5`). All six are computed and reported regardless.
 - `--sample-guided-encode-alg`: `curve-fit` (default) probes a few CRFs and fits curves to pick a knee. `legacy-bisection` is the older strict-pass/fail flow, kept for rollback.
+
+## Preview Format Generation
+
+`--preview-format` generates a downscaled animated preview sibling file next to each output webm (and next to any merged outputs). Useful for embedding in chat, browser thumbnails, or quick sharing without re-decoding the final webm. Default is `none` (no preview generated); neither supported format carries audio.
+
+Not to be confused with `--preview` (`-p`), which is a separate markup-iteration mode that skips clip generation entirely and prompts for individual marker pairs to preview interactively.
+
+Two formats are supported:
+
+- **`avif`**: animated AVIF at reduced resolution. Smallest files for a given quality. Requires ffmpeg `>= 6.1` for the AVIF muxer (libsvtav1 has shipped since ffmpeg 4.4).
+- **`webp`**: animated WebP. Broader browser support (older Safari, webmail, Firefox `< 113`) at a small file-size penalty vs. AVIF. Uses libwebp method-6 (max effort) to narrow the gap; expect ~2-3x the encode time of AVIF per preview.
+
+**Sizing:**
+
+- `--preview-max-dim` overrides the longest-edge target in pixels (aspect ratio preserved). Default `0` = auto, picked from source resolution: 4K→720, 1440p→640, 1080p→540, 720p→480, 480p→360, smaller-than-480p matches source.
+
+**Quality:**
+
+- `--preview-quality` overrides the auto-picked quality. AVIF uses the SVT-AV1 CRF scale (`0-63`, lower = better; auto-picks in the `28-45` band). WebP uses the libwebp quality scale (`0-100`, higher = better; auto-picks in the `60-80` band). The two scales run in opposite directions; supply a value on the selected format's scale.
+- Auto-picked quality scales with downsample ratio, source bitrate, source CRF (when known), and preview long edge.
+
+**Encoder preset (AVIF only):**
+
+- `--preview-preset` controls the SVT-AV1 preset for AVIF previews (`0` = slowest/best quality, `13` = fastest). Default `8`. Has no effect on WebP (libwebp uses method-6 unconditionally).
 
 ## Tips and Settings
 

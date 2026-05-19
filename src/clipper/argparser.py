@@ -571,14 +571,17 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
         action="store_true",
         help=" ".join(
             [
-                "Enable empirical, quality-targeted encoding via CRF binary search.",
+                "Enable empirical, quality-targeted encoding by probing a few CRF values on sample windows of each marker pair.",
+                "See --sample-guided-encode-alg for the algorithm used (curve-fit by default).",
                 "Each marker pair is encoded at multiple trial CRFs against a near-transparent reference encode,",
                 "and the highest CRF (most compression) whose VMAF NEG quality clears the target floor is used for the final encode.",
-                "Targets default to VMAF NEG mean >= 95 and 5th-percentile (p5) >= 93 — transparency-adjacent, calibrated for short / slowed yt_clipper clips where artifacts are more noticeable than long-form streaming.",
-                "On very short clips (insufficient frames for stable percentile) the low-percentile check is automatically dropped and only mean is enforced.",
-                "Adds significant encode time (~3-5x normal) on first run, but a per-pair, per-encoder-fingerprint run-cache replays the picked CRF on subsequent invocations with the same encoder settings — iterating on non-encoder settings (output filename, audio toggle, etc.) does not pay the search cost again.",
+                "Targets default to VMAF NEG mean >= 95 and 5th-percentile (p5) >= 93.",
+                "These thresholds are transparency-adjacent and calibrated for short / slowed yt_clipper clips where artifacts are more noticeable than in long-form streaming.",
+                "On very short clips (insufficient frames for a stable percentile) the low-percentile check is automatically dropped and only the mean is enforced.",
+                "Adds significant encode time (~3-5x normal) on first run.",
+                "A per-pair, per-encoder-fingerprint run-cache replays the picked CRF on subsequent invocations with the same encoder settings, so iterating on non-encoder settings (output filename, audio toggle, etc.) does not pay the search cost again.",
                 "The aggregate summary table reports kbps@tgt (interpolated bitrate at the target VMAF) as the apples-to-apples cross-config efficiency metric.",
-                "For advanced tuning see --target-vmaf-mean, --target-vmaf-low, --target-vmaf-low-percentile.",
+                "For tuning see --target-vmaf-mean, --target-vmaf-low, --target-vmaf-low-percentile.",
             ],
         ),
     )
@@ -589,8 +592,8 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
         default=None,
         help=" ".join(
             [
-                "Advanced: override the default VMAF NEG mean target (95) used by --sample-guided-encode.",
-                "An encode must clear BOTH --target-vmaf-mean AND --target-vmaf-low to be acceptable.",
+                "Override the default VMAF NEG mean target (95) used by --sample-guided-encode.",
+                "An encode must clear both --target-vmaf-mean and --target-vmaf-low to be acceptable.",
                 "Has no effect unless --sample-guided-encode is also set.",
             ],
         ),
@@ -602,9 +605,9 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
         default=None,
         help=" ".join(
             [
-                "Advanced: override the VMAF NEG low-percentile threshold used by --sample-guided-encode.",
-                "Default scales with --target-vmaf-low-percentile to maintain equivalent shipping-quality strictness across percentile choices: p1=91, p5=93, p10=95, p15=96, p20=96.5, p25=97.",
-                "The low percentile is dropped automatically on short clips with too few frames to compute it stably (mean still enforced).",
+                "Override the VMAF NEG low-percentile threshold used by --sample-guided-encode.",
+                "The default scales with --target-vmaf-low-percentile to maintain equivalent shipping-quality strictness across percentile choices: p1=91, p5=93, p10=95, p15=96, p20=96.5, p25=97.",
+                "The low percentile is dropped automatically on short clips with too few frames to compute it stably (the mean is still enforced).",
                 "Has no effect unless --sample-guided-encode is also set.",
             ],
         ),
@@ -617,11 +620,11 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
         choices=[1, 5, 10, 15, 20, 25],
         help=" ".join(
             [
-                "Advanced: which VMAF NEG low percentile to enforce as the worst-case-frame target.",
-                "Default 5 (p5): allows up to 5%% of frames below threshold; balanced for short clips with occasional artifacts.",
+                "Choose which VMAF NEG low percentile to enforce as the worst-case-frame target.",
+                "5 (p5, the default) allows up to 5%% of frames below threshold; balanced for short clips with occasional artifacts.",
                 "1 (p1) is industry-standard streaming convention but over-penalizes single bad frames on short clips.",
-                "10 (p10) is more lenient (allows 10%% of frames below); useful for very short clips where p5 is still too strict.",
-                "15-25 trade worst-frame protection for higher signal-to-noise across CRF — useful when measurement noise dominates strict-target decisions.",
+                "10 (p10) is more lenient (allows 10%% of frames below) and useful for very short clips where p5 is still too strict.",
+                "15-25 trade worst-frame protection for higher signal-to-noise across CRF, useful when measurement noise dominates strict-target decisions.",
                 "All six percentiles are computed and reported regardless; this only chooses which is enforced as the threshold target.",
                 "Has no effect unless --sample-guided-encode is also set.",
             ],
@@ -634,11 +637,12 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
         default="curve-fit",
         help=" ".join(
             [
-                "Advanced: which search algorithm to use under --sample-guided-encode.",
-                "'curve-fit' (default): probe a few fixed CRFs, fit piecewise-linear / linear / log curves to (CRF, VMAF) data, pick a CRF using knee detection (with target-VMAF and budget heuristics also computed).",
-                "Deterministic: same content + same probe set always picks the same CRF, regardless of measurement noise. Soft target — handles cases where strict thresholds are unreachable due to reference-encode quality ceilings.",
-                "'legacy-bisection': the prior strict-pass/fail Phase 1/2/3 architecture with cascade fallback and step-down refinement.",
-                "Kept for rollback during the curve-fit transition; expected to be removed once curve-fit is validated on a wider corpus.",
+                "Choose which search algorithm to use under --sample-guided-encode.",
+                "'curve-fit' (the default) probes a few fixed CRFs, fits piecewise-linear / linear / log curves to (CRF, VMAF) data, and picks a CRF using knee detection (with target-VMAF and budget heuristics also computed).",
+                "It is deterministic: the same content and probe set always picks the same CRF, regardless of measurement noise.",
+                "It uses a soft target, so it handles cases where strict thresholds are unreachable due to reference-encode quality ceilings.",
+                "'legacy-bisection' is the prior strict-pass/fail Phase 1/2/3 architecture with cascade fallback and step-down refinement.",
+                "It is kept for rollback during the curve-fit transition and is expected to be removed once curve-fit is validated on a wider corpus.",
                 "Has no effect unless --sample-guided-encode is also set.",
             ],
         ),
@@ -697,13 +701,11 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
         choices=["none", "avif", "webp"],
         help=" ".join(
             [
-                "Generate a downscaled preview sibling file next to each clip (and merged output) in the chosen format.",
-                "'avif' produces an animated AVIF at reduced resolution, picked from source resolution.",
-                "Requires ffmpeg >= 6.1 for the AVIF muxer (libsvtav1 shipped since 4.4).",
+                "Generate a downscaled animated preview sibling file next to each output clip (and any merged outputs) in the chosen format.",
+                "'avif' produces an animated AVIF at reduced resolution. Requires ffmpeg >= 6.1 for the AVIF muxer (libsvtav1 shipped since 4.4).",
                 "'webp' produces an animated WebP with broader browser support (older Safari, webmail, Firefox < 113) at a small file-size penalty vs. AVIF.",
                 "WebP uses libwebp method-6 (max effort) to narrow that gap; expect ~2-3x the encode time of AVIF per preview.",
-                "Some formats (future) may support audio; 'avif' and 'webp' do not.",
-                "Default: 'none' (no preview generated).",
+                "Neither format carries audio.",
             ],
         ),
     )
@@ -730,9 +732,9 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
         help=" ".join(
             [
                 "Override the auto-picked quality for the preview encode. -1 = auto.",
-                "AVIF (SVT-AV1 CRF scale, 0-63, lower = better): auto falls in 28-45 band derived from source bitrate, source CRF, and downsample ratio.",
-                "WebP (libwebp quality scale, 0-100, higher = better): auto falls in 60-80 band derived from downsample ratio, preview long edge, and source CRF ceiling.",
-                "Note the two scales run in opposite directions; supply a value on the selected format's scale.",
+                "AVIF (SVT-AV1 CRF scale, 0-63, lower = better): auto falls in the 28-45 band derived from source bitrate, source CRF, and downsample ratio.",
+                "WebP (libwebp quality scale, 0-100, higher = better): auto falls in the 60-80 band derived from downsample ratio, preview long edge, and source CRF ceiling.",
+                "The two scales run in opposite directions; supply a value on the selected format's scale.",
             ],
         ),
     )
@@ -742,7 +744,7 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
         dest="previewPreset",
         type=int,
         default=8,
-        help="Encoder preset for preview encode (SVT-AV1: 0=slowest/best, 13=fastest). Default: 8.",
+        help="Encoder preset for preview encode (SVT-AV1: 0=slowest/best, 13=fastest). Has no effect on WebP previews.",
     )
     output_options.add_argument(
         "--auto-subs-lang",
