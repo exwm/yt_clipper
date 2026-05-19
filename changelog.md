@@ -2,6 +2,53 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [5.44.0](https://github.com/exwm/yt_clipper/compare/v5.43.0...v5.44.0) (2026-05-19)
+
+
+### Features
+
+* **clipper:** sample-guided encoding via `--sample-guided-encode` (`-sge`) ([99d91ee](https://github.com/exwm/yt_clipper/commit/99d91ee9aa7679dbaf33ed799c7576ddb0376004))
+  * Probes a few CRF values on short sample windows of each marker pair, measures the trials against a near-transparent reference using VMAF NEG, and picks the highest CRF that clears a perceptual-quality target. The picked CRF is used for the final encode.
+  * Per-pair, per-encoder-fingerprint run-cache replays the picked CRF on subsequent invocations with the same encoder settings.
+  * Companion flags: `--target-vmaf-mean`, `--target-vmaf-low`, `--target-vmaf-low-percentile`, `--sample-guided-encode-alg`.
+* **clipper:** vp9 aq-mode and tile-rows now use libvpx defaults ([9bb110e](https://github.com/exwm/yt_clipper/commit/9bb110e37e01ec7a962dbfd8bd17c67dfc8e0cc9))
+  * Discovered during VMAF measurements for sample-guided encoding: yt_clipper was using aq-mode 4 (the EQUATOR360 preset, intended for 360° video) and tile-rows 2, both wrong for standard clips. Now uses libvpx defaults (aq-mode 0, tile-rows 0). Expect default-mode encodes ~12-15% bigger for the same content at the same CRF; baseline CRFs were not adjusted to compensate.
+* **clipper:** structured logging UX overhaul ([130a7d2](https://github.com/exwm/yt_clipper/commit/130a7d2a6dba5a898f36f6ebf2c14954f163dad2))
+  * Section rules and sub-phase banners, per-pair contextvar tag on every line, compact `HH:MM:SS` timestamps with a run-start ISO anchor, per-stage timing summary at run end, and `rich.Table` for the sample-guided encode aggregate + auto-delta blocks. Multi-subsystem interleaving stays attributable via subsystem chips.
+* **clipper:** live progress display for ffmpeg encodes ([fb16e6f](https://github.com/exwm/yt_clipper/commit/fb16e6f597483829e63d08f01fe54f3128965ae1))
+  * Per-encode bar with frame count and ETA. Sample-guided trials share one tracker spanning the whole search instead of resetting between phases.
+* **clipper:** animated clip previews via `--preview-format` ([d6971e9](https://github.com/exwm/yt_clipper/commit/d6971e987f259522dd14f1900c572e0d36939a88))
+  * Downscaled AVIF or WebP sibling file next to each output webm (and any merged outputs). Tuning via `--preview-max-dim`, `--preview-quality`, `--preview-preset`.
+* **markup:** contextual hints bar with chord glyphs and popovers ([accd70f](https://github.com/exwm/yt_clipper/commit/accd70f91ae155cb102e5be89b24a6f4b5902e84))
+  * **Alt+F** toggles. Shortcut chips update with cursor location and held modifiers; expandable chips open chord-family popovers on hover.
+* **markup:** rapid crop-keyframe workflow during crop manipulation ([5d43d94](https://github.com/exwm/yt_clipper/commit/5d43d94ad77acc774528e8b9c936e4a09cd8e224))
+  * During an active **Ctrl+Drag** crop manipulation with the crop chart visible, press **Alt+A** (or **A**) to commit a keyframe at the current position and keep dragging — useful for one-handed motion tracking. Mouse wheel during pan-drag zooms the crop center-out for simultaneous reframe + scale.
+* **markup:** markers JSON load preview modal + share-url binary compression improvements ([45c4e83](https://github.com/exwm/yt_clipper/commit/45c4e836336f6f2057eb1227c0e56bccbd89aab3))
+  * Review modal opens before applying loaded data — flags HTML-like content and lets you cancel untrusted JSON.
+* **markup:** Shift+S to save shareable link with markers data ([5b8bd68](https://github.com/exwm/yt_clipper/commit/5b8bd6830371f7baca5ca737b35c2ffa03873794))
+  * Behind a feature flag until further testing.
+
+
+### Bug Fixes
+
+* **markup:** adopt lit-html for safer templated HTML rendering ([c5055af](https://github.com/exwm/yt_clipper/commit/c5055af6bcbbffc8b469b90ffe333b7bbf48606b))
+  * All dynamic HTML now uses escape-by-default templates; complements the new settings-editor XSS defense and the markers-load review modal.
+* **markup:** additional XSS defense for settings editors ([1fc6fca](https://github.com/exwm/yt_clipper/commit/1fc6fcad9591994b41b028e1138574040a46829b))
+* **markup:** smooth Alt+Drag marker numbering ([176a1a6](https://github.com/exwm/yt_clipper/commit/176a1a6337bdbfffd51cbc3ce0a4ea9ad3e9434e))
+  * No more rubber-banding on fast drags or freezing on diagonal motion.
+* **markup:** release stuck mid-drag state on blur, devtools, and right-click ([631b9eb](https://github.com/exwm/yt_clipper/commit/631b9eb66fde9e18de6e3e5bf4c93c96da19ccb7))
+* **clipper:** probe clip dims for preview scale, not source dims ([d33ea4d](https://github.com/exwm/yt_clipper/commit/d33ea4d826a1336f8626e1da700f029038e3fb50))
+
+
+### Major Dependency Upgrades
+
+* **clipper+markup:** upgrade dependencies ([0f9ad83](https://github.com/exwm/yt_clipper/commit/0f9ad83ee30e8dee115425b7814df119b10564e9))
+
+
+### Documentation Updates
+
+* document new clipper features and align CLI help text ([570e355](https://github.com/exwm/yt_clipper/commit/570e35599ae9cf39aaf4b2e0f82224dc284fc589))
+
 ## [5.43.0](https://github.com/exwm/yt_clipper/compare/v5.41.0...v5.43.0) (2026-04-12)
 
 
