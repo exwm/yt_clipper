@@ -69,14 +69,10 @@ function ReviewModal(
           </div>
           ${p.findings.length
             ? html`<div>
-                Text that looks like executable HTML or scripts (e.g.
+                We treat the content as plain text and do not execute it, but the risk is non-zero.
+                Content that looks like executable HTML or scripts (e.g.
                 <code>&lt;iframe&gt;</code>, <code>onerror=</code>, or
-                <code>javascript:</code> URLs).
-                <br />
-                This kind of content does not belong in normal markers data and its presence
-                suggests tampering. Although we do our best to treat this content as plain text and
-                never execute it,
-                <strong>treat the source as untrusted and prefer to cancel.</strong>
+                <code>javascript:</code> URLs):
               </div>`
             : nothing}
           <ul>
