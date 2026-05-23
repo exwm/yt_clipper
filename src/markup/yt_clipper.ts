@@ -65,7 +65,7 @@ import { CommandPalette, HotkeyEngine, ShortcutRegistry } from '../command-palet
 import { createShortcutDefinitions } from './shortcut-definitions';
 import { appState, VideoElement, YTPlayer } from './appState';
 import { captureFrame, saveCapturedFrames } from './frame-capture';
-import { rotateVideo, toggleBigVideoPreviews } from './video-rotation';
+import { rotateVideo, toggleBigVideoPreviews, refreshRotatedVideoCSS } from './video-rotation';
 import { toggleGammaPreview, toggleFadeLoopPreview, toggleAllPreviews } from './preview-toggles';
 import {
   toggleMarkerPairSpeedPreview,
@@ -505,9 +505,37 @@ export function isTheatreMode() {
   }
 }
 
-function initVideoInfo() {
-  appState.videoInfo.aspectRatio = appState.video.videoWidth / appState.video.videoHeight;
+function applyVideoAspectRatio(videoWidth: number, videoHeight: number) {
+  appState.videoInfo.aspectRatio = videoWidth / videoHeight;
   appState.videoInfo.isVerticalVideo = appState.videoInfo.aspectRatio <= 1;
+}
+
+// Re-read the video's intrinsic dimensions and update the stored aspect ratio.
+// Returns whether the aspect ratio actually changed. Guards against the 0
+// dimensions reported before a newly navigated video's metadata has loaded.
+function refreshVideoDimensions(): boolean {
+  const { videoWidth, videoHeight } = appState.video;
+  if (!videoWidth || !videoHeight) return false;
+  if (videoWidth / videoHeight === appState.videoInfo.aspectRatio) return false;
+  applyVideoAspectRatio(videoWidth, videoHeight);
+  return true;
+}
+
+// The host (e.g. YouTube) reuses the same <video> element across SPA
+// navigation and fires a 'resize' event when the new video's intrinsic
+// dimensions differ. Refresh the aspect ratio and re-fit the (possibly
+// rotated) video + crop overlay so a portrait<->landscape change doesn't
+// leave the video mis-sized. yt_clipper stays locked to the originally
+// loaded video — the stale-video banner still tells the user to navigate
+// back to avoid losing in-progress work; this only keeps the rendering sane.
+function handleVideoDimensionsChange() {
+  if (!refreshVideoDimensions()) return;
+  if (appState.rotation !== 0) refreshRotatedVideoCSS();
+  resizeCropOverlay();
+}
+
+function initVideoInfo() {
+  applyVideoAspectRatio(appState.video.videoWidth, appState.video.videoHeight);
   const url = window.location.origin + window.location.pathname;
   appState.videoInfo.videoUrl = url;
   appState.videoInfo.fps = getFPS();
@@ -573,6 +601,9 @@ function initVideoInfo() {
 
 function initObservers() {
   new ResizeObserver(resizeCropOverlay).observe(appState.hooks.videoContainer);
+  // Refresh the aspect ratio when the (reused) video element's intrinsic
+  // dimensions change, e.g. SPA navigation to a portrait vs landscape video.
+  appState.video.addEventListener('resize', handleVideoDimensionsChange);
 
   if (platform === VideoPlatforms.afreecatv) {
     observeVideoElementChange(appState.hooks.videoContainer, (addedNodes: NodeList) => {

@@ -20,24 +20,7 @@ export function rotateVideo(direction: string) {
     appState.rotation = appState.rotation === 0 ? -90 : 0;
   }
   if (appState.rotation === 90 || appState.rotation === -90) {
-    const scale = 1 / appState.videoInfo.aspectRatio;
-    rotatedVideoCSS = getRotatedVideoCSS(appState.rotation);
-    const tooltipOffset = Math.round(((appState.videoInfo.aspectRatio - 1) / 2) * 100);
-    rotatedVideoPreviewsCSS = `\
-        .ytp-tooltip {
-          transform: translateY(-${tooltipOffset}%) rotate(${appState.rotation}deg) !important;
-        }
-        .ytp-tooltip-text-wrapper {
-          transform: rotate(${-appState.rotation}deg) !important;
-          opacity: 0.6;
-        }
-      `;
-    fullscreenRotatedVideoCSS = `
-      .yt-clipper-video {
-        transform: rotate(${appState.rotation}deg) scale(${scale}) !important;
-        margin-left: auto;
-      }
-      `;
+    buildRotatedVideoCSSStrings();
     if (document.fullscreenElement == null) {
       adjustRotatedVideoPositionStyle = injectCSS(
         adjustRotatedVideoPositionCSS,
@@ -71,6 +54,55 @@ export function rotateVideo(direction: string) {
   }
   resizeCropOverlay();
   triggerCropPreviewRedraw();
+}
+
+// Build the rotation CSS strings from the current rotation and the current
+// video's aspect ratio. The tooltip offset and the fullscreen scale both
+// depend on the aspect ratio, so these must be rebuilt whenever the video
+// (and thus its aspect ratio) changes — not just on the initial rotate.
+function buildRotatedVideoCSSStrings() {
+  const scale = 1 / appState.videoInfo.aspectRatio;
+  rotatedVideoCSS = getRotatedVideoCSS(appState.rotation);
+  const tooltipOffset = Math.round(((appState.videoInfo.aspectRatio - 1) / 2) * 100);
+  rotatedVideoPreviewsCSS = `\
+        .ytp-tooltip {
+          transform: translateY(-${tooltipOffset}%) rotate(${appState.rotation}deg) !important;
+        }
+        .ytp-tooltip-text-wrapper {
+          transform: rotate(${-appState.rotation}deg) !important;
+          opacity: 0.6;
+        }
+      `;
+  fullscreenRotatedVideoCSS = `
+      .yt-clipper-video {
+        transform: rotate(${appState.rotation}deg) scale(${scale}) !important;
+        margin-left: auto;
+      }
+      `;
+}
+
+// Recompute and re-inject the aspect-ratio-dependent rotation CSS for the
+// current video. Used when the video's dimensions change (e.g. SPA navigation
+// to a video with a different aspect ratio) so a stale ratio doesn't
+// misposition the rotated tooltip previews or fullscreen scaling. The windowed
+// rotate CSS only depends on the rotation angle, so it does not need refreshing.
+export function refreshRotatedVideoCSS() {
+  if (appState.rotation === 0) return;
+  buildRotatedVideoCSSStrings();
+  if (rotatedVideoPreviewsStyle) {
+    deleteElement(rotatedVideoPreviewsStyle);
+    rotatedVideoPreviewsStyle = injectCSS(
+      rotatedVideoPreviewsCSS,
+      'yt-clipper-rotated-video-previews-css'
+    );
+  }
+  if (document.fullscreenElement != null && fullscreenRotatedVideoStyle) {
+    deleteElement(fullscreenRotatedVideoStyle);
+    fullscreenRotatedVideoStyle = injectCSS(
+      fullscreenRotatedVideoCSS,
+      'fullscreen-rotated-video-css'
+    );
+  }
 }
 
 export function fullscreenRotateVideoHandler() {

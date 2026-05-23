@@ -1,5 +1,6 @@
 import { appState } from './appState';
 import { resolvePlayerAndVideo } from './bootstrap';
+import { resizeCropOverlay } from './crop-overlay';
 import { disableCommonBlockers, enableCommonBlockers } from './platforms/blockers/common';
 import { disableYTBlockers, enableYTBlockers } from './platforms/blockers/youtube';
 import { isStaleVideo, setIsStaleVideo, PlatformNavObserver } from './platforms/navigation';
@@ -31,6 +32,14 @@ export async function handleNavigation() {
     }
     return;
   }
+
+  // Nudge the host player to recompute its layout for the new load, and
+  // re-measure the crop overlay against the (potentially) resized video.
+  // Most needed in rotated mode: the host (e.g. YouTube) reflows for the
+  // new video against the un-transformed bounds, so rotated dimensions
+  // stay stale until something kicks a resize.
+  window.dispatchEvent(new Event('resize'));
+  resizeCropOverlay();
 
   const loadedVideoID = appState.settings?.videoID ?? null;
   const currentPageVideoID = getCurrentPageVideoID();
