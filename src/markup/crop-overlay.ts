@@ -229,7 +229,6 @@ function CropOverlayTemplate(fillOpacity: number, crossHairDisplay: string) {
           fill="none"
           stroke="black"
           stroke-width="1px"
-          stroke-opacity="0.8"
         />
         <rect
           id="cropRectBorderWhite"
@@ -241,7 +240,6 @@ function CropOverlayTemplate(fillOpacity: number, crossHairDisplay: string) {
           stroke="white"
           stroke-width="1px"
           stroke-dasharray="5 5"
-          stroke-opacity="0.8"
         ></rect>
         <g id="cropCrossHair" opacity="0.9" stroke="white" display=${crossHairDisplay}>
           <line

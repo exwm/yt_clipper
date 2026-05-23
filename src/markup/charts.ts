@@ -771,11 +771,11 @@ export function updateDynamicCropOverlays(
   if (isDynamicCrop || appState.currentCropPointIndex > 0) {
     (cropOverlayElements.cropChartSectionStart as HTMLElement).style.display = 'block';
     (cropOverlayElements.cropChartSectionEnd as HTMLElement).style.display = 'block';
-    (cropOverlayElements.cropRectBorder as HTMLElement).style.opacity = '0.6';
+    (cropOverlayElements.cropRectBorder as HTMLElement).style.opacity = '0.7';
   } else {
     (cropOverlayElements.cropChartSectionStart as HTMLElement).style.display = 'none';
     (cropOverlayElements.cropChartSectionEnd as HTMLElement).style.display = 'none';
-    (cropOverlayElements.cropRectBorder as HTMLElement).style.opacity = '1';
+    (cropOverlayElements.cropRectBorder as HTMLElement).style.opacity = '0.8';
     return;
   }
   const sectStart = chartData[currentCropChartSection[0]];
@@ -810,11 +810,11 @@ export function updateDynamicCropOverlays(
   const sectionEndEl = cropOverlayElements.cropChartSectionEnd;
   assertDefined(sectionEndEl);
   if (currentCropChartMode === cropChartMode.Start) {
-    sectionStartEl.setAttribute('opacity', '0.8');
-    sectionEndEl.setAttribute('opacity', '0.3');
+    sectionStartEl.setAttribute('opacity', '0.9');
+    sectionEndEl.setAttribute('opacity', '0.5');
   } else if (currentCropChartMode === cropChartMode.End) {
-    sectionStartEl.setAttribute('opacity', '0.3');
-    sectionEndEl.setAttribute('opacity', '0.8');
+    sectionStartEl.setAttribute('opacity', '0.5');
+    sectionEndEl.setAttribute('opacity', '0.9');
   }
 
   const [easedX, easedY, easedW, easedH] = getEasedCropComponents(sectStart, sectEnd);
