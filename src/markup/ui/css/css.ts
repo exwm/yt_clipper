@@ -27,6 +27,22 @@ export const adjustRotatedVideoPositionCSS = `\
 
     `;
 
+// Applied while the crop chart is open on YouTube so a tall (vertical)
+// source video doesn't push the chart out of the viewport. Mirrors the
+// height cap that `getRotatedVideoCSS` applies for rotated videos.
+export const cropChartActiveVideoHeightCSS = `
+        #full-bleed-container {
+          height: 85vh !important;
+          max-height: none !important;
+        }
+        #page-manager {
+          margin-top: 0px !important;
+        }
+        #masthead {
+          display: none !important;
+        }
+      `;
+
 export function getRotatedVideoCSS(rotation: number) {
   return `
         .yt-clipper-video {
