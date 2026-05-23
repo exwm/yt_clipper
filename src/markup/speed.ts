@@ -226,10 +226,7 @@ export function getIsMarkerLoopPreviewOn() {
 export function cycleForceSetSpeedValueDown() {
   appState.forceSetSpeedValue = appState.forceSetSpeedValue - 0.25;
   if (appState.forceSetSpeedValue <= 0) appState.forceSetSpeedValue = 1;
-  flashMessage(
-    `Force set appState.video speed value set to ${appState.forceSetSpeedValue}`,
-    'green'
-  );
+  flashMessage(`Force set video speed value set to ${appState.forceSetSpeedValue}`, 'green');
 }
 
 export function toggleForceSetSpeed() {

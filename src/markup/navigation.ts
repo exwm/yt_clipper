@@ -75,7 +75,7 @@ function StaleVideoBannerTemplate(loadedVideoID: string) {
       <div class="ytc-stale-banner-text">
         <strong>Video changed</strong>
         <span>
-          yt_clipper was loaded from appState.video with id
+          yt_clipper was loaded for the video with id
           <code class="ytc-stale-banner-videoid">${loadedVideoID}</code> and may behave unexpectedly
           on other videos. Navigate back to resume, or refresh the page to reload yt_clipper.
         </span>
