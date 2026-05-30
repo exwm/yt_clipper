@@ -1,7 +1,7 @@
 import argparse
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, OrderedDict, Tuple
+from typing import Any, Dict, List, Optional, OrderedDict, Tuple
 
 from rich_argparse import ArgumentDefaultsRichHelpFormatter
 
@@ -11,10 +11,26 @@ from clipper.version import __version__
 from clipper.ytdl import ytdl_bin_get_version
 
 
+class DefaultsHelpFormatter(ArgumentDefaultsRichHelpFormatter):
+    """Show '(default: ...)' like the parent, but omit it when the default is
+    None or an empty string.
+
+    Those render as a confusing '(default: None)' or a blank '(default: )'.
+    Such options are either unset/disabled or have their real default computed
+    dynamically deeper in the code (e.g. --crf, --encode-speed, --target-max-
+    bitrate); where that default matters it is spelled out in the help text.
+    """
+
+    def _get_help_string(self, action: argparse.Action) -> Optional[str]:
+        if action.default in (None, ""):
+            return action.help
+        return super()._get_help_string(action)
+
+
 def getArgParser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Generate clips from input video.",
-        formatter_class=ArgumentDefaultsRichHelpFormatter,
+        formatter_class=DefaultsHelpFormatter,
     )
     parser.add_argument(
         "-v",
@@ -574,7 +590,13 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
         type=int,
         dest="encodeSpeed",
         choices=range(0, 6),
-        help="Set the vp9 encoding speed.",
+        help=" ".join(
+            [
+                "Set the vp9 encoding speed (0 slowest/best, 5 fastest).",
+                "Defaults to a value from 2-5 chosen from the detected video bitrate",
+                "(higher bitrate uses a faster preset).",
+            ],
+        ),
     )
     output_options.add_argument(
         "--crf",
@@ -582,7 +604,7 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
         help=" ".join(
             [
                 "Set constant rate factor (crf). Default is 30 for video file input.",
-                "Automatically set to a factor of the detected video bitrate",
+                "Automatically set to a factor of the detected video bitrate.",
             ],
         ),
     )
