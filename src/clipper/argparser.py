@@ -454,6 +454,8 @@ def add_ytdl_options(ytdl_options: argparse._ArgumentGroup) -> None:
     )
 
     ytdl_options.add_argument(
+        "--cookies",
+        "--cookiesfile",
         "--cookiefile",
         "-cf",
         dest="cookiefile",
