@@ -467,6 +467,23 @@ def add_ytdl_options(ytdl_options: argparse._ArgumentGroup) -> None:
     )
 
     ytdl_options.add_argument(
+        "--cookies-from-browser",
+        "-cfb",
+        dest="cookiesFromBrowser",
+        default="",
+        metavar="BROWSER[+KEYRING][:PROFILE][::CONTAINER]",
+        help="Load cookies straight from a local browser instead of a cookies file. "
+        "Supported browsers: brave, chrome, chromium, edge, firefox, opera, safari, vivaldi, whale. "
+        "Optionally append +KEYRING (Chromium decryption keyring on Linux: basictext, gnomekeyring, "
+        "kwallet, kwallet5, kwallet6), :PROFILE (name or path), and ::CONTAINER (Firefox only; 'none' "
+        "for no container); by default all containers of the most recently used profile are loaded. "
+        "Examples: 'firefox', 'chrome:Default', 'firefox:default-release::Personal'. "
+        "Mutually exclusive with --cookies. NOTE: Chrome/Chromium-based browsers often fail on "
+        "Windows due to cookie encryption/permission restrictions; prefer firefox or a --cookies "
+        "file there.",
+    )
+
+    ytdl_options.add_argument(
         "--ytdl-dir",
         dest="ytdlDir",
         default="",
