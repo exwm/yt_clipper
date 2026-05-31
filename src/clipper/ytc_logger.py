@@ -1,6 +1,7 @@
 import atexit
 import logging
 import shutil
+import sys
 from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
@@ -403,11 +404,18 @@ def get_rich_log_handler(
     file: IO[str] | None = None,
     color: bool = True,
 ) -> RichHandler:
+    # The stdout console (file is None) should only claim to be a terminal when
+    # stdout actually is one. When output is captured/piped (pytest, CI, a
+    # redirect), forcing terminal mode floods the capture with cursor/spinner
+    # escape sequences from the live encode-progress region. File-backed color
+    # consoles (e.g. the colored report buffer) still force it so ANSI codes are
+    # embedded in the buffer regardless of TTY.
+    force_terminal = (color and sys.stdout.isatty()) if file is None else color
     console = Console(
         file=file,
         soft_wrap=True,
         highlight=color,
-        force_terminal=color,
+        force_terminal=force_terminal,
         no_color=not color,
     )
     console.push_theme(theme=THEME_RICH_CONSOLE)
