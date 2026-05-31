@@ -167,7 +167,7 @@ def add_vfilter_options(vfilter_options: argparse._ArgumentGroup) -> None:
         choices=["Numeric", "None", "MaxSpeed", "VideoFPS", "MaxSpeedx2", "VideoFPSx2"],
         help=" ".join(
             [
-                "Applies only to ffmpeg-based motion interpolation. Deprecated and scheduled for removal."
+                "Applies only to ffmpeg-based motion interpolation. Deprecated and scheduled for removal.",
                 "Motion interpolation is Enabled by default in a numeric mode.",
                 "In numeric mode, specify a valid target fps value in --minterp-fps.",
                 "In MaxSpeed mode, targets the fps of the highest speed seen in the dynamic speed chart.",
@@ -183,7 +183,7 @@ def add_vfilter_options(vfilter_options: argparse._ArgumentGroup) -> None:
         type=int,
         help=" ".join(
             [
-                "Applies only to ffmpeg-based motion interpolation. Deprecated and scheduled for removal."
+                "Applies only to ffmpeg-based motion interpolation. Deprecated and scheduled for removal.",
                 "Input an fps value from 10-120 to add interpolated frames and achieve smooth slow motion.",
                 "Motion interpolation mode must be set to Numeric.",
                 "This filter is resource intensive and will take longer to process the higher the target fps.",
@@ -222,9 +222,9 @@ def add_vfilter_options(vfilter_options: argparse._ArgumentGroup) -> None:
                 "video2x uses the video2x post-processor with the RIFE model for higher quality interpolation.",
                 "video2x requires a vulkan-capable GPU. See also https://github.com/k4yt3x/video2x/.",
                 "video2x must be installed and available either in ./bin/video2x in frozen releases or on the system PATH.",
-                "video2x can be downloaded separately from https://github.com/k4yt3x/video2x/releases."
-                "video2x does not yet support hardware-accelerated encoders like h264_vulkan or h264_nvenc."
-                "ffmpeg-based motion interpolation is deprecated and scheduled to be removed."
+                "video2x can be downloaded separately from https://github.com/k4yt3x/video2x/releases.",
+                "video2x does not yet support hardware-accelerated encoders like h264_vulkan or h264_nvenc.",
+                "ffmpeg-based motion interpolation is deprecated and scheduled to be removed.",
                 "ffmpeg-based motion interpolation requires --minterp-fps or a non-Numeric minterp mode to have effect.",
                 "ffmpeg uses the built-in minterp filter.",
             ],
@@ -409,8 +409,12 @@ def add_vfilter_options(vfilter_options: argparse._ArgumentGroup) -> None:
         dest="loop",
         choices=["none", "fwrev", "fade"],
         default="none",
-        help="Apply special looping effect to marker pair clips. "
-        "For a forward-reverse or ping-pong loop use fwrev. For a cross-fading loop use fade.",
+        help=" ".join(
+            [
+                "Apply special looping effect to marker pair clips.",
+                "For a forward-reverse or ping-pong loop use fwrev. For a cross-fading loop use fade.",
+            ],
+        ),
     )
 
     vfilter_options.add_argument(
@@ -461,9 +465,14 @@ def add_ytdl_options(ytdl_options: argparse._ArgumentGroup) -> None:
         dest="cookiefile",
         default="",
         metavar="FILE",
-        help="Specify the path to a Netscape formatted cookies file to be used by yt-dlp. Use this option when sign "
-        "in is required by the video platform. On how to obtain the cookies file, "
-        "see https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp",
+        help=" ".join(
+            [
+                "Specify the path to a Netscape formatted cookies file to be used by yt-dlp.",
+                "Use this option when sign in is required by the video platform.",
+                "On how to obtain the cookies file,",
+                "see https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp",
+            ],
+        ),
     )
 
     ytdl_options.add_argument(
@@ -472,23 +481,24 @@ def add_ytdl_options(ytdl_options: argparse._ArgumentGroup) -> None:
         dest="cookiesFromBrowser",
         default="",
         metavar="BROWSER[+KEYRING][:PROFILE][::CONTAINER]",
-        help="Load cookies straight from a local browser instead of a cookies file. "
-        "Supported browsers: brave, chrome, chromium, edge, firefox, opera, safari, vivaldi, whale. "
-        "Optionally append +KEYRING (Chromium decryption keyring on Linux: basictext, gnomekeyring, "
-        "kwallet, kwallet5, kwallet6), :PROFILE (name or path), and ::CONTAINER (Firefox only; 'none' "
-        "for no container); by default all containers of the most recently used profile are loaded. "
-        "Examples: 'firefox', 'chrome:Default', 'firefox:default-release::Personal'. "
-        "Mutually exclusive with --cookies. NOTE: Chrome/Chromium-based browsers often fail on "
-        "Windows due to cookie encryption/permission restrictions; prefer firefox or a --cookies "
-        "file there.",
+        help=" ".join(
+            [
+                "Load cookies straight from a local browser instead of a cookies file.",
+                "Supported browsers: brave, chrome, chromium, edge, firefox, opera, safari, vivaldi, whale.",
+                "Optionally append +KEYRING (Chromium decryption keyring on Linux: basictext, gnomekeyring, kwallet, kwallet5, kwallet6), :PROFILE (name or path), and ::CONTAINER (Firefox only; 'none' for no container); by default all containers of the most recently used profile are loaded.",
+                "Examples: 'firefox', 'chrome:Default', 'firefox:default-release::Personal'.",
+                "Mutually exclusive with --cookies.",
+                "NOTE: Chrome/Chromium-based browsers often fail on Windows due to cookie encryption/permission restrictions; prefer firefox or a --cookies file there.",
+            ],
+        ),
     )
 
     ytdl_options.add_argument(
         "--ytdl-dir",
         dest="ytdlDir",
         default="",
-        help="Specify a directory to search for the yt-dlp tool on your system."
-        "If a relative or absolute path is given, the expected tool name for the platform will be searched for in the direcotry."
+        help="Specify a directory to search for the yt-dlp tool on your system. "
+        "If a relative or absolute path is given, the expected tool name for the platform will be searched for in the directory. "
         "If unspecified, the system PATH will be searched.",
     )
 
@@ -543,8 +553,8 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
         help=" ".join(
             [
                 "Specify which marker pairs if any you would like to merge/concatenate.",
-                "Each merge is a comma separated list of marker pair numbers or ranges",
-                'For example "1-3,5,9" will merge marker pairs "1,2,3,5,9").',
+                "Each merge is a comma-separated list of marker pair numbers or ranges.",
+                'For example "1-3,5,9" will merge marker pairs "1,2,3,5,9".',
                 'Separate multiple merges with semicolons (eg "1-3,5,9;6-2,8" creates 2 merged clips).',
                 "Merge requires successful generation of each required marker pair.",
                 "Merge does not require reencoding and simply orders each clip into one container.",
@@ -673,7 +683,7 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
         type=int,
         help=" ".join(
             [
-                "Set target max bitrate in kilobits/s. Constrains bitrate of complex scenes."
+                "Set target max bitrate in kilobits/s. Constrains bitrate of complex scenes.",
                 "Automatically set based on detected video bitrate.",
             ],
         ),
@@ -686,7 +696,7 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
         choices=["vp9", "vp8", "h264", "h264_vulkan", "h264_nvenc"],
         help=" ".join(
             [
-                "Select a video codec for video encoding."
+                "Select a video codec for video encoding.",
                 "With vp8, use libvorbis for audio encoding instead of the default libopus.",
                 "vp9 is the default and most tested video codec with yt_clipper.",
                 "vp9 generally offers a better quality-size trade-off than vp8.",
@@ -706,7 +716,7 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
         action="store_true",
         help=" ".join(
             [
-                "Disable reducing output clip sutter when using the h264 output video codec.",
+                "Disable reducing output clip stutter when using the h264 output video codec.",
                 "When disabled, output clips will all use the input video framerate and slowed down clips may have duplicate frames that cause some stuttering.",
                 "This may be useful when merging h264 videos however as in some cases keeping the same framerate results in smoother transitions between clips.",
             ],
@@ -840,11 +850,11 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
             [
                 "Extra arguments to be passed to the ffmpeg command built by yt_clipper.",
                 "The extra arguments are injected after other arguments set by yt_clipper,",
-                "but before the video filters."
+                "but before the video filters.",
                 "Use quotes to ensure the arguments are passed to ffmpeg including whitespace.",
-                "On Windows, if nested quoting is required, it may be necessary ",
+                "On Windows, if nested quoting is required, it may be necessary",
                 "to use double quotes for the outermost quotes due to a bug.",
-                "Arguments that conflict with the arguments automatically added ",
+                "Arguments that conflict with the arguments automatically added",
                 "by yt_clipper may cause errors.",
             ],
         ),
@@ -885,7 +895,7 @@ def add_input_options(input_options: argparse._ArgumentGroup) -> None:
         default="",
         help=" ".join(
             [
-                "Specify which marker pairs to process by providing a comma separated",
+                "Specify which marker pairs to process by providing a comma-separated",
                 'list of marker pair numbers or ranges (e.g., "1-3,5,9" = "1,2,3,5,9").',
                 "The --except flag takes precedence and will skip pairs specified with --only.",
             ],
@@ -896,7 +906,7 @@ def add_input_options(input_options: argparse._ArgumentGroup) -> None:
         default="",
         help=" ".join(
             [
-                "Specify which marker pairs to skip by providing a comma separated",
+                "Specify which marker pairs to skip by providing a comma-separated",
                 'list of marker pair numbers or ranges (e.g., "1-3,5,9" = "1,2,3,5,9").',
                 "The --except flag takes precedence and will skip pairs specified with --only.",
             ],
@@ -918,8 +928,8 @@ def add_input_options(input_options: argparse._ArgumentGroup) -> None:
         ],
         help=" ".join(
             [
-                "Specify the sorting used to determine the best audio and video formats to download for generating clips."
-                "The sorting is specified as a comma-separated list of sort fields that describe audio/video formats."
+                "Specify the sorting used to determine the best audio and video formats to download for generating clips.",
+                "The sorting is specified as a comma-separated list of sort fields that describe audio/video formats.",
                 "The list of sort fields is passed to yt_dlp.",
                 "See the documentation of yt-dlp for the details on available sort fields.",
                 "The default sort used by yt-dlp is similar to the yt-dlp default",
@@ -979,7 +989,7 @@ def add_logging_options(logging_options: argparse._ArgumentGroup) -> None:
         default=False,
         help=" ".join(
             [
-                "Disable rich colored logging introduced in v5.26 (3 column layout with syntactical highlighting)."
+                "Disable rich colored logging introduced in v5.26 (3 column layout with syntactical highlighting).",
                 "Use simpler colored logging instead.",
             ],
         ),
