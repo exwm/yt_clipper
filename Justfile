@@ -22,7 +22,7 @@ test-py update="false":
   uv run pytest src/clipper -s --cov=src/clipper --cov-report=html -m "not slow" \
     {{ if update == "true" { "--snapshot-update" } else { "" } }}
 test-py-slow:
-  uv run pytest src/clipper --cov=src/clipper --cov-report=html
+  uv run pytest src/clipper --cov=src/clipper --cov-report=html -vvv
 test-py-update:
   just test-py true
 
