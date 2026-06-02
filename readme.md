@@ -165,7 +165,13 @@ A shortcuts reference can also be toggled by clicking the `full reference` butto
 - Holding `Ctrl`, `Shift`, or `Alt` filters the chips to those that require those modifiers.
 - Expandable chips with a trailing `+` open a popover listing related chord variants on hover.
 - Click the chevron on the left edge of the bar to flip it between pinned-bottom and pinned-top.
+- When there are more chips than fit on screen, scroll the bar horizontally with **click+drag** or the **mouse wheel**.
 - The bar's visibility and position persist across page reloads.
+- The bar can also be toggled from the command palette (**Shift+E**) or with the hints bar button (next to the scissors button) in the right side of the video player controls.
+
+  ![yt_clipper_hints_bar](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_hints_bar.png)
+
+  ![yt_clipper_hints_button](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_hints_button.png)
 
 ## Marker Editing Shortcuts
 
@@ -375,6 +381,8 @@ A shortcuts reference can also be toggled by clicking the `full reference` butto
 - To upload and reload markers data, click `Choose File`, pick your markers `json` file, then click `Load`.
   - ![yt_clipper_load_markers](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_load_markers.png)
 - A review modal opens before the data is applied. The modal shows a JSON preview and flags any HTML-like content (e.g. `<script>`, `<iframe>`, `onerror=`, `javascript:` URLs).
+  - ![yt_clipper_load_markers_review](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_load_markers_review.png)
+- The review also strips unexpected fields and blocks reserved JavaScript keys (prototype-pollution vectors such as `__proto__`); these cleanups are listed in the modal for inspection before you apply.
 - All loaded values are rendered through escape-by-default templates so flagged content is treated as plain text. The modal lets you cancel the load if the source is untrusted.
 - The same review fires for files dropped onto the player and for auto-saved restores from browser local storage.
 
@@ -394,7 +402,7 @@ A shortcuts reference can also be toggled by clicking the `full reference` butto
 
 **Alt+A:** Add a point at the current time.
 
-- During an active crop manipulation (pan-drag or resize started with **Ctrl+Click+Drag** on the crop overlay) with the crop chart visible, **Alt+A** drops a crop keyframe at the current time. The held point reverts to its previous drop position and the new point captures the current visual crop.
+- During an active crop manipulation (pan-drag or resize started with **Ctrl+Click+Drag** on the crop overlay) with the crop chart visible, **Alt+A** drops a crop keyframe at the current time. The held point reverts to its previous drop position and the new point captures the current visual crop. The new keyframe is auto-selected in start mode so you can immediately adjust or step it.
 - This lets you place multiple keyframes in one continuous gesture for rapid dynamic-crop tracking.
 - The plain **A** hotkey is rerouted to "add crop keyframe" while a crop manipulation is active with the crop chart visible. Useful for one-handed keyframe placement during a drag or resize.
 - For resize, per-keyframe size variation only takes effect in `zoompan` mode. In `pan-only` mode the crop W/H is shared across all points, so resize-based rapid keyframing primarily affects X/Y position.
@@ -530,6 +538,8 @@ The usual crop shortcuts have different effects than usual in this mode as descr
 
 The default video codec used by yt_clipper for encoding video clips is vp9 which is typically stored in a webm container in a file with the `.webm` extension. h264 and the newer h265/hevc are typically stored in an mp4 container.
 
+For vp9, yt_clipper uses libvpx's default `aq-mode` and `tile-rows` (a prior release mistakenly used `aq-mode 4`, the 360°/equirectangular preset). Default-mode vp9 encodes are accordingly ~12-15% larger at the same CRF but higher quality — keep this in mind when comparing output sizes across yt_clipper versions.
+
 You can use the `--video-codec` option to change video codecs. The clipper script help text (`yt_clipper --help`) is kept updated with the available video codecs.
 
 Hardware-accelerated codecs use your GPU (or sometimes other hardware like your CPU) for faster encodes at the cost of some quality. Support for these codecs depends on your hardware and your operating system.
@@ -554,7 +564,7 @@ For consistent output quality regardless of source bitrate, see the [Sample-Guid
 
 ## Sample-Guided Encoding
 
-`--sample-guided-encode` probes a few CRF values on short sample windows of each marker pair, measures the trial encodes against a near-transparent reference using VMAF NEG, and picks the highest CRF (most compression) that clears a perceptual-quality target. That CRF is then used for the final user-facing encode of the full clip.
+`--sample-guided-encode` probes a few CRF values on short sample windows of each marker pair, measures the trial encodes against a near-transparent reference (a CRF 18 encode) using VMAF NEG, and picks the highest CRF (most compression) that clears a perceptual-quality target. That CRF is then used for the final user-facing encode of the full clip.
 
 Use `--sample-guided-encode` when source bitrate alone isn't a reliable quality predictor.
 
@@ -575,6 +585,9 @@ The default targets are VMAF NEG mean `>= 95` and 5th-percentile (`p5`) `>= 93`.
 
 - The aggregate summary table at the end of a run shows one row per marker pair with the picked CRF, VMAF mean and all six low percentiles, trial bitrate, predicted final-encode size, and `kbps@tgt` (the interpolated bitrate at the target VMAF, used for cross-config comparison).
 - A "delta vs baseline" line under the table shows what the search bought relative to yt_clipper's default auto-picked CRF (the encode that would have happened without `--sample-guided-encode`).
+- Each marker pair also logs in-terminal VMAF-vs-CRF and bitrate-vs-CRF charts (the probed points, the fitted curve, the target line, and the chosen-CRF marker), so you can see the quality/size trade-off the search made.
+
+  ![yt_clipper_sge_plots](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_sge_plots.png)
 
 **Caveat for stabilized clips:**
 
@@ -627,6 +640,7 @@ Two formats are supported:
 1. The `clipper script` is set to use the vp9 encoder by default (encoding used for webm videos on YouTube).
 2. Use `--help`, `-h`, or the `yt_clipper_options` helper script for additional options that can be enabled on the command line.
 3. Encoding settings will be automatically selected, unless overridden, based on the detected bitrate and other properties of the input video.
+4. ffmpeg encodes show a live progress display; pressing **Ctrl+C** prints an idle-since-last-frame diagnostic to help spot stalls.
 
 ## Gamma Correction
 
