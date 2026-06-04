@@ -121,6 +121,7 @@ YouTube is the primary video platform supported by yt_clipper. Other supported p
   - [Gamma Correction](#gamma-correction)
 - [Clipper Script Source](#clipper-script-source)
 - [Clipper Script Usage](#clipper-script-usage)
+  - [Cookies for Sign-in-Required Videos](#cookies-for-sign-in-required-videos)
   - [Clipper Default Arguments Files](#clipper-default-arguments-files)
 - [Clipper Script Preview Shortcuts](#clipper-script-preview-shortcuts)
 - [Clipper Script Installation](#clipper-script-installation)
@@ -670,6 +671,14 @@ yt_clipper -j markers.json --preview  # preview marker pairs using ffplay
 
 yt_clipper -j markers.json --format bestvideo[width<=1080] # specify download format used by youtube-dl
 ```
+
+## Cookies for Sign-in-Required Videos
+
+Some videos require sign-in before yt-dlp can download them (age-restricted or private YouTube videos, or platforms like Weverse). Pass your browser cookies so yt-dlp can authenticate:
+
+- `--cookies <FILE>` (aliases `--cookiefile`, `--cookiesfile`; short `-cf`): path to a Netscape-format cookies file exported from your browser. See the [yt-dlp cookies FAQ](https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp).
+- `--cookies-from-browser <BROWSER>` (short `-cfb`): load cookies directly from a local browser, e.g. `--cookies-from-browser firefox` or `--cookies-from-browser chrome:Default`. Supported: `brave`, `chrome`, `chromium`, `edge`, `firefox`, `opera`, `safari`, `vivaldi`, `whale`. Mutually exclusive with `--cookies`.
+  - On Windows, Chrome/Chromium-based browsers often fail due to cookie encryption; prefer `firefox` or a `--cookies` file there.
 
 ## Clipper Default Arguments Files
 
