@@ -36,6 +36,9 @@ def getFfmpegVideoCodecArgs(
     if videoCodec == "h264_nvenc":
         return getFfmpegVideoCodecH264Nvenc(cbr=cbr, mp=mp, mps=mps, qmax=qmax, qmin=qmin)
 
+    if videoCodec == "av1":
+        return getFfmpegVideoCodecAv1(cbr=cbr, mp=mp, mps=mps, qmax=qmax, qmin=qmin)
+
     raise ValueError(f"Invalid video codec: {videoCodec}")
 
 
@@ -322,6 +325,68 @@ def getFfmpegVideoCodecH264Nvenc(
     )
 
     video_codec_input_args = "-hwaccel cuda -hwaccel_output_format cuda"
+    video_codec_output_args = " ".join(("-f mp4", fps_arg))
+    return video_codec_args, video_codec_input_args, video_codec_output_args
+
+
+def getFfmpegVideoCodecAv1(
+    cbr: Optional[int],
+    mp: DictStrAny,
+    mps: DictStrAny,
+    qmax: int,
+    qmin: int,
+) -> Tuple[str, str, str]:
+    """AV1 via libsvtav1, output in mp4.
+
+    Maps ``encodeSpeed`` (0-5) to SVT-AV1 preset (2-7); default
+    ``encodeSpeed=4`` -> preset 6 (VOD sweet spot).
+    """
+    if mps["minterpFPS"] is not None and mps["minterpTool"] == "ffmpeg":
+        fps_arg = f"-r {mps['minterpFPS']}"
+    elif not mp["isVariableSpeed"]:
+        fps_arg = f"-r ({mps['r_frame_rate']}*{mp['speed']})"
+    else:
+        fps_arg = "-fps_mode vfr"
+
+    sdr_args = "-pix_fmt yuv420p"
+    hdr_args = f"-pix_fmt yuv420p10le {dynamic_range.hdr_args_for_output_metadata}"
+    dynamic_range_args = hdr_args if mps["enableHDR"] else sdr_args
+
+    svt_preset = max(0, min(13, mps["encodeSpeed"] + 2))
+    # enable-overlays is incompatible with SVT-AV1 multi-pass.
+    svtav1_params = "tune=0"
+    if not mps["twoPass"]:
+        svtav1_params += ":enable-overlays=1"
+
+    # SVT-AV1 rejects -b:v in CRF mode (rc=0) and rejects CBR (rc=2) for
+    # VOD; all bitrate-targeted paths use VBR (rc=1). Two-pass needs a
+    # target, so CRF + --two-pass falls back to VBR using targetMaxBitrate.
+    bitrate_arg = ""
+    use_bitrate_target = cbr is not None or mps["targetSize"] > 0 or mps["twoPass"]
+    if use_bitrate_target:
+        svtav1_params += ":rc=1"
+        bitrate_arg = f"-b:v {cbr}MB" if cbr is not None else f"-b:v {mps['targetMaxBitrate']}k"
+    elif mps["targetMaxBitrate"]:
+        svtav1_params += f":mbr={mps['targetMaxBitrate']}k"
+
+    crf_args = (
+        f"-qmin {qmin} -crf {mps['crf']} -qmax {qmax}"
+        if mps["targetSize"] <= 0 and not use_bitrate_target
+        else ""
+    )
+
+    video_codec_args = " ".join(
+        (
+            "-c:v libsvtav1",
+            dynamic_range_args,
+            f"-preset {svt_preset}",
+            f"-svtav1-params {svtav1_params}",
+            crf_args,
+            bitrate_arg,
+            f"-force_key_frames 1 -g {mp['averageSpeed'] * Fraction(mps['r_frame_rate'])}",
+        ),
+    )
+    video_codec_input_args = ""
     video_codec_output_args = " ".join(("-f mp4", fps_arg))
     return video_codec_args, video_codec_input_args, video_codec_output_args
 

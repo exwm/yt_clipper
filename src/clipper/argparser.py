@@ -715,7 +715,7 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
         "-vc",
         dest="videoCodec",
         default="vp9",
-        choices=["vp9", "vp8", "h264", "h264_vulkan", "h264_nvenc"],
+        choices=["vp9", "vp8", "h264", "h264_vulkan", "h264_nvenc", "av1"],
         help=" ".join(
             [
                 "Select a video codec for video encoding.",
@@ -727,6 +727,7 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
                 "h264_vulkan uses the Vulkan technology which is supported on Linux and Windows across most modern GPUs (AMD/NVIDIA/Intel). MacOS and iOS are not yet supported. Requires ffmpeg >= 7.1.",
                 "h264_nvenc uses NVIDIA GPU hardware acceleration for faster encodes at the cost of some quality.",
                 "h264_nvenc is supported on Windows and Linux with NVIDIA GPUs that have NVENC support (most modern NVIDIA GPUs). Requires ffmpeg with nvenc support.",
+                "av1 uses libsvtav1 to produce AV1 video in an mp4 container (matching the container YouTube serves AV1 in). A higher-efficiency alternative to vp9 at the cost of slower encodes at lower preset values. Requires ffmpeg with libsvtav1 (shipped since 4.4).",
                 "If you have issues with hardware acceleration, ensure you have the latest drivers.",
             ],
         ),

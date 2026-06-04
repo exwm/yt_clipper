@@ -106,7 +106,7 @@ def getMarkerPairSettings(  # noqa: PLR0912
                 mp["fileNameSuffix"] = mps["ext"]
         else:
             mp["fileNameSuffix"] = (
-                "mp4" if mps["videoCodec"] in {"h264", "h264_nvenc", "h264_vulkan"} else "webm"
+                "mp4" if mps["videoCodec"] in {"h264", "h264_nvenc", "h264_vulkan", "av1"} else "webm"
             )
 
         mp["fileName"] = f"{mp['fileNameStem']}.{mp['fileNameSuffix']}"
@@ -777,16 +777,19 @@ def makeClip(  # noqa: PLR0912
         else:
             ffmpegCommand += f' -vf "{video_filter}" '
 
+        # -speed is libvpx-only; libsvtav1 sets preset inside its codec args.
+        speed_arg = "" if mps["videoCodec"] == "av1" else f' -speed {mps["encodeSpeed"]}'
+
         if not mps["twoPass"]:
             ffmpegCommand += overwriteArg
-            ffmpegCommand += f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
+            ffmpegCommand += f'{speed_arg} "{mp["filePath"]}"'
 
             ffmpegCommands = [ffmpegCommand]
         else:
             ffmpegPass1 = ffmpegCommand + f" -y -pass 1 {os.devnull}"
             ffmpegPass2 = (
                 ffmpegCommand
-                + f' {overwriteArg} -speed {mps["encodeSpeed"]} -pass 2 "{mp["filePath"]}"'
+                + f' {overwriteArg}{speed_arg} -pass 2 "{mp["filePath"]}"'
             )
 
             ffmpegCommands = [ffmpegPass1, ffmpegPass2]

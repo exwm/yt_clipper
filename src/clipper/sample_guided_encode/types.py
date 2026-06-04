@@ -179,6 +179,7 @@ _REFERENCE_CRF_BY_CODEC: dict[str, int] = {
     "h264_vulkan": 18,
     "vp9": 18,
     "vp8": 6,
+    "av1": 22,
 }
 _REFERENCE_CRF_FALLBACK: int = 18
 
