@@ -164,12 +164,26 @@ function drawZoomedRegion(
   if (modal && modal.isConnected && !modal.classList.contains('hidden')) {
     const [x, y, w, h] = getZoomRegion();
 
-    canvas.width = w;
-    canvas.height = h;
+    // Match the player's preview rotation: ±90° swaps the canvas aspect, and the
+    // source region is drawn through a rotated transform (same clockwise sense
+    // as the CSS rotate(${appState.rotation}deg)) so the modal shows the same
+    // orientation the user is previewing rather than the upright source.
+    const rotation = appState.rotation;
+    const isRotated = rotation === 90 || rotation === -90;
+    canvas.width = isRotated ? h : w;
+    canvas.height = isRotated ? w : h;
 
-    resizeModalToAspect(modalContent, w, h);
+    resizeModalToAspect(modalContent, canvas.width, canvas.height);
 
-    ctx.drawImage(appState.video, x, y, w, h, 0, 0, canvas.width, canvas.height);
+    if (rotation === 0) {
+      ctx.drawImage(appState.video, x, y, w, h, 0, 0, w, h);
+    } else {
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate((rotation * Math.PI) / 180);
+      ctx.drawImage(appState.video, x, y, w, h, -w / 2, -h / 2, w, h);
+      ctx.restore();
+    }
 
     if (appState.isGammaPreviewOn && gammaRenderer) {
       gammaRenderer.render(canvas, prevGammaVal);
