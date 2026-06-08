@@ -94,6 +94,7 @@ YouTube is the primary video platform supported by yt_clipper. Other supported p
   - [Marker Timing Shortcuts](#marker-timing-shortcuts)
   - [Marker Navigation Shortcuts](#marker-navigation-shortcuts)
   - [Global Settings Editor Shortcuts](#global-settings-editor-shortcuts)
+  - [Settings Editor Toolbar](#settings-editor-toolbar)
   - [Cropping Shortcuts](#cropping-shortcuts)
   - [Playback Shortcuts](#playback-shortcuts)
   - [Preview Shortcuts](#preview-shortcuts)
@@ -189,6 +190,7 @@ A shortcuts reference can also be toggled by clicking the `full reference` butto
 
 - Modified marker pair settings are accented orange while settings redundant with a global setting are accented red.
 - Reorder marker pairs using the input box in the title of the marker pair settings panel.
+- Navigate to the adjacent marker pair by number using the **◄ Prev** and **Next ►** buttons in the panel title. The buttons are greyed out at the first and last pair.
 - Edit pair crop or speed multiplier.
 - Edit `Title Prefix` that will be prepended to the `Title Suffix` and used in the webm name for the marker pair.
 
@@ -227,6 +229,8 @@ A shortcuts reference can also be toggled by clicking the `full reference` butto
 **Alt+Left/Right:** Select the next/previous marker pair relative to the currently or previously selected pair.
 
 **Ctrl+Alt+Left/Right:** Select the next/previous marker pair _and jump to its start marker_.
+
+- Navigating between or reordering marker pairs, whether with these shortcuts or the **◄ Prev**/**Next ►** buttons, refreshes the player controls and progress bar so they don't stay hidden while the playhead jumps.
 
 ## Global Settings Editor Shortcuts
 
@@ -267,6 +271,17 @@ A shortcuts reference can also be toggled by clicking the `full reference` butto
 
 - Set the default new marker speed or crop using **W**.
 
+## Settings Editor Toolbar
+
+The marker pair editor and the global settings editor each have a toolbar of icon buttons in their title for quick access to common toggles and actions. The buttons mirror existing shortcuts, are highlighted while their feature is active, and show small badges with relevant counts.
+
+  ![yt_clipper_settings_toolbar](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_settings_toolbar.png)
+
+- Active features are highlighted in the editor's accent color (orange for the marker pair editor, red for the global settings editor).
+- Badges show the undo/redo history depth, the number of points in a dynamic speed or crop chart, the number of overrides set on a marker pair, the current crop dim opacity, and the current preview rotation.
+- The marker pair editor toolbar has: undo/redo pair changes, auto-hide unselected pairs, crop crosshair, cycle crop dim, crop preview, capture frame, dynamic speed and crop charts, the preview toggles (all, speed, loop, and gamma), and marker pair overrides.
+- The global settings editor toolbar has: save, copy, load, and restore markers data, crop crosshair, cycle crop dim, capture frame, rotate video, the preview toggles, and global overrides.
+
 ## Cropping Shortcuts
 
 **X:** When marker or defaults editor is open, begin drawing crop.
@@ -275,7 +290,7 @@ A shortcuts reference can also be toggled by clicking the `full reference` butto
 - While drawing crop, pressing **X** again will cancel drawing.
 - Crop is given as `x-offset:y-offset:width:height`. Each value is a positive integer in pixels. `Width` and `height` can also be `iw` and `ih` respectively for input width and input height.
 
-**Ctrl+X:** Cycle crop dim opacity by 25% plus one stop point at 90%.
+**Ctrl+X:** Cycle crop dim opacity by 25% (0/25/50/75/100%). The crop dim toolbar button shows the current opacity.
 
 **Ctrl+Shift+X:** Toggle crop crosshair.
 
@@ -334,7 +349,7 @@ A shortcuts reference can also be toggled by clicking the `full reference` butto
 
   <img src="https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_crop_preview_pop_out.png" alt="yt_clipper_crop_preview.png" width="500">
 
-**Ctrl+Alt+X:** Toggle previewing crop in modal window. The modal window can be left-clicked to play/pause and right-clicked to seek the video.
+**Ctrl+Alt+X:** Toggle previewing crop in modal window. The modal window can be left-clicked to play/pause and right-clicked to seek the video. The crop preview reflects the current video preview rotation.
 
 **Alt+C:** Toggle auto previewing gamma correction setting when between a marker pair.
 
@@ -351,7 +366,9 @@ A shortcuts reference can also be toggled by clicking the `full reference` butto
 
 **R/Alt+R:** Toggle between a 90 degree clockwise/counter-clockwise rotation and no rotation.
 
-- Note that this is only a preview and you must set the rotation in the global settings editor opened with **W** to rotate the output video.
+- Previewing a rotation now also sets the matching output rotation in the global settings editor, so the two no longer drift and you don't need to set it manually.
+- Setting the rotation in the global settings editor opened with **W** still changes only the output video without rotating the preview.
+- The **rotate** button in the global settings editor toolbar cycles the preview rotation through 0, 90, and -90 degrees.
 
 **Shift+R:** Toggle big video previews on video progress bar hover.
 
