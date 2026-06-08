@@ -228,6 +228,27 @@
   margin-left: 12px;
 }
 
+.marker-pair-nav-button {
+  font-size: 10pt;
+  color: var(--light-grey);
+  background: var(--dark-grey);
+  border: 1px solid var(--med-grey);
+  border-radius: 4px;
+  padding: 1px 8px;
+  margin: 0px 8px;
+  cursor: pointer;
+}
+
+.marker-pair-nav-button:hover:not(:disabled) {
+  color: white;
+  border-color: var(--light-grey);
+}
+
+.marker-pair-nav-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .settings-editor-input-div {
   display: inline-block;
   color: grey;

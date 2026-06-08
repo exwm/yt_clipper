@@ -54,6 +54,25 @@ export function showPlayerControls() {
   appState.hooks.controlsGradient.style.display =
     appState.hooks.controlsGradient.originalDisplay ?? '';
 }
+// Fake viewer activity on the player so the host's controls + progress bar
+// reappear and their auto-hide countdown restarts. Hotkey-driven seeking
+// (e.g. jumping between markers) never moves the mouse, so without this the
+// controls stay hidden while the playhead jumps around.
+let autoHideWakeNudge = 0;
+export function refreshPlayerControlsAutoHideTimer() {
+  const playerRect = appState.hooks.player.getBoundingClientRect();
+  // The host ignores a mousemove whose coordinates match the previous one, so
+  // alternate the position by a pixel each call to keep every nudge "real".
+  autoHideWakeNudge ^= 1;
+  appState.hooks.player.dispatchEvent(
+    new MouseEvent('mousemove', {
+      bubbles: true,
+      cancelable: true,
+      clientX: playerRect.left + playerRect.width / 2 + autoHideWakeNudge,
+      clientY: playerRect.top + playerRect.height / 2,
+    })
+  );
+}
 export function addScrubVideoHandler() {
   appState.hooks.cropMouseManipulation.addEventListener('pointerdown', scrubVideoHandler, {
     capture: true,

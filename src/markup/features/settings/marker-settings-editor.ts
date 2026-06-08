@@ -12,7 +12,9 @@ import {
   enableMarkerHotkeys,
   hideSelectedMarkerPairOverlay,
   highlightSelectedMarkerPair,
-  renumberMarkerPairs,
+  moveMarkerPairToIndex,
+  refreshMarkerPairNavButtonsDisabledState,
+  selectAdjacentMarkerPair,
 } from '../../markers';
 import { injectYtcWidget } from '../../save-load';
 import {
@@ -37,11 +39,13 @@ import {
   updateSpeedInputLabel,
 } from '../../speed';
 import { setCurrentCropPoint } from '../../ui/chart/cropchart/cropChartSpec';
+import { refreshPlayerControlsAutoHideTimer } from '../../util/videoUtil';
 import { autoHideUnselectedMarkerPairsCSS } from '../../ui/css/css';
 import { Tooltips } from '../../ui/tooltips';
 import {
   assertDefined,
   blockEvent,
+  clampNumber,
   deleteElement,
   flashMessage,
   injectCSS,
@@ -57,6 +61,12 @@ export function toggleMarkerPairEditorHandler(e: PointerEvent, targetMarker?: SV
 }
 export let markerPairNumberInput: HTMLInputElement;
 
+function selectPrevMarkerPairHandler() {
+  selectAdjacentMarkerPair(-1);
+}
+function selectNextMarkerPairHandler() {
+  selectAdjacentMarkerPair(1);
+}
 function MarkerPairEditorTemplate(
   markerPair: MarkerPair,
   pairBinder: SettingsBinder<MarkerPair>,
@@ -80,7 +90,19 @@ function MarkerPairEditorTemplate(
   const minterpFpsMulLabel = getMinterpFpsMulSuffix(effectiveMinterpMul, speed);
   const overridesDisplay = isExtraSettingsEditorEnabled ? 'block' : 'none';
 
+  const isFirstPair = markerPairIndex <= 0;
+  const isLastPair = markerPairIndex >= appState.markerPairs.length - 1;
   const legend = html`
+    <button
+      type="button"
+      id="select-prev-marker-pair"
+      class="marker-pair-nav-button"
+      title=${Tooltips.selectPrevMarkerPairTooltip}
+      ?disabled=${isFirstPair}
+      @click=${selectPrevMarkerPairHandler}
+    >
+      ◄ Prev
+    </button>
     Marker Pair
     <input
       id="marker-pair-number-input"
@@ -98,6 +120,16 @@ function MarkerPairEditorTemplate(
     /
     <span id="marker-pair-count-label">${appState.markerPairs.length}</span>
     Settings
+    <button
+      type="button"
+      id="select-next-marker-pair"
+      class="marker-pair-nav-button"
+      title=${Tooltips.selectNextMarkerPairTooltip}
+      ?disabled=${isLastPair}
+      @click=${selectNextMarkerPairHandler}
+    >
+      Next ►
+    </button>
   `;
 
   return html`
@@ -220,47 +252,26 @@ export function createMarkerPairEditor(targetMarker: SVGRectElement) {
   highlightModifiedSettings(overrideBinder.all(), markerPair.overrides);
 }
 export function markerPairNumberInputHandler(e: Event) {
-  const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
-  const startNumbering = markerPair.startNumbering;
-  const endNumbering = markerPair.endNumbering;
-  const value = (e.target as any).value;
-  const newIdx = value - 1;
-  appState.markerPairs.splice(
-    newIdx,
-    0,
-    ...appState.markerPairs.splice(appState.prevSelectedMarkerPairIndex, 1)
-  );
-
-  let targetMarkerRect = appState.markersSvg.children[newIdx * 2];
-  let targetStartNumbering = appState.startMarkerNumberings.children[newIdx];
-  let targetEndNumbering = appState.endMarkerNumberings.children[newIdx];
-  // if target succeedes current marker pair, move pair after target
-  if (newIdx > appState.prevSelectedMarkerPairIndex) {
-    assertDefined(targetMarkerRect.nextElementSibling, 'targetMarkerRect has no next sibling');
-    assertDefined(
-      targetMarkerRect.nextElementSibling.nextElementSibling,
-      'targetMarkerRect has no second next sibling'
-    );
-    targetMarkerRect = targetMarkerRect.nextElementSibling.nextElementSibling;
-    assertDefined(
-      targetStartNumbering.nextElementSibling,
-      'targetStartNumbering has no next sibling'
-    );
-    targetStartNumbering = targetStartNumbering.nextElementSibling;
-    assertDefined(targetEndNumbering.nextElementSibling, 'targetEndNumbering has no next sibling');
-    targetEndNumbering = targetEndNumbering.nextElementSibling;
+  const input = e.target as HTMLInputElement;
+  const fromIdx = appState.prevSelectedMarkerPairIndex;
+  const lastIdx = appState.markerPairs.length - 1;
+  const requested = parseInt(input.value, 10);
+  // Revert the field on an unusable entry; clamp valid entries into range.
+  if (Number.isNaN(requested)) {
+    input.value = String(fromIdx + 1);
+    return;
+  }
+  const toIdx = clampNumber(requested - 1, 0, lastIdx);
+  if (toIdx === fromIdx) {
+    input.value = String(fromIdx + 1);
+    return;
   }
 
-  const prevSelectedStartMarker = appState.prevSelectedEndMarker.previousElementSibling;
-  assertDefined(prevSelectedStartMarker, 'prevSelectedEndMarker has no previous sibling');
-  // if target precedes current marker pair, move pair before target
-  appState.markersSvg.insertBefore(prevSelectedStartMarker, targetMarkerRect);
-  appState.markersSvg.insertBefore(appState.prevSelectedEndMarker, targetMarkerRect);
-  appState.startMarkerNumberings.insertBefore(startNumbering, targetStartNumbering);
-  appState.endMarkerNumberings.insertBefore(endNumbering, targetEndNumbering);
-
-  renumberMarkerPairs();
-  appState.prevSelectedMarkerPairIndex = newIdx;
+  moveMarkerPairToIndex(fromIdx, toIdx);
+  appState.prevSelectedMarkerPairIndex = toIdx;
+  input.value = String(toIdx + 1);
+  refreshMarkerPairNavButtonsDisabledState();
+  refreshPlayerControlsAutoHideTimer();
 }
 export function toggleMarkerPairEditor(targetMarker: SVGRectElement) {
   // if target marker is previously selected marker: toggle target on/off

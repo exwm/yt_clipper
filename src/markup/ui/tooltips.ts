@@ -7,6 +7,16 @@ export namespace Tooltips {
     Does not automatically update merge list.
     `;
 
+  export const selectPrevMarkerPairTooltip = stripIndent`
+    Select the previous marker pair and seek to its start.
+    Hotkey: ctrl+alt+← (alt+← switches without seeking).
+    `;
+
+  export const selectNextMarkerPairTooltip = stripIndent`
+    Select the next marker pair and seek to its start.
+    Hotkey: ctrl+alt+→ (alt+→ switches without seeking).
+    `;
+
   export const speedTooltip = stripIndent`
     Toggle speed previewing with C.
     When audio is enabled, speeds below 0.5 are not yet supported.
