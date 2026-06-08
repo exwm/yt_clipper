@@ -249,6 +249,117 @@
   cursor: default;
 }
 
+/* A settings editor legend that hosts the toggle bar: hold the title on the
+   left and the bar on the right by widening it to the panel. Used by both the
+   marker pair and global settings editors. */
+.settings-editor-panel > legend.settings-legend-with-toggles {
+  box-sizing: border-box;
+  width: calc(100% - 12px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Fills the gap between the title/nav and the toggle bar with a line in the
+   legend's own accent color (orange for marker, red for global), so the
+   legend's notch reads as one continuous top border. */
+.settings-legend-connector {
+  flex: 1 1 auto;
+  height: 0;
+  border-top: 2px solid currentColor;
+}
+
+/* Grouped toggle bar floated to the right of a settings editor legend. Nudged
+   up slightly so the buttons clear the settings widgets just below the legend. */
+.settings-toggle-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transform: translateY(-2px);
+}
+
+.settings-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--light-grey);
+  background: var(--dark-grey);
+  border: 1px solid var(--med-grey);
+  border-radius: 4px;
+  padding: 3px;
+  cursor: pointer;
+  line-height: 0;
+}
+
+/* Count pill in the top-right corner of a toggle/action button (undo-redo
+   depth, or speed/crop dynamic point counts). */
+.settings-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 7px;
+  height: 11px;
+  /* Asymmetric padding optically centers the digit: extra top/right pushes it
+     ~0.5px down and left, countering font metrics that sit it slightly high-right. */
+  padding: 1px 2.5px 0 1.5px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  background: var(--settings-editor-accent, var(--marker-pair-editor-accent));
+  color: white;
+  font-size: 6.5pt;
+  font-weight: 700;
+  /* Legibility trick borrowed from the marker numberings: a soft black stroke
+     painted behind the fill (paint-order: stroke) haloes the digit without
+     thinning it, so it stays crisp on the colored pill at this small size. */
+  paint-order: stroke;
+  -webkit-text-stroke: 2px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+/* Inactive hover brightens toward white; active hover keeps the accent but
+   brighter, so hovering never hides whether a toggle is on. */
+.settings-toggle:hover:not(:disabled) {
+  color: white;
+  border-color: var(--light-grey);
+}
+
+/* Active toggles take the open editor's accent: orange (marker) or red
+   (global). Each editor panel sets --settings-editor-accent below. */
+.settings-toggle.active {
+  color: white;
+  border-color: var(--settings-editor-accent, var(--marker-pair-editor-accent));
+}
+
+.settings-toggle.active:hover:not(:disabled) {
+  border-color: var(--settings-editor-accent-bright, var(--marker-pair-editor-accent));
+}
+
+.marker-pair-settings-editor {
+  --settings-editor-accent: var(--marker-pair-editor-accent);
+  --settings-editor-accent-bright: rgb(255, 160, 70);
+}
+
+.global-settings-editor {
+  --settings-editor-accent: var(--global-editor-accent);
+  --settings-editor-accent-bright: rgb(255, 80, 80);
+}
+
+.settings-toggle:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.settings-toggle-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 4px;
+  background: var(--med-grey);
+}
+
 .settings-editor-input-div {
   display: inline-block;
   color: grey;

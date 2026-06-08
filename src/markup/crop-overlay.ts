@@ -477,11 +477,15 @@ export function setCropCrossHair(cropCrossHair: Element, cropString: string) {
     setAttributes(cropCrossHair, cropCrossHairAttrs);
   }
 }
-export const cropDims = [0, 0.25, 0.5, 0.75, 0.9, 1];
+export const cropDims = [0, 0.25, 0.5, 0.75, 1];
 export let cropDimIndex = 2;
 export function cycleCropDimOpacity() {
   cropDimIndex = (cropDimIndex + 1) % cropDims.length;
   cropDim.setAttribute('fill-opacity', cropDims[cropDimIndex].toString());
+}
+/** Current crop dim opacity as a whole percent (0/25/50/75/100) for the bar badge. */
+export function getCropDimOpacityPercent(): number {
+  return Math.round(cropDims[cropDimIndex] * 100);
 }
 export function showCropOverlay() {
   if (cropSvg) {

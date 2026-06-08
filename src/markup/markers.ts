@@ -26,6 +26,7 @@ import {
 } from './speed';
 import { shrinkPointMap, stretchPointMap } from './ui/chart/chartutil';
 import {
+  dispatchMarkerPairHistoryChanged,
   getMarkerPairHistory,
   peekLastState,
   redo,
@@ -835,12 +836,41 @@ export function undoRedoMarkerPairChange(dir: 'undo' | 'redo') {
       }
 
       renderSpeedAndCropUI(true, true);
+      dispatchMarkerPairHistoryChanged();
 
       flashMessage(`Applied ${dir}.`, 'green');
     }
   } else {
     flashMessage('Please select a marker pair editor for undo/redo.', 'olive');
   }
+}
+// Whether the selected pair has earlier/later states to undo/redo to — drives
+// the disabled state of the editor's undo/redo buttons.
+export function canUndoMarkerPairChange(): boolean {
+  const idx = appState.prevSelectedMarkerPairIndex;
+  if (idx == null) return false;
+  const undoredo = appState.markerPairs[idx]?.undoredo;
+  return !!undoredo && undoredo.index > 0;
+}
+export function canRedoMarkerPairChange(): boolean {
+  const idx = appState.prevSelectedMarkerPairIndex;
+  if (idx == null) return false;
+  const undoredo = appState.markerPairs[idx]?.undoredo;
+  return !!undoredo && undoredo.index < undoredo.history.length - 1;
+}
+// Number of states available to undo/redo on the selected pair — shown as a
+// count badge on the undo/redo buttons.
+export function getUndoMarkerPairChangeCount(): number {
+  const idx = appState.prevSelectedMarkerPairIndex;
+  if (idx == null) return 0;
+  const undoredo = appState.markerPairs[idx]?.undoredo;
+  return undoredo ? undoredo.index : 0;
+}
+export function getRedoMarkerPairChangeCount(): number {
+  const idx = appState.prevSelectedMarkerPairIndex;
+  if (idx == null) return 0;
+  const undoredo = appState.markerPairs[idx]?.undoredo;
+  return undoredo ? undoredo.history.length - 1 - undoredo.index : 0;
 }
 export function deleteMarkerPair(idx?: number) {
   idx ??= appState.prevSelectedMarkerPairIndex;

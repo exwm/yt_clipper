@@ -9,6 +9,7 @@ export {
   loadClipperInputJSON,
   applyClipperInput,
   addMarkerPairs,
+  promptLoadMarkersJsonFile,
 } from './save-load';
 
 export { copyShareableUrl, tryLoadSharedMarkers } from './share-url';

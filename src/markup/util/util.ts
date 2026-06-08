@@ -137,6 +137,16 @@ export function deleteElement(elem: Element) {
   }
 }
 
+// Fired when something outside the settings bar changes a state the bar
+// reflects (e.g. the crop preview modal closing on click-outside), so the bar
+// can resync without the dispatcher importing it (avoids an import cycle).
+export const SETTINGS_BAR_REFRESH_EVENT = 'yt-clipper:settings-bar-refresh';
+export function dispatchSettingsBarRefresh() {
+  if (typeof document !== 'undefined') {
+    document.dispatchEvent(new Event(SETTINGS_BAR_REFRESH_EVENT));
+  }
+}
+
 export function querySelectors<S extends Record<string, string>>(
   selectors: S,
   root: ParentNode = document

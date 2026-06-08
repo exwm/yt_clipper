@@ -17,6 +17,83 @@ export namespace Tooltips {
     Hotkey: ctrl+alt+→ (alt+→ switches without seeking).
     `;
 
+  export const focusUnselectedPairsTooltip = stripIndent`
+    Focus the selected pair by dimming the others. Hotkey: ctrl+↓.
+    `;
+
+  export const loopMarkerPairTooltip = stripIndent`
+    Loop playback within the selected marker pair. Hotkey: shift+C.
+    `;
+
+  export const allPreviewsToggleTooltip = stripIndent`
+    Toggle all previews at once (speed, loop, gamma). Hotkey: ctrl+alt+shift+C.
+    `;
+
+  export const speedPreviewToggleTooltip = stripIndent`
+    Toggle previewing the selected pair's speed. Hotkey: C.
+    `;
+
+  export const gammaPreviewToggleTooltip = stripIndent`
+    Toggle previewing gamma correction. Hotkey: alt+C.
+    `;
+
+  export const speedChartToggleTooltip = stripIndent`
+    Toggle the dynamic speed chart for the selected pair. Hotkey: D.
+    `;
+
+  export const cropChartToggleTooltip = stripIndent`
+    Toggle the dynamic crop chart for the selected pair. Hotkey: alt+D.
+    `;
+
+  export const overridesToggleTooltip = stripIndent`
+    Toggle the encode settings section. Hotkey: shift+W.
+    `;
+
+  export const crosshairToggleTooltip = stripIndent`
+    Toggle the crop crosshair overlay. Hotkey: ctrl+shift+X.
+    `;
+
+  export const cropPreviewToggleTooltip = stripIndent`
+    Toggle the crop preview modal. Hotkey: ctrl+alt+X.
+    `;
+
+  export const undoMarkerPairChangeTooltip = stripIndent`
+    Undo the selected pair's time, speed, and crop changes. Hotkey: alt+Z.
+    `;
+
+  export const redoMarkerPairChangeTooltip = stripIndent`
+    Redo the selected pair's time, speed, and crop changes. Hotkey: alt+shift+Z.
+    `;
+
+  export const saveMarkersTooltip = stripIndent`
+    Save markers data as a json file. Hotkey: S.
+    `;
+
+  export const loadMarkersTooltip = stripIndent`
+    Load markers data from a json file.
+    `;
+
+  export const restoreMarkersTooltip = stripIndent`
+    Restore the latest auto-saved markers data from browser local storage.
+    `;
+
+  export const copyMarkersTooltip = stripIndent`
+    Copy markers data to the clipboard. Hotkey: alt+S.
+    `;
+
+  export const cycleCropDimOpacityTooltip = stripIndent`
+    Cycle the crop dim opacity up by 0.25. Hotkey: ctrl+X.
+    `;
+
+  export const rotateVideoTooltip = stripIndent`
+    Rotate the video preview, cycling 0° → 90° → -90° → 0°.
+    Also sets the output rotation to match. Hotkeys: R (CW), alt+R (CCW).
+    `;
+
+  export const captureFrameTooltip = stripIndent`
+    Capture the current video frame. Hotkey: E.
+    `;
+
   export const speedTooltip = stripIndent`
     Toggle speed previewing with C.
     When audio is enabled, speeds below 0.5 are not yet supported.

@@ -142,7 +142,11 @@ import {
   toggleMarkerPairOverridesEditor,
   toggleShortcutsTable,
 } from './features/settings/settings-editor';
-import { toggleAutoHideUnselectedMarkerPairs } from './features/settings/marker-settings-editor';
+import {
+  placeSettingsToggleBar,
+  refreshSettingsBar,
+  toggleAutoHideUnselectedMarkerPairs,
+} from './features/settings/marker-settings-editor';
 
 const ytClipperCSS = readFileSync(__dirname + '/ui/css/yt-clipper.css', 'utf8');
 export const shortcutsTableStyle = readFileSync(
@@ -266,15 +270,20 @@ export function initShortcutSystem() {
       },
       toggleMarkerPairOverridesEditor: () => {
         toggleMarkerPairOverridesEditor();
+        refreshSettingsBar();
+        placeSettingsToggleBar();
       },
       toggleMarkerPairSpeedPreview: () => {
         toggleMarkerPairSpeedPreview();
+        refreshSettingsBar();
       },
       toggleMarkerPairLoop: () => {
         toggleMarkerPairLoop();
+        refreshSettingsBar();
       },
       toggleGammaPreview: () => {
         toggleGammaPreview();
+        refreshSettingsBar();
       },
       toggleFadeLoopPreview: () => {
         toggleFadeLoopPreview();
@@ -284,18 +293,21 @@ export function initShortcutSystem() {
       },
       toggleAllPreviews: () => {
         toggleAllPreviews();
+        refreshSettingsBar();
       },
       toggleMarkersDataCommands: () => {
         toggleMarkersDataCommands();
       },
       toggleSpeedChart: () => {
         toggleChart(chartState.speedChartInput);
+        refreshSettingsBar();
       },
       toggleChartLoop: () => {
         toggleChartLoop();
       },
       toggleCropChart: () => {
         toggleChart(chartState.cropChartInput);
+        refreshSettingsBar();
       },
       undoMarker: () => {
         undoMarker();
@@ -323,21 +335,27 @@ export function initShortcutSystem() {
       },
       cycleCropDimOpacity: () => {
         cycleCropDimOpacity();
+        refreshSettingsBar();
       },
       toggleCropCrossHair: () => {
         toggleCropCrossHair();
+        refreshSettingsBar();
       },
       toggleCropPreviewModal: () => {
         toggleCropPreview('modal');
+        refreshSettingsBar();
       },
       toggleCropPreviewPopOut: () => {
         toggleCropPreview('pop-out');
+        refreshSettingsBar();
       },
       rotateVideoClock: () => {
         rotateVideo('clock');
+        refreshSettingsBar();
       },
       rotateVideoCClock: () => {
         rotateVideo('cclock');
+        refreshSettingsBar();
       },
       toggleBigVideoPreviews: () => {
         toggleBigVideoPreviews();

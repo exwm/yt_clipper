@@ -187,6 +187,27 @@ function loadMarkersJson() {
   deleteMarkersDataCommands();
 }
 
+// Standalone "load from file" entry point (the markers data commands panel's
+// Load button reads its own file input; this opens a picker directly) — used by
+// the global settings editor's Load action.
+export function promptLoadMarkersJsonFile() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json,application/json';
+  input.addEventListener('change', () => {
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    const fr = new FileReader();
+    fr.onload = (e) => {
+      assertDefined(e.target, 'Expected FileReader event target');
+      const text = typeof e.target.result === 'string' ? e.target.result : '';
+      showMarkersJsonReviewModal(file.name, text);
+    };
+    fr.readAsText(file);
+  });
+  input.click();
+}
+
 function showMarkersJsonReviewModal(fileName: string, text: string) {
   let result: ParseResult;
   try {

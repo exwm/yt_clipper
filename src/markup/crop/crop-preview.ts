@@ -1,5 +1,10 @@
 import { html, render } from 'lit-html';
-import { assertDefined, deleteElement, flashMessage } from '../util/util';
+import {
+  assertDefined,
+  deleteElement,
+  dispatchSettingsBarRefresh,
+  flashMessage,
+} from '../util/util';
 import { appState } from '../appState';
 import { createWebGLGammaRenderer, prevGammaVal, WebGLGammaRenderer } from '../util/previewGamma';
 import { FloatingVideoPreviewHandle, mountFloatingVideoPreview } from './video-preview-element';
@@ -228,6 +233,9 @@ export function toggleCropPreview(mode: cropPreviewMode = 'modal') {
       if (!cropPreviewEnabled) return;
       cropPreviewEnabled = false;
       flashMessage('Disabled crop preview', 'red');
+      // Closed externally (e.g. click-outside the modal), so resync the bar
+      // button's active state — the bar's own handler only runs on button click.
+      dispatchSettingsBarRefresh();
     };
     startCropPreview(
       appState.video,
