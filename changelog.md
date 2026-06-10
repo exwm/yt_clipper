@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [5.46.0](https://github.com/exwm/yt_clipper/compare/v5.45.0...v5.46.0) (2026-06-10)
+
+
+### Features
+
+* **markup:** prev/next marker pair navigation buttons + keep player controls visible during marker navigation ([6f7a522](https://github.com/exwm/yt_clipper/commit/6f7a52277f1328dac6aa4df7c8032a2524e58968))
+* **markup:** settings editor toolbar for quick access to common toggles and actions ([4e6ea24](https://github.com/exwm/yt_clipper/commit/4e6ea24e6a0efb1d1f8bfd77912232fca353a98f))
+
+
+### Bug Fixes
+
+* **markup:** command palette should run actions that need a modifier key (e.g. toggle auto-hide marker pairs) ([0291d45](https://github.com/exwm/yt_clipper/commit/0291d4507f69dc74f7873dd5dc0849450a83140e))
+* **markup:** modal crop preview should match the player's preview rotation ([2328119](https://github.com/exwm/yt_clipper/commit/232811922fffb7b2e0c98e19bd3b9370e9cb1b00))
+
+
+### Documentation Updates
+
+* **readme:** document settings editor toolbar, prev/next pair nav, and rotation output sync ([64b647d](https://github.com/exwm/yt_clipper/commit/64b647d4ae3ff0a135532bfffeaae8a3095ebafe))
+
 ## [5.45.0](https://github.com/exwm/yt_clipper/compare/v5.44.0...v5.45.0) (2026-05-31)
 
 
