@@ -42,6 +42,7 @@ import {
   isDrawingCrop,
   isMouseManipulatingCrop,
   renderStaticCropOverlay,
+  resizeCropOverlay,
   setCropCrossHair,
   setCropOverlay,
   setCropOverlayDimensions,
@@ -916,7 +917,12 @@ export function syncCropChartVideoHeightLimit() {
   } else if (!shouldCap && cropChartVideoHeightStyle != null) {
     deleteElement(cropChartVideoHeightStyle);
     cropChartVideoHeightStyle = null;
+  } else {
+    return;
   }
+  // The cap resizes the player; re-fit the video to it so centerVideo (which
+  // measures the player container) shrinks the video and crop overlay to match.
+  resizeCropOverlay();
 }
 export function toggleCurrentChartVisibility() {
   if (!appState.isCurrentChartVisible) {

@@ -27,13 +27,21 @@ export const adjustRotatedVideoPositionCSS = `\
 
     `;
 
-// Applied while the crop chart is open on YouTube so a tall (vertical)
-// source video doesn't push the chart out of the viewport. Mirrors the
-// height cap that `getRotatedVideoCSS` applies for rotated videos.
+// Applied while the crop chart is open on YouTube so a tall video doesn't push
+// the chart out of the viewport. Caps the player to 85vh in both layouts:
+// theater caps #full-bleed-container; the default layout caps #player, which is
+// the positioned (relative) containing block for the absolute player container,
+// so capping it shrinks the whole player and centerVideo re-fits the video into
+// it (capping a static descendant wouldn't resize the absolute child). max-height
+// is a cap, not a force, so a video shorter than 85vh keeps its natural size and
+// isn't stretched with black bars.
 export const cropChartActiveVideoHeightCSS = `
         #full-bleed-container {
-          height: 85vh !important;
-          max-height: none !important;
+          max-height: 85vh !important;
+        }
+        ytd-watch-flexy:not([theater]) #player {
+          max-height: 85vh !important;
+          overflow: hidden !important;
         }
         #page-manager {
           margin-top: 0px !important;
