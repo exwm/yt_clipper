@@ -16,7 +16,12 @@ import {
   setAttributes,
 } from './util/util';
 import { updateCropString } from './crop-utils';
-import { chartState, renderSpeedAndCropUI, getCropMapProperties } from './charts';
+import {
+  chartState,
+  renderSpeedAndCropUI,
+  getCropMapProperties,
+  refreshDynamicCropOverlays,
+} from './charts';
 import { updateCropStringWithCrop } from './crop-utils';
 import { blockVideoPause } from './util/videoUtil';
 import { getRelevantCropString } from './crop-utils';
@@ -395,6 +400,9 @@ export function forceRerenderCrop() {
         setCropCrossHair(crossHair, cropString);
       });
     }
+    // Track the section start/end overlays in dynamic crop mode through the same
+    // re-layout, so they rotate/resize with the main crop instead of lagging.
+    refreshDynamicCropOverlays();
   }
 }
 export function centerVideo() {

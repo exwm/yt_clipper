@@ -835,6 +835,17 @@ export function updateDynamicCropOverlays(
     setCropOverlayDimensions(cropRect, easedX, easedY, easedW, easedH);
   });
 }
+// Re-position the dynamic crop section (start/end) overlays for the current crop
+// map and time without re-rendering the chart. Called when the crop overlay is
+// re-laid-out (e.g. on video rotation or resize) so the section crops track the
+// main crop immediately instead of lagging until the next frame-driven update.
+export function refreshDynamicCropOverlays() {
+  if (!appState.isSettingsEditorOpen || appState.wasGlobalSettingsEditorOpen) return;
+  const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+  if (!markerPair) return;
+  const cropMap = markerPair.cropMap;
+  updateDynamicCropOverlays(cropMap, appState.video.getCurrentTime(), !isStaticCrop(cropMap));
+}
 export function getInterpolatedCrop(sectStart: CropPoint, sectEnd: CropPoint, time: number) {
   const [startX, startY, startW, startH] = getCropComponents(sectStart.crop);
   const [endX, endY, endW, endH] = getCropComponents(sectEnd.crop);
