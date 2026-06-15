@@ -137,6 +137,16 @@ export function deleteElement(elem: Element) {
   }
 }
 
+// Fired when something outside the settings bar changes a state the bar
+// reflects (e.g. the crop preview modal closing on click-outside), so the bar
+// can resync without the dispatcher importing it (avoids an import cycle).
+export const SETTINGS_BAR_REFRESH_EVENT = 'yt-clipper:settings-bar-refresh';
+export function dispatchSettingsBarRefresh() {
+  if (typeof document !== 'undefined') {
+    document.dispatchEvent(new Event(SETTINGS_BAR_REFRESH_EVENT));
+  }
+}
+
 export function querySelectors<S extends Record<string, string>>(
   selectors: S,
   root: ParentNode = document
@@ -260,15 +270,124 @@ export function getEasedValue(
   return easedValue;
 }
 
+// --- seekToSafe coalescer --------------------------------------------------
+//
+// HTML5 video can only run one seek at a time. The previous seekToSafe
+// just dropped requests while ``video.seeking`` was true, which is fine
+// for one-shot callers but broken for drag handlers that fire 10-100
+// requests per second (crop-point drag, marker drag, Alt+Drag video
+// scrub). With drops, only one in every N requests actually landed —
+// the user would let go of a drag and the video would be stuck at some
+// earlier intermediate position; "shifting" again was needed to break
+// the stuck state.
+//
+// Now we coalesce instead. While a seek is in flight, the latest
+// requested target lives in a single pending slot; when the active
+// seek finishes (``seeked`` event), the pending target is flushed —
+// "latest write wins". On top of that:
+//
+//   - A 250ms stale-pending timer bounds how long the slot can sit
+//     between writes. Catches pipeline stalls and limits the race
+//     window with external seek sources.
+//
+//   - A ``seeking`` event listener detects external seeks (YouTube
+//     progress bar, native keyboard shortcuts, ad insertion, etc.)
+//     and discards any pending target — so an external seek can't be
+//     snap-backed by a stale pending from our coalescer.
+
+let pendingSeekTime: number | null = null;
+let pendingSeekVideo: VideoElement | null = null;
+let stalePendingTimerId: number | null = null;
+let expectingOurSeekingEvent = false;
+
+const STALE_PENDING_TIMEOUT_MS = 250;
+
+function clearPending() {
+  pendingSeekTime = null;
+  if (stalePendingTimerId !== null) {
+    clearTimeout(stalePendingTimerId);
+    stalePendingTimerId = null;
+  }
+}
+
+function armStalePendingTimer() {
+  if (stalePendingTimerId !== null) clearTimeout(stalePendingTimerId);
+  stalePendingTimerId = window.setTimeout(() => {
+    pendingSeekTime = null;
+    stalePendingTimerId = null;
+  }, STALE_PENDING_TIMEOUT_MS);
+}
+
+function fireSeekNow(video: VideoElement, target: number) {
+  // Tag the upcoming ``seeking`` event as ours so the listener doesn't
+  // misclassify it as external. Reset on throw so a failed seek call
+  // doesn't leave us "expecting" forever.
+  expectingOurSeekingEvent = true;
+  try {
+    video.seekTo(target);
+  } catch (e) {
+    expectingOurSeekingEvent = false;
+    console.error(e);
+  }
+}
+
+function onSeeked() {
+  // A seek just completed (could be ours or an external one). If a
+  // pending target accumulated while we were waiting, flush it now.
+  // External seeks already cleared pending in onSeeking, so this is
+  // a no-op for them.
+  if (pendingSeekVideo === null || pendingSeekTime === null) return;
+  const video = pendingSeekVideo;
+  const target = pendingSeekTime;
+  clearPending();
+  if (video.seeking) return; // a later 'seeked' will pick this up
+  if (isNaN(target) || video.getCurrentTime() === target) return;
+  fireSeekNow(video, target);
+}
+
+function onSeeking() {
+  // A seek is starting. Distinguish ours from external: if WE just
+  // called fireSeekNow the flag is set; consume and continue. If the
+  // flag is clear, an external source (YT progress bar, native
+  // shortcut, ad logic, etc.) initiated this seek — discard our
+  // pending target so it can't snap-back over the user's intent.
+  if (expectingOurSeekingEvent) {
+    expectingOurSeekingEvent = false;
+    return;
+  }
+  clearPending();
+}
+
+function ensureSeekListeners(video: VideoElement) {
+  if (pendingSeekVideo === video) return;
+  if (pendingSeekVideo !== null) {
+    pendingSeekVideo.removeEventListener('seeked', onSeeked);
+    pendingSeekVideo.removeEventListener('seeking', onSeeking);
+  }
+  pendingSeekVideo = video;
+  video.addEventListener('seeked', onSeeked);
+  video.addEventListener('seeking', onSeeking);
+}
+
 export function seekToSafe(video: VideoElement, newTime: number) {
   newTime = clampNumber(newTime, 0, video.duration);
-  if (!isNaN(newTime) && video.getCurrentTime() != newTime && !video.seeking) {
-    try {
-      video.seekTo(newTime);
-    } catch (e) {
-      console.error(e);
-    }
+  if (isNaN(newTime)) return;
+  if (video.getCurrentTime() === newTime) {
+    // No-op seek — clear any stale pending so it can't fire later
+    // for what is now a no-longer-relevant target.
+    clearPending();
+    return;
   }
+  ensureSeekListeners(video);
+  if (video.seeking) {
+    pendingSeekTime = newTime; // overwrite — latest write wins
+    armStalePendingTimer();
+    return;
+  }
+  // Not seeking: fire immediately. Drop any stale pending; the
+  // current request supersedes it.
+  clearPending();
+  fireSeekNow(video, newTime);
 }
 export function seekBySafe(video: VideoElement, timeDelta: number) {
   const newTime = video.getCurrentTime() + timeDelta;

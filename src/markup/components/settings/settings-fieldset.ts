@@ -8,13 +8,17 @@ export interface SettingsFieldsetProps {
   legend: string | TemplateResult;
   variant: SettingsVariant;
   display?: 'block' | 'inline' | 'inline-block' | 'flex' | 'none';
+  // Extra class on the <legend>, e.g. to opt a legend into the toggle-bar layout.
+  legendClassExtra?: string;
   children: TemplateResult;
 }
 
 export function SettingsFieldset(p: SettingsFieldsetProps): TemplateResult {
   const prefix = p.variant === 'global' ? 'global-settings-editor' : 'marker-pair-settings-editor';
   const panelClass = `settings-editor-panel ${prefix} ${prefix}-highlighted-div`;
-  const legendClass = `${prefix}-highlighted-label`;
+  const legendClass = `${prefix}-highlighted-label${
+    p.legendClassExtra ? ` ${p.legendClassExtra}` : ''
+  }`;
   return html`
     <fieldset
       id=${p.id ?? nothing}

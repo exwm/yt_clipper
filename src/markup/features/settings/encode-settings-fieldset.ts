@@ -79,6 +79,8 @@ export interface EncodeSettingsFieldsetProps {
     onChange?: (e: Event) => void;
   };
   zoomPan?: { enabled: boolean; bind: FieldBinder };
+  // Extra content appended inside the legend (e.g. the relocatable toggle bar).
+  legendExtra?: TemplateResult;
 }
 
 const denoiseOptions = ['Very Weak', 'Weak', 'Medium', 'Strong', 'Very Strong'];
@@ -129,10 +131,15 @@ export function EncodeSettingsFieldset(p: EncodeSettingsFieldsetProps): Template
   const denoiseDesc = source.denoise?.desc ?? null;
   const vidstabDesc = source.videoStabilization?.desc ?? null;
 
+  const legend = p.legendExtra
+    ? html`<span class="settings-legend-main">Encode Settings</span>${p.legendExtra}`
+    : 'Encode Settings';
+
   return SettingsFieldset({
     id: p.id,
     variant: p.variant,
-    legend: 'Encode Settings',
+    legend,
+    legendClassExtra: p.legendExtra ? 'settings-legend-with-toggles' : undefined,
     display: p.display,
     children: html`
       ${TernarySelect({

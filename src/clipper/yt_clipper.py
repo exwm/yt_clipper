@@ -9,6 +9,7 @@ import certifi
 
 from clipper import (
     argparser,
+    argparser_suggestions,
     clip_maker,
     clipper_types,
     util,
@@ -72,9 +73,12 @@ def main() -> None:
         logger.rule(title="Setup")
 
     if unknown:
-        logger.error(
-            f"The following unknown arguments were provided and were ignored: {unknown}",
-        )
+        parser = argparser.getArgParser()
+        # Usage block first, then the error: matches the layout argparse uses
+        # for the errors it raises on its own (e.g. single-dash bundling).
+        parser.print_usage(sys.stderr)
+        optionGroups = argparser_suggestions.getOptionGroups(parser)
+        logger.error(argparser_suggestions.formatUnknownArgumentsError(unknown, optionGroups))
         sys.exit(1)
 
     enableMinterpEnhancements(cs)

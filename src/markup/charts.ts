@@ -15,12 +15,17 @@ import {
   blockEvent,
   bsearch,
   clampNumber,
+  deleteElement,
   flashMessage,
   getCropString,
   getEasedValue,
+  injectCSS,
   seekToSafe,
   timeRounder,
 } from './util/util';
+import { cropChartActiveVideoHeightCSS } from './ui/css/css';
+import { platform } from './yt_clipper';
+import { VideoPlatforms } from './platforms/platforms';
 import { html, render } from 'lit-html';
 import { updateCropString } from './crop-utils';
 import { setHoveredRegion } from './features/hints-bar/hover-region';
@@ -339,6 +344,7 @@ export function toggleChart(chartInput: ChartInput) {
 
       appState.isCurrentChartVisible = true;
       appState.isChartEnabled = true;
+      syncCropChartVideoHeightLimit();
 
       updateChartTimeAnnotation();
       cropChartPreviewHandler();
@@ -771,11 +777,11 @@ export function updateDynamicCropOverlays(
   if (isDynamicCrop || appState.currentCropPointIndex > 0) {
     (cropOverlayElements.cropChartSectionStart as HTMLElement).style.display = 'block';
     (cropOverlayElements.cropChartSectionEnd as HTMLElement).style.display = 'block';
-    (cropOverlayElements.cropRectBorder as HTMLElement).style.opacity = '0.6';
+    (cropOverlayElements.cropRectBorder as HTMLElement).style.opacity = '0.7';
   } else {
     (cropOverlayElements.cropChartSectionStart as HTMLElement).style.display = 'none';
     (cropOverlayElements.cropChartSectionEnd as HTMLElement).style.display = 'none';
-    (cropOverlayElements.cropRectBorder as HTMLElement).style.opacity = '1';
+    (cropOverlayElements.cropRectBorder as HTMLElement).style.opacity = '0.8';
     return;
   }
   const sectStart = chartData[currentCropChartSection[0]];
@@ -810,11 +816,11 @@ export function updateDynamicCropOverlays(
   const sectionEndEl = cropOverlayElements.cropChartSectionEnd;
   assertDefined(sectionEndEl);
   if (currentCropChartMode === cropChartMode.Start) {
-    sectionStartEl.setAttribute('opacity', '0.8');
-    sectionEndEl.setAttribute('opacity', '0.3');
+    sectionStartEl.setAttribute('opacity', '0.9');
+    sectionEndEl.setAttribute('opacity', '0.5');
   } else if (currentCropChartMode === cropChartMode.End) {
-    sectionStartEl.setAttribute('opacity', '0.3');
-    sectionEndEl.setAttribute('opacity', '0.8');
+    sectionStartEl.setAttribute('opacity', '0.5');
+    sectionEndEl.setAttribute('opacity', '0.9');
   }
 
   const [easedX, easedY, easedW, easedH] = getEasedCropComponents(sectStart, sectEnd);
@@ -878,6 +884,7 @@ export function showChart() {
     }
     chartState.currentChartInput.chartContainer.style.display = 'block';
     appState.isCurrentChartVisible = true;
+    syncCropChartVideoHeightLimit();
     const chartToUpdate = chartState.currentChartInput.chart;
     assertDefined(chartToUpdate);
     chartToUpdate.update();
@@ -889,6 +896,26 @@ export function hideChart() {
   if (chartState.currentChartInput?.chartContainer) {
     chartState.currentChartInput.chartContainer.style.display = 'none';
     appState.isCurrentChartVisible = false;
+    syncCropChartVideoHeightLimit();
+  }
+}
+
+let cropChartVideoHeightStyle: HTMLStyleElement | null = null;
+// Caps the YouTube video's vertical real estate while the crop chart is open
+// so tall sources don't push the chart out of the viewport. YouTube-only —
+// other platforms either fix the player height in their own CSS or place the
+// chart in a separately scrolling region, so the cap isn't needed there.
+export function syncCropChartVideoHeightLimit() {
+  if (platform !== VideoPlatforms.youtube) return;
+  const shouldCap = appState.isCurrentChartVisible && chartState.currentChartInput?.type === 'crop';
+  if (shouldCap && cropChartVideoHeightStyle == null) {
+    cropChartVideoHeightStyle = injectCSS(
+      cropChartActiveVideoHeightCSS,
+      'yt-clipper-crop-chart-video-height-css'
+    );
+  } else if (!shouldCap && cropChartVideoHeightStyle != null) {
+    deleteElement(cropChartVideoHeightStyle);
+    cropChartVideoHeightStyle = null;
   }
 }
 export function toggleCurrentChartVisibility() {

@@ -57,7 +57,7 @@ export function loadClipperInputDataFromLocalStorage() {
   const clipperInputJSON = localStorage.getItem(key);
   if (clipperInputJSON == null) {
     flashMessage(
-      `No markers data found in local storage for appState.video ${appState.settings.videoTag}.`,
+      `No markers data found in local storage for video ${appState.settings.videoTag}.`,
       'red'
     );
     return;

@@ -43,9 +43,21 @@ def ytdl_bin_get_args_base(cs: ClipperState) -> List[str]:
         ytdl_args.extend(["--ffmpeg-location", cp.ffmpegPath])
 
     cookies = settings["cookiefile"]
+    cookiesFromBrowser = settings["cookiesFromBrowser"]
+
+    # yt-dlp rejects --cookies and --cookies-from-browser together; catch it
+    # here so the user gets a clear message instead of a mid-run yt-dlp abort.
+    if cookies != "" and cookiesFromBrowser != "":
+        logger.error(
+            "Both --cookies (a cookies file) and --cookies-from-browser were provided, "
+            "but they are mutually exclusive. Please specify only one.",
+        )
+        sys.exit(1)
 
     if cookies != "":
         ytdl_args.extend(["--cookies", cookies])
+    elif cookiesFromBrowser != "":
+        ytdl_args.extend(["--cookies-from-browser", cookiesFromBrowser])
 
     if settings["username"] != "" or settings["password"] != "":
         ytdl_args.extend(["--username", settings["username"]])

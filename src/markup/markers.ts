@@ -26,6 +26,7 @@ import {
 } from './speed';
 import { shrinkPointMap, stretchPointMap } from './ui/chart/chartutil';
 import {
+  dispatchMarkerPairHistoryChanged,
   getMarkerPairHistory,
   peekLastState,
   redo,
@@ -45,7 +46,7 @@ import {
   toHHMMSSTrimmed,
 } from './util/util';
 import { html, render, svg } from 'lit-html';
-import { getFPS } from './util/videoUtil';
+import { getFPS, refreshPlayerControlsAutoHideTimer } from './util/videoUtil';
 import { platform } from './yt_clipper';
 import { registerActiveDragCleanup } from './util/drag-recovery';
 
@@ -60,6 +61,67 @@ export function togglePrevSelectedMarkerPair() {
       : null;
     if (firstEndMarker) toggleMarkerPairEditor(firstEndMarker);
   }
+}
+// The one way to open a marker pair's settings editor by its position. Marker
+// pair number == DOM position (renumberMarkerPairs derives numbers from order),
+// so the pair at 0-based `index` has its end marker at children[index*2+1].
+// Switches from whatever pair/editor is currently open, optionally seeking to
+// the pair's start, and refreshes the player controls auto-hide. Returns false
+// when the index is out of range (e.g. navigating past the first/last pair).
+export function openMarkerPairEditorByIndex(index: number, { seek = false } = {}): boolean {
+  if (index < 0 || index >= appState.markerPairs.length) return false;
+  const endMarker = appState.markersSvg.children.item(index * 2 + 1) as SVGRectElement | null;
+  if (!endMarker) return false;
+  if (endMarker !== appState.prevSelectedEndMarker) {
+    toggleMarkerPairEditor(endMarker);
+  }
+  if (seek) seekToSafe(appState.video, appState.markerPairs[index].start);
+  refreshPlayerControlsAutoHideTimer();
+  return true;
+}
+// Select the marker pair adjacent to the currently selected one (direction -1
+// = previous, +1 = next), opening its editor and seeking to its start. Used by
+// the Prev/Next buttons in the settings editor.
+export function selectAdjacentMarkerPair(direction: -1 | 1) {
+  const currentIndex = appState.prevSelectedMarkerPairIndex;
+  if (currentIndex == null) return;
+  openMarkerPairEditorByIndex(currentIndex + direction, { seek: true });
+}
+// Move the marker pair at `fromIdx` to `toIdx`, keeping the markerPairs array,
+// the marker rects, and both numbering collections in lockstep, then renumber.
+// Removing the pair's nodes before reinserting at the destination makes a
+// single "insert before children[toIdx]" correct for moves in either direction;
+// when toIdx is the last slot the reference is null and insertBefore appends.
+export function moveMarkerPairToIndex(fromIdx: number, toIdx: number) {
+  if (fromIdx === toIdx) return;
+  const markerPair = appState.markerPairs[fromIdx];
+  const startMarker = appState.markersSvg.children.item(fromIdx * 2);
+  const endMarker = appState.markersSvg.children.item(fromIdx * 2 + 1);
+  assertDefined(startMarker, 'Expected start marker rect at fromIdx');
+  assertDefined(endMarker, 'Expected end marker rect at fromIdx');
+
+  const [movedPair] = appState.markerPairs.splice(fromIdx, 1);
+  appState.markerPairs.splice(toIdx, 0, movedPair);
+
+  startMarker.remove();
+  endMarker.remove();
+  const refMarker = appState.markersSvg.children.item(toIdx * 2);
+  appState.markersSvg.insertBefore(startMarker, refMarker);
+  appState.markersSvg.insertBefore(endMarker, refMarker);
+
+  const { startNumbering, endNumbering } = markerPair;
+  startNumbering.remove();
+  appState.startMarkerNumberings.insertBefore(
+    startNumbering,
+    appState.startMarkerNumberings.children.item(toIdx)
+  );
+  endNumbering.remove();
+  appState.endMarkerNumberings.insertBefore(
+    endNumbering,
+    appState.endMarkerNumberings.children.item(toIdx)
+  );
+
+  renumberMarkerPairs();
 }
 export function moveMarkerByFrameHandler(event: WheelEvent) {
   if (
@@ -230,6 +292,7 @@ export function loopMarkerPair() {
   }
 }
 export function jumpToNearestMarkerOrPair(e: KeyboardEvent, keyCode: string) {
+  refreshPlayerControlsAutoHideTimer();
   if (!arrowKeyCropAdjustmentEnabled) {
     if (e.ctrlKey && !e.altKey && !e.shiftKey) {
       jumpToNearestMarker(e, appState.video.getCurrentTime(), keyCode);
@@ -252,28 +315,12 @@ export function jumpToNearestMarkerPair(
   blockEvent(e);
   const idx = targetEndMarker.getAttribute('data-idx');
   assertDefined(idx, 'Expected data-idx attribute on end marker');
-  let index = parseInt(idx) - 1;
-  const currentEndMarker = enableMarkerHotkeysData.endMarker;
-  assertDefined(currentEndMarker, 'Expected enableMarkerHotkeysData.endMarker to be defined');
-  if (keyCode === 'ArrowLeft' && index > 0) {
-    const prevSibling = currentEndMarker.previousElementSibling;
-    assertDefined(prevSibling, 'Expected previous sibling of end marker');
-    targetEndMarker = prevSibling.previousElementSibling as SVGRectElement;
-    targetEndMarker && toggleMarkerPairEditor(targetEndMarker);
-    if (e.ctrlKey) {
-      index--;
-      seekToSafe(appState.video, appState.markerPairs[index].start);
-    }
-  } else if (keyCode === 'ArrowRight' && index < appState.markerPairs.length - 1) {
-    const nextSibling = currentEndMarker.nextElementSibling;
-    assertDefined(nextSibling, 'Expected next sibling of end marker');
-    targetEndMarker = nextSibling.nextElementSibling as SVGRectElement;
-    targetEndMarker && toggleMarkerPairEditor(targetEndMarker);
-    if (e.ctrlKey) {
-      index++;
-      seekToSafe(appState.video, appState.markerPairs[index].start);
-    }
-  }
+  const currentIndex = parseInt(idx) - 1;
+  const direction = keyCode === 'ArrowLeft' ? -1 : keyCode === 'ArrowRight' ? 1 : 0;
+  if (direction === 0) return;
+  // Without ctrl the alt+arrow hotkey only switches the open editor; ctrl also
+  // seeks to the pair. Out-of-range moves (past first/last) are a no-op.
+  openMarkerPairEditorByIndex(currentIndex + direction, { seek: e.ctrlKey });
 }
 export let dblJump = 0;
 export let prevJumpKeyCode: 'ArrowLeft' | 'ArrowRight';
@@ -424,7 +471,18 @@ export function updateMarkerPairEditor() {
       markerPairCountLabel.textContent = appState.markerPairs.length.toString();
       markerPairNumberInput.setAttribute('max', appState.markerPairs.length.toString());
     }
+    refreshMarkerPairNavButtonsDisabledState();
   }
+}
+// Adding/removing pairs changes which pair is first/last, so the Prev/Next
+// buttons' disabled state must be recomputed without re-rendering the editor.
+export function refreshMarkerPairNavButtonsDisabledState() {
+  const selectedIndex = appState.prevSelectedMarkerPairIndex;
+  const prevButton = document.getElementById('select-prev-marker-pair') as HTMLButtonElement | null;
+  const nextButton = document.getElementById('select-next-marker-pair') as HTMLButtonElement | null;
+  if (selectedIndex == null || !prevButton || !nextButton) return;
+  prevButton.disabled = selectedIndex <= 0;
+  nextButton.disabled = selectedIndex >= appState.markerPairs.length - 1;
 }
 function renderNumberingText(
   parent: SVGSVGElement,
@@ -778,12 +836,41 @@ export function undoRedoMarkerPairChange(dir: 'undo' | 'redo') {
       }
 
       renderSpeedAndCropUI(true, true);
+      dispatchMarkerPairHistoryChanged();
 
       flashMessage(`Applied ${dir}.`, 'green');
     }
   } else {
     flashMessage('Please select a marker pair editor for undo/redo.', 'olive');
   }
+}
+// Whether the selected pair has earlier/later states to undo/redo to — drives
+// the disabled state of the editor's undo/redo buttons.
+export function canUndoMarkerPairChange(): boolean {
+  const idx = appState.prevSelectedMarkerPairIndex;
+  if (idx == null) return false;
+  const undoredo = appState.markerPairs[idx]?.undoredo;
+  return !!undoredo && undoredo.index > 0;
+}
+export function canRedoMarkerPairChange(): boolean {
+  const idx = appState.prevSelectedMarkerPairIndex;
+  if (idx == null) return false;
+  const undoredo = appState.markerPairs[idx]?.undoredo;
+  return !!undoredo && undoredo.index < undoredo.history.length - 1;
+}
+// Number of states available to undo/redo on the selected pair — shown as a
+// count badge on the undo/redo buttons.
+export function getUndoMarkerPairChangeCount(): number {
+  const idx = appState.prevSelectedMarkerPairIndex;
+  if (idx == null) return 0;
+  const undoredo = appState.markerPairs[idx]?.undoredo;
+  return undoredo ? undoredo.index : 0;
+}
+export function getRedoMarkerPairChangeCount(): number {
+  const idx = appState.prevSelectedMarkerPairIndex;
+  if (idx == null) return 0;
+  const undoredo = appState.markerPairs[idx]?.undoredo;
+  return undoredo ? undoredo.history.length - 1 - undoredo.index : 0;
 }
 export function deleteMarkerPair(idx?: number) {
   idx ??= appState.prevSelectedMarkerPairIndex;

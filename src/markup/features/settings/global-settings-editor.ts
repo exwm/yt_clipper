@@ -7,7 +7,11 @@ import { EncodeSettingsFieldset } from './encode-settings-fieldset';
 import { createCropOverlay, hideCropOverlay, showCropOverlay } from '../../crop-overlay';
 import { getCropComponents, getDefaultCropRes } from '../../crop-utils';
 import { triggerCropPreviewRedraw } from '../../crop/crop-preview';
-import { toggleOffMarkerPairEditor } from './marker-settings-editor';
+import {
+  placeSettingsToggleBar,
+  renderSettingsToggleBar,
+  toggleOffMarkerPairEditor,
+} from './marker-settings-editor';
 import { injectYtcWidget } from '../../save-load';
 import {
   addCropInputHotkeys,
@@ -105,7 +109,12 @@ function GlobalSettingsEditorTemplate(binder: SettingsBinder<Settings>): Templat
     ${SettingsFieldset({
       id: 'global-marker-settings',
       variant: 'global',
-      legend: 'Global Settings',
+      legendClassExtra: 'settings-legend-with-toggles',
+      legend: html`
+        <span class="settings-legend-main">Global Settings</span>
+        <span class="settings-legend-connector"></span>
+        <span id="settings-toggle-host-main">${renderSettingsToggleBar('global')}</span>
+      `,
       children: html`
         ${TextInputRow({
           ...bind('title-suffix-input', 'titleSuffix', 'string'),
@@ -197,6 +206,9 @@ function GlobalSettingsEditorTemplate(binder: SettingsBinder<Settings>): Templat
       display: encodeDisplay,
       source: settings,
       bind: bind as FieldBinder,
+      // Host that the toggle bar relocates into while encode settings are open.
+      legendExtra: html`<span class="settings-legend-connector"></span
+        ><span id="settings-toggle-host-encode"></span>`,
     })}
   `;
 }
@@ -212,6 +224,7 @@ export function createGlobalSettingsEditor() {
   injectYtcWidget(globalSettingsEditorDiv);
 
   bindFpsMulStepBtns();
+  placeSettingsToggleBar();
 
   setCropInput(document.getElementById('crop-input') as HTMLInputElement);
   setCropAspectRatioSpan(document.getElementById('crop-aspect-ratio') as HTMLSpanElement);

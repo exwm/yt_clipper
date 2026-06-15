@@ -2,6 +2,45 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [5.46.0](https://github.com/exwm/yt_clipper/compare/v5.45.0...v5.46.0) (2026-06-10)
+
+
+### Features
+
+* **markup:** prev/next marker pair navigation buttons + keep player controls visible during marker navigation ([6f7a522](https://github.com/exwm/yt_clipper/commit/6f7a52277f1328dac6aa4df7c8032a2524e58968))
+* **markup:** settings editor toolbar for quick access to common toggles and actions ([4e6ea24](https://github.com/exwm/yt_clipper/commit/4e6ea24e6a0efb1d1f8bfd77912232fca353a98f))
+
+
+### Bug Fixes
+
+* **markup:** command palette should run actions that need a modifier key (e.g. toggle auto-hide marker pairs) ([0291d45](https://github.com/exwm/yt_clipper/commit/0291d4507f69dc74f7873dd5dc0849450a83140e))
+* **markup:** modal crop preview should match the player's preview rotation ([2328119](https://github.com/exwm/yt_clipper/commit/232811922fffb7b2e0c98e19bd3b9370e9cb1b00))
+
+
+### Documentation Updates
+
+* **readme:** document settings editor toolbar, prev/next pair nav, and rotation output sync ([64b647d](https://github.com/exwm/yt_clipper/commit/64b647d4ae3ff0a135532bfffeaae8a3095ebafe))
+
+## [5.45.0](https://github.com/exwm/yt_clipper/compare/v5.44.0...v5.45.0) (2026-05-31)
+
+
+### Features
+
+* **clipper:** accept --cookies/--cookiesfile as aliases for --cookiefile ([d178519](https://github.com/exwm/yt_clipper/commit/d1785194bc76569096fd50a436d242eea7adee84))
+* **clipper:** suggest similar flags for unknown arguments ([07d2817](https://github.com/exwm/yt_clipper/commit/07d281793c1a7bad0811e58fb7ce5f026f5f8d84))
+* **clipper:** support --cookies-from-browser for yt-dlp ([19c762b](https://github.com/exwm/yt_clipper/commit/19c762b37ff3d51c2f97c83feaff8b0592051f83))
+* **markup:** clearer crop rectangle rendering in dynamic crop mode ([e814c17](https://github.com/exwm/yt_clipper/commit/e814c17aa6eefe36d54febc129be7fb0aadd6d35))
+
+
+### Bug Fixes
+
+* **clipper:** hide confusing "(default: None)"/blank notes in --help ([67a3f6a](https://github.com/exwm/yt_clipper/commit/67a3f6a3cba7b390a354075d2720d629b1cc924b))
+* **clipper:** repair missing spaces in argparse help text ([df0b208](https://github.com/exwm/yt_clipper/commit/df0b2084c0d673fd6e98f65d24c172b6ae44a2e3))
+* **markup:** cap YouTube video height while crop chart is open ([0c5bd8e](https://github.com/exwm/yt_clipper/commit/0c5bd8e35a3d3666a47e5b46c304fe03a3bafbf9))
+* **markup:** keep rotated video correctly sized when switching videos (portrait/landscape) ([e4c21c0](https://github.com/exwm/yt_clipper/commit/e4c21c04410b3969a133f72a00261d479b67d4e4))
+* **markup:** prevent fast crop/marker drags from getting stuck while seeking ([4f45b0d](https://github.com/exwm/yt_clipper/commit/4f45b0d535c18cc1eeae1326d9d9597fef196e99))
+* **markup:** remove stray internal identifier from flash messages and stale-video banner ([e6e4ff6](https://github.com/exwm/yt_clipper/commit/e6e4ff68a2e6e07d4528e3fe5e31679733ab48c4))
+
 ## [5.44.0](https://github.com/exwm/yt_clipper/compare/v5.43.0...v5.44.0) (2026-05-19)
 
 

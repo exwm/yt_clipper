@@ -56,6 +56,18 @@ export function getMarkerPairHistory(markerPair: MarkerPair): MarkerPairHistory 
   return history;
 }
 
+// Dispatched on `document` whenever a marker pair's undo/redo stacks change, so
+// UI such as the undo/redo buttons can resync their disabled state without
+// polling. Decouples the low-level history store from the editor that renders it.
+export const MARKER_PAIR_HISTORY_CHANGED_EVENT = 'ytc:markerpair-history-changed';
+
+// Guarded so this module stays importable in the DOM-less (node) test env.
+export function dispatchMarkerPairHistoryChanged() {
+  if (typeof document !== 'undefined') {
+    document.dispatchEvent(new Event(MARKER_PAIR_HISTORY_CHANGED_EVENT));
+  }
+}
+
 export function saveMarkerPairHistory(
   draft: Draft<MarkerPairHistory>,
   markerPair: MarkerPair,
@@ -63,5 +75,8 @@ export function saveMarkerPairHistory(
 ) {
   const newState = finishDraft(draft);
   Object.assign(markerPair, newState);
-  if (storeHistory) pushState(markerPair.undoredo, newState);
+  if (storeHistory) {
+    pushState(markerPair.undoredo, newState);
+    dispatchMarkerPairHistoryChanged();
+  }
 }

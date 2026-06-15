@@ -338,8 +338,8 @@ def getFfmpegVideoCodecAv1(
 ) -> Tuple[str, str, str]:
     """AV1 via libsvtav1, output in mp4.
 
-    Maps ``encodeSpeed`` (0-5) to SVT-AV1 preset (2-7); default
-    ``encodeSpeed=4`` -> preset 6 (VOD sweet spot).
+    Preset is hardcoded; the finer ``-svtav1-params`` knobs are documented
+    inline with the encoder default each one overrides.
     """
     if mps["minterpFPS"] is not None and mps["minterpTool"] == "ffmpeg":
         fps_arg = f"-r {mps['minterpFPS']}"
@@ -352,11 +352,16 @@ def getFfmpegVideoCodecAv1(
     hdr_args = f"-pix_fmt yuv420p10le {dynamic_range.hdr_args_for_output_metadata}"
     dynamic_range_args = hdr_args if mps["enableHDR"] else sdr_args
 
-    svt_preset = max(0, min(13, mps["encodeSpeed"] + 2))
-    # enable-overlays is incompatible with SVT-AV1 multi-pass.
+    # Hardcoded preset, like h264_nvenc's -preset p6. 6 is the commonly
+    # cited SVT-AV1 speed/quality sweet spot for VOD.
+    preset_arg = "-preset 6"
+
+    # tune=0 = visual-quality (perceptual) mode; the encoder default is 1
+    # (PSNR), but clips are watched, not benchmarked. Everything else
+    # relies on SVT-AV1's own defaults (aq-mode=2 — also implied by CRF,
+    # enable-tf=1, film-grain=0, lookahead auto). See:
+    # https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md
     svtav1_params = "tune=0"
-    if not mps["twoPass"]:
-        svtav1_params += ":enable-overlays=1"
 
     # SVT-AV1 rejects -b:v in CRF mode (rc=0) and rejects CBR (rc=2) for
     # VOD; all bitrate-targeted paths use VBR (rc=1). Two-pass needs a
@@ -379,7 +384,7 @@ def getFfmpegVideoCodecAv1(
         (
             "-c:v libsvtav1",
             dynamic_range_args,
-            f"-preset {svt_preset}",
+            preset_arg,
             f"-svtav1-params {svtav1_params}",
             crf_args,
             bitrate_arg,

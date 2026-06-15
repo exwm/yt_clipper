@@ -1029,7 +1029,16 @@ export class CommandPalette {
     if (this.selectCallback) {
       this.selectCallback(def);
     } else {
-      const fake = new KeyboardEvent('keydown', { code: def.binding?.code ?? '' });
+      // Reproduce the binding's modifiers on the synthetic event, not just the
+      // code: handlers that re-check e.ctrlKey/altKey/shiftKey (e.g. auto-hide
+      // marker pairs) would otherwise no-op when run from the palette.
+      const binding = def.binding;
+      const fake = new KeyboardEvent('keydown', {
+        code: binding?.code ?? '',
+        ctrlKey: binding?.modifiers.ctrl ?? false,
+        shiftKey: binding?.modifiers.shift ?? false,
+        altKey: binding?.modifiers.alt ?? false,
+      });
       def.handler(fake);
     }
   }

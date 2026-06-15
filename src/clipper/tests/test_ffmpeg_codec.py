@@ -30,17 +30,15 @@ def _make_mp_mps(**mps_overrides: object) -> tuple[dict, dict]:
     return mp, mps
 
 
-# Scenarios chosen to exercise each rate-control branch and a couple of
-# orthogonal axes (HDR, preset extremes). Snapshots capture the full
-# codec/input/output arg triple so any drift surfaces in review.
+# Scenarios chosen to exercise each rate-control branch plus the HDR axis.
+# Snapshots capture the full codec/input/output arg triple so any drift in
+# the encoder flags surfaces in review.
 AV1_SCENARIOS: dict[str, tuple[dict[str, object], Optional[int]]] = {
     "crf_sdr_default": ({}, None),
     "crf_hdr": ({"enableHDR": True}, None),
     "crf_with_mbr_cap": ({"targetMaxBitrate": 2000}, None),
     "target_size_vbr": ({}, 12),  # cbr set -> VBR rc=1 with -b:v in MB
     "two_pass_vbr": ({"twoPass": True}, None),
-    "preset_slow": ({"encodeSpeed": 0}, None),
-    "preset_fast": ({"encodeSpeed": 5}, None),
 }
 
 
@@ -56,9 +54,33 @@ def test_av1_codec_args_snapshot(
 ) -> None:
     mp, mps = _make_mp_mps(**mps_overrides)
     result = ffmpeg_codec.getFfmpegVideoCodecArgs(
-        videoCodec="av1", cbr=cbr, mp=mp, mps=mps,
+        videoCodec="av1",
+        cbr=cbr,
+        mp=mp,
+        mps=mps,
     )
     assert result == snapshot
+
+
+def test_av1_preset_hardcoded_ignores_encode_speed() -> None:
+    """Preset is fixed at 6; --encode-speed (libvpx 0-5 scale) is not mapped
+    onto SVT-AV1's 0-13 preset, so changing it must not change the command."""
+    mp_slow, mps_slow = _make_mp_mps(encodeSpeed=0)
+    mp_fast, mps_fast = _make_mp_mps(encodeSpeed=5)
+    slow, _, _ = ffmpeg_codec.getFfmpegVideoCodecArgs(
+        videoCodec="av1",
+        cbr=None,
+        mp=mp_slow,
+        mps=mps_slow,
+    )
+    fast, _, _ = ffmpeg_codec.getFfmpegVideoCodecArgs(
+        videoCodec="av1",
+        cbr=None,
+        mp=mp_fast,
+        mps=mps_fast,
+    )
+    assert "-preset 6" in slow
+    assert slow == fast
 
 
 def test_av1_container_and_hwaccel() -> None:
