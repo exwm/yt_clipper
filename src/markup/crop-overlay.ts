@@ -1641,17 +1641,24 @@ export function transformCropWithPushBack(
 }
 export let cropCrossHairEnabled = false;
 export function toggleCropCrossHair() {
+  cropCrossHairEnabled = !cropCrossHairEnabled;
+  flashMessage(
+    cropCrossHairEnabled ? 'Enabled crop crosshair' : 'Disabled crop crosshair',
+    cropCrossHairEnabled ? 'green' : 'red'
+  );
+  if (cropOverlayElements.cropCrossHair) {
+    (cropOverlayElements.cropCrossHair as HTMLElement).style.display = cropCrossHairEnabled
+      ? 'block'
+      : 'none';
+  }
   if (cropCrossHairEnabled) {
-    flashMessage('Disabled crop crosshair', 'red');
-    cropCrossHairEnabled = false;
-    cropOverlayElements.cropCrossHair &&
-      ((cropOverlayElements.cropCrossHair as HTMLElement).style.display = 'none');
-  } else {
-    flashMessage('Enabled crop crosshair', 'green');
-    cropCrossHairEnabled = true;
-    cropOverlayElements.cropCrossHair &&
-      ((cropOverlayElements.cropCrossHair as HTMLElement).style.display = 'block');
+    // Position the SVG crosshair on the current crop; this also redraws the reframe canvas via the
+    // syncReframe at the end of renderSpeedAndCropUI.
     renderSpeedAndCropUI(false, false);
+  } else if (isReframeEnabled()) {
+    // In reframe the crosshair is drawn on the canvas, not the SVG; paused, the rVFC loop is idle, so
+    // redraw now or disabling it wouldn't take effect until playback.
+    syncReframe(getCurrentCropComponents());
   }
 }
 export function renderStaticCropOverlay(crop) {
