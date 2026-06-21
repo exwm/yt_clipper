@@ -162,6 +162,9 @@ export const cropOverlayElements = {
   cropChartSectionEndBorderYellow: null as Element | null,
   cropChartSectionEndBorderWhite: null as Element | null,
 };
+// Gold for the end crop section's rect border and matching crosshair, picked to stand out from the
+// grey current-crop rect (plain yellow read too close to it). The start section stays lime.
+export const END_CROP_SECTION_COLOR = 'rgb(241, 196, 27)';
 function CropOverlayTemplate(fillOpacity: number, crossHairDisplay: string) {
   return html`
     <svg id="crop-svg">
@@ -213,7 +216,7 @@ function CropOverlayTemplate(fillOpacity: number, crossHairDisplay: string) {
           width="0%"
           height="0%"
           fill="none"
-          stroke="yellow"
+          stroke=${END_CROP_SECTION_COLOR}
           stroke-width="1px"
         />
         <rect
@@ -549,6 +552,18 @@ export function setSvgCropBorderHidden(hidden: boolean): void {
   const el = cropOverlayElements.cropRectBorder as unknown as SVGElement | null;
   if (el) el.style.display = hidden ? 'none' : '';
 }
+/** Show/hide just the current-time crop rect's border lines, not the whole cropRectBorder group, so
+ *  the crosshair stays visible: in a dynamic crop the crosshair tracks the selected start/end point
+ *  and should remain even when the redundant current-time rect is hidden. */
+export function setCurrentCropRectVisible(visible: boolean): void {
+  const opacity = visible ? '1' : '0';
+  for (const line of [
+    cropOverlayElements.cropRectBorderBlack,
+    cropOverlayElements.cropRectBorderWhite,
+  ]) {
+    if (line) (line as HTMLElement).style.opacity = opacity;
+  }
+}
 /** Re-assert reframe-driven overlay visibility after the SVG overlay is (re)built. The reframe
  *  canvas draws its own border and black bars, so the SVG border + dim must stay hidden while it
  *  owns the display. createCropOverlay rebuilds them fresh and visible (on pair switch / global
@@ -567,9 +582,15 @@ export function cycleCropDimOpacity() {
     cropDimIndex = (cropDimIndex + 1) % cropDims.length;
   }
   applyActiveCropDimOpacity();
-  // In reframe the dim level also decides whether the video is clipped to the crop
-  // (100% = solid black) or left visible behind the dim (<100%), so re-sync the preview.
-  if (isReframeEnabled()) syncReframe(getCurrentCropComponents());
+  if (isReframeEnabled()) {
+    // In reframe the dim level also decides whether the video is clipped to the crop
+    // (100% = solid black) or left visible behind the dim (<100%), so re-sync the preview.
+    syncReframe(getCurrentCropComponents());
+  } else {
+    // The current-time crop rect shows only when the dim is off (otherwise the dim cut-out already
+    // marks the current crop), so re-evaluate its visibility for the new dim. Paused, nothing else would.
+    refreshDynamicCropOverlays();
+  }
 }
 /** Active crop dim opacity as a whole percent for the bar badge. */
 export function getCropDimOpacityPercent(): number {
@@ -1635,6 +1656,10 @@ export function toggleCropCrossHair() {
 }
 export function renderStaticCropOverlay(crop) {
   const [x, y, w, h] = getCropComponents(crop);
+
+  // A static crop has only this one rect, so restore its visibility in case a prior dynamic crop hid
+  // it (the current-time rect is dropped while the start/end section rects are up).
+  setCurrentCropRectVisible(true);
 
   [
     cropOverlayElements.cropRect,

@@ -41,7 +41,9 @@ import {
 import {
   cropCrossHairEnabled,
   cropOverlayElements,
+  END_CROP_SECTION_COLOR,
   finishDrawingCrop,
+  getCropDimOpacity,
   isDrawingCrop,
   isMouseManipulatingCrop,
   renderStaticCropOverlay,
@@ -49,6 +51,7 @@ import {
   setCropCrossHair,
   setCropOverlay,
   setCropOverlayDimensions,
+  setCurrentCropRectVisible,
 } from './crop-overlay';
 import { getCropComponents, isStaticCrop, setCropInputValue } from './crop-utils';
 import { Crop } from './crop/crop';
@@ -1034,11 +1037,16 @@ export function updateDynamicCropOverlays(
     const sectionDisplay = isReframeEnabled() ? 'none' : 'block';
     (cropOverlayElements.cropChartSectionStart as HTMLElement).style.display = sectionDisplay;
     (cropOverlayElements.cropChartSectionEnd as HTMLElement).style.display = sectionDisplay;
-    (cropOverlayElements.cropRectBorder as HTMLElement).style.opacity = '0.7';
+    // With the start/end section rects shown (non-reframe dynamic crop), the current-time rect is a
+    // third overlapping rect that just adds noise, so hide it — the outside-crop dim already marks
+    // the current crop region. Keep it when the dim is off (nothing else cues the current crop), and
+    // in reframe where it's the preview (the canvas draws its own border, this SVG one display-hidden).
+    setCurrentCropRectVisible(isReframeEnabled() || getCropDimOpacity() === 0);
   } else {
     (cropOverlayElements.cropChartSectionStart as HTMLElement).style.display = 'none';
     (cropOverlayElements.cropChartSectionEnd as HTMLElement).style.display = 'none';
-    (cropOverlayElements.cropRectBorder as HTMLElement).style.opacity = '0.8';
+    // Single crop rect here (no section rects), so show it.
+    setCurrentCropRectVisible(true);
     applyCropKeyframeIndicator(null);
     return;
   }
@@ -1092,7 +1100,7 @@ export function updateDynamicCropOverlays(
         : BETWEEN_KEYFRAME_COLOR
       : currentCropChartMode === cropChartMode.Start
         ? 'lime'
-        : 'yellow';
+        : END_CROP_SECTION_COLOR;
   }
 
   const sectionStartEl = cropOverlayElements.cropChartSectionStart;
