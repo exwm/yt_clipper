@@ -214,9 +214,11 @@ export function getDefaultCropRes() {
 }
 export function setCropInputValue(cropString: string) {
   if (!cropInput) return;
-  const rotatedCropString = getRotatedCropString(cropString);
-  if (rotatedCropString !== cropString && cropInputLabel) {
-    cropInputLabel.textContent = `Crop (Rotated: ${rotatedCropString})`;
+  // The stored crop stays in unrotated coordinates, so while previewing a rotation surface its
+  // rotated equivalent in the label. Gate on the rotation itself: a string diff would also fire for
+  // a symbolic 'iw'/'ih' crop (getRotatedCropString resolves those to pixels) with no rotation.
+  if (appState.rotation !== 0 && cropInputLabel) {
+    cropInputLabel.textContent = `Crop (Rotated: ${getRotatedCropString(cropString)})`;
   }
   cropInput.value = cropString;
 }
