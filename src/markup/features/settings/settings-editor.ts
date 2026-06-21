@@ -397,7 +397,7 @@ export function addCropInputHotkeys() {
         ke.code >= 'KeyB' &&
         ke.code <= 'KeyZ' &&
         !(ke.code === 'KeyI' || ke.code === 'KeyW' || ke.code === 'KeyH')) ||
-      (ke.code === 'KeyA' && (ke.ctrlKey || ke.altKey)) // blur on KeyA with ctrl or alt modifiers
+      (ke.code === 'KeyA' && ke.altKey) // blur on alt+A; leave ctrl+A for native select-all
     ) {
       blockEvent(ke);
       cropInput.blur();
