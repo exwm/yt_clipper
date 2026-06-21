@@ -7,7 +7,7 @@ import {
   PlatformNavObserver,
 } from './navigation';
 
-const youtubeCSS = '';
+const youtubeCSS: string = readFileSync(__dirname + '/css/youtube.css', 'utf8');
 const vliveCSS: string = readFileSync(__dirname + '/css/vlive.css', 'utf8');
 const naver_tvCSS: string = readFileSync(__dirname + '/css/naver_tv.css', 'utf8');
 const weverseCSS: string = readFileSync(__dirname + '/css/weverse.css', 'utf8');

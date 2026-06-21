@@ -133,6 +133,9 @@ function isCropViewModeActive(): boolean {
 
 export function toggleReframe(crop: [number, number, number, number] | null): void {
   reframeEnabled = !reframeEnabled;
+  // Scopes the CSS that hides the platform's center play/pause bezel: in reframe the rapid play/pause
+  // used to track a subject would otherwise flash a big icon over the crop.
+  document.body.classList.toggle('ytc-reframe-active', reframeEnabled);
   // Swap the overlay dim onto the active mode's value (reframe has its own preference).
   applyActiveCropDimOpacity();
   if (reframeEnabled) {

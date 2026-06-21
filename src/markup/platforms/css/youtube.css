@@ -1,0 +1,10 @@
+/* The center play/pause bezel obscures the frame during the rapid play/pause used to track a
+   subject, and the state is already in the controls. Shrink and fade it, and hide it in reframe. */
+.ytp-bezel {
+  transform: scale(0.4) !important;
+  opacity: 0.4 !important;
+}
+
+.ytc-reframe-active .ytp-bezel {
+  display: none !important;
+}
