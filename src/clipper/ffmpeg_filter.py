@@ -338,22 +338,11 @@ def getCropFilter(
         startTime = left["x"] - firstTime
         startX, startY, _startW, _startH = left["crop"].split(":")
         endTime = right["x"] - firstTime
-        adjustedEndTime = getFrameTimeBetweenLeftFrames(endTime, float(fps))
 
         endX, endY, _endW, _endH = right["crop"].split(":")
 
-        # We adjust the end time to account for the imprecision in the desired end time
-        # Typically the user will overshoot the frame time
-        # We could try to be precise and get the closest left frame time
-        # But it is easier to get a time between the left frame and second left frame and avoid precision issues
-        # This may slightly accelerate the filter timeline
-        # The input time will be equal to the second left frame, and normalized time will be close to 1
-        # (it may be slightly closer if we did not adjust the end time)
-        # Then the input time will be equal to the left frame, and normalized time will be 1
-        # If we did not adjust the end time, then when the input time is equal to the left frame, normalized time
-        # may not be 1, which is what we want to avoid, especially in the instant ease in case
-        sectDuration = adjustedEndTime - startTime
-        if sectDuration <= 0:
+        sectDuration = getEaseSectionDuration(startTime, endTime, float(fps))
+        if sectDuration is None:
             continue
 
         currEaseType = easeType if not right.get("easeIn", False) else right["easeIn"]
@@ -362,9 +351,16 @@ def getCropFilter(
         easeX = getEasingExpression(currEaseType, f"({startX})", f"({endX})", easeP)
         easeY = getEasingExpression(currEaseType, f"({startY})", f"({endY})", easeP)
 
-        # We use endTime and not adjustedEndTime otherwise the timeline may have a gap
+        # Gate on the real endTime, not the duration-adjusted one, so the section timeline
+        # has no gaps between consecutive sections.
         easingsX.append((startTime, endTime, easeX))
         easingsY.append((startTime, endTime, easeY))
+
+    if not easingsX:
+        # Every section had non-positive duration (all crop points share a time): nothing to
+        # ease, so emit a static crop from the first point rather than build an empty expression.
+        startX, startY, _startW, _startH = cropMap[0]["crop"].split(":")
+        return getStaticCropFilter(startX, startY, cropW, cropH)
 
     cropXExpr = getEaseFilterExpr(easingsX, timeExpr="t")
     cropYExpr = getEaseFilterExpr(easingsY, timeExpr="t")
@@ -374,7 +370,12 @@ def getCropFilter(
     return cropFilter
 
 
+def getStaticCropFilter(x: str, y: str, w: str, h: str) -> str:
+    return f"crop='x={x}:y={y}:w={w}:h={h}:exact=1'"
+
+
 def getEaseFilterExpr(easings: List, timeExpr: Literal["t", "it"]) -> str:
+    # Callers guard against an empty easings list (a fully zero-duration crop map) before here.
     easeFilterExpr = [
         f"(gte({timeExpr}, {startTime})*lt({timeExpr}, {endTime})*{easeExpr})"
         for (startTime, endTime, easeExpr) in easings[:-1]
@@ -425,7 +426,6 @@ def getZoomPanFilter(
         startTime = left["x"] - firstTime
         startX, startY, startW, startH = left["crop"].split(":")
         endTime = right["x"] - firstTime
-        adjustedEndTime = getFrameTimeBetweenLeftFrames(endTime, float(fps))
 
         endX, endY, endW, endH = right["crop"].split(":")
         startRight = float(startX) + float(startW)
@@ -436,8 +436,8 @@ def getZoomPanFilter(
         startZoom = maxWidth / float(startW)
         endZoom = maxWidth / float(endW)
 
-        sectDuration = adjustedEndTime - startTime
-        if sectDuration <= 0:
+        sectDuration = getEaseSectionDuration(startTime, endTime, float(fps))
+        if sectDuration is None:
             continue
 
         currEaseType = easeType if not right.get("easeIn", False) else right["easeIn"]
@@ -514,6 +514,12 @@ def getZoomPanFilter(
         easingsZoomX.append((startTime, endTime, easeX))
         easingsZoomY.append((startTime, endTime, easeY))
 
+    if not easingsZoom:
+        # All sections had non-positive duration (degenerate crop map): nothing to animate, so
+        # emit a static crop from the first point rather than build empty expressions.
+        startX, startY, startW, startH = cropMap[0]["crop"].split(":")
+        return getStaticCropFilter(startX, startY, startW, startH), maxSize
+
     panXExpr = getEaseFilterExpr(easingsPanRight, timeExpr="t")
     panYExpr = getEaseFilterExpr(easingsPanBottom, timeExpr="t")
     zoomExpr = getEaseFilterExpr(easingsZoom, timeExpr=ZOOM_PAN_TIME_EXPR)
@@ -555,11 +561,45 @@ def floorToEven(x: Union[int, str, float]) -> int:
 
 
 def getFrameTimeBetweenLeftFrames(time: float, fps: float) -> float:
+    """The ease section end time to use for a crop keyframe placed at `time`.
+
+    A keyframe's time is user-placed and usually overshoots its actual frame. Ending the ease
+    just before that frame keeps the normalized ease time reaching 1 by the time playback hits
+    the frame, so the transition finishes on it. This matters most for instant ease in, whose
+    jump must land on that frame. Landing between frames instead of snapping to a frame boundary
+    also avoids float precision issues.
+    """
     leftFrameIndex = floor(time * fps)
 
     midpointTime = (leftFrameIndex - 0.5) / fps
 
     return midpointTime
+
+
+def getEaseSectionDuration(
+    startTime: float,
+    endTime: float,
+    fps: float,
+) -> Optional[float]:
+    realDuration = endTime - startTime
+    # Genuinely zero/negative duration sections (e.g. redundant hold point pairs) have no
+    # frames to render, so skip them.
+    if realDuration <= 0:
+        return None
+
+    # Pull the end time back toward the last displayed frame so the ease finishes on it
+    # rather than at the (usually overshot) keyframe time. See getFrameTimeBetweenLeftFrames.
+    adjustedDuration = getFrameTimeBetweenLeftFrames(endTime, fps) - startTime
+
+    # For sections shorter than the adjustment window the adjusted end time can land before
+    # the start time. Fall back to the real duration so the section still renders instead of
+    # being dropped, which would leave a gap that snaps the crop to 0. Such a short section
+    # skips the frame-time adjustment, so an instant ease in here transitions at the next point
+    # rather than a frame earlier. That is acceptable since the section spans under ~1.5 frames.
+    if adjustedDuration <= 0:
+        return realDuration
+
+    return adjustedDuration
 
 
 def getEasingExpression(
