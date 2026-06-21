@@ -11,30 +11,7 @@ import {
 } from '../../components/settings';
 import { Tooltips } from '../../ui/tooltips';
 import { ternaryToString } from '../../util/util';
-import { BoundInput, FieldBinder, gateHotkeys } from './settings-editor';
-
-function renderFadeDurationInput(
-  bound: BoundInput,
-  value: number | undefined,
-  placeholder: string
-): TemplateResult {
-  return html`
-    <div title=${Tooltips.fadeDurationTooltip}>
-      <span>Fade Duration</span>
-      <input
-        id=${bound.id}
-        type="number"
-        min="0.1"
-        step="0.1"
-        placeholder=${placeholder}
-        style="width:7em"
-        .value=${String(value ?? '')}
-        @change=${bound.onChange}
-        ${ref(gateHotkeys)}
-      />
-    </div>
-  `;
-}
+import { FieldBinder, gateHotkeys } from './settings-editor';
 
 function renderZoomPanRow(zoomPan: { enabled: boolean; bind: FieldBinder }): TemplateResult {
   const bound = zoomPan.bind('enable-zoom-pan-input', 'enableZoomPan', 'bool');
@@ -257,11 +234,17 @@ export function EncodeSettingsFieldset(p: EncodeSettingsFieldsetProps): Template
           value: source.loop,
           defaultOptionLabel: loopDefault,
         })}
-        ${renderFadeDurationInput(
-          bind('fade-duration-input', 'fadeDuration', 'number'),
-          source.fadeDuration,
-          fadeDurationPlaceholder
-        )}
+        ${NumberInputRow({
+          ...bind('fade-duration-input', 'fadeDuration', 'number'),
+          label: 'Fade Duration',
+          value: source.fadeDuration ?? '',
+          tooltip: Tooltips.fadeDurationTooltip,
+          min: 0.1,
+          step: 0.1,
+          placeholder: fadeDurationPlaceholder,
+          styleInfo: { width: '7em' },
+          compact: true,
+        })}
       </div>
       ${p.zoomPan ? renderZoomPanRow(p.zoomPan) : nothing}
     `,
