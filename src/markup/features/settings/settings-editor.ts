@@ -17,7 +17,7 @@ import {
 } from '../../crop-utils';
 import { Crop, getMinMaxAvgCropPoint, isVariableSize } from '../../crop/crop';
 import { triggerCropPreviewRedraw } from '../../crop/crop-preview';
-import { isReframeEnabled } from '../../crop/video-zoom-controller';
+import { isReframeEnabled, syncReframe } from '../../crop/video-zoom-controller';
 import { VideoPlatforms } from '../../platforms/platforms';
 import { presetsMap } from './presets';
 import { updateMarkerPairSpeed } from '../../speed';
@@ -124,6 +124,9 @@ export function deleteSettingsEditor() {
 
   hideCropOverlay();
   triggerCropPreviewRedraw();
+  // With the editor closed there's no active crop. Paused in reframe the rVFC loop is idle, so
+  // redraw the canvas now to fall back to the plain full video instead of holding the last crop.
+  if (isReframeEnabled()) syncReframe(null);
 }
 export let isExtraSettingsEditorEnabled = false;
 export function toggleMarkerPairOverridesEditor() {
