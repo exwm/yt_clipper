@@ -162,12 +162,14 @@ export function getFadeBounds(markerPair: MarkerPair, currentTime: number): numb
 }
 
 export function toggleAllPreviews() {
+  // "All on" must check exactly the set toggled below, or it never registers as fully on and the
+  // next press re-enters the turn-on branch instead of turning everything off. Crop chart looping
+  // isn't one of these toggles, so it must not be part of the check.
   appState.isAllPreviewsOn =
     getIsSpeedPreviewOn() &&
     getIsMarkerLoopPreviewOn() &&
     appState.isGammaPreviewOn &&
-    isFadeLoopPreviewOn &&
-    appState.isCropChartLoopingOn;
+    isFadeLoopPreviewOn;
   if (!appState.isAllPreviewsOn) {
     !getIsSpeedPreviewOn() && toggleMarkerPairSpeedPreview();
     !getIsMarkerLoopPreviewOn() && toggleMarkerPairLoop();
