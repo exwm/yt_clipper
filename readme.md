@@ -279,8 +279,8 @@ The marker pair editor and the global settings editor each have a toolbar of ico
 
 - Active features are highlighted in the editor's accent color (orange for the marker pair editor, red for the global settings editor).
 - Badges show the undo/redo history depth, the number of points in a dynamic speed or crop chart, the number of overrides set on a marker pair, the current crop dim opacity, and the current preview rotation.
-- The marker pair editor toolbar has: undo/redo pair changes, auto-hide unselected pairs, crop crosshair, cycle crop dim, crop preview, capture frame, dynamic speed and crop charts, the preview toggles (all, speed, loop, and gamma), and marker pair overrides.
-- The global settings editor toolbar has: save, copy, load, and restore markers data, crop crosshair, cycle crop dim, capture frame, rotate video, the preview toggles, and global overrides.
+- The marker pair editor toolbar has: undo/redo pair changes, auto-hide unselected pairs, crop crosshair, cycle crop dim, crop preview, reframe, capture frame, dynamic speed and crop charts, the preview toggles (all, speed, loop, and gamma), and marker pair overrides.
+- The global settings editor toolbar has: save, copy, load, and restore markers data, crop crosshair, cycle crop dim, capture frame, reframe, rotate video, the preview toggles, and global overrides.
 
 ## Cropping Shortcuts
 
@@ -311,15 +311,19 @@ The marker pair editor and the global settings editor each have a toolbar of ico
 
 **Reframe (WYSIWYG, V):**
 
-Press **V** to toggle reframe. The player turns into the output frame: the current crop is scaled to fill the player and everything outside it is clipped to black — a what-you-see-is-what-you-get preview of the clip's output. For a dynamic (moving) crop the preview pans and zooms to follow the crop over time as you scrub, so you see exactly how the subject stays framed between keyframes.
+Press **V** to toggle reframe. The player becomes the output frame: the current crop is scaled to fill it and everything outside is clipped to black. This is a what-you-see-is-what-you-get preview of the clip's output. For a dynamic (moving) crop, the preview pans and zooms to follow the crop as you scrub, so you see how the subject stays framed between crop points.
 
-- **Ctrl+Mousewheel:** Zoom the crop in/out (scaled around its center) without grabbing it — it acts as a zoom while reframed. Plain mousewheel scrolls the page as usual.
-- **Per-keyframe zoom (auto-zoompan):** The first time you zoom a **dynamic** crop in reframe — Ctrl+wheel, or resizing it on the player or minimap — the pair automatically switches to **zoompan** mode so that zoom is captured on just the current keyframe (instead of resizing every keyframe, the pan-only default). This matches the auto-keyframing expectation that a keyframe records both your pan and your zoom. Pure panning never changes the mode, and toggling reframe off leaves the mode as-is (so any zooms you made are kept as real output); switch back to pan-only via the **ZoomPan** setting if you want uniform sizing again.
-- **Navigator minimap (Shift+V):** While reframed a minimap of the whole video appears, showing where the crop sits in the frame. Because the crop fills the player, drag on the minimap to move or resize the crop. The minimap can be dragged to any window edge; toggle it with **Shift+V** or close it with its × button.
-- **Reframe dim (Ctrl+X):** The crop-dim cycle keeps a separate preference in reframe, stepping **80/90/100%** (default 100% = solid black). Below 100% the surrounding frame shows faintly outside the crop; your normal-mode crop-dim setting is left untouched.
+![yt_clipper_reframe.png](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_reframe.png)
+
+Editing while reframed is tied to the current time. We call this **auto-keyframing**. Scrub to a moment and adjust the crop: **Ctrl+Click+Drag** to move or resize it, or **Ctrl+Mousewheel** to zoom. A crop point is dropped at that time, or the one already there is updated. This works once the crop is dynamic or the crop chart is open (**Alt+D**). It lets you frame a moving subject moment by moment without placing points by hand.
+
+- **Ctrl+Mousewheel:** Zoom the crop in/out (scaled around its center) without grabbing it. Plain mousewheel scrolls the page as usual.
+- **Per-crop-point zoom (auto-zoompan):** The first time you zoom a **dynamic** crop in reframe, the pair switches to **zoompan** mode automatically. Zooming here means Ctrl+wheel, or resizing the crop on the player or minimap. That way the zoom lands on just the current crop point. The pan-only default would instead resize every crop point. This matches the auto-keyframing idea that a crop point records both your pan and your zoom. Pure panning never switches the mode. Toggling reframe off keeps the mode as is, so any zooms you made stay as real output. To get uniform sizing back, switch to pan-only in the **ZoomPan** setting.
+- **Navigator minimap (Shift+V):** While reframed, a minimap of the whole video appears. It shows where the crop sits in the frame. Because the crop fills the player, **Ctrl+drag** on the minimap to move or resize the crop. Without Ctrl the minimap is view-only, so a stray click can't nudge the crop. You can drag the minimap to any window edge. Toggle it with **Shift+V**, or close it with its × button.
+- **Reframe dim (Ctrl+X):** In reframe, the crop-dim cycle keeps its own preference. It steps **80/90/100%** (default 100% = solid black). Below 100%, the surrounding frame shows faintly outside the crop. Your normal-mode crop-dim setting is left untouched.
 - **Toggle off (V):** Shows the whole video again.
 
-This is a viewing aid only — the reframe view and minimap never change the rotation or exported output, and reset when a new video loads.
+The reframe view is only a preview. The fit-to-player scaling and the minimap never change the rotation or the exported output, and they reset when a new video loads. Your crop edits are real, though. They are stored as ordinary crop points.
 
 **Arrow Key Crop Adjustment:**
 
@@ -432,10 +436,10 @@ This is a viewing aid only — the reframe view and minimap never change the rot
 
 **Alt+A:** Add a point at the current time.
 
-- During an active crop manipulation (pan-drag or resize started with **Ctrl+Click+Drag** on the crop overlay) with the crop chart visible, **Alt+A** drops a crop keyframe at the current time. The held point reverts to its previous drop position and the new point captures the current visual crop. The new keyframe is auto-selected in start mode so you can immediately adjust or step it.
-- This lets you place multiple keyframes in one continuous gesture for rapid dynamic-crop tracking.
-- The plain **A** hotkey is rerouted to "add crop keyframe" while a crop manipulation is active with the crop chart visible. Useful for one-handed keyframe placement during a drag or resize.
-- For resize, per-keyframe size variation only takes effect in `zoompan` mode. In `pan-only` mode the crop W/H is shared across all points, so resize-based rapid keyframing primarily affects X/Y position.
+- During an active crop manipulation (pan-drag or resize started with **Ctrl+Click+Drag** on the crop overlay) with the crop chart visible, **Alt+A** drops a crop point at the current time. The held point reverts to its previous drop position and the new point captures the current visual crop. The new point is auto-selected in start mode so you can immediately adjust or step it.
+- This lets you place multiple crop points in one continuous gesture for rapid dynamic-crop tracking.
+- The plain **A** hotkey is rerouted to "add crop point" while a crop manipulation is active with the crop chart visible. Useful for one-handed crop point placement during a drag or resize.
+- For resize, per-point size variation only takes effect in `zoompan` mode. In `pan-only` mode the crop W/H is shared across all points, so resize-based rapid point placement primarily affects X/Y position.
 
 **Alt+Shift+Click:** Delete a point.
 
@@ -476,6 +480,7 @@ like adding and removing points.
 Dynamic crop allows for panning a crop in the default `pan-only` mode.
 In `pan-only` mode the crops of all crop chart points are maintained equal.
 For zooming and panning, enable `zoompan` mode from the marker pair settings extended options (**Shift+W**).
+Reframe can also turn this on for you. The first time you zoom a dynamic crop while reframed, the pair switches to `zoompan` automatically (see the Reframe section above).
 In `zoompan` mode crops can change size for a zooming effect, but their aspect ratios are maintained equal.
 
 **Alt+D:** Toggle dynamic crop chart.
@@ -494,7 +499,7 @@ In `zoompan` mode crops can change size for a zooming effect, but their aspect r
 **Ctrl/Alt+Mouseover:** Select point as start/end of crop section.
 
 - When the currently selected point is green then you are in start mode, and if it is yellow you are in end mode.
-- The selected point's crop is editable and its crop appears more brightly in a matching color (green or yellow).
+- The selected point's crop is editable and its crop appears more brightly in a matching color (green for the start point, gold for the end point).
 - As the video time changes, the currently selected point is automatically updated to the start or end point of the new section maintaining the current mode where possible.
 - Selected points have a black border and are square. Unselected points are circular.
 
@@ -539,7 +544,7 @@ The usual crop shortcuts have different effects than usual in this mode as descr
 - Use as few points as possible for smoother motion (each point with a crop different from its neighbors causes the crop motion to stop and then start again).
 - Try enabling video stabilization to smooth out the motion, especially if many points are used.
 - Pause the video and **Right-Click+Drag** to seek/scrub through the video. Use this to preview the crop movement with precise control.
-- For motion tracking, drop multiple crop keyframes in one continuous **Ctrl+Click+Drag** on the crop overlay: press **A** (when the crop chart is visible) or **Alt+A** at each subject position to commit a keyframe and keep dragging. Combine with the mouse wheel during the same drag to zoom the crop in/out (center-out) while panning.
+- For motion tracking, drop multiple crop points in one continuous **Ctrl+Click+Drag** on the crop overlay: press **A** (when the crop chart is visible) or **Alt+A** at each subject position to commit a crop point and keep dragging. Combine with the mouse wheel during the same drag to zoom the crop in/out (center-out) while panning.
 
 # Useful YouTube Controls
 
