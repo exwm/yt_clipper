@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [5.47.0](https://github.com/exwm/yt_clipper/compare/v5.46.0...v5.47.0) (2026-06-21)
+
+
+### Features
+
+* **markup:** declutter the dynamic crop overlay ([d30abfd](https://github.com/exwm/yt_clipper/commit/d30abfdd361a593bbe1fe3cb385c8b0b669d57c0))
+* **markup:** empty number settings inputs should step from their placeholder ([b235fa8](https://github.com/exwm/yt_clipper/commit/b235fa8859b133989a80d24772d68083dd8619e8))
+* **markup:** reframe crop preview, a WYSIWYG output preview with auto-keyframing ([7107f27](https://github.com/exwm/yt_clipper/commit/7107f276cecaf18ef7e09428c7ad6c1d457cb3dd))
+* **markup:** yt: dim the play/pause bezel, and hide it in reframe ([33364f7](https://github.com/exwm/yt_clipper/commit/33364f761204a7e3d679053c5a4020a54c010554))
+
+
+### Bug Fixes
+
+* **clipper:** dynamic crop should not snap to the corner between closely spaced crop points ([8233779](https://github.com/exwm/yt_clipper/commit/823377928705388c9bb5e3bffc4255546ccd1135))
+* **markup:** all-previews toggle should turn everything back off on the second press ([24a1371](https://github.com/exwm/yt_clipper/commit/24a13718423d5092a7989101a4fdb4621d5f8532))
+* **markup:** crop chart should cap the video height in theater and default layouts without stretching or gaps ([99d18e4](https://github.com/exwm/yt_clipper/commit/99d18e4c0f270480782ba422cc5ae8a7f42afcad))
+* **markup:** crop crosshair should toggle in reframe while the video is paused ([2f44e2c](https://github.com/exwm/yt_clipper/commit/2f44e2ca76490d48b606302b1d73b5080fa3e3a2))
+* **markup:** crop label should not show "(Rotated: ...)" for an unrotated iw:ih crop ([5517daa](https://github.com/exwm/yt_clipper/commit/5517daa35f7a5decbf1655f61b1563bcd16eeaf7))
+* **markup:** ctrl+A in crop input should select all text instead of blurring focus ([60d9798](https://github.com/exwm/yt_clipper/commit/60d97984ef78b57598ea1a48cfc94d783982a56d))
+* **markup:** dynamic crop start/end overlays should rotate and resize with the main crop ([198a4b3](https://github.com/exwm/yt_clipper/commit/198a4b3e117a5f6ab026993ad9a4c21c9dbe52c9))
+* **markup:** match dynamic crop preview easing to the rendered output ([1769231](https://github.com/exwm/yt_clipper/commit/17692312a55a352fb14a9413f7d310c30fb2e1cb))
+* **markup:** reframe should show the full video when no marker pair is selected ([433d8c8](https://github.com/exwm/yt_clipper/commit/433d8c8de3cb93a5b6ec35a1021db4896fbf8397))
+
+
+### Documentation Updates
+
+* **readme:** document the reframe crop preview with a screenshot, add its toolbar button, and switch to crop-point terminology ([59c0d3e](https://github.com/exwm/yt_clipper/commit/59c0d3e3dd06806be5c4d67be5c2e9498733e99d))
+
 ## [5.46.0](https://github.com/exwm/yt_clipper/compare/v5.45.0...v5.46.0) (2026-06-10)
 
 
