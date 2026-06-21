@@ -202,9 +202,8 @@ function init() {
   injectToggleCommandPaletteButton();
   injectToggleHintsBarButton();
   addCropMouseManipulationListener();
-  // initVideoZoom registers its capture-phase pointerdown before the scrub
-  // handler so that while V is held it claims the drag (and Alt = horizontal
-  // pan lock) instead of Alt+drag falling through to video scrubbing.
+  // Reframe crop-preview controller: zoom CSS, the navigator minimap, the resize observer that
+  // re-syncs the reframe viewport, and the Ctrl+wheel reframe crop-zoom listener.
   initVideoZoom();
   addScrubVideoHandler();
   loopMarkerPair();

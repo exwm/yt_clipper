@@ -791,22 +791,6 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       hintGroup: 'Display',
     },
     {
-      id: 'zoomViewHold',
-      description:
-        'Hold V and scroll the wheel to zoom the player view (cursor-anchored), or hold V and drag to pan. A momentary viewing aid for precise cropping — it magnifies the editor only and never changes the exported crop or output.',
-      displayKey: 'Hold V + Wheel / Drag',
-      section: 'Markup',
-      category: 'Cropping Shortcuts',
-      essential: false,
-      binding: null,
-      handler: null,
-      executable: false,
-      hintLabel: 'Zoom / Pan view',
-      hintContexts: ['hover-video'],
-      hintOrder: 50,
-      hintGroup: 'Display',
-    },
-    {
       id: 'toggleReframe',
       description:
         'Toggle reframe: the player shows ONLY the current crop, scaled to fill it with the rest clipped to black, so it reads as the output video as the crop pans/zooms over time. Ctrl+wheel zooms the crop. Viewing aid only.',

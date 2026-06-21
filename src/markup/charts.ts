@@ -906,7 +906,7 @@ export function withPresentedFrameTime<T>(mediaTime: number, fn: () => T): T {
   }
 }
 
-// Is the playhead sitting on a crop keyframe (within half a frame)? Drives the
+// Is the playhead sitting on a crop keyframe (within a frame)? Drives the
 // reframe auto-key model: on a keyframe an edit updates it, between keyframes
 // an edit creates one. Thin wrapper supplying the detected fps to the pure math.
 export function isPlayheadOnCropKeyframe(cropMap: CropPoint[], time: number): CropKeyframeMatch {
@@ -973,8 +973,8 @@ export function autoKeyCurrentCropPoint(): void {
   const x = roundX(time);
   const existingIndex = cropMap.findIndex((p) => p.x === x);
   if (existingIndex !== -1) {
-    // The keyframe check above uses a half-frame tolerance, but keyframe times live on roundX's
-    // 0.01s grid. Above ~100fps half a frame is finer than that grid, so the check can miss a point
+    // The keyframe check above uses a full-frame tolerance, but keyframe times live on roundX's
+    // 0.01s grid. Above ~100fps a frame is finer than that grid, so the check can miss a point
     // already at this quantized time. Edit it rather than push a duplicate x.
     selectCropPoint(existingIndex);
     return;
