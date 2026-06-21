@@ -253,7 +253,7 @@ export function bsearch<A, B>(
 }
 
 export function getEasedValue(
-  easingFunc: (number) => number,
+  easingFunc: (t: number) => number,
   startValue: number,
   endValue: number,
   startTime: number,
@@ -264,7 +264,10 @@ export function getEasedValue(
   const duration = endTime - startTime;
   const valueDelta = endValue - startValue;
 
-  const easedValuePercentage = easingFunc(elapsed / duration);
+  // Clamp the time percentage to [0,1] before easing, mirroring the clipper's clip(...,0,1). The
+  // section's end is pulled back toward the last frame, so the playhead can sit past it; without
+  // this clamp an unbounded ease (e.g. d3 sine) dips back below the target there.
+  const easedValuePercentage = easingFunc(clampNumber(elapsed / duration, 0, 1));
 
   const easedValue = startValue + valueDelta * easedValuePercentage;
   return easedValue;

@@ -7,9 +7,10 @@
  * caller supplies `fps` — production passes the detected video fps, tests pass a
  * fixed value.
  */
+import { easeSinInOut } from 'd3-ease';
 import { CropPoint } from '../@types/yt_clipper';
 import { sortX } from '../ui/chart/chartPrimitives';
-import { bsearch, frameDuration } from '../util/util';
+import { bsearch, clampNumber, frameDuration, getEasedValue } from '../util/util';
 
 export interface CropKeyframeMatch {
   /** True when the playhead is within a frame of a keyframe's time. */
@@ -81,4 +82,68 @@ export function cropInterpolationSectionAtTime(
   // the interval is real (never collapses to a divide-by-zero in getEasedCropComponents).
   const right = left === rawRight ? left + 1 : rawRight;
   return [Math.max(0, Math.min(left, maxIndex - 1)), Math.max(1, Math.min(right, maxIndex))];
+}
+
+/**
+ * The duration to ease a crop section over, kept in sync with the clipper's getEaseSectionDuration
+ * (ffmpeg_filter.py) so the preview eases over the same span the rendered output does. The end time
+ * is pulled back toward the last displayed frame so the ease finishes on it; for a section shorter
+ * than that pull-back the adjustment inverts, so fall back to the real duration rather than dropping
+ * it (in the clipper a dropped section leaves a gap that snaps the crop to 0,0). Returns null for a
+ * zero-duration section, which has no frames to ease.
+ */
+export function getEaseSectionDuration(
+  startTime: number,
+  endTime: number,
+  fps: number
+): number | null {
+  const realDuration = endTime - startTime;
+  if (realDuration <= 0) return null;
+
+  const leftFrameIndex = Math.floor(endTime * fps);
+  const adjustedDuration = (leftFrameIndex - 0.5) / fps - startTime;
+  if (adjustedDuration <= 0) return realDuration;
+
+  return adjustedDuration;
+}
+
+// Hold the left point and then instantly transition to the right point once we reach it.
+export const easeInInstant = (timePercentage: number) => (timePercentage >= 1 ? 1 : 0);
+
+/**
+ * The eased crop components ([x, y, w, h]) at `time` for the section between two crop points,
+ * the single source of truth every preview surface (default overlay, reframe, modal, pop-out)
+ * interpolates through. Pure so it can be unit-tested and checked against the clipper: the caller
+ * supplies the parsed start/end components and fps (production passes the detected fps). Returns
+ * null for a zero-duration section, which has no frames to ease.
+ */
+export function getEasedCropComponentsAtTime(
+  startComponents: readonly number[],
+  endComponents: readonly number[],
+  startTime: number,
+  endTime: number,
+  easeIn: CropPoint['easeIn'],
+  time: number,
+  fps: number
+): [number, number, number, number] | null {
+  const sectDuration = getEaseSectionDuration(startTime, endTime, fps);
+  if (sectDuration == null) return null;
+
+  const clampedTime = clampNumber(time, startTime, endTime);
+  const easingFunc = easeIn === 'instant' ? easeInInstant : easeSinInOut;
+  // getEaseSectionDuration pulls the end back toward the last frame, so ease over that adjusted
+  // end; getEasedValue clamps the percentage past it.
+  const easedEndTime = startTime + sectDuration;
+
+  const eased = [0, 1, 2, 3].map((i) =>
+    getEasedValue(
+      easingFunc,
+      startComponents[i],
+      endComponents[i],
+      startTime,
+      easedEndTime,
+      clampedTime
+    )
+  );
+  return [eased[0], eased[1], eased[2], eased[3]];
 }

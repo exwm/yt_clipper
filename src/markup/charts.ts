@@ -20,7 +20,6 @@ import {
   deleteElement,
   flashMessage,
   getCropString,
-  getEasedValue,
   injectCSS,
   isWithinSameFrame,
   pauseSafe,
@@ -58,6 +57,7 @@ import {
   CropKeyframeMatch,
   cropInterpolationSectionAtTime,
   findCropKeyframeAtTime,
+  getEasedCropComponentsAtTime,
   nextKeyframeIndex,
 } from './crop/crop-keyframe-math';
 import { isReframeEnabled, syncReframe } from './crop/video-zoom-controller';
@@ -68,8 +68,7 @@ import { speedChartSpec } from './ui/chart/speedchart/speedChartSpec';
 import { registerActiveDragCleanup } from './util/drag-recovery';
 import { Chart, ChartConfiguration } from 'chart.js';
 import { scatterChartDefaults } from './ui/chart/scatterChartSpec';
-import { easeSinInOut } from 'd3-ease';
-import { getFPS, getFrameTimeBetweenLeftFrames } from './util/videoUtil';
+import { getFPS } from './util/videoUtil';
 import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
 import type { HoveredRegion } from './features/hints-bar/hover-region';
 
@@ -823,28 +822,22 @@ export function getDynamicCropComponents(): [number, number, number, number] | n
   return null;
 }
 
-export function getEasedCropComponents(sectStart: CropPoint, sectEnd: CropPoint) {
-  const [startX, startY, startW, startH] = getCropComponents(sectStart.crop);
-  const [endX, endY, endW, endH] = getCropComponents(sectEnd.crop);
-
-  const currentTime = currentCropTime();
-
-  const clampedCurrentTime = clampNumber(currentTime, sectStart.x, sectEnd.x);
-  const easingFunc = sectEnd.easeIn == 'instant' ? easeInInstant : easeSinInOut;
-
-  const startTime = sectStart.x;
-  const endTime = getFrameTimeBetweenLeftFrames(sectEnd.x);
-
-  const [easedX, easedY, easedW, easedH] = [
-    [startX, endX],
-    [startY, endY],
-    [startW, endW],
-    [startH, endH],
-  ].map((pair) =>
-    getEasedValue(easingFunc, pair[0], pair[1], startTime, endTime, clampedCurrentTime)
+export function getEasedCropComponents(
+  sectStart: CropPoint,
+  sectEnd: CropPoint
+): [number, number, number, number] {
+  const start = getCropComponents(sectStart.crop);
+  const eased = getEasedCropComponentsAtTime(
+    start,
+    getCropComponents(sectEnd.crop),
+    sectStart.x,
+    sectEnd.x,
+    sectEnd.easeIn,
+    currentCropTime(),
+    getFPS()
   );
-
-  return [easedX, easedY, easedW, easedH] as [number, number, number, number];
+  // A zero-duration section has nothing to ease: hold the start crop.
+  return eased ?? [start[0], start[1], start[2], start[3]];
 }
 // The current crop in cropRes coords — the eased/interpolated crop for a dynamic
 // crop, or the static/current-point crop otherwise. Null only when no editor is open.
@@ -996,11 +989,6 @@ export function autoKeyCurrentCropPoint(): void {
   renderSpeedAndCropUI();
   selectCropPoint(newIndex);
 }
-// Hold the left point and then instantly transition to the right point once we reach it
-
-export const easeInInstant = (timePercentage: number) => {
-  return timePercentage >= 1 ? 1 : 0;
-};
 
 // Recolor the current-time crop rect border to signal the reframe auto-key
 // state (AE keyframe-navigator convention): solid green when the playhead is on a
@@ -1145,25 +1133,18 @@ export function refreshDynamicCropOverlays() {
   updateDynamicCropOverlays(cropMap, appState.video.getCurrentTime(), !isStaticCrop(cropMap));
 }
 export function getInterpolatedCrop(sectStart: CropPoint, sectEnd: CropPoint, time: number) {
-  const [startX, startY, startW, startH] = getCropComponents(sectStart.crop);
-  const [endX, endY, endW, endH] = getCropComponents(sectEnd.crop);
-
-  const clampedTime = clampNumber(time, sectStart.x, sectEnd.x);
-  const easingFunc = sectEnd.easeIn == 'instant' ? easeInInstant : easeSinInOut;
-
-  const startTime = sectStart.x;
-  const endTime = getFrameTimeBetweenLeftFrames(sectEnd.x);
-
-  const [x, y, w, h] = [
-    [startX, endX],
-    [startY, endY],
-    [startW, endW],
-    [startH, endH],
-  ].map(([startValue, endValue]) => {
-    const eased = getEasedValue(easingFunc, startValue, endValue, startTime, endTime, clampedTime);
-    return eased;
-  });
-  // return [x, y, w, h];
+  const start = getCropComponents(sectStart.crop);
+  // A zero-duration section has nothing to ease: hold the start crop.
+  const [x, y, w, h] =
+    getEasedCropComponentsAtTime(
+      start,
+      getCropComponents(sectEnd.crop),
+      sectStart.x,
+      sectEnd.x,
+      sectEnd.easeIn,
+      time,
+      getFPS()
+    ) ?? start;
   return getCropString(x, y, w, h);
 }
 export function cropChartSectionLoop() {

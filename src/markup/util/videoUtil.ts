@@ -31,14 +31,6 @@ export function getFPS(defaultFPS: number | null = 60) {
   prevVideoWidth = appState.video.videoWidth;
   return fps;
 }
-export function getFrameTimeBetweenLeftFrames(currentTime: number): number {
-  const fps = getFPS();
-
-  const leftFrameIndex = Math.floor(currentTime * fps);
-  const midpointTime = (leftFrameIndex - 0.5) / fps;
-
-  return midpointTime;
-}
 export function hidePlayerControls() {
   appState.hooks.controls.originalDisplay =
     appState.hooks.controls.originalDisplay ?? appState.hooks.controls.style.display;

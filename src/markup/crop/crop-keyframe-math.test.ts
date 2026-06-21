@@ -2,6 +2,8 @@ import { CropPoint } from '../@types/yt_clipper';
 import {
   cropInterpolationSectionAtTime,
   findCropKeyframeAtTime,
+  getEaseSectionDuration,
+  getEasedCropComponentsAtTime,
   nextKeyframeIndex,
 } from './crop-keyframe-math';
 
@@ -145,5 +147,74 @@ describe('nextKeyframeIndex', () => {
     // 1) — the half-frame-threshold bug this replaced re-selected the current point for one tick.
     const justShort = 1 - 0.9 / FPS_60;
     expect(nextKeyframeIndex(cropMap, justShort, FPS_60, 1)).toBe(2);
+  });
+});
+
+describe('getEaseSectionDuration', () => {
+  // Mirrors the clipper's getEaseSectionDuration (test_ffmpeg_filter.py) so the preview eases
+  // over the same duration the rendered output does.
+  const FPS_NTSC = 30000 / 1001; // 29.97
+
+  it('returns null for a zero-duration section', () => {
+    expect(getEaseSectionDuration(1.0, 1.0, 30)).toBeNull();
+  });
+
+  it('falls back to the real duration for a short (sub-adjustment) section', () => {
+    // The 23.12 -> 23.15 hold from the clipper gap bug, relative to the marker start.
+    expect(getEaseSectionDuration(0.931137, 0.961137, FPS_NTSC)).toBeCloseTo(
+      0.961137 - 0.931137,
+      9
+    );
+  });
+
+  it('uses the frame-adjusted (shorter) duration for a normal-length section', () => {
+    expect(getEaseSectionDuration(0.0, 0.321137, FPS_NTSC)).toBeCloseTo(8.5 / FPS_NTSC, 9);
+  });
+
+  it('keeps a sub-frame section whose end sits on a frame boundary (alignment dependent)', () => {
+    expect(getEaseSectionDuration(0.97, 1.0, 30)).toBeCloseTo(29.5 / 30 - 0.97, 9);
+  });
+
+  it('falls back when a ~1-frame section ends late within its frame', () => {
+    expect(getEaseSectionDuration(0.963667, 0.997, 30)).toBeCloseTo(0.997 - 0.963667, 9);
+  });
+});
+
+describe('getEasedCropComponentsAtTime', () => {
+  const FPS_30 = 30;
+  const start = [0, 0, 100, 100]; // only x changes across the section
+  const end = [600, 0, 100, 100];
+  // The clipper's easeInOutSine, for parity checks: value = start + delta * sine(percentage).
+  const sine = (p: number) => 0.5 * (1 - Math.cos(p * Math.PI));
+  const dur = getEaseSectionDuration(0, 2.0, FPS_30) as number;
+
+  it('returns null for a zero-duration section', () => {
+    expect(getEasedCropComponentsAtTime(start, end, 5, 5, undefined, 5, FPS_30)).toBeNull();
+  });
+
+  it('eases along the cosine curve, not linearly', () => {
+    const quarter = getEasedCropComponentsAtTime(start, end, 0, 2.0, undefined, dur * 0.25, FPS_30);
+    expect(quarter?.[0]).toBeCloseTo(600 * sine(0.25), 6); // ~87.9, not 150
+  });
+
+  it('reaches the halfway crop at the section midpoint', () => {
+    const mid = getEasedCropComponentsAtTime(start, end, 0, 2.0, undefined, dur * 0.5, FPS_30);
+    expect(mid?.[0]).toBeCloseTo(300, 6);
+  });
+
+  it('clamps to the end crop at the real keyframe time (no dip past the adjusted end)', () => {
+    // Without the clamp the d3 ease would dip to ~599.9 here; clamped it lands exactly on target.
+    const atEnd = getEasedCropComponentsAtTime(start, end, 0, 2.0, undefined, 2.0, FPS_30);
+    expect(atEnd?.[0]).toBeCloseTo(600, 6);
+  });
+
+  it('instant ease holds the start crop until the keyframe, then jumps', () => {
+    expect(getEasedCropComponentsAtTime(start, end, 0, 2.0, 'instant', 1.9, FPS_30)?.[0]).toBe(0);
+    expect(getEasedCropComponentsAtTime(start, end, 0, 2.0, 'instant', 2.0, FPS_30)?.[0]).toBe(600);
+  });
+
+  it('holds components that do not change across the section', () => {
+    const mid = getEasedCropComponentsAtTime(start, end, 0, 2.0, undefined, 1.0, FPS_30);
+    expect([mid?.[1], mid?.[2], mid?.[3]]).toEqual([0, 100, 100]);
   });
 });
