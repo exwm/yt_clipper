@@ -4,6 +4,7 @@ import { appState } from '../../../appState';
 import { assertDefined, clampNumber } from '../../../util/util';
 import { medgrey } from '../chartPrimitives';
 import { scatterChartSpec } from '../scatterChartSpec';
+import { isReframeEnabled } from '../../../crop/video-zoom-controller';
 import isEqual from 'lodash.isequal';
 
 const inputId = 'crop-input';
@@ -17,11 +18,35 @@ export function setCropChartMode(mode: cropChartMode) {
   currentCropChartMode = mode;
 }
 
+// Whether the selected crop point shows its highlight. Reframe hides it between keyframes, where a
+// manipulation creates a NEW point rather than editing the selected one, so no existing point is the
+// target. Any explicit selection (setCurrentCropPoint) turns it back on.
+let cropPointHighlightVisible = true;
+export function setCropPointHighlightVisible(visible: boolean) {
+  cropPointHighlightVisible = visible;
+}
+export function isCropPointHighlightVisible(): boolean {
+  return cropPointHighlightVisible;
+}
+function isSelectedCropPoint(index: number): boolean {
+  return cropPointHighlightVisible && index === appState.currentCropPointIndex;
+}
+
 export function setCurrentCropPoint(
   cropChart: Chart | null,
   cropPointIndex: number,
-  mode?: cropChartMode
+  mode?: cropChartMode,
+  // The reframe per-frame loop selects the keyframe under the playhead. A full
+  // renderSpeedAndCropUI per frame is a heavy synchronous re-render that stutters the
+  // preview (output is unaffected — it has no chart). Pass `false` to update only the
+  // selection STATE (index/section) and skip the chart entirely — even a light
+  // chart.update glitched point rendering under frame-stepping's rapid updates. The
+  // chart's highlight refreshes on the next full render; the video keyframe indicator
+  // already shows on/between state live.
+  rerender = true
 ) {
+  // An explicit selection always shows its highlight (reframe hides it between keyframes elsewhere).
+  cropPointHighlightVisible = true;
   const maxIndex = cropChart?.data.datasets?.[0].data
     ? cropChart.data.datasets[0].data.length - 1
     : 1;
@@ -50,7 +75,7 @@ export function setCurrentCropPoint(
         ]);
   }
   const cropChartSectionChanged = !isEqual(currentCropChartSection, oldCropChartSection);
-  if ((cropPointIndexChanged || cropChartSectionChanged) && cropChart) {
+  if (rerender && (cropPointIndexChanged || cropChartSectionChanged) && cropChart) {
     cropChart.renderSpeedAndCropUI(true, false);
   }
 }
@@ -102,11 +127,16 @@ export const cropPointXYFormatter = (point, ctx) => {
 
 function getCropPointStyle(ctx) {
   const index = ctx.dataIndex;
-  return index === appState.currentCropPointIndex ? 'rectRounded' : 'circle';
+  return isSelectedCropPoint(index) ? 'rectRounded' : 'circle';
 }
 
 function getCropPointColor(ctx) {
   const index = ctx.dataIndex;
+  // Reframe auto-key shows a single playhead-driven selection (the current-time
+  // point), not the start/end section pair.
+  if (isReframeEnabled()) {
+    return isSelectedCropPoint(index) ? 'green' : 'red';
+  }
   if (index === currentCropChartSection[0]) {
     return 'green';
   } else if (index === currentCropChartSection[1]) {
@@ -123,17 +153,17 @@ function getCropPointBackgroundOverlayColor(ctx) {
 
 function getCropPointBorderColor(ctx) {
   const index = ctx.dataIndex;
-  return index === appState.currentCropPointIndex ? 'black' : medgrey(0.9);
+  return isSelectedCropPoint(index) ? 'black' : medgrey(0.9);
 }
 
 function getCropPointBorderWidth(ctx) {
   const index = ctx.dataIndex;
-  return index === appState.currentCropPointIndex ? 2 : 1;
+  return isSelectedCropPoint(index) ? 2 : 1;
 }
 
 function getCropPointRadius(ctx) {
   const index = ctx.dataIndex;
-  return index === appState.currentCropPointIndex ? 6 : 4;
+  return isSelectedCropPoint(index) ? 6 : 4;
 }
 
 const cropChartConfig: ChartConfiguration = {

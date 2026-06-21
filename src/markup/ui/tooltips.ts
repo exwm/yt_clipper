@@ -57,6 +57,10 @@ export namespace Tooltips {
     Toggle the crop preview modal. Hotkey: ctrl+alt+X.
     `;
 
+  export const reframeToggleTooltip = stripIndent`
+    Toggle reframe: the player shows only the current crop scaled to fill it, a WYSIWYG preview of the output as the crop pans and zooms. Editing is playhead-driven. Hotkey: V.
+    `;
+
   export const undoMarkerPairChangeTooltip = stripIndent`
     Undo the selected pair's time, speed, and crop changes. Hotkey: alt+Z.
     `;
@@ -82,7 +86,7 @@ export namespace Tooltips {
     `;
 
   export const cycleCropDimOpacityTooltip = stripIndent`
-    Cycle the crop dim opacity up by 0.25. Hotkey: ctrl+X.
+    Cycle the dim opacity of the area outside the crop. Normal mode steps 0/25/50/75/100%; reframe keeps its own preference, stepping 80/90/100% (100% = solid black). Hotkey: ctrl+X.
     `;
 
   export const rotateVideoTooltip = stripIndent`

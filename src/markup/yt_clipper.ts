@@ -113,6 +113,7 @@ import {
 } from './markers';
 import {
   chartState,
+  getCurrentCropComponents,
   inheritCropPointCrop,
   initChartHooks,
   renderSpeedAndCropUI,
@@ -130,6 +131,8 @@ import {
   setHoveredRegion,
 } from './features/hints-bar/hover-region';
 import { cropManipulationKind, isMouseInsideCrop, isMouseManipulatingCrop } from './crop-overlay';
+import { initVideoZoom, toggleReframe, toggleZoomMinimap } from './crop/video-zoom-controller';
+import { resetViewport } from './crop/video-zoom-state';
 import {
   arrowKeyCropAdjustmentEnabled,
   hideCommandPaletteToggleButton,
@@ -199,6 +202,10 @@ function init() {
   injectToggleCommandPaletteButton();
   injectToggleHintsBarButton();
   addCropMouseManipulationListener();
+  // initVideoZoom registers its capture-phase pointerdown before the scrub
+  // handler so that while V is held it claims the drag (and Alt = horizontal
+  // pan lock) instead of Alt+drag falling through to video scrubbing.
+  initVideoZoom();
   addScrubVideoHandler();
   loopMarkerPair();
 }
@@ -340,6 +347,13 @@ export function initShortcutSystem() {
       toggleCropCrossHair: () => {
         toggleCropCrossHair();
         refreshSettingsBar();
+      },
+      toggleReframe: () => {
+        toggleReframe(getCurrentCropComponents());
+        refreshSettingsBar();
+      },
+      toggleZoomMinimap: () => {
+        toggleZoomMinimap();
       },
       toggleCropPreviewModal: () => {
         toggleCropPreview('modal');
@@ -548,6 +562,9 @@ function refreshVideoDimensions(): boolean {
 // back to avoid losing in-progress work; this only keeps the rendering sane.
 function handleVideoDimensionsChange() {
   if (!refreshVideoDimensions()) return;
+  // A new video loaded into the reused element — clear any editor zoom so we
+  // don't carry a stale focal point onto a different frame.
+  resetViewport();
   if (appState.rotation !== 0) refreshRotatedVideoCSS();
   resizeCropOverlay();
 }

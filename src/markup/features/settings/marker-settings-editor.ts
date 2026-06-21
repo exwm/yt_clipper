@@ -1,7 +1,15 @@
 import { html, render, TemplateResult } from 'lit-html';
 import { ref } from 'lit-html/directives/ref.js';
 import { appState } from '../../appState';
-import { chartState, hideChart, loadChartData, showChart, toggleChart } from '../../charts';
+import {
+  chartState,
+  getCurrentCropComponents,
+  hideChart,
+  loadChartData,
+  showChart,
+  toggleChart,
+} from '../../charts';
+import { isReframeEnabled, syncReframe, toggleReframe } from '../../crop/video-zoom-controller';
 import { InfoRow, NumberInputRow, SettingsFieldset, TextInputRow } from '../../components/settings';
 import { EncodeSettingsFieldset } from './encode-settings-fieldset';
 import {
@@ -390,11 +398,20 @@ function toggleAllPreviewsScoped() {
 // value to show (0 included, e.g. crop-dim percent) or null to hide it.
 // Items render grouped (BAR_GROUP_ORDER) in array order, so layout is just data.
 // `isActive` is read live so the bar reflects state set by button or hotkey.
-type BarGroup = 'Actions' | 'Focus' | 'Crop' | 'View' | 'Charts' | 'Previews' | 'Overrides';
+type BarGroup =
+  | 'Actions'
+  | 'Focus'
+  | 'Crop'
+  | 'CropPreview'
+  | 'View'
+  | 'Charts'
+  | 'Previews'
+  | 'Overrides';
 const BAR_GROUP_ORDER: BarGroup[] = [
   'Actions',
   'Focus',
   'Crop',
+  'CropPreview',
   'View',
   'Charts',
   'Previews',
@@ -517,7 +534,7 @@ const barItems: BarItem[] = [
     isActive: () => appState.isAutoHideUnselectedMarkerPairsOn,
     run: () => setAutoHideUnselectedMarkerPairs(!appState.isAutoHideUnselectedMarkerPairsOn),
   },
-  // Crop tools (crosshair, dim, preview, capture).
+  // Crop tools (crosshair, dim, capture).
   {
     id: 'toggle-crop-crosshair',
     icon: 'crosshair',
@@ -537,21 +554,31 @@ const barItems: BarItem[] = [
     run: cycleCropDimOpacity,
   },
   {
-    id: 'toggle-crop-preview',
-    icon: 'cropPreview',
-    group: 'Crop',
-    editors: ['marker'],
-    tooltip: Tooltips.cropPreviewToggleTooltip,
-    isActive: () => cropPreviewEnabled,
-    run: () => toggleCropPreview('modal'),
-  },
-  {
     id: 'capture-frame',
     icon: 'captureFrame',
     group: 'Crop',
     editors: ['marker', 'global'],
     tooltip: Tooltips.captureFrameTooltip,
     run: captureFrame,
+  },
+  // Crop output previews (modal crop preview, reframe) — their own group after capture.
+  {
+    id: 'toggle-crop-preview',
+    icon: 'cropPreview',
+    group: 'CropPreview',
+    editors: ['marker'],
+    tooltip: Tooltips.cropPreviewToggleTooltip,
+    isActive: () => cropPreviewEnabled,
+    run: () => toggleCropPreview('modal'),
+  },
+  {
+    id: 'toggle-reframe',
+    icon: 'reframe',
+    group: 'CropPreview',
+    editors: ['marker', 'global'],
+    tooltip: Tooltips.reframeToggleTooltip,
+    isActive: () => isReframeEnabled(),
+    run: () => toggleReframe(getCurrentCropComponents()),
   },
   // View — preview rotation. Cycles 0 -> 90 -> -90 -> 0 with the angle on a
   // badge; also mirrors onto the output rotation setting (see video-rotation).
@@ -751,6 +778,9 @@ export function toggleOnMarkerPairEditor(targetMarker: SVGRectElement) {
   loadChartData(chartState.cropChartInput);
   showCropOverlay();
   triggerCropPreviewRedraw();
+  // Paused in reframe, the rVFC loop is idle, so the canvas keeps drawing the previous pair's crop
+  // until playback resumes. Re-sync the viewport and redraw now so the new pair's crop shows at once.
+  if (isReframeEnabled()) syncReframe(getCurrentCropComponents());
   if (appState.isChartEnabled) {
     showChart();
   }

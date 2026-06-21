@@ -8,7 +8,12 @@ import {
 import { appState } from '../appState';
 import { createWebGLGammaRenderer, prevGammaVal, WebGLGammaRenderer } from '../util/previewGamma';
 import { FloatingVideoPreviewHandle, mountFloatingVideoPreview } from './video-preview-element';
-import { getCropPreviewMouseTimeSetter, getDynamicCropComponents } from '../charts';
+import {
+  getCropPreviewMouseTimeSetter,
+  getCurrentCropComponents,
+  getDynamicCropComponents,
+} from '../charts';
+import { isReframeEnabled } from './video-zoom-controller';
 import {
   getRelevantCropString,
   getVideoScaledCropComponentsFromCropString,
@@ -266,6 +271,14 @@ export function enableCropPreview() {
 }
 
 export function getZoomRegion(): [number, number, number, number] {
+  // In reframe, draw from the exact crop the reframe canvas uses (getCurrentCropComponents), which
+  // interpolates within the section bracketing the current time. getDynamicCropComponents instead
+  // keys off the chart selection, which in reframe snaps to the nearest keyframe and flips at the
+  // section midpoint, so between keyframes the modal would disagree with the reframe preview.
+  if (isReframeEnabled()) {
+    const cc = getCurrentCropComponents();
+    if (cc) return getVideoScaledCropComponents(cc);
+  }
   const dynamicCropComponents = getDynamicCropComponents();
   if (dynamicCropComponents == null) {
     const cropString = getRelevantCropString();

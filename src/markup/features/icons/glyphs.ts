@@ -331,6 +331,7 @@ export type ToggleIconName =
   | 'overrides'
   | 'crosshair'
   | 'cropPreview'
+  | 'reframe'
   | 'undo'
   | 'redo'
   | 'save'
@@ -429,6 +430,14 @@ const TOGGLE_GLYPHS: Record<ToggleIconName, GlyphData> = {
     viewBox: '0 0 1600 1600',
     body: svg`<g fill="currentColor"><path d="m662.5-359a.50005.50005 0 0 1 .5.5v9a.50005.50005 0 0 1 -.5.5h-9a.50005.50005 0 0 1 -.5-.5v-9a.50005.50005 0 0 1 .5-.5zm-.5 1h-8v8h2.00029c-.0001-.07934.01823-.16072.06026-.23828l3-5.5c.08807-.16242.25857-.26272.44336-.26172.1882.00164.35956.10882.44336.27734l2.05273 4.10547zm-6 1c.54636 0 1 .45364 1 1s-.45364 1-1 1-1-.45364-1-1 .45364-1 1-1z" transform="matrix(-100 0 0 100 66600 36200)"/><path d="m27.5 347a.50005.50005 0 0 0 -.5.5v3.5h1v-3h3v-1zm9.5 0v1h3v3h1v-3.5a.50005.50005 0 0 0 -.5-.5zm-10 10v3.5a.50005.50005 0 0 0 .5.5h3.5v-1h-3v-3zm13 0v3h-3v1h3.5a.50005.50005 0 0 0 .5-.5v-3.5z" opacity=".6" transform="matrix(100 0 0 100 -2600 -34600)"/></g>`,
   },
+  // blender:FULLSCREEN_EXIT — two diagonal arrows pulling inward with faint (0.5 opacity) corner
+  // brackets: the "fit into the frame" metaphor. Distinct from the framed-picture cropPreview
+  // (IMAGE_PLANE) icon. Used for the reframe toggle.
+  reframe: {
+    source: 'blender:FULLSCREEN_EXIT',
+    viewBox: '0 0 1600 1600',
+    body: svg`<g fill="currentColor"><g enable-background="new" transform="matrix(100 0 0 100 71399.517 9100.483)"><path d="m-699.50391-90.009766a.50005.50005 0 0 0 -.34375.150391l-4.14648 4.136719v-2.783203a.50005.50005 0 1 0 -1 0v4a.50005.50005 0 0 0 .5.5h4a.50005.50005 0 1 0 0-1h-2.80274l4.1543-4.144532a.50005.50005 0 0 0 -.36133-.859375zm-11.98828 8.001954a.50005.50005 0 1 0 0 1h2.78321l-4.13868 4.148437a.50005.50005 0 1 0 .70899.705078l4.14648-4.15625v2.802735a.50005.50005 0 1 0 1 0v-4a.50005.50005 0 0 0 -.5-.5z"/><path d="m-710.49414-88.007812a.50005.50005 0 0 0 -.5.5v4.501953h1v-4.001953h4v-1zm8.50195 5.001953v4h-4.00195v1h4.50195a.50005.50005 0 0 0 .5-.5v-4.5z" opacity=".5"/></g></g>`,
+  },
   // blender:LOOP_BACK — curved left arrow, used for the undo pair-edit action.
   undo: {
     source: 'blender:LOOP_BACK',
@@ -500,6 +509,7 @@ const TOGGLE_LABELS: Record<ToggleIconName, string> = {
   overrides: 'Overrides',
   crosshair: 'Crop crosshair',
   cropPreview: 'Crop preview',
+  reframe: 'Reframe',
   undo: 'Undo',
   redo: 'Redo',
   save: 'Save markers',

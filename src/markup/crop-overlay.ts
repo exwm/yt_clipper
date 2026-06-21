@@ -6,6 +6,9 @@ import {
   rotateCropComponentsCounterClockWise,
 } from './crop-utils';
 import { resetCropPreviewAnchor } from './crop/crop-preview';
+import { isReframeCanvasActive } from './crop/video-reframe-canvas';
+import { applyVideoTransform, getTransformedVideoBox } from './crop/video-transform';
+import { isReframeEnabled, syncReframe } from './crop/video-zoom-controller';
 import { html, render } from 'lit-html';
 import {
   assertDefined,
@@ -20,7 +23,9 @@ import {
   chartState,
   renderSpeedAndCropUI,
   getCropMapProperties,
+  getCurrentCropComponents,
   refreshDynamicCropOverlays,
+  autoKeyCurrentCropPoint,
 } from './charts';
 import { updateCropStringWithCrop } from './crop-utils';
 import { blockVideoPause } from './util/videoUtil';
@@ -357,6 +362,9 @@ export function createCropOverlay(cropString: string) {
     setCropCrossHair(cropCrossHair, cropString);
   });
   appState.isCropOverlayVisible = true;
+  // The overlay was just rebuilt fresh and visible; if the reframe canvas owns the display, re-hide
+  // the SVG border/dim so they don't show on top of the canvas's own border and bars.
+  syncCropOverlayReframeVisibility();
 }
 export let rerenderCropRafId = 0;
 export function resizeCropOverlay() {
@@ -368,12 +376,22 @@ export function forceRerenderCrop() {
   rerenderCropRafId = 0;
   centerVideo();
   if (cropDiv) {
-    const videoRect = appState.video.getBoundingClientRect();
-    const videoContainerRect = appState.hooks.videoContainer.getBoundingClientRect();
-    const { width, height } = videoRect;
-    const top = videoRect.top - videoContainerRect.top;
-    const left = videoRect.left - videoContainerRect.left;
-    const styles = [width, height, top, left].map((e) => `${Math.floor(e)}px`);
+    const reframe = isReframeEnabled();
+    let width: number, height: number, top: number, left: number;
+    if (reframe) {
+      // Use the exact transform, not getBoundingClientRect: the browser snaps a transformed
+      // element's measured box to device pixels, so the outline jitters as the scaled video pans.
+      ({ left, top, width, height } = getTransformedVideoBox());
+    } else {
+      const videoRect = appState.video.getBoundingClientRect();
+      const videoContainerRect = appState.hooks.videoContainer.getBoundingClientRect();
+      width = videoRect.width;
+      height = videoRect.height;
+      top = videoRect.top - videoContainerRect.top;
+      left = videoRect.left - videoContainerRect.left;
+    }
+    // Keep cropDiv exact in reframe so the outline holds still; round otherwise for a crisp border.
+    const styles = [width, height, top, left].map((e) => `${reframe ? e : Math.round(e)}px`);
 
     Object.assign(cropDiv.style, {
       width: styles[0],
@@ -423,14 +441,33 @@ export function centerVideo() {
   const left = videoContainerRect.width / 2 - width / 2;
   const top = videoContainerRect.height / 2 - height / 2;
 
-  const videoStyles = [width, height, top, left].map((e) => `${Math.round(e)}px`);
-  Object.assign(appState.video.style, {
-    width: videoStyles[0],
-    height: videoStyles[1],
-    top: videoStyles[2],
-    left: videoStyles[3],
-    position: 'absolute',
-  });
+  const [widthPx, heightPx, topPx, leftPx] = [width, height, top, left].map(
+    (e) => `${Math.round(e)}px`
+  );
+  // The fit only changes on resize/rotation/theater, but this runs every frame via the
+  // reframe overlay re-layout. Writing these layout properties dirties layout, which
+  // turns the surrounding getBoundingClientRect/offsetWidth reads into full reflows
+  // (layout thrash) and stutters the per-frame crop preview. Skip the write when nothing
+  // changed — comparing the already-applied inline styles is a cheap string read, not a
+  // layout read.
+  const style = appState.video.style;
+  if (
+    style.width !== widthPx ||
+    style.height !== heightPx ||
+    style.top !== topPx ||
+    style.left !== leftPx ||
+    style.position !== 'absolute'
+  ) {
+    Object.assign(style, {
+      width: widthPx,
+      height: heightPx,
+      top: topPx,
+      left: leftPx,
+      position: 'absolute',
+    });
+  }
+  // Re-apply the composed rotation+zoom transform against the (possibly unchanged) fit.
+  applyVideoTransform();
 }
 export function setCropOverlay(cropRect: Element, cropString: string) {
   const [x, y, w, h] = getCropComponents(cropString);
@@ -487,13 +524,56 @@ export function setCropCrossHair(cropCrossHair: Element, cropString: string) {
 }
 export const cropDims = [0, 0.25, 0.5, 0.75, 1];
 export let cropDimIndex = 2;
-export function cycleCropDimOpacity() {
-  cropDimIndex = (cropDimIndex + 1) % cropDims.length;
-  cropDim.setAttribute('fill-opacity', cropDims[cropDimIndex].toString());
+// Reframe keeps its own dim preference: the area outside the crop is the black
+// reframe, so it defaults to fully opaque (100%) and only offers near-opaque steps —
+// below 100% the surrounding video shows faintly through the bars (see syncReframe).
+export const reframeCropDims = [0.8, 0.9, 1];
+export let reframeCropDimIndex = 2;
+
+/** Outside-crop dim opacity (0..1) for the active mode. */
+export function getCropDimOpacity(): number {
+  return isReframeEnabled() ? reframeCropDims[reframeCropDimIndex] : cropDims[cropDimIndex];
 }
-/** Current crop dim opacity as a whole percent (0/25/50/75/100) for the bar badge. */
+/** Push the active mode's dim onto the overlay rect (clip handling lives in reframe). */
+export function applyActiveCropDimOpacity(): void {
+  if (cropDim) cropDim.setAttribute('fill-opacity', getCropDimOpacity().toString());
+}
+/** Show/hide the SVG dim rect. Hidden while the reframe canvas is active (it draws its own bars). */
+export function setCropDimVisible(visible: boolean): void {
+  if (cropDim) (cropDim as unknown as SVGElement).style.display = visible ? '' : 'none';
+}
+/** Show/hide the SVG crop-rect border group (border lines + crosshair). The reframe canvas draws
+ *  the border itself, so the SVG one is hidden; otherwise it tracks the snapped element box and
+ *  shimmers as the video pans. */
+export function setSvgCropBorderHidden(hidden: boolean): void {
+  const el = cropOverlayElements.cropRectBorder as unknown as SVGElement | null;
+  if (el) el.style.display = hidden ? 'none' : '';
+}
+/** Re-assert reframe-driven overlay visibility after the SVG overlay is (re)built. The reframe
+ *  canvas draws its own border and black bars, so the SVG border + dim must stay hidden while it
+ *  owns the display. createCropOverlay rebuilds them fresh and visible (on pair switch / global
+ *  settings), so this has to run after each rebuild or a stale border and dim show over the canvas.
+ *  Outside reframe it just restores the normal visible border/dim the template already produces. */
+export function syncCropOverlayReframeVisibility(): void {
+  const reframeCanvasOwnsDisplay = isReframeCanvasActive();
+  setSvgCropBorderHidden(reframeCanvasOwnsDisplay);
+  setCropDimVisible(!reframeCanvasOwnsDisplay);
+  applyActiveCropDimOpacity();
+}
+export function cycleCropDimOpacity() {
+  if (isReframeEnabled()) {
+    reframeCropDimIndex = (reframeCropDimIndex + 1) % reframeCropDims.length;
+  } else {
+    cropDimIndex = (cropDimIndex + 1) % cropDims.length;
+  }
+  applyActiveCropDimOpacity();
+  // In reframe the dim level also decides whether the video is clipped to the crop
+  // (100% = solid black) or left visible behind the dim (<100%), so re-sync the preview.
+  if (isReframeEnabled()) syncReframe(getCurrentCropComponents());
+}
+/** Active crop dim opacity as a whole percent for the bar badge. */
 export function getCropDimOpacityPercent(): number {
-  return Math.round(cropDims[cropDimIndex] * 100);
+  return Math.round(getCropDimOpacity() * 100);
 }
 export function showCropOverlay() {
   if (cropSvg) {
@@ -523,6 +603,15 @@ export let isMouseManipulatingCrop = false;
  *  drag-specific vs resize-specific modifier chips. Set when manipulation
  *  begins, cleared on end. Null when not manipulating. */
 export let cropManipulationKind: 'drag' | 'resize' | null = null;
+/** Setters so an alternate manipulation surface (the zoom minimap in reframe
+ *  mode) can flag a crop manipulation, making the overlays/preview follow the
+ *  edited point exactly like a manipulation on the video itself. */
+export function setIsMouseManipulatingCrop(value: boolean): void {
+  isMouseManipulatingCrop = value;
+}
+export function setCropManipulationKind(kind: 'drag' | 'resize' | null): void {
+  cropManipulationKind = kind;
+}
 /** The crop string the currently-edited point should be reverted to if a
  *  mid-drag `Alt + A` adds a new keyframe. Initially set to the
  *  dragged point's crop at drag start, then *re-set on each Alt + A* to
@@ -559,6 +648,92 @@ export let endCropMouseManipulation: (e, forceEndDrag?: boolean) => void;
 export function ctrlOrCommand(e: PointerEvent) {
   return e.ctrlKey || e.metaKey;
 }
+
+/** Lazy-enable zoompan for the current pair the first time a per-keyframe zoom happens in
+ *  reframe on a dynamic crop. Without it a size change propagates to every keyframe
+ *  (the pan-only invariant), so the auto-keyed zoom wouldn't stick to just this moment.
+ *  Turning zoompan ON is lossless (no size collapse); applied with `storeHistory: false`
+ *  so it folds into the gesture's own undo step. No-op outside reframe, on a static
+ *  crop, or once already enabled. */
+export function ensureReframeZoomPan(): void {
+  if (!isReframeEnabled() || appState.wasGlobalSettingsEditorOpen) return;
+  const { isDynamicCrop, enableZoomPan } = getCropMapProperties();
+  if (!isDynamicCrop || enableZoomPan) return;
+  const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+  if (!markerPair) return;
+  const draft = createDraft(getMarkerPairHistory(markerPair));
+  draft.enableZoomPan = true;
+  saveMarkerPairHistory(draft, markerPair, false);
+  flashMessage('Zoompan on: each keyframe keeps its own zoom in reframe', 'olive');
+}
+
+const CROP_SCALE_MIN_DIM = 16;
+/**
+ * Scale the current crop around its centre by `factor`, AR-preserving and clamped to the crop
+ * resolution. Reads and writes the stored crop directly in source coords (undo-aware): scaling
+ * about the centre is rotation-agnostic, so it must NOT go through `updateCropStringWithCrop`,
+ * whose write rotates the crop (a double-transform under a rotated preview). Shared by the reframe
+ * Ctrl+wheel zoom and the mid-pan wheel-zoom. Returns the new [x, y, w, h] in cropRes coords.
+ */
+export function scaleCropAroundCenter(
+  factor: number,
+  initCropMap?: CropPoint[]
+): [number, number, number, number] {
+  // A reframe wheel-zoom is a per-keyframe zoom, so switch to zoompan before writing through.
+  ensureReframeZoomPan();
+  const cropResWidth = appState.settings.cropResWidth;
+  const cropResHeight = appState.settings.cropResHeight;
+  const [curX, curY, curW, curH] = getCropComponents(getRelevantCropString());
+
+  const aspectRatio = curW / curH;
+  let newW = Math.round(curW * factor);
+  newW = clampNumber(newW, CROP_SCALE_MIN_DIM, cropResWidth);
+  let newH = Math.round(newW / aspectRatio);
+  newH = clampNumber(newH, CROP_SCALE_MIN_DIM, cropResHeight);
+  // If H clamp forced an AR drift, pull W back so AR is preserved.
+  if (Math.abs(newW / newH - aspectRatio) > 1e-3) {
+    newW = Math.round(newH * aspectRatio);
+    newW = clampNumber(newW, CROP_SCALE_MIN_DIM, cropResWidth);
+  }
+
+  const centerX = curX + curW / 2;
+  const centerY = curY + curH / 2;
+  let newX = Math.round(centerX - newW / 2);
+  let newY = Math.round(centerY - newH / 2);
+  newX = clampNumber(newX, 0, Math.max(0, cropResWidth - newW));
+  newY = clampNumber(newY, 0, Math.max(0, cropResHeight - newH));
+
+  const crop = new Crop(newX, newY, newW, newH, cropResWidth, cropResHeight);
+  // Write directly in source coords, not updateCropStringWithCrop, which rotates on write.
+  updateCropString(crop.cropString, false, false, initCropMap ?? undefined);
+  return [newX, newY, newW, newH];
+}
+
+// Reframe Ctrl+wheel crop zoom: a small per-tick scale, with the wheel burst committed
+// as a single undo step once the wheel goes idle.
+const CROP_WHEEL_ZOOM_STEP = 1.06;
+let cropWheelCommitTimer = 0;
+/** Reframe: zoom the crop (scale around its centre) with Ctrl+wheel, without grabbing
+ *  it. Auto-keys at the current time like a manipulation; the scales mutate live state
+ *  (no per-tick history) and a short idle debounce commits the whole burst as one undo. */
+export function reframeWheelZoomCrop(deltaY: number): void {
+  autoKeyCurrentCropPoint();
+  const initCropMap = getCropMapProperties().initCropMap ?? undefined;
+  if (!initCropMap) return;
+  // Wheel up (deltaY < 0) zooms IN → tighter crop; wheel down zooms out.
+  const factor = deltaY < 0 ? 1 / CROP_WHEEL_ZOOM_STEP : CROP_WHEEL_ZOOM_STEP;
+  scaleCropAroundCenter(factor, initCropMap);
+  if (cropWheelCommitTimer) clearTimeout(cropWheelCommitTimer);
+  cropWheelCommitTimer = window.setTimeout(() => {
+    cropWheelCommitTimer = 0;
+    if (appState.wasGlobalSettingsEditorOpen) return;
+    const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+    if (markerPair) {
+      saveMarkerPairHistory(createDraft(getMarkerPairHistory(markerPair)), markerPair);
+    }
+  }, 300);
+}
+
 export function addCropMouseManipulationListener() {
   appState.hooks.cropMouseManipulation.addEventListener(
     'pointerdown',
@@ -579,6 +754,10 @@ export function addCropMouseManipulationListener() {
       !isDrawingCrop &&
       !isCropBlockingChartVisible
     ) {
+      // Reframe auto-key: the playhead is the selection. Pause and select (or
+      // create) the keyframe at the current time BEFORE reading the crop below,
+      // so the drag edits that point.
+      if (isReframeEnabled()) autoKeyCurrentCropPoint();
       const cropString = getRelevantCropString();
       // Mutable so the wheel-zoom-during-pan handler can re-baseline
       // them on each tick — the pan formula computes
@@ -594,6 +773,12 @@ export function addCropMouseManipulationListener() {
       const cursor = getMouseCropHoverRegion(e, cropString);
       const pointerId = e.pointerId;
 
+      // Reframe: an edge-resize on a dynamic crop is a per-keyframe zoom — switch the
+      // pair to zoompan before the `enableZoomPan` capture below (which drives the resize
+      // AR math) so the size lands on this keyframe, not every keyframe. Pans are mode-
+      // agnostic, so leave a plain drag alone.
+      if (cursor !== 'grab') ensureReframeZoomPan();
+
       const { isDynamicCrop, enableZoomPan } = getCropMapProperties();
       // Mutable so a mid-drag `Alt + A` (rapid-keyframe workflow in
       // `addCropPoint`) can refresh it to the post-insert snapshot via
@@ -606,6 +791,19 @@ export function addCropMouseManipulationListener() {
       let cropDragRafId = 0;
       let pendingCropResizeEvent: PointerEvent | null = null;
       let cropResizeRafId = 0;
+      // Edge auto-pan (reframe): when the cursor pins against a monitor edge, a rAF
+      // loop keeps advancing a virtual cursor (`autoPanOffset`) at the cursor's last
+      // in-screen speed, so the crop keeps moving/resizing past where the real cursor
+      // can reach and the reframe view follows. The offset is folded into every drag
+      // delta.
+      let autoPanOffsetX = 0;
+      let autoPanOffsetY = 0;
+      let autoPanRafId = 0;
+      let lastManipEvent: PointerEvent | null = null;
+      let autoPanPrevClientX = 0; // cursor position last tick, to derive its velocity
+      let autoPanPrevClientY = 0;
+      let autoPanVelX = 0; // last per-frame velocity while actually moving (px/frame)
+      let autoPanVelY = 0;
       // The captured-target element receives every pointer event for this
       // drag while capture is held — including the spec-mandated
       // `pointercancel` if the browser implicitly releases capture
@@ -640,6 +838,13 @@ export function addCropMouseManipulationListener() {
           cropResizeRafId = 0;
           processResizeCrop();
         }
+        if (autoPanRafId) cancelAnimationFrame(autoPanRafId);
+        autoPanRafId = 0;
+        autoPanOffsetX = 0;
+        autoPanOffsetY = 0;
+        autoPanVelX = 0;
+        autoPanVelY = 0;
+        lastManipEvent = null;
 
         if (captureTarget.hasPointerCapture(pointerId)) {
           captureTarget.releasePointerCapture(pointerId);
@@ -715,6 +920,7 @@ export function addCropMouseManipulationListener() {
         cropManipulationKind = 'resize';
         cropResizeHandler = (e: PointerEvent) => {
           pendingCropResizeEvent = e;
+          lastManipEvent = e;
           if (!cropResizeRafId) {
             cropResizeRafId = requestAnimationFrame(processResizeCrop);
           }
@@ -751,8 +957,74 @@ export function addCropMouseManipulationListener() {
       hidePlayerControls();
       isMouseManipulatingCrop = true;
 
+      // In reframe the view follows the crop, so auto-panning the crop also scrolls
+      // the view — letting the user reach the frame extremes without re-grabbing when
+      // the cursor hits the window edge.
+      if (isReframeEnabled()) {
+        autoPanPrevClientX = e.clientX;
+        autoPanPrevClientY = e.clientY;
+        autoPanRafId = requestAnimationFrame(autoPanTick);
+      }
+
+      // Auto-pan only continues a drag that has pinned (stopped) against a monitor
+      // edge it was travelling toward, carrying its last in-screen speed — so it
+      // moves at the same rate as when the cursor was inside the screen.
+      function autoPanTick() {
+        autoPanRafId = 0;
+        if (!isMouseManipulatingCrop) return; // stop only when the drag ends
+        if (lastManipEvent) {
+          const ev = lastManipEvent;
+          const frameVelX = ev.clientX - autoPanPrevClientX;
+          const frameVelY = ev.clientY - autoPanPrevClientY;
+          autoPanPrevClientX = ev.clientX;
+          autoPanPrevClientY = ev.clientY;
+          // Remember the live drag speed while the cursor is actually moving.
+          if (Math.abs(frameVelX) >= 1) autoPanVelX = frameVelX;
+          if (Math.abs(frameVelY) >= 1) autoPanVelY = frameVelY;
+
+          // Edge of the browser viewport, not the monitor: clientX/innerWidth share one coordinate
+          // frame, so this is robust to multi-monitor and OS display scaling (screenX vs availWidth
+          // would auto-pan across an entire secondary monitor).
+          const EDGE = 4; // px from the viewport edge
+          const viewportW = window.innerWidth;
+          const viewportH = window.innerHeight;
+          let panX = 0;
+          let panY = 0;
+          if (Math.abs(frameVelX) < 1) {
+            if (ev.clientX <= EDGE && autoPanVelX < 0) panX = autoPanVelX;
+            else if (ev.clientX >= viewportW - EDGE && autoPanVelX > 0) panX = autoPanVelX;
+          }
+          if (Math.abs(frameVelY) < 1) {
+            if (ev.clientY <= EDGE && autoPanVelY < 0) panY = autoPanVelY;
+            else if (ev.clientY >= viewportH - EDGE && autoPanVelY > 0) panY = autoPanVelY;
+          }
+          if (panX !== 0 || panY !== 0) {
+            const before = getRelevantCropString();
+            autoPanOffsetX += panX;
+            autoPanOffsetY += panY;
+            // Re-run the active handler with the advanced virtual cursor.
+            if (cropManipulationKind === 'drag') {
+              pendingCropDragEvent = ev;
+              processDragCrop();
+            } else {
+              pendingCropResizeEvent = ev;
+              processResizeCrop();
+            }
+            // If the crop didn't change (clamped at the frame bound), don't keep
+            // growing the offset — otherwise it overshoots and reversing wouldn't
+            // respond until that overshoot is burned off.
+            if (getRelevantCropString() === before) {
+              autoPanOffsetX -= panX;
+              autoPanOffsetY -= panY;
+            }
+          }
+        }
+        autoPanRafId = requestAnimationFrame(autoPanTick); // keep ticking the whole drag
+      }
+
       function dragCropHandler(e: PointerEvent) {
         pendingCropDragEvent = e;
+        lastManipEvent = e;
         if (!cropDragRafId) {
           cropDragRafId = requestAnimationFrame(processDragCrop);
         }
@@ -783,40 +1055,11 @@ export function addCropMouseManipulationListener() {
         const cursorX = e.clientX - videoRect.left;
         const cursorY = e.clientY - videoRect.top;
 
-        // Read the CURRENT crop (mid-pan) not the drag-start values.
-        // Each pan tick writes through `updateCropString` which mutates
-        // `markerPair.cropMap` in place, so `getRelevantCropString`
-        // returns the latest on-screen state. Using the closure
-        // `ix/iy/iw/ih` here would anchor the zoom to the crop's
-        // position at drag-start, which makes the zoom visibly snap
-        // back to the original position on the first wheel tick.
-        const [curX, curY, curW, curH] = getCropComponents(getRelevantCropString());
-
-        const MIN_DIM = 16;
-        const aspectRatio = curW / curH;
-        let newW = Math.round(curW * factor);
-        newW = clampNumber(newW, MIN_DIM, cropResWidth);
-        let newH = Math.round(newW / aspectRatio);
-        newH = clampNumber(newH, MIN_DIM, cropResHeight);
-        // If H clamp forced an AR drift, pull W back so AR is preserved.
-        if (Math.abs(newW / newH - aspectRatio) > 1e-3) {
-          newW = Math.round(newH * aspectRatio);
-          newW = clampNumber(newW, MIN_DIM, cropResWidth);
-        }
-
-        // Center-out: keep the crop's geometric center fixed; edges
-        // expand/contract uniformly. Predictable since the anchor
-        // doesn't depend on where the cursor is — the user always knows
-        // what the zoom will do.
-        const centerX = curX + curW / 2;
-        const centerY = curY + curH / 2;
-        let newX = Math.round(centerX - newW / 2);
-        let newY = Math.round(centerY - newH / 2);
-        newX = clampNumber(newX, 0, Math.max(0, cropResWidth - newW));
-        newY = clampNumber(newY, 0, Math.max(0, cropResHeight - newH));
-
-        const crop = new Crop(newX, newY, newW, newH, cropResWidth, cropResHeight);
-        updateCropStringWithCrop(crop, false, false, initCropMap ?? undefined);
+        // Reads the CURRENT crop (mid-pan), AR-preserving center-out scale,
+        // writes through `updateCropStringWithCrop`. Using the closure
+        // `ix/iy/iw/ih` would anchor the zoom to the drag-start crop and snap
+        // back on the first wheel tick, so the helper reads live state instead.
+        const [newX, newY, newW, newH] = scaleCropAroundCenter(factor, initCropMap ?? undefined);
 
         // Re-baseline the pan formula so subsequent pointermoves
         // continue from the just-zoomed crop, and snap the click anchor
@@ -845,8 +1088,8 @@ export function addCropMouseManipulationListener() {
         const shouldMaintainCropX = e.shiftKey;
         const shouldMaintainCropY = e.altKey && !suppressAltLockUntilRelease;
 
-        const dragPosX = e.clientX - videoRect.left;
-        const dragPosY = e.clientY - videoRect.top;
+        const dragPosX = e.clientX + autoPanOffsetX - videoRect.left;
+        const dragPosY = e.clientY + autoPanOffsetY - videoRect.top;
         const changeX = dragPosX - clickPosX;
         const changeY = dragPosY - clickPosY;
         let changeXScaled = Math.round((changeX / videoRect.width) * cropResWidth);
@@ -876,23 +1119,28 @@ export function addCropMouseManipulationListener() {
           ((!enableZoomPan || !isDynamicCrop) && e.altKey) ||
           (enableZoomPan && isDynamicCrop && !e.altKey);
 
-        const dragPosX = e.clientX - videoRect.left;
+        // The screen delta is pan-independent (the grab-time `videoRect.left/top`
+        // cancels in `dragPos - clickPos`), but scale it by the LIVE video size so
+        // the crop edge keeps tracking the cursor when the view zooms mid-resize
+        // (reframe). When the view is static this equals `videoRect`.
+        const liveRect = appState.video.getBoundingClientRect();
+        const dragPosX = e.clientX + autoPanOffsetX - videoRect.left;
         const changeX = dragPosX - clickPosX;
-        const dragPosY = e.clientY - videoRect.top;
+        const dragPosY = e.clientY + autoPanOffsetY - videoRect.top;
         const changeY = dragPosY - clickPosY;
-        let changeXScaled = (changeX / videoRect.width) * appState.settings.cropResWidth;
-        let changeYScaled = (changeY / videoRect.height) * appState.settings.cropResHeight;
+        let changeXScaled = (changeX / liveRect.width) * appState.settings.cropResWidth;
+        let changeYScaled = (changeY / liveRect.height) * appState.settings.cropResHeight;
 
         const shouldResizeCenterOut = e.shiftKey;
         let crop = new Crop(ix, iy, iw, ih, cropResWidth, cropResHeight);
 
         if (appState.rotation === 90) {
-          changeXScaled = (changeX / videoRect.width) * cropResHeight;
-          changeYScaled = (changeY / videoRect.height) * cropResWidth;
+          changeXScaled = (changeX / liveRect.width) * cropResHeight;
+          changeYScaled = (changeY / liveRect.height) * cropResWidth;
           crop = new Crop(cropResHeight - iy - ih, ix, ih, iw, cropResHeight, cropResWidth);
         } else if (appState.rotation === -90) {
-          changeXScaled = Math.round((changeX / videoRect.width) * cropResHeight);
-          changeYScaled = Math.round((changeY / videoRect.height) * cropResWidth);
+          changeXScaled = Math.round((changeX / liveRect.width) * cropResHeight);
+          changeYScaled = Math.round((changeY / liveRect.height) * cropResWidth);
           crop = new Crop(iy, cropResWidth - ix - iw, ih, iw, cropResHeight, cropResWidth);
         }
 
@@ -1018,25 +1266,44 @@ export function getMouseCropHoverRegion(e: PointerEvent, cropString?: string): s
     [x, y, w, h] = rotateCropComponentsCounterClockWise([x, y, w, h]);
   }
 
-  const slMultiplier =
-    Math.min(appState.settings.cropResWidth, appState.settings.cropResHeight) / 1080;
-  const sl = Math.ceil(Math.min(w, h) * slMultiplier * 0.1);
-  const edgeOffset = 30 * slMultiplier;
+  // Resize-edge bands (cropRes units). `inner` is how far inside the edge still
+  // resizes; `outer` how far outside still resizes (so you can grab from just past the
+  // edge). Normal mode: a fraction of the crop with a small outer margin. Reframe:
+  // the crop is blown up to fill the player, so a crop-fraction band reads as a huge
+  // on-screen strip — instead use a fixed ~12px on-screen handle, converted to cropRes
+  // via the live display scale and split evenly inside/outside each edge so it stays a
+  // thin handle grabbable from just inside or just outside (e.g. into a reframe bar).
+  let innerX: number, outerX: number, innerY: number, outerY: number;
+  if (isReframeEnabled()) {
+    const REFRAME_EDGE_BAND_PX = 12;
+    const videoRect = appState.video.getBoundingClientRect();
+    const rotated = appState.rotation === 90 || appState.rotation === -90;
+    const cropResX = rotated ? appState.settings.cropResHeight : appState.settings.cropResWidth;
+    const cropResY = rotated ? appState.settings.cropResWidth : appState.settings.cropResHeight;
+    innerX = outerX = (REFRAME_EDGE_BAND_PX / Math.max(videoRect.width, 1)) * cropResX;
+    innerY = outerY = (REFRAME_EDGE_BAND_PX / Math.max(videoRect.height, 1)) * cropResY;
+  } else {
+    const slMultiplier =
+      Math.min(appState.settings.cropResWidth, appState.settings.cropResHeight) / 1080;
+    innerX = innerY = Math.ceil(Math.min(w, h) * slMultiplier * 0.1);
+    outerX = outerY = 30 * slMultiplier;
+  }
+
   let cursor = '';
   let mouseCropColumn: 1 | 2 | 3 | 0 = 0;
-  if (x - edgeOffset < clickPosXScaled && clickPosXScaled < x + sl) {
+  if (x - outerX < clickPosXScaled && clickPosXScaled < x + innerX) {
     mouseCropColumn = 1;
-  } else if (x + sl < clickPosXScaled && clickPosXScaled < x + w - sl) {
+  } else if (x + innerX < clickPosXScaled && clickPosXScaled < x + w - innerX) {
     mouseCropColumn = 2;
-  } else if (x + w - sl < clickPosXScaled && clickPosXScaled < x + w + edgeOffset) {
+  } else if (x + w - innerX < clickPosXScaled && clickPosXScaled < x + w + outerX) {
     mouseCropColumn = 3;
   }
   let mouseCropRow: 1 | 2 | 3 | 0 = 0;
-  if (y - edgeOffset < clickPosYScaled && clickPosYScaled < y + sl) {
+  if (y - outerY < clickPosYScaled && clickPosYScaled < y + innerY) {
     mouseCropRow = 1;
-  } else if (y + sl < clickPosYScaled && clickPosYScaled < y + h - sl) {
+  } else if (y + innerY < clickPosYScaled && clickPosYScaled < y + h - innerY) {
     mouseCropRow = 2;
-  } else if (y + h - sl < clickPosYScaled && clickPosYScaled < y + h + edgeOffset) {
+  } else if (y + h - innerY < clickPosYScaled && clickPosYScaled < y + h + outerY) {
     mouseCropRow = 3;
   }
 

@@ -2,12 +2,13 @@ import { createDraft } from 'immer';
 import { renderShortcutsTable } from '../../../command-palette';
 import { MarkerPair, MarkerPairOverrides, Settings } from '../../@types/yt_clipper';
 import { appState } from '../../appState';
-import { getCropMapProperties, renderSpeedAndCropUI } from '../../charts';
+import { autoKeyCurrentCropPoint, getCropMapProperties, renderSpeedAndCropUI } from '../../charts';
 import { hideCropOverlay, resizeCrop, transformCropWithPushBack } from '../../crop-overlay';
 import {
   cropStringsEqual,
   getCropComponents,
   getCropMultiples,
+  getRelevantCropString,
   isStaticCrop,
   multiplyAllCrops,
   setCropInputValue,
@@ -16,6 +17,7 @@ import {
 } from '../../crop-utils';
 import { Crop, getMinMaxAvgCropPoint, isVariableSize } from '../../crop/crop';
 import { triggerCropPreviewRedraw } from '../../crop/crop-preview';
+import { isReframeEnabled } from '../../crop/video-zoom-controller';
 import { VideoPlatforms } from '../../platforms/platforms';
 import { presetsMap } from './presets';
 import { updateMarkerPairSpeed } from '../../speed';
@@ -651,7 +653,13 @@ export function arrowKeyCropAdjustmentHandler(ke: KeyboardEvent) {
       ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(ke.code)
     ) {
       blockEvent(ke);
-      const [ix, iy, iw, ih] = getCropComponents(cropInput.value);
+      // Reframe edits are playhead-driven like the mouse and wheel paths: auto-key at the current
+      // frame so the nudge lands on a keyframe there, not the stale chart selection. Read that fresh
+      // keyframe; cropInput.value renders before the new point is selected, so it can lag a frame.
+      const reframe = isReframeEnabled();
+      if (reframe) autoKeyCurrentCropPoint();
+      const baseCropString = reframe ? getRelevantCropString() : cropInput.value;
+      const [ix, iy, iw, ih] = getCropComponents(baseCropString);
       let changeAmount = 0;
       if (!ke.altKey && !ke.shiftKey) {
         changeAmount = 10;

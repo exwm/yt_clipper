@@ -14,6 +14,7 @@ import {
   sortX,
 } from './chartPrimitives';
 import { cropChartMode, setCurrentCropPoint } from './cropchart/cropChartSpec';
+import { isReframeEnabled } from '../../crop/video-zoom-controller';
 import {
   cropDragStartCropString,
   cropManipulationKind,
@@ -168,6 +169,13 @@ export const addCropPoint = function (this: any, time: number) {
     // would place the section out of range).
     setCurrentCropPoint(this, cropPointIndex, cropChartMode.Start);
 
+    // Reframe is playhead-driven: the chart selection alone doesn't move the playhead, so a new
+    // point reads as selected (green) while the playhead sits between keyframes (amber border) and
+    // edits/playback target there instead. Seek onto the new point so it's the actual edit target.
+    if (isReframeEnabled() && !isLiveCropManipulation) {
+      seekToSafe(appState.video, time);
+    }
+
     if (isLiveCropManipulation) {
       // Refresh the in-progress drag's `initCropMap` snapshot so the
       // next pointermove sees a snapshot that includes the new point —
@@ -191,14 +199,21 @@ export const addCropPoint = function (this: any, time: number) {
 
 export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartConfiguration {
   const updateInput = getInputUpdater(inputId);
+  // Whether the current drag actually moved a point. A plain click (zero-distance drag) only seeks
+  // and selects, so it must not push an undo entry.
+  let didDragMovePoint = false;
 
-  const onDragStart = function (e, chartInstance, _element, value) {
+  const onDragStart = function (e, chartInstance, element, value) {
     // console.log(arguments);
+    didDragMovePoint = false;
     if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
       chartInstance.options.plugins.zoom.pan.enabled = false;
       e.target.style.cursor = 'grabbing';
       if (chartType === 'crop') {
         seekToSafe(appState.video, timeRounder(value.x));
+        // Reframe suppresses the per-frame chart re-render, and the seek that would refresh the
+        // selection is async, so select the grabbed point now to highlight it immediately.
+        if (element && isReframeEnabled()) setCurrentCropPoint(chartInstance, element._index);
       }
       chartInstance.update();
     }
@@ -232,6 +247,12 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
 
       if (chartType === 'crop' && shouldDrag.dragX && fromValue.x != toValue.x) {
         seekToSafe(appState.video, timeRounder(toValue.x));
+      }
+      if (
+        (shouldDrag.dragX && fromValue.x !== toValue.x) ||
+        (shouldDrag.dragY && fromValue.y !== toValue.y)
+      ) {
+        didDragMovePoint = true;
       }
       return shouldDrag;
     } else {
@@ -268,7 +289,11 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
       chartInstance.options.plugins.zoom.pan.enabled = true;
       e.target.style.cursor = 'default';
 
-      saveMarkerPairHistory(draft, markerPair);
+      // A plain click (zero-distance drag) only seeks and selects, so it has nothing to undo; the
+      // draft's no-op sort would otherwise push a redundant history entry. Only commit a real move.
+      if (didDragMovePoint) {
+        saveMarkerPairHistory(draft, markerPair);
+      }
       chartInstance.renderSpeedAndCropUI(true);
     }
   };
@@ -377,22 +402,31 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
 
   function onHover(this: any, e: MouseEvent, chartElements) {
     (e.target as HTMLElement).style.cursor = chartElements[0] ? 'grab' : 'default';
-    if (chartType === 'crop' && !e.shiftKey && chartElements.length === 1) {
-      let mode: cropChartMode;
-      if (e.ctrlKey && !e.altKey) {
-        mode = cropChartMode.Start;
-      } else if (!e.ctrlKey && e.altKey) {
-        mode = cropChartMode.End;
-      } else {
-        return;
+    const datum = chartElements[0];
+    if (chartType !== 'crop' || chartElements.length !== 1 || !datum) return;
+    const index = datum._index;
+    if (isReframeEnabled()) {
+      // Reframe: alt + hover seeks to and selects the point like clicking it, so the playhead-driven
+      // highlight lands on it. Shift is left alone here so shift+click can create a point without
+      // hover stealing the seek/select. Plain hover stays passive.
+      if (e.altKey && !e.shiftKey) {
+        seekToSafe(appState.video, this.data.datasets[0].data[index].x);
+        setCurrentCropPoint(this, index);
       }
-      const datum = chartElements[0];
-      if (datum) {
-        const index = datum._index;
-        setCurrentCropPoint(this, index, mode);
-        triggerCropChartUpdates();
-      }
+      return;
     }
+    // Non-reframe (unchanged): ctrl hover selects the point as the section start, alt hover as end.
+    if (e.shiftKey) return;
+    let mode: cropChartMode;
+    if (e.ctrlKey && !e.altKey) {
+      mode = cropChartMode.Start;
+    } else if (!e.ctrlKey && e.altKey) {
+      mode = cropChartMode.End;
+    } else {
+      return;
+    }
+    setCurrentCropPoint(this, index, mode);
+    triggerCropChartUpdates();
   }
 
   return {

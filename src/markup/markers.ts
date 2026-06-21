@@ -5,6 +5,7 @@ import { appState } from './appState';
 import { initAutoSave } from './auto-save';
 import { chartState, cropChartSectionLoop, renderSpeedAndCropUI } from './charts';
 import { isDrawingCrop, isMouseManipulatingCrop } from './crop-overlay';
+import { isReframeEnabled } from './crop/video-zoom-controller';
 import { getCropMultiples, getDefaultCropRes, multiplyMarkerPairCrops } from './crop-utils';
 import { toggleOffGlobalSettingsEditor } from './features/settings/global-settings-editor';
 import {
@@ -41,6 +42,8 @@ import {
   flashMessage,
   getOutputDuration,
   getVideoDuration,
+  isWithinSameFrame,
+  pauseSafe,
   seekToSafe,
   setAttributes,
   toHHMMSSTrimmed,
@@ -135,9 +138,7 @@ export function moveMarkerByFrameHandler(event: WheelEvent) {
     appState.prevSelectedEndMarker &&
     !appState.video.seeking
   ) {
-    if (!appState.video.paused) {
-      appState.video.pause();
-    }
+    pauseSafe(appState.video);
     setIsMarkerSeekPending(true);
     if (markerSeekDebounceTimeout !== null) {
       clearTimeout(markerSeekDebounceTimeout);
@@ -253,6 +254,12 @@ export function loopMarkerPair() {
   if (appState.video.seeking) {
     return;
   }
+  // While manipulating a crop in reframe, suppress the loop-back seeks below: editing is
+  // playhead-driven, so a seek to a loop/section start yanks the playhead off the frame being
+  // edited. The opt-in loops still run during plain reframe playback (only manipulation bails).
+  if (isReframeEnabled() && (isMouseManipulatingCrop || isDrawingCrop)) {
+    return;
+  }
 
   const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
   const chartLoop: ChartLoop | null = chartState.currentChartInput
@@ -271,7 +278,12 @@ export function loopMarkerPair() {
     const isTimeBetweenChartLoop =
       chartLoop.start <= appState.video.getCurrentTime() &&
       appState.video.getCurrentTime() <= chartLoop.end;
-    if (!isTimeBetweenChartLoop) {
+    // A hair before start still counts as the loop point: the frame-rounded target lands sub-frame
+    // off, and an exact re-seek every frame would storm the player.
+    if (
+      !isTimeBetweenChartLoop &&
+      !isWithinSameFrame(appState.video.getCurrentTime(), chartLoop.start, appState.videoInfo.fps)
+    ) {
       seekToSafe(appState.video, chartLoop.start);
     }
   } else if (
@@ -286,7 +298,10 @@ export function loopMarkerPair() {
     const isTimeBetweenMarkerPair =
       markerPair.start <= appState.video.getCurrentTime() &&
       appState.video.getCurrentTime() <= markerPair.end;
-    if (!isTimeBetweenMarkerPair) {
+    if (
+      !isTimeBetweenMarkerPair &&
+      !isWithinSameFrame(appState.video.getCurrentTime(), markerPair.start, appState.videoInfo.fps)
+    ) {
       seekToSafe(appState.video, markerPair.start);
     }
   }

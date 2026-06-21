@@ -2,7 +2,11 @@ import { appState } from './appState';
 import { triggerCropPreviewRedraw } from './crop/crop-preview';
 import { adjustRotatedVideoPositionCSS, getRotatedVideoCSS } from './ui/css/css';
 import { deleteElement, flashMessage, injectCSS } from './util/util';
+import { getCurrentCropComponents } from './charts';
 import { resizeCropOverlay } from './crop-overlay';
+import { applyVideoTransform } from './crop/video-transform';
+import { isReframeEnabled, syncReframe } from './crop/video-zoom-controller';
+import { redrawZoomMinimap } from './crop/video-zoom-minimap';
 import { highlightModifiedSettings } from './features/settings/settings-editor';
 
 let rotatedVideoCSS: string;
@@ -69,7 +73,12 @@ function applyPreviewRotation() {
     window.dispatchEvent(new Event('resize'));
     document.removeEventListener('fullscreenchange', fullscreenRotateVideoHandler);
   }
+  applyVideoTransform();
+  redrawZoomMinimap();
   resizeCropOverlay();
+  // Re-fit the reframe to the new rotation: when paused the rVFC loop is idle, so otherwise the
+  // crop and overlay keep the pre-rotation framing. After resizeCropOverlay (box already re-fitted).
+  if (isReframeEnabled()) syncReframe(getCurrentCropComponents());
   triggerCropPreviewRedraw();
   syncOutputRotationToPreview();
 }
@@ -111,8 +120,7 @@ function syncOutputRotationToPreview() {
 // depend on the aspect ratio, so these must be rebuilt whenever the video
 // (and thus its aspect ratio) changes — not just on the initial rotate.
 function buildRotatedVideoCSSStrings() {
-  const scale = 1 / appState.videoInfo.aspectRatio;
-  rotatedVideoCSS = getRotatedVideoCSS(appState.rotation);
+  rotatedVideoCSS = getRotatedVideoCSS();
   const tooltipOffset = Math.round(((appState.videoInfo.aspectRatio - 1) / 2) * 100);
   rotatedVideoPreviewsCSS = `\
         .ytp-tooltip {
@@ -123,9 +131,10 @@ function buildRotatedVideoCSSStrings() {
           opacity: 0.6;
         }
       `;
+  // The rotate (+ fullscreen fit scale) transform is applied via
+  // applyVideoTransform(); this only keeps the fullscreen layout nudge.
   fullscreenRotatedVideoCSS = `
       .yt-clipper-video {
-        transform: rotate(${appState.rotation}deg) scale(${scale}) !important;
         margin-left: auto;
       }
       `;
@@ -173,6 +182,8 @@ export function fullscreenRotateVideoHandler() {
     document.removeEventListener('fullscreenchange', fullscreenRotateVideoHandler);
     window.dispatchEvent(new Event('resize'));
   }
+  applyVideoTransform();
+  redrawZoomMinimap();
 }
 
 export function toggleBigVideoPreviews() {

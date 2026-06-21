@@ -51,11 +51,11 @@ export const cropChartActiveVideoHeightCSS = `
         }
       `;
 
-export function getRotatedVideoCSS(rotation: number) {
+// The video's rotate transform is applied separately via applyVideoTransform()
+// (video-transform.ts) so it can compose with the editor zoom; this only carries
+// the layout adjustments a rotated (tall) video needs.
+export function getRotatedVideoCSS() {
   return `
-        .yt-clipper-video {
-          transform: rotate(${rotation}deg) !important;
-        }
         #full-bleed-container {
           height: 85vh !important;
           max-height: none !important;

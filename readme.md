@@ -309,6 +309,18 @@ The marker pair editor and the global settings editor each have a toolbar of ico
 
   ![yt_clipper_crop_preview.png](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_crop_preview.png)
 
+**Reframe (WYSIWYG, V):**
+
+Press **V** to toggle reframe. The player turns into the output frame: the current crop is scaled to fill the player and everything outside it is clipped to black — a what-you-see-is-what-you-get preview of the clip's output. For a dynamic (moving) crop the preview pans and zooms to follow the crop over time as you scrub, so you see exactly how the subject stays framed between keyframes.
+
+- **Ctrl+Mousewheel:** Zoom the crop in/out (scaled around its center) without grabbing it — it acts as a zoom while reframed. Plain mousewheel scrolls the page as usual.
+- **Per-keyframe zoom (auto-zoompan):** The first time you zoom a **dynamic** crop in reframe — Ctrl+wheel, or resizing it on the player or minimap — the pair automatically switches to **zoompan** mode so that zoom is captured on just the current keyframe (instead of resizing every keyframe, the pan-only default). This matches the auto-keyframing expectation that a keyframe records both your pan and your zoom. Pure panning never changes the mode, and toggling reframe off leaves the mode as-is (so any zooms you made are kept as real output); switch back to pan-only via the **ZoomPan** setting if you want uniform sizing again.
+- **Navigator minimap (Shift+V):** While reframed a minimap of the whole video appears, showing where the crop sits in the frame. Because the crop fills the player, drag on the minimap to move or resize the crop. The minimap can be dragged to any window edge; toggle it with **Shift+V** or close it with its × button.
+- **Reframe dim (Ctrl+X):** The crop-dim cycle keeps a separate preference in reframe, stepping **80/90/100%** (default 100% = solid black). Below 100% the surrounding frame shows faintly outside the crop; your normal-mode crop-dim setting is left untouched.
+- **Toggle off (V):** Shows the whole video again.
+
+This is a viewing aid only — the reframe view and minimap never change the rotation or exported output, and reset when a new video loads.
+
 **Arrow Key Crop Adjustment:**
 
 - When a crop input box has focus:

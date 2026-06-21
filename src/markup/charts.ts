@@ -9,6 +9,8 @@ import {
   cropPointXYFormatter,
   getCropChartConfig,
   currentCropChartSection,
+  isCropPointHighlightVisible,
+  setCropPointHighlightVisible,
 } from './ui/chart/cropchart/cropChartSpec';
 import {
   assertDefined,
@@ -20,6 +22,8 @@ import {
   getCropString,
   getEasedValue,
   injectCSS,
+  isWithinSameFrame,
+  pauseSafe,
   seekToSafe,
   timeRounder,
 } from './util/util';
@@ -48,16 +52,25 @@ import {
   setCropOverlayDimensions,
 } from './crop-overlay';
 import { getCropComponents, isStaticCrop, setCropInputValue } from './crop-utils';
+import { Crop } from './crop/crop';
 import { triggerCropPreviewRedraw } from './crop/crop-preview';
+import {
+  CropKeyframeMatch,
+  cropInterpolationSectionAtTime,
+  findCropKeyframeAtTime,
+  nextKeyframeIndex,
+} from './crop/crop-keyframe-math';
+import { isReframeEnabled, syncReframe } from './crop/video-zoom-controller';
 import { renderMarkerPair } from './markers';
-import { sortX } from './ui/chart/chartPrimitives';
+import { roundX, sortX } from './ui/chart/chartPrimitives';
 import { updateCharts } from './ui/chart/chartutil';
 import { speedChartSpec } from './ui/chart/speedchart/speedChartSpec';
 import { registerActiveDragCleanup } from './util/drag-recovery';
 import { Chart, ChartConfiguration } from 'chart.js';
 import { scatterChartDefaults } from './ui/chart/scatterChartSpec';
 import { easeSinInOut } from 'd3-ease';
-import { getFrameTimeBetweenLeftFrames } from './util/videoUtil';
+import { getFPS, getFrameTimeBetweenLeftFrames } from './util/videoUtil';
+import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
 import type { HoveredRegion } from './features/hints-bar/hover-region';
 
 /** Wires up hover-region tracking on a chart canvas. The mousemove handler
@@ -161,7 +174,23 @@ export function selectCropPointWithMouseWheel(e: WheelEvent) {
     appState.prevSelectedEndMarker &&
     chartState.cropChartInput.chart
   ) {
-    if (e.deltaY < 0) {
+    if (isReframeEnabled()) {
+      // Reframe steps keyframe-to-keyframe by the current TIME, not the last selection: wheel up
+      // (deltaY < 0) lands on the nearest keyframe to the right, wheel down the nearest to the left.
+      // Seek straight to the point's time (same as clicking it) so the browser snaps to the real
+      // frame and the playhead lands centred on it; pause so the user lands there to edit it.
+      assertDefined(cropChartData);
+      const points = cropChartData as CropPoint[];
+      const nextIndex = nextKeyframeIndex(
+        points,
+        appState.video.getCurrentTime(),
+        getFPS(),
+        e.deltaY < 0 ? 1 : -1
+      );
+      setCurrentCropPoint(cropChart, nextIndex);
+      pauseSafe(appState.video);
+      seekToSafe(appState.video, points[nextIndex].x);
+    } else if (e.deltaY < 0) {
       if (currentCropChartMode === cropChartMode.Start) {
         setCurrentCropPoint(cropChart, appState.currentCropPointIndex + 1, cropChartMode.End);
       } else {
@@ -281,6 +310,11 @@ export function renderSpeedAndCropUI(rerenderCharts = true, updateCurrentCropPoi
     }
     highlightSpeedAndCropInputs();
     triggerCropPreviewRedraw();
+    // Drive the reframe preview from the crop when it's edited (drag-release, arrow
+    // keys, point switch), not just when scrubbing — so it tracks a static crop too.
+    if (isReframeEnabled()) {
+      syncReframe(getCurrentCropComponents());
+    }
   }
 }
 export function initChartHooks() {
@@ -666,41 +700,89 @@ export function triggerCropChartUpdates() {
   cropChartPreviewHandler(false);
   triggerCropPreviewRedraw();
 }
-export function cropChartPreviewHandler(loop = true) {
-  const chart = chartState.cropChartInput.chart;
-  if (appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen && chart) {
-    const datasets = chart.data.datasets;
-    assertDefined(datasets);
-    const chartData = datasets[0].data as CropPoint[];
-    const time = appState.video.getCurrentTime();
-    const isDynamicCrop = !isStaticCrop(chartData);
-    const isCropChartVisible =
-      chartState.currentChartInput?.type == 'crop' && appState.isCurrentChartVisible;
-    if (
-      chartState.shouldTriggerCropChartUpdates ||
-      // assume auto time-based update not required for crop chart section if looping section
-      (appState.isCropChartLoopingOn && isCropChartVisible) ||
-      (chartState.cropChartInput.chart && (isMouseManipulatingCrop || isDrawingCrop))
-    ) {
-      chartState.shouldTriggerCropChartUpdates = false;
-      cropChartSectionLoop();
-    } else if (isDynamicCrop) {
-      setCurrentCropPointWithCurrentTime();
+// During the requestVideoFrameCallback playback loop the crop is computed for the
+// EXACT media timestamp of the frame being presented (metadata.mediaTime), not the
+// wall-clock getCurrentTime() which advances between presented frames and makes the
+// reframe jitter a fraction of a frame ahead of the video. Null outside the loop
+// (scrub/edit) → fall back to the live current time.
+let presentedFrameTime: number | null = null;
+function currentCropTime(): number {
+  return presentedFrameTime ?? appState.video.getCurrentTime();
+}
+
+export function cropChartPreviewHandler(loop = true, frameTime?: number) {
+  presentedFrameTime = frameTime ?? null;
+  try {
+    const chart = chartState.cropChartInput.chart;
+    if (appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen && chart) {
+      const datasets = chart.data.datasets;
+      assertDefined(datasets);
+      const chartData = datasets[0].data as CropPoint[];
+      const time = currentCropTime();
+      const isDynamicCrop = !isStaticCrop(chartData);
+      const isCropChartVisible =
+        chartState.currentChartInput?.type == 'crop' && appState.isCurrentChartVisible;
+      const isManipulatingOrDrawing =
+        chartState.cropChartInput.chart && (isMouseManipulatingCrop || isDrawingCrop);
+      if (isReframeEnabled()) {
+        // Reframe auto-key is playhead-driven: never auto-seek to a section start
+        // (cropChartSectionLoop), which would yank the playhead while editing. The
+        // selection is the keyframe at the current time (or the section's left point
+        // between keyframes); during manipulation it's already the auto-keyed point.
+        chartState.shouldTriggerCropChartUpdates = false;
+        // Update the highlight on EVERY presented frame, exactly like the canvas keyframe border
+        // (reframeKeyframeColor), so the two never disagree: both read isPlayheadOnCropKeyframe at the
+        // same frame. Do NOT gate on video.seeking — a frame-step presents its frame while seeking is
+        // still true, and skipping it left the point stale (border green, point not) with no later
+        // frame to fix it. The full-frame on-keyframe tolerance keeps a seek-to-point landing green.
+        if (isDynamicCrop && !isManipulatingOrDrawing) {
+          // On a keyframe, select & highlight it (the edit target). Between keyframes a manipulation
+          // creates a NEW point, so no existing point is the target: clear the highlight. Re-render
+          // only when the displayed selection changes AND playback is paused (a click or scrub), so
+          // the chart matches the live video border; during playback skip it to avoid stutter.
+          const { onKeyframe, index } = isPlayheadOnCropKeyframe(chartData, time);
+          const wasHighlighted = isCropPointHighlightVisible();
+          const prevIndex = appState.currentCropPointIndex;
+          if (onKeyframe) {
+            setCurrentCropPoint(chart, index, undefined, false); // updates index + re-shows highlight
+          } else {
+            setCropPointHighlightVisible(false);
+          }
+          const displayChanged =
+            wasHighlighted !== isCropPointHighlightVisible() ||
+            prevIndex !== appState.currentCropPointIndex;
+          if (displayChanged && appState.video.paused) renderSpeedAndCropUI(true, false);
+        }
+      } else if (
+        chartState.shouldTriggerCropChartUpdates ||
+        // assume auto time-based update not required for crop chart section if looping section
+        (appState.isCropChartLoopingOn && isCropChartVisible) ||
+        isManipulatingOrDrawing
+      ) {
+        chartState.shouldTriggerCropChartUpdates = false;
+        cropChartSectionLoop();
+      } else if (isDynamicCrop) {
+        setCurrentCropPointWithCurrentTime();
+      }
+
+      if (isDynamicCrop || appState.currentCropPointIndex > 0) {
+        cropInputLabel.textContent = `Crop Point ${appState.currentCropPointIndex + 1}`;
+      } else {
+        cropInputLabel.textContent = `Crop`;
+      }
+
+      updateDynamicCropOverlays(chartData, time, isDynamicCrop);
+      // The reframe canvas loop refreshes the transform every frame, so no syncReframe needed here.
     }
-
-    if (isDynamicCrop || appState.currentCropPointIndex > 0) {
-      cropInputLabel.textContent = `Crop Point ${appState.currentCropPointIndex + 1}`;
-    } else {
-      cropInputLabel.textContent = `Crop`;
+  } finally {
+    // Always clear the pinned frame time and keep the loop alive even if the body threw — otherwise
+    // a stale presentedFrameTime would skew every later currentCropTime() read.
+    presentedFrameTime = null;
+    if (loop) {
+      appState.video.requestVideoFrameCallback((_now, metadata) => {
+        cropChartPreviewHandler(loop, metadata?.mediaTime);
+      });
     }
-
-    updateDynamicCropOverlays(chartData, time, isDynamicCrop);
-  }
-
-  if (loop) {
-    appState.video.requestVideoFrameCallback(() => {
-      cropChartPreviewHandler(loop);
-    });
   }
 }
 export function setCurrentCropPointWithCurrentTime() {
@@ -745,7 +827,7 @@ export function getEasedCropComponents(sectStart: CropPoint, sectEnd: CropPoint)
   const [startX, startY, startW, startH] = getCropComponents(sectStart.crop);
   const [endX, endY, endW, endH] = getCropComponents(sectEnd.crop);
 
-  const currentTime = appState.video.getCurrentTime();
+  const currentTime = currentCropTime();
 
   const clampedCurrentTime = clampNumber(currentTime, sectStart.x, sectEnd.x);
   const easingFunc = sectEnd.easeIn == 'instant' ? easeInInstant : easeSinInOut;
@@ -764,29 +846,232 @@ export function getEasedCropComponents(sectStart: CropPoint, sectEnd: CropPoint)
 
   return [easedX, easedY, easedW, easedH] as [number, number, number, number];
 }
+// The current crop in cropRes coords — the eased/interpolated crop for a dynamic
+// crop, or the static/current-point crop otherwise. Null only when no editor is open.
+// Used by the editor zoom to frame/follow the crop (the subject).
+export function getCurrentCropComponents(): [number, number, number, number] | null {
+  if (!appState.isSettingsEditorOpen) return null;
+  if (appState.wasGlobalSettingsEditorOpen) {
+    // Global settings has no marker pair: the editable crop is the single static new-marker crop.
+    const [gx, gy, gw, gh] = getCropComponents(appState.settings.newMarkerCrop);
+    return [gx, gy, gw, gh];
+  }
+  const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+  if (!markerPair) return null;
+  const cropMap = markerPair.cropMap;
+  // While editing a dynamic crop, follow the crop POINT being manipulated (which may
+  // be off the current time) rather than the interpolated crop — otherwise the view
+  // only tracks the edit when the playhead happens to sit near that point. When just
+  // scrubbing, follow the interpolated crop so a moving subject stays framed.
+  const editing = isMouseManipulatingCrop || isDrawingCrop;
+  if (!isStaticCrop(cropMap) && !editing) {
+    const time = currentCropTime();
+    // On a keyframe, return it exactly: it's what the edit set and what the canvas drew while
+    // manipulating. Auto-key inserts at roundX(time), so interpolating at the playhead's sub-frame
+    // offset would blend toward the neighbor and snap the crop on release.
+    const { onKeyframe, index } = isPlayheadOnCropKeyframe(cropMap, time);
+    if (onKeyframe && cropMap[index]) {
+      const [kx, ky, kw, kh] = getCropComponents(cropMap[index].crop);
+      return [kx, ky, kw, kh];
+    }
+    // Otherwise interpolate within the section that brackets the CURRENT TIME, not the chart
+    // selection: in reframe the selection snaps to the nearest keyframe (flipping at the
+    // section midpoint), so keying off it clamps the time outside the section and makes
+    // the preview jump to the next keyframe instead of easing smoothly across it.
+    const [left, right] = cropInterpolationSectionAtTime(cropMap, time);
+    if (cropMap[left] && cropMap[right]) {
+      return getEasedCropComponents(cropMap[left], cropMap[right]);
+    }
+  }
+  const point = cropMap[appState.currentCropPointIndex] ?? cropMap[0];
+  const [x, y, w, h] = getCropComponents(point.crop);
+  return [x, y, w, h];
+}
+
+/** The interpolated crop at a presented-frame mediaTime, for the reframe canvas. mediaTime is
+ *  frame-exact, unlike wall-clock getCurrentTime, which drifts between presented frames. */
+export function reframeCropAtFrameTime(mediaTime: number): [number, number, number, number] | null {
+  const prev = presentedFrameTime;
+  presentedFrameTime = mediaTime;
+  try {
+    return getCurrentCropComponents();
+  } finally {
+    presentedFrameTime = prev;
+  }
+}
+
+/** Run `fn` with the crop clock pinned to `mediaTime`, so any overlay re-layout it triggers
+ *  (forceRerenderCrop) resolves the crop at the frame the canvas drew, not wall-clock
+ *  getCurrentTime, which drifts within a frame and leaves the overlay a hair off. */
+export function withPresentedFrameTime<T>(mediaTime: number, fn: () => T): T {
+  const prev = presentedFrameTime;
+  presentedFrameTime = mediaTime;
+  try {
+    return fn();
+  } finally {
+    presentedFrameTime = prev;
+  }
+}
+
+// Is the playhead sitting on a crop keyframe (within half a frame)? Drives the
+// reframe auto-key model: on a keyframe an edit updates it, between keyframes
+// an edit creates one. Thin wrapper supplying the detected fps to the pure math.
+export function isPlayheadOnCropKeyframe(cropMap: CropPoint[], time: number): CropKeyframeMatch {
+  return findCropKeyframeAtTime(cropMap, time, getFPS());
+}
+
+// Select a crop point for editing. Set the index directly (works even when the
+// crop chart was never opened, leaving its instance null) and only sync the
+// chart's section/selection state when an instance exists — `setCurrentCropPoint`
+// clamps to maxIndex=1 against a null chart, which would mis-select on a
+// JSON-loaded dynamic crop.
+function selectCropPoint(index: number): void {
+  appState.currentCropPointIndex = index;
+  const cropChart = chartState.cropChartInput.chart;
+  if (cropChart) setCurrentCropPoint(cropChart, index);
+}
+
+// Reframe auto-key: editing the crop is playhead-driven — the current time IS
+// the current keyframe. On a keyframe we edit it; between keyframes we create one
+// at the current time capturing the interpolated crop the reframe is already
+// showing (no visual jump). Pauses playback (stays paused; manual resume) so the
+// user manipulates a still frame. Called at crop-manipulation start, before the
+// drag reads `currentCropPointIndex`, so the drag edits the right point.
+export function autoKeyCurrentCropPoint(): void {
+  if (!appState.isSettingsEditorOpen || appState.wasGlobalSettingsEditorOpen) return;
+  const pair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+  if (!pair) return;
+  const cropMap = pair.cropMap;
+
+  const cropChartOpen =
+    appState.isCurrentChartVisible && chartState.currentChartInput?.type === 'crop';
+  // A static crop with the chart closed edits as a whole (no keyframing); only
+  // turn it dynamic when the user has opened the crop chart. Already-dynamic
+  // crops always auto-key.
+  if (isStaticCrop(cropMap) && !cropChartOpen) return;
+
+  // Ctrl+wheel zoom calls this per wheel tick; pauseSafe avoids re-pausing (it churns the player).
+  pauseSafe(appState.video);
+  const time = appState.video.getCurrentTime();
+
+  const { onKeyframe, index } = isPlayheadOnCropKeyframe(cropMap, time);
+  if (onKeyframe) {
+    selectCropPoint(index);
+    return;
+  }
+
+  // Between keyframes: insert one at the current time holding the interpolated
+  // crop. `storeHistory: false` mutates live state without a checkpoint so the
+  // drag's release-time push collapses insert + move into a single undo step.
+  const cc = getCurrentCropComponents();
+  if (!cc) return;
+  // cc is the interpolated crop (float); snap it to a valid stored crop (whole pixels, clamped,
+  // shared AR) via setCropStringSafe, the same path the chart keyframe edits use.
+  const safeCrop = new Crop(
+    cc[0],
+    cc[1],
+    cc[2],
+    cc[3],
+    appState.settings.cropResWidth,
+    appState.settings.cropResHeight
+  );
+  safeCrop.setCropStringSafe(getCropString(cc[0], cc[1], cc[2], cc[3]), pair.enableZoomPan);
+  const crop = safeCrop.cropString;
+  const x = roundX(time);
+  const existingIndex = cropMap.findIndex((p) => p.x === x);
+  if (existingIndex !== -1) {
+    // The keyframe check above uses a half-frame tolerance, but keyframe times live on roundX's
+    // 0.01s grid. Above ~100fps half a frame is finer than that grid, so the check can miss a point
+    // already at this quantized time. Edit it rather than push a duplicate x.
+    selectCropPoint(existingIndex);
+    return;
+  }
+  const draft = createDraft(getMarkerPairHistory(pair));
+  draft.cropMap.push({ x, y: 0, crop });
+  draft.cropMap.sort(sortX);
+  const newIndex = draft.cropMap.findIndex((p) => p.x === x);
+  saveMarkerPairHistory(draft, pair, false);
+  // Render before selecting so setCurrentCropPoint's bounds-clamp reads the post-insert length,
+  // else the new index is clamped down and the previous point is selected. Mirrors addCropPoint.
+  renderSpeedAndCropUI();
+  selectCropPoint(newIndex);
+}
 // Hold the left point and then instantly transition to the right point once we reach it
 
 export const easeInInstant = (timePercentage: number) => {
   return timePercentage >= 1 ? 1 : 0;
 };
 
+// Recolor the current-time crop rect border to signal the reframe auto-key
+// state (AE keyframe-navigator convention): solid green when the playhead is on a
+// keyframe (an edit updates it), dashed amber between keyframes (an edit creates
+// one). `null` restores the default white dashed border outside reframe mode.
+// Reframe keyframe-state colours, shared by the rect border and the crosshair so
+// they can't drift: green when the playhead is on a keyframe (an edit updates it),
+// amber between keyframes (an edit creates one).
+const ON_KEYFRAME_COLOR = '#3ac36a';
+const BETWEEN_KEYFRAME_COLOR = '#f5a623';
+function applyCropKeyframeIndicator(onKeyframe: boolean | null): void {
+  const border = cropOverlayElements.cropRectBorderWhite as SVGElement | null;
+  if (!border) return;
+  if (onKeyframe == null) {
+    // Classic non-reframe styling.
+    border.setAttribute('stroke', 'white');
+    border.setAttribute('stroke-dasharray', '5 5');
+    return;
+  }
+  // Reframe: solid rect either way; the colour alone carries the create-vs-edit
+  // state (green = on a keyframe, amber = between).
+  border.setAttribute('stroke', onKeyframe ? ON_KEYFRAME_COLOR : BETWEEN_KEYFRAME_COLOR);
+  border.setAttribute('stroke-dasharray', '0');
+}
+
+/** The reframe crop-border colour for the crop at `time`: green on a keyframe (an edit updates
+ *  it), amber between (an edit creates one). The reframe canvas border uses this. */
+export function reframeKeyframeColor(time: number): string {
+  const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+  if (!markerPair) return BETWEEN_KEYFRAME_COLOR;
+  return isPlayheadOnCropKeyframe(markerPair.cropMap, time).onKeyframe
+    ? ON_KEYFRAME_COLOR
+    : BETWEEN_KEYFRAME_COLOR;
+}
 export function updateDynamicCropOverlays(
   chartData: CropPoint[],
   _currentTime: number,
   isDynamicCrop: boolean
 ) {
   if (isDynamicCrop || appState.currentCropPointIndex > 0) {
-    (cropOverlayElements.cropChartSectionStart as HTMLElement).style.display = 'block';
-    (cropOverlayElements.cropChartSectionEnd as HTMLElement).style.display = 'block';
+    // The reframe preview focuses on the current-time crop only, so hide the
+    // start/end section keyframe overlays (the main crop rect still updates below).
+    const sectionDisplay = isReframeEnabled() ? 'none' : 'block';
+    (cropOverlayElements.cropChartSectionStart as HTMLElement).style.display = sectionDisplay;
+    (cropOverlayElements.cropChartSectionEnd as HTMLElement).style.display = sectionDisplay;
     (cropOverlayElements.cropRectBorder as HTMLElement).style.opacity = '0.7';
   } else {
     (cropOverlayElements.cropChartSectionStart as HTMLElement).style.display = 'none';
     (cropOverlayElements.cropChartSectionEnd as HTMLElement).style.display = 'none';
     (cropOverlayElements.cropRectBorder as HTMLElement).style.opacity = '0.8';
+    applyCropKeyframeIndicator(null);
     return;
   }
   const sectStart = chartData[currentCropChartSection[0]];
   const sectEnd = chartData[currentCropChartSection[1]];
+
+  // The current crop that the main rect + crosshair track. In reframe this is the
+  // exact crop the video transform is driven from (getCurrentCropComponents — the
+  // edited point while manipulating, the interpolated crop while scrubbing); otherwise
+  // the section interpolation.
+  let [curX, curY, curW, curH] = getEasedCropComponents(sectStart, sectEnd);
+  if (isReframeEnabled()) {
+    const cc = getCurrentCropComponents();
+    if (cc) [curX, curY, curW, curH] = cc;
+  }
+
+  // In reframe: on a keyframe (edit) vs between (auto-key) — drives the rect border
+  // and crosshair colour. null outside reframe (keeps the classic styling).
+  const keyframeState = isReframeEnabled()
+    ? isPlayheadOnCropKeyframe(chartData, _currentTime).onKeyframe
+    : null;
 
   [
     cropOverlayElements.cropChartSectionStartBorderGreen,
@@ -805,11 +1090,21 @@ export function updateDynamicCropOverlays(
 
   const currentCropPoint = chartData[appState.currentCropPointIndex];
   if (cropCrossHairEnabled && cropOverlayElements.cropCrossHair) {
+    // In reframe the crosshair centres on the current crop (same as the rect), not
+    // the selected keyframe.
+    const crossHairCrop = isReframeEnabled()
+      ? getCropString(curX, curY, curW, curH)
+      : currentCropPoint.crop;
     cropOverlayElements.cropCrossHairs.map((cropCrossHair) => {
-      setCropCrossHair(cropCrossHair, currentCropPoint.crop);
+      setCropCrossHair(cropCrossHair, crossHairCrop);
     });
-    (cropOverlayElements.cropCrossHair as HTMLElement).style.stroke =
-      currentCropChartMode === cropChartMode.Start ? 'lime' : 'yellow';
+    (cropOverlayElements.cropCrossHair as HTMLElement).style.stroke = isReframeEnabled()
+      ? keyframeState
+        ? ON_KEYFRAME_COLOR
+        : BETWEEN_KEYFRAME_COLOR
+      : currentCropChartMode === cropChartMode.Start
+        ? 'lime'
+        : 'yellow';
   }
 
   const sectionStartEl = cropOverlayElements.cropChartSectionStart;
@@ -824,16 +1119,19 @@ export function updateDynamicCropOverlays(
     sectionEndEl.setAttribute('opacity', '0.9');
   }
 
-  const [easedX, easedY, easedW, easedH] = getEasedCropComponents(sectStart, sectEnd);
-
+  // Draw the current-time crop rect from the same crop the crosshair + video
+  // transform use, so they stay pixel-locked instead of drifting by the section
+  // interpolation.
   [
     cropOverlayElements.cropRect,
     cropOverlayElements.cropRectBorderBlack,
     cropOverlayElements.cropRectBorderWhite,
   ].map((cropRect) => {
     assertDefined(cropRect);
-    setCropOverlayDimensions(cropRect, easedX, easedY, easedW, easedH);
+    setCropOverlayDimensions(cropRect, curX, curY, curW, curH);
   });
+
+  applyCropKeyframeIndicator(keyframeState);
 }
 // Re-position the dynamic crop section (start/end) overlays for the current crop
 // map and time without re-rendering the chart. Called when the crop overlay is
@@ -869,6 +1167,9 @@ export function getInterpolatedCrop(sectStart: CropPoint, sectEnd: CropPoint, ti
   return getCropString(x, y, w, h);
 }
 export function cropChartSectionLoop() {
+  // Seek back to keep the playhead inside the selected crop-chart section (opt-in looping).
+  // loopMarkerPair skips this while manipulating a crop in reframe, where a seek-back would yank
+  // the frame being edited.
   if (appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen) {
     if (appState.prevSelectedMarkerPairIndex != null) {
       const chart = chartState.cropChartInput.chart;
@@ -883,7 +1184,12 @@ export function cropChartSectionLoop() {
       const isTimeBetweenCropChartSection =
         sectStart <= appState.video.getCurrentTime() && appState.video.getCurrentTime() <= sectEnd;
 
-      if (!isTimeBetweenCropChartSection) {
+      // A hair before the section start still counts as inside it: the frame-rounded target lands
+      // sub-frame off, and an exact re-seek every frame would storm the player.
+      if (
+        !isTimeBetweenCropChartSection &&
+        !isWithinSameFrame(appState.video.getCurrentTime(), sectStart, appState.videoInfo.fps)
+      ) {
         seekToSafe(appState.video, sectStart);
       }
     }

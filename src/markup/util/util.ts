@@ -302,6 +302,20 @@ let expectingOurSeekingEvent = false;
 
 const STALE_PENDING_TIMEOUT_MS = 250;
 
+/** One frame's duration in seconds, falling back to 30fps when fps is missing/invalid (NaN slips
+ *  straight through getFPS). Shared by the frame-tolerance checks so the fallback lives in one place. */
+export function frameDuration(fps: number): number {
+  return 1 / (fps > 0 ? fps : 30);
+}
+
+/** Whether two times land on the same displayed frame (within half a frame). The section/marker
+ *  loops use this to decide they're already at the loop point: the loop target is frame-rounded but
+ *  the video lands a hair off, so an exact check would re-seek every frame (a seek storm). Half a
+ *  frame still distinguishes adjacent frames (one frame apart = 1/fps > 0.5/fps). */
+export function isWithinSameFrame(timeA: number, timeB: number, fps: number): boolean {
+  return Math.abs(timeA - timeB) <= 0.5 * frameDuration(fps);
+}
+
 function clearPending() {
   pendingSeekTime = null;
   if (stalePendingTimerId !== null) {
@@ -373,8 +387,7 @@ export function seekToSafe(video: VideoElement, newTime: number) {
   newTime = clampNumber(newTime, 0, video.duration);
   if (isNaN(newTime)) return;
   if (video.getCurrentTime() === newTime) {
-    // No-op seek — clear any stale pending so it can't fire later
-    // for what is now a no-longer-relevant target.
+    // Already at the exact target, so no-op. Clear any stale pending for the now-irrelevant target.
     clearPending();
     return;
   }
@@ -392,6 +405,12 @@ export function seekToSafe(video: VideoElement, newTime: number) {
 export function seekBySafe(video: VideoElement, timeDelta: number) {
   const newTime = video.getCurrentTime() + timeDelta;
   seekToSafe(video, newTime);
+}
+/** Pause only if playing. Re-pausing an already-paused element still churns the wrapping player
+ *  (YouTube can flash a buffering spinner), and loops/auto-key call this repeatedly, so prefer it
+ *  over a raw `video.pause()` in hot paths. */
+export function pauseSafe(video: VideoElement) {
+  if (!video.paused) video.pause();
 }
 export function blockEvent(e) {
   e.preventDefault();

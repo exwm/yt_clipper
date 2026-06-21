@@ -1,7 +1,8 @@
 import { html, render, TemplateResult } from 'lit-html';
 import { ref } from 'lit-html/directives/ref.js';
 import { appState } from '../../appState';
-import { hideChart } from '../../charts';
+import { getCurrentCropComponents, hideChart } from '../../charts';
+import { isReframeEnabled, syncReframe } from '../../crop/video-zoom-controller';
 import { InfoRow, NumberInputRow, SettingsFieldset, TextInputRow } from '../../components/settings';
 import { EncodeSettingsFieldset } from './encode-settings-fieldset';
 import { createCropOverlay, hideCropOverlay, showCropOverlay } from '../../crop-overlay';
@@ -235,6 +236,9 @@ export function createGlobalSettingsEditor() {
   highlightModifiedSettings(binder.all(), appState.settings);
   showCropOverlay();
   triggerCropPreviewRedraw();
+  // Paused in reframe, the rVFC loop is idle, so the canvas keeps drawing the previously selected
+  // pair's crop. Re-sync the viewport and redraw now so the global new-marker crop shows at once.
+  if (isReframeEnabled()) syncReframe(getCurrentCropComponents());
 }
 export function bindFpsMulStepBtns() {
   document.querySelectorAll<HTMLButtonElement>('.fps-mul-step-btn').forEach((btn) => {

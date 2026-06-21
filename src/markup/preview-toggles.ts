@@ -12,6 +12,13 @@ import {
 import { html, render } from 'lit-html';
 import { flashMessage } from './util/util';
 import { prevGammaVal, setPrevGammaVal } from './util/previewGamma';
+import { isReframeCanvasActive, redrawReframeCanvas } from './crop/video-reframe-canvas';
+
+/** Reframe draws the gamma into its canvas. While playing its rVFC loop picks up gamma changes on
+ *  its own; paused it is idle, so a gamma toggle or value change has to repaint it here. */
+function redrawReframeIfPaused(): void {
+  if (isReframeCanvasActive() && appState.video.paused) redrawReframeCanvas();
+}
 
 let gammaFilterDiv: HTMLDivElement;
 let gammaR: SVGFEFuncRElement;
@@ -49,10 +56,14 @@ export function toggleGammaPreview() {
     appState.isGammaPreviewOn = true;
     requestAnimationFrame(gammaPreviewHandler);
     flashMessage('Gamma preview enabled', 'green');
+    // The handler's first tick redraws reframe when prevGammaVal changes; redraw here too for the
+    // case where it already equals this pair's gamma (re-toggled on with no change to observe).
+    redrawReframeIfPaused();
   } else {
     appState.video.style.filter = null as any;
     appState.isGammaPreviewOn = false;
     flashMessage('Gamma preview disabled', 'red');
+    redrawReframeIfPaused(); // repaint without the gamma pass (the isGammaPreviewOn guard skips it)
   }
   toggleCropPreviewGammaPreview();
 }
@@ -64,7 +75,10 @@ function gammaPreviewHandler() {
 
   if (markerPairGamma == 1) {
     if (appState.video.style.filter) appState.video.style.filter = null as any;
-    setPrevGammaVal(1);
+    if (prevGammaVal !== 1) {
+      setPrevGammaVal(1);
+      redrawReframeIfPaused();
+    }
   } else if (prevGammaVal !== markerPairGamma) {
     // console.log(`Updating gamma from ${prevGammaVal} to ${markerPairGamma}`);
     gammaR.exponent.baseVal = markerPairGamma;
@@ -74,6 +88,7 @@ function gammaPreviewHandler() {
     if (!appState.video.style.filter) appState.video.style.filter = 'url(#gamma-filter)';
     gammaFilterSvg.setAttribute('width', '0');
     setPrevGammaVal(markerPairGamma);
+    redrawReframeIfPaused();
   }
 
   if (appState.isGammaPreviewOn) {
