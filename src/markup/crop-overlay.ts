@@ -6,7 +6,7 @@ import {
   rotateCropComponentsCounterClockWise,
 } from './crop-utils';
 import { resetCropPreviewAnchor } from './crop/crop-preview';
-import { isReframeCanvasActive } from './crop/video-reframe-canvas';
+import { getLastDrawnReframeCrop, isReframeCanvasActive } from './crop/video-reframe-canvas';
 import { applyVideoTransform, getTransformedVideoBox } from './crop/video-transform';
 import { isReframeEnabled, syncReframe } from './crop/video-zoom-controller';
 import { html, render } from 'lit-html';
@@ -29,7 +29,7 @@ import {
 } from './charts';
 import { updateCropStringWithCrop } from './crop-utils';
 import { blockVideoPause } from './util/videoUtil';
-import { getRelevantCropString } from './crop-utils';
+import { getSelectedCropString } from './crop-utils';
 import { showPlayerControls } from './util/videoUtil';
 import { hidePlayerControls } from './util/videoUtil';
 import { createDraft } from 'immer';
@@ -406,7 +406,7 @@ export function forceRerenderCrop() {
     if (cropSvg) {
       cropSvg.setAttribute('width', '0');
     }
-    const cropString = getRelevantCropString();
+    const cropString = getSelectedCropString();
     const [cx, cy, cw, ch] = getCropComponents(cropString);
     assertDefined(cropOverlayElements.cropRect);
     assertDefined(cropOverlayElements.cropRectBorder);
@@ -704,7 +704,7 @@ export function scaleCropAroundCenter(
   ensureReframeZoomPan();
   const cropResWidth = appState.settings.cropResWidth;
   const cropResHeight = appState.settings.cropResHeight;
-  const [curX, curY, curW, curH] = getCropComponents(getRelevantCropString());
+  const [curX, curY, curW, curH] = getCropComponents(getSelectedCropString());
 
   const aspectRatio = curW / curH;
   let newW = Math.round(curW * factor);
@@ -779,7 +779,7 @@ export function addCropMouseManipulationListener() {
       // create) the keyframe at the current time BEFORE reading the crop below,
       // so the drag edits that point.
       if (isReframeEnabled()) autoKeyCurrentCropPoint();
-      const cropString = getRelevantCropString();
+      const cropString = getSelectedCropString();
       // Mutable so the wheel-zoom-during-pan handler can re-baseline
       // them on each tick — the pan formula computes
       // `crop = Crop(ix, iy, iw, ih) + cursor_delta_from_clickPos`, so
@@ -1020,7 +1020,7 @@ export function addCropMouseManipulationListener() {
             else if (ev.clientY >= viewportH - EDGE && autoPanVelY > 0) panY = autoPanVelY;
           }
           if (panX !== 0 || panY !== 0) {
-            const before = getRelevantCropString();
+            const before = getSelectedCropString();
             autoPanOffsetX += panX;
             autoPanOffsetY += panY;
             // Re-run the active handler with the advanced virtual cursor.
@@ -1034,7 +1034,7 @@ export function addCropMouseManipulationListener() {
             // If the crop didn't change (clamped at the frame bound), don't keep
             // growing the offset — otherwise it overshoots and reversing wouldn't
             // respond until that overshoot is burned off.
-            if (getRelevantCropString() === before) {
+            if (getSelectedCropString() === before) {
               autoPanOffsetX -= panX;
               autoPanOffsetY -= panY;
             }
@@ -1276,7 +1276,14 @@ export function getClickPosScaled(e: PointerEvent): number[] {
   return [clickPosXScaled, clickPosYScaled];
 }
 export function getMouseCropHoverRegion(e: PointerEvent, cropString?: string): string {
-  cropString = cropString ?? getRelevantCropString();
+  // Hit-test against the crop the reframe canvas actually drew, not one recomputed at the wall-clock
+  // time. Recomputing can land on a different crop near a crop point (the on-keyframe tolerance) or
+  // right after a seek, leaving the grab/resize regions off the visible crop. Null outside reframe,
+  // so it falls back to the selected crop point there.
+  if (cropString == null) {
+    const cc = getLastDrawnReframeCrop();
+    cropString = cc ? getCropString(cc[0], cc[1], cc[2], cc[3]) : getSelectedCropString();
+  }
   let [x, y, w, h] = getCropComponents(cropString);
 
   const [clickPosXScaled, clickPosYScaled] = getClickPosScaled(e);

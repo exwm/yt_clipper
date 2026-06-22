@@ -22,7 +22,7 @@ import {
   renderSpeedAndCropUI,
 } from '../charts';
 import { isReframeEnabled } from './video-zoom-controller';
-import { getCropComponents, getRelevantCropString, updateCropString } from '../crop-utils';
+import { getCropComponents, getSelectedCropString, updateCropString } from '../crop-utils';
 import {
   ensureReframeZoomPan,
   setCropManipulationKind,
@@ -795,7 +795,7 @@ function beginCropManipulation(e: PointerEvent): void {
     autoKeyCurrentCropPoint();
     cropResW = appState.settings.cropResWidth || 1;
     cropResH = appState.settings.cropResHeight || 1;
-    [x0, y0, w0, h0] = getCropComponents(getRelevantCropString());
+    [x0, y0, w0, h0] = getCropComponents(getSelectedCropString());
     initCropMap = getCropMapProperties().initCropMap ?? undefined;
     const s = minimapPointerToCropRes(downX, downY, cropResW, cropResH);
     startCx = s.cx;

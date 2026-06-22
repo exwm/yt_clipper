@@ -244,7 +244,7 @@ export function multiplyAllCrops(cropMultipleX: number, cropMultipleY: number) {
     multiplyMarkerPairCrops(markerPair, cropMultipleX, cropMultipleY);
   });
 }
-export function getRelevantCropString() {
+export function getSelectedCropString() {
   if (!appState.isSettingsEditorOpen) return appState.settings.newMarkerCrop;
   if (!appState.wasGlobalSettingsEditorOpen) {
     return appState.markerPairs[appState.prevSelectedMarkerPairIndex].cropMap[

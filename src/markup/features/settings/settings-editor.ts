@@ -8,7 +8,7 @@ import {
   cropStringsEqual,
   getCropComponents,
   getCropMultiples,
-  getRelevantCropString,
+  getSelectedCropString,
   isStaticCrop,
   multiplyAllCrops,
   setCropInputValue,
@@ -661,7 +661,7 @@ export function arrowKeyCropAdjustmentHandler(ke: KeyboardEvent) {
       // keyframe; cropInput.value renders before the new point is selected, so it can lag a frame.
       const reframe = isReframeEnabled();
       if (reframe) autoKeyCurrentCropPoint();
-      const baseCropString = reframe ? getRelevantCropString() : cropInput.value;
+      const baseCropString = reframe ? getSelectedCropString() : cropInput.value;
       const [ix, iy, iw, ih] = getCropComponents(baseCropString);
       let changeAmount = 0;
       if (!ke.altKey && !ke.shiftKey) {

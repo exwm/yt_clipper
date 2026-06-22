@@ -28,6 +28,10 @@ let gammaRenderer: WebGLGammaRenderer | null = null;
 let rafId = 0;
 let frameSource: HTMLVideoElement | null = null;
 let hideStyle: HTMLStyleElement | null = null;
+// The crop (cropRes source coords) the last frame was drawn with. Async consumers like the crop-hover
+// hit-test read this so they match exactly what's on screen, instead of recomputing the crop at the
+// wall-clock time which can drift from the presented frame and disagree near a crop point.
+let lastDrawnReframeCrop: [number, number, number, number] | null = null;
 // YouTube re-writes opacity:1 inline on the <video>, so only an !important stylesheet rule hides it.
 const HIDE_CLASS = 'ytc-reframe-video-hidden';
 const HIDE_CSS = `.${HIDE_CLASS} { opacity: 0 !important; }`;
@@ -40,6 +44,12 @@ const dpr = Math.max(
 /** True while the reframe canvas exists; it owns the display for every rotation. */
 export function isReframeCanvasActive(): boolean {
   return canvas != null;
+}
+
+/** The crop (cropRes source coords) the reframe canvas drew for the current frame, or null when the
+ *  canvas is inactive. Lets the crop-hover hit-test use the on-screen crop exactly. */
+export function getLastDrawnReframeCrop(): [number, number, number, number] | null {
+  return canvas ? lastDrawnReframeCrop : null;
 }
 
 export function initReframeCanvas(): void {
@@ -70,6 +80,7 @@ export function teardownReframeCanvas(): void {
   canvas?.remove();
   canvas = null;
   ctx = null;
+  lastDrawnReframeCrop = null;
 }
 
 function startLoop(): void {
@@ -121,6 +132,7 @@ export function drawReframeFrame(mediaTime: number): void {
   const boxW = v.offsetWidth;
   const boxH = v.offsetHeight;
   const crop = vw && vh && boxW && boxH ? reframeCropAtFrameTime(mediaTime) : null;
+  lastDrawnReframeCrop = crop;
   if (!crop) {
     fallBackToPlainVideo();
     return;

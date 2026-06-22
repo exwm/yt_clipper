@@ -15,7 +15,7 @@ import {
 } from '../charts';
 import { isReframeEnabled } from './video-zoom-controller';
 import {
-  getRelevantCropString,
+  getSelectedCropString,
   getVideoScaledCropComponentsFromCropString,
   getVideoScaledCropComponents,
 } from '../crop-utils';
@@ -281,7 +281,7 @@ export function getZoomRegion(): [number, number, number, number] {
   }
   const dynamicCropComponents = getDynamicCropComponents();
   if (dynamicCropComponents == null) {
-    const cropString = getRelevantCropString();
+    const cropString = getSelectedCropString();
     const scaledCropComponents = getVideoScaledCropComponentsFromCropString(cropString);
     return scaledCropComponents;
   } else {
