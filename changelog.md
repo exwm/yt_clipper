@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [5.47.1](https://github.com/exwm/yt_clipper/compare/v5.47.0...v5.47.1) (2026-06-23)
+
+
+### Bug Fixes
+
+* **markup:** reframe crop grab/resize regions should follow the displayed crop while scrubbing ([3134f73](https://github.com/exwm/yt_clipper/commit/3134f7364b8ecb923ed22511523411fffab8c7d8))
+
+
+### Documentation Updates
+
+* **readme:** reorganize reframe section after dynamic crop chart shortcuts ([e96d40d](https://github.com/exwm/yt_clipper/commit/e96d40d5e59c8946fcdb0ef4d4f01ba85efd0120))
+
 ## [5.47.0](https://github.com/exwm/yt_clipper/compare/v5.46.0...v5.47.0) (2026-06-21)
 
 
