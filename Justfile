@@ -51,8 +51,10 @@ bundle-tc-w:
   run-p -c build-ts-ne bundle-w
 lint-ts:
   npx tsc --noEmit && npx eslint ./src/markup ./src/command-palette
+test-ts:
+  npx jest test
 bundle-prod:
-  just pretty-ts && just lint-ts && npx parcel build --no-scope-hoist --no-optimize
+  just pretty-ts && just lint-ts && just test-ts && npx parcel build --no-scope-hoist --no-optimize
 
 clean-dist:
   rm -r ./dist/*

@@ -34,6 +34,12 @@ describe('share-url: pre-decompression base64 length cap', () => {
   beforeEach(() => {
     flashMessageMock.mockClear();
     window.history.replaceState(null, '', '/');
+    // The oversize-rejection and inflate-failure paths log via console.error by design. Silence it so
+    // the expected-error output doesn't read as a test failure in the run log.
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   test('the cap constant is set to 1 MB', () => {
