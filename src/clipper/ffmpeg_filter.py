@@ -334,7 +334,9 @@ def getCropFilter(
 
     easingsX = []
     easingsY = []
-    for left, right in zip(cropMap[:-1], cropMap[1:]):
+    for i in range(len(cropMap) - 1):
+        left = cropMap[i]
+        right = cropMap[i + 1]
         startTime = left["x"] - firstTime
         startX, startY, _startW, _startH = left["crop"].split(":")
         endTime = right["x"] - firstTime
@@ -348,8 +350,42 @@ def getCropFilter(
         currEaseType = easeType if not right.get("easeIn", False) else right["easeIn"]
 
         easeP = f"((t-{startTime})/{sectDuration})"
-        easeX = getEasingExpression(currEaseType, f"({startX})", f"({endX})", easeP)
-        easeY = getEasingExpression(currEaseType, f"({startY})", f"({endY})", easeP)
+
+        # The bracketing points shape the smooth-track tangents (ignored by the other modes).
+        prev = _smoothTrackNeighbor(cropMap, i - 1, firstTime)
+        nxt = _smoothTrackNeighbor(cropMap, i + 2, firstTime)
+        prevTime = prev["time"] if prev else None
+        nextTime = nxt["time"] if nxt else None
+        easeX = getSectionEasingExpression(
+            currEaseType,
+            f"({startX})",
+            f"({endX})",
+            easeP,
+            prevValue=prev["x"] if prev else None,
+            startValue=float(startX),
+            endValue=float(endX),
+            nextValue=nxt["x"] if nxt else None,
+            prevTime=prevTime,
+            startTime=startTime,
+            endTime=endTime,
+            nextTime=nextTime,
+            sectDuration=sectDuration,
+        )
+        easeY = getSectionEasingExpression(
+            currEaseType,
+            f"({startY})",
+            f"({endY})",
+            easeP,
+            prevValue=prev["y"] if prev else None,
+            startValue=float(startY),
+            endValue=float(endY),
+            nextValue=nxt["y"] if nxt else None,
+            prevTime=prevTime,
+            startTime=startTime,
+            endTime=endTime,
+            nextTime=nextTime,
+            sectDuration=sectDuration,
+        )
 
         # Gate on the real endTime, not the duration-adjusted one, so the section timeline
         # has no gaps between consecutive sections.
@@ -422,7 +458,9 @@ def getZoomPanFilter(
     easingsZoomY = []
     easingsZoom = []
 
-    for left, right in zip(cropMap[:-1], cropMap[1:]):
+    for i in range(len(cropMap) - 1):
+        left = cropMap[i]
+        right = cropMap[i + 1]
         startTime = left["x"] - firstTime
         startX, startY, startW, startH = left["crop"].split(":")
         endTime = right["x"] - firstTime
@@ -439,6 +477,21 @@ def getZoomPanFilter(
 
         currEaseType = easeType if not right.get("easeIn", False) else right["easeIn"]
 
+        # The bracketing points shape the smooth-track tangents (ignored by the other modes); each
+        # eased quantity derives its own neighbor values via _zoomPanSectionEase.
+        prev = _smoothTrackNeighbor(cropMap, i - 1, firstTime)
+        nxt = _smoothTrackNeighbor(cropMap, i + 2, firstTime)
+        ctx: Dict[str, Any] = {
+            "easeType": currEaseType,
+            "prev": prev,
+            "nxt": nxt,
+            "prevTime": prev["time"] if prev else None,
+            "startTime": startTime,
+            "endTime": endTime,
+            "nextTime": nxt["time"] if nxt else None,
+            "sectDuration": sectDuration,
+        }
+
         # zoompan does not support zooming out or changing aspect ratio without stretching.
         # By cropping the video first we can get the desired aspect ratio.
         # Additionally we can zoom in more (up to 10x) if we apply cropping before zoompan.
@@ -447,17 +500,25 @@ def getZoomPanFilter(
         # The x:y coordinates of the top-left of this maximum crop is such that
         # it is always the top-left most position that still contains the target crop.
         panEaseP = f"((t-{startTime})/{sectDuration})"
-        panEaseRight = getEasingExpression(
-            currEaseType,
+        panEaseRight = _zoomPanSectionEase(
+            ctx,
             f"({panScale}*{startRight})",
             f"({panScale}*{endRight})",
             panEaseP,
+            panScale,
+            "right",
+            startRight,
+            endRight,
         )
-        panEaseBottom = getEasingExpression(
-            currEaseType,
+        panEaseBottom = _zoomPanSectionEase(
+            ctx,
             f"({panScale}*{startBottom})",
             f"({panScale}*{endBottom})",
             panEaseP,
+            panScale,
+            "bottom",
+            startBottom,
+            endBottom,
         )
 
         # Ensure that the containing maximum crop does not go out of the video bounds.
@@ -468,37 +529,57 @@ def getZoomPanFilter(
         # Derive the zoom factor from the eased crop width (maxWidth / w), matching the preview,
         # which interpolates the width. Easing the zoom factor maxWidth/w directly diverges mid
         # transition because 1/w is nonlinear; only the endpoints agree either way.
-        easeW = getEasingExpression(
-            currEaseType,
+        easeW = _zoomPanSectionEase(
+            ctx,
             f"({startW})",
             f"({endW})",
             easeP,
+            1,
+            "w",
+            float(startW),
+            float(endW),
         )
         easeZoom = f"({maxWidth}/({easeW}))"
-        easeX = getEasingExpression(
-            currEaseType,
+        easeX = _zoomPanSectionEase(
+            ctx,
             f"({zoomScale}*{startX})",
             f"({zoomScale}*{endX})",
             easeP,
+            zoomScale,
+            "x",
+            float(startX),
+            float(endX),
         )
-        easeY = getEasingExpression(
-            currEaseType,
+        easeY = _zoomPanSectionEase(
+            ctx,
             f"({zoomScale}*{startY})",
             f"({zoomScale}*{endY})",
             easeP,
+            zoomScale,
+            "y",
+            float(startY),
+            float(endY),
         )
 
-        easeRight = getEasingExpression(
-            currEaseType,
+        easeRight = _zoomPanSectionEase(
+            ctx,
             f"({zoomScale}*{startRight})",
             f"({zoomScale}*{endRight})",
             easeP,
+            zoomScale,
+            "right",
+            startRight,
+            endRight,
         )
-        easeBottom = getEasingExpression(
-            currEaseType,
+        easeBottom = _zoomPanSectionEase(
+            ctx,
             f"({zoomScale}*{startBottom})",
             f"({zoomScale}*{endBottom})",
             easeP,
+            zoomScale,
+            "bottom",
+            startBottom,
+            endBottom,
         )
 
         containingX = f"max({easeRight}-{zoomScale}*{maxWidth}, 0)"
@@ -638,6 +719,218 @@ def getEasingExpression(
 
     easingExpression = f"({easeA}+({easeB}-{easeA})*{ease})"
     return easingExpression
+
+
+# The smooth-track modes interpolate a crop component as a cubic Hermite spline that flows THROUGH
+# its points (a non-zero tangent at each), unlike the per-section easeInOutSine which stalls at every
+# point. Kept in sync with the markup's getSmoothTrackCropComponentsAtTime (crop-keyframe-math.ts) so
+# the rendered crop matches the preview.
+SMOOTH_TRACK_EASE_TYPES = ("smoothTrack",)
+
+
+def resolveCropEaseType(cropPointEasing: Optional[str]) -> str:
+    """Map the markers JSON crop easing mode to a crop filter easeType.
+
+    Absent or "smoothInOut" maps to the original easeInOutSine, so clips without the field render
+    exactly as before. "smoothTrack" maps to the cubic Hermite spline; "smoothTrackMonotone" is an
+    earlier name for the now-always-monotone smoothTrack and aliases to it.
+    """
+    if cropPointEasing in ("smoothTrack", "smoothTrackMonotone"):
+        return "smoothTrack"
+    return "easeInOutSine"
+
+
+def _easeSign(value: float) -> int:
+    return (value > 0) - (value < 0)
+
+
+def _fmtEaseNum(value: float) -> str:
+    # Fixed-point so large/small coefficients never reach ffmpeg in scientific notation.
+    return f"{value:.6f}"
+
+
+def getCropSectionTangent(
+    beforeValue: Optional[float],
+    pointValue: float,
+    afterValue: Optional[float],
+    beforeTime: Optional[float],
+    pointTime: float,
+    afterTime: Optional[float],
+    monotone: bool,
+) -> float:
+    """The tangent (crop-units per second) at a crop point, from the slopes to its two neighbors.
+
+    Returns 0 at a map end or across an instant break (a missing neighbor), which eases the whole
+    move gently in/out. With ``monotone``, the Fritsch-Carlson rule keeps the section from
+    overshooting the point: a reversal (neighbor slopes of opposite sign) or a flat zeroes the
+    tangent, otherwise it is capped at 3x the smaller adjacent slope.
+    """
+    if beforeValue is None or beforeTime is None or afterValue is None or afterTime is None:
+        return 0.0
+    if afterTime == beforeTime:
+        # Only crop points out of time order get here; there is no slope to follow.
+        return 0.0
+    central = (afterValue - beforeValue) / (afterTime - beforeTime)
+    if not monotone:
+        return central
+
+    if pointTime in (beforeTime, afterTime):
+        # A coincident-time neighbor (a redundant zero-duration point) has no defined secant; drop
+        # the tangent so the section eases gently rather than dividing by zero.
+        return 0.0
+    secantBefore = (pointValue - beforeValue) / (pointTime - beforeTime)
+    secantAfter = (afterValue - pointValue) / (afterTime - pointTime)
+    if secantBefore == 0 or secantAfter == 0 or _easeSign(secantBefore) != _easeSign(secantAfter):
+        return 0.0
+    limit = 3 * min(abs(secantBefore), abs(secantAfter))
+    return max(-limit, min(central, limit))
+
+
+def getHermiteEasingExpression(
+    startValue: float,
+    endValue: float,
+    startTangentScaled: float,
+    endTangentScaled: float,
+    easeP: str,
+) -> str:
+    # Cubic Hermite expanded to a*s^3 + b*s^2 + c*s + d so the (clipped) section progress s appears
+    # only as the three powers. Tangents arrive pre-scaled by the section duration (the parameter dt).
+    a = 2 * (startValue - endValue) + startTangentScaled + endTangentScaled
+    b = 3 * (endValue - startValue) - 2 * startTangentScaled - endTangentScaled
+    c = startTangentScaled
+    d = startValue
+    s = f"(clip({easeP},0,1))"
+    return (
+        f"(({_fmtEaseNum(a)})*{s}^3+({_fmtEaseNum(b)})*{s}^2"
+        f"+({_fmtEaseNum(c)})*{s}+({_fmtEaseNum(d)}))"
+    )
+
+
+def getSectionEasingExpression(  # noqa: PLR0913 (one positional/keyword per eased component)
+    easeType: str,
+    easeA: str,
+    easeB: str,
+    easeP: str,
+    *,
+    prevValue: Optional[float],
+    startValue: float,
+    endValue: float,
+    nextValue: Optional[float],
+    prevTime: Optional[float],
+    startTime: float,
+    endTime: float,
+    nextTime: Optional[float],
+    sectDuration: float,
+) -> Optional[str]:
+    """The easing expression for one crop component over a section.
+
+    For the smooth-track modes this is a neighbor-aware cubic Hermite; every other mode falls through
+    to ``getEasingExpression`` unchanged. Callers pass ``prevValue`` / ``nextValue`` as None to drop a
+    tangent at a map end or across an instant break.
+    """
+    if easeType not in SMOOTH_TRACK_EASE_TYPES:
+        return getEasingExpression(easeType, easeA, easeB, easeP)
+
+    # smoothTrack always clamps tangents (no overshoot).
+    monotone = True
+    startTangent = getCropSectionTangent(
+        prevValue,
+        startValue,
+        endValue,
+        prevTime,
+        startTime,
+        endTime,
+        monotone,
+    )
+    endTangent = getCropSectionTangent(
+        startValue,
+        endValue,
+        nextValue,
+        startTime,
+        endTime,
+        nextTime,
+        monotone,
+    )
+    return getHermiteEasingExpression(
+        startValue,
+        endValue,
+        startTangent * sectDuration,
+        endTangent * sectDuration,
+        easeP,
+    )
+
+
+def _smoothTrackNeighbor(
+    cropMap: CropMap,
+    index: int,
+    firstTime: float,
+) -> Optional[Dict[str, float]]:
+    """The parsed crop point at ``index`` for use as a smooth-track tangent neighbor, or None.
+
+    None when the index is off the map or the point is reached by an instant transition (which
+    breaks the spline), mirroring the markup's incoming/outgoing gating.
+    """
+    if index < 0 or index >= len(cropMap):
+        return None
+    point = cropMap[index]
+    if point.get("easeIn") == "instant":
+        return None
+    x, y, w, h = point["crop"].split(":")
+    return {
+        "x": float(x),
+        "y": float(y),
+        "w": float(w),
+        "h": float(h),
+        "time": point["x"] - firstTime,
+    }
+
+
+def _derivedNeighborValue(
+    neighbor: Optional[Dict[str, float]],
+    scale: float,
+    kind: str,
+) -> Optional[float]:
+    # The (scaled) value of a zoompan-eased quantity at a neighbor crop point, or None when there is
+    # no neighbor. right/bottom are the linear x+w / y+h the pan crop tracks.
+    if neighbor is None:
+        return None
+    value = {
+        "x": neighbor["x"],
+        "y": neighbor["y"],
+        "w": neighbor["w"],
+        "right": neighbor["x"] + neighbor["w"],
+        "bottom": neighbor["y"] + neighbor["h"],
+    }[kind]
+    return scale * value
+
+
+def _zoomPanSectionEase(
+    ctx: Dict[str, Any],
+    easeA: str,
+    easeB: str,
+    easeP: str,
+    scale: float,
+    kind: str,
+    startDerived: float,
+    endDerived: float,
+) -> Optional[str]:
+    # One zoompan-eased quantity for a section, routed through the shared easing dispatcher with the
+    # neighbor values its smooth-track tangents need. `ctx` carries the per-section state.
+    return getSectionEasingExpression(
+        ctx["easeType"],
+        easeA,
+        easeB,
+        easeP,
+        prevValue=_derivedNeighborValue(ctx["prev"], scale, kind),
+        startValue=scale * startDerived,
+        endValue=scale * endDerived,
+        nextValue=_derivedNeighborValue(ctx["nxt"], scale, kind),
+        prevTime=ctx["prevTime"],
+        startTime=ctx["startTime"],
+        endTime=ctx["endTime"],
+        nextTime=ctx["nextTime"],
+        sectDuration=ctx["sectDuration"],
+    )
 
 
 def videoStabilizationGammaFixFilter(filter_to_wrap: str) -> str:

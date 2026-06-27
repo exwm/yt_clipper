@@ -5,6 +5,8 @@ import { getCurrentCropComponents, hideChart } from '../../charts';
 import { isReframeEnabled, syncReframe } from '../../crop/video-zoom-controller';
 import {
   CropChip,
+  CropEasingSelect,
+  cropEasingModeLabels,
   InfoRow,
   NumberInputRow,
   SettingsFieldset,
@@ -18,6 +20,7 @@ import {
   getNumericCropString,
   getRotatedCropString,
 } from '../../crop-utils';
+import { DEFAULT_CROP_POINT_EASING } from '../../crop/crop-keyframe-math';
 import { triggerCropPreviewRedraw } from '../../crop/crop-preview';
 import {
   placeSettingsToggleBar,
@@ -231,6 +234,16 @@ function GlobalSettingsEditorTemplate(binder: SettingsBinder<Settings>): Templat
       display: encodeDisplay,
       source: settings,
       bind: bind as FieldBinder,
+      cropEasingRow: CropEasingSelect({
+        ...bind('crop-point-easing-input', 'cropPointEasing', 'inheritableString', {
+          afterChange: () => triggerCropPreviewRedraw(),
+        }),
+        label: 'Crop Easing',
+        value: settings.cropPointEasing,
+        // The global default for every pair that does not override it.
+        defaultOptionLabel: `(${cropEasingModeLabels[DEFAULT_CROP_POINT_EASING]})`,
+        tooltip: Tooltips.cropPointEasingTooltip,
+      }),
       // Host that the toggle bar relocates into while encode settings are open.
       legendExtra: html`<span class="settings-legend-connector"></span
         ><span id="settings-toggle-host-encode"></span>`,

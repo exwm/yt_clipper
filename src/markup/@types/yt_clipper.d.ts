@@ -30,6 +30,7 @@ interface Settings {
   minterpFpsMultiplier?: number;
   loop?: Loop;
   fadeDuration?: number;
+  cropPointEasing?: 'smoothInOut' | 'smoothTrack';
 }
 
 interface MarkerPair {
@@ -80,6 +81,7 @@ interface MarkerConfig {
 
 interface MarkerPairOverrides {
   titlePrefix?: string;
+  cropPointEasing?: 'smoothInOut' | 'smoothTrack';
   enableHDR?: boolean;
   gamma?: number;
   encodeSpeed?: number;

@@ -112,6 +112,105 @@ def test_getCropFilter(snapshot: str) -> None:
     assert cropFilter == snapshot
 
 
+def test_getCropFilter_smooth_track_handles_redundant_coincident_points() -> None:
+    # A redundant zero-duration point (a neighbor sharing a point's time) must not divide by zero in
+    # the tangent. Real exported maps contain these, so the default smoothTrack must survive them.
+    cropFilter = ffmpeg_filter.getCropFilter(
+        "109:426:540:960",
+        LARGE_REDUNDANT_CROP_MAP,
+        60,
+        easeType="smoothTrack",
+    )
+    assert cropFilter  # no ZeroDivisionError
+
+
+def test_resolveCropEaseType_defaults_to_sine_for_backwards_compat() -> None:
+    # A clip without the field, or the smoothInOut alias, must render as the original sine ease.
+    assert ffmpeg_filter.resolveCropEaseType(None) == "easeInOutSine"
+    assert ffmpeg_filter.resolveCropEaseType("smoothInOut") == "easeInOutSine"
+    assert ffmpeg_filter.resolveCropEaseType("somethingUnknown") == "easeInOutSine"
+
+
+def test_resolveCropEaseType_smooth_track_and_legacy_alias() -> None:
+    assert ffmpeg_filter.resolveCropEaseType("smoothTrack") == "smoothTrack"
+    # legacy alias for the now-always-monotone smoothTrack
+    assert ffmpeg_filter.resolveCropEaseType("smoothTrackMonotone") == "smoothTrack"
+
+
+@pytest.mark.parametrize("monotone", [False, True])
+def test_getCropSectionTangent_central_slope_on_collinear_ramp(monotone: bool) -> None:
+    # prev 0@0, point 100@1, after 200@2: the central slope (100/s) is monotonic, so unclamped.
+    tangent = ffmpeg_filter.getCropSectionTangent(0.0, 100.0, 200.0, 0.0, 1.0, 2.0, monotone)
+    assert tangent == pytest.approx(100.0)
+
+
+def test_getCropSectionTangent_is_zero_at_a_map_end() -> None:
+    assert ffmpeg_filter.getCropSectionTangent(None, 100.0, 200.0, None, 1.0, 2.0, False) == 0.0
+
+
+def test_getCropSectionTangent_monotone_zeroes_tangent_at_a_reversal() -> None:
+    # before 0, point 100 (a peak), after 50: slopes +100 then -50 reverse sign.
+    assert ffmpeg_filter.getCropSectionTangent(0.0, 100.0, 50.0, 0.0, 1.0, 2.0, True) == 0.0
+    # Plain Catmull-Rom keeps the central slope (which is what overshoots the peak).
+    catmull = ffmpeg_filter.getCropSectionTangent(0.0, 100.0, 50.0, 0.0, 1.0, 2.0, False)
+    assert catmull == pytest.approx(25.0)
+
+
+def test_getCropSectionTangent_monotone_clamps_to_three_times_smaller_slope() -> None:
+    # central slope is 500/s but the smaller adjacent slope is 10, so it caps at 3*10 = 30.
+    clamped = ffmpeg_filter.getCropSectionTangent(0.0, 10.0, 1000.0, 0.0, 1.0, 2.0, True)
+    assert clamped == pytest.approx(30.0)
+
+
+def test_getCropFilter_smooth_track_handles_crop_points_out_of_time_order() -> None:
+    # A hand-edited markers JSON can list crop points out of order. The middle section's neighbors
+    # then share a time, which has no slope to follow.
+    cropMap = [
+        {"x": 2, "crop": "0:0:100:100"},
+        {"x": 1, "crop": "10:0:100:100"},
+        {"x": 2, "crop": "20:0:100:100"},
+        {"x": 3, "crop": "30:0:100:100"},
+    ]
+    assert ffmpeg_filter.getCropFilter("0:0:100:100", cropMap, 30, easeType="smoothTrack")
+
+
+def test_getCropFilter_default_matches_easeInOutSine_for_backwards_compat() -> None:
+    default = ffmpeg_filter.getCropFilter("109:426:540:960", MEDIUM_CROP_MAP, 60)
+    explicit = ffmpeg_filter.getCropFilter(
+        "109:426:540:960",
+        MEDIUM_CROP_MAP,
+        60,
+        easeType="easeInOutSine",
+    )
+    assert default == explicit
+    assert "cos(" in default
+    assert "^3" not in default
+
+
+@pytest.mark.parametrize("easeType", ["smoothTrack"])
+def test_getCropFilter_smooth_track_uses_cubic_hermite(easeType: str) -> None:
+    cropFilter = ffmpeg_filter.getCropFilter(
+        "109:426:540:960",
+        MEDIUM_CROP_MAP,
+        60,
+        easeType=easeType,
+    )
+    # A cubic Hermite (clipped section progress raised to the third power), not the sine ease.
+    assert "^3" in cropFilter
+    assert "cos(" not in cropFilter
+
+
+@pytest.mark.parametrize("easeType", ["smoothTrack"])
+def test_getCropFilter_smooth_track_snapshot(easeType: str, snapshot: str) -> None:
+    cropFilter = ffmpeg_filter.getCropFilter(
+        "109:426:540:960",
+        MEDIUM_CROP_MAP,
+        60,
+        easeType=easeType,
+    )
+    assert cropFilter == snapshot
+
+
 def test_getZoomPanFilter(snapshot: str) -> None:
     ffmpegFilter, _maxSize = ffmpeg_filter.getZoomPanFilter(
         LARGE_REDUNDANT_CROP_MAP,
@@ -127,6 +226,29 @@ def test_getZoomPanFilter_derives_zoom_from_eased_width() -> None:
     ffmpegFilter, _maxSize = ffmpeg_filter.getZoomPanFilter(SHORT_ZOOM_CROP_MAP, 60)
     assert "z='" in ffmpegFilter
     assert "1080/(" in ffmpegFilter
+
+
+@pytest.mark.parametrize("easeType", ["smoothTrack"])
+def test_getZoomPanFilter_smooth_track_uses_cubic_hermite(easeType: str) -> None:
+    ffmpegFilter, _maxSize = ffmpeg_filter.getZoomPanFilter(
+        SHORT_ZOOM_CROP_MAP,
+        60,
+        easeType=easeType,
+    )
+    # The zoom derives from a spline-eased width, so the zoom factor is maxWidth / (cubic Hermite).
+    assert "^3" in ffmpegFilter
+    assert "cos(" not in ffmpegFilter
+    assert "1080/(" in ffmpegFilter
+
+
+@pytest.mark.parametrize("easeType", ["smoothTrack"])
+def test_getZoomPanFilter_smooth_track_snapshot(easeType: str, snapshot: str) -> None:
+    ffmpegFilter, _maxSize = ffmpeg_filter.getZoomPanFilter(
+        SHORT_ZOOM_CROP_MAP,
+        60,
+        easeType=easeType,
+    )
+    assert ffmpegFilter == snapshot
 
 
 def test_short_section_is_not_dropped_getZoomPanFilter(snapshot: str) -> None:

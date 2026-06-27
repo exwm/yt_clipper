@@ -1,9 +1,11 @@
 import { CropPoint } from '../@types/yt_clipper';
 import {
+  CropSectionNeighbor,
   cropInterpolationSectionAtTime,
   findCropKeyframeAtTime,
   getEaseSectionDuration,
   getEasedCropComponentsAtTime,
+  getSmoothTrackCropComponentsAtTime,
   nextKeyframeIndex,
 } from './crop-keyframe-math';
 
@@ -216,5 +218,118 @@ describe('getEasedCropComponentsAtTime', () => {
   it('holds components that do not change across the section', () => {
     const mid = getEasedCropComponentsAtTime(start, end, 0, 2.0, undefined, 1.0, FPS_30);
     expect([mid?.[1], mid?.[2], mid?.[3]]).toEqual([0, 100, 100]);
+  });
+});
+
+describe('getSmoothTrackCropComponentsAtTime', () => {
+  const FPS_30 = 30;
+  // Section [t=1, t=2] of a constant-velocity ramp in x: prev 0@0, start 100@1, end 200@2, next 300@3.
+  const trackStart = [100, 0, 100, 100];
+  const trackEnd = [200, 0, 100, 100];
+  const prev: CropSectionNeighbor = { components: [0, 0, 100, 100], time: 0, easeIn: undefined };
+  const next: CropSectionNeighbor = { components: [300, 0, 100, 100], time: 3, easeIn: undefined };
+  const dur = getEaseSectionDuration(1, 2, FPS_30) as number;
+  const quarterTime = 1 + dur * 0.25;
+
+  const trackAt = (
+    time: number,
+    p: CropSectionNeighbor | null = prev,
+    n: CropSectionNeighbor | null = next
+  ) => getSmoothTrackCropComponentsAtTime(trackStart, trackEnd, 1, 2, p, n, time, FPS_30);
+
+  it('returns null for a zero-duration section', () => {
+    expect(
+      getSmoothTrackCropComponentsAtTime(trackStart, trackEnd, 5, 5, prev, next, 5, FPS_30)
+    ).toBeNull();
+  });
+
+  it('passes exactly through the start and end crop points', () => {
+    expect(trackAt(1)?.[0]).toBeCloseTo(100, 6);
+    expect(trackAt(2)?.[0]).toBeCloseTo(200, 6); // clamped past the frame-pulled-back end
+  });
+
+  it('carries momentum through a point instead of stalling like smoothInOut', () => {
+    // Early in the section the spline is already moving, so it leads the cosine ease-in.
+    const track = trackAt(quarterTime)?.[0] as number;
+    const inOut = getEasedCropComponentsAtTime(
+      trackStart,
+      trackEnd,
+      1,
+      2,
+      undefined,
+      quarterTime,
+      FPS_30
+    )?.[0] as number;
+    expect(track).toBeGreaterThan(inOut);
+  });
+
+  it('tracks at near-constant velocity across evenly spaced collinear points', () => {
+    // Catmull-Rom through a constant-velocity ramp is the straight line: ~125 at the quarter.
+    expect(trackAt(quarterTime)?.[0]).toBeCloseTo(125, 0);
+  });
+
+  it('eases in (zero tangent) at a map end where there is no neighbor', () => {
+    // Without an incoming neighbor the start tangent is 0, so it lags the momentum-carrying curve.
+    const withMomentum = trackAt(quarterTime)?.[0] as number;
+    const atMapEnd = trackAt(quarterTime, null)?.[0] as number;
+    expect(atMapEnd).toBeLessThan(withMomentum);
+  });
+
+  it('treats an instant transition into the start point as a momentum break', () => {
+    const withMomentum = trackAt(quarterTime)?.[0] as number;
+    const instantPrev: CropSectionNeighbor = { ...prev, easeIn: 'instant' };
+    const broken = trackAt(quarterTime, instantPrev)?.[0] as number;
+    expect(broken).toBeLessThan(withMomentum);
+  });
+
+  it('holds components that do not change across the section', () => {
+    const mid = trackAt(quarterTime);
+    expect([mid?.[1], mid?.[2], mid?.[3]]).toEqual([0, 100, 100]);
+  });
+
+  it.each([
+    ['shares the point time (a redundant zero-duration point)', 1],
+    ['is out of time order, at the end point time', 2],
+  ])('stays finite when the previous neighbor %s', (_case, prevTime) => {
+    // Mirrors the clipper's getCropSectionTangent: the tangent drops to 0 rather than dividing by
+    // zero.
+    const oddPrev: CropSectionNeighbor = {
+      components: [100, 0, 100, 100],
+      time: prevTime,
+      easeIn: undefined,
+    };
+    expect(Number.isFinite(trackAt(quarterTime, oddPrev)?.[0] as number)).toBe(true);
+  });
+
+  it('overshoots a reversal point with Catmull-Rom but not with monotone tangents', () => {
+    // start (100) is a local peak: x rises 0 -> 100, then falls 100 -> 50.
+    const peakStart = [100, 0, 100, 100];
+    const peakEnd = [50, 0, 100, 100];
+    const before: CropSectionNeighbor = {
+      components: [0, 0, 100, 100],
+      time: 0,
+      easeIn: undefined,
+    };
+    const earlyTime = 1 + dur * 0.1;
+    const args = [peakStart, peakEnd, 1, 2, before, null, earlyTime, FPS_30] as const;
+
+    expect(getSmoothTrackCropComponentsAtTime(...args, false)?.[0]).toBeGreaterThan(100);
+    expect(getSmoothTrackCropComponentsAtTime(...args, true)?.[0]).toBeLessThanOrEqual(100);
+  });
+
+  it('matches plain smooth track on monotonic motion (the clamp never bites)', () => {
+    const catmull = trackAt(quarterTime)?.[0] as number;
+    const monotone = getSmoothTrackCropComponentsAtTime(
+      trackStart,
+      trackEnd,
+      1,
+      2,
+      prev,
+      next,
+      quarterTime,
+      FPS_30,
+      true
+    )?.[0] as number;
+    expect(monotone).toBeCloseTo(catmull, 6);
   });
 });

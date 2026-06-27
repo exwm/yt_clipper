@@ -55,6 +55,7 @@
     "minterpFpsMultiplier": { "type": "number", "minimum": 0 },
     "loop": { "$ref": "#/$defs/loop" },
     "fadeDuration": { "type": "number", "minimum": 0 },
+    "cropPointEasing": { "$ref": "#/$defs/cropPointEasing" },
     "version": { "type": "string" },
     "date": { "type": "number" },
     "markerPairs": { "type": "array", "maxItems": 10000, "items": { "$ref": "#/$defs/markerPair" } }
@@ -73,6 +74,7 @@
       "pattern": "^[1-9]\\d*x[1-9]\\d*$"
     },
     "loop": { "enum": ["none", "fwrev", "fade"] },
+    "cropPointEasing": { "enum": ["smoothInOut", "smoothTrack"] },
     "denoise": {
       "type": "object",
       "required": ["enabled"],
@@ -132,7 +134,8 @@
         "videoStabilizationDynamicZoom": { "type": "boolean" },
         "minterpFpsMultiplier": { "type": "number", "minimum": 0 },
         "loop": { "$ref": "#/$defs/loop" },
-        "fadeDuration": { "type": "number", "minimum": 0 }
+        "fadeDuration": { "type": "number", "minimum": 0 },
+        "cropPointEasing": { "$ref": "#/$defs/cropPointEasing" }
       }
     },
     "markerPair": {
