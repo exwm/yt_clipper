@@ -121,6 +121,14 @@ def test_getZoomPanFilter(snapshot: str) -> None:
     assert ffmpegFilter == snapshot
 
 
+def test_getZoomPanFilter_derives_zoom_from_eased_width() -> None:
+    # The zoom factor is maxWidth / eased(w) (1080 is the largest crop width here), matching the
+    # preview which interpolates the width, rather than easing the zoom factor maxWidth/w directly.
+    ffmpegFilter, _maxSize = ffmpeg_filter.getZoomPanFilter(SHORT_ZOOM_CROP_MAP, 60)
+    assert "z='" in ffmpegFilter
+    assert "1080/(" in ffmpegFilter
+
+
 def test_short_section_is_not_dropped_getZoomPanFilter(snapshot: str) -> None:
     ffmpegFilter, _maxSize = ffmpeg_filter.getZoomPanFilter(
         SHORT_ZOOM_CROP_MAP,

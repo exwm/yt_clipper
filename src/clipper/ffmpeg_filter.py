@@ -433,9 +433,6 @@ def getZoomPanFilter(
         endRight = float(endX) + float(endW)
         endBottom = float(endY) + float(endH)
 
-        startZoom = maxWidth / float(startW)
-        endZoom = maxWidth / float(endW)
-
         sectDuration = getEaseSectionDuration(startTime, endTime, float(fps))
         if sectDuration is None:
             continue
@@ -468,12 +465,16 @@ def getZoomPanFilter(
         panEaseBottom = f"max({panEaseBottom}-{panScale}*{maxHeight}, 0)"
 
         easeP = f"(({ZOOM_PAN_TIME_EXPR}-{startTime})/{sectDuration})"
-        easeZoom = getEasingExpression(
+        # Derive the zoom factor from the eased crop width (maxWidth / w), matching the preview,
+        # which interpolates the width. Easing the zoom factor maxWidth/w directly diverges mid
+        # transition because 1/w is nonlinear; only the endpoints agree either way.
+        easeW = getEasingExpression(
             currEaseType,
-            f"({startZoom})",
-            f"({endZoom})",
+            f"({startW})",
+            f"({endW})",
             easeP,
         )
+        easeZoom = f"({maxWidth}/({easeW}))"
         easeX = getEasingExpression(
             currEaseType,
             f"({zoomScale}*{startX})",
