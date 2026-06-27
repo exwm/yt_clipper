@@ -12,11 +12,14 @@ import {
 import { isReframeEnabled, syncReframe, toggleReframe } from '../../crop/video-zoom-controller';
 import {
   CropChip,
+  CropEasingSelect,
+  cropEasingModeLabels,
   InfoRow,
   NumberInputRow,
   SettingsFieldset,
   TextInputRow,
 } from '../../components/settings';
+import { DEFAULT_CROP_POINT_EASING } from '../../crop/crop-keyframe-math';
 import { EncodeSettingsFieldset } from './encode-settings-fieldset';
 import {
   createCropOverlay,
@@ -276,6 +279,18 @@ function MarkerPairEditorTemplate(
         onChange: () => updateMinterpFpsMulLabel(markerPair),
       },
       zoomPan: { enabled: markerPair.enableZoomPan, bind: bindPair as FieldBinder },
+      cropEasingRow: CropEasingSelect({
+        ...bindOverride('crop-point-easing-input', 'cropPointEasing', 'inheritableString', {
+          afterChange: () => triggerCropPreviewRedraw(),
+        }),
+        label: 'Crop Easing',
+        value: overrides.cropPointEasing,
+        // Default inherits the global setting (falling back to the built-in default).
+        defaultOptionLabel: `(${
+          cropEasingModeLabels[appState.settings.cropPointEasing ?? DEFAULT_CROP_POINT_EASING]
+        })`,
+        tooltip: Tooltips.cropPointEasingTooltip,
+      }),
       // Host that the toggle bar relocates into while overrides are open.
       legendExtra: html`<span class="settings-legend-connector"></span
         ><span id="settings-toggle-host-encode"></span>`,
