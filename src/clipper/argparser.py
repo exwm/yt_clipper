@@ -8,7 +8,7 @@ from rich_argparse import ArgumentDefaultsRichHelpFormatter
 from clipper.clipper_types import ClipperPaths, DictStrAny
 from clipper.ffmpeg_version import getFfmpegVersion
 from clipper.version import __version__
-from clipper.ytdl import ytdl_bin_get_version
+from clipper.ytdl import DEFAULT_FORMAT_SORT, ytdl_bin_get_version
 
 
 class DefaultsHelpFormatter(ArgumentDefaultsRichHelpFormatter):
@@ -530,6 +530,19 @@ def add_ytdl_options(ytdl_options: argparse._ArgumentGroup) -> None:
         help="Disable automatic yt-dlp updates when running a frozen release of yt_clipper.",
     )
 
+    ytdl_options.add_argument(
+        "--accept-lower-quality",
+        dest="acceptLowerQuality",
+        action="store_true",
+        default=False,
+        help=" ".join(
+            [
+                "Continue without asking when a higher quality format cannot be downloaded and yt-dlp falls back to a lower quality one.",
+                "Without it, the clipper script asks first, and stops when no one can answer, for example in a scheduled run.",
+            ],
+        ),
+    )
+
 
 def add_other_options(other_options: argparse._ArgumentGroup) -> None:
     other_options.add_argument(
@@ -950,9 +963,7 @@ def add_input_options(input_options: argparse._ArgumentGroup) -> None:
         "-S",
         dest="formatSort",
         nargs="+",
-        default=[
-            "hasvid,ie_pref,lang,quality,res,fps,br,size,hdr:1,vcodec:vp9.2,vcodec:vp9,asr,proto,ext,hasaud,source,id",
-        ],
+        default=list(DEFAULT_FORMAT_SORT),
         help=" ".join(
             [
                 "Specify the sorting used to determine the best audio and video formats to download for generating clips.",
