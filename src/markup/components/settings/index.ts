@@ -12,6 +12,8 @@ export { PresetSelect } from './preset-select';
 export type { PresetSelectProps } from './preset-select';
 export { LoopSelect } from './loop-select';
 export type { LoopSelectProps, LoopValue } from './loop-select';
+export { CropEasingSelect, cropEasingModeLabels } from './crop-easing-select';
+export type { CropEasingSelectProps, CropEasingValue, CropEasingMode } from './crop-easing-select';
 export { FpsMulStepper } from './fps-mul-stepper';
 export type { FpsMulStepperProps } from './fps-mul-stepper';
 export { InfoRow } from './info-row';

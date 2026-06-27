@@ -56,6 +56,9 @@ export interface EncodeSettingsFieldsetProps {
     onChange?: (e: Event) => void;
   };
   zoomPan?: { enabled: boolean; bind: FieldBinder };
+  // A prebuilt row (marker variant only) for the dynamic crop point easing override. Built by the
+  // caller so this shared fieldset stays free of crop-preview wiring.
+  cropEasingRow?: TemplateResult;
   // Extra content appended inside the legend (e.g. the relocatable toggle bar).
   legendExtra?: TemplateResult;
 }
@@ -246,7 +249,7 @@ export function EncodeSettingsFieldset(p: EncodeSettingsFieldsetProps): Template
           compact: true,
         })}
       </div>
-      ${p.zoomPan ? renderZoomPanRow(p.zoomPan) : nothing}
+      ${p.cropEasingRow ?? nothing} ${p.zoomPan ? renderZoomPanRow(p.zoomPan) : nothing}
     `,
   });
 }

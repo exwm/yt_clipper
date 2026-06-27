@@ -111,6 +111,137 @@ export function getEaseSectionDuration(
 export const easeInInstant = (timePercentage: number) => (timePercentage >= 1 ? 1 : 0);
 
 /**
+ * Which curve a dynamic crop follows between its points.
+ *  - `smoothInOut`: the classic per-section ease (easeSinInOut). Velocity is zero AT each crop
+ *    point, so the crop comes to rest there. Smooth, but it fights a moving camera.
+ *  - `smoothTrack`: a cubic Hermite spline with monotone (Fritsch-Carlson) tangents. Each point
+ *    gets a non-zero tangent from its neighbors, so the crop keeps moving THROUGH points instead of
+ *    stopping, tracking a steady camera pan, while never overshooting a point on a reversal.
+ */
+export type CropPointEasing = 'smoothInOut' | 'smoothTrack';
+
+// The crop easing a pair uses when neither it nor the global setting has a mode. Save writes the
+// global mode, so a saved file always carries one. Only JSONs saved before this feature lack it; the
+// clipper renders those with the legacy sine ease for compatibility.
+export const DEFAULT_CROP_POINT_EASING: CropPointEasing = 'smoothTrack';
+
+/**
+ * A neighbor of the section being eased, used only by smoothTrack to derive the section's end
+ * tangents. `easeIn === 'instant'` on the boundary into a point makes that point a hard break:
+ * the tangent there is dropped to zero so the spline does not flow across an instant transition.
+ */
+export interface CropSectionNeighbor {
+  components: readonly number[];
+  time: number;
+  easeIn: CropPoint['easeIn'];
+}
+
+// The tangent (crop-units per second) at a crop point, from the slopes to its two neighbors.
+// Returns 0 at a map end or across an instant break (a missing neighbor), which eases the whole
+// move gently in/out and stops the spline flowing over instant points. With `monotone`, the
+// Fritsch-Carlson rule keeps the section from overshooting the point: a reversal (neighbor slopes
+// of opposite sign) or a flat zeroes the tangent, and otherwise it is capped at 3x the smaller
+// adjacent slope. Without it, the plain non-uniform Catmull-Rom central slope is used.
+function sectionPointTangent(
+  beforeValue: number | null,
+  pointValue: number,
+  afterValue: number | null,
+  beforeTime: number | null,
+  pointTime: number,
+  afterTime: number | null,
+  monotone: boolean
+): number {
+  if (beforeValue == null || beforeTime == null || afterValue == null || afterTime == null) {
+    return 0;
+  }
+  // Only crop points out of time order get here; there is no slope to follow.
+  if (afterTime === beforeTime) return 0;
+  const central = (afterValue - beforeValue) / (afterTime - beforeTime);
+  if (!monotone) return central;
+
+  if (pointTime === beforeTime || afterTime === pointTime) {
+    // A coincident-time neighbor (a redundant zero-duration point) has no defined secant; drop the
+    // tangent so the section eases gently rather than producing NaN.
+    return 0;
+  }
+  const secantBefore = (pointValue - beforeValue) / (pointTime - beforeTime);
+  const secantAfter = (afterValue - pointValue) / (afterTime - pointTime);
+  if (
+    secantBefore === 0 ||
+    secantAfter === 0 ||
+    Math.sign(secantBefore) !== Math.sign(secantAfter)
+  ) {
+    return 0;
+  }
+  const limit = 3 * Math.min(Math.abs(secantBefore), Math.abs(secantAfter));
+  return clampNumber(central, -limit, limit);
+}
+
+/**
+ * The smoothTrack crop components at `time` for the section [start, end], using the bracketing
+ * neighbors to shape the curve. Mirrors getEasedCropComponentsAtTime's section timing (the
+ * frame-pulled-back duration and the clamp past it) so it lines up with the smoothInOut path.
+ * Returns null for a zero-duration section.
+ */
+export function getSmoothTrackCropComponentsAtTime(
+  startComponents: readonly number[],
+  endComponents: readonly number[],
+  startTime: number,
+  endTime: number,
+  prev: CropSectionNeighbor | null,
+  next: CropSectionNeighbor | null,
+  time: number,
+  fps: number,
+  monotone = false
+): [number, number, number, number] | null {
+  const sectDuration = getEaseSectionDuration(startTime, endTime, fps);
+  if (sectDuration == null) return null;
+
+  const clampedTime = clampNumber(time, startTime, endTime);
+  const s = clampNumber((clampedTime - startTime) / sectDuration, 0, 1);
+
+  // Cubic Hermite basis on the normalized section parameter s.
+  const s2 = s * s;
+  const s3 = s2 * s;
+  const h00 = 2 * s3 - 3 * s2 + 1;
+  const h10 = s3 - 2 * s2 + s;
+  const h01 = -2 * s3 + 3 * s2;
+  const h11 = s3 - s2;
+
+  // An instant transition INTO a point breaks momentum there, so drop that point's tangent.
+  const incoming = prev && prev.easeIn !== 'instant' ? prev : null;
+  const outgoing = next && next.easeIn !== 'instant' ? next : null;
+
+  const eased = [0, 1, 2, 3].map((i) => {
+    const p0 = startComponents[i];
+    const p1 = endComponents[i];
+    // Tangents are crop-units per second; scale to the section parameter by sectDuration. The
+    // start point sits between its incoming neighbor and the end; the end between the start and
+    // its outgoing neighbor.
+    const m0 = sectionPointTangent(
+      incoming?.components[i] ?? null,
+      p0,
+      p1,
+      incoming?.time ?? null,
+      startTime,
+      endTime,
+      monotone
+    );
+    const m1 = sectionPointTangent(
+      p0,
+      p1,
+      outgoing?.components[i] ?? null,
+      startTime,
+      endTime,
+      outgoing?.time ?? null,
+      monotone
+    );
+    return h00 * p0 + h10 * (m0 * sectDuration) + h01 * p1 + h11 * (m1 * sectDuration);
+  });
+  return [eased[0], eased[1], eased[2], eased[3]];
+}
+
+/**
  * The eased crop components ([x, y, w, h]) at `time` for the section between two crop points,
  * the single source of truth every preview surface (default overlay, reframe, modal, pop-out)
  * interpolates through. Pure so it can be unit-tested and checked against the clipper: the caller

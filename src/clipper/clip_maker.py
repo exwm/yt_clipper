@@ -40,6 +40,7 @@ from clipper.ffmpeg_filter import (
     getSpeedFilterAndDuration,
     getSubsFilter,
     getZoomPanFilter,
+    resolveCropEaseType,
     videoStabilizationGammaFixFilter,
 )
 from clipper.log_helpers import (
@@ -205,14 +206,21 @@ def getMarkerPairSettings(  # noqa: PLR0912
         ]
 
     mp["maxSize"] = cropComponents["w"] * cropComponents["h"]
+    cropEaseType = resolveCropEaseType(mps.get("cropPointEasing"))
     if mp["isZoomPanCrop"]:
         mp["cropFilter"], mp["maxSize"] = getZoomPanFilter(
             cropMap=mp["cropMap"],
             fps=mps["r_frame_rate"],
+            easeType=cropEaseType,
             inputIsHDR=settings["inputIsHDR"],
         )
     elif mp["isPanningCrop"]:
-        mp["cropFilter"] = getCropFilter(mp["crop"], mp["cropMap"], mps["r_frame_rate"])
+        mp["cropFilter"] = getCropFilter(
+            mp["crop"],
+            mp["cropMap"],
+            mps["r_frame_rate"],
+            easeType=cropEaseType,
+        )
     else:
         cc = cropComponents
         mp["cropFilter"] = f"""crop='x={cc["x"]}:y={cc["y"]}:w={cc["w"]}:h={cc["h"]}:exact=1'"""

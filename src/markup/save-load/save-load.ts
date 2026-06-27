@@ -9,6 +9,7 @@ import {
 } from '../auto-save';
 import { html, render } from 'lit-html';
 import { isStaticCrop } from '../crop-utils';
+import { DEFAULT_CROP_POINT_EASING } from '../crop/crop-keyframe-math';
 import { deleteElement, flashMessage, assertDefined } from '../util/util';
 import { isTheatreMode, updateSettingsEditorHook } from '../yt_clipper';
 import { addMarker } from '../markers';
@@ -41,6 +42,15 @@ export function getClipperInputData(date?) {
     const markerPairNumbered = {
       number: idx + 1,
       ...markerPair,
+      // Persist the crop easing so the clipper renders what the preview showed. A pair with no mode
+      // set inherits the global default; only pre-feature JSONs omit the field (legacy sine render).
+      overrides: {
+        ...markerPair.overrides,
+        cropPointEasing:
+          markerPair.overrides.cropPointEasing ??
+          appState.settings.cropPointEasing ??
+          DEFAULT_CROP_POINT_EASING,
+      },
       speedMapLoop: undefined,
       speedMap: isVariableSpeed(markerPair.speedMap) ? markerPair.speedMap : undefined,
       speedChartLoop: undefined,

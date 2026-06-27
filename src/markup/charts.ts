@@ -61,9 +61,13 @@ import { Crop } from './crop/crop';
 import { triggerCropPreviewRedraw } from './crop/crop-preview';
 import {
   CropKeyframeMatch,
+  CropPointEasing,
+  CropSectionNeighbor,
+  DEFAULT_CROP_POINT_EASING,
   cropInterpolationSectionAtTime,
   findCropKeyframeAtTime,
   getEasedCropComponentsAtTime,
+  getSmoothTrackCropComponentsAtTime,
   nextKeyframeIndex,
 } from './crop/crop-keyframe-math';
 import { isReframeEnabled, syncReframe } from './crop/video-zoom-controller';
@@ -878,26 +882,67 @@ export function getDynamicCropComponents(): [number, number, number, number] | n
     const sectStart = chartData[currentCropChartSection[0]];
     const sectEnd = chartData[currentCropChartSection[1]];
 
-    return getEasedCropComponents(sectStart, sectEnd);
+    return getEasedCropComponents(
+      sectStart,
+      sectEnd,
+      chartData[currentCropChartSection[0] - 1],
+      chartData[currentCropChartSection[1] + 1]
+    );
   }
 
   return null;
 }
 
+// The crop point easing the active marker pair uses, defaulting to smoothTrack: it tracks a moving
+// subject without stalling at points and without overshooting one on a reversal. Smooth track needs
+// the section's neighbors, which the callers below pass in.
+function getActiveCropPointEasing(): CropPointEasing {
+  const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+  return (
+    markerPair?.overrides?.cropPointEasing ??
+    appState.settings.cropPointEasing ??
+    DEFAULT_CROP_POINT_EASING
+  );
+}
+
+function toSectionNeighbor(point: CropPoint | undefined | null): CropSectionNeighbor | null {
+  if (point == null) return null;
+  return { components: getCropComponents(point.crop), time: point.x, easeIn: point.easeIn };
+}
+
 export function getEasedCropComponents(
   sectStart: CropPoint,
-  sectEnd: CropPoint
+  sectEnd: CropPoint,
+  prevPoint?: CropPoint | null,
+  nextPoint?: CropPoint | null
 ): [number, number, number, number] {
   const start = getCropComponents(sectStart.crop);
-  const eased = getEasedCropComponentsAtTime(
-    start,
-    getCropComponents(sectEnd.crop),
-    sectStart.x,
-    sectEnd.x,
-    sectEnd.easeIn,
-    currentCropTime(),
-    getFPS()
-  );
+  const end = getCropComponents(sectEnd.crop);
+  // smoothTrack flows through points via neighbor tangents (an instant section still snaps), always
+  // with the monotone clamp so it cannot overshoot a point at a reversal.
+  const easing = getActiveCropPointEasing();
+  const useSmoothTrack = easing === 'smoothTrack' && sectEnd.easeIn !== 'instant';
+  const eased = useSmoothTrack
+    ? getSmoothTrackCropComponentsAtTime(
+        start,
+        end,
+        sectStart.x,
+        sectEnd.x,
+        toSectionNeighbor(prevPoint),
+        toSectionNeighbor(nextPoint),
+        currentCropTime(),
+        getFPS(),
+        true
+      )
+    : getEasedCropComponentsAtTime(
+        start,
+        end,
+        sectStart.x,
+        sectEnd.x,
+        sectEnd.easeIn,
+        currentCropTime(),
+        getFPS()
+      );
   // A zero-duration section has nothing to ease: hold the start crop.
   return eased ?? [start[0], start[1], start[2], start[3]];
 }
@@ -923,11 +968,11 @@ export function getCurrentCropComponents(): [number, number, number, number] | n
     const time = currentCropTime();
     // Snap to the exact crop point only while parked on its own frame (video paused). Right after an
     // edit the playhead sits a sub-frame off the auto-keyed point (inserted at roundX(time)), so
-    // interpolating there would blend toward a neighbor and snap the crop on release; the snap holds
-    // it. We must NOT snap during playback, nor when frame-stepping PAST a point (a full frame away),
-    // or the crop freezes for the frames within a frame of the point and reads as a jump when
-    // crossing it. The paused gate plus the same-frame (half-frame) test restricts the snap to exactly
-    // the parked-on-a-point cases.
+    // interpolating there would blend toward a neighbor and shift a fast smoothTrack crop a few
+    // pixels off what was drawn; the snap holds it. We must NOT snap during playback, nor when
+    // frame-stepping PAST a point (a full frame away), or the crop freezes for the ~3 frames within
+    // a frame of the point and reads as a jump when crossing it. The paused gate plus the same-frame
+    // (half-frame) test restricts the snap to exactly the parked-on-a-point cases.
     const { index } = isPlayheadOnCropKeyframe(cropMap, time);
     const parkedPoint = cropMap[index];
     if (parkedPoint && appState.video.paused && isWithinSameFrame(time, parkedPoint.x, getFPS())) {
@@ -940,7 +985,12 @@ export function getCurrentCropComponents(): [number, number, number, number] | n
     // the preview jump to the next keyframe instead of easing smoothly across it.
     const [left, right] = cropInterpolationSectionAtTime(cropMap, time);
     if (cropMap[left] && cropMap[right]) {
-      return getEasedCropComponents(cropMap[left], cropMap[right]);
+      return getEasedCropComponents(
+        cropMap[left],
+        cropMap[right],
+        cropMap[left - 1],
+        cropMap[right + 1]
+      );
     }
   }
   const point = cropMap[appState.currentCropPointIndex] ?? cropMap[0];
@@ -1121,7 +1171,12 @@ export function updateDynamicCropOverlays(
   // exact crop the video transform is driven from (getCurrentCropComponents — the
   // edited point while manipulating, the interpolated crop while scrubbing); otherwise
   // the section interpolation.
-  let [curX, curY, curW, curH] = getEasedCropComponents(sectStart, sectEnd);
+  let [curX, curY, curW, curH] = getEasedCropComponents(
+    sectStart,
+    sectEnd,
+    chartData[currentCropChartSection[0] - 1],
+    chartData[currentCropChartSection[1] + 1]
+  );
   if (isReframeEnabled()) {
     const cc = getCurrentCropComponents();
     if (cc) [curX, curY, curW, curH] = cc;

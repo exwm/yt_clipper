@@ -111,6 +111,7 @@ const settingsAllow = {
   minterpFpsMultiplier: true,
   loop: true,
   fadeDuration: true,
+  cropPointEasing: true,
 } as const satisfies Record<keyof Settings, true>;
 
 export const markerPairAllow = {
@@ -128,6 +129,7 @@ export const markerPairAllow = {
 
 export const overridesAllow = {
   titlePrefix: true,
+  cropPointEasing: true,
   enableHDR: true,
   gamma: true,
   encodeSpeed: true,
@@ -263,6 +265,7 @@ function requireNonNegativeFinite(value: unknown, field: string, index: number):
  *  expects to consume. */
 const OVERRIDES_VALIDATORS = {
   titlePrefix: (v: unknown) => typeof v === 'string',
+  cropPointEasing: (v: unknown) => v === 'smoothInOut' || v === 'smoothTrack',
   enableHDR: (v: unknown) => typeof v === 'boolean',
   gamma: (v: unknown) => isFiniteNumber(v),
   encodeSpeed: (v: unknown) => isFiniteNumber(v),
@@ -460,6 +463,7 @@ const KEY_POLICY = {
   minterpFpsMultiplier: 'apply',
   loop: 'apply',
   fadeDuration: 'apply',
+  cropPointEasing: 'apply',
 } as const satisfies Record<keyof ClipperInput, 'apply' | 'skip'>;
 
 export function toApplicableSettings(input: ClipperInput): Partial<Settings> {
