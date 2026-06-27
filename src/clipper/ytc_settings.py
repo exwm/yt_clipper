@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 from rich.markup import escape
-from rich.text import Text
 
 from clipper import markers_schema, util
 from clipper.clip_maker import getDefaultEncodeSettings
@@ -27,7 +26,7 @@ from clipper.log_helpers import (
     render_settings_table,
 )
 from clipper.platforms import getVideoPageURL
-from clipper.ytc_logger import Subsystem, make_subsystem_logger, printToLogFile
+from clipper.ytc_logger import Subsystem, make_subsystem_logger
 from clipper.ytdl import ytdl_bin_get_subs, ytdl_bin_get_video_info
 
 logger = make_subsystem_logger(Subsystem.SETTINGS)
@@ -217,7 +216,7 @@ def getVideoInfo(cs: ClipperState) -> None:
         logger.notice("HLS streaming protocol (m3u8) is disabled.")
         disableVideoStreamingProtocols(settings, UNSUPPORTED_VIDEO_STREAMING_PROTOCOLS)
 
-    videoInfo, audioInfo, formats_table = _getVideoInfo(cs)
+    videoInfo, audioInfo = _getVideoInfo(cs)
 
     if (
         not settings["downloadVideo"]
@@ -246,7 +245,7 @@ def getVideoInfo(cs: ClipperState) -> None:
                 settings,
                 UNSUPPORTED_VIDEO_STREAMING_PROTOCOLS,
             )
-            videoInfo, audioInfo, formats_table = _getVideoInfo(cs)
+            videoInfo, audioInfo = _getVideoInfo(cs)
         else:
             logger.warning(
                 f"Continuing with potentially unsupported protocol {videoInfo['protocol']}",
@@ -258,7 +257,7 @@ def getVideoInfo(cs: ClipperState) -> None:
         settings["videoDownloadURL"] = videoInfo["url"]
         settings["audioDownloadURL"] = audioInfo["url"]
 
-    getMoreVideoInfo(cs, videoInfo, audioInfo, formats_table)
+    getMoreVideoInfo(cs, videoInfo, audioInfo)
 
 
 def disableVideoStreamingProtocols(settings: Settings, protocols: List[str]) -> None:
@@ -266,10 +265,10 @@ def disableVideoStreamingProtocols(settings: Settings, protocols: List[str]) -> 
     settings["format"] = f"({settings['format']}){disableClause}"
 
 
-def _getVideoInfo(cs: ClipperState) -> Tuple[Dict[str, Any], Dict[str, Any], str]:
+def _getVideoInfo(cs: ClipperState) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     settings = cs.settings
 
-    ytdl_info, formats_table = ytdl_bin_get_video_info(cs)
+    ytdl_info = ytdl_bin_get_video_info(cs)
 
     settings["videoType"] = ytdl_info.get("_type")
 
@@ -303,14 +302,13 @@ def _getVideoInfo(cs: ClipperState) -> Tuple[Dict[str, Any], Dict[str, Any], str
         dynamic_range and dynamic_range.lower() != "sdr"
     )
 
-    return videoInfo, audioInfo, formats_table
+    return videoInfo, audioInfo
 
 
-def getMoreVideoInfo(  # noqa: PLR0912 (too-many-branches)
+def getMoreVideoInfo(
     cs: ClipperState,
     videoInfo: Dict,
     audioInfo: Dict,
-    formats_table: str,
 ) -> None:
     settings = cs.settings
 
@@ -387,25 +385,6 @@ def getMoreVideoInfo(  # noqa: PLR0912 (too-many-branches)
         default=UNKNOWN_PROPERTY,
     )
 
-    if formats_table:
-        formats_table_text = Text.from_ansi(formats_table)
-        formats_table = re.sub(
-            string=formats_table,
-            pattern=rf"m{videoFormatID}",
-            repl=f"m✅{videoFormatID}",
-        )
-        formats_table = re.sub(
-            string=formats_table,
-            pattern=rf"m{audioFormatID}",
-            repl=f"m✅{audioFormatID}",
-        )
-        logger.info(
-            f"Found the following audio/video formats: \n",
-        )
-        # print without logger to use full console width
-        print(formats_table)
-        printToLogFile(cs.clipper_paths, f"{formats_table_text}\n")
-
     logger.report(f"Video Format: {videoFormat} ({videoFormatID})")
     # TODO: improve detection of when unique audio stream format information is available
     if videoFormat != audioFormat:
@@ -464,19 +443,23 @@ def getGlobalSettings(cs: ClipperState) -> None:
                 sys.exit(1)
 
     if settings["inputVideo"]:
-        getMoreVideoInfo(cs, {}, {}, "")
+        getMoreVideoInfo(cs, {}, {})
     else:
         getVideoInfo(cs)
 
     encodeSettings = getDefaultEncodeSettings(settings["bit_rate"])
 
-    log_settings_dump(logger.info, render_settings_table(
-        build_auto_encode_settings_snapshot(
-            encodeSettings, color_space=settings["color_space"],
+    log_settings_dump(
+        logger.info,
+        render_settings_table(
+            build_auto_encode_settings_snapshot(
+                encodeSettings,
+                color_space=settings["color_space"],
+            ),
+            title="Auto-determined encoding settings",
+            markup=True,
         ),
-        title="Auto-determined encoding settings",
-        markup=True,
-    ))
+    )
 
     encodeSettings = {**encodeSettings, **settings}
     if "targetMaxBitrate" not in encodeSettings:
@@ -487,15 +470,18 @@ def getGlobalSettings(cs: ClipperState) -> None:
         if "targetMaxBitrate" in encodeSettings
         else "auto"
     )
-    log_settings_dump(logger.info, render_settings_table(
-        build_global_settings_snapshot(
-            encodeSettings,
-            minterp_fps=getMinterpFPS(settings, None),
-            target_max_bitrate_text=globalTargetBitrateMsg,
+    log_settings_dump(
+        logger.info,
+        render_settings_table(
+            build_global_settings_snapshot(
+                encodeSettings,
+                minterp_fps=getMinterpFPS(settings, None),
+                target_max_bitrate_text=globalTargetBitrateMsg,
+            ),
+            title="Global encoding settings",
+            markup=True,
         ),
-        title="Global encoding settings",
-        markup=True,
-    ))
+    )
 
 
 def autoSetCropMultiples(settings: Settings) -> None:
