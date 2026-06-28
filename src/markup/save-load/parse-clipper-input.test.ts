@@ -321,6 +321,19 @@ describe('parseOverrides: per-field type validation', () => {
     expect(overrides.enableHDR).toBeUndefined();
   });
 
+  test.each([
+    ['cropPointEasingCinematicMargin', -50, false],
+    ['cropPointEasingCinematicMargin', 0, true],
+    ['cropPointEasingCinematicZoomMargin', 1.5, false],
+    ['cropPointEasingCinematicZoomMargin', 1, true],
+  ])('Cinematic margin override %s = %d is kept: %s (the schema bounds)', (key, value, kept) => {
+    const { input } = parseClipperInput({
+      markerPairs: [{ start: 0, end: 5, overrides: { [key]: value } }],
+    } as Record<string, unknown>);
+    const overrides = input.markerPairs[0].overrides as Record<string, unknown>;
+    expect(overrides[key]).toBe(kept ? value : undefined);
+  });
+
   test('drops non-finite numeric override values (NaN, Infinity)', () => {
     const { input } = parseClipperInput({
       markerPairs: [
@@ -369,5 +382,45 @@ describe('parseOverrides: per-field type validation', () => {
     expect(overrides.crf).toBe(23);
     expect(overrides.audio).toBe(true);
     expect(overrides.gamma).toBeUndefined();
+  });
+});
+
+describe('parseClipperInput: cinematic cropPath', () => {
+  const segment = { startT: 0, endT: 1, x: [0, 1, 0], y: [0, 0, 0], w: [100, 0, 0], h: [50, 0, 0] };
+  const validPath = {
+    version: 1,
+    margin: { pos: 40, zoom: 0.08 },
+    signature: 'abc',
+    segments: [segment],
+  };
+  const parsePath = (cropPath: unknown) => {
+    const { input, issues } = parseClipperInput({ markerPairs: [{ start: 0, end: 1, cropPath }] });
+    return { cropPath: input.markerPairs[0].cropPath, issues };
+  };
+
+  test.each([
+    ['a valid path', validPath],
+    ['a path from another solver version (stale, not invalid)', { ...validPath, version: 2 }],
+  ])('keeps %s', (_name, raw) => {
+    const { cropPath, issues } = parsePath(raw);
+    expect(cropPath).toEqual(raw);
+    expect(issues).toEqual([]);
+  });
+
+  test.each([
+    ['a non-integer version', { ...validPath, version: 1.5 }],
+    ['a missing signature', { ...validPath, signature: undefined }],
+    ['a non-finite margin', { ...validPath, margin: { pos: NaN, zoom: 0 } }],
+    ['no segments', { ...validPath, segments: [] }],
+    ['a segment ending before it starts', { ...validPath, segments: [{ ...segment, endT: -1 }] }],
+    ['a non-finite coefficient', { ...validPath, segments: [{ ...segment, x: [0, Infinity, 0] }] }],
+    [
+      'a coefficient list of the wrong length',
+      { ...validPath, segments: [{ ...segment, w: [1, 2] }] },
+    ],
+  ])('drops a path with %s and reports it', (_name, raw) => {
+    const { cropPath, issues } = parsePath(raw);
+    expect(cropPath).toBeUndefined();
+    expect(issues).toEqual([{ kind: 'invalidCropPath', path: 'markerPairs[0].cropPath' }]);
   });
 });

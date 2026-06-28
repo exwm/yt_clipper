@@ -353,6 +353,11 @@
   cursor: default;
 }
 
+/* Compact, so it doesn't make its label row taller or wider than a plain label. */
+.settings-gear-button {
+  padding: 1px;
+}
+
 .settings-toggle-divider {
   width: 1px;
   align-self: stretch;
@@ -972,4 +977,48 @@
 .ytc-share-modal-actions input[type='button'].ytc-share-modal-cancel:hover {
   background: rgba(245, 166, 35, 0.25);
   color: #ffd894;
+}
+
+/* A settings gear's popover: positioned next to the gear by script, with no backdrop. */
+.ytc-settings-popover {
+  position: fixed;
+  z-index: 2147483000;
+  padding: 8px 10px;
+  background: var(--dark-grey);
+  color: var(--light-grey);
+  border: 1px solid var(--med-grey);
+  border-radius: 4px;
+  box-shadow: 4px 4px 12px 0px var(--darker-grey);
+  font-size: 10pt;
+}
+
+.ytc-settings-popover-title {
+  margin-bottom: 4px;
+  color: var(--lighter-grey);
+  font-weight: 700;
+}
+
+/* One label and input per row, the inputs in one column. */
+.ytc-settings-popover > div:not(.ytc-settings-popover-title) {
+  display: grid;
+  grid-template-columns: 1fr 5em;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.ytc-settings-popover input[type='number'] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 2px 4px;
+  background: var(--darker-grey);
+  color: var(--lighter-grey);
+  border: 1px solid var(--med-grey);
+  border-radius: 2px;
+}
+
+/* An empty input inherits the value shown here. */
+.ytc-settings-popover input[type='number']::placeholder {
+  color: var(--light-grey);
+  opacity: 0.75;
 }

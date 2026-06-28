@@ -32,6 +32,9 @@
   "minterpFpsMultiplier": 2,
   "loop": "fwrev",
   "fadeDuration": 0.7,
+  "cropPointEasing": "cinematic",
+  "cropPointEasingCinematicMargin": 40,
+  "cropPointEasingCinematicZoomMargin": 0.08,
   "version": "5.48.0",
   "date": 1760000000000,
   "markerPairs": [
@@ -67,7 +70,8 @@
         "videoStabilizationDynamicZoom": false,
         "minterpFpsMultiplier": 1.5,
         "loop": "none",
-        "fadeDuration": 0.5
+        "fadeDuration": 0.5,
+        "cropPointEasing": "smoothTrack"
       }
     },
     {
@@ -76,9 +80,17 @@
       "end": 12,
       "speed": 1,
       "crop": "0:0:iw:ih",
+      "cropPath": {
+        "version": 1,
+        "margin": { "pos": 20, "zoom": 0.1 },
+        "signature": "a1b2c3",
+        "segments": [
+          { "startT": 10, "endT": 12, "x": [0, 5, -0.5], "y": [0, 0, 0], "w": [1920, 0, 0], "h": [1080, 0, 0] }
+        ]
+      },
       "enableZoomPan": true,
       "cropRes": "1920x1080",
-      "overrides": {}
+      "overrides": { "cropPointEasing": "cinematic", "cropPointEasingCinematicMargin": 20, "cropPointEasingCinematicZoomMargin": 0.1 }
     },
     {
       "number": 3,

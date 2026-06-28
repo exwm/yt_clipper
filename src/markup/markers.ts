@@ -463,6 +463,7 @@ export function pushMarkerPairsArray(currentTime: number, markerPairConfig: Mark
       { x: appState.startTime, y: 0, crop: crop },
       { x: currentTime, y: 0, crop: crop },
     ],
+    cropPath: markerPairConfig.cropPath,
     cropChartLoop: markerPairConfig.cropChartLoop ?? { enabled: true },
     enableZoomPan: markerPairConfig.enableZoomPan ?? false,
     cropRes: appState.settings.cropRes,

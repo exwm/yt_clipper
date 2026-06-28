@@ -33,6 +33,7 @@ from clipper.ffmpeg_filter import (
     getAutoScaledCropComponents,
     getAverageSpeed,
     getCropFilter,
+    getCropPathFilter,
     getEasingExpression,
     getMinSpeed,
     getMinterpFilter,
@@ -207,12 +208,24 @@ def getMarkerPairSettings(  # noqa: PLR0912
 
     mp["maxSize"] = cropComponents["w"] * cropComponents["h"]
     cropEaseType = resolveCropEaseType(mps.get("cropPointEasing"))
-    if mp["isZoomPanCrop"]:
+    cropPath = mp.get("cropPath")
+    if cropPath and cropPath.get("segments") and mps.get("cropPointEasing") == "cinematic":
+        # Cinematic mode renders the baked L1 path verbatim (the markup solved and baked it), so the
+        # output matches the preview exactly. Takes precedence over the pan/zoom cropMap branches.
+        mp["cropFilter"], mp["maxSize"] = getCropPathFilter(
+            cropPath,
+            settings,
+            mps["r_frame_rate"],
+            inputIsHDR=settings["inputIsHDR"],
+        )
+    elif mp["isZoomPanCrop"]:
         mp["cropFilter"], mp["maxSize"] = getZoomPanFilter(
             cropMap=mp["cropMap"],
             fps=mps["r_frame_rate"],
             easeType=cropEaseType,
             inputIsHDR=settings["inputIsHDR"],
+            frameWidth=settings["width"],
+            frameHeight=settings["height"],
         )
     elif mp["isPanningCrop"]:
         mp["cropFilter"] = getCropFilter(

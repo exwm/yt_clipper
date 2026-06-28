@@ -1,5 +1,5 @@
 import { saveAs } from 'file-saver';
-import { MarkerConfig, MarkerPair, SpeedPoint } from '../@types/yt_clipper';
+import { CropPath, MarkerConfig, MarkerPair, SpeedPoint } from '../@types/yt_clipper';
 import { __version__, appState } from '../appState';
 import {
   getMarkersDataEntriesFromLocalStorage,
@@ -10,6 +10,12 @@ import {
 import { html, render } from 'lit-html';
 import { isStaticCrop } from '../crop-utils';
 import { DEFAULT_CROP_POINT_EASING } from '../crop/crop-keyframe-math';
+import {
+  bakeCinematicPath,
+  DEFAULT_CINEMATIC_MARGIN,
+  DEFAULT_CINEMATIC_ZOOM_MARGIN,
+  isCropPathFresh,
+} from '../crop/cinematic-path';
 import { deleteElement, flashMessage, assertDefined } from '../util/util';
 import { isTheatreMode, updateSettingsEditorHook } from '../yt_clipper';
 import { addMarker } from '../markers';
@@ -38,7 +44,39 @@ export function getClipperInputData(date?) {
     }
   });
 
+  const { cropResWidth, cropResHeight } = appState.settings;
   const markerPairsNumbered = appState.markerPairs.map((markerPair, idx) => {
+    const effectiveEasing =
+      markerPair.overrides.cropPointEasing ??
+      appState.settings.cropPointEasing ??
+      DEFAULT_CROP_POINT_EASING;
+    // Ship the baked cinematic path only when that mode is active, so the clipper renders exactly
+    // what the preview showed. Recompute it here if it is stale or missing, so an unedited or just-
+    // edited cinematic pair never ships a path that no longer matches its points (or none at all).
+    let cropPath: CropPath | undefined = undefined;
+    if (effectiveEasing === 'cinematic' && !isStaticCrop(markerPair.cropMap)) {
+      const margins = {
+        pos:
+          markerPair.overrides.cropPointEasingCinematicMargin ??
+          appState.settings.cropPointEasingCinematicMargin ??
+          DEFAULT_CINEMATIC_MARGIN,
+        zoom:
+          markerPair.overrides.cropPointEasingCinematicZoomMargin ??
+          appState.settings.cropPointEasingCinematicZoomMargin ??
+          DEFAULT_CINEMATIC_ZOOM_MARGIN,
+      };
+      cropPath = isCropPathFresh(
+        markerPair.cropPath,
+        markerPair.cropMap,
+        margins,
+        cropResWidth,
+        cropResHeight
+      )
+        ? markerPair.cropPath
+        : (bakeCinematicPath(markerPair.cropMap, margins, cropResWidth, cropResHeight) ??
+          undefined);
+      markerPair.cropPath = cropPath; // cache so the preview matches what was saved
+    }
     const markerPairNumbered = {
       number: idx + 1,
       ...markerPair,
@@ -46,15 +84,13 @@ export function getClipperInputData(date?) {
       // set inherits the global default; only pre-feature JSONs omit the field (legacy sine render).
       overrides: {
         ...markerPair.overrides,
-        cropPointEasing:
-          markerPair.overrides.cropPointEasing ??
-          appState.settings.cropPointEasing ??
-          DEFAULT_CROP_POINT_EASING,
+        cropPointEasing: effectiveEasing,
       },
       speedMapLoop: undefined,
       speedMap: isVariableSpeed(markerPair.speedMap) ? markerPair.speedMap : undefined,
       speedChartLoop: undefined,
       cropMap: !isStaticCrop(markerPair.cropMap) ? markerPair.cropMap : undefined,
+      cropPath,
       cropChartLoop: undefined,
       undoredo: undefined,
       startNumbering: undefined,
@@ -286,6 +322,7 @@ export function addMarkerPairs(markerPairs: MarkerPair[]) {
       speedChartLoop: markerPair.speedChartLoop,
       crop: markerPair.crop,
       cropMap: markerPair.cropMap,
+      cropPath: markerPair.cropPath,
       cropChartLoop: markerPair.cropChartLoop,
       enableZoomPan: markerPair.enableZoomPan,
       overrides: markerPair.overrides,

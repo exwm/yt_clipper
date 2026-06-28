@@ -117,8 +117,11 @@ export const easeInInstant = (timePercentage: number) => (timePercentage >= 1 ? 
  *  - `smoothTrack`: a cubic Hermite spline with monotone (Fritsch-Carlson) tangents. Each point
  *    gets a non-zero tangent from its neighbors, so the crop keeps moving THROUGH points instead of
  *    stopping, tracking a steady camera pan, while never overshooting a point on a reversal.
+ *  - `cinematic`: an L1 optimal camera path. Instead of interpolating through the points it
+ *    approximates them within a margin with steady holds, constant-velocity pans, and smooth
+ *    transitions (see cinematic-path.ts). The path is baked and rendered verbatim, not eased here.
  */
-export type CropPointEasing = 'smoothInOut' | 'smoothTrack';
+export type CropPointEasing = 'smoothInOut' | 'smoothTrack' | 'cinematic';
 
 // The crop easing a pair uses when neither it nor the global setting has a mode. Save writes the
 // global mode, so a saved file always carries one. Only JSONs saved before this feature lack it; the
@@ -126,9 +129,10 @@ export type CropPointEasing = 'smoothInOut' | 'smoothTrack';
 export const DEFAULT_CROP_POINT_EASING: CropPointEasing = 'smoothTrack';
 
 /**
- * A neighbor of the section being eased, used only by smoothTrack to derive the section's end
- * tangents. `easeIn === 'instant'` on the boundary into a point makes that point a hard break:
- * the tangent there is dropped to zero so the spline does not flow across an instant transition.
+ * A neighbor of the section being eased, used by the splines to derive the section's end
+ * tangents. `easeIn` is the transition between the neighbor and the section (the start point's
+ * easeIn for the previous neighbor, the neighbor's own for the next one). `'instant'` makes it a
+ * hard break: the tangent there drops to zero so the spline does not flow across the cut.
  */
 export interface CropSectionNeighbor {
   components: readonly number[];
@@ -179,9 +183,10 @@ function sectionPointTangent(
 
 /**
  * The smoothTrack crop components at `time` for the section [start, end], using the bracketing
- * neighbors to shape the curve. Mirrors getEasedCropComponentsAtTime's section timing (the
- * frame-pulled-back duration and the clamp past it) so it lines up with the smoothInOut path.
- * Returns null for a zero-duration section.
+ * neighbors to shape the curve. Unlike the other easings it spans the points' real times, not an end
+ * pulled back to a frame: sections then meet exactly, so the crop keeps its speed through each point
+ * on any frame grid (a pulled-back end held the crop for part of a frame at every point). Mirrors the
+ * clipper's getCropFilter. Returns null for a zero-duration section.
  */
 export function getSmoothTrackCropComponentsAtTime(
   startComponents: readonly number[],
@@ -191,11 +196,10 @@ export function getSmoothTrackCropComponentsAtTime(
   prev: CropSectionNeighbor | null,
   next: CropSectionNeighbor | null,
   time: number,
-  fps: number,
   monotone = false
 ): [number, number, number, number] | null {
-  const sectDuration = getEaseSectionDuration(startTime, endTime, fps);
-  if (sectDuration == null) return null;
+  const sectDuration = endTime - startTime;
+  if (!(sectDuration > 0)) return null;
 
   const clampedTime = clampNumber(time, startTime, endTime);
   const s = clampNumber((clampedTime - startTime) / sectDuration, 0, 1);
@@ -277,4 +281,75 @@ export function getEasedCropComponentsAtTime(
     )
   );
   return [eased[0], eased[1], eased[2], eased[3]];
+}
+
+// A crop point resolved to numeric components, for the pure easing dispatch below.
+export interface EasingCropPoint {
+  time: number;
+  components: readonly number[];
+  easeIn: CropPoint['easeIn'];
+}
+
+/**
+ * The eased crop components at `time` for the section [start, end] under `easing`. `prev` and
+ * `next` are the points bracketing the section; the splines take their tangents from them, and an
+ * instant transition between a neighbor and the section breaks the spline there. An instant
+ * section snaps. Cinematic is eased like smoothTrack here: its baked path is the caller's concern.
+ * `frame` (the crop resolution) keeps a spline crop inside the frame, as the clipper does.
+ */
+export function getSectionEasedCropComponents(
+  easing: CropPointEasing,
+  start: EasingCropPoint,
+  end: EasingCropPoint,
+  prev: EasingCropPoint | null,
+  next: EasingCropPoint | null,
+  time: number,
+  fps: number,
+  frame?: { width: number; height: number }
+): [number, number, number, number] {
+  const useSpline = easing !== 'smoothInOut' && end.easeIn !== 'instant';
+  // Each neighbor carries the transition between it and the section.
+  const prevNeighbor: CropSectionNeighbor | null = prev && {
+    components: prev.components,
+    time: prev.time,
+    easeIn: start.easeIn,
+  };
+  const nextNeighbor: CropSectionNeighbor | null = next && {
+    components: next.components,
+    time: next.time,
+    easeIn: next.easeIn,
+  };
+  let eased: [number, number, number, number] | null;
+  if (useSpline) {
+    eased = getSmoothTrackCropComponentsAtTime(
+      start.components,
+      end.components,
+      start.time,
+      end.time,
+      prevNeighbor,
+      nextNeighbor,
+      time,
+      true
+    );
+  } else {
+    eased = getEasedCropComponentsAtTime(
+      start.components,
+      end.components,
+      start.time,
+      end.time,
+      end.easeIn,
+      time,
+      fps
+    );
+  }
+  // A zero-duration section has nothing to ease: hold the start crop.
+  const s = start.components;
+  if (!eased) return [s[0], s[1], s[2], s[3]];
+  // The spline eases the position and the size on their own, so on a zoom the crop can pass the
+  // frame edge between points. The other easings stay between their end crops, which are inside.
+  if (useSpline && frame) {
+    eased[0] = clampNumber(eased[0], 0, frame.width - eased[2]);
+    eased[1] = clampNumber(eased[1], 0, frame.height - eased[3]);
+  }
+  return eased;
 }

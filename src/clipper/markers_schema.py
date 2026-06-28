@@ -25,7 +25,17 @@ SCHEMA_PATH = (
 
 # Settings only the markup script reads. An invalid one is dropped instead of stopping the run.
 MARKUP_ONLY_SETTINGS = frozenset(
-    {"newMarkerSpeed", "newMarkerCrop", "isVerticalVideo", "videoTag", "version", "date"},
+    {
+        "newMarkerSpeed",
+        "newMarkerCrop",
+        "isVerticalVideo",
+        "videoTag",
+        "version",
+        "date",
+        # The markup bakes these into each pair's cropPath.
+        "cropPointEasingCinematicMargin",
+        "cropPointEasingCinematicZoomMargin",
+    },
 )
 
 

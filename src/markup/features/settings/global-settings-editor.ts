@@ -1,7 +1,8 @@
 import { html, render, TemplateResult } from 'lit-html';
 import { ref } from 'lit-html/directives/ref.js';
 import { appState } from '../../appState';
-import { getCurrentCropComponents, hideChart } from '../../charts';
+import { getCurrentCropComponents, hideChart, scheduleCinematicRecompute } from '../../charts';
+import { DEFAULT_CINEMATIC_MARGIN, DEFAULT_CINEMATIC_ZOOM_MARGIN } from '../../crop/cinematic-path';
 import { isReframeEnabled, syncReframe } from '../../crop/video-zoom-controller';
 import {
   CropChip,
@@ -10,6 +11,8 @@ import {
   InfoRow,
   NumberInputRow,
   SettingsFieldset,
+  SettingsGearButton,
+  setSettingsGearButtonVisible,
   TextInputRow,
 } from '../../components/settings';
 import { EncodeSettingsFieldset } from './encode-settings-fieldset';
@@ -72,6 +75,9 @@ function GlobalSettingsEditorTemplate(binder: SettingsBinder<Settings>): Templat
     appState.rotation !== 0
       ? getRotatedCropString(settings.newMarkerCrop)
       : getNumericCropString(settings.newMarkerCrop);
+  // Live read, so the gear's afterChange toggle sees the freshly written easing.
+  const isCinematicActive = () =>
+    (settings.cropPointEasing ?? DEFAULT_CROP_POINT_EASING) === 'cinematic';
   const numOrRange = `(\\d{1,2})|(\\d{1,2}-\\d{1,2})`;
   const csvRange = `(${numOrRange})*(,(${numOrRange}))*`;
   const csvRangeReq = `(${numOrRange}){1}(,(${numOrRange}))*`;
@@ -234,16 +240,55 @@ function GlobalSettingsEditorTemplate(binder: SettingsBinder<Settings>): Templat
       display: encodeDisplay,
       source: settings,
       bind: bind as FieldBinder,
-      cropEasingRow: CropEasingSelect({
-        ...bind('crop-point-easing-input', 'cropPointEasing', 'inheritableString', {
-          afterChange: () => triggerCropPreviewRedraw(),
-        }),
-        label: 'Crop Easing',
-        value: settings.cropPointEasing,
-        // The global default for every pair that does not override it.
-        defaultOptionLabel: `(${cropEasingModeLabels[DEFAULT_CROP_POINT_EASING]})`,
-        tooltip: Tooltips.cropPointEasingTooltip,
-      }),
+      cropEasingRow: html`
+        ${CropEasingSelect({
+          ...bind('crop-point-easing-input', 'cropPointEasing', 'inheritableString', {
+            afterChange: () => {
+              triggerCropPreviewRedraw();
+              scheduleCinematicRecompute();
+              setSettingsGearButtonVisible('global-cinematic-settings-modal', isCinematicActive());
+            },
+          }),
+          label: 'Crop Easing',
+          value: settings.cropPointEasing,
+          // The global default for every pair that does not override it.
+          defaultOptionLabel: `(${cropEasingModeLabels[DEFAULT_CROP_POINT_EASING]})`,
+          tooltip: Tooltips.cropPointEasingTooltip,
+          labelSuffix: SettingsGearButton({
+            id: 'global-cinematic-settings-modal',
+            title: 'Cinematic Settings',
+            visible: isCinematicActive(),
+            content: () => html`
+              ${NumberInputRow({
+                // The solve redraws the preview. A redraw now would show the stale path's fallback.
+                ...bind('cinematic-margin-input', 'cropPointEasingCinematicMargin', 'number', {
+                  afterChange: scheduleCinematicRecompute,
+                }),
+                label: 'Margin (px)',
+                value: settings.cropPointEasingCinematicMargin ?? '',
+                placeholder: String(DEFAULT_CINEMATIC_MARGIN),
+                min: 0,
+                step: 1,
+                tooltip: Tooltips.cinematicMarginTooltip,
+                compact: true,
+              })}
+              ${NumberInputRow({
+                ...bind('cinematic-zoom-margin-input', 'cropPointEasingCinematicZoomMargin', 'number', {
+                  afterChange: scheduleCinematicRecompute,
+                }),
+                label: 'Zoom Margin',
+                value: settings.cropPointEasingCinematicZoomMargin ?? '',
+                placeholder: String(DEFAULT_CINEMATIC_ZOOM_MARGIN),
+                min: 0,
+                max: 1,
+                step: 0.01,
+                tooltip: Tooltips.cinematicZoomMarginTooltip,
+                compact: true,
+              })}
+            `,
+          }),
+        })}
+      `,
       // Host that the toggle bar relocates into while encode settings are open.
       legendExtra: html`<span class="settings-legend-connector"></span
         ><span id="settings-toggle-host-encode"></span>`,

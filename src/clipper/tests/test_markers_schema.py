@@ -17,6 +17,18 @@ def kitchenSink() -> dict[str, Any]:
     return json.loads((EXAMPLES_DIR / "kitchen-sink.json").read_text(encoding="utf-8"))
 
 
+def cropPathWith(*, segmentCount: int = 1, **segmentChanges: object) -> dict[str, Any]:
+    segment = {"startT": 1.5, "endT": 6.25, "x": [0, 1, 0], "y": [0, 0, 0], "w": [960, 0, 0]}
+    segment = {**segment, "h": [540, 0, 0], **segmentChanges}
+    segments = [segment] * segmentCount
+    return {
+        "version": 1,
+        "margin": {"pos": 40, "zoom": 0.08},
+        "signature": "s",
+        "segments": segments,
+    }
+
+
 def validate(markers: dict[str, Any]) -> markers_schema.MarkersValidation:
     markers_schema.normalizeLegacyFormat(markers)
     return markers_schema.validateMarkers(markers)
@@ -91,6 +103,7 @@ def test_invalid_global_settings_are_reported(key: str, value: object) -> None:
     [
         pytest.param("newMarkerCrop", "0:NaN:iw:ih", id="NaN new marker crop"),
         pytest.param("version", 5, id="numeric version"),
+        pytest.param("cropPointEasingCinematicMargin", "40 -y", id="cinematic margin with arguments"),
     ],
 )
 def test_invalid_markup_only_settings_are_dropped(key: str, value: object) -> None:
@@ -119,6 +132,15 @@ def test_missing_required_setting_is_reported() -> None:
         pytest.param(["overrides", "gamma"], "1.0 -y", id="override value"),
         pytest.param(["cropMap", 1, "crop"], "1:1:1:1;", id="crop point"),
         pytest.param(["speedMap", 0, "y"], -1, id="speed point"),
+        pytest.param(["overrides", "cropPointEasing"], "linear", id="unknown crop easing"),
+        pytest.param(["cropPath"], cropPathWith(x=["0", 5, 1]), id="crop path string coefficient"),
+        pytest.param(["cropPath"], cropPathWith(x=[0, None, 1]), id="crop path NaN coefficient"),
+        pytest.param(["cropPath"], cropPathWith(y=[0, 0]), id="crop path short coefficients"),
+        pytest.param(
+            ["cropPath"],
+            cropPathWith(segmentCount=5001),
+            id="crop path too many segments",
+        ),
     ],
 )
 def test_invalid_pair_values_only_fail_that_pair(path: list[Any], value: object) -> None:
