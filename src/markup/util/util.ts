@@ -2,6 +2,13 @@ import { html, render } from 'lit-html';
 import { SpeedPoint } from '../@types/yt_clipper';
 import { VideoPlatforms } from '../platforms/platforms';
 import { appState, VideoElement } from '../appState';
+import {
+  onExternalSeek,
+  onSeekRequest,
+  onSeekSettled,
+  onStaleTimer,
+  SeekDecision,
+} from './seek-coalescer';
 
 export function assertDefined<T>(value: T | null | undefined, msg?: string): asserts value is T {
   if (value == null) {
@@ -287,11 +294,16 @@ export function getEasedValue(
 // Now we coalesce instead. While a seek is in flight, the latest
 // requested target lives in a single pending slot; when the active
 // seek finishes (``seeked`` event), the pending target is flushed —
-// "latest write wins". On top of that:
+// "latest write wins". The decision logic is the pure core in
+// seek-coalescer.ts; this file is the shell that holds the state and
+// applies its effects. On top of that:
 //
-//   - A 250ms stale-pending timer bounds how long the slot can sit
-//     between writes. Catches pipeline stalls and limits the race
-//     window with external seek sources.
+//   - A 1s timer bounds the wait: a normal seek settles well within it
+//     and its ``seeked`` flushes the pending. The earlier 250ms was too
+//     short — a slow seek (YouTube buffering mid-scrub) outran it and
+//     the pending was dropped, stranding a fast drag at an intermediate
+//     frame. After a full second still seeking we give up rather than
+//     queue indefinitely.
 //
 //   - A ``seeking`` event listener detects external seeks (YouTube
 //     progress bar, native keyboard shortcuts, ad insertion, etc.)
@@ -303,7 +315,7 @@ let pendingSeekVideo: VideoElement | null = null;
 let stalePendingTimerId: number | null = null;
 let expectingOurSeekingEvent = false;
 
-const STALE_PENDING_TIMEOUT_MS = 250;
+const STALE_PENDING_TIMEOUT_MS = 1000;
 
 /** One frame's duration in seconds, falling back to 30fps when fps is missing/invalid (NaN slips
  *  straight through getFPS). Shared by the frame-tolerance checks so the fallback lives in one place. */
@@ -319,26 +331,36 @@ export function isWithinSameFrame(timeA: number, timeB: number, fps: number): bo
   return Math.abs(timeA - timeB) <= 0.5 * frameDuration(fps);
 }
 
-function clearPending() {
-  pendingSeekTime = null;
-  if (stalePendingTimerId !== null) {
+// Apply a decision from the pure core: store the new pending slot, (re)arm or clear the stale timer,
+// and fire any seek it asked for.
+function applyDecision(video: VideoElement, decision: SeekDecision) {
+  pendingSeekTime = decision.pending;
+  if (decision.effects.some((e) => e.type === 'armTimer')) {
+    armStalePendingTimer();
+  } else if (stalePendingTimerId !== null) {
     clearTimeout(stalePendingTimerId);
     stalePendingTimerId = null;
+  }
+  for (const effect of decision.effects) {
+    if (effect.type === 'fire') fireSeekNow(video, effect.target);
   }
 }
 
 function armStalePendingTimer() {
   if (stalePendingTimerId !== null) clearTimeout(stalePendingTimerId);
   stalePendingTimerId = window.setTimeout(() => {
-    pendingSeekTime = null;
     stalePendingTimerId = null;
+    if (pendingSeekVideo === null) return;
+    applyDecision(
+      pendingSeekVideo,
+      onStaleTimer(pendingSeekTime, pendingSeekVideo.getCurrentTime(), pendingSeekVideo.seeking)
+    );
   }, STALE_PENDING_TIMEOUT_MS);
 }
 
 function fireSeekNow(video: VideoElement, target: number) {
-  // Tag the upcoming ``seeking`` event as ours so the listener doesn't
-  // misclassify it as external. Reset on throw so a failed seek call
-  // doesn't leave us "expecting" forever.
+  // Tag the upcoming 'seeking' event as ours so onSeeking doesn't misclassify it as external. Reset on
+  // throw so a failed seek doesn't leave us "expecting" forever.
   expectingOurSeekingEvent = true;
   try {
     video.seekTo(target);
@@ -349,30 +371,22 @@ function fireSeekNow(video: VideoElement, target: number) {
 }
 
 function onSeeked() {
-  // A seek just completed (could be ours or an external one). If a
-  // pending target accumulated while we were waiting, flush it now.
-  // External seeks already cleared pending in onSeeking, so this is
-  // a no-op for them.
-  if (pendingSeekVideo === null || pendingSeekTime === null) return;
-  const video = pendingSeekVideo;
-  const target = pendingSeekTime;
-  clearPending();
-  if (video.seeking) return; // a later 'seeked' will pick this up
-  if (isNaN(target) || video.getCurrentTime() === target) return;
-  fireSeekNow(video, target);
+  if (pendingSeekVideo === null) return;
+  applyDecision(
+    pendingSeekVideo,
+    onSeekSettled(pendingSeekTime, pendingSeekVideo.getCurrentTime(), pendingSeekVideo.seeking)
+  );
 }
 
 function onSeeking() {
-  // A seek is starting. Distinguish ours from external: if WE just
-  // called fireSeekNow the flag is set; consume and continue. If the
-  // flag is clear, an external source (YT progress bar, native
-  // shortcut, ad logic, etc.) initiated this seek — discard our
-  // pending target so it can't snap-back over the user's intent.
+  // Distinguish our seek from an external one (YT progress bar, native shortcut, ad). If WE just
+  // fired, consume the flag. Otherwise an external source initiated this seek, so drop our pending so
+  // it can't snap back over the user's intent.
   if (expectingOurSeekingEvent) {
     expectingOurSeekingEvent = false;
     return;
   }
-  clearPending();
+  if (pendingSeekVideo !== null) applyDecision(pendingSeekVideo, onExternalSeek());
 }
 
 function ensureSeekListeners(video: VideoElement) {
@@ -389,21 +403,8 @@ function ensureSeekListeners(video: VideoElement) {
 export function seekToSafe(video: VideoElement, newTime: number) {
   newTime = clampNumber(newTime, 0, video.duration);
   if (isNaN(newTime)) return;
-  if (video.getCurrentTime() === newTime) {
-    // Already at the exact target, so no-op. Clear any stale pending for the now-irrelevant target.
-    clearPending();
-    return;
-  }
   ensureSeekListeners(video);
-  if (video.seeking) {
-    pendingSeekTime = newTime; // overwrite — latest write wins
-    armStalePendingTimer();
-    return;
-  }
-  // Not seeking: fire immediately. Drop any stale pending; the
-  // current request supersedes it.
-  clearPending();
-  fireSeekNow(video, newTime);
+  applyDecision(video, onSeekRequest(newTime, video.getCurrentTime(), video.seeking));
 }
 export function seekBySafe(video: VideoElement, timeDelta: number) {
   const newTime = video.getCurrentTime() + timeDelta;
