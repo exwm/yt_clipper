@@ -171,6 +171,10 @@ export let cropAspectRatioSpan: HTMLSpanElement;
 export function setCropAspectRatioSpan(el: HTMLSpanElement) {
   cropAspectRatioSpan = el;
 }
+export let interpCropSpan: HTMLSpanElement;
+export function setInterpCropSpan(el: HTMLSpanElement) {
+  interpCropSpan = el;
+}
 export function highlightModifiedSettings(
   inputs: readonly { id: string; field: string; type: SettingsValueType }[],
   target: SettingsTarget

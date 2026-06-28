@@ -337,6 +337,7 @@ export type ToggleIconName =
   | 'save'
   | 'load'
   | 'copy'
+  | 'check'
   | 'restore'
   | 'captureFrame'
   | 'cropDim'
@@ -474,6 +475,12 @@ const TOGGLE_GLYPHS: Record<ToggleIconName, GlyphData> = {
     viewBox: '0 0 1600 1600',
     body: svg`<g fill="currentColor"><g enable-background="new" transform="matrix(100 0 0 100 16598.796 -13600.362)"><path d="m-156.48438 137c-.27612.00003-.49996.22387-.5.5v.5h-1.5c-.32865.005-.51562.25232-.51562.5v.5h2.51562 1 2.48438v-.5c0-.25267-.14909-.49526-.48438-.5h-1.5v-.5c-.00003-.27613-.22387-.49997-.5-.5zm3.48438 2 .0156.5v.5h-6v-.5l-.0156-.5h-1.48438c-.27612.00003-.49996.22387-.5.5v3.5h2.3086a1.50015 1.50015 0 0 1 .16211-.0137 1.50015 1.50015 0 0 1 1.52929 1.69726v4.31644h5.5c.27613-.00003.49997-.22387.5-.5v-9c-.00003-.27613-.22387-.49997-.5-.5z" opacity=".5"/><path d="m-158.49414 143.99609a.50005.50005 0 0 0 -.0508.004h-3.93946a.50005.50005 0 1 0 0 1h2.79297l-5.14648 5.14648a.50005.50005 0 1 0 .70703.70704l5.14648-5.14649v2.79288a.50005.50005 0 1 0 1 0v-3.94336a.50005.50005 0 0 0 -.50976-.56055z"/></g></g>`,
   },
+  // blender:CHECKMARK — transient copied confirmation on the crop chip's copy button.
+  check: {
+    source: 'blender:CHECKMARK',
+    viewBox: '0 0 1200 900',
+    body: svg`<g fill="currentColor"><path d="m226.98047 602.99023a1.0001 1.0001 0 0 0 -.6875.30274l-4.29297 4.29297-2.29297-2.29297a1.0001 1.0001 0 1 0 -1.41406 1.41406l3 3a1.0001 1.0001 0 0 0 1.41406 0l5-5a1.0001 1.0001 0 0 0 -.72656-1.7168z" transform="matrix(100 0 0 100 -21699.775 -60199.48)"/></g>`,
+  },
   // blender:RESTRICT_RENDER_OFF — camera, used for the capture-frame action.
   captureFrame: {
     source: 'blender:RESTRICT_RENDER_OFF',
@@ -515,6 +522,7 @@ const TOGGLE_LABELS: Record<ToggleIconName, string> = {
   save: 'Save markers',
   load: 'Load markers',
   copy: 'Copy markers',
+  check: 'Copied',
   restore: 'Restore markers',
   captureFrame: 'Capture frame',
   cropDim: 'Cycle crop dim opacity',

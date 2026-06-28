@@ -10,7 +10,13 @@ import {
   toggleChart,
 } from '../../charts';
 import { isReframeEnabled, syncReframe, toggleReframe } from '../../crop/video-zoom-controller';
-import { InfoRow, NumberInputRow, SettingsFieldset, TextInputRow } from '../../components/settings';
+import {
+  CropChip,
+  InfoRow,
+  NumberInputRow,
+  SettingsFieldset,
+  TextInputRow,
+} from '../../components/settings';
 import { EncodeSettingsFieldset } from './encode-settings-fieldset';
 import {
   createCropOverlay,
@@ -24,7 +30,12 @@ import {
 import { captureFrame } from '../../frame-capture';
 import { cyclePreviewRotation } from '../../video-rotation';
 import { loadClipperInputDataFromLocalStorage } from '../../auto-save';
-import { cropStringsEqual, getCropComponents } from '../../crop-utils';
+import {
+  cropStringsEqual,
+  getCropComponents,
+  getNumericCropString,
+  getRotatedCropString,
+} from '../../crop-utils';
 import {
   cropPreviewEnabled,
   toggleCropPreview,
@@ -61,10 +72,12 @@ import {
   highlightModifiedSettings,
   isExtraSettingsEditorEnabled,
   SettingsBinder,
+  interpCropSpan,
   setCropAspectRatioSpan,
   setCropInput,
   setCropInputLabel,
   setEnableZoomPanInput,
+  setInterpCropSpan,
   toggleMarkerPairOverridesEditor,
 } from './settings-editor';
 import { MarkerPair, MarkerPairOverrides } from '../../@types/yt_clipper';
@@ -127,6 +140,9 @@ function MarkerPairEditorTemplate(
   const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
   const [, , w, h] = getCropComponents(crop);
   const cropAspectRatio = (w / h).toFixed(13);
+  // The chip's initial value; the preview loop then keeps it at the live interpolated crop.
+  const chipCrop =
+    appState.rotation !== 0 ? getRotatedCropString(crop) : getNumericCropString(crop);
 
   const overrides = markerPair.overrides;
   const effectiveMinterpMul =
@@ -205,6 +221,13 @@ function MarkerPairEditorTemplate(
           ...bindPair('crop-input', 'crop', 'string'),
           labelId: 'crop-input-label',
           label: 'Crop',
+          labelSuffix: CropChip({
+            valueId: 'interp-crop-value',
+            crop: chipCrop,
+            tooltip: 'Current crop',
+            onCopy: () =>
+              interpCropSpan?.textContent && copyToClipboard(interpCropSpan.textContent),
+          }),
           value: crop,
           tooltip: Tooltips.cropTooltip,
           pattern: cropInputValidation,
@@ -294,6 +317,7 @@ export function createMarkerPairEditor(targetMarker: SVGRectElement) {
   setCropInputLabel(appState.cropInputLabel);
   setCropInput(appState.cropInput);
   setCropAspectRatioSpan(appState.cropAspectRatioSpan);
+  setInterpCropSpan(document.getElementById('interp-crop-value') as HTMLSpanElement);
   setEnableZoomPanInput(appState.enableZoomPanInput);
   appState.isSettingsEditorOpen = true;
   appState.wasGlobalSettingsEditorOpen = false;

@@ -7,6 +7,8 @@ export interface TextInputRowProps {
   id: string;
   label: string;
   labelId?: string;
+  // Optional content rendered on the same line as the label (e.g. a crop chip).
+  labelSuffix?: TemplateResult;
   value: string | null | undefined;
   tooltip?: string;
   pattern?: string;
@@ -19,9 +21,12 @@ export interface TextInputRowProps {
 }
 
 export function TextInputRow(p: TextInputRowProps): TemplateResult {
+  const labelSpan = html`<span id=${p.labelId ?? nothing}>${p.label}</span>`;
   return html`
     <div class="settings-editor-input-div" title=${p.tooltip ?? nothing}>
-      <span id=${p.labelId ?? nothing}>${p.label}</span>
+      ${p.labelSuffix
+        ? html`<span class="text-input-label-row">${labelSpan}${p.labelSuffix}</span>`
+        : labelSpan}
       <input
         id=${p.id}
         pattern=${p.pattern ?? nothing}

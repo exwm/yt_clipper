@@ -381,6 +381,105 @@
   margin-bottom: 2px;
 }
 
+/* Label + crop chip on one line (overrides the block-span rule above). */
+.settings-editor-input-div .text-input-label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.settings-editor-input-div .text-input-label-row > span {
+  display: inline;
+  margin-bottom: 0;
+}
+
+/* Crop chip, reduced to its copy button: the label row has no room for the crop string, so it
+   shows in a custom hover tooltip instead. Relative anchors the tooltip bubble. */
+.settings-editor-input-div .crop-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  /* auto left margin floats the chip to the right edge of the flex label row. */
+  margin: 0 0 0 auto;
+}
+
+/* The live-updated copy source, hidden until hover. */
+.settings-editor-input-div .crop-chip-value {
+  display: none;
+}
+
+/* On hover the value span itself becomes the tooltip bubble, so it ticks live with the
+   interpolated crop during playback. A native title cannot: browsers snapshot it once and
+   Chromium resets the pending tooltip on every attribute change. */
+.settings-editor-input-div .crop-chip:hover .crop-chip-value {
+  display: block;
+  position: absolute;
+  bottom: calc(100% + 5px);
+  right: 0;
+  z-index: 9999;
+  margin: 0;
+  padding: 3px 8px;
+  background: var(--darker-grey);
+  border: 1px solid var(--med-grey);
+  border-radius: 4px;
+  color: var(--lighter-grey);
+  font-family: monospace;
+  font-size: 8.5pt;
+  line-height: 1.5;
+  white-space: nowrap;
+  text-align: right;
+  pointer-events: none;
+}
+
+/* Static hint line under the live value (e.g. "Current crop"). */
+.settings-editor-input-div .crop-chip:hover .crop-chip-value[data-tooltip]::after {
+  content: attr(data-tooltip);
+  display: block;
+  color: var(--med-light-grey);
+  font-size: 7.5pt;
+}
+
+/* Same shape and colors as the settings bar's icon buttons (.settings-toggle). */
+.settings-editor-input-div .crop-chip-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  background: var(--dark-grey);
+  border: 1px solid var(--med-grey);
+  border-radius: 4px;
+  color: var(--light-grey);
+  cursor: pointer;
+}
+
+/* Block + zero margin on the icon wrappers and svg removes the inline baseline gap and overrides
+   the editor's block-span margin, so the glyph is centered in the button. */
+.settings-editor-input-div .crop-chip-copy > span,
+.settings-editor-input-div .crop-chip-copy svg {
+  display: block;
+  margin: 0;
+}
+
+.settings-editor-input-div .crop-chip-copy:hover {
+  color: white;
+  border-color: var(--light-grey);
+}
+
+/* Copied cue: swap the copy glyph for a checkmark briefly, tinted the app's success green. */
+.settings-editor-input-div .crop-chip-copy .crop-chip-icon-check,
+.settings-editor-input-div .crop-chip-copy.crop-chip-copied .crop-chip-icon-copy {
+  display: none;
+}
+
+.settings-editor-input-div .crop-chip-copy.crop-chip-copied .crop-chip-icon-check {
+  display: block;
+}
+
+.settings-editor-input-div .crop-chip-copy.crop-chip-copied {
+  color: rgba(58, 195, 106, 0.95);
+}
+
 .settings-editor-input-div select option {
   color: black;
 }

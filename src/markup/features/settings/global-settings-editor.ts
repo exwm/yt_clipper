@@ -3,10 +3,21 @@ import { ref } from 'lit-html/directives/ref.js';
 import { appState } from '../../appState';
 import { getCurrentCropComponents, hideChart } from '../../charts';
 import { isReframeEnabled, syncReframe } from '../../crop/video-zoom-controller';
-import { InfoRow, NumberInputRow, SettingsFieldset, TextInputRow } from '../../components/settings';
+import {
+  CropChip,
+  InfoRow,
+  NumberInputRow,
+  SettingsFieldset,
+  TextInputRow,
+} from '../../components/settings';
 import { EncodeSettingsFieldset } from './encode-settings-fieldset';
 import { createCropOverlay, hideCropOverlay, showCropOverlay } from '../../crop-overlay';
-import { getCropComponents, getDefaultCropRes } from '../../crop-utils';
+import {
+  getCropComponents,
+  getDefaultCropRes,
+  getNumericCropString,
+  getRotatedCropString,
+} from '../../crop-utils';
 import { triggerCropPreviewRedraw } from '../../crop/crop-preview';
 import {
   placeSettingsToggleBar,
@@ -23,12 +34,14 @@ import {
   highlightModifiedSettings,
   isExtraSettingsEditorEnabled,
   SettingsBinder,
+  interpCropSpan,
   setCropAspectRatioSpan,
   setCropInput,
+  setInterpCropSpan,
 } from './settings-editor';
 import { Settings } from '../../@types/yt_clipper';
 import { Tooltips } from '../../ui/tooltips';
-import { assertDefined, toHHMMSSTrimmed } from '../../util/util';
+import { assertDefined, copyToClipboard, toHHMMSSTrimmed } from '../../util/util';
 
 export function toggleGlobalSettingsEditor() {
   if (appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen) {
@@ -52,6 +65,10 @@ function GlobalSettingsEditorTemplate(binder: SettingsBinder<Settings>): Templat
   const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
   const [, , w, h] = getCropComponents(settings.newMarkerCrop);
   const cropAspectRatio = (w / h).toFixed(13);
+  const chipCrop =
+    appState.rotation !== 0
+      ? getRotatedCropString(settings.newMarkerCrop)
+      : getNumericCropString(settings.newMarkerCrop);
   const numOrRange = `(\\d{1,2})|(\\d{1,2}-\\d{1,2})`;
   const csvRange = `(${numOrRange})*(,(${numOrRange}))*`;
   const csvRangeReq = `(${numOrRange}){1}(,(${numOrRange}))*`;
@@ -94,6 +111,13 @@ function GlobalSettingsEditorTemplate(binder: SettingsBinder<Settings>): Templat
         ${TextInputRow({
           ...bind('crop-input', 'newMarkerCrop', 'string'),
           label: 'Crop',
+          labelSuffix: CropChip({
+            valueId: 'interp-crop-value',
+            crop: chipCrop,
+            tooltip: 'Current crop',
+            onCopy: () =>
+              interpCropSpan?.textContent && copyToClipboard(interpCropSpan.textContent),
+          }),
           value: settings.newMarkerCrop,
           tooltip: Tooltips.cropTooltip,
           pattern: cropInputValidation,
@@ -229,6 +253,7 @@ export function createGlobalSettingsEditor() {
 
   setCropInput(document.getElementById('crop-input') as HTMLInputElement);
   setCropAspectRatioSpan(document.getElementById('crop-aspect-ratio') as HTMLSpanElement);
+  setInterpCropSpan(document.getElementById('interp-crop-value') as HTMLSpanElement);
 
   appState.wasGlobalSettingsEditorOpen = true;
   appState.isSettingsEditorOpen = true;

@@ -5,8 +5,7 @@ import { Crop } from './crop/crop';
 import { appState } from './appState';
 import { clampNumber, flashMessage, getCropString } from './util/util';
 import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
-import { cropInput } from './features/settings/settings-editor';
-import { cropInputLabel } from './features/settings/settings-editor';
+import { cropInput, interpCropSpan } from './features/settings/settings-editor';
 import { getCropMapProperties, renderSpeedAndCropUI } from './charts';
 import { transformCropWithPushBack } from './crop-overlay';
 
@@ -214,11 +213,12 @@ export function getDefaultCropRes() {
 }
 export function setCropInputValue(cropString: string) {
   if (!cropInput) return;
-  // The stored crop stays in unrotated coordinates, so while previewing a rotation surface its
-  // rotated equivalent in the label. Gate on the rotation itself: a string diff would also fire for
-  // a symbolic 'iw'/'ih' crop (getRotatedCropString resolves those to pixels) with no rotation.
-  if (appState.rotation !== 0 && cropInputLabel) {
-    cropInputLabel.textContent = `Crop (Rotated: ${getRotatedCropString(cropString)})`;
+  // The crop chip beside the label shows the current crop, in rotated coordinates while previewing a
+  // rotation (the stored crop stays unrotated). In the per-marker editor the preview loop then
+  // overwrites it with the live interpolated crop; here it carries the selected/static crop.
+  if (interpCropSpan) {
+    interpCropSpan.textContent =
+      appState.rotation !== 0 ? getRotatedCropString(cropString) : getNumericCropString(cropString);
   }
   cropInput.value = cropString;
 }

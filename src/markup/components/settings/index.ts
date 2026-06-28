@@ -16,3 +16,5 @@ export { FpsMulStepper } from './fps-mul-stepper';
 export type { FpsMulStepperProps } from './fps-mul-stepper';
 export { InfoRow } from './info-row';
 export type { InfoRowProps } from './info-row';
+export { CropChip } from './crop-chip';
+export type { CropChipProps } from './crop-chip';

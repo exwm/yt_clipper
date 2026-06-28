@@ -30,10 +30,12 @@ import { cropChartActiveVideoHeightCSS } from './ui/css/css';
 import { platform } from './yt_clipper';
 import { VideoPlatforms } from './platforms/platforms';
 import { html, render } from 'lit-html';
-import { updateCropString } from './crop-utils';
+import { getRotatedCropString, updateCropString } from './crop-utils';
 import { setHoveredRegion } from './features/hints-bar/hover-region';
 import {
+  cropInput,
   cropInputLabel,
+  interpCropSpan,
   highlightSpeedAndCropInputs,
   renderCropForm,
   enableZoomPanInput,
@@ -276,6 +278,24 @@ export function renderSpeedAndCropUI(rerenderCharts = true, updateCurrentCropPoi
     if (!appState.wasGlobalSettingsEditorOpen) {
       const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
       updateCharts(markerPair, rerenderCharts);
+      // The crop section band is drawn by a chart plugin, so it only refreshes on a crop chart draw.
+      // While paused the rVFC preview loop is idle, and in reframe the crop chart is often not the
+      // "current" chart that updateCharts redraws, so a crop edit would leave the band stale. Redraw
+      // the crop chart directly on a settled paused edit (skip mid-drag to avoid the rapid-update
+      // point glitch; the drag release re-renders).
+      const cropChartAlreadyRerendered =
+        rerenderCharts &&
+        appState.isCurrentChartVisible &&
+        chartState.currentChartInput?.type === 'crop';
+      if (
+        chartState.cropChartInput.chart &&
+        appState.video.paused &&
+        !isMouseManipulatingCrop &&
+        !isDrawingCrop &&
+        !cropChartAlreadyRerendered
+      ) {
+        chartState.cropChartInput.chart.update();
+      }
       // avoid updating current crop point unless crop map times have changed
       if (updateCurrentCropPoint) setCurrentCropPointWithCurrentTime();
       renderMarkerPair(markerPair, appState.prevSelectedMarkerPairIndex);
@@ -772,6 +792,37 @@ export function cropChartPreviewHandler(loop = true, frameTime?: number) {
         cropInputLabel.textContent = `Crop Point ${appState.currentCropPointIndex + 1}`;
       } else {
         cropInputLabel.textContent = `Crop`;
+      }
+
+      // Keep the crop input value in sync with the selected point as the playhead crosses points, so
+      // it shows the current point's crop during playback (the label updated before, the value did
+      // not). Skip while the field is focused or the crop is being manipulated, to never clobber an
+      // active edit. Value-only write, no re-render or seek, so it is safe in the per-frame loop.
+      if (!isManipulatingOrDrawing && cropInput && document.activeElement !== cropInput) {
+        const selectedCrop = chartData[appState.currentCropPointIndex]?.crop;
+        if (selectedCrop != null && cropInput.value !== selectedCrop) {
+          cropInput.value = selectedCrop;
+        }
+      }
+
+      // Show the live interpolated crop at the playhead next to the point, copyable. textContent
+      // only, so it is safe in the per-frame loop.
+      if (interpCropSpan) {
+        const cc = getCurrentCropComponents();
+        if (cc) {
+          // Round to integer pixels so it reads like the crop input (which stores integer crops),
+          // and surface rotated coordinates while previewing a rotation, matching setCropInputValue.
+          let interpCropString = getCropString(
+            Math.round(cc[0]),
+            Math.round(cc[1]),
+            Math.round(cc[2]),
+            Math.round(cc[3])
+          );
+          if (appState.rotation !== 0) interpCropString = getRotatedCropString(interpCropString);
+          if (interpCropSpan.textContent !== interpCropString) {
+            interpCropSpan.textContent = interpCropString;
+          }
+        }
       }
 
       updateDynamicCropOverlays(chartData, time, isDynamicCrop);
