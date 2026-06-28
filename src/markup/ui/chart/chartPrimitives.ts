@@ -8,6 +8,14 @@ export const lightgrey = (opacity: number) => `rgba(120, 120, 120, ${opacity})`;
 export const medgrey = (opacity: number) => `rgba(90, 90, 90, ${opacity})`;
 export const grey = (opacity: number) => `rgba(50, 50, 50, ${opacity})`;
 
+// Crop chart section base colors (RGB), from yt_clipper's accent palette: rose (pan), amber (zoom),
+// purple (pan+zoom). cropSectionColor lerps from grey toward these by speed and sets the opacity, so a
+// slow section reads grey and faint, fading into the "no movement" line.
+export const cropSectionStaticRgb: readonly [number, number, number] = [120, 120, 120];
+export const cropSectionPanRgb: readonly [number, number, number] = [214, 80, 160];
+export const cropSectionZoomRgb: readonly [number, number, number] = [245, 166, 35];
+export const cropSectionPanZoomRgb: readonly [number, number, number] = [160, 0, 255];
+
 export const cubicInOutTension = 0.6;
 
 function getRounder(multiple: number, precision: number) {

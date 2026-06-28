@@ -5,6 +5,7 @@ import { assertDefined, clampNumber } from '../../../util/util';
 import { medgrey } from '../chartPrimitives';
 import { scatterChartSpec } from '../scatterChartSpec';
 import { isReframeEnabled } from '../../../crop/video-zoom-controller';
+import { cropSectionColor, cropZoomWidth, getCropSectionInfo } from './crop-section';
 import isEqual from 'lodash.isequal';
 
 const inputId = 'crop-input';
@@ -186,6 +187,9 @@ const cropChartConfig: ChartConfiguration = {
     ],
   },
   options: {
+    // Colored per-section segments are drawn by cropSectionPlugin; hide the default single-color
+    // connecting line so it does not sit under them.
+    elements: { line: { borderColor: 'rgba(0,0,0,0)' } },
     scales: {
       yAxes: [{ display: false }],
     },
@@ -203,6 +207,110 @@ const cropChartConfig: ChartConfiguration = {
   },
 };
 
+// A small filled triangle (arrowhead) just outside a point, pointing in the unit direction (ux, uy)
+// of the pan to the next point. Shows which way the crop center is moving; the band carries magnitude.
+function drawPanArrowhead(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  ux: number,
+  uy: number,
+  pointRadius: number,
+  color: string
+) {
+  const baseDist = pointRadius + 1;
+  const tipDist = baseDist + 6;
+  const halfWidth = 3.5;
+  const px = -uy; // perpendicular to the direction, for the base corners
+  const py = ux;
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(cx + ux * tipDist, cy + uy * tipDist);
+  ctx.lineTo(cx + ux * baseDist + px * halfWidth, cy + uy * baseDist + py * halfWidth);
+  ctx.lineTo(cx + ux * baseDist - px * halfWidth, cy + uy * baseDist - py * halfWidth);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'black';
+  ctx.stroke();
+  ctx.restore();
+}
+
+// Chart.js v2 has no scriptable per-segment line styling, so draw each section (the span between
+// consecutive crop points) here: colored by type (static / pan / pan+zoom) with width and opacity
+// scaled by the average velocity of change. Drawn before the dataset so the points sit on top (the
+// default connecting line is disabled in the config above). A pan arrowhead per point is drawn after,
+// extruded from the point perimeter toward the next point.
+const cropSectionPlugin = {
+  beforeDatasetsDraw(chart: Chart) {
+    const data = chart.data.datasets?.[0]?.data as CropPoint[] | undefined;
+    const meta = chart.getDatasetMeta(0);
+    const ctx = chart.ctx;
+    if (!data || !meta?.data || !ctx) return;
+    const { cropResWidth, cropResHeight } = appState.settings;
+    const count = Math.min(data.length, meta.data.length);
+    for (let i = 0; i < count - 1; i++) {
+      const v0 = (meta.data[i] as any)?._view;
+      const v1 = (meta.data[i + 1] as any)?._view;
+      if (!v0 || !v1) continue;
+      const info = getCropSectionInfo(
+        data[i].crop,
+        data[i + 1].crop,
+        data[i].x,
+        data[i + 1].x,
+        cropResWidth,
+        cropResHeight
+      );
+      // Draw the segment as a tapered band: each endpoint's width is its crop's zoom level (narrower
+      // when zoomed in), so the band tapers toward the zoom and joins smoothly at shared points. nx/ny
+      // is the unit perpendicular used to offset the two edges.
+      const w0 = cropZoomWidth(info.leftSize);
+      const w1 = cropZoomWidth(info.rightSize);
+      const dx = v1.x - v0.x;
+      const dy = v1.y - v0.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len;
+      const ny = dx / len;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(v0.x + (nx * w0) / 2, v0.y + (ny * w0) / 2);
+      ctx.lineTo(v1.x + (nx * w1) / 2, v1.y + (ny * w1) / 2);
+      ctx.lineTo(v1.x - (nx * w1) / 2, v1.y - (ny * w1) / 2);
+      ctx.lineTo(v0.x - (nx * w0) / 2, v0.y - (ny * w0) / 2);
+      ctx.closePath();
+      ctx.fillStyle = cropSectionColor(info.type, info.velocity);
+      ctx.fill();
+      ctx.restore();
+    }
+  },
+  afterDatasetsDraw(chart: Chart) {
+    const data = chart.data.datasets?.[0]?.data as CropPoint[] | undefined;
+    const meta = chart.getDatasetMeta(0);
+    const ctx = chart.ctx;
+    if (!data || !meta?.data || !ctx) return;
+    const { cropResWidth, cropResHeight } = appState.settings;
+    const count = Math.min(data.length, meta.data.length);
+    for (let i = 0; i < count - 1; i++) {
+      const v = (meta.data[i] as any)?._view;
+      if (!v) continue;
+      const info = getCropSectionInfo(
+        data[i].crop,
+        data[i + 1].crop,
+        data[i].x,
+        data[i + 1].x,
+        cropResWidth,
+        cropResHeight
+      );
+      if (info.type !== 'pan' && info.type !== 'panzoom') continue;
+      const mag = Math.hypot(info.panX, info.panY);
+      if (mag < 1e-6) continue;
+      // Constant red, matching the default crop point color, so the direction reads at any speed.
+      drawPanArrowhead(ctx, v.x, v.y, info.panX / mag, info.panY / mag, v.radius ?? 4, 'red');
+    }
+  },
+};
+
 export function getCropChartConfig(isCropChartPanOnly: boolean): ChartConfiguration {
   let cropChartConfigOverrides: ChartConfiguration = {}; // eslint-disable-line no-useless-assignment
   if (isCropChartPanOnly) {
@@ -216,5 +324,11 @@ export function getCropChartConfig(isCropChartPanOnly: boolean): ChartConfigurat
   }
 
   const cropChartConfigOverridden = Chart.helpers.merge(cropChartConfig, cropChartConfigOverrides);
-  return Chart.helpers.merge(scatterChartSpec('crop', inputId), cropChartConfigOverridden);
+  const config: ChartConfiguration = Chart.helpers.merge(
+    scatterChartSpec('crop', inputId),
+    cropChartConfigOverridden
+  );
+  // Attach after the merge: Chart.helpers.merge would mangle the plugin's function members.
+  config.plugins = [cropSectionPlugin];
+  return config;
 }
