@@ -1281,8 +1281,15 @@ export function getMouseCropHoverRegion(e: PointerEvent, cropString?: string): s
   // right after a seek, leaving the grab/resize regions off the visible crop. Null outside reframe,
   // so it falls back to the selected crop point there.
   if (cropString == null) {
-    const cc = getLastDrawnReframeCrop();
-    cropString = cc ? getCropString(cc[0], cc[1], cc[2], cc[3]) : getSelectedCropString();
+    // In the global settings editor the reframe canvas is not drawing a per-pair crop, so the last
+    // drawn reframe crop is stale (left over from the previously selected pair). Hit-test against the
+    // crop actually being edited there (newMarkerCrop, via getSelectedCropString) instead.
+    if (appState.wasGlobalSettingsEditorOpen) {
+      cropString = getSelectedCropString();
+    } else {
+      const cc = getLastDrawnReframeCrop();
+      cropString = cc ? getCropString(cc[0], cc[1], cc[2], cc[3]) : getSelectedCropString();
+    }
   }
   let [x, y, w, h] = getCropComponents(cropString);
 
