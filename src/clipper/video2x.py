@@ -18,6 +18,7 @@ _VIDEO2X_CODEC_MAP = {
     "h264_nvenc": "h264_nvenc",
     "vp9": "libvpx-vp9",
     "vp8": "libvpx",
+    "av1": "libsvtav1",
 }
 
 AVCodecContextOptions = {

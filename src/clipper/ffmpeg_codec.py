@@ -383,12 +383,20 @@ def getFfmpegVideoCodecAv1(
     video_codec_args = " ".join(
         (
             "-c:v libsvtav1",
+            # Write the mp4 colr atom so players read color space from the container, like the other
+            # mp4 codecs. Matters most for HDR and color-accurate SDR playback.
+            "-movflags write_colr",
             dynamic_range_args,
             preset_arg,
             f"-svtav1-params {svtav1_params}",
             crf_args,
             bitrate_arg,
             f"-force_key_frames 1 -g {mp['averageSpeed'] * Fraction(mps['r_frame_rate'])}",
+            # video_track_timescale = 2^4 * 3^2 * 5^2 * 7 * 11 * 13 * 23, max is ~2E9.
+            # A single fixed timescale keeps every clip mergeable: libsvtav1 otherwise lands on a
+            # per-mode mp4 timescale (the video2x interpolation re-encode inherits this arg), and
+            # mismatched timescales make `concat -c copy` emit non-monotonic DTS.
+            "-video_track_timescale 82882800",
         ),
     )
     video_codec_input_args = ""
