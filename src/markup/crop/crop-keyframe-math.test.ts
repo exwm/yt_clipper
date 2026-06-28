@@ -228,24 +228,23 @@ describe('getSmoothTrackCropComponentsAtTime', () => {
   const trackEnd = [200, 0, 100, 100];
   const prev: CropSectionNeighbor = { components: [0, 0, 100, 100], time: 0, easeIn: undefined };
   const next: CropSectionNeighbor = { components: [300, 0, 100, 100], time: 3, easeIn: undefined };
-  const dur = getEaseSectionDuration(1, 2, FPS_30) as number;
-  const quarterTime = 1 + dur * 0.25;
+  const quarterTime = 1.25;
 
   const trackAt = (
     time: number,
     p: CropSectionNeighbor | null = prev,
     n: CropSectionNeighbor | null = next
-  ) => getSmoothTrackCropComponentsAtTime(trackStart, trackEnd, 1, 2, p, n, time, FPS_30);
+  ) => getSmoothTrackCropComponentsAtTime(trackStart, trackEnd, 1, 2, p, n, time);
 
   it('returns null for a zero-duration section', () => {
     expect(
-      getSmoothTrackCropComponentsAtTime(trackStart, trackEnd, 5, 5, prev, next, 5, FPS_30)
+      getSmoothTrackCropComponentsAtTime(trackStart, trackEnd, 5, 5, prev, next, 5)
     ).toBeNull();
   });
 
   it('passes exactly through the start and end crop points', () => {
     expect(trackAt(1)?.[0]).toBeCloseTo(100, 6);
-    expect(trackAt(2)?.[0]).toBeCloseTo(200, 6); // clamped past the frame-pulled-back end
+    expect(trackAt(2)?.[0]).toBeCloseTo(200, 6);
   });
 
   it('carries momentum through a point instead of stalling like smoothInOut', () => {
@@ -310,8 +309,8 @@ describe('getSmoothTrackCropComponentsAtTime', () => {
       time: 0,
       easeIn: undefined,
     };
-    const earlyTime = 1 + dur * 0.1;
-    const args = [peakStart, peakEnd, 1, 2, before, null, earlyTime, FPS_30] as const;
+    const earlyTime = 1.1;
+    const args = [peakStart, peakEnd, 1, 2, before, null, earlyTime] as const;
 
     expect(getSmoothTrackCropComponentsAtTime(...args, false)?.[0]).toBeGreaterThan(100);
     expect(getSmoothTrackCropComponentsAtTime(...args, true)?.[0]).toBeLessThanOrEqual(100);
@@ -327,7 +326,6 @@ describe('getSmoothTrackCropComponentsAtTime', () => {
       prev,
       next,
       quarterTime,
-      FPS_30,
       true
     )?.[0] as number;
     expect(monotone).toBeCloseTo(catmull, 6);

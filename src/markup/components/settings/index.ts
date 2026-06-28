@@ -20,3 +20,9 @@ export { InfoRow } from './info-row';
 export type { InfoRowProps } from './info-row';
 export { CropChip } from './crop-chip';
 export type { CropChipProps } from './crop-chip';
+export {
+  SettingsGearButton,
+  closeSettingsGearPopovers,
+  setSettingsGearButtonVisible,
+} from './settings-gear-button';
+export type { SettingsGearButtonProps } from './settings-gear-button';

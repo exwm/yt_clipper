@@ -1,4 +1,5 @@
 import { presetsMap } from '../features/settings/presets';
+import { overridesAllow } from './parse-clipper-input';
 import {
   ByteReader,
   ByteWriter,
@@ -109,6 +110,13 @@ describe('share-format roundtrip', () => {
     const expected = canonicalizeSharePayload(fixture);
     expect(decoded).toEqual(expected);
   });
+
+  // A setting the share format does not carry is lost from shared links without an error, so a new
+  // override must join the kitchen sink, which roundtrips above.
+  test('the kitchen sink sets every override a markers JSON can hold', () => {
+    const overrides = kitchenSinkFixture.markerPairs[0].overrides ?? {};
+    expect(Object.keys(overrides).sort()).toEqual(Object.keys(overridesAllow).sort());
+  });
 });
 
 describe('share-format byte budget', () => {
@@ -117,9 +125,9 @@ describe('share-format byte budget', () => {
     expect(bytes.byteLength).toBeLessThan(32);
   });
 
-  test('kitchenSink fixture is under 72 B', () => {
+  test('kitchenSink fixture is under 88 B', () => {
     const bytes = serializeBinary(kitchenSinkFixture);
-    expect(bytes.byteLength).toBeLessThan(72);
+    expect(bytes.byteLength).toBeLessThan(88);
   });
 
   test('50-pair static fixture is under 475 B', () => {

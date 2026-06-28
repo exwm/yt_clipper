@@ -127,9 +127,22 @@ export namespace Tooltips {
   export const cropPointEasingTooltip = stripIndent`
     How a dynamic crop pans and zooms between crop points.
     Smooth Track: The crop keeps moving through points, so it keeps a moving subject in frame. It does not swing past a point when the subject reverses direction.
+    Cinematic: The crop does not pass through the points. It follows them within a margin, with steady holds, constant-speed pans, and smooth transitions. The path is recomputed after you finish editing.
     EaseInOut: Each section eases in and out, so the crop comes to rest at every point.
     The global default is Smooth Track. On a marker pair, Default uses the global Crop Easing.
     Markers data saved before version 5.49.0 renders with EaseInOut.
+    `;
+
+  export const cinematicMarginTooltip = stripIndent`
+    How far the crop position may drift from the crop points, in crop resolution pixels.
+    Larger margins give fewer, steadier moves. Smaller margins follow the points more closely. At zero, the crop follows the points exactly.
+    Only used when Crop Easing is Cinematic.
+    `;
+
+  export const cinematicZoomMarginTooltip = stripIndent`
+    How far the crop size may drift from the crop points' sizes, as a fraction of the size (0.1 is 10%).
+    Larger margins keep the zoom steadier between zoom moves.
+    Only used when Crop Easing is Cinematic.
     `;
 
   export const titleSuffixTooltip = stripIndent`
