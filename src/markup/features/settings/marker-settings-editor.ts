@@ -6,9 +6,11 @@ import {
   getCurrentCropComponents,
   hideChart,
   loadChartData,
+  scheduleCinematicRecompute,
   showChart,
   toggleChart,
 } from '../../charts';
+import { DEFAULT_CINEMATIC_MARGIN, DEFAULT_CINEMATIC_ZOOM_MARGIN } from '../../crop/cinematic-path';
 import { isReframeEnabled, syncReframe, toggleReframe } from '../../crop/video-zoom-controller';
 import {
   CropChip,
@@ -17,6 +19,8 @@ import {
   InfoRow,
   NumberInputRow,
   SettingsFieldset,
+  SettingsGearButton,
+  setSettingsGearButtonVisible,
   TextInputRow,
 } from '../../components/settings';
 import { DEFAULT_CROP_POINT_EASING } from '../../crop/crop-keyframe-math';
@@ -148,6 +152,11 @@ function MarkerPairEditorTemplate(
     appState.rotation !== 0 ? getRotatedCropString(crop) : getNumericCropString(crop);
 
   const overrides = markerPair.overrides;
+  // Live read, so the gear's afterChange toggle sees the freshly written easing.
+  const isCinematicActive = () =>
+    (overrides.cropPointEasing ??
+      appState.settings.cropPointEasing ??
+      DEFAULT_CROP_POINT_EASING) === 'cinematic';
   const effectiveMinterpMul =
     overrides.minterpFpsMultiplier ?? appState.settings.minterpFpsMultiplier ?? 0;
   const minterpFpsMulLabel = getMinterpFpsMulSuffix(effectiveMinterpMul, speed);
@@ -279,18 +288,64 @@ function MarkerPairEditorTemplate(
         onChange: () => updateMinterpFpsMulLabel(markerPair),
       },
       zoomPan: { enabled: markerPair.enableZoomPan, bind: bindPair as FieldBinder },
-      cropEasingRow: CropEasingSelect({
-        ...bindOverride('crop-point-easing-input', 'cropPointEasing', 'inheritableString', {
-          afterChange: () => triggerCropPreviewRedraw(),
-        }),
-        label: 'Crop Easing',
-        value: overrides.cropPointEasing,
-        // Default inherits the global setting (falling back to the built-in default).
-        defaultOptionLabel: `(${
-          cropEasingModeLabels[appState.settings.cropPointEasing ?? DEFAULT_CROP_POINT_EASING]
-        })`,
-        tooltip: Tooltips.cropPointEasingTooltip,
-      }),
+      cropEasingRow: html`
+        ${CropEasingSelect({
+          ...bindOverride('crop-point-easing-input', 'cropPointEasing', 'inheritableString', {
+            afterChange: () => {
+              triggerCropPreviewRedraw();
+              scheduleCinematicRecompute();
+              setSettingsGearButtonVisible('cinematic-settings-modal', isCinematicActive());
+            },
+          }),
+          label: 'Crop Easing',
+          value: overrides.cropPointEasing,
+          // Default inherits the global setting (falling back to the built-in default).
+          defaultOptionLabel: `(${
+            cropEasingModeLabels[appState.settings.cropPointEasing ?? DEFAULT_CROP_POINT_EASING]
+          })`,
+          tooltip: Tooltips.cropPointEasingTooltip,
+          labelSuffix: SettingsGearButton({
+            id: 'cinematic-settings-modal',
+            title: 'Cinematic Settings',
+            visible: isCinematicActive(),
+            content: () => html`
+              ${NumberInputRow({
+                ...bindOverride('cinematic-margin-input', 'cropPointEasingCinematicMargin', 'number', {
+                  afterChange: () => {
+                    triggerCropPreviewRedraw();
+                    scheduleCinematicRecompute();
+                  },
+                }),
+                label: 'Margin (px)',
+                value: overrides.cropPointEasingCinematicMargin ?? '',
+                placeholder: String(appState.settings.cropPointEasingCinematicMargin ?? DEFAULT_CINEMATIC_MARGIN),
+                min: 0,
+                step: 1,
+                tooltip: Tooltips.cinematicMarginTooltip,
+                compact: true,
+              })}
+              ${NumberInputRow({
+                ...bindOverride('cinematic-zoom-margin-input', 'cropPointEasingCinematicZoomMargin', 'number', {
+                  afterChange: () => {
+                    triggerCropPreviewRedraw();
+                    scheduleCinematicRecompute();
+                  },
+                }),
+                label: 'Zoom Margin',
+                value: overrides.cropPointEasingCinematicZoomMargin ?? '',
+                placeholder: String(
+                  appState.settings.cropPointEasingCinematicZoomMargin ?? DEFAULT_CINEMATIC_ZOOM_MARGIN
+                ),
+                min: 0,
+                max: 1,
+                step: 0.01,
+                tooltip: Tooltips.cinematicZoomMarginTooltip,
+                compact: true,
+              })}
+            `,
+          }),
+        })}
+      `,
       // Host that the toggle bar relocates into while overrides are open.
       legendExtra: html`<span class="settings-legend-connector"></span
         ><span id="settings-toggle-host-encode"></span>`,

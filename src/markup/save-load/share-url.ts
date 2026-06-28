@@ -1,6 +1,7 @@
 import { MarkerPair } from '../@types/yt_clipper';
 import { __version__, appState } from '../appState';
 import { isStaticCrop } from '../crop-utils';
+import { DEFAULT_CROP_POINT_EASING } from '../crop/crop-keyframe-math';
 import { copyToClipboard, flashMessage } from '../util/util';
 import { showLoadMarkersReviewModal } from './load-markers-review';
 import { applyClipperInput, isVariableSpeed } from './save-load';
@@ -104,6 +105,14 @@ function buildSharePayload(): SharePayload {
   }
   if (s.newMarkerCrop) settings.newMarkerCrop = s.newMarkerCrop;
   if (s.markerPairMergeList) settings.markerPairMergeList = s.markerPairMergeList;
+  // Always, as saving does, so the recipient previews the same motion.
+  settings.cropPointEasing = s.cropPointEasing ?? DEFAULT_CROP_POINT_EASING;
+  if (s.cropPointEasingCinematicMargin != null) {
+    settings.cropPointEasingCinematicMargin = s.cropPointEasingCinematicMargin;
+  }
+  if (s.cropPointEasingCinematicZoomMargin != null) {
+    settings.cropPointEasingCinematicZoomMargin = s.cropPointEasingCinematicZoomMargin;
+  }
 
   const markerPairs: ShareablePair[] = appState.markerPairs.map((pair: MarkerPair) => {
     const out: ShareablePair = {

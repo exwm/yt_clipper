@@ -46,6 +46,8 @@ function describeFormatIssue(issue: DataFormatIssue): TemplateResult {
         ${joinCodeElements(issue.keys)} (could modify internal runtime behavior)`;
     case 'invalidPoint':
       return html`<code>${issue.path}</code>: dropped invalid point`;
+    case 'invalidCropPath':
+      return html`<code>${issue.path}</code>: dropped invalid cinematic crop path`;
   }
 }
 

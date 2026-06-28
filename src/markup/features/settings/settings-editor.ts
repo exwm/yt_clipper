@@ -32,6 +32,7 @@ import {
   injectCSS,
 } from '../../util/util';
 import { render } from 'lit-html';
+import { closeSettingsGearPopovers } from '../../components/settings';
 import { shortcutsTableToggleButtonTemplate } from '../../ui/shortcuts-table/toggle-button';
 import { hintsBarToggleButtonTemplate } from '../../ui/hints-bar/toggle-button';
 import { toggleHintsBar } from '../hints-bar/hints-bar';
@@ -117,6 +118,7 @@ export function createBindings<T extends SettingsTarget>(target: T): SettingsBin
 export function deleteSettingsEditor() {
   const settingsEditorDiv = document.getElementById('settings-editor-div');
   assertDefined(settingsEditorDiv, 'Settings editor div not found');
+  closeSettingsGearPopovers();
   deleteElement(settingsEditorDiv);
   appState.isSettingsEditorOpen = false;
   appState.wasGlobalSettingsEditorOpen = false;

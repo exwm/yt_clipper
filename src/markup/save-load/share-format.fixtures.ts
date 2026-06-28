@@ -52,6 +52,13 @@ function canonicalizeOverrides(
   if (o.minterpFpsMultiplier != null) c.minterpFpsMultiplier = qCenti(o.minterpFpsMultiplier);
   if (o.loop != null) c.loop = LOOP_ORDER.includes(o.loop) ? o.loop : 'none';
   if (o.fadeDuration != null) c.fadeDuration = qCenti(o.fadeDuration);
+  if (o.cropPointEasing != null) c.cropPointEasing = o.cropPointEasing;
+  if (o.cropPointEasingCinematicMargin != null) {
+    c.cropPointEasingCinematicMargin = qCenti(o.cropPointEasingCinematicMargin);
+  }
+  if (o.cropPointEasingCinematicZoomMargin != null) {
+    c.cropPointEasingCinematicZoomMargin = qCenti(o.cropPointEasingCinematicZoomMargin);
+  }
   return Object.keys(c).length > 0 ? c : undefined;
 }
 
@@ -68,6 +75,13 @@ export function canonicalizeSharePayload(p: SharePayload): SharePayload {
   }
   if (s.newMarkerCrop) settings.newMarkerCrop = s.newMarkerCrop;
   if (s.markerPairMergeList) settings.markerPairMergeList = s.markerPairMergeList;
+  if (s.cropPointEasing != null) settings.cropPointEasing = s.cropPointEasing;
+  if (s.cropPointEasingCinematicMargin != null) {
+    settings.cropPointEasingCinematicMargin = qCenti(s.cropPointEasingCinematicMargin);
+  }
+  if (s.cropPointEasingCinematicZoomMargin != null) {
+    settings.cropPointEasingCinematicZoomMargin = qCenti(s.cropPointEasingCinematicZoomMargin);
+  }
 
   const markerPairs: ShareablePair[] = p.markerPairs.map((pair) => {
     const out: ShareablePair = {
@@ -166,6 +180,9 @@ export const kitchenSinkFixture: SharePayload = {
     newMarkerSpeed: 0.75,
     newMarkerCrop: '10:10:iw:ih',
     markerPairMergeList: '1-2,3',
+    cropPointEasing: 'smoothInOut',
+    cropPointEasingCinematicMargin: 25,
+    cropPointEasingCinematicZoomMargin: 0.05,
   },
   markerPairs: [
     {
@@ -188,6 +205,9 @@ export const kitchenSinkFixture: SharePayload = {
         minterpFpsMultiplier: 2,
         loop: 'fade',
         fadeDuration: 0.5,
+        cropPointEasing: 'cinematic',
+        cropPointEasingCinematicMargin: 60,
+        cropPointEasingCinematicZoomMargin: 0.12,
       },
     },
   ],

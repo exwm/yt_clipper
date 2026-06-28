@@ -52,6 +52,8 @@ export const VSTAB_PRESET_ORDER = [
 
 export const LOOP_ORDER = ['none', 'fwrev', 'fade'] as const;
 
+export const CROP_EASING_ORDER = ['smoothInOut', 'smoothTrack', 'cinematic'] as const;
+
 export class ByteWriter {
   private buf = new Uint8Array(INITIAL_BUFFER_SIZE);
   length = 0;
@@ -217,6 +219,9 @@ const SETTINGS_BIT_TITLE_SUFFIX = 1 << 1;
 const SETTINGS_BIT_NEW_MARKER_SPEED = 1 << 2;
 const SETTINGS_BIT_NEW_MARKER_CROP = 1 << 3;
 const SETTINGS_BIT_MERGE_LIST = 1 << 4;
+const SETTINGS_BIT_CROP_EASING = 1 << 5;
+const SETTINGS_BIT_CINEMATIC_MARGIN = 1 << 6;
+const SETTINGS_BIT_CINEMATIC_ZOOM_MARGIN = 1 << 7;
 
 const PAIR_BIT_SPEED_MAP = 1 << 0;
 const PAIR_BIT_CROP_MAP = 1 << 1;
@@ -244,6 +249,9 @@ const OV_BIT_VSTAB_DZ = 1 << 10;
 const OV_BIT_MINTERP_FPS_MUL = 1 << 11;
 const OV_BIT_LOOP = 1 << 12;
 const OV_BIT_FADE_DURATION = 1 << 13;
+const OV_BIT_CROP_EASING = 1 << 14;
+const OV_BIT_CINEMATIC_MARGIN = 1 << 15;
+const OV_BIT_CINEMATIC_ZOOM_MARGIN = 1 << 16;
 
 export interface ShareableSettings {
   cropResWidth?: number;
@@ -252,6 +260,9 @@ export interface ShareableSettings {
   newMarkerSpeed?: number;
   newMarkerCrop?: string;
   markerPairMergeList?: string;
+  cropPointEasing?: (typeof CROP_EASING_ORDER)[number];
+  cropPointEasingCinematicMargin?: number;
+  cropPointEasingCinematicZoomMargin?: number;
 }
 
 export interface ShareablePair {
@@ -415,6 +426,10 @@ function writeOverrides(w: ByteWriter, o: MarkerPair['overrides']) {
   if (o.minterpFpsMultiplier != null) mask |= OV_BIT_MINTERP_FPS_MUL;
   if (o.loop != null) mask |= OV_BIT_LOOP;
   if (o.fadeDuration != null) mask |= OV_BIT_FADE_DURATION;
+  const cropEasingId = cropEasingIdOf(o.cropPointEasing);
+  if (cropEasingId != null) mask |= OV_BIT_CROP_EASING;
+  if (o.cropPointEasingCinematicMargin != null) mask |= OV_BIT_CINEMATIC_MARGIN;
+  if (o.cropPointEasingCinematicZoomMargin != null) mask |= OV_BIT_CINEMATIC_ZOOM_MARGIN;
 
   w.writeVaruint(mask);
   if (o.titlePrefix != null) w.writeStr(o.titlePrefix);
@@ -424,6 +439,13 @@ function writeOverrides(w: ByteWriter, o: MarkerPair['overrides']) {
   if (o.targetMaxBitrate != null) w.writeVaruint(o.targetMaxBitrate);
   if (o.minterpFpsMultiplier != null) w.writeVaruint(quantizeCentipoint(o.minterpFpsMultiplier));
   if (o.fadeDuration != null) w.writeVaruint(quantizeCentipoint(o.fadeDuration));
+  if (cropEasingId != null) w.writeByte(cropEasingId);
+  if (o.cropPointEasingCinematicMargin != null) {
+    w.writeVaruint(quantizeCentipoint(o.cropPointEasingCinematicMargin));
+  }
+  if (o.cropPointEasingCinematicZoomMargin != null) {
+    w.writeVaruint(quantizeCentipoint(o.cropPointEasingCinematicZoomMargin));
+  }
   if (mask & OV_ENUM_MASK) {
     const d = o.denoise != null ? findDenoiseId(o.denoise) : 0;
     const v = o.videoStabilization != null ? findVStabId(o.videoStabilization) : 0;
@@ -447,6 +469,13 @@ function readOverrides(r: ByteReader): MarkerPair['overrides'] {
   if (mask & OV_BIT_VSTAB_DZ) o.videoStabilizationDynamicZoom = true;
   if (mask & OV_BIT_MINTERP_FPS_MUL) o.minterpFpsMultiplier = dequantizeCentipoint(r.readVaruint());
   if (mask & OV_BIT_FADE_DURATION) o.fadeDuration = dequantizeCentipoint(r.readVaruint());
+  if (mask & OV_BIT_CROP_EASING) o.cropPointEasing = cropEasingFromId(r.readByte());
+  if (mask & OV_BIT_CINEMATIC_MARGIN) {
+    o.cropPointEasingCinematicMargin = dequantizeCentipoint(r.readVaruint());
+  }
+  if (mask & OV_BIT_CINEMATIC_ZOOM_MARGIN) {
+    o.cropPointEasingCinematicZoomMargin = dequantizeCentipoint(r.readVaruint());
+  }
   if (mask & OV_ENUM_MASK) {
     const enumByte = r.readByte();
     if (mask & OV_BIT_DENOISE) o.denoise = denoisePresetFromId(enumByte & 0x07);
@@ -463,6 +492,10 @@ function writeSettings(w: ByteWriter, s: ShareableSettings) {
   if (s.newMarkerSpeed != null && s.newMarkerSpeed !== 1) mask |= SETTINGS_BIT_NEW_MARKER_SPEED;
   if (s.newMarkerCrop) mask |= SETTINGS_BIT_NEW_MARKER_CROP;
   if (s.markerPairMergeList) mask |= SETTINGS_BIT_MERGE_LIST;
+  const cropEasingId = cropEasingIdOf(s.cropPointEasing);
+  if (cropEasingId != null) mask |= SETTINGS_BIT_CROP_EASING;
+  if (s.cropPointEasingCinematicMargin != null) mask |= SETTINGS_BIT_CINEMATIC_MARGIN;
+  if (s.cropPointEasingCinematicZoomMargin != null) mask |= SETTINGS_BIT_CINEMATIC_ZOOM_MARGIN;
 
   w.writeVaruint(mask);
   if (s.cropResWidth != null && s.cropResHeight != null) {
@@ -475,6 +508,13 @@ function writeSettings(w: ByteWriter, s: ShareableSettings) {
   }
   if (s.newMarkerCrop) writeCrop(w, s.newMarkerCrop);
   if (s.markerPairMergeList) w.writeStr(s.markerPairMergeList);
+  if (cropEasingId != null) w.writeByte(cropEasingId);
+  if (s.cropPointEasingCinematicMargin != null) {
+    w.writeVaruint(quantizeCentipoint(s.cropPointEasingCinematicMargin));
+  }
+  if (s.cropPointEasingCinematicZoomMargin != null) {
+    w.writeVaruint(quantizeCentipoint(s.cropPointEasingCinematicZoomMargin));
+  }
 }
 
 function readSettings(r: ByteReader): ShareableSettings {
@@ -490,7 +530,24 @@ function readSettings(r: ByteReader): ShareableSettings {
   }
   if (mask & SETTINGS_BIT_NEW_MARKER_CROP) settings.newMarkerCrop = readCrop(r);
   if (mask & SETTINGS_BIT_MERGE_LIST) settings.markerPairMergeList = r.readStr();
+  if (mask & SETTINGS_BIT_CROP_EASING) settings.cropPointEasing = cropEasingFromId(r.readByte());
+  if (mask & SETTINGS_BIT_CINEMATIC_MARGIN) {
+    settings.cropPointEasingCinematicMargin = dequantizeCentipoint(r.readVaruint());
+  }
+  if (mask & SETTINGS_BIT_CINEMATIC_ZOOM_MARGIN) {
+    settings.cropPointEasingCinematicZoomMargin = dequantizeCentipoint(r.readVaruint());
+  }
   return settings;
+}
+
+function cropEasingIdOf(easing: string | undefined): number | null {
+  const id = CROP_EASING_ORDER.indexOf(easing as (typeof CROP_EASING_ORDER)[number]);
+  return id < 0 ? null : id;
+}
+
+// An unknown id from a corrupt link reads as Smooth Track, the default.
+function cropEasingFromId(id: number): (typeof CROP_EASING_ORDER)[number] {
+  return CROP_EASING_ORDER[id] ?? 'smoothTrack';
 }
 
 // Pair layout: mask varuint, then start (abs varuint for index 0, else Δ varsint),

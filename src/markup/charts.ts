@@ -60,6 +60,14 @@ import { getCropComponents, isStaticCrop, setCropInputValue } from './crop-utils
 import { Crop } from './crop/crop';
 import { triggerCropPreviewRedraw } from './crop/crop-preview';
 import {
+  bakeCinematicPath,
+  CinematicMargins,
+  DEFAULT_CINEMATIC_MARGIN,
+  DEFAULT_CINEMATIC_ZOOM_MARGIN,
+  evalCropPathAtTime,
+  isCropPathFresh,
+} from './crop/cinematic-path';
+import {
   CropKeyframeMatch,
   CropPointEasing,
   CropSectionNeighbor,
@@ -337,6 +345,9 @@ export function renderSpeedAndCropUI(rerenderCharts = true, updateCurrentCropPoi
     }
     highlightSpeedAndCropInputs();
     triggerCropPreviewRedraw();
+    // Crop points changed: rebake the cinematic path if that mode is active (debounced, freshness-
+    // gated, so this is a no-op otherwise).
+    scheduleCinematicRecompute();
     // Drive the reframe preview from the crop when it's edited (drag-release, arrow
     // keys, point switch), not just when scrubbing — so it tracks a static crop too.
     if (isReframeEnabled()) {
@@ -905,9 +916,105 @@ function getActiveCropPointEasing(): CropPointEasing {
   );
 }
 
-function toSectionNeighbor(point: CropPoint | undefined | null): CropSectionNeighbor | null {
+// `boundaryEaseIn` is the transition between the neighbor and the section: the start point's easeIn
+// for the previous neighbor, the neighbor's own easeIn for the next one.
+function toSectionNeighbor(
+  point: CropPoint | undefined | null,
+  boundaryEaseIn: CropPoint['easeIn']
+): CropSectionNeighbor | null {
   if (point == null) return null;
-  return { components: getCropComponents(point.crop), time: point.x, easeIn: point.easeIn };
+  return { components: getCropComponents(point.crop), time: point.x, easeIn: boundaryEaseIn };
+}
+
+// The cinematic margins for the active pair: per-pair override, else global, else default.
+function getActiveCinematicMargins(): CinematicMargins {
+  const mp = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+  return {
+    pos:
+      mp?.overrides?.cropPointEasingCinematicMargin ??
+      appState.settings.cropPointEasingCinematicMargin ??
+      DEFAULT_CINEMATIC_MARGIN,
+    zoom:
+      mp?.overrides?.cropPointEasingCinematicZoomMargin ??
+      appState.settings.cropPointEasingCinematicZoomMargin ??
+      DEFAULT_CINEMATIC_ZOOM_MARGIN,
+  };
+}
+
+// The baked cinematic crop at the current time, or null when there is no fresh path yet (mid-edit or
+// mid-recompute), in which case the caller falls back to a smooth interpolation.
+function getActiveCinematicCrop(): [number, number, number, number] | null {
+  const mp = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+  if (!mp?.cropPath) return null;
+  const { cropResWidth, cropResHeight } = appState.settings;
+  if (
+    !isCropPathFresh(
+      mp.cropPath,
+      mp.cropMap,
+      getActiveCinematicMargins(),
+      cropResWidth,
+      cropResHeight
+    )
+  ) {
+    return null;
+  }
+  const firstTime = mp.cropMap[0]?.x ?? 0;
+  return evalCropPathAtTime(mp.cropPath, currentCropTime() - firstTime);
+}
+
+let cinematicRecomputeTimer: ReturnType<typeof setTimeout> | undefined;
+// How long the crop points must sit unchanged before the (heavy, global) L1 solve runs. Every edit
+// resets this, so the solve runs once, after editing settles, not during it.
+const CINEMATIC_RECOMPUTE_DEBOUNCE_MS = 350;
+
+// Recompute the active pair's cinematic path after edits settle. Gated to cinematic mode and only
+// (re)scheduled when the path is actually out of date, so scrubbing or selecting a pair (crop points
+// unchanged) never starts the timer; during an edit the timer keeps resetting, so the solve fires
+// once afterwards. The L1 solve is global and far too heavy for the per-frame loops, so it only ever
+// runs here, off the timer.
+export function scheduleCinematicRecompute(): void {
+  if (typeof window === 'undefined') return;
+  if (getActiveCropPointEasing() !== 'cinematic') return;
+  const mp = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+  if (!mp) return;
+  const { cropResWidth, cropResHeight } = appState.settings;
+  if (
+    isCropPathFresh(
+      mp.cropPath,
+      mp.cropMap,
+      getActiveCinematicMargins(),
+      cropResWidth,
+      cropResHeight
+    )
+  ) {
+    return;
+  }
+  clearTimeout(cinematicRecomputeTimer);
+  cinematicRecomputeTimer = setTimeout(
+    recomputeActiveCinematicPath,
+    CINEMATIC_RECOMPUTE_DEBOUNCE_MS
+  );
+}
+
+function recomputeActiveCinematicPath(): void {
+  const mp = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+  if (!mp || getActiveCropPointEasing() !== 'cinematic') return;
+  // Never solve mid-manipulation (the drag/draw end re-schedules), matching the loop-safety rules.
+  if (isMouseManipulatingCrop || isDrawingCrop) {
+    scheduleCinematicRecompute();
+    return;
+  }
+  const { cropResWidth, cropResHeight } = appState.settings;
+  const margins = getActiveCinematicMargins();
+  if (isCropPathFresh(mp.cropPath, mp.cropMap, margins, cropResWidth, cropResHeight)) return;
+  const startMs = performance.now();
+  const path = bakeCinematicPath(mp.cropMap, margins, cropResWidth, cropResHeight) ?? undefined;
+  const elapsedMs = Math.round(performance.now() - startMs);
+  mp.cropPath = path;
+  triggerCropPreviewRedraw();
+  if (path) {
+    flashMessage(`Cinematic path: ${path.segments.length} segments in ${elapsedMs}ms`, 'green');
+  }
 }
 
 export function getEasedCropComponents(
@@ -918,31 +1025,43 @@ export function getEasedCropComponents(
 ): [number, number, number, number] {
   const start = getCropComponents(sectStart.crop);
   const end = getCropComponents(sectEnd.crop);
-  // smoothTrack flows through points via neighbor tangents (an instant section still snaps), always
-  // with the monotone clamp so it cannot overshoot a point at a reversal.
   const easing = getActiveCropPointEasing();
-  const useSmoothTrack = easing === 'smoothTrack' && sectEnd.easeIn !== 'instant';
-  const eased = useSmoothTrack
-    ? getSmoothTrackCropComponentsAtTime(
-        start,
-        end,
-        sectStart.x,
-        sectEnd.x,
-        toSectionNeighbor(prevPoint),
-        toSectionNeighbor(nextPoint),
-        currentCropTime(),
-        getFPS(),
-        true
-      )
-    : getEasedCropComponentsAtTime(
-        start,
-        end,
-        sectStart.x,
-        sectEnd.x,
-        sectEnd.easeIn,
-        currentCropTime(),
-        getFPS()
-      );
+  // Cinematic mode replaces interpolation with the baked L1 path (a function of time, not the
+  // section). Before the path is baked (mid-edit or mid-recompute) fall through to a smooth-track
+  // interpolation so the preview never stalls.
+  if (easing === 'cinematic') {
+    const baked = getActiveCinematicCrop();
+    if (baked) return baked;
+  }
+  // Smooth track flows through points via neighbor tangents (an instant section still snaps) as a
+  // monotone cubic, so it never overshoots. The prev/next points shape the tangents.
+  const useSpline = easing !== 'smoothInOut' && sectEnd.easeIn !== 'instant';
+  const prev = toSectionNeighbor(prevPoint, sectStart.easeIn);
+  const next = toSectionNeighbor(nextPoint, nextPoint?.easeIn);
+  let eased: [number, number, number, number] | null;
+  if (useSpline) {
+    eased = getSmoothTrackCropComponentsAtTime(
+      start,
+      end,
+      sectStart.x,
+      sectEnd.x,
+      prev,
+      next,
+      currentCropTime(),
+      getFPS(),
+      true
+    );
+  } else {
+    eased = getEasedCropComponentsAtTime(
+      start,
+      end,
+      sectStart.x,
+      sectEnd.x,
+      sectEnd.easeIn,
+      currentCropTime(),
+      getFPS()
+    );
+  }
   // A zero-duration section has nothing to ease: hold the start crop.
   return eased ?? [start[0], start[1], start[2], start[3]];
 }
@@ -975,7 +1094,14 @@ export function getCurrentCropComponents(): [number, number, number, number] | n
     // (half-frame) test restricts the snap to exactly the parked-on-a-point cases.
     const { index } = isPlayheadOnCropKeyframe(cropMap, time);
     const parkedPoint = cropMap[index];
-    if (parkedPoint && appState.video.paused && isWithinSameFrame(time, parkedPoint.x, getFPS())) {
+    // Cinematic mode approximates points rather than passing through them, so snapping to the exact
+    // keyframe crop would jump off the path; let it interpolate (eval the baked path) instead.
+    if (
+      parkedPoint &&
+      appState.video.paused &&
+      isWithinSameFrame(time, parkedPoint.x, getFPS()) &&
+      getActiveCropPointEasing() !== 'cinematic'
+    ) {
       const [kx, ky, kw, kh] = getCropComponents(parkedPoint.crop);
       return [kx, ky, kw, kh];
     }

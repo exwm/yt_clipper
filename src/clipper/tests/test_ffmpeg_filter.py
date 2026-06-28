@@ -124,17 +124,50 @@ def test_getCropFilter_smooth_track_handles_redundant_coincident_points() -> Non
     assert cropFilter  # no ZeroDivisionError
 
 
-def test_resolveCropEaseType_defaults_to_sine_for_backwards_compat() -> None:
-    # A clip without the field, or the smoothInOut alias, must render as the original sine ease.
-    assert ffmpeg_filter.resolveCropEaseType(None) == "easeInOutSine"
-    assert ffmpeg_filter.resolveCropEaseType("smoothInOut") == "easeInOutSine"
-    assert ffmpeg_filter.resolveCropEaseType("somethingUnknown") == "easeInOutSine"
+@pytest.mark.parametrize(
+    ("cropPointEasing", "easeType"),
+    [
+        # A clip without the field, or the smoothInOut alias, renders as the original sine ease.
+        (None, "easeInOutSine"),
+        ("smoothInOut", "easeInOutSine"),
+        ("somethingUnknown", "easeInOutSine"),
+        ("smoothTrack", "smoothTrack"),
+        ("smoothTrackMonotone", "smoothTrack"),  # legacy name for the always-monotone smoothTrack
+        ("cinematic", "smoothTrack"),  # without a baked path, matching the preview's fallback
+    ],
+)
+def test_resolveCropEaseType(cropPointEasing: Optional[str], easeType: str) -> None:
+    assert ffmpeg_filter.resolveCropEaseType(cropPointEasing) == easeType
 
 
-def test_resolveCropEaseType_smooth_track_and_legacy_alias() -> None:
-    assert ffmpeg_filter.resolveCropEaseType("smoothTrack") == "smoothTrack"
-    # legacy alias for the now-always-monotone smoothTrack
-    assert ffmpeg_filter.resolveCropEaseType("smoothTrackMonotone") == "smoothTrack"
+def _cropMapWithInstantInto(instantIndex: Optional[int]) -> CropMap:
+    points = [{"x": float(t), "y": 0, "crop": f"{100 * t}:0:100:100"} for t in range(4)]
+    if instantIndex is not None:
+        points[instantIndex]["easeIn"] = "instant"
+    return points
+
+
+@pytest.mark.parametrize(
+    ("instantIndex", "hasPrev", "hasNext"),
+    [
+        pytest.param(None, True, True, id="no instant transitions"),
+        pytest.param(1, False, True, id="instant into the section start breaks the previous"),
+        pytest.param(0, True, True, id="instant into the previous point does not"),
+        pytest.param(3, True, False, id="instant into the next point breaks it"),
+        pytest.param(2, True, True, id="the section's own instant end is not a neighbor break"),
+    ],
+)
+def test_smoothTrackNeighbor_breaks_only_at_the_neighbor_boundary(
+    instantIndex: Optional[int],
+    hasPrev: bool,
+    hasNext: bool,
+) -> None:
+    # Section 1 runs from point 1 to point 2; its neighbors are points 0 and 3.
+    section = 1
+    cropMap = _cropMapWithInstantInto(instantIndex)
+    prev = ffmpeg_filter._smoothTrackNeighbor(cropMap, section - 1, section, 0.0)
+    nxt = ffmpeg_filter._smoothTrackNeighbor(cropMap, section + 2, section + 2, 0.0)
+    assert (prev is not None, nxt is not None) == (hasPrev, hasNext)
 
 
 @pytest.mark.parametrize("monotone", [False, True])
@@ -187,13 +220,9 @@ def test_getCropFilter_default_matches_easeInOutSine_for_backwards_compat() -> N
     assert "^3" not in default
 
 
-@pytest.mark.parametrize("easeType", ["smoothTrack"])
-def test_getCropFilter_smooth_track_uses_cubic_hermite(easeType: str) -> None:
+def test_getCropFilter_smooth_track_uses_cubic_hermite() -> None:
     cropFilter = ffmpeg_filter.getCropFilter(
-        "109:426:540:960",
-        MEDIUM_CROP_MAP,
-        60,
-        easeType=easeType,
+        "109:426:540:960", MEDIUM_CROP_MAP, 60, easeType="smoothTrack",
     )
     # A cubic Hermite (clipped section progress raised to the third power), not the sine ease.
     assert "^3" in cropFilter
@@ -201,7 +230,7 @@ def test_getCropFilter_smooth_track_uses_cubic_hermite(easeType: str) -> None:
 
 
 @pytest.mark.parametrize("easeType", ["smoothTrack"])
-def test_getCropFilter_smooth_track_snapshot(easeType: str, snapshot: str) -> None:
+def test_getCropFilter_spline_snapshot(easeType: str, snapshot: str) -> None:
     cropFilter = ffmpeg_filter.getCropFilter(
         "109:426:540:960",
         MEDIUM_CROP_MAP,
@@ -228,12 +257,11 @@ def test_getZoomPanFilter_derives_zoom_from_eased_width() -> None:
     assert "1080/(" in ffmpegFilter
 
 
-@pytest.mark.parametrize("easeType", ["smoothTrack"])
-def test_getZoomPanFilter_smooth_track_uses_cubic_hermite(easeType: str) -> None:
+def test_getZoomPanFilter_smooth_track_uses_cubic_hermite() -> None:
     ffmpegFilter, _maxSize = ffmpeg_filter.getZoomPanFilter(
         SHORT_ZOOM_CROP_MAP,
         60,
-        easeType=easeType,
+        easeType="smoothTrack",
     )
     # The zoom derives from a spline-eased width, so the zoom factor is maxWidth / (cubic Hermite).
     assert "^3" in ffmpegFilter
@@ -242,7 +270,7 @@ def test_getZoomPanFilter_smooth_track_uses_cubic_hermite(easeType: str) -> None
 
 
 @pytest.mark.parametrize("easeType", ["smoothTrack"])
-def test_getZoomPanFilter_smooth_track_snapshot(easeType: str, snapshot: str) -> None:
+def test_getZoomPanFilter_spline_snapshot(easeType: str, snapshot: str) -> None:
     ffmpegFilter, _maxSize = ffmpeg_filter.getZoomPanFilter(
         SHORT_ZOOM_CROP_MAP,
         60,
@@ -473,3 +501,148 @@ def assert_crop_filter_has_no_gaps(cropFilter: str, cropMap: CropMap) -> None:
                 f"{axis} axis gap or overlap: a section ends at {prev[1]} "
                 f"but the next starts at {nxt[0]}"
             )
+
+
+# Cinematic crop path (getCropPathFilter) fixtures and tests.
+
+SETTINGS_1X = {"cropMultipleX": 1, "cropMultipleY": 1, "inputIsHDR": False}
+SETTINGS_2X = {"cropMultipleX": 2, "cropMultipleY": 2, "inputIsHDR": False}
+
+# A pan: x ramps 100 -> 150 over the first second, then holds; constant 960x540 size.
+PAN_CROP_PATH = {
+    "version": 1,
+    "margin": {"pos": 40, "zoom": 0.1},
+    "signature": "pan",
+    "segments": [
+        {
+            "startT": 0.0,
+            "endT": 1.0,
+            "x": [100.0, 50.0, 0.0],
+            "y": [0.0, 0.0, 0.0],
+            "w": [960.0, 0.0, 0.0],
+            "h": [540.0, 0.0, 0.0],
+        },
+        {
+            "startT": 1.0,
+            "endT": 2.0,
+            "x": [150.0, 0.0, 0.0],
+            "y": [0.0, 0.0, 0.0],
+            "w": [960.0, 0.0, 0.0],
+            "h": [540.0, 0.0, 0.0],
+        },
+    ],
+}
+
+# A zoom: size shrinks 1920x1080 -> 1280x720 (16:9 kept) over the first second, then holds.
+ZOOM_CROP_PATH = {
+    "version": 1,
+    "margin": {"pos": 40, "zoom": 0.1},
+    "signature": "zoom",
+    "segments": [
+        {
+            "startT": 0.0,
+            "endT": 1.0,
+            "x": [0.0, 0.0, 0.0],
+            "y": [0.0, 0.0, 0.0],
+            "w": [1920.0, -640.0, 0.0],
+            "h": [1080.0, -360.0, 0.0],
+        },
+        {
+            "startT": 1.0,
+            "endT": 2.0,
+            "x": [0.0, 0.0, 0.0],
+            "y": [0.0, 0.0, 0.0],
+            "w": [1280.0, 0.0, 0.0],
+            "h": [720.0, 0.0, 0.0],
+        },
+    ],
+}
+
+
+def _eval_crop_path(cropPath: dict, t: float) -> list[float]:
+    # Direct evaluation of the baked path (the markup's evalCropPathAtTime), in cropRes px.
+    segs = cropPath["segments"]
+    clamped = min(max(t, segs[0]["startT"]), segs[-1]["endT"])
+    seg = next((s for s in segs if clamped <= s["endT"]), segs[-1])
+    u = clamped - seg["startT"]
+    return [c[0] + c[1] * u + c[2] * u * u for c in (seg["x"], seg["y"], seg["w"], seg["h"])]
+
+
+def _eval_ffmpeg_axis(expr: str, t: float) -> float:
+    # Evaluate a generated crop-axis expression at time t (gated sum of polynomials). Test-only, on
+    # our own generated string, so eval is safe here.
+    env = {
+        "t": t,
+        "it": t,
+        "gte": lambda x, a: 1.0 if x >= a else 0.0,
+        "lt": lambda x, a: 1.0 if x < a else 0.0,
+        "between": lambda x, a, b: 1.0 if a <= x <= b else 0.0,
+        "max": max,
+        "min": min,
+    }
+    return eval(expr.replace("^", "**"), {"__builtins__": {}}, env)
+
+
+def test_cropPathPolyExpr_emits_scaled_quadratic() -> None:
+    expr = ffmpeg_filter._cropPathPolyExpr([10.0, 2.0, 0.5], "t", 1.0, scale=2.0)
+    assert expr == "((1.000000)*(t-1.0)^2+(4.000000)*(t-1.0)+(20.000000))"
+
+
+@pytest.mark.parametrize("noise", [-1e-9, 0.0, 1e-9])
+def test_getCropPathFilter_zoom_size_ignores_float_noise_in_the_solved_path(noise: float) -> None:
+    # The solver's result differs in the last bits between machines; the clip size must not.
+    first, *rest = ZOOM_CROP_PATH["segments"]
+    noisy = {
+        **first,
+        "w": [first["w"][0] + noise, *first["w"][1:]],
+        "h": [first["h"][0] + noise, *first["h"][1:]],
+    }
+    noisyPath = {**ZOOM_CROP_PATH, "segments": [noisy, *rest]}
+    _cropFilter, maxSize = ffmpeg_filter.getCropPathFilter(noisyPath, SETTINGS_1X, 30)
+    assert maxSize == 1920 * 1080
+
+
+def test_getCropPathFilter_pan_is_plain_crop() -> None:
+    cropFilter, maxSize = ffmpeg_filter.getCropPathFilter(PAN_CROP_PATH, SETTINGS_1X, 30)
+    assert cropFilter.startswith("crop='x=")
+    assert "zoompan" not in cropFilter  # constant size -> no zoom
+    assert ":w=960:h=540:" in cropFilter  # constant size carried through
+    assert maxSize == 960 * 540
+
+
+def test_getCropPathFilter_pan_snapshot(snapshot: str) -> None:
+    cropFilter, _maxSize = ffmpeg_filter.getCropPathFilter(PAN_CROP_PATH, SETTINGS_1X, 30)
+    assert cropFilter == snapshot
+
+
+def test_getCropPathFilter_pan_matches_the_baked_path() -> None:
+    # The render must equal the baked path the markup previewed, scaled by cropMultiple. Evaluate the
+    # generated x/y expressions and compare to a direct eval of the path at several times.
+    cropFilter, _maxSize = ffmpeg_filter.getCropPathFilter(PAN_CROP_PATH, SETTINGS_2X, 30)
+    xMatch = re.search(r"x=(.+?):y=", cropFilter)
+    yMatch = re.search(r":y=(.+?):w=", cropFilter)
+    assert xMatch is not None
+    assert yMatch is not None
+    xExpr = xMatch.group(1)
+    yExpr = yMatch.group(1)
+    for t in [0.0, 0.25, 0.5, 0.9, 1.0, 1.5, 2.0]:
+        px, py, _, _ = _eval_crop_path(PAN_CROP_PATH, t)
+        assert _eval_ffmpeg_axis(xExpr, t) == pytest.approx(px * 2, abs=0.01)
+        assert _eval_ffmpeg_axis(yExpr, t) == pytest.approx(py * 2, abs=0.01)
+
+
+def test_getCropPathFilter_zoom_uses_zoompan() -> None:
+    cropFilter, maxSize = ffmpeg_filter.getCropPathFilter(ZOOM_CROP_PATH, SETTINGS_1X, 30)
+    assert "zoompan=z='" in cropFilter
+    assert "1920/(" in cropFilter  # zoom derived from the eased (containing) width
+    assert "scale=w=4*iw" in cropFilter  # 4x prescale to reduce zoompan jitter
+    assert "^2" in cropFilter  # quadratic terms present (zero coeff here, token still emitted)
+    assert "gte(t, " in cropFilter  # the containing pan crop runs on the output timebase t
+    assert "gte(it, " in cropFilter  # the zoompan runs on the input timebase it
+    assert ":s=1920x1080:" in cropFilter
+    assert maxSize == 1920 * 1080
+
+
+def test_getCropPathFilter_zoom_snapshot(snapshot: str) -> None:
+    cropFilter, _maxSize = ffmpeg_filter.getCropPathFilter(ZOOM_CROP_PATH, SETTINGS_1X, 30)
+    assert cropFilter == snapshot

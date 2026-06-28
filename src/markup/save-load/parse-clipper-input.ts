@@ -22,6 +22,8 @@
 // these in a review UI so the user can see what the parser did.
 
 import type {
+  CropPath,
+  CropPathSegment,
   CropPoint,
   MarkerPair,
   MarkerPairOverrides,
@@ -34,7 +36,15 @@ import type {
  *  loadable and are excluded from the allowlist. */
 type LoadableMarkerPair = Pick<
   MarkerPair,
-  'start' | 'end' | 'speed' | 'speedMap' | 'crop' | 'cropMap' | 'enableZoomPan' | 'cropRes'
+  | 'start'
+  | 'end'
+  | 'speed'
+  | 'speedMap'
+  | 'crop'
+  | 'cropMap'
+  | 'cropPath'
+  | 'enableZoomPan'
+  | 'cropRes'
 > & {
   overrides?: Partial<MarkerPairOverrides>;
   /** 1-indexed display number added by save-time serializer. Tolerated but
@@ -70,7 +80,8 @@ export class ClipperInputValidationError extends Error {
 export type DataFormatIssue =
   | { kind: 'unexpectedFields'; path: string; keys: string[] }
   | { kind: 'dangerousKeys'; path: string; keys: string[] }
-  | { kind: 'invalidPoint'; path: string };
+  | { kind: 'invalidPoint'; path: string }
+  | { kind: 'invalidCropPath'; path: string };
 
 export function isDangerousIssue(issue: DataFormatIssue): boolean {
   return issue.kind === 'dangerousKeys';
@@ -112,6 +123,8 @@ const settingsAllow = {
   loop: true,
   fadeDuration: true,
   cropPointEasing: true,
+  cropPointEasingCinematicMargin: true,
+  cropPointEasingCinematicZoomMargin: true,
 } as const satisfies Record<keyof Settings, true>;
 
 export const markerPairAllow = {
@@ -121,6 +134,7 @@ export const markerPairAllow = {
   speedMap: true,
   crop: true,
   cropMap: true,
+  cropPath: true,
   enableZoomPan: true,
   cropRes: true,
   overrides: true,
@@ -143,6 +157,8 @@ export const overridesAllow = {
   minterpFpsMultiplier: true,
   loop: true,
   fadeDuration: true,
+  cropPointEasingCinematicMargin: true,
+  cropPointEasingCinematicZoomMargin: true,
 } as const satisfies Record<keyof MarkerPairOverrides, true>;
 
 export const speedPointAllow = {
@@ -265,7 +281,11 @@ function requireNonNegativeFinite(value: unknown, field: string, index: number):
  *  expects to consume. */
 const OVERRIDES_VALIDATORS = {
   titlePrefix: (v: unknown) => typeof v === 'string',
-  cropPointEasing: (v: unknown) => v === 'smoothInOut' || v === 'smoothTrack',
+  cropPointEasing: (v: unknown) =>
+    v === 'smoothInOut' || v === 'smoothTrack' || v === 'cinematic',
+  // The schema's bounds: the clipper skips a pair with a margin outside them.
+  cropPointEasingCinematicMargin: (v: unknown) => isFiniteNumber(v) && v >= 0,
+  cropPointEasingCinematicZoomMargin: (v: unknown) => isFiniteNumber(v) && v >= 0 && v <= 1,
   enableHDR: (v: unknown) => typeof v === 'boolean',
   gamma: (v: unknown) => isFiniteNumber(v),
   encodeSpeed: (v: unknown) => isFiniteNumber(v),
@@ -331,6 +351,57 @@ function parseCropPoint(raw: unknown, path: string, issues: DataFormatIssue[]): 
   return out;
 }
 
+const MAX_CROP_PATH_SEGMENTS = 5000;
+
+function parseCoeffTriple(v: unknown): [number, number, number] | null {
+  if (!Array.isArray(v) || v.length !== 3) return null;
+  if (!isFiniteNumber(v[0]) || !isFiniteNumber(v[1]) || !isFiniteNumber(v[2])) return null;
+  return [v[0], v[1], v[2]];
+}
+
+// Validate a baked cinematic path. The clipper turns these coefficients into ffmpeg filter
+// expressions verbatim, so every number must be finite and the segment count bounded. A malformed
+// path is dropped (the pair falls back to its easing mode), never thrown.
+function parseCropPath(raw: unknown, path: string, issues: DataFormatIssue[]): CropPath | null {
+  const reject = (): null => {
+    issues.push({ kind: 'invalidCropPath', path });
+    return null;
+  };
+  // Any solver version loads; an old one reads as stale and is re-baked, not dropped as invalid.
+  if (!isPlainObject(raw) || !Number.isInteger(raw.version) || typeof raw.signature !== 'string')
+    return reject();
+  const margin = raw.margin;
+  if (!isPlainObject(margin) || !isFiniteNumber(margin.pos) || !isFiniteNumber(margin.zoom)) {
+    return reject();
+  }
+  if (
+    !Array.isArray(raw.segments) ||
+    raw.segments.length === 0 ||
+    raw.segments.length > MAX_CROP_PATH_SEGMENTS
+  ) {
+    return reject();
+  }
+  const segments: CropPathSegment[] = [];
+  for (const seg of raw.segments) {
+    if (!isPlainObject(seg) || !isFiniteNumber(seg.startT) || !isFiniteNumber(seg.endT)) {
+      return reject();
+    }
+    if (seg.endT < seg.startT) return reject();
+    const x = parseCoeffTriple(seg.x);
+    const y = parseCoeffTriple(seg.y);
+    const w = parseCoeffTriple(seg.w);
+    const h = parseCoeffTriple(seg.h);
+    if (!x || !y || !w || !h) return reject();
+    segments.push({ startT: seg.startT, endT: seg.endT, x, y, w, h });
+  }
+  return {
+    version: raw.version as number,
+    margin: { pos: margin.pos, zoom: margin.zoom },
+    signature: raw.signature,
+    segments,
+  };
+}
+
 function parseMarkerPair(
   raw: unknown,
   index: number,
@@ -361,6 +432,10 @@ function parseMarkerPair(
     out.cropMap = picked.cropMap
       .map((p, i) => parseCropPoint(p, `${path}.cropMap[${i}]`, issues))
       .filter((p): p is CropPoint => p !== null);
+  }
+  if (picked.cropPath != null) {
+    const cropPath = parseCropPath(picked.cropPath, `${path}.cropPath`, issues);
+    if (cropPath) out.cropPath = cropPath;
   }
   return out;
 }
@@ -464,6 +539,8 @@ const KEY_POLICY = {
   loop: 'apply',
   fadeDuration: 'apply',
   cropPointEasing: 'apply',
+  cropPointEasingCinematicMargin: 'apply',
+  cropPointEasingCinematicZoomMargin: 'apply',
 } as const satisfies Record<keyof ClipperInput, 'apply' | 'skip'>;
 
 export function toApplicableSettings(input: ClipperInput): Partial<Settings> {
@@ -489,6 +566,8 @@ export function formatIssues(issues: readonly DataFormatIssue[]): string {
           return `stripped prototype-polluting keys at ${issue.path}: ${issue.keys.join(', ')}`;
         case 'invalidPoint':
           return `dropped invalid point at ${issue.path}`;
+        case 'invalidCropPath':
+          return `dropped invalid cinematic crop path at ${issue.path}`;
       }
     })
     .join('\n');

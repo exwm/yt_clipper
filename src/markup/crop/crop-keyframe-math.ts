@@ -117,8 +117,11 @@ export const easeInInstant = (timePercentage: number) => (timePercentage >= 1 ? 
  *  - `smoothTrack`: a cubic Hermite spline with monotone (Fritsch-Carlson) tangents. Each point
  *    gets a non-zero tangent from its neighbors, so the crop keeps moving THROUGH points instead of
  *    stopping, tracking a steady camera pan, while never overshooting a point on a reversal.
+ *  - `cinematic`: an L1 optimal camera path. Instead of interpolating through the points it
+ *    approximates them within a margin with steady holds, constant-velocity pans, and smooth
+ *    transitions (see cinematic-path.ts). The path is baked and rendered verbatim, not eased here.
  */
-export type CropPointEasing = 'smoothInOut' | 'smoothTrack';
+export type CropPointEasing = 'smoothInOut' | 'smoothTrack' | 'cinematic';
 
 // The crop easing a pair uses when neither it nor the global setting has a mode. Save writes the
 // global mode, so a saved file always carries one. Only JSONs saved before this feature lack it; the
@@ -126,9 +129,10 @@ export type CropPointEasing = 'smoothInOut' | 'smoothTrack';
 export const DEFAULT_CROP_POINT_EASING: CropPointEasing = 'smoothTrack';
 
 /**
- * A neighbor of the section being eased, used only by smoothTrack to derive the section's end
- * tangents. `easeIn === 'instant'` on the boundary into a point makes that point a hard break:
- * the tangent there is dropped to zero so the spline does not flow across an instant transition.
+ * A neighbor of the section being eased, used by the splines to derive the section's end
+ * tangents. `easeIn` is the transition between the neighbor and the section (the start point's
+ * easeIn for the previous neighbor, the neighbor's own for the next one). `'instant'` makes it a
+ * hard break: the tangent there drops to zero so the spline does not flow across the cut.
  */
 export interface CropSectionNeighbor {
   components: readonly number[];
