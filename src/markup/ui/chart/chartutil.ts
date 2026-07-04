@@ -110,14 +110,14 @@ export function updateCharts(markerPair: MarkerPair, rerender = true) {
     assertDefined(speedChart.config.data, 'speedChart config data must be defined');
     assertDefined(speedChart.config.data.datasets, 'speedChart config datasets must be defined');
     speedChart.config.data.datasets[0].data = markerPair.speedMap;
-    updateChartBounds(speedChart.config, markerPair.start, markerPair.end);
+    updateChartBounds(chartState.speedChartInput, markerPair.start, markerPair.end);
   }
   const cropChart = chartState.cropChartInput.chart;
   if (cropChart) {
     assertDefined(cropChart.config.data, 'cropChart config data must be defined');
     assertDefined(cropChart.config.data.datasets, 'cropChart config datasets must be defined');
     cropChart.config.data.datasets[0].data = markerPair.cropMap;
-    updateChartBounds(cropChart.config, markerPair.start, markerPair.end);
+    updateChartBounds(chartState.cropChartInput, markerPair.start, markerPair.end);
   }
   if (rerender) rerenderCurrentChart();
 }

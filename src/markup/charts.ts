@@ -358,7 +358,7 @@ export function toggleChart(chartInput: ChartInput) {
 
       chartState.currentChartInput = chartInput;
 
-      initializeChartData(chartInput.chartSpec, chartInput.dataMapKey);
+      initializeChartData(chartInput);
       chartInput.chartContainer = document.createElement('div');
       chartInput.chartContainer.id = chartInput.chartContainerId;
       chartInput.chartContainer.setAttribute('style', chartInput.chartContainerStyle);
@@ -618,20 +618,20 @@ export function toggleChartLoop() {
     chart.update();
   }
 }
-export function initializeChartData(chartConfig: ChartConfiguration, dataMapKey: string) {
+export function initializeChartData(chartInput: ChartInput) {
   if (
     appState.isSettingsEditorOpen &&
     !appState.wasGlobalSettingsEditorOpen &&
     appState.prevSelectedMarkerPairIndex != null
   ) {
     const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
-    const dataMap = markerPair[dataMapKey];
-    const chartData = chartConfig.data;
+    const dataMap = markerPair[chartInput.dataMapKey];
+    const chartData = chartInput.chartSpec.data;
     assertDefined(chartData);
     const datasets = chartData.datasets;
     assertDefined(datasets);
     datasets[0].data = dataMap;
-    updateChartBounds(chartConfig, markerPair.start, markerPair.end);
+    updateChartBounds(chartInput, markerPair.start, markerPair.end);
   }
 }
 export function loadChartData(chartInput: ChartInput) {
@@ -648,21 +648,26 @@ export function loadChartData(chartInput: ChartInput) {
       const chartDatasets = chart.data.datasets;
       assertDefined(chartDatasets);
       chartDatasets[0].data = dataMap;
-      updateChartBounds(chart.config, markerPair.start, markerPair.end);
+      updateChartBounds(chartInput, markerPair.start, markerPair.end);
       if (appState.isCurrentChartVisible && chartState.currentChartInput === chartInput)
         chart.update();
     }
   }
 }
-export function updateChartBounds(chartConfig: ChartConfiguration, start, end) {
-  if (chartState.cropChartInput) {
-    chartState.cropChartInput.minBound = start;
-    chartState.cropChartInput.maxBound = end;
-  }
-  if (chartState.speedChartInput) {
-    chartState.speedChartInput.minBound = start;
-    chartState.speedChartInput.maxBound = end;
-  }
+export function updateChartBounds(chartInput: ChartInput, start, end) {
+  // ticks.min/max is also the zoom plugin's current view; only reset it when this chart's bounds
+  // actually moved, so unrelated actions (selecting/adding/deleting a point) don't snap a zoomed-in
+  // chart back to the full clip. Tracked per chart: each chart applies the bounds to its own config,
+  // so one chart having recorded them must not skip the other chart's write.
+  const boundsChanged = chartInput.minBound !== start || chartInput.maxBound !== end;
+  chartInput.minBound = start;
+  chartInput.maxBound = end;
+
+  // The chart mutates its config in place, so before creation the spec and after creation
+  // chart.config address the same options object.
+  const chartConfig: ChartConfiguration = chartInput.chart
+    ? chartInput.chart.config
+    : chartInput.chartSpec;
   const opts = chartConfig.options;
   assertDefined(opts);
   const scales = opts.scales;
@@ -671,8 +676,10 @@ export function updateChartBounds(chartConfig: ChartConfiguration, start, end) {
   assertDefined(xAxes);
   const ticks = xAxes[0].ticks;
   assertDefined(ticks);
-  ticks.min = start;
-  ticks.max = end;
+  if (boundsChanged) {
+    ticks.min = start;
+    ticks.max = end;
+  }
   const plugins = opts.plugins;
   assertDefined(plugins);
   plugins.zoom.pan.rangeMin.x = start;
