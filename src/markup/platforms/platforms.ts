@@ -227,7 +227,11 @@ const ytclipperSelectors = {
   cropOverlay: '#my-video',
   cropMouseManipulation: '#my-video',
   speedChartContainer: 'video',
-  cropChartContainer: '#ytc-editor',
+  // The crop chart is inserted 'beforebegin' of this hook (see chartState.cropChartInput in
+  // charts.ts). '#ytc-editor' is the settings editor itself, so hooking there put the chart above it;
+  // '#ytc-video-title' is the next element in site/index.html's static markup, right after the editor,
+  // so 'beforebegin' of it lands the chart below the editor instead.
+  cropChartContainer: '#ytc-video-title',
   controls: '.vjs-control-bar',
   controlsGradient: '.vjs-control-bar',
   shortcutsTableButton: '.vjs-fullscreen-control',
