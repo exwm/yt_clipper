@@ -472,6 +472,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
               autoSkip: false,
               maxRotation: 60,
               minRotation: 0,
+              fontSize: 12,
               major: {},
               minor: {},
             },
