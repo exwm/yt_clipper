@@ -43,6 +43,7 @@ import {
   cropOverlayElements,
   END_CROP_SECTION_COLOR,
   finishDrawingCrop,
+  forceRerenderCrop,
   getCropDimOpacity,
   isDrawingCrop,
   isMouseManipulatingCrop,
@@ -1228,7 +1229,18 @@ export function syncCropChartVideoHeightLimit() {
   }
   // The cap resizes the player; re-fit the video to it so centerVideo (which
   // measures the player container) shrinks the video and crop overlay to match.
-  resizeCropOverlay();
+  if (isReframeEnabled()) {
+    // Reframe locks the overlay to the transform, so re-render synchronously (matching
+    // syncZoomVisual) instead of the debounced resizeCropOverlay, then resync the reframe
+    // viewport/canvas against the now-current video box. Without this, hiding/showing the
+    // masthead (this CSS's own effect) resized the video but left the canvas and its cached
+    // crop rect (the hover hit-test reads it) at the old layout, most visibly at the top
+    // where the masthead's height disappeared.
+    forceRerenderCrop();
+    syncReframe(getCurrentCropComponents());
+  } else {
+    resizeCropOverlay();
+  }
 }
 export function toggleCurrentChartVisibility() {
   if (!appState.isCurrentChartVisible) {
