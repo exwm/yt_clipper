@@ -1,6 +1,6 @@
 /**
  * Zoom navigator minimap — a small full-frame thumbnail with a red rectangle marking
- * the part of the frame currently visible in the magnified player, plus a white
+ * the part of the frame currently visible in the magnified player, plus a black/white
  * outline of the current crop. Drag on it to
  * move the view by the drag delta (init + delta, like crop pan — never jumps). It
  * auto-shows whenever the view is zoomed (>1x) and removes itself at fit, so it
@@ -426,9 +426,10 @@ function drawFrame(): void {
   ctx.restore();
 }
 
-/** Outline the current crop on the minimap canvas with a thin white stroke (distinct
- *  from the red viewport rect). cropRes coords are scaled into the source frame, so
- *  the rotated context aligns it with the drawn frame. No-op when no crop is edited. */
+/** Outline the current crop on the minimap canvas with a black line just outside the crop edge and
+ *  a white line just inside it (distinct from the red viewport rect), so it reads against both light
+ *  and dark video content. cropRes coords are scaled into the source frame, so the rotated context
+ *  aligns it with the drawn frame. No-op when no crop is edited. */
 function drawCropMarker(ctx: CanvasRenderingContext2D, vw: number, vh: number, dW: number): void {
   const crop = getCurrentCropComponents();
   if (!crop) return;
@@ -437,9 +438,14 @@ function drawCropMarker(ctx: CanvasRenderingContext2D, vw: number, vh: number, d
   const { x: sx, y: sy, w: sw, h: sh } = cropToTargetRect(crop, cw, ch, vw, vh);
   // Canvas is drawn at frame resolution but shown at ~mmW px, so scale the stroke
   // to read as ~1 px once scaled down.
-  ctx.lineWidth = Math.max(1, dW / mmW);
+  const px = Math.max(1, dW / mmW);
+  // Each strokeRect is centered on a rect offset by half its own width, so the stroke's far edge
+  // lands exactly on the true crop boundary: the two lines meet there with no gap or overlap.
+  ctx.lineWidth = px;
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.95)';
+  ctx.strokeRect(sx - px / 2, sy - px / 2, sw + px, sh + px);
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
-  ctx.strokeRect(sx, sy, sw, sh);
+  ctx.strokeRect(sx + px / 2, sy + px / 2, sw - px, sh - px);
 }
 
 function updateRect(): void {
