@@ -5,8 +5,6 @@ import {
   currentCropChartMode,
   cropChartMode,
   setCurrentCropPoint,
-  cropPointFormatter,
-  cropPointXYFormatter,
   getCropChartConfig,
   currentCropChartSection,
   isCropPointHighlightVisible,
@@ -160,7 +158,7 @@ export const chartState = {
     chartContainerStyle: 'display:flex',
     chartCanvasTemplate: html`<canvas id="cropChartCanvas" width="1600px" height="87px"></canvas>`,
     chartCanvasId: 'cropChartCanvas',
-    chartSpec: getCropChartConfig(false),
+    chartSpec: getCropChartConfig(),
     minBound: 0,
     maxBound: 0,
     chartLoopKey: 'cropChartLoop',
@@ -329,15 +327,6 @@ export function renderSpeedAndCropUI(rerenderCharts = true, updateCurrentCropPoi
 
       const enableZoomPan = markerPair.enableZoomPan;
       enableZoomPanInput.value = enableZoomPan ? 'Enabled' : 'Disabled';
-
-      const formatter = enableZoomPan ? cropPointFormatter : cropPointXYFormatter;
-      if (chartState.cropChartInput.chart) {
-        const plugins = chartState.cropChartInput.chart.options.plugins;
-        assertDefined(plugins);
-        plugins.datalabels.formatter = formatter;
-      } else {
-        chartState.cropChartInput.chartSpec = getCropChartConfig(enableZoomPan);
-      }
     } else {
       const crop = appState.settings.newMarkerCrop;
       renderCropForm(crop);
