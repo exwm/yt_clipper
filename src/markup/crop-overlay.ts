@@ -7,7 +7,11 @@ import {
 } from './crop-utils';
 import { resetCropPreviewAnchor } from './crop/crop-preview';
 import { getLastDrawnReframeCrop, isReframeCanvasActive } from './crop/video-reframe-canvas';
-import { applyVideoTransform, getTransformedVideoBox } from './crop/video-transform';
+import {
+  applyVideoTransform,
+  getPlayerAreaElement,
+  getTransformedVideoBox,
+} from './crop/video-transform';
 import { isReframeEnabled, syncReframe } from './crop/video-zoom-controller';
 import { html, render } from 'lit-html';
 import {
@@ -427,22 +431,22 @@ export function forceRerenderCrop() {
   }
 }
 export function centerVideo() {
-  const videoContainerRect = appState.hooks.videoContainer.getBoundingClientRect();
+  const playerAreaRect = getPlayerAreaElement().getBoundingClientRect();
   let width, height;
   if (appState.rotation === 0) {
-    height = videoContainerRect.height;
+    height = playerAreaRect.height;
     width = height * appState.videoInfo.aspectRatio;
-    width = Math.floor(Math.min(width, videoContainerRect.width));
+    width = Math.floor(Math.min(width, playerAreaRect.width));
     height = Math.floor(width / appState.videoInfo.aspectRatio);
   } else {
-    width = videoContainerRect.height;
+    width = playerAreaRect.height;
     height = width / appState.videoInfo.aspectRatio;
-    height = Math.floor(Math.min(height, videoContainerRect.width));
+    height = Math.floor(Math.min(height, playerAreaRect.width));
     width = Math.floor(height * appState.videoInfo.aspectRatio);
   }
 
-  const left = videoContainerRect.width / 2 - width / 2;
-  const top = videoContainerRect.height / 2 - height / 2;
+  const left = playerAreaRect.width / 2 - width / 2;
+  const top = playerAreaRect.height / 2 - height / 2;
 
   const [widthPx, heightPx, topPx, leftPx] = [width, height, top, left].map(
     (e) => `${Math.round(e)}px`

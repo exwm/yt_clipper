@@ -15,7 +15,7 @@ import { appState } from '../appState';
 import { reframeCropAtFrameTime, reframeKeyframeColor, withPresentedFrameTime } from '../charts';
 import { cropCrossHairEnabled, getCropDimOpacity, setSvgCropBorderHidden } from '../crop-overlay';
 import { applyReframeViewport } from './video-zoom-controller';
-import { getVideoTransformParams } from './video-transform';
+import { getPlayerAreaElement, getVideoTransformParams } from './video-transform';
 import { resetViewport } from './video-zoom-state';
 import { cropToTargetRect, videoBoxToCanvasPoint } from './video-zoom-math';
 import { createWebGLGammaRenderer, prevGammaVal, WebGLGammaRenderer } from '../util/previewGamma';
@@ -149,13 +149,11 @@ export function drawReframeFrame(mediaTime: number): void {
   const { rotation, rotated, scale, fsScale, tx, ty } = getVideoTransformParams();
   // Cover the whole video player area, not just the (letterboxed) video box: the reframe output is
   // the crop and should use the full area, so a portrait video in a wide player fills the side bars
-  // and a rotated crop fills the area the landscape box leaves empty. Prefer the video's offset
-  // parent when it has real layout (the sized .video-js wrapper on the generic platform, which
-  // excludes the control-bar strip below the player); fall back to the container when it doesn't (on
-  // YouTube the offset parent is a zero-size wrapper). The box is centred in the player, so its
-  // centre (the rotate pivot and crop focal anchor) is the video's offset plus half its box.
-  const op = v.offsetParent as HTMLElement | null;
-  const player = op?.clientWidth && op?.clientHeight ? op : appState.hooks.videoContainer;
+  // and a rotated crop fills the area the landscape box leaves empty. getPlayerAreaElement must be the
+  // SAME element centerVideo fits the box against, or the two disagree on what "the player area" is.
+  // The box is centred in the player, so its centre (the rotate pivot and crop focal anchor) is the
+  // video's offset plus half its box.
+  const player = getPlayerAreaElement();
   const canvasLeft = 0;
   const canvasTop = 0;
   const canvasW = player.clientWidth;

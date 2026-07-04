@@ -56,6 +56,23 @@ export interface VideoTransformParams {
 }
 
 /**
+ * The element whose box is "the player area" for fitting/framing the video: the video's offset
+ * parent when it has real layout (the sized .video-js wrapper on the generic platform, which excludes
+ * the control-bar strip below the player), else the video container (on YouTube the offset parent is
+ * a zero-size wrapper). centerVideo (crop-overlay.ts), applyReframeViewport, and drawReframeFrame all
+ * need this SAME element: using different ones desyncs the video's fitted box from the reframe
+ * target/canvas size. That happened on the generic platform specifically, because
+ * appState.hooks.videoContainer's getBoundingClientRect() there includes the CSS padding-bottom
+ * reserved for the control bar, while the offset parent's clientHeight (used elsewhere) excludes it —
+ * the video's fitted box came out taller than the reframe target, so the reframed crop rendered
+ * smaller than the full player area, leaving a visible border.
+ */
+export function getPlayerAreaElement(): HTMLElement {
+  const op = appState.video.offsetParent as HTMLElement | null;
+  return op?.clientWidth && op?.clientHeight ? op : appState.hooks.videoContainer;
+}
+
+/**
  * The composed rotation+zoom transform as plain numbers, from the live `appState.rotation`,
  * fullscreen state, and zoom viewport. The single source every consumer derives from: the CSS
  * variables (applyVideoTransform), the transformed bounding box (getTransformedVideoBox), and the

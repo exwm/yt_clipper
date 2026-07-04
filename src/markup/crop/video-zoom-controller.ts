@@ -26,7 +26,11 @@ import {
   resizeCropOverlay,
   setCropDimVisible,
 } from '../crop-overlay';
-import { applyVideoTransform, getVideoTransformParams } from './video-transform';
+import {
+  applyVideoTransform,
+  getPlayerAreaElement,
+  getVideoTransformParams,
+} from './video-transform';
 import {
   initReframeCanvas,
   isReframeCanvasActive,
@@ -178,13 +182,12 @@ export function applyReframeViewport(crop: [number, number, number, number] | nu
   const { cx, cy, w, h } = cropToFrac(crop);
   // Fit the crop into the whole video player area, not just the letterboxed video box: a crop in a
   // portrait video (narrow box, wide player) or a rotated crop fills the area the box leaves empty.
-  // Prefer the video's offset parent when it has real layout (the sized .video-js wrapper on the
-  // generic platform, which excludes the control-bar strip); fall back to the container when it
-  // doesn't (on YouTube the offset parent is a zero-size wrapper). rotated/fsScale/box come from the
-  // shared transform params (we set the new scale/pan below, so ignore their current zoom fields).
+  // getPlayerAreaElement must be the SAME element centerVideo fits the box against, or the two
+  // disagree on what "the player area" is and the crop renders short of the full area.
+  // rotated/fsScale/box come from the shared transform params (we set the new scale/pan below, so
+  // ignore their current zoom fields).
   const { rotated, fsScale, boxW, boxH } = getVideoTransformParams();
-  const op = appState.video.offsetParent as HTMLElement | null;
-  const player = op?.clientWidth && op?.clientHeight ? op : appState.hooks.videoContainer;
+  const player = getPlayerAreaElement();
   const targetW = player.clientWidth;
   const targetH = player.clientHeight;
   const scale = reframeFillScale(w, h, boxW * fsScale, boxH * fsScale, targetW, targetH, rotated);
