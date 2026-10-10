@@ -921,12 +921,17 @@ export function getCurrentCropComponents(): [number, number, number, number] | n
   const editing = isMouseManipulatingCrop || isDrawingCrop;
   if (!isStaticCrop(cropMap) && !editing) {
     const time = currentCropTime();
-    // On a keyframe, return it exactly: it's what the edit set and what the canvas drew while
-    // manipulating. Auto-key inserts at roundX(time), so interpolating at the playhead's sub-frame
-    // offset would blend toward the neighbor and snap the crop on release.
-    const { onKeyframe, index } = isPlayheadOnCropKeyframe(cropMap, time);
-    if (onKeyframe && cropMap[index]) {
-      const [kx, ky, kw, kh] = getCropComponents(cropMap[index].crop);
+    // Snap to the exact crop point only while parked on its own frame (video paused). Right after an
+    // edit the playhead sits a sub-frame off the auto-keyed point (inserted at roundX(time)), so
+    // interpolating there would blend toward a neighbor and snap the crop on release; the snap holds
+    // it. We must NOT snap during playback, nor when frame-stepping PAST a point (a full frame away),
+    // or the crop freezes for the frames within a frame of the point and reads as a jump when
+    // crossing it. The paused gate plus the same-frame (half-frame) test restricts the snap to exactly
+    // the parked-on-a-point cases.
+    const { index } = isPlayheadOnCropKeyframe(cropMap, time);
+    const parkedPoint = cropMap[index];
+    if (parkedPoint && appState.video.paused && isWithinSameFrame(time, parkedPoint.x, getFPS())) {
+      const [kx, ky, kw, kh] = getCropComponents(parkedPoint.crop);
       return [kx, ky, kw, kh];
     }
     // Otherwise interpolate within the section that brackets the CURRENT TIME, not the chart
