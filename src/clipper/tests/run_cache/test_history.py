@@ -44,42 +44,44 @@ def _make_run_jsonl(
             "encoder_fingerprint": encoder_fingerprint,
             "search_fingerprint": "search12345",
             "yt_clipper_version": "5.43.0",
-            "encoder_config_summary": (
-                encoder_config_summary or {"codec": "vp9", "aq_mode": 0}
-            ),
+            "encoder_config_summary": (encoder_config_summary or {"codec": "vp9", "aq_mode": 0}),
             "encode_args_signature": "<signature>",
         },
     ]
     for crf, summary, bitrate in probes or []:
-        records.append({
-            "type": "trial",
-            "trial_index": crf,
-            "crf": crf,
-            "phase": "probe",
-            "passed": True,
-            "low_pct_enforced": True,
-            "windows_used": 1,
-            "windows_total": 1,
-            "frame_count": 80,
-            "encode_seconds": 5.0,
-            "size_percent_of_reference": 50.0,
-            "encoded_size_bytes": 1000000,
-            "trial_duration_seconds": 4.0,
-            "bitrate_kbps": bitrate,
-            "summary": summary,
-            "per_frame_vmaf": [],
-        })
+        records.append(
+            {
+                "type": "trial",
+                "trial_index": crf,
+                "crf": crf,
+                "phase": "probe",
+                "passed": True,
+                "low_pct_enforced": True,
+                "windows_used": 1,
+                "windows_total": 1,
+                "frame_count": 80,
+                "encode_seconds": 5.0,
+                "size_percent_of_reference": 50.0,
+                "encoded_size_bytes": 1000000,
+                "trial_duration_seconds": 4.0,
+                "bitrate_kbps": bitrate,
+                "summary": summary,
+                "per_frame_vmaf": [],
+            },
+        )
     if include_search_result:
-        records.append({
-            "type": "search_result",
-            "optimal_crf": optimal_crf,
-            "optimal_summary": None,
-            "kbps_at_target_vmaf": None,
-            "trial_count": len(probes or []),
-            "search_seconds": 25.0,
-            "search_frames": 240,
-            "final_frames_estimate": 1000,
-        })
+        records.append(
+            {
+                "type": "search_result",
+                "optimal_crf": optimal_crf,
+                "optimal_summary": None,
+                "kbps_at_target_vmaf": None,
+                "trial_count": len(probes or []),
+                "search_seconds": 25.0,
+                "search_frames": 240,
+                "final_frames_estimate": 1000,
+            },
+        )
     with path.open("w", encoding="utf-8") as fp:
         for rec in records:
             fp.write(json.dumps(rec) + "\n")

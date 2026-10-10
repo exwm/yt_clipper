@@ -147,6 +147,7 @@ def evaluate_cache_reuse(
         # this is just provenance.
         from clipper.log_helpers import LogPath
         from clipper.ytc_logger import logger
+
         logger.verbose(
             f"run-cache: skipped {skipped_count} unreadable run file(s) "
             f"at {LogPath(fingerprint_dir)} before finding a valid prior "
@@ -162,7 +163,9 @@ def evaluate_cache_reuse(
     )
     if not ok:
         return CacheReuseDecision(
-            kind="miss", prior_run=prior, reason=gate_reason,
+            kind="miss",
+            prior_run=prior,
+            reason=gate_reason,
         )
 
     if prior.search_fingerprint == search_fingerprint:
@@ -214,13 +217,13 @@ def _freshness_gate_passes(
             "fingerprint derivation drift; refusing to reuse)"
         )
     pair_ok, pair_reason = _pair_identity_matches(
-        prior.pair_identity, current_pair_identity,
+        prior.pair_identity,
+        current_pair_identity,
     )
     if not pair_ok:
         return False, pair_reason
     return True, (
-        "algorithm_version + yt_clipper_version + encode_args_signature + "
-        "pair_identity all match"
+        "algorithm_version + yt_clipper_version + encode_args_signature + pair_identity all match"
     )
 
 
@@ -243,7 +246,8 @@ def _major_minor_matches(prior_version: str, current_version: str) -> bool:
 
 
 def _pair_identity_matches(
-    prior: dict[str, Any], current: dict[str, Any],
+    prior: dict[str, Any],
+    current: dict[str, Any],
 ) -> tuple[bool, str]:
     """Match marker timing within an epsilon, plus source video id
     exact match. Source video id is the dict shape the orchestrator
@@ -323,7 +327,9 @@ def reconstruct_result_from_jsonl(  # noqa: PLR0912 — straight-line record dis
                 rec_type = rec.get("type")
                 if rec_type == "trial":
                     trial = _trial_from_record(
-                        rec, SampleGuidedEncodeTrial, VmafSummary,
+                        rec,
+                        SampleGuidedEncodeTrial,
+                        VmafSummary,
                     )
                     if trial is not None:
                         trials.append(trial)
@@ -358,7 +364,8 @@ def reconstruct_result_from_jsonl(  # noqa: PLR0912 — straight-line record dis
         optimal_summary_record = result_record.get("optimal_summary")
         if optimal_summary_record is not None:
             optimal_summary = _summary_from_record(
-                optimal_summary_record, VmafSummary,
+                optimal_summary_record,
+                VmafSummary,
             )
 
     # The fit record's baseline schema is a subset of the trial record's
@@ -372,7 +379,9 @@ def reconstruct_result_from_jsonl(  # noqa: PLR0912 — straight-line record dis
         baseline_record = dict(fit_baseline_record)
         baseline_record.setdefault("phase", "baseline")
         baseline_trial = _trial_from_record(
-            baseline_record, SampleGuidedEncodeTrial, VmafSummary,
+            baseline_record,
+            SampleGuidedEncodeTrial,
+            VmafSummary,
         )
 
     return SampleGuidedEncodeResult(
@@ -440,7 +449,8 @@ def _trial_from_record(
 
 
 def _summary_from_record(
-    rec: dict[str, Any], summary_cls: type[VmafSummary],
+    rec: dict[str, Any],
+    summary_cls: type[VmafSummary],
 ) -> VmafSummary | None:
     """Convert a ``summary`` sub-object from JSONL into a
     ``VmafSummary``.
@@ -449,6 +459,7 @@ def _summary_from_record(
     values with NaN so callers that care about a specific percentile
     can detect "not measured" via ``math.isfinite``.
     """
+
     def _f(key: str) -> float:
         val = rec.get(key)
         if val is None:
@@ -623,16 +634,9 @@ def prime_trial_measurement_cache(  # noqa: PLR0912 — straight-line record dis
                     # backward compat with any older format that
                     # might have stored it there.
                     frame_count = int(
-                        rec.get("frame_count")
-                        or summary.get("frame_count", 0)
-                        or 0,
+                        rec.get("frame_count") or summary.get("frame_count", 0) or 0,
                     )
-                    if (
-                        crf is None
-                        or per_frame is None
-                        or not window_indices
-                        or frame_count <= 0
-                    ):
+                    if crf is None or per_frame is None or not window_indices or frame_count <= 0:
                         continue
                     # A trial may have spanned multiple windows; the
                     # per_frame_vmaf list is the concatenation across

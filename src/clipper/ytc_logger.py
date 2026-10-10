@@ -178,6 +178,7 @@ class YTCLogger(verboselogs.VerboseLogger):
         prefix is budgeted out automatically.
         """
         from clipper.log_helpers import render_rule
+
         if level is None:
             level = HEADER if title else logging.INFO
         if char is None:

@@ -106,7 +106,9 @@ def getMarkerPairSettings(  # noqa: PLR0912
                 mp["fileNameSuffix"] = mps["ext"]
         else:
             mp["fileNameSuffix"] = (
-                "mp4" if mps["videoCodec"] in {"h264", "h264_nvenc", "h264_vulkan", "av1"} else "webm"
+                "mp4"
+                if mps["videoCodec"] in {"h264", "h264_nvenc", "h264_vulkan", "av1"}
+                else "webm"
             )
 
         mp["fileName"] = f"{mp['fileNameStem']}.{mp['fileNameSuffix']}"
@@ -232,7 +234,8 @@ def getMarkerPairSettings(  # noqa: PLR0912
 
     if enableLogging:
         snapshot = build_marker_pair_settings_snapshot(
-            mp, mps,
+            mp,
+            mps,
             marker_pair_index=markerPairIndex,
             bitrate_factor=bitrateFactor,
             bitrate_crop_factor=bitrateCropFactor,
@@ -375,7 +378,7 @@ def fastTrimClip(
         inputs += f' -ss {videoStart} -to {videoEnd} -i "{videoPart["url"]}" '
     else:
         logger.error(
-            f'Failed to generate: {LogPath(mp["fileName"])}. The marker pair defines a clip that spans multiple video parts which is not currently supported.',
+            f"Failed to generate: {LogPath(mp['fileName'])}. The marker pair defines a clip that spans multiple video parts which is not currently supported.",
         )
         return None
 
@@ -410,7 +413,8 @@ def makeClip(  # noqa: PLR0912
     cp = cs.clipper_paths
 
     mp, mps = getMarkerPairSettings(
-        cs, markerPairIndex,
+        cs,
+        markerPairIndex,
         outputSuffix=outputSuffix,
         outputDir=outputDir,
     )
@@ -443,9 +447,7 @@ def makeClip(  # noqa: PLR0912
         mp["filePath"] = f"{pre_v2x_dir}/{mp['fileNameStem']}.{mp['fileNameSuffix']}"
         pre_v2x_file = Path(mp["filePath"])
         mp["preV2xExists"] = (
-            pre_v2x_file.is_file()
-            and pre_v2x_file.stat().st_size > 0
-            and not mps["overwrite"]
+            pre_v2x_file.is_file() and pre_v2x_file.stat().st_size > 0 and not mps["overwrite"]
         )
 
     inputs = ""
@@ -495,7 +497,7 @@ def makeClip(  # noqa: PLR0912
         inputs += f' -ss {mp["start"]} -i "{videoPart["url"]}" '
     else:
         logger.error(
-            f'Failed to generate: {LogPath(mp["fileName"])}. The marker pair defines a clip that spans multiple video parts which is not currently supported.',
+            f"Failed to generate: {LogPath(mp['fileName'])}. The marker pair defines a clip that spans multiple video parts which is not currently supported.",
         )
         return None
 
@@ -778,7 +780,7 @@ def makeClip(  # noqa: PLR0912
             ffmpegCommand += f' -vf "{video_filter}" '
 
         # -speed is libvpx-only; libsvtav1 sets preset inside its codec args.
-        speed_arg = "" if mps["videoCodec"] == "av1" else f' -speed {mps["encodeSpeed"]}'
+        speed_arg = "" if mps["videoCodec"] == "av1" else f" -speed {mps['encodeSpeed']}"
 
         if not mps["twoPass"]:
             ffmpegCommand += overwriteArg
@@ -787,10 +789,7 @@ def makeClip(  # noqa: PLR0912
             ffmpegCommands = [ffmpegCommand]
         else:
             ffmpegPass1 = ffmpegCommand + f" -y -pass 1 {os.devnull}"
-            ffmpegPass2 = (
-                ffmpegCommand
-                + f' {overwriteArg}{speed_arg} -pass 2 "{mp["filePath"]}"'
-            )
+            ffmpegPass2 = ffmpegCommand + f' {overwriteArg}{speed_arg} -pass 2 "{mp["filePath"]}"'
 
             ffmpegCommands = [ffmpegPass1, ffmpegPass2]
 
@@ -803,7 +802,9 @@ def makeClip(  # noqa: PLR0912
         return runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp)
 
     if mp.get("preV2xExists"):
-        logger.notice(f"Skipping ffmpeg - using existing pre-v2x intermediate: {LogPath(mp['filePath'])}")
+        logger.notice(
+            f"Skipping ffmpeg - using existing pre-v2x intermediate: {LogPath(mp['filePath'])}",
+        )
     else:
         result = runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp)
         if result.get("returncode") != 0:
@@ -1043,11 +1044,13 @@ def runffmpegCommand(  # noqa: PLR0912 — encode kind branching + filter-graph 
             phase_label = settings.get("ffmpegProgressLabel") or ""
             if settings.get("sampleGuidedEncodeTrial"):
                 returncode = search_tracker.run_trial_ffmpeg(
-                    cmd, label=phase_label,
+                    cmd,
+                    label=phase_label,
                 )
             else:
                 returncode = search_tracker.run_phase_ffmpeg(
-                    cmd, label=phase_label,
+                    cmd,
+                    label=phase_label,
                 )
         else:
             returncode = run_ffmpeg_with_progress(
@@ -1229,8 +1232,7 @@ def mergeClips(cs: ClipperState) -> None:  # noqa: PLR0912
 
         if mergedClipReady and settings.get("previewFormat", "none") != "none":
             previewPaths = [
-                settings["markerPairs"][i - 1].get("previewFilePath")
-                for i in mergeList
+                settings["markerPairs"][i - 1].get("previewFilePath") for i in mergeList
             ]
             previewPaths = [path for path in previewPaths if path]
             if previewPaths:
@@ -1433,6 +1435,7 @@ def makeClips(cs: ClipperState) -> None:
                         ClipSearchSummary,
                         run_sample_guided_encode_for_marker_pair,
                     )
+
                     originalMarkerSnapshot = copy.deepcopy(
                         settings["markerPairs"][markerPairIndex],
                     )
@@ -1463,7 +1466,8 @@ def makeClips(cs: ClipperState) -> None:
                     )
                     with time_stage(f"({markerPairIndex + 1}) crf search + encode"):
                         resultMarker = run_sample_guided_encode_for_marker_pair(
-                            cs, markerPairIndex,
+                            cs,
+                            markerPairIndex,
                             originalMarkerSnapshot=originalMarkerSnapshot,
                         )
                     settings["markerPairs"][markerPairIndex] = resultMarker
@@ -1473,15 +1477,17 @@ def makeClips(cs: ClipperState) -> None:
                         searchResult = resultMarker.get("sampleGuidedEncodeResult")
                         if searchResult is not None:
                             priorRunDeltas = resultMarker.get("priorRunDeltas") or ()
-                            sampleGuidedEncodeSummaries.append(ClipSearchSummary(
-                                marker_pair_index=markerPairIndex,
-                                file_name_stem=resultMarker.get(
-                                    "fileNameStem",
-                                    f"clip-{markerPairIndex + 1}",
+                            sampleGuidedEncodeSummaries.append(
+                                ClipSearchSummary(
+                                    marker_pair_index=markerPairIndex,
+                                    file_name_stem=resultMarker.get(
+                                        "fileNameStem",
+                                        f"clip-{markerPairIndex + 1}",
+                                    ),
+                                    result=searchResult,
+                                    prior_run_deltas=tuple(priorRunDeltas),
                                 ),
-                                result=searchResult,
-                                prior_run_deltas=tuple(priorRunDeltas),
-                            ))
+                            )
                 else:
                     logger.rule(title=f"Encode ({markerPairIndex + 1})", sub=True)
                     with time_stage(f"({markerPairIndex + 1}) encode"):
@@ -1498,6 +1504,7 @@ def makeClips(cs: ClipperState) -> None:
         from clipper.sample_guided_encode import (
             format_aggregated_search_summary_log_block,
         )
+
         aggregateBlock = format_aggregated_search_summary_log_block(
             sampleGuidedEncodeSummaries,
         )

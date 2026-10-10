@@ -239,12 +239,7 @@ def _predict_next_bisection_crf(
                 # Linear: distance(crf) = lo_d + (hi_d - lo_d) *
                 # (crf - best_pass.crf) / (best_fail.crf - best_pass.crf)
                 # Solve for distance == 0:
-                predicted = (
-                    best_pass.crf
-                    + lo_d
-                    / (lo_d - hi_d)
-                    * (best_fail.crf - best_pass.crf)
-                )
+                predicted = best_pass.crf + lo_d / (lo_d - hi_d) * (best_fail.crf - best_pass.crf)
                 next_crf = round(predicted)
                 # Convergence: when the predicted boundary rounds back
                 # to ``best_pass.crf`` AND that trial barely cleared
@@ -259,10 +254,7 @@ def _predict_next_bisection_crf(
                 # we don't short-circuit when predicted just *rounded*
                 # to lo (e.g. via banker's rounding of x.5) but the
                 # actual boundary is still 1+ CRF higher.
-                if (
-                    next_crf == best_pass.crf
-                    and lo_d < _INTERP_CONVERGENCE_LO_DISTANCE
-                ):
+                if next_crf == best_pass.crf and lo_d < _INTERP_CONVERGENCE_LO_DISTANCE:
                     return next_crf
                 # Strict progress: must be in (lo, hi) exclusive so the
                 # bisection narrows on each remaining iteration.
@@ -421,7 +413,10 @@ def legacy_find_optimal_crf(
     # iterations to converge.
     while iterations_remaining > 0 and hi - lo > 1:
         mid = _predict_next_bisection_crf(
-            lo=lo, hi=hi, trials=trials, target=target,
+            lo=lo,
+            hi=hi,
+            trials=trials,
+            target=target,
         )
         if mid in {trial.crf for trial in trials}:
             # Range closed enough that the prediction landed on an
@@ -496,13 +491,9 @@ def _build_trial_from_measurement(
     """
     summary = measurement.summary
     passed, low_pct_enforced = passes_targets(summary, target_for_verdict)
-    ref_for_size = (
-        measurement.reference_size_bytes_for_windows or reference_size_bytes
-    )
+    ref_for_size = measurement.reference_size_bytes_for_windows or reference_size_bytes
     size_percent = (
-        measurement.encoded_size_bytes / ref_for_size * 100.0
-        if ref_for_size > 0
-        else 0.0
+        measurement.encoded_size_bytes / ref_for_size * 100.0 if ref_for_size > 0 else 0.0
     )
     return SampleGuidedEncodeTrial(
         crf=crf,
@@ -566,7 +557,6 @@ DEFAULT_PHASE2_FAST_FAIL_MARGIN: float = 1.0
 # one extra single-window probe at a lower CRF after Phase 2 fails so
 # the slope can be fit and the calibration check can fire.
 MIN_PHASE1_TRIALS_FOR_CALIBRATION: int = 2
-
 
 
 def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow with independent tuning knobs per phase; collapsing into a config object would obscure each parameter's role
@@ -707,11 +697,7 @@ def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow
             # increasing permissiveness order so we honor the strongest
             # quality guarantee that any cached trial supports.
             cascade: list[tuple[int | None, str]] = (
-                [
-                    (pct, f"p{pct}")
-                    for pct in (5, 10)
-                    if pct > target.target_vmaf_low_pct
-                ]
+                [(pct, f"p{pct}") for pct in (5, 10) if pct > target.target_vmaf_low_pct]
                 if allow_low_pct_cascade
                 else []
             )
@@ -730,7 +716,8 @@ def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow
                     user_pct_label = f"p{target.target_vmaf_low_pct}"
                     if fallback_pct is not None:
                         fallback_value = get_low_percentile_value(
-                            fallback.summary, fallback_pct,
+                            fallback.summary,
+                            fallback_pct,
                         )
                         logger.notice(
                             f"target {user_pct_label} unreachable "
@@ -782,11 +769,7 @@ def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow
     # the full-windows Phase 2 trial will pass. Skips the ~3x-cost
     # Phase 2 encode when prediction is clearly below target.
     candidate_phase1_summary: VmafSummary | None = next(
-        (
-            t.summary
-            for t in all_trials
-            if t.crf == candidate_crf and t.phase == "phase1"
-        ),
+        (t.summary for t in all_trials if t.crf == candidate_crf and t.phase == "phase1"),
         None,
     )
     skip_phase2 = False
@@ -841,9 +824,7 @@ def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow
     # single-window encode) and only fires when calibration would
     # otherwise be silent.
     if not skip_phase2:
-        phase1_trial_count = sum(
-            1 for trial in all_trials if trial.phase == "phase1"
-        )
+        phase1_trial_count = sum(1 for trial in all_trials if trial.phase == "phase1")
         if phase1_trial_count < MIN_PHASE1_TRIALS_FOR_CALIBRATION:
             calibration_probe_crf = max(
                 target.crf_min + 1,
@@ -858,7 +839,8 @@ def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow
                 )
                 probe_start_time = time.monotonic()
                 probe_measurement = evaluate_trial_for_windows(
-                    calibration_probe_crf, [middle_window_index],
+                    calibration_probe_crf,
+                    [middle_window_index],
                 )
                 probe_elapsed = time.monotonic() - probe_start_time
                 probe_trial = _build_trial_from_measurement(

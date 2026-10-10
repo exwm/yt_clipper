@@ -16,13 +16,13 @@ def test_roundUpToEven_rounds_up_from_odd() -> None:
 @pytest.mark.parametrize(
     ("sourceWidth", "sourceHeight", "expectedLongEdge"),
     [
-        (3840, 2160, 720),   # 4K landscape: short edge 2160 -> tier 2160 -> 720
-        (2560, 1440, 640),   # 1440p landscape: short edge 1440 -> tier 1440 -> 640
-        (1920, 1080, 540),   # 1080p landscape: short edge 1080 -> tier 1080 -> 540
-        (1280, 720, 480),    # 720p landscape: short edge 720 -> tier 720 -> 480
-        (854, 480, 360),     # 480p landscape: short edge 480 -> tier 480 -> 360
-        (1080, 1920, 540),   # 1080p portrait: short edge 1080 -> tier 1080 -> 540
-        (720, 1280, 480),    # 720p portrait: short edge 720 -> tier 720 -> 480
+        (3840, 2160, 720),  # 4K landscape: short edge 2160 -> tier 2160 -> 720
+        (2560, 1440, 640),  # 1440p landscape: short edge 1440 -> tier 1440 -> 640
+        (1920, 1080, 540),  # 1080p landscape: short edge 1080 -> tier 1080 -> 540
+        (1280, 720, 480),  # 720p landscape: short edge 720 -> tier 720 -> 480
+        (854, 480, 360),  # 480p landscape: short edge 480 -> tier 480 -> 360
+        (1080, 1920, 540),  # 1080p portrait: short edge 1080 -> tier 1080 -> 540
+        (720, 1280, 480),  # 720p portrait: short edge 720 -> tier 720 -> 480
     ],
 )
 def test_pickPreviewLongEdge_default_tiers(

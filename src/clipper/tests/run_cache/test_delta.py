@@ -147,13 +147,19 @@ def test_compute_prior_run_deltas_zero_current_picked_crf_skips_delta() -> None:
 def test_compute_prior_run_deltas_label_shows_only_diff_keys() -> None:
     prior = _prior(
         encoder_config={
-            "codec": "vp9", "aq_mode": 4, "tile_rows": 2, "speed": 1.0,
+            "codec": "vp9",
+            "aq_mode": 4,
+            "tile_rows": 2,
+            "speed": 1.0,
         },
     )
     rows = compute_prior_run_deltas(
         prior_runs=[prior],
         current_encoder_config={
-            "codec": "vp9", "aq_mode": 0, "tile_rows": 0, "speed": 1.0,
+            "codec": "vp9",
+            "aq_mode": 0,
+            "tile_rows": 0,
+            "speed": 1.0,
         },
         current_kbps_at_target=14000.0,
         current_picked_crf=30,
@@ -172,13 +178,17 @@ def test_compute_prior_run_deltas_current_row_shows_diff_keys_with_current_value
     values. Reads side-by-side like a git diff."""
     prior = _prior(
         encoder_config={
-            "codec": "vp9", "encodeSpeed": 4, "aq_mode": 0,
+            "codec": "vp9",
+            "encodeSpeed": 4,
+            "aq_mode": 0,
         },
     )
     rows = compute_prior_run_deltas(
         prior_runs=[prior],
         current_encoder_config={
-            "codec": "vp9", "encodeSpeed": 2, "aq_mode": 0,
+            "codec": "vp9",
+            "encodeSpeed": 2,
+            "aq_mode": 0,
         },
         current_kbps_at_target=11000.0,
         current_picked_crf=36,
@@ -211,7 +221,10 @@ def test_compute_prior_run_deltas_current_label_unions_across_priors() -> None:
     rows = compute_prior_run_deltas(
         prior_runs=[prior_a, prior_b],
         current_encoder_config={
-            "codec": "vp9", "aq_mode": 0, "tile_rows": 0, "encodeSpeed": 2,
+            "codec": "vp9",
+            "aq_mode": 0,
+            "tile_rows": 0,
+            "encodeSpeed": 2,
         },
         current_kbps_at_target=12000.0,
         current_picked_crf=32,

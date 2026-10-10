@@ -260,10 +260,15 @@ class EncodeProgressTracker:
                     if not candidates:
                         break
                     split_at = min(candidates)
-                    line = bytes(buffer[:split_at]).decode(
-                        "utf-8", errors="replace",
-                    ).rstrip()
-                    del buffer[:split_at + 1]
+                    line = (
+                        bytes(buffer[:split_at])
+                        .decode(
+                            "utf-8",
+                            errors="replace",
+                        )
+                        .rstrip()
+                    )
+                    del buffer[: split_at + 1]
                     if not line:
                         continue
                     # Always route through the buffer so the
@@ -403,6 +408,7 @@ def track_encode_progress(
     """
     if console is None:
         from clipper.ytc_logger import get_terminal_log_console
+
         console = get_terminal_log_console() or Console(stderr=True)
     tracker = EncodeProgressTracker(
         total_frames,
@@ -690,6 +696,7 @@ class SearchProgressTracker:
             # the logger hasn't been initialised (no-rich-logs path
             # or pre-setUp).
             from clipper.ytc_logger import get_terminal_log_console
+
             console = get_terminal_log_console() or Console(stderr=True)
         self._console = console
         self._status_text = Text("", style="dim")
@@ -816,7 +823,11 @@ class SearchProgressTracker:
         self._status_text.plain = ""
         parts = shlex.split(cmd)
         parts = [
-            parts[0], "-progress", "pipe:1", "-stats_period", "0.1",
+            parts[0],
+            "-progress",
+            "pipe:1",
+            "-stats_period",
+            "0.1",
             *parts[1:],
         ]
         proc = subprocess.Popen(
@@ -846,10 +857,15 @@ class SearchProgressTracker:
                         if not candidates:
                             break
                         split_at = min(candidates)
-                        line = bytes(buffer[:split_at]).decode(
-                            "utf-8", errors="replace",
-                        ).rstrip()
-                        del buffer[:split_at + 1]
+                        line = (
+                            bytes(buffer[:split_at])
+                            .decode(
+                                "utf-8",
+                                errors="replace",
+                            )
+                            .rstrip()
+                        )
+                        del buffer[: split_at + 1]
                         if not line:
                             continue
                         # Route every line through the rolling
@@ -880,7 +896,9 @@ class SearchProgressTracker:
                 pass
 
         stderr_thread = threading.Thread(
-            target=read_stderr, args=(proc.stderr,), daemon=True,
+            target=read_stderr,
+            args=(proc.stderr,),
+            daemon=True,
         )
         stderr_thread.start()
         # stdout (``-progress pipe:1``) is captured to keep the pipe
@@ -899,7 +917,9 @@ class SearchProgressTracker:
                 pass
 
         stdout_thread = threading.Thread(
-            target=drain_stdout, args=(proc.stdout,), daemon=True,
+            target=drain_stdout,
+            args=(proc.stdout,),
+            daemon=True,
         )
         stdout_thread.start()
 

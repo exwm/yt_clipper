@@ -102,12 +102,18 @@ def test_compute_run_fingerprints_search_fp_independent_of_encoder_settings() ->
 
 def test_compute_run_fingerprints_search_fp_flips_on_target_change() -> None:
     target_a = SampleGuidedEncodeTarget(
-        target_vmaf_mean=92.0, target_vmaf_low=95.0, target_vmaf_low_pct=5,
-        crf_min=20, crf_max=42,
+        target_vmaf_mean=92.0,
+        target_vmaf_low=95.0,
+        target_vmaf_low_pct=5,
+        crf_min=20,
+        crf_max=42,
     )
     target_b = SampleGuidedEncodeTarget(
-        target_vmaf_mean=92.0, target_vmaf_low=92.0, target_vmaf_low_pct=5,
-        crf_min=20, crf_max=42,
+        target_vmaf_mean=92.0,
+        target_vmaf_low=92.0,
+        target_vmaf_low_pct=5,
+        crf_min=20,
+        crf_max=42,
     )
     a = _compute_run_fingerprints("vp9", _settings(), _snapshot(), target_a)
     b = _compute_run_fingerprints("vp9", _settings(), _snapshot(), target_b)
@@ -148,14 +154,23 @@ def test_compute_run_fingerprints_stable_across_videoStabilization_toggle() -> N
     toggle so toggling stabilization doesn't bust the cache."""
     disabled = {"enabled": False, "desc": "Disabled"}
     enabled = {
-        "enabled": True, "shakiness": 6, "zoomspeed": 0.2,
-        "smoothing": 6, "desc": "Medium",
+        "enabled": True,
+        "shakiness": 6,
+        "zoomspeed": 0.2,
+        "smoothing": 6,
+        "desc": "Medium",
     }
     a = _compute_run_fingerprints(
-        "vp9", _settings(videoStabilization=disabled), _snapshot(), _target(),
+        "vp9",
+        _settings(videoStabilization=disabled),
+        _snapshot(),
+        _target(),
     )
     b = _compute_run_fingerprints(
-        "vp9", _settings(videoStabilization=enabled), _snapshot(), _target(),
+        "vp9",
+        _settings(videoStabilization=enabled),
+        _snapshot(),
+        _target(),
     )
     assert a.encoder_fingerprint == b.encoder_fingerprint
     assert "videoStabilization" not in a.encoder_config

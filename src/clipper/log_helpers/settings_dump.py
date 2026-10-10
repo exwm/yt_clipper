@@ -214,9 +214,7 @@ def build_auto_encode_settings_snapshot(
     ``getDefaultEncodeSettings``: the small set of values the clipper
     chooses based on detected bitrate alone, before any user override
     is layered on. Tiny — one section is enough."""
-    color_space_text = color_space or (
-        "unknown (bt709 will be assumed for color range operations)"
-    )
+    color_space_text = color_space or ("unknown (bt709 will be assumed for color range operations)")
     return {
         "Auto-determined": {
             "crf": _format_number(encode_settings.get("crf", "")),
@@ -344,10 +342,7 @@ def render_settings_table(
                 body_parts.append(f"{key}={value}")
         body = "  ".join(body_parts)
         plain_header = f"[{section_name}]"
-        styled_header = (
-            f"[bold]\\[{_escape_markup(section_name)}][/]"
-            if markup else plain_header
-        )
+        styled_header = f"[bold]\\[{_escape_markup(section_name)}][/]" if markup else plain_header
         rendered_sections.append((plain_header, styled_header, body))
     if not rendered_sections:
         return title or ""
@@ -543,7 +538,8 @@ def emit_marker_pair_settings_log(
     # the log. Compact form keeps the operator-visible info while
     # staying scannable.
     diff_block = render_settings_diff(
-        prior, snapshot,
+        prior,
+        snapshot,
         title=title_diff,
         markup=markup,
         compact=is_search_context,

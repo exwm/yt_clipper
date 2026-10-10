@@ -169,11 +169,13 @@ def test_measure_per_frame_requests_vmaf_metric_with_neg_model() -> None:
 
 def test_measure_per_frame_returns_list_of_floats_in_frame_order() -> None:
     """Per-frame scores extracted in order from the library's payload."""
-    fake_instance = _make_fake_ffqm([
-        {"n": 1, "vmaf": 95.5},
-        {"n": 2, "vmaf": 88.2},
-        {"n": 3, "vmaf": 91.0},
-    ])
+    fake_instance = _make_fake_ffqm(
+        [
+            {"n": 1, "vmaf": 95.5},
+            {"n": 2, "vmaf": 88.2},
+            {"n": 3, "vmaf": 91.0},
+        ],
+    )
     with patch(
         "clipper.quality.vmaf.FfmpegQualityMetrics",
         return_value=fake_instance,
@@ -215,9 +217,14 @@ def test_measure_vmaf_neg_threads_through_to_summary() -> None:
     The returned summary's mean/p1/frame_count come from the same per-frame
     payload that the underlying library mock emits.
     """
-    fake_instance = _make_fake_ffqm([
-        {"vmaf": 80.0}, {"vmaf": 85.0}, {"vmaf": 90.0}, {"vmaf": 95.0},
-    ])
+    fake_instance = _make_fake_ffqm(
+        [
+            {"vmaf": 80.0},
+            {"vmaf": 85.0},
+            {"vmaf": 90.0},
+            {"vmaf": 95.0},
+        ],
+    )
     with patch(
         "clipper.quality.vmaf.FfmpegQualityMetrics",
         return_value=fake_instance,

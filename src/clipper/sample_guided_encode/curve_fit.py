@@ -501,10 +501,7 @@ def pick_knee(
     if len(probes) < 3:
         return None
     sorted_probes = sorted(probes, key=lambda p: p.crf)
-    points = [
-        (p.crf, get_low_percentile_value(p.summary, fit.low_pct))
-        for p in sorted_probes
-    ]
+    points = [(p.crf, get_low_percentile_value(p.summary, fit.low_pct)) for p in sorted_probes]
     # Compute per-segment slopes (VMAF per CRF unit, sign carried).
     slopes: list[tuple[int, int, float]] = []  # (lo_crf, hi_crf, slope)
     for (lo_crf, lo_v), (hi_crf, hi_v) in zip(points, points[1:]):
@@ -580,19 +577,21 @@ def needs_extra_probe(
     # Push past max_probed toward crf_absolute_max to find a failing CRF.
     target_low = target.target_vmaf_low
     low_pct = target.target_vmaf_low_pct
-    valid_lows = [
-        get_low_percentile_value(p.summary, low_pct) for p in sorted_valid
-    ]
+    valid_lows = [get_low_percentile_value(p.summary, low_pct) for p in sorted_valid]
     has_below_target = any(v < target_low for v in valid_lows)
     if not has_below_target:
         max_probed = sorted_valid[-1].crf
         # Step size: roughly the largest existing gap, but at least 4
         # CRFs so we don't crawl. Capped so we don't shoot past the
         # absolute hard ceiling.
-        step = max(4, max(
-            (hi.crf - lo.crf for lo, hi in zip(sorted_valid, sorted_valid[1:])),
-            default=4,
-        ) // 2)
+        step = max(
+            4,
+            max(
+                (hi.crf - lo.crf for lo, hi in zip(sorted_valid, sorted_valid[1:])),
+                default=4,
+            )
+            // 2,
+        )
         candidate = min(target.crf_absolute_max, max_probed + step)
         if candidate > max_probed and candidate not in probed_crfs:
             return (
@@ -695,9 +694,7 @@ def compute_compressibility(
         if vmaf_drop < 0.1:
             continue
         segments.append((lo.crf, hi.crf, kbps_drop / vmaf_drop))
-    mean_score = (
-        sum(s[2] for s in segments) / len(segments) if segments else 0.0
-    )
+    mean_score = sum(s[2] for s in segments) / len(segments) if segments else 0.0
     at_chosen: float | None = None
     for lo_crf, hi_crf, score in segments:
         if lo_crf <= chosen_crf <= hi_crf:
@@ -753,6 +750,7 @@ _ANSI_SGR_TO_RICH: dict[str, str] = {
 
 def _ansi_to_rich_markup(text: str) -> str:
     """Replace plotille's ANSI SGR codes with rich markup tags."""
+
     def replace(match: re.Match[str]) -> str:
         code = match.group(1)
         rich_name = _ANSI_SGR_TO_RICH.get(code)
@@ -781,6 +779,7 @@ def _plotille_force_color() -> Generator[None, None, None]:
     text — is respected outside this rendering.
     """
     import os
+
     prev = os.environ.get("FORCE_COLOR")
     os.environ["FORCE_COLOR"] = "1"
     try:
@@ -833,9 +832,7 @@ def render_curve_ascii(  # noqa: PLR0912
         return []
     sorted_probes = sorted(fit.valid_probes, key=lambda p: p.crf)
     crfs = [float(p.crf) for p in sorted_probes]
-    vmafs = [
-        float(get_low_percentile_value(p.summary, fit.low_pct)) for p in sorted_probes
-    ]
+    vmafs = [float(get_low_percentile_value(p.summary, fit.low_pct)) for p in sorted_probes]
     bitrates = [float(p.bitrate_kbps) for p in sorted_probes]
 
     # X-range: span the search's configured ``[crf_min, crf_max]`` plus
@@ -969,8 +966,11 @@ def render_curve_ascii(  # noqa: PLR0912
         baseline_p = get_low_percentile_value(baseline.summary, fit.low_pct)
         if y_lo <= baseline_p <= y_hi and crf_lo <= baseline.crf <= crf_hi:
             fig_v.scatter(
-                [float(baseline.crf)], [float(baseline_p)],
-                lc="bright_magenta", label="baseline", marker="★",
+                [float(baseline.crf)],
+                [float(baseline_p)],
+                lc="bright_magenta",
+                label="baseline",
+                marker="★",
             )
     # Reference encode anchor: ``R`` marker (blue) at VMAF=100 — the
     # comparison ceiling by definition.
@@ -978,8 +978,11 @@ def render_curve_ascii(  # noqa: PLR0912
         ref_p = get_low_percentile_value(reference.summary, fit.low_pct)
         if y_lo <= ref_p <= y_hi:
             fig_v.scatter(
-                [float(reference.crf)], [float(ref_p)],
-                lc="bright_blue", label="reference", marker="▲",
+                [float(reference.crf)],
+                [float(ref_p)],
+                lc="bright_blue",
+                label="reference",
+                marker="▲",
             )
     with _plotille_force_color():
         fig_v_text = fig_v.show()
@@ -1020,8 +1023,10 @@ def render_curve_ascii(  # noqa: PLR0912
             and crf_lo <= baseline.crf <= crf_hi
         ):
             fig_b.scatter(
-                [float(baseline.crf)], [float(baseline.bitrate_kbps)],
-                lc="bright_magenta", marker="★",
+                [float(baseline.crf)],
+                [float(baseline.bitrate_kbps)],
+                lc="bright_magenta",
+                marker="★",
             )
         if (
             reference is not None
@@ -1033,8 +1038,10 @@ def render_curve_ascii(  # noqa: PLR0912
             if reference.bitrate_kbps > kbps_hi:
                 fig_b.set_y_limits(min_=kbps_lo, max_=reference.bitrate_kbps * 1.05)
             fig_b.scatter(
-                [float(reference.crf)], [float(reference.bitrate_kbps)],
-                lc="bright_blue", marker="▲",
+                [float(reference.crf)],
+                [float(reference.bitrate_kbps)],
+                lc="bright_blue",
+                marker="▲",
             )
         with _plotille_force_color():
             fig_b_text = fig_b.show()
@@ -1063,14 +1070,10 @@ def render_curve_ascii(  # noqa: PLR0912
         f"[bright_green]green[/bright_green]=chose crf={chosen_crf}"
     )
     if reference is not None:
-        legend += (
-            f"  [bright_blue]blue ▲[/bright_blue]"
-            f"=reference crf={reference.crf}"
-        )
+        legend += f"  [bright_blue]blue ▲[/bright_blue]=reference crf={reference.crf}"
     if baseline is not None:
         legend += (
-            f"  [bright_magenta]magenta ★[/bright_magenta]"
-            f"=baseline auto-pick crf={baseline.crf}"
+            f"  [bright_magenta]magenta ★[/bright_magenta]=baseline auto-pick crf={baseline.crf}"
         )
     # Indent chart lines so they align with the legend's 2-space
     # offset and don't sit flush against column 0 — gives the y-axis
@@ -1169,9 +1172,7 @@ def find_crf_via_curve_fit(
     for model in ("piecewise", "linear", "log"):
         picks_grid[model] = {
             "target": pick_target(fit, target=fit_target, model=model),
-            "knee": (
-                pick_knee(fit, target=fit_target) if model == "piecewise" else None
-            ),
+            "knee": (pick_knee(fit, target=fit_target) if model == "piecewise" else None),
             "budget": pick_budget(fit, target=fit_target, model=model),
         }
     # Default: target on piecewise — pick the highest CRF whose
@@ -1198,11 +1199,7 @@ def find_crf_via_curve_fit(
         # probe — most aggressive CRF that was actually measured.
         # ``target.crf_min`` is the absolute last resort if saturation
         # drop ate every probe.
-        chosen_crf = (
-            max(p.crf for p in fit.valid_probes)
-            if fit.valid_probes
-            else target.crf_min
-        )
+        chosen_crf = max(p.crf for p in fit.valid_probes) if fit.valid_probes else target.crf_min
         chosen_heuristic = "target"
     picks = HeuristicPicks(
         by_curve_and_heuristic=picks_grid,
@@ -1285,5 +1282,3 @@ def find_crf_via_curve_fit(
         extra={"highlighter": None},
     )
     return search_result, curve_fit_result
-
-

@@ -80,7 +80,8 @@ def test_snapshot_includes_every_section() -> None:
 def test_snapshot_uses_kebab_case_keys_with_no_whitespace() -> None:
     mp, mps = _baseline_mp_mps()
     snap = build_marker_pair_settings_snapshot(
-        mp, mps,
+        mp,
+        mps,
         marker_pair_index=0,
         bitrate_factor=1.5,
         bitrate_crop_factor=0.6,
@@ -123,7 +124,8 @@ def test_snapshot_omits_bitrate_factors_when_not_provided() -> None:
     snap = build_marker_pair_settings_snapshot(mp, mps, marker_pair_index=0)
     assert "bitrate-factor" not in snap["Bitrate"]
     snap = build_marker_pair_settings_snapshot(
-        mp, mps,
+        mp,
+        mps,
         marker_pair_index=0,
         bitrate_factor=1.5,
         bitrate_crop_factor=0.6,
@@ -138,7 +140,8 @@ def test_snapshot_rounds_long_floats_to_compact_repr() -> None:
     mp, mps = _baseline_mp_mps()
     mp["outputDuration"] = 10.054210666666668
     snap = build_marker_pair_settings_snapshot(
-        mp, mps,
+        mp,
+        mps,
         marker_pair_index=0,
         bitrate_factor=0.14585783410972753,
     )
@@ -157,7 +160,10 @@ def test_render_table_one_line_per_section_with_aligned_section_column() -> None
     # The body of each line begins at the same column (section header
     # padding aligns the key=value block across all sections).
     body_starts = {
-        line.index("]") + 1 + len(line[line.index("]") + 1:]) - len(line[line.index("]") + 1:].lstrip())
+        line.index("]")
+        + 1
+        + len(line[line.index("]") + 1 :])
+        - len(line[line.index("]") + 1 :].lstrip())
         for line in body_lines
     }
     assert len(body_starts) == 1, f"misaligned section bodies: {body_starts}"
@@ -217,6 +223,7 @@ def test_render_diff_uses_kebab_case_keys() -> None:
 
 def test_render_table_with_markup_emits_bold_header_and_dim_keys() -> None:
     import re as _re
+
     mp, mps = _baseline_mp_mps()
     snap = build_marker_pair_settings_snapshot(mp, mps, marker_pair_index=0)
     out = render_settings_table(snap, markup=True)
@@ -224,15 +231,19 @@ def test_render_table_with_markup_emits_bold_header_and_dim_keys() -> None:
     assert "[bold]\\[Encoding][/]" in out
     # Each key is wrapped in [dim]<key>=[/] so the value pops.
     assert "[dim]codec=[/]vp9" in out
+
     # Visible alignment: strip markup tags + the bracket-escape, then
     # confirm the body of every section starts at the same column.
     def visible(line: str) -> str:
         line = _re.sub(r"\[(?:bold|dim|/)\]", "", line)
         return line.replace("\\[", "[")
+
     visible_lines = [visible(line) for line in out.splitlines() if "\\[" in line]
     body_starts = {
-        line.index("]") + 1 + len(line[line.index("]") + 1:])
-        - len(line[line.index("]") + 1:].lstrip())
+        line.index("]")
+        + 1
+        + len(line[line.index("]") + 1 :])
+        - len(line[line.index("]") + 1 :].lstrip())
         for line in visible_lines
     }
     assert len(body_starts) == 1, f"misaligned bodies: {body_starts}"
@@ -337,12 +348,23 @@ def test_auto_encode_snapshot_falls_back_for_unknown_color_space() -> None:
 
 def test_global_snapshot_includes_detected_bitrate_and_rotate() -> None:
     settings: dict[str, Any] = {
-        "videoCodec": "vp9", "crf": 33, "encodeSpeed": 2, "twoPass": True,
-        "enableHDR": False, "rotate": "0", "bit_rate": 8500,
-        "audio": True, "denoise": {"desc": "off"}, "enableSpeedMaps": True,
-        "minterpFpsMultiplier": 1.0, "minterpMode": "MCI", "minterpTool": "ffmpeg",
-        "loop": "none", "videoStabilization": {"desc": "off"},
-        "videoStabilizationMaxAngle": -1, "videoStabilizationMaxShift": -1,
+        "videoCodec": "vp9",
+        "crf": 33,
+        "encodeSpeed": 2,
+        "twoPass": True,
+        "enableHDR": False,
+        "rotate": "0",
+        "bit_rate": 8500,
+        "audio": True,
+        "denoise": {"desc": "off"},
+        "enableSpeedMaps": True,
+        "minterpFpsMultiplier": 1.0,
+        "minterpMode": "MCI",
+        "minterpTool": "ffmpeg",
+        "loop": "none",
+        "videoStabilization": {"desc": "off"},
+        "videoStabilizationMaxAngle": -1,
+        "videoStabilizationMaxShift": -1,
         "videoStabilizationDynamicZoom": False,
     }
     snap = build_global_settings_snapshot(

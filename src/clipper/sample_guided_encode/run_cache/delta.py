@@ -82,7 +82,8 @@ def compute_prior_run_deltas(
     rows: list[PriorRunDelta] = [
         PriorRunDelta(
             config_label=_format_label_for_keys(
-                current_encoder_config, union_diff_keys,
+                current_encoder_config,
+                union_diff_keys,
             ),
             kbps_at_target=current_kbps_at_target,
             delta_kbps_pct=None,
@@ -93,17 +94,12 @@ def compute_prior_run_deltas(
     ]
     for prior in prior_runs:
         prior_kbps = _interpolate_kbps_from_probes(
-            prior.probes, current_target_vmaf_low,
+            prior.probes,
+            current_target_vmaf_low,
         )
         delta_kbps_pct: float | None = None
-        if (
-            current_kbps_at_target is not None
-            and prior_kbps is not None
-            and prior_kbps > 0
-        ):
-            delta_kbps_pct = (
-                (current_kbps_at_target - prior_kbps) / prior_kbps * 100.0
-            )
+        if current_kbps_at_target is not None and prior_kbps is not None and prior_kbps > 0:
+            delta_kbps_pct = (current_kbps_at_target - prior_kbps) / prior_kbps * 100.0
         delta_picked_crf: int | None = None
         if current_picked_crf is not None and prior.optimal_crf is not None:
             delta_picked_crf = current_picked_crf - prior.optimal_crf
@@ -145,15 +141,14 @@ def _union_diff_keys(
 
 
 def _format_label_for_keys(
-    config: dict[str, Any], keys: set[str],
+    config: dict[str, Any],
+    keys: set[str],
 ) -> str:
     """Render ``key=value`` pairs (alphabetical) for the given keys
     against ``config``. Used for the current row's label so it
     surfaces the same dimensions the prior rows differ on."""
     parts = [
-        f"{key}={config[key]}"
-        for key in sorted(keys)
-        if key in config and config[key] is not None
+        f"{key}={config[key]}" for key in sorted(keys) if key in config and config[key] is not None
     ]
     if not parts:
         return "(current)"
@@ -235,9 +230,7 @@ def format_prior_run_deltas_block(
     from clipper.log_helpers import render_rich_table_to_text
 
     visible: list[tuple[str, list[PriorRunDelta]]] = [
-        (label, rows)
-        for label, rows in rows_per_clip
-        if any(not row.is_current for row in rows)
+        (label, rows) for label, rows in rows_per_clip if any(not row.is_current for row in rows)
     ]
     if not visible:
         return ""
@@ -260,19 +253,13 @@ def format_prior_run_deltas_block(
     table.add_column("Δ crf", justify="right")
     for clip_label, rows in visible:
         for row in rows:
-            kbps = (
-                f"{row.kbps_at_target:.0f}"
-                if row.kbps_at_target is not None
-                else "-"
-            )
+            kbps = f"{row.kbps_at_target:.0f}" if row.kbps_at_target is not None else "-"
             d_kbps = (
                 f"{row.delta_kbps_pct:+.1f}%"
                 if row.delta_kbps_pct is not None
                 else ("—" if row.is_current else "-")
             )
-            crf_str = (
-                str(row.picked_crf) if row.picked_crf is not None else "-"
-            )
+            crf_str = str(row.picked_crf) if row.picked_crf is not None else "-"
             d_crf = (
                 f"{row.delta_picked_crf:+d}"
                 if row.delta_picked_crf is not None

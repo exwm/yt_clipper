@@ -134,40 +134,56 @@ def test_encoder_fingerprint_stable_across_crf_changes() -> None:
 
 def test_encoder_fingerprint_stable_across_trim_range() -> None:
     fp_a, _ = compute_encoder_fingerprint(
-        _vp9_args_at(30), "trim=12.5:34.7", _vp9_extras(),
+        _vp9_args_at(30),
+        "trim=12.5:34.7",
+        _vp9_extras(),
     )
     fp_b, _ = compute_encoder_fingerprint(
-        _vp9_args_at(30), "trim=100.1:200.4", _vp9_extras(),
+        _vp9_args_at(30),
+        "trim=100.1:200.4",
+        _vp9_extras(),
     )
     assert fp_a == fp_b
 
 
 def test_encoder_fingerprint_flips_on_aq_mode_change() -> None:
     fp_old, _ = compute_encoder_fingerprint(
-        _vp9_args_at(30, aq_mode=4), "trim=0:10", _vp9_extras(),
+        _vp9_args_at(30, aq_mode=4),
+        "trim=0:10",
+        _vp9_extras(),
     )
     fp_new, _ = compute_encoder_fingerprint(
-        _vp9_args_at(30, aq_mode=0), "trim=0:10", _vp9_extras(),
+        _vp9_args_at(30, aq_mode=0),
+        "trim=0:10",
+        _vp9_extras(),
     )
     assert fp_old != fp_new
 
 
 def test_encoder_fingerprint_flips_on_tile_rows_change() -> None:
     fp_old, _ = compute_encoder_fingerprint(
-        _vp9_args_at(30, tile_rows=2), "trim=0:10", _vp9_extras(),
+        _vp9_args_at(30, tile_rows=2),
+        "trim=0:10",
+        _vp9_extras(),
     )
     fp_new, _ = compute_encoder_fingerprint(
-        _vp9_args_at(30, tile_rows=0), "trim=0:10", _vp9_extras(),
+        _vp9_args_at(30, tile_rows=0),
+        "trim=0:10",
+        _vp9_extras(),
     )
     assert fp_old != fp_new
 
 
 def test_encoder_fingerprint_flips_on_filter_graph_change() -> None:
     fp_a, _ = compute_encoder_fingerprint(
-        _vp9_args_at(30), "trim=0:10,scale=1920:1080", _vp9_extras(),
+        _vp9_args_at(30),
+        "trim=0:10,scale=1920:1080",
+        _vp9_extras(),
     )
     fp_b, _ = compute_encoder_fingerprint(
-        _vp9_args_at(30), "trim=0:10,scale=1280:720", _vp9_extras(),
+        _vp9_args_at(30),
+        "trim=0:10,scale=1280:720",
+        _vp9_extras(),
     )
     assert fp_a != fp_b
 

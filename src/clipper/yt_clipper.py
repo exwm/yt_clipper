@@ -52,6 +52,7 @@ def main() -> None:
     # this line gives the on-disk log file a date so a postmortem
     # days later can recover the calendar context.
     from datetime import datetime, timezone
+
     logger.report(
         f"run started at {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}",
     )
@@ -109,6 +110,7 @@ def main() -> None:
     # the other aggregate outputs. A second Ctrl+C during cleanup
     # would be confusing; suppress and continue to printReport.
     from clipper.log_helpers import render_timing_summary
+
     try:
         timing_block = render_timing_summary()
         if timing_block:

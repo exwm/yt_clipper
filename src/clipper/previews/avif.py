@@ -220,7 +220,7 @@ def pickPreviewCrf(
 
     srcPixels = max(1, sourceWidth * sourceHeight)
     pxRatio = (previewWidth * previewHeight) / srcPixels
-    if pxRatio <= 0.10:   # e.g. 1080p source -> 360p preview: very aggressive downsample
+    if pxRatio <= 0.10:  # e.g. 1080p source -> 360p preview: very aggressive downsample
         crf += 2
     elif pxRatio <= 0.25:  # e.g. 1080p source -> 540p preview: moderate downsample
         crf += 1
@@ -303,8 +303,7 @@ def makeAvifPreview(
 
     if Path(avifFilePath).is_file() and not overwrite:
         logger.notice(
-            f"Skipped existing {AVIF_PREVIEW_LABEL}: "
-            f"{LogPath(Path(avifFilePath).name)}",
+            f"Skipped existing {AVIF_PREVIEW_LABEL}: {LogPath(Path(avifFilePath).name)}",
         )
         return avifFilePath
 

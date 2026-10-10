@@ -5,14 +5,18 @@ def test_pickPreviewCrf_pixel_reduction_raises_crf() -> None:
     # Preview close to source size -> no pxRatio bump.
     crfLargePreview = avif.pickPreviewCrf(
         sourceCrf=None,
-        sourceWidth=1920, sourceHeight=1080,
-        previewWidth=1280, previewHeight=720,  # px ratio ~0.44, above 0.25 -> no bump
+        sourceWidth=1920,
+        sourceHeight=1080,
+        previewWidth=1280,
+        previewHeight=720,  # px ratio ~0.44, above 0.25 -> no bump
     )
     # Aggressive downsample -> pxRatio <=0.10 -> +2 bump.
     crfSmallPreview = avif.pickPreviewCrf(
         sourceCrf=None,
-        sourceWidth=1920, sourceHeight=1080,
-        previewWidth=480, previewHeight=270,   # px ratio ~0.0625
+        sourceWidth=1920,
+        sourceHeight=1080,
+        previewWidth=480,
+        previewHeight=270,  # px ratio ~0.0625
     )
     assert crfSmallPreview > crfLargePreview
 
@@ -23,13 +27,17 @@ def test_pickPreviewCrf_lossy_source_raises_floor() -> None:
     # A lossy source should clamp that back up to BASE via the floor.
     baseline = avif.pickPreviewCrf(
         sourceCrf=None,
-        sourceWidth=1920, sourceHeight=1080,
-        previewWidth=1024, previewHeight=576,  # 16:9, pxRatio ~0.284, longEdge 1024
+        sourceWidth=1920,
+        sourceHeight=1080,
+        previewWidth=1024,
+        previewHeight=576,  # 16:9, pxRatio ~0.284, longEdge 1024
     )
     withLossySource = avif.pickPreviewCrf(
         sourceCrf=40,  # >= 35 floor trigger
-        sourceWidth=1920, sourceHeight=1080,
-        previewWidth=1024, previewHeight=576,
+        sourceWidth=1920,
+        sourceHeight=1080,
+        previewWidth=1024,
+        previewHeight=576,
     )
     assert baseline < avif.AVIF_PREVIEW_CRF_BASE
     assert withLossySource >= avif.AVIF_PREVIEW_CRF_BASE
@@ -40,13 +48,17 @@ def test_pickPreviewCrf_pristine_source_is_not_pulled_lower() -> None:
     # spending bits faithfully when the preview-side signals are fixed.
     withoutSourceCrf = avif.pickPreviewCrf(
         sourceCrf=None,
-        sourceWidth=1920, sourceHeight=1080,
-        previewWidth=540, previewHeight=304,
+        sourceWidth=1920,
+        sourceHeight=1080,
+        previewWidth=540,
+        previewHeight=304,
     )
     withPristineSource = avif.pickPreviewCrf(
         sourceCrf=18,
-        sourceWidth=1920, sourceHeight=1080,
-        previewWidth=540, previewHeight=304,
+        sourceWidth=1920,
+        sourceHeight=1080,
+        previewWidth=540,
+        previewHeight=304,
     )
     assert withoutSourceCrf == withPristineSource
 
@@ -54,15 +66,19 @@ def test_pickPreviewCrf_pristine_source_is_not_pulled_lower() -> None:
 def test_pickPreviewCrf_small_preview_nudged_up() -> None:
     smallPreviewCrf = avif.pickPreviewCrf(
         sourceCrf=None,
-        sourceWidth=1920, sourceHeight=1080,
-        previewWidth=360, previewHeight=202,  # long edge 360 <= 400 -> +1
+        sourceWidth=1920,
+        sourceHeight=1080,
+        previewWidth=360,
+        previewHeight=202,  # long edge 360 <= 400 -> +1
     )
     # Same source, a preview just above the small-threshold but still in the
     # middle band (400 < longEdge < 640) -> no size nudge.
     midPreviewCrf = avif.pickPreviewCrf(
         sourceCrf=None,
-        sourceWidth=1920, sourceHeight=1080,
-        previewWidth=500, previewHeight=282,
+        sourceWidth=1920,
+        sourceHeight=1080,
+        previewWidth=500,
+        previewHeight=282,
     )
     assert smallPreviewCrf > midPreviewCrf
 
@@ -70,13 +86,17 @@ def test_pickPreviewCrf_small_preview_nudged_up() -> None:
 def test_pickPreviewCrf_large_preview_nudged_down() -> None:
     largePreviewCrf = avif.pickPreviewCrf(
         sourceCrf=None,
-        sourceWidth=3840, sourceHeight=2160,
-        previewWidth=720, previewHeight=406,  # long edge 720 >= 640 -> -1
+        sourceWidth=3840,
+        sourceHeight=2160,
+        previewWidth=720,
+        previewHeight=406,  # long edge 720 >= 640 -> -1
     )
     midPreviewCrf = avif.pickPreviewCrf(
         sourceCrf=None,
-        sourceWidth=3840, sourceHeight=2160,
-        previewWidth=500, previewHeight=282,
+        sourceWidth=3840,
+        sourceHeight=2160,
+        previewWidth=500,
+        previewHeight=282,
     )
     assert largePreviewCrf < midPreviewCrf
 
@@ -84,12 +104,14 @@ def test_pickPreviewCrf_large_preview_nudged_down() -> None:
 def test_pickPreviewCrf_always_in_band() -> None:
     # Sweep a few degenerate combinations and confirm nothing escapes the band.
     for sourceCrf in (None, 10, 30, 45, 63):
-        for (sw, sh) in [(3840, 2160), (1920, 1080), (854, 480), (320, 240)]:
-            for (pw, ph) in [(320, 180), (540, 304), (720, 406), (1280, 720)]:
+        for sw, sh in [(3840, 2160), (1920, 1080), (854, 480), (320, 240)]:
+            for pw, ph in [(320, 180), (540, 304), (720, 406), (1280, 720)]:
                 crf = avif.pickPreviewCrf(
                     sourceCrf=sourceCrf,
-                    sourceWidth=sw, sourceHeight=sh,
-                    previewWidth=pw, previewHeight=ph,
+                    sourceWidth=sw,
+                    sourceHeight=sh,
+                    previewWidth=pw,
+                    previewHeight=ph,
                 )
                 assert avif.AVIF_PREVIEW_CRF_MIN <= crf <= avif.AVIF_PREVIEW_CRF_MAX, (
                     f"CRF {crf} out of band for source={sw}x{sh}, "
@@ -98,12 +120,17 @@ def test_pickPreviewCrf_always_in_band() -> None:
 
 
 def test_pickPreviewCrf_override_bypasses_heuristic() -> None:
-    assert avif.pickPreviewCrf(
-        sourceCrf=None,
-        sourceWidth=1920, sourceHeight=1080,
-        previewWidth=540, previewHeight=304,
-        override=22,
-    ) == 22
+    assert (
+        avif.pickPreviewCrf(
+            sourceCrf=None,
+            sourceWidth=1920,
+            sourceHeight=1080,
+            previewWidth=540,
+            previewHeight=304,
+            override=22,
+        )
+        == 22
+    )
 
 
 def test_buildAvifPreviewCommand_shape() -> None:
@@ -207,4 +234,5 @@ def test_avif_tiers_alias_matches_shared_default() -> None:
     # ever fails intentionally, AVIF has deliberately diverged and the helper
     # call in makeAvifPreview should keep passing AVIF_PREVIEW_DIM_TIERS.
     from clipper.previews.shared import DEFAULT_PREVIEW_DIM_TIERS
+
     assert avif.AVIF_PREVIEW_DIM_TIERS == DEFAULT_PREVIEW_DIM_TIERS

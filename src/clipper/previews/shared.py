@@ -35,11 +35,11 @@ logger = make_subsystem_logger(Subsystem.PREVIEWS)
 # curve warrants different bucket boundaries.
 DEFAULT_PREVIEW_DIM_TIERS: Tuple[Tuple[int, int], ...] = (
     # (source_short_edge_min, preview_long_edge)
-    (2160, 720),   # 4K and up         -> 720p preview
-    (1440, 640),   # 1440p             -> 640p
-    (1080, 540),   # 1080p             -> 540p
-    (720, 480),    # 720p              -> 480p
-    (480, 360),    # 480p              -> 360p
+    (2160, 720),  # 4K and up         -> 720p preview
+    (1440, 640),  # 1440p             -> 640p
+    (1080, 540),  # 1080p             -> 540p
+    (720, 480),  # 720p              -> 480p
+    (480, 360),  # 480p              -> 360p
 )
 
 
@@ -180,8 +180,7 @@ def runFfmpegPreviewCommand(
         logger.success(f"Successfully generated {previewLabel}: {out_log}")
         return outPath
     logger.error(
-        f"Failed to generate {previewLabel}: {out_log} "
-        f"(error code: {returncode}).",
+        f"Failed to generate {previewLabel}: {out_log} (error code: {returncode}).",
     )
     return None
 

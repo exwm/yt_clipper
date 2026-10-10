@@ -165,7 +165,7 @@ def pickPreviewQuality(
 
     srcPixels = max(1, sourceWidth * sourceHeight)
     pxRatio = (previewWidth * previewHeight) / srcPixels
-    if pxRatio <= 0.10:   # very aggressive downsample -> lower quality is fine
+    if pxRatio <= 0.10:  # very aggressive downsample -> lower quality is fine
         quality -= 5
     elif pxRatio <= 0.25:
         quality -= 2
@@ -239,8 +239,7 @@ def makeWebpPreview(
 
     if Path(webpFilePath).is_file() and not overwrite:
         logger.notice(
-            f"Skipped existing {WEBP_PREVIEW_LABEL}: "
-            f"{LogPath(Path(webpFilePath).name)}",
+            f"Skipped existing {WEBP_PREVIEW_LABEL}: {LogPath(Path(webpFilePath).name)}",
         )
         return webpFilePath
 

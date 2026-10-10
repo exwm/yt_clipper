@@ -185,7 +185,7 @@ def test_substitute_filter_graphs_registers_long_graph_and_substitutes() -> None
         # First call: graph registered as #1, full expr returned as a new entry,
         # cmd's -vf "..." replaced with the placeholder.
         assert new_entries == [(1, _LONG_FILTER)]
-        assert '-vf <filter-graph #1>' in new_cmd
+        assert "-vf <filter-graph #1>" in new_cmd
         assert _LONG_FILTER not in new_cmd
         assert registry == {_LONG_FILTER: 1}
 
@@ -210,7 +210,7 @@ def test_substitute_filter_graphs_deduplicates_repeat_graphs() -> None:
     # placeholder still substitutes against the previously-assigned id.
     assert entries_a == [(1, _LONG_FILTER)]
     assert entries_b == []
-    assert '-vf <filter-graph #1>' in new_cmd_b
+    assert "-vf <filter-graph #1>" in new_cmd_b
 
 
 def test_substitute_filter_graphs_assigns_distinct_ids_to_distinct_graphs() -> None:
@@ -230,7 +230,7 @@ def test_substitute_filter_graphs_assigns_distinct_ids_to_distinct_graphs() -> N
         new_cmd_b, entries_b = substitute_filter_graphs(cmd_b)
     assert entries_a == [(1, _LONG_FILTER)]
     assert entries_b == [(2, other_filter)]
-    assert '-vf <filter-graph #2>' in new_cmd_b
+    assert "-vf <filter-graph #2>" in new_cmd_b
 
 
 def test_substitute_filter_graphs_uses_angle_brackets_not_square_brackets() -> None:
@@ -244,8 +244,8 @@ def test_substitute_filter_graphs_uses_angle_brackets_not_square_brackets() -> N
     cmd = f'ffmpeg -i input.mp4 -vf "{_LONG_FILTER}" out.webm'
     with active_filter_graph_registry():
         new_cmd, _ = substitute_filter_graphs(cmd)
-    assert '<filter-graph #1>' in new_cmd
-    assert '[filter-graph #1]' not in new_cmd
+    assert "<filter-graph #1>" in new_cmd
+    assert "[filter-graph #1]" not in new_cmd
 
 
 def test_active_filter_graph_registry_resets_on_exit() -> None:
@@ -305,9 +305,7 @@ def test_repeated_frame_zero_does_not_reset_progress_timestamp() -> None:
     # gate is what protects this.
     tracker = _make_tracker(total_frames=100)
     pipe = io.BytesIO(
-        b"frame=0\nout_time_ms=0\n"
-        b"frame=0\nout_time_ms=0\n"
-        b"frame=0\nout_time_ms=0\nprogress=end\n",
+        b"frame=0\nout_time_ms=0\nframe=0\nout_time_ms=0\nframe=0\nout_time_ms=0\nprogress=end\n",
     )
     with tracker:
         tracker._last_progress_ts -= 5.0
@@ -439,6 +437,7 @@ def test_push_stderr_line_caps_non_stats_buffer_at_max_length() -> None:
     # transient region stays bounded in height regardless of how
     # chatty ffmpeg's setup output is.
     from clipper.log_helpers.encode_progress import _RECENT_NON_STATS_LINES_MAX
+
     tracker = _make_tracker(total_frames=100)
     with tracker:
         for i in range(_RECENT_NON_STATS_LINES_MAX + 3):

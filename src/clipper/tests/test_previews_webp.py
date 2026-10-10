@@ -5,14 +5,18 @@ def test_pickPreviewQuality_pixel_reduction_lowers_quality() -> None:
     # Preview close to source size -> no pxRatio adjustment (keep base).
     qualityLargePreview = webp.pickPreviewQuality(
         sourceCrf=None,
-        sourceWidth=1920, sourceHeight=1080,
-        previewWidth=1280, previewHeight=720,  # pxRatio ~0.44 -> no adjustment
+        sourceWidth=1920,
+        sourceHeight=1080,
+        previewWidth=1280,
+        previewHeight=720,  # pxRatio ~0.44 -> no adjustment
     )
     # Aggressive downsample -> pxRatio <= 0.10 -> -5 quality (smaller files).
     qualitySmallPreview = webp.pickPreviewQuality(
         sourceCrf=None,
-        sourceWidth=1920, sourceHeight=1080,
-        previewWidth=480, previewHeight=270,   # pxRatio ~0.0625
+        sourceWidth=1920,
+        sourceHeight=1080,
+        previewWidth=480,
+        previewHeight=270,  # pxRatio ~0.0625
     )
     assert qualitySmallPreview < qualityLargePreview
 
@@ -23,13 +27,17 @@ def test_pickPreviewQuality_lossy_source_caps_quality() -> None:
     # A lossy source should clamp that back down to BASE via the ceiling.
     baseline = webp.pickPreviewQuality(
         sourceCrf=None,
-        sourceWidth=1920, sourceHeight=1080,
-        previewWidth=1024, previewHeight=576,  # 16:9, pxRatio ~0.284, longEdge 1024
+        sourceWidth=1920,
+        sourceHeight=1080,
+        previewWidth=1024,
+        previewHeight=576,  # 16:9, pxRatio ~0.284, longEdge 1024
     )
     withLossySource = webp.pickPreviewQuality(
         sourceCrf=40,  # >= 35 ceiling trigger
-        sourceWidth=1920, sourceHeight=1080,
-        previewWidth=1024, previewHeight=576,
+        sourceWidth=1920,
+        sourceHeight=1080,
+        previewWidth=1024,
+        previewHeight=576,
     )
     assert baseline > webp.WEBP_PREVIEW_QUALITY_BASE
     assert withLossySource <= webp.WEBP_PREVIEW_QUALITY_BASE
@@ -41,13 +49,17 @@ def test_pickPreviewQuality_pristine_source_is_not_pushed_higher() -> None:
     # when the preview-side signals are fixed.
     withoutSourceCrf = webp.pickPreviewQuality(
         sourceCrf=None,
-        sourceWidth=1920, sourceHeight=1080,
-        previewWidth=540, previewHeight=304,
+        sourceWidth=1920,
+        sourceHeight=1080,
+        previewWidth=540,
+        previewHeight=304,
     )
     withPristineSource = webp.pickPreviewQuality(
         sourceCrf=18,
-        sourceWidth=1920, sourceHeight=1080,
-        previewWidth=540, previewHeight=304,
+        sourceWidth=1920,
+        sourceHeight=1080,
+        previewWidth=540,
+        previewHeight=304,
     )
     assert withoutSourceCrf == withPristineSource
 
@@ -55,13 +67,17 @@ def test_pickPreviewQuality_pristine_source_is_not_pushed_higher() -> None:
 def test_pickPreviewQuality_small_preview_nudged_down() -> None:
     smallPreviewQuality = webp.pickPreviewQuality(
         sourceCrf=None,
-        sourceWidth=1920, sourceHeight=1080,
-        previewWidth=360, previewHeight=202,  # long edge 360 <= 400 -> -2
+        sourceWidth=1920,
+        sourceHeight=1080,
+        previewWidth=360,
+        previewHeight=202,  # long edge 360 <= 400 -> -2
     )
     midPreviewQuality = webp.pickPreviewQuality(
         sourceCrf=None,
-        sourceWidth=1920, sourceHeight=1080,
-        previewWidth=500, previewHeight=282,  # 400 < longEdge < 640 -> no nudge
+        sourceWidth=1920,
+        sourceHeight=1080,
+        previewWidth=500,
+        previewHeight=282,  # 400 < longEdge < 640 -> no nudge
     )
     assert smallPreviewQuality < midPreviewQuality
 
@@ -69,13 +85,17 @@ def test_pickPreviewQuality_small_preview_nudged_down() -> None:
 def test_pickPreviewQuality_large_preview_nudged_up() -> None:
     largePreviewQuality = webp.pickPreviewQuality(
         sourceCrf=None,
-        sourceWidth=3840, sourceHeight=2160,
-        previewWidth=720, previewHeight=406,  # long edge 720 >= 640 -> +2
+        sourceWidth=3840,
+        sourceHeight=2160,
+        previewWidth=720,
+        previewHeight=406,  # long edge 720 >= 640 -> +2
     )
     midPreviewQuality = webp.pickPreviewQuality(
         sourceCrf=None,
-        sourceWidth=3840, sourceHeight=2160,
-        previewWidth=500, previewHeight=282,
+        sourceWidth=3840,
+        sourceHeight=2160,
+        previewWidth=500,
+        previewHeight=282,
     )
     assert largePreviewQuality > midPreviewQuality
 
@@ -83,12 +103,14 @@ def test_pickPreviewQuality_large_preview_nudged_up() -> None:
 def test_pickPreviewQuality_always_in_band() -> None:
     # Sweep degenerate combinations; confirm nothing escapes the band.
     for sourceCrf in (None, 10, 30, 45, 63):
-        for (sw, sh) in [(3840, 2160), (1920, 1080), (854, 480), (320, 240)]:
-            for (pw, ph) in [(320, 180), (540, 304), (720, 406), (1280, 720)]:
+        for sw, sh in [(3840, 2160), (1920, 1080), (854, 480), (320, 240)]:
+            for pw, ph in [(320, 180), (540, 304), (720, 406), (1280, 720)]:
                 quality = webp.pickPreviewQuality(
                     sourceCrf=sourceCrf,
-                    sourceWidth=sw, sourceHeight=sh,
-                    previewWidth=pw, previewHeight=ph,
+                    sourceWidth=sw,
+                    sourceHeight=sh,
+                    previewWidth=pw,
+                    previewHeight=ph,
                 )
                 assert webp.WEBP_PREVIEW_QUALITY_MIN <= quality <= webp.WEBP_PREVIEW_QUALITY_MAX, (
                     f"quality {quality} out of band for source={sw}x{sh}, "
@@ -97,12 +119,17 @@ def test_pickPreviewQuality_always_in_band() -> None:
 
 
 def test_pickPreviewQuality_override_bypasses_heuristic() -> None:
-    assert webp.pickPreviewQuality(
-        sourceCrf=None,
-        sourceWidth=1920, sourceHeight=1080,
-        previewWidth=540, previewHeight=304,
-        override=82,  # deliberately outside the [55, 75] band — override is trusted
-    ) == 82
+    assert (
+        webp.pickPreviewQuality(
+            sourceCrf=None,
+            sourceWidth=1920,
+            sourceHeight=1080,
+            previewWidth=540,
+            previewHeight=304,
+            override=82,  # deliberately outside the [55, 75] band — override is trusted
+        )
+        == 82
+    )
 
 
 def test_buildWebpPreviewCommand_shape() -> None:
@@ -157,6 +184,7 @@ def test_getWebpPreviewPath_delegates_with_webp_extension() -> None:
 
 def test_webp_tiers_alias_matches_shared_default() -> None:
     from clipper.previews.shared import DEFAULT_PREVIEW_DIM_TIERS
+
     assert webp.WEBP_PREVIEW_DIM_TIERS == DEFAULT_PREVIEW_DIM_TIERS
 
 

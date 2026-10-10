@@ -155,10 +155,7 @@ def _emit_chart_for_cached_result(
     frame count (from sample_windows + source_fps) reproduce the
     same bitrate the live path computes.
     """
-    probes = [
-        trial for trial in cached_result.trials
-        if trial.phase in {"probe", "verify"}
-    ]
+    probes = [trial for trial in cached_result.trials if trial.phase in {"probe", "verify"}]
     if len(probes) < 2:
         return  # not enough probes to fit; skip silently
     # Dedupe by CRF, prefer verify (final measurement at the picked CRF).
@@ -281,9 +278,7 @@ def _reference_from_disk(
     """
     if not (0 <= middle_window_index < len(sample_windows)):
         return None
-    ref_path = fingerprint_dir / (
-        f"{file_name_stem}.crfsearch-ref-w{middle_window_index}.webm"
-    )
+    ref_path = fingerprint_dir / (f"{file_name_stem}.crfsearch-ref-w{middle_window_index}.webm")
     if not ref_path.is_file():
         return None
     try:
@@ -293,18 +288,22 @@ def _reference_from_disk(
     if ref_size_bytes <= 0:
         return None
     middle_window = sample_windows[middle_window_index]
-    ref_window_frames = (
-        round(middle_window.duration * source_fps) if source_fps > 0 else 0
-    )
+    ref_window_frames = round(middle_window.duration * source_fps) if source_fps > 0 else 0
     if ref_window_frames <= 0:
         return None
     ref_duration_seconds = ref_window_frames / source_fps
     ref_bitrate_kbps = ref_size_bytes * 8 / ref_duration_seconds / 1000
     reference_crf = _REFERENCE_CRF_BY_CODEC.get(codec, _REFERENCE_CRF_FALLBACK)
     ref_summary = VmafSummary(
-        mean=100.0, p1=100.0, p5=100.0, p10=100.0,
-        p15=100.0, p20=100.0, p25=100.0,
-        minimum=100.0, frame_count=ref_window_frames,
+        mean=100.0,
+        p1=100.0,
+        p5=100.0,
+        p10=100.0,
+        p15=100.0,
+        p20=100.0,
+        p25=100.0,
+        minimum=100.0,
+        frame_count=ref_window_frames,
     )
     return SampleGuidedEncodeTrial(
         crf=reference_crf,
@@ -366,8 +365,7 @@ def _emit_final_encode_sidecar_signal(
             )
         except OSError as exc:
             logger.verbose(
-                f"final encode: failed to write encode-meta sidecar for "
-                f"{output_path.name}: {exc}",
+                f"final encode: failed to write encode-meta sidecar for {output_path.name}: {exc}",
             )
         return
     # File pre-existed and wasn't touched: compare against current expectations.
@@ -426,10 +424,9 @@ def _interpolate_kbps_at_target_vmaf(
     needs to hit the same quality.
     """
     valid = [
-        t for t in trials
-        if t.phase in {"probe", "verify"}
-        and t.bitrate_kbps > 0
-        and t.summary.frame_count > 0
+        t
+        for t in trials
+        if t.phase in {"probe", "verify"} and t.bitrate_kbps > 0 and t.summary.frame_count > 0
     ]
     if len(valid) < 2:
         return None
@@ -519,13 +516,9 @@ def _format_baseline_delta_line(
     ]
     if b_size is not None and p_size is not None:
         segments.append(
-            f"size {b_size:.1f}→{p_size:.1f} MB "
-            f"({_pct_delta(p_size, b_size):+.1f}%)",
+            f"size {b_size:.1f}→{p_size:.1f} MB ({_pct_delta(p_size, b_size):+.1f}%)",
         )
-    return (
-        f"{clip_label} crf {baseline.crf}→{picked.crf}: "
-        + ", ".join(segments)
-    )
+    return f"{clip_label} crf {baseline.crf}→{picked.crf}: " + ", ".join(segments)
 
 
 def _format_baseline_deltas_block(
@@ -606,9 +599,24 @@ def format_aggregated_search_summary_log_block(
         padding=(0, 1),
         collapse_padding=True,
     )
-    for col_name in ("clip", "crf", "mean", _label(1), _label(5), _label(10),
-                     _label(15), _label(20), _label(25), "kbps", "kbps@tgt",
-                     "size_MB", "size%", "trials", "time", "sample%"):
+    for col_name in (
+        "clip",
+        "crf",
+        "mean",
+        _label(1),
+        _label(5),
+        _label(10),
+        _label(15),
+        _label(20),
+        _label(25),
+        "kbps",
+        "kbps@tgt",
+        "size_MB",
+        "size%",
+        "trials",
+        "time",
+        "sample%",
+    ):
         table.add_column(
             col_name,
             justify="left" if col_name == "clip" else "right",
@@ -642,10 +650,7 @@ def format_aggregated_search_summary_log_block(
             if trial.crf == result.optimal_crf:
                 size_pct = f"{trial.size_percent_of_reference:.0f}%"
                 kbps_str = f"{trial.bitrate_kbps:.0f}"
-                if (
-                    trial.summary.frame_count > 0
-                    and result.final_frames_estimate > 0
-                ):
+                if trial.summary.frame_count > 0 and result.final_frames_estimate > 0:
                     est_size_mb = (
                         trial.encoded_size_bytes
                         * (result.final_frames_estimate / trial.summary.frame_count)
@@ -674,10 +679,22 @@ def format_aggregated_search_summary_log_block(
         )
         clip_label = f"#{clip.marker_pair_index + 1}"
         table.add_row(
-            clip_label, crf, mean, p1, p5, p10, p15, p20, p25,
-            kbps_str, kbps_at_target_str, size_mb_str, size_pct,
+            clip_label,
+            crf,
+            mean,
+            p1,
+            p5,
+            p10,
+            p15,
+            p20,
+            p25,
+            kbps_str,
+            kbps_at_target_str,
+            size_mb_str,
+            size_pct,
             str(len(result.trials)),
-            f"{result.search_seconds:.1f}s", sample_pct,
+            f"{result.search_seconds:.1f}s",
+            sample_pct,
         )
 
     lines: list[str] = [header, "", render_rich_table_to_text(table, width=140)]
@@ -697,11 +714,7 @@ def format_aggregated_search_summary_log_block(
     # automatically by ``format_prior_run_deltas_block`` for clips
     # with no priors. Target VMAF is read from the first clip's
     # result (all clips in a run share the same target).
-    target_low_value = (
-        first_target.target_vmaf_low
-        if first_target is not None
-        else 0.0
-    )
+    target_low_value = first_target.target_vmaf_low if first_target is not None else 0.0
     rows_per_clip: list[tuple[str, list[PriorRunDelta]]] = [
         (
             f"#{clip.marker_pair_index + 1}",
@@ -912,8 +925,7 @@ def _compute_run_fingerprints(
     fp_mp: dict[str, Any] = {
         "speed": float(originalMarkerSnapshot.get("speed", 1.0)),
         "averageSpeed": float(
-            originalMarkerSnapshot.get("averageSpeed",
-                originalMarkerSnapshot.get("speed", 1.0)),
+            originalMarkerSnapshot.get("averageSpeed", originalMarkerSnapshot.get("speed", 1.0)),
         ),
         "isVariableSpeed": bool(originalMarkerSnapshot.get("isVariableSpeed", False)),
     }
@@ -930,7 +942,10 @@ def _compute_run_fingerprints(
     codec_args = ""
     try:
         codec_args, _, _ = getFfmpegVideoCodecArgs(
-            codec, cbr=None, mp=fp_mp, mps=fp_mps,
+            codec,
+            cbr=None,
+            mp=fp_mp,
+            mps=fp_mps,
         )
     except Exception as exc:
         logger.verbose(
@@ -1050,7 +1065,9 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
         crf_max_for_search = SampleGuidedEncodeTarget.crf_max
         if (
             isinstance(prior_optimal_crf, int)
-            and SampleGuidedEncodeTarget.crf_min <= prior_optimal_crf <= SampleGuidedEncodeTarget.crf_absolute_max
+            and SampleGuidedEncodeTarget.crf_min
+            <= prior_optimal_crf
+            <= SampleGuidedEncodeTarget.crf_absolute_max
         ):
             crf_max_for_search = prior_optimal_crf
             logger.info(
@@ -1164,9 +1181,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
             target=target,
         )
         pair_dir = (
-            Path(cs.clipper_paths.clipsPath)
-            / "temp" / "sample-encodes"
-            / f"{markerPairIndex + 1}"
+            Path(cs.clipper_paths.clipsPath) / "temp" / "sample-encodes" / f"{markerPairIndex + 1}"
         )
         fingerprint_dir = pair_dir / fingerprints.encoder_fingerprint
         fingerprint_dir.mkdir(parents=True, exist_ok=True)
@@ -1270,48 +1285,50 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
                     fp.write(json.dumps(record) + "\n")
             except OSError as exc:
                 logger.warning(
-                    f"failed to write trials metadata "
-                    f"({LogPath(trials_metadata_path)}): {exc}",
+                    f"failed to write trials metadata ({LogPath(trials_metadata_path)}): {exc}",
                 )
 
         # First record: run_header. Pinpoints which run this JSONL is, what
         # algorithm version produced it, and which fingerprints it claims
         # — all needed by the cache-gate of FUTURE runs to decide reuse
         # vs. re-run.
-        _append_trials_metadata_line({
-            "type": "run_header",
-            "run_id": run_id,
-            "run_timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "algorithm_version": ALGORITHM_VERSION,
-            "encoder_fingerprint": fingerprints.encoder_fingerprint,
-            "search_fingerprint": fingerprints.search_fingerprint,
-            "yt_clipper_version": YT_CLIPPER_VERSION,
-            "encode_args_signature": fingerprints.encode_args_signature,
-        })
-        _append_trials_metadata_line({
-            "type": "search_meta",
-            "marker_pair_index": markerPairIndex,
-            "marker_pair_number": markerPairIndex + 1,
-            "title_suffix": title_suffix,
-            "codec": codec,
-            "source_fps": source_fps,
-            "clip_start": clip_start,
-            "clip_end": clip_end,
-            "final_frames_estimate": final_frames_estimate,
-            "pair_identity": pair_identity,
-            "target": {
-                "mean": target.target_vmaf_mean,
-                "low": target.target_vmaf_low,
-                "low_percentile": target.target_vmaf_low_pct,
-                "crf_min": target.crf_min,
-                "crf_max": target.crf_max,
-                "crf_absolute_max": target.crf_absolute_max,
+        _append_trials_metadata_line(
+            {
+                "type": "run_header",
+                "run_id": run_id,
+                "run_timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "algorithm_version": ALGORITHM_VERSION,
+                "encoder_fingerprint": fingerprints.encoder_fingerprint,
+                "search_fingerprint": fingerprints.search_fingerprint,
+                "yt_clipper_version": YT_CLIPPER_VERSION,
+                "encode_args_signature": fingerprints.encode_args_signature,
             },
-            "sample_windows": [
-                {"start": w.start, "end": w.end, "duration": w.duration}
-                for w in sample_windows
-            ],
-        })
+        )
+        _append_trials_metadata_line(
+            {
+                "type": "search_meta",
+                "marker_pair_index": markerPairIndex,
+                "marker_pair_number": markerPairIndex + 1,
+                "title_suffix": title_suffix,
+                "codec": codec,
+                "source_fps": source_fps,
+                "clip_start": clip_start,
+                "clip_end": clip_end,
+                "final_frames_estimate": final_frames_estimate,
+                "pair_identity": pair_identity,
+                "target": {
+                    "mean": target.target_vmaf_mean,
+                    "low": target.target_vmaf_low,
+                    "low_percentile": target.target_vmaf_low_pct,
+                    "crf_min": target.crf_min,
+                    "crf_max": target.crf_max,
+                    "crf_absolute_max": target.crf_absolute_max,
+                },
+                "sample_windows": [
+                    {"start": w.start, "end": w.end, "duration": w.duration} for w in sample_windows
+                ],
+            },
+        )
         # Per-trial captures: keyed by trial number so on_trial_complete
         # can pair the per-frame data with the search's phase/passed verdict.
         pending_trial_per_frame: dict[int, list[float]] = {}
@@ -1324,7 +1341,8 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
         trial_file_stem = f"{title_suffix}-{markerPairIndex + 1}"
         try:
             removed = cleanup_orphaned_trial_files(
-                fingerprint_dir, trial_file_stem,
+                fingerprint_dir,
+                trial_file_stem,
             )
             if removed:
                 logger.info(
@@ -1335,8 +1353,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
                 )
         except OSError as exc:
             logger.verbose(
-                f"orphan trial cleanup failed ({exc}); "
-                f"existing trial files will be trusted as-is.",
+                f"orphan trial cleanup failed ({exc}); existing trial files will be trusted as-is.",
             )
 
         # Always harvest trial measurements from any prior runs in
@@ -1380,7 +1397,8 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
             # original.
             try:
                 with cache_decision.prior_run.run_jsonl_path.open(
-                    "r", encoding="utf-8",
+                    "r",
+                    encoding="utf-8",
                 ) as fp:
                     for raw_line in fp:
                         line = raw_line.strip()
@@ -1617,21 +1635,23 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
             else 0
         )
         ref_duration_seconds = (
-            ref_window_frames / source_fps
-            if source_fps > 0 and ref_window_frames > 0
-            else 0.0
+            ref_window_frames / source_fps if source_fps > 0 and ref_window_frames > 0 else 0.0
         )
         ref_bitrate_kbps = (
-            ref_size_bytes * 8 / ref_duration_seconds / 1000
-            if ref_duration_seconds > 0
-            else 0.0
+            ref_size_bytes * 8 / ref_duration_seconds / 1000 if ref_duration_seconds > 0 else 0.0
         )
         reference_marker: SampleGuidedEncodeTrial | None = None
         if ref_size_bytes > 0 and ref_window_frames > 0:
             ref_summary = VmafSummary(
-                mean=100.0, p1=100.0, p5=100.0, p10=100.0,
-                p15=100.0, p20=100.0, p25=100.0,
-                minimum=100.0, frame_count=ref_window_frames,
+                mean=100.0,
+                p1=100.0,
+                p5=100.0,
+                p10=100.0,
+                p15=100.0,
+                p20=100.0,
+                p25=100.0,
+                minimum=100.0,
+                frame_count=ref_window_frames,
             )
             reference_marker = SampleGuidedEncodeTrial(
                 crf=reference_crf,
@@ -1673,9 +1693,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
             windows, the middle window costs nothing extra.
             """
             trial_counter["n"] += 1
-            all_cached = all(
-                (crf, w) in trial_measurement_cache for w in window_indices
-            )
+            all_cached = all((crf, w) in trial_measurement_cache for w in window_indices)
             if all_cached:
                 cached_trial_numbers.add(trial_counter["n"])
             label = (
@@ -1729,9 +1747,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
                 else 0.0
             )
             bitrate_kbps = (
-                encoded_size_total * 8 / duration_seconds / 1000
-                if duration_seconds > 0
-                else 0.0
+                encoded_size_total * 8 / duration_seconds / 1000 if duration_seconds > 0 else 0.0
             )
             return TrialMeasurement(
                 summary=summary,
@@ -1753,11 +1769,13 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
             # below and persists the JSONL record.
             verdict = "PASS" if trial.passed else "FAIL"
             checks = f"mean+{low_pct_label}" if trial.low_pct_enforced else "mean only"
+
             # Show all six low percentiles for visibility; mark the one
             # actually being enforced so the user can see at a glance
             # whether the target threshold is being cleared.
             def _marker(pct: int) -> str:
                 return "*" if target.target_vmaf_low_pct == pct else " "
+
             phase_label = f" [{trial.phase}]" if trial.phase else ""
             # Estimated full-encode size: per-frame bytes scale linearly
             # so total ≈ encoded_size_bytes * (final_frames /
@@ -1780,6 +1798,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
                 if trial_counter["n"] in cached_trial_numbers
                 else f"{trial.encode_seconds:.1f}s"
             )
+
             # Column-align per-trial metrics so trials read as a
             # vertical scan: trial number / crf / mean / each pX /
             # kbps / size / size% / frames / windows / verdict /
@@ -1793,6 +1812,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
                 # so chunks line up regardless of whether the percentile
                 # is 1 / 5 (2-char name) or 10 / 15 / 20 / 25 (3-char).
                 return f"{chunk:<11}"
+
             phase_prefix = f"{phase_label.lstrip()} " if phase_label else ""
             logger.info(
                 f"{phase_prefix}trial {trial_counter['n']:>2}: "
@@ -1817,34 +1837,36 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
                 if source_fps > 0 and trial.summary.frame_count > 0
                 else 0.0
             )
-            _append_trials_metadata_line({
-                "type": "trial",
-                "trial_index": trial_counter["n"],
-                "crf": trial.crf,
-                "phase": trial.phase,
-                "passed": trial.passed,
-                "low_pct_enforced": trial.low_pct_enforced,
-                "windows_used": trial.windows_used,
-                "windows_total": trial.windows_total,
-                "window_indices": window_indices,
-                "frame_count": trial.summary.frame_count,
-                "encode_seconds": round(trial.encode_seconds, 2),
-                "size_percent_of_reference": round(trial.size_percent_of_reference, 2),
-                "encoded_size_bytes": trial.encoded_size_bytes,
-                "trial_duration_seconds": round(trial_duration_seconds, 3),
-                "bitrate_kbps": round(trial.bitrate_kbps, 1),
-                "summary": {
-                    "mean": round(trial.summary.mean, 2),
-                    "p1": round(trial.summary.p1, 2),
-                    "p5": round(trial.summary.p5, 2),
-                    "p10": round(trial.summary.p10, 2),
-                    "p15": round(trial.summary.p15, 2),
-                    "p20": round(trial.summary.p20, 2),
-                    "p25": round(trial.summary.p25, 2),
-                    "minimum": round(trial.summary.minimum, 2),
+            _append_trials_metadata_line(
+                {
+                    "type": "trial",
+                    "trial_index": trial_counter["n"],
+                    "crf": trial.crf,
+                    "phase": trial.phase,
+                    "passed": trial.passed,
+                    "low_pct_enforced": trial.low_pct_enforced,
+                    "windows_used": trial.windows_used,
+                    "windows_total": trial.windows_total,
+                    "window_indices": window_indices,
+                    "frame_count": trial.summary.frame_count,
+                    "encode_seconds": round(trial.encode_seconds, 2),
+                    "size_percent_of_reference": round(trial.size_percent_of_reference, 2),
+                    "encoded_size_bytes": trial.encoded_size_bytes,
+                    "trial_duration_seconds": round(trial_duration_seconds, 3),
+                    "bitrate_kbps": round(trial.bitrate_kbps, 1),
+                    "summary": {
+                        "mean": round(trial.summary.mean, 2),
+                        "p1": round(trial.summary.p1, 2),
+                        "p5": round(trial.summary.p5, 2),
+                        "p10": round(trial.summary.p10, 2),
+                        "p15": round(trial.summary.p15, 2),
+                        "p20": round(trial.summary.p20, 2),
+                        "p25": round(trial.summary.p25, 2),
+                        "minimum": round(trial.summary.minimum, 2),
+                    },
+                    "per_frame_vmaf": [round(v, 2) for v in per_frame],
                 },
-                "per_frame_vmaf": [round(v, 2) for v in per_frame],
-            })
+            )
 
         # (The outer ``SearchProgressTracker`` and its filter-graph
         # registry are already opened earlier — before the eager
@@ -1904,10 +1926,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
                         windows=sample_windows,
                         settings_overrides=baseline_overrides,
                         suffix_template=".crfsearch-baseline",
-                        label=(
-                            f"baseline auto-pick crf={auto_crf} "
-                            f"maxrate={auto_max_bitrate}kbps"
-                        ),
+                        label=(f"baseline auto-pick crf={auto_crf} maxrate={auto_max_bitrate}kbps"),
                         output_dir=fingerprint_dir,
                         windows_to_encode=[middle_window_index],
                     )
@@ -1923,9 +1942,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
                                 )
                                 baseline_summary = summarize_vmaf(per_frame_baseline)
                                 baseline_size_bytes = (
-                                    baseline_path.stat().st_size
-                                    if baseline_path.is_file()
-                                    else 0
+                                    baseline_path.stat().st_size if baseline_path.is_file() else 0
                                 )
                                 baseline_duration = (
                                     baseline_summary.frame_count / source_fps
@@ -2046,91 +2063,87 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
             )
             # Append the fit + picks to the JSONL metadata so the
             # search file is self-describing for offline analysis.
-            _append_trials_metadata_line({
-                "type": "fit",
-                "algorithm": "curve-fit",
-                "low_pct": curve_fit_result.fit.low_pct,
-                "valid_probe_crfs": [
-                    p.crf for p in curve_fit_result.fit.valid_probes
-                ],
-                "linear_slope": round(curve_fit_result.fit.linear_slope, 4),
-                "linear_intercept": round(curve_fit_result.fit.linear_intercept, 4),
-                "log_slope": round(curve_fit_result.fit.log_slope, 4),
-                "log_intercept": round(curve_fit_result.fit.log_intercept, 4),
-                "picks": {
-                    model: dict(pick_map)
-                    for model, pick_map in
-                    curve_fit_result.picks.by_curve_and_heuristic.items()
-                },
-                "chosen_curve": curve_fit_result.picks.chosen_curve,
-                "chosen_heuristic": curve_fit_result.picks.chosen_heuristic,
-                "chosen_crf": curve_fit_result.picks.chosen_crf,
-                "refit_reasons": curve_fit_result.refit_reasons,
-                "compressibility": (
-                    {
-                        "mean_kbps_per_vmaf": round(
-                            curve_fit_result.compressibility.mean_kbps_per_vmaf,
-                            1,
-                        ),
-                        "at_chosen_crf_kbps_per_vmaf": (
-                            round(
-                                curve_fit_result
-                                .compressibility
-                                .at_chosen_crf_kbps_per_vmaf,
+            _append_trials_metadata_line(
+                {
+                    "type": "fit",
+                    "algorithm": "curve-fit",
+                    "low_pct": curve_fit_result.fit.low_pct,
+                    "valid_probe_crfs": [p.crf for p in curve_fit_result.fit.valid_probes],
+                    "linear_slope": round(curve_fit_result.fit.linear_slope, 4),
+                    "linear_intercept": round(curve_fit_result.fit.linear_intercept, 4),
+                    "log_slope": round(curve_fit_result.fit.log_slope, 4),
+                    "log_intercept": round(curve_fit_result.fit.log_intercept, 4),
+                    "picks": {
+                        model: dict(pick_map)
+                        for model, pick_map in curve_fit_result.picks.by_curve_and_heuristic.items()
+                    },
+                    "chosen_curve": curve_fit_result.picks.chosen_curve,
+                    "chosen_heuristic": curve_fit_result.picks.chosen_heuristic,
+                    "chosen_crf": curve_fit_result.picks.chosen_crf,
+                    "refit_reasons": curve_fit_result.refit_reasons,
+                    "compressibility": (
+                        {
+                            "mean_kbps_per_vmaf": round(
+                                curve_fit_result.compressibility.mean_kbps_per_vmaf,
                                 1,
-                            )
-                            if curve_fit_result.compressibility.at_chosen_crf_kbps_per_vmaf
-                            is not None
-                            else None
-                        ),
-                        "segments": [
-                            {
-                                "lo_crf": lo,
-                                "hi_crf": hi,
-                                "kbps_per_vmaf": round(score, 1),
-                            }
-                            for lo, hi, score in
-                            curve_fit_result.compressibility.segments
-                        ],
-                    }
-                    if curve_fit_result.compressibility is not None
-                    else None
-                ),
-                "ascii_chart": render_curve_ascii(
-                    curve_fit_result.fit,
-                    target=target,
-                    chosen_crf=curve_fit_result.picks.chosen_crf,
-                    baseline=baseline_trial,
-                    reference=reference_marker,
-                ),
-                "baseline": (
-                    {
-                        "crf": baseline_trial.crf,
-                        "bitrate_kbps": round(baseline_trial.bitrate_kbps, 1),
-                        "encoded_size_bytes": baseline_trial.encoded_size_bytes,
-                        # Frame count goes top-level on the baseline
-                        # dict (matching the trial-record schema where
-                        # ``summary`` is just percentiles and
-                        # ``frame_count`` lives at the record level).
-                        # Needed by cache replay so the
-                        # delta-vs-baseline line can extrapolate the
-                        # baseline's projected full-encode size.
-                        "frame_count": baseline_trial.summary.frame_count,
-                        "summary": {
-                            "mean": round(baseline_trial.summary.mean, 2),
-                            "p1": round(baseline_trial.summary.p1, 2),
-                            "p5": round(baseline_trial.summary.p5, 2),
-                            "p10": round(baseline_trial.summary.p10, 2),
-                            "p15": round(baseline_trial.summary.p15, 2),
-                            "p20": round(baseline_trial.summary.p20, 2),
-                            "p25": round(baseline_trial.summary.p25, 2),
-                            "minimum": round(baseline_trial.summary.minimum, 2),
-                        },
-                    }
-                    if baseline_trial is not None
-                    else None
-                ),
-            })
+                            ),
+                            "at_chosen_crf_kbps_per_vmaf": (
+                                round(
+                                    curve_fit_result.compressibility.at_chosen_crf_kbps_per_vmaf,
+                                    1,
+                                )
+                                if curve_fit_result.compressibility.at_chosen_crf_kbps_per_vmaf
+                                is not None
+                                else None
+                            ),
+                            "segments": [
+                                {
+                                    "lo_crf": lo,
+                                    "hi_crf": hi,
+                                    "kbps_per_vmaf": round(score, 1),
+                                }
+                                for lo, hi, score in curve_fit_result.compressibility.segments
+                            ],
+                        }
+                        if curve_fit_result.compressibility is not None
+                        else None
+                    ),
+                    "ascii_chart": render_curve_ascii(
+                        curve_fit_result.fit,
+                        target=target,
+                        chosen_crf=curve_fit_result.picks.chosen_crf,
+                        baseline=baseline_trial,
+                        reference=reference_marker,
+                    ),
+                    "baseline": (
+                        {
+                            "crf": baseline_trial.crf,
+                            "bitrate_kbps": round(baseline_trial.bitrate_kbps, 1),
+                            "encoded_size_bytes": baseline_trial.encoded_size_bytes,
+                            # Frame count goes top-level on the baseline
+                            # dict (matching the trial-record schema where
+                            # ``summary`` is just percentiles and
+                            # ``frame_count`` lives at the record level).
+                            # Needed by cache replay so the
+                            # delta-vs-baseline line can extrapolate the
+                            # baseline's projected full-encode size.
+                            "frame_count": baseline_trial.summary.frame_count,
+                            "summary": {
+                                "mean": round(baseline_trial.summary.mean, 2),
+                                "p1": round(baseline_trial.summary.p1, 2),
+                                "p5": round(baseline_trial.summary.p5, 2),
+                                "p10": round(baseline_trial.summary.p10, 2),
+                                "p15": round(baseline_trial.summary.p15, 2),
+                                "p20": round(baseline_trial.summary.p20, 2),
+                                "p25": round(baseline_trial.summary.p25, 2),
+                                "minimum": round(baseline_trial.summary.minimum, 2),
+                            },
+                        }
+                        if baseline_trial is not None
+                        else None
+                    ),
+                },
+            )
 
         # Close the outer search-progress tracker (opened before
         # baseline). All encodes belonging to this search have
@@ -2152,34 +2165,34 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
             target.target_vmaf_low,
             target.target_vmaf_low_pct,
         )
-        _append_trials_metadata_line({
-            "type": "search_result",
-            "optimal_crf": result.optimal_crf,
-            "optimal_summary": (
-                {
-                    "mean": round(result.optimal_summary.mean, 2),
-                    "p1": round(result.optimal_summary.p1, 2),
-                    "p5": round(result.optimal_summary.p5, 2),
-                    "p10": round(result.optimal_summary.p10, 2),
-                    "p15": round(result.optimal_summary.p15, 2),
-                    "p20": round(result.optimal_summary.p20, 2),
-                    "p25": round(result.optimal_summary.p25, 2),
-                    "minimum": round(result.optimal_summary.minimum, 2),
-                    "frame_count": result.optimal_summary.frame_count,
-                }
-                if result.optimal_summary is not None
-                else None
-            ),
-            "kbps_at_target_vmaf": (
-                round(kbps_at_target_vmaf, 2)
-                if kbps_at_target_vmaf is not None
-                else None
-            ),
-            "trial_count": len(result.trials),
-            "search_seconds": round(result.search_seconds, 2),
-            "search_frames": result.search_frames,
-            "final_frames_estimate": result.final_frames_estimate,
-        })
+        _append_trials_metadata_line(
+            {
+                "type": "search_result",
+                "optimal_crf": result.optimal_crf,
+                "optimal_summary": (
+                    {
+                        "mean": round(result.optimal_summary.mean, 2),
+                        "p1": round(result.optimal_summary.p1, 2),
+                        "p5": round(result.optimal_summary.p5, 2),
+                        "p10": round(result.optimal_summary.p10, 2),
+                        "p15": round(result.optimal_summary.p15, 2),
+                        "p20": round(result.optimal_summary.p20, 2),
+                        "p25": round(result.optimal_summary.p25, 2),
+                        "minimum": round(result.optimal_summary.minimum, 2),
+                        "frame_count": result.optimal_summary.frame_count,
+                    }
+                    if result.optimal_summary is not None
+                    else None
+                ),
+                "kbps_at_target_vmaf": (
+                    round(kbps_at_target_vmaf, 2) if kbps_at_target_vmaf is not None else None
+                ),
+                "trial_count": len(result.trials),
+                "search_seconds": round(result.search_seconds, 2),
+                "search_frames": result.search_frames,
+                "final_frames_estimate": result.final_frames_estimate,
+            },
+        )
 
         # ---- Auto-delta: load prior-run history for this clip ------------
         # Scans sibling fingerprint directories under ``pair_dir`` for
@@ -2207,8 +2220,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
                 )
         except OSError as exc:
             logger.verbose(
-                f"could not load prior runs for delta render "
-                f"({exc}); skipping auto-delta block.",
+                f"could not load prior runs for delta render ({exc}); skipping auto-delta block.",
             )
 
         # ---- Final encode at the chosen CRF (full pipeline restored) -------
@@ -2253,18 +2265,14 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
                     missed_axes.append(f"mean -{mean_shortfall:.2f}")
                 if low_shortfall > 0:
                     missed_axes.append(f"{low_pct_label} -{low_shortfall:.2f}")
-                shortfall_note = (
-                    f", refined below strict target: {', '.join(missed_axes)}"
-                )
+                shortfall_note = f", refined below strict target: {', '.join(missed_axes)}"
             # Pull bitrate + estimated final size from the trial that
             # matches the picked CRF (cache hit guarantees one exists).
             optimal_trial = next(
                 (t for t in result.trials if t.crf == result.optimal_crf),
                 None,
             )
-            optimal_bitrate_kbps = (
-                optimal_trial.bitrate_kbps if optimal_trial is not None else 0.0
-            )
+            optimal_bitrate_kbps = optimal_trial.bitrate_kbps if optimal_trial is not None else 0.0
             optimal_est_size_mb = (
                 optimal_trial.encoded_size_bytes
                 * (result.final_frames_estimate / optimal_trial.summary.frame_count)
@@ -2534,8 +2542,7 @@ def _encode_windows_for_marker_pair(  # noqa: PLR0913 — keyword-only params; b
             )
             if not marker:
                 logger.warning(
-                    f"{label} window {window_index + 1} "
-                    f"produced no marker; aborting this pass.",
+                    f"{label} window {window_index + 1} produced no marker; aborting this pass.",
                 )
                 return []
             file_path = marker.get("filePath")

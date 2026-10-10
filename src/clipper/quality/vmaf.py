@@ -105,15 +105,28 @@ def summarize_vmaf(per_frame: list[float]) -> VmafSummary:
     if not per_frame:
         nan = float("nan")
         return VmafSummary(
-            mean=nan, p1=nan, p5=nan, p10=nan, p15=nan, p20=nan, p25=nan,
-            minimum=nan, frame_count=0,
+            mean=nan,
+            p1=nan,
+            p5=nan,
+            p10=nan,
+            p15=nan,
+            p20=nan,
+            p25=nan,
+            minimum=nan,
+            frame_count=0,
         )
     if len(per_frame) == 1:
         only = per_frame[0]
         return VmafSummary(
-            mean=only, p1=only, p5=only, p10=only,
-            p15=only, p20=only, p25=only,
-            minimum=only, frame_count=1,
+            mean=only,
+            p1=only,
+            p5=only,
+            p10=only,
+            p15=only,
+            p20=only,
+            p25=only,
+            minimum=only,
+            frame_count=1,
         )
     cuts = quantiles(per_frame, n=100, method="inclusive")
     # cuts has 99 entries dividing the sorted data into 100 equal groups;

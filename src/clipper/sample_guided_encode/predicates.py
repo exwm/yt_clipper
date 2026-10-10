@@ -145,7 +145,8 @@ def passes_targets(
 
 
 def _distance_to_pass_boundary(
-    summary: VmafSummary, target: SampleGuidedEncodeTarget,
+    summary: VmafSummary,
+    target: SampleGuidedEncodeTarget,
 ) -> float:
     """Signed VMAF distance from a trial's summary to the pass boundary.
 
@@ -160,7 +161,8 @@ def _distance_to_pass_boundary(
     min_frames = min_frames_for_low_percentile(target.target_vmaf_low_pct)
     if summary.frame_count >= min_frames:
         low_value = get_low_percentile_value(
-            summary, target.target_vmaf_low_pct,
+            summary,
+            target.target_vmaf_low_pct,
         )
         low_distance = low_value - target.target_vmaf_low
         return min(mean_distance, low_distance)
@@ -209,10 +211,7 @@ def _predict_phase2_fast_fail(
     ``False``.
     """
     if summary.mean + safety_margin < target.target_vmaf_mean:
-        return True, (
-            f"predicted mean={summary.mean:.2f} below target "
-            f"{target.target_vmaf_mean}"
-        )
+        return True, (f"predicted mean={summary.mean:.2f} below target {target.target_vmaf_mean}")
 
     # Pick the percentile bridge. p_k(combined) ≈ p_{kxn_windows}(single).
     # Available single-window percentiles in the summary: p1, p5, p10.
@@ -240,8 +239,7 @@ def _predict_phase2_fast_fail(
 
     if predicted_low + safety_margin < target.target_vmaf_low:
         return True, (
-            f"predicted {predictor_label}={predicted_low:.2f} below target "
-            f"{target.target_vmaf_low}"
+            f"predicted {predictor_label}={predicted_low:.2f} below target {target.target_vmaf_low}"
         )
     return False, ""
 
@@ -298,9 +296,7 @@ def _calibration_says_step_down_wont_help(
     if bridge_pct is None:
         return False
 
-    phase1_passing = [
-        t for t in trials if t.phase == "phase1" and t.passed
-    ]
+    phase1_passing = [t for t in trials if t.phase == "phase1" and t.passed]
     phase2_trials = [t for t in trials if t.phase == "phase2"]
     if not phase2_trials or len(phase1_passing) < 2:
         return False
@@ -396,7 +392,8 @@ def _calibration_says_phase3_hopeless(
     # The candidate's Phase 1 single-window measurement is what
     # calibrates against the Phase 2 result.
     phase1_candidate = next(
-        (t for t in phase1_trials if t.crf == candidate_crf), None,
+        (t for t in phase1_trials if t.crf == candidate_crf),
+        None,
     )
     if phase1_candidate is None:
         return False
@@ -404,7 +401,8 @@ def _calibration_says_phase3_hopeless(
     target_pct = target.target_vmaf_low_pct
     phase2_low = get_low_percentile_value(phase2_trials[0].summary, target_pct)
     phase1_candidate_bridge = get_low_percentile_value(
-        phase1_candidate.summary, bridge_pct,
+        phase1_candidate.summary,
+        bridge_pct,
     )
     delta = phase2_low - phase1_candidate_bridge
 
@@ -424,9 +422,7 @@ def _calibration_says_phase3_hopeless(
 
     # Extrapolate single-window bridge value at crf_min, then apply
     # the calibration delta to predict full-window low.
-    extrapolated_bridge_at_min = (
-        phase1_candidate_bridge + slope * (target.crf_min - candidate_crf)
-    )
+    extrapolated_bridge_at_min = phase1_candidate_bridge + slope * (target.crf_min - candidate_crf)
     predicted_full_low_at_min = extrapolated_bridge_at_min + delta
 
     cap_relaxed_target = target.target_vmaf_low - relaxation_cap
@@ -471,10 +467,7 @@ def _refinement_extrapolation_says_hopeless(
       CRFs, so linear extrapolation tends to *over*-predict the value
       at crf_min. Buffer guards against the rare opposite case.
     """
-    full_trials = [
-        trial for trial in trials
-        if trial.phase in {"phase2", "phase3"}
-    ]
+    full_trials = [trial for trial in trials if trial.phase in {"phase2", "phase3"}]
     if len(full_trials) < 2:
         return False
 

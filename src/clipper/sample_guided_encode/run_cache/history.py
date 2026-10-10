@@ -182,13 +182,9 @@ def _parse_prior_run(jsonl_path: Path, low_pct: int) -> PriorRun | None:  # noqa
             f"Delete this file to clear it from cache lookups.",
         )
         return None
-    pair_identity = (
-        dict(search_meta.get("pair_identity", {})) if search_meta else {}
-    )
+    pair_identity = dict(search_meta.get("pair_identity", {})) if search_meta else {}
     raw_signature = header.get("encode_args_signature")
-    encode_args_signature: dict[str, Any] = (
-        raw_signature if isinstance(raw_signature, dict) else {}
-    )
+    encode_args_signature: dict[str, Any] = raw_signature if isinstance(raw_signature, dict) else {}
     return PriorRun(
         run_id=str(header.get("run_id", "")),
         run_jsonl_path=jsonl_path,

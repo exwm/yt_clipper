@@ -92,44 +92,60 @@ def _make_run_jsonl(
             "clip_end": pid["clip_end"],
             "final_frames_estimate": 600,
             "pair_identity": pid,
-            "target": {"mean": 92.0, "low": 95.0, "low_percentile": 5,
-                       "crf_min": 20, "crf_max": 42, "crf_absolute_max": 51},
+            "target": {
+                "mean": 92.0,
+                "low": 95.0,
+                "low_percentile": 5,
+                "crf_min": 20,
+                "crf_max": 42,
+                "crf_absolute_max": 51,
+            },
             "sample_windows": [],
         },
     ]
     for crf, summary, bitrate in probes or []:
-        records.append({
-            "type": "trial",
-            "trial_index": crf,
-            "crf": crf,
-            "phase": "probe",
-            "passed": True,
-            "low_pct_enforced": True,
-            "windows_used": 1,
-            "windows_total": 1,
-            "window_indices": [0],
-            "frame_count": 80,
-            "encode_seconds": 5.0,
-            "size_percent_of_reference": 50.0,
-            "encoded_size_bytes": 1000000,
-            "trial_duration_seconds": 4.0,
-            "bitrate_kbps": bitrate,
-            "summary": {**summary, "frame_count": 80},
-            "per_frame_vmaf": [summary.get("p5", 95.0)] * 80,
-        })
-    records.append({
-        "type": "search_result",
-        "optimal_crf": optimal_crf,
-        "optimal_summary": {
-            "mean": 97.0, "p1": 93.0, "p5": 95.0, "p10": 96.0,
-            "minimum": 90.0, "frame_count": 80,
-        } if optimal_crf is not None else None,
-        "kbps_at_target_vmaf": 14000.0,
-        "trial_count": len(probes or []),
-        "search_seconds": 25.0,
-        "search_frames": 240,
-        "final_frames_estimate": 600,
-    })
+        records.append(
+            {
+                "type": "trial",
+                "trial_index": crf,
+                "crf": crf,
+                "phase": "probe",
+                "passed": True,
+                "low_pct_enforced": True,
+                "windows_used": 1,
+                "windows_total": 1,
+                "window_indices": [0],
+                "frame_count": 80,
+                "encode_seconds": 5.0,
+                "size_percent_of_reference": 50.0,
+                "encoded_size_bytes": 1000000,
+                "trial_duration_seconds": 4.0,
+                "bitrate_kbps": bitrate,
+                "summary": {**summary, "frame_count": 80},
+                "per_frame_vmaf": [summary.get("p5", 95.0)] * 80,
+            },
+        )
+    records.append(
+        {
+            "type": "search_result",
+            "optimal_crf": optimal_crf,
+            "optimal_summary": {
+                "mean": 97.0,
+                "p1": 93.0,
+                "p5": 95.0,
+                "p10": 96.0,
+                "minimum": 90.0,
+                "frame_count": 80,
+            }
+            if optimal_crf is not None
+            else None,
+            "kbps_at_target_vmaf": 14000.0,
+            "trial_count": len(probes or []),
+            "search_seconds": 25.0,
+            "search_frames": 240,
+            "final_frames_estimate": 600,
+        },
+    )
     with path.open("w", encoding="utf-8") as fp:
         for rec in records:
             fp.write(json.dumps(rec) + "\n")
@@ -270,11 +286,13 @@ def test_evaluate_cache_reuse_miss_on_signature_mismatch(tmp_path: Path) -> None
     )
     decision = evaluate_cache_reuse(
         pair_dir=pair_dir,
-        **_gate_inputs(encoder_signature={
-            "codec_args": "<new-args>",
-            "filter_graph": "",
-            "extras": {"codec": "vp9"},
-        }),
+        **_gate_inputs(
+            encoder_signature={
+                "codec_args": "<new-args>",
+                "filter_graph": "",
+                "extras": {"codec": "vp9"},
+            },
+        ),
     )
     assert decision.kind == "miss"
     assert "signature" in decision.reason.lower()
@@ -287,16 +305,20 @@ def test_evaluate_cache_reuse_miss_on_clip_timing_shift(tmp_path: Path) -> None:
     _make_run_jsonl(
         pair_dir / "abc123def456" / "run-260509T100000.jsonl",
         pair_identity={
-            "clip_start": 0.0, "clip_end": 10.0,
+            "clip_start": 0.0,
+            "clip_end": 10.0,
             "source_video_id": {"path": "/src/video.mp4", "mtime": 1700000000.0},
         },
     )
     decision = evaluate_cache_reuse(
         pair_dir=pair_dir,
-        **_gate_inputs(current_pair_identity={
-            "clip_start": 5.0, "clip_end": 15.0,  # different!
-            "source_video_id": {"path": "/src/video.mp4", "mtime": 1700000000.0},
-        }),
+        **_gate_inputs(
+            current_pair_identity={
+                "clip_start": 5.0,
+                "clip_end": 15.0,  # different!
+                "source_video_id": {"path": "/src/video.mp4", "mtime": 1700000000.0},
+            },
+        ),
     )
     assert decision.kind == "miss"
     assert "clip_start" in decision.reason or "clip_end" in decision.reason
@@ -308,16 +330,20 @@ def test_evaluate_cache_reuse_miss_on_source_change(tmp_path: Path) -> None:
     _make_run_jsonl(
         pair_dir / "abc123def456" / "run-260509T100000.jsonl",
         pair_identity={
-            "clip_start": 0.0, "clip_end": 10.0,
+            "clip_start": 0.0,
+            "clip_end": 10.0,
             "source_video_id": {"path": "/src/video.mp4", "mtime": 1700000000.0},
         },
     )
     decision = evaluate_cache_reuse(
         pair_dir=pair_dir,
-        **_gate_inputs(current_pair_identity={
-            "clip_start": 0.0, "clip_end": 10.0,
-            "source_video_id": {"path": "/src/video.mp4", "mtime": 1800000000.0},
-        }),
+        **_gate_inputs(
+            current_pair_identity={
+                "clip_start": 0.0,
+                "clip_end": 10.0,
+                "source_video_id": {"path": "/src/video.mp4", "mtime": 1800000000.0},
+            },
+        ),
     )
     assert decision.kind == "miss"
     assert "source_video_id" in decision.reason
@@ -344,17 +370,22 @@ def test_evaluate_cache_reuse_miss_on_incomplete_run(tmp_path: Path) -> None:
     fp_dir.mkdir(parents=True)
     # Only the run_header — no search_result.
     with (fp_dir / "run-260509T100000.jsonl").open("w") as fp:
-        fp.write(json.dumps({
-            "type": "run_header",
-            "run_id": "260509T100000",
-            "run_timestamp_utc": "2026-05-09T10:00:00Z",
-            "algorithm_version": 1,
-            "encoder_fingerprint": "abc123def456",
-            "search_fingerprint": "search789",
-            "yt_clipper_version": "5.43.0",
-            "encoder_config_summary": {},
-            "encode_args_signature": "<sig>",
-        }) + "\n")
+        fp.write(
+            json.dumps(
+                {
+                    "type": "run_header",
+                    "run_id": "260509T100000",
+                    "run_timestamp_utc": "2026-05-09T10:00:00Z",
+                    "algorithm_version": 1,
+                    "encoder_fingerprint": "abc123def456",
+                    "search_fingerprint": "search789",
+                    "yt_clipper_version": "5.43.0",
+                    "encoder_config_summary": {},
+                    "encode_args_signature": "<sig>",
+                },
+            )
+            + "\n",
+        )
     decision = evaluate_cache_reuse(pair_dir=pair_dir, **_gate_inputs())
     assert decision.kind == "miss"
     assert "incomplete" in decision.reason.lower() or "unreadable" in decision.reason.lower()
@@ -404,11 +435,17 @@ def test_reconstruct_result_from_jsonl_missing_search_result_returns_none(
     with jsonl_path.open("w") as fp:
         fp.write(json.dumps({"type": "run_header"}) + "\n")
     target = SampleGuidedEncodeTarget(
-        target_vmaf_mean=92.0, target_vmaf_low=95.0, target_vmaf_low_pct=5,
-        crf_min=20, crf_max=42,
+        target_vmaf_mean=92.0,
+        target_vmaf_low=95.0,
+        target_vmaf_low_pct=5,
+        crf_min=20,
+        crf_max=42,
     )
     result = reconstruct_result_from_jsonl(
-        jsonl_path, target=target, sample_windows=[], final_frames_estimate=0,
+        jsonl_path,
+        target=target,
+        sample_windows=[],
+        final_frames_estimate=0,
     )
     assert result is None
 
@@ -456,16 +493,24 @@ def test_prime_trial_measurement_cache_skips_non_probe_phases(tmp_path: Path) ->
     records = [
         {"type": "run_header", "run_id": "x"},
         {
-            "type": "trial", "phase": "baseline",
-            "crf": 28, "window_indices": [0], "encoded_size_bytes": 1_500_000,
+            "type": "trial",
+            "phase": "baseline",
+            "crf": 28,
+            "window_indices": [0],
+            "encoded_size_bytes": 1_500_000,
             "summary": {"frame_count": 80, "p5": 95.0},
-            "per_frame_vmaf": [95.0] * 80, "bitrate_kbps": 12000.0,
+            "per_frame_vmaf": [95.0] * 80,
+            "bitrate_kbps": 12000.0,
         },
         {
-            "type": "trial", "phase": "probe",
-            "crf": 30, "window_indices": [0], "encoded_size_bytes": 1_400_000,
+            "type": "trial",
+            "phase": "probe",
+            "crf": 30,
+            "window_indices": [0],
+            "encoded_size_bytes": 1_400_000,
             "summary": {"frame_count": 80, "p5": 96.0},
-            "per_frame_vmaf": [96.0] * 80, "bitrate_kbps": 14000.0,
+            "per_frame_vmaf": [96.0] * 80,
+            "bitrate_kbps": 14000.0,
         },
         {"type": "search_result", "optimal_crf": 30},
     ]
@@ -501,16 +546,24 @@ def test_prime_trial_measurement_cache_harvests_from_crashed_run(tmp_path: Path)
     crashed_records = [
         {"type": "run_header", "run_id": "crashed"},
         {
-            "type": "trial", "phase": "probe",
-            "crf": 25, "window_indices": [0], "encoded_size_bytes": 1_800_000,
+            "type": "trial",
+            "phase": "probe",
+            "crf": 25,
+            "window_indices": [0],
+            "encoded_size_bytes": 1_800_000,
             "summary": {"frame_count": 80, "p5": 97.0},
-            "per_frame_vmaf": [97.0] * 80, "bitrate_kbps": 18000.0,
+            "per_frame_vmaf": [97.0] * 80,
+            "bitrate_kbps": 18000.0,
         },
         {
-            "type": "trial", "phase": "probe",
-            "crf": 30, "window_indices": [0], "encoded_size_bytes": 1_400_000,
+            "type": "trial",
+            "phase": "probe",
+            "crf": 30,
+            "window_indices": [0],
+            "encoded_size_bytes": 1_400_000,
             "summary": {"frame_count": 80, "p5": 95.5},
-            "per_frame_vmaf": [95.5] * 80, "bitrate_kbps": 14000.0,
+            "per_frame_vmaf": [95.5] * 80,
+            "bitrate_kbps": 14000.0,
         },
     ]
     with crashed_path.open("w") as fp:
@@ -692,7 +745,8 @@ def test_cleanup_orphaned_trial_files_skips_non_trial_files(tmp_path: Path) -> N
 def test_cleanup_orphaned_trial_files_handles_missing_dir(tmp_path: Path) -> None:
     """Non-existent dir → empty result, no exception."""
     deleted = cleanup_orphaned_trial_files(
-        tmp_path / "no-such-dir", "clip-1",
+        tmp_path / "no-such-dir",
+        "clip-1",
     )
     assert deleted == []
 
@@ -737,7 +791,9 @@ def test_prime_trial_measurement_cache_combines_across_multiple_runs(
         probes=[(30, {"p5": 96.0}, 14000.0), (35, {"p5": 94.0}, 11000.0)],
     )
     _create_trial_files(
-        fp_dir, "clip-1", [(20, 0), (25, 0), (30, 0), (35, 0)],
+        fp_dir,
+        "clip-1",
+        [(20, 0), (25, 0), (30, 0), (35, 0)],
     )
     cache = prime_trial_measurement_cache(
         fingerprint_dir=fp_dir,
@@ -759,6 +815,7 @@ def test_cache_reuse_decision_dataclass_is_frozen() -> None:
     worrying about mutation."""
     decision = CacheReuseDecision(kind="miss", prior_run=None, reason="x")
     import dataclasses
+
     assert dataclasses.is_dataclass(decision)
     # frozen=True on the dataclass means assignment raises.
     try:
