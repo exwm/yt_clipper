@@ -43,6 +43,7 @@ import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
 import { CropPoint } from './@types/yt_clipper';
 import { cropChartMode, currentCropChartMode } from './ui/chart/cropchart/cropChartSpec';
 import { registerActiveDragCleanup } from './util/drag-recovery';
+import { coalescePerAnimationFrame } from './util/frame-coalescer';
 
 export function addCropHoverListener(e: KeyboardEvent) {
   const isCropBlockingChartVisible =
@@ -63,11 +64,7 @@ export function addCropHoverListener(e: KeyboardEvent) {
 export function removeCropHoverListener(e: KeyboardEvent) {
   if (e.key === 'Control' || e.key === 'Meta') {
     document.removeEventListener('pointermove', cropHoverHandler, true);
-    if (cropHoverRafId) {
-      cancelAnimationFrame(cropHoverRafId);
-      cropHoverRafId = 0;
-      pendingCropHoverEvent = null;
-    }
+    cropHoverPerFrame.cancel();
     showPlayerControls();
     appState.hooks.cropMouseManipulation.style.removeProperty('cursor');
     // Reset anchor to default (top-left) for the next crop modification session
@@ -76,20 +73,14 @@ export function removeCropHoverListener(e: KeyboardEvent) {
 }
 export function cropHoverHandler(e: PointerEvent) {
   if (appState.isSettingsEditorOpen && appState.isCropOverlayVisible && !isDrawingCrop) {
-    pendingCropHoverEvent = e;
-    if (!cropHoverRafId) {
-      cropHoverRafId = requestAnimationFrame(processCropHover);
-    }
+    cropHoverPerFrame.schedule(e);
   }
 }
-export function processCropHover() {
-  cropHoverRafId = 0;
-  const e = pendingCropHoverEvent;
-  pendingCropHoverEvent = null;
-  if (e && appState.isSettingsEditorOpen && appState.isCropOverlayVisible && !isDrawingCrop) {
+const cropHoverPerFrame = coalescePerAnimationFrame((e: PointerEvent) => {
+  if (appState.isSettingsEditorOpen && appState.isCropOverlayVisible && !isDrawingCrop) {
     updateCropHoverCursor(e);
   }
-}
+});
 export function updateCropHoverCursor(e) {
   const cursor = getMouseCropHoverRegion(e);
 
@@ -101,8 +92,6 @@ export function updateCropHoverCursor(e) {
     appState.hooks.cropMouseManipulation.style.removeProperty('cursor');
   }
 }
-export let cropHoverRafId = 0;
-export let pendingCropHoverEvent: PointerEvent | null = null;
 
 let cropDiv: HTMLDivElement;
 let cropSvg: SVGSVGElement;
@@ -839,10 +828,10 @@ export function addCropMouseManipulationListener() {
       // which silently breaks the drag from that frame on.
       let initCropMap = getCropMapProperties().initCropMap;
 
-      let pendingCropDragEvent: PointerEvent | null = null;
-      let cropDragRafId = 0;
-      let pendingCropResizeEvent: PointerEvent | null = null;
-      let cropResizeRafId = 0;
+      const dragCropPerFrame = coalescePerAnimationFrame(processDragCrop);
+      const resizeCropPerFrame = coalescePerAnimationFrame((e: PointerEvent) =>
+        getCropResizeHandler(e, cursor)
+      );
       // Edge auto-pan (reframe): when the cursor pins against a monitor edge, a rAF
       // loop keeps advancing a virtual cursor (`autoPanOffset`) at the cursor's last
       // in-screen speed, so the crop keeps moving/resizing past where the real cursor
@@ -881,15 +870,12 @@ export function addCropMouseManipulationListener() {
         setCropDragStartPoint(null);
         refreshCropDragInitState = null;
         // A pending move is applied, unless the drag is canceled.
-        if (cropDragRafId) {
-          cancelAnimationFrame(cropDragRafId);
-          cropDragRafId = 0;
-          if (!shouldRevertCrop) processDragCrop();
-        }
-        if (cropResizeRafId) {
-          cancelAnimationFrame(cropResizeRafId);
-          cropResizeRafId = 0;
-          if (!shouldRevertCrop) processResizeCrop();
+        if (shouldRevertCrop) {
+          dragCropPerFrame.cancel();
+          resizeCropPerFrame.cancel();
+        } else {
+          dragCropPerFrame.flush();
+          resizeCropPerFrame.flush();
         }
         if (autoPanRafId) cancelAnimationFrame(autoPanRafId);
         autoPanRafId = 0;
@@ -982,11 +968,8 @@ export function addCropMouseManipulationListener() {
       } else {
         cropManipulationKind = 'resize';
         cropResizeHandler = (e: PointerEvent) => {
-          pendingCropResizeEvent = e;
           lastManipEvent = e;
-          if (!cropResizeRafId) {
-            cropResizeRafId = requestAnimationFrame(processResizeCrop);
-          }
+          resizeCropPerFrame.schedule(e);
         };
         captureTarget.addEventListener('pointermove', cropResizeHandler);
       }
@@ -1062,13 +1045,10 @@ export function addCropMouseManipulationListener() {
             autoPanOffsetX += panX;
             autoPanOffsetY += panY;
             // Re-run the active handler with the advanced virtual cursor.
-            if (cropManipulationKind === 'drag') {
-              pendingCropDragEvent = ev;
-              processDragCrop();
-            } else {
-              pendingCropResizeEvent = ev;
-              processResizeCrop();
-            }
+            const perFrame =
+              cropManipulationKind === 'drag' ? dragCropPerFrame : resizeCropPerFrame;
+            perFrame.schedule(ev);
+            perFrame.flush();
             // If the crop didn't change (clamped at the frame bound), don't keep
             // growing the offset, otherwise it overshoots and reversing wouldn't
             // respond until that overshoot is burned off.
@@ -1082,11 +1062,8 @@ export function addCropMouseManipulationListener() {
       }
 
       function dragCropHandler(e: PointerEvent) {
-        pendingCropDragEvent = e;
         lastManipEvent = e;
-        if (!cropDragRafId) {
-          cropDragRafId = requestAnimationFrame(processDragCrop);
-        }
+        dragCropPerFrame.schedule(e);
       }
 
       /** Cursor-anchored wheel-zoom during a pan-drag. Scales the crop
@@ -1133,12 +1110,7 @@ export function addCropMouseManipulationListener() {
         clickPosY = cursorY;
       }
 
-      function processDragCrop() {
-        cropDragRafId = 0;
-        const e = pendingCropDragEvent;
-        pendingCropDragEvent = null;
-        if (!e) return;
-
+      function processDragCrop(e: PointerEvent) {
         // The Alt key briefly stays held while the user finishes the
         // Alt + A hotkey, so honour `suppressAltLockUntilRelease`: skip
         // the Y-axis lock until the user releases Alt at least once,
@@ -1212,13 +1184,6 @@ export function addCropMouseManipulationListener() {
           shouldResizeCenterOut
         );
         updateCropStringWithCrop(crop, false, false, initCropMap ?? undefined);
-      }
-
-      function processResizeCrop() {
-        cropResizeRafId = 0;
-        const e = pendingCropResizeEvent;
-        pendingCropResizeEvent = null;
-        if (e) getCropResizeHandler(e, cursor);
       }
     }
   }
