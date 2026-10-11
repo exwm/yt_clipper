@@ -21,6 +21,10 @@ class Host:
     player: str
     crop_hook: str
     controls: str
+    progress_bar: str
+    # The bar's visible track, inside its taller hit area.
+    progress_track: str
+    play_button: str
 
 
 DEV_SITE_HOST = Host(
@@ -28,12 +32,18 @@ DEV_SITE_HOST = Host(
     player="#my-video",
     crop_hook="#my-video",
     controls=".vjs-control-bar",
+    progress_bar=".vjs-progress-control",
+    progress_track=".vjs-progress-holder",
+    play_button=".vjs-play-control",
 )
 YOUTUBE_HOST = Host(
     name="youtube",
     player="#movie_player",
     crop_hook=".html5-video-container",
     controls=".ytp-chrome-bottom",
+    progress_bar=".ytp-progress-bar",
+    progress_track=".ytp-progress-list",
+    play_button=".ytp-play-button",
 )
 
 

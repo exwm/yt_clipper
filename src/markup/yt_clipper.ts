@@ -87,6 +87,7 @@ import { resolvePlayerAndVideo } from './bootstrap';
 import { startNavigationWatcher } from './navigation';
 import { isStaleVideo } from './platforms/navigation';
 import { missingHookSelectors } from './platforms/platform-readiness';
+import { installLoopSeekGuard } from './loop-seek-guard';
 import {
   addCropHoverListener,
   addCropMouseManipulationListener,
@@ -201,6 +202,7 @@ function init() {
   initVideoInfo();
   initObservers();
   initMarkersContainer();
+  installLoopSeekGuard();
   initChartHooks();
   addForeignEventListeners();
   // Order matters: the command-palette button must be injected first so
