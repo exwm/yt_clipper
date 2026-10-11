@@ -1475,22 +1475,6 @@
     "@parcel/plugin" "2.16.4"
     "@parcel/rust" "2.16.4"
 
-"@parcel/transformer-typescript-tsc@^2.16.4":
-  version "2.16.4"
-  resolved "https://registry.npmjs.org/@parcel/transformer-typescript-tsc/-/transformer-typescript-tsc-2.16.4.tgz"
-  integrity sha512-zi/Z6jWrrcAm1JkR3660MgMyis0A4GOSdfWhzmO9Ljf3UpWnQ+JgDkkLgdeXXuCJPmwyHLnZIbg7avcJyPCRZg==
-  dependencies:
-    "@parcel/plugin" "2.16.4"
-    "@parcel/source-map" "^2.1.1"
-    "@parcel/ts-utils" "2.16.4"
-
-"@parcel/ts-utils@2.16.4":
-  version "2.16.4"
-  resolved "https://registry.npmjs.org/@parcel/ts-utils/-/ts-utils-2.16.4.tgz"
-  integrity sha512-hOYaQvtyq72jKqBjhtSBVn8vATZuaLnvauVRSDPH1DFOgQaPnM1r71Gw5djx6KMk+Tcpa5NyHNJmLVlVAIQ2tA==
-  dependencies:
-    nullthrows "^1.1.1"
-
 "@parcel/types-internal@2.16.4":
   version "2.16.4"
   resolved "https://registry.npmjs.org/@parcel/types-internal/-/types-internal-2.16.4.tgz"

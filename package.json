@@ -47,7 +47,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@parcel/transformer-typescript-tsc": "^2.16.4",
     "@types/chart.js": "^2.9.41",
     "@types/common-tags": "^1.8.4",
     "@types/d3-ease": "^1.0.13",
