@@ -141,6 +141,7 @@ import {
 } from './features/hints-bar/hover-region';
 import { cropManipulationKind, isMouseInsideCrop, isMouseManipulatingCrop } from './crop-overlay';
 import { initVideoZoom, toggleReframe, toggleZoomMinimap } from './crop/video-zoom-controller';
+import { toggleTimelineZoom } from './features/timeline-zoom/timeline-zoom';
 import { resetViewport } from './crop/video-zoom-state';
 import {
   arrowKeyCropAdjustmentEnabled,
@@ -369,6 +370,9 @@ export function initShortcutSystem() {
       },
       toggleZoomMinimap: () => {
         toggleZoomMinimap();
+      },
+      toggleTimelineZoom: () => {
+        toggleTimelineZoom();
       },
       toggleCropPreviewModal: () => {
         toggleCropPreview('modal');

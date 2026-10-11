@@ -31,6 +31,7 @@ export type HoveredRegion =
   | 'speed-chart-point'
   | 'crop-chart'
   | 'crop-chart-point'
+  | 'timeline-zoom'
   | null;
 
 /** Region → region transitions debounce by this much. Short enough to feel

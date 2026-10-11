@@ -476,6 +476,7 @@ function getModeBadgeLabel(primary: HintContext, hovers: HintContext[]): string 
   // time axis. Distinct from the resting `marker-selected` ("MARKERS")
   // primary so the user isn't seeing the same badge for two
   // different contexts.
+  if (hovers.includes('hover-timeline-zoom')) return 'Zoom';
   if (hovers.includes('hover-progress-bar')) return 'Timeline';
   // Editor primaries show only when no hover overrides them: they
   // don't suppress hover (the user can still interact with video / crop /

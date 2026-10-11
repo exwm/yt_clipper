@@ -102,6 +102,8 @@ function regionHoverContexts(): HintContext[] {
       return [isCropChartZoomPanActive() ? 'hover-crop-chart-zoompan' : 'hover-crop-chart'];
     case 'crop-chart-point':
       return ['hover-crop-chart-point'];
+    case 'timeline-zoom':
+      return ['hover-timeline-zoom'];
   }
 }
 

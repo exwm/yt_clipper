@@ -52,6 +52,7 @@ export interface ShortcutDeps {
   jumpToNearestMarkerOrPair: (e: KeyboardEvent) => void;
   togglePrevSelectedMarkerPair: () => void;
   toggleAutoHideUnselectedMarkerPairs: (e: KeyboardEvent) => void;
+  toggleTimelineZoom: () => void;
   toggleHintsBar: () => void;
 
   isMarkerHotkeysEnabled: () => boolean;
@@ -195,13 +196,12 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       handler: null,
       executable: false,
       hintLabel: 'Open Pair (No Seek)',
-      hintContexts: ['hover-progress-bar'],
+      hintContexts: ['hover-progress-bar', 'hover-timeline-zoom'],
       hintOrder: 20,
     },
     {
       id: 'openMarkerPairEditor',
-      description:
-        "Click a marker pair's number on the progress bar to seek to it and open the pair editor",
+      description: "Click a marker pair's number to seek to it and open the pair editor",
       displayKey: 'Click',
       section: 'Markup',
       category: 'Marker Editing Shortcuts',
@@ -210,7 +210,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       handler: null,
       executable: false,
       hintLabel: 'Seek + Open Pair',
-      hintContexts: ['hover-progress-bar'],
+      hintContexts: ['hover-progress-bar', 'hover-timeline-zoom'],
       hintOrder: 10,
       guard: hasMarkerPairs,
     },
@@ -379,7 +379,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       handler: null,
       executable: false,
       hintLabel: 'Drag Marker to Time',
-      hintContexts: ['hover-progress-bar'],
+      hintContexts: ['hover-progress-bar', 'hover-timeline-zoom'],
       hintOrder: 30,
     },
     {
@@ -426,6 +426,85 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       guard: cropAdjDisabled,
       executable: true,
     },
+    {
+      id: 'toggleTimelineZoom',
+      description:
+        "Toggle the timeline zoom: a zoomed bar above the progress bar, where crowded marker pairs spread out. On the progress bar, drag the brush's center handle to move the zoom range or its edge handles to resize it; click a number to open its pair.",
+      displayKey: 'Shift + T',
+      section: 'Markup',
+      category: 'Marker Navigation Shortcuts',
+      essential: false,
+      binding: { code: 'KeyT', modifiers: { ctrl: false, shift: true, alt: false } },
+      handler: () => {
+        deps.toggleTimelineZoom();
+      },
+      executable: true,
+      hintLabel: 'Timeline zoom',
+      hintContexts: ['hover-progress-bar', 'hover-timeline-zoom'],
+      hintOrder: 90,
+      hintGroup: 'Display',
+    },
+    // Mouse gestures on the timeline zoom, listed for the hints bar and the shortcuts reference.
+    ...[
+      {
+        id: 'timelineZoomSeek',
+        description: 'Timeline zoom: click or drag the zoomed bar to seek within the zoom range',
+        displayKey: 'Click + Drag',
+        hintLabel: 'Seek',
+        hintOrder: 10,
+      },
+      {
+        id: 'timelineZoomWheel',
+        description:
+          'Timeline zoom: scroll on the zoomed bar to zoom in or out around the middle of the zoom range',
+        displayKey: 'Wheel',
+        hintLabel: 'Zoom',
+        hintOrder: 30,
+      },
+      {
+        id: 'timelineZoomPan',
+        description: 'Timeline zoom: Shift+scroll on the zoomed bar to pan the zoom range',
+        displayKey: 'Shift + Wheel',
+        hintLabel: 'Pan',
+        hintOrder: 40,
+      },
+      {
+        id: 'timelineZoomMoveRange',
+        description:
+          "Timeline zoom: drag the brush's center handle on the progress bar to move the zoom range",
+        displayKey: 'Drag',
+        hintLabel: 'Center Handle: Move',
+        hintOrder: 50,
+      },
+      {
+        id: 'timelineZoomResizeRange',
+        description:
+          'Timeline zoom: drag an edge handle of the brush on the progress bar to resize the zoom range',
+        displayKey: 'Drag',
+        hintLabel: 'Edge Handle: Resize',
+        hintOrder: 60,
+      },
+      {
+        id: 'timelineZoomFrame',
+        description:
+          'Timeline zoom: double-click the center handle to refit the zoom range around the playhead and the selected marker pair',
+        displayKey: 'Double Click',
+        hintLabel: 'Center Handle: Refit',
+        hintOrder: 70,
+      },
+    ].map(
+      (gesture): ShortcutDefinition => ({
+        ...gesture,
+        section: 'Markup',
+        category: 'Marker Navigation Shortcuts',
+        essential: false,
+        binding: null,
+        handler: null,
+        executable: false,
+        hintContexts: ['hover-timeline-zoom'],
+        hintGroup: 'Zoom',
+      })
+    ),
     {
       id: 'jumpToNearestPrevMarker',
       description: 'Jump to nearest previous marker',

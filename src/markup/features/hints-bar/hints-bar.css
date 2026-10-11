@@ -55,8 +55,14 @@
     0 -1px 0 rgba(0, 0, 0, 0.4) inset;
 
   color: #e8e8e8;
-  font: 11px/1.2 'IBM Plex Sans', 'Söhne', system-ui, -apple-system,
-    'Segoe UI Variable Display', 'Segoe UI', sans-serif;
+  font:
+    11px/1.2 'IBM Plex Sans',
+    'Söhne',
+    system-ui,
+    -apple-system,
+    'Segoe UI Variable Display',
+    'Segoe UI',
+    sans-serif;
   letter-spacing: 0.01em;
 
   pointer-events: auto;
@@ -245,8 +251,13 @@
   height: 18px;
   flex: 0 0 auto;
   font:
-    600 9px/1 'IBM Plex Sans', 'Söhne', system-ui, -apple-system,
-    'Segoe UI Variable Display', 'Segoe UI', sans-serif;
+    600 9px/1 'IBM Plex Sans',
+    'Söhne',
+    system-ui,
+    -apple-system,
+    'Segoe UI Variable Display',
+    'Segoe UI',
+    sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.14em;
   white-space: nowrap;
@@ -425,7 +436,7 @@
   background: rgba(8, 9, 10, 0.94);
   backdrop-filter: blur(16px) saturate(160%);
   -webkit-backdrop-filter: blur(16px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow:
     0 16px 36px rgba(0, 0, 0, 0.6),
     0 1px 0 rgba(255, 255, 255, 0.06) inset;
@@ -481,9 +492,7 @@
   transform: translate(calc(-50% + var(--popover-shift-x)), -4px);
 }
 
-.hints-bar-shell[data-popover-dir='below']
-  .hints-bar-chip--expandable:hover
-  .hints-bar-popover,
+.hints-bar-shell[data-popover-dir='below'] .hints-bar-chip--expandable:hover .hints-bar-popover,
 .hints-bar-shell[data-popover-dir='below']
   .hints-bar-chip--expandable:focus-visible
   .hints-bar-popover {
@@ -544,15 +553,22 @@
 
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.06) inset,
     0 -1px 0 rgba(0, 0, 0, 0.25) inset;
 
   color: #f3f3f3;
   font:
-    600 11px/1 'JetBrains Mono', 'Cascadia Code', 'Cascadia Mono', 'Fira Code',
-    'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+    600 11px/1 'JetBrains Mono',
+    'Cascadia Code',
+    'Cascadia Mono',
+    'Fira Code',
+    'SF Mono',
+    ui-monospace,
+    Menlo,
+    Consolas,
+    monospace;
   letter-spacing: 0.04em;
 }
 
@@ -571,7 +587,7 @@
 .hints-bar-key-sep {
   display: inline-block;
   padding: 0 1px;
-  color: rgba(243, 243, 243, 0.40);
+  color: rgba(243, 243, 243, 0.4);
   font-weight: 400;
   font-size: 11px;
   line-height: 1;
@@ -647,7 +663,10 @@
   border-radius: 4px;
   color: rgba(220, 220, 220, 0.45);
   cursor: pointer;
-  transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
+  transition:
+    color 120ms ease,
+    background 120ms ease,
+    border-color 120ms ease;
 }
 
 .hints-bar-close:hover {

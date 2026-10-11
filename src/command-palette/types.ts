@@ -25,6 +25,7 @@ export type HintContext =
   | 'hover-crop-chart'
   | 'hover-crop-chart-point'
   | 'hover-crop-chart-zoompan'
+  | 'hover-timeline-zoom'
   | 'marker-selected'
   /** Input-focus contexts behave like hover contexts (additive to the
    *  primary) but are driven by which form element currently has keyboard
