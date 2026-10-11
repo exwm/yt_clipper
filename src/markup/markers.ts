@@ -612,22 +612,29 @@ export function markerNumberingMouseOverHandler(e: PointerEvent) {
   const targetMarker = (e.target as any).marker as SVGRectElement;
   toggleMarkerPairEditorHandler(e, targetMarker);
 }
-export function markerNumberingMouseDownHandler(e: PointerEvent) {
-  if (!(e.button === 0)) return;
-  blockEvent(e);
-  const numbering = e.target as SVGTextElement;
-  const numberingType = numbering.classList.contains('startMarkerNumbering') ? 'start' : 'end';
-  const targetEndMarker = (numbering as any).marker as SVGRectElement;
-  const targetStartMarker = targetEndMarker.previousSibling as SVGRectElement;
-  const targetMarker = numberingType === 'start' ? targetStartMarker : targetEndMarker;
+/** A timeline's mapping from a pointer's x to a video time. The progress bar and the timeline zoom
+ *  each provide one, so marker interactions work the same on both. */
+export interface TimelineMapping {
+  timeAtClientX(clientX: number): number;
+}
 
-  const dataIdx = numbering.getAttribute('data-idx');
-  assertDefined(dataIdx, 'Expected data-idx attribute on numbering');
-  const markerPairIndex = parseInt(dataIdx) - 1;
-  const markerPair = appState.markerPairs[markerPairIndex];
-  const markerTime = numberingType === 'start' ? markerPair.start : markerPair.end;
+/** The progress bar's mapping: markers span its full width over the video's duration. */
+function progressBarTimeline(): TimelineMapping {
+  const rect = appState.hooks.progressBar.getBoundingClientRect();
+  const duration = getVideoDuration(platform, appState.video);
+  return { timeAtClientX: (clientX) => ((clientX - rect.left) / rect.width) * duration };
+}
 
-  // open editor of target marker corresponding to clicked numbering
+/** The marker rect for a pair's start or end. Pair number == DOM position, so the pair at 0-based
+ *  `index` has its start at children[index*2] and its end at children[index*2+1]. */
+export function markerElementFor(index: number, kind: MarkerKind): SVGRectElement | null {
+  const offset = kind === 'end' ? 1 : 0;
+  return appState.markersSvg.children.item(index * 2 + offset) as SVGRectElement | null;
+}
+
+/** Show a pair's editor, switching from whichever editor is open. Unlike the Shift+hover toggle it
+ *  never closes the editor. */
+function showMarkerPairEditor(targetEndMarker: SVGRectElement): void {
   if (!appState.isSettingsEditorOpen) {
     toggleOnMarkerPairEditor(targetEndMarker);
   } else {
@@ -639,29 +646,53 @@ export function markerNumberingMouseDownHandler(e: PointerEvent) {
       toggleOnMarkerPairEditor(targetEndMarker);
     }
   }
+}
 
+export function markerNumberingMouseDownHandler(e: PointerEvent) {
+  if (!(e.button === 0)) return;
+  blockEvent(e);
+  const numbering = e.target as SVGTextElement;
+  const kind: MarkerKind = numbering.classList.contains('startMarkerNumbering') ? 'start' : 'end';
+  const dataIdx = numbering.getAttribute('data-idx');
+  assertDefined(dataIdx, 'Expected data-idx attribute on numbering');
+  pressMarkerNumber(e, parseInt(dataIdx) - 1, kind, progressBarTimeline(), numbering);
+}
+
+/** A press on a marker's number on any timeline: open its pair's editor, seek to that marker, and
+ *  with Alt held, drag the marker along the timeline (committed on release, reverted if the
+ *  browser cancels the pointer). `captureTarget` takes pointer capture for the drag. */
+export function pressMarkerNumber(
+  e: PointerEvent,
+  markerPairIndex: number,
+  numberingType: MarkerKind,
+  timeline: TimelineMapping,
+  captureTarget: SVGElement
+): void {
+  const markerPair = appState.markerPairs[markerPairIndex];
+  const targetEndMarker = markerElementFor(markerPairIndex, 'end');
+  const foundMarker = markerElementFor(markerPairIndex, numberingType);
+  if (!markerPair || !targetEndMarker || !foundMarker) return;
+  const targetMarker: SVGRectElement = foundMarker;
+  const markerTime = numberingType === 'start' ? markerPair.start : markerPair.end;
+
+  showMarkerPairEditor(targetEndMarker);
   seekToSafe(appState.video, markerTime);
 
   if (!e.altKey) return;
 
   const pointerId = e.pointerId;
-  numbering.setPointerCapture(pointerId);
   // The element that owns pointer capture is the same element that will
   // receive the implicit `pointercancel` if the browser releases capture
   // out from under us (devtools focus, alt-tab, OS pointer reassignment).
   // Attaching all subsequent listeners here (rather than to `document`)
   // is the spec-correct way to be sure the cleanup path runs.
-  const captureTarget = numbering;
+  captureTarget.setPointerCapture(pointerId);
 
-  const numberingRect = numbering.getBoundingClientRect();
-  const progressBarRect = appState.hooks.progressBar.getBoundingClientRect();
-  // `offsetX` preserves the grip point: wherever on the numbering label
-  // the user clicked, that point stays under the cursor for the duration
-  // of the drag. Subtracting it from `e.pageX` recovers the time-equivalent
-  // of the numbering's centre.
-  const offsetX = e.pageX - numberingRect.left - numberingRect.width / 2;
+  // Preserves the grip point: wherever on the number the press landed, that point stays under the
+  // cursor for the whole drag, as a time offset from the marker.
+  const gripOffset = timeline.timeAtClientX(e.clientX) - markerTime;
   /** Absolute positioning: the marker's time tracks the cursor's
-   *  horizontal position on the progress bar 1:1, mirroring how
+   *  horizontal position on the timeline 1:1, mirroring how
    *  `scrubVideoHandler` handles Alt+Drag on the video itself. The
    *  previous implementation modulated motion by vertical cursor
    *  position (precision-scaling) and short-circuited on any vertical
@@ -669,8 +700,7 @@ export function markerNumberingMouseDownHandler(e: PointerEvent) {
    *  during normal horizontal drags. */
   function getDragTime(e: PointerEvent): number {
     const duration = getVideoDuration(platform, appState.video);
-    const x = e.pageX - offsetX - progressBarRect.left;
-    const time = (duration * x) / progressBarRect.width;
+    const time = timeline.timeAtClientX(e.clientX) - gripOffset;
     return frameTiming.dragClamp(getFrameGrid(), numberingType, time, markerPair, duration);
   }
 
