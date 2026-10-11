@@ -244,6 +244,7 @@ const sides = {
           'prevTime',
           'jumpToNearestMarker',
           'moveMarkerByFrameHandler',
+          'getActiveLoop',
           'loopMarkerPair',
         ],
         { ...l.scope, ...videoUtil }

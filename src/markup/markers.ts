@@ -13,6 +13,7 @@ import {
 } from './marker-appearance';
 import { initAutoSave } from './auto-save';
 import { chartState, cropChartSectionLoop, renderSpeedAndCropUI } from './charts';
+import { currentCropChartSection } from './ui/chart/cropchart/cropChartSpec';
 import {
   flushCropWheelZoom,
   isDrawingCrop,
@@ -252,29 +253,19 @@ export function initMarkersContainer() {
     appState.hooks.markerNumberingsDiv.appendChild(appState.markerNumberingsDiv);
   }
 }
-export function loopMarkerPair(frameTime?: number) {
-  requestAnimationFrame(loopMarkerPair);
-  if (frameTime != null) noteRefresh(frameTime);
+/** The loop currently keeping playback inside a range, if any: a chart loop within the selected
+ *  pair, the selected crop-chart section, or the whole marker pair. One source of truth for what
+ *  the loop enforces, shared by the loop itself and anything that must anticipate it. */
+export interface ActiveLoop {
+  kind: 'chart' | 'crop-section' | 'marker-pair';
+  start: number;
+  end: number;
+}
 
-  if (!getIsMarkerLoopPreviewOn() && !appState.isCropChartLoopingOn) {
-    return;
-  }
-
-  if (!appState.isSettingsEditorOpen || appState.wasGlobalSettingsEditorOpen) {
-    return;
-  }
-  if (appState.prevSelectedMarkerPairIndex == null) {
-    return;
-  }
-  if (appState.video.seeking) {
-    return;
-  }
-  // While manipulating a crop in reframe, suppress the loop-back seeks below: editing is
-  // playhead-driven, so a seek to a loop/section start yanks the playhead off the frame being
-  // edited. The opt-in loops still run during plain reframe playback (only manipulation bails).
-  if (isReframeEnabled() && (isMouseManipulatingCrop || isDrawingCrop)) {
-    return;
-  }
+export function getActiveLoop(): ActiveLoop | null {
+  if (!getIsMarkerLoopPreviewOn() && !appState.isCropChartLoopingOn) return null;
+  if (!appState.isSettingsEditorOpen || appState.wasGlobalSettingsEditorOpen) return null;
+  if (appState.prevSelectedMarkerPairIndex == null) return null;
 
   const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
   const chartLoop: ChartLoop | null = chartState.currentChartInput
@@ -292,19 +283,48 @@ export function loopMarkerPair(frameTime?: number) {
     chartLoop.end < markerPair.end &&
     chartLoop.start < chartLoop.end
   ) {
-    loopPlaybackOver(chartLoop.start, chartLoop.end);
-  } else if (
+    return { kind: 'chart', start: chartLoop.start, end: chartLoop.end };
+  }
+  if (
     (appState.isCropChartLoopingOn &&
       appState.isCurrentChartVisible &&
       chartState.currentChartInput?.type === 'crop') ||
     (chartState.cropChartInput.chart && (isMouseManipulatingCrop || isDrawingCrop))
   ) {
+    const [left, right] = currentCropChartSection;
+    const sectionStart = markerPair.cropMap[left]?.x ?? markerPair.start;
+    const sectionEnd = markerPair.cropMap[right]?.x ?? markerPair.end;
+    return { kind: 'crop-section', start: sectionStart, end: sectionEnd };
+  }
+  if (getIsMarkerLoopPreviewOn() && !isMarkerSeekPending) {
+    return { kind: 'marker-pair', start: markerPair.start, end: markerPair.end };
+  }
+  return null;
+}
+
+export function loopMarkerPair(frameTime?: number) {
+  requestAnimationFrame(loopMarkerPair);
+  if (frameTime != null) noteRefresh(frameTime);
+
+  const loop = getActiveLoop();
+  if (!loop) return;
+  if (appState.video.seeking) {
+    return;
+  }
+  // While manipulating a crop in reframe, suppress the loop-back seeks below: editing is
+  // playhead-driven, so a seek to a loop/section start yanks the playhead off the frame being
+  // edited. The opt-in loops still run during plain reframe playback (only manipulation bails).
+  if (isReframeEnabled() && (isMouseManipulatingCrop || isDrawingCrop)) {
+    return;
+  }
+
+  if (loop.kind === 'crop-section') {
     chartState.shouldTriggerCropChartUpdates = false;
     cropChartSectionLoop();
-  } else if (getIsMarkerLoopPreviewOn() && !isMarkerSeekPending) {
-    // Loops through the frame shown at the end marker, as the clipper clips it.
-    loopPlaybackOver(markerPair.start, markerPair.end);
+    return;
   }
+  // Loops through the frame shown at the loop's end, as the clipper clips a marker pair.
+  loopPlaybackOver(loop.start, loop.end);
 }
 export function jumpToNearestMarkerOrPair(e: KeyboardEvent, keyCode: string) {
   refreshPlayerControlsAutoHideTimer();
