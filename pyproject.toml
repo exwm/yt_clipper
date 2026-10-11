@@ -34,6 +34,12 @@ test = [
     "pytest-cov>=5.0.0,<6",
     "syrupy>=4.7.1,<5",
 ]
+ui-test = [
+    "playwright==1.63.0",
+    "pytest-playwright>=0.10.0,<0.11",
+    "pytest-rerunfailures>=16.7,<17",
+    "pytest-xdist>=3.8.0,<4",
+]
 
 [tool.uv]
 default-groups = [
@@ -60,3 +66,6 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]
 
+[tool.pyright]
+# The UI tests import their harness package from beside them, as pytest does.
+executionEnvironments = [{ root = "integration-tests/ui" }]
