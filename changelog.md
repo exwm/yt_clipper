@@ -2,6 +2,67 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [5.48.0](https://github.com/exwm/yt_clipper/compare/v5.47.1...v5.48.0) (2026-10-15)
+
+### Highlights
+
+#### AV1 Video Codec
+
+* yt_clipper supports `av1` (`--video-codec av1`) for AV1 encoding via libsvtav1, output in an mp4 container. A higher-efficiency alternative to vp9 at the cost of slower encodes at lower preset values.
+* AV1 support is early. Its default encoding settings are not tuned yet, so expect to adjust them (e.g. the CRF and preset) for your clips.
+* The ffmpeg bundled with the macOS release does not include libsvtav1 yet.
+* See [this readme section](https://github.com/exwm/yt_clipper#video-codecs) for the full details.
+
+#### Crop Chart Section Colors
+
+The line between two points shows how the crop moves in that section.
+
+* Pan sections are pink, zoom sections are orange, and pan and zoom sections are purple. Static sections are a faint grey line.
+* Faster sections are brighter. Slower sections fade toward grey.
+* The line is thickest for a full-frame crop and narrows as the crop zooms in.
+* A small red arrowhead on the first point of a panning section points the way the crop moves.
+* See [this readme section](https://github.com/exwm/yt_clipper#crop-chart-shortcuts) for the full details.
+
+![yt_clipper_crop_chart_sections.png](https://raw.githubusercontent.com/exwm/yt_clipper/v5.48.0/assets/image/yt_clipper_crop_chart_sections.png)
+
+
+### Features
+
+* **clipper:** add AV1 (libsvtav1) encoder ([#67](https://github.com/exwm/yt_clipper/issues/67)) ([02318b0](https://github.com/exwm/yt_clipper/commit/02318b0f5ba6b23c8d11eaa13d4581cf83794f77))
+* **clipper:** each run writes its own timestamped log file to the clip folder's `logs/` folder ([4855914](https://github.com/exwm/yt_clipper/commit/4855914bdbc3483f31d0782c08a87a5204e54a95))
+* **clipper:** the windows release zip bundles video2x with its `rife-v4.26` model (replacing the `_full` zip), and `bin` is split into `bin/video-tools` (ffmpeg, video2x) and `bin/yt-dlp` (yt-dlp, deno) ([f5ce333](https://github.com/exwm/yt_clipper/commit/f5ce33395bff419cdd1d24f6a3574c62da735d31))
+* **markup:** make the minimap crop outline visible on both light and dark video ([a5ac6e4](https://github.com/exwm/yt_clipper/commit/a5ac6e470d28fba47e7c750c85279aa225229392))
+* **markup:** show the crop at the current frame beside the crop input, ready to copy ([f8ea7e4](https://github.com/exwm/yt_clipper/commit/f8ea7e406464620f9c5a5f96837a6430775e091a))
+* **markup:** show the pan, zoom, speed, and pan direction of each crop chart section ([b11b239](https://github.com/exwm/yt_clipper/commit/b11b239b8c76883dad86a7b3d4a1eb5debf1f8a9))
+
+
+### Bug Fixes
+
+* **clipper:** `--ffmpeg-tools-dir` and `--ytdl-dir` should take effect, including for paths with backslashes or spaces ([c2aef9e](https://github.com/exwm/yt_clipper/commit/c2aef9eba05449db1bd01dcdaca3fe6e6751d392))
+* **clipper:** `--print-versions` should print the tool versions without needing `--markers-json` ([01194dc](https://github.com/exwm/yt_clipper/commit/01194dc5dfa920a73e14b9a5cc9eee692f32abb2))
+* **clipper:** a merge list should be skipped instead of crashing the run when one of its clips failed to encode before motion interpolation ([1d38949](https://github.com/exwm/yt_clipper/commit/1d38949e0fc2ea34d64018251022fc75b0b2b2c4))
+* **clipper:** a YouTube video with non-ASCII text in its formats list (e.g. dubbed audio track names) should not crash the run on Windows ([35f9a86](https://github.com/exwm/yt_clipper/commit/35f9a862226d12e5eba3488ce4f5f7ae79286d9b))
+* **clipper:** av1 clips should support motion interpolation, keep their color metadata, and merge without errors ([340d232](https://github.com/exwm/yt_clipper/commit/340d232c83d09e7d08d81155967df0ae83b57c61))
+* **clipper:** dynamic zoom clips should zoom at the same pace as the preview ([6221a7c](https://github.com/exwm/yt_clipper/commit/6221a7c28d675859934285de267b2d04dbefa0a5))
+* **clipper:** markers json files should only set the settings the markup script saves, and a marker pair with invalid values should be skipped instead of encoded ([5670b9f](https://github.com/exwm/yt_clipper/commit/5670b9f8d7b119479e16748413df55daf85da53a))
+* **clipper:** running `yt_clipper.exe` directly with its output redirected should not crash on a non-utf-8 windows console ([dbce3a7](https://github.com/exwm/yt_clipper/commit/dbce3a70ddc4ac2bfc9117612ba6b4a255838879))
+* **markup:** activating yt_clipper before the page finishes loading should work without a reload ([ed007cc](https://github.com/exwm/yt_clipper/commit/ed007ccb728028b1a0a3410ff753e47ab66193b5))
+* **markup:** after a fast crop chart drag, the video should land on the crop point you stopped on ([b96f876](https://github.com/exwm/yt_clipper/commit/b96f87661b6e5fc166cd9ab3f76c55a8f499faad))
+* **markup:** crop and speed charts should keep their zoom after selecting, adding, or deleting a point ([e4f0484](https://github.com/exwm/yt_clipper/commit/e4f048472d9bf24c692577a793cbf23ac11fe29b))
+* **markup:** crop chart should appear below the settings editor on the yt_clipper site ([c094301](https://github.com/exwm/yt_clipper/commit/c0943012eb3c97a83cf434d38b7bd98008a818ee))
+* **markup:** platform detection should match exact site domains, not any host containing a platform name ([f6fb0ba](https://github.com/exwm/yt_clipper/commit/f6fb0ba67270cde53b4dd36a94059c9bf6b1168b))
+* **markup:** reframe crop handles in global settings should match the crop being edited ([d8981be](https://github.com/exwm/yt_clipper/commit/d8981beeeac10f2c183a8c558e395b9ce0f27195))
+* **markup:** reframe preview should fill the whole player on the yt_clipper site ([0e85c47](https://github.com/exwm/yt_clipper/commit/0e85c47b3f4d643471c41203aa20f22f4db087d0))
+* **markup:** reframe should not freeze for a frame when playback crosses a crop point ([2da9159](https://github.com/exwm/yt_clipper/commit/2da91597250ba4dc75e669410f97c4fc694b820e))
+* **markup:** yt: reframe crop handles should line up with the video after the crop chart hides YouTube's top bar ([936c485](https://github.com/exwm/yt_clipper/commit/936c4852105414fa6d87b5a3e06be29b7e230b9e))
+
+
+### Documentation Updates
+
+* **readme:** document the crop copy button and crop chart section colors + add a reframe minimap screenshot ([1d7a44f](https://github.com/exwm/yt_clipper/commit/1d7a44f9683a43717d4fdecfc601e4773211a9ad))
+* **readme:** note that av1 encoding is early and its default settings are not tuned yet ([3018669](https://github.com/exwm/yt_clipper/commit/3018669728a0dad2d0aadff5e40b6ede8e2743f6))
+* **readme:** tighten the reframe and rapid crop point sections + fix the auto-keyframing bullets running together ([b188a0d](https://github.com/exwm/yt_clipper/commit/b188a0de31af5ec42647b3da86fa054aeaf29031))
+
 ## [5.47.1](https://github.com/exwm/yt_clipper/compare/v5.47.0...v5.47.1) (2026-06-23)
 
 

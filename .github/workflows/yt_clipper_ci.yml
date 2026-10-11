@@ -18,7 +18,7 @@ concurrency:
 
 env:
   NAME: yt_clipper
-  VERSION: "5.47.1"
+  VERSION: "5.48.0"
   NODE_VERSION: "22.18.x"
 
   FFMPEG_VERSION: "8.0.1"
