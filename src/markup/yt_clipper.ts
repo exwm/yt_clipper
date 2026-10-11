@@ -59,6 +59,7 @@ import {
   observeVideoElementChange,
   seekBySafe,
   setFlashMessageHook,
+  sleep,
 } from './util/util';
 import { toggleCropPreview } from './crop/crop-preview';
 import { CommandPalette, HotkeyEngine, ShortcutRegistry } from '../command-palette';
@@ -86,6 +87,7 @@ import { toggleGlobalSettingsEditor } from './features/settings/global-settings-
 import { resolvePlayerAndVideo } from './bootstrap';
 import { startNavigationWatcher } from './navigation';
 import { isStaleVideo } from './platforms/navigation';
+import { missingHookSelectors } from './platforms/platform-readiness';
 import {
   addCropHoverListener,
   addCropMouseManipulationListener,
@@ -442,30 +444,13 @@ function hotkeys(e: KeyboardEvent) {
       );
       return;
     }
-    appState.isHotkeysEnabled = !appState.isHotkeysEnabled;
-    initOnce();
-    initShortcutSystem();
-    hotkeyEngine?.setEnabled(appState.isHotkeysEnabled);
-    if (appState.isHotkeysEnabled) {
-      showCommandPaletteToggleButton();
-      showHintsBarToggleButton();
-      setHintsBarEnabled(true);
-      enableCommonBlockers();
-      if (platform === VideoPlatforms.youtube) {
-        enableYTBlockers();
-      }
-      flashMessage('Enabled Hotkeys', 'green');
-      if (featureFlags.shareLink) void tryLoadSharedMarkers();
-    } else {
-      hideCommandPaletteToggleButton();
-      hideHintsBarToggleButton();
-      setHintsBarEnabled(false);
-      disableCommonBlockers();
-      if (platform === VideoPlatforms.youtube) {
-        disableYTBlockers();
-      }
-      flashMessage('Disabled Hotkeys', 'red');
+    // The first activation sets up the UI against the platform's hook elements, and a missing one
+    // would leave it broken until reload, so wait for the page to finish rendering first.
+    if (!initOnceCalled && missingPlatformHooks().length > 0) {
+      void activateWhenPlatformReady();
+      return;
     }
+    toggleHotkeysActivation();
     return;
   }
 
@@ -480,6 +465,61 @@ function hotkeys(e: KeyboardEvent) {
   if (commandPalette?.isOpen()) return;
 
   hotkeyEngine?.dispatch(e);
+}
+
+function missingPlatformHooks(): string[] {
+  return missingHookSelectors(selectors as unknown as Record<string, string>, (selector) =>
+    document.querySelector(selector)
+  );
+}
+
+// Long enough for a slow page shell to render; capped so a platform where some hook is genuinely
+// absent still activates (as it did before this wait existed) instead of never turning on.
+const PLATFORM_READY_POLL_MS = 200;
+const PLATFORM_READY_MAX_WAIT_MS = 5000;
+let isWaitingForPlatform = false;
+
+async function activateWhenPlatformReady() {
+  if (isWaitingForPlatform) return;
+  isWaitingForPlatform = true;
+  flashMessage('Page still loading. yt_clipper will turn on when it is ready.', 'olive');
+  const deadline = Date.now() + PLATFORM_READY_MAX_WAIT_MS;
+  while (missingPlatformHooks().length > 0 && Date.now() < deadline) {
+    await sleep(PLATFORM_READY_POLL_MS);
+  }
+  const stillMissing = missingPlatformHooks();
+  if (stillMissing.length > 0) {
+    console.warn(`yt_clipper: activating without these page elements: ${stillMissing.join(', ')}`);
+  }
+  isWaitingForPlatform = false;
+  toggleHotkeysActivation();
+}
+
+function toggleHotkeysActivation() {
+  appState.isHotkeysEnabled = !appState.isHotkeysEnabled;
+  initOnce();
+  initShortcutSystem();
+  hotkeyEngine?.setEnabled(appState.isHotkeysEnabled);
+  if (appState.isHotkeysEnabled) {
+    showCommandPaletteToggleButton();
+    showHintsBarToggleButton();
+    setHintsBarEnabled(true);
+    enableCommonBlockers();
+    if (platform === VideoPlatforms.youtube) {
+      enableYTBlockers();
+    }
+    flashMessage('Enabled Hotkeys', 'green');
+    if (featureFlags.shareLink) void tryLoadSharedMarkers();
+  } else {
+    hideCommandPaletteToggleButton();
+    hideHintsBarToggleButton();
+    setHintsBarEnabled(false);
+    disableCommonBlockers();
+    if (platform === VideoPlatforms.youtube) {
+      disableYTBlockers();
+    }
+    flashMessage('Disabled Hotkeys', 'red');
+  }
 }
 
 function addEventListeners() {
