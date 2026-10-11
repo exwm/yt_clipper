@@ -2,6 +2,15 @@ import { createDraft } from 'immer';
 import cloneDeep from 'lodash.clonedeep';
 import { ChartLoop, MarkerConfig, MarkerPair, MarkerPairHistory } from './@types/yt_clipper';
 import { appState } from './appState';
+import {
+  MARKER_HEIGHT_PX,
+  MARKER_NUMBER_BASELINE_PX,
+  MARKER_WIDTH_PX,
+  MarkerKind,
+  markerNumberClassName,
+  SELECTED_TICK_HEIGHT_PX,
+  SELECTED_TICK_Y_PX,
+} from './marker-appearance';
 import { initAutoSave } from './auto-save';
 import { chartState, cropChartSectionLoop, renderSpeedAndCropUI } from './charts';
 import {
@@ -185,17 +194,17 @@ const markersSvgTemplate = html`
     <rect
       id="selected-start-marker-overlay"
       class="selected-marker-overlay"
-      width="1px"
-      height="8px"
-      y="3.5px"
+      width="${MARKER_WIDTH_PX}px"
+      height="${SELECTED_TICK_HEIGHT_PX}px"
+      y="${SELECTED_TICK_Y_PX}px"
       shape-rendering="crispEdges"
     ></rect>
     <rect
       id="selected-end-marker-overlay"
       class="selected-marker-overlay"
-      width="1px"
-      height="8px"
-      y="3.5px"
+      width="${MARKER_WIDTH_PX}px"
+      height="${SELECTED_TICK_HEIGHT_PX}px"
+      y="${SELECTED_TICK_Y_PX}px"
       shape-rendering="crispEdges"
     ></rect>
   </svg>
@@ -374,8 +383,8 @@ export function jumpToNearestMarker(e: KeyboardEvent, currentTime: number, keyCo
 // set width and height attributes for browsers not supporting svg 2
 export const marker_attrs = {
   class: 'marker',
-  width: '1px',
-  height: '14px',
+  width: `${MARKER_WIDTH_PX}px`,
+  height: `${MARKER_HEIGHT_PX}px`,
   'shape-rendering': 'crispEdges',
 };
 export function addMarker(markerConfig: MarkerConfig = {}) {
@@ -485,13 +494,13 @@ export function refreshMarkerPairNavButtonsDisabledState() {
 }
 function renderNumberingText(
   parent: SVGSVGElement,
-  cls: 'startMarkerNumbering' | 'endMarkerNumbering',
+  kind: MarkerKind,
   idx: number,
   progressPos: number
 ): SVGTextElement {
   const container = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   render(
-    svg`<text class="markerNumbering ${cls}" data-idx=${idx} x="${progressPos}%" y="11.5px" text-anchor="middle">${idx}</text>`,
+    svg`<text class=${markerNumberClassName(kind)} data-idx=${idx} x="${progressPos}%" y="${MARKER_NUMBER_BASELINE_PX}px" text-anchor="middle">${idx}</text>`,
     container
   );
   const numbering = container.children[0] as SVGTextElement;
@@ -507,13 +516,13 @@ export function addMarkerPairNumberings(
 ) {
   const startNumberingText = renderNumberingText(
     appState.startMarkerNumberings,
-    'startMarkerNumbering',
+    'start',
     idx,
     startProgressPos
   );
   const endNumberingText = renderNumberingText(
     appState.endMarkerNumberings,
-    'endMarkerNumbering',
+    'end',
     idx,
     endProgressPos
   );
