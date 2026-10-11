@@ -72,6 +72,7 @@ import {
 import { frameTiming } from './util/frame-timing';
 import { platform } from './yt_clipper';
 import { registerActiveDragCleanup } from './util/drag-recovery';
+import { coalescePerAnimationFrame } from './util/frame-coalescer';
 
 export function togglePrevSelectedMarkerPair() {
   if (enableMarkerHotkeysData.endMarker) {
@@ -704,32 +705,17 @@ export function pressMarkerNumber(
     return frameTiming.dragClamp(getFrameGrid(), numberingType, time, markerPair, duration);
   }
 
-  // Coalesce pointermove events with requestAnimationFrame so the marker
-  // visual updates at the screen refresh rate (~60 Hz) instead of the
-  // raw pointer event rate (often 100–250 Hz). Same pattern as the crop
-  // drag/hover handlers in crop-overlay.ts: without it `moveMarker`
-  // (which re-renders markers + crops) and `seekToSafe` get called 2-4×
-  // per frame and the marker visibly lags the cursor.
-  let dragRafId = 0;
-  let pendingDragEvent: PointerEvent | null = null;
-
-  function processDragNumbering(): void {
-    dragRafId = 0;
-    const e = pendingDragEvent;
-    pendingDragEvent = null;
-    if (!e) return;
+  // `moveMarker` re-renders markers and crops, so run it once per frame, not per pointer event.
+  const dragNumberingPerFrame = coalescePerAnimationFrame((e: PointerEvent) => {
     const time = getDragTime(e);
     // eslint-disable-next-line no-restricted-syntax -- skips a seek to where the playhead already is
     if (Math.abs(time - appState.video.getCurrentTime()) < 0.01) return;
     moveMarker(targetMarker, time, false, false);
     seekToSafe(appState.video, time);
-  }
+  });
 
   function dragNumbering(e: PointerEvent): void {
-    pendingDragEvent = e;
-    if (!dragRafId) {
-      dragRafId = requestAnimationFrame(processDragNumbering);
-    }
+    dragNumberingPerFrame.schedule(e);
   }
 
   captureTarget.addEventListener('pointermove', dragNumbering);
@@ -740,11 +726,7 @@ export function pressMarkerNumber(
    *  releases the captured pointer, cancels any pending RAF. Safe to call
    *  multiple times because each step checks first. */
   function cleanup(): void {
-    if (dragRafId) {
-      cancelAnimationFrame(dragRafId);
-      dragRafId = 0;
-      pendingDragEvent = null;
-    }
+    dragNumberingPerFrame.cancel();
     captureTarget.removeEventListener('pointermove', dragNumbering);
     captureTarget.removeEventListener('pointerup', onPointerUp, { capture: true });
     captureTarget.removeEventListener('pointercancel', onPointerCancel, { capture: true });
