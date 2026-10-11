@@ -11,15 +11,20 @@ pr pr_number:
     git fetch -fu origin refs/pull/{{pr_number}}/head:pr/{{pr_number}}
     git checkout pr/{{pr_number}}
 
+# Run a command and print how long it took, so a slow build or check step stays visible.
+[positional-arguments]
+_timed label *command:
+  @label="$1"; shift; start=$(date +%s%N); "$@"; status=$?; ms=$(( ($(date +%s%N) - start) / 1000000 )); printf '[time] %-22s %3d.%01ds\n' "$label" $((ms / 1000)) $((ms % 1000 / 100)); exit $status
+
 pretty-ts:
-  npx prettier "src/**/*.{ts,js,json}" --write
+  just _timed prettier npx prettier "src/**/*.{ts,js,json}" --write
 pretty-py:
   uv run ruff check --select I --fix src/clipper integration-tests && uv run ruff format src/clipper integration-tests
 pretty-py-check:
-  uv run ruff format --check src/clipper integration-tests
+  just _timed "ruff format --check" uv run ruff format --check src/clipper integration-tests
 
 test-py update="false":
-  uv run pytest src/clipper -s --cov=src/clipper --cov-report=html -m "not slow" \
+  just _timed pytest uv run pytest src/clipper -s --cov=src/clipper --cov-report=html -m "not slow" \
     {{ if update == "true" { "--snapshot-update" } else { "" } }}
 test-py-slow:
   uv run pytest src/clipper --cov=src/clipper --cov-report=html -vvv
@@ -27,7 +32,7 @@ test-py-update:
   just test-py true
 
 lint-py:
-  uv run ruff check src/clipper integration-tests
+  just _timed "ruff check" uv run ruff check src/clipper integration-tests
 lint-py-fix:
   uv run ruff check src/clipper integration-tests --fix
 
@@ -50,11 +55,12 @@ bundle-w:
 bundle-tc-w:
   run-p -c build-ts-ne bundle-w
 lint-ts:
-  npx tsc --noEmit && npx eslint ./src/markup ./src/command-palette
+  just _timed tsc npx tsc --noEmit
+  just _timed eslint npx eslint ./src/markup ./src/command-palette
 test-ts:
-  npx jest test
+  just _timed jest npx jest test
 bundle-prod:
-  just pretty-ts && just lint-ts && just test-ts && npx parcel build --no-scope-hoist --no-optimize
+  just pretty-ts && just lint-ts && just test-ts && just _timed parcel npx parcel build --no-scope-hoist --no-optimize
 
 # Serve the generic yt_clipper site with the freshly built userscript injected (no Tampermonkey).
 dev-site:
