@@ -23,6 +23,13 @@ clip = ["#cropChartCanvas"]
 padding = 0
 asset = "yt_clipper_crop_chart_sections.png"
 
+[[release."5.49.0"]]
+name = "hold-crop-points"
+scenario = "hold-crop-points"
+clip = ["#cropChartCanvas"]
+padding = 0
+asset = "yt_clipper_hold_crop_points.png"
+
 [[release."5.48.0"]]
 name = "reframe-minimap"
 scenario = "reframe-minimap"
@@ -43,9 +50,8 @@ scenario = "crop-chart-sections"
 clip = ["#cropChartCanvas"]
 padding = 0
 
-[[release."5.49.0"]]
-name = "hold-crop-points"
-scenario = "hold-crop-points"
-clip = ["#cropChartCanvas"]
-padding = 0
-asset = "yt_clipper_hold_crop_points.png"
+[[release."5.50.0"]]
+name = "timeline-zoom"
+scenario = "timeline-zoom"
+clip = [".ytc-tz"]
+padding = 8

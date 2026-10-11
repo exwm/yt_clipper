@@ -23,6 +23,7 @@ from test_reframe import (
     given_reframe_is_on,
     given_the_minimap_is_shown,
 )
+from test_timeline_zoom import given_crowded_marker_pairs, given_the_timeline_zoom_is_open
 
 Scenario = Callable[[MarkupPage], None]
 SCENARIOS: dict[str, Scenario] = {}
@@ -98,6 +99,12 @@ def cinematic_settings(markup: MarkupPage) -> None:
     markup.page.click("#cinematic-settings-modal-button")
     # The plot draws after the popover opens.
     markup.page.wait_for_selector(".ytc-cinematic-plot-canvas[data-cinematic-plotted='true']")
+
+
+@scenario("timeline-zoom")
+def timeline_zoom(markup: MarkupPage) -> None:
+    given_crowded_marker_pairs(markup)
+    given_the_timeline_zoom_is_open(markup)
 
 
 @scenario("hold-crop-points")
