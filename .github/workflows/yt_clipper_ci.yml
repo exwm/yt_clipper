@@ -84,8 +84,16 @@ jobs:
           mkdir -p ./artifact/py/${{env.FULL_NAME}}/{webms,bin,temp}/
           mkdir -p ./bindeps
 
+      # A pinned ffmpeg build never changes, so download it once per OS and version.
+      - name: Cache ffmpeg dependency
+        id: ffmpeg-cache
+        uses: actions/cache@v4
+        with:
+          path: bindeps/ffmpeg
+          key: ffmpeg-${{ matrix.os }}-${{ env.FFMPEG_VERSION }}
+
       - name: Download ffmpeg dependency (windows)
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && steps.ffmpeg-cache.outputs.cache-hit != 'true'
         shell: bash
         run: |
           cd ./bindeps
@@ -99,7 +107,7 @@ jobs:
           ls -laR
 
       - name: Download ffmpeg dependency (macos)
-        if: matrix.shortos == 'macos'
+        if: matrix.shortos == 'macos' && steps.ffmpeg-cache.outputs.cache-hit != 'true'
         shell: bash
         run: |
           cd ./bindeps
@@ -221,8 +229,9 @@ jobs:
       - name: Copy artifacts
         shell: bash
         run: |
-          mv ./bindeps/ffmpeg/bin/* ./artifact/py/${{env.FULL_NAME}}/bin/
-          mv ./bindeps/ffmpeg/*.txt ./artifact/py/${{env.FULL_NAME}}/bin/
+          # Copy, not move: the ffmpeg cache saves bindeps/ffmpeg after the job.
+          cp ./bindeps/ffmpeg/bin/* ./artifact/py/${{env.FULL_NAME}}/bin/
+          cp ./bindeps/ffmpeg/*.txt ./artifact/py/${{env.FULL_NAME}}/bin/
           mv ./bindeps/yt-dlp/bin/* ./artifact/py/${{env.FULL_NAME}}/bin/
           mv ./bindeps/deno/bin/* ./artifact/py/${{env.FULL_NAME}}/bin/
 
