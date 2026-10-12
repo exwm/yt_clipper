@@ -5,6 +5,7 @@ import { assertDefined, clampNumber } from '../../../util/util';
 import { medgrey } from '../chartPrimitives';
 import { scatterChartSpec } from '../scatterChartSpec';
 import { isReframeEnabled } from '../../../crop/video-zoom-controller';
+import { getCropPointMainLabel } from './crop-point-labels';
 import { cropSectionColor, cropZoomWidth, getCropSectionInfo } from './crop-section';
 import isEqual from 'lodash.isequal';
 
@@ -111,59 +112,15 @@ export const updateCurrentCropPoint = function (cropChart: Chart, cropString: st
   cropChart.update();
 };
 
-function getNeighborCropPoints(ctx): CropPoint[] {
-  const data = ctx.dataset.data as CropPoint[];
-  return [data[ctx.dataIndex - 1], data[ctx.dataIndex + 1]].filter(
-    (point): point is CropPoint => point != null
-  );
-}
-
-// True when this point's crop, read through extractField, matches every existing neighbor — a hold
-// with no visible change here.
-function matchesEveryNeighbor(ctx, extractField: (cropString: string) => string): boolean {
-  const data = ctx.dataset.data as CropPoint[];
-  const value = extractField(data[ctx.dataIndex].crop);
-  const neighbors = getNeighborCropPoints(ctx);
-  return neighbors.length > 0 && neighbors.every((point) => extractField(point.crop) === value);
-}
-
-function getCropSize(cropString: string): string {
-  const [, , w, h] = cropString.split(':');
-  return `${w}:${h}`;
-}
-
-function getCropPosition(cropString: string): string {
-  const [x, y] = cropString.split(':');
-  return `${x}:${y}`;
-}
-
-// Pan-only mode has one constant size for the whole clip, so show it once, at the first point.
-// Zoom/pan mode hides it at a static-zoom hold (unchanged from every neighbor) and shows it at a
-// zoom change.
-function shouldShowCropPointSize(ctx) {
-  const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
-  if (markerPair == null) return false;
-  if (!markerPair.enableZoomPan) return ctx.dataIndex === 0;
-  return !matchesEveryNeighbor(ctx, getCropSize);
-}
-
-// Same redundancy check as size, but not mode-gated: position can hold in a pan-only crop too.
-function shouldShowCropPointPosition(ctx) {
-  return !matchesEveryNeighbor(ctx, getCropPosition);
-}
-
 // Position and size share one label (positioned per alignDataLabel, inherited from the shared scatter
 // spec); time gets its own label pinned below the point instead.
-function formatCropPointMainLabel(point, ctx) {
-  const [x, y, w, h] = point.crop.split(':');
-  const showPosition = shouldShowCropPointPosition(ctx);
-  const showSize = shouldShowCropPointSize(ctx);
-  if (!showPosition && !showSize) return '';
-  // A hidden line is padded blank rather than dropped, since Chart.js positions a multi-line label as
-  // one block: dropping a line would shift the other one instead of leaving it in place.
-  const positionLine = showPosition ? `${x}:${y}` : ' ';
-  const sizeLine = showSize ? `${w}x${h}` : ' ';
-  return `${positionLine}\n${sizeLine}`;
+function formatCropPointMainLabel(_point, ctx) {
+  const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+  return getCropPointMainLabel(
+    ctx.dataset.data as CropPoint[],
+    ctx.dataIndex,
+    markerPair?.enableZoomPan
+  );
 }
 
 function formatCropPointTimeLabel(point) {
