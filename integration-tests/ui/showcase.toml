@@ -31,6 +31,12 @@ padding = 16
 asset = "yt_clipper_reframe_minimap.png"
 
 [[release."5.49.0"]]
+name = "cinematic-settings"
+scenario = "cinematic-settings"
+clip = [".ytc-settings-popover", "#crop-point-easing-input"]
+padding = 8
+
+[[release."5.49.0"]]
 name = "crop-chart-labels"
 scenario = "crop-chart-sections"
 clip = ["#cropChartCanvas"]

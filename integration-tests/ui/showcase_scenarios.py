@@ -13,6 +13,11 @@ from test_crop_chart import (
     given_the_crop_chart_is_open,
     when_i_seek_to,
 )
+from test_crop_easing import (
+    show_additional_settings,
+    then_a_cinematic_path_is_baked,
+    when_i_choose_easing,
+)
 from test_reframe import (
     given_a_marker_pair_with_a_narrowed_crop,
     given_reframe_is_on,
@@ -69,6 +74,16 @@ def reframe_minimap(markup: MarkupPage) -> None:
     given_a_marker_pair_with_a_narrowed_crop(markup)
     given_reframe_is_on(markup)
     given_the_minimap_is_shown(markup)
+
+
+@scenario("cinematic-settings")
+def cinematic_settings(markup: MarkupPage) -> None:
+    given_the_sections_pair_with_its_crop_chart_open(markup)
+    show_additional_settings(markup)
+    when_i_choose_easing(markup, "cinematic")
+    then_a_cinematic_path_is_baked(markup)
+    markup.page.click("#cinematic-settings-modal-button")
+    markup.page.wait_for_selector("#cinematic-margin-input")
 
 
 @step
