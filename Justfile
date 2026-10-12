@@ -128,6 +128,12 @@ dev-site:
 ui-test *args:
   just _parcel-once
   uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n 4 --durations=10 -o faulthandler_timeout=600 --tracing retain-on-failure --output sandbox/ui-test-results "$@"
+# Release highlight close-ups listed in integration-tests/ui/showcase.toml, into sandbox/showcase/<release>/.
+# Add --update-assets to also write the shots that name an asset into assets/image/.
+[positional-arguments]
+ui-showcase release *args:
+  just _parcel-once
+  release="$1"; shift; uv run --group ui-test pytest integration-tests/ui/showcase.py --browser-channel chrome -n 3 -o faulthandler_timeout=600 --showcase-release "$release" --video-style calm "$@"
 # The platform-dependent tests (marked platform) on a real YouTube video, into sandbox/ui-shots/<test>-youtube/. One at a time (YouTube only reliably buffers
 # the first ~45s for an automated browser), and a failed test is retried once (YouTube loads can stall).
 [positional-arguments]
