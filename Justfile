@@ -108,10 +108,14 @@ clean-sandbox:
 #   just release-prep X.Y.Z     write the changelog, set the version everywhere, and run every check
 #   just release-publish X.Y.Z  protect, tag, and push it; CI then builds the draft GitHub release
 
-# Write the changelog, set the version everywhere, and run every check. Safe to rerun.
+# Write the changelog, set the version everywhere, and run every check. Safe to rerun: the version's
+# changelog section is regenerated from the commits each time, with release-notes/<version>.md (the
+# hand-written summary and Highlights) inserted under its heading.
 release-prep version:
   @test "$(jj log -r @ --no-graph -T 'description.first_line()')" = "version: {{version}}" || { echo "Run this in the 'version: {{version}}' change (jj edit it first)."; exit 1; }
-  @grep -q '^## \[{{version}}\]' changelog.md && echo 'changelog already has {{version}}' || npx commit-and-tag-version --release-as {{version}}
+  uv run python tools/release/changelog.py drop {{version}}
+  npx commit-and-tag-version --release-as {{version}}
+  uv run python tools/release/changelog.py highlights {{version}}
   uv run python tools/release/version.py set {{version}}
   just bundle-prod
   just lint-py
