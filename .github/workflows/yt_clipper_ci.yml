@@ -32,7 +32,8 @@ env:
   DENO_VERSION: "2.5.6"
   DENO_BASE_URL: https://github.com/denoland/deno/releases/download
 
-  VIDEO2X_VERSION: "6.5.0-exwm"
+  # Built against the same gyan.dev ffmpeg as FFMPEG_VERSION, whose DLLs it shares.
+  VIDEO2X_VERSION: "6.5.1-exwm"
   VIDEO2X_BASE_URL: https://github.com/exwm/video2x/releases/download
 
 jobs:
@@ -62,7 +63,6 @@ jobs:
         run: |
           echo "FULL_NAME=${{env.NAME}}_${{matrix.shortos}}_${{env.VERSION}}" >> $GITHUB_ENV
           echo "NOPLAT_NAME=${{env.NAME}}_${{env.VERSION}}" >> $GITHUB_ENV
-          echo "FULL_NAME_WIN_FULL=${{env.NAME}}_win_${{env.VERSION}}_full" >> $GITHUB_ENV
           echo "YTDLP_DL_URL=${{ env.YTDLP_BASE_URL }}/${{ env.YTDLP_VERSION }}/${{ matrix.yt-dlp_filename }}" >> $GITHUB_ENV
           echo "DENO_DL_URL=${{ env.DENO_BASE_URL }}/v${{ env.DENO_VERSION }}/${{ matrix.deno_filename }}" >> $GITHUB_ENV
 
@@ -85,7 +85,7 @@ jobs:
 
       - name: Set up dirs
         run: |
-          mkdir -p ./artifact/py/${{env.FULL_NAME}}/{webms,bin,temp}/
+          mkdir -p ./artifact/py/${{env.FULL_NAME}}/{webms,bin/video-tools,bin/yt-dlp,temp}/
           mkdir -p ./bindeps
 
       # A pinned ffmpeg build never changes, so download it once per OS and version.
@@ -147,7 +147,7 @@ jobs:
           curl --fail --retry 10 --retry-delay 60 --retry-all-errors -o ./video2x.zip -L $VIDEO2X_DL_URL
           7z x ./video2x.zip -o./video2x
           rm -f ./video2x.zip
-          echo "${{ env.VIDEO2X_VERSION }}" > ./video2x/version.txt
+          echo "${{ env.VIDEO2X_VERSION }}" > ./video2x/video2x-version.txt
 
       - name: Disable Windows Defender realtime scanning
         if: matrix.os == 'windows-latest'
@@ -186,10 +186,11 @@ jobs:
       - name: Copy artifacts
         run: |
           # Copy, not move: the ffmpeg cache saves bindeps/ffmpeg after the job.
-          cp ./bindeps/ffmpeg/bin/* ./artifact/py/${{env.FULL_NAME}}/bin/
-          cp ./bindeps/ffmpeg/*.txt ./artifact/py/${{env.FULL_NAME}}/bin/
-          mv ./bindeps/yt-dlp/bin/* ./artifact/py/${{env.FULL_NAME}}/bin/
-          mv ./bindeps/deno/bin/* ./artifact/py/${{env.FULL_NAME}}/bin/
+          cp ./bindeps/ffmpeg/bin/* ./artifact/py/${{env.FULL_NAME}}/bin/video-tools/
+          cp ./bindeps/ffmpeg/*.txt ./artifact/py/${{env.FULL_NAME}}/bin/video-tools/
+          # yt-dlp on Windows finds deno next to itself.
+          mv ./bindeps/yt-dlp/bin/* ./artifact/py/${{env.FULL_NAME}}/bin/yt-dlp/
+          mv ./bindeps/deno/bin/* ./artifact/py/${{env.FULL_NAME}}/bin/yt-dlp/
 
           cp ./src/clipper/include/* ./artifact/py/${{env.FULL_NAME}}/
           cp ./src/clipper/${{matrix.shortos}}_helpers/* ./artifact/py/${{env.FULL_NAME}}/
@@ -197,13 +198,24 @@ jobs:
           cp -R ./src/clipper/yt-dlp-plugins/ytc/ ./artifact/py/${{env.FULL_NAME}}/yt-dlp-plugins/
           cp ./dist/py/yt_clipper* ./artifact/py/${{env.FULL_NAME}}/
 
-      - name: Copy full artifacts (windows)
+      - name: Copy video2x (windows)
         if: matrix.os == 'windows-latest'
         run: |
-          mkdir -p ./artifact/py/${{env.FULL_NAME_WIN_FULL}}/
-          cp -r ./artifact/py/${{env.FULL_NAME}}/* ./artifact/py/${{env.FULL_NAME_WIN_FULL}}/
-          mkdir -p ./artifact/py/${{env.FULL_NAME_WIN_FULL}}/bin/video2x
-          cp -r ./bindeps/video2x/* ./artifact/py/${{env.FULL_NAME_WIN_FULL}}/bin/video2x/
+          tools=./artifact/py/${{env.FULL_NAME}}/bin/video-tools
+
+          # video2x loads the ffmpeg DLLs already in video-tools, so they must be the same build.
+          for dll in ./bindeps/video2x/av*.dll ./bindeps/video2x/sw*.dll; do
+            cmp "$dll" "$tools/$(basename "$dll")" || { echo "::error::video2x and ffmpeg use different ffmpeg builds"; exit 1; }
+            rm "$dll"
+          done
+
+          # Development files only.
+          rm -rf ./bindeps/video2x/{cmake,include,pkgconfig} ./bindeps/video2x/*.lib
+
+          for f in ./bindeps/video2x/*; do
+            [ ! -e "$tools/$(basename "$f")" ] || { echo "::error::video2x would overwrite $(basename "$f")"; exit 1; }
+          done
+          cp -r ./bindeps/video2x/* "$tools/"
 
       - name: Print clipper install version
         run: ./dist/py/${{ matrix.exe }} --version
@@ -213,7 +225,6 @@ jobs:
         run: |
           # Fastest compression: the contents are mostly already-compressed binaries.
           7z a -mx=1 ./artifact/py/${{env.FULL_NAME}}.zip ./artifact/py/${{env.FULL_NAME}}/
-          7z a -mx=1 ./artifact/py/${{env.FULL_NAME_WIN_FULL}}.zip ./artifact/py/${{env.FULL_NAME_WIN_FULL}}/
 
       - name: Zip artifacts on non-windows systems
         if: matrix.os != 'windows-latest'
@@ -227,14 +238,6 @@ jobs:
           name: ${{env.FULL_NAME}}.zip
           path: ./artifact/py/${{env.FULL_NAME}}.zip
           # Already a zip: compressing it again only costs time.
-          compression-level: 0
-
-      - name: Upload full clipper script installation artifact (windows)
-        if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v6
-        with:
-          name: ${{env.FULL_NAME_WIN_FULL}}.zip
-          path: ./artifact/py/${{env.FULL_NAME_WIN_FULL}}.zip
           compression-level: 0
 
   # The userscript is the same on every OS, so it builds once, on Linux, beside the OS builds.
@@ -287,7 +290,6 @@ jobs:
           echo "FULL_NAME=${{env.NAME}}_${{env.VERSION}}" >> $GITHUB_ENV
           echo "FULL_NAME_WIN=${{env.NAME}}_win_${{env.VERSION}}" >> $GITHUB_ENV
           echo "FULL_NAME_MAC=${{env.NAME}}_macos_${{env.VERSION}}" >> $GITHUB_ENV
-          echo "FULL_NAME_WIN_FULL=${{env.NAME}}_win_${{env.VERSION}}_full" >> $GITHUB_ENV
 
       # Every build artifact at once (downloaded in parallel), each file into the working directory.
       - uses: actions/download-artifact@v7
@@ -334,7 +336,6 @@ jobs:
             --notes-file release-notes.md \
             --draft \
             ${{env.FULL_NAME_WIN}}.zip \
-            ${{env.FULL_NAME_WIN_FULL}}.zip \
             ${{env.FULL_NAME_MAC}}.zip \
             ${{env.FULL_NAME}}.js
         env:

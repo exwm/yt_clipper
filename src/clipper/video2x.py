@@ -146,8 +146,8 @@ def runVideo2xCommand(
         logger.error(
             f"video2x not found at '{cp.video2xPath}'. "
             "Motion interpolation requires video2x to be installed. "
-            "Download the _full release zip (includes video2x in bin/video2x/) "
-            "or install video2x manually. For direct clipper script usage ensure video2x is on your system PATH.",
+            "The Windows release zip includes video2x in bin/video-tools/. "
+            "Otherwise install video2x manually. For direct clipper script usage ensure video2x is on your system PATH.",
         )
         mp["returncode"] = 1
         return mp

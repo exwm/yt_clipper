@@ -26,6 +26,12 @@ logger = make_subsystem_logger(Subsystem.CLI)
 
 UNKNOWN_PROPERTY = "unknown"
 
+# Frozen release layout. video2x loads the ffmpeg DLLs from its own folder, so it shares video-tools.
+VIDEO_TOOLS_DIR = "./bin/video-tools"
+YTDL_DIR = "./bin/yt-dlp"
+# The readme's manual install location. Upstream video2x brings its own ffmpeg DLLs.
+MANUAL_VIDEO2X_DIR = "./bin/video2x"
+
 
 def main() -> None:
     cs = clipper_types.ClipperState()
@@ -135,7 +141,7 @@ def setupClipperPaths(cs: ClipperState) -> None:
     is_frozen_release = getattr(sys, "frozen", False)
 
     if is_frozen_release or ffmpeg_tools_dir:
-        ffmpeg_tools_dir = ffmpeg_tools_dir if ffmpeg_tools_dir else "./bin"
+        ffmpeg_tools_dir = ffmpeg_tools_dir if ffmpeg_tools_dir else VIDEO_TOOLS_DIR
         cp.ffmpegPath = f"{ffmpeg_tools_dir}/ffmpeg"
         cp.ffprobePath = f"{ffmpeg_tools_dir}/ffprobe"
         cp.ffplayPath = f"{ffmpeg_tools_dir}/ffplay"
@@ -148,7 +154,7 @@ def setupClipperPaths(cs: ClipperState) -> None:
     ytdl_dir = settings.get("ytdlDir")
 
     if is_frozen_release or ytdl_dir:
-        ytdl_dir = ytdl_dir if ytdl_dir else "./bin"
+        ytdl_dir = ytdl_dir if ytdl_dir else YTDL_DIR
 
         cp.ytdlPath = f"{ytdl_dir}/yt-dlp"
 
@@ -159,11 +165,7 @@ def setupClipperPaths(cs: ClipperState) -> None:
             cp.ytdlPath += ".exe"
 
     if is_frozen_release:
-        video2x_dir = "./bin/video2x"
-        cp.video2xPath = f"{video2x_dir}/video2x"
-
-        if sys.platform == "win32":
-            cp.video2xPath += ".exe"
+        cp.video2xPath = findVideo2x(".exe" if sys.platform == "win32" else "")
 
     cp.video2xPath = shlex.quote(cp.video2xPath)
     cp.ffmpegPath = shlex.quote(cp.ffmpegPath)
@@ -175,6 +177,15 @@ def setupClipperPaths(cs: ClipperState) -> None:
         certifi_cacert_path = certifi.where()
         os.environ["SSL_CERT_FILE"] = certifi_cacert_path
         os.environ["REQUESTS_CA_BUNDLE"] = certifi_cacert_path
+
+
+def findVideo2x(exe_suffix: str) -> str:
+    """The bundled video2x, else a manual install, else video2x on the system PATH."""
+    for video2x_dir in (VIDEO_TOOLS_DIR, MANUAL_VIDEO2X_DIR):
+        video2x_path = f"{video2x_dir}/video2x{exe_suffix}"
+        if Path(video2x_path).is_file():
+            return video2x_path
+    return "video2x"
 
 
 def setupOutputPaths(cs: ClipperState) -> None:
@@ -190,7 +201,7 @@ def enableMinterpEnhancements(cm: ClipperState) -> None:
     settings = cm.settings
     cp = cm.clipper_paths
     if settings["enableMinterpEnhancements"] and sys.platform == "win32":
-        cp.ffmpegPath = "./bin/ffmpeg_ytc.exe"
+        cp.ffmpegPath = f"{VIDEO_TOOLS_DIR}/ffmpeg_ytc.exe"
         if not Path(cp.ffmpegPath).is_file():
             logger.critical(
                 f"{cp.ffmpegPath} required for minterp enhancements not found.",
