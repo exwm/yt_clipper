@@ -343,9 +343,10 @@ def getMoreVideoInfo(  # noqa: PLR0912 (too-many-branches)
             videoInfo["fps"] if videoInfo["fps"] is not None else DEFAULT_VIDEO_FPS
         )
 
-    if not settings["inputBitDepth"]:
+    # ffprobe sets this only when it can read the video.
+    if not settings.get("inputBitDepth"):
         #  "SDR", "HDR10", "HDR10+, "HDR12", "HLG, "DV"
-        dynamic_range: str = videoInfo.get("dynamic_range", "").lower()
+        dynamic_range: str = (videoInfo.get("dynamic_range") or "").lower()
         if "12" in dynamic_range:
             settings["inputBitDepth"] = 12
         elif dynamic_range != "sdr":
