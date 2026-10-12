@@ -16,7 +16,7 @@ env:
   # evermeet.cx's macOS builds, mirrored because evermeet rate limits CI runners.
   FFMPEG_MAC_BASE_URL: https://github.com/exwm/yt_clipper_bindeps/releases/download
 
-  YTDLP_VERSION: "2026.03.17"
+  YTDLP_VERSION: "2026.08.19"
   YTDLP_BASE_URL: https://github.com/yt-dlp/yt-dlp/releases/download
 
   DENO_VERSION: "2.5.6"

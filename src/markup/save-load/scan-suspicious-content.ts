@@ -57,20 +57,26 @@ function walkStrings(
 // vectors like `<body onload=...>`).
 const PARSER_WRAPPER_TAGS = new Set(['html', 'head', 'body']);
 
-function describeRemoved(entry: RemovedElement | RemovedAttribute): string | null {
+function describeAttribute(name: string): string {
+  return `${name}= attribute`;
+}
+
+// A removed element is described with its attributes: newer DOMPurify drops a disallowed element
+// whole and no longer reports its attributes (like onerror=) as separate removals.
+function describeRemoved(entry: RemovedElement | RemovedAttribute): string[] {
   if ('element' in entry && entry.element) {
     const name = entry.element.nodeName;
     const tagName = typeof name === 'string' ? name.toLowerCase() : '?';
-    if (PARSER_WRAPPER_TAGS.has(tagName)) {
-      const el = entry.element as Element;
-      if (el.attributes.length === 0) return null;
-    }
-    return `<${tagName}>`;
+    const attributes = Array.from((entry.element as Element).attributes ?? [], (attribute) =>
+      describeAttribute(attribute.name)
+    );
+    if (PARSER_WRAPPER_TAGS.has(tagName) && attributes.length === 0) return [];
+    return [`<${tagName}>`, ...attributes];
   }
   if ('attribute' in entry && entry.attribute) {
-    return `${entry.attribute.name}= attribute`;
+    return [describeAttribute(entry.attribute.name)];
   }
-  return 'unknown node';
+  return ['unknown node'];
 }
 
 // Walks `payload` and uses DOMPurify to scan every string leaf for
@@ -87,9 +93,7 @@ export function scanSuspiciousContent(payload: unknown): SuspiciousHtmlFinding[]
     if (DOMPurify.removed.length === 0) return;
 
     // Collect descriptions, filter parser-wrapper noise, de-duplicate.
-    const items = Array.from(
-      new Set(DOMPurify.removed.map(describeRemoved).filter((s): s is string => s !== null))
-    );
+    const items = Array.from(new Set(DOMPurify.removed.flatMap(describeRemoved)));
 
     // DOMPurify.removed is module-level state — reset before the next scan
     // so findings don't accumulate across fields.
