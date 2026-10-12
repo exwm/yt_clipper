@@ -57,7 +57,9 @@
   align-items: center;
   justify-content: center;
   color: #fff;
-  transition: filter 0.15s, transform 0.15s;
+  transition:
+    filter 0.15s,
+    transform 0.15s;
 }
 
 /* Scale the SVG down on yt_clipper specifically — Blender's STATUSBAR

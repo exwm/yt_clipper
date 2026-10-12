@@ -66,26 +66,31 @@ export function getVideoPlatformHooks(selectors: VideoPlatformSelectors): VideoP
 }
 
 export function getPlatform() {
-  const host = window.location.hostname;
-  if (host.includes('youtube')) {
-    return VideoPlatforms.youtube;
-  } else if (host.includes('vlive')) {
-    return VideoPlatforms.vlive;
-  } else if (host.includes('weverse')) {
-    return VideoPlatforms.weverse;
-  } else if (host.includes('tv.naver')) {
-    return VideoPlatforms.naver_tv;
-  } else if (host.includes('afreecatv.com')) {
-    return VideoPlatforms.afreecatv;
-  } else if (
-    host.includes('exwm.github.io') ||
-    host.includes('127.0.0.1') ||
-    host.includes('localhost')
-  ) {
-    return VideoPlatforms.yt_clipper;
-  } else {
-    return VideoPlatforms.youtube;
-  }
+  return platformForHost(window.location.hostname);
+}
+
+// Each platform's site domains, matched exactly or as a parent domain (www.youtube.com matches
+// youtube.com), so a host that merely contains a platform name does not match.
+const PLATFORM_DOMAINS: [VideoPlatforms, string[]][] = [
+  [VideoPlatforms.youtube, ['youtube.com', 'youtube-nocookie.com']],
+  [VideoPlatforms.vlive, ['vlive.tv']],
+  [VideoPlatforms.weverse, ['weverse.io']],
+  [VideoPlatforms.naver_tv, ['tv.naver.com']],
+  [VideoPlatforms.afreecatv, ['afreecatv.com']],
+  // The generic site, and the local dev site.
+  [VideoPlatforms.yt_clipper, ['exwm.github.io', 'localhost', '127.0.0.1']],
+];
+
+function isOnDomain(host: string, domain: string): boolean {
+  return host === domain || host.endsWith(`.${domain}`);
+}
+
+/** The platform for a page's hostname. An unknown host falls back to YouTube. */
+export function platformForHost(host: string): VideoPlatforms {
+  const match = PLATFORM_DOMAINS.find(([, domains]) =>
+    domains.some((domain) => isOnDomain(host, domain))
+  );
+  return match ? match[0] : VideoPlatforms.youtube;
 }
 
 const youtubeSelectors: VideoPlatformSelectors = {
