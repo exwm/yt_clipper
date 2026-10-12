@@ -1,4 +1,5 @@
 {
+  "infile": "changelog.md",
   "skip": {
     "commit": true,
     "tag": true
@@ -12,6 +13,10 @@
     { "type": "style", "hidden": true },
     { "type": "refactor", "hidden": true },
     { "type": "perf", "hidden": true },
-    { "type": "test", "hidden": true }
+    { "type": "test", "hidden": true },
+    { "type": "tests", "hidden": true },
+    { "type": "build", "hidden": true },
+    { "type": "ci", "hidden": true },
+    { "type": "deps", "hidden": true }
   ]
 }

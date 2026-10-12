@@ -21,12 +21,12 @@ _timed label *command:
 pretty-ts:
   just _timed prettier npx prettier "src/**/*.{ts,js,json}" --write --cache
 pretty-py:
-  uv run ruff check --select I --fix src/clipper integration-tests && uv run ruff format src/clipper integration-tests
+  uv run ruff check --select I --fix src/clipper integration-tests tools && uv run ruff format src/clipper integration-tests tools
 pretty-py-check:
-  just _timed "ruff format --check" uv run ruff format --check src/clipper integration-tests
+  just _timed "ruff format --check" uv run ruff format --check src/clipper integration-tests tools
 
 test-py update="false":
-  just _timed pytest uv run pytest src/clipper -s --cov=src/clipper --cov-report=html -m "not slow" \
+  just _timed pytest uv run pytest src/clipper tools/release -s --cov=src/clipper --cov-report=html -m "not slow" \
     {{ if update == "true" { "--snapshot-update" } else { "" } }}
 test-py-slow:
   uv run pytest src/clipper --cov=src/clipper --cov-report=html -vvv
@@ -34,9 +34,9 @@ test-py-update:
   just test-py true
 
 lint-py:
-  just _timed "ruff check" uv run ruff check src/clipper integration-tests
+  just _timed "ruff check" uv run ruff check src/clipper integration-tests tools
 lint-py-fix:
-  uv run ruff check src/clipper integration-tests --fix
+  uv run ruff check src/clipper integration-tests tools --fix
 
 poetry-sync:
   poetry lock --no-update && poetry install --sync
@@ -103,11 +103,33 @@ clean-dist:
 clean-sandbox:
   rm -r ./sandbox/*
 
-version-patch:
-  npx commit-and-tag-version -r patch && uv run bumpit -p patch || true
-version-minor:
-  npx commit-and-tag-version -r minor && uv run bumpit -p minor || true
-version-major:
-  npx commit-and-tag-version -r major && uv run bumpit -p major || true
+# Release X.Y.Z in two steps, from the jj change described `version: X.Y.Z` (an empty change on top of
+# everything the release includes; `jj edit` it first):
+#   just release-prep X.Y.Z     write the changelog, set the version everywhere, and run every check
+#   just release-publish X.Y.Z  protect, tag, and push it; CI then builds the draft GitHub release
+
+# Write the changelog, set the version everywhere, and run every check. Safe to rerun.
+release-prep version:
+  @test "$(jj log -r @ --no-graph -T 'description.first_line()')" = "version: {{version}}" || { echo "Run this in the 'version: {{version}}' change (jj edit it first)."; exit 1; }
+  @grep -q '^## \[{{version}}\]' changelog.md && echo 'changelog already has {{version}}' || npx commit-and-tag-version --release-as {{version}}
+  uv run python tools/release/version.py set {{version}}
+  just bundle-prod
+  just lint-py
+  just test-py
+  just ui-test
+  uv run python tools/release/version.py check {{version}}
+# Tagged commits are made immutable in jj: the changelog links and the tag point at them.
+
+# Tag the version change and push it to release/master; CI then builds the draft GitHub release.
+# Safe to rerun, also after rewriting the version change (jj --ignore-immutable): the tag,
+# release/master, and the draft release move to the new commit. The tag goes first so CI sees it.
+# The local tag moves only after its push, so the lease expects what the remote last accepted.
+release-publish version:
+  uv run python tools/release/version.py check {{version}}
+  jj config set --repo 'revset-aliases."immutable_heads()"' 'builtin_immutable_heads() | tags()'
+  @commit="$(jj log -r 'exactly(subject(exact:"version: {{version}}"), 1)' --no-graph -T commit_id)" || exit 1; old="$(git rev-parse -q --verify refs/tags/v{{version}})"; if [ "$old" = "$commit" ]; then echo 'v{{version}} already tags the version change'; else git push --force-with-lease="refs/tags/v{{version}}:$old" origin "$commit:refs/tags/v{{version}}" && git tag -f v{{version}} "$commit"; fi
+  jj git import
+  jj bookmark set release/master --allow-backwards -r 'exactly(subject(exact:"version: {{version}}"), 1)'
+  jj git push --bookmark release/master
 pigar:
   pigar -P ./src/clipper -p ./src/clipper/requirements.txt --without-referenced-comments

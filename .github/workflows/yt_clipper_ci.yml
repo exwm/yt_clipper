@@ -318,11 +318,41 @@ jobs:
         with:
           name: ${{env.FULL_NAME}}.js
 
+      - uses: actions/checkout@v4
+        with:
+          path: source
+          sparse-checkout: changelog.md
+          sparse-checkout-cone-mode: false
+
+      # This version's changelog section, from its heading to the next version's.
+      - name: Extract release notes
+        run: |
+          awk -v heading="## [${{env.VERSION}}]" '
+            index($0, heading) == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' source/changelog.md > release-notes.md
+          test -s release-notes.md || { echo "No changelog section for ${{env.VERSION}}"; exit 1; }
+
+      # A rerun (e.g. after rewriting the version change) replaces this version's draft. A published
+      # release is left alone, and the create below then fails.
+      - name: Remove an earlier draft of this release
+        run: |
+          if [ "$(gh release view v${{env.VERSION}} --repo ${{github.repository}} --json isDraft -q .isDraft 2>/dev/null)" = true ]; then
+            gh release delete v${{env.VERSION}} --repo ${{github.repository}} --yes
+          fi
+        env:
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+      # --target pins the tag to the built commit: a draft's tag is created on publish, and would
+      # otherwise land on the default branch.
       - name: Create release and upload assets
         run: |
           gh release create v${{env.VERSION}} \
             --repo ${{github.repository}} \
+            --target ${{github.sha}} \
             --title "${{env.NAME}} v${{env.VERSION}} [${{env.DATE}}]" \
+            --notes-file release-notes.md \
             --draft \
             ${{env.FULL_NAME_WIN}}.zip \
             ${{env.FULL_NAME_WIN_FULL}}.zip \
