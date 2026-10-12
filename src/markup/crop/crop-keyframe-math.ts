@@ -282,3 +282,75 @@ export function getEasedCropComponentsAtTime(
   );
   return [eased[0], eased[1], eased[2], eased[3]];
 }
+
+// A crop point resolved to numeric components, for the pure easing dispatch below.
+export interface EasingCropPoint {
+  time: number;
+  components: readonly number[];
+  easeIn: CropPoint['easeIn'];
+}
+
+/**
+ * The eased crop components at `time` for the section [start, end] under `easing`. `prev` and
+ * `next` are the points bracketing the section; the splines take their tangents from them, and an
+ * instant transition between a neighbor and the section breaks the spline there. An instant
+ * section snaps. Cinematic is eased like smoothTrack here: its baked path is the caller's concern.
+ * `frame` (the crop resolution) keeps a spline crop inside the frame, as the clipper does.
+ */
+export function getSectionEasedCropComponents(
+  easing: CropPointEasing,
+  start: EasingCropPoint,
+  end: EasingCropPoint,
+  prev: EasingCropPoint | null,
+  next: EasingCropPoint | null,
+  time: number,
+  fps: number,
+  frame?: { width: number; height: number }
+): [number, number, number, number] {
+  const useSpline = easing !== 'smoothInOut' && end.easeIn !== 'instant';
+  // Each neighbor carries the transition between it and the section.
+  const prevNeighbor: CropSectionNeighbor | null = prev && {
+    components: prev.components,
+    time: prev.time,
+    easeIn: start.easeIn,
+  };
+  const nextNeighbor: CropSectionNeighbor | null = next && {
+    components: next.components,
+    time: next.time,
+    easeIn: next.easeIn,
+  };
+  let eased: [number, number, number, number] | null;
+  if (useSpline) {
+    eased = getSmoothTrackCropComponentsAtTime(
+      start.components,
+      end.components,
+      start.time,
+      end.time,
+      prevNeighbor,
+      nextNeighbor,
+      time,
+      fps,
+      true
+    );
+  } else {
+    eased = getEasedCropComponentsAtTime(
+      start.components,
+      end.components,
+      start.time,
+      end.time,
+      end.easeIn,
+      time,
+      fps
+    );
+  }
+  // A zero-duration section has nothing to ease: hold the start crop.
+  const s = start.components;
+  if (!eased) return [s[0], s[1], s[2], s[3]];
+  // The spline eases the position and the size on their own, so on a zoom the crop can pass the
+  // frame edge between points. The other easings stay between their end crops, which are inside.
+  if (useSpline && frame) {
+    eased[0] = clampNumber(eased[0], 0, frame.width - eased[2]);
+    eased[1] = clampNumber(eased[1], 0, frame.height - eased[3]);
+  }
+  return eased;
+}

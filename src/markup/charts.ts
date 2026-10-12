@@ -68,12 +68,12 @@ import {
 import {
   CropKeyframeMatch,
   CropPointEasing,
-  CropSectionNeighbor,
   DEFAULT_CROP_POINT_EASING,
+  EasingCropPoint,
   cropInterpolationSectionAtTime,
   findCropKeyframeAtTime,
   getEasedCropComponentsAtTime,
-  getSmoothTrackCropComponentsAtTime,
+  getSectionEasedCropComponents,
   nextKeyframeIndex,
 } from './crop/crop-keyframe-math';
 import { isReframeEnabled, syncReframe } from './crop/video-zoom-controller';
@@ -905,14 +905,8 @@ function getActiveCropPointEasing(): CropPointEasing {
   );
 }
 
-// `boundaryEaseIn` is the transition between the neighbor and the section: the start point's easeIn
-// for the previous neighbor, the neighbor's own easeIn for the next one.
-function toSectionNeighbor(
-  point: CropPoint | undefined | null,
-  boundaryEaseIn: CropPoint['easeIn']
-): CropSectionNeighbor | null {
-  if (point == null) return null;
-  return { components: getCropComponents(point.crop), time: point.x, easeIn: boundaryEaseIn };
+function toEasingCropPoint(point: CropPoint): EasingCropPoint {
+  return { time: point.x, components: getCropComponents(point.crop), easeIn: point.easeIn };
 }
 
 // The cinematic margins for the active pair: per-pair override, else global, else default.
@@ -1012,8 +1006,6 @@ export function getEasedCropComponents(
   prevPoint?: CropPoint | null,
   nextPoint?: CropPoint | null
 ): [number, number, number, number] {
-  const start = getCropComponents(sectStart.crop);
-  const end = getCropComponents(sectEnd.crop);
   const easing = getActiveCropPointEasing();
   // Cinematic mode replaces interpolation with the baked L1 path (a function of time, not the
   // section). Before the path is baked (mid-edit or mid-recompute) fall through to a smooth-track
@@ -1022,37 +1014,16 @@ export function getEasedCropComponents(
     const baked = getActiveCinematicCrop();
     if (baked) return baked;
   }
-  // Smooth track flows through points via neighbor tangents (an instant section still snaps) as a
-  // monotone cubic, so it never overshoots. The prev/next points shape the tangents.
-  const useSpline = easing !== 'smoothInOut' && sectEnd.easeIn !== 'instant';
-  const prev = toSectionNeighbor(prevPoint, sectStart.easeIn);
-  const next = toSectionNeighbor(nextPoint, nextPoint?.easeIn);
-  let eased: [number, number, number, number] | null;
-  if (useSpline) {
-    eased = getSmoothTrackCropComponentsAtTime(
-      start,
-      end,
-      sectStart.x,
-      sectEnd.x,
-      prev,
-      next,
-      currentCropTime(),
-      getFPS(),
-      true
-    );
-  } else {
-    eased = getEasedCropComponentsAtTime(
-      start,
-      end,
-      sectStart.x,
-      sectEnd.x,
-      sectEnd.easeIn,
-      currentCropTime(),
-      getFPS()
-    );
-  }
-  // A zero-duration section has nothing to ease: hold the start crop.
-  return eased ?? [start[0], start[1], start[2], start[3]];
+  return getSectionEasedCropComponents(
+    easing,
+    toEasingCropPoint(sectStart),
+    toEasingCropPoint(sectEnd),
+    prevPoint ? toEasingCropPoint(prevPoint) : null,
+    nextPoint ? toEasingCropPoint(nextPoint) : null,
+    currentCropTime(),
+    getFPS(),
+    { width: appState.settings.cropResWidth, height: appState.settings.cropResHeight }
+  );
 }
 // The current crop in cropRes coords — the eased/interpolated crop for a dynamic
 // crop, or the static/current-point crop otherwise. Null only when no editor is open.
