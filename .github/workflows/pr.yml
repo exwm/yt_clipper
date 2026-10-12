@@ -10,46 +10,37 @@ on:
 permissions:
   contents: read
 
+# A new push to the pull request supersedes a run still checking an older one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22.18.x"
+
 jobs:
-  check:
-    defaults:
-      run:
-        shell: bash
-    runs-on: ${{ matrix.os }}
-    strategy:
-      max-parallel: 4
-      matrix:
-        node-version: ['22.18.x']
-        os: [macos-latest]
-        include:
-          - os: macos-latest
-            shortos: macos
-
+  clipper:
+    runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
-
-      # - name: Use Node.js ${{ matrix.node-version }}
-      #   uses: actions/setup-node@v4
-      #   with:
-      #     node-version: ${{ matrix.node-version }}
-      #     cache: 'yarn'
-      #     architecture: 'x64'
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - name: Setup just
-        uses: extractions/setup-just@v2
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
-          version: '0.9.26'
+          version: "0.9.26"
           enable-cache: true
-          cache-dependency-glob: 'uv.lock'
+          cache-dependency-glob: "uv.lock"
 
       - name: Set up Python
         run: uv python install
 
       - name: Install the project
-        run: uv sync --all-extras --dev
+        run: uv sync --locked
 
       - name: Lint with ruff
         run: just lint-py
@@ -59,3 +50,28 @@ jobs:
 
       - name: Minimize uv cache
         run: uv cache prune --ci
+
+  markup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Setup just
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Load cached node_modules
+        uses: actions/cache@v5
+        with:
+          path: node_modules
+          key: yarn-ubuntu-${{ hashFiles('**/yarn.lock') }}
+      - run: yarn install --frozen-lockfile --ignore-scripts
+
+      # Formats, type-checks, lints, tests, and builds the userscript.
+      - run: just bundle-prod

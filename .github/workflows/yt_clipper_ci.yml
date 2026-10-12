@@ -7,9 +7,19 @@ on:
       - release/*
       - test-ci
 
+# Read-only unless a job needs more (release writes the draft).
+permissions:
+  contents: read
+
+# A new push supersedes a run still building the same branch (e.g. a republished release).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   NAME: yt_clipper
   VERSION: "5.47.1"
+  NODE_VERSION: "22.18.x"
 
   FFMPEG_VERSION: "8.0.1"
   FFMPEG_WIN_BASE_URL: https://github.com/GyanD/codexffmpeg/releases/download
@@ -27,8 +37,6 @@ env:
 
 jobs:
   build:
-    permissions:
-      contents: read
     defaults:
       run:
         shell: bash
@@ -36,21 +44,21 @@ jobs:
     strategy:
       max-parallel: 4
       matrix:
-        node-version: ["22.18.x"]
         os: [windows-latest, macos-latest]
         include:
           - os: windows-latest
             shortos: win
             yt-dlp_filename: yt-dlp.exe
+            exe: yt_clipper.exe
             deno_filename: deno-x86_64-pc-windows-msvc.zip
           - os: macos-latest
             shortos: macos
             yt-dlp_filename: yt-dlp_macos
+            exe: yt_clipper
             deno_filename: deno-aarch64-apple-darwin.zip
 
     steps:
       - name: Set env
-        shell: bash
         run: |
           echo "FULL_NAME=${{env.NAME}}_${{matrix.shortos}}_${{env.VERSION}}" >> $GITHUB_ENV
           echo "NOPLAT_NAME=${{env.NAME}}_${{env.VERSION}}" >> $GITHUB_ENV
@@ -60,7 +68,6 @@ jobs:
 
       - name: Set env (windows)
         if: matrix.os == 'windows-latest'
-        shell: bash
         run: |
           echo "FFMPEG_DL_NAME=ffmpeg-${{ env.FFMPEG_VERSION }}-full_build-shared" >> $GITHUB_ENV
           echo "FFMPEG_DL_PREFIX=${{ env.FFMPEG_WIN_BASE_URL }}/${{ env.FFMPEG_VERSION }}" >> $GITHUB_ENV
@@ -68,7 +75,6 @@ jobs:
 
       - name: Set env (macos)
         if: matrix.shortos == 'macos'
-        shell: bash
         run: |
           echo "FFMPEG_DL_NAME=ffmpeg-${{ env.FFMPEG_VERSION }}-macos64" >> $GITHUB_ENV
           echo "FFMPEG_DL_PREFIX=${{ env.FFMPEG_MAC_BASE_URL }}/${{ env.FFMPEG_VERSION }}" >> $GITHUB_ENV
@@ -78,7 +84,6 @@ jobs:
           persist-credentials: false
 
       - name: Set up dirs
-        shell: bash
         run: |
           mkdir -p ./artifact/py/${{env.FULL_NAME}}/{webms,bin,temp}/
           mkdir -p ./bindeps
@@ -93,7 +98,6 @@ jobs:
 
       - name: Download ffmpeg dependency (windows)
         if: matrix.os == 'windows-latest' && steps.ffmpeg-cache.outputs.cache-hit != 'true'
-        shell: bash
         run: |
           cd ./bindeps
           curl --fail --retry 10 --retry-delay 60 --retry-all-errors -o ./ffmpeg.zip -L $FFMPEG_DL_PREFIX/$FFMPEG_DL_NAME.7z
@@ -103,11 +107,8 @@ jobs:
           ./ffmpeg/bin/ffmpeg -version > version.txt
           mv version.txt ffmpeg
 
-          ls -laR
-
       - name: Download ffmpeg dependency (macos)
         if: matrix.shortos == 'macos' && steps.ffmpeg-cache.outputs.cache-hit != 'true'
-        shell: bash
         run: |
           cd ./bindeps
           # --fail keeps an error page from being saved as the archive. --retry-all-errors also retries
@@ -117,10 +118,7 @@ jobs:
           mv ./$FFMPEG_DL_NAME ffmpeg
           chmod -v +x ffmpeg/bin/*
 
-          ls -laR
-
       - name: Download yt-dlp dependency
-        shell: bash
         run: |
           cd ./bindeps
           mkdir -p yt-dlp/bin
@@ -129,10 +127,7 @@ jobs:
 
           chmod -v +x *
 
-          ls -laR
-
       - name: Download deno dependency
-        shell: bash
         run: |
           cd ./bindeps
           mkdir -p deno/bin
@@ -144,11 +139,8 @@ jobs:
 
           chmod -v +x *
 
-          ls -laR
-
       - name: Download video2x dependency (windows)
         if: matrix.os == 'windows-latest'
-        shell: bash
         run: |
           cd ./bindeps
           mkdir -p video2x
@@ -156,7 +148,6 @@ jobs:
           7z x ./video2x.zip -o./video2x
           rm -f ./video2x.zip
           echo "${{ env.VIDEO2X_VERSION }}" > ./video2x/version.txt
-          ls -laR ./video2x
 
       - name: Disable Windows Defender realtime scanning
         if: matrix.os == 'windows-latest'
@@ -165,22 +156,6 @@ jobs:
 
       - name: Setup just
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
-
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v5
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: "yarn"
-
-      - name: Load cached node_modules
-        id: cached-node_modules
-        uses: actions/cache@v5
-        with:
-          path: node_modules
-          key: yarn-${{ matrix.os }}-${{ hashFiles('**/yarn.lock') }}
-      - run: yarn install --frozen-lockfile --ignore-scripts
-
-      - run: just bundle-prod
 
       - name: Install uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
@@ -193,7 +168,7 @@ jobs:
         run: uv python install
 
       - name: Install the project
-        run: uv sync --all-extras --dev
+        run: uv sync --locked
 
       - name: Lint with ruff
         run: just lint-py
@@ -209,7 +184,6 @@ jobs:
         run: uv cache prune --ci
 
       - name: Copy artifacts
-        shell: bash
         run: |
           # Copy, not move: the ffmpeg cache saves bindeps/ffmpeg after the job.
           cp ./bindeps/ffmpeg/bin/* ./artifact/py/${{env.FULL_NAME}}/bin/
@@ -225,48 +199,35 @@ jobs:
 
       - name: Copy full artifacts (windows)
         if: matrix.os == 'windows-latest'
-        shell: bash
         run: |
           mkdir -p ./artifact/py/${{env.FULL_NAME_WIN_FULL}}/
           cp -r ./artifact/py/${{env.FULL_NAME}}/* ./artifact/py/${{env.FULL_NAME_WIN_FULL}}/
           mkdir -p ./artifact/py/${{env.FULL_NAME_WIN_FULL}}/bin/video2x
           cp -r ./bindeps/video2x/* ./artifact/py/${{env.FULL_NAME_WIN_FULL}}/bin/video2x/
 
-      - name: Print clipper install version (windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          ./dist/py/yt_clipper.exe --version
-
-      - name: Print clipper install version (non-windows)
-        if: matrix.os != 'windows-latest'
-        run: |
-          ./dist/py/yt_clipper --version
-
-      - name: Copy artifacts (markup)
-        if: matrix.shortos == 'macos'
-        shell: bash
-        run: |
-          mkdir -p ./artifact/js/
-          cp ./dist/js/yt_clipper.js ./artifact/js/${{env.NOPLAT_NAME}}.js
+      - name: Print clipper install version
+        run: ./dist/py/${{ matrix.exe }} --version
 
       - name: Zip artifacts on windows
         if: matrix.os == 'windows-latest'
-        shell: bash
         run: |
-          7z a ./artifact/py/${{env.FULL_NAME}}.zip ./artifact/py/${{env.FULL_NAME}}/
-          7z a ./artifact/py/${{env.FULL_NAME_WIN_FULL}}.zip ./artifact/py/${{env.FULL_NAME_WIN_FULL}}/
+          # Fastest compression: the contents are mostly already-compressed binaries.
+          7z a -mx=1 ./artifact/py/${{env.FULL_NAME}}.zip ./artifact/py/${{env.FULL_NAME}}/
+          7z a -mx=1 ./artifact/py/${{env.FULL_NAME_WIN_FULL}}.zip ./artifact/py/${{env.FULL_NAME_WIN_FULL}}/
 
       - name: Zip artifacts on non-windows systems
         if: matrix.os != 'windows-latest'
         run: |
           cd ./artifact/py
-          zip -r ${{env.FULL_NAME}}.zip ./${{env.FULL_NAME}}/
+          zip -1 -r ${{env.FULL_NAME}}.zip ./${{env.FULL_NAME}}/
 
       - name: Upload clipper script installation artifact
         uses: actions/upload-artifact@v6
         with:
           name: ${{env.FULL_NAME}}.zip
           path: ./artifact/py/${{env.FULL_NAME}}.zip
+          # Already a zip: compressing it again only costs time.
+          compression-level: 0
 
       - name: Upload full clipper script installation artifact (windows)
         if: matrix.os == 'windows-latest'
@@ -274,19 +235,50 @@ jobs:
         with:
           name: ${{env.FULL_NAME_WIN_FULL}}.zip
           path: ./artifact/py/${{env.FULL_NAME_WIN_FULL}}.zip
+          compression-level: 0
+
+  # The userscript is the same on every OS, so it builds once, on Linux, beside the OS builds.
+  markup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Setup just
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Load cached node_modules
+        uses: actions/cache@v5
+        with:
+          path: node_modules
+          key: yarn-ubuntu-${{ hashFiles('**/yarn.lock') }}
+      - run: yarn install --frozen-lockfile --ignore-scripts
+
+      - run: just bundle-prod
+
+      - name: Name the markup script for the release
+        run: |
+          mkdir -p ./artifact/js/
+          cp ./dist/js/yt_clipper.js ./artifact/js/${{env.NAME}}_${{env.VERSION}}.js
 
       - name: Upload markup script installation artifact
-        if: matrix.shortos == 'macos'
         uses: actions/upload-artifact@v6
         with:
-          name: ${{env.NOPLAT_NAME}}.js
-          path: ./artifact/js/${{env.NOPLAT_NAME}}.js
+          name: ${{env.NAME}}_${{env.VERSION}}.js
+          path: ./artifact/js/${{env.NAME}}_${{env.VERSION}}.js
 
   release:
-    needs: build
+    needs: [build, markup]
     permissions:
       contents: write
-    runs-on: macos-latest
+    # Only downloads the builds and calls gh, so it runs on Linux and skips a second macOS queue.
+    runs-on: ubuntu-latest
 
     steps:
       - name: Set env
@@ -297,21 +289,10 @@ jobs:
           echo "FULL_NAME_MAC=${{env.NAME}}_macos_${{env.VERSION}}" >> $GITHUB_ENV
           echo "FULL_NAME_WIN_FULL=${{env.NAME}}_win_${{env.VERSION}}_full" >> $GITHUB_ENV
 
+      # Every build artifact at once (downloaded in parallel), each file into the working directory.
       - uses: actions/download-artifact@v7
         with:
-          name: ${{env.FULL_NAME_WIN}}.zip
-
-      - uses: actions/download-artifact@v7
-        with:
-          name: ${{env.FULL_NAME_WIN_FULL}}.zip
-
-      - uses: actions/download-artifact@v7
-        with:
-          name: ${{env.FULL_NAME_MAC}}.zip
-
-      - uses: actions/download-artifact@v7
-        with:
-          name: ${{env.FULL_NAME}}.js
+          merge-multiple: true
 
       - uses: actions/checkout@v5
         with:
