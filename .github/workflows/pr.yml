@@ -6,6 +6,10 @@ on:
       - master
       - test-ci
 
+# The checks only read the repo.
+permissions:
+  contents: read
+
 jobs:
   check:
     defaults:

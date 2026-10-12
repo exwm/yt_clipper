@@ -24,8 +24,12 @@ const URL_ATTRS = [
   'xlink:actuate',
 ] as const;
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 const URL_ATTR_PATTERN = new RegExp(
-  `(?:^|\\s)(${URL_ATTRS.join('|').replace(/:/g, '\\:')})\\s*=\\s*["']?$`,
+  `(?:^|\\s)(${URL_ATTRS.map(escapeRegExp).join('|')})\\s*=\\s*["']?$`,
   'i'
 );
 
