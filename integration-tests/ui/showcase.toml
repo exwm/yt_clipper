@@ -1,0 +1,49 @@
+# Release highlight screenshots, one list per release. `just ui-showcase <release>` captures a
+# release's shots into sandbox/showcase/<release>/; add --update-assets to also write the shots that
+# name an `asset` into assets/image/ (what the readme and changelog link to).
+#
+#   scenario  a named page setup in showcase_scenarios.py
+#   clip      CSS selectors the shot is cropped to (the box around all of them)
+#   padding   px of context around that box
+#   asset     optional file name in assets/image/
+#
+# Shots render the current code. To regenerate an older release exactly as it shipped, check out its
+# tag first.
+
+[[release."5.48.0"]]
+name = "crop-chip"
+scenario = "crop-chip-hovered"
+clip = [".crop-chip-value", "#crop-input"]
+padding = 24
+
+[[release."5.48.0"]]
+name = "crop-chart-sections"
+scenario = "crop-chart-sections"
+clip = ["#cropChartCanvas"]
+padding = 0
+asset = "yt_clipper_crop_chart_sections.png"
+
+[[release."5.48.0"]]
+name = "reframe-minimap"
+scenario = "reframe-minimap"
+clip = [".ytc-zoom-minimap"]
+padding = 16
+asset = "yt_clipper_reframe_minimap.png"
+
+[[release."5.49.0"]]
+name = "cinematic-settings"
+scenario = "cinematic-settings"
+clip = [".ytc-settings-popover", "#crop-point-easing-input"]
+padding = 8
+
+[[release."5.49.0"]]
+name = "crop-chart-labels"
+scenario = "crop-chart-sections"
+clip = ["#cropChartCanvas"]
+padding = 0
+
+[[release."5.50.0"]]
+name = "timeline-zoom"
+scenario = "timeline-zoom"
+clip = [".ytc-tz"]
+padding = 8

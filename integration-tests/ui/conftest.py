@@ -38,6 +38,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     group.addoption("--youtube", metavar="URL", help="run on this YouTube video, not the dev site")
     group.addoption("--dev-site-port", type=int, default=DEFAULT_PORT)
     group.addoption("--video-seconds", type=int, default=DEFAULT_VIDEO_SECONDS)
+    group.addoption("--showcase-release", default="", help="release in showcase.toml to capture")
+    group.addoption(
+        "--update-assets",
+        action="store_true",
+        help="also write showcase shots that name an asset into assets/image/",
+    )
     group.addoption(
         "--userscript",
         metavar="PATH",
