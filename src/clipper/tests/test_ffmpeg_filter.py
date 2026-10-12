@@ -1,6 +1,8 @@
+import json
 import math
 import re
 from fractions import Fraction
+from pathlib import Path
 from typing import Optional, Union
 
 import pytest
@@ -734,3 +736,49 @@ def test_getCropPathFilter_zoom_uses_zoompan() -> None:
 def test_getCropPathFilter_zoom_snapshot(snapshot: str) -> None:
     cropFilter, _maxSize = ffmpeg_filter.getCropPathFilter(ZOOM_CROP_PATH, SETTINGS_1X, 30)
     assert cropFilter == snapshot
+
+
+# Shared with the markup's crop-keyframe-math.test.ts: crop maps with the preview's eased crop at
+# sample times, so the render is checked against the exact numbers the preview shows.
+CROP_EASING_PARITY = json.loads(
+    (Path(__file__).parent / "fixtures" / "crop_easing_parity.json").read_text(encoding="utf-8"),
+)
+
+
+@pytest.mark.parametrize("case", CROP_EASING_PARITY, ids=lambda case: case["name"])
+def test_getCropFilter_matches_the_preview_easing(case: dict) -> None:
+    cropFilter = ffmpeg_filter.getCropFilter(
+        case["cropMap"][0]["crop"],
+        case["cropMap"],
+        case["fps"],
+        easeType=ffmpeg_filter.resolveCropEaseType(case["easing"]),
+    )
+    xMatch = re.search(r"x=(.+?):y=", cropFilter)
+    yMatch = re.search(r":y=(.+?):w=", cropFilter)
+    assert xMatch is not None
+    assert yMatch is not None
+    for sample in case["samples"]:
+        assert _eval_ffmpeg_axis(xMatch.group(1), sample["t"]) == pytest.approx(sample["x"], abs=0.01)
+        assert _eval_ffmpeg_axis(yMatch.group(1), sample["t"]) == pytest.approx(sample["y"], abs=0.01)
+
+
+@pytest.mark.parametrize("pairStart", [0, 10.52], ids=["pair start on a frame", "pair start between frames"])
+def test_smooth_track_keeps_a_steady_pan_at_the_same_speed_through_crop_points(pairStart: float) -> None:
+    # 300 px/s through points placed between frames, as the render's frames fall: the clip is cut at
+    # the pair start, so its frames keep the source's frame phase. The markup's
+    # crop-keyframe-math.test.ts checks the preview the same way.
+    fps = Fraction(30000, 1001)
+    times = [0, 1.01, 2.03, 3.04, 4.05]
+    cropMap = [{"x": pairStart + t, "y": 0, "crop": f"{300 * t}:0:640:360"} for t in times]
+    cropFilter = ffmpeg_filter.getCropFilter(cropMap[0]["crop"], cropMap, fps, easeType="smoothTrack")
+    xMatch = re.search(r"x=(.+?):y=", cropFilter)
+    assert xMatch is not None
+    phase = (pairStart * fps) % 1 / fps
+    # The pair's ends start and stop at rest, so check the frames from the second to the fourth point,
+    # through the point at 2.03 s.
+    frames = [t for k in range(1, int(4.05 * fps)) if 1.01 <= (t := k / fps - phase) <= 3.04]
+    xs = [_eval_ffmpeg_axis(xMatch.group(1), float(t)) for t in frames]
+    steps = [b - a for a, b in zip(xs, xs[1:])]
+    # 300 px/s is 10.01 px per frame; sections that ended a frame early made 5 px steps at points.
+    perFrame = float(300 / fps)
+    assert max(abs(step - perFrame) for step in steps) < 0.05 * perFrame

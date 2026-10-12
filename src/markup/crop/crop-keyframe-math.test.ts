@@ -1,10 +1,15 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { CropPoint } from '../@types/yt_clipper';
 import {
+  CropPointEasing,
   CropSectionNeighbor,
+  EasingCropPoint,
   cropInterpolationSectionAtTime,
   findCropKeyframeAtTime,
   getEaseSectionDuration,
   getEasedCropComponentsAtTime,
+  getSectionEasedCropComponents,
   getSmoothTrackCropComponentsAtTime,
   nextKeyframeIndex,
 } from './crop-keyframe-math';
@@ -329,5 +334,118 @@ describe('getSmoothTrackCropComponentsAtTime', () => {
       true
     )?.[0] as number;
     expect(monotone).toBeCloseTo(catmull, 6);
+  });
+});
+
+describe('getSectionEasedCropComponents', () => {
+  const at = (cropMap: CropPoint[], i: number): EasingCropPoint | null =>
+    cropMap[i]
+      ? {
+          time: cropMap[i].x,
+          components: cropMap[i].crop.split(':').map(Number),
+          easeIn: cropMap[i].easeIn,
+        }
+      : null;
+  const easeAt = (
+    easing: CropPointEasing,
+    cropMap: CropPoint[],
+    t: number,
+    fps = 30,
+    frame?: { width: number; height: number }
+  ) => {
+    const i = cropMap.findIndex(
+      (p, k) => k < cropMap.length - 1 && t >= p.x && t < cropMap[k + 1].x
+    );
+    return getSectionEasedCropComponents(
+      easing,
+      at(cropMap, i)!,
+      at(cropMap, i + 1)!,
+      at(cropMap, i - 1),
+      at(cropMap, i + 2),
+      t,
+      fps,
+      frame
+    );
+  };
+
+  it('keeps a steady pan at the same speed through crop points that fall between frames', () => {
+    // 300 px/s from a pair start off the frame grid, through points placed between frames. The
+    // clipper's test_ffmpeg_filter.py checks the render the same way.
+    const fps = 30000 / 1001;
+    const start = 10.52;
+    const cropMap = [0, 1.01, 2.03, 3.04, 4.05].map((t) => ({
+      x: start + t,
+      y: 0,
+      crop: `${300 * t}:0:640:360`,
+    }));
+    // The pair's ends start and stop at rest, so check the frames from the second to the fourth point,
+    // through the point at 2.03 s.
+    const frames: number[] = [];
+    for (let k = Math.ceil((start + 1.01) * fps); k / fps <= start + 3.04; k++)
+      frames.push(k / fps);
+    const xs = frames.map((t) => easeAt('smoothTrack', cropMap, t, fps)[0]);
+    const steps = xs.slice(1).map((x, i) => x - xs[i]);
+    // 300 px/s is 10.01 px per frame; sections that ended a frame early made 5 px steps at points.
+    for (const step of steps) expect(Math.abs(step - 300 / fps)).toBeLessThan(0.05 * (300 / fps));
+  });
+
+  it('keeps a Smooth Track zoom inside the frame', () => {
+    // x and w are eased on their own, so x + w overshoots 1920 between the last two points.
+    const zoom: CropPoint[] = [
+      { x: 0, y: 0, crop: '0:0:1000:562' },
+      { x: 1, y: 0, crop: '920:0:1000:562' },
+      { x: 2, y: 0, crop: '1420:0:500:281' },
+    ];
+    const frame = { width: 1920, height: 1080 };
+    const times = Array.from({ length: 19 }, (_, i) => 1.05 + i * 0.05);
+    const rightEdge = (t: number, f?: typeof frame) => {
+      const [x, , w] = easeAt('smoothTrack', zoom, t, 30, f);
+      return x + w;
+    };
+    expect(Math.max(...times.map((t) => rightEdge(t)))).toBeGreaterThan(frame.width);
+    for (const t of times) {
+      const [x] = easeAt('smoothTrack', zoom, t, 30, frame);
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(rightEdge(t, frame)).toBeLessThanOrEqual(frame.width + 1e-9);
+    }
+  });
+
+  // Shared with the clipper's test_ffmpeg_filter.py, which checks the render against these numbers.
+  const parityCases = JSON.parse(
+    readFileSync(join(__dirname, '../../clipper/tests/fixtures/crop_easing_parity.json'), 'utf8')
+  ) as {
+    name: string;
+    easing: CropPointEasing;
+    cropMap: CropPoint[];
+    fps: number;
+    samples: { t: number; x: number; y: number }[];
+  }[];
+
+  it.each(parityCases.map((c) => [c.name, c] as const))(
+    'matches the render parity table: %s',
+    (_name, c) => {
+      for (const sample of c.samples) {
+        const [x, y] = easeAt(c.easing, c.cropMap, sample.t, c.fps);
+        expect(x).toBeCloseTo(sample.x, 4);
+        expect(y).toBeCloseTo(sample.y, 4);
+      }
+    }
+  );
+
+  it('breaks momentum only at an instant transition between a neighbor and the section', () => {
+    const point = (x: number, cropX: number, easeIn?: 'instant'): CropPoint => ({
+      x,
+      y: 0,
+      crop: `${cropX}:0:400:300`,
+      easeIn,
+    });
+    const smooth = [point(0, 0), point(1, 100), point(2, 200), point(3, 300)];
+    const cutIntoStart = [point(0, 0), point(1, 100, 'instant'), point(2, 200), point(3, 300)];
+    const cutIntoPrev = [point(0, 0, 'instant'), point(1, 100), point(2, 200), point(3, 300)];
+    const x = (cropMap: CropPoint[]) => easeAt('smoothTrack', cropMap, 1.25)[0];
+    // A collinear ramp carries momentum into section [1, 2]; a cut into its start point drops it.
+    expect(x(cutIntoStart)).toBeLessThan(x(smooth));
+    // A cut into the previous point is not this section's boundary, so momentum is kept.
+    expect(x(cutIntoPrev)).toBeCloseTo(x(smooth), 6);
   });
 });
