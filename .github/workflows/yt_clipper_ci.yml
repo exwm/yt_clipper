@@ -319,13 +319,16 @@ jobs:
           sparse-checkout: changelog.md
           sparse-checkout-cone-mode: false
 
-      # This version's changelog section, from its heading to the next version's.
+      # This version's changelog section, from its heading to the next version's, with every heading
+      # one level up: the version heading becomes the title, then Highlights, Features, Bug Fixes.
       - name: Extract release notes
         run: |
           awk -v heading="## [${{env.VERSION}}]" '
-            index($0, heading) == 1 { found = 1; next }
-            found && /^## \[/ { exit }
-            found { print }
+            index($0, heading) == 1 { found = 1 }
+            !found { next }
+            /^## \[/ && index($0, heading) != 1 { exit }
+            /^##+ / { sub(/^#/, "") }
+            { print }
           ' source/changelog.md > release-notes.md
           test -s release-notes.md || { echo "No changelog section for ${{env.VERSION}}"; exit 1; }
 
