@@ -16,6 +16,16 @@ if TYPE_CHECKING:
 SEEK_TIMEOUT_MS = 15_000
 
 
+def clip_box(boxes: "list[FloatRect]", scroll: tuple[float, float], padding: float) -> "FloatRect":
+    """The page box around viewport `boxes`, padded and kept inside the page's top left corner."""
+    scroll_x, scroll_y = scroll
+    left = max(min(box["x"] for box in boxes) + scroll_x - padding, 0)
+    top = max(min(box["y"] for box in boxes) + scroll_y - padding, 0)
+    right = max(box["x"] + box["width"] for box in boxes) + scroll_x + padding
+    bottom = max(box["y"] + box["height"] for box in boxes) + scroll_y + padding
+    return {"x": left, "y": top, "width": right - left, "height": bottom - top}
+
+
 class MarkupPage:
     def __init__(self, page: "Page", host: Host, shots_dir: Path) -> None:
         self.page = page
@@ -33,6 +43,18 @@ class MarkupPage:
         path = self.shots_dir / f"{self.shot_count:02d}-{label}.png"
         self.page.screenshot(path=str(path))
         self.report(str(path.relative_to(REPO)))
+
+    def shot_of(self, label: str, selectors: list[str], padding: int = 12) -> Path:
+        """A screenshot clipped to the box around `selectors`, for close-ups of one feature."""
+        self.shot_count += 1
+        self.next_frames()
+        boxes = [self.box_of(selector) for selector in selectors]
+        scroll_x, scroll_y = self.page.evaluate("() => [window.scrollX, window.scrollY]")
+        clip = clip_box(boxes, (scroll_x, scroll_y), padding)
+        path = self.shots_dir / f"{self.shot_count:02d}-{label}.png"
+        self.page.screenshot(path=str(path), clip=clip, full_page=True)
+        self.report(str(path.relative_to(REPO)))
+        return path
 
     # ─── waiting ────────────────────────────────────────────────────────────
     # Wait for what a step depends on rather than for a fixed time: fixed sleeps are either too
@@ -129,7 +151,13 @@ class MarkupPage:
     def load_marker_pairs(self, spans: list[tuple[float, float]]) -> None:
         """Add marker pairs the way a user loads a saved markers .json (markers data menu, file,
         review, Load): one step instead of a seek and a key press per marker."""
-        data = json.dumps({"markerPairs": [{"start": s, "end": e} for s, e in spans]})
+        self.load_saved_marker_pairs([{"start": s, "end": e} for s, e in spans])
+
+    def load_saved_marker_pairs(self, pairs: list[dict]) -> None:
+        """Load marker pairs given in the saved markers .json format, e.g. with a cropMap."""
+        # With the crop easing, as the markup script saves it: a file without one is from before
+        # 5.49 and loads as EaseInOut.
+        data = json.dumps({"cropPointEasing": "smoothTrack", "markerPairs": pairs})
         self.press("KeyG")
         self.page.set_input_files(
             "#markers-json-input",
@@ -141,7 +169,7 @@ class MarkupPage:
         self.page.click(".ytc-share-modal-load")
         self.page.wait_for_function(
             "count => document.querySelector('#markers-div svg').children.length >= count",
-            arg=2 * len(spans),
+            arg=2 * len(pairs),
         )
 
     def open_marker_pair(self, index: int) -> None:

@@ -27,28 +27,44 @@ def require_urls(userscript: Path) -> list[str]:
     return re.findall(r"^// @require\s+(\S+)", header, flags=re.MULTILINE)
 
 
-def test_video_name(seconds: int) -> str:
-    return f"test-video-{seconds}s.mp4"
+# The tests use testsrc2 (no black, a visible frame counter). The showcase shots use a calm gradient
+# that keeps attention on the UI; a gradient needs a higher quality, or it shows blocks.
+VIDEO_STYLES = {
+    "testsrc": ("testsrc2=size=320x180:rate=30", "40"),
+    "calm": (
+        "gradients=size=320x180:rate=30:nb_colors=4:c0=0x26324a:c1=0x5d7489:c2=0xcdb89a:c3=0x8c6f5e"
+        ":speed=0.004:type=linear:seed=7",
+        "20",
+    ),
+}
 
 
-def ensure_test_video(seconds: int) -> str:
-    name = test_video_name(seconds)
+def test_video_name(seconds: int, style: str) -> str:
+    return f"test-video-{seconds}s.mp4" if style == "testsrc" else f"test-video-{style}-{seconds}s.mp4"
+
+
+def ensure_test_video(seconds: int, style: str = "testsrc") -> str:
+    name = test_video_name(seconds, style)
     path = DEV_SITE / name
     if not path.exists():
         print(f"Generating {name} with ffmpeg (once, then cached)...")
+        source, crf = VIDEO_STYLES[style]
+        partial = path.with_suffix(".partial.mp4")
         subprocess.run(
             [
-                *("ffmpeg", "-hide_banner", "-loglevel", "error"),
-                *("-f", "lavfi", "-i", f"testsrc2=size=320x180:rate=30:duration={seconds}"),
-                *("-c:v", "libx264", "-preset", "ultrafast", "-crf", "40", "-pix_fmt", "yuv420p"),
-                str(path),
+                *("ffmpeg", "-hide_banner", "-loglevel", "error", "-y"),
+                *("-f", "lavfi", "-i", f"{source}:duration={seconds}"),
+                *("-c:v", "libx264", "-preset", "ultrafast", "-crf", crf, "-pix_fmt", "yuv420p"),
+                str(partial),
             ],
             check=True,
         )
+        # A stopped run leaves only the partial file, so the next run makes the video again.
+        partial.replace(path)
     return name
 
 
-def build(video_seconds: int, userscript: Path = BUNDLE) -> str:
+def build(video_seconds: int, userscript: Path = BUNDLE, video_style: str = "testsrc") -> str:
     """Write the dev site and return the test video's file name."""
     if not userscript.exists():
         sys.exit(f"Missing {userscript}; build the userscript first (the just recipes do this).")
@@ -63,7 +79,7 @@ def build(video_seconds: int, userscript: Path = BUNDLE) -> str:
     page = SITE_PAGE.read_text(encoding="utf-8")
     page = page.replace("</body>", "\n".join(scripts) + "\n</body>")
     (DEV_SITE / "index.html").write_text(page, encoding="utf-8")
-    return ensure_test_video(video_seconds)
+    return ensure_test_video(video_seconds, video_style)
 
 
 class DevSiteHandler(http.server.SimpleHTTPRequestHandler):

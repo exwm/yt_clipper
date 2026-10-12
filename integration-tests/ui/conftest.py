@@ -16,6 +16,7 @@ from harness import steps
 from harness.dev_site import (
     DEFAULT_PORT,
     DEFAULT_VIDEO_SECONDS,
+    VIDEO_STYLES,
     build,
     require_urls,
     serving,
@@ -39,6 +40,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     group.addoption("--dev-site-port", type=int, default=DEFAULT_PORT)
     group.addoption("--video-seconds", type=int, default=DEFAULT_VIDEO_SECONDS)
     group.addoption(
+        "--video-style",
+        choices=sorted(VIDEO_STYLES),
+        default="testsrc",
+        help="the dev site's test video: testsrc for the tests, calm for showcase shots",
+    )
+    group.addoption("--showcase-release", default="", help="release in showcase.toml to capture")
+    group.addoption(
+        "--update-assets",
+        action="store_true",
+        help="also write showcase shots that name an asset into assets/image/",
+    )
+    group.addoption(
         "--userscript",
         metavar="PATH",
         default=str(BUNDLE),
@@ -59,7 +72,7 @@ def pytest_configure(config: pytest.Config) -> None:
     # Build the dev site once, in the main process: parallel workers (pytest-xdist) only serve it.
     is_worker = hasattr(config, "workerinput")
     if not is_worker and not config.getoption("youtube") and not config.option.collectonly:
-        build(int(config.getoption("video_seconds")), userscript_path(config))
+        build(int(config.getoption("video_seconds")), userscript_path(config), config.getoption("video_style"))
 
 
 @dataclass(frozen=True)
@@ -85,7 +98,9 @@ def dev_site(
     # Each parallel worker (gw0, gw1, ...) serves on its own port; a serial run is "master".
     worker_index = int(worker_id.removeprefix("gw")) if worker_id.startswith("gw") else 0
     port = int(pytestconfig.getoption("dev_site_port")) + worker_index
-    video_name = test_video_name(int(pytestconfig.getoption("video_seconds")))
+    video_name = test_video_name(
+        int(pytestconfig.getoption("video_seconds")), pytestconfig.getoption("video_style")
+    )
     with serving(port) as url:
         yield DevSite(url=url, video_name=video_name)
 
