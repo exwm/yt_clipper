@@ -13,7 +13,8 @@ env:
 
   FFMPEG_VERSION: "8.0.1"
   FFMPEG_WIN_BASE_URL: https://github.com/GyanD/codexffmpeg/releases/download
-  FFMPEG_MAC_BASE_URL: https://evermeet.cx/ffmpeg
+  # evermeet.cx's macOS builds, mirrored because evermeet rate limits CI runners.
+  FFMPEG_MAC_BASE_URL: https://github.com/exwm/yt_clipper_bindeps/releases/download
 
   YTDLP_VERSION: "2026.03.17"
   YTDLP_BASE_URL: https://github.com/yt-dlp/yt-dlp/releases/download
@@ -69,10 +70,8 @@ jobs:
         if: matrix.shortos == 'macos'
         shell: bash
         run: |
-          echo "FFMPEG_DL_URL=${{ env.FFMPEG_MAC_BASE_URL }}/ffmpeg-${{ env.FFMPEG_VERSION }}.7z" >> $GITHUB_ENV
-          echo "FFPROBE_DL_URL=${{ env.FFMPEG_MAC_BASE_URL }}/ffprobe-${{ env.FFMPEG_VERSION }}.7z" >> $GITHUB_ENV
-          echo "FFPLAY_DL_URL=${{ env.FFMPEG_MAC_BASE_URL }}/ffplay-${{ env.FFMPEG_VERSION }}.7z" >> $GITHUB_ENV
-          echo "FFMPEG_INFO_URL=${{ env.FFMPEG_MAC_BASE_URL }}/info/${{ env.FFMPEG_VERSION }}" >> $GITHUB_ENV
+          echo "FFMPEG_DL_NAME=ffmpeg-${{ env.FFMPEG_VERSION }}-macos64" >> $GITHUB_ENV
+          echo "FFMPEG_DL_PREFIX=${{ env.FFMPEG_MAC_BASE_URL }}/${{ env.FFMPEG_VERSION }}" >> $GITHUB_ENV
 
       - uses: actions/checkout@v5
         with:
@@ -111,29 +110,12 @@ jobs:
         shell: bash
         run: |
           cd ./bindeps
-          mkdir temp
-          cd temp
-
-          # evermeet.cx rate limits back-to-back downloads with a 429 page; --fail keeps it from
-          # being saved as the archive. curl can report that 429 as exit 56, which plain --retry does
-          # not treat as transient, hence --retry-all-errors. The limit lasts minutes and sends no
-          # Retry-After, so the retries span about 10 minutes.
-          curl --fail --retry 10 --retry-delay 60 --retry-all-errors -o ./ffmpeg.7z  -L $FFMPEG_DL_URL
-          curl --fail --retry 10 --retry-delay 60 --retry-all-errors -o ./ffprobe.7z -L $FFPROBE_DL_URL
-          curl --fail --retry 10 --retry-delay 60 --retry-all-errors -o ./ffplay.7z  -L $FFPLAY_DL_URL
-          curl --fail --retry 10 --retry-delay 60 --retry-all-errors -o version.txt  -L $FFMPEG_INFO_URL
-
-          7z x ./ffmpeg.7z
-          7z x ./ffprobe.7z
-          7z x ./ffplay.7z
-
-          cd ..
-
-          mkdir -p ffmpeg/bin
-
-          mv temp/ffmpeg temp/ffprobe temp/ffplay ffmpeg/bin
+          # --fail keeps an error page from being saved as the archive. --retry-all-errors also retries
+          # failures curl does not class as transient, such as a 429 reported as exit 56.
+          curl --fail --retry 10 --retry-delay 60 --retry-all-errors -o ./ffmpeg.zip -L $FFMPEG_DL_PREFIX/$FFMPEG_DL_NAME.zip
+          7z x ./ffmpeg.zip
+          mv ./$FFMPEG_DL_NAME ffmpeg
           chmod -v +x ffmpeg/bin/*
-          mv temp/version.txt ffmpeg
 
           ls -laR
 
