@@ -89,7 +89,7 @@ jobs:
         shell: bash
         run: |
           cd ./bindeps
-          curl -o ./ffmpeg.zip -L $FFMPEG_DL_PREFIX/$FFMPEG_DL_NAME.7z
+          curl --fail --retry 10 --retry-delay 60 --retry-all-errors -o ./ffmpeg.zip -L $FFMPEG_DL_PREFIX/$FFMPEG_DL_NAME.7z
           7z x ./ffmpeg.zip
           mv ./$FFMPEG_DL_NAME ffmpeg
 
@@ -106,10 +106,14 @@ jobs:
           mkdir temp
           cd temp
 
-          curl -o ./ffmpeg.7z  -L $FFMPEG_DL_URL
-          curl -o ./ffprobe.7z -L $FFPROBE_DL_URL
-          curl -o ./ffplay.7z  -L $FFPLAY_DL_URL
-          curl -o version.txt  -L $FFMPEG_INFO_URL
+          # evermeet.cx rate limits back-to-back downloads with a 429 page; --fail keeps it from
+          # being saved as the archive. curl can report that 429 as exit 56, which plain --retry does
+          # not treat as transient, hence --retry-all-errors. The limit lasts minutes and sends no
+          # Retry-After, so the retries span about 10 minutes.
+          curl --fail --retry 10 --retry-delay 60 --retry-all-errors -o ./ffmpeg.7z  -L $FFMPEG_DL_URL
+          curl --fail --retry 10 --retry-delay 60 --retry-all-errors -o ./ffprobe.7z -L $FFPROBE_DL_URL
+          curl --fail --retry 10 --retry-delay 60 --retry-all-errors -o ./ffplay.7z  -L $FFPLAY_DL_URL
+          curl --fail --retry 10 --retry-delay 60 --retry-all-errors -o version.txt  -L $FFMPEG_INFO_URL
 
           7z x ./ffmpeg.7z
           7z x ./ffprobe.7z
@@ -131,7 +135,7 @@ jobs:
           cd ./bindeps
           mkdir -p yt-dlp/bin
           cd yt-dlp/bin
-          curl -O -L $YTDLP_DL_URL
+          curl --fail --retry 10 --retry-delay 60 --retry-all-errors -O -L $YTDLP_DL_URL
 
           chmod -v +x *
 
@@ -144,7 +148,7 @@ jobs:
           mkdir -p deno/bin
           cd deno/bin
 
-          curl -o ./deno.zip -L $DENO_DL_URL
+          curl --fail --retry 10 --retry-delay 60 --retry-all-errors -o ./deno.zip -L $DENO_DL_URL
           7z x ./deno.zip
           rm -f ./deno.zip
 
@@ -158,7 +162,7 @@ jobs:
         run: |
           cd ./bindeps
           mkdir -p video2x
-          curl -o ./video2x.zip -L $VIDEO2X_DL_URL
+          curl --fail --retry 10 --retry-delay 60 --retry-all-errors -o ./video2x.zip -L $VIDEO2X_DL_URL
           7z x ./video2x.zip -o./video2x
           rm -f ./video2x.zip
           echo "${{ env.VIDEO2X_VERSION }}" > ./video2x/version.txt
