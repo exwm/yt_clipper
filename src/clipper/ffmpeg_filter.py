@@ -1,4 +1,5 @@
 import sys
+from dataclasses import dataclass
 from fractions import Fraction
 from functools import reduce
 from math import floor, log
@@ -431,6 +432,8 @@ def getZoomPanFilter(
     fps: Union[float, Fraction],
     easeType: str = "easeInOutSine",
     inputIsHDR: bool = False,
+    frameWidth: Optional[float] = None,
+    frameHeight: Optional[float] = None,
 ) -> Tuple[str, int]:
     maxSizeCrop = getMaxSizeCrop(cropMap)
     maxWidth = floorToEven(maxSizeCrop["width"])
@@ -466,10 +469,6 @@ def getZoomPanFilter(
         endTime = right["x"] - firstTime
 
         endX, endY, endW, endH = right["crop"].split(":")
-        startRight = float(startX) + float(startW)
-        startBottom = float(startY) + float(startH)
-        endRight = float(endX) + float(endW)
-        endBottom = float(endY) + float(endH)
 
         sectDuration = getEaseSectionDuration(startTime, endTime, float(fps))
         if sectDuration is None:
@@ -481,16 +480,16 @@ def getZoomPanFilter(
         # eased quantity derives its own neighbor values via _zoomPanSectionEase.
         prev = _smoothTrackNeighbor(cropMap, i - 1, i, firstTime)
         nxt = _smoothTrackNeighbor(cropMap, i + 2, i + 2, firstTime)
-        ctx: Dict[str, Any] = {
-            "easeType": currEaseType,
-            "prev": prev,
-            "nxt": nxt,
-            "prevTime": prev["time"] if prev else None,
-            "startTime": startTime,
-            "endTime": endTime,
-            "nextTime": nxt["time"] if nxt else None,
-            "sectDuration": sectDuration,
-        }
+        ctx = _SectionEaseContext(
+            easeType=currEaseType,
+            prev=prev,
+            nxt=nxt,
+            startTime=startTime,
+            endTime=endTime,
+            sectDuration=sectDuration,
+            frameWidth=frameWidth,
+            frameHeight=frameHeight,
+        )
 
         # zoompan does not support zooming out or changing aspect ratio without stretching.
         # By cropping the video first we can get the desired aspect ratio.
@@ -500,26 +499,10 @@ def getZoomPanFilter(
         # The x:y coordinates of the top-left of this maximum crop is such that
         # it is always the top-left most position that still contains the target crop.
         panEaseP = f"((t-{startTime})/{sectDuration})"
-        panEaseRight = _zoomPanSectionEase(
-            ctx,
-            f"({panScale}*{startRight})",
-            f"({panScale}*{endRight})",
-            panEaseP,
-            panScale,
-            "right",
-            startRight,
-            endRight,
-        )
-        panEaseBottom = _zoomPanSectionEase(
-            ctx,
-            f"({panScale}*{startBottom})",
-            f"({panScale}*{endBottom})",
-            panEaseP,
-            panScale,
-            "bottom",
-            startBottom,
-            endBottom,
-        )
+        startCrop = {"x": float(startX), "y": float(startY), "w": float(startW), "h": float(startH)}
+        endCrop = {"x": float(endX), "y": float(endY), "w": float(endW), "h": float(endH)}
+        panEaseRight = _zoomPanEdgeEase(ctx, panEaseP, panScale, "right", startCrop, endCrop)
+        panEaseBottom = _zoomPanEdgeEase(ctx, panEaseP, panScale, "bottom", startCrop, endCrop)
 
         # Ensure that the containing maximum crop does not go out of the video bounds.
         panEaseRight = f"max({panEaseRight}-{panScale}*{maxWidth}, 0)"
@@ -560,27 +543,11 @@ def getZoomPanFilter(
             float(startY),
             float(endY),
         )
+        easeX = _keepInFrame(ctx, easeX, easeP, zoomScale, "x", startCrop, endCrop)
+        easeY = _keepInFrame(ctx, easeY, easeP, zoomScale, "y", startCrop, endCrop)
 
-        easeRight = _zoomPanSectionEase(
-            ctx,
-            f"({zoomScale}*{startRight})",
-            f"({zoomScale}*{endRight})",
-            easeP,
-            zoomScale,
-            "right",
-            startRight,
-            endRight,
-        )
-        easeBottom = _zoomPanSectionEase(
-            ctx,
-            f"({zoomScale}*{startBottom})",
-            f"({zoomScale}*{endBottom})",
-            easeP,
-            zoomScale,
-            "bottom",
-            startBottom,
-            endBottom,
-        )
+        easeRight = _zoomPanEdgeEase(ctx, easeP, zoomScale, "right", startCrop, endCrop)
+        easeBottom = _zoomPanEdgeEase(ctx, easeP, zoomScale, "bottom", startCrop, endCrop)
 
         containingX = f"max({easeRight}-{zoomScale}*{maxWidth}, 0)"
         containingY = f"max({easeBottom}-{zoomScale}*{maxHeight}, 0)"
@@ -867,7 +834,6 @@ def getEasingExpression(
 # its points (a non-zero tangent at each, no overshoot), unlike the per-section easeInOutSine which
 # stalls at every point. It is kept in sync with the markup (getSmoothTrackCropComponentsAtTime,
 # crop-keyframe-math.ts) so the rendered crop matches the preview.
-SMOOTH_TRACK_EASE_TYPES = ("smoothTrack",)
 
 
 def resolveCropEaseType(cropPointEasing: Optional[str]) -> str:
@@ -967,11 +933,11 @@ def getSectionEasingExpression(  # noqa: PLR0913 (one positional/keyword per eas
 ) -> Optional[str]:
     """The easing expression for one crop component over a section.
 
-    For smoothTrack this is a neighbor-aware monotone cubic Hermite. Every other mode falls through
-    to ``getEasingExpression`` unchanged. Callers pass ``prevValue`` / ``nextValue`` as None to drop
-    the velocity at a map end or across an instant break.
+    For smoothTrack this is a neighbor-aware monotone cubic Hermite. Every other mode falls through to ``getEasingExpression`` unchanged.
+    Callers pass ``prevValue`` / ``nextValue`` as None to drop the velocity at a map end
+    or across an instant break.
     """
-    if easeType not in SMOOTH_TRACK_EASE_TYPES:
+    if easeType != "smoothTrack":
         return getEasingExpression(easeType, easeA, easeB, easeP)
 
     # smoothTrack always clamps tangents (no overshoot).
@@ -1044,14 +1010,30 @@ def _derivedNeighborValue(
         "x": neighbor["x"],
         "y": neighbor["y"],
         "w": neighbor["w"],
+        "h": neighbor["h"],
         "right": neighbor["x"] + neighbor["w"],
         "bottom": neighbor["y"] + neighbor["h"],
     }[kind]
     return scale * value
 
 
+@dataclass(frozen=True)
+class _SectionEaseContext:
+    """The per-section state every zoompan-eased quantity of one section shares."""
+
+    easeType: str
+    prev: Optional[Dict[str, float]]
+    nxt: Optional[Dict[str, float]]
+    startTime: float
+    endTime: float
+    sectDuration: float
+    # The frame the crop moves in (output pixels), to keep a Smooth Track crop inside it.
+    frameWidth: Optional[float] = None
+    frameHeight: Optional[float] = None
+
+
 def _zoomPanSectionEase(
-    ctx: Dict[str, Any],
+    ctx: _SectionEaseContext,
     easeA: str,
     easeB: str,
     easeP: str,
@@ -1061,21 +1043,97 @@ def _zoomPanSectionEase(
     endDerived: float,
 ) -> Optional[str]:
     # One zoompan-eased quantity for a section, routed through the shared easing dispatcher with the
-    # neighbor values its smooth-track tangents need. `ctx` carries the per-section state.
+    # neighbor values its spline tangents need.
     return getSectionEasingExpression(
-        ctx["easeType"],
+        ctx.easeType,
         easeA,
         easeB,
         easeP,
-        prevValue=_derivedNeighborValue(ctx["prev"], scale, kind),
+        prevValue=_derivedNeighborValue(ctx.prev, scale, kind),
         startValue=scale * startDerived,
         endValue=scale * endDerived,
-        nextValue=_derivedNeighborValue(ctx["nxt"], scale, kind),
-        prevTime=ctx["prevTime"],
-        startTime=ctx["startTime"],
-        endTime=ctx["endTime"],
-        nextTime=ctx["nextTime"],
-        sectDuration=ctx["sectDuration"],
+        nextValue=_derivedNeighborValue(ctx.nxt, scale, kind),
+        prevTime=ctx.prev["time"] if ctx.prev else None,
+        startTime=ctx.startTime,
+        endTime=ctx.endTime,
+        nextTime=ctx.nxt["time"] if ctx.nxt else None,
+        sectDuration=ctx.sectDuration,
+    )
+
+
+def _keepInFrame(
+    ctx: _SectionEaseContext,
+    positionEase: Optional[str],
+    easeP: str,
+    scale: float,
+    position: str,
+    start: Dict[str, float],
+    end: Dict[str, float],
+) -> Optional[str]:
+    """A (scaled) Smooth Track x or y kept inside the frame, as the preview keeps it.
+
+    The spline eases the position and the size on their own, so on a zoom the crop can pass the
+    frame edge between points. The other easings stay between their end crops, which are inside.
+    """
+    frame = ctx.frameWidth if position == "x" else ctx.frameHeight
+    if ctx.easeType != "smoothTrack" or frame is None:
+        return positionEase
+    size = "w" if position == "x" else "h"
+    sizeEase = _zoomPanSectionEase(
+        ctx,
+        f"({scale}*{start[size]})",
+        f"({scale}*{end[size]})",
+        easeP,
+        scale,
+        size,
+        start[size],
+        end[size],
+    )
+    return f"clip({positionEase},0,{scale}*{frame}-{sizeEase})"
+
+
+def _zoomPanEdgeEase(
+    ctx: _SectionEaseContext,
+    easeP: str,
+    scale: float,
+    edge: str,
+    start: Dict[str, float],
+    end: Dict[str, float],
+) -> Optional[str]:
+    """The (scaled) eased right (x + w) or bottom (y + h) edge of a section's crop.
+
+    The spline eases the position and the size and adds them, as the preview draws the crop: its
+    clamped tangents are not linear, so easing the edge on its own drifts from x + w. The other
+    easings are linear in their end values, so the edge eases directly, as it always has.
+    """
+    position, size = {"right": ("x", "w"), "bottom": ("y", "h")}[edge]
+    if ctx.easeType == "smoothTrack":
+        positionEase, sizeEase = (
+            _zoomPanSectionEase(
+                ctx,
+                f"({scale}*{start[kind]})",
+                f"({scale}*{end[kind]})",
+                easeP,
+                scale,
+                kind,
+                start[kind],
+                end[kind],
+            )
+            for kind in (position, size)
+        )
+        positionEase = _keepInFrame(ctx, positionEase, easeP, scale, position, start, end)
+        return f"({positionEase}+{sizeEase})"
+    startEdge = start[position] + start[size]
+    endEdge = end[position] + end[size]
+    return _zoomPanSectionEase(
+        ctx,
+        f"({scale}*{startEdge})",
+        f"({scale}*{endEdge})",
+        easeP,
+        scale,
+        edge,
+        startEdge,
+        endEdge,
     )
 
 

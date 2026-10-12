@@ -224,6 +224,8 @@ def getMarkerPairSettings(  # noqa: PLR0912
             fps=mps["r_frame_rate"],
             easeType=cropEaseType,
             inputIsHDR=settings["inputIsHDR"],
+            frameWidth=settings["width"],
+            frameHeight=settings["height"],
         )
     elif mp["isPanningCrop"]:
         mp["cropFilter"] = getCropFilter(

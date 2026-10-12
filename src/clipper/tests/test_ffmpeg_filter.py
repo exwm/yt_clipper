@@ -592,6 +592,87 @@ def _eval_ffmpeg_axis(expr: str, t: float) -> float:
     return eval(expr.replace("^", "**").replace("if(", "if_("), {"__builtins__": {}}, env)
 
 
+def test_zoompan_smooth_track_right_edge_is_eased_x_plus_eased_w() -> None:
+    # The preview draws x + w. Easing the right edge as its own spline drifts from that, since the
+    # tangent clamp is not linear: here by up to 5.6 px mid section.
+    cropMap = [
+        {"x": float(t), "crop": f"{x}:0:{w}:{w}"}
+        for t, x, w in [(0, 600, 400), (1, 590, 500), (2, 500, 600), (3, 400, 700)]
+    ]
+    ctx = ffmpeg_filter._SectionEaseContext(
+        easeType="smoothTrack",
+        prev=ffmpeg_filter._smoothTrackNeighbor(cropMap, 0, 1, 0.0),
+        nxt=ffmpeg_filter._smoothTrackNeighbor(cropMap, 3, 3, 0.0),
+        startTime=1.0,
+        endTime=2.0,
+        sectDuration=1.0,
+    )
+    start = {"x": 590.0, "y": 0.0, "w": 500.0, "h": 500.0}
+    end = {"x": 500.0, "y": 0.0, "w": 600.0, "h": 600.0}
+    easeP = "((t-1.0)/1.0)"
+    right = ffmpeg_filter._zoomPanEdgeEase(ctx, easeP, 4, "right", start, end)
+    x, w = (
+        ffmpeg_filter._zoomPanSectionEase(ctx, "", "", easeP, 4, kind, start[kind], end[kind])
+        for kind in ("x", "w")
+    )
+    assert right is not None
+    assert x is not None
+    assert w is not None
+    for t in (1.0, 1.25, 1.5, 1.75, 2.0):
+        expected = _eval_ffmpeg_axis(x, t) + _eval_ffmpeg_axis(w, t)
+        assert _eval_ffmpeg_axis(right, t) == pytest.approx(expected)
+
+
+def test_zoompan_smooth_track_stays_inside_the_frame() -> None:
+    # The markup's zoom case: x and w eased on their own overshoot 1920 between the last two points.
+    cropMap = [
+        {"x": float(t), "crop": f"{x}:0:{w}:{h}"}
+        for t, x, w, h in [(0, 0, 1000, 562), (1, 920, 1000, 562), (2, 1420, 500, 281)]
+    ]
+    start = {"x": 920.0, "y": 0.0, "w": 1000.0, "h": 562.0}
+    end = {"x": 1420.0, "y": 0.0, "w": 500.0, "h": 281.0}
+
+    def rightEdge(frameWidth: float | None) -> str:
+        ctx = ffmpeg_filter._SectionEaseContext(
+            easeType="smoothTrack",
+            prev=ffmpeg_filter._smoothTrackNeighbor(cropMap, 0, 1, 0.0),
+            nxt=None,
+            startTime=1.0,
+            endTime=2.0,
+            sectDuration=1.0,
+            frameWidth=frameWidth,
+            frameHeight=1080,
+        )
+        right = ffmpeg_filter._zoomPanEdgeEase(ctx, "((t-1.0)/1.0)", 4, "right", start, end)
+        assert right is not None
+        return right
+
+    times = [1.05 + i * 0.05 for i in range(19)]
+    assert max(_eval_ffmpeg_axis(rightEdge(None), t) for t in times) > 4 * 1920
+    assert all(_eval_ffmpeg_axis(rightEdge(1920), t) <= 4 * 1920 + 1e-9 for t in times)
+
+
+@pytest.mark.parametrize("widths", [(1000, 600), (600, 1000)], ids=["zoom in", "zoom out"])
+def test_getCropPathFilter_zooms_when_one_segment_changes_size(widths: tuple[int, int]) -> None:
+    # A single segment's start width alone misses a zoom in, which ends narrower than it starts.
+    start, end = widths
+    segment = {"startT": 0.0, "endT": 1.0, "x": [0, 0, 0], "y": [0, 0, 0], "w": [start, end - start, 0], "h": [start / 2, (end - start) / 2, 0]}
+    cropFilter, _size = ffmpeg_filter.getCropPathFilter(
+        {"segments": [segment]}, {"cropMultipleX": 1, "cropMultipleY": 1}, 30
+    )
+    assert "zoompan" in cropFilter
+
+
+def test_getCropPathFilter_constant_size_is_even() -> None:
+    # 1000 cropRes px at 2/3 scale is 666.67 output px; libx264's yuv420p rejects an odd 667.
+    segment = {"startT": 0.0, "endT": 1.0, "x": [0, 0, 0], "y": [0, 0, 0], "w": [1000, 0, 0], "h": [563, 0, 0]}
+    cropFilter, size = ffmpeg_filter.getCropPathFilter(
+        {"segments": [segment]}, {"cropMultipleX": 2 / 3, "cropMultipleY": 2 / 3}, 30
+    )
+    assert ":w=666:h=374:" in cropFilter
+    assert size == 666 * 374
+
+
 def test_cropPathPolyExpr_emits_scaled_quadratic() -> None:
     expr = ffmpeg_filter._cropPathPolyExpr([10.0, 2.0, 0.5], "t", 1.0, scale=2.0)
     assert expr == "((1.000000)*(t-1.0)^2+(4.000000)*(t-1.0)+(20.000000))"
