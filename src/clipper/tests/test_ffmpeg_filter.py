@@ -1,5 +1,8 @@
+import json
+import math
 import re
 from fractions import Fraction
+from pathlib import Path
 from typing import Optional, Union
 
 import pytest
@@ -579,8 +582,14 @@ def _eval_ffmpeg_axis(expr: str, t: float) -> float:
         "between": lambda x, a, b: 1.0 if a <= x <= b else 0.0,
         "max": max,
         "min": min,
+        "clip": lambda x, lo, hi: min(max(x, lo), hi),
+        "cos": math.cos,
+        "sin": math.sin,
+        "PI": math.pi,
+        "if_": lambda cond, a, b: a if cond else b,
     }
-    return eval(expr.replace("^", "**"), {"__builtins__": {}}, env)
+    # ffmpeg's if() is a Python keyword.
+    return eval(expr.replace("^", "**").replace("if(", "if_("), {"__builtins__": {}}, env)
 
 
 def test_cropPathPolyExpr_emits_scaled_quadratic() -> None:
@@ -646,3 +655,27 @@ def test_getCropPathFilter_zoom_uses_zoompan() -> None:
 def test_getCropPathFilter_zoom_snapshot(snapshot: str) -> None:
     cropFilter, _maxSize = ffmpeg_filter.getCropPathFilter(ZOOM_CROP_PATH, SETTINGS_1X, 30)
     assert cropFilter == snapshot
+
+
+# Shared with the markup's crop-keyframe-math.test.ts: crop maps with the preview's eased crop at
+# sample times, so the render is checked against the exact numbers the preview shows.
+CROP_EASING_PARITY = json.loads(
+    (Path(__file__).parent / "fixtures" / "crop_easing_parity.json").read_text(encoding="utf-8"),
+)
+
+
+@pytest.mark.parametrize("case", CROP_EASING_PARITY, ids=lambda case: case["name"])
+def test_getCropFilter_matches_the_preview_easing(case: dict) -> None:
+    cropFilter = ffmpeg_filter.getCropFilter(
+        case["cropMap"][0]["crop"],
+        case["cropMap"],
+        case["fps"],
+        easeType=ffmpeg_filter.resolveCropEaseType(case["easing"]),
+    )
+    xMatch = re.search(r"x=(.+?):y=", cropFilter)
+    yMatch = re.search(r":y=(.+?):w=", cropFilter)
+    assert xMatch is not None
+    assert yMatch is not None
+    for sample in case["samples"]:
+        assert _eval_ffmpeg_axis(xMatch.group(1), sample["t"]) == pytest.approx(sample["x"], abs=0.01)
+        assert _eval_ffmpeg_axis(yMatch.group(1), sample["t"]) == pytest.approx(sample["y"], abs=0.01)
