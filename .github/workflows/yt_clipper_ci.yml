@@ -173,8 +173,9 @@ jobs:
       - name: Lint with ruff
         run: just lint-py
 
+      # The downloaded ffmpeg lets the offline end-to-end clip tests run instead of skipping.
       - name: Run clipper tests
-        run: just test-py
+        run: PATH="$PWD/bindeps/ffmpeg/bin:$PATH" just test-py
 
       - name: Generate executable
         run: just build-py
