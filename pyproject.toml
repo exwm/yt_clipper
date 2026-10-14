@@ -32,6 +32,7 @@ dev = [
 test = [
     "pytest>=9.0.3,<10",
     "pytest-cov>=5.0.0,<6",
+    "diff-cover>=10.6.0,<11",
     "syrupy>=6.1.1,<7",
 ]
 ui-test = [
@@ -65,6 +66,22 @@ pythonpath = "src"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]
+
+[tool.coverage.run]
+branch = true
+source = ["src/clipper"]
+omit = ["src/clipper/tests/*"]
+
+[tool.coverage.report]
+# The current total, rounded down: raise it as coverage grows so it cannot silently drop.
+fail_under = 52
+skip_empty = true
+
+[tool.coverage.html]
+directory = "coverage/clipper"
+
+[tool.coverage.xml]
+output = "coverage/clipper.xml"
 
 [tool.pyright]
 # The UI tests import their harness package from beside them, as pytest does.

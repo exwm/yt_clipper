@@ -263,7 +263,8 @@ jobs:
           key: yarn-ubuntu-${{ hashFiles('**/yarn.lock') }}
       - run: yarn install --frozen-lockfile --ignore-scripts
 
-      - run: just bundle-prod
+      # With test coverage and its floors.
+      - run: just bundle-prod true
 
       - name: Name the markup script for the release
         run: |

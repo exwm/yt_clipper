@@ -25,11 +25,12 @@ pretty-py:
 pretty-py-check:
   just _timed "ruff format --check" uv run ruff format --check src/clipper integration-tests tools
 
+# Coverage settings and the fail-under floor are in pyproject.toml; reports go to coverage/.
 test-py update="false":
-  just _timed pytest uv run pytest src/clipper tools/release -s --cov=src/clipper --cov-report=html -m "not slow" \
+  just _timed pytest uv run pytest src/clipper tools/release -s --cov --cov-report=html --cov-report=xml -m "not slow" \
     {{ if update == "true" { "--snapshot-update" } else { "" } }}
 test-py-slow:
-  uv run pytest src/clipper --cov=src/clipper --cov-report=html -vvv
+  uv run pytest src/clipper --cov --cov-report=html -vvv
 test-py-update:
   just test-py true
 
@@ -66,8 +67,17 @@ typecheck-ts:
 eslint-ts:
   just _timed eslint npx eslint --cache --cache-strategy content --cache-location node_modules/.cache/eslint/ ./src/markup ./src/command-palette
 lint-ts: typecheck-ts eslint-ts
-test-ts:
-  just _timed jest npx jest test
+# With coverage (thresholds in jest.config.js; reports go to coverage/markup). It triples the run time,
+# so bundle-prod leaves it off unless asked (`just bundle-prod true`, as CI does).
+test-ts coverage="true":
+  just _timed jest npx jest test {{ if coverage == "true" { "--coverage" } else { "" } }}
+# Coverage of the lines changed since base, from the reports test-py and test-ts write (run them first).
+coverage-diff base="origin/master": (coverage-diff-py base) (coverage-diff-ts base)
+coverage-diff-py base="origin/master":
+  uv run diff-cover coverage/clipper.xml --compare-branch={{base}} --fail-under=80
+# Report only: the Playwright UI tests cover most markup code but do not record coverage.
+coverage-diff-ts base="origin/master":
+  uv run diff-cover coverage/markup/cobertura-coverage.xml --compare-branch={{base}}
 # A one-shot build without Parcel's disk cache: for this one bundle, loading the cache took longer
 # than rebuilding (measured 2.8s with it, 1.5s without), and it grew to about 1 GB. Parcel still
 # writes some state, so it goes to a throwaway dir cleared each build, apart from watch mode's.
@@ -76,9 +86,9 @@ _parcel-once:
 parcel-build:
   just _timed parcel just _parcel-once
 # Format first (it rewrites sources), then check and build in parallel: they only read them.
-bundle-prod: pretty-ts _check-and-build
+bundle-prod coverage="false": pretty-ts (_check-and-build coverage)
 [parallel]
-_check-and-build: typecheck-ts eslint-ts test-ts parcel-build
+_check-and-build coverage: typecheck-ts eslint-ts (test-ts coverage) parcel-build
 
 # Serve the generic yt_clipper site with the freshly built userscript injected (no Tampermonkey).
 dev-site:
@@ -117,7 +127,7 @@ release-prep version:
   npx commit-and-tag-version --release-as {{version}}
   uv run python tools/release/changelog.py highlights {{version}}
   uv run python tools/release/version.py set {{version}}
-  just bundle-prod
+  just bundle-prod true
   just lint-py
   just test-py
   just ui-test
