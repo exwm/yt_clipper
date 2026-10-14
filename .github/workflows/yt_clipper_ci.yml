@@ -217,8 +217,9 @@ jobs:
           done
           cp -r ./bindeps/video2x/* "$tools/"
 
-      - name: Print clipper install version
-        run: ./dist/py/${{ matrix.exe }} --version
+      # Before zipping: the bundled tools run, and the frozen clipper makes clips offline.
+      - name: Smoke test the release
+        run: just smoke-release ./artifact/py/${{env.FULL_NAME}} ${{env.VERSION}}
 
       - name: Zip artifacts on windows
         if: matrix.os == 'windows-latest'
@@ -268,6 +269,8 @@ jobs:
 
       - name: Name the markup script for the release
         run: |
+          # Tampermonkey offers updates by this header, so it must carry the release version.
+          grep -qF "// @version      ${{env.VERSION}}" ./dist/js/yt_clipper.js || { echo "::error::userscript @version is not ${{env.VERSION}}"; exit 1; }
           mkdir -p ./artifact/js/
           cp ./dist/js/yt_clipper.js ./artifact/js/${{env.NAME}}_${{env.VERSION}}.js
 

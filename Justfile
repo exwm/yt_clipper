@@ -29,6 +29,9 @@ pretty-py-check:
 test-py update="false":
   just _timed pytest uv run pytest src/clipper tools/release -s --cov --cov-report=html --cov-report=xml -m "not slow" \
     {{ if update == "true" { "--snapshot-update" } else { "" } }}
+# Check an assembled release folder before zipping, as CI does: bundled tools, offline clips, schema.
+smoke-release folder version="":
+  uv run python tools/release/smoke_test.py {{folder}} {{version}}
 test-py-slow:
   uv run pytest src/clipper --cov --cov-report=html -vvv
 test-py-update:
