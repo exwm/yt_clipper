@@ -12,6 +12,9 @@ from clipper.ytc_logger import Subsystem, make_subsystem_logger
 
 logger = make_subsystem_logger(Subsystem.VIDEO2X)
 
+# The Windows release bundles only this model (VIDEO2X_MODELS in yt_clipper_ci.yml).
+RIFE_MODEL = "rife-v4.26"
+
 _VIDEO2X_CODEC_MAP = {
     "h264": "libx264",
     "h264_vulkan": "h264_vulkan",
@@ -103,7 +106,7 @@ def buildVideo2xArgs(
                 f'-o "{final_path}"',
                 fps_arg,
                 "--processor rife",
-                "--rife-model rife-v4.26",
+                f"--rife-model {RIFE_MODEL}",
                 "--preserve-metadata",
                 f"-c {codec}",
                 extra_encoder_args,

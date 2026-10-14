@@ -18,6 +18,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO / "src"))
+
+from clipper.video2x import RIFE_MODEL  # noqa: E402
+
 TEST_VIDEO = REPO / "src/clipper/tests/testdata/test-with-dynamic.mp4"
 TEST_MARKERS = REPO / "src/clipper/tests/testdata/test-with-dynamic.json"
 VALID_MARKERS = REPO / "src/schema/examples/kitchen-sink.json"
@@ -90,6 +94,8 @@ class SmokeTest:
             # video2x shares the ffmpeg DLLs, so the release must hold one copy.
             copies = list(self.release.rglob("avcodec-*.dll"))
             self.check(len(copies) == 1, f"one copy of the ffmpeg DLLs ({len(copies)} found)")
+            model = self.release / "bin/video-tools/models/rife" / RIFE_MODEL / "flownet.bin"
+            self.check(model.is_file(), f"video2x has the clipper's model {RIFE_MODEL}")
 
     def checkVersions(self, expectedVersion: str | None) -> None:
         for args in (["--version"], ["--print-versions"]):

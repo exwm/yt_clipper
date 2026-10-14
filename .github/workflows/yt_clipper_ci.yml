@@ -35,6 +35,8 @@ env:
   # Built against the same gyan.dev ffmpeg as FFMPEG_VERSION, whose DLLs it shares.
   VIDEO2X_VERSION: "6.5.1-exwm"
   VIDEO2X_BASE_URL: https://github.com/exwm/video2x/releases/download
+  # The models the clipper uses (RIFE_MODEL in src/clipper/video2x.py), out of about 150 MB.
+  VIDEO2X_MODELS: "rife/rife-v4.26"
 
 jobs:
   build:
@@ -212,6 +214,14 @@ jobs:
 
           # Development files only.
           rm -rf ./bindeps/video2x/{cmake,include,pkgconfig} ./bindeps/video2x/*.lib
+
+          models=./bindeps/video2x/models
+          kept=./bindeps/video2x-models
+          for model in $VIDEO2X_MODELS; do
+            mkdir -p "$kept/$(dirname "$model")"
+            mv "$models/$model" "$kept/$model" || { echo "::error::video2x has no model $model"; exit 1; }
+          done
+          rm -rf "$models" && mv "$kept" "$models"
 
           for f in ./bindeps/video2x/*; do
             [ ! -e "$tools/$(basename "$f")" ] || { echo "::error::video2x would overwrite $(basename "$f")"; exit 1; }
