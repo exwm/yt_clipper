@@ -3,7 +3,9 @@
 import os
 import shlex
 import sys
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import certifi
 
@@ -38,7 +40,7 @@ def main() -> None:
 
     args, unknown, argsFromArgFiles, argFiles, argsFromArgFilesMap = argparser.getArgs()
 
-    setupClipperPaths(cs)
+    setupClipperPaths(cs, args)
 
     cs.settings.update({"color_space": None, **args})
 
@@ -133,11 +135,11 @@ def main() -> None:
         util.notifyOnComplete(cs.settings["titleSuffix"])
 
 
-def setupClipperPaths(cs: ClipperState) -> None:
-    settings = cs.settings
+def setupClipperPaths(cs: ClipperState, cli_args: Mapping[str, Any]) -> None:
+    """Tool paths decide which programs run, so they come only from the command line and arg files."""
     cp: ClipperPaths = cs.clipper_paths
 
-    ffmpeg_tools_dir = settings.get("ffmpegToolsDir")
+    ffmpeg_tools_dir = cli_args.get("ffmpegToolsDir")
 
     is_frozen_release = getattr(sys, "frozen", False)
 
@@ -152,7 +154,7 @@ def setupClipperPaths(cs: ClipperState) -> None:
             cp.ffprobePath += ".exe"
             cp.ffplayPath += ".exe"
 
-    ytdl_dir = settings.get("ytdlDir")
+    ytdl_dir = cli_args.get("ytdlDir")
 
     if is_frozen_release or ytdl_dir:
         ytdl_dir = ytdl_dir if ytdl_dir else YTDL_DIR

@@ -513,9 +513,13 @@ def add_ytdl_options(ytdl_options: argparse._ArgumentGroup) -> None:
         "--ytdl-dir",
         dest="ytdlDir",
         default="",
-        help="Specify a directory to search for the yt-dlp tool on your system. "
-        "If a relative or absolute path is given, the expected tool name for the platform will be searched for in the directory. "
-        "If unspecified, the system PATH will be searched.",
+        help=" ".join(
+            [
+                "Specify a directory to search for the yt-dlp tool on your system.",
+                "The expected tool name for the platform is searched for in the directory.",
+                "If unspecified, frozen releases use ./bin/yt-dlp and other installs search the system PATH.",
+            ],
+        ),
     )
 
     ytdl_options.add_argument(
@@ -1025,7 +1029,10 @@ def add_tool_options(tool_options: argparse._ArgumentGroup) -> None:
         dest="ffmpegToolsDir",
         type=str,
         help=" ".join(
-            ["Use ffmpeg from the system PATH overriding any default search paths for ffmpeg."],
+            [
+                "Specify a directory to search for ffmpeg, ffprobe, and ffplay.",
+                "If unspecified, frozen releases use ./bin/video-tools and other installs search the system PATH.",
+            ],
         ),
     )
 

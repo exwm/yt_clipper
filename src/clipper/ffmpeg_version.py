@@ -1,9 +1,11 @@
 from subprocess import PIPE, Popen
 
+from clipper.clipper_types import argvPath
+
 
 def getFfmpegVersion(ffmpeg_path: str) -> str:
     try:
-        with Popen([ffmpeg_path, "-version"], stdout=PIPE, stderr=PIPE) as proc:
+        with Popen([argvPath(ffmpeg_path), "-version"], stdout=PIPE, stderr=PIPE) as proc:
             version_line = (
                 proc.stdout.readline().decode("utf-8").rstrip().replace("version", "")
                 if proc.stdout is not None

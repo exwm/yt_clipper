@@ -6,7 +6,7 @@ from typing import List, Tuple
 
 import rich.markup
 
-from clipper.clipper_types import ClipperState, DictStrAny
+from clipper.clipper_types import ClipperState, DictStrAny, argvPath
 from clipper.log_helpers import LogPath, subprocess_block
 from clipper.ytc_logger import Subsystem, make_subsystem_logger
 
@@ -128,7 +128,7 @@ def runVideo2xCommand(
     # video2x doesn't have a separate overwrite flag; if the final exists and
     # overwrite is off, skip (we already guarded this via mp["exists"])
 
-    args = [cp.video2xPath]
+    args = [argvPath(cp.video2xPath)]
     args.extend(shlex.split(args_str))
 
     file_log = LogPath(mp["fileName"])

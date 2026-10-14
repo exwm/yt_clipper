@@ -1,5 +1,6 @@
 import enum
 import io
+import shlex
 from dataclasses import dataclass, field
 from fractions import Fraction
 from typing import Any, Dict, List, Union
@@ -13,9 +14,18 @@ CropMap = List[DictStrAny]
 Settings = Dict[str, Any]
 
 
+def argvPath(quotedPath: str) -> str:
+    """The plain path for a list-form subprocess argument, from a shell-quoted executable path."""
+    return shlex.split(quotedPath)[0]
+
+
 @dataclass()
 class ClipperPaths:
-    """Paths to executables and input/output directories."""
+    """Paths to executables and input/output directories.
+
+    Executable paths are shell-quoted for the command strings they are spliced into. Pass them
+    through argvPath for a list-form subprocess call, which would otherwise keep the quotes.
+    """
 
     ffmpegPath: str = "ffmpeg"
     ffprobePath: str = "ffprobe"

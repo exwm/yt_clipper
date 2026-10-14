@@ -3,7 +3,7 @@ import subprocess
 import sys
 from typing import Dict, List, Tuple
 
-from clipper.clipper_types import ClipperPaths, ClipperState
+from clipper.clipper_types import ClipperPaths, ClipperState, argvPath
 from clipper.log_helpers import subprocess_block
 from clipper.ytc_logger import Subsystem, make_subsystem_logger
 
@@ -12,7 +12,7 @@ logger = make_subsystem_logger(Subsystem.YTDL)
 
 def ytdl_bin_get_version(cp: ClipperPaths) -> str:
     ytdl_process = subprocess.run(
-        args=[cp.ytdlPath, "--version"],
+        args=[argvPath(cp.ytdlPath), "--version"],
         stdout=subprocess.PIPE,
         check=True,
         shell=False,
@@ -27,7 +27,7 @@ def ytdl_bin_get_args_base(cs: ClipperState) -> List[str]:
 
     # fmt: off
     ytdl_args = [
-      cp.ytdlPath,
+      argvPath(cp.ytdlPath),
       "--no-cache-dir",
       "--verbose",
       "--merge-output-format", "mkv",
@@ -133,7 +133,7 @@ def ytdl_bin_update(cs: ClipperState) -> None:
     try:
         with subprocess_block("yt-dlp", logger=logger, action="update") as block:
             process = subprocess.run(
-                args=[cp.ytdlPath, "--update"],
+                args=[argvPath(cp.ytdlPath), "--update"],
                 check=True,
                 shell=False,
             )
