@@ -1,0 +1,94 @@
+{
+  "platform": "youtube",
+  "videoID": "3_5hLFyMhis",
+  "videoTag": "[youtube@3_5hLFyMhis]",
+  "videoTitle": "Popeye the Sailor: Popeye for President (1956)",
+  "videoUrl": "https://www.youtube.com/watch?v=3_5hLFyMhis",
+  "newMarkerSpeed": 1,
+  "newMarkerCrop": "0:0:iw:ih",
+  "titleSuffix": "[youtube@3_5hLFyMhis]",
+  "isVerticalVideo": false,
+  "cropRes": "1920x1080",
+  "cropResWidth": 1920,
+  "cropResHeight": 1080,
+  "markerPairMergeList": "1-2;1,3",
+  "encodeSpeed": 4,
+  "crf": 30,
+  "targetMaxBitrate": 8000,
+  "rotate": "clock",
+  "enableHDR": false,
+  "gamma": 1.1,
+  "twoPass": true,
+  "denoise": { "enabled": true, "lumaSpatial": 4, "desc": "Medium" },
+  "audio": true,
+  "videoStabilization": {
+    "desc": "Weak",
+    "enabled": true,
+    "shakiness": 4,
+    "smoothing": 4,
+    "zoomspeed": 0.1
+  },
+  "videoStabilizationDynamicZoom": true,
+  "minterpFpsMultiplier": 2,
+  "loop": "fwrev",
+  "fadeDuration": 0.7,
+  "version": "5.48.0",
+  "date": 1760000000000,
+  "markerPairs": [
+    {
+      "number": 1,
+      "start": 1.5,
+      "end": 6.25,
+      "speed": 0.5,
+      "speedMap": [
+        { "x": 1.5, "y": 0.5 },
+        { "x": 3, "y": 1 },
+        { "x": 6.25, "y": 0.5 }
+      ],
+      "crop": "120:40:960:540",
+      "cropMap": [
+        { "x": 1.5, "y": 0, "crop": "120:40:960:540" },
+        { "x": 4, "y": 0, "crop": "300:60:960:540", "easeIn": "instant" },
+        { "x": 6.25, "y": 0, "crop": "320:60:960:540" }
+      ],
+      "enableZoomPan": false,
+      "cropRes": "1920x1080",
+      "overrides": {
+        "titlePrefix": "popeye",
+        "enableHDR": true,
+        "gamma": 0.9,
+        "encodeSpeed": 2,
+        "crf": 24,
+        "targetMaxBitrate": 6000,
+        "twoPass": false,
+        "denoise": { "enabled": false, "desc": "Disabled" },
+        "audio": false,
+        "videoStabilization": { "desc": "Disabled", "enabled": false },
+        "videoStabilizationDynamicZoom": false,
+        "minterpFpsMultiplier": 1.5,
+        "loop": "none",
+        "fadeDuration": 0.5
+      }
+    },
+    {
+      "number": 2,
+      "start": 10,
+      "end": 12,
+      "speed": 1,
+      "crop": "0:0:iw:ih",
+      "enableZoomPan": true,
+      "cropRes": "1920x1080",
+      "overrides": {}
+    },
+    {
+      "number": 3,
+      "start": 20.125,
+      "end": 21,
+      "speed": 0.25,
+      "crop": "0:0:1:1",
+      "enableZoomPan": false,
+      "cropRes": "1920x1080",
+      "overrides": {}
+    }
+  ]
+}

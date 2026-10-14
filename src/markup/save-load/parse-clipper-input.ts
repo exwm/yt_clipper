@@ -113,7 +113,7 @@ const settingsAllow = {
   fadeDuration: true,
 } as const satisfies Record<keyof Settings, true>;
 
-const markerPairAllow = {
+export const markerPairAllow = {
   start: true,
   end: true,
   speed: true,
@@ -126,7 +126,7 @@ const markerPairAllow = {
   number: true,
 } as const satisfies Record<keyof LoadableMarkerPair, true>;
 
-const overridesAllow = {
+export const overridesAllow = {
   titlePrefix: true,
   enableHDR: true,
   gamma: true,
@@ -143,19 +143,19 @@ const overridesAllow = {
   fadeDuration: true,
 } as const satisfies Record<keyof MarkerPairOverrides, true>;
 
-const speedPointAllow = {
+export const speedPointAllow = {
   x: true,
   y: true,
 } as const satisfies Record<keyof SpeedPoint, true>;
 
-const cropPointAllow = {
+export const cropPointAllow = {
   x: true,
   y: true,
   crop: true,
   easeIn: true,
 } as const satisfies Record<keyof CropPoint, true>;
 
-const topLevelAllow = {
+export const topLevelAllow = {
   ...settingsAllow,
   version: true,
   date: true,

@@ -54,6 +54,7 @@
     "@types/jest": "^30.0.0",
     "@types/jszip": "^3.4.1",
     "@types/node": "^25.6.0",
+    "ajv": "^8.20.0",
     "browserslist": "^4.28.7",
     "commit-and-tag-version": "^12.7.1",
     "eslint": "^10.2.0",

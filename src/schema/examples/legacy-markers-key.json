@@ -1,0 +1,18 @@
+{
+  "platform": "youtube",
+  "videoID": "3_5hLFyMhis",
+  "videoTitle": "Popeye the Sailor",
+  "cropRes": "1920x1080",
+  "cropResWidth": 1920,
+  "cropResHeight": 1080,
+  "markers": [
+    {
+      "start": 0,
+      "end": 5,
+      "speed": "0.5",
+      "crop": "0:0:iw:ih",
+      "cropRes": "1920x1080",
+      "overrides": {}
+    }
+  ]
+}
