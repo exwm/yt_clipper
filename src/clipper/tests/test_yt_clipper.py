@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from clipper import util
+from clipper import argparser, util, yt_clipper
 from clipper.yt_clipper import findVideo2x
 
 
@@ -41,3 +41,19 @@ def test_findVideo2x(
         (tmp_path / "bin" / video2x_dir / "video2x.exe").touch()
     monkeypatch.chdir(tmp_path)
     assert findVideo2x(".exe") == expected
+
+
+def test_print_versions_needs_no_markers_json(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.argv", ["yt_clipper", "--print-versions"])
+    monkeypatch.setattr(argparser, "getDepVersionsString", lambda _paths: "tool versions")
+
+    with pytest.raises(SystemExit) as exit_info:
+        yt_clipper.main()
+
+    assert exit_info.value.code == 0
+    assert "tool versions" in capsys.readouterr().out

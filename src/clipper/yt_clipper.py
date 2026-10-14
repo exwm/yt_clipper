@@ -41,11 +41,12 @@ def main() -> None:
     setupClipperPaths(cs)
 
     cs.settings.update({"color_space": None, **args})
-    ytc_settings.loadSettingsFromMarkersJson(cs.settings)
 
     if cs.settings["printVersions"]:
         print(argparser.getDepVersionsString(cs.clipper_paths))
         sys.exit(0)
+
+    ytc_settings.loadSettingsFromMarkersJson(cs.settings)
 
     setupOutputPaths(cs)
 
