@@ -1,3 +1,4 @@
+import json
 import shlex
 import subprocess
 from pathlib import Path
@@ -88,6 +89,27 @@ def test_tool_dirs_reach_list_form_calls_unquoted(monkeypatch: pytest.MonkeyPatc
 
     assert ytdl.ytdl_bin_get_version(cs.clipper_paths) == "2026.08.19"
     assert calls[0][0].startswith("D:\\My Tools\\bin/yt-dlp")
+
+
+def test_main_stops_on_an_invalid_markers_json(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    example = Path(__file__).resolve().parents[2] / "schema" / "examples" / "kitchen-sink.json"
+    markers = {**json.loads(example.read_text(encoding="utf-8")), "crf": "30 -y"}
+    (tmp_path / "markers.json").write_text(json.dumps(markers), encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.argv", ["yt_clipper", "--markers-json", "markers.json"])
+
+    with pytest.raises(SystemExit) as exit_info:
+        yt_clipper.main()
+
+    assert exit_info.value.code == 1
+    assert "crf: '30 -y' is not of type 'number'" in caplog.text
+    # The logger is set up first, so the run's log file records why it stopped.
+    log = tmp_path / "webms" / "markers" / "markers.log"
+    assert "crf: '30 -y' is not of type 'number'" in log.read_text(encoding="utf-8")
 
 
 CLI_TOOL_DIRS = {"ffmpegToolsDir": "cli-tools", "ytdlDir": "cli-ytdl"}

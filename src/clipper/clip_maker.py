@@ -13,6 +13,7 @@ from typing import Any, Dict, Generator, List, Optional, Set, Tuple
 import rich.markup
 
 from clipper.clipper_types import (
+    INVALID_MARKER_PAIR_KEY,
     BadMergeInput,
     ClipperPaths,
     ClipperState,
@@ -1307,7 +1308,7 @@ def cleanFileName(fileName: str) -> str:
         fileName = re.sub(r'[*?"<>\0]', "", fileName)
         fileName = re.sub(r"[/|\\:]", "_", fileName)
     elif sys.platform == "darwin":
-        fileName = re.sub(r"[:\0]", "_", fileName)
+        fileName = re.sub(r"[/:\0]", "_", fileName)
     elif sys.platform.startswith("linux"):
         fileName = re.sub(r"[/\0]", "_", fileName)
     return fileName
@@ -1395,7 +1396,23 @@ def containsValidCharsForVidStab(string: str) -> bool:
     return all(char != "'" for char in string)
 
 
-def makeClips(cs: ClipperState) -> None:
+def skipInvalidMarkerPair(
+    marker: DictStrAny,
+    markerPairIndex: int,
+    markerPairQueue: Set[int],
+) -> bool:
+    """Mark a marker pair the loader found invalid as failed, so merges that need it skip too."""
+    if INVALID_MARKER_PAIR_KEY not in marker:
+        return False
+    marker["returncode"] = 1
+    if markerPairIndex in markerPairQueue:
+        logger.error(
+            f"Skipped marker pair {markerPairIndex + 1}: its markers JSON values are invalid.",
+        )
+    return True
+
+
+def makeClips(cs: ClipperState) -> None:  # noqa: PLR0912
     settings = cs.settings
 
     nMarkerPairs = len(settings["markerPairs"])
@@ -1419,8 +1436,10 @@ def makeClips(cs: ClipperState) -> None:
     # easy scanning / copying.
     sampleGuidedEncodeSummaries: List[Any] = []
 
-    for markerPairIndex, _marker in enumerate(settings["markerPairs"]):
+    for markerPairIndex, marker in enumerate(settings["markerPairs"]):
         with pair_context(markerPairIndex):
+            if skipInvalidMarkerPair(marker, markerPairIndex, markerPairQueue):
+                continue
             if markerPairIndex in markerPairQueue:
                 logger.rule(title=f"Marker pair {markerPairIndex + 1}")
                 if settings.get("sampleGuidedEncode"):
@@ -1566,10 +1585,15 @@ def previewClips(cs: ClipperState) -> None:
         except ValueError:
             logger.error(f"{inputStr} is not a valid number.")
             continue
-        if 0 <= markerPairIndex < len(settings["markerPairs"]):
-            makeClip(cs, markerPairIndex)
-        else:
+        if not 0 <= markerPairIndex < len(settings["markerPairs"]):
             logger.error(f"{markerPairIndex + 1} is not a valid marker pair number.")
+        elif errors := settings["markerPairs"][markerPairIndex].get(INVALID_MARKER_PAIR_KEY):
+            logger.error(
+                f"Marker pair {markerPairIndex + 1} has invalid values and cannot be previewed: "
+                + rich.markup.escape("; ".join(errors)),
+            )
+        else:
+            makeClip(cs, markerPairIndex)
 
 
 def getMarkerPairQueue(

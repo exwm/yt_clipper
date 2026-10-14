@@ -17,6 +17,7 @@ dependencies = [
     "rich-argparse>=1.5.2,<2",
     "ffmpeg-quality-metrics>=3.11.3,<4",
     "plotille>=6.0.5",
+    "jsonschema>=4.26.0,<5",
 ]
 
 [project.scripts]

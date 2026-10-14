@@ -5,11 +5,13 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+from rich.markup import escape
 from rich.text import Text
 
-from clipper import util
+from clipper import markers_schema, util
 from clipper.clip_maker import getDefaultEncodeSettings
 from clipper.clipper_types import (
+    INVALID_MARKER_PAIR_KEY,
     UNKNOWN_PROPERTY,
     ClipperState,
     KnownPlatform,
@@ -31,12 +33,52 @@ from clipper.ytdl import ytdl_bin_get_subs, ytdl_bin_get_video_info
 logger = make_subsystem_logger(Subsystem.SETTINGS)
 
 
+def applyMarkersValidation(markers: Dict[str, Any]) -> None:
+    """Exit on invalid global settings, and mark invalid marker pairs so makeClips skips them."""
+    markers_schema.normalizeLegacyFormat(markers)
+    validation = markers_schema.validateMarkers(markers)
+
+    if validation.droppedKeys:
+        logger.warning(
+            "Ignoring markers JSON keys the markup script does not save: "
+            + escape(", ".join(validation.droppedKeys)),
+        )
+    for message in validation.droppedInvalidSettings:
+        logger.warning(f"Ignoring an invalid markup script setting: {escape(message)}")
+    if validation.globalErrors:
+        logger.critical("Markers JSON file has invalid settings:")
+        for message in validation.globalErrors:
+            logger.critical(f"    {escape(message)}")
+        sys.exit(1)
+    for index, messages in validation.pairErrors.items():
+        logger.warning(f"Marker pair {index + 1} has invalid values and will be skipped:")
+        for message in messages:
+            logger.warning(f"    {escape(message)}")
+        markers["markerPairs"][index] = {INVALID_MARKER_PAIR_KEY: messages, "overrides": {}}
+
+
+def setMarkersFileNames(settings: Settings) -> None:
+    """Name the output folder, log, and clips after the markers JSON file. Runs before the logger
+    is set up, since the log file goes in that folder."""
+    stem = Path(settings["json"]).stem
+    if stem != stem.rstrip():
+        print(
+            f"FATAL: Markers JSON file name must not end in whitespace before .json: {stem!r}.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    settings["markersDataFileStem"] = stem
+    settings["titleSuffix"] = stem
+    settings["downloadVideoNameStem"] = f"{stem}-full"
+
+
 def loadSettingsFromMarkersJson(settings: Settings) -> None:
     markers_json_path = Path(settings["json"])
     with Path.open(markers_json_path, encoding="utf-8-sig") as file:
         markersJson = file.read()
         try:
-            markersDict = json.loads(markersJson)
+            # NaN and Infinity become null, so validation reports them by field.
+            markersDict = json.loads(markersJson, parse_constant=lambda _constant: None)
         except json.JSONDecodeError as e:
             logger.critical(f"CRITICAL: Markers JSON file is invalid.\n    {e}")
             print()
@@ -48,10 +90,12 @@ def loadSettingsFromMarkersJson(settings: Settings) -> None:
             )
             sys.exit(1)
 
+        if not isinstance(markersDict, dict):
+            logger.critical("CRITICAL: Markers JSON file must contain a JSON object.")
+            sys.exit(1)
+        applyMarkersValidation(markersDict)
         settings.update(markersDict)
 
-        if "markers" in settings and "markerPairs" not in settings:
-            settings["markerPairs"] = settings["markers"]
         settings["platform"] = settings.get("platform", "youtube")
 
         settings["videoPageURL"] = getVideoPageURL(
@@ -60,21 +104,10 @@ def loadSettingsFromMarkersJson(settings: Settings) -> None:
             settings["videoID"],
         )
 
-        settings["videoTitle"] = re.sub('"', "", settings["videoTitle"])
-        settings["markersDataFileStem"] = markers_json_path.stem
-
-        if settings["markersDataFileStem"] != settings["markersDataFileStem"].rstrip():
-            logger.fatal(
-                "FATAL: Markers data file name stem (excluding .json extension) must not end in whitespace.",
-            )
-            logger.fatal(
-                f"""markersDataFileStem={settings["markersDataFileStem"]!r}.""",
-            )
-            logger.fatal("Exiting...")
-            sys.exit(1)
-        settings["titleSuffix"] = settings["markersDataFileStem"]
-
-        settings["downloadVideoNameStem"] = f"{settings['titleSuffix']}-full"
+        # The title goes inside a double-quoted ffmpeg argument, where a backslash escapes the closing quote.
+        settings["videoTitle"] = re.sub(r'["\\]', "", settings["videoTitle"])
+        # Again after the update: the markers JSON's own titleSuffix key does not name the output.
+        setMarkersFileNames(settings)
 
         settings["mergedStreams"] = False
         if "enableSpeedMaps" not in settings:

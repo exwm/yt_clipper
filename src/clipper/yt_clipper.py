@@ -48,11 +48,13 @@ def main() -> None:
         print(argparser.getDepVersionsString(cs.clipper_paths))
         sys.exit(0)
 
-    ytc_settings.loadSettingsFromMarkersJson(cs.settings)
-
+    # The logger needs only the command line and the markers JSON's file name, so it is set up
+    # before the file is read, and loading problems are logged like the rest of the run.
+    ytc_settings.setMarkersFileNames(cs.settings)
     setupOutputPaths(cs)
-
     ytc_logger.setUpLogger(cs)
+
+    ytc_settings.loadSettingsFromMarkersJson(cs.settings)
 
     logger.debug(f"clipper paths set up: {cs.clipper_paths}")
 

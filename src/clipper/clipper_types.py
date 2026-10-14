@@ -6,6 +6,8 @@ from fractions import Fraction
 from typing import Any, Dict, List, Union
 
 UNKNOWN_PROPERTY = "unknown"
+# Holds the validation errors of a marker pair that makeClips skips.
+INVALID_MARKER_PAIR_KEY = "invalidMarkerPairErrors"
 
 DictStrAny = Dict[str, Any]
 ExtendedRealNumber = Union[int, float, Fraction]
