@@ -1,6 +1,8 @@
+import io
 import json
 import shlex
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -45,6 +47,19 @@ def test_findVideo2x(
         (tmp_path / "bin" / video2x_dir / "video2x.exe").touch()
     monkeypatch.chdir(tmp_path)
     assert findVideo2x(".exe") == expected
+
+
+def test_redirected_output_can_print_box_drawing_characters(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for name in ("stdout", "stderr"):
+        monkeypatch.setattr(f"sys.{name}", io.TextIOWrapper(io.BytesIO(), encoding="cp1252"))
+
+    yt_clipper.useUtf8Output()
+
+    for stream in (sys.stdout, sys.stderr):
+        stream.write("━━ Setup ━━")
+        stream.flush()
 
 
 def test_print_versions_needs_no_markers_json(

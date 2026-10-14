@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import io
 import os
 import shlex
 import sys
@@ -35,7 +36,16 @@ YTDL_DIR = "./bin/yt-dlp"
 MANUAL_VIDEO2X_DIR = "./bin/video2x"
 
 
+def useUtf8Output() -> None:
+    """Redirected output otherwise uses the Windows code page (e.g. cp1252), which cannot encode
+    the log's box-drawing characters, so the first log rule crashes the run."""
+    for stream in (sys.stdout, sys.stderr):
+        if isinstance(stream, io.TextIOWrapper) and stream.encoding.lower() != "utf-8":
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main() -> None:
+    useUtf8Output()
     cs = clipper_types.ClipperState()
 
     args, unknown, argsFromArgFiles, argFiles, argsFromArgFilesMap = argparser.getArgs()
