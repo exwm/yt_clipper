@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from clipper import argparser, util, yt_clipper, ytdl
+from clipper import argparser, updates, util, yt_clipper, ytdl
 from clipper.clipper_types import ClipperPaths, ClipperState, argvPath
 from clipper.yt_clipper import findVideo2x, setupClipperPaths
 from clipper.ytc_logger import newRunLogFilePath
@@ -63,20 +63,27 @@ def test_redirected_output_can_print_box_drawing_characters(
         stream.flush()
 
 
-def test_print_versions_needs_no_markers_json(
+@pytest.mark.parametrize(
+    ("flag", "printed"),
+    [("--print-versions", "tool versions"), ("--check-for-updates", "update result")],
+)
+def test_print_and_exit_flags_need_no_markers_json(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
+    flag: str,
+    printed: str,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("sys.argv", ["yt_clipper", "--print-versions"])
+    monkeypatch.setattr("sys.argv", ["yt_clipper", flag])
     monkeypatch.setattr(argparser, "getDepVersionsString", lambda _paths: "tool versions")
+    monkeypatch.setattr(updates, "checkForUpdates", lambda: "update result")
 
     with pytest.raises(SystemExit) as exit_info:
         yt_clipper.main()
 
     assert exit_info.value.code == 0
-    assert "tool versions" in capsys.readouterr().out
+    assert printed in capsys.readouterr().out
 
 
 @pytest.mark.parametrize(

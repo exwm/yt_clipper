@@ -46,9 +46,16 @@ def getArgParser() -> argparse.ArgumentParser:
         help="Print version information for yt_clipper and its dependencies.",
     )
     parser.add_argument(
+        "--check-for-updates",
+        dest="checkForUpdates",
+        action="store_true",
+        default=False,
+        help="Check GitHub for a newer yt_clipper release and print the result.",
+    )
+    parser.add_argument(
         "--markers-json",
         "-j",
-        required="--print-versions" not in sys.argv,
+        required=not {"--print-versions", "--check-for-updates"} & set(sys.argv),
         dest="json",
         help=" ".join(
             [
