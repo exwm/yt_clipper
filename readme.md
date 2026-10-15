@@ -481,6 +481,8 @@ The line between two points shows how the crop moves in that section.
 
 ![yt_clipper_crop_chart_sections.png](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_crop_chart_sections.png)
 
+Each point's label shows its crop position (`x:y`). The crop size (`WxH`) shows on the first point in `pan-only` mode, and wherever the size changes in `zoompan` mode. A point that holds the same crop as its neighbors has no label.
+
 **Left-Click:** Left-click a crop chart point to seek to its time.
 
 **Left-Click+Drag:** Left-click and drag a crop chart point to change its time and seek/scrub the video.
@@ -535,9 +537,21 @@ The usual crop shortcuts have different effects than usual in this mode as descr
 - **Click+Drag:** Draw crop while maintaining aspect ratio.
 - **Alt+Click+Drag:** Freely draw crop, updating the aspect ratio of all other crop points to match automatically.
 
+### Crop Easing
+
+Use the **Crop Easing** setting to choose how a dynamic crop pans and zooms between crop points. Find it in the global settings editor, and override it per marker pair in the marker pair settings editor.
+
+- **Smooth Track (default):** Use it to follow a moving subject. The crop keeps moving through points without stopping at each one. It does not swing past a point when the subject reverses direction.
+- **Cinematic:** Use it for steady, camera-like motion when the crop does not need to hit each point exactly. The crop follows the points within a margin, with steady holds, constant-speed pans, and smooth transitions.
+  - The `markup script` pauses briefly to recompute the path after each edit. Clips also take slightly longer to render.
+  - Open the gear button next to **Crop Easing** to set the margins.
+  - **Margin (px)** (default 40): How far the crop position may drift from the crop points, in crop resolution pixels. Larger margins give fewer, steadier moves. At zero, the crop follows the points exactly.
+  - **Zoom Margin** (default 0.08): How far the crop size may drift, as a fraction of the size.
+- **EaseInOut:** The crop easing from before version 5.49.0. Each section eases in and out, so the crop slows to a stop at every point. Use it if Smooth Track or Cinematic does not move the crop as you expect. Markers data saved before version 5.49.0 renders with EaseInOut, and loads in the `markup script` with EaseInOut.
+
 ### Dynamic Crop Tips
 
-- Use as few points as possible for smoother motion (each point with a crop different from its neighbors causes the crop motion to stop and then start again).
+- Use as few points as possible for smoother motion.
 - Try enabling video stabilization to smooth out the motion, especially if many points are used.
 - Pause the video and **Right-Click+Drag** to seek/scrub through the video. Use this to preview the crop movement with precise control.
 - For motion tracking, drop multiple crop points in one continuous **Ctrl+Click+Drag** on the crop overlay: press **A** (when the crop chart is visible) or **Alt+A** at each subject position to commit a crop point and keep dragging. Combine with the mouse wheel during the same drag to zoom the crop in/out (center-out) while panning.
@@ -596,6 +610,12 @@ The usual crop shortcuts have different effects than usual in this mode as descr
 1. The `clipper script` skips regenerating any existing webms.
    - This makes it easy to delete webms you want regenerated and by rerunning the script.
    - Use this to work incrementally, saving markers data, starting a batch encode, continuing to mark up, overwriting the markers data, and then rerunning the encoding.
+2. When a higher quality format of the video cannot be downloaded, the `clipper script` asks whether to continue with the lower quality format it fell back to.
+   - In the printed formats table, the selected formats are green and the formats that cannot be downloaded are red.
+   - With your own `--format-sort`, the `clipper script` also asks about a fallback that your sort ranks lower, even another codec at the same resolution.
+   - Pass `--accept-lower-quality` to continue without asking, for example in a scheduled run.
+
+   ![yt_clipper_lower_quality_prompt](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_lower_quality_prompt.png)
 
 # Encoding Settings Guide
 
