@@ -95,7 +95,8 @@ def ytdl_bin_get_video_info(cs: ClipperState) -> Tuple[Dict, str]:
         stdout=subprocess.PIPE,
         check=True,
     )
-    formats_table = formats_table_process.stdout.decode("utf-8")
+    # Piped, yt-dlp writes the table in the console code page (e.g. cp1252 on Windows). It is only shown.
+    formats_table = formats_table_process.stdout.decode("utf-8", errors="replace")
 
     # Download the full video if requested by user
     if settings["downloadVideo"]:
