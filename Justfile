@@ -40,6 +40,9 @@ verify-release install userscript version="":
   just smoke-release "{{install}}" {{version}}
   uv run pytest src/clipper/tests/test_e2e.py -k youtube-vp9 --clipper-exe "{{install}}/yt_clipper{{ if os_family() == "windows" { ".exe" } else { "" } }}"
   uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n 4 -o faulthandler_timeout=600 --tracing retain-on-failure --output sandbox/ui-test-results --userscript "{{userscript}}"
+# After publishing: check that Greasy Fork serves the release's userscript (waits up to 3 minutes).
+check-greasyfork version:
+  uv run python tools/release/greasyfork.py {{version}}
 test-py-slow:
   uv run pytest src/clipper --cov --cov-config="{{justfile_directory()}}/pyproject.toml" --cov-report=html -vvv
 test-py-update:
