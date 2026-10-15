@@ -143,12 +143,16 @@ release-prep version:
 # Safe to rerun, also after rewriting the version change (jj --ignore-immutable): the tag,
 # release/master, and the draft release move to the new commit. The tag goes first so CI sees it.
 # The local tag moves only after its push, so the lease expects what the remote last accepted.
+# release/master is fetched first (with stale remote state jj can refuse to move it after a
+# rewrite), and both refs are checked on origin at the end: CI builds only on a release/master push.
 release-publish version:
   uv run python tools/release/version.py check {{version}}
   jj config set --repo 'revset-aliases."immutable_heads()"' 'builtin_immutable_heads() | tags()'
   @commit="$(jj log -r 'exactly(subject(exact:"version: {{version}}"), 1)' --no-graph -T commit_id)" || exit 1; old="$(git rev-parse -q --verify refs/tags/v{{version}})"; if [ "$old" = "$commit" ]; then echo 'v{{version}} already tags the version change'; else git push --force-with-lease="refs/tags/v{{version}}:$old" origin "$commit:refs/tags/v{{version}}" && git tag -f v{{version}} "$commit"; fi
   jj git import
+  jj git fetch --remote origin --branch release/master
   jj bookmark set release/master --allow-backwards -r 'exactly(subject(exact:"version: {{version}}"), 1)'
   jj git push --bookmark release/master
+  @commit="$(jj log -r 'exactly(subject(exact:"version: {{version}}"), 1)' --no-graph -T commit_id)"; for ref in refs/tags/v{{version}} refs/heads/release/master; do remote="$(git ls-remote origin "$ref" | cut -f1)"; [ "$remote" = "$commit" ] || { echo "error: $ref on origin is '$remote', not the version change $commit"; exit 1; }; done; echo "v{{version}} and release/master on origin are at $commit"
 pigar:
   pigar -P ./src/clipper -p ./src/clipper/requirements.txt --without-referenced-comments
