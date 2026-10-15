@@ -55,6 +55,9 @@
     "minterpFpsMultiplier": { "type": "number", "minimum": 0 },
     "loop": { "$ref": "#/$defs/loop" },
     "fadeDuration": { "type": "number", "minimum": 0 },
+    "cropPointEasing": { "$ref": "#/$defs/cropPointEasing" },
+    "cropPointEasingCinematicMargin": { "type": "number", "minimum": 0 },
+    "cropPointEasingCinematicZoomMargin": { "type": "number", "minimum": 0, "maximum": 1 },
     "version": { "type": "string" },
     "date": { "type": "number" },
     "markerPairs": { "type": "array", "maxItems": 10000, "items": { "$ref": "#/$defs/markerPair" } }
@@ -73,6 +76,49 @@
       "pattern": "^[1-9]\\d*x[1-9]\\d*$"
     },
     "loop": { "enum": ["none", "fwrev", "fade"] },
+    "cropPointEasing": { "enum": ["smoothInOut", "smoothTrack", "cinematic"] },
+    "coefficients": {
+      "type": "array",
+      "description": "a quadratic's coefficients in a segment's local time",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": "number" }
+    },
+    "cropPathSegment": {
+      "type": "object",
+      "required": ["startT", "endT", "x", "y", "w", "h"],
+      "additionalProperties": false,
+      "properties": {
+        "startT": { "type": "number" },
+        "endT": { "type": "number" },
+        "x": { "$ref": "#/$defs/coefficients" },
+        "y": { "$ref": "#/$defs/coefficients" },
+        "w": { "$ref": "#/$defs/coefficients" },
+        "h": { "$ref": "#/$defs/coefficients" }
+      }
+    },
+    "cropPath": {
+      "type": "object",
+      "description": "the baked cinematic crop path, rendered verbatim when the easing is cinematic",
+      "required": ["version", "margin", "signature", "segments"],
+      "additionalProperties": false,
+      "properties": {
+        "version": { "type": "integer" },
+        "margin": {
+          "type": "object",
+          "required": ["pos", "zoom"],
+          "additionalProperties": false,
+          "properties": { "pos": { "type": "number" }, "zoom": { "type": "number" } }
+        },
+        "signature": { "type": "string" },
+        "segments": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5000,
+          "items": { "$ref": "#/$defs/cropPathSegment" }
+        }
+      }
+    },
     "denoise": {
       "type": "object",
       "required": ["enabled"],
@@ -132,7 +178,10 @@
         "videoStabilizationDynamicZoom": { "type": "boolean" },
         "minterpFpsMultiplier": { "type": "number", "minimum": 0 },
         "loop": { "$ref": "#/$defs/loop" },
-        "fadeDuration": { "type": "number", "minimum": 0 }
+        "fadeDuration": { "type": "number", "minimum": 0 },
+        "cropPointEasing": { "$ref": "#/$defs/cropPointEasing" },
+        "cropPointEasingCinematicMargin": { "type": "number", "minimum": 0 },
+        "cropPointEasingCinematicZoomMargin": { "type": "number", "minimum": 0, "maximum": 1 }
       }
     },
     "markerPair": {
@@ -147,6 +196,7 @@
         "speedMap": { "type": "array", "items": { "$ref": "#/$defs/speedPoint" } },
         "crop": { "$ref": "#/$defs/crop" },
         "cropMap": { "type": "array", "items": { "$ref": "#/$defs/cropPoint" } },
+        "cropPath": { "$ref": "#/$defs/cropPath" },
         "enableZoomPan": { "type": "boolean" },
         "cropRes": { "$ref": "#/$defs/cropRes" },
         "overrides": { "$ref": "#/$defs/overrides" }
