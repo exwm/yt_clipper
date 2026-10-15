@@ -784,6 +784,7 @@ There is an installation that does not require the dependencies below.
 2. Simply drag and drop the markers .json file onto the `yt_clipper_auto.bat` file on Windows or at the terminal prompt after executing `yt_clipper_auto` on Mac.
 3. Use `Ctrl+C` if you need to cancel the process.
 4. All generated webm clips will be placed in `./webms/<markers-json-filename>`.
+   - Each run writes its log to the `logs` folder inside it, named by the time the run started.
 5. Windows users may require [Microsoft Visual C++ 2010 Redistributable Package (x86)](https://www.microsoft.com/en-US/download/details.aspx?id=5555).
 
 ## Linux Installation

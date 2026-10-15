@@ -21,6 +21,7 @@ from clipper import (
 )
 from clipper.clipper_types import ClipperPaths, ClipperState
 from clipper.ffmpeg_version import getFfmpegVersion
+from clipper.log_helpers import LogPath
 from clipper.version import __version__
 from clipper.ytc_logger import Subsystem, make_subsystem_logger
 from clipper.ytdl import ytdl_bin_get_version
@@ -82,6 +83,8 @@ def main() -> None:
         f"yt-dlp version: {ytdl_bin_get_version(cs.clipper_paths)}",
     )
     logger.report(f"{getFfmpegVersion(cs.clipper_paths.ffmpegPath)}", extra={"highlighter": None})
+    if cs.clipper_paths.logFilePath:
+        logger.report(f"log file: {LogPath(cs.clipper_paths.logFilePath)}")
     logger.rule()
 
     logger.debug(f"The following arguments were read from the command line {sys.argv[1:]}:")

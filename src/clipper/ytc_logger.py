@@ -4,6 +4,7 @@ import shutil
 import sys
 from contextlib import contextmanager
 from contextvars import ContextVar
+from datetime import datetime
 from pathlib import Path
 from types import TracebackType
 from typing import IO, Dict, Generator
@@ -346,6 +347,29 @@ def make_subsystem_logger(name: str) -> SubsystemLogger:
     return SubsystemLogger(name)
 
 
+def newRunLogFilePath(cp: ClipperPaths) -> str:
+    """A new file for this run in the clip folder's logs/, named by when the run started."""
+    logsDir = Path(cp.clipsPath) / "logs"
+    logsDir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    path = logsDir / f"{stamp}.log"
+    # Created here, atomically, so two runs started in the same second never share a file.
+    copy = 2
+    while not createNewFile(path):
+        path = logsDir / f"{stamp}_{copy}.log"
+        copy += 1
+    return path.as_posix()
+
+
+def createNewFile(path: Path) -> bool:
+    """Create an empty file, or return False if it already exists."""
+    try:
+        path.touch(exist_ok=False)
+    except FileExistsError:
+        return False
+    return True
+
+
 def setUpLogger(cs: ClipperState) -> None:
     atexit.register(logging.shutdown)
 
@@ -393,7 +417,7 @@ def setUpLoggerWithRich(cs: ClipperState) -> None:
     if settings["preview"]:
         return
 
-    cp.logFilePath = f"{cp.clipsPath}/{settings['titleSuffix']}.log"
+    cp.logFilePath = newRunLogFilePath(cp)
     # assume file will be closed by rich.console.Console or else at program exit
     f = open(cp.logFilePath, "a", encoding="utf-8")  # noqa: SIM115
     rich_file_log_handler = get_rich_log_handler(level=base_log_level, file=f, color=False)
@@ -492,7 +516,7 @@ def setUpLoggerWithColoredLogs(cs: ClipperState) -> None:
     logger.addHandler(reportHandlerColored)
 
     if not settings["preview"]:
-        cp.logFilePath = f"{cp.clipsPath}/{settings['titleSuffix']}.log"
+        cp.logFilePath = newRunLogFilePath(cp)
         fileHandler = logging.FileHandler(
             filename=cp.logFilePath,
             mode="a",

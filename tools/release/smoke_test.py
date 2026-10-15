@@ -145,10 +145,12 @@ class SmokeTest:
             codec == case.codec and frames > 0,
             f"{case.name} clip is {codec}, {frames} frames",
         )
-        log = output / f"{markers.stem}.log"
+        logs = list((output / "logs").glob("*.log"))
+        if not self.check(len(logs) == 1, f"{case.name} run wrote its log ({len(logs)} found)"):
+            return
         problems = re.findall(
             r"^.*\b(?:ERROR|CRITICAL)\b.*$",
-            log.read_text(encoding="utf-8"),
+            logs[0].read_text(encoding="utf-8"),
             re.MULTILINE,
         )
         self.check(not problems, f"{case.name} clip log has no errors {problems[:3]}")

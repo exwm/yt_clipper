@@ -8,8 +8,9 @@ from pathlib import Path
 import pytest
 
 from clipper import argparser, util, yt_clipper, ytdl
-from clipper.clipper_types import ClipperState, argvPath
+from clipper.clipper_types import ClipperPaths, ClipperState, argvPath
 from clipper.yt_clipper import findVideo2x, setupClipperPaths
+from clipper.ytc_logger import newRunLogFilePath
 
 
 @pytest.mark.parametrize(
@@ -122,9 +123,22 @@ def test_main_stops_on_an_invalid_markers_json(
 
     assert exit_info.value.code == 1
     assert "crf: '30 -y' is not of type 'number'" in caplog.text
-    # The logger is set up first, so the run's log file records why it stopped.
-    log = tmp_path / "webms" / "markers" / "markers.log"
-    assert "crf: '30 -y' is not of type 'number'" in log.read_text(encoding="utf-8")
+    # The logger is set up first, so the run's own log file records why it stopped.
+    logs = list((tmp_path / "webms" / "markers" / "logs").glob("*.log"))
+    assert len(logs) == 1
+    assert "crf: '30 -y' is not of type 'number'" in logs[0].read_text(encoding="utf-8")
+
+
+def test_each_run_gets_a_new_log_file(tmp_path: Path) -> None:
+    cp = ClipperPaths(clipsPath=str(tmp_path / "webms" / "clips"))
+
+    first = Path(newRunLogFilePath(cp))
+    second = Path(newRunLogFilePath(cp))
+
+    assert first.parent == second.parent == tmp_path / "webms" / "clips" / "logs"
+    assert second != first
+    assert first.is_file()
+    assert second.is_file()
 
 
 CLI_TOOL_DIRS = {"ffmpegToolsDir": "cli-tools", "ytdlDir": "cli-ytdl"}
