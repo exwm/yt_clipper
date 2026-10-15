@@ -1,4 +1,4 @@
-"""Tests for ``run_cache.delta`` — auto-delta computation + render.
+"""Tests for ``run_cache.delta``: auto-delta computation + render.
 
 Two surfaces under test:
 - ``compute_prior_run_deltas``: takes prior runs + current state,
@@ -69,7 +69,7 @@ def test_compute_prior_run_deltas_no_priors_returns_only_current_row() -> None:
 
 
 def test_compute_prior_run_deltas_basic_comparison() -> None:
-    """Pair 2's mode 4 vs mode 0 from the real workflow — the kbps@tgt
+    """Pair 2's mode 4 vs mode 0 from the real workflow: the kbps@tgt
     delta should be sensibly negative when the current run is more
     efficient."""
     prior = _prior(
@@ -196,7 +196,7 @@ def test_compute_prior_run_deltas_current_row_shows_diff_keys_with_current_value
     )
     current_label = rows[0].config_label
     prior_label = rows[1].config_label
-    # Diff key is encodeSpeed only — both rows show their own value.
+    # Diff key is encodeSpeed only: both rows show their own value.
     assert "encodeSpeed=2" in current_label  # current's value
     assert "encodeSpeed=4" in prior_label  # prior's value
     # Matching keys are omitted from both rows.
@@ -206,7 +206,7 @@ def test_compute_prior_run_deltas_current_row_shows_diff_keys_with_current_value
 
 def test_compute_prior_run_deltas_current_label_unions_across_priors() -> None:
     """When multiple priors differ on different keys, the current row
-    surfaces ALL diff dimensions so it serves as the comparison
+    shows ALL diff dimensions so it serves as the comparison
     baseline for every prior row."""
     prior_a = _prior(
         encoder_fingerprint="a",
@@ -308,7 +308,7 @@ def test_format_prior_run_deltas_block_renders_priors() -> None:
 
 def test_format_prior_run_deltas_block_skips_clips_with_no_priors() -> None:
     """A clip whose only row is the current run shouldn't appear
-    in the block — there's nothing to compare."""
+    in the block: there's nothing to compare."""
     no_prior_rows = [
         PriorRunDelta(
             config_label="(current)",
@@ -340,7 +340,7 @@ def test_format_prior_run_deltas_block_skips_clips_with_no_priors() -> None:
 
 def test_format_prior_run_deltas_block_handles_missing_kbps_gracefully() -> None:
     """When prior probes don't bracket current target, kbps@tgt is
-    None — block should render '-' rather than crash."""
+    None: block should render '-' rather than crash."""
     rows = [
         PriorRunDelta(
             config_label="(current)",

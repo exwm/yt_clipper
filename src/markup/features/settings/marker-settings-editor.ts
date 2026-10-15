@@ -524,7 +524,7 @@ interface BarItem {
   run: () => void;
 }
 
-// Chart toggle badge counts — only when the curve is dynamic (2+ differing
+// Chart toggle badge counts: only when the curve is dynamic (2+ differing
 // points); a flat curve returns null so the badge hides.
 function getSpeedPointBadgeCount(): number | null {
   const idx = appState.prevSelectedMarkerPairIndex;
@@ -565,7 +565,7 @@ function hideZero(count: number): number | null {
 }
 
 const barItems: BarItem[] = [
-  // Actions — pair history (marker) and data (global).
+  // Actions: pair history (marker) and data (global).
   {
     id: 'undo-marker-pair-change',
     icon: 'undo',
@@ -655,7 +655,7 @@ const barItems: BarItem[] = [
     tooltip: Tooltips.captureFrameTooltip,
     run: captureFrame,
   },
-  // Crop output previews (modal crop preview, reframe) — their own group after capture.
+  // Crop output previews (modal crop preview, reframe): their own group after capture.
   {
     id: 'toggle-crop-preview',
     icon: 'cropPreview',
@@ -674,7 +674,7 @@ const barItems: BarItem[] = [
     isActive: () => isReframeEnabled(),
     run: () => toggleReframe(getCurrentCropComponents()),
   },
-  // View — preview rotation. Cycles 0 -> 90 -> -90 -> 0 with the angle on a
+  // View: preview rotation. Cycles 0 -> 90 -> -90 -> 0 with the angle on a
   // badge; also mirrors onto the output rotation setting (see video-rotation).
   {
     id: 'cycle-preview-rotation',
@@ -831,7 +831,7 @@ export function renderSettingsToggleBar(editor: SettingsEditorType): TemplateRes
 }
 
 // Re-sync every item's active class, disabled state, and badge from live state,
-// without re-rendering — so hotkey/edit-driven changes stay reflected.
+// without re-rendering, so hotkey/edit-driven changes stay reflected.
 export function refreshSettingsBar() {
   barItems.forEach((item) => {
     const el = document.getElementById(item.id) as HTMLButtonElement | null;

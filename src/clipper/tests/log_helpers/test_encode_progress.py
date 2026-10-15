@@ -47,7 +47,7 @@ def test_stdout_reader_parses_frame_lines() -> None:
 def test_stdout_reader_exits_on_eof_without_progress_end() -> None:
     tracker = _make_tracker(total_frames=50)
     pipe = io.BytesIO(b"frame=7\nout_time_ms=200000\nprogress=continue\n")
-    # No "progress=end" — reader must exit on EOF.
+    # No "progress=end": reader must exit on EOF.
     with tracker:
         tracker.attach(pipe, None)
         time.sleep(0.1)
@@ -61,7 +61,7 @@ def test_stdout_reader_ignores_malformed_frame_lines() -> None:
     tracker = _make_tracker(total_frames=100)
     pipe = io.BytesIO(
         b"frame=10\n"
-        b"frame=garbage\n"  # malformed — should be skipped
+        b"frame=garbage\n"  # malformed: should be skipped
         b"frame=20\n"
         b"progress=end\n",
     )
@@ -92,7 +92,7 @@ def test_stderr_reader_extracts_latest_progress_line() -> None:
 
 
 def test_stderr_reader_handles_zero_total_frames() -> None:
-    # total_frames=0 means "unknown duration" — the bar renders as
+    # total_frames=0 means "unknown duration": the bar renders as
     # pulsing, but updates still work.
     tracker = _make_tracker(total_frames=0)
     pipe = io.BytesIO(b"frame=5\nprogress=end\n")
@@ -107,7 +107,7 @@ def test_stderr_reader_handles_zero_total_frames() -> None:
 
 def test_tracker_context_exit_joins_reader_threads() -> None:
     tracker = _make_tracker(total_frames=100)
-    # Pipe that blocks forever — simulates a hung subprocess.
+    # Pipe that blocks forever: simulates a hung subprocess.
     blocking_pipe = io.BytesIO(b"frame=1\nout_time_ms=0\n")
     # Don't write progress=end and don't close the pipe; the reader
     # will hit EOF on BytesIO and exit. Verifying the join semantics
@@ -140,7 +140,7 @@ def test_search_tracker_begin_trial_advances_counter_and_label() -> None:
     assert "trial 2 (crf=30 w2)" in second_desc
     assert "trial 3" in third_desc
     assert "(crf" not in third_desc
-    # Total stays None — search trial count isn't known up front.
+    # Total stays None: search trial count isn't known up front.
     assert tracker._progress.tasks[0].total is None
 
 
@@ -160,7 +160,7 @@ def test_track_sample_guided_encode_progress_binds_contextvar_for_with_scope() -
 # --- filter-graph substitution --------------------------------------------
 
 
-# A representative long filter graph — long enough to clear the
+# A representative long filter graph: long enough to clear the
 # ``_FILTER_GRAPH_MIN_LEN_TO_SUBSTITUTE`` (200 char) threshold.
 _LONG_FILTER = (
     "trim=0:1.5,format=yuv444p10le,crop='x=0:y=0:w=1920:h=1080:exact=1',"
@@ -281,7 +281,7 @@ def test_track_sample_guided_encode_progress_enters_filter_graph_registry() -> N
 
 
 def test_frame_advance_resets_progress_timestamp() -> None:
-    # When ffmpeg actually advances the frame counter, the idle
+    # When ffmpeg advances the frame counter, the idle
     # clock should snap back to zero.
     tracker = _make_tracker(total_frames=100)
     pipe = io.BytesIO(b"frame=42\nout_time_ms=1400000\nprogress=end\n")
@@ -292,7 +292,7 @@ def test_frame_advance_resets_progress_timestamp() -> None:
         tracker.attach(pipe, None)
         time.sleep(0.1)
     # After consuming ``frame=42`` the timestamp should have
-    # advanced — by more than the 10s we backdated.
+    # advanced: by more than the 10s we backdated.
     assert tracker._last_progress_ts > before
     assert tracker._last_frame_count == 42
 
@@ -301,7 +301,7 @@ def test_repeated_frame_zero_does_not_reset_progress_timestamp() -> None:
     # ffmpeg hanging on input read may keep flushing the same
     # ``frame=0 fps=0.0 ...`` stats line indefinitely. The idle
     # clock must keep counting through that, not be falsely reset
-    # on every stats refresh — the strict ``n > _last_frame_count``
+    # on every stats refresh: the strict ``n > _last_frame_count``
     # gate is what protects this.
     tracker = _make_tracker(total_frames=100)
     pipe = io.BytesIO(
@@ -312,7 +312,7 @@ def test_repeated_frame_zero_does_not_reset_progress_timestamp() -> None:
         anchor = tracker._last_progress_ts
         tracker.attach(pipe, None)
         time.sleep(0.1)
-    # Timestamp unchanged — every line was ``frame=0`` so the
+    # Timestamp unchanged: every line was ``frame=0`` so the
     # strict-advance gate kept it pinned at the backdated value.
     assert tracker._last_progress_ts == anchor
     assert tracker._last_frame_count == 0
@@ -327,7 +327,7 @@ def test_exception_exit_prints_idle_diagnostic_when_idle_exceeds_threshold() -> 
     tracker = EncodeProgressTracker(0, "trial", console)
     try:
         with tracker:
-            # 10s of accumulated idle — well above the 2s diagnostic
+            # 10s of accumulated idle: well above the 2s diagnostic
             # threshold.
             tracker._last_progress_ts -= 10.0
             raise KeyboardInterrupt
@@ -339,7 +339,7 @@ def test_exception_exit_prints_idle_diagnostic_when_idle_exceeds_threshold() -> 
 
 
 def test_clean_exit_does_not_print_idle_diagnostic() -> None:
-    # Normal exit (no exception) — diagnostic must NOT appear, even
+    # Normal exit (no exception): diagnostic must NOT appear, even
     # if some idle time accumulated during the encode. The
     # diagnostic is keyed on abnormal exit only.
     file = io.StringIO()
@@ -396,7 +396,7 @@ def test_search_tracker_resets_per_trial_state_at_trial_start() -> None:
 
 def test_search_tracker_exception_exit_emits_idle_diagnostic() -> None:
     # Mirror of the EncodeProgressTracker case for the search
-    # tracker — Ctrl+C during a wedged trial should leave the same
+    # tracker: Ctrl+C during a wedged trial should leave the same
     # one-line summary in scrollback.
     file = io.StringIO()
     console = Console(file=file, force_terminal=False, no_color=True)
@@ -419,7 +419,7 @@ def test_search_tracker_exception_exit_emits_idle_diagnostic() -> None:
 def test_push_stderr_line_buffers_non_stats_lines_and_renders_them() -> None:
     # Non-stats lines (banners, decoder setup, errors) accumulate
     # in the rolling buffer and render as newline-joined text in
-    # the transient region — gives the operator live visibility
+    # the transient region: gives the operator live visibility
     # into the setup window before any frame= line arrives.
     tracker = _make_tracker(total_frames=100)
     with tracker:
@@ -428,7 +428,7 @@ def test_push_stderr_line_buffers_non_stats_lines_and_renders_them() -> None:
         rendered = tracker._status_text.plain
     assert "Opening 'https://example'" in rendered
     assert "decoded 5 frames" in rendered
-    # Order preserved — operator reads top-to-bottom = oldest-to-newest.
+    # Order preserved: operator reads top-to-bottom = oldest-to-newest.
     assert rendered.index("Opening") < rendered.index("decoded")
 
 
@@ -453,13 +453,13 @@ def test_push_stderr_line_caps_non_stats_buffer_at_max_length() -> None:
 
 
 def test_stats_line_lives_in_separate_slot_below_banners() -> None:
-    # The single stats line slot doesn't evict banners — even at
+    # The single stats line slot doesn't evict banners: even at
     # ffmpeg's 10x/s stats period, banners persist in the rolling
     # buffer while the stats line refreshes in place below them.
     tracker = _make_tracker(total_frames=100)
     with tracker:
         tracker._push_stderr_line("[https @ 0x1234] Opening 'https://example' for reading")
-        # 20 stats refreshes — under the old "everything appends"
+        # 20 stats refreshes: under the old "everything appends"
         # design these would evict the banner above. Now they all
         # collapse into the latest_stats_line slot.
         for i in range(20):
@@ -477,7 +477,7 @@ def test_stats_line_lives_in_separate_slot_below_banners() -> None:
 
 def test_final_persisted_footprint_is_only_the_stats_line() -> None:
     # On context exit the persisted-to-scrollback footprint is the
-    # latest stats line ONLY — not the rolling banner buffer.
+    # latest stats line ONLY: not the rolling banner buffer.
     # Banners would either duplicate scrollback (non-silent mode
     # scrolls them above the bar anyway) or pollute it (silent
     # mode replays 4-line clusters every trial).
@@ -491,15 +491,15 @@ def test_final_persisted_footprint_is_only_the_stats_line() -> None:
         )
     output = file.getvalue()
     assert "frame=  42" in output
-    # Banner not persisted — it would re-emit content already in
+    # Banner not persisted: it would re-emit content already in
     # scrollback (non-silent) or pollute it (silent).
     assert "[banner] some setup line" not in output
 
 
 def test_search_tracker_buffers_non_stats_lines_in_silent_mode() -> None:
     # The search tracker drops banners from scrollback (to avoid
-    # 20+ banner repeats across trials) but still surfaces them
-    # transiently in the rolling buffer above the spinner — that's
+    # 20+ banner repeats across trials) but still shows them
+    # transiently in the rolling buffer above the spinner: that's
     # the operator's only live signal during a stuck-trial setup.
     tracker = _make_search_tracker()
     with tracker:

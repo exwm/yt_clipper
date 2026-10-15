@@ -2,18 +2,18 @@
 
 Everything in here takes :class:`SampleGuidedEncodeTrial` / :class:`VmafSummary`
 inputs and returns a verdict (bool, distance, prediction). No I/O, no
-algorithm orchestration — this module is the place to look when
+algorithm orchestration: this module is the place to look when
 debugging "why did the search make this decision."
 
 Layered (rough):
 
-1. **Atomic verdicts** — :func:`passes_targets`,
+1. **Atomic verdicts**: :func:`passes_targets`,
    :func:`is_trial_confidently_decided`,
    :func:`_distance_to_pass_boundary`. Used everywhere.
-2. **Cross-trial calibration helpers** — given a small set of trials,
+2. **Cross-trial calibration helpers**: given a small set of trials,
    predict outcomes at other CRFs. Drive the various
    "skip step-down / skip bisection / cascade fallback" decisions.
-3. **Constants** — safety buffers and confidence margins used by the
+3. **Constants**: safety buffers and confidence margins used by the
    above. Centralized here so the trade-offs they encode are visible
    in one place rather than scattered through the search file.
 """
@@ -30,13 +30,13 @@ from .types import (
 )
 
 # ---------------------------------------------------------------------------
-# Constants — safety margins and confidence thresholds
+# Constants: safety margins and confidence thresholds
 # ---------------------------------------------------------------------------
 
 # Margin (in VMAF points, applied to both mean and p1) by which the partial
 # trial summary must clear / miss the targets for us to decide further
 # windows wouldn't change the verdict. Same magnitude as the upward-
-# expansion headroom thresholds — both express "this trial isn't on the
+# expansion headroom thresholds: both express "this trial isn't on the
 # boundary, so additional data is unlikely to flip it".
 DEFAULT_CONFIDENCE_MARGIN: float = 3.0
 
@@ -115,7 +115,7 @@ def passes_targets(
     target: SampleGuidedEncodeTarget,
 ) -> tuple[bool, bool]:
     """Whether ``summary`` clears the user's quality targets, and whether
-    the low-percentile check actually got applied.
+    the low-percentile check got applied.
 
     Returns ``(passed, low_enforced)``:
 
@@ -124,7 +124,7 @@ def passes_targets(
       :func:`min_frames_for_low_percentile` combined frames so the
       configured low percentile was part of the decision; ``False`` when
       the trial fell below the threshold and only mean was checked.
-      Surfaced so logs can show ``PASS (mean only)`` vs
+      Exposed so logs can show ``PASS (mean only)`` vs
       ``PASS (mean+p5)`` etc.
 
     Mean is *always* enforced (a 1-frame trial is still meaningful for
@@ -154,7 +154,7 @@ def _distance_to_pass_boundary(
     this margin. The metric mirrors :func:`passes_targets`'s decision
     logic: mean is always part of the distance, the configured low
     percentile only when the trial has enough frames to enforce it.
-    Returns the *minimum* of the relevant axes — the limiting target —
+    Returns the *minimum* of the relevant axes (the limiting target)
     so interpolation tracks the axis closest to failing.
     """
     mean_distance = summary.mean - target.target_vmaf_mean
@@ -191,7 +191,7 @@ def _predict_phase2_fast_fail(
       Phase 1 mean is a direct proxy for Phase 2's mean.
     - **Low percentile** is the trickier axis. With ``M`` more samples
       the percentile boundary moves upward roughly as ``p_k(NxM) ≈
-      p_{kxM}(N)`` — the "worst k%" of NxM frames sits at the position
+      p_{kxM}(N)``: the "worst k%" of NxM frames sits at the position
       "worst kxM%" of N frames lands. We don't carry every percentile
       in :class:`VmafSummary`, but for the typical p5 target with 3
       windows we use Phase 1's p10 as the bridge (5%x3 ≈ 15%, close
@@ -201,8 +201,8 @@ def _predict_phase2_fast_fail(
     The prediction errs conservative: only returns ``True`` when the
     predicted measurement is below target by at least ``safety_margin``
     on either axis. False positives (skip Phase 2 when it would have
-    passed) cost ~1 CRF of compression efficiency — Phase 3 step-down
-    finds the next CRF down — but never quality, since the final
+    passed) cost ~1 CRF of compression efficiency: Phase 3 step-down
+    finds the next CRF down: but never quality, since the final
     encode still clears the user's target. False negatives (run Phase 2
     when it would fail) are status quo, no regression.
 
@@ -251,7 +251,7 @@ def _phase1_to_phase2_bridge_pct(target_pct: int) -> int | None:
     p10 predicts multi p5 (with 3 windows), single p5 predicts multi p1.
 
     Returns ``None`` when the user's target percentile has no usable
-    single-window bridge in :class:`VmafSummary` (e.g. p10 target —
+    single-window bridge in :class:`VmafSummary` (e.g. p10 target:
     we'd need single p20+ which isn't carried).
     """
     if target_pct == 5:
@@ -306,7 +306,7 @@ def _calibration_says_step_down_wont_help(
     cap_relaxed_target = target.target_vmaf_low - relaxation_cap
     deficit = cap_relaxed_target - phase2_low
     if deficit <= 0:
-        # Phase 2 actually passes cap-relaxed (caller normally wouldn't
+        # Phase 2 passes cap-relaxed (caller normally wouldn't
         # call us here, but guard against misuse). Step-down might find
         # a strict pass; let it run.
         return False
@@ -316,7 +316,7 @@ def _calibration_says_step_down_wont_help(
     # whose VMAF curve has a sharp pass/fail boundary, overstating
     # what step-down can deliver. Passing-only slope captures the
     # gradual within-region improvement that step-down's neighboring
-    # CRFs will actually ride along.
+    # CRFs will ride along.
     high_passing = max(phase1_passing, key=lambda t: t.crf)
     low_passing = min(phase1_passing, key=lambda t: t.crf)
     if high_passing.crf == low_passing.crf:
@@ -365,7 +365,7 @@ def _calibration_says_phase3_hopeless(
     Algorithm:
     1. Compute ``delta = phase2_full_low - phase1_candidate_bridge``.
        The bridge is single p10 (when target is p5) or single p5 (p1
-       target) — same predictor fast-fail used.
+       target): same predictor fast-fail used.
     2. Fit the slope of single-window bridge vs CRF from existing
        Phase 1 trials.
     3. Extrapolate single-window bridge to ``crf_min``.
@@ -373,12 +373,12 @@ def _calibration_says_phase3_hopeless(
        This is the BEST achievable in the search range (lower CRF =
        more bits = higher VMAF).
     5. If predicted + ``safety_buffer`` is still below the cap-relaxed
-       target, no CRF in range will pass — declare hopeless.
+       target, no CRF in range will pass: declare hopeless.
 
     Returns ``False`` when the data isn't sufficient for a confident
     prediction (no Phase 2 trial, fewer than 2 Phase 1 trials, no
     matching Phase 1 candidate measurement, anomalous slope, no
-    bridge percentile available, etc.) — let the existing pipeline run.
+    bridge percentile available, etc.): let the existing pipeline run.
     """
     bridge_pct = _phase1_to_phase2_bridge_pct(target.target_vmaf_low_pct)
     if bridge_pct is None:
@@ -463,7 +463,7 @@ def _refinement_extrapolation_says_hopeless(
       lower CRF didn't improve quality). Could indicate noisy
       measurements; let bisection run.
     - The safety buffer is calibrated against typical encoder
-      saturation behavior — VMAF improvements taper off at very low
+      saturation behavior: VMAF improvements taper off at very low
       CRFs, so linear extrapolation tends to *over*-predict the value
       at crf_min. Buffer guards against the rare opposite case.
     """
@@ -486,7 +486,7 @@ def _refinement_extrapolation_says_hopeless(
     delta_crf = low_crf_trial.crf - high_crf_trial.crf
     slope = (low_crf_low - high_crf_low) / delta_crf
     if slope >= 0:
-        # Anomaly — lower CRF gave equal or worse percentile. Don't
+        # Anomaly: lower CRF gave equal or worse percentile. Don't
         # trust extrapolation.
         return False
 

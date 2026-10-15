@@ -11,12 +11,12 @@ run's target VMAF.
 
 Filters and ordering:
 
-- One ``PriorRun`` returned per distinct ``encoder_fingerprint`` —
+- One ``PriorRun`` returned per distinct ``encoder_fingerprint``:
   if the fingerprint dir holds multiple runs, the most recent
   (lexicographic-greatest ``run_id``) wins. Older runs are kept on
   disk for forensics but don't show up in delta render.
 - Crashed / partial runs (missing ``search_result``) are skipped
-  silently — they're still on disk, just not usable for comparison.
+  silently: they're still on disk, just not usable for comparison.
 - Optional ``exclude_fingerprint`` parameter so the current run's
   own fingerprint can be excluded from the result without the caller
   having to filter the list.
@@ -50,7 +50,7 @@ class PriorRun:
     ``{"codec_args": str, "filter_graph": str, "extras": dict}``
     from ``compute_encoder_fingerprint``. The ``extras`` sub-dict is
     the human-readable knobs the auto-delta diff label diffs against
-    — that's the single source of truth for "what does this encoder
+    that's the single source of truth for "what does this encoder
     config look like" (no separate ``encoder_config_summary``).
     """
 
@@ -64,14 +64,14 @@ class PriorRun:
     pair_identity: dict[str, Any]
     optimal_crf: int | None
     # Sorted (crf, p_low, bitrate_kbps) tuples for piecewise-linear
-    # bitrate interpolation. Only includes phase=probe/verify trials —
+    # bitrate interpolation. Only includes phase=probe/verify trials:
     # baseline (different bitrate regime) and reference (saturated)
     # are filtered out at parse time.
     probes: list[tuple[int, float, float]] = field(default_factory=list)
 
     @property
     def encoder_config(self) -> dict[str, Any]:
-        """Convenience accessor for ``signature["extras"]`` — the
+        """Convenience accessor for ``signature["extras"]``: the
         human-readable knobs the auto-delta diff label uses."""
         if isinstance(self.encode_args_signature, dict):
             extras = self.encode_args_signature.get("extras")
@@ -91,7 +91,7 @@ def load_prior_runs(
 
     Returns ``[]`` if ``pair_dir`` doesn't exist (first run on this
     pair) or contains no parseable run files. Pass ``exclude_fingerprint``
-    to filter out the current run's own fingerprint dir — typical
+    to filter out the current run's own fingerprint dir: typical
     use is to scan only OTHER configs for cross-config delta.
     """
     if not pair_dir.exists() or not pair_dir.is_dir():
@@ -116,7 +116,7 @@ def load_prior_runs(
     )
 
 
-def _parse_prior_run(jsonl_path: Path, low_pct: int) -> PriorRun | None:  # noqa: PLR0912 — straight-line record dispatch + diagnostic logging
+def _parse_prior_run(jsonl_path: Path, low_pct: int) -> PriorRun | None:  # noqa: PLR0912 (straight-line record dispatch + diagnostic logging)
     """Parse one run JSONL into a ``PriorRun``.
 
     Returns ``None`` for crashed / partial runs (no ``search_result``

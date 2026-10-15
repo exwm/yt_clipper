@@ -11,7 +11,7 @@ export interface CropChipProps {
 
 // A lone copy button beside the crop label: the label row has no room for the full crop string, so
 // the value span is hidden and doubles as the copy source. On hover, CSS shows that same span as a
-// custom tooltip bubble (with the data-tooltip hint below the value), so the tooltip ticks live as
+// custom tooltip bubble (with the data-tooltip hint below the value), so the tooltip updates live as
 // the value updates. A native title cannot do this: browsers snapshot it once and Chromium resets
 // the pending tooltip whenever the attribute changes, so per-frame updates keep it from ever showing.
 export function CropChip(p: CropChipProps): TemplateResult {

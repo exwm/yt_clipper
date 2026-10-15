@@ -57,7 +57,7 @@ export interface ShortcutDeps {
   hasMarkerPairs: () => boolean;
   /** True when the user is actively manipulating the crop overlay
    *  (either pan-drag or resize) AND the crop chart is the visible
-   *  chart — i.e. plain `A` will route to "add crop keyframe at
+   *  chart: i.e. plain `A` will route to "add crop keyframe at
    *  current time" instead of "add marker". Used by the contextual
    *  `Add Pt` hint chip's guard. */
   isInCropManipulationWithCropChart: () => boolean;
@@ -127,7 +127,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     {
       id: 'addMarker',
       description:
-        'Add marker at current time. During an active crop manipulation (pan-drag or resize) with the crop chart visible, instead drops a crop keyframe at the current time so multiple keyframes can be placed in one continuous gesture.',
+        'Add marker at current time. While dragging or resizing the crop with the crop chart visible, add a crop point at the current time instead.',
       displayKey: 'A',
       section: 'Markup',
       category: 'Marker Editing Shortcuts',
@@ -145,15 +145,15 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     {
       id: 'addCropChartPointDuringDrag',
       description:
-        'Drop a crop keyframe at the current time without releasing the crop manipulation (pan or resize). The currently-held point reverts to its last drop position; the new point becomes the live-edit target. For resize the per-keyframe variation is mostly meaningful in zoompan mode (pan-only mode keeps W/H equal across all points).',
+        'Add a crop point at the current time without releasing the crop drag or resize. The held point keeps its previous crop, and the new point is selected. In pan-only mode every point shares the crop size.',
       displayKey: 'A',
       section: 'Dynamic Effects',
       category: 'Crop Chart Shortcuts',
       essential: false,
-      // No binding — the routing happens in the `addMarker` dep, which
+      // No binding: the routing happens in the `addMarker` dep, which
       // detects the active crop manipulation (pan or resize) and
       // dispatches to `addChartPoint` instead of `addMarker`. This
-      // entry only exists to surface the contextual chip in the hints
+      // entry only exists to show the contextual chip in the hints
       // bar during either manipulation kind.
       binding: null,
       handler: null,
@@ -236,7 +236,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.undoMarker();
       },
       executable: true,
-      // Pair history undo/redo. Shift is the optional modifier — render
+      // Pair history undo/redo. Shift is the optional modifier: render
       // it parenthesized so one chord communicates both Z (undo) and
       // Shift+Z (redo) without doubling the chip width.
       hintLabel: 'Pair',
@@ -284,7 +284,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.undoMarkerPairChange();
       },
       executable: true,
-      // Edit history undo/redo. Only meaningful while a pair is open —
+      // Edit history undo/redo. Only meaningful while a pair is open:
       // kept off the bar in default / global-editor. Same parenthesized
       // Shift treatment as the Pair chip.
       hintLabel: 'Edit',
@@ -344,7 +344,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       },
       guard: markerGuard,
       executable: true,
-      // No standalone chip — folded into `moveStartMarkerToCurrentTime`'s
+      // No standalone chip: folded into `moveStartMarkerToCurrentTime`'s
       // `Set start/end` chip via the `Q/A` chord notation.
     },
     {
@@ -423,7 +423,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       // the three modes (jump-only / select-only / select+jump).
       hintLabel: 'Nav',
       hintDisplayKey: 'Ctrl + Left + Right',
-      // Only surfaced in `default` (no pair selected yet) — once a pair is
+      // Only shown in `default` (no pair selected yet): once a pair is
       // open, navigation is less central than the pair-scoped chips, and
       // the user already knows pairs exist.
       hintContexts: ['default'],
@@ -589,11 +589,11 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       executable: true,
       hintLabel: 'Draw',
       // Intentionally not in `hover-crop`: Draw is a "start a new crop"
-      // action, and surfacing it on crop-hover would split the CROP group
+      // action, and showing it on crop-hover would split the CROP group
       // across the hover and state lanes (Draw classifies as `hover`,
       // Preview stays in state), creating two visible CROP groups when only
       // one belongs. State-lane visibility via marker-selected/global-editor
-      // is enough — the user is one glance away from the chip regardless.
+      // is enough: the user is one glance away from the chip regardless.
       hintContexts: ['marker-selected', 'global-editor'],
       hintOrder: 140,
       hintGroup: 'Crop',
@@ -657,7 +657,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     },
     // ===== Mid-manipulation chips (crop-dragging / crop-resizing) =====
     // These mirror the modifier behaviors evaluated inside the active
-    // pointermove handlers. They are pure hints — no binding — surfaced
+    // pointermove handlers. They are pure hints (no binding) shown
     // once Ctrl+click has already begun a manipulation.
     {
       id: 'dragCropMove',
@@ -704,7 +704,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     {
       id: 'cropPanZoomWheel',
       description:
-        'Scroll the mouse wheel during a crop pan-drag to scale the crop around its center. Edges expand or contract uniformly so the center stays fixed. In pan-only mode the new size propagates to every crop point (mode invariant); in zoompan mode only the dragged point changes size.',
+        'Scroll the mouse wheel during a crop pan-drag to scale the crop around its center. In pan-only mode every crop point gets the new size. In zoompan mode only the dragged point changes size.',
       displayKey: 'Wheel',
       section: 'Markup',
       category: 'Cropping Shortcuts',
@@ -793,7 +793,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     {
       id: 'toggleReframe',
       description:
-        'Toggle reframe: the player shows ONLY the current crop, scaled to fill it with the rest clipped to black, so it reads as the output video as the crop pans/zooms over time. Ctrl+wheel zooms the crop. Viewing aid only.',
+        'Toggle reframe mode. The current crop fills the player and everything outside it is black, a preview of the clip as the crop pans and zooms. Ctrl+wheel zooms the crop. The preview never changes the output.',
       displayKey: 'V',
       section: 'Markup',
       category: 'Cropping Shortcuts',
@@ -811,7 +811,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     {
       id: 'toggleZoomMinimap',
       description:
-        'Show or hide the reframe navigator minimap. The minimap is the whole-frame thumbnail you drag to move/resize the crop while reframed; closing it reclaims the screen space.',
+        'Show or hide the reframe navigator minimap. It shows the whole video with the crop outlined. Ctrl+drag on it to move or resize the crop.',
       displayKey: 'Shift+V',
       section: 'Markup',
       category: 'Cropping Shortcuts',
@@ -921,7 +921,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       executable: false,
       // Up/Down adjust the crop component the text cursor is on
       // (x | y | w | h separated by `:` in the crop string). Left/Right
-      // are NOT intercepted — they're just standard text-cursor movement
+      // are NOT intercepted: they're just standard text-cursor movement
       // used to position over the target component. The popover documents
       // the step-size modifiers from `cropChangeAmount`.
       hintLabel: 'Adjust at cursor',
@@ -958,7 +958,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
-      // Note: this applies to the arrow-key crop adjustment MODE on the
+      // This applies to the arrow-key crop adjustment MODE on the
       // video overlay (toggled via Alt+X / `toggleArrowKeyCropAdjustment`),
       // NOT to the crop input field. Left off-bar pending the wiring of
       // an "arrow-key-crop-adjust active" hint context.
@@ -1059,7 +1059,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.toggleCropChartLooping();
       },
       executable: true,
-      // Folded into the `toggleAllPreviews` Previews chip popover — sits
+      // Folded into the `toggleAllPreviews` Previews chip popover: sits
       // next to the other C-family preview/loop toggles.
     },
     {
@@ -1181,7 +1181,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       hintContexts: ['marker-selected'],
       // Joins the Markers group (whose label is suppressed in marker-
       // selected mode because it matches the MARKERS mode badge, so the
-      // group reads as "unnamed" visually). Sits between Edit (130, the
+      // group looks "unnamed"). Sits between Edit (130, the
       // pair overrides editor) and Nav (135) so the per-pair preview
       // toggles cluster with the other per-pair editing actions.
       hintOrder: 132,
@@ -1211,7 +1211,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       executable: true,
       // Anchor chip for the R-key rotation family. The counter-clockwise
       // variant folds into this chip's popover. Hover-video because
-      // rotation toggles apply to the player preview directly — no marker
+      // rotation toggles apply to the player preview directly: no marker
       // pair required.
       hintLabel: 'Rotate',
       hintDisplayKey: 'R',
@@ -1249,7 +1249,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.toggleBigVideoPreviews();
       },
       executable: true,
-      // Folded into the `toggleAllPreviews` Previews chip popover — it's
+      // Folded into the `toggleAllPreviews` Previews chip popover: it's
       // a preview-rendering toggle, even though it shares the R key with
       // the rotation family rather than the C-family preview toggles.
     },
@@ -1296,7 +1296,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     },
 
     // ===== Playback & Export / Saving and Loading =====
-    // DATA group: Save, Load, Copy, Share — visible in resting primaries
+    // DATA group: Save, Load, Copy, Share, visible in resting primaries
     // (default + marker-selected). Save loses its `always` persistence so
     // it can group cohesively with its siblings; the bar's mid-action modes
     // are short-lived enough that this is an acceptable tradeoff.
@@ -1346,7 +1346,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
         deps.copyShareableUrl();
       },
       executable: true,
-      // Gated by the `shareLink` flag — when off, both the Share chip
+      // Gated by the `shareLink` flag: when off, both the Share chip
       // in the Data group AND the Shift+S key binding skip via the
       // shared guard check in `hints-bar.ts` and `hotkey-engine.ts`.
       // Flip in `feature-flags.ts` to re-enable.
@@ -1410,7 +1410,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     {
       id: 'chartAddPointAtCurrentTime',
       description:
-        'Add chart point at current time. When fired mid-drag or mid-resize of a crop point, the held point reverts to its previous drop position and the new keyframe captures the current visual crop — drop multiple keyframes in one continuous gesture for rapid dynamic-crop tracking (per-keyframe size variation only applies in zoompan mode for resize).',
+        'Add a chart point at the current time. During a crop drag or resize, the held point keeps its previous crop and the new point gets the current crop. Press it at each subject position during one drag to track a moving subject.',
       displayKey: 'Alt + A',
       section: 'Dynamic Effects',
       category: 'General Chart Shortcuts',
@@ -1535,7 +1535,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
-      // No standalone chip — folded into the `toggleChartLoop` "Loop"
+      // No standalone chip: folded into the `toggleChartLoop` "Loop"
       // expandable popover below, where it sits beside the toggle binding.
     },
     {
@@ -1638,8 +1638,8 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       handler: null,
       executable: false,
       // Anchor chip for the wheel-driven step action (both Up and Down).
-      // Each tick is a half-step — flipping start/end mode in place or
-      // advancing/retreating to the next/prev point — so two ticks add up
+      // Each tick is a half-step: flipping start/end mode in place or
+      // advancing/retreating to the next/prev point: so two ticks add up
       // to one full point of section movement.
       hintLabel: 'Step Pt',
       hintDisplayKey: 'Alt + Wheel',
@@ -1710,7 +1710,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
-      // Surfaced in the crop-input-focused context — the action depends on
+      // Shown in the crop-input-focused context: the action depends on
       // the text cursor's position inside the crop input (which component
       // is targeted is read from where the caret sits in `x:y:w:h`).
       hintLabel: 'Propagate Component',

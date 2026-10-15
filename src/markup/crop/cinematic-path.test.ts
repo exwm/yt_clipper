@@ -180,7 +180,7 @@ describe('solver on a long multi-point clip', () => {
   it('converges to a deliberate (small) segment list, not one per grid sample', () => {
     // 12 points over 20s (~200 grid samples). The adaptive-rho ADMM must converge to a handful of
     // segments (a real wall-clock timing assertion is too flaky under parallel test load; the live
-    // bake time is surfaced in the flash message instead).
+    // bake time is shown in the flash message instead).
     const n = 12;
     const cropMap: CropPoint[] = Array.from({ length: n }, (_v, i) => ({
       x: (i * 20) / (n - 1),

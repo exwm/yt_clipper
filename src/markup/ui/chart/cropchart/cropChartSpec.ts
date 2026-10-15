@@ -40,8 +40,8 @@ export function setCurrentCropPoint(
   mode?: cropChartMode,
   // The reframe per-frame loop selects the keyframe under the playhead. A full
   // renderSpeedAndCropUI per frame is a heavy synchronous re-render that stutters the
-  // preview (output is unaffected — it has no chart). Pass `false` to update only the
-  // selection STATE (index/section) and skip the chart entirely — even a light
+  // preview (output is unaffected: it has no chart). Pass `false` to update only the
+  // selection STATE (index/section) and skip the chart entirely: even a light
   // chart.update glitched point rendering under frame-stepping's rapid updates. The
   // chart's highlight refreshes on the next full render; the video keyframe indicator
   // already shows on/between state live.
@@ -317,7 +317,7 @@ const cropSectionPlugin = {
       if (info.type !== 'pan' && info.type !== 'panzoom') continue;
       const mag = Math.hypot(info.panX, info.panY);
       if (mag < 1e-6) continue;
-      // Constant red, matching the default crop point color, so the direction reads at any speed.
+      // Constant red, matching the default crop point color, so the direction shows at any speed.
       drawPanArrowhead(ctx, v.x, v.y, info.panX / mag, info.panY / mag, v.radius ?? 4, 'red');
     }
   },

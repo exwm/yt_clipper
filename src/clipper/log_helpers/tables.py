@@ -24,7 +24,7 @@ def render_rich_table_to_text(table: Table, *, width: int | None = None) -> str:
     """Render a ``rich.Table`` to a plain-text string.
 
     Output has no ANSI codes, no terminal-detection wrapping, and a
-    fixed width (defaults to 120) so the same table reads identically
+    fixed width (defaults to 120) so the same table looks the same
     in the live console (where the logger applies the level color
     on top), the report stream, and the on-disk log file.
 

@@ -286,28 +286,28 @@ export function getEasedValue(
 // just dropped requests while ``video.seeking`` was true, which is fine
 // for one-shot callers but broken for drag handlers that fire 10-100
 // requests per second (crop-point drag, marker drag, Alt+Drag video
-// scrub). With drops, only one in every N requests actually landed —
+// scrub). With drops, only one in every N requests landed:
 // the user would let go of a drag and the video would be stuck at some
 // earlier intermediate position; "shifting" again was needed to break
 // the stuck state.
 //
 // Now we coalesce instead. While a seek is in flight, the latest
 // requested target lives in a single pending slot; when the active
-// seek finishes (``seeked`` event), the pending target is flushed —
+// seek finishes (``seeked`` event), the pending target is flushed:
 // "latest write wins". The decision logic is the pure core in
 // seek-coalescer.ts; this file is the shell that holds the state and
 // applies its effects. On top of that:
 //
 //   - A 1s timer bounds the wait: a normal seek settles well within it
 //     and its ``seeked`` flushes the pending. The earlier 250ms was too
-//     short — a slow seek (YouTube buffering mid-scrub) outran it and
+//     short: a slow seek (YouTube buffering mid-scrub) outran it and
 //     the pending was dropped, stranding a fast drag at an intermediate
 //     frame. After a full second still seeking we give up rather than
 //     queue indefinitely.
 //
 //   - A ``seeking`` event listener detects external seeks (YouTube
 //     progress bar, native keyboard shortcuts, ad insertion, etc.)
-//     and discards any pending target — so an external seek can't be
+//     and discards any pending target, so an external seek can't be
 //     snap-backed by a stale pending from our coalescer.
 
 let pendingSeekTime: number | null = null;

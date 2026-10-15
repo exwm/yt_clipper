@@ -63,7 +63,7 @@ export interface VideoTransformParams {
  * need this SAME element: using different ones desyncs the video's fitted box from the reframe
  * target/canvas size. That happened on the generic platform specifically, because
  * appState.hooks.videoContainer's getBoundingClientRect() there includes the CSS padding-bottom
- * reserved for the control bar, while the offset parent's clientHeight (used elsewhere) excludes it —
+ * reserved for the control bar, while the offset parent's clientHeight (used elsewhere) excludes it:
  * the video's fitted box came out taller than the reframe target, so the reframed crop rendered
  * smaller than the full player area, leaving a visible border.
  */

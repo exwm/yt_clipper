@@ -9,7 +9,7 @@
 
 import { CropPath, CropPathSegment, CropPoint } from '../@types/yt_clipper';
 
-// Bump when the solver math or grid changes so old baked paths read as stale and recompute.
+// Bump when the solver math or grid changes so old baked paths count as stale and recompute.
 export const CINEMATIC_SOLVER_VERSION = 2;
 
 // Grid the path is sampled on. The grid only quantizes where holds/pans start (the rendered output
@@ -27,7 +27,7 @@ const WEIGHTS: [number, number, number] = [10, 1, 100];
 // px). Sub-pixel, so the segmentation is invisible.
 const SEGMENT_FIT_TOLERANCE_PX = 0.4;
 
-// Sensible nonzero defaults so the mode is not a no-op out of the box. Position margin in cropRes
+// Nonzero defaults, so the mode changes the path without tuning. Position margin in cropRes
 // px, zoom margin as a fraction of the keyframed size.
 export const DEFAULT_CINEMATIC_MARGIN = 40;
 export const DEFAULT_CINEMATIC_ZOOM_MARGIN = 0.08;

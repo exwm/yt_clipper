@@ -29,7 +29,7 @@ function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v;
 }
 
-/** True once magnified beyond a tiny epsilon (so float drift near 1x reads as fit). */
+/** True once magnified beyond a tiny epsilon (so float drift near 1x counts as fit). */
 export function isZoomedViewport(v: ZoomViewport): boolean {
   return v.scale > 1.0001;
 }
@@ -37,7 +37,7 @@ export function isZoomedViewport(v: ZoomViewport): boolean {
 /**
  * Clamp scale to [1, maxScale] and the focal point so the magnified frame always
  * fully covers the viewport (no panning past the edges). At scale 1 the only
- * valid focal point is the centre, so pan collapses to (0.5, 0.5) — the fit snap.
+ * valid focal point is the centre, so pan collapses to (0.5, 0.5): the fit snap.
  */
 export function clampViewport(v: ZoomViewport, maxScale = MAX_SCALE): ZoomViewport {
   const scale = clamp(v.scale, 1, Math.max(1, maxScale));
@@ -121,7 +121,7 @@ export function reframeFillScale(
 /**
  * Apply the crop-pan axis locks to a drag delta, shared by the video pan and the
  * minimap. Shift locks the X axis (vertical-only pan), Alt locks the Y axis
- * (horizontal-only pan) — independently, so holding both locks both axes. With
+ * (horizontal-only pan): independently, so holding both locks both axes. With
  * the init+delta pan model that zeroes the whole delta, which snaps back to the
  * drag start, letting the user cancel a pan by engaging both then releasing.
  */

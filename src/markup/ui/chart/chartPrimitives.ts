@@ -10,7 +10,7 @@ export const grey = (opacity: number) => `rgba(50, 50, 50, ${opacity})`;
 
 // Crop chart section base colors (RGB), from yt_clipper's accent palette: rose (pan), amber (zoom),
 // purple (pan+zoom). cropSectionColor lerps from grey toward these by speed and sets the opacity, so a
-// slow section reads grey and faint, fading into the "no movement" line.
+// slow section looks grey and faint, fading into the "no movement" line.
 export const cropSectionStaticRgb: readonly [number, number, number] = [120, 120, 120];
 export const cropSectionPanRgb: readonly [number, number, number] = [214, 80, 160];
 export const cropSectionZoomRgb: readonly [number, number, number] = [245, 166, 35];

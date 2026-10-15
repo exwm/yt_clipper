@@ -37,7 +37,7 @@ from clipper.ytc_logger import Subsystem, make_subsystem_logger
 logger = make_subsystem_logger(Subsystem.PREVIEWS)
 
 # ---------------------------------------------------------------------------
-# Encoder constants — decisions and sources
+# Encoder constants: decisions and sources
 # ---------------------------------------------------------------------------
 
 WEBP_FILE_EXTENSION = "webp"
@@ -53,7 +53,7 @@ WEBP_PREVIEW_DIM_TIERS = DEFAULT_PREVIEW_DIM_TIERS
 # libwebp quality is on an ASCENDING 0-100 scale (opposite of AVIF CRF).
 # Default 75 is tuned for still photography. For animated previews at reduced
 # resolution the 60-80 band is an intentionally narrow "safe for most inputs"
-# range — lower values push file size down at the cost of visible block/ring
+# range: lower values push file size down at the cost of visible block/ring
 # artifacts; higher values produce files that approach the main clip in size.
 # The band sits ~5 points higher than a method-4 encode would justify because
 # method-6 (see WEBP_PREVIEW_COMPRESSION_LEVEL) gives back the size penalty.
@@ -78,7 +78,7 @@ WEBP_PREVIEW_PRESET = "picture"
 
 # -compression_level is libwebp's method (0=fastest/largest, 6=slowest/
 # smallest). Level 6 runs extra rate-distortion optimization passes, buying
-# back most of the size gap vs. AVIF — real-world cwebp benchmarks report
+# back most of the size gap vs. AVIF: real-world cwebp benchmarks report
 # ~5-10% smaller files at equal quality vs. level 4. We pay this because WebP
 # is the compatibility-first preview format (older Safari, webmail, Firefox
 # < 113); users who opt in are already choosing the "slower but embeds
@@ -93,7 +93,7 @@ WEBP_PREVIEW_COMPRESSION_LEVEL = 6
 WEBP_PREVIEW_LOOP = 0
 
 # 8-bit yuv420p is WebP's native format. Animated WebP does not support 10-bit
-# or HDR — this is a hard format limitation (VP8 is 8-bit only), not a
+# or HDR: this is a hard format limitation (VP8 is 8-bit only), not a
 # Phase-1 tradeoff like on AVIF.
 # Source: https://developers.google.com/speed/webp/docs/riff_container
 WEBP_PREVIEW_PIX_FMT = "yuv420p"
@@ -110,7 +110,7 @@ WEBP_PREVIEW_PIX_FMT = "yuv420p"
 #   Safari 14+ (Sep 2020, macOS Big Sur)
 #   Edge (Chromium, matches Chrome)
 # Broader than animated AVIF (Chrome 85/2020, Firefox 113/2023, Safari 16.4/
-# 2023) — WebP wins when the embed target is webmail or older Safari.
+# 2023): WebP wins when the embed target is webmail or older Safari.
 # Source: https://caniuse.com/webp-animation
 
 
@@ -145,7 +145,7 @@ def pickPreviewQuality(
 
     2. Source CRF as a quality ceiling, not a dial (generational-loss).
        When the source is already heavily compressed (sourceCrf >= 35), don't
-       waste bits faithfully reproducing the source's existing artifacts —
+       waste bits faithfully reproducing the source's existing artifacts:
        cap quality at BASE so the preview stays compact.
        Sources:
          https://goughlui.com/2016/11/22/video-compression-x264-crf-generational-loss-testing/
@@ -154,7 +154,7 @@ def pickPreviewQuality(
     3. Preview absolute long edge (secondary, weak signal).
        Small previews are viewed at small display sizes where a slight
        quality drop is not visible; larger previews benefit from mild
-       tightening. Kept small — streaming-guide tables are calibrated for
+       tightening. Kept small: streaming-guide tables are calibrated for
        1:1 primary delivery, not preview/embed use.
        Source: https://developers.google.com/speed/webp/docs/using#quality_vs_size
     """
@@ -262,13 +262,12 @@ def makeWebpPreview(
         return None
 
     if isHdrSource(mps):
-        # Animated WebP is 8-bit sRGB-only — this is a hard format limitation
+        # Animated WebP is 8-bit sRGB-only: this is a hard format limitation
         # (VP8 is 8-bit only), not a Phase-1 tradeoff we can flip. The ffmpeg
         # libwebp encoder implicitly converts HDR -> SDR, which can produce
         # washed/crushed colors. Log so this isn't a surprise to the user.
         logger.notice(
-            "Source color metadata indicates HDR; WebP is 8-bit SDR-only and "
-            "HDR content will be converted implicitly (colors may look flat).",
+            "The source is HDR. WebP is 8-bit SDR only, so the preview colors may look flat.",
         )
 
     previewWidth, previewHeight = computePreviewDimensions(
@@ -336,8 +335,7 @@ def mergeWebpPreviews(
     del cp, previewPaths, mergedPreviewPath, overwrite
     logger.notice(
         f"Skipped {WEBP_MERGED_PREVIEW_LABEL}: "
-        "animated-WebP concat-copy is not supported in this build. "
-        "Per-clip .preview.webp files are still produced; the merged main "
-        "clip is the merged-visual fallback.",
+        "merging animated WebP previews is not supported. "
+        "Each clip still gets its own .preview.webp file.",
     )
     return None

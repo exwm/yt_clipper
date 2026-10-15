@@ -756,7 +756,7 @@ def getFrameTimeBetweenLeftFrames(time: float, fps: float) -> float:
 
     A keyframe's time is user-placed and usually overshoots its actual frame. Ending the ease
     just before that frame keeps the normalized ease time reaching 1 by the time playback hits
-    the frame, so the transition finishes on it. This matters most for instant ease in, whose
+    the frame, so the transition finishes on it. It shows most for instant ease in, whose
     jump must land on that frame. Landing between frames instead of snapping to a frame boundary
     also avoids float precision issues.
     """
@@ -773,7 +773,7 @@ def getEaseSectionDuration(
     fps: float,
 ) -> Optional[float]:
     realDuration = endTime - startTime
-    # Genuinely zero/negative duration sections (e.g. redundant hold point pairs) have no
+    # Zero/negative duration sections (e.g. redundant hold point pairs) have no
     # frames to render, so skip them.
     if realDuration <= 0:
         return None

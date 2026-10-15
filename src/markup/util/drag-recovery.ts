@@ -8,7 +8,7 @@
  *  2. On end, release the capture and detach the listeners.
  *
  * Layers 1+2 (captured-target listeners + `pointercancel`) handle the vast
- * majority of edge cases the Pointer Events spec describes — devtools
+ * majority of edge cases the Pointer Events spec describes: devtools
  * stealing focus, touch interruption, etc. But there is a residual class of
  * situations where neither `pointerup` nor `pointercancel` fires for our
  * captured target: the user alt-tabs away while mid-drag, the OS reassigns
@@ -24,7 +24,7 @@
  *   // ...later, on normal pointerup:
  *   unregister();
  *
- * The cleanup must be idempotent — it may be invoked by either the normal
+ * The cleanup must be idempotent: it may be invoked by either the normal
  * end path or the recovery fallback, but not both for the same drag (the
  * unregister call removes it from the registry).
  */
@@ -51,7 +51,7 @@ export function releaseAllActiveDrags(): void {
     try {
       cleanup();
     } catch (err) {
-      // A buggy cleanup must not block the others. Surface it on the
+      // A buggy cleanup must not block the others. Report it on the
       // console rather than letting it tear down the recovery loop.
       console.warn('[drag-recovery] cleanup threw', err);
     }
@@ -67,7 +67,7 @@ export function registerActiveDragCleanup(cleanup: () => void): () => void {
 }
 
 /** Test-only: clears registry state so unit tests start clean. Don't call
- *  from production code paths — drag handlers should always own their own
+ *  from production code paths: drag handlers should always own their own
  *  unregister closure. */
 export function _resetDragRecoveryForTests(): void {
   activeCleanups.clear();

@@ -1,14 +1,14 @@
-"""Sidecar writes — per-fingerprint config + per-final-encode meta.
+"""Sidecar writes: per-fingerprint config + per-final-encode meta.
 
 Two distinct sidecars live in this module:
 
-1. **Per-fingerprint ``config.json``** — written into each
+1. **Per-fingerprint ``config.json``**: written into each
    ``<title>-pair{N}/<encoder_fingerprint>/`` directory. Describes
    the encoder configuration that produced this fingerprint.
    Human-readable provenance, plus the encode_args_signature for
    hash-collision defense in the cache gate.
 
-2. **Per-final-encode ``<output>.encode-meta.json``** — written
+2. **Per-final-encode ``<output>.encode-meta.json``**: written
    next to each final ``.webm`` / ``.mp4`` output. Captures the
    encoder fingerprint + picked CRF the file was produced under.
    Lets the orchestrator detect on subsequent runs whether an
@@ -40,13 +40,13 @@ def write_config_sidecar(
 ) -> Path:
     """Write the per-fingerprint ``config.json`` sidecar (idempotent).
 
-    If the sidecar already exists, leaves it alone — fingerprints are
+    If the sidecar already exists, leaves it alone: fingerprints are
     1:1 with signatures, so the existing file is correct and its
-    ``first_seen_utc`` is the load-bearing field we don't want to
+    ``first_seen_utc`` is the field we don't want to
     rewrite. If absent, writes a fresh one stamped with the current
     UTC timestamp.
 
-    Note: ``algorithm_version`` is intentionally NOT included here.
+    ``algorithm_version`` is intentionally NOT included here.
     A given fingerprint dir might host runs across multiple algorithm
     versions (the fingerprint is encoder-only), so the first-seen
     version would go stale on later re-uses. Per-run history records
@@ -114,7 +114,7 @@ def write_encode_meta_sidecar(
     """Write ``<output_path>.encode-meta.json`` after a successful
     final encode.
 
-    Always overwrites — the file's bytes are fresh, so the sidecar
+    Always overwrites: the file's bytes are fresh, so the sidecar
     must reflect the run that produced them. ``finalized_utc`` is
     the timestamp the sidecar was written (i.e. when the encode
     completed). Unlike the per-fingerprint config sidecar, this one
@@ -145,7 +145,7 @@ def check_encode_meta_sidecar(
 ) -> EncodeMetaCheck:
     """Compare the existing output's sidecar against current expectations.
 
-    No I/O side effects — just reads and classifies. Caller decides
+    No I/O side effects: just reads and classifies. Caller decides
     what to log and whether to encode.
     """
     if not output_path.is_file():
