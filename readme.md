@@ -156,7 +156,7 @@ First ensure the script is active on the page by checking your user script exten
 
   ![yt_clipper_command_palette](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_command_palette.png)
 
-A shortcuts reference can also be toggled by clicking the `full reference` button in the footer of the command palette.
+A shortcuts reference can also be toggled by clicking the **All shortcuts** button in the footer of the command palette.
 
 **Alt+F:** Toggle the contextual hints bar at the bottom of the window. It shows shortcut chips for what is under the cursor or what you are doing.
 
@@ -812,7 +812,7 @@ There is an installation that does not require the dependencies below.
 
 ## Updating
 
-The `markup script` updates itself when it was installed from [Greasy Fork](https://greasyfork.org/en/scripts/543460-yt-clipper).
+The `markup script` updates itself when it was installed from [Greasy Fork](https://greasyfork.org/en/scripts/543460-yt-clipper). Click **Releases** at the bottom right of the command palette (**Shift+E**) to see what changed. The version you have is shown next to it.
 
 To check for a newer `clipper script`, run `yt_clipper_check_for_updates.bat` (Windows) or `yt_clipper_check_for_updates` (Mac), or pass `--check-for-updates`. To update it:
 

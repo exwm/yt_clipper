@@ -81,6 +81,8 @@ export interface CommandPaletteOptions {
   maxLastSearches?: number;
   maxRecentCommands?: number;
   onOpenReference?: () => void;
+  /** Shown in the footer, e.g. "5.49.0". */
+  version?: string;
   onOpen?: () => void;
   onClose?: () => void;
 }

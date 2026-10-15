@@ -81,6 +81,7 @@ export class CommandPalette {
   private preserveOrder = false;
   private autoPause = false;
   private onOpenReference: (() => void) | null = null;
+  private version: string | null = null;
   private onOpenCallback: (() => void) | null = null;
   private onCloseCallback: (() => void) | null = null;
   private selectCallback: SelectCallback | null = null;
@@ -99,6 +100,7 @@ export class CommandPalette {
     this.maxLastSearches = Math.max(0, options.maxLastSearches ?? DEFAULT_MAX_LAST_SEARCHES);
     this.maxRecentCommands = Math.max(0, options.maxRecentCommands ?? DEFAULT_MAX_RECENT_COMMANDS);
     this.onOpenReference = options.onOpenReference ?? null;
+    this.version = options.version ?? null;
     this.onOpenCallback = options.onOpen ?? null;
     this.onCloseCallback = options.onClose ?? null;
     this.keydownHandler = (e) => {
@@ -548,7 +550,7 @@ export class CommandPalette {
       refLink.type = 'button';
       refLink.className = 'cmdp-footer-reference';
       refLink.title = 'Open the full shortcuts reference table';
-      refLink.textContent = '? full reference';
+      refLink.textContent = 'All shortcuts';
       refLink.addEventListener('mousedown', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -558,14 +560,21 @@ export class CommandPalette {
       });
       footerLinks.appendChild(refLink);
     }
-    const homeLink = document.createElement('a');
-    homeLink.className = 'cmdp-footer-reference';
+    const releasesLink = makeFooterLink(
+      'Releases',
+      'yt_clipper releases and their notes on GitHub'
+    );
+    releasesLink.href = 'https://github.com/exwm/yt_clipper/releases';
+    footerLinks.appendChild(releasesLink);
+    const homeLink = makeFooterLink('Repo', 'yt_clipper on GitHub');
     homeLink.href = 'https://github.com/exwm/yt_clipper';
-    homeLink.target = '_blank';
-    homeLink.rel = 'noopener noreferrer';
-    homeLink.title = 'yt_clipper on GitHub';
-    homeLink.textContent = 'GitHub';
     footerLinks.appendChild(homeLink);
+    if (this.version) {
+      const version = document.createElement('span');
+      version.className = 'cmdp-footer-version cmdp-help-text';
+      version.textContent = `v${this.version}`;
+      footerLinks.appendChild(version);
+    }
     footer.appendChild(footerLinks);
     palette.appendChild(footer);
 
@@ -1167,6 +1176,16 @@ function ensureStyles(): void {
   style.id = STYLE_ELEMENT_ID;
   style.textContent = paletteCss;
   document.head.appendChild(style);
+}
+
+function makeFooterLink(label: string, title: string): HTMLAnchorElement {
+  const link = document.createElement('a');
+  link.className = 'cmdp-footer-reference';
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.title = title;
+  link.textContent = label;
+  return link;
 }
 
 function makeFooterHint(key: string, label: string): HTMLElement {

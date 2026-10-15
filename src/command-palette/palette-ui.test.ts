@@ -185,20 +185,33 @@ describe('CommandPalette — build() chrome structure', () => {
     expect(pill.textContent).toContain('General');
   });
 
-  test('footer renders hint kbds and GitHub link', () => {
+  test('footer renders hint kbds, the Releases and Repo links, and the version last', () => {
     const container = setupContainer();
-    const palette = makePalette(makeRegistry([makeDef({ id: 'a' })]), { container });
+    const palette = makePalette(makeRegistry([makeDef({ id: 'a' })]), {
+      container,
+      version: '5.49.0',
+    });
     palette.open();
     const footer = qs(container, '.cmdp-footer');
     expect(footer.textContent).toContain('navigate');
     expect(footer.textContent).toContain('execute');
     expect(footer.textContent).toContain('close');
-    const github = qs<HTMLAnchorElement>(footer, 'a.cmdp-footer-reference');
-    expect(github.href).toBe('https://github.com/exwm/yt_clipper');
-    expect(github.target).toBe('_blank');
+    const footerLinks = qs(footer, '.cmdp-footer-links');
+    expect(footerLinks.lastElementChild?.textContent).toBe('v5.49.0');
+    const links = qsAll<HTMLAnchorElement>(footer, 'a.cmdp-footer-reference');
+    expect(links.map((link) => [link.textContent, link.href, link.target])).toEqual([
+      ['Releases', 'https://github.com/exwm/yt_clipper/releases', '_blank'],
+      ['Repo', 'https://github.com/exwm/yt_clipper', '_blank'],
+    ]);
   });
 
-  test('full reference link appears only when onOpenReference provided', () => {
+  test('footer shows no version unless one is given', () => {
+    const container = setupContainer();
+    makePalette(makeRegistry([makeDef({ id: 'a' })]), { container }).open();
+    expect(container.querySelector('.cmdp-footer-version')).toBeNull();
+  });
+
+  test('All shortcuts button appears only when onOpenReference provided', () => {
     const container1 = setupContainer();
     makePalette(makeRegistry([makeDef({ id: 'a' })]), { container: container1 }).open();
     expect(container1.querySelector('button.cmdp-footer-reference')).toBeNull();
