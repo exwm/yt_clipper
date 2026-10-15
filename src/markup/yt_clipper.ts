@@ -64,7 +64,7 @@ import {
 import { toggleCropPreview } from './crop/crop-preview';
 import { CommandPalette, HotkeyEngine, ShortcutRegistry } from '../command-palette';
 import { createShortcutDefinitions } from './shortcut-definitions';
-import { appState, VideoElement, YTPlayer } from './appState';
+import { __version__, appState, VideoElement, YTPlayer } from './appState';
 import { captureFrame, saveCapturedFrames } from './frame-capture';
 import { rotateVideo, toggleBigVideoPreviews, refreshRotatedVideoCSS } from './video-rotation';
 import { toggleGammaPreview, toggleFadeLoopPreview, toggleAllPreviews } from './preview-toggles';
@@ -417,6 +417,7 @@ export function initShortcutSystem() {
   let wasPausedBeforeOpen = false;
   commandPalette = new CommandPalette(shortcutRegistry, {
     zIndex: 99999,
+    version: __version__,
     onOpenReference: () => {
       toggleShortcutsTable();
     },
