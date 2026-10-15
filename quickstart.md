@@ -8,8 +8,8 @@ For a video quickstart check out this video: <https://imgur.com/a/gQ4KItt>
 [**Full Instructions**](https://github.com/exwm/yt_clipper).
 
 1) First install a user script extension (preferably Tampermonkey) for your browser (preferably chrome).
-   - See [this article](https://openuserjs.org/about/Userscript-Beginners-HOWTO) for more information.
-2) Next install the `markup script` component of `yt_clipper` by clicking [here](https://openuserjs.org/install/elwm/yt_clipper.user.js).
+   - See [this article](https://greasyfork.org/en/help/installing-user-scripts) for more information.
+2) Next install the `markup script` component of `yt_clipper` from [its Greasy Fork page](https://greasyfork.org/en/scripts/543460-yt-clipper). Your user script extension keeps it updated from there.
 3) Install the standalone `clipper script` component of `yt_clipper` by visiting [Clipper Script Installation](https://github.com/exwm/yt_clipper#clipper-script-installation).
 4) Visit a YouTube video page. Check that the `markup script` is [active on the page](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_active_on_page.png). Refresh the page if it is not active.
 5) Press **Alt+Shift+A** to activate the `markup script` and its hotkeys. You should see a [flash message](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_hotkeys_activated.png) below the video.
@@ -25,5 +25,5 @@ For a video quickstart check out this video: <https://imgur.com/a/gQ4KItt>
    - Find generated webms in `yt_clipper/webms/title-suffix` folder where `title-suffix` is the file name stem of the markers data file.
    - See [this section](https://github.com/exwm/yt_clipper#additional-helper-scripts) for details on the other helper scripts available.
 8) See the [full instructions](https://github.com/exwm/yt_clipper) for more detail and advanced usage as well as changelogs.
-9) Check the [GitHub Releases](https://github.com/exwm/yt_clipper/releases) and the [changelog](https://github.com/exwm/yt_clipper/blob/master/changelog.md) for updates as there is not yet an automated mechanism.
+9) The `markup script` updates itself. The `clipper script` tells you when a new version is out. See [Updating](https://github.com/exwm/yt_clipper#updating) for how to update it.
 10) Join the [`yt_clipper` discord server](https://discord.gg/5RVGNCU) if you want further help or want to contribute.
