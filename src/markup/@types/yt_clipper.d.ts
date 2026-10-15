@@ -155,7 +155,7 @@ interface CropPathSegment {
 }
 
 interface CropPath {
-  // CINEMATIC_SOLVER_VERSION at bake time; a different version reads as stale.
+  // CINEMATIC_SOLVER_VERSION at bake time; a different version counts as stale.
   version: number;
   // The margins the path was solved with (cropRes px for pos, fraction for zoom), echoed for the UI.
   margin: { pos: number; zoom: number };

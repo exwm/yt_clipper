@@ -2,14 +2,14 @@
 
 Two fingerprints answer two distinct questions:
 
-- ``encoder_fingerprint`` — would two trial encodes at the same CRF
+- ``encoder_fingerprint``: would two trial encodes at the same CRF
   produce identical bytes? Derived from the actual ffmpeg encoder args
   (with per-trial / per-pair variance stripped) plus the filter graph
   (likewise) plus a defensive extras dict of fields that may not be
   visible in the command but semantically belong to encoder identity.
   Same fingerprint ⇒ byte-equivalent trial output at the same CRF.
 
-- ``search_fingerprint`` — would the curve-fit search explore the same
+- ``search_fingerprint``: would the curve-fit search explore the same
   probe space and pick the same CRF given the same encoder curve? A
   small field-curated hash over target VMAF + CRF range. Algorithm-level
   state, not encoder.
@@ -18,7 +18,7 @@ Why derive-then-canonicalize for the encoder fingerprint:
 
 - A hand-curated dict-of-fields hash is *unsafe*. Easy to forget to add
   a new field when a new setting ships, leading to silent stale-cache
-  hits when output behavior actually changed.
+  hits when output behavior changed.
 - A raw-string hash of the ffmpeg command is *unstable*. Reordering
   flag emission in source code (a no-op refactor) flips the hash and
   busts the cache for no real reason.
@@ -63,7 +63,7 @@ def canonicalize_codec_args(codec_args: str) -> str:
     3. Sort pairs alphabetically by flag name.
     4. Re-serialize with single-space separators.
 
-    Tokenization is whitespace-only by design — codec args in our usage
+    Tokenization is whitespace-only by design: codec args in our usage
     never contain quoted values with embedded spaces. If that ever
     changes the canonicalization step needs to grow a real shell-style
     parser, but defaulting to that today would be over-engineering.
@@ -140,7 +140,7 @@ def compute_encoder_fingerprint(
       JSON string.
     - ``fingerprint`` is the sha256 of the signature's canonical JSON
       serialization (sort_keys + compact separators) truncated to 12
-      hex chars — short and stable, suitable as a directory name.
+      hex chars: short and stable, suitable as a directory name.
 
     ``extras`` is a small dict of fields that may not be visible in the
     command but semantically belong to TRIAL-bytes encoder identity:
@@ -151,7 +151,7 @@ def compute_encoder_fingerprint(
 
     Settings that the trial pipeline forces off (``twoPass``,
     ``videoStabilization``; see ``_TRIAL_PIPELINE_OVERRIDES``) are
-    intentionally EXCLUDED — trial bytes are independent of those
+    intentionally EXCLUDED: trial bytes are independent of those
     user settings, so the fingerprint must be too or toggling them
     between runs needlessly invalidates the cache.
     """

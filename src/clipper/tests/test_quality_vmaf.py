@@ -1,7 +1,7 @@
 """Unit tests for ``clipper.quality.vmaf``.
 
 Covers the aggregation math directly and the ``FfmpegQualityMetrics``
-wiring via mock — no real ffmpeg invocation, fast (sub-second), offline.
+wiring via mock: no real ffmpeg invocation, fast (sub-second), offline.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from clipper.quality import (
 )
 
 # ---------------------------------------------------------------------------
-# summarize_vmaf — pure-function aggregation math
+# summarize_vmaf: pure-function aggregation math
 # ---------------------------------------------------------------------------
 
 
@@ -108,7 +108,7 @@ def test_summarize_vmaf_frame_count_matches_input_length() -> None:
 
 
 # ---------------------------------------------------------------------------
-# measure_per_frame_vmaf_neg — wiring around the mocked library
+# measure_per_frame_vmaf_neg: wiring around the mocked library
 # ---------------------------------------------------------------------------
 
 
@@ -148,7 +148,7 @@ def test_measure_per_frame_requests_vmaf_metric_with_neg_model() -> None:
     """calculate() is invoked with metrics=["vmaf"] and the NEG model path.
 
     Guards against accidentally swapping to the default vmaf_v0.6.1 (non-NEG)
-    model — the NEG variant is what our calibration / shipping decisions
+    model: the NEG variant is what our calibration / shipping decisions
     are tuned against.
     """
     fake_instance = _make_fake_ffqm([{"vmaf": 92.0}])
@@ -207,7 +207,7 @@ def test_measure_per_frame_coerces_int_scores_to_float() -> None:
 
 
 # ---------------------------------------------------------------------------
-# measure_vmaf_neg — composition end-to-end
+# measure_vmaf_neg: composition end-to-end
 # ---------------------------------------------------------------------------
 
 

@@ -26,7 +26,7 @@ interface ReviewModalProps {
 
 // Populate the `<pre>` JSON preview using a single native `textContent`
 // write. No lit-html interpolation, no library touches the attacker-
-// controlled JSON string — absolute-safe path even against hypothetical
+// controlled JSON string: absolute-safe path even against hypothetical
 // library zero-days at the review stage.
 function populateJsonPreview(container: Element, payload: unknown): void {
   container.textContent = JSON.stringify(payload, null, 2);
@@ -125,7 +125,7 @@ function ReviewModal(
 export interface ShowLoadMarkersReviewOptions {
   /** Modal title, e.g. `"Load shared markers?"` / `"Load markers from file?"`. */
   modalTitle: string;
-  /** Warning banner content — customize per source severity. Strings are
+  /** Warning banner content: customize per source severity. Strings are
    *  rendered via lit-html text-context (auto-escaped). Templates are
    *  rendered as-is; use a template (with `<code>` around any
    *  user-controlled state interpolation) when the warning needs to
@@ -135,11 +135,11 @@ export interface ShowLoadMarkersReviewOptions {
   sourceLabel: string;
   /**
    * The object to show in the preview and scan for HTML-like content. The
-   * preview is rendered via a single `textContent` write — no lit-html, no
+   * preview is rendered via a single `textContent` write: no lit-html, no
    * library touches the string. Must be JSON-safe.
    */
   payload: unknown;
-  /** Parser issues surfaced during the pre-review parse (unknown keys
+  /** Parser issues found during the pre-review parse (unknown keys
    *  stripped, prototype keys stripped, invalid map points dropped). Shown
    *  alongside the HTML content scan in the modal body. */
   issues?: readonly DataFormatIssue[];

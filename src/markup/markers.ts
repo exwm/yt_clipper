@@ -637,7 +637,7 @@ export function markerNumberingMouseDownHandler(e: PointerEvent) {
   // The element that owns pointer capture is the same element that will
   // receive the implicit `pointercancel` if the browser releases capture
   // out from under us (devtools focus, alt-tab, OS pointer reassignment).
-  // Attaching all subsequent listeners here — rather than to `document` —
+  // Attaching all subsequent listeners here (rather than to `document`)
   // is the spec-correct way to be sure the cleanup path runs.
   const captureTarget = numbering;
 
@@ -648,7 +648,7 @@ export function markerNumberingMouseDownHandler(e: PointerEvent) {
   // of the drag. Subtracting it from `e.pageX` recovers the time-equivalent
   // of the numbering's centre.
   const offsetX = e.pageX - numberingRect.left - numberingRect.width / 2;
-  /** Absolute positioning — the marker's time tracks the cursor's
+  /** Absolute positioning: the marker's time tracks the cursor's
    *  horizontal position on the progress bar 1:1, mirroring how
    *  `scrubVideoHandler` handles Alt+Drag on the video itself. The
    *  previous implementation modulated motion by vertical cursor
@@ -667,7 +667,7 @@ export function markerNumberingMouseDownHandler(e: PointerEvent) {
   // Coalesce pointermove events with requestAnimationFrame so the marker
   // visual updates at the screen refresh rate (~60 Hz) instead of the
   // raw pointer event rate (often 100–250 Hz). Same pattern as the crop
-  // drag/hover handlers in crop-overlay.ts — without it `moveMarker`
+  // drag/hover handlers in crop-overlay.ts: without it `moveMarker`
   // (which re-renders markers + crops) and `seekToSafe` get called 2-4×
   // per frame and the marker visibly lags the cursor.
   let dragRafId = 0;
@@ -695,7 +695,7 @@ export function markerNumberingMouseDownHandler(e: PointerEvent) {
 
   let unregisterDragRecovery: () => void = () => {};
 
-  /** Idempotent cleanup — detaches every listener this handler attached,
+  /** Idempotent cleanup: detaches every listener this handler attached,
    *  releases the captured pointer, cancels any pending RAF. Safe to call
    *  multiple times because each step checks first. */
   function cleanup(): void {
@@ -723,7 +723,7 @@ export function markerNumberingMouseDownHandler(e: PointerEvent) {
   function onPointerCancel(): void {
     // Browser-initiated release (devtools, alt-tab, OS pointer
     // reassignment). Revert to the marker's original time rather than
-    // committing the in-progress drag — the user didn't choose to land.
+    // committing the in-progress drag: the user didn't choose to land.
     cleanup();
   }
 
@@ -860,7 +860,7 @@ export function undoRedoMarkerPairChange(dir: 'undo' | 'redo') {
     flashMessage('Please select a marker pair editor for undo/redo.', 'olive');
   }
 }
-// Whether the selected pair has earlier/later states to undo/redo to — drives
+// Whether the selected pair has earlier/later states to undo/redo to: drives
 // the disabled state of the editor's undo/redo buttons.
 export function canUndoMarkerPairChange(): boolean {
   const idx = appState.prevSelectedMarkerPairIndex;
@@ -874,7 +874,7 @@ export function canRedoMarkerPairChange(): boolean {
   const undoredo = appState.markerPairs[idx]?.undoredo;
   return !!undoredo && undoredo.index < undoredo.history.length - 1;
 }
-// Number of states available to undo/redo on the selected pair — shown as a
+// Number of states available to undo/redo on the selected pair: shown as a
 // count badge on the undo/redo buttons.
 export function getUndoMarkerPairChangeCount(): number {
   const idx = appState.prevSelectedMarkerPairIndex;

@@ -75,21 +75,21 @@ def getFfmpegVideoCodecVpx(
             dynamic_range_args = hdr_args
 
     # vp9 quality knobs (libvpx 1.10+, ffmpeg 4.4+):
-    #   aq-mode 0     — NO_AQ. Was 4 (the EQUATOR360 mode), which
+    #   aq-mode 0: NO_AQ. Was 4 (the EQUATOR360 mode), which
     #                   penalizes top/bottom edges of every frame
-    #                   regardless of content — wrong for non-360°
+    #                   regardless of content: wrong for non-360°
     #                   clips. Mode 0 is also libvpx's default.
-    #   tile-columns 6 — libvpx default. Self-caps at the spec's
+    #   tile-columns 6: libvpx default. Self-caps at the spec's
     #                   width-based maximum (e.g. 4 on 1080p), so this
     #                   is "max parallel decode" without harm.
-    #   tile-rows 0   — libvpx default. Was 2; tile-rows do NOT enable
+    #   tile-rows 0: libvpx default. Was 2; tile-rows do NOT enable
     #                   parallel decoding per the VP9 spec (only reset
     #                   entropy state for stream resilience), so for
     #                   offline VOD they're pure quality cost.
-    #   row-mt 1      — explicit (libvpx default is 0). Threaded
+    #   row-mt 1: explicit (libvpx default is 0). Threaded
     #                   row-level encoding, ~30%+ speedup on multi-core
     #                   with no measurable quality cost.
-    # Implicit defaults we rely on (ffmpeg / libvpx pick these — no need
+    # Implicit defaults we rely on (ffmpeg / libvpx pick these: no need
     # to set explicitly):
     #   auto-alt-ref=1, enable-tpl=1 (libvpx 1.10+),
     #   lag-in-frames=25, cpu-used=1, deadline=good,
@@ -358,7 +358,7 @@ def getFfmpegVideoCodecAv1(
 
     # tune=0 = visual-quality (perceptual) mode; the encoder default is 1
     # (PSNR), but clips are watched, not benchmarked. Everything else
-    # relies on SVT-AV1's own defaults (aq-mode=2 — also implied by CRF,
+    # relies on SVT-AV1's own defaults (aq-mode=2: also implied by CRF,
     # enable-tf=1, film-grain=0, lookahead auto). See:
     # https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md
     svtav1_params = "tune=0"

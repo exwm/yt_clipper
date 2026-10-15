@@ -28,7 +28,7 @@ export type HintContext =
   | 'marker-selected'
   /** Input-focus contexts behave like hover contexts (additive to the
    *  primary) but are driven by which form element currently has keyboard
-   *  focus, not by cursor position. Surfaces shortcuts that only make
+   *  focus, not by cursor position. Shows shortcuts that only make
    *  sense while typing into that field. */
   | 'crop-input-focused';
 

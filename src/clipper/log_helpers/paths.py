@@ -2,14 +2,14 @@
 
 Every file path that lands in a log message needs three things:
 
-1. **Markup safety** — rich interprets ``[`` as the start of a style
+1. **Markup safety**: rich interprets ``[`` as the start of a style
    tag. A path with ``[`` in it (rare but possible on user file
    systems) would either render as garbled markup or trigger a
    parser error. ``rich.markup.escape`` neutralizes the brackets.
-2. **Visible boundary** — wrapping the path in double quotes
+2. **Visible boundary**: wrapping the path in double quotes
    delimits it from surrounding prose so the reader can tell where
    the path starts and ends, especially when paths contain spaces.
-3. **Copy-pasteable** — both PowerShell and bash respect double
+3. **Copy-pasteable**: both PowerShell and bash respect double
    quotes around a path argument, so the quoted form can be
    ``&``-prefixed in PS or pasted into bash without re-quoting.
 
@@ -39,7 +39,7 @@ class LogPath:
 
     - rich-markup brackets in the path don't break the parser,
     - the path boundary is visibly delimited,
-    - the quoted form pastes cleanly into PowerShell or bash.
+    - the quoted form pastes correctly into PowerShell or bash.
 
     ``None`` renders as ``(none)`` so the call site doesn't need
     an extra ``if path is not None`` branch.
@@ -67,6 +67,6 @@ def quoted_path(path: str | Path | None) -> str:
 
     Use when a path string is needed outside an f-string context
     (joining lists, building a non-template message, etc.). Inside
-    an f-string, prefer ``f'{LogPath(p)}'`` — slightly cleaner.
+    an f-string, prefer ``f'{LogPath(p)}'``: slightly cleaner.
     """
     return str(LogPath(path))

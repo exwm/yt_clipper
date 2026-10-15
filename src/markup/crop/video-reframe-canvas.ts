@@ -23,7 +23,7 @@ import { deleteElement, injectCSS } from '../util/util';
 
 let canvas: HTMLCanvasElement | null = null;
 let ctx: CanvasRenderingContext2D | null = null;
-// Lazily created the first frame gamma is actually on, so reframe with gamma off costs no GL context.
+// Lazily created the first frame gamma is on, so reframe with gamma off costs no GL context.
 let gammaRenderer: WebGLGammaRenderer | null = null;
 let rafId = 0;
 let frameSource: HTMLVideoElement | null = null;

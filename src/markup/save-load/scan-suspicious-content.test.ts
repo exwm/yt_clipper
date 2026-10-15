@@ -18,7 +18,7 @@ describe('scanSuspiciousContent', () => {
   });
 
   test('flags <iframe> in a string field', () => {
-    // Note: <script> is stripped by jsdom's HTML fragment parser before
+    // <script> is stripped by jsdom's HTML fragment parser before
     // DOMPurify's sanitizer hook fires, so it does not appear in .removed
     // in this test env (it does in real browsers). We use <iframe> which
     // reliably reaches DOMPurify's walker in both environments.
@@ -56,7 +56,7 @@ describe('scanSuspiciousContent', () => {
   });
 
   test('flags benign formatting tags under strict config (no legitimate HTML use)', () => {
-    // With ALLOWED_TAGS: [], any tag — even <b> — is flagged for review.
+    // With ALLOWED_TAGS: [], any tag (even <b>) is flagged for review.
     // This matches our threat model: loadable fields have no legit HTML use.
     const payload = { settings: { titleSuffix: '<b>bold title</b>' } };
     const findings = scanSuspiciousContent(payload);
@@ -71,9 +71,9 @@ describe('scanSuspiciousContent', () => {
     expect(findings[0].items).toContain('<a>');
   });
 
-  test('flags HTML entities stripped by DOMPurify? No — entities are text-level', () => {
+  test('flags HTML entities stripped by DOMPurify? No: entities are text-level', () => {
     // HTML entities (&amp;, &lt;) are decoded / kept by DOMPurify, not stripped.
-    // They don't appear in .removed — consistent with them being legitimate text.
+    // They don't appear in .removed: consistent with them being legitimate text.
     const payload = { settings: { titleSuffix: 'a &amp; b, x &lt; y' } };
     expect(scanSuspiciousContent(payload)).toEqual([]);
   });
@@ -85,7 +85,7 @@ describe('scanSuspiciousContent', () => {
       c: '<object></object>',
     };
     const findings = scanSuspiciousContent(payload);
-    // Two findings, one per dangerous field — not cumulative.
+    // Two findings, one per dangerous field: not cumulative.
     expect(findings).toHaveLength(2);
     const pathA = findings.find((f) => f.path === 'a');
     const pathC = findings.find((f) => f.path === 'c');
@@ -100,7 +100,7 @@ describe('scanSuspiciousContent', () => {
     expect(scanSuspiciousContent(payload)).toEqual([]);
   });
 
-  // Note: <style> and <link> tags don't survive jsdom's HTML fragment parser
+  // <style> and <link> tags don't survive jsdom's HTML fragment parser
   // long enough to reach DOMPurify's sanitizer walker, so they cannot be
   // asserted via findings in this test env. In real browsers DOMPurify uses
   // an isolated parser (hidden iframe / DOMParser) that DOES pass them to

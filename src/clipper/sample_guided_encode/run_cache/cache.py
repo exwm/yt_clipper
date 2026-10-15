@@ -11,7 +11,7 @@ circuit work by reusing a prior run's data:
   encode at the prior's picked CRF.
 - **Partial hit** ⇒ same encoder fingerprint, different search
   fingerprint (e.g. user changed ``--target-vmaf-low``). Trial
-  encodes are byte-equivalent — we can prime
+  encodes are byte-equivalent: we can prime
   ``trial_measurement_cache`` with the prior run's per-frame VMAF
   measurements at each (crf, window_index) so the new search
   reuses them and only encodes new CRFs.
@@ -30,7 +30,7 @@ The freshness gate is intentionally strict (the user's principle:
 - Marker timing match (``clip_start`` / ``clip_end`` within 1ms)
 - ``encode_args_signature`` literal equality (hash-collision
   defense)
-- Prior run completed (has a ``search_result`` record — guaranteed
+- Prior run completed (has a ``search_result`` record: guaranteed
   by the loader, but documented here for clarity)
 """
 
@@ -101,7 +101,7 @@ def evaluate_cache_reuse(
     against it. The encoder fingerprint already pins us to the
     "byte-equivalent encodes" partition of history, so the gate is
     really verifying that *this specific* prior is fresh enough to
-    trust — not "is there any prior we could reuse."
+    trust: not "is there any prior we could reuse."
     """
     fingerprint_dir = pair_dir / encoder_fingerprint
     if not fingerprint_dir.is_dir():
@@ -142,7 +142,7 @@ def evaluate_cache_reuse(
         )
     if skipped_count > 0:
         # A valid prior was found, but we walked past N broken ones.
-        # Worth flagging so the operator knows there's orphaned data.
+        # Flag it so the operator knows there's orphaned data.
         # The decision is still a hit/miss based on the valid prior;
         # this is just provenance.
         from clipper.log_helpers import LogPath
@@ -196,7 +196,7 @@ def _freshness_gate_passes(
 
     Returns ``(ok, reason)``. On failure, ``reason`` names the
     specific check that failed so the log line can explain why we
-    re-ran fresh — turns "cache miss" into "cache miss because X."
+    re-ran fresh: turns "cache miss" into "cache miss because X."
     On pass, ``reason`` describes which checks succeeded for sanity.
     """
     if prior.algorithm_version != current_algorithm_version:
@@ -229,7 +229,7 @@ def _freshness_gate_passes(
 
 def _major_minor_matches(prior_version: str, current_version: str) -> bool:
     """Loose version match: ``X.Y.*`` of prior must equal ``X.Y.*``
-    of current. Patch differences are ignored — bug fixes shouldn't
+    of current. Patch differences are ignored: bug fixes shouldn't
     invalidate the cache.
 
     Returns ``False`` for empty / malformed versions (defensive: a
@@ -273,7 +273,7 @@ def _pair_identity_matches(
     if prior_source != current_source:
         return False, (
             "source_video_id mismatch (input video changed: different "
-            f"path / mtime — prior={prior_source}, current={current_source})"
+            f"path / mtime: prior={prior_source}, current={current_source})"
         )
     return True, "pair_identity matches"
 
@@ -283,7 +283,7 @@ def _pair_identity_matches(
 # ---------------------------------------------------------------------------
 
 
-def reconstruct_result_from_jsonl(  # noqa: PLR0912 — straight-line record dispatch + summary fallback
+def reconstruct_result_from_jsonl(  # noqa: PLR0912 (straight-line record dispatch + summary fallback)
     jsonl_path: Path,
     *,
     target: SampleGuidedEncodeTarget,
@@ -292,7 +292,7 @@ def reconstruct_result_from_jsonl(  # noqa: PLR0912 — straight-line record dis
 ) -> SampleGuidedEncodeResult | None:
     """Rebuild a ``SampleGuidedEncodeResult`` from a prior run's JSONL.
 
-    For full cache hits — caller drops the result into the same slot
+    For full cache hits: caller drops the result into the same slot
     the search loop would have populated, so downstream code (final
     encode, JSONL write, log render) doesn't need to know the result
     came from the cache.
@@ -350,7 +350,7 @@ def reconstruct_result_from_jsonl(  # noqa: PLR0912 — straight-line record dis
 
     optimal_crf = result_record.get("optimal_crf")
     optimal_summary: VmafSummary | None = None
-    # Prefer the matching trial's summary as ``optimal_summary`` — trial
+    # Prefer the matching trial's summary as ``optimal_summary``: trial
     # records carry all six percentiles (p1/p5/p10/p15/p20/p25) plus the
     # mean/min, while the search_result's optimal_summary historically
     # only stored a subset. Falls back to whatever optimal_summary the
@@ -405,7 +405,7 @@ def _trial_from_record(
 ) -> SampleGuidedEncodeTrial | None:
     """Convert one JSONL ``trial`` record back into a ``SampleGuidedEncodeTrial``.
 
-    Returns ``None`` for records missing required fields — they get
+    Returns ``None`` for records missing required fields: they get
     silently dropped from the reconstructed result rather than
     crashing the cache hit.
 
@@ -419,8 +419,8 @@ def _trial_from_record(
         return None
     # Trial records store ``frame_count`` at the top level (the summary
     # sub-dict is just percentiles). Merge it into the summary view so
-    # ``_summary_from_record`` can populate ``VmafSummary.frame_count``
-    # — without this the reconstructed summary has frame_count=0 and
+    # ``_summary_from_record`` can populate ``VmafSummary.frame_count``:
+    # without this the reconstructed summary has frame_count=0 and
     # downstream est-size / bitrate-per-frame math breaks.
     summary_view = dict(summary_record)
     if "frame_count" not in summary_view and "frame_count" in rec:
@@ -492,18 +492,18 @@ _TRIAL_FILENAME_PATTERN = re.compile(
 )
 
 
-def cleanup_orphaned_trial_files(  # noqa: PLR0912 — straight-line JSONL walk + file walk
+def cleanup_orphaned_trial_files(  # noqa: PLR0912 (straight-line JSONL walk + file walk)
     fingerprint_dir: Path,
     file_name_stem: str,
 ) -> list[Path]:
     """Delete trial encode files lacking a corresponding completed
-    JSONL trial record. Returns the list of paths actually deleted.
+    JSONL trial record. Returns the list of paths deleted.
 
     A trial encode is "vouched" only if some JSONL in this dir holds
     a ``trial`` record naming the same ``(crf, window_index)`` with
     ``phase`` ∈ {probe, verify}. The record is written by
     ``on_trial_complete``, which runs *after* the encode finishes
-    AND VMAF measurement succeeds — so its presence guarantees the
+    AND VMAF measurement succeeds, so its presence guarantees the
     file on disk was a clean, complete encode.
 
     A trial file with NO vouching JSONL record is an orphan,
@@ -514,7 +514,7 @@ def cleanup_orphaned_trial_files(  # noqa: PLR0912 — straight-line JSONL walk 
     measurements.
 
     Reference encodes (``.crfsearch-ref-...``) and baseline
-    (``.crfsearch-baseline...``) aren't covered here — they don't
+    (``.crfsearch-baseline...``) aren't covered here: they don't
     write JSONL records to vouch against. An interrupted ref / baseline
     encode would still cause issues; left as a separate concern.
     """
@@ -573,7 +573,7 @@ def cleanup_orphaned_trial_files(  # noqa: PLR0912 — straight-line JSONL walk 
     return deleted
 
 
-def prime_trial_measurement_cache(  # noqa: PLR0912 — straight-line record dispatch + multiple gates
+def prime_trial_measurement_cache(  # noqa: PLR0912 (straight-line record dispatch + multiple gates)
     *,
     fingerprint_dir: Path,
     file_name_stem: str,
@@ -585,7 +585,7 @@ def prime_trial_measurement_cache(  # noqa: PLR0912 — straight-line record dis
     Resilient to crashed prior runs: a JSONL missing
     ``search_result`` is unusable for full-hit reconstruction, but
     its trial records are still valid (the encoder fingerprint
-    matches by definition — all files in this dir share it — so
+    matches by definition (all files in this dir share it) so
     trial encodes are byte-equivalent). Harvesting across all runs
     means a prior crash doesn't waste the trial work it produced
     before crashing.
@@ -599,10 +599,10 @@ def prime_trial_measurement_cache(  # noqa: PLR0912 — straight-line record dis
     The trial file path is reconstructed from the conventional
     suffix template (``.crfsearch-trial-crf{crf}-w{window_index}``)
     plus the file name stem and fingerprint dir. If the file
-    actually exists on disk, the orchestrator's
+    exists on disk, the orchestrator's
     ``mp["exists"]`` check skips the encode too. If not (user
     cleaned ``temp/sample-encodes/``), the cache entry is still
-    populated with the pseudo-path — the encode step re-creates the
+    populated with the pseudo-path: the encode step re-creates the
     file, the cached measurement is reused.
     """
     primed: dict[tuple[int, int], tuple[list[float], int, Path]] = {}
@@ -642,7 +642,7 @@ def prime_trial_measurement_cache(  # noqa: PLR0912 — straight-line record dis
                     # per_frame_vmaf list is the concatenation across
                     # them. For partial-hit priming we want per-window
                     # entries, but the JSONL doesn't preserve the
-                    # per-window split — cache the trial under the
+                    # per-window split: cache the trial under the
                     # FIRST window index only. Subsequent windows of
                     # the same trial will re-measure (small cost;
                     # partial reuse is still a net win on the encode
@@ -658,8 +658,8 @@ def prime_trial_measurement_cache(  # noqa: PLR0912 — straight-line record dis
                     )
                     trial_path = fingerprint_dir / trial_filename
                     # Source-of-truth for ``encoded_size_bytes``: the
-                    # trial file on disk. The JSONL value is unreliable
-                    # — older buggy versions of priming stored
+                    # trial file on disk. The JSONL value is unreliable:
+                    # older buggy versions of priming stored
                     # ``frame_count`` (small int, e.g. 17 / 80) where
                     # bytes (MB-scale) belong, and that corruption
                     # propagated through the JSONL chain on cache
@@ -667,7 +667,7 @@ def prime_trial_measurement_cache(  # noqa: PLR0912 — straight-line record dis
                     # real size regardless of what the JSONL claims.
                     #
                     # If the file is gone, skip priming for this
-                    # (crf, window) — the orchestrator''s ``mp["exists"]``
+                    # (crf, window): the orchestrator''s ``mp["exists"]``
                     # check will let makeClip re-encode it fresh,
                     # producing a correct size measurement.
                     if not trial_path.is_file():

@@ -11,7 +11,7 @@
   z-index: 2147483647;
 }
 
-/* Pinned bar — spans full viewport width, anchored to top or bottom edge
+/* Pinned bar: spans full viewport width, anchored to top or bottom edge
    (controlled by `data-pin` attribute). Single-row layout; chips that don't
    fit are reachable via horizontal scroll (mouse wheel converted to
    `scrollLeft` in JS) and fade out at the right edge as the overflow
@@ -30,7 +30,7 @@
   align-items: center;
   flex-wrap: nowrap;
   /* `overflow-x: clip` + `overflow-y: visible` is the ONLY combo that keeps
-     the Y axis truly unclipped (chord popovers and group cards need to
+     the Y axis unclipped (chord popovers and group cards need to
      extend above/below the shell). Setting `overflow-x: auto` would coerce
      overflow-y to `auto` per the CSS spec and clip popovers. So horizontal
      "scrolling" is implemented manually: chips live inside `.hints-bar-scroller`
@@ -75,7 +75,7 @@
     visibility 0s linear 0s;
 }
 
-/* Scroll viewport — chip overflow is clipped horizontally here while
+/* Scroll viewport: chip overflow is clipped horizontally here while
    popovers extending up/down stay visible (the parent shell's
    overflow-y: visible cascades through). The inner is `inline-flex`
    with all chip rows + persistent chips; its natural width can exceed
@@ -99,7 +99,7 @@
      extend the last chip past the right fade overlay (32px wide, see
      `.hints-bar-shell::after`) so even if the fade is partway through
      its opacity transition, the chip's label is past the gradient and
-     reads cleanly. The padding is part of `offsetWidth`, so
+     stays legible. The padding is part of `offsetWidth`, so
      `getMaxScroll()` accounts for it automatically. */
   padding-right: 36px;
   will-change: transform;
@@ -118,12 +118,12 @@
     visibility 0s linear 200ms;
 }
 
-/* Right-edge fade overlay — the visible affordance for "there are more
+/* Right-edge fade overlay: the visible affordance for "there are more
    chips, scroll right to reach them". Anchored to the shell's right edge.
    Only visible when there's actually content scrolled off-screen to the
    right (toggled via the `can-scroll-right` class set by the scroll
    listener). Narrow (32px) so it stays an edge accent rather than
-   covering meaningful chip content — the scroller-inner's 36px right
+   covering meaningful chip content: the scroller-inner's 36px right
    padding keeps the last chip past the fade gradient at max scroll. */
 .hints-bar-shell::after {
   content: '';
@@ -163,11 +163,11 @@
     0 -1px 0 rgba(255, 255, 255, 0.06) inset;
 }
 
-/* Sticky controls wrapper — chevron + close button — stays anchored at
+/* Sticky controls wrapper (chevron + close button) stays anchored at
    the left of the bar so they're always reachable. The mode badge sits
    immediately to their right (also outside the scroller, so it stays
    anchored too). The "scrolled-from-left" fade affordance lives on the
-   scroller's left edge, NOT here — that way it indicates scrolled-off
+   scroller's left edge, NOT here: that way it indicates scrolled-off
    chips without bleeding over the mode badge. */
 .hints-bar-controls {
   display: inline-flex;
@@ -178,7 +178,7 @@
   flex: 0 0 auto;
 }
 
-/* Left-edge fade overlay on the scroller — the visible affordance for
+/* Left-edge fade overlay on the scroller: the visible affordance for
    "there are more chips scrolled off to the left". Anchored at the
    scroller's left edge (immediately after the mode badge) so the badge
    itself stays fully opaque and unfaded. Toggled via `is-scrolled-x` on
@@ -201,7 +201,7 @@
   opacity: 1;
 }
 
-/* Flip button — chevron that moves the bar between pinned-top and
+/* Flip button: chevron that moves the bar between pinned-top and
    pinned-bottom. Sized identically to the close button for symmetry. */
 .hints-bar-flip {
   display: inline-flex;
@@ -232,7 +232,7 @@
   outline-offset: 1px;
 }
 
-/* Mode badge — always visible, leading-edge after the close button. Surfaces
+/* Mode badge: always visible, leading-edge after the close button. Shows
    what context the bar is showing chips for. Uniform brand-red styling
    across all modes so the badge consistently stands out from the hotkey
    chips; the label tells the user which mode they're in. */
@@ -276,8 +276,8 @@
   flex: 0 0 auto;
 }
 
-/* Grouped chip cluster — soft glassy "card" tint behind the chips that
-   reads as cohesion without adding hard borders or competing with the
+/* Grouped chip cluster: soft glassy "card" tint behind the chips that
+   ties them together without adding hard borders or competing with the
    chord-pill aesthetic. The wrapper stays layout-neutral (no padding) so
    grouped vs ungrouped chips share identical flex metrics; the tint is
    painted by an absolutely-positioned `::after` that extends slightly
@@ -302,19 +302,19 @@
   content: '';
   position: absolute;
   inset: -3px -6px;
-  /* Opaque dark-burgundy card — calibrated to look like brand-red tint
+  /* Opaque dark-burgundy card: calibrated to look like brand-red tint
      applied at 100% over the bar's dark glass, but rendered as a solid
-     fill so the group reads as a defined card rather than a haze. */
+     fill so the group looks like a card, not a haze. */
   background: #2d1c22;
   border: 1px solid rgba(255, 107, 133, 0.42);
   border-radius: 6px;
-  /* Soft brand-red drop shadow below — lifts the card off the bar and
+  /* Soft brand-red drop shadow below: lifts the card off the bar and
      gives the group a faint colored "edge" pointing downward.
      Shadow is rendered outside the element's mask, so it isn't faded. */
   box-shadow: 0 3px 8px -1px rgba(255, 107, 133, 0.32);
   /* Fade the card (background + border) to transparent at the top so
      the chips appear to emerge from the group rather than being boxed
-     in. The mask is a vertical gradient — `transparent` at y=0 (top
+     in. The mask is a vertical gradient: `transparent` at y=0 (top
      edge) to fully opaque by 50% down. Standard CSS feature, widely
      supported. */
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 55%);
@@ -454,7 +454,7 @@
   transition-delay: 80ms;
 }
 
-/* Tip pointer — counter-shifts by `--popover-shift-x` so it stays aligned
+/* Tip pointer: counter-shifts by `--popover-shift-x` so it stays aligned
    with the chip's centerline even when the popover itself is shifted to
    stay within the scroller's clip bounds. */
 .hints-bar-popover::after {
@@ -580,7 +580,7 @@
 .hints-bar-mod-icon {
   display: inline-block;
   flex: 0 0 auto;
-  /* Modifier glyphs render at 78% white — secondary to the primary key
+  /* Modifier glyphs render at 78% white: secondary to the primary key
      (the letter/arrow/mouse glyph) but still legible. Bumped from 62%
      when glyphs were redesigned with bolder fills; the previous opacity
      made them visually disappear at 11–12 px. */
@@ -588,7 +588,7 @@
   vertical-align: middle;
 }
 
-/* Optional modifier — rendered as a modifier glyph wrapped in literal
+/* Optional modifier: rendered as a modifier glyph wrapped in literal
    parens to signal "this chord works with or without this modifier"
    (e.g., `Z` vs `Shift+Z` for paired undo/redo). Used inline within
    a normal chord pill so the chip stays a single unit. */

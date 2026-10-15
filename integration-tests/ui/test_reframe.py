@@ -1,5 +1,5 @@
 """Reframe (V): the preview fills the whole player, and the navigator minimap outlines the crop in
-two tones so it reads on light and dark video."""
+two tones so it shows on light and dark video."""
 
 import io
 

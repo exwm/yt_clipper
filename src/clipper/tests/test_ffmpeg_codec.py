@@ -32,7 +32,7 @@ def _make_mp_mps(**mps_overrides: object) -> tuple[dict, dict]:
 
 # Scenarios chosen to exercise each rate-control branch plus the HDR axis.
 # Snapshots capture the full codec/input/output arg triple so any drift in
-# the encoder flags surfaces in review.
+# the encoder flags shows up in review.
 AV1_SCENARIOS: dict[str, tuple[dict[str, object], Optional[int]]] = {
     "crf_sdr_default": ({}, None),
     "crf_hdr": ({"enableHDR": True}, None),

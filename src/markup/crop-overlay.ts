@@ -112,10 +112,10 @@ let cropDim: SVGRectElement;
  *  "cursor over the crop" rather than "cursor anywhere on the video".
  *
  *  In dynamic-crop mode the user is manipulating ONE specific crop point
- *  at a time — the chart mode (Start/End) tells us which one. The green
+ *  at a time: the chart mode (Start/End) tells us which one. The green
  *  rect previews the section's start point; the yellow rect previews the
  *  end point. Whichever matches the current chart mode is what the user's
- *  edits actually affect, so that's the rect we hit-test against. The
+ *  edits affect, so that's the rect we hit-test against. The
  *  time-based interpolated `cropRectBorder` (dimmed in this mode) would
  *  give "cursor over the crop" hints for a region the user isn't editing,
  *  which is misleading. */
@@ -130,7 +130,7 @@ export function isMouseInsideCrop(clientX: number, clientY: number): boolean {
 }
 
 /** Picks which crop rectangle currently represents the "active" crop for
- *  hit-testing — the time-interpolated one for static crops, or the
+ *  hit-testing: the time-interpolated one for static crops, or the
  *  selected point's preview (green/yellow) when dynamic-crop overlays are
  *  visible. Falls back to the time-based border if the chart-section
  *  rects haven't been laid out (e.g. before first render). */
@@ -455,7 +455,7 @@ export function centerVideo() {
   // reframe overlay re-layout. Writing these layout properties dirties layout, which
   // turns the surrounding getBoundingClientRect/offsetWidth reads into full reflows
   // (layout thrash) and stutters the per-frame crop preview. Skip the write when nothing
-  // changed — comparing the already-applied inline styles is a cheap string read, not a
+  // changed: comparing the already-applied inline styles is a cheap string read, not a
   // layout read.
   const style = appState.video.style;
   if (
@@ -532,7 +532,7 @@ export function setCropCrossHair(cropCrossHair: Element, cropString: string) {
 export const cropDims = [0, 0.25, 0.5, 0.75, 1];
 export let cropDimIndex = 2;
 // Reframe keeps its own dim preference: the area outside the crop is the black
-// reframe, so it defaults to fully opaque (100%) and only offers near-opaque steps —
+// reframe, so it defaults to fully opaque (100%) and only offers near-opaque steps:
 // below 100% the surrounding video shows faintly through the bars (see syncReframe).
 export const reframeCropDims = [0.8, 0.9, 1];
 export let reframeCropDimIndex = 2;
@@ -640,7 +640,7 @@ export function setCropManipulationKind(kind: 'drag' | 'resize' | null): void {
 /** The crop string the currently-edited point should be reverted to if a
  *  mid-drag `Alt + A` adds a new keyframe. Initially set to the
  *  dragged point's crop at drag start, then *re-set on each Alt + A* to
- *  the live crop value the new keyframe inherits — so a subsequent
+ *  the live crop value the new keyframe inherits, so a subsequent
  *  Alt + A reverts the just-added point to *its* drop position rather
  *  than all the way back to the drag's original point. Without this
  *  per-keyframe update, every prior keyframe except the very last would
@@ -650,8 +650,8 @@ export function setCropDragStartCropString(value: string | null): void {
   cropDragStartCropString = value;
 }
 /** True for the brief window between a mid-drag `Alt + A` keypress and
- *  the user actually releasing Alt. While set, `processDragCrop` ignores
- *  `e.altKey` for the Y-axis lock — without this, the Alt held to fire
+ *  the user releasing Alt. While set, `processDragCrop` ignores
+ *  `e.altKey` for the Y-axis lock: without this, the Alt held to fire
  *  the Alt + A hotkey accidentally engages "horizontal-only panning"
  *  for a frame or two and the drag visibly stutters. Auto-clears on the
  *  first pointermove that arrives without Alt held, so an intentional
@@ -663,8 +663,8 @@ export function suppressNextAltLock(): void {
 /** Callback installed at drag-start that re-fetches the drag's
  *  `initCropMap` snapshot from the current marker pair state. Called
  *  from `addCropPoint` after a mid-drag insertion so subsequent
- *  pointermove ticks see a snapshot that includes the new point —
- *  otherwise `updateCropString` looks up the new point's index in the
+ *  pointermove ticks see a snapshot that includes the new point.
+ *  Otherwise `updateCropString` looks up the new point's index in the
  *  pre-insert snapshot and throws "Init crop undefined" silently inside
  *  requestAnimationFrame, freezing the drag. `null` when no drag is
  *  active. */
@@ -689,7 +689,7 @@ export function ensureReframeZoomPan(): void {
   const draft = createDraft(getMarkerPairHistory(markerPair));
   draft.enableZoomPan = true;
   saveMarkerPairHistory(draft, markerPair, false);
-  flashMessage('Zoompan on: each keyframe keeps its own zoom in reframe', 'olive');
+  flashMessage('Zoompan on: each crop point keeps its own zoom', 'olive');
 }
 
 const CROP_SCALE_MIN_DIM = 16;
@@ -785,7 +785,7 @@ export function addCropMouseManipulationListener() {
       if (isReframeEnabled()) autoKeyCurrentCropPoint();
       const cropString = getSelectedCropString();
       // Mutable so the wheel-zoom-during-pan handler can re-baseline
-      // them on each tick — the pan formula computes
+      // them on each tick: the pan formula computes
       // `crop = Crop(ix, iy, iw, ih) + cursor_delta_from_clickPos`, so
       // after a zoom updates the crop's origin/size the pan must
       // continue from the new state instead of jumping back.
@@ -798,16 +798,16 @@ export function addCropMouseManipulationListener() {
       const cursor = getMouseCropHoverRegion(e, cropString);
       const pointerId = e.pointerId;
 
-      // Reframe: an edge-resize on a dynamic crop is a per-keyframe zoom — switch the
+      // Reframe: an edge-resize on a dynamic crop zooms one crop point. Switch the
       // pair to zoompan before the `enableZoomPan` capture below (which drives the resize
-      // AR math) so the size lands on this keyframe, not every keyframe. Pans are mode-
+      // AR math) so the size lands on this crop point, not every one. Pans are mode-
       // agnostic, so leave a plain drag alone.
       if (cursor !== 'grab') ensureReframeZoomPan();
 
       const { isDynamicCrop, enableZoomPan } = getCropMapProperties();
       // Mutable so a mid-drag `Alt + A` (rapid-keyframe workflow in
       // `addCropPoint`) can refresh it to the post-insert snapshot via
-      // `refreshCropDragInitState` below — otherwise `updateCropString`
+      // `refreshCropDragInitState` below, otherwise `updateCropString`
       // looks up the new point's index in a stale snapshot and throws,
       // which silently breaks the drag from that frame on.
       let initCropMap = getCropMapProperties().initCropMap;
@@ -830,12 +830,12 @@ export function addCropMouseManipulationListener() {
       let autoPanVelX = 0; // last per-frame velocity while actually moving (px/frame)
       let autoPanVelY = 0;
       // The captured-target element receives every pointer event for this
-      // drag while capture is held — including the spec-mandated
+      // drag while capture is held, including the spec-mandated
       // `pointercancel` if the browser implicitly releases capture
       // (devtools, alt-tab, OS pointer reassignment, etc.). Stash it as a
       // local const so `endCropMouseManipulation` removes listeners from the
       // exact element they were attached to even if the appState hook were
-      // swapped out mid-drag (defensive — shouldn't happen, but cheap).
+      // swapped out mid-drag (defensive: shouldn't happen, but cheap).
       const captureTarget = appState.hooks.cropMouseManipulation;
       let unregisterDragRecovery: () => void = () => {};
 
@@ -973,7 +973,7 @@ export function addCropMouseManipulationListener() {
       // Belt-and-suspenders: window.blur / tab-hidden recovery. Some
       // sequences (rapid alt-tab on Windows, certain devtools docking
       // transitions) drop both pointerup and pointercancel for the
-      // captured target — this is the last-resort cleanup so the state
+      // captured target: this is the last-resort cleanup so the state
       // can never permanently stick.
       unregisterDragRecovery = registerActiveDragCleanup(() => {
         endCropMouseManipulation(null as unknown as PointerEvent, true);
@@ -983,7 +983,7 @@ export function addCropMouseManipulationListener() {
       isMouseManipulatingCrop = true;
 
       // In reframe the view follows the crop, so auto-panning the crop also scrolls
-      // the view — letting the user reach the frame extremes without re-grabbing when
+      // the view. The user then reaches the frame extremes without re-grabbing when
       // the cursor hits the window edge.
       if (isReframeEnabled()) {
         autoPanPrevClientX = e.clientX;
@@ -992,7 +992,7 @@ export function addCropMouseManipulationListener() {
       }
 
       // Auto-pan only continues a drag that has pinned (stopped) against a monitor
-      // edge it was travelling toward, carrying its last in-screen speed — so it
+      // edge it was travelling toward, carrying its last in-screen speed, so it
       // moves at the same rate as when the cursor was inside the screen.
       function autoPanTick() {
         autoPanRafId = 0;
@@ -1003,7 +1003,7 @@ export function addCropMouseManipulationListener() {
           const frameVelY = ev.clientY - autoPanPrevClientY;
           autoPanPrevClientX = ev.clientX;
           autoPanPrevClientY = ev.clientY;
-          // Remember the live drag speed while the cursor is actually moving.
+          // Remember the live drag speed while the cursor is moving.
           if (Math.abs(frameVelX) >= 1) autoPanVelX = frameVelX;
           if (Math.abs(frameVelY) >= 1) autoPanVelY = frameVelY;
 
@@ -1036,7 +1036,7 @@ export function addCropMouseManipulationListener() {
               processResizeCrop();
             }
             // If the crop didn't change (clamped at the frame bound), don't keep
-            // growing the offset — otherwise it overshoots and reversing wouldn't
+            // growing the offset, otherwise it overshoots and reversing wouldn't
             // respond until that overshoot is burned off.
             if (getSelectedCropString() === before) {
               autoPanOffsetX -= panX;
@@ -1057,8 +1057,8 @@ export function addCropMouseManipulationListener() {
 
       /** Cursor-anchored wheel-zoom during a pan-drag. Scales the crop
        *  so the pixel under the cursor keeps the same relative position
-       *  within the box — mirroring how image viewers, Figma, and maps
-       *  handle wheel-zoom, and preserving the "grip" the user
+       *  within the box, as image viewers, Figma, and maps handle
+       *  wheel-zoom. This keeps the "grip" the user
        *  established when they started the pan-drag. Each tick rewrites
        *  `ix/iy/iw/ih` + `clickPosX/Y` so subsequent pointermoves
        *  continue panning from the new state instead of jumping back to
@@ -1089,7 +1089,7 @@ export function addCropMouseManipulationListener() {
         // Re-baseline the pan formula so subsequent pointermoves
         // continue from the just-zoomed crop, and snap the click anchor
         // to the current cursor so accumulated pan delta is zero at
-        // this instant. (`ix/iy/iw/ih` are the pan formula's origin —
+        // this instant. (`ix/iy/iw/ih` are the pan formula's origin:
         // pan computes `crop = Crop(ix..ih) + (cursor - clickPos)`.)
         ix = newX;
         iy = newY;
@@ -1280,14 +1280,14 @@ export function getClickPosScaled(e: PointerEvent): number[] {
   return [clickPosXScaled, clickPosYScaled];
 }
 export function getMouseCropHoverRegion(e: PointerEvent, cropString?: string): string {
-  // Hit-test against the crop the reframe canvas actually drew, not one recomputed at the wall-clock
+  // Hit-test against the crop the reframe canvas drew, not one recomputed at the wall-clock
   // time. Recomputing can land on a different crop near a crop point (the on-keyframe tolerance) or
   // right after a seek, leaving the grab/resize regions off the visible crop. Null outside reframe,
   // so it falls back to the selected crop point there.
   if (cropString == null) {
     // In the global settings editor the reframe canvas is not drawing a per-pair crop, so the last
     // drawn reframe crop is stale (left over from the previously selected pair). Hit-test against the
-    // crop actually being edited there (newMarkerCrop, via getSelectedCropString) instead.
+    // crop being edited there (newMarkerCrop, via getSelectedCropString) instead.
     if (appState.wasGlobalSettingsEditorOpen) {
       cropString = getSelectedCropString();
     } else {
@@ -1306,10 +1306,10 @@ export function getMouseCropHoverRegion(e: PointerEvent, cropString?: string): s
   }
 
   // Resize-edge bands (cropRes units). `inner` is how far inside the edge still
-  // resizes; `outer` how far outside still resizes (so you can grab from just past the
+  // resizes; `outer` how far outside still resizes (to grab from just past the
   // edge). Normal mode: a fraction of the crop with a small outer margin. Reframe:
-  // the crop is blown up to fill the player, so a crop-fraction band reads as a huge
-  // on-screen strip — instead use a fixed ~12px on-screen handle, converted to cropRes
+  // the crop is blown up to fill the player, so a crop-fraction band looks like a huge
+  // on-screen strip: instead use a fixed ~12px on-screen handle, converted to cropRes
   // via the live display scale and split evenly inside/outside each edge so it stays a
   // thin handle grabbable from just inside or just outside (e.g. into a reframe bar).
   let innerX: number, outerX: number, innerY: number, outerY: number;
@@ -1553,7 +1553,7 @@ export function beginDraw(e: PointerEvent) {
       once: true,
       capture: true,
     });
-    // Mirror pointerup with pointercancel — see the matching drag/resize
+    // Mirror pointerup with pointercancel: see the matching drag/resize
     // handler for the rationale.
     appState.hooks.cropMouseManipulation.addEventListener('pointercancel', endDrawOnCancel, {
       once: true,
@@ -1570,7 +1570,7 @@ export function beginDraw(e: PointerEvent) {
   }
 }
 /** Pointercancel companion for `endDraw`. The browser fires this when it
- *  releases pointer capture without a normal pointerup — we revert the
+ *  releases pointer capture without a normal pointerup: we revert the
  *  in-progress draw rather than committing it (the user didn't choose to
  *  finalize). */
 function endDrawOnCancel(e: Event): void {

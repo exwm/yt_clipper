@@ -16,7 +16,7 @@ export const MAX_MAP_POINT_COUNT = 10_000;
 // small share (≤ ~100 B) in one allocation; grows by doubling on overflow.
 const INITIAL_BUFFER_SIZE = 256;
 
-// Upper bound on bytes consumed by a single varuint — enough headroom for any
+// Upper bound on bytes consumed by a single varuint: enough headroom for any
 // value that real fields produce, and tight enough to terminate on corrupted
 // input rather than reading forever.
 const VARUINT_MAX_BYTES = 9;
@@ -154,7 +154,7 @@ export class ByteReader {
 
 // Parse a "x:y:w:h" crop string into its parts plus a bitmask indicating which
 // slots hold the literal keywords `iw` / `ih`. Slot i uses `iw` when i is even,
-// `ih` when odd. Shared by writeCrop and writeCropMap — both need the same
+// `ih` when odd. Shared by writeCrop and writeCropMap: both need the same
 // validation and literal detection before emitting bytes.
 function parseCrop(crop: string): { parts: string[]; literalFlags: number } {
   const parts = crop.split(':');

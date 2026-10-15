@@ -4,15 +4,15 @@ This package owns the cross-run identity story for the sample-guided
 subsystem. The plan ships in phases; each phase adds a sibling module
 without touching prior ones:
 
-- ``fingerprint``  — phase 1: encoder + search fingerprints, the
+- ``fingerprint`` (phase 1): encoder + search fingerprints, the
   canonicalization recipe that makes them safe-and-stable.
-- ``history``      — phase 3: load prior-run JSONLs, reconstruct
+- ``history`` (phase 3): load prior-run JSONLs, reconstruct
   ``SampleGuidedEncodeResult`` for cache hits, list distinct prior configs.
-- ``delta``        — phase 3: ``PriorRunDelta`` + the auto-delta block
+- ``delta`` (phase 3): ``PriorRunDelta`` + the auto-delta block
   that the aggregate-summary formatter renders.
-- ``sidecar``      — phase 2 + 5: per-fingerprint ``config.json`` writes
+- ``sidecar`` (phase 2 + 5): per-fingerprint ``config.json`` writes
   (phase 2) and the final-encode ``.encode-meta.json`` UX (phase 5).
-- ``cache``        — phase 4: the strict freshness gate, full-hit
+- ``cache`` (phase 4): the strict freshness gate, full-hit
   reconstruction, partial-hit measurement priming.
 
 Public API (just phase 1 today):

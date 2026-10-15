@@ -2,7 +2,7 @@ import DOMPurify, { Config, RemovedAttribute, RemovedElement } from 'dompurify';
 
 // Maximally strict DOMPurify config for SCAN-AND-REPORT use. yt_clipper's
 // loadable fields (titleSuffix / titlePrefix / crop strings / merge list /
-// etc.) have no legitimate HTML use — titleSuffix becomes a filename, the
+// etc.) have no legitimate HTML use: titleSuffix becomes a filename, the
 // rest are syntactic strings (numeric, regex-matched). Any HTML-like tag
 // or attribute in loaded data is worth flagging for user review, even if
 // benign (e.g. `<b>` in a share URL is a surprise the user should see).
@@ -17,7 +17,7 @@ const SCAN_CONFIG: Config = {
 };
 
 // Per-field findings from walking a loaded payload and passing each string
-// value through DOMPurify. Purely informational — use for user warnings in
+// value through DOMPurify. Purely informational: use for user warnings in
 // load dialogs. DOMPurify's own docs say `.removed` must not be used for
 // security-critical decisions (that's the sanitized output's job); here we
 // use it as a "curious minds" helper for content review.
@@ -52,7 +52,7 @@ function walkStrings(
 
 // Elements DOMPurify's parser synthesizes around fragments (jsdom behavior
 // varies too). Under strict `ALLOWED_TAGS: []`, these auto-generated
-// wrappers get stripped and reported — but they weren't in the user's data,
+// wrappers get stripped and reported, but they weren't in the user's data,
 // so filter them out UNLESS they carry attributes (which might be exploit
 // vectors like `<body onload=...>`).
 const PARSER_WRAPPER_TAGS = new Set(['html', 'head', 'body']);
@@ -86,7 +86,7 @@ export function scanSuspiciousContent(payload: unknown): SuspiciousHtmlFinding[]
   const findings: SuspiciousHtmlFinding[] = [];
 
   walkStrings(payload, '', (path, str) => {
-    // Empty strings are common and never have markup — skip the sanitizer call.
+    // Empty strings are common and never have markup: skip the sanitizer call.
     if (str.length === 0) return;
 
     DOMPurify.sanitize(str, SCAN_CONFIG);
@@ -95,7 +95,7 @@ export function scanSuspiciousContent(payload: unknown): SuspiciousHtmlFinding[]
     // Collect descriptions, filter parser-wrapper noise, de-duplicate.
     const items = Array.from(new Set(DOMPurify.removed.flatMap(describeRemoved)));
 
-    // DOMPurify.removed is module-level state — reset before the next scan
+    // DOMPurify.removed is module-level state: reset before the next scan
     // so findings don't accumulate across fields.
     DOMPurify.removed.length = 0;
 

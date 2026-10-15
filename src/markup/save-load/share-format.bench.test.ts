@@ -41,7 +41,7 @@ const denseSpeedFixture: SharePayload = (() => {
 
 // Realistic "highlight reel" share: 20 clips cut from one session with a
 // consistent look. Same crop, same overrides, small zoom-in cropMap per clip.
-// This is the shape that justifies deflate — per-pair schema encoding can't
+// This is the shape that justifies deflate: per-pair schema encoding can't
 // dedupe repeated crop strings, repeated override masks, or near-identical
 // cropMap point values across pairs, but deflate's LZ77 can.
 const heavyEditFixture: SharePayload = (() => {
@@ -136,9 +136,9 @@ describe('share-format size benchmark', () => {
     expect(rows.every((r) => r.raw > 0)).toBe(true);
   });
 
-  // Regression guard: documents in code that deflate is load-bearing for
-  // long-edit shares. If this ever flips, deflate has stopped earning its
-  // keep and a conditional "skip when inflating" layer becomes a pure win.
+  // Regression guard: documents in code that deflate is required for
+  // long-edit shares. If this ever flips, deflate no longer pays off and a
+  // conditional "skip when inflating" layer becomes a pure win.
   test('heavyEdit: deflate saves >60% vs raw', () => {
     const row = measure('heavyEdit', heavyEditFixture);
     expect(row.deflated).toBeLessThan(row.raw * 0.4);

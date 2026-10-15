@@ -161,7 +161,7 @@ def test_load_prior_runs_groups_by_fingerprint(tmp_path: Path) -> None:
     )
     runs = load_prior_runs(pair_dir, low_pct=5)
     assert len(runs) == 2
-    # Sorted by run_id descending — most recent first.
+    # Sorted by run_id descending: most recent first.
     assert runs[0].encoder_fingerprint == "def"
     assert runs[1].encoder_fingerprint == "abc"
 
@@ -252,7 +252,7 @@ def test_load_prior_runs_skips_baseline_and_reference_trials(tmp_path: Path) -> 
 
 
 def test_load_prior_runs_skips_invalid_jsonl_lines(tmp_path: Path) -> None:
-    """Invalid JSON lines are skipped, not fatal — a half-written
+    """Invalid JSON lines are skipped, not fatal: a half-written
     record from a crash shouldn't poison the whole file."""
     pair_dir = tmp_path / "title-pair1"
     fp_dir = pair_dir / "abc"
@@ -305,7 +305,7 @@ def test_load_prior_runs_extracts_correct_low_pct(tmp_path: Path) -> None:
 
 def test_load_prior_runs_skips_files_with_invalid_p_low(tmp_path: Path) -> None:
     """Trials with NaN p_low or zero/negative bitrate are filtered
-    out — they'd corrupt interpolation."""
+    out: they'd corrupt interpolation."""
     pair_dir = tmp_path / "title-pair1"
     fp_dir = pair_dir / "abc"
     _make_run_jsonl(

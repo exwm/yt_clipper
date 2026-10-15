@@ -42,7 +42,7 @@ def test_canonicalize_codec_args_strips_qmin_and_qmax() -> None:
 
 def test_canonicalize_codec_args_sorts_flags() -> None:
     """Reordering flag emission in source code shouldn't flip the
-    canonical form — the fingerprint is about behavior, not source
+    canonical form: the fingerprint is about behavior, not source
     layout."""
     a = canonicalize_codec_args("-c:v libvpx-vp9 -aq-mode 0 -tile-rows 0")
     b = canonicalize_codec_args("-tile-rows 0 -aq-mode 0 -c:v libvpx-vp9")
@@ -88,7 +88,7 @@ def test_canonicalize_filter_graph_strips_trim_range() -> None:
 
 def test_canonicalize_filter_graph_preserves_filter_order() -> None:
     """Filter chains are order-sensitive (each filter feeds the next),
-    so canonicalization must preserve order — unlike codec args."""
+    so canonicalization must preserve order, unlike codec args."""
     a = canonicalize_filter_graph("scale=1920:1080,format=yuv420p")
     b = canonicalize_filter_graph("format=yuv420p,scale=1920:1080")
     assert a != b
@@ -268,8 +268,8 @@ def test_search_fingerprint_is_short_and_hex() -> None:
 
 
 def test_search_fingerprint_treats_int_and_float_consistently() -> None:
-    """Avoid the trap where ``95`` and ``95.0`` hash to different
-    fingerprints — both come from user-config plumbing where the
+    """Guard against ``95`` and ``95.0`` hashing to different
+    fingerprints: both come from user-config plumbing where the
     int/float distinction is incidental."""
     a = compute_search_fingerprint(95, 5, 92, 16, 42)  # type: ignore[arg-type]
     b = compute_search_fingerprint(95.0, 5, 92.0, 16, 42)

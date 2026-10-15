@@ -1,6 +1,6 @@
 """Shared logging helpers for the clipper.
 
-Each helper is a small, well-tested formatting primitive — the
+Each helper is a small, well-tested formatting primitive: the
 loggers themselves stay in :mod:`clipper.ytc_logger`. Putting the
 formatters here keeps the call-site code focused on *what* it wants
 to say, with the helper handling *how* it gets rendered (column

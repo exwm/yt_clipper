@@ -19,7 +19,7 @@ def test_logpath_renders_none_as_placeholder() -> None:
 def test_logpath_accepts_path_objects() -> None:
     out = f"{LogPath(Path('foo/bar.webm'))}"
     # str() of a Path uses the OS separator. Just verify quoting/escape
-    # behavior — separator is OS-dependent.
+    # behavior: separator is OS-dependent.
     assert out.startswith('"')
     assert out.endswith('"')
     assert "bar.webm" in out

@@ -20,7 +20,7 @@ from clipper.clipper_types import ClipperPaths, ClipperState
 
 RICH_LOG_FORMAT = r"%(message)s"
 COLORED_LOGS_LOG_FORMAT = r"[%(asctime)s] %(levelname)s: %(message)s"
-# Per-line timestamps are hour:minute:second only — within a single
+# Per-line timestamps are hour:minute:second only, within a single
 # run, the date doesn't change, and the on-disk log file is anchored
 # to an absolute ISO timestamp via the startup REPORT line. Saves
 # ~9 chars of horizontal real estate on every log line.
@@ -40,15 +40,15 @@ IMPORTANT = 29
 # NOTSET = 0
 
 # Per-level colors. Picked for distinguishability across adjacent
-# severity tiers — previously NOTICE and HEADER were both blue and
+# severity tiers: previously NOTICE and HEADER were both blue and
 # IMPORTANT / WARNING / ERROR were all in the red-orange family, so
-# levels read as a single warm blob. Current palette spreads them:
+# levels looked like a single warm blob. Current palette spreads them:
 # - subdued (DEBUG / VERBOSE / INFO): grey / gold / white
 # - positive (SUCCESS): green
 # - structural blue family: NOTICE = cyan, HEADER = dodger_blue,
 #   REPORT = plum (purple)
 # - warm severity: IMPORTANT = yellow, WARNING = orange,
-#   ERROR = red — each step up the severity scale a distinct hue.
+#   ERROR = red: each step up the severity scale a distinct hue.
 THEME_COLORS_LOG_LEVELS = {
     "logging.level.info": "white",
     "logging.level.success": "spring_green2",
@@ -136,7 +136,7 @@ class YTCLogger(verboselogs.VerboseLogger):
     def report(self, msg: object, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
         self.log(REPORT, msg, *args, **kwargs)
 
-    # Route critical / fatal through our log() override too —
+    # Route critical / fatal through our log() override too:
     # otherwise stdlib's Logger.critical bypasses our markup-wrapping
     # path and the operator sees literal "[bold]chip[/bold]:" text.
     def critical(self, msg: object, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
@@ -163,7 +163,7 @@ class YTCLogger(verboselogs.VerboseLogger):
 
         - **Top-level titled** (``rule(title=...)``): HEADER level
           (dodger_blue1) + heavy ``━`` glyph. Phase-boundary banners
-          — they should pop.
+          they should pop.
         - **Sub-phase titled** (``rule(title=..., sub=True)``):
           HEADER level (same color as the parent) + dashed ``┄``
           glyph. Same color signals "still a header" while the
@@ -226,7 +226,7 @@ class Subsystem:
 # Context-local "which marker pair am I logging for". Set by
 # ``pair_context(N)`` around per-pair work in the makeClips loop;
 # read by SubsystemLogger when building each chip. Unset (default
-# None) means the log isn't pair-scoped — e.g. setup, summary,
+# None) means the log isn't pair-scoped: e.g. setup, summary,
 # tooling-version banner.
 _current_pair: ContextVar[int | None] = ContextVar(
     "yt_clipper_current_pair",
@@ -262,12 +262,12 @@ class SubsystemLogger:
 
     When inside a ``pair_context(N)`` scope, the chip extends to
     ``clip-maker · pair N+1:`` so every line during that pair's
-    processing carries pair context implicitly — operators don't
+    processing carries pair context implicitly: operators don't
     need to remember which ``━━━ Marker pair N ━━━`` banner is
     most recent.
 
-    The prefix is applied to every level — INFO and VERBOSE
-    included — so multi-subsystem interleaving stays attributable
+    The prefix is applied to every level: INFO and VERBOSE
+    included: so multi-subsystem interleaving stays attributable
     and a ``grep "<subsystem>:"`` returns the full output from that
     subsystem regardless of severity. ``rule(...)`` is the lone
     exception; rule titles carry their own semantics and the chip
@@ -275,7 +275,7 @@ class SubsystemLogger:
 
     Rich markup composes with the level-color wrap that ``YTCLogger.log``
     adds: the chip's ``[bold]...[/bold]`` applies on top of the
-    level color, so the chip reads as bold in the level's hue with
+    level color, so the chip looks bold in the level's hue with
     the rest of the message at the same color, plain weight.
     """
 
@@ -394,7 +394,7 @@ def setUpLoggerWithRich(cs: ClipperState) -> None:
     # Publish the terminal handler's console so live-display callers
     # (rich.live.Live wrapped trackers) can share it. See
     # :func:`get_terminal_log_console`.
-    global _terminal_log_console  # noqa: PLW0603 — single-writer publication of the shared console
+    global _terminal_log_console  # noqa: PLW0603 (single-writer publication of the shared console)
     _terminal_log_console = rich_log_handler.console
     rich_colored_report_log_handler = get_rich_log_handler(
         level=NOTICE,
@@ -430,7 +430,7 @@ def get_rich_log_handler(
     color: bool = True,
 ) -> RichHandler:
     # The stdout console (file is None) should only claim to be a terminal when
-    # stdout actually is one. When output is captured/piped (pytest, CI, a
+    # stdout is one. When output is captured/piped (pytest, CI, a
     # redirect), forcing terminal mode floods the capture with cursor/spinner
     # escape sequences from the live encode-progress region. File-backed color
     # consoles (e.g. the colored report buffer) still force it so ANSI codes are

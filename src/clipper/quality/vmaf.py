@@ -36,8 +36,8 @@ class VmafSummary:
     precomputed so callers can pick which one to enforce as a
     shipping-quality target. Lower percentiles are stricter (a smaller
     fraction of frames is allowed below threshold) but need more total
-    frames to be statistically meaningful — at 100 frames p1 is
-    essentially ``minimum``, while p20-p25 are stable from 15 frames
+    frames to be statistically meaningful: at 100 frames p1 is
+    close to ``minimum``, while p20-p25 are stable from 15 frames
     upward. The "right" percentile for a given clip depends on its
     per-frame VMAF distribution: p5 is sensitive to small left-tail
     outliers (good for content with sharp artifacts), while p20-p25 sit
@@ -48,7 +48,7 @@ class VmafSummary:
 
     ``mean`` is always meaningful regardless of frame count and is the
     reliable secondary target. ``minimum`` is reported for diagnostics
-    but rarely used for decisions — too noisy on short clips.
+    but rarely used for decisions: too noisy on short clips.
 
     The p15-p25 fields default to NaN so tests that build mock summaries
     via small constructors don't need to enumerate every percentile.
@@ -99,7 +99,7 @@ def summarize_vmaf(per_frame: list[float]) -> VmafSummary:
 
     All six low percentiles (p1, p5, p10, p15, p20, p25) are computed
     unconditionally so callers can pick which to enforce without a
-    re-aggregation pass. Cost is negligible — ``statistics.quantiles``
+    re-aggregation pass. Cost is negligible: ``statistics.quantiles``
     is a single O(n log n) sort.
     """
     if not per_frame:

@@ -36,7 +36,7 @@ describe('getCropSectionInfo', () => {
     expect(info('100:100:960:540', '500:300:640:360').type).toBe('panzoom');
   });
 
-  it('absorbs a few percent of center drift so a near-centered zoom reads as zoom', () => {
+  it('absorbs a few percent of center drift so a near-centered zoom counts as zoom', () => {
     expect(info('0:0:1000:1000', '251:251:500:500').type).toBe('zoom');
   });
 

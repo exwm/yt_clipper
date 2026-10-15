@@ -56,7 +56,7 @@ def test_suggestKnownOptions(token: str, expected: List[str]) -> None:
     [
         # A short flag's letters resembling the typo is a real match worth keeping.
         pytest.param("--asld", "--auto-subs-lang (-asl)", None, id="short-flag letters match"),
-        # Sharing only a dash must not surface a terse, unrelated flag.
+        # Sharing only a dash must not suggest a terse, unrelated flag.
         pytest.param(
             "--asd", None, "--video-stabilization-dynamic-zoom (-vsdz)", id="dash overlap",
         ),

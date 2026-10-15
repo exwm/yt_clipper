@@ -7,20 +7,20 @@ encoder configuration on a given clip, what was the predicted
 bitrate to hit the *current* run's target VMAF, and how does it
 compare to the current run?
 
-Two design decisions worth flagging:
+Two design decisions:
 
 - **Re-interpolate, don't trust the saved value.** Each prior run's
   JSONL stores ``kbps_at_target_vmaf`` from when *that* run wrote
-  it — at *that* run's target. If the user changed
+  it: at *that* run's target. If the user changed
   ``--target-vmaf-low`` since, the saved value is comparing apples
   and oranges. We reach back into the prior run's probe data and
   re-interpolate at the current target to keep the comparison
-  apples-to-apples.
+  like-for-like.
 
 - **Diff label, not full label.** The prior-run row's label shows
   only the encoder settings that *differ* from the current run.
   Two runs that share aq-mode but differ on tile-rows show
-  ``tile-rows=2`` (the prior value) — terse, easy to scan, gives
+  ``tile-rows=2`` (the prior value): terse, easy to scan, gives
   a git-diff-like read of what the user changed.
 """
 
@@ -62,7 +62,7 @@ def compute_prior_run_deltas(
 
     Returns one row for the current run (``is_current=True``,
     no deltas) followed by one row per prior fingerprint (sorted
-    by recency, most recent first — preserving caller-provided
+    by recency, most recent first: preserving caller-provided
     order). Each prior row's ``kbps_at_target`` is re-interpolated
     on the prior run's own probe data at the *current* target
     VMAF, so cross-target user changes don't poison the comparison.
@@ -146,7 +146,7 @@ def _format_label_for_keys(
 ) -> str:
     """Render ``key=value`` pairs (alphabetical) for the given keys
     against ``config``. Used for the current row's label so it
-    surfaces the same dimensions the prior rows differ on."""
+    shows the same dimensions the prior rows differ on."""
     parts = [
         f"{key}={config[key]}" for key in sorted(keys) if key in config and config[key] is not None
     ]
@@ -165,7 +165,7 @@ def _interpolate_kbps_from_probes(
     VMAF decreases monotonically with CRF, so a target bracket is a
     consecutive pair of probes whose ``(p_low - target)`` values have
     opposite signs (or either equals zero). Returns ``None`` if no
-    such bracket exists — the prior run's probe range doesn't reach
+    such bracket exists: the prior run's probe range doesn't reach
     the current target, and the comparison metric is undefined.
     """
     if len(probes) < 2:
@@ -220,7 +220,7 @@ def format_prior_run_deltas_block(
     ``rows_per_clip`` is a list of ``(clip_label, rows)`` pairs. Each
     ``rows`` list typically starts with the current-run row and is
     followed by prior-run rows. Clips with no prior runs (i.e.
-    only the current row) are skipped — there's nothing to compare.
+    only the current row) are skipped: there's nothing to compare.
 
     Returns the empty string if no clip has any priors.
     """

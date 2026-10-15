@@ -9,7 +9,7 @@ Pure-data layer. Everything in here is either:
 - A trivial helper that maps the user's chosen low-percentile value
   (1, 5, or 10) to its corresponding floor / threshold / summary field.
 
-No I/O, no algorithms — those live in sibling modules so this file
+No I/O, no algorithms: those live in sibling modules so this file
 stays small, stable, and the natural import target for type-only
 references throughout the codebase.
 """
@@ -28,7 +28,7 @@ from clipper.quality import VmafSummary
 # Supported low-percentile choices for the trial-passing predicate.
 # Higher percentile values are more permissive (10% of frames allowed
 # below threshold vs 1%) but stabler at lower frame counts. yt_clipper's
-# default is p5 — middle ground for short / slowed clips where p1 is
+# default is p5: middle ground for short / slowed clips where p1 is
 # noisy from single-frame artifacts but p10 too readily ignores real
 # encoder mistakes. p15-p25 are also supported for users who want
 # higher signal-to-noise at the cost of less worst-frame protection;
@@ -44,15 +44,15 @@ DEFAULT_LOW_PERCENTILE: int = 5
 
 
 # Minimum combined frames for each low percentile to be a meaningful
-# percentile (rather than essentially equal to ``min``). A clip's
-# combined trial frame count is checked against this — below the floor,
+# percentile (rather than nearly equal to ``min``). A clip's
+# combined trial frame count is checked against this: below the floor,
 # the orchestrator either keeps encoding more windows or, if it can't,
 # the adaptive ``passes_targets`` drops the percentile check entirely
 # and falls back to mean-only.
 #
 # Rule of thumb: enough frames so the percentile boundary lands above
 # the lowest 1-3 outlier frames. p1 needs 100 frames (1% of 100 = 1
-# frame, essentially min); p5 needs 50 (5% of 50 = 2.5); p10 needs 30.
+# frame, nearly min); p5 needs 50 (5% of 50 = 2.5); p10 needs 30.
 # p15, p20, p25 are stable at progressively smaller counts as more of
 # the distribution falls within the bracket.
 _MIN_FRAMES_BY_LOW_PERCENTILE: dict[int, int] = {
@@ -92,7 +92,7 @@ _DEFAULT_LOW_THRESHOLD_BY_PERCENTILE: dict[int, float] = {
 # yt_clipper-stricter mean default. Industry/Netflix uses 90, ab-av1
 # uses 95 (no percentile backstop). 95 matches ab-av1's transparency-
 # adjacent target, paired with the low-percentile ladder above as a
-# worst-frame backstop — short / slowed clips need both because mean
+# worst-frame backstop: short / slowed clips need both because mean
 # alone can mask localized artifact bursts.
 DEFAULT_TARGET_VMAF_MEAN: float = 95.0
 
@@ -135,7 +135,7 @@ def default_low_threshold_for_percentile(percentile: int) -> float:
     """Default low-VMAF threshold scaled to the chosen percentile.
 
     Calibrated to maintain equivalent shipping-quality strictness across
-    percentile choices — see ``_DEFAULT_LOW_THRESHOLD_BY_PERCENTILE`` for
+    percentile choices: see ``_DEFAULT_LOW_THRESHOLD_BY_PERCENTILE`` for
     rationale. Falls back to the p5 default for unsupported values.
     """
     return _DEFAULT_LOW_THRESHOLD_BY_PERCENTILE.get(
@@ -156,7 +156,7 @@ MIN_FRAMES_FOR_RELIABLE_P1: int = _MIN_FRAMES_BY_LOW_PERCENTILE[1]
 # Set so for a typical multi-minute clip the search encodes roughly 10% of
 # the final-encode work, getting a 10x speedup vs full-clip trials. For
 # short clips the floor (MIN_FRAMES_FOR_RELIABLE_P1 below) takes over so
-# p1 stays meaningful — sampling 10% of a 200-frame clip would only give
+# p1 stays meaningful: sampling 10% of a 200-frame clip would only give
 # 20 combined frames, well below the threshold for stable p1.
 DEFAULT_TARGET_SAMPLE_PERCENT: float = 10.0
 
@@ -171,7 +171,7 @@ DEFAULT_N_WINDOWS: int = 3
 # ---------------------------------------------------------------------------
 
 # Per-codec near-transparent CRF for the reference encode. Same choice as
-# the parked branch's calibration-compare reference mode — empirically
+# the parked branch's calibration-compare reference mode: empirically
 # validated to give VMAF NEG > 95 mean across the test clips.
 _REFERENCE_CRF_BY_CODEC: dict[str, int] = {
     "h264": 18,
@@ -201,13 +201,13 @@ class SampleGuidedEncodeTarget:
 
     Two checks combine to decide pass/fail:
 
-    1. ``target_vmaf_mean`` — arithmetic mean across all sampled frames.
+    1. ``target_vmaf_mean``: arithmetic mean across all sampled frames.
        Always enforced.
     2. ``target_vmaf_low`` at the percentile named by
-       ``target_vmaf_low_pct`` — captures worst-case frames. Lower
+       ``target_vmaf_low_pct``: captures worst-case frames. Lower
        percentiles are stricter (1% of frames vs 5% vs 10% allowed below
        threshold) but require more frames to be statistically meaningful.
-       Defaults to p5 — a middle ground for yt_clipper's typical short /
+       Defaults to p5: a middle ground for yt_clipper's typical short /
        slowed clips where p1 over-penalizes single-frame artifacts and
        p10 too readily ignores real encoder mistakes. The threshold
        value scales with the percentile choice (see
@@ -221,7 +221,7 @@ class SampleGuidedEncodeTarget:
     ``crf_max`` is the *starting* upper bound, not a hard cap. If the
     initial probe at ``crf_max`` passes with comfortable VMAF headroom
     (see ``expansion_min_*_headroom``), the search expands upward in
-    ``expansion_step`` increments — up to ``crf_absolute_max`` — to find
+    ``expansion_step`` increments (up to ``crf_absolute_max``) to find
     the real compression ceiling rather than declaring an early "easy
     clip" win that leaves bits on the table.
     """
@@ -230,12 +230,12 @@ class SampleGuidedEncodeTarget:
     target_vmaf_low: float
     target_vmaf_low_pct: int = DEFAULT_LOW_PERCENTILE
     crf_min: int = 16  # safest (highest quality, biggest file)
-    crf_max: int = 42  # starting upper bound — raised when easy clips pass
-    crf_absolute_max: int = 51  # hard ceiling — never probe above this
+    crf_max: int = 42  # starting upper bound, raised when easy clips pass
+    crf_absolute_max: int = 51  # hard ceiling, never probe above this
     max_iterations: int = 8  # bumped from 6 to leave headroom for expansion + bisect
     expansion_step: int = 3  # CRF increment per upward-expansion probe
     # Minimum VMAF margin above the target (in points) required to bother
-    # probing higher. Both must be exceeded — we don't want to expand when
+    # probing higher. Both must be exceeded: we don't want to expand when
     # mean has room but the low percentile is at the edge (the next CRF
     # likely fails it).
     expansion_min_mean_headroom: float = 3.0
@@ -293,9 +293,9 @@ class TrialMeasurement:
     ``reference_size_bytes_for_windows`` lets evaluators that encode a
     subset of the available windows (e.g. Phase 1 of two-phase search,
     which uses middle window only) report the matching reference subset's
-    size — so the trial's ``size_percent_of_reference`` compares like to
+    size, so the trial's ``size_percent_of_reference`` compares like to
     like rather than 1-window-encoded vs N-window-reference. Default 0
-    means "use the search's global reference_size_bytes" — back-compat
+    means "use the search's global reference_size_bytes": back-compat
     for single-phase callers that always encode every window.
     """
 
@@ -308,7 +308,7 @@ class TrialMeasurement:
     # Bitrate at this trial's CRF, derived from the trial's own
     # ``encoded_size_bytes`` over its measured duration. Per-frame size
     # scales linearly with frame count, so this kbps figure is also the
-    # *predicted* bitrate of the full final encode at the same CRF —
+    # *predicted* bitrate of the full final encode at the same CRF:
     # enabling the orchestrator's joint CRF + maxrate decision in
     # ``--sample-guided-encode`` mode without extra computation downstream.
     bitrate_kbps: float = 0.0
@@ -322,7 +322,7 @@ class SampleGuidedEncodeResult:
     ``crf_min`` can handle at the given targets). Caller falls back to
     ``crf_min`` for the final encode and emits a warning.
 
-    Frame-count fields surface how much encode work the search did vs how
+    Frame-count fields show how much encode work the search did vs how
     much the final user-visible encode will do. Useful for tuning
     sampling parameters: if ``search_frames`` is a big fraction of
     ``final_frames_estimate``, sampling is barely saving any work and the
@@ -342,7 +342,7 @@ class SampleGuidedEncodeResult:
     # The trial measured at the CRF yt_clipper would have auto-picked
     # if --sample-guided-encode were OFF. Encoded once at search start (or
     # reconstructed from the prior run's ``fit`` JSONL record on a cache
-    # hit); never part of the search probe set. Surfaced separately so
+    # hit); never part of the search probe set. Reported separately so
     # the summary block can show a "delta vs. baseline" line without
     # the picked-trial iterators having to skip a fake probe.
     baseline_trial: SampleGuidedEncodeTrial | None = None

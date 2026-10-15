@@ -25,12 +25,12 @@ from clipper.ytc_logger import Subsystem, make_subsystem_logger
 logger = make_subsystem_logger(Subsystem.PREVIEWS)
 
 # Default source-resolution tiers for picking a preview long edge. Indexed by
-# source SHORT edge — the standard "Np" resolution naming, where 1080p means a
+# source SHORT edge: the standard "Np" resolution naming, where 1080p means a
 # 1080-short-edge source regardless of orientation. The returned value is the
 # preview LONG edge; callers preserve aspect ratio when deriving the other
 # dimension. Never upscale: callers cap at the source long edge.
 #
-# This is a project heuristic — not externally sourced. Format modules may
+# This is a project heuristic: not externally sourced. Format modules may
 # import this table as-is or define their own if their encoder's compression
 # curve warrants different bucket boundaries.
 DEFAULT_PREVIEW_DIM_TIERS: Tuple[Tuple[int, int], ...] = (
@@ -44,7 +44,7 @@ DEFAULT_PREVIEW_DIM_TIERS: Tuple[Tuple[int, int], ...] = (
 
 
 def roundUpToEven(value: float) -> int:
-    """Round to the nearest even integer — required for 4:2:0 chroma subsampling."""
+    """Round to the nearest even integer: required for 4:2:0 chroma subsampling."""
     rounded = round(value)
     return rounded + 1 if rounded % 2 else rounded
 
@@ -125,7 +125,7 @@ def getPreviewSiblingPath(clipFilePath: str, formatExtension: str) -> str:
 def probeVideoDimensions(cp: ClipperPaths, path: str) -> Optional[Tuple[int, int]]:
     """Return (width, height) for the first video stream of ``path`` via ffprobe.
 
-    Returns ``None`` when the probe fails or output is malformed — caller
+    Returns ``None`` when the probe fails or output is malformed: caller
     decides the fallback.
     """
     probeCommand = (
@@ -220,7 +220,7 @@ def concatCopyPreviewVideos(
         f'-f concat -safe 0 -i "{inputsTxtPath}" -c copy "{outputPath}"'
     )
     logger.info(
-        f"Concat-copy merging into {LogPath(Path(outputPath).name)}.",
+        f"Merging previews into {LogPath(Path(outputPath).name)}.",
     )
     try:
         return runFfmpegPreviewCommand(concatCommand, outputPath, previewLabel)

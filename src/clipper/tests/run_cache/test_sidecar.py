@@ -64,8 +64,8 @@ def test_write_config_sidecar_creates_parent_directories(tmp_path: Path) -> None
 
 
 def test_write_config_sidecar_is_idempotent(tmp_path: Path) -> None:
-    """A second call on an existing dir must not rewrite — first_seen_utc
-    is the load-bearing field that distinguishes a re-run from a
+    """A second call on an existing dir must not rewrite: first_seen_utc
+    is the field that distinguishes a re-run from a
     first-encounter, and rewriting it would lose that signal."""
     fp_dir = tmp_path / "title-pair1" / "abc"
     write_config_sidecar(
@@ -78,7 +78,7 @@ def test_write_config_sidecar_is_idempotent(tmp_path: Path) -> None:
     original_content = sidecar_path.read_text(encoding="utf-8")
     original_mtime = sidecar_path.stat().st_mtime
 
-    # Second call with different signature — should be a no-op.
+    # Second call with different signature: should be a no-op.
     write_config_sidecar(
         fp_dir,
         encoder_fingerprint="abc",
@@ -117,7 +117,7 @@ def test_write_config_sidecar_first_seen_utc_is_iso_zulu(tmp_path: Path) -> None
         yt_clipper_version="5.43.0",
     )
     payload = json.loads((fp_dir / "config.json").read_text(encoding="utf-8"))
-    # YYYY-MM-DDTHH:MM:SSZ — 20 chars, ends with Z, no fractional seconds.
+    # YYYY-MM-DDTHH:MM:SSZ, 20 chars, ends with Z, no fractional seconds.
     timestamp = payload["first_seen_utc"]
     assert len(timestamp) == 20
     assert timestamp.endswith("Z")
@@ -199,7 +199,7 @@ def test_write_encode_meta_sidecar_overwrites_on_subsequent_call(
     tmp_path: Path,
 ) -> None:
     """Unlike the per-fingerprint config.json, encode-meta sidecars
-    are rewritten each successful encode — the file's bytes change,
+    are rewritten each successful encode: the file's bytes change,
     so the metadata must too."""
     output_path = _touch(tmp_path / "clip-1.webm")
     write_encode_meta_sidecar(
@@ -284,7 +284,7 @@ def test_check_encode_meta_sidecar_mismatch_on_picked_crf(tmp_path: Path) -> Non
 
 
 def test_check_encode_meta_sidecar_missing_when_sidecar_absent(tmp_path: Path) -> None:
-    """Output exists but no sidecar — typical for files produced
+    """Output exists but no sidecar: typical for files produced
     before this feature shipped, or sidecars deleted by accident."""
     output_path = _touch(tmp_path / "clip-1.webm")
     check = check_encode_meta_sidecar(
@@ -307,7 +307,7 @@ def test_check_encode_meta_sidecar_absent_when_output_missing(tmp_path: Path) ->
 
 def test_check_encode_meta_sidecar_handles_corrupt_sidecar(tmp_path: Path) -> None:
     """A corrupt sidecar (non-JSON content) is treated like a missing
-    sidecar — defensive: don't crash on weird on-disk state."""
+    sidecar (defensive): don't crash on unusual on-disk state."""
     output_path = _touch(tmp_path / "clip-1.webm")
     sidecar_path = output_path.with_suffix(".webm.encode-meta.json")
     sidecar_path.write_text("not valid json", encoding="utf-8")

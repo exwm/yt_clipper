@@ -262,7 +262,7 @@
 
 /* Fills the gap between the title/nav and the toggle bar with a line in the
    legend's own accent color (orange for marker, red for global), so the
-   legend's notch reads as one continuous top border. */
+   legend's notch looks like one continuous top border. */
 .settings-legend-connector {
   flex: 1 1 auto;
   height: 0;
@@ -729,7 +729,7 @@
   transform: scale(1.5);
 }
 
-/* Hints bar toggle button — white tint so `currentColor` propagates to
+/* Hints bar toggle button: white tint so `currentColor` propagates to
    the inner SVG. Sizing/positioning is handled per-platform below. */
 #hintsBarToggleButton.yt-clipper-hints-bar-button {
   color: #fff;
@@ -742,10 +742,10 @@
   justify-content: center;
 }
 
-/* Hints bar icon — match the visual icon size of the scissors (command
+/* Hints bar icon: match the visual icon size of the scissors (command
    palette) button and the native YouTube player-rail glyphs. The
    Blender STATUSBAR svg fills its viewBox densely, so the 26 px
-   `renderUIIcon` size reads as oversized in the .ytp-button slot. The
+   `renderUIIcon` size looks oversized in the .ytp-button slot. The
    yt_clipper platform CSS overrides this with a smaller scale to fit
    the vjs control bar; this rule sets the default for YouTube and the
    other host platforms. */

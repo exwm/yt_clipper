@@ -32,8 +32,8 @@ describe('blockDangerousUrl', () => {
     ['blob:https://example.com/abc'],
     ['mailto:a@b.com'],
     ['tel:+1234'],
-    ['javascripts:fake'], // extra letters after scheme name — not dangerous
-    ['xjavascript:fake'], // prefix before scheme — not dangerous
+    ['javascripts:fake'], // extra letters after scheme name, not dangerous
+    ['xjavascript:fake'], // prefix before scheme, not dangerous
     ['https://example.com/javascript:foo'], // scheme embedded in path is harmless
   ])('allows %s', (value) => {
     expect(blockDangerousUrl(value)).toBe(value);
@@ -45,7 +45,7 @@ describe('blockDangerousUrl', () => {
     expect(blockDangerousUrl(undefined)).toBe(undefined);
     const obj = { toString: () => 'javascript:alert(1)' };
     expect(blockDangerousUrl(obj)).toBe(obj);
-    // Note: lit-html stringifies non-string values at commit time. If an
+    // lit-html stringifies non-string values at commit time. If an
     // attacker somehow gets a toString-returning-javascript-url object into
     // a URL-context binding, lit-html's string conversion happens AFTER the
     // sanitizer runs. The lint rule covers that case at the source.

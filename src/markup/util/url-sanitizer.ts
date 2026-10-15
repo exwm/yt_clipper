@@ -11,7 +11,7 @@ import type { SanitizerFactory, ValueSanitizer } from 'lit-html';
 //   `<script src>`, `<video poster>`) still leak Referer/IP/UA/timing to
 //   the attacker origin and enable third-party CSRF + CSS-selector exfil.
 // - Does not cover direct DOM writes (`el.href = x`, `el.setAttribute(...)`)
-//   or navigation sinks (`location.href = x`, `window.open(x)`) — those are
+//   or navigation sinks (`location.href = x`, `window.open(x)`): those are
 //   caught by the `local/no-url-attribute-interpolation` ESLint rule at dev
 //   time.
 //
@@ -24,7 +24,7 @@ import type { SanitizerFactory, ValueSanitizer } from 'lit-html';
 // plus `rel="noreferrer noopener"` on user-clickable `<a>` tags. We have
 // no dynamic URLs today, so that complexity is deferred.
 
-// URL-context HTML attributes — when lit-html commits a value to one of these
+// URL-context HTML attributes: when lit-html commits a value to one of these
 // attributes, schemes like `javascript:` / `data:` / `vbscript:` navigate or
 // execute. Keep in sync with eslint-rules/no-url-attribute-interpolation.ts.
 const URL_ATTRS = new Set([
@@ -70,18 +70,18 @@ export const urlSanitizerFactory: SanitizerFactory = (_node, name, type) =>
   isUrlContext(name, type) ? blockDangerousUrl : identitySanitizer;
 
 // Install the URL sanitizer as lit-html's sanitizer factory. Must be called
-// before the first `render()` invocation — lit-html caches the factory at
+// before the first `render()` invocation: lit-html caches the factory at
 // template instantiation time, so a late install has no effect on templates
 // already rendered.
 //
 // IMPORTANT: lit-html's sanitizer hooks are compiled out of the production
 // build via `ENABLE_EXTRA_SECURITY_HOOKS = false`. In production bundles,
-// `render.setSanitizer` does not exist — we guard against that or init will
+// `render.setSanitizer` does not exist: we guard against that or init will
 // throw a TypeError. In dev/test builds the hook is present and the
 // sanitizer runs. Effective in production only if Parcel is configured to
 // resolve `lit-html` → `lit-html/development/lit-html.js` (not the default).
 // That's a deliberate tradeoff (bundle size + perf for defense-in-depth) and
-// we don't take it — our primary defense is the `local/no-url-attribute-
+// we don't take it: our primary defense is the `local/no-url-attribute-
 // interpolation` ESLint rule plus lit-html's built-in structural safety,
 // which together prevent dynamic URLs from reaching template bindings at
 // dev time and prevent HTML injection at runtime regardless.

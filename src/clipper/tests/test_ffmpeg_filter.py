@@ -392,7 +392,7 @@ def test_assert_crop_filter_has_no_gaps_detects_a_gap() -> None:
 @pytest.mark.parametrize(
     ("startTime", "endTime", "fps", "expected"),
     [
-        # Genuinely zero-duration section: skipped.
+        # A zero-duration section: skipped.
         (1.0, 1.0, 30.0, None),
         # Section shorter than the adjustment window: falls back to the real duration
         # instead of dropping out (would otherwise leave a crop-snapping gap).

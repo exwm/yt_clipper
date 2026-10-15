@@ -44,7 +44,7 @@ def test_pickPreviewCrf_lossy_source_raises_floor() -> None:
 
 
 def test_pickPreviewCrf_pristine_source_is_not_pulled_lower() -> None:
-    # Pristine source should NOT tighten the preview — there's no benefit to
+    # Pristine source should NOT tighten the preview: there's no benefit to
     # spending bits faithfully when the preview-side signals are fixed.
     withoutSourceCrf = avif.pickPreviewCrf(
         sourceCrf=None,
@@ -223,7 +223,7 @@ def test_preserve_hdr_flag_is_off() -> None:
 
 
 def test_getAvifPreviewPath_delegates_with_avif_extension() -> None:
-    # Thin wrapper over the shared helper — just confirm the AVIF extension
+    # Thin wrapper over the shared helper: just confirm the AVIF extension
     # is applied so callers don't need to remember the literal.
     assert avif.getAvifPreviewPath("clip.webm").endswith("clip.preview.avif")
     assert avif.getAvifPreviewPath("My Song-Album.mp4").endswith("My Song-Album.preview.avif")

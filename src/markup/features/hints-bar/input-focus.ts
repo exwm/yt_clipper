@@ -1,6 +1,6 @@
 /**
  * Tracks which form input in the settings editor currently has keyboard
- * focus, so the hints bar can surface input-specific shortcuts as a
+ * focus, so the hints bar can show input-specific shortcuts as a
  * hover-layer context.
  *
  * Listens once on `document` for focusin / focusout (events bubble) and

@@ -3,7 +3,7 @@
 Covers the trial-passing predicate, sample-window selection, and the
 binary-search algorithm with mocked encode/measure callables. The
 orchestrator (``run_sample_guided_encode_for_marker_pair``) imports ``clip_maker``
-and is exercised manually via smoke testing — not unit tested here.
+and is exercised manually via smoke testing: not unit tested here.
 """
 
 from __future__ import annotations
@@ -42,14 +42,14 @@ from clipper.sample_guided_encode import (
 _DEFAULT_LOW_PCT_FRAME_FLOOR: int = min_frames_for_low_percentile(5)
 
 # ---------------------------------------------------------------------------
-# passes_targets — adaptive p1 enforcement
+# passes_targets: adaptive p1 enforcement
 # ---------------------------------------------------------------------------
 
 
 def _summary(*, mean: float, p1: float, frame_count: int) -> VmafSummary:
     """Test helper: builds a VmafSummary where all low-percentile values
     (p1..p25, minimum) collapse to the same ``p1`` argument. Tests don't
-    model the gap between percentiles — they verify the predicate logic,
+    model the gap between percentiles: they verify the predicate logic,
     so a single "low percentile value" is enough.
     """
     return VmafSummary(
@@ -87,7 +87,7 @@ def test_passes_targets_mean_fail_returns_false_regardless_of_p1() -> None:
     summary = _summary(mean=88.0, p1=99.0, frame_count=200)
     passed, p1_enforced = passes_targets(summary, _target(mean=90.0, p1=85.0))
     assert passed is False
-    # p1 was eligible to be checked (frame count >= threshold) — flag reflects that.
+    # p1 was eligible to be checked (frame count >= threshold): flag reflects that.
     assert p1_enforced is True
 
 
@@ -107,10 +107,10 @@ def test_passes_targets_high_frame_count_enforces_p1() -> None:
 
 
 def test_passes_targets_low_frame_count_drops_p1_when_mean_passes() -> None:
-    """Below _DEFAULT_LOW_PCT_FRAME_FLOOR the p1 check is dropped — a single
+    """Below _DEFAULT_LOW_PCT_FRAME_FLOOR the p1 check is dropped: a single
     noisy frame can't fail a short trial as long as mean clears."""
     target = _target(mean=90.0, p1=85.0)
-    # Few frames, mean ok, p1 well below target — would fail with p1 enforced,
+    # Few frames, mean ok, p1 well below target: would fail with p1 enforced,
     # but at this frame count p1 ≈ min and we don't trust it.
     summary = _summary(mean=92.0, p1=60.0, frame_count=_DEFAULT_LOW_PCT_FRAME_FLOOR - 1)
     passed, p1_enforced = passes_targets(summary, target)
@@ -132,7 +132,7 @@ def test_passes_targets_p1_enforced_flag_reflects_threshold_decision() -> None:
 
 
 # ---------------------------------------------------------------------------
-# is_trial_confidently_decided — progressive-sampling early-exit predicate
+# is_trial_confidently_decided: progressive-sampling early-exit predicate
 # ---------------------------------------------------------------------------
 
 
@@ -141,7 +141,7 @@ def test_is_trial_confidently_decided_below_p1_threshold_always_returns_false() 
     so the orchestrator keeps encoding windows until p1 stabilizes.
     """
     target = _target(mean=90.0, p1=85.0)
-    # Wildly above target but only 50 frames — keep encoding.
+    # Wildly above target but only 50 frames: keep encoding.
     summary = _summary(
         mean=99.0,
         p1=98.0,
@@ -172,7 +172,7 @@ def test_is_trial_confidently_decided_confident_fail_when_either_axis_below() ->
 
 def test_is_trial_confidently_decided_borderline_returns_false() -> None:
     """At the boundary on one axis (within margin), more data is worth
-    encoding — the verdict could flip with another window's frames.
+    encoding: the verdict could flip with another window's frames.
     """
     target = _target(mean=90.0, p1=85.0)
     # Mean comfortably above, but p1 within the confidence margin of 3.
@@ -184,7 +184,7 @@ def test_is_trial_confidently_decided_borderline_returns_false() -> None:
 
 
 # ---------------------------------------------------------------------------
-# select_sample_windows — frame-count-based sampling
+# select_sample_windows: frame-count-based sampling
 # ---------------------------------------------------------------------------
 
 
@@ -232,7 +232,7 @@ def test_select_sample_windows_window_duration_scales_inversely_with_source_fps(
 
 def test_select_sample_windows_falls_back_to_single_window_when_clip_too_short() -> None:
     """A clip shorter than ``n_windows * window_seconds`` in its sampleable
-    region falls back to a single full-clip window — sampling degrades
+    region falls back to a single full-clip window: sampling degrades
     gracefully rather than erroring or returning overlapping windows.
     """
     # 1-second clip at 30 fps: 50-frame windows = 1.67 s each, can't fit 3.
@@ -247,7 +247,7 @@ def test_select_sample_windows_falls_back_to_single_window_when_clip_too_short()
 
 
 def test_select_sample_windows_falls_back_to_single_window_when_fps_is_zero() -> None:
-    """Unknown framerate (0.0) means we can't size windows in frames —
+    """Unknown framerate (0.0) means we can't size windows in frames:
     fall back to full clip. Defensive against the source_fps resolver
     returning 0 when r_frame_rate / avg_frame_rate are missing.
     """
@@ -306,7 +306,7 @@ def test_select_sample_windows_total_frames_matches_explicit_override() -> None:
 
 def test_select_sample_windows_uses_percent_of_final_frames_when_estimate_provided() -> None:
     """With ``final_frames_estimate`` set, the trial size scales as a
-    percentage of the final encode (default 10%) — long clips get more
+    percentage of the final encode (default 10%): long clips get more
     sample frames, short clips get the floor.
     """
     # 30 fps, 1-minute clip = 1800 final frames. 10% = 180 frames target.
@@ -347,7 +347,7 @@ def test_select_sample_windows_combined_frames_clamped_to_floor_when_max_equals_
     """When the orchestrator passes ``max_combined_frames == min_combined_frames``
     (the percentile floor), trials always use the minimum-required
     sample size regardless of clip length. This is the orchestrator's
-    chosen behavior to keep trial wall time bounded — beyond the
+    chosen behavior to keep trial wall time bounded: beyond the
     percentile's statistical-sufficiency floor, more frames give
     marginal accuracy at real time cost.
     """
@@ -362,7 +362,7 @@ def test_select_sample_windows_combined_frames_clamped_to_floor_when_max_equals_
         max_combined_frames=50,
     )
     total_frames = round(sum(w.duration for w in windows) * 30.0)
-    # ceil(50/3)*3 = 51 — clamped at floor with ceil rounding to keep
+    # ceil(50/3)*3 = 51: clamped at floor with ceil rounding to keep
     # combined count >= floor.
     assert 50 <= total_frames <= 60
 
@@ -474,7 +474,7 @@ def test_select_sample_windows_falls_back_to_legacy_default_when_final_frames_un
 
 
 # ---------------------------------------------------------------------------
-# find_optimal_crf — pure binary-search algorithm
+# find_optimal_crf: pure binary-search algorithm
 # ---------------------------------------------------------------------------
 
 
@@ -508,7 +508,7 @@ def _run_search(
 
 def test_find_optimal_crf_picks_crf_max_when_no_expansion_headroom() -> None:
     """If crf_max passes but only barely (no headroom), the search returns
-    crf_max after a single trial — expanding upward would just hit the
+    crf_max after a single trial: expanding upward would just hit the
     cliff edge and waste a trial.
     """
     target = SampleGuidedEncodeTarget(
@@ -537,7 +537,7 @@ def test_find_optimal_crf_picks_crf_max_when_no_expansion_headroom() -> None:
 def test_find_optimal_crf_expands_above_crf_max_when_headroom_available() -> None:
     """If crf_max passes with comfortable headroom (mean and p1 well
     above target), the search galloping-expands upward to find the real
-    ceiling — crf_max is a *starting* upper bound, not a hard cap.
+    ceiling: crf_max is a *starting* upper bound, not a hard cap.
     """
     target = SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0,
@@ -566,12 +566,12 @@ def test_find_optimal_crf_expands_above_crf_max_when_headroom_available() -> Non
 
     crf_to_summary = {crf: _summary_for(crf) for crf in range(16, 52)}
     result = _run_search(target=target, crf_to_summary=crf_to_summary)
-    # Optimal should be at or close to the threshold — definitely above
+    # Optimal should be at or close to the threshold: definitely above
     # the starting crf_max=38.
     assert result.optimal_crf is not None
     assert result.optimal_crf > 38
     assert result.optimal_crf <= threshold
-    # And the search should have actually probed CRFs above crf_max=38.
+    # And the search should have probed CRFs above crf_max=38.
     probed = {t.crf for t in result.trials}
     assert any(crf > 38 for crf in probed)
 
@@ -589,7 +589,7 @@ def test_find_optimal_crf_expansion_respects_crf_absolute_max() -> None:
         max_iterations=10,
         expansion_step=3,
     )
-    # Every CRF passes with huge headroom — without an absolute cap the
+    # Every CRF passes with huge headroom: without an absolute cap the
     # search would probe forever.
     crf_to_summary = {crf: _summary(mean=99.0, p1=98.0, frame_count=200) for crf in range(16, 100)}
     result = _run_search(target=target, crf_to_summary=crf_to_summary)
@@ -602,7 +602,7 @@ def test_find_optimal_crf_expansion_respects_crf_absolute_max() -> None:
 
 
 def test_find_optimal_crf_returns_none_when_no_crf_passes() -> None:
-    """If even crf_min fails, optimal_crf is None — caller falls back to a
+    """If even crf_min fails, optimal_crf is None: caller falls back to a
     safe minimum CRF with a warning.
     """
     target = SampleGuidedEncodeTarget(
@@ -647,7 +647,7 @@ def test_find_optimal_crf_bisects_to_rightmost_passing() -> None:
 
 
 def test_find_optimal_crf_respects_iteration_cap() -> None:
-    """``max_iterations=2`` means we run AT MOST 2 trials — never 6 just
+    """``max_iterations=2`` means we run AT MOST 2 trials: never 6 just
     because the range is wide.
     """
     target = SampleGuidedEncodeTarget(
@@ -692,13 +692,13 @@ def test_find_optimal_crf_records_trial_history_in_order() -> None:
     crfs_in_order = [t.crf for t in result.trials]
     # The first probe is always crf_max (cheap "easy clip" check).
     assert crfs_in_order[0] == 38
-    # No duplicates — each iteration tests a fresh CRF.
+    # No duplicates: each iteration tests a fresh CRF.
     assert len(crfs_in_order) == len(set(crfs_in_order))
 
 
 def test_find_optimal_crf_passes_targets_uses_adaptive_low_percentile() -> None:
     """When trials have low frame counts, the low percentile is dropped
-    from the decision — so a clip with great mean and bad p-values can
+    from the decision, so a clip with great mean and bad p-values can
     still pass on short trials. Mean alone carries the verdict. Pinned
     to p5 enforcement (floor=50) so the test scenario doesn't depend on
     the production default (which has a lower floor and would enforce
@@ -723,7 +723,7 @@ def test_find_optimal_crf_passes_targets_uses_adaptive_low_percentile() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Interpolated bisection — predicts boundary from VMAF distance instead
+# Interpolated bisection: predicts boundary from VMAF distance instead
 # of blindly probing the midpoint
 # ---------------------------------------------------------------------------
 
@@ -786,7 +786,7 @@ def test_interpolated_bisection_predicts_boundary_in_two_trials() -> None:
 
 def test_interpolated_bisection_falls_back_to_midpoint_without_bracket() -> None:
     """Until the search has both a passing and a failing trial in range,
-    interpolation has no usable data — must fall back to the standard
+    interpolation has no usable data: must fall back to the standard
     midpoint so progress isn't blocked.
     """
     target = SampleGuidedEncodeTarget(
@@ -839,7 +839,7 @@ def test_interpolated_bisection_clamps_prediction_into_range() -> None:
     result = _run_search(target=target, crf_to_summary=crf_to_summary)
     # Optimal must still converge correctly.
     assert result.optimal_crf == 18
-    # And every probed CRF must lie in (16, 20] inclusive — never
+    # And every probed CRF must lie in (16, 20] inclusive: never
     # predicted out of bounds (lo+1 .. hi-1 clamping protects this).
     for trial in result.trials:
         assert target.crf_min <= trial.crf <= target.crf_max
@@ -847,9 +847,9 @@ def test_interpolated_bisection_clamps_prediction_into_range() -> None:
 
 def test_interpolated_bisection_converges_on_shallow_slope_at_boundary() -> None:
     """When the rightmost passing trial passes by a tiny margin (sub-1
-    VMAF point), interpolation predicts the boundary is essentially at
+    VMAF point), interpolation predicts the boundary is close to
     that trial. Walking forward by 1 to "confirm" each iteration
-    doesn't add information — the bisection should accept the trial
+    doesn't add information: the bisection should accept the trial
     and stop. Models the Phase 1 single-window mean-only behavior on
     real clips, where each marginal passing CRF sits ~0.1-0.5 VMAF
     points above target and the curve is nearly flat.
@@ -887,8 +887,8 @@ def test_interpolated_bisection_converges_on_shallow_slope_at_boundary() -> None
 def test_interpolated_bisection_does_not_short_circuit_on_round_half_to_even() -> None:
     """Python's banker's rounding rounds .5 to the nearest even integer
     (round(32.5) == 32, not 33). The convergence guard must not stop
-    in that case if the rightmost passing trial actually passed by a
-    big margin — the rounded-down prediction is rounding noise, not a
+    in that case if the rightmost passing trial passed by a
+    big margin: the rounded-down prediction is rounding noise, not a
     signal that we're at the boundary.
     """
     target = SampleGuidedEncodeTarget(
@@ -917,7 +917,7 @@ def test_interpolated_bisection_does_not_short_circuit_on_round_half_to_even() -
 def test_interpolated_bisection_saves_trials_vs_blind_midpoint() -> None:
     """End-to-end: on a curve where the boundary lies far from the
     midpoint, interpolation should produce strictly fewer trials than
-    a blind midpoint bisection would — the whole point of this change.
+    a blind midpoint bisection would: the whole point of this change.
 
     Hard-codes the trial-count expectation rather than computing it
     independently; if the algorithm regresses to midpoint-only we'll
@@ -952,7 +952,7 @@ def test_interpolated_bisection_saves_trials_vs_blind_midpoint() -> None:
 
 
 # ---------------------------------------------------------------------------
-# reference_encode_picks_for_codec — per-codec near-transparent picks
+# reference_encode_picks_for_codec: per-codec near-transparent picks
 # ---------------------------------------------------------------------------
 
 
@@ -978,7 +978,7 @@ def test_reference_picks_per_codec_anchor_crf(
 
 
 def test_reference_picks_unknown_codec_falls_back_to_crf_18() -> None:
-    """An unrecognized codec name shouldn't crash — falls back to a
+    """An unrecognized codec name shouldn't crash: falls back to a
     reasonable default."""
     picks = reference_encode_picks_for_codec("some_future_codec")
     assert picks["crf"] == 18
@@ -988,19 +988,19 @@ def test_reference_picks_disable_bitrate_cap_and_pick_quality_preset() -> None:
     """Reference must stay near-transparent: no bitrate cap, single-pass,
     and a quality-side preset (encodeSpeed in the slower half of the
     0-5 scale). Slowest (encodeSpeed=0) buys < 1 VMAF point over a
-    good-quality preset at the CRF=18 transparency ceiling — not worth
+    good-quality preset at the CRF=18 transparency ceiling: not worth
     the 2-3x encode-time tax for a measurement reference.
     """
     picks = reference_encode_picks_for_codec("h264")
     assert picks["autoTargetMaxBitrate"] == 0  # no cap
     assert picks["twoPass"] is False
-    # Quality-side of the speed scale (0=slowest..5=fastest) — never
+    # Quality-side of the speed scale (0=slowest..5=fastest): never
     # the fast presets that would compromise reference fidelity.
     assert 0 <= picks["encodeSpeed"] <= 2
 
 
 # ---------------------------------------------------------------------------
-# find_optimal_crf_two_phase — Phase 1 discovery + Phase 2 validation +
+# find_optimal_crf_two_phase: Phase 1 discovery + Phase 2 validation +
 # optional Phase 3 downward refinement
 # ---------------------------------------------------------------------------
 
@@ -1009,11 +1009,11 @@ def _two_phase_target() -> SampleGuidedEncodeTarget:
     """Test helper: target with p5 percentile + frame floor.
 
     Pinned to ``target_vmaf_low_pct=5`` to preserve the original test
-    semantics — these two-phase tests are calibrated against the p5
+    semantics: these two-phase tests are calibrated against the p5
     bridge prediction (single-window p10 → 3-window p5) and the p5
     frame floor (50). Tests that need different percentile semantics
     should construct SampleGuidedEncodeTarget directly. Wide CRF range so
-    bisection has room to actually bisect.
+    bisection has room to bisect.
     """
     return SampleGuidedEncodeTarget(
         target_vmaf_mean=90.0,
@@ -1104,7 +1104,7 @@ def test_two_phase_phase1_finds_candidate_phase2_passes_no_phase3() -> None:
 
 def test_two_phase_phase1_no_passing_crf_returns_none_no_phase2() -> None:
     """If Phase 1 can't find any passing CRF (clip too hard even at the
-    cheap middle-only check), Phase 2/3 must not run — there's no
+    cheap middle-only check), Phase 2/3 must not run: there's no
     candidate to validate.
     """
     target = _two_phase_target()
@@ -1155,7 +1155,7 @@ def test_two_phase_phase2_failure_triggers_phase3_downward_refinement() -> None:
     phase3_trials = [t for t in result.trials if t.phase == "phase3"]
     assert len(phase3_trials) >= 1
     # Phase 3 (downward only) must never probe at or above the failed
-    # Phase 1 candidate — that range was already explored at full sampling
+    # Phase 1 candidate: that range was already explored at full sampling
     # via the failing Phase 2 trial.
     phase1_candidate = max(t.crf for t in result.trials if t.phase == "phase1" and t.passed)
     for trial in phase3_trials:
@@ -1168,14 +1168,14 @@ def test_two_phase_phase2_failure_triggers_phase3_downward_refinement() -> None:
 def test_two_phase_phase3_finds_no_passing_crf_returns_none() -> None:
     """When Phase 1 finds a candidate, Phase 2 fails at full sampling,
     and Phase 3's downward bisection also can't find any passing CRF in
-    ``[crf_min, candidate - 1]``, the search returns None — caller will
+    ``[crf_min, candidate - 1]``, the search returns None: caller will
     fall back to crf_min at final-encode time with a warning. Verifies
-    Phase 3 actually runs and we don't accept the failing Phase 2 CRF as
+    Phase 3 runs and we don't accept the failing Phase 2 CRF as
     optimal just because Phase 1 thought it was good.
     """
     target = _two_phase_target()
     # Middle-only: cliff at 28 (Phase 1 will pick 28). Full-windows:
-    # cliff at 14 (below crf_min=16) — every CRF in the search range
+    # cliff at 14 (below crf_min=16): every CRF in the search range
     # fails at full sampling, so Phase 2 fails AND Phase 3 finds nothing.
     _, evaluate = _make_two_phase_evaluator(
         middle_only_threshold=28,
@@ -1232,7 +1232,7 @@ def test_two_phase_trials_aggregate_in_invocation_order_with_phase_labels() -> N
 def test_two_phase_phase3_step_down_finds_pass_one_below_candidate() -> None:
     """When the real boundary sits one CRF below the Phase 1 candidate
     (the typical case after Phase 1's mean-only bias), Phase 3's
-    step-down should find the answer immediately at candidate-1 — no
+    step-down should find the answer immediately at candidate-1: no
     bisection needed.
     """
     target = _two_phase_target()
@@ -1253,7 +1253,7 @@ def test_two_phase_phase3_step_down_finds_pass_one_below_candidate() -> None:
     assert result.optimal_crf == 34
     phase3_trials = [t for t in result.trials if t.phase == "phase3"]
     # Exactly one phase 3 trial: the step-down probe at candidate-1.
-    # Bisection wouldn't ever find this in one trial — it'd start at
+    # Bisection wouldn't ever find this in one trial: it'd start at
     # the midpoint of [crf_min, candidate-1].
     assert len(phase3_trials) == 1
     assert phase3_trials[0].crf == 34
@@ -1281,7 +1281,7 @@ def test_two_phase_phase3_step_down_walks_until_pass_within_limit() -> None:
 
     assert result.optimal_crf == 33
     phase3_trials = [t for t in result.trials if t.phase == "phase3"]
-    # Step-down walked 35 (fail), 34 (fail), 33 (pass) — three trials,
+    # Step-down walked 35 (fail), 34 (fail), 33 (pass): three trials,
     # then exited. No bisection needed.
     assert len(phase3_trials) == 3
     crfs_in_step_down_order = [t.crf for t in phase3_trials]
@@ -1297,7 +1297,7 @@ def test_two_phase_phase3_step_down_falls_through_to_bisection() -> None:
     """
     target = _two_phase_target()
     # Phase 1 candidate=36; real boundary at 24. Step-down limit (3)
-    # only walks 35/34/33 — all fail. Bisection must pick up from there.
+    # only walks 35/34/33: all fail. Bisection must pick up from there.
     _, evaluate = _make_two_phase_evaluator(
         middle_only_threshold=36,
         full_windows_threshold=24,
@@ -1323,7 +1323,7 @@ def test_two_phase_phase3_step_down_falls_through_to_bisection() -> None:
 def test_two_phase_phase3_step_down_respects_explicit_limit() -> None:
     """The ``phase3_step_down_limit`` parameter caps how many step-down
     trials run before falling into bisection. Setting it to 1 forces
-    bisection earlier — useful when the caller knows Phase 1 may be
+    bisection earlier: useful when the caller knows Phase 1 may be
     very off the truth.
     """
     target = _two_phase_target()
@@ -1356,7 +1356,7 @@ def test_two_phase_phase3_step_down_respects_explicit_limit() -> None:
 
 
 # ---------------------------------------------------------------------------
-# _predict_phase2_fast_fail — Phase 1 single-window data predicts Phase 2
+# _predict_phase2_fast_fail: Phase 1 single-window data predicts Phase 2
 # ---------------------------------------------------------------------------
 
 
@@ -1425,7 +1425,7 @@ def test_predict_phase2_fast_fail_skips_when_p10_predicts_p5_below_target() -> N
 
 def test_predict_phase2_fast_fail_does_not_skip_when_within_safety_margin() -> None:
     """When the prediction is below target but within ``safety_margin``,
-    don't skip — let Phase 2 actually measure to be sure. False-positive
+    don't skip: let Phase 2 measure to be sure. False-positive
     avoidance: skipping a Phase 2 that would have passed costs ~1 CRF
     of compression efficiency."""
     target = SampleGuidedEncodeTarget(
@@ -1494,7 +1494,7 @@ def test_predict_phase2_fast_fail_no_predictor_for_p10_target() -> None:
         target_vmaf_low=89.0,
         target_vmaf_low_pct=10,
     )
-    # Even with p10 well below target, no skip — predictor unavailable.
+    # Even with p10 well below target, no skip: predictor unavailable.
     summary = _phase1_summary(mean=93.0, p10=85.0, frame_count=30)
     skip, _ = _predict_phase2_fast_fail(
         summary,
@@ -1516,7 +1516,7 @@ def test_predict_phase2_fast_fail_no_skip_when_phase2_would_be_mean_only() -> No
         target_vmaf_low_pct=5,  # floor = 50 combined frames
     )
     # Mean fine, p10 below target, but Phase 2 will only have 3*15=45
-    # frames combined — below the p5 floor of 50, so Phase 2 is
+    # frames combined: below the p5 floor of 50, so Phase 2 is
     # mean-only too. Percentile prediction is moot.
     summary = _phase1_summary(mean=93.0, p10=85.0, frame_count=15)
     skip, _ = _predict_phase2_fast_fail(
@@ -1582,7 +1582,7 @@ def test_two_phase_fast_fail_skips_phase2_and_runs_phase3_step_down() -> None:
         evaluate_trial_for_windows=evaluate,
     )
 
-    # Phase 2 was skipped — no phase2 trial in the history.
+    # Phase 2 was skipped: no phase2 trial in the history.
     phase2_trials = [t for t in result.trials if t.phase == "phase2"]
     assert phase2_trials == []
     # Phase 3 ran step-down + bisection to find the actual boundary.
@@ -1593,7 +1593,7 @@ def test_two_phase_fast_fail_skips_phase2_and_runs_phase3_step_down() -> None:
 
 def test_two_phase_fast_fail_does_not_skip_when_phase1_p10_above_target() -> None:
     """When Phase 1's p10 already clears the p5 target, fast-fail should
-    NOT trigger and Phase 2 must actually run to validate."""
+    NOT trigger and Phase 2 must run to validate."""
     target = _two_phase_target()  # mean>=90, p5>=85
 
     def evaluate(crf: int, window_indices: list[int]) -> TrialMeasurement:
@@ -1606,7 +1606,7 @@ def test_two_phase_fast_fail_does_not_skip_when_phase1_p10_above_target() -> Non
                     mean=mean,
                     p1=86.0,
                     p5=87.0,
-                    p10=90.0,  # above p5 target=85 — don't skip
+                    p10=90.0,  # above p5 target=85: don't skip
                     minimum=86.0,
                     frame_count=20,
                 ),
@@ -1645,7 +1645,7 @@ def test_two_phase_fast_fail_does_not_skip_when_phase1_p10_above_target() -> Non
 
 
 # ---------------------------------------------------------------------------
-# _relaxed_target — depth-proportional target softening
+# _relaxed_target: depth-proportional target softening
 # ---------------------------------------------------------------------------
 
 
@@ -1722,7 +1722,7 @@ def test_two_phase_relaxation_accepts_borderline_step_down_trial() -> None:
     Models the real-clip pattern: candidate=36 fails Phase 2 by p5
     shortfall ~0.5; step-down at crf=35 measures p5=88.71 (target 89.0,
     short by 0.29). With per_step=0.3 the relaxed target at depth 1 is
-    88.7 — 88.71 just clears it.
+    88.7: 88.71 just clears it.
     """
     # crf_max aligns with the Phase 1 cliff so Phase 1 picks 36
     # immediately (probe crf_max, passes without expansion headroom,
@@ -1739,7 +1739,7 @@ def test_two_phase_relaxation_accepts_borderline_step_down_trial() -> None:
     def evaluate(crf: int, window_indices: list[int]) -> TrialMeasurement:
         is_middle_only = len(window_indices) == 1
         if is_middle_only:
-            # Phase 1: cliff at 36 — picks 36 as candidate.
+            # Phase 1: cliff at 36, picks 36 as candidate.
             mean = 92.0 if crf <= 36 else 80.0
             return TrialMeasurement(
                 summary=VmafSummary(
@@ -1796,7 +1796,7 @@ def test_two_phase_relaxation_accepts_borderline_step_down_trial() -> None:
     # the relaxed target (p5 >= 84.7). Optimal lands at 35, ONE step
     # higher than strict-target search would pick (crf=34).
     assert result.optimal_crf == 35
-    # Only 1 step-down trial fired — relaxation found a pass immediately.
+    # Only 1 step-down trial fired: relaxation found a pass immediately.
     phase3_trials = [t for t in result.trials if t.phase == "phase3"]
     assert len(phase3_trials) == 1
     assert phase3_trials[0].crf == 35
@@ -1882,8 +1882,8 @@ def test_two_phase_relaxation_does_not_apply_to_phase2() -> None:
     """Option A: Phase 2 always evaluates against the user's strict
     target. Only step-down + bisection see relaxation.
 
-    Without fast-fail (so Phase 2 actually runs), a Phase 2 measurement
-    that misses strict target by less than per_step should still fail —
+    Without fast-fail (so Phase 2 runs), a Phase 2 measurement
+    that misses strict target by less than per_step should still fail:
     if it passed at relaxed target, the optimal would equal the
     candidate, meaning no step-down was needed. We verify the opposite:
     Phase 2 fails strictly and step-down does kick in.
@@ -1917,7 +1917,7 @@ def test_two_phase_relaxation_does_not_apply_to_phase2() -> None:
                 windows_total=1,
             )
         # Full-windows: candidate=36 misses strict by 0.2 (relaxation
-        # by 0.3 *would* accept this if applied to Phase 2 — but we
+        # by 0.3 *would* accept this if applied to Phase 2, but we
         # don't apply it to Phase 2 in Option A).
         if crf == 36:
             return TrialMeasurement(
@@ -1951,7 +1951,7 @@ def test_two_phase_relaxation_does_not_apply_to_phase2() -> None:
     assert len(phase2_trials) == 1
     assert phase2_trials[0].crf == 36
     assert phase2_trials[0].passed is False
-    # Step-down kicks in. crf=35 passes strict in this evaluator.
+    # Step-down runs. crf=35 passes strict in this evaluator.
     assert result.optimal_crf == 35
 
 
@@ -1968,7 +1968,7 @@ def test_two_phase_relaxation_caps_so_quality_never_drops_below_cap() -> None:
     )
 
     # Every full-windows trial misses strict by 1.6 (greater than cap=1.5).
-    # Even with full relaxation the target floor is 85 - 1.5 = 83.5 — and
+    # Even with full relaxation the target floor is 85 - 1.5 = 83.5, and
     # 83.4 < 83.5, so all trials fail.
     def evaluate(crf: int, window_indices: list[int]) -> TrialMeasurement:
         is_middle_only = len(window_indices) == 1
@@ -2006,14 +2006,14 @@ def test_two_phase_relaxation_caps_so_quality_never_drops_below_cap() -> None:
         target_relaxation_cap=1.5,
     )
 
-    # No CRF clears the cap-floor target. Search returns None — does
+    # No CRF clears the cap-floor target. Search returns None: does
     # NOT accept arbitrarily-bad measurements just because relaxation
     # has been growing.
     assert result.optimal_crf is None
 
 
 # ---------------------------------------------------------------------------
-# _find_best_pass_at_fallback_level — cascade through more permissive
+# _find_best_pass_at_fallback_level: cascade through more permissive
 # fallback levels (higher percentile, then mean-only) when the user's
 # strict percentile target is unreachable
 # ---------------------------------------------------------------------------
@@ -2102,12 +2102,12 @@ def test_fallback_excludes_phase1_trials() -> None:
         relaxation_cap=1.5,
     )
     assert result is not None
-    assert result.crf == 23  # not 40 — the phase1 trial is excluded
+    assert result.crf == 23  # not 40: the phase1 trial is excluded
 
 
 def test_fallback_returns_none_when_no_trial_clears_relaxed_mean() -> None:
     """If even mean alone can't be cleared at the relaxed target, the
-    clip is genuinely too hard — cascade returns None and the
+    clip is too hard: cascade returns None and the
     orchestrator falls back to crf_min."""
     target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
@@ -2294,13 +2294,13 @@ def test_two_phase_cascade_disabled_returns_none_without_fallback() -> None:
         allow_mean_only_fallback=False,
     )
 
-    # With cascade disabled, search returns None — caller will fall
+    # With cascade disabled, search returns None: caller will fall
     # back to crf_min.
     assert result.optimal_crf is None
 
 
 # ---------------------------------------------------------------------------
-# _refinement_extrapolation_says_hopeless — early-exit before bisection
+# _refinement_extrapolation_says_hopeless: early-exit before bisection
 # when extrapolation says no CRF in range will reach relaxed target
 # ---------------------------------------------------------------------------
 
@@ -2339,8 +2339,8 @@ def test_hopeless_extrapolation_skips_when_slope_predicts_failure_at_crf_min() -
 
 def test_hopeless_extrapolation_does_not_skip_when_extrapolation_reaches_target() -> None:
     """If extrapolation predicts the relaxed target *is* reachable at
-    crf_min, bisection should be allowed to run — the search may
-    actually find a passing CRF.
+    crf_min, bisection should be allowed to run: the search may
+    find a passing CRF.
     """
     target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
@@ -2349,7 +2349,7 @@ def test_hopeless_extrapolation_does_not_skip_when_extrapolation_reaches_target(
         crf_min=16,
         crf_max=27,
     )
-    # Slope: from crf=27 (p5=86) to crf=24 (p5=88) — 0.67 per CRF.
+    # Slope: from crf=27 (p5=86) to crf=24 (p5=88), 0.67 per CRF.
     # Extrapolate at crf=16: 88 + 0.67 * 8 = 93.36. Well above 87.5.
     trials = [
         _phase23_trial(crf=27, mean=92.0, p5=86.0, p10=88.0, phase="phase2"),
@@ -2399,11 +2399,11 @@ def test_hopeless_extrapolation_ignores_phase1_trials() -> None:
         crf_max=42,
     )
     trials = [
-        # Two Phase 1 trials with optimistic single-window data —
+        # Two Phase 1 trials with optimistic single-window data:
         # should be ignored.
         _phase23_trial(crf=42, mean=92.0, p5=88.0, p10=89.0, phase="phase1"),
         _phase23_trial(crf=29, mean=93.0, p5=90.0, p10=91.0, phase="phase1"),
-        # Only one Phase 2 trial — not enough for a slope.
+        # Only one Phase 2 trial: not enough for a slope.
         _phase23_trial(crf=27, mean=90.0, p5=70.0, p10=72.0, phase="phase2"),
     ]
     assert (
@@ -2417,7 +2417,7 @@ def test_hopeless_extrapolation_ignores_phase1_trials() -> None:
 
 
 def test_hopeless_extrapolation_does_not_skip_on_anomalous_positive_slope() -> None:
-    """If lower CRF measured WORSE percentile (anomalous — usually
+    """If lower CRF measured WORSE percentile (anomalous: usually
     encoder noise), don't trust the slope. Let bisection run rather
     than declaring hopeless from bad data."""
     target = SampleGuidedEncodeTarget(
@@ -2426,7 +2426,7 @@ def test_hopeless_extrapolation_does_not_skip_on_anomalous_positive_slope() -> N
         target_vmaf_low_pct=5,
         crf_min=16,
     )
-    # crf=27 p5=80, crf=24 p5=78 — anomalous (lower CRF gave LOWER p5).
+    # crf=27 p5=80, crf=24 p5=78: anomalous (lower CRF gave LOWER p5).
     trials = [
         _phase23_trial(crf=27, mean=92.0, p5=80.0, p10=82.0, phase="phase2"),
         _phase23_trial(crf=24, mean=92.0, p5=78.0, p10=80.0, phase="phase3"),
@@ -2528,7 +2528,7 @@ def test_two_phase_skips_bisection_on_hopeless_clip_and_uses_cascade() -> None:
     # Cascade fell to mean-only fallback (p10 also unreachable on this
     # data); optimal lands at the highest CRF clearing relaxed mean.
     assert result.optimal_crf is not None
-    # Bisection was skipped — only Phase 1 (1) + Phase 2 (1) +
+    # Bisection was skipped: only Phase 1 (1) + Phase 2 (1) +
     # step-down (3) = 5 trials, no bisection trials at very low CRF.
     bisection_trials = [t for t in result.trials if t.phase == "phase3" and t.crf < 24]
     assert bisection_trials == [], (
@@ -2537,7 +2537,7 @@ def test_two_phase_skips_bisection_on_hopeless_clip_and_uses_cascade() -> None:
 
 
 # ---------------------------------------------------------------------------
-# _calibration_says_phase3_hopeless — calibrate Phase 1 vs Phase 2 to
+# _calibration_says_phase3_hopeless: calibrate Phase 1 vs Phase 2 to
 # predict whether step-down + bisection can reach target
 # ---------------------------------------------------------------------------
 
@@ -2610,7 +2610,7 @@ def test_calibration_hopeless_triggers_on_flash_clip_pattern() -> None:
 def test_calibration_hopeless_does_not_trigger_when_delta_is_small() -> None:
     """Borderline case: Phase 2 just barely missed strict (delta is
     small), so calibrated extrapolation predicts step-down might
-    actually pass at lower CRF. Don't skip; let step-down validate.
+    pass at lower CRF. Don't skip; let step-down validate.
     """
     target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
@@ -2620,7 +2620,7 @@ def test_calibration_hopeless_does_not_trigger_when_delta_is_small() -> None:
         crf_max=36,
     )
     # Phase 1 single p10 trends from 89 (high CRF) to 93 (low CRF).
-    # Phase 2 at candidate=36 measures full p5=88.5 — barely below
+    # Phase 2 at candidate=36 measures full p5=88.5: barely below
     # target. Delta = 88.5 - 89.0 = -0.5. Slope of single p10 = (93-89)/(22-42)
     # = -0.20/CRF. Extrapolated single p10 at crf=16 = 89 + 0.20*26 = 94.2.
     # Predicted full p5 at crf=16 = 94.2 - 0.5 = 93.7. Way above 87.5
@@ -2721,7 +2721,7 @@ def test_calibration_hopeless_returns_false_when_phase1_candidate_missing() -> N
 
 def test_calibration_hopeless_returns_false_for_p10_target() -> None:
     """No usable single-window bridge for p10 target (would need
-    single p20+ which isn't in the summary). Bail out — let the
+    single p20+ which isn't in the summary). Bail out: let the
     existing step-down + slope-based hopeless check handle it."""
     target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
@@ -2748,7 +2748,7 @@ def test_calibration_hopeless_returns_false_for_p10_target() -> None:
 
 def test_calibration_hopeless_returns_false_on_anomalous_phase1_slope() -> None:
     """If Phase 1's slope is non-negative (lower CRF gave equal or worse
-    bridge), don't trust extrapolation — could be encoder noise. Let
+    bridge), don't trust extrapolation: could be encoder noise. Let
     step-down run."""
     target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
@@ -2793,7 +2793,7 @@ def test_two_phase_skips_step_down_via_phase1_phase2_calibration() -> None:
     def evaluate(crf: int, window_indices: list[int]) -> TrialMeasurement:
         is_middle_only = len(window_indices) == 1
         if is_middle_only:
-            # Phase 1: smooth declining p10 vs CRF — gives a real
+            # Phase 1: smooth declining p10 vs CRF, gives a real
             # non-zero slope so the calibration helper's anomaly
             # guard doesn't trip. Mean cliff at crf=27 so Phase 1
             # converges its candidate there.
@@ -2840,7 +2840,7 @@ def test_two_phase_skips_step_down_via_phase1_phase2_calibration() -> None:
     # data); optimal lands at the candidate CRF (only Phase 2 trial
     # present in cache).
     assert result.optimal_crf == 27
-    # No Phase 3 trials at all — calibration short-circuited step-down.
+    # No Phase 3 trials at all: calibration short-circuited step-down.
     phase3_trials = [t for t in result.trials if t.phase == "phase3"]
     assert phase3_trials == [], (
         f"calibration check should have skipped all Phase 3 trials; got "
@@ -2918,7 +2918,7 @@ def test_two_phase_extra_phase1_probe_fires_when_seeded_to_one_trial() -> None:
     # ((16 + 27) // 2 = 21).
     assert 27 in phase1_crfs
     assert 21 in phase1_crfs
-    # And calibration should have caught the hopelessness — no Phase 3
+    # And calibration should have caught the hopelessness: no Phase 3
     # trials at all.
     phase3_trials = [t for t in result.trials if t.phase == "phase3"]
     assert phase3_trials == []
@@ -2983,7 +2983,7 @@ def test_two_phase_extra_phase1_probe_skipped_when_phase1_already_has_two() -> N
 
     phase1_trials = [t for t in result.trials if t.phase == "phase1"]
     # Phase 1's natural bisection produces multiple trials; no extra
-    # probe should be needed. Crucially: NO extra probe at the
+    # probe should be needed. NO extra probe at the
     # midpoint of [16, candidate] beyond what bisection naturally
     # produced.
     assert len(phase1_trials) >= 2
@@ -2996,7 +2996,7 @@ def test_two_phase_extra_phase1_probe_skipped_on_narrow_range() -> None:
     """When the candidate is so close to crf_min that the midpoint
     probe would collide with the candidate, the extra probe is
     skipped (no useful baseline to fit). Step-down then runs
-    normally — calibration silent."""
+    normally: calibration silent."""
     target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
         target_vmaf_low=89.0,
@@ -3046,19 +3046,19 @@ def test_two_phase_extra_phase1_probe_skipped_on_narrow_range() -> None:
         evaluate_trial_for_windows=evaluate,
     )
 
-    # No extra Phase 1 probe — the midpoint (16) equals crf_min, and
+    # No extra Phase 1 probe: the midpoint (16) equals crf_min, and
     # the guard ``probe_crf < candidate_crf`` (max(crf_min+1, mid)
     # = max(17, 16) = 17 = candidate_crf) skips it.
     phase1_trials = [t for t in result.trials if t.phase == "phase1"]
     assert len(phase1_trials) == 1
     # Test passes as long as we don't crash; whether step-down runs
-    # depends on the candidate <= crf_min guard — at crf_max=17,
+    # depends on the candidate <= crf_min guard: at crf_max=17,
     # candidate=17, crf_min=16: candidate > crf_min so step-down
     # tries crf=16 (one trial). Either way, no extra phase1 probe.
 
 
 # ---------------------------------------------------------------------------
-# _calibration_says_step_down_wont_help — skip step-down when its max
+# _calibration_says_step_down_wont_help: skip step-down when its max
 # improvement can't close Phase 2's deficit
 # ---------------------------------------------------------------------------
 
@@ -3072,9 +3072,9 @@ def test_step_down_wont_help_triggers_when_deficit_exceeds_max_improvement() -> 
     cap-relaxed target = 87.5, deficit = 1.64. Slope from Phase 1 single
     p10 (passing trials only) ~= -0.225/CRF. Max improvement after 3
     step-downs = 0.675. Buffer 1.0. 0.675 + 1.0 = 1.675; just exceeds
-    deficit 1.64, so this borderline case actually flips to "let
+    deficit 1.64, so this borderline case flips to "let
     step-down run". We test a slightly steeper deficit to ensure the
-    skip fires cleanly.
+    skip fires.
     """
     target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
@@ -3109,7 +3109,7 @@ def test_step_down_wont_help_triggers_when_deficit_exceeds_max_improvement() -> 
 def test_step_down_wont_help_does_not_trigger_when_deficit_is_closeable() -> None:
     """When Phase 2 just barely missed cap-relaxed target and the slope
     is steep enough to bridge the gap within step_down_limit trials,
-    let step-down run — it should find a passing CRF nearby.
+    let step-down run: it should find a passing CRF nearby.
     """
     target = SampleGuidedEncodeTarget(
         target_vmaf_mean=92.0,
@@ -3166,7 +3166,7 @@ def test_step_down_wont_help_returns_false_with_only_one_passing_phase1() -> Non
 
 def test_step_down_wont_help_returns_false_on_cliff_data() -> None:
     """On cliff-shaped clips (all passing Phase 1 trials measured the
-    same bridge value), the slope from passing-only trials is zero —
+    same bridge value), the slope from passing-only trials is zero:
     treat as anomaly and let step-down run rather than skip based on
     a meaningless prediction.
     """
@@ -3196,7 +3196,7 @@ def test_step_down_wont_help_returns_false_on_cliff_data() -> None:
 
 
 def test_step_down_wont_help_returns_false_when_phase2_already_clears_relaxed() -> None:
-    """Defensive: if Phase 2 actually clears cap-relaxed target (caller
+    """Defensive: if Phase 2 clears cap-relaxed target (caller
     misuse), there's no deficit to close. Let normal flow continue.
     """
     target = SampleGuidedEncodeTarget(
@@ -3319,8 +3319,8 @@ def test_two_phase_skips_step_down_when_deficit_exceeds_max_improvement() -> Non
     step_down_crfs_in_window = {34, 33, 32}
     actual_phase3_crfs = {t.crf for t in phase3_trials}
     assert actual_phase3_crfs.isdisjoint(step_down_crfs_in_window) or (
-        # if any matched, they must be from bisection probing the same CRFs
-        # — verify by checking trial order
+        # if any matched, they must be from bisection probing the same CRFs:
+        # verify by checking trial order
         actual_phase3_crfs.intersection(step_down_crfs_in_window)
     ), f"step-down trials should be skipped; got phase3 CRFs {actual_phase3_crfs}"
     # Optimal eventually found via bisection.
@@ -3348,7 +3348,7 @@ def _phase23_full(*, mean: float, p5: float, p10: float) -> TrialMeasurement:
 
 def test_two_phase_search_frames_aggregates_across_all_phases() -> None:
     """``SampleGuidedEncodeResult.search_frames`` sums frame counts from every
-    phase's trials — important for the sample-vs-final ratio surfaced in
+    phase's trials: important for the sample-vs-final ratio shown in
     the per-clip log.
     """
     target = _two_phase_target()
@@ -3372,7 +3372,7 @@ def test_two_phase_search_frames_aggregates_across_all_phases() -> None:
 
 
 # ---------------------------------------------------------------------------
-# curve_fit module — probe selection, saturation drop, fits, heuristics
+# curve_fit module: probe selection, saturation drop, fits, heuristics
 # ---------------------------------------------------------------------------
 
 
@@ -3720,7 +3720,7 @@ def test_find_crf_via_curve_fit_picks_via_target_on_smooth_curve() -> None:
 
 def test_find_crf_via_curve_fit_records_all_nine_picks() -> None:
     """Every (curve, heuristic) combination must produce an entry in
-    the picks grid — even when None — so the metadata file is
+    the picks grid (even when None) so the metadata file is
     structurally consistent across runs."""
     target = SampleGuidedEncodeTarget(
         target_vmaf_mean=85.0,
@@ -3752,7 +3752,7 @@ def test_find_crf_via_curve_fit_records_all_nine_picks() -> None:
 
 def test_find_crf_via_curve_fit_does_not_double_encode_chosen_probe() -> None:
     """When chosen_crf is already a probe, the verify-encode reuses
-    that trial — no extra evaluator call beyond the initial probes."""
+    that trial: no extra evaluator call beyond the initial probes."""
     target = SampleGuidedEncodeTarget(
         target_vmaf_mean=85.0,
         target_vmaf_low=89.0,
@@ -3859,7 +3859,7 @@ def test_find_crf_via_curve_fit_records_knee_in_picks_grid() -> None:
         evaluate_at_crf=evaluate,
         n_initial_probes=3,
     )
-    # Knee detection still runs and records its pick — caller just
+    # Knee detection still runs and records its pick: caller just
     # doesn't use it by default. With a clear cliff between probes
     # 29 and 42, knee picks the smooth-segment endpoint (29).
     assert fit_result.picks.by_curve_and_heuristic["piecewise"]["knee"] == 29

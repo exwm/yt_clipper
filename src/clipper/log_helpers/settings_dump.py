@@ -14,7 +14,7 @@ line. Two problems:
 This module fixes both:
 
 1. Renders settings as section-grouped, column-aligned ``key:
-   value`` lines. Plain text, no box characters — line-level diff
+   value`` lines. Plain text, no box characters: line-level diff
    tools (``diff``, eyeball) operate cleanly.
 2. Memoizes the last-printed snapshot per marker pair (process-
    local). Subsequent calls with an identical snapshot emit nothing
@@ -31,7 +31,7 @@ from rich.highlighter import NullHighlighter
 # section name -> {key: stringified value}. Sections render in
 # insertion order; within a section, keys also render in insertion
 # order. Building the snapshot is the single source of truth for
-# rendering order — change the snapshot order to change the log
+# rendering order: change the snapshot order to change the log
 # order.
 SettingsSnapshot = dict[str, dict[str, str]]
 
@@ -43,7 +43,7 @@ _LAST_PRINTED: dict[int, SettingsSnapshot] = {}
 
 
 def reset_settings_log_memo() -> None:
-    """Clear the in-process snapshot memo. Test-only helper — production
+    """Clear the in-process snapshot memo. Test-only helper: production
     code never re-runs the same pair from scratch within one process."""
     _LAST_PRINTED.clear()
 
@@ -94,7 +94,7 @@ def _format_number(value: object) -> str:
 
 def _format_optional_unlimited(value: object, unit: str) -> str:
     """Render either ``unlimited`` (when the underlying field is < 0)
-    or ``<rounded><unit>`` (no space — kept whitespace-free so the
+    or ``<rounded><unit>`` (no space: kept whitespace-free so the
     value is one shell-safe token)."""
     try:
         numeric = float(value)  # type: ignore[arg-type]
@@ -122,7 +122,7 @@ def build_marker_pair_settings_snapshot(
     aren't on ``mp`` / ``mps``; everything else is read from there.
     Optional fields that aren't applicable (e.g. ``fadeDuration`` when
     ``loop != "fade"``, max-angle on a stab mode that doesn't use it)
-    are simply omitted — keeping them out of the snapshot keeps them
+    are omitted: keeping them out of the snapshot keeps them
     out of the diff.
     """
     snapshot: SettingsSnapshot = {}
@@ -213,7 +213,7 @@ def build_auto_encode_settings_snapshot(
     """Snapshot of the auto-derived encoder defaults from
     ``getDefaultEncodeSettings``: the small set of values the clipper
     chooses based on detected bitrate alone, before any user override
-    is layered on. Tiny — one section is enough."""
+    is layered on. Tiny: one section is enough."""
     color_space_text = color_space or ("unknown (bt709 will be assumed for color range operations)")
     return {
         "Auto-determined": {
@@ -316,12 +316,12 @@ def render_settings_table(
     ...``.
 
     Section headers are right-padded to the longest section name so
-    each section's fields begin at the same column — quick scanning
+    each section's fields begin at the same column: quick scanning
     by section. Two-space gap between key=value pairs to keep them
     visually grouped.
 
-    With ``markup=False`` the output is plain text — no rich markup,
-    no ANSI codes — so it diffs cleanly and reads identically in the
+    With ``markup=False`` the output is plain text (no rich markup,
+    no ANSI codes), so it diffs well and looks the same in the
     on-disk log. With ``markup=True`` section headers render bold
     and keys render dim (rich markup tags), giving the live console
     a three-level visual hierarchy (section / key / value) without
@@ -363,7 +363,7 @@ def _escape_markup(text: str) -> str:
     """Escape ``[`` so rich treats it as a literal in markup mode.
 
     Section names and snapshot values are operator-supplied data, not
-    markup — escape any ``[`` they contain so rich doesn't try to
+    markup: escape any ``[`` they contain so rich doesn't try to
     parse them as style tags.
     """
     return text.replace("[", "\\[")
@@ -388,7 +388,7 @@ def render_settings_diff(
 
     ``compact=True`` flattens every changed key/value across all
     sections into ONE line with two-space separators, with no section
-    headers — right for sample-guided encode trial diffs where the multi-line
+    headers: right for sample-guided encode trial diffs where the multi-line
     block repeats 20+ times per search and dominates the log. The
     section grouping is preserved by the iteration order so related
     keys stay adjacent.
@@ -416,9 +416,9 @@ def render_settings_diff(
         if markup:
             # ``key:`` renders at default brightness as the operator's
             # primary anchor on each delta. The prior (left) value is
-            # dimmed to signal "what we're moving FROM" — visual
+            # dimmed to signal "what we're moving FROM": visual
             # weight goes to the current (right) value, which is the
-            # actually-active state.
+            # active state.
             items = [
                 f"{_escape_markup(key)}: "
                 f"[dim]{_escape_markup(prior_value)}[/] -> "
@@ -481,7 +481,7 @@ def emit_marker_pair_settings_log(
     - First call for a marker pair (no prior memo): renders the full
       table and dispatches to ``log_full(message)``.
     - Subsequent call with an unchanged snapshot: emits nothing. This
-      is the trial-encode noise-reduction win — sample-guided encode invokes
+      is the trial-encode noise-reduction win: sample-guided encode invokes
       ``getMarkerPairSettings`` per trial; only the first trial
       prints.
     - Subsequent call with a changed snapshot: renders the diff
@@ -491,22 +491,22 @@ def emit_marker_pair_settings_log(
     trial / reference / baseline encodes:
 
     - Title becomes ``"Marker Pair N sample-guided encode using overrides:"``
-      instead of the generic ``"settings changed:"`` — operators were
+      instead of the generic ``"settings changed:"``, operators were
       reading the generic wording as "my pair settings were modified"
-      when in fact the search was just probing alternative encoder
+      when the search was only probing alternative encoder
       settings, with the user's pair config untouched.
     - The memo is NOT updated, so the post-search final-encode dispatch
       still diffs against the operator's ORIGINAL configured snapshot
-      (showing e.g. ``crf 18 -> 30`` for the search-picked value) —
-      the one diff that's actually meaningful. Without this guard, the
+      (showing e.g. ``crf 18 -> 30`` for the search-picked value):
+      the one meaningful diff. Without this guard, the
       memo would track the most-recent trial's snapshot and the post-
       search diff would compare picked-crf-vs-last-trial-crf, which is
       noise.
 
     The two callbacks let the caller pick log levels: the full table
     is typically INFO, the diff is typically NOTICE (changes are more
-    surprising and worth surfacing higher). ``markup`` defaults to
-    True — the live RichHandler interprets rich markup, so the
+    surprising and worth showing higher). ``markup`` defaults to
+    True: the live RichHandler interprets rich markup, so the
     section / key / value visual hierarchy renders. Pass False from
     contexts that want literal plain text (tests, captured-string
     diffing).
@@ -524,7 +524,7 @@ def emit_marker_pair_settings_log(
             log_settings_dump(log_full, msg)
         else:
             log_full(msg)
-        # Don't anchor the memo on a trial-context snapshot — see the
+        # Don't anchor the memo on a trial-context snapshot: see the
         # ``is_search_context`` rationale in the docstring. The memo
         # for a brand-new pair stays empty so the first NON-trial call
         # logs the full table; trial-context first-call is a one-off
@@ -533,7 +533,7 @@ def emit_marker_pair_settings_log(
             _LAST_PRINTED[marker_pair_index] = snapshot
         return
     # Search-context diffs render compact (single line, no section
-    # headers) — the same key/value deltas repeat across every trial
+    # headers): the same key/value deltas repeat across every trial
     # and the multi-line block stacked 20+ times per search dominates
     # the log. Compact form keeps the operator-visible info while
     # staying scannable.

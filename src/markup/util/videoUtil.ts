@@ -93,7 +93,7 @@ export function scrubVideoHandler(e) {
     const pointerId = e.pointerId;
     appState.video.setPointerCapture(pointerId);
     // The captured element receives every subsequent pointer event for
-    // this pointer — pointermove, pointerup, and pointercancel — even when
+    // this pointer (pointermove, pointerup, and pointercancel) even when
     // the cursor leaves the video region. Attaching listeners here rather
     // than to `document` means the spec-mandated `pointercancel` reaches
     // us when the browser implicitly releases capture (devtools focus,

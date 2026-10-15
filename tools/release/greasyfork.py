@@ -5,9 +5,9 @@
 Greasy Fork syncs the script from the latest GitHub release's yt_clipper.user.js when a release is
 published (a repo webhook), so run this after publishing. Its sync URL ends in
 `?private_token=none`: for a public repo the webhook otherwise reads the file from git at the
-release tag, where it is not committed, instead of downloading the release asset. It rewrites the
-header (it drops the duplicate @version and moves @downloadURL and @updateURL), so the check compares
-the version, the @require list, and the code after the header.
+release tag, where it is not committed, instead of downloading the release asset. Greasy Fork
+rewrites the header (it drops the duplicate @version and moves @downloadURL and @updateURL), so the
+check compares the version, the @require list, and the code after the header.
 """
 
 import re

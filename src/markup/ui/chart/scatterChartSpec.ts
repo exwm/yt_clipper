@@ -124,7 +124,7 @@ export const addCropPoint = function (this: any, time: number) {
     // pointermove closure keeps writing to `currentCropPointIndex`
     // (which moves to the new point below via setCurrentCropPoint), so
     // the user can keep sweeping the cursor and dropping keyframes
-    // without releasing the mouse — the previously-held point stays
+    // without releasing the mouse: the previously-held point stays
     // anchored at its original crop and the new point becomes the
     // live-edit target. For resize the per-keyframe variation only
     // shows up in zoompan mode; pan-only mode keeps W/H equal across
@@ -150,7 +150,7 @@ export const addCropPoint = function (this: any, time: number) {
     const cropPointIndex = draft.cropMap.map((cropPoint) => cropPoint.x).indexOf(time);
 
     // Skip prev-inheritance when the new point already carries the
-    // live-manipulation crop — that value IS what the user visually
+    // live-manipulation crop: that value IS what the user visually
     // placed here, and inheriting from prev would discard it.
     if (cropPointIndex > 0 && !isLiveCropManipulation) {
       const prevCropPointIndex = cropPointIndex - 1;
@@ -170,7 +170,7 @@ export const addCropPoint = function (this: any, time: number) {
     setCurrentCropPoint(this, cropPointIndex, cropChartMode.Start);
 
     // Reframe is playhead-driven: the chart selection alone doesn't move the playhead, so a new
-    // point reads as selected (green) while the playhead sits between keyframes (amber border) and
+    // point shows as selected (green) while the playhead sits between keyframes (amber border) and
     // edits/playback target there instead. Seek onto the new point so it's the actual edit target.
     if (isReframeEnabled() && !isLiveCropManipulation) {
       seekToSafe(appState.video, time);
@@ -178,7 +178,7 @@ export const addCropPoint = function (this: any, time: number) {
 
     if (isLiveCropManipulation) {
       // Refresh the in-progress drag's `initCropMap` snapshot so the
-      // next pointermove sees a snapshot that includes the new point —
+      // next pointermove sees a snapshot that includes the new point:
       // without this, `updateCropString` looks up the new point's
       // index in the pre-insert snapshot and throws silently inside
       // requestAnimationFrame, freezing the drag from that frame on.
@@ -186,7 +186,7 @@ export const addCropPoint = function (this: any, time: number) {
       // Re-baseline the "drag-start crop" to the value the new
       // keyframe was just dropped at. Without this, every subsequent
       // Alt + A would revert the just-added keyframe back to the
-      // ORIGINAL p0 crop — collapsing all intermediate keyframes to
+      // ORIGINAL p0 crop: collapsing all intermediate keyframes to
       // one value and leaving only the very last point usable.
       if (liveCropAtAddTime != null) setCropDragStartCropString(liveCropAtAddTime);
       // The Alt held to fire `Alt + A` would otherwise engage the
@@ -199,7 +199,7 @@ export const addCropPoint = function (this: any, time: number) {
 
 export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartConfiguration {
   const updateInput = getInputUpdater(inputId);
-  // Whether the current drag actually moved a point. A plain click (zero-distance drag) only seeks
+  // Whether the current drag moved a point. A plain click (zero-distance drag) only seeks
   // and selects, so it must not push an undo entry.
   let didDragMovePoint = false;
 

@@ -131,7 +131,7 @@ describe('parseClipperInput: marker pair validation', () => {
           ],
           cropMap: [
             { x: 0, y: 0, crop: '0:0:iw:ih' },
-            { x: 1, y: 5, crop: 'bad' }, // dropped — y must be 0
+            { x: 1, y: 5, crop: 'bad' }, // dropped, y must be 0
             { x: 2, y: 0, crop: '100:100:200:200', easeIn: 'instant' },
           ],
         },
@@ -274,7 +274,7 @@ describe('toApplicableSettings: applied vs skipped keys', () => {
   test('omits keys whose source value is undefined', () => {
     const { input } = parseClipperInput({ markerPairs: [], titleSuffix: 'x' });
     const applied = toApplicableSettings(input);
-    // crf wasn't in input — should not appear as a key in `applied`.
+    // crf wasn't in input: should not appear as a key in `applied`.
     expect('crf' in applied).toBe(false);
     expect('rotate' in applied).toBe(false);
   });

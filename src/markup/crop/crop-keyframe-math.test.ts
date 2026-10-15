@@ -85,7 +85,7 @@ describe('findCropKeyframeAtTime', () => {
       ['NaN', NaN],
       ['negative', -60],
     ])('invalid fps (%s) falls back to the 30fps tolerance, not 1/fps', (_label, fps) => {
-      // 0.01s off is within the 30fps one-frame tolerance, so it reads as on-keyframe...
+      // 0.01s off is within the 30fps one-frame tolerance, so it counts as on-keyframe...
       expect(findCropKeyframeAtTime(cropMap, 1 + 0.01, fps as number).onKeyframe).toBe(true);
       // ...but a mid-section time does not (1/0 = Infinity would mark everything on-keyframe).
       expect(findCropKeyframeAtTime(cropMap, 0.5, fps as number).onKeyframe).toBe(false);
@@ -115,7 +115,7 @@ describe('cropInterpolationSectionAtTime', () => {
     expect(cropInterpolationSectionAtTime(cropMap, time as number)).toEqual(expected);
   });
 
-  // The bug fix: never collapse to [i, i] (which would divide-by-zero when easing) — an
+  // The bug fix: never collapse to [i, i] (which would divide-by-zero when easing), an
   // exact keyframe hit eases across the forward section, so time == keyframe time gives
   // 0% and returns that keyframe's crop without a jump.
   it.each([
@@ -151,7 +151,7 @@ describe('nextKeyframeIndex', () => {
 
   it('a seek landing up to a frame short still steps off the current keyframe', () => {
     // Within the one-frame on-keyframe tolerance of keyframe 1, so forward must reach 2 (not re-pick
-    // 1) — the half-frame-threshold bug this replaced re-selected the current point for one tick.
+    // 1): the half-frame-threshold bug this replaced re-selected the current point for one tick.
     const justShort = 1 - 0.9 / FPS_60;
     expect(nextKeyframeIndex(cropMap, justShort, FPS_60, 1)).toBe(2);
   });

@@ -4,7 +4,7 @@ Animated AVIF preview encoding (SVT-AV1 via libsvtav1 + AVIF muxer).
 Runs as a second ffmpeg pass over an already-produced clip file to emit a
 downscaled animated AVIF sibling for ``<img>`` embeds, Discord hover previews,
 and similar web-embed contexts. Orthogonal to the main video codec pipeline
-in ``ffmpeg_codec.py`` — never touches hardware-accelerated frame paths.
+in ``ffmpeg_codec.py``: never touches hardware-accelerated frame paths.
 
 Format-agnostic helpers (dimension picking, scale filter, HDR detection,
 sibling path, ffmpeg runner, concat-copy merge) live in ``previews/shared.py``.
@@ -35,7 +35,7 @@ from clipper.ytc_logger import Subsystem, make_subsystem_logger
 logger = make_subsystem_logger(Subsystem.PREVIEWS)
 
 # ---------------------------------------------------------------------------
-# Encoder constants — decisions and sources
+# Encoder constants: decisions and sources
 # ---------------------------------------------------------------------------
 
 AVIF_FILE_EXTENSION = "avif"
@@ -50,7 +50,7 @@ AVIF_PREVIEW_DIM_TIERS = DEFAULT_PREVIEW_DIM_TIERS
 
 # CRF band for animated AVIF previews. SVT-AV1 CRF scale is 0-63 (default 50,
 # far too lossy for preview use). The 30-40 band is an intentionally narrow
-# "safe for most inputs" range — bounded swing over a wide variety of sources
+# "safe for most inputs" range: bounded swing over a wide variety of sources
 # produces more predictable preview quality than an aggressive content-adaptive
 # curve. Primary-delivery guidance recommends tighter CRF at smaller resolutions
 # (SD ~22-28, 720p ~24-30) because the viewer sees pixels at 1:1; preview use
@@ -125,14 +125,14 @@ AVIF_PREVIEW_COLORSPACE = "bt709"
 AVIF_PREVIEW_COLOR_RANGE = "tv"
 
 # FFmpeg AVIF muxer shipped in 6.1. libsvtav1 has been in ffmpeg since 4.4.
-# Documented as a runtime requirement; no Python probe — ffmpeg's own error
+# Documented as a runtime requirement; no Python probe: ffmpeg's own error
 # on missing support is clear enough.
 # Source: https://www.phoronix.com/news/FFmpeg-AVIF-Muxing
 
 # HDR preservation is intentionally off in Phase 1. Animated AVIF previews are
 # always emitted as SDR BT.709 yuv420p 8-bit, even when the source clip is HDR.
 #
-# Reasons this door is closed:
+# Why HDR previews are off:
 #   - Browser *animated* AVIF HDR rendering is inconsistent. Chrome/Edge have
 #     rough edges around HDR animated sequences (still-image HDR is further
 #     along). Firefox animated-AVIF is recent and its HDR path is patchy.
@@ -145,12 +145,12 @@ AVIF_PREVIEW_COLOR_RANGE = "tv"
 #     encoder config already leans toward "speed/size over fidelity".
 #   - The main codec pipeline in ffmpeg_codec.py typically produces SDR output
 #     for most clips, so tagging the preview as HDR would misdescribe the
-#     content the user actually sees in the finished clip.
+#     content the user sees in the finished clip.
 #
 # Future HDR branch slots in at the "# HDR preview branch would go here" marker
 # in makeAvifPreview: switch `-pix_fmt` to yuv420p10le, swap the color tags to
 # bt2020 + smpte2084 (PQ) or arib-std-b67 (HLG) matching the source, and decide
-# a tonemap policy for SDR-display viewers — probably an explicit preview-tonemap
+# a tonemap policy for SDR-display viewers: probably an explicit preview-tonemap
 # toggle rather than trusting the browser. Detection (`isHdrSource` in shared.py)
 # is kept wired in so the feature surface is visible; only the branch is disabled.
 PRESERVE_HDR_IN_PREVIEW = False
@@ -173,7 +173,7 @@ def pickPreviewCrf(
 
     The heuristic keys on two axes with real theoretical/empirical backing, plus
     a small secondary nudge by preview size. Source bitrate is intentionally
-    *not* used — it correlates poorly with perceptual quality (grainy/noisy
+    *not* used: it correlates poorly with perceptual quality (grainy/noisy
     content wastes bitrate; simple content undershoots it), so it is too noisy
     to drive a small directional nudge. The coefficient magnitudes themselves
     are project heuristics, bounded by the narrow min/max band.
@@ -184,7 +184,7 @@ def pickPreviewCrf(
        Downsampling is a low-pass filter that attenuates the high-frequency
        band where compression artifacts (block edges, ringing, mosquito noise)
        live. An aggressively downsampled preview can therefore tolerate a
-       higher CRF without visible damage — the source artifacts are smoothed
+       higher CRF without visible damage: the source artifacts are smoothed
        by the scale step before the preview encode sees them.
        Sources:
          https://en.wikipedia.org/wiki/Downsampling_(signal_processing)
@@ -194,7 +194,7 @@ def pickPreviewCrf(
        Generational-loss testing shows the first re-encode of already-lossy
        content introduces noticeable damage in one pass, with most quality
        lost early. Spending extra bits on a lossy source buys less than on a
-       clean one — the preview would faithfully reproduce the source's
+       clean one: the preview would faithfully reproduce the source's
        artifacts instead of capturing signal. When the source is known to be
        heavily compressed, the preview CRF floor is raised so we don't waste
        bits; we do not pull the preview *looser* on lossy sources either,
@@ -329,8 +329,7 @@ def makeAvifPreview(
         # HDR preview branch would go here. See PRESERVE_HDR_IN_PREVIEW above for
         # why the SDR BT.709 path is used even when the source is HDR-tagged.
         logger.notice(
-            "Source color metadata indicates HDR; encoding AVIF preview as SDR BT.709 "
-            "(HDR-preserving preview path is disabled in this build).",
+            "The source is HDR. The AVIF preview is encoded as SDR (BT.709).",
         )
 
     previewWidth, previewHeight = computePreviewDimensions(
@@ -393,14 +392,13 @@ def mergeAvifPreviews(
     dimensions = [probeVideoDimensions(cp, path) for path in previewPaths]
     if any(dim is None for dim in dimensions):
         logger.warning(
-            "Skipping concat-copy of AVIF previews: "
-            "could not probe one or more preview dimensions.",
+            "Skipping the merged AVIF preview: could not read the size of every preview.",
         )
         return None
 
     if len(set(dimensions)) != 1:
         logger.notice(
-            "AVIF preview dimensions differ across clips; skipping concat-copy merge.",
+            "Skipping the merged AVIF preview: the previews differ in size.",
         )
         return None
 

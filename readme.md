@@ -162,15 +162,15 @@ First ensure the script is active on the page by checking your user script exten
 
 A shortcuts reference can also be toggled by clicking the `full reference` button in the footer of the command palette.
 
-**Alt+F:** Toggle the contextual hints bar at the bottom of the viewport. The bar surfaces shortcut chips relevant to what's under the cursor or what you're doing.
+**Alt+F:** Toggle the contextual hints bar at the bottom of the window. It shows shortcut chips for what is under the cursor or what you are doing.
 
-- Different chips appear while hovering the video, the crop overlay, a chart point, or while mid-drag.
-- Holding `Ctrl`, `Shift`, or `Alt` filters the chips to those that require those modifiers.
-- Expandable chips with a trailing `+` open a popover listing related chord variants on hover.
-- Click the chevron on the left edge of the bar to flip it between pinned-bottom and pinned-top.
+- Different chips show while you hover the video, the crop overlay, or a chart point, and during a drag.
+- Hold **Ctrl**, **Shift**, or **Alt** to show only the chips that use those keys.
+- Hover a chip that ends in `+` to see its related shortcuts.
+- Click the arrow on the left edge of the bar to move it between the bottom and the top of the window.
 - When there are more chips than fit on screen, scroll the bar horizontally with **click+drag** or the **mouse wheel**.
 - The bar's visibility and position persist across page reloads.
-- The bar can also be toggled from the command palette (**Shift+E**) or with the hints bar button (next to the scissors button) in the right side of the video player controls.
+- Also toggle the bar from the command palette (**Shift+E**) or with the hints bar button, next to the scissors button in the video player controls.
 
   ![yt_clipper_hints_bar](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_hints_bar.png)
 
@@ -217,7 +217,7 @@ A shortcuts reference can also be toggled by clicking the `full reference` butto
 
 - When performed on the left half of the window moves the start marker and on the right half the end marker.
 
-**Alt+Click+Drag:** Drag a marker numbering horizontally to reposition the marker — the marker tracks the cursor's position on the progress bar.
+**Alt+Click+Drag:** Drag a marker number horizontally to move the marker. The marker follows the cursor on the progress bar.
 
 ## Marker Navigation Shortcuts
 
@@ -231,7 +231,6 @@ A shortcuts reference can also be toggled by clicking the `full reference` butto
 
 **Ctrl+Alt+Left/Right:** Select the next/previous marker pair _and jump to its start marker_.
 
-- Navigating between or reordering marker pairs, whether with these shortcuts or the **◄ Prev**/**Next ►** buttons, refreshes the player controls and progress bar so they don't stay hidden while the playhead jumps.
 
 ## Global Settings Editor Shortcuts
 
@@ -274,7 +273,7 @@ A shortcuts reference can also be toggled by clicking the `full reference` butto
 
 ## Settings Editor Toolbar
 
-The marker pair editor and the global settings editor each have a toolbar of icon buttons in their title for quick access to common toggles and actions. The buttons mirror existing shortcuts, are highlighted while their feature is active, and show small badges with relevant counts.
+The marker pair editor and the global settings editor each have a toolbar of icon buttons in their title for common toggles and actions. Each button does the same as an existing shortcut.
 
   ![yt_clipper_settings_toolbar](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_settings_toolbar.png)
 
@@ -306,9 +305,9 @@ Click the copy button to the right of the **Crop** label in a settings editor to
 - **Ctrl+Shift+Drag:** Center-out resize/draw of crop.
 - **Ctrl+Shift+Drag:** Horizontally-fixed (Y-only) drag of crop.
 - **Ctrl+Alt+Drag:** Vertically-fixed (X-only) drag of crop.
-- **Mousewheel during pan-drag:** Scale the crop around its center. Wheel up zooms in, wheel down zooms out. The crop's geometric center stays fixed; edges expand or contract uniformly.
+- **Mousewheel during pan-drag:** Scale the crop around its center. Wheel up zooms in and wheel down zooms out.
   - Combine with pan motion to zoom and reframe in one continuous gesture.
-  - In `pan-only` mode the new size propagates to every crop point. In `zoompan` mode only the dragged point changes size.
+  - In `pan-only` mode every crop point gets the new size. In `zoompan` mode only the dragged point changes size.
 
   ![yt_clipper_crop_preview.png](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_crop_preview.png)
 
@@ -369,7 +368,7 @@ Click the copy button to the right of the **Crop** label in a settings editor to
 
 **R/Alt+R:** Toggle between a 90 degree clockwise/counter-clockwise rotation and no rotation.
 
-- Previewing a rotation now also sets the matching output rotation in the global settings editor, so the two no longer drift and you don't need to set it manually.
+- Previewing a rotation also sets the matching output rotation in the global settings editor.
 - Setting the rotation in the global settings editor opened with **W** still changes only the output video without rotating the preview.
 - The **rotate** button in the global settings editor toolbar cycles the preview rotation through 0, 90, and -90 degrees.
 
@@ -403,9 +402,9 @@ Click the copy button to the right of the **Crop** label in a settings editor to
   - ![yt_clipper_load_markers](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_load_markers.png)
 - A review modal opens before the data is applied. The modal shows a JSON preview and flags any HTML-like content (e.g. `<script>`, `<iframe>`, `onerror=`, `javascript:` URLs).
   - ![yt_clipper_load_markers_review](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_load_markers_review.png)
-- The review also strips unexpected fields and blocks reserved JavaScript keys (prototype-pollution vectors such as `__proto__`); these cleanups are listed in the modal for inspection before you apply.
-- All loaded values are rendered through escape-by-default templates so flagged content is treated as plain text. The modal lets you cancel the load if the source is untrusted.
-- The same review fires for files dropped onto the player and for auto-saved restores from browser local storage.
+- The review also removes unexpected fields and blocks reserved JavaScript keys such as `__proto__`. The modal lists these changes before you apply the data.
+- Loaded values always show as plain text. Cancel the load if you don't trust the file.
+- The same review opens for files dropped onto the player and for restoring auto-saved data from browser local storage.
 
 ## Miscellaneous Shortcuts
 
@@ -554,7 +553,7 @@ Use the **Crop Easing** setting to choose how a dynamic crop pans and zooms betw
 - Use as few points as possible for smoother motion.
 - Try enabling video stabilization to smooth out the motion, especially if many points are used.
 - Pause the video and **Right-Click+Drag** to seek/scrub through the video. Use this to preview the crop movement with precise control.
-- For motion tracking, drop multiple crop points in one continuous **Ctrl+Click+Drag** on the crop overlay: press **A** (when the crop chart is visible) or **Alt+A** at each subject position to commit a crop point and keep dragging. Combine with the mouse wheel during the same drag to zoom the crop in/out (center-out) while panning.
+- For motion tracking, drop multiple crop points in one continuous **Ctrl+Click+Drag** on the crop overlay: press **A** (when the crop chart is visible) or **Alt+A** at each subject position to add a crop point and keep dragging. Combine with the mouse wheel during the same drag to zoom the crop in/out (center-out) while panning.
 
 ### Reframe Mode (WYSIWYG Dynamic Cropping)
 
@@ -623,7 +622,7 @@ Use the **Crop Easing** setting to choose how a dynamic crop pans and zooms betw
 
 The default video codec used by yt_clipper for encoding video clips is vp9 which is typically stored in a webm container in a file with the `.webm` extension. h264 and the newer h265/hevc are typically stored in an mp4 container.
 
-For vp9, yt_clipper uses libvpx's default `aq-mode` and `tile-rows` (a prior release mistakenly used `aq-mode 4`, the 360°/equirectangular preset). Default-mode vp9 encodes are accordingly ~12-15% larger at the same CRF but higher quality — keep this in mind when comparing output sizes across yt_clipper versions.
+For vp9, yt_clipper uses libvpx's default `aq-mode` and `tile-rows` (a prior release mistakenly used `aq-mode 4`, the 360°/equirectangular preset). Default-mode vp9 encodes are accordingly ~12-15% larger at the same CRF, but higher quality. Keep this in mind when comparing output sizes across yt_clipper versions.
 
 You can use the `--video-codec` option to change video codecs. The clipper script help text (`yt_clipper --help`) is kept updated with the available video codecs.
 
@@ -638,11 +637,11 @@ yt_clipper supports `h264_vulkan` for Vulkan-based hardware-acceleration of h264
 
 yt_clipper also supports `h264_nvenc` for NVIDIA GPU hardware-accelerated h264 encoding. This requires an NVIDIA GPU with NVENC support (most modern NVIDIA GPUs) and ffmpeg compiled with nvenc support. It is supported on Windows and Linux.
 
-yt_clipper supports `av1` for AV1 encoding via libsvtav1, output in an mp4 container (matching the container YouTube serves AV1 in). A higher-efficiency alternative to vp9 at the cost of slower encodes at lower preset values. Requires ffmpeg with libsvtav1 (shipped since ffmpeg 4.4).
+yt_clipper supports `av1` for AV1 encoding via libsvtav1, output in an mp4 container (matching the container YouTube serves AV1 in). It compresses better than vp9, but encodes slower at lower preset values. Requires ffmpeg with libsvtav1 (shipped since ffmpeg 4.4).
 
 AV1 support is early. Its default encoding settings are not tuned yet, so expect to adjust them (e.g. the CRF and preset) for your clips.
 
-For consistent output quality regardless of source bitrate, see the [Sample-Guided Encoding](#sample-guided-encoding) section below. `--sample-guided-encode` picks a per-pair CRF empirically against a VMAF target, replacing the default bitrate-driven CRF heuristic.
+For consistent output quality regardless of source bitrate, see [Sample-Guided Encoding](#sample-guided-encoding) below. `--sample-guided-encode` tests CRF values on each marker pair and picks one that meets a VMAF quality target, in place of the default CRF picked from the source bitrate.
 
 ## Articles on CRF and vp9 Encoding
 
@@ -653,7 +652,7 @@ For consistent output quality regardless of source bitrate, see the [Sample-Guid
 
 ## Sample-Guided Encoding
 
-`--sample-guided-encode` probes a few CRF values on short sample windows of each marker pair, measures the trial encodes against a near-transparent reference (a CRF 18 encode) using VMAF NEG, and picks the highest CRF (most compression) that clears a perceptual-quality target. That CRF is then used for the final user-facing encode of the full clip.
+`--sample-guided-encode` encodes short samples of each marker pair at a few CRF values. It compares each sample with a CRF 18 reference encode using VMAF NEG, and picks the highest CRF (most compression) that meets the quality target. The full clip is then encoded at that CRF.
 
 Use `--sample-guided-encode` when source bitrate alone isn't a reliable quality predictor.
 
@@ -661,45 +660,45 @@ Use `--sample-guided-encode` when source bitrate alone isn't a reliable quality 
 - You want consistent output quality regardless of what kind of source you feed in.
 - You're comparing encoder configurations on the same clip and want apples-to-apples bitrate numbers.
 
-The default targets are VMAF NEG mean `>= 95` and 5th-percentile (`p5`) `>= 93`. These are stricter than typical streaming targets because short and slowed yt_clipper clips amplify artifacts that long-form streaming viewers would miss. On very short clips with too few frames for a stable percentile, the low-percentile check is dropped and only the mean is enforced.
+The default targets are VMAF NEG mean `>= 95` and 5th-percentile (`p5`) `>= 93`. On very short clips with too few frames for a stable percentile, the low-percentile check is dropped and only the mean is enforced.
 
 **Cost:**
 
 - A first-time search adds 3-5x to encode time per marker pair.
-- A per-pair, per-encoder-fingerprint run-cache stores trial results on disk. Re-running with the same encoder settings replays the picked CRF instantly.
-- Iterating on non-encoder settings (output filename, audio toggle, title suffix, etc.) doesn't pay the search cost again.
-- Changing the codec, resolution, or other encoder-identity settings invalidates the cache and re-runs the search.
+- Trial results are cached on disk per marker pair and encoder settings. A rerun with the same encoder settings reuses the picked CRF.
+- Changing other settings (output filename, audio, title suffix, etc.) does not rerun the search.
+- Changing the codec, resolution, or other encoder settings reruns the search.
 
 **Output:**
 
-- The aggregate summary table at the end of a run shows one row per marker pair with the picked CRF, VMAF mean and all six low percentiles, trial bitrate, predicted final-encode size, and `kbps@tgt` (the interpolated bitrate at the target VMAF, used for cross-config comparison).
-- A "delta vs baseline" line under the table shows what the search bought relative to yt_clipper's default auto-picked CRF (the encode that would have happened without `--sample-guided-encode`).
-- Each marker pair also logs in-terminal VMAF-vs-CRF and bitrate-vs-CRF charts (the probed points, the fitted curve, the target line, and the chosen-CRF marker), so you can see the quality/size trade-off the search made.
+- The aggregate summary table at the end of a run shows one row per marker pair with the picked CRF, VMAF mean and all six low percentiles, trial bitrate, predicted final-encode size, and `kbps@tgt` (the interpolated bitrate at the target VMAF, for comparing encoder settings).
+- A "delta vs baseline" line under the table compares the result with yt_clipper's default CRF (the encode without `--sample-guided-encode`).
+- Each marker pair also logs VMAF-vs-CRF and bitrate-vs-CRF charts in the terminal: the probed points, the fitted curve, the target line, and the picked CRF.
 
   ![yt_clipper_sge_plots](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_sge_plots.png)
 
 **Caveat for stabilized clips:**
 
-- Trial encodes disable video stabilization for speed. The picked CRF therefore predicts the unstabilized encoder response.
-- The final stabilized output may land slightly below the predicted VMAF because stabilization warp introduces modest pixel noise.
+- Trial encodes skip video stabilization to save time, so the picked CRF is measured without it.
+- The final stabilized clip can score slightly below the predicted VMAF.
 
 **Advanced sub-flags:**
 
 - `--target-vmaf-mean`: override the VMAF NEG mean target (default `95`).
 - `--target-vmaf-low`: override the low-percentile threshold (default scales with the chosen percentile: `p1=91, p5=93, p10=95, p15=96, p20=96.5, p25=97`).
-- `--target-vmaf-low-percentile`: choose which percentile to enforce as the worst-case-frame target (`1`, `5`, `10`, `15`, `20`, or `25`; default `5`). All six are computed and reported regardless.
-- `--sample-guided-encode-alg`: `curve-fit` (default) probes a few CRFs and fits curves to pick a knee. `legacy-bisection` is the older strict-pass/fail flow, kept for rollback.
+- `--target-vmaf-low-percentile`: choose which percentile to enforce as the worst-case-frame target (`1`, `5`, `10`, `15`, `20`, or `25`, default `5`). All six are computed and reported.
+- `--sample-guided-encode-alg`: `curve-fit` (default) tests a few CRFs and picks the CRF at the knee of the fitted curve. `legacy-bisection` is the older strict pass/fail search, kept for rollback.
 
 ## Preview Format Generation
 
-`--preview-format` generates a downscaled animated preview sibling file next to each output webm (and next to any merged outputs). Useful for embedding in chat, browser thumbnails, or quick sharing without re-decoding the final webm. Default is `none` (no preview generated); neither supported format carries audio.
+`--preview-format` generates a small animated preview next to each output clip (and each merged clip). Previews have no audio. The default is `none` (no preview).
 
-Not to be confused with `--preview` (`-p`), which is a separate markup-iteration mode that skips clip generation entirely and prompts for individual marker pairs to preview interactively.
+This is separate from `--preview` (`-p`), which skips clip generation and asks which marker pairs to preview.
 
 Two formats are supported:
 
 - **`avif`**: animated AVIF at reduced resolution. Smallest files for a given quality. Requires ffmpeg `>= 6.1` for the AVIF muxer (libsvtav1 has shipped since ffmpeg 4.4).
-- **`webp`**: animated WebP. Broader browser support (older Safari, webmail, Firefox `< 113`) at a small file-size penalty vs. AVIF. Uses libwebp method-6 (max effort) to narrow the gap; expect ~2-3x the encode time of AVIF per preview.
+- **`webp`**: animated WebP. It plays in more browsers (older Safari, webmail, Firefox `< 113`) and is slightly larger than AVIF. It uses libwebp method 6 (max effort) and takes about 2-3x as long to encode as AVIF.
 
 **Sizing:**
 
@@ -707,12 +706,12 @@ Two formats are supported:
 
 **Quality:**
 
-- `--preview-quality` overrides the auto-picked quality. AVIF uses the SVT-AV1 CRF scale (`0-63`, lower = better; auto-picks in the `28-45` band). WebP uses the libwebp quality scale (`0-100`, higher = better; auto-picks in the `60-80` band). The two scales run in opposite directions; supply a value on the selected format's scale.
+- `--preview-quality` overrides the auto-picked quality. AVIF uses the SVT-AV1 CRF scale (`0-63`, lower is better, auto-picked in the `28-45` band). WebP uses the libwebp quality scale (`0-100`, higher is better, auto-picked in the `60-80` band). The two scales run in opposite directions. Use the scale of the selected format.
 - Auto-picked quality scales with downsample ratio, source bitrate, source CRF (when known), and preview long edge.
 
 **Encoder preset (AVIF only):**
 
-- `--preview-preset` controls the SVT-AV1 preset for AVIF previews (`0` = slowest/best quality, `13` = fastest). Default `8`. Has no effect on WebP (libwebp uses method-6 unconditionally).
+- `--preview-preset` controls the SVT-AV1 preset for AVIF previews (`0` = slowest/best quality, `13` = fastest). Default `8`. It has no effect on WebP.
 
 ## Tips and Settings
 
@@ -729,7 +728,7 @@ Two formats are supported:
 1. The `clipper script` is set to use the vp9 encoder by default (encoding used for webm videos on YouTube).
 2. Use `--help`, `-h`, or the `yt_clipper_options` helper script for additional options that can be enabled on the command line.
 3. Encoding settings will be automatically selected, unless overridden, based on the detected bitrate and other properties of the input video.
-4. ffmpeg encodes show a live progress display; pressing **Ctrl+C** prints an idle-since-last-frame diagnostic to help spot stalls.
+4. ffmpeg encodes show a live progress display. **Ctrl+C** during an encode also prints the time since the last frame, to spot a stalled encode.
 
 ## Gamma Correction
 
@@ -800,7 +799,7 @@ There is an installation that does not require the dependencies below.
 
 1. Extract the appropriate zip file anywhere:
    - Go to <https://github.com/exwm/yt_clipper/releases> and pick a release. In the assets, find the appropriate file for your platform.
-   - **Windows users:** The zip bundles [video2x](https://github.com/k4yt3x/video2x) in `bin/video-tools/`. This enables [motion interpolation](#motion-interpolation) without any additional setup.
+   - **Windows users:** The zip bundles [video2x](https://github.com/k4yt3x/video2x) in `bin/video-tools/`, so [motion interpolation](#motion-interpolation) works without extra setup.
 2. Simply drag and drop the markers .json file onto the `yt_clipper_auto.bat` file on Windows or at the terminal prompt after executing `yt_clipper_auto` on Mac.
 3. Use `Ctrl+C` if you need to cancel the process.
 4. All generated webm clips will be placed in `./webms/<markers-json-filename>`.

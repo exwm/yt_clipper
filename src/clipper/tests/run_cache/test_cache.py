@@ -1,4 +1,4 @@
-"""Tests for ``run_cache.cache`` — freshness gate + reuse decisions.
+"""Tests for ``run_cache.cache``: freshness gate + reuse decisions.
 
 Covers the core decision: given a prior run on disk, can the
 current run safely reuse it (full / partial / not at all)? Each
@@ -368,7 +368,7 @@ def test_evaluate_cache_reuse_miss_on_incomplete_run(tmp_path: Path) -> None:
     pair_dir = tmp_path / "1"
     fp_dir = pair_dir / "abc123def456"
     fp_dir.mkdir(parents=True)
-    # Only the run_header — no search_result.
+    # Only the run_header: no search_result.
     with (fp_dir / "run-260509T100000.jsonl").open("w") as fp:
         fp.write(
             json.dumps(
@@ -537,7 +537,7 @@ def test_prime_trial_measurement_cache_handles_missing_dir(tmp_path: Path) -> No
 
 def test_prime_trial_measurement_cache_harvests_from_crashed_run(tmp_path: Path) -> None:
     """A prior run that crashed before writing search_result still
-    has valid trial records — those get harvested for the new
+    has valid trial records: those get harvested for the new
     search's measurement cache. Resilience to mid-run interruption."""
     fp_dir = tmp_path / "abc"
     fp_dir.mkdir()
@@ -583,7 +583,7 @@ def test_prime_trial_measurement_cache_reads_frame_count_at_top_level(
 ) -> None:
     """Production trial JSONL records store ``frame_count`` at the
     top level (alongside ``crf`` / ``phase``), NOT inside ``summary``
-    — keeping ``summary`` percentile-only. The priming code must read
+    keeping ``summary`` percentile-only. The priming code must read
     from the right place. Regression for a bug where every priming
     call returned 0 entries because frame_count was looked up in the
     wrong dict, treated as 0, and the record was skipped.
@@ -629,7 +629,7 @@ def test_prime_trial_measurement_cache_reads_frame_count_at_top_level(
 def test_prime_trial_measurement_cache_uses_disk_size_not_jsonl(
     tmp_path: Path,
 ) -> None:
-    """The JSONL''s ``encoded_size_bytes`` value is not load-bearing —
+    """The JSONL''s ``encoded_size_bytes`` value does not matter:
     older buggy versions of priming corrupted it (storing frame_count,
     storing 0). The current code stat()s the trial file on disk for
     ground truth. Even a poisoned ``encoded_size_bytes`` field in the
@@ -656,7 +656,7 @@ def test_prime_trial_measurement_cache_uses_disk_size_not_jsonl(
     with poisoned_path.open("w") as fp:
         for r in poisoned_records:
             fp.write(json.dumps(r) + "\n")
-    # Real trial file with a real size — disk wins.
+    # Real trial file with a real size: disk wins.
     _create_trial_files(fp_dir, "clip-1", [(30, 0)], bytes_per_file=2_500_000)
     cache = prime_trial_measurement_cache(
         fingerprint_dir=fp_dir,
@@ -764,7 +764,7 @@ def test_prime_trial_measurement_cache_skips_when_trial_file_missing(
         encoder_fingerprint="abc",
         probes=[(30, {"p5": 96.0}, 14000.0)],
     )
-    # No _create_trial_files() call — files are absent.
+    # No _create_trial_files() call: files are absent.
     cache = prime_trial_measurement_cache(
         fingerprint_dir=fp_dir,
         file_name_stem="clip-1",

@@ -245,9 +245,9 @@ def getMarkerPairSettings(  # noqa: PLR0912
         enableMinterpFpsBitrateFactor,
     )
 
-    # Surface the resolved auto-encode picks onto mp so callers that only
+    # Put the resolved auto-encode picks onto mp so callers that only
     # see the marker-pair return value (e.g. the sample-guided trial loop) can
-    # read what the encoder actually used. Without this, mp comes back
+    # read what the encoder used. Without this, mp comes back
     # without a "crf" key and trial summaries can't display the CRF that
     # produced the measured VMAF.
     for _resolvedKey in ("crf", "autoTargetMaxBitrate", "encodeSpeed", "videoCodec"):
@@ -267,9 +267,9 @@ def getMarkerPairSettings(  # noqa: PLR0912
         # the reference / baseline equivalents in the sample-guided
         # orchestrator) so every search-context encode passes
         # ``is_search_context=True``. This reframes the diff title
-        # from "settings changed:" (which read as "your pair config
+        # from "settings changed:" (which suggested "your pair config
         # was modified") to "sample-guided encode using overrides:" (what's
-        # actually happening) AND keeps the memo anchored to the
+        # happening) AND keeps the memo anchored to the
         # operator's original pair snapshot so the post-search final
         # encode still diffs against THAT, not the last trial.
         emit_marker_pair_settings_log(
@@ -825,7 +825,7 @@ def makeClip(  # noqa: PLR0912
 
     if mp.get("preV2xExists"):
         logger.notice(
-            f"Skipping ffmpeg - using existing pre-v2x intermediate: {LogPath(mp['filePath'])}",
+            f"Skipping ffmpeg and reusing the clip made before video2x: {LogPath(mp['filePath'])}",
         )
     else:
         result = runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp)
@@ -880,7 +880,7 @@ def getFfmpegCommandWithoutVideoFilter(
     # stats line in many ffmpeg builds (it's emitted at INFO level),
     # which would kill the bar for trial encodes. Instead we let
     # ffmpeg emit normally and rely on the progress tracker's stderr
-    # reader to filter — see ``silent_non_progress`` below: for
+    # reader to filter (see ``silent_non_progress`` below). For
     # trial encodes, the tracker drops decoder/encoder setup chatter
     # silently so the terminal stays clean while the bar still
     # advances from the stats line's ``frame=N``.
@@ -943,7 +943,7 @@ def getFfmpegCommandFastTrim(
 def _estimate_encoded_frames(settings: Settings, mp: DictStrAny) -> int:
     """Rough estimate of the number of frames the upcoming ffmpeg
     encode will produce. Used as the ``total`` for the progress bar
-    so it can render a percent + ETA; off by ~10-20% is fine — the
+    so it can render a percent + ETA; off by ~10-20% is fine: the
     bar still tracks meaningfully."""
     output_duration = float(mp.get("outputDuration", 0) or 0)
     if output_duration <= 0:
@@ -956,7 +956,7 @@ def _estimate_encoded_frames(settings: Settings, mp: DictStrAny) -> int:
     return max(0, round(output_duration * fps))
 
 
-def runffmpegCommand(  # noqa: PLR0912 — encode kind branching + filter-graph substitute is part of the encode-dispatch surface
+def runffmpegCommand(  # noqa: PLR0912 (encode kind branching + filter-graph substitute is part of the encode-dispatch surface)
     settings: Settings,
     ffmpegCommands: List[str],
     markerPairIndex: int,
@@ -972,9 +972,9 @@ def runffmpegCommand(  # noqa: PLR0912 — encode kind branching + filter-graph 
     # Callers (e.g. the sample-guided orchestrator's reference and
     # baseline encodes) can override the generic "encoding" label
     # via the ``ffmpegProgressLabel`` setting so the operator sees
-    # context-aware text in the spinner row — "sample-guided encode —
-    # reference encode" reads as belonging to a search; bare
-    # "encoding" reads like a final user-facing encode and is
+    # context-aware text in the spinner row: "sample-guided encode:
+    # reference encode" looks like part of a search; bare
+    # "encoding" looks like a final user-facing encode and is
     # confusing when it appears mid-search.
     base_label = settings.get("ffmpegProgressLabel") or "encoding"
     for pass_idx, cmd in enumerate(ffmpegCommands):
@@ -999,10 +999,10 @@ def runffmpegCommand(  # noqa: PLR0912 — encode kind branching + filter-graph 
         # registers each long filter graph with an integer id, emits
         # one ``filter-graph #N: <expr>`` VERBOSE line per new entry,
         # and replaces the inline filter with ``<filter-graph #N>``
-        # in the printed command. Trial commands then read as a
+        # in the printed command. Trial commands then print as a
         # tight one-liner instead of burying the rest of the log.
         #
-        # ``rich.markup.escape`` on the expr is load-bearing —
+        # ``rich.markup.escape`` on the expr is required:
         # complex filtergraphs contain ``[stream_label]`` tokens
         # which rich would parse as style spans and strip from the
         # rendered output (the on-disk log file would still get
@@ -1013,7 +1013,7 @@ def runffmpegCommand(  # noqa: PLR0912 — encode kind branching + filter-graph 
             logger.verbose(
                 f"filter-graph #{graph_id}: {rich.markup.escape(expr)}",
             )
-        # ``rich.markup.escape`` on the whole printable command — same
+        # ``rich.markup.escape`` on the whole printable command: same
         # convention :class:`LogPath` uses internally to neutralize
         # rich-markup-meaningful brackets in paths. The ffmpeg command
         # contains output paths, ``-metadata title="..."`` values, and
@@ -1036,7 +1036,7 @@ def runffmpegCommand(  # noqa: PLR0912 — encode kind branching + filter-graph 
         # route through the shared search-level display instead of
         # spawning a per-trial Live. That collapses the per-trial
         # spinner into a single counter advancing across all trials,
-        # which is what the operator actually wants to see during a
+        # which is what the operator wants to see during a
         # multi-minute search.
         #
         # No active search tracker (e.g. final encode, preview, or a
@@ -1092,7 +1092,7 @@ def runffmpegCommand(  # noqa: PLR0912 — encode kind branching + filter-graph 
     if mp["returncode"] == 0:
         # Demote the success log to verbose during quiet-ffmpeg encodes
         # (CRF binary search trials run many ffmpeg invocations per clip
-        # and don't need a SUCCESS line per window — the search emits its
+        # and don't need a SUCCESS line per window: the search emits its
         # own per-trial summary which is the real signal).
         if settings.get("quietFfmpeg"):
             logger.verbose(f"Successfully generated: {file_name_log}")
@@ -1479,7 +1479,7 @@ def makeClips(cs: ClipperState) -> None:  # noqa: PLR0912
                 if settings.get("sampleGuidedEncode"):
                     # Snapshot the pristine marker before any encode so the
                     # search orchestrator can restore a fresh state between
-                    # trial encodes — getMarkerPairSettings is non-idempotent
+                    # trial encodes: getMarkerPairSettings is non-idempotent
                     # (compounds delay shifts on mp.start/end, multiplies the
                     # crop by cropMultipleX/Y, mutates speedMap point x-coords).
                     # Re-running it on an already mutated marker double-shifts
@@ -1501,7 +1501,7 @@ def makeClips(cs: ClipperState) -> None:  # noqa: PLR0912
                     #    snapshot, so every trial / reference / baseline
                     #    encode (all ``is_search_context=True``) renders
                     #    as a focused "sample-guided encode using overrides:" diff
-                    #    vs the original — instead of falling through to
+                    #    vs the original, instead of falling through to
                     #    "no prior memo → print full table" on the first
                     #    trial. The post-search final-encode diff also
                     #    fires vs this same original baseline (the memo
@@ -1565,7 +1565,7 @@ def makeClips(cs: ClipperState) -> None:  # noqa: PLR0912
             # Report-level emission with the sample-guided subsystem
             # prefix (this block IS the search summary; it just
             # happens to be flushed from the clip-maker loop). The
-            # sample-guided logger keeps the chip honest about the
+            # sample-guided logger keeps the chip accurate about the
             # source.
             make_subsystem_logger(Subsystem.SAMPLE_ENCODE).report(aggregateBlock)
 

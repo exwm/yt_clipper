@@ -234,7 +234,7 @@ function loadMarkersJson() {
 }
 
 // Standalone "load from file" entry point (the markers data commands panel's
-// Load button reads its own file input; this opens a picker directly) — used by
+// Load button reads its own file input; this opens a picker directly): used by
 // the global settings editor's Load action.
 export function promptLoadMarkersJsonFile() {
   const input = document.createElement('input');

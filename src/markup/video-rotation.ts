@@ -85,7 +85,7 @@ function applyPreviewRotation() {
 
 // Preview rotation (this module) and encode/output rotation (the Global Settings
 // `rotate` radios) are intentionally separate: you may want to view or mark up
-// rotated without rotating the exported clip. The trap is previewing rotated and
+// rotated without rotating the exported clip. A common mistake is previewing rotated and
 // forgetting to set the output to match. So mirror preview -> output here. It
 // stays one-way: the radios still set output alone without rotating the preview,
 // so output rotation can be chosen without previewing it.
@@ -118,7 +118,7 @@ function syncOutputRotationToPreview() {
 // Build the rotation CSS strings from the current rotation and the current
 // video's aspect ratio. The tooltip offset and the fullscreen scale both
 // depend on the aspect ratio, so these must be rebuilt whenever the video
-// (and thus its aspect ratio) changes — not just on the initial rotate.
+// (and thus its aspect ratio) changes: not just on the initial rotate.
 function buildRotatedVideoCSSStrings() {
   rotatedVideoCSS = getRotatedVideoCSS();
   const tooltipOffset = Math.round(((appState.videoInfo.aspectRatio - 1) / 2) * 100);

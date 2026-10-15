@@ -91,7 +91,7 @@ import type { HoveredRegion } from './features/hints-bar/hover-region';
 /** Wires up hover-region tracking on a chart canvas. The mousemove handler
  *  uses Chart.js's hit-test to flip between `{type}-chart` (cursor over the
  *  empty canvas) and `{type}-chart-point` (cursor over a data point) so the
- *  hints bar can surface point-manipulation chips only when relevant. */
+ *  hints bar can show point-manipulation chips only when relevant. */
 function attachChartHoverDetector(canvas: HTMLCanvasElement, chartInput: ChartInput): void {
   const base: Exclude<HoveredRegion, null> =
     chartInput.type === 'crop' ? 'crop-chart' : 'speed-chart';
@@ -338,7 +338,7 @@ export function renderSpeedAndCropUI(rerenderCharts = true, updateCurrentCropPoi
     // gated, so this is a no-op otherwise).
     scheduleCinematicRecompute();
     // Drive the reframe preview from the crop when it's edited (drag-release, arrow
-    // keys, point switch), not just when scrubbing — so it tracks a static crop too.
+    // keys, point switch), not just when scrubbing, so it tracks a static crop too.
     if (isReframeEnabled()) {
       syncReframe(getCurrentCropComponents());
     }
@@ -445,7 +445,7 @@ export function getCropPreviewMouseTimeSetter(modalContainer: HTMLCanvasElement)
       // Self-defending end check: pointermove always reports the
       // currently-held buttons bitmask. If the right button is no longer
       // held but we're still receiving pointermove, the browser dropped
-      // our `pointerup` — known to happen in Vivaldi (mouse gestures
+      // our `pointerup`: known to happen in Vivaldi (mouse gestures
       // suppress the up event), Chrome with certain devtools docking
       // configurations, and after a suppressed contextmenu. End the
       // drag immediately so the cursor stops scrubbing the video.
@@ -486,7 +486,7 @@ export function getCropPreviewMouseTimeSetter(modalContainer: HTMLCanvasElement)
     modalContainer.setPointerCapture(pointerId);
     // Attach to the captured target rather than `document` so the
     // spec-mandated `pointercancel` reaches us when the browser
-    // implicitly releases capture — right-click drags were particularly
+    // implicitly releases capture: right-click drags were particularly
     // prone to stuck-seeking because some browsers swallow `pointerup`
     // when the user releases over a focused devtools panel or after a
     // suppressed contextmenu.
@@ -520,7 +520,7 @@ export function getMouseChartTimeAnnotationSetter(chartInput: ChartInput) {
     const pointerId = e.pointerId;
     // shift+right-click context menu opens screenshot tool in firefox 67.0.2
     function chartTimeAnnotationDragHandler(e) {
-      // Self-defending end check — see the matching seekDragHandler
+      // Self-defending end check: see the matching seekDragHandler
       // above for the rationale. Vivaldi and some Chromium-based browser
       // configurations occasionally drop `pointerup` for right-button
       // releases, leaving the seek tracking the cursor indefinitely.
@@ -660,7 +660,7 @@ export function loadChartData(chartInput: ChartInput) {
 }
 export function updateChartBounds(chartInput: ChartInput, start, end) {
   // ticks.min/max is also the zoom plugin's current view; only reset it when this chart's bounds
-  // actually moved, so unrelated actions (selecting/adding/deleting a point) don't snap a zoomed-in
+  // moved, so unrelated actions (selecting/adding/deleting a point) don't snap a zoomed-in
   // chart back to the full clip. Tracked per chart: each chart applies the bounds to its own config,
   // so one chart having recorded them must not skip the other chart's write.
   const boundsChanged = chartInput.minBound !== start || chartInput.maxBound !== end;
@@ -766,7 +766,7 @@ export function cropChartPreviewHandler(loop = true, frameTime?: number) {
         chartState.shouldTriggerCropChartUpdates = false;
         // Update the highlight on EVERY presented frame, exactly like the canvas keyframe border
         // (reframeKeyframeColor), so the two never disagree: both read isPlayheadOnCropKeyframe at the
-        // same frame. Do NOT gate on video.seeking — a frame-step presents its frame while seeking is
+        // same frame. Do NOT gate on video.seeking: a frame-step presents its frame while seeking is
         // still true, and skipping it left the point stale (border green, point not) with no later
         // frame to fix it. The full-frame on-keyframe tolerance keeps a seek-to-point landing green.
         if (isDynamicCrop && !isManipulatingOrDrawing) {
@@ -821,8 +821,8 @@ export function cropChartPreviewHandler(loop = true, frameTime?: number) {
       if (interpCropSpan) {
         const cc = getCurrentCropComponents();
         if (cc) {
-          // Round to integer pixels so it reads like the crop input (which stores integer crops),
-          // and surface rotated coordinates while previewing a rotation, matching setCropInputValue.
+          // Round to integer pixels so it matches the crop input (which stores integer crops),
+          // and show rotated coordinates while previewing a rotation, matching setCropInputValue.
           let interpCropString = getCropString(
             Math.round(cc[0]),
             Math.round(cc[1]),
@@ -840,7 +840,7 @@ export function cropChartPreviewHandler(loop = true, frameTime?: number) {
       // The reframe canvas loop refreshes the transform every frame, so no syncReframe needed here.
     }
   } finally {
-    // Always clear the pinned frame time and keep the loop alive even if the body threw — otherwise
+    // Always clear the pinned frame time and keep the loop alive even if the body threw, otherwise
     // a stale presentedFrameTime would skew every later currentCropTime() read.
     presentedFrameTime = null;
     if (loop) {
@@ -951,7 +951,7 @@ let cinematicRecomputeTimer: ReturnType<typeof setTimeout> | undefined;
 const CINEMATIC_RECOMPUTE_DEBOUNCE_MS = 350;
 
 // Recompute the active pair's cinematic path after edits settle. Gated to cinematic mode and only
-// (re)scheduled when the path is actually out of date, so scrubbing or selecting a pair (crop points
+// (re)scheduled when the path is out of date, so scrubbing or selecting a pair (crop points
 // unchanged) never starts the timer; during an edit the timer keeps resetting, so the solve fires
 // once afterwards. The L1 solve is global and far too heavy for the per-frame loops, so it only ever
 // runs here, off the timer.
@@ -1025,7 +1025,7 @@ export function getEasedCropComponents(
     { width: appState.settings.cropResWidth, height: appState.settings.cropResHeight }
   );
 }
-// The current crop in cropRes coords — the eased/interpolated crop for a dynamic
+// The current crop in cropRes coords: the eased/interpolated crop for a dynamic
 // crop, or the static/current-point crop otherwise. Null only when no editor is open.
 // Used by the editor zoom to frame/follow the crop (the subject).
 export function getCurrentCropComponents(): [number, number, number, number] | null {
@@ -1039,7 +1039,7 @@ export function getCurrentCropComponents(): [number, number, number, number] | n
   if (!markerPair) return null;
   const cropMap = markerPair.cropMap;
   // While editing a dynamic crop, follow the crop POINT being manipulated (which may
-  // be off the current time) rather than the interpolated crop — otherwise the view
+  // be off the current time) rather than the interpolated crop, otherwise the view
   // only tracks the edit when the playhead happens to sit near that point. When just
   // scrubbing, follow the interpolated crop so a moving subject stays framed.
   const editing = isMouseManipulatingCrop || isDrawingCrop;
@@ -1050,7 +1050,7 @@ export function getCurrentCropComponents(): [number, number, number, number] | n
     // interpolating there would blend toward a neighbor and shift a fast smoothTrack crop a few
     // pixels off what was drawn; the snap holds it. We must NOT snap during playback, nor when
     // frame-stepping PAST a point (a full frame away), or the crop freezes for the ~3 frames within
-    // a frame of the point and reads as a jump when crossing it. The paused gate plus the same-frame
+    // a frame of the point and looks like a jump when crossing it. The paused gate plus the same-frame
     // (half-frame) test restricts the snap to exactly the parked-on-a-point cases.
     const { index } = isPlayheadOnCropKeyframe(cropMap, time);
     const parkedPoint = cropMap[index];
@@ -1118,7 +1118,7 @@ export function isPlayheadOnCropKeyframe(cropMap: CropPoint[], time: number): Cr
 
 // Select a crop point for editing. Set the index directly (works even when the
 // crop chart was never opened, leaving its instance null) and only sync the
-// chart's section/selection state when an instance exists — `setCurrentCropPoint`
+// chart's section/selection state when an instance exists: `setCurrentCropPoint`
 // clamps to maxIndex=1 against a null chart, which would mis-select on a
 // JSON-loaded dynamic crop.
 function selectCropPoint(index: number): void {
@@ -1127,7 +1127,7 @@ function selectCropPoint(index: number): void {
   if (cropChart) setCurrentCropPoint(cropChart, index);
 }
 
-// Reframe auto-key: editing the crop is playhead-driven — the current time IS
+// Reframe auto-key: editing the crop is playhead-driven, the current time IS
 // the current keyframe. On a keyframe we edit it; between keyframes we create one
 // at the current time capturing the interpolated crop the reframe is already
 // showing (no visual jump). Pauses playback (stays paused; manual resume) so the
@@ -1211,7 +1211,7 @@ function applyCropKeyframeIndicator(onKeyframe: boolean | null): void {
     border.setAttribute('stroke-dasharray', '5 5');
     return;
   }
-  // Reframe: solid rect either way; the colour alone carries the create-vs-edit
+  // Reframe: solid rect either way; the colour alone shows the create-vs-edit
   // state (green = on a keyframe, amber = between).
   border.setAttribute('stroke', onKeyframe ? ON_KEYFRAME_COLOR : BETWEEN_KEYFRAME_COLOR);
   border.setAttribute('stroke-dasharray', '0');
@@ -1238,7 +1238,7 @@ export function updateDynamicCropOverlays(
     (cropOverlayElements.cropChartSectionStart as HTMLElement).style.display = sectionDisplay;
     (cropOverlayElements.cropChartSectionEnd as HTMLElement).style.display = sectionDisplay;
     // With the start/end section rects shown (non-reframe dynamic crop), the current-time rect is a
-    // third overlapping rect that just adds noise, so hide it — the outside-crop dim already marks
+    // third overlapping rect that just adds noise, so hide it: the outside-crop dim already marks
     // the current crop region. Keep it when the dim is off (nothing else cues the current crop), and
     // in reframe where it's the preview (the canvas draws its own border, this SVG one display-hidden).
     setCurrentCropRectVisible(isReframeEnabled() || getCropDimOpacity() === 0);
@@ -1254,7 +1254,7 @@ export function updateDynamicCropOverlays(
   const sectEnd = chartData[currentCropChartSection[1]];
 
   // The current crop that the main rect + crosshair track. In reframe this is the
-  // exact crop the video transform is driven from (getCurrentCropComponents — the
+  // exact crop the video transform is driven from (getCurrentCropComponents: the
   // edited point while manipulating, the interpolated crop while scrubbing); otherwise
   // the section interpolation.
   let [curX, curY, curW, curH] = getEasedCropComponents(
@@ -1268,7 +1268,7 @@ export function updateDynamicCropOverlays(
     if (cc) [curX, curY, curW, curH] = cc;
   }
 
-  // In reframe: on a keyframe (edit) vs between (auto-key) — drives the rect border
+  // In reframe: on a keyframe (edit) vs between (auto-key), drives the rect border
   // and crosshair colour. null outside reframe (keeps the classic styling).
   const keyframeState = isReframeEnabled()
     ? isPlayheadOnCropKeyframe(chartData, _currentTime).onKeyframe
@@ -1414,7 +1414,7 @@ export function hideChart() {
 
 let cropChartVideoHeightStyle: HTMLStyleElement | null = null;
 // Caps the YouTube video's vertical real estate while the crop chart is open
-// so tall sources don't push the chart out of the viewport. YouTube-only —
+// so tall sources don't push the chart out of the viewport. YouTube-only:
 // other platforms either fix the player height in their own CSS or place the
 // chart in a separately scrolling region, so the cap isn't needed there.
 export function syncCropChartVideoHeightLimit() {

@@ -1,6 +1,6 @@
 """Quality measurement helpers (VMAF NEG today; SSIM/PSNR pluggable later).
 
-The public API for callers — implementation modules (``vmaf.py`` etc.)
+The public API for callers: implementation modules (``vmaf.py`` etc.)
 shouldn't be imported directly. Keeps the future option open to swap
 backends without touching every call site.
 """

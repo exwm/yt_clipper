@@ -12,7 +12,7 @@ Operators want to see how a run's time was distributed:
       total                205.0s
 
 Without this, the only timing in logs is the per-sample-guided wall
-time inside ``search_seconds`` — there's no "stage X took Y" view
+time inside ``search_seconds``: there's no "stage X took Y" view
 across the whole run.
 
 Usage::
@@ -38,7 +38,7 @@ class StageTimer:
     """Accumulates ``(stage_name, elapsed_seconds)`` records for a run.
 
     Stages are kept in insertion (chronological) order. The same
-    name appearing twice produces two records — the renderer can
+    name appearing twice produces two records: the renderer can
     show both or group as the caller prefers.
     """
 
