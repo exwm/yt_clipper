@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from rich.markup import escape
 
-from clipper import cinematic_path, markers_schema, util
+from clipper import cinematic_path, markers_schema, updates, util
 from clipper.clip_maker import getDefaultEncodeSettings
 from clipper.clipper_types import (
     INVALID_MARKER_PAIR_KEY,
@@ -34,6 +34,7 @@ logger = make_subsystem_logger(Subsystem.SETTINGS)
 
 def applyMarkersValidation(markers: Dict[str, Any]) -> None:
     """Exit on invalid global settings, and mark invalid marker pairs so makeClips skips them."""
+    updates.warnIfMarkersNewerThanClipper(markers.get("version"))
     markers_schema.normalizeLegacyFormat(markers)
     validation = markers_schema.validateMarkers(markers)
 

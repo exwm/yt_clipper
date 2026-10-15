@@ -34,7 +34,7 @@ The contents of the quickstart guide are included here for convenience:
    - Find generated webms in `yt_clipper/webms/title-suffix` folder where `title-suffix` is the file name stem of the markers data file.
    - See [this section](https://github.com/exwm/yt_clipper#additional-helper-scripts) for details on the other helper scripts available.
 8) See the [full instructions](https://github.com/exwm/yt_clipper) for more detail and advanced usage as well as changelogs.
-9) The `markup script` updates itself. The `clipper script` tells you when a new version is out. See [Updating](https://github.com/exwm/yt_clipper#updating) for how to update it.
+9) The `markup script` updates itself. Check for a newer `clipper script` with the `yt_clipper_check_for_updates` helper script. See [Updating](https://github.com/exwm/yt_clipper#updating) for how to update it.
 10) Join the [`yt_clipper` discord server](https://discord.gg/5RVGNCU) if you want further help or want to contribute.
 
 # Notices
@@ -122,6 +122,7 @@ YouTube is the primary video platform supported by yt_clipper. Other supported p
   - [Clipper Default Arguments Files](#clipper-default-arguments-files)
 - [Clipper Script Preview Shortcuts](#clipper-script-preview-shortcuts)
 - [Clipper Script Installation](#clipper-script-installation)
+  - [Updating](#updating)
   - [Linux Installation](#linux-installation)
   - [Manual and Beta/Alpha Version Installation](#manual-and-betaalpha-version-installation)
   - [Additional Helper Scripts](#additional-helper-scripts)
@@ -765,6 +766,7 @@ Some videos require sign-in before yt-dlp can download them (age-restricted or p
 
 Default arguments for the `clipper` script may be set using a simple file format.
 A `default_args.txt` file with comments explaining the usage is provided with the clipper script installation.
+Each install also reads `yt_clipper_default_args.txt` in the folder that holds it, so settings in that file carry over when you install a new version next to the old one.
 The file contents are copied below for convenience:
 
 ```txt
@@ -772,6 +774,13 @@ The file contents are copied below for convenience:
 # To see all arguments use the `yt_clipper_options` helper script or the `-h` argument.
 # Lines that begin with a `#` in this file are comments and are ignored.
 # To use other arg files use the `--arg-files` argument outside of an arg file.
+#
+# Each new version unzips to a new folder, and its own copy of this file starts empty.
+# For settings every version should use (e.g. --cookies), put them in yt_clipper_default_args.txt
+# in the folder that holds your yt_clipper install folders. Every install reads that file first,
+# then this one, so a setting here overrides the same setting there. Older versions read that file
+# too and stop on an option they do not know, so put options new in this version here instead.
+# Versions before 5.49 also do not accept quoted paths in that file.
 
 
 # The following commented lines provide an example of how to use this file.
@@ -780,7 +789,8 @@ The file contents are copied below for convenience:
 # --audio
 # --two-pass
 # -di -dn 2
-# --youtube-dl-alternative yt_dlp
+# --video-codec h264_vulkan
+# --sample-guided-encode
 ```
 
 # Clipper Script Preview Shortcuts
@@ -799,6 +809,18 @@ There is an installation that does not require the dependencies below.
 4. All generated webm clips will be placed in `./webms/<markers-json-filename>`.
    - Each run writes its log to the `logs` folder inside it, named by the time the run started.
 5. Windows users may require [Microsoft Visual C++ 2010 Redistributable Package (x86)](https://www.microsoft.com/en-US/download/details.aspx?id=5555).
+
+## Updating
+
+The `markup script` updates itself when it was installed from [Greasy Fork](https://greasyfork.org/en/scripts/543460-yt-clipper).
+
+To check for a newer `clipper script`, run `yt_clipper_check_for_updates.bat` (Windows) or `yt_clipper_check_for_updates` (Mac), or pass `--check-for-updates`. To update it:
+
+1. Download the new zip from the [GitHub Releases](https://github.com/exwm/yt_clipper/releases) page.
+2. Extract it next to your current install, in the same folder.
+3. Put settings every version should use (e.g. `--cookies`) in `yt_clipper_default_args.txt` in that folder. Every install reads it.
+   - The `clipper script` reminds you if an older install next to it still has settings in its own `default_args.txt`.
+4. Clips stay in each install's `webms` folder. To keep them together, move the `webms` folder into the new install. The `clipper script` then skips clips that already exist.
 
 ## Linux Installation
 

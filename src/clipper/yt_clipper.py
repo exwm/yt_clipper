@@ -15,6 +15,7 @@ from clipper import (
     argparser_suggestions,
     clip_maker,
     clipper_types,
+    updates,
     util,
     ytc_logger,
     ytc_settings,
@@ -45,6 +46,16 @@ def useUtf8Output() -> None:
             stream.reconfigure(encoding="utf-8", errors="replace")
 
 
+def printAndExitIfAsked(cs: clipper_types.ClipperState) -> None:
+    """--print-versions and --check-for-updates print their answer and exit without clipping."""
+    if cs.settings["printVersions"]:
+        print(argparser.getDepVersionsString(cs.clipper_paths))
+        sys.exit(0)
+    if cs.settings["checkForUpdates"]:
+        print(updates.checkForUpdates())
+        sys.exit(0)
+
+
 def main() -> None:
     useUtf8Output()
     cs = clipper_types.ClipperState()
@@ -55,9 +66,7 @@ def main() -> None:
 
     cs.settings.update({"color_space": None, **args})
 
-    if cs.settings["printVersions"]:
-        print(argparser.getDepVersionsString(cs.clipper_paths))
-        sys.exit(0)
+    printAndExitIfAsked(cs)
 
     # The logger needs only the command line and the markers JSON's file name, so it is set up
     # before the file is read, and loading problems are logged like the rest of the run.
@@ -96,6 +105,7 @@ def main() -> None:
     elif argFiles:
         logger.notice(f"No uncommented arguments were found in {argFiles}")
         logger.rule(title="Setup")
+    updates.showStartupNotices()
 
     if unknown:
         parser = argparser.getArgParser()

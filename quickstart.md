@@ -21,9 +21,9 @@ For a video quickstart check out this video: <https://imgur.com/a/gQ4KItt>
 6) Use the **S** key to save markers data in `.json` format.
 7) Generate webms using the saved markers data and the `clipper script`.
    - **Windows:** Drag and drop the saved markers data onto the `yt_clipper_auto.bat`.
-   - **Mac:** Launch the `yt_clipper_auto.sh` program, drag and drop the saved markers data onto the terminal, and hit **Enter**.
+   - **Mac:** Launch the `yt_clipper_auto` program, drag and drop the saved markers data onto the terminal, and hit **Enter**.
    - Find generated webms in `yt_clipper/webms/title-suffix` folder where `title-suffix` is the file name stem of the markers data file.
    - See [this section](https://github.com/exwm/yt_clipper#additional-helper-scripts) for details on the other helper scripts available.
 8) See the [full instructions](https://github.com/exwm/yt_clipper) for more detail and advanced usage as well as changelogs.
-9) The `markup script` updates itself. The `clipper script` tells you when a new version is out. See [Updating](https://github.com/exwm/yt_clipper#updating) for how to update it.
+9) The `markup script` updates itself. Check for a newer `clipper script` with the `yt_clipper_check_for_updates` helper script. See [Updating](https://github.com/exwm/yt_clipper#updating) for how to update it.
 10) Join the [`yt_clipper` discord server](https://discord.gg/5RVGNCU) if you want further help or want to contribute.
