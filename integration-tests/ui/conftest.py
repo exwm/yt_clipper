@@ -8,6 +8,7 @@ with the userscript injected and activated. Run them through `just ui-test` (dev
 import shutil
 from collections.abc import Iterator
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -16,13 +17,14 @@ from harness.dev_site import (
     DEFAULT_PORT,
     DEFAULT_VIDEO_SECONDS,
     build,
+    require_urls,
     serving,
     test_video_name,
 )
 from harness.hosts import DEV_SITE_HOST, YOUTUBE_HOST, activate_markup, open_dev_site, open_youtube
 from harness.markup_page import MarkupPage
 from harness.page_problems import PageProblems
-from harness.paths import REPO, SANDBOX, SHOTS
+from harness.paths import BUNDLE, REPO, SANDBOX, SHOTS
 
 if TYPE_CHECKING:
     from playwright.sync_api import BrowserContext, Page, Playwright
@@ -36,6 +38,16 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     group.addoption("--youtube", metavar="URL", help="run on this YouTube video, not the dev site")
     group.addoption("--dev-site-port", type=int, default=DEFAULT_PORT)
     group.addoption("--video-seconds", type=int, default=DEFAULT_VIDEO_SECONDS)
+    group.addoption(
+        "--userscript",
+        metavar="PATH",
+        default=str(BUNDLE),
+        help="test this userscript (e.g. a release's .js) instead of the freshly built bundle",
+    )
+
+
+def userscript_path(config: pytest.Config) -> Path:
+    return Path(config.getoption("userscript")).resolve()
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -47,7 +59,7 @@ def pytest_configure(config: pytest.Config) -> None:
     # Build the dev site once, in the main process: parallel workers (pytest-xdist) only serve it.
     is_worker = hasattr(config, "workerinput")
     if not is_worker and not config.getoption("youtube") and not config.option.collectonly:
-        build(int(config.getoption("video_seconds")))
+        build(int(config.getoption("video_seconds")), userscript_path(config))
 
 
 @dataclass(frozen=True)
@@ -145,12 +157,13 @@ def markup(
     shutil.rmtree(shots_dir, ignore_errors=True)
     shots_dir.mkdir(parents=True)
     steps.TIMINGS.clear()
-    problems = PageProblems(on_youtube=bool(youtube_url))
+    userscript = userscript_path(request.config)
+    problems = PageProblems(on_youtube=bool(youtube_url), require_urls=require_urls(userscript))
     page = browser_page
     problems.watch(page)
     with steps.timed("(open the page)"):
         if youtube_url:
-            open_youtube(page, youtube_url)
+            open_youtube(page, youtube_url, userscript)
         else:
             assert dev_site is not None
             open_dev_site(page, dev_site.url, dev_site.video_name)

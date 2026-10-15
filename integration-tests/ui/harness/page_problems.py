@@ -1,8 +1,6 @@
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from .dev_site import require_urls
-
 if TYPE_CHECKING:
     from playwright.sync_api import Error, Page, Request
 
@@ -14,6 +12,8 @@ class PageProblems:
     out. The console is kept to show its tail when a test fails."""
 
     on_youtube: bool
+    # The userscript's @require libraries.
+    require_urls: list[str]
     errors: list[str] = field(default_factory=list)
     console: list[str] = field(default_factory=list)
 
@@ -28,7 +28,7 @@ class PageProblems:
         self.errors.append(f"uncaught: {error}")
 
     def on_request_failed(self, request: "Request") -> None:
-        our_scripts = {*require_urls(), "yt_clipper.js"}
+        our_scripts = {*self.require_urls, "yt_clipper.js"}
         is_ours = any(request.url == s or request.url.endswith(s) for s in our_scripts)
         if is_ours or (not self.on_youtube and request.resource_type != "media"):
             self.errors.append(f"request failed: {request.url} ({request.failure})")

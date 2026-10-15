@@ -8,9 +8,10 @@ from typing import TYPE_CHECKING
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from .dev_site import require_urls
-from .paths import BUNDLE
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from playwright.sync_api import ConsoleMessage, Page
 
 
@@ -50,7 +51,7 @@ VIDEO_LOADED = "document.querySelector('video')?.duration > 0"
 YOUTUBE_LOAD_TIMEOUT_MS = 60_000
 
 
-def open_youtube(page: "Page", youtube_url: str) -> None:
+def open_youtube(page: "Page", youtube_url: str, userscript: "Path") -> None:
     """Open a YouTube video and inject the userscript the way Tampermonkey would: the @require
     libraries, then the bundle. The bundle is inlined (Chrome blocks a public page from loading
     from localhost) and named via sourceURL, so its errors are identifiable in stack traces."""
@@ -82,9 +83,9 @@ def open_youtube(page: "Page", youtube_url: str) -> None:
     # Activation waits for the page to finish loading; pressing before that is accepted but slow.
     page.wait_for_function("document.readyState === 'complete'", timeout=YOUTUBE_LOAD_TIMEOUT_MS)
     page.add_script_tag(content="window.unsafeWindow = window;")
-    for url in require_urls():
+    for url in require_urls(userscript):
         page.add_script_tag(url=url)
-    bundle = BUNDLE.read_text(encoding="utf-8")
+    bundle = userscript.read_text(encoding="utf-8")
     page.add_script_tag(content=f"{bundle}\n//# sourceURL=yt_clipper.js")
 
 

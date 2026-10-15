@@ -1,7 +1,7 @@
 """The dev site: the generic yt_clipper page with the userscript's @require libraries and the freshly
-built bundle injected, plus a generated test video, served on localhost (detected as the generic
-yt_clipper platform). The @require list is parsed from the userscript header, so the page always
-loads the same libraries Tampermonkey would."""
+built bundle (or a release's userscript) injected, plus a generated test video, served on localhost
+(detected as the generic yt_clipper platform). The @require list is parsed from the userscript
+header, so the page always loads the same libraries Tampermonkey would."""
 
 import contextlib
 import functools
@@ -14,7 +14,7 @@ import threading
 from collections.abc import Generator
 from pathlib import Path
 
-from .paths import BUNDLE, DEV_SITE, SITE_PAGE, USERSCRIPT_SOURCE
+from .paths import BUNDLE, DEV_SITE, SITE_PAGE
 
 DEFAULT_PORT = 8765
 # Long enough that marker pairs a few seconds apart crowd together on the progress bar, like the
@@ -22,8 +22,8 @@ DEFAULT_PORT = 8765
 DEFAULT_VIDEO_SECONDS = 2400
 
 
-def require_urls() -> list[str]:
-    header = USERSCRIPT_SOURCE.read_text(encoding="utf-8").split("==/UserScript==")[0]
+def require_urls(userscript: Path) -> list[str]:
+    header = userscript.read_text(encoding="utf-8").split("==/UserScript==")[0]
     return re.findall(r"^// @require\s+(\S+)", header, flags=re.MULTILINE)
 
 
@@ -48,16 +48,16 @@ def ensure_test_video(seconds: int) -> str:
     return name
 
 
-def build(video_seconds: int) -> str:
+def build(video_seconds: int, userscript: Path = BUNDLE) -> str:
     """Write the dev site and return the test video's file name."""
-    if not BUNDLE.exists():
-        sys.exit(f"Missing {BUNDLE}; build the userscript first (the just recipes do this).")
+    if not userscript.exists():
+        sys.exit(f"Missing {userscript}; build the userscript first (the just recipes do this).")
     DEV_SITE.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(BUNDLE, DEV_SITE / "yt_clipper.js")
+    shutil.copyfile(userscript, DEV_SITE / "yt_clipper.js")
     scripts = [
         # Only other platforms read it, but defining it keeps any stray access from throwing.
         "<script>window.unsafeWindow = window;</script>",
-        *(f'<script src="{url}"></script>' for url in require_urls()),
+        *(f'<script src="{url}"></script>' for url in require_urls(userscript)),
         '<script src="yt_clipper.js"></script>',
     ]
     page = SITE_PAGE.read_text(encoding="utf-8")

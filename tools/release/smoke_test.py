@@ -3,18 +3,16 @@
     uv run python tools/release/smoke_test.py artifact/py/yt_clipper_win_5.48.0 [5.48.0]
 
 Runs the frozen clipper the way users do, from the release folder, so the bin/ layout is checked
-too: the bundled tools run, the clipper makes real clips from the end-to-end test's local video
-(offline, nothing is downloaded), and it rejects an invalid markers JSON. The clips are removed
-again, so the folder can be zipped afterwards.
+too: the bundled tools run, the offline end-to-end tests pass with the built clipper (nothing is
+downloaded), and it rejects an invalid markers JSON. The clips are removed again, so the folder can
+be zipped afterwards.
 """
 
 import json
-import re
 import shutil
 import subprocess
 import sys
 import tempfile
-from dataclasses import dataclass
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -22,28 +20,12 @@ sys.path.insert(0, str(REPO / "src"))
 
 from clipper.video2x import RIFE_MODEL  # noqa: E402
 
-TEST_VIDEO = REPO / "src/clipper/tests/testdata/test-with-dynamic.mp4"
-TEST_MARKERS = REPO / "src/clipper/tests/testdata/test-with-dynamic.json"
+E2E_TESTS = REPO / "src/clipper/tests/test_e2e.py"
 VALID_MARKERS = REPO / "src/schema/examples/kitchen-sink.json"
 EXE = ".exe" if sys.platform == "win32" else ""
 YTDL = {"win32": "yt-dlp.exe", "darwin": "yt-dlp_macos"}.get(sys.platform, "yt-dlp")
 # Without it a frozen release updates its bundled yt-dlp first, over the network.
 OFFLINE_ARGS = ["--no-ytdl-auto-update", "--overwrite"]
-
-
-@dataclass(frozen=True)
-class ClipCase:
-    name: str
-    args: list[str]
-    codec: str
-    # The ffmpeg encoder the case needs. A build without it skips the case.
-    encoder: str
-
-
-CLIP_CASES = (
-    ClipCase("vp9", [], "vp9", "libvpx-vp9"),
-    ClipCase("av1", ["--video-codec", "av1"], "av1", "libsvtav1"),
-)
 
 
 class SmokeTest:
@@ -111,68 +93,58 @@ class SmokeTest:
             firstLine = (result.stdout + result.stderr).strip().splitlines()[:1]
             self.check(result.returncode == 0, f"{tool.name} {flag}: {''.join(firstLine)}")
 
-    def checkClips(self, workDir: Path) -> None:
-        encoders = self.run(self.ffmpeg, "-hide_banner", "-encoders").stdout
-        for case in CLIP_CASES:
-            if case.encoder not in encoders:
-                print(f"skip {case.name} clip: this ffmpeg build has no {case.encoder}")
-                continue
-            # The clipper names the output folder after the markers JSON file.
-            markers = workDir / f"smoke-{case.name}.json"
-            shutil.copyfile(TEST_MARKERS, markers)
-            output = self.release / "webms" / markers.stem
-            try:
-                self.checkClip(case, markers, output)
-            finally:
-                shutil.rmtree(output, ignore_errors=True)
-
-    def checkClip(self, case: ClipCase, markers: Path, output: Path) -> None:
-        args = ["--markers-json", markers, "--input-video", TEST_VIDEO, *OFFLINE_ARGS, *case.args]
-        result = self.run(self.clipper, *args)
-        if not self.check(result.returncode == 0, f"{case.name} clip run exits 0"):
-            print(result.stdout[-3000:], result.stderr[-3000:])
-            return
-        clips = [path for path in output.glob("*") if path.suffix in {".webm", ".mp4"}]
-        if not self.check(len(clips) == 1, f"{case.name} clip written ({len(clips)} found)"):
-            return
-        probe = self.run(
-            self.ffprobe, "-v", "error", "-select_streams", "v:0", "-count_packets",
-            "-show_entries", "stream=codec_name,nb_read_packets", "-of", "json", clips[0],
-        )  # fmt: skip
-        streams = json.loads(probe.stdout or "{}").get("streams") or [{}]
-        codec, frames = streams[0].get("codec_name"), int(streams[0].get("nb_read_packets", 0))
-        self.check(
-            codec == case.codec and frames > 0,
-            f"{case.name} clip is {codec}, {frames} frames",
-        )
-        logs = list((output / "logs").glob("*.log"))
-        if not self.check(len(logs) == 1, f"{case.name} run wrote its log ({len(logs)} found)"):
-            return
-        problems = re.findall(
-            r"^.*\b(?:ERROR|CRITICAL)\b.*$",
-            logs[0].read_text(encoding="utf-8"),
-            re.MULTILINE,
-        )
-        self.check(not problems, f"{case.name} clip log has no errors {problems[:3]}")
+    def checkClips(self) -> None:
+        try:
+            result = subprocess.run(
+                [
+                    sys.executable, "-m", "pytest", E2E_TESTS, "-m", "not slow", "-ra",
+                    "--clipper-exe", self.clipper,
+                ],
+                cwd=REPO,
+                check=False,
+            )  # fmt: skip
+        finally:
+            # The end-to-end tests' clip folder, named after their markers JSON.
+            shutil.rmtree(self.release / "webms" / "test-with-dynamic", ignore_errors=True)
+        self.check(result.returncode == 0, "offline end-to-end tests pass with the built clipper")
 
     def checkInvalidMarkersRejected(self, workDir: Path) -> None:
         markers = workDir / "smoke-invalid.json"
         invalid = {**json.loads(VALID_MARKERS.read_text(encoding="utf-8")), "crf": "30 -y"}
         markers.write_text(json.dumps(invalid), encoding="utf-8")
-        result = self.run(self.clipper, "--markers-json", markers, *OFFLINE_ARGS)
+        try:
+            result = self.run(self.clipper, "--markers-json", markers, *OFFLINE_ARGS)
+        finally:
+            # The rejected run still writes its log, which would ship in the zip.
+            shutil.rmtree(self.release / "webms" / markers.stem, ignore_errors=True)
         ok = result.returncode == 1 and "invalid settings" in result.stdout + result.stderr
         self.check(ok, "invalid markers JSON is rejected (the schema is bundled)")
+
+    def outputPaths(self) -> set[Path]:
+        """The clips, logs and temp files in the release, and their folders."""
+        return {path for name in ("webms", "temp") for path in [self.release / name, *(self.release / name).rglob("*")]}
+
+    def checkNoLeftovers(self, before: set[Path]) -> None:
+        # CI zips the folder right after these checks. An installed release may hold clips already.
+        added = sorted(self.outputPaths() - before, reverse=True)
+        files = [path for path in added if path.is_file()]
+        self.check(not files, "the checks leave no files in the release" + (f": {files}" if files else ""))
+        for path in added:
+            if path.is_dir() and not any(path.iterdir()):
+                path.rmdir()
 
 
 def main() -> None:
     if len(sys.argv) not in {2, 3}:
         sys.exit(__doc__)
     smoke = SmokeTest(Path(sys.argv[1]).resolve())
+    outputBefore = smoke.outputPaths()
     smoke.checkLayout()
     smoke.checkVersions(sys.argv[2] if len(sys.argv) == 3 else None)
+    smoke.checkClips()
     with tempfile.TemporaryDirectory() as workDir:
-        smoke.checkClips(Path(workDir))
         smoke.checkInvalidMarkersRejected(Path(workDir))
+    smoke.checkNoLeftovers(outputBefore)
     if smoke.failures:
         sys.exit(f"{len(smoke.failures)} smoke checks failed")
     print("all smoke checks passed")

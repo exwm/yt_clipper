@@ -33,7 +33,13 @@ test-py update="false":
     {{ if update == "true" { "--snapshot-update" } else { "" } }}
 # Check an assembled release folder before zipping, as CI does: bundled tools, offline clips, schema.
 smoke-release folder version="":
-  uv run python tools/release/smoke_test.py {{folder}} {{version}}
+  uv run python tools/release/smoke_test.py "{{folder}}" {{version}}
+# Check an installed release with the existing tests: the smoke test, one YouTube clip (with the
+# install's default_args.txt, e.g. cookies), and the UI tests on the release's userscript.
+verify-release install userscript version="":
+  just smoke-release "{{install}}" {{version}}
+  uv run pytest src/clipper/tests/test_e2e.py -k youtube-vp9 --clipper-exe "{{install}}/yt_clipper{{ if os_family() == "windows" { ".exe" } else { "" } }}"
+  uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n 4 -o faulthandler_timeout=600 --tracing retain-on-failure --output sandbox/ui-test-results --userscript "{{userscript}}"
 test-py-slow:
   uv run pytest src/clipper --cov --cov-config="{{justfile_directory()}}/pyproject.toml" --cov-report=html -vvv
 test-py-update:
