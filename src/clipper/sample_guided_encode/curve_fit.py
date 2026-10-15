@@ -4,8 +4,8 @@ Replaces the strict-pass/fail bisection (``find_optimal_crf_two_phase``)
 with a probe-fit-pick pipeline:
 
 1. Probe a small set of fixed CRFs (default 3 evenly-spaced across the
-   search range, adaptive up to 5 if data looks weird).
-2. Drop saturated probes (adjacent CRFs giving same VMAF — encoder
+   search range, adaptive up to 5 if the data looks unusual).
+2. Drop saturated probes (adjacent CRFs giving same VMAF: encoder
    ceiling case).
 3. Fit three curve models on the (CRF, p_low) data: piecewise linear
    (default), global linear (least-squares), logarithmic (captures the
@@ -13,7 +13,7 @@ with a probe-fit-pick pipeline:
    validate the default choice on real-world data.
 4. Compute three heuristic picks per curve: TARGET (CRF where p_low
    hits the user's target threshold), KNEE (where the slope steepens
-   most — last "good" step before quality cliff), BUDGET (highest CRF
+   most: last "good" step before quality cliff), BUDGET (highest CRF
    whose interpolated p_low stays within tolerance of target). Nine
    total picks; default is KNEE on PIECEWISE.
 5. Verify-encode at the chosen CRF (cache hit if already a probe) so
@@ -61,7 +61,7 @@ logger = make_subsystem_logger(Subsystem.SAMPLE_ENCODE)
 
 # Algorithm version: bumped manually whenever curve-fit logic changes in
 # a way that would meaningfully shift outcomes for the same input data.
-# The run cache uses this as part of the freshness gate — a prior run
+# The run cache uses this as part of the freshness gate: a prior run
 # tagged with an older version is ignored for cache reuse (its picks
 # may be wrong under the new logic) but still usable for auto-delta
 # rendering with a stale-version flag.
@@ -89,13 +89,13 @@ ALGORITHM_VERSION: int = 1
 DEFAULT_INITIAL_PROBE_COUNT: int = 3
 
 # Maximum probe count. Adaptive refit can add probes up to this cap when
-# initial data looks weird (saturation, sparse coverage, knee at
+# initial data looks unusual (saturation, sparse coverage, knee at
 # boundary). 5 is enough wall time (~50s @ 10s/probe) without sacrificing
 # the curve-fit's "fast + simple" character.
 DEFAULT_MAX_PROBE_COUNT: int = 5
 
 # Two adjacent probes' VMAF measurements within this tolerance are
-# treated as the same — we drop the lower CRF since it gives equivalent
+# treated as the same: we drop the lower CRF since it gives equivalent
 # quality at higher cost. With maxrate disabled in trials this should
 # rarely trigger; left in as a safety net for content where the
 # encoder's quality-vs-CRF curve has a flat region.
@@ -167,7 +167,7 @@ class CurveFitSearchResult:
     """Curve-fit specific result data attached to ``SampleGuidedEncodeResult``.
 
     Exposed so ``orchestrator.py`` can format it into log lines + the
-    JSONL metadata file. Doesn't replace ``SampleGuidedEncodeResult`` — coexists.
+    JSONL metadata file. Doesn't replace ``SampleGuidedEncodeResult``: coexists.
     """
 
     fit: CurveFit
@@ -231,7 +231,7 @@ def drop_saturated_probes(
     headroom). Drop the lower-CRF one.
 
     With ``--target-max-bitrate`` disabled in trials this rarely
-    triggers — the saturation root cause was the bitrate cap, not
+    triggers: the saturation root cause was the bitrate cap, not
     encoder behavior. Left as a safety net for content with intrinsic
     encoder plateaus.
     """
@@ -264,7 +264,7 @@ def _piecewise_evaluator(
     using the probes' (crf, p_low) data points.
 
     Probes outside the [min_probe_crf, max_probe_crf] range get clamped
-    to the nearest endpoint (no extrapolation — risky on small sample).
+    to the nearest endpoint (no extrapolation: risky on small sample).
     Within range: walk segments to find the bracketing pair, linearly
     interpolate.
     """
@@ -298,7 +298,7 @@ def _fit_global_linear(
 ) -> tuple[float, float]:
     """Ordinary least-squares fit ``p_low = slope * crf + intercept``.
 
-    Returns ``(0.0, p_low)`` when there's only one valid probe — flat
+    Returns ``(0.0, p_low)`` when there's only one valid probe: flat
     line at the measured value. Returns ``(0.0, 0.0)`` for empty input.
     """
     if not probes:
@@ -328,7 +328,7 @@ def _fit_log(
     """Log fit: ``p_low = slope * log(crf_max - crf + 1) + intercept``.
 
     The reflection ``crf_max - crf + 1`` makes the input strictly
-    positive across the search range and grows as CRF *decreases* —
+    positive across the search range and grows as CRF *decreases*:
     so as CRF rises (lower quality), log(reflection) shrinks, and a
     positive slope produces decreasing VMAF. This shape captures the
     "cliff at high CRF" behavior typical of VMAF curves: the curve
@@ -415,7 +415,7 @@ def _solve_for_target_crf(
     """Search the integer CRF range for the largest CRF whose predicted
     p_low is at or above ``target_low``.
 
-    Walks from crf_max down to crf_min — the first CRF whose model
+    Walks from crf_max down to crf_min: the first CRF whose model
     prediction clears target is the pick. Returns None if no CRF in
     range clears (target above the curve everywhere).
     """
@@ -435,7 +435,7 @@ def pick_target(
 
     The "soft target" heuristic: bias toward the user's quality
     threshold without making it a strict pass/fail. Returns None when
-    the curve is entirely below target across the range — caller
+    the curve is entirely below target across the range: caller
     should fall back to the highest probed CRF or some other policy.
     """
     return _solve_for_target_crf(
@@ -482,7 +482,7 @@ def pick_knee(
     boundary between adjacent segments where slope_higher_crf is more
     negative than slope_lower_crf by at least ``steepening_threshold``
     VMAF points per CRF. Picks the CRF at the higher-CRF end of the
-    segment BEFORE the steepening — i.e. the last CRF where the slope
+    segment BEFORE the steepening: i.e. the last CRF where the slope
     was still acceptable.
 
     Returns None when:
@@ -493,7 +493,7 @@ def pick_knee(
 
     ``target`` is accepted for API symmetry with the other heuristics
     (callers pass the same target to all three) but isn't currently
-    used — knee detection is target-independent. Kept in the signature
+    used: knee detection is target-independent. Kept in the signature
     so we can add target-aware tie-breaking later without an API break.
     """
     _ = target  # signature-only; see docstring
@@ -553,7 +553,7 @@ def needs_extra_probe(
     2. Unbounded above: every valid probe's p_low is at or above the
        user's target_vmaf_low. The curve hasn't crossed the target
        within the probed range, so the target heuristic is forced to
-       pick the highest probe — leaving compression headroom unused.
+       pick the highest probe: leaving compression headroom unused.
        Probe at ``min(crf_absolute_max, max_probed + 6)`` to push
        toward a failing CRF that bounds the curve.
     3. Sparse coverage: largest CRF gap between adjacent valid probes
@@ -622,9 +622,9 @@ def needs_extra_probe(
         if knee is not None:
             crfs_sorted = [p.crf for p in sorted_valid]
             if knee == crfs_sorted[0] or knee == crfs_sorted[-1]:
-                # Knee at boundary — probe outside-the-pair to disambiguate.
+                # Knee at boundary: probe outside-the-pair to disambiguate.
                 if knee == crfs_sorted[0]:
-                    # Knee at lowest probe — push downward.
+                    # Knee at lowest probe: push downward.
                     candidate = max(target.crf_min, knee - max(1, biggest_gap // 2))
                 else:
                     candidate = min(target.crf_max, knee + max(1, biggest_gap // 2))
@@ -647,7 +647,7 @@ class CompressibilityScore:
 
     Computed by walking adjacent valid probes and dividing the
     bitrate drop by the VMAF drop within each segment. Higher values
-    mean each VMAF point you give up buys more compression — i.e. the
+    mean each VMAF point you give up buys more compression: i.e. the
     content is *more compressible*. Lower values mean the encoder is
     near its limit: each VMAF point costs only a little bitrate to
     keep, so giving up quality doesn't save much.
@@ -655,7 +655,7 @@ class CompressibilityScore:
     ``segments`` is the per-segment list of (lo_crf, hi_crf, kbps_per_vmaf)
     tuples for inspection / charting. ``mean_kbps_per_vmaf`` averages
     across all segments. ``at_chosen_crf_kbps_per_vmaf`` is the score
-    of the segment containing the picked CRF — a local measure of
+    of the segment containing the picked CRF: a local measure of
     "how compressible is this content right where we chose to encode".
     """
 
@@ -677,7 +677,7 @@ def compute_compressibility(
         kbps_per_vmaf = (kbps_lo - kbps_hi) / (vmaf_lo - vmaf_hi)
 
     Skips segments where the VMAF delta is tiny (encoder cliff /
-    saturation regions) — the ratio is undefined / explodes there.
+    saturation regions): the ratio is undefined / explodes there.
     Returns NaN-safe defaults when fewer than 2 probes have bitrates.
     """
     sorted_probes = sorted(fit.valid_probes, key=lambda p: p.crf)
@@ -736,7 +736,7 @@ _ANSI_SGR_TO_RICH: dict[str, str] = {
     # themes leaves "yellow" looking olive/khaki and "blue" looking
     # nearly invisible. Bright codes map to rich's bright_X names
     # which render vivid versions, so the chart markers + legend
-    # color terms actually look like what their names say.
+    # color terms look like what their names say.
     "90": "bright_black",
     "91": "bright_red",
     "92": "bright_green",
@@ -766,7 +766,7 @@ def _plotille_force_color() -> Generator[None, None, None]:
     plotille's ``color()`` helper silently returns the raw text when
     ``sys.stdout`` isn't a TTY (see plotille/_colors.py). The curve
     chart here is captured as a string and routed through the logger
-    pipeline — plotille never writes to stdout, but its tty check
+    pipeline: plotille never writes to stdout, but its tty check
     still trips off the real stdout's status and drops every color
     escape. Result: ``with_colors=True`` produces zero ANSI codes,
     :func:`_ansi_to_rich_markup` has nothing to translate, and the
@@ -775,8 +775,8 @@ def _plotille_force_color() -> Generator[None, None, None]:
     Setting ``FORCE_COLOR=1`` for the duration of ``Figure.show()``
     bypasses the tty check (plotille honors FORCE_COLOR explicitly).
     Restoring the prior value on exit means an upstream caller's
-    choice — e.g. ``FORCE_COLOR=0`` for a test that captures plain
-    text — is respected outside this rendering.
+    choice: e.g. ``FORCE_COLOR=0`` for a test that captures plain
+    text: is respected outside this rendering.
     """
     import os
 
@@ -806,11 +806,11 @@ def render_curve_ascii(  # noqa: PLR0912
 
     Two stacked plotille (braille) sub-charts:
 
-    1. **VMAF** vs CRF — the user-target percentile (``low_pct``) plotted
+    1. **VMAF** vs CRF: the user-target percentile (``low_pct``) plotted
        across all valid probes, with a horizontal target reference line
        and a vertical chosen-CRF marker. Probes appear as scatter dots,
        the piecewise interpolation as a connected curve.
-    2. **Bitrate** vs CRF (kbps) — the predicted final-encode bitrate
+    2. **Bitrate** vs CRF (kbps): the predicted final-encode bitrate
        at each probe, with the same chosen-CRF marker. Lets operators
        see size and quality on the same axis without parsing JSONL.
 
@@ -957,7 +957,7 @@ def render_curve_ascii(  # noqa: PLR0912
     chosen_norm = (chosen_crf - crf_lo) / (crf_hi - crf_lo)
     if 0 <= chosen_norm <= 1:
         fig_v.axvline(chosen_norm, lc="bright_green")
-    # Baseline auto-pick: ``B`` marker (magenta) — disconnected from
+    # Baseline auto-pick: ``B`` marker (magenta), disconnected from
     # the curve (it was encoded with maxrate enabled, different
     # bitrate-vs-CRF regime). Distinct character so the marker is
     # identifiable even when the chart is copied into log captures
@@ -972,7 +972,7 @@ def render_curve_ascii(  # noqa: PLR0912
                 label="baseline",
                 marker="★",
             )
-    # Reference encode anchor: ``R`` marker (blue) at VMAF=100 — the
+    # Reference encode anchor: ``R`` marker (blue) at VMAF=100, the
     # comparison ceiling by definition.
     if reference is not None and crf_lo <= reference.crf <= crf_hi:
         ref_p = get_low_percentile_value(reference.summary, fit.low_pct)
@@ -1057,9 +1057,9 @@ def render_curve_ascii(  # noqa: PLR0912
     #
     # Use the ``bright_X`` variants so the rendered color visibly
     # matches the operator's expectation of what the name "yellow"
-    # / "blue" / etc. should look like — the standard 8-color
+    # / "blue" / etc. should look like: the standard 8-color
     # palette renders olive / dim navy on many themes and the labels
-    # read as misleading. Must stay paired with the ``bright_*``
+    # look misleading. Must stay paired with the ``bright_*``
     # ``lc=`` values in the plotille calls above and the bright SGR
     # codes (90-97) in ``_ANSI_SGR_TO_RICH``.
     legend = (
@@ -1076,8 +1076,8 @@ def render_curve_ascii(  # noqa: PLR0912
             f"  [bright_magenta]magenta ★[/bright_magenta]=baseline auto-pick crf={baseline.crf}"
         )
     # Indent chart lines so they align with the legend's 2-space
-    # offset and don't sit flush against column 0 — gives the y-axis
-    # labels visible breathing room and reads as a unified block.
+    # offset and don't sit flush against column 0: gives the y-axis
+    # labels visible breathing room and looks like one block.
     lines = [f"  {line}" if line.strip() else line for line in lines]
     lines.append(legend)
     return lines
@@ -1105,7 +1105,7 @@ def find_crf_via_curve_fit(
     Probes ``n_initial_probes`` evenly-spaced CRFs across
     ``target.crf_min..target.crf_max``, adaptively adds up to
     ``max_probes - n_initial_probes`` extra probes when the data is
-    weird (saturation collapse, sparse coverage, knee at boundary),
+    unusual (saturation collapse, sparse coverage, knee at boundary),
     fits all three curve models, computes all 3x3 heuristic picks,
     and chooses the default = KNEE on PIECEWISE (with TARGET fallback).
 
@@ -1158,9 +1158,9 @@ def find_crf_via_curve_fit(
 
     # If the boundary-expansion probe pushed past the original
     # ``crf_max``, extend the target's crf_max so the pick heuristics
-    # actually consider the expanded range. Without this update,
+    # consider the expanded range. Without this update,
     # target/budget heuristics walk ``range(crf_max, ...)`` and never
-    # see the new probe — defeating the whole purpose of expanding.
+    # see the new probe: defeating the whole purpose of expanding.
     max_probed_crf = max((t.crf for t in trials), default=target.crf_max)
     fit_target = target
     if max_probed_crf > target.crf_max:
@@ -1175,13 +1175,13 @@ def find_crf_via_curve_fit(
             "knee": (pick_knee(fit, target=fit_target) if model == "piecewise" else None),
             "budget": pick_budget(fit, target=fit_target, model=model),
         }
-    # Default: target on piecewise — pick the highest CRF whose
+    # Default: target on piecewise, pick the highest CRF whose
     # interpolated p_low clears the user's ``target_vmaf_low``.
     # Lands close to the target threshold rather than leaving
     # compression headroom unused. Knee is computed and logged for
     # comparison but not used for the default choice; with maxrate
     # disabled in trials the encoder's CRF response is monotonic and
-    # the cliff (if any) sits at the top of the search range — knee
+    # the cliff (if any) sits at the top of the search range: knee
     # detection mostly amounts to "stop one CRF before the worst
     # probe" which is more conservative than needed.
     chosen_curve: CurveModelName = "piecewise"
@@ -1190,13 +1190,13 @@ def find_crf_via_curve_fit(
     if chosen_crf is not None:
         chosen_heuristic = "target"
     else:
-        # Target unreachable in range — try knee as a fallback
+        # Target unreachable in range: try knee as a fallback
         # signal of "use the last good step before the cliff".
         chosen_crf = picks_grid["piecewise"]["knee"]
         chosen_heuristic = "knee"
     if chosen_crf is None:
         # Both target and knee failed. Fall back to the highest valid
-        # probe — most aggressive CRF that was actually measured.
+        # probe: most aggressive CRF that was measured.
         # ``target.crf_min`` is the absolute last resort if saturation
         # drop ate every probe.
         chosen_crf = max(p.crf for p in fit.valid_probes) if fit.valid_probes else target.crf_min
@@ -1216,7 +1216,7 @@ def find_crf_via_curve_fit(
         verify_trial = probe_at(chosen_crf)
         # Re-tag the phase to indicate this is the verification probe,
         # not a regular curve-fit probe. ``dataclasses.replace`` keeps
-        # every other field — including ``bitrate_kbps`` — intact;
+        # every other field (including ``bitrate_kbps``) intact;
         # listing fields manually here previously dropped bitrate, which
         # bubbled into the optimal-summary log line as ``bitrate=0kbps``.
         verify_trial = replace(verify_trial, phase="verify")
@@ -1225,7 +1225,7 @@ def find_crf_via_curve_fit(
 
     # ---- Phase 5: build SampleGuidedEncodeResult -----------------------------------
     # Use ``fit_target`` so the result records the effective range the
-    # search actually explored (which may be wider than the input
+    # search explored (which may be wider than the input
     # target.crf_max if boundary expansion fired).
     search_result = SampleGuidedEncodeResult(
         optimal_crf=chosen_crf,
@@ -1248,7 +1248,7 @@ def find_crf_via_curve_fit(
     # Combine the curve-fit summary and the ASCII chart into one log
     # call. Rich renders ``\n`` as line breaks within a single message,
     # which gives one timestamp + level prefix at the top and continues
-    # the chart rows indented underneath — much easier to read than
+    # the chart rows indented underneath: much easier to read than
     # interleaving timestamps between every chart row.
     at_chosen_str = (
         f"{compressibility.at_chosen_crf_kbps_per_vmaf:.0f}"
@@ -1271,7 +1271,7 @@ def find_crf_via_curve_fit(
     )
     # ``highlighter=None`` disables rich's default ReprHighlighter
     # for this record. The highlighter has an ``attrib_name`` regex
-    # that matches identifiers before ``=`` and colors them yellow —
+    # that matches identifiers before ``=`` and colors them yellow:
     # which overrides our explicit ``[bright_X]`` legend markup
     # ("yellow=probes", "cyan=curve" etc. all came out yellow). The
     # ``blue ▲=`` / ``magenta ★=`` keys survived only because the

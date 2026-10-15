@@ -253,7 +253,7 @@ export function toggleCropPreview(mode: cropPreviewMode = 'modal') {
       cropPreviewEnabled = false;
       flashMessage('Disabled crop preview', 'red');
       // Closed externally (e.g. click-outside the modal), so resync the bar
-      // button's active state — the bar's own handler only runs on button click.
+      // button's active state: the bar's own handler only runs on button click.
       dispatchSettingsBarRefresh();
     };
     startCropPreview(

@@ -3,19 +3,19 @@
 The user-facing entry point is :func:`run_sample_guided_encode_for_marker_pair`,
 called by ``clip_maker.makeClips`` when ``--sample-guided-encode`` is set.
 This module is the only one that knows about ``ClipperState``,
-``makeClip``, and the marker-pair settings dict — the algorithm and
+``makeClip``, and the marker-pair settings dict: the algorithm and
 predicate modules stay free of those couplings.
 
 Three layers:
 
-1. **Reference + trial encoding** — :func:`_encode_windows_for_marker_pair`
+1. **Reference + trial encoding**: :func:`_encode_windows_for_marker_pair`
    wraps repeated ``makeClip`` calls (one per sample window) with
    snapshot/restore around the non-idempotent ``getMarkerPairSettings``,
    plus settings overrides to disable minterp/v2x for trials. Trial
    files land in a temp subdirectory; the final encode at the chosen
    CRF goes to the user's clip output folder.
 
-2. **Per-clip search loop** — :func:`run_sample_guided_encode_for_marker_pair`
+2. **Per-clip search loop**: :func:`run_sample_guided_encode_for_marker_pair`
    resolves targets from the settings dict, builds the per-(crf,
    window) measurement cache, drives :func:`find_optimal_crf_two_phase`
    with the right evaluator + on-trial-complete log callback, and
@@ -24,7 +24,7 @@ Three layers:
    stashes its optimal CRF into the settings so the next pair seeds
    ``crf_max`` from it.
 
-3. **Aggregate summary** — :class:`ClipSearchSummary` +
+3. **Aggregate summary**: :class:`ClipSearchSummary` +
    :func:`format_aggregated_search_summary_log_block` render the
    per-clip results as a table at the bottom of the summary report.
    Only :func:`run_sample_guided_encode_for_marker_pair` produces the
@@ -119,7 +119,7 @@ class ClipSearchSummary:
     search outcome. The makeClips loop collects these and the formatter
     below renders them as a single ``logger.report`` block.
 
-    ``prior_run_deltas`` is the auto-delta block input — one
+    ``prior_run_deltas`` is the auto-delta block input: one
     ``PriorRunDelta`` per row in the deltas section for this clip
     (current run + one row per distinct prior encoder configuration).
     Empty when no prior runs exist on disk for this clip; the
@@ -198,7 +198,7 @@ def _emit_chart_for_cached_result(
         f"target_low={target.target_vmaf_low}, "
         f"low_pct=p{target.target_vmaf_low_pct})"
     )
-    # See curve_fit's matching notice — disabling rich's
+    # See curve_fit's matching notice: disabling rich's
     # ReprHighlighter is required so the legend's bright_X markup
     # isn't clobbered by attrib_name yellow on the "key=" tokens.
     logger.notice(
@@ -331,13 +331,13 @@ def _emit_final_encode_sidecar_signal(
     write or refresh its ``.encode-meta.json`` sidecar accordingly.
 
     Two paths through this helper, distinguished by whether
-    ``makeClip`` actually encoded vs skipped (detected via mtime):
+    ``makeClip`` encoded vs skipped (detected via mtime):
 
     - **Encoded** (file mtime newer than the threshold the orchestrator
       captured before calling makeClip): write a fresh sidecar
       reflecting this run's fingerprint + picked CRF. Operator
       already saw the encode happen via the SUCCESS log line that
-      makeClip emits — no additional signal needed here beyond the
+      makeClip emits: no additional signal needed here beyond the
       sidecar write.
     - **Skipped** (file existed pre-run, makeClip's
       ``mp["exists"] and not overwrite`` short-circuit fired):
@@ -346,7 +346,7 @@ def _emit_final_encode_sidecar_signal(
       or missing sidecar ⇒ WARNING with the diff and a re-run
       hint. Either way, the on-disk file isn't touched.
 
-    Failures (sidecar I/O errors, missing output) are non-fatal —
+    Failures (sidecar I/O errors, missing output) are non-fatal:
     log at verbose and move on; the encode itself either succeeded
     or didn't, independent of sidecar bookkeeping.
     """
@@ -377,8 +377,8 @@ def _emit_final_encode_sidecar_signal(
     if check.status == "match":
         logger.info(
             f"final encode: {output_path.name} already exists with "
-            f"matching settings + crf={picked_crf}; skipped (use "
-            f"--overwrite to force re-encode).",
+            f"matching settings and crf={picked_crf}. Skipped (use "
+            f"--overwrite to re-encode).",
         )
     elif check.status == "mismatch":
         prior_fp = (check.existing or {}).get("encoder_fingerprint", "?")
@@ -406,17 +406,17 @@ def _interpolate_kbps_at_target_vmaf(
     """Predicted bitrate at the CRF where ``p_low == target_vmaf_low``.
 
     Piecewise-linear interpolation across curve-fit probes (phase
-    ``probe`` or ``verify`` — encoded with maxrate disabled). Excludes
+    ``probe`` or ``verify``: encoded with maxrate disabled). Excludes
     baseline trials (different bitrate regime, maxrate enabled) and
     reference trials (saturated near VMAF 100). Returns ``None`` when
-    the target VMAF can't be bracketed by any pair of probes — i.e.
+    the target VMAF can't be bracketed by any pair of probes: i.e.
     every probe is either above target (clip is too easy for the
     range we searched) or every probe is below target (clip is too
     hard, target is unreachable in the searched CRF band). In both
     cases the comparable "kbps to hit target" metric is undefined.
 
     Why this exists: cross-config A/B testing (e.g. aq-mode 0 vs 4)
-    needs an apples-to-apples efficiency metric. The picked CRF in
+    needs a like-for-like efficiency metric. The picked CRF in
     the report differs across runs because each config shifts the
     curve, so comparing summary lines directly mixes "did the curve
     move?" with "did the picked CRF move?". Anchoring to a fixed VMAF
@@ -465,7 +465,7 @@ def _format_baseline_delta_line(
     The baseline trial is the CRF yt_clipper would have auto-picked if
     --sample-guided-encode were OFF (encoded once at search start, phase tag
     ``"baseline"``). The picked is the search's chosen optimum.
-    Returns ``None`` when either is absent — e.g. the search failed and
+    Returns ``None`` when either is absent: e.g. the search failed and
     has no optimal, or the run was fully served from cache and the
     baseline trial was skipped entirely.
 
@@ -479,7 +479,7 @@ def _format_baseline_delta_line(
         None,
     )
     # Picked-only fallback: the search produced an optimal but no
-    # baseline trial is available — happens when a cache hit replays a
+    # baseline trial is available: happens when a cache hit replays a
     # prior run that pre-dates baseline persistence (the prior JSONL has
     # no ``fit`` record, or its ``baseline`` field is null). Emit an
     # explicit "not available" line so the absence is discoverable
@@ -488,7 +488,7 @@ def _format_baseline_delta_line(
         return None
     if baseline is None:
         return (
-            f"{clip_label} not available — cached prior run has no "
+            f"{clip_label} not available: cached prior run has no "
             f"baseline data (re-run with --sample-guided-encode to capture it)"
         )
 
@@ -560,7 +560,7 @@ def format_aggregated_search_summary_log_block(
     section. One row per marker pair: clip index, optimal CRF, VMAF
     mean + all six low percentiles (p1, p5, p10, p15, p20, p25) with
     the configured target percentile marked, trial count, search wall
-    time, sample-vs-final frame ratio. The ratio is the load-bearing
+    time, sample-vs-final frame ratio. The ratio is the main
     tuning signal: small = sampling is paying off; large = consider
     full-clip trials or reducing ``target_combined_frames``.
 
@@ -621,7 +621,7 @@ def format_aggregated_search_summary_log_block(
             col_name,
             justify="left" if col_name == "clip" else "right",
         )
-    # The file name is intentionally not a column here — the per-clip
+    # The file name is intentionally not a column here: the per-clip
     # success NOTICE earlier in the run already names every file. This
     # table is for cross-clip comparison; the clip index identifies each
     # row unambiguously.
@@ -642,7 +642,7 @@ def format_aggregated_search_summary_log_block(
             p1 = p5 = p10 = p15 = p20 = p25 = "-"
         # size% of the OPTIMAL trial relative to reference, plus the
         # absolute kbps and predicted final-encode size from the same
-        # trial (if any matched the optimal CRF — fail-cases skip).
+        # trial (if any matched the optimal CRF: fail-cases skip).
         size_pct = "-"
         kbps_str = "-"
         size_mb_str = "-"
@@ -658,10 +658,10 @@ def format_aggregated_search_summary_log_block(
                     )
                     size_mb_str = f"{est_size_mb:.1f}"
                 break
-        # Apples-to-apples efficiency metric: predicted bitrate at the
+        # Like-for-like efficiency metric: predicted bitrate at the
         # CRF where p_low equals the configured target VMAF. Lets two
         # runs of the same clip with different encoder settings be
-        # compared directly — the picked CRF differs across configs
+        # compared directly: the picked CRF differs across configs
         # but the kbps to hit the same VMAF target is comparable.
         kbps_at_target_str = "-"
         if result.target is not None:
@@ -699,7 +699,7 @@ def format_aggregated_search_summary_log_block(
 
     lines: list[str] = [header, "", render_rich_table_to_text(table, width=140)]
 
-    # Baseline-vs-picked delta — one line per clip. The baseline trial
+    # Baseline-vs-picked delta: one line per clip. The baseline trial
     # is the CRF yt_clipper would have auto-picked if --sample-guided-encode were
     # OFF; the picked is what the search settled on. The per-trial log
     # already shows both points individually, but this puts the delta
@@ -737,8 +737,8 @@ def format_aggregated_search_summary_log_block(
 # Reference encodes prioritize "VMAF measures the trial, not the
 # reference's compromises." Low CRF (per codec) gets us there; preset
 # speed is the next-largest knob. Slowest preset (encodeSpeed=0) buys
-# only ~1 VMAF point over a moderate preset — diminishing returns at
-# the CRF=18 quality ceiling — but takes 2-3x longer per window. Use
+# only ~1 VMAF point over a moderate preset: diminishing returns at
+# the CRF=18 quality ceiling: but takes 2-3x longer per window. Use
 # encodeSpeed=2 (good-quality preset) so reference encodes don't
 # dominate the search wall time. The reference still measures > 95
 # VMAF NEG mean at this preset, well above the search target floor.
@@ -751,13 +751,13 @@ def reference_encode_picks_for_codec(codec: str) -> dict[str, Any]:
     Low CRF, moderate preset, no bitrate cap so VMAF measures the
     *trial's* quality rather than reference compromises. Per-codec CRF
     accounts for the perceptual scale offset (vp9 ≈ h264 + 6, vp8 even
-    smaller). Hardware h264 variants (nvenc, vulkan) share h264's CRF —
+    smaller). Hardware h264 variants (nvenc, vulkan) share h264's CRF:
     slightly less efficient but still near-transparent at CRF 18.
 
     ``encodeSpeed`` was previously 0 (slowest preset); switched to 2
     (good-quality preset) for ~2-3x faster reference encodes. The
     quality difference at the CRF=18 transparency ceiling is < 1 VMAF
-    point — invisible to the search since trial CRFs are 15-30 points
+    point: invisible to the search since trial CRFs are 15-30 points
     away from the reference.
     """
     return {
@@ -773,7 +773,7 @@ def reference_encode_picks_for_codec(codec: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-# Note: an earlier non-progressive ``measure_combined_vmaf_neg`` helper
+# An earlier non-progressive ``measure_combined_vmaf_neg`` helper
 # (encode all windows -> measure each -> concat per-frame lists) was
 # removed when the orchestrator switched to per-window progressive
 # measurement. The progressive flow inlines the equivalent logic in
@@ -790,7 +790,7 @@ def reference_encode_picks_for_codec(codec: str) -> dict[str, Any]:
 # motion-interpolation and video2x-upscaling stages. CRF is per-frame so
 # searching pre-interpolation produces a slightly conservative answer
 # (uses marginally more bits than strictly needed in the final
-# interpolated encode) — a safe error mode much cheaper than running
+# interpolated encode): a safe error mode much cheaper than running
 # minterp/v2x for every trial.
 _TRIAL_PIPELINE_OVERRIDES: dict[str, Any] = {
     "minterpFpsMultiplier": 0,
@@ -798,7 +798,7 @@ _TRIAL_PIPELINE_OVERRIDES: dict[str, Any] = {
     # disabled minterp; ``clip_maker.py``'s gate is
     # ``mps["minterpMode"] != "None"`` so any other string (including
     # the conceptually-correct "Disabled") leaks minterp through to
-    # trial encodes — they end up running at the user's interpolated
+    # trial encodes: they end up running at the user's interpolated
     # fps (e.g. 60), tripling encode time for each trial. Use the
     # exact string the dispatcher checks for.
     "minterpMode": "None",
@@ -806,12 +806,12 @@ _TRIAL_PIPELINE_OVERRIDES: dict[str, Any] = {
     "audio": False,  # audio doesn't affect VMAF; skip the work
     # Disable the user's max-bitrate cap during trials. With the cap
     # active, trial encodes at low CRFs hit the bitrate ceiling and
-    # produce byte-identical output across a CRF range — the encoder's
+    # produce byte-identical output across a CRF range: the encoder's
     # CRF↔quality response is masked. We want pure CRF response from
     # trials so the curve fit measures the encoder, not the constraint.
     # The reference encode also disables the cap (see
     # ``reference_encode_picks_for_codec``); matching trials gives
-    # apples-to-apples comparison. The user's cap still applies to the
+    # like-for-like comparison. The user's cap still applies to the
     # final encode (post-search), so the picked CRF + their bitrate
     # constraint compose at production time.
     "autoTargetMaxBitrate": 0,
@@ -852,7 +852,7 @@ _TRIAL_PIPELINE_OVERRIDES: dict[str, Any] = {
     # CRF predicts the UNSTABILIZED encoder response; the user's
     # final stabilized output may land slightly below the search's
     # predicted VMAF target because stabilization warp introduces
-    # modest pixel noise. Acceptable in exchange for the speedup —
+    # modest pixel noise. Acceptable in exchange for the speedup:
     # revisit if users report drift, or expose
     # ``--sample-guided-encode-stabilize=reuse`` as an opt-in escape hatch.
     "videoStabilization": {"enabled": False, "desc": "Disabled"},
@@ -877,10 +877,10 @@ class _RunFingerprints:
     writing, and cache-gate checks.
 
     ``encode_args_signature`` is the structured dict from
-    ``compute_encoder_fingerprint`` — ``{"codec_args", "filter_graph",
+    ``compute_encoder_fingerprint``: ``{"codec_args", "filter_graph",
     "extras"}``. The ``extras`` sub-dict is the human-readable
     encoder-config knobs (codec, width/height, speed, HDR, twoPass,
-    encodeSpeed, rotate, denoise, videoStabilization) — same data
+    encodeSpeed, rotate, denoise, videoStabilization): same data
     the auto-delta diff label diffs across runs.
     """
 
@@ -890,7 +890,7 @@ class _RunFingerprints:
 
     @property
     def encoder_config(self) -> dict[str, Any]:
-        """The ``signature["extras"]`` dict — readable encoder knobs."""
+        """The ``signature["extras"]`` dict: readable encoder knobs."""
         extras = self.encode_args_signature.get("extras")
         return extras if isinstance(extras, dict) else {}
 
@@ -908,8 +908,8 @@ def _compute_run_fingerprints(
     trial pipeline overrides applied. Uses a sentinel ``crf=30``;
     ``compute_encoder_fingerprint``'s canonicalization strips it.
 
-    The synthetic mps is deliberately *minimal* — only the fields the
-    codec-args generator actually reads. We deliberately don't call
+    The synthetic mps is deliberately *minimal*: only the fields the
+    codec-args generator reads. We deliberately don't call
     ``getMarkerPairSettings`` here because (a) it's non-idempotent
     and would mutate the snapshot, (b) it's expensive (probes ffmpeg)
     and (c) the codec-args generator only needs a small subset of the
@@ -917,7 +917,7 @@ def _compute_run_fingerprints(
     of the same settings, so the fingerprint is stable.
 
     Wrapped in a try / except so codec-args-generator failures don't
-    crash the search — fall back to a fingerprint computed from the
+    crash the search: fall back to a fingerprint computed from the
     extras dict alone (less ideal, but the whole feature degrades
     gracefully). The fallback path emits an empty ``codec_args`` which
     the canonicalizer accepts cleanly.
@@ -937,7 +937,7 @@ def _compute_run_fingerprints(
         "enableHDR": bool(settings.get("enableHDR", False)),
         "targetSize": 0,  # trial pipeline disables target size
         "targetMaxBitrate": 0,  # trial pipeline disables maxrate
-        "crf": 30,  # sentinel — canonicalized to <CRF>
+        "crf": 30,  # sentinel, canonicalized to <CRF>
     }
     codec_args = ""
     try:
@@ -992,7 +992,7 @@ def _compute_run_fingerprints(
     )
 
 
-def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orchestration with conditional logging and cross-pair state; splitting would obscure the per-clip flow
+def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 (phased orchestration with conditional logging and cross-pair state; splitting would obscure the per-clip flow)
     cs: ClipperState,
     markerPairIndex: int,
     *,
@@ -1006,7 +1006,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
     error, missing reference) falls back to a normal makeClip call rather
     than aborting the whole run.
 
-    Imported lazily inside the function to avoid an import cycle —
+    Imported lazily inside the function to avoid an import cycle:
     ``clip_maker`` imports this module's pure pieces, so this orchestrator
     can't import ``clip_maker`` at module load time.
     """
@@ -1019,7 +1019,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
     try:
         # The marker pair is currently the pristine snapshot (caller has
         # NOT yet run any makeClip for this pair). Read the source fps and
-        # marker timing from the snapshot directly — getMarkerPairSettings
+        # marker timing from the snapshot directly: getMarkerPairSettings
         # would mutate them.
         clip_start = float(originalMarkerSnapshot.get("start", 0.0))
         clip_end = float(originalMarkerSnapshot.get("end", 0.0))
@@ -1034,8 +1034,8 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
         if target_vmaf_low_pct not in SUPPORTED_LOW_PERCENTILES:
             logger.warning(
                 f"unsupported --target-vmaf-low-percentile "
-                f"{target_vmaf_low_pct}; falling back to "
-                f"{DEFAULT_LOW_PERCENTILE}.",
+                f"{target_vmaf_low_pct}. Using "
+                f"{DEFAULT_LOW_PERCENTILE} instead.",
             )
             target_vmaf_low_pct = DEFAULT_LOW_PERCENTILE
 
@@ -1071,16 +1071,14 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
         ):
             crf_max_for_search = prior_optimal_crf
             logger.info(
-                f"using "
-                f"prior pair's optimal crf={prior_optimal_crf} as starting "
-                f"upper bound (galloping expansion will probe higher if "
-                f"this clip compresses better).",
+                f"starting from the previous pair's crf={prior_optimal_crf} "
+                f"(the search tries higher CRFs if this clip compresses better).",
             )
 
         # Floor ``crf_min`` two above the reference encode's CRF for the
         # selected codec. Trials at crf <= ref_crf are roughly the same
-        # quality as the reference (or higher) and saturate at VMAF ~100
-        # — measuring "how close is this trial to the reference?" when
+        # quality as the reference (or higher) and saturate at VMAF ~100:
+        # measuring "how close is this trial to the reference?" when
         # they're effectively the same encode. ``ref_crf + 1`` sits
         # close enough to the reference to still saturate frequently;
         # ``ref_crf + 2`` gives the lowest probe meaningful separation
@@ -1101,7 +1099,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
         # disabled in trials the multiplier doesn't apply. final_fps =
         # source_fps * averageSpeed; final_duration = (clip_end - clip_start)
         # / averageSpeed; → final_frames = source_fps * (clip_end - clip_start).
-        # That cancels the speed factor — output frame count equals source
+        # That cancels the speed factor: output frame count equals source
         # frame count over the clip range. Holds for normal-speed and
         # speed-modified clips alike (dropped frames at >1x speed match the
         # frame-rate scaling in averageSpeed).
@@ -1121,7 +1119,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
         # corpus), p20 measurements at floor=15 oscillate by 1+ point
         # across runs while at 80 frames they stabilize within ~0.3.
         # The 10%-of-final scaling in select_sample_windows gives
-        # roughly 50-150 frames on typical short clips — well above the
+        # roughly 50-150 frames on typical short clips: well above the
         # noise floor for the supported percentiles. Very long clips
         # (5000+ frames) sample 500+ frames per trial; the per-trial
         # cost is real but accuracy beats speed for the search verdict.
@@ -1134,7 +1132,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
             min_combined_frames=floor_for_pct,
         )
         # Middle window is the discovery window for Phase 1 of the
-        # two-phase search — a single sample drawn from the heart of the
+        # two-phase search: a single sample drawn from the heart of the
         # clip is the most representative single-window probe.
         middle_window_index = len(sample_windows) // 2
 
@@ -1249,7 +1247,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
         # encode_args signature equality, pair_identity match. On full
         # hit we'll skip baseline + search entirely; on partial hit we'll
         # prime ``trial_measurement_cache`` from the prior run's
-        # measurements (encoder bytes are equivalent — only the search
+        # measurements (encoder bytes are equivalent: only the search
         # target moved).
         cache_decision = evaluate_cache_reuse(
             pair_dir=pair_dir,
@@ -1289,8 +1287,8 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
                 )
 
         # First record: run_header. Pinpoints which run this JSONL is, what
-        # algorithm version produced it, and which fingerprints it claims
-        # — all needed by the cache-gate of FUTURE runs to decide reuse
+        # algorithm version produced it, and which fingerprints it claims:
+        # all needed by the cache-gate of FUTURE runs to decide reuse
         # vs. re-run.
         _append_trials_metadata_line(
             {
@@ -1357,7 +1355,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
             )
 
         # Always harvest trial measurements from any prior runs in
-        # this fingerprint dir — independent of the cache decision.
+        # this fingerprint dir: independent of the cache decision.
         # Even a crashed prior (no search_result) might have produced
         # valid trial records before crashing; those measurements are
         # still byte-equivalent to what the current run would produce
@@ -1381,7 +1379,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
         if cache_decision.kind == "full" and cache_decision.prior_run is not None:
             logger.info(
                 f""
-                f"cache HIT (full) — reusing prior run "
+                f"cache HIT (full): reusing prior run "
                 f"{cache_decision.prior_run.run_id}, search skipped. "
                 f"{cache_decision.reason}",
             )
@@ -1392,7 +1390,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
                 final_frames_estimate=final_frames_estimate,
             )
             # Mirror the prior trial records into the new run JSONL so
-            # this run's file stands alone — future runs can partial-prime
+            # this run's file stands alone: future runs can partial-prime
             # off it without having to chase the chain back to the
             # original.
             try:
@@ -1420,7 +1418,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
             # probe data + current target, so a cache hit produces the
             # same visual a fresh search would. We rebuild the fit via
             # ``fit_curves`` (using the *current* target) rather than
-            # replaying the cached ASCII chart string — adapts the red
+            # replaying the cached ASCII chart string: adapts the red
             # target line if the user changed --target-vmaf-low between
             # runs, and survives any future improvements to the chart
             # rendering.
@@ -1441,28 +1439,28 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
             # just logs the partial-hit verdict.
             logger.info(
                 f""
-                f"cache HIT (partial) — encoder matches, search params "
+                f"cache HIT (partial): encoder matches, search params "
                 f"differ; {len(primed_from_history)} trial measurements "
                 f"primed from prior runs. {cache_decision.reason}",
             )
         elif cache_decision.prior_run is not None:
-            # Gate failed but a prior parsed cleanly — name the
+            # Gate failed but a prior parsed cleanly: name the
             # failing check.
             logger.info(
                 f""
-                f"cache MISS — prior run {cache_decision.prior_run.run_id} "
+                f"cache MISS: prior run {cache_decision.prior_run.run_id} "
                 f"found but stale; re-running fresh. "
                 f"Reason: {cache_decision.reason}",
             )
         else:
-            # No usable prior — either the fingerprint dir doesn't
+            # No usable prior: either the fingerprint dir doesn't
             # exist, or it does but the most-recent file failed to
             # parse (predates the run_header schema, was truncated
             # mid-write, or crashed before writing search_result).
             # The decision's reason text distinguishes these cases.
             logger.info(
                 f""
-                f"cache MISS — {cache_decision.reason} "
+                f"cache MISS: {cache_decision.reason} "
                 f"(running fresh; encoder_fp="
                 f"{fingerprints.encoder_fingerprint}).",
             )
@@ -1483,16 +1481,16 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
                 settings_overrides={
                     **reference_picks,
                     **_TRIAL_PIPELINE_OVERRIDES,
-                    # Surface "sample-guided encode — reference encode (crf=N
+                    # Show "sample-guided encode: reference encode (crf=N
                     # wK)" on the spinner row instead of the generic
                     # "encoding" label. Including the CRF + window
                     # matches the format used by trial encodes (via
                     # the search tracker) and the baseline probe
-                    # below — every sample-guided-context encode the
+                    # below: every sample-guided-context encode the
                     # operator sees on the spinner reads the same
                     # way.
                     "ffmpegProgressLabel": (
-                        "sample-guided encode — reference encode "
+                        "sample-guided encode: reference encode "
                         f"(crf={reference_picks['crf']} "
                         f"w{window_index + 1} "
                         f"{sample_windows[window_index].start:.1f}"
@@ -1538,15 +1536,15 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
                     "crf": crf,
                     **_TRIAL_PIPELINE_OVERRIDES,
                     # ``sampleGuidedEncodeTrial=True`` tells the search
-                    # tracker (via runffmpegCommand) this is a probe
-                    # — bump the "trial N" counter and treat the
+                    # tracker (via runffmpegCommand) this is a probe:
+                    # bump the "trial N" counter and treat the
                     # label as a SUFFIX. Reference / baseline
                     # encodes omit this flag so their full label is
                     # shown verbatim, and the counter doesn't tick
                     # for them.
                     "sampleGuidedEncodeTrial": True,
                     # Suffix appended after the search tracker's
-                    # "sample-guided encode — trial N" — surfaces the CRF +
+                    # "sample-guided encode: trial N" shows the CRF +
                     # window of the currently-encoding probe on the
                     # spinner row so the operator can see context
                     # in real time. The ``start-end`` timestamps
@@ -1587,11 +1585,11 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
             return per_frame, size_bytes, trial_path
 
         # ---- Outer search-progress tracker scope ---------------------------
-        # Open ONE :class:`SearchProgressTracker` here — BEFORE the
-        # eager middle-reference encode below — so EVERY ffmpeg
+        # Open ONE :class:`SearchProgressTracker` here, BEFORE the
+        # eager middle-reference encode below: so EVERY ffmpeg
         # invocation in this search (eager reference, baseline, lazy
-        # references, trials) sees the same active scope. Critically,
-        # this also activates the filter-graph registry used by
+        # references, trials) sees the same active scope. This also
+        # activates the filter-graph registry used by
         # ``substitute_filter_graphs`` in ``runffmpegCommand``: the
         # registry is bound by ``track_sample_guided_encode_progress``, so the
         # eager reference encode at line below would otherwise log its
@@ -1612,8 +1610,8 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
         if get_or_encode_reference_window(middle_window_index) is None:
             logger.warning(
                 f"reference "
-                f"encode failed for middle window; falling back to normal "
-                f"makeClip without search.",
+                f"encode failed for the middle window. Encoding the clip "
+                f"normally, without the search.",
             )
             settings["markerPairs"][markerPairIndex] = copy.deepcopy(
                 originalMarkerSnapshot,
@@ -1624,7 +1622,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
         # ``SampleGuidedEncodeTrial`` for the middle reference window so the
         # chart can plot a marker at (reference_crf, 100 VMAF,
         # reference_bitrate). The reference is the comparison ceiling
-        # by definition (VMAF against itself is 100) — this gives the
+        # by definition (VMAF against itself is 100): this gives the
         # operator a visual anchor for the high-quality end of the
         # curve without spending another encode. Bitrate is derived
         # from the existing reference's encoded size + window duration.
@@ -1669,7 +1667,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
 
         # Trial counter shared across the evaluate_trial closure and the
         # per-trial completion callback so log lines say "phase1 trial 1, 2,
-        # 3...; phase2 trial 4..." rather than just "trial crf=X" — easier
+        # 3...; phase2 trial 4..." rather than just "trial crf=X": easier
         # to track progress visually across phases.
         trial_counter = {"n": 0}
 
@@ -1716,7 +1714,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
             for window_index in window_indices:
                 result = encode_and_measure_window(crf, window_index)
                 if result is None:
-                    # Skip this window but keep going — another may work,
+                    # Skip this window but keep going: another may work,
                     # and even partial data is enough for pass/fail above
                     # the frame floor.
                     continue
@@ -1738,7 +1736,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
             # Bitrate at this CRF: bytes * 8 / duration_seconds / 1000.
             # Per-frame size scales linearly with frame count, so the
             # trial-subset kbps equals the full-encode kbps at the same
-            # CRF — the prediction the curve-fit's bitrate sub-chart
+            # CRF: the prediction the curve-fit's bitrate sub-chart
             # plots and the joint-tuning logic compares against the
             # user's max-bitrate setting (when applicable).
             duration_seconds = (
@@ -1762,7 +1760,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
         def on_trial_complete(trial: SampleGuidedEncodeTrial) -> None:
             # The search-level progress display advances its trial
             # counter inside ``run_trial_ffmpeg`` (on encode start),
-            # not here — so the spinner can show the *current*
+            # not here, so the spinner can show the *current*
             # trial's CRF in real time rather than the previous
             # trial's. Nothing to do here for the progress display;
             # this callback only logs the per-trial summary line
@@ -1771,7 +1769,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
             checks = f"mean+{low_pct_label}" if trial.low_pct_enforced else "mean only"
 
             # Show all six low percentiles for visibility; mark the one
-            # actually being enforced so the user can see at a glance
+            # being enforced so the user can see at a glance
             # whether the target threshold is being cleared.
             def _marker(pct: int) -> str:
                 return "*" if target.target_vmaf_low_pct == pct else " "
@@ -1779,7 +1777,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
             phase_label = f" [{trial.phase}]" if trial.phase else ""
             # Estimated full-encode size: per-frame bytes scale linearly
             # so total ≈ encoded_size_bytes * (final_frames /
-            # trial_frames). Surfaces the picked CRF's predicted file
+            # trial_frames). Shows the picked CRF's predicted file
             # size next to its quality so operators can see both axes
             # of the trade-off without parsing the JSONL metadata.
             est_size_mb = (
@@ -1799,7 +1797,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
                 else f"{trial.encode_seconds:.1f}s"
             )
 
-            # Column-align per-trial metrics so trials read as a
+            # Column-align per-trial metrics so trials scan as a
             # vertical scan: trial number / crf / mean / each pX /
             # kbps / size / size% / frames / windows / verdict /
             # checks / timing each get a fixed width. Percentile
@@ -1869,8 +1867,8 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
             )
 
         # (The outer ``SearchProgressTracker`` and its filter-graph
-        # registry are already opened earlier — before the eager
-        # middle-reference encode — so every ffmpeg invocation in
+        # registry are already opened earlier: before the eager
+        # middle-reference encode: so every ffmpeg invocation in
         # this search shares the same scope. See that block for the
         # rationale. The unmatched ``__exit__`` is at the bottom of
         # the search dispatch.)
@@ -1879,9 +1877,9 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
         # Encode at the (CRF, max-bitrate) pair that yt_clipper would
         # auto-pick if --sample-guided-encode were OFF. Lets the operator
         # see "what the default would have given me" alongside the
-        # curve-fit pick. With maxrate ENABLED for this trial only —
+        # curve-fit pick. With maxrate ENABLED for this trial only:
         # all other trials disable maxrate to measure pure CRF response.
-        # Skipped on full cache hit — the prior run already produced
+        # Skipped on full cache hit: the prior run already produced
         # this baseline data.
         baseline_trial: SampleGuidedEncodeTrial | None = None
         if cached_result is None:
@@ -1895,7 +1893,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
                     and target.crf_min <= auto_crf <= target.crf_absolute_max
                 ):
                     baseline_overrides = {
-                        # Inherit minterp/v2x/audio overrides — baseline must
+                        # Inherit minterp/v2x/audio overrides: baseline must
                         # match the trial pipeline (no upscaling, no audio,
                         # source-fps) so its VMAF is comparable to the
                         # curve-fit probes' VMAF measurements.
@@ -1908,10 +1906,10 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
                         "targetMaxBitrate": auto_max_bitrate,
                         "autoTargetMaxBitrate": auto_max_bitrate,
                         # See the reference-encode call site for
-                        # rationale — the operator needs to know
+                        # rationale: the operator needs to know
                         # what's running on the spinner row.
                         "ffmpegProgressLabel": (
-                            "sample-guided encode — baseline auto-pick "
+                            "sample-guided encode: baseline auto-pick "
                             f"(crf={auto_crf} "
                             f"maxrate={auto_max_bitrate}kbps "
                             f"w{middle_window_index + 1} "
@@ -2004,9 +2002,9 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
             #
             # The ``track_sample_guided_encode_progress`` context manager opens a
             # single Live display that spans every trial in the search,
-            # so the operator sees ``sample-guided encode — trial N`` advance
+            # so the operator sees ``sample-guided encode: trial N`` advance
             # across all probes plus the current trial's ffmpeg stats
-            # line — instead of a fresh per-trial spinner that resets
+            # line, instead of a fresh per-trial spinner that resets
             # every encode.
             with track_sample_guided_encode_progress():
                 result = legacy_find_optimal_crf_two_phase(
@@ -2021,7 +2019,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
                 )
         else:
             # Default: curve-fit. Probe a few CRFs with the middle window
-            # only (1-window probes — curve-fit averages noise across CRF
+            # only (1-window probes: curve-fit averages noise across CRF
             # points rather than across windows), fit piecewise / linear /
             # log models, pick via knee detection. The orchestrator's
             # ``evaluate_trial_for_windows`` does the encode + measure;
@@ -2031,7 +2029,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
                 return evaluate_trial_for_windows(crf, [middle_window_index])
 
             # See the legacy-bisection branch above for the
-            # ``track_sample_guided_encode_progress`` rationale — same display
+            # ``track_sample_guided_encode_progress`` rationale: same display
             # spans every curve-fit probe + refit + refinement trial.
             with track_sample_guided_encode_progress():
                 result, curve_fit_result = find_crf_via_curve_fit(
@@ -2159,7 +2157,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
         # The kbps@tgt cross-config efficiency metric, persisted alongside
         # the picked CRF. The auto-delta render in a later phase reads this
         # back from prior-run JSONLs and re-interpolates against the current
-        # run's target VMAF for an apples-to-apples comparison.
+        # run's target VMAF for a like-for-like comparison.
         kbps_at_target_vmaf = _interpolate_kbps_at_target_vmaf(
             result.trials,
             target.target_vmaf_low,
@@ -2198,9 +2196,9 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
         # Scans sibling fingerprint directories under ``pair_dir`` for
         # other distinct configurations and builds one delta row per. Each
         # prior run's kbps@tgt is re-interpolated at the CURRENT target
-        # VMAF, so the comparison stays apples-to-apples even when the
+        # VMAF, so the comparison stays like-for-like even when the
         # user changed --target-vmaf-low between runs. Failures here are
-        # non-fatal — the search succeeded; we just won't render deltas.
+        # non-fatal: the search succeeded; we just won't render deltas.
         prior_run_deltas: tuple[PriorRunDelta, ...] = ()
         try:
             prior_runs = load_prior_runs(
@@ -2225,7 +2223,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
 
         # ---- Final encode at the chosen CRF (full pipeline restored) -------
         final_crf = result.optimal_crf if result.optimal_crf is not None else target.crf_min
-        # Sample-vs-final ratio shows whether sampling was actually saving
+        # Sample-vs-final ratio shows whether sampling was saving
         # work. Small ratio (~10-20%) = sampling paid off. Large ratio
         # (>50%) = consider full-clip trials or fewer / smaller windows.
         sample_ratio_pct = (
@@ -2236,8 +2234,8 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
         if result.optimal_crf is None or result.optimal_summary is None:
             logger.warning(
                 f"no trial "
-                f"cleared targets even at crf={target.crf_min}; final encode "
-                f"will use crf={target.crf_min} (best effort). "
+                f"met the targets, even at crf={target.crf_min}. The final "
+                f"encode uses crf={target.crf_min}. "
                 f"[{len(result.trials)} trials, "
                 f"{result.search_seconds:.1f}s, "
                 f"{result.search_frames} search frames vs "
@@ -2250,7 +2248,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
                 target.target_vmaf_low_pct,
             )
             # If refinement-relaxation accepted a measurement below the
-            # user's strict target, surface the shortfall explicitly so
+            # user's strict target, report the shortfall explicitly so
             # the operator sees we traded quality for speed. The
             # annotation is folded into the existing trial-summary
             # bracket because the rich logger treats bracketed content
@@ -2298,7 +2296,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
                 f"{shortfall_note}]",
             )
             # Stash the optimal CRF so the next marker pair's search can
-            # seed off it. Only when the search converged successfully —
+            # seed off it. Only when the search converged successfully:
             # we don't want a fallback ``crf_min`` from a failed search
             # poisoning the next pair's starting bound.
             settings[_PRIOR_OPTIMAL_CRF_SETTING_KEY] = result.optimal_crf
@@ -2324,7 +2322,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
         original_target_max_bitrate = settings.get("targetMaxBitrate")
         original_auto_target_max_bitrate = settings.get("autoTargetMaxBitrate")
         # Capture the run-start mtime so the sidecar UX below can
-        # detect whether makeClip actually encoded vs skipped (any
+        # detect whether makeClip encoded vs skipped (any
         # file produced or modified since this point is "fresh").
         # Subtract 1s of slack to absorb filesystem mtime granularity.
         encode_decision_threshold = time.time() - 1.0
@@ -2350,7 +2348,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
 
         # ---- Final-encode sidecar UX --------------------------------------
         # Compare the on-disk output against the encoder fingerprint +
-        # picked CRF this run computed. If makeClip actually encoded
+        # picked CRF this run computed. If makeClip encoded
         # (file mtime is newer than ``encode_decision_threshold``), write
         # a fresh sidecar reflecting this run. If makeClip skipped
         # because the file already existed and overwrite was off, read
@@ -2371,7 +2369,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
         # + output file. Lands in the on-disk Summary Report so the
         # operator can scan every clip's outcome without parsing the full
         # aggregate table. Skipped if the search failed or if the encode
-        # didn't actually produce a file.
+        # didn't produce a file.
         encoded_ok = final_marker is not None and (
             final_marker.get("returncode") == 0 or final_marker.get("exists")
         )
@@ -2398,7 +2396,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
 
         # Stash the search result on the returned marker so the makeClips
         # loop can collect it for the cross-clip aggregate summary. The
-        # auto-delta rows also ride along here — clip_maker passes them
+        # auto-delta rows also ride along here: clip_maker passes them
         # through to the ``ClipSearchSummary`` it builds, and the
         # formatter renders them as a block under the main summary table.
         if final_marker is not None:
@@ -2407,8 +2405,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
         return final_marker
     except Exception as exc:
         logger.warning(
-            f"marker pair {markerPairIndex + 1} failed "
-            f"(non-fatal, falling back to normal makeClip): {exc}",
+            f"marker pair {markerPairIndex + 1} failed (encoding the clip normally instead): {exc}",
         )
         settings["markerPairs"][markerPairIndex] = copy.deepcopy(
             originalMarkerSnapshot,
@@ -2421,7 +2418,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 — phased orches
 def _resolve_source_fps(settings: dict[str, Any]) -> float:
     """Best-effort source FPS resolution from settings.
 
-    Returns 0.0 if unknown — ``select_sample_windows`` falls back to
+    Returns 0.0 if unknown: ``select_sample_windows`` falls back to
     full-clip sampling in that case.
     """
     raw = settings.get("r_frame_rate") or settings.get("avg_frame_rate")
@@ -2433,7 +2430,7 @@ def _resolve_source_fps(settings: dict[str, Any]) -> float:
         return 0.0
 
 
-def _encode_windows_for_marker_pair(  # noqa: PLR0913 — keyword-only params; bundling into a config object obscures call sites
+def _encode_windows_for_marker_pair(  # noqa: PLR0913 (keyword-only params; bundling into a config object obscures call sites)
     *,
     cs: ClipperState,
     markerPairIndex: int,
@@ -2452,7 +2449,7 @@ def _encode_windows_for_marker_pair(  # noqa: PLR0913 — keyword-only params; b
     ``output_dir`` is the directory the encoded ``.webm`` files land in.
     Caller passes the per-fingerprint ``trials/`` or ``refs/`` subdir
     so trial encodes group with the encoder configuration that produced
-    them — the granular reuse story for the future cache-gate phase.
+    them: the granular reuse story for the future cache-gate phase.
     The directory is created on first use.
 
     Restores a fresh deep-copy of the marker snapshot before each window
@@ -2510,7 +2507,7 @@ def _encode_windows_for_marker_pair(  # noqa: PLR0913 — keyword-only params; b
             # Mirror trial-pipeline overrides into mp["overrides"] too.
             # ``getMarkerPairSettings`` builds mps as
             # ``{**settings, **mp["overrides"]}``, so marker-pair JSON
-            # overrides take precedence — without this mirror, a clip
+            # overrides take precedence: without this mirror, a clip
             # whose JSON sets ``minterpFpsMultiplier`` (or any other
             # override key we want to disable) would have minterp leak
             # through into trial encodes despite our settings-level
@@ -2557,7 +2554,7 @@ def _encode_windows_for_marker_pair(  # noqa: PLR0913 — keyword-only params; b
                 window_index,
                 Path(file_path),
             ):
-                # Progressive-sampling early exit — caller has decided
+                # Progressive-sampling early exit: caller has decided
                 # the verdict is confident enough that further windows
                 # would just be extra encode work.
                 break

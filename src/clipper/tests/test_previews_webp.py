@@ -126,7 +126,7 @@ def test_pickPreviewQuality_override_bypasses_heuristic() -> None:
             sourceHeight=1080,
             previewWidth=540,
             previewHeight=304,
-            override=82,  # deliberately outside the [55, 75] band — override is trusted
+            override=82,  # deliberately outside the [55, 75] band: override is trusted
         )
         == 82
     )
@@ -154,7 +154,7 @@ def test_buildWebpPreviewCommand_shape() -> None:
     assert f"-pix_fmt {webp.WEBP_PREVIEW_PIX_FMT}" in command
     assert "scale=540:304:flags=lanczos" in command
     assert "-y" in command
-    # WebP does not support AVIF-style color tags or qmin/qmax — confirm we
+    # WebP does not support AVIF-style color tags or qmin/qmax: confirm we
     # don't accidentally emit them (would fail ffmpeg parse for libwebp).
     assert "-qmin" not in command
     assert "-qmax" not in command

@@ -12,7 +12,7 @@ export type CropSectionType = 'static' | 'pan' | 'zoom' | 'panzoom';
 
 export interface CropSectionInfo {
   type: CropSectionType;
-  // Crop change as a fraction of the crop resolution per second: how fast the move reads to a viewer.
+  // Crop change as a fraction of the crop resolution per second: how fast the move looks to a viewer.
   velocity: number;
   // Crop size (sqrt of the area fraction) at each endpoint, i.e. the zoom level. Drives the band
   // width so it tapers toward the more zoomed-in (smaller) end.
@@ -26,7 +26,7 @@ export interface CropSectionInfo {
 
 const clamp = (value: number, lo: number, hi: number) => Math.min(Math.max(value, lo), hi);
 
-// A change whose center moves less than this fraction of the frame reads as a pure zoom rather than
+// A change whose center moves less than this fraction of the frame counts as a pure zoom rather than
 // pan+zoom: it absorbs the half-pixel center rounding of integer x/y/w/h and the small center drift
 // of a mousewheel zoom.
 const POSITION_TOLERANCE = 0.03;
@@ -107,7 +107,7 @@ function sectionBaseRgb(type: CropSectionType): readonly [number, number, number
   }
 }
 
-// Speed is carried by color and opacity, not width: a faster section reads as its full type color and
+// Speed is carried by color and opacity, not width: a faster section shows its full type color and
 // opaque, a slower one fades toward the static grey and toward transparent, so a slow move blends into
 // the "no movement" line. Static is the reference grey line and stays a steady grey.
 export function cropSectionColor(type: CropSectionType, velocity: number): string {

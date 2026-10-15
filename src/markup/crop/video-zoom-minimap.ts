@@ -1,8 +1,8 @@
 /**
- * Zoom navigator minimap — a small full-frame thumbnail with a red rectangle marking
+ * Zoom navigator minimap: a small full-frame thumbnail with a red rectangle marking
  * the part of the frame currently visible in the magnified player, plus a black/white
  * outline of the current crop. Drag on it to
- * move the view by the drag delta (init + delta, like crop pan — never jumps). It
+ * move the view by the drag delta (init + delta, like crop pan: never jumps). It
  * auto-shows whenever the view is zoomed (>1x) and removes itself at fit, so it
  * doubles as the "you are zoomed" affordance.
  *
@@ -52,7 +52,7 @@ const RESIZE_EDGE_MAX_FRAME_FRAC = 0.06;
 // The square viewBox is centred on the arrow (800,400) so rotations stay centred.
 const BLENDER_ARROW_LR =
   'm184.49609 623.99414a.50005.50005 0 0 0 -.34961.85938l2.14649 2.14648h-10.58594l2.14649-2.14648a.50005.50005 0 1 0 -.70704-.70704l-3 3a.50005.50005 0 0 0 0 .70704l3 3a.50005.50005 0 1 0 .70704-.70704l-2.14649-2.14648h10.58594l-2.14649 2.14648a.50005.50005 0 1 0 .70704.70704l3-3a.50005.50005 0 0 0 0-.70704l-3-3a.50005.50005 0 0 0 -.35743-.15234z';
-// blender:MOD_LENGTH — diagonal double-headed arrow (bottom-left ↔ top-right),
+// blender:MOD_LENGTH, diagonal double-headed arrow (bottom-left ↔ top-right),
 // centred at (800,800). Used for the corner cursors so they're drawn natively on the
 // diagonal instead of a 45°-rotated copy of the horizontal arrow (nw/se = +90°).
 const BLENDER_MOD_LENGTH =
@@ -73,9 +73,9 @@ function cursorCss(groups: string, viewBox: string, fallback: string): string {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 8 8, ${fallback}`;
 }
 
-// Phosphor Icons `hand-fill` / `hand-grabbing-fill` (MIT) — the move cursor's open hand
+// Phosphor Icons `hand-fill` / `hand-grabbing-fill` (MIT): the move cursor's open hand
 // (hover) and grabbing fist (drag), filled white with a dark outline so the solid
-// silhouette reads on any video at a small cursor size; hotspot at the cursor centre.
+// silhouette shows on any video at a small cursor size; hotspot at the cursor centre.
 const PHOSPHOR_HAND =
   'M216,64v90.93c0,46.2-36.85,84.55-83,85.06A83.71,83.71,0,0,1,72.6,215.4C50.79,192.33,26.15,136,26.15,136a16,16,0,0,1,6.53-22.23c7.66-4,17.1-.84,21.4,6.62l21,36.44a6.09,6.09,0,0,0,6,3.09l.12,0A8.19,8.19,0,0,0,88,151.74V48a16,16,0,0,1,16.77-16c8.61.4,15.23,7.82,15.23,16.43V112a8,8,0,0,0,8.53,8,8.17,8.17,0,0,0,7.47-8.25V32a16,16,0,0,1,16.77-16c8.61.4,15.23,7.82,15.23,16.43V120a8,8,0,0,0,8.53,8,8.17,8.17,0,0,0,7.47-8.25V64.45c0-8.61,6.62-16,15.23-16.43A16,16,0,0,1,216,64Z';
 const PHOSPHOR_HAND_GRABBING =
@@ -193,7 +193,7 @@ let panelDragging = false;
 // left/right, left px for top/bottom). Persists across show/hide within the session.
 let minimapEdge: MinimapEdge = 'right';
 let minimapAlong = MINIMAP_MARGIN;
-// The user closed it via the × — stay hidden until the show-condition re-engages
+// The user closed it via the ×: stay hidden until the show-condition re-engages
 // (e.g. reframe toggled off then on, or zoom re-entered).
 let minimapClosed = false;
 let wasShowable = false;
@@ -202,7 +202,7 @@ const minimapTemplate = () => html`
   <div class="ytc-zoom-minimap-header">
     <button
       class="ytc-zoom-minimap-close"
-      title="Hide minimap (Shift+V; toggles back on with the same hotkey)"
+      title="Hide minimap (Shift+V shows it again)"
     >
       ${renderUIIcon('close', 10)}
     </button>
@@ -260,7 +260,7 @@ function sync(): void {
   if (showable && !minimapClosed) {
     ensureMinimap();
     // During playback the minimap's own requestVideoFrameCallback loop already redraws the
-    // canvas each presented frame, so skip the redundant full-frame redraw here — reframe
+    // canvas each presented frame, so skip the redundant full-frame redraw here: reframe
     // fires this subscriber every frame as the viewport follows the crop. When paused that
     // loop is idle, so a viewport change from an edit still needs an explicit redraw.
     if (appState.video.paused) redrawZoomMinimap();
@@ -427,7 +427,7 @@ function drawFrame(): void {
 }
 
 /** Outline the current crop on the minimap canvas with a black line just outside the crop edge and
- *  a white line just inside it (distinct from the red viewport rect), so it reads against both light
+ *  a white line just inside it (distinct from the red viewport rect), so it shows against both light
  *  and dark video content. cropRes coords are scaled into the source frame, so the rotated context
  *  aligns it with the drawn frame. No-op when no crop is edited. */
 function drawCropMarker(ctx: CanvasRenderingContext2D, vw: number, vh: number, dW: number): void {
@@ -437,7 +437,7 @@ function drawCropMarker(ctx: CanvasRenderingContext2D, vw: number, vh: number, d
   const ch = appState.settings.cropResHeight || vh;
   const { x: sx, y: sy, w: sw, h: sh } = cropToTargetRect(crop, cw, ch, vw, vh);
   // Canvas is drawn at frame resolution but shown at ~mmW px, so scale the stroke
-  // to read as ~1 px once scaled down.
+  // to look ~1 px wide once scaled down.
   const px = Math.max(1, dW / mmW);
   // Each strokeRect is centered on a rect offset by half its own width, so the stroke's far edge
   // lands exactly on the true crop boundary: the two lines meet there with no gap or overlap.
@@ -497,7 +497,7 @@ function onPointerDown(e: PointerEvent): void {
   const downX = e.clientX;
   const downY = e.clientY;
   let dragging = false;
-  // Reference frame captured when the drag actually begins (init + delta, like
+  // Reference frame captured when the drag begins (init + delta, like
   // crop pan) so the view never jumps to the cursor.
   let dragStartX = 0;
   let dragStartY = 0;
@@ -534,7 +534,7 @@ function onPointerDown(e: PointerEvent): void {
 
   const onMove = (ev: PointerEvent): void => {
     if (!dragging) {
-      // Hold off until the pointer has clearly moved — a click should not pan.
+      // Hold off until the pointer has clearly moved: a click should not pan.
       if (
         Math.abs(ev.clientX - downX) < DRAG_THRESHOLD &&
         Math.abs(ev.clientY - downY) < DRAG_THRESHOLD
@@ -795,7 +795,7 @@ function beginCropManipulation(e: PointerEvent): void {
   let rafId = 0;
   let pending: PointerEvent | null = null;
 
-  // Deferred until the pointer actually moves, so a stray click never auto-keys.
+  // Deferred until the pointer moves, so a stray click never auto-keys.
   const begin = (): void => {
     active = true;
     autoKeyCurrentCropPoint();
@@ -812,7 +812,7 @@ function beginCropManipulation(e: PointerEvent): void {
     nearTop = region.nearTop;
     nearBottom = region.nearBottom;
     isResize = nearLeft || nearRight || nearTop || nearBottom;
-    // A minimap edge-resize is a per-keyframe zoom — switch to zoompan before `apply`
+    // A minimap edge-resize is a per-keyframe zoom: switch to zoompan before `apply`
     // writes the size, so it lands on this keyframe instead of all of them. A move
     // (pan) is mode-agnostic, so leave it alone.
     if (isResize) ensureReframeZoomPan();
@@ -848,7 +848,7 @@ function beginCropManipulation(e: PointerEvent): void {
       }
     }
     updateCropString(getCropString(nx, ny, nw, nh), false, false, initCropMap);
-    // Paused during manipulation, so the rVFC loop is idle — redraw the minimap here
+    // Paused during manipulation, so the rVFC loop is idle: redraw the minimap here
     // so its crop marker tracks the edit.
     drawFrame();
   };
@@ -883,7 +883,7 @@ function beginCropManipulation(e: PointerEvent): void {
       setIsMouseManipulatingCrop(false);
       setCropManipulationKind(null);
       // One checkpoint for the whole gesture (auto-key insert + edits), matching the
-      // video crop handler — the per-edit updateCropString calls don't push history.
+      // video crop handler: the per-edit updateCropString calls don't push history.
       saveMarkerPairHistory(createDraft(getMarkerPairHistory(pair)), pair);
       renderSpeedAndCropUI();
       drawFrame();

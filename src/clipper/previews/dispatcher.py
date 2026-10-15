@@ -35,7 +35,7 @@ SUPPORTED_PREVIEW_FORMATS = (
 # Maps each concrete format to its file extension. Callers that need to derive
 # a preview path from a clip path (e.g. merged-clip → merged-preview naming)
 # should go through ``getPreviewFileExtension`` rather than hardcoding the
-# literal — hardcoding is how the "always .preview.avif" bug got in once.
+# literal: hardcoding is how the "always .preview.avif" bug got in once.
 _PREVIEW_FORMAT_EXTENSIONS = {
     PREVIEW_FORMAT_AVIF: AVIF_FILE_EXTENSION,
     PREVIEW_FORMAT_WEBP: WEBP_FILE_EXTENSION,
@@ -81,7 +81,7 @@ def mergePreviews(
     by swapping the extension (``Foo.webm`` -> ``Foo.preview.{ext}``), so
     callers pass the main-clip path and the dispatcher constructs the sibling.
 
-    None signals "caller should decide" — typically the caller may skip, log,
+    None signals "caller should decide": typically the caller may skip, log,
     or fall back to re-encoding from the merged main clip.
     """
     if previewFormat == PREVIEW_FORMAT_NONE:

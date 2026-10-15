@@ -4,7 +4,7 @@ export interface ModalShellProps {
   id?: string;
   title: string;
   /** Plain text gets rendered via lit-html text-context (auto-escaped).
-   *  A `TemplateResult` is rendered as-is — callers that need to
+   *  A `TemplateResult` is rendered as-is: callers that need to
    *  interpolate user-controlled state should pass a template that
    *  delimits the state in `<code>` so it can't visually pretend to be
    *  modal chrome (social-engineering defense). */

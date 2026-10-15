@@ -1,6 +1,6 @@
 import { html, svg } from 'lit-html';
 
-// yt_clipper's brand-mark scissors icon — sits in YouTube's player rail
+// yt_clipper's brand-mark scissors icon, in YouTube's player rail
 // (40x40 hit target) as the toggle for the shortcuts-table panel. Kept
 // custom (not from an icon library) so the panel stays branded as a
 // yt_clipper surface rather than a generic keyboard/help button.

@@ -3,10 +3,10 @@
 // XSS stack does NOT cover at this boundary:
 //   - Prototype pollution via `__proto__` / `constructor` / `prototype` keys.
 //   - NaN / Infinity in numeric time fields (silent math errors downstream).
-//   - Unbounded `markerPairs` array (DoS — matches share-format's 10K cap).
+//   - Unbounded `markerPairs` array (DoS: matches share-format's 10K cap).
 //   - Stack overflow via deeply nested objects (recursion depth cap).
 //   - Unknown attacker-supplied keys flowing into `appState.settings` merge
-//     (allowlist filter — only known schema keys pass through).
+//     (allowlist filter: only known schema keys pass through).
 //
 // Design constraints:
 //   - Loose: extra/unknown fields are SILENTLY STRIPPED (not rejected) so
@@ -18,7 +18,7 @@
 //
 // In addition to the parsed output, the parser returns a list of `issues`
 // describing soft-handled events (unknown keys stripped, proto-polluting
-// keys stripped, invalid speed/crop points dropped). Callers can surface
+// keys stripped, invalid speed/crop points dropped). Callers can show
 // these in a review UI so the user can see what the parser did.
 
 import type {
@@ -48,7 +48,7 @@ type LoadableMarkerPair = Pick<
 > & {
   overrides?: Partial<MarkerPairOverrides>;
   /** 1-indexed display number added by save-time serializer. Tolerated but
-   *  not load-bearing — we re-number on load. */
+   *  not used: we re-number on load. */
   number?: number;
 };
 
@@ -68,14 +68,14 @@ export class ClipperInputValidationError extends Error {
 }
 
 /** Soft-handled events the parser wants the caller to know about. None of
- *  these abort the parse — the returned `input` is always the best-effort
+ *  these abort the parse: the returned `input` is always the best-effort
  *  normalization. Hard structural errors throw `ClipperInputValidationError`
  *  instead.
  *
  *  Severity split:
  *   - `dangerousKeys` is a security-adjacent signal (prototype pollution
- *     attempt). Callers should surface alongside XSS-style warnings.
- *   - `unexpectedFields` and `invalidPoint` are informational — normal during
+ *     attempt). Callers should show it alongside XSS-style warnings.
+ *   - `unexpectedFields` and `invalidPoint` are informational: normal during
  *     version skew or when editing-tool output doesn't quite match our model. */
 export type DataFormatIssue =
   | { kind: 'unexpectedFields'; path: string; keys: string[] }
@@ -208,7 +208,7 @@ function pickKnown<K extends string>(
 }
 
 /** Recursively drop prototype-polluting keys. Records any finds as a
- *  `prototypeKeys` issue — these are a security signal worth surfacing. */
+ *  `prototypeKeys` issue: these are a security signal worth showing. */
 function stripPrototypeKeys(
   value: unknown,
   depth: number,
@@ -275,7 +275,7 @@ function requireNonNegativeFinite(value: unknown, field: string, index: number):
  *  exhaustive via the `satisfies` constraint: a new key on
  *  `MarkerPairOverrides` requires a validator entry here or the build
  *  fails. Each validator is a coarse type guard (string / boolean /
- *  finite number / enum) — fine-grained semantic constraints (e.g.
+ *  finite number / enum): fine-grained semantic constraints (e.g.
  *  "crf must be 0–63") happen further downstream in the encoding
  *  pipeline; here we only ensure the type matches what the codebase
  *  expects to consume. */
@@ -367,7 +367,7 @@ function parseCropPath(raw: unknown, path: string, issues: DataFormatIssue[]): C
     issues.push({ kind: 'invalidCropPath', path });
     return null;
   };
-  // Any solver version loads; an old one reads as stale and is re-baked, not dropped as invalid.
+  // Any solver version loads; an old one counts as stale and is re-baked, not dropped as invalid.
   if (!isPlainObject(raw) || !Number.isInteger(raw.version) || typeof raw.signature !== 'string')
     return reject();
   const margin = raw.margin;

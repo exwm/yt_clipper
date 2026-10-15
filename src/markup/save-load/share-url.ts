@@ -229,7 +229,7 @@ export async function tryLoadSharedMarkers() {
       'exceeds limit',
       MAX_BASE64_FRAGMENT_LEN
     );
-    flashMessage('Shared URL payload is too large — refusing to decode.', 'red');
+    flashMessage('The shared URL is too large to load.', 'red');
     stripSharedMarkersFromUrl();
     return;
   }
@@ -250,7 +250,7 @@ export async function tryLoadSharedMarkers() {
   } catch (err) {
     if (err instanceof DecompressionTooLargeError) {
       console.error('Shared URL payload exceeds size limit', err);
-      flashMessage('Shared URL payload is too large — refusing to decompress.', 'red');
+      flashMessage('The shared URL is too large to load.', 'red');
       stripSharedMarkersFromUrl();
       return;
     }

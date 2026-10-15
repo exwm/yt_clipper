@@ -12,20 +12,20 @@ interpolation is applied post-encoder or not.
 Package layout (each submodule is the natural import target for code
 that needs only its slice of the search):
 
-- :mod:`.types` — data shapes (:class:`SampleGuidedEncodeTarget`,
+- :mod:`.types`, data shapes (:class:`SampleGuidedEncodeTarget`,
   :class:`SampleGuidedEncodeTrial`, :class:`TrialMeasurement`,
   :class:`SampleGuidedEncodeResult`, :class:`SampleWindow`,
   :class:`ClipSearchSummary`), constants, and percentile-table
   helpers. No I/O, no algorithms.
-- :mod:`.predicates` — pure decision predicates: ``passes_targets``,
+- :mod:`.predicates`, pure decision predicates: ``passes_targets``,
   ``is_trial_confidently_decided``, distance-to-boundary,
   fast-fail / hopeless / step-down-skip calibration helpers, fallback
   level finder. The "why did the search make this decision?" layer.
-- :mod:`.search` — sampling (``select_sample_windows``), single-phase
+- :mod:`.search`, sampling (``select_sample_windows``), single-phase
   bisection (``find_optimal_crf``), and the multi-phase orchestrator
   (``find_optimal_crf_two_phase``). Pure algorithms; takes injected
   evaluator callbacks rather than touching the encoder pipeline.
-- :mod:`.orchestrator` — the user-facing entry point
+- :mod:`.orchestrator`, the user-facing entry point
   ``run_sample_guided_encode_for_marker_pair`` plus the encoder integration
   glue. Only this module knows about ``ClipperState`` / ``makeClip``.
 
@@ -47,7 +47,7 @@ Compared to ab-av1's ``crf-search`` (https://alexheretic.github.io/posts/ab-av1/
 - We **encode a near-transparent reference** rather than measuring
   trials against the source directly, because our pipeline applies
   crop / speed / fade filters that change output dimensions and frame
-  timing relative to the source — we can't VMAF differently-shaped
+  timing relative to the source: we can't VMAF differently-shaped
   videos. ab-av1 encodes raw and so doesn't have this problem.
 """
 

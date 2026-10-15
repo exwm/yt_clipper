@@ -227,7 +227,7 @@ def test_render_table_with_markup_emits_bold_header_and_dim_keys() -> None:
     mp, mps = _baseline_mp_mps()
     snap = build_marker_pair_settings_snapshot(mp, mps, marker_pair_index=0)
     out = render_settings_table(snap, markup=True)
-    # Section header wrapped in [bold]\[Encoding][/] — bracket escaped.
+    # Section header wrapped in [bold]\[Encoding][/]: bracket escaped.
     assert "[bold]\\[Encoding][/]" in out
     # Each key is wrapped in [dim]<key>=[/] so the value pops.
     assert "[dim]codec=[/]vp9" in out
@@ -255,7 +255,7 @@ def test_render_diff_with_markup_dims_prior_value_only() -> None:
 
     Visual logic: the operator's primary anchor on each delta is the
     KEY (what changed), so it gets full brightness. The PRIOR value
-    is context — what we moved FROM — so it's dimmed. The CURRENT
+    is context (what we moved FROM) so it's dimmed. The CURRENT
     value is the active state, gets full brightness.
     """
     mp, mps = _baseline_mp_mps()
@@ -298,7 +298,7 @@ def test_emit_dispatches_full_then_diff_then_silent() -> None:
     assert len(diff_calls) == 0
     assert "[Identity]" in full_calls[0]
 
-    # Repeat with the same snapshot — should be silent.
+    # Repeat with the same snapshot: should be silent.
     emit_marker_pair_settings_log(
         log_full=full_calls.append,
         log_diff=diff_calls.append,
@@ -309,7 +309,7 @@ def test_emit_dispatches_full_then_diff_then_silent() -> None:
     assert len(full_calls) == 1
     assert len(diff_calls) == 0
 
-    # Change one field — diff path fires.
+    # Change one field: diff path fires.
     mps["crf"] = 26
     snap_b = build_marker_pair_settings_snapshot(mp, mps, marker_pair_index=0)
     emit_marker_pair_settings_log(
@@ -373,7 +373,7 @@ def test_global_snapshot_includes_detected_bitrate_and_rotate() -> None:
         target_max_bitrate_text="14000kbps",
     )
     # Identity / Output sections from the per-pair snapshot are NOT present
-    # at the global level — they're per-pair.
+    # at the global level: they're per-pair.
     assert "Identity" not in snap
     assert "Output" not in snap
     # Detected bitrate and rotate are global-only.
@@ -385,7 +385,7 @@ def test_global_snapshot_includes_detected_bitrate_and_rotate() -> None:
 def test_emit_markup_path_passes_null_highlighter_extra() -> None:
     """When ``markup=True`` (the production default), emit must route
     through ``log_settings_dump`` so the auto-highlighter is disabled
-    for this record only — without affecting other log lines."""
+    for this record only: without affecting other log lines."""
     from rich.highlighter import NullHighlighter
 
     mp, mps = _baseline_mp_mps()
@@ -436,15 +436,15 @@ def test_emit_separate_pair_indices_have_independent_memos() -> None:
 
 def test_emit_search_context_retitles_diff_and_skips_memo_anchor() -> None:
     """sample-guided encode trial / reference / baseline calls (``is_search_context=True``)
-    must (a) frame the diff as "sample-guided encode using overrides:" — NOT
-    "settings changed:" — and (b) leave the memo pinned to the user's
+    must (a) frame the diff as "sample-guided encode using overrides:", NOT
+    "settings changed:", and (b) leave the memo pinned to the user's
     original snapshot so the post-search final-encode diff fires against
     THAT, not the last trial's snapshot."""
     mp, mps = _baseline_mp_mps()
     full_calls: list[str] = []
     diff_calls: list[str] = []
 
-    # 1. Operator's original pair settings (crf=18) — non-search context
+    # 1. Operator's original pair settings (crf=18): non-search context
     # anchors memo. This mirrors the orchestrator's pre-emit call before
     # the sample-guided encode begins, which logs the operator's baseline so trial
     # encodes can diff against it.
@@ -460,7 +460,7 @@ def test_emit_search_context_retitles_diff_and_skips_memo_anchor() -> None:
     assert len(full_calls) == 1
     assert len(diff_calls) == 0
 
-    # 2. First sample-guided encode trial (crf=30) — search context. Diff fires
+    # 2. First sample-guided encode trial (crf=30): search context. Diff fires
     # against the original; title must NOT say "settings changed".
     mps["crf"] = 30
     snap_trial1 = build_marker_pair_settings_snapshot(mp, mps, marker_pair_index=0)
@@ -486,7 +486,7 @@ def test_emit_search_context_retitles_diff_and_skips_memo_anchor() -> None:
 
     # 3. Second sample-guided encode trial (crf=27). The memo is STILL pinned to
     # the original snap_orig (search-context calls don't bump the memo),
-    # so the diff is 18 -> 27 (against the original) — NOT 30 -> 27
+    # so the diff is 18 -> 27 (against the original): NOT 30 -> 27
     # (which would mean the memo had been bumped to trial1).
     mps["crf"] = 27
     snap_trial2 = build_marker_pair_settings_snapshot(mp, mps, marker_pair_index=0)
@@ -502,7 +502,7 @@ def test_emit_search_context_retitles_diff_and_skips_memo_anchor() -> None:
     assert "18 -> 27" in diff_calls[1]
     assert "30 -> 27" not in diff_calls[1]
 
-    # 4. Post-search final encode (search picked crf=25) — non-search
+    # 4. Post-search final encode (search picked crf=25): non-search
     # context. Diff fires against the original (18 -> 25), proving the
     # trials didn't pollute the memo.
     mps["crf"] = 25

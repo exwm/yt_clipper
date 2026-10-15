@@ -77,7 +77,7 @@ function persistState(): void {
 }
 
 /** Sets `data-pin` so the shell's CSS positions it at top or bottom of
- *  the viewport. The shell is always full-width-pinned now — no floating
+ *  the viewport. The shell is always full-width-pinned now: no floating
  *  / drag / transform pipeline. */
 function applyMode(): void {
   if (!shell || !state) return;
@@ -86,7 +86,7 @@ function applyMode(): void {
 }
 
 /** Picks popover direction based on whether the bar is pinned to the top
- *  half of the viewport — when at the top, the chord popovers flow
+ *  half of the viewport: when at the top, the chord popovers flow
  *  downward so they don't clip; otherwise upward. */
 function updatePopoverDirection(): void {
   if (!shell || !state) return;
@@ -103,7 +103,7 @@ function flipPin(): void {
   rerender();
 }
 
-/** Single resize handler — recomputes everything that depends on the
+/** Single resize handler: recomputes everything that depends on the
  *  viewport: scrollbar inset, current scroll offset, fade-overlay flags,
  *  and chord-popover flow direction. Wired up once in `mountHintsBar`. */
 function onWindowResize(): void {
@@ -204,8 +204,8 @@ const MODIFIER_LOOKUP: Record<string, ModifierKey> = {
   win: 'meta',
 };
 
-/** Canonical render order for chord modifiers — applied regardless of the
- *  source `displayKey`'s ordering so chip pills read consistently. Ctrl
+/** Canonical render order for chord modifiers: applied regardless of the
+ *  source `displayKey`'s ordering so chip pills look consistent. Ctrl
  *  comes first as the most common modifier; Meta last since it's rare
  *  enough to feel "extra". */
 const MODIFIER_RENDER_ORDER: Record<ModifierKey, number> = {
@@ -271,7 +271,7 @@ function renderKey(part: string): TemplateResult {
   if (arrow) return renderArrowGlyph(arrow);
   const mouse = resolveMouseToken(part);
   if (mouse) return renderMouseGlyph(mouse);
-  // `X/Y` notation inside a single chord part — "this chord works with
+  // `X/Y` notation inside a single chord part: "this chord works with
   // either key X or Y" (e.g., `Shift + Q/A` for start/end). Split on `/`
   // and render the alternatives separated by a slash glyph, just like the
   // existing arrow-key separator.
@@ -300,7 +300,7 @@ function renderChordContents(displayKey: string): TemplateResult | typeof nothin
     .filter((p) => p.length > 0);
   if (parts.length === 0) return nothing;
 
-  // A part wrapped in parens — e.g. `(Shift)` — is treated as an OPTIONAL
+  // A part wrapped in parens (e.g. `(Shift)`) is treated as an OPTIONAL
   // modifier. The chord renders it with literal parens around the glyph so
   // the user reads "this key is the same chord with or without (X)".
   // Useful for paired actions like undo / redo (Z / Shift+Z).
@@ -314,7 +314,7 @@ function renderChordContents(displayKey: string): TemplateResult | typeof nothin
     else keys.push(part);
   }
   // Normalize modifier order to `Ctrl + Alt + Shift + Meta` regardless of
-  // the source displayKey's order — chord pills should read consistently
+  // the source displayKey's order: chord pills should look consistent
   // across the bar even if shortcut definitions write modifiers in
   // different orders.
   modifiers.sort((a, b) => MODIFIER_RENDER_ORDER[a.kind] - MODIFIER_RENDER_ORDER[b.kind]);
@@ -397,11 +397,11 @@ function renderChip(def: ShortcutDefinition): TemplateResult {
 /** Walks the state-chip list and bundles each contiguous run of same-
  *  `hintGroup` chips into a visible wrapper carrying the group's label and a
  *  thin accent underline. The wrapper is `inline-flex` so the group floats
- *  as one atomic unit in the bar's flex layout — chips inside never wrap
+ *  as one atomic unit in the bar's flex layout: chips inside never wrap
  *  away from their label. Ungrouped chips render bare.
  *
  *  When a group's name matches the active mode badge (case-insensitive),
- *  the label text is suppressed — the badge already conveys "MARKERS" /
+ *  the label text is suppressed: the badge already conveys "MARKERS" /
  *  "CROP" / etc., so repeating it inside the lane wastes space. The
  *  wrapper + underline still render, preserving the visual grouping. */
 function renderGroupedChips(
@@ -439,18 +439,18 @@ function renderGroupedChips(
   return nodes;
 }
 
-/** Maps the current context to a short, all-caps badge label that surfaces
+/** Maps the current context to a short, all-caps badge label that shows
  *  "you're in this mode right now". Uniform styling across all modes so the
- *  badge consistently stands out from the hotkey chips — the label itself
+ *  badge consistently stands out from the hotkey chips: the label itself
  *  tells the user what state they're in.
  *
  *  Hover contexts over charts take precedence over the resting primary
  *  (default / marker-selected) because hovering a chart is the user's
- *  active focus — same reason chart-specific hover chips replace the
+ *  active focus: same reason chart-specific hover chips replace the
  *  state chips. Mid-action primaries (drawing/dragging/resizing/editors)
  *  always win because the hover layer is suppressed during them anyway. */
 function getModeBadgeLabel(primary: HintContext, hovers: HintContext[]): string {
-  // Mid-action primaries override hover — they suppress the hover layer
+  // Mid-action primaries override hover: they suppress the hover layer
   // anyway (see HOVER_SUPPRESSING_PRIMARIES), so badge follows suit.
   switch (primary) {
     case 'crop-drawing':
@@ -460,24 +460,24 @@ function getModeBadgeLabel(primary: HintContext, hovers: HintContext[]): string 
     case 'crop-resizing':
       return 'Resize';
   }
-  // Chart hovers — point variants take precedence over their canvas parent.
+  // Chart hovers: point variants take precedence over their canvas parent.
   if (hovers.includes('hover-speed-chart-point')) return 'Speed Pt';
   if (hovers.includes('hover-crop-chart-point')) return 'Crop Pt';
   if (hovers.includes('hover-speed-chart')) return 'Speed';
   if (hovers.includes('hover-crop-chart-zoompan')) return 'Zoom/Pan';
   if (hovers.includes('hover-crop-chart')) return 'Crop Chart';
-  // Video region — crop is a SUB-region inside video, so when both fire
+  // Video region: crop is a SUB-region inside video, so when both fire
   // (cursor over the crop overlay) prefer the more specific "Video: Crop"
   // label so the user can tell which sub-context they're in.
   if (hovers.includes('crop-input-focused')) return 'Crop Input';
   if (hovers.includes('hover-crop')) return 'Crop';
   if (hovers.includes('hover-video')) return 'Video';
-  // Timeline — the progress-bar hover surfaces marker operations on the
+  // Timeline: the progress-bar hover shows marker operations on the
   // time axis. Distinct from the resting `marker-selected` ("MARKERS")
-  // primary so the user isn't seeing the same badge for two genuinely
+  // primary so the user isn't seeing the same badge for two
   // different contexts.
   if (hovers.includes('hover-progress-bar')) return 'Timeline';
-  // Editor primaries surface only when no hover overrides them — they
+  // Editor primaries show only when no hover overrides them: they
   // don't suppress hover (the user can still interact with video / crop /
   // charts), so the more-specific hover label wins when applicable.
   if (primary === 'global-editor') return 'Global';
@@ -575,7 +575,7 @@ function onFlipClick(e: MouseEvent): void {
 function rerender(): void {
   if (!shell) return;
   render(renderBar(), shell);
-  // Chip set just changed — overflow state may have changed and the inner
+  // Chip set just changed: overflow state may have changed and the inner
   // wrapper was just re-templated, so re-apply the current scroll offset
   // (clamped to new bounds) and refresh fade indicators.
   applyScroll();
@@ -652,7 +652,7 @@ function attachWheelScroll(target: HTMLDivElement): void {
     (e: WheelEvent) => {
       if (getMaxScroll() <= 0) return; // nothing to scroll
       if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-        // Touchpad horizontal swipe — honor it directly.
+        // Touchpad horizontal swipe: honor it directly.
         e.preventDefault();
         setScrollX(scrollX + e.deltaX);
         return;
@@ -664,7 +664,7 @@ function attachWheelScroll(target: HTMLDivElement): void {
   );
 }
 
-/** Click-and-drag horizontal scrolling — same effect as wheel scrolling
+/** Click-and-drag horizontal scrolling: same effect as wheel scrolling
  *  but pointer-driven. Skipped when the pointerdown landed on an
  *  interactive element (button, expandable chip) so chip clicks /
  *  popovers still work. */
@@ -708,7 +708,7 @@ function attachDragToScroll(target: HTMLDivElement): void {
 }
 
 /** Sets `is-scrolled-x` / `can-scroll-right` classes on the shell so the
- *  left/right fade overlays appear only when there's actually content
+ *  left/right fade overlays appear only when there's content
  *  scrolled off-screen on that side. */
 function updateScrollIndicators(): void {
   if (!shell) return;
@@ -719,7 +719,7 @@ function updateScrollIndicators(): void {
 
 /** Push the shell's right edge inboard of the page's vertical scrollbar.
  *  The host is `position: fixed; inset: 0`, which in Chromium extends to
- *  the viewport edges *including* the scrollbar — so without this offset
+ *  the viewport edges *including* the scrollbar, so without this offset
  *  the rightmost slice of the bar (last chip, fade overlay) renders under
  *  the scrollbar and is visibly clipped. `window.innerWidth -
  *  documentElement.clientWidth` is the canonical scrollbar-width probe;
@@ -758,7 +758,7 @@ function ensureMounted(): void {
 
 /** Prevent the bar from stealing focus on click. Without this, clicking any
  *  button or focusable chip inside the bar blurs whatever element (e.g.,
- *  the crop input) was previously focused — and `crop-input-focused`
+ *  the crop input) was previously focused, and `crop-input-focused`
  *  hover-layer context drops out, so the user-visible chip set flips
  *  context just because they clicked on the bar. `mousedown.preventDefault()`
  *  is the canonical way to suppress the focus shift while still letting the
@@ -773,7 +773,7 @@ function attachFocusGuard(target: HTMLDivElement): void {
 /** Adjusts the `--popover-shift-x` CSS variable on an expandable chip's
  *  popover so it stays inside the scroller's horizontal bounds. The
  *  scroller has `overflow-x: clip`, so a centered popover near the left
- *  or right edge of the visible scrollport would be cut off — shifting
+ *  or right edge of the visible scrollport would be cut off: shifting
  *  it horizontally keeps the whole popover inside. The chip's tip pointer
  *  counter-shifts via the same variable (see hints-bar.css) so it still
  *  points at the chip. */
@@ -809,7 +809,7 @@ function attachPopoverPositioner(target: HTMLDivElement): void {
   target.addEventListener('focusin', handler);
 }
 
-/** Wired in `ensureMounted()`. When the cursor actually enters the bar we
+/** Wired in `ensureMounted()`. When the cursor enters the bar we
  *  freeze the hover region so the chip set locks while the user inspects
  *  it; leaving the bar unfreezes. The longer `HOVER_GRACE_MS` in
  *  `hover-region.ts` gives the user time to transit from a region toward
@@ -830,7 +830,7 @@ function applyVisibility(): void {
     rerender();
   } else {
     shell.classList.add('is-hidden');
-    // Bar's about to be invisible — if the cursor happens to be on it,
+    // Bar's about to be invisible: if the cursor happens to be on it,
     // its `mouseleave` won't necessarily fire before the next region
     // change, so release any active freeze proactively.
     unfreezeHover();

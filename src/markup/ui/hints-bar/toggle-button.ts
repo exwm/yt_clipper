@@ -3,7 +3,7 @@ import { renderUIIcon } from '../../features/icons/glyphs';
 
 // Sits next to the yt_clipper command-palette (scissors) button in
 // whichever video player rail the host platform uses. All sizing,
-// colour, and centering live in CSS — see the
+// colour, and centering live in CSS: see the
 // `#hintsBarToggleButton.yt-clipper-hints-bar-button` rules in
 // `ui/css/yt-clipper.css` (shared base) and
 // `platforms/css/yt_clipper.css` (overrides for the vjs control bar).

@@ -5,13 +5,13 @@ shows:
 
 - The latest ffmpeg status line (e.g. ``frame= 1234 fps= 30
   q=29.0 time=00:42 bitrate= 1200kbps speed=2.5x``) as a
-  transient line that overwrites in place — mirrors ffmpeg's
+  transient line that overwrites in place: mirrors ffmpeg's
   familiar native progress format.
 - A progress bar driven by ``-progress pipe:1`` machine-parseable
   output on stdout, with elapsed + ETA columns.
 
 ffmpeg uses ``\\r`` carriage returns for its progress line, not
-``\\n`` — line-buffered reading would never flush it. We read raw
+``\\n``: line-buffered reading would never flush it. We read raw
 byte chunks and split on either delimiter so each frame-update
 arrives promptly. Lines containing ``frame=`` + ``fps=`` are
 treated as progress (replace the transient text); everything else
@@ -49,18 +49,18 @@ from rich.progress import (
 )
 from rich.text import Text
 
-# ffmpeg's stderr stats line: ``frame=  123 fps= 30 q=29.0 ...`` —
+# ffmpeg's stderr stats line: ``frame=  123 fps= 30 q=29.0 ...``:
 # the ``frame=N`` value is what we extract to advance the bar.
 # Captures variable whitespace between ``frame=`` and the number.
 _STATS_FRAME_RE = re.compile(r"frame=\s*(\d+)")
 
 # Idle threshold below which the cancellation-time diagnostic is
-# skipped. A clean fast exit shouldn't print "encode idle for 0:00:01"
-# — that's noise, not signal. Above this, the diagnostic line tells
+# skipped. A clean fast exit shouldn't print "encode idle for 0:00:01":
+# that's noise, not signal. Above this, the diagnostic line tells
 # the operator how long ffmpeg had been frozen at cancellation time.
 _IDLE_MIN_SECONDS_FOR_DIAGNOSTIC = 2.0
 
-# Rolling-buffer size for ffmpeg's recent NON-stats stderr lines —
+# Rolling-buffer size for ffmpeg's recent NON-stats stderr lines:
 # decoder banners, ``[https @ ...] Opening 'url'`` setup, error
 # messages, etc. These accumulate above the current stats line in
 # the transient Live region so the operator can see what ffmpeg is
@@ -102,11 +102,11 @@ class EncodeProgressTracker:
         # decoder / encoder setup banner cluttering the log.
         #
         # When ``spinner_only`` is True, render only a spinner +
-        # label + the transient stats line — no progress bar, no
+        # label + the transient stats line: no progress bar, no
         # m-of-n / ETA. Right for trial encodes where ffmpeg's
         # setup time dominates the sub-second actual encode and a
         # bar that mostly sits at ``0/N`` is misleading; the
-        # spinner says "running" honestly and the operator sees
+        # spinner says "running" accurately and the operator sees
         # ffmpeg's live stats line for the moment it's encoding.
         self._silent_non_progress = silent_non_progress
         self._console = console
@@ -128,11 +128,11 @@ class EncodeProgressTracker:
         # ever seen from ffmpeg for this encode; ``_last_progress_ts``
         # is the monotonic clock time at the moment that highest
         # frame number arrived. Both feed the cancellation
-        # diagnostic, which reports "encode idle for X — last
+        # diagnostic, which reports "encode idle for X: last
         # frame=N" when the encode exits abnormally. Tracking the
         # count separately means ffmpeg repeating ``frame=0`` 100x/s
         # during a hung input read doesn't falsely reset the
-        # progress timestamp — only a strictly-greater frame value
+        # progress timestamp: only a strictly-greater frame value
         # counts as progress.
         self._last_frame_count: int = 0
         self._last_progress_ts: float = time.monotonic()
@@ -175,7 +175,7 @@ class EncodeProgressTracker:
     ) -> None:
         """Start reader threads on the given Popen pipes. Either may
         be ``None`` (e.g. when the subprocess didn't capture that
-        stream); the corresponding thread is simply not started."""
+        stream); the corresponding thread is not started."""
         if stdout is not None:
             self._stdout_thread = threading.Thread(
                 target=self._read_stdout,
@@ -195,13 +195,13 @@ class EncodeProgressTracker:
         """Route an incoming stderr line into the transient display.
 
         Stats lines (containing both ``frame=`` and ``fps=``) replace
-        the single in-place ``_latest_stats_line`` slot — at ffmpeg's
+        the single in-place ``_latest_stats_line`` slot: at ffmpeg's
         10x/s stats period they'd otherwise evict every banner line
         from the rolling buffer in well under a second. Every other
         line appends to ``_recent_non_stats_lines``, a bounded deque
         whose oldest entries are evicted as new ones arrive. The
         rendered text is the buffer followed by the latest stats
-        line, joined by newlines — gives the operator the last few
+        line, joined by newlines: gives the operator the last few
         banner / setup / error lines for context AND the current
         encoding stats below them.
         """
@@ -217,7 +217,7 @@ class EncodeProgressTracker:
     def _read_stdout(self, pipe: IO[bytes]) -> None:
         """Parse ``-progress pipe:1`` key=value lines from stdout.
         Each ``frame=N`` advances the Progress task; ``progress=end``
-        cleanly terminates the reader."""
+        terminates the reader."""
         try:
             for line_bytes in iter(pipe.readline, b""):
                 if self._stop.is_set():
@@ -235,7 +235,7 @@ class EncodeProgressTracker:
                 elif line == "progress=end":
                     break
         except (OSError, ValueError):
-            # Pipe closed mid-read or decoding error — reader thread
+            # Pipe closed mid-read or decoding error: reader thread
             # should never crash the encode itself.
             pass
 
@@ -243,7 +243,7 @@ class EncodeProgressTracker:
         """Read ffmpeg's stderr, split on ``\\r`` or ``\\n``. Every
         non-empty line is routed through :meth:`_push_stderr_line`
         so the transient region reflects ffmpeg's most recent
-        output — banners during setup, then the latest stats line
+        output: banners during setup, then the latest stats line
         once encoding starts. Non-stats lines also scroll above the
         bar in non-silent mode so scrollback keeps the full log."""
         buffer = bytearray()
@@ -273,14 +273,14 @@ class EncodeProgressTracker:
                         continue
                     # Always route through the buffer so the
                     # transient region reflects the most recent
-                    # ffmpeg output — banners and stats alike.
+                    # ffmpeg output: banners and stats alike.
                     self._push_stderr_line(line)
                     if "frame=" in line and "fps=" in line:
                         # ffmpeg's stats line is flushed eagerly per
                         # stats_period (vs ``-progress pipe:1`` which
                         # avio-buffers and only flushes at exit on
                         # short encodes). Extracting the frame number
-                        # from here is what actually keeps the bar
+                        # from here is what keeps the bar
                         # moving on trial-window-sized encodes.
                         match = _STATS_FRAME_RE.search(line)
                         if match is not None:
@@ -300,8 +300,8 @@ class EncodeProgressTracker:
                         # operator can see what ffmpeg is doing.
                         continue
                     elif self._live is not None:
-                        # ffmpeg output is plain text — never rich
-                        # markup — so disable markup parsing here.
+                        # ffmpeg output is plain text, never rich
+                        # markup, so disable markup parsing here.
                         # File paths routinely contain ``[...]``
                         # (e.g. youtube IDs ``[youtube@id]``) and
                         # would otherwise be parsed as a style tag
@@ -314,7 +314,7 @@ class EncodeProgressTracker:
 
     def __enter__(self) -> EncodeProgressTracker:
         # Re-anchor the idle clock to "now" at activation. Construction
-        # may happen well before the ffmpeg subprocess actually starts
+        # may happen well before the ffmpeg subprocess starts
         # (caller builds the tracker, then opens the ``with`` block,
         # then spawns Popen). Without this reset, the idle column
         # would already show the construction-to-activation delay as
@@ -337,7 +337,7 @@ class EncodeProgressTracker:
         for thread in (self._stdout_thread, self._stderr_thread):
             if thread is not None:
                 thread.join(timeout=2.0)
-        # Persist only the last stats line to scrollback — the
+        # Persist only the last stats line to scrollback: the
         # rolling banner buffer above it would re-emit lines that
         # already scrolled past in non-silent mode and would
         # introduce 3-5 new lines per trial in silent mode. The
@@ -348,7 +348,7 @@ class EncodeProgressTracker:
         # silent on frame-progress for long enough, leave a
         # one-line summary in scrollback before the persisted final
         # stats. Tells the operator how long ffmpeg had been frozen
-        # at cancellation — the bare ``frame= ...`` stats line
+        # at cancellation: the bare ``frame= ...`` stats line
         # below it can't convey that on its own (the text looks
         # identical 1s after emission and 100s after).
         idle_diagnostic: str | None = None
@@ -357,7 +357,7 @@ class EncodeProgressTracker:
             if idle_seconds >= _IDLE_MIN_SECONDS_FOR_DIAGNOSTIC:
                 idle_diagnostic = (
                     f"encode idle for {_format_idle_duration(idle_seconds)}"
-                    f" — last frame={self._last_frame_count}"
+                    f", last frame={self._last_frame_count}"
                 )
         if self._live is not None:
             self._live.stop()
@@ -365,7 +365,7 @@ class EncodeProgressTracker:
             self._console.print(idle_diagnostic, style="yellow", markup=False)
         if final_stats:
             # ``markup=False`` because ffmpeg's stats line is plain
-            # text — any literal ``[...]`` (e.g. a file path with a
+            # text: any literal ``[...]`` (e.g. a file path with a
             # youtube id) would otherwise be parsed as rich markup
             # and mangle the line.
             self._console.print(final_stats, style="dim", markup=False)
@@ -395,7 +395,7 @@ def track_encode_progress(
             tracker.attach(proc.stdout, proc.stderr)
             returncode = proc.wait()
 
-    ``total_frames`` of 0 (unknown duration) is acceptable —
+    ``total_frames`` of 0 (unknown duration) is acceptable:
     rich renders a pulsing bar instead of a percentage. The reader
     threads still update the m-of-n column as frames are processed.
 
@@ -437,7 +437,7 @@ def run_ffmpeg_with_progress(
     The caller is responsible for shell-splitting; we insert the
     ``-progress pipe:1 -stats_period 0.1`` flags right after the
     ffmpeg binary path so they take effect as global options (ffmpeg
-    requires global flags BEFORE inputs/outputs — appending them
+    requires global flags BEFORE inputs/outputs: appending them
     after the output silently makes ffmpeg treat them as
     output-specific options on a phantom next output, and the
     progress stream never opens)."""
@@ -479,7 +479,7 @@ def run_ffmpeg_with_progress(
 # :func:`runffmpegCommand`) so trial ffmpeg invocations route their
 # stderr through the shared search-level Live display instead of
 # spawning their own per-trial Live. ContextVar (not module global) so
-# nested or concurrent searches stay isolated cleanly.
+# nested or concurrent searches stay isolated.
 _active_search_progress: ContextVar[SearchProgressTracker | None] = ContextVar(
     "active_search_progress",
     default=None,
@@ -515,8 +515,8 @@ def active_search_progress(
 # Per-search registry of ffmpeg filter-graph strings the verbose
 # command-logger has already emitted. During a sample-guided encode a single
 # trial's ``-vf "..."`` expression can run multi-thousand chars (the
-# crop / sendcmd / scale chain — especially for dynamic crops with
-# many keyframes) and is essentially identical across 20+ trials +
+# crop / sendcmd / scale chain: especially for dynamic crops with
+# many keyframes) and is nearly identical across 20+ trials +
 # reference encodes. Logging the full string every time buries every
 # other VERBOSE line.
 #
@@ -537,11 +537,11 @@ _active_filter_graph_registry: ContextVar[dict[str, int] | None] = ContextVar(
 
 # ffmpeg ``-vf "EXPR"`` flag in a shell-quoted command. The
 # clipper builds commands with double-quoted filter expressions
-# (see ``clip_maker.py``) — match ``-vf "..."`` greedily but stop
+# (see ``clip_maker.py``): match ``-vf "..."`` greedily but stop
 # at the closing double quote.
 _FILTER_GRAPH_FLAG_RE = re.compile(r'(-vf\s+)"([^"]+)"')
 
-# Filter graphs shorter than this aren't worth replacing — the
+# Filter graphs shorter than this aren't worth replacing: the
 # placeholder ``[filter-graph #N]`` is itself ~18 chars, and the
 # "filter-graph #N: <expr>" emit line costs a log row. Tuned for
 # the dynamic-crop case (typical short ``-vf`` is the loop filter,
@@ -583,7 +583,7 @@ def substitute_filter_graphs(cmd: str) -> tuple[str, list[tuple[int, str]]]:
     The placeholder uses ANGLE brackets (``<filter-graph #N>``) not
     square brackets. Rich's markup parser treats ``[X]`` as a style
     span open tag and silently strips unknown tags from the
-    rendered output — square-bracket placeholders would render as
+    rendered output: square-bracket placeholders would render as
     ``-vf  -crf 23 ...`` (placeholder eaten). Angle brackets have
     no special meaning in rich markup and round-trip intact.
 
@@ -626,7 +626,7 @@ def track_sample_guided_encode_progress(
             ...run search...
 
     Equivalent to entering the tracker AND
-    :func:`active_search_progress` in tandem — the typical call site
+    :func:`active_search_progress` in tandem, the typical call site
     needs both, so collapsing them here keeps orchestrator wiring
     one ``with`` statement instead of two.
 
@@ -660,12 +660,12 @@ class SearchProgressTracker:
     - A status line for the latest ffmpeg stats from the trial
       currently encoding (``frame= N fps= ... time= ... bitrate=
       ... speed= ...``).
-    - A spinner + ``sample-guided encode — trial N`` counter + elapsed time.
+    - A spinner + ``sample-guided encode: trial N`` counter + elapsed time.
 
     No progress bar: the total trial count for a search isn't known
     up front (bisection may short-circuit; two-phase + curve-fit add
     variable numbers of validation / refinement probes). A bar with
-    no honest endpoint is more misleading than helpful — the spinner
+    no real endpoint misleads more than it helps: the spinner
     + monotonically-increasing counter conveys "still running, N
     trials in" without faking a denominator.
 
@@ -673,7 +673,7 @@ class SearchProgressTracker:
     :meth:`run_trial_ffmpeg` (called by :func:`runffmpegCommand` when
     a search tracker is active in the current context). Non-progress
     stderr lines (decoder / encoder setup banners) are dropped
-    silently — they'd repeat per trial and flood the log.
+    silently: they'd repeat per trial and flood the log.
 
     The final ffmpeg stats line is captured on exit and re-printed
     after the transient Live region clears, leaving a one-line
@@ -690,7 +690,7 @@ class SearchProgressTracker:
         if console is None:
             # Share the logger's terminal console so rich's
             # live-region anti-clobber logic fires when log lines
-            # arrive during the search — otherwise each
+            # arrive during the search, otherwise each
             # ``logger.info`` per trial smears across the spinner +
             # counter line. Fall back to a stderr Console only when
             # the logger hasn't been initialised (no-rich-logs path
@@ -700,7 +700,7 @@ class SearchProgressTracker:
             console = get_terminal_log_console() or Console(stderr=True)
         self._console = console
         self._status_text = Text("", style="dim")
-        # Same idle-tracking state as ``EncodeProgressTracker`` —
+        # Same idle-tracking state as ``EncodeProgressTracker``:
         # see its ``__init__`` for the design rationale. The search
         # tracker resets these per-trial (in ``_run_subprocess``) so
         # a slow prior trial doesn't bleed staleness into the next
@@ -708,7 +708,7 @@ class SearchProgressTracker:
         self._last_frame_count: int = 0
         self._last_progress_ts: float = time.monotonic()
         # Same rolling-buffer + latest-stats setup as
-        # ``EncodeProgressTracker`` — see its ``__init__`` for the
+        # ``EncodeProgressTracker``: see its ``__init__`` for the
         # rationale. Per-trial reset happens in ``_run_subprocess``
         # so banners from the prior trial don't leak into the next.
         self._recent_non_stats_lines: collections.deque[str] = collections.deque(
@@ -724,7 +724,7 @@ class SearchProgressTracker:
             auto_refresh=False,
         )
         self._task_id = self._progress.add_task(
-            f"{label} — starting",
+            f"{label}: starting",
             total=None,
         )
         self._trials_started = 0
@@ -734,8 +734,8 @@ class SearchProgressTracker:
         """Advance the trial counter and update the spinner description.
 
         Called at the start of every trial encode (from
-        :meth:`run_trial_ffmpeg`). ``label`` is a context suffix —
-        typically ``"(crf=27 w1)"`` — appended after ``trial N`` so
+        :meth:`run_trial_ffmpeg`). ``label`` is a context suffix,
+        typically ``"(crf=27 w1)"``, appended after ``trial N`` so
         the operator can see *which* CRF is being probed without
         watching the post-trial summary log lines. Empty ``label``
         falls back to bare ``"trial N"``.
@@ -747,7 +747,7 @@ class SearchProgressTracker:
         fresh) so the cache-hit story stays visible there.
         """
         self._trials_started += 1
-        desc = f"{self._label} — trial {self._trials_started}"
+        desc = f"{self._label}: trial {self._trials_started}"
         if label:
             desc = f"{desc} {label}"
         self._progress.update(self._task_id, description=desc)
@@ -765,12 +765,12 @@ class SearchProgressTracker:
         """Run a non-trial ffmpeg encode (reference / baseline) whose
         stderr feeds the shared Live display.
 
-        Does NOT advance the trial counter — the displayed phase
+        Does NOT advance the trial counter: the displayed phase
         label takes the description verbatim
-        (e.g. ``"sample-guided encode — reference encode (crf=18 w1 3.2-4.0s)"``)
+        (e.g. ``"sample-guided encode: reference encode (crf=18 w1 3.2-4.0s)"``)
         so the operator sees what's running with no implication
         about trial numbering. Caller passes a full label, including
-        the ``"sample-guided encode —"`` prefix, to match the trial-row format.
+        the ``"sample-guided encode: "`` prefix, to match the trial-row format.
         """
         if label:
             self._progress.update(self._task_id, description=label)
@@ -780,7 +780,7 @@ class SearchProgressTracker:
         """Route an incoming stderr line into the transient display.
 
         Same rolling-buffer + latest-stats-slot scheme as
-        :meth:`EncodeProgressTracker._push_stderr_line` — see that
+        :meth:`EncodeProgressTracker._push_stderr_line`, see that
         method's docstring for the rationale. The buffer is reset
         per-trial in :meth:`_run_subprocess` so banner lines from a
         prior trial don't bleed into the next trial's display.
@@ -801,7 +801,7 @@ class SearchProgressTracker:
 
         Same ``-progress pipe:1 -stats_period 0.1`` injection as
         :func:`run_ffmpeg_with_progress` so the stats line flushes
-        10x/s — the bar source on short trial / reference encodes
+        10x/s: the bar source on short trial / reference encodes
         where ``-progress pipe:1`` alone avio-buffers until exit.
 
         Non-progress stderr (banner / decoder noise) is dropped: the
@@ -810,7 +810,7 @@ class SearchProgressTracker:
         banners on every probe would bury both.
         """
         # Reset per-trial state. Each trial encode has its own
-        # frame counter and its own setup-banner stream — the
+        # frame counter and its own setup-banner stream: the
         # prior trial's final frame count, timestamp, and banner
         # buffer would falsely imply progress (or staleness) in
         # the gap between trials. Anchor "no progress yet" and
@@ -840,7 +840,7 @@ class SearchProgressTracker:
 
         def read_stderr(pipe: IO[bytes]) -> None:
             # Same \r/\n splitting strategy as
-            # EncodeProgressTracker._read_stderr — ffmpeg uses \r for
+            # EncodeProgressTracker._read_stderr: ffmpeg uses \r for
             # in-place stats updates, line-buffered reads would never
             # see them.
             buffer = bytearray()
@@ -873,7 +873,7 @@ class SearchProgressTracker:
                         # never scrolls banners above the bar (20+
                         # repeats across trials would flood the
                         # log), but the buffer above the spinner
-                        # still surfaces them live so the operator
+                        # still shows them live so the operator
                         # can see what ffmpeg is doing during the
                         # setup window of a stuck trial.
                         self._push_stderr_line(line)
@@ -905,7 +905,7 @@ class SearchProgressTracker:
         # drained so ffmpeg doesn't block on a full kernel buffer;
         # we don't read from it because the stderr stats line is the
         # bar's source (avio buffering makes the pipe:1 stream
-        # unreliable on short trial encodes anyway — see
+        # unreliable on short trial encodes anyway: see
         # run_ffmpeg_with_progress' design notes).
 
         def drain_stdout(pipe: IO[bytes]) -> None:
@@ -936,7 +936,7 @@ class SearchProgressTracker:
         # Persist this encode's final ffmpeg stats line to scrollback
         # before the next encode starts overwriting the buffer.
         # Without this, only the search-level ``__exit__`` would
-        # leave a footprint — losing the per-encode visibility the
+        # leave a footprint: losing the per-encode visibility the
         # operator had under the old per-encode tracker (each encode
         # had its own ``EncodeProgressTracker.__exit__`` that
         # printed the final line). The shared console means rich
@@ -944,14 +944,14 @@ class SearchProgressTracker:
         # bar below.
         #
         # Persist ONLY the stats line, not the rolling banner
-        # buffer above it — that buffer's banners would re-emit
+        # buffer above it: that buffer's banners would re-emit
         # every trial's setup chatter (4-line clusters every probe)
         # and overwhelm the scrollback. Banners stay live-only.
         # Reset the buffers so the next trial starts clean.
         final_stats = self._latest_stats_line
         if final_stats:
             # ``markup=False`` because ffmpeg's stats line is plain
-            # text — any literal ``[...]`` (e.g. a file path with a
+            # text: any literal ``[...]`` (e.g. a file path with a
             # youtube id) would otherwise be parsed as rich markup
             # and mangle the line.
             self._console.print(final_stats, style="dim", markup=False)
@@ -976,7 +976,7 @@ class SearchProgressTracker:
         return self
 
     def __exit__(self, exc_type: type[BaseException] | None, *_exc_info: object) -> None:
-        # Persist only the stats line — banners in the rolling
+        # Persist only the stats line: banners in the rolling
         # buffer would pollute scrollback with the in-progress
         # trial's setup chatter on every search exit. See
         # EncodeProgressTracker.__exit__ for the matching
@@ -991,7 +991,7 @@ class SearchProgressTracker:
             if idle_seconds >= _IDLE_MIN_SECONDS_FOR_DIAGNOSTIC:
                 idle_diagnostic = (
                     f"encode idle for {_format_idle_duration(idle_seconds)}"
-                    f" — last frame={self._last_frame_count}"
+                    f", last frame={self._last_frame_count}"
                 )
         if self._live is not None:
             self._live.stop()
@@ -999,7 +999,7 @@ class SearchProgressTracker:
             self._console.print(idle_diagnostic, style="yellow", markup=False)
         if final_stats:
             # ``markup=False`` because ffmpeg's stats line is plain
-            # text — any literal ``[...]`` (e.g. a file path with a
+            # text: any literal ``[...]`` (e.g. a file path with a
             # youtube id) would otherwise be parsed as rich markup
             # and mangle the line.
             self._console.print(final_stats, style="dim", markup=False)

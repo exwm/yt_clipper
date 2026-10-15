@@ -124,7 +124,7 @@ def test_compute_run_fingerprints_search_fp_flips_on_target_change() -> None:
 
 def test_compute_run_fingerprints_encoder_config_contains_readable_fields() -> None:
     """The ``encoder_config`` (signature.extras) feeds the auto-delta
-    render's diff label — must contain the human-readable knobs."""
+    render's diff label: must contain the human-readable knobs."""
     fps = _compute_run_fingerprints("vp9", _settings(), _snapshot(), _target())
     config = fps.encoder_config
     assert "codec" in config
@@ -138,7 +138,7 @@ def test_compute_run_fingerprints_stable_across_twoPass_toggle() -> None:
     """``twoPass`` is force-disabled for trial / reference / baseline
     encodes (see ``_TRIAL_PIPELINE_OVERRIDES``), so trial bytes don't
     depend on the user's two-pass setting. The fingerprint must be
-    stable across the toggle — otherwise users lose cache hits when
+    stable across the toggle, otherwise users lose cache hits when
     flipping two-pass between runs, even though the picked CRF would
     be identical."""
     a = _compute_run_fingerprints("vp9", _settings(twoPass=False), _snapshot(), _target())
@@ -149,7 +149,7 @@ def test_compute_run_fingerprints_stable_across_twoPass_toggle() -> None:
 
 def test_compute_run_fingerprints_stable_across_videoStabilization_toggle() -> None:
     """``videoStabilization`` is force-disabled for trials (same
-    rationale as ``twoPass`` — vidstabdetect + vidstabtransform are
+    rationale as ``twoPass``: vidstabdetect + vidstabtransform are
     skipped during search). The fingerprint must be stable across the
     toggle so toggling stabilization doesn't bust the cache."""
     disabled = {"enabled": False, "desc": "Disabled"}

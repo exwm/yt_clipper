@@ -8,7 +8,7 @@ All notable changes to this project will be documented in this file. See [commit
 
 #### AV1 Video Codec
 
-* yt_clipper supports `av1` (`--video-codec av1`) for AV1 encoding via libsvtav1, output in an mp4 container. A higher-efficiency alternative to vp9 at the cost of slower encodes at lower preset values.
+* yt_clipper supports `av1` (`--video-codec av1`) for AV1 encoding via libsvtav1, output in an mp4 container. It compresses better than vp9, but encodes slower at lower preset values.
 * AV1 support is early. Its default encoding settings are not tuned yet, so expect to adjust them (e.g. the CRF and preset) for your clips.
 * The ffmpeg bundled with the macOS release does not include libsvtav1 yet.
 * Contributed by @GoyangiPics in [#67](https://github.com/exwm/yt_clipper/pull/67).
@@ -153,7 +153,7 @@ The line between two points shows how the crop moves in that section.
   * Per-pair, per-encoder-fingerprint run-cache replays the picked CRF on subsequent invocations with the same encoder settings.
   * Companion flags: `--target-vmaf-mean`, `--target-vmaf-low`, `--target-vmaf-low-percentile`, `--sample-guided-encode-alg`.
 * **clipper:** vp9 aq-mode and tile-rows now use libvpx defaults ([9bb110e](https://github.com/exwm/yt_clipper/commit/9bb110e37e01ec7a962dbfd8bd17c67dfc8e0cc9))
-  * Discovered during VMAF measurements for sample-guided encoding: yt_clipper was using aq-mode 4 (the EQUATOR360 preset, intended for 360° video) and tile-rows 2, both wrong for standard clips. Now uses libvpx defaults (aq-mode 0, tile-rows 0). Expect default-mode encodes ~12-15% bigger for the same content at the same CRF; baseline CRFs were not adjusted to compensate.
+  * Discovered during VMAF measurements for sample-guided encoding: yt_clipper was using aq-mode 4 (the EQUATOR360 preset, intended for 360° video) and tile-rows 2, both wrong for standard clips. Now uses libvpx defaults (aq-mode 0, tile-rows 0). Expect default-mode encodes about 12-15% bigger for the same content at the same CRF. Baseline CRFs were not adjusted to compensate.
 * **clipper:** structured logging UX overhaul ([130a7d2](https://github.com/exwm/yt_clipper/commit/130a7d2a6dba5a898f36f6ebf2c14954f163dad2))
   * Section rules and sub-phase banners, per-pair contextvar tag on every line, compact `HH:MM:SS` timestamps with a run-start ISO anchor, per-stage timing summary at run end, and `rich.Table` for the sample-guided encode aggregate + auto-delta blocks. Multi-subsystem interleaving stays attributable via subsystem chips.
 * **clipper:** live progress display for ffmpeg encodes ([fb16e6f](https://github.com/exwm/yt_clipper/commit/fb16e6f597483829e63d08f01fe54f3128965ae1))
@@ -161,11 +161,11 @@ The line between two points shows how the crop moves in that section.
 * **clipper:** animated clip previews via `--preview-format` ([d6971e9](https://github.com/exwm/yt_clipper/commit/d6971e987f259522dd14f1900c572e0d36939a88))
   * Downscaled AVIF or WebP sibling file next to each output webm (and any merged outputs). Tuning via `--preview-max-dim`, `--preview-quality`, `--preview-preset`.
 * **markup:** contextual hints bar with chord glyphs and popovers ([accd70f](https://github.com/exwm/yt_clipper/commit/accd70f91ae155cb102e5be89b24a6f4b5902e84))
-  * **Alt+F** toggles. Shortcut chips update with cursor location and held modifiers; expandable chips open chord-family popovers on hover.
+  * **Alt+F** toggles it. Shortcut chips change with the cursor location and the held modifier keys. Hover a chip that ends in `+` to see its related shortcuts.
 * **markup:** rapid crop-keyframe workflow during crop manipulation ([5d43d94](https://github.com/exwm/yt_clipper/commit/5d43d94ad77acc774528e8b9c936e4a09cd8e224))
-  * During an active **Ctrl+Drag** crop manipulation with the crop chart visible, press **Alt+A** (or **A**) to commit a keyframe at the current position and keep dragging — useful for one-handed motion tracking. Mouse wheel during pan-drag zooms the crop center-out for simultaneous reframe + scale.
+  * While dragging or resizing the crop (**Ctrl+Drag**) with the crop chart visible, press **Alt+A** (or **A**) to add a crop point at the current position and keep dragging. Use it to track a moving subject with one hand. Scroll the mouse wheel during a pan-drag to zoom the crop around its center.
 * **markup:** markers JSON load preview modal + share-url binary compression improvements ([45c4e83](https://github.com/exwm/yt_clipper/commit/45c4e836336f6f2057eb1227c0e56bccbd89aab3))
-  * Review modal opens before applying loaded data — flags HTML-like content and lets you cancel untrusted JSON.
+  * A review modal opens before loaded data is applied. It flags HTML-like content, and you can cancel the load.
 * **markup:** Shift+S to save shareable link with markers data ([5b8bd68](https://github.com/exwm/yt_clipper/commit/5b8bd6830371f7baca5ca737b35c2ffa03873794))
   * Behind a feature flag until further testing.
 
@@ -173,7 +173,7 @@ The line between two points shows how the crop moves in that section.
 ### Bug Fixes
 
 * **markup:** adopt lit-html for safer templated HTML rendering ([c5055af](https://github.com/exwm/yt_clipper/commit/c5055af6bcbbffc8b469b90ffe333b7bbf48606b))
-  * All dynamic HTML now uses escape-by-default templates; complements the new settings-editor XSS defense and the markers-load review modal.
+  * All dynamic HTML now uses escape-by-default templates. This complements the new settings editor XSS defense and the markers load review modal.
 * **markup:** additional XSS defense for settings editors ([1fc6fca](https://github.com/exwm/yt_clipper/commit/1fc6fcad9591994b41b028e1138574040a46829b))
 * **markup:** smooth Alt+Drag marker numbering ([176a1a6](https://github.com/exwm/yt_clipper/commit/176a1a6337bdbfffd51cbc3ce0a4ea9ad3e9434e))
   * No more rubber-banding on fast drags or freezing on diagonal motion.

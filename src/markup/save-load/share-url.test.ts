@@ -2,7 +2,7 @@
 
 // Stub the modules `share-url.ts` reaches into so the entry-point can run
 // in jsdom without the full markup runtime. We only test the pre-decompress
-// length cap here — no real markers data flows through.
+// length cap here: no real markers data flows through.
 
 jest.mock('../appState', () => ({
   appState: { markerPairs: [] },
@@ -35,7 +35,7 @@ describe('share-url: pre-decompression base64 length cap', () => {
     flashMessageMock.mockClear();
     window.history.replaceState(null, '', '/');
     // The oversize-rejection and inflate-failure paths log via console.error by design. Silence it so
-    // the expected-error output doesn't read as a test failure in the run log.
+    // the expected-error output doesn't look like a test failure in the run log.
     jest.spyOn(console, 'error').mockImplementation(() => {});
   });
   afterEach(() => {
@@ -43,7 +43,7 @@ describe('share-url: pre-decompression base64 length cap', () => {
   });
 
   test('the cap constant is set to 1 MB', () => {
-    // Sanity check the value matches what the docs claim — if this is
+    // Sanity check the value matches what the docs claim: if this is
     // ever raised, the security review document needs to be re-checked
     // for the new DoS implications.
     expect(__testing.MAX_BASE64_FRAGMENT_LEN).toBe(1024 * 1024);
@@ -75,7 +75,7 @@ describe('share-url: pre-decompression base64 length cap', () => {
   });
 
   test('accepts a fragment just below the cap (no oversize trigger)', async () => {
-    // Below the length cap — the cap check passes, then base64 decode is
+    // Below the length cap: the cap check passes, then base64 decode is
     // attempted. Since the bytes aren't a valid deflate stream the path
     // fails further downstream, but NOT via the oversize message.
     const justBelow = 'A'.repeat(__testing.MAX_BASE64_FRAGMENT_LEN - 4);

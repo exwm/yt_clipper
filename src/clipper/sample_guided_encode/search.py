@@ -2,14 +2,14 @@
 
 Three layers, in order of how they're built up:
 
-1. **Sampling** — :func:`select_sample_windows` decides where in the
+1. **Sampling**: :func:`select_sample_windows` decides where in the
    clip to encode trial windows. Frame-count sized, with adaptive
    floor/ceiling so percentile measurements stay statistically
    meaningful regardless of clip length.
-2. **Single-phase search** — :func:`legacy_find_optimal_crf` runs
+2. **Single-phase search**: :func:`legacy_find_optimal_crf` runs
    interpolated bisection over a CRF range, calling an injected
    ``evaluate_trial`` callback. Pure algorithm: no encoder, no I/O.
-3. **Two-phase search** — :func:`legacy_find_optimal_crf_two_phase` is the
+3. **Two-phase search**: :func:`legacy_find_optimal_crf_two_phase` is the
    real entry point. Coordinates Phase 1 (single-window discovery),
    Phase 2 (full-windows validation), and Phase 3 (refinement via
    step-down + bisection) with calibration-driven shortcuts. See its
@@ -87,7 +87,7 @@ def select_sample_windows(
     - 1-minute clip (1800 frames): 10% = 180 frames -> 180 frames
       (~60 per window, ~2 s windows). ~10 % of final.
     - 5-second clip (150 frames): 10% = 15 -> floored at 100 frames
-      (~33 per window, ~1.1 s windows). ~67 % of final — sampling
+      (~33 per window, ~1.1 s windows). ~67 % of final: sampling
       barely helps on short clips, which is expected.
     - 10-minute clip (18000 frames): 10% = 1800 -> 1800 frames (~600
       per window, ~20 s windows). ~10 % of final.
@@ -102,7 +102,7 @@ def select_sample_windows(
     legacy code path before percent-sizing existed).
 
     Windows are evenly distributed over the middle 80 % of the clip range
-    (``edge_skip_fraction`` 10 % off each end) — the first and last 10 %
+    (``edge_skip_fraction`` 10 % off each end): the first and last 10 %
     often contain less-representative content (lead-in fades, end-card
     frames). Sampling axis is wall-clock time in source-video coordinates,
     so the same windows align across reference and trial encodes.
@@ -110,7 +110,7 @@ def select_sample_windows(
     If the clip is too short to fit ``n_windows * window_seconds`` in the
     sampleable region, OR ``source_fps`` is non-positive (unknown
     framerate), returns a single ``SampleWindow`` covering the full clip
-    range. Sampling degrades to a full-clip trial gracefully.
+    range. Sampling falls back to a full-clip trial.
     """
     clip_duration = clip_end - clip_start
     if clip_duration <= 0 or source_fps <= 0 or n_windows <= 0:
@@ -119,7 +119,7 @@ def select_sample_windows(
     if target_combined_frames is None:
         # Percent-of-final with floor and optional ceiling. When the final
         # frame count is unknown (caller didn't pass it), fall back to the
-        # legacy fixed-count default — matches the behavior before
+        # legacy fixed-count default: matches the behavior before
         # percent-sizing was added.
         if final_frames_estimate > 0:
             target_combined_frames = round(
@@ -145,7 +145,7 @@ def select_sample_windows(
     # frames across windows must err *upward* so the combined frame count
     # ``frames_per_window * n_windows`` stays at or above
     # ``target_combined_frames``. Floor division silently drops 1-2
-    # frames per window — enough to push combined below the percentile
+    # frames per window: enough to push combined below the percentile
     # floor (e.g. target=50, n_windows=3, floor: 50//3=16, combined=48 <
     # 50 -> percentile silently dropped, verdicts go mean-only). With
     # ceil: 17 per window, combined=51 >= 50, percentile enforced.
@@ -158,7 +158,7 @@ def select_sample_windows(
 
     needed_duration = n_windows * window_seconds
     if needed_duration > sampleable_duration:
-        # Not enough room — fall back to the full clip range as one window.
+        # Not enough room: fall back to the full clip range as one window.
         return [SampleWindow(start=clip_start, end=clip_end)]
 
     # Evenly distribute the windows: place each window's CENTER at the
@@ -185,7 +185,7 @@ def select_sample_windows(
 # margin, the bisection accepts the trial as optimal and stops probing
 # upward. Tightens convergence on shallow slopes (Phase 1's flat
 # single-window mean-only curves) where every marginal passing CRF sits
-# 0.1-0.5 points above target — without this guard the bisection would
+# 0.1-0.5 points above target: without this guard the bisection would
 # walk lo + 1 several times, each adding a trial to confirm what
 # interpolation already said.
 _INTERP_CONVERGENCE_LO_DISTANCE: float = 1.0
@@ -203,13 +203,13 @@ def _predict_next_bisection_crf(
     When the trial history holds both a passing and a failing trial that
     bracket the boundary (``best_pass.crf < best_fail.crf``), linearly
     interpolate where the pass-distance crosses zero and probe there.
-    The interpolation uses :func:`_distance_to_pass_boundary` — the
-    limiting-axis distance — so the prediction tracks whichever target
+    The interpolation uses :func:`_distance_to_pass_boundary`, the
+    limiting-axis distance: so the prediction tracks whichever target
     (mean or low percentile) is closer to its threshold.
 
     Falls back to plain midpoint when no usable pass/fail bracket exists
     (early in the search) or when the data isn't a clean boundary
-    bracket (both trials passing or both failing — shouldn't happen with
+    bracket (both trials passing or both failing: shouldn't happen with
     rightmost-passing bisection but guarded anyway). Always returns a
     value strictly between ``lo`` and ``hi`` so the bisection makes
     progress.
@@ -291,14 +291,14 @@ def legacy_find_optimal_crf(
       bisect between last passing and first failing) or we hit
       ``crf_absolute_max`` / run out of iterations / lose headroom.
     - **Easy clip without headroom**: ``crf_max`` passes but barely.
-      Returns ``crf_max`` immediately — bisection upward would just hit
+      Returns ``crf_max`` immediately: bisection upward would just hit
       the actual edge and the gain isn't worth more trials.
     - **Hard clip**: ``crf_max`` fails. Plain bisection over
       ``[crf_min, crf_max]`` toward rightmost-passing.
-    - **Truly hard clip**: no CRF passes. ``optimal_crf`` is ``None`` and
+    - **Hard clip**: no CRF passes. ``optimal_crf`` is ``None`` and
       the orchestrator falls back to ``crf_min`` with a warning.
     - **Iteration cap**: respects ``max_iterations`` even if the range
-      hasn't fully closed — pragmatic stop, returns the best passing CRF
+      hasn't fully closed: pragmatic stop, returns the best passing CRF
       found so far.
     """
     trials: list[SampleGuidedEncodeTrial] = []
@@ -326,13 +326,13 @@ def legacy_find_optimal_crf(
             best_summary = summary
         # Fire the per-trial callback inside the search so callers can log
         # progress immediately rather than waiting until the whole search
-        # finishes — important for visibility during 30-90s-per-trial runs.
+        # finishes: important for visibility during 30-90s-per-trial runs.
         if on_trial_complete is not None:
             on_trial_complete(trial)
         return passed, summary
 
     def _build_result() -> SampleGuidedEncodeResult:
-        # Combined frames the search actually encoded across every trial,
+        # Combined frames the search encoded across every trial,
         # so callers can compare to ``final_frames_estimate`` and decide
         # whether sampling is paying off (small ratio = win, large ratio =
         # consider full-clip trials or fewer sample windows).
@@ -352,7 +352,7 @@ def legacy_find_optimal_crf(
 
     def _has_expansion_headroom(summary: VmafSummary) -> bool:
         """Whether the trial passed by enough margin to justify probing
-        higher CRFs. Conservative — both checks must hold so we don't
+        higher CRFs. Conservative: both checks must hold so we don't
         expand into the cliff edge on barely-passing trials."""
         mean_headroom = summary.mean - target.target_vmaf_mean
         low_value = get_low_percentile_value(
@@ -367,7 +367,7 @@ def legacy_find_optimal_crf(
 
     iterations_remaining = target.max_iterations
 
-    # Probe crf_max first — establishes whether we expand upward (easy
+    # Probe crf_max first: establishes whether we expand upward (easy
     # clip with headroom) or bisect downward (crf_max didn't pass).
     crf_max_passed, crf_max_summary = _try_crf(target.crf_max)
     iterations_remaining -= 1
@@ -402,12 +402,12 @@ def legacy_find_optimal_crf(
         lo = last_passing_crf
         hi = first_failing_crf
     else:
-        # crf_max didn't pass — standard downward bisection over the
+        # crf_max didn't pass: standard downward bisection over the
         # original [crf_min, crf_max] range.
         lo, hi = target.crf_min, target.crf_max
 
     # Bisect narrowing toward rightmost-passing CRF. Uses interpolation
-    # over the trial history's pass/fail bracket when available — predicts
+    # over the trial history's pass/fail bracket when available: predicts
     # the boundary CRF directly rather than walking down via blind
     # midpoint, which on shallow VMAF-vs-CRF curves can take several
     # iterations to converge.
@@ -420,13 +420,13 @@ def legacy_find_optimal_crf(
         )
         if mid in {trial.crf for trial in trials}:
             # Range closed enough that the prediction landed on an
-            # already-tested CRF — bisection can't extract more info.
+            # already-tested CRF: bisection can't extract more info.
             break
         passed, _ = _try_crf(mid)
         if passed:
-            lo = mid  # passing — try higher (more compression) next
+            lo = mid  # passing: try higher (more compression) next
         else:
-            hi = mid  # failing — try lower (more quality) next
+            hi = mid  # failing: try lower (more quality) next
         iterations_remaining -= 1
 
     return _build_result()
@@ -440,7 +440,7 @@ def legacy_find_optimal_crf(
 # Phase 3's linear step-down probes ``candidate-1, candidate-2, ...``
 # at full sampling before falling into bisection. Phase 1's mean-only
 # bias is typically small (1-3 CRF off truth), so step-down often finds
-# the answer in 1-3 trials — much faster than bisection's 4-6 trials
+# the answer in 1-3 trials: much faster than bisection's 4-6 trials
 # walking down from ``midpoint(crf_min, candidate)``. Capped to avoid
 # pathological clips (Phase 1 way off truth) burning many trials before
 # bisection takes over.
@@ -539,7 +539,7 @@ def _relaxed_target(
 
 # Safety margin (in VMAF points) for the Phase 2 fast-fail prediction.
 # Phase 2 is skipped only when Phase 1's percentile prediction sits at
-# least this far below the target — so borderline cases still get the
+# least this far below the target, so borderline cases still get the
 # full-windows validation. Higher = more conservative (rare skips,
 # fewer false positives). Lower = more aggressive (skips more often,
 # but may occasionally accept a slightly-lower-than-optimal CRF when
@@ -559,7 +559,7 @@ DEFAULT_PHASE2_FAST_FAIL_MARGIN: float = 1.0
 MIN_PHASE1_TRIALS_FOR_CALIBRATION: int = 2
 
 
-def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow with independent tuning knobs per phase; collapsing into a config object would obscure each parameter's role
+def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 (phased flow with independent tuning knobs per phase; collapsing into a config object would obscure each parameter's role)
     *,
     target: SampleGuidedEncodeTarget,
     n_windows: int,
@@ -650,7 +650,7 @@ def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow
         - **Step-down**: linearly probe ``candidate-1, candidate-2, ...``
           at full sampling, up to ``phase3_step_down_limit`` trials.
           Phase 1's mean-only bias is usually small, so the boundary
-          tends to sit right next to the candidate — step-down finds it
+          tends to sit right next to the candidate: step-down finds it
           in 1-2 trials versus bisection's 4-6.
         - **Bisection** (only if step-down exhausts without a pass):
           falls into :func:`legacy_find_optimal_crf` over
@@ -663,7 +663,7 @@ def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow
       strictly downward.
 
     Trial labels (``SampleGuidedEncodeTrial.phase``): ``"phase1"``, ``"phase2"``,
-    ``"phase3"`` — surface in the per-trial log so users can see which
+    ``"phase3"``: shown in the per-trial log so users can see which
     pass each trial belongs to. Step-down and bisection trials both
     carry ``"phase3"``; their position in the trial list distinguishes
     them.
@@ -813,9 +813,9 @@ def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow
         # Already at the floor; nothing lower to try.
         return _build(optimal_crf=None, optimal_summary=None)
 
-    # When Phase 1 lands the candidate at crf_max in one shot — the
+    # When Phase 1 lands the candidate at crf_max in one shot: the
     # typical pattern after cross-pair learning seeds crf_max from a
-    # prior pair's optimal — calibration has only one Phase 1 data
+    # prior pair's optimal: calibration has only one Phase 1 data
     # point and can't fit a slope. Force one extra single-window
     # probe at a lower CRF so the calibration helper has two data
     # points to work with. The probe lands at the midpoint of
@@ -853,7 +853,7 @@ def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow
                 )
                 collect(probe_trial)
 
-    # Calibration-based hopeless check: when Phase 2 actually ran
+    # Calibration-based hopeless check: when Phase 2 ran
     # (i.e. fast-fail didn't skip it), the (Phase 2 - Phase 1) low-
     # percentile delta calibrates the relationship between single-
     # window and full-window measurements for this clip's content.
@@ -884,7 +884,7 @@ def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow
     # bisection take over the wider [crf_min, candidate-1] range.
     # Saves ~3 wasted full-windows trials on clips where the seeded
     # candidate (or Phase 1's pick) sits far from the actual
-    # rightmost-passing CRF — which is the typical pattern when
+    # rightmost-passing CRF, which is the typical pattern when
     # cross-pair learning's seed turns out to be wrong.
     skip_step_down = not skip_phase2 and _calibration_says_step_down_wont_help(
         all_trials,
@@ -909,7 +909,7 @@ def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow
     # it in 1-2 trials. Each step-down probe softens the verdict target
     # by ``target_relaxation_per_step`` (capped at
     # ``target_relaxation_cap``) so a borderline-failing measurement is
-    # accepted rather than triggering further refinement — a deliberate
+    # accepted rather than triggering further refinement: a deliberate
     # speed-vs-quality trade. Skipped entirely when calibration predicts
     # the deficit can't be closed (see above).
     for step in range(1, 0 if skip_step_down else phase3_step_down_limit + 1):
@@ -946,7 +946,7 @@ def legacy_find_optimal_crf_two_phase(  # noqa: PLR0912, PLR0913 — phased flow
     # per-(crf, window_index) cache makes any re-tested CRF free.
     # Bisection runs at the next deeper relaxation (one step beyond
     # step-down's last trial) and keeps that level for all bisection
-    # probes — the search has already committed to "we're past strict;
+    # probes: the search has already committed to "we're past strict;
     # find anything that passes within cap."
     if last_step_down_failure <= target.crf_min:
         return _build(optimal_crf=None, optimal_summary=None)

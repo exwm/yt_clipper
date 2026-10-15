@@ -184,7 +184,7 @@ function init() {
 
   // Install lit-html URL sanitizer as defense-in-depth against dangerous URL
   // schemes (javascript:/data:/vbscript:) in template bindings. Must run
-  // before any render() call — lit-html captures the factory at template
+  // before any render() call: lit-html captures the factory at template
   // instantiation time.
   installLitUrlSanitizer();
 
@@ -227,7 +227,7 @@ export function initShortcutSystem() {
         // During an active crop manipulation (pan-drag OR resize) with
         // the crop chart visible, plain `A` reroutes to "add crop
         // point" so the user can drop keyframes one-handed without
-        // involving Alt — Alt + A still works globally but mixes
+        // involving Alt: Alt + A still works globally but mixes
         // awkwardly with the Alt-Y pan lock during pan-drag. Outside
         // this context, `A` is its usual "add marker" hotkey.
         if (
@@ -473,7 +473,7 @@ function missingPlatformHooks(): string[] {
   );
 }
 
-// Long enough for a slow page shell to render; capped so a platform where some hook is genuinely
+// Long enough for a slow page shell to render; capped so a platform where some hook is
 // absent still activates (as it did before this wait existed) instead of never turning on.
 const PLATFORM_READY_POLL_MS = 200;
 const PLATFORM_READY_MAX_WAIT_MS = 5000;
@@ -582,7 +582,7 @@ function applyVideoAspectRatio(videoWidth: number, videoHeight: number) {
 }
 
 // Re-read the video's intrinsic dimensions and update the stored aspect ratio.
-// Returns whether the aspect ratio actually changed. Guards against the 0
+// Returns whether the aspect ratio changed. Guards against the 0
 // dimensions reported before a newly navigated video's metadata has loaded.
 function refreshVideoDimensions(): boolean {
   const { videoWidth, videoHeight } = appState.video;
@@ -597,11 +597,11 @@ function refreshVideoDimensions(): boolean {
 // dimensions differ. Refresh the aspect ratio and re-fit the (possibly
 // rotated) video + crop overlay so a portrait<->landscape change doesn't
 // leave the video mis-sized. yt_clipper stays locked to the originally
-// loaded video — the stale-video banner still tells the user to navigate
+// loaded video: the stale-video banner still tells the user to navigate
 // back to avoid losing in-progress work; this only keeps the rendering sane.
 function handleVideoDimensionsChange() {
   if (!refreshVideoDimensions()) return;
-  // A new video loaded into the reused element — clear any editor zoom so we
+  // A new video loaded into the reused element: clear any editor zoom so we
   // don't carry a stale focal point onto a different frame.
   resetViewport();
   if (appState.rotation !== 0) refreshRotatedVideoCSS();

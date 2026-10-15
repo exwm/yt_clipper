@@ -58,7 +58,7 @@ export namespace Tooltips {
     `;
 
   export const reframeToggleTooltip = stripIndent`
-    Toggle reframe: the player shows only the current crop scaled to fill it, a WYSIWYG preview of the output as the crop pans and zooms. Editing is playhead-driven. Hotkey: V.
+    Toggle reframe mode. The current crop fills the player, a WYSIWYG preview of the clip. Crop edits apply at the current time. Hotkey: V.
     `;
 
   export const undoMarkerPairChangeTooltip = stripIndent`
@@ -86,7 +86,7 @@ export namespace Tooltips {
     `;
 
   export const cycleCropDimOpacityTooltip = stripIndent`
-    Cycle the dim opacity of the area outside the crop. Normal mode steps 0/25/50/75/100%; reframe keeps its own preference, stepping 80/90/100% (100% = solid black). Hotkey: ctrl+X.
+    Cycle the dim opacity of the area outside the crop through 0/25/50/75/100%. In reframe it cycles through 80/90/100% (100% is solid black). Hotkey: ctrl+X.
     `;
 
   export const rotateVideoTooltip = stripIndent`
@@ -126,9 +126,9 @@ export namespace Tooltips {
 
   export const cropPointEasingTooltip = stripIndent`
     How a dynamic crop pans and zooms between crop points.
-    Smooth Track: The crop keeps moving through points, so it keeps a moving subject in frame. It does not swing past a point when the subject reverses direction.
-    Cinematic: The crop does not pass through the points. It follows them within a margin, with steady holds, constant-speed pans, and smooth transitions. The path is recomputed after you finish editing.
-    EaseInOut: Each section eases in and out, so the crop comes to rest at every point.
+    Smooth Track: Use it to follow a moving subject. The crop moves through every point on one smooth curve (a monotone cubic spline) without stopping. It does not swing past a point where the motion reverses.
+    Cinematic: Use it for steady, camera-like motion when the crop does not need to hit each point exactly. The crop stays within a margin of the points, and its path is solved for as few moves as possible: steady holds, constant-speed pans, and smooth transitions between them. The path is recomputed shortly after you stop editing, which pauses the page briefly. Clips take slightly longer to render.
+    EaseInOut: The crop easing from before version 5.49.0. Each section eases in and out, so the crop slows to a stop at every point. Use it if Smooth Track or Cinematic does not move the crop as you expect.
     The global default is Smooth Track. On a marker pair, Default uses the global Crop Easing.
     Markers data saved before version 5.49.0 renders with EaseInOut.
     `;

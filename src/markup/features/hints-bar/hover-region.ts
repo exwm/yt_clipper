@@ -4,7 +4,7 @@
  *
  * Two simple mechanisms:
  *
- *  1. **Stability debounce** — when the raw region changes, the reported
+ *  1. **Stability debounce**: when the raw region changes, the reported
  *     value lags by a small window. Two flavors:
  *       - `HOVER_STABILITY_MS` (short): region → region transitions. Short
  *         enough to feel responsive when the user deliberately switches
@@ -14,10 +14,10 @@
  *         losing the contextual chip set before the cursor arrives.
  *     Entering a region from null (no prior region) is always instant.
  *
- *  2. **Freeze** — `freezeHover()` captures the currently-reported value
+ *  2. **Freeze**: `freezeHover()` captures the currently-reported value
  *     and locks it until `unfreezeHover()`. The hints bar calls these from
  *     its own `mouseenter`/`mouseleave` listeners so that as soon as the
- *     cursor is actually on the bar, the chip set is pinned for inspection.
+ *     cursor is on the bar, the chip set is pinned for inspection.
  *
  * Each call to `registerHoverRegion(el, region)` returns a disposer; the
  * caller is responsible for calling it when the element is unmounted.
@@ -58,7 +58,7 @@ let frozenRegion: HoveredRegion = null;
 
 function updateRegion(region: HoveredRegion): void {
   // Always track the raw region (even while frozen) so that after unfreeze
-  // we report what the cursor is actually over now, not a stale value.
+  // we report what the cursor is over now, not a stale value.
   if (region === hoveredRegion) return;
   hoveredRegion = region;
   rawRegionChangedAt = performance.now();
