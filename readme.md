@@ -17,8 +17,8 @@ Visit [this quickstart guide](https://github.com/exwm/yt_clipper/blob/master/qui
 The contents of the quickstart guide are included here for convenience:
 
 1) First install a user script extension (preferably Tampermonkey) for your browser (preferably chrome).
-   - See [this article](https://openuserjs.org/about/Userscript-Beginners-HOWTO) for more information.
-2) Next install the `markup script` component of `yt_clipper` by clicking [here](https://openuserjs.org/install/elwm/yt_clipper.user.js).
+   - See [this article](https://greasyfork.org/en/help/installing-user-scripts) for more information.
+2) Next install the `markup script` component of `yt_clipper` from [its Greasy Fork page](https://greasyfork.org/en/scripts/543460-yt-clipper). Your user script extension keeps it updated from there.
 3) Install the standalone `clipper script` component of `yt_clipper` by visiting [Clipper Script Installation](https://github.com/exwm/yt_clipper#clipper-script-installation).
 4) Visit a YouTube video page. Check that the `markup script` is [active on the page](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_active_on_page.png). Refresh the page if it is not active.
 5) Press **Alt+Shift+A** to activate the `markup script` and its hotkeys. You should see a [flash message](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_hotkeys_activated.png) below the video.
@@ -34,7 +34,7 @@ The contents of the quickstart guide are included here for convenience:
    - Find generated webms in `yt_clipper/webms/title-suffix` folder where `title-suffix` is the file name stem of the markers data file.
    - See [this section](https://github.com/exwm/yt_clipper#additional-helper-scripts) for details on the other helper scripts available.
 8) See the [full instructions](https://github.com/exwm/yt_clipper) for more detail and advanced usage as well as changelogs.
-9) Check the [GitHub Releases](https://github.com/exwm/yt_clipper/releases) and the [changelog](https://github.com/exwm/yt_clipper/blob/master/changelog.md) for updates as there is not yet an automated mechanism.
+9) The `markup script` updates itself. The `clipper script` tells you when a new version is out. See [Updating](https://github.com/exwm/yt_clipper#updating) for how to update it.
 10) Join the [`yt_clipper` discord server](https://discord.gg/5RVGNCU) if you want further help or want to contribute.
 
 # Notices
@@ -72,10 +72,6 @@ YouTube is the primary video platform supported by yt_clipper. Other supported p
 * Short AfreecaTV clips (about 1 second or shorter) may produce empty video files when.
 * AfreecaTV VODs come in multiple video file parts and clips that span multiple parts are not currently supported.
 
-# Related Scripts
-
-- Check out the companion script with tools for making some tasks on `gfycat.com` easier (e.g., quickly tagging multiple gfys, copying gfy links in various formats) at <https://openuserjs.org/scripts/elwm/gfy-tools>.
-
 # Table of Contents
 
 - [yt\_clipper](#yt_clipper)
@@ -85,7 +81,6 @@ YouTube is the primary video platform supported by yt_clipper. Other supported p
 - [Browser Support](#browser-support)
 - [Video Platform Support](#video-platform-support)
   - [AfreecaTV Support Notes](#afreecatv-support-notes)
-- [Related Scripts](#related-scripts)
 - [Table of Contents](#table-of-contents)
 - [Terminology and Installation](#terminology-and-installation)
 - [Markup Script Shortcuts](#markup-script-shortcuts)
@@ -141,7 +136,7 @@ YouTube is the primary video platform supported by yt_clipper. Other supported p
 
 - `Markup script` refers to the user script installed in your browser through a user script extension. It is used to mark up videos (e.g. on YouTube) before creating webm clips.
   - The required user script extension, for example_Tampermonkey_, can be installed from the appropriate add-on store from your browser.
-  - See <https://openuserjs.org/about/Userscript-Beginners-HOWTO> for more information on user scripts.
+  - See <https://greasyfork.org/en/help/installing-user-scripts> for more information on user scripts.
 - `Clipper script` refers to the python script (`.py` )or the installation that consumes marker data in `json` format to generate webm clips.
   - See [Clipper Script Usage](#clipper-script-usage) for usage instructions.
   - See [Clipper Script Installation](#clipper-script-installation) for installation instructions.
@@ -599,10 +594,9 @@ Use the **Crop Easing** setting to choose how a dynamic crop pans and zooms betw
 
 ## User Script Tips
 
-1. If you're new to userscripts check out <https://openuserjs.org/about/Userscript-Beginners-HOWTO> for instructions.
-2. Check out the companion script for copying gfy links from gfycat as reddit markdown at <https://openuserjs.org/scripts/elwm/gfy2md>.
-3. Refresh the page if the script doesn't load and to clear markers when switching videos in the same window.
-4. Videos can be marked up and the markers json or clipper script can be saved before higher quality levels are available, but the final generated webm quality depends on the quality formats available.
+1. If you're new to userscripts check out <https://greasyfork.org/en/help/installing-user-scripts> for instructions.
+2. Refresh the page if the script doesn't load and to clear markers when switching videos in the same window.
+3. Videos can be marked up and the markers json or clipper script can be saved before higher quality levels are available, but the final generated webm quality depends on the quality formats available.
 
 ## Clipper Script Tips
 

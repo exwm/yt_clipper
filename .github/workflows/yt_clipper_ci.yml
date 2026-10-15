@@ -314,11 +314,14 @@ jobs:
       - uses: actions/checkout@v5
         with:
           path: source
-          sparse-checkout: changelog.md
+          sparse-checkout: |
+            changelog.md
+            release-notes/updating.md
           sparse-checkout-cone-mode: false
 
       # This version's changelog section, from its heading to the next version's, with every heading
       # one level up: the version heading becomes the title, then Highlights, Features, Bug Fixes.
+      # Every release then ends with how to update (release-notes/updating.md).
       - name: Extract release notes
         run: |
           awk -v heading="## [${{env.VERSION}}]" '
@@ -329,6 +332,8 @@ jobs:
             { print }
           ' source/changelog.md > release-notes.md
           test -s release-notes.md || { echo "No changelog section for ${{env.VERSION}}"; exit 1; }
+          printf '\n' >> release-notes.md
+          cat source/release-notes/updating.md >> release-notes.md
 
       # A rerun (e.g. after rewriting the version change) replaces this version's draft. A published
       # release is left alone, and the create below then fails.
