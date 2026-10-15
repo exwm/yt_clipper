@@ -140,6 +140,7 @@ release-prep version:
   uv run python tools/release/changelog.py drop {{version}}
   npx commit-and-tag-version --release-as {{version}}
   uv run python tools/release/changelog.py highlights {{version}}
+  uv run python tools/release/changelog.py credits {{version}}
   uv run python tools/release/version.py set {{version}}
   just bundle-prod true
   just lint-py
