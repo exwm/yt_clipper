@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file. See [commit
 * yt_clipper supports `av1` (`--video-codec av1`) for AV1 encoding via libsvtav1, output in an mp4 container. A higher-efficiency alternative to vp9 at the cost of slower encodes at lower preset values.
 * AV1 support is early. Its default encoding settings are not tuned yet, so expect to adjust them (e.g. the CRF and preset) for your clips.
 * The ffmpeg bundled with the macOS release does not include libsvtav1 yet.
+* Contributed by @GoyangiPics in [#67](https://github.com/exwm/yt_clipper/pull/67).
 * See [this readme section](https://github.com/exwm/yt_clipper#video-codecs) for the full details.
 
 #### Crop Chart Section Colors
@@ -28,7 +29,7 @@ The line between two points shows how the crop moves in that section.
 
 ### Features
 
-* **clipper:** add AV1 (libsvtav1) encoder ([#67](https://github.com/exwm/yt_clipper/issues/67)) ([02318b0](https://github.com/exwm/yt_clipper/commit/02318b0f5ba6b23c8d11eaa13d4581cf83794f77))
+* **clipper:** add AV1 (libsvtav1) encoder by @GoyangiPics in ([#67](https://github.com/exwm/yt_clipper/issues/67)) ([02318b0](https://github.com/exwm/yt_clipper/commit/02318b0f5ba6b23c8d11eaa13d4581cf83794f77))
 * **clipper:** each run writes its own timestamped log file to the clip folder's `logs/` folder ([4855914](https://github.com/exwm/yt_clipper/commit/4855914bdbc3483f31d0782c08a87a5204e54a95))
 * **clipper:** the windows release zip bundles video2x with its `rife-v4.26` model (replacing the `_full` zip), and `bin` is split into `bin/video-tools` (ffmpeg, video2x) and `bin/yt-dlp` (yt-dlp, deno) ([f5ce333](https://github.com/exwm/yt_clipper/commit/f5ce33395bff419cdd1d24f6a3574c62da735d31))
 * **markup:** make the minimap crop outline visible on both light and dark video ([a5ac6e4](https://github.com/exwm/yt_clipper/commit/a5ac6e470d28fba47e7c750c85279aa225229392))
