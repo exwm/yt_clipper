@@ -341,17 +341,22 @@ jobs:
           GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
 
       # --target pins the tag to the built commit: a draft's tag is created on publish, and would
-      # otherwise land on the default branch.
+      # otherwise land on the default branch. Greasy Fork syncs the userscript from
+      # releases/latest/download/yt_clipper.user.js when a release is published (repo webhook; see
+      # tools/release/greasyfork.py for its sync URL), which needs a fixed name. The release page
+      # shows each asset's label (after #) instead of its file name.
       - name: Create release and upload assets
         run: |
+          cp ${{env.FULL_NAME}}.js ${{env.NAME}}.user.js
           gh release create v${{env.VERSION}} \
             --repo ${{github.repository}} \
             --target ${{github.sha}} \
             --title "${{env.NAME}} v${{env.VERSION}} [${{env.DATE}}]" \
             --notes-file release-notes.md \
             --draft \
-            ${{env.FULL_NAME_WIN}}.zip \
-            ${{env.FULL_NAME_MAC}}.zip \
-            ${{env.FULL_NAME}}.js
+            "${{env.FULL_NAME_WIN}}.zip#${{env.FULL_NAME_WIN}}.zip (clipper script for Windows)" \
+            "${{env.FULL_NAME_MAC}}.zip#${{env.FULL_NAME_MAC}}.zip (clipper script for macOS)" \
+            "${{env.FULL_NAME}}.js#${{env.FULL_NAME}}.js (markup script for user script extensions)" \
+            "${{env.NAME}}.user.js#${{env.NAME}}.user.js (markup script, same file for Greasy Fork sync)"
         env:
           GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
