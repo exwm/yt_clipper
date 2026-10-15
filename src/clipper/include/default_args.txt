@@ -2,6 +2,13 @@
 # To see all arguments use the `yt_clipper_options` helper script or the `-h` argument.
 # Lines that begin with a `#` in this file are comments and are ignored.
 # To use other arg files use the `--arg-files` argument outside of an arg file.
+#
+# Each new version unzips to a new folder, and its own copy of this file starts empty.
+# For settings every version should use (e.g. --cookies), put them in yt_clipper_default_args.txt
+# in the folder that holds your yt_clipper install folders. Every install reads that file first,
+# then this one, so a setting here overrides the same setting there. Older versions read that file
+# too and stop on an option they do not know, so put options new in this version here instead.
+# Versions before 5.49 also do not accept quoted paths in that file.
 
 
 # The following commented lines provide an example of how to use this file.
@@ -10,7 +17,5 @@
 # --audio
 # --two-pass
 # -di -dn 2
-# --youtube-dl-alternative yt_dlp
 # --video-codec h264_vulkan
-# --ytdl-location yt-dlp
 # --sample-guided-encode

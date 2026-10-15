@@ -1,0 +1,4 @@
+#!/bin/bash
+cd "$(dirname "$0")" || exit
+
+./yt_clipper --check-for-updates
