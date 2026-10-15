@@ -1412,6 +1412,19 @@ def skipInvalidMarkerPair(
     return True
 
 
+def recordEncodeResult(
+    settings: Settings,
+    markerPairIndex: int,
+    result: Optional[DictStrAny],
+) -> None:
+    """Store an encode's result. An encode that gave up returns None: keep the marker pair and
+    mark it failed, so merges that need it are skipped instead of crashing on None."""
+    if result is None:
+        settings["markerPairs"][markerPairIndex]["returncode"] = 1
+    else:
+        settings["markerPairs"][markerPairIndex] = result
+
+
 def makeClips(cs: ClipperState) -> None:  # noqa: PLR0912
     settings = cs.settings
 
@@ -1489,7 +1502,7 @@ def makeClips(cs: ClipperState) -> None:  # noqa: PLR0912
                             markerPairIndex,
                             originalMarkerSnapshot=originalMarkerSnapshot,
                         )
-                    settings["markerPairs"][markerPairIndex] = resultMarker
+                    recordEncodeResult(settings, markerPairIndex, resultMarker)
                     # Collect the search result for the cross-clip aggregate;
                     # the orchestrator stashes it on the marker dict.
                     if resultMarker is not None:
@@ -1510,7 +1523,7 @@ def makeClips(cs: ClipperState) -> None:  # noqa: PLR0912
                 else:
                     logger.rule(title=f"Encode ({markerPairIndex + 1})", sub=True)
                     with time_stage(f"({markerPairIndex + 1}) encode"):
-                        settings["markerPairs"][markerPairIndex] = makeClip(cs, markerPairIndex)
+                        recordEncodeResult(settings, markerPairIndex, makeClip(cs, markerPairIndex))
                 generatePreviewForMarkerPair(cs, markerPairIndex)
             else:
                 mp, _mps = getMarkerPairSettings(cs, markerPairIndex, True)
