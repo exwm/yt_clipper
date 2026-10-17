@@ -8,6 +8,7 @@ and is exercised manually via smoke testing: not unit tested here.
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 from typing import Callable
 
@@ -288,189 +289,80 @@ def test_select_sample_windows_respects_n_windows_parameter() -> None:
         assert len(windows) == n
 
 
-def test_select_sample_windows_total_frames_matches_explicit_override() -> None:
-    """Combined window duration * source_fps ~= target_combined_frames when
-    the caller passes an explicit ``target_combined_frames`` override
-    (bypasses the percent-of-final logic).
-    """
-    windows = select_sample_windows(
-        clip_start=0.0,
-        clip_end=100.0,
-        source_fps=30.0,
-        target_combined_frames=DEFAULT_TARGET_TRIAL_FRAMES,
-    )
-    total_duration = sum(w.duration for w in windows)
-    total_frames = total_duration * 30.0
-    assert total_frames == pytest.approx(DEFAULT_TARGET_TRIAL_FRAMES, abs=1.0)
-
-
-def test_select_sample_windows_uses_percent_of_final_frames_when_estimate_provided() -> None:
-    """With ``final_frames_estimate`` set, the trial size scales as a
-    percentage of the final encode (default 10%): long clips get more
-    sample frames, short clips get the floor.
-    """
-    # 30 fps, 1-minute clip = 1800 final frames. 10% = 180 frames target.
-    # 180 frames at 3 windows -> 60 frames per window -> 2 s windows.
-    windows = select_sample_windows(
-        clip_start=0.0,
-        clip_end=60.0,
-        source_fps=30.0,
-        final_frames_estimate=1800,
-    )
-    total_duration = sum(w.duration for w in windows)
-    total_frames = total_duration * 30.0
-    assert total_frames == pytest.approx(180.0, abs=3.0)
-
-
-def test_select_sample_windows_floors_short_clips_at_min_combined_frames() -> None:
-    """When the caller passes an explicit ``min_combined_frames`` higher
-    than the percent-of-final target, the floor wins. Verifies the
-    clamp-up logic with an explicit floor of 50 (p5's frame floor) on a
-    200-frame clip whose 10% target (20) sits below it.
-    """
-    # 30 fps, 100-second clip with only ~200 final frames (heavy speed-up
-    # via averageSpeed in production, but here we just specify it directly).
-    windows = select_sample_windows(
-        clip_start=0.0,
-        clip_end=100.0,
-        source_fps=30.0,
-        final_frames_estimate=200,
-        min_combined_frames=50,  # explicit floor higher than 10% target
-    )
-    total_duration = sum(w.duration for w in windows)
-    total_frames = total_duration * 30.0
-    # Floor at 50 (the explicit override), not 20 (10% of 200).
-    assert total_frames == pytest.approx(50, abs=3.0)
-
-
-def test_select_sample_windows_combined_frames_clamped_to_floor_when_max_equals_min() -> None:
-    """When the orchestrator passes ``max_combined_frames == min_combined_frames``
-    (the percentile floor), trials always use the minimum-required
-    sample size regardless of clip length. This is the orchestrator's
-    chosen behavior to keep trial wall time bounded: beyond the
-    percentile's statistical-sufficiency floor, more frames give
-    marginal accuracy at real time cost.
-    """
-    # Long clip (would naturally suggest 200+ combined frames at 10%)
-    # but capped at the floor of 50.
-    windows = select_sample_windows(
-        clip_start=0.0,
-        clip_end=120.0,
-        source_fps=30.0,
-        final_frames_estimate=3600,  # 10% = 360, way above floor
-        min_combined_frames=50,
-        max_combined_frames=50,
-    )
-    total_frames = round(sum(w.duration for w in windows) * 30.0)
-    # ceil(50/3)*3 = 51: clamped at floor with ceil rounding to keep
-    # combined count >= floor.
-    assert 50 <= total_frames <= 60
-
-
-def test_select_sample_windows_caps_at_max_combined_frames_when_set() -> None:
-    """Optional ``max_combined_frames`` ceiling caps trial size so very long
-    clips don't pay 10% of an enormous frame count for each trial. Without
-    a cap, a 10-minute clip at 10% gives 1800-frame trials; capped at 600,
-    it stays bounded.
-    """
-    windows = select_sample_windows(
-        clip_start=0.0,
-        clip_end=600.0,
-        source_fps=30.0,
-        final_frames_estimate=18000,
-        max_combined_frames=600,
-    )
-    total_duration = sum(w.duration for w in windows)
-    total_frames = total_duration * 30.0
-    assert total_frames == pytest.approx(600.0, abs=3.0)
-
-
-def test_select_sample_windows_explicit_override_bypasses_percent_logic() -> None:
-    """Passing ``target_combined_frames`` ignores ``target_sample_percent``,
-    ``min_combined_frames``, ``max_combined_frames``, and
-    ``final_frames_estimate``.
-    """
-    windows = select_sample_windows(
-        clip_start=0.0,
-        clip_end=60.0,
-        source_fps=30.0,
-        final_frames_estimate=99999,  # would normally suggest huge trials
-        target_sample_percent=50.0,  # would normally suggest huge trials
-        target_combined_frames=120,  # explicit -> wins
-    )
-    total_duration = sum(w.duration for w in windows)
-    total_frames = total_duration * 30.0
-    assert total_frames == pytest.approx(120.0, abs=3.0)
-
-
-def test_select_sample_windows_combined_frames_always_meet_min_combined_floor() -> None:
-    """Per-window frame count must use ceiling division so the combined
-    frame count (frames_per_window * n_windows) clears
-    ``min_combined_frames`` exactly. Floor division silently dropped
-    1-2 frames (e.g. 50 // 3 = 16 -> combined = 48 < 50), which made
-    the percentile floor in :func:`passes_targets` go un-enforced and
-    let verdicts silently degrade to mean-only.
-    """
-    # 50-frame floor (default p5), 3 windows. Floor would give 16/window
-    # = 48 combined, missing the floor by 2. Ceil must give 17/window
-    # = 51 combined, clearing the floor.
-    windows = select_sample_windows(
-        clip_start=0.0,
-        clip_end=300.0,
-        source_fps=30.0,
-        final_frames_estimate=300,  # 10% target = 30, floored at 50
-        min_combined_frames=50,
-    )
-    total_frames = round(sum(w.duration for w in windows) * 30.0)
-    assert total_frames >= 50, (
-        f"combined frames {total_frames} must clear the 50-frame floor; "
-        f"otherwise the percentile check in passes_targets is silently dropped"
-    )
+# (arguments beyond a 30 fps clip from 0 s, lowest and highest combined trial frames)
+SAMPLE_BUDGETS = {
+    # An explicit target bypasses the percent-of-final logic
+    "explicit target": (
+        {"clip_end": 100.0, "target_combined_frames": DEFAULT_TARGET_TRIAL_FRAMES},
+        149,
+        151,
+    ),
+    "explicit target ignores percent, floor, cap and estimate": (
+        {
+            "clip_end": 60.0,
+            "final_frames_estimate": 99999,
+            "target_sample_percent": 50.0,
+            "target_combined_frames": 120,
+        },
+        117,
+        123,
+    ),
+    # With a final frame estimate, trials are 10% of the final encode: 1800 frames -> 180
+    "percent of final frames": ({"clip_end": 60.0, "final_frames_estimate": 1800}, 177, 183),
+    # An explicit floor above the 10% target wins (50 over 20)
+    "floor above percent": (
+        {"clip_end": 100.0, "final_frames_estimate": 200, "min_combined_frames": 50},
+        47,
+        53,
+    ),
+    # max == min (the orchestrator's choice, to bound trial time) pins trials at the floor
+    "cap equal to floor": (
+        {
+            "clip_end": 120.0,
+            "final_frames_estimate": 3600,
+            "min_combined_frames": 50,
+            "max_combined_frames": 50,
+        },
+        50,
+        60,
+    ),
+    # A cap keeps long clips from paying 10% of an enormous frame count per trial
+    "cap": (
+        {"clip_end": 600.0, "final_frames_estimate": 18000, "max_combined_frames": 600},
+        597,
+        603,
+    ),
+    # Unknown final frames fall back to the pre-percent default
+    "unknown final frames": ({"clip_end": 100.0, "final_frames_estimate": 0}, 147, 153),
+    # Ceiling division per window clears each percentile's floor: floor division gave 50 // 3 = 16
+    # per window, 48 combined, and silently dropped the percentile check in passes_targets
+    "p1 floor clears": (
+        {"clip_end": 300.0, "final_frames_estimate": 100, "min_combined_frames": 100},
+        100,
+        10**9,
+    ),
+    "p5 floor clears": (
+        {"clip_end": 300.0, "final_frames_estimate": 300, "min_combined_frames": 50},
+        50,
+        10**9,
+    ),
+    "p10 floor clears": (
+        {"clip_end": 300.0, "final_frames_estimate": 100, "min_combined_frames": 30},
+        30,
+        10**9,
+    ),
+}
 
 
 @pytest.mark.parametrize(
-    ("min_floor", "expected_min_combined"),
-    [
-        # p1 floor: 100 / 3 = 33.3 -> ceil 34 per window -> 102 combined
-        (100, 100),
-        # p5 floor: 50 / 3 = 16.7 -> ceil 17 per window -> 51 combined
-        (50, 50),
-        # p10 floor: 30 / 3 = 10 -> 10 per window -> 30 combined (exact)
-        (30, 30),
-    ],
+    ("kwargs", "lowest", "highest"),
+    SAMPLE_BUDGETS.values(),
+    ids=SAMPLE_BUDGETS.keys(),
 )
-def test_select_sample_windows_ceil_clears_floor_for_each_percentile(
-    min_floor: int,
-    expected_min_combined: int,
-) -> None:
-    """Ceiling division clears the percentile floor regardless of which
-    percentile (p1=100, p5=50, p10=30) the caller specifies."""
-    windows = select_sample_windows(
-        clip_start=0.0,
-        clip_end=300.0,
-        source_fps=30.0,
-        final_frames_estimate=100,  # forces floor to dominate
-        min_combined_frames=min_floor,
-    )
+def test_select_sample_windows_combined_frames(kwargs: dict, lowest: int, highest: int) -> None:
+    windows = select_sample_windows(clip_start=0.0, source_fps=30.0, **kwargs)
     total_frames = round(sum(w.duration for w in windows) * 30.0)
-    assert total_frames >= expected_min_combined
-
-
-def test_select_sample_windows_falls_back_to_legacy_default_when_final_frames_unknown() -> None:
-    """When ``final_frames_estimate`` is 0 (unknown) and no explicit
-    override is passed, falls back to ``DEFAULT_TARGET_TRIAL_FRAMES`` (150).
-    Matches the pre-percent behavior so callers that don't supply a
-    final-frames estimate still get reasonable defaults.
-    """
-    windows = select_sample_windows(
-        clip_start=0.0,
-        clip_end=100.0,
-        source_fps=30.0,
-        final_frames_estimate=0,
-    )
-    total_duration = sum(w.duration for w in windows)
-    total_frames = total_duration * 30.0
-    assert total_frames == pytest.approx(DEFAULT_TARGET_TRIAL_FRAMES, abs=3.0)
+    assert lowest <= total_frames <= highest
 
 
 # ---------------------------------------------------------------------------
@@ -3415,104 +3307,75 @@ def _probe(crf: int, p_low: float, mean: float | None = None) -> SampleGuidedEnc
 # ----- select_initial_probe_crfs -------------------------------------------
 
 
-def test_select_initial_probe_crfs_three_evenly_spaced() -> None:
-    crfs = select_initial_probe_crfs(crf_min=16, crf_max=42, n_probes=3)
-    assert crfs == [16, 29, 42]
-
-
-def test_select_initial_probe_crfs_handles_equal_min_max() -> None:
-    crfs = select_initial_probe_crfs(crf_min=20, crf_max=20, n_probes=3)
-    assert crfs == [20]
-
-
-def test_select_initial_probe_crfs_dedups_when_range_smaller_than_n() -> None:
-    # 3 probes across [16, 17] would round to [16, 17, 17]; dedup → [16, 17].
-    crfs = select_initial_probe_crfs(crf_min=16, crf_max=17, n_probes=3)
-    assert crfs == [16, 17]
-
-
-def test_select_initial_probe_crfs_returns_empty_for_zero_or_inverted() -> None:
-    assert select_initial_probe_crfs(crf_min=20, crf_max=10, n_probes=3) == []
-    assert select_initial_probe_crfs(crf_min=16, crf_max=42, n_probes=0) == []
+@pytest.mark.parametrize(
+    ("crf_min", "crf_max", "n_probes", "expected"),
+    [
+        (16, 42, 3, [16, 29, 42]),
+        (20, 20, 3, [20]),
+        # 3 probes across [16, 17] round to [16, 17, 17], deduplicated
+        (16, 17, 3, [16, 17]),
+        (20, 10, 3, []),
+        (16, 42, 0, []),
+    ],
+)
+def test_select_initial_probe_crfs(
+    crf_min: int,
+    crf_max: int,
+    n_probes: int,
+    expected: list[int],
+) -> None:
+    assert (
+        select_initial_probe_crfs(crf_min=crf_min, crf_max=crf_max, n_probes=n_probes) == expected
+    )
 
 
 # ----- drop_saturated_probes -----------------------------------------------
 
 
-def test_drop_saturated_probes_passes_through_when_no_saturation() -> None:
-    probes = [_probe(20, 92.0), _probe(28, 90.0), _probe(36, 87.0)]
-    result = drop_saturated_probes(probes, low_pct=5)
-    assert [p.crf for p in result] == [20, 28, 36]
-
-
-def test_drop_saturated_probes_drops_lower_crf_when_adjacent_match() -> None:
-    # crf=18 and crf=22 give same VMAF -> drop 18 (lower CRF, same quality).
-    probes = [_probe(18, 92.0), _probe(22, 92.02), _probe(30, 88.0)]
-    result = drop_saturated_probes(probes, low_pct=5, epsilon=0.05)
-    assert [p.crf for p in result] == [22, 30]
-
-
-def test_drop_saturated_probes_handles_one_or_zero_probes() -> None:
-    assert drop_saturated_probes([], low_pct=5) == []
-    sole = [_probe(25, 90.0)]
-    assert drop_saturated_probes(sole, low_pct=5) == sole
-
-
-def test_drop_saturated_probes_chains_saturations() -> None:
-    # Three probes all within epsilon -> drop the two lower CRFs,
-    # keeping only the highest. (Walks pairs left-to-right.)
-    probes = [_probe(16, 92.0), _probe(20, 92.01), _probe(24, 92.02)]
-    result = drop_saturated_probes(probes, low_pct=5, epsilon=0.05)
-    assert [p.crf for p in result] == [24]
+# A probe at a lower CRF that scores within epsilon of the next one is dropped (same quality, more bits)
+@pytest.mark.parametrize(
+    ("scores", "kept"),
+    [
+        ({20: 92.0, 28: 90.0, 36: 87.0}, [20, 28, 36]),
+        ({18: 92.0, 22: 92.02, 30: 88.0}, [22, 30]),
+        # Walks pairs left to right, so a chain keeps only the highest CRF
+        ({16: 92.0, 20: 92.01, 24: 92.02}, [24]),
+        ({25: 90.0}, [25]),
+        ({}, []),
+    ],
+)
+def test_drop_saturated_probes(scores: dict[int, float], kept: list[int]) -> None:
+    probes = [_probe(crf, vmaf) for crf, vmaf in scores.items()]
+    assert [p.crf for p in drop_saturated_probes(probes, low_pct=5, epsilon=0.05)] == kept
 
 
 # ----- fit_curves + evaluate_curve -----------------------------------------
 
 
-def test_piecewise_evaluator_interpolates_within_range() -> None:
-    target = SampleGuidedEncodeTarget(
-        target_vmaf_mean=90.0,
-        target_vmaf_low=89.0,
-        target_vmaf_low_pct=5,
-        crf_min=16,
-        crf_max=42,
-    )
-    probes = [_probe(20, 92.0), _probe(30, 88.0)]
-    fit = fit_curves(probes, target=target)
-    # Midpoint should interpolate to 90.0.
-    assert evaluate_curve(fit, crf=25, model="piecewise") == pytest.approx(90.0)
-    # At a probe point, returns the probe value.
-    assert evaluate_curve(fit, crf=20, model="piecewise") == pytest.approx(92.0)
-    assert evaluate_curve(fit, crf=30, model="piecewise") == pytest.approx(88.0)
+CURVE_TARGET = SampleGuidedEncodeTarget(
+    target_vmaf_mean=90.0,
+    target_vmaf_low=89.0,
+    target_vmaf_low_pct=5,
+    crf_min=16,
+    crf_max=42,
+)
 
 
-def test_piecewise_evaluator_clamps_outside_probe_range() -> None:
-    target = SampleGuidedEncodeTarget(
-        target_vmaf_mean=90.0,
-        target_vmaf_low=89.0,
-        target_vmaf_low_pct=5,
-        crf_min=16,
-        crf_max=42,
-    )
-    probes = [_probe(20, 92.0), _probe(30, 88.0)]
-    fit = fit_curves(probes, target=target)
-    # Below lowest probe → clamp to lowest probe's value.
-    assert evaluate_curve(fit, crf=16, model="piecewise") == pytest.approx(92.0)
-    # Above highest probe → clamp to highest probe's value.
-    assert evaluate_curve(fit, crf=40, model="piecewise") == pytest.approx(88.0)
+# Probes at CRF 20 (92) and 30 (88): interpolated between them, the probe's own value at a probe, and
+# clamped to the nearest probe outside them
+@pytest.mark.parametrize(
+    ("crf", "expected"),
+    [(25, 90.0), (20, 92.0), (30, 88.0), (16, 92.0), (40, 88.0)],
+)
+def test_piecewise_evaluator(crf: int, expected: float) -> None:
+    fit = fit_curves([_probe(20, 92.0), _probe(30, 88.0)], target=CURVE_TARGET)
+    assert evaluate_curve(fit, crf=crf, model="piecewise") == pytest.approx(expected)
 
 
 def test_global_linear_recovers_known_slope() -> None:
-    target = SampleGuidedEncodeTarget(
-        target_vmaf_mean=90.0,
-        target_vmaf_low=89.0,
-        target_vmaf_low_pct=5,
-        crf_min=16,
-        crf_max=42,
-    )
     # Pure linear data: slope=-0.5, intercept = 100.
     probes = [_probe(20, 90.0), _probe(28, 86.0), _probe(36, 82.0)]
-    fit = fit_curves(probes, target=target)
+    fit = fit_curves(probes, target=CURVE_TARGET)
     assert fit.linear_slope == pytest.approx(-0.5, abs=1e-9)
     assert fit.linear_intercept == pytest.approx(100.0, abs=1e-9)
 
@@ -3521,29 +3384,16 @@ def test_global_linear_recovers_known_slope() -> None:
 
 
 def test_pick_target_finds_highest_crf_clearing_threshold() -> None:
-    target = SampleGuidedEncodeTarget(
-        target_vmaf_mean=90.0,
-        target_vmaf_low=89.0,
-        target_vmaf_low_pct=5,
-        crf_min=16,
-        crf_max=42,
-    )
     # Slope -0.4 per CRF: at crf=27 piecewise predicts 89.2 (above 89);
     # at crf=28 predicts 88.8 (below). Pick the highest CRF clearing
     # target = 27.
     probes = [_probe(20, 92.0), _probe(30, 88.0)]
-    fit = fit_curves(probes, target=target)
-    assert pick_target(fit, target=target, model="piecewise") == 27
+    fit = fit_curves(probes, target=CURVE_TARGET)
+    assert pick_target(fit, target=CURVE_TARGET, model="piecewise") == 27
 
 
 def test_pick_target_returns_none_when_curve_below_target_everywhere() -> None:
-    target = SampleGuidedEncodeTarget(
-        target_vmaf_mean=90.0,
-        target_vmaf_low=95.0,
-        target_vmaf_low_pct=5,
-        crf_min=16,
-        crf_max=42,
-    )
+    target = dataclasses.replace(CURVE_TARGET, target_vmaf_low=95.0)
     probes = [_probe(20, 92.0), _probe(30, 88.0)]
     fit = fit_curves(probes, target=target)
     assert pick_target(fit, target=target) is None
@@ -3552,75 +3402,36 @@ def test_pick_target_returns_none_when_curve_below_target_everywhere() -> None:
 # ----- pick_knee ------------------------------------------------------------
 
 
-def test_pick_knee_finds_steepening_in_three_probe_curve() -> None:
-    target = SampleGuidedEncodeTarget(
-        target_vmaf_mean=90.0,
-        target_vmaf_low=89.0,
-        target_vmaf_low_pct=5,
-        crf_min=16,
-        crf_max=42,
+@pytest.mark.parametrize(
+    ("scores", "steepening_threshold", "knee"),
+    [
+        # Slope -0.2 from 20 to 28, then a cliff of -1.0: the knee is the last good step
+        ({20: 92.0, 28: 90.4, 36: 82.4}, None, 28),
+        # Slope -0.5 throughout: no knee
+        ({20: 92.0, 28: 88.0, 36: 84.0}, None, None),
+        ({20: 92.0, 30: 88.0}, None, None),
+        # -0.2 then -0.4 is below the default steepening threshold (0.3), above 0.1
+        ({20: 92.0, 28: 90.4, 36: 87.2}, None, None),
+        ({20: 92.0, 28: 90.4, 36: 87.2}, 0.1, 28),
+    ],
+)
+def test_pick_knee(
+    scores: dict[int, float],
+    steepening_threshold: float | None,
+    knee: int | None,
+) -> None:
+    fit = fit_curves([_probe(crf, vmaf) for crf, vmaf in scores.items()], target=CURVE_TARGET)
+    threshold = (
+        {} if steepening_threshold is None else {"steepening_threshold": steepening_threshold}
     )
-    # Smooth slope -0.2 from 20→28, then cliff -1.0 from 28→36.
-    # Knee should be at crf=28 (last good step before the cliff).
-    probes = [_probe(20, 92.0), _probe(28, 90.4), _probe(36, 82.4)]
-    fit = fit_curves(probes, target=target)
-    assert pick_knee(fit, target=target) == 28
-
-
-def test_pick_knee_returns_none_for_smooth_curve() -> None:
-    target = SampleGuidedEncodeTarget(
-        target_vmaf_mean=90.0,
-        target_vmaf_low=89.0,
-        target_vmaf_low_pct=5,
-        crf_min=16,
-        crf_max=42,
-    )
-    # Linear-ish: slope -0.5 throughout. No clear knee.
-    probes = [_probe(20, 92.0), _probe(28, 88.0), _probe(36, 84.0)]
-    fit = fit_curves(probes, target=target)
-    assert pick_knee(fit, target=target) is None
-
-
-def test_pick_knee_returns_none_with_fewer_than_three_probes() -> None:
-    target = SampleGuidedEncodeTarget(
-        target_vmaf_mean=90.0,
-        target_vmaf_low=89.0,
-        target_vmaf_low_pct=5,
-        crf_min=16,
-        crf_max=42,
-    )
-    probes = [_probe(20, 92.0), _probe(30, 88.0)]
-    fit = fit_curves(probes, target=target)
-    assert pick_knee(fit, target=target) is None
-
-
-def test_pick_knee_respects_steepening_threshold() -> None:
-    target = SampleGuidedEncodeTarget(
-        target_vmaf_mean=90.0,
-        target_vmaf_low=89.0,
-        target_vmaf_low_pct=5,
-        crf_min=16,
-        crf_max=42,
-    )
-    # Slight slope change: -0.2 then -0.4. Below default threshold (0.3).
-    probes = [_probe(20, 92.0), _probe(28, 90.4), _probe(36, 87.2)]
-    fit = fit_curves(probes, target=target)
-    assert pick_knee(fit, target=target) is None
-    # Lower the threshold: now picks up the steepening.
-    assert pick_knee(fit, target=target, steepening_threshold=0.1) == 28
+    assert pick_knee(fit, target=CURVE_TARGET, **threshold) == knee
 
 
 # ----- pick_budget ----------------------------------------------------------
 
 
 def test_pick_budget_accepts_within_tolerance_below_target() -> None:
-    target = SampleGuidedEncodeTarget(
-        target_vmaf_mean=90.0,
-        target_vmaf_low=89.0,
-        target_vmaf_low_pct=5,
-        crf_min=16,
-        crf_max=42,
-    )
+    target = CURVE_TARGET
     # Need 3 probes so the piecewise curve doesn't just clamp at 88
     # for everything above crf=30. With (40, 80) added, the segment
     # 30→40 interpolates linearly: at crf=30 piecewise=88 (matches
@@ -3634,44 +3445,24 @@ def test_pick_budget_accepts_within_tolerance_below_target() -> None:
 
 
 def test_needs_extra_probe_triggers_on_saturation_collapse() -> None:
-    target = SampleGuidedEncodeTarget(
-        target_vmaf_mean=90.0,
-        target_vmaf_low=89.0,
-        target_vmaf_low_pct=5,
-        crf_min=16,
-        crf_max=42,
-    )
     # All three probes saturate to ~92.0 → 1 valid probe after drop.
     probes = [_probe(20, 92.0), _probe(24, 92.01), _probe(28, 92.02)]
-    crf, reason = needs_extra_probe(probes, target=target)
+    crf, reason = needs_extra_probe(probes, target=CURVE_TARGET)
     assert crf is not None
     assert "saturat" in reason.lower()
 
 
 def test_needs_extra_probe_triggers_on_large_gap() -> None:
-    target = SampleGuidedEncodeTarget(
-        target_vmaf_mean=90.0,
-        target_vmaf_low=89.0,
-        target_vmaf_low_pct=5,
-        crf_min=16,
-        crf_max=42,
-    )
     # Two probes 16 CRFs apart - way above the default refit gap (8).
     probes = [_probe(16, 95.0), _probe(32, 85.0)]
-    crf, reason = needs_extra_probe(probes, target=target)
+    crf, reason = needs_extra_probe(probes, target=CURVE_TARGET)
     # Midpoint of gap (16 + 32) // 2 = 24.
     assert crf == 24
     assert "gap" in reason.lower()
 
 
 def test_needs_extra_probe_returns_none_when_curve_is_well_covered() -> None:
-    target = SampleGuidedEncodeTarget(
-        target_vmaf_mean=90.0,
-        target_vmaf_low=89.0,
-        target_vmaf_low_pct=5,
-        crf_min=16,
-        crf_max=42,
-    )
+    target = CURVE_TARGET
     # Smooth curve, dense probes, no boundary knee.
     probes = [
         _probe(18, 93.0),
@@ -3795,13 +3586,7 @@ def test_find_crf_via_curve_fit_does_not_double_encode_chosen_probe() -> None:
 def test_render_curve_ascii_renders_probes_target_and_chosen_crf() -> None:
     """Plotille braille chart contains the chosen-CRF callout in the
     legend, the y-axis label, and the x-axis label."""
-    target = SampleGuidedEncodeTarget(
-        target_vmaf_mean=90.0,
-        target_vmaf_low=89.0,
-        target_vmaf_low_pct=5,
-        crf_min=16,
-        crf_max=42,
-    )
+    target = CURVE_TARGET
     probes = [_probe(20, 92.0), _probe(28, 90.0), _probe(36, 86.0)]
     fit = fit_curves(probes, target=target)
     lines = render_curve_ascii(fit, target=target, chosen_crf=28)
@@ -3819,15 +3604,8 @@ def test_render_curve_ascii_renders_probes_target_and_chosen_crf() -> None:
 
 def test_render_curve_ascii_returns_empty_for_no_probes() -> None:
     """Empty curve → empty list (caller skips logging)."""
-    target = SampleGuidedEncodeTarget(
-        target_vmaf_mean=90.0,
-        target_vmaf_low=89.0,
-        target_vmaf_low_pct=5,
-        crf_min=16,
-        crf_max=42,
-    )
-    fit = fit_curves([], target=target)
-    assert render_curve_ascii(fit, target=target, chosen_crf=20) == []
+    fit = fit_curves([], target=CURVE_TARGET)
+    assert render_curve_ascii(fit, target=CURVE_TARGET, chosen_crf=20) == []
 
 
 def test_find_crf_via_curve_fit_records_knee_in_picks_grid() -> None:
