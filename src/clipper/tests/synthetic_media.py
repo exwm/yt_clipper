@@ -31,6 +31,10 @@ UPLOADS = {
         ("-c:v", "libvpx-vp9", "-crf", "50", "-b:v", "0", "-cpu-used", "4", "-row-mt", "1"),
         "webm",
     ),
+    "vp9-mid": (
+        ("-c:v", "libvpx-vp9", "-crf", "40", "-b:v", "0", "-cpu-used", "4", "-row-mt", "1"),
+        "webm",
+    ),
 }
 
 
@@ -74,6 +78,58 @@ CLIPS = {
         at(f"{MOTION},select='not(eq(mod(n\\,3)\\,2))'", "30000/1001"),
         "x264",
         ("-fps_mode", "passthrough"),
+    ),
+    # Hard cases: a keyframe repaints the noisy still with fresh noise, which changes the frame
+    # more than the small box moving does.
+    "small-motion-noisy": SyntheticClip(
+        "a 32 px box moving over a noisy still, 12 fps in 30, noisy upload",
+        at(f"{STILL},{CAMERA_NOISE}{movingBox(32, 60)},fps=30000/1001[out0]", "12"),
+        "vp9-low",
+    ),
+    "tiny-motion-noisy-mid-upload": SyntheticClip(
+        "the tiny box over a noisy still, uploaded at a middle quality",
+        at(f"{STILL},{CAMERA_NOISE}{movingBox(16, 60)},fps=30000/1001[out0]", "12"),
+        "vp9-mid",
+    ),
+    # Like the real e2e cartoon's slow stretch: each drawing moves only a little, so its change is
+    # close to the encoder noise on the repeats.
+    "cartoon-slow-12-in-30": SyntheticClip(
+        "animation at 12 fps stored at 30 with slow movement, noisy upload",
+        at(f"{STILL},{CAMERA_NOISE}{movingBox(160, 24)},fps=30000/1001[out0]", "12"),
+        "vp9-low",
+    ),
+    # High frame rate: 30 fps content doubled to 60, and real 60 fps motion
+    "motion-30-in-60": SyntheticClip("30 fps motion doubled to 60, noisy upload", at(f"{MOTION},fps=60000/1001", "30000/1001"), "vp9-low"),
+    "motion-native-60": SyntheticClip("no repeats: motion at 60 fps", at(MOTION, "60000/1001"), "vp9-low"),
+    # No repeats: every frame dropped from these is a mistake.
+    "motion-native-30": SyntheticClip("no repeats: motion at its own frame rate", at(MOTION, "30000/1001"), "vp9-low"),
+    "pan-slow": SyntheticClip("no repeats: a slow pan over a still", at(f"{STILL},scroll=horizontal=0.003", "30000/1001"), "vp9-low"),
+    "fade": SyntheticClip("no repeats: a still fading out", at(f"{STILL},fade=t=out:st=0:d=5", "30000/1001"), "vp9-low"),
+    "dark-motion": SyntheticClip(
+        "no repeats: dark, noisy, low contrast motion",
+        at(f"{MOTION},lutyuv=y=16+val/8,{CAMERA_NOISE}", "30000/1001"),
+        "vp9-low",
+    ),
+    "tiny-motion-native": SyntheticClip(
+        "no repeats: the tiny box over a noisy still at its own frame rate",
+        at(f"{STILL},{CAMERA_NOISE}{movingBox(16, 60)}[out0]", "30000/1001"),
+        "vp9-low",
+    ),
+    "noisy-still-cut-to-motion": SyntheticClip(
+        "no repeats: a noisy still that cuts to motion at 2 s",
+        at(f"{STILL},{CAMERA_NOISE}[still];{MOTION}[motion];[still][motion]overlay=enable='gte(t,2)'[out0]", "30000/1001"),
+        "vp9-low",
+    ),
+    # Repeats that stand for different things, for the timing of kept frames
+    "lost-frames": SyntheticClip(
+        "lost frames replaced by a copy of the one before (A A C)",
+        at(f"{MOTION},select='not(eq(mod(n\\,7)\\,3)+eq(mod(n\\,11)\\,5))',fps=30000/1001", "30000/1001"),
+        "vp9-low",
+    ),
+    "added-copies": SyntheticClip(
+        "copies added while the scene paused (A A B)",
+        at(f"{MOTION},setpts='(N+floor((N+4)/9))/FR/TB',fps=30000/1001", "30000/1001"),
+        "vp9-low",
     ),
 }  # fmt: skip
 
