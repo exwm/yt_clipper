@@ -691,16 +691,12 @@ def test_getCropPathFilter_zoom_size_ignores_float_noise_in_the_solved_path(nois
     assert maxSize == 1920 * 1080
 
 
-def test_getCropPathFilter_pan_is_plain_crop() -> None:
+def test_getCropPathFilter_pan_snapshot(snapshot: str) -> None:
     cropFilter, maxSize = ffmpeg_filter.getCropPathFilter(PAN_CROP_PATH, SETTINGS_1X, 30)
     assert cropFilter.startswith("crop='x=")
     assert "zoompan" not in cropFilter  # constant size -> no zoom
     assert ":w=960:h=540:" in cropFilter  # constant size carried through
     assert maxSize == 960 * 540
-
-
-def test_getCropPathFilter_pan_snapshot(snapshot: str) -> None:
-    cropFilter, _maxSize = ffmpeg_filter.getCropPathFilter(PAN_CROP_PATH, SETTINGS_1X, 30)
     assert cropFilter == snapshot
 
 
@@ -720,7 +716,7 @@ def test_getCropPathFilter_pan_matches_the_baked_path() -> None:
         assert _eval_ffmpeg_axis(yExpr, t) == pytest.approx(py * 2, abs=0.01)
 
 
-def test_getCropPathFilter_zoom_uses_zoompan() -> None:
+def test_getCropPathFilter_zoom_snapshot(snapshot: str) -> None:
     cropFilter, maxSize = ffmpeg_filter.getCropPathFilter(ZOOM_CROP_PATH, SETTINGS_1X, 30)
     assert "zoompan=z='" in cropFilter
     assert "1920/(" in cropFilter  # zoom derived from the eased (containing) width
@@ -730,10 +726,6 @@ def test_getCropPathFilter_zoom_uses_zoompan() -> None:
     assert "gte(it, " in cropFilter  # the zoompan runs on the input timebase it
     assert ":s=1920x1080:" in cropFilter
     assert maxSize == 1920 * 1080
-
-
-def test_getCropPathFilter_zoom_snapshot(snapshot: str) -> None:
-    cropFilter, _maxSize = ffmpeg_filter.getCropPathFilter(ZOOM_CROP_PATH, SETTINGS_1X, 30)
     assert cropFilter == snapshot
 
 

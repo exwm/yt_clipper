@@ -179,6 +179,8 @@ def test_substitute_filter_graphs_no_op_when_no_registry_active() -> None:
 
 
 def test_substitute_filter_graphs_registers_long_graph_and_substitutes() -> None:
+    """The placeholder uses angle brackets: rich treats ``[filter-graph #1]`` as an unknown style
+    tag and silently drops it, leaving ``-vf  -crf 23`` in the log."""
     cmd = f'ffmpeg -i input.mp4 -vf "{_LONG_FILTER}" -c:v libvpx-vp9 out.webm'
     with active_filter_graph_registry() as registry:
         new_cmd, new_entries = substitute_filter_graphs(cmd)
@@ -186,6 +188,7 @@ def test_substitute_filter_graphs_registers_long_graph_and_substitutes() -> None
         # cmd's -vf "..." replaced with the placeholder.
         assert new_entries == [(1, _LONG_FILTER)]
         assert "-vf <filter-graph #1>" in new_cmd
+        assert "[filter-graph #1]" not in new_cmd
         assert _LONG_FILTER not in new_cmd
         assert registry == {_LONG_FILTER: 1}
 
@@ -200,20 +203,7 @@ def test_substitute_filter_graphs_skips_short_filter() -> None:
     assert new_entries == []
 
 
-def test_substitute_filter_graphs_deduplicates_repeat_graphs() -> None:
-    cmd_a = f'ffmpeg -i a.mp4 -vf "{_LONG_FILTER}" -crf 23 out-a.webm'
-    cmd_b = f'ffmpeg -i b.mp4 -vf "{_LONG_FILTER}" -crf 30 out-b.webm'
-    with active_filter_graph_registry():
-        _, entries_a = substitute_filter_graphs(cmd_a)
-        new_cmd_b, entries_b = substitute_filter_graphs(cmd_b)
-    # Second invocation hits the cache: no new entries logged, but the
-    # placeholder still substitutes against the previously-assigned id.
-    assert entries_a == [(1, _LONG_FILTER)]
-    assert entries_b == []
-    assert "-vf <filter-graph #1>" in new_cmd_b
-
-
-def test_substitute_filter_graphs_assigns_distinct_ids_to_distinct_graphs() -> None:
+def test_substitute_filter_graphs_reuses_the_id_of_a_repeat_graph_and_numbers_a_new_one() -> None:
     other_filter = (
         "trim=0:2.0,format=yuv420p,"
         "crop='x=200:y=150:w=1280:h=720:exact=1',"
@@ -223,29 +213,19 @@ def test_substitute_filter_graphs_assigns_distinct_ids_to_distinct_graphs() -> N
         "split=2[main][thumb];[main]format=yuv420p[v];[thumb]scale=320:180[t]"
     )
     assert len(other_filter) >= 200  # guard for the test's premise
-    cmd_a = f'ffmpeg -i a.mp4 -vf "{_LONG_FILTER}" out.webm'
-    cmd_b = f'ffmpeg -i b.mp4 -vf "{other_filter}" out.webm'
+    cmd_a = f'ffmpeg -i a.mp4 -vf "{_LONG_FILTER}" -crf 23 out-a.webm'
+    cmd_repeat = f'ffmpeg -i b.mp4 -vf "{_LONG_FILTER}" -crf 30 out-b.webm'
+    cmd_other = f'ffmpeg -i c.mp4 -vf "{other_filter}" out.webm'
     with active_filter_graph_registry():
         _, entries_a = substitute_filter_graphs(cmd_a)
-        new_cmd_b, entries_b = substitute_filter_graphs(cmd_b)
+        new_cmd_repeat, entries_repeat = substitute_filter_graphs(cmd_repeat)
+        new_cmd_other, entries_other = substitute_filter_graphs(cmd_other)
     assert entries_a == [(1, _LONG_FILTER)]
-    assert entries_b == [(2, other_filter)]
-    assert "-vf <filter-graph #2>" in new_cmd_b
-
-
-def test_substitute_filter_graphs_uses_angle_brackets_not_square_brackets() -> None:
-    """Angle brackets so rich's markup parser doesn't strip the placeholder.
-
-    Square-bracket form ``[filter-graph #N]`` got eaten by rich (it
-    treats ``[X]`` as an unknown style-span open tag and silently
-    drops the tag from the rendered output), leaving the operator
-    looking at ``-vf  -crf 23`` with the placeholder missing.
-    """
-    cmd = f'ffmpeg -i input.mp4 -vf "{_LONG_FILTER}" out.webm'
-    with active_filter_graph_registry():
-        new_cmd, _ = substitute_filter_graphs(cmd)
-    assert "<filter-graph #1>" in new_cmd
-    assert "[filter-graph #1]" not in new_cmd
+    # A repeat logs no new entry but still substitutes the id it got before
+    assert entries_repeat == []
+    assert "-vf <filter-graph #1>" in new_cmd_repeat
+    assert entries_other == [(2, other_filter)]
+    assert "-vf <filter-graph #2>" in new_cmd_other
 
 
 def test_active_filter_graph_registry_resets_on_exit() -> None:

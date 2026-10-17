@@ -13,6 +13,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from clipper.sample_guided_encode.run_cache import (
     CacheReuseDecision,
     cleanup_orphaned_trial_files,
@@ -200,153 +202,100 @@ def test_evaluate_cache_reuse_full_hit_when_all_match(tmp_path: Path) -> None:
     assert decision.prior_run.optimal_crf == 30
 
 
-def test_evaluate_cache_reuse_partial_hit_on_search_fp_difference(tmp_path: Path) -> None:
-    """Same encoder fingerprint, different search fingerprint → partial."""
-    pair_dir = tmp_path / "1"
-    _make_run_jsonl(
-        pair_dir / "abc123def456" / "run-260509T100000.jsonl",
-        search_fingerprint="search-old",
-    )
-    decision = evaluate_cache_reuse(
-        pair_dir=pair_dir,
-        **_gate_inputs(search_fingerprint="search-new"),
-    )
-    assert decision.kind == "partial"
-    assert decision.prior_run is not None
-    assert "encoder match" in decision.reason
+_IDENTITY = {
+    "clip_start": 0.0,
+    "clip_end": 10.0,
+    "source_video_id": {"path": "/src/video.mp4", "mtime": 1700000000.0},
+}
 
-
-def test_evaluate_cache_reuse_miss_on_algorithm_version_bump(tmp_path: Path) -> None:
-    pair_dir = tmp_path / "1"
-    _make_run_jsonl(
-        pair_dir / "abc123def456" / "run-260509T100000.jsonl",
-        algorithm_version=1,
-    )
-    decision = evaluate_cache_reuse(
-        pair_dir=pair_dir,
-        **_gate_inputs(algorithm_version=2),
-    )
-    assert decision.kind == "miss"
-    assert "algorithm_version" in decision.reason
-
-
-def test_evaluate_cache_reuse_miss_on_major_version_bump(tmp_path: Path) -> None:
-    pair_dir = tmp_path / "1"
-    _make_run_jsonl(
-        pair_dir / "abc123def456" / "run-260509T100000.jsonl",
-        yt_clipper_version="5.43.0",
-    )
-    decision = evaluate_cache_reuse(
-        pair_dir=pair_dir,
-        **_gate_inputs(yt_clipper_version="6.0.0"),
-    )
-    assert decision.kind == "miss"
-    assert "yt_clipper_version" in decision.reason
-
-
-def test_evaluate_cache_reuse_miss_on_minor_version_bump(tmp_path: Path) -> None:
-    pair_dir = tmp_path / "1"
-    _make_run_jsonl(
-        pair_dir / "abc123def456" / "run-260509T100000.jsonl",
-        yt_clipper_version="5.43.0",
-    )
-    decision = evaluate_cache_reuse(
-        pair_dir=pair_dir,
-        **_gate_inputs(yt_clipper_version="5.44.0"),
-    )
-    assert decision.kind == "miss"
-
-
-def test_evaluate_cache_reuse_hit_on_patch_version_bump(tmp_path: Path) -> None:
-    """Patch-only differences are presumed bug-fix-only and don't bust
-    the cache."""
-    pair_dir = tmp_path / "1"
-    _make_run_jsonl(
-        pair_dir / "abc123def456" / "run-260509T100000.jsonl",
-        yt_clipper_version="5.43.0",
-    )
-    decision = evaluate_cache_reuse(
-        pair_dir=pair_dir,
-        **_gate_inputs(yt_clipper_version="5.43.5"),
-    )
-    assert decision.kind == "full"
-
-
-def test_evaluate_cache_reuse_miss_on_signature_mismatch(tmp_path: Path) -> None:
-    """Defensive: hash matches but literal signature differs (collision
-    or fingerprint-derivation bug). Refuse reuse."""
-    pair_dir = tmp_path / "1"
-    _make_run_jsonl(
-        pair_dir / "abc123def456" / "run-260509T100000.jsonl",
-        encode_args_signature={
-            "codec_args": "<old-args>",
-            "filter_graph": "",
-            "extras": {"codec": "vp9"},
+# (prior run's fields, current run's inputs, decision kind, text the reason names, or None)
+CACHE_GATES = {
+    # Same encoder fingerprint, different search fingerprint
+    "search changed: partial": (
+        {"search_fingerprint": "search-old"},
+        {"search_fingerprint": "search-new"},
+        "partial",
+        "encoder match",
+    ),
+    "algorithm version bump": (
+        {"algorithm_version": 1},
+        {"algorithm_version": 2},
+        "miss",
+        "algorithm_version",
+    ),
+    "major version bump": (
+        {"yt_clipper_version": "5.43.0"},
+        {"yt_clipper_version": "6.0.0"},
+        "miss",
+        "yt_clipper_version",
+    ),
+    "minor version bump": (
+        {"yt_clipper_version": "5.43.0"},
+        {"yt_clipper_version": "5.44.0"},
+        "miss",
+        None,
+    ),
+    # Patch releases are presumed bug fixes only
+    "patch version bump": (
+        {"yt_clipper_version": "5.43.0"},
+        {"yt_clipper_version": "5.43.5"},
+        "full",
+        None,
+    ),
+    # Defensive: the hash matches but the literal signature differs (collision or derivation bug)
+    "signature mismatch": (
+        {
+            "encode_args_signature": {
+                "codec_args": "<old-args>",
+                "filter_graph": "",
+                "extras": {"codec": "vp9"},
+            },
         },
-    )
-    decision = evaluate_cache_reuse(
-        pair_dir=pair_dir,
-        **_gate_inputs(
-            encoder_signature={
+        {
+            "encoder_signature": {
                 "codec_args": "<new-args>",
                 "filter_graph": "",
                 "extras": {"codec": "vp9"},
             },
-        ),
-    )
-    assert decision.kind == "miss"
-    assert "signature" in decision.reason.lower()
-
-
-def test_evaluate_cache_reuse_miss_on_clip_timing_shift(tmp_path: Path) -> None:
-    """User added/removed marker pairs and pair{N} now points to a
-    different time range."""
-    pair_dir = tmp_path / "1"
-    _make_run_jsonl(
-        pair_dir / "abc123def456" / "run-260509T100000.jsonl",
-        pair_identity={
-            "clip_start": 0.0,
-            "clip_end": 10.0,
-            "source_video_id": {"path": "/src/video.mp4", "mtime": 1700000000.0},
         },
-    )
-    decision = evaluate_cache_reuse(
-        pair_dir=pair_dir,
-        **_gate_inputs(
-            current_pair_identity={
-                "clip_start": 5.0,
-                "clip_end": 15.0,  # different!
-                "source_video_id": {"path": "/src/video.mp4", "mtime": 1700000000.0},
-            },
-        ),
-    )
-    assert decision.kind == "miss"
-    assert "clip_start" in decision.reason or "clip_end" in decision.reason
-
-
-def test_evaluate_cache_reuse_miss_on_source_change(tmp_path: Path) -> None:
-    """Source video file changed (mtime differs)."""
-    pair_dir = tmp_path / "1"
-    _make_run_jsonl(
-        pair_dir / "abc123def456" / "run-260509T100000.jsonl",
-        pair_identity={
-            "clip_start": 0.0,
-            "clip_end": 10.0,
-            "source_video_id": {"path": "/src/video.mp4", "mtime": 1700000000.0},
-        },
-    )
-    decision = evaluate_cache_reuse(
-        pair_dir=pair_dir,
-        **_gate_inputs(
-            current_pair_identity={
-                "clip_start": 0.0,
-                "clip_end": 10.0,
+        "miss",
+        "signature",
+    ),
+    # Marker pairs added or removed, so pair N now points at another time range
+    "clip timing shift": (
+        {"pair_identity": _IDENTITY},
+        {"current_pair_identity": {**_IDENTITY, "clip_start": 5.0, "clip_end": 15.0}},
+        "miss",
+        "clip_",
+    ),
+    "source file changed": (
+        {"pair_identity": _IDENTITY},
+        {
+            "current_pair_identity": {
+                **_IDENTITY,
                 "source_video_id": {"path": "/src/video.mp4", "mtime": 1800000000.0},
             },
-        ),
-    )
-    assert decision.kind == "miss"
-    assert "source_video_id" in decision.reason
+        },
+        "miss",
+        "source_video_id",
+    ),
+}
+
+
+@pytest.mark.parametrize(
+    ("prior", "current", "kind", "reason"), CACHE_GATES.values(), ids=CACHE_GATES.keys(),
+)
+def test_evaluate_cache_reuse_gates(
+    tmp_path: Path, prior: dict, current: dict, kind: str, reason: str | None,
+) -> None:
+    pair_dir = tmp_path / "1"
+    _make_run_jsonl(pair_dir / "abc123def456" / "run-260509T100000.jsonl", **prior)
+    decision = evaluate_cache_reuse(pair_dir=pair_dir, **_gate_inputs(**current))
+    assert decision.kind == kind
+    if kind != "miss":
+        assert decision.prior_run is not None
+    if reason:
+        assert reason.lower() in decision.reason.lower()
 
 
 def test_evaluate_cache_reuse_picks_most_recent_run(tmp_path: Path) -> None:
