@@ -3,14 +3,12 @@ import pytest
 from clipper.previews import shared
 
 
-def test_roundUpToEven_already_even() -> None:
-    assert shared.roundUpToEven(480) == 480
-    assert shared.roundUpToEven(720.0) == 720
-
-
-def test_roundUpToEven_rounds_up_from_odd() -> None:
-    assert shared.roundUpToEven(481) == 482
-    assert shared.roundUpToEven(479.6) == 480
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [(480, 480), (720.0, 720), (481, 482), (479.6, 480)],
+)
+def test_roundUpToEven(value: float, expected: int) -> None:
+    assert shared.roundUpToEven(value) == expected
 
 
 @pytest.mark.parametrize(
@@ -55,14 +53,22 @@ def test_pickPreviewLongEdge_custom_tiers_apply() -> None:
     assert shared.pickPreviewLongEdge(426, 240, tiers=coarserTiers) == 426
 
 
-def test_computePreviewDimensions_landscape_1080p() -> None:
-    # 1080p landscape -> long edge 540, height = 1080 * 540/1920 = 303.75 -> even = 304.
-    assert shared.computePreviewDimensions(1920, 1080) == (540, 304)
-
-
-def test_computePreviewDimensions_portrait_1080p() -> None:
-    # 1080p portrait -> long edge 540 on height; width = 1080 * 540/1920 = 303.75 -> 304.
-    assert shared.computePreviewDimensions(1080, 1920) == (304, 540)
+@pytest.mark.parametrize(
+    ("source", "override", "expected"),
+    [
+        # Long edge 540; the short edge 1080 * 540/1920 = 303.75 rounds up to even
+        ((1920, 1080), None, (540, 304)),
+        ((1080, 1920), None, (304, 540)),
+        # The override sets the long edge; 1080 * 480/1920 = 270, already even
+        ((1920, 1080), 480, (480, 270)),
+    ],
+)
+def test_computePreviewDimensions(
+    source: tuple[int, int],
+    override: int | None,
+    expected: tuple[int, int],
+) -> None:
+    assert shared.computePreviewDimensions(*source, override=override) == expected
 
 
 def test_computePreviewDimensions_both_dims_even() -> None:
@@ -72,53 +78,40 @@ def test_computePreviewDimensions_both_dims_even() -> None:
         assert height % 2 == 0, f"height not even for source {source}: {height}"
 
 
-def test_computePreviewDimensions_override_preserves_aspect() -> None:
-    # override=480 sets long edge; height = 1080 * 480/1920 = 270 (already even).
-    assert shared.computePreviewDimensions(1920, 1080, override=480) == (480, 270)
-
-
 def test_buildScaleFilter_has_no_backslashes() -> None:
     scaleFilter = shared.buildScaleFilter(540, 304)
     assert scaleFilter == "scale=540:304:flags=lanczos"
     assert "\\" not in scaleFilter
 
 
-def test_isHdrSource_flags_bt2020_pq() -> None:
-    assert shared.isHdrSource({"color_primaries": "bt2020", "color_trc": "smpte2084"})
+@pytest.mark.parametrize(
+    ("stream", "isHdr"),
+    [
+        ({"color_primaries": "bt2020", "color_trc": "smpte2084"}, True),
+        ({"color_primaries": "bt2020nc", "color_trc": "arib-std-b67"}, True),
+        # Older ffprobe names the field ``color_transfer``
+        ({"color_primaries": "bt2020", "color_transfer": "smpte2084"}, True),
+        ({"color_primaries": "bt709", "color_trc": "bt709"}, False),
+        # Missing metadata is SDR
+        ({}, False),
+        # BT.2020 primaries without a PQ or HLG transfer is SDR wide gamut
+        ({"color_primaries": "bt2020", "color_trc": "bt709"}, False),
+    ],
+)
+def test_isHdrSource(stream: dict[str, str], isHdr: bool) -> None:
+    assert shared.isHdrSource(stream) == isHdr
 
 
-def test_isHdrSource_flags_bt2020_hlg() -> None:
-    assert shared.isHdrSource({"color_primaries": "bt2020nc", "color_trc": "arib-std-b67"})
-
-
-def test_isHdrSource_accepts_color_transfer_alias() -> None:
-    # Older ffprobe field name is ``color_transfer``; detection should accept both.
-    assert shared.isHdrSource({"color_primaries": "bt2020", "color_transfer": "smpte2084"})
-
-
-def test_isHdrSource_sdr_sources_are_not_flagged() -> None:
-    assert not shared.isHdrSource({"color_primaries": "bt709", "color_trc": "bt709"})
-    assert not shared.isHdrSource({})  # missing metadata -> treat as SDR, not HDR
-    # BT.2020 primaries alone (SDR wide-gamut) without PQ/HLG transfer is not HDR.
-    assert not shared.isHdrSource({"color_primaries": "bt2020", "color_trc": "bt709"})
-
-
-def test_getPreviewSiblingPath_replaces_last_suffix_only() -> None:
-    assert shared.getPreviewSiblingPath("clip.webm", "avif").endswith("clip.preview.avif")
-    # Path.with_suffix replaces only the last suffix; intermediate dots survive.
-    assert shared.getPreviewSiblingPath("My Song-Album.mp4", "avif").endswith(
-        "My Song-Album.preview.avif",
-    )
-
-
-def test_getPreviewSiblingPath_is_format_agnostic() -> None:
-    # Any extension the caller provides goes through unchanged.
-    assert shared.getPreviewSiblingPath("clip.webm", "webp").endswith("clip.preview.webp")
-    assert shared.getPreviewSiblingPath("clip.webm", "gif").endswith("clip.preview.gif")
-
-
-def test_getPreviewSiblingPath_strips_leading_dot_on_extension() -> None:
-    # Callers may pass either ``avif`` or ``.avif``; output should be identical.
-    withoutDot = shared.getPreviewSiblingPath("clip.webm", "avif")
-    withDot = shared.getPreviewSiblingPath("clip.webm", ".avif")
-    assert withoutDot == withDot
+@pytest.mark.parametrize(
+    ("clip", "extension", "ending"),
+    [
+        ("clip.webm", "avif", "clip.preview.avif"),
+        # Only the last suffix is replaced
+        ("My Song-Album.mp4", "avif", "My Song-Album.preview.avif"),
+        ("clip.webm", "webp", "clip.preview.webp"),
+        ("clip.webm", "gif", "clip.preview.gif"),
+        ("clip.webm", ".avif", "clip.preview.avif"),
+    ],
+)
+def test_getPreviewSiblingPath(clip: str, extension: str, ending: str) -> None:
+    assert shared.getPreviewSiblingPath(clip, extension).endswith(ending)
