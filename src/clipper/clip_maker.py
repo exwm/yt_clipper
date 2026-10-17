@@ -595,6 +595,7 @@ def makeClip(  # noqa: PLR0912
                 f"({float(min_clip_fps):.3g}) — no frames need interpolation.",
             )
             v2x_enabled = False
+    mp["isVideo2xInput"] = v2x_enabled
     if v2x_enabled:
         mp["v2xFinalFilePath"] = mp["filePath"]
         pre_v2x_dir = f"{cp.clipsPath}/{cp.tempPath}/pre-v2x"

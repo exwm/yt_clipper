@@ -86,16 +86,8 @@ def buildVideo2xArgs(
     fpsMultiplier = mps["minterpFpsMultiplier"]
     targetFps = fpsMultiplier * videoFPS
 
-    isVariableSpeed = mp.get("isVariableSpeed", False)
-    if isVariableSpeed:
-        fps_arg = f"--vfr-min-fps {float(targetFps)}"
-    else:
-        speed = mp.get("speed", 1.0)
-        ratio = Fraction(fpsMultiplier) / Fraction(speed)
-        if ratio.denominator == 1 and int(ratio) >= 2:
-            fps_arg = f"--frame-rate-mul {int(ratio)}"
-        else:
-            fps_arg = f"--vfr-min-fps {float(targetFps)}"
+    # The input keeps the source's frame timing, so fill every gap up to the target fps.
+    fps_arg = f"--vfr-min-fps {float(targetFps)}"
 
     return " ".join(
         filter(

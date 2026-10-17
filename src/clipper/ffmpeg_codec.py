@@ -44,6 +44,10 @@ def getFfmpegVideoCodecArgs(
 def getFpsArg(mp: DictStrAny, mps: DictStrAny) -> str:
     """The output frame rate: ffmpeg's interpolated rate, else the source rate times a constant
     speed, else the frame timing as the speed filter set it."""
+    # video2x fills the gaps left by removed duplicate frames or a VFR source. A constant frame rate
+    # would fill them with copies first, and interpolating between copies stutters.
+    if mp.get("isVideo2xInput"):
+        return "-fps_mode vfr"
     if mps["minterpFPS"] is not None and mps["minterpTool"] == "ffmpeg":
         return f"-r {mps['minterpFPS']}"
     if not mp["isVariableSpeed"]:
