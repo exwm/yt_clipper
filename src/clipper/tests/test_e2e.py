@@ -7,7 +7,6 @@ YouTube and are marked slow.
 
 import functools
 import http.server
-import io
 import json
 import os
 import pathlib
@@ -91,7 +90,8 @@ class Clipper:
             pytest.skip(f"needs video2x in {video2xDir} or YTC_VIDEO2X_DIR")
         self.monkeypatch.setenv("PATH", f"{video2xDir}{os.pathsep}{os.environ['PATH']}")
 
-    def run(self, args: list[str], stdin: str | None = None) -> ClipperRun:
+    def run(self, args: list[str], answer: str | None = None) -> ClipperRun:
+        """Runs the clipper. `answer` is typed at every prompt; without it, prompts read end of input."""
         if self.exe:
             # Only the install's own settings: a shared yt_clipper_default_args.txt next to the
             # installs would change the clips.
@@ -99,7 +99,7 @@ class Clipper:
             result = subprocess.run(
                 [str(self.exe), *argFiles, *args],
                 cwd=self.cwd,
-                input=stdin,
+                input=f"{answer}\n" * 10 if answer is not None else "",
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
@@ -109,8 +109,7 @@ class Clipper:
             return ClipperRun(result.returncode, result.stdout, result.stderr)
         self.monkeypatch.chdir(self.cwd)
         self.monkeypatch.setattr(sys, "argv", ["yt_clipper.py", *args])
-        if stdin is not None:
-            self.monkeypatch.setattr(sys, "stdin", io.StringIO(stdin))
+        self.monkeypatch.setattr("builtins.input", lambda _prompt="": self.typeAnswer(answer))
         try:
             main()
             returncode = 0
@@ -119,6 +118,12 @@ class Clipper:
             returncode = code if isinstance(code, int) else int(code is not None)
         out, err = self.capsys.readouterr()
         return ClipperRun(returncode, out, err)
+
+    @staticmethod
+    def typeAnswer(answer: str | None) -> str:
+        if answer is None:
+            raise EOFError
+        return answer
 
     def probeVideo(self, clip: pathlib.Path) -> dict:
         ffprobe = self.toolPath("ffprobe")
@@ -1211,6 +1216,231 @@ def test_removing_duplicate_frames_without_interpolation_plays_the_kept_frames_b
     assert holds(clipper, clip) == 0
 
 
+def mergedMarkers(folder: pathlib.Path, name: str, crops: tuple[str, str]) -> pathlib.Path:
+    """Two one-second marker pairs on a synthetic clip, with the given crops, merged as 1-2."""
+    path = syntheticMarkers(folder, name, [{"x": 0.5, "y": 1}, {"x": 1.5, "y": 1}], pair=(0.5, 1.5))
+    markers = json.loads(path.read_text(encoding="utf-8"))
+    first = markers["markerPairs"][0]
+    # A whole number of frames (at 30000/1001 fps) after the first, so both clips have the same
+    # length under any frame rule
+    start, end = 0.5 + 45 * 1001 / 30000, 1.5 + 45 * 1001 / 30000
+    second = {
+        **first,
+        "number": 2,
+        "start": start,
+        "end": end,
+        "speedMap": [{"x": start, "y": 1}, {"x": end, "y": 1}],
+    }
+    for pair, crop in zip((first, second), crops, strict=True):
+        pair["crop"] = crop
+        pair["cropMap"] = [
+            {"x": pair["start"], "y": 0, "crop": crop},
+            {"x": pair["end"], "y": 0, "crop": crop},
+        ]
+    markers["markerPairs"] = [first, second]
+    markers["markerPairMergeList"] = "1-2"
+    path.write_text(json.dumps(markers), encoding="utf-8")
+    return path
+
+
+SAME_SIZE, DIFFERENT_SIZES = ("0:0:640:360", "0:0:640:360"), ("0:0:640:360", "0:0:320:180")
+CODEC_ENCODERS = {
+    "vp9": ("libvpx-vp9", "webm"),
+    "av1": ("libsvtav1", "mp4"),
+    "h264": ("libx264", "mp4"),
+}
+NOT_RESCALED = pytest.mark.xfail(
+    reason="merges of clips of different sizes are not rescaled", strict=True
+)
+# Offline, but keeping clips and copies made by an earlier run
+REUSE_ARGS = tuple(arg for arg in OFFLINE_ARGS if arg != "--overwrite")
+
+
+@dataclass(frozen=True)
+class MergeRun:
+    run: ClipperRun
+    output: pathlib.Path
+    log: str
+
+    def clip(self, name: str) -> pathlib.Path:
+        return self.output / name
+
+
+def runMerge(
+    clipper: Clipper,
+    media: pathlib.Path,
+    name: str,
+    crops: tuple[str, str],
+    *args: str,
+    answer: str | None = None,
+    mergeList: str = "1-2",
+) -> MergeRun:
+    """Clips two synthetic marker pairs with the given crops and merges them."""
+    ffmpeg = clipper.toolPath("ffmpeg")
+    assert ffmpeg is not None
+    _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-native-30", media)
+    markers = mergedMarkers(clipper.cwd, name, crops)
+    data = json.loads(markers.read_text(encoding="utf-8"))
+    data["markerPairMergeList"] = mergeList
+    markers.write_text(json.dumps(data), encoding="utf-8")
+    run = clipper.run(
+        ["--markers-json", str(markers), "--input-video", str(uploaded), *args], answer
+    )
+    print(run.stdout, run.stderr)
+    output = clipper.cwd / "webms" / name
+    log = max((output / "logs").glob("*.log"), key=lambda path: path.stat().st_mtime).read_text(
+        encoding="utf-8"
+    )
+    # The log wraps long lines
+    return MergeRun(run, output, re.sub(r"\s+", " ", log))
+
+
+def frameSizes(clipper: Clipper, video: pathlib.Path) -> set[str]:
+    ffprobe = clipper.toolPath("ffprobe")
+    assert ffprobe is not None
+    out = subprocess.run(
+        [ffprobe, "-v", "error", "-select_streams", "v:0", "-show_entries", "frame=width,height",
+         "-of", "csv=p=0:s=x", str(video)],
+        capture_output=True, text=True, check=True,
+    ).stdout  # fmt: skip
+    return set(out.split())
+
+
+def streamTraits(clipper: Clipper, video: pathlib.Path) -> dict:
+    """What a merge needs to match across clips, besides the size."""
+    ffprobe = clipper.toolPath("ffprobe")
+    assert ffprobe is not None
+    out = subprocess.run(
+        [ffprobe, "-v", "error", "-select_streams", "v:0", "-show_entries",
+         "stream=codec_name,pix_fmt,r_frame_rate,time_base,color_space,color_transfer,color_primaries", "-of", "json", str(video)],
+        capture_output=True, text=True, check=True,
+    ).stdout  # fmt: skip
+    return json.loads(out)["streams"][0]
+
+
+@pytest.mark.parametrize(
+    ("codec", "crops", "sizes"),
+    [
+        pytest.param("vp9", DIFFERENT_SIZES, {"640x360", "320x180"}, id="vp9 of different sizes"),
+        pytest.param("av1", SAME_SIZE, {"640x360"}, id="av1 of one size"),
+    ],
+)
+def test_merging_copies_the_clips_as_they_are(
+    clipper: Clipper,
+    syntheticMedia: pathlib.Path,
+    codec: str,
+    crops: tuple[str, str],
+    sizes: set[str],
+) -> None:
+    # Other codecs decode a size change correctly, and clips of one size need nothing
+    encoder, container = CODEC_ENCODERS[codec]
+    clipper.requireEncoder(encoder)
+    merge = runMerge(
+        clipper, syntheticMedia, f"merge-{codec}", crops, *OFFLINE_ARGS, "--video-codec", codec
+    )
+    assert merge.run.returncode == 0
+    assert frameSizes(clipper, merge.clip(f"merge-{codec}-(1-2).{container}")) == sizes
+    assert not (merge.output / "temp" / "merge-inputs").exists()
+
+
+@NOT_RESCALED
+@pytest.mark.parametrize(
+    ("codec", "rescale"),
+    [
+        # FFmpeg's AV1 hardware decoding keeps the first clip's frame size, so a size change in a
+        # merge shows corrupted colors or drops frames (FFmpeg issue 24132)
+        pytest.param("av1", (), id="av1 by default"),
+        pytest.param("vp9", ("--merge-rescale", "always"), id="vp9 when asked"),
+    ],
+)
+def test_merge_of_clips_made_earlier_at_different_sizes_uses_a_rescaled_copy_and_reuses_it(
+    clipper: Clipper,
+    syntheticMedia: pathlib.Path,
+    codec: str,
+    rescale: tuple[str, ...],
+) -> None:
+    encoder, container = CODEC_ENCODERS[codec]
+    clipper.requireEncoder(encoder)
+    name = f"merge-rescale-{codec}"
+    args = ("--video-codec", codec, *rescale)
+    # An earlier run makes the clips at their own sizes, without merging them
+    earlier = runMerge(clipper, syntheticMedia, name, DIFFERENT_SIZES, *OFFLINE_ARGS, "--video-codec", codec,
+                       "--merge-rescale", "never", answer="n")  # fmt: skip
+    assert earlier.run.returncode == 0
+    earlier.clip(f"{name}-(1-2).{container}").unlink(missing_ok=True)
+    merge = runMerge(clipper, syntheticMedia, name, DIFFERENT_SIZES, *REUSE_ARGS, *args)
+    assert merge.run.returncode == 0
+    merged = merge.clip(f"{name}-(1-2).{container}")
+    assert frameSizes(clipper, merged) == {"640x360"}
+    assert clipper.probeDuration(merged) == pytest.approx(2.0, abs=2 * LENGTH_TOLERANCE)
+    # The clips keep their own sizes; the merge used a rescaled copy of the second
+    assert frameSizes(clipper, merge.clip(f"{name}-2.{container}")) == {"320x180"}
+    copies = list((merge.output / "temp" / "merge-inputs").glob(f"*.{container}"))
+    assert len(copies) == 1
+    assert frameSizes(clipper, copies[0]) == {"640x360"}
+    assert streamTraits(clipper, copies[0]) == streamTraits(
+        clipper, merge.clip(f"{name}-2.{container}")
+    )
+    assert "Merge 1-2 at 640x360: marker pair 2 from 320x180." in merge.log
+
+    # A later merge of the same clips reuses the copy
+    madeAt = copies[0].stat().st_mtime_ns
+    later = runMerge(
+        clipper, syntheticMedia, name, DIFFERENT_SIZES, *REUSE_ARGS, *args, mergeList="1-2;2,1"
+    )
+    assert later.run.returncode == 0
+    assert frameSizes(clipper, later.clip(f"{name}-(2,1).{container}")) == {"640x360"}
+    assert copies[0].stat().st_mtime_ns == madeAt
+
+
+@NOT_RESCALED
+@pytest.mark.parametrize(("answer", "merged"), [("n", False), ("y", True)])
+def test_av1_merge_of_different_sizes_without_rescale_asks_first(
+    clipper: Clipper,
+    syntheticMedia: pathlib.Path,
+    answer: str,
+    merged: bool,
+) -> None:
+    clipper.requireEncoder("libsvtav1")
+    name = "merge-av1-no-rescale"
+    merge = runMerge(clipper, syntheticMedia, name, DIFFERENT_SIZES, *OFFLINE_ARGS, "--video-codec", "av1",
+                     "--merge-rescale", "never", answer=answer)  # fmt: skip
+    assert merge.run.returncode == 0
+    assert "different sizes" in merge.log
+    output = merge.clip(f"{name}-(1-2).mp4")
+    assert output.is_file() == merged
+    if merged:
+        assert frameSizes(clipper, output) == {"640x360", "320x180"}
+
+
+@pytest.mark.xfail(
+    reason="a merge of different codecs is made, and plays only the first codec", strict=True
+)
+def test_merge_of_different_codecs_is_skipped(
+    clipper: Clipper, syntheticMedia: pathlib.Path
+) -> None:
+    # av1 and h264 clips share names (both .mp4), so a later h264 run reuses the av1 clip
+    clipper.requireEncoder("libsvtav1")
+    clipper.requireEncoder("libx264")
+    name = "merge-codecs"
+    first = runMerge(
+        clipper,
+        syntheticMedia,
+        name,
+        SAME_SIZE,
+        *OFFLINE_ARGS,
+        "--video-codec",
+        "av1",
+        "--only",
+        "1",
+    )
+    assert first.run.returncode == 0
+    merge = runMerge(clipper, syntheticMedia, name, SAME_SIZE, *REUSE_ARGS, "--video-codec", "h264")
+    assert merge.run.returncode == 0
+    assert not merge.clip(f"{name}-(1-2).mp4").exists()
+    assert "different codecs" in merge.log
+
+
 # A video host stand-in: a long synthetic video and its audio served over local HTTP with byte
 # ranges, so tests can count how much of the video each clip fetches.
 NETWORK_VIDEO_SECONDS = 20
@@ -1422,7 +1652,8 @@ def test_lower_quality_prompt_end_to_end(
     try:
         markers = pageMarkers(tmp_path, url, name)
         run = clipper.run(
-            ["--markers-json", str(markers), *OFFLINE_ARGS, *case.args], stdin=case.answer
+            ["--markers-json", str(markers), *OFFLINE_ARGS, *case.args],
+            answer=(case.answer or "").strip() or None,
         )
         logs = "".join(log.read_text(encoding="utf-8") for log in output.glob("logs/*.log"))
         print(run.stdout, run.stderr, logs)
