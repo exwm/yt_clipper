@@ -1293,6 +1293,26 @@ def test_a_clip_seeks_to_its_part_of_a_network_video(
     assert segmentReads(clipper, videoHost, "network-one-pass", []) == 1
 
 
+# Both read their input twice, so they fetch the segment twice. A local copy of the segment would
+# fix it, but costs memory or disk for an opt-in setting; --download-video covers users who mind.
+FETCHED_TWICE = pytest.mark.xfail(reason="reads the network video twice", strict=True)
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        pytest.param(["--two-pass"], id="two-pass", marks=FETCHED_TWICE),
+        pytest.param(["--video-stabilization", "1"], id="stabilization", marks=FETCHED_TWICE),
+    ],
+)
+def test_a_clip_fetches_its_part_of_a_network_video_once(
+    clipper: Clipper,
+    videoHost: RangeHTTPServer,
+    args: list[str],
+) -> None:
+    assert segmentReads(clipper, videoHost, f"network-{args[0].strip('-')}", args) == 1
+
+
 # A local page with several MP4 sources stands in for a video page with several formats, so the lower
 # quality prompt runs end to end offline: the real yt-dlp probes each source over HTTP, and a source
 # served as 404 cannot be downloaded. Each source has its own frame size, so the clip shows which one
