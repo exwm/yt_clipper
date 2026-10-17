@@ -9,6 +9,7 @@ import functools
 import http.server
 import io
 import json
+import os
 import pathlib
 import re
 import shutil
@@ -24,6 +25,7 @@ import pytest
 from clipper import clip_maker
 from clipper.yt_clipper import main
 
+REPO = pathlib.Path(__file__).resolve().parents[3]
 TESTDATA = pathlib.Path(__file__).parent.resolve() / "testdata"
 MARKERS = TESTDATA / "test-with-dynamic.json"
 LOCAL_VIDEO = TESTDATA / "test-with-dynamic.mp4"
@@ -74,6 +76,17 @@ class Clipper:
             ).stdout
         if encoder not in encoders:
             pytest.skip(f"needs an ffmpeg with {encoder}")
+
+    def requireVideo2x(self) -> None:
+        if self.exe:
+            if not pathlib.Path(self.toolPath("video2x") or "").is_file():
+                pytest.skip("needs a release with video2x")
+            return
+        # The clipper looks for video2x in the working folder's bin/, then on PATH.
+        video2xDir = pathlib.Path(os.environ.get("YTC_VIDEO2X_DIR") or REPO / "bin" / "video2x")
+        if not (video2xDir / f"video2x{EXE}").is_file():
+            pytest.skip(f"needs video2x in {video2xDir} or YTC_VIDEO2X_DIR")
+        self.monkeypatch.setenv("PATH", f"{video2xDir}{os.pathsep}{os.environ['PATH']}")
 
     def run(self, args: list[str], stdin: str | None = None) -> ClipperRun:
         if self.exe:
@@ -163,6 +176,7 @@ class ClipCase:
     codec: str | None
     localVideo: bool
     length: float
+    video2x: bool
 
 
 def clipCase(
@@ -175,11 +189,14 @@ def clipCase(
     slow: bool = False,
     length: float = MARKER_PAIR_LENGTH,
     frameTiming: str | None = None,
+    video2x: bool = False,
 ) -> object:
     marks = [pytest.mark.slow] if slow or not localVideo else []
     if frameTiming:
         marks.append(pytest.mark.frame_timing(frameTiming))
-    return pytest.param(ClipCase(args, encoder, codec, localVideo, length), id=name, marks=marks)
+    return pytest.param(
+        ClipCase(args, encoder, codec, localVideo, length, video2x), id=name, marks=marks
+    )
 
 
 CLIP_CASES = [
@@ -205,6 +222,22 @@ CLIP_CASES = [
         localVideo=True,
         length=MARKER_PAIR_LENGTH - float(1 / SOURCE_FPS) / 0.3,
         frameTiming="5.48",
+    ),
+    # Motion interpolation turns on duplicate frame removal for this sub-47 fps source.
+    clipCase(
+        "minterpolate",
+        ("--minterp-fps-multiplier", "2", "--minterp-tool", "ffmpeg"),
+        "libvpx-vp9",
+        "vp9",
+        localVideo=True,
+    ),
+    clipCase(
+        "video2x",
+        ("--minterp-fps-multiplier", "2", "--minterp-tool", "video2x"),
+        "libvpx-vp9",
+        "vp9",
+        localVideo=True,
+        video2x=True,
     ),
     clipCase(
         "nvenc",
@@ -942,6 +975,8 @@ def test_cinematic_hold_points_follow_the_pairs_hold_points_setting(
 @pytest.mark.parametrize("case", CLIP_CASES)
 def test_make_clip(case: ClipCase, clipper: Clipper) -> None:
     clipper.requireEncoder(case.encoder)
+    if case.video2x:
+        clipper.requireVideo2x()
     args = ["--markers-json", str(MARKERS), *OFFLINE_ARGS, *case.args]
     if case.localVideo:
         args += ["--input-video", str(LOCAL_VIDEO)]
