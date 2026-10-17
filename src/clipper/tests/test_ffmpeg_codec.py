@@ -82,6 +82,29 @@ def test_av1_preset_hardcoded_ignores_encode_speed() -> None:
     assert slow == fast
 
 
+FPS_ARG_CASES = {
+    "constant speed": ({"speed": 0.5}, {}, "-r (30*0.5)"),
+    "variable speed": ({"isVariableSpeed": True}, {}, "-fps_mode vfr"),
+    "ffmpeg interpolation": ({}, {"minterpFPS": 60}, "-r 60"),
+    "ffmpeg interpolation, variable speed": (
+        {"isVariableSpeed": True},
+        {"minterpFPS": 60},
+        "-r 60",
+    ),
+}
+
+
+@pytest.mark.parametrize(
+    ("mp_overrides", "mps_overrides", "expected"),
+    FPS_ARG_CASES.values(),
+    ids=FPS_ARG_CASES.keys(),
+)
+def test_fps_arg(mp_overrides: dict, mps_overrides: dict, expected: str) -> None:
+    mp, mps = _make_mp_mps(**mps_overrides)
+    mp.update(mp_overrides)
+    assert ffmpeg_codec.getFpsArg(mp, mps) == expected
+
+
 def test_av1_container_and_hwaccel() -> None:
     assert ffmpeg_codec.getContainerForCodec("av1") == "mp4"
     assert ffmpeg_codec.isHardwareAcceleratedVideoCodec("av1") is False

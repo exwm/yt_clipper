@@ -41,6 +41,16 @@ def getFfmpegVideoCodecArgs(
     raise ValueError(f"Invalid video codec: {videoCodec}")
 
 
+def getFpsArg(mp: DictStrAny, mps: DictStrAny) -> str:
+    """The output frame rate: ffmpeg's interpolated rate, else the source rate times a constant
+    speed, else the frame timing as the speed filter set it."""
+    if mps["minterpFPS"] is not None and mps["minterpTool"] == "ffmpeg":
+        return f"-r {mps['minterpFPS']}"
+    if not mp["isVariableSpeed"]:
+        return f"-r ({mps['r_frame_rate']}*{mp['speed']})"
+    return "-fps_mode vfr"
+
+
 # ---------------------------------------------------------------------------
 # Per-codec helpers
 # ---------------------------------------------------------------------------
@@ -54,12 +64,7 @@ def getFfmpegVideoCodecVpx(
     qmax: int,
     qmin: int,
 ) -> tuple[str, str, str]:
-    if mps["minterpFPS"] is not None and mps["minterpTool"] == "ffmpeg":
-        fps_arg = f"-r {mps['minterpFPS']}"
-    elif not mp["isVariableSpeed"]:
-        fps_arg = f"-r ({mps['r_frame_rate']}*{mp['speed']})"
-    else:
-        fps_arg = "-fps_mode vfr"
+    fps_arg = getFpsArg(mp, mps)
 
     sdr_args = "-pix_fmt yuv420p"
     # Set profile 2: color depth: 10 or 12 bit; chroma subsampling: 4:2:0
@@ -117,12 +122,7 @@ def getFfmpegVideoCodecH264(
     qmin: int,
 ) -> tuple[str, str, str]:
     """Following recommendations from https://www.lighterra.com/papers/videoencodingh264"""
-    fps_arg = ""
-    if not mps["h264DisableReduceStutter"]:
-        if mps["minterpFPS"] is not None and mps["minterpTool"] == "ffmpeg":
-            fps_arg = f"-r {mps['minterpFPS']}"
-        elif not mp["isVariableSpeed"]:
-            fps_arg = f"-r ({mps['r_frame_rate']}*{mp['speed']})"
+    fps_arg = "" if mps["h264DisableReduceStutter"] else getFpsArg(mp, mps)
 
     if mp["isVariableSpeed"]:
         fps_arg = "-fps_mode vfr"
@@ -191,12 +191,7 @@ def getFfmpegVideoCodecH264Vulkan(
       It doesn't seem to be allowed currently however, only the vulkan pixel format works with vulkan encoders
       See https://patchwork.ffmpeg.org/project/ffmpeg/patch/1587532983-20287-1-git-send-email-fei.w.wang@intel.com/#55407
     """
-    fps_arg = ""
-    if not mps["h264DisableReduceStutter"]:
-        if mps["minterpFPS"] is not None and mps["minterpTool"] == "ffmpeg":
-            fps_arg = f"-r {mps['minterpFPS']}"
-        elif not mp["isVariableSpeed"]:
-            fps_arg = f"-r ({mps['r_frame_rate']}*{mp['speed']})"
+    fps_arg = "" if mps["h264DisableReduceStutter"] else getFpsArg(mp, mps)
 
     if mp["isVariableSpeed"]:
         fps_arg = "-fps_mode vfr"
@@ -270,12 +265,7 @@ def getFfmpegVideoCodecH264Nvenc(
       10-bit encode typically not supported.
     """
 
-    fps_arg = ""
-    if not mps["h264DisableReduceStutter"]:
-        if mps["minterpFPS"] is not None and mps["minterpTool"] == "ffmpeg":
-            fps_arg = f"-r {mps['minterpFPS']}"
-        elif not mp["isVariableSpeed"]:
-            fps_arg = f"-r ({mps['r_frame_rate']}*{mp['speed']})"
+    fps_arg = "" if mps["h264DisableReduceStutter"] else getFpsArg(mp, mps)
 
     if mp["isVariableSpeed"]:
         fps_arg = "-fps_mode vfr"
@@ -340,12 +330,7 @@ def getFfmpegVideoCodecAv1(
     Preset is hardcoded; the finer ``-svtav1-params`` knobs are documented
     inline with the encoder default each one overrides.
     """
-    if mps["minterpFPS"] is not None and mps["minterpTool"] == "ffmpeg":
-        fps_arg = f"-r {mps['minterpFPS']}"
-    elif not mp["isVariableSpeed"]:
-        fps_arg = f"-r ({mps['r_frame_rate']}*{mp['speed']})"
-    else:
-        fps_arg = "-fps_mode vfr"
+    fps_arg = getFpsArg(mp, mps)
 
     sdr_args = "-pix_fmt yuv420p"
     hdr_args = f"-pix_fmt yuv420p10le {dynamic_range.hdr_args_for_output_metadata}"
