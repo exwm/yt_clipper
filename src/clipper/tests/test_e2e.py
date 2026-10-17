@@ -1441,6 +1441,7 @@ def test_clips_made_for_a_merge_are_encoded_at_its_size(
     assert not (merge.output / "temp" / "merge-inputs").exists()
     plan = f"Merge 1-2 at {big}: marker pair 2 from {small}."
     assert plan in merge.log
+    assert merge.log.count(plan) == 1
     assert merge.log.index(plan) < merge.log.index("Marker pair 1")
 
 

@@ -32,6 +32,14 @@ class MergeClip:
     scalable: bool = False
 
 
+@dataclass(frozen=True)
+class MergeScale:
+    """A clip encoded at its merge's size rather than the size it would have on its own."""
+
+    fromSize: Size
+    size: Size
+
+
 def fittedSize(size: Size, box: Size) -> Size:
     """The size a clip scales to inside box. Aspect ratios within ASPECT_TOLERANCE, which crops of
     one shape differ by after rounding, fill the box: the stretch is invisible and leaves no thin

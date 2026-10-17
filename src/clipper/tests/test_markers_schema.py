@@ -335,7 +335,7 @@ def test_make_clips_skips_invalid_pairs(monkeypatch: pytest.MonkeyPatch) -> None
     )
     encoded: list[int] = []
 
-    def fakeMakeClip(_cs: ClipperState, markerPairIndex: int) -> dict[str, Any]:
+    def fakeMakeClip(_cs: ClipperState, markerPairIndex: int, **_options: object) -> dict[str, Any]:
         encoded.append(markerPairIndex)
         return {**cs.settings["markerPairs"][markerPairIndex], "returncode": 0}
 
