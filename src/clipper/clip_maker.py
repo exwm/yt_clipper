@@ -61,6 +61,7 @@ from clipper.log_helpers import (
     substitute_filter_graphs,
     time_stage,
 )
+from clipper.merge_inputs import hasOneCodec, probeMergeInputs
 from clipper.platforms import getFfmpegHeaders
 from clipper.previews import makePreview, mergePreviews
 from clipper.util import escapeSingleQuotesFFmpeg, getTrimmedBase64Hash, shlexDoubleQuoted
@@ -1341,6 +1342,7 @@ def mergeClips(cs: ClipperState) -> list[str]:  # noqa: PLR0912
     mergeListGen = createMergeList(markerPairMergeList)
     for merge, mergeList in mergeListGen:
         inputs = ""
+        inputPaths: list[str] = []
         i = 0
         markerPair = {}
         try:
@@ -1364,6 +1366,7 @@ def mergeClips(cs: ClipperState) -> list[str]:  # noqa: PLR0912
                     if Path(markerPair["filePath"]).is_file():
                         fileName = escapeSingleQuotesFFmpeg(markerPair["fileName"])
                         inputs += f"""file '{fileName}'\n"""
+                        inputPaths.append(markerPair["filePath"])
                     else:
                         raise MissingMergeInput
                 else:
@@ -1428,7 +1431,13 @@ def mergeClips(cs: ClipperState) -> list[str]:  # noqa: PLR0912
 
         merged_file_log = LogPath(mergedFileName)
         mergedClipReady = mergeFileExists and not settings["overwrite"]
-        if not mergeFileExists or settings["overwrite"]:
+        willMerge = not mergeFileExists or settings["overwrite"]
+        if willMerge:
+            mergeInputs = probeMergeInputs(cp, merge, inputPaths)
+            willMerge = mergeInputs is not None and hasOneCodec(
+                merge, mergeList, mergeInputs, settings["videoCodec"]
+            )
+        if willMerge:
             # Escape ``[...]`` tokens in the embedded paths so rich
             # doesn't parse them as style spans and strip pieces of
             # the command. Same convention as the runffmpegCommand

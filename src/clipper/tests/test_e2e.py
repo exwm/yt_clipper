@@ -1413,9 +1413,6 @@ def test_av1_merge_of_different_sizes_without_rescale_asks_first(
         assert frameSizes(clipper, output) == {"640x360", "320x180"}
 
 
-@pytest.mark.xfail(
-    reason="a merge of different codecs is made, and plays only the first codec", strict=True
-)
 def test_merge_of_different_codecs_is_skipped(
     clipper: Clipper, syntheticMedia: pathlib.Path
 ) -> None:
@@ -1438,7 +1435,8 @@ def test_merge_of_different_codecs_is_skipped(
     merge = runMerge(clipper, syntheticMedia, name, SAME_SIZE, *REUSE_ARGS, "--video-codec", "h264")
     assert merge.run.returncode == 0
     assert not merge.clip(f"{name}-(1-2).mp4").exists()
-    assert "different codecs" in merge.log
+    assert "marker pair 1 is av1, marker pair 2 is h264" in merge.log
+    assert "--overwrite --only 1" in merge.log
 
 
 # A video host stand-in: a long synthetic video and its audio served over local HTTP with byte
