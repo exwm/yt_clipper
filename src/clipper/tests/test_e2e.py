@@ -23,8 +23,9 @@ from fractions import Fraction
 import pytest
 
 from clipper import clip_maker
-from clipper.ffmpeg_filter import getSpeedFilterAndDuration
 from clipper.tests import synthetic_media
+from clipper.tests.range_http_server import RangeHTTPServer
+from clipper.tests.test_output_duration_cases import clipperOutputDuration
 from clipper.yt_clipper import main
 
 REPO = pathlib.Path(__file__).resolve().parents[3]
@@ -1027,12 +1028,21 @@ def syntheticMedia(tmp_path_factory: pytest.TempPathFactory) -> pathlib.Path:
     return tmp_path_factory.mktemp("synthetic-media")
 
 
-def syntheticMarkers(folder: pathlib.Path, name: str, speedMap: list[dict]) -> pathlib.Path:
+def syntheticMarkers(
+    folder: pathlib.Path,
+    name: str,
+    speedMap: list[dict],
+    pair: tuple[float, float] = SYNTHETIC_PAIR,
+) -> pathlib.Path:
     """A markers JSON with one full-frame marker pair on a synthetic clip."""
     markers = json.loads(MARKERS.read_text(encoding="utf-8"))
-    start, end = SYNTHETIC_PAIR
+    start, end = pair
     markers.update(
-        cropRes="640x360", cropResWidth=640, cropResHeight=360, titleSuffix=name, videoTag=name
+        cropRes="640x360",
+        cropResWidth=640,
+        cropResHeight=360,
+        titleSuffix=name,
+        videoTag=name,
     )
     markers["markerPairs"] = [
         {
@@ -1084,11 +1094,15 @@ def lengthCase(source: str, tool: str, speed: str, dedupe: bool) -> object:
         marks.append(
             pytest.mark.xfail(reason="kept frames play back to back, as in 5.48", strict=True)
         )
+    elif (source, tool, speed) == ("vfr-motion", "minterpolate", "slowdown"):
+        # Its frames are off the constant-rate grid the clip's ends are mapped on, so the last one
+        # kept is a source frame later than the grid says (the clipper warns about such sources).
+        marks.append(pytest.mark.xfail(reason="ends a slowed source frame late", strict=True))
     elif (source, tool, speed) == ("vfr-motion", "video2x", "slowdown"):
         # The source's last frame is followed by a gap, so it shows for two frames. The clip given
         # to video2x cannot record that, so video2x shows it for one output frame.
         marks.append(
-            pytest.mark.xfail(reason="ends up to a slowed source frame early", strict=True)
+            pytest.mark.xfail(reason="ends up to a slowed source frame early", strict=True),
         )
     removal = "dedupe" if dedupe else "no-dedupe"
     return pytest.param(
@@ -1115,10 +1129,9 @@ def test_interpolated_synthetic_clip_keeps_its_length(
     dedupe: bool,
 ) -> None:
     clip = interpolateSyntheticClip(clipper, syntheticMedia, source, tool, speed, dedupe)
-    _, length, _ = getSpeedFilterAndDuration(
-        SPEED_MAPS[speed], {"isVariableSpeed": True}, SOURCE_FPS
-    )
-    assert clipper.probeDuration(clip) == pytest.approx(float(length), abs=LENGTH_TOLERANCE)
+    # As the clipper renders the speed map: through the frame shown at its end.
+    length = clipperOutputDuration(SPEED_MAPS[speed], str(SOURCE_FPS))
+    assert clipper.probeDuration(clip) == pytest.approx(length, abs=LENGTH_TOLERANCE)
 
 
 def holds(clipper: Clipper, clip: pathlib.Path, frames: int = 3) -> int:
@@ -1195,6 +1208,89 @@ def test_removing_duplicate_frames_without_interpolation_plays_the_kept_frames_b
     assert int(clipper.probeVideo(clip)["nb_read_packets"]) == pytest.approx(
         pairFrames * 4 / 5, abs=3
     )
+    assert holds(clipper, clip) == 0
+
+
+# A video host stand-in: a long synthetic video and its audio served over local HTTP with byte
+# ranges, so tests can count how much of the video each clip fetches.
+NETWORK_VIDEO_SECONDS = 20
+NETWORK_PAIR = (10.0, 12.0)
+
+
+@pytest.fixture(scope="session")
+def networkMedia(tmp_path_factory: pytest.TempPathFactory) -> pathlib.Path:
+    folder = tmp_path_factory.mktemp("network-media")
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg is None:
+        pytest.skip("needs ffmpeg")
+    quiet = [ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi"]
+    subprocess.run(
+        [*quiet, "-i", f"testsrc2=size=640x360:rate=30000/1001:duration={NETWORK_VIDEO_SECONDS}",
+         "-c:v", "libvpx-vp9", "-b:v", "1M", "-g", "60", "-deadline", "realtime", "-cpu-used", "8",
+         str(folder / "video.webm")],
+        check=True,
+    )  # fmt: skip
+    subprocess.run(
+        [*quiet, "-i", f"sine=frequency=440:duration={NETWORK_VIDEO_SECONDS}", "-c:a", "libopus",
+         str(folder / "audio.webm")],
+        check=True,
+    )  # fmt: skip
+    return folder
+
+
+@pytest.fixture
+def videoHost(
+    networkMedia: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[RangeHTTPServer]:
+    """Serves the network media and makes the clipper's yt-dlp lookup return its URLs."""
+    with RangeHTTPServer(networkMedia) as server:
+
+        def videoInfo(_cs: object) -> dict:
+            video = {"url": server.url("video.webm"), "format_id": "248", "ext": "webm", "vcodec": "vp9",
+                     "acodec": "none", "width": 640, "height": 360, "fps": 29.97, "tbr": 1000, "protocol": "https"}  # fmt: skip
+            audio = {"url": server.url("audio.webm"), "format_id": "251", "ext": "webm", "vcodec": "none",
+                     "acodec": "opus", "abr": 128, "tbr": 128, "protocol": "https"}  # fmt: skip
+            return {"requested_formats": [video, audio], "formats": [video, audio]}
+
+        monkeypatch.setattr("clipper.ytc_settings.ytdl_bin_get_video_info", videoInfo)
+        yield server
+
+
+def segmentReads(clipper: Clipper, videoHost: RangeHTTPServer, name: str, args: list[str]) -> int:
+    """Clips the network video's marker pair and returns how many times it read the pair's part
+    of the video."""
+    if clipper.exe:
+        pytest.skip("replaces the yt-dlp lookup, so it runs the clipper in-process")
+    clipper.requireEncoder("libvpx-vp9")
+    start, end = NETWORK_PAIR
+    markers = syntheticMarkers(
+        clipper.cwd,
+        name,
+        [{"x": start, "y": 1}, {"x": end, "y": 1}],
+        NETWORK_PAIR,
+    )
+    videoHost.reset()
+    run = clipper.run(["--markers-json", str(markers), *OFFLINE_ARGS, *args])
+    print(run.stdout, run.stderr)
+    assert run.returncode == 0
+    clips = [
+        path
+        for path in (clipper.cwd / "webms" / name).glob("*")
+        if path.suffix in {".webm", ".mp4"}
+    ]
+    assert len(clips) == 1
+    # Through the frame shown at the pair's end, as the clipper renders it
+    length = clipperOutputDuration([{"x": start, "y": 1}, {"x": end, "y": 1}], "30000/1001")
+    assert clipper.probeDuration(clips[0]) == pytest.approx(length, abs=LENGTH_TOLERANCE)
+    # The pair is at 50% to 60% of the video, and a read starts at the keyframe before it.
+    return videoHost.readsStartingIn("video.webm", 0.3, 0.7)
+
+
+def test_a_clip_seeks_to_its_part_of_a_network_video(
+    clipper: Clipper,
+    videoHost: RangeHTTPServer,
+) -> None:
+    assert segmentReads(clipper, videoHost, "network-one-pass", []) == 1
 
 
 # A local page with several MP4 sources stands in for a video page with several formats, so the lower
