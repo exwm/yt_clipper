@@ -1099,6 +1099,45 @@ def test_interpolated_synthetic_clip_keeps_its_length(
     assert clipper.probeDuration(clip) == pytest.approx(float(length), abs=LENGTH_TOLERANCE)
 
 
+def holds(clipper: Clipper, clip: pathlib.Path) -> int:
+    """Places in the middle of a moving clip where the picture holds still for 3 or more frames in
+    a row: where interpolation ran between a frame and its repeat. RIFE eases in and out around
+    each input frame, which gives one or two near-still frames but never 3."""
+    ffmpeg = clipper.toolPath("ffmpeg")
+    assert ffmpeg is not None
+    log = subprocess.run(
+        [
+            ffmpeg,
+            "-hide_banner",
+            "-i",
+            str(clip),
+            "-vf",
+            "scdet=threshold=100,metadata=mode=print",
+            "-f",
+            "null",
+            "-",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stderr
+    differences = [float(value) for value in re.findall(r"lavfi\.scd\.mafd=(\S+)", log)]
+    middle = differences[len(differences) // 10 : -len(differences) // 10]
+    typical = sorted(middle)[len(middle) // 2]
+    still = "".join("s" if difference < typical / 10 else "m" for difference in middle)
+    return len(re.findall("sss+", still))
+
+
+@pytest.mark.parametrize("tool", INTERPOLATION_TOOLS)
+def test_interpolated_cartoon_does_not_stall(
+    clipper: Clipper, syntheticMedia: pathlib.Path, tool: str
+) -> None:
+    # Drawn at 12 fps and stored at 30, each drawing shows for 2 or 3 frames. Interpolating
+    # between a drawing and its repeat would hold the picture still between moves.
+    clip = interpolateSyntheticClip(clipper, syntheticMedia, "cartoon-12-in-30", tool, "slowdown")
+    assert holds(clipper, clip) == 0
+
+
 # A local page with several MP4 sources stands in for a video page with several formats, so the lower
 # quality prompt runs end to end offline: the real yt-dlp probes each source over HTTP, and a source
 # served as 404 cannot be downloaded. Each source has its own frame size, so the clip shows which one
