@@ -669,13 +669,14 @@ def makeClip(  # noqa: PLR0912
     if mps["preview"] and not settings["inputVideo"]:
         video_filter += f",loop=loop=-1:size=(32767)"
 
+    filterBitDepth = 8
     if mps["enableHDR"] or settings["inputIsHDR"] or settings["inputBitDepth"] > 8:
         video_filter += f",format=yuv444p10le"
+        filterBitDepth = 10
 
     ### Crop Filter ###
 
     cropComponents = mp["cropComponents"]
-    # video_filter += f",mpdecimate=hi=64*2:lo=64:frac=0.1,setpts='(N/FR/TB)'"
     video_filter += f",{cropFilterOnPairTime(mp)}"
 
     if mps["subsFilePath"] != "":
@@ -706,7 +707,7 @@ def makeClip(  # noqa: PLR0912
     shouldDedupe = shouldRemoveDuplicateFrames(mps)
     if shouldDedupe:
         logger.info("Duplicate frames will be removed.")
-        video_filter += f",{getRemoveDuplicateFramesFilter()}"
+        video_filter += f",{getRemoveDuplicateFramesFilter(filterBitDepth)}"
 
     if 0 <= mps["gamma"] <= 4 and mps["gamma"] != 1:
         video_filter += f",lutyuv=y=gammaval({mps['gamma']})"
