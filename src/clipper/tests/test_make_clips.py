@@ -28,7 +28,9 @@ def test_merge_is_skipped_when_an_encode_gave_up(
     )
 
     # The first encode gives up (e.g. ffmpeg fails before motion interpolation) and returns None.
-    def fakeMakeClip(_cs: ClipperState, markerPairIndex: int) -> dict[str, Any] | None:
+    def fakeMakeClip(
+        _cs: ClipperState, markerPairIndex: int, **_options: object
+    ) -> dict[str, Any] | None:
         if markerPairIndex == 0:
             return None
         return {**pairs[1], "returncode": 0, "fileName": clip.name, "filePath": str(clip)}

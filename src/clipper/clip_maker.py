@@ -63,12 +63,13 @@ from clipper.log_helpers import (
 )
 from clipper.merge_inputs import hasOneCodec, probeMergeInputs
 from clipper.merge_rescale import (
+    MergeEncodePlan,
     confirmMergeOfDifferentSizes,
     planMergeEncodeSizes,
     planMergeRescales,
     rescaledConcatInputs,
 )
-from clipper.merge_sizes import markerPairsText, rescaleFilter, sizeText
+from clipper.merge_sizes import MergeScale, Size, markerPairsText, rescaleFilter, sizeText
 from clipper.platforms import getFfmpegHeaders
 from clipper.previews import makePreview, mergePreviews
 from clipper.util import escapeSingleQuotesFFmpeg, getTrimmedBase64Hash, shlexDoubleQuoted
@@ -167,8 +168,11 @@ def getMarkerPairSettings(  # noqa: PLR0912
     enableLogging: bool = True,
     outputSuffix: str = "",
     outputDir: str | None = None,
+    mergeEncodeSize: Size | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Resolve per-marker-pair settings + filenames.
+
+    ``mergeEncodeSize`` is the size the clip is encoded at for its merge, if any.
 
     ``outputSuffix`` (e.g. ``".crfsearch-trial-crf26"``) is appended to
     ``fileNameStem`` to differentiate output files for non-production
@@ -356,9 +360,9 @@ def getMarkerPairSettings(  # noqa: PLR0912
         cc = cropComponents
         mp["cropFilter"] = f"""crop='x={cc["x"]}:y={cc["y"]}:w={cc["w"]}:h={cc["h"]}:exact=1'"""
 
-    if "mergeEncodeSize" in mp:
+    if mergeEncodeSize is not None:
         # Encoded at its merge's size, so its bitrate follows that size
-        mp["maxSize"] = mp["mergeEncodeSize"][0] * mp["mergeEncodeSize"][1]
+        mp["maxSize"] = mergeEncodeSize[0] * mergeEncodeSize[1]
 
     mps, bitrateFactor, bitrateCropFactor, bitrateFpsFactor = updateEncodeSettings(
         settings,
@@ -574,8 +578,11 @@ def makeClip(  # noqa: PLR0912
     *,
     outputSuffix: str = "",
     outputDir: str | None = None,
+    mergeScale: MergeScale | None = None,
 ) -> dict[str, Any] | None:
     """Encode one marker pair.
+
+    ``mergeScale`` scales the clip from the size it would have to its merge's size.
 
     ``outputSuffix`` (e.g. ``".crfsearch-trial-crf26"``) is appended to the
     output filename so non-production trial encodes (the empirical CRF
@@ -598,6 +605,7 @@ def makeClip(  # noqa: PLR0912
         markerPairIndex,
         outputSuffix=outputSuffix,
         outputDir=outputDir,
+        mergeEncodeSize=mergeScale.size if mergeScale else None,
     )
 
     if mp["exists"] and not mps["overwrite"]:
@@ -716,11 +724,11 @@ def makeClip(  # noqa: PLR0912
     if mps["rotate"] and mps["rotate"] != "0":
         video_filter += f",transpose={mps['rotate']}"
 
-    if "mergeEncodeSize" in mp:
+    if mergeScale is not None:
         logger.notice(
-            f"Scaling {markerPairsText([markerPairIndex + 1])} to {sizeText(mp['mergeEncodeSize'])} for its merge.",
+            f"Scaling {markerPairsText([markerPairIndex + 1])} to {sizeText(mergeScale.size)} for its merge."
         )
-        video_filter += f",{rescaleFilter(mp['mergeEncodeFrom'], mp['mergeEncodeSize'])}"
+        video_filter += f",{rescaleFilter(mergeScale.fromSize, mergeScale.size)}"
 
     video_filter_before_correction = None
     if mps["preview"]:
@@ -1356,9 +1364,14 @@ def runffplayCommand(
         subprocess.run(shlex.split(ffplayCommand), check=True)
 
 
-def mergeClips(cs: ClipperState) -> list[str]:  # noqa: PLR0912
-    """Make each merged clip, and return the merges whose ffmpeg failed. A merge skipped for a
-    missing clip is not counted: with --only, the other clips are missing on purpose."""
+def mergeClips(  # noqa: PLR0912
+    cs: ClipperState,
+    announcedMergeSizes: dict[str, Size] | None = None,
+) -> list[str]:
+    """Merges the clips of each merge in the merge list, and returns the merges whose ffmpeg failed.
+    announcedMergeSizes are the merge sizes the plan before encoding logged, which are not logged
+    again. A merge skipped for a missing clip is not counted: with --only, the other clips are
+    missing on purpose."""
     settings = cs.settings
     failedMerges = []
     cp = cs.clipper_paths
@@ -1370,7 +1383,7 @@ def mergeClips(cs: ClipperState) -> list[str]:  # noqa: PLR0912
     inputsTxtPath = ""
 
     mergeRequests = list(createMergeList(markerPairMergeList))
-    rescaleTargets = planMergeRescales(cs, mergeRequests)
+    rescaleTargets = planMergeRescales(cs, mergeRequests, announcedMergeSizes or {})
     for merge, mergeList in mergeRequests:
         inputs = ""
         inputPaths: list[str] = []
@@ -1726,8 +1739,9 @@ def makeClips(cs: ClipperState) -> list[str]:  # noqa: PLR0912
     # easy scanning / copying.
     sampleGuidedEncodeSummaries: list[Any] = []
 
+    mergePlan = MergeEncodePlan()
     if settings["markerPairMergeList"]:
-        planMergeEncodeSizes(
+        mergePlan = planMergeEncodeSizes(
             cs,
             list(createMergeList(settings["markerPairMergeList"].split(";"))),
             markerPairQueue,
@@ -1808,7 +1822,15 @@ def makeClips(cs: ClipperState) -> list[str]:  # noqa: PLR0912
                 else:
                     logger.rule(title=f"Encode ({markerPairIndex + 1})", sub=True)
                     with time_stage(f"({markerPairIndex + 1}) encode"):
-                        recordEncodeResult(settings, markerPairIndex, makeClip(cs, markerPairIndex))
+                        recordEncodeResult(
+                            settings,
+                            markerPairIndex,
+                            makeClip(
+                                cs,
+                                markerPairIndex,
+                                mergeScale=mergePlan.scales.get(markerPairIndex),
+                            ),
+                        )
                 generatePreviewForMarkerPair(cs, markerPairIndex)
             else:
                 mp, _mps = getMarkerPairSettings(cs, markerPairIndex, True)
@@ -1839,7 +1861,7 @@ def makeClips(cs: ClipperState) -> list[str]:  # noqa: PLR0912
         if settings["markerPairs"][i].get("returncode", 0) != 0
     ]
     if settings["markerPairMergeList"] != "":
-        failed += mergeClips(cs)
+        failed += mergeClips(cs, mergePlan.sizes)
     return failed
 
 

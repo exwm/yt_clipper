@@ -14,6 +14,7 @@ import os
 import shlex
 import subprocess
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from clipper.clipper_types import ClipperPaths, ClipperState, DictStrAny, Settings, argvPath
@@ -22,6 +23,7 @@ from clipper.ffmpeg_filter import getAutoScaledCropComponents
 from clipper.merge_inputs import PROBE_ERRORS, PROBED_CODECS, MergeInput, probeMergeInput
 from clipper.merge_sizes import (
     MergeClip,
+    MergeScale,
     Size,
     describeMerge,
     markerPairsText,
@@ -104,8 +106,10 @@ def readyMergeInputs(
 def planMergeRescales(
     cs: ClipperState,
     mergeRequests: list[tuple[str, list[int]]],
+    announced: dict[str, Size],
 ) -> dict[str, Size]:
-    """The frame size of each merge to rescale, chosen for all of them together, and logged."""
+    """The frame size of each merge to rescale, chosen for all of them together from the clips as
+    they came out. Logs the merges whose size the plan before encoding did not announce."""
     settings = cs.settings
     cp = cs.clipper_paths
     planned: list[tuple[str, list[int]]] = []
@@ -132,7 +136,13 @@ def planMergeRescales(
         return {}
 
     targets = planMergeSizes([pairs for _, pairs in planned], clips)
-    logMergePlan(planned, clips, targets)
+    changed = [
+        (request, target)
+        for request, target in zip(planned, targets, strict=True)
+        if announced.get(request[0]) != target
+    ]
+    if changed:
+        logMergePlan([request for request, _ in changed], clips, [target for _, target in changed])
     return {merge: target for (merge, _), target in zip(planned, targets, strict=True)}
 
 
@@ -202,19 +212,28 @@ def mergeClipBeforeEncoding(
     return MergeClip(pair, size, markerPair["end"] - markerPair["start"], scalable=True)
 
 
+@dataclass(frozen=True)
+class MergeEncodePlan:
+    """The merge plan made before encoding."""
+
+    # Marker pair index -> how its clip is scaled while it is encoded
+    scales: dict[int, MergeScale] = field(default_factory=dict)
+    # Merge -> the size the plan announced, so merging logs only what changed
+    sizes: dict[str, Size] = field(default_factory=dict)
+
+
 def planMergeEncodeSizes(
     cs: ClipperState,
     mergeRequests: list[tuple[str, list[int]]],
     processedPairs: set[int],
     clipPathForPair: Callable[[int], str],
-) -> None:
+) -> MergeEncodePlan:
     """Before encoding, plans the merges of clips of different sizes and logs the plan. A clip made
-    this run for such a merge is encoded at the merge's size: its marker pair gets mergeEncodeSize
-    and the size it would have had, mergeEncodeFrom."""
+    this run for such a merge is encoded at the merge's size."""
     settings = cs.settings
     codec = PROBED_CODECS.get(settings.get("videoCodec", ""))
     if codec is None or not rescalesCodec(settings, codec) or not canMakeCopies(settings, codec):
-        return
+        return MergeEncodePlan()
     planned: list[tuple[str, list[int]]] = []
     clips: dict[int, MergeClip] = {}
     for merge, mergeList in mergeRequests:
@@ -233,15 +252,19 @@ def planMergeEncodeSizes(
             clips.setdefault(clip.pair, clip)
         planned.append((merge, mergeList))
     if not planned:
-        return
+        return MergeEncodePlan()
 
     targets = planMergeSizes([pairs for _, pairs in planned], clips)
     logMergePlan(planned, clips, targets)
-    for pair, size in scaledEncodeSizes([pairs for _, pairs in planned], clips, targets).items():
-        if size != clips[pair].size:
-            markerPair = settings["markerPairs"][pair - 1]
-            markerPair["mergeEncodeSize"] = size
-            markerPair["mergeEncodeFrom"] = clips[pair].size
+    encodeSizes = scaledEncodeSizes([pairs for _, pairs in planned], clips, targets)
+    return MergeEncodePlan(
+        scales={
+            pair - 1: MergeScale(clips[pair].size, size)
+            for pair, size in encodeSizes.items()
+            if size != clips[pair].size
+        },
+        sizes={merge: target for (merge, _), target in zip(planned, targets, strict=True)},
+    )
 
 
 def copyEncodeSettings(
