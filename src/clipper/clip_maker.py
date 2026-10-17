@@ -130,6 +130,23 @@ def _bakeCinematicPathFromKey(key: str) -> dict[str, Any] | None:
     )
 
 
+def getClipFileName(
+    mps: DictStrAny, markerPairIndex: int, outputSuffix: str = ""
+) -> tuple[str, str]:
+    """The stem and extension of a marker pair's clip file. mps holds a cleaned title prefix."""
+    titlePrefix = f"{mps['titlePrefix']}-" if "titlePrefix" in mps else ""
+    stem = f"{titlePrefix}{mps['titleSuffix']}-{markerPairIndex + 1}{outputSuffix}"
+    if mps["fastTrim"]:
+        suffix = (
+            Path(mps["inputVideo"]).suffix.removeprefix(".") if mps["inputVideo"] else mps["ext"]
+        )
+    else:
+        suffix = (
+            "mp4" if mps["videoCodec"] in {"h264", "h264_nvenc", "h264_vulkan", "av1"} else "webm"
+        )
+    return stem, suffix
+
+
 def getMarkerPairSettings(  # noqa: PLR0912
     cs: ClipperState,
     markerPairIndex: int,
@@ -165,23 +182,9 @@ def getMarkerPairSettings(  # noqa: PLR0912
     if not mps["preview"]:
         if "titlePrefix" in mps:
             mps["titlePrefix"] = cleanFileName(mps["titlePrefix"])
-        titlePrefix = f"{mps['titlePrefix'] + '-' if 'titlePrefix' in mps else ''}"
-        mp["fileNameStem"] = (
-            f"{titlePrefix}{mps['titleSuffix']}-{markerPairIndex + 1}{outputSuffix}"
+        mp["fileNameStem"], mp["fileNameSuffix"] = getClipFileName(
+            mps, markerPairIndex, outputSuffix
         )
-
-        if mps["fastTrim"]:
-            if mps["inputVideo"]:
-                mp["fileNameSuffix"] = Path(mps["inputVideo"]).suffix.removeprefix(".")
-            else:
-                mp["fileNameSuffix"] = mps["ext"]
-        else:
-            mp["fileNameSuffix"] = (
-                "mp4"
-                if mps["videoCodec"] in {"h264", "h264_nvenc", "h264_vulkan", "av1"}
-                else "webm"
-            )
-
         mp["fileName"] = f"{mp['fileNameStem']}.{mp['fileNameSuffix']}"
         resolved_output_dir = outputDir if outputDir is not None else cp.clipsPath
         mp["filePath"] = f"{resolved_output_dir}/{mp['fileName']}"
