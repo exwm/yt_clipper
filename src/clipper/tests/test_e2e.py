@@ -23,6 +23,8 @@ from fractions import Fraction
 import pytest
 
 from clipper import clip_maker
+from clipper.ffmpeg_filter import getSpeedFilterAndDuration
+from clipper.tests import synthetic_media
 from clipper.yt_clipper import main
 
 REPO = pathlib.Path(__file__).resolve().parents[3]
@@ -1000,6 +1002,101 @@ def test_make_clip(case: ClipCase, clipper: Clipper) -> None:
         assert clipper.probeDuration(clips[0]) == pytest.approx(case.length, abs=LENGTH_TOLERANCE)
     log = max((output / "logs").glob("*.log"), key=lambda path: path.stat().st_mtime)
     assert not re.findall(r"\b(?:ERROR|CRITICAL)\b", log.read_text(encoding="utf-8"))
+
+
+# Synthetic clips, made by ffmpeg at test time (see synthetic_media.py), each marked up as one pair.
+SYNTHETIC_PAIR = (0.5, 3.5)
+SPEED_MAPS = {
+    "slowdown": [{"x": SYNTHETIC_PAIR[0], "y": 0.5}, {"x": SYNTHETIC_PAIR[1], "y": 0.5}],
+    "ramp": [{"x": SYNTHETIC_PAIR[0], "y": 1}, {"x": SYNTHETIC_PAIR[1], "y": 0.25}],
+}
+INTERPOLATION_TOOLS = {"minterpolate": "ffmpeg", "video2x": "video2x"}
+
+
+@pytest.fixture(scope="session")
+def syntheticMedia(tmp_path_factory: pytest.TempPathFactory) -> pathlib.Path:
+    return tmp_path_factory.mktemp("synthetic-media")
+
+
+def syntheticMarkers(folder: pathlib.Path, name: str, speedMap: list[dict]) -> pathlib.Path:
+    """A markers JSON with one full-frame marker pair on a synthetic clip."""
+    markers = json.loads(MARKERS.read_text(encoding="utf-8"))
+    start, end = SYNTHETIC_PAIR
+    markers.update(
+        cropRes="640x360", cropResWidth=640, cropResHeight=360, titleSuffix=name, videoTag=name
+    )
+    markers["markerPairs"] = [
+        {
+            "number": 1, "start": start, "end": end, "speed": speedMap[0]["y"], "speedMap": speedMap,
+            "crop": "0:0:iw:ih", "cropRes": "640x360", "enableZoomPan": False, "overrides": {},
+            "cropMap": [{"x": start, "y": 0, "crop": "0:0:iw:ih"}, {"x": end, "y": 0, "crop": "0:0:iw:ih"}],
+        },
+    ]  # fmt: skip
+    path = folder / f"{name}.json"
+    path.write_text(json.dumps(markers), encoding="utf-8")
+    return path
+
+
+def interpolateSyntheticClip(
+    clipper: Clipper,
+    media: pathlib.Path,
+    source: str,
+    tool: str,
+    speed: str,
+) -> pathlib.Path:
+    clipper.requireEncoder("libvpx-vp9")
+    if tool == "video2x":
+        clipper.requireVideo2x()
+    ffmpeg = clipper.toolPath("ffmpeg")
+    assert ffmpeg is not None
+    _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, source, media)
+    name = f"{source}-{tool}-{speed}"
+    markers = syntheticMarkers(clipper.cwd, name, SPEED_MAPS[speed])
+    output = clipper.cwd / "webms" / name
+    shutil.rmtree(output, ignore_errors=True)
+    run = clipper.run(
+        ["--markers-json", str(markers), "--input-video", str(uploaded), *OFFLINE_ARGS,
+         "--minterp-fps-multiplier", "2", "--minterp-tool", INTERPOLATION_TOOLS[tool]],
+    )  # fmt: skip
+    print(run.stdout, run.stderr)
+    assert run.returncode == 0
+    clips = [path for path in output.glob("*") if path.suffix in {".webm", ".mp4"}]
+    assert len(clips) == 1
+    return clips[0]
+
+
+def lengthCase(source: str, tool: str, speed: str) -> object:
+    marks = []
+    if (source, tool, speed) == ("vfr-motion", "video2x", "slowdown"):
+        # The source's last frame is followed by a gap, so it shows for two frames. The clip given
+        # to video2x cannot record that, so video2x shows it for one output frame.
+        marks.append(
+            pytest.mark.xfail(reason="ends up to a slowed source frame early", strict=True)
+        )
+    return pytest.param(source, tool, speed, id=f"{source}-{tool}-{speed}", marks=marks)
+
+
+@pytest.mark.parametrize(
+    ("source", "tool", "speed"),
+    [
+        lengthCase(source, tool, speed)
+        for source in ("cartoon-12-in-30", "vfr-motion")
+        for tool in INTERPOLATION_TOOLS
+        for speed in SPEED_MAPS
+    ],
+)
+def test_interpolated_synthetic_clip_keeps_its_length(
+    clipper: Clipper,
+    syntheticMedia: pathlib.Path,
+    source: str,
+    tool: str,
+    speed: str,
+) -> None:
+    clip = interpolateSyntheticClip(clipper, syntheticMedia, source, tool, speed)
+    _, length, _ = getSpeedFilterAndDuration(
+        SPEED_MAPS[speed], {"isVariableSpeed": True}, SOURCE_FPS
+    )
+    assert clipper.probeDuration(clip) == pytest.approx(float(length), abs=LENGTH_TOLERANCE)
 
 
 # A local page with several MP4 sources stands in for a video page with several formats, so the lower
