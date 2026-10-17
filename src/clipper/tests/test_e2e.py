@@ -179,6 +179,9 @@ class ClipCase:
     localVideo: bool
     length: float
     video2x: bool
+    # The local test video is 12 fps content stored at 30. Interpolation removes its repeats, and
+    # the kept frames play back to back, so the clip is shorter than the marker pair.
+    keepsLength: bool
 
 
 def clipCase(
@@ -192,12 +195,15 @@ def clipCase(
     length: float = MARKER_PAIR_LENGTH,
     frameTiming: str | None = None,
     video2x: bool = False,
+    keepsLength: bool = True,
 ) -> object:
     marks = [pytest.mark.slow] if slow or not localVideo else []
     if frameTiming:
         marks.append(pytest.mark.frame_timing(frameTiming))
     return pytest.param(
-        ClipCase(args, encoder, codec, localVideo, length, video2x), id=name, marks=marks
+        ClipCase(args, encoder, codec, localVideo, length, video2x, keepsLength),
+        id=name,
+        marks=marks,
     )
 
 
@@ -232,6 +238,7 @@ CLIP_CASES = [
         "libvpx-vp9",
         "vp9",
         localVideo=True,
+        keepsLength=False,
     ),
     clipCase(
         "video2x",
@@ -240,6 +247,7 @@ CLIP_CASES = [
         "vp9",
         localVideo=True,
         video2x=True,
+        keepsLength=False,
     ),
     clipCase(
         "nvenc",
@@ -998,7 +1006,8 @@ def test_make_clip(case: ClipCase, clipper: Clipper) -> None:
     assert int(video.get("nb_read_packets", 0)) > 0
     if case.codec:
         assert video.get("codec_name") == case.codec
-        # Fast trim cuts at keyframes, so only re-encoded clips keep the exact length.
+    # Fast trim cuts at keyframes, so only re-encoded clips keep the exact length.
+    if case.codec and case.keepsLength:
         assert clipper.probeDuration(clips[0]) == pytest.approx(case.length, abs=LENGTH_TOLERANCE)
     log = max((output / "logs").glob("*.log"), key=lambda path: path.stat().st_mtime)
     assert not re.findall(r"\b(?:ERROR|CRITICAL)\b", log.read_text(encoding="utf-8"))
@@ -1043,6 +1052,7 @@ def interpolateSyntheticClip(
     source: str,
     tool: str,
     speed: str,
+    dedupe: bool = True,
 ) -> pathlib.Path:
     clipper.requireEncoder("libvpx-vp9")
     if tool == "video2x":
@@ -1050,13 +1060,14 @@ def interpolateSyntheticClip(
     ffmpeg = clipper.toolPath("ffmpeg")
     assert ffmpeg is not None
     _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, source, media)
-    name = f"{source}-{tool}-{speed}"
+    name = f"{source}-{tool}-{speed}" + ("" if dedupe else "-no-dedupe")
     markers = syntheticMarkers(clipper.cwd, name, SPEED_MAPS[speed])
     output = clipper.cwd / "webms" / name
     shutil.rmtree(output, ignore_errors=True)
     run = clipper.run(
         ["--markers-json", str(markers), "--input-video", str(uploaded), *OFFLINE_ARGS,
-         "--minterp-fps-multiplier", "2", "--minterp-tool", INTERPOLATION_TOOLS[tool]],
+         "--minterp-fps-multiplier", "2", "--minterp-tool", INTERPOLATION_TOOLS[tool],
+         *([] if dedupe else ["--no-remove-duplicate-frames"])],
     )  # fmt: skip
     print(run.stdout, run.stderr)
     assert run.returncode == 0
@@ -1065,24 +1076,34 @@ def interpolateSyntheticClip(
     return clips[0]
 
 
-def lengthCase(source: str, tool: str, speed: str) -> object:
+def lengthCase(source: str, tool: str, speed: str, dedupe: bool) -> object:
     marks = []
-    if (source, tool, speed) == ("vfr-motion", "video2x", "slowdown"):
+    if dedupe:
+        # Removing duplicates plays the kept frames back to back, which drops the repeats' time and
+        # squeezes a variable frame rate source's gaps (see sandbox/cadence-evening-plan.md).
+        marks.append(
+            pytest.mark.xfail(reason="kept frames play back to back, as in 5.48", strict=True)
+        )
+    elif (source, tool, speed) == ("vfr-motion", "video2x", "slowdown"):
         # The source's last frame is followed by a gap, so it shows for two frames. The clip given
         # to video2x cannot record that, so video2x shows it for one output frame.
         marks.append(
             pytest.mark.xfail(reason="ends up to a slowed source frame early", strict=True)
         )
-    return pytest.param(source, tool, speed, id=f"{source}-{tool}-{speed}", marks=marks)
+    removal = "dedupe" if dedupe else "no-dedupe"
+    return pytest.param(
+        source, tool, speed, dedupe, id=f"{source}-{tool}-{speed}-{removal}", marks=marks
+    )
 
 
 @pytest.mark.parametrize(
-    ("source", "tool", "speed"),
+    ("source", "tool", "speed", "dedupe"),
     [
-        lengthCase(source, tool, speed)
+        lengthCase(source, tool, speed, dedupe)
         for source in ("cartoon-12-in-30", "vfr-motion")
         for tool in INTERPOLATION_TOOLS
         for speed in SPEED_MAPS
+        for dedupe in (True, False)
     ],
 )
 def test_interpolated_synthetic_clip_keeps_its_length(
@@ -1091,18 +1112,19 @@ def test_interpolated_synthetic_clip_keeps_its_length(
     source: str,
     tool: str,
     speed: str,
+    dedupe: bool,
 ) -> None:
-    clip = interpolateSyntheticClip(clipper, syntheticMedia, source, tool, speed)
+    clip = interpolateSyntheticClip(clipper, syntheticMedia, source, tool, speed, dedupe)
     _, length, _ = getSpeedFilterAndDuration(
         SPEED_MAPS[speed], {"isVariableSpeed": True}, SOURCE_FPS
     )
     assert clipper.probeDuration(clip) == pytest.approx(float(length), abs=LENGTH_TOLERANCE)
 
 
-def holds(clipper: Clipper, clip: pathlib.Path) -> int:
+def holds(clipper: Clipper, clip: pathlib.Path, frames: int = 3) -> int:
     """Places in the middle of a moving clip where the picture holds still for 3 or more frames in
-    a row: where interpolation ran between a frame and its repeat. RIFE eases in and out around
-    each input frame, which gives one or two near-still frames but never 3."""
+    a row (or `frames`): where interpolation ran between a frame and its repeat. RIFE eases in and
+    out around each input frame, which gives one or two near-still frames but never 3."""
     ffmpeg = clipper.toolPath("ffmpeg")
     assert ffmpeg is not None
     log = subprocess.run(
@@ -1125,7 +1147,7 @@ def holds(clipper: Clipper, clip: pathlib.Path) -> int:
     middle = differences[len(differences) // 10 : -len(differences) // 10]
     typical = sorted(middle)[len(middle) // 2]
     still = "".join("s" if difference < typical / 10 else "m" for difference in middle)
-    return len(re.findall("sss+", still))
+    return len(re.findall(f"s{{{frames},}}", still))
 
 
 @pytest.mark.parametrize("tool", INTERPOLATION_TOOLS)
@@ -1136,6 +1158,43 @@ def test_interpolated_cartoon_does_not_stall(
     # between a drawing and its repeat would hold the picture still between moves.
     clip = interpolateSyntheticClip(clipper, syntheticMedia, "cartoon-12-in-30", tool, "slowdown")
     assert holds(clipper, clip) == 0
+
+
+def test_removing_duplicate_frames_without_interpolation_plays_the_kept_frames_back_to_back(
+    clipper: Clipper,
+    syntheticMedia: pathlib.Path,
+) -> None:
+    # 24 fps film stored at 30 repeats a frame in every 5, which stutters. The repeats are dropped and
+    # the kept frames play back to back, a little faster.
+    clipper.requireEncoder("libvpx-vp9")
+    ffmpeg = clipper.toolPath("ffmpeg")
+    assert ffmpeg is not None
+    _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-24-in-30", syntheticMedia)
+    name = "motion-24-in-30-no-interpolation"
+    speedMap = [{"x": SYNTHETIC_PAIR[0], "y": 1}, {"x": SYNTHETIC_PAIR[1], "y": 1}]
+    markers = syntheticMarkers(clipper.cwd, name, speedMap)
+    run = clipper.run(
+        [
+            "--markers-json",
+            str(markers),
+            "--input-video",
+            str(uploaded),
+            *OFFLINE_ARGS,
+            "--remove-duplicate-frames",
+        ]
+    )
+    print(run.stdout, run.stderr)
+    assert run.returncode == 0
+    clip = next(
+        path
+        for path in (clipper.cwd / "webms" / name).glob("*")
+        if path.suffix in {".webm", ".mp4"}
+    )
+    assert holds(clipper, clip, frames=1) == 0
+    pairFrames = (SYNTHETIC_PAIR[1] - SYNTHETIC_PAIR[0]) * SOURCE_FPS
+    assert int(clipper.probeVideo(clip)["nb_read_packets"]) == pytest.approx(
+        pairFrames * 4 / 5, abs=3
+    )
 
 
 # A local page with several MP4 sources stands in for a video page with several formats, so the lower

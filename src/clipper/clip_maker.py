@@ -707,7 +707,9 @@ def makeClip(  # noqa: PLR0912
     shouldDedupe = shouldRemoveDuplicateFrames(mps)
     if shouldDedupe:
         logger.info("Duplicate frames will be removed.")
-        video_filter += f",{getRemoveDuplicateFramesFilter(filterBitDepth)}"
+        # The kept frames play back to back, as in 5.48, which removes the stutter but speeds the
+        # clip up by the repeats (see dedupe.py).
+        video_filter += f",{getRemoveDuplicateFramesFilter(filterBitDepth)},setpts=N/FR/TB"
 
     if 0 <= mps["gamma"] <= 4 and mps["gamma"] != 1:
         video_filter += f",lutyuv=y=gammaval({mps['gamma']})"
@@ -726,10 +728,10 @@ def makeClip(  # noqa: PLR0912
     usesMinterpolate = (
         mps["minterpTool"] == "ffmpeg" and "minterpMode" in mps and mps["minterpMode"] != "None"
     )
-    # Dropped last frames (e.g. a still ending) leave no frame to cover their time, and minterpolate
-    # stops short of its last input frame. Hold the last frame past the clip's end, for two slowed
-    # source frames, then trim to the exact end after interpolation.
-    holdLastFrame = (shouldDedupe or usesMinterpolate) and mps["loop"] == "none"
+    # minterpolate stops short of its last input frame, and video2x shows its last frame for one
+    # output tick. Hold the last frame past the clip's end, for two slowed source frames, then trim
+    # to the exact end. A clip with its repeats removed is shorter by them, so it is not held.
+    holdLastFrame = (usesMinterpolate or v2x_enabled) and mps["loop"] == "none" and not shouldDedupe
     clipEnd = mp["outputDuration"]
     if v2x_enabled:
         # video2x shows the last frame from the next output tick at or after it, for one tick, so
