@@ -28,6 +28,7 @@ from clipper.clipper_types import (
     Settings,
     argvPath,
 )
+from clipper.dedupe import getRemoveDuplicateFramesFilter, shouldRemoveDuplicateFrames
 from clipper.ffmpeg_codec import (
     getContainerForCodec,
     getFfmpegVideoCodecArgs,
@@ -702,19 +703,10 @@ def makeClip(  # noqa: PLR0912
     video_filter += f",settb=1/9000"
     video_filter += f",{TIMESTAMP_SNAP_FILTER}"
 
-    # Low fps video often repeats frames, as lower fps content stored at a higher rate (e.g. 24 in
-    # 30) or as near duplicates that differ only by encoder noise. Interpolating between a frame and
-    # its repeat stutters, so repeats are dropped first. The kept frames keep their timestamps, so
-    # the clip keeps its length and interpolation fills the gaps evenly. Resetting them to the
-    # nominal frame rate instead would speed the clip up by every dropped frame, and would also
-    # break variable frame rate sources.
-    # Sources of 47 fps and up (24 * 2 - 1) are left alone.
-    shouldDedupe = not mps["noDedupe"] and (
-        mps["dedupe"] or (mps["minterpFPS"] is not None and Fraction(mps["r_frame_rate"]) < 47)
-    )
+    shouldDedupe = shouldRemoveDuplicateFrames(mps)
     if shouldDedupe:
         logger.info("Duplicate frames will be removed.")
-        video_filter += f",mpdecimate=hi=64*8:lo=64*5:frac=0.1"
+        video_filter += f",{getRemoveDuplicateFramesFilter()}"
 
     if 0 <= mps["gamma"] <= 4 and mps["gamma"] != 1:
         video_filter += f",lutyuv=y=gammaval({mps['gamma']})"
