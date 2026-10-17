@@ -1408,9 +1408,6 @@ def test_av1_merge_of_different_sizes_without_rescale_asks_first(
         assert frameSizes(clipper, output) == {"640x360", "320x180"}
 
 
-@pytest.mark.xfail(
-    reason="clips are encoded at their own size, then rescaled again for the merge", strict=True
-)
 @pytest.mark.parametrize(
     ("rotate", "big", "small"),
     [
