@@ -27,9 +27,9 @@ class MergeClip:
     seconds: float
     # Sizes of the clip's rescaled copies already on disk
     copySizes: frozenset[Size] = field(default_factory=frozenset)
-
-    def existsAt(self, size: Size) -> bool:
-        return size == self.size or size in self.copySizes
+    # Not made yet, so it can be encoded at its first merge's size at no extra cost. size is the
+    # size it would have on its own.
+    scalable: bool = False
 
 
 def fittedSize(size: Size, box: Size) -> Size:
@@ -63,6 +63,21 @@ def candidateSizes(pairs: Sequence[int], clips: Mapping[int, MergeClip]) -> list
     return sorted(sizes, key=lambda size: (-size[0] * size[1], -size[0], -size[1]))
 
 
+def scaledEncodeSizes(
+    merges: Sequence[Sequence[int]],
+    clips: Mapping[int, MergeClip],
+    targets: Sequence[Size],
+) -> dict[int, Size]:
+    """The size each scalable clip is encoded at: its first merge's size. Its other merges, if they
+    differ, use rescaled copies."""
+    sizes: dict[int, Size] = {}
+    for pairs, target in zip(merges, targets, strict=True):
+        for pair in pairs:
+            if clips[pair].scalable:
+                sizes.setdefault(pair, target)
+    return sizes
+
+
 def planCost(
     merges: Sequence[Sequence[int]],
     clips: Mapping[int, MergeClip],
@@ -71,11 +86,13 @@ def planCost(
     """Re-encode work (seconds of each copy still to make, once per pair and size), then black bar
     area, then how far clips are scaled. Work counts seconds, not pixels, so a tie keeps the larger
     size rather than shrinking clips to encode them faster."""
+    encodeSizes = scaledEncodeSizes(merges, clips, targets)
     toMake = {
         (pair, target)
         for pairs, target in zip(merges, targets, strict=True)
         for pair in pairs
-        if not clips[pair].existsAt(target)
+        # A clip not made yet will exist only at its encode size
+        if target != encodeSizes.get(pair, clips[pair].size) and target not in clips[pair].copySizes
     }
     work = sum(clips[pair].seconds for pair, _ in toMake)
     padding = 0

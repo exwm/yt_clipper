@@ -11,6 +11,7 @@ from clipper.merge_sizes import (
     planCost,
     planMergeSizes,
     rescaleFilter,
+    scaledEncodeSizes,
 )
 
 BIG, SMALL, OTHER = (1366, 2426), (1290, 2290), (1216, 2160)
@@ -19,6 +20,67 @@ WIDE = (1920, 1080)
 
 def clips(*specs: tuple[int, tuple[int, int], float]) -> dict[int, MergeClip]:
     return {pair: MergeClip(pair, size, seconds) for pair, size, seconds in specs}
+
+
+def scalable(pair: int, size: tuple[int, int], seconds: float) -> tuple[int, MergeClip]:
+    return pair, MergeClip(pair, size, seconds, scalable=True)
+
+
+@pytest.mark.parametrize(
+    ("merges", "clipsByPair", "targets", "encodeSizes", "work"),
+    [
+        pytest.param(
+            [[1, 2]],
+            dict([scalable(1, BIG, 9), scalable(2, SMALL, 2)]),
+            [BIG],
+            {1: BIG, 2: BIG},
+            0,
+            id="new clips are encoded at the merge size",
+        ),
+        pytest.param(
+            [[1, 2]],
+            {1: MergeClip(1, BIG, 2), 2: MergeClip(2, SMALL, 9, scalable=True)},
+            [BIG],
+            {2: BIG},
+            0,
+            id="a new clip takes the size of a clip made earlier, however long",
+        ),
+        pytest.param(
+            [[1, 2], [2, 3]],
+            {
+                1: MergeClip(1, BIG, 5),
+                2: MergeClip(2, OTHER, 4, scalable=True),
+                3: MergeClip(3, SMALL, 5),
+            },
+            [BIG, SMALL],
+            {2: BIG},
+            4,
+            id="a new clip in two merges of different sizes needs one copy",
+        ),
+        pytest.param(
+            [[1, 2], [2, 3]],
+            {
+                1: MergeClip(1, BIG, 5),
+                2: MergeClip(2, SMALL, 4, scalable=True),
+                3: MergeClip(3, SMALL, 5),
+            },
+            [BIG, SMALL],
+            {2: BIG},
+            4,
+            id="a new clip encoded at its first merge's size needs a copy at its own size",
+        ),
+    ],
+)
+def test_plan_with_clips_not_made_yet(
+    merges: list[list[int]],
+    clipsByPair: dict[int, MergeClip],
+    targets: list,
+    encodeSizes: dict,
+    work: float,
+) -> None:
+    assert planMergeSizes(merges, clipsByPair) == targets
+    assert scaledEncodeSizes(merges, clipsByPair, targets) == encodeSizes
+    assert planCost(merges, clipsByPair, targets)[0] == work
 
 
 @pytest.mark.parametrize(

@@ -64,9 +64,11 @@ from clipper.log_helpers import (
 from clipper.merge_inputs import hasOneCodec, probeMergeInputs
 from clipper.merge_rescale import (
     confirmMergeOfDifferentSizes,
+    planMergeEncodeSizes,
     planMergeRescales,
     rescaledConcatInputs,
 )
+from clipper.merge_sizes import markerPairsText, rescaleFilter, sizeText
 from clipper.platforms import getFfmpegHeaders
 from clipper.previews import makePreview, mergePreviews
 from clipper.util import escapeSingleQuotesFFmpeg, getTrimmedBase64Hash, shlexDoubleQuoted
@@ -145,6 +147,16 @@ def getClipFileName(
             "mp4" if mps["videoCodec"] in {"h264", "h264_nvenc", "h264_vulkan", "av1"} else "webm"
         )
     return stem, suffix
+
+
+def getClipFilePath(cs: ClipperState, markerPairIndex: int) -> str:
+    """Where a marker pair's clip is written, without resolving its other settings."""
+    settings = cs.settings
+    mps = {**settings, **settings["markerPairs"][markerPairIndex]["overrides"]}
+    if "titlePrefix" in mps:
+        mps["titlePrefix"] = cleanFileName(mps["titlePrefix"])
+    stem, suffix = getClipFileName(mps, markerPairIndex)
+    return f"{cs.clipper_paths.clipsPath}/{stem}.{suffix}"
 
 
 def getMarkerPairSettings(  # noqa: PLR0912
@@ -343,6 +355,10 @@ def getMarkerPairSettings(  # noqa: PLR0912
     else:
         cc = cropComponents
         mp["cropFilter"] = f"""crop='x={cc["x"]}:y={cc["y"]}:w={cc["w"]}:h={cc["h"]}:exact=1'"""
+
+    if "mergeEncodeSize" in mp:
+        # Encoded at its merge's size, so its bitrate follows that size
+        mp["maxSize"] = mp["mergeEncodeSize"][0] * mp["mergeEncodeSize"][1]
 
     mps, bitrateFactor, bitrateCropFactor, bitrateFpsFactor = updateEncodeSettings(
         settings,
@@ -699,6 +715,12 @@ def makeClip(  # noqa: PLR0912
     # if the marker pair crop is used after the filter then it should be rotated the same way
     if mps["rotate"] and mps["rotate"] != "0":
         video_filter += f",transpose={mps['rotate']}"
+
+    if "mergeEncodeSize" in mp:
+        logger.notice(
+            f"Scaling {markerPairsText([markerPairIndex + 1])} to {sizeText(mp['mergeEncodeSize'])} for its merge.",
+        )
+        video_filter += f",{rescaleFilter(mp['mergeEncodeFrom'], mp['mergeEncodeSize'])}"
 
     video_filter_before_correction = None
     if mps["preview"]:
@@ -1703,6 +1725,14 @@ def makeClips(cs: ClipperState) -> list[str]:  # noqa: PLR0912
     # everything together at the bottom of the final Summary Report for
     # easy scanning / copying.
     sampleGuidedEncodeSummaries: list[Any] = []
+
+    if settings["markerPairMergeList"]:
+        planMergeEncodeSizes(
+            cs,
+            list(createMergeList(settings["markerPairMergeList"].split(";"))),
+            markerPairQueue,
+            lambda markerPairIndex: getClipFilePath(cs, markerPairIndex),
+        )
 
     for markerPairIndex, marker in enumerate(settings["markerPairs"]):
         with pair_context(markerPairIndex):

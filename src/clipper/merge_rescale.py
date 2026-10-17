@@ -3,8 +3,9 @@
 A merge copies its clips' streams, so a merge of clips of different sizes changes size at each join.
 FFmpeg's AV1 hardware decoding keeps the first clip's frame size there and shows corrupted colors or
 drops frames (FFmpeg issue 24132), so AV1 merges are rescaled by default; `--merge-rescale always`
-does it for every codec, and `never` merges as is after asking. Clips keep their own size: a merge
-that needs another size uses a rescaled copy, which later runs reuse.
+does it for every codec, and `never` merges as is after asking. Clips made in the run are encoded at
+their merge's size (planned before encoding); clips made earlier keep their size, and the merge uses a
+rescaled copy, which later runs reuse.
 """
 
 import contextlib
@@ -17,6 +18,7 @@ from pathlib import Path
 
 from clipper.clipper_types import ClipperPaths, ClipperState, DictStrAny, Settings, argvPath
 from clipper.ffmpeg_codec import getFfmpegVideoCodecArgs, isHardwareAcceleratedVideoCodec
+from clipper.ffmpeg_filter import getAutoScaledCropComponents
 from clipper.merge_inputs import PROBE_ERRORS, PROBED_CODECS, MergeInput, probeMergeInput
 from clipper.merge_sizes import (
     MergeClip,
@@ -25,9 +27,10 @@ from clipper.merge_sizes import (
     markerPairsText,
     planMergeSizes,
     rescaleFilter,
+    scaledEncodeSizes,
     sizeText,
 )
-from clipper.util import escapeSingleQuotesFFmpeg
+from clipper.util import escapeSingleQuotesFFmpeg, floorToEven
 from clipper.ytc_logger import Subsystem, make_subsystem_logger
 
 logger = make_subsystem_logger(Subsystem.CLIP_MAKER)
@@ -129,14 +132,116 @@ def planMergeRescales(
         return {}
 
     targets = planMergeSizes([pairs for _, pairs in planned], clips)
+    logMergePlan(planned, clips, targets)
+    return {merge: target for (merge, _), target in zip(planned, targets, strict=True)}
+
+
+def logMergePlan(
+    planned: list[tuple[str, list[int]]], clips: dict[int, MergeClip], targets: list[Size]
+) -> None:
     logger.notice(
-        "Some players show corrupted colors where a merged clip changes size, so these marker pairs are rescaled "
-        f"to one size for their merge. The clips themselves are kept, and the rescaled copies are saved in "
+        "Some players show corrupted colors where a merged clip changes size, so these marker pairs are scaled to "
+        "one size for their merge: new clips as they are encoded, and clips made earlier as rescaled copies saved in "
         f"{MERGE_INPUTS_DIR} for later runs. Use --merge-rescale never to turn this off.",
     )
     for (merge, pairs), target in zip(planned, targets, strict=True):
         logger.notice(f"  {describeMerge(merge, pairs, clips, target)}")
-    return {merge: target for (merge, _), target in zip(planned, targets, strict=True)}
+
+
+def predictClipSize(settings: Settings, markerPair: DictStrAny) -> Size | None:
+    """The size a marker pair's clip will have, as getMarkerPairSettings and makeClip make it: its
+    crop scaled to the video, the largest crop point when it zooms, then rotated. None when the
+    clip is not encoded (fast trim, preview) or follows a cinematic crop path."""
+    mps = {**settings, **markerPair.get("overrides", {})}
+    if mps.get("fastTrim") or mps.get("preview"):
+        return None
+    if markerPair.get("cropPath", {}).get("segments") and mps.get("cropPointEasing") == "cinematic":
+        return None
+    _, crop = getAutoScaledCropComponents(markerPair["crop"], settings, forceEvenDimensions=True)
+    width, height = int(crop["w"]), int(crop["h"])
+    enableCropMaps = mps["enableCropMaps"] if "enableCropMaps" in markerPair else True
+    cropMap = markerPair.get("cropMap") if enableCropMaps else None
+    if cropMap:
+        points = [getAutoScaledCropComponents(point["crop"], settings)[1] for point in cropMap]
+        if any((point["w"], point["h"]) != (points[0]["w"], points[0]["h"]) for point in points):
+            # A zoom is output at its largest crop point, the later one on a tie
+            largest = max(reversed(points), key=lambda point: int(point["w"]) * int(point["h"]))
+            width, height = floorToEven(largest["w"]), floorToEven(largest["h"])
+    if mps.get("rotate") not in {None, "", "0"}:
+        width, height = height, width
+    return (width, height)
+
+
+def mergeClipBeforeEncoding(
+    cs: ClipperState,
+    pair: int,
+    codec: str,
+    processedPairs: set[int],
+    clipPathForPair: Callable[[int], str],
+) -> MergeClip | None:
+    """A merge's clip before encoding: made earlier (its size fixed), to be made this run (free to
+    encode at the merge's size), or None when its size cannot be known yet."""
+    settings = cs.settings
+    cp = cs.clipper_paths
+    if not 1 <= pair <= len(settings["markerPairs"]):
+        return None
+    markerPair = settings["markerPairs"][pair - 1]
+    path = clipPathForPair(pair - 1)
+    madeThisRun = pair - 1 in processedPairs and (settings["overwrite"] or not Path(path).is_file())
+    if not madeThisRun:
+        try:
+            clip = probeMergeInput(cp, path)
+        except PROBE_ERRORS:
+            return None
+        if clip.codec != codec:
+            return None
+        return MergeClip(pair, clip.size, clip.seconds, validCopySizes(cp, clip))
+    size = predictClipSize(settings, markerPair)
+    if size is None:
+        return None
+    return MergeClip(pair, size, markerPair["end"] - markerPair["start"], scalable=True)
+
+
+def planMergeEncodeSizes(
+    cs: ClipperState,
+    mergeRequests: list[tuple[str, list[int]]],
+    processedPairs: set[int],
+    clipPathForPair: Callable[[int], str],
+) -> None:
+    """Before encoding, plans the merges of clips of different sizes and logs the plan. A clip made
+    this run for such a merge is encoded at the merge's size: its marker pair gets mergeEncodeSize
+    and the size it would have had, mergeEncodeFrom."""
+    settings = cs.settings
+    codec = PROBED_CODECS.get(settings.get("videoCodec", ""))
+    if codec is None or not rescalesCodec(settings, codec) or not canMakeCopies(settings, codec):
+        return
+    planned: list[tuple[str, list[int]]] = []
+    clips: dict[int, MergeClip] = {}
+    for merge, mergeList in mergeRequests:
+        mergeClips = [
+            mergeClipBeforeEncoding(cs, pair, codec, processedPairs, clipPathForPair)
+            for pair in mergeList
+        ]
+        known = [clip for clip in mergeClips if clip is not None]
+        if (
+            len(known) < len(mergeClips)
+            or len({clip.size for clip in known}) <= 1
+            or not any(clip.scalable for clip in known)
+        ):
+            continue
+        for clip in known:
+            clips.setdefault(clip.pair, clip)
+        planned.append((merge, mergeList))
+    if not planned:
+        return
+
+    targets = planMergeSizes([pairs for _, pairs in planned], clips)
+    logMergePlan(planned, clips, targets)
+    for pair, size in scaledEncodeSizes([pairs for _, pairs in planned], clips, targets).items():
+        if size != clips[pair].size:
+            markerPair = settings["markerPairs"][pair - 1]
+            markerPair["mergeEncodeSize"] = size
+            markerPair["mergeEncodeFrom"] = clips[pair].size
 
 
 def copyEncodeSettings(
