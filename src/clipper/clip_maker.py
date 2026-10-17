@@ -62,6 +62,11 @@ from clipper.log_helpers import (
     time_stage,
 )
 from clipper.merge_inputs import hasOneCodec, probeMergeInputs
+from clipper.merge_rescale import (
+    confirmMergeOfDifferentSizes,
+    planMergeRescales,
+    rescaledConcatInputs,
+)
 from clipper.platforms import getFfmpegHeaders
 from clipper.previews import makePreview, mergePreviews
 from clipper.util import escapeSingleQuotesFFmpeg, getTrimmedBase64Hash, shlexDoubleQuoted
@@ -1339,8 +1344,9 @@ def mergeClips(cs: ClipperState) -> list[str]:  # noqa: PLR0912
     markerPairMergeList = markerPairMergeList.split(";")
     inputsTxtPath = ""
 
-    mergeListGen = createMergeList(markerPairMergeList)
-    for merge, mergeList in mergeListGen:
+    mergeRequests = list(createMergeList(markerPairMergeList))
+    rescaleTargets = planMergeRescales(cs, mergeRequests)
+    for merge, mergeList in mergeRequests:
         inputs = ""
         inputPaths: list[str] = []
         i = 0
@@ -1432,11 +1438,27 @@ def mergeClips(cs: ClipperState) -> list[str]:  # noqa: PLR0912
         merged_file_log = LogPath(mergedFileName)
         mergedClipReady = mergeFileExists and not settings["overwrite"]
         willMerge = not mergeFileExists or settings["overwrite"]
-        if willMerge:
-            mergeInputs = probeMergeInputs(cp, merge, inputPaths)
-            willMerge = mergeInputs is not None and hasOneCodec(
-                merge, mergeList, mergeInputs, settings["videoCodec"]
-            )
+        mergeInputs = probeMergeInputs(cp, merge, inputPaths) if willMerge else None
+        willMerge = mergeInputs is not None and hasOneCodec(
+            merge, mergeList, mergeInputs, settings["videoCodec"]
+        )
+        if willMerge and mergeInputs is not None:
+            if merge in rescaleTargets:
+                with time_stage(f"({merge}) merge rescale"):
+                    rescaledInputs = rescaledConcatInputs(
+                        cs,
+                        merge,
+                        mergeList,
+                        mergeInputs,
+                        rescaleTargets[merge],
+                        getDefaultEncodeSettings,
+                    )
+                willMerge = rescaledInputs is not None
+                if rescaledInputs is not None:
+                    with open(inputsTxtPath, "w", encoding="utf-8") as inputsTxt:
+                        inputsTxt.write(rescaledInputs)
+            else:
+                willMerge = confirmMergeOfDifferentSizes(settings, merge, mergeList, mergeInputs)
         if willMerge:
             # Escape ``[...]`` tokens in the embedded paths so rich
             # doesn't parse them as style spans and strip pieces of
