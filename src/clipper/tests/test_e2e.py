@@ -1408,6 +1408,45 @@ def test_av1_merge_of_different_sizes_without_rescale_asks_first(
         assert frameSizes(clipper, output) == {"640x360", "320x180"}
 
 
+@pytest.mark.xfail(
+    reason="clips are encoded at their own size, then rescaled again for the merge", strict=True
+)
+@pytest.mark.parametrize(
+    ("rotate", "big", "small"),
+    [
+        pytest.param((), "640x360", "320x180", id="landscape"),
+        pytest.param(("--rotate", "clock"), "360x640", "180x320", id="rotated"),
+    ],
+)
+def test_clips_made_for_a_merge_are_encoded_at_its_size(
+    clipper: Clipper,
+    syntheticMedia: pathlib.Path,
+    rotate: tuple[str, ...],
+    big: str,
+    small: str,
+) -> None:
+    clipper.requireEncoder("libsvtav1")
+    name = f"merge-encode-size-{len(rotate)}"
+    merge = runMerge(
+        clipper,
+        syntheticMedia,
+        name,
+        DIFFERENT_SIZES,
+        *OFFLINE_ARGS,
+        "--video-codec",
+        "av1",
+        *rotate,
+    )
+    assert merge.run.returncode == 0
+    # The smaller pair is scaled while it is encoded, so the merge needs no rescaled copy
+    assert frameSizes(clipper, merge.clip(f"{name}-2.mp4")) == {big}
+    assert frameSizes(clipper, merge.clip(f"{name}-(1-2).mp4")) == {big}
+    assert not (merge.output / "temp" / "merge-inputs").exists()
+    plan = f"Merge 1-2 at {big}: marker pair 2 from {small}."
+    assert plan in merge.log
+    assert merge.log.index(plan) < merge.log.index("Marker pair 1")
+
+
 def test_merge_of_different_codecs_is_skipped(
     clipper: Clipper, syntheticMedia: pathlib.Path
 ) -> None:
