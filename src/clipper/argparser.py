@@ -613,6 +613,21 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
                 'Separate multiple merges with semicolons (eg "1-3,5,9;6-2,8" creates 2 merged clips).',
                 "Merge requires successful generation of each required marker pair.",
                 "Merge does not require reencoding and simply orders each clip into one container.",
+                "Merged clips of different sizes may first be rescaled to one size (see --merge-rescale).",
+            ],
+        ),
+    )
+    output_options.add_argument(
+        "--merge-rescale",
+        choices=["auto", "always", "never"],
+        default="auto",
+        dest="mergeRescale",
+        help=" ".join(
+            [
+                "How to merge clips of different sizes.",
+                "Players that decode av1 in hardware show corrupted colors or drop frames where a merged clip changes size, and some players show a black frame there for any codec.",
+                "auto (default) rescales the clips of av1 merges to one size, always does it for every codec, and never merges the clips as they are (asking first for av1).",
+                "The clips themselves keep their sizes: a merge uses rescaled copies, kept for later runs.",
             ],
         ),
     )

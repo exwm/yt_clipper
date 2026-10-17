@@ -1249,9 +1249,6 @@ CODEC_ENCODERS = {
     "av1": ("libsvtav1", "mp4"),
     "h264": ("libx264", "mp4"),
 }
-NOT_RESCALED = pytest.mark.xfail(
-    reason="merges of clips of different sizes are not rescaled", strict=True
-)
 # Offline, but keeping clips and copies made by an earlier run
 REUSE_ARGS = tuple(arg for arg in OFFLINE_ARGS if arg != "--overwrite")
 
@@ -1343,7 +1340,6 @@ def test_merging_copies_the_clips_as_they_are(
     assert not (merge.output / "temp" / "merge-inputs").exists()
 
 
-@NOT_RESCALED
 @pytest.mark.parametrize(
     ("codec", "rescale"),
     [
@@ -1393,7 +1389,6 @@ def test_merge_of_clips_made_earlier_at_different_sizes_uses_a_rescaled_copy_and
     assert copies[0].stat().st_mtime_ns == madeAt
 
 
-@NOT_RESCALED
 @pytest.mark.parametrize(("answer", "merged"), [("n", False), ("y", True)])
 def test_av1_merge_of_different_sizes_without_rescale_asks_first(
     clipper: Clipper,
