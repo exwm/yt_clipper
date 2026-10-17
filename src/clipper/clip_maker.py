@@ -35,6 +35,7 @@ from clipper.ffmpeg_codec import (
     wrapVideoFilterForHardwareAcceleration,
 )
 from clipper.ffmpeg_filter import (
+    TIMESTAMP_SNAP_FILTER,
     autoScaleCropMap,
     getAutoScaledCropComponents,
     getAverageSpeed,
@@ -698,26 +699,21 @@ def makeClip(  # noqa: PLR0912
     # can cause issues with later timestamp manipulations.
     # Thus we set the timebase to a low value (1/9000 as 9000 is a multiple of 24,25,30).
     video_filter += f",settb=1/9000"
+    video_filter += f",{TIMESTAMP_SNAP_FILTER}"
 
-    # Videos with no duplicate frames should not be adversely affected by frame deduplication.
-    # Low fps video with 1 duplicated frame every N > 2 frames is essentially
-    # of variable frame rate masked as a constant frame rate.
-    # By removing duplicate frames and resetting timestamps based on the expected
-    # constant frame rate, the stutter in the source input is eliminated.
-    # High fps video may sometimes actually be low fps video with doubled frame rate
-    # via frame duplication. Such videos should be passed through to avoid speeding
-    # them up when resetting timestamps to the expected frame rate post-deduplication,
-    # Assumes we do not have low fps video with frame doubling via frame duplication
-    # or high fps video with duplicate frames every N > 2 frames.
-    # We consider videos with less than 47 fps (24*2 - 1) to be of low fps as
-    # the lowest common video fps is ~24 fps and with frame doubling is ~48 fps.
+    # Low fps video often repeats frames, as lower fps content stored at a higher rate (e.g. 24 in
+    # 30) or as near duplicates that differ only by encoder noise. Interpolating between a frame and
+    # its repeat stutters, so repeats are dropped first. The kept frames keep their timestamps, so
+    # the clip keeps its length and interpolation fills the gaps evenly. Resetting them to the
+    # nominal frame rate instead would speed the clip up by every dropped frame, and would also
+    # break variable frame rate sources.
+    # Sources of 47 fps and up (24 * 2 - 1) are left alone.
     shouldDedupe = not mps["noDedupe"] and (
         mps["dedupe"] or (mps["minterpFPS"] is not None and Fraction(mps["r_frame_rate"]) < 47)
     )
     if shouldDedupe:
         logger.info("Duplicate frames will be removed.")
         video_filter += f",mpdecimate=hi=64*8:lo=64*5:frac=0.1"
-        video_filter += f",setpts=N/FR/TB"
 
     if 0 <= mps["gamma"] <= 4 and mps["gamma"] != 1:
         video_filter += f",lutyuv=y=gammaval({mps['gamma']})"
@@ -733,9 +729,38 @@ def makeClip(  # noqa: PLR0912
     if mps["extraVideoFilters"]:
         video_filter += f",{mps['extraVideoFilters']}"
 
+    usesMinterpolate = (
+        mps["minterpTool"] == "ffmpeg" and "minterpMode" in mps and mps["minterpMode"] != "None"
+    )
+    # Dropped last frames (e.g. a still ending) leave no frame to cover their time, and minterpolate
+    # stops short of its last input frame. Hold the last frame past the clip's end, for two slowed
+    # source frames, then trim to the exact end after interpolation.
+    holdLastFrame = (shouldDedupe or usesMinterpolate) and mps["loop"] == "none"
+    clipEnd = mp["outputDuration"]
+    if v2x_enabled:
+        # video2x shows the last frame from the next output tick at or after it, for one tick, so
+        # end its input a tick early.
+        clipEnd -= float(1 / (mps["minterpFpsMultiplier"] * Fraction(mps["r_frame_rate"])))
+    endTrim = f",trim=end={clipEnd}" if holdLastFrame and not v2x_enabled else ""
+
     loop_filter = ""
     if mps["loop"] != "fwrev":
         video_filter += f",{mp['speedFilter']}"
+        if holdLastFrame:
+            slowestSpeed = min(getMinSpeed(mp.get("speedMap")), mp["speed"])
+            holdLength = 2 / (Fraction(mps["r_frame_rate"]) * Fraction(slowestSpeed))
+            video_filter += (
+                f",tpad=stop_mode=clone:stop=-1,trim=end={mp['outputDuration'] + float(holdLength)}"
+            )
+            if v2x_enabled:
+                # tpad spaces its copies by the last frame's duration, which can carry them past the
+                # end. video2x needs a frame at the end, so move the frames from half an output tick
+                # before it onto it, and keep one.
+                halfTick = float(
+                    1 / (2 * mps["minterpFpsMultiplier"] * Fraction(mps["r_frame_rate"]))
+                )
+                video_filter += f",setpts='if(gte(T,{clipEnd - halfTick}),{clipEnd},T)/TB'"
+                video_filter += ",select='not(eq(t,prev_selected_t))'"
     if mps["loop"] == "fwrev":
         reverseSpeedMap = [
             {"x": speedPoint["x"], "y": speedPointRev["y"]}
@@ -850,8 +875,9 @@ def makeClip(  # noqa: PLR0912
 
         vidstabtransformFilter = videoStabilizationGammaFixFilter(vidstabtransformFilter)
 
-        if mps["minterpTool"] == "ffmpeg" and "minterpMode" in mps and mps["minterpMode"] != "None":
+        if usesMinterpolate:
             vidstabtransformFilter += getMinterpFilter(mp, mps)
+        vidstabtransformFilter += endTrim
 
         if mps["loop"] != "none":
             vidstabdetectFilter += loop_filter
@@ -910,8 +936,9 @@ def makeClip(  # noqa: PLR0912
         ffmpegCommands = [ffmpegVidstabdetect, ffmpegVidstabtransform]
 
     if not vidstabEnabled:
-        if mps["minterpTool"] == "ffmpeg" and "minterpMode" in mps and mps["minterpMode"] != "None":
+        if usesMinterpolate:
             video_filter += getMinterpFilter(mp, mps)
+        video_filter += endTrim
 
         if mps["loop"] != "none":
             video_filter += loop_filter

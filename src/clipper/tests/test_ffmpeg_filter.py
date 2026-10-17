@@ -2,6 +2,8 @@ import itertools
 import json
 import math
 import re
+import shutil
+import subprocess
 from collections.abc import Callable
 from fractions import Fraction
 from functools import partial
@@ -903,3 +905,77 @@ def test_instant_crop_point_cuts_on_the_frame_it_falls_in(
     pointFrameTime = math.floor((clipStart + pointTime) * fps) / fps - clipStart
     assert _eval_ffmpeg_axis(xMatch.group(1), pointFrameTime - 1 / fps) == pytest.approx(0)
     assert _eval_ffmpeg_axis(xMatch.group(1), pointFrameTime) == pytest.approx(500)
+
+
+def frameTimes(ffmpeg: str, video: Path, videoFilter: str) -> list[float]:
+    log = subprocess.run(
+        [
+            ffmpeg,
+            "-hide_banner",
+            "-i",
+            str(video),
+            "-vf",
+            f"{videoFilter},showinfo",
+            "-f",
+            "null",
+            "-",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stderr
+    return [float(match) for match in re.findall(r" pts_time:(\S+)", log)]
+
+
+SNAP_SOURCES = {
+    # webm stores whole milliseconds, so 29.97 fps frames jitter around their slots.
+    "webm-jitter": (
+        "testsrc2=size=160x90:rate=30000/1001",
+        ["-c:v", "libvpx-vp9", "-deadline", "realtime"],
+        "webm",
+    ),
+    # Like a phone's VFR video: every tenth frame arrives 20 ms early, off the 30 fps grid.
+    "early-frames": (
+        "testsrc2=size=160x90:rate=30,settb=1/90000,setpts='N*3000-if(eq(mod(N,10),5),1800,0)'",
+        ["-fps_mode", "passthrough", "-enc_time_base", "1/90000", "-c:v", "ffv1"],
+        "mkv",
+    ),
+}
+
+
+@pytest.mark.parametrize("source", SNAP_SOURCES)
+def test_timestamp_snap_evens_jitter_and_keeps_every_frame_apart(
+    tmp_path: Path, source: str
+) -> None:
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg is None:
+        pytest.skip("needs ffmpeg")
+    graph, encode, container = SNAP_SOURCES[source]
+    video = tmp_path / f"{source}.{container}"
+    subprocess.run(
+        [
+            ffmpeg,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            graph,
+            "-frames:v",
+            "60",
+            *encode,
+            str(video),
+        ],
+        check=True,
+    )
+    times = frameTimes(ffmpeg, video, f"settb=1/9000,{ffmpeg_filter.TIMESTAMP_SNAP_FILTER}")
+    gaps = [b - a for a, b in itertools.pairwise(times)]
+    assert len(times) == 60
+    assert min(gaps) > 0
+    if source == "webm-jitter":
+        # On the grid, up to the 1/9000 s time base's rounding
+        assert max(abs(gap - 1001 / 30000) for gap in gaps) < 1.5 / 9000
+    else:
+        # Keeps its own time (mkv stores whole milliseconds)
+        assert times[5] == pytest.approx(5 / 30 - 0.02, abs=0.001)

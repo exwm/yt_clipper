@@ -22,6 +22,11 @@ from clipper.ytc_logger import Subsystem, make_subsystem_logger
 
 logger = make_subsystem_logger(Subsystem.FFMPEG_FILTER)
 
+# Snaps timestamps within a quarter frame of the nominal frame grid onto it. webm stores whole
+# milliseconds, so 29.97 fps frames jitter by up to 0.5 ms. Frames further off the grid (e.g. a
+# phone's VFR frame arriving early) keep their time, so no two frames collide.
+TIMESTAMP_SNAP_FILTER = "setpts='if(lt(abs(round(T*FR)/FR-T),0.25/FR),round(T*FR)/FR,T)/TB'"
+
 
 def autoScaleCropMap(cropMap: list[dict[str, Any]], settings: Settings) -> None:
     for cropPoint in cropMap:
