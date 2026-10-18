@@ -67,13 +67,13 @@ CLIPS = {
             "gblur=sigma=30[lights];[stage][lights]blend=all_mode=addition:shortest=1"
         ),
     ),
-    # Distilled from a concert fan cam: a dark stage lit about once a second, rising 2.4 times
-    # brighter over 4 frames, holding, and fading over 20, evenly over the whole frame
+    # Distilled from a concert fan cam: a dark stage lit about once a second, jumping 69% brighter
+    # in a frame (as measured) then settling at 2.4 times over 3 more, holding, fading over 20, evenly
     "pulse": ShakyClip(
         "a dark scene with a light that pulses over the whole frame",
         after=(
-            ",geq=lum='min(255,p(X,Y)*0.45*if(lt(mod(N,32),4),1+0.35*mod(N,32),"
-            "if(lt(mod(N,32),12),2.4,2.4-0.07*(mod(N,32)-12))))':cb='p(X,Y)':cr='p(X,Y)'"
+            ",geq=lum='min(255,p(X,Y)*0.45*if(lt(mod(N,32),1),1,if(lt(mod(N,32),2),1.49,if(lt(mod(N,32),3),1.95,"
+            "if(lt(mod(N,32),4),2.25,if(lt(mod(N,32),12),2.4,2.4-0.07*(mod(N,32)-12)))))))':cb='p(X,Y)':cr='p(X,Y)'"
         ),
     ),
     "dim": ShakyClip(
@@ -137,6 +137,63 @@ CLIPS = {
         steady=True,
     ),
 }
+
+
+# Each clip's measured traits (clip_character.py) must fall in these ranges. A shaky clip keeps the
+# plain clip's levels except for the traits it stands for, whose ranges come from the real clips
+# surveyed (sandbox/calibration_corpus, clipper outputs): so each clip tests one thing, and a recipe
+# that drifts from the footage it stands for fails here. Motion is the shake of the strongest real
+# handheld clips (the survey's 75th percentile to its largest, at this size).
+SHAKY_TRAITS = {
+    "brightness": (100, 170),
+    "brightness_changes": (0, 0.01),
+    "brightness_jump": (0, 0.05),
+    "contrast": (55, 90),
+    "repeats": (0, 0.01),
+    "no_match": (0, 0.01),
+    "motion": (8, 31),
+    "grain": (0, 1),
+}
+STEADY_TRAITS = {"brightness_changes": (0, 0.01), "repeats": (0, 0.01)}
+TRAITS: dict[str, dict[str, tuple[float, float]]] = {
+    "plain": {},
+    # Real flashes jump up to 1.6 times the darker frame
+    "flash": {"brightness_changes": (0.1, 0.4), "brightness_jump": (0.5, 1.6)},
+    "strobe": {"brightness_changes": (0.1, 0.4), "brightness_jump": (0.03, 0.1)},
+    "stage": {
+        "brightness": (60, 110),
+        "brightness_changes": (0.2, 0.6),
+        "brightness_jump": (0.5, 1.6),
+    },
+    # The fan cam's light jumped 69% in a frame, from a stage at about 50
+    "pulse": {
+        "brightness": (60, 130),
+        "brightness_changes": (0.2, 0.5),
+        "brightness_jump": (0.6, 0.8),
+        "grain": (0, 8),
+    },
+    "dim": {"brightness_changes": (0.01, 0.05), "brightness_jump": (0.2, 0.6)},
+    # Below the darkest tenth of real clips (brightness 47)
+    "dark": {"brightness": (15, 50), "contrast": (5, 25)},
+    "darkdim": {"brightness": (15, 50), "contrast": (2, 10)},
+    # Real clips leave 0.3 to 23 levels between frames, half above 3.6
+    "grainy": {"grain": (5, 25)},
+    "occluder": {"grain": (5, 20)},
+    "rotate": {"no_match": (0.05, 0.3), "grain": (5, 25)},
+    "cut": {"no_match": (0.005, 0.05)},
+    # A tenth of real clips repeat more than 29% of frames
+    "repeats": {"repeats": (0.15, 0.3)},
+    "watermark": {"grain": (1, 5)},
+    "tiles": {"brightness": (130, 190), "contrast": (10, 35)},
+    "gradient": {"no_match": (0.9, 1), "contrast": (40, 80)},
+    "skyobject": {"motion": (0, 0.5), "contrast": (5, 30), "grain": (0, 8)},
+    "flatgrain": {"no_match": (0.9, 1), "contrast": (0, 15)},
+}
+
+
+def traitRanges(name: str) -> dict[str, tuple[float, float]]:
+    """The ranges a clip's measured traits must fall in."""
+    return {**(STEADY_TRAITS if CLIPS[name].steady else SHAKY_TRAITS), **TRAITS[name]}
 
 
 def windowPath(steady: bool) -> list[tuple[int, int]]:
