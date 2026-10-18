@@ -626,9 +626,12 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
             [
                 "How to merge clips of different sizes.",
                 "Players that decode av1 in hardware show corrupted colors or drop frames where a merged clip changes size, and some players show a black frame there for any codec.",
-                "auto (default) rescales the clips of av1 merges to one size, always does it for every codec, and never merges the clips as they are (asking first for av1).",
+                "auto (default) scales the clips of av1 merges up to the largest clip's size.",
+                "always scales the clips of merges of every codec up to the largest clip's size.",
+                "never merges the clips at their own sizes, asking first for av1.",
                 "Clips made in the same run are encoded at their merge's size.",
                 "Clips made earlier keep their sizes, and the merge uses rescaled copies kept for later runs.",
+                "A clip of another shape gets black bars.",
                 "See https://code.ffmpeg.org/FFmpeg/FFmpeg/issues/24132 to check whether FFmpeg has fixed the av1 problem.",
             ],
         ),
