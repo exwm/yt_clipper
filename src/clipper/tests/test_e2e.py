@@ -1276,6 +1276,44 @@ def test_stabilized_clip_saves_the_shaky_clip_only_when_asked(
     assert len(list((output / "shaky").glob("*-shaky.webm"))) == int(savesShakyClip)
 
 
+def test_stabilized_pair_with_a_filter_too_long_for_the_command_line_reads_it_from_files(
+    clipper: Clipper,
+    syntheticMedia: pathlib.Path,
+) -> None:
+    # ffmpeg 9 removed -filter_script, and the analysis outputs once still used it
+    clipper.requireEncoder("libvpx-vp9")
+    ffmpeg = clipper.toolPath("ffmpeg")
+    assert ffmpeg is not None
+    _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-native-30", syntheticMedia)
+    name = "stabilized-long-filter"
+    start, end = SYNTHETIC_PAIR
+    markers = syntheticMarkers(clipper.cwd, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
+    data = json.loads(markers.read_text(encoding="utf-8"))
+    crops = ("0:0:320:180", "320:0:320:180") * 20
+    times = [start + (end - start) * i / (len(crops) - 1) for i in range(len(crops))]
+    data["markerPairs"][0].update(
+        crop=crops[0],
+        cropMap=[{"x": t, "y": 0, "crop": crop} for t, crop in zip(times, crops, strict=True)],
+    )
+    markers.write_text(json.dumps(data), encoding="utf-8")
+    run = clipper.run(
+        [
+            "--markers-json",
+            str(markers),
+            "--input-video",
+            str(uploaded),
+            *OFFLINE_ARGS,
+            "--video-stabilization",
+            "2",
+        ]
+    )
+    print(run.stdout, run.stderr)
+    assert run.returncode == 0
+    output = clipper.cwd / "webms" / name
+    assert (output / "temp" / "vfilter-1-analysis.txt").is_file()
+    assert len(list(output.glob("*.webm"))) == 1
+
+
 def test_stabilization_with_a_slowdown_and_interpolation_stays_stable_to_the_end(
     clipper: Clipper,
     syntheticMedia: pathlib.Path,

@@ -1,12 +1,14 @@
-"""Repairs the motion vid.stab measured across flashes before it stabilizes a clip.
+"""Repairs the motion vid.stab measured across flashes, and drops the fields that follow a subject
+moving on its own, before it stabilizes a clip.
 
 vid.stab matches small fields of each frame against the frame before by their brightness, so a
 flash, which brightens the whole frame, makes every field match the wrong place and the clip jerks
 there. vidstabdetect writes the motion it measured to a transforms file (fileformat=1 for text).
-The detect command also writes the middle of each frame, in gray, to a small analysis file. Before
+The detect command also writes each frame, shrunk and in gray, to a small analysis file. Before
 vidstabtransform reads the transforms, the motion into and out of each flash frame (found from the
-frames' brightness) is measured again from the analysis frames with phase correlation, which
-ignores brightness, or else interpolated from the motion around it.
+frames' brightness) is measured again from a grid of cells of the analysis frames with phase
+correlation, which ignores brightness, or else interpolated from the motion around it. On every
+other frame the cells measure, fields whose motion disagrees with the cells' are dropped.
 """
 
 import contextlib
@@ -20,14 +22,32 @@ from typing import IO
 
 import numpy as np
 
-from clipper.phase_correlation import FrameShift, phaseShift
+from clipper.phase_correlation import FrameShift, spectrum, spectrumShift
 from clipper.ytc_logger import Subsystem, make_subsystem_logger
 
 logger = make_subsystem_logger(Subsystem.CLIP_MAKER)
 
-# The most of each frame the analysis output keeps, from its middle, px
-ANALYSIS_SIZE = (384, 216)
-# Shifts with a lower correlation peak are not trusted (random frames peak near 0.04 at ANALYSIS_SIZE)
+# The analysis output shrinks each whole frame by a whole number to at most this many pixels.
+# Real footage matches better shrunk: blur and compression leave little to match at full size.
+ANALYSIS_AREA = 640 * 360
+# Each analysis frame is measured in a grid of cells, so a subject moving on its own in the middle
+# of the frame spoils only a few of them
+ANALYSIS_GRID = 3
+# A frame's shift needs this many cells that agree on it
+MIN_AGREEING_CELLS = 3
+# How far a cell's shift may be from the median of the cells to agree with it, analysis px
+CELL_AGREEMENT = 1.5
+# A clip's shake is measured over frames SHAKE_RADIUS either side, given MIN_SHAKE_FRAMES measured frames.
+# A stabilized clip may shake SHAKE_TOLERANCE more than its input (share, at least SHAKE_TOLERANCE_PX).
+SHAKE_RADIUS = 7
+MIN_SHAKE_FRAMES = 30
+SHAKE_TOLERANCE = 0.05
+SHAKE_TOLERANCE_PX = 0.05
+# vid.stab's motion into a frame with fewer fields than this share of the clip's median is not trusted
+SPARSE_FIELDS = 0.15
+# How far a vid.stab field's motion may be from the measured motion to be kept, px
+FIELD_AGREEMENT = 2.0
+# Shifts with a lower correlation peak are not trusted (random frames peak near 0.04 at 384x216)
 MIN_PEAK = 0.08
 
 # vid.stab's motion into a frame is not trusted when the frame's mean brightness changed this much
@@ -118,24 +138,98 @@ def formatTransforms(transforms: TransformsFile) -> str:
 
 @dataclass(frozen=True)
 class FrameAnalysis:
-    """One frame of the detect pass's analysis output: the middle of the frame, in gray."""
+    """One frame of the detect pass's analysis output: the whole frame, shrunk, in gray."""
 
     brightness: float
-    # The shift of its content from the frame before's, in the frame's own pixels. None for the first.
+    # The shift of its content from the frame before's, in the analysis frame's pixels. None for the first.
     shift: FrameShift | None
+    # The analysis frame's width and height
+    size: tuple[int, int] = (0, 0)
 
 
 def analysisFilter() -> str:
-    """Filters after the clip's own, for the analysis output: the frame's middle, uncropped up to
-    ANALYSIS_SIZE, so shifts are in the same pixels as vid.stab's fields."""
-    width, height = ANALYSIS_SIZE
-    return f"crop=w='min(iw,{width})':h='min(ih,{height})',format=gray"
+    """Filters after the clip's own, for the analysis output: the whole frame, in gray, shrunk by the
+    smallest whole number that fits it in ANALYSIS_AREA. A whole number can be found again from the
+    frame size that vid.stab's fields give (analysisScale)."""
+    divisor = f"ceil(sqrt(iw*ih/{ANALYSIS_AREA}))"
+    return f"scale=w='trunc(iw/{divisor}/2)*2':h='trunc(ih/{divisor}/2)*2':flags=area,format=gray"
+
+
+def analysisScale(transforms: TransformsFile, analysisSize: tuple[int, int]) -> int | None:
+    """The whole number analysisFilter shrank the frames by. The frame size from vid.stab's fields is
+    only near the real one, so it is rounded to a whole number of analysis frames."""
+    size = frameSize(transforms)
+    if size is None or min(analysisSize) <= 0:
+        return None
+    return max(1, round((size[0] / analysisSize[0] + size[1] / analysisSize[1]) / 2))
+
+
+def fastFftLength(length: int) -> int:
+    """The largest length up to `length` with no prime factor above 7. An FFT of a length with a large
+    prime factor is slow: a 640 px wide frame's cells are 213 px, 3 x 71, and 210 transforms 2.4x faster."""
+    for candidate in range(length, 0, -1):
+        rest = candidate
+        for prime in (2, 3, 5, 7):
+            while rest % prime == 0:
+                rest //= prime
+        if rest == 1:
+            return candidate
+    return length
+
+
+def cells(frame: np.ndarray) -> np.ndarray:
+    """The frame's ANALYSIS_GRID grid of cells (cell x height x width), each trimmed around its centre
+    to a fast FFT size. The Hann window gives the trimmed edge pixels almost no weight anyway."""
+    grid = ANALYSIS_GRID
+    height, width = frame.shape[0] // grid, frame.shape[1] // grid
+    cropped = frame[: grid * height, : grid * width]
+    gridCells = (
+        cropped.reshape(grid, height, grid, width)
+        .swapaxes(1, 2)
+        .reshape(grid * grid, height, width)
+    )
+    fastHeight, fastWidth = fastFftLength(height), fastFftLength(width)
+    top, left = (height - fastHeight) // 2, (width - fastWidth) // 2
+    return gridCells[:, top : top + fastHeight, left : left + fastWidth]
+
+
+def cellSpectra(frame: np.ndarray) -> list[np.ndarray]:
+    """Each cell's spectrum, computed once per frame and paired with the next frame's."""
+    return [spectrum(cell) for cell in cells(frame)]
+
+
+def gridShift(previous: np.ndarray, frame: np.ndarray) -> FrameShift:
+    """The shift most cells agree on, with their median peak. Peak 0 when too few agree."""
+    return spectraShift(cellSpectra(previous), cellSpectra(frame), cells(frame).shape[1:])
+
+
+def spectraShift(
+    previous: Sequence[np.ndarray], current: Sequence[np.ndarray], cellShape: tuple[int, ...]
+) -> FrameShift:
+    shifts = [
+        s
+        for s in (spectrumShift(a, b, cellShape) for a, b in zip(previous, current, strict=True))
+        if s.peak >= MIN_PEAK
+    ]
+    if not shifts:
+        return FrameShift(0.0, 0.0, 0.0)
+    dx, dy = statistics.median(s.dx for s in shifts), statistics.median(s.dy for s in shifts)
+    agreeing = [s for s in shifts if np.hypot(s.dx - dx, s.dy - dy) <= CELL_AGREEMENT]
+    if len(agreeing) < MIN_AGREEING_CELLS:
+        return FrameShift(0.0, 0.0, 0.0)
+    return FrameShift(
+        float(np.mean([s.dx for s in agreeing])),
+        float(np.mean([s.dy for s in agreeing])),
+        statistics.median(s.peak for s in agreeing),
+    )
 
 
 def analysisOutputArgs(filterArgs: str, analysisPath: str) -> str:
     """A second output for the detect command: the same frames, decoded once, losslessly to a small
-    file. filterArgs gives the clip's filters followed by analysisFilter(), with -vf or -filter_script:v."""
-    return f' -an -sn {filterArgs} -c:v ffv1 -f nut -y "{analysisPath}"'
+    file. filterArgs gives the clip's filters followed by analysisFilter(), with -vf or filterFileOption.
+    -fps_mode passthrough keeps exactly the frames vidstabdetect sees: a speed change otherwise has
+    frames repeated or dropped for a constant frame rate, and the frames no longer line up."""
+    return f' -an -sn {filterArgs} -fps_mode passthrough -c:v ffv1 -f nut -y "{analysisPath}"'
 
 
 def readPgmFrames(stream: IO[bytes]) -> Iterator[np.ndarray]:
@@ -151,18 +245,26 @@ def readPgmFrames(stream: IO[bytes]) -> Iterator[np.ndarray]:
         pixels = stream.read(width * height)
         if len(pixels) < width * height:
             return
-        yield np.frombuffer(pixels, np.uint8).reshape(height, width).astype(np.float64)
+        # float32, as phase_correlation.spectrum transforms it
+        yield np.frombuffer(pixels, np.uint8).reshape(height, width).astype(np.float32)
 
 
-def readAnalysis(ffmpegPath: str, analysisPath: str) -> list[FrameAnalysis]:
-    """Each frame's brightness and shift from the analysis output, two frames in memory at a time."""
+def readAnalysis(ffmpegPath: str, analysisPath: str, analyze: bool = False) -> list[FrameAnalysis]:
+    """Each frame's brightness and shift from the analysis output, two frames in memory at a time.
+    analyze=True reads any video, through analysisFilter."""
+    # -nostdin: ffmpeg otherwise reads stdin for key presses, which can block it when stdin is a pipe
     command = [
         ffmpegPath,
         "-hide_banner",
+        "-nostdin",
         "-loglevel",
         "error",
         "-i",
         analysisPath,
+        *(["-vf", analysisFilter()] if analyze else []),
+        # The frames as stored: a constant rate would repeat frames spaced out by a slowdown
+        "-fps_mode",
+        "passthrough",
         "-f",
         "image2pipe",
         "-c:v",
@@ -170,26 +272,59 @@ def readAnalysis(ffmpegPath: str, analysisPath: str) -> list[FrameAnalysis]:
         "-",
     ]
     analysis: list[FrameAnalysis] = []
-    with subprocess.Popen(command, stdout=subprocess.PIPE) as process:
+    with subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE) as process:
         assert process.stdout is not None
         previous = None
         for frame in readPgmFrames(process.stdout):
-            shift = phaseShift(previous, frame) if previous is not None else None
-            analysis.append(FrameAnalysis(float(frame.mean()), shift))
-            previous = frame
+            frameCells = cells(frame)
+            spectra = [spectrum(cell) for cell in frameCells]
+            shift = (
+                spectraShift(previous, spectra, frameCells.shape[1:])
+                if previous is not None
+                else None
+            )
+            analysis.append(
+                FrameAnalysis(float(frame.mean()), shift, (frame.shape[1], frame.shape[0]))
+            )
+            previous = spectra
     if process.returncode:
         raise TransformsFileError(f"could not read {analysisPath}")
     return analysis
 
 
-def measuredMotions(analysis: Sequence[FrameAnalysis]) -> dict[int, tuple[float, float]]:
-    """vid.stab's motion for each frame (from 1) whose shift the analysis measured with confidence.
-    vid.stab's field motion is the opposite of the content's shift."""
+def measuredMotions(
+    analysis: Sequence[FrameAnalysis], scale: int = 1
+) -> dict[int, tuple[float, float]]:
+    """vid.stab's motion for each frame (from 1) whose shift the analysis measured with confidence,
+    in the clip's pixels (scale: analysisScale). vid.stab's field motion is the opposite of the content's shift."""
     return {
-        i + 1: (-a.shift.dx, -a.shift.dy)
+        i + 1: (-scale * a.shift.dx, -scale * a.shift.dy)
         for i, a in enumerate(analysis)
         if a.shift is not None and a.shift.peak >= MIN_PEAK
     }
+
+
+def shake(analysis: Sequence[FrameAnalysis]) -> float | None:
+    """How much the clip shakes, analysis px a frame: the root mean square of each measured frame's
+    shift away from its moving average. None with too few measured frames to tell."""
+    xy = np.array(
+        [
+            (a.shift.dx, a.shift.dy)
+            if a.shift is not None and a.shift.peak > 0
+            else (np.nan, np.nan)
+            for a in analysis
+        ]
+    )
+    measured = ~np.isnan(xy[:, 0])
+    if measured.sum() < MIN_SHAKE_FRAMES:
+        return None
+    kernel = np.ones(2 * SHAKE_RADIUS + 1)
+    filled = np.where(measured[:, None], xy, 0.0)
+    counts = np.convolve(measured.astype(float), kernel, "same")
+    sums = np.stack([np.convolve(filled[:, k], kernel, "same") for k in range(2)], axis=1)
+    # Every measured frame counts itself, so its window is never empty
+    trend = np.divide(sums, counts[:, None], out=np.zeros_like(sums), where=counts[:, None] > 0)
+    return float(np.sqrt(np.mean(np.sum(np.square(xy[measured] - trend[measured]), axis=1))))
 
 
 def findBrightnessChanges(brightness: Sequence[float]) -> set[int]:
@@ -202,6 +337,36 @@ def findBrightnessChanges(brightness: Sequence[float]) -> set[int]:
         > max(
             BRIGHTNESS_MIN_CHANGE,
             BRIGHTNESS_RELATIVE_CHANGE * min(brightness[i], brightness[i - 1]),
+        )
+    }
+
+
+def findSparseFrames(transforms: TransformsFile) -> set[int]:
+    """vid.stab's frames (from 1) with far fewer fields than the clip usually has: in a dark or flat
+    stretch, a few fields decide the motion, and a few can be wrong together."""
+    counts = [len(motions) for motions in transforms.frames[1:]]
+    if not counts:
+        return set()
+    usual = statistics.median(counts)
+    return {
+        n
+        for n, motions in enumerate(transforms.frames, start=1)
+        if n > 1 and len(motions) < SPARSE_FIELDS * usual
+    }
+
+
+def findDisagreeingFrames(
+    transforms: TransformsFile, measured: Mapping[int, tuple[float, float]]
+) -> set[int]:
+    """Measured frames (from 1) where none of vid.stab's fields agree with the measured motion: on a
+    repeating texture (a tile wall), every field can match the wrong tile."""
+    return {
+        n
+        for n, (dx, dy) in measured.items()
+        if 1 <= n <= len(transforms.frames)
+        and transforms.frames[n - 1]
+        and not any(
+            np.hypot(m.dx - dx, m.dy - dy) <= FIELD_AGREEMENT for m in transforms.frames[n - 1]
         )
     }
 
@@ -251,6 +416,26 @@ def repairMotions(
     return broken
 
 
+def keepFieldsMovingWithTheCamera(
+    transforms: TransformsFile,
+    measured: Mapping[int, tuple[float, float]],
+    skipped: set[int] | None = None,
+) -> list[int]:
+    """Drops the fields of each measured frame (from 1) whose motion is more than FIELD_AGREEMENT
+    from the measured motion: fields on a subject moving on its own, which vid.stab would otherwise
+    follow. Keeps a frame as it is when none of its fields agree. Returns the frames it changed."""
+    changed = []
+    for n, (dx, dy) in sorted(measured.items()):
+        if (skipped and n in skipped) or not 1 <= n <= len(transforms.frames):
+            continue
+        motions = transforms.frames[n - 1]
+        agreeing = [m for m in motions if np.hypot(m.dx - dx, m.dy - dy) <= FIELD_AGREEMENT]
+        if agreeing and len(agreeing) < len(motions):
+            transforms.frames[n - 1] = agreeing
+            changed.append(n)
+    return changed
+
+
 def frameSize(transforms: TransformsFile) -> tuple[float, float] | None:
     """The frame's size, from where vid.stab placed its fields: it lays them out symmetrically, so
     the first and last field centres add up to the frame's width (and height)."""
@@ -291,42 +476,86 @@ def zoomBudgetFromFile(transformsPath: str, smoothing: int) -> float:
         return MAX_ZOOM_BUDGET
 
 
-def repairFlashFramesInFiles(
+def inputShakePath(transformsPath: str) -> str:
+    """Where the repair keeps the input's shake, as a share of the frame's width, for checkStabilizedShake."""
+    return f"{transformsPath}.shake"
+
+
+def checkStabilizedShake(ffmpegPath: str, transformsPath: str, outputPath: str) -> bool | None:
+    """Whether the stabilized clip shakes more than its input, beyond SHAKE_TOLERANCE, measured the
+    same way on both. None when either cannot be measured. Warns when it does."""
+    try:
+        inputShake = float(Path(inputShakePath(transformsPath)).read_text(encoding="utf-8"))
+        output = readAnalysis(ffmpegPath, outputPath, analyze=True)
+    except (OSError, ValueError, TransformsFileError):
+        return None
+    finally:
+        with contextlib.suppress(OSError):
+            Path(inputShakePath(transformsPath)).unlink()
+    outputShake = shake(output)
+    if outputShake is None:
+        return None
+    width = output[0].size[0]
+    outputShake /= width
+    tolerance = max(SHAKE_TOLERANCE * inputShake, SHAKE_TOLERANCE_PX / width)
+    logger.verbose(
+        f"Video stabilization: shake {100 * inputShake:.2f}% of the frame's width a frame before, {100 * outputShake:.2f}% after."
+    )
+    if outputShake <= inputShake + tolerance:
+        return False
+    logger.warning(
+        f"Video stabilization made this clip shakier ({100 * outputShake:.2f}% of the frame's width a frame,"
+        f" against {100 * inputShake:.2f}% without it). Try this marker pair without video stabilization.",
+    )
+    return True
+
+
+def repairMotionsInFiles(
     ffmpegPath: str,
     transformsPath: str,
     analysisPath: str,
     measure: bool = True,
 ) -> None:
     """Repairs a text transforms file in place from the detect pass's analysis output, which it then
-    deletes. Leaves the transforms as they are when a file cannot be read, or when too much of the
-    clip changes brightness to fill in the motion it could not measure. measure=False interpolates
-    every untrusted frame, for comparison."""
+    deletes: the motion across flashes, and fields that follow a subject instead of the camera.
+    Leaves the transforms as they are when a file cannot be read, and the flashes when too much of
+    the clip changes brightness to fill in the motion it could not measure. measure=False
+    interpolates every untrusted frame and keeps every field, for comparison."""
     try:
         transforms = parseTransforms(Path(transformsPath).read_text(encoding="utf-8"))
         analysis = readAnalysis(ffmpegPath, analysisPath)
     except (OSError, TransformsFileError) as error:
-        logger.warning(f"Could not check the video stabilization motion for flashes ({error}).")
+        logger.warning(f"Could not check the video stabilization motion ({error}).")
         return
     finally:
         with contextlib.suppress(OSError):
             Path(analysisPath).unlink()
-    untrusted = findBrightnessChanges([a.brightness for a in analysis])
-    if not untrusted:
-        return
-    measured = measuredMotions(analysis) if measure else {}
+    if analysis and (inputShake := shake(analysis)) is not None:
+        Path(inputShakePath(transformsPath)).write_text(
+            f"{inputShake / analysis[0].size[0]}", encoding="utf-8"
+        )
+    scale = analysisScale(transforms, analysis[0].size) if analysis else None
+    measured = measuredMotions(analysis, scale) if measure and scale is not None else {}
+    untrusted = (
+        findBrightnessChanges([a.brightness for a in analysis])
+        | findSparseFrames(transforms)
+        | findDisagreeingFrames(transforms, measured)
+    )
     unmeasured = untrusted - measured.keys()
+    repaired = []
     if len(unmeasured) > MAX_UNMEASURED_SHARE * len(analysis):
         logger.notice(
-            f"The brightness of {len(untrusted)} of {len(analysis)} frames changes sharply, too many to repair"
-            " the video stabilization motion across them.",
+            f"The video stabilization motion of {len(untrusted)} of {len(analysis)} frames is not trusted, too many to repair.",
         )
-        return
-    if repaired := repairMotions(transforms, untrusted, measured):
-        Path(transformsPath).write_text(
-            formatTransforms(transforms),
-            encoding="utf-8",
-            newline="\n",
-        )
+    elif repaired := repairMotions(transforms, untrusted, measured):
         logger.notice(
-            f"Video stabilization: measured the motion again across {len(repaired)} frames where the brightness changes sharply.",
+            f"Video stabilization: repaired the motion of {len(repaired)} frames it could not trust."
+        )
+    if refocused := keepFieldsMovingWithTheCamera(transforms, measured, skipped=untrusted):
+        logger.verbose(
+            f"Video stabilization: followed the camera instead of something moving on its own in {len(refocused)} frames.",
+        )
+    if repaired or refocused:
+        Path(transformsPath).write_text(
+            formatTransforms(transforms), encoding="utf-8", newline="\n"
         )

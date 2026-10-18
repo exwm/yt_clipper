@@ -42,7 +42,7 @@ def jitter(shifts: np.ndarray, radius: int = 7, skip: frozenset[int] = frozenset
 def shakeLeft(video: np.ndarray, cutFrame: int | None = None) -> float:
     """Shake from one frame to the next, px/frame, leaving out the motion across a cut."""
     shifts = np.array(
-        [(0.0, 0.0)] + [phaseShift(video[i - 1], video[i]) for i in range(1, len(video))],
+        [(0.0, 0.0)] + [(s.dx, s.dy) for s in phase_correlation.consecutiveShifts(video)]
     )
     return jitter(shifts, skip=frozenset({cutFrame}) if cutFrame else frozenset())
 

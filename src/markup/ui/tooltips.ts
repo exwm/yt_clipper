@@ -313,12 +313,13 @@ export namespace Tooltips {
     Video stabilization tries to smooth out the motion in the video and reduce shaking.
     Usually requires cropping and zooming the video.
     Higher strength presets result in more cropping and zooming.
-    Low contrast video or video with flashing lights may give poor results.
     Video stabilization may cause static elements within the cropped region to shake.
+    The clipper script warns when a stabilized clip comes out shakier than its input.
     `;
 
   export const dynamicZoomTooltip = stripIndent`
     Allow cropping and zooming of video to vary with the need for stabilization over time.
+    Has no effect with ffmpeg 9.0.2 or newer, which the clipper script bundles.
     `;
 
   export const speedMapTooltip = stripIndent`
