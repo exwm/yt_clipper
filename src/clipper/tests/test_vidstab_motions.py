@@ -1,14 +1,21 @@
+from pathlib import Path
+
 import pytest
 
 from clipper.vidstab_motions import (
+    MAX_ZOOM_BUDGET,
+    MIN_ZOOM_BUDGET,
     LocalMotion,
     TransformsFile,
     TransformsFileError,
     findBrightnessChanges,
     formatTransforms,
     frameShift,
+    frameSize,
     parseTransforms,
     repairMotions,
+    zoomBudget,
+    zoomBudgetFromFile,
 )
 
 # As vidstabdetect writes it with fileformat=1
@@ -108,3 +115,30 @@ def test_untrusted_motion_at_the_end_takes_the_last_good_motion() -> None:
 def test_nothing_is_repaired_without_good_motion_around() -> None:
     transforms = frames((40, -30))
     assert repairMotions(transforms, {2}) == []
+
+
+def test_frame_size_comes_from_the_outermost_fields() -> None:
+    assert frameSize(frames((1, 1))) == (480, 280)
+    assert frameSize(TransformsFile(["VID.STAB 1"], [[], []])) is None
+
+
+@pytest.mark.parametrize(
+    ("shake", "budget"),
+    [
+        pytest.param(0, MIN_ZOOM_BUDGET, id="steady"),
+        # The path strays 5 to 7 px from its average: twice that over the 480 px width, plus the padding
+        pytest.param(10, pytest.approx(3.5, abs=0.5), id="shaky"),
+        pytest.param(100, MAX_ZOOM_BUDGET, id="too shaky for the most zoom"),
+    ],
+)
+def test_zoom_budget_covers_the_shake(shake: int, budget: float) -> None:
+    transforms = frames(*[(shake if i % 2 else -shake, 0) for i in range(60)])
+    assert zoomBudget(transforms, smoothing=10) == budget
+
+
+def test_zoom_budget_is_the_most_zoom_when_the_transforms_cannot_be_read(tmp_path: Path) -> None:
+    unreadable = tmp_path / "binary.trf"
+    unreadable.write_bytes(b"TRF1\x00\x00")
+    assert zoomBudgetFromFile(str(unreadable), 10) == MAX_ZOOM_BUDGET
+    assert zoomBudgetFromFile(str(tmp_path / "missing.trf"), 10) == MAX_ZOOM_BUDGET
+    assert zoomBudget(TransformsFile(["VID.STAB 1"], [[], []]), 10) == MAX_ZOOM_BUDGET

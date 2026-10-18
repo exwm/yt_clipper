@@ -1176,6 +1176,10 @@ def _zoomPanEdgeEase(
     )
 
 
+# Stands in the transform filter for the zoom budget until the detect pass has run
+ZOOM_BUDGET_PLACEHOLDER = "@zoomBudget@"
+
+
 def analysisPathFor(transformPath: str) -> str:
     """Where the detect pass writes its analysis frames (vidstab_motions.py), beside its transforms file."""
     return f"{transformPath}.analysis.nut"
@@ -1193,9 +1197,10 @@ def getVideoStabilizationFilters(mps: DictStrAny, transformPath: str) -> tuple[s
     # vid.stab's default mincontrast of 0.25 drops every field in dim or low contrast scenes.
     # Text transforms, so flashes can be repaired before the transform.
     detectFilter = f"vidstabdetect=result='{transformPath}':shakiness={vidstab['shakiness']}:mincontrast=0.05:fileformat=1"
+    # The zoom budget is sized from the detect pass's motion, between the passes
     transformFilter = (
         f"vidstabtransform=input='{transformPath}':smoothing={vidstab['smoothing']}"
-        f":maxangle={maxAngle}:maxshift={maxShift}"
+        f":maxangle={maxAngle}:maxshift={maxShift}:zoom={ZOOM_BUDGET_PLACEHOLDER}"
     )
     if mps["videoStabilizationDynamicZoom"]:
         transformFilter += f":optzoom=2:zoomspeed={vidstab['zoomspeed']}"
