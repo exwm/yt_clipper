@@ -66,8 +66,8 @@ export class Crop {
 
     const maxX = isDrag ? this.maxW - this._w : this.maxW - Crop.minW;
     const maxY = isDrag ? this.maxH - this._h : this.maxH - Crop.minH;
-    const cx = clampNumber(nx, Crop.minX, maxX);
-    const cy = clampNumber(ny, Crop.minY, maxY);
+    let cx = clampNumber(nx, Crop.minX, maxX);
+    let cy = clampNumber(ny, Crop.minY, maxY);
 
     const maxW = this.maxW - cx;
     const maxH = this.maxH - cy;
@@ -76,19 +76,28 @@ export class Crop {
 
     if (shouldMaintainCropAspectRatio) {
       const ar = this.aspectRatio;
-      const ph = Math.floor(cw / ar);
-      const pw = Math.floor(ch * ar);
-      const phWithinBounds = Crop.minH <= ph && ph <= this.maxH;
-      const pwWithinBounds = Crop.minW <= pw && pw <= this.maxW;
-
-      if (!phWithinBounds && !pwWithinBounds) {
-        throw new Error('Could not determine a valid aspect-ratio-constrained crop.');
-      }
+      // The ratio is w / h, so a size that already has it can land a hair under its integer:
+      // 884 / (884 / 497) is 496.999..., which would shrink the crop by a pixel.
+      const ph = Math.floor(cw / ar + 1e-9);
+      const pw = Math.floor(ch * ar + 1e-9);
+      // Within the room left past the crop's own corner, not the whole frame.
+      const phWithinBounds = Crop.minH <= ph && ph <= maxH;
+      const pwWithinBounds = Crop.minW <= pw && pw <= maxW;
 
       if (phWithinBounds) {
         ch = ph;
-      } else {
+      } else if (pwWithinBounds) {
         cw = pw;
+      } else if (Crop.minW <= pw && pw <= this.maxW) {
+        // A minimum-size crop at the right edge: the width its height asks for fits the frame but
+        // not the room past its corner, so move it back in.
+        cw = pw;
+        cx = Math.min(cx, this.maxW - pw);
+      } else if (Crop.minH <= ph && ph <= this.maxH) {
+        ch = ph;
+        cy = Math.min(cy, this.maxH - ph);
+      } else {
+        throw new Error('Could not determine a valid aspect-ratio-constrained crop.');
       }
     }
 
