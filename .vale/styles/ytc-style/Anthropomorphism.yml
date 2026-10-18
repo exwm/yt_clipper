@@ -1,0 +1,8 @@
+extends: existence
+message: "Use the literal verb ('detects', 'shows', 'prints') instead of '%s'."
+link: https://developers.google.com/style/anthropomorphism
+level: warning
+ignorecase: true
+tokens:
+  - sees
+  - tells

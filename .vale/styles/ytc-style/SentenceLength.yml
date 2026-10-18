@@ -1,0 +1,6 @@
+extends: occurrence
+message: "Split this sentence. It has more than 30 words."
+level: suggestion
+scope: sentence
+max: 30
+token: \b(\w+)\b

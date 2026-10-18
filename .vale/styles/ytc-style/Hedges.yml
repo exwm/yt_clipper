@@ -1,0 +1,18 @@
+extends: existence
+message: "State the behavior if it's certain. Drop the hedge '%s'."
+link: https://developers.google.com/style/tone
+level: suggestion
+ignorecase: true
+tokens:
+  - can help
+  - tends? to
+  - typically
+  - generally
+  - relatively
+  - fairly
+  - quite
+  - somewhat
+  - primarily
+  - various
+  - users report
+  - some find

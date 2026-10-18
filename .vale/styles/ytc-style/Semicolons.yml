@@ -1,0 +1,7 @@
+extends: existence
+message: "Use a period or a colon instead of a semicolon."
+level: warning
+nonword: true
+scope: text
+tokens:
+  - ';'

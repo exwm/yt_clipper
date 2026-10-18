@@ -29,7 +29,7 @@ pretty-py-check:
 # The config path is absolute because coverage also measures the Python subprocesses (yt-dlp) the
 # end-to-end tests start from a temporary folder, where a relative path would not find it.
 test-py update="false":
-  just _timed pytest uv run pytest src/clipper tools/release -s --cov --cov-config="{{justfile_directory()}}/pyproject.toml" --cov-report=html --cov-report=xml -m "not slow" \
+  just _timed pytest uv run pytest src/clipper tools/release tools/prose -s --cov --cov-config="{{justfile_directory()}}/pyproject.toml" --cov-report=html --cov-report=xml -m "not slow" \
     {{ if update == "true" { "--snapshot-update" } else { "-n auto" } }}
 # Check an assembled release folder before zipping, as CI does: bundled tools, offline clips, schema.
 smoke-release folder version="":
@@ -52,6 +52,19 @@ lint-py:
   just _timed "ruff check" uv run ruff check src/clipper integration-tests tools
 lint-py-fix:
   uv run ruff check src/clipper integration-tests tools --fix
+
+# Advisory prose lint with vale (rules in .vale/styles/ytc-style): reports, never fails. Install vale
+# with `scoop install vale` or `brew install vale`. Pass paths to lint only those.
+lint-prose *paths="readme.md quickstart.md release-notes .github tools/encoding/README.md src":
+  vale --no-exit {{paths}}
+# Commit subjects become changelog lines, so they get the same advisory lint.
+lint-subjects revset="tags()..@":
+  jj log -r '{{revset}}' --no-graph -T 'description.first_line() ++ "\n\n"' | vale --no-exit --ext=.subject
+# Vale sees only comments in code, so this lints the strings users read (--help, tooltips, messages).
+lint-strings *paths="src":
+  uv run python tools/prose/lint_strings.py {{paths}}
+test-prose:
+  vale test --coverage .vale/styles
 
 poetry-sync:
   poetry lock --no-update && poetry install --sync

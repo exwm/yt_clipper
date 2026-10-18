@@ -1,0 +1,17 @@
+extends: existence
+message: "'%s' stacks hyphenated words. Say it in plain words."
+level: suggestion
+ignorecase: true
+scope: ~heading & ~link
+tokens:
+  # not command line options like --sample-guided-encode
+  - '(?<!-)[a-z]+(?:-[a-z]+){2,}'
+exceptions:
+  - frame-by-frame
+  - right-click
+  - drag-and-drop
+  - out-of-bounds
+  - auto-keyframing
+  - end-to-end
+  - signal-to-noise
+  - what-you-see-is-what-you-get

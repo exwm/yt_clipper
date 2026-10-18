@@ -1,0 +1,11 @@
+extends: existence
+message: "Address the reader as 'you' instead of '%s'."
+link: https://developers.google.com/style/word-list#we
+level: suggestion
+ignorecase: true
+tokens:
+  - we
+  - we'(?:re|ve|ll)
+  - let's
+  - our
+  - us

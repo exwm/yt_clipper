@@ -1,0 +1,14 @@
+extends: existence
+message: "Cut the intensifier '%s'."
+level: warning
+ignorecase: true
+tokens:
+  - honest(?:ly)?
+  - genuinely
+  - truly
+  - really
+  - actually
+  - essentially
+  - basically
+  - literally
+  - in fact

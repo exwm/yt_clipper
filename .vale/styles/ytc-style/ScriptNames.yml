@@ -1,0 +1,6 @@
+extends: existence
+message: "Put '%s' in backticks."
+level: warning
+tokens:
+  - 'markup script'
+  - 'clipper script'

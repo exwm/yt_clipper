@@ -1,0 +1,9 @@
+extends: existence
+message: "Say what it is. Drop the contrast reframe '%s'."
+level: suggestion
+ignorecase: true
+tokens:
+  - not just
+  - not only
+  - rather than
+  - instead of just

@@ -1,0 +1,8 @@
+extends: existence
+message: "Drop the bold lead-in label. Bold is for keys and option names."
+level: warning
+scope: raw
+nonword: true
+tokens:
+  # a label ends in a colon: **Why it helps:** or **Why it helps**:
+  - '(?m)^\s*(?:[-*]|\d+\.) \*\*[A-Z][a-z]+(?: [a-z]+)+(?::\*\*|\*\*:) '

@@ -1,0 +1,9 @@
+extends: existence
+message: "Write 'is' or 'has' instead of '%s'."
+level: warning
+ignorecase: true
+tokens:
+  - serves? as
+  - acts? as
+  - boasts?
+  - (?:it|this|which) (?:features|offers)

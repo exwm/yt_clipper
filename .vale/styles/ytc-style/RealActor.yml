@@ -1,0 +1,7 @@
+extends: existence
+message: "'%s': a setting, mode, or document does not choose or know. Make the reader the actor, or use the literal verb."
+level: warning
+ignorecase: true
+tokens:
+  - (?:setting|settings|mode|option|section|document|readme|guide|page|chart|editor) (?:picks|decides|wants|knows|thinks|sees|tells|understands|cares|likes|chooses|prefers|tries)
+  - between its (?:crop )?points

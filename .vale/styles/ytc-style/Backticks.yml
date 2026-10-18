@@ -1,0 +1,17 @@
+extends: existence
+message: "Put '%s' in backticks."
+level: warning
+nonword: true
+tokens:
+  # command line options
+  - '(?<![\w/-])--?[a-z][a-z0-9]*(?:-[a-z0-9]+)+\b'
+  - '(?<![\w/-])--[a-z][a-z0-9]+\b'
+  # file names and repo paths
+  - '\b[\w-]+\.(?:py|ts|js|json|md|txt|toml|yml|yaml|ini|bat|sh|exe)\b'
+  - '\b(?:src|tools|bin|integration-tests|release-notes|assets|sandbox|dist|webms)/[\w./-]*'
+  # just recipes
+  - '\bjust (?:bundle|test|lint|release|ui|dev|smoke|verify|coverage|check)[\w-]*'
+  # single-quoted literal values, like '1-3,5,9'
+  - "(?<!\\w)'[^'\\s]*\\d[^'\\s]*'(?!\\w)"
+exceptions:
+  - Node.js
