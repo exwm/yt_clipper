@@ -1,0 +1,7 @@
+extends: existence
+message: "Split the trailing '%s' clause into its own sentence."
+level: warning
+ignorecase: true
+nonword: true
+tokens:
+  - ', (?:ensuring|making|highlighting|allowing|enabling|letting|giving|providing|resulting in|leading to|meaning|which means)\b'

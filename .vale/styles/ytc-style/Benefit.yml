@@ -1,0 +1,14 @@
+extends: existence
+message: "State the behavior instead of the benefit ('%s')."
+link: https://developers.google.com/style/word-list#allows-you-to
+level: warning
+ignorecase: true
+tokens:
+  - lets? you
+  - so (?:that )?you can
+  - allows? you to
+  - makes? it easy to
+  - helps? you
+  # "turns this on for you", not "decisions for you"
+  - '(?:it|this|that|them)(?: on| off| up)? for you'
+  - this means

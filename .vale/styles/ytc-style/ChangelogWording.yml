@@ -1,0 +1,9 @@
+extends: existence
+message: "Describe how it works today. '%s' is changelog wording."
+level: warning
+ignorecase: true
+tokens:
+  - now also
+  - no longer
+  - (?:is|are|does|do) now
+  - from now on

@@ -1,0 +1,8 @@
+extends: existence
+message: "Use the present tense instead of '%s'."
+link: https://developers.google.com/style/tense
+level: suggestion
+ignorecase: true
+tokens:
+  - will
+  - won't

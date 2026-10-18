@@ -1,0 +1,7 @@
+extends: existence
+message: "Don't open a sentence with an '-ing' clause. Write two sentences, or start with the verb."
+level: suggestion
+scope: sentence
+nonword: true
+tokens:
+  - '^[A-Z][a-z]+ing [^.,:()]{3,60}, (?:the|you|it|this|they|we|a|an|set|press|click|use|select|open|drag|hold|choose|add|enable|disable|toggle|move|run|make|change|pick)\b'

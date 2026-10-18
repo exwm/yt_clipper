@@ -1,0 +1,18 @@
+extends: substitution
+message: "Use '%s' instead of '%s'."
+link: https://developers.google.com/style/word-list
+level: warning
+ignorecase: true
+swap:
+  delve(s|d)?: look at
+  delving: looking at
+  leverag(e|es|ed|ing): use
+  utiliz(e|es|ed|ing): use
+  utilization: use
+  harness(ed|ing): use
+  streamlin(e|es|ed|ing): simplify
+  tapestry: (a plain word)
+  underscor(es|ed|ing): show
+  furthermore: also
+  moreover: also
+  in order to: to

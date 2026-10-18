@@ -1,0 +1,8 @@
+extends: existence
+message: "Use a colon, a comma, parentheses, or a second sentence instead of an em dash."
+level: error
+nonword: true
+tokens:
+  # rst inline code (``—``) names the character itself
+  - '(?<!``)—(?!``)'
+  - ' – '

@@ -1,0 +1,12 @@
+extends: substitution
+message: "Use '%s' instead of '%s', or say what it does."
+level: warning
+ignorecase: true
+swap:
+  robust(ly)?: reliable
+  seamless(ly)?: smooth
+  pivotal: key
+  crucial(ly)?: important
+  intricate: complex
+  showcas(es|ed|ing): show
+  comprehensive: full

@@ -1,0 +1,17 @@
+extends: existence
+message: "Replace the stock metaphor '%s' with the literal verb or noun."
+level: warning
+ignorecase: true
+tokens:
+  - load-bearing
+  - earns? its keep
+  - (?:does|do|doing) the heavy lifting
+  - under the hood
+  - footguns?
+  - out of the box
+  - kicks? in
+  - reads? (?:as|like)
+  - surfac(?:ed|ing)
+  - surfaces (?:the|a|an|it|this|that|them|any|as|in)
+  - (?:what|which) [\w ]{0,20}(?:bought|buys)
+  - (?:pays?|paying) (?:the|a|for) [\w-]+ ?cost

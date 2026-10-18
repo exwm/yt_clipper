@@ -1,0 +1,8 @@
+extends: existence
+message: "Start with the subject or the verb instead of '%s'."
+link: https://learn.microsoft.com/en-us/style-guide/top-10-tips-style-voice
+level: suggestion
+scope: sentence
+nonword: true
+tokens:
+  - '^There (?:is|are|was|were)\b'

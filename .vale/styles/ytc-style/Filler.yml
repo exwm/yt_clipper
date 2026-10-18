@@ -1,0 +1,22 @@
+extends: existence
+message: "Cut '%s'. If it matters, the content shows it."
+level: warning
+ignorecase: true
+tokens:
+  # salience flags
+  - this matters
+  - (?:is |are )?worth (?:noting|flagging|mentioning|internalizing|calling out)
+  - deserves a moment
+  - importantly
+  - crucially
+  - critically,
+  - it'?s important to note
+  # signposts
+  - here'?s the (?:thing|part|catch|key|trick)
+  - the key is
+  - the trick is
+  - what this means is
+  # gotcha framing
+  - the trap is
+  - 'the catch(?: is)?'
+  - gotcha

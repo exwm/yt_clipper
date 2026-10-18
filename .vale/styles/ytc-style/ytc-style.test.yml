@@ -1,0 +1,249 @@
+# Flag cases come from prose that was rewritten in review. Clean cases are the
+# author's own lines quoted in the exwm voice output style.
+
+- name: author lines stay clean
+  input: |
+    **Ctrl+Shift+Click:** Toggle crop point easing between auto and instant.
+
+    Points with instant easing enabled are darkened.
+
+    This is useful if there is a scene change in the video or very fast movement.
+
+    Use **<** and **>** to view a video frame by frame.
+
+    Refresh the page if the script doesn't load.
+
+    The `clipper script` skips existing webms.
+
+    Use the **Crop Easing** setting to choose how a dynamic crop pans and zooms between crop points.
+
+    A **zoomed bar** appears just above the progress bar.
+
+    - **Windows:** Drag and drop the saved markers data onto the `yt_clipper_auto.bat`.
+
+    **Auto-keyframing:** While reframed, crop edits apply at the current time.
+  absent: ytc-style
+
+- name: em dash and spaced en dash
+  rule: EmDash.yml
+  input: The crop keeps moving — even at points. Pan – then zoom.
+  contains:
+    - "1:23:ytc-style.EmDash"
+    - "1:44:ytc-style.EmDash"
+
+- name: dashes in code and ranges are not prose
+  rule: EmDash.yml
+  input: Run `just ui-test -- -k zoom` on pages 1–3. Current rows render as ``—``.
+  absent: ytc-style.EmDash
+
+- name: curly quotes
+  rule: CurlyQuotes.yml
+  input: The “Crop Easing” setting doesn’t stop at points.
+  contains: ytc-style.CurlyQuotes
+
+- name: keyframe outside the auto-keyframing name
+  rule: Keyframe.yml
+  input: |
+    Scrub and commit a keyframe. Auto-keyframing adds key frames.
+  contains:
+    - "'keyframe'"
+    - "'key frames'"
+  absent: "'keyframing'"
+
+- name: semicolons in prose but not in code
+  rule: Semicolons.yml
+  input: |
+    Chrome often fails due to cookie encryption; prefer `firefox`. Separate merges with `1-3;4-6`.
+  want: |
+    1:44:ytc-style.Semicolons:Use a period or a colon instead of a semicolon.
+
+- name: script names need backticks
+  rule: ScriptNames.yml
+  input: |
+    The clipper script requires Python 3.12. Install the `markup script`. See Clipper Script Usage.
+  want: |
+    1:5:ytc-style.ScriptNames:Put 'clipper script' in backticks.
+
+- name: options, files, and recipes need backticks
+  rule: Backticks.yml
+  input: |
+    Support --cookies-from-browser in ytdl.py and integration-tests/ui with just ui-test. Toggle on/off and undo/redo. Merge '1-3,5,9;4-6,8' but don't merge the 'title' webms.
+  contains:
+    - "'--cookies-from-browser'"
+    - "'ytdl.py'"
+    - "'integration-tests/ui'"
+    - "'just ui-test'"
+    - "''1-3,5,9;4-6,8''"
+  absent:
+    - "'on/off'"
+    - "'undo/redo'"
+    - "'title'"
+    - "don't"
+
+- name: model vocabulary
+  rule: ModelWords.yml
+  input: Furthermore, we leverage the cache in order to streamline encodes.
+  contains: ["'Furthermore'", "'leverage'", "'in order to'", "'streamline'"]
+
+- name: puffery
+  rule: Puffery.yml
+  input: A robust, seamless, comprehensive crop editor.
+  contains: ["'robust'", "'seamless'", "'comprehensive'"]
+
+- name: salience flags and signposts
+  rule: Filler.yml
+  input: Importantly, the crop is worth noting. Here's the thing. The catch is the cache.
+  contains: ["'Importantly'", "worth noting'", "'Here's the thing'", "'The catch is'"]
+
+- name: intensifiers
+  rule: Intensifiers.yml
+  input: This genuinely works and the crop actually moves.
+  contains: ["'genuinely'", "'actually'"]
+
+- name: stock metaphors
+  rule: StockMetaphors.yml
+  input: |
+    The zoomed bar reads as the same control. This surfaces the error. A delta line shows what the search bought. Iterating doesn't pay the search cost again.
+  contains: ["'reads as'", "'surfaces the'", "'what the search bought'", "'pay the search cost'"]
+
+- name: at the cost of is plain English
+  rule: StockMetaphors.yml
+  input: Hardware codecs encode faster at the cost of some quality.
+  absent: ytc-style.StockMetaphors
+
+- name: surfaces as a noun is fine
+  rule: StockMetaphors.yml
+  input: Two surfaces under test.
+  absent: ytc-style.StockMetaphors
+
+- name: copula avoidance
+  rule: Copula.yml
+  input: The minimap serves as a navigator and it features a crop outline.
+  contains: ["'serves as'", "'it features'"]
+
+- name: benefit phrasing
+  rule: Benefit.yml
+  input: |
+    The toolbar lets you toggle previews so you can check the crop. Reframe can turn this on for you.
+
+    ## Decisions for you
+  contains: ["'lets you'", "'so you can'", "'this on for you'"]
+  absent: "'for you'"
+
+- name: trailing participle clause
+  rule: TrailingIng.yml
+  input: Previewing a rotation sets the output rotation, ensuring the two match.
+  contains: "', ensuring' clause"
+
+- name: leading participle clause
+  rule: LeadingIng.yml
+  input: |
+    Using the gear button, set the margins. Changing the codec, resolution, or other settings reruns the search.
+  want: |
+    1:1:ytc-style.LeadingIng:Don't open a sentence with an '-ing' clause. Write two sentences, or start with the verb.
+
+- name: settings and documents are not actors
+  rule: RealActor.yml
+  input: The **Crop Easing** setting picks the curve a dynamic crop follows between its points.
+  contains: ["'setting picks'", "'between its points'"]
+
+- name: software does not see or tell
+  rule: Anthropomorphism.yml
+  input: The `clipper script` tells you when a new version is out.
+  contains: "'tells'"
+
+- name: changelog wording in docs
+  rule: ChangelogWording.yml
+  input: Previewing a rotation now also sets the output rotation, so the two no longer drift. It can be used to merge.
+  contains: ["'now also'", "'no longer'"]
+  absent: "'used to'"
+
+- name: contrast reframes
+  rule: ContrastReframe.yml
+  input: It's not just a preview. It moves the crop rather than the video.
+  contains: ["'not just'", "'rather than'"]
+
+- name: bold lead-in labels but not keys or options
+  rule: BoldLeadIn.yml
+  input: |
+    - **Why it helps:** The crop stays framed.
+    - **Alt+D:** Toggle dynamic crop chart.
+    - **Crop Easing:** Choose how a dynamic crop moves.
+    - **The vocabulary** has the project terms.
+  want: |
+    1:1:ytc-style.BoldLeadIn:Drop the bold lead-in label. Bold is for keys and option names.
+
+- name: future tense
+  rule: Will.yml
+  input: A green message will flash below the video.
+  contains: "'will'"
+
+- name: latin abbreviations and via
+  rule: Latin.yml
+  input: Adjust the settings (e.g. the CRF) via the editor, etc.
+  contains: ["'e.g.'", "'via'", "'etc.'"]
+
+- name: there is at sentence start only
+  rule: ThereIs.yml
+  input: There are some alternative helper scripts. This is useful if there is a scene change.
+  want: |
+    1:1:ytc-style.ThereIs:Start with the subject or the verb instead of 'There are'.
+
+- name: first person plural
+  rule: We.yml
+  input: We call this auto-keyframing. For example, let's say you want to align points.
+  contains: ["'We'", "'let's'"]
+
+- name: note that
+  rule: NoteThat.yml
+  input: Note that chart loop markers only work when speed previewing is on.
+  contains: "'Note that'"
+
+- name: minimizers but not positions
+  rule: Minimizers.yml
+  input: Simply drag the file. The bar sits just above the progress bar. Just add a point. It is easy. This makes it easy to rerun.
+  about: The second 'easy' is left to the Benefit rule, so one line gets one alert.
+  want: |
+    1:1:ytc-style.Minimizers:Cut 'Simply'. What is easy for you might not be easy for the reader.
+    1:65:ytc-style.Minimizers:Cut 'Just'. What is easy for you might not be easy for the reader.
+    1:89:ytc-style.Minimizers:Cut 'easy'. What is easy for you might not be easy for the reader.
+
+- name: hedges
+  rule: Hedges.yml
+  input: yt_clipper is a relatively simple way to clip videos, typically in vp9.
+  contains: ["'relatively'", "'typically'"]
+
+- name: stacked hyphen compounds
+  rule: Jargon.yml
+  input: |
+    A per-pair, per-encoder-fingerprint run-cache stores results frame-by-frame at a high signal-to-noise ratio. See [Sign-in-Required Videos](#sign-in). Set --sample-guided-encode-alg.
+  contains: ["'per-encoder-fingerprint'"]
+  absent: ["'frame-by-frame'", "Sign-in-Required", "signal-to-noise", "sample-guided"]
+
+- name: long sentences
+  rule: SentenceLength.yml
+  input: |
+    The aggregate summary table at the end of a run shows one row per marker pair with the picked CRF, VMAF mean and all six low percentiles, trial bitrate, predicted final-encode size, and the interpolated bitrate at the target.
+  contains: ytc-style.SentenceLength
+
+- name: commit subjects allow long lines and the verb note
+  about: Run through .vale.ini as `just lint-subjects` does.
+  format: subject
+  input: |
+    docs(readme): note that av1 encoding is early and its default settings are not tuned yet, so expect to adjust the CRF and preset for your clips when encoding with av1 for now
+  absent: [ytc-style.SentenceLength, ytc-style.NoteThat]
+
+- name: commit subjects keep the docs conventions
+  format: subject
+  input: |
+    refactor(markup): move the easing dispatch into crop-keyframe-math.ts via --flag
+  contains: [ytc-style.Backticks, ytc-style.Keyframe, ytc-style.Latin]
+
+- name: project vocabulary and possessives pass spelling
+  input: |
+    Each install's webms folder keeps the merge's zoompan output.
+  absent: Vale.Spelling
+
+- name: the CI acronym keeps its case
+  input: CI runs the checks.
+  absent: Vale.Terms

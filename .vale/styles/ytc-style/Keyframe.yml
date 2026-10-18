@@ -1,0 +1,6 @@
+extends: existence
+message: "Use 'crop point' instead of '%s'. Only the auto-keyframing feature name keeps the word."
+level: error
+ignorecase: true
+tokens:
+  - '(?<!auto-)key ?fram\w*'

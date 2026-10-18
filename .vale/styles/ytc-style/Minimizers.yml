@@ -1,0 +1,11 @@
+extends: existence
+message: "Cut '%s'. What is easy for you might not be easy for the reader."
+link: https://developers.google.com/style/word-list#easy
+level: suggestion
+ignorecase: true
+tokens:
+  - simply
+  - just(?! (?:above|below|before|after|like)\b)
+  - easily
+  # Benefit already flags "makes it easy to"
+  - (?<!makes? it )easy
