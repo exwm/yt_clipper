@@ -403,6 +403,19 @@ def add_vfilter_options(vfilter_options: argparse._ArgumentGroup) -> None:
         ),
     )
     vfilter_options.add_argument(
+        "--video-stabilization-save-shaky-clip",
+        dest="videoStabilizationSaveShakyClip",
+        action="store_true",
+        help=" ".join(
+            [
+                "When video stabilization is enabled,",
+                "also save the unstabilized version of each clip in the shaky folder, for comparing against the stabilized clip.",
+                "This encodes the clip in the first pass instead of only detecting motion.",
+                "This makes stabilization about twice as slow.",
+            ],
+        ),
+    )
+    vfilter_options.add_argument(
         "--remove-duplicate-frames",
         "-rdf",
         dest="dedupe",

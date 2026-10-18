@@ -918,11 +918,20 @@ def makeClip(  # noqa: PLR0912
             vidstabdetectFilter += loop_filter
             vidstabtransformFilter += loop_filter
 
+        saveShakyClip = mps.get("videoStabilizationSaveShakyClip", False)
+        # Two-pass encoding needs the first pass to encode, for its pass log
+        detectOnly = not saveShakyClip and not mps["twoPass"]
+        # Motion detection alone runs in software: without an encoder the frames stay in system memory
+        detectCommand = (
+            getVidstabDetectOnlyCommand(cp, inputs, mps) if detectOnly else ffmpegCommand
+        )
+
         if isHardwareAcceleratedVideoCodec(mps["videoCodec"]):
-            vidstabdetectFilter = wrapVideoFilterForHardwareAcceleration(
-                mps["videoCodec"],
-                vidstabdetectFilter,
-            )
+            if not detectOnly:
+                vidstabdetectFilter = wrapVideoFilterForHardwareAcceleration(
+                    mps["videoCodec"],
+                    vidstabdetectFilter,
+                )
             vidstabtransformFilter = wrapVideoFilterForHardwareAcceleration(
                 mps["videoCodec"],
                 vidstabtransformFilter,
@@ -944,7 +953,7 @@ def makeClip(  # noqa: PLR0912
             with open(filterPathVidStabTransformPass, "w", encoding="utf-8") as f:
                 f.write(vidstabtransformFilter)
             ffmpegVidstabdetect = (
-                ffmpegCommand
+                detectCommand
                 + f' {filterFileOption(cp.ffmpegPath)} "{filterPathVidStabDetectPass}" '
             )
             ffmpegVidstabtransform = (
@@ -952,7 +961,7 @@ def makeClip(  # noqa: PLR0912
                 + f' {filterFileOption(cp.ffmpegPath)} "{filterPathVidStabTransformPass}" '
             )
         else:
-            ffmpegVidstabdetect = ffmpegCommand + f"-vf {shlexDoubleQuoted(vidstabdetectFilter)} "
+            ffmpegVidstabdetect = detectCommand + f"-vf {shlexDoubleQuoted(vidstabdetectFilter)} "
             ffmpegVidstabtransform = (
                 ffmpegCommand + f"-vf {shlexDoubleQuoted(vidstabtransformFilter)} "
             )
@@ -963,10 +972,15 @@ def makeClip(  # noqa: PLR0912
         if mps["twoPass"]:
             ffmpegVidstabdetect += f" -pass 1"
             ffmpegVidstabtransform += f" -pass 2"
-        else:
+        elif not detectOnly:
             ffmpegVidstabdetect += f" -speed 5"
 
-        ffmpegVidstabdetect += f' "{shakyClipPath}"'
+        if detectOnly:
+            ffmpegVidstabdetect += " -an -f null -"
+        elif not saveShakyClip:
+            ffmpegVidstabdetect += f" {os.devnull}"
+        else:
+            ffmpegVidstabdetect += f' "{shakyClipPath}"'
         ffmpegVidstabtransform += f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
         ffmpegCommands = [ffmpegVidstabdetect, ffmpegVidstabtransform]
 
@@ -1098,6 +1112,11 @@ def getFfmpegCommandWithoutVideoFilter(
             " ",
         ),
     )
+
+
+def getVidstabDetectOnlyCommand(cp: ClipperPaths, inputs: str, mps: DictStrAny) -> str:
+    """The start of a command that only reads the input, for a filter that writes its own results."""
+    return " ".join((cp.ffmpegPath, "-hide_banner", getFfmpegHeaders(mps["platform"]), inputs, " "))
 
 
 def getFfmpegCommandFastTrim(
