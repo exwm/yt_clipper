@@ -3,7 +3,7 @@ import sys
 from dataclasses import dataclass
 from fractions import Fraction
 from functools import reduce
-from math import floor, log
+from math import floor, log, pi
 from pathlib import Path
 from typing import Any, Literal
 
@@ -1174,6 +1174,25 @@ def _zoomPanEdgeEase(
         startEdge,
         endEdge,
     )
+
+
+def getVideoStabilizationFilters(mps: DictStrAny, transformPath: str) -> tuple[str, str]:
+    """The vidstabdetect and vidstabtransform filters for a marker pair's stabilization settings."""
+    vidstab = mps["videoStabilization"]
+    maxAngle = (
+        -1
+        if mps["videoStabilizationMaxAngle"] < 0
+        else mps["videoStabilizationMaxAngle"] * pi / 180
+    )
+    maxShift = -1 if mps["videoStabilizationMaxShift"] < 0 else mps["videoStabilizationMaxShift"]
+    detectFilter = f"vidstabdetect=result='{transformPath}':shakiness={vidstab['shakiness']}"
+    transformFilter = (
+        f"vidstabtransform=input='{transformPath}':smoothing={vidstab['smoothing']}"
+        f":maxangle={maxAngle}:maxshift={maxShift}"
+    )
+    if mps["videoStabilizationDynamicZoom"]:
+        transformFilter += f":optzoom=2:zoomspeed={vidstab['zoomspeed']}"
+    return detectFilter, transformFilter
 
 
 def videoStabilizationGammaFixFilter(filter_to_wrap: str) -> str:

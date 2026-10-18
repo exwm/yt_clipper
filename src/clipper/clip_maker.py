@@ -10,7 +10,6 @@ import subprocess
 import sys
 from collections.abc import Generator
 from fractions import Fraction
-from math import pi
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +46,7 @@ from clipper.ffmpeg_filter import (
     getMinterpFilter,
     getMinterpFPS,
     getSubsFilter,
+    getVideoStabilizationFilters,
     getZoomPanFilter,
     resolveCropEaseType,
     videoStabilizationGammaFixFilter,
@@ -862,7 +862,6 @@ def makeClip(  # noqa: PLR0912
     overwriteArg = " -y " if mps["overwrite"] else " -n "
     vidstabEnabled = mps["videoStabilization"]["enabled"]
     if vidstabEnabled:
-        vidstab = mps["videoStabilization"]
         shakyPath = f"{cp.clipsPath}/shaky"
         os.makedirs(shakyPath, exist_ok=True)
         transformPath = f"{shakyPath}/{mp['fileNameStem']}.trf"
@@ -884,31 +883,9 @@ def makeClip(  # noqa: PLR0912
         shakyClipPath = f"{shakyPath}/{mp['fileNameStem']}-shaky.{mp['fileNameSuffix']}"
 
         video_filter += "[shaky];[shaky]"
-        vidstabdetectFilter = (
-            video_filter
-            + f"""vidstabdetect=result='{transformPath}':shakiness={vidstab["shakiness"]}"""
-        )
-
-        vidstabdetectFilter = videoStabilizationGammaFixFilter(vidstabdetectFilter)
-
-        if mps["videoStabilizationMaxAngle"] < 0:
-            mps["videoStabilizationMaxAngle"] = -1
-        else:
-            mps["videoStabilizationMaxAngle"] *= pi / 180
-        if mps["videoStabilizationMaxShift"] < 0:
-            mps["videoStabilizationMaxShift"] = -1
-
-        vidstabtransformFilter = (
-            video_filter
-            + f"""vidstabtransform=input='{transformPath}':smoothing={vidstab["smoothing"]}"""
-            + f""":maxangle={mps["videoStabilizationMaxAngle"]}"""
-            + f""":maxshift={mps["videoStabilizationMaxShift"]}"""
-        )
-
-        if mps["videoStabilizationDynamicZoom"]:
-            vidstabtransformFilter += f":optzoom=2:zoomspeed={vidstab['zoomspeed']}"
-
-        vidstabtransformFilter = videoStabilizationGammaFixFilter(vidstabtransformFilter)
+        detectFilter, transformFilter = getVideoStabilizationFilters(mps, transformPath)
+        vidstabdetectFilter = videoStabilizationGammaFixFilter(video_filter + detectFilter)
+        vidstabtransformFilter = videoStabilizationGammaFixFilter(video_filter + transformFilter)
 
         if usesMinterpolate:
             vidstabtransformFilter += getMinterpFilter(mp, mps)
