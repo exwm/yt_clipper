@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { CropPoint } from '../@types/yt_clipper';
 import {
   bakeCinematicPath,
@@ -342,5 +344,29 @@ describe('bounds and clip length', () => {
     expect(w1).toBe(10);
     expect(w2).toBeCloseTo(1 / 3);
     expect(w3).toBeCloseTo(100 / 9);
+  });
+});
+
+describe('render parity', () => {
+  // Shared with the clipper's test_cinematic_path.py, whose solver must match these samples.
+  const parityCases = JSON.parse(
+    readFileSync(join(__dirname, '../../clipper/tests/fixtures/cinematic_path_parity.json'), 'utf8')
+  ) as {
+    name: string;
+    cropMap: CropPoint[];
+    margins: { pos: number; zoom: number };
+    cropRes: [number, number];
+    samples: { t: number; x: number; y: number; w: number; h: number }[];
+  }[];
+
+  it.each(parityCases.map((c) => [c.name, c] as const))('matches the parity table: %s', (_name, c) => {
+    const path = bakeCinematicPath(c.cropMap, c.margins, c.cropRes[0], c.cropRes[1])!;
+    for (const sample of c.samples) {
+      const [x, y, w, h] = evalCropPathAtTime(path, sample.t);
+      expect(x).toBeCloseTo(sample.x, 2);
+      expect(y).toBeCloseTo(sample.y, 2);
+      expect(w).toBeCloseTo(sample.w, 2);
+      expect(h).toBeCloseTo(sample.h, 2);
+    }
   });
 });
