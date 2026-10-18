@@ -1231,6 +1231,50 @@ def test_cinematic_pair_renders_the_path_solved_from_its_crop_points(
     assert frameSizes(clipper, clip) == {size}
 
 
+@pytest.mark.parametrize(
+    ("args", "savesShakyClip"),
+    [
+        pytest.param((), False, id="default"),
+        pytest.param(("--two-pass",), False, id="two-pass"),
+        pytest.param(("--video-stabilization-save-shaky-clip",), True, id="saved"),
+        pytest.param(
+            ("--video-stabilization-save-shaky-clip", "--two-pass"), True, id="saved with two-pass"
+        ),
+    ],
+)
+def test_stabilized_clip_saves_the_shaky_clip_only_when_asked(
+    clipper: Clipper,
+    syntheticMedia: pathlib.Path,
+    args: tuple[str, ...],
+    savesShakyClip: bool,
+) -> None:
+    clipper.requireEncoder("libvpx-vp9")
+    ffmpeg = clipper.toolPath("ffmpeg")
+    assert ffmpeg is not None
+    _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-native-30", syntheticMedia)
+    name = "stabilized" + "".join(args).replace("--", "-")
+    start, end = SYNTHETIC_PAIR
+    markers = syntheticMarkers(clipper.cwd, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
+    run = clipper.run(
+        [
+            "--markers-json",
+            str(markers),
+            "--input-video",
+            str(uploaded),
+            *OFFLINE_ARGS,
+            "--video-stabilization",
+            "2",
+            *args,
+        ]
+    )
+    print(run.stdout, run.stderr)
+    assert run.returncode == 0
+    output = clipper.cwd / "webms" / name
+    assert len(list(output.glob("*.webm"))) == 1
+    assert len(list((output / "shaky").glob("*.trf"))) == 1
+    assert len(list((output / "shaky").glob("*-shaky.webm"))) == int(savesShakyClip)
+
+
 def mergedMarkers(folder: pathlib.Path, name: str, crops: tuple[str, str]) -> pathlib.Path:
     """Two one-second marker pairs on a synthetic clip, with the given crops, merged as 1-2."""
     path = syntheticMarkers(folder, name, [{"x": 0.5, "y": 1}, {"x": 1.5, "y": 1}], pair=(0.5, 1.5))
