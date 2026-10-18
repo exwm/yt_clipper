@@ -3,11 +3,11 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from rich.markup import escape
 
-from clipper import markers_schema, util
+from clipper import cinematic_path, markers_schema, util
 from clipper.clip_maker import getDefaultEncodeSettings
 from clipper.clipper_types import (
     INVALID_MARKER_PAIR_KEY,
@@ -49,11 +49,28 @@ def applyMarkersValidation(markers: Dict[str, Any]) -> None:
         for message in validation.globalErrors:
             logger.critical(f"    {escape(message)}")
         sys.exit(1)
+    warnIfCinematicVersionDiffers(markers.get("cropPointEasingCinematicSolverVersion"))
     for index, messages in validation.pairErrors.items():
         logger.warning(f"Marker pair {index + 1} has invalid values and will be skipped:")
         for message in messages:
             logger.warning(f"    {escape(message)}")
         markers["markerPairs"][index] = {INVALID_MARKER_PAIR_KEY: messages, "overrides": {}}
+
+
+def warnIfCinematicVersionDiffers(savedVersion: Optional[int]) -> None:
+    """The markup saves the version only when a marker pair uses Cinematic crop easing."""
+    if savedVersion is None or savedVersion == cinematic_path.SOLVER_VERSION:
+        return
+    logger.warning(
+        " ".join(
+            [
+                f"The markers JSON file was saved with Cinematic crop easing version {savedVersion},",
+                f"but this clipper script has version {cinematic_path.SOLVER_VERSION}.",
+                "Cinematic crops may move differently than in the markup script preview.",
+                "Use the markup script and clipper script from the same release to match the preview.",
+            ],
+        ),
+    )
 
 
 def setMarkersFileNames(settings: Settings) -> None:
