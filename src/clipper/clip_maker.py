@@ -1,5 +1,7 @@
 import contextlib
 import copy
+import functools
+import json
 import os
 import re
 import shlex
@@ -12,6 +14,7 @@ from typing import Any, Dict, Generator, List, Optional, Set, Tuple
 
 import rich.markup
 
+from clipper import cinematic_path
 from clipper.clipper_types import (
     INVALID_MARKER_PAIR_KEY,
     BadMergeInput,
@@ -60,6 +63,26 @@ from clipper.video2x import runVideo2xCommand
 from clipper.ytc_logger import Subsystem, make_subsystem_logger, pair_context
 
 logger = make_subsystem_logger(Subsystem.CLIP_MAKER)
+
+
+def _bakeCinematicPath(
+    cropMap: list[dict[str, Any]],
+    margins: dict[str, float],
+    cropResWidth: int,
+    cropResHeight: int,
+    fps: float,
+) -> Optional[dict[str, Any]]:
+    # A pair's settings are made again for each sample-guided trial and encode, and a long pair takes
+    # about a second to solve. The path is only read, so the cached one is shared.
+    # default=str: a point can carry other fields the solver ignores.
+    key = json.dumps([cropMap, margins, cropResWidth, cropResHeight, fps], sort_keys=True, default=str)
+    return _bakeCinematicPathFromKey(key)
+
+
+@functools.lru_cache(maxsize=64)
+def _bakeCinematicPathFromKey(key: str) -> Optional[dict[str, Any]]:
+    cropMap, margins, cropResWidth, cropResHeight, fps = json.loads(key)
+    return cinematic_path.bakeCinematicPath(cropMap, margins, cropResWidth, cropResHeight, fps=fps)
 
 
 def getMarkerPairSettings(  # noqa: PLR0912
@@ -176,11 +199,29 @@ def getMarkerPairSettings(  # noqa: PLR0912
 
     mp["isPanningCrop"] = False
     mp["isZoomPanCrop"] = False
+    cinematicPath = None
     if mps["enableCropMaps"] and "cropMap" in mp:
         if mps["delay"] != 0:
             for point in mp["cropMap"]:
                 point["x"] += mps["delay"]
 
+        if mps.get("cropPointEasing") == "cinematic":
+            # Solve in cropRes pixels, as the markup preview does, before autoScaleCropMap rescales the points.
+            try:
+                cinematicPath = _bakeCinematicPath(
+                    mp["cropMap"],
+                    {
+                        "pos": mps.get("cropPointEasingCinematicMargin", cinematic_path.DEFAULT_MARGIN),
+                        "zoom": mps.get("cropPointEasingCinematicZoomMargin", cinematic_path.DEFAULT_ZOOM_MARGIN),
+                    },
+                    settings["cropResWidth"],
+                    settings["cropResHeight"],
+                    # ffprobe gives a fraction string such as "30000/1001".
+                    fps=float(Fraction(mps["r_frame_rate"])),
+                )
+            except Exception as error:
+                # Without a path the pair renders as Smooth Track, as when there is nothing to solve.
+                logger.warning(f"Could not solve the Cinematic crop path ({error!r}), so the crop uses Smooth Track.")
         autoScaleCropMap(mp["cropMap"], settings)
         for left, right in zip(mp["cropMap"][:-1], mp["cropMap"][1:]):
             lcc = left["cropComponents"]
@@ -208,12 +249,9 @@ def getMarkerPairSettings(  # noqa: PLR0912
 
     mp["maxSize"] = cropComponents["w"] * cropComponents["h"]
     cropEaseType = resolveCropEaseType(mps.get("cropPointEasing"))
-    cropPath = mp.get("cropPath")
-    if cropPath and cropPath.get("segments") and mps.get("cropPointEasing") == "cinematic":
-        # Cinematic mode renders the baked L1 path verbatim (the markup solved and baked it), so the
-        # output matches the preview exactly. Takes precedence over the pan/zoom cropMap branches.
+    if cinematicPath:
         mp["cropFilter"], mp["maxSize"] = getCropPathFilter(
-            cropPath,
+            cinematicPath,
             settings,
             mps["r_frame_rate"],
             inputIsHDR=settings["inputIsHDR"],

@@ -22,4 +22,6 @@ export const featureFlags = {
    *  iterating and shared links from one bundle version may not parse
    *  cleanly in another. */
   shareLink: false,
+  /** Flash the segment count and solve time of each Cinematic crop path solve. A debug aid. */
+  cinematicSolveStats: false,
 } as const;

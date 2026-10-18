@@ -3,14 +3,16 @@
 // the result is a few deliberate segments (steady holds, constant-velocity pans, constant-
 // acceleration transitions) instead of an everywhere-curving weave. This is the Grundmann/Kwatra/
 // Essa 2011 idea, solved here per component (x, y, w) with a banded ADMM (box-constrained L1 trend
-// filtering). The path is baked to piecewise-quadratic segments that the clipper renders verbatim
-// (getCropPathFilter in ffmpeg_filter.py), so this preview matches the rendered output by
-// construction. DOM-free and dependency-free so it unit-tests in node like crop-keyframe-math.ts.
+// filtering), then fitted with piecewise-quadratic segments. The clipper solves the same path
+// (src/clipper/cinematic_path.py) and renders the segments with getCropPathFilter; both are checked
+// against cinematic_path_parity.json so the preview matches the render. DOM-free and
+// dependency-free so it unit-tests in node like crop-keyframe-math.ts.
 
 import { CropPath, CropPathSegment, CropPoint } from '../@types/yt_clipper';
 
-// Bump when the solver math or grid changes so old baked paths count as stale and recompute.
-export const CINEMATIC_SOLVER_VERSION = 2;
+// Bump here and in the clipper when the solved path changes. Saved markers JSON records it, so the
+// clipper can warn when the crop may move differently than in the preview.
+export const CINEMATIC_SOLVER_VERSION = 1;
 
 // Grid the path is sampled on. The grid only quantizes where holds/pans start (the rendered output
 // is a continuous polynomial), so a moderate rate is plenty; cap the sample count so a long clip
@@ -26,6 +28,13 @@ const WEIGHTS: [number, number, number] = [10, 1, 100];
 // Greedy-fit tolerance: how far a baked segment polynomial may sit from the solved samples (cropRes
 // px). Sub-pixel, so the segmentation is invisible.
 const SEGMENT_FIT_TOLERANCE_PX = 0.4;
+
+// The smallest crop the markup draws (Crop.minW, Crop.minH), in cropRes px.
+const MIN_CROP_WIDTH = 20;
+const MIN_CROP_HEIGHT = 20;
+// ffmpeg's zoompan clamps its zoom to 10, so the render shows no crop narrower than a tenth of the
+// path's widest.
+const ZOOMPAN_MAX_ZOOM = 10;
 
 // Nonzero defaults, so the mode changes the path without tuning. Position margin in cropRes
 // px, zoom margin as a fraction of the keyframed size.
@@ -466,19 +475,33 @@ function cropMapComponents(
 
 // Split the crop points at each instant transition (a cut). Each run holds its last crop until the
 // cut, where the next run starts, so the solve never smooths across a scene change.
-export function splitAtInstantCuts(cropMap: readonly CropPoint[]): CropPoint[][] {
+export function splitAtInstantCuts(cropMap: readonly CropPoint[], fps?: number): CropPoint[][] {
   const runs: CropPoint[][] = [];
   let run: CropPoint[] = [];
+  const firstTime = cropMap[0]?.x ?? 0;
   for (const point of cropMap) {
     if (point.easeIn === 'instant' && run.length > 0) {
-      run.push({ ...run[run.length - 1], x: point.x, easeIn: undefined });
+      const cutX = cutTime(point.x, run[run.length - 1].x, firstTime, fps);
+      run.push({ ...run[run.length - 1], x: cutX, easeIn: undefined });
       runs.push(run);
-      run = [];
+      run = [{ ...point, x: cutX }];
+      // The cut crop holds until the point's own time, as the other crop easings hold it.
+      if (cutX < point.x) run.push(point);
+    } else {
+      run.push(point);
     }
-    run.push(point);
   }
   runs.push(run);
   return runs;
+}
+
+// When a cut takes effect: half a frame before the frame the cut point falls in, as the other crop
+// easings end a section (getEaseSectionDuration). A user-placed point usually overshoots its frame,
+// so at the raw time the first frame of the new scene would keep the old crop. Mirrors the clipper.
+function cutTime(cutX: number, previousX: number, firstTime: number, fps?: number): number {
+  if (!fps) return cutX;
+  const snapped = firstTime + (Math.floor((cutX - firstTime) * fps) - 0.5) / fps;
+  return snapped > previousX ? snapped : cutX;
 }
 
 // The objective weights at a grid spacing of `dt` seconds. A k-th difference over the grid
@@ -498,13 +521,15 @@ function clampToBox(target: number[], lower: number[], upper: number[]): number[
   return target.map((t, i) => Math.min(Math.max(t, lower[i]), upper[i]));
 }
 
-// Solve one run between cuts. Returns null when the run has no duration.
+// Solve one run between cuts. Returns null when the run has no duration. widestW bounds every width the
+// path takes, over all its runs.
 function solveRun(
   run: readonly CropPoint[],
   firstTime: number,
   margins: CinematicMargins,
   cropResWidth: number,
-  cropResHeight: number
+  cropResHeight: number,
+  widestW: number
 ): CropPathSegment[] | null {
   const parsed = cropMapComponents(run, firstTime, cropResWidth, cropResHeight);
   if (!parsed) return null;
@@ -532,11 +557,15 @@ function solveRun(
   };
 
   // Width first: its solved value bounds how far x can pan and still keep the crop on-screen.
-  const loW = targetW.map((t) => Math.max(1, t * (1 - margins.zoom)));
   // The height follows the width at the ratio, so the frame's height bounds the width too: a 9:16
   // crop at full height would otherwise widen past its ratio while its height stops at the frame.
   const maxW = Math.min(cropResWidth, cropResHeight / ratio);
   const hiW = targetW.map((t) => Math.min(maxW, t * (1 + margins.zoom)));
+  // At a zoom margin near 1 a quick zoom would let the crop overshoot to nothing: keep it as large
+  // as the markup's smallest crop and within the render's zoom of the path's widest crop, or the crop
+  // point's own size when smaller (a hand-edited file).
+  const smallestW = Math.max(MIN_CROP_WIDTH, MIN_CROP_HEIGHT / ratio, widestW / ZOOMPAN_MAX_ZOOM);
+  const loW = targetW.map((t) => Math.max(1, t * (1 - margins.zoom), Math.min(t, smallestW)));
   orderBox(loW, hiW);
   anchor(targetW, loW, hiW);
   const solvedW = solveL1Path(clampToBox(targetW, loW, hiW), loW, hiW, weights);
@@ -568,19 +597,36 @@ export function bakeCinematicPath(
   cropMap: readonly CropPoint[],
   margins: CinematicMargins,
   cropResWidth: number,
-  cropResHeight: number
+  cropResHeight: number,
+  fps?: number
 ): CropPath | null {
   if (cropMap.length < 2) return null;
   const firstTime = cropMap[0].x;
-  const segments = splitAtInstantCuts(cropMap).flatMap(
-    (run) => solveRun(run, firstTime, margins, cropResWidth, cropResHeight) ?? []
+  const runs = splitAtInstantCuts(cropMap, fps);
+  const widestW = Math.max(
+    ...cropMap.map((point) =>
+      Math.min(cropResWidth, parseCropToComponents(point.crop, cropResWidth, cropResHeight)[2] * (1 + margins.zoom))
+    )
   );
+  const solved = runs.map((run) =>
+    solveRun(run, firstTime, margins, cropResWidth, cropResHeight, widestW)
+  );
+  const segments = solved.flatMap((runSegments) => runSegments ?? []);
   if (segments.length === 0) return null;
+  if (solved[solved.length - 1] === null) {
+    // A cut on the last point leaves a run of one moment, with nothing to solve. Hold its crop
+    // there, so the path ends on the cut, as the other crop easings do.
+    const lastRun = runs[runs.length - 1];
+    const cut = lastRun[lastRun.length - 1];
+    const t = cut.x - firstTime;
+    const [x, y, w, h] = parseCropToComponents(cut.crop, cropResWidth, cropResHeight);
+    segments.push({ startT: t, endT: t, x: [x, 0, 0], y: [y, 0, 0], w: [w, 0, 0], h: [h, 0, 0] });
+  }
 
   return {
     version: CINEMATIC_SOLVER_VERSION,
     margin: { pos: margins.pos, zoom: margins.zoom },
-    signature: cropPathSignature(cropMap, margins, cropResWidth, cropResHeight),
+    signature: cropPathSignature(cropMap, margins, cropResWidth, cropResHeight, fps),
     segments,
   };
 }
@@ -613,9 +659,10 @@ export function cropPathSignature(
   cropMap: readonly CropPoint[],
   margins: CinematicMargins,
   cropResWidth: number,
-  cropResHeight: number
+  cropResHeight: number,
+  fps?: number
 ): string {
-  let s = `v${CINEMATIC_SOLVER_VERSION}|${cropResWidth}x${cropResHeight}|m${margins.pos},${margins.zoom}|`;
+  let s = `v${CINEMATIC_SOLVER_VERSION}|${cropResWidth}x${cropResHeight}|m${margins.pos},${margins.zoom}|f${fps ?? ''}|`;
   for (const point of cropMap) s += `${point.x}:${point.crop}:${point.easeIn ?? ''};`;
   // FNV-1a, enough to detect any cropMap/margin change.
   let hash = 0x811c9dc5;
@@ -631,9 +678,10 @@ export function isCropPathFresh(
   cropMap: readonly CropPoint[],
   margins: CinematicMargins,
   cropResWidth: number,
-  cropResHeight: number
+  cropResHeight: number,
+  fps?: number
 ): boolean {
   if (!path) return false;
   if (path.version !== CINEMATIC_SOLVER_VERSION) return false;
-  return path.signature === cropPathSignature(cropMap, margins, cropResWidth, cropResHeight);
+  return path.signature === cropPathSignature(cropMap, margins, cropResWidth, cropResHeight, fps);
 }

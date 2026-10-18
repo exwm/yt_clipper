@@ -463,7 +463,6 @@ export function pushMarkerPairsArray(currentTime: number, markerPairConfig: Mark
       { x: appState.startTime, y: 0, crop: crop },
       { x: currentTime, y: 0, crop: crop },
     ],
-    cropPath: markerPairConfig.cropPath,
     cropChartLoop: markerPairConfig.cropChartLoop ?? { enabled: true },
     enableZoomPan: markerPairConfig.enableZoomPan ?? false,
     cropRes: appState.settings.cropRes,
@@ -790,8 +789,8 @@ export function moveMarker(
       draft.speedMap = stretchPointMap(draft, draft.speedMap, 'speed', toTime, type);
       draft.cropMap = stretchPointMap(draft, draft.cropMap, 'crop', toTime, type);
     } else {
-      draft.speedMap = shrinkPointMap(draft, draft.speedMap, 'speed', toTime, type);
-      draft.cropMap = shrinkPointMap(draft, draft.cropMap, 'crop', toTime, type);
+      draft.speedMap = shrinkPointMap(draft, draft.speedMap, 'speed', toTime, type, markerPair);
+      draft.cropMap = shrinkPointMap(draft, draft.cropMap, 'crop', toTime, type, markerPair);
     }
   }
   saveMarkerPairHistory(draft, markerPair, storeHistory);

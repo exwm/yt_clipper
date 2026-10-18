@@ -32,9 +32,6 @@ MARKUP_ONLY_SETTINGS = frozenset(
         "videoTag",
         "version",
         "date",
-        # The markup bakes these into each pair's cropPath.
-        "cropPointEasingCinematicMargin",
-        "cropPointEasingCinematicZoomMargin",
     },
 )
 

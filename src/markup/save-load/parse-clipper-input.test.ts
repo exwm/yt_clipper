@@ -235,6 +235,7 @@ describe('toApplicableSettings: applied vs skipped keys', () => {
       isVerticalVideo: false,
       version: '5.43.0',
       date: 1_700_000_000_000,
+      cropPointEasingCinematicSolverVersion: 1,
       titleSuffix: 'clip',
     });
     const applied = toApplicableSettings(input);
@@ -249,6 +250,7 @@ describe('toApplicableSettings: applied vs skipped keys', () => {
     // appear in the output anyway, but checking they don't leak via a cast.
     expect((applied as Record<string, unknown>).version).toBeUndefined();
     expect((applied as Record<string, unknown>).date).toBeUndefined();
+    expect((applied as Record<string, unknown>).cropPointEasingCinematicSolverVersion).toBeUndefined();
     expect((applied as Record<string, unknown>).markerPairs).toBeUndefined();
   });
 
@@ -277,6 +279,38 @@ describe('toApplicableSettings: applied vs skipped keys', () => {
     // crf wasn't in input: should not appear as a key in `applied`.
     expect('crf' in applied).toBe(false);
     expect('rotate' in applied).toBe(false);
+  });
+
+  test.each([
+    // The clipper renders markers saved before 5.49 (no crop easing) with EaseInOut. Per pair, so
+    // the session's own pairs and global mode stay as they are.
+    [
+      'markers from before 5.49 keep EaseInOut on their pairs',
+      {
+        markerPairs: [
+          { start: 0, end: 5 },
+          { start: 6, end: 8, overrides: { cropPointEasing: 'cinematic' } },
+        ],
+      },
+      undefined,
+      ['smoothInOut', 'cinematic'],
+    ],
+    [
+      'saved crop easing applies',
+      { markerPairs: [{ start: 0, end: 5 }], cropPointEasing: 'cinematic' },
+      'cinematic',
+      [undefined],
+    ],
+    [
+      'an invalid saved crop easing is dropped, and the file is not taken for one from before 5.49',
+      { markerPairs: [{ start: 0, end: 5 }], cropPointEasing: 'linear' },
+      undefined,
+      [undefined],
+    ],
+  ])('markers JSON crop easing: %s', (_case, data, globalEasing, pairEasings) => {
+    const { input } = parseClipperInputJSON(JSON.stringify(data));
+    expect(toApplicableSettings(input).cropPointEasing).toBe(globalEasing);
+    expect(input.markerPairs.map((pair) => pair.overrides?.cropPointEasing)).toEqual(pairEasings);
   });
 });
 
@@ -321,18 +355,33 @@ describe('parseOverrides: per-field type validation', () => {
     expect(overrides.enableHDR).toBeUndefined();
   });
 
-  test.each([
+  const cropEasingValues: [string, unknown, boolean][] = [
     ['cropPointEasingCinematicMargin', -50, false],
     ['cropPointEasingCinematicMargin', 0, true],
     ['cropPointEasingCinematicZoomMargin', 1.5, false],
     ['cropPointEasingCinematicZoomMargin', 1, true],
-  ])('Cinematic margin override %s = %d is kept: %s (the schema bounds)', (key, value, kept) => {
-    const { input } = parseClipperInput({
-      markerPairs: [{ start: 0, end: 5, overrides: { [key]: value } }],
-    } as Record<string, unknown>);
-    const overrides = input.markerPairs[0].overrides as Record<string, unknown>;
-    expect(overrides[key]).toBe(kept ? value : undefined);
-  });
+    ['cropPointEasing', 'Cinematic', false],
+    ['cropPointEasing', 'cinematic', true],
+  ];
+  test.each(cropEasingValues)(
+    'crop easing override %s = %p is kept: %s (the schema values)',
+    (key, value, kept) => {
+      const { input } = parseClipperInput({
+        markerPairs: [{ start: 0, end: 5, overrides: { [key]: value } }],
+      } as Record<string, unknown>);
+      const overrides = input.markerPairs[0].overrides as Record<string, unknown>;
+      expect(overrides[key]).toBe(kept ? value : undefined);
+    }
+  );
+  test.each(cropEasingValues)(
+    'global crop easing setting %s = %p is kept: %s (the schema values)',
+    (key, value, kept) => {
+      const { input } = parseClipperInput({ markerPairs: [], [key]: value });
+      expect((toApplicableSettings(input) as Record<string, unknown>)[key]).toBe(
+        kept ? value : undefined
+      );
+    }
+  );
 
   test('drops non-finite numeric override values (NaN, Infinity)', () => {
     const { input } = parseClipperInput({
@@ -385,42 +434,10 @@ describe('parseOverrides: per-field type validation', () => {
   });
 });
 
-describe('parseClipperInput: cinematic cropPath', () => {
-  const segment = { startT: 0, endT: 1, x: [0, 1, 0], y: [0, 0, 0], w: [100, 0, 0], h: [50, 0, 0] };
-  const validPath = {
-    version: 1,
-    margin: { pos: 40, zoom: 0.08 },
-    signature: 'abc',
-    segments: [segment],
-  };
-  const parsePath = (cropPath: unknown) => {
-    const { input, issues } = parseClipperInput({ markerPairs: [{ start: 0, end: 1, cropPath }] });
-    return { cropPath: input.markerPairs[0].cropPath, issues };
-  };
-
-  test.each([
-    ['a valid path', validPath],
-    ['a path from another solver version (stale, not invalid)', { ...validPath, version: 2 }],
-  ])('keeps %s', (_name, raw) => {
-    const { cropPath, issues } = parsePath(raw);
-    expect(cropPath).toEqual(raw);
-    expect(issues).toEqual([]);
+test('drops the cinematic cropPath that 5.49 dev builds saved', () => {
+  const { input, issues } = parseClipperInput({
+    markerPairs: [{ start: 0, end: 1, cropPath: { version: 1, segments: [] } }],
   });
-
-  test.each([
-    ['a non-integer version', { ...validPath, version: 1.5 }],
-    ['a missing signature', { ...validPath, signature: undefined }],
-    ['a non-finite margin', { ...validPath, margin: { pos: NaN, zoom: 0 } }],
-    ['no segments', { ...validPath, segments: [] }],
-    ['a segment ending before it starts', { ...validPath, segments: [{ ...segment, endT: -1 }] }],
-    ['a non-finite coefficient', { ...validPath, segments: [{ ...segment, x: [0, Infinity, 0] }] }],
-    [
-      'a coefficient list of the wrong length',
-      { ...validPath, segments: [{ ...segment, w: [1, 2] }] },
-    ],
-  ])('drops a path with %s and reports it', (_name, raw) => {
-    const { cropPath, issues } = parsePath(raw);
-    expect(cropPath).toBeUndefined();
-    expect(issues).toEqual([{ kind: 'invalidCropPath', path: 'markerPairs[0].cropPath' }]);
-  });
+  expect(input.markerPairs[0]).not.toHaveProperty('cropPath');
+  expect(issues).toEqual([{ kind: 'unexpectedFields', path: 'markerPairs[0]', keys: ['cropPath'] }]);
 });

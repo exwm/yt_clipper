@@ -37,6 +37,7 @@
   "cropPointEasingCinematicZoomMargin": 0.08,
   "version": "5.48.0",
   "date": 1760000000000,
+  "cropPointEasingCinematicSolverVersion": 1,
   "markerPairs": [
     {
       "number": 1,
@@ -79,15 +80,12 @@
       "start": 10,
       "end": 12,
       "speed": 1,
-      "crop": "0:0:iw:ih",
-      "cropPath": {
-        "version": 1,
-        "margin": { "pos": 20, "zoom": 0.1 },
-        "signature": "a1b2c3",
-        "segments": [
-          { "startT": 10, "endT": 12, "x": [0, 5, -0.5], "y": [0, 0, 0], "w": [1920, 0, 0], "h": [1080, 0, 0] }
-        ]
-      },
+      "crop": "0:0:960:540",
+      "cropMap": [
+        { "x": 10, "y": 0, "crop": "0:0:960:540" },
+        { "x": 11, "y": 0, "crop": "400:200:1280:720" },
+        { "x": 12, "y": 0, "crop": "960:540:960:540" }
+      ],
       "enableZoomPan": true,
       "cropRes": "1920x1080",
       "overrides": { "cropPointEasing": "cinematic", "cropPointEasingCinematicMargin": 20, "cropPointEasingCinematicZoomMargin": 0.1 }

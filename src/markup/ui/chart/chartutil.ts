@@ -54,7 +54,7 @@ export function stretchPointMap(_draft, pointMap, pointType, toTime, type) {
 
   return pointMap;
 }
-export function shrinkPointMap(draft, pointMap, pointType, toTime, type) {
+export function shrinkPointMap(draft, pointMap, pointType, toTime, type, markerPair: MarkerPair) {
   const maxIndex = pointMap.length - 1;
   const searchPoint = { x: toTime, y: 0, crop: '' };
   let [sectStart] = bsearch(pointMap, searchPoint, sortX);
@@ -75,7 +75,7 @@ export function shrinkPointMap(draft, pointMap, pointType, toTime, type) {
   const targetPoint = pointMap[targetPointIndex];
 
   if (pointType === 'crop') {
-    const toCropString = getInterpolatedCrop(leftPoint, rightPoint, toTime);
+    const toCropString = getInterpolatedCrop(markerPair, pointMap, sectStart, toTime);
     const [x, y, w, h] = getCropComponents(targetPoint.crop);
     const toCrop = new Crop(
       x,
