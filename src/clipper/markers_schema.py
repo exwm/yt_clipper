@@ -32,6 +32,8 @@ MARKUP_ONLY_SETTINGS = frozenset(
         "videoTag",
         "version",
         "date",
+        # Read only to warn when the markup previewed another Cinematic solver version.
+        "cropPointEasingCinematicSolverVersion",
     },
 )
 
