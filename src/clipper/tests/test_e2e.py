@@ -286,6 +286,28 @@ CLIP_CASES = [
 ]
 
 
+def bundledFfmpegVersion() -> str:
+    """The ffmpeg version releases bundle, pinned once in the CI workflow."""
+    workflow = (REPO / ".github" / "workflows" / "yt_clipper_ci.yml").read_text(encoding="utf-8")
+    match = re.search(r'^\s*FFMPEG_VERSION:\s*"([^"]+)"', workflow, re.MULTILINE)
+    assert match, "FFMPEG_VERSION not found in yt_clipper_ci.yml"
+    return match.group(1)
+
+
+def test_ffmpeg_is_the_version_releases_bundle(clipper: Clipper) -> None:
+    # The other end-to-end tests check behavior that changes between ffmpeg versions
+    ffmpeg = clipper.toolPath("ffmpeg")
+    if ffmpeg is None or not pathlib.Path(ffmpeg).is_file():
+        pytest.skip("needs ffmpeg")
+    banner = subprocess.run(
+        [ffmpeg, "-hide_banner", "-version"], capture_output=True, text=True, check=True
+    ).stdout
+    version = bundledFfmpegVersion()
+    assert re.match(rf"ffmpeg version n?{re.escape(version)}\b", banner), (
+        f"expected ffmpeg {version} at {ffmpeg}, found: {banner.splitlines()[0]}"
+    )
+
+
 @pytest.mark.slow
 def test_get_version_info(clipper: Clipper) -> None:
     run = clipper.run(["--version"])
