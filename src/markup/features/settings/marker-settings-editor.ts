@@ -6,6 +6,7 @@ import {
   getCurrentCropComponents,
   hideChart,
   loadChartData,
+  refreshCropPreview,
   scheduleCinematicRecompute,
   showChart,
   toggleChart,
@@ -292,7 +293,7 @@ function MarkerPairEditorTemplate(
         ${CropEasingSelect({
           ...bindOverride('crop-point-easing-input', 'cropPointEasing', 'inheritableString', {
             afterChange: () => {
-              triggerCropPreviewRedraw();
+              refreshCropPreview();
               scheduleCinematicRecompute();
               setSettingsGearButtonVisible('cinematic-settings-modal', isCinematicActive());
             },
@@ -310,11 +311,9 @@ function MarkerPairEditorTemplate(
             visible: isCinematicActive(),
             content: () => html`
               ${NumberInputRow({
+                // The solve redraws the preview. A redraw now would show the stale path's fallback.
                 ...bindOverride('cinematic-margin-input', 'cropPointEasingCinematicMargin', 'number', {
-                  afterChange: () => {
-                    triggerCropPreviewRedraw();
-                    scheduleCinematicRecompute();
-                  },
+                  afterChange: scheduleCinematicRecompute,
                 }),
                 label: 'Margin (px)',
                 value: overrides.cropPointEasingCinematicMargin ?? '',
@@ -326,10 +325,7 @@ function MarkerPairEditorTemplate(
               })}
               ${NumberInputRow({
                 ...bindOverride('cinematic-zoom-margin-input', 'cropPointEasingCinematicZoomMargin', 'number', {
-                  afterChange: () => {
-                    triggerCropPreviewRedraw();
-                    scheduleCinematicRecompute();
-                  },
+                  afterChange: scheduleCinematicRecompute,
                 }),
                 label: 'Zoom Margin',
                 value: overrides.cropPointEasingCinematicZoomMargin ?? '',
@@ -872,6 +868,9 @@ export function toggleOnMarkerPairEditor(targetMarker: SVGRectElement) {
   loadChartData(chartState.cropChartInput);
   showCropOverlay();
   triggerCropPreviewRedraw();
+  // The Cinematic path is not saved with the pair, so solve it for the pair now open (a no-op when
+  // the pair is not Cinematic or its path is fresh).
+  scheduleCinematicRecompute();
   // Paused in reframe, the rVFC loop is idle, so the canvas keeps drawing the previous pair's crop
   // until playback resumes. Re-sync the viewport and redraw now so the new pair's crop shows at once.
   if (isReframeEnabled()) syncReframe(getCurrentCropComponents());

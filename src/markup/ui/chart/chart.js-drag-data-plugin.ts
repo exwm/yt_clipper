@@ -6,6 +6,10 @@ import { appState } from '../../appState';
 
 let element, scale, scaleX, radar;
 
+export function isDraggingChartPoint(): boolean {
+  return element != null;
+}
+
 function getElement(chartInstance, callback) {
   return () => {
     if (event) {
