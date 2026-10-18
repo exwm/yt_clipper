@@ -1,5 +1,5 @@
 import { createDraft, finishDraft } from 'immer';
-import { ChartInput, CropPoint } from './@types/yt_clipper';
+import { ChartInput, CropPath, CropPoint, MarkerPair } from './@types/yt_clipper';
 import { appState } from './appState';
 import {
   currentCropChartMode,
@@ -924,25 +924,23 @@ function getActiveCinematicMargins(): CinematicMargins {
   };
 }
 
-// The baked cinematic crop at the current time, or null when there is no fresh path yet (mid-edit or
+// The preview's solved cinematic path per marker pair. Not saved: the clipper solves its own.
+const cinematicPaths = new WeakMap<MarkerPair, CropPath>();
+
+// The cinematic crop at the current time, or null when there is no fresh path yet (mid-edit or
 // mid-recompute), in which case the caller falls back to a smooth interpolation.
 function getActiveCinematicCrop(): [number, number, number, number] | null {
   const mp = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
-  if (!mp?.cropPath) return null;
+  const path = mp && cinematicPaths.get(mp);
+  if (!path) return null;
   const { cropResWidth, cropResHeight } = appState.settings;
   if (
-    !isCropPathFresh(
-      mp.cropPath,
-      mp.cropMap,
-      getActiveCinematicMargins(),
-      cropResWidth,
-      cropResHeight
-    )
+    !isCropPathFresh(path, mp.cropMap, getActiveCinematicMargins(), cropResWidth, cropResHeight)
   ) {
     return null;
   }
   const firstTime = mp.cropMap[0]?.x ?? 0;
-  return evalCropPathAtTime(mp.cropPath, currentCropTime() - firstTime);
+  return evalCropPathAtTime(path, currentCropTime() - firstTime);
 }
 
 let cinematicRecomputeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -963,7 +961,7 @@ export function scheduleCinematicRecompute(): void {
   const { cropResWidth, cropResHeight } = appState.settings;
   if (
     isCropPathFresh(
-      mp.cropPath,
+      cinematicPaths.get(mp),
       mp.cropMap,
       getActiveCinematicMargins(),
       cropResWidth,
@@ -989,11 +987,14 @@ function recomputeActiveCinematicPath(): void {
   }
   const { cropResWidth, cropResHeight } = appState.settings;
   const margins = getActiveCinematicMargins();
-  if (isCropPathFresh(mp.cropPath, mp.cropMap, margins, cropResWidth, cropResHeight)) return;
+  if (isCropPathFresh(cinematicPaths.get(mp), mp.cropMap, margins, cropResWidth, cropResHeight)) {
+    return;
+  }
   const startMs = performance.now();
-  const path = bakeCinematicPath(mp.cropMap, margins, cropResWidth, cropResHeight) ?? undefined;
+  const path = bakeCinematicPath(mp.cropMap, margins, cropResWidth, cropResHeight);
   const elapsedMs = Math.round(performance.now() - startMs);
-  mp.cropPath = path;
+  if (path) cinematicPaths.set(mp, path);
+  else cinematicPaths.delete(mp);
   triggerCropPreviewRedraw();
   if (path) {
     flashMessage(`Cinematic path: ${path.segments.length} segments in ${elapsedMs}ms`, 'green');

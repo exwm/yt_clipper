@@ -49,9 +49,6 @@ interface MarkerPair {
   enableZoomPan: boolean;
   cropRes: string;
   outputDuration: number;
-  // The baked cinematic (L1) camera path, derived from cropMap when cropPointEasing is 'cinematic'.
-  // The preview and the clipper both render this verbatim, so it is recomputed (debounced) on edit.
-  cropPath?: CropPath;
   overrides: MarkerPairOverrides;
   startNumbering: SVGTextElement;
   endNumbering: SVGTextElement;
@@ -77,7 +74,6 @@ interface MarkerConfig {
   speedChartLoop?: ChartLoop;
   crop?: string;
   cropMap?: CropPoint[];
-  cropPath?: CropPath;
   cropChartLoop?: ChartLoop;
   enableZoomPan?: boolean;
   overrides?: MarkerPairOverrides;
@@ -142,7 +138,7 @@ interface CropPoint {
   easeIn?: 'instant';
 }
 
-// One piece of a baked cinematic path. Each crop component is a quadratic in local time
+// One piece of a solved cinematic path. Each crop component is a quadratic in local time
 // u = (t - startT): value(u) = c0 + c1*u + c2*u^2, in cropRes pixels. Segments tile [0, duration]
 // contiguously with no gaps, so the rendered crop is continuous.
 interface CropPathSegment {
@@ -155,7 +151,7 @@ interface CropPathSegment {
 }
 
 interface CropPath {
-  // CINEMATIC_SOLVER_VERSION at bake time; a different version counts as stale.
+  // CINEMATIC_SOLVER_VERSION when solved.
   version: number;
   // The margins the path was solved with (cropRes px for pos, fraction for zoom), echoed for the UI.
   margin: { pos: number; zoom: number };

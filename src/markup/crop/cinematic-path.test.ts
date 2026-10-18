@@ -251,6 +251,34 @@ describe('instant cuts', () => {
     const cropMap = [point(0, 100), point(1, 300), point(2, 500)];
     expect(splitAtInstantCuts(cropMap)).toEqual([cropMap]);
   });
+
+  it.each([
+    ['raw cut time', undefined, 100],
+    ['cut on the frame boundary', 30, 1200],
+  ])('with %s, the frame a cut point falls in shows the cut', (_case, fps, cropX) => {
+    // At 30 fps the cut point at 1.0167 s falls in the frame at 1.0, as the other easings cut.
+    // The clipper's test_cinematic_path.py checks the same case.
+    const cropMap = [point(0, 100), point(1.0167, 1200, 'instant'), point(2, 1200)];
+    const path = bakeCinematicPath(cropMap, cutMargins, CROP_RES_W, CROP_RES_H, fps)!;
+    expect(evalCropPathAtTime(path, 1.0)[0]).toBeCloseTo(cropX, 0);
+  });
+
+  it.each([
+    ['raw cut time', undefined, 2],
+    ['cut on the frame boundary', 30, 1.99],
+  ])('with %s, a cut on the last point still shows', (_case, fps, time) => {
+    // The clipper's test_cinematic_path.py checks the same case.
+    const cropMap = [point(0, 100), point(1, 100), point(2, 1200, 'instant')];
+    const path = bakeCinematicPath(cropMap, cutMargins, CROP_RES_W, CROP_RES_H, fps)!;
+    expect(evalCropPathAtTime(path, time)[0]).toBeCloseTo(1200, 0);
+  });
+
+  it('goes stale when the frame rate changes', () => {
+    const cropMap = [point(0, 100), point(1.0167, 1200, 'instant'), point(2, 1200)];
+    const path = bakeCinematicPath(cropMap, cutMargins, CROP_RES_W, CROP_RES_H, 30)!;
+    expect(isCropPathFresh(path, cropMap, cutMargins, CROP_RES_W, CROP_RES_H, 30)).toBe(true);
+    expect(isCropPathFresh(path, cropMap, cutMargins, CROP_RES_W, CROP_RES_H, 60)).toBe(false);
+  });
 });
 
 describe('bounds and clip length', () => {
@@ -321,6 +349,41 @@ describe('bounds and clip length', () => {
       const [, , w, h] = evalCropPathAtTime(path, i / 100);
       expect(Math.abs(w / h / (607 / 1080) - 1)).toBeLessThan(0.01);
     }
+  });
+
+  const point = (x: number, crop: string, easeIn?: 'instant'): CropPoint => ({ x, y: 0, crop, easeIn });
+  it.each([
+    [
+      'quick zoom',
+      1,
+      [point(0, '110:0:1158:651'), point(1.43, '920:288:207:116'), point(1.51, '270:451:966:543')],
+    ],
+    [
+      'wide strip',
+      1,
+      [point(0, '0:500:1920:80'), point(1.43, '720:530:480:20'), point(1.51, '0:500:1920:80')],
+    ],
+    // The render zooms against the widest crop of the whole path, before the cut too.
+    [
+      'quick zoom after a cut from a wide crop',
+      0.5,
+      [
+        point(0, '0:0:1920:1080'),
+        point(1, '0:0:1920:1080'),
+        point(1.3, '1571:75:283:159', 'instant'),
+        point(1.8, '715:934:197:111'),
+        point(1.9, '842:701:600:338'),
+      ],
+    ],
+  ])('keeps an overshoot a crop the render shows: %s', (_name, zoom, cropMap) => {
+    // The crop overshot to 1 px wide or 2 px tall, and ffmpeg's zoompan zooms in at most 10x. The
+    // clipper's test_cinematic_path.py checks the same cases.
+    const path = bakeCinematicPath(cropMap, { pos: 40, zoom }, CROP_RES_W, CROP_RES_H)!;
+    const end = Math.round(cropMap[cropMap.length - 1].x * 1000);
+    const sizes = Array.from({ length: end + 1 }, (_v, i) => evalCropPathAtTime(path, i / 1000).slice(2));
+    const widths = sizes.map(([w]) => w);
+    expect(Math.min(...widths)).toBeGreaterThanOrEqual(Math.max(...widths) / 10 - 0.4);
+    expect(Math.min(...sizes.map(([, h]) => h))).toBeGreaterThanOrEqual(20 - 0.4);
   });
 
   it('keeps a last crop of another aspect ratio in the frame', () => {

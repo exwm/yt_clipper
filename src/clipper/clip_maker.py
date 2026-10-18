@@ -12,6 +12,7 @@ from typing import Any, Dict, Generator, List, Optional, Set, Tuple
 
 import rich.markup
 
+from clipper import cinematic_path
 from clipper.clipper_types import (
     INVALID_MARKER_PAIR_KEY,
     BadMergeInput,
@@ -176,11 +177,23 @@ def getMarkerPairSettings(  # noqa: PLR0912
 
     mp["isPanningCrop"] = False
     mp["isZoomPanCrop"] = False
+    cinematicPath = None
     if mps["enableCropMaps"] and "cropMap" in mp:
         if mps["delay"] != 0:
             for point in mp["cropMap"]:
                 point["x"] += mps["delay"]
 
+        if mps.get("cropPointEasing") == "cinematic":
+            # Solve in cropRes pixels, as the markup preview does, before autoScaleCropMap rescales the points.
+            cinematicPath = cinematic_path.bakeCinematicPath(
+                mp["cropMap"],
+                {
+                    "pos": mps.get("cropPointEasingCinematicMargin", cinematic_path.DEFAULT_MARGIN),
+                    "zoom": mps.get("cropPointEasingCinematicZoomMargin", cinematic_path.DEFAULT_ZOOM_MARGIN),
+                },
+                settings["cropResWidth"],
+                settings["cropResHeight"],
+            )
         autoScaleCropMap(mp["cropMap"], settings)
         for left, right in zip(mp["cropMap"][:-1], mp["cropMap"][1:]):
             lcc = left["cropComponents"]
@@ -208,12 +221,9 @@ def getMarkerPairSettings(  # noqa: PLR0912
 
     mp["maxSize"] = cropComponents["w"] * cropComponents["h"]
     cropEaseType = resolveCropEaseType(mps.get("cropPointEasing"))
-    cropPath = mp.get("cropPath")
-    if cropPath and cropPath.get("segments") and mps.get("cropPointEasing") == "cinematic":
-        # Cinematic mode renders the baked L1 path verbatim (the markup solved and baked it), so the
-        # output matches the preview exactly. Takes precedence over the pan/zoom cropMap branches.
+    if cinematicPath:
         mp["cropFilter"], mp["maxSize"] = getCropPathFilter(
-            cropPath,
+            cinematicPath,
             settings,
             mps["r_frame_rate"],
             inputIsHDR=settings["inputIsHDR"],

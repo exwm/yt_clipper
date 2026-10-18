@@ -235,6 +235,7 @@ describe('toApplicableSettings: applied vs skipped keys', () => {
       isVerticalVideo: false,
       version: '5.43.0',
       date: 1_700_000_000_000,
+      cropPointEasingCinematicSolverVersion: 1,
       titleSuffix: 'clip',
     });
     const applied = toApplicableSettings(input);
@@ -249,6 +250,7 @@ describe('toApplicableSettings: applied vs skipped keys', () => {
     // appear in the output anyway, but checking they don't leak via a cast.
     expect((applied as Record<string, unknown>).version).toBeUndefined();
     expect((applied as Record<string, unknown>).date).toBeUndefined();
+    expect((applied as Record<string, unknown>).cropPointEasingCinematicSolverVersion).toBeUndefined();
     expect((applied as Record<string, unknown>).markerPairs).toBeUndefined();
   });
 
@@ -385,42 +387,10 @@ describe('parseOverrides: per-field type validation', () => {
   });
 });
 
-describe('parseClipperInput: cinematic cropPath', () => {
-  const segment = { startT: 0, endT: 1, x: [0, 1, 0], y: [0, 0, 0], w: [100, 0, 0], h: [50, 0, 0] };
-  const validPath = {
-    version: 1,
-    margin: { pos: 40, zoom: 0.08 },
-    signature: 'abc',
-    segments: [segment],
-  };
-  const parsePath = (cropPath: unknown) => {
-    const { input, issues } = parseClipperInput({ markerPairs: [{ start: 0, end: 1, cropPath }] });
-    return { cropPath: input.markerPairs[0].cropPath, issues };
-  };
-
-  test.each([
-    ['a valid path', validPath],
-    ['a path from another solver version (stale, not invalid)', { ...validPath, version: 2 }],
-  ])('keeps %s', (_name, raw) => {
-    const { cropPath, issues } = parsePath(raw);
-    expect(cropPath).toEqual(raw);
-    expect(issues).toEqual([]);
+test('drops the cinematic cropPath that 5.49 dev builds saved', () => {
+  const { input, issues } = parseClipperInput({
+    markerPairs: [{ start: 0, end: 1, cropPath: { version: 1, segments: [] } }],
   });
-
-  test.each([
-    ['a non-integer version', { ...validPath, version: 1.5 }],
-    ['a missing signature', { ...validPath, signature: undefined }],
-    ['a non-finite margin', { ...validPath, margin: { pos: NaN, zoom: 0 } }],
-    ['no segments', { ...validPath, segments: [] }],
-    ['a segment ending before it starts', { ...validPath, segments: [{ ...segment, endT: -1 }] }],
-    ['a non-finite coefficient', { ...validPath, segments: [{ ...segment, x: [0, Infinity, 0] }] }],
-    [
-      'a coefficient list of the wrong length',
-      { ...validPath, segments: [{ ...segment, w: [1, 2] }] },
-    ],
-  ])('drops a path with %s and reports it', (_name, raw) => {
-    const { cropPath, issues } = parsePath(raw);
-    expect(cropPath).toBeUndefined();
-    expect(issues).toEqual([{ kind: 'invalidCropPath', path: 'markerPairs[0].cropPath' }]);
-  });
+  expect(input.markerPairs[0]).not.toHaveProperty('cropPath');
+  expect(issues).toEqual([{ kind: 'unexpectedFields', path: 'markerPairs[0]', keys: ['cropPath'] }]);
 });
