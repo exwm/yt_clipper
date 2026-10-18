@@ -37,6 +37,7 @@ from clipper.ffmpeg_codec import (
 )
 from clipper.ffmpeg_filter import (
     TIMESTAMP_SNAP_FILTER,
+    ZOOM_BUDGET_PLACEHOLDER,
     analysisPathFor,
     autoScaleCropMap,
     getAutoScaledCropComponents,
@@ -76,7 +77,12 @@ from clipper.platforms import getFfmpegHeaders
 from clipper.previews import makePreview, mergePreviews
 from clipper.util import escapeSingleQuotesFFmpeg, getTrimmedBase64Hash, shlexDoubleQuoted
 from clipper.video2x import runVideo2xCommand
-from clipper.vidstab_motions import analysisFilter, analysisOutputArgs, repairFlashFramesInFiles
+from clipper.vidstab_motions import (
+    analysisFilter,
+    analysisOutputArgs,
+    repairFlashFramesInFiles,
+    zoomBudgetFromFile,
+)
 from clipper.ytc_logger import Subsystem, make_subsystem_logger, pair_context
 
 logger = make_subsystem_logger(Subsystem.CLIP_MAKER)
@@ -861,7 +867,7 @@ def makeClip(  # noqa: PLR0912
         )
 
     ffmpegCommands: list[str] = []
-    afterFirstPass: Callable[[], None] | None = None
+    afterFirstPass: Callable[[], dict[str, str]] | None = None
 
     overwriteArg = " -y " if mps["overwrite"] else " -n "
     vidstabEnabled = mps["videoStabilization"]["enabled"]
@@ -924,6 +930,7 @@ def makeClip(  # noqa: PLR0912
             detectOnly or not isHardwareAcceleratedVideoCodec(mps["videoCodec"])
         )
         analysisFilterGraph = video_filter + analysisFilter()
+        filterPathVidStabTransformPass: str | None = None
 
         if len(video_filter) > MAX_VFILTER_SIZE:
             filterPathAnalysis = f"{cp.clipsPath}/temp/vfilter-{markerPairIndex + 1}-analysis.txt"
@@ -976,13 +983,18 @@ def makeClip(  # noqa: PLR0912
             ffmpegVidstabdetect += f' "{shakyClipPath}"'
         if analyzeFrames:
             ffmpegVidstabdetect += analysisOutputArgs(analysisFilterArgs, analysisPath)
-            afterFirstPass = partial(
-                repairFlashFramesInFiles, cp.ffmpegPath, transformPath, analysisPath
-            )
         else:
             logger.verbose(
                 "Video stabilization: flashes are not repaired with loops or a hardware-encoded first pass."
             )
+        afterFirstPass = partial(
+            prepareVidstabTransformPass,
+            cp.ffmpegPath,
+            transformPath,
+            analysisPath if analyzeFrames else None,
+            mps["videoStabilization"]["smoothing"],
+            filterPathVidStabTransformPass,
+        )
         ffmpegVidstabtransform += f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
         ffmpegCommands = [ffmpegVidstabdetect, ffmpegVidstabtransform]
 
@@ -1116,6 +1128,29 @@ def getFfmpegCommandWithoutVideoFilter(
     )
 
 
+def prepareVidstabTransformPass(
+    ffmpegPath: str,
+    transformPath: str,
+    analysisPath: str | None,
+    smoothing: int,
+    transformFilterScriptPath: str | None,
+) -> dict[str, str]:
+    """Between the stabilization passes: repairs the motion across flashes (when the detect pass
+    wrote its analysis frames), and sizes the zoom budget from the motion. Returns the budget to
+    put in the transform command, and puts it in the transform's filter script if it has one."""
+    if analysisPath is not None:
+        repairFlashFramesInFiles(ffmpegPath, transformPath, analysisPath)
+    budget = f"{zoomBudgetFromFile(transformPath, smoothing):.2f}"
+    logger.verbose(f"Video stabilization: zooming in up to {budget}% to steady the clip.")
+    if transformFilterScriptPath is not None:
+        script = Path(transformFilterScriptPath)
+        script.write_text(
+            script.read_text(encoding="utf-8").replace(ZOOM_BUDGET_PLACEHOLDER, budget),
+            encoding="utf-8",
+        )
+    return {ZOOM_BUDGET_PLACEHOLDER: budget}
+
+
 def getVidstabDetectOnlyCommand(cp: ClipperPaths, inputs: str, mps: DictStrAny) -> str:
     """The start of a command that only reads the input, for a filter that writes its own results."""
     return " ".join((cp.ffmpegPath, "-hide_banner", getFfmpegHeaders(mps["platform"]), inputs, " "))
@@ -1172,9 +1207,11 @@ def runffmpegCommand(  # noqa: PLR0912 (encode kind branching + filter-graph sub
     ffmpegCommands: list[str],
     markerPairIndex: int,
     mp: DictStrAny,
-    afterFirstPass: Callable[[], None] | None = None,
+    afterFirstPass: Callable[[], dict[str, str]] | None = None,
 ) -> DictStrAny:
-    """Runs the commands in order, and afterFirstPass between the first and the second."""
+    """Runs the commands in order, and afterFirstPass between the first and the second. It returns
+    text to replace in the second command, for values only the first pass can tell."""
+    replacements: dict[str, str] = {}
     total_frames = _estimate_encoded_frames(settings, mp)
     n_passes = len(ffmpegCommands)
 
@@ -1190,7 +1227,10 @@ def runffmpegCommand(  # noqa: PLR0912 (encode kind branching + filter-graph sub
     # "encoding" looks like a final user-facing encode and is
     # confusing when it appears mid-search.
     base_label = settings.get("ffmpegProgressLabel") or "encoding"
-    for pass_idx, cmd in enumerate(ffmpegCommands):
+    for pass_idx, command in enumerate(ffmpegCommands):
+        cmd = command
+        for placeholder, value in replacements.items():
+            cmd = cmd.replace(placeholder, value)
         pass_num = pass_idx + 1
         if n_passes == 2:
             logger.info(f"Running {'first' if pass_num == 1 else 'second'} pass...")
@@ -1300,7 +1340,7 @@ def runffmpegCommand(  # noqa: PLR0912 (encode kind branching + filter-graph sub
             # Don't run pass 2 if pass 1 failed.
             break
         if pass_idx == 0 and n_passes == 2 and afterFirstPass is not None:
-            afterFirstPass()
+            replacements = afterFirstPass()
 
     file_name_log = LogPath(mp["fileName"])
     mp["returncode"] = returncode

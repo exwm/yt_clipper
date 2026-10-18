@@ -37,6 +37,10 @@ BRIGHTNESS_MIN_CHANGE = 4
 BRIGHTNESS_RELATIVE_CHANGE = 0.05
 # With more frames than this unmeasured, the motion around them is too sparse to stand in for them
 MAX_UNMEASURED_SHARE = 0.3
+# The zoom budget's range and padding, in percent. The maximum is vid.stab's own default.
+MIN_ZOOM_BUDGET = 2.0
+MAX_ZOOM_BUDGET = 15.0
+ZOOM_BUDGET_PADDING = 1.0
 
 FRAME_PATTERN = re.compile(r"^Frame (\d+) \(List \d+ \[(.*)\]\)$")
 MOTION_PATTERN = re.compile(r"\(LM (\S+) (\S+) (\S+) (\S+) (\S+) (\S+) (\S+)\)")
@@ -245,6 +249,46 @@ def repairMotions(
             replace(m, dx=round(dx), dy=round(dy)) for m in transforms.frames[source - 1]
         ]
     return broken
+
+
+def frameSize(transforms: TransformsFile) -> tuple[float, float] | None:
+    """The frame's size, from where vid.stab placed its fields: it lays them out symmetrically, so
+    the first and last field centres add up to the frame's width (and height)."""
+    xs = [m.x for motions in transforms.frames for m in motions]
+    ys = [m.y for motions in transforms.frames for m in motions]
+    if not xs:
+        return None
+    return float(min(xs) + max(xs)), float(min(ys) + max(ys))
+
+
+def zoomBudget(transforms: TransformsFile, smoothing: int) -> float:
+    """How far vid.stab's camera path optimization may zoom in, in percent: enough for the clip's
+    shake. The camera path (each frame's median field motion, summed) strays from its moving
+    average over the smoothing window; the window must cover that on both sides, at the 99th
+    percentile. ffmpeg 9's vid.stab otherwise crops a fixed VS_L1_DEFAULT_ZOOM (15%) of every clip."""
+    size = frameSize(transforms)
+    if size is None or min(size) <= 0:
+        return MAX_ZOOM_BUDGET
+    shifts = np.array([frameShift(m) if m else (0.0, 0.0) for m in transforms.frames], dtype=float)
+    path = np.cumsum(shifts, axis=0)
+    radius = max(1, smoothing)
+    kernel = np.ones(2 * radius + 1) / (2 * radius + 1)
+    smooth = np.stack(
+        [np.convolve(np.pad(path[:, k], radius, mode="edge"), kernel, "valid") for k in range(2)],
+        axis=1,
+    )
+    stray = np.percentile(np.abs(path - smooth), 99, axis=0)
+    share = max(2 * stray[0] / size[0], 2 * stray[1] / size[1])
+    return float(np.clip(100 * share + ZOOM_BUDGET_PADDING, MIN_ZOOM_BUDGET, MAX_ZOOM_BUDGET))
+
+
+def zoomBudgetFromFile(transformsPath: str, smoothing: int) -> float:
+    try:
+        return zoomBudget(
+            parseTransforms(Path(transformsPath).read_text(encoding="utf-8")), smoothing
+        )
+    except (OSError, TransformsFileError):
+        return MAX_ZOOM_BUDGET
 
 
 def repairFlashFramesInFiles(

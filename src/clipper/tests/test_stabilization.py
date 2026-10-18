@@ -12,10 +12,11 @@ from pathlib import Path
 import pytest
 
 from clipper.argparser import getArgParser, getVidstabPreset
+from clipper.clip_maker import prepareVidstabTransformPass
 from clipper.ffmpeg_filter import getVideoStabilizationFilters, videoStabilizationGammaFixFilter
 from clipper.tests import shaky_media
 from clipper.tests.stabilization_metrics import grayFrames, motionAdded, shakeLeft
-from clipper.vidstab_motions import analysisFilter, analysisOutputArgs, repairFlashFramesInFiles
+from clipper.vidstab_motions import analysisFilter, analysisOutputArgs
 
 # Shake a stabilized clip may keep, px/frame. The shaky clips start with about 9.6.
 TARGET_SHAKE = 1.0
@@ -79,8 +80,15 @@ def clipperFilters(transformPath: str) -> tuple[str, str]:
     )
 
 
-def stabilize(ffmpeg: str, video: Path, folder: Path) -> Path:
-    """Both passes, with the analysis output and the flash repair between them, as the clipper runs them."""
+def fill(transformFilter: str, replacements: dict[str, str]) -> str:
+    for placeholder, value in replacements.items():
+        transformFilter = transformFilter.replace(placeholder, value)
+    return transformFilter
+
+
+def stabilize(ffmpeg: str, video: Path, folder: Path) -> tuple[Path, dict[str, str]]:
+    """Both passes as the clipper runs them, with the analysis output and the step between them
+    (flash repair, zoom budget). Returns the output and what that step filled into the transform."""
     detectFilter, transformFilter = clipperFilters("transforms.trf")
     analysis = shlex.split(analysisOutputArgs(f'-vf "{analysisFilter()}"', "analysis.nut"))
     subprocess.run(
@@ -102,14 +110,22 @@ def stabilize(ffmpeg: str, video: Path, folder: Path) -> Path:
         check=True,
         cwd=folder,
     )
-    repairFlashFramesInFiles(ffmpeg, str(folder / "transforms.trf"), str(folder / "analysis.nut"))
-    return run(ffmpeg, video, folder, transformFilter, "stabilized.mp4")
+    replacements = prepareVidstabTransformPass(
+        ffmpeg,
+        str(folder / "transforms.trf"),
+        str(folder / "analysis.nut"),
+        getVidstabPreset(STRONG)["smoothing"],
+        None,
+    )
+    return run(
+        ffmpeg, video, folder, fill(transformFilter, replacements), "stabilized.mp4"
+    ), replacements
 
 
-def zoomedReference(ffmpeg: str, video: Path, folder: Path) -> Path:
-    """The clip zoomed as stabilization zooms it, with no motion: the clipper's transform with the
-    motion of a still frame. vid.stab's camera path optimization crops a window whose size depends
-    only on the zoom settings, so a path without motion gives the same zoom."""
+def zoomedReference(ffmpeg: str, video: Path, folder: Path, replacements: dict[str, str]) -> Path:
+    """The clip zoomed as stabilization zooms it, with no motion: the clipper's transform, with the
+    zoom budget it got, on the motion of a still frame. vid.stab's camera path optimization crops a
+    window whose size depends only on the zoom settings, so a path without motion gives the same zoom."""
     frames = shaky_media.FPS * shaky_media.SECONDS
     run(
         ffmpeg,
@@ -117,7 +133,9 @@ def zoomedReference(ffmpeg: str, video: Path, folder: Path) -> Path:
         folder,
         f"loop=loop=-1:size=1,trim=end_frame={frames},vidstabdetect=result=still.trf",
     )
-    return run(ffmpeg, video, folder, clipperFilters("still.trf")[1], "reference.mp4")
+    return run(
+        ffmpeg, video, folder, fill(clipperFilters("still.trf")[1], replacements), "reference.mp4"
+    )
 
 
 def clipCases(steady: bool) -> list:
@@ -145,7 +163,7 @@ def test_stabilization_removes_the_shake(
     assert (
         shakeLeft(grayFrames(ffmpeg, source, SIZE)[:, top:bottom], clip.cutFrame) > 8 * TARGET_SHAKE
     )
-    output = stabilize(ffmpeg, source, tmp_path)
+    output, _ = stabilize(ffmpeg, source, tmp_path)
     assert shakeLeft(grayFrames(ffmpeg, output, SIZE)[:, top:bottom], clip.cutFrame) < TARGET_SHAKE
 
 
@@ -157,8 +175,8 @@ def test_stabilization_leaves_a_steady_shot_alone(
     name: str,
 ) -> None:
     source = shaky_media.makeShakyClip(ffmpeg, name, shakyMedia)
-    reference = zoomedReference(ffmpeg, source, tmp_path)
-    output = stabilize(ffmpeg, source, tmp_path)
+    output, replacements = stabilize(ffmpeg, source, tmp_path)
+    reference = zoomedReference(ffmpeg, source, tmp_path, replacements)
     assert (
         motionAdded(grayFrames(ffmpeg, reference, SIZE), grayFrames(ffmpeg, output, SIZE))
         < TARGET_STEADY
