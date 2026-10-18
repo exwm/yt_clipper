@@ -135,7 +135,6 @@ def test_getCropFilter_smooth_track_handles_redundant_coincident_points() -> Non
         ("smoothInOut", "easeInOutSine"),
         ("somethingUnknown", "easeInOutSine"),
         ("smoothTrack", "smoothTrack"),
-        ("smoothTrackMonotone", "smoothTrack"),  # legacy name for the always-monotone smoothTrack
         ("cinematic", "smoothTrack"),  # when there is no path to solve, matching the preview's fallback
     ],
 )

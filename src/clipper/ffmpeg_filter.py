@@ -840,11 +840,10 @@ def resolveCropEaseType(cropPointEasing: Optional[str]) -> str:
     """Map the markers JSON crop easing mode to a crop filter easeType.
 
     Absent or "smoothInOut" maps to the original easeInOutSine, so clips without the field render
-    exactly as before. "smoothTrack" maps to the cubic Hermite spline ("smoothTrackMonotone" is an
-    earlier name for the now-always-monotone smoothTrack and aliases to it).
+    exactly as before. "smoothTrack" maps to the cubic Hermite spline.
     """
-    # A cinematic pair without a baked path falls back to smoothTrack, as the preview does.
-    if cropPointEasing in ("smoothTrack", "smoothTrackMonotone", "cinematic"):
+    # A cinematic pair with no path to solve falls back to smoothTrack, as the preview does.
+    if cropPointEasing in ("smoothTrack", "cinematic"):
         return "smoothTrack"
     return "easeInOutSine"
 
