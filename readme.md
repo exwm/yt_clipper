@@ -253,7 +253,12 @@ A shortcuts reference can also be toggled by clicking the **All shortcuts** butt
    - This resolution must match the downloaded video's resolution.
    - By default the max available video resolution is downloaded by the `clipper script` and the crop resolution auto-scaled if a mismatch is detected.
 4. Specify any webms you want to merge from the clipped webms.
-   - Very fast as it does not require re-encoding webms.
+   - Very fast as it does not require re-encoding webms. AV1 merges of marker pairs of different sizes may re-encode some clips first.
+   - In an AV1 merge, marker pairs of different sizes are scaled up to the largest marker pair's size, because some players show corrupted colors where the size changes.
+     - Clips made in the same run are saved at that size.
+     - Clips made earlier keep their size, and the merge uses a scaled copy.
+     - A clip of another shape gets black bars.
+     - Use `--merge-rescale never` to turn this off, or `--merge-rescale always` to scale merges of every codec.
    - The format is similar to that for printer page ranges:
      - Each merge is a comma separated list of marker pair numbers or ranges (e.g., '1-3,5,9' = '1,2,3,5,9').
      - Multiple merges are separated with semicolons (e.g., '1-3,5,9;4-6,8' will create two merged webms).
