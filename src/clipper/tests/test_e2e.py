@@ -22,8 +22,9 @@ from fractions import Fraction
 import pytest
 
 from clipper import clip_maker
-from clipper.tests import synthetic_media
+from clipper.tests import shaky_media, synthetic_media
 from clipper.tests.range_http_server import RangeHTTPServer
+from clipper.tests.stabilization_metrics import grayFrames, shakeLeft
 from clipper.tests.test_output_duration_cases import clipperOutputDuration
 from clipper.yt_clipper import main
 
@@ -1273,6 +1274,39 @@ def test_stabilized_clip_saves_the_shaky_clip_only_when_asked(
     assert len(list(output.glob("*.webm"))) == 1
     assert len(list((output / "shaky").glob("*.trf"))) == 1
     assert len(list((output / "shaky").glob("*-shaky.webm"))) == int(savesShakyClip)
+
+
+def test_stabilization_with_a_slowdown_and_interpolation_stays_stable_to_the_end(
+    clipper: Clipper,
+    syntheticMedia: pathlib.Path,
+) -> None:
+    # vid.stab uses the motion of each frame in order, so both passes must see the same frames
+    # (vid.stab issue 127): a filter that changes the frame count in one pass jerks the clip's end
+    clipper.requireEncoder("libvpx-vp9")
+    ffmpeg = clipper.toolPath("ffmpeg")
+    assert ffmpeg is not None
+    source = shaky_media.makeShakyClip(ffmpeg, "plain", syntheticMedia)
+    name = "stabilized-slowdown"
+    pair = (0.2, 2.8)
+    markers = syntheticMarkers(
+        clipper.cwd, name, [{"x": pair[0], "y": 0.5}, {"x": pair[1], "y": 0.5}], pair=pair
+    )
+    args = [
+        "--video-stabilization",
+        "4",
+        "--minterp-fps-multiplier",
+        "2",
+        "--minterp-tool",
+        "ffmpeg",
+    ]
+    run = clipper.run(
+        ["--markers-json", str(markers), "--input-video", str(source), *OFFLINE_ARGS, *args]
+    )
+    print(run.stdout, run.stderr)
+    assert run.returncode == 0
+    clip = next((clipper.cwd / "webms" / name).glob("*.webm"))
+    assert clipper.probeDuration(clip) == pytest.approx((pair[1] - pair[0]) / 0.5, abs=0.2)
+    assert shakeLeft(grayFrames(ffmpeg, clip, (shaky_media.WIDTH, shaky_media.HEIGHT))) < 1.0
 
 
 def mergedMarkers(folder: pathlib.Path, name: str, crops: tuple[str, str]) -> pathlib.Path:
