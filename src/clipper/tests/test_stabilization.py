@@ -4,6 +4,7 @@ One target for every clip. Clips the stabilization misses it on today are strict
 that fixes one has to say so here.
 """
 
+import shlex
 import shutil
 import subprocess
 from pathlib import Path
@@ -14,6 +15,7 @@ from clipper.argparser import getArgParser, getVidstabPreset
 from clipper.ffmpeg_filter import getVideoStabilizationFilters, videoStabilizationGammaFixFilter
 from clipper.tests import shaky_media
 from clipper.tests.stabilization_metrics import grayFrames, motionAdded, shakeLeft
+from clipper.vidstab_motions import analysisFilter, analysisOutputArgs, repairFlashFramesInFiles
 
 # Shake a stabilized clip may keep, px/frame. The shaky clips start with about 9.6.
 TARGET_SHAKE = 1.0
@@ -22,17 +24,11 @@ TARGET_STEADY = 0.5
 STRONG = 4
 SIZE = (shaky_media.WIDTH, shaky_media.HEIGHT)
 MISSES = {
-    "flash": "vid.stab's block matching compares brightness, which a flash changes",
-    "stage": "fields lock onto the lights, which move on their own (vid.stab issue 55)",
-    "pulse": "block matching compares brightness, which the light changes for several frames in a row",
-    "dim": "fields below mincontrast are dropped, so the low contrast stretch goes unstabilized",
-    "darkdim": "fields below mincontrast are dropped",
+    "dim": "the low contrast stretch has too few fields even at mincontrast 0.05",
     "grainy": "grain moves the low contrast fields",
     "occluder": "the object's fields pull the frame's motion along",
     "rotate": "with maxangle=0 the rotation stays, and its fields' turning is read as shift",
     "gradient": "compression banding steps are tracked as motion",
-    "skyobject": "grain in the flat sky moves its fields",
-    "watermark": "the logo's fields report no motion and pull the frame's motion toward it",
     "tiles": "fields match the wrong tile when the shake is larger than a tile",
 }
 
@@ -84,8 +80,29 @@ def clipperFilters(transformPath: str) -> tuple[str, str]:
 
 
 def stabilize(ffmpeg: str, video: Path, folder: Path) -> Path:
+    """Both passes, with the analysis output and the flash repair between them, as the clipper runs them."""
     detectFilter, transformFilter = clipperFilters("transforms.trf")
-    run(ffmpeg, video, folder, detectFilter)
+    analysis = shlex.split(analysisOutputArgs(f'-vf "{analysisFilter()}"', "analysis.nut"))
+    subprocess.run(
+        [
+            ffmpeg,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-i",
+            str(video),
+            "-vf",
+            detectFilter,
+            "-f",
+            "null",
+            "-",
+            *analysis,
+        ],
+        check=True,
+        cwd=folder,
+    )
+    repairFlashFramesInFiles(ffmpeg, str(folder / "transforms.trf"), str(folder / "analysis.nut"))
     return run(ffmpeg, video, folder, transformFilter, "stabilized.mp4")
 
 

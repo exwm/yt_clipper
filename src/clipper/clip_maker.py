@@ -8,8 +8,9 @@ import re
 import shlex
 import subprocess
 import sys
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from fractions import Fraction
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +37,7 @@ from clipper.ffmpeg_codec import (
 )
 from clipper.ffmpeg_filter import (
     TIMESTAMP_SNAP_FILTER,
+    analysisPathFor,
     autoScaleCropMap,
     getAutoScaledCropComponents,
     getAverageSpeed,
@@ -74,6 +76,7 @@ from clipper.platforms import getFfmpegHeaders
 from clipper.previews import makePreview, mergePreviews
 from clipper.util import escapeSingleQuotesFFmpeg, getTrimmedBase64Hash, shlexDoubleQuoted
 from clipper.video2x import runVideo2xCommand
+from clipper.vidstab_motions import analysisFilter, analysisOutputArgs, repairFlashFramesInFiles
 from clipper.ytc_logger import Subsystem, make_subsystem_logger, pair_context
 
 logger = make_subsystem_logger(Subsystem.CLIP_MAKER)
@@ -858,6 +861,7 @@ def makeClip(  # noqa: PLR0912
         )
 
     ffmpegCommands: list[str] = []
+    afterFirstPass: Callable[[], None] | None = None
 
     overwriteArg = " -y " if mps["overwrite"] else " -n "
     vidstabEnabled = mps["videoStabilization"]["enabled"]
@@ -914,7 +918,18 @@ def makeClip(  # noqa: PLR0912
                 vidstabtransformFilter,
             )
 
+        # Loops add frames after the detect filter, and an encoding first pass may decode in hardware
+        analysisPath = analysisPathFor(transformPath)
+        analyzeFrames = mps["loop"] == "none" and (
+            detectOnly or not isHardwareAcceleratedVideoCodec(mps["videoCodec"])
+        )
+        analysisFilterGraph = video_filter + analysisFilter()
+
         if len(video_filter) > MAX_VFILTER_SIZE:
+            filterPathAnalysis = f"{cp.clipsPath}/temp/vfilter-{markerPairIndex + 1}-analysis.txt"
+            with open(filterPathAnalysis, "w", encoding="utf-8") as f:
+                f.write(analysisFilterGraph)
+            analysisFilterArgs = f'-filter_script:v "{filterPathAnalysis}"'
             filterPathVidStabDetectPass = (
                 f"{cp.clipsPath}/temp/vfilter-{markerPairIndex + 1}-pass1.txt"
             )
@@ -938,6 +953,7 @@ def makeClip(  # noqa: PLR0912
                 + f' {filterFileOption(cp.ffmpegPath)} "{filterPathVidStabTransformPass}" '
             )
         else:
+            analysisFilterArgs = f"-vf {shlexDoubleQuoted(analysisFilterGraph)}"
             ffmpegVidstabdetect = detectCommand + f"-vf {shlexDoubleQuoted(vidstabdetectFilter)} "
             ffmpegVidstabtransform = (
                 ffmpegCommand + f"-vf {shlexDoubleQuoted(vidstabtransformFilter)} "
@@ -958,6 +974,15 @@ def makeClip(  # noqa: PLR0912
             ffmpegVidstabdetect += f" {os.devnull}"
         else:
             ffmpegVidstabdetect += f' "{shakyClipPath}"'
+        if analyzeFrames:
+            ffmpegVidstabdetect += analysisOutputArgs(analysisFilterArgs, analysisPath)
+            afterFirstPass = partial(
+                repairFlashFramesInFiles, cp.ffmpegPath, transformPath, analysisPath
+            )
+        else:
+            logger.verbose(
+                "Video stabilization: flashes are not repaired with loops or a hardware-encoded first pass."
+            )
         ffmpegVidstabtransform += f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
         ffmpegCommands = [ffmpegVidstabdetect, ffmpegVidstabtransform]
 
@@ -1002,14 +1027,14 @@ def makeClip(  # noqa: PLR0912
         return None
 
     if not v2x_enabled:
-        return runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp)
+        return runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp, afterFirstPass)
 
     if mp.get("preV2xExists"):
         logger.notice(
             f"Skipping ffmpeg and reusing the clip made before video2x: {LogPath(mp['filePath'])}",
         )
     else:
-        result = runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp)
+        result = runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp, afterFirstPass)
         if result.get("returncode") != 0:
             return None
 
@@ -1147,7 +1172,9 @@ def runffmpegCommand(  # noqa: PLR0912 (encode kind branching + filter-graph sub
     ffmpegCommands: list[str],
     markerPairIndex: int,
     mp: DictStrAny,
+    afterFirstPass: Callable[[], None] | None = None,
 ) -> DictStrAny:
+    """Runs the commands in order, and afterFirstPass between the first and the second."""
     total_frames = _estimate_encoded_frames(settings, mp)
     n_passes = len(ffmpegCommands)
 
@@ -1272,6 +1299,8 @@ def runffmpegCommand(  # noqa: PLR0912 (encode kind branching + filter-graph sub
         if returncode != 0:
             # Don't run pass 2 if pass 1 failed.
             break
+        if pass_idx == 0 and n_passes == 2 and afterFirstPass is not None:
+            afterFirstPass()
 
     file_name_log = LogPath(mp["fileName"])
     mp["returncode"] = returncode
