@@ -17,9 +17,10 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from clipper import cinematic_path
 from clipper.clipper_types import ClipperPaths, ClipperState, DictStrAny, Settings, argvPath
 from clipper.ffmpeg_codec import getFfmpegVideoCodecArgs, isHardwareAcceleratedVideoCodec
-from clipper.ffmpeg_filter import getAutoScaledCropComponents
+from clipper.ffmpeg_filter import getAutoScaledCropComponents, getCropPathSize
 from clipper.merge_inputs import PROBE_ERRORS, PROBED_CODECS, MergeInput, probeMergeInput
 from clipper.merge_sizes import (
     MergeClip,
@@ -161,17 +162,27 @@ def logMergePlan(
 def predictClipSize(settings: Settings, markerPair: DictStrAny) -> Size | None:
     """The size a marker pair's clip will have, as getMarkerPairSettings and makeClip make it: its
     crop scaled to the video, the largest crop point when it zooms, then rotated. None when the
-    clip is not encoded (fast trim, preview) or follows a cinematic crop path."""
+    clip is not encoded (fast trim, preview). A Cinematic pair is output at the size of its solved path."""
     mps = {**settings, **markerPair.get("overrides", {})}
     if mps.get("fastTrim") or mps.get("preview"):
-        return None
-    if markerPair.get("cropPath", {}).get("segments") and mps.get("cropPointEasing") == "cinematic":
         return None
     _, crop = getAutoScaledCropComponents(markerPair["crop"], settings, forceEvenDimensions=True)
     width, height = int(crop["w"]), int(crop["h"])
     enableCropMaps = mps["enableCropMaps"] if "enableCropMaps" in markerPair else True
     cropMap = markerPair.get("cropMap") if enableCropMaps else None
-    if cropMap:
+    cinematicPath = (
+        cinematic_path.bakeCinematicPath(
+            cropMap,
+            cinematic_path.cinematicMargins(mps),
+            settings["cropResWidth"],
+            settings["cropResHeight"],
+        )
+        if cropMap and mps.get("cropPointEasing") == "cinematic"
+        else None
+    )
+    if cinematicPath:
+        width, height = getCropPathSize(cinematicPath, settings)
+    elif cropMap:
         points = [getAutoScaledCropComponents(point["crop"], settings)[1] for point in cropMap]
         if any((point["w"], point["h"]) != (points[0]["w"], points[0]["h"]) for point in points):
             # A zoom is output at its largest crop point, the later one on a tie
