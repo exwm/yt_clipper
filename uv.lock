@@ -154,13 +154,13 @@ test = [
     { name = "diff-cover" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "pytest-xdist" },
     { name = "syrupy" },
 ]
 ui-test = [
     { name = "playwright" },
     { name = "pytest-playwright" },
     { name = "pytest-rerunfailures" },
-    { name = "pytest-xdist" },
 ]
 
 [package.metadata]
@@ -188,13 +188,13 @@ test = [
     { name = "diff-cover", specifier = ">=10.6.0,<11" },
     { name = "pytest", specifier = ">=9.0.3,<10" },
     { name = "pytest-cov", specifier = ">=5.0.0,<6" },
+    { name = "pytest-xdist", specifier = ">=3.8.0,<4" },
     { name = "syrupy", specifier = ">=6.1.1,<7" },
 ]
 ui-test = [
     { name = "playwright", specifier = "==1.63.0" },
     { name = "pytest-playwright", specifier = ">=0.10.0,<0.11" },
     { name = "pytest-rerunfailures", specifier = ">=16.7,<17" },
-    { name = "pytest-xdist", specifier = ">=3.8.0,<4" },
 ]
 
 [[package]]

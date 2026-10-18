@@ -30,7 +30,7 @@ pretty-py-check:
 # end-to-end tests start from a temporary folder, where a relative path would not find it.
 test-py update="false":
   just _timed pytest uv run pytest src/clipper tools/release -s --cov --cov-config="{{justfile_directory()}}/pyproject.toml" --cov-report=html --cov-report=xml -m "not slow" \
-    {{ if update == "true" { "--snapshot-update" } else { "" } }}
+    {{ if update == "true" { "--snapshot-update" } else { "-n auto" } }}
 # Check an assembled release folder before zipping, as CI does: bundled tools, offline clips, schema.
 smoke-release folder version="":
   uv run python tools/release/smoke_test.py "{{folder}}" {{version}}
