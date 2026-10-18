@@ -1271,6 +1271,7 @@ def runMerge(
     *args: str,
     answer: str | None = None,
     mergeList: str = "1-2",
+    editMarkers: Callable[[dict], None] | None = None,
 ) -> MergeRun:
     """Clips two synthetic marker pairs with the given crops and merges them."""
     ffmpeg = clipper.toolPath("ffmpeg")
@@ -1279,6 +1280,8 @@ def runMerge(
     markers = mergedMarkers(clipper.cwd, name, crops)
     data = json.loads(markers.read_text(encoding="utf-8"))
     data["markerPairMergeList"] = mergeList
+    if editMarkers:
+        editMarkers(data)
     markers.write_text(json.dumps(data), encoding="utf-8")
     run = clipper.run(
         ["--markers-json", str(markers), "--input-video", str(uploaded), *args], answer
@@ -1443,6 +1446,40 @@ def test_clips_made_for_a_merge_are_encoded_at_its_size(
     assert plan in merge.log
     assert merge.log.count(plan) == 1
     assert merge.log.index(plan) < merge.log.index("Marker pair 1")
+
+
+def zoomCinematically(markers: dict) -> None:
+    pair = markers["markerPairs"][0]
+    pair["cropMap"] = [
+        {"x": pair["start"], "y": 0, "crop": "0:0:320:180"},
+        {"x": pair["end"], "y": 0, "crop": "0:0:640:360"},
+    ]
+    pair["overrides"] = {"cropPointEasing": "cinematic"}
+
+
+def test_cinematic_clip_made_for_a_merge_is_planned_at_its_solved_size(
+    clipper: Clipper,
+    syntheticMedia: pathlib.Path,
+) -> None:
+    clipper.requireEncoder("libsvtav1")
+    name = "merge-encode-size-cinematic"
+    crops = ("0:0:320:180", "0:0:320:180")
+    merge = runMerge(
+        clipper,
+        syntheticMedia,
+        name,
+        crops,
+        *OFFLINE_ARGS,
+        "--video-codec",
+        "av1",
+        editMarkers=zoomCinematically,
+    )
+    assert merge.run.returncode == 0
+    (size,) = frameSizes(clipper, merge.clip(f"{name}-1.mp4"))
+    assert size != "320x180"
+    assert frameSizes(clipper, merge.clip(f"{name}-2.mp4")) == {size}
+    assert frameSizes(clipper, merge.clip(f"{name}-(1-2).mp4")) == {size}
+    assert not (merge.output / "temp" / "merge-inputs").exists()
 
 
 def test_merge_of_different_codecs_is_skipped(

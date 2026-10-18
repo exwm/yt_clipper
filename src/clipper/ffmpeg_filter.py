@@ -634,6 +634,50 @@ def _quadMaxOnSpan(coeffs: list[float], span: float) -> float:
     return max(candidates)
 
 
+def _scaleCropPathSegments(cropPath: dict[str, Any], settings: Settings) -> list[dict[str, Any]]:
+    mX = settings["cropMultipleX"]
+    mY = settings["cropMultipleY"]
+    return [
+        {
+            "startT": float(seg["startT"]),
+            "endT": float(seg["endT"]),
+            "x": _scaleTriple(seg["x"], mX),
+            "y": _scaleTriple(seg["y"], mY),
+            "w": _scaleTriple(seg["w"], mX),
+            "h": _scaleTriple(seg["h"], mY),
+        }
+        for seg in cropPath["segments"]
+    ]
+
+
+def _cropPathShape(scaled: list[dict[str, Any]]) -> tuple[bool, tuple[int, int]]:
+    """Whether the scaled path zooms, and the size it is output at: its first crop size for a
+    constant-size pan, else its largest crop size floored to even."""
+    # Zoom when the size varies by more than a pixel across the path, else a constant-size pan.
+    widths = []
+    for s in scaled:
+        span = s["endT"] - s["startT"]
+        # The smallest width too, not the start width: a segment that zooms in ends narrower.
+        widths.append(-_quadMaxOnSpan([-c for c in s["w"]], span))
+        widths.append(_quadMaxOnSpan(s["w"], span))
+    if (max(widths) - min(widths)) <= 0.5:
+        # Even, as the other crop paths make it: libx264's yuv420p rejects an odd width or height.
+        return False, (floorToEven(round(scaled[0]["w"][0])), floorToEven(round(scaled[0]["h"][0])))
+    # Round off the solver's float noise first, or a size of 95.9999 on one machine floors to 94.
+    maxWidth = floorToEven(
+        round(max(_quadMaxOnSpan(s["w"], s["endT"] - s["startT"]) for s in scaled), 6)
+    )
+    maxHeight = floorToEven(
+        round(max(_quadMaxOnSpan(s["h"], s["endT"] - s["startT"]) for s in scaled), 6)
+    )
+    return True, (maxWidth, maxHeight)
+
+
+def getCropPathSize(cropPath: dict[str, Any], settings: Settings) -> tuple[int, int]:
+    """The size getCropPathFilter outputs the path at."""
+    return _cropPathShape(_scaleCropPathSegments(cropPath, settings))[1]
+
+
 def getCropPathFilter(
     cropPath: dict[str, Any],
     settings: Settings,
@@ -648,29 +692,8 @@ def getCropPathFilter(
     zoompan, mirroring getZoomPanFilter.
     """
     fps = Fraction(fps)
-    mX = settings["cropMultipleX"]
-    mY = settings["cropMultipleY"]
-
-    scaled = [
-        {
-            "startT": float(seg["startT"]),
-            "endT": float(seg["endT"]),
-            "x": _scaleTriple(seg["x"], mX),
-            "y": _scaleTriple(seg["y"], mY),
-            "w": _scaleTriple(seg["w"], mX),
-            "h": _scaleTriple(seg["h"], mY),
-        }
-        for seg in cropPath["segments"]
-    ]
-
-    # Zoom when the size varies by more than a pixel across the path, else a constant-size pan.
-    widths = []
-    for s in scaled:
-        span = s["endT"] - s["startT"]
-        # The smallest width too, not the start width: a segment that zooms in ends narrower.
-        widths.append(-_quadMaxOnSpan([-c for c in s["w"]], span))
-        widths.append(_quadMaxOnSpan(s["w"], span))
-    isZoom = (max(widths) - min(widths)) > 0.5
+    scaled = _scaleCropPathSegments(cropPath, settings)
+    isZoom, (width, height) = _cropPathShape(scaled)
 
     if not isZoom:
         easingsX = [
@@ -681,23 +704,14 @@ def getCropPathFilter(
         ]
         cropXExpr = getEaseFilterExpr(easingsX, timeExpr="t")
         cropYExpr = getEaseFilterExpr(easingsY, timeExpr="t")
-        # Even, as the other crop paths make it: libx264's yuv420p rejects an odd width or height.
-        w = floorToEven(round(scaled[0]["w"][0]))
-        h = floorToEven(round(scaled[0]["h"][0]))
-        cropFilter = f"crop='x={cropXExpr}:y={cropYExpr}:w={w}:h={h}:exact=1'"
-        return cropFilter, w * h
+        cropFilter = f"crop='x={cropXExpr}:y={cropYExpr}:w={width}:h={height}:exact=1'"
+        return cropFilter, width * height
 
     # Zoom path: the containing max crop in t, then a 4x prescale and zoompan in it, mirroring
     # getZoomPanFilter but with the baked polynomials in place of the per-section eased values.
     panScale = 1
     zoomScale = 1 if inputIsHDR else 4
-    # Round off the solver's float noise first, or a size of 95.9999 on one machine floors to 94.
-    maxWidth = floorToEven(
-        round(max(_quadMaxOnSpan(s["w"], s["endT"] - s["startT"]) for s in scaled), 6)
-    )
-    maxHeight = floorToEven(
-        round(max(_quadMaxOnSpan(s["h"], s["endT"] - s["startT"]) for s in scaled), 6)
-    )
+    maxWidth, maxHeight = width, height
     maxSize = maxWidth * maxHeight
 
     easingsPanRight = []
