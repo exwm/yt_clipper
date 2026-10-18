@@ -77,7 +77,7 @@ build-ts-p:
   run-s -c build-ts pretty
 
 build-py $UV_PREVIEW="1":
-  uv run pyinstaller ./src/clipper/yt_clipper.py --icon=../../../assets/image/pepe-clipper.gif -F --collect-data ffmpeg_quality_metrics --add-data ../../../src/schema/markers.schema.json:schema --workpath ./dist/py/work/ --distpath ./dist/py/ --specpath ./dist/py/spec
+  uv run pyinstaller ./src/clipper/yt_clipper.py --icon=../../../assets/image/pepe-clipper.gif -F --collect-data ffmpeg_quality_metrics --collect-submodules numpy._core --add-data ../../../src/schema/markers.schema.json:schema --workpath ./dist/py/work/ --distpath ./dist/py/ --specpath ./dist/py/spec
 build-all:
   run-s -c build-ts-p build-py
 bundle-w:
