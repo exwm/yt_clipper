@@ -80,7 +80,6 @@ def test_unknown_keys_are_dropped(path: list[Any], key: str) -> None:
         pytest.param("markerPairs", {}, id="pairs not a list"),
         pytest.param("cropPointEasingCinematicMargin", "40 -y", id="cinematic margin with arguments"),
         pytest.param("cropPointEasingCinematicZoomMargin", 2, id="cinematic zoom margin above 1"),
-        pytest.param("cropPointEasingCinematicSolverVersion", "1", id="cinematic solver version string"),
     ],
 )
 def test_invalid_global_settings_are_reported(key: str, value: object) -> None:
@@ -96,6 +95,8 @@ def test_invalid_global_settings_are_reported(key: str, value: object) -> None:
     [
         pytest.param("newMarkerCrop", "0:NaN:iw:ih", id="NaN new marker crop"),
         pytest.param("version", 5, id="numeric version"),
+        # It only decides whether to warn that Cinematic crops may move differently.
+        pytest.param("cropPointEasingCinematicSolverVersion", "1", id="Cinematic solver version string"),
     ],
 )
 def test_invalid_markup_only_settings_are_dropped(key: str, value: object) -> None:
@@ -182,6 +183,29 @@ def test_loader_keeps_every_valid_value(tmp_path: Path, caplog: pytest.LogCaptur
     for key in markers.keys() - {"newMarkerCrop", "titleSuffix"}:
         assert settings[key] == markers[key], key
     assert settings["titleSuffix"] == "markers"
+
+
+@pytest.mark.parametrize(
+    ("saved", "warns"),
+    [
+        pytest.param({}, False, id="no cinematic pairs"),
+        pytest.param({"cropPointEasingCinematicSolverVersion": 1}, False, id="same version"),
+        pytest.param({"cropPointEasingCinematicSolverVersion": 2}, True, id="other version"),
+    ],
+)
+def test_loader_warns_when_the_cinematic_version_differs(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    saved: dict[str, int],
+    warns: bool,
+) -> None:
+    markers = kitchenSink()
+    markers.pop("cropPointEasingCinematicSolverVersion")
+    settings = writeMarkers(tmp_path, json.dumps({**markers, **saved}))
+
+    ytc_settings.loadSettingsFromMarkersJson(settings)
+
+    assert ("Cinematic crop easing version" in caplog.text) == warns
 
 
 @pytest.mark.parametrize(
