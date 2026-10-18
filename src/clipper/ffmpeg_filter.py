@@ -1176,6 +1176,11 @@ def _zoomPanEdgeEase(
     )
 
 
+def analysisPathFor(transformPath: str) -> str:
+    """Where the detect pass writes its analysis frames (vidstab_motions.py), beside its transforms file."""
+    return f"{transformPath}.analysis.nut"
+
+
 def getVideoStabilizationFilters(mps: DictStrAny, transformPath: str) -> tuple[str, str]:
     """The vidstabdetect and vidstabtransform filters for a marker pair's stabilization settings."""
     vidstab = mps["videoStabilization"]
@@ -1185,7 +1190,9 @@ def getVideoStabilizationFilters(mps: DictStrAny, transformPath: str) -> tuple[s
         else mps["videoStabilizationMaxAngle"] * pi / 180
     )
     maxShift = -1 if mps["videoStabilizationMaxShift"] < 0 else mps["videoStabilizationMaxShift"]
-    detectFilter = f"vidstabdetect=result='{transformPath}':shakiness={vidstab['shakiness']}"
+    # vid.stab's default mincontrast of 0.25 drops every field in dim or low contrast scenes.
+    # Text transforms, so flashes can be repaired before the transform.
+    detectFilter = f"vidstabdetect=result='{transformPath}':shakiness={vidstab['shakiness']}:mincontrast=0.05:fileformat=1"
     transformFilter = (
         f"vidstabtransform=input='{transformPath}':smoothing={vidstab['smoothing']}"
         f":maxangle={maxAngle}:maxshift={maxShift}"

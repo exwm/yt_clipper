@@ -1,13 +1,13 @@
-"""How much shake a stabilized clip has left, measured by phase correlation.
-
-Phase correlation normalizes the cross-power spectrum, so it ignores brightness and contrast changes
-and finds a frame's shift exactly on the clips in shaky_media.py.
+"""How much shake a stabilized clip has left, measured by phase correlation, which finds a frame's
+shift exactly on the clips in shaky_media.py (checked against their truth in test_phase_correlation.py).
 """
 
 import subprocess
 from pathlib import Path
 
 import numpy as np
+
+from clipper import phase_correlation
 
 
 def grayFrames(ffmpeg: str, video: Path, size: tuple[int, int]) -> np.ndarray:
@@ -20,20 +20,8 @@ def grayFrames(ffmpeg: str, video: Path, size: tuple[int, int]) -> np.ndarray:
 
 
 def phaseShift(a: np.ndarray, b: np.ndarray) -> tuple[float, float]:
-    """How far b's content is shifted from a's, to a tenth of a pixel."""
-    window = np.outer(np.hanning(a.shape[0]), np.hanning(a.shape[1]))
-    cross = np.fft.fft2((a - a.mean()) * window).conj() * np.fft.fft2((b - b.mean()) * window)
-    corr = np.fft.ifft2(cross / (np.abs(cross) + 1e-9)).real
-    peakY, peakX = np.unravel_index(np.argmax(corr), corr.shape)
-    height, width = corr.shape
-
-    def subpixel(line: np.ndarray, peak: int) -> float:
-        left, mid, right = line[(peak - 1) % len(line)], line[peak], line[(peak + 1) % len(line)]
-        denom = left - 2 * mid + right
-        return peak + (0.5 * (left - right) / denom if abs(denom) > 1e-12 else 0.0)
-
-    dx, dy = subpixel(corr[peakY, :], peakX), subpixel(corr[:, peakX], peakY)
-    return (dx - width if dx > width / 2 else dx, dy - height if dy > height / 2 else dy)
+    shift = phase_correlation.phaseShift(a, b)
+    return (shift.dx, shift.dy)
 
 
 def jitter(shifts: np.ndarray, radius: int = 7, skip: frozenset[int] = frozenset()) -> float:
