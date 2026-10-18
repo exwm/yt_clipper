@@ -1,5 +1,4 @@
 import shutil
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -18,15 +17,11 @@ def ffmpeg() -> str:
 
 
 @pytest.mark.parametrize("name", ["plain", "flash", "dim", "darkdim"])
-def test_phase_correlation_finds_each_frames_true_shift(
-    ffmpeg: str,
-    tmp_path: Path,
-    name: str,
-) -> None:
+def test_phase_correlation_finds_each_frames_true_shift(ffmpeg: str, name: str) -> None:
     # The window moves over the scene, so the content moves the other way
     video = grayFrames(
         ffmpeg,
-        shaky_media.makeShakyClip(ffmpeg, name, tmp_path),
+        shaky_media.makeShakyClip(ffmpeg, name, shaky_media.mediaFolder(ffmpeg)),
         (shaky_media.WIDTH, shaky_media.HEIGHT),
     )
     window = np.array(shaky_media.windowPath(steady=False), dtype=np.float64)

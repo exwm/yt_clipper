@@ -371,6 +371,7 @@ def add_vfilter_options(vfilter_options: argparse._ArgumentGroup) -> None:
             [
                 "Enable video stabilization dynamic zoom.",
                 "Unlike a static zoom the zoom in can vary with time to reduce cropping of video.",
+                "Has no effect with ffmpeg 9.0.2 or newer.",
             ],
         ),
     )

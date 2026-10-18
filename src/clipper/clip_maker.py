@@ -80,7 +80,8 @@ from clipper.video2x import runVideo2xCommand
 from clipper.vidstab_motions import (
     analysisFilter,
     analysisOutputArgs,
-    repairFlashFramesInFiles,
+    checkStabilizedShake,
+    repairMotionsInFiles,
     zoomBudgetFromFile,
 )
 from clipper.ytc_logger import Subsystem, make_subsystem_logger, pair_context
@@ -616,7 +617,6 @@ def makeClip(  # noqa: PLR0912
         outputDir=outputDir,
         mergeEncodeSize=mergeScale.size if mergeScale else None,
     )
-
     if mp["exists"] and not mps["overwrite"]:
         return {**(settings["markerPairs"][markerPairIndex]), **mp}
 
@@ -868,6 +868,7 @@ def makeClip(  # noqa: PLR0912
 
     ffmpegCommands: list[str] = []
     afterFirstPass: Callable[[], dict[str, str]] | None = None
+    afterLastPass: Callable[[], bool | None] | None = None
 
     overwriteArg = " -y " if mps["overwrite"] else " -n "
     vidstabEnabled = mps["videoStabilization"]["enabled"]
@@ -936,7 +937,7 @@ def makeClip(  # noqa: PLR0912
             filterPathAnalysis = f"{cp.clipsPath}/temp/vfilter-{markerPairIndex + 1}-analysis.txt"
             with open(filterPathAnalysis, "w", encoding="utf-8") as f:
                 f.write(analysisFilterGraph)
-            analysisFilterArgs = f'-filter_script:v "{filterPathAnalysis}"'
+            analysisFilterArgs = f'{filterFileOption(cp.ffmpegPath)} "{filterPathAnalysis}"'
             filterPathVidStabDetectPass = (
                 f"{cp.clipsPath}/temp/vfilter-{markerPairIndex + 1}-pass1.txt"
             )
@@ -985,7 +986,7 @@ def makeClip(  # noqa: PLR0912
             ffmpegVidstabdetect += analysisOutputArgs(analysisFilterArgs, analysisPath)
         else:
             logger.verbose(
-                "Video stabilization: flashes are not repaired with loops or a hardware-encoded first pass."
+                "Video stabilization: the motion is not repaired with loops or a hardware-encoded first pass."
             )
         afterFirstPass = partial(
             prepareVidstabTransformPass,
@@ -995,6 +996,11 @@ def makeClip(  # noqa: PLR0912
             mps["videoStabilization"]["smoothing"],
             filterPathVidStabTransformPass,
         )
+        # Motion interpolation changes each frame's shift, so the output cannot be compared with the input
+        if analyzeFrames and not usesMinterpolate:
+            afterLastPass = partial(
+                checkStabilizedShake, cp.ffmpegPath, transformPath, mp["filePath"]
+            )
         ffmpegVidstabtransform += f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
         ffmpegCommands = [ffmpegVidstabdetect, ffmpegVidstabtransform]
 
@@ -1039,7 +1045,10 @@ def makeClip(  # noqa: PLR0912
         return None
 
     if not v2x_enabled:
-        return runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp, afterFirstPass)
+        result = runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp, afterFirstPass)
+        if result.get("returncode") == 0 and afterLastPass is not None:
+            afterLastPass()
+        return result
 
     if mp.get("preV2xExists"):
         logger.notice(
@@ -1049,6 +1058,8 @@ def makeClip(  # noqa: PLR0912
         result = runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp, afterFirstPass)
         if result.get("returncode") != 0:
             return None
+        if afterLastPass is not None:
+            afterLastPass()
 
     mps, _, _, _ = updateEncodeSettings(
         settings,
@@ -1135,11 +1146,12 @@ def prepareVidstabTransformPass(
     smoothing: int,
     transformFilterScriptPath: str | None,
 ) -> dict[str, str]:
-    """Between the stabilization passes: repairs the motion across flashes (when the detect pass
-    wrote its analysis frames), and sizes the zoom budget from the motion. Returns the budget to
+    """Between the stabilization passes: repairs the motion across flashes and drops fields that
+    follow a subject instead of the camera (when the detect pass wrote its analysis frames), and
+    sizes the zoom budget from the motion. Returns the budget to
     put in the transform command, and puts it in the transform's filter script if it has one."""
     if analysisPath is not None:
-        repairFlashFramesInFiles(ffmpegPath, transformPath, analysisPath)
+        repairMotionsInFiles(ffmpegPath, transformPath, analysisPath)
     budget = f"{zoomBudgetFromFile(transformPath, smoothing):.2f}"
     logger.verbose(f"Video stabilization: zooming in up to {budget}% to steady the clip.")
     if transformFilterScriptPath is not None:

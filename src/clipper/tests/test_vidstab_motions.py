@@ -1,22 +1,51 @@
 from pathlib import Path
 
+import numpy as np
 import pytest
 
+from clipper.phase_correlation import FrameShift
 from clipper.vidstab_motions import (
     MAX_ZOOM_BUDGET,
     MIN_ZOOM_BUDGET,
+    FrameAnalysis,
     LocalMotion,
     TransformsFile,
     TransformsFileError,
+    analysisScale,
+    cells,
+    fastFftLength,
     findBrightnessChanges,
+    findDisagreeingFrames,
+    findSparseFrames,
     formatTransforms,
     frameShift,
     frameSize,
+    gridShift,
+    keepFieldsMovingWithTheCamera,
+    measuredMotions,
     parseTransforms,
     repairMotions,
+    shake,
     zoomBudget,
     zoomBudgetFromFile,
 )
+
+
+# 213 = 3 x 71 and 211 is prime: both step down to 210 = 2 x 3 x 5 x 7
+@pytest.mark.parametrize(
+    ("length", "fast"), [(213, 210), (211, 210), (210, 210), (120, 120), (1, 1)]
+)
+def test_fastFftLength(length: int, fast: int) -> None:
+    assert fastFftLength(length) == fast
+
+
+def test_cells_are_trimmed_around_their_centres_to_a_fast_size() -> None:
+    frame = np.arange(360 * 640, dtype=np.float32).reshape(360, 640)
+    grid = cells(frame)
+    assert grid.shape == (9, 120, 210)
+    # The first cell is frame[0:120, 0:213], trimmed by one column on its left and two on its right
+    assert grid[0, 0, 0] == frame[0, 1]
+
 
 # As vidstabdetect writes it with fileformat=1
 TEXT = """VID.STAB 1
@@ -115,6 +144,99 @@ def test_untrusted_motion_at_the_end_takes_the_last_good_motion() -> None:
 def test_nothing_is_repaired_without_good_motion_around() -> None:
     transforms = frames((40, -30))
     assert repairMotions(transforms, {2}) == []
+
+
+def test_the_shift_most_cells_agree_on_wins_over_a_subject_moving_on_its_own() -> None:
+    rng = np.random.default_rng(1)
+    scene = rng.uniform(0, 255, (400, 700))
+    width, height = 576, 324
+    previous, frame = (
+        scene[50 : 50 + height, 50 : 50 + width],
+        scene[48 : 48 + height, 53 : 53 + width].copy(),
+    )
+    # The middle cell shows a subject moving apart from the scene
+    frame[108:216, 192:384] = rng.uniform(0, 255, (108, 192))
+    shift = gridShift(previous, frame)
+    assert (shift.dx, shift.dy) == (pytest.approx(-3, abs=0.2), pytest.approx(2, abs=0.2))
+    assert shift.peak > 0.5
+    assert gridShift(previous, rng.uniform(0, 255, previous.shape)).peak == 0
+
+
+def test_shake_is_how_far_each_frames_shift_strays_from_its_neighbours() -> None:
+    def clip(shifts: list[tuple[float, float, float]]) -> list[FrameAnalysis]:
+        return [FrameAnalysis(100, None), *(FrameAnalysis(100, FrameShift(*s)) for s in shifts)]
+
+    # A steady pan does not shake; shifts alternating 2 px either side of it shake about 2 px
+    assert shake(clip([(3, 0, 0.9)] * 60)) == pytest.approx(0)
+    assert shake(clip([(3 + 2 * (-1) ** i, 0, 0.9) for i in range(60)])) == pytest.approx(
+        2, abs=0.2
+    )
+    # Unmeasured frames are left out, and too few measured frames tell nothing
+    assert shake(clip([(3, 0, 0.9), (40, 40, 0)] * 30)) == pytest.approx(0)
+    assert shake(clip([(3, 0, 0.9)] * 10)) is None
+
+
+def test_a_measured_frame_where_no_field_agrees_is_untrusted() -> None:
+    # On a tile wall every field can match the tile above: the cells measured almost no motion
+    transforms = frames((1, 0), (0, 17), (2, 1), (-3, -9))
+    # Frame 5's fields agree with a large measured motion; frames past the last are ignored
+    measured = {2: (1.2, 0.3), 3: (0.4, -0.2), 4: (2, 1), 5: (-3.5, -9.5), 6: (0, 0)}
+    assert findDisagreeingFrames(transforms, measured) == {3}
+    # The last frame counts too
+    assert findDisagreeingFrames(transforms, {**measured, 5: (10, 10)}) == {3, 5}
+    assert findDisagreeingFrames(transforms, {}) == set()
+
+
+def test_frames_with_far_fewer_fields_than_usual_are_untrusted() -> None:
+    field = LocalMotion(1, 0, 80, 80, 48, 0.5, 0.0)
+    # The median is 100 fields: 14 is under 15% of it, 15 is not
+    counts = [0, 100, 100, 14, 100, 0, 100, 15, 100, 100]
+    transforms = TransformsFile(["VID.STAB 1"], [[field] * count for count in counts])
+    assert findSparseFrames(transforms) == {4, 6}
+    assert findSparseFrames(TransformsFile(["VID.STAB 1"], [[]])) == set()
+
+
+def test_fields_moving_apart_from_the_measured_motion_are_dropped() -> None:
+    camera, subject = (
+        LocalMotion(4, 2, 80, 80, 48, 0.5, 0.0),
+        LocalMotion(-9, 6, 300, 150, 48, 0.5, 0.0),
+    )
+    transforms = TransformsFile(
+        ["VID.STAB 1"], [[], [camera, subject, subject], [subject, subject], [camera, subject]]
+    )
+    changed = keepFieldsMovingWithTheCamera(
+        transforms, {2: (4.6, 1.2), 3: (4, 2), 4: (4, 2)}, skipped={4}
+    )
+    assert changed == [2]
+    assert transforms.frames[1] == [camera]
+    # No field agrees: the frame is kept. A skipped frame is kept.
+    assert transforms.frames[2] == [subject, subject]
+    assert transforms.frames[3] == [camera, subject]
+
+
+@pytest.mark.parametrize(
+    ("analysisSize", "scale"),
+    [
+        pytest.param((480, 280), 1, id="not shrunk"),
+        # The fields' frame size (480, 280) is only near the real one
+        pytest.param((158, 94), 3, id="shrunk by 3"),
+        pytest.param((0, 0), None, id="no analysis frames"),
+    ],
+)
+def test_the_analysis_scale_is_the_whole_number_the_frames_were_shrunk_by(
+    analysisSize: tuple[int, int],
+    scale: int | None,
+) -> None:
+    assert analysisScale(frames((1, 1)), analysisSize) == scale
+
+
+def test_measured_motion_is_in_the_clips_pixels_and_opposite_the_contents_shift() -> None:
+    analysis = [
+        FrameAnalysis(100, None),
+        FrameAnalysis(100, FrameShift(1.5, -2, 0.9)),
+        FrameAnalysis(100, FrameShift(9, 9, 0.01)),
+    ]
+    assert measuredMotions(analysis, 3) == {2: (-4.5, 6)}
 
 
 def test_frame_size_comes_from_the_outermost_fields() -> None:
