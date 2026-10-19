@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 
 from clipper import clip_maker, markers_schema, util, ytc_settings
+from clipper.argparser import getVidstabPreset
 from clipper.clipper_types import INVALID_MARKER_PAIR_KEY, ClipperState
 
 EXAMPLES_DIR = Path(__file__).resolve().parents[2] / "schema" / "examples"
@@ -38,6 +39,35 @@ def test_crops_with_a_width_and_height_above_zero_are_valid(crop: str) -> None:
     markers = kitchenSink()
     markers["markerPairs"][0]["crop"] = crop
     assert validate(markers) == markers_schema.MarkersValidation()
+
+
+@pytest.mark.parametrize(
+    ("saved", "expected"),
+    [
+        # Saved numbers are informational: the name picks the clipper's preset
+        (
+            {"enabled": True, "desc": "Medium", "shakiness": 1, "smoothing": 99, "zoomspeed": 0.9},
+            getVidstabPreset(3),
+        ),
+        ({"enabled": False, "desc": "Disabled", "smoothing": 22}, getVidstabPreset(0)),
+        # A file without a name keeps its numbers
+        ({"enabled": True, "smoothing": 12}, {"enabled": True, "smoothing": 12}),
+    ],
+    ids=["named, stale numbers", "disabled", "no name"],
+)
+def test_stabilization_preset_comes_from_its_saved_name(saved: dict, expected: dict) -> None:
+    markers = kitchenSink()
+    markers["videoStabilization"] = copy.deepcopy(saved)
+    markers["markerPairs"][0]["overrides"]["videoStabilization"] = copy.deepcopy(saved)
+    ytc_settings.applyMarkersValidation(markers)
+    assert markers["videoStabilization"] == expected
+    assert markers["markerPairs"][0]["overrides"]["videoStabilization"] == expected
+
+
+def test_an_unknown_stabilization_preset_name_is_invalid() -> None:
+    markers = kitchenSink()
+    markers["videoStabilization"] = {"enabled": True, "desc": "Extreme", "smoothing": 99}
+    assert validate(markers).globalErrors
 
 
 def test_legacy_format_is_normalized() -> None:

@@ -1308,6 +1308,16 @@ def getVidstabPreset(level: int) -> DictStrAny:
     return vidstabPreset
 
 
+VIDSTAB_PRESET_LEVELS = {getVidstabPreset(level)["desc"]: level for level in range(7)}
+
+
+def resolveVidstabPreset(saved: DictStrAny) -> DictStrAny:
+    """The clipper's preset for the name a markers JSON saved. The saved numbers are informational,
+    so presets can be retuned between releases. Files without a name keep their numbers."""
+    level = VIDSTAB_PRESET_LEVELS.get(saved.get("desc", ""))
+    return getVidstabPreset(level) if level is not None else saved
+
+
 def getDenoisePreset(level: int) -> DictStrAny:
     denoisePreset = {"enabled": False, "desc": "Disabled"}
     if level == 1:
