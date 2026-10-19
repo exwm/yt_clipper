@@ -99,7 +99,10 @@
       "additionalProperties": false,
       "properties": {
         "enabled": { "type": "boolean" },
-        "desc": { "type": "string" },
+        "desc": {
+          "description": "The preset's name. The clipper script looks its values up by name; the numbers below are informational.",
+          "enum": ["Disabled", "Very Weak", "Weak", "Medium", "Strong", "Very Strong", "Strongest"]
+        },
         "shakiness": { "type": "number", "minimum": 0 },
         "smoothing": { "type": "number", "minimum": 0 },
         "zoomspeed": { "type": "number", "minimum": 0 }
