@@ -9,7 +9,7 @@ from typing import Any
 from rich.markup import escape
 
 from clipper import cinematic_path, markers_schema, updates, util
-from clipper.argparser import resolveVidstabPreset
+from clipper.argparser import resolveDenoisePreset, resolveVidstabPreset
 from clipper.clip_maker import cleanFileName, getDefaultEncodeSettings
 from clipper.clipper_types import (
     INVALID_MARKER_PAIR_KEY,
@@ -58,17 +58,21 @@ def applyMarkersValidation(markers: dict[str, Any]) -> None:
         for message in messages:
             logger.warning(f"    {escape(message)}")
         markers["markerPairs"][index] = {INVALID_MARKER_PAIR_KEY: messages, "overrides": {}}
-    resolveVidstabPresets(markers)
+    resolvePresets(markers)
 
 
-def resolveVidstabPresets(markers: dict[str, Any]) -> None:
-    """Stabilization presets by the name saved, globally and per marker pair."""
-    if isinstance(markers.get("videoStabilization"), dict):
-        markers["videoStabilization"] = resolveVidstabPreset(markers["videoStabilization"])
-    for pair in markers.get("markerPairs") or []:
-        overrides = pair.get("overrides") or {}
-        if isinstance(overrides.get("videoStabilization"), dict):
-            overrides["videoStabilization"] = resolveVidstabPreset(overrides["videoStabilization"])
+PRESET_RESOLVERS = {"videoStabilization": resolveVidstabPreset, "denoise": resolveDenoisePreset}
+
+
+def resolvePresets(markers: dict[str, Any]) -> None:
+    """Stabilization and denoise presets by the name saved, globally and per marker pair."""
+    for key, resolve in PRESET_RESOLVERS.items():
+        if isinstance(markers.get(key), dict):
+            markers[key] = resolve(markers[key])
+        for pair in markers.get("markerPairs") or []:
+            overrides = pair.get("overrides") or {}
+            if isinstance(overrides.get(key), dict):
+                overrides[key] = resolve(overrides[key])
 
 
 def warnIfCinematicVersionDiffers(savedVersion: int | None) -> None:

@@ -1331,3 +1331,12 @@ def getDenoisePreset(level: int) -> DictStrAny:
     elif level == 5:
         denoisePreset = {"enabled": True, "lumaSpatial": 8, "desc": "Very Strong"}
     return denoisePreset
+
+
+DENOISE_PRESET_LEVELS = {getDenoisePreset(level)["desc"]: level for level in range(6)}
+
+
+def resolveDenoisePreset(saved: DictStrAny) -> DictStrAny:
+    """As resolveVidstabPreset, for denoise."""
+    level = DENOISE_PRESET_LEVELS.get(saved.get("desc", ""))
+    return getDenoisePreset(level) if level is not None else saved

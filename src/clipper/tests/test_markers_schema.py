@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from clipper import clip_maker, markers_schema, util, ytc_settings
-from clipper.argparser import getVidstabPreset
+from clipper.argparser import getDenoisePreset, getVidstabPreset
 from clipper.clipper_types import INVALID_MARKER_PAIR_KEY, ClipperState
 
 EXAMPLES_DIR = Path(__file__).resolve().parents[2] / "schema" / "examples"
@@ -42,26 +42,50 @@ def test_crops_with_a_width_and_height_above_zero_are_valid(crop: str) -> None:
 
 
 @pytest.mark.parametrize(
-    ("saved", "expected"),
+    ("key", "saved", "expected"),
     [
         # Saved numbers are informational: the name picks the clipper's preset
         (
+            "videoStabilization",
             {"enabled": True, "desc": "Medium", "shakiness": 1, "smoothing": 99, "zoomspeed": 0.9},
             getVidstabPreset(3),
         ),
-        ({"enabled": False, "desc": "Disabled", "smoothing": 22}, getVidstabPreset(0)),
+        (
+            "videoStabilization",
+            {"enabled": False, "desc": "Disabled", "smoothing": 22},
+            getVidstabPreset(0),
+        ),
         # A file without a name keeps its numbers
-        ({"enabled": True, "smoothing": 12}, {"enabled": True, "smoothing": 12}),
+        (
+            "videoStabilization",
+            {"enabled": True, "smoothing": 12},
+            {"enabled": True, "smoothing": 12},
+        ),
+        ("denoise", {"enabled": True, "desc": "Strong", "lumaSpatial": 1}, getDenoisePreset(4)),
+        ("denoise", {"enabled": True, "lumaSpatial": 3}, {"enabled": True, "lumaSpatial": 3}),
+        # An unknown name keeps its numbers too: denoise names are not an enum in the schema
+        (
+            "denoise",
+            {"enabled": True, "desc": "Custom", "lumaSpatial": 3},
+            {"enabled": True, "desc": "Custom", "lumaSpatial": 3},
+        ),
     ],
-    ids=["named, stale numbers", "disabled", "no name"],
+    ids=[
+        "stabilization, stale numbers",
+        "stabilization disabled",
+        "stabilization, no name",
+        "denoise, stale strength",
+        "denoise, no name",
+        "denoise, unknown name",
+    ],
 )
-def test_stabilization_preset_comes_from_its_saved_name(saved: dict, expected: dict) -> None:
+def test_preset_comes_from_its_saved_name(key: str, saved: dict, expected: dict) -> None:
     markers = kitchenSink()
-    markers["videoStabilization"] = copy.deepcopy(saved)
-    markers["markerPairs"][0]["overrides"]["videoStabilization"] = copy.deepcopy(saved)
+    markers[key] = copy.deepcopy(saved)
+    markers["markerPairs"][0]["overrides"][key] = copy.deepcopy(saved)
     ytc_settings.applyMarkersValidation(markers)
-    assert markers["videoStabilization"] == expected
-    assert markers["markerPairs"][0]["overrides"]["videoStabilization"] == expected
+    assert markers[key] == expected
+    assert markers["markerPairs"][0]["overrides"][key] == expected
 
 
 def test_an_unknown_stabilization_preset_name_is_invalid() -> None:
