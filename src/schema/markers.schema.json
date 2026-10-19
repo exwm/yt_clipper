@@ -89,7 +89,10 @@
       "additionalProperties": false,
       "properties": {
         "enabled": { "type": "boolean" },
-        "desc": { "type": "string" },
+        "desc": {
+          "type": "string",
+          "description": "The preset's name. The clipper script looks a known preset's strength up by name; the number below is informational."
+        },
         "lumaSpatial": { "type": "number", "minimum": 0 }
       }
     },
