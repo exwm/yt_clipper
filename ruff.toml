@@ -68,6 +68,7 @@ ignore = [
   "PTH123",  #`open()` should be replaced by `Path.open()`
   "PLR0911", # Too many return statements
   "PLC0415", # `import` should be at the top-level of a file
+  "COM812",  # trailing comma: conflicts with the formatter, which manages trailing commas itself
 ]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
