@@ -458,7 +458,7 @@ def fastTrimClip(
     videoStart = mp["start"]
     videoEnd = mp["end"]
     if mps["inputVideo"]:
-        inputs += f' -ss {videoStart} -to {videoEnd} -i "{mps["inputVideo"]}" '
+        inputs += f' -seek_timestamp 1 -ss {videoStart} -to {videoEnd} -i "{mps["inputVideo"]}" '
     elif mps["videoType"] != "multi_video":
         inputs += f' -ss {videoStart} -to {videoEnd} -i "{mps["videoDownloadURL"]}" '
     elif "videoPart" in mp:
@@ -576,8 +576,13 @@ def makeClip(  # noqa: PLR0912
     if not mps["inputVideo"]:
         inputs += FFMPEG_NETWORK_INPUT_FLAGS
 
+    # -seek_timestamp 1: in a local video, -ss is the video's own timestamp, as the markup's player time
+    # is, not an offset from the file's start time, which audio pre-roll can make negative. Network
+    # streams keep the offset, which matches players that count from an HLS stream's start. ffplay has
+    # no such option, so the preview leaves it out.
     if mps["inputVideo"]:
-        inputs += f' -ss {mp["start"]} -i "{mps["inputVideo"]}" '
+        seekFlags = "" if settings["preview"] else "-seek_timestamp 1 "
+        inputs += f' {seekFlags}-ss {mp["start"]} -i "{mps["inputVideo"]}" '
     elif mps["videoType"] != "multi_video":
         inputs += f' -ss {mp["start"]} -i "{mps["videoDownloadURL"]}" '
     elif "videoPart" in mp:
