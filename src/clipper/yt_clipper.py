@@ -23,6 +23,7 @@ from clipper import (
     ytc_settings,
 )
 from clipper.clipper_types import ClipperPaths, ClipperState
+from clipper.ffmpeg_codec import missingVideoEncoder
 from clipper.ffmpeg_version import getFfmpegVersion
 from clipper.log_helpers import LogPath
 from clipper.version import __version__
@@ -132,6 +133,7 @@ def main() -> None:
         sys.exit(1)
 
     enableMinterpEnhancements(cs)
+    requireVideoEncoder(cs)
 
     exit_code, failedClips = runClipping(cs)
 
@@ -322,6 +324,27 @@ def enableMinterpEnhancements(cm: ClipperState) -> None:
             logger.success(f"Found {ytcPath}. Minterp enhancements enabled.")
     else:
         settings["enableMinterpEnhancements"] = False
+
+
+def requireVideoEncoder(cs: ClipperState) -> None:
+    """Stop before any download when ffmpeg cannot encode the chosen codec."""
+    settings = cs.settings
+    if settings["preview"] or settings["fastTrim"]:
+        return
+    codec = settings["videoCodec"]
+    encoder = missingVideoEncoder(cs.clipper_paths.ffmpegPath, codec)
+    if encoder is None:
+        return
+    hint = (
+        " The macOS release's ffmpeg has no AV1 encoder."
+        if sys.platform == "darwin" and codec == "av1"
+        else ""
+    )
+    logger.critical(
+        f"`--video-codec {codec}` needs the {encoder} encoder, which this ffmpeg lacks.{hint}"
+        " Choose another `--video-codec`, or use an ffmpeg build that has it.",
+    )
+    sys.exit(1)
 
 
 if __name__ == "__main__":

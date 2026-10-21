@@ -1,3 +1,4 @@
+import shutil
 from fractions import Fraction
 
 import pytest
@@ -108,3 +109,25 @@ def test_fps_arg(mp_overrides: dict, mps_overrides: dict, expected: str) -> None
 def test_av1_container_and_hwaccel() -> None:
     assert ffmpeg_codec.getContainerForCodec("av1") == "mp4"
     assert ffmpeg_codec.isHardwareAcceleratedVideoCodec("av1") is False
+
+
+@pytest.mark.parametrize(
+    ("ffmpeg", "encoder", "missing"),
+    [
+        ("ffmpeg", "libvpx-vp9", None),
+        ("ffmpeg", "libnotreal", "libnotreal"),
+        # An ffmpeg that cannot list its encoders leaves the error to the encode
+        ("no-such-ffmpeg", "libnotreal", None),
+    ],
+    ids=["has it", "lacks it", "no listing"],
+)
+def test_a_codec_whose_encoder_ffmpeg_lacks_is_reported(
+    monkeypatch: pytest.MonkeyPatch,
+    ffmpeg: str,
+    encoder: str,
+    missing: str | None,
+) -> None:
+    if ffmpeg == "ffmpeg" and shutil.which("ffmpeg") is None:
+        pytest.skip("needs ffmpeg")
+    monkeypatch.setitem(ffmpeg_codec.VIDEO_ENCODERS, "vp9", encoder)
+    assert ffmpeg_codec.missingVideoEncoder(ffmpeg, "vp9") == missing

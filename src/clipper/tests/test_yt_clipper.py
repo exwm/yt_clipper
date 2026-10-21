@@ -263,6 +263,42 @@ def test_main_exits_with_an_error_when_the_run_fails(
         assert " ".join(logged.split()) in " ".join(logs[0].read_text(encoding="utf-8").split())
 
 
+@pytest.mark.parametrize(
+    ("extraArgs", "stops"),
+    [([], True), (["--fast-trim"], False), (["--preview"], False)],
+    ids=["encodes", "fast trim copies", "preview plays"],
+)
+def test_main_stops_before_clipping_when_ffmpeg_lacks_the_codec_encoder(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    extraArgs: list[str],
+    stops: bool,
+) -> None:
+    example = Path(__file__).resolve().parents[2] / "schema" / "examples" / "kitchen-sink.json"
+    (tmp_path / "markers.json").write_text(example.read_text(encoding="utf-8"), encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["yt_clipper", "--markers-json", "markers.json", "--video-codec", "av1", *extraArgs],
+    )
+    monkeypatch.setattr(yt_clipper, "missingVideoEncoder", lambda _ffmpeg, _codec: "libsvtav1")
+    reachedClipping: list[bool] = []
+
+    def getInputVideo(_cs: ClipperState) -> None:
+        # SystemExit, since the run turns other exceptions into a logged error.
+        reachedClipping.append(True)
+        raise SystemExit(0)
+
+    monkeypatch.setattr(yt_clipper.ytc_settings, "getInputVideo", getInputVideo)
+
+    with pytest.raises(SystemExit):
+        yt_clipper.main()
+
+    assert (not reachedClipping) is stops
+    assert ("`--video-codec av1` needs the libsvtav1 encoder" in caplog.text) is stops
+
+
 def test_each_run_gets_a_new_log_file(tmp_path: Path) -> None:
     cp = ClipperPaths(clipsPath=str(tmp_path / "webms" / "clips"))
 
