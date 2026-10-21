@@ -316,7 +316,7 @@ def getFfmpegVideoCodecH264Nvenc(
             # although expensive, it may be worth it for gpu encodes which often have lower quality
             "-rc-lookahead 60",
             "-spatial-aq 1",
-            "-temporal_aq 1",
+            "-temporal-aq 1",
             "-aq-strength 12",
             "-keyint_min 1",
             # weighted predictions are not supported with b-frames with nvenc
