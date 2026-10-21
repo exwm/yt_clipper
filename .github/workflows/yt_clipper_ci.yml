@@ -18,7 +18,7 @@ concurrency:
 
 env:
   NAME: yt_clipper
-  VERSION: "5.48.0"
+  VERSION: "5.49.0"
   NODE_VERSION: "22.18.x"
 
   # Each download is checked against its sha256 here (.github/scripts/verify-sha256.sh). A version

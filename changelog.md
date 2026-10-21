@@ -2,6 +2,121 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [5.49.0](https://github.com/exwm/yt_clipper/compare/v5.48.0...v5.49.0) (2026-11-01)
+
+### Highlights
+
+#### Crop Easing
+
+Use the **Crop Easing** setting to choose how a dynamic crop pans and zooms between crop points. Find it in the global settings editor, and override it per marker pair in the marker pair editor.
+
+* **Smooth Track (default):** The crop keeps moving through points without stopping at each one. Use it to follow a moving subject.
+* **Cinematic:** The crop follows the points within a margin, with steady pauses and constant-speed pans. Use it for camera-like motion.
+  * Click the gear button next to **Crop Easing** to set the margins, or pick **Weak**, **Medium** or **Strong**.
+  * In a marker pair's settings, a plot shows the Cinematic path next to the Smooth Track and EaseInOut paths.
+* **EaseInOut:** The crop easing from before 5.49.0. The crop slows to a stop at every point. The `markup script` and the `clipper script` use EaseInOut for markers data saved before 5.49.0.
+* See [this readme section](https://github.com/exwm/yt_clipper#crop-easing) for the full details.
+
+<img src="https://raw.githubusercontent.com/exwm/yt_clipper/v5.49.0/assets/image/yt_clipper_cinematic_settings.png" alt="yt_clipper_cinematic_settings.png" width="388">
+
+#### Hold Points
+
+A hold point shows the crop of the crop point before it, and follows when that point changes. Hold points have a vertical yellow bar behind them. A new marker pair ends in a hold point.
+
+* **Ctrl+Shift+Click:** Toggle a crop point between hold and normal.
+* **Ctrl+Alt+A:** Add a hold point at the current time, or toggle the crop point under the playhead.
+* **Ctrl+Alt+Shift+Click:** Toggle crop point easing between auto and instant (moved from **Ctrl+Shift+Click**).
+* With Cinematic crop easing, the crop slows down evenly into each hold and holds still there. Set **Hold Points** to **Firm** in the Crop Easing settings to stop within the **Pan Margin**.
+* See [this readme section](https://github.com/exwm/yt_clipper#crop-chart-shortcuts) for the full details.
+
+<img src="https://raw.githubusercontent.com/exwm/yt_clipper/v5.49.0/assets/image/yt_clipper_hold_crop_points.png" alt="yt_clipper_hold_crop_points.png" width="640">
+
+#### Update Checks and Shared Settings
+
+* Run `yt_clipper_check_for_updates.bat` (Windows) or `yt_clipper_check_for_updates` (Mac), or pass `--check-for-updates`, to check for a newer `clipper script`.
+* Put settings every version should use (for example `--cookies`) in `yt_clipper_default_args.txt` in the folder that holds your yt_clipper installs. An install's own `default_args.txt` overrides the shared file when both set the same option.
+  * Keep your installs in a folder of their own, not in your downloads folder. A `yt_clipper_default_args.txt` saved next to them can set the folders the `clipper script` runs ffmpeg and yt-dlp from.
+  * Put options new in 5.49, such as `--accept-lower-quality`, in the install's own `default_args.txt`. Older versions stop on an option they do not know.
+* Click **Releases** at the bottom right of the command palette (**Shift+E**) to see what changed.
+* See [this readme section](https://github.com/exwm/yt_clipper#updating) for the full details.
+
+
+### ⚠ BREAKING CHANGES
+
+* **markup:** **Ctrl+Shift+Click** on a crop point now toggles hold instead of instant easing. Instant easing moved to **Ctrl+Alt+Shift+Click**.
+* **clipper:** an install's own `default_args.txt` now overrides the shared `yt_clipper_default_args.txt` when both set the same option.
+* **clipper:** the `clipper script` no longer accepts shortened option names, such as `--overwr` for `--overwrite`. Use the full name.
+* **clipper:** the `clipper script` now reads its install's `default_args.txt` when run from another folder. It reads `yt_clipper_default_args.txt` from the folder that holds the installs, not from the folder above the one you run it in. Move that file there if you keep it elsewhere.
+* **clipper:** when only a lower quality format can be downloaded and the prompt gets no answer (a scheduled run, or stdin closed), the run now stops with exit code 1 instead of clipping at the lower quality. Pass `--accept-lower-quality` to keep clipping at the lower quality.
+
+### Features
+
+* **clipper+markup:** add Cinematic crop easing: the crop follows crop points within a margin, with steady pauses and constant-speed pans ([f96981e](https://github.com/exwm/yt_clipper/commit/f96981eb152e5e4775fdb278415b6354080c2137))
+* **clipper+markup:** add the `Hold Points` setting (Loose, Firm or Exact) to the Crop Easing settings to choose how still Cinematic crop easing holds the crop at hold points ([4bee2e4](https://github.com/exwm/yt_clipper/commit/4bee2e43d3c298c06e4f60c2d96c0d887046e5d1))
+* **clipper+markup:** add the Crop Easing setting: in its default Smooth Track mode, a dynamic crop keeps moving through crop points instead of stopping at each one ([4473bd7](https://github.com/exwm/yt_clipper/commit/4473bd74ac62284f47481774fb2d9da274533a91))
+* **clipper+markup:** hold crop points, which show the crop of the crop point before them and follow it when it changes + a new marker pair's end point is a hold point ([ba4b128](https://github.com/exwm/yt_clipper/commit/ba4b128d325f7e4ce19087d503e1f93c3a703db6))
+* **clipper+markup:** Weak, Medium and Strong presets for the Cinematic margins, which scale with the crop size ([4c0e686](https://github.com/exwm/yt_clipper/commit/4c0e6860185c209fea902923ca4847cf6f0e195e))
+* **clipper:** ask before continuing with a lower quality format when a higher quality one cannot be downloaded (`--accept-lower-quality` continues without asking) + show the selected formats in green and those that cannot be downloaded in red + clip only the video, not its playlist, from a video URL with `&list=` ([a2e0469](https://github.com/exwm/yt_clipper/commit/a2e0469b5b84f5daac915cc843e661bf54980e34))
+* **clipper:** check for a newer `clipper script` with `--check-for-updates` or the `yt_clipper_check_for_updates` helper + keep settings across versions in `yt_clipper_default_args.txt` + warn when a markers JSON comes from a newer `markup script` ([da408c1](https://github.com/exwm/yt_clipper/commit/da408c1f86a78b8f6b24dbd7de4d8637f422599b))
+* **clipper:** helper scripts ask for the options of another run with the same markers data, and end at a command prompt in the yt_clipper folder instead of closing ([7f0cf04](https://github.com/exwm/yt_clipper/commit/7f0cf04d01e4a96116f0ba808d40f7302cfe8b1d))
+* **clipper:** releases include `yt_clipper_help.txt`, which lists every option and its help + the readme names the `--markers-json` option correctly ([0663760](https://github.com/exwm/yt_clipper/commit/06637607b12464eb3883622fb20669505028a686))
+* **clipper:** warn when a markers JSON was saved with another version of the Cinematic crop easing ([83e3ae9](https://github.com/exwm/yt_clipper/commit/83e3ae946e8cf82b561a8f9e97a1f3e9a35791b1))
+* **clipper:** warn when the input video's frame rate varies, since a clip at a constant speed then repeats or drops frames ([37fda98](https://github.com/exwm/yt_clipper/commit/37fda9842f9492bd953c82456df4d5af4be1fa74))
+* **markup:** add a hold crop point at the current time with `ctrl+alt+a`, and toggle hold with `ctrl+shift+click` or with `ctrl+alt+a` on the point under the playhead + move the instant easing toggle to `ctrl+alt+shift+click` ([b6bb7e1](https://github.com/exwm/yt_clipper/commit/b6bb7e1b994293e7983f278987bfb57d58bd23c9))
+* **markup:** command palette footer links to the releases and shows the `markup script` version + rename its buttons to All shortcuts and Repo ([c34ff7f](https://github.com/exwm/yt_clipper/commit/c34ff7f148e4ed46d8f932e18d8c391296e75d10))
+* **markup:** crop chart: label the crop size only where it changes, and leave a point with the same crop as its neighbors unlabeled ([c962875](https://github.com/exwm/yt_clipper/commit/c962875b9ef43c451bc5fca24523f19306089a00))
+* **markup:** hold crop points show a yellow bar on the crop chart ([042800f](https://github.com/exwm/yt_clipper/commit/042800fd3917908b867bc817d81483b9f5e3b258))
+* **markup:** plot the crop path in a marker pair's Crop Easing settings, with the crop points, their margins and each crop easing's path + add sliders for the margins ([62f6549](https://github.com/exwm/yt_clipper/commit/62f6549783a78906139d1dcfd16936040ff82004))
+* **markup:** Tampermonkey checks each library the `markup script` loads against its pinned sha256 ([5080b4c](https://github.com/exwm/yt_clipper/commit/5080b4cef4cb30aea6e76482f4682a0b113eeee9))
+* **markup:** the Crop Easing settings plot shows hold points with a yellow bar, as the crop chart does ([f3a70ac](https://github.com/exwm/yt_clipper/commit/f3a70ac23c26af1e4700596b21862630ff5f1ea4))
+* **markup:** the marker pair duration reads Dur to save space ([566f998](https://github.com/exwm/yt_clipper/commit/566f998ce3563c638db5985ca0868dc1bf9800eb))
+* **markup:** the title prefix field refuses a double quote or backslash, which the clipper replaces with `_` in clip names ([721f318](https://github.com/exwm/yt_clipper/commit/721f3185cf410d163ad0ed2d2af93ef455c5f022))
+
+
+### Bug Fixes
+
+* **clipper:** `--download-video` should work when yt-dlp downloads a single file and keeps its container (such as `.mp4`) instead of `.mkv` + releases should run yt-dlp with the bundled ffmpeg ([0ad447e](https://github.com/exwm/yt_clipper/commit/0ad447ebca7103cc35097633d0e0337640105c41))
+* **clipper:** `h264_nvenc` clips should use the `-temporal-aq` spelling, which ffmpeg 9 requires and ffmpeg 8 also accepts ([c35897a](https://github.com/exwm/yt_clipper/commit/c35897a81851d347ec531b2d81e37e0fc47d7f14))
+* **clipper:** a `--ytdl-password` set in a settings file should not be printed to the console or the log ([4ac227e](https://github.com/exwm/yt_clipper/commit/4ac227e0c19e72cbcb2f9273a18946a5ce3335c0))
+* **clipper:** a found or typed input video path with square brackets should be logged as it is, not with part of it missing ([aab0c81](https://github.com/exwm/yt_clipper/commit/aab0c81e3e7692e254cbc7c99117b2f1e1ccc820))
+* **clipper:** a run should exit with an error code when a clip fails + end with a clear message instead of a traceback when yt-dlp or another tool fails ([76e010f](https://github.com/exwm/yt_clipper/commit/76e010f30b1ac21aeacf5846cbdd2e02dbfedd07))
+* **clipper:** a title prefix or markers file name with a double quote or a line break should not add ffmpeg options or merge inputs on macOS and Linux ([c23408d](https://github.com/exwm/yt_clipper/commit/c23408d8034a0e8b6bde805f6219b913aeba1c10))
+* **clipper:** a video title, page URL or site format id with square brackets should be logged as text instead of stopping the run ([d134a77](https://github.com/exwm/yt_clipper/commit/d134a772e1dec10304790e165e658ff93de85861))
+* **clipper:** clipping should fall back to the bit depth from yt-dlp instead of crashing when ffprobe cannot read the video, and clip as 8-bit when yt-dlp does not report the dynamic range + a local video ffprobe cannot read should stop with a clear message ([4f1dc14](https://github.com/exwm/yt_clipper/commit/4f1dc14bc3b2419db395fa730706eb908a4896f9))
+* **clipper:** long video filters, such as a zooming crop with many crop points, should work with ffmpeg 9, which removed `-filter_script`, and in previews on Windows ([0781d14](https://github.com/exwm/yt_clipper/commit/0781d14ca586e5e6b7dd305d4b73b71726c8261c))
+* **clipper:** markers JSON crops with a zero width or height, values with a trailing newline, and numbers too large to use should be rejected + a markers JSON file that is not UTF-8 should stop with a clear error ([8f391bd](https://github.com/exwm/yt_clipper/commit/8f391bd0fd5f08d4beba78b7f517ceb67480aa83))
+* **clipper:** settings files should accept quoted paths with spaces, a byte order mark and non-UTF-8 text + settings files and the bundled tools should be found next to the install, whatever folder the clipper runs from ([c8bc1b3](https://github.com/exwm/yt_clipper/commit/c8bc1b343ed13f6ccb19359508087148207e211a))
+* **clipper:** subtitles should burn in for a markers file whose name has an apostrophe, comma or semicolon + such a name should not add filters ([20ec7e2](https://github.com/exwm/yt_clipper/commit/20ec7e2beef6ee69e59154f0b670817666ca1fb7))
+* **clipper:** the clipper's log messages should follow a log level change made after the first message, as other loggers do ([227e19c](https://github.com/exwm/yt_clipper/commit/227e19c646160cb76f705ed32009793bc43812d2))
+* **clipper:** the trim, merge, gif and HEVC helper scripts should find the bundled ffmpeg in `bin/video-tools` ([cae1273](https://github.com/exwm/yt_clipper/commit/cae1273918a81bb49ca555d15b9f6343e241f55c))
+* **clipper:** video stabilization should read and write its transform file for a markers file whose name has a colon + such a name should not add stabilization options ([d236044](https://github.com/exwm/yt_clipper/commit/d23604496a2d6e3e4b23bacdb4448b029fb8781c))
+* **markup:** a loaded dynamic crop should preview its eased crop before the crop chart is opened ([fb27cf0](https://github.com/exwm/yt_clipper/commit/fb27cf0eadfe073b892b6fa88bd80c3d4a07eec8))
+* **markup:** alt+drag on a marker number should move the marker on sites where the player holds the progress bar, not scrub the video ([f06fff5](https://github.com/exwm/yt_clipper/commit/f06fff53c10a605a6b662e2768d6be6d75057575))
+* **markup:** Alt+Shift+X, Alt+Shift+Q and rotating the video should cancel a crop drag or draw in progress, as other crop edits do ([3e2a7a9](https://github.com/exwm/yt_clipper/commit/3e2a7a92d3ef256d19e26e4ee4b983f151f3daba))
+* **markup:** an aspect-locked crop that already has its ratio should keep its size instead of losing a pixel + a locked-ratio crop at the right or bottom edge should stay in the frame instead of failing ([a37fb04](https://github.com/exwm/yt_clipper/commit/a37fb04b503a9c2660d719e71a57ceedb373846f))
+* **markup:** editing a setting while a crop draw waits for its first click should cancel the draw, so the edit is kept ([d3b5c3e](https://github.com/exwm/yt_clipper/commit/d3b5c3ebd00a65db47470bb353755c48fb3a5ec8))
+* **markup:** loading a markers file should drop an invalid global setting that a marker pair can override, as it does for the pair's own setting ([48ea6ec](https://github.com/exwm/yt_clipper/commit/48ea6ecbfe281fb627f0a96380952b095108e0c4))
+* **markup:** loading a markers file should show the loaded settings in an open settings editor and keep the edits made after it ([f662462](https://github.com/exwm/yt_clipper/commit/f66246262fb8acaeec1ce1ade9537eeb90cb6540))
+* **markup:** reframe and the crop previews should not shake on a pan at full speed, by drawing every video frame with its own crop ([b3cb828](https://github.com/exwm/yt_clipper/commit/b3cb828781fcc8b80f6b0174fc1cdc6c0355a69d))
+* **markup:** the crop preview modal should draw once per frame + keep fractional crop widths ([4188748](https://github.com/exwm/yt_clipper/commit/4188748c1c84ca06827a2dade17897bc5ecada29))
+* **markup:** the load review should list the settings it dropped from a markers file for invalid values ([f76e7d9](https://github.com/exwm/yt_clipper/commit/f76e7d955ac77312b87d45defe50a1a4320497e8))
+* **markup:** the reframe minimap should not shimmer on fine detail in a large video ([fbb30df](https://github.com/exwm/yt_clipper/commit/fbb30dfc24f214e378d100310bd975a2cca8cd99))
+* **markup:** undo, redo, pair switches and crop point edits during a crop drag or draw should cancel it instead of corrupting crop points ([540c0c9](https://github.com/exwm/yt_clipper/commit/540c0c97110912be03c20903cdff387e5eab68df))
+
+
+### Documentation Updates
+
+* **changelog:** credit @GoyangiPics for the AV1 encoder in the 5.48.0 notes ([e5361c6](https://github.com/exwm/yt_clipper/commit/e5361c64736442b25cfed200eba092df7bdb27fc))
+* plainer wording in the 5.49 readme sections and messages ([cb72758](https://github.com/exwm/yt_clipper/commit/cb72758462bae359809f90483f0db18ec76df95b))
+* plainer wording in the readme, tooltips, shortcut descriptions, and `--help` text ([a77c9d6](https://github.com/exwm/yt_clipper/commit/a77c9d6acdd60898c5c41fb101d5ae605081ff76))
+* **readme:** a hold point keeps a crop of its own, which it gets back when it stops holding ([a7bff93](https://github.com/exwm/yt_clipper/commit/a7bff93cfc2e466ef24fb220878aa1dc2e7148e0))
+* **readme:** document crop easing modes, crop chart point labels, and the lower quality format prompt ([0a941c2](https://github.com/exwm/yt_clipper/commit/0a941c26262d1b4524e981587e00bfdd57d5db80))
+* **readme:** hold crop points, the Hold Points setting and the Cinematic settings dimming while another easing is chosen + call the point under a crop drag the dragged point ([75edfab](https://github.com/exwm/yt_clipper/commit/75edfab58b5d8a091ba8fea6891c53c17c547ace))
+* **readme:** install the `markup script` from Greasy Fork, which keeps it updated, and end every release's notes with how to update ([13348a5](https://github.com/exwm/yt_clipper/commit/13348a53c1fc3c2333e30690dcb8d8118d519507))
+* **readme:** keep the clipper installs out of the downloads folder, as `yt_clipper_default_args.txt` there can set which ffmpeg and yt-dlp they run ([b4e66dd](https://github.com/exwm/yt_clipper/commit/b4e66ddae56c44e1a37c73b24fc0e34e9f53067b))
+* **readme:** rename a markers file with `&` in its name before dropping it onto a Windows helper script ([26dc10a](https://github.com/exwm/yt_clipper/commit/26dc10a9d7a0e24c90dec5b64ca749c93cb247b7))
+* **release-notes:** every release should say how to install yt_clipper too, with the Greasy Fork links ([dd1bd86](https://github.com/exwm/yt_clipper/commit/dd1bd8675aac29e58339c3deed507842c20a7630))
+
 ## [5.48.0](https://github.com/exwm/yt_clipper/compare/v5.47.1...v5.48.0) (2026-10-15)
 
 ### Highlights
