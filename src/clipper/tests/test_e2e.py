@@ -278,6 +278,125 @@ def test_cinematic_pair_renders_the_path_solved_from_its_crop_points(
         shutil.rmtree(output, ignore_errors=True)
 
 
+def frameThumbnails(ffmpeg: str, video: pathlib.Path, count: int) -> list[bytes]:
+    """The first `count` frames of `video`, as small grayscale images for comparing frames. Passthrough
+    keeps ffmpeg from repeating frames to fill a start before the first video frame."""
+    raw = subprocess.run(
+        [ffmpeg, "-v", "error", "-i", str(video), "-frames:v", str(count), "-fps_mode", "passthrough", "-vf", "scale=80:45,format=gray", "-f", "rawvideo", "-"],
+        capture_output=True, check=True,
+    ).stdout  # fmt: skip
+    return [raw[i : i + 80 * 45] for i in range(0, len(raw), 80 * 45)]
+
+
+def audioFirstVideo(ffmpeg: str, folder: pathlib.Path) -> tuple[pathlib.Path, pathlib.Path]:
+    """A 3 s video whose audio starts 0.1 s before its video, as audio pre-roll leaves a downloaded
+    file, and markers for one full-frame pair from 1.0 to 2.0 s."""
+    source = folder / "audio-first.mkv"
+    subprocess.run(
+        [ffmpeg, "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=30:duration=3",
+         "-itsoffset", "-0.1", "-f", "lavfi", "-i", "sine=duration=3.2",
+         "-c:v", "libx264", "-qp", "0", "-c:a", "libopus", "-avoid_negative_ts", "disabled", str(source)],
+        check=True,
+    )  # fmt: skip
+    data = json.loads(MARKERS.read_text(encoding="utf-8"))
+    data.update(cropRes="320x180", cropResWidth=320, cropResHeight=180, titleSuffix="audio-first")
+    data["markerPairs"] = [{"number": 1, "start": 1.0, "end": 2.0, "speed": 1, "crop": "0:0:iw:ih", "enableZoomPan": False, "cropRes": "320x180", "overrides": {}}]  # fmt: skip
+    markers = folder / "audio-first.json"
+    markers.write_text(json.dumps(data), encoding="utf-8")
+    return source, markers
+
+
+def test_clip_from_a_video_whose_audio_starts_first_begins_on_the_pair_start_frame(
+    clipper: Clipper,
+    tmp_path: pathlib.Path,
+) -> None:
+    # Audio pre-roll can give a downloaded file a negative start time. -ss is the video's own
+    # timestamp, as the markup's player time is, so the clip still begins on the frame at 1.0 s.
+    clipper.requireEncoder("libvpx-vp9")
+    ffmpeg = clipper.toolPath("ffmpeg")
+    assert ffmpeg is not None
+    source, markers = audioFirstVideo(ffmpeg, tmp_path)
+    output = clipper.cwd / "webms" / markers.stem
+    try:
+        run = clipper.run(["--markers-json", str(markers), "--input-video", str(source), *OFFLINE_ARGS])
+        print(run.stdout, run.stderr)
+        assert run.returncode == 0
+        first = frameThumbnails(ffmpeg, next(output.glob("*.webm")), 1)[0]
+        sourceFrames = frameThumbnails(ffmpeg, source, 40)
+        difference = [sum(abs(a - b) for a, b in zip(first, frame, strict=True)) for frame in sourceFrames]
+        assert difference.index(min(difference)) == 30
+    finally:
+        shutil.rmtree(output, ignore_errors=True)
+
+
+def lateStartVideo(ffmpeg: str, folder: pathlib.Path) -> tuple[pathlib.Path, pathlib.Path]:
+    """A 3 s video whose timestamps start at 10 s, as a cut recording's do, and markers for one
+    full-frame pair from 11.0 to 12.0 s: Chrome's player time starts at the file's first timestamp."""
+    source = folder / "late-start.mkv"
+    subprocess.run(
+        [ffmpeg, "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=30:duration=3",
+         "-c:v", "libx264", "-qp", "0", "-output_ts_offset", "10", str(source)],
+        check=True,
+    )  # fmt: skip
+    data = json.loads(MARKERS.read_text(encoding="utf-8"))
+    data.update(cropRes="320x180", cropResWidth=320, cropResHeight=180, titleSuffix="late-start")
+    data["markerPairs"] = [{"number": 1, "start": 11.0, "end": 12.0, "speed": 1, "crop": "0:0:iw:ih", "enableZoomPan": False, "cropRes": "320x180", "overrides": {}}]  # fmt: skip
+    markers = folder / "late-start.json"
+    markers.write_text(json.dumps(data), encoding="utf-8")
+    return source, markers
+
+
+def test_clip_from_a_video_whose_timestamps_start_late_begins_on_the_pair_start_frame(
+    clipper: Clipper,
+    tmp_path: pathlib.Path,
+) -> None:
+    # The pair starts 1 s into the file, at its 11.0 s timestamp: the frame 30 frames in.
+    clipper.requireEncoder("libvpx-vp9")
+    ffmpeg = clipper.toolPath("ffmpeg")
+    assert ffmpeg is not None
+    source, markers = lateStartVideo(ffmpeg, tmp_path)
+    output = clipper.cwd / "webms" / markers.stem
+    try:
+        run = clipper.run(["--markers-json", str(markers), "--input-video", str(source), *OFFLINE_ARGS])
+        print(run.stdout, run.stderr)
+        assert run.returncode == 0
+        first = frameThumbnails(ffmpeg, next(output.glob("*.webm")), 1)[0]
+        sourceFrames = frameThumbnails(ffmpeg, source, 40)
+        difference = [sum(abs(a - b) for a, b in zip(first, frame, strict=True)) for frame in sourceFrames]
+        assert difference.index(min(difference)) == 30
+    finally:
+        shutil.rmtree(output, ignore_errors=True)
+
+
+def test_preview_of_a_local_video_starts_ffplay_without_ffmpeg_only_seek_options(
+    clipper: Clipper,
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # ffplay has no -seek_timestamp, so a preview command with it fails at once.
+    if clipper.exe:
+        pytest.skip("records the ffplay command in process")
+    ffmpeg = clipper.toolPath("ffmpeg")
+    assert ffmpeg is not None
+    source, markers = audioFirstVideo(ffmpeg, tmp_path)
+    previewInputs: list[str] = []
+
+    def recordPreview(_cs: object, inputs: str, *_args: object, **_kwargs: object) -> None:
+        previewInputs.append(inputs)
+
+    monkeypatch.setattr(clip_maker, "runffplayCommand", recordPreview)
+    pairPromptAnswers = iter(["1", "q"])
+    monkeypatch.setattr(clip_maker, "input", lambda _prompt="": next(pairPromptAnswers), raising=False)
+    run = clipper.run(
+        ["--markers-json", str(markers), "--input-video", str(source), "--preview", *OFFLINE_ARGS],
+    )
+    print(run.stdout, run.stderr)
+    assert run.returncode == 0
+    assert len(previewInputs) == 1
+    assert "-ss " in previewInputs[0]
+    assert "-seek_timestamp" not in previewInputs[0]
+
+
 def loggedVideoFilter(output: pathlib.Path) -> str:
     """The -vf of the run's ffmpeg command, from its log, which wraps long lines."""
     text = re.sub(
