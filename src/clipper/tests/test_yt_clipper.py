@@ -299,6 +299,32 @@ def test_main_stops_before_clipping_when_ffmpeg_lacks_the_codec_encoder(
     assert ("`--video-codec av1` needs the libsvtav1 encoder" in caplog.text) is stops
 
 
+@pytest.mark.parametrize(
+    ("settings", "warns"),
+    [
+        ({"videoStabilizationDynamicZoom": True}, True),
+        (
+            {
+                "markerPairs": [
+                    {"overrides": {}},
+                    {"overrides": {"videoStabilizationDynamicZoom": True}},
+                ]
+            },
+            True,
+        ),
+        ({"videoStabilizationDynamicZoom": False, "markerPairs": [{}]}, False),
+    ],
+    ids=["global", "marker pair", "off"],
+)
+def test_dynamic_zoom_warns_that_it_is_deprecated(
+    caplog: pytest.LogCaptureFixture,
+    settings: dict,
+    warns: bool,
+) -> None:
+    yt_clipper.warnDeprecatedSettings(settings)
+    assert ("dynamic zoom" in caplog.text) is warns
+
+
 def test_each_run_gets_a_new_log_file(tmp_path: Path) -> None:
     cp = ClipperPaths(clipsPath=str(tmp_path / "webms" / "clips"))
 

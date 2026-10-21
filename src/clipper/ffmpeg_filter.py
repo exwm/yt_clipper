@@ -1202,8 +1202,6 @@ def getVideoStabilizationFilters(mps: DictStrAny, transformPath: str) -> tuple[s
         f"vidstabtransform=input='{transformPath}':smoothing={vidstab['smoothing']}"
         f":maxangle={maxAngle}:maxshift={maxShift}:zoom={ZOOM_BUDGET_PLACEHOLDER}"
     )
-    if mps["videoStabilizationDynamicZoom"]:
-        transformFilter += f":optzoom=2:zoomspeed={vidstab['zoomspeed']}"
     return detectFilter, transformFilter
 
 

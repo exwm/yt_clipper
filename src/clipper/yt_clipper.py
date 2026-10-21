@@ -134,6 +134,7 @@ def main() -> None:
 
     enableMinterpEnhancements(cs)
     requireVideoEncoder(cs)
+    warnDeprecatedSettings(cs.settings)
 
     exit_code, failedClips = runClipping(cs)
 
@@ -345,6 +346,16 @@ def requireVideoEncoder(cs: ClipperState) -> None:
         " Choose another `--video-codec`, or use an ffmpeg build that has it.",
     )
     sys.exit(1)
+
+
+def warnDeprecatedSettings(settings: Mapping[str, Any]) -> None:
+    pairs = settings.get("markerPairs") or []
+    if settings.get("videoStabilizationDynamicZoom") or any(
+        (pair.get("overrides") or {}).get("videoStabilizationDynamicZoom") for pair in pairs
+    ):
+        logger.warning(
+            "Video stabilization dynamic zoom (`--video-stabilization-dynamic-zoom`/`-vsdz`) is deprecated and has no effect.",
+        )
 
 
 if __name__ == "__main__":
