@@ -294,86 +294,6 @@ def test_get_version_info(clipper: Clipper) -> None:
     assert re.search(r"yt_clipper\S* v\d", run.stdout)
 
 
-def test_an_input_video_ffprobe_cannot_read_stops_with_a_clear_message(
-    clipper: Clipper,
-    tmp_path: pathlib.Path,
-) -> None:
-    # A local video has no yt-dlp info to fall back on, and the run once ended in a traceback.
-    broken = tmp_path / "broken.mp4"
-    broken.write_text("not a video", encoding="utf-8")
-    markers = tmp_path / "broken-input.json"
-    markers.write_text(MARKERS.read_text(encoding="utf-8"), encoding="utf-8")
-    output = clipper.cwd / "webms" / markers.stem
-    try:
-        run = clipper.run(
-            ["--markers-json", str(markers), "--input-video", str(broken), *OFFLINE_ARGS]
-        )
-        assert run.returncode == 1
-        log = "".join(path.read_text(encoding="utf-8") for path in output.glob("logs/*"))
-        assert "ffprobe could not read the input video" in log
-        assert "Unexpected error" not in log
-    finally:
-        shutil.rmtree(output, ignore_errors=True)
-
-
-@pytest.mark.parametrize(
-    ("crops", "size"),
-    [
-        pytest.param(("0:0:480:360", "480:0:480:360", "960:360:480:360"), "48x36", id="pan"),
-        pytest.param(("0:0:480:360", "240:180:720:540", "0:0:960:720"), "96x72", id="zoom"),
-        # Its filter is longer than ffmpeg's command line takes, so it is read from a file.
-        pytest.param(
-            ("0:0:480:360", "240:180:720:540", "0:0:960:720") * 4, "96x72", id="long zoom"
-        ),
-    ],
-)
-def test_cinematic_pair_renders_the_path_solved_from_its_crop_points(
-    clipper: Clipper,
-    tmp_path: pathlib.Path,
-    crops: tuple[str, ...],
-    size: str,
-) -> None:
-    # The local video is a tenth of the markers' crop resolution, so the clip is a tenth of the
-    # crops: a pan holds their size, a zoom the largest one.
-    clipper.requireEncoder("libvpx-vp9")
-    data = json.loads(MARKERS.read_text(encoding="utf-8"))
-    pair = data["markerPairs"][0]
-    times = [
-        pair["start"] + (pair["end"] - pair["start"]) * i / (len(crops) - 1)
-        for i in range(len(crops))
-    ]
-    pair.update(
-        crop=crops[0],
-        cropMap=[{"x": t, "y": 0, "crop": crop} for t, crop in zip(times, crops, strict=True)],
-    )
-    pair["overrides"] = {**pair.get("overrides", {}), "cropPointEasing": "cinematic"}
-    markers = tmp_path / f"cinematic-{len(crops)}-{size}.json"
-    markers.write_text(json.dumps(data), encoding="utf-8")
-    output = clipper.cwd / "webms" / markers.stem
-    try:
-        run = clipper.run(
-            ["--markers-json", str(markers), "--input-video", str(LOCAL_VIDEO), *OFFLINE_ARGS]
-        )
-        print(run.stdout, run.stderr)
-        assert run.returncode == 0
-        # A failed solve falls back to Smooth Track, which renders at the same size.
-        log = "".join(path.read_text(encoding="utf-8") for path in output.glob("logs/*"))
-        assert "Could not solve the Cinematic crop path" not in log
-        # The long case is there to read its filter from a file.
-        assert (output / "temp" / "vfilter-1-pass1.txt").is_file() == (len(crops) > 3)
-        clip = next(output.glob("*.webm"))
-        ffprobe = clipper.toolPath("ffprobe")
-        assert ffprobe is not None
-        frames = subprocess.run(
-            [ffprobe, "-v", "error", "-select_streams", "v:0", "-show_entries", "frame=width,height", "-of", "csv=p=0", str(clip)],
-            capture_output=True, text=True, check=True,
-        ).stdout.split()  # fmt: skip
-        assert {frame.replace(",", "x") for frame in frames} == {size}
-    finally:
-        # A built clipper writes into its install folder, which must stay clean (see smoke_test.py).
-        shutil.rmtree(output, ignore_errors=True)
-
-
 def frameThumbnails(ffmpeg: str, video: pathlib.Path, count: int) -> list[bytes]:
     """The first `count` frames of `video`, as small grayscale images for comparing frames. Passthrough
     keeps ffmpeg from repeating frames to fill a start before the first video frame."""
@@ -1214,6 +1134,79 @@ def test_removing_duplicate_frames_without_interpolation_plays_the_kept_frames_b
         pairFrames * 4 / 5, abs=3
     )
     assert holds(clipper, clip) == 0
+
+
+def test_an_input_video_ffprobe_cannot_read_stops_with_a_clear_message(
+    clipper: Clipper,
+    tmp_path: pathlib.Path,
+) -> None:
+    # A local video has no yt-dlp info to fall back on, and the run once ended in a traceback.
+    broken = tmp_path / "broken.mp4"
+    broken.write_text("not a video", encoding="utf-8")
+    markers = tmp_path / "broken-input.json"
+    markers.write_text(MARKERS.read_text(encoding="utf-8"), encoding="utf-8")
+    output = clipper.cwd / "webms" / markers.stem
+    try:
+        run = clipper.run(
+            ["--markers-json", str(markers), "--input-video", str(broken), *OFFLINE_ARGS]
+        )
+        assert run.returncode == 1
+        log = "".join(path.read_text(encoding="utf-8") for path in output.glob("logs/*"))
+        assert "ffprobe could not read the input video" in log
+        assert "Unexpected error" not in log
+    finally:
+        shutil.rmtree(output, ignore_errors=True)
+
+
+@pytest.mark.parametrize(
+    ("crops", "size"),
+    [
+        pytest.param(("0:0:320:180", "320:0:320:180", "160:180:320:180"), "320x180", id="pan"),
+        pytest.param(("0:0:320:180", "160:90:480:270", "0:0:640:360"), "640x360", id="zoom"),
+        # Its filter is longer than ffmpeg's command line takes, so it is read from a file.
+        pytest.param(
+            ("0:0:320:180", "160:90:480:270", "0:0:640:360") * 4, "640x360", id="long zoom"
+        ),
+    ],
+)
+def test_cinematic_pair_renders_the_path_solved_from_its_crop_points(
+    clipper: Clipper,
+    syntheticMedia: pathlib.Path,
+    crops: tuple[str, ...],
+    size: str,
+) -> None:
+    clipper.requireEncoder("libvpx-vp9")
+    ffmpeg = clipper.toolPath("ffmpeg")
+    assert ffmpeg is not None
+    _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-native-30", syntheticMedia)
+    name = f"cinematic-{len(crops)}-{size}"
+    start, end = SYNTHETIC_PAIR
+    markers = syntheticMarkers(clipper.cwd, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
+    data = json.loads(markers.read_text(encoding="utf-8"))
+    pair = data["markerPairs"][0]
+    times = [start + (end - start) * i / (len(crops) - 1) for i in range(len(crops))]
+    pair.update(
+        crop=crops[0],
+        cropMap=[{"x": t, "y": 0, "crop": crop} for t, crop in zip(times, crops, strict=True)],
+    )
+    pair["overrides"] = {"cropPointEasing": "cinematic"}
+    markers.write_text(json.dumps(data), encoding="utf-8")
+    run = clipper.run(
+        ["--markers-json", str(markers), "--input-video", str(uploaded), *OFFLINE_ARGS]
+    )
+    print(run.stdout, run.stderr)
+    assert run.returncode == 0
+    # A failed solve falls back to Smooth Track, which renders at the same size.
+    log = "".join(
+        path.read_text(encoding="utf-8") for path in (clipper.cwd / "webms" / name).glob("logs/*")
+    )
+    assert "Could not solve the Cinematic crop path" not in log
+    # The long case is there to read its filter from a file.
+    assert (clipper.cwd / "webms" / name / "temp" / "vfilter-1-pass1.txt").is_file() == (
+        len(crops) > 3
+    )
+    clip = next((clipper.cwd / "webms" / name).glob("*.webm"))
+    assert frameSizes(clipper, clip) == {size}
 
 
 def mergedMarkers(folder: pathlib.Path, name: str, crops: tuple[str, str]) -> pathlib.Path:
