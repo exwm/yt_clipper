@@ -958,7 +958,6 @@ These dependencies must be manually installed when not using the clipper script 
 - ffmpeg must be in your path: (<https://www.ffmpeg.org/download.html>).
   - Use ffmpeg 9.0.2 or newer (the version bundled with the `clipper script` installation).
   - With older ffmpeg versions, video stabilization zooms in further than it needs to.
-  - With ffmpeg 9.0.2 or newer, the **Dynamic Zoom** stabilization setting has no effect.
 - install required python packages as listed in the `requirements.txt`:
   - `pip install -r ./src/clipper/requirements.txt`
 
