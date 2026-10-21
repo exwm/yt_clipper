@@ -196,7 +196,6 @@ def build_marker_pair_settings_snapshot(
             mps.get("videoStabilizationMaxShift", -1),
             "px",
         ),
-        "dyn-zoom": _format_bool(mps.get("videoStabilizationDynamicZoom", False)),
     }
 
     snapshot["Output"] = {
@@ -301,7 +300,6 @@ def build_global_settings_snapshot(
             settings.get("videoStabilizationMaxShift", -1),
             "px",
         ),
-        "dyn-zoom": _format_bool(settings.get("videoStabilizationDynamicZoom", False)),
     }
 
     return snapshot

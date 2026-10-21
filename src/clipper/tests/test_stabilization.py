@@ -84,7 +84,6 @@ def clipperFilters(transformPath: str, level: int = STRONG) -> tuple[str, str]:
     defaults = (
         "videoStabilizationMaxAngle",
         "videoStabilizationMaxShift",
-        "videoStabilizationDynamicZoom",
     )
     mps = {
         "videoStabilization": getVidstabPreset(level),
