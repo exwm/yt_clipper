@@ -1,10 +1,38 @@
+import subprocess
 from dataclasses import dataclass
 from fractions import Fraction
 
-from clipper.clipper_types import DictStrAny
+from clipper.clipper_types import DictStrAny, argvPath
 from clipper.ytc_logger import Subsystem, make_subsystem_logger
 
 logger = make_subsystem_logger(Subsystem.FFMPEG_CODEC)
+
+VIDEO_ENCODERS = {
+    "h264": "libx264",
+    "h264_vulkan": "h264_vulkan",
+    "h264_nvenc": "h264_nvenc",
+    "vp9": "libvpx-vp9",
+    "vp8": "libvpx",
+    "av1": "libsvtav1",
+}
+
+
+def missingVideoEncoder(ffmpegPath: str, videoCodec: str) -> str | None:
+    """The ffmpeg encoder the codec needs, when this ffmpeg build lacks it. None when it has it or
+    cannot list its encoders, which leaves the error to the encode."""
+    encoder = VIDEO_ENCODERS[videoCodec]
+    try:
+        listing = subprocess.run(
+            [argvPath(ffmpegPath), "-hide_banner", "-encoders"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    # Each line is the capability flags, then the encoder name
+    names = {fields[1] for fields in map(str.split, listing.splitlines()) if len(fields) > 1}
+    return None if encoder in names else encoder
 
 
 def getFfmpegVideoCodecArgs(

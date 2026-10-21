@@ -6,6 +6,7 @@ from pathlib import Path
 import rich.markup
 
 from clipper.clipper_types import ClipperState, DictStrAny, argvPath
+from clipper.ffmpeg_codec import VIDEO_ENCODERS
 from clipper.log_helpers import LogPath, subprocess_block
 from clipper.ytc_logger import Subsystem, make_subsystem_logger
 
@@ -13,15 +14,6 @@ logger = make_subsystem_logger(Subsystem.VIDEO2X)
 
 # The Windows release bundles only this model (VIDEO2X_MODELS in yt_clipper_ci.yml).
 RIFE_MODEL = "rife-v4.26"
-
-_VIDEO2X_CODEC_MAP = {
-    "h264": "libx264",
-    "h264_vulkan": "h264_vulkan",
-    "h264_nvenc": "h264_nvenc",
-    "vp9": "libvpx-vp9",
-    "vp8": "libvpx",
-    "av1": "libsvtav1",
-}
 
 AVCodecContextOptions = {
     "-pix_fmt": "--pix-fmt",
@@ -50,7 +42,7 @@ def buildVideo2xArgs(
     mps: DictStrAny,
     video_codec_args: str,
 ) -> str:
-    codec = _VIDEO2X_CODEC_MAP[mps["videoCodec"]]
+    codec = VIDEO_ENCODERS[mps["videoCodec"]]
 
     video_codec_args_list = shlex.split(video_codec_args)
     video2x_codec_args = [pair for pair in to_pairs(video_codec_args_list)]
