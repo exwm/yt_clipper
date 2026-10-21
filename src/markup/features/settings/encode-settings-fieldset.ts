@@ -91,9 +91,6 @@ export function EncodeSettingsFieldset(p: EncodeSettingsFieldsetProps): Template
   const enableHDRDefault = inheritFrom
     ? (ternaryToString(inheritFrom.enableHDR) ?? '(Disabled)')
     : '(Disabled)';
-  const dynamicZoomDefault = inheritFrom
-    ? (ternaryToString(inheritFrom.videoStabilizationDynamicZoom) ?? '(Disabled)')
-    : '(Disabled)';
   const denoiseDefault = inheritFrom
     ? presetLabel(inheritFrom.denoise, '(Disabled)')
     : '(Disabled)';
@@ -207,29 +204,15 @@ export function EncodeSettingsFieldset(p: EncodeSettingsFieldsetProps): Template
         suffixSpanId: p.fpsMulSuffix?.spanId,
         suffixText: p.fpsMulSuffix?.text,
       })}
-      <div class="settings-editor-input-div multi-input-div" title=${Tooltips.vidstabTooltip}>
-        ${PresetSelect({
-          ...bind('video-stabilization-input', 'videoStabilization', 'preset'),
-          label: 'Stabilization',
-          value: vidstabDesc,
-          defaultOptionLabel: vidstabDefault,
-          options: vidstabOptions,
-          includeDisabledOption: isMarker,
-          compact: true,
-        })}
-        ${TernarySelect({
-          ...bind(
-            'video-stabilization-dynamic-zoom-input',
-            'videoStabilizationDynamicZoom',
-            'ternary'
-          ),
-          label: 'Dynamic Zoom',
-          tooltip: Tooltips.dynamicZoomTooltip,
-          value: source.videoStabilizationDynamicZoom,
-          defaultOptionLabel: dynamicZoomDefault,
-          compact: true,
-        })}
-      </div>
+      ${PresetSelect({
+        ...bind('video-stabilization-input', 'videoStabilization', 'preset'),
+        label: 'Stabilization',
+        tooltip: Tooltips.vidstabTooltip,
+        value: vidstabDesc,
+        defaultOptionLabel: vidstabDefault,
+        options: vidstabOptions,
+        includeDisabledOption: isMarker,
+      })}
       <div class="settings-editor-input-div multi-input-div" title=${Tooltips.loopTooltip}>
         ${LoopSelect({
           ...bind('loop-input', 'loop', 'inheritableString'),

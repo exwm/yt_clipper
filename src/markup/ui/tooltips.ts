@@ -317,11 +317,6 @@ export namespace Tooltips {
     The clipper script warns when a stabilized clip comes out shakier than its input.
     `;
 
-  export const dynamicZoomTooltip = stripIndent`
-    Allow cropping and zooming of video to vary with the need for stabilization over time.
-    Has no effect with ffmpeg 9.0.2 or newer, which the clipper script bundles.
-    `;
-
   export const speedMapTooltip = stripIndent`
     Time-variable speed maps are enabled by default, but can be force enabled/disabled with this setting.
     A speed map may be specified using the speed chart (toggled with D).
