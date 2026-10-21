@@ -7,6 +7,9 @@ missing rich style. In production these are registered inside
 ``setUpLogger``, which no test calls.
 """
 
+import os
+from pathlib import Path
+
 import pytest
 import verboselogs
 
@@ -24,3 +27,15 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         metavar="PATH",
         help="run the end-to-end tests with this built yt_clipper executable and its bundled tools",
     )
+    parser.addoption(
+        "--ffmpeg-dir",
+        metavar="DIR",
+        help="run the tests with the ffmpeg and ffprobe in this folder instead of the ones on PATH",
+    )
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    # The tests and the clipper they start both find ffmpeg on PATH. Each xdist worker runs this too.
+    ffmpegDir = config.getoption("--ffmpeg-dir")
+    if ffmpegDir:
+        os.environ["PATH"] = os.pathsep.join([str(Path(ffmpegDir).resolve()), os.environ["PATH"]])

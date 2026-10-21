@@ -99,6 +99,8 @@ class SmokeTest:
                 [
                     sys.executable, "-m", "pytest", E2E_TESTS, "-m", "not slow", "-ra",
                     "--clipper-exe", self.clipper,
+                    # The tests that make their own media need an ffmpeg, which CI has only here.
+                    "--ffmpeg-dir", str(self.ffmpeg.parent),
                 ],
                 cwd=REPO,
                 check=False,
