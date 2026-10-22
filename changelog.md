@@ -2,6 +2,96 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [5.50.0](https://github.com/exwm/yt_clipper/compare/v5.49.0...v5.50.0) (2026-11-07)
+
+5.50.0 adds a timeline zoom for crowded markers and steadier video stabilization.
+
+### Highlights
+
+#### Timeline Zoom
+
+Press **Shift+F**, or click its button (three dots over a two-way arrow) in the settings editor toolbar, to toggle the timeline zoom. Use it when marker pairs crowd together on long videos.
+
+* A **zoomed bar** above the progress bar magnifies the zoom range, so nearby pairs spread out.
+* On the progress bar, the **brush** frames the zoom range and shades the rest. **Drag** its edge handles to resize the zoom range, and its center handle to move it.
+* On the zoomed bar, marker pairs work as on the progress bar. **Click** a marker number to open its pair, and **Alt+Drag** a number to move its marker. **Scroll** to zoom in or out, and **Shift+Scroll** to pan.
+* During playback the zoom range follows the playhead.
+* **Flatten VR Video** moved from **Shift+F** to **Shift+T**.
+* See [this readme section](https://github.com/exwm/yt_clipper#marker-navigation-shortcuts) for the full details.
+
+<img src="https://raw.githubusercontent.com/exwm/yt_clipper/v5.50.0/assets/image/yt_clipper_timeline_zoom.png" alt="yt_clipper_timeline_zoom.png" width="640">
+
+#### Video Stabilization
+
+* Presets weaker than **Strongest** crop more and steady more than in 5.49.0.
+* The motion analysis follows the camera instead of things that move on their own, and repairs the motion at flashes. Turn it off with `--no-video-stabilization-motion-analysis` (`-nvsma`) if a clip jolts or drifts.
+* The `clipper script` warns when a stabilized clip comes out shakier than its input.
+* The unstabilized clip is saved only with `--video-stabilization-save-shaky-clip`.
+* For jumps between crop points, use **Cinematic** crop easing instead.
+* See [this readme section](https://github.com/exwm/yt_clipper#video-stabilization) for the full details.
+
+
+### ⚠ BREAKING CHANGES
+
+* **markup:** move Flatten VR Video to `shift+t`, freeing `shift+f` for the timeline zoom
+* **clipper:** presets weaker than Strongest crop more than 5.49.0 did (median Very Weak about 0.7% -> 4.3%, Medium about 2.1% -> 9.1%), with about half the shake
+* **clipper:** the unstabilized clip in `clips/shaky` is not saved by default anymore -> pass `--video-stabilization-save-shaky-clip` to keep it
+
+### Features
+
+* **clipper:** add `--no-video-stabilization-motion-analysis` (`-nvsma`) to turn off the motion analysis, which repairs the motion at flashes and ignores things that move on their own ([2218052](https://github.com/exwm/yt_clipper/commit/2218052dd287c4ccff80fcdb24924c01f7b1f533))
+* **clipper:** clips made for an AV1 merge of different sizes are encoded at the merge's size (every codec with `--merge-rescale always`), with the merge plan logged before encoding ([e661904](https://github.com/exwm/yt_clipper/commit/e661904401a8d336e780c984efd34ba625892610))
+* **clipper:** deprecate `--video-stabilization-dynamic-zoom`/`-vsdz`, which now has no effect and warns ([d1bba5f](https://github.com/exwm/yt_clipper/commit/d1bba5ff6320575c899e7f8c78fe21a29ad2fd17))
+* **clipper:** motion interpolation uses video2x's temporal TTA for fewer artifacts + `--no-minterp-tta`/`-nmtta` turns it off ([62ad7ea](https://github.com/exwm/yt_clipper/commit/62ad7ea44ec3eb877493ddd939088bd03848488d))
+* **clipper:** save the unstabilized clip only with `--video-stabilization-save-shaky-clip`, since making it doubled the time stabilization takes ([f7b7193](https://github.com/exwm/yt_clipper/commit/f7b71934a4c660564b3265035cac1ad9e5706bf5))
+* **clipper:** video stabilization sizes its zoom to each clip's shake, so presets weaker than Strongest crop more and steady more than in 5.49 ([bada8de](https://github.com/exwm/yt_clipper/commit/bada8de31d21c573dee6567fd91352a5457c3a5e))
+* **markup:** add a settings editor toolbar button to toggle the timeline zoom ([78ce3e0](https://github.com/exwm/yt_clipper/commit/78ce3e0ca0986e59df7c8b43ea3c764abeca3b08))
+* **markup:** add a timeline zoom (`shift+f`), a zoomed copy of the progress bar above it, so crowded markers on long videos spread out ([4d32eff](https://github.com/exwm/yt_clipper/commit/4d32eff0413b2486f95b1fa1e506e1db5c8675cd))
+* **markup:** command palette: show a subtitle under each shortcut and long shortcut descriptions in a tooltip ([7d74bf4](https://github.com/exwm/yt_clipper/commit/7d74bf4744139c744ad57fc7cf87837a677188ed))
+* **markup:** move Flatten VR Video to `shift+t`, freeing `shift+f` for the timeline zoom ([cfd91aa](https://github.com/exwm/yt_clipper/commit/cfd91aa50d98169244ef35af6a8c82ddf6079d9e))
+* **markup:** remove the Dynamic Zoom stabilization setting, which has no effect with the bundled ffmpeg ([fdbfd69](https://github.com/exwm/yt_clipper/commit/fdbfd69caca7960f8c07dc73f2694ef48f5dac95))
+* **markup:** show milliseconds next to the player's current time on YouTube and local videos ([ed71565](https://github.com/exwm/yt_clipper/commit/ed71565b37dc5ee60da5e9f8178cb87e1d888623))
+
+
+### Bug Fixes
+
+* **clipper:** an instant crop point should switch on the frame the preview shows, even when the start marker is partway into a frame ([77b3c6d](https://github.com/exwm/yt_clipper/commit/77b3c6d45b51e442b27489fe2b48a80fc02b7592))
+* **clipper:** clips made with video2x should keep the source's frame timing, so variable frame rate sources interpolate smoothly ([c665452](https://github.com/exwm/yt_clipper/commit/c665452eeaa3f5a2dc7b0d55fb014c30ae4a1a8c))
+* **clipper:** denoise should use the preset the markers JSON names, ignoring its saved strength, so presets can change between releases ([7b43753](https://github.com/exwm/yt_clipper/commit/7b437537ec1907cfcee3c83be53c2ddd56490d6c))
+* **clipper:** merges of av1 clips of different sizes should play correctly with hardware decoding, by rescaling the clips to one size (`--merge-rescale`) ([a5de89f](https://github.com/exwm/yt_clipper/commit/a5de89fe17908a29f5c4d95aaad8dfa8c5caa312))
+* **clipper:** motion interpolation should keep the clip's length and timing when duplicate frames are not removed, including for variable frame rate sources ([0804155](https://github.com/exwm/yt_clipper/commit/08041550a212ffb52ff21e9ea8466dd29dcc8331))
+* **clipper:** skip a merge of clips with different codecs, which ffmpeg writes with only the first codec playable ([46a8bae](https://github.com/exwm/yt_clipper/commit/46a8bae2f72fc163a63ba4975f6bad58a864c598))
+* **clipper:** stabilization should use the preset the markers JSON names, ignoring its saved preset numbers, so presets can change between releases ([f5771e3](https://github.com/exwm/yt_clipper/commit/f5771e3c0cd51c92e3fdea11a2b7449d10cc5566))
+* **clipper:** stop before clipping with a clear message when ffmpeg lacks the `--video-codec` encoder, such as AV1 in the macOS release ([bf2ce6a](https://github.com/exwm/yt_clipper/commit/bf2ce6a1a0585160c1997680073295c3b03e929d))
+* **clipper:** video stabilization should follow the camera instead of a subject moving on its own or the wrong tile of a tiled wall, also in slowed-down clips + warn when it makes the clip shakier than its input ([64eb931](https://github.com/exwm/yt_clipper/commit/64eb9317e5181b9fca2cf24a788c0ea2d8a7de90))
+* **clipper:** video stabilization should keep tracking dim and stage-lit scenes, and should not shake at flashes or stage lights ([c4f4c50](https://github.com/exwm/yt_clipper/commit/c4f4c5011ae34a1194b839cfade39d7246872aae))
+* **markup:** a crop or speed point added at the playhead should keep its exact time instead of rounding to 0.01 s, which could move it to a neighboring frame ([7601e99](https://github.com/exwm/yt_clipper/commit/7601e99f6a3c87ada4c802b6688bbc6053d1495b))
+* **markup:** clicking the progress bar outside a looping marker pair should jump to the loop start without flashing the clicked frame ([987d926](https://github.com/exwm/yt_clipper/commit/987d9268b9ead6b8077c5522f613d23390036cf1))
+* **markup:** flash messages should stay readable on light pages, such as YouTube's light theme ([b4a1c6b](https://github.com/exwm/yt_clipper/commit/b4a1c6b94f4b7971f0c5b378888f309804d6e722))
+* **markup:** generic site: flash messages should show below the marker pair editor, as on YouTube ([a25d7e2](https://github.com/exwm/yt_clipper/commit/a25d7e253237b6bd3ac32cb653d04c7209f26cb8))
+* **markup:** marker numbers and the timeline zoom's times should stay readable over bright or matching video colors ([e362c34](https://github.com/exwm/yt_clipper/commit/e362c34a967c5c95f8205295430b809b0c8ae9ad))
+* **markup:** settings inputs should not flash the invalid color each time an editor opens ([449e3ca](https://github.com/exwm/yt_clipper/commit/449e3ca9cb6d6a60a2eb5cf1836e1a66f0c46d67))
+* **markup:** show the crop aspect ratio rounded, such as 1.778 (16:9), instead of to 13 decimals ([1ba6e01](https://github.com/exwm/yt_clipper/commit/1ba6e01b463c76b455cc37bbb94c95b0c10f4b60))
+* **markup:** the crop easing settings should use a dark dropdown like the other fields, and the crop path plot should fill the panel's width ([daadb9d](https://github.com/exwm/yt_clipper/commit/daadb9d9a02e4ff1074982c176d45b0b60ee8fc4))
+* **markup:** the crop rectangle's dashed border should read over any video, with a thin dark line outside it that leaves the cropped video untouched ([598c428](https://github.com/exwm/yt_clipper/commit/598c428968478bcac9c016de8c0f5407dd4a2b49))
+* **markup:** the marker pair editor's title row should stay on one line instead of wrapping the Next button below Prev ([2ef5315](https://github.com/exwm/yt_clipper/commit/2ef53158993f76161f083ca0bbf69bf0721d14db))
+
+
+### Major Dependency Upgrades
+
+* **clipper:** update to ffmpeg 9.0.2 and video2x 6.7.0-exwm, which exits cleanly after interpolating and keeps the target frame rate ([f03569b](https://github.com/exwm/yt_clipper/commit/f03569b2f7e6e09fee668d8d3c7d084c9b38471f))
+
+
+### Documentation Updates
+
+* **readme:** add a Video Stabilization section that gathers the stabilization notes, with Cinematic crop easing for jumps between crop points ([6f4c803](https://github.com/exwm/yt_clipper/commit/6f4c8031cfbad7790482a5acfcf3c49677e43af3))
+* **readme:** describe how merges of av1 marker pairs of different sizes are scaled to one size, and `--merge-rescale` ([5363b12](https://github.com/exwm/yt_clipper/commit/5363b125a8f22bf193d5024b41f6d7938e3f64cc))
+* **readme:** move the Motion Interpolation section up and explain the `Src FPS Multiplier` setting + fix its tooltip ([0794e7e](https://github.com/exwm/yt_clipper/commit/0794e7e5fabd8361e3611d1ef7261fd65d4defe2))
+* **readme:** note that weaker stabilization presets crop and steady more since 5.50.0 ([539cfba](https://github.com/exwm/yt_clipper/commit/539cfbad3e48d9ac1c127ffd41ffe717fc59343d))
+* **readme:** note which ffmpeg version to use and how video stabilization differs with older ones ([d8e5a76](https://github.com/exwm/yt_clipper/commit/d8e5a76cedb46b6c65ec7a7fc0b90097f80dfc00))
+* **readme:** point the manual video2x install at the yt_clipper build of video2x, since upstream video2x lacks an option the clipper uses ([efd83b0](https://github.com/exwm/yt_clipper/commit/efd83b0b59454c9c412d1f5e18f1f549d88bebae))
+* **readme:** say that the macOS release's ffmpeg can't encode AV1 ([5932013](https://github.com/exwm/yt_clipper/commit/59320139d4e4d41732ef7562b0ee5441f40c20da))
+
 ## [5.49.0](https://github.com/exwm/yt_clipper/compare/v5.48.0...v5.49.0) (2026-11-01)
 
 ### Highlights
