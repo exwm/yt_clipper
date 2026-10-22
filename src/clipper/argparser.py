@@ -1,10 +1,16 @@
 import argparse
+import codecs
+import locale
+import os
+import re
+import shlex
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, OrderedDict, Tuple
 
 from rich_argparse import ArgumentDefaultsRichHelpFormatter
 
+from clipper import updates
 from clipper.clipper_types import ClipperPaths, DictStrAny
 from clipper.ffmpeg_version import getFfmpegVersion
 from clipper.version import __version__
@@ -30,6 +36,9 @@ class DefaultsHelpFormatter(ArgumentDefaultsRichHelpFormatter):
 def getArgParser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Generate clips from input video.",
+        # Full option names only, on the command line and in settings files: a settings file kept for
+        # a newer version could otherwise name an option that is the start of a current one's name.
+        allow_abbrev=False,
         formatter_class=DefaultsHelpFormatter,
     )
     parser.add_argument(
@@ -69,12 +78,15 @@ def getArgParser() -> argparse.ArgumentParser:
         "--arg-files",
         nargs="*",
         dest="argFiles",
-        default=["default_args.txt"]
-        + (["../yt_clipper_default_args.txt"] if getattr(sys, "frozen", False) else []),
+        # Worked out in getArgs: the paths depend on the machine, and the help would show them.
+        default=None,
         help=" ".join(
             [
                 "List of paths to files to read arguments from.",
                 "The files are processed in order with later files taking precedence.",
+                "By default, a release reads yt_clipper_default_args.txt in the folder that holds the install folders, then the install's own default_args.txt.",
+                "It then reads default_args.txt in the working folder when that is another folder.",
+                "Other installs read default_args.txt in the working folder.",
             ],
         ),
     )
@@ -244,7 +256,7 @@ def add_vfilter_options(vfilter_options: argparse._ArgumentGroup) -> None:
                 "Select the tool used for motion interpolation.",
                 "video2x uses the video2x post-processor with the RIFE model for higher quality interpolation.",
                 "video2x requires a vulkan-capable GPU. See also https://github.com/k4yt3x/video2x/.",
-                "Frozen releases look for video2x in ./bin/video-tools, then ./bin/video2x, then on the system PATH.",
+                "Frozen releases look for video2x in bin/video-tools and then bin/video2x in the install folder, then on the system PATH.",
                 "video2x can be downloaded separately from https://github.com/k4yt3x/video2x/releases.",
                 "video2x does not yet support hardware-accelerated encoders like h264_vulkan or h264_nvenc.",
                 "ffmpeg-based motion interpolation is deprecated and scheduled to be removed.",
@@ -526,7 +538,8 @@ def add_ytdl_options(ytdl_options: argparse._ArgumentGroup) -> None:
             [
                 "Specify a directory to search for the yt-dlp tool on your system.",
                 "The expected tool name for the platform is searched for in the directory.",
-                "If unspecified, frozen releases use ./bin/yt-dlp and other installs search the system PATH.",
+                "A relative directory is relative to the working folder.",
+                "If unspecified, frozen releases use bin/yt-dlp in the install folder and other installs search the system PATH.",
             ],
         ),
     )
@@ -901,6 +914,7 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
                 "The extra arguments are injected after other arguments set by yt_clipper,",
                 "but before the video filters.",
                 "Use quotes to ensure the arguments are passed to ffmpeg including whitespace.",
+                'Join the value with = when it starts with -, for example --extra-ffmpeg-args="-preset slow".',
                 "On Windows, if nested quoting is required, it may be necessary",
                 "to use double quotes for the outermost quotes due to a bug.",
                 "Arguments that conflict with the arguments automatically added",
@@ -1051,33 +1065,120 @@ def add_tool_options(tool_options: argparse._ArgumentGroup) -> None:
         help=" ".join(
             [
                 "Specify a directory to search for ffmpeg, ffprobe, and ffplay.",
-                "If unspecified, frozen releases use ./bin/video-tools and other installs search the system PATH.",
+                "A relative directory is relative to the working folder.",
+                "If unspecified, frozen releases use bin/video-tools in the install folder and other installs search the system PATH.",
             ],
         ),
     )
 
 
+def defaultArgFiles() -> List[str]:
+    """The settings files read before the command line, later ones taking precedence. A release
+    reads the shared file every version reads, then its own default_args.txt, whatever folder it runs
+    from, then a default_args.txt in the working folder if that is another folder (as before 5.49)."""
+    if not getattr(sys, "frozen", False):
+        return ["default_args.txt"]
+    installDir = Path(sys.executable).resolve().parent
+    files = [
+        str(updates.installsFolder(installDir) / updates.SHARED_ARGS_FILE),
+        str(installDir / "default_args.txt"),
+    ]
+    try:
+        workingDir = Path.cwd().resolve()
+    except OSError:
+        # The working folder was deleted: only the install's settings apply.
+        return files
+    if os.path.normcase(workingDir) != os.path.normcase(installDir):
+        files.append(str(workingDir / "default_args.txt"))
+    return files
+
+
+def splitArgLine(line: str) -> List[str]:
+    """One settings line split like a command line: double quotes group words (a path with spaces);
+    backslashes and apostrophes stay as they are (Windows paths, names like O'Brien)."""
+    lexer = shlex.shlex(line, posix=True)
+    lexer.whitespace_split = True
+    lexer.escape = ""
+    lexer.commenters = ""
+    lexer.quotes = '"'
+    return list(lexer)
+
+
+def readArgFile(path: Path) -> List[str]:
+    """The arguments in a settings file: one or more per line, and # starts a comment line."""
+    try:
+        raw = path.read_bytes()
+    except OSError as error:
+        print(f"Warning: Could not read {path} ({error.strerror or error}), so its settings are not used.", file=sys.stderr)
+        return []
+    if raw.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)):
+        # Windows PowerShell 5.1 writes UTF-16 with > and Out-File.
+        text = raw.decode("utf-16", errors="replace")
+    else:
+        try:
+            # utf-8-sig also accepts the byte order mark some editors write.
+            text = raw.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            # The ANSI code page, even in Python's UTF-8 mode.
+            encoding = locale.getencoding()
+            text = raw.removeprefix(codecs.BOM_UTF8).decode(encoding, errors="replace")
+            print(f"Warning: {path} is not saved as UTF-8, so it was read as {encoding}. Save it as UTF-8.", file=sys.stderr)
+    args: List[str] = []
+    for number, line in enumerate(text.splitlines(), start=1):
+        if line.lstrip().startswith("#"):
+            continue
+        # Each line on its own, so an unbalanced quote never swallows the lines after it.
+        try:
+            args += splitArgLine(line)
+        except ValueError as error:
+            print(f"Warning: {path} line {number}: {error}. Reading the line without quotes.", file=sys.stderr)
+            args += line.split()
+    return args
+
+
+# A dash, a letter, then word characters: -0.5 and a quoted "-crf 20" are values, as argparse reads them.
+OPTION_NAME = re.compile(r"--?[A-Za-z][\w-]*")
+
+
+def knownSharedArgs(parser: argparse.ArgumentParser, sharedArgs: List[str], sharedFile: str) -> List[str]:
+    """The shared settings file's arguments this version knows. Every installed version reads that
+    file, so an option only a newer version knows is skipped with its values, with a warning. It is
+    skipped before parsing: argparse would read an unknown -ab as the known -a with the value b."""
+    kept: List[str] = []
+    skipped: List[str] = []
+    skipping = False
+    for token in sharedArgs:
+        name = token.split("=", 1)[0]
+        if OPTION_NAME.fullmatch(name):
+            skipping = name not in parser._option_string_actions
+        (skipped if skipping else kept).append(token)
+    if skipped:
+        print(
+            f"Warning: {sharedFile} has options this version does not know, so they are not used: {' '.join(skipped)}",
+            file=sys.stderr,
+        )
+    return kept
+
+
 def getArgs() -> Tuple[Dict[str, Any], List[str], List[str], List[str], Dict[str, List[str]]]:
     parser = getArgParser()
 
-    argFiles: List[str] = parser.parse_known_args()[0].argFiles
+    givenArgFiles: Optional[List[str]] = parser.parse_known_args()[0].argFiles
+    argFiles: List[str] = defaultArgFiles() if givenArgFiles is None else givenArgFiles
 
     argv = sys.argv[1:]
     argsFromArgFiles: List[str] = []
     argsFromArgFilesMap: Dict[str, List[str]] = OrderedDict()
     for argFile in argFiles:
-        args = []
         argFilePath = Path(argFile)
         if argFilePath.is_file():
-            with Path.open(argFilePath, encoding="utf-8") as f:
-                lines = [line.lstrip() for line in f.readlines()]
-                lines = "".join([line for line in lines if not line.startswith("#")])
-                args = lines.split()
-                argsFromArgFiles += args
-                argsFromArgFilesMap[argFile] = args
+            args = readArgFile(argFilePath)
+            if argFilePath.name == updates.SHARED_ARGS_FILE:
+                args = knownSharedArgs(parser, args, argFile)
+            argsFromArgFiles += args
+            argsFromArgFilesMap[argFile] = args
 
-    argv = argsFromArgFiles + argv
-    args, unknown = parser.parse_known_args(argv)
+    args, unknown = parser.parse_known_args(argsFromArgFiles + argv)
     args = vars(args)
 
     if args["cropMultiple"] != 1:

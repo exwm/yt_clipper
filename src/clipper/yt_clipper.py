@@ -227,6 +227,13 @@ def runClipping(cs: ClipperState) -> tuple[int, list[str]]:
         return 1, []
 
 
+def bundledDir(relativeDir: str) -> str:
+    """A release's own tools folder, whatever folder it runs from, as its settings files are."""
+    if getattr(sys, "frozen", False):
+        return str(Path(sys.executable).resolve().parent / relativeDir)
+    return relativeDir
+
+
 def setupClipperPaths(cs: ClipperState, cli_args: Mapping[str, Any]) -> None:
     """Tool paths decide which programs run, so they come only from the command line and arg files."""
     cp: ClipperPaths = cs.clipper_paths
@@ -236,7 +243,7 @@ def setupClipperPaths(cs: ClipperState, cli_args: Mapping[str, Any]) -> None:
     is_frozen_release = getattr(sys, "frozen", False)
 
     if is_frozen_release or ffmpeg_tools_dir:
-        ffmpeg_tools_dir = ffmpeg_tools_dir if ffmpeg_tools_dir else VIDEO_TOOLS_DIR
+        ffmpeg_tools_dir = ffmpeg_tools_dir if ffmpeg_tools_dir else bundledDir(VIDEO_TOOLS_DIR)
         cp.ffmpegPath = f"{ffmpeg_tools_dir}/ffmpeg"
         cp.ffprobePath = f"{ffmpeg_tools_dir}/ffprobe"
         cp.ffplayPath = f"{ffmpeg_tools_dir}/ffplay"
@@ -249,7 +256,7 @@ def setupClipperPaths(cs: ClipperState, cli_args: Mapping[str, Any]) -> None:
     ytdl_dir = cli_args.get("ytdlDir")
 
     if is_frozen_release or ytdl_dir:
-        ytdl_dir = ytdl_dir if ytdl_dir else YTDL_DIR
+        ytdl_dir = ytdl_dir if ytdl_dir else bundledDir(YTDL_DIR)
 
         cp.ytdlPath = f"{ytdl_dir}/yt-dlp"
 
@@ -276,7 +283,7 @@ def setupClipperPaths(cs: ClipperState, cli_args: Mapping[str, Any]) -> None:
 
 def findVideo2x(exe_suffix: str) -> str:
     """The bundled video2x, else a manual install, else video2x on the system PATH."""
-    for video2x_dir in (VIDEO_TOOLS_DIR, MANUAL_VIDEO2X_DIR):
+    for video2x_dir in (bundledDir(VIDEO_TOOLS_DIR), bundledDir(MANUAL_VIDEO2X_DIR)):
         video2x_path = f"{video2x_dir}/video2x{exe_suffix}"
         if Path(video2x_path).is_file():
             return video2x_path
@@ -296,14 +303,15 @@ def enableMinterpEnhancements(cm: ClipperState) -> None:
     settings = cm.settings
     cp = cm.clipper_paths
     if settings["enableMinterpEnhancements"] and sys.platform == "win32":
-        cp.ffmpegPath = f"{VIDEO_TOOLS_DIR}/ffmpeg_ytc.exe"
-        if not Path(cp.ffmpegPath).is_file():
+        ytcPath = f"{bundledDir(VIDEO_TOOLS_DIR)}/ffmpeg_ytc.exe"
+        if not Path(ytcPath).is_file():
             logger.critical(
-                f"{cp.ffmpegPath} required for minterp enhancements not found.",
+                f"{ytcPath} required for minterp enhancements not found.",
             )
             sys.exit(1)
         else:
-            logger.success(f"Found {cp.ffmpegPath}. Minterp enhancements enabled.")
+            cp.ffmpegPath = shlex.quote(ytcPath)
+            logger.success(f"Found {ytcPath}. Minterp enhancements enabled.")
     else:
         settings["enableMinterpEnhancements"] = False
 
