@@ -1,7 +1,13 @@
 #!/bin/bash
 cd "$(dirname "$0")" || exit
 
-read -rp "Enter the paths of 2 or more video files that you would like to merge (you may be able to drag and drop files at the prompt): " VIDEOSPROMPT
+prompt() {
+  echo
+  echo "[INFO] You are in the yt_clipper folder."
+  exec "${SHELL:-/bin/zsh}" -i
+}
+
+read -rp "Enter the paths of 2 or more video files to merge (you can drag files into this window): " VIDEOSPROMPT
 
 IFS=$'\n' VIDEOS=($(xargs -n1 <<<"$VIDEOSPROMPT"))
 
@@ -9,20 +15,21 @@ NVIDEOS="${#VIDEOS[@]}"
 
 if [ "$NVIDEOS" -lt 2 ]; then
   echo -e '\n'
-  echo "Provide at least 2 video files to be merged."
-  exit
+  echo "[ERROR] Enter at least 2 video files."
+  prompt
 fi
 
 MERGEDIR="$(dirname "${VIDEOS[0]}")"
 NAME="${VIDEOS[0]##*/}"
 EXT=".${NAME##*.}"
 NAME="${NAME%.*}"
-MERGEOUT="$MERGEDIR/$NAME-merged$EXT"
 
-FIRSTEXT="$EXT"
+# Compared without case, so .MP4 and .mp4 count as one extension (bash 3.2 has no ${var,,}).
+lowercase() { tr '[:upper:]' '[:lower:]' <<<"$1"; }
+FIRSTEXT="$(lowercase "$EXT")"
 for VIDEO in "${VIDEOS[@]}"; do
   N="${VIDEO##*/}"
-  E=".${N##*.}"
+  E="$(lowercase ".${N##*.}")"
   if [[ "$FIRSTEXT" != "$E" ]]; then
     MIXED_EXT=true
   fi
@@ -31,21 +38,26 @@ done
 if [[ "$MIXED_EXT" ]]; then
   EXT=".mkv"
   echo -e '\n'
-  echo "Detected mixed file extensions. Defaulting to mkv container for output format."
+  echo "[WARNING] The files have different extensions, so the merged file is an mkv."
 fi
 
+MERGEOUT="$MERGEDIR/$NAME-merged$EXT"
 TEMPFILE="$MERGEDIR/temp_merge.txt"
 
+# The concat list quotes each path, so spaces work; a ' in a path is written as '\''. The
+# replacement comes from a variable: macOS's /bin/bash 3.2 keeps backslashes in a literal one.
+QUOTE="'"
+ESCAPED_QUOTE="'\\''"
 for VIDEO in "${VIDEOS[@]}"; do
-  echo file "$VIDEO"
+  printf "file '%s'\n" "${VIDEO//$QUOTE/$ESCAPED_QUOTE}"
 done >"$TEMPFILE"
 
-sort -nf "$TEMPFILE"
-
 echo -e '\n'
-echo '--- video files to be merged in the following order: ---'
+echo '--- Merging these files in this order: ---'
 cat "$TEMPFILE"
 echo '---------------------------------------------------------'
 echo -e '\n'
 
 ./bin/video-tools/ffmpeg -f concat -safe 0 -i "$TEMPFILE" -c copy "$MERGEOUT"
+
+prompt

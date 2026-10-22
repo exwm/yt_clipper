@@ -3,17 +3,32 @@ cd "$(dirname "$0")" || exit
 
 ./yt_clipper -h
 
-read -rp "First enter the paths of 1 or more markers json data files (you may be able to drag and drop files at the prompt): " JSONPROMPT
+read -rp "Enter the paths of 1 or more markers JSON files (you can drag files into this window): " JSONPROMPT
 
-IFS=$'\n' JSONS=( $(xargs -n1 <<< "$JSONPROMPT") )
+IFS=$'\n' JSONS=($(xargs -n1 <<<"$JSONPROMPT"))
 
-read -rp "Next provide any additional options: " OPTS
-
-for JSON in "${JSONS[@]}"
-do
-  if [ -f "$JSON" ]; then
-    ./yt_clipper --markers-json "$JSON" "$OPTS"
-  else 
-    echo "$JSON does not exist"
-  fi
+read -rp "Enter options (for example --overwrite), or press Enter for none: " LINE
+until eval "OPTIONS=($LINE)"; do
+  echo "[ERROR] Could not read those options. Check the quotes, and put quotes around a value with < > | & ; or ' in it."
+  read -rp "Enter options (for example --overwrite), or press Enter for none: " LINE
 done
+
+run() {
+  for JSON in "${JSONS[@]}"; do
+    if [ -f "$JSON" ]; then
+      ./yt_clipper --markers-json "$JSON" "${OPTIONS[@]}"
+    else
+      echo "[ERROR] \"$JSON\" does not exist."
+    fi
+  done
+}
+
+run
+while read -rp "Enter all the options for another run (for example --overwrite --audio), or press Enter to finish: " LINE && [ -n "$LINE" ]; do
+  eval "OPTIONS=($LINE)" || { echo "[ERROR] Could not read those options. Check the quotes, and put quotes around a value with < > | & ; or ' in it."; continue; }
+  run
+done
+
+echo
+echo "[INFO] You are in the yt_clipper folder. Run ./yt_clipper -h to list the options."
+exec "${SHELL:-/bin/zsh}" -i

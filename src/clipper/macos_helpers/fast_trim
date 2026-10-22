@@ -1,21 +1,29 @@
 #!/bin/bash
 cd "$(dirname "$0")" || exit
 
+prompt() {
+  echo
+  echo "[INFO] You are in the yt_clipper folder."
+  exec "${SHELL:-/bin/zsh}" -i
+}
+
 
 echo "----------------------------------------------------"
-echo "This script quickly BUT approximately trims an input video."
-echo "The output file name will be suffixed with '-trim'."
+echo "This script quickly trims a video without re-encoding, so the cut points are approximate."
+echo "The trimmed file name ends with -trim."
 echo "----------------------------------------------------"
 
-read -rp "Enter the path of a video file that you would like to trim (you may be able to drag and drop files at the prompt): " VIDEOSPROMPT
+read -rp "Enter the path of a video file to trim (you can drag files into this window): " VIDEOSPROMPT
 
 IFS=$'\n' VIDEOS=($(xargs -n1 <<<"$VIDEOSPROMPT"))
+# Back to the default, so read trims the times typed below.
+unset IFS
 
 NVIDEOS="${#VIDEOS[@]}"
 
 if [ "$NVIDEOS" -ne 1 ]; then
-  echo "Provide a single video file as input."
-  exit
+  echo "[ERROR] Enter one video file."
+  prompt
 fi
 
 VIDEO="${VIDEOS[0]}"
@@ -27,15 +35,23 @@ NAME="${NAME%.*}"
 OUT="$DIR/$NAME-trim$EXT"
 
 if [ -f "$VIDEO" ]; then
-  read -rp "Enter start time (s or HH:MM:SS.MS): " START
-  read -rp "Enter end time(s or HH:MM:SS.MS): " END
-  echo "generating $OUT..."
-  ./bin/video-tools/ffmpeg -ss "$START" -to "$END" -i "$VIDEO" -c copy "$OUT"
+  read -rp "Enter start time (s or HH:MM:SS.MS), or press Enter to start at the beginning: " START
+  read -rp "Enter end time (s or HH:MM:SS.MS), or press Enter to trim to the end: " END
+  # A pasted time can carry quotes, and an empty time is left out: ffmpeg rejects them.
+  START="${START//\"/}"
+  END="${END//\"/}"
+  TRIM=()
+  [ -n "$START" ] && TRIM+=(-ss "$START")
+  [ -n "$END" ] && TRIM+=(-to "$END")
+  echo "[INFO] Generating $OUT..."
+  ./bin/video-tools/ffmpeg "${TRIM[@]}" -i "$VIDEO" -c copy "$OUT"
 else
-  echo "$VIDEO does not exist."
+  echo "[ERROR] \"$VIDEO\" does not exist."
 fi
 
 echo "----------------------------------------------------"
-echo "This script quickly BUT approximately trims an input video."
-echo "The output file name will be suffixed with '-trim'."
+echo "This script quickly trims a video without re-encoding, so the cut points are approximate."
+echo "The trimmed file name ends with -trim."
 echo "----------------------------------------------------"
+
+prompt

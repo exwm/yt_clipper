@@ -1,33 +1,41 @@
 #!/bin/bash
 cd "$(dirname "$0")" || exit
 
-read -rp "Enter the paths of 1 or more video files to convert to gif (you may be able to drag and drop files at the prompt): " VIDEOSPROMPT
+prompt() {
+  echo
+  echo "[INFO] You are in the yt_clipper folder."
+  exec "${SHELL:-/bin/zsh}" -i
+}
+
+read -rp "Enter the paths of 1 or more video files to convert to gif (you can drag files into this window): " VIDEOSPROMPT
 
 IFS=$'\n' VIDEOS=($(xargs -n1 <<<"$VIDEOSPROMPT"))
 
 NVIDEOS="${#VIDEOS[@]}"
 
 if [ "$NVIDEOS" -lt 1 ]; then
-  echo "Provide at least 1 video file as input."
-  exit
+  echo "[ERROR] Enter at least 1 video file."
+  prompt
 fi
 
 VIDEO="${VIDEOS[0]}"
 
-read -rp "Enter target gif fps (DEFAULT 8): " FPS
-read -rp "Enter target gif scale. Specify target size of only larger dimension (maintaining aspect ratio) or both dimensions (ie WxH; eg 128x90) (DEFAULT 128): " SCALE
+read -rp "Enter the gif frame rate (default 8): " FPS
+read -rp "Enter the gif size: the longer side in pixels, or WxH (default 128): " SCALE
 
-FPS="${FPS:-10}"
+FPS="${FPS:-8}"
 SCALE="${SCALE:-128}"
 
 echo -e '\n'
-echo Using fps "$FPS" and scale "$SCALE".
+echo "[INFO] Using frame rate $FPS and size $SCALE."
 echo -e '\n'
 
-IFS='x' read -ra SCALES <<<"$SCALE"
-if [[ "${#SCALES[@]}" -gt 1 ]]; then
-  SCALE_FILTER="$SCALE"
+# WxH with an x or an X; a size with one number (or a stray x) is the longer side.
+IFS='xX' read -ra SCALES <<<"$SCALE"
+if [[ -n "${SCALES[0]}" && -n "${SCALES[1]}" ]]; then
+  SCALE_FILTER="${SCALES[0]}x${SCALES[1]}"
 else
+  SCALE="${SCALES[0]:-${SCALES[1]}}"
   SCALE_FILTER="'if(gte(iw,ih),$SCALE,-1):if(gte(iw,ih),-1,$SCALE)'"
 fi
 
@@ -39,10 +47,12 @@ for VIDEO in "${VIDEOS[@]}"; do
     NAME="${NAME%.*}"
     OUT="$DIR/$NAME.gif"
 
-    echo "generating $OUT..."
+    echo "[INFO] Generating $OUT..."
 
     ./bin/video-tools/ffmpeg -i "$VIDEO" -vf "fps=${FPS},scale=$SCALE_FILTER:flags=lanczos,setdar=ratio=a,hqdn3d,split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse" "$OUT"
   else
-    echo "$VIDEO does not exist"
+    echo "[ERROR] \"$VIDEO\" does not exist."
   fi
 done
+
+prompt
