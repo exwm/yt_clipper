@@ -195,7 +195,12 @@ class YTCLogger(verboselogs.VerboseLogger):
         self.log(level, render_rule(title, char=char, width=width))
 
 
-logger = YTCLogger(__name__)
+# Made through logging.getLogger, so it is registered: a level change then clears its cached
+# level checks, as for any logger (built directly, it kept checks cached under the old level).
+logging.setLoggerClass(YTCLogger)
+logger = logging.getLogger(__name__)
+logging.setLoggerClass(logging.Logger)
+assert isinstance(logger, YTCLogger)
 
 
 class Subsystem:
