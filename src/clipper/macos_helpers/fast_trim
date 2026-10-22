@@ -30,7 +30,7 @@ if [ -f "$VIDEO" ]; then
   read -rp "Enter start time (s or HH:MM:SS.MS): " START
   read -rp "Enter end time(s or HH:MM:SS.MS): " END
   echo "generating $OUT..."
-  ./bin/ffmpeg -ss "$START" -to "$END" -i "$VIDEO" -c copy "$OUT"
+  ./bin/video-tools/ffmpeg -ss "$START" -to "$END" -i "$VIDEO" -c copy "$OUT"
 else
   echo "$VIDEO does not exist."
 fi

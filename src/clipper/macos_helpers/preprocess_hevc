@@ -28,7 +28,7 @@ OUT="$DIR/$NAME-trim$EXT"
 
 if [ -f "$VIDEO" ]; then
   echo "generating $OUT..."
-  ./bin/ffmpeg -i "$VIDEO" -c copy -bsf:v hevc_mp4toannexb "$OUT"
+  ./bin/video-tools/ffmpeg -i "$VIDEO" -c copy -bsf:v hevc_mp4toannexb "$OUT"
 else
   echo "$VIDEO does not exist."
 fi

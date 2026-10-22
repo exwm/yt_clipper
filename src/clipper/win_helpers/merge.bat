@@ -43,6 +43,6 @@ set "merge_out=%~dp1\%~n1-merged%merge_ext%"
 echo generating "%merge_out%"...
 echo.
 
-"%~dp0\bin\ffmpeg" -f concat -safe 0 -i "%merge_text%" -c copy "%merge_out%"
+"%~dp0bin\video-tools\ffmpeg" -f concat -safe 0 -i "%merge_text%" -c copy "%merge_out%"
 
 pause

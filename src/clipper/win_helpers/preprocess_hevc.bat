@@ -19,7 +19,7 @@ if not %argC% == 1 (
 
 if exist "%~f1" (
   set "output_file=%~dp1\%~n1-preproc%~x1"
-  "%~dp0\bin\ffmpeg" -i "%~f1" -c copy -bsf:v hevc_mp4toannexb  "!output_file!"
+  "%~dp0bin\video-tools\ffmpeg" -i "%~f1" -c copy -bsf:v hevc_mp4toannexb  "!output_file!"
 ) else (
   echo Path "%~f1" does not exist. 
 )
