@@ -48,4 +48,4 @@ cat "$TEMPFILE"
 echo '---------------------------------------------------------'
 echo -e '\n'
 
-./bin/ffmpeg -f concat -safe 0 -i "$TEMPFILE" -c copy "$MERGEOUT"
+./bin/video-tools/ffmpeg -f concat -safe 0 -i "$TEMPFILE" -c copy "$MERGEOUT"
