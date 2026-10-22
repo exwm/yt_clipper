@@ -195,7 +195,21 @@ class YTCLogger(verboselogs.VerboseLogger):
         self.log(level, render_rule(title, char=char, width=width))
 
 
-logger = YTCLogger(__name__)
+def getYTCLogger(name: str) -> YTCLogger:
+    # Made through logging.getLogger, so it is registered: a level change then clears its cached
+    # level checks, as for any logger (built directly, it kept checks cached under the old level).
+    previous_logger_class = logging.getLoggerClass()
+    logging.setLoggerClass(YTCLogger)
+    try:
+        made = logging.getLogger(name)
+    finally:
+        logging.setLoggerClass(previous_logger_class)
+    if not isinstance(made, YTCLogger):
+        raise TypeError(f"logger {name} was already made as a {type(made).__name__}")
+    return made
+
+
+logger = getYTCLogger(__name__)
 
 
 class Subsystem:
