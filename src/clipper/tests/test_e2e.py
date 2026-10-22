@@ -5,12 +5,17 @@ executable with its bundled tools. The local input video cases run offline. The 
 YouTube and are marked slow.
 """
 
+import functools
+import http.server
+import io
 import json
 import pathlib
 import re
 import shutil
 import subprocess
 import sys
+import threading
+from collections.abc import Iterator
 from dataclasses import dataclass
 from fractions import Fraction
 
@@ -71,11 +76,12 @@ class Clipper:
         if encoder not in encoders:
             pytest.skip(f"needs an ffmpeg with {encoder}")
 
-    def run(self, args: list[str]) -> ClipperRun:
+    def run(self, args: list[str], stdin: str | None = None) -> ClipperRun:
         if self.exe:
             result = subprocess.run(
                 [str(self.exe), *args],
                 cwd=self.cwd,
+                input=stdin,
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
@@ -85,6 +91,8 @@ class Clipper:
             return ClipperRun(result.returncode, result.stdout, result.stderr)
         self.monkeypatch.chdir(self.cwd)
         self.monkeypatch.setattr(sys, "argv", ["yt_clipper.py", *args])
+        if stdin is not None:
+            self.monkeypatch.setattr(sys, "stdin", io.StringIO(stdin))
         try:
             main()
             returncode = 0
@@ -371,3 +379,145 @@ def test_make_clip(case: ClipCase, clipper: Clipper) -> None:
         assert clipper.probeDuration(clips[0]) == pytest.approx(markerPairLength(), abs=LENGTH_TOLERANCE)
     log = max((output / "logs").glob("*.log"), key=lambda path: path.stat().st_mtime)
     assert not re.findall(r"\b(?:ERROR|CRITICAL)\b", log.read_text(encoding="utf-8"))
+
+
+# A local page with several MP4 sources stands in for a video page with several formats, so the lower
+# quality prompt runs end to end offline: the real yt-dlp probes each source over HTTP, and a source
+# served as 404 cannot be downloaded. Each source has its own frame size, so the clip shows which one
+# was downloaded.
+PAGE_FORMATS = {"1080p": (192, 108), "720p": (128, 72), "480p": (96, 54)}
+
+
+class PageServer(http.server.ThreadingHTTPServer):
+    unavailable: set[str]
+
+
+class PageHandler(http.server.SimpleHTTPRequestHandler):
+    server: PageServer
+
+    def isUnavailable(self) -> bool:
+        return self.path.lstrip("/").removesuffix(".mp4") in self.server.unavailable
+
+    def do_GET(self) -> None:
+        if self.isUnavailable():
+            self.send_error(404)
+            return
+        super().do_GET()
+
+    def do_HEAD(self) -> None:
+        if self.isUnavailable():
+            self.send_error(404)
+            return
+        super().do_HEAD()
+
+    def log_message(self, format: str, *args: object) -> None:  # noqa: A002
+        pass
+
+
+@pytest.fixture(scope="module")
+def pageServer(tmp_path_factory: pytest.TempPathFactory) -> Iterator[PageServer]:
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg is None:
+        pytest.skip("needs ffmpeg")
+    root = tmp_path_factory.mktemp("page")
+    sources = []
+    for label, (width, height) in PAGE_FORMATS.items():
+        subprocess.run(
+            [ffmpeg, "-v", "error", "-f", "lavfi", "-i", f"testsrc2=size={width}x{height}:rate=30:duration=4",
+             "-f", "lavfi", "-i", "sine=duration=4", "-c:v", "libx264", "-c:a", "aac", "-shortest",
+             "-movflags", "+faststart", str(root / f"{label}.mp4")],
+            check=True,
+        )  # fmt: skip
+        sources.append(f'<source src="{label}.mp4" type="video/mp4" label="{label}">')
+    (root / "index.html").write_text(f"<html><body><video>{''.join(sources)}</video></body></html>", encoding="utf-8")
+    server = PageServer(("127.0.0.1", 0), functools.partial(PageHandler, directory=str(root)))
+    server.unavailable = set()
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    yield server
+    server.shutdown()
+
+
+def pageMarkers(folder: pathlib.Path, url: str, name: str) -> pathlib.Path:
+    """The test markers, one short full-frame pair, for a page whose URL the markers JSON gives (as
+    Weverse markers do)."""
+    data = json.loads(MARKERS.read_text(encoding="utf-8"))
+    data.update(platform="weverse", videoUrl=url, videoID=name, titleSuffix=name, videoTag=name)
+    data.update(cropRes="1920x1080", cropResWidth=1920, cropResHeight=1080)
+    data["markerPairs"] = [{"number": 1, "start": 0.5, "end": 2.5, "speed": 1, "crop": "0:0:iw:ih", "enableZoomPan": False, "cropRes": "1920x1080", "overrides": {}}]  # fmt: skip
+    path = folder / f"{name}.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return path
+
+
+@dataclass(frozen=True)
+class PromptCase:
+    args: tuple[str, ...]
+    unavailable: frozenset[str]
+    answer: str | None
+    exitCode: int
+    clipFrom: str | None  # the page format the clip must come from; None: no clip
+    printed: str | None = None
+
+
+PROMPT_CASES = [
+    pytest.param(PromptCase((), frozenset(), None, 0, "1080p"), id="all downloadable, no prompt"),
+    pytest.param(PromptCase((), frozenset({"1080p"}), "y\n", 0, "720p", "Continuing with format 720p (720p)."), id="fallback, answer y"),
+    pytest.param(PromptCase((), frozenset({"1080p"}), "n\n", 1, None, "Stopped without making clips"), id="fallback, answer n"),
+    pytest.param(PromptCase((), frozenset({"1080p"}), "", 1, None, "No answer to the prompt"), id="fallback, no one to answer"),
+    pytest.param(PromptCase(("--accept-lower-quality",), frozenset({"1080p"}), None, 0, "720p", "as --accept-lower-quality is set"), id="fallback, accept lower quality"),
+    pytest.param(PromptCase(("--format", "1080p/480p"), frozenset({"1080p"}), "y\n", 0, "480p", "Continuing with format 480p (480p)."), id="format chain"),
+    pytest.param(PromptCase(("--format-sort", "+res"), frozenset({"480p"}), "y\n", 0, "720p", "Continuing with format 720p (720p)."), id="own sort preferring the lowest"),
+    pytest.param(PromptCase(("--format", "720p,480p"), frozenset(), None, 1, None, "several files"), id="comma format"),
+    pytest.param(PromptCase(("--format", "1080p"), frozenset({"1080p"}), None, 1, None, "failed with exit code"), id="only an unavailable format"),
+]  # fmt: skip
+
+
+@pytest.mark.parametrize("case", PROMPT_CASES)
+def test_lower_quality_prompt_end_to_end(
+    clipper: Clipper,
+    pageServer: PageServer,
+    tmp_path: pathlib.Path,
+    request: pytest.FixtureRequest,
+    caplog: pytest.LogCaptureFixture,
+    case: PromptCase,
+) -> None:
+    """The full clipper script with the user's --format and --format-sort, the real yt-dlp, the
+    answer typed at the prompt, and the clip that comes out."""
+    clipper.requireEncoder("libvpx-vp9")
+    # pytest's own root handler makes the clipper's logging.basicConfig a no-op, so set the
+    # clipper's default level (VERBOSE) here, as a real run has it.
+    caplog.set_level(15)
+    pageServer.unavailable = set(case.unavailable)
+    url = f"http://127.0.0.1:{pageServer.server_address[1]}/index.html"
+    name = "page-" + re.sub(r"[^a-z0-9]+", "-", request.node.callspec.id.lower()).strip("-")
+    output = clipper.cwd / "webms" / name
+    try:
+        markers = pageMarkers(tmp_path, url, name)
+        run = clipper.run(["--markers-json", str(markers), *OFFLINE_ARGS, *case.args], stdin=case.answer)
+        logs = "".join(log.read_text(encoding="utf-8") for log in output.glob("logs/*.log"))
+        print(run.stdout, run.stderr, logs)
+        # In process the log file may not be flushed yet, so the captured records count too.
+        # Compared without whitespace: the log wraps long lines, even inside an option name.
+        everything = re.sub(r"\s+", "", run.stdout + run.stderr + logs + caplog.text)
+        assert run.returncode == case.exitCode
+        if case.printed:
+            assert re.sub(r"\s+", "", case.printed) in everything
+        # The run asks exactly when a format fell back and --accept-lower-quality is not set.
+        asked = "Cannotdownloadformat" in everything and "--accept-lower-quality" not in case.args
+        assert asked == (case.answer is not None)
+        clips = list(output.glob("*.webm"))
+        if case.clipFrom is None:
+            assert not clips
+            return
+        (clip,) = clips
+        ffprobe = clipper.toolPath("ffprobe")
+        assert ffprobe is not None
+        stream = json.loads(subprocess.run(
+            [ffprobe, "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "json", str(clip)],
+            capture_output=True, text=True, check=True,
+        ).stdout)["streams"][0]  # fmt: skip
+        assert (stream["width"], stream["height"]) == PAGE_FORMATS[case.clipFrom]
+    finally:
+        pageServer.unavailable = set()
+        # A built clipper writes into its install folder, which must stay clean (see smoke_test.py).
+        shutil.rmtree(output, ignore_errors=True)
