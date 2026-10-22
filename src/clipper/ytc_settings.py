@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import re
 import sys
@@ -92,11 +93,19 @@ def setMarkersFileNames(settings: Settings) -> None:
 def loadSettingsFromMarkersJson(settings: Settings) -> None:
     markers_json_path = Path(settings["json"])
     with Path.open(markers_json_path, encoding="utf-8-sig") as file:
-        markersJson = file.read()
+        markersJson = ""
         try:
-            # NaN and Infinity become null, so validation reports them by field.
-            markersDict = json.loads(markersJson, parse_constant=lambda _constant: None)
-        except json.JSONDecodeError as e:
+            markersJson = file.read()
+            # NaN and Infinity become null, so validation reports them by field. So does a number
+            # too large for a float (1e400) or an int64 (a 400-digit integer).
+            markersDict = json.loads(
+                markersJson,
+                parse_constant=lambda _constant: None,
+                parse_float=lambda text: value if math.isfinite(value := float(text)) else None,
+                parse_int=lambda text: value if abs(value := int(text)) < 2**63 else None,
+            )
+        # Also a file that is not UTF-8, and an integer too long for Python to convert.
+        except ValueError as e:
             logger.critical(f"CRITICAL: Markers JSON file is invalid.\n    {e}")
             print()
             if markers_json_path.suffix != ".json":

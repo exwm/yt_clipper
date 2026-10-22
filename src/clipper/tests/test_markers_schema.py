@@ -28,6 +28,13 @@ def test_markup_saved_files_are_valid(path: Path) -> None:
     assert validation == markers_schema.MarkersValidation()
 
 
+@pytest.mark.parametrize("crop", ["0:0:960:540", "0:0:0960:0540", "0:0:1.5:1.25", "10.5:0:iw:ih", "0:0:1:1"])
+def test_crops_with_a_width_and_height_above_zero_are_valid(crop: str) -> None:
+    markers = kitchenSink()
+    markers["markerPairs"][0]["crop"] = crop
+    assert validate(markers) == markers_schema.MarkersValidation()
+
+
 def test_legacy_format_is_normalized() -> None:
     markers = json.loads((EXAMPLES_DIR / "legacy-markers-key.json").read_text(encoding="utf-8"))
     validate(markers)
@@ -119,6 +126,11 @@ def test_missing_required_setting_is_reported() -> None:
     [
         pytest.param(["crop"], "0:0:iw:ih,movie=C\\:/secret", id="crop filter injection"),
         pytest.param(["crop"], "0:NaN:1:NaN", id="NaN crop"),
+        pytest.param(["crop"], "0:0:0:540", id="zero crop width"),
+        pytest.param(["crop"], "0:0:960:0.0", id="zero crop height"),
+        pytest.param(["crop"], "0:0:0.4:1", id="crop width that rounds to zero"),
+        # Python's $ also matches before a final newline.
+        pytest.param(["crop"], "0:0:iw:ih\n", id="crop with a trailing newline"),
         pytest.param(["start"], None, id="NaN start"),
         pytest.param(["speed"], "1 -an", id="non-numeric speed"),
         pytest.param(["speed"], 0, id="zero speed"),
@@ -166,6 +178,45 @@ def test_loader_marks_invalid_pairs_and_keeps_numbering(tmp_path: Path) -> None:
     assert INVALID_MARKER_PAIR_KEY not in pairs[0]
     assert INVALID_MARKER_PAIR_KEY in pairs[1]
     assert INVALID_MARKER_PAIR_KEY in pairs[2]
+
+
+@pytest.mark.parametrize(
+    "number",
+    [
+        # Python reads 1e400 as infinity, which would pass a minimum.
+        pytest.param("1e400", id="too large for a float"),
+        # It reads a long integer exactly, which overflows later in float math.
+        pytest.param("9" * 401, id="too large for an int64"),
+    ],
+)
+def test_loader_marks_a_number_too_large_invalid(tmp_path: Path, number: str) -> None:
+    markers = kitchenSink()
+    markers["markerPairs"][0]["end"] = 99999
+    text = json.dumps(markers).replace('"end": 99999', f'"end": {number}', 1)
+    settings = writeMarkers(tmp_path, text)
+    ytc_settings.loadSettingsFromMarkersJson(settings)
+    assert INVALID_MARKER_PAIR_KEY in settings["markerPairs"][0]
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        pytest.param(b'{"markerPairs": [], "crf": 1', id="invalid JSON"),
+        pytest.param('{"titleSuffix": "José"}'.encode("cp1252"), id="not UTF-8"),
+        # Python refuses to convert an integer this long.
+        pytest.param(('{"crf": ' + "9" * 5000 + "}").encode(), id="integer too long to read"),
+    ],
+)
+def test_loader_stops_with_a_clear_error_on_an_unreadable_file(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    content: bytes,
+) -> None:
+    markers_json = tmp_path / "markers.json"
+    markers_json.write_bytes(content)
+    with pytest.raises(SystemExit):
+        ytc_settings.loadSettingsFromMarkersJson({"json": str(markers_json), "inputVideo": ""})
+    assert "Markers JSON file is invalid" in caplog.text
 
 
 def test_loader_keeps_every_valid_value(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
