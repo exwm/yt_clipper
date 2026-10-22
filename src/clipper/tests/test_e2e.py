@@ -52,8 +52,8 @@ class Clipper:
         capsys: pytest.CaptureFixture,
     ) -> None:
         self.exe = exe
-        # A built clipper finds its bin/ tools and default_args.txt (e.g. YouTube cookies) in the
-        # working folder, so it runs from its own, as the release's .bat helpers do.
+        # A built clipper runs from its own folder, as the release's .bat helpers do, and reads its
+        # default_args.txt (e.g. YouTube cookies).
         self.cwd = exe.parent if exe else tmp_path
         self.monkeypatch = monkeypatch
         self.capsys = capsys
@@ -78,8 +78,11 @@ class Clipper:
 
     def run(self, args: list[str], stdin: str | None = None) -> ClipperRun:
         if self.exe:
+            # Only the install's own settings: a shared yt_clipper_default_args.txt next to the
+            # installs would change the clips.
+            argFiles = ["--arg-files", str(self.exe.parent / "default_args.txt")]
             result = subprocess.run(
-                [str(self.exe), *args],
+                [str(self.exe), *argFiles, *args],
                 cwd=self.cwd,
                 input=stdin,
                 capture_output=True,

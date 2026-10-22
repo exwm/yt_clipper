@@ -1,3 +1,4 @@
+import codecs
 import io
 import json
 import shlex
@@ -282,27 +283,221 @@ CLI_TOOL_DIRS = {"ffmpegToolsDir": "cli-tools", "ytdlDir": "cli-ytdl"}
             id="frozen cli args",
         ),
         pytest.param(False, {}, "ffmpeg", "yt-dlp", id="system PATH"),
-        pytest.param(
-            True,
-            {},
-            "./bin/video-tools/ffmpeg",
-            "./bin/yt-dlp/yt-dlp",
-            id="frozen release layout",
-        ),
+        # The release's own tools, also when it runs from another folder.
+        pytest.param(True, {}, "{install}/bin/video-tools/ffmpeg", "{install}/bin/yt-dlp/yt-dlp", id="frozen release layout"),
     ],
 )
 def test_tool_dirs_come_from_cli_args_not_settings(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     frozen: bool,
     cli_args: dict[str, str],
     ffmpeg_prefix: str,
     ytdl_prefix: str,
 ) -> None:
+    install = tmp_path / "yt_clipper_win_5.49.0"
     monkeypatch.setattr("sys.frozen", frozen, raising=False)
+    monkeypatch.setattr("sys.executable", str(install / "yt_clipper.exe"))
+    monkeypatch.chdir(tmp_path)
     cs = ClipperState(settings={"ffmpegToolsDir": "settings-tools", "ytdlDir": "settings-ytdl"})
     setupClipperPaths(cs, cli_args)
-    assert cs.clipper_paths.ffmpegPath.startswith(ffmpeg_prefix)
-    assert cs.clipper_paths.ytdlPath.startswith(ytdl_prefix)
+
+    def asPath(path: str) -> str:
+        return Path(argvPath(path)).as_posix()
+
+    assert asPath(cs.clipper_paths.ffmpegPath).startswith(ffmpeg_prefix.format(install=install.resolve().as_posix()))
+    assert asPath(cs.clipper_paths.ytdlPath).startswith(ytdl_prefix.format(install=install.resolve().as_posix()))
+
+
+def test_minterp_enhancements_use_the_install_ffmpeg_ytc(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # The commands split the path again, so a Windows path must stay quoted with its backslashes.
+    install = tmp_path / "yt clipper" / "yt_clipper_win_5.49.0"
+    ytcPath = install / "bin" / "video-tools" / "ffmpeg_ytc.exe"
+    ytcPath.parent.mkdir(parents=True)
+    ytcPath.touch()
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", str(install / "yt_clipper.exe"))
+    monkeypatch.setattr(sys, "platform", "win32")
+    cs = ClipperState(settings={"enableMinterpEnhancements": True})
+    yt_clipper.enableMinterpEnhancements(cs)
+    assert Path(argvPath(cs.clipper_paths.ffmpegPath)) == ytcPath.resolve()
+
+
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        pytest.param(b"--cookies C:\\Users\\example\\cookies.txt\n", ["--cookies", "C:\\Users\\example\\cookies.txt"], id="plain"),
+        pytest.param("\ufeff--cookies C:\\Users\\example\\c.txt\n".encode(), ["--cookies", "C:\\Users\\example\\c.txt"], id="byte order mark"),
+        pytest.param(
+            b'--cookies "C:\\Users\\example\\My Files\\cookies.txt"\n',
+            ["--cookies", "C:\\Users\\example\\My Files\\cookies.txt"],
+            id="quoted path with a space",
+        ),
+        pytest.param("--cookies C:\\Users\\example\\Jos\u00e9\\c.txt\n".encode("cp1252"), None, id="not UTF-8"),
+        pytest.param(
+            codecs.BOM_UTF8 + "--cookies C:\\Users\\example\\Jos\u00e9\\c.txt\n".encode("cp1252"),
+            None,
+            id="not UTF-8 after a UTF-8 byte order mark",
+        ),
+        pytest.param(
+            codecs.BOM_UTF16_LE + "--cookies C:\\Users\\example\\Jos\u00e9\\c.txt\r\n".encode("utf-16-le"),
+            ["--cookies", "C:\\Users\\example\\Jos\u00e9\\c.txt"],
+            id="UTF-16, as Windows PowerShell 5.1 writes",
+        ),
+        pytest.param(b"# cookies\n--audio\n  # indented comment\n--overwrite\n", ["--audio", "--overwrite"], id="comments"),
+        pytest.param(
+            b'--title-suffix "a b\n--cookies "C:\\Users\\example\\x y\\c.txt"\n',
+            ["--title-suffix", '"a', "b", "--cookies", "C:\\Users\\example\\x y\\c.txt"],
+            id="unbalanced quote: that line read without quotes, the next with them",
+        ),
+        pytest.param(
+            b"--cookies C:\\Users\\example\\it's\\cookies.txt\n--title-suffix Don't\n",
+            ["--cookies", "C:\\Users\\example\\it's\\cookies.txt", "--title-suffix", "Don't"],
+            id="apostrophes are not quotes",
+        ),
+    ],
+)
+def test_settings_file_is_read_like_a_command_line(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    content: bytes,
+    expected: list[str] | None,
+) -> None:
+    settings = tmp_path / "default_args.txt"
+    settings.write_bytes(content)
+    args = argparser.readArgFile(settings)
+    if expected is None:
+        # Read in the system encoding, with a warning to save it as UTF-8.
+        assert args[0] == "--cookies"
+        assert "not saved as UTF-8" in capsys.readouterr().err
+    else:
+        assert args == expected
+
+
+def test_unreadable_settings_file_is_skipped_with_a_warning(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    # A folder stands in for a file that cannot be read (locked, or no permission).
+    assert argparser.readArgFile(tmp_path) == []
+    assert "so its settings are not used" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("fromInstall", [True, False], ids=["run from the install", "run from another folder"])
+@pytest.mark.parametrize("nested", [False, True], ids=["unzipped", "Extract All nested it in a same-named folder"])
+def test_release_finds_settings_files_next_to_its_folder(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    fromInstall: bool,
+    nested: bool,
+) -> None:
+    install = tmp_path / "yt_clipper_win_5.49.0"
+    if nested:
+        install = install / install.name
+    install.mkdir(parents=True)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", str(install / "yt_clipper.exe"))
+    monkeypatch.chdir(install if fromInstall else elsewhere)
+    # The shared file first, so the install's own settings override it.
+    expected = [str(tmp_path.resolve() / "yt_clipper_default_args.txt"), str(install.resolve() / "default_args.txt")]
+    if not fromInstall:
+        # The working folder's own default_args.txt still applies last, as before 5.49.
+        expected.append(str(elsewhere.resolve() / "default_args.txt"))
+    assert argparser.defaultArgFiles() == expected
+
+
+@pytest.mark.parametrize(
+    ("shared", "own", "key", "value"),
+    [
+        pytest.param("", '--extra-ffmpeg-args "-tune film"\n', "extraFfmpegArgs", "-tune film", id="a quoted value that starts with a dash"),
+        # argparse reads "-preset slow" alone as the short option -p, on the command line too.
+        pytest.param("", '--extra-ffmpeg-args="-preset slow"\n', "extraFfmpegArgs", "-preset slow", id="a quoted value like a short option, after ="),
+        pytest.param("", "-dn 2\n", "denoise", argparser.getDenoisePreset(2), id="a short option with a value"),
+        # The skipped option's value must not join the option before it, which takes several.
+        pytest.param("-S res --from-a-newer-version 5\n", "", "formatSort", ["res"], id="an unknown option's value"),
+    ],
+)
+def test_settings_file_values_reach_their_own_option(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    shared: str,
+    own: str,
+    key: str,
+    value: object,
+) -> None:
+    install = tmp_path / "yt_clipper_win_5.49.0"
+    install.mkdir()
+    (tmp_path / "yt_clipper_default_args.txt").write_text(shared, encoding="utf-8")
+    (install / "default_args.txt").write_text(own, encoding="utf-8")
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", str(install / "yt_clipper.exe"))
+    monkeypatch.setattr(sys, "argv", ["yt_clipper", "--markers-json", "markers.json"])
+    monkeypatch.chdir(install)
+    args, unknown, *_ = argparser.getArgs()
+    assert unknown == []
+    assert args[key] == value
+
+
+@pytest.mark.parametrize(
+    ("line", "kept"),
+    [
+        pytest.param("", [], id="empty"),
+        pytest.param("-di -dn 2", ["-di", "-dn", "2"], id="short options"),
+        pytest.param("--audio --from-a-newer-version 5", ["--audio"], id="an unknown option and its value"),
+        # Full option names only: a newer option that starts like a current one is neither read as
+        # that one nor ambiguous.
+        pytest.param("--audio --overwr", ["--audio"], id="a prefix of one option"),
+        pytest.param("--audio --video", ["--audio"], id="a prefix of several options"),
+        # argparse would read -fps 60 as -f ps, and -vx as -v (print the version and exit).
+        pytest.param("--audio -fps 60", ["--audio"], id="a short option that starts like -f"),
+        pytest.param("--audio -vx 2", ["--audio"], id="a short option that starts like -v"),
+        pytest.param("--new --audio-delay -0.5", ["--audio-delay", "-0.5"], id="a negative value"),
+        pytest.param('--new --extra-ffmpeg-args "-crf 20"', ["--extra-ffmpeg-args", "-crf 20"], id="a quoted value"),
+        pytest.param('--new --extra-ffmpeg-args="-crf 20"', ["--extra-ffmpeg-args=-crf 20"], id="a joined value"),
+        pytest.param('--new="a b" --audio', ["--audio"], id="an unknown option with a joined value"),
+    ],
+)
+def test_the_shared_settings_file_keeps_only_the_options_this_version_knows(
+    capsys: pytest.CaptureFixture[str], line: str, kept: list[str]
+) -> None:
+    # Every installed version reads the shared file, so an option only a newer version knows is
+    # skipped there with its values, instead of stopping the run.
+    tokens = argparser.splitArgLine(line)
+    assert argparser.knownSharedArgs(argparser.getArgParser(), tokens, "shared") == kept
+    assert ("options this version does not know" in capsys.readouterr().err) == (kept != tokens)
+
+
+@pytest.mark.parametrize(
+    ("shared", "own", "cli", "unknown"),
+    [
+        pytest.param("--audio --from-a-newer-version\n", "", [], [], id="in the shared file: skipped"),
+        pytest.param("--audio -vx 2\n", "", [], [], id="in the shared file, skipped before parsing"),
+        pytest.param("--audio\n", "--from-a-newer-version\n", [], ["--from-a-newer-version"], id="in the install's own file"),
+        pytest.param("--audio\n", "--overwr\n", [], ["--overwr"], id="a prefix in the install's own file"),
+        pytest.param("--audio\n", "", ["--overwr"], ["--overwr"], id="a prefix on the command line"),
+    ],
+)
+def test_an_option_only_a_newer_version_knows_is_skipped_only_in_the_shared_settings_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    shared: str,
+    own: str,
+    cli: list[str],
+    unknown: list[str],
+) -> None:
+    # An unknown option elsewhere stops the run.
+    install = tmp_path / "yt_clipper_win_5.49.0"
+    install.mkdir()
+    (tmp_path / "yt_clipper_default_args.txt").write_text(shared, encoding="utf-8")
+    (install / "default_args.txt").write_text(own, encoding="utf-8")
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", str(install / "yt_clipper.exe"))
+    monkeypatch.setattr(sys, "argv", ["yt_clipper", "--markers-json", "markers.json", *cli])
+    monkeypatch.chdir(install)
+    args, unknownArgs, *_ = argparser.getArgs()
+    assert unknownArgs == unknown
+    assert args["audio"]
+    # No abbreviation sets --overwrite, wherever it is written.
+    assert not args.get("overwrite", False)
 
 
 def test_missing_ytdlp_does_not_stop_the_run_start() -> None:
@@ -322,7 +517,7 @@ def test_startup_notices_failing_never_stop_the_run(tmp_path: Path, monkeypatch:
     monkeypatch.setattr(clip_maker, "makeClips", lambda _cs: [])
 
     def failingNotices() -> None:
-        raise PermissionError(13, "Access is denied", "D:\\other install")
+        raise PermissionError(13, "Access is denied", "D:\\example\\other install")
 
     monkeypatch.setattr(updates, "showStartupNotices", failingNotices)
     yt_clipper.main()

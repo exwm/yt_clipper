@@ -767,6 +767,9 @@ Some videos require sign-in before yt-dlp can download them (age-restricted or p
 Default arguments for the `clipper` script may be set using a simple file format.
 A `default_args.txt` file with comments explaining the usage is provided with the clipper script installation.
 Each install also reads `yt_clipper_default_args.txt` in the folder that holds it, so settings in that file carry over when you install a new version next to the old one.
+An install's own `default_args.txt` overrides it when both set the same option.
+A version skips an option in `yt_clipper_default_args.txt` that it does not know, with a warning (versions before 5.49 stop on it).
+Write options as on the command line, with their full names. Join a value that starts with `-` with `=`, for example `--extra-ffmpeg-args="-preset slow"`.
 The file contents are copied below for convenience:
 
 ```txt
@@ -778,9 +781,10 @@ The file contents are copied below for convenience:
 # Each new version unzips to a new folder, and its own copy of this file starts empty.
 # For settings every version should use (e.g. --cookies), put them in yt_clipper_default_args.txt
 # in the folder that holds your yt_clipper install folders. Every install reads that file first,
-# then this one, so a setting here overrides the same setting there. Older versions read that file
-# too and stop on an option they do not know, so put options new in this version here instead.
-# Versions before 5.49 also do not accept quoted paths in that file.
+# then this one, so a setting here overrides the same setting there. Versions from 5.49 on skip an
+# option in that file they do not know, with a warning. Older versions stop on it, and every version
+# stops on a value it does not know (e.g. a new --video-codec). Put options and values new in this
+# version here instead. Versions before 5.49 also do not accept quotes in that file.
 
 
 # The following commented lines provide an example of how to use this file.
