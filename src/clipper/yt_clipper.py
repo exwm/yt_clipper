@@ -3,6 +3,7 @@
 import io
 import os
 import shlex
+import subprocess
 import sys
 from collections.abc import Mapping
 from pathlib import Path
@@ -28,6 +29,8 @@ from clipper.ytc_logger import Subsystem, make_subsystem_logger
 from clipper.ytdl import ytdl_bin_get_version
 
 logger = make_subsystem_logger(Subsystem.CLI)
+# The programs a release bundles in bin/, by file name prefix.
+BUNDLED_TOOLS = ("ffmpeg", "ffprobe", "ffplay", "yt-dlp", "video2x", "deno")
 
 UNKNOWN_PROPERTY = "unknown"
 
@@ -89,7 +92,7 @@ def main() -> None:
     )
     logger.report(f"yt_clipper version: {__version__}")
     logger.report(
-        f"yt-dlp version: {ytdl_bin_get_version(cs.clipper_paths)}",
+        f"yt-dlp version: {describeYtdlVersion(cs.clipper_paths)}",
     )
     logger.report(f"{getFfmpegVersion(cs.clipper_paths.ffmpegPath)}", extra={"highlighter": None})
     if cs.clipper_paths.logFilePath:
@@ -105,7 +108,11 @@ def main() -> None:
     elif argFiles:
         logger.notice(f"No uncommented arguments were found in {argFiles}")
         logger.rule(title="Setup")
-    updates.showStartupNotices()
+    try:
+        updates.showStartupNotices()
+    except Exception as error:
+        # The notices only help; a run never stops over them.
+        logger.debug(f"Skipped the startup notices: {error!r}")
 
     if unknown:
         parser = argparser.getArgParser()
@@ -118,26 +125,7 @@ def main() -> None:
 
     enableMinterpEnhancements(cs)
 
-    # Ctrl+C during any of setup / clipping bubbles up here as
-    # ``KeyboardInterrupt``. We catch it at the top level so the
-    # operator gets a clean ``cancelled by user`` NOTICE plus the
-    # partial timing + summary report (showing what got done before
-    # the interrupt) instead of a Python traceback. The pair_context
-    # contextvar is still set on the current pair so the chip on the
-    # NOTICE line names which pair was being worked on.
-    exit_code = 0
-    try:
-        ytc_settings.getInputVideo(cs)
-        ytc_settings.getGlobalSettings(cs)
-
-        logger.rule(title="Clipping")
-        if not cs.settings["preview"]:
-            clip_maker.makeClips(cs)
-        else:
-            clip_maker.previewClips(cs)
-    except KeyboardInterrupt:
-        logger.critical("cancelled by user (Ctrl+C)")
-        exit_code = 130  # standard shell convention for SIGINT termination
+    exit_code, failedClips = runClipping(cs)
 
     # Emit per-stage timing block before the Summary Report so it
     # lands in the report stream and the on-disk log file alongside
@@ -158,6 +146,85 @@ def main() -> None:
 
     if cs.settings["notifyOnCompletion"]:
         util.notifyOnComplete(cs.settings["titleSuffix"])
+
+    # A failed clip makes the whole run fail, so scripts and scheduled runs can tell.
+    if failedClips:
+        logger.error(f"Failed to generate: {', '.join(failedClips)}.")
+        sys.exit(1)
+
+
+def describeYtdlVersion(cp: ClipperPaths) -> str:
+    """yt-dlp's version for the log; a local input video needs no yt-dlp, so a missing one only
+    shows here."""
+    try:
+        return ytdl_bin_get_version(cp)
+    except (OSError, subprocess.CalledProcessError) as error:
+        return f"unavailable ({error})"
+
+
+# On Windows a program that cannot start raises with no file name, unlike a file that cannot open:
+# not found, path not found, access denied, not a program, not for this Windows, blocked by
+# antivirus or group policy, or by Smart App Control.
+CANNOT_START_WINERRORS = {2, 3, 5, 193, 216, 225, 226, 1260, 4551}
+
+
+def describeOsError(error: OSError) -> str:
+    """The message for a tool that cannot start (missing, or blocked by antivirus or a firewall) or a
+    file that cannot be opened."""
+    name = Path(str(error.filename)).name if error.filename else ""
+    hint = " Check that it is in the bin folder." if name.startswith(BUNDLED_TOOLS) else ""
+    cannotStart = not name and getattr(error, "winerror", None) in CANNOT_START_WINERRORS
+    if name:
+        return f"{name}: {error.strerror or error}.{hint}"
+    if cannotStart:
+        # Some of these messages name the program as a literal %1.
+        reason = str(error.strerror or error).replace("%1", "the program")
+        return (
+            f"A program the clipper runs could not start: {reason}. "
+            "Check that ffmpeg, ffprobe and yt-dlp are in the bin folder."
+        )
+    return f"{error.strerror or error}."
+
+
+def runClipping(cs: ClipperState) -> tuple[int, list[str]]:
+    """Get the video and make the clips. Return the exit code and the clips that failed."""
+    # Ctrl+C during any of setup / clipping bubbles up here as
+    # ``KeyboardInterrupt``. We catch it at the top level so the
+    # operator gets a clean ``cancelled by user`` NOTICE plus the
+    # partial timing + summary report (showing what got done before
+    # the interrupt) instead of a Python traceback. The pair_context
+    # contextvar is still set on the current pair so the chip on the
+    # NOTICE line names which pair was being worked on.
+    try:
+        ytc_settings.getInputVideo(cs)
+        ytc_settings.getGlobalSettings(cs)
+
+        logger.rule(title="Clipping")
+        if cs.settings["preview"]:
+            clip_maker.previewClips(cs)
+            return 0, []
+        return 0, clip_maker.makeClips(cs)
+    except KeyboardInterrupt:
+        logger.critical("cancelled by user (Ctrl+C)")
+        return 130, []  # standard shell convention for SIGINT termination
+    except OSError as error:
+        logger.error(describeOsError(error))
+        return 1, []
+    except subprocess.CalledProcessError as error:
+        # The tool printed its own error above, so name it instead of showing a traceback.
+        command = error.cmd if isinstance(error.cmd, (list, tuple)) else shlex.split(str(error.cmd))
+        logger.error(
+            f"{Path(command[0]).name} failed with exit code {error.returncode}. See its messages above.",
+        )
+        return 1, []
+    except EOFError:
+        # A prompt read the end of input: no one can answer, for example in a scheduled run.
+        logger.error("No answer to the prompt above, so the clipper script stopped.")
+        return 1, []
+    except Exception:
+        # Log the traceback so the run's log file has it for a bug report, and still print the report.
+        logger.error("Unexpected error. Please report it with this run's log file.", exc_info=True)
+        return 1, []
 
 
 def setupClipperPaths(cs: ClipperState, cli_args: Mapping[str, Any]) -> None:
