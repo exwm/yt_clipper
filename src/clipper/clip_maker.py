@@ -828,7 +828,7 @@ def makeClip(  # noqa: PLR0912
     if not (1 <= len(ffmpegCommands) <= 2):  # pylint: disable=superfluous-parens
         logger.error(f"ffmpeg command could not be built.\n")
         logger.error(f"Failed to generate: {LogPath(mp['fileName'])}\n")
-        return {**(settings["markerPairs"][markerPairIndex])}
+        return None
 
     if not v2x_enabled:
         return runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp)
@@ -1154,8 +1154,11 @@ def runffplayCommand(
         subprocess.run(shlex.split(ffplayCommand), check=True)
 
 
-def mergeClips(cs: ClipperState) -> None:  # noqa: PLR0912
+def mergeClips(cs: ClipperState) -> List[str]:  # noqa: PLR0912
+    """Make each merged clip, and return the merges whose ffmpeg failed. A merge skipped for a
+    missing clip is not counted: with --only, the other clips are missing on purpose."""
     settings = cs.settings
+    failedMerges = []
     cp = cs.clipper_paths
 
     print()
@@ -1177,7 +1180,12 @@ def mergeClips(cs: ClipperState) -> None:  # noqa: PLR0912
                         f"Required marker pair {i} failed to generate with error code {markerPair['returncode']}.",
                     )
                     logger.warning(f"This may be a false positive.")
-                    ans = input(r"Would you like to continue merging anyway? (y/n): ")
+                    try:
+                        ans = input(r"Would you like to continue merging anyway? (y/n): ")
+                    except EOFError:
+                        # No one to answer, for example a scheduled run.
+                        logger.warning("No answer to the prompt, so the merge is skipped.")
+                        ans = ""
                     if ans not in {"yes", "y"}:
                         raise BadMergeInput
                     logger.warning(f"Continuing with merge despite possible bad input.")
@@ -1261,6 +1269,7 @@ def mergeClips(cs: ClipperState) -> None:  # noqa: PLR0912
             else:
                 logger.info(f"Failed to generate: {merged_file_log}\n")
                 logger.error(f"ffmpeg error code: {ffmpegProcess.returncode}\n")
+                failedMerges.append(f"merge {merge}")
 
         if mergedClipReady and settings.get("previewFormat", "none") != "none":
             previewPaths = [
@@ -1278,6 +1287,8 @@ def mergeClips(cs: ClipperState) -> None:  # noqa: PLR0912
 
         with contextlib.suppress(OSError, FileNotFoundError):
             os.remove(inputsTxtPath)  # noqa: PTH107
+
+    return failedMerges
 
 
 def checkClipExists(
@@ -1456,7 +1467,8 @@ def recordEncodeResult(
         settings["markerPairs"][markerPairIndex] = result
 
 
-def makeClips(cs: ClipperState) -> None:  # noqa: PLR0912
+def makeClips(cs: ClipperState) -> List[str]:  # noqa: PLR0912
+    """Make the queued clips and merges, and return the ones that failed."""
     settings = cs.settings
 
     nMarkerPairs = len(settings["markerPairs"])
@@ -1579,8 +1591,14 @@ def makeClips(cs: ClipperState) -> None:  # noqa: PLR0912
             # source.
             make_subsystem_logger(Subsystem.SAMPLE_ENCODE).report(aggregateBlock)
 
+    failed = [
+        f"marker pair {i + 1}"
+        for i in sorted(markerPairQueue)
+        if settings["markerPairs"][i].get("returncode", 0) != 0
+    ]
     if settings["markerPairMergeList"] != "":
-        mergeClips(cs)
+        failed += mergeClips(cs)
+    return failed
 
 
 def generatePreviewForMarkerPair(cs: ClipperState, markerPairIndex: int) -> None:
