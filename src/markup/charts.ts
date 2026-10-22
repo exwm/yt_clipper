@@ -60,6 +60,7 @@ import { triggerCropPreviewRedraw } from './crop/crop-preview';
 import {
   bakeCinematicPath,
   CinematicMargins,
+  cropPathSignature,
   DEFAULT_CINEMATIC_MARGIN,
   DEFAULT_CINEMATIC_ZOOM_MARGIN,
   evalCropPathAtTime,
@@ -72,12 +73,13 @@ import {
   EasingCropPoint,
   cropInterpolationSectionAtTime,
   findCropKeyframeAtTime,
-  getEasedCropComponentsAtTime,
   getSectionEasedCropComponents,
   nextKeyframeIndex,
 } from './crop/crop-keyframe-math';
 import { isReframeEnabled, syncReframe } from './crop/video-zoom-controller';
+import { featureFlags } from './feature-flags';
 import { renderMarkerPair } from './markers';
+import { isDraggingChartPoint } from './ui/chart/chart.js-drag-data-plugin';
 import { roundX, sortX } from './ui/chart/chartPrimitives';
 import { updateCharts } from './ui/chart/chartutil';
 import { speedChartSpec } from './ui/chart/speedchart/speedChartSpec';
@@ -816,25 +818,7 @@ export function cropChartPreviewHandler(loop = true, frameTime?: number) {
         }
       }
 
-      // Show the live interpolated crop at the playhead next to the point, copyable. textContent
-      // only, so it is safe in the per-frame loop.
-      if (interpCropSpan) {
-        const cc = getCurrentCropComponents();
-        if (cc) {
-          // Round to integer pixels so it matches the crop input (which stores integer crops),
-          // and show rotated coordinates while previewing a rotation, matching setCropInputValue.
-          let interpCropString = getCropString(
-            Math.round(cc[0]),
-            Math.round(cc[1]),
-            Math.round(cc[2]),
-            Math.round(cc[3])
-          );
-          if (appState.rotation !== 0) interpCropString = getRotatedCropString(interpCropString);
-          if (interpCropSpan.textContent !== interpCropString) {
-            interpCropSpan.textContent = interpCropString;
-          }
-        }
-      }
+      updateInterpCropSpan();
 
       updateDynamicCropOverlays(chartData, time, isDynamicCrop);
       // The reframe canvas loop refreshes the transform every frame, so no syncReframe needed here.
@@ -848,6 +832,25 @@ export function cropChartPreviewHandler(loop = true, frameTime?: number) {
         cropChartPreviewHandler(loop, metadata?.mediaTime);
       });
     }
+  }
+}
+// Show the live interpolated crop at the playhead next to the point, copyable. textContent only, so
+// it is safe in the per-frame loop.
+function updateInterpCropSpan(): void {
+  if (!interpCropSpan) return;
+  const cc = getCurrentCropComponents();
+  if (!cc) return;
+  // Round to integer pixels so it matches the crop input (which stores integer crops), and show
+  // rotated coordinates while previewing a rotation, matching setCropInputValue.
+  let interpCropString = getCropString(
+    Math.round(cc[0]),
+    Math.round(cc[1]),
+    Math.round(cc[2]),
+    Math.round(cc[3])
+  );
+  if (appState.rotation !== 0) interpCropString = getRotatedCropString(interpCropString);
+  if (interpCropSpan.textContent !== interpCropString) {
+    interpCropSpan.textContent = interpCropString;
   }
 }
 export function setCurrentCropPointWithCurrentTime() {
@@ -897,7 +900,10 @@ export function getDynamicCropComponents(): [number, number, number, number] | n
 // subject without stalling at points and without overshooting one on a reversal. Smooth track needs
 // the section's neighbors, which the callers below pass in.
 function getActiveCropPointEasing(): CropPointEasing {
-  const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+  return getCropPointEasing(appState.markerPairs[appState.prevSelectedMarkerPairIndex]);
+}
+
+function getCropPointEasing(markerPair: MarkerPair | undefined): CropPointEasing {
   return (
     markerPair?.overrides?.cropPointEasing ??
     appState.settings.cropPointEasing ??
@@ -911,7 +917,10 @@ function toEasingCropPoint(point: CropPoint): EasingCropPoint {
 
 // The cinematic margins for the active pair: per-pair override, else global, else default.
 function getActiveCinematicMargins(): CinematicMargins {
-  const mp = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+  return getCinematicMargins(appState.markerPairs[appState.prevSelectedMarkerPairIndex]);
+}
+
+function getCinematicMargins(mp: MarkerPair | undefined): CinematicMargins {
   return {
     pos:
       mp?.overrides?.cropPointEasingCinematicMargin ??
@@ -932,18 +941,48 @@ const cinematicPaths = new WeakMap<MarkerPair, CropPath>();
 function getActiveCinematicCrop(): [number, number, number, number] | null {
   const mp = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
   const path = mp && cinematicPaths.get(mp);
-  if (!path) return null;
-  const { cropResWidth, cropResHeight } = appState.settings;
-  if (
-    !isCropPathFresh(path, mp.cropMap, getActiveCinematicMargins(), cropResWidth, cropResHeight)
-  ) {
+  if (!path) {
+    // After a failed solve, a frame rate change is new input, as below. The failed inputs
+    // themselves are not solved again.
+    if (mp && failedCinematicSignatures.has(mp) && cinematicRecomputeTimer === undefined) {
+      scheduleCinematicRecompute();
+    }
     return null;
   }
-  const firstTime = mp.cropMap[0]?.x ?? 0;
-  return evalCropPathAtTime(path, currentCropTime() - firstTime);
+  const { cropResWidth, cropResHeight } = appState.settings;
+  if (
+    !isCropPathFresh(
+      path,
+      mp.cropMap,
+      getActiveCinematicMargins(),
+      cropResWidth,
+      cropResHeight,
+      getFPS()
+    )
+  ) {
+    // Stale without an edit (the video's frame rate changed with its quality): nothing else would
+    // solve it again. Only when no solve is pending, so frames during playback cannot postpone one.
+    if (cinematicRecomputeTimer === undefined) scheduleCinematicRecompute();
+    return null;
+  }
+  return evalCinematicCrop(mp, path, currentCropTime());
+}
+
+// The fitted x and w (or y and h) can each be a fraction of a pixel off, so between samples the crop
+// can pass the frame edge by a pixel or so. ffmpeg's crop and zoompan clamp the render there.
+function evalCinematicCrop(
+  mp: MarkerPair,
+  path: CropPath,
+  time: number
+): [number, number, number, number] {
+  const [x, y, w, h] = evalCropPathAtTime(path, time - (mp.cropMap[0]?.x ?? 0));
+  const { cropResWidth, cropResHeight } = appState.settings;
+  return [clampNumber(x, 0, cropResWidth - w), clampNumber(y, 0, cropResHeight - h), w, h];
 }
 
 let cinematicRecomputeTimer: ReturnType<typeof setTimeout> | undefined;
+// Per pair, the inputs of its last solve if that solve failed.
+const failedCinematicSignatures = new WeakMap<MarkerPair, string>();
 // How long the crop points must sit unchanged before the (heavy, global) L1 solve runs. Every edit
 // resets this, so the solve runs once, after editing settles, not during it.
 const CINEMATIC_RECOMPUTE_DEBOUNCE_MS = 350;
@@ -955,21 +994,26 @@ const CINEMATIC_RECOMPUTE_DEBOUNCE_MS = 350;
 // runs here, off the timer.
 export function scheduleCinematicRecompute(): void {
   if (typeof window === 'undefined') return;
-  if (getActiveCropPointEasing() !== 'cinematic') return;
+  if (getActiveCropPointEasing() !== 'cinematic') {
+    interpCropSpan?.setAttribute('data-cinematic-segments', '0');
+    return;
+  }
   const mp = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
   if (!mp) return;
   const { cropResWidth, cropResHeight } = appState.settings;
-  if (
-    isCropPathFresh(
-      cinematicPaths.get(mp),
-      mp.cropMap,
-      getActiveCinematicMargins(),
-      cropResWidth,
-      cropResHeight
-    )
-  ) {
+  const margins = getActiveCinematicMargins();
+  const fps = getFPS();
+  const path = cinematicPaths.get(mp);
+  if (path && isCropPathFresh(path, mp.cropMap, margins, cropResWidth, cropResHeight, fps)) {
+    // A reopened editor has a new crop chip, without the count of the path it still shows.
+    interpCropSpan?.setAttribute('data-cinematic-segments', String(path.segments.length));
     return;
   }
+  // The shown count is for a path that no longer applies.
+  interpCropSpan?.setAttribute('data-cinematic-segments', '0');
+  // Inputs that already failed fail again: wait for an edit instead of retrying after each one.
+  const signature = cropPathSignature(mp.cropMap, margins, cropResWidth, cropResHeight, fps);
+  if (failedCinematicSignatures.get(mp) === signature) return;
   clearTimeout(cinematicRecomputeTimer);
   cinematicRecomputeTimer = setTimeout(
     recomputeActiveCinematicPath,
@@ -978,27 +1022,59 @@ export function scheduleCinematicRecompute(): void {
 }
 
 function recomputeActiveCinematicPath(): void {
+  cinematicRecomputeTimer = undefined;
   const mp = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
   if (!mp || getActiveCropPointEasing() !== 'cinematic') return;
   // Never solve mid-manipulation (the drag/draw end re-schedules), matching the loop-safety rules.
-  if (isMouseManipulatingCrop || isDrawingCrop) {
+  if (isMouseManipulatingCrop || isDrawingCrop || isDraggingChartPoint()) {
     scheduleCinematicRecompute();
     return;
   }
   const { cropResWidth, cropResHeight } = appState.settings;
   const margins = getActiveCinematicMargins();
-  if (isCropPathFresh(cinematicPaths.get(mp), mp.cropMap, margins, cropResWidth, cropResHeight)) {
+  // The cuts land on frame boundaries, as the render's do.
+  const fps = getFPS();
+  if (
+    isCropPathFresh(cinematicPaths.get(mp), mp.cropMap, margins, cropResWidth, cropResHeight, fps)
+  ) {
     return;
   }
   const startMs = performance.now();
-  const path = bakeCinematicPath(mp.cropMap, margins, cropResWidth, cropResHeight);
+  let path: ReturnType<typeof bakeCinematicPath>;
+  try {
+    path = bakeCinematicPath(mp.cropMap, margins, cropResWidth, cropResHeight, fps);
+  } catch (error) {
+    // Without a path the preview uses Smooth Track, as the clipper does when it cannot solve.
+    console.error('Cinematic path solve failed', error);
+    cinematicPaths.delete(mp);
+    failedCinematicSignatures.set(
+      mp,
+      cropPathSignature(mp.cropMap, margins, cropResWidth, cropResHeight, fps)
+    );
+    interpCropSpan?.setAttribute('data-cinematic-segments', '0');
+    refreshCropPreview();
+    flashMessage('Could not compute the Cinematic path, so the preview uses Smooth Track.', 'red');
+    return;
+  }
   const elapsedMs = Math.round(performance.now() - startMs);
   if (path) cinematicPaths.set(mp, path);
   else cinematicPaths.delete(mp);
-  triggerCropPreviewRedraw();
-  if (path) {
+  failedCinematicSignatures.delete(mp);
+  // The UI tests wait on this.
+  interpCropSpan?.setAttribute('data-cinematic-segments', String(path?.segments.length ?? 0));
+  refreshCropPreview();
+  if (path && featureFlags.cinematicSolveStats) {
     flashMessage(`Cinematic path: ${path.segments.length} segments in ${elapsedMs}ms`, 'green');
   }
+}
+
+// The frame loops redraw the crop only when a frame is presented, so after a solve or an easing
+// change while paused, redraw it at the current time. Without a seek, unlike triggerCropChartUpdates.
+export function refreshCropPreview(): void {
+  updateInterpCropSpan();
+  refreshDynamicCropOverlays();
+  if (isReframeEnabled()) syncReframe(getCurrentCropComponents());
+  triggerCropPreviewRedraw();
 }
 
 export function getEasedCropComponents(
@@ -1163,16 +1239,19 @@ export function autoKeyCurrentCropPoint(): void {
   const cc = getCurrentCropComponents();
   if (!cc) return;
   // cc is the interpolated crop (float); snap it to a valid stored crop (whole pixels, clamped,
-  // shared AR) via setCropStringSafe, the same path the chart keyframe edits use.
+  // shared AR) via setCropStringSafe, the same path the chart keyframe edits use. Round first:
+  // setCropStringSafe truncates, and an eased size can land a hair under the integer (99.999...),
+  // which would shrink the point by a pixel and make a pan a zoom.
+  const [cx, cy, cw, ch] = cc.map(Math.round);
   const safeCrop = new Crop(
-    cc[0],
-    cc[1],
-    cc[2],
-    cc[3],
+    cx,
+    cy,
+    cw,
+    ch,
     appState.settings.cropResWidth,
     appState.settings.cropResHeight
   );
-  safeCrop.setCropStringSafe(getCropString(cc[0], cc[1], cc[2], cc[3]), pair.enableZoomPan);
+  safeCrop.setCropStringSafe(getCropString(cx, cy, cw, ch), pair.enableZoomPan);
   const crop = safeCrop.cropString;
   const x = roundX(time);
   const existingIndex = cropMap.findIndex((p) => p.x === x);
@@ -1346,20 +1425,46 @@ export function refreshDynamicCropOverlays() {
   const cropMap = markerPair.cropMap;
   updateDynamicCropOverlays(cropMap, appState.video.getCurrentTime(), !isStaticCrop(cropMap));
 }
-export function getInterpolatedCrop(sectStart: CropPoint, sectEnd: CropPoint, time: number) {
-  const start = getCropComponents(sectStart.crop);
-  // A zero-duration section has nothing to ease: hold the start crop.
+// The crop the preview shows at a time in the section from cropMap[start] to cropMap[start + 1],
+// with the marker pair's easing.
+export function getInterpolatedCrop(
+  markerPair: MarkerPair,
+  cropMap: CropPoint[],
+  start: number,
+  time: number
+) {
+  const easing = getCropPointEasing(markerPair);
+  const { cropResWidth, cropResHeight } = appState.settings;
+  const fps = getFPS();
+  const path = cinematicPaths.get(markerPair);
+  const solved =
+    easing === 'cinematic' &&
+    path &&
+    isCropPathFresh(
+      path,
+      markerPair.cropMap,
+      getCinematicMargins(markerPair),
+      cropResWidth,
+      cropResHeight,
+      fps
+    )
+      ? evalCinematicCrop(markerPair, path, time)
+      : null;
+  const neighbor = (index: number) => cropMap[index] && toEasingCropPoint(cropMap[index]);
   const [x, y, w, h] =
-    getEasedCropComponentsAtTime(
-      start,
-      getCropComponents(sectEnd.crop),
-      sectStart.x,
-      sectEnd.x,
-      sectEnd.easeIn,
+    solved ??
+    getSectionEasedCropComponents(
+      easing,
+      toEasingCropPoint(cropMap[start]),
+      toEasingCropPoint(cropMap[start + 1]),
+      neighbor(start - 1),
+      neighbor(start + 2),
       time,
-      getFPS()
-    ) ?? start;
-  return getCropString(x, y, w, h);
+      fps,
+      { width: cropResWidth, height: cropResHeight }
+    );
+  // Whole pixels, as stored crops are: see autoKeyCurrentCropPoint.
+  return getCropString(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
 }
 export function cropChartSectionLoop() {
   // Seek back to keep the playhead inside the selected crop-chart section (opt-in looping).

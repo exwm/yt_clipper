@@ -25,7 +25,8 @@ PAN_PAIR = {
     ],
 }
 OTHER_PAIR = {"start": 12, "end": 14}
-# Between the first two points, where the modes ease differently.
+# Between the first two points, where the modes ease differently. A frame of the 30 fps test video,
+# so a paused redraw at the current time matches the frame on screen.
 BETWEEN_POINTS_TIME = 3.6
 
 
@@ -55,6 +56,47 @@ def test_saving_keeps_a_pairs_own_easing_only_when_it_overrides_the_global_setti
     when_i_choose_easing(dynamic_pan, "smoothInOut")
     saved = when_i_save_the_markers(dynamic_pan)
     then_the_saved_easing_is(saved, "smoothTrack", ["smoothInOut", None])
+
+
+def test_moving_the_start_marker_between_points_keeps_the_previewed_crop(
+    dynamic_pan: MarkupPage,
+) -> None:
+    previewed = previewed_crop_x_at(dynamic_pan, BETWEEN_POINTS_TIME)
+    when_i_move_the_start_marker_to_the_current_time(dynamic_pan)
+    saved = when_i_save_the_markers(dynamic_pan)
+    then_the_first_crop_point_is_at(saved, BETWEEN_POINTS_TIME, previewed)
+
+
+def test_moving_the_start_marker_keeps_a_pans_crop_size(dynamic_pan: MarkupPage) -> None:
+    # At 3.125 s (the dev site reports 60 fps) Smooth Track eases the unchanged size to 959.999...,
+    # which was once stored as 959: the pan then rendered as a zoom.
+    previewed_crop_x_at(dynamic_pan, 3.125)
+    when_i_move_the_start_marker_to_the_current_time(dynamic_pan)
+    saved = when_i_save_the_markers(dynamic_pan)
+    then_every_crop_point_has_the_size(saved, "960:540")
+
+
+def test_a_paused_preview_shows_the_cinematic_path_once_it_is_solved(
+    dynamic_pan: MarkupPage,
+) -> None:
+    smooth_track = previewed_crop_x_at(dynamic_pan, BETWEEN_POINTS_TIME)
+    when_i_choose_easing(dynamic_pan, "cinematic")
+    then_a_cinematic_path_is_baked(dynamic_pan)
+    paused = shown_crop_x(dynamic_pan)
+    cinematic = previewed_crop_x_at(dynamic_pan, BETWEEN_POINTS_TIME)
+    then_the_crops_differ(dynamic_pan, smooth_track, cinematic)
+    then_the_crops_match(dynamic_pan, paused, cinematic)
+
+
+def test_a_paused_preview_follows_a_cinematic_margin_change(dynamic_pan: MarkupPage) -> None:
+    when_i_choose_easing(dynamic_pan, "cinematic")
+    then_a_cinematic_path_is_baked(dynamic_pan)
+    before = previewed_crop_x_at(dynamic_pan, BETWEEN_POINTS_TIME)
+    when_i_set_the_cinematic_margin(dynamic_pan, "300")
+    then_the_shown_crop_changes_from(dynamic_pan, before)
+    then_the_crops_match(
+        dynamic_pan, shown_crop_x(dynamic_pan), previewed_crop_x_at(dynamic_pan, BETWEEN_POINTS_TIME)
+    )
 
 
 def test_cinematic_bakes_a_path_and_its_gear_shows_the_current_margins(
@@ -109,6 +151,12 @@ def when_i_save_the_markers(markup: MarkupPage) -> dict:
 
 
 @step
+def when_i_move_the_start_marker_to_the_current_time(markup: MarkupPage) -> None:
+    markup.page.evaluate("() => document.activeElement?.blur()")
+    markup.press("Shift+KeyQ")
+
+
+@step
 def when_i_reopen_the_pair(markup: MarkupPage) -> None:
     markup.open_marker_pair(1)
     markup.page.wait_for_function(
@@ -152,6 +200,35 @@ def then_the_crops_differ(markup: MarkupPage, first: float, second: float) -> No
 
 
 @step
+def then_the_shown_crop_changes_from(markup: MarkupPage, x: float) -> None:
+    # The new solve redraws the paused preview, without a seek.
+    markup.page.wait_for_function(
+        "x => parseFloat(document.querySelector('#interp-crop-value').textContent) !== x",
+        arg=x,
+        timeout=5000,
+    )
+
+
+@step
+def then_the_crops_match(markup: MarkupPage, first: float, second: float) -> None:
+    markup.report(f"crop x {first} vs {second}")
+    assert abs(first - second) < 1
+
+
+@step
+def then_the_first_crop_point_is_at(saved: dict, time: float, x: float) -> None:
+    first = saved["markerPairs"][0]["cropMap"][0]
+    assert first["x"] == pytest.approx(time, abs=0.05)
+    assert float(first["crop"].split(":")[0]) == pytest.approx(x, abs=1)
+
+
+@step
+def then_every_crop_point_has_the_size(saved: dict, size: str) -> None:
+    sizes = {point["crop"].split(":", 2)[2] for point in saved["markerPairs"][0]["cropMap"]}
+    assert sizes == {size}
+
+
+@step
 def then_the_easing_select_shows(markup: MarkupPage, mode: str) -> None:
     assert markup.page.locator(EASING_SELECT).input_value() == mode
 
@@ -174,8 +251,12 @@ def then_the_cinematic_gear_is_hidden(markup: MarkupPage) -> None:
 @step
 def then_a_cinematic_path_is_baked(markup: MarkupPage) -> None:
     assert markup.page.locator(GEAR_BUTTON).is_visible()
-    # The bake runs after edits settle and reports itself in a flash message.
-    markup.page.get_by_text("Cinematic path:").first.wait_for(timeout=5000)
+    # The bake runs after edits settle and records its segment count on the crop chip.
+    markup.page.wait_for_selector(
+        "#interp-crop-value[data-cinematic-segments]:not([data-cinematic-segments='0'])",
+        state="attached",
+        timeout=5000,
+    )
 
 
 @step
@@ -204,5 +285,10 @@ def previewed_crop_x_at(markup: MarkupPage, seconds: float) -> float:
     markup.seek(PAN_PAIR["start"])
     markup.seek(seconds)
     markup.next_frames(3)
+    return shown_crop_x(markup)
+
+
+def shown_crop_x(markup: MarkupPage) -> float:
+    """The crop chip's crop x as it is now, without presenting a new frame."""
     chip = markup.page.locator("#interp-crop-value").inner_text()
     return float(chip.split(":")[0])

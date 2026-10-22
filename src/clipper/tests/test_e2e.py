@@ -21,6 +21,7 @@ from fractions import Fraction
 
 import pytest
 
+from clipper import clip_maker
 from clipper.ffmpeg_filter import getSpeedFilterAndDuration
 from clipper.yt_clipper import main
 
@@ -270,6 +271,42 @@ def runInItsOwnProcess(clipper: Clipper, args: list[str]) -> int:
         return clipper.run(args).returncode
     command = [sys.executable, "-m", "clipper.yt_clipper", *args]
     return subprocess.run(command, cwd=clipper.cwd, capture_output=True, check=False).returncode
+
+
+def test_cinematic_solve_failing_renders_as_smooth_track(
+    clipper: Clipper,
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A Cinematic pair whose path cannot be solved still makes its clip, with Smooth Track."""
+    if clipper.exe:
+        pytest.skip("patches the solver in process")
+    clipper.requireEncoder("libvpx-vp9")
+
+    def failingSolve(*_args: object) -> None:
+        raise RuntimeError("solver failed")
+
+    monkeypatch.setattr("clipper.cinematic_path.bakeCinematicPath", failingSolve)
+    # A path solved for the same crop points in an earlier test would skip the failing solver.
+    clip_maker._bakeCinematicPathFromKey.cache_clear()
+    data = json.loads(MARKERS.read_text(encoding="utf-8"))
+    pair = data["markerPairs"][0]
+    crops = ("0:0:480:360", "480:0:480:360", "960:360:480:360")
+    times = [pair["start"] + (pair["end"] - pair["start"]) * i / 2 for i in range(3)]
+    pair.update(crop=crops[0], cropMap=[{"x": t, "y": 0, "crop": c} for t, c in zip(times, crops, strict=True)])
+    pair["overrides"] = {**pair.get("overrides", {}), "cropPointEasing": "cinematic"}
+    markers = tmp_path / "cinematic-fallback.json"
+    markers.write_text(json.dumps(data), encoding="utf-8")
+    output = clipper.cwd / "webms" / markers.stem
+    try:
+        # In process, so the patched solver is the one that runs.
+        run = clipper.run(["--markers-json", str(markers), "--input-video", str(LOCAL_VIDEO), *OFFLINE_ARGS])
+        assert run.returncode == 0
+        assert len(list(output.glob("*.webm"))) == 1
+        assert "Could not solve the Cinematic crop path" in caplog.text
+    finally:
+        shutil.rmtree(output, ignore_errors=True)
 
 
 def test_cinematic_set_globally_renders_like_a_pair_override(

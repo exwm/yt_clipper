@@ -1,5 +1,7 @@
 import contextlib
 import copy
+import functools
+import json
 import os
 import re
 import shlex
@@ -61,6 +63,26 @@ from clipper.video2x import runVideo2xCommand
 from clipper.ytc_logger import Subsystem, make_subsystem_logger, pair_context
 
 logger = make_subsystem_logger(Subsystem.CLIP_MAKER)
+
+
+def _bakeCinematicPath(
+    cropMap: list[dict[str, Any]],
+    margins: dict[str, float],
+    cropResWidth: int,
+    cropResHeight: int,
+    fps: float,
+) -> Optional[dict[str, Any]]:
+    # A pair's settings are made again for each sample-guided trial and encode, and a long pair takes
+    # about a second to solve. The path is only read, so the cached one is shared.
+    # default=str: a point can carry other fields the solver ignores.
+    key = json.dumps([cropMap, margins, cropResWidth, cropResHeight, fps], sort_keys=True, default=str)
+    return _bakeCinematicPathFromKey(key)
+
+
+@functools.lru_cache(maxsize=64)
+def _bakeCinematicPathFromKey(key: str) -> Optional[dict[str, Any]]:
+    cropMap, margins, cropResWidth, cropResHeight, fps = json.loads(key)
+    return cinematic_path.bakeCinematicPath(cropMap, margins, cropResWidth, cropResHeight, fps=fps)
 
 
 def getMarkerPairSettings(  # noqa: PLR0912
@@ -185,15 +207,21 @@ def getMarkerPairSettings(  # noqa: PLR0912
 
         if mps.get("cropPointEasing") == "cinematic":
             # Solve in cropRes pixels, as the markup preview does, before autoScaleCropMap rescales the points.
-            cinematicPath = cinematic_path.bakeCinematicPath(
-                mp["cropMap"],
-                {
-                    "pos": mps.get("cropPointEasingCinematicMargin", cinematic_path.DEFAULT_MARGIN),
-                    "zoom": mps.get("cropPointEasingCinematicZoomMargin", cinematic_path.DEFAULT_ZOOM_MARGIN),
-                },
-                settings["cropResWidth"],
-                settings["cropResHeight"],
-            )
+            try:
+                cinematicPath = _bakeCinematicPath(
+                    mp["cropMap"],
+                    {
+                        "pos": mps.get("cropPointEasingCinematicMargin", cinematic_path.DEFAULT_MARGIN),
+                        "zoom": mps.get("cropPointEasingCinematicZoomMargin", cinematic_path.DEFAULT_ZOOM_MARGIN),
+                    },
+                    settings["cropResWidth"],
+                    settings["cropResHeight"],
+                    # ffprobe gives a fraction string such as "30000/1001".
+                    fps=float(Fraction(mps["r_frame_rate"])),
+                )
+            except Exception as error:
+                # Without a path the pair renders as Smooth Track, as when there is nothing to solve.
+                logger.warning(f"Could not solve the Cinematic crop path ({error!r}), so the crop uses Smooth Track.")
         autoScaleCropMap(mp["cropMap"], settings)
         for left, right in zip(mp["cropMap"][:-1], mp["cropMap"][1:]):
             lcc = left["cropComponents"]
