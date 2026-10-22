@@ -28,6 +28,11 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="run the end-to-end tests with this built yt_clipper executable and its bundled tools",
     )
     parser.addoption(
+        "--helpers-dir",
+        metavar="DIR",
+        help="run the helper script tests on the scripts in this folder, e.g. an installed release",
+    )
+    parser.addoption(
         "--ffmpeg-dir",
         metavar="DIR",
         help="run the tests with the ffmpeg and ffprobe in this folder instead of the ones on PATH",

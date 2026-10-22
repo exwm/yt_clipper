@@ -1,54 +1,64 @@
 @echo off
-setlocal EnableDelayedExpansion
-
-chcp 65001
+REM chcp reads nul, or it takes typed-ahead input meant for the prompts below.
+chcp 65001 >nul <nul
 cd /D "%~dp0"
+set "ytc_markers_json="
+set "ytc_input_video="
+set "ytc_options="
 
 if not "%~3"=="" (
-  echo Too many inputs provided
-  pause
-  exit
+  echo [ERROR] Drop only a markers JSON file and a video file on this script.
+  goto prompt
 )
-
+if not exist "%~f1" (
+  echo [ERROR] Drop a markers JSON file, and optionally a video file, on this script.
+  goto prompt
+)
 if "%~2"=="" (
-   if exist "%~f1" (
-    if "%~x1"==".json" (
-      set "markers_json=%~f1"
-      .\yt_clipper.exe --markers-json "!markers_json!" --preview
-    )
-  )
-  pause
-  exit
+  if /i "%~x1"==".json" set "ytc_markers_json=%~f1"
+  goto check
+)
+if not exist "%~f2" (
+  echo [ERROR] "%~f2" does not exist.
+  goto prompt
+)
+if /i "%~x1"==".json" (
+  set "ytc_markers_json=%~f1"
+  set "ytc_input_video=%~f2"
+)
+if /i "%~x2"==".json" (
+  set "ytc_markers_json=%~f2"
+  set "ytc_input_video=%~f1"
 )
 
-if exist "%~f1" (
-  if exist "%~f2" (
-    if "%~x1"==".json" (
-      set "markers_json=%~f1"
-      set "input_video=%~f2"
-    )
-    if "%~x2"==".json" (
-      set "markers_json=%~f2"
-      set "input_video=%~f1"
-    )
-    
-    if DEFINED markers_json (
-      echo Using input video path "!input_video!"
-      echo Using markers json path "!markers_json!"
-      echo --------------------------------------------------------------
-    
-      .\yt_clipper.exe -i "!input_video!"  --markers-json "!markers_json!" --preview
-    ) else (
-      echo Markers json data not provided
-    )
-  ) else (
-      echo Missing second file input 
-  )
-) else (
-    echo Missing file inputs
+:check
+if not defined ytc_markers_json (
+  echo [ERROR] One of the files must be a markers JSON file.
+  goto prompt
+)
+if defined ytc_input_video (
+  echo [INFO] Using input video "%ytc_input_video%"
+  echo [INFO] Using markers JSON "%ytc_markers_json%"
+  echo --------------------------------------------------------------
 )
 
+REM Each command stands on its own line, outside a block, so a ) or & in a path or the options
+REM cannot end the block or split the command.
+:run
+if defined ytc_input_video goto run_with_input_video
+.\yt_clipper.exe --markers-json "%ytc_markers_json%" --preview %ytc_options%
+goto ask
+:run_with_input_video
+.\yt_clipper.exe -i "%ytc_input_video%" --markers-json "%ytc_markers_json%" --preview %ytc_options%
 
+:ask
+echo.
+set "ytc_options="
+set /p "ytc_options=Enter all the options for another run (for example --overwrite --audio), or press Enter to finish: "
+if defined ytc_options goto run
 
-
-pause
+:prompt
+echo.
+echo [INFO] You are in the yt_clipper folder. Run .\yt_clipper.exe -h to list the options.
+cd /D "%~dp0"
+cmd /k

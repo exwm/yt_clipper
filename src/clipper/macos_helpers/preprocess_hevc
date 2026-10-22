@@ -1,21 +1,26 @@
 #!/bin/bash
 cd "$(dirname "$0")" || exit
 
+prompt() {
+  echo
+  echo "[INFO] You are in the yt_clipper folder."
+  exec "${SHELL:-/bin/zsh}" -i
+}
+
 echo "----------------------------------------------------"
-echo "This script preprocesses hevc (h265) input video to ensure that it is compatible with ffmpeg."
-echo "Currently, the steps performed are a 1) Convert HEVC/H.265 bitstream from length-prefixed mode to start-code-prefixed mode."
-echo "The output file will be suffixed with '-preproc'."
+echo "This script converts the stream of an HEVC (H.265) video to a form ffmpeg can read."
+echo "The converted file name ends with -preproc."
 echo "----------------------------------------------------"
 
-read -rp "Enter the path of a video file that you would like to trim (you may be able to drag and drop files at the prompt): " VIDEOSPROMPT
+read -rp "Enter the path of an HEVC video file (you can drag files into this window): " VIDEOSPROMPT
 
 IFS=$'\n' VIDEOS=($(xargs -n1 <<<"$VIDEOSPROMPT"))
 
 NVIDEOS="${#VIDEOS[@]}"
 
 if [ "$NVIDEOS" -ne 1 ]; then
-  echo "Provide a single video file as input."
-  exit
+  echo "[ERROR] Enter one video file."
+  prompt
 fi
 
 VIDEO="${VIDEOS[0]}"
@@ -24,17 +29,18 @@ DIR="$(dirname "$VIDEO")"
 NAME="${VIDEO##*/}"
 EXT=".${NAME##*.}"
 NAME="${NAME%.*}"
-OUT="$DIR/$NAME-trim$EXT"
+OUT="$DIR/$NAME-preproc$EXT"
 
 if [ -f "$VIDEO" ]; then
-  echo "generating $OUT..."
+  echo "[INFO] Generating $OUT..."
   ./bin/video-tools/ffmpeg -i "$VIDEO" -c copy -bsf:v hevc_mp4toannexb "$OUT"
 else
-  echo "$VIDEO does not exist."
+  echo "[ERROR] \"$VIDEO\" does not exist."
 fi
 
 echo "----------------------------------------------------"
-echo "This script preprocesses hevc (h265) input video to ensure that it is compatible with ffmpeg."
-echo "Currently, the steps performed are a 1) Convert HEVC/H.265 bitstream from length-prefixed mode to start-code-prefixed mode."
-echo "The output file will be suffixed with '-preproc'."
+echo "This script converts the stream of an HEVC (H.265) video to a form ffmpeg can read."
+echo "The converted file name ends with -preproc."
 echo "----------------------------------------------------"
+
+prompt

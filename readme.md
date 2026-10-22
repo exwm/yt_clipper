@@ -30,7 +30,7 @@ The contents of the quickstart guide are included here for convenience:
 6) Use the **S** key to save markers data in `.json` format.
 7) Generate webms using the saved markers data and the `clipper script`.
    - **Windows:** Drag and drop the saved markers data onto the `yt_clipper_auto.bat`.
-   - **Mac:** Launch the `yt_clipper_auto.sh` program, drag and drop the saved markers data onto the terminal, and hit **Enter**.
+   - **Mac:** Launch the `yt_clipper_auto` program, drag and drop the saved markers data onto the terminal, and hit **Enter**.
    - Find generated webms in `yt_clipper/webms/title-suffix` folder where `title-suffix` is the file name stem of the markers data file.
    - See [this section](https://github.com/exwm/yt_clipper#additional-helper-scripts) for details on the other helper scripts available.
 8) See the [full instructions](https://github.com/exwm/yt_clipper) for more detail and advanced usage as well as changelogs.
@@ -850,64 +850,30 @@ There are some alternative helper scripts for more options:
 - Use `yt_clipper_auto_download` to download video before processing markers.
 - Use `yt_clipper_auto_input_video` to specify both markers `json` data and an input video for processing.
   - On Windows simply drag and drop both the `json` and the input video onto `yt_clipper_auto_input_video`.
-  - On Mac, `yt_clipper_auto_input_video` will prompt for the `json` then the input video.
+  - On Mac, `yt_clipper_input_video` prompts for the `json` then the input video.
 
-The helper scripts have a simple format. Copy and edit `yt_clipper_auto` in a text editor to create custom automated versions. For example you could add `--deinterlace` to enable deinterlacing or use `--only 2,5` to process only marker pairs 2 and 5.
+When the clips are done, the helper scripts ask for the options of another run with the same markers `json` data. Enter all its options, or press **Enter** to finish. The options of the run before do not carry over, and existing clips are skipped unless you add `--overwrite` (for example `--overwrite --audio` remakes the clips with audio). Put quotes around a value with `<`, `>`, `|`, `&` or `;` in it, for example `--format "bv[height>=720]"`. The script then leaves a command prompt open in the yt_clipper folder.
 
-- On Windows:
-
-  ```bat
-  @echo off
-  chcp 65001
-  cd /D "%~dp0"
-
-  FOR %%A IN (%*) DO (
-    REM you can add options after %%A of the next line as shown
-    .\yt_clipper.exe --markers-json %%A
-  )
-
-  pause
-  ```
-
-- On Mac
-
-  ```bash
-  #!/bin/bash
-  cd "$(dirname "$0")" || exit
-
-  read -rp "First enter the paths of 1 or more markers json data files (you may be able to drag and drop files at the prompt): " JSONPROMPT
-
-  IFS=$'\n' JSONS=( $(xargs -n1 <<< "$JSONPROMPT") )
-
-  for JSON in "${JSONS[@]}"
-  do
-    if [ -f "$JSON" ]; then
-      # you can add options after $JSON of the next line as shown
-      ./yt_clipper --markers-json "$JSON"
-    else
-      echo "$JSON does not exist"
-    fi
-  done
-  ```
+The helper scripts have a simple format. Copy and edit `yt_clipper_auto` in a text editor to create custom automated versions. Add options to the line that runs the `clipper script` with `--markers-json`. For example you could add `--deinterlace` to enable deinterlacing or use `--only 2,5` to process only marker pairs 2 and 5.
 
 ### Utility Scripts
 
-There several utility scripts provided as well that wrap ffmpeg or other tools either for convenience or additional functionality.
+There are several utility scripts provided as well that wrap ffmpeg or other tools either for convenience or additional functionality.
 
 1. The `fast_trim` utility script takes a single video file as input and trims it quickly BUT approximately. The script prompts for a start time and an end time to trim the input video file. The output file name will be suffixed with `-trim`.
-2. The `vid2gif` utility script converts an input video file to a `gif` with a small file size and resolution. The script will prompt for the output gif fps and scale/resolution.
+2. The `vid2gif` utility script converts 1 or more video files to `gif` files with a small file size and resolution. The script prompts for the gif frame rate and size.
 3. The `preprocess_hevc` utility script preprocesses an input video file (likely `mp4`) with an `hevc` video stream to ensure compatibility with ffmpeg. You may need to use this script if you see errors like `Invalid data found when processing input` from ffmpeg when using `hevc` with the `--input-video`/`-i` option or the `yt_clipper_auto_input_video` helper script. The preprocessed output file name will be suffixed with `-preproc`.
 
 #### Merge Utility Script
 
 The `merge` utility script can be used to merge any webm files in any order:
 
-- On mac, follow the prompts after running the utility script, providing the paths of 2 or more input files in the other you want them merged.
+- On Mac, follow the prompts after running the utility script, providing the paths of 2 or more input files in the order you want them merged.
 - On Windows:
-  - Rename the webm files so they sort in desired lexicographic order.
+  - Rename the webm files so they sort by name in the order you want. Numbers sort in numeric order (`clip-2` before `clip-10`).
   - Select/highlight all webms to be merged in your file explorer and drag and drop them onto the `merge.bat` script.
-  - The output file name will be `-merged` appended to the first input file name.
-  - Check the `merge.txt` file to confirm the correct videos were merged in the correct order.
+  - The output file name is the name of the file you dragged with `-merged` appended.
+  - The script prints the files in the order it merges them.
 
 # All Releases
 

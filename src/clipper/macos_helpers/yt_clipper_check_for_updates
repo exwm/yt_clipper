@@ -2,3 +2,7 @@
 cd "$(dirname "$0")" || exit
 
 ./yt_clipper --check-for-updates
+
+echo
+echo "[INFO] You are in the yt_clipper folder. Run ./yt_clipper -h to list the options."
+exec "${SHELL:-/bin/zsh}" -i

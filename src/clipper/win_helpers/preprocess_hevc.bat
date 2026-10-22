@@ -1,33 +1,32 @@
 @echo off
-setlocal EnableDelayedExpansion
-chcp 65001
+REM chcp reads nul, or it takes typed-ahead input meant for the prompts below.
+chcp 65001 >nul <nul
 
-set argC=0
-for %%x in (%*) do Set /A argC+=1
+echo ----------------------------------------------------
+echo This script converts the stream of an HEVC (H.265) video to a form ffmpeg can read.
+echo The converted file name ends with -preproc.
+echo ----------------------------------------------------
 
-echo "----------------------------------------------------"
-echo "This script preprocesses hevc (h265) input video to ensure that it is compatible with ffmpeg."
-echo "Currently, the steps performed are a 1) Convert HEVC/H.265 bitstream from length-prefixed mode to start-code-prefixed mode."
-echo "The output file will be suffixed with '-preproc'."
-echo "----------------------------------------------------"
-
-if not %argC% == 1 (
-  echo Provide a single video file as input.
-  pause
-  exit
+if "%~1"=="" goto single_file
+if not "%~2"=="" goto single_file
+if not exist "%~f1" (
+  echo [ERROR] "%~f1" does not exist.
+  goto prompt
 )
 
-if exist "%~f1" (
-  set "output_file=%~dp1\%~n1-preproc%~x1"
-  "%~dp0bin\video-tools\ffmpeg" -i "%~f1" -c copy -bsf:v hevc_mp4toannexb  "!output_file!"
-) else (
-  echo Path "%~f1" does not exist. 
-)
+"%~dp0bin\video-tools\ffmpeg" -i "%~f1" -c copy -bsf:v hevc_mp4toannexb "%~dp1%~n1-preproc%~x1"
 
-echo "----------------------------------------------------"
-echo "This script preprocesses hevc (h265) input video to ensure that it is compatible with ffmpeg."
-echo "Currently, the steps performed are a 1) Convert HEVC/H.265 bitstream from length-prefixed mode to start-code-prefixed mode."
-echo "The output file will be suffixed with '-preproc'."
-echo "----------------------------------------------------"
+echo ----------------------------------------------------
+echo This script converts the stream of an HEVC (H.265) video to a form ffmpeg can read.
+echo The converted file name ends with -preproc.
+echo ----------------------------------------------------
+goto prompt
 
-pause
+:single_file
+echo [ERROR] Drop one video file on this script.
+
+:prompt
+echo.
+echo [INFO] You are in the yt_clipper folder.
+cd /D "%~dp0"
+cmd /k
