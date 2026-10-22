@@ -332,6 +332,21 @@ def _getVideoInfo(cs: ClipperState) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     return videoInfo, audioInfo
 
 
+def bitDepthFromDynamicRange(dynamicRange: Optional[str]) -> int:
+    """The input's color bit depth from yt-dlp's dynamic range ("SDR", "HDR10", "HDR10+", "HDR12",
+    "HLG", "DV"), for when ffprobe cannot read the video."""
+    dynamicRange = (dynamicRange or "").lower()
+    if not dynamicRange:
+        logger.notice(
+            "Could not determine input video color bit depth from yt-dlp or ffprobe. Assuming 8 bits",
+        )
+        return 8
+    if "12" in dynamicRange:
+        return 12
+    # HLG and Dolby Vision are 10-bit or more: assume the lower bound.
+    return 8 if dynamicRange == "sdr" else 10
+
+
 def getMoreVideoInfo(
     cs: ClipperState,
     videoInfo: Dict,
@@ -351,6 +366,10 @@ def getMoreVideoInfo(
     settings.update(videoInfo)
     if probedSettings is not None:
         settings.update(probedSettings)
+    elif not videoInfo:
+        # A local input video has no yt-dlp info to fall back on.
+        logger.critical(f"ffprobe could not read the input video {LogPath(settings['inputVideo'])}.")
+        sys.exit(1)
     else:
         logger.warning("Could not fetch video info with ffprobe")
         logger.warning("Defaulting to video info fetched with youtube-dl")
@@ -370,18 +389,7 @@ def getMoreVideoInfo(
 
     # ffprobe sets this only when it can read the video.
     if not settings.get("inputBitDepth"):
-        #  "SDR", "HDR10", "HDR10+, "HDR12", "HLG, "DV"
-        dynamic_range: str = (videoInfo.get("dynamic_range") or "").lower()
-        if "12" in dynamic_range:
-            settings["inputBitDepth"] = 12
-        elif dynamic_range != "sdr":
-            # HLG and Dolby Vision is >= 10-bit, assume lower bound for now
-            settings["inputBitDepth"] = 10
-        else:
-            logger.notice(
-                "Could not determine input video color bit depth from yt-dlp or ffprobe. Assuming 8 bits",
-            )
-            settings["inputBitDepth"] = 8
+        settings["inputBitDepth"] = bitDepthFromDynamicRange(videoInfo.get("dynamic_range"))
 
     videoTitleStyle = "" if settings["noRichLogs"] else "[green]"
     logger.report(
