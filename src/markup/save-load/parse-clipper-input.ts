@@ -299,6 +299,12 @@ const OVERRIDES_VALIDATORS = {
   fadeDuration: (v: unknown) => isFiniteNumber(v),
 } as const satisfies { [K in keyof MarkerPairOverrides]-?: (v: unknown) => boolean };
 
+const GLOBAL_CROP_EASING_KEYS = [
+  'cropPointEasing',
+  'cropPointEasingCinematicMargin',
+  'cropPointEasingCinematicZoomMargin',
+] as const;
+
 function parseOverrides(
   raw: unknown,
   path: string,
@@ -408,6 +414,13 @@ export function parseClipperInput(raw: unknown): ParseResult {
     );
   }
 
+  // The global crop easing settings take the same values as a pair's own.
+  for (const key of GLOBAL_CROP_EASING_KEYS) {
+    const value = (rest as Record<string, unknown>)[key];
+    if (value !== undefined && !OVERRIDES_VALIDATORS[key](value)) {
+      delete (rest as Record<string, unknown>)[key];
+    }
+  }
   const markerPairs = markerPairsRaw.map((pair, i) => parseMarkerPair(pair, i, issues));
   const input = { ...rest, markerPairs } as ClipperInput;
   return { input, issues };
@@ -427,7 +440,18 @@ export function parseClipperInputJSON(text: string): ParseResult {
       `invalid JSON: ${err instanceof Error ? err.message : String(err)}`
     );
   }
-  return parseClipperInput(raw);
+  const result = parseClipperInput(raw);
+  // A markers JSON from before 5.49 has no crop easing, and the clipper renders it EaseInOut, so
+  // its pairs keep that in the preview and a re-save. Per pair: the session's own pairs and global
+  // mode stay as they are. A newer file's invalid global mode is dropped, but it is not an old file.
+  if (isPlainObject(raw) && !('cropPointEasing' in raw)) {
+    for (const pair of result.input.markerPairs) {
+      if (pair.overrides?.cropPointEasing === undefined) {
+        pair.overrides = { ...pair.overrides, cropPointEasing: 'smoothInOut' };
+      }
+    }
+  }
+  return result;
 }
 
 /** Application policy for every `ClipperInput` key. Compile-time-exhaustive

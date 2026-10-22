@@ -280,6 +280,38 @@ describe('toApplicableSettings: applied vs skipped keys', () => {
     expect('crf' in applied).toBe(false);
     expect('rotate' in applied).toBe(false);
   });
+
+  test.each([
+    // The clipper renders markers saved before 5.49 (no crop easing) with EaseInOut. Per pair, so
+    // the session's own pairs and global mode stay as they are.
+    [
+      'markers from before 5.49 keep EaseInOut on their pairs',
+      {
+        markerPairs: [
+          { start: 0, end: 5 },
+          { start: 6, end: 8, overrides: { cropPointEasing: 'cinematic' } },
+        ],
+      },
+      undefined,
+      ['smoothInOut', 'cinematic'],
+    ],
+    [
+      'saved crop easing applies',
+      { markerPairs: [{ start: 0, end: 5 }], cropPointEasing: 'cinematic' },
+      'cinematic',
+      [undefined],
+    ],
+    [
+      'an invalid saved crop easing is dropped, and the file is not taken for one from before 5.49',
+      { markerPairs: [{ start: 0, end: 5 }], cropPointEasing: 'linear' },
+      undefined,
+      [undefined],
+    ],
+  ])('markers JSON crop easing: %s', (_case, data, globalEasing, pairEasings) => {
+    const { input } = parseClipperInputJSON(JSON.stringify(data));
+    expect(toApplicableSettings(input).cropPointEasing).toBe(globalEasing);
+    expect(input.markerPairs.map((pair) => pair.overrides?.cropPointEasing)).toEqual(pairEasings);
+  });
 });
 
 describe('parseOverrides: per-field type validation', () => {
@@ -323,18 +355,33 @@ describe('parseOverrides: per-field type validation', () => {
     expect(overrides.enableHDR).toBeUndefined();
   });
 
-  test.each([
+  const cropEasingValues: [string, unknown, boolean][] = [
     ['cropPointEasingCinematicMargin', -50, false],
     ['cropPointEasingCinematicMargin', 0, true],
     ['cropPointEasingCinematicZoomMargin', 1.5, false],
     ['cropPointEasingCinematicZoomMargin', 1, true],
-  ])('Cinematic margin override %s = %d is kept: %s (the schema bounds)', (key, value, kept) => {
-    const { input } = parseClipperInput({
-      markerPairs: [{ start: 0, end: 5, overrides: { [key]: value } }],
-    } as Record<string, unknown>);
-    const overrides = input.markerPairs[0].overrides as Record<string, unknown>;
-    expect(overrides[key]).toBe(kept ? value : undefined);
-  });
+    ['cropPointEasing', 'Cinematic', false],
+    ['cropPointEasing', 'cinematic', true],
+  ];
+  test.each(cropEasingValues)(
+    'crop easing override %s = %p is kept: %s (the schema values)',
+    (key, value, kept) => {
+      const { input } = parseClipperInput({
+        markerPairs: [{ start: 0, end: 5, overrides: { [key]: value } }],
+      } as Record<string, unknown>);
+      const overrides = input.markerPairs[0].overrides as Record<string, unknown>;
+      expect(overrides[key]).toBe(kept ? value : undefined);
+    }
+  );
+  test.each(cropEasingValues)(
+    'global crop easing setting %s = %p is kept: %s (the schema values)',
+    (key, value, kept) => {
+      const { input } = parseClipperInput({ markerPairs: [], [key]: value });
+      expect((toApplicableSettings(input) as Record<string, unknown>)[key]).toBe(
+        kept ? value : undefined
+      );
+    }
+  );
 
   test('drops non-finite numeric override values (NaN, Infinity)', () => {
     const { input } = parseClipperInput({

@@ -39,20 +39,13 @@ export function getClipperInputData(date?) {
     }
   });
 
+  // Saved even when unset, so the clipper renders what the preview showed: a pair without its own
+  // mode uses it. Only files from before 5.49 have neither, and the clipper renders them EaseInOut.
+  const cropPointEasing = appState.settings.cropPointEasing ?? DEFAULT_CROP_POINT_EASING;
   const markerPairsNumbered = appState.markerPairs.map((markerPair, idx) => {
-    const effectiveEasing =
-      markerPair.overrides.cropPointEasing ??
-      appState.settings.cropPointEasing ??
-      DEFAULT_CROP_POINT_EASING;
     const markerPairNumbered = {
       number: idx + 1,
       ...markerPair,
-      // Persist the crop easing so the clipper renders what the preview showed. A pair with no mode
-      // set inherits the global default; only pre-feature JSONs omit the field (legacy sine render).
-      overrides: {
-        ...markerPair.overrides,
-        cropPointEasing: effectiveEasing,
-      },
       speedMapLoop: undefined,
       speedMap: isVariableSpeed(markerPair.speedMap) ? markerPair.speedMap : undefined,
       speedChartLoop: undefined,
@@ -69,9 +62,10 @@ export function getClipperInputData(date?) {
 
   const clipperInputData = {
     ...appState.settings,
+    cropPointEasing,
     version: __version__,
     cropPointEasingCinematicSolverVersion: markerPairsNumbered.some(
-      (markerPair) => markerPair.overrides.cropPointEasing === 'cinematic'
+      (markerPair) => (markerPair.overrides.cropPointEasing ?? cropPointEasing) === 'cinematic'
     )
       ? CINEMATIC_SOLVER_VERSION
       : undefined,
