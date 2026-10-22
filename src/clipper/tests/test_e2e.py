@@ -202,6 +202,26 @@ def test_get_version_info(clipper: Clipper) -> None:
     assert re.search(r"yt_clipper\S* v\d", run.stdout)
 
 
+def test_an_input_video_ffprobe_cannot_read_stops_with_a_clear_message(
+    clipper: Clipper,
+    tmp_path: pathlib.Path,
+) -> None:
+    # A local video has no yt-dlp info to fall back on, and the run once ended in a traceback.
+    broken = tmp_path / "broken.mp4"
+    broken.write_text("not a video", encoding="utf-8")
+    markers = tmp_path / "broken-input.json"
+    markers.write_text(MARKERS.read_text(encoding="utf-8"), encoding="utf-8")
+    output = clipper.cwd / "webms" / markers.stem
+    try:
+        run = clipper.run(["--markers-json", str(markers), "--input-video", str(broken), *OFFLINE_ARGS])
+        assert run.returncode == 1
+        log = "".join(path.read_text(encoding="utf-8") for path in output.glob("logs/*"))
+        assert "ffprobe could not read the input video" in log
+        assert "Unexpected error" not in log
+    finally:
+        shutil.rmtree(output, ignore_errors=True)
+
+
 @pytest.mark.parametrize(
     ("crops", "size"),
     [

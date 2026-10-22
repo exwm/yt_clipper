@@ -374,6 +374,22 @@ def test_settings_file_is_read_like_a_command_line(
         assert args == expected
 
 
+@pytest.mark.parametrize(
+    ("dynamicRange", "bitDepth"),
+    [
+        pytest.param(None, 8, id="unknown"),
+        pytest.param("SDR", 8, id="SDR"),
+        pytest.param("HDR10", 10, id="HDR10"),
+        pytest.param("HLG", 10, id="HLG"),
+        pytest.param("DV", 10, id="Dolby Vision"),
+        pytest.param("HDR12", 12, id="HDR12"),
+    ],
+)
+def test_bit_depth_from_ytdlp_dynamic_range(dynamicRange: str | None, bitDepth: int) -> None:
+    # For when ffprobe cannot read the video: an unknown range is no reason to encode 10-bit.
+    assert ytc_settings.bitDepthFromDynamicRange(dynamicRange) == bitDepth
+
+
 def test_unreadable_settings_file_is_skipped_with_a_warning(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     # A folder stands in for a file that cannot be read (locked, or no permission).
     assert argparser.readArgFile(tmp_path) == []
