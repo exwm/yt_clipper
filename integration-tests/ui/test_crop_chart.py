@@ -27,6 +27,14 @@ def test_crop_chip_shows_the_live_interpolated_crop(dynamic_crop: MarkupPage) ->
     then_the_crop_chip_x_is_between_the_first_two_points(dynamic_crop)
 
 
+def test_crop_preview_stays_on_the_frame_on_screen_after_a_seek_within_it(
+    dynamic_crop: MarkupPage,
+) -> None:
+    on_screen = when_i_pause_mid_pan_and_seek_within_the_frame(dynamic_crop)
+    when_i_switch_the_crop_easing_away_and_back(dynamic_crop)
+    then_the_crop_chip_is_unchanged(dynamic_crop, on_screen)
+
+
 def test_crop_chart_sections_are_labelled(dynamic_crop: MarkupPage) -> None:
     # The labels (pan, zoom, speed, pan direction) are drawn on the chart canvas, so this is a
     # screenshot for review; their values are unit-tested in crop-section.test.ts.
@@ -101,6 +109,37 @@ def when_i_seek_to(markup: MarkupPage, seconds: float) -> None:
 
 
 @step
+def when_i_pause_mid_pan_and_seek_within_the_frame(markup: MarkupPage) -> str:
+    # The test video is 30 fps. Land early in a frame mid-pan, then move the playhead most of a frame
+    # later: the same frame stays on screen, so the crop must not move.
+    frame = round((PAIR_START + MIDDLE_POINT_TIME) / 2 * 30)
+    when_i_seek_to(markup, (frame + 0.1) / 30)
+    on_screen = markup.page.locator("#interp-crop-value").inner_text()
+    markup.page.evaluate(
+        f"() => {{ document.querySelector('video').currentTime = {(frame + 0.9) / 30}; }}"
+    )
+    markup.next_frames(3)
+    markup.report(f"crop chip on frame {frame}: {on_screen!r}")
+    return on_screen
+
+
+@step
+def when_i_switch_the_crop_easing_away_and_back(markup: MarkupPage) -> None:
+    # A crop easing change redraws the crop without a seek, outside the per-frame loop.
+    markup.page.evaluate(
+        """() => {
+            const select = document.querySelector('#crop-point-easing-input');
+            const original = select.value;
+            for (const value of ['smoothInOut', original]) {
+                select.value = value;
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }"""
+    )
+    markup.next_frames(3)
+
+
+@step
 def when_i_add_a_crop_point_at(markup: MarkupPage, seconds: float) -> None:
     markup.seek(seconds)
     count = len(crop_points(markup))
@@ -162,6 +201,13 @@ def then_the_crop_chip_x_is_between_the_first_two_points(markup: MarkupPage) -> 
     markup.report(f"chip {chip!r}, point x offsets {first} and {second}")
     markup.shot("crop-chip-interpolated")
     assert min(first, second) < crop_x(chip) < max(first, second)
+
+
+@step
+def then_the_crop_chip_is_unchanged(markup: MarkupPage, on_screen: str) -> None:
+    chip = markup.page.locator("#interp-crop-value").inner_text()
+    markup.report(f"crop chip after the seek and easing switch: {chip!r}")
+    assert chip == on_screen
 
 
 @step
