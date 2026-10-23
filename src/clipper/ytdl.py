@@ -39,6 +39,9 @@ def ytdl_bin_get_args_base(cs: ClipperState) -> List[str]:
       "--no-cache-dir",
       "--verbose",
       "--merge-output-format", "mkv",
+      # Merging applies only to separate video and audio: a single-file format keeps its container
+      # (e.g. mp4) without this, and --download-video then probes an .mkv that is not there.
+      "--remux-video", "mkv",
       "--format", settings["format"],
       "--format-sort", ",".join(settings["formatSort"]),
       "--check-formats",
@@ -50,7 +53,7 @@ def ytdl_bin_get_args_base(cs: ClipperState) -> List[str]:
     # fmt: on
 
     if getattr(sys, "frozen", False):
-        ytdl_args.extend(["--ffmpeg-location", cp.ffmpegPath])
+        ytdl_args.extend(["--ffmpeg-location", argvPath(cp.ffmpegPath)])
 
     cookies = settings["cookiefile"]
     cookiesFromBrowser = settings["cookiesFromBrowser"]

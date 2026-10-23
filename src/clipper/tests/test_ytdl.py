@@ -1,4 +1,5 @@
 import json
+import shlex
 import shutil
 import subprocess
 import sys
@@ -29,6 +30,20 @@ def assertFollows(args: List[str], flag: str, value: str) -> None:
     """Assert ``flag`` appears immediately followed by ``value``."""
     assert flag in args
     assert args[args.index(flag) + 1] == value
+
+
+def test_a_release_passes_yt_dlp_its_ffmpeg_path_unquoted(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The clipper keeps tool paths shell-quoted; yt-dlp gets an argument list, so quotes would be
+    # part of the path, and the mkv remux of every download needs ffmpeg.
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    cs = ClipperState(
+        settings={
+            "format": "bv*+ba/b", "formatSort": ["res"], "downloadVideoPath": "out",
+            "cookiefile": "", "cookiesFromBrowser": "", "username": "", "password": "",
+        },
+    )  # fmt: skip
+    cs.clipper_paths.ffmpegPath = shlex.quote("C:\\Users\\example\\My Tools\\ffmpeg.exe")
+    assertFollows(ytdl.ytdl_bin_get_args_base(cs), "--ffmpeg-location", "C:\\Users\\example\\My Tools\\ffmpeg.exe")
 
 
 def test_cookiefile_passed_as_cookies() -> None:
@@ -715,3 +730,33 @@ def test_no_video_from_ytdlp_stops_with_a_clear_error(
     with pytest.raises(SystemExit):
         ytdl.ytdl_bin_get_video_info(localClipperState(tmp_path, "bv*+ba/b", ["res"]))
     assert any("yt-dlp found no video at https://example.com/watch" in line for line in logged)
+
+
+def test_a_downloaded_single_file_format_is_an_mkv_like_a_merged_one(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    localMedia: Path,
+) -> None:
+    # yt-dlp merges into mkv only when it merges separate video and audio: --download-video then
+    # probed an .mkv that a single-file (e.g. mp4) download never wrote.
+    info = {
+        "id": "local", "title": "local", "extractor": "generic", "extractor_key": "Generic",
+        "webpage_url": (localMedia / "720.mp4").as_uri(),
+        "formats": [{
+            "format_id": "combined", "url": (localMedia / "720.mp4").as_uri(), "protocol": "file",
+            "ext": "mp4", "vcodec": "avc1", "acodec": "mp4a", "height": 720, "fps": 30,
+        }],
+    }  # fmt: skip
+    infoPath = tmp_path / "info.json"
+    infoPath.write_text(json.dumps(info), encoding="utf-8")
+    readLocalInfo(monkeypatch, infoPath)
+    cs = ClipperState(
+        settings={
+            "format": "bv*+ba/b", "formatSort": ["res"], "downloadVideoPath": str(tmp_path / "out"),
+            "cookiefile": "", "cookiesFromBrowser": "", "username": "", "password": "",
+            "videoPageURL": "https://example.com/watch", "downloadVideo": True, "acceptLowerQuality": False,
+        },
+    )  # fmt: skip
+    ytdl.ytdl_bin_get_video_info(cs)
+    assert cs.settings["downloadVideoPath"] == str(tmp_path / "out.mkv")
+    assert (tmp_path / "out.mkv").is_file()
