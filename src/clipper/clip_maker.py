@@ -47,6 +47,7 @@ from clipper.ffmpeg_filter import (
     resolveCropEaseType,
     videoStabilizationGammaFixFilter,
 )
+from clipper.ffmpeg_version import filterFileOption, supportsOptionFiles
 from clipper.log_helpers import (
     LogPath,
     build_marker_pair_settings_snapshot,
@@ -63,6 +64,9 @@ from clipper.video2x import runVideo2xCommand
 from clipper.ytc_logger import Subsystem, make_subsystem_logger, pair_context
 
 logger = make_subsystem_logger(Subsystem.CLIP_MAKER)
+
+# A longer video filter is read from a file, so the command stays under Windows' 32767 characters.
+MAX_VFILTER_SIZE = 10_000
 
 
 def _bakeCinematicPath(
@@ -711,8 +715,6 @@ def makeClip(  # noqa: PLR0912
 
     ffmpegCommands: list[str] = []
 
-    MAX_VFILTER_SIZE = 10_000
-
     overwriteArg = " -y " if mps["overwrite"] else " -n "
     vidstabEnabled = mps["videoStabilization"]["enabled"]
     if vidstabEnabled:
@@ -797,10 +799,10 @@ def makeClip(  # noqa: PLR0912
             with open(filterPathVidStabTransformPass, "w", encoding="utf-8") as f:
                 f.write(vidstabtransformFilter)
             ffmpegVidstabdetect = (
-                ffmpegCommand + f' -filter_script:v "{filterPathVidStabDetectPass}" '
+                ffmpegCommand + f' {filterFileOption(cp.ffmpegPath)} "{filterPathVidStabDetectPass}" '
             )
             ffmpegVidstabtransform = (
-                ffmpegCommand + f' -filter_script:v "{filterPathVidStabTransformPass}" '
+                ffmpegCommand + f' {filterFileOption(cp.ffmpegPath)} "{filterPathVidStabTransformPass}" '
             )
         else:
             ffmpegVidstabdetect = ffmpegCommand + f'-vf "{vidstabdetectFilter}" '
@@ -835,7 +837,7 @@ def makeClip(  # noqa: PLR0912
             logger.info(f'Video filter will be written to "{filterPathPass1}"')
             with open(filterPathPass1, "w", encoding="utf-8") as f:
                 f.write(video_filter)
-            ffmpegCommand += f' -filter_script:v "{filterPathPass1}" '
+            ffmpegCommand += f' {filterFileOption(cp.ffmpegPath)} "{filterPathPass1}" '
         else:
             ffmpegCommand += f' -vf "{video_filter}" '
 
@@ -1144,6 +1146,19 @@ def runffmpegCommand(  # noqa: PLR0912 (encode kind branching + filter-graph sub
     return {**(settings["markerPairs"][markerPairIndex]), **mp}
 
 
+def ffplayFilterArg(cs: ClipperState, video_filter: str, fileName: str) -> str:
+    """ffplay's -vf, read from a file in temp when it is too long for the command line (Windows takes
+    32767 characters, and a zooming crop's filter passes that at a few crop points). ffplay before 7
+    cannot read one, so it keeps the filter inline, as before."""
+    cp = cs.clipper_paths
+    if len(video_filter) <= MAX_VFILTER_SIZE or not supportsOptionFiles(cp.ffmpegPath):
+        return f'-vf "{video_filter}"'
+    filterPath = Path(cp.clipsPath) / "temp" / fileName
+    filterPath.parent.mkdir(parents=True, exist_ok=True)
+    filterPath.write_text(video_filter, encoding="utf-8")
+    return f'-/vf "{filterPath}"'
+
+
 def runffplayCommand(
     cs: ClipperState,
     inputs: str,
@@ -1159,10 +1174,15 @@ def runffplayCommand(
     logger.info("running ffplay command")
     if 0 <= markerPairIndex < len(settings["markerPairs"]):
         ffplayOptions = f"-hide_banner -fs -sync video -fast -genpts -infbuf "
-        ffplayVideoFilter = f'-vf "{video_filter}"'
+        ffplayVideoFilter = ffplayFilterArg(cs, video_filter, f"vfilter-{markerPairIndex + 1}-preview.txt")
         if settings["inputVideo"]:
             ffplayOptions += f" -loop 0"
-            ffplayVideoFilter += f' -vf "{video_filter_before_correction}"'
+            beforeCorrection = ffplayFilterArg(
+                cs,
+                video_filter_before_correction,
+                f"vfilter-{markerPairIndex + 1}-preview-before-correction.txt",
+            )
+            ffplayVideoFilter += f" {beforeCorrection}"
 
         ffplayAudioFilter = f"-af {audio_filter}"
 

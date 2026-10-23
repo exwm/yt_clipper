@@ -227,6 +227,8 @@ def test_an_input_video_ffprobe_cannot_read_stops_with_a_clear_message(
     [
         pytest.param(("0:0:480:360", "480:0:480:360", "960:360:480:360"), "48x36", id="pan"),
         pytest.param(("0:0:480:360", "240:180:720:540", "0:0:960:720"), "96x72", id="zoom"),
+        # Its filter is longer than ffmpeg's command line takes, so it is read from a file.
+        pytest.param(("0:0:480:360", "240:180:720:540", "0:0:960:720") * 4, "96x72", id="long zoom"),
     ],
 )
 def test_cinematic_pair_renders_the_path_solved_from_its_crop_points(
@@ -249,7 +251,7 @@ def test_cinematic_pair_renders_the_path_solved_from_its_crop_points(
         cropMap=[{"x": t, "y": 0, "crop": crop} for t, crop in zip(times, crops, strict=True)],
     )
     pair["overrides"] = {**pair.get("overrides", {}), "cropPointEasing": "cinematic"}
-    markers = tmp_path / f"cinematic-{size}.json"
+    markers = tmp_path / f"cinematic-{len(crops)}-{size}.json"
     markers.write_text(json.dumps(data), encoding="utf-8")
     output = clipper.cwd / "webms" / markers.stem
     try:
@@ -261,6 +263,8 @@ def test_cinematic_pair_renders_the_path_solved_from_its_crop_points(
         # A failed solve falls back to Smooth Track, which renders at the same size.
         log = "".join(path.read_text(encoding="utf-8") for path in output.glob("logs/*"))
         assert "Could not solve the Cinematic crop path" not in log
+        # The long case is there to read its filter from a file.
+        assert (output / "temp" / "vfilter-1-pass1.txt").is_file() == (len(crops) > 3)
         clip = next(output.glob("*.webm"))
         ffprobe = clipper.toolPath("ffprobe")
         assert ffprobe is not None
