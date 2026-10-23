@@ -20,6 +20,7 @@ import { resetViewport } from './video-zoom-state';
 import { cropToTargetRect, videoBoxToCanvasPoint } from './video-zoom-math';
 import { createWebGLGammaRenderer, prevGammaVal, WebGLGammaRenderer } from '../util/previewGamma';
 import { deleteElement, injectCSS } from '../util/util';
+import { getPresentedFrameTime } from '../util/presented-frame-clock';
 
 let canvas: HTMLCanvasElement | null = null;
 let ctx: CanvasRenderingContext2D | null = null;
@@ -92,7 +93,7 @@ function startLoop(): void {
     drawReframeFrame(metadata?.mediaTime ?? v.getCurrentTime());
     rafId = v.requestVideoFrameCallback(draw);
   };
-  drawReframeFrame(v.getCurrentTime());
+  drawReframeFrame(getPresentedFrameTime(v));
   rafId = v.requestVideoFrameCallback(draw);
 }
 
@@ -105,7 +106,7 @@ function stopLoop(): void {
 /** Redraw off the rVFC loop. Paused edits present no new frames (the loop is idle), so the
  *  controller calls this on each edit. */
 export function redrawReframeCanvas(): void {
-  if (canvas) drawReframeFrame(appState.video.getCurrentTime());
+  if (canvas) drawReframeFrame(getPresentedFrameTime(appState.video));
 }
 
 /** No active crop (no marker pair selected and global settings closed) or no frame yet: show the

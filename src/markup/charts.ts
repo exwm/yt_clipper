@@ -91,6 +91,7 @@ import { registerActiveDragCleanup } from './util/drag-recovery';
 import { Chart, ChartConfiguration } from 'chart.js';
 import { scatterChartDefaults } from './ui/chart/scatterChartSpec';
 import { getFPS } from './util/videoUtil';
+import { getPresentedFrameTime } from './util/presented-frame-clock';
 import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
 import type { HoveredRegion } from './features/hints-bar/hover-region';
 
@@ -745,10 +746,10 @@ export function triggerCropChartUpdates() {
 // EXACT media timestamp of the frame being presented (metadata.mediaTime), not the
 // wall-clock getCurrentTime() which advances between presented frames and makes the
 // reframe jitter a fraction of a frame ahead of the video. Null outside the loop
-// (scrub/edit) → fall back to the live current time.
+// (scrub/edit) → fall back to the last presented frame, which a sub-frame seek doesn't change.
 let presentedFrameTime: number | null = null;
 function currentCropTime(): number {
-  return presentedFrameTime ?? appState.video.getCurrentTime();
+  return presentedFrameTime ?? getPresentedFrameTime(appState.video);
 }
 
 let isCropPreviewLoopRunning = false;
