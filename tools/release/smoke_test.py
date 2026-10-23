@@ -24,8 +24,9 @@ E2E_TESTS = REPO / "src/clipper/tests/test_e2e.py"
 VALID_MARKERS = REPO / "src/schema/examples/kitchen-sink.json"
 EXE = ".exe" if sys.platform == "win32" else ""
 YTDL = {"win32": "yt-dlp.exe", "darwin": "yt-dlp_macos"}.get(sys.platform, "yt-dlp")
-# Without it a frozen release updates its bundled yt-dlp first, over the network.
-OFFLINE_ARGS = ["--no-ytdl-auto-update", "--overwrite"]
+# Without it a frozen release updates its bundled yt-dlp first, over the network. No settings files:
+# an installed release would read the user's.
+OFFLINE_ARGS = ["--no-ytdl-auto-update", "--overwrite", "--arg-files"]
 
 
 class SmokeTest:
@@ -72,6 +73,10 @@ class SmokeTest:
                 print(f"     {relative.as_posix()}")
         for path in [self.clipper, *(tool for tool, _flag in self.bundledTools())]:
             self.check(path.is_file(), f"{path.relative_to(self.release).as_posix()} exists")
+        # CI writes it from --help; plain text, so any editor shows it.
+        optionsHelp = self.release / "yt_clipper_help.txt"
+        text = optionsHelp.read_text(encoding="utf-8", errors="replace") if optionsHelp.is_file() else ""
+        self.check("--markers-json" in text and "\x1b" not in text, "yt_clipper_help.txt lists the options as plain text")
         if sys.platform == "win32":
             # video2x shares the ffmpeg DLLs, so the release must hold one copy.
             copies = list(self.release.rglob("avcodec-*.dll"))
