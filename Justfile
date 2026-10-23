@@ -26,11 +26,11 @@ pretty-py-check:
   just _timed "ruff format --check" uv run ruff format --check src/clipper integration-tests tools
 
 # Coverage settings and the fail-under floor are in pyproject.toml; reports go to coverage/.
-# The config path is absolute because coverage also measures the Python subprocesses (yt-dlp) the
-# end-to-end tests start from a temporary folder, where a relative path would not find it.
+# The config path is absolute so tests that run from a temporary folder still find it. Tests do not
+# measure the Python processes they start (yt-dlp): see noCoverageInSubprocesses in conftest.py.
 test-py update="false":
   just _timed pytest uv run pytest src/clipper tools/release tools/prose -s --cov --cov-config="{{justfile_directory()}}/pyproject.toml" --cov-report=html --cov-report=xml -m "not slow" \
-    {{ if update == "true" { "--snapshot-update" } else { "-n auto" } }}
+    {{ if update == "true" { "--snapshot-update" } else { "-n auto --dist worksteal" } }}
 # Check an assembled release folder before zipping, as CI does: bundled tools, offline clips, schema.
 smoke-release folder version="":
   uv run python tools/release/smoke_test.py "{{folder}}" {{version}}

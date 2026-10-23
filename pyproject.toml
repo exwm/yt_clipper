@@ -69,6 +69,8 @@ markers = [
 ]
 
 [tool.coverage.run]
+# Beside the reports, not in the repo root (with one part file per process until combined).
+data_file = "coverage/.coverage"
 branch = true
 source = ["src/clipper"]
 omit = ["src/clipper/tests/*"]
