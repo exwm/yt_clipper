@@ -2,7 +2,11 @@ import { html, render, TemplateResult } from 'lit-html';
 import { ref } from 'lit-html/directives/ref.js';
 import { appState } from '../../appState';
 import { getCurrentCropComponents, hideChart, scheduleCinematicRecompute } from '../../charts';
-import { DEFAULT_CINEMATIC_MARGIN, DEFAULT_CINEMATIC_ZOOM_MARGIN } from '../../crop/cinematic-path';
+import {
+  DEFAULT_CINEMATIC_MARGIN_PERCENT,
+  DEFAULT_CINEMATIC_ZOOM_MARGIN_PERCENT,
+} from '../../crop/cinematic-path';
+import { CinematicSettings } from './cinematic-settings';
 import { isReframeEnabled, syncReframe } from '../../crop/video-zoom-controller';
 import {
   CropChip,
@@ -258,34 +262,23 @@ function GlobalSettingsEditorTemplate(binder: SettingsBinder<Settings>): Templat
             id: 'global-cinematic-settings-modal',
             title: 'Cinematic Settings',
             visible: isCinematicActive(),
-            content: () => html`
-              ${NumberInputRow({
+            content: () =>
+              CinematicSettings({
+                editorKey: 'global',
                 // The solve redraws the preview. A redraw now would show the stale path's fallback.
-                ...bind('cinematic-margin-input', 'cropPointEasingCinematicMargin', 'number', {
+                marginInput: bind('cinematic-margin-input', 'cropPointEasingCinematicMargin', 'number', {
                   afterChange: scheduleCinematicRecompute,
                 }),
-                label: 'Margin (px)',
-                value: settings.cropPointEasingCinematicMargin ?? '',
-                placeholder: String(DEFAULT_CINEMATIC_MARGIN),
-                min: 0,
-                step: 1,
-                tooltip: Tooltips.cinematicMarginTooltip,
-                compact: true,
-              })}
-              ${NumberInputRow({
-                ...bind('cinematic-zoom-margin-input', 'cropPointEasingCinematicZoomMargin', 'number', {
+                zoomMarginInput: bind('cinematic-zoom-margin-input', 'cropPointEasingCinematicZoomMargin', 'number', {
                   afterChange: scheduleCinematicRecompute,
                 }),
-                label: 'Zoom Margin',
-                value: settings.cropPointEasingCinematicZoomMargin ?? '',
-                placeholder: String(DEFAULT_CINEMATIC_ZOOM_MARGIN),
-                min: 0,
-                max: 1,
-                step: 0.01,
-                tooltip: Tooltips.cinematicZoomMarginTooltip,
-                compact: true,
-              })}
-            `,
+                margin: settings.cropPointEasingCinematicMargin,
+                zoomMargin: settings.cropPointEasingCinematicZoomMargin,
+                inheritedMargin: DEFAULT_CINEMATIC_MARGIN_PERCENT,
+                inheritedZoomMargin: DEFAULT_CINEMATIC_ZOOM_MARGIN_PERCENT,
+                // New marker pairs start from this crop.
+                crops: () => [settings.newMarkerCrop],
+              }),
           }),
         })}
       `,

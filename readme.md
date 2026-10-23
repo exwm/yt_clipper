@@ -538,10 +538,12 @@ Use the **Crop Easing** setting to choose how a dynamic crop pans and zooms betw
 
 - **Smooth Track (default):** Use it to follow a moving subject. The crop keeps moving through points without stopping at each one. It does not swing past a point when the subject reverses direction.
 - **Cinematic:** Use it for steady, camera-like motion when the crop does not need to hit each point exactly. The crop follows the points within a margin, with steady holds, constant-speed pans, and smooth transitions.
+  - Use it to frame a subject through camera shake. To steady the camera itself with your crop points, use Smooth Track or the **Weak** margins.
   - The `markup script` pauses briefly to recompute the path after each edit. Clips also take slightly longer to render.
   - Open the gear button next to **Crop Easing** to set the margins.
-  - **Margin (px)** (default 40): How far the crop position may drift from the crop points, in crop resolution pixels. Larger margins give fewer, steadier moves. At zero, the crop follows the points exactly.
-  - **Zoom Margin** (default 0.08): How far the crop size may drift, as a fraction of the size.
+  - **Weak**, **Medium** and **Strong** set both margins at once. **Custom** restores the margins you last typed.
+  - **Margin (%)** (default 12): How far the crop position may drift from the crop points, as a percentage of the crop's shorter side. The pixels for the crop show below it. Larger margins give fewer, steadier moves. At zero, the crop follows the points exactly.
+  - **Zoom Margin (%)** (default 8): How far the crop size may drift, as a percentage of the size.
 - **EaseInOut:** The crop easing from before version 5.49.0. Each section eases in and out, so the crop slows to a stop at every point. Use it if Smooth Track or Cinematic does not move the crop as you expect. Markers data saved before version 5.49.0 renders with EaseInOut, and loads in the `markup script` with EaseInOut.
 
 ### Dynamic Crop Tips

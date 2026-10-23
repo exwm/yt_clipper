@@ -86,7 +86,8 @@ def test_unknown_keys_are_dropped(path: list[Any], key: str) -> None:
         pytest.param("denoise", {"enabled": True, "lumaSpatial": "4:x"}, id="preset value"),
         pytest.param("markerPairs", {}, id="pairs not a list"),
         pytest.param("cropPointEasingCinematicMargin", "40 -y", id="cinematic margin with arguments"),
-        pytest.param("cropPointEasingCinematicZoomMargin", 2, id="cinematic zoom margin above 1"),
+        pytest.param("cropPointEasingCinematicMargin", 51, id="cinematic margin above 50%"),
+        pytest.param("cropPointEasingCinematicZoomMargin", 101, id="cinematic zoom margin above 100%"),
     ],
 )
 def test_invalid_global_settings_are_reported(key: str, value: object) -> None:

@@ -1,0 +1,23 @@
+[
+  { "name": "defaults", "settings": {}, "pos": 0.12, "zoom": 0.08 },
+  {
+    "name": "medium",
+    "settings": { "cropPointEasingCinematicMargin": 12, "cropPointEasingCinematicZoomMargin": 8 },
+    "pos": 0.12,
+    "zoom": 0.08
+  },
+  {
+    "name": "zero stays zero",
+    "settings": { "cropPointEasingCinematicMargin": 0, "cropPointEasingCinematicZoomMargin": 0 },
+    "pos": 0,
+    "zoom": 0
+  },
+  {
+    "name": "largest",
+    "settings": { "cropPointEasingCinematicMargin": 50, "cropPointEasingCinematicZoomMargin": 100 },
+    "pos": 0.5,
+    "zoom": 1
+  },
+  { "name": "pan only", "settings": { "cropPointEasingCinematicMargin": 6 }, "pos": 0.06, "zoom": 0.08 },
+  { "name": "zoom only", "settings": { "cropPointEasingCinematicZoomMargin": 15 }, "pos": 0.12, "zoom": 0.15 }
+]

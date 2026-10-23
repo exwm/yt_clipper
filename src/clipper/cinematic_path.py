@@ -33,6 +33,10 @@ MAX_SAMPLES = 400
 # Objective weights on velocity, acceleration, and jerk, tuned at the 10 Hz grid. Jerk is penalized
 # hardest so transitions are smooth ramps; velocity moderately so the path prefers to hold.
 WEIGHTS = (10.0, 1.0, 100.0)
+# A gentle pull of the crop toward the crop points inside the margins, at the 10 Hz grid: smooths as
+# a wide margin does while keeping the crop closer to where the points frame the subject. On the size
+# it also lets the solve converge within MAX_ITERS, which a wide zoom margin otherwise does not.
+CROP_POINT_FIDELITY = 0.01
 
 # How far a fitted segment may sit from the solved samples (cropRes px). Sub-pixel, so invisible.
 SEGMENT_FIT_TOLERANCE_PX = 0.4
@@ -44,8 +48,12 @@ MIN_CROP_HEIGHT = 20
 # path's widest.
 ZOOMPAN_MAX_ZOOM = 10
 
-DEFAULT_MARGIN = 40
-DEFAULT_ZOOM_MARGIN = 0.08
+# Both margins are shares of the crop size: the position may drift by a share of the crop's shorter
+# side (in x and y), the size by a share of itself. Settings hold them as percentages.
+DEFAULT_MARGIN_PERCENT = 12
+DEFAULT_ZOOM_MARGIN_PERCENT = 8
+DEFAULT_MARGIN = DEFAULT_MARGIN_PERCENT / 100
+DEFAULT_ZOOM_MARGIN = DEFAULT_ZOOM_MARGIN_PERCENT / 100
 
 RHO_INIT = 1.0
 MAX_ITERS = 1000
@@ -123,10 +131,12 @@ def solveL1Path(
     lower: np.ndarray,
     upper: np.ndarray,
     weights: Sequence[float] = WEIGHTS,
+    fidelity: float = 0.0,
 ) -> np.ndarray:
     """Minimizes w1|D1 p| + w2|D2 p| + w3|D3 p| subject to lower <= p <= upper, by ADMM with rho
     balanced early, then fixed. Returns the box-feasible consensus, so the path always respects the
-    margin and the frame."""
+    margin and the frame. With fidelity, also adds (fidelity / 2) |p - target|^2: a pull toward the
+    target inside the box."""
     n = len(target)
     if n <= 3:
         return np.clip(target, lower, upper)
@@ -159,7 +169,8 @@ def solveL1Path(
             dualChangeSq += float((zNew - z[k]) @ (zNew - z[k]))
             primalScaleSq += max(float(dp @ dp), float(zNew @ zNew))
             z[k] = zNew
-        qNew = np.clip(p + uq, lower, upper)
+        # The box projection of the fidelity term's proximal step.
+        qNew = np.clip((fidelity * target + rho * (p + uq)) / (fidelity + rho), lower, upper)
         uq += p - qNew
         primalSq += float((p - qNew) @ (p - qNew))
         dualChangeSq += float((qNew - q) @ (qNew - q))
@@ -363,7 +374,9 @@ def _solveRun(
         np.maximum(np.maximum(1.0, targetW * (1 - margins["zoom"])), np.minimum(targetW, smallestW)),
         hiW,
     )
-    solvedW = solveL1Path(np.clip(targetW, loW, hiW), loW, hiW, weights)
+    # Per sample, so the pull's total strength does not depend on the grid spacing.
+    fidelity = CROP_POINT_FIDELITY * dt * GRID_RATE_HZ
+    solvedW = solveL1Path(np.clip(targetW, loW, hiW), loW, hiW, weights, fidelity)
     solvedH = np.minimum(cropResHeight, solvedW * ratio)
     # The derived height keeps the first crop's aspect ratio, so a later crop of another one (only a
     # hand-edited file has it) can sit past the frame edge for that height. The ends are pinned to
@@ -371,20 +384,32 @@ def _solveRun(
     targetX = np.minimum(targetX, cropResWidth - solvedW)
     targetY = np.minimum(targetY, cropResHeight - solvedH)
 
+    # The position margin is a share of the crop points' shorter side, in both directions, so the crop
+    # never drifts more than that share of its width or its height, and a zoom changes it with the crop.
+    margin = margins["pos"] * np.minimum(targetW, targetW * ratio)
     loX, hiX = box(
         targetX,
-        np.maximum(0.0, targetX - margins["pos"]),
-        np.minimum(cropResWidth - solvedW, targetX + margins["pos"]),
+        np.maximum(0.0, targetX - margin),
+        np.minimum(cropResWidth - solvedW, targetX + margin),
     )
-    solvedX = solveL1Path(np.clip(targetX, loX, hiX), loX, hiX, weights)
+    solvedX = solveL1Path(np.clip(targetX, loX, hiX), loX, hiX, weights, fidelity)
     loY, hiY = box(
         targetY,
-        np.maximum(0.0, targetY - margins["pos"]),
-        np.minimum(cropResHeight - solvedH, targetY + margins["pos"]),
+        np.maximum(0.0, targetY - margin),
+        np.minimum(cropResHeight - solvedH, targetY + margin),
     )
-    solvedY = solveL1Path(np.clip(targetY, loY, hiY), loY, hiY, weights)
+    solvedY = solveL1Path(np.clip(targetY, loY, hiY), loY, hiY, weights, fidelity)
 
     return _segmentPath(gridTimes, {"x": solvedX, "y": solvedY, "w": solvedW, "h": solvedH})
+
+
+def cinematicMargins(markerPairSettings: dict[str, Any]) -> dict[str, float]:
+    """A marker pair's margins, from its overrides or the global settings, which hold percentages of
+    the crop size."""
+    return {
+        "pos": markerPairSettings.get("cropPointEasingCinematicMargin", DEFAULT_MARGIN_PERCENT) / 100,
+        "zoom": markerPairSettings.get("cropPointEasingCinematicZoomMargin", DEFAULT_ZOOM_MARGIN_PERCENT) / 100,
+    }
 
 
 def bakeCinematicPath(

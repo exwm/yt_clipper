@@ -60,9 +60,8 @@ import { triggerCropPreviewRedraw } from './crop/crop-preview';
 import {
   bakeCinematicPath,
   CinematicMargins,
+  cinematicMarginsFromPercent,
   cropPathSignature,
-  DEFAULT_CINEMATIC_MARGIN,
-  DEFAULT_CINEMATIC_ZOOM_MARGIN,
   evalCropPathAtTime,
   isCropPathFresh,
 } from './crop/cinematic-path';
@@ -921,16 +920,12 @@ function getActiveCinematicMargins(): CinematicMargins {
 }
 
 function getCinematicMargins(mp: MarkerPair | undefined): CinematicMargins {
-  return {
-    pos:
-      mp?.overrides?.cropPointEasingCinematicMargin ??
-      appState.settings.cropPointEasingCinematicMargin ??
-      DEFAULT_CINEMATIC_MARGIN,
-    zoom:
-      mp?.overrides?.cropPointEasingCinematicZoomMargin ??
-      appState.settings.cropPointEasingCinematicZoomMargin ??
-      DEFAULT_CINEMATIC_ZOOM_MARGIN,
-  };
+  return cinematicMarginsFromPercent(
+    mp?.overrides?.cropPointEasingCinematicMargin ??
+      appState.settings.cropPointEasingCinematicMargin,
+    mp?.overrides?.cropPointEasingCinematicZoomMargin ??
+      appState.settings.cropPointEasingCinematicZoomMargin
+  );
 }
 
 // The preview's solved cinematic path per marker pair. Not saved: the clipper solves its own.

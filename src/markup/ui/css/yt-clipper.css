@@ -998,8 +998,30 @@
   font-weight: 700;
 }
 
+/* Cinematic strength presets: one row of text buttons above the margins. */
+.ytc-settings-popover > .ytc-cinematic-strength {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.ytc-cinematic-strength-button {
+  padding: 3px 6px;
+  font-size: 9pt;
+  line-height: normal;
+}
+
+/* The margin in crop resolution pixels, under its input. */
+.ytc-settings-popover > .ytc-cinematic-margin-px {
+  display: block;
+  margin-top: 0;
+  color: var(--light-grey);
+  font-size: 8.5pt;
+  text-align: right;
+}
+
 /* One label and input per row, the inputs in one column. */
-.ytc-settings-popover > div:not(.ytc-settings-popover-title) {
+.ytc-settings-popover > div:not(.ytc-settings-popover-title):not(.ytc-cinematic-strength):not(.ytc-cinematic-margin-px) {
   display: grid;
   grid-template-columns: 1fr 5em;
   align-items: center;

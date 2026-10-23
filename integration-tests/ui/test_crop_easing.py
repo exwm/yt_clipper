@@ -11,6 +11,7 @@ from harness.steps import step
 EASING_SELECT = "#crop-point-easing-input"
 GEAR_BUTTON = "#cinematic-settings-modal-button"
 MARGIN_INPUT = "#cinematic-margin-input"
+ZOOM_MARGIN_INPUT = "#cinematic-zoom-margin-input"
 
 # A pan right and back with uneven spacing, so the easing modes differ between points.
 PAN_PAIR = {
@@ -92,7 +93,7 @@ def test_a_paused_preview_follows_a_cinematic_margin_change(dynamic_pan: MarkupP
     when_i_choose_easing(dynamic_pan, "cinematic")
     then_a_cinematic_path_is_baked(dynamic_pan)
     before = previewed_crop_x_at(dynamic_pan, BETWEEN_POINTS_TIME)
-    when_i_set_the_cinematic_margin(dynamic_pan, "300")
+    when_i_set_the_cinematic_margin(dynamic_pan, "45")
     then_the_shown_crop_changes_from(dynamic_pan, before)
     then_the_crops_match(
         dynamic_pan, shown_crop_x(dynamic_pan), previewed_crop_x_at(dynamic_pan, BETWEEN_POINTS_TIME)
@@ -105,9 +106,26 @@ def test_cinematic_bakes_a_path_and_its_gear_shows_the_current_margins(
     then_the_cinematic_gear_is_hidden(dynamic_pan)
     when_i_choose_easing(dynamic_pan, "cinematic")
     then_a_cinematic_path_is_baked(dynamic_pan)
-    when_i_set_the_cinematic_margin(dynamic_pan, "80")
+    when_i_set_the_cinematic_margin(dynamic_pan, "20")
     when_i_reopen_the_cinematic_settings(dynamic_pan)
-    then_the_cinematic_margin_shows(dynamic_pan, "80")
+    then_the_cinematic_margin_shows(dynamic_pan, "20")
+
+
+def test_a_strength_preset_sets_both_margins_and_custom_restores_typed_ones(
+    dynamic_pan: MarkupPage,
+) -> None:
+    when_i_choose_easing(dynamic_pan, "cinematic")
+    then_a_cinematic_path_is_baked(dynamic_pan)
+    when_i_reopen_the_cinematic_settings(dynamic_pan)
+    then_the_active_strength_is(dynamic_pan, "Medium")
+    when_i_type_the_cinematic_margin(dynamic_pan, "9")
+    then_the_active_strength_is(dynamic_pan, "Custom")
+    when_i_click_the_strength(dynamic_pan, "Strong")
+    then_the_margins_show(dynamic_pan, "20", "15")
+    then_the_active_strength_is(dynamic_pan, "Strong")
+    then_the_margin_pixels_show(dynamic_pan, "≈ 108 px")
+    when_i_click_the_strength(dynamic_pan, "Custom")
+    then_the_margins_show(dynamic_pan, "9", "")
 
 
 def test_the_cinematic_settings_close_with_their_editor(dynamic_pan: MarkupPage) -> None:
@@ -174,6 +192,17 @@ def when_i_set_the_cinematic_margin(markup: MarkupPage, value: str) -> None:
     markup.page.dispatch_event(MARGIN_INPUT, "change")
     markup.page.keyboard.press("Escape")
     markup.page.wait_for_selector(MARGIN_INPUT, state="detached")
+
+
+@step
+def when_i_type_the_cinematic_margin(markup: MarkupPage, value: str) -> None:
+    markup.page.fill(MARGIN_INPUT, value)
+    markup.page.dispatch_event(MARGIN_INPUT, "change")
+
+
+@step
+def when_i_click_the_strength(markup: MarkupPage, name: str) -> None:
+    markup.page.click(f'[data-cinematic-strength="{name}"]')
 
 
 @step
@@ -257,6 +286,25 @@ def then_a_cinematic_path_is_baked(markup: MarkupPage) -> None:
         state="attached",
         timeout=5000,
     )
+
+
+@step
+def then_the_active_strength_is(markup: MarkupPage, name: str) -> None:
+    active = markup.page.locator(".ytc-cinematic-strength-button.active")
+    assert active.count() == 1
+    assert active.get_attribute("data-cinematic-strength") == name
+
+
+@step
+def then_the_margins_show(markup: MarkupPage, margin: str, zoomMargin: str) -> None:
+    assert markup.page.locator(MARGIN_INPUT).input_value() == margin
+    assert markup.page.locator(ZOOM_MARGIN_INPUT).input_value() == zoomMargin
+
+
+@step
+def then_the_margin_pixels_show(markup: MarkupPage, text: str) -> None:
+    markup.shot("cinematic-strength")
+    assert markup.page.locator(".ytc-cinematic-margin-px").inner_text() == text
 
 
 @step

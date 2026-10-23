@@ -282,8 +282,8 @@ const OVERRIDES_VALIDATORS = {
   cropPointEasing: (v: unknown) =>
     v === 'smoothInOut' || v === 'smoothTrack' || v === 'cinematic',
   // The schema's bounds: the clipper skips a pair with a margin outside them.
-  cropPointEasingCinematicMargin: (v: unknown) => isFiniteNumber(v) && v >= 0,
-  cropPointEasingCinematicZoomMargin: (v: unknown) => isFiniteNumber(v) && v >= 0 && v <= 1,
+  cropPointEasingCinematicMargin: (v: unknown) => isFiniteNumber(v) && v >= 0 && v <= 50,
+  cropPointEasingCinematicZoomMargin: (v: unknown) => isFiniteNumber(v) && v >= 0 && v <= 100,
   enableHDR: (v: unknown) => typeof v === 'boolean',
   gamma: (v: unknown) => isFiniteNumber(v),
   encodeSpeed: (v: unknown) => isFiniteNumber(v),

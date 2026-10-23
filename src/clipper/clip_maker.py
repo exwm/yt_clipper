@@ -215,10 +215,7 @@ def getMarkerPairSettings(  # noqa: PLR0912
             try:
                 cinematicPath = _bakeCinematicPath(
                     mp["cropMap"],
-                    {
-                        "pos": mps.get("cropPointEasingCinematicMargin", cinematic_path.DEFAULT_MARGIN),
-                        "zoom": mps.get("cropPointEasingCinematicZoomMargin", cinematic_path.DEFAULT_ZOOM_MARGIN),
-                    },
+                    cinematic_path.cinematicMargins(mps),
                     settings["cropResWidth"],
                     settings["cropResHeight"],
                     # ffprobe gives a fraction string such as "30000/1001".
