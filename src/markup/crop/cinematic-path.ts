@@ -8,7 +8,7 @@
 // against cinematic_path_parity.json so the preview matches the render. DOM-free and
 // dependency-free so it unit-tests in node like crop-keyframe-math.ts.
 
-import { CropPath, CropPathSegment, CropPoint } from '../@types/yt_clipper';
+import { CropPath, CropPathCenterBounds, CropPathSegment, CropPoint } from '../@types/yt_clipper';
 
 // Bump here and in the clipper when the solved path changes. Saved markers JSON records it, so the
 // clipper can warn when the crop may move differently than in the preview.
@@ -66,7 +66,7 @@ export function cinematicMarginsFromPercent(
 
 // Parse a "x:y:w:h" crop string to cropRes-pixel components, resolving iw/ih. Pure (the caller
 // passes the resolution) so this module stays node-testable.
-function parseCropToComponents(
+export function parseCropToComponents(
   crop: string,
   cropResWidth: number,
   cropResHeight: number
@@ -552,7 +552,7 @@ function solveRun(
   cropResWidth: number,
   cropResHeight: number,
   widestW: number
-): CropPathSegment[] | null {
+): { segments: CropPathSegment[]; centerBounds: CropPathCenterBounds } | null {
   const parsed = cropMapComponents(run, firstTime, cropResWidth, cropResHeight);
   if (!parsed) return null;
   const { times, x, y, w, h } = parsed;
@@ -615,7 +615,20 @@ function solveRun(
   anchor(inFrameY, loY, hiY);
   const solvedY = solveL1Path(clampToBox(inFrameY, loY, hiY), loY, hiY, weights, fidelity);
 
-  return segmentPath(gridTimes, { x: solvedX, y: solvedY, w: solvedW, h: solvedH });
+  // The box bounds the crop's corner; the plot shows where that leaves its center.
+  const centerBounds = {
+    t: gridTimes,
+    xLow: loX.map((v, i) => v + solvedW[i] / 2),
+    xHigh: hiX.map((v, i) => v + solvedW[i] / 2),
+    yLow: loY.map((v, i) => v + solvedH[i] / 2),
+    yHigh: hiY.map((v, i) => v + solvedH[i] / 2),
+    wLow: loW,
+    wHigh: hiW,
+  };
+  return {
+    segments: segmentPath(gridTimes, { x: solvedX, y: solvedY, w: solvedW, h: solvedH }),
+    centerBounds,
+  };
 }
 
 // Compute the cinematic path for a marker pair's cropMap. Returns null when there is nothing to
@@ -632,14 +645,32 @@ export function bakeCinematicPath(
   const runs = splitAtInstantCuts(cropMap, fps);
   const widestW = Math.max(
     ...cropMap.map((point) =>
-      Math.min(cropResWidth, parseCropToComponents(point.crop, cropResWidth, cropResHeight)[2] * (1 + margins.zoom))
+      Math.min(
+        cropResWidth,
+        parseCropToComponents(point.crop, cropResWidth, cropResHeight)[2] * (1 + margins.zoom)
+      )
     )
   );
   const solved = runs.map((run) =>
     solveRun(run, firstTime, margins, cropResWidth, cropResHeight, widestW)
   );
-  const segments = solved.flatMap((runSegments) => runSegments ?? []);
+  const segments = solved.flatMap((run) => run?.segments ?? []);
   if (segments.length === 0) return null;
+  const centerBounds: CropPathCenterBounds = {
+    t: [],
+    xLow: [],
+    xHigh: [],
+    yLow: [],
+    yHigh: [],
+    wLow: [],
+    wHigh: [],
+  };
+  for (const run of solved) {
+    if (!run) continue;
+    for (const key of ['t', 'xLow', 'xHigh', 'yLow', 'yHigh', 'wLow', 'wHigh'] as const) {
+      centerBounds[key].push(...run.centerBounds[key]);
+    }
+  }
   if (solved[solved.length - 1] === null) {
     // A cut on the last point leaves a run of one moment, with nothing to solve. Hold its crop
     // there, so the path ends on the cut, as the other crop easings do.
@@ -648,6 +679,13 @@ export function bakeCinematicPath(
     const t = cut.x - firstTime;
     const [x, y, w, h] = parseCropToComponents(cut.crop, cropResWidth, cropResHeight);
     segments.push({ startT: t, endT: t, x: [x, 0, 0], y: [y, 0, 0], w: [w, 0, 0], h: [h, 0, 0] });
+    centerBounds.t.push(t);
+    centerBounds.xLow.push(x + w / 2);
+    centerBounds.xHigh.push(x + w / 2);
+    centerBounds.yLow.push(y + h / 2);
+    centerBounds.yHigh.push(y + h / 2);
+    centerBounds.wLow.push(w);
+    centerBounds.wHigh.push(w);
   }
 
   return {
@@ -655,6 +693,7 @@ export function bakeCinematicPath(
     margin: { pos: margins.pos, zoom: margins.zoom },
     signature: cropPathSignature(cropMap, margins, cropResWidth, cropResHeight, fps),
     segments,
+    centerBounds,
   };
 }
 

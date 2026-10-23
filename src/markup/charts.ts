@@ -66,6 +66,11 @@ import {
   isCropPathFresh,
 } from './crop/cinematic-path';
 import {
+  CINEMATIC_PATH_SOLVED_EVENT,
+  CinematicPlotInput,
+  isCinematicPathPlotShown,
+} from './crop/cinematic-path-plot';
+import {
   CropKeyframeMatch,
   CropPointEasing,
   DEFAULT_CROP_POINT_EASING,
@@ -425,8 +430,10 @@ export function toggleChart(chartInput: ChartInput) {
     flashMessage('Please open a marker pair editor before toggling a chart input.', 'olive');
   }
 }
-export function getCropPreviewMouseTimeSetter(modalContainer: HTMLCanvasElement) {
-  function getSeekTime(e: MouseEvent) {
+// Right-click and drag on the canvas to seek. By default its width spans the marker pair.
+export function getCropPreviewMouseTimeSetter(
+  modalContainer: HTMLCanvasElement,
+  getSeekTime: (e: MouseEvent) => number = (e) => {
     const rect = modalContainer.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const scaledX = x / rect.width;
@@ -436,7 +443,7 @@ export function getCropPreviewMouseTimeSetter(modalContainer: HTMLCanvasElement)
     const seekTime = markerPair.start + scaledX * duration;
     return seekTime;
   }
-
+) {
   return function seekHandler(e) {
     if (e.buttons !== 2) return;
     blockEvent(e);
@@ -931,6 +938,26 @@ function getCinematicMargins(mp: MarkerPair | undefined): CinematicMargins {
 // The preview's solved cinematic path per marker pair. Not saved: the clipper solves its own.
 const cinematicPaths = new WeakMap<MarkerPair, CropPath>();
 
+// The active pair's crop points and solved path, for the plot in the Cinematic settings.
+export function getActiveCinematicPlotInput(): CinematicPlotInput | null {
+  const mp = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+  if (!mp) return null;
+  const { cropResWidth, cropResHeight } = appState.settings;
+  const margins = getActiveCinematicMargins();
+  const fps = getFPS();
+  const path = cinematicPaths.get(mp);
+  const fresh = isCropPathFresh(path, mp.cropMap, margins, cropResWidth, cropResHeight, fps);
+  return {
+    cropMap: mp.cropMap,
+    margins,
+    cropResWidth,
+    cropResHeight,
+    fps,
+    enableZoomPan: mp.enableZoomPan,
+    path: fresh && path ? path : null,
+  };
+}
+
 // The cinematic crop at the current time, or null when there is no fresh path yet (mid-edit or
 // mid-recompute), in which case the caller falls back to a smooth interpolation.
 function getActiveCinematicCrop(): [number, number, number, number] | null {
@@ -976,6 +1003,11 @@ function evalCinematicCrop(
 }
 
 let cinematicRecomputeTimer: ReturnType<typeof setTimeout> | undefined;
+
+export function isCinematicSolvePending(): boolean {
+  return cinematicRecomputeTimer !== undefined;
+}
+
 // Per pair, the inputs of its last solve if that solve failed.
 const failedCinematicSignatures = new WeakMap<MarkerPair, string>();
 // How long the crop points must sit unchanged before the (heavy, global) L1 solve runs. Every edit
@@ -989,10 +1021,10 @@ const CINEMATIC_RECOMPUTE_DEBOUNCE_MS = 350;
 // runs here, off the timer.
 export function scheduleCinematicRecompute(): void {
   if (typeof window === 'undefined') return;
-  if (getActiveCropPointEasing() !== 'cinematic') {
-    interpCropSpan?.setAttribute('data-cinematic-segments', '0');
-    return;
-  }
+  const previewed = getActiveCropPointEasing() === 'cinematic';
+  // The plot in the Cinematic settings also shows the path in Smooth Track, to compare the two.
+  if (!previewed) interpCropSpan?.setAttribute('data-cinematic-segments', '0');
+  if (!previewed && !isCinematicPathPlotShown()) return;
   const mp = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
   if (!mp) return;
   const { cropResWidth, cropResHeight } = appState.settings;
@@ -1001,7 +1033,9 @@ export function scheduleCinematicRecompute(): void {
   const path = cinematicPaths.get(mp);
   if (path && isCropPathFresh(path, mp.cropMap, margins, cropResWidth, cropResHeight, fps)) {
     // A reopened editor has a new crop chip, without the count of the path it still shows.
-    interpCropSpan?.setAttribute('data-cinematic-segments', String(path.segments.length));
+    if (previewed) {
+      interpCropSpan?.setAttribute('data-cinematic-segments', String(path.segments.length));
+    }
     return;
   }
   // The shown count is for a path that no longer applies.
@@ -1019,7 +1053,8 @@ export function scheduleCinematicRecompute(): void {
 function recomputeActiveCinematicPath(): void {
   cinematicRecomputeTimer = undefined;
   const mp = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
-  if (!mp || getActiveCropPointEasing() !== 'cinematic') return;
+  const previewed = getActiveCropPointEasing() === 'cinematic';
+  if (!mp || (!previewed && !isCinematicPathPlotShown())) return;
   // Never solve mid-manipulation (the drag/draw end re-schedules), matching the loop-safety rules.
   if (isMouseManipulatingCrop || isDrawingCrop || isDraggingChartPoint()) {
     scheduleCinematicRecompute();
@@ -1048,16 +1083,25 @@ function recomputeActiveCinematicPath(): void {
     );
     interpCropSpan?.setAttribute('data-cinematic-segments', '0');
     refreshCropPreview();
-    flashMessage('Could not compute the Cinematic path, so the preview uses Smooth Track.', 'red');
+    document.dispatchEvent(new Event(CINEMATIC_PATH_SOLVED_EVENT));
+    if (previewed) {
+      flashMessage(
+        'Could not compute the Cinematic path, so the preview uses Smooth Track.',
+        'red'
+      );
+    }
     return;
   }
   const elapsedMs = Math.round(performance.now() - startMs);
   if (path) cinematicPaths.set(mp, path);
   else cinematicPaths.delete(mp);
   failedCinematicSignatures.delete(mp);
-  // The UI tests wait on this.
-  interpCropSpan?.setAttribute('data-cinematic-segments', String(path?.segments.length ?? 0));
+  // The UI tests wait on this. It counts the path the preview shows.
+  if (previewed) {
+    interpCropSpan?.setAttribute('data-cinematic-segments', String(path?.segments.length ?? 0));
+  }
   refreshCropPreview();
+  document.dispatchEvent(new Event(CINEMATIC_PATH_SOLVED_EVENT));
   if (path && featureFlags.cinematicSolveStats) {
     flashMessage(`Cinematic path: ${path.segments.length} segments in ${elapsedMs}ms`, 'green');
   }

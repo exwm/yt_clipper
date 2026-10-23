@@ -355,7 +355,12 @@ describe('bounds and clip length', () => {
     }
   });
 
-  const point = (x: number, crop: string, easeIn?: 'instant'): CropPoint => ({ x, y: 0, crop, easeIn });
+  const point = (x: number, crop: string, easeIn?: 'instant'): CropPoint => ({
+    x,
+    y: 0,
+    crop,
+    easeIn,
+  });
   it.each([
     [
       'quick zoom',
@@ -382,9 +387,16 @@ describe('bounds and clip length', () => {
   ])('keeps an overshoot a crop the render shows: %s', (_name, zoom, cropMap) => {
     // The crop overshot to 1 px wide or 2 px tall, and ffmpeg's zoompan zooms in at most 10x. The
     // clipper's test_cinematic_path.py checks the same cases.
-    const path = bakeCinematicPath(cropMap, { pos: DEFAULT_CINEMATIC_MARGIN, zoom }, CROP_RES_W, CROP_RES_H)!;
+    const path = bakeCinematicPath(
+      cropMap,
+      { pos: DEFAULT_CINEMATIC_MARGIN, zoom },
+      CROP_RES_W,
+      CROP_RES_H
+    )!;
     const end = Math.round(cropMap[cropMap.length - 1].x * 1000);
-    const sizes = Array.from({ length: end + 1 }, (_v, i) => evalCropPathAtTime(path, i / 1000).slice(2));
+    const sizes = Array.from({ length: end + 1 }, (_v, i) =>
+      evalCropPathAtTime(path, i / 1000).slice(2)
+    );
     const widths = sizes.map(([w]) => w);
     expect(Math.min(...widths)).toBeGreaterThanOrEqual(Math.max(...widths) / 10 - 0.4);
     expect(Math.min(...sizes.map(([, h]) => h))).toBeGreaterThanOrEqual(20 - 0.4);
@@ -399,14 +411,21 @@ describe('bounds and clip length', () => {
     // clipper's test_cinematic_path.py checks the same cases.
     const xs = [800, 920, 800, 920, 800, 920, 800];
     const ys = [200, 320, 200, 320, 200, 320, 200];
-    const cropMap: CropPoint[] = xs.map((x, i) => ({ x: i / 2, y: 0, crop: `${x}:${ys[i]}:${width}:${height}` }));
+    const cropMap: CropPoint[] = xs.map((x, i) => ({
+      x: i / 2,
+      y: 0,
+      crop: `${x}:${ys[i]}:${width}:${height}`,
+    }));
     const path = bakeCinematicPath(cropMap, { pos: 0.1, zoom: 0 }, CROP_RES_W, CROP_RES_H)!;
     const linear = (values: number[], t: number) => {
       const i = Math.min(Math.floor(t * 2), values.length - 2);
       return values[i] + (values[i + 1] - values[i]) * (t * 2 - i);
     };
     const crops = Array.from({ length: 301 }, (_v, i) => evalCropPathAtTime(path, i / 100));
-    for (const [axis, points] of [[0, xs], [1, ys]] as const) {
+    for (const [axis, points] of [
+      [0, xs],
+      [1, ys],
+    ] as const) {
       const drift = Math.max(...crops.map((c, i) => Math.abs(c[axis] - linear(points, i / 100))));
       // Uses the whole margin to smooth the jitter, and no more.
       expect(drift).toBeGreaterThanOrEqual(30 - 1);
@@ -421,7 +440,12 @@ describe('bounds and clip length', () => {
       { x: 0, y: 0, crop: '0:0:iw:1105' },
       { x: 2, y: 0, crop: '1035.36:1373:2210:17' },
     ];
-    const path = bakeCinematicPath(cropMap, { pos: DEFAULT_CINEMATIC_MARGIN, zoom: 0.08 }, CROP_RES_W, CROP_RES_H)!;
+    const path = bakeCinematicPath(
+      cropMap,
+      { pos: DEFAULT_CINEMATIC_MARGIN, zoom: 0.08 },
+      CROP_RES_W,
+      CROP_RES_H
+    )!;
     for (let i = 0; i <= 1000; i++) {
       const [, y, , h] = evalCropPathAtTime(path, i / 500);
       expect(y + h).toBeLessThanOrEqual(CROP_RES_H + 0.4);
@@ -469,33 +493,50 @@ describe('render parity', () => {
     samples: { t: number; x: number; y: number; w: number; h: number }[];
   }[];
 
-  it.each(parityCases.map((c) => [c.name, c] as const))('matches the parity table: %s', (_name, c) => {
-    const path = bakeCinematicPath(c.cropMap, c.margins, c.cropRes[0], c.cropRes[1])!;
-    for (const sample of c.samples) {
-      const [x, y, w, h] = evalCropPathAtTime(path, sample.t);
-      expect(x).toBeCloseTo(sample.x, 2);
-      expect(y).toBeCloseTo(sample.y, 2);
-      expect(w).toBeCloseTo(sample.w, 2);
-      expect(h).toBeCloseTo(sample.h, 2);
+  it.each(parityCases.map((c) => [c.name, c] as const))(
+    'matches the parity table: %s',
+    (_name, c) => {
+      const path = bakeCinematicPath(c.cropMap, c.margins, c.cropRes[0], c.cropRes[1])!;
+      for (const sample of c.samples) {
+        const [x, y, w, h] = evalCropPathAtTime(path, sample.t);
+        expect(x).toBeCloseTo(sample.x, 2);
+        expect(y).toBeCloseTo(sample.y, 2);
+        expect(w).toBeCloseTo(sample.w, 2);
+        expect(h).toBeCloseTo(sample.h, 2);
+      }
     }
-  });
+  );
 
   // Shared with the clipper's cinematicMargins, so the preview and the render read the percent
   // settings, and their defaults, the same way.
   const marginCases = JSON.parse(
-    readFileSync(join(__dirname, '../../clipper/tests/fixtures/cinematic_margin_percent.json'), 'utf8')
+    readFileSync(
+      join(__dirname, '../../clipper/tests/fixtures/cinematic_margin_percent.json'),
+      'utf8'
+    )
   ) as {
     name: string;
-    settings: { cropPointEasingCinematicMargin?: number; cropPointEasingCinematicZoomMargin?: number };
+    settings: {
+      cropPointEasingCinematicMargin?: number;
+      cropPointEasingCinematicZoomMargin?: number;
+    };
     pos: number;
     zoom: number;
   }[];
 
-  it.each(marginCases.map((c) => [c.name, c] as const))('converts percent margins like the clipper: %s', (_name, c) => {
-    const { cropPointEasingCinematicMargin, cropPointEasingCinematicZoomMargin } = c.settings;
-    expect(cinematicMarginsFromPercent(cropPointEasingCinematicMargin, cropPointEasingCinematicZoomMargin)).toEqual({
-      pos: c.pos,
-      zoom: c.zoom,
-    });
-  });
+  it.each(marginCases.map((c) => [c.name, c] as const))(
+    'converts percent margins like the clipper: %s',
+    (_name, c) => {
+      const { cropPointEasingCinematicMargin, cropPointEasingCinematicZoomMargin } = c.settings;
+      expect(
+        cinematicMarginsFromPercent(
+          cropPointEasingCinematicMargin,
+          cropPointEasingCinematicZoomMargin
+        )
+      ).toEqual({
+        pos: c.pos,
+        zoom: c.zoom,
+      });
+    }
+  );
 });

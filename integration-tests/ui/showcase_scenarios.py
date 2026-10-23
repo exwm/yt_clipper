@@ -83,7 +83,8 @@ def cinematic_settings(markup: MarkupPage) -> None:
     when_i_choose_easing(markup, "cinematic")
     then_a_cinematic_path_is_baked(markup)
     markup.page.click("#cinematic-settings-modal-button")
-    markup.page.wait_for_selector("#cinematic-margin-input")
+    # The plot draws after the popover opens.
+    markup.page.wait_for_selector(".ytc-cinematic-plot-canvas[data-cinematic-plotted='true']")
 
 
 @step

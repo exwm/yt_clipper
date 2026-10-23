@@ -135,19 +135,19 @@ export namespace Tooltips {
 
   export const cinematicMarginTooltip = stripIndent`
     How far the crop position may drift from the crop points, as a percentage of the crop's shorter side. The pixels below show what that is for this crop.
-    Larger margins give fewer, steadier moves. Smaller margins follow the points more closely. At zero, the crop follows the points exactly.
+    Larger margins give fewer, steadier moves. Smaller margins follow the points more closely. At zero, the crop position follows the points exactly.
     To frame a subject through camera shake, use Medium or Strong. To steady the camera itself with your crop points, use Weak or Smooth Track.
     Only used when Crop Easing is Cinematic.
     `;
 
   export const cinematicZoomMarginTooltip = stripIndent`
-    How far the crop size may drift from the crop points' sizes, as a percentage of the size.
+    How far the crop size may drift from the crop points' sizes, as a percentage of the size. The pixels below show what that is in crop width for this crop.
     Larger margins keep the zoom steadier between zoom moves.
     Only used when Crop Easing is Cinematic.
     `;
 
   export const cinematicCustomStrengthTooltip = stripIndent`
-    Restore the margins you last typed, after trying a strength preset.
+    Restore the margins you last set by hand, after trying a strength preset.
     `;
 
   export const titleSuffixTooltip = stripIndent`

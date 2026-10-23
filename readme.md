@@ -540,10 +540,15 @@ Use the **Crop Easing** setting to choose how a dynamic crop pans and zooms betw
 - **Cinematic:** Use it for steady, camera-like motion when the crop does not need to hit each point exactly. The crop follows the points within a margin, with steady holds, constant-speed pans, and smooth transitions.
   - Use it to frame a subject through camera shake. To steady the camera itself with your crop points, use Smooth Track or the **Weak** margins.
   - The `markup script` pauses briefly to recompute the path after each edit. Clips also take slightly longer to render.
-  - Open the gear button next to **Crop Easing** to set the margins.
-  - **Weak**, **Medium** and **Strong** set both margins at once. **Custom** restores the margins you last typed.
-  - **Margin (%)** (default 12): How far the crop position may drift from the crop points, as a percentage of the crop's shorter side. The pixels for the crop show below it. Larger margins give fewer, steadier moves. At zero, the crop follows the points exactly.
-  - **Zoom Margin (%)** (default 8): How far the crop size may drift, as a percentage of the size.
+  - Open the gear button next to **Crop Easing** to set the margins. Use **Smooth Track**, **Cinematic** and **EaseInOut** at the top of its settings to switch between the modes and compare them.
+  - In a marker pair's settings, a plot shows the crop path over time: the crop points (white) with their margin (grey), the Cinematic path (orange), the Smooth Track path (dashed blue), and the EaseInOut path (dotted purple). The marker pair's own crop easing is drawn thicker, on top. Click an entry in the legend to hide or show it. Right-click the plot to seek the video.
+    - Use **X**, **Y** and **Zoom** to show or hide the horizontal crop center, the vertical crop center, and the zoom. The zoom is 1x for the widest crop the frame fits, with the zoom margin around it. It shows in `zoompan` mode only.
+  - **Weak**, **Medium** and **Strong** set both margins at once. **Custom** restores the margins you last set by hand.
+  - **Pan Margin (%)** (default 12): How far the crop position may drift from the crop points, as a percentage of the crop's shorter side. Type it or drag the slider below it. The pixels for the crop show under the slider. Larger margins give fewer, steadier moves. At zero, the crop position follows the points exactly.
+  - **Zoom Margin (%)** (default 8): How far the crop size may drift, as a percentage of the size. Type it or drag the slider below it. The pixels of crop width show under the slider.
+
+  ![yt_clipper_cinematic_settings.png](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_cinematic_settings.png)
+
 - **EaseInOut:** The crop easing from before version 5.49.0. Each section eases in and out, so the crop slows to a stop at every point. Use it if Smooth Track or Cinematic does not move the crop as you expect. Markers data saved before version 5.49.0 renders with EaseInOut, and loads in the `markup script` with EaseInOut.
 
 ### Dynamic Crop Tips
