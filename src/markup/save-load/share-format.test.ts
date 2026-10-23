@@ -5,6 +5,7 @@ import {
   ByteWriter,
   DENOISE_PRESET_ORDER,
   SHARE_FORMAT_VERSION,
+  SharePayload,
   UnsupportedShareVersionError,
   VSTAB_PRESET_ORDER,
   deserializeBinary,
@@ -128,6 +129,19 @@ describe('share-format byte budget', () => {
   test('kitchenSink fixture is under 88 B', () => {
     const bytes = serializeBinary(kitchenSinkFixture);
     expect(bytes.byteLength).toBeLessThan(88);
+  });
+
+  test('a hold point costs no bytes beyond its flag bit', () => {
+    const withoutHolds: SharePayload = {
+      ...variableCropFixture,
+      markerPairs: variableCropFixture.markerPairs.map((pair) => ({
+        ...pair,
+        cropMap: pair.cropMap?.map(({ hold: _hold, ...point }) => point),
+      })),
+    };
+    expect(serializeBinary(variableCropFixture).byteLength).toBe(
+      serializeBinary(withoutHolds).byteLength
+    );
   });
 
   test('50-pair static fixture is under 475 B', () => {

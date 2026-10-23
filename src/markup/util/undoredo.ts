@@ -1,5 +1,6 @@
 import { Draft, finishDraft } from 'immer';
 import { MarkerPair, MarkerPairHistory } from '../@types/yt_clipper';
+import { resolveHeldCrops } from '../crop/crop-point-holds';
 
 const historySize = 100;
 export function pushState<S>(undoredo: { history: S[]; index: number }, state: S): void {
@@ -73,6 +74,8 @@ export function saveMarkerPairHistory(
   markerPair: MarkerPair,
   storeHistory = true
 ) {
+  // Resolved at the commit, so hold points follow the point before them whatever the edit was.
+  resolveHeldCrops(draft.cropMap);
   const newState = finishDraft(draft);
   Object.assign(markerPair, newState);
   if (storeHistory) {

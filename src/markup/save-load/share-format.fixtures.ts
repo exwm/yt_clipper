@@ -98,6 +98,7 @@ export function canonicalizeSharePayload(p: SharePayload): SharePayload {
       out.cropMap = pair.cropMap.map((pt) => {
         const cp: CropPoint = { x: qTime(pt.x), y: 0, crop: pt.crop };
         if (pt.easeIn === 'instant') cp.easeIn = 'instant';
+        if (pt.hold) cp.hold = true;
         return cp;
       });
     }
@@ -152,6 +153,7 @@ export const variableCropFixture: SharePayload = {
       cropMap: [
         { x: 10, y: 0, crop: '0:0:960:540' },
         { x: 15, y: 0, crop: '480:270:960:540', easeIn: 'instant' },
+        { x: 18, y: 0, crop: '480:270:960:540', hold: true },
         { x: 22, y: 0, crop: '960:540:960:540' },
         { x: 30, y: 0, crop: '0:0:1920:1080' },
       ],

@@ -136,6 +136,8 @@ interface CropPoint {
   y: 0;
   crop: string;
   easeIn?: 'instant';
+  // Shows the crop of the point before it: `crop-point-holds.ts` keeps `crop` equal to that crop.
+  hold?: true;
 }
 
 // One piece of a solved cinematic path. Each crop component is a quadratic in local time

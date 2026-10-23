@@ -2,6 +2,7 @@ import { Draft } from 'immer';
 import { createDraft } from 'immer';
 import { CropPoint, MarkerPair } from './@types/yt_clipper';
 import { Crop } from './crop/crop';
+import { releaseHoldIfChanged } from './crop/crop-point-holds';
 import { appState } from './appState';
 import { clampNumber, flashMessage, getCropString } from './util/util';
 import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
@@ -345,6 +346,7 @@ export function updateCropString(
     if (isSecondLastPoint && isLastSectionStatic) {
       draftCropMap[maxIndex].crop = cropString;
     }
+    releaseHoldIfChanged(draftCropMap, appState.currentCropPointIndex, cropStringsEqual);
 
     draft.crop = draftCropMap[0].crop;
   } else {

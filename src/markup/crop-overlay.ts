@@ -646,8 +646,11 @@ export function setCropManipulationKind(kind: 'drag' | 'resize' | null): void {
  *  per-keyframe update, every prior keyframe except the very last would
  *  collapse to the original p0 crop. `null` when no drag is active. */
 export let cropDragStartCropString: string | null = null;
-export function setCropDragStartCropString(value: string | null): void {
+/** Whether the edited point was a hold point at that start, so the revert keeps it holding. */
+export let cropDragStartWasHold = false;
+export function setCropDragStartCropString(value: string | null, wasHold = false): void {
   cropDragStartCropString = value;
+  cropDragStartWasHold = wasHold;
 }
 /** True for the brief window between a mid-drag `Alt + A` keypress and
  *  the user releasing Alt. While set, `processDragCrop` ignores
@@ -851,7 +854,7 @@ export function addCropMouseManipulationListener() {
         unregisterDragRecovery();
         isMouseManipulatingCrop = false;
         cropManipulationKind = null;
-        cropDragStartCropString = null;
+        setCropDragStartCropString(null);
         refreshCropDragInitState = null;
         if (cropDragRafId) {
           cancelAnimationFrame(cropDragRafId);
@@ -926,7 +929,10 @@ export function addCropMouseManipulationListener() {
       // variation only shows up in zoompan mode (pan-only mode keeps
       // W/H equal across all points by mode invariant, so the revert is
       // harmless but doesn't add per-keyframe variation).
-      cropDragStartCropString = cropString;
+      setCropDragStartCropString(
+        cropString,
+        initCropMap?.[appState.currentCropPointIndex]?.hold === true
+      );
       refreshCropDragInitState = () => {
         initCropMap = getCropMapProperties().initCropMap;
       };

@@ -232,8 +232,10 @@ const PAIR_BIT_DEFAULT_SPEED = 1 << 4;
 const SPEED_DEFAULT_CENTIPOINT = 100;
 
 // cropMap point flag byte: bits 0-3 mark iw/ih literals per slot (x,y,w,h),
-// bit 4 marks easeIn='instant'. Kept in one byte vs. flags + separate easeIn byte.
+// bit 4 marks easeIn='instant', bit 5 a hold point. Kept in one byte vs. flags + separate bytes.
+// Readers test only the bits they know, so an older reader loads a hold point as a normal point.
 const CROP_MAP_FLAG_EASE_IN = 1 << 4;
+const CROP_MAP_FLAG_HOLD = 1 << 5;
 
 const OV_BIT_TITLE_PREFIX = 1 << 0;
 const OV_BIT_ENABLE_HDR = 1 << 1;
@@ -346,7 +348,8 @@ function readSpeedMap(r: ByteReader): SpeedPoint[] {
 
 // cropMap point encoding:
 //   varsint(Δx)
-//   flagsByte: bits 0-3 = is-literal (iw/ih) per slot {x,y,w,h}; bit 4 = easeIn='instant'
+//   flagsByte: bits 0-3 = is-literal (iw/ih) per slot {x,y,w,h}; bit 4 = easeIn='instant';
+//              bit 5 = hold
 //   for each numeric slot (not literal): varsint(value - lastNumeric[slot])
 // Literal slots contribute nothing; lastNumeric tracks the last *numeric* value per
 // slot across the whole cropMap (init 0), so a repeated crop compresses to 4 zero deltas.
@@ -366,6 +369,7 @@ function writeCropMap(w: ByteWriter, points: CropPoint[]) {
     const { parts, literalFlags } = parseCrop(p.crop);
     let flags = literalFlags;
     if (p.easeIn === 'instant') flags |= CROP_MAP_FLAG_EASE_IN;
+    if (p.hold) flags |= CROP_MAP_FLAG_HOLD;
     w.writeByte(flags);
     for (let i = 0; i < CROP_PART_COUNT; i++) {
       if (literalFlags & (1 << i)) continue;
@@ -400,6 +404,7 @@ function readCropMap(r: ByteReader): CropPoint[] {
     }
     const point: CropPoint = { x: dequantizeTime(prevX), y: 0, crop: parts.join(':') };
     if (flags & CROP_MAP_FLAG_EASE_IN) point.easeIn = 'instant';
+    if (flags & CROP_MAP_FLAG_HOLD) point.hold = true;
     points.push(point);
   }
   return points;
