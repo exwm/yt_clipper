@@ -96,7 +96,7 @@ def given_a_crop_point_in_the_middle_panned_right(markup: MarkupPage) -> None:
 
 @step
 def when_i_seek_to(markup: MarkupPage, seconds: float) -> None:
-    markup.seek(seconds)
+    markup.seek(seconds, presented=True)
     markup.next_frames(3)  # the preview loop updates the chip on the presented frame
 
 

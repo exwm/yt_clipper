@@ -97,23 +97,30 @@ class MarkupPage:
 
     # ─── video ──────────────────────────────────────────────────────────────
 
-    def seek(self, seconds: float) -> None:
+    def seek(self, seconds: float, presented: bool = False) -> None:
+        """Seek and wait for 'seeked'. With `presented`, also wait for the first video frame
+        presented after the seek, which the markup's frame callbacks draw from: 'seeked' can come
+        before it, and a busy machine can take longer than a few animation frames to present it."""
         # Bounded wait: a seek that never settles (buffering, an ad) should fail the test with a
         # screenshot, not hang it. On YouTube, seek through its player API: setting currentTime
         # directly bypasses the player's buffering and can stall in an unbuffered region (the
         # userscript seeks the same way).
         settled = self.page.evaluate(
-            """([t, timeout]) => new Promise(resolve => {
+            """([t, timeout, presented]) => new Promise(resolve => {
                 const v = document.querySelector('video');
                 const player = document.querySelector('#movie_player');
                 // YouTube's seekTo is a no-op (no 'seeked') when already there.
                 if (Math.abs(v.currentTime - t) < 0.01) return resolve(true);
                 const timer = setTimeout(() => resolve(false), timeout);
-                v.addEventListener('seeked', () => { clearTimeout(timer); resolve(true); }, { once: true });
+                let waiting = presented ? 2 : 1;
+                const done = () => { if (--waiting === 0) { clearTimeout(timer); resolve(true); } };
+                v.addEventListener('seeked', done, { once: true });
+                // Registered before the seek, so it cannot miss the frame the seek presents.
+                if (presented) v.requestVideoFrameCallback(done);
                 if (player?.seekTo) player.seekTo(t, true);
                 else v.currentTime = t;
             })""",
-            [seconds, SEEK_TIMEOUT_MS],
+            [seconds, SEEK_TIMEOUT_MS, presented],
         )
         assert settled, f"seek to {seconds}s did not settle within {SEEK_TIMEOUT_MS} ms"
 
