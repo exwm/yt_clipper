@@ -17,8 +17,8 @@ from test_crop_easing import when_i_save_the_markers
 # Full-height crops, so a drag at the video's middle row starts inside them. Crops are x:y:w:h in
 # the default 1920x1080 crop resolution.
 CROP_A = "0:0:960:1080"
-CROP_B = "960:0:960:1080"
-LEFT, MIDDLE, RIGHT = 3, 6, 9
+CROP_B = "640:0:960:1080"
+LEFT, RIGHT = 3, 9
 
 
 def pair(*points: tuple[str, bool]) -> dict:
@@ -44,12 +44,43 @@ def test_a_new_marker_pair_ends_in_a_hold_point(markup: MarkupPage) -> None:
 
 
 def test_hold_points_are_saved_and_loaded(markup: MarkupPage) -> None:
-    given_a_pair_with_its_crop_chart_open(markup, pair((CROP_A, False), (CROP_A, True), (CROP_B, False)))
+    given_a_pair_with_its_crop_chart_open(
+        markup, pair((CROP_A, False), (CROP_A, True), (CROP_B, False))
+    )
     when_i_pan_crop_point(markup, 0, 150)
     saved = when_i_save_the_markers(markup)
     then_only_the_middle_point_is_saved_as_a_hold_point_with_the_first_points_crop(markup, saved)
     when_i_load_the_saved_pair_and_open_it(markup, saved)
-    then_the_crop_points_are(markup, [(saved_crop(saved, 0), False), (saved_crop(saved, 0), True), (CROP_B, False)])
+    then_the_crop_points_are(
+        markup, [(saved_crop(saved, 0), False), (saved_crop(saved, 0), True), (CROP_B, False)]
+    )
+
+
+def test_a_hold_end_point_follows_a_new_middle_point(markup: MarkupPage) -> None:
+    # A crop point added in a static crop and moved pans out and back; holding the end keeps it.
+    given_a_pair_with_its_crop_chart_open(
+        markup, pair((CROP_A, False), (CROP_B, False), (CROP_B, True))
+    )
+    moved = when_i_pan_crop_point(markup, 1, 100)
+    then_the_crop_points_are(markup, [(CROP_A, False), (moved, False), (moved, True)])
+
+
+def test_hold_points_are_drawn_over_a_vertical_yellow_bar(markup: MarkupPage) -> None:
+    # Two hold points in a row each get a bar, and the end point holds too. Screenshots for review show
+    # each role color (start, end, other) on a hold point.
+    given_a_pair_with_its_crop_chart_open(
+        markup,
+        pair((CROP_A, False), (CROP_A, True), (CROP_A, True), (CROP_B, False), (CROP_B, True)),
+    )
+    # Selecting the first hold point also selects the hold section after it.
+    for index, label in [
+        (1, "first-hold-selected"),
+        (4, "last-hold-selected"),
+        (3, "normal-selected"),
+    ]:
+        when_i_select_crop_point(markup, index)
+        then_the_crop_chart_is_shot(markup, label)
+    then_only_hold_points_have_a_yellow_bar(markup, holds=[1, 2, 4], normal=[3])
 
 
 # ─── given ──────────────────────────────────────────────────────────────────
@@ -66,7 +97,12 @@ def given_a_pair_with_its_crop_chart_open(markup: MarkupPage, marker_pair: dict)
 
 
 @step
-def when_i_pan_crop_point(markup: MarkupPage, index: int, dx: float) -> None:
+def when_i_select_crop_point(markup: MarkupPage, index: int) -> None:
+    select_crop_point(markup, index)
+
+
+@step
+def when_i_pan_crop_point(markup: MarkupPage, index: int, dx: float) -> str:
     """Select the point with Ctrl+hover on the chart, then Ctrl+drag its crop on the video."""
     before = crop_points(markup)[index]["crop"]
     markup.seek(crop_points(markup)[index]["x"], presented=True)
@@ -78,6 +114,7 @@ def when_i_pan_crop_point(markup: MarkupPage, index: int, dx: float) -> None:
     after = crop_points(markup)[index]["crop"]
     markup.report(f"crop point {index} {before} -> {after}")
     assert crop_x(after) > crop_x(before)
+    return after
 
 
 @step
@@ -115,8 +152,30 @@ def then_the_end_point_holds_the_middle_points_crop(markup: MarkupPage) -> None:
 def then_the_crop_points_are(markup: MarkupPage, expected: list[tuple[str, bool]]) -> None:
     points = [(point["crop"], point["hold"]) for point in crop_points(markup)]
     markup.report(f"crop points {points}")
-    markup.shot("crop-chart")
+    markup.shot_of("crop-chart", ["#cropChartCanvas"])
     assert points == expected
+
+
+@step
+def then_only_hold_points_have_a_yellow_bar(markup: MarkupPage, holds: list[int], normal: list[int]) -> None:
+    # The playhead line is drawn on the chart too, so park it between points and grid ticks. A bare
+    # grid tick shows the bar stands apart from a grid line.
+    markup.seek(5.3, presented=True)
+    markup.page.mouse.move(0, 0)
+    markup.next_frames()
+    shares = chart_bar_color_shares(markup, [*holds, *normal], bare_tick_time=5.0)
+    markup.report(f"share of each column in the bar's color, by point index (-1 is the bare tick): {shares}")
+    # The point, its labels and the section line cover part of a hold point's column; the bar shows
+    # through the rest.
+    assert all(shares[str(index)] > 0.25 for index in holds)
+    assert all(shares[str(index)] == 0 for index in [*normal, -1])
+
+
+@step
+def then_the_crop_chart_is_shot(markup: MarkupPage, label: str) -> None:
+    # Off the chart, so no point is drawn in its hover colors.
+    markup.page.mouse.move(0, 0)
+    markup.shot_of(label, ["#cropChartCanvas"])
 
 
 # ─── page state ─────────────────────────────────────────────────────────────
@@ -127,6 +186,36 @@ def crop_points(markup: MarkupPage) -> list[dict]:
     return markup.page.evaluate(
         f"() => {CROP_CHART_JS}.data.datasets[0].data"
         ".map((p) => ({ x: p.x, crop: p.crop, hold: p.hold === true }))",
+    )
+
+
+def chart_bar_color_shares(markup: MarkupPage, indexes: list[int], bare_tick_time: float) -> dict:
+    """The share of the crop chart canvas's pixels in the hold bar's color, rgb(255, 204, 51), down the
+    plot area's column at each point's x and at a time with no point, keyed by point index (-1 for
+    that time)."""
+    return markup.page.evaluate(
+        f"""([indexes, tickTime]) => {{
+            const chart = {CROP_CHART_JS};
+            const scale = chart.canvas.width / chart.canvas.clientWidth;
+            const top = Math.round(chart.chartArea.top * scale);
+            const height = Math.round((chart.chartArea.bottom - chart.chartArea.top) * scale);
+            const ctx = chart.canvas.getContext('2d');
+            const share = (x) => {{
+                const data = ctx.getImageData(Math.round(x * scale), top, 1, height).data;
+                let bar = 0;
+                for (let i = 0; i < data.length; i += 4) {{
+                    const near = (value, target) => Math.abs(value - target) <= 16;
+                    if (near(data[i], 255) && near(data[i + 1], 204) && near(data[i + 2], 51)) bar++;
+                }}
+                return Math.round((bar / height) * 100) / 100;
+            }};
+            const points = chart.getDatasetMeta(0).data;
+            const shares = Object.fromEntries(indexes.map((i) => [i, share(points[i]._view.x)]));
+            const xScale = Object.values(chart.scales).find((s) => s.isHorizontal());
+            shares[-1] = share(xScale.getPixelForValue(tickTime));
+            return shares;
+        }}""",
+        [indexes, bare_tick_time],
     )
 
 
