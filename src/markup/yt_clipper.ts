@@ -114,6 +114,7 @@ import {
   undoRedoMarkerPairChange,
 } from './markers';
 import {
+  addHoldCropPointAtCurrentTime,
   chartState,
   getCurrentCropComponents,
   inheritCropPointCrop,
@@ -247,6 +248,9 @@ export function initShortcutSystem() {
       },
       addChartPoint: () => {
         addChartPoint();
+      },
+      addHoldCropPointAtCurrentTime: () => {
+        addHoldCropPointAtCurrentTime();
       },
       duplicateSelectedMarkerPair: () => {
         duplicateSelectedMarkerPair();

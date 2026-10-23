@@ -7,6 +7,8 @@ import pytest
 from harness.markup_page import MarkupPage
 from harness.steps import step
 from PIL import Image
+from test_crop_easing import when_i_save_the_markers
+from test_hold_crop_points import CROP_A, CROP_B, pair
 
 # How far in from each canvas edge to sample, and the lightness below which a pixel counts as the
 # black border a too-small reframe leaves.
@@ -41,7 +43,23 @@ def test_minimap_outlines_the_crop_in_two_tones(reframed: MarkupPage) -> None:
     then_the_minimap_crop_outline_is_dark_outside_and_light_inside(reframed)
 
 
+def test_ctrl_alt_a_on_a_crop_point_toggles_hold_while_reframed(markup: MarkupPage) -> None:
+    # Reframed with the crop chart closed: the crop is dynamic, so the shortcut still works.
+    given_a_dynamic_crop_reframed(markup)
+    when_i_press_ctrl_alt_a_at(markup, 6)
+    then_the_saved_middle_point_is(markup, hold=True, crop=CROP_A)
+    when_i_press_ctrl_alt_a_at(markup, 6)
+    then_the_saved_middle_point_is(markup, hold=False, crop=CROP_B)
+
+
 # ─── given ──────────────────────────────────────────────────────────────────
+
+
+@step
+def given_a_dynamic_crop_reframed(markup: MarkupPage) -> None:
+    markup.load_saved_marker_pairs([pair((CROP_A, False), (CROP_B, False), (CROP_A, False))])
+    markup.open_marker_pair(0)
+    given_reframe_is_on(markup)
 
 
 @step
@@ -76,7 +94,24 @@ def given_the_minimap_is_shown(markup: MarkupPage) -> None:
     markup.shot("minimap")
 
 
+# ─── when ───────────────────────────────────────────────────────────────────
+
+
+@step
+def when_i_press_ctrl_alt_a_at(markup: MarkupPage, seconds: float) -> None:
+    markup.seek(seconds, presented=True)
+    markup.press("Control+Alt+KeyA")
+
+
 # ─── then ───────────────────────────────────────────────────────────────────
+
+
+@step
+def then_the_saved_middle_point_is(markup: MarkupPage, hold: bool, crop: str) -> None:
+    point = when_i_save_the_markers(markup)["markerPairs"][0]["cropMap"][1]
+    markup.report(f"saved middle crop point {point}")
+    assert point.get("hold", False) == hold
+    assert point["crop"] == crop
 
 
 @step

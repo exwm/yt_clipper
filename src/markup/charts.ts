@@ -56,6 +56,7 @@ import {
 } from './crop-overlay';
 import { getCropComponents, isStaticCrop, setCropInputValue } from './crop-utils';
 import { Crop } from './crop/crop';
+import { cropBeforeHold, toggleHold, toggleInstant } from './crop/crop-point-holds';
 import { triggerCropPreviewRedraw } from './crop/crop-preview';
 import {
   bakeCinematicPath,
@@ -1363,6 +1364,69 @@ export function autoKeyCurrentCropPoint(): void {
   // else the new index is clamped down and the previous point is selected. Mirrors addCropPoint.
   renderSpeedAndCropUI();
   selectCropPoint(newIndex);
+}
+
+// Ctrl+Alt+A: add a hold point at the current time, or toggle hold on the crop point under the
+// playhead. Same rule as auto-keying: the crop must be dynamic or the crop chart open.
+export function addHoldCropPointAtCurrentTime(): void {
+  if (!appState.isSettingsEditorOpen || appState.wasGlobalSettingsEditorOpen) return;
+  const pair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+  if (!pair) return;
+  // A drag or draw holds its own snapshot of the crop map, so a point added under it breaks the drag.
+  if (isMouseManipulatingCrop || isDrawingCrop) {
+    flashMessage('Release the crop to add a hold crop point.', 'olive');
+    return;
+  }
+  const cropMap = pair.cropMap;
+  const cropChartOpen =
+    appState.isCurrentChartVisible && chartState.currentChartInput?.type === 'crop';
+  if (isStaticCrop(cropMap) && !cropChartOpen) {
+    flashMessage('Open the crop chart to add a hold crop point.', 'olive');
+    return;
+  }
+
+  const time = appState.video.getCurrentTime();
+  const x = roundX(time);
+  const { onKeyframe, index } = isPlayheadOnCropKeyframe(cropMap, time);
+  const pointIndex = onKeyframe ? index : cropMap.findIndex((p) => p.x === x);
+  let selectedIndex: number;
+  if (pointIndex !== -1) {
+    if (!toggleCropPointType(pair, pointIndex, 'hold')) return;
+    selectedIndex = pointIndex;
+  } else {
+    if (x <= pair.start || x >= pair.end) return;
+    selectedIndex = cropMap.findIndex((p) => p.x > x);
+    const draft = createDraft(getMarkerPairHistory(pair));
+    draft.cropMap.splice(selectedIndex, 0, {
+      x,
+      y: 0,
+      crop: cropMap[selectedIndex - 1].crop,
+      hold: true,
+    });
+    saveMarkerPairHistory(draft, pair);
+  }
+  renderSpeedAndCropUI();
+  selectCropPoint(selectedIndex);
+}
+
+/** Toggle a crop point's hold or its instant easing, and save it. A released hold point gets back its
+ *  own crop. Returns false, with a flash and nothing saved, for hold on the first point. */
+export function toggleCropPointType(
+  pair: MarkerPair,
+  index: number,
+  type: 'hold' | 'instant'
+): boolean {
+  const draft = createDraft(getMarkerPairHistory(pair));
+  const point = draft.cropMap[index];
+  const ownCrop = point.hold ? cropBeforeHold(pair.undoredo, point.x, pair, point.crop) : undefined;
+  if (type === 'instant') {
+    toggleInstant(draft.cropMap, index, ownCrop);
+  } else if (!toggleHold(draft.cropMap, index, ownCrop)) {
+    flashMessage("The first crop point can't be a hold point.", 'red');
+    return false;
+  }
+  saveMarkerPairHistory(draft, pair);
+  return true;
 }
 
 // Recolor the current-time crop rect border to signal the reframe auto-key

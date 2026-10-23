@@ -2,7 +2,7 @@ import { ChartConfiguration, ChartFontOptions, ChartOptions } from 'chart.js';
 import { createDraft } from 'immer';
 import { getMarkerPairHistory, saveMarkerPairHistory } from '../../util/undoredo';
 import { seekToSafe, timeRounder } from '../../util/util';
-import { triggerCropChartUpdates } from '../../charts';
+import { toggleCropPointType, triggerCropChartUpdates } from '../../charts';
 import { appState } from '../../appState';
 import {
   getInputUpdater,
@@ -368,32 +368,18 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
       }
     }
 
-    // change crop point ease in function
+    // toggle a crop point's hold on ctrl+shift+click, and its instant easing on ctrl+alt+shift+click
     if (
       event.button === 0 &&
       event.ctrlKey &&
-      !event.altKey &&
       event.shiftKey &&
-      dataAtClick.length === 1
+      dataAtClick.length === 1 &&
+      chartType === 'crop'
     ) {
-      if (chartType === 'crop') {
-        const datum = dataAtClick[0];
-        if (datum) {
-          const index = datum._index;
-
-          const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
-          const initialState = getMarkerPairHistory(markerPair);
-          const draft = createDraft(initialState);
-
-          if (draft.cropMap[index].easeIn == null) {
-            draft.cropMap[index].easeIn = 'instant';
-          } else {
-            delete draft.cropMap[index].easeIn;
-          }
-
-          saveMarkerPairHistory(draft, markerPair);
-          this.renderSpeedAndCropUI(true);
-        }
+      const datum = dataAtClick[0];
+      const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+      if (datum && toggleCropPointType(markerPair, datum._index, event.altKey ? 'instant' : 'hold')) {
+        this.renderSpeedAndCropUI(true);
       }
     }
 
