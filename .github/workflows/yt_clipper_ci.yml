@@ -228,6 +228,12 @@ jobs:
           done
           cp -r ./bindeps/video2x/* "$tools/"
 
+      # Every option and its help, to read without running the clipper. Redirected output has no
+      # styles unless a variable forces a terminal (FORCE_COLOR outranks NO_COLOR), so unset those.
+      # The smoke test fails the release if any escape code is left.
+      - name: Write the options help
+        run: env -u FORCE_COLOR -u TTY_COMPATIBLE -u TTY_INTERACTIVE COLUMNS=100 ./artifact/py/${{env.FULL_NAME}}/yt_clipper --help > ./artifact/py/${{env.FULL_NAME}}/yt_clipper_help.txt
+
       # Before zipping: the bundled tools run, and the frozen clipper makes clips offline.
       - name: Smoke test the release
         run: just smoke-release ./artifact/py/${{env.FULL_NAME}} ${{env.VERSION}}
