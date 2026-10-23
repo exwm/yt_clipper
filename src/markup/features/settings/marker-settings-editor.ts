@@ -12,6 +12,7 @@ import {
   refreshCropPreview,
   scheduleCinematicRecompute,
   showChart,
+  startCropPreviewLoop,
   toggleChart,
 } from '../../charts';
 import {
@@ -882,6 +883,7 @@ export function toggleOnMarkerPairEditor(targetMarker: SVGRectElement) {
   addCropInputHotkeys();
   loadChartData(chartState.speedChartInput);
   loadChartData(chartState.cropChartInput);
+  startCropPreviewLoop();
   showCropOverlay();
   triggerCropPreviewRedraw();
   // The Cinematic path is not saved with the pair, so solve it for the pair now open (a no-op when

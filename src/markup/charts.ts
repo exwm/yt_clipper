@@ -415,8 +415,7 @@ export function toggleChart(chartInput: ChartInput) {
       syncCropChartVideoHeightLimit();
 
       updateChartTimeAnnotation();
-      cropChartPreviewHandler();
-      // console.log(chartInput.chart);
+      startCropPreviewLoop();
     } else {
       assertDefined(chartState.currentChartInput);
       if (chartState.currentChartInput.type !== chartInput.type) {
@@ -752,20 +751,33 @@ function currentCropTime(): number {
   return presentedFrameTime ?? appState.video.getCurrentTime();
 }
 
+let isCropPreviewLoopRunning = false;
+
+// Starts the per-frame crop preview once: when a marker pair editor opens, so a dynamic crop previews
+// its eased crop before the crop chart is ever shown, and when the chart is first created.
+export function startCropPreviewLoop(): void {
+  if (isCropPreviewLoopRunning) {
+    cropChartPreviewHandler(false);
+    return;
+  }
+  isCropPreviewLoopRunning = true;
+  cropChartPreviewHandler();
+}
+
 export function cropChartPreviewHandler(loop = true, frameTime?: number) {
   presentedFrameTime = frameTime ?? null;
   try {
     const chart = chartState.cropChartInput.chart;
-    if (appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen && chart) {
-      const datasets = chart.data.datasets;
-      assertDefined(datasets);
-      const chartData = datasets[0].data as CropPoint[];
+    const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+    if (appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen && markerPair) {
+      // The chart shows the marker pair's own crop map, and it is only created once first shown.
+      const chartData =
+        (chart?.data.datasets?.[0].data as CropPoint[] | undefined) ?? markerPair.cropMap;
       const time = currentCropTime();
       const isDynamicCrop = !isStaticCrop(chartData);
       const isCropChartVisible =
         chartState.currentChartInput?.type == 'crop' && appState.isCurrentChartVisible;
-      const isManipulatingOrDrawing =
-        chartState.cropChartInput.chart && (isMouseManipulatingCrop || isDrawingCrop);
+      const isManipulatingOrDrawing = isMouseManipulatingCrop || isDrawingCrop;
       if (isReframeEnabled()) {
         // Reframe auto-key is playhead-driven: never auto-seek to a section start
         // (cropChartSectionLoop), which would yank the playhead while editing. The
@@ -861,11 +873,12 @@ function updateInterpCropSpan(): void {
 }
 export function setCurrentCropPointWithCurrentTime() {
   const cropChart = chartState.cropChartInput.chart;
-  if (cropChart) {
-    const cropDatasets = cropChart.data.datasets;
-    assertDefined(cropDatasets);
-    const chartData = cropDatasets[0].data as CropPoint[];
-    const time = appState.video.getCurrentTime();
+  const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+  // The marker pair's own crop map before the chart is first shown.
+  const chartData =
+    (cropChart?.data.datasets?.[0].data as CropPoint[] | undefined) ?? markerPair?.cropMap;
+  if (chartData) {
+    const time = currentCropTime();
     const searchCropPoint = { x: time, y: 0, crop: '' };
     const [istart, iend] = currentCropChartSection;
     let [start, end] = bsearch(chartData, searchCropPoint, sortX);
