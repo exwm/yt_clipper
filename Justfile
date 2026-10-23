@@ -26,11 +26,11 @@ pretty-py-check:
   just _timed "ruff format --check" uv run ruff format --check src/clipper integration-tests tools
 
 # Coverage settings and the fail-under floor are in pyproject.toml; reports go to coverage/.
-# The config path is absolute because coverage also measures the Python subprocesses (yt-dlp) the
-# end-to-end tests start from a temporary folder, where a relative path would not find it.
+# The config path is absolute so tests that run from a temporary folder still find it. Tests do not
+# measure the Python processes they start (yt-dlp): see noCoverageInSubprocesses in conftest.py.
 test-py update="false":
-  just _timed pytest uv run pytest src/clipper tools/release tools/prose -s --cov --cov-config="{{justfile_directory()}}/pyproject.toml" --cov-report=html --cov-report=xml -m "not slow" \
-    {{ if update == "true" { "--snapshot-update" } else { "-n auto" } }}
+  just _timed pytest uv run pytest src/clipper tools/release tools/prose tools/test -s --durations=10 --cov --cov-config="{{justfile_directory()}}/pyproject.toml" --cov-report=html --cov-report=xml -m "not slow" \
+    {{ if update == "true" { "--snapshot-update" } else { "-n auto --dist worksteal" } }}
 # Check an assembled release folder before zipping, as CI does: bundled tools, offline clips, schema.
 smoke-release folder version="":
   uv run python tools/release/smoke_test.py "{{folder}}" {{version}}
@@ -39,7 +39,7 @@ smoke-release folder version="":
 verify-release install userscript version="":
   just smoke-release "{{install}}" {{version}}
   uv run pytest src/clipper/tests/test_e2e.py -k youtube-vp9 --clipper-exe "{{install}}/yt_clipper{{ if os_family() == "windows" { ".exe" } else { "" } }}"
-  uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n 4 -o faulthandler_timeout=600 --tracing retain-on-failure --output sandbox/ui-test-results --userscript "{{userscript}}"
+  uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n 4 --tracing retain-on-failure --output sandbox/ui-test-results --userscript "{{userscript}}"
 # After publishing: check that Greasy Fork serves the release's userscript (waits up to 3 minutes).
 check-greasyfork version:
   uv run python tools/release/greasyfork.py {{version}}
@@ -97,7 +97,8 @@ lint-ts: typecheck-ts eslint-ts
 # With coverage (thresholds in jest.config.js; reports go to coverage/markup). It triples the run time,
 # so bundle-prod leaves it off unless asked (`just bundle-prod true`, as CI does).
 test-ts coverage="true":
-  just _timed jest npx jest test {{ if coverage == "true" { "--coverage" } else { "" } }}
+  just _timed jest npx jest test {{ if coverage == "true" { "--coverage" } else { "" } }} --json --outputFile=coverage/jest-report.json
+  uv run python tools/test/jest_slowest.py coverage/jest-report.json
 # Coverage of the lines changed since base, from the reports test-py and test-ts write (run them first).
 coverage-diff base="origin/master": (coverage-diff-py base) (coverage-diff-ts base)
 coverage-diff-py base="origin/master":
@@ -127,19 +128,19 @@ dev-site:
 [positional-arguments]
 ui-test *args:
   just _parcel-once
-  uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n 4 --durations=10 -o faulthandler_timeout=600 --tracing retain-on-failure --output sandbox/ui-test-results "$@"
+  uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n 4 --durations=10 --tracing retain-on-failure --output sandbox/ui-test-results "$@"
 # Release highlight close-ups listed in integration-tests/ui/showcase.toml, into sandbox/showcase/<release>/.
 # Add --update-assets to also write the shots that name an asset into assets/image/.
 [positional-arguments]
 ui-showcase release *args:
   just _parcel-once
-  release="$1"; shift; uv run --group ui-test pytest integration-tests/ui/showcase.py --browser-channel chrome -n 3 -o faulthandler_timeout=600 --showcase-release "$release" --video-style calm "$@"
+  release="$1"; shift; uv run --group ui-test pytest integration-tests/ui/showcase.py --browser-channel chrome -n 3 --showcase-release "$release" --video-style calm "$@"
 # The platform-dependent tests (marked platform) on a real YouTube video, into sandbox/ui-shots/<test>-youtube/. One at a time (YouTube only reliably buffers
 # the first ~45s for an automated browser), and a failed test is retried once (YouTube loads can stall).
 [positional-arguments]
 ui-test-youtube url="https://www.youtube.com/watch?v=aqz-KE-bpKQ" *args:
   just _parcel-once
-  url="$1"; shift; uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -s --reruns 1 --durations=10 -o faulthandler_timeout=600 --tracing retain-on-failure --output sandbox/ui-test-results -m platform --youtube "$url" "$@"
+  url="$1"; shift; uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -s --reruns 1 --durations=10 --tracing retain-on-failure --output sandbox/ui-test-results -m platform --youtube "$url" "$@"
 
 clean-dist:
   rm -r ./dist/*
