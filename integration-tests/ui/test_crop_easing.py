@@ -263,6 +263,21 @@ def test_the_pixel_hints_follow_a_crop_undone_with_the_settings_open(dynamic_pan
     then_the_pan_margin_pixels_become(dynamic_pan, "≈ 65 px")
 
 
+@pytest.mark.parametrize("easing", ["smoothTrack", "cinematic"])
+def test_a_loaded_dynamic_crop_previews_its_eased_crop_before_the_crop_chart_opens(
+    markup: MarkupPage, easing: str
+) -> None:
+    given_a_pair_with_a_dynamic_pan_and_its_editor_open_without_the_crop_chart(markup)
+    when_i_choose_easing(markup, easing)
+    if easing == "cinematic":
+        then_a_cinematic_path_is_baked(markup)
+    # Between the first two points, and in the third section, past the first two points.
+    without_chart = [previewed_crop_x_at(markup, t) for t in (BETWEEN_POINTS_TIME, 7.5)]
+    when_i_open_the_crop_chart(markup)
+    with_chart = [previewed_crop_x_at(markup, t) for t in (BETWEEN_POINTS_TIME, 7.5)]
+    then_the_previews_match(markup, without_chart, with_chart)
+
+
 def test_the_cinematic_settings_close_with_their_editor(dynamic_pan: MarkupPage) -> None:
     # Left open, they would write to the pair whose editor is gone.
     when_i_choose_easing(dynamic_pan, "cinematic")
@@ -291,6 +306,30 @@ def given_pairs_with_the_first_ones_editor_open(markup: MarkupPage, pairs: list[
 
 
 # ─── when ───────────────────────────────────────────────────────────────────
+
+
+@step
+def given_a_pair_with_a_dynamic_pan_and_its_editor_open_without_the_crop_chart(
+    markup: MarkupPage,
+) -> None:
+    markup.load_saved_marker_pairs([PAN_PAIR, OTHER_PAIR])
+    markup.open_marker_pair(0)
+    show_additional_settings(markup)
+
+
+@step
+def when_i_open_the_crop_chart(markup: MarkupPage) -> None:
+    markup.page.evaluate("() => document.activeElement?.blur()")
+    markup.press("Alt+KeyD")
+    markup.page.wait_for_selector("#cropChartCanvas")
+
+
+@step
+def then_the_previews_match(markup: MarkupPage, first: list[float], second: list[float]) -> None:
+    markup.report(f"crop x without the chart {first}, with it {second}")
+    # The first point is at x 0; a preview stuck on it would read 0 at both times.
+    assert all(x > 1 for x in first)
+    assert first == pytest.approx(second, abs=1)
 
 
 @step

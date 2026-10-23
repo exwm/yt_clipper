@@ -49,9 +49,7 @@ export function setCurrentCropPoint(
 ) {
   // An explicit selection always shows its highlight (reframe hides it between keyframes elsewhere).
   cropPointHighlightVisible = true;
-  const maxIndex = cropChart?.data.datasets?.[0].data
-    ? cropChart.data.datasets[0].data.length - 1
-    : 1;
+  const maxIndex = lastCropPointIndex(cropChart);
   const newCropPointIndex = clampNumber(cropPointIndex, 0, maxIndex);
   const cropPointIndexChanged = appState.currentCropPointIndex !== newCropPointIndex;
   appState.currentCropPointIndex = newCropPointIndex;
@@ -82,14 +80,24 @@ export function setCurrentCropPoint(
   }
 }
 
+// The last crop point's index: the chart's, or the open marker pair's before the chart is first shown
+// (it is only created then), so the selection and section follow the playhead without it.
+function lastCropPointIndex(cropChart: Chart | null): number {
+  const chartData = cropChart?.data.datasets?.[0].data;
+  if (chartData) return chartData.length - 1;
+  const isPairEditorOpen = appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen;
+  const cropMap = isPairEditorOpen
+    ? appState.markerPairs[appState.prevSelectedMarkerPairIndex]?.cropMap
+    : undefined;
+  return cropMap ? Math.max(1, cropMap.length - 1) : 1;
+}
+
 export let currentCropChartSection: [number, number] = [0, 1];
 export function setCurrentCropChartSection(
   cropChart: Chart | null,
   [left, right]: [number, number]
 ) {
-  const maxIndex = cropChart?.data.datasets?.[0].data
-    ? cropChart.data.datasets[0].data.length - 1
-    : 1;
+  const maxIndex = lastCropPointIndex(cropChart);
 
   if (left <= 0) {
     currentCropChartSection = [0, 1];
