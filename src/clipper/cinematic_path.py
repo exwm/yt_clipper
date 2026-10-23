@@ -272,27 +272,31 @@ def _segmentPath(
     return segments
 
 
-def _cutTime(cutX: float, previousX: float, firstTime: float, fps: Optional[float]) -> float:
+def _cutTime(cutX: float, previousX: float, fps: Optional[float], videoPartStart: float) -> float:
     """When a cut takes effect: half a frame before the frame the cut point falls in, as the other
     crop easings end a section (ffmpeg_filter.getEaseSectionDuration). A user-placed point usually
     overshoots its frame, so at the raw time the first frame of the new scene would keep the old crop.
+    Frames lie on the input video's 1/fps grid, which starts at videoPartStart in crop point time.
     """
     if not fps:
         return cutX
-    snapped = firstTime + (math.floor((cutX - firstTime) * fps) - 0.5) / fps
+    snapped = videoPartStart + (math.floor((cutX - videoPartStart) * fps) - 0.5) / fps
     return snapped if snapped > previousX else cutX
 
 
-def splitAtInstantCuts(cropMap: Sequence[CropPoint], fps: Optional[float] = None) -> list[list[CropPoint]]:
+def splitAtInstantCuts(
+    cropMap: Sequence[CropPoint],
+    fps: Optional[float] = None,
+    videoPartStart: float = 0.0,
+) -> list[list[CropPoint]]:
     """The crop points split at each instant transition (a cut). Each run holds its last crop until the
     cut, where the next run starts, so the solve never smooths across a scene change. With fps, the
     cut lands on the frame boundary the other crop easings use."""
     runs: list[list[CropPoint]] = []
     run: list[CropPoint] = []
-    firstTime = cropMap[0]["x"] if cropMap else 0.0
     for point in cropMap:
         if point.get("easeIn") == "instant" and run:
-            cutTime = _cutTime(point["x"], run[-1]["x"], firstTime, fps)
+            cutTime = _cutTime(point["x"], run[-1]["x"], fps, videoPartStart)
             run.append({**run[-1], "x": cutTime, "easeIn": None})
             runs.append(run)
             run = [{**point, "x": cutTime}]
@@ -418,6 +422,7 @@ def bakeCinematicPath(
     cropResWidth: int,
     cropResHeight: int,
     fps: Optional[float] = None,
+    videoPartStart: float = 0.0,
 ) -> Optional[dict[str, Any]]:
     """The path for a marker pair's crop points, with times relative to the first point, or None when
     there is nothing to solve (fewer than two points or no duration). fps places instant cuts on
@@ -425,7 +430,7 @@ def bakeCinematicPath(
     if len(cropMap) < 2:
         return None
     firstTime = cropMap[0]["x"]
-    runs = splitAtInstantCuts(cropMap, fps)
+    runs = splitAtInstantCuts(cropMap, fps, videoPartStart)
     widestW = max(
         min(cropResWidth, parseCropToComponents(point["crop"], cropResWidth, cropResHeight)[2] * (1 + margins["zoom"]))
         for point in cropMap

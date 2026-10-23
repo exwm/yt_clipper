@@ -326,6 +326,7 @@ def getCropFilter(
     cropMap: CropMap,
     fps: Union[float, Fraction],
     easeType: str = "easeInOutSine",
+    videoPartStart: float = 0.0,
 ) -> str:
     fps = Fraction(fps)
 
@@ -346,7 +347,9 @@ def getCropFilter(
 
         currEaseType = easeType if not right.get("easeIn", False) else right["easeIn"]
 
-        sectDuration = getSectionEaseDuration(currEaseType, startTime, endTime, float(fps))
+        sectDuration = getSectionEaseDuration(
+            currEaseType, left["x"] - videoPartStart, right["x"] - videoPartStart, float(fps)
+        )
         if sectDuration is None:
             continue
 
@@ -434,6 +437,7 @@ def getZoomPanFilter(
     inputIsHDR: bool = False,
     frameWidth: Optional[float] = None,
     frameHeight: Optional[float] = None,
+    videoPartStart: float = 0.0,
 ) -> Tuple[str, int]:
     maxSizeCrop = getMaxSizeCrop(cropMap)
     maxWidth = floorToEven(maxSizeCrop["width"])
@@ -472,7 +476,9 @@ def getZoomPanFilter(
 
         currEaseType = easeType if not right.get("easeIn", False) else right["easeIn"]
 
-        sectDuration = getSectionEaseDuration(currEaseType, startTime, endTime, float(fps))
+        sectDuration = getSectionEaseDuration(
+            currEaseType, left["x"] - videoPartStart, right["x"] - videoPartStart, float(fps)
+        )
         if sectDuration is None:
             continue
 
@@ -754,6 +760,8 @@ def floorToEven(x: Union[int, str, float]) -> int:
 def getFrameTimeBetweenLeftFrames(time: float, fps: float) -> float:
     """The ease section end time to use for a crop keyframe placed at `time`.
 
+    `time` is on the input video's timeline, whose frames lie on the 1/fps grid. A clip keeps that
+    frame phase, so snapping times relative to a pair start that falls between frames is a frame off.
     A keyframe's time is user-placed and usually overshoots its actual frame. Ending the ease
     just before that frame keeps the normalized ease time reaching 1 by the time playback hits
     the frame, so the transition finishes on it. It shows most for instant ease in, whose
@@ -799,7 +807,7 @@ def getSectionEaseDuration(
     endTime: float,
     fps: float,
 ) -> Optional[float]:
-    """The span a section eases over. smoothTrack spans the points' real times, so its sections meet
+    """The span a section eases over, from start and end times on the input video's timeline. smoothTrack spans the points' real times, so its sections meet
     exactly and the crop keeps its speed through each point on any frame grid (the clip's frames start
     at the pair's own frame phase, not at multiples of 1/fps). A pulled-back end held it for part of a
     frame at every point. Mirrors the markup's getSmoothTrackCropComponentsAtTime."""
