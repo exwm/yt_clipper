@@ -182,7 +182,7 @@ export const kitchenSinkFixture: SharePayload = {
     markerPairMergeList: '1-2,3',
     cropPointEasing: 'smoothInOut',
     cropPointEasingCinematicMargin: 25,
-    cropPointEasingCinematicZoomMargin: 0.05,
+    cropPointEasingCinematicZoomMargin: 5,
   },
   markerPairs: [
     {
@@ -206,8 +206,8 @@ export const kitchenSinkFixture: SharePayload = {
         loop: 'fade',
         fadeDuration: 0.5,
         cropPointEasing: 'cinematic',
-        cropPointEasingCinematicMargin: 60,
-        cropPointEasingCinematicZoomMargin: 0.12,
+        cropPointEasingCinematicMargin: 30,
+        cropPointEasingCinematicZoomMargin: 12,
       },
     },
   ],

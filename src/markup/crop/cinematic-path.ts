@@ -24,6 +24,10 @@ const MAX_SAMPLES = 400;
 // Objective weights on velocity / acceleration / jerk. Jerk is penalized hardest so transitions are
 // smooth constant-acceleration ramps; velocity moderately so the path prefers to hold.
 const WEIGHTS: [number, number, number] = [10, 1, 100];
+// A gentle pull of the crop toward the crop points inside the margins, at the 10 Hz grid: smooths as
+// a wide margin does while keeping the crop closer to where the points frame the subject. On the size
+// it also lets the solve converge within MAX_ITERS, which a wide zoom margin otherwise does not.
+const CROP_POINT_FIDELITY = 0.01;
 
 // Greedy-fit tolerance: how far a baked segment polynomial may sit from the solved samples (cropRes
 // px). Sub-pixel, so the segmentation is invisible.
@@ -36,14 +40,28 @@ const MIN_CROP_HEIGHT = 20;
 // path's widest.
 const ZOOMPAN_MAX_ZOOM = 10;
 
-// Nonzero defaults, so the mode changes the path without tuning. Position margin in cropRes
-// px, zoom margin as a fraction of the keyframed size.
-export const DEFAULT_CINEMATIC_MARGIN = 40;
-export const DEFAULT_CINEMATIC_ZOOM_MARGIN = 0.08;
+// Nonzero defaults, so the mode changes the path without tuning. Both margins are shares of the crop
+// size: the position may drift by a share of the crop's shorter side (in x and y), the size by a share
+// of itself. Settings hold them as percentages.
+export const DEFAULT_CINEMATIC_MARGIN_PERCENT = 12;
+export const DEFAULT_CINEMATIC_ZOOM_MARGIN_PERCENT = 8;
+export const DEFAULT_CINEMATIC_MARGIN = DEFAULT_CINEMATIC_MARGIN_PERCENT / 100;
+export const DEFAULT_CINEMATIC_ZOOM_MARGIN = DEFAULT_CINEMATIC_ZOOM_MARGIN_PERCENT / 100;
 
 export interface CinematicMargins {
   pos: number;
   zoom: number;
+}
+
+// The solver's margins (shares) from the settings' percentages, as the clipper converts them.
+export function cinematicMarginsFromPercent(
+  marginPercent: number | undefined,
+  zoomMarginPercent: number | undefined
+): CinematicMargins {
+  return {
+    pos: (marginPercent ?? DEFAULT_CINEMATIC_MARGIN_PERCENT) / 100,
+    zoom: (zoomMarginPercent ?? DEFAULT_CINEMATIC_ZOOM_MARGIN_PERCENT) / 100,
+  };
 }
 
 // Parse a "x:y:w:h" crop string to cropRes-pixel components, resolving iw/ih. Pure (the caller
@@ -229,11 +247,13 @@ const RHO_BALANCE_ITERS = 100;
 // balanced early, then fixed (box-constrained L1 trend filtering). M = I + sum Dk^T Dk is factored
 // once; the weights live in the soft-threshold so rho can change (the scaled duals are rescaled).
 // Returns the box-feasible consensus, so the path always respects the margin and validity bounds.
+// With `fidelity`, also adds (fidelity / 2) |p - target|^2: a pull toward the target inside the box.
 export function solveL1Path(
   target: number[],
   lower: number[],
   upper: number[],
-  weights: [number, number, number] = WEIGHTS
+  weights: [number, number, number] = WEIGHTS,
+  fidelity = 0
 ): number[] {
   const n = target.length;
   const clampToBox = (arr: ArrayLike<number>): number[] =>
@@ -296,7 +316,9 @@ export function solveL1Path(
     let qSq = 0;
     for (let i = 0; i < n; i++) {
       const qOld = q[i];
-      const qNew = Math.min(Math.max(p[i] + uq[i], lower[i]), upper[i]);
+      // The box projection of the fidelity term's proximal step.
+      const pulled = (fidelity * target[i] + rho * (p[i] + uq[i])) / (fidelity + rho);
+      const qNew = Math.min(Math.max(pulled, lower[i]), upper[i]);
       uq[i] += p[i] - qNew;
       const r = p[i] - qNew;
       primalSq += r * r;
@@ -568,7 +590,9 @@ function solveRun(
   const loW = targetW.map((t) => Math.max(1, t * (1 - margins.zoom), Math.min(t, smallestW)));
   orderBox(loW, hiW);
   anchor(targetW, loW, hiW);
-  const solvedW = solveL1Path(clampToBox(targetW, loW, hiW), loW, hiW, weights);
+  // Per sample, so the pull's total strength does not depend on the grid spacing.
+  const fidelity = CROP_POINT_FIDELITY * dt * GRID_RATE_HZ;
+  const solvedW = solveL1Path(clampToBox(targetW, loW, hiW), loW, hiW, weights, fidelity);
   const solvedH = solvedW.map((wv) => Math.min(cropResHeight, wv * ratio));
   // The derived height keeps the first crop's aspect ratio, so a later crop of another one (only a
   // hand-edited file has it) can sit past the frame edge for that height. The ends are pinned to the
@@ -576,17 +600,20 @@ function solveRun(
   const inFrameX = targetX.map((t, i) => Math.min(t, cropResWidth - solvedW[i]));
   const inFrameY = targetY.map((t, i) => Math.min(t, cropResHeight - solvedH[i]));
 
-  const loX = inFrameX.map((t) => Math.max(0, t - margins.pos));
-  const hiX = inFrameX.map((t, i) => Math.min(cropResWidth - solvedW[i], t + margins.pos));
+  // The position margin is a share of the crop points' shorter side, in both directions, so the crop
+  // never drifts more than that share of its width or its height, and a zoom changes it with the crop.
+  const margin = targetW.map((t) => margins.pos * Math.min(t, t * ratio));
+  const loX = inFrameX.map((t, i) => Math.max(0, t - margin[i]));
+  const hiX = inFrameX.map((t, i) => Math.min(cropResWidth - solvedW[i], t + margin[i]));
   orderBox(loX, hiX);
   anchor(inFrameX, loX, hiX);
-  const solvedX = solveL1Path(clampToBox(inFrameX, loX, hiX), loX, hiX, weights);
+  const solvedX = solveL1Path(clampToBox(inFrameX, loX, hiX), loX, hiX, weights, fidelity);
 
-  const loY = inFrameY.map((t) => Math.max(0, t - margins.pos));
-  const hiY = inFrameY.map((t, i) => Math.min(cropResHeight - solvedH[i], t + margins.pos));
+  const loY = inFrameY.map((t, i) => Math.max(0, t - margin[i]));
+  const hiY = inFrameY.map((t, i) => Math.min(cropResHeight - solvedH[i], t + margin[i]));
   orderBox(loY, hiY);
   anchor(inFrameY, loY, hiY);
-  const solvedY = solveL1Path(clampToBox(inFrameY, loY, hiY), loY, hiY, weights);
+  const solvedY = solveL1Path(clampToBox(inFrameY, loY, hiY), loY, hiY, weights, fidelity);
 
   return segmentPath(gridTimes, { x: solvedX, y: solvedY, w: solvedW, h: solvedH });
 }

@@ -4,6 +4,8 @@ import { CropPoint } from '../@types/yt_clipper';
 import {
   bakeCinematicPath,
   buildBandedM,
+  cinematicMarginsFromPercent,
+  DEFAULT_CINEMATIC_MARGIN,
   cropPathSignature,
   evalCropPathAtTime,
   factorBanded,
@@ -111,7 +113,7 @@ const panCropMap: CropPoint[] = [
 ];
 
 describe('bakeCinematicPath', () => {
-  const margins = { pos: 60, zoom: 0.1 };
+  const margins = { pos: 0.06, zoom: 0.1 };
 
   it('returns null for a static (single-value) or too-short map', () => {
     expect(bakeCinematicPath([panCropMap[0]], margins, CROP_RES_W, CROP_RES_H)).toBeNull();
@@ -189,7 +191,7 @@ describe('solver on a long multi-point clip', () => {
       y: 0 as const,
       crop: `${300 + Math.round(200 * Math.sin(i))}:${200 + Math.round(100 * Math.cos(i))}:960:540`,
     }));
-    const path = bakeCinematicPath(cropMap, { pos: 40, zoom: 0.08 }, CROP_RES_W, CROP_RES_H);
+    const path = bakeCinematicPath(cropMap, { pos: 0.04, zoom: 0.08 }, CROP_RES_W, CROP_RES_H);
     expect(path).not.toBeNull();
     // Far fewer than the ~200 grid samples: a compact, deliberate path.
     expect(path!.segments.length).toBeLessThan(40);
@@ -199,7 +201,7 @@ describe('solver on a long multi-point clip', () => {
 });
 
 describe('signature / freshness', () => {
-  const margins = { pos: 60, zoom: 0.1 };
+  const margins = { pos: 0.06, zoom: 0.1 };
 
   it('matches a freshly baked path and goes stale on an edit', () => {
     const path = bakeCinematicPath(panCropMap, margins, CROP_RES_W, CROP_RES_H)!;
@@ -208,7 +210,7 @@ describe('signature / freshness', () => {
     const edited = panCropMap.map((p, i) => (i === 1 ? { ...p, crop: '305:0:960:540' } : p));
     expect(isCropPathFresh(path, edited, margins, CROP_RES_W, CROP_RES_H)).toBe(false);
 
-    const widerMargin = { pos: 120, zoom: 0.1 };
+    const widerMargin = { pos: 0.12, zoom: 0.1 };
     expect(isCropPathFresh(path, panCropMap, widerMargin, CROP_RES_W, CROP_RES_H)).toBe(false);
   });
 
@@ -225,7 +227,7 @@ describe('signature / freshness', () => {
 });
 
 describe('instant cuts', () => {
-  const cutMargins = { pos: 40, zoom: 0 };
+  const cutMargins = { pos: 0.1, zoom: 0 };
   const point = (x: number, cropX: number, easeIn?: 'instant'): CropPoint => ({
     x,
     y: 0,
@@ -287,7 +289,7 @@ describe('bounds and clip length', () => {
       { x: 0, y: 0, crop: '1500:0:400:225' },
       { x: 2, y: 0, crop: '1510:0:400:225' },
     ];
-    const path = bakeCinematicPath(cropMap, { pos: 200, zoom: 0.5 }, CROP_RES_W, CROP_RES_H)!;
+    const path = bakeCinematicPath(cropMap, { pos: 0.5, zoom: 0.5 }, CROP_RES_W, CROP_RES_H)!;
     for (let t = 0; t <= 2; t += 0.1) {
       const [x, , w] = evalCropPathAtTime(path, t);
       expect(x).toBeGreaterThanOrEqual(-1);
@@ -304,10 +306,12 @@ describe('bounds and clip length', () => {
     // The clipper's test_cinematic_path.py checks the same cases.
     const times = [0, 1, 1.1, 2];
     const cropMap: CropPoint[] = times.map((t, i) => ({ x: t, y: 0, crop: `${xs[i]}:0:960:540` }));
-    const margin = 40;
+    const margin = 0.05;
     const path = bakeCinematicPath(cropMap, { pos: margin, zoom: 0 }, CROP_RES_W, CROP_RES_H)!;
-    const low = Math.max(Math.min(...xs) - margin, 0);
-    const high = Math.min(Math.max(...xs) + margin, CROP_RES_W - 960);
+    // The margin is a share of the crop's shorter side.
+    const marginPx = margin * Math.min(960, 540);
+    const low = Math.max(Math.min(...xs) - marginPx, 0);
+    const high = Math.min(Math.max(...xs) + marginPx, CROP_RES_W - 960);
     for (let i = 0; i <= 2000; i++) {
       const [x] = evalCropPathAtTime(path, i / 1000);
       expect(x).toBeGreaterThanOrEqual(low - 0.4);
@@ -326,7 +330,7 @@ describe('bounds and clip length', () => {
       { x: 0.881, y: 0, crop: '1440:810:480:270' },
       { x: 1.128, y: 0, crop: '0:0:1920:1080' },
     ];
-    const path = bakeCinematicPath(cropMap, { pos: 300, zoom: 0 }, CROP_RES_W, CROP_RES_H)!;
+    const path = bakeCinematicPath(cropMap, { pos: 0.3, zoom: 0 }, CROP_RES_W, CROP_RES_H)!;
     for (let i = 0; i <= 1000; i++) {
       const [x, y, w, h] = evalCropPathAtTime(path, i / 1000);
       expect(x + w).toBeLessThanOrEqual(CROP_RES_W + 0.4);
@@ -344,7 +348,7 @@ describe('bounds and clip length', () => {
       { x: 1.8, y: 0, crop: '656:0:607:1080' },
       { x: 3, y: 0, crop: '656:0:607:1080' },
     ];
-    const path = bakeCinematicPath(cropMap, { pos: 40, zoom: 0.08 }, CROP_RES_W, CROP_RES_H)!;
+    const path = bakeCinematicPath(cropMap, { pos: 0.07, zoom: 0.08 }, CROP_RES_W, CROP_RES_H)!;
     for (let i = 0; i <= 300; i++) {
       const [, , w, h] = evalCropPathAtTime(path, i / 100);
       expect(Math.abs(w / h / (607 / 1080) - 1)).toBeLessThan(0.01);
@@ -378,12 +382,36 @@ describe('bounds and clip length', () => {
   ])('keeps an overshoot a crop the render shows: %s', (_name, zoom, cropMap) => {
     // The crop overshot to 1 px wide or 2 px tall, and ffmpeg's zoompan zooms in at most 10x. The
     // clipper's test_cinematic_path.py checks the same cases.
-    const path = bakeCinematicPath(cropMap, { pos: 40, zoom }, CROP_RES_W, CROP_RES_H)!;
+    const path = bakeCinematicPath(cropMap, { pos: DEFAULT_CINEMATIC_MARGIN, zoom }, CROP_RES_W, CROP_RES_H)!;
     const end = Math.round(cropMap[cropMap.length - 1].x * 1000);
     const sizes = Array.from({ length: end + 1 }, (_v, i) => evalCropPathAtTime(path, i / 1000).slice(2));
     const widths = sizes.map(([w]) => w);
     expect(Math.min(...widths)).toBeGreaterThanOrEqual(Math.max(...widths) / 10 - 0.4);
     expect(Math.min(...sizes.map(([, h]) => h))).toBeGreaterThanOrEqual(20 - 0.4);
+  });
+
+  it.each([
+    ['tall crop', 300, 600],
+    ['wide crop', 600, 300],
+  ])('keeps the position margin a share of the crop shorter side: %s', (_name, width, height) => {
+    // Points that jitter 120 px in x and y: a 10% margin of the 300 px shorter side lets the crop
+    // drift 30 px either way, in both directions; a share of the longer side would allow 60. The
+    // clipper's test_cinematic_path.py checks the same cases.
+    const xs = [800, 920, 800, 920, 800, 920, 800];
+    const ys = [200, 320, 200, 320, 200, 320, 200];
+    const cropMap: CropPoint[] = xs.map((x, i) => ({ x: i / 2, y: 0, crop: `${x}:${ys[i]}:${width}:${height}` }));
+    const path = bakeCinematicPath(cropMap, { pos: 0.1, zoom: 0 }, CROP_RES_W, CROP_RES_H)!;
+    const linear = (values: number[], t: number) => {
+      const i = Math.min(Math.floor(t * 2), values.length - 2);
+      return values[i] + (values[i + 1] - values[i]) * (t * 2 - i);
+    };
+    const crops = Array.from({ length: 301 }, (_v, i) => evalCropPathAtTime(path, i / 100));
+    for (const [axis, points] of [[0, xs], [1, ys]] as const) {
+      const drift = Math.max(...crops.map((c, i) => Math.abs(c[axis] - linear(points, i / 100))));
+      // Uses the whole margin to smooth the jitter, and no more.
+      expect(drift).toBeGreaterThanOrEqual(30 - 1);
+      expect(drift).toBeLessThanOrEqual(30 + 0.4);
+    }
   });
 
   it('keeps a last crop of another aspect ratio in the frame', () => {
@@ -393,11 +421,30 @@ describe('bounds and clip length', () => {
       { x: 0, y: 0, crop: '0:0:iw:1105' },
       { x: 2, y: 0, crop: '1035.36:1373:2210:17' },
     ];
-    const path = bakeCinematicPath(cropMap, { pos: 40, zoom: 0.08 }, CROP_RES_W, CROP_RES_H)!;
+    const path = bakeCinematicPath(cropMap, { pos: DEFAULT_CINEMATIC_MARGIN, zoom: 0.08 }, CROP_RES_W, CROP_RES_H)!;
     for (let i = 0; i <= 1000; i++) {
       const [, y, , h] = evalCropPathAtTime(path, i / 500);
       expect(y + h).toBeLessThanOrEqual(CROP_RES_H + 0.4);
     }
+  });
+
+  it('pulls the path toward the target inside the box', () => {
+    // A slow swing inside a box wide enough to flatten it: the pull keeps the path closer to the
+    // target, still within the box, and a very strong pull reproduces it. The clipper's
+    // test_cinematic_path.py checks the same case.
+    const target = Array.from({ length: 40 }, (_v, i) => 40 * Math.sin((i * 2 * Math.PI) / 20));
+    const lower = target.map((t) => t - 50);
+    const upper = target.map((t) => t + 50);
+    const distance = (fidelity: number) => {
+      const path = solveL1Path([...target], lower, upper, undefined, fidelity);
+      path.forEach((p, i) => {
+        expect(p).toBeGreaterThanOrEqual(lower[i] - 1e-9);
+        expect(p).toBeLessThanOrEqual(upper[i] + 1e-9);
+      });
+      return path.reduce((sum, p, i) => sum + Math.abs(p - target[i]), 0) / target.length;
+    };
+    expect(distance(0.2)).toBeLessThan(distance(0) - 5);
+    expect(distance(1e6)).toBeLessThan(0.01);
   });
 
   it('scales the objective weights with grid spacing, matching the 10 Hz tuning at 0.1s', () => {
@@ -431,5 +478,24 @@ describe('render parity', () => {
       expect(w).toBeCloseTo(sample.w, 2);
       expect(h).toBeCloseTo(sample.h, 2);
     }
+  });
+
+  // Shared with the clipper's cinematicMargins, so the preview and the render read the percent
+  // settings, and their defaults, the same way.
+  const marginCases = JSON.parse(
+    readFileSync(join(__dirname, '../../clipper/tests/fixtures/cinematic_margin_percent.json'), 'utf8')
+  ) as {
+    name: string;
+    settings: { cropPointEasingCinematicMargin?: number; cropPointEasingCinematicZoomMargin?: number };
+    pos: number;
+    zoom: number;
+  }[];
+
+  it.each(marginCases.map((c) => [c.name, c] as const))('converts percent margins like the clipper: %s', (_name, c) => {
+    const { cropPointEasingCinematicMargin, cropPointEasingCinematicZoomMargin } = c.settings;
+    expect(cinematicMarginsFromPercent(cropPointEasingCinematicMargin, cropPointEasingCinematicZoomMargin)).toEqual({
+      pos: c.pos,
+      zoom: c.zoom,
+    });
   });
 });

@@ -358,8 +358,10 @@ describe('parseOverrides: per-field type validation', () => {
   const cropEasingValues: [string, unknown, boolean][] = [
     ['cropPointEasingCinematicMargin', -50, false],
     ['cropPointEasingCinematicMargin', 0, true],
-    ['cropPointEasingCinematicZoomMargin', 1.5, false],
-    ['cropPointEasingCinematicZoomMargin', 1, true],
+    ['cropPointEasingCinematicMargin', 50, true],
+    ['cropPointEasingCinematicMargin', 51, false],
+    ['cropPointEasingCinematicZoomMargin', 101, false],
+    ['cropPointEasingCinematicZoomMargin', 100, true],
     ['cropPointEasing', 'Cinematic', false],
     ['cropPointEasing', 'cinematic', true],
   ];

@@ -11,7 +11,11 @@ import {
   showChart,
   toggleChart,
 } from '../../charts';
-import { DEFAULT_CINEMATIC_MARGIN, DEFAULT_CINEMATIC_ZOOM_MARGIN } from '../../crop/cinematic-path';
+import {
+  DEFAULT_CINEMATIC_MARGIN_PERCENT,
+  DEFAULT_CINEMATIC_ZOOM_MARGIN_PERCENT,
+} from '../../crop/cinematic-path';
+import { CinematicSettings } from './cinematic-settings';
 import { isReframeEnabled, syncReframe, toggleReframe } from '../../crop/video-zoom-controller';
 import {
   CropChip,
@@ -309,36 +313,30 @@ function MarkerPairEditorTemplate(
             id: 'cinematic-settings-modal',
             title: 'Cinematic Settings',
             visible: isCinematicActive(),
-            content: () => html`
-              ${NumberInputRow({
+            content: () =>
+              CinematicSettings({
+                editorKey: `pair-${appState.prevSelectedMarkerPairIndex}`,
                 // The solve redraws the preview. A redraw now would show the stale path's fallback.
-                ...bindOverride('cinematic-margin-input', 'cropPointEasingCinematicMargin', 'number', {
+                marginInput: bindOverride('cinematic-margin-input', 'cropPointEasingCinematicMargin', 'number', {
                   afterChange: scheduleCinematicRecompute,
                 }),
-                label: 'Margin (px)',
-                value: overrides.cropPointEasingCinematicMargin ?? '',
-                placeholder: String(appState.settings.cropPointEasingCinematicMargin ?? DEFAULT_CINEMATIC_MARGIN),
-                min: 0,
-                step: 1,
-                tooltip: Tooltips.cinematicMarginTooltip,
-                compact: true,
-              })}
-              ${NumberInputRow({
-                ...bindOverride('cinematic-zoom-margin-input', 'cropPointEasingCinematicZoomMargin', 'number', {
-                  afterChange: scheduleCinematicRecompute,
-                }),
-                label: 'Zoom Margin',
-                value: overrides.cropPointEasingCinematicZoomMargin ?? '',
-                placeholder: String(
-                  appState.settings.cropPointEasingCinematicZoomMargin ?? DEFAULT_CINEMATIC_ZOOM_MARGIN
+                zoomMarginInput: bindOverride(
+                  'cinematic-zoom-margin-input',
+                  'cropPointEasingCinematicZoomMargin',
+                  'number',
+                  { afterChange: scheduleCinematicRecompute }
                 ),
-                min: 0,
-                max: 1,
-                step: 0.01,
-                tooltip: Tooltips.cinematicZoomMarginTooltip,
-                compact: true,
-              })}
-            `,
+                margin: overrides.cropPointEasingCinematicMargin,
+                zoomMargin: overrides.cropPointEasingCinematicZoomMargin,
+                inheritedMargin: appState.settings.cropPointEasingCinematicMargin ?? DEFAULT_CINEMATIC_MARGIN_PERCENT,
+                inheritedZoomMargin:
+                  appState.settings.cropPointEasingCinematicZoomMargin ?? DEFAULT_CINEMATIC_ZOOM_MARGIN_PERCENT,
+                // The pair's crops as the margin applies to them now.
+                crops: () => {
+                  const current = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+                  return current?.cropMap.map((point) => point.crop) ?? [];
+                },
+              }),
           }),
         })}
       `,
