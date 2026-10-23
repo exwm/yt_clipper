@@ -773,3 +773,27 @@ def test_smooth_track_keeps_a_steady_pan_at_the_same_speed_through_crop_points(p
     # 300 px/s is 10.01 px per frame; sections that ended a frame early made 5 px steps at points.
     perFrame = float(300 / fps)
     assert max(abs(step - perFrame) for step in steps) < 0.05 * perFrame
+
+
+@pytest.mark.parametrize(
+    ("pairStart", "videoPartStart"),
+    [(0, 0), (10.52, 0), (10.52, 0.02)],
+    ids=["pair start on a frame", "pair start between frames", "video part start"],
+)
+def test_instant_crop_point_cuts_on_the_frame_it_falls_in(pairStart: float, videoPartStart: float) -> None:
+    # The clip keeps the input video's frame phase, so the cut must snap on the video's frame grid,
+    # not on one that starts at the pair start. cinematic_path's cut test checks the same case.
+    fps = 30
+    pointTime = 1.0033
+    cropMap = [
+        {"x": pairStart, "y": 0, "crop": "0:0:640:360"},
+        {"x": pairStart + pointTime, "y": 0, "crop": "500:0:640:360", "easeIn": "instant"},
+        {"x": pairStart + 2, "y": 0, "crop": "500:0:640:360"},
+    ]
+    cropFilter = ffmpeg_filter.getCropFilter(cropMap[0]["crop"], cropMap, fps, videoPartStart=videoPartStart)
+    xMatch = re.search(r"x=(.+?):y=", cropFilter)
+    assert xMatch is not None
+    clipStart = pairStart - videoPartStart
+    pointFrameTime = math.floor((clipStart + pointTime) * fps) / fps - clipStart
+    assert _eval_ffmpeg_axis(xMatch.group(1), pointFrameTime - 1 / fps) == pytest.approx(0)
+    assert _eval_ffmpeg_axis(xMatch.group(1), pointFrameTime) == pytest.approx(500)

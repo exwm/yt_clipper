@@ -500,10 +500,9 @@ function cropMapComponents(
 export function splitAtInstantCuts(cropMap: readonly CropPoint[], fps?: number): CropPoint[][] {
   const runs: CropPoint[][] = [];
   let run: CropPoint[] = [];
-  const firstTime = cropMap[0]?.x ?? 0;
   for (const point of cropMap) {
     if (point.easeIn === 'instant' && run.length > 0) {
-      const cutX = cutTime(point.x, run[run.length - 1].x, firstTime, fps);
+      const cutX = cutTime(point.x, run[run.length - 1].x, fps);
       run.push({ ...run[run.length - 1], x: cutX, easeIn: undefined });
       runs.push(run);
       run = [{ ...point, x: cutX }];
@@ -519,10 +518,11 @@ export function splitAtInstantCuts(cropMap: readonly CropPoint[], fps?: number):
 
 // When a cut takes effect: half a frame before the frame the cut point falls in, as the other crop
 // easings end a section (getEaseSectionDuration). A user-placed point usually overshoots its frame,
-// so at the raw time the first frame of the new scene would keep the old crop. Mirrors the clipper.
-function cutTime(cutX: number, previousX: number, firstTime: number, fps?: number): number {
+// so at the raw time the first frame of the new scene would keep the old crop. Snaps on the video's
+// frame grid, not the pair start's, since a pair can start between frames. Mirrors the clipper.
+function cutTime(cutX: number, previousX: number, fps?: number): number {
   if (!fps) return cutX;
-  const snapped = firstTime + (Math.floor((cutX - firstTime) * fps) - 0.5) / fps;
+  const snapped = (Math.floor(cutX * fps) - 0.5) / fps;
   return snapped > previousX ? snapped : cutX;
 }
 

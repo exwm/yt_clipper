@@ -266,6 +266,24 @@ describe('instant cuts', () => {
   });
 
   it.each([
+    ['on a frame', 0],
+    ['between frames', 10.52],
+  ])('with the pair start %s, a cut snaps on the video frame grid', (_case, pairStart) => {
+    // The preview's crop point times are video times, as in the clipper's test_cinematic_path.py.
+    const fps = 30;
+    const pointTime = 1.0033;
+    const cropMap = [
+      point(pairStart, 0),
+      point(pairStart + pointTime, 1200, 'instant'),
+      point(pairStart + 2, 1200),
+    ];
+    const path = bakeCinematicPath(cropMap, cutMargins, CROP_RES_W, CROP_RES_H, fps)!;
+    const pointFrameTime = Math.floor((pairStart + pointTime) * fps) / fps - pairStart;
+    expect(evalCropPathAtTime(path, pointFrameTime - 1 / fps)[0]).toBeCloseTo(0, 0);
+    expect(evalCropPathAtTime(path, pointFrameTime)[0]).toBeCloseTo(1200, 0);
+  });
+
+  it.each([
     ['raw cut time', undefined, 2],
     ['cut on the frame boundary', 30, 1.99],
   ])('with %s, a cut on the last point still shows', (_case, fps, time) => {

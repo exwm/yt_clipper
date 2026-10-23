@@ -76,18 +76,23 @@ def _bakeCinematicPath(
     cropResWidth: int,
     cropResHeight: int,
     fps: float,
+    videoPartStart: float,
 ) -> Optional[dict[str, Any]]:
     # A pair's settings are made again for each sample-guided trial and encode, and a long pair takes
     # about a second to solve. The path is only read, so the cached one is shared.
     # default=str: a point can carry other fields the solver ignores.
-    key = json.dumps([cropMap, margins, cropResWidth, cropResHeight, fps], sort_keys=True, default=str)
+    key = json.dumps(
+        [cropMap, margins, cropResWidth, cropResHeight, fps, videoPartStart], sort_keys=True, default=str
+    )
     return _bakeCinematicPathFromKey(key)
 
 
 @functools.lru_cache(maxsize=64)
 def _bakeCinematicPathFromKey(key: str) -> Optional[dict[str, Any]]:
-    cropMap, margins, cropResWidth, cropResHeight, fps = json.loads(key)
-    return cinematic_path.bakeCinematicPath(cropMap, margins, cropResWidth, cropResHeight, fps=fps)
+    cropMap, margins, cropResWidth, cropResHeight, fps, videoPartStart = json.loads(key)
+    return cinematic_path.bakeCinematicPath(
+        cropMap, margins, cropResWidth, cropResHeight, fps=fps, videoPartStart=videoPartStart
+    )
 
 
 def getMarkerPairSettings(  # noqa: PLR0912
@@ -220,6 +225,7 @@ def getMarkerPairSettings(  # noqa: PLR0912
                     settings["cropResHeight"],
                     # ffprobe gives a fraction string such as "30000/1001".
                     fps=float(Fraction(mps["r_frame_rate"])),
+                    videoPartStart=videoPartDelay,
                 )
             except Exception as error:
                 # Without a path the pair renders as Smooth Track, as when there is nothing to solve.
@@ -266,6 +272,7 @@ def getMarkerPairSettings(  # noqa: PLR0912
             inputIsHDR=settings["inputIsHDR"],
             frameWidth=settings["width"],
             frameHeight=settings["height"],
+            videoPartStart=videoPartDelay,
         )
     elif mp["isPanningCrop"]:
         mp["cropFilter"] = getCropFilter(
@@ -273,6 +280,7 @@ def getMarkerPairSettings(  # noqa: PLR0912
             mp["cropMap"],
             mps["r_frame_rate"],
             easeType=cropEaseType,
+            videoPartStart=videoPartDelay,
         )
     else:
         cc = cropComponents

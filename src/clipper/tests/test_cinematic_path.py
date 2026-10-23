@@ -1,4 +1,5 @@
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -27,6 +28,31 @@ def test_cinematic_cut_shows_on_the_frame_its_point_falls_in(fps: float | None, 
     path = cinematic_path.bakeCinematicPath(cropMap, margins, 1920, 1080, fps=fps)
     assert path is not None
     assert cinematic_path.evalCropPathAtTime(path, 1.0)[0] == pytest.approx(cropX, abs=0.5)
+
+
+@pytest.mark.parametrize(
+    ("pairStart", "videoPartStart"),
+    [(0, 0), (10.52, 0), (10.52, 0.02)],
+    ids=["pair start on a frame", "pair start between frames", "video part start"],
+)
+def test_cinematic_cut_snaps_on_the_video_frame_grid(pairStart: float, videoPartStart: float) -> None:
+    from clipper import cinematic_path
+
+    # The clip keeps the input video's frame phase, as in test_ffmpeg_filter's instant cut test.
+    fps = 30
+    pointTime = 1.0033
+    cropMap = [
+        {"x": pairStart, "crop": "0:0:640:360"},
+        {"x": pairStart + pointTime, "crop": "1200:0:640:360", "easeIn": "instant"},
+        {"x": pairStart + 2, "crop": "1200:0:640:360"},
+    ]
+    margins = {"pos": cinematic_path.DEFAULT_MARGIN, "zoom": cinematic_path.DEFAULT_ZOOM_MARGIN}
+    path = cinematic_path.bakeCinematicPath(cropMap, margins, 1920, 1080, fps=fps, videoPartStart=videoPartStart)
+    assert path is not None
+    clipStart = pairStart - videoPartStart
+    pointFrameTime = math.floor((clipStart + pointTime) * fps) / fps - clipStart
+    assert cinematic_path.evalCropPathAtTime(path, pointFrameTime - 1 / fps)[0] == pytest.approx(0, abs=0.5)
+    assert cinematic_path.evalCropPathAtTime(path, pointFrameTime)[0] == pytest.approx(1200, abs=0.5)
 
 
 @pytest.mark.parametrize(("fps", "time"), [(None, 2), (30, 1.99)], ids=["raw cut time", "cut on the frame boundary"])
