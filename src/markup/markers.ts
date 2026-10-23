@@ -459,9 +459,10 @@ export function pushMarkerPairsArray(currentTime: number, markerPairConfig: Mark
     ],
     speedChartLoop: markerPairConfig.speedChartLoop ?? { enabled: true },
     crop,
+    // A new pair ends in a hold point, so a crop point added and moved inside it holds to the end.
     cropMap: markerPairConfig.cropMap ?? [
       { x: appState.startTime, y: 0, crop: crop },
-      { x: currentTime, y: 0, crop: crop },
+      { x: currentTime, y: 0, crop: crop, hold: true },
     ],
     cropChartLoop: markerPairConfig.cropChartLoop ?? { enabled: true },
     enableZoomPan: markerPairConfig.enableZoomPan ?? false,

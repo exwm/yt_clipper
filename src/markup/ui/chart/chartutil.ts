@@ -4,6 +4,7 @@ import { cropStringsEqual, getCropComponents, setAspectRatioForAllPoints } from 
 import { assertDefined, bsearch } from '../../util/util';
 import { chartState, getInterpolatedCrop, updateChartBounds } from '../../charts';
 import { Crop } from '../../crop/crop';
+import { releaseHoldIfChanged } from '../../crop/crop-point-holds';
 import { getInterpolatedSpeed } from '../../speed';
 import { MarkerPair } from '../../@types/yt_clipper';
 import { sortX } from './chartPrimitives';
@@ -88,6 +89,7 @@ export function shrinkPointMap(draft, pointMap, pointType, toTime, type, markerP
     toCrop.setCropStringSafe(toCropString, draft.enableZoomPan);
     targetPoint.crop = toCrop.cropString;
     setAspectRatioForAllPoints(toCrop.aspectRatio, pointMap, pointMap, targetPointIndex);
+    releaseHoldIfChanged(pointMap, targetPointIndex, cropStringsEqual);
     if (type === 'start') draft.crop = toCrop.cropString;
   } else {
     const speed = getInterpolatedSpeed(leftPoint, rightPoint, toTime);

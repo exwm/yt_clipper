@@ -141,6 +141,33 @@ describe('parseClipperInput: marker pair validation', () => {
     expect(input.markerPairs[0].cropMap).toHaveLength(2);
     expect(input.markerPairs[0].cropMap![1].easeIn).toBe('instant');
   });
+
+  // A hold point keeps its flag only while its saved crop equals the crop before it: the clipper
+  // renders the saved crop, so a mismatched one loads as a normal point with that crop.
+  // A point is normal, instant, or hold. One saved as both keeps the instant cut the clipper renders.
+  test.each([
+    ['a matching hold point', true, '0:0:960:540', undefined, true],
+    ['a hold that is not true', 'yes', '0:0:960:540', undefined, undefined],
+    ['a hold point with a different crop', true, '100:0:960:540', undefined, undefined],
+    ['an instant hold point', true, '0:0:960:540', 'instant', undefined],
+  ])('loads %s', (_name, hold, crop, easeIn, expectedHold) => {
+    const { input } = parseClipperInput({
+      markerPairs: [
+        {
+          start: 0,
+          end: 5,
+          cropMap: [
+            { x: 0, y: 0, crop: '0:0:960:540', hold: true },
+            { x: 2, y: 0, crop, hold, easeIn },
+            { x: 5, y: 0, crop: '0:0:960:540' },
+          ],
+        },
+      ],
+    });
+    const cropMap = input.markerPairs[0].cropMap!;
+    expect(cropMap[0].hold).toBeUndefined();
+    expect(cropMap[1]).toEqual({ x: 2, y: 0, crop, easeIn, hold: expectedHold });
+  });
 });
 
 describe('parseClipperInput: allowlist filter', () => {

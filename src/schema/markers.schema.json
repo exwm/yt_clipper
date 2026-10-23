@@ -121,7 +121,8 @@
         "x": { "type": "number", "minimum": 0 },
         "y": { "const": 0 },
         "crop": { "$ref": "#/$defs/crop" },
-        "easeIn": { "const": "instant" }
+        "easeIn": { "const": "instant" },
+        "hold": { "const": true }
       }
     },
     "overrides": {

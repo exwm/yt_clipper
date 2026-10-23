@@ -28,6 +28,7 @@ import type {
   Settings,
   SpeedPoint,
 } from '../@types/yt_clipper';
+import { releaseMismatchedHolds } from '../crop/crop-point-holds';
 
 /** Subset of MarkerPair keys that round-trip through JSON. Runtime-only fields
  *  (SVG numbering elements, undo/redo stacks, chart loop state) are not
@@ -168,6 +169,7 @@ export const cropPointAllow = {
   y: true,
   crop: true,
   easeIn: true,
+  hold: true,
 } as const satisfies Record<keyof CropPoint, true>;
 
 export const topLevelAllow = {
@@ -352,6 +354,8 @@ function parseCropPoint(raw: unknown, path: string, issues: DataFormatIssue[]): 
   }
   const out: CropPoint = { x: picked.x, y: 0, crop: picked.crop };
   if (picked.easeIn === 'instant') out.easeIn = 'instant';
+  // The types are exclusive. Instant wins, as the clipper renders the saved crop with its cut.
+  if (picked.hold === true && out.easeIn == null) out.hold = true;
   return out;
 }
 
@@ -385,6 +389,7 @@ function parseMarkerPair(
     out.cropMap = picked.cropMap
       .map((p, i) => parseCropPoint(p, `${path}.cropMap[${i}]`, issues))
       .filter((p): p is CropPoint => p !== null);
+    releaseMismatchedHolds(out.cropMap);
   }
   return out;
 }

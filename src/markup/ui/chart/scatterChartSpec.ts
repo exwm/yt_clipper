@@ -17,6 +17,7 @@ import { cropChartMode, setCurrentCropPoint } from './cropchart/cropChartSpec';
 import { isReframeEnabled } from '../../crop/video-zoom-controller';
 import {
   cropDragStartCropString,
+  cropDragStartWasHold,
   cropManipulationKind,
   isMouseManipulatingCrop,
   refreshCropDragInitState,
@@ -138,6 +139,7 @@ export const addCropPoint = function (this: any, time: number) {
     const liveCropAtAddTime = draggedPointRef ? draggedPointRef.crop : null;
     if (draggedPointRef && cropDragStartCropString != null) {
       draggedPointRef.crop = cropDragStartCropString;
+      if (cropDragStartWasHold) draggedPointRef.hold = true;
     }
 
     draft.cropMap.push({

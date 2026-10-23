@@ -137,6 +137,8 @@ def test_missing_required_setting_is_reported() -> None:
         pytest.param(["speed"], 0, id="zero speed"),
         pytest.param(["overrides", "gamma"], "1.0 -y", id="override value"),
         pytest.param(["cropMap", 1, "crop"], "1:1:1:1;", id="crop point"),
+        pytest.param(["cropMap", 2, "hold"], "yes", id="hold that is not a boolean"),
+        pytest.param(["cropMap", 2, "hold"], False, id="hold that is false"),
         pytest.param(["speedMap", 0, "y"], -1, id="speed point"),
         pytest.param(["overrides", "cropPointEasing"], "linear", id="unknown crop easing"),
     ],
