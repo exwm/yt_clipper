@@ -126,8 +126,8 @@ export namespace Tooltips {
 
   export const cropPointEasingTooltip = stripIndent`
     How a dynamic crop pans and zooms between crop points.
-    Smooth Track: Use it to follow a moving subject. The crop moves through every point on one smooth curve (a monotone cubic spline) without stopping. It does not swing past a point where the motion reverses.
-    Cinematic: Use it for steady, camera-like motion when the crop does not need to hit each point exactly. The crop stays within a margin of the points, and its path is solved for as few moves as possible: steady holds, constant-speed pans, and smooth transitions between them. The path is recomputed shortly after you stop editing, which pauses the page briefly. Clips take slightly longer to render.
+    Smooth Track: Use it to follow a moving subject. The crop moves through every point on one smooth curve without stopping. It does not swing past a point where the motion reverses.
+    Cinematic: Use it for steady, camera-like motion when the crop does not need to hit each point exactly. The crop stays within a margin of the points, and its path is solved for as few moves as possible: steady pauses, constant-speed pans, and smooth transitions between them. The path is recomputed shortly after you stop editing, which pauses the page briefly. Clips take slightly longer to render.
     EaseInOut: The crop easing from before version 5.49.0. Each section eases in and out, so the crop slows to a stop at every point. Use it if Smooth Track or Cinematic does not move the crop as you expect.
     The global default is Smooth Track. On a marker pair, Default uses the global Crop Easing.
     Markers data saved before version 5.49.0 renders with EaseInOut.
@@ -146,14 +146,26 @@ export namespace Tooltips {
     Only used when Crop Easing is Cinematic.
     `;
 
+  export const cinematicSectionTooltip = stripIndent`
+    Used only when Crop Easing is Cinematic. These settings dim with another easing, and changes still save.
+    `;
+
+  export const cinematicHoldsTooltip = stripIndent`
+    How still the crop holds from the point before a hold point to the hold point.
+    Loose: the crop stays within the margin, as at other crop points.
+    Firm (default): the crop holds still. It slows down and speeds up within the Pan Margin (and the Zoom Margin for its size), so a larger margin gives gentler stops. A fast pan, or a quick move between two close hold points, can move the crop up to the Pan Margin at the start or end of the hold.
+    Exact: the crop holds still. It slows down evenly into each hold and speeds up evenly out of it, so around a hold it can drift past the margin.
+    Only used when Crop Easing is Cinematic. Hold points always hold with the other easings.
+    `;
+
   export const cinematicCustomStrengthTooltip = stripIndent`
-    Restore the margins you last set by hand, after trying a strength preset.
+    Restore the margins you last set by hand, after trying Weak, Medium or Strong.
     `;
 
   export const titleSuffixTooltip = stripIndent`
     Specify a title suffix to be appended to the title prefixes specified for each marker pair.
     The title suffix is followed by the marker pair number in the final file name for each marker pair.
-    The title suffix is also the the file name stem of the markers data json file saved with S.
+    The title suffix is also the file name stem of the markers data json file saved with S.
     The markers data file name is used as the title suffix when running the clipper script.
     Thus it can be renamed to change the title suffix without editing the json data.
     `;

@@ -35,6 +35,8 @@ interface Settings {
   // in cropRes px (x, y); zoom margin as a fraction of the keyframed size (w, h). Larger = steadier.
   cropPointEasingCinematicMargin?: number;
   cropPointEasingCinematicZoomMargin?: number;
+  // How still Cinematic easing holds the crop at hold points.
+  cropPointEasingCinematicHolds?: 'loose' | 'firm' | 'exact';
 }
 
 interface MarkerPair {
@@ -90,6 +92,7 @@ interface MarkerPairOverrides {
   // in cropRes px (x, y); zoom margin as a fraction of the keyframed size (w, h). Larger = steadier.
   cropPointEasingCinematicMargin?: number;
   cropPointEasingCinematicZoomMargin?: number;
+  cropPointEasingCinematicHolds?: 'loose' | 'firm' | 'exact';
   enableHDR?: boolean;
   gamma?: number;
   encodeSpeed?: number;
@@ -138,6 +141,8 @@ interface CropPoint {
   easeIn?: 'instant';
   // Shows the crop of the point before it: `crop-point-holds.ts` keeps `crop` equal to that crop.
   hold?: true;
+  // A Firm hold point, set only in the Cinematic solve's copy of the crop map (never saved).
+  firmHold?: true;
 }
 
 // One piece of a solved cinematic path. Each crop component is a quadratic in local time

@@ -113,6 +113,9 @@ function buildSharePayload(): SharePayload {
   if (s.cropPointEasingCinematicZoomMargin != null) {
     settings.cropPointEasingCinematicZoomMargin = s.cropPointEasingCinematicZoomMargin;
   }
+  if (s.cropPointEasingCinematicHolds != null) {
+    settings.cropPointEasingCinematicHolds = s.cropPointEasingCinematicHolds;
+  }
 
   const markerPairs: ShareablePair[] = appState.markerPairs.map((pair: MarkerPair) => {
     const out: ShareablePair = {

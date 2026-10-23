@@ -88,6 +88,7 @@ def test_unknown_keys_are_dropped(path: list[Any], key: str) -> None:
         pytest.param("cropPointEasingCinematicMargin", "40 -y", id="cinematic margin with arguments"),
         pytest.param("cropPointEasingCinematicMargin", 51, id="cinematic margin above 50%"),
         pytest.param("cropPointEasingCinematicZoomMargin", 101, id="cinematic zoom margin above 100%"),
+        pytest.param("cropPointEasingCinematicHolds", "Firm", id="unknown hold points option"),
     ],
 )
 def test_invalid_global_settings_are_reported(key: str, value: object) -> None:
@@ -141,6 +142,7 @@ def test_missing_required_setting_is_reported() -> None:
         pytest.param(["cropMap", 2, "hold"], False, id="hold that is false"),
         pytest.param(["speedMap", 0, "y"], -1, id="speed point"),
         pytest.param(["overrides", "cropPointEasing"], "linear", id="unknown crop easing"),
+        pytest.param(["overrides", "cropPointEasingCinematicHolds"], "Firm", id="unknown hold points option"),
     ],
 )
 def test_invalid_pair_values_only_fail_that_pair(path: list[Any], value: object) -> None:

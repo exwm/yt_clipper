@@ -261,7 +261,9 @@ def test_crop_values_round_like_the_markup(value: float, rounded: int) -> None:
 def test_cinematic_path_matches_the_markup(case: dict) -> None:
     from clipper import cinematic_path
 
-    path = cinematic_path.bakeCinematicPath(case["cropMap"], case["margins"], *case["cropRes"])
+    # A case without holds reads its hold flags as they are.
+    cropMap = cinematic_path.cinematicCropMap(case["cropMap"], case.get("holds", "exact"))
+    path = cinematic_path.bakeCinematicPath(cropMap, case["margins"], *case["cropRes"], fps=case.get("fps"))
     assert path is not None
     for sample in case["samples"]:
         x, y, w, h = cinematic_path.evalCropPathAtTime(path, sample["t"])
@@ -269,6 +271,341 @@ def test_cinematic_path_matches_the_markup(case: dict) -> None:
             (sample["x"], sample["y"], sample["w"], sample["h"]),
             abs=TOLERANCE_PX,
         ), f"at {sample['t']} s"
+
+
+@pytest.mark.parametrize(
+    ("cut_crop", "held_until"),
+    # At 30 fps the cut lands half a frame before the frame it falls in: 4.4833 s.
+    [("1200:300:640:360", (135 - 0.5) / 30 - 0.005), (None, 3.07)],
+    ids=["a hold point before a cut holds until the cut", "a hold point as the last point"],
+)
+def test_cinematic_path_holds_still_at_hold_points(cut_crop: str | None, held_until: float) -> None:
+    from clipper import cinematic_path
+
+    cropMap = [
+        {"x": 0, "y": 0, "crop": "100:300:640:360"},
+        {"x": 2.03, "y": 0, "crop": "600:300:640:360"},
+        {"x": 3.07, "y": 0, "crop": "600:300:640:360", "hold": True},
+    ]
+    if cut_crop:
+        cropMap += [
+            {"x": 4.5, "y": 0, "crop": cut_crop, "easeIn": "instant"},
+            {"x": 6, "y": 0, "crop": "1300:300:640:360"},
+        ]
+    path = cinematic_path.bakeCinematicPath(cropMap, {"pos": 0.12, "zoom": 0.08}, 1920, 1080, fps=30)
+    assert path is not None
+    for step in range(round((held_until - 2.03) / 0.005) + 1):
+        crop = cinematic_path.evalCropPathAtTime(path, min(2.03 + step * 0.005, held_until))
+        assert crop[:3] == pytest.approx((600, 300, 640), abs=0.5)
+
+
+@pytest.mark.parametrize(
+    ("point", "after", "holds"),
+    [
+        ({"crop": "600:300:640:360"}, {"crop": "1200:300:640:360"}, "exact"),
+        ({"crop": "600.0:300:640:360", "hold": True}, {"crop": "1200:300:640:360"}, "exact"),
+        ({"crop": "600.0:300:640:360", "hold": True}, {"crop": "1200:300:640:360"}, "firm"),
+        ({"crop": "600:300:640:360", "hold": True}, {"crop": "1200:300:640:360"}, "loose"),
+    ],
+    ids=[
+        "without the hold flag",
+        "with the same crop written differently, as the markup releases it on load",
+        "with the same crop written differently under Firm",
+        "with Loose holds",
+    ],
+)
+def test_cinematic_path_moves_through_a_point_that_is_not_held(point: dict, after: dict, holds: str) -> None:
+    from clipper import cinematic_path
+
+    cropMap = [
+        {"x": 0, "y": 0, "crop": "100:300:640:360"},
+        {"x": 2.03, "y": 0, "crop": "600:300:640:360"},
+        {"x": 3.07, "y": 0, **point},
+        {"x": 5.07, "y": 0, **after},
+        {"x": 6.5, "y": 0, "crop": "1300:300:640:360"},
+    ]
+    path = cinematic_path.bakeCinematicPath(
+        cinematic_path.cinematicCropMap(cropMap, holds), {"pos": 0.12, "zoom": 0.08}, 1920, 1080, fps=30
+    )
+    assert path is not None
+    xs = [cinematic_path.evalCropPathAtTime(path, 2.03 + step * 0.01)[0] for step in range(105)]
+    assert max(xs) - min(xs) > 5
+
+
+@pytest.mark.parametrize("crop", ["620:300:640:360", "600.0:300:640:360"], ids=["a different crop", "same crop written differently"])
+def test_cinematic_path_ignores_a_hold_flag_the_markup_releases_also_before_a_cut(crop: str) -> None:
+    from clipper import cinematic_path
+
+    flagged = [
+        {"x": 0, "y": 0, "crop": "100:300:640:360"},
+        {"x": 2.03, "y": 0, "crop": "600:300:640:360"},
+        {"x": 3.07, "y": 0, "crop": crop, "hold": True},
+        {"x": 4.5, "y": 0, "crop": "1200:300:640:360", "easeIn": "instant"},
+        {"x": 6, "y": 0, "crop": "1300:300:640:360"},
+    ]
+    plain = [{key: value for key, value in point.items() if key != "hold"} for point in flagged]
+    flaggedPath, plainPath = (
+        cinematic_path.bakeCinematicPath(m, {"pos": 0.12, "zoom": 0.08}, 1920, 1080, fps=30) for m in (flagged, plain)
+    )
+    assert flaggedPath is not None
+    assert plainPath is not None
+    for step in range(121):
+        t = step / 20
+        assert cinematic_path.evalCropPathAtTime(flaggedPath, t) == cinematic_path.evalCropPathAtTime(plainPath, t)
+
+
+def _xRange(cropMap: list, holds: str, margin: float, start: float, end: float) -> float:
+    from clipper import cinematic_path
+
+    path = cinematic_path.bakeCinematicPath(
+        cinematic_path.cinematicCropMap(cropMap, holds), {"pos": margin, "zoom": margin}, 1920, 1080, fps=30
+    )
+    assert path is not None
+    steps = round((end - start) / 0.01)
+    xs = [cinematic_path.evalCropPathAtTime(path, start + step * 0.01)[0] for step in range(steps + 1)]
+    return max(xs) - min(xs)
+
+
+@pytest.mark.parametrize(
+    ("margin", "start", "end"),
+    [(0.03, 2, 3.6), (0.12, 2, 3.6), (0.2, 2, 3.6), (0.12, 2.03, 3.07)],
+    ids=["tight margin", "default margin", "strong margin", "hold edges between grid samples"],
+)
+def test_cinematic_path_firm_holds_still_past_its_settle_within_the_margin(margin: float, start: float, end: float) -> None:
+    cropMap = [
+        {"x": 0, "y": 0, "crop": "100:300:640:360"},
+        {"x": start, "y": 0, "crop": "740:300:640:360"},
+        {"x": end, "y": 0, "crop": "740:300:640:360", "hold": True},
+        {"x": end + 1.6, "y": 0, "crop": "1200:300:640:360"},
+    ]
+    # Hold edges between grid samples once let the crop arrive late and leave early.
+    assert _xRange(cropMap, "firm", margin, start + 0.3, end - 0.3) < 0.5
+    firm = _xRange(cropMap, "firm", margin, start, end)
+    assert firm <= 2 * margin * 360
+    assert firm < _xRange(cropMap, "loose", margin, start, end)
+    assert _xRange(cropMap, "exact", margin, start, end) < 0.5
+
+
+def _points(*specs: tuple) -> list[dict]:
+    """Crop points from (time, left[, hold]) of a 640x360 crop."""
+    return [
+        {"x": spec[0], "y": 0, "crop": f"{spec[1]}:300:640:360", **({"hold": True} if spec[2:] == (True,) else {})}
+        for spec in specs
+    ]
+
+
+# A pan of 640 px in 0.8 s into a hold to 3.6 s, as one hold point or split by a second one.
+PAN_INTO_HOLD = _points((0, 100), (0.8, 740), (3.6, 740, True), (4.4, 1200))
+PAN_INTO_HOLD_SPLIT = _points((0, 100), (0.8, 740), (0.9, 740, True), (3.6, 740, True), (4.4, 1200))
+# An 800 px pan in 1 s, a still point with its crop 0.05 s later, and a hold to 3 s.
+STILL_POINT_BEFORE_HOLD = _points((0, 100), (1, 900), (1.05, 900), (3, 900, True))
+
+# Two holds with a quick 80 px move between them: a crop still at both ends must start and stop hard.
+CROWDED_HOLDS = [
+    {"x": 0, "y": 0, "crop": "400:300:640:360"},
+    {"x": 1, "y": 0, "crop": "400:300:640:360"},
+    {"x": 2, "y": 0, "crop": "400:300:640:360", "hold": True},
+    {"x": 2.2, "y": 0, "crop": "480:300:640:360"},
+    {"x": 3.2, "y": 0, "crop": "480:300:640:360", "hold": True},
+    {"x": 4.5, "y": 0, "crop": "480:300:640:360"},
+]
+
+
+def test_cinematic_path_firm_borrows_time_from_crowded_holds_and_jolts_far_less_than_exact() -> None:
+    from clipper import cinematic_path
+
+    def largestSpeedChange(holds: str) -> float:
+        path = cinematic_path.bakeCinematicPath(
+            cinematic_path.cinematicCropMap(CROWDED_HOLDS, holds), {"pos": 0.12, "zoom": 0.08}, 1920, 1080, fps=30
+        )
+        assert path is not None
+        xs = [cinematic_path.evalCropPathAtTime(path, frame / 30)[0] for frame in range(45, 116)]
+        return max(abs(c - 2 * b + a) for a, b, c in zip(xs, xs[1:], xs[2:], strict=False))
+
+    assert largestSpeedChange("firm") < largestSpeedChange("exact") / 3
+    assert _xRange(CROWDED_HOLDS, "firm", 0.12, 1.1, 1.5) < 0.5
+    assert _xRange(CROWDED_HOLDS, "firm", 0.12, 2.6, 3) < 0.5
+
+
+@pytest.mark.parametrize(
+    ("cropMap", "expected"),
+    [
+        # Per hold: start, end, crop widths per second into and out of it, and the settle times: 0.1 s
+        # next to a move, none next to a still section, and half of the time the quick move between two
+        # holds is missing (0.5 s to start and stop at 2 crop widths/s², in a 0.2 s section).
+        (
+            [
+                {"x": 0, "y": 0, "crop": "100:300:640:360"},
+                {"x": 2, "y": 0, "crop": "740:300:640:360"},
+                {"x": 3.6, "y": 0, "crop": "740:300:640:360", "hold": True},
+                {"x": 5.2, "y": 0, "crop": "1200:300:640:360"},
+            ],
+            [(2, 3.6, 0.5, 460 / 1.6 / 640, 0.1, 0.1)],
+        ),
+        (
+            CROWDED_HOLDS,
+            [(1, 2, 0, 80 / 0.2 / 640, 0, 0.15), (2.2, 3.2, 80 / 0.2 / 640, 0, 0.15, 0)],
+        ),
+        # Consecutive hold points are one hold.
+        (PAN_INTO_HOLD_SPLIT, [(0.8, 3.6, 640 / 0.8 / 640, 460 / 0.8 / 640, 0.1, 0.1)]),
+        # The pan braked for 0.05 s at 4 crop widths/s² by the time it reaches the hold.
+        (STILL_POINT_BEFORE_HOLD, [(1.05, 3, 1.25 - 4 * 0.05, 0, 0.05, 0)]),
+        # A point nudged 2 px (under 1% of the width) counts as still.
+        (_points((0, 100), (1, 900), (1.05, 902), (3, 902, True)), [(1.05, 3, 1.25 - 4 * 0.05, 0, 0.05, 0)]),
+        # 7 px (over 1% of the width) is a move of its own, so the hold settles from it.
+        (_points((0, 100), (1, 900), (1.05, 907), (3, 907, True)), [(1.05, 3, 7 / 0.05 / 640, 0, 0.1, 0)]),
+        (_points((0, 740), (1, 740), (2, 740, True), (3, 1200)), [(1, 2, 0, 460 / 640, 0, 0.1)]),
+        # A still point between two holds does not join them, and neither hold moves into it.
+        (
+            _points((0, 100), (1, 740), (2, 740, True), (2.05, 740), (3, 740, True), (4, 1200)),
+            [(1, 2, 1, 0, 0.1, 0), (2.05, 3, 0, 460 / 640, 0, 0.1)],
+        ),
+        # An 80 px move takes 0.5 s to start and stop. It has 0.2 s between the holds, its own 0.1 s and a
+        # still point's 0.1 s, so each hold lends 0.15 s; the second hold sees the pan braked for 0.1 s.
+        (
+            _points((0, 400), (1, 400), (2, 400, True), (2.1, 480), (2.2, 480), (3.2, 480, True), (4.5, 480)),
+            [(1, 2, 0, 80 / 0.1 / 640, 0, 0.15), (2.2, 3.2, 80 / 0.1 / 640 - 4 * 0.1, 0, 0.15, 0)],
+        ),
+        # The move between them would borrow 0.35 s (0.79 s to start and stop, in 0.1 s), capped at 40%
+        # of each 0.3 s hold.
+        (
+            _points((0, 400), (0.7, 400), (1, 400, True), (1.1, 600), (1.4, 600, True), (2, 600)),
+            [(0.7, 1, 0, 200 / 0.1 / 640, 0, 0.12), (1.1, 1.4, 200 / 0.1 / 640, 0, 0.12, 0)],
+        ),
+    ],
+    ids=[
+        "a lone hold",
+        "two crowded holds",
+        "a hold split by a second hold point",
+        "a hold after a still point",
+        "a hold after a point nudged off its crop",
+        "a hold after a point moved 7 px",
+        "a hold after only still points",
+        "two holds with a still point between",
+        "two holds with a quick move and a still point between",
+        "two short holds with a quick move between",
+    ],
+)
+def test_cinematic_path_firm_times_the_braking_and_settle_of_holds(cropMap: list, expected: list) -> None:
+    from clipper import cinematic_path
+
+    spans = cinematic_path.firmHeldSpans(cinematic_path.cinematicCropMap(cropMap, "firm"), 1920, 1080)
+    fields = [(s.start, s.end, s.speedIn, s.speedOut, s.settleIn, s.settleOut) for s in spans]
+    assert fields == [pytest.approx(row) for row in expected]
+
+
+def test_cinematic_path_firm_holds_a_hold_before_a_cut_up_to_the_cut_at_rest() -> None:
+    from clipper import cinematic_path
+
+    cropMap = _points((0, 100), (2, 600), (3.5, 600, True), (4.5, 1200), (6, 900))
+    cropMap[3]["easeIn"] = "instant"
+    run = cinematic_path.splitAtInstantCuts(cinematic_path.cinematicCropMap(cropMap, "firm"), 30)[0]
+    [span] = cinematic_path.firmHeldSpans(run, 1920, 1080)
+    assert (span.start, span.end, span.speedOut, span.settleOut) == (2, run[-1]["x"], 0, 0)
+
+
+def _firmPath(cropMap: list, margin: float = 0.12) -> dict:
+    from clipper import cinematic_path
+
+    path = cinematic_path.bakeCinematicPath(
+        cinematic_path.cinematicCropMap(cropMap, "firm"), {"pos": margin, "zoom": margin}, 1920, 1080, fps=30
+    )
+    assert path is not None
+    return path
+
+
+def test_cinematic_path_firm_holds_a_hold_split_by_a_second_hold_point_exactly_as_one() -> None:
+    from clipper import cinematic_path
+
+    split, single = _firmPath(PAN_INTO_HOLD_SPLIT, 0.03), _firmPath(PAN_INTO_HOLD, 0.03)
+    for frame in range(133):
+        assert cinematic_path.evalCropPathAtTime(split, frame / 30) == cinematic_path.evalCropPathAtTime(single, frame / 30)
+
+
+@pytest.mark.parametrize(
+    ("withPoint", "without", "margin"),
+    [
+        (STILL_POINT_BEFORE_HOLD, _points((0, 100), (1, 900), (3, 900, True)), 0.12),
+        (_points((0, 100), (2, 100, True), (2.05, 100), (3, 900)), _points((0, 100), (2, 100, True), (3, 900)), 0.12),
+        # Nudged 2 px off the hold's crop, at a margin too tight to brake within.
+        (_points((0, 100), (1, 900), (1.05, 902), (3, 902, True)), _points((0, 100), (1, 902), (3, 902, True)), 0.03),
+    ],
+    ids=["before", "after", "nudged 2 px before"],
+)
+def test_cinematic_path_firm_brakes_as_smoothly_with_a_still_point_next_to_the_hold(
+    withPoint: list, without: list, margin: float
+) -> None:
+    from clipper import cinematic_path
+
+    def largestSpeedChange(path: dict) -> float:
+        xs = [cinematic_path.evalCropPathAtTime(path, frame / 30)[0] for frame in range(90)]
+        return max(abs(c - 2 * b + a) for a, b, c in zip(xs, xs[1:], xs[2:], strict=False))
+
+    assert largestSpeedChange(_firmPath(withPoint, margin)) < 1.5 * largestSpeedChange(_firmPath(without, margin))
+
+
+@pytest.mark.parametrize(
+    ("speedIn", "settleIn", "time", "allowance"),
+    [
+        # At 2 crop widths/s the crop needs 0.4325 crop widths past the 0.0675 margin to stop at
+        # 4 crop widths/s², shed over 0.5 s.
+        (2, 0.1, 1, 276.8),
+        (2, 0.1, 1.25, 138.4),
+        (2, 0.1, 1.5, 0),
+        # A slow crop only settles: 2 crop widths/s² over the 0.1 s settle.
+        (0.5, 0.1, 1, 6.4),
+        (0.5, 0.1, 1.05, 1.6),
+        (0.5, 0.1, 1.1, 0),
+        (0.5, 0, 1, 0),
+    ],
+)
+def test_cinematic_path_firm_lets_the_crop_leave_the_held_crop_by_its_braking_and_settle(
+    speedIn: float, settleIn: float, time: float, allowance: float
+) -> None:
+    import numpy as np
+
+    from clipper import cinematic_path
+
+    span = cinematic_path.FirmHeldSpan(1, 3, (100, 300, 640, 360), speedIn, 0, settleIn, 0)
+    got = cinematic_path.firmHoldAllowance(span, np.array([time]), np.array([0.12 * 360]))
+    assert got[0] == pytest.approx(allowance, abs=1e-6)
+
+
+def test_cinematic_crop_map_converts_hold_points_for_each_option() -> None:
+    from clipper import cinematic_path
+
+    cropMap = [{"x": 0, "y": 0, "crop": "0:0:640:360"}, {"x": 1, "y": 0, "crop": "0:0:640:360", "hold": True}]
+    assert [point.get("hold") for point in cinematic_path.cinematicCropMap(cropMap, "exact")] == [None, True]
+    assert [point.get("firmHold") for point in cinematic_path.cinematicCropMap(cropMap, "firm")] == [None, True]
+    for holds in ("firm", "loose"):
+        assert not any(point.get("hold") for point in cinematic_path.cinematicCropMap(cropMap, holds))
+    assert not any(point.get("firmHold") for point in cinematic_path.cinematicCropMap(cropMap, "loose"))
+    assert cinematic_path.DEFAULT_CINEMATIC_HOLDS == "firm"
+
+
+@pytest.mark.parametrize(
+    ("cropMap", "time", "left"),
+    [
+        (_points((0, 100, False), (0.05, 600, False), (2, 600, True)), 0, 100),
+        (_points((0, 100, False), (2, 600, False), (3.95, 600, True), (4, 900, False)), 4, 900),
+        (
+            _points((0, 100, False), (1, 600, False), (2.01, 600, True), (2.09, 700, False), (3, 700, True), (5, 1200, False)),
+            2.0,
+            600,
+        ),
+    ],
+    ids=[
+        "the run's first crop, a hold starting less than a grid step after it",
+        "the run's last crop, a hold ending less than a grid step before it",
+        "the end of a hold less than a grid step before the next hold",
+    ],
+)
+def test_cinematic_path_holds_leave_crops_near_them_alone(cropMap: list[dict], time: float, left: int) -> None:
+    from clipper import cinematic_path
+
+    path = cinematic_path.bakeCinematicPath(cropMap, {"pos": 0.12, "zoom": 0.08}, 1920, 1080)
+    assert path is not None
+    assert cinematic_path.evalCropPathAtTime(path, time)[0] == pytest.approx(left, abs=0.5)
 
 
 @pytest.mark.parametrize("case", MARGIN_PERCENT, ids=[case["name"] for case in MARGIN_PERCENT])

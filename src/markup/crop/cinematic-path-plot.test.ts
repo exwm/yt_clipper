@@ -1,5 +1,5 @@
 import { CropPoint } from '../@types/yt_clipper';
-import { bakeCinematicPath, cinematicMarginsFromPercent } from './cinematic-path';
+import { bakeCinematicPath, cinematicCropMap, cinematicMarginsFromPercent } from './cinematic-path';
 import {
   CinematicPlotAxis,
   CinematicPlotInput,
@@ -131,6 +131,56 @@ describe('cinematicPlotSeries', () => {
     const [low, high] = bandAt(series.band, 5);
     expect(low).toBeCloseTo(3 / 1.08, 6);
     expect(high).toBeCloseTo(3 / 0.92, 6);
+  });
+
+  it.each([false, true])('draws no margin over a held span (solved: %s)', (solved) => {
+    const cropMap: CropPoint[] = [
+      { x: 0, y: 0, crop: '100:300:640:360' },
+      { x: 2.03, y: 0, crop: '600:300:640:360' },
+      { x: 3.07, y: 0, crop: '600:300:640:360', hold: true },
+      { x: 5.07, y: 0, crop: '1200:300:640:360' },
+    ];
+    for (const axis of ['x', 'y'] as const) {
+      const series = cinematicPlotSeries(plotInput(cropMap, solved), axis)!;
+      // One plot sample (5 s / 239) in from each edge, where the band is drawn to the margin outside.
+      for (let t = 2.06; t <= 3.04; t += 0.01) {
+        const [low, high] = bandAt(series.band, t);
+        expect(high - low).toBeLessThan(1e-6);
+      }
+    }
+  });
+
+  it('closes the unsolved band over a Firm hold point, as the solve does', () => {
+    const cropMap = cinematicCropMap(
+      [
+        { x: 0, y: 0, crop: '100:300:640:360' },
+        { x: 2.03, y: 0, crop: '600:300:640:360' },
+        { x: 3.07, y: 0, crop: '600:300:640:360', hold: true },
+        { x: 5.07, y: 0, crop: '1200:300:640:360' },
+      ],
+      'firm'
+    );
+    const series = cinematicPlotSeries(plotInput([...cropMap], false), 'x')!;
+    const widthAt = (t: number) => {
+      const [low, high] = bandAt(series.band, t);
+      return high - low;
+    };
+    // Still past the settle of a slow pan, against 12% of the 360 px side each way outside the span.
+    expect(widthAt(2.5)).toBeCloseTo(0, 1);
+    expect(widthAt(1)).toBeCloseTo(2 * 0.12 * 360, 1);
+  });
+
+  it('centers the unsolved band on the pan easing into a hold point', () => {
+    // The pan into the hold at 2.03 s cruises ahead of the straight line, to make up for its ease.
+    const cropMap: CropPoint[] = [
+      { x: 0, y: 0, crop: '100:300:640:360' },
+      { x: 2.03, y: 0, crop: '600:300:640:360' },
+      { x: 3.07, y: 0, crop: '600:300:640:360', hold: true },
+    ];
+    const series = cinematicPlotSeries(plotInput(cropMap, false), 'x')!;
+    const centerAt = (t: number) => bandAt(series.band, t).reduce((a, b) => a + b) / 2;
+    expect(centerAt(1) - (420 + 500 / 2.03)).toBeGreaterThan(20);
+    expect(centerAt(2.03)).toBeCloseTo(920, 0);
   });
 
   it('has no zoom to plot for a pan-only pair', () => {

@@ -73,7 +73,7 @@ export function nextKeyframeIndex(
  * clamp the time outside its section and make the preview jump at the section midpoint.
  */
 export function cropInterpolationSectionAtTime(
-  cropMap: CropPoint[],
+  cropMap: readonly CropPoint[],
   time: number
 ): [number, number] {
   const maxIndex = cropMap.length - 1;

@@ -59,6 +59,9 @@ function canonicalizeOverrides(
   if (o.cropPointEasingCinematicZoomMargin != null) {
     c.cropPointEasingCinematicZoomMargin = qCenti(o.cropPointEasingCinematicZoomMargin);
   }
+  if (o.cropPointEasingCinematicHolds != null) {
+    c.cropPointEasingCinematicHolds = o.cropPointEasingCinematicHolds;
+  }
   return Object.keys(c).length > 0 ? c : undefined;
 }
 
@@ -81,6 +84,9 @@ export function canonicalizeSharePayload(p: SharePayload): SharePayload {
   }
   if (s.cropPointEasingCinematicZoomMargin != null) {
     settings.cropPointEasingCinematicZoomMargin = qCenti(s.cropPointEasingCinematicZoomMargin);
+  }
+  if (s.cropPointEasingCinematicHolds != null) {
+    settings.cropPointEasingCinematicHolds = s.cropPointEasingCinematicHolds;
   }
 
   const markerPairs: ShareablePair[] = p.markerPairs.map((pair) => {
@@ -157,6 +163,7 @@ export const variableCropFixture: SharePayload = {
         { x: 22, y: 0, crop: '960:540:960:540' },
         { x: 30, y: 0, crop: '0:0:1920:1080' },
       ],
+      overrides: { cropPointEasingCinematicHolds: 'firm' },
     },
   ],
 };
@@ -185,6 +192,7 @@ export const kitchenSinkFixture: SharePayload = {
     cropPointEasing: 'smoothInOut',
     cropPointEasingCinematicMargin: 25,
     cropPointEasingCinematicZoomMargin: 5,
+    cropPointEasingCinematicHolds: 'exact',
   },
   markerPairs: [
     {
@@ -210,6 +218,7 @@ export const kitchenSinkFixture: SharePayload = {
         cropPointEasing: 'cinematic',
         cropPointEasingCinematicMargin: 30,
         cropPointEasingCinematicZoomMargin: 12,
+        cropPointEasingCinematicHolds: 'loose',
       },
     },
   ],

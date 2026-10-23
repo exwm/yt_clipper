@@ -159,11 +159,12 @@ class MarkupPage:
         review, Load): one step instead of a seek and a key press per marker."""
         self.load_saved_marker_pairs([{"start": s, "end": e} for s, e in spans])
 
-    def load_saved_marker_pairs(self, pairs: list[dict]) -> None:
-        """Load marker pairs given in the saved markers .json format, e.g. with a cropMap."""
+    def load_saved_marker_pairs(self, pairs: list[dict], settings: dict | None = None) -> None:
+        """Load marker pairs given in the saved markers .json format, e.g. with a cropMap, and any
+        global settings."""
         # With the crop easing, as the markup script saves it: a file without one is from before
         # 5.49 and loads as EaseInOut.
-        data = json.dumps({"cropPointEasing": "smoothTrack", "markerPairs": pairs})
+        data = json.dumps({"cropPointEasing": "smoothTrack", **(settings or {}), "markerPairs": pairs})
         self.press("KeyG")
         self.page.set_input_files(
             "#markers-json-input",

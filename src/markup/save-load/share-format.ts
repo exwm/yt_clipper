@@ -222,6 +222,7 @@ const SETTINGS_BIT_MERGE_LIST = 1 << 4;
 const SETTINGS_BIT_CROP_EASING = 1 << 5;
 const SETTINGS_BIT_CINEMATIC_MARGIN = 1 << 6;
 const SETTINGS_BIT_CINEMATIC_ZOOM_MARGIN = 1 << 7;
+const SETTINGS_BIT_CINEMATIC_HOLDS = 1 << 8;
 
 const PAIR_BIT_SPEED_MAP = 1 << 0;
 const PAIR_BIT_CROP_MAP = 1 << 1;
@@ -254,6 +255,15 @@ const OV_BIT_FADE_DURATION = 1 << 13;
 const OV_BIT_CROP_EASING = 1 << 14;
 const OV_BIT_CINEMATIC_MARGIN = 1 << 15;
 const OV_BIT_CINEMATIC_ZOOM_MARGIN = 1 << 16;
+const OV_BIT_CINEMATIC_HOLDS = 1 << 17;
+
+// Written as an index byte. An unknown id from a corrupt link reads as firm, the default.
+const CINEMATIC_HOLDS_ORDER = ['loose', 'firm', 'exact'] as const;
+type CinematicHoldsValue = (typeof CINEMATIC_HOLDS_ORDER)[number];
+
+function cinematicHoldsFromId(id: number): CinematicHoldsValue {
+  return CINEMATIC_HOLDS_ORDER[id] ?? 'firm';
+}
 
 export interface ShareableSettings {
   cropResWidth?: number;
@@ -265,6 +275,7 @@ export interface ShareableSettings {
   cropPointEasing?: (typeof CROP_EASING_ORDER)[number];
   cropPointEasingCinematicMargin?: number;
   cropPointEasingCinematicZoomMargin?: number;
+  cropPointEasingCinematicHolds?: CinematicHoldsValue;
 }
 
 export interface ShareablePair {
@@ -435,6 +446,7 @@ function writeOverrides(w: ByteWriter, o: MarkerPair['overrides']) {
   if (cropEasingId != null) mask |= OV_BIT_CROP_EASING;
   if (o.cropPointEasingCinematicMargin != null) mask |= OV_BIT_CINEMATIC_MARGIN;
   if (o.cropPointEasingCinematicZoomMargin != null) mask |= OV_BIT_CINEMATIC_ZOOM_MARGIN;
+  if (o.cropPointEasingCinematicHolds != null) mask |= OV_BIT_CINEMATIC_HOLDS;
 
   w.writeVaruint(mask);
   if (o.titlePrefix != null) w.writeStr(o.titlePrefix);
@@ -450,6 +462,9 @@ function writeOverrides(w: ByteWriter, o: MarkerPair['overrides']) {
   }
   if (o.cropPointEasingCinematicZoomMargin != null) {
     w.writeVaruint(quantizeCentipoint(o.cropPointEasingCinematicZoomMargin));
+  }
+  if (o.cropPointEasingCinematicHolds != null) {
+    w.writeByte(CINEMATIC_HOLDS_ORDER.indexOf(o.cropPointEasingCinematicHolds));
   }
   if (mask & OV_ENUM_MASK) {
     const d = o.denoise != null ? findDenoiseId(o.denoise) : 0;
@@ -481,6 +496,9 @@ function readOverrides(r: ByteReader): MarkerPair['overrides'] {
   if (mask & OV_BIT_CINEMATIC_ZOOM_MARGIN) {
     o.cropPointEasingCinematicZoomMargin = dequantizeCentipoint(r.readVaruint());
   }
+  if (mask & OV_BIT_CINEMATIC_HOLDS) {
+    o.cropPointEasingCinematicHolds = cinematicHoldsFromId(r.readByte());
+  }
   if (mask & OV_ENUM_MASK) {
     const enumByte = r.readByte();
     if (mask & OV_BIT_DENOISE) o.denoise = denoisePresetFromId(enumByte & 0x07);
@@ -501,6 +519,7 @@ function writeSettings(w: ByteWriter, s: ShareableSettings) {
   if (cropEasingId != null) mask |= SETTINGS_BIT_CROP_EASING;
   if (s.cropPointEasingCinematicMargin != null) mask |= SETTINGS_BIT_CINEMATIC_MARGIN;
   if (s.cropPointEasingCinematicZoomMargin != null) mask |= SETTINGS_BIT_CINEMATIC_ZOOM_MARGIN;
+  if (s.cropPointEasingCinematicHolds != null) mask |= SETTINGS_BIT_CINEMATIC_HOLDS;
 
   w.writeVaruint(mask);
   if (s.cropResWidth != null && s.cropResHeight != null) {
@@ -519,6 +538,9 @@ function writeSettings(w: ByteWriter, s: ShareableSettings) {
   }
   if (s.cropPointEasingCinematicZoomMargin != null) {
     w.writeVaruint(quantizeCentipoint(s.cropPointEasingCinematicZoomMargin));
+  }
+  if (s.cropPointEasingCinematicHolds != null) {
+    w.writeByte(CINEMATIC_HOLDS_ORDER.indexOf(s.cropPointEasingCinematicHolds));
   }
 }
 
@@ -541,6 +563,9 @@ function readSettings(r: ByteReader): ShareableSettings {
   }
   if (mask & SETTINGS_BIT_CINEMATIC_ZOOM_MARGIN) {
     settings.cropPointEasingCinematicZoomMargin = dequantizeCentipoint(r.readVaruint());
+  }
+  if (mask & SETTINGS_BIT_CINEMATIC_HOLDS) {
+    settings.cropPointEasingCinematicHolds = cinematicHoldsFromId(r.readByte());
   }
   return settings;
 }
