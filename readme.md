@@ -388,7 +388,7 @@ Click the copy button to the right of the **Crop** label in a settings editor to
 **S:** Save markers info to a `.json` file.
 
 - Can be dropped onto the clipper script installation's helper scripts like `yt_clipper_auto` on Windows. On Mac, run the helper script and try dragging and dropping in the window that opens up when prompted.
-- When using the python source of the `clipper script` use `--json/-j` and pass the path of the markers data file.
+- When using the python source of the `clipper script` use `--markers-json/-j` and pass the path of the markers data file.
 
 **Alt+S:** Copy markers `json` data to clipboard. Useful if saving breaks.
 
@@ -774,7 +774,7 @@ The file contents are copied below for convenience:
 
 ```txt
 # By default, this args file will be read by yt_clipper to set default arguments.
-# To see all arguments use the `yt_clipper_options` helper script or the `-h` argument.
+# To see all arguments read yt_clipper_help.txt, or use the `yt_clipper_options` helper script or the `-h` argument.
 # Lines that begin with a `#` in this file are comments and are ignored.
 # To use other arg files use the `--arg-files` argument outside of an arg file.
 #
@@ -847,6 +847,7 @@ _Alternatively_, (1) Download the `yt_clipper*.js` file from the github release 
 
 There are some alternative helper scripts for more options:
 
+- Each release zip includes `yt_clipper_help.txt`, which lists all the options and their help.
 - Use `yt_clipper_options` to print all the available options and to be prompted for a string with additional options before running the script. This allows you to combine options (e.g., include audio and rotate and denoise).
   - The other helper scripts provide preconfigured subsets of these options.
 - Use `yt_clipper_preview` to locally preview markers `json` data with `ffplay`.
