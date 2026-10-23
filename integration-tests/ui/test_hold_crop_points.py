@@ -12,7 +12,7 @@ from test_crop_chart import (
     given_a_marker_pair_with_its_editor_open,
     given_the_crop_chart_is_open,
 )
-from test_crop_easing import when_i_save_the_markers
+from test_crop_easing import when_i_save_the_markers, when_i_set_the_crop
 
 # Full-height crops, so a drag at the video's middle row starts inside them. Crops are x:y:w:h in
 # the default 1920x1080 crop resolution.
@@ -59,10 +59,59 @@ def test_hold_points_are_saved_and_loaded(markup: MarkupPage) -> None:
 def test_a_hold_end_point_follows_a_new_middle_point(markup: MarkupPage) -> None:
     # A crop point added in a static crop and moved pans out and back; holding the end keeps it.
     given_a_pair_with_its_crop_chart_open(
-        markup, pair((CROP_A, False), (CROP_B, False), (CROP_B, True))
+        markup, pair((CROP_A, False), (CROP_B, False), (CROP_A, False))
     )
+    when_i_toggle_hold_of_crop_point(markup, 2)
+    then_the_crop_points_are(markup, [(CROP_A, False), (CROP_B, False), (CROP_B, True)])
     moved = when_i_pan_crop_point(markup, 1, 100)
     then_the_crop_points_are(markup, [(CROP_A, False), (moved, False), (moved, True)])
+
+
+def test_toggling_hold_and_instant_and_editing_a_hold_point(markup: MarkupPage) -> None:
+    # The end point's own crop is A. Holding shows B; releasing the hold gives A back.
+    given_a_pair_with_its_crop_chart_open(
+        markup, pair((CROP_A, False), (CROP_B, False), (CROP_A, False))
+    )
+    when_i_toggle_hold_of_crop_point(markup, 2)
+    then_crop_point_has_the_type(markup, 2, "hold", CROP_B)
+    when_i_toggle_hold_of_crop_point(markup, 2)
+    then_crop_point_has_the_type(markup, 2, "normal", CROP_A)
+    when_i_toggle_hold_of_crop_point(markup, 2)
+    when_i_toggle_instant_of_crop_point(markup, 2)
+    then_crop_point_has_the_type(markup, 2, "instant", CROP_A)
+    when_i_toggle_instant_of_crop_point(markup, 2)
+    then_crop_point_has_the_type(markup, 2, "normal", CROP_A)
+    when_i_toggle_hold_of_crop_point(markup, 2)
+    moved = when_i_pan_crop_point(markup, 2, 100)
+    then_the_crop_points_are(markup, [(CROP_A, False), (CROP_B, False), (moved, False)])
+    when_i_toggle_hold_of_crop_point(markup, 0)
+    then_crop_point_has_the_type(markup, 0, "normal", CROP_A)
+
+
+def test_a_refused_hold_on_the_first_point_keeps_the_redo(markup: MarkupPage) -> None:
+    given_a_pair_with_its_crop_chart_open(
+        markup, pair((CROP_A, False), (CROP_B, False), (CROP_A, False))
+    )
+    when_i_toggle_hold_of_crop_point(markup, 2)
+    when_i_press_outside_any_input(markup, "Alt+KeyZ")
+    when_i_toggle_hold_of_crop_point(markup, 0)
+    when_i_press_outside_any_input(markup, "Alt+Shift+KeyZ")
+    then_crop_point_has_the_type(markup, 2, "hold", CROP_B)
+
+
+def test_a_hold_point_released_after_a_pan_only_resize_keeps_the_shared_size(
+    markup: MarkupPage,
+) -> None:
+    # Every pan-only point shares one size, so the released point keeps its position at the new size.
+    given_a_pair_with_its_crop_chart_open(
+        markup, pair((CROP_A, False), (CROP_B, False), (CROP_A, False))
+    )
+    when_i_toggle_hold_of_crop_point(markup, 2)
+    markup.seek(crop_points(markup)[0]["x"], presented=True)
+    select_crop_point(markup, 0)
+    when_i_set_the_crop(markup, "0:0:800:900")
+    when_i_toggle_hold_of_crop_point(markup, 2)
+    then_crop_point_has_the_type(markup, 2, "normal", "0:0:800:900")
 
 
 def test_hold_points_are_drawn_over_a_vertical_yellow_bar(markup: MarkupPage) -> None:
@@ -83,6 +132,52 @@ def test_hold_points_are_drawn_over_a_vertical_yellow_bar(markup: MarkupPage) ->
     then_only_hold_points_have_a_yellow_bar(markup, holds=[1, 2, 4], normal=[3])
 
 
+def test_a_hold_point_added_at_the_current_time_shows_the_previous_crop(markup: MarkupPage) -> None:
+    given_a_pair_with_its_crop_chart_open(markup, pair((CROP_A, False), (CROP_B, False)))
+    when_i_add_a_hold_point_at(markup, 6)
+    then_the_crop_points_are(markup, [(CROP_A, False), (CROP_A, True), (CROP_B, False)])
+    then_crop_point_is_selected(markup, 1)
+
+
+def test_a_hold_point_follows_a_later_fix_of_the_point_before_it(markup: MarkupPage) -> None:
+    # A hold point where a subject starts moving keeps the crop before it, also after a fix there.
+    given_a_pair_with_its_crop_chart_open(
+        markup, pair((CROP_A, False), (CROP_A, True), (CROP_B, False))
+    )
+    moved = when_i_pan_crop_point(markup, 0, 100)
+    then_the_crop_points_are(markup, [(moved, False), (moved, True), (CROP_B, False)])
+
+
+def test_adding_points_during_a_drag_from_a_hold_point_keeps_it_a_hold_point(
+    markup: MarkupPage,
+) -> None:
+    # Tracking a subject from where it starts moving: drag from the hold point and press A at each
+    # position. The hold point keeps holding, and the new points keep the crops they were added with.
+    given_a_pair_with_its_crop_chart_open(
+        markup, pair((CROP_A, False), (CROP_A, True), (CROP_B, False))
+    )
+    added = when_i_drag_from_crop_point_and_press_a_at(markup, 1, [6.5, 7.5])
+    then_the_crop_points_are(
+        markup,
+        [(CROP_A, False), (CROP_A, True), (added[0], False), (added[1], False), (CROP_B, False)],
+    )
+    moved = when_i_pan_crop_point(markup, 0, 50)
+    then_the_crop_points_are(
+        markup,
+        [(moved, False), (moved, True), (added[0], False), (added[1], False), (CROP_B, False)],
+    )
+
+
+def test_ctrl_alt_a_during_a_crop_drag_leaves_the_drag_going(markup: MarkupPage) -> None:
+    # The drag holds Ctrl, so A pressed with Alt during it is Ctrl+Alt+A. It must not add a point under
+    # the drag, which then could not continue (and threw on every move).
+    given_a_pair_with_its_crop_chart_open(
+        markup, pair((CROP_A, False), (CROP_A, True), (CROP_B, False))
+    )
+    moved = when_i_ctrl_drag_crop_point_and_press_ctrl_alt_a_midway(markup, 0)
+    then_the_crop_points_are(markup, [(moved, False), (moved, True), (CROP_B, False)])
+
+
 # ─── given ──────────────────────────────────────────────────────────────────
 
 
@@ -97,8 +192,102 @@ def given_a_pair_with_its_crop_chart_open(markup: MarkupPage, marker_pair: dict)
 
 
 @step
+def when_i_toggle_hold_of_crop_point(markup: MarkupPage, index: int) -> None:
+    click_crop_point_with(markup, index, ["Control", "Shift"])
+
+
+@step
+def when_i_toggle_instant_of_crop_point(markup: MarkupPage, index: int) -> None:
+    click_crop_point_with(markup, index, ["Control", "Alt", "Shift"])
+
+
+def click_crop_point_with(markup: MarkupPage, index: int, modifiers: list[str]) -> None:
+    x, y = crop_point_position(markup, index)
+    for key in modifiers:
+        markup.page.keyboard.down(key)
+    markup.page.mouse.click(x, y)
+    for key in reversed(modifiers):
+        markup.page.keyboard.up(key)
+    markup.next_frames()
+
+
+@step
 def when_i_select_crop_point(markup: MarkupPage, index: int) -> None:
     select_crop_point(markup, index)
+
+
+@step
+def when_i_add_a_hold_point_at(markup: MarkupPage, seconds: float) -> None:
+    markup.seek(seconds, presented=True)
+    markup.press("Control+Alt+KeyA")
+
+
+@step
+def when_i_drag_from_crop_point_and_press_a_at(
+    markup: MarkupPage, index: int, times: list[float]
+) -> list[str]:
+    """Ctrl+drag the point's crop on the video and, without releasing, seek to each time, move the
+    crop further right and press A. Returns the crops the new points were added with."""
+    markup.seek(crop_points(markup)[index]["x"], presented=True)
+    select_crop_point(markup, index)
+    video = markup.reveal("video")
+    y = video["y"] + video["height"] / 2
+    x = video["x"] + video["width"] * (crop_x(crop_points(markup)[index]["crop"]) + 480) / 1920
+    markup.page.keyboard.down("Control")
+    markup.page.mouse.move(x - 20, y)
+    markup.page.mouse.move(x, y, steps=3)
+    markup.page.mouse.down()
+    # Plain A adds a crop point only without Ctrl; the drag keeps going once it has started.
+    markup.page.keyboard.up("Control")
+    added = []
+    for seconds in times:
+        x += 60
+        markup.page.mouse.move(x, y, steps=4)
+        markup.seek(seconds)
+        markup.press("KeyA")
+        new_index = [point["x"] for point in crop_points(markup)].index(seconds)
+        added.append(crop_points(markup)[new_index]["crop"])
+    markup.page.mouse.up()
+    markup.report(f"added crops {added}")
+    assert len(set(added)) == len(added), "each A should add the crop where it was pressed"
+    return added
+
+
+@step
+def when_i_ctrl_drag_crop_point_and_press_ctrl_alt_a_midway(markup: MarkupPage, index: int) -> str:
+    """Ctrl+drag the point's crop on the video, press Ctrl+Alt+A halfway, and finish the drag. Returns
+    the crop the drag ends at."""
+    before = crop_points(markup)[index]["crop"]
+    markup.seek(crop_points(markup)[index]["x"], presented=True)
+    select_crop_point(markup, index)
+    video = markup.reveal("video")
+    y = video["y"] + video["height"] / 2
+    x = video["x"] + video["width"] * (crop_x(before) + 480) / 1920
+    markup.page.keyboard.down("Control")
+    markup.page.mouse.move(x - 20, y)
+    markup.page.mouse.move(x, y, steps=3)
+    markup.page.mouse.down()
+    markup.page.mouse.move(x + 50, y, steps=4)
+    # Off any point, where Ctrl+Alt+A would add one rather than toggle the point under the playhead.
+    markup.seek(4.5)
+    markup.page.keyboard.down("Alt")
+    markup.page.keyboard.press("KeyA")
+    markup.page.keyboard.up("Alt")
+    markup.next_frames()
+    markup.page.mouse.move(x + 100, y, steps=4)
+    markup.page.mouse.up()
+    markup.page.keyboard.up("Control")
+    markup.next_frames()
+    after = crop_points(markup)[index]["crop"]
+    markup.report(f"crop point {index} {before} -> {after}")
+    assert crop_x(after) > crop_x(before) + 50 * 1920 / video["width"], "the drag should keep going"
+    return after
+
+
+@step
+def when_i_press_outside_any_input(markup: MarkupPage, keys: str) -> None:
+    markup.page.evaluate("() => document.activeElement?.blur()")
+    markup.press(keys)
 
 
 @step
@@ -154,6 +343,27 @@ def then_the_crop_points_are(markup: MarkupPage, expected: list[tuple[str, bool]
     markup.report(f"crop points {points}")
     markup.shot_of("crop-chart", ["#cropChartCanvas"])
     assert points == expected
+
+
+@step
+def then_crop_point_has_the_type(markup: MarkupPage, index: int, expected: str, crop: str) -> None:
+    point = markup.page.evaluate(
+        f"(i) => {{ const p = {CROP_CHART_JS}.data.datasets[0].data[i];"
+        " return { crop: p.crop, type: p.hold ? 'hold' : (p.easeIn ?? 'normal') }; }",
+        index,
+    )
+    markup.report(f"crop point {index} {point}")
+    assert point == {"crop": crop, "type": expected}
+
+
+@step
+def then_crop_point_is_selected(markup: MarkupPage, index: int) -> None:
+    # The chart draws the selected point as a rounded square.
+    styles = markup.page.evaluate(
+        f"() => {CROP_CHART_JS}.getDatasetMeta(0).data.map((p) => p._model.pointStyle)"
+    )
+    markup.report(f"point styles {styles}")
+    assert [i for i, style in enumerate(styles) if style == "rectRounded"] == [index]
 
 
 @step

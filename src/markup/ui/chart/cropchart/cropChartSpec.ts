@@ -257,8 +257,8 @@ function drawPanArrowhead(
   ctx.restore();
 }
 
-const HOLD_BAR_WIDTH = 3;
-// Blue, a hue the crop chart uses nowhere else, so the bar stands apart from the grid and sections.
+const HOLD_BAR_WIDTH = 2;
+// Yellower than the orange zoom sections, so the bar stands apart from them and the red playhead.
 const HOLD_BAR_COLOR = 'rgb(255, 204, 51)';
 
 // A vertical yellow bar behind each hold point, the height of the chart area, so a hold point reads at

@@ -6,6 +6,7 @@ export interface ShortcutDeps {
   addMarker: () => void;
   moveMarkerToCurrentTime: (which: 'start' | 'end') => void;
   addChartPoint: () => void;
+  addHoldCropPointAtCurrentTime: () => void;
   duplicateSelectedMarkerPair: () => void;
   saveMarkersAndSettings: () => void;
   copyMarkersToClipboard: () => void;
@@ -145,7 +146,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     {
       id: 'addCropChartPointDuringDrag',
       description:
-        'Add a crop point at the current time without releasing the crop drag or resize. The held point keeps its previous crop, and the new point is selected. In pan-only mode every point shares the crop size.',
+        'Add a crop point at the current time without releasing the crop drag or resize. The dragged point keeps its previous crop, and the new point is selected. In pan-only mode every point shares the crop size.',
       displayKey: 'A',
       section: 'Dynamic Effects',
       category: 'Crop Chart Shortcuts',
@@ -1410,7 +1411,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     {
       id: 'chartAddPointAtCurrentTime',
       description:
-        'Add a chart point at the current time. During a crop drag or resize, the held point keeps its previous crop and the new point gets the current crop. Press it at each subject position during one drag to track a moving subject.',
+        'Add a chart point at the current time. During a crop drag or resize, the dragged point keeps its previous crop and the new point gets the current crop. Press it at each subject position during one drag to track a moving subject.',
       displayKey: 'Alt + A',
       section: 'Dynamic Effects',
       category: 'General Chart Shortcuts',
@@ -1424,6 +1425,25 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       hintLabel: 'Add at Time',
       hintContexts: ['hover-speed-chart', 'hover-crop-chart', 'hover-crop-chart-zoompan'],
       hintOrder: 11,
+      hintGroup: 'Points',
+    },
+    {
+      id: 'cropChartAddHoldPoint',
+      description:
+        'Add a hold crop point at the current time. It shows the crop of the crop point before it and follows it. With the playhead on a crop point, toggle that point between hold and normal.',
+      displayKey: 'Ctrl + Alt + A',
+      section: 'Dynamic Effects',
+      category: 'General Chart Shortcuts',
+      essential: false,
+      binding: { code: 'KeyA', modifiers: { ctrl: true, shift: false, alt: true } },
+      handler: () => {
+        deps.addHoldCropPointAtCurrentTime();
+      },
+      guard: markerGuard,
+      executable: true,
+      hintLabel: 'Add Hold',
+      hintContexts: ['hover-crop-chart', 'hover-crop-chart-point', 'hover-crop-chart-zoompan'],
+      hintOrder: 12,
       hintGroup: 'Points',
     },
     {
@@ -1684,8 +1704,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       ],
     },
     {
-      id: 'cropChartToggleEase',
-      description: 'Toggle crop point ease in between auto and instant',
+      id: 'cropChartToggleHold',
+      description:
+        'Toggle a crop point between hold and normal. A hold point shows the crop of the point before it and follows it. A point that stops holding gets back its own crop.',
       displayKey: 'Ctrl + Shift + Click',
       section: 'Dynamic Effects',
       category: 'Crop Chart Shortcuts',
@@ -1693,9 +1714,25 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: null,
       executable: false,
-      hintLabel: 'Ease',
+      hintLabel: 'Hold',
       hintContexts: ['hover-crop-chart-point'],
       hintOrder: 30,
+      hintGroup: 'Points',
+    },
+    {
+      id: 'cropChartToggleEase',
+      description:
+        'Toggle crop point easing between auto and instant. An instant point cuts to its crop.',
+      displayKey: 'Ctrl + Alt + Shift + Click',
+      section: 'Dynamic Effects',
+      category: 'Crop Chart Shortcuts',
+      essential: false,
+      binding: null,
+      handler: null,
+      executable: false,
+      hintLabel: 'Instant',
+      hintContexts: ['hover-crop-chart-point'],
+      hintOrder: 31,
       hintGroup: 'Points',
     },
     {
