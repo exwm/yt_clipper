@@ -42,3 +42,10 @@ name = "crop-chart-labels"
 scenario = "crop-chart-sections"
 clip = ["#cropChartCanvas"]
 padding = 0
+
+[[release."5.49.0"]]
+name = "hold-crop-points"
+scenario = "hold-crop-points"
+clip = ["#cropChartCanvas"]
+padding = 0
+asset = "yt_clipper_hold_crop_points.png"

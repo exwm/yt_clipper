@@ -52,6 +52,19 @@ SECTIONS_PAIR = {
         {"x": 15, "y": 0, "crop": "320:400:960:540"},
     ],
 }
+
+# A pan to a new crop that holds until a later pan: the end of the hold is a hold point.
+HOLD_PAIR = {
+    "start": 3,
+    "end": 12,
+    "crop": "0:270:960:540",
+    "cropMap": [
+        {"x": 3, "y": 0, "crop": "0:270:960:540"},
+        {"x": 5, "y": 0, "crop": "800:100:960:540"},
+        {"x": 8.7, "y": 0, "crop": "800:100:960:540", "hold": True},
+        {"x": 12, "y": 0, "crop": "400:300:960:540"},
+    ],
+}
 CHART_HEIGHT_PX = 160
 
 
@@ -87,11 +100,25 @@ def cinematic_settings(markup: MarkupPage) -> None:
     markup.page.wait_for_selector(".ytc-cinematic-plot-canvas[data-cinematic-plotted='true']")
 
 
+@scenario("hold-crop-points")
+def hold_crop_points(markup: MarkupPage) -> None:
+    markup.load_saved_marker_pairs([HOLD_PAIR])
+    markup.open_marker_pair(0)
+    given_the_crop_chart_is_open(markup)
+    stretch_the_crop_chart(markup)
+    # Off the chart, so no point is drawn in its hover colors.
+    markup.page.mouse.move(0, 0)
+
+
 @step
 def given_the_sections_pair_with_its_crop_chart_open(markup: MarkupPage) -> None:
     markup.load_saved_marker_pairs([SECTIONS_PAIR])
     markup.open_marker_pair(0)
     given_the_crop_chart_is_open(markup)
+    stretch_the_crop_chart(markup)
+
+
+def stretch_the_crop_chart(markup: MarkupPage) -> None:
     # The chart fills its container, which the layout keeps short; stretch it so the point labels
     # do not crowd the sections.
     markup.page.evaluate(

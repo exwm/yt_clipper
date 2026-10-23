@@ -418,10 +418,16 @@ Click the copy button to the right of the **Crop** label in a settings editor to
 
 **Alt+A:** Add a point at the current time.
 
-- While dragging or resizing the crop (**Ctrl+Click+Drag** on the crop overlay) with the crop chart visible, **Alt+A** adds a crop point with the current crop. The held point keeps its previous crop, and the new point is selected in start mode.
+- While dragging or resizing the crop (**Ctrl+Click+Drag** on the crop overlay) with the crop chart visible, **Alt+A** adds a crop point with the current crop. The dragged point keeps its previous crop, and the new point is selected in start mode.
 - Press it at each subject position during one drag to track a moving subject.
 - **A** also adds a crop point during a drag or resize when the crop chart is visible.
 - In `pan-only` mode every point shares the crop size, so only the X/Y position differs between the added points.
+
+**Ctrl+Alt+A:** Add a hold crop point at the current time. With the playhead on a crop point, toggle it between hold and normal.
+
+- Use it where a subject starts moving. The crop holds until there. If you change the crop before it later, the hold point follows.
+- It works once the crop is dynamic or the crop chart is open (**Alt+D**).
+- See **Ctrl+Shift+Click** under [Crop Chart Shortcuts](#crop-chart-shortcuts) for what a hold point is.
 
 **Alt+Shift+Click:** Delete a point.
 
@@ -473,10 +479,11 @@ The line between two points shows how the crop moves in that section.
 - Faster sections are brighter. Slower sections fade toward grey.
 - The line is thickest for a full-frame crop and narrows as the crop zooms in.
 - A small red arrowhead on the first point of a panning section points the way the crop moves.
+- A point with a vertical yellow bar behind it is a hold point (see **Ctrl+Shift+Click** below).
 
 ![yt_clipper_crop_chart_sections.png](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_crop_chart_sections.png)
 
-Each point's label shows its crop position (`x:y`). The crop size (`WxH`) shows on the first point in `pan-only` mode, and wherever the size changes in `zoompan` mode. A point that holds the same crop as its neighbors has no label.
+Each point's label shows its crop position (`x:y`). The crop size (`WxH`) shows on the first point in `pan-only` mode, and wherever the size changes in `zoompan` mode. A point with the same crop as its neighbors has no label.
 
 **Left-Click:** Left-click a crop chart point to seek to its time.
 
@@ -503,11 +510,25 @@ Each point's label shows its crop position (`x:y`). The crop size (`WxH`) shows 
 
 **Ctrl+Alt+Shift+Mousewheel-Up/Down:** Set current crop point's crop to that of the next/previous point's crop.
 
-**Ctrl+Shift+Click:** Toggle crop point easing between auto and instant.
+**Ctrl+Shift+Click:** Toggle a crop point between hold and normal.
+
+- A hold point has no crop of its own. It shows the crop of the crop point before it, and follows when that point changes.
+- Hold points have a vertical yellow bar behind them.
+- A new marker pair's end point is a hold point.
+- With Cinematic crop easing, the crop holds still there and stops within the **Pan Margin**. Set **Hold Points** to **Exact** in the Crop Easing settings for an even slowdown into each hold. See [Crop Easing](#crop-easing).
+- Editing a hold point's crop makes it a normal point.
+- A point that stops holding gets back its own crop, if it had one before it became a hold point.
+- The first crop point can't be a hold point.
+- For example, add a crop point in the middle of a new marker pair and move it. The crop pans to the new point and holds there until the end. To pan back to the start crop instead, make the end point normal and set its crop.
+
+<img src="https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_hold_crop_points.png" alt="yt_clipper_hold_crop_points.png" width="640">
+
+**Ctrl+Alt+Shift+Click:** Toggle crop point easing between auto and instant.
 
 - Points with instant easing enabled are darkened.
 - Instant easing means that any pan or zoom from a previous point will happen instantly, causing the crop to jump.
 - This is useful if there is a scene change in the video or very fast movement.
+- Making a hold point instant makes it a normal point first.
 - Before version 5.37.0, instant easing would transition to the next (right) crop immediately.
   Typically you would want to hold the previous crop and then transition on the last frame.
   This meant you would need to add an extra point to hold the previous crop.
@@ -537,17 +558,22 @@ The usual crop shortcuts have different effects than usual in this mode as descr
 Use the **Crop Easing** setting to choose how a dynamic crop pans and zooms between crop points. Find it in the global settings editor, and override it per marker pair in the marker pair settings editor.
 
 - **Smooth Track (default):** Use it to follow a moving subject. The crop keeps moving through points without stopping at each one. It does not swing past a point when the subject reverses direction.
-- **Cinematic:** Use it for steady, camera-like motion when the crop does not need to hit each point exactly. The crop follows the points within a margin, with steady holds, constant-speed pans, and smooth transitions.
+- **Cinematic:** Use it for steady, camera-like motion when the crop does not need to hit each point exactly. The crop follows the points within a margin, with steady pauses, constant-speed pans, and smooth transitions.
   - Use it to frame a subject through camera shake. To steady the camera itself with your crop points, use Smooth Track or the **Weak** margins.
   - The `markup script` pauses briefly to recompute the path after each edit. Clips also take slightly longer to render.
   - Open the gear button next to **Crop Easing** to set the margins. Use **Smooth Track**, **Cinematic** and **EaseInOut** at the top of its settings to switch between the modes and compare them.
-  - In a marker pair's settings, a plot shows the crop path over time: the crop points (white) with their margin (grey), the Cinematic path (orange), the Smooth Track path (dashed blue), and the EaseInOut path (dotted purple). The marker pair's own crop easing is drawn thicker, on top. Click an entry in the legend to hide or show it. Right-click the plot to seek the video.
+  - In a marker pair's settings, a plot shows the crop path over time. It draws the crop points (white) with their margin (grey), the Cinematic path (orange), the Smooth Track path (dashed blue), and the EaseInOut path (dotted purple). The marker pair's own crop easing is drawn thicker, on top. Click an entry in the legend to hide or show it. Right-click the plot to seek the video.
     - Use **X**, **Y** and **Zoom** to show or hide the horizontal crop center, the vertical crop center, and the zoom. The zoom is 1x for the widest crop the frame fits, with the zoom margin around it. It shows in `zoompan` mode only.
+  - The settings under **Cinematic Easing** apply only to Cinematic crop easing, and dim while another easing is chosen.
   - **Weak**, **Medium** and **Strong** set both margins at once. **Custom** restores the margins you last set by hand.
   - **Pan Margin (%)** (default 12): How far the crop position may drift from the crop points, as a percentage of the crop's shorter side. Type it or drag the slider below it. The pixels for the crop show under the slider. Larger margins give fewer, steadier moves. At zero, the crop position follows the points exactly.
   - **Zoom Margin (%)** (default 8): How far the crop size may drift, as a percentage of the size. Type it or drag the slider below it. The pixels of crop width show under the slider.
+  - **Hold Points** (default **Firm**): How still the crop holds from the point before each [hold point](#crop-chart-shortcuts) to the hold point.
+    - **Loose:** The crop stays within the margin, as at other crop points.
+    - **Firm:** The crop holds still. It slows down and speeds up within the **Pan Margin** (and the **Zoom Margin** for its size), so a larger margin gives gentler stops. A fast pan, or a quick move between two close hold points, can move the crop up to the **Pan Margin** at the start or end of the hold.
+    - **Exact:** The crop holds still. It slows down evenly into each hold and speeds up evenly out of it, so around a hold it can drift past the margin from the crop points there.
 
-  ![yt_clipper_cinematic_settings.png](https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_cinematic_settings.png)
+  <img src="https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_cinematic_settings.png" alt="yt_clipper_cinematic_settings.png" width="388">
 
 - **EaseInOut:** The crop easing from before version 5.49.0. Each section eases in and out, so the crop slows to a stop at every point. Use it if Smooth Track or Cinematic does not move the crop as you expect. Markers data saved before version 5.49.0 renders with EaseInOut, and loads in the `markup script` with EaseInOut.
 
@@ -573,6 +599,7 @@ Use the **Crop Easing** setting to choose how a dynamic crop pans and zooms betw
 - Scrub to a moment and adjust the crop with **Ctrl+Click+Drag** (move or resize) or **Ctrl+Mousewheel** (zoom).
 - A crop point is added at that time, or the existing one is updated.
 - This works once the crop is dynamic or the crop chart is open (**Alt+D**).
+- **Ctrl+Alt+A** adds or toggles a hold point at the current time.
 
 **Ctrl+Mousewheel:** Zoom the crop in/out around its center without grabbing it.
 
