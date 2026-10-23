@@ -88,22 +88,6 @@ export function parseCropToComponents(
   ];
 }
 
-// Piecewise-linear interpolation of (time, value) samples at each grid time. times must be sorted.
-function interpolateAtGrid(times: number[], values: number[], gridTimes: number[]): number[] {
-  const out = new Array<number>(gridTimes.length);
-  let j = 0;
-  for (let i = 0; i < gridTimes.length; i++) {
-    const t = gridTimes[i];
-    while (j < times.length - 2 && times[j + 1] < t) j++;
-    const t0 = times[j];
-    const t1 = times[j + 1];
-    const span = t1 - t0;
-    const frac = span > 0 ? (t - t0) / span : 0;
-    out[i] = values[j] + (values[j + 1] - values[j]) * Math.min(Math.max(frac, 0), 1);
-  }
-  return out;
-}
-
 // --- Banded symmetric linear algebra (half-bandwidth 3) ---
 // M = I + D1^T D1 + D2^T D2 + D3^T D3, where Dk is the k-th finite difference. Stored as 4 diagonals
 // md[k][i] = M[i][i+k]. Built by accumulating each difference stencil's outer product (upper part).
@@ -469,30 +453,415 @@ function fitAll(times: number[], comps: SolvedComponents, i0: number, i1: number
 
 // --- Public API: bake, evaluate, freshness ---
 
+interface CropMapComponents {
+  times: number[];
+  x: number[];
+  y: number[];
+  w: number[];
+  h: number[];
+  // Whether the section from point k to point k + 1 is held still.
+  heldSections: boolean[];
+}
+
 function cropMapComponents(
   cropMap: readonly CropPoint[],
   firstTime: number,
   cropResWidth: number,
   cropResHeight: number
-): { times: number[]; x: number[]; y: number[]; w: number[]; h: number[] } | null {
+): CropMapComponents | null {
   const times: number[] = [];
   const x: number[] = [];
   const y: number[] = [];
   const w: number[] = [];
   const h: number[] = [];
+  const heldSections: boolean[] = [];
+  let previous: CropPoint | null = null;
   for (const point of cropMap) {
     const rel = point.x - firstTime;
     // Skip a coincident-time duplicate (redundant zero-duration point) to keep interpolation sane.
     if (times.length > 0 && rel <= times[times.length - 1]) continue;
     const [cx, cy, cw, ch] = parseCropToComponents(point.crop, cropResWidth, cropResHeight);
+    if (previous) heldSections.push(holdsAfter(previous, point));
     times.push(rel);
     x.push(cx);
     y.push(cy);
     w.push(cw);
     h.push(ch);
+    previous = point;
   }
   if (times.length < 2) return null;
-  return { times, x, y, w, h };
+  return { times, x, y, w, h, heldSections };
+}
+
+// A hold point holds the crop still from the point before it. A hold point whose crop text differs
+// from that point's is not one, as the markup releases it on load.
+function holdsAfter(previous: CropPoint, point: CropPoint): boolean {
+  return point.hold === true && point.crop === previous.crop;
+}
+
+function firmHoldsAfter(previous: CropPoint, point: CropPoint): boolean {
+  return point.firmHold === true && point.crop === previous.crop;
+}
+
+// How Cinematic crop easing treats hold points: 'loose' leaves them to the solve like any crop point,
+// 'firm' holds the crop still over them within the margin, and 'exact' holds the crop still over them
+// and eases into and out of them.
+export type CinematicHolds = 'loose' | 'firm' | 'exact';
+export const DEFAULT_CINEMATIC_HOLDS: CinematicHolds = 'firm';
+
+// The crop points the Cinematic solve reads: hold points become firm hold points under Firm, and
+// ordinary crop points under Loose.
+export function cinematicCropMap(
+  cropMap: readonly CropPoint[],
+  holds: CinematicHolds = DEFAULT_CINEMATIC_HOLDS
+): readonly CropPoint[] {
+  if (holds === 'exact') return cropMap;
+  const firmHold = holds === 'firm' ? true : undefined;
+  return cropMap.map((point) => (point.hold ? { ...point, hold: undefined, firmHold } : point));
+}
+
+// A Firm hold pins the crop over its span, and the grid samples just outside it, within the margin.
+// Accelerations are in crop widths per second². A crop that cannot stop within the margin at
+// FIRM_HOLD_BRAKING keeps the distance it still needs.
+const FIRM_HOLD_BRAKING = 4;
+// The crop settles into and out of each hold over this many seconds, at FIRM_HOLD_SETTLE_ACCELERATION.
+const FIRM_HOLD_SETTLE_SECONDS = 0.1;
+const FIRM_HOLD_SETTLE_ACCELERATION = 2;
+// A move between two holds that is too quick to start and stop at FIRM_HOLD_SETTLE_ACCELERATION
+// borrows the missing time from both holds, up to this share of each.
+const FIRM_HOLD_MAX_BORROW_SHARE = 0.4;
+// A section that moves at most this share of the held crop's width counts as still next to a hold:
+// a crop point nudged a few pixels off the hold's crop does not stop the pan before it.
+const FIRM_HOLD_STILL_SHARE = 0.01;
+
+export interface FirmHeldSpan {
+  start: number;
+  end: number;
+  crop: [number, number, number, number];
+  // The speeds of the nearest moving sections into and out of the hold, less what the crop sheds
+  // braking over still points between, in held crop widths per second.
+  speedIn: number;
+  speedOut: number;
+  // How long the crop takes to settle into and out of the hold, in seconds.
+  settleIn: number;
+  settleOut: number;
+}
+
+/** The spans Firm hold points hold the crop over, from the point before a Firm hold point to the
+ *  last of the Firm hold points after it, with the speeds and settle times into and out of each. */
+export function firmHeldSpans(
+  run: readonly CropPoint[],
+  cropResWidth: number,
+  cropResHeight: number
+): FirmHeldSpan[] {
+  // A coincident-time duplicate is skipped, as the solve skips it.
+  const points = run.filter((point, k) => k === 0 || point.x > run[k - 1].x);
+  const crops = points.map((p) => parseCropToComponents(p.crop, cropResWidth, cropResHeight));
+  const firmHeldAt = (k: number) =>
+    k >= 1 && k < points.length && firmHoldsAfter(points[k - 1], points[k]);
+  // How far the section from point i to point i + 1 moves, in held crop widths.
+  const distance = (i: number, held: number) => {
+    if (i < 0 || i + 1 >= points.length || !(held > 0)) return 0;
+    return Math.max(...[0, 1, 2].map((c) => Math.abs(crops[i + 1][c] - crops[i][c]))) / held;
+  };
+  // The nearest section from `from` outward (step -1 or 1) that moves, past still sections that are
+  // not Firm holds themselves, and the seconds skipped: a still point next to a hold does not stop
+  // the pan before it.
+  const movingSection = (from: number, step: number, held: number) => {
+    let i = from;
+    let skipped = 0;
+    while (
+      i >= 0 &&
+      i + 1 < points.length &&
+      distance(i, held) <= FIRM_HOLD_STILL_SHARE &&
+      !firmHeldAt(i + 1)
+    ) {
+      skipped += points[i + 1].x - points[i].x;
+      i += step;
+    }
+    return { i, skipped };
+  };
+  // The speed the crop still has after braking over the skipped seconds.
+  const speed = (i: number, held: number, skipped: number) => {
+    const moved = distance(i, held);
+    if (moved === 0) return 0;
+    return Math.max(0, moved / (points[i + 1].x - points[i].x) - FIRM_HOLD_BRAKING * skipped);
+  };
+  // The settle into or out of a hold spanning `length` seconds over the moving section i, `skipped`
+  // seconds away. A move between two Firm holds too quick to start and stop evenly borrows half the
+  // missing time, counting still time on both sides of the move as time it can use.
+  const settle = (i: number, step: number, held: number, length: number, skipped: number) => {
+    const moved = distance(i, held);
+    if (moved === 0) return 0;
+    const far = movingSection(i + step, step, held);
+    const otherEndHeld = far.i + 1 < points.length && firmHeldAt(far.i + 1);
+    const between = points[i + 1].x - points[i].x + skipped + far.skipped;
+    const evenMove = 2 * Math.sqrt(moved / FIRM_HOLD_SETTLE_ACCELERATION);
+    const borrowed = otherEndHeld ? Math.max(0, (evenMove - between) / 2) : 0;
+    const most = FIRM_HOLD_MAX_BORROW_SHARE * length;
+    return Math.min(most, Math.max(0, FIRM_HOLD_SETTLE_SECONDS - skipped, borrowed));
+  };
+  const spans: FirmHeldSpan[] = [];
+  for (let k = 1; k < points.length; k++) {
+    if (!firmHoldsAfter(points[k - 1], points[k])) continue;
+    // Consecutive Firm hold points hold one crop, as one span.
+    let last = k;
+    while (firmHeldAt(last + 1)) last++;
+    const held = crops[last][2];
+    const length = points[last].x - points[k - 1].x;
+    const into = movingSection(k - 2, -1, held);
+    const outOf = movingSection(last, 1, held);
+    spans.push({
+      start: points[k - 1].x,
+      end: points[last].x,
+      crop: crops[last],
+      speedIn: speed(into.i, held, into.skipped),
+      speedOut: speed(outOf.i, held, outOf.skipped),
+      settleIn: settle(into.i, -1, held, length, into.skipped),
+      settleOut: settle(outOf.i, 1, held, length, outOf.skipped),
+    });
+    k = last;
+  }
+  return spans;
+}
+
+/** How far the crop may leave a Firm hold's crop at `time`, in px, before `margin` (px) caps it:
+ *  the distance it cannot brake within the margin, and its settle into and out of the hold. */
+export function firmHoldAllowance(span: FirmHeldSpan, time: number, margin: number): number {
+  const width = span.crop[2];
+  const room = margin / width;
+  const braking = (speed: number, since: number) => {
+    const needed = (speed * speed) / (2 * FIRM_HOLD_BRAKING) - room;
+    if (!(needed > 0)) return 0;
+    return needed * Math.min(1, Math.max(0, 1 - (since * FIRM_HOLD_BRAKING) / speed));
+  };
+  const settling = (settle: number, since: number) =>
+    since < settle ? (FIRM_HOLD_SETTLE_ACCELERATION * (settle - since) ** 2) / 2 : 0;
+  const sinceStart = time - span.start;
+  const untilEnd = span.end - time;
+  return (
+    width *
+    Math.max(
+      braking(span.speedIn, sinceStart),
+      braking(span.speedOut, untilEnd),
+      settling(span.settleIn, sinceStart),
+      settling(span.settleOut, untilEnd)
+    )
+  );
+}
+
+// The fewest grid steps the braking into or out of a hold takes, so the solve has samples to show it
+// on. The ease's window is four times that.
+const MIN_HOLD_EASE_STEPS = 6;
+// How fast the crop slows into a hold point or speeds up out of one, in crop widths per second².
+const HOLD_EASE_ACCELERATION = 1;
+
+// The line between crop points, one component, at time t (clamped to the points).
+function lineAt(times: readonly number[], values: readonly number[], t: number): number {
+  let k = 0;
+  while (k < times.length - 2 && times[k + 1] < t) k++;
+  const duration = times[k + 1] - times[k];
+  const linear = duration > 0 ? Math.min(Math.max((t - times[k]) / duration, 0), 1) : 0;
+  return values[k] + (values[k + 1] - values[k]) * linear;
+}
+
+// An ease into or out of a held span: over [start, end] the target leaves the line at `origin` and
+// reaches the held crop at rest at the span's edge (end for an arrival, start for a departure).
+interface HoldEase {
+  start: number;
+  end: number;
+  arrival: boolean;
+  brake: number;
+  origin: [number, number, number];
+  held: [number, number, number];
+}
+
+/**
+ * The ease into (direction -1) or out of (+1) a held span at `edge`. The target cruises, then brakes
+ * at a constant rate to rest, as a camera stops on a subject (Gleicher and Liu, Re-cinematography,
+ * 2007). The window reaches back across crop points as far as the acceleration needs, so the pacing
+ * stays even; crop points inside it no longer bound the crop by the margin. It is four
+ * brake times long, with the brake time from the line's average speed over it, so it solves
+ * (A/4) W² = D(W) for the distance D from the line to the held crop, piece by piece of the line.
+ * Capped at `cap`. The brake time is at least `minBrake` unless the window is shorter than twice
+ * that, and at most half the window.
+ */
+function holdEase(
+  times: readonly number[],
+  lines: readonly (readonly number[])[],
+  edge: number,
+  direction: -1 | 1,
+  cap: number,
+  held: [number, number, number],
+  minBrake: number
+): HoldEase | null {
+  if (!(cap > 0)) return null;
+  const acceleration = HOLD_EASE_ACCELERATION * held[2];
+  const gap = (component: number, window: number) =>
+    held[component] - lineAt(times, lines[component], edge + direction * window);
+  // The component that moves most over the longest window sets the ease for all three.
+  let main = 0;
+  for (const component of [1, 2]) {
+    if (Math.abs(gap(component, cap)) > Math.abs(gap(main, cap))) main = component;
+  }
+  // The line's pieces as window lengths: breaks at crop points between the edge and the cap.
+  const breaks = times
+    .map((time) => direction * (time - edge))
+    .filter((window) => window > 0 && window < cap)
+    .sort((a, b) => a - b);
+  // The first root comes before the line reaches the held crop, where (A/4) W² - D(W) turns positive,
+  // so D = |gap| is linear on every piece the walk reaches.
+  let window: number | null = null;
+  let w0 = 0;
+  for (const w1 of [...breaks, cap]) {
+    const g0 = gap(main, w0);
+    const g1 = gap(main, w1);
+    const slope = (g1 - g0) / (w1 - w0);
+    const sign = (g0 !== 0 ? g0 : g1) < 0 ? -1 : 1;
+    const b = sign * slope;
+    const a = sign * (g0 - slope * w0);
+    const discriminant = b * b + acceleration * a;
+    const root = discriminant >= 0 ? (b + Math.sqrt(discriminant)) / (acceleration / 2) : -1;
+    if (root >= w0 && root <= w1) {
+      window = root;
+      break;
+    }
+    w0 = w1;
+  }
+  let brake: number;
+  if (window == null) {
+    window = cap;
+    brake = Math.abs(gap(main, cap)) / (acceleration * cap);
+  } else {
+    brake = window / 4;
+  }
+  if (brake < minBrake) {
+    brake = minBrake;
+    window = Math.min(cap, 4 * minBrake);
+  }
+  brake = Math.min(brake, window / 2);
+  const outer = edge + direction * window;
+  const origin = [0, 1, 2].map((c) => lineAt(times, lines[c], outer)) as [number, number, number];
+  return direction < 0
+    ? { start: outer, end: edge, arrival: true, brake, origin, held }
+    : { start: edge, end: outer, arrival: false, brake, origin, held };
+}
+
+// The target in an ease's window: from the line's value at its outer end to the held crop.
+function holdEaseAt(ease: HoldEase, t: number): [number, number, number] {
+  const window = ease.end - ease.start;
+  const fromOuter = ease.arrival ? t - ease.start : ease.end - t;
+  const cruise = 1 / (window - ease.brake / 2);
+  const progress =
+    fromOuter < window - ease.brake
+      ? cruise * fromOuter
+      : 1 - (cruise * (window - fromOuter) * (window - fromOuter)) / (2 * ease.brake);
+  return [0, 1, 2].map((c) => ease.origin[c] + (ease.held[c] - ease.origin[c]) * progress) as [
+    number,
+    number,
+    number,
+  ];
+}
+
+// The spans the eases go into and out of: consecutive held sections merged into one, with the held
+// crop. heldSpans gives each hold point's own span, for the pins.
+function mergedHeldSpans(
+  times: readonly number[],
+  lines: readonly (readonly number[])[],
+  heldSections: readonly boolean[]
+): { start: number; end: number; held: [number, number, number] }[] {
+  const spans: { start: number; end: number; held: [number, number, number] }[] = [];
+  for (let k = 0; k < heldSections.length; k++) {
+    if (!heldSections[k]) continue;
+    const last = spans[spans.length - 1];
+    if (last?.end === times[k]) {
+      last.end = times[k + 1];
+    } else {
+      const held = [0, 1, 2].map((c) => lines[c][k + 1]) as [number, number, number];
+      spans.push({ start: times[k], end: times[k + 1], held });
+    }
+  }
+  return spans;
+}
+
+export interface CinematicRunTarget {
+  times: number[];
+  gridTimes: number[];
+  dt: number;
+  // The crop's width over height, which the solve keeps.
+  ratio: number;
+  // The target crop [x, y, w] at a time relative to the path's first crop point.
+  at: (t: number) => [number, number, number];
+}
+
+// The grid one run is solved on and the target it tracks, which the plot's unsolved band shows too.
+export function cinematicRunTarget(
+  run: readonly CropPoint[],
+  firstTime: number,
+  cropResWidth: number,
+  cropResHeight: number
+): CinematicRunTarget | null {
+  const parsed = cropMapComponents(run, firstTime, cropResWidth, cropResHeight);
+  if (!parsed) return null;
+  const { times, x, y, w, h, heldSections } = parsed;
+  const start = times[0];
+  const duration = times[times.length - 1] - start;
+  const sampleCount = Math.min(
+    MAX_SAMPLES,
+    Math.max(MIN_SAMPLES, Math.round(duration * GRID_RATE_HZ) + 1)
+  );
+  const dt = duration / (sampleCount - 1);
+  const gridTimes = Array.from({ length: sampleCount }, (_v, i) => start + i * dt);
+  const ratio = w[0] > 0 ? h[0] / w[0] : cropResHeight / cropResWidth;
+  const minBrake = MIN_HOLD_EASE_STEPS * dt;
+  const lines = [x, y, w];
+  // Two held spans split the gap between them at its midpoint, so their eases never overlap.
+  const spans = mergedHeldSpans(times, lines, heldSections);
+  const eases = spans.flatMap((span, i) => {
+    const before = i > 0 ? (span.start - spans[i - 1].end) / 2 : span.start - start;
+    const after =
+      i + 1 < spans.length
+        ? (spans[i + 1].start - span.end) / 2
+        : times[times.length - 1] - span.end;
+    return [
+      holdEase(times, lines, span.start, -1, before, span.held, minBrake),
+      holdEase(times, lines, span.end, 1, after, span.held, minBrake),
+    ].filter((ease): ease is HoldEase => ease != null);
+  });
+  // The line between crop points, and in each ease's window, the ease into or out of the hold.
+  const at = (t: number): [number, number, number] => {
+    const ease = eases.find((e) => e.start <= t && t <= e.end);
+    if (ease) return holdEaseAt(ease, t);
+    return [lineAt(times, x, t), lineAt(times, y, t), lineAt(times, w, t)];
+  };
+  return { times, gridTimes, dt, ratio, at };
+}
+
+export interface HeldSpan {
+  start: number;
+  end: number;
+  crop: [number, number, number, number];
+}
+
+/** The spans hold points hold still over: from the point before a hold point to the hold point. A
+ *  hold before a cut also holds to the cut, as the run's copy of it at the cut is a hold point too. */
+export function heldSpans(
+  run: readonly CropPoint[],
+  cropResWidth: number,
+  cropResHeight: number
+): HeldSpan[] {
+  const spans: HeldSpan[] = [];
+  let previous: CropPoint | null = null;
+  for (const point of run) {
+    // A coincident-time duplicate is skipped, as the solve skips it.
+    if (previous && point.x <= previous.x) continue;
+    if (previous && holdsAfter(previous, point)) {
+      const held = parseCropToComponents(point.crop, cropResWidth, cropResHeight);
+      spans.push({ start: previous.x, end: point.x, crop: held });
+    }
+    previous = point;
+  }
+  return spans;
 }
 
 // Split the crop points at each instant transition (a cut). Each run holds its last crop until the
@@ -503,7 +872,18 @@ export function splitAtInstantCuts(cropMap: readonly CropPoint[], fps?: number):
   for (const point of cropMap) {
     if (point.easeIn === 'instant' && run.length > 0) {
       const cutX = cutTime(point.x, run[run.length - 1].x, fps);
-      run.push({ ...run[run.length - 1], x: cutX, easeIn: undefined });
+      // The copy holds only if its point does, so a hold flag the markup releases on load stays released.
+      const last = run[run.length - 1];
+      const before = run.length > 1 ? run[run.length - 2] : null;
+      const holds = before != null && holdsAfter(before, last);
+      const firmHolds = before != null && firmHoldsAfter(before, last);
+      run.push({
+        ...last,
+        x: cutX,
+        easeIn: undefined,
+        hold: holds ? true : undefined,
+        firmHold: firmHolds ? true : undefined,
+      });
       runs.push(run);
       run = [{ ...point, x: cutX }];
       // The cut crop holds until the point's own time, as the other crop easings hold it.
@@ -543,6 +923,34 @@ function clampToBox(target: number[], lower: number[], upper: number[]): number[
   return target.map((t, i) => Math.min(Math.max(t, lower[i]), upper[i]));
 }
 
+// A span end computed in grid steps can land a rounding error off a whole sample.
+const GRID_INDEX_TOLERANCE = 1e-9;
+
+/** Per grid sample, the span that holds it: each span holds the samples it covers (`a` to `b`, in grid
+ *  steps), then the samples just outside it that no span holds, except the run's two ends. The first
+ *  span to reach a sample keeps it; spans that share a covered sample hold the same crop. */
+function samplesHeldBy<S extends { a: number; b: number }>(
+  spans: readonly S[],
+  sampleCount: number
+): (S | undefined)[] {
+  // Filled, not sparse: callers map over every sample.
+  const held: (S | undefined)[] = new Array<S | undefined>(sampleCount).fill(undefined);
+  for (const span of spans) {
+    const last = Math.min(sampleCount - 1, Math.floor(span.b + GRID_INDEX_TOLERANCE));
+    for (let i = Math.max(0, Math.ceil(span.a - GRID_INDEX_TOLERANCE)); i <= last; i++) {
+      held[i] ??= span;
+    }
+  }
+  for (const span of spans) {
+    const outside = [
+      Math.floor(span.a + GRID_INDEX_TOLERANCE),
+      Math.ceil(span.b - GRID_INDEX_TOLERANCE),
+    ];
+    for (const i of outside) if (i > 0 && i < sampleCount - 1) held[i] ??= span;
+  }
+  return held;
+}
+
 // Solve one run between cuts. Returns null when the run has no duration. widestW bounds every width the
 // path takes, over all its runs.
 function solveRun(
@@ -553,43 +961,79 @@ function solveRun(
   cropResHeight: number,
   widestW: number
 ): { segments: CropPathSegment[]; centerBounds: CropPathCenterBounds } | null {
-  const parsed = cropMapComponents(run, firstTime, cropResWidth, cropResHeight);
-  if (!parsed) return null;
-  const { times, x, y, w, h } = parsed;
+  const target = cinematicRunTarget(run, firstTime, cropResWidth, cropResHeight);
+  if (!target) return null;
+  const { times, gridTimes, dt } = target;
   const start = times[0];
-  const duration = times[times.length - 1] - start;
-
-  const sampleCount = Math.min(
-    MAX_SAMPLES,
-    Math.max(MIN_SAMPLES, Math.round(duration * GRID_RATE_HZ) + 1)
-  );
-  const dt = duration / (sampleCount - 1);
-  const gridTimes = Array.from({ length: sampleCount }, (_v, i) => start + i * dt);
+  const sampleCount = gridTimes.length;
   const weights = weightsForSpacing(dt);
 
-  const targetX = interpolateAtGrid(times, x, gridTimes);
-  const targetY = interpolateAtGrid(times, y, gridTimes);
-  const targetW = interpolateAtGrid(times, w, gridTimes);
+  const targets = gridTimes.map(target.at);
+  const targetX = targets.map((crop) => crop[0]);
+  const targetY = targets.map((crop) => crop[1]);
+  const targetW = targets.map((crop) => crop[2]);
 
   // Zoom keeps the crop aspect ratio, so solve width and derive height from the (constant) ratio.
-  const ratio = w[0] > 0 ? h[0] / w[0] : cropResHeight / cropResWidth;
+  const { ratio } = target;
   const anchor = (arr: number[], lo: number[], hi: number[]): void => {
     lo[0] = hi[0] = arr[0];
     lo[arr.length - 1] = hi[arr.length - 1] = arr[arr.length - 1];
   };
 
+  const gridIndex = (time: number) => (time - firstTime - start) / dt;
+  // Firm hold points pin the box to the held crop over their spans and at the grid samples just
+  // outside them, widened by what the crop needs to brake and settle.
+  const firmSpanAt = samplesHeldBy(
+    firmHeldSpans(run, cropResWidth, cropResHeight).map((span) => ({
+      span,
+      a: gridIndex(span.start),
+      b: gridIndex(span.end),
+    })),
+    sampleCount
+  );
+  firmSpanAt.forEach((held, i) => {
+    if (held) [targetX[i], targetY[i], targetW[i]] = held.span.crop;
+  });
+  // The position margin is a share of the crop points' shorter side, in both directions, so the crop
+  // never drifts more than that share of its width or its height, and a zoom changes it with the crop.
+  const posMargin = targetW.map((t) => margins.pos * Math.min(t, t * ratio));
+  const firmAllowance = firmSpanAt.map((held, i) =>
+    held ? firmHoldAllowance(held.span, firstTime + gridTimes[i], posMargin[i]) : Infinity
+  );
+  // The allowance is the position's: the crop brakes and settles in size as it does in place.
+  const zoomMargin = (t: number, i: number) => Math.min(margins.zoom * t, firmAllowance[i]);
   // Width first: its solved value bounds how far x can pan and still keep the crop on-screen.
   // The height follows the width at the ratio, so the frame's height bounds the width too: a 9:16
   // crop at full height would otherwise widen past its ratio while its height stops at the frame.
   const maxW = Math.min(cropResWidth, cropResHeight / ratio);
-  const hiW = targetW.map((t) => Math.min(maxW, t * (1 + margins.zoom)));
+  const hiW = targetW.map((t, i) => Math.min(maxW, t + zoomMargin(t, i)));
   // At a zoom margin near 1 a quick zoom would let the crop overshoot to nothing: keep it as large
   // as the markup's smallest crop and within the render's zoom of the path's widest crop, or the crop
   // point's own size when smaller (a hand-edited file).
   const smallestW = Math.max(MIN_CROP_WIDTH, MIN_CROP_HEIGHT / ratio, widestW / ZOOMPAN_MAX_ZOOM);
-  const loW = targetW.map((t) => Math.max(1, t * (1 - margins.zoom), Math.min(t, smallestW)));
+  const loW = targetW.map((t, i) => Math.max(1, t - zoomMargin(t, i), Math.min(t, smallestW)));
   orderBox(loW, hiW);
   anchor(targetW, loW, hiW);
+  // Hold points hold still: each held span's samples are pinned to its crop, and the grid samples just
+  // outside it, so nothing moves inside it (it may hold up to one grid step longer at each end).
+  const pinned = samplesHeldBy(
+    heldSpans(run, cropResWidth, cropResHeight).map((span) => ({
+      crop: span.crop,
+      a: gridIndex(span.start),
+      b: gridIndex(span.end),
+    })),
+    sampleCount
+  );
+  const pin = (
+    lo: number[],
+    hi: number[],
+    value: (crop: HeldSpan['crop'], i: number) => number
+  ) => {
+    pinned.forEach((held, i) => {
+      if (held) lo[i] = hi[i] = value(held.crop, i);
+    });
+  };
+  pin(loW, hiW, (crop) => crop[2]);
   // Per sample, so the pull's total strength does not depend on the grid spacing.
   const fidelity = CROP_POINT_FIDELITY * dt * GRID_RATE_HZ;
   const solvedW = solveL1Path(clampToBox(targetW, loW, hiW), loW, hiW, weights, fidelity);
@@ -600,19 +1044,19 @@ function solveRun(
   const inFrameX = targetX.map((t, i) => Math.min(t, cropResWidth - solvedW[i]));
   const inFrameY = targetY.map((t, i) => Math.min(t, cropResHeight - solvedH[i]));
 
-  // The position margin is a share of the crop points' shorter side, in both directions, so the crop
-  // never drifts more than that share of its width or its height, and a zoom changes it with the crop.
-  const margin = targetW.map((t) => margins.pos * Math.min(t, t * ratio));
+  const margin = posMargin.map((full, i) => Math.min(full, firmAllowance[i]));
   const loX = inFrameX.map((t, i) => Math.max(0, t - margin[i]));
   const hiX = inFrameX.map((t, i) => Math.min(cropResWidth - solvedW[i], t + margin[i]));
   orderBox(loX, hiX);
   anchor(inFrameX, loX, hiX);
+  pin(loX, hiX, (crop, i) => Math.min(crop[0], cropResWidth - solvedW[i]));
   const solvedX = solveL1Path(clampToBox(inFrameX, loX, hiX), loX, hiX, weights, fidelity);
 
   const loY = inFrameY.map((t, i) => Math.max(0, t - margin[i]));
   const hiY = inFrameY.map((t, i) => Math.min(cropResHeight - solvedH[i], t + margin[i]));
   orderBox(loY, hiY);
   anchor(inFrameY, loY, hiY);
+  pin(loY, hiY, (crop, i) => Math.min(crop[1], cropResHeight - solvedH[i]));
   const solvedY = solveL1Path(clampToBox(inFrameY, loY, hiY), loY, hiY, weights, fidelity);
 
   // The box bounds the crop's corner; the plot shows where that leaves its center.
@@ -729,7 +1173,8 @@ export function cropPathSignature(
   fps?: number
 ): string {
   let s = `v${CINEMATIC_SOLVER_VERSION}|${cropResWidth}x${cropResHeight}|m${margins.pos},${margins.zoom}|f${fps ?? ''}|`;
-  for (const point of cropMap) s += `${point.x}:${point.crop}:${point.easeIn ?? ''};`;
+  for (const point of cropMap)
+    s += `${point.x}:${point.crop}:${point.easeIn ?? ''}:${point.hold ? 'h' : ''}${point.firmHold ? 'f' : ''};`;
   // FNV-1a, enough to detect any cropMap/margin change.
   let hash = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {

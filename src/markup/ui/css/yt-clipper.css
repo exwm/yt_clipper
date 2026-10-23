@@ -998,6 +998,20 @@
   font-weight: 700;
 }
 
+/* The settings only Cinematic easing uses, dimmed while another easing is chosen. */
+.ytc-settings-popover > .ytc-cinematic-section-header {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--med-grey);
+  color: var(--lighter-grey);
+  font-weight: 700;
+}
+
+.ytc-settings-popover:has(.ytc-cinematic-easing-button.active:not([data-crop-easing='cinematic']))
+  > :is(.ytc-cinematic-section-header, .ytc-cinematic-section-header ~ *) {
+  opacity: 0.45;
+}
+
 /* Cinematic strength presets: one row of text buttons above the margins. */
 .ytc-settings-popover > .ytc-cinematic-strength {
   display: flex;
@@ -1149,12 +1163,27 @@
 }
 
 /* One label and input per row, the inputs in one column. */
-.ytc-settings-popover > div:not(.ytc-settings-popover-title):not(.ytc-cinematic-strength):not(.ytc-cinematic-margin-px):not(.ytc-cinematic-plot):not(.ytc-cinematic-plot-hint) {
+.ytc-settings-popover
+  > div:not(
+    :where(
+      .ytc-settings-popover-title,
+      .ytc-cinematic-strength,
+      .ytc-cinematic-margin-px,
+      .ytc-cinematic-plot,
+      .ytc-cinematic-plot-hint,
+      .ytc-cinematic-section-header
+    )
+  ) {
   display: grid;
   grid-template-columns: 1fr 5em;
   align-items: center;
   gap: 12px;
   margin-top: 4px;
+}
+
+/* Wide enough for its select's longest option. */
+.ytc-settings-popover > .ytc-cinematic-holds {
+  grid-template-columns: 1fr auto;
 }
 
 .ytc-settings-popover input[type='number'] {

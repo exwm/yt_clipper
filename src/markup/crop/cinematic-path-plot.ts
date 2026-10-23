@@ -1,7 +1,12 @@
 import { CropPath, CropPoint } from '../@types/yt_clipper';
 import {
   CinematicMargins,
+  CinematicRunTarget,
+  cinematicRunTarget,
   evalCropPathAtTime,
+  firmHeldSpans,
+  firmHoldAllowance,
+  heldSpans,
   parseCropToComponents,
   splitAtInstantCuts,
 } from './cinematic-path';
@@ -31,7 +36,7 @@ export function isCinematicPathPlotShown(): boolean {
 }
 
 export interface CinematicPlotInput {
-  cropMap: CropPoint[];
+  cropMap: readonly CropPoint[];
   margins: CinematicMargins;
   cropResWidth: number;
   cropResHeight: number;
@@ -204,17 +209,16 @@ function solvedBand(
   };
 }
 
-// The crop at `time` within one run of the solver's: linear between its points, as the solver's
-// targets are.
-function runCropAt(run: readonly CropPoint[], time: number, input: CinematicPlotInput): number[] {
-  const parse = (point: CropPoint) =>
-    parseCropToComponents(point.crop, input.cropResWidth, input.cropResHeight);
-  const next = run.findIndex((point) => point.x > time);
-  if (next <= 0) return parse(run[next === 0 ? 0 : run.length - 1]);
-  const [a, b] = [run[next - 1], run[next]];
-  const s = (time - a.x) / (b.x - a.x);
-  const [ca, cb] = [parse(a), parse(b)];
-  return ca.map((v, i) => v + (cb[i] - v) * s);
+// The crop at `time` within one run of the solver's: the target the solve tracks there.
+function runCropAt(
+  run: readonly CropPoint[],
+  target: CinematicRunTarget | null,
+  time: number,
+  input: CinematicPlotInput
+): number[] {
+  if (!target) return parseCropToComponents(run[0].crop, input.cropResWidth, input.cropResHeight);
+  const [x, y, w] = target.at(time - input.cropMap[0].x);
+  return [x, y, w, w * target.ratio];
 }
 
 // The band before the solve, from the solver's own runs: the crop holds until a cut, the center
@@ -228,23 +232,50 @@ function estimatedBand(
 ): CinematicPlotSeries['band'] {
   const firstTime = input.cropMap[0].x;
   // Latest first: at a cut both runs hold that time, and the later one shows.
-  const runsLatestFirst = [...splitAtInstantCuts(input.cropMap, input.fps)].reverse();
+  const runs = splitAtInstantCuts(input.cropMap, input.fps);
+  const runsLatestFirst = [...runs].reverse().map((run) => ({
+    run,
+    target: cinematicRunTarget(run, firstTime, input.cropResWidth, input.cropResHeight),
+  }));
+  // Hold points hold still, as the solve pins them.
+  const held = runs.flatMap((run) => heldSpans(run, input.cropResWidth, input.cropResHeight));
+  const firmHeld = runs.flatMap((run) =>
+    firmHeldSpans(run, input.cropResWidth, input.cropResHeight)
+  );
   const zoom = zoomOfWidth(input);
   const low: number[] = [];
   const high: number[] = [];
   for (const t of sampleTimes) {
     const time = firstTime + t;
-    const run =
-      runsLatestFirst.find((r) => r[0].x <= time) ?? runsLatestFirst[runsLatestFirst.length - 1];
-    const crop = runCropAt(run, time, input);
+    const { run, target } =
+      runsLatestFirst.find((r) => r.run[0].x <= time) ??
+      runsLatestFirst[runsLatestFirst.length - 1];
+    const crop = runCropAt(run, target, time, input);
     const v = scale.value(crop);
+    if (held.some((span) => span.start <= time && time <= span.end)) {
+      low.push(v);
+      high.push(v);
+      continue;
+    }
+    // Over a Firm hold the band is only what the crop needs to brake and settle, as in the solve.
+    const firmSpans = firmHeld.filter((span) => span.start <= time && time <= span.end);
+    const posMargin = input.margins.pos * Math.min(crop[2], crop[3]);
+    const firmMargin = (full: number) =>
+      firmSpans.length === 0
+        ? full
+        : Math.min(
+            full,
+            Math.max(...firmSpans.map((span) => firmHoldAllowance(span, time, posMargin)))
+          );
     if (axis === 'zoom') {
+      const half = firmMargin(input.margins.zoom * crop[2]);
       // The frame stops the crop from zooming out past 1x.
-      low.push(Math.max(1, zoom(crop[2] * (1 + input.margins.zoom))));
-      high.push(zoom(crop[2] * (1 - input.margins.zoom)));
+      low.push(Math.max(1, zoom(crop[2] + half)));
+      high.push(zoom(crop[2] - half));
     } else {
       const size = axis === 'x' ? crop[2] : crop[3];
-      const margin = input.margins.pos * Math.min(crop[2], crop[3]);
+      const side = Math.min(crop[2], crop[3]);
+      const margin = firmMargin(input.margins.pos * side);
       low.push(Math.min(v, Math.max(size / 2, v - margin)));
       high.push(Math.max(v, Math.min(scale.limits[1] - size / 2, v + margin)));
     }

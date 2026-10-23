@@ -3,6 +3,7 @@ import { ref } from 'lit-html/directives/ref.js';
 import { appState } from '../../appState';
 import { getCurrentCropComponents, hideChart, scheduleCinematicRecompute } from '../../charts';
 import {
+  DEFAULT_CINEMATIC_HOLDS,
   DEFAULT_CINEMATIC_MARGIN_PERCENT,
   DEFAULT_CINEMATIC_ZOOM_MARGIN_PERCENT,
 } from '../../crop/cinematic-path';
@@ -258,7 +259,7 @@ function GlobalSettingsEditorTemplate(binder: SettingsBinder<Settings>): Templat
           tooltip: Tooltips.cropPointEasingTooltip,
           labelSuffix: SettingsGearButton({
             id: 'global-cinematic-settings-modal',
-            title: 'Cinematic Settings',
+            title: 'Crop Easing Settings',
             content: () =>
               CinematicSettings({
                 editorKey: settings,
@@ -285,6 +286,14 @@ function GlobalSettingsEditorTemplate(binder: SettingsBinder<Settings>): Templat
                 zoomMargin: settings.cropPointEasingCinematicZoomMargin,
                 inheritedMargin: DEFAULT_CINEMATIC_MARGIN_PERCENT,
                 inheritedZoomMargin: DEFAULT_CINEMATIC_ZOOM_MARGIN_PERCENT,
+                holdsInput: bind(
+                  'cinematic-holds-input',
+                  'cropPointEasingCinematicHolds',
+                  'inheritableString',
+                  { afterChange: scheduleCinematicRecompute }
+                ),
+                holds: settings.cropPointEasingCinematicHolds,
+                inheritedHolds: DEFAULT_CINEMATIC_HOLDS,
                 // New marker pairs start from this crop.
                 crops: () => [settings.newMarkerCrop],
               }),

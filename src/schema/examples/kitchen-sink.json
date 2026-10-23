@@ -35,6 +35,7 @@
   "cropPointEasing": "cinematic",
   "cropPointEasingCinematicMargin": 12,
   "cropPointEasingCinematicZoomMargin": 8,
+  "cropPointEasingCinematicHolds": "exact",
   "version": "5.48.0",
   "date": 1760000000000,
   "cropPointEasingCinematicSolverVersion": 1,
@@ -89,7 +90,7 @@
       ],
       "enableZoomPan": true,
       "cropRes": "1920x1080",
-      "overrides": { "cropPointEasing": "cinematic", "cropPointEasingCinematicMargin": 6, "cropPointEasingCinematicZoomMargin": 10 }
+      "overrides": { "cropPointEasing": "cinematic", "cropPointEasingCinematicMargin": 6, "cropPointEasingCinematicZoomMargin": 10, "cropPointEasingCinematicHolds": "loose" }
     },
     {
       "number": 3,

@@ -124,6 +124,7 @@ const settingsAllow = {
   cropPointEasing: true,
   cropPointEasingCinematicMargin: true,
   cropPointEasingCinematicZoomMargin: true,
+  cropPointEasingCinematicHolds: true,
 } as const satisfies Record<keyof Settings, true>;
 
 export const markerPairAllow = {
@@ -157,6 +158,7 @@ export const overridesAllow = {
   fadeDuration: true,
   cropPointEasingCinematicMargin: true,
   cropPointEasingCinematicZoomMargin: true,
+  cropPointEasingCinematicHolds: true,
 } as const satisfies Record<keyof MarkerPairOverrides, true>;
 
 export const speedPointAllow = {
@@ -170,7 +172,8 @@ export const cropPointAllow = {
   crop: true,
   easeIn: true,
   hold: true,
-} as const satisfies Record<keyof CropPoint, true>;
+  // Set only in the Cinematic solve's copy of the crop map, so a file never carries it.
+} as const satisfies Record<Exclude<keyof CropPoint, 'firmHold'>, true>;
 
 export const topLevelAllow = {
   ...settingsAllow,
@@ -286,6 +289,7 @@ const OVERRIDES_VALIDATORS = {
   // The schema's bounds: the clipper skips a pair with a margin outside them.
   cropPointEasingCinematicMargin: (v: unknown) => isFiniteNumber(v) && v >= 0 && v <= 50,
   cropPointEasingCinematicZoomMargin: (v: unknown) => isFiniteNumber(v) && v >= 0 && v <= 100,
+  cropPointEasingCinematicHolds: (v: unknown) => v === 'loose' || v === 'firm' || v === 'exact',
   enableHDR: (v: unknown) => typeof v === 'boolean',
   gamma: (v: unknown) => isFiniteNumber(v),
   encodeSpeed: (v: unknown) => isFiniteNumber(v),
@@ -305,6 +309,7 @@ const GLOBAL_CROP_EASING_KEYS = [
   'cropPointEasing',
   'cropPointEasingCinematicMargin',
   'cropPointEasingCinematicZoomMargin',
+  'cropPointEasingCinematicHolds',
 ] as const;
 
 function parseOverrides(
@@ -515,6 +520,7 @@ const KEY_POLICY = {
   cropPointEasing: 'apply',
   cropPointEasingCinematicMargin: 'apply',
   cropPointEasingCinematicZoomMargin: 'apply',
+  cropPointEasingCinematicHolds: 'apply',
 } as const satisfies Record<keyof ClipperInput, 'apply' | 'skip'>;
 
 export function toApplicableSettings(input: ClipperInput): Partial<Settings> {

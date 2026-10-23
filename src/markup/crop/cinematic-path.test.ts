@@ -1,14 +1,20 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { CropPoint } from '../@types/yt_clipper';
+import { CropPath, CropPoint } from '../@types/yt_clipper';
 import {
   bakeCinematicPath,
   buildBandedM,
+  CinematicHolds,
+  CinematicMargins,
+  cinematicCropMap,
   cinematicMarginsFromPercent,
+  cinematicRunTarget,
   DEFAULT_CINEMATIC_MARGIN,
   cropPathSignature,
   evalCropPathAtTime,
   factorBanded,
+  firmHeldSpans,
+  firmHoldAllowance,
   isCropPathFresh,
   solveBanded,
   solveL1Path,
@@ -499,6 +505,582 @@ describe('bounds and clip length', () => {
   });
 });
 
+describe('hold points', () => {
+  const MARGINS = { pos: 0.12, zoom: 0.08 };
+  const point = (x: number, crop: string, extra: Partial<CropPoint> = {}): CropPoint => ({
+    x,
+    y: 0,
+    crop,
+    ...extra,
+  });
+  // A pan, a hold at 600, and a pan on, with the hold's edges off the 10 Hz grid.
+  const panHoldPan = (holdStart: number, holdEnd: number, hold = true): CropPoint[] => [
+    point(0, '100:300:640:360'),
+    point(holdStart, '600:300:640:360'),
+    point(holdEnd, '600:300:640:360', hold ? { hold: true } : {}),
+    point(holdEnd + 2, '1200:300:640:360'),
+  ];
+  // The most the path's x, y or width moves from the held crop over a span, densely sampled.
+  const moveOver = (cropMap: CropPoint[], start: number, end: number, fps?: number): number => {
+    const path = bakeCinematicPath(cropMap, MARGINS, CROP_RES_W, CROP_RES_H, fps)!;
+    const held = evalCropPathAtTime(path, start);
+    let most = 0;
+    for (let t = start; t <= end + 1e-9; t += 0.005) {
+      const crop = evalCropPathAtTime(path, Math.min(t, end));
+      for (const i of [0, 1, 2]) most = Math.max(most, Math.abs(crop[i] - held[i]));
+    }
+    return most;
+  };
+
+  it.each([
+    ['a hold between two pans', panHoldPan(2.03, 3.07), 2.03, 3.07],
+    ['a hold with its edges off the grid the other way', panHoldPan(2.07, 3.03), 2.07, 3.03],
+    ['a hold shorter than a grid step', panHoldPan(2.03, 2.09), 2.03, 2.09],
+    [
+      'a hold in a long pair, with a coarser grid',
+      [...panHoldPan(60.03, 61.07), point(120, '0:0:640:360')],
+      60.03,
+      61.07,
+    ],
+    [
+      'two hold points in a row',
+      [
+        ...panHoldPan(2.03, 3.07).slice(0, 3),
+        point(4.01, '600:300:640:360', { hold: true }),
+        point(6, '1200:300:640:360'),
+      ],
+      2.03,
+      4.01,
+    ],
+    [
+      'a hold point as the last point',
+      [
+        point(0, '100:300:640:360'),
+        point(2.03, '600:300:640:360'),
+        point(3.07, '600:300:640:360', { hold: true }),
+      ],
+      2.03,
+      3.07,
+    ],
+    [
+      'a zoom held still',
+      [
+        point(0, '0:0:1920:1080'),
+        point(2.03, '480:270:960:540'),
+        point(3.07, '480:270:960:540', { hold: true }),
+        point(5, '0:0:1920:1080'),
+      ],
+      2.03,
+      3.07,
+    ],
+  ])('holds the crop still over %s', (_case, cropMap, start, end) => {
+    expect(moveOver(cropMap, start, end)).toBeLessThan(0.5);
+  });
+
+  it.each([
+    [
+      "the run's first crop, a hold starting less than a grid step after it",
+      [
+        point(0, '100:300:640:360'),
+        point(0.05, '600:300:640:360'),
+        point(2, '600:300:640:360', { hold: true }),
+      ],
+      0,
+      100,
+    ],
+    [
+      "the run's last crop, a hold ending less than a grid step before it",
+      [
+        point(0, '100:300:640:360'),
+        point(2, '600:300:640:360'),
+        point(3.95, '600:300:640:360', { hold: true }),
+        point(4, '900:300:640:360'),
+      ],
+      4,
+      900,
+    ],
+    [
+      'the end of a hold less than a grid step before the next hold',
+      [
+        point(0, '100:300:640:360'),
+        point(1, '600:300:640:360'),
+        point(2.01, '600:300:640:360', { hold: true }),
+        point(2.09, '700:300:640:360'),
+        point(3, '700:300:640:360', { hold: true }),
+        point(5, '1200:300:640:360'),
+      ],
+      // Its last own grid sample: the move to the next hold fits in the one grid step after it.
+      2.0,
+      600,
+    ],
+  ])('keeps %s', (_case, cropMap, time, x) => {
+    const path = bakeCinematicPath(cropMap, MARGINS, CROP_RES_W, CROP_RES_H)!;
+    expect(evalCropPathAtTime(path, time)[0]).toBeCloseTo(x, 0);
+  });
+
+  it('holds a hold point before a cut until the cut', () => {
+    const cropMap = [
+      point(0, '100:300:640:360'),
+      point(2.03, '600:300:640:360'),
+      point(3.07, '600:300:640:360', { hold: true }),
+      point(4.5, '1200:300:640:360', { easeIn: 'instant' }),
+      point(6, '1300:300:640:360'),
+    ];
+    // The cut lands half a frame before the frame it falls in, at 30 fps: 4.4833 s.
+    const justBeforeCut = (135 - 0.5) / 30 - 0.005;
+    expect(moveOver(cropMap, 2.03, justBeforeCut, 30)).toBeLessThan(0.5);
+    const path = bakeCinematicPath(cropMap, MARGINS, CROP_RES_W, CROP_RES_H, 30)!;
+    expect(evalCropPathAtTime(path, justBeforeCut)[0]).toBeCloseTo(600, 0);
+  });
+
+  it.each([
+    ['without the hold flag', panHoldPan(2.03, 3.07, false)],
+    [
+      'with a hold flag on a crop that differs from the one before it (a hand-edited file)',
+      panHoldPan(2.03, 3.07).map((p, i) => (i === 2 ? { ...p, crop: '620:300:640:360' } : p)),
+    ],
+    [
+      'with a hold flag on the same crop written differently, as the markup releases it on load',
+      panHoldPan(2.03, 3.07).map((p, i) => (i === 2 ? { ...p, crop: '600.0:300:640:360' } : p)),
+    ],
+    ['with Loose holds', cinematicCropMap(panHoldPan(2.03, 3.07), 'loose')],
+  ])('lets the crop move within the margin %s', (_case, cropMap) => {
+    expect(moveOver(cropMap, 2.03, 3.07)).toBeGreaterThan(5);
+  });
+
+  // The most a 30 fps frame's step changes from the frame before, on x over [start, end].
+  const largestStepChange = (
+    cropMap: CropPoint[],
+    margins: typeof MARGINS,
+    start: number,
+    end: number
+  ) => {
+    const path = bakeCinematicPath(cropMap, margins, CROP_RES_W, CROP_RES_H, 30)!;
+    let largest = 0;
+    for (let t = start; t + 2 / 30 <= end + 1e-9; t += 1 / 30) {
+      const [x0, x1, x2] = [0, 1, 2].map((f) => evalCropPathAtTime(path, t + f / 30)[0]);
+      largest = Math.max(largest, Math.abs(x2 - 2 * x1 + x0));
+    }
+    return largest;
+  };
+  const TIGHT = { pos: 0.03, zoom: 0.02 };
+
+  it('eases a fast pan into and out of a hold point at a tight margin', () => {
+    // A 250 px/s pan stopping dead at the hold steps about 4.7 px between frames at once.
+    const cropMap = [
+      point(0, '100:300:640:360'),
+      point(2, '600:300:640:360'),
+      point(3.5, '600:300:640:360', { hold: true }),
+      point(5.5, '1100:300:640:360'),
+    ];
+    expect(largestStepChange(cropMap, TIGHT, 1.5, 2.5)).toBeLessThan(2.5);
+    expect(largestStepChange(cropMap, TIGHT, 3, 4)).toBeLessThan(2.5);
+    expect(moveOver(cropMap, 2, 3.5)).toBeLessThan(0.5);
+  });
+
+  it.each([TIGHT, MARGINS])(
+    'eases a short section into a hold point back across the crop point before it (%o)',
+    (margins) => {
+      // 0.3 s from the crop point before the hold: confined to it, the ease stopped hard (6.3 px/frame
+      // at the tight margin).
+      const cropMap = [
+        point(0, '100:300:640:360'),
+        point(1.7, '500:300:640:360'),
+        point(2, '600:300:640:360'),
+        point(3.5, '600:300:640:360', { hold: true }),
+        point(5.5, '1100:300:640:360'),
+      ];
+      expect(largestStepChange(cropMap, margins, 1.2, 2.4)).toBeLessThan(1.2);
+      expect(moveOver(cropMap, 2, 3.5)).toBeLessThan(0.5);
+    }
+  );
+
+  it('paces a fast pan evenly into a hold point, reaching back across the crop point before it', () => {
+    // 400 px/s. Confined to the last 1.4 s section, the ease would surge to about 1.37x before braking
+    // hard; reaching back it cruises at about 1.15x and brakes gently, passing the 1.4 s crop point
+    // ahead of the line.
+    const cropMap = [
+      point(0, '0:300:640:360'),
+      point(1.4, '560:300:640:360'),
+      point(2.8, '1120:300:640:360'),
+      point(4.3, '1120:300:640:360', { hold: true }),
+    ];
+    const path = bakeCinematicPath(cropMap, TIGHT, CROP_RES_W, CROP_RES_H, 30)!;
+    for (let t = 0; t + 1 / 30 <= 2.8; t += 1 / 30) {
+      const speed = (evalCropPathAtTime(path, t + 1 / 30)[0] - evalCropPathAtTime(path, t)[0]) * 30;
+      expect(speed).toBeLessThan(400 * 1.25);
+    }
+    // The last step into the hold, about 1.3 px/frame, is the 10 Hz grid's floor for this stop.
+    expect(largestStepChange(cropMap, TIGHT, 1.6, 3.4)).toBeLessThan(1.5);
+  });
+
+  it('keeps a slow pan at its speed until it slows into a hold point, with no surge before it', () => {
+    // 100 px/s for 10 s.
+    const cropMap = [
+      point(0, '100:300:640:360'),
+      point(10, '1100:300:640:360'),
+      point(11, '1100:300:640:360', { hold: true }),
+    ];
+    const path = bakeCinematicPath(cropMap, TIGHT, CROP_RES_W, CROP_RES_H, 30)!;
+    const speedAt = (t: number) =>
+      (evalCropPathAtTime(path, t + 0.1)[0] - evalCropPathAtTime(path, t)[0]) / 0.1;
+    // The ease takes the last 2.5 s, cruising at about 1.14x before it brakes; the solve adds a few
+    // percent near the run's end. A cubic ease from the straight line to rest would reach 133.
+    for (let t = 1; t <= 9.9; t += 0.1) {
+      expect(speedAt(t)).toBeGreaterThan(t < 7 ? 95 : 0);
+      expect(speedAt(t)).toBeLessThan(125);
+    }
+  });
+
+  it.each([
+    ['a crop that differs from the one before it', '620:300:640:360'],
+    ['the same crop written differently', '600.0:300:640:360'],
+  ])('ignores a hold flag the markup releases on load, on %s, also before a cut', (_case, crop) => {
+    const flagged = [
+      point(0, '100:300:640:360'),
+      point(2.03, '600:300:640:360'),
+      point(3.07, crop, { hold: true }),
+      point(4.5, '1200:300:640:360', { easeIn: 'instant' }),
+      point(6, '1300:300:640:360'),
+    ];
+    const plain = flagged.map((p) => ({ ...p, hold: undefined }));
+    const [a, b] = [flagged, plain].map(
+      (map) => bakeCinematicPath(map, MARGINS, CROP_RES_W, CROP_RES_H, 30)!
+    );
+    for (let t = 0; t <= 6; t += 0.05) {
+      expect(evalCropPathAtTime(a, t)).toEqual(evalCropPathAtTime(b, t));
+    }
+  });
+
+  it('keeps a straight move into a hold point straight', () => {
+    // A diagonal pan: x moves 5x as far as y, so separate eases would bend it.
+    const cropMap = [
+      point(0, '100:300:640:360'),
+      point(2, '1100:500:640:360'),
+      point(3, '1100:500:640:360', { hold: true }),
+    ];
+    const target = cinematicRunTarget(cropMap, 0, CROP_RES_W, CROP_RES_H)!;
+    for (let t = 0.1; t < 2; t += 0.1) {
+      const [x, y] = target.at(t);
+      expect(y - 300).toBeCloseTo((x - 100) / 5, 6);
+    }
+  });
+
+  it('solves again when only the hold flag changes', () => {
+    const held = panHoldPan(2.03, 3.07);
+    const notHeld = panHoldPan(2.03, 3.07, false);
+    expect(cropPathSignature(held, MARGINS, CROP_RES_W, CROP_RES_H)).not.toBe(
+      cropPathSignature(notHeld, MARGINS, CROP_RES_W, CROP_RES_H)
+    );
+  });
+});
+
+describe('Firm hold points', () => {
+  const MARGINS = { pos: 0.12, zoom: 0.08 };
+  const point =(x: number, crop: string, extra: Partial<CropPoint> = {}): CropPoint => ({
+    x,
+    y: 0,
+    crop,
+    ...extra,
+  });
+  const panHoldPan = (left: number): CropPoint[] => [
+    point(0, '100:300:640:360'),
+    point(2, `${left}:300:640:360`),
+    point(3.6, `${left}:300:640:360`, { hold: true }),
+    point(5.2, '1200:300:640:360'),
+  ];
+  const solve = (
+    cropMap: readonly CropPoint[],
+    holds: CinematicHolds,
+    margins: CinematicMargins = MARGINS
+  ) => bakeCinematicPath(cinematicCropMap(cropMap, holds), margins, CROP_RES_W, CROP_RES_H, 30)!;
+  const drift = (path: CropPath, start: number, end: number) => {
+    const xs: number[] = [];
+    for (let t = start; t <= end + 1e-9; t += 0.01) xs.push(evalCropPathAtTime(path, t)[0]);
+    return Math.max(...xs) - Math.min(...xs);
+  };
+
+  it.each([
+    [0.03, 2, 3.6],
+    [0.12, 2, 3.6],
+    [0.2, 2, 3.6],
+    [0.12, 2.03, 3.07],
+  ])(
+    'holds still past its settle, within the margin, at a %s margin from %s to %s s',
+    (margin, start, end) => {
+      const cropMap = [
+        point(0, '100:300:640:360'),
+        point(start, '740:300:640:360'),
+        point(end, '740:300:640:360', { hold: true }),
+        point(end + 1.6, '1200:300:640:360'),
+      ];
+      const [loose, firm, exact] = (['loose', 'firm', 'exact'] as const).map((holds) =>
+        solve(cropMap, holds, { pos: margin, zoom: margin })
+      );
+      // Hold edges between grid samples once let the crop arrive late and leave early.
+      expect(drift(firm, start + 0.3, end - 0.3)).toBeLessThan(0.5);
+      expect(drift(firm, start, end)).toBeLessThanOrEqual(2 * margin * 360);
+      expect(drift(firm, start, end)).toBeLessThan(drift(loose, start, end));
+      expect(drift(exact, start, end)).toBeLessThan(0.5);
+    }
+  );
+
+  // Two holds with a quick 80 px move between them: a crop still at both ends must start and stop hard.
+  const crowded = [
+    point(0, '400:300:640:360'),
+    point(1, '400:300:640:360'),
+    point(2, '400:300:640:360', { hold: true }),
+    point(2.2, '480:300:640:360'),
+    point(3.2, '480:300:640:360', { hold: true }),
+    point(4.5, '480:300:640:360'),
+  ];
+
+  it('borrows time from crowded holds for a quick move between them, and jolts far less than Exact', () => {
+    const largestSpeedChange = (path: CropPath) => {
+      let largest = 0;
+      for (let f = 45; f < 114; f++) {
+        const [a, b, c] = [f, f + 1, f + 2].map((g) => evalCropPathAtTime(path, g / 30)[0]);
+        largest = Math.max(largest, Math.abs(c - 2 * b + a));
+      }
+      return largest;
+    };
+    const firm = solve(crowded, 'firm');
+    expect(largestSpeedChange(firm)).toBeLessThan(largestSpeedChange(solve(crowded, 'exact')) / 3);
+    expect(drift(firm, 1.1, 1.5)).toBeLessThan(0.5);
+    expect(drift(firm, 2.6, 3)).toBeLessThan(0.5);
+  });
+
+  const at = (x: number) => `${x}:300:640:360`;
+  // A pan of 640 px in 0.8 s into a hold to 3.6 s, as one hold point or split by a second one.
+  const panIntoHold = (split: boolean) => [
+    point(0, at(100)),
+    point(0.8, at(740)),
+    ...(split ? [point(0.9, at(740), { hold: true })] : []),
+    point(3.6, at(740), { hold: true }),
+    point(4.4, at(1200)),
+  ];
+  // An 800 px pan in 1 s, a still point with its crop 0.05 s later, and a hold to 3 s.
+  const stillPointBeforeHold = [
+    point(0, at(100)),
+    point(1, at(900)),
+    point(1.05, at(900)),
+    point(3, at(900), { hold: true }),
+  ];
+
+  it.each([
+    // Per hold: start, end, crop widths per second into and out of it, and the settle times: 0.1 s
+    // next to a move, none next to a still section, and half of the time the quick move between two
+    // holds is missing (0.5 s to start and stop at 2 crop widths/s², in a 0.2 s section).
+    ['a lone hold', panHoldPan(740), [[2, 3.6, 0.5, 460 / 1.6 / 640, 0.1, 0.1]]],
+    [
+      'two crowded holds',
+      crowded,
+      [
+        [1, 2, 0, 80 / 0.2 / 640, 0, 0.15],
+        [2.2, 3.2, 80 / 0.2 / 640, 0, 0.15, 0],
+      ],
+    ],
+    // Consecutive hold points are one hold.
+    ['a hold split by a second hold point', panIntoHold(true), [[0.8, 3.6, 640 / 0.8 / 640, 460 / 0.8 / 640, 0.1, 0.1]]],
+    // The pan braked for 0.05 s at 4 crop widths/s² by the time it reaches the hold.
+    ['a hold after a still point', stillPointBeforeHold, [[1.05, 3, 1.25 - 4 * 0.05, 0, 0.05, 0]]],
+    // A point nudged 2 px (under 1% of the width) counts as still.
+    [
+      'a hold after a point nudged off its crop',
+      [point(0, at(100)), point(1, at(900)), point(1.05, at(902)), point(3, at(902), { hold: true })],
+      [[1.05, 3, 1.25 - 4 * 0.05, 0, 0.05, 0]],
+    ],
+    // 7 px (over 1% of the width) is a move of its own, so the hold settles from it.
+    [
+      'a hold after a point moved 7 px',
+      [point(0, at(100)), point(1, at(900)), point(1.05, at(907)), point(3, at(907), { hold: true })],
+      [[1.05, 3, 7 / 0.05 / 640, 0, 0.1, 0]],
+    ],
+    [
+      'a hold after only still points',
+      [point(0, at(740)), point(1, at(740)), point(2, at(740), { hold: true }), point(3, at(1200))],
+      [[1, 2, 0, 460 / 640, 0, 0.1]],
+    ],
+    // A still point between two holds does not join them, and neither hold moves into it.
+    [
+      'two holds with a still point between',
+      [
+        point(0, at(100)),
+        point(1, at(740)),
+        point(2, at(740), { hold: true }),
+        point(2.05, at(740)),
+        point(3, at(740), { hold: true }),
+        point(4, at(1200)),
+      ],
+      [
+        [1, 2, 1, 0, 0.1, 0],
+        [2.05, 3, 0, 460 / 640, 0, 0.1],
+      ],
+    ],
+    // An 80 px move takes 0.5 s to start and stop. It has 0.2 s between the holds, its own 0.1 s and
+    // a still point's 0.1 s, so each hold lends 0.15 s; the second hold sees the pan braked for 0.1 s.
+    [
+      'two holds with a quick move and a still point between',
+      [
+        point(0, at(400)),
+        point(1, at(400)),
+        point(2, at(400), { hold: true }),
+        point(2.1, at(480)),
+        point(2.2, at(480)),
+        point(3.2, at(480), { hold: true }),
+        point(4.5, at(480)),
+      ],
+      [
+        [1, 2, 0, 80 / 0.1 / 640, 0, 0.15],
+        [2.2, 3.2, 80 / 0.1 / 640 - 4 * 0.1, 0, 0.15, 0],
+      ],
+    ],
+    // The move between them would borrow 0.35 s (0.79 s to start and stop, in 0.1 s), capped at 40%
+    // of each 0.3 s hold.
+    [
+      'two short holds with a quick move between',
+      [
+        point(0, at(400)),
+        point(0.7, at(400)),
+        point(1, at(400), { hold: true }),
+        point(1.1, at(600)),
+        point(1.4, at(600), { hold: true }),
+        point(2, at(600)),
+      ],
+      [
+        [0.7, 1, 0, 200 / 0.1 / 640, 0, 0.12],
+        [1.1, 1.4, 200 / 0.1 / 640, 0, 0.12, 0],
+      ],
+    ],
+  ])('times the braking and settle of %s', (_name, cropMap, expected) => {
+    const spans = firmHeldSpans(cinematicCropMap(cropMap, 'firm'), CROP_RES_W, CROP_RES_H);
+    const fields = spans.map((s) => [s.start, s.end, s.speedIn, s.speedOut, s.settleIn, s.settleOut]);
+    expect(fields).toEqual(expected.map((row) => row.map((v) => expect.closeTo(v))));
+  });
+
+  it('holds a hold before a cut up to the cut, at rest', () => {
+    const [run] = splitAtInstantCuts(
+      cinematicCropMap(
+        [
+          point(0, at(100)),
+          point(2, at(600)),
+          point(3.5, at(600), { hold: true }),
+          point(4.5, at(1200), { easeIn: 'instant' }),
+          point(6, at(900)),
+        ],
+        'firm'
+      ),
+      30
+    );
+    const [span] = firmHeldSpans(run, CROP_RES_W, CROP_RES_H);
+    expect([span.start, span.end, span.speedOut, span.settleOut]).toEqual([2, run[run.length - 1].x, 0, 0]);
+  });
+
+  it('holds a hold split by a second hold point exactly as one hold point', () => {
+    const [split, single] = [true, false].map((s) => solve(panIntoHold(s), 'firm', { pos: 0.03, zoom: 0.03 }));
+    for (let f = 0; f <= 132; f++) {
+      expect(evalCropPathAtTime(split, f / 30)).toEqual(evalCropPathAtTime(single, f / 30));
+    }
+  });
+
+  it.each([
+    ['before', stillPointBeforeHold, [point(0, at(100)), point(1, at(900)), point(3, at(900), { hold: true })], MARGINS],
+    [
+      'after',
+      [point(0, at(100)), point(2, at(100), { hold: true }), point(2.05, at(100)), point(3, at(900))],
+      [point(0, at(100)), point(2, at(100), { hold: true }), point(3, at(900))],
+      MARGINS,
+    ],
+    // Nudged 2 px off the hold's crop, at a margin too tight to brake within.
+    [
+      'nudged 2 px before',
+      [point(0, at(100)), point(1, at(900)), point(1.05, at(902)), point(3, at(902), { hold: true })],
+      [point(0, at(100)), point(1, at(902)), point(3, at(902), { hold: true })],
+      { pos: 0.03, zoom: 0.03 },
+    ],
+  ])('brakes as smoothly with a still point %s the hold as without', (_case, withPoint, without, margins) => {
+    const largestSpeedChange = (path: CropPath) => {
+      let largest = 0;
+      for (let f = 0; f < 88; f++) {
+        const [a, b, c] = [f, f + 1, f + 2].map((g) => evalCropPathAtTime(path, g / 30)[0]);
+        largest = Math.max(largest, Math.abs(c - 2 * b + a));
+      }
+      return largest;
+    };
+    expect(largestSpeedChange(solve(withPoint, 'firm', margins))).toBeLessThan(
+      1.5 * largestSpeedChange(solve(without, 'firm', margins))
+    );
+  });
+
+  it.each([
+    // At 2 crop widths/s the crop needs 0.4325 crop widths past the 0.0675 margin to stop at
+    // 4 crop widths/s², shed over 0.5 s.
+    [2, 0.1, 1, 276.8],
+    [2, 0.1, 1.25, 138.4],
+    [2, 0.1, 1.5, 0],
+    // A slow crop only settles: 2 crop widths/s² over the 0.1 s settle.
+    [0.5, 0.1, 1, 6.4],
+    [0.5, 0.1, 1.05, 1.6],
+    [0.5, 0.1, 1.1, 0],
+    [0.5, 0, 1, 0],
+  ])(
+    'lets the crop leave the held crop by its braking and settle: %s crop widths/s, %s s settle, at %s s',
+    (speedIn, settleIn, time, allowance) => {
+      const span = {
+        start: 1,
+        end: 3,
+        crop: [100, 300, 640, 360] as [number, number, number, number],
+        speedIn,
+        speedOut: 0,
+        settleIn,
+        settleOut: 0,
+      };
+      expect(firmHoldAllowance(span, time, 0.12 * 360)).toBeCloseTo(allowance);
+    }
+  );
+
+  it('ignores a hold flag the markup releases on load, also before a cut', () => {
+    const flagged = [
+      point(0, '100:300:640:360'),
+      point(2.03, '600:300:640:360'),
+      point(3.07, '620:300:640:360', { hold: true }),
+      point(4.5, '1200:300:640:360', { easeIn: 'instant' }),
+      point(6, '1300:300:640:360'),
+    ];
+    const plain = flagged.map((p) => ({ ...p, hold: undefined }));
+    const [a, b] = [cinematicCropMap(flagged, 'firm'), plain].map(
+      (map) => bakeCinematicPath(map, MARGINS, CROP_RES_W, CROP_RES_H, 30)!
+    );
+    for (let t = 0; t <= 6; t += 0.05) {
+      expect(evalCropPathAtTime(a, t)).toEqual(evalCropPathAtTime(b, t));
+    }
+  });
+
+  it('keeps a Firm hold up to a cut, and only on the crop point that holds', () => {
+    const cropMap = cinematicCropMap(
+      [
+        point(0, '100:300:640:360'),
+        point(2, '600:300:640:360'),
+        point(3.5, '600:300:640:360', { hold: true }),
+        point(4.5, '1200:300:640:360', { easeIn: 'instant' }),
+        point(6, '900:300:640:360'),
+      ],
+      'firm'
+    );
+    const [first, second] = splitAtInstantCuts(cropMap, 30);
+    expect(first.map((p) => p.firmHold ?? false)).toEqual([false, false, true, true]);
+    expect(second.some((p) => p.firmHold)).toBe(false);
+  });
+
+  it('solves again when the Hold Points option changes', () => {
+    const cropMap = panHoldPan(600);
+    const signatures = (['loose', 'firm', 'exact'] as const).map((holds) =>
+      cropPathSignature(cinematicCropMap(cropMap, holds), MARGINS, CROP_RES_W, CROP_RES_H)
+    );
+    expect(new Set(signatures).size).toBe(3);
+  });
+});
+
 describe('render parity', () => {
   // Shared with the clipper's test_cinematic_path.py, whose solver must match these samples.
   const parityCases = JSON.parse(
@@ -508,13 +1090,17 @@ describe('render parity', () => {
     cropMap: CropPoint[];
     margins: { pos: number; zoom: number };
     cropRes: [number, number];
+    fps?: number;
+    // How the case treats its hold points; the hold flags are read as they are without it.
+    holds?: CinematicHolds;
     samples: { t: number; x: number; y: number; w: number; h: number }[];
   }[];
 
   it.each(parityCases.map((c) => [c.name, c] as const))(
     'matches the parity table: %s',
     (_name, c) => {
-      const path = bakeCinematicPath(c.cropMap, c.margins, c.cropRes[0], c.cropRes[1])!;
+      const cropMap = cinematicCropMap(c.cropMap, c.holds ?? 'exact');
+      const path = bakeCinematicPath(cropMap, c.margins, c.cropRes[0], c.cropRes[1], c.fps)!;
       for (const sample of c.samples) {
         const [x, y, w, h] = evalCropPathAtTime(path, sample.t);
         expect(x).toBeCloseTo(sample.x, 2);

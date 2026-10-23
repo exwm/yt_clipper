@@ -3,6 +3,7 @@ import { ref } from 'lit-html/directives/ref.js';
 import { CropEasingMode, cropEasingModeLabels } from '../../components/settings/crop-easing-select';
 import { NumberInputRow } from '../../components/settings/number-input-row';
 import { getCropComponents } from '../../crop-utils';
+import { CinematicHolds } from '../../crop/cinematic-path';
 import { CINEMATIC_PATH_SOLVED_EVENT } from '../../crop/cinematic-path-plot';
 import { Tooltips } from '../../ui/tooltips';
 import {
@@ -10,7 +11,7 @@ import {
   CinematicPathPlotProps,
   redrawCinematicPathPlot,
 } from './cinematic-path-plot';
-import { BoundInput } from './settings-editor';
+import { BoundInput, gateHotkeys } from './settings-editor';
 
 // Convenience buttons that fill in both margins (percent of the crop size). Only the margins are saved.
 export const CINEMATIC_STRENGTH_PRESETS = [
@@ -44,7 +45,33 @@ export interface CinematicSettingsProps {
   activeEasing: () => CropEasingMode;
   // The easing a marker pair inherits. The global settings inherit none.
   inheritedEasing?: CropEasingMode;
+  holdsInput: BoundInput;
+  holds: CinematicHolds | undefined;
+  inheritedHolds: CinematicHolds;
 }
+
+const holdsLabels: Record<CinematicHolds, string> = { loose: 'Loose', firm: 'Firm', exact: 'Exact' };
+
+function onHoldsChange(p: CinematicSettingsProps) {
+  return (e: Event) => {
+    p.holdsInput.onChange(e);
+    const popover = (e.currentTarget as HTMLElement).closest<HTMLElement>('.ytc-settings-popover');
+    if (popover) refresh(popover, p);
+  };
+}
+
+const holdsSelect = (p: CinematicSettingsProps) => html`
+  <div class="ytc-cinematic-holds" title=${Tooltips.cinematicHoldsTooltip}>
+    <span>Hold Points</span>
+    <select id=${p.holdsInput.id} @change=${onHoldsChange(p)} ${ref(gateHotkeys)}>
+      <option value="Default" ?selected=${p.holds == null}>(${holdsLabels[p.inheritedHolds]})</option>
+      ${(['loose', 'firm', 'exact'] as const).map(
+        (holds) =>
+          html`<option value=${holds} ?selected=${p.holds === holds}>${holdsLabels[holds]}</option>`
+      )}
+    </select>
+  </div>
+`;
 
 // The easings to compare, as the Crop Easing select lists them.
 const COMPARED_EASINGS = ['smoothTrack', 'cinematic', 'smoothInOut'] as const;
@@ -308,8 +335,9 @@ const strengthButtons = (p: CinematicSettingsProps, active: string) => html`
   </div>
 `;
 
-// The Cinematic gear popover's controls: the path plot, strength presets, then the two margins in
-// percent of the crop.
+// The Cinematic gear popover's controls: the easings to compare and the path plot, then the
+// Cinematic Easing section (strength presets, the two margins in percent of the crop, and holds),
+// which the CSS dims while another easing is chosen.
 export function CinematicSettings(p: CinematicSettingsProps): TemplateResult {
   const margin = p.margin ?? p.inheritedMargin;
   const zoomMargin = p.zoomMargin ?? p.inheritedZoomMargin;
@@ -320,6 +348,9 @@ export function CinematicSettings(p: CinematicSettingsProps): TemplateResult {
       : html`<div class="ytc-cinematic-plot-hint">
           Open a marker pair's settings to plot its path.
         </div>`}
+    <div class="ytc-cinematic-section-header" title=${Tooltips.cinematicSectionTooltip}>
+      Cinematic Easing
+    </div>
     ${strengthButtons(p, activeStrength(margin, zoomMargin))}
     ${NumberInputRow({
       ...p.marginInput,
@@ -348,6 +379,6 @@ export function CinematicSettings(p: CinematicSettingsProps): TemplateResult {
       tooltip: Tooltips.cinematicZoomMarginTooltip,
       compact: true,
     })}
-    ${marginSlider(p, p.zoomMarginInput, 'Zoom Margin (%)', 100, zoomMargin)}
+    ${marginSlider(p, p.zoomMarginInput, 'Zoom Margin (%)', 100, zoomMargin)} ${holdsSelect(p)}
   `;
 }

@@ -333,6 +333,28 @@ def test_cinematic_solve_failing_renders_as_smooth_track(
         shutil.rmtree(output, ignore_errors=True)
 
 
+def markersWithCropMap(crops: tuple[str, ...]) -> dict:
+    """The test markers with the first pair's crop points spread evenly over it."""
+    data = json.loads(MARKERS.read_text(encoding="utf-8"))
+    pair = data["markerPairs"][0]
+    times = [pair["start"] + (pair["end"] - pair["start"]) * i / (len(crops) - 1) for i in range(len(crops))]
+    pair.update(crop=crops[0], cropMap=[{"x": t, "y": 0, "crop": crop} for t, crop in zip(times, crops, strict=True)])
+    return data
+
+
+def renderedVideoFilter(clipper: Clipper, markers: pathlib.Path, data: dict) -> str:
+    """The video filter of a clip rendered from the markers data, in its own process."""
+    markers.write_text(json.dumps(data), encoding="utf-8")
+    output = clipper.cwd / "webms" / markers.stem
+    try:
+        args = ["--markers-json", str(markers), "--input-video", str(LOCAL_VIDEO), *OFFLINE_ARGS]
+        assert runInItsOwnProcess(clipper, args) == 0
+        return loggedVideoFilter(output)
+    finally:
+        # A built clipper writes into its install folder, which must stay clean (see smoke_test.py).
+        shutil.rmtree(output, ignore_errors=True)
+
+
 def test_cinematic_set_globally_renders_like_a_pair_override(
     clipper: Clipper,
     tmp_path: pathlib.Path,
@@ -340,44 +362,49 @@ def test_cinematic_set_globally_renders_like_a_pair_override(
     # The markup saves a pair's easing only when it overrides the global setting. Frame sizes cannot
     # tell the modes apart, so this compares the crop filters in the runs' logs.
     clipper.requireEncoder("libvpx-vp9")
-    crops = ("0:0:480:360", "240:180:720:540", "0:0:960:720")
     filters = {}
     for name, globalEasing, pairEasing in [
         ("pair", None, "cinematic"),
         ("global", "cinematic", None),
         ("none", None, None),
     ]:
-        data = json.loads(MARKERS.read_text(encoding="utf-8"))
-        pair = data["markerPairs"][0]
-        times = [
-            pair["start"] + (pair["end"] - pair["start"]) * i / (len(crops) - 1)
-            for i in range(len(crops))
-        ]
-        pair.update(
-            crop=crops[0],
-            cropMap=[{"x": t, "y": 0, "crop": crop} for t, crop in zip(times, crops, strict=True)],
-        )
-        pair["overrides"] = {"cropPointEasing": pairEasing} if pairEasing else {}
+        data = markersWithCropMap(("0:0:480:360", "240:180:720:540", "0:0:960:720"))
+        data["markerPairs"][0]["overrides"] = {"cropPointEasing": pairEasing} if pairEasing else {}
         if globalEasing:
             data["cropPointEasing"] = globalEasing
-        markers = tmp_path / f"cinematic-{name}.json"
-        markers.write_text(json.dumps(data), encoding="utf-8")
-        output = clipper.cwd / "webms" / markers.stem
-        try:
-            args = [
-                "--markers-json",
-                str(markers),
-                "--input-video",
-                str(LOCAL_VIDEO),
-                *OFFLINE_ARGS,
-            ]
-            assert runInItsOwnProcess(clipper, args) == 0
-            filters[name] = loggedVideoFilter(output)
-        finally:
-            # A built clipper writes into its install folder, which must stay clean (see smoke_test.py).
-            shutil.rmtree(output, ignore_errors=True)
+        filters[name] = renderedVideoFilter(clipper, tmp_path / f"cinematic-{name}.json", data)
     assert filters["global"] == filters["pair"]
     assert filters["none"] != filters["pair"]
+
+
+def test_cinematic_hold_points_follow_the_pairs_hold_points_setting(
+    clipper: Clipper,
+    tmp_path: pathlib.Path,
+) -> None:
+    # Compares the crop filters in the runs' logs, as the global and pair easing test does.
+    clipper.requireEncoder("libvpx-vp9")
+    filters = {}
+    for name, globalHolds, pairHolds in [
+        ("default", None, None),
+        ("global exact", "exact", None),
+        ("pair exact", None, "exact"),
+        ("pair loose under a global exact", "exact", "loose"),
+        ("pair firm under a global loose", "loose", "firm"),
+    ]:
+        # A slow pan: a fast one keeps the whole margin under Firm, as under Loose.
+        data = markersWithCropMap(("0:0:480:360", "120:0:480:360", "120:0:480:360", "240:120:480:360"))
+        data["cropPointEasing"] = "cinematic"
+        pair = data["markerPairs"][0]
+        pair["cropMap"][2]["hold"] = True
+        pair["overrides"] = {"cropPointEasingCinematicHolds": pairHolds} if pairHolds else {}
+        if globalHolds:
+            data["cropPointEasingCinematicHolds"] = globalHolds
+        markers = tmp_path / f"cinematic-holds-{name.replace(' ', '-')}.json"
+        filters[name] = renderedVideoFilter(clipper, markers, data)
+    # Firm is the default.
+    assert filters["pair firm under a global loose"] == filters["default"]
+    assert filters["global exact"] == filters["pair exact"]
+    assert len({filters["default"], filters["pair exact"], filters["pair loose under a global exact"]}) == 3
 
 
 @pytest.mark.parametrize("case", CLIP_CASES)

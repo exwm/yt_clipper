@@ -58,6 +58,7 @@
     "cropPointEasing": { "$ref": "#/$defs/cropPointEasing" },
     "cropPointEasingCinematicMargin": { "type": "number", "minimum": 0, "maximum": 50 },
     "cropPointEasingCinematicZoomMargin": { "type": "number", "minimum": 0, "maximum": 100 },
+    "cropPointEasingCinematicHolds": { "enum": ["loose", "firm", "exact"] },
     "version": { "type": "string" },
     "date": { "type": "number" },
     "cropPointEasingCinematicSolverVersion": {
@@ -145,7 +146,8 @@
         "fadeDuration": { "type": "number", "minimum": 0 },
         "cropPointEasing": { "$ref": "#/$defs/cropPointEasing" },
         "cropPointEasingCinematicMargin": { "type": "number", "minimum": 0, "maximum": 50 },
-        "cropPointEasingCinematicZoomMargin": { "type": "number", "minimum": 0, "maximum": 100 }
+        "cropPointEasingCinematicZoomMargin": { "type": "number", "minimum": 0, "maximum": 100 },
+        "cropPointEasingCinematicHolds": { "enum": ["loose", "firm", "exact"] }
       }
     },
     "markerPair": {

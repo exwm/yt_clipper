@@ -219,7 +219,10 @@ def getMarkerPairSettings(  # noqa: PLR0912
             # Solve in cropRes pixels, as the markup preview does, before autoScaleCropMap rescales the points.
             try:
                 cinematicPath = _bakeCinematicPath(
-                    mp["cropMap"],
+                    cinematic_path.cinematicCropMap(
+                        mp["cropMap"],
+                        mps.get("cropPointEasingCinematicHolds", cinematic_path.DEFAULT_CINEMATIC_HOLDS),
+                    ),
                     cinematic_path.cinematicMargins(mps),
                     settings["cropResWidth"],
                     settings["cropResHeight"],

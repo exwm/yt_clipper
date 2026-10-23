@@ -13,8 +13,9 @@ SOLVER_VERSION in both when the result changes, so files previewed with another 
 
 import math
 import os
-from collections.abc import Sequence
-from typing import Any, Optional
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from typing import Any, NamedTuple, Optional
 
 # The solve's matrices are a few hundred rows, where OpenBLAS's threads cost more than they save: one
 # thread solves 1.6x faster on an idle machine and 3 to 6x under load. Set before numpy loads OpenBLAS.
@@ -105,21 +106,163 @@ def parseCropToComponents(
     )
 
 
-def _interpolateAtGrid(
-    times: list[float],
-    values: list[float],
-    gridTimes: np.ndarray,
-) -> np.ndarray:
-    """Piecewise-linear interpolation of the points at each grid time (times sorted)."""
-    out = np.empty(len(gridTimes))
-    j = 0
-    for i, t in enumerate(gridTimes):
-        while j < len(times) - 2 and times[j + 1] < t:
-            j += 1
-        span = times[j + 1] - times[j]
-        frac = (t - times[j]) / span if span > 0 else 0.0
-        out[i] = values[j] + (values[j + 1] - values[j]) * min(max(frac, 0.0), 1.0)
-    return out
+# The fewest grid steps the braking into or out of a hold takes, so the solve has samples to show it
+# on. The ease's window is four times that.
+MIN_HOLD_EASE_STEPS = 6
+# How fast the crop slows into a hold point or speeds up out of one, in crop widths per second².
+HOLD_EASE_ACCELERATION = 1
+
+
+# How Cinematic crop easing treats hold points: "loose" leaves them to the solve like any crop point,
+# "firm" holds the crop still over them within the margin, and "exact" holds the crop still over them
+# and eases into and out of them.
+DEFAULT_CINEMATIC_HOLDS = "firm"
+
+# A Firm hold pins the crop over its span, and the grid samples just outside it, within the margin.
+# Accelerations are in crop widths per second². A crop that cannot stop within the margin at
+# FIRM_HOLD_BRAKING keeps the distance it still needs.
+FIRM_HOLD_BRAKING = 4
+# The crop settles into and out of each hold over this many seconds, at FIRM_HOLD_SETTLE_ACCELERATION.
+FIRM_HOLD_SETTLE_SECONDS = 0.1
+FIRM_HOLD_SETTLE_ACCELERATION = 2
+# A move between two holds that is too quick to start and stop at FIRM_HOLD_SETTLE_ACCELERATION borrows
+# the missing time from both holds, up to this share of each.
+FIRM_HOLD_MAX_BORROW_SHARE = 0.4
+# A section that moves at most this share of the held crop's width counts as still next to a hold: a
+# crop point nudged a few pixels off the hold's crop does not stop the pan before it.
+FIRM_HOLD_STILL_SHARE = 0.01
+
+
+def cinematicCropMap(cropMap: Sequence[CropPoint], holds: str = DEFAULT_CINEMATIC_HOLDS) -> list[CropPoint]:
+    """The crop points the Cinematic solve reads: hold points become firm hold points under Firm, and
+    ordinary crop points under Loose."""
+    if holds == "exact":
+        return list(cropMap)
+    converted: list[CropPoint] = []
+    for point in cropMap:
+        if not point.get("hold"):
+            converted.append(point)
+            continue
+        released = {key: value for key, value in point.items() if key != "hold"}
+        if holds == "firm":
+            released["firmHold"] = True
+        converted.append(released)
+    return converted
+
+
+def _lineAt(times: Sequence[float], values: Sequence[float], t: float) -> float:
+    """The line between crop points, one component, at time t (clamped to the points)."""
+    k = 0
+    while k < len(times) - 2 and times[k + 1] < t:
+        k += 1
+    duration = times[k + 1] - times[k]
+    linear = min(max((t - times[k]) / duration, 0.0), 1.0) if duration > 0 else 0.0
+    return values[k] + (values[k + 1] - values[k]) * linear
+
+
+@dataclass
+class _HoldEase:
+    """An ease into or out of a held span: over [start, end] the target leaves the line at origin and
+    reaches the held crop at rest at the held edge (end for an arrival, start for a departure)."""
+
+    start: float
+    end: float
+    arrival: bool
+    brake: float
+    origin: tuple[float, float, float]
+    held: tuple[float, float, float]
+
+
+def _holdEase(
+    times: Sequence[float],
+    lines: Sequence[Sequence[float]],
+    edge: float,
+    direction: int,
+    cap: float,
+    held: tuple[float, float, float],
+    minBrake: float,
+) -> Optional[_HoldEase]:
+    """The ease into (direction -1) or out of (+1) a held span at edge. The target cruises, then brakes
+    at a constant rate to rest, as a camera stops on a subject (Gleicher and Liu, Re-cinematography,
+    2007). The window reaches back across crop points as far as the acceleration needs, so the pacing
+    stays even; crop points inside it no longer bound the crop by the margin. It is four brake
+    times long, with the brake time from the line's average speed over it, so it solves
+    (A/4) W² = D(W) for the distance D from the line to the held crop, piece by piece of the line.
+    Capped at cap. The brake time is at least minBrake unless the window is shorter than twice that,
+    and at most half the window."""
+    if not cap > 0:
+        return None
+    acceleration = HOLD_EASE_ACCELERATION * held[2]
+
+    def gap(component: int, window: float) -> float:
+        return held[component] - _lineAt(times, lines[component], edge + direction * window)
+
+    # The component that moves most over the longest window sets the ease for all three.
+    main = 0
+    for component in (1, 2):
+        if abs(gap(component, cap)) > abs(gap(main, cap)):
+            main = component
+    # The line's pieces as window lengths: breaks at crop points between the edge and the cap.
+    breaks = sorted(w for w in (direction * (time - edge) for time in times) if 0 < w < cap)
+    # The first root comes before the line reaches the held crop, where (A/4) W² - D(W) turns positive,
+    # so D = |gap| is linear on every piece the walk reaches.
+    window: Optional[float] = None
+    w0 = 0.0
+    for w1 in [*breaks, cap]:
+        g0 = gap(main, w0)
+        g1 = gap(main, w1)
+        slope = (g1 - g0) / (w1 - w0)
+        sign = -1 if (g0 if g0 != 0 else g1) < 0 else 1
+        b = sign * slope
+        a = sign * (g0 - slope * w0)
+        discriminant = b * b + acceleration * a
+        root = (b + math.sqrt(discriminant)) / (acceleration / 2) if discriminant >= 0 else -1.0
+        if w0 <= root <= w1:
+            window = root
+            break
+        w0 = w1
+    if window is None:
+        window = cap
+        brake = abs(gap(main, cap)) / (acceleration * cap)
+    else:
+        brake = window / 4
+    if brake < minBrake:
+        brake = minBrake
+        window = min(cap, 4 * minBrake)
+    brake = min(brake, window / 2)
+    outer = edge + direction * window
+    origin = (_lineAt(times, lines[0], outer), _lineAt(times, lines[1], outer), _lineAt(times, lines[2], outer))
+    if direction < 0:
+        return _HoldEase(outer, edge, True, brake, origin, held)
+    return _HoldEase(edge, outer, False, brake, origin, held)
+
+
+def _holdEaseAt(ease: _HoldEase, t: float) -> list[float]:
+    """The target in an ease's window: from the line's value at its outer end to the held crop."""
+    window = ease.end - ease.start
+    fromOuter = t - ease.start if ease.arrival else ease.end - t
+    cruise = 1 / (window - ease.brake / 2)
+    if fromOuter < window - ease.brake:
+        progress = cruise * fromOuter
+    else:
+        progress = 1 - cruise * (window - fromOuter) * (window - fromOuter) / (2 * ease.brake)
+    return [ease.origin[c] + (ease.held[c] - ease.origin[c]) * progress for c in range(3)]
+
+
+def _mergedHeldSpans(
+    times: Sequence[float], lines: Sequence[Sequence[float]], heldSections: Sequence[bool]
+) -> list[tuple[float, float, tuple[float, float, float]]]:
+    """The spans the eases go into and out of: consecutive held sections merged into one, as (start,
+    end, held crop). heldSpans gives each hold point's own span, for the pins."""
+    spans: list[tuple[float, float, tuple[float, float, float]]] = []
+    for k, held in enumerate(heldSections):
+        if not held:
+            continue
+        if spans and spans[-1][1] == times[k]:
+            spans[-1] = (spans[-1][0], times[k + 1], spans[-1][2])
+        else:
+            spans.append((times[k], times[k + 1], (lines[0][k + 1], lines[1][k + 1], lines[2][k + 1])))
+    return spans
 
 
 def _softThreshold(values: np.ndarray, kappa: float) -> np.ndarray:
@@ -284,6 +427,175 @@ def _cutTime(cutX: float, previousX: float, fps: Optional[float], videoPartStart
     return snapped if snapped > previousX else cutX
 
 
+def _holdsAfter(previous: CropPoint, point: CropPoint) -> bool:
+    """A hold point holds the crop still from the point before it. A hold point whose crop text differs
+    from that point's is not one, as the markup releases it on load."""
+    return bool(point.get("hold")) and point["crop"] == previous["crop"]
+
+
+def heldSpans(
+    run: Sequence[CropPoint], cropResWidth: int, cropResHeight: int
+) -> list[tuple[float, float, tuple[int, int, int, int]]]:
+    """The spans hold points hold still over: (time of the point before a hold point, time of the hold
+    point, its crop). A hold before a cut also holds to the cut, as the run's copy of it at the cut is
+    a hold point too."""
+    spans: list[tuple[float, float, tuple[int, int, int, int]]] = []
+    previous: Optional[CropPoint] = None
+    for point in run:
+        # A coincident-time duplicate is skipped, as the solve skips it.
+        if previous is not None and point["x"] <= previous["x"]:
+            continue
+        if previous is not None and _holdsAfter(previous, point):
+            held = parseCropToComponents(point["crop"], cropResWidth, cropResHeight)
+            spans.append((previous["x"], point["x"], held))
+        previous = point
+    return spans
+
+
+def _firmHoldsAfter(previous: CropPoint, point: CropPoint) -> bool:
+    return bool(point.get("firmHold")) and point["crop"] == previous["crop"]
+
+
+class FirmHeldSpan(NamedTuple):
+    start: float
+    end: float
+    crop: tuple[int, int, int, int]
+    # The speeds of the nearest moving sections into and out of the hold, less what the crop sheds
+    # braking over still points between, in held crop widths per second.
+    speedIn: float
+    speedOut: float
+    # How long the crop takes to settle into and out of the hold, in seconds.
+    settleIn: float
+    settleOut: float
+
+
+def firmHeldSpans(run: Sequence[CropPoint], cropResWidth: int, cropResHeight: int) -> list[FirmHeldSpan]:
+    """The spans Firm hold points hold the crop over, from the point before a Firm hold point to the
+    last of the Firm hold points after it, with the speeds and settle times into and out of each."""
+    # A coincident-time duplicate is skipped, as the solve skips it.
+    points = [point for k, point in enumerate(run) if k == 0 or point["x"] > run[k - 1]["x"]]
+    crops = [parseCropToComponents(point["crop"], cropResWidth, cropResHeight) for point in points]
+
+    def firmHeldAt(k: int) -> bool:
+        return 1 <= k < len(points) and _firmHoldsAfter(points[k - 1], points[k])
+
+    def distance(i: int, held: float) -> float:
+        """How far the section from point i to point i + 1 moves, in held crop widths."""
+        if i < 0 or i + 1 >= len(points) or not held > 0:
+            return 0
+        return max(abs(crops[i + 1][c] - crops[i][c]) for c in range(3)) / held
+
+    def movingSection(start: int, step: int, held: float) -> tuple[int, float]:
+        """The nearest section from start outward (step -1 or 1) that moves, past still sections that are
+        not Firm holds themselves, and the seconds skipped: a still point next to a hold does not stop
+        the pan before it."""
+        i = start
+        skipped = 0.0
+        while i >= 0 and i + 1 < len(points) and distance(i, held) <= FIRM_HOLD_STILL_SHARE and not firmHeldAt(i + 1):
+            skipped += points[i + 1]["x"] - points[i]["x"]
+            i += step
+        return i, skipped
+
+    def speed(i: int, held: float, skipped: float) -> float:
+        """The speed the crop still has after braking over the skipped seconds."""
+        moved = distance(i, held)
+        if moved == 0:
+            return 0
+        return max(0, moved / (points[i + 1]["x"] - points[i]["x"]) - FIRM_HOLD_BRAKING * skipped)
+
+    def settle(i: int, step: int, held: float, length: float, skipped: float) -> float:
+        """The settle into or out of a hold spanning length seconds over the moving section i, skipped
+        seconds away. A move between two Firm holds too quick to start and stop evenly borrows half the
+        missing time, counting still time on both sides of the move as time it can use."""
+        moved = distance(i, held)
+        if moved == 0:
+            return 0
+        far, farSkipped = movingSection(i + step, step, held)
+        otherEndHeld = far + 1 < len(points) and firmHeldAt(far + 1)
+        between = points[i + 1]["x"] - points[i]["x"] + skipped + farSkipped
+        evenMove = 2 * math.sqrt(moved / FIRM_HOLD_SETTLE_ACCELERATION)
+        borrowed = max(0, (evenMove - between) / 2) if otherEndHeld else 0
+        most = FIRM_HOLD_MAX_BORROW_SHARE * length
+        return min(most, max(0, FIRM_HOLD_SETTLE_SECONDS - skipped, borrowed))
+
+    spans: list[FirmHeldSpan] = []
+    k = 1
+    while k < len(points):
+        if not _firmHoldsAfter(points[k - 1], points[k]):
+            k += 1
+            continue
+        # Consecutive Firm hold points hold one crop, as one span.
+        last = k
+        while firmHeldAt(last + 1):
+            last += 1
+        held = crops[last][2]
+        length = points[last]["x"] - points[k - 1]["x"]
+        into, skippedIn = movingSection(k - 2, -1, held)
+        outOf, skippedOut = movingSection(last, 1, held)
+        spans.append(
+            FirmHeldSpan(
+                start=points[k - 1]["x"],
+                end=points[last]["x"],
+                crop=crops[last],
+                speedIn=speed(into, held, skippedIn),
+                speedOut=speed(outOf, held, skippedOut),
+                settleIn=settle(into, -1, held, length, skippedIn),
+                settleOut=settle(outOf, 1, held, length, skippedOut),
+            )
+        )
+        k = last + 1
+    return spans
+
+
+def firmHoldAllowance(span: FirmHeldSpan, time: np.ndarray, margin: np.ndarray) -> np.ndarray:
+    """How far the crop may leave a Firm hold's crop at each time, in px, before the margin (px) caps it:
+    the distance it cannot brake within the margin, and its settle into and out of the hold."""
+    width = span.crop[2]
+    room = margin / width
+    sinceStart = time - span.start
+    untilEnd = span.end - time
+
+    def braking(speed: float, since: np.ndarray) -> np.ndarray:
+        if not speed > 0:
+            return np.zeros_like(since)
+        needed = speed * speed / (2 * FIRM_HOLD_BRAKING) - room
+        return np.where(needed > 0, needed * np.clip(1 - since * FIRM_HOLD_BRAKING / speed, 0, 1), 0.0)
+
+    def settling(settle: float, since: np.ndarray) -> np.ndarray:
+        return np.where(since < settle, FIRM_HOLD_SETTLE_ACCELERATION * (settle - since) ** 2 / 2, 0.0)
+
+    return width * np.maximum.reduce(
+        [
+            braking(span.speedIn, sinceStart),
+            braking(span.speedOut, untilEnd),
+            settling(span.settleIn, sinceStart),
+            settling(span.settleOut, untilEnd),
+        ]
+    )
+
+
+# A span end computed in grid steps can land a rounding error off a whole sample.
+GRID_INDEX_TOLERANCE = 1e-9
+
+
+def _samplesHeldBy(spans: Sequence[tuple[float, float]], sampleCount: int) -> np.ndarray:
+    """Per grid sample, the index of the span that holds it, or -1: each span holds the samples it covers
+    (a to b, in grid steps), then the samples just outside it that no span holds, except the run's two
+    ends. The first span to reach a sample keeps it; spans that share a covered sample hold the same
+    crop."""
+    held = np.full(sampleCount, -1)
+    for k, (a, b) in enumerate(spans):
+        first = max(0, math.ceil(a - GRID_INDEX_TOLERANCE))
+        last = min(sampleCount - 1, math.floor(b + GRID_INDEX_TOLERANCE))
+        covered = held[first : last + 1]
+        covered[covered < 0] = k
+    for k, (a, b) in enumerate(spans):
+        for i in (math.floor(a + GRID_INDEX_TOLERANCE), math.ceil(b - GRID_INDEX_TOLERANCE)):
+            if 0 < i < sampleCount - 1 and held[i] < 0:
+                held[i] = k
+    return held
+
+
 def splitAtInstantCuts(
     cropMap: Sequence[CropPoint],
     fps: Optional[float] = None,
@@ -297,7 +609,19 @@ def splitAtInstantCuts(
     for point in cropMap:
         if point.get("easeIn") == "instant" and run:
             cutTime = _cutTime(point["x"], run[-1]["x"], fps, videoPartStart)
-            run.append({**run[-1], "x": cutTime, "easeIn": None})
+            # The copy holds only if its point does, so a hold flag the markup releases on load stays
+            # released.
+            holds = len(run) > 1 and _holdsAfter(run[-2], run[-1])
+            firmHolds = len(run) > 1 and _firmHoldsAfter(run[-2], run[-1])
+            run.append(
+                {
+                    **run[-1],
+                    "x": cutTime,
+                    "easeIn": None,
+                    "hold": True if holds else None,
+                    "firmHold": True if firmHolds else None,
+                }
+            )
             runs.append(run)
             run = [{**point, "x": cutTime}]
             if cutTime < point["x"]:
@@ -328,13 +652,19 @@ def _solveRun(
     width the path takes, over all its runs."""
     times: list[float] = []
     columns: list[tuple[int, int, int, int]] = []
+    # Whether the section from point k to point k + 1 is held still.
+    heldSections: list[bool] = []
+    previous: Optional[CropPoint] = None
     for point in run:
         rel = point["x"] - firstTime
         # A coincident-time duplicate (a redundant zero-duration point) is skipped.
         if times and rel <= times[-1]:
             continue
+        if previous is not None:
+            heldSections.append(_holdsAfter(previous, point))
         times.append(rel)
         columns.append(parseCropToComponents(point["crop"], cropResWidth, cropResHeight))
+        previous = point
     if len(times) < 2:
         return None
     x, y, w, h = (list(values) for values in zip(*columns))
@@ -346,9 +676,34 @@ def _solveRun(
     gridTimes = start + dt * np.arange(sampleCount)
     weights = weightsForSpacing(dt)
 
-    targetX = _interpolateAtGrid(times, x, gridTimes)
-    targetY = _interpolateAtGrid(times, y, gridTimes)
-    targetW = _interpolateAtGrid(times, w, gridTimes)
+    # Zoom keeps the crop aspect ratio, so solve the width and derive the height.
+    ratio = h[0] / w[0] if w[0] > 0 else cropResHeight / cropResWidth
+    minBrake = MIN_HOLD_EASE_STEPS * dt
+    lines = (x, y, w)
+    # Two held spans split the gap between them at its midpoint, so their eases never overlap.
+    spans = _mergedHeldSpans(times, lines, heldSections)
+    eases: list[_HoldEase] = []
+    for i, (spanStart, spanEnd, held) in enumerate(spans):
+        before = (spanStart - spans[i - 1][1]) / 2 if i > 0 else spanStart - start
+        after = (spans[i + 1][0] - spanEnd) / 2 if i + 1 < len(spans) else times[-1] - spanEnd
+        eases.extend(
+            ease
+            for ease in (
+                _holdEase(times, lines, spanStart, -1, before, held, minBrake),
+                _holdEase(times, lines, spanEnd, 1, after, held, minBrake),
+            )
+            if ease is not None
+        )
+
+    def targetAt(t: float) -> list[float]:
+        """The line between crop points, and in each ease's window, the ease into or out of the hold."""
+        for ease in eases:
+            if ease.start <= t <= ease.end:
+                return _holdEaseAt(ease, t)
+        return [_lineAt(times, values, t) for values in lines]
+
+    targets = np.array([targetAt(t) for t in gridTimes])
+    targetX, targetY, targetW = targets[:, 0], targets[:, 1], targets[:, 2]
 
     def box(
         target: np.ndarray,
@@ -362,22 +717,51 @@ def _solveRun(
         lower[-1] = upper[-1] = target[-1]
         return lower, upper
 
-    # Zoom keeps the crop aspect ratio, so solve the width and derive the height. The width bounds how
-    # far x can pan with the crop still on screen, so it is solved first.
-    ratio = h[0] / w[0] if w[0] > 0 else cropResHeight / cropResWidth
+    # The width bounds how far x can pan with the crop still on screen, so it is solved first.
     # The height follows the width at the ratio, so the frame's height bounds the width too: a 9:16
     # crop at full height would otherwise widen past its ratio while its height stops at the frame.
+    def gridIndex(time: float) -> float:
+        return (time - firstTime - start) / dt
+
+    # Firm hold points pin the box to the held crop over their spans and at the grid samples just
+    # outside them, widened by what the crop needs to brake and settle.
+    firmSpans = firmHeldSpans(run, cropResWidth, cropResHeight)
+    firmSpanAt = _samplesHeldBy([(gridIndex(span.start), gridIndex(span.end)) for span in firmSpans], sampleCount)
+    firmSamples = [np.flatnonzero(firmSpanAt == k) for k in range(len(firmSpans))]
+    for span, indices in zip(firmSpans, firmSamples, strict=True):
+        targetX[indices], targetY[indices], targetW[indices] = span.crop[:3]
+    # The position margin is a share of the crop points' shorter side, in both directions, so the crop
+    # never drifts more than that share of its width or its height, and a zoom changes it with the crop.
+    margin = margins["pos"] * np.minimum(targetW, targetW * ratio)
+    # Per sample, how far a Firm hold lets the crop move: infinite where none applies.
+    firmAllowance = np.full(sampleCount, math.inf)
+    for span, indices in zip(firmSpans, firmSamples, strict=True):
+        firmAllowance[indices] = firmHoldAllowance(span, firstTime + gridTimes[indices], margin[indices])
     maxW = min(cropResWidth, cropResHeight / ratio)
-    hiW = np.minimum(maxW, targetW * (1 + margins["zoom"]))
+    # The allowance is the position's: the crop brakes and settles in size as it does in place.
+    halfW = np.minimum(margins["zoom"] * targetW, firmAllowance)
+    hiW = np.minimum(maxW, targetW + halfW)
     # At a zoom margin near 1 a quick zoom would let the crop overshoot to nothing: keep it as large as
     # the markup's smallest crop and within the render's zoom of the path's widest crop, or the crop
     # point's own size when smaller (a hand-edited file).
     smallestW = max(MIN_CROP_WIDTH, MIN_CROP_HEIGHT / ratio, widestW / ZOOMPAN_MAX_ZOOM)
-    loW, hiW = box(
-        targetW,
-        np.maximum(np.maximum(1.0, targetW * (1 - margins["zoom"])), np.minimum(targetW, smallestW)),
-        hiW,
-    )
+    loWide = np.maximum(1.0, targetW - halfW)
+    loW, hiW = box(targetW, np.maximum(loWide, np.minimum(targetW, smallestW)), hiW)
+    # Hold points hold still: each held span's samples are pinned to its crop, and the grid samples just
+    # outside it, so nothing moves inside it (it may hold up to one grid step longer at each end).
+    held = heldSpans(run, cropResWidth, cropResHeight)
+    pinnedTo = _samplesHeldBy([(gridIndex(spanStart), gridIndex(spanEnd)) for spanStart, spanEnd, _ in held], sampleCount)
+
+    def pin(
+        lower: np.ndarray,
+        upper: np.ndarray,
+        value: Callable[[tuple[int, int, int, int], int], float],
+    ) -> None:
+        for i, k in enumerate(pinnedTo):
+            if k >= 0:
+                lower[i] = upper[i] = value(held[k][2], i)
+
+    pin(loW, hiW, lambda crop, _i: crop[2])
     # Per sample, so the pull's total strength does not depend on the grid spacing.
     fidelity = CROP_POINT_FIDELITY * dt * GRID_RATE_HZ
     solvedW = solveL1Path(np.clip(targetW, loW, hiW), loW, hiW, weights, fidelity)
@@ -388,20 +772,20 @@ def _solveRun(
     targetX = np.minimum(targetX, cropResWidth - solvedW)
     targetY = np.minimum(targetY, cropResHeight - solvedH)
 
-    # The position margin is a share of the crop points' shorter side, in both directions, so the crop
-    # never drifts more than that share of its width or its height, and a zoom changes it with the crop.
-    margin = margins["pos"] * np.minimum(targetW, targetW * ratio)
+    margin = np.minimum(margin, firmAllowance)
     loX, hiX = box(
         targetX,
         np.maximum(0.0, targetX - margin),
         np.minimum(cropResWidth - solvedW, targetX + margin),
     )
+    pin(loX, hiX, lambda crop, i: min(crop[0], cropResWidth - solvedW[i]))
     solvedX = solveL1Path(np.clip(targetX, loX, hiX), loX, hiX, weights, fidelity)
     loY, hiY = box(
         targetY,
         np.maximum(0.0, targetY - margin),
         np.minimum(cropResHeight - solvedH, targetY + margin),
     )
+    pin(loY, hiY, lambda crop, i: min(crop[1], cropResHeight - solvedH[i]))
     solvedY = solveL1Path(np.clip(targetY, loY, hiY), loY, hiY, weights, fidelity)
 
     return _segmentPath(gridTimes, {"x": solvedX, "y": solvedY, "w": solvedW, "h": solvedH})

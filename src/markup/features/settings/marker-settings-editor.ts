@@ -16,6 +16,7 @@ import {
   toggleChart,
 } from '../../charts';
 import {
+  DEFAULT_CINEMATIC_HOLDS,
   DEFAULT_CINEMATIC_MARGIN_PERCENT,
   DEFAULT_CINEMATIC_ZOOM_MARGIN_PERCENT,
 } from '../../crop/cinematic-path';
@@ -312,7 +313,7 @@ function MarkerPairEditorTemplate(
           tooltip: Tooltips.cropPointEasingTooltip,
           labelSuffix: SettingsGearButton({
             id: 'cinematic-settings-modal',
-            title: 'Cinematic Settings',
+            title: 'Crop Easing Settings',
             content: () =>
               CinematicSettings({
                 editorKey: markerPair,
@@ -342,6 +343,15 @@ function MarkerPairEditorTemplate(
                 inheritedZoomMargin:
                   appState.settings.cropPointEasingCinematicZoomMargin ??
                   DEFAULT_CINEMATIC_ZOOM_MARGIN_PERCENT,
+                holdsInput: bindOverride(
+                  'cinematic-holds-input',
+                  'cropPointEasingCinematicHolds',
+                  'inheritableString',
+                  { afterChange: scheduleCinematicRecompute }
+                ),
+                holds: overrides.cropPointEasingCinematicHolds,
+                inheritedHolds:
+                  appState.settings.cropPointEasingCinematicHolds ?? DEFAULT_CINEMATIC_HOLDS,
                 // The pair's crops as the margin applies to them now.
                 crops: () => {
                   const current = appState.markerPairs[appState.prevSelectedMarkerPairIndex];

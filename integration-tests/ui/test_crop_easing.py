@@ -12,6 +12,20 @@ EASING_SELECT = "#crop-point-easing-input"
 GEAR_BUTTON = "#cinematic-settings-modal-button"
 MARGIN_INPUT = "#cinematic-margin-input"
 ZOOM_MARGIN_INPUT = "#cinematic-zoom-margin-input"
+HOLDS_SELECT = "#cinematic-holds-input"
+
+# A pan to 600 that holds there from 5 s to the hold point at 6.5 s, then pans on.
+HOLD_PAIR = {
+    "start": 3,
+    "end": 9,
+    "crop": "0:0:960:540",
+    "cropMap": [
+        {"x": 3, "y": 0, "crop": "0:0:960:540"},
+        {"x": 5, "y": 0, "crop": "600:0:960:540"},
+        {"x": 6.5, "y": 0, "crop": "600:0:960:540", "hold": True},
+        {"x": 9, "y": 0, "crop": "900:0:960:540"},
+    ],
+}
 
 # A pan right and back with uneven spacing, so the easing modes differ between points.
 PAN_PAIR = {
@@ -84,6 +98,20 @@ def test_moving_the_start_marker_between_points_keeps_the_previewed_crop(
     previewed = previewed_crop_x_at(dynamic_pan, BETWEEN_POINTS_TIME)
     when_i_move_the_start_marker_to_the_current_time(dynamic_pan)
     saved = when_i_save_the_markers(dynamic_pan)
+    then_the_first_crop_point_is_at(saved, BETWEEN_POINTS_TIME, previewed)
+
+
+def test_moving_the_start_marker_of_a_cinematic_pair_ending_in_a_hold_point_keeps_the_previewed_crop(
+    markup: MarkupPage,
+) -> None:
+    # Hold points are Firm, so the end point's hold narrows the margin instead of pinning the crop.
+    held_end = {**PAN_PAIR, "cropMap": [*PAN_PAIR["cropMap"][:-1], {"x": 9, "y": 0, "crop": "900:0:960:540", "hold": True}]}
+    given_pairs_with_the_first_ones_editor_open(markup, [held_end, {"start": 12, "end": 14}])
+    when_i_choose_easing(markup, "cinematic")
+    then_a_cinematic_path_is_baked(markup)
+    previewed = previewed_crop_x_at(markup, BETWEEN_POINTS_TIME)
+    when_i_move_the_start_marker_to_the_current_time(markup)
+    saved = when_i_save_the_markers(markup)
     then_the_first_crop_point_is_at(saved, BETWEEN_POINTS_TIME, previewed)
 
 
@@ -296,8 +324,10 @@ def given_a_pair_with_a_dynamic_pan_and_its_editor_open(markup: MarkupPage) -> N
 
 
 @step
-def given_pairs_with_the_first_ones_editor_open(markup: MarkupPage, pairs: list[dict]) -> None:
-    markup.load_saved_marker_pairs(pairs)
+def given_pairs_with_the_first_ones_editor_open(
+    markup: MarkupPage, pairs: list[dict], settings: dict | None = None
+) -> None:
+    markup.load_saved_marker_pairs(pairs, settings)
     markup.open_marker_pair(0)
     # The crop chart's preview loop drives the crop chip that reports the previewed crop.
     markup.press("Alt+KeyD")
@@ -540,6 +570,73 @@ def then_the_pair_saves_the_margins(saved: dict, margin: float | None, zoomMargi
     assert overrides.get("cropPointEasingCinematicZoomMargin") == zoomMargin
 
 
+def test_cinematic_hold_points_hold_as_still_as_the_hold_points_setting_says(markup: MarkupPage) -> None:
+    # The pan stops at 600 from 5 s to the hold point at 6.5 s.
+    given_pairs_with_the_first_ones_editor_open(markup, [HOLD_PAIR, {"start": 12, "end": 14}])
+    when_i_choose_easing(markup, "cinematic")
+    then_a_cinematic_path_is_baked(markup)
+    firm = hold_drift(markup)
+    markup.report(f"Firm drift {firm}")
+    # About 2% of the 540 px side either way, so 4% peak to peak.
+    assert firm < 0.04 * 540
+    when_i_reopen_the_cinematic_settings(markup)
+    assert markup.page.locator(f"{HOLDS_SELECT} option:checked").inner_text() == "(Firm)"
+    markup.page.select_option(HOLDS_SELECT, "loose")
+    # Measuring seeks back and forth over a crop point, which must not postpone the solve.
+    then_the_hold_drifts_more_than(markup, firm)
+    markup.page.select_option(HOLDS_SELECT, "exact")
+    then_a_cinematic_path_is_baked(markup)
+    then_the_crop_x_settles_at(markup, 6.0, 600)
+    assert crop_x_at(markup, 5.5) == pytest.approx(600, abs=1)
+    overrides = when_i_save_the_markers(markup)["markerPairs"][0].get("overrides", {})
+    assert overrides.get("cropPointEasingCinematicHolds") == "exact"
+
+
+def hold_drift(markup: MarkupPage) -> float:
+    return abs(crop_x_at(markup, 6.0) - crop_x_at(markup, 5.5))
+
+
+@step
+def then_the_hold_drifts_more_than(markup: MarkupPage, drift: float) -> None:
+    # The path is solved again after the setting changes.
+    for _ in range(30):
+        if hold_drift(markup) > drift + 1:
+            return
+        markup.next_frames(10)
+    xs = [crop_x_at(markup, t) for t in (4.5, 5.0, 5.5, 6.0, 6.5, 7.0)]
+    raise AssertionError(f"the hold drifted {hold_drift(markup)} px, not more than {drift}: {xs}")
+
+
+def test_a_pair_inherits_cinematic_hold_points_set_globally(markup: MarkupPage) -> None:
+    given_pairs_with_the_first_ones_editor_open(
+        markup,
+        [HOLD_PAIR, {"start": 12, "end": 14}],
+        {"cropPointEasing": "cinematic", "cropPointEasingCinematicHolds": "exact"},
+    )
+    then_a_cinematic_path_is_baked(markup)
+    then_the_crop_x_settles_at(markup, 6.0, 600)
+    assert crop_x_at(markup, 5.5) == pytest.approx(600, abs=1)
+    when_i_reopen_the_cinematic_settings(markup)
+    assert markup.page.locator(f"{HOLDS_SELECT} option:checked").inner_text() == "(Exact)"
+
+
+@step
+def then_the_crop_x_settles_at(markup: MarkupPage, time: float, x: float) -> None:
+    # The path is solved again after the setting changes.
+    for _ in range(30):
+        if crop_x_at(markup, time) == pytest.approx(x, abs=1):
+            return
+        markup.next_frames(10)
+    raise AssertionError(f"the crop x at {time} s stayed at {crop_x_at(markup, time)}, not {x}")
+
+
+def crop_x_at(markup: MarkupPage, time: float) -> float:
+    markup.seek(3)
+    markup.seek(time, presented=True)
+    markup.next_frames(3)
+    return shown_crop_x(markup)
+
+
 @step
 def then_the_cinematic_gear_is_shown(markup: MarkupPage) -> None:
     # Every easing keeps it, so the settings can switch between them.
@@ -667,6 +764,12 @@ def then_the_easing_is(
     legend = markup.page.locator(".ytc-cinematic-plot-legend-item.active")
     assert legend.count() == 1
     assert legend.get_attribute("data-plot-layer") == layer
+    # The Cinematic Easing section dims while another easing is chosen.
+    for selector in [".ytc-cinematic-section-header", HOLDS_SELECT]:
+        opacity = markup.page.eval_on_selector(
+            selector, "el => getComputedStyle(el.closest('.ytc-settings-popover > *')).opacity"
+        )
+        assert (float(opacity) == 1) == (easing == "cinematic"), f"{selector} opacity {opacity}"
     # The crop chip counts the Cinematic path only while the preview shows it.
     segments = "#interp-crop-value[data-cinematic-segments]:not([data-cinematic-segments='0'])"
     if previewing_cinematic:
