@@ -158,6 +158,20 @@ interface CropPath {
   // Hash of the cropMap + margins it was solved from; a mismatch means the path is stale.
   signature: string;
   segments: CropPathSegment[];
+  // The range the solver kept the crop center in, per grid sample (clip-relative seconds), in cropRes
+  // px. Only the markup's Cinematic plot reads it.
+  centerBounds?: CropPathCenterBounds;
+}
+
+interface CropPathCenterBounds {
+  t: number[];
+  xLow: number[];
+  xHigh: number[];
+  yLow: number[];
+  yHigh: number[];
+  // The range the solver kept the crop width in, which the zoom margin sets.
+  wLow: number[];
+  wHigh: number[];
 }
 
 interface ChartInput {

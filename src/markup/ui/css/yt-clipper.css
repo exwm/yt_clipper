@@ -1005,7 +1005,8 @@
   margin-top: 4px;
 }
 
-.ytc-cinematic-strength-button {
+.ytc-cinematic-strength-button,
+.ytc-cinematic-easing-button {
   padding: 3px 6px;
   font-size: 9pt;
   line-height: normal;
@@ -1020,8 +1021,135 @@
   text-align: right;
 }
 
+/* The marker pair's crop center over time, above the presets. */
+.ytc-cinematic-plot {
+  margin: 4px 0 6px;
+}
+
+.ytc-cinematic-plot-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+  color: var(--light-grey);
+  font-size: 8.5pt;
+}
+
+.ytc-cinematic-plot-axes {
+  display: flex;
+  gap: 2px;
+}
+
+.ytc-cinematic-plot-axis-button {
+  padding: 1px 6px;
+  font-size: 8pt;
+  line-height: normal;
+}
+
+/* The toggle's own display would otherwise show it. */
+.ytc-cinematic-plot-axis-button[hidden] {
+  display: none;
+}
+
+.ytc-cinematic-plot-canvas {
+  display: block;
+  width: 260px;
+  height: 110px;
+  background: var(--darker-grey);
+  border: 1px solid var(--med-grey);
+  border-radius: 2px;
+}
+
+/* Both axes stacked. */
+.ytc-cinematic-plot.empty .ytc-cinematic-plot-canvas {
+  opacity: 0.4;
+}
+
+.ytc-cinematic-plot-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  margin-top: 3px;
+  color: var(--light-grey);
+  font-size: 8pt;
+}
+
+/* Each legend entry shows or hides its layer. */
+.ytc-cinematic-plot-legend-item {
+  padding: 1px 2px;
+  border: none;
+  border-radius: 2px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ytc-cinematic-plot-legend-item:hover {
+  background: var(--darker-grey);
+}
+
+.ytc-cinematic-plot-legend-item[aria-pressed='false'] {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+/* The path of the marker pair's own crop easing. */
+.ytc-cinematic-plot-legend-item.active {
+  color: var(--lighter-grey);
+  font-weight: 700;
+}
+
+.ytc-cinematic-plot-legend i {
+  display: inline-block;
+  width: 12px;
+  height: 0;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.ytc-cinematic-plot-legend i.points {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgb(235, 235, 235);
+}
+
+.ytc-cinematic-plot-legend i.band {
+  height: 8px;
+  background: rgba(210, 210, 210, 0.22);
+}
+
+.ytc-cinematic-plot-legend i.cinematic {
+  border-top: 2px solid rgb(255, 160, 70);
+}
+
+/* The plot's own dash patterns: a border's dashes are too long to tell apart at this size. */
+.ytc-cinematic-plot-legend i.smoothTrack {
+  height: 2px;
+  background: repeating-linear-gradient(90deg, rgb(120, 175, 255) 0 5px, transparent 5px 8px);
+}
+
+.ytc-cinematic-plot-legend i.easeInOut {
+  height: 2px;
+  background: repeating-linear-gradient(90deg, rgb(205, 160, 255) 0 2px, transparent 2px 4.5px);
+}
+
+.ytc-settings-popover > .ytc-cinematic-margin-slider {
+  display: block;
+  width: 100%;
+  margin: 4px 0 0;
+  accent-color: rgb(255, 160, 70);
+}
+
+.ytc-settings-popover > .ytc-cinematic-plot-hint {
+  margin: 2px 0 4px;
+  color: var(--light-grey);
+  font-size: 8.5pt;
+}
+
 /* One label and input per row, the inputs in one column. */
-.ytc-settings-popover > div:not(.ytc-settings-popover-title):not(.ytc-cinematic-strength):not(.ytc-cinematic-margin-px) {
+.ytc-settings-popover > div:not(.ytc-settings-popover-title):not(.ytc-cinematic-strength):not(.ytc-cinematic-margin-px):not(.ytc-cinematic-plot):not(.ytc-cinematic-plot-hint) {
   display: grid;
   grid-template-columns: 1fr 5em;
   align-items: center;

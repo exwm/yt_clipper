@@ -3,8 +3,11 @@ import { ref } from 'lit-html/directives/ref.js';
 import { appState } from '../../appState';
 import {
   chartState,
+  getActiveCinematicPlotInput,
+  getCropPreviewMouseTimeSetter,
   getCurrentCropComponents,
   hideChart,
+  isCinematicSolvePending,
   loadChartData,
   refreshCropPreview,
   scheduleCinematicRecompute,
@@ -15,7 +18,7 @@ import {
   DEFAULT_CINEMATIC_MARGIN_PERCENT,
   DEFAULT_CINEMATIC_ZOOM_MARGIN_PERCENT,
 } from '../../crop/cinematic-path';
-import { CinematicSettings } from './cinematic-settings';
+import { CinematicSettings, refreshCinematicSettings } from './cinematic-settings';
 import { isReframeEnabled, syncReframe, toggleReframe } from '../../crop/video-zoom-controller';
 import {
   CropChip,
@@ -25,7 +28,6 @@ import {
   NumberInputRow,
   SettingsFieldset,
   SettingsGearButton,
-  setSettingsGearButtonVisible,
   TextInputRow,
 } from '../../components/settings';
 import { DEFAULT_CROP_POINT_EASING } from '../../crop/crop-keyframe-math';
@@ -157,11 +159,9 @@ function MarkerPairEditorTemplate(
     appState.rotation !== 0 ? getRotatedCropString(crop) : getNumericCropString(crop);
 
   const overrides = markerPair.overrides;
-  // Live read, so the gear's afterChange toggle sees the freshly written easing.
-  const isCinematicActive = () =>
-    (overrides.cropPointEasing ??
-      appState.settings.cropPointEasing ??
-      DEFAULT_CROP_POINT_EASING) === 'cinematic';
+  // Live read, so the Cinematic settings show the freshly written easing.
+  const activeCropPointEasing = () =>
+    overrides.cropPointEasing ?? appState.settings.cropPointEasing ?? DEFAULT_CROP_POINT_EASING;
   const effectiveMinterpMul =
     overrides.minterpFpsMultiplier ?? appState.settings.minterpFpsMultiplier ?? 0;
   const minterpFpsMulLabel = getMinterpFpsMulSuffix(effectiveMinterpMul, speed);
@@ -299,7 +299,7 @@ function MarkerPairEditorTemplate(
             afterChange: () => {
               refreshCropPreview();
               scheduleCinematicRecompute();
-              setSettingsGearButtonVisible('cinematic-settings-modal', isCinematicActive());
+              refreshCinematicSettings();
             },
           }),
           label: 'Crop Easing',
@@ -312,14 +312,21 @@ function MarkerPairEditorTemplate(
           labelSuffix: SettingsGearButton({
             id: 'cinematic-settings-modal',
             title: 'Cinematic Settings',
-            visible: isCinematicActive(),
             content: () =>
               CinematicSettings({
-                editorKey: `pair-${appState.prevSelectedMarkerPairIndex}`,
+                editorKey: markerPair,
+                easingSelectId: 'crop-point-easing-input',
+                activeEasing: activeCropPointEasing,
+                inheritedEasing: appState.settings.cropPointEasing ?? DEFAULT_CROP_POINT_EASING,
                 // The solve redraws the preview. A redraw now would show the stale path's fallback.
-                marginInput: bindOverride('cinematic-margin-input', 'cropPointEasingCinematicMargin', 'number', {
-                  afterChange: scheduleCinematicRecompute,
-                }),
+                marginInput: bindOverride(
+                  'cinematic-margin-input',
+                  'cropPointEasingCinematicMargin',
+                  'number',
+                  {
+                    afterChange: scheduleCinematicRecompute,
+                  }
+                ),
                 zoomMarginInput: bindOverride(
                   'cinematic-zoom-margin-input',
                   'cropPointEasingCinematicZoomMargin',
@@ -328,13 +335,24 @@ function MarkerPairEditorTemplate(
                 ),
                 margin: overrides.cropPointEasingCinematicMargin,
                 zoomMargin: overrides.cropPointEasingCinematicZoomMargin,
-                inheritedMargin: appState.settings.cropPointEasingCinematicMargin ?? DEFAULT_CINEMATIC_MARGIN_PERCENT,
+                inheritedMargin:
+                  appState.settings.cropPointEasingCinematicMargin ??
+                  DEFAULT_CINEMATIC_MARGIN_PERCENT,
                 inheritedZoomMargin:
-                  appState.settings.cropPointEasingCinematicZoomMargin ?? DEFAULT_CINEMATIC_ZOOM_MARGIN_PERCENT,
+                  appState.settings.cropPointEasingCinematicZoomMargin ??
+                  DEFAULT_CINEMATIC_ZOOM_MARGIN_PERCENT,
                 // The pair's crops as the margin applies to them now.
                 crops: () => {
                   const current = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
                   return current?.cropMap.map((point) => point.crop) ?? [];
+                },
+                plot: {
+                  input: getActiveCinematicPlotInput,
+                  currentTime: () => appState.video.getCurrentTime(),
+                  seekOnRightDrag: getCropPreviewMouseTimeSetter,
+                  requestPath: scheduleCinematicRecompute,
+                  isSolvePending: isCinematicSolvePending,
+                  activeEasing: activeCropPointEasing,
                 },
               }),
           }),

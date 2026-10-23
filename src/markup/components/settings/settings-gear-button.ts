@@ -1,4 +1,4 @@
-import { html, nothing, render, TemplateResult } from 'lit-html';
+import { html, render, TemplateResult } from 'lit-html';
 import { renderToggleIcon } from '../../features/icons/glyphs';
 import { assertDefined } from '../../util/util';
 
@@ -66,8 +66,11 @@ function toggleSettingsGearPopover(
     const target = e.target as Node;
     if (!popover.contains(target) && !button.contains(target)) close();
   };
+  // Its content can grow while open (a taller plot), which must not push it off the page.
+  const resizeObserver = new ResizeObserver(reposition);
   const close = (): void => {
     closeOpenPopover = null;
+    resizeObserver.disconnect();
     document.removeEventListener('keydown', onKeydown, true);
     document.removeEventListener('pointerdown', onPointerdown, true);
     window.removeEventListener('resize', reposition);
@@ -84,6 +87,7 @@ function toggleSettingsGearPopover(
   window.addEventListener('resize', reposition);
   window.addEventListener('scroll', reposition, true);
   reposition();
+  resizeObserver.observe(popover);
 }
 
 export interface SettingsGearButtonProps {
@@ -91,30 +95,19 @@ export interface SettingsGearButtonProps {
   id: string;
   // Popover title and button tooltip.
   title: string;
-  visible: boolean;
   // Builds the popover's settings controls on each open, so they show the current values. The
   // caller owns their bind wiring.
   content: () => TemplateResult;
 }
 
-// For callers whose relevance condition changes without a template re-render (e.g. a mode select's
-// afterChange).
-export function setSettingsGearButtonVisible(id: string, visible: boolean): void {
-  const button = document.getElementById(`${id}-button`);
-  if (button) button.style.display = visible ? '' : 'none';
-  if (!visible && document.getElementById(id)) closeSettingsGearPopovers();
-}
-
 // A gear button that opens a popover with a widget's secondary settings, so they don't take up row
-// space inline. Always in the DOM (hidden via display) so setSettingsGearButtonVisible can toggle it
-// without a re-render.
+// space inline.
 export function SettingsGearButton(p: SettingsGearButtonProps): TemplateResult {
   return html`
     <button
       type="button"
       id=${`${p.id}-button`}
       class="settings-toggle settings-gear-button"
-      style=${p.visible ? nothing : 'display:none'}
       title=${p.title}
       @click=${(e: MouseEvent) =>
         toggleSettingsGearPopover(e.currentTarget as HTMLElement, p.id, p.title, p.content())}

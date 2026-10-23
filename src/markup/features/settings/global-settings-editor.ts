@@ -6,7 +6,7 @@ import {
   DEFAULT_CINEMATIC_MARGIN_PERCENT,
   DEFAULT_CINEMATIC_ZOOM_MARGIN_PERCENT,
 } from '../../crop/cinematic-path';
-import { CinematicSettings } from './cinematic-settings';
+import { CinematicSettings, refreshCinematicSettings } from './cinematic-settings';
 import { isReframeEnabled, syncReframe } from '../../crop/video-zoom-controller';
 import {
   CropChip,
@@ -16,7 +16,6 @@ import {
   NumberInputRow,
   SettingsFieldset,
   SettingsGearButton,
-  setSettingsGearButtonVisible,
   TextInputRow,
 } from '../../components/settings';
 import { EncodeSettingsFieldset } from './encode-settings-fieldset';
@@ -79,9 +78,8 @@ function GlobalSettingsEditorTemplate(binder: SettingsBinder<Settings>): Templat
     appState.rotation !== 0
       ? getRotatedCropString(settings.newMarkerCrop)
       : getNumericCropString(settings.newMarkerCrop);
-  // Live read, so the gear's afterChange toggle sees the freshly written easing.
-  const isCinematicActive = () =>
-    (settings.cropPointEasing ?? DEFAULT_CROP_POINT_EASING) === 'cinematic';
+  // Live read, so the Cinematic settings show the freshly written easing.
+  const activeCropPointEasing = () => settings.cropPointEasing ?? DEFAULT_CROP_POINT_EASING;
   const numOrRange = `(\\d{1,2})|(\\d{1,2}-\\d{1,2})`;
   const csvRange = `(${numOrRange})*(,(${numOrRange}))*`;
   const csvRangeReq = `(${numOrRange}){1}(,(${numOrRange}))*`;
@@ -250,7 +248,7 @@ function GlobalSettingsEditorTemplate(binder: SettingsBinder<Settings>): Templat
             afterChange: () => {
               triggerCropPreviewRedraw();
               scheduleCinematicRecompute();
-              setSettingsGearButtonVisible('global-cinematic-settings-modal', isCinematicActive());
+              refreshCinematicSettings();
             },
           }),
           label: 'Crop Easing',
@@ -261,17 +259,28 @@ function GlobalSettingsEditorTemplate(binder: SettingsBinder<Settings>): Templat
           labelSuffix: SettingsGearButton({
             id: 'global-cinematic-settings-modal',
             title: 'Cinematic Settings',
-            visible: isCinematicActive(),
             content: () =>
               CinematicSettings({
-                editorKey: 'global',
+                editorKey: settings,
+                easingSelectId: 'crop-point-easing-input',
+                activeEasing: activeCropPointEasing,
                 // The solve redraws the preview. A redraw now would show the stale path's fallback.
-                marginInput: bind('cinematic-margin-input', 'cropPointEasingCinematicMargin', 'number', {
-                  afterChange: scheduleCinematicRecompute,
-                }),
-                zoomMarginInput: bind('cinematic-zoom-margin-input', 'cropPointEasingCinematicZoomMargin', 'number', {
-                  afterChange: scheduleCinematicRecompute,
-                }),
+                marginInput: bind(
+                  'cinematic-margin-input',
+                  'cropPointEasingCinematicMargin',
+                  'number',
+                  {
+                    afterChange: scheduleCinematicRecompute,
+                  }
+                ),
+                zoomMarginInput: bind(
+                  'cinematic-zoom-margin-input',
+                  'cropPointEasingCinematicZoomMargin',
+                  'number',
+                  {
+                    afterChange: scheduleCinematicRecompute,
+                  }
+                ),
                 margin: settings.cropPointEasingCinematicMargin,
                 zoomMargin: settings.cropPointEasingCinematicZoomMargin,
                 inheritedMargin: DEFAULT_CINEMATIC_MARGIN_PERCENT,

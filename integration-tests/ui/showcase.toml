@@ -35,6 +35,7 @@ name = "cinematic-settings"
 scenario = "cinematic-settings"
 clip = [".ytc-settings-popover", "#crop-point-easing-input"]
 padding = 8
+asset = "yt_clipper_cinematic_settings.png"
 
 [[release."5.49.0"]]
 name = "crop-chart-labels"
