@@ -283,7 +283,7 @@ def previewed_crop_x_at(markup: MarkupPage, seconds: float) -> float:
     """The crop chip's live crop x at `seconds` (the preview's interpolated crop)."""
     # Seek away first: a seek to the current time presents no new frame, so the chip would not update.
     markup.seek(PAN_PAIR["start"])
-    markup.seek(seconds)
+    markup.seek(seconds, presented=True)
     markup.next_frames(3)
     return shown_crop_x(markup)
 
