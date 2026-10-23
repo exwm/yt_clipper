@@ -257,6 +257,35 @@ function drawPanArrowhead(
   ctx.restore();
 }
 
+const HOLD_BAR_WIDTH = 3;
+// Blue, a hue the crop chart uses nowhere else, so the bar stands apart from the grid and sections.
+const HOLD_BAR_COLOR = 'rgb(255, 204, 51)';
+
+// A vertical yellow bar behind each hold point, the height of the chart area, so a hold point reads at
+// a glance.
+function drawHoldBars(
+  ctx: CanvasRenderingContext2D,
+  data: CropPoint[],
+  meta,
+  count: number,
+  chartArea: { top: number; bottom: number }
+) {
+  ctx.save();
+  ctx.fillStyle = HOLD_BAR_COLOR;
+  for (let i = 1; i < count; i++) {
+    const view = data[i].hold ? meta.data[i]?._view : null;
+    if (view) {
+      ctx.fillRect(
+        view.x - HOLD_BAR_WIDTH / 2,
+        chartArea.top,
+        HOLD_BAR_WIDTH,
+        chartArea.bottom - chartArea.top
+      );
+    }
+  }
+  ctx.restore();
+}
+
 // Chart.js v2 has no scriptable per-segment line styling, so draw each section (the span between
 // consecutive crop points) here: colored by type (static / pan / pan+zoom) with width and opacity
 // scaled by the average velocity of change. Drawn before the dataset so the points sit on top (the
@@ -270,6 +299,7 @@ const cropSectionPlugin = {
     if (!data || !meta?.data || !ctx) return;
     const { cropResWidth, cropResHeight } = appState.settings;
     const count = Math.min(data.length, meta.data.length);
+    drawHoldBars(ctx, data, meta, count, chart.chartArea);
     for (let i = 0; i < count - 1; i++) {
       const v0 = (meta.data[i] as any)?._view;
       const v1 = (meta.data[i + 1] as any)?._view;
