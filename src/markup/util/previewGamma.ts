@@ -183,12 +183,12 @@ export function createWebGLGammaRenderer(sourceCanvas: HTMLCanvasElement): WebGL
   }
 
   function render(sourceCanvas: HTMLCanvasElement, gamma: number): void {
-    // Assigning canvas dimensions resets the drawing buffer (clears it).
-    // The viewport call and full-screen draw immediately after cover this.
     outputCanvas.style.width = sourceCanvas.style.width;
     outputCanvas.style.height = sourceCanvas.style.height;
-    outputCanvas.width = sourceCanvas.width;
-    outputCanvas.height = sourceCanvas.height;
+    // Assigning a canvas dimension resets the drawing buffer even when unchanged, so only resize on
+    // a change. The full-screen draw below writes every pixel either way.
+    if (outputCanvas.width !== sourceCanvas.width) outputCanvas.width = sourceCanvas.width;
+    if (outputCanvas.height !== sourceCanvas.height) outputCanvas.height = sourceCanvas.height;
 
     if (!gl) throw new Error('WebGL2RenderingContext is null');
 

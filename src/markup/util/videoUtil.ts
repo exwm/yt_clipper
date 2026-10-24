@@ -12,32 +12,29 @@ export function getFPS(defaultFPS: number | null = 60) {
   let fps: number;
   try {
     const isYouTube = getPlatform() === VideoPlatforms.youtube;
-    // A rate measured from played frames replaces the default that startup cached before any frame
-    // played. On YouTube it only refines the stats rate, which shows 29.97 fps as 30.
-    const measuredFPS = getMeasuredFrameRate(
-      appState.video,
-      isYouTube ? FRAMES_TO_TELL_NTSC_RATES : undefined
-    );
-    const statsFPS = appState.videoInfo.fps;
-    if (
-      measuredFPS != null &&
-      (!isYouTube || (statsFPS != null && Math.abs(measuredFPS - statsFPS) <= statsFPS * 0.005))
-    ) {
-      appState.videoInfo.fps = measuredFPS;
-    }
     if (
       appState.videoInfo.fps != null &&
       appState.video.videoWidth != null &&
       prevVideoWidth === appState.video.videoWidth
     ) {
       fps = appState.videoInfo.fps;
-    } else if (getPlatform() === VideoPlatforms.youtube) {
+    } else if (isYouTube) {
       appState.videoInfo.fps = parseFloat(
         /@(\d+)/.exec((appState.player as YTPlayer).getStatsForNerds().resolution)?.[1] ?? '60'
       );
       fps = appState.videoInfo.fps;
     } else {
       fps = defaultFPS ?? 60;
+    }
+    // A rate measured from played frames replaces the default that startup cached before any frame
+    // played. On YouTube it only refines the stats rate, which shows 29.97 fps as 30.
+    const measuredFPS = getMeasuredFrameRate(
+      appState.video,
+      isYouTube ? FRAMES_TO_TELL_NTSC_RATES : undefined
+    );
+    if (measuredFPS != null && (!isYouTube || Math.abs(measuredFPS - fps) <= fps * 0.005)) {
+      fps = measuredFPS;
+      appState.videoInfo.fps = fps;
     }
   } catch (e) {
     console.log('Could not detect fps', e);
