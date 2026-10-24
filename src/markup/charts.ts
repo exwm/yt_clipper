@@ -42,13 +42,13 @@ import {
   cropCrossHairEnabled,
   cropOverlayElements,
   END_CROP_SECTION_COLOR,
-  finishDrawingCrop,
   forceRerenderCrop,
   getCropDimOpacity,
   isDrawingCrop,
   isMouseManipulatingCrop,
   renderStaticCropOverlay,
   resizeCropOverlay,
+  resolveCropEditConflict,
   setCropCrossHair,
   setCropOverlay,
   setCropOverlayDimensions,
@@ -184,6 +184,7 @@ export function selectCropPointWithMouseWheel(e: WheelEvent) {
   } else {
     return;
   }
+  if (!resolveCropEditConflict('selectCropPoint')) return;
 
   const cropChart = chartState.cropChartInput.chart;
   if (!cropChart) return;
@@ -252,7 +253,8 @@ export function inheritCropPointCrop(e: WheelEvent) {
     appState.isSettingsEditorOpen &&
     !appState.wasGlobalSettingsEditorOpen &&
     appState.prevSelectedEndMarker &&
-    chartState.cropChartInput.chart
+    chartState.cropChartInput.chart &&
+    resolveCropEditConflict('copyNeighborCrop')
   ) {
     blockEvent(e);
     const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
@@ -1303,11 +1305,12 @@ function selectCropPoint(index: number): void {
 // at the current time capturing the interpolated crop the reframe is already
 // showing (no visual jump). Pauses playback (stays paused; manual resume) so the
 // user manipulates a still frame. Called at crop-manipulation start, before the
-// drag reads `currentCropPointIndex`, so the drag edits the right point.
-export function autoKeyCurrentCropPoint(): void {
-  if (!appState.isSettingsEditorOpen || appState.wasGlobalSettingsEditorOpen) return;
+// drag reads `currentCropPointIndex`, so the drag edits the right point. Returns false, refusing the
+// edit, when the playhead is outside the pair, where a new point would land outside it.
+export function autoKeyCurrentCropPoint(): boolean {
+  if (!appState.isSettingsEditorOpen || appState.wasGlobalSettingsEditorOpen) return true;
   const pair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
-  if (!pair) return;
+  if (!pair) return true;
   const cropMap = pair.cropMap;
 
   const cropChartOpen =
@@ -1315,7 +1318,16 @@ export function autoKeyCurrentCropPoint(): void {
   // A static crop with the chart closed edits as a whole (no keyframing); only
   // turn it dynamic when the user has opened the crop chart. Already-dynamic
   // crops always auto-key.
-  if (isStaticCrop(cropMap) && !cropChartOpen) return;
+  if (isStaticCrop(cropMap) && !cropChartOpen) return true;
+
+  const timeBeforePause = appState.video.getCurrentTime();
+  if (
+    !isPlayheadOnCropKeyframe(cropMap, timeBeforePause).onKeyframe &&
+    (timeBeforePause < pair.start || timeBeforePause > pair.end)
+  ) {
+    flashMessage('Seek into the marker pair to edit its crop.', 'olive');
+    return false;
+  }
 
   // Ctrl+wheel zoom calls this per wheel tick; pauseSafe avoids re-pausing (it churns the player).
   pauseSafe(appState.video);
@@ -1324,14 +1336,14 @@ export function autoKeyCurrentCropPoint(): void {
   const { onKeyframe, index } = isPlayheadOnCropKeyframe(cropMap, time);
   if (onKeyframe) {
     selectCropPoint(index);
-    return;
+    return true;
   }
 
   // Between keyframes: insert one at the current time holding the interpolated
   // crop. `storeHistory: false` mutates live state without a checkpoint so the
   // drag's release-time push collapses insert + move into a single undo step.
   const cc = getCurrentCropComponents();
-  if (!cc) return;
+  if (!cc) return true;
   // cc is the interpolated crop (float); snap it to a valid stored crop (whole pixels, clamped,
   // shared AR) via setCropStringSafe, the same path the chart keyframe edits use. Round first:
   // setCropStringSafe truncates, and an eased size can land a hair under the integer (99.999...),
@@ -1354,7 +1366,7 @@ export function autoKeyCurrentCropPoint(): void {
     // 0.01s grid. Above ~100fps a frame is finer than that grid, so the check can miss a point
     // already at this quantized time. Edit it rather than push a duplicate x.
     selectCropPoint(existingIndex);
-    return;
+    return true;
   }
   const draft = createDraft(getMarkerPairHistory(pair));
   draft.cropMap.push({ x, y: 0, crop });
@@ -1365,6 +1377,7 @@ export function autoKeyCurrentCropPoint(): void {
   // else the new index is clamped down and the previous point is selected. Mirrors addCropPoint.
   renderSpeedAndCropUI();
   selectCropPoint(newIndex);
+  return true;
 }
 
 // Ctrl+Alt+A: add a hold point at the current time, or toggle hold on the crop point under the
@@ -1373,11 +1386,7 @@ export function addHoldCropPointAtCurrentTime(): void {
   if (!appState.isSettingsEditorOpen || appState.wasGlobalSettingsEditorOpen) return;
   const pair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
   if (!pair) return;
-  // A drag or draw holds its own snapshot of the crop map, so a point added under it breaks the drag.
-  if (isMouseManipulatingCrop || isDrawingCrop) {
-    flashMessage('Release the crop to add a hold crop point.', 'olive');
-    return;
-  }
+  if (!resolveCropEditConflict('addHoldCropPoint')) return;
   const cropMap = pair.cropMap;
   const cropChartOpen =
     appState.isCurrentChartVisible && chartState.currentChartInput?.type === 'crop';
@@ -1607,9 +1616,7 @@ export function cropChartSectionLoop() {
 }
 export function showChart() {
   if (chartState.currentChartInput?.chartContainer) {
-    if (isDrawingCrop) {
-      finishDrawingCrop(true);
-    }
+    resolveCropEditConflict('showChart');
     chartState.currentChartInput.chartContainer.style.display = 'block';
     appState.isCurrentChartVisible = true;
     syncCropChartVideoHeightLimit();
