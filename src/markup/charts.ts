@@ -88,6 +88,7 @@ import { renderMarkerPair } from './markers';
 import { isDraggingChartPoint } from './ui/chart/chart.js-drag-data-plugin';
 import { roundX, sortX } from './ui/chart/chartPrimitives';
 import { updateCharts } from './ui/chart/chartutil';
+import { createTimeLineLayer, TimeLineLayer, TimeLinePosition } from './ui/chart/chart-time-line';
 import { speedChartSpec } from './ui/chart/speedchart/speedChartSpec';
 import { registerActiveDragCleanup } from './util/drag-recovery';
 import { Chart, ChartConfiguration } from 'chart.js';
@@ -174,7 +175,6 @@ export const chartState = {
     dataMapKey: 'cropMap',
   } as ChartInput,
   currentChartInput: null as ChartInput | null,
-  prevChartTime: undefined as number | undefined,
   shouldTriggerCropChartUpdates: false,
 };
 
@@ -541,16 +541,15 @@ export function getMouseChartTimeAnnotationSetter(chartInput: ChartInput) {
         return;
       }
       const time = timeRounder(chart.scales['x-axis-1'].getValueForPixel(e.offsetX));
-      chartOpts.annotation.annotations[0].value = time;
       if (Math.abs(appState.video.getCurrentTime() - time) >= 0.01) {
         seekToSafe(appState.video, time);
       }
       if (!e.ctrlKey && !e.altKey && e.shiftKey) {
-        chartOpts.annotation.annotations[1].value = time;
+        chartOpts.annotation.annotations[0].value = time;
         chartLoop.start = time;
         chart.update();
       } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
-        chartOpts.annotation.annotations[2].value = time;
+        chartOpts.annotation.annotations[1].value = time;
         chartLoop.end = time;
         chart.update();
       }
@@ -620,13 +619,13 @@ export function toggleChartLoop() {
     const chartLoop = markerPair[chartState.currentChartInput.chartLoopKey];
     if (chartLoop.enabled) {
       chartLoop.enabled = false;
-      chartOpts.annotation.annotations[1].borderColor = 'rgba(0, 255, 0, 0.4)';
-      chartOpts.annotation.annotations[2].borderColor = 'rgba(255, 215, 0, 0.4)';
+      chartOpts.annotation.annotations[0].borderColor = 'rgba(0, 255, 0, 0.4)';
+      chartOpts.annotation.annotations[1].borderColor = 'rgba(255, 215, 0, 0.4)';
       flashMessage('Speed chart looping disabled', 'red');
     } else {
       chartLoop.enabled = true;
-      chartOpts.annotation.annotations[1].borderColor = 'rgba(0, 255, 0, 0.9)';
-      chartOpts.annotation.annotations[2].borderColor = 'rgba(255, 215, 0, 0.9)';
+      chartOpts.annotation.annotations[0].borderColor = 'rgba(0, 255, 0, 0.9)';
+      chartOpts.annotation.annotations[1].borderColor = 'rgba(255, 215, 0, 0.9)';
       flashMessage('Speed chart looping enabled', 'green');
     }
     chart.update();
@@ -701,32 +700,34 @@ export function updateChartBounds(chartInput: ChartInput, start, end) {
   plugins.zoom.zoom.rangeMin.x = start;
   plugins.zoom.zoom.rangeMax.x = end;
 }
-export function updateChartTimeAnnotation() {
-  if (appState.isCurrentChartVisible) {
-    if (chartState.prevChartTime !== appState.video.getCurrentTime()) {
-      const time = appState.video.getCurrentTime();
-      chartState.prevChartTime = time;
-      const currentInput = chartState.currentChartInput;
-      assertDefined(currentInput);
-      const chart = currentInput.chart;
-      assertDefined(chart);
-      const configOptions = chart.config.options;
-      assertDefined(configOptions);
-      configOptions.annotation.annotations[0].value = clampNumber(
-        time,
-        currentInput.minBound,
-        currentInput.maxBound
-      );
+// Each chart's time line layer, made on its first frame shown.
+const timeLineLayers = new WeakMap<HTMLCanvasElement, TimeLineLayer>();
+const TIME_LINE_STYLE = { color: 'rgba(255, 0, 0, 0.9)', width: 1 };
 
-      const timeAnnotation = Object.values(chart.annotation.elements)[0] as any;
-      timeAnnotation.options.value = clampNumber(
-        time,
-        currentInput.minBound,
-        currentInput.maxBound
-      );
-      timeAnnotation.configure();
-      chart.render();
+/** Where the time line goes on a chart: the only charting library code the time line needs. */
+function timeLinePosition(chart: Chart, time: number): TimeLinePosition {
+  const { left, right, top, bottom } = chart.chartArea;
+  return { x: chart.scales['x-axis-1'].getPixelForValue(time), left, right, top, bottom };
+}
+
+export function updateChartTimeAnnotation() {
+  const chart = chartState.currentChartInput?.chart;
+  if (appState.isCurrentChartVisible && chart?.canvas) {
+    const currentInput = chartState.currentChartInput;
+    assertDefined(currentInput);
+    // The playhead, so the line lands where a click seeks to. Its position is read every frame, so a
+    // chart zoom, pan or resize moves it too; the layer skips unchanged lines.
+    const time = clampNumber(
+      appState.video.getCurrentTime(),
+      currentInput.minBound,
+      currentInput.maxBound
+    );
+    let layer = timeLineLayers.get(chart.canvas);
+    if (!layer) {
+      layer = createTimeLineLayer(chart.canvas, TIME_LINE_STYLE);
+      timeLineLayers.set(chart.canvas, layer);
     }
+    layer.draw(timeLinePosition(chart, time));
   }
   requestAnimationFrame(updateChartTimeAnnotation);
 }
@@ -1615,8 +1616,6 @@ export function showChart() {
     const chartToUpdate = chartState.currentChartInput.chart;
     assertDefined(chartToUpdate);
     chartToUpdate.update();
-    // force chart time annotation to update
-    chartState.prevChartTime = -1;
   }
 }
 export function hideChart() {

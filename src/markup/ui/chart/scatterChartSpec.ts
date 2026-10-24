@@ -514,16 +514,8 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
       },
       annotation: {
         drawTime: 'afterDraw',
+        // The time line is drawn on its own layer (chart-time-line.ts), not as an annotation.
         annotations: [
-          {
-            label: 'time',
-            type: 'line',
-            mode: 'vertical',
-            scaleID: 'x-axis-1',
-            value: -1,
-            borderColor: 'rgba(255, 0, 0, 0.9)',
-            borderWidth: 1,
-          },
           {
             label: 'start',
             type: 'line',
