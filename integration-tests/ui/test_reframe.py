@@ -1,5 +1,5 @@
-"""Reframe (V): the preview fills the whole player, and the navigator minimap outlines the crop in
-two tones so it shows on light and dark video."""
+"""Reframe (V): the preview fills the whole player, keeps up with playback on a busy machine, and the
+navigator minimap outlines the crop in two tones so it shows on light and dark video."""
 
 import io
 
@@ -22,6 +22,14 @@ CROP_RES_WIDTH = 1920
 EDGE_SLACK_PX = 4
 # How much darker the outer (black) line must read than the inner (white) one.
 OUTLINE_CONTRAST = 100
+
+# A busy machine: Chrome runs the page's main thread this many times slower. How many frames that
+# skips depends on how fast the host is at the moment, so reframe is compared with the same playback
+# without it. Over these seconds of the 30 fps test video, reframe skipped 3 to 14 frames more while
+# it laid out the hidden crop overlay every frame, and 0 to 3 more since.
+BUSY_CPU_SLOWDOWN = 10
+BUSY_PLAYBACK_SECONDS = 5
+MAX_EXTRA_SKIPPED_FRAMES = 4
 
 
 @pytest.fixture
@@ -52,13 +60,26 @@ def test_ctrl_alt_a_on_a_crop_point_toggles_hold_while_reframed(markup: MarkupPa
     then_the_saved_middle_point_is(markup, hold=False, crop=CROP_B)
 
 
+def test_reframe_keeps_up_with_playback_on_a_busy_machine(markup: MarkupPage) -> None:
+    given_a_dynamic_crop(markup)
+    skipped_without_reframe = when_it_plays_on_a_busy_machine(markup)
+    given_reframe_is_on(markup)
+    skipped_with_reframe = when_it_plays_on_a_busy_machine(markup)
+    then_reframe_skips_about_as_few_frames(markup, skipped_without_reframe, skipped_with_reframe)
+
+
 # ─── given ──────────────────────────────────────────────────────────────────
 
 
 @step
-def given_a_dynamic_crop_reframed(markup: MarkupPage) -> None:
+def given_a_dynamic_crop(markup: MarkupPage) -> None:
     markup.load_saved_marker_pairs([pair((CROP_A, False), (CROP_B, False), (CROP_A, False))])
     markup.open_marker_pair(0)
+
+
+@step
+def given_a_dynamic_crop_reframed(markup: MarkupPage) -> None:
+    given_a_dynamic_crop(markup)
     given_reframe_is_on(markup)
 
 
@@ -103,6 +124,40 @@ def when_i_press_ctrl_alt_a_at(markup: MarkupPage, seconds: float) -> None:
     markup.press("Control+Alt+KeyA")
 
 
+@step
+def when_it_plays_on_a_busy_machine(markup: MarkupPage) -> int:
+    """Play through the crop pan with the CPU throttled and count the presented frames that no frame
+    callback ran for: reframe draws in one, so it never drew those."""
+    markup.seek(3.2, presented=True)
+    markup.play()
+    # Throttle once playback has settled, so the count is not about starting to play.
+    assert markup.eventually("() => document.querySelector('video').currentTime > 3.5")
+    cdp = markup.page.context.new_cdp_session(markup.page)
+    cdp.send("Emulation.setCPUThrottlingRate", {"rate": BUSY_CPU_SLOWDOWN})
+    try:
+        presented = markup.page.evaluate(
+            """(seconds) => new Promise((resolve) => {
+              const video = document.querySelector('video');
+              const frames = [];
+              let end = 0;
+              const onFrame = (now, metadata) => {
+                end ||= now + seconds * 1000;
+                frames.push(metadata.presentedFrames);
+                if (now < end) video.requestVideoFrameCallback(onFrame);
+                else resolve(frames);
+              };
+              video.requestVideoFrameCallback(onFrame);
+            })""",
+            BUSY_PLAYBACK_SECONDS,
+        )
+        markup.pause()
+    finally:
+        cdp.send("Emulation.setCPUThrottlingRate", {"rate": 1})
+    skipped = sum(max(0, b - a - 1) for a, b in zip(presented, presented[1:], strict=False))
+    markup.report(f"{presented[-1] - presented[0]} frames presented, {skipped} skipped")
+    return skipped
+
+
 # ─── then ───────────────────────────────────────────────────────────────────
 
 
@@ -112,6 +167,12 @@ def then_the_saved_middle_point_is(markup: MarkupPage, hold: bool, crop: str) ->
     markup.report(f"saved middle crop point {point}")
     assert point.get("hold", False) == hold
     assert point["crop"] == crop
+
+
+@step
+def then_reframe_skips_about_as_few_frames(markup: MarkupPage, without: int, with_reframe: int) -> None:
+    markup.report(f"skipped frames: {without} without reframe, {with_reframe} with it")
+    assert with_reframe - without <= MAX_EXTRA_SKIPPED_FRAMES
 
 
 @step

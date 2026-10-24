@@ -88,6 +88,7 @@ import { renderMarkerPair } from './markers';
 import { isDraggingChartPoint } from './ui/chart/chart.js-drag-data-plugin';
 import { roundX, sortX } from './ui/chart/chartPrimitives';
 import { updateCharts } from './ui/chart/chartutil';
+import { createTimeLineLayer, TimeLineLayer, TimeLinePosition } from './ui/chart/chart-time-line';
 import { speedChartSpec } from './ui/chart/speedchart/speedChartSpec';
 import { registerActiveDragCleanup } from './util/drag-recovery';
 import { Chart, ChartConfiguration } from 'chart.js';
@@ -174,7 +175,6 @@ export const chartState = {
     dataMapKey: 'cropMap',
   } as ChartInput,
   currentChartInput: null as ChartInput | null,
-  prevChartTime: undefined as number | undefined,
   shouldTriggerCropChartUpdates: false,
 };
 
@@ -541,16 +541,15 @@ export function getMouseChartTimeAnnotationSetter(chartInput: ChartInput) {
         return;
       }
       const time = timeRounder(chart.scales['x-axis-1'].getValueForPixel(e.offsetX));
-      chartOpts.annotation.annotations[0].value = time;
       if (Math.abs(appState.video.getCurrentTime() - time) >= 0.01) {
         seekToSafe(appState.video, time);
       }
       if (!e.ctrlKey && !e.altKey && e.shiftKey) {
-        chartOpts.annotation.annotations[1].value = time;
+        chartOpts.annotation.annotations[0].value = time;
         chartLoop.start = time;
         chart.update();
       } else if (!e.ctrlKey && e.altKey && !e.shiftKey) {
-        chartOpts.annotation.annotations[2].value = time;
+        chartOpts.annotation.annotations[1].value = time;
         chartLoop.end = time;
         chart.update();
       }
@@ -620,13 +619,13 @@ export function toggleChartLoop() {
     const chartLoop = markerPair[chartState.currentChartInput.chartLoopKey];
     if (chartLoop.enabled) {
       chartLoop.enabled = false;
-      chartOpts.annotation.annotations[1].borderColor = 'rgba(0, 255, 0, 0.4)';
-      chartOpts.annotation.annotations[2].borderColor = 'rgba(255, 215, 0, 0.4)';
+      chartOpts.annotation.annotations[0].borderColor = 'rgba(0, 255, 0, 0.4)';
+      chartOpts.annotation.annotations[1].borderColor = 'rgba(255, 215, 0, 0.4)';
       flashMessage('Speed chart looping disabled', 'red');
     } else {
       chartLoop.enabled = true;
-      chartOpts.annotation.annotations[1].borderColor = 'rgba(0, 255, 0, 0.9)';
-      chartOpts.annotation.annotations[2].borderColor = 'rgba(255, 215, 0, 0.9)';
+      chartOpts.annotation.annotations[0].borderColor = 'rgba(0, 255, 0, 0.9)';
+      chartOpts.annotation.annotations[1].borderColor = 'rgba(255, 215, 0, 0.9)';
       flashMessage('Speed chart looping enabled', 'green');
     }
     chart.update();
@@ -701,32 +700,34 @@ export function updateChartBounds(chartInput: ChartInput, start, end) {
   plugins.zoom.zoom.rangeMin.x = start;
   plugins.zoom.zoom.rangeMax.x = end;
 }
-export function updateChartTimeAnnotation() {
-  if (appState.isCurrentChartVisible) {
-    if (chartState.prevChartTime !== appState.video.getCurrentTime()) {
-      const time = appState.video.getCurrentTime();
-      chartState.prevChartTime = time;
-      const currentInput = chartState.currentChartInput;
-      assertDefined(currentInput);
-      const chart = currentInput.chart;
-      assertDefined(chart);
-      const configOptions = chart.config.options;
-      assertDefined(configOptions);
-      configOptions.annotation.annotations[0].value = clampNumber(
-        time,
-        currentInput.minBound,
-        currentInput.maxBound
-      );
+// Each chart's time line layer, made on its first frame shown.
+const timeLineLayers = new WeakMap<HTMLCanvasElement, TimeLineLayer>();
+const TIME_LINE_STYLE = { color: 'rgba(255, 0, 0, 0.9)', width: 1 };
 
-      const timeAnnotation = Object.values(chart.annotation.elements)[0] as any;
-      timeAnnotation.options.value = clampNumber(
-        time,
-        currentInput.minBound,
-        currentInput.maxBound
-      );
-      timeAnnotation.configure();
-      chart.render();
+/** Where the time line goes on a chart: the only charting library code the time line needs. */
+function timeLinePosition(chart: Chart, time: number): TimeLinePosition {
+  const { left, right, top, bottom } = chart.chartArea;
+  return { x: chart.scales['x-axis-1'].getPixelForValue(time), left, right, top, bottom };
+}
+
+export function updateChartTimeAnnotation() {
+  const chart = chartState.currentChartInput?.chart;
+  if (appState.isCurrentChartVisible && chart?.canvas) {
+    const currentInput = chartState.currentChartInput;
+    assertDefined(currentInput);
+    // The playhead, so the line lands where a click seeks to. Its position is read every frame, so a
+    // chart zoom, pan or resize moves it too; the layer skips unchanged lines.
+    const time = clampNumber(
+      appState.video.getCurrentTime(),
+      currentInput.minBound,
+      currentInput.maxBound
+    );
+    let layer = timeLineLayers.get(chart.canvas);
+    if (!layer) {
+      layer = createTimeLineLayer(chart.canvas, TIME_LINE_STYLE);
+      timeLineLayers.set(chart.canvas, layer);
     }
+    layer.draw(timeLinePosition(chart, time));
   }
   requestAnimationFrame(updateChartTimeAnnotation);
 }
@@ -822,11 +823,12 @@ export function cropChartPreviewHandler(loop = true, frameTime?: number) {
         setCurrentCropPointWithCurrentTime();
       }
 
-      if (isDynamicCrop || appState.currentCropPointIndex > 0) {
-        cropInputLabel.textContent = `Crop Point ${appState.currentCropPointIndex + 1}`;
-      } else {
-        cropInputLabel.textContent = `Crop`;
-      }
+      const cropLabel =
+        isDynamicCrop || appState.currentCropPointIndex > 0
+          ? `Crop Point ${appState.currentCropPointIndex + 1}`
+          : 'Crop';
+      // Writing the same text still replaces the text node and dirties layout every frame.
+      if (cropInputLabel.textContent !== cropLabel) cropInputLabel.textContent = cropLabel;
 
       // Keep the crop input value in sync with the selected point as the playhead crosses points, so
       // it shows the current point's crop during playback (the label updated before, the value did
@@ -1266,9 +1268,8 @@ export function reframeCropAtFrameTime(mediaTime: number): [number, number, numb
   }
 }
 
-/** Run `fn` with the crop clock pinned to `mediaTime`, so any overlay re-layout it triggers
- *  (forceRerenderCrop) resolves the crop at the frame the canvas drew, not wall-clock
- *  getCurrentTime, which drifts within a frame and leaves the overlay a hair off. */
+/** Run `fn` with the crop clock pinned to `mediaTime`, so anything it reads resolves the crop at the
+ *  frame the canvas drew, not wall-clock getCurrentTime, which drifts within a frame. */
 export function withPresentedFrameTime<T>(mediaTime: number, fn: () => T): T {
   const prev = presentedFrameTime;
   presentedFrameTime = mediaTime;
@@ -1429,29 +1430,10 @@ export function toggleCropPointType(
   return true;
 }
 
-// Recolor the current-time crop rect border to signal the reframe auto-key
-// state (AE keyframe-navigator convention): solid green when the playhead is on a
-// keyframe (an edit updates it), dashed amber between keyframes (an edit creates
-// one). `null` restores the default white dashed border outside reframe mode.
-// Reframe keyframe-state colours, shared by the rect border and the crosshair so
-// they can't drift: green when the playhead is on a keyframe (an edit updates it),
-// amber between keyframes (an edit creates one).
+// Reframe keyframe-state colours (AE keyframe-navigator convention): green when the playhead is on
+// a keyframe (an edit updates it), amber between keyframes (an edit creates one).
 const ON_KEYFRAME_COLOR = '#3ac36a';
 const BETWEEN_KEYFRAME_COLOR = '#f5a623';
-function applyCropKeyframeIndicator(onKeyframe: boolean | null): void {
-  const border = cropOverlayElements.cropRectBorderWhite as SVGElement | null;
-  if (!border) return;
-  if (onKeyframe == null) {
-    // Classic non-reframe styling.
-    border.setAttribute('stroke', 'white');
-    border.setAttribute('stroke-dasharray', '5 5');
-    return;
-  }
-  // Reframe: solid rect either way; the colour alone shows the create-vs-edit
-  // state (green = on a keyframe, amber = between).
-  border.setAttribute('stroke', onKeyframe ? ON_KEYFRAME_COLOR : BETWEEN_KEYFRAME_COLOR);
-  border.setAttribute('stroke-dasharray', '0');
-}
 
 /** The reframe crop-border colour for the crop at `time`: green on a keyframe (an edit updates
  *  it), amber between (an edit creates one). The reframe canvas border uses this. */
@@ -1469,46 +1451,33 @@ export function updateDynamicCropOverlays(
 ) {
   if (isDynamicCrop || appState.currentCropPointIndex > 0) {
     // The reframe preview focuses on the current-time crop only, so hide the
-    // start/end section keyframe overlays (the main crop rect still updates below).
+    // start/end section keyframe overlays.
     const sectionDisplay = isReframeEnabled() ? 'none' : 'block';
     (cropOverlayElements.cropChartSectionStart as HTMLElement).style.display = sectionDisplay;
     (cropOverlayElements.cropChartSectionEnd as HTMLElement).style.display = sectionDisplay;
-    // With the start/end section rects shown (non-reframe dynamic crop), the current-time rect is a
-    // third overlapping rect that just adds noise, so hide it: the outside-crop dim already marks
-    // the current crop region. Keep it when the dim is off (nothing else cues the current crop), and
-    // in reframe where it's the preview (the canvas draws its own border, this SVG one display-hidden).
-    setCurrentCropRectVisible(isReframeEnabled() || getCropDimOpacity() === 0);
+    // The reframe canvas draws the crop and hides the rest of the SVG overlay, so skip its per-frame
+    // layout. Leaving reframe re-renders the overlay (renderSpeedAndCropUI).
+    if (isReframeEnabled()) return;
+    // With the start/end section rects shown, the current-time rect is a third overlapping rect
+    // that just adds noise, so hide it: the outside-crop dim already marks the current crop region.
+    // Keep it when the dim is off (nothing else cues the current crop).
+    setCurrentCropRectVisible(getCropDimOpacity() === 0);
   } else {
     (cropOverlayElements.cropChartSectionStart as HTMLElement).style.display = 'none';
     (cropOverlayElements.cropChartSectionEnd as HTMLElement).style.display = 'none';
     // Single crop rect here (no section rects), so show it.
     setCurrentCropRectVisible(true);
-    applyCropKeyframeIndicator(null);
     return;
   }
   const sectStart = chartData[currentCropChartSection[0]];
   const sectEnd = chartData[currentCropChartSection[1]];
 
-  // The current crop that the main rect + crosshair track. In reframe this is the
-  // exact crop the video transform is driven from (getCurrentCropComponents: the
-  // edited point while manipulating, the interpolated crop while scrubbing); otherwise
-  // the section interpolation.
-  let [curX, curY, curW, curH] = getEasedCropComponents(
+  const [curX, curY, curW, curH] = getEasedCropComponents(
     sectStart,
     sectEnd,
     chartData[currentCropChartSection[0] - 1],
     chartData[currentCropChartSection[1] + 1]
   );
-  if (isReframeEnabled()) {
-    const cc = getCurrentCropComponents();
-    if (cc) [curX, curY, curW, curH] = cc;
-  }
-
-  // In reframe: on a keyframe (edit) vs between (auto-key), drives the rect border
-  // and crosshair colour. null outside reframe (keeps the classic styling).
-  const keyframeState = isReframeEnabled()
-    ? isPlayheadOnCropKeyframe(chartData, _currentTime).onKeyframe
-    : null;
 
   [
     cropOverlayElements.cropChartSectionStartBorderGreen,
@@ -1527,21 +1496,11 @@ export function updateDynamicCropOverlays(
 
   const currentCropPoint = chartData[appState.currentCropPointIndex];
   if (cropCrossHairEnabled && cropOverlayElements.cropCrossHair) {
-    // In reframe the crosshair centres on the current crop (same as the rect), not
-    // the selected keyframe.
-    const crossHairCrop = isReframeEnabled()
-      ? getCropString(curX, curY, curW, curH)
-      : currentCropPoint.crop;
     cropOverlayElements.cropCrossHairs.map((cropCrossHair) => {
-      setCropCrossHair(cropCrossHair, crossHairCrop);
+      setCropCrossHair(cropCrossHair, currentCropPoint.crop);
     });
-    (cropOverlayElements.cropCrossHair as HTMLElement).style.stroke = isReframeEnabled()
-      ? keyframeState
-        ? ON_KEYFRAME_COLOR
-        : BETWEEN_KEYFRAME_COLOR
-      : currentCropChartMode === cropChartMode.Start
-        ? 'lime'
-        : END_CROP_SECTION_COLOR;
+    (cropOverlayElements.cropCrossHair as HTMLElement).style.stroke =
+      currentCropChartMode === cropChartMode.Start ? 'lime' : END_CROP_SECTION_COLOR;
   }
 
   const sectionStartEl = cropOverlayElements.cropChartSectionStart;
@@ -1556,9 +1515,6 @@ export function updateDynamicCropOverlays(
     sectionEndEl.setAttribute('opacity', '0.9');
   }
 
-  // Draw the current-time crop rect from the same crop the crosshair + video
-  // transform use, so they stay pixel-locked instead of drifting by the section
-  // interpolation.
   [
     cropOverlayElements.cropRect,
     cropOverlayElements.cropRectBorderBlack,
@@ -1567,8 +1523,6 @@ export function updateDynamicCropOverlays(
     assertDefined(cropRect);
     setCropOverlayDimensions(cropRect, curX, curY, curW, curH);
   });
-
-  applyCropKeyframeIndicator(keyframeState);
 }
 // Re-position the dynamic crop section (start/end) overlays for the current crop
 // map and time without re-rendering the chart. Called when the crop overlay is
@@ -1662,8 +1616,6 @@ export function showChart() {
     const chartToUpdate = chartState.currentChartInput.chart;
     assertDefined(chartToUpdate);
     chartToUpdate.update();
-    // force chart time annotation to update
-    chartState.prevChartTime = -1;
   }
 }
 export function hideChart() {
@@ -1696,8 +1648,8 @@ export function syncCropChartVideoHeightLimit() {
   // The cap resizes the player; re-fit the video to it so centerVideo (which
   // measures the player container) shrinks the video and crop overlay to match.
   if (isReframeEnabled()) {
-    // Reframe locks the overlay to the transform, so re-render synchronously (matching
-    // syncZoomVisual) instead of the debounced resizeCropOverlay, then resync the reframe
+    // Reframe locks the overlay to the transform, so re-render it synchronously once (the per-frame
+    // sync no longer lays it out) instead of the debounced resizeCropOverlay, then resync the reframe
     // viewport/canvas against the now-current video box. Without this, hiding/showing the
     // masthead (this CSS's own effect) resized the video but left the canvas and its cached
     // crop rect (the hover hit-test reads it) at the old layout, most visibly at the top

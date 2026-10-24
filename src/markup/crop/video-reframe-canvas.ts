@@ -21,6 +21,7 @@ import { cropToTargetRect, videoBoxToCanvasPoint } from './video-zoom-math';
 import { createWebGLGammaRenderer, prevGammaVal, WebGLGammaRenderer } from '../util/previewGamma';
 import { deleteElement, injectCSS } from '../util/util';
 import { getPresentedFrameTime } from '../util/presented-frame-clock';
+import { bandsAround, touchedPixels, wholePixelsInside } from './reframe-canvas-pixels';
 
 let canvas: HTMLCanvasElement | null = null;
 let ctx: CanvasRenderingContext2D | null = null;
@@ -140,9 +141,9 @@ export function drawReframeFrame(mediaTime: number): void {
   }
   // Hide the transformed video; the canvas draws the visible pixels.
   v.classList.add(HIDE_CLASS);
-  // Sync the hidden video transform to this frame's crop so editing coords, the overlay, and the
-  // matrix below all match. Pin the crop clock to this frame so the overlay re-layout it triggers
-  // (forceRerenderCrop) resolves the same crop, not the wall-clock crop a hair off.
+  // Sync the hidden video transform to this frame's crop so editing coords and the matrix below
+  // match. Pin the crop clock to this frame so anything the sync reads resolves the same crop, not
+  // the wall-clock crop a hair off.
   withPresentedFrameTime(mediaTime, () => applyReframeViewport(crop));
 
   // Same transform params the hidden video and overlay derive from, so the drawn crop, border, and
@@ -190,40 +191,8 @@ export function drawReframeFrame(mediaTime: number): void {
     c.translate(-boxW / 2, -boxH / 2);
   };
 
-  // Black bars base. Below full dim, draw the whole frame faintly (surroundings show through the
-  // bars), then the crop at full brightness. dim is the bars' blackness (1 = solid).
-  c.setTransform(1, 0, 0, 1, 0, 0);
-  c.fillStyle = '#000';
-  c.fillRect(0, 0, canvas.width, canvas.height);
-  const dim = getCropDimOpacity();
-  if (dim < 1) {
-    c.save();
-    applyVideoMatrix();
-    c.globalAlpha = 1 - dim;
-    c.drawImage(v, 0, 0, vw, vh, 0, 0, boxW, boxH);
-    c.restore();
-  }
-  c.save();
-  applyVideoMatrix();
-  c.beginPath();
-  c.rect(clipX, clipY, clipW, clipH);
-  c.clip();
-  c.drawImage(v, 0, 0, vw, vh, 0, 0, boxW, boxH);
-  c.restore();
-
-  // Gamma-correct the video pixels through the same WebGL shader the crop preview uses, so reframe
-  // matches the exported output. drawImage reads the raw frame, so the SVG gamma filter on the
-  // hidden video has no effect here. Runs after the crop and before the border so the UI chrome
-  // below stays its true colour. Black bars stay black (pow(0,g)=0).
-  if (appState.isGammaPreviewOn && prevGammaVal !== 1) {
-    gammaRenderer ??= createWebGLGammaRenderer(canvas);
-    gammaRenderer.render(canvas, prevGammaVal);
-    c.setTransform(1, 0, 0, 1, 0, 0); // identity: composite 1:1 over the dpr-scaled backing store
-    c.drawImage(gammaRenderer.outputCanvas, 0, 0);
-  }
-
-  // Border and crosshair on the canvas, through the same matrix as the content. Transform the crop
-  // rect's corners and take their axis-aligned bounds (exact for 0/±90°).
+  // The crop rect's canvas bounds (CSS px): the axis-aligned bounds of its transformed corners,
+  // exact for 0/±90°. The black bars and the border below both use them.
   const toCanvasCss = (px: number, py: number): [number, number] =>
     videoBoxToCanvasPoint(px, py, {
       rotation,
@@ -245,11 +214,77 @@ export function drawReframeFrame(mediaTime: number): void {
   ];
   const xs = corners.map((p) => p[0]);
   const ys = corners.map((p) => p[1]);
-  // Clamp 1px inside the canvas so a crop filling an axis still shows its border at the edge.
-  const rl = Math.max(Math.min(...xs), 1);
-  const rt = Math.max(Math.min(...ys), 1);
-  const rr = Math.min(Math.max(...xs), canvasW - 1);
-  const rb = Math.min(Math.max(...ys), canvasH - 1);
+  const cropLeft = Math.min(...xs);
+  const cropTop = Math.min(...ys);
+  const cropRight = Math.max(...xs);
+  const cropBottom = Math.max(...ys);
+  // The device pixels the opaque crop covers wholly: nothing drawn under them can show.
+  const coveredPixels = wholePixelsInside(
+    cropLeft * dpr,
+    cropTop * dpr,
+    cropRight * dpr,
+    cropBottom * dpr,
+    canvas.width,
+    canvas.height
+  );
+
+  // Black bars base. Below full dim, draw the whole frame faintly (surroundings show through the
+  // bars), then the crop at full brightness. dim is the bars' blackness (1 = solid). The black skips
+  // the pixels the crop covers, which at a typical crop is most of the canvas. (Clipping the faint
+  // frame the same way changes its edge pixels: Chrome stops antialiasing a clipped image's edges.)
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.fillStyle = '#000';
+  for (const band of bandsAround(coveredPixels, canvas.width, canvas.height)) {
+    c.fillRect(band.x, band.y, band.width, band.height);
+  }
+  const dim = getCropDimOpacity();
+  if (dim < 1) {
+    c.save();
+    applyVideoMatrix();
+    c.globalAlpha = 1 - dim;
+    c.drawImage(v, 0, 0, vw, vh, 0, 0, boxW, boxH);
+    c.restore();
+  }
+  c.save();
+  applyVideoMatrix();
+  c.beginPath();
+  c.rect(clipX, clipY, clipW, clipH);
+  c.clip();
+  c.drawImage(v, 0, 0, vw, vh, 0, 0, boxW, boxH);
+  c.restore();
+
+  // Gamma-correct the video pixels through the same WebGL shader the crop preview uses, so reframe
+  // matches the exported output. drawImage reads the raw frame, so the SVG gamma filter on the
+  // hidden video has no effect here. Runs after the crop and before the border so the UI chrome
+  // below stays its true colour. Solid black bars stay black, so only the pixels the crop touches
+  // need the pass; below full dim the faint frame shows everywhere, so then the whole canvas.
+  if (appState.isGammaPreviewOn && prevGammaVal !== 1) {
+    gammaRenderer ??= createWebGLGammaRenderer(canvas);
+    const region =
+      dim < 1
+        ? { x: 0, y: 0, width: canvas.width, height: canvas.height }
+        : touchedPixels(
+            cropLeft * dpr,
+            cropTop * dpr,
+            cropRight * dpr,
+            cropBottom * dpr,
+            canvas.width,
+            canvas.height
+          );
+    if (region) {
+      const { x, y, width, height } = region;
+      gammaRenderer.render(canvas, prevGammaVal, region);
+      c.setTransform(1, 0, 0, 1, 0, 0); // identity: composite 1:1 over the dpr-scaled backing store
+      c.drawImage(gammaRenderer.outputCanvas, 0, 0, width, height, x, y, width, height);
+    }
+  }
+
+  // Border and crosshair on the canvas, through the same matrix as the content. Clamp 1px inside the
+  // canvas so a crop filling an axis still shows its border at the edge.
+  const rl = Math.max(cropLeft, 1);
+  const rt = Math.max(cropTop, 1);
+  const rr = Math.min(cropRight, canvasW - 1);
+  const rb = Math.min(cropBottom, canvasH - 1);
   const color = reframeKeyframeColor(mediaTime);
   c.setTransform(dpr, 0, 0, dpr, 0, 0); // CSS px; backing store is dpr-scaled
   c.lineJoin = 'miter';
