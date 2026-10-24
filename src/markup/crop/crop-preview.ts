@@ -14,6 +14,7 @@ import {
   getDynamicCropComponents,
 } from '../charts';
 import { isReframeEnabled } from './video-zoom-controller';
+import { cropPreviewSize } from './crop-preview-size';
 import {
   getSelectedCropString,
   getVideoScaledCropComponentsFromCropString,
@@ -149,11 +150,6 @@ export function startDrawZoomedRegion(getZoomRegion: Function) {
   const modal = document.getElementById('ytc-zoom-modal');
   const modalContent = document.getElementsByClassName('ytc-modal-content')[0];
 
-  const [, , w, h] = getZoomRegion();
-
-  cropPreviewCanvas.width = w;
-  cropPreviewCanvas.height = h;
-
   assertDefined(ctx, 'Could not get 2d context from crop preview canvas');
   assertDefined(modal, 'Could not find ytc-zoom-modal element');
   drawZoomedRegion(getZoomRegion, cropPreviewCanvas, ctx, modal, modalContent as HTMLElement);
@@ -174,19 +170,20 @@ function drawZoomedRegion(
     // as the CSS rotate(${appState.rotation}deg)) so the modal shows the same
     // orientation the user is previewing rather than the upright source.
     const rotation = appState.rotation;
-    const isRotated = rotation === 90 || rotation === -90;
-    canvas.width = isRotated ? h : w;
-    canvas.height = isRotated ? w : h;
+    const { drawW, drawH, canvasW, canvasH } = cropPreviewSize(w, h, rotation);
+    // Assigning a size clears and reallocates the canvas even when unchanged, so only on a change.
+    if (canvas.width !== canvasW) canvas.width = canvasW;
+    if (canvas.height !== canvasH) canvas.height = canvasH;
 
     resizeModalToAspect(modalContent, canvas.width, canvas.height);
 
     if (rotation === 0) {
-      ctx.drawImage(appState.video, x, y, w, h, 0, 0, w, h);
+      ctx.drawImage(appState.video, x, y, w, h, 0, 0, drawW, drawH);
     } else {
       ctx.save();
-      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.translate(canvasW / 2, canvasH / 2);
       ctx.rotate((rotation * Math.PI) / 180);
-      ctx.drawImage(appState.video, x, y, w, h, -w / 2, -h / 2, w, h);
+      ctx.drawImage(appState.video, x, y, w, h, -drawW / 2, -drawH / 2, drawW, drawH);
       ctx.restore();
     }
 
@@ -263,11 +260,7 @@ export function toggleCropPreview(mode: cropPreviewMode = 'modal') {
       getZoomRegion,
       mode
     );
-    enableCropPreview();
   }
-}
-export function enableCropPreview() {
-  startDrawZoomedRegion(getZoomRegion);
 }
 
 export function getZoomRegion(): [number, number, number, number] {
