@@ -33,6 +33,7 @@ import { getMarkerPairHistory, saveMarkerPairHistory } from '../util/undoredo';
 import { renderUIIcon } from '../features/icons/glyphs';
 import { cropToTargetRect, lockPanAxis, minimapRect, unrotateFocalPoint } from './video-zoom-math';
 import { getViewport, isZoomed, setViewport, subscribeZoom } from './video-zoom-state';
+import { halvingSteps } from './halving-steps';
 
 // Pixels the pointer must travel before a press on the minimap becomes a pan, so
 // an accidental click never jumps the view.
@@ -421,9 +422,41 @@ function drawFrame(): void {
   }
   // Draw the frame and the crop rect in the same (rotated) source space, so the
   // crop marker rotates with the frame for free.
-  ctx.drawImage(source, 0, 0, vw, vh, 0, 0, vw, vh);
+  const { image, width, height } = halvedFrame(source, vw, vh, dW / bw);
+  ctx.drawImage(image, 0, 0, width, height, 0, 0, vw, vh);
   drawCropMarker(ctx, vw, vh, dW);
   ctx.restore();
+}
+
+// The half-size steps of the frame, reused from frame to frame.
+const halvingCanvases: HTMLCanvasElement[] = [];
+
+/** The frame shrunk in half-size steps until it is at most twice the thumbnail's size. Each step
+ *  averages 2x2 pixels, while a single draw from a large frame samples only a few of its pixels per
+ *  thumbnail pixel, which shimmers on fine detail. `scaleDown` is frame pixels per thumbnail pixel. */
+function halvedFrame(
+  source: CanvasImageSource,
+  vw: number,
+  vh: number,
+  scaleDown: number
+): { image: CanvasImageSource; width: number; height: number } {
+  let image = source;
+  let width = vw;
+  let height = vh;
+  for (const [step, { width: halfW, height: halfH }] of halvingSteps(vw, vh, scaleDown).entries()) {
+    const half = (halvingCanvases[step] ??= document.createElement('canvas'));
+    if (half.width !== halfW || half.height !== halfH) {
+      half.width = halfW;
+      half.height = halfH;
+    }
+    const halfCtx = half.getContext('2d');
+    if (!halfCtx) break;
+    halfCtx.drawImage(image, 0, 0, width, height, 0, 0, halfW, halfH);
+    image = half;
+    width = halfW;
+    height = halfH;
+  }
+  return { image, width, height };
 }
 
 /** Outline the current crop on the minimap canvas with a black line just outside the crop edge and
