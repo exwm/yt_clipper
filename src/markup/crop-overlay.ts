@@ -607,12 +607,7 @@ export function showCropOverlay() {
   }
 }
 export function hideCropOverlay() {
-  if (isDrawingCrop) {
-    finishDrawingCrop(true);
-  }
-  if (isMouseManipulatingCrop) {
-    endCropMouseManipulation(null, true);
-  }
+  cancelCropEdit();
   if (cropSvg) {
     cropSvg.style.display = 'none';
     appState.isCropOverlayVisible = false;
@@ -628,11 +623,18 @@ export let isMouseManipulatingCrop = false;
  *  drag-specific vs resize-specific modifier chips. Set when manipulation
  *  begins, cleared on end. Null when not manipulating. */
 export let cropManipulationKind: 'drag' | 'resize' | null = null;
+// Cancels the crop manipulation in progress, given by the surface that owns it (the video or the
+// zoom minimap), as each keeps its own snapshot and listeners.
+let cancelCropManipulation: (() => void) | null = null;
 /** Setters so an alternate manipulation surface (the zoom minimap in reframe
  *  mode) can flag a crop manipulation, making the overlays/preview follow the
  *  edited point exactly like a manipulation on the video itself. */
-export function setIsMouseManipulatingCrop(value: boolean): void {
+export function setIsMouseManipulatingCrop(
+  value: boolean,
+  cancel: (() => void) | null = null
+): void {
   isMouseManipulatingCrop = value;
+  cancelCropManipulation = value ? cancel : null;
 }
 export function setCropManipulationKind(kind: 'drag' | 'resize' | null): void {
   cropManipulationKind = kind;
@@ -672,7 +674,15 @@ export function suppressNextAltLock(): void {
  *  requestAnimationFrame, freezing the drag. `null` when no drag is
  *  active. */
 export let refreshCropDragInitState: (() => void) | null = null;
-export let endCropMouseManipulation: (e, forceEndDrag?: boolean) => void;
+/** For a drag on another surface (the zoom minimap) to take a point added under it, as this one does. */
+export function setRefreshCropDragInitState(refresh: (() => void) | null): void {
+  refreshCropDragInitState = refresh;
+}
+export let endCropMouseManipulation: (
+  e,
+  forceEndDrag?: boolean,
+  shouldRevertCrop?: boolean
+) => void;
 export function ctrlOrCommand(e: PointerEvent) {
   return e.ctrlKey || e.metaKey;
 }
@@ -745,21 +755,31 @@ let cropWheelCommitTimer = 0;
  *  it. Auto-keys at the current time like a manipulation; the scales mutate live state
  *  (no per-tick history) and a short idle debounce commits the whole burst as one undo. */
 export function reframeWheelZoomCrop(deltaY: number): void {
-  autoKeyCurrentCropPoint();
+  if (!autoKeyCurrentCropPoint()) return;
   const initCropMap = getCropMapProperties().initCropMap ?? undefined;
   if (!initCropMap) return;
   // Wheel up (deltaY < 0) zooms IN → tighter crop; wheel down zooms out.
   const factor = deltaY < 0 ? 1 / CROP_WHEEL_ZOOM_STEP : CROP_WHEEL_ZOOM_STEP;
   scaleCropAroundCenter(factor, initCropMap);
   if (cropWheelCommitTimer) clearTimeout(cropWheelCommitTimer);
-  cropWheelCommitTimer = window.setTimeout(() => {
-    cropWheelCommitTimer = 0;
-    if (appState.wasGlobalSettingsEditorOpen) return;
-    const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
-    if (markerPair) {
-      saveMarkerPairHistory(createDraft(getMarkerPairHistory(markerPair)), markerPair);
-    }
-  }, 300);
+  cropWheelCommitTimer = window.setTimeout(commitCropWheelZoom, 300);
+}
+
+function commitCropWheelZoom(): void {
+  cropWheelCommitTimer = 0;
+  if (appState.wasGlobalSettingsEditorOpen) return;
+  const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+  if (markerPair) {
+    saveMarkerPairHistory(createDraft(getMarkerPairHistory(markerPair)), markerPair);
+  }
+}
+
+/** Commits a wheel zoom still waiting for the wheel to go idle, so it is its own undo step before an
+ *  edit that snapshots, undoes or leaves the pair's crop map. */
+export function flushCropWheelZoom(): void {
+  if (!cropWheelCommitTimer) return;
+  clearTimeout(cropWheelCommitTimer);
+  commitCropWheelZoom();
 }
 
 export function addCropMouseManipulationListener() {
@@ -780,12 +800,18 @@ export function addCropMouseManipulationListener() {
       appState.isSettingsEditorOpen &&
       appState.isCropOverlayVisible &&
       !isDrawingCrop &&
+      !isMouseManipulatingCrop &&
       !isCropBlockingChartVisible
     ) {
+      // A wheel zoom waiting to commit becomes its own undo step before the drag's snapshot.
+      flushCropWheelZoom();
+      // A canceled drag restores the crop points from before it, including before the auto-key below
+      // added one.
+      const cropMapBeforeDrag = getCropMapProperties().initCropMap;
       // Reframe auto-key: the playhead is the selection. Pause and select (or
       // create) the keyframe at the current time BEFORE reading the crop below,
       // so the drag edits that point.
-      if (isReframeEnabled()) autoKeyCurrentCropPoint();
+      if (isReframeEnabled() && !autoKeyCurrentCropPoint()) return;
       const cropString = getSelectedCropString();
       // Mutable so the wheel-zoom-during-pan handler can re-baseline
       // them on each tick: the pan formula computes
@@ -841,30 +867,31 @@ export function addCropMouseManipulationListener() {
       // swapped out mid-drag (defensive: shouldn't happen, but cheap).
       const captureTarget = appState.hooks.cropMouseManipulation;
       let unregisterDragRecovery: () => void = () => {};
+      // Kept, so every end of the drag removes it: a later pointercancel would end it again.
+      const endOnPointerCancel = (ev: Event) => endThisDrag(ev as PointerEvent, true);
 
-      endCropMouseManipulation = (e: PointerEvent, forceEnd = false) => {
+      endCropMouseManipulation = (e: PointerEvent, forceEnd = false, shouldRevertCrop = false) => {
         if (forceEnd) {
-          captureTarget.removeEventListener('pointerup', endCropMouseManipulation, {
-            capture: true,
-          });
-          captureTarget.removeEventListener('pointercancel', endCropMouseManipulation, {
+          captureTarget.removeEventListener('pointerup', endThisDrag, {
             capture: true,
           });
         }
+        captureTarget.removeEventListener('pointercancel', endOnPointerCancel, { capture: true });
         unregisterDragRecovery();
-        isMouseManipulatingCrop = false;
+        setIsMouseManipulatingCrop(false);
         cropManipulationKind = null;
         setCropDragStartCropString(null);
         refreshCropDragInitState = null;
+        // A pending move is applied, unless the drag is canceled.
         if (cropDragRafId) {
           cancelAnimationFrame(cropDragRafId);
           cropDragRafId = 0;
-          processDragCrop();
+          if (!shouldRevertCrop) processDragCrop();
         }
         if (cropResizeRafId) {
           cancelAnimationFrame(cropResizeRafId);
           cropResizeRafId = 0;
-          processResizeCrop();
+          if (!shouldRevertCrop) processResizeCrop();
         }
         if (autoPanRafId) cancelAnimationFrame(autoPanRafId);
         autoPanRafId = 0;
@@ -881,7 +908,12 @@ export function addCropMouseManipulationListener() {
         if (!appState.wasGlobalSettingsEditorOpen) {
           const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
           const draft = createDraft(getMarkerPairHistory(markerPair));
-          saveMarkerPairHistory(draft, markerPair);
+          if (shouldRevertCrop && cropMapBeforeDrag) draft.cropMap = cropMapBeforeDrag;
+          saveMarkerPairHistory(draft, markerPair, !shouldRevertCrop);
+        } else if (shouldRevertCrop) {
+          // The global settings' new marker crop, from before the drag.
+          appState.settings.newMarkerCrop = cropString;
+          updateCropString(cropString, true);
         }
 
         renderSpeedAndCropUI();
@@ -901,6 +933,8 @@ export function addCropMouseManipulationListener() {
         document.addEventListener('keyup', removeCropHoverListener, true);
         document.addEventListener('keydown', addCropHoverListener, true);
       };
+      // This drag's own end: the module variable is reassigned by the next Ctrl+pointerdown.
+      const endThisDrag = endCropMouseManipulation;
 
       if (!cursor) {
         return;
@@ -959,7 +993,7 @@ export function addCropMouseManipulationListener() {
         captureTarget.addEventListener('pointermove', cropResizeHandler);
       }
 
-      captureTarget.addEventListener('pointerup', endCropMouseManipulation, {
+      captureTarget.addEventListener('pointerup', endThisDrag, {
         once: true,
         capture: true,
       });
@@ -968,25 +1002,21 @@ export function addCropMouseManipulationListener() {
       // reassigning pointer ownership), pointerup will not fire on the
       // captured target but pointercancel will. Both must run the same
       // teardown so the user never gets stuck in a manipulating state.
-      captureTarget.addEventListener(
-        'pointercancel',
-        (ev: Event) => endCropMouseManipulation(ev as PointerEvent, true),
-        {
-          once: true,
-          capture: true,
-        }
-      );
+      captureTarget.addEventListener('pointercancel', endOnPointerCancel, {
+        once: true,
+        capture: true,
+      });
       // Belt-and-suspenders: window.blur / tab-hidden recovery. Some
       // sequences (rapid alt-tab on Windows, certain devtools docking
       // transitions) drop both pointerup and pointercancel for the
       // captured target: this is the last-resort cleanup so the state
       // can never permanently stick.
       unregisterDragRecovery = registerActiveDragCleanup(() => {
-        endCropMouseManipulation(null as unknown as PointerEvent, true);
+        endThisDrag(null as unknown as PointerEvent, true);
       });
 
       hidePlayerControls();
-      isMouseManipulatingCrop = true;
+      setIsMouseManipulatingCrop(true, () => endThisDrag(null, true, true));
 
       // In reframe the view follows the crop, so auto-panning the crop also scrolls
       // the view. The user then reaches the frame extremes without re-grabbing when
@@ -1375,6 +1405,15 @@ export function getMouseCropHoverRegion(e: PointerEvent, cropString?: string): s
   return cursor;
 }
 export let isDrawingCrop = false;
+/** A crop drag or draw writes over the crop map it read when it began, so anything else that changes
+ *  the map or the selected pair first cancels it. */
+export function cancelCropEdit(): void {
+  if (isMouseManipulatingCrop && cancelCropManipulation) {
+    cancelCropManipulation();
+    flashMessage('Crop drag canceled', 'red');
+  }
+  if (isDrawingCrop) finishDrawingCrop(true);
+}
 export let prevNewMarkerCrop = '0:0:iw:ih';
 export let initDrawCropMap: CropPoint[] | null;
 export let beginDrawHandler: (e: PointerEvent) => void;
@@ -1394,6 +1433,7 @@ export function drawCrop() {
   } else if (isMouseManipulatingCrop) {
     flashMessage('Please finish dragging or resizing before drawing crop', 'olive');
   } else if (appState.isSettingsEditorOpen && appState.isCropOverlayVisible) {
+    flushCropWheelZoom();
     isDrawingCrop = true;
 
     ({ initCropMap: initDrawCropMap } = getCropMapProperties());

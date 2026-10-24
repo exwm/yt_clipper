@@ -14,9 +14,10 @@
 import { html, render } from 'lit-html';
 import { createDraft } from 'immer';
 import { appState } from '../appState';
-import { CropPoint } from '../@types/yt_clipper';
+import { CropPoint, MarkerPair } from '../@types/yt_clipper';
 import {
   autoKeyCurrentCropPoint,
+  chartState,
   getCropMapProperties,
   getCurrentCropComponents,
   renderSpeedAndCropUI,
@@ -24,11 +25,17 @@ import {
 import { isReframeEnabled } from './video-zoom-controller';
 import { getCropComponents, getSelectedCropString, updateCropString } from '../crop-utils';
 import {
+  cancelCropEdit,
   ensureReframeZoomPan,
+  isDrawingCrop,
+  isMouseManipulatingCrop,
+  setCropDragStartCropString,
   setCropManipulationKind,
   setIsMouseManipulatingCrop,
+  setRefreshCropDragInitState,
 } from '../crop-overlay';
 import { clampNumber, flashMessage, getCropString, injectCSS } from '../util/util';
+import { registerActiveDragCleanup } from '../util/drag-recovery';
 import { getMarkerPairHistory, saveMarkerPairHistory } from '../util/undoredo';
 import { renderUIIcon } from '../features/icons/glyphs';
 import { cropToTargetRect, lockPanAxis, minimapRect, unrotateFocalPoint } from './video-zoom-math';
@@ -185,6 +192,8 @@ const MINIMAP_DPR = Math.max(
 // True while a reframe crop drag is in progress, so the hover handler leaves the
 // grab/resize cursor it set alone.
 let minimapCropManipulating = false;
+// Ends the minimap's press or crop drag in progress, keeping or (true) reverting its edit.
+let endMinimapGesture: ((revert: boolean) => void) | null = null;
 // True from pointerdown until release on the crop surface, so the hover handler doesn't
 // overwrite the press (grabbing fist / resize) cursor before/while a drag engages.
 let minimapPointerDown = false;
@@ -246,6 +255,8 @@ export function toggleZoomMinimap(): void {
 // re-home it and re-clamp its position to the (possibly new) viewport.
 function onFullscreenChange(): void {
   if (!host) return;
+  // Moving the host drops its pointer capture, so a press or crop drag on it would never end.
+  endMinimapPress();
   minimapParent().appendChild(host);
   applyMinimapPosition();
 }
@@ -353,7 +364,15 @@ function ensureMinimap(): void {
   startLoop();
 }
 
+// A crop drag is canceled as any interrupted crop edit is; a press that hasn't dragged just ends.
+function endMinimapPress(): void {
+  if (minimapCropManipulating) cancelCropEdit();
+  else endMinimapGesture?.(false);
+}
+
 function destroyMinimap(): void {
+  // A press or crop drag on the removed host would never see the release.
+  endMinimapPress();
   stopLoop();
   if (host) {
     host.removeEventListener('pointerdown', onPointerDown, true);
@@ -782,10 +801,25 @@ function onHoverMove(e: PointerEvent): void {
 /** Reframe: drag on the minimap to move the crop, or grab an edge to resize it.
  *  Auto-keys at the current time (like a manipulation on the video), edits via the
  *  shared `updateCropString`, and commits the whole gesture as one undo step. */
+// As on the video: no crop drag on another pair, while another chart (the speed chart) is shown, or
+// during a crop draw or another drag.
+function canDragCropOf(pair: MarkerPair | undefined): pair is MarkerPair {
+  return (
+    pair != null &&
+    pair === appState.markerPairs[appState.prevSelectedMarkerPairIndex] &&
+    !appState.wasGlobalSettingsEditorOpen &&
+    !(appState.isCurrentChartVisible && chartState.currentChartInput?.type !== 'crop') &&
+    !isDrawingCrop &&
+    !isMouseManipulatingCrop
+  );
+}
+
 function beginCropManipulation(e: PointerEvent): void {
   const pair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
-  if (!pair || appState.wasGlobalSettingsEditorOpen || !host || !canvasEl) return;
-  host.setPointerCapture(e.pointerId);
+  if (!canDragCropOf(pair) || !host || !canvasEl) return;
+  // The gesture's own element, as the module's host is recreated with the minimap.
+  const gestureHost = host;
+  gestureHost.setPointerCapture(e.pointerId);
   const downX = e.clientX;
   const downY = e.clientY;
   minimapPointerDown = true;
@@ -825,17 +859,26 @@ function beginCropManipulation(e: PointerEvent): void {
   let nearBottom = false;
   let isResize = false;
   let initCropMap: CropPoint[] | undefined;
+  // From before the auto-keyed point, which a cancel takes back with the drag.
+  let cropMapBeforeDrag: CropPoint[] | undefined;
   let rafId = 0;
   let pending: PointerEvent | null = null;
 
   // Deferred until the pointer moves, so a stray click never auto-keys.
   const begin = (): void => {
     active = true;
-    autoKeyCurrentCropPoint();
     cropResW = appState.settings.cropResWidth || 1;
     cropResH = appState.settings.cropResHeight || 1;
     [x0, y0, w0, h0] = getCropComponents(getSelectedCropString());
     initCropMap = getCropMapProperties().initCropMap ?? undefined;
+    // As the video drag does, so A or Alt+A mid-drag adds a point and the drag goes on with it.
+    setCropDragStartCropString(
+      getSelectedCropString(),
+      initCropMap?.[appState.currentCropPointIndex]?.hold === true
+    );
+    setRefreshCropDragInitState(() => {
+      initCropMap = getCropMapProperties().initCropMap ?? undefined;
+    });
     const s = minimapPointerToCropRes(downX, downY, cropResW, cropResH);
     startCx = s.cx;
     startCy = s.cy;
@@ -849,7 +892,7 @@ function beginCropManipulation(e: PointerEvent): void {
     // writes the size, so it lands on this keyframe instead of all of them. A move
     // (pan) is mode-agnostic, so leave it alone.
     if (isResize) ensureReframeZoomPan();
-    setIsMouseManipulatingCrop(true);
+    setIsMouseManipulatingCrop(true, () => finish(true));
     setCropManipulationKind(isResize ? 'resize' : 'drag');
     minimapCropManipulating = true;
     if (host) host.style.cursor = toMinimapCursor(isResize ? regionCursor(region) : 'grabbing');
@@ -894,6 +937,12 @@ function beginCropManipulation(e: PointerEvent): void {
       ) {
         return;
       }
+      // The press may have outlived what allowed it: a draw armed, a chart or pair switched.
+      cropMapBeforeDrag = getCropMapProperties().initCropMap ?? undefined;
+      if (!canDragCropOf(pair) || !autoKeyCurrentCropPoint()) {
+        finish(false);
+        return;
+      }
       begin();
     }
     pending = ev;
@@ -906,35 +955,50 @@ function beginCropManipulation(e: PointerEvent): void {
     }
   };
 
-  const onUp = (ev: PointerEvent): void => {
+  // Ends the gesture, keeping its edit, or on a cancel restoring the crop map from before it.
+  const finish = (revert: boolean): void => {
     if (rafId) cancelAnimationFrame(rafId);
     rafId = 0;
     pending = null;
     minimapCropManipulating = false;
     minimapPointerDown = false;
+    endMinimapGesture = null;
+    unregisterDragRecovery();
     if (active) {
+      active = false;
       setIsMouseManipulatingCrop(false);
       setCropManipulationKind(null);
+      setCropDragStartCropString(null);
+      setRefreshCropDragInitState(null);
       // One checkpoint for the whole gesture (auto-key insert + edits), matching the
       // video crop handler: the per-edit updateCropString calls don't push history.
-      saveMarkerPairHistory(createDraft(getMarkerPairHistory(pair)), pair);
+      const draft = createDraft(getMarkerPairHistory(pair));
+      if (revert && cropMapBeforeDrag) draft.cropMap = cropMapBeforeDrag;
+      saveMarkerPairHistory(draft, pair, !revert);
       renderSpeedAndCropUI();
       drawFrame();
     }
-    host?.removeEventListener('pointermove', onMove, true);
-    host?.removeEventListener('pointerup', onUp, true);
-    host?.removeEventListener('pointercancel', onUp, true);
-    // Restore the hover cursor for where the pointer ended up (open hand / resize),
-    // instead of leaving the default crosshair until the next move.
-    onHoverMove(ev);
+    gestureHost.removeEventListener('pointermove', onMove, true);
+    gestureHost.removeEventListener('pointerup', onUp, true);
+    gestureHost.removeEventListener('pointercancel', onUp, true);
     try {
-      host?.releasePointerCapture(e.pointerId);
+      gestureHost.releasePointerCapture(e.pointerId);
     } catch {
       /* capture already released */
     }
   };
 
-  host.addEventListener('pointermove', onMove, true);
-  host.addEventListener('pointerup', onUp, true);
-  host.addEventListener('pointercancel', onUp, true);
+  const onUp = (ev: PointerEvent): void => {
+    finish(false);
+    // Restore the hover cursor for where the pointer ended up (open hand / resize),
+    // instead of leaving the default crosshair until the next move.
+    onHoverMove(ev);
+  };
+
+  endMinimapGesture = finish;
+  // A blur or hidden tab can drop the pointerup; end the gesture as the video drag does.
+  const unregisterDragRecovery = registerActiveDragCleanup(() => finish(false));
+  gestureHost.addEventListener('pointermove', onMove, true);
+  gestureHost.addEventListener('pointerup', onUp, true);
+  gestureHost.addEventListener('pointercancel', onUp, true);
 }

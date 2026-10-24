@@ -200,8 +200,10 @@ export function applyReframeViewport(crop: [number, number, number, number] | nu
 function onWheel(e: WheelEvent): void {
   if (!reframeEnabled) return;
   // Ctrl+wheel zooms the crop (scale around its centre) without grabbing it. Plain wheel scrolls
-  // the page; defer to the crop's own Ctrl+wheel scale handler during a manipulation.
-  if (isMouseManipulatingCrop || !e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return;
+  // the page; defer to the crop's own Ctrl+wheel scale handler during a manipulation. A wheel tick
+  // during a draw is ignored: it would add a crop point under the draw.
+  if (isMouseManipulatingCrop || isDrawingCrop || !e.ctrlKey || e.altKey || e.shiftKey || e.metaKey)
+    return;
   blockEvent(e);
   reframeWheelZoomCrop(e.deltaY);
 }

@@ -1,7 +1,7 @@
 import { ChartConfiguration, ChartFontOptions, ChartOptions } from 'chart.js';
 import { createDraft } from 'immer';
 import { getMarkerPairHistory, saveMarkerPairHistory } from '../../util/undoredo';
-import { seekToSafe, timeRounder } from '../../util/util';
+import { flashMessage, seekToSafe, timeRounder } from '../../util/util';
 import { toggleCropPointType, triggerCropChartUpdates } from '../../charts';
 import { appState } from '../../appState';
 import {
@@ -19,6 +19,8 @@ import {
   cropDragStartCropString,
   cropDragStartWasHold,
   cropManipulationKind,
+  cancelCropEdit,
+  isDrawingCrop,
   isMouseManipulatingCrop,
   refreshCropDragInitState,
   setCropDragStartCropString,
@@ -84,6 +86,8 @@ export const addSpeedPoint = function (this: any, time, speed) {
     ) {
       return;
     }
+    // Its history entry would sit between a crop edit's snapshot and its cancel.
+    cancelCropEdit();
 
     time = roundX(time);
     speed = roundY(speed);
@@ -113,8 +117,14 @@ export const addCropPoint = function (this: any, time: number) {
       return;
     }
     time = roundX(time);
-
     const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+    if (markerPair.cropMap.some((cropPoint) => cropPoint.x === time)) {
+      flashMessage('A crop point already exists at this time.', 'olive');
+      return;
+    }
+    // A crop drag refreshes its own snapshot below; a draw can't.
+    if (isDrawingCrop) cancelCropEdit();
+
     const initialState = getMarkerPairHistory(markerPair);
     const draft = createDraft(initialState);
 
@@ -212,6 +222,8 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
       chartInstance.options.plugins.zoom.pan.enabled = false;
       e.target.style.cursor = 'grabbing';
       if (chartType === 'crop') {
+        // Moving a point reorders the crop map under a draw.
+        cancelCropEdit();
         seekToSafe(appState.video, timeRounder(value.x));
         // Reframe suppresses the per-frame chart re-render, and the seek that would refresh the
         // selection is async, so select the grabbed point now to highlight it immediately.
@@ -334,20 +346,16 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
         const scatterChartMaxBound = this.options.scales.xAxes[0].ticks.max;
 
         const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
-        const initialState = getMarkerPairHistory(markerPair);
-        const draft = createDraft(initialState);
-
-        let dataRef: any[];
-        if (chartType === 'crop') {
-          dataRef = draft.cropMap;
-        } else {
-          dataRef = draft.speedMap;
-        }
+        const points = chartType === 'crop' ? markerPair.cropMap : markerPair.speedMap;
 
         if (
-          dataRef[index].x !== scatterChartMinBound &&
-          dataRef[index].x !== scatterChartMaxBound
+          points[index].x !== scatterChartMinBound &&
+          points[index].x !== scatterChartMaxBound
         ) {
+          // Its history entry would sit between a crop edit's snapshot and its cancel.
+          if (chartType === 'crop') cancelCropEdit();
+          const draft = createDraft(getMarkerPairHistory(markerPair));
+          const dataRef: any[] = chartType === 'crop' ? draft.cropMap : draft.speedMap;
           dataRef.splice(index, 1);
           if (chartType === 'crop') {
             saveMarkerPairHistory(draft, markerPair);
@@ -378,6 +386,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
     ) {
       const datum = dataAtClick[0];
       const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+      if (datum) cancelCropEdit();
       if (datum && toggleCropPointType(markerPair, datum._index, event.altKey ? 'instant' : 'hold')) {
         this.renderSpeedAndCropUI(true);
       }

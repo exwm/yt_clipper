@@ -3,7 +3,13 @@ import { renderShortcutsTable } from '../../../command-palette';
 import { MarkerPair, MarkerPairOverrides, Settings } from '../../@types/yt_clipper';
 import { appState } from '../../appState';
 import { autoKeyCurrentCropPoint, getCropMapProperties, renderSpeedAndCropUI } from '../../charts';
-import { hideCropOverlay, resizeCrop, transformCropWithPushBack } from '../../crop-overlay';
+import {
+  cancelCropEdit,
+  flushCropWheelZoom,
+  hideCropOverlay,
+  resizeCrop,
+  transformCropWithPushBack,
+} from '../../crop-overlay';
 import {
   cropStringsEqual,
   getCropComponents,
@@ -116,6 +122,9 @@ export function createBindings<T extends SettingsTarget>(target: T): SettingsBin
   };
 }
 export function deleteSettingsEditor() {
+  // Before the editor flags change: both write to the open editor's crop.
+  flushCropWheelZoom();
+  cancelCropEdit();
   const settingsEditorDiv = document.getElementById('settings-editor-div');
   assertDefined(settingsEditorDiv, 'Settings editor div not found');
   closeSettingsGearPopovers();
@@ -666,7 +675,7 @@ export function arrowKeyCropAdjustmentHandler(ke: KeyboardEvent) {
       // frame so the nudge lands on a keyframe there, not the stale chart selection. Read that fresh
       // keyframe; cropInput.value renders before the new point is selected, so it can lag a frame.
       const reframe = isReframeEnabled();
-      if (reframe) autoKeyCurrentCropPoint();
+      if (reframe && !autoKeyCurrentCropPoint()) return;
       const baseCropString = reframe ? getSelectedCropString() : cropInput.value;
       const [ix, iy, iw, ih] = getCropComponents(baseCropString);
       let changeAmount = 0;
