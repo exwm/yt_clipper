@@ -1,4 +1,4 @@
-import { bandsAround, PixelRect, wholePixelsInside } from './reframe-canvas-pixels';
+import { bandsAround, PixelRect, touchedPixels, wholePixelsInside } from './reframe-canvas-pixels';
 
 describe('wholePixelsInside', () => {
   it.each([
@@ -16,6 +16,31 @@ describe('wholePixelsInside', () => {
       expect(wholePixelsInside(left, top, right, bottom, 200, 100)).toEqual(expected);
     }
   );
+});
+
+describe('touchedPixels', () => {
+  it.each([
+    ['a fractional rect, to every pixel it touches', [10.4, 20.6, 100.2, 50.9], { x: 10, y: 20, width: 91, height: 31 }],
+    // Float error on a whole-pixel edge still counts the pixel beside it: gamma must reach every
+    // pixel the crop could touch.
+    ['edges a hair inside whole pixels', [10.0001, 20.0001, 99.9999, 49.9999], { x: 9, y: 19, width: 92, height: 32 }],
+    ['a rect past the canvas, clipped to it', [-5, -5, 300, 300], { x: 0, y: 0, width: 200, height: 100 }],
+    ['a rect thinner than a pixel', [10.2, 10, 10.8, 50], { x: 10, y: 9, width: 1, height: 42 }],
+    ['a rect outside the canvas', [250, 10, 260, 50], null],
+  ] as [string, [number, number, number, number], PixelRect | null][])(
+    'gives %s',
+    (_, [left, top, right, bottom], expected) => {
+      expect(touchedPixels(left, top, right, bottom, 200, 100)).toEqual(expected);
+    }
+  );
+
+  it('always covers the whole pixels a rect covers', () => {
+    const rect: [number, number, number, number] = [10.4, 20.6, 100.2, 50.9];
+    const inside = wholePixelsInside(...rect, 200, 100) as PixelRect;
+    const touched = touchedPixels(...rect, 200, 100) as PixelRect;
+    expect(touched.x).toBeLessThanOrEqual(inside.x);
+    expect(touched.x + touched.width).toBeGreaterThanOrEqual(inside.x + inside.width);
+  });
 });
 
 // Each pixel of the canvas counted by how many of the rects cover it.

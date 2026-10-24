@@ -4,9 +4,19 @@ export function setPrevGammaVal(gammaVal: number) {
   prevGammaVal = gammaVal;
 }
 
+/** A rect of the source canvas, in its backing-store pixels from the top left. */
+export interface GammaRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface WebGLGammaRenderer {
   outputCanvas: HTMLCanvasElement;
-  render: (sourceCanvas: HTMLCanvasElement, gamma: number) => void;
+  /** Gamma-correct `region` of the source (all of it by default) into an output canvas the
+   *  region's size. */
+  render: (sourceCanvas: HTMLCanvasElement, gamma: number, region?: GammaRegion) => void;
   destroy: () => void;
 }
 
@@ -40,7 +50,9 @@ uniform float u_gamma;
 out vec4 outColor;
 
 void main() {
-  vec4 color = texture(u_texture, v_uv);
+  // The texture's first row is the source's top row (uploaded unflipped, so a source region selects
+  // the same rows), while the output's first row is its bottom: flip here.
+  vec4 color = texture(u_texture, vec2(v_uv.x, 1.0 - v_uv.y));
 
   // Clamp base to 1e-6 to guard against pow(0, very_small_gamma) edge cases.
   // Alpha is passed through unchanged.
@@ -182,13 +194,17 @@ export function createWebGLGammaRenderer(sourceCanvas: HTMLCanvasElement): WebGL
     throw new Error('Missing required uniform(s)');
   }
 
-  function render(sourceCanvas: HTMLCanvasElement, gamma: number): void {
+  function render(
+    sourceCanvas: HTMLCanvasElement,
+    gamma: number,
+    region: GammaRegion = { x: 0, y: 0, width: sourceCanvas.width, height: sourceCanvas.height }
+  ): void {
     outputCanvas.style.width = sourceCanvas.style.width;
     outputCanvas.style.height = sourceCanvas.style.height;
     // Assigning a canvas dimension resets the drawing buffer even when unchanged, so only resize on
     // a change. The full-screen draw below writes every pixel either way.
-    if (outputCanvas.width !== sourceCanvas.width) outputCanvas.width = sourceCanvas.width;
-    if (outputCanvas.height !== sourceCanvas.height) outputCanvas.height = sourceCanvas.height;
+    if (outputCanvas.width !== region.width) outputCanvas.width = region.width;
+    if (outputCanvas.height !== region.height) outputCanvas.height = region.height;
 
     if (!gl) throw new Error('WebGL2RenderingContext is null');
 
@@ -198,10 +214,24 @@ export function createWebGLGammaRenderer(sourceCanvas: HTMLCanvasElement): WebGL
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texture);
-    // Canvas (0,0) is top-left; WebGL texture V=0 is bottom. Flipping on
-    // upload corrects the orientation so the image appears right-side up.
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sourceCanvas);
+    // Upload only the region: WebGL 2 selects a sub-rectangle of a canvas source with the skip
+    // parameters. Unflipped, so the skipped rows count from the top (the shader flips).
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, region.x);
+    gl.pixelStorei(gl.UNPACK_SKIP_ROWS, region.y);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      region.width,
+      region.height,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      sourceCanvas
+    );
+    gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
+    gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
 
     gl.uniform1i(uTexture, 0); // texture unit 0
     // Floor gamma at 1e-6 so pow(x, gamma) never degenerates to 1 for all x.

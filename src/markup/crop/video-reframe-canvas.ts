@@ -21,7 +21,7 @@ import { cropToTargetRect, videoBoxToCanvasPoint } from './video-zoom-math';
 import { createWebGLGammaRenderer, prevGammaVal, WebGLGammaRenderer } from '../util/previewGamma';
 import { deleteElement, injectCSS } from '../util/util';
 import { getPresentedFrameTime } from '../util/presented-frame-clock';
-import { bandsAround, wholePixelsInside } from './reframe-canvas-pixels';
+import { bandsAround, touchedPixels, wholePixelsInside } from './reframe-canvas-pixels';
 
 let canvas: HTMLCanvasElement | null = null;
 let ctx: CanvasRenderingContext2D | null = null;
@@ -256,12 +256,27 @@ export function drawReframeFrame(mediaTime: number): void {
   // Gamma-correct the video pixels through the same WebGL shader the crop preview uses, so reframe
   // matches the exported output. drawImage reads the raw frame, so the SVG gamma filter on the
   // hidden video has no effect here. Runs after the crop and before the border so the UI chrome
-  // below stays its true colour. Black bars stay black (pow(0,g)=0).
+  // below stays its true colour. Solid black bars stay black, so only the pixels the crop touches
+  // need the pass; below full dim the faint frame shows everywhere, so then the whole canvas.
   if (appState.isGammaPreviewOn && prevGammaVal !== 1) {
     gammaRenderer ??= createWebGLGammaRenderer(canvas);
-    gammaRenderer.render(canvas, prevGammaVal);
-    c.setTransform(1, 0, 0, 1, 0, 0); // identity: composite 1:1 over the dpr-scaled backing store
-    c.drawImage(gammaRenderer.outputCanvas, 0, 0);
+    const region =
+      dim < 1
+        ? { x: 0, y: 0, width: canvas.width, height: canvas.height }
+        : touchedPixels(
+            cropLeft * dpr,
+            cropTop * dpr,
+            cropRight * dpr,
+            cropBottom * dpr,
+            canvas.width,
+            canvas.height
+          );
+    if (region) {
+      const { x, y, width, height } = region;
+      gammaRenderer.render(canvas, prevGammaVal, region);
+      c.setTransform(1, 0, 0, 1, 0, 0); // identity: composite 1:1 over the dpr-scaled backing store
+      c.drawImage(gammaRenderer.outputCanvas, 0, 0, width, height, x, y, width, height);
+    }
   }
 
   // Border and crosshair on the canvas, through the same matrix as the content. Clamp 1px inside the
