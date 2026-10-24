@@ -1429,29 +1429,10 @@ export function toggleCropPointType(
   return true;
 }
 
-// Recolor the current-time crop rect border to signal the reframe auto-key
-// state (AE keyframe-navigator convention): solid green when the playhead is on a
-// keyframe (an edit updates it), dashed amber between keyframes (an edit creates
-// one). `null` restores the default white dashed border outside reframe mode.
-// Reframe keyframe-state colours, shared by the rect border and the crosshair so
-// they can't drift: green when the playhead is on a keyframe (an edit updates it),
-// amber between keyframes (an edit creates one).
+// Reframe keyframe-state colours (AE keyframe-navigator convention): green when the playhead is on
+// a keyframe (an edit updates it), amber between keyframes (an edit creates one).
 const ON_KEYFRAME_COLOR = '#3ac36a';
 const BETWEEN_KEYFRAME_COLOR = '#f5a623';
-function applyCropKeyframeIndicator(onKeyframe: boolean | null): void {
-  const border = cropOverlayElements.cropRectBorderWhite as SVGElement | null;
-  if (!border) return;
-  if (onKeyframe == null) {
-    // Classic non-reframe styling.
-    border.setAttribute('stroke', 'white');
-    border.setAttribute('stroke-dasharray', '5 5');
-    return;
-  }
-  // Reframe: solid rect either way; the colour alone shows the create-vs-edit
-  // state (green = on a keyframe, amber = between).
-  border.setAttribute('stroke', onKeyframe ? ON_KEYFRAME_COLOR : BETWEEN_KEYFRAME_COLOR);
-  border.setAttribute('stroke-dasharray', '0');
-}
 
 /** The reframe crop-border colour for the crop at `time`: green on a keyframe (an edit updates
  *  it), amber between (an edit creates one). The reframe canvas border uses this. */
@@ -1469,49 +1450,33 @@ export function updateDynamicCropOverlays(
 ) {
   if (isDynamicCrop || appState.currentCropPointIndex > 0) {
     // The reframe preview focuses on the current-time crop only, so hide the
-    // start/end section keyframe overlays (the main crop rect still updates below).
+    // start/end section keyframe overlays.
     const sectionDisplay = isReframeEnabled() ? 'none' : 'block';
     (cropOverlayElements.cropChartSectionStart as HTMLElement).style.display = sectionDisplay;
     (cropOverlayElements.cropChartSectionEnd as HTMLElement).style.display = sectionDisplay;
-    // With the start/end section rects shown (non-reframe dynamic crop), the current-time rect is a
-    // third overlapping rect that just adds noise, so hide it: the outside-crop dim already marks
-    // the current crop region. Keep it when the dim is off (nothing else cues the current crop), and
-    // in reframe where it's the preview (the canvas draws its own border, this SVG one display-hidden).
-    setCurrentCropRectVisible(isReframeEnabled() || getCropDimOpacity() === 0);
-    // The reframe canvas draws the crop and hides the SVG overlay, so skip its per-frame layout.
-    // Leaving reframe re-renders the overlay (renderSpeedAndCropUI).
+    // The reframe canvas draws the crop and hides the rest of the SVG overlay, so skip its per-frame
+    // layout. Leaving reframe re-renders the overlay (renderSpeedAndCropUI).
     if (isReframeEnabled()) return;
+    // With the start/end section rects shown, the current-time rect is a third overlapping rect
+    // that just adds noise, so hide it: the outside-crop dim already marks the current crop region.
+    // Keep it when the dim is off (nothing else cues the current crop).
+    setCurrentCropRectVisible(getCropDimOpacity() === 0);
   } else {
     (cropOverlayElements.cropChartSectionStart as HTMLElement).style.display = 'none';
     (cropOverlayElements.cropChartSectionEnd as HTMLElement).style.display = 'none';
     // Single crop rect here (no section rects), so show it.
     setCurrentCropRectVisible(true);
-    applyCropKeyframeIndicator(null);
     return;
   }
   const sectStart = chartData[currentCropChartSection[0]];
   const sectEnd = chartData[currentCropChartSection[1]];
 
-  // The current crop that the main rect + crosshair track. In reframe this is the
-  // exact crop the video transform is driven from (getCurrentCropComponents: the
-  // edited point while manipulating, the interpolated crop while scrubbing); otherwise
-  // the section interpolation.
-  let [curX, curY, curW, curH] = getEasedCropComponents(
+  const [curX, curY, curW, curH] = getEasedCropComponents(
     sectStart,
     sectEnd,
     chartData[currentCropChartSection[0] - 1],
     chartData[currentCropChartSection[1] + 1]
   );
-  if (isReframeEnabled()) {
-    const cc = getCurrentCropComponents();
-    if (cc) [curX, curY, curW, curH] = cc;
-  }
-
-  // In reframe: on a keyframe (edit) vs between (auto-key), drives the rect border
-  // and crosshair colour. null outside reframe (keeps the classic styling).
-  const keyframeState = isReframeEnabled()
-    ? isPlayheadOnCropKeyframe(chartData, _currentTime).onKeyframe
-    : null;
 
   [
     cropOverlayElements.cropChartSectionStartBorderGreen,
@@ -1530,21 +1495,11 @@ export function updateDynamicCropOverlays(
 
   const currentCropPoint = chartData[appState.currentCropPointIndex];
   if (cropCrossHairEnabled && cropOverlayElements.cropCrossHair) {
-    // In reframe the crosshair centres on the current crop (same as the rect), not
-    // the selected keyframe.
-    const crossHairCrop = isReframeEnabled()
-      ? getCropString(curX, curY, curW, curH)
-      : currentCropPoint.crop;
     cropOverlayElements.cropCrossHairs.map((cropCrossHair) => {
-      setCropCrossHair(cropCrossHair, crossHairCrop);
+      setCropCrossHair(cropCrossHair, currentCropPoint.crop);
     });
-    (cropOverlayElements.cropCrossHair as HTMLElement).style.stroke = isReframeEnabled()
-      ? keyframeState
-        ? ON_KEYFRAME_COLOR
-        : BETWEEN_KEYFRAME_COLOR
-      : currentCropChartMode === cropChartMode.Start
-        ? 'lime'
-        : END_CROP_SECTION_COLOR;
+    (cropOverlayElements.cropCrossHair as HTMLElement).style.stroke =
+      currentCropChartMode === cropChartMode.Start ? 'lime' : END_CROP_SECTION_COLOR;
   }
 
   const sectionStartEl = cropOverlayElements.cropChartSectionStart;
@@ -1559,9 +1514,6 @@ export function updateDynamicCropOverlays(
     sectionEndEl.setAttribute('opacity', '0.9');
   }
 
-  // Draw the current-time crop rect from the same crop the crosshair + video
-  // transform use, so they stay pixel-locked instead of drifting by the section
-  // interpolation.
   [
     cropOverlayElements.cropRect,
     cropOverlayElements.cropRectBorderBlack,
@@ -1570,8 +1522,6 @@ export function updateDynamicCropOverlays(
     assertDefined(cropRect);
     setCropOverlayDimensions(cropRect, curX, curY, curW, curH);
   });
-
-  applyCropKeyframeIndicator(keyframeState);
 }
 // Re-position the dynamic crop section (start/end) overlays for the current crop
 // map and time without re-rendering the chart. Called when the crop overlay is
