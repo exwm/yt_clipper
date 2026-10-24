@@ -21,6 +21,7 @@ import { cropToTargetRect, videoBoxToCanvasPoint } from './video-zoom-math';
 import { createWebGLGammaRenderer, prevGammaVal, WebGLGammaRenderer } from '../util/previewGamma';
 import { deleteElement, injectCSS } from '../util/util';
 import { getPresentedFrameTime } from '../util/presented-frame-clock';
+import { bandsAround, wholePixelsInside } from './reframe-canvas-pixels';
 
 let canvas: HTMLCanvasElement | null = null;
 let ctx: CanvasRenderingContext2D | null = null;
@@ -190,11 +191,52 @@ export function drawReframeFrame(mediaTime: number): void {
     c.translate(-boxW / 2, -boxH / 2);
   };
 
+  // The crop rect's canvas bounds (CSS px): the axis-aligned bounds of its transformed corners,
+  // exact for 0/±90°. The black bars and the border below both use them.
+  const toCanvasCss = (px: number, py: number): [number, number] =>
+    videoBoxToCanvasPoint(px, py, {
+      rotation,
+      rotated,
+      scale,
+      fsScale,
+      boxW,
+      boxH,
+      tx,
+      ty,
+      boxCenterX,
+      boxCenterY,
+    });
+  const corners = [
+    toCanvasCss(clipX, clipY),
+    toCanvasCss(clipX + clipW, clipY),
+    toCanvasCss(clipX + clipW, clipY + clipH),
+    toCanvasCss(clipX, clipY + clipH),
+  ];
+  const xs = corners.map((p) => p[0]);
+  const ys = corners.map((p) => p[1]);
+  const cropLeft = Math.min(...xs);
+  const cropTop = Math.min(...ys);
+  const cropRight = Math.max(...xs);
+  const cropBottom = Math.max(...ys);
+  // The device pixels the opaque crop covers wholly: nothing drawn under them can show.
+  const coveredPixels = wholePixelsInside(
+    cropLeft * dpr,
+    cropTop * dpr,
+    cropRight * dpr,
+    cropBottom * dpr,
+    canvas.width,
+    canvas.height
+  );
+
   // Black bars base. Below full dim, draw the whole frame faintly (surroundings show through the
-  // bars), then the crop at full brightness. dim is the bars' blackness (1 = solid).
+  // bars), then the crop at full brightness. dim is the bars' blackness (1 = solid). The black skips
+  // the pixels the crop covers, which at a typical crop is most of the canvas. (Clipping the faint
+  // frame the same way changes its edge pixels: Chrome stops antialiasing a clipped image's edges.)
   c.setTransform(1, 0, 0, 1, 0, 0);
   c.fillStyle = '#000';
-  c.fillRect(0, 0, canvas.width, canvas.height);
+  for (const band of bandsAround(coveredPixels, canvas.width, canvas.height)) {
+    c.fillRect(band.x, band.y, band.width, band.height);
+  }
   const dim = getCropDimOpacity();
   if (dim < 1) {
     c.save();
@@ -222,34 +264,12 @@ export function drawReframeFrame(mediaTime: number): void {
     c.drawImage(gammaRenderer.outputCanvas, 0, 0);
   }
 
-  // Border and crosshair on the canvas, through the same matrix as the content. Transform the crop
-  // rect's corners and take their axis-aligned bounds (exact for 0/±90°).
-  const toCanvasCss = (px: number, py: number): [number, number] =>
-    videoBoxToCanvasPoint(px, py, {
-      rotation,
-      rotated,
-      scale,
-      fsScale,
-      boxW,
-      boxH,
-      tx,
-      ty,
-      boxCenterX,
-      boxCenterY,
-    });
-  const corners = [
-    toCanvasCss(clipX, clipY),
-    toCanvasCss(clipX + clipW, clipY),
-    toCanvasCss(clipX + clipW, clipY + clipH),
-    toCanvasCss(clipX, clipY + clipH),
-  ];
-  const xs = corners.map((p) => p[0]);
-  const ys = corners.map((p) => p[1]);
-  // Clamp 1px inside the canvas so a crop filling an axis still shows its border at the edge.
-  const rl = Math.max(Math.min(...xs), 1);
-  const rt = Math.max(Math.min(...ys), 1);
-  const rr = Math.min(Math.max(...xs), canvasW - 1);
-  const rb = Math.min(Math.max(...ys), canvasH - 1);
+  // Border and crosshair on the canvas, through the same matrix as the content. Clamp 1px inside the
+  // canvas so a crop filling an axis still shows its border at the edge.
+  const rl = Math.max(cropLeft, 1);
+  const rt = Math.max(cropTop, 1);
+  const rr = Math.min(cropRight, canvasW - 1);
+  const rb = Math.min(cropBottom, canvasH - 1);
   const color = reframeKeyframeColor(mediaTime);
   c.setTransform(dpr, 0, 0, dpr, 0, 0); // CSS px; backing store is dpr-scaled
   c.lineJoin = 'miter';
