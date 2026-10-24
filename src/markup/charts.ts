@@ -822,11 +822,12 @@ export function cropChartPreviewHandler(loop = true, frameTime?: number) {
         setCurrentCropPointWithCurrentTime();
       }
 
-      if (isDynamicCrop || appState.currentCropPointIndex > 0) {
-        cropInputLabel.textContent = `Crop Point ${appState.currentCropPointIndex + 1}`;
-      } else {
-        cropInputLabel.textContent = `Crop`;
-      }
+      const cropLabel =
+        isDynamicCrop || appState.currentCropPointIndex > 0
+          ? `Crop Point ${appState.currentCropPointIndex + 1}`
+          : 'Crop';
+      // Writing the same text still replaces the text node and dirties layout every frame.
+      if (cropInputLabel.textContent !== cropLabel) cropInputLabel.textContent = cropLabel;
 
       // Keep the crop input value in sync with the selected point as the playhead crosses points, so
       // it shows the current point's crop during playback (the label updated before, the value did
@@ -1266,9 +1267,8 @@ export function reframeCropAtFrameTime(mediaTime: number): [number, number, numb
   }
 }
 
-/** Run `fn` with the crop clock pinned to `mediaTime`, so any overlay re-layout it triggers
- *  (forceRerenderCrop) resolves the crop at the frame the canvas drew, not wall-clock
- *  getCurrentTime, which drifts within a frame and leaves the overlay a hair off. */
+/** Run `fn` with the crop clock pinned to `mediaTime`, so anything it reads resolves the crop at the
+ *  frame the canvas drew, not wall-clock getCurrentTime, which drifts within a frame. */
 export function withPresentedFrameTime<T>(mediaTime: number, fn: () => T): T {
   const prev = presentedFrameTime;
   presentedFrameTime = mediaTime;
@@ -1478,6 +1478,9 @@ export function updateDynamicCropOverlays(
     // the current crop region. Keep it when the dim is off (nothing else cues the current crop), and
     // in reframe where it's the preview (the canvas draws its own border, this SVG one display-hidden).
     setCurrentCropRectVisible(isReframeEnabled() || getCropDimOpacity() === 0);
+    // The reframe canvas draws the crop and hides the SVG overlay, so skip its per-frame layout.
+    // Leaving reframe re-renders the overlay (renderSpeedAndCropUI).
+    if (isReframeEnabled()) return;
   } else {
     (cropOverlayElements.cropChartSectionStart as HTMLElement).style.display = 'none';
     (cropOverlayElements.cropChartSectionEnd as HTMLElement).style.display = 'none';
@@ -1696,8 +1699,8 @@ export function syncCropChartVideoHeightLimit() {
   // The cap resizes the player; re-fit the video to it so centerVideo (which
   // measures the player container) shrinks the video and crop overlay to match.
   if (isReframeEnabled()) {
-    // Reframe locks the overlay to the transform, so re-render synchronously (matching
-    // syncZoomVisual) instead of the debounced resizeCropOverlay, then resync the reframe
+    // Reframe locks the overlay to the transform, so re-render it synchronously once (the per-frame
+    // sync no longer lays it out) instead of the debounced resizeCropOverlay, then resync the reframe
     // viewport/canvas against the now-current video box. Without this, hiding/showing the
     // masthead (this CSS's own effect) resized the video but left the canvas and its cached
     // crop rect (the hover hit-test reads it) at the old layout, most visibly at the top

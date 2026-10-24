@@ -140,9 +140,9 @@ export function drawReframeFrame(mediaTime: number): void {
   }
   // Hide the transformed video; the canvas draws the visible pixels.
   v.classList.add(HIDE_CLASS);
-  // Sync the hidden video transform to this frame's crop so editing coords, the overlay, and the
-  // matrix below all match. Pin the crop clock to this frame so the overlay re-layout it triggers
-  // (forceRerenderCrop) resolves the same crop, not the wall-clock crop a hair off.
+  // Sync the hidden video transform to this frame's crop so editing coords and the matrix below
+  // match. Pin the crop clock to this frame so anything the sync reads resolves the same crop, not
+  // the wall-clock crop a hair off.
   withPresentedFrameTime(mediaTime, () => applyReframeViewport(crop));
 
   // Same transform params the hidden video and overlay derive from, so the drawn crop, border, and

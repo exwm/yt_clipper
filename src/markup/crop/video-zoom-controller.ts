@@ -19,7 +19,7 @@ import { VideoPlatforms } from '../platforms/platforms';
 import { blockEvent, deleteElement, flashMessage, injectCSS } from '../util/util';
 import {
   applyActiveCropDimOpacity,
-  forceRerenderCrop,
+  centerVideo,
   isDrawingCrop,
   isMouseManipulatingCrop,
   reframeWheelZoomCrop,
@@ -62,12 +62,13 @@ function videoContainer(): HTMLElement | undefined {
 /** Re-apply the visual state: clip class, composed transform, overlay reposition. */
 function syncZoomVisual(): void {
   videoContainer()?.classList.toggle('ytc-zoom-clip', isZoomed());
-  applyVideoTransform();
-  // In reframe the overlay is the framing aid, so lock it to the transform synchronously; the
-  // rAF-debounced resizeCropOverlay would land a frame late and the crop rect would trail.
   if (isCropViewModeActive()) {
-    forceRerenderCrop();
+    // Runs every frame in reframe. The canvas draws the crop, border and bars over a hidden SVG
+    // overlay, so only re-fit the hidden video and its transform (editing coords read it), and skip
+    // laying out the overlay: its writes forced a second page layout per frame.
+    centerVideo();
   } else {
+    applyVideoTransform();
     resizeCropOverlay();
   }
 }
