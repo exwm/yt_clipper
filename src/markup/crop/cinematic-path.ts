@@ -507,7 +507,7 @@ function firmHoldsAfter(previous: CropPoint, point: CropPoint): boolean {
 // 'firm' holds the crop still over them within the margin, and 'exact' holds the crop still over them
 // and eases into and out of them.
 export type CinematicHolds = 'loose' | 'firm' | 'exact';
-export const DEFAULT_CINEMATIC_HOLDS: CinematicHolds = 'firm';
+export const DEFAULT_CINEMATIC_HOLDS: CinematicHolds = 'exact';
 
 // The crop points the Cinematic solve reads: hold points become firm hold points under Firm, and
 // ordinary crop points under Loose.

@@ -505,10 +505,10 @@ def test_cinematic_hold_points_follow_the_pairs_hold_points_setting(
     filters = {}
     for name, globalHolds, pairHolds in [
         ("default", None, None),
-        ("global exact", "exact", None),
-        ("pair exact", None, "exact"),
-        ("pair loose under a global exact", "exact", "loose"),
-        ("pair firm under a global loose", "loose", "firm"),
+        ("global firm", "firm", None),
+        ("pair firm", None, "firm"),
+        ("pair loose under a global firm", "firm", "loose"),
+        ("pair exact under a global loose", "loose", "exact"),
     ]:
         # A slow pan: a fast one keeps the whole margin under Firm, as under Loose.
         data = markersWithCropMap(("0:0:480:360", "120:0:480:360", "120:0:480:360", "240:120:480:360"))
@@ -520,10 +520,10 @@ def test_cinematic_hold_points_follow_the_pairs_hold_points_setting(
             data["cropPointEasingCinematicHolds"] = globalHolds
         markers = tmp_path / f"cinematic-holds-{name.replace(' ', '-')}.json"
         filters[name] = renderedVideoFilter(clipper, markers, data)
-    # Firm is the default.
-    assert filters["pair firm under a global loose"] == filters["default"]
-    assert filters["global exact"] == filters["pair exact"]
-    assert len({filters["default"], filters["pair exact"], filters["pair loose under a global exact"]}) == 3
+    # Exact is the default.
+    assert filters["pair exact under a global loose"] == filters["default"]
+    assert filters["global firm"] == filters["pair firm"]
+    assert len({filters["default"], filters["pair firm"], filters["pair loose under a global firm"]}) == 3
 
 
 @pytest.mark.parametrize("case", CLIP_CASES)

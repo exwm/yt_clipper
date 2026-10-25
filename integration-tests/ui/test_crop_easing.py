@@ -104,9 +104,11 @@ def test_moving_the_start_marker_between_points_keeps_the_previewed_crop(
 def test_moving_the_start_marker_of_a_cinematic_pair_ending_in_a_hold_point_keeps_the_previewed_crop(
     markup: MarkupPage,
 ) -> None:
-    # Hold points are Firm, so the end point's hold settles within the margin instead of easing in.
+    # Under Firm, the end point's hold settles within the margin instead of easing in.
     held_end = {**PAN_PAIR, "cropMap": [*PAN_PAIR["cropMap"][:-1], {"x": 9, "y": 0, "crop": "900:0:960:540", "hold": True}]}
-    given_pairs_with_the_first_ones_editor_open(markup, [held_end, {"start": 12, "end": 14}])
+    given_pairs_with_the_first_ones_editor_open(
+        markup, [held_end, {"start": 12, "end": 14}], {"cropPointEasingCinematicHolds": "firm"}
+    )
     when_i_choose_easing(markup, "cinematic")
     then_a_cinematic_path_is_baked(markup)
     previewed = previewed_crop_x_at(markup, BETWEEN_POINTS_TIME)
@@ -575,49 +577,60 @@ def test_cinematic_hold_points_hold_as_still_as_the_hold_points_setting_says(mar
     given_pairs_with_the_first_ones_editor_open(markup, [HOLD_PAIR, {"start": 12, "end": 14}])
     when_i_choose_easing(markup, "cinematic")
     then_a_cinematic_path_is_baked(markup)
-    firm = hold_drift(markup)
-    markup.report(f"Firm drift {firm}")
-    # Firm holds still past its settle (the chip shows whole pixels).
-    assert firm <= 1
-    when_i_reopen_the_cinematic_settings(markup)
-    assert markup.page.locator(f"{HOLDS_SELECT} option:checked").inner_text() == "(Firm)"
-    markup.page.select_option(HOLDS_SELECT, "loose")
-    # Measuring seeks back and forth over a crop point, which must not postpone the solve.
-    then_the_hold_drifts_more_than(markup, firm)
-    markup.page.select_option(HOLDS_SELECT, "exact")
-    then_a_cinematic_path_is_baked(markup)
+    # Exact is the default.
     then_the_crop_x_settles_at(markup, 6.0, 600)
     assert crop_x_at(markup, 5.5) == pytest.approx(600, abs=1)
+    exact = hold_drift(markup)
+    when_i_reopen_the_cinematic_settings(markup)
+    assert markup.page.locator(f"{HOLDS_SELECT} option:checked").inner_text() == "(Exact)"
+    markup.page.select_option(HOLDS_SELECT, "loose")
+    # Measuring seeks back and forth over a crop point, which must not postpone the solve.
+    then_the_hold_drifts_more_than(markup, exact)
+    markup.page.select_option(HOLDS_SELECT, "firm")
+    # Firm holds still past its settle (the chip shows whole pixels).
+    then_the_hold_drifts_at_most(markup, 1)
     overrides = when_i_save_the_markers(markup)["markerPairs"][0].get("overrides", {})
-    assert overrides.get("cropPointEasingCinematicHolds") == "exact"
+    assert overrides.get("cropPointEasingCinematicHolds") == "firm"
 
 
 def hold_drift(markup: MarkupPage) -> float:
     return abs(crop_x_at(markup, 6.0) - crop_x_at(markup, 5.5))
 
 
+def hold_xs(markup: MarkupPage) -> list[float]:
+    return [crop_x_at(markup, t) for t in (4.5, 5.0, 5.5, 6.0, 6.5, 7.0)]
+
+
+# The path is solved again after the setting changes, so these wait for the drift to change.
 @step
 def then_the_hold_drifts_more_than(markup: MarkupPage, drift: float) -> None:
-    # The path is solved again after the setting changes.
     for _ in range(30):
         if hold_drift(markup) > drift + 1:
             return
         markup.next_frames(10)
-    xs = [crop_x_at(markup, t) for t in (4.5, 5.0, 5.5, 6.0, 6.5, 7.0)]
-    raise AssertionError(f"the hold drifted {hold_drift(markup)} px, not more than {drift}: {xs}")
+    raise AssertionError(f"the hold drifted {hold_drift(markup)} px, not more than {drift}: {hold_xs(markup)}")
+
+
+@step
+def then_the_hold_drifts_at_most(markup: MarkupPage, drift: float) -> None:
+    for _ in range(30):
+        if hold_drift(markup) <= drift:
+            return
+        markup.next_frames(10)
+    raise AssertionError(f"the hold drifted {hold_drift(markup)} px, more than {drift}: {hold_xs(markup)}")
 
 
 def test_a_pair_inherits_cinematic_hold_points_set_globally(markup: MarkupPage) -> None:
     given_pairs_with_the_first_ones_editor_open(
         markup,
         [HOLD_PAIR, {"start": 12, "end": 14}],
-        {"cropPointEasing": "cinematic", "cropPointEasingCinematicHolds": "exact"},
+        {"cropPointEasing": "cinematic", "cropPointEasingCinematicHolds": "loose"},
     )
     then_a_cinematic_path_is_baked(markup)
-    then_the_crop_x_settles_at(markup, 6.0, 600)
-    assert crop_x_at(markup, 5.5) == pytest.approx(600, abs=1)
+    # The default, Exact, holds still.
+    then_the_hold_drifts_more_than(markup, 0)
     when_i_reopen_the_cinematic_settings(markup)
-    assert markup.page.locator(f"{HOLDS_SELECT} option:checked").inner_text() == "(Exact)"
+    assert markup.page.locator(f"{HOLDS_SELECT} option:checked").inner_text() == "(Loose)"
 
 
 GLOBAL_GEAR_BUTTON = "#global-cinematic-settings-modal-button"
@@ -640,7 +653,7 @@ def test_the_global_editor_keeps_edits_made_after_a_load(markup: MarkupPage) -> 
     when_i_open_the_global_cinematic_settings(markup)
     # The file has no Cinematic settings, so the defaults show.
     then_the_cinematic_margin_shows(markup, "")
-    assert markup.page.locator(f"{HOLDS_SELECT} option:checked").inner_text() == "(Firm)"
+    assert markup.page.locator(f"{HOLDS_SELECT} option:checked").inner_text() == "(Exact)"
     when_i_type_the_cinematic_margin(markup, "30")
     markup.page.select_option(HOLDS_SELECT, "loose")
     markup.page.keyboard.press("Escape")

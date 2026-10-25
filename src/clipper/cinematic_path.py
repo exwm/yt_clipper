@@ -114,7 +114,7 @@ HOLD_EASE_ACCELERATION = 1
 # How Cinematic crop easing treats hold points: "loose" leaves them to the solve like any crop point,
 # "firm" holds the crop still over them within the margin, and "exact" holds the crop still over them
 # and eases into and out of them.
-DEFAULT_CINEMATIC_HOLDS = "firm"
+DEFAULT_CINEMATIC_HOLDS = "exact"
 
 # A Firm hold pins the crop over its span, and the grid samples just outside it, within the margin.
 # Accelerations are in crop widths per second². A crop that cannot stop within the margin at
