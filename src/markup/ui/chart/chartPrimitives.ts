@@ -16,6 +16,10 @@ export const cropSectionPanRgb: readonly [number, number, number] = [214, 80, 16
 export const cropSectionZoomRgb: readonly [number, number, number] = [245, 166, 35];
 export const cropSectionPanZoomRgb: readonly [number, number, number] = [160, 0, 255];
 
+// The bar behind each hold point, in the crop chart and the Crop Easing settings plot. Yellower than the
+// orange zoom sections, so the bar stands apart from them and the red playhead.
+export const HOLD_BAR_COLOR = 'rgb(255, 204, 51)';
+
 export const cubicInOutTension = 0.6;
 
 function getRounder(multiple: number, precision: number) {

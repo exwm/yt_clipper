@@ -2,7 +2,7 @@ import Chart, { ChartConfiguration, ChartPoint } from 'chart.js';
 import { CropPoint } from '../../../@types/yt_clipper';
 import { appState } from '../../../appState';
 import { assertDefined, clampNumber } from '../../../util/util';
-import { medgrey } from '../chartPrimitives';
+import { HOLD_BAR_COLOR, medgrey } from '../chartPrimitives';
 import { scatterChartSpec } from '../scatterChartSpec';
 import { isReframeEnabled } from '../../../crop/video-zoom-controller';
 import { getCropPointMainLabel } from './crop-point-labels';
@@ -258,8 +258,6 @@ function drawPanArrowhead(
 }
 
 const HOLD_BAR_WIDTH = 2;
-// Yellower than the orange zoom sections, so the bar stands apart from them and the red playhead.
-const HOLD_BAR_COLOR = 'rgb(255, 204, 51)';
 
 // A vertical yellow bar behind each hold point, the height of the chart area, so a hold point reads at
 // a glance.
