@@ -21,7 +21,14 @@ import { cropToTargetRect, videoBoxToCanvasPoint } from './video-zoom-math';
 import { createWebGLGammaRenderer, prevGammaVal, WebGLGammaRenderer } from '../util/previewGamma';
 import { deleteElement, injectCSS } from '../util/util';
 import { getPresentedFrameTime } from '../util/presented-frame-clock';
+import { getFPS } from '../util/videoUtil';
+import { featureFlags } from '../feature-flags';
 import { bandsAround, touchedPixels, wholePixelsInside } from './reframe-canvas-pixels';
+import {
+  formatReframeFrameSummary,
+  ReframeFrameSample,
+  recordReframeFrame,
+} from './reframe-frame-stats';
 
 let canvas: HTMLCanvasElement | null = null;
 let ctx: CanvasRenderingContext2D | null = null;
@@ -89,13 +96,64 @@ function startLoop(): void {
   stopLoop();
   const v = appState.video;
   frameSource = v;
-  const draw = (_now: number, metadata?: VideoFrameCallbackMetadata): void => {
+  const draw = (now: number, metadata?: VideoFrameCallbackMetadata): void => {
     if (!canvas) return;
+    const start = performance.now();
     drawReframeFrame(metadata?.mediaTime ?? v.getCurrentTime());
+    if (featureFlags.reframeFrameStats && metadata) {
+      recordFrameStats(v, {
+        now,
+        expectedDisplayTime: metadata.expectedDisplayTime,
+        mediaTime: metadata.mediaTime,
+        presentedFrames: metadata.presentedFrames,
+        drawMs: performance.now() - start,
+        drawnTime: heldFrameTime(v),
+      });
+    }
     rafId = v.requestVideoFrameCallback(draw);
   };
   drawReframeFrame(getPresentedFrameTime(v));
   rafId = v.requestVideoFrameCallback(draw);
+}
+
+// The media time of the frame the video holds now, which is the frame drawImage just drew, or null
+// when the browser has no VideoFrame.
+function heldFrameTime(v: HTMLVideoElement): number | null {
+  if (typeof VideoFrame === 'undefined') return null;
+  try {
+    const frame = new VideoFrame(v);
+    const time = frame.timestamp / 1e6;
+    frame.close();
+    return time;
+  } catch {
+    return null;
+  }
+}
+
+function recordFrameStats(
+  v: HTMLVideoElement,
+  timing: Pick<
+    ReframeFrameSample,
+    'now' | 'expectedDisplayTime' | 'mediaTime' | 'presentedFrames' | 'drawMs' | 'drawnTime'
+  >
+): void {
+  const crop = lastDrawnReframeCrop;
+  if (!crop) return;
+  const [x, y, w, h] = crop;
+  recordReframeFrame(
+    {
+      ...timing,
+      playbackRate: v.playbackRate,
+      cropCenterX: x + w / 2,
+      cropCenterY: y + h / 2,
+      cropWidth: w,
+    },
+    getFPS(),
+    (summary) => {
+      console.log(formatReframeFrameSummary(summary));
+      if (canvas) canvas.dataset.reframeFrameStats = JSON.stringify(summary);
+    }
+  );
 }
 
 function stopLoop(): void {

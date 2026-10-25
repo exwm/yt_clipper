@@ -24,4 +24,7 @@ export const featureFlags = {
   shareLink: false,
   /** Flash the segment count and solve time of each Cinematic crop path solve. */
   cinematicSolveStats: true,
+  /** Log a summary of the reframe canvas's redraws to the console every 2 s of playback: frames
+   *  skipped, late redraws, draw time, drawn picture vs the crop's frame, and crop evenness. */
+  reframeFrameStats: false,
 } as const;
