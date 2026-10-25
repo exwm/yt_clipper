@@ -153,8 +153,8 @@ export namespace Tooltips {
   export const cinematicHoldsTooltip = stripIndent`
     How still the crop holds from the point before a hold point to the hold point.
     Loose: the crop stays within the margin, as at other crop points.
-    Firm (default): the crop holds still. It slows down and speeds up within the Pan Margin (and the Zoom Margin for its size), so a larger margin gives gentler stops. A fast pan, or a quick move between two close hold points, can move the crop up to the Pan Margin at the start or end of the hold.
-    Exact: the crop holds still. It slows down evenly into each hold and speeds up evenly out of it, so around a hold it can drift past the margin.
+    Firm: the crop holds still. It slows down and speeds up within the Pan Margin (and the Zoom Margin for its size), so a larger margin gives gentler stops. A fast pan, or a quick move between two close hold points, can move the crop up to the Pan Margin at the start or end of the hold.
+    Exact (default): the crop holds still. It slows down evenly into each hold and speeds up evenly out of it, so around a hold it can drift past the margin.
     Only used when Crop Easing is Cinematic. Hold points always hold with the other easings.
     `;
 

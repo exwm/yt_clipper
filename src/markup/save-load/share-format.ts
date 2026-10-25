@@ -257,12 +257,12 @@ const OV_BIT_CINEMATIC_MARGIN = 1 << 15;
 const OV_BIT_CINEMATIC_ZOOM_MARGIN = 1 << 16;
 const OV_BIT_CINEMATIC_HOLDS = 1 << 17;
 
-// Written as an index byte. An unknown id from a corrupt link reads as firm, the default.
+// Written as an index byte. An unknown id from a corrupt link reads as exact, the default.
 const CINEMATIC_HOLDS_ORDER = ['loose', 'firm', 'exact'] as const;
 type CinematicHoldsValue = (typeof CINEMATIC_HOLDS_ORDER)[number];
 
 function cinematicHoldsFromId(id: number): CinematicHoldsValue {
-  return CINEMATIC_HOLDS_ORDER[id] ?? 'firm';
+  return CINEMATIC_HOLDS_ORDER[id] ?? 'exact';
 }
 
 export interface ShareableSettings {

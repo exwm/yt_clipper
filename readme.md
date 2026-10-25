@@ -515,7 +515,7 @@ Each point's label shows its crop position (`x:y`). The crop size (`WxH`) shows 
 - A hold point has no crop of its own. It shows the crop of the crop point before it, and follows when that point changes.
 - Hold points have a vertical yellow bar behind them.
 - A new marker pair's end point is a hold point.
-- With Cinematic crop easing, the crop holds still there and stops within the **Pan Margin**. Set **Hold Points** to **Exact** in the Crop Easing settings for an even slowdown into each hold. See [Crop Easing](#crop-easing).
+- With Cinematic crop easing, the crop holds still there and slows down evenly into each hold. Set **Hold Points** to **Firm** in the Crop Easing settings to stop within the **Pan Margin**. See [Crop Easing](#crop-easing).
 - Editing a hold point's crop makes it a normal point.
 - A point that stops holding gets back its own crop, if it had one before it became a hold point.
 - The first crop point can't be a hold point.
@@ -568,7 +568,7 @@ Use the **Crop Easing** setting to choose how a dynamic crop pans and zooms betw
   - **Weak**, **Medium** and **Strong** set both margins at once. **Custom** restores the margins you last set by hand.
   - **Pan Margin (%)** (default 12): How far the crop position may drift from the crop points, as a percentage of the crop's shorter side. Type it or drag the slider below it. The pixels for the crop show under the slider. Larger margins give fewer, steadier moves. At zero, the crop position follows the points exactly.
   - **Zoom Margin (%)** (default 8): How far the crop size may drift, as a percentage of the size. Type it or drag the slider below it. The pixels of crop width show under the slider.
-  - **Hold Points** (default **Firm**): How still the crop holds from the point before each [hold point](#crop-chart-shortcuts) to the hold point.
+  - **Hold Points** (default **Exact**): How still the crop holds from the point before each [hold point](#crop-chart-shortcuts) to the hold point.
     - **Loose:** The crop stays within the margin, as at other crop points.
     - **Firm:** The crop holds still. It slows down and speeds up within the **Pan Margin** (and the **Zoom Margin** for its size), so a larger margin gives gentler stops. A fast pan, or a quick move between two close hold points, can move the crop up to the **Pan Margin** at the start or end of the hold.
     - **Exact:** The crop holds still. It slows down evenly into each hold and speeds up evenly out of it, so around a hold it can drift past the margin from the crop points there.

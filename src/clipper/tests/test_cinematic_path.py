@@ -588,7 +588,7 @@ def test_cinematic_crop_map_converts_hold_points_for_each_option() -> None:
     for holds in ("firm", "loose"):
         assert not any(point.get("hold") for point in cinematic_path.cinematicCropMap(cropMap, holds))
     assert not any(point.get("firmHold") for point in cinematic_path.cinematicCropMap(cropMap, "loose"))
-    assert cinematic_path.DEFAULT_CINEMATIC_HOLDS == "firm"
+    assert cinematic_path.DEFAULT_CINEMATIC_HOLDS == "exact"
 
 
 @pytest.mark.parametrize(
