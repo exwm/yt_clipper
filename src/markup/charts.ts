@@ -1,6 +1,6 @@
 import { createDraft, finishDraft } from 'immer';
 import { ChartInput, CropPath, CropPoint, MarkerPair } from './@types/yt_clipper';
-import { appState } from './appState';
+import { appState, VideoElement } from './appState';
 import {
   currentCropChartMode,
   cropChartMode,
@@ -96,6 +96,7 @@ import { Chart, ChartConfiguration } from 'chart.js';
 import { scatterChartDefaults } from './ui/chart/scatterChartSpec';
 import { getFPS } from './util/videoUtil';
 import { getPresentedFrameTime } from './util/presented-frame-clock';
+import { onVideoFrames, VideoFrameSubscription } from './util/video-frame-loop';
 import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
 import type { HoveredRegion } from './features/hints-bar/hover-region';
 
@@ -304,7 +305,7 @@ export function renderSpeedAndCropUI(rerenderCharts = true, updateCurrentCropPoi
       const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
       updateCharts(markerPair, rerenderCharts);
       // The crop section band is drawn by a chart plugin, so it only refreshes on a crop chart draw.
-      // While paused the rVFC preview loop is idle, and in reframe the crop chart is often not the
+      // While paused the video frame loop is idle, and in reframe the crop chart is often not the
       // "current" chart that updateCharts redraws, so a crop edit would leave the band stale. Redraw
       // the crop chart directly on a settled paused edit (skip mid-drag to avoid the rapid-update
       // point glitch; the drag release re-renders).
@@ -748,11 +749,11 @@ export function toggleCropChartLooping() {
 }
 export function triggerCropChartUpdates() {
   chartState.shouldTriggerCropChartUpdates = true;
-  cropChartPreviewHandler(false);
+  cropChartPreviewHandler();
   triggerCropPreviewRedraw();
 }
-// During the requestVideoFrameCallback playback loop the crop is computed for the
-// EXACT media timestamp of the frame being presented (metadata.mediaTime), not the
+// During the video frame loop the crop is computed for the
+// EXACT media timestamp of the frame being presented (frame.mediaTime), not the
 // wall-clock getCurrentTime() which advances between presented frames and makes the
 // reframe jitter a fraction of a frame ahead of the video. Null outside the loop
 // (scrub/edit) → fall back to the last presented frame, which a sub-frame seek doesn't change.
@@ -761,20 +762,30 @@ function currentCropTime(): number {
   return presentedFrameTime ?? getPresentedFrameTime(appState.video);
 }
 
-let isCropPreviewLoopRunning = false;
+let cropPreviewSubscription: { video: VideoElement; frames: VideoFrameSubscription } | null = null;
+
+// Follows appState.video, which Afreeca TV replaces.
+function subscribeCropPreviewToFrames(): void {
+  if (cropPreviewSubscription?.video === appState.video) return;
+  cropPreviewSubscription?.frames.stop();
+  const video = appState.video;
+  cropPreviewSubscription = {
+    video,
+    frames: onVideoFrames(video, (frame) => cropChartPreviewHandler(frame.mediaTime), {
+      phase: 'update',
+      label: 'crop chart preview',
+    }),
+  };
+}
 
 // Starts the per-frame crop preview once: when a marker pair editor opens, so a dynamic crop previews
 // its eased crop before the crop chart is ever shown, and when the chart is first created.
 export function startCropPreviewLoop(): void {
-  if (isCropPreviewLoopRunning) {
-    cropChartPreviewHandler(false);
-    return;
-  }
-  isCropPreviewLoopRunning = true;
+  subscribeCropPreviewToFrames();
   cropChartPreviewHandler();
 }
 
-export function cropChartPreviewHandler(loop = true, frameTime?: number) {
+export function cropChartPreviewHandler(frameTime?: number) {
   presentedFrameTime = frameTime ?? null;
   try {
     const chart = chartState.cropChartInput.chart;
@@ -853,14 +864,10 @@ export function cropChartPreviewHandler(loop = true, frameTime?: number) {
       // The reframe canvas loop refreshes the transform every frame, so no syncReframe needed here.
     }
   } finally {
-    // Always clear the pinned frame time and keep the loop alive even if the body threw, otherwise
-    // a stale presentedFrameTime would skew every later currentCropTime() read.
+    // Always clear the pinned frame time even if the body threw, otherwise a stale
+    // presentedFrameTime would skew every later currentCropTime() read.
     presentedFrameTime = null;
-    if (loop) {
-      appState.video.requestVideoFrameCallback((_now, metadata) => {
-        cropChartPreviewHandler(loop, metadata?.mediaTime);
-      });
-    }
+    if (cropPreviewSubscription) subscribeCropPreviewToFrames();
   }
 }
 // Show the live interpolated crop at the playhead next to the point, copyable. textContent only, so

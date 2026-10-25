@@ -20,7 +20,7 @@ import { resetViewport } from './video-zoom-state';
 import { cropToTargetRect, videoBoxToCanvasPoint } from './video-zoom-math';
 import { createWebGLGammaRenderer, prevGammaVal, WebGLGammaRenderer } from '../util/previewGamma';
 import { deleteElement, injectCSS } from '../util/util';
-import { getPresentedFrameTime } from '../util/presented-frame-clock';
+import { onVideoFrames, VideoFrameSubscription } from '../util/video-frame-loop';
 import { getFPS } from '../util/videoUtil';
 import { featureFlags } from '../feature-flags';
 import { bandsAround, touchedPixels, wholePixelsInside } from './reframe-canvas-pixels';
@@ -34,8 +34,7 @@ let canvas: HTMLCanvasElement | null = null;
 let ctx: CanvasRenderingContext2D | null = null;
 // Lazily created the first frame gamma is on, so reframe with gamma off costs no GL context.
 let gammaRenderer: WebGLGammaRenderer | null = null;
-let rafId = 0;
-let frameSource: HTMLVideoElement | null = null;
+let frames: VideoFrameSubscription | null = null;
 let hideStyle: HTMLStyleElement | null = null;
 // The crop (cropRes source coords) the last frame was drawn with. Async consumers like the crop-hover
 // hit-test read this so they match exactly what's on screen, instead of recomputing the crop at the
@@ -95,25 +94,23 @@ export function teardownReframeCanvas(): void {
 function startLoop(): void {
   stopLoop();
   const v = appState.video;
-  frameSource = v;
-  const draw = (now: number, metadata?: VideoFrameCallbackMetadata): void => {
+  frames = onVideoFrames(v, (frame) => {
     if (!canvas) return;
     const start = performance.now();
-    drawReframeFrame(metadata?.mediaTime ?? v.getCurrentTime());
-    if (featureFlags.reframeFrameStats && metadata) {
+    drawReframeFrame(frame.mediaTime, frame.image);
+    if (featureFlags.reframeFrameStats) {
       recordFrameStats(v, {
-        now,
-        expectedDisplayTime: metadata.expectedDisplayTime,
-        mediaTime: metadata.mediaTime,
-        presentedFrames: metadata.presentedFrames,
+        now: frame.now,
+        expectedDisplayTime: frame.expectedDisplayTime ?? Infinity,
+        mediaTime: frame.mediaTime,
+        presentedFrames: frame.presentedFrames ?? Math.round(frame.mediaTime * getFPS()),
         drawMs: performance.now() - start,
-        drawnTime: heldFrameTime(v),
+        // Drawn from the video itself, the picture can be a newer frame than the crop's.
+        drawnTime: frame.image === v ? heldFrameTime(v) : frame.mediaTime,
       });
     }
-    rafId = v.requestVideoFrameCallback(draw);
-  };
-  drawReframeFrame(getPresentedFrameTime(v));
-  rafId = v.requestVideoFrameCallback(draw);
+  }, { label: 'reframe' });
+  frames.redraw();
 }
 
 // The media time of the frame the video holds now, which is the frame drawImage just drew, or null
@@ -157,15 +154,14 @@ function recordFrameStats(
 }
 
 function stopLoop(): void {
-  if (rafId && frameSource) frameSource.cancelVideoFrameCallback(rafId);
-  rafId = 0;
-  frameSource = null;
+  frames?.stop();
+  frames = null;
 }
 
-/** Redraw off the rVFC loop. Paused edits present no new frames (the loop is idle), so the
- *  controller calls this on each edit. */
+/** Redraw outside the video frame loop. Paused edits present no new frames (the loop is idle), so
+ *  the controller calls this on each edit. */
 export function redrawReframeCanvas(): void {
-  if (canvas) drawReframeFrame(getPresentedFrameTime(appState.video));
+  if (canvas) frames?.redraw();
 }
 
 /** No active crop (no marker pair selected and global settings closed) or no frame yet: show the
@@ -180,7 +176,11 @@ function fallBackToPlainVideo(): void {
   }
 }
 
-export function drawReframeFrame(mediaTime: number): void {
+/** Draws the crop at `mediaTime` from `source`: the frame at that time, or the video. */
+export function drawReframeFrame(
+  mediaTime: number,
+  source: CanvasImageSource = appState.video
+): void {
   if (!canvas || !ctx) return;
   // Re-attach if YouTube re-rendered the player and dropped the canvas (the video persists,
   // since this rVFC still fires).
@@ -300,7 +300,7 @@ export function drawReframeFrame(mediaTime: number): void {
     c.save();
     applyVideoMatrix();
     c.globalAlpha = 1 - dim;
-    c.drawImage(v, 0, 0, vw, vh, 0, 0, boxW, boxH);
+    c.drawImage(source, 0, 0, vw, vh, 0, 0, boxW, boxH);
     c.restore();
   }
   c.save();
@@ -308,7 +308,7 @@ export function drawReframeFrame(mediaTime: number): void {
   c.beginPath();
   c.rect(clipX, clipY, clipW, clipH);
   c.clip();
-  c.drawImage(v, 0, 0, vw, vh, 0, 0, boxW, boxH);
+  c.drawImage(source, 0, 0, vw, vh, 0, 0, boxW, boxH);
   c.restore();
 
   // Gamma-correct the video pixels through the same WebGL shader the crop preview uses, so reframe

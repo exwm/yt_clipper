@@ -8,8 +8,8 @@
  *
  * The thumbnail draws the *displayed* (post-rotation) frame so its rectangle and
  * the drag→focal-point mapping live in the same normalized space as the viewport
- * (video-zoom-math). A requestVideoFrameCallback loop keeps it live and is always
- * cancelled on teardown.
+ * (video-zoom-math). The video frame loop keeps it live and is always stopped on
+ * teardown.
  */
 import { html, render } from 'lit-html';
 import { createDraft } from 'immer';
@@ -40,6 +40,7 @@ import { getMarkerPairHistory, saveMarkerPairHistory } from '../util/undoredo';
 import { renderUIIcon } from '../features/icons/glyphs';
 import { cropToTargetRect, lockPanAxis, minimapRect, unrotateFocalPoint } from './video-zoom-math';
 import { getViewport, isZoomed, setViewport, subscribeZoom } from './video-zoom-state';
+import { onVideoFrames, VideoFrameSubscription } from '../util/video-frame-loop';
 import { halvingSteps } from './halving-steps';
 
 // Pixels the pointer must travel before a press on the minimap becomes a pan, so
@@ -176,8 +177,7 @@ let host: HTMLDivElement | null = null;
 let canvasEl: HTMLCanvasElement | null = null;
 let canvasCtx: CanvasRenderingContext2D | null = null;
 let rectEl: HTMLDivElement | null = null;
-let rafId = 0;
-let frameSource: HTMLVideoElement | null = null;
+let frames: VideoFrameSubscription | null = null;
 let unsubscribe: (() => void) | null = null;
 let mmW = BOX_W;
 let mmH = BOX_H;
@@ -271,7 +271,7 @@ function sync(): void {
   wasShowable = showable;
   if (showable && !minimapClosed) {
     ensureMinimap();
-    // During playback the minimap's own requestVideoFrameCallback loop already redraws the
+    // During playback the minimap's video frame loop already redraws the
     // canvas each presented frame, so skip the redundant full-frame redraw here: reframe
     // fires this subscriber every frame as the viewport follows the crop. When paused that
     // loop is idle, so a viewport change from an edit still needs an explicit redraw.
@@ -388,28 +388,26 @@ function destroyMinimap(): void {
 
 function startLoop(): void {
   stopLoop();
-  const v = appState.video;
-  frameSource = v;
-  const draw = (): void => {
-    if (!host) return;
-    drawFrame();
-    rafId = v.requestVideoFrameCallback(draw);
-  };
+  frames = onVideoFrames(
+    appState.video,
+    (frame) => {
+      if (host) drawFrame(frame.image);
+    },
+    { label: 'minimap' }
+  );
   drawFrame();
-  rafId = v.requestVideoFrameCallback(draw);
 }
 
 function stopLoop(): void {
-  if (rafId && frameSource) frameSource.cancelVideoFrameCallback(rafId);
-  rafId = 0;
-  frameSource = null;
+  frames?.stop();
+  frames = null;
 }
 
-function drawFrame(): void {
+/** Draws `source`, the frame on screen or the video, with the crop marker. */
+function drawFrame(source: CanvasImageSource = appState.video): void {
   if (!canvasEl) return;
-  const source = appState.video;
-  const vw = source.videoWidth;
-  const vh = source.videoHeight;
+  const vw = appState.video.videoWidth;
+  const vh = appState.video.videoHeight;
   if (!vw || !vh) return;
   const { dW, dH } = displayedFrameSize();
   // Re-fit the panel only when the displayed-frame aspect changes (rotation or source swap).

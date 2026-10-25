@@ -27,4 +27,12 @@ export const featureFlags = {
   /** Log a summary of the reframe canvas's redraws to the console every 2 s of playback: frames
    *  skipped, late redraws, draw time, drawn picture vs the crop's frame, and crop evenness. */
   reframeFrameStats: false,
+  /** When reframe, the crop previews, the minimap and the frame clock get video frames
+   *  (`util/video-frame-loop.ts`): 'everyRefresh' takes the frame the video holds on each screen
+   *  refresh, 'frameCallback' waits for requestVideoFrameCallback. */
+  videoFrameLoopTiming: 'frameCallback' as 'everyRefresh' | 'frameCallback',
+  /** Log what each video frame loop did every 2 s of playback: its timing and consumers, refreshes,
+   *  frames taken and repeated, new frames, the frame callback's calls and misses, and the time the
+   *  loop and each consumer took. */
+  videoFrameLoopStats: false,
 } as const;
