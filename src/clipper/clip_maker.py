@@ -14,7 +14,7 @@ from typing import Any, Dict, Generator, List, Optional, Set, Tuple
 
 import rich.markup
 
-from clipper import cinematic_path
+from clipper import banded_lapack, cinematic_path
 from clipper.clipper_types import (
     INVALID_MARKER_PAIR_KEY,
     BadMergeInput,
@@ -87,9 +87,24 @@ def _bakeCinematicPath(
     return _bakeCinematicPathFromKey(key)
 
 
+@functools.cache
+def _warnOfDenseCinematicSolve() -> None:
+    logger.warning(
+        " ".join(
+            [
+                "The Cinematic crop path solver could not load the banded solver bundled with numpy, so it uses a slower one.",
+                "Marker pairs with more than about 3 minutes without an instant crop point use Smooth Track instead.",
+                "Reinstall numpy from PyPI to fix this.",
+            ]
+        )
+    )
+
+
 @functools.lru_cache(maxsize=64)
 def _bakeCinematicPathFromKey(key: str) -> Optional[dict[str, Any]]:
     cropMap, margins, cropResWidth, cropResHeight, fps, videoPartStart = json.loads(key)
+    if banded_lapack.lapack() is None:
+        _warnOfDenseCinematicSolve()
     return cinematic_path.bakeCinematicPath(
         cropMap, margins, cropResWidth, cropResHeight, fps=fps, videoPartStart=videoPartStart
     )

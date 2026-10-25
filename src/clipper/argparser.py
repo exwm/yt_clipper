@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, OrderedDict, Tuple
 
 from rich_argparse import ArgumentDefaultsRichHelpFormatter
 
-from clipper import updates
+from clipper import banded_lapack, updates
 from clipper.clipper_types import ClipperPaths, DictStrAny
 from clipper.ffmpeg_version import getFfmpegVersion
 from clipper.settings_file import decodeSettingsFile
@@ -1186,7 +1186,10 @@ def getVersionFormatString() -> str:
 
 
 def getDepVersionsString(cp: ClipperPaths) -> str:
-    return f"""yt_clipper: {__version__}\nyt_dlp: {ytdl_bin_get_version(cp)}{getFfmpegVersion(cp.ffmpegPath)}"""
+    return (
+        f"""yt_clipper: {__version__}\nyt_dlp: {ytdl_bin_get_version(cp)}{getFfmpegVersion(cp.ffmpegPath)}"""
+        f"\ncinematic solver: {banded_lapack.description()}"
+    )
 
 
 def getVidstabPreset(level: int) -> DictStrAny:

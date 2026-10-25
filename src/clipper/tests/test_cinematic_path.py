@@ -571,6 +571,14 @@ def test_cinematic_path_firm_lets_the_crop_leave_the_held_crop_by_its_braking_an
     assert got[0] == pytest.approx(allowance, abs=1e-6)
 
 
+@pytest.mark.parametrize(("seconds", "samples"), [(40, 401), (600, 6001), (700, 6001)])
+def test_cinematic_path_keeps_the_10_hz_grid_up_to_10_minutes_per_run(seconds: float, samples: int) -> None:
+    from clipper import cinematic_path
+
+    # The margins bind only at samples, so a run gets 10 Hz until the cap.
+    assert cinematic_path.gridSampleCount(seconds) == samples
+
+
 def test_cinematic_crop_map_converts_hold_points_for_each_option() -> None:
     from clipper import cinematic_path
 
