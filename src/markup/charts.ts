@@ -978,16 +978,10 @@ export function getActiveCinematicPlotInput(): CinematicPlotInput | null {
   const margins = getActiveCinematicMargins();
   const fps = getFPS();
   const path = cinematicPaths.get(mp);
-  const fresh = isCropPathFresh(
-    path,
-    getCinematicCropMap(mp),
-    margins,
-    cropResWidth,
-    cropResHeight,
-    fps
-  );
+  const cropMap = getCinematicCropMap(mp);
+  const fresh = isCropPathFresh(path, cropMap, margins, cropResWidth, cropResHeight, fps);
   return {
-    cropMap: getCinematicCropMap(mp),
+    cropMap,
     margins,
     cropResWidth,
     cropResHeight,
@@ -1036,7 +1030,8 @@ function evalCinematicCrop(
   path: CropPath,
   time: number
 ): [number, number, number, number] {
-  const [x, y, w, h] = evalCropPathAtTime(path, time - (getCinematicCropMap(mp)[0]?.x ?? 0));
+  // The path's times start at the first crop point, which the holds setting leaves where it is.
+  const [x, y, w, h] = evalCropPathAtTime(path, time - (mp.cropMap[0]?.x ?? 0));
   const { cropResWidth, cropResHeight } = appState.settings;
   return [clampNumber(x, 0, cropResWidth - w), clampNumber(y, 0, cropResHeight - h), w, h];
 }

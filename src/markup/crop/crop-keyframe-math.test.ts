@@ -268,7 +268,7 @@ describe('getSmoothTrackCropComponentsAtTime', () => {
   });
 
   it('tracks at near-constant velocity across evenly spaced collinear points', () => {
-    // Catmull-Rom through a constant-velocity ramp is the straight line: ~125 at the quarter.
+    // The spline through a constant-velocity ramp is the straight line: ~125 at the quarter.
     expect(trackAt(quarterTime)?.[0]).toBeCloseTo(125, 0);
   });
 
@@ -305,35 +305,24 @@ describe('getSmoothTrackCropComponentsAtTime', () => {
     expect(Number.isFinite(trackAt(quarterTime, oddPrev)?.[0] as number)).toBe(true);
   });
 
-  it('overshoots a reversal point with Catmull-Rom but not with monotone tangents', () => {
-    // start (100) is a local peak: x rises 0 -> 100, then falls 100 -> 50.
-    const peakStart = [100, 0, 100, 100];
-    const peakEnd = [50, 0, 100, 100];
+  it('does not overshoot a reversal point', () => {
+    // start (100) is a local peak: x rises 0 -> 100, then falls 100 -> 50. The plain central slope
+    // (Catmull-Rom) would carry the crop past 100 early in the section.
     const before: CropSectionNeighbor = {
       components: [0, 0, 100, 100],
       time: 0,
       easeIn: undefined,
     };
-    const earlyTime = 1.1;
-    const args = [peakStart, peakEnd, 1, 2, before, null, earlyTime] as const;
-
-    expect(getSmoothTrackCropComponentsAtTime(...args, false)?.[0]).toBeGreaterThan(100);
-    expect(getSmoothTrackCropComponentsAtTime(...args, true)?.[0]).toBeLessThanOrEqual(100);
-  });
-
-  it('matches plain smooth track on monotonic motion (the clamp never bites)', () => {
-    const catmull = trackAt(quarterTime)?.[0] as number;
-    const monotone = getSmoothTrackCropComponentsAtTime(
-      trackStart,
-      trackEnd,
+    const early = getSmoothTrackCropComponentsAtTime(
+      [100, 0, 100, 100],
+      [50, 0, 100, 100],
       1,
       2,
-      prev,
-      next,
-      quarterTime,
-      true
-    )?.[0] as number;
-    expect(monotone).toBeCloseTo(catmull, 6);
+      before,
+      null,
+      1.1
+    );
+    expect(early?.[0]).toBeLessThanOrEqual(100);
   });
 });
 
