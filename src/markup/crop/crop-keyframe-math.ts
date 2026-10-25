@@ -1,11 +1,11 @@
 /**
- * Pure, DOM-free math for the reframe auto-key editing model: given the
- * playhead time, is it sitting on a crop keyframe or between two of them?
+ * Pure, DOM-free crop point math: which crop point or section the playhead is on (the reframe
+ * auto-key editing model), and the eased crop between crop points for every crop easing except
+ * Cinematic, kept in step with the clipper's ffmpeg_filter.py so the preview matches the render.
  *
- * Kept separate from `charts.ts` (which carries the whole browser-side chart and
- * overlay graph) so the logic stays unit-testable in the node test env. The
- * caller supplies `fps`: production passes the detected video fps, tests pass a
- * fixed value.
+ * Kept separate from `charts.ts` (which carries the whole browser-side chart and overlay graph) so
+ * the logic stays unit-testable in the node test env. The caller supplies `fps`: production passes
+ * the detected video fps, tests pass a fixed value.
  */
 import { easeSinInOut } from 'd3-ease';
 import { CropPoint } from '../@types/yt_clipper';
@@ -142,18 +142,16 @@ export interface CropSectionNeighbor {
 
 // The tangent (crop-units per second) at a crop point, from the slopes to its two neighbors.
 // Returns 0 at a map end or across an instant break (a missing neighbor), which eases the whole
-// move gently in/out and stops the spline flowing over instant points. With `monotone`, the
-// Fritsch-Carlson rule keeps the section from overshooting the point: a reversal (neighbor slopes
-// of opposite sign) or a flat zeroes the tangent, and otherwise it is capped at 3x the smaller
-// adjacent slope. Without it, the plain non-uniform Catmull-Rom central slope is used.
+// move gently in/out and stops the spline flowing over instant points. The Fritsch-Carlson rule
+// keeps the section from overshooting the point: a reversal (neighbor slopes of opposite sign) or a
+// flat zeroes the tangent, and otherwise the central slope is capped at 3x the smaller adjacent one.
 function sectionPointTangent(
   beforeValue: number | null,
   pointValue: number,
   afterValue: number | null,
   beforeTime: number | null,
   pointTime: number,
-  afterTime: number | null,
-  monotone: boolean
+  afterTime: number | null
 ): number {
   if (beforeValue == null || beforeTime == null || afterValue == null || afterTime == null) {
     return 0;
@@ -161,7 +159,6 @@ function sectionPointTangent(
   // Only crop points out of time order get here; there is no slope to follow.
   if (afterTime === beforeTime) return 0;
   const central = (afterValue - beforeValue) / (afterTime - beforeTime);
-  if (!monotone) return central;
 
   if (pointTime === beforeTime || afterTime === pointTime) {
     // A coincident-time neighbor (a redundant zero-duration point) has no defined secant; drop the
@@ -195,8 +192,7 @@ export function getSmoothTrackCropComponentsAtTime(
   endTime: number,
   prev: CropSectionNeighbor | null,
   next: CropSectionNeighbor | null,
-  time: number,
-  monotone = false
+  time: number
 ): [number, number, number, number] | null {
   const sectDuration = endTime - startTime;
   if (!(sectDuration > 0)) return null;
@@ -228,8 +224,7 @@ export function getSmoothTrackCropComponentsAtTime(
       p1,
       incoming?.time ?? null,
       startTime,
-      endTime,
-      monotone
+      endTime
     );
     const m1 = sectionPointTangent(
       p0,
@@ -237,8 +232,7 @@ export function getSmoothTrackCropComponentsAtTime(
       outgoing?.components[i] ?? null,
       startTime,
       endTime,
-      outgoing?.time ?? null,
-      monotone
+      outgoing?.time ?? null
     );
     return h00 * p0 + h10 * (m0 * sectDuration) + h01 * p1 + h11 * (m1 * sectDuration);
   });
@@ -328,8 +322,7 @@ export function getSectionEasedCropComponents(
       end.time,
       prevNeighbor,
       nextNeighbor,
-      time,
-      true
+      time
     );
   } else {
     eased = getEasedCropComponentsAtTime(

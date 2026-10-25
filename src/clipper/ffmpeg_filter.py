@@ -854,12 +854,6 @@ def getEasingExpression(
     return easingExpression
 
 
-# smoothTrack interpolates a crop component as a monotone cubic Hermite spline that flows THROUGH
-# its points (a non-zero tangent at each, no overshoot), unlike the per-section easeInOutSine which
-# stalls at every point. It is kept in sync with the markup (getSmoothTrackCropComponentsAtTime,
-# crop-keyframe-math.ts) so the rendered crop matches the preview.
-
-
 def resolveCropEaseType(cropPointEasing: Optional[str]) -> str:
     """Map the markers JSON crop easing mode to a crop filter easeType.
 
@@ -888,14 +882,13 @@ def getCropSectionTangent(
     beforeTime: Optional[float],
     pointTime: float,
     afterTime: Optional[float],
-    monotone: bool,
 ) -> float:
     """The tangent (crop-units per second) at a crop point, from the slopes to its two neighbors.
 
     Returns 0 at a map end or across an instant break (a missing neighbor), which eases the whole
-    move gently in/out. With ``monotone``, the Fritsch-Carlson rule keeps the section from
-    overshooting the point: a reversal (neighbor slopes of opposite sign) or a flat zeroes the
-    tangent, otherwise it is capped at 3x the smaller adjacent slope.
+    move gently in/out. The Fritsch-Carlson rule keeps the section from overshooting the point: a
+    reversal (neighbor slopes of opposite sign) or a flat zeroes the tangent, otherwise the central
+    slope is capped at 3x the smaller adjacent one.
     """
     if beforeValue is None or beforeTime is None or afterValue is None or afterTime is None:
         return 0.0
@@ -903,8 +896,6 @@ def getCropSectionTangent(
         # Only crop points out of time order get here; there is no slope to follow.
         return 0.0
     central = (afterValue - beforeValue) / (afterTime - beforeTime)
-    if not monotone:
-        return central
 
     if pointTime in (beforeTime, afterTime):
         # A coincident-time neighbor (a redundant zero-duration point) has no defined secant; drop
@@ -956,33 +947,18 @@ def getSectionEasingExpression(  # noqa: PLR0913 (one positional/keyword per eas
 ) -> Optional[str]:
     """The easing expression for one crop component over a section.
 
-    For smoothTrack this is a neighbor-aware monotone cubic Hermite. Every other mode falls through to ``getEasingExpression`` unchanged.
+    For smoothTrack this is a neighbor-aware monotone cubic Hermite spline that flows through its
+    points (a non-zero tangent at each, no overshoot), unlike easeInOutSine, which stalls at every
+    point. It matches the markup's getSmoothTrackCropComponentsAtTime (crop-keyframe-math.ts), so the
+    render matches the preview. Every other mode falls through to ``getEasingExpression`` unchanged.
     Callers pass ``prevValue`` / ``nextValue`` as None to drop the velocity at a map end
     or across an instant break.
     """
     if easeType != "smoothTrack":
         return getEasingExpression(easeType, easeA, easeB, easeP)
 
-    # smoothTrack always clamps tangents (no overshoot).
-    monotone = True
-    startTangent = getCropSectionTangent(
-        prevValue,
-        startValue,
-        endValue,
-        prevTime,
-        startTime,
-        endTime,
-        monotone,
-    )
-    endTangent = getCropSectionTangent(
-        startValue,
-        endValue,
-        nextValue,
-        startTime,
-        endTime,
-        nextTime,
-        monotone,
-    )
+    startTangent = getCropSectionTangent(prevValue, startValue, endValue, prevTime, startTime, endTime)
+    endTangent = getCropSectionTangent(startValue, endValue, nextValue, startTime, endTime, nextTime)
     return getHermiteEasingExpression(
         startValue,
         endValue,
@@ -1003,7 +979,7 @@ def _smoothTrackNeighbor(
     None when the index is off the map or the transition between the neighbor and the section is
     instant. ``boundaryIndex`` is the later point of that transition, whose easeIn describes it: the
     section start for the previous neighbor, the neighbor itself for the next one. Mirrors the
-    markup's toSectionNeighbor.
+    neighbors the markup's getSectionEasedCropComponents builds.
     """
     if index < 0 or index >= len(cropMap):
         return None

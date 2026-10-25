@@ -172,29 +172,21 @@ def test_smoothTrackNeighbor_breaks_only_at_the_neighbor_boundary(
     assert (prev is not None, nxt is not None) == (hasPrev, hasNext)
 
 
-@pytest.mark.parametrize("monotone", [False, True])
-def test_getCropSectionTangent_central_slope_on_collinear_ramp(monotone: bool) -> None:
-    # prev 0@0, point 100@1, after 200@2: the central slope (100/s) is monotonic, so unclamped.
-    tangent = ffmpeg_filter.getCropSectionTangent(0.0, 100.0, 200.0, 0.0, 1.0, 2.0, monotone)
-    assert tangent == pytest.approx(100.0)
-
-
-def test_getCropSectionTangent_is_zero_at_a_map_end() -> None:
-    assert ffmpeg_filter.getCropSectionTangent(None, 100.0, 200.0, None, 1.0, 2.0, False) == 0.0
-
-
-def test_getCropSectionTangent_monotone_zeroes_tangent_at_a_reversal() -> None:
-    # before 0, point 100 (a peak), after 50: slopes +100 then -50 reverse sign.
-    assert ffmpeg_filter.getCropSectionTangent(0.0, 100.0, 50.0, 0.0, 1.0, 2.0, True) == 0.0
-    # Plain Catmull-Rom keeps the central slope (which is what overshoots the peak).
-    catmull = ffmpeg_filter.getCropSectionTangent(0.0, 100.0, 50.0, 0.0, 1.0, 2.0, False)
-    assert catmull == pytest.approx(25.0)
-
-
-def test_getCropSectionTangent_monotone_clamps_to_three_times_smaller_slope() -> None:
-    # central slope is 500/s but the smaller adjacent slope is 10, so it caps at 3*10 = 30.
-    clamped = ffmpeg_filter.getCropSectionTangent(0.0, 10.0, 1000.0, 0.0, 1.0, 2.0, True)
-    assert clamped == pytest.approx(30.0)
+@pytest.mark.parametrize(
+    ("before", "point", "after", "tangent"),
+    [
+        # prev 0@0, point 100@1, after 200@2: the central slope (100/s) is monotonic, so unclamped.
+        pytest.param(0.0, 100.0, 200.0, 100.0, id="central slope on a collinear ramp"),
+        pytest.param(None, 100.0, 200.0, 0.0, id="zero at a map end"),
+        # A peak: slopes +100 then -50 reverse sign. The central slope (25) would overshoot it.
+        pytest.param(0.0, 100.0, 50.0, 0.0, id="zero at a reversal"),
+        # The central slope is 500/s but the smaller adjacent slope is 10, so it caps at 3*10 = 30.
+        pytest.param(0.0, 10.0, 1000.0, 30.0, id="capped at three times the smaller slope"),
+    ],
+)
+def test_getCropSectionTangent(before: Optional[float], point: float, after: float, tangent: float) -> None:
+    beforeTime = None if before is None else 0.0
+    assert ffmpeg_filter.getCropSectionTangent(before, point, after, beforeTime, 1.0, 2.0) == pytest.approx(tangent)
 
 
 def test_getCropFilter_smooth_track_handles_crop_points_out_of_time_order() -> None:
@@ -649,6 +641,10 @@ def test_zoompan_smooth_track_stays_inside_the_frame() -> None:
     times = [1.05 + i * 0.05 for i in range(19)]
     assert max(_eval_ffmpeg_axis(rightEdge(None), t) for t in times) > 4 * 1920
     assert all(_eval_ffmpeg_axis(rightEdge(1920), t) <= 4 * 1920 + 1e-9 for t in times)
+    # getZoomPanFilter passes the frame size down, as clip_maker gives it the video's.
+    unclamped, _size = ffmpeg_filter.getZoomPanFilter(cropMap, 30, easeType="smoothTrack")
+    clamped, _size = ffmpeg_filter.getZoomPanFilter(cropMap, 30, easeType="smoothTrack", frameWidth=1920, frameHeight=1080)
+    assert clamped != unclamped
 
 
 @pytest.mark.parametrize("widths", [(1000, 600), (600, 1000)], ids=["zoom in", "zoom out"])
