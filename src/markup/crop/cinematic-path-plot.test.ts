@@ -150,6 +150,23 @@ describe('cinematicPlotSeries', () => {
     }
   });
 
+  it.each([
+    ['exact', [false, true, false]],
+    ['firm', [false, true, false]],
+    ['loose', [false, false, false]],
+  ] as const)('marks the hold points the solve holds still under %s', (holds, expected) => {
+    const cropMap = cinematicCropMap(
+      [
+        { x: 0, y: 0, crop: '100:300:640:360' },
+        { x: 2, y: 0, crop: '100:300:640:360', hold: true },
+        { x: 4, y: 0, crop: '900:300:640:360' },
+      ],
+      holds
+    );
+    const series = cinematicPlotSeries(plotInput([...cropMap], false), 'x')!;
+    expect(series.points.map((p) => p.hold)).toEqual(expected);
+  });
+
   it('closes the unsolved band over a Firm hold point, as the solve does', () => {
     const cropMap = cinematicCropMap(
       [

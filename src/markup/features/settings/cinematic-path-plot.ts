@@ -12,6 +12,7 @@ import {
 } from '../../crop/cinematic-path-plot';
 import type { CropEasingMode } from '../../components/settings/crop-easing-select';
 import { CinematicMargins, cropPathSignature } from '../../crop/cinematic-path';
+import { HOLD_BAR_COLOR } from '../../ui/chart/chartPrimitives';
 
 export interface CinematicPathPlotProps {
   // The marker pair's crop points and Cinematic path now, or null without a marker pair.
@@ -37,6 +38,9 @@ const WIDTH_PX = 260;
 const LANE_HEIGHT_PX = 71;
 const PAD = { left: 4, right: 4, top: 6, bottom: 14 };
 const PANEL_GAP_PX = 8;
+const POINT_RADIUS_PX = 2.5;
+// A short bar centered on each hold point, so it marks the point without covering the paths.
+const HOLD_BAR_HEIGHT_PX = 10 * POINT_RADIUS_PX;
 const AXIS_LABELS: Record<CinematicPlotAxis, string> = { x: 'X', y: 'Y', zoom: 'Zoom' };
 const COLORS = {
   band: 'rgba(210, 210, 210, 0.22)',
@@ -162,6 +166,17 @@ function drawPanel(
     ctx.fill();
   }
 
+  if (!hiddenLayers.has('points')) {
+    ctx.fillStyle = HOLD_BAR_COLOR;
+    for (const p of series.points) {
+      if (p.hold) {
+        // On a whole pixel, or the 1px bar blurs across two.
+        const x = Math.round(px(p.t) - 0.5);
+        ctx.fillRect(x, py(p.value) - HOLD_BAR_HEIGHT_PX / 2, 1, HOLD_BAR_HEIGHT_PX);
+      }
+    }
+  }
+
   const last = state.lastCinematic[series.axis];
   const lastCinematic =
     state.showingLastPath && last?.duration === series.duration ? last.values : null;
@@ -195,7 +210,7 @@ function drawPanel(
     ctx.fillStyle = COLORS.points;
     for (const p of series.points) {
       ctx.beginPath();
-      ctx.arc(px(p.t), py(p.value), 2.5, 0, 2 * Math.PI);
+      ctx.arc(px(p.t), py(p.value), POINT_RADIUS_PX, 0, 2 * Math.PI);
       ctx.fill();
     }
   }

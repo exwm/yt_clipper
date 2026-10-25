@@ -54,8 +54,9 @@ export interface CinematicPlotSeries {
   duration: number;
   // The values the axis can take (the frame for the crop center), so the plot shows no more.
   limits: [number, number];
-  // Each point's value, and how much of the plot to show around it.
-  points: { t: number; value: number; plotMargin: number }[];
+  // Each point's value, how much of the plot to show around it, and whether the solve holds the crop
+  // still there (a hold point under Firm or Exact).
+  points: { t: number; value: number; plotMargin: number; hold: boolean }[];
   // Where the margin lets the value go: the solver's own bounds once the path is solved, else an
   // estimate from the crop points and the margin.
   band: { t: number[]; low: number[]; high: number[]; solved: boolean };
@@ -122,10 +123,11 @@ export function cinematicPlotSeries(
     components: parseCropToComponents(p.crop, cropResWidth, cropResHeight),
     easeIn: p.easeIn,
   }));
-  const points = easingPoints.map((p) => ({
+  const points = easingPoints.map((p, i) => ({
     t: p.time - firstTime,
     value: scale.value(p.components),
     plotMargin: scale.marginScale(p.components) * PLOTTED_MARGIN_SHARE,
+    hold: cropMap[i].hold === true || cropMap[i].firmHold === true,
   }));
 
   const sampleTimes = Array.from(
