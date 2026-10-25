@@ -534,6 +534,25 @@ export function toApplicableSettings(input: ClipperInput): Partial<Settings> {
   return out;
 }
 
+// The clipper renders a file without these with their defaults.
+const DEFAULTED_WHEN_MISSING = [
+  'cropPointEasingCinematicMargin',
+  'cropPointEasingCinematicZoomMargin',
+  'cropPointEasingCinematicHolds',
+] as const satisfies readonly (keyof Settings)[];
+
+/** Loads `input`'s settings into `settings`, in place: an open settings editor writes to that object.
+ *  A Cinematic setting the file lacks goes back to its default rather than keeping the session's
+ *  value, so the preview renders as the clipper does; pairs that inherit it follow, as loading
+ *  overwrites settings. */
+export function applyLoadedSettings(settings: Settings, input: ClipperInput): void {
+  const loaded = toApplicableSettings(input);
+  Object.assign(settings, loaded);
+  for (const key of DEFAULTED_WHEN_MISSING) {
+    if (loaded[key] === undefined) delete settings[key];
+  }
+}
+
 /** Formats an issue list as a short multi-line human-readable string for log
  *  output or flash messages. */
 export function formatIssues(issues: readonly DataFormatIssue[]): string {

@@ -34,7 +34,7 @@ import {
   renderSettingsToggleBar,
   toggleOffMarkerPairEditor,
 } from './marker-settings-editor';
-import { injectYtcWidget } from '../../save-load';
+import { injectYtcWidget, SETTINGS_LOADED_EVENT } from '../../save-load';
 import {
   addCropInputHotkeys,
   createBindings,
@@ -67,6 +67,15 @@ export function toggleOffGlobalSettingsEditor() {
   deleteSettingsEditor();
   hideCropOverlay();
   hideChart();
+}
+
+// A load replaces the settings an open global editor shows, so it opens again with them.
+if (typeof document !== 'undefined') {
+  document.addEventListener(SETTINGS_LOADED_EVENT, () => {
+    if (!appState.isSettingsEditorOpen || !appState.wasGlobalSettingsEditorOpen) return;
+    toggleOffGlobalSettingsEditor();
+    createGlobalSettingsEditor();
+  });
 }
 
 function GlobalSettingsEditorTemplate(binder: SettingsBinder<Settings>): TemplateResult {
@@ -297,6 +306,7 @@ function GlobalSettingsEditorTemplate(binder: SettingsBinder<Settings>): Templat
                 // New marker pairs start from this crop.
                 crops: () => [settings.newMarkerCrop],
               }),
+            onOpen: () => highlightModifiedSettings(binder.all(), settings),
           }),
         })}
       `,

@@ -3,7 +3,9 @@ import {
   parseClipperInput,
   parseClipperInputJSON,
   toApplicableSettings,
+  applyLoadedSettings,
 } from './parse-clipper-input';
+import { Settings } from '../@types/yt_clipper';
 
 describe('parseClipperInputJSON: syntactic + proto strip', () => {
   test('rejects invalid JSON with unified error type', () => {
@@ -341,6 +343,59 @@ describe('toApplicableSettings: applied vs skipped keys', () => {
   });
 });
 
+describe('applyLoadedSettings: the session settings after a load', () => {
+  // A session that changed the Cinematic settings and the crop easing.
+  const session = () =>
+    ({
+      crf: 30,
+      cropPointEasing: 'cinematic',
+      cropPointEasingCinematicMargin: 20,
+      cropPointEasingCinematicZoomMargin: 30,
+      cropPointEasingCinematicHolds: 'exact',
+    }) as unknown as Settings;
+  const cinematic = (settings: Partial<Settings>) => [
+    settings.cropPointEasing,
+    settings.cropPointEasingCinematicMargin,
+    settings.cropPointEasingCinematicZoomMargin,
+    settings.cropPointEasingCinematicHolds,
+  ];
+
+  test.each([
+    // The clipper renders a missing Cinematic setting with its default, so the session's goes.
+    ['a file without the Cinematic settings', {}, ['cinematic', undefined, undefined, undefined]],
+    [
+      'a file with them',
+      {
+        cropPointEasingCinematicMargin: 6,
+        cropPointEasingCinematicZoomMargin: 4,
+        cropPointEasingCinematicHolds: 'loose',
+      },
+      ['cinematic', 6, 4, 'loose'],
+    ],
+    [
+      'a file whose Hold Points value is invalid',
+      { cropPointEasingCinematicHolds: 'Firm' },
+      ['cinematic', undefined, undefined, undefined],
+    ],
+    // A file's crop easing applies. A file without one keeps the session's (the first case): parsing
+    // pins such a file's own pairs to EaseInOut instead.
+    [
+      'a file saved with a crop easing',
+      { cropPointEasing: 'smoothTrack' },
+      ['smoothTrack', undefined, undefined, undefined],
+    ],
+  ])('%s', (_case, fileSettings, expected) => {
+    const { input } = parseClipperInputJSON(JSON.stringify({ markerPairs: [], ...fileSettings }));
+    // In place: an open settings editor writes to this object.
+    const settings = session();
+    applyLoadedSettings(settings, input);
+    expect(cinematic(settings)).toEqual(expected);
+    expect(settings.crf).toBe(30);
+    // Gone, not an explicit undefined that a later spread or save would carry.
+    for (const [key, value] of Object.entries(settings)) expect([key, value]).not.toEqual([key, undefined]);
+  });
+});
+
 describe('parseOverrides: per-field type validation', () => {
   test('drops string-where-number override values', () => {
     const { input } = parseClipperInput({
@@ -391,6 +446,8 @@ describe('parseOverrides: per-field type validation', () => {
     ['cropPointEasingCinematicZoomMargin', 100, true],
     ['cropPointEasing', 'Cinematic', false],
     ['cropPointEasing', 'cinematic', true],
+    ['cropPointEasingCinematicHolds', 'Firm', false],
+    ['cropPointEasingCinematicHolds', 'exact', true],
   ];
   test.each(cropEasingValues)(
     'crop easing override %s = %p is kept: %s (the schema values)',
