@@ -12,24 +12,22 @@ SOLVER_VERSION in both when the result changes, so files previewed with another 
 """
 
 import math
-import os
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, NamedTuple, Optional
 
-# The solve's matrices are a few hundred rows, where OpenBLAS's threads cost more than they save: one
-# thread solves 1.6x faster on an idle machine and 3 to 6x under load. Set before numpy loads OpenBLAS.
-os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
-
 import numpy as np
+
+from clipper import banded_lapack
 
 SOLVER_VERSION = 1
 
 # Grid the path is sampled on. It only quantizes where holds and pans start, so a moderate rate is
-# plenty; the sample count is capped so a long clip still solves quickly.
+# plenty. The margins only bind at samples, so the rate holds up to 10 minutes per run, and only
+# longer runs get a coarser grid.
 GRID_RATE_HZ = 10
 MIN_SAMPLES = 8
-MAX_SAMPLES = 400
+MAX_SAMPLES = 6001
 
 # Objective weights on velocity, acceleration, and jerk, tuned at the 10 Hz grid. Jerk is penalized
 # hardest so transitions are smooth ramps; velocity moderately so the path prefers to hold.
@@ -269,6 +267,61 @@ def _softThreshold(values: np.ndarray, kappa: float) -> np.ndarray:
     return np.sign(values) * np.maximum(np.abs(values) - kappa, 0.0)
 
 
+# Each row of the k-th difference np.diff(p, k), from its first sample on.
+_DIFFERENCE_ROWS = {1: (-1.0, 1.0), 2: (1.0, -2.0, 1.0), 3: (-1.0, 3.0, -3.0, 1.0)}
+_SYSTEM_BANDWIDTH = 3
+
+
+def _differenceAdjoint(values: np.ndarray, order: int) -> np.ndarray:
+    """D^T values for the order-th difference D, one sample longer per order."""
+    for _ in range(order):
+        values = np.concatenate(([-values[0]], values[:-1] - values[1:], [values[-1]]))
+    return values
+
+
+# The largest run the dense fallback solves, about 3 minutes on the 10 Hz grid, which takes about 3 s on
+# an idle machine and much longer under load. A 10-minute run would take minutes and hundreds of MB.
+DENSE_SOLVE_MAX_SAMPLES = 2001
+
+
+def _tooLongForDenseSolve(n: int) -> RuntimeError:
+    return RuntimeError(f"the banded solve is unavailable, and a {n}-sample run is too slow to solve without it")
+
+
+def _systemUpperBand(n: int) -> np.ndarray:
+    """The upper band of I + sum D^T D in LAPACK's column-major layout: band[3 + i - j, j] = M[i, j]."""
+    band = np.zeros((_SYSTEM_BANDWIDTH + 1, n))
+    band[_SYSTEM_BANDWIDTH] = 1.0
+    # Each difference row r adds the outer product r r^T at its samples.
+    for order, row in _DIFFERENCE_ROWS.items():
+        rows = n - order
+        for a, ca in enumerate(row):
+            for b in range(a, len(row)):
+                band[_SYSTEM_BANDWIDTH - (b - a), b : b + rows] += ca * row[b]
+    return band
+
+
+def _systemSolver(n: int) -> Callable[[np.ndarray], np.ndarray]:
+    """Solves (I + sum D^T D) p = rhs, the same system every iteration. Banded LAPACK takes linear time;
+    without it, a dense inverse (quadratic per solve) gives the same result for runs up to
+    DENSE_SOLVE_MAX_SAMPLES."""
+    band = _systemUpperBand(n)
+    solver = banded_lapack.bandedCholeskySolver(band)
+    if solver is not None:
+        return solver
+    if n > DENSE_SOLVE_MAX_SAMPLES:
+        raise _tooLongForDenseSolve(n)
+    system = np.diag(band[_SYSTEM_BANDWIDTH])
+    for offset in range(1, _SYSTEM_BANDWIDTH + 1):
+        diagonal = band[_SYSTEM_BANDWIDTH - offset, offset:]
+        system += np.diag(diagonal, offset) + np.diag(diagonal, -offset)
+    inverse = np.linalg.inv(system)
+    # The inverse's far entries decay into subnormal numbers, which make every product about 5x slower
+    # and change nothing.
+    inverse[np.abs(inverse) < 1e-150] = 0.0
+    return lambda rhs: inverse @ rhs
+
+
 def solveL1Path(
     target: np.ndarray,
     lower: np.ndarray,
@@ -284,9 +337,7 @@ def solveL1Path(
     if n <= 3:
         return np.clip(target, lower, upper)
 
-    differences = [np.diff(np.eye(n), n=order, axis=0) for order in (1, 2, 3)]
-    system = np.eye(n) + sum(d.T @ d for d in differences)
-    systemInverse = np.linalg.inv(system)
+    solveSystem = _systemSolver(n)
 
     q = np.clip(target, lower, upper)
     uq = np.zeros(n)
@@ -297,15 +348,15 @@ def solveL1Path(
     kappa = [weight / rho for weight in weights]
 
     for iteration in range(MAX_ITERS):
-        rhs = sum(d.T @ (zk - uzk) for d, zk, uzk in zip(differences, z, uz)) + (q - uq)
-        p = systemInverse @ rhs
+        rhs = sum(_differenceAdjoint(zk - uzk, order) for order, zk, uzk in zip((1, 2, 3), z, uz)) + (q - uq)
+        p = solveSystem(rhs)
 
         primalSq = 0.0
         dualChangeSq = 0.0
         # The sizes the residuals are relative to: of the iterates, and of the duals (y = rho * u).
         primalScaleSq = 0.0
-        for k, d in enumerate(differences):
-            dp = d @ p
+        for k in range(3):
+            dp = np.diff(p, k + 1)
             zNew = _softThreshold(dp + uz[k], kappa[k])
             uz[k] += dp - zNew
             primalSq += float((dp - zNew) @ (dp - zNew))
@@ -322,7 +373,7 @@ def solveL1Path(
 
         primalRes = math.sqrt(primalSq / totalVars)
         dualRes = rho * math.sqrt(dualChangeSq / totalVars)
-        dualStack = sum(d.T @ u for d, u in zip(differences, uz)) + uq
+        dualStack = sum(_differenceAdjoint(u, order) for order, u in zip((1, 2, 3), uz)) + uq
         dualScale = rho * math.sqrt(float(dualStack @ dualStack) / totalVars)
         if (
             iteration > 3
@@ -633,6 +684,11 @@ def splitAtInstantCuts(
     return runs
 
 
+def gridSampleCount(duration: float) -> int:
+    """The samples a run of this many seconds is solved on: 10 Hz up to MAX_SAMPLES."""
+    return min(MAX_SAMPLES, max(MIN_SAMPLES, _roundHalfUp(duration * GRID_RATE_HZ) + 1))
+
+
 def weightsForSpacing(dt: float) -> tuple[float, float, float]:
     """The objective weights at a grid spacing of dt seconds. A k-th difference approximates the
     k-th derivative times dt^k, so scaling by dt^(1-k) keeps the same objective at any clip length."""
@@ -671,7 +727,7 @@ def _solveRun(
 
     start = times[0]
     duration = times[-1] - start
-    sampleCount = min(MAX_SAMPLES, max(MIN_SAMPLES, _roundHalfUp(duration * GRID_RATE_HZ) + 1))
+    sampleCount = gridSampleCount(duration)
     dt = duration / (sampleCount - 1)
     gridTimes = start + dt * np.arange(sampleCount)
     weights = weightsForSpacing(dt)
@@ -815,6 +871,11 @@ def bakeCinematicPath(
         return None
     firstTime = cropMap[0]["x"]
     runs = splitAtInstantCuts(cropMap, fps, videoPartStart)
+    if banded_lapack.lapack() is None:
+        # Fail before solving any run, rather than after the runs the dense fallback can solve.
+        longest = max(gridSampleCount(run[-1]["x"] - run[0]["x"]) for run in runs)
+        if longest > DENSE_SOLVE_MAX_SAMPLES:
+            raise _tooLongForDenseSolve(longest)
     widestW = max(
         min(cropResWidth, parseCropToComponents(point["crop"], cropResWidth, cropResHeight)[2] * (1 + margins["zoom"]))
         for point in cropMap

@@ -93,6 +93,9 @@ class SmokeTest:
             if expectedVersion:
                 ok = ok and expectedVersion in output
             self.check(ok, f"yt_clipper {' '.join(args)}")
+            if args == ["--print-versions"]:
+                # The frozen clipper must find numpy's banded LAPACK, or long Cinematic pairs solve slowly.
+                self.check("cinematic solver: banded LAPACK" in output, "the Cinematic solve uses banded LAPACK")
         for tool, flag in self.bundledTools():
             result = self.run(tool, flag)
             firstLine = (result.stdout + result.stderr).strip().splitlines()[:1]

@@ -537,7 +537,7 @@ describe('hold points', () => {
     ['a hold with its edges off the grid the other way', panHoldPan(2.07, 3.03), 2.07, 3.03],
     ['a hold shorter than a grid step', panHoldPan(2.03, 2.09), 2.03, 2.09],
     [
-      'a hold in a long pair, with a coarser grid',
+      'a hold in a long pair',
       [...panHoldPan(60.03, 61.07), point(120, '0:0:640:360')],
       60.03,
       61.07,
@@ -752,6 +752,22 @@ describe('hold points', () => {
     }
   });
 
+  it.each([
+    [40, 401, 0.1],
+    [600, 6001, 0.1],
+    [700, 6001, 700 / 6000],
+  ])('solves a %s s run on %s grid samples, %s s apart', (seconds, samples, dt) => {
+    // The margins bind only at samples, so the grid keeps 10 Hz up to 10 minutes per run.
+    const target = cinematicRunTarget(
+      [point(0, '100:300:640:360'), point(seconds, '900:300:640:360')],
+      0,
+      CROP_RES_W,
+      CROP_RES_H
+    )!;
+    expect(target.gridTimes.length).toBe(samples);
+    expect(target.dt).toBeCloseTo(dt, 9);
+  });
+
   it('keeps a straight move into a hold point straight', () => {
     // A diagonal pan: x moves 5x as far as y, so separate eases would bend it.
     const cropMap = [
@@ -824,6 +840,21 @@ describe('Firm hold points', () => {
       expect(drift(exact, start, end)).toBeLessThan(0.5);
     }
   );
+
+  it('holds as still in a 120 s run, on the 10 Hz grid', () => {
+    // A coarser grid once left a hold span with few samples, so Firm held like Loose.
+    const cropMap = [
+      point(0, '100:300:640:360'),
+      point(58.5, '300:300:640:360'),
+      point(60, '740:300:640:360'),
+      point(61.2, '740:300:640:360', { hold: true }),
+      point(62.7, '1100:300:640:360'),
+      point(120, '1200:300:640:360'),
+    ];
+    const [loose, firm] = (['loose', 'firm'] as const).map((holds) => solve(cropMap, holds));
+    expect(drift(firm, 60.2, 61)).toBeLessThan(0.5);
+    expect(drift(firm, 60, 61.2)).toBeLessThan(drift(loose, 60, 61.2) / 3);
+  });
 
   // Two holds with a quick 80 px move between them: a crop still at both ends must start and stop hard.
   const crowded = [

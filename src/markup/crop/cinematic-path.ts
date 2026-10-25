@@ -15,11 +15,11 @@ import { CropPath, CropPathCenterBounds, CropPathSegment, CropPoint } from '../@
 export const CINEMATIC_SOLVER_VERSION = 1;
 
 // Grid the path is sampled on. The grid only quantizes where holds/pans start (the rendered output
-// is a continuous polynomial), so a moderate rate is plenty; cap the sample count so a long clip
-// still solves quickly.
+// is a continuous polynomial), so a moderate rate is plenty. The margins only bind at samples, so the
+// rate holds up to 10 minutes per run (about 0.3 s to solve), and only longer runs get a coarser grid.
 const GRID_RATE_HZ = 10;
 const MIN_SAMPLES = 8;
-const MAX_SAMPLES = 400;
+const MAX_SAMPLES = 6001;
 
 // Objective weights on velocity / acceleration / jerk. Jerk is penalized hardest so transitions are
 // smooth constant-acceleration ramps; velocity moderately so the path prefers to hold.
