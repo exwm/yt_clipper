@@ -1,13 +1,18 @@
-"""Reframe (V): the preview fills the whole player, keeps up with playback on a busy machine, and the
-navigator minimap outlines the crop in two tones so it shows on light and dark video."""
+"""Reframe (V): the preview fills the whole player, draws every frame the video shows on a busy
+machine, and the navigator minimap outlines the crop in two tones so it shows on light and dark video."""
 
 import io
+import re
+from collections.abc import Generator
+from contextlib import contextmanager
 
 import pytest
 from harness.markup_page import MarkupPage
 from harness.steps import step
 from PIL import Image
+from playwright.sync_api import ConsoleMessage
 from test_crop_easing import when_i_save_the_markers
+from test_feature_flags import when_i_open_the_feature_flags_popup
 from test_hold_crop_points import CROP_A, CROP_B, pair
 
 # How far in from each canvas edge to sample, and the lightness below which a pixel counts as the
@@ -23,13 +28,21 @@ EDGE_SLACK_PX = 4
 # How much darker the outer (black) line must read than the inner (white) one.
 OUTLINE_CONTRAST = 100
 
-# A busy machine: Chrome runs the page's main thread this many times slower. How many frames that
-# skips depends on how fast the host is at the moment, so reframe is compared with the same playback
-# without it. Over these seconds of the 30 fps test video, reframe skipped 3 to 14 frames more while
-# it laid out the hidden crop overlay every frame, and 0 to 3 more since.
+# A busy machine: Chrome runs the page's main thread this many times slower. A frame the video shows
+# only between two refreshes the page gets to run is gone before anything can draw it, and how many
+# that is depends on how loaded the host is at the moment: reframe drew 48 to 60 of 60 per 2 s with
+# the UI tests running in parallel. So reframe is compared with a plain loop that notes each frame it
+# can see on every refresh, running alongside reframe in the same window, so both meet the same load
+# (measured one after the other, the loads differed by up to 14 points). Reframe's share of the
+# frames the video showed (decoded minus dropped) must come within MAX_SHARE_BELOW_PLAIN_LOOP of the
+# plain loop's: 1 to 4 points below it in practice. A loop that falls far behind fails it (20% drawn
+# in one bug). Throttled headless Chrome does not reproduce requestVideoFrameCallback's skipped
+# frames, so this does not catch that.
 BUSY_CPU_SLOWDOWN = 10
-BUSY_PLAYBACK_SECONDS = 5
-MAX_EXTRA_SKIPPED_FRAMES = 4
+BUSY_SETTLE_SECONDS = 2.1
+BUSY_MEASURED_SECONDS = 3.3
+MAX_SHARE_BELOW_PLAIN_LOOP = 0.05
+FRAME_LOOP_STATS = re.compile(r"\[yt_clipper frame loop\].*\breframe\b.*? (\d+) new frames, video showed (\d+)")
 
 # The dev site's test video, whose frame counter makes every frame's pixels differ.
 VIDEO_FPS = 30
@@ -74,12 +87,13 @@ def test_reframe_and_the_modal_preview_draw_each_frame_a_paused_seek_shows(refra
     then_each_preview_drew_the_new_frame_and_then_the_first_again(reframed)
 
 
-def test_reframe_keeps_up_with_playback_on_a_busy_machine(markup: MarkupPage) -> None:
+@pytest.mark.local_build
+def test_reframe_draws_as_many_frames_as_a_plain_loop_sees_on_a_busy_machine(markup: MarkupPage) -> None:
     given_a_dynamic_crop(markup)
-    skipped_without_reframe = when_it_plays_on_a_busy_machine(markup)
+    given_the_frame_loop_stats_are_on(markup)
     given_reframe_is_on(markup)
-    skipped_with_reframe = when_it_plays_on_a_busy_machine(markup)
-    then_reframe_skips_about_as_few_frames(markup, skipped_without_reframe, skipped_with_reframe)
+    plain_loop, reframe = when_reframe_and_a_plain_page_loop_count_frames_on_a_busy_machine(markup)
+    then_reframe_drew_about_as_many_frames_as_the_plain_loop(markup, plain_loop, reframe)
 
 
 # ─── given ──────────────────────────────────────────────────────────────────
@@ -178,37 +192,86 @@ def changed_share(markup: MarkupPage, first: str, second: str) -> list[float]:
 
 
 @step
-def when_it_plays_on_a_busy_machine(markup: MarkupPage) -> int:
-    """Play through the crop pan with the CPU throttled and count the presented frames that no frame
-    callback ran for: reframe draws in one, so it never drew those."""
+def given_the_frame_loop_stats_are_on(markup: MarkupPage) -> None:
+    # Through the feature flags popup, which local builds have.
+    when_i_open_the_feature_flags_popup(markup)
+    markup.page.check("#ytc-feature-flags-popover label:has-text('videoFrameLoopStats') input")
+    markup.page.keyboard.press("Escape")
+
+
+@contextmanager
+def playing_on_a_busy_machine(markup: MarkupPage) -> Generator[None]:
+    """Play through the crop pan, throttle the CPU once playback has settled (so nothing measured is
+    about starting to play), wait BUSY_SETTLE_SECONDS, and yield while it plays throttled."""
     markup.seek(3.2, presented=True)
     markup.play()
-    # Throttle once playback has settled, so the count is not about starting to play.
     assert markup.eventually("() => document.querySelector('video').currentTime > 3.5")
     cdp = markup.page.context.new_cdp_session(markup.page)
     cdp.send("Emulation.setCPUThrottlingRate", {"rate": BUSY_CPU_SLOWDOWN})
     try:
-        presented = markup.page.evaluate(
-            """(seconds) => new Promise((resolve) => {
-              const video = document.querySelector('video');
-              const frames = [];
-              let end = 0;
-              const onFrame = (now, metadata) => {
-                end ||= now + seconds * 1000;
-                frames.push(metadata.presentedFrames);
-                if (now < end) video.requestVideoFrameCallback(onFrame);
-                else resolve(frames);
-              };
-              video.requestVideoFrameCallback(onFrame);
-            })""",
-            BUSY_PLAYBACK_SECONDS,
-        )
+        markup.page.wait_for_timeout(BUSY_SETTLE_SECONDS * 1000)
+        yield
         markup.pause()
     finally:
         cdp.send("Emulation.setCPUThrottlingRate", {"rate": 1})
-    skipped = sum(max(0, b - a - 1) for a, b in zip(presented, presented[1:], strict=False))
-    markup.report(f"{presented[-1] - presented[0]} frames presented, {skipped} skipped")
-    return skipped
+
+
+# A page loop that notes the frame the video holds on every refresh, until it is stopped: the frames
+# a plain page loop sees, measured in the same window as reframe so both share one machine load.
+START_PLAIN_LOOP = """() => {
+  const video = document.querySelector('video');
+  const shown = () => {
+    const q = video.getVideoPlaybackQuality();
+    return q.totalVideoFrames - q.droppedVideoFrames;
+  };
+  const seen = new Set();
+  const shownAtStart = shown();
+  let running = true;
+  const tick = () => {
+    try {
+      const frame = new VideoFrame(video);
+      seen.add(frame.timestamp);
+      frame.close();
+    } catch {}
+    if (running) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  window.__ytcStopPlainLoop = () => {
+    running = false;
+    return [seen.size, shown() - shownAtStart];
+  };
+}"""
+
+
+@step
+def when_reframe_and_a_plain_page_loop_count_frames_on_a_busy_machine(
+    markup: MarkupPage,
+) -> tuple[tuple[int, int], tuple[int, int]]:
+    """Returns (frames seen, frames shown) for a plain page loop, and (new frames drawn, frames
+    shown) for reframe, over the stats windows logged while throttled (the first one, which began
+    before throttling, left out)."""
+    windows: list[tuple[int, int]] = []
+    measuring = False
+
+    def on_console(message: ConsoleMessage) -> None:
+        match = FRAME_LOOP_STATS.search(message.text)
+        if match and measuring:
+            windows.append((int(match[1]), int(match[2])))
+
+    markup.page.on("console", on_console)
+    try:
+        with playing_on_a_busy_machine(markup):
+            measuring = True
+            markup.page.evaluate(START_PLAIN_LOOP)
+            markup.page.wait_for_timeout(BUSY_MEASURED_SECONDS * 1000)
+            plain = markup.page.evaluate("() => window.__ytcStopPlainLoop()")
+    finally:
+        markup.page.remove_listener("console", on_console)
+    markup.report(
+        f"plain loop (seen, shown): {plain}, reframe stats windows (drawn, shown): {windows}"
+    )
+    assert windows, "no frame loop stats were logged while throttled"
+    return (plain[0], plain[1]), (sum(w[0] for w in windows), sum(w[1] for w in windows))
 
 
 # ─── then ───────────────────────────────────────────────────────────────────
@@ -234,9 +297,17 @@ def then_each_preview_drew_the_new_frame_and_then_the_first_again(markup: Markup
 
 
 @step
-def then_reframe_skips_about_as_few_frames(markup: MarkupPage, without: int, with_reframe: int) -> None:
-    markup.report(f"skipped frames: {without} without reframe, {with_reframe} with it")
-    assert with_reframe - without <= MAX_EXTRA_SKIPPED_FRAMES
+def then_reframe_drew_about_as_many_frames_as_the_plain_loop(
+    markup: MarkupPage, plain_loop: tuple[int, int], reframe: tuple[int, int]
+) -> None:
+    (seen, plain_shown), (drawn, reframe_shown) = plain_loop, reframe
+    assert plain_shown > 0, "the video showed no frames to the plain loop"
+    assert reframe_shown > 0, "the video showed no frames to reframe"
+    plain_share, reframe_share = seen / plain_shown, drawn / reframe_shown
+    markup.report(f"plain loop saw {plain_share:.0%} of the frames shown, reframe drew {reframe_share:.0%}")
+    assert reframe_share >= plain_share - MAX_SHARE_BELOW_PLAIN_LOOP, (
+        f"reframe drew {drawn} of {reframe_shown} frames, a plain loop saw {seen} of {plain_shown}"
+    )
 
 
 @step
