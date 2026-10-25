@@ -29,7 +29,7 @@ pretty-py-check:
 # The config path is absolute so tests that run from a temporary folder still find it. Tests do not
 # measure the Python processes they start (yt-dlp): see noCoverageInSubprocesses in conftest.py.
 test-py update="false":
-  just _timed pytest uv run pytest src/clipper tools/release tools/prose -s --cov --cov-config="{{justfile_directory()}}/pyproject.toml" --cov-report=html --cov-report=xml -m "not slow" \
+  just _timed pytest uv run pytest src/clipper tools/release tools/prose -s --durations=10 --cov --cov-config="{{justfile_directory()}}/pyproject.toml" --cov-report=html --cov-report=xml -m "not slow" \
     {{ if update == "true" { "--snapshot-update" } else { "-n auto --dist worksteal" } }}
 # Check an assembled release folder before zipping, as CI does: bundled tools, offline clips, schema.
 smoke-release folder version="":
@@ -97,7 +97,8 @@ lint-ts: typecheck-ts eslint-ts
 # With coverage (thresholds in jest.config.js; reports go to coverage/markup). It triples the run time,
 # so bundle-prod leaves it off unless asked (`just bundle-prod true`, as CI does).
 test-ts coverage="true":
-  just _timed jest npx jest test {{ if coverage == "true" { "--coverage" } else { "" } }}
+  just _timed jest npx jest test {{ if coverage == "true" { "--coverage" } else { "" } }} --json --outputFile=coverage/jest-report.json
+  uv run python tools/test/jest_slowest.py coverage/jest-report.json
 # Coverage of the lines changed since base, from the reports test-py and test-ts write (run them first).
 coverage-diff base="origin/master": (coverage-diff-py base) (coverage-diff-ts base)
 coverage-diff-py base="origin/master":
