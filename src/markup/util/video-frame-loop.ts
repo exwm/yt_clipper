@@ -1,4 +1,4 @@
-import { featureFlags } from '../feature-flags';
+import { featureFlags, onFeatureFlagChange } from '../feature-flags';
 import { formatFrameLoopWindow, FrameLoopWindow, newFrameLoopWindow } from './video-frame-loop-stats';
 import {
   FrameScheduleAction,
@@ -116,6 +116,10 @@ export function setVideoFrameLoopTiming(timing: VideoFrameLoopTiming): void {
   preferredTiming = timing;
   for (const loop of loops.values()) retime(loop);
 }
+
+onFeatureFlagChange((name) => {
+  if (name === 'videoFrameLoopTiming') setVideoFrameLoopTiming(featureFlags.videoFrameLoopTiming);
+});
 
 export function onVideoFrames(
   video: HTMLVideoElement,

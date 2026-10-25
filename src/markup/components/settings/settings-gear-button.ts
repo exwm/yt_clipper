@@ -25,7 +25,7 @@ function placePopover(popover: HTMLElement, button: HTMLElement): void {
 }
 
 // No backdrop, so the video and the preview stay visible while the settings change them.
-function toggleSettingsGearPopover(
+export function toggleSettingsGearPopover(
   button: HTMLElement,
   id: string,
   title: string,

@@ -1162,10 +1162,38 @@
   font-size: 8.5pt;
 }
 
+/* Feature flags popup of local builds: a flag per row, its control on the right. */
+.ytc-settings-popover > .ytc-feature-flags {
+  display: block;
+  max-width: 360px;
+}
+
+.ytc-feature-flag {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  cursor: pointer;
+}
+
+/* A flag changed from its default. */
+.ytc-feature-flag.changed > span {
+  color: rgb(255, 160, 70);
+}
+
+.ytc-feature-flags-reset {
+  margin-top: 8px;
+  padding: 3px 6px;
+  font-size: 9pt;
+  line-height: normal;
+}
+
 /* One label and input per row, the inputs in one column. */
 .ytc-settings-popover
   > div:not(
     :where(
+      .ytc-feature-flags,
       .ytc-settings-popover-title,
       .ytc-cinematic-strength,
       .ytc-cinematic-margin-px,
