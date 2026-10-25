@@ -49,6 +49,10 @@ export namespace Tooltips {
     Toggle the encode settings section. Hotkey: shift+W.
     `;
 
+  export const featureFlagsTooltip = stripIndent`
+    Feature flags of this local build. Changes are kept in this browser. Release builds don't show it.
+    `;
+
   export const crosshairToggleTooltip = stripIndent`
     Toggle the crop crosshair overlay. Hotkey: ctrl+shift+X.
     `;

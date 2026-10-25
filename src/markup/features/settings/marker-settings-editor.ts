@@ -114,6 +114,8 @@ import { refreshPlayerControlsAutoHideTimer } from '../../util/videoUtil';
 import { MARKER_PAIR_HISTORY_CHANGED_EVENT } from '../../util/undoredo';
 import { autoHideUnselectedMarkerPairsCSS } from '../../ui/css/css';
 import { Tooltips } from '../../ui/tooltips';
+import { featureFlags } from '../../feature-flags';
+import { toggleFeatureFlagsPopup } from './feature-flags-popup';
 import {
   assertDefined,
   blockEvent,
@@ -523,6 +525,7 @@ type BarGroup =
   | 'View'
   | 'Charts'
   | 'Previews'
+  | 'FeatureFlags'
   | 'Overrides';
 const BAR_GROUP_ORDER: BarGroup[] = [
   'Actions',
@@ -532,6 +535,7 @@ const BAR_GROUP_ORDER: BarGroup[] = [
   'View',
   'Charts',
   'Previews',
+  'FeatureFlags',
   'Overrides',
 ];
 
@@ -544,6 +548,8 @@ interface BarItem {
   isActive?: () => boolean;
   isDisabled?: () => boolean;
   badge?: () => number | string | null;
+  // Hides the item while false.
+  isShown?: () => boolean;
   run: () => void;
 }
 
@@ -768,6 +774,19 @@ const barItems: BarItem[] = [
     isActive: () => appState.isGammaPreviewOn,
     run: toggleGammaPreview,
   },
+  // Feature flags of local builds, left of the overrides gear.
+  {
+    id: 'toggle-feature-flags',
+    icon: 'featureFlags',
+    group: 'FeatureFlags',
+    editors: ['marker', 'global'],
+    tooltip: Tooltips.featureFlagsTooltip,
+    isShown: () => featureFlags.featureFlagsPanel,
+    run: () => {
+      const button = document.getElementById('toggle-feature-flags');
+      if (button) toggleFeatureFlagsPopup(button);
+    },
+  },
   // Overrides gear (rightmost).
   {
     id: 'toggle-marker-pair-overrides',
@@ -840,7 +859,11 @@ function renderBarItem(item: BarItem): TemplateResult {
 // it, so the controls shared by both editors line up across them.
 export function renderSettingsToggleBar(editor: SettingsEditorType): TemplateResult {
   const sections = BAR_GROUP_ORDER.map((group) =>
-    barItems.filter((it) => it.group === group && it.editors.includes(editor)).map(renderBarItem)
+    barItems
+      .filter(
+        (it) => it.group === group && it.editors.includes(editor) && (it.isShown?.() ?? true)
+      )
+      .map(renderBarItem)
   ).filter((section) => section.length > 0);
 
   return html`

@@ -63,11 +63,31 @@ def userscript_path(config: pytest.Config) -> Path:
     return Path(config.getoption("userscript")).resolve()
 
 
+def is_ci_build(config: pytest.Config) -> bool:
+    """Whether the userscript under test was built by CI: Parcel inlines `IS_CI_BUILD` as a constant."""
+    path = userscript_path(config)
+    return path.exists() and "IS_CI_BUILD = true" in path.read_text(encoding="utf-8")
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    if not is_ci_build(config):
+        return
+    skip = pytest.mark.skip(reason="needs the feature flags popup, which CI builds leave out")
+    for item in items:
+        if item.get_closest_marker("local_build"):
+            item.add_marker(skip)
+
+
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers",
         "platform: depends on the video platform (its player, seeking, controls, or layout), so it"
         " also runs on YouTube (just ui-test-youtube selects these); the rest run on the dev site",
+    )
+    config.addinivalue_line(
+        "markers",
+        "local_build: needs the feature flags popup, which CI builds (the releases) leave out, so it"
+        " is skipped against a CI-built userscript (just verify-release)",
     )
     # Build the dev site once, in the main process: parallel workers (pytest-xdist) only serve it.
     is_worker = hasattr(config, "workerinput")
