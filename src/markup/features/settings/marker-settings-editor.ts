@@ -77,6 +77,7 @@ import {
   isVariableSpeed,
   promptLoadMarkersJsonFile,
   saveMarkersAndSettings,
+  SETTINGS_LOADED_EVENT,
 } from '../../save-load';
 import {
   addCropInputHotkeys,
@@ -307,9 +308,7 @@ function MarkerPairEditorTemplate(
           label: 'Crop Easing',
           value: overrides.cropPointEasing,
           // Default inherits the global setting (falling back to the built-in default).
-          defaultOptionLabel: `(${
-            cropEasingModeLabels[appState.settings.cropPointEasing ?? DEFAULT_CROP_POINT_EASING]
-          })`,
+          defaultOptionLabel: inheritedCropEasingLabel(),
           tooltip: Tooltips.cropPointEasingTooltip,
           labelSuffix: SettingsGearButton({
             id: 'cinematic-settings-modal',
@@ -366,6 +365,7 @@ function MarkerPairEditorTemplate(
                   activeEasing: activeCropPointEasing,
                 },
               }),
+            onOpen: () => highlightModifiedSettings(overrideBinder.all(), overrides),
           }),
         })}
       `,
@@ -919,6 +919,30 @@ export function toggleOnMarkerPairEditor(targetMarker: SVGRectElement) {
     );
   }
 }
+// The pair's Crop Easing Default option names the global mode it inherits.
+function inheritedCropEasingLabel(): string {
+  return `(${cropEasingModeLabels[appState.settings.cropPointEasing ?? DEFAULT_CROP_POINT_EASING]})`;
+}
+
+// A load can change the global mode an open pair editor inherits: name it, and preview it as the
+// select's own change does.
+if (typeof document !== 'undefined') {
+  document.addEventListener(SETTINGS_LOADED_EVENT, () => {
+    if (!appState.isSettingsEditorOpen || appState.wasGlobalSettingsEditorOpen) return;
+    // Safe while the editor renders once per open, so lit never updates this text again.
+    const defaultOption = document.querySelector<HTMLOptionElement>(
+      '#crop-point-easing-input option[value="Default"]'
+    );
+    if (defaultOption) defaultOption.textContent = inheritedCropEasingLabel();
+    const overrides = appState.markerPairs[appState.prevSelectedMarkerPairIndex]?.overrides;
+    const easing =
+      overrides?.cropPointEasing ?? appState.settings.cropPointEasing ?? DEFAULT_CROP_POINT_EASING;
+    // A Cinematic pair redraws when its solve lands; a redraw now would show the stale path's fallback.
+    if (easing !== 'cinematic') refreshCropPreview();
+    scheduleCinematicRecompute();
+  });
+}
+
 export function toggleOffMarkerPairEditor(hardHide = false) {
   deleteSettingsEditor();
   hideSelectedMarkerPairOverlay(hardHide);

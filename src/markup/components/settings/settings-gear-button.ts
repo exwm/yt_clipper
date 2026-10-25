@@ -29,7 +29,8 @@ function toggleSettingsGearPopover(
   button: HTMLElement,
   id: string,
   title: string,
-  content: TemplateResult
+  content: TemplateResult,
+  onOpen: (() => void) | undefined
 ): void {
   const wasOpen = document.getElementById(id) != null;
   closeSettingsGearPopovers();
@@ -88,6 +89,7 @@ function toggleSettingsGearPopover(
   window.addEventListener('scroll', reposition, true);
   reposition();
   resizeObserver.observe(popover);
+  onOpen?.();
 }
 
 export interface SettingsGearButtonProps {
@@ -98,6 +100,9 @@ export interface SettingsGearButtonProps {
   // Builds the popover's settings controls on each open, so they show the current values. The
   // caller owns their bind wiring.
   content: () => TemplateResult;
+  // Runs once the controls are on the page, such as the editor's highlights of modified settings,
+  // which ran before they existed.
+  onOpen?: () => void;
 }
 
 // A gear button that opens a popover with a widget's secondary settings, so they don't take up row
@@ -110,7 +115,13 @@ export function SettingsGearButton(p: SettingsGearButtonProps): TemplateResult {
       class="settings-toggle settings-gear-button"
       title=${p.title}
       @click=${(e: MouseEvent) =>
-        toggleSettingsGearPopover(e.currentTarget as HTMLElement, p.id, p.title, p.content())}
+        toggleSettingsGearPopover(
+          e.currentTarget as HTMLElement,
+          p.id,
+          p.title,
+          p.content(),
+          p.onOpen
+        )}
     >
       ${renderToggleIcon('overrides', 12)}
     </button>

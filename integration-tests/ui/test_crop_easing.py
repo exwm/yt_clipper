@@ -104,7 +104,7 @@ def test_moving_the_start_marker_between_points_keeps_the_previewed_crop(
 def test_moving_the_start_marker_of_a_cinematic_pair_ending_in_a_hold_point_keeps_the_previewed_crop(
     markup: MarkupPage,
 ) -> None:
-    # Hold points are Firm, so the end point's hold narrows the margin instead of pinning the crop.
+    # Hold points are Firm, so the end point's hold settles within the margin instead of easing in.
     held_end = {**PAN_PAIR, "cropMap": [*PAN_PAIR["cropMap"][:-1], {"x": 9, "y": 0, "crop": "900:0:960:540", "hold": True}]}
     given_pairs_with_the_first_ones_editor_open(markup, [held_end, {"start": 12, "end": 14}])
     when_i_choose_easing(markup, "cinematic")
@@ -577,8 +577,8 @@ def test_cinematic_hold_points_hold_as_still_as_the_hold_points_setting_says(mar
     then_a_cinematic_path_is_baked(markup)
     firm = hold_drift(markup)
     markup.report(f"Firm drift {firm}")
-    # About 2% of the 540 px side either way, so 4% peak to peak.
-    assert firm < 0.04 * 540
+    # Firm holds still past its settle (the chip shows whole pixels).
+    assert firm <= 1
     when_i_reopen_the_cinematic_settings(markup)
     assert markup.page.locator(f"{HOLDS_SELECT} option:checked").inner_text() == "(Firm)"
     markup.page.select_option(HOLDS_SELECT, "loose")
@@ -618,6 +618,100 @@ def test_a_pair_inherits_cinematic_hold_points_set_globally(markup: MarkupPage) 
     assert crop_x_at(markup, 5.5) == pytest.approx(600, abs=1)
     when_i_reopen_the_cinematic_settings(markup)
     assert markup.page.locator(f"{HOLDS_SELECT} option:checked").inner_text() == "(Exact)"
+
+
+GLOBAL_GEAR_BUTTON = "#global-cinematic-settings-modal-button"
+
+
+def test_the_global_editor_keeps_edits_made_after_a_load(markup: MarkupPage) -> None:
+    # A load used to swap the settings object under the open global editor, which then wrote to the
+    # old one: the Cinematic settings it showed and every later edit were lost.
+    markup.load_saved_marker_pairs(
+        [PAN_PAIR, OTHER_PAIR],
+        {"cropPointEasing": "cinematic", "cropPointEasingCinematicMargin": 45, "cropPointEasingCinematicHolds": "exact"},
+    )
+    when_i_switch_to_the_global_settings_editor(markup)
+    when_i_load_markers(
+        markup, {"cropPointEasing": "smoothTrack", "titleSuffix": "loaded", "markerPairs": [{"start": 20, "end": 22}]}
+    )
+    # The open editor shows the loaded settings.
+    assert markup.page.locator("#title-suffix-input").input_value() == "loaded"
+    assert markup.page.locator(EASING_SELECT).input_value() == "smoothTrack"
+    when_i_open_the_global_cinematic_settings(markup)
+    # The file has no Cinematic settings, so the defaults show.
+    then_the_cinematic_margin_shows(markup, "")
+    assert markup.page.locator(f"{HOLDS_SELECT} option:checked").inner_text() == "(Firm)"
+    when_i_type_the_cinematic_margin(markup, "30")
+    markup.page.select_option(HOLDS_SELECT, "loose")
+    markup.page.keyboard.press("Escape")
+    markup.page.fill("#title-suffix-input", "after-load")
+    markup.page.dispatch_event("#title-suffix-input", "change")
+    saved = when_i_save_the_markers(markup)
+    assert (saved.get("cropPointEasingCinematicMargin"), saved.get("cropPointEasingCinematicHolds"), saved.get("titleSuffix")) == (
+        30,
+        "loose",
+        "after-load",
+    )
+
+
+def test_an_open_pair_editor_names_the_crop_easing_a_load_sets(markup: MarkupPage) -> None:
+    given_pairs_with_the_first_ones_editor_open(markup, [PAN_PAIR, OTHER_PAIR], {"cropPointEasing": "smoothTrack"})
+    when_i_load_markers(markup, {"cropPointEasing": "cinematic", "markerPairs": [{"start": 20, "end": 22}]})
+    assert markup.page.locator(f"{EASING_SELECT} option[value='Default']").inner_text() == "(Cinematic)"
+    # The pair previews the mode it now inherits.
+    then_a_cinematic_path_is_baked(markup)
+
+
+def test_an_open_paused_pair_previews_the_easing_a_load_sets_away_from_cinematic(markup: MarkupPage) -> None:
+    given_pairs_with_the_first_ones_editor_open(markup, [PAN_PAIR, OTHER_PAIR], {"cropPointEasing": "cinematic"})
+    then_a_cinematic_path_is_baked(markup)
+    cinematic = previewed_crop_x_at(markup, BETWEEN_POINTS_TIME)
+    when_i_load_markers(markup, {"cropPointEasing": "smoothTrack", "markerPairs": [{"start": 20, "end": 22}]})
+    # Without a seek: the paused preview redraws at once.
+    shown = shown_crop_x(markup)
+    assert shown == previewed_crop_x_at(markup, BETWEEN_POINTS_TIME)
+    assert shown != cinematic
+
+
+def test_the_crop_easing_settings_highlight_modified_settings_when_opened(markup: MarkupPage) -> None:
+    pair = {**PAN_PAIR, "overrides": {"cropPointEasingCinematicHolds": "exact"}}
+    given_pairs_with_the_first_ones_editor_open(
+        markup, [pair, OTHER_PAIR], {"cropPointEasing": "cinematic", "cropPointEasingCinematicHolds": "loose"}
+    )
+    when_i_reopen_the_cinematic_settings(markup)
+    then_the_holds_label_has(markup, "marker-pair-settings-editor-highlighted-label")
+    markup.page.keyboard.press("Escape")
+    when_i_switch_to_the_global_settings_editor(markup)
+    show_additional_settings(markup)
+    when_i_open_the_global_cinematic_settings(markup)
+    then_the_holds_label_has(markup, "global-settings-editor-highlighted-label")
+
+
+@step
+def when_i_load_markers(markup: MarkupPage, markers: dict) -> None:
+    markup.page.evaluate("() => document.activeElement?.blur()")
+    markup.press("KeyG")
+    markup.page.set_input_files(
+        "#markers-json-input",
+        files=[{"name": "loaded.json", "mimeType": "application/json", "buffer": json.dumps(markers).encode()}],
+    )
+    markup.page.click("#upload-markers-json")
+    markup.page.click(".ytc-share-modal-load")
+    markup.next_frames(10)
+
+
+@step
+def when_i_open_the_global_cinematic_settings(markup: MarkupPage) -> None:
+    markup.page.evaluate("() => document.activeElement?.blur()")
+    show_additional_settings(markup)
+    markup.page.click(GLOBAL_GEAR_BUTTON)
+    markup.page.wait_for_selector(MARGIN_INPUT)
+
+
+@step
+def then_the_holds_label_has(markup: MarkupPage, highlight: str) -> None:
+    label = markup.page.evaluate("h => document.querySelector(h).previousElementSibling.className", HOLDS_SELECT)
+    assert highlight in label.split()
 
 
 @step

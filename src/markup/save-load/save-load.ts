@@ -20,7 +20,7 @@ import {
   ClipperInputValidationError,
   ParseResult,
   parseClipperInputJSON,
-  toApplicableSettings,
+  applyLoadedSettings,
 } from './parse-clipper-input';
 
 export function saveMarkersAndSettings() {
@@ -246,14 +246,19 @@ function showMarkersJsonReviewModal(fileName: string, text: string) {
   });
 }
 
+// Dispatched on the document once a load has applied its settings and marker pairs, so an open
+// settings editor can redraw them.
+export const SETTINGS_LOADED_EVENT = 'ytc-settings-loaded';
+
 /** Apply an already-parsed ClipperInput to appState. Safe because:
  *   - parser stripped __proto__/constructor/prototype keys at load boundary.
- *   - parser allowlisted to known Settings keys only.
- *   - toApplicableSettings drops source-environment keys (videoID/title/...).
- *   - Object spread creates own data properties, never triggers setters. */
+ *   - parser allowlisted to known Settings keys only, and toApplicableSettings copies only those,
+ *     so assigning them into the settings never reaches a prototype or setter.
+ *   - toApplicableSettings drops source-environment keys (videoID/title/...). */
 export function applyClipperInput(input: ClipperInput): void {
-  appState.settings = { ...appState.settings, ...toApplicableSettings(input) };
+  applyLoadedSettings(appState.settings, input);
   addMarkerPairs(input.markerPairs as MarkerPair[]);
+  document.dispatchEvent(new Event(SETTINGS_LOADED_EVENT));
 }
 
 export function loadClipperInputJSON(json: string) {
