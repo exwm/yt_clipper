@@ -2,6 +2,7 @@ import { html, render } from 'lit-html';
 import { createWebGLGammaRenderer, prevGammaVal, WebGLGammaRenderer } from '../util/previewGamma';
 import { appState } from '../appState';
 import { computeARChange, computeARLockedResize } from './preview-resize-math';
+import { onVideoFrames, VideoFrameSubscription } from '../util/video-frame-loop';
 
 export interface FloatingVideoPreviewOptions {
   parent?: HTMLElement;
@@ -255,8 +256,7 @@ export function mountFloatingVideoPreview(
   let previewVideoEl: HTMLVideoElement | null = null;
   let cropCanvasEl: HTMLCanvasElement | null = null;
   let gammaRenderer: WebGLGammaRenderer | null = null;
-  let cropLoopId: number | null = null;
-  let cropLoopSource: HTMLVideoElement | null = null;
+  let cropFrames: VideoFrameSubscription | null = null;
   let shellEl: HTMLDivElement | null = null;
   let controlsHideTimer: number | null = null;
   const sourceCleanup: (() => void)[] = [];
@@ -308,16 +308,13 @@ export function mountFloatingVideoPreview(
   };
 
   const stopCropLoop = (): void => {
-    if (cropLoopId !== null) {
-      cropLoopSource?.cancelVideoFrameCallback(cropLoopId);
-      cropLoopId = null;
-      cropLoopSource = null;
-    }
+    cropFrames?.stop();
+    cropFrames = null;
   };
 
-  const drawFrame = (): void => {
-    if (destroyed || !cropCanvasEl || !state.sourceVideo || !getSourceRect) return;
-    const source = state.sourceVideo;
+  // `source` is the frame on screen, or the video when drawn outside the frame loop.
+  const drawFrame = (source: CanvasImageSource | null = state.sourceVideo): void => {
+    if (destroyed || !cropCanvasEl || !state.sourceVideo || !getSourceRect || !source) return;
     const [sx, sy, sw, sh] = getSourceRect();
     const isRotated = appState.rotation === 90 || appState.rotation === -90;
     const canvasW = isRotated ? sh : sw;
@@ -425,15 +422,13 @@ export function mountFloatingVideoPreview(
     if (!getSourceRect || !state.sourceVideo || destroyed) return;
     stopCropLoop();
 
-    const source = state.sourceVideo;
-    const draw = (): void => {
-      if (destroyed) return;
-      drawFrame();
-      cropLoopId = source.requestVideoFrameCallback(draw);
-    };
-
-    cropLoopSource = source;
-    cropLoopId = source.requestVideoFrameCallback(draw);
+    cropFrames = onVideoFrames(
+      state.sourceVideo,
+      (frame) => {
+        if (!destroyed) drawFrame(frame.image);
+      },
+      { label: 'floating preview' }
+    );
   };
 
   let redraw = (): void => {
@@ -542,9 +537,9 @@ export function mountFloatingVideoPreview(
     popup.document.body.appendChild(canvas);
 
     const ctx = canvas.getContext('2d');
-    let popupLoopId: number | null = null;
     let popupGammaRenderer: WebGLGammaRenderer | null = null;
-    const drawOnce = (): void => {
+    // `image` is the frame on screen, or the video when drawn outside the frame loop.
+    const drawOnce = (image: CanvasImageSource = source): void => {
       if (popup.closed || !ctx) return;
       if (!getSourceRect) return;
       const [sx, sy, fsw, fsh] = getSourceRect();
@@ -574,13 +569,13 @@ export function mountFloatingVideoPreview(
       if (appState.rotation === 90) {
         ctx.translate(canvas.width, 0);
         ctx.rotate(Math.PI / 2);
-        ctx.drawImage(source, sx, sy, fsw, fsh, 0, 0, fsw, fsh);
+        ctx.drawImage(image, sx, sy, fsw, fsh, 0, 0, fsw, fsh);
       } else if (appState.rotation === -90) {
         ctx.translate(0, canvas.height);
         ctx.rotate(-Math.PI / 2);
-        ctx.drawImage(source, sx, sy, fsw, fsh, 0, 0, fsw, fsh);
+        ctx.drawImage(image, sx, sy, fsw, fsh, 0, 0, fsw, fsh);
       } else {
-        ctx.drawImage(source, sx, sy, fsw, fsh, 0, 0, fsw, fsh);
+        ctx.drawImage(image, sx, sy, fsw, fsh, 0, 0, fsw, fsh);
       }
       ctx.restore();
 
@@ -590,15 +585,15 @@ export function mountFloatingVideoPreview(
         ctx.drawImage(popupGammaRenderer.outputCanvas, 0, 0);
       }
     };
-    const drawFrame = (): void => {
-      if (popup.closed) return;
-      drawOnce();
-      popupLoopId = source.requestVideoFrameCallback(drawFrame);
-    };
-
-    popupLoopId = source.requestVideoFrameCallback(drawFrame);
+    const popupFrames = onVideoFrames(
+      source,
+      (frame) => {
+        if (!popup.closed) drawOnce(frame.image);
+      },
+      { label: 'pop-out preview' }
+    );
     popup.addEventListener('beforeunload', () => {
-      if (popupLoopId !== null) source.cancelVideoFrameCallback(popupLoopId);
+      popupFrames.stop();
       popupGammaRenderer?.destroy();
       popupGammaRenderer = null;
       onPopoutClose?.({

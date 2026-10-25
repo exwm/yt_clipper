@@ -20,6 +20,9 @@ function fakeVideo(currentTime = 0) {
     requestVideoFrameCallback: (callback: VideoFrameRequestCallback) => callbacks.push(callback),
     addEventListener: (type: string, listener: () => void) =>
       (listeners[type] ??= []).push(listener),
+    removeEventListener: (type: string, listener: () => void) => {
+      listeners[type] = (listeners[type] ?? []).filter((l) => l !== listener);
+    },
   };
   let presentedFrames = 0;
   const present = (mediaTime: number) => {

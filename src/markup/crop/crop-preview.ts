@@ -15,6 +15,7 @@ import {
 } from '../charts';
 import { isReframeEnabled } from './video-zoom-controller';
 import { cropPreviewSize } from './crop-preview-size';
+import { onVideoFrames, VideoFrameSubscription } from '../util/video-frame-loop';
 import {
   getSelectedCropString,
   getVideoScaledCropComponentsFromCropString,
@@ -22,6 +23,7 @@ import {
 } from '../crop-utils';
 
 let cropPreviewCanvas: HTMLCanvasElement | null = null;
+let modalFrames: VideoFrameSubscription | null = null;
 let gammaRenderer: WebGLGammaRenderer | null = null;
 let floatingPreviewHandle: FloatingVideoPreviewHandle | null = null;
 let lastMiniState: { x: number; y: number; width: number; height: number } | null = null;
@@ -142,6 +144,8 @@ export function disableCropPreview() {
   floatingPreviewHandle = null;
   const modal = document.getElementById('ytc-zoom-modal');
   if (modal) deleteElement(modal);
+  modalFrames?.stop();
+  modalFrames = null;
 }
 
 export function startDrawZoomedRegion(getZoomRegion: Function) {
@@ -152,7 +156,16 @@ export function startDrawZoomedRegion(getZoomRegion: Function) {
 
   assertDefined(ctx, 'Could not get 2d context from crop preview canvas');
   assertDefined(modal, 'Could not find ytc-zoom-modal element');
-  drawZoomedRegion(getZoomRegion, cropPreviewCanvas, ctx, modal, modalContent as HTMLElement);
+  const canvas = cropPreviewCanvas;
+  const draw = (image: CanvasImageSource): void =>
+    drawZoomedRegion(getZoomRegion, canvas, ctx, modal, modalContent as HTMLElement, image);
+  modalFrames?.stop();
+  // Draws only when the video shows a new frame: the crop can't be edited while the modal covers the
+  // page, so nothing else needs a redraw while paused.
+  modalFrames = onVideoFrames(appState.video, (frame) => draw(frame.image), {
+    label: 'modal preview',
+  });
+  draw(appState.video);
 }
 
 function drawZoomedRegion(
@@ -160,7 +173,8 @@ function drawZoomedRegion(
   canvas: HTMLCanvasElement,
   ctx: CanvasRenderingContext2D,
   modal: HTMLElement,
-  modalContent: HTMLElement
+  modalContent: HTMLElement,
+  image: CanvasImageSource
 ) {
   if (modal && modal.isConnected && !modal.classList.contains('hidden')) {
     const [x, y, w, h] = getZoomRegion();
@@ -171,6 +185,7 @@ function drawZoomedRegion(
     // orientation the user is previewing rather than the upright source.
     const rotation = appState.rotation;
     const { drawW, drawH, canvasW, canvasH } = cropPreviewSize(w, h, rotation);
+
     // Assigning a size clears and reallocates the canvas even when unchanged, so only on a change.
     if (canvas.width !== canvasW) canvas.width = canvasW;
     if (canvas.height !== canvasH) canvas.height = canvasH;
@@ -178,22 +193,21 @@ function drawZoomedRegion(
     resizeModalToAspect(modalContent, canvas.width, canvas.height);
 
     if (rotation === 0) {
-      ctx.drawImage(appState.video, x, y, w, h, 0, 0, drawW, drawH);
+      ctx.drawImage(image, x, y, w, h, 0, 0, drawW, drawH);
     } else {
       ctx.save();
       ctx.translate(canvasW / 2, canvasH / 2);
       ctx.rotate((rotation * Math.PI) / 180);
-      ctx.drawImage(appState.video, x, y, w, h, -drawW / 2, -drawH / 2, drawW, drawH);
+      ctx.drawImage(image, x, y, w, h, -drawW / 2, -drawH / 2, drawW, drawH);
       ctx.restore();
     }
 
     if (appState.isGammaPreviewOn && gammaRenderer) {
       gammaRenderer.render(canvas, prevGammaVal);
     }
-
-    appState.video.requestVideoFrameCallback(() => {
-      drawZoomedRegion(getZoomRegion, canvas, ctx, modal, modalContent);
-    });
+  } else {
+    modalFrames?.stop();
+    modalFrames = null;
   }
 }
 

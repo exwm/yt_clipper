@@ -1,7 +1,8 @@
 import type { VideoElement } from '../appState';
+import { onVideoFrames, PresentedVideoFrame, VideoFrameSubscription } from './video-frame-loop';
 
 /**
- * The time of the video frame on screen, from requestVideoFrameCallback's mediaTime. The playhead
+ * The time of the video frame on screen, from the video frame loop's frames. The playhead
  * (getCurrentTime) moves on seeks and scrubs smaller than a frame, and between presented frames,
  * while the same frame stays on screen, so a crop drawn at the playhead drifts from the picture.
  * The clock also measures the frame duration during playback, for sites that report no frame rate.
@@ -52,6 +53,7 @@ interface PresentedFrame {
 }
 
 let clockVideo: VideoElement | null = null;
+let clockSubscription: VideoFrameSubscription | null = null;
 let lastFrame: PresentedFrame | null = null;
 let seekCount = 0;
 // Durations of the last frames played in a row. A seek, a pause or a dropped frame ends a run. The
@@ -118,14 +120,13 @@ function startClock(video: VideoElement): void {
   video.addEventListener('seeking', () => {
     if (clockVideo === video) seekCount++;
   });
-  const onFrame = (_now: number, metadata: VideoFrameCallbackMetadata): void => {
-    if (clockVideo !== video) return;
+  const onFrame = (presented: PresentedVideoFrame): void => {
     const frame: PresentedFrame = {
-      mediaTime: metadata.mediaTime,
+      mediaTime: presented.mediaTime,
       seekCount,
       duringSeek: video.seeking,
       droppedFrames: droppedFrames(video),
-      presentedFrames: metadata.presentedFrames,
+      presentedFrames: presented.presentedFrames,
     };
     if (lastFrame && isFrameDuration(lastFrame, frame, video)) {
       currentRun.push(frame.mediaTime - lastFrame.mediaTime);
@@ -138,9 +139,9 @@ function startClock(video: VideoElement): void {
       currentRun = [];
     }
     lastFrame = frame;
-    video.requestVideoFrameCallback(onFrame);
   };
-  video.requestVideoFrameCallback(onFrame);
+  clockSubscription?.stop();
+  clockSubscription = onVideoFrames(video, onFrame, { phase: 'update', label: 'frame clock' });
 }
 
 /** The media time of the frame on screen, or the playhead until the video presents a frame. */
