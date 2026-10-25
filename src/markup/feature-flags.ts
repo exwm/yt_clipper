@@ -30,7 +30,7 @@ export const featureFlags = {
   /** When reframe, the crop previews, the minimap and the frame clock get video frames
    *  (`util/video-frame-loop.ts`): 'everyRefresh' takes the frame the video holds on each screen
    *  refresh, 'frameCallback' waits for requestVideoFrameCallback. */
-  videoFrameLoopTiming: 'frameCallback' as 'everyRefresh' | 'frameCallback',
+  videoFrameLoopTiming: 'everyRefresh' as 'everyRefresh' | 'frameCallback',
   /** Log what each video frame loop did every 2 s of playback: its timing and consumers, refreshes,
    *  frames taken and repeated, new frames, the frame callback's calls and misses, and the time the
    *  loop and each consumer took. */

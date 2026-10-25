@@ -31,6 +31,11 @@ BUSY_CPU_SLOWDOWN = 10
 BUSY_PLAYBACK_SECONDS = 5
 MAX_EXTRA_SKIPPED_FRAMES = 4
 
+# The dev site's test video, whose frame counter makes every frame's pixels differ.
+VIDEO_FPS = 30
+PAUSED_SEEK_SECONDS = 4
+PREVIEW_CANVASES = ("#ytc-reframe-canvas", "#ytc-zoom-canvas")
+
 
 @pytest.fixture
 def reframed(markup: MarkupPage) -> MarkupPage:
@@ -58,6 +63,15 @@ def test_ctrl_alt_a_on_a_crop_point_toggles_hold_while_reframed(markup: MarkupPa
     then_the_saved_middle_point_is(markup, hold=True, crop=CROP_A)
     when_i_press_ctrl_alt_a_at(markup, 6)
     then_the_saved_middle_point_is(markup, hold=False, crop=CROP_B)
+
+
+def test_reframe_and_the_modal_preview_draw_each_frame_a_paused_seek_shows(reframed: MarkupPage) -> None:
+    # While paused the previews draw only when a seek or frame step shows a new frame.
+    when_i_open_the_modal_crop_preview(reframed)
+    when_i_pause_on(reframed, PAUSED_SEEK_SECONDS, "before")
+    when_i_pause_on(reframed, PAUSED_SEEK_SECONDS + 1 / VIDEO_FPS, "stepped")
+    when_i_pause_on(reframed, PAUSED_SEEK_SECONDS, "back")
+    then_each_preview_drew_the_new_frame_and_then_the_first_again(reframed)
 
 
 def test_reframe_keeps_up_with_playback_on_a_busy_machine(markup: MarkupPage) -> None:
@@ -125,6 +139,45 @@ def when_i_press_ctrl_alt_a_at(markup: MarkupPage, seconds: float) -> None:
 
 
 @step
+def when_i_open_the_modal_crop_preview(markup: MarkupPage) -> None:
+    markup.press("Control+Alt+KeyX")
+    markup.page.wait_for_selector("#ytc-zoom-canvas", state="visible")
+
+
+@step
+def when_i_pause_on(markup: MarkupPage, seconds: float, name: str) -> None:
+    """Seek while paused, and keep the pixels each preview canvas draws for the frame under `name`."""
+    markup.pause()
+    markup.seek(seconds, presented=True)
+    markup.next_frames(3)
+    markup.page.evaluate(
+        """([selectors, name]) => {
+          window.__ytcPreviewPixels ??= {};
+          window.__ytcPreviewPixels[name] = selectors.map((selector) => {
+            const canvas = document.querySelector(selector);
+            return canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+          });
+        }""",
+        [list(PREVIEW_CANVASES), name],
+    )
+
+
+def changed_share(markup: MarkupPage, first: str, second: str) -> list[float]:
+    """For each preview canvas, the share of its color values that differ by more than color rounding
+    between two kept draws: about 0 for the same frame drawn twice."""
+    return markup.page.evaluate(
+        """([first, second]) => window.__ytcPreviewPixels[first].map((a, i) => {
+          const b = window.__ytcPreviewPixels[second][i];
+          if (a.length !== b.length) return 1;
+          let changed = 0;
+          for (let k = 0; k < a.length; k++) if (Math.abs(a[k] - b[k]) > 2) changed++;
+          return changed / a.length;
+        })""",
+        [first, second],
+    )
+
+
+@step
 def when_it_plays_on_a_busy_machine(markup: MarkupPage) -> int:
     """Play through the crop pan with the CPU throttled and count the presented frames that no frame
     callback ran for: reframe draws in one, so it never drew those."""
@@ -167,6 +220,17 @@ def then_the_saved_middle_point_is(markup: MarkupPage, hold: bool, crop: str) ->
     markup.report(f"saved middle crop point {point}")
     assert point.get("hold", False) == hold
     assert point["crop"] == crop
+
+
+@step
+def then_each_preview_drew_the_new_frame_and_then_the_first_again(markup: MarkupPage) -> None:
+    stepped = changed_share(markup, "before", "stepped")
+    back = changed_share(markup, "before", "back")
+    markup.report(f"changed by the step {stepped}, after stepping back {back}")
+    for canvas, step_change, back_change in zip(PREVIEW_CANVASES, stepped, back, strict=True):
+        # The frame counter alone changes far more than this.
+        assert step_change > 0.001, f"{canvas} still shows the frame before the step"
+        assert back_change < 0.0001, f"{canvas} does not show the first frame after stepping back"
 
 
 @step
