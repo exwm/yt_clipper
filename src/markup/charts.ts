@@ -73,6 +73,7 @@ import {
   initialCinematicSolveSchedule,
   stepCinematicSolve,
 } from './crop/cinematic-solve-schedule';
+import { pairSettings } from './features/settings/pair-settings';
 import {
   CINEMATIC_PATH_SOLVED_EVENT,
   CinematicPlotInput,
@@ -81,7 +82,6 @@ import {
 import {
   CropKeyframeMatch,
   CropPointEasing,
-  DEFAULT_CROP_POINT_EASING,
   EasingCropPoint,
   cropInterpolationSectionAtTime,
   findCropKeyframeAtTime,
@@ -943,11 +943,7 @@ function getActiveCropPointEasing(): CropPointEasing {
 }
 
 function getCropPointEasing(markerPair: MarkerPair | undefined): CropPointEasing {
-  return (
-    markerPair?.overrides?.cropPointEasing ??
-    appState.settings.cropPointEasing ??
-    DEFAULT_CROP_POINT_EASING
-  );
+  return pairSettings(markerPair, appState.settings).cropPointEasing;
 }
 
 function toEasingCropPoint(point: CropPoint): EasingCropPoint {
@@ -960,11 +956,10 @@ function getActiveCinematicMargins(): CinematicMargins {
 }
 
 function getCinematicMargins(mp: MarkerPair | undefined): CinematicMargins {
+  const settings = pairSettings(mp, appState.settings);
   return cinematicMarginsFromPercent(
-    mp?.overrides?.cropPointEasingCinematicMargin ??
-      appState.settings.cropPointEasingCinematicMargin,
-    mp?.overrides?.cropPointEasingCinematicZoomMargin ??
-      appState.settings.cropPointEasingCinematicZoomMargin
+    settings.cropPointEasingCinematicMargin,
+    settings.cropPointEasingCinematicZoomMargin
   );
 }
 
@@ -972,7 +967,7 @@ function getCinematicMargins(mp: MarkerPair | undefined): CinematicMargins {
 function getCinematicCropMap(mp: MarkerPair): readonly CropPoint[] {
   return cinematicCropMap(
     mp.cropMap,
-    mp.overrides?.cropPointEasingCinematicHolds ?? appState.settings.cropPointEasingCinematicHolds
+    pairSettings(mp, appState.settings).cropPointEasingCinematicHolds
   );
 }
 

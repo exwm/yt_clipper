@@ -2,6 +2,7 @@ import { easeCubicInOut } from 'd3-ease';
 import { createDraft } from 'immer';
 import { MarkerPair, SpeedPoint } from './@types/yt_clipper';
 import { appState } from './appState';
+import { pairSettings } from './features/settings/pair-settings';
 import { isVariableSpeed } from './save-load';
 import { flashMessage, roundValue } from './util/util';
 import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
@@ -130,10 +131,11 @@ export function getMinterpFpsMulSuffix(mul: number, speed: number) {
 
 export function updateMinterpFpsMulLabel(markerPair) {
   if (!appState.isSettingsEditorOpen || appState.minterpFpsMulSuffixSpan == null) return;
-  const mul = (markerPair.overrides.minterpFpsMultiplier ??
-    appState.settings.minterpFpsMultiplier ??
-    0) as number;
-  appState.minterpFpsMulSuffixSpan.textContent = getMinterpFpsMulSuffix(mul, markerPair.speed);
+  const { minterpFpsMultiplier } = pairSettings(markerPair, appState.settings);
+  appState.minterpFpsMulSuffixSpan.textContent = getMinterpFpsMulSuffix(
+    minterpFpsMultiplier,
+    markerPair.speed
+  );
 }
 
 export function getSpeedMapping(

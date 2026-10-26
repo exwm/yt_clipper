@@ -1,6 +1,7 @@
 import { easeCubicInOut } from 'd3-ease';
 import { MarkerPair } from './@types/yt_clipper';
 import { appState } from './appState';
+import { pairSettings } from './features/settings/pair-settings';
 import { toggleCropPreviewGammaPreview } from './crop/crop-preview';
 import {
   getShortestActiveMarkerPair,
@@ -71,7 +72,7 @@ export function toggleGammaPreview() {
 function gammaPreviewHandler() {
   const shortestActiveMarkerPair = getShortestActiveMarkerPair();
 
-  const markerPairGamma = shortestActiveMarkerPair?.overrides.gamma ?? appState.settings.gamma ?? 1;
+  const { gamma: markerPairGamma } = pairSettings(shortestActiveMarkerPair, appState.settings);
 
   if (markerPairGamma == 1) {
     if (appState.video.style.filter) appState.video.style.filter = null as any;
@@ -141,7 +142,7 @@ export function getFadeBounds(markerPair: MarkerPair, currentTime: number): numb
   const end = Math.ceil(markerPair.end * 1e6) / 1e6;
   const inputDuration = end - start;
   const outputDuration = markerPair.outputDuration;
-  let fadeDuration = markerPair.overrides.fadeDuration ?? appState.settings.fadeDuration ?? 0.5;
+  let { fadeDuration } = pairSettings(markerPair, appState.settings);
   fadeDuration = Math.min(fadeDuration, 0.4 * outputDuration);
   const fadeInStartP = 0;
   const fadeInEndP = fadeDuration / outputDuration;

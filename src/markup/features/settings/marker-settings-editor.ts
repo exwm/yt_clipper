@@ -32,7 +32,7 @@ import {
   SettingsGearButton,
   TextInputRow,
 } from '../../components/settings';
-import { DEFAULT_CROP_POINT_EASING } from '../../crop/crop-keyframe-math';
+import { pairSettings } from './pair-settings';
 import { EncodeSettingsFieldset } from './encode-settings-fieldset';
 import {
   createCropOverlay,
@@ -165,10 +165,8 @@ function MarkerPairEditorTemplate(
 
   const overrides = markerPair.overrides;
   // Live read, so the Cinematic settings show the freshly written easing.
-  const activeCropPointEasing = () =>
-    overrides.cropPointEasing ?? appState.settings.cropPointEasing ?? DEFAULT_CROP_POINT_EASING;
-  const effectiveMinterpMul =
-    overrides.minterpFpsMultiplier ?? appState.settings.minterpFpsMultiplier ?? 0;
+  const activeCropPointEasing = () => pairSettings(markerPair, appState.settings).cropPointEasing;
+  const { minterpFpsMultiplier: effectiveMinterpMul } = pairSettings(markerPair, appState.settings);
   const minterpFpsMulLabel = getMinterpFpsMulSuffix(effectiveMinterpMul, speed);
   const overridesDisplay = isExtraSettingsEditorEnabled ? 'block' : 'none';
 
@@ -320,7 +318,7 @@ function MarkerPairEditorTemplate(
                 editorKey: markerPair,
                 easingSelectId: 'crop-point-easing-input',
                 activeEasing: activeCropPointEasing,
-                inheritedEasing: appState.settings.cropPointEasing ?? DEFAULT_CROP_POINT_EASING,
+                inheritedEasing: pairSettings(undefined, appState.settings).cropPointEasing,
                 // The solve redraws the preview. A redraw now would show the stale path's fallback.
                 marginInput: bindOverride(
                   'cinematic-margin-input',
@@ -944,7 +942,7 @@ export function toggleOnMarkerPairEditor(targetMarker: SVGRectElement) {
 }
 // The pair's Crop Easing Default option names the global mode it inherits.
 function inheritedCropEasingLabel(): string {
-  return `(${cropEasingModeLabels[appState.settings.cropPointEasing ?? DEFAULT_CROP_POINT_EASING]})`;
+  return `(${cropEasingModeLabels[pairSettings(undefined, appState.settings).cropPointEasing]})`;
 }
 
 // A load can change the global mode an open pair editor inherits: name it, and preview it as the
@@ -957,9 +955,8 @@ if (typeof document !== 'undefined') {
       '#crop-point-easing-input option[value="Default"]'
     );
     if (defaultOption) defaultOption.textContent = inheritedCropEasingLabel();
-    const overrides = appState.markerPairs[appState.prevSelectedMarkerPairIndex]?.overrides;
-    const easing =
-      overrides?.cropPointEasing ?? appState.settings.cropPointEasing ?? DEFAULT_CROP_POINT_EASING;
+    const pair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+    const { cropPointEasing: easing } = pairSettings(pair, appState.settings);
     // A Cinematic pair redraws when its solve lands; a redraw now would show the stale path's fallback.
     if (easing !== 'cinematic') refreshCropPreview();
     scheduleCinematicRecompute();

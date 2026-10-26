@@ -9,7 +9,7 @@ import {
 } from '../auto-save';
 import { html, render } from 'lit-html';
 import { isStaticCrop } from '../crop-utils';
-import { DEFAULT_CROP_POINT_EASING } from '../crop/crop-keyframe-math';
+import { pairSettings } from '../features/settings/pair-settings';
 import { CINEMATIC_SOLVER_VERSION } from '../crop/cinematic-path';
 import { deleteElement, flashMessage, assertDefined } from '../util/util';
 import { isTheatreMode, updateSettingsEditorHook } from '../yt_clipper';
@@ -41,7 +41,7 @@ export function getClipperInputData(date?) {
 
   // Saved even when unset, so the clipper renders what the preview showed: a pair without its own
   // mode uses it. Only files from before 5.49 have neither, and the clipper renders them EaseInOut.
-  const cropPointEasing = appState.settings.cropPointEasing ?? DEFAULT_CROP_POINT_EASING;
+  const { cropPointEasing } = pairSettings(undefined, appState.settings);
   const markerPairsNumbered = appState.markerPairs.map((markerPair, idx) => {
     const markerPairNumbered = {
       number: idx + 1,
@@ -65,7 +65,7 @@ export function getClipperInputData(date?) {
     cropPointEasing,
     version: __version__,
     cropPointEasingCinematicSolverVersion: markerPairsNumbered.some(
-      (markerPair) => (markerPair.overrides.cropPointEasing ?? cropPointEasing) === 'cinematic'
+      (markerPair) => pairSettings(markerPair, appState.settings).cropPointEasing === 'cinematic'
     )
       ? CINEMATIC_SOLVER_VERSION
       : undefined,
