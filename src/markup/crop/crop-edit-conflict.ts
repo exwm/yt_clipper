@@ -16,6 +16,8 @@ export type CropEdit =
   | 'deleteCropPoint'
   | 'toggleCropPointType'
   | 'moveMarker'
+  | 'applyToAllPairs'
+  | 'rotateVideo'
   | 'deleteMarkerPair'
   | 'closeCropEditor'
   | 'showChart'
@@ -50,6 +52,10 @@ const CROP_EDIT_POLICY: Record<CropEdit, Record<'drag' | 'draw', CropEditConflic
   deleteCropPoint: { drag: 'cancelFirst', draw: 'cancelFirst' },
   toggleCropPointType: { drag: 'cancelFirst', draw: 'cancelFirst' },
   moveMarker: { drag: 'cancelFirst', draw: 'cancelFirst' },
+  // Alt+Shift+X and Alt+Shift+Q: an undo step for every pair, the edited one included.
+  applyToAllPairs: { drag: 'cancelFirst', draw: 'cancelFirst' },
+  // The overlay's frame of reference turns under the drag or draw.
+  rotateVideo: { drag: 'cancelFirst', draw: 'cancelFirst' },
   deleteMarkerPair: { drag: 'cancelFirst', draw: 'cancelFirst' },
   closeCropEditor: { drag: 'cancelFirst', draw: 'cancelFirst' },
   showChart: { drag: 'proceed', draw: 'cancelFirst' },

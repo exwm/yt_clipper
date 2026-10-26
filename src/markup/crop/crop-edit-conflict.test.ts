@@ -23,7 +23,10 @@ describe('cropEditConflict', () => {
     ['startCropDraw', 'drag', 'refuse'],
     ['addHoldCropPoint', 'drag', 'refuse'],
     ['addHoldCropPoint', 'draw', 'cancelFirst'],
-    ['addSpeedPoint', 'drag', 'cancelFirst'],  ] as const)('%s during a %s: %s', (edit, inProgress, expected) => {
+    ['addSpeedPoint', 'drag', 'cancelFirst'],
+    ['applyToAllPairs', 'drag', 'cancelFirst'],
+    ['rotateVideo', 'draw', 'cancelFirst'],
+  ] as const)('%s during a %s: %s', (edit, inProgress, expected) => {
     expect(cropEditConflict(edit, inProgress)).toBe(expected);
   });
 });

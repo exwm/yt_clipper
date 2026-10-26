@@ -3,7 +3,7 @@ import { triggerCropPreviewRedraw } from './crop/crop-preview';
 import { adjustRotatedVideoPositionCSS, getRotatedVideoCSS } from './ui/css/css';
 import { deleteElement, flashMessage, injectCSS } from './util/util';
 import { getCurrentCropComponents } from './charts';
-import { resizeCropOverlay } from './crop-overlay';
+import { resizeCropOverlay, resolveCropEditConflict } from './crop-overlay';
 import { applyVideoTransform } from './crop/video-transform';
 import { isReframeEnabled, syncReframe } from './crop/video-zoom-controller';
 import { redrawZoomMinimap } from './crop/video-zoom-minimap';
@@ -37,6 +37,7 @@ export function cyclePreviewRotation() {
 // Inject/remove the preview rotation CSS for the current appState.rotation, then
 // resync the crop overlay, crop preview, and output rotation setting.
 function applyPreviewRotation() {
+  resolveCropEditConflict('rotateVideo');
   // Remove any previously injected rotation CSS first. injectCSS appends rather
   // than replaces, so re-applying from a different orientation (cycling 90 ->
   // -90 without passing through 0) must clear the old styles or it strands a

@@ -95,6 +95,7 @@ import {
   drawCrop,
   removeCropHoverListener,
   resizeCropOverlay,
+  resolveCropEditConflict,
   toggleCropCrossHair,
 } from './crop-overlay';
 import {
@@ -271,6 +272,7 @@ export function initShortcutSystem() {
         cycleForceSetSpeedValueDown();
       },
       updateAllMarkerPairSpeedsToDefault: () => {
+        resolveCropEditConflict('applyToAllPairs');
         updateAllMarkerPairSpeeds(appState.settings.newMarkerSpeed, renderSpeedAndCropUI);
       },
       captureFrame: () => captureFrame(),
@@ -343,6 +345,7 @@ export function initShortcutSystem() {
         toggleArrowKeyCropAdjustment();
       },
       updateAllMarkerPairCropsToDefault: () => {
+        resolveCropEditConflict('applyToAllPairs');
         updateAllMarkerPairCrops(appState.settings.newMarkerCrop);
       },
       cycleCropDimOpacity: () => {
