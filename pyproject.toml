@@ -62,6 +62,8 @@ profile = "black"
 
 [tool.pytest.ini_options]
 addopts = "-ra"
+# A hung test (a subprocess that never returns) prints every thread's stack after this many seconds.
+faulthandler_timeout = 600
 testpaths = "src/clipper/tests"
 pythonpath = "src"
 markers = [
