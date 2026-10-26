@@ -1,11 +1,13 @@
 import copy
 import json
+import shlex
+import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from clipper import clip_maker, markers_schema, ytc_settings
+from clipper import clip_maker, markers_schema, util, ytc_settings
 from clipper.clipper_types import INVALID_MARKER_PAIR_KEY, ClipperState
 
 EXAMPLES_DIR = Path(__file__).resolve().parents[2] / "schema" / "examples"
@@ -281,6 +283,24 @@ def test_file_name_with_trailing_whitespace_is_rejected(tmp_path: Path) -> None:
         ytc_settings.setMarkersFileNames({"json": str(tmp_path / "markers .json")})
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param('x" -y "z.json', id="a double quote"),
+        pytest.param(
+            "x\\.json",
+            id="a backslash",
+            marks=pytest.mark.skipif(sys.platform == "win32", reason="a folder separator on Windows"),
+        ),
+    ],
+)
+def test_a_file_name_with_quotes_names_clips_as_one_argument(tmp_path: Path, name: str) -> None:
+    # The name becomes part of each clip's file name, inside a quoted ffmpeg argument.
+    settings = {"json": str(tmp_path / name)}
+    ytc_settings.setMarkersFileNames(settings)
+    clip = f"{settings['titleSuffix']}-1.webm"
+    assert shlex.split(f'ffmpeg -i in.mp4 "{clip}"') == ["ffmpeg", "-i", "in.mp4", clip]
+
 def test_loader_strips_quotes_and_backslashes_from_title(tmp_path: Path) -> None:
     settings = writeMarkers(tmp_path, json.dumps({**kitchenSink(), "videoTitle": 'a "b" c\\'}))
     ytc_settings.loadSettingsFromMarkersJson(settings)
@@ -359,3 +379,43 @@ def test_title_prefix_cannot_leave_the_output_folder(
 ) -> None:
     monkeypatch.setattr("sys.platform", platform)
     assert "/" not in clip_maker.cleanFileName("../../Library/x")
+
+
+@pytest.mark.parametrize("platform", ["win32", "darwin", "linux"])
+@pytest.mark.parametrize("name", ['x" -y -f mp4 "z', "x\\", 'a\\"b'], ids=["quotes", "trailing backslash", "escaped quote"])
+def test_a_cleaned_file_name_stays_one_argument_of_a_quoted_command(
+    monkeypatch: pytest.MonkeyPatch,
+    platform: str,
+    name: str,
+) -> None:
+    # Commands splice output paths as "{path}" and run through shlex.split.
+    monkeypatch.setattr("sys.platform", platform)
+    cleaned = clip_maker.cleanFileName(name)
+    assert shlex.split(f'ffmpeg -i in.mp4 "{cleaned}"') == ["ffmpeg", "-i", "in.mp4", cleaned]
+
+
+@pytest.mark.parametrize("platform", ["win32", "darwin", "linux"])
+def test_a_title_prefix_with_quotes_keeps_its_5_48_clip_name(
+    monkeypatch: pytest.MonkeyPatch,
+    platform: str,
+) -> None:
+    # Clips made by 5.48 are found again on a rerun or merge.
+    monkeypatch.setattr("sys.platform", platform)
+    assert clip_maker.cleanFileName('Song "Live"') == "Song Live"
+
+
+@pytest.mark.parametrize("platform", ["win32", "darwin", "linux"])
+@pytest.mark.parametrize(
+    "name",
+    ["a-x-2.webm\nfile /example/private.webm\n#", "a\rb"],
+    ids=["newline", "carriage return"],
+)
+def test_a_cleaned_file_name_stays_one_line_of_a_concat_list(
+    monkeypatch: pytest.MonkeyPatch,
+    platform: str,
+    name: str,
+) -> None:
+    # A merge writes a "file '<name>'" line per clip, and the concat demuxer reads a directive per line.
+    monkeypatch.setattr("sys.platform", platform)
+    line = f"file '{util.escapeSingleQuotesFFmpeg(clip_maker.cleanFileName(name))}'"
+    assert line.splitlines() == [line]

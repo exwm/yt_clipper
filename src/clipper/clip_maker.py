@@ -1284,7 +1284,7 @@ def mergeClips(cs: ClipperState) -> List[str]:  # noqa: PLR0912
                     raise MissingMarkerPairFilePath
 
             titlePrefixesConsistent = True
-            titlePrefixes = [p["overrides"].get("titlePrefix", "") for p in settings["markerPairs"]]
+            titlePrefixes = [cleanFileName(p["overrides"].get("titlePrefix", "")) for p in settings["markerPairs"]]
             mergeTitlePrefix = titlePrefixes[mergeList[0] - 1]
             if len(mergeList) > 1:
                 for left, right in zip(mergeList[:-1], mergeList[1:]):
@@ -1431,6 +1431,12 @@ def markerPairsCSVToList(markerPairsCSV: str) -> List[int]:
 
 
 def cleanFileName(fileName: str) -> str:
+    # Commands splice file names as "{path}" and run through shlex.split, so a quote, or a backslash
+    # that escapes one, would add arguments. A merge's concat list reads one directive per line, so a
+    # newline would add inputs. Nothing before this checks names for them, so they are cleaned on
+    # every platform. Quotes are dropped, as 5.48 named these clips on every platform.
+    fileName = fileName.replace('"', "")
+    fileName = re.sub(r"[\\\x00-\x1f\x7f]", "_", fileName)
     if sys.platform == "win32":
         fileName = re.sub(r'[*?"<>\0]', "", fileName)
         fileName = re.sub(r"[/|\\:]", "_", fileName)
