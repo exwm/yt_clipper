@@ -46,6 +46,9 @@ function describeFormatIssue(issue: DataFormatIssue): TemplateResult {
         ${joinCodeElements(issue.keys)} (could modify internal runtime behavior)`;
     case 'invalidPoint':
       return html`<code>${issue.path}</code>: dropped invalid point`;
+    case 'invalidSettings':
+      return html`<code>${issue.path}</code>: dropped setting(s) with invalid values
+        ${joinCodeElements(issue.keys)}`;
   }
 }
 

@@ -474,6 +474,18 @@ describe('parseOverrides: per-field type validation', () => {
     }
   );
 
+  test('lists the settings it drops for invalid values, global and per pair', () => {
+    const { issues } = parseClipperInput({
+      crf: '30 -y',
+      gamma: 1,
+      markerPairs: [{ start: 0, end: 5, overrides: { loop: 'forever', audio: 'yes', crf: 20 } }],
+    } as Record<string, unknown>);
+    expect(issues).toEqual([
+      { kind: 'invalidSettings', path: '(root)', keys: ['crf'] },
+      { kind: 'invalidSettings', path: 'markerPairs[0].overrides', keys: ['audio', 'loop'] },
+    ]);
+  });
+
   test('drops non-finite numeric override values (NaN, Infinity)', () => {
     const { input } = parseClipperInput({
       markerPairs: [
