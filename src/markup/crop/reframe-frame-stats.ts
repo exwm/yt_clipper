@@ -51,7 +51,11 @@ function quantile(values: readonly number[], q: number): number {
 }
 
 // The crop's distance from where a straight move between its neighbors would put it, at its frame.
-function offLine(before: ReframeFrameSample, at: ReframeFrameSample, after: ReframeFrameSample): number {
+function offLine(
+  before: ReframeFrameSample,
+  at: ReframeFrameSample,
+  after: ReframeFrameSample
+): number {
   const span = after.mediaTime - before.mediaTime;
   if (!(span > 0)) return 0;
   const s = (at.mediaTime - before.mediaTime) / span;

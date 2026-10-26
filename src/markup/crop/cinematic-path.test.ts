@@ -794,7 +794,7 @@ describe('hold points', () => {
 
 describe('Firm hold points', () => {
   const MARGINS = { pos: 0.12, zoom: 0.08 };
-  const point =(x: number, crop: string, extra: Partial<CropPoint> = {}): CropPoint => ({
+  const point = (x: number, crop: string, extra: Partial<CropPoint> = {}): CropPoint => ({
     x,
     y: 0,
     crop,
@@ -913,19 +913,33 @@ describe('Firm hold points', () => {
       ],
     ],
     // Consecutive hold points are one hold.
-    ['a hold split by a second hold point', panIntoHold(true), [[0.8, 3.6, 640 / 0.8 / 640, 460 / 0.8 / 640, 0.1, 0.1]]],
+    [
+      'a hold split by a second hold point',
+      panIntoHold(true),
+      [[0.8, 3.6, 640 / 0.8 / 640, 460 / 0.8 / 640, 0.1, 0.1]],
+    ],
     // The pan braked for 0.05 s at 4 crop widths/s² by the time it reaches the hold.
     ['a hold after a still point', stillPointBeforeHold, [[1.05, 3, 1.25 - 4 * 0.05, 0, 0.05, 0]]],
     // A point nudged 2 px (under 1% of the width) counts as still.
     [
       'a hold after a point nudged off its crop',
-      [point(0, at(100)), point(1, at(900)), point(1.05, at(902)), point(3, at(902), { hold: true })],
+      [
+        point(0, at(100)),
+        point(1, at(900)),
+        point(1.05, at(902)),
+        point(3, at(902), { hold: true }),
+      ],
       [[1.05, 3, 1.25 - 4 * 0.05, 0, 0.05, 0]],
     ],
     // 7 px (over 1% of the width) is a move of its own, so the hold settles from it.
     [
       'a hold after a point moved 7 px',
-      [point(0, at(100)), point(1, at(900)), point(1.05, at(907)), point(3, at(907), { hold: true })],
+      [
+        point(0, at(100)),
+        point(1, at(900)),
+        point(1.05, at(907)),
+        point(3, at(907), { hold: true }),
+      ],
       [[1.05, 3, 7 / 0.05 / 640, 0, 0.1, 0]],
     ],
     [
@@ -986,7 +1000,14 @@ describe('Firm hold points', () => {
     ],
   ])('times the braking and settle of %s', (_name, cropMap, expected) => {
     const spans = firmHeldSpans(cinematicCropMap(cropMap, 'firm'), CROP_RES_W, CROP_RES_H);
-    const fields = spans.map((s) => [s.start, s.end, s.speedIn, s.speedOut, s.settleIn, s.settleOut]);
+    const fields = spans.map((s) => [
+      s.start,
+      s.end,
+      s.speedIn,
+      s.speedOut,
+      s.settleIn,
+      s.settleOut,
+    ]);
     expect(fields).toEqual(expected.map((row) => row.map((v) => expect.closeTo(v))));
   });
 
@@ -1005,44 +1026,69 @@ describe('Firm hold points', () => {
       30
     );
     const [span] = firmHeldSpans(run, CROP_RES_W, CROP_RES_H);
-    expect([span.start, span.end, span.speedOut, span.settleOut]).toEqual([2, run[run.length - 1].x, 0, 0]);
+    expect([span.start, span.end, span.speedOut, span.settleOut]).toEqual([
+      2,
+      run[run.length - 1].x,
+      0,
+      0,
+    ]);
   });
 
   it('holds a hold split by a second hold point exactly as one hold point', () => {
-    const [split, single] = [true, false].map((s) => solve(panIntoHold(s), 'firm', { pos: 0.03, zoom: 0.03 }));
+    const [split, single] = [true, false].map((s) =>
+      solve(panIntoHold(s), 'firm', { pos: 0.03, zoom: 0.03 })
+    );
     for (let f = 0; f <= 132; f++) {
       expect(evalCropPathAtTime(split, f / 30)).toEqual(evalCropPathAtTime(single, f / 30));
     }
   });
 
   it.each([
-    ['before', stillPointBeforeHold, [point(0, at(100)), point(1, at(900)), point(3, at(900), { hold: true })], MARGINS],
+    [
+      'before',
+      stillPointBeforeHold,
+      [point(0, at(100)), point(1, at(900)), point(3, at(900), { hold: true })],
+      MARGINS,
+    ],
     [
       'after',
-      [point(0, at(100)), point(2, at(100), { hold: true }), point(2.05, at(100)), point(3, at(900))],
+      [
+        point(0, at(100)),
+        point(2, at(100), { hold: true }),
+        point(2.05, at(100)),
+        point(3, at(900)),
+      ],
       [point(0, at(100)), point(2, at(100), { hold: true }), point(3, at(900))],
       MARGINS,
     ],
     // Nudged 2 px off the hold's crop, at a margin too tight to brake within.
     [
       'nudged 2 px before',
-      [point(0, at(100)), point(1, at(900)), point(1.05, at(902)), point(3, at(902), { hold: true })],
+      [
+        point(0, at(100)),
+        point(1, at(900)),
+        point(1.05, at(902)),
+        point(3, at(902), { hold: true }),
+      ],
       [point(0, at(100)), point(1, at(902)), point(3, at(902), { hold: true })],
       { pos: 0.03, zoom: 0.03 },
     ],
-  ])('brakes as smoothly with a still point %s the hold as without', (_case, withPoint, without, margins) => {
-    const largestSpeedChange = (path: CropPath) => {
-      let largest = 0;
-      for (let f = 0; f < 88; f++) {
-        const [a, b, c] = [f, f + 1, f + 2].map((g) => evalCropPathAtTime(path, g / 30)[0]);
-        largest = Math.max(largest, Math.abs(c - 2 * b + a));
-      }
-      return largest;
-    };
-    expect(largestSpeedChange(solve(withPoint, 'firm', margins))).toBeLessThan(
-      1.5 * largestSpeedChange(solve(without, 'firm', margins))
-    );
-  });
+  ])(
+    'brakes as smoothly with a still point %s the hold as without',
+    (_case, withPoint, without, margins) => {
+      const largestSpeedChange = (path: CropPath) => {
+        let largest = 0;
+        for (let f = 0; f < 88; f++) {
+          const [a, b, c] = [f, f + 1, f + 2].map((g) => evalCropPathAtTime(path, g / 30)[0]);
+          largest = Math.max(largest, Math.abs(c - 2 * b + a));
+        }
+        return largest;
+      };
+      expect(largestSpeedChange(solve(withPoint, 'firm', margins))).toBeLessThan(
+        1.5 * largestSpeedChange(solve(without, 'firm', margins))
+      );
+    }
+  );
 
   it.each([
     // At 2 crop widths/s the crop needs 0.4325 crop widths past the 0.0675 margin to stop at

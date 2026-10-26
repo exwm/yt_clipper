@@ -279,7 +279,9 @@ describe('toApplicableSettings: applied vs skipped keys', () => {
     // appear in the output anyway, but checking they don't leak via a cast.
     expect((applied as Record<string, unknown>).version).toBeUndefined();
     expect((applied as Record<string, unknown>).date).toBeUndefined();
-    expect((applied as Record<string, unknown>).cropPointEasingCinematicSolverVersion).toBeUndefined();
+    expect(
+      (applied as Record<string, unknown>).cropPointEasingCinematicSolverVersion
+    ).toBeUndefined();
     expect((applied as Record<string, unknown>).markerPairs).toBeUndefined();
   });
 
@@ -392,7 +394,8 @@ describe('applyLoadedSettings: the session settings after a load', () => {
     expect(cinematic(settings)).toEqual(expected);
     expect(settings.crf).toBe(30);
     // Gone, not an explicit undefined that a later spread or save would carry.
-    for (const [key, value] of Object.entries(settings)) expect([key, value]).not.toEqual([key, undefined]);
+    for (const [key, value] of Object.entries(settings))
+      expect([key, value]).not.toEqual([key, undefined]);
   });
 });
 
@@ -542,5 +545,7 @@ test('drops the cinematic cropPath that 5.49 dev builds saved', () => {
     markerPairs: [{ start: 0, end: 1, cropPath: { version: 1, segments: [] } }],
   });
   expect(input.markerPairs[0]).not.toHaveProperty('cropPath');
-  expect(issues).toEqual([{ kind: 'unexpectedFields', path: 'markerPairs[0]', keys: ['cropPath'] }]);
+  expect(issues).toEqual([
+    { kind: 'unexpectedFields', path: 'markerPairs[0]', keys: ['cropPath'] },
+  ]);
 });

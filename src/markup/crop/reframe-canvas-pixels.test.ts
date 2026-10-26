@@ -2,12 +2,28 @@ import { bandsAround, PixelRect, touchedPixels, wholePixelsInside } from './refr
 
 describe('wholePixelsInside', () => {
   it.each([
-    ['a fractional rect, to the pixels it covers wholly', [10.4, 20.6, 100.2, 50.9], { x: 11, y: 21, width: 89, height: 29 }],
+    [
+      'a fractional rect, to the pixels it covers wholly',
+      [10.4, 20.6, 100.2, 50.9],
+      { x: 11, y: 21, width: 89, height: 29 },
+    ],
     // An edge within the slack of a whole pixel, on either side, leaves that pixel unclaimed: float
     // error must never claim a partly covered pixel.
-    ['edges a hair past whole pixels', [9.9999, 19.9999, 100.0001, 50.0001], { x: 11, y: 21, width: 88, height: 28 }],
-    ['edges a hair short of whole pixels', [10.0001, 20.0001, 99.9999, 49.9999], { x: 11, y: 21, width: 88, height: 28 }],
-    ['a rect past the canvas, clipped to it', [-5, -5, 300, 300], { x: 0, y: 0, width: 200, height: 100 }],
+    [
+      'edges a hair past whole pixels',
+      [9.9999, 19.9999, 100.0001, 50.0001],
+      { x: 11, y: 21, width: 88, height: 28 },
+    ],
+    [
+      'edges a hair short of whole pixels',
+      [10.0001, 20.0001, 99.9999, 49.9999],
+      { x: 11, y: 21, width: 88, height: 28 },
+    ],
+    [
+      'a rect past the canvas, clipped to it',
+      [-5, -5, 300, 300],
+      { x: 0, y: 0, width: 200, height: 100 },
+    ],
     ['a rect thinner than a pixel', [10.2, 10, 10.8, 50], null],
     ['a rect outside the canvas', [250, 10, 260, 50], null],
   ] as [string, [number, number, number, number], PixelRect | null][])(
@@ -20,11 +36,23 @@ describe('wholePixelsInside', () => {
 
 describe('touchedPixels', () => {
   it.each([
-    ['a fractional rect, to every pixel it touches', [10.4, 20.6, 100.2, 50.9], { x: 10, y: 20, width: 91, height: 31 }],
+    [
+      'a fractional rect, to every pixel it touches',
+      [10.4, 20.6, 100.2, 50.9],
+      { x: 10, y: 20, width: 91, height: 31 },
+    ],
     // Float error on a whole-pixel edge still counts the pixel beside it: gamma must reach every
     // pixel the crop could touch.
-    ['edges a hair inside whole pixels', [10.0001, 20.0001, 99.9999, 49.9999], { x: 9, y: 19, width: 92, height: 32 }],
-    ['a rect past the canvas, clipped to it', [-5, -5, 300, 300], { x: 0, y: 0, width: 200, height: 100 }],
+    [
+      'edges a hair inside whole pixels',
+      [10.0001, 20.0001, 99.9999, 49.9999],
+      { x: 9, y: 19, width: 92, height: 32 },
+    ],
+    [
+      'a rect past the canvas, clipped to it',
+      [-5, -5, 300, 300],
+      { x: 0, y: 0, width: 200, height: 100 },
+    ],
     ['a rect thinner than a pixel', [10.2, 10, 10.8, 50], { x: 10, y: 9, width: 1, height: 42 }],
     ['a rect outside the canvas', [250, 10, 260, 50], null],
   ] as [string, [number, number, number, number], PixelRect | null][])(

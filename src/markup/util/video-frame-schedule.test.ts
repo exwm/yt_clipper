@@ -37,7 +37,7 @@ describe('stepFrameSchedule', () => {
   // A loop that has drawn the frame on screen once, as it does at its first refresh.
   const everyRefresh = run(initialFrameSchedule('everyRefresh'), [refresh(true)]).state;
 
-  it('takes the frame on screen at a new loop\'s first refresh, even while paused', () => {
+  it("takes the frame on screen at a new loop's first refresh, even while paused", () => {
     expect(run(initialFrameSchedule('everyRefresh'), [refresh(true)]).actions).toEqual([
       { type: 'takeFrame' },
     ]);
@@ -48,7 +48,13 @@ describe('stepFrameSchedule', () => {
     ['takes nothing on a refresh while paused', [refresh(true)], []],
     [
       'takes a frame again at the next refresh when none was decoded yet',
-      [{ type: 'seeked' }, refresh(true), { type: 'frameUnavailable' }, refresh(true), refresh(true)],
+      [
+        { type: 'seeked' },
+        refresh(true),
+        { type: 'frameUnavailable' },
+        refresh(true),
+        refresh(true),
+      ],
       [{ type: 'takeFrame' }, { type: 'takeFrame' }],
     ],
     ['takes a frame while paused and seeking', [refresh(true, true)], [{ type: 'takeFrame' }]],
@@ -87,7 +93,9 @@ describe('stepFrameSchedule', () => {
       callback(4, 7),
       taken(4.1),
     ]);
-    expect(actions).toEqual([{ type: 'dispatch', mediaTime: 4, image: 'video', presentedFrames: 7 }]);
+    expect(actions).toEqual([
+      { type: 'dispatch', mediaTime: 4, image: 'video', presentedFrames: 7 },
+    ]);
   });
 
   it('keeps the last frame passed on across a change of timing, and takes the frame on screen', () => {
@@ -211,7 +219,8 @@ function simulate({ refreshHz, fps, rate, callbackMissRate, seed }: Scenario): O
       }
     }
     if (pendingSeek) events.push({ type: 'seeked' });
-    const wokenBefore = state.woken || pendingSeek || events.some((e) => e.type === 'frameCallback');
+    const wokenBefore =
+      state.woken || pendingSeek || events.some((e) => e.type === 'frameCallback');
     pendingSeek = false;
     events.push({ type: 'refresh', paused, seeking: false });
 

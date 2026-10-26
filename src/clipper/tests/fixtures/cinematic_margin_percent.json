@@ -18,6 +18,16 @@
     "pos": 0.5,
     "zoom": 1
   },
-  { "name": "pan only", "settings": { "cropPointEasingCinematicMargin": 6 }, "pos": 0.06, "zoom": 0.08 },
-  { "name": "zoom only", "settings": { "cropPointEasingCinematicZoomMargin": 15 }, "pos": 0.12, "zoom": 0.15 }
+  {
+    "name": "pan only",
+    "settings": { "cropPointEasingCinematicMargin": 6 },
+    "pos": 0.06,
+    "zoom": 0.08
+  },
+  {
+    "name": "zoom only",
+    "settings": { "cropPointEasingCinematicZoomMargin": 15 },
+    "pos": 0.12,
+    "zoom": 0.15
+  }
 ]

@@ -346,10 +346,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
         const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
         const points = chartType === 'crop' ? markerPair.cropMap : markerPair.speedMap;
 
-        if (
-          points[index].x !== scatterChartMinBound &&
-          points[index].x !== scatterChartMaxBound
-        ) {
+        if (points[index].x !== scatterChartMinBound && points[index].x !== scatterChartMaxBound) {
           // Its history entry would sit between a crop edit's snapshot and its cancel.
           if (chartType === 'crop') resolveCropEditConflict('deleteCropPoint');
           const draft = createDraft(getMarkerPairHistory(markerPair));
@@ -385,7 +382,10 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
       const datum = dataAtClick[0];
       const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
       if (datum) resolveCropEditConflict('toggleCropPointType');
-      if (datum && toggleCropPointType(markerPair, datum._index, event.altKey ? 'instant' : 'hold')) {
+      if (
+        datum &&
+        toggleCropPointType(markerPair, datum._index, event.altKey ? 'instant' : 'hold')
+      ) {
         this.renderSpeedAndCropUI(true);
       }
     }

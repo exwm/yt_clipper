@@ -18,8 +18,9 @@ pr pr_number:
 _timed label *command:
   @label="$1"; shift; start=$(node -p 'Date.now()' 2>/dev/null); "$@"; status=$?; end=$(node -p 'Date.now()' 2>/dev/null); case "$start$end" in ''|*[!0-9]*) ;; *) ms=$((end - start)); printf '[time] %-22s %3d.%01ds\n' "$label" $((ms / 1000)) $((ms % 1000 / 100)) ;; esac; exit $status
 
+# A folder, not a glob: sh on Windows (MSYS2) expands a glob in its arguments before the recipe runs.
 pretty-ts:
-  just _timed prettier npx prettier "src/**/*.{ts,js,json}" --write --cache
+  just _timed prettier npx prettier src --write --cache
 pretty-py:
   uv run ruff check --select I --fix src/clipper integration-tests tools && uv run ruff format src/clipper integration-tests tools
 pretty-py-check:

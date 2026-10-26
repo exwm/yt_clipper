@@ -94,22 +94,26 @@ export function teardownReframeCanvas(): void {
 function startLoop(): void {
   stopLoop();
   const v = appState.video;
-  frames = onVideoFrames(v, (frame) => {
-    if (!canvas) return;
-    const start = performance.now();
-    drawReframeFrame(frame.mediaTime, frame.image);
-    if (featureFlags.reframeFrameStats) {
-      recordFrameStats(v, {
-        now: frame.now,
-        expectedDisplayTime: frame.expectedDisplayTime ?? Infinity,
-        mediaTime: frame.mediaTime,
-        presentedFrames: frame.presentedFrames ?? Math.round(frame.mediaTime * getFPS()),
-        drawMs: performance.now() - start,
-        // Drawn from the video itself, the picture can be a newer frame than the crop's.
-        drawnTime: frame.image === v ? heldFrameTime(v) : frame.mediaTime,
-      });
-    }
-  }, { label: 'reframe' });
+  frames = onVideoFrames(
+    v,
+    (frame) => {
+      if (!canvas) return;
+      const start = performance.now();
+      drawReframeFrame(frame.mediaTime, frame.image);
+      if (featureFlags.reframeFrameStats) {
+        recordFrameStats(v, {
+          now: frame.now,
+          expectedDisplayTime: frame.expectedDisplayTime ?? Infinity,
+          mediaTime: frame.mediaTime,
+          presentedFrames: frame.presentedFrames ?? Math.round(frame.mediaTime * getFPS()),
+          drawMs: performance.now() - start,
+          // Drawn from the video itself, the picture can be a newer frame than the crop's.
+          drawnTime: frame.image === v ? heldFrameTime(v) : frame.mediaTime,
+        });
+      }
+    },
+    { label: 'reframe' }
+  );
   frames.redraw();
 }
 

@@ -4,7 +4,10 @@ import type { appState } from '../../../appState';
 
 type EditorState = Pick<
   typeof appState,
-  'isSettingsEditorOpen' | 'wasGlobalSettingsEditorOpen' | 'markerPairs' | 'prevSelectedMarkerPairIndex'
+  | 'isSettingsEditorOpen'
+  | 'wasGlobalSettingsEditorOpen'
+  | 'markerPairs'
+  | 'prevSelectedMarkerPairIndex'
 >;
 
 /** The crop points being edited: the crop chart's, which shows the open marker pair's crop map, or
@@ -17,5 +20,7 @@ export function activeCropPoints(
   const chartPoints = cropChart?.data.datasets?.[0].data as CropPoint[] | undefined;
   if (chartPoints) return chartPoints;
   const isPairEditorOpen = state.isSettingsEditorOpen && !state.wasGlobalSettingsEditorOpen;
-  return (isPairEditorOpen && state.markerPairs[state.prevSelectedMarkerPairIndex]?.cropMap) || null;
+  return (
+    (isPairEditorOpen && state.markerPairs[state.prevSelectedMarkerPairIndex]?.cropMap) || null
+  );
 }

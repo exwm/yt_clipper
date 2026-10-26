@@ -1,4 +1,8 @@
-import { ReframeFrameSample, recordReframeFrame, summarizeReframeFrames } from './reframe-frame-stats';
+import {
+  ReframeFrameSample,
+  recordReframeFrame,
+  summarizeReframeFrames,
+} from './reframe-frame-stats';
 
 const FPS = 30;
 
@@ -48,7 +52,7 @@ describe('summarizeReframeFrames', () => {
       { skippedFrames: 0, lateRedraws: 1, pictureMismatches: 0 },
     ],
     [
-      "a picture from the next frame",
+      'a picture from the next frame',
       (samples: ReframeFrameSample[]) =>
         samples.map((s, i) => (i === 10 ? { ...s, drawnTime: s.mediaTime + 1 / FPS } : s)),
       { skippedFrames: 0, lateRedraws: 0, pictureMismatches: 1 },
@@ -65,7 +69,9 @@ describe('summarizeReframeFrames', () => {
   });
 
   it('measures a crop jump off the line through its neighbors', () => {
-    const jump = evenPan(20).map((s, i) => (i === 10 ? { ...s, cropCenterX: s.cropCenterX + 7 } : s));
+    const jump = evenPan(20).map((s, i) =>
+      i === 10 ? { ...s, cropCenterX: s.cropCenterX + 7 } : s
+    );
     expect(summarizeReframeFrames(jump, FPS).cropOffLinePxMax).toBeCloseTo(7);
   });
 

@@ -111,7 +111,8 @@ export function stepFrameSchedule(
       // Try again at the next refresh, so a paused seek's frame is not lost.
       return { state: { ...state, woken: true }, actions: [] };
     case 'frameCallback': {
-      if (state.timing !== 'frameCallback') return { state: { ...state, woken: true }, actions: [] };
+      if (state.timing !== 'frameCallback')
+        return { state: { ...state, woken: true }, actions: [] };
       return {
         state: { ...state, lastDispatchedTime: event.mediaTime },
         actions: [
