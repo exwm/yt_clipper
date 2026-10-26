@@ -579,10 +579,11 @@ def makeClip(  # noqa: PLR0912
     # -seek_timestamp 1: in a local video, -ss is the video's own timestamp, as the markup's player time
     # is, not an offset from the file's start time, which audio pre-roll can make negative. Network
     # streams keep the offset, which matches players that count from an HLS stream's start. ffplay has
-    # no such option, so the preview leaves it out.
-    if mps["inputVideo"]:
-        seekFlags = "" if settings["preview"] else "-seek_timestamp 1 "
-        inputs += f' {seekFlags}-ss {mp["start"]} -i "{mps["inputVideo"]}" '
+    # no such option and always seeks from the file's start time, so the preview subtracts it.
+    if mps["inputVideo"] and settings["preview"]:
+        inputs += f' -ss {mp["start"] - settings.get("inputStartTime", 0)} -i "{mps["inputVideo"]}" '
+    elif mps["inputVideo"]:
+        inputs += f' -seek_timestamp 1 -ss {mp["start"]} -i "{mps["inputVideo"]}" '
     elif mps["videoType"] != "multi_video":
         inputs += f' -ss {mp["start"]} -i "{mps["videoDownloadURL"]}" '
     elif "videoPart" in mp:

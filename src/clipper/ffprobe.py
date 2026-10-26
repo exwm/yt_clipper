@@ -77,6 +77,8 @@ def ffprobeVideoProperties(cs: ClipperState, videoURL: str) -> Optional[DictStrA
         )
 
         settings["inputPixelFormat"] = ffprobeStreamData.get("pix_fmt")
+        # ffplay seeks from it (clip_maker's preview inputs).
+        settings["inputStartTime"] = float(ffprobeData["format"].get("start_time") or 0)
 
         settings["inputBitDepth"] = getColorBitDepth(
             ffprobeStreamData,
