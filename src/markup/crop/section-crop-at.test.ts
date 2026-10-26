@@ -1,5 +1,5 @@
 import { CropPoint } from '../@types/yt_clipper';
-import { cropSectionAt, sectionCropAt } from './crop-keyframe-math';
+import { cropSectionAt, cropSectionAtTime, sectionCropAt } from './crop-keyframe-math';
 
 const point = (x: number, crop: string, easeIn?: CropPoint['easeIn']): CropPoint => ({
   x,
@@ -25,6 +25,18 @@ describe('cropSectionAt', () => {
   ])('%s', (_case, index, expected) => {
     const section = cropSectionAt(cropMap, index);
     expect(Object.fromEntries(Object.entries(section).filter(([, p]) => p))).toEqual(expected);
+  });
+});
+
+describe('cropSectionAtTime', () => {
+  const cropMap = [prev, start, end, next];
+  it.each([
+    ['inside a section', 1.5, 1],
+    ['on a crop point, the section after it', 2, 2],
+    ['on the last crop point, the last section', 3, 2],
+    ['past the last crop point, the last section', 9, 2],
+  ])('%s', (_case, time, index) => {
+    expect(cropSectionAtTime(cropMap, time)).toEqual(cropSectionAt(cropMap, index));
   });
 });
 

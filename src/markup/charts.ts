@@ -83,10 +83,10 @@ import {
 import {
   CropKeyframeMatch,
   CropPointEasing,
-  cropInterpolationSectionAtTime,
   findCropKeyframeAtTime,
   nextKeyframeIndex,
   cropSectionAt,
+  cropSectionAtTime,
   sectionCropAt,
 } from './crop/crop-keyframe-math';
 import { isReframeEnabled, syncReframe } from './crop/video-zoom-controller';
@@ -916,15 +916,7 @@ export function getDynamicCropComponents(): [number, number, number, number] | n
       return null;
     }
 
-    const sectStart = chartData[currentCropChartSection[0]];
-    const sectEnd = chartData[currentCropChartSection[1]];
-
-    return getEasedCropComponents(
-      sectStart,
-      sectEnd,
-      chartData[currentCropChartSection[0] - 1],
-      chartData[currentCropChartSection[1] + 1]
-    );
+    return getEasedCropComponents(cropSectionAt(chartData, currentCropChartSection[0]));
   }
 
   return null;
@@ -1170,10 +1162,7 @@ export function refreshCropPreview(): void {
 }
 
 export function getEasedCropComponents(
-  sectStart: CropPoint,
-  sectEnd: CropPoint,
-  prevPoint?: CropPoint | null,
-  nextPoint?: CropPoint | null
+  section: ReturnType<typeof cropSectionAt>
 ): [number, number, number, number] {
   const easing = getActiveCropPointEasing();
   // Cinematic mode replaces interpolation with the baked L1 path (a function of time, not the
@@ -1185,7 +1174,7 @@ export function getEasedCropComponents(
   }
   return sectionCropAt(
     easing,
-    { prev: prevPoint, start: sectStart, end: sectEnd, next: nextPoint },
+    section,
     currentCropTime(),
     getFPS(),
     { width: appState.settings.cropResWidth, height: appState.settings.cropResHeight },
@@ -1236,15 +1225,8 @@ export function getCurrentCropComponents(): [number, number, number, number] | n
     // selection: in reframe the selection snaps to the nearest keyframe (flipping at the
     // section midpoint), so keying off it clamps the time outside the section and makes
     // the preview jump to the next keyframe instead of easing smoothly across it.
-    const [left, right] = cropInterpolationSectionAtTime(cropMap, time);
-    if (cropMap[left] && cropMap[right]) {
-      return getEasedCropComponents(
-        cropMap[left],
-        cropMap[right],
-        cropMap[left - 1],
-        cropMap[right + 1]
-      );
-    }
+    const section = cropSectionAtTime(cropMap, time);
+    if (section.start && section.end) return getEasedCropComponents(section);
   }
   const point = cropMap[appState.currentCropPointIndex] ?? cropMap[0];
   const [x, y, w, h] = getCropComponents(point.crop);
@@ -1471,15 +1453,9 @@ export function updateDynamicCropOverlays(
     setCurrentCropRectVisible(true);
     return;
   }
-  const sectStart = chartData[currentCropChartSection[0]];
-  const sectEnd = chartData[currentCropChartSection[1]];
-
-  const [curX, curY, curW, curH] = getEasedCropComponents(
-    sectStart,
-    sectEnd,
-    chartData[currentCropChartSection[0] - 1],
-    chartData[currentCropChartSection[1] + 1]
-  );
+  const section = cropSectionAt(chartData, currentCropChartSection[0]);
+  const { start: sectStart, end: sectEnd } = section;
+  const [curX, curY, curW, curH] = getEasedCropComponents(section);
 
   [
     cropOverlayElements.cropChartSectionStartBorderGreen,

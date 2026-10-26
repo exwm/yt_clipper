@@ -386,3 +386,7 @@ export function cropSectionAt(
     next: cropMap[start + 2],
   };
 }
+
+export function cropSectionAtTime(cropMap: readonly CropPoint[], time: number) {
+  return cropSectionAt(cropMap, cropInterpolationSectionAtTime(cropMap, time)[0]);
+}
