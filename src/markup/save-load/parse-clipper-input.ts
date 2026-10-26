@@ -305,13 +305,6 @@ const OVERRIDES_VALIDATORS = {
   fadeDuration: (v: unknown) => isFiniteNumber(v),
 } as const satisfies { [K in keyof MarkerPairOverrides]-?: (v: unknown) => boolean };
 
-const GLOBAL_CROP_EASING_KEYS = [
-  'cropPointEasing',
-  'cropPointEasingCinematicMargin',
-  'cropPointEasingCinematicZoomMargin',
-  'cropPointEasingCinematicHolds',
-] as const;
-
 function parseOverrides(
   raw: unknown,
   path: string,
@@ -424,12 +417,10 @@ export function parseClipperInput(raw: unknown): ParseResult {
     );
   }
 
-  // The global crop easing settings take the same values as a pair's own.
-  for (const key of GLOBAL_CROP_EASING_KEYS) {
+  // A global setting a pair can override takes the same values as the pair's own.
+  for (const [key, validate] of Object.entries(OVERRIDES_VALIDATORS)) {
     const value = (rest as Record<string, unknown>)[key];
-    if (value !== undefined && !OVERRIDES_VALIDATORS[key](value)) {
-      delete (rest as Record<string, unknown>)[key];
-    }
+    if (value !== undefined && !validate(value)) delete (rest as Record<string, unknown>)[key];
   }
   const markerPairs = markerPairsRaw.map((pair, i) => parseMarkerPair(pair, i, issues));
   const input = { ...rest, markerPairs } as ClipperInput;
