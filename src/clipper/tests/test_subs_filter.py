@@ -1,3 +1,4 @@
+import shlex
 import shutil
 import subprocess
 import sys
@@ -5,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from clipper import ffmpeg_filter
+from clipper import clip_maker, ffmpeg_filter
 from clipper.clipper_types import ClipperPaths, ClipperState
 
 DEFAULT_SUBS_STYLE = "FontSize=12,PrimaryColour=&H32FFFFFF,SecondaryColour=&H32000000,MarginV=5"
@@ -53,10 +54,12 @@ def test_subtitles_burn_in_from_a_clips_folder_with_any_name(
     mps = {"subsFilePath": str(subs), "titleSuffix": name, "subsStyle": DEFAULT_SUBS_STYLE}
 
     subsFilter = ffmpeg_filter.getSubsFilter(cs, {"start": 0, "end": 1}, mps, 0)
+    # The clipper splices the filter into a command string and splits it with shlex.
+    filterArgs = shlex.split(clip_maker.ffplayFilterArg(cs, f"null{subsFilter}", "unused.txt"))
 
     run = subprocess.run(
         [ffmpeg, "-v", "error", "-f", "lavfi", "-i", "color=size=64x36:duration=1",
-         "-vf", f"null{subsFilter}", "-frames:v", "1", "-f", "null", "-"],
+         *filterArgs, "-frames:v", "1", "-f", "null", "-"],
         capture_output=True, text=True, check=False,
     )  # fmt: skip
     assert run.returncode == 0, run.stderr
