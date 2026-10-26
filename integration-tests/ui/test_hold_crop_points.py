@@ -190,6 +190,20 @@ def test_alt_a_while_a_crop_draw_is_armed_cancels_the_draw(markup: MarkupPage) -
     then_the_crop_points_are(markup, [(CROP_A, False), (CROP_A, False), (CROP_B, False)])
 
 
+def test_a_crop_typed_while_a_crop_draw_is_armed_stays_after_the_draw_is_canceled(
+    markup: MarkupPage,
+) -> None:
+    # A draw waiting for its first click leaves the settings editor usable, and canceling the draw
+    # restores the crop points it read when armed.
+    given_a_pair_with_its_crop_chart_open(markup, pair((CROP_A, False), (CROP_B, False)))
+    when_i_press_outside_any_input(markup, "KeyX")
+    crop_input = markup.page.locator("#crop-input")
+    crop_input.fill(CROP_MIDDLE)
+    crop_input.dispatch_event("change")
+    when_i_press_outside_any_input(markup, "KeyX")
+    then_the_crop_points_are(markup, [(CROP_MIDDLE, False), (CROP_B, False)])
+
+
 def test_ctrl_wheel_while_a_crop_draw_is_armed_in_reframe_is_ignored(markup: MarkupPage) -> None:
     # The wheel zoom adds a crop point under the playhead, which the armed draw doesn't know about.
     given_a_pair_with_its_crop_chart_open(markup, pair((CROP_A, False), (CROP_B, False)))
