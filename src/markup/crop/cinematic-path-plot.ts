@@ -10,11 +10,7 @@ import {
   parseCropToComponents,
   splitAtInstantCuts,
 } from './cinematic-path';
-import {
-  cropInterpolationSectionAtTime,
-  EasingCropPoint,
-  getSectionEasedCropComponents,
-} from './crop-keyframe-math';
+import { cropSectionAtTime, EasingCropPoint, sectionCropAt } from './crop-keyframe-math';
 
 // The crop center's two axes, and the zoom: the widest crop the frame fits at the crop's aspect ratio
 // over the crop's width, so 1x is the full frame.
@@ -135,20 +131,18 @@ export function cinematicPlotSeries(
     (_, i) => (duration * i) / (PLOT_SAMPLES - 1)
   );
   const frame = { width: cropResWidth, height: cropResHeight };
+  const componentsOf = (crop: string) => parseCropToComponents(crop, cropResWidth, cropResHeight);
   // Through the same easing dispatch the preview uses.
   const eased = (easing: 'smoothTrack' | 'smoothInOut') =>
     sampleTimes.map((t) => {
       const time = firstTime + t;
-      const [left, right] = cropInterpolationSectionAtTime(cropMap, time);
-      const crop = getSectionEasedCropComponents(
+      const crop = sectionCropAt(
         easing,
-        easingPoints[left],
-        easingPoints[right],
-        easingPoints[left - 1] ?? null,
-        easingPoints[right + 1] ?? null,
+        cropSectionAtTime(cropMap, time),
         time,
         fps,
-        frame
+        frame,
+        componentsOf
       );
       return scale.value(crop);
     });
