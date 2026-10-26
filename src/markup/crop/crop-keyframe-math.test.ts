@@ -4,15 +4,14 @@ import { CropPoint } from '../@types/yt_clipper';
 import {
   CropPointEasing,
   CropSectionNeighbor,
-  EasingCropPoint,
   cropInterpolationSectionAtTime,
   findCropKeyframeAtTime,
   getEaseSectionDuration,
   getEasedCropComponentsAtTime,
-  getSectionEasedCropComponents,
   getSmoothTrackCropComponentsAtTime,
   nextKeyframeIndex,
 } from './crop-keyframe-math';
+import { easedCropAtTime } from './parity-sampling';
 
 // Keyframes at t = 0, 1, 2 (crop strings are irrelevant to the time math).
 const cropMap: CropPoint[] = [
@@ -327,35 +326,7 @@ describe('getSmoothTrackCropComponentsAtTime', () => {
 });
 
 describe('getSectionEasedCropComponents', () => {
-  const at = (cropMap: CropPoint[], i: number): EasingCropPoint | null =>
-    cropMap[i]
-      ? {
-          time: cropMap[i].x,
-          components: cropMap[i].crop.split(':').map(Number),
-          easeIn: cropMap[i].easeIn,
-        }
-      : null;
-  const easeAt = (
-    easing: CropPointEasing,
-    cropMap: CropPoint[],
-    t: number,
-    fps = 30,
-    frame?: { width: number; height: number }
-  ) => {
-    const i = cropMap.findIndex(
-      (p, k) => k < cropMap.length - 1 && t >= p.x && t < cropMap[k + 1].x
-    );
-    return getSectionEasedCropComponents(
-      easing,
-      at(cropMap, i)!,
-      at(cropMap, i + 1)!,
-      at(cropMap, i - 1),
-      at(cropMap, i + 2),
-      t,
-      fps,
-      frame
-    );
-  };
+  const easeAt = easedCropAtTime;
 
   it('keeps a steady pan at the same speed through crop points that fall between frames', () => {
     // 300 px/s from a pair start off the frame grid, through points placed between frames. The
