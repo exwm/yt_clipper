@@ -204,6 +204,29 @@ def test_a_crop_typed_while_a_crop_draw_is_armed_stays_after_the_draw_is_cancele
     then_the_crop_points_are(markup, [(CROP_MIDDLE, False), (CROP_B, False)])
 
 
+def test_alt_shift_x_while_a_crop_draw_is_armed_keeps_its_crops_after_the_draw_is_canceled(
+    markup: MarkupPage,
+) -> None:
+    # Alt+Shift+X sets every static crop to the default; canceling the draw must not take it back.
+    given_a_pair_with_its_crop_chart_open(markup, pair((CROP_A, False), (CROP_A, False)))
+    when_i_press_outside_any_input(markup, "KeyX")
+    when_i_press_outside_any_input(markup, "Alt+Shift+KeyX")
+    after_reset = [(point["crop"], point["hold"]) for point in crop_points(markup)]
+    assert after_reset != [(CROP_A, False), (CROP_A, False)], "Alt+Shift+X should reset the crops"
+    when_i_press_outside_any_input(markup, "KeyX")
+    then_the_crop_points_are(markup, after_reset)
+
+
+def test_rotating_the_video_cancels_an_armed_crop_draw(markup: MarkupPage) -> None:
+    # The draw would take a crop drawn in the rotated view as one in the video's own orientation.
+    given_a_pair_with_its_crop_chart_open(markup, pair((CROP_A, False), (CROP_B, False)))
+    when_i_press_outside_any_input(markup, "KeyX")
+    when_i_press_outside_any_input(markup, "KeyR")
+    when_i_drag_across_the_video(markup)
+    when_i_press_outside_any_input(markup, "KeyR")
+    then_the_crop_points_are(markup, [(CROP_A, False), (CROP_B, False)])
+
+
 def test_ctrl_wheel_while_a_crop_draw_is_armed_in_reframe_is_ignored(markup: MarkupPage) -> None:
     # The wheel zoom adds a crop point under the playhead, which the armed draw doesn't know about.
     given_a_pair_with_its_crop_chart_open(markup, pair((CROP_A, False), (CROP_B, False)))
