@@ -99,11 +99,15 @@ def main() -> None:
         logger.report(f"log file: {LogPath(cs.clipper_paths.logFilePath)}")
     logger.rule()
 
-    logger.debug(f"The following arguments were read from the command line {sys.argv[1:]}:")
+    logger.debug(
+        f"The following arguments were read from the command line {argparser.redactSecrets(sys.argv[1:])}:"
+    )
 
     if argsFromArgFiles:
         logger.notice(f"The following default arguments were read from {argFiles}:")
-        logger.notice(argsFromArgFilesMap)
+        logger.notice(
+            {argFile: argparser.redactSecrets(args) for argFile, args in argsFromArgFilesMap.items()}
+        )
         logger.rule(title="Setup")
     elif argFiles:
         logger.notice(f"No uncommented arguments were found in {argFiles}")
