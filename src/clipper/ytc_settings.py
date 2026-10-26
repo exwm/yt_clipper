@@ -161,11 +161,10 @@ def getInputVideo(cs: ClipperState) -> None:
         and not settings["noAutoFindInputVideo"]
         and len(potentialInputVideos) > 0
     ):
-        logger.info(f"Found potential input video at path {potentialInputVideos[0]}.")
+        logger.info(f"Found potential input video at path {LogPath(potentialInputVideos[0])}.")
         if len(potentialInputVideos) > 1:
-            logger.warning(
-                f"Also found the following other potential input videos {potentialInputVideos[1:]}.",
-            )
+            others = ", ".join(str(LogPath(video)) for video in potentialInputVideos[1:])
+            logger.warning(f"Also found the following other potential input videos {others}.")
         settings["inputVideo"] = potentialInputVideos[0]
 
     if settings["automaticFetching"] and settings["preview"]:
@@ -187,7 +186,7 @@ def getInputVideo(cs: ClipperState) -> None:
         )
         if not settings["noAutoFindInputVideo"] and len(potentialInputVideos) > 0:
             logger.info(
-                f"Found potential input video at path {potentialInputVideos[0]}.",
+                f"Found potential input video at path {LogPath(potentialInputVideos[0])}.",
             )
             useFoundInputVideo = input(
                 r"Would you like to use this input video? (y/n): ",
@@ -206,7 +205,7 @@ def getInputVideo(cs: ClipperState) -> None:
                 if settings["inputVideo"] == "":
                     logger.info(
                         f"The video can also be downloaded before previewing to the path: "
-                        f'"{settings["downloadVideoPath"]}"',
+                        f"{LogPath(settings['downloadVideoPath'])}",
                     )
                     logger.info(
                         "Note the file extension will be automatically determined.",
@@ -225,7 +224,7 @@ def getInputVideo(cs: ClipperState) -> None:
     if settings["inputVideo"]:
         if not Path(settings["inputVideo"]).is_file():
             logger.critical(
-                f'Input video file "{settings["inputVideo"]}" does not exist or is not a file.',
+                f"Input video file {LogPath(settings['inputVideo'])} does not exist or is not a file.",
             )
             logger.critical(f"Exiting...")
             sys.exit(1)
