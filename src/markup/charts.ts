@@ -83,11 +83,11 @@ import {
 import {
   CropKeyframeMatch,
   CropPointEasing,
-  EasingCropPoint,
   cropInterpolationSectionAtTime,
   findCropKeyframeAtTime,
-  getSectionEasedCropComponents,
   nextKeyframeIndex,
+  cropSectionAt,
+  sectionCropAt,
 } from './crop/crop-keyframe-math';
 import { isReframeEnabled, syncReframe } from './crop/video-zoom-controller';
 import { featureFlags } from './feature-flags';
@@ -941,10 +941,6 @@ function getCropPointEasing(markerPair: MarkerPair | undefined): CropPointEasing
   return pairSettings(markerPair, appState.settings).cropPointEasing;
 }
 
-function toEasingCropPoint(point: CropPoint): EasingCropPoint {
-  return { time: point.x, components: getCropComponents(point.crop), easeIn: point.easeIn };
-}
-
 // The cinematic margins for the active pair: per-pair override, else global, else default.
 function getActiveCinematicMargins(): CinematicMargins {
   return getCinematicMargins(appState.markerPairs[appState.prevSelectedMarkerPairIndex]);
@@ -1181,15 +1177,13 @@ export function getEasedCropComponents(
     const baked = getActiveCinematicCrop();
     if (baked) return baked;
   }
-  return getSectionEasedCropComponents(
+  return sectionCropAt(
     easing,
-    toEasingCropPoint(sectStart),
-    toEasingCropPoint(sectEnd),
-    prevPoint ? toEasingCropPoint(prevPoint) : null,
-    nextPoint ? toEasingCropPoint(nextPoint) : null,
+    { prev: prevPoint, start: sectStart, end: sectEnd, next: nextPoint },
     currentCropTime(),
     getFPS(),
-    { width: appState.settings.cropResWidth, height: appState.settings.cropResHeight }
+    { width: appState.settings.cropResWidth, height: appState.settings.cropResHeight },
+    getCropComponents
   );
 }
 // The current crop in cropRes coords: the eased/interpolated crop for a dynamic
@@ -1562,18 +1556,15 @@ export function getInterpolatedCrop(
     )
       ? evalCinematicCrop(markerPair, path, time)
       : null;
-  const neighbor = (index: number) => cropMap[index] && toEasingCropPoint(cropMap[index]);
   const [x, y, w, h] =
     solved ??
-    getSectionEasedCropComponents(
+    sectionCropAt(
       easing,
-      toEasingCropPoint(cropMap[start]),
-      toEasingCropPoint(cropMap[start + 1]),
-      neighbor(start - 1),
-      neighbor(start + 2),
+      cropSectionAt(cropMap, start),
       time,
       fps,
-      { width: cropResWidth, height: cropResHeight }
+      { width: cropResWidth, height: cropResHeight },
+      getCropComponents
     );
   // Whole pixels, as stored crops are: see autoKeyCurrentCropPoint.
   return getCropString(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
