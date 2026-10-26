@@ -275,6 +275,8 @@ export function updateSettingsValue(
   if (inputTarget.reportValidity()) {
     const prevValue = inputTarget.value;
     let newValue: any = inputTarget.value;
+    // After reading the value: canceling a crop draw puts the crop from before it back in the input.
+    resolveCropEditConflict('settingsInput');
     if (newValue != null) {
       if (
         targetProperty !== 'titleSuffix' &&
@@ -446,6 +448,7 @@ export function addCropInputHotkeys() {
         cropTarget <= cropArray.length - 1 &&
         typeof cropArray[cropTarget] === 'number';
       if (!isValidCropTarget) return;
+      resolveCropEditConflict('settingsInput');
 
       if (ke.code === 'KeyA' && !appState.wasGlobalSettingsEditorOpen) {
         const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
