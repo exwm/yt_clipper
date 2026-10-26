@@ -21,20 +21,29 @@ env:
   VERSION: "5.48.0"
   NODE_VERSION: "22.18.x"
 
+  # Each download is checked against its sha256 here (.github/scripts/verify-sha256.sh). A version
+  # bump changes the hashes next to it.
   FFMPEG_VERSION: "8.0.1"
   FFMPEG_WIN_BASE_URL: https://github.com/GyanD/codexffmpeg/releases/download
   # evermeet.cx's macOS builds, mirrored because evermeet rate limits CI runners.
   FFMPEG_MAC_BASE_URL: https://github.com/exwm/yt_clipper_bindeps/releases/download
+  FFMPEG_SHA256_WIN: 8030dc469fbde247b84cfc21a5c421f3965ffe779bc35de08d78966e0c4a272c
+  FFMPEG_SHA256_MAC: a839005cd324d98fe3eee0c0d176d5b2bd684160a1737d6d1965435cdc60c89f
 
   YTDLP_VERSION: "2026.10.21"
   YTDLP_BASE_URL: https://github.com/yt-dlp/yt-dlp/releases/download
+  YTDLP_SHA256_WIN: 33121d192d706e62f684a06f80918e3f3a8ba52ac3a65213b6951c39c7d9f555
+  YTDLP_SHA256_MAC: 7a6fe71d7d680f1fb0ac18d4949873d77db2859e90017c0f44bd94b23be4ee40
 
   DENO_VERSION: "2.5.6"
   DENO_BASE_URL: https://github.com/denoland/deno/releases/download
+  DENO_SHA256_WIN: 1327356cd63e23d0da7d11d5f5ca6b45902b1b62ee2debd4fbbd0aad2aab9786
+  DENO_SHA256_MAC: 32a5b2bcf49432715719c7c769529269fbd08cafdc059b7cecd42f9d771059ab
 
   # Built against the same gyan.dev ffmpeg as FFMPEG_VERSION, whose DLLs it shares.
   VIDEO2X_VERSION: "6.5.1-exwm"
   VIDEO2X_BASE_URL: https://github.com/exwm/video2x/releases/download
+  VIDEO2X_SHA256_WIN: 5f27afa16004a33ae15f92a82db8084c9813ac51e26074544c79d8b1f98e0c2c
   # The models the clipper uses (RIFE_MODEL in src/clipper/video2x.py), out of about 150 MB.
   VIDEO2X_MODELS: "rife/rife-v4.26"
 
@@ -74,12 +83,18 @@ jobs:
           echo "FFMPEG_DL_NAME=ffmpeg-${{ env.FFMPEG_VERSION }}-full_build-shared" >> $GITHUB_ENV
           echo "FFMPEG_DL_PREFIX=${{ env.FFMPEG_WIN_BASE_URL }}/${{ env.FFMPEG_VERSION }}" >> $GITHUB_ENV
           echo "VIDEO2X_DL_URL=${{ env.VIDEO2X_BASE_URL }}/v${{ env.VIDEO2X_VERSION }}/video2x-windows-amd64.zip" >> $GITHUB_ENV
+          echo "FFMPEG_SHA256=${{ env.FFMPEG_SHA256_WIN }}" >> $GITHUB_ENV
+          echo "YTDLP_SHA256=${{ env.YTDLP_SHA256_WIN }}" >> $GITHUB_ENV
+          echo "DENO_SHA256=${{ env.DENO_SHA256_WIN }}" >> $GITHUB_ENV
 
       - name: Set env (macos)
         if: matrix.shortos == 'macos'
         run: |
           echo "FFMPEG_DL_NAME=ffmpeg-${{ env.FFMPEG_VERSION }}-macos64" >> $GITHUB_ENV
           echo "FFMPEG_DL_PREFIX=${{ env.FFMPEG_MAC_BASE_URL }}/${{ env.FFMPEG_VERSION }}" >> $GITHUB_ENV
+          echo "FFMPEG_SHA256=${{ env.FFMPEG_SHA256_MAC }}" >> $GITHUB_ENV
+          echo "YTDLP_SHA256=${{ env.YTDLP_SHA256_MAC }}" >> $GITHUB_ENV
+          echo "DENO_SHA256=${{ env.DENO_SHA256_MAC }}" >> $GITHUB_ENV
 
       - uses: actions/checkout@v5
         with:
@@ -90,19 +105,21 @@ jobs:
           mkdir -p ./artifact/py/${{env.FULL_NAME}}/{webms,bin/video-tools,bin/yt-dlp,temp}/
           mkdir -p ./bindeps
 
-      # A pinned ffmpeg build never changes, so download it once per OS and version.
+      # A pinned ffmpeg build never changes, so download it once per OS and version. The hash in the
+      # key makes a cache filled before the hash check download again.
       - name: Cache ffmpeg dependency
         id: ffmpeg-cache
         uses: actions/cache@v5
         with:
           path: bindeps/ffmpeg
-          key: ffmpeg-${{ matrix.os }}-${{ env.FFMPEG_VERSION }}
+          key: ffmpeg-${{ matrix.os }}-${{ env.FFMPEG_VERSION }}-${{ env.FFMPEG_SHA256 }}
 
       - name: Download ffmpeg dependency (windows)
         if: matrix.os == 'windows-latest' && steps.ffmpeg-cache.outputs.cache-hit != 'true'
         run: |
           cd ./bindeps
           curl --fail --retry 10 --retry-delay 60 --retry-all-errors -o ./ffmpeg.zip -L $FFMPEG_DL_PREFIX/$FFMPEG_DL_NAME.7z
+          bash "$GITHUB_WORKSPACE/.github/scripts/verify-sha256.sh" ./ffmpeg.zip "$FFMPEG_SHA256"
           7z x ./ffmpeg.zip
           mv ./$FFMPEG_DL_NAME ffmpeg
 
@@ -116,6 +133,7 @@ jobs:
           # --fail keeps an error page from being saved as the archive. --retry-all-errors also retries
           # failures curl does not class as transient, such as a 429 reported as exit 56.
           curl --fail --retry 10 --retry-delay 60 --retry-all-errors -o ./ffmpeg.zip -L $FFMPEG_DL_PREFIX/$FFMPEG_DL_NAME.zip
+          bash "$GITHUB_WORKSPACE/.github/scripts/verify-sha256.sh" ./ffmpeg.zip "$FFMPEG_SHA256"
           7z x ./ffmpeg.zip
           mv ./$FFMPEG_DL_NAME ffmpeg
           chmod -v +x ffmpeg/bin/*
@@ -126,6 +144,7 @@ jobs:
           mkdir -p yt-dlp/bin
           cd yt-dlp/bin
           curl --fail --retry 10 --retry-delay 60 --retry-all-errors -O -L $YTDLP_DL_URL
+          bash "$GITHUB_WORKSPACE/.github/scripts/verify-sha256.sh" "./${{ matrix.yt-dlp_filename }}" "$YTDLP_SHA256"
 
           chmod -v +x *
 
@@ -136,6 +155,7 @@ jobs:
           cd deno/bin
 
           curl --fail --retry 10 --retry-delay 60 --retry-all-errors -o ./deno.zip -L $DENO_DL_URL
+          bash "$GITHUB_WORKSPACE/.github/scripts/verify-sha256.sh" ./deno.zip "$DENO_SHA256"
           7z x ./deno.zip
           rm -f ./deno.zip
 
@@ -147,6 +167,7 @@ jobs:
           cd ./bindeps
           mkdir -p video2x
           curl --fail --retry 10 --retry-delay 60 --retry-all-errors -o ./video2x.zip -L $VIDEO2X_DL_URL
+          bash "$GITHUB_WORKSPACE/.github/scripts/verify-sha256.sh" ./video2x.zip "$VIDEO2X_SHA256_WIN"
           7z x ./video2x.zip -o./video2x
           rm -f ./video2x.zip
           echo "${{ env.VIDEO2X_VERSION }}" > ./video2x/video2x-version.txt
