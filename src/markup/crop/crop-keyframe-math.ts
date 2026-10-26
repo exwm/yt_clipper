@@ -346,3 +346,30 @@ export function getSectionEasedCropComponents(
   }
   return eased;
 }
+
+/** The crop the section easing gives at `time`, from the section's crop points and their neighbors
+ *  (none past either end). `componentsOf` reads a stored crop string. */
+export function sectionCropAt(
+  easing: CropPointEasing,
+  section: { prev?: CropPoint | null; start: CropPoint; end: CropPoint; next?: CropPoint | null },
+  time: number,
+  fps: number,
+  frame: { width: number; height: number } | undefined,
+  componentsOf: (crop: string) => readonly number[]
+): [number, number, number, number] {
+  const easingPoint = (point: CropPoint): EasingCropPoint => ({
+    time: point.x,
+    components: componentsOf(point.crop),
+    easeIn: point.easeIn,
+  });
+  return getSectionEasedCropComponents(
+    easing,
+    easingPoint(section.start),
+    easingPoint(section.end),
+    section.prev ? easingPoint(section.prev) : null,
+    section.next ? easingPoint(section.next) : null,
+    time,
+    fps,
+    frame
+  );
+}

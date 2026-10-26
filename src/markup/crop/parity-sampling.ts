@@ -8,21 +8,7 @@ import {
   CinematicMargins,
   evalCropPathAtTime,
 } from './cinematic-path';
-import {
-  CropPointEasing,
-  EasingCropPoint,
-  getSectionEasedCropComponents,
-} from './crop-keyframe-math';
-
-function easingPoint(cropMap: CropPoint[], i: number): EasingCropPoint | null {
-  return cropMap[i]
-    ? {
-        time: cropMap[i].x,
-        components: cropMap[i].crop.split(':').map(Number),
-        easeIn: cropMap[i].easeIn,
-      }
-    : null;
-}
+import { CropPointEasing, sectionCropAt } from './crop-keyframe-math';
 
 /** The eased crop at `t` in the section that holds it. */
 export function easedCropAtTime(
@@ -33,19 +19,9 @@ export function easedCropAtTime(
   frame?: { width: number; height: number }
 ): number[] {
   const i = cropMap.findIndex((p, k) => k < cropMap.length - 1 && t >= p.x && t < cropMap[k + 1].x);
-  const start = easingPoint(cropMap, i);
-  const end = easingPoint(cropMap, i + 1);
-  if (!start || !end) throw new Error(`no crop section holds t = ${t}`);
-  return getSectionEasedCropComponents(
-    easing,
-    start,
-    end,
-    easingPoint(cropMap, i - 1),
-    easingPoint(cropMap, i + 2),
-    t,
-    fps,
-    frame
-  );
+  if (i < 0) throw new Error(`no crop section holds t = ${t}`);
+  const section = { prev: cropMap[i - 1], start: cropMap[i], end: cropMap[i + 1], next: cropMap[i + 2] };
+  return sectionCropAt(easing, section, t, fps, frame, (crop) => crop.split(':').map(Number));
 }
 
 export interface CinematicParityCase {
