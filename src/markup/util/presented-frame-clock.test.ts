@@ -75,10 +75,11 @@ describe('getMeasuredFrameRate', () => {
     ['29.97 fps', frames(30000 / 1001, 9), 30000 / 1001],
     ['60 fps rounded to the millisecond, as on YouTube', frames(60, 9, toMilliseconds), 60],
     ['24 fps rounded to the millisecond', frames(24, 9, toMilliseconds), 24],
-    ['30 fps with a frame the decoder skipped', frames(30, 10).filter((_, k) => k !== 5), 30],
+    // A skipped frame ends the run, and the frames after it measure again.
+    ['30 fps after a frame the decoder skipped', frames(30, 16).filter((_, k) => k !== 5), 30],
     [
-      '60 fps with a frame the decoder skipped, rounded',
-      frames(60, 10, toMilliseconds).filter((_, k) => k !== 3),
+      '60 fps after a frame the decoder skipped, rounded',
+      frames(60, 16, toMilliseconds).filter((_, k) => k !== 3),
       60,
     ],
     ['a non-standard rate', frames(17, 9), 17],
