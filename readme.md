@@ -844,6 +844,7 @@ There is an installation that does not require the dependencies below.
    - Go to <https://github.com/exwm/yt_clipper/releases> and pick a release. In the assets, find the appropriate file for your platform.
    - **Windows users:** The zip bundles [video2x](https://github.com/k4yt3x/video2x) in `bin/video-tools/`, so [motion interpolation](#motion-interpolation) works without extra setup.
 2. Simply drag and drop the markers .json file onto the `yt_clipper_auto.bat` file on Windows or at the terminal prompt after executing `yt_clipper_auto` on Mac.
+   - **Windows users:** Rename a file with `&` in its name before dropping it. Windows runs the part after `&` as a command.
 3. Use `Ctrl+C` if you need to cancel the process.
 4. All generated webm clips will be placed in `./webms/<markers-json-filename>`.
    - Each run writes its log to the `logs` folder inside it, named by the time the run started.
