@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { CropPath, CropPoint } from '../@types/yt_clipper';
+import { cinematicCropAt } from './parity-sampling';
 import {
   bakeCinematicPath,
   buildBandedM,
@@ -1130,10 +1131,9 @@ describe('render parity', () => {
   it.each(parityCases.map((c) => [c.name, c] as const))(
     'matches the parity table: %s',
     (_name, c) => {
-      const cropMap = cinematicCropMap(c.cropMap, c.holds ?? 'exact');
-      const path = bakeCinematicPath(cropMap, c.margins, c.cropRes[0], c.cropRes[1], c.fps)!;
+      const cropAt = cinematicCropAt(c);
       for (const sample of c.samples) {
-        const [x, y, w, h] = evalCropPathAtTime(path, sample.t);
+        const [x, y, w, h] = cropAt(sample.t);
         expect(x).toBeCloseTo(sample.x, 2);
         expect(y).toBeCloseTo(sample.y, 2);
         expect(w).toBeCloseTo(sample.w, 2);

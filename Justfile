@@ -99,6 +99,10 @@ lint-ts: typecheck-ts eslint-ts
 test-ts coverage="true":
   just _timed jest npx jest test {{ if coverage == "true" { "--coverage" } else { "" } }} --json --outputFile=coverage/jest-report.json
   uv run python tools/test/jest_slowest.py coverage/jest-report.json
+# Rewrite the crop easing and Cinematic parity tables' samples from the markup's preview math, after
+# adding a case or changing the preview. An unchanged case comes out byte for byte the same.
+regen-parity:
+  npx jiti tools/test/write-parity-fixtures.ts
 # Coverage of the lines changed since base, from the reports test-py and test-ts write (run them first).
 coverage-diff base="origin/master": (coverage-diff-py base) (coverage-diff-ts base)
 coverage-diff-py base="origin/master":
