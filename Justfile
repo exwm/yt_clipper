@@ -29,7 +29,7 @@ pretty-py-check:
 # The config path is absolute so tests that run from a temporary folder still find it. Tests do not
 # measure the Python processes they start (yt-dlp): see noCoverageInSubprocesses in conftest.py.
 test-py update="false":
-  just _timed pytest uv run pytest src/clipper tools/release tools/prose -s --durations=10 --cov --cov-config="{{justfile_directory()}}/pyproject.toml" --cov-report=html --cov-report=xml -m "not slow" \
+  just _timed pytest uv run pytest src/clipper tools/release tools/prose tools/test -s --durations=10 --cov --cov-config="{{justfile_directory()}}/pyproject.toml" --cov-report=html --cov-report=xml -m "not slow" \
     {{ if update == "true" { "--snapshot-update" } else { "-n auto --dist worksteal" } }}
 # Check an assembled release folder before zipping, as CI does: bundled tools, offline clips, schema.
 smoke-release folder version="":
