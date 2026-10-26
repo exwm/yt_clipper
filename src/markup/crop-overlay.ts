@@ -38,6 +38,7 @@ import { showPlayerControls } from './util/videoUtil';
 import { hidePlayerControls } from './util/videoUtil';
 import { createDraft } from 'immer';
 import { Crop } from './crop/crop';
+import { CropEdit, cropEditConflict } from './crop/crop-edit-conflict';
 import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
 import { CropPoint } from './@types/yt_clipper';
 import { cropChartMode, currentCropChartMode } from './ui/chart/cropchart/cropChartSpec';
@@ -607,7 +608,7 @@ export function showCropOverlay() {
   }
 }
 export function hideCropOverlay() {
-  cancelCropEdit();
+  resolveCropEditConflict('closeCropEditor');
   if (cropSvg) {
     cropSvg.style.display = 'none';
     appState.isCropOverlayVisible = false;
@@ -799,9 +800,8 @@ export function addCropMouseManipulationListener() {
       ctrlOrCommand(e) &&
       appState.isSettingsEditorOpen &&
       appState.isCropOverlayVisible &&
-      !isDrawingCrop &&
-      !isMouseManipulatingCrop &&
-      !isCropBlockingChartVisible
+      !isCropBlockingChartVisible &&
+      resolveCropEditConflict('startCropDrag')
     ) {
       // A wheel zoom waiting to commit becomes its own undo step before the drag's snapshot.
       flushCropWheelZoom();
@@ -1414,6 +1414,20 @@ export function cancelCropEdit(): void {
   }
   if (isDrawingCrop) finishDrawingCrop(true);
 }
+const CROP_EDIT_REFUSAL_MESSAGES: Partial<Record<CropEdit, string>> = {
+  addHoldCropPoint: 'Release the crop to add a hold crop point.',
+  startCropDraw: 'Please finish dragging or resizing before drawing crop',
+};
+/** Cancels the crop drag or draw in progress when `edit` must cancel it. Returns whether `edit` goes
+ *  ahead. */
+export function resolveCropEditConflict(edit: CropEdit): boolean {
+  const inProgress = isMouseManipulatingCrop ? 'drag' : isDrawingCrop ? 'draw' : null;
+  const conflict = cropEditConflict(edit, inProgress);
+  if (conflict === 'cancelFirst' || conflict === 'cancelOnly') cancelCropEdit();
+  const message = CROP_EDIT_REFUSAL_MESSAGES[edit];
+  if (conflict === 'refuse' && message) flashMessage(message, 'olive');
+  return conflict === 'proceed' || conflict === 'cancelFirst';
+}
 export let prevNewMarkerCrop = '0:0:iw:ih';
 export let initDrawCropMap: CropPoint[] | null;
 export let beginDrawHandler: (e: PointerEvent) => void;
@@ -1422,16 +1436,13 @@ export let beginDrawHandler: (e: PointerEvent) => void;
  *  idempotent. */
 let unregisterDrawRecovery: () => void = () => {};
 export function drawCrop() {
-  if (isDrawingCrop) {
-    finishDrawingCrop(true);
-  } else if (
+  if (!resolveCropEditConflict('startCropDraw')) return;
+  if (
     appState.isCurrentChartVisible &&
     chartState.currentChartInput &&
     chartState.currentChartInput.type !== 'crop'
   ) {
     flashMessage('Please toggle off the speed chart before drawing crop', 'olive');
-  } else if (isMouseManipulatingCrop) {
-    flashMessage('Please finish dragging or resizing before drawing crop', 'olive');
   } else if (appState.isSettingsEditorOpen && appState.isCropOverlayVisible) {
     flushCropWheelZoom();
     isDrawingCrop = true;

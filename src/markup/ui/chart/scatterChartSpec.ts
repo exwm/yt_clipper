@@ -19,10 +19,9 @@ import {
   cropDragStartCropString,
   cropDragStartWasHold,
   cropManipulationKind,
-  cancelCropEdit,
-  isDrawingCrop,
   isMouseManipulatingCrop,
   refreshCropDragInitState,
+  resolveCropEditConflict,
   setCropDragStartCropString,
   suppressNextAltLock,
 } from '../../crop-overlay';
@@ -86,8 +85,7 @@ export const addSpeedPoint = function (this: any, time, speed) {
     ) {
       return;
     }
-    // Its history entry would sit between a crop edit's snapshot and its cancel.
-    cancelCropEdit();
+    resolveCropEditConflict('addSpeedPoint');
 
     time = roundX(time);
     speed = roundY(speed);
@@ -123,7 +121,7 @@ export const addCropPoint = function (this: any, time: number) {
       return;
     }
     // A crop drag refreshes its own snapshot below; a draw can't.
-    if (isDrawingCrop) cancelCropEdit();
+    resolveCropEditConflict('addCropPoint');
 
     const initialState = getMarkerPairHistory(markerPair);
     const draft = createDraft(initialState);
@@ -223,7 +221,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
       e.target.style.cursor = 'grabbing';
       if (chartType === 'crop') {
         // Moving a point reorders the crop map under a draw.
-        cancelCropEdit();
+        resolveCropEditConflict('grabCropPoint');
         seekToSafe(appState.video, timeRounder(value.x));
         // Reframe suppresses the per-frame chart re-render, and the seek that would refresh the
         // selection is async, so select the grabbed point now to highlight it immediately.
@@ -353,7 +351,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
           points[index].x !== scatterChartMaxBound
         ) {
           // Its history entry would sit between a crop edit's snapshot and its cancel.
-          if (chartType === 'crop') cancelCropEdit();
+          if (chartType === 'crop') resolveCropEditConflict('deleteCropPoint');
           const draft = createDraft(getMarkerPairHistory(markerPair));
           const dataRef: any[] = chartType === 'crop' ? draft.cropMap : draft.speedMap;
           dataRef.splice(index, 1);
@@ -386,7 +384,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
     ) {
       const datum = dataAtClick[0];
       const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
-      if (datum) cancelCropEdit();
+      if (datum) resolveCropEditConflict('toggleCropPointType');
       if (datum && toggleCropPointType(markerPair, datum._index, event.altKey ? 'instant' : 'hold')) {
         this.renderSpeedAndCropUI(true);
       }

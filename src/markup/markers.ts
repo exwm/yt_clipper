@@ -5,10 +5,10 @@ import { appState } from './appState';
 import { initAutoSave } from './auto-save';
 import { chartState, cropChartSectionLoop, renderSpeedAndCropUI } from './charts';
 import {
-  cancelCropEdit,
   flushCropWheelZoom,
   isDrawingCrop,
   isMouseManipulatingCrop,
+  resolveCropEditConflict,
 } from './crop-overlay';
 import { isReframeEnabled } from './crop/video-zoom-controller';
 import { getCropMultiples, getDefaultCropRes, multiplyMarkerPairCrops } from './crop-utils';
@@ -783,7 +783,7 @@ export function moveMarker(
     flashMessage('End marker cannot be placed before or at start marker', 'red');
     return;
   }
-  if (adjustCharts) cancelCropEdit();
+  if (adjustCharts) resolveCropEditConflict('moveMarker');
 
   const initialState: MarkerPairHistory = getMarkerPairHistory(markerPair);
   const draft = createDraft(initialState);
@@ -836,11 +836,7 @@ export function renderMarkerPair(markerPair, markerPairIndex) {
 export function undoRedoMarkerPairChange(dir: 'undo' | 'redo') {
   // A wheel zoom waiting to commit is its own step, so the undo steps back over it alone.
   flushCropWheelZoom();
-  // Undo or redo during a crop drag or draw only cancels it.
-  if (isMouseManipulatingCrop || isDrawingCrop) {
-    cancelCropEdit();
-    return;
-  }
+  if (!resolveCropEditConflict('undoRedo')) return;
   if (
     appState.isSettingsEditorOpen &&
     !appState.wasGlobalSettingsEditorOpen &&
@@ -902,7 +898,7 @@ export function getRedoMarkerPairChangeCount(): number {
   return undoredo ? undoredo.history.length - 1 - undoredo.index : 0;
 }
 export function deleteMarkerPair(idx?: number) {
-  cancelCropEdit();
+  resolveCropEditConflict('deleteMarkerPair');
   idx ??= appState.prevSelectedMarkerPairIndex;
   const markerPair = appState.markerPairs[idx];
 

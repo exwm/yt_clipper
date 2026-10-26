@@ -27,8 +27,7 @@ import { getCropComponents, getSelectedCropString, updateCropString } from '../c
 import {
   cancelCropEdit,
   ensureReframeZoomPan,
-  isDrawingCrop,
-  isMouseManipulatingCrop,
+  resolveCropEditConflict,
   setCropDragStartCropString,
   setCropManipulationKind,
   setIsMouseManipulatingCrop,
@@ -807,8 +806,7 @@ function canDragCropOf(pair: MarkerPair | undefined): pair is MarkerPair {
     pair === appState.markerPairs[appState.prevSelectedMarkerPairIndex] &&
     !appState.wasGlobalSettingsEditorOpen &&
     !(appState.isCurrentChartVisible && chartState.currentChartInput?.type !== 'crop') &&
-    !isDrawingCrop &&
-    !isMouseManipulatingCrop
+    resolveCropEditConflict('startCropDrag')
   );
 }
 

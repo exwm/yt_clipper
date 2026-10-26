@@ -4,10 +4,10 @@ import { MarkerPair, MarkerPairOverrides, Settings } from '../../@types/yt_clipp
 import { appState } from '../../appState';
 import { autoKeyCurrentCropPoint, getCropMapProperties, renderSpeedAndCropUI } from '../../charts';
 import {
-  cancelCropEdit,
   flushCropWheelZoom,
   hideCropOverlay,
   resizeCrop,
+  resolveCropEditConflict,
   transformCropWithPushBack,
 } from '../../crop-overlay';
 import {
@@ -124,7 +124,7 @@ export function createBindings<T extends SettingsTarget>(target: T): SettingsBin
 export function deleteSettingsEditor() {
   // Before the editor flags change: both write to the open editor's crop.
   flushCropWheelZoom();
-  cancelCropEdit();
+  resolveCropEditConflict('closeCropEditor');
   const settingsEditorDiv = document.getElementById('settings-editor-div');
   assertDefined(settingsEditorDiv, 'Settings editor div not found');
   closeSettingsGearPopovers();

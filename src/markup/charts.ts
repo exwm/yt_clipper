@@ -42,14 +42,13 @@ import {
   cropCrossHairEnabled,
   cropOverlayElements,
   END_CROP_SECTION_COLOR,
-  finishDrawingCrop,
   forceRerenderCrop,
   getCropDimOpacity,
-  cancelCropEdit,
   isDrawingCrop,
   isMouseManipulatingCrop,
   renderStaticCropOverlay,
   resizeCropOverlay,
+  resolveCropEditConflict,
   setCropCrossHair,
   setCropOverlay,
   setCropOverlayDimensions,
@@ -192,8 +191,7 @@ export function selectCropPointWithMouseWheel(e: WheelEvent) {
   } else {
     return;
   }
-  // A crop drag or draw writes to the selected point, so another selection would get its crop.
-  if (isMouseManipulatingCrop || isDrawingCrop) return;
+  if (!resolveCropEditConflict('selectCropPoint')) return;
 
   const cropChart = chartState.cropChartInput.chart;
   if (!cropChart) return;
@@ -254,9 +252,6 @@ export function selectCropPointWithMouseWheel(e: WheelEvent) {
 }
 export function inheritCropPointCrop(e: WheelEvent) {
   if (
-    // A crop drag or draw would write over the copied crop.
-    !isMouseManipulatingCrop &&
-    !isDrawingCrop &&
     appState.isHotkeysEnabled &&
     e.ctrlKey &&
     e.altKey &&
@@ -265,7 +260,8 @@ export function inheritCropPointCrop(e: WheelEvent) {
     appState.isSettingsEditorOpen &&
     !appState.wasGlobalSettingsEditorOpen &&
     appState.prevSelectedEndMarker &&
-    chartState.cropChartInput.chart
+    chartState.cropChartInput.chart &&
+    resolveCropEditConflict('copyNeighborCrop')
   ) {
     blockEvent(e);
     const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
@@ -1394,12 +1390,7 @@ export function addHoldCropPointAtCurrentTime(): void {
   if (!appState.isSettingsEditorOpen || appState.wasGlobalSettingsEditorOpen) return;
   const pair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
   if (!pair) return;
-  // A drag or draw holds its own snapshot of the crop map, so a point added under it breaks the drag.
-  if (isMouseManipulatingCrop) {
-    flashMessage('Release the crop to add a hold crop point.', 'olive');
-    return;
-  }
-  cancelCropEdit();
+  if (!resolveCropEditConflict('addHoldCropPoint')) return;
   const cropMap = pair.cropMap;
   const cropChartOpen =
     appState.isCurrentChartVisible && chartState.currentChartInput?.type === 'crop';
@@ -1629,9 +1620,7 @@ export function cropChartSectionLoop() {
 }
 export function showChart() {
   if (chartState.currentChartInput?.chartContainer) {
-    if (isDrawingCrop) {
-      finishDrawingCrop(true);
-    }
+    resolveCropEditConflict('showChart');
     chartState.currentChartInput.chartContainer.style.display = 'block';
     appState.isCurrentChartVisible = true;
     syncCropChartVideoHeightLimit();
