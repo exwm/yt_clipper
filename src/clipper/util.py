@@ -38,6 +38,13 @@ def escapeSingleQuotesFFmpeg(string: str) -> str:
     return re.sub(r"'", r"'\\''", string)
 
 
+def escapeFilterOptionValue(value: str) -> str:
+    """`value` as a filter option in a filter graph, read literally: escaped once for the option
+    parser and once more for the graph parser (ffmpeg-filters, "Notes on filtergraph escaping")."""
+    optionLevel = re.sub(r"([\\':])", r"\\\1", value)
+    return re.sub(r"([\\'\[\],;])", r"\\\1", optionLevel)
+
+
 def floorToEven(x: Union[int, str, float]) -> int:
     x = int(x)
     return x & ~1

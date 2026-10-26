@@ -211,7 +211,10 @@ def getSubsFilter(
         )
     tmp_subs_path = f"{cp.clipsPath}/subs/{mps['titleSuffix']}-{markerPairIndex + 1}.vtt"
     vtt.save(tmp_subs_path)
-    subs_filter = f""",subtitles='{tmp_subs_path}':force_style='{mps["subsStyle"]}'"""
+    # The path holds the markers file name, which can have quotes, commas or semicolons.
+    subsPath = util.escapeFilterOptionValue(tmp_subs_path)
+    subsStyle = util.escapeFilterOptionValue(mps["subsStyle"])
+    subs_filter = f",subtitles=filename={subsPath}:force_style={subsStyle}"
 
     return subs_filter
 
