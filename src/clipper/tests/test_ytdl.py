@@ -1,4 +1,5 @@
 import json
+import os
 import shlex
 import shutil
 import subprocess
@@ -370,6 +371,56 @@ def test_a_format_id_with_square_brackets_is_logged_as_text(formatId: str) -> No
     )
     assert run.returncode == 0, run.stderr
     assert formatId in run.stdout + run.stderr
+
+
+LOG_VIDEO_INFO = """
+import sys
+from clipper import ytc_logger, ytc_settings
+from clipper.clipper_types import ClipperState
+field, text = sys.argv[1:]
+values = {"title": "a title", "format": "248", "url": "https://example.com/watch", field: text}
+cs = ClipperState(settings={
+    "noRichLogs": False, "logLevel": None, "preview": True, "inputVideo": "", "videoDownloadURL": "",
+    "videoTitle": values["title"], "videoPageURL": values["url"], "markerPairMergeList": "",
+    "subsFilePath": "", "autoSubsLang": "",
+    "cropRes": "1920x1080", "cropResWidth": 1920, "cropResHeight": 1080,
+})
+ytc_logger.setUpLogger(cs)
+ytc_settings.ffprobeVideoProperties = lambda _cs, _url: {
+    "width": 1920, "height": 1080, "r_frame_rate": 30, "bit_rate": 1000, "inputBitDepth": 8,
+}
+info = {"format_id": values["format"], "vcodec": "vp9", "fps": 30, "tbr": 1000}
+if field == "url":
+    # The page URL is logged first; the rest of the set-up is not needed.
+    cs.settings["inputVideo"] = "in.mp4"
+    ytc_settings.getMoreVideoInfo = lambda *_args: sys.exit(0)
+    ytc_settings.getGlobalSettings(cs)
+ytc_settings.getMoreVideoInfo(cs, info, {"format_id": "140", "acodec": "mp4a"})
+"""
+
+
+@pytest.mark.parametrize(
+    ("field", "logged"),
+    [("title", "Video Title: "), ("format", "Video Format: vp9 ("), ("url", "Video Page URL: ")],
+)
+@pytest.mark.parametrize("text", ["a[/red]b", "[link=https://example.com]x[/link]"])
+def test_a_video_title_url_or_format_with_square_brackets_is_logged_as_text(
+    field: str,
+    logged: str,
+    text: str,
+) -> None:
+    # The title and page URL come from the markers JSON, the format from the site's metadata, and
+    # the run's Rich log reads every message as markup.
+    run = subprocess.run(
+        [sys.executable, "-c", LOG_VIDEO_INFO, field, text],
+        capture_output=True,
+        text=True,
+        check=False,
+        # Wide enough that Rich doesn't wrap the line.
+        env={**os.environ, "COLUMNS": "300"},
+    )
+    assert run.returncode == 0, run.stderr
+    assert f"{logged}{text}" in run.stdout + run.stderr
 
 
 # A trimmed yt-dlp -F table (plain text, as captured from a pipe) for highlight tests.

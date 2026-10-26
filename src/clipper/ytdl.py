@@ -360,7 +360,7 @@ def ytdl_bin_get_video_info(cs: ClipperState) -> Dict:
     if len(dumpedInfos) > 1:
         stop_on_several_downloads()
     if not dumpedInfos:
-        logger.error(f"yt-dlp found no video at {settings['videoPageURL']}.")
+        logger.error(f"yt-dlp found no video at {escape(settings['videoPageURL'])}.")
         sys.exit(1)
     ytdl_info = json.loads(dumpedInfos[0])
 
