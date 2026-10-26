@@ -10,6 +10,7 @@ import {
   isCropPointHighlightVisible,
   setCropPointHighlightVisible,
 } from './ui/chart/cropchart/cropChartSpec';
+import { activeCropPoints } from './ui/chart/cropchart/active-crop-points';
 import {
   assertDefined,
   blockEvent,
@@ -791,11 +792,8 @@ export function cropChartPreviewHandler(frameTime?: number) {
   presentedFrameTime = frameTime ?? null;
   try {
     const chart = chartState.cropChartInput.chart;
-    const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
-    if (appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen && markerPair) {
-      // The chart shows the marker pair's own crop map, and it is only created once first shown.
-      const chartData =
-        (chart?.data.datasets?.[0].data as CropPoint[] | undefined) ?? markerPair.cropMap;
+    const chartData = activeCropPoints(chart, appState);
+    if (appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen && chartData) {
       const time = currentCropTime();
       const isDynamicCrop = !isStaticCrop(chartData);
       const isCropChartVisible =
@@ -893,10 +891,7 @@ function updateInterpCropSpan(): void {
 }
 export function setCurrentCropPointWithCurrentTime() {
   const cropChart = chartState.cropChartInput.chart;
-  const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
-  // The marker pair's own crop map before the chart is first shown.
-  const chartData =
-    (cropChart?.data.datasets?.[0].data as CropPoint[] | undefined) ?? markerPair?.cropMap;
+  const chartData = activeCropPoints(cropChart, appState);
   if (chartData) {
     const time = currentCropTime();
     const searchCropPoint = { x: time, y: 0, crop: '' };

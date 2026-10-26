@@ -5,6 +5,7 @@ import { assertDefined, clampNumber } from '../../../util/util';
 import { HOLD_BAR_COLOR, medgrey } from '../chartPrimitives';
 import { scatterChartSpec } from '../scatterChartSpec';
 import { isReframeEnabled } from '../../../crop/video-zoom-controller';
+import { activeCropPoints } from './active-crop-points';
 import { getCropPointMainLabel } from './crop-point-labels';
 import { cropSectionColor, cropZoomWidth, getCropSectionInfo } from './crop-section';
 import isEqual from 'lodash.isequal';
@@ -80,16 +81,10 @@ export function setCurrentCropPoint(
   }
 }
 
-// The last crop point's index: the chart's, or the open marker pair's before the chart is first shown
-// (it is only created then), so the selection and section follow the playhead without it.
+// Also before the chart is first shown, so the selection and section follow the playhead without it.
 function lastCropPointIndex(cropChart: Chart | null): number {
-  const chartData = cropChart?.data.datasets?.[0].data;
-  if (chartData) return chartData.length - 1;
-  const isPairEditorOpen = appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen;
-  const cropMap = isPairEditorOpen
-    ? appState.markerPairs[appState.prevSelectedMarkerPairIndex]?.cropMap
-    : undefined;
-  return cropMap ? Math.max(1, cropMap.length - 1) : 1;
+  const points = activeCropPoints(cropChart, appState);
+  return points ? Math.max(1, points.length - 1) : 1;
 }
 
 export let currentCropChartSection: [number, number] = [0, 1];
