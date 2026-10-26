@@ -356,6 +356,41 @@ def test_clip_of_a_video_with_a_start_time_begins_on_the_pair_start_frame(
 
 
 @pytest.mark.parametrize(
+    "extraArgs",
+    [
+        pytest.param([], id="the encode"),
+        pytest.param(["--video-stabilization", "1"], id="video stabilization's two passes"),
+    ],
+)
+def test_subtitles_burn_in_for_a_markers_file_named_with_an_apostrophe(
+    clipper: Clipper,
+    tmp_path: pathlib.Path,
+    extraArgs: list[str],
+) -> None:
+    # The name reaches each filter graph in the clips folder's path, through a `-vf "..."` command
+    # string that shlex splits.
+    clipper.requireEncoder("libvpx-vp9")
+    ffmpeg = clipper.toolPath("ffmpeg")
+    assert ffmpeg is not None
+    source, lateMarkers = lateStartVideo(ffmpeg, tmp_path)
+    data = json.loads(lateMarkers.read_text(encoding="utf-8"))
+    data["titleSuffix"] = "it's"
+    markers = tmp_path / "it's.json"
+    markers.write_text(json.dumps(data), encoding="utf-8")
+    subs = tmp_path / "subs.vtt"
+    subs.write_text("WEBVTT\n\n00:10.000 --> 00:13.000\nhello\n", encoding="utf-8")
+    output = clipper.cwd / "webms" / markers.stem
+    try:
+        args = ["--markers-json", str(markers), "--input-video", str(source), "--subs-file", str(subs)]
+        run = clipper.run([*args, *extraArgs, *OFFLINE_ARGS])
+        print(run.stdout, run.stderr)
+        assert run.returncode == 0
+        assert len(list(output.glob("*.webm"))) == 1
+    finally:
+        shutil.rmtree(output, ignore_errors=True)
+
+
+@pytest.mark.parametrize(
     ("makeVideo", "seek"),
     [
         # The pair starts at 1.0 s. The file starts at -0.1065 s: the audio's 0.1 s lead plus the
