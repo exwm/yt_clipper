@@ -1,6 +1,4 @@
 import argparse
-import codecs
-import locale
 import os
 import re
 import shlex
@@ -13,6 +11,7 @@ from rich_argparse import ArgumentDefaultsRichHelpFormatter
 from clipper import banded_lapack, updates
 from clipper.clipper_types import ClipperPaths, DictStrAny
 from clipper.ffmpeg_version import getFfmpegVersion
+from clipper.settings_file import decodeSettingsFile
 from clipper.version import __version__
 from clipper.ytdl import DEFAULT_FORMAT_SORT, ytdl_bin_get_version
 
@@ -1111,18 +1110,9 @@ def readArgFile(path: Path) -> List[str]:
     except OSError as error:
         print(f"Warning: Could not read {path} ({error.strerror or error}), so its settings are not used.", file=sys.stderr)
         return []
-    if raw.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)):
-        # Windows PowerShell 5.1 writes UTF-16 with > and Out-File.
-        text = raw.decode("utf-16", errors="replace")
-    else:
-        try:
-            # utf-8-sig also accepts the byte order mark some editors write.
-            text = raw.decode("utf-8-sig")
-        except UnicodeDecodeError:
-            # The ANSI code page, even in Python's UTF-8 mode.
-            encoding = locale.getencoding()
-            text = raw.removeprefix(codecs.BOM_UTF8).decode(encoding, errors="replace")
-            print(f"Warning: {path} is not saved as UTF-8, so it was read as {encoding}. Save it as UTF-8.", file=sys.stderr)
+    text, fallbackEncoding = decodeSettingsFile(raw)
+    if fallbackEncoding:
+        print(f"Warning: {path} is not saved as UTF-8, so it was read as {fallbackEncoding}. Save it as UTF-8.", file=sys.stderr)
     args: List[str] = []
     for number, line in enumerate(text.splitlines(), start=1):
         if line.lstrip().startswith("#"):

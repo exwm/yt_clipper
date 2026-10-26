@@ -1,6 +1,5 @@
 """Telling the user when their markup or clipper script is out of date."""
 
-import codecs
 import json
 import re
 import ssl
@@ -13,6 +12,7 @@ import certifi
 from rich.markup import escape
 
 from clipper.log_helpers import LogPath
+from clipper.settings_file import decodeSettingsFile
 from clipper.version import __version__
 from clipper.ytc_logger import Subsystem, make_subsystem_logger
 
@@ -42,11 +42,8 @@ def hasActiveArgs(argsFile: Path) -> bool:
         raw = argsFile.read_bytes()
     except OSError:
         return False
-    # As the clipper reads settings files: UTF-16 (Windows PowerShell 5.1), a byte order mark, or
-    # another encoding still counts.
-    encoding = "utf-16" if raw.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)) else "utf-8-sig"
-    lines = raw.decode(encoding, errors="replace").splitlines()
-    return any(line.strip() and not line.strip().startswith("#") for line in lines)
+    text, _fallbackEncoding = decodeSettingsFile(raw)
+    return any(line.strip() and not line.strip().startswith("#") for line in text.splitlines())
 
 
 def showStartupNotices() -> None:
