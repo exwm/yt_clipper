@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from rich.markup import escape
 
 from clipper import cinematic_path, markers_schema, updates, util
-from clipper.clip_maker import getDefaultEncodeSettings
+from clipper.clip_maker import cleanFileName, getDefaultEncodeSettings
 from clipper.clipper_types import (
     INVALID_MARKER_PAIR_KEY,
     UNKNOWN_PROPERTY,
@@ -85,6 +85,8 @@ def setMarkersFileNames(settings: Settings) -> None:
             file=sys.stderr,
         )
         sys.exit(1)
+    # The name becomes part of each clip's file name, inside a quoted ffmpeg argument.
+    stem = cleanFileName(stem)
     settings["markersDataFileStem"] = stem
     settings["titleSuffix"] = stem
     settings["downloadVideoNameStem"] = f"{stem}-full"
