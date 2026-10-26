@@ -1,11 +1,24 @@
-import { appState, YTPlayer } from '../appState';
+import { appState, VideoElement, YTPlayer } from '../appState';
+import { onVideoFrames, VideoFrameSubscription } from './video-frame-loop';
 import { getPlatform, VideoPlatforms } from '../platforms/platforms';
 import { chartState } from '../charts';
 import { isDrawingCrop } from '../crop-overlay';
 import { isMouseManipulatingCrop } from '../crop-overlay';
-import { blockEvent, seekBySafe } from './util';
+import { blockEvent, flashMessage, seekBySafe } from './util';
 import { registerActiveDragCleanup } from './drag-recovery';
-import { FRAMES_TO_TELL_NTSC_RATES, getMeasuredFrameRate } from './presented-frame-clock';
+import {
+  FRAMES_TO_TELL_NTSC_RATES,
+  getMeasuredFrameRate,
+  isNewMeasuredFrameRate,
+} from './presented-frame-clock';
+
+let frameRateFrames: VideoFrameSubscription | null = null;
+/** Reads the frame rate on each played frame, so a measured rate is taken, and flashed, as soon as
+ *  it is measured rather than at the next action that needs it. */
+export function followFrameRate(video: VideoElement): void {
+  frameRateFrames?.stop();
+  frameRateFrames = onVideoFrames(video, () => getFPS(), { phase: 'update', label: 'frame rate' });
+}
 
 export let prevVideoWidth: number;
 export function getFPS(defaultFPS: number | null = 60) {
@@ -35,6 +48,9 @@ export function getFPS(defaultFPS: number | null = 60) {
     if (measuredFPS != null && (!isYouTube || Math.abs(measuredFPS - fps) <= fps * 0.005)) {
       fps = measuredFPS;
       appState.videoInfo.fps = fps;
+      if (isNewMeasuredFrameRate(appState.video, fps)) {
+        flashMessage(`Measured the frame rate: ${Number(fps.toFixed(3))} fps.`, 'olive');
+      }
     }
   } catch (e) {
     console.log('Could not detect fps', e);

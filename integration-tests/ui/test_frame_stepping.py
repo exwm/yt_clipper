@@ -11,19 +11,39 @@ VIDEO_FPS = 30
 
 def test_shift_mousewheel_steps_one_frame_at_the_measured_frame_rate(markup: MarkupPage) -> None:
     if markup.host != DEV_SITE_HOST:
-        pytest.skip("YouTube reports its frame rate, so nothing is measured there")
-    given_the_video_has_played_a_moment(markup)
+        pytest.skip("checks a site that reports no frame rate; YouTube's stats report one")
+    given_the_video_has_played_until_its_frame_rate_is_measured(markup)
     before = when_i_pause_on_a_frame(markup, 90)
     when_i_shift_scroll_up_once(markup)
     then_the_playhead_moved_one_frame(markup, before)
 
 
+# On YouTube the measured rate refines the stats rate, whatever the video's rate.
+@pytest.mark.platform
+def test_the_measured_frame_rate_flashes_once_the_video_plays(markup: MarkupPage) -> None:
+    rate = f"{VIDEO_FPS} fps." if markup.host == DEV_SITE_HOST else ""
+    with markup.untraced():
+        given_the_video_is_playing(markup)
+        then_a_flash_says(markup, f"Measured the frame rate: {rate}")
+
+
 @step
-def given_the_video_has_played_a_moment(markup: MarkupPage) -> None:
+def given_the_video_is_playing(markup: MarkupPage) -> None:
     markup.seek(2, presented=True)
     markup.play()
-    assert markup.eventually("() => document.querySelector('video').currentTime > 2.6")
-    markup.pause()
+
+
+# Waits for the measurement itself: a fixed stretch of playback can hold too few frames in a row,
+# after Chrome's periodic dropped frames or a late start of the markup.
+@step
+def given_the_video_has_played_until_its_frame_rate_is_measured(markup: MarkupPage) -> None:
+    markup.seek(2, presented=True)
+    with markup.untraced():
+        markup.play()
+        markup.page.get_by_text(f"Measured the frame rate: {VIDEO_FPS} fps.").first.wait_for(
+            timeout=5000
+        )
+        markup.pause()
 
 
 @step

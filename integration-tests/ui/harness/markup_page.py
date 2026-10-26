@@ -2,6 +2,8 @@
 share (seeking, playing, placing and opening marker pairs) and named screenshots."""
 
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -27,11 +29,24 @@ def clip_box(boxes: "list[FloatRect]", scroll: tuple[float, float], padding: flo
 
 
 class MarkupPage:
-    def __init__(self, page: "Page", host: Host, shots_dir: Path) -> None:
+    def __init__(self, page: "Page", host: Host, shots_dir: Path, tracing: bool = False) -> None:
         self.page = page
         self.host = host
         self.shots_dir = shots_dir
         self.shot_count = 0
+        self.tracing = tracing
+
+    @contextmanager
+    def untraced(self) -> Iterator[None]:
+        """Pause the trace for a stretch of playback that measures the video. Tracing's screenshots
+        starve Chrome of frames (about 1 in 7 shown), so the frame rate can't be measured under it."""
+        if self.tracing:
+            self.page.context.tracing.stop_chunk()
+        try:
+            yield
+        finally:
+            if self.tracing:
+                self.page.context.tracing.start_chunk()
 
     def report(self, message: str) -> None:
         """Print a measured value, so a run's log shows what each check saw."""

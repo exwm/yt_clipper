@@ -127,7 +127,7 @@ import {
   toggleCropChartLooping,
 } from './charts';
 import { installLitUrlSanitizer } from './util/url-sanitizer';
-import { addScrubVideoHandler, getFPS } from './util/videoUtil';
+import { addScrubVideoHandler, followFrameRate, getFPS } from './util/videoUtil';
 import { mountHintsBar, setHintsBarEnabled, toggleHintsBar } from './features/hints-bar/hints-bar';
 import {
   HoveredRegion,
@@ -621,6 +621,7 @@ function initVideoInfo() {
   const url = window.location.origin + window.location.pathname;
   appState.videoInfo.videoUrl = url;
   appState.videoInfo.fps = getFPS();
+  followFrameRate(appState.video);
 
   appState.video.seekTo = (time) => (appState.video.currentTime = time);
   appState.video.getCurrentTime = () => {

@@ -42,6 +42,9 @@ const PUBLISHED_RATE_HYSTERESIS = 0.002;
 // A run keeps durations within this ratio of each other. Between the 1 ms rounding of mediaTime
 // (17 ms after 16 ms at 60 fps) and the 2x of a missed frame.
 const RUN_DURATION_RATIO = 1.5;
+// Rates measured in quick succession, as on a video spliced from parts at different rates, are
+// announced at most this often.
+const ANNOUNCE_INTERVAL_MS = 5000;
 
 /** A frame the video presented, with the video's state at that moment. */
 export interface ClockFrame {
@@ -83,6 +86,10 @@ export interface ClockState {
   // The rate `measuredRun` measures, or null when it is empty.
   measuredFps: number | null;
   publishedRate: number | null;
+  // The last rate `announceRate` took and when (ms), so each new one is announced once per source,
+  // at most once per ANNOUNCE_INTERVAL_MS.
+  announcedRate: number | null;
+  announcedAt: number | null;
 }
 
 export type ClockEvent =
@@ -100,6 +107,8 @@ export const initialClock: ClockState = {
   measuredRun: [],
   measuredFps: null,
   publishedRate: null,
+  announcedRate: null,
+  announcedAt: null,
 };
 
 export function stepClock(state: ClockState, event: ClockEvent): ClockState {
@@ -241,6 +250,21 @@ export function publishRate(
     return { state, rate: publishedRate };
   }
   return { state: { ...state, publishedRate: measuredFps }, rate: measuredFps };
+}
+
+/** Whether to announce `rate` at `now` (ms): it is new since the last one announced for this source,
+ *  and that one was at least ANNOUNCE_INTERVAL_MS ago. A rate held back stays new, so it is announced
+ *  once the interval is up if it still holds. */
+export function announceRate(
+  state: ClockState,
+  rate: number,
+  now: number
+): { state: ClockState; isNew: boolean } {
+  if (rate === state.announcedRate) return { state, isNew: false };
+  if (state.announcedAt != null && now - state.announcedAt < ANNOUNCE_INTERVAL_MS) {
+    return { state, isNew: false };
+  }
+  return { state: { ...state, announcedRate: rate, announcedAt: now }, isNew: true };
 }
 
 // A run holds no outlier to filter: each frame duration is within RUN_DURATION_RATIO of the one

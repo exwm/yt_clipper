@@ -1,5 +1,6 @@
 import type { VideoElement } from '../appState';
 import {
+  announceRate,
   ClockEvent,
   ClockState,
   FRAMES_TO_TELL_NTSC_RATES,
@@ -69,4 +70,17 @@ export function getMeasuredFrameRate(
   const published = publishRate(clock, minFrames);
   clock = published.state;
   return published.rate;
+}
+
+/** Whether to announce `rate`: a measured rate not yet announced for the video's current source, at
+ *  most once every 5 s. */
+export function isNewMeasuredFrameRate(
+  video: VideoElement,
+  rate: number,
+  now = performance.now()
+): boolean {
+  if (clockVideo !== video) startClock(video);
+  const announced = announceRate(clock, rate, now);
+  clock = announced.state;
+  return announced.isNew;
 }

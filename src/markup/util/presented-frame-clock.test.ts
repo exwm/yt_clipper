@@ -3,6 +3,7 @@ import {
   FRAMES_TO_TELL_NTSC_RATES,
   getMeasuredFrameRate,
   getPresentedFrameTime,
+  isNewMeasuredFrameRate,
 } from './presented-frame-clock';
 
 // A video that presents frames on demand: present(t) runs the pending frame callbacks with mediaTime t.
@@ -72,6 +73,41 @@ describe('getPresentedFrameTime', () => {
     emit('emptied');
     video.currentTime = 7;
     expect(getPresentedFrameTime(element)).toBe(7);
+  });
+});
+
+describe('isNewMeasuredFrameRate', () => {
+  it('announces the first rate, a changed rate, and the same rate again for a new source', () => {
+    const { element, emit } = fakeVideo();
+    const asked = (
+      [
+        [30, 0],
+        [30, 1000],
+        [30000 / 1001, 6000],
+        [30000 / 1001, 7000],
+      ] as const
+    ).map(([rate, now]) => isNewMeasuredFrameRate(element, rate, now));
+    emit('resize');
+    asked.push(isNewMeasuredFrameRate(element, 30000 / 1001, 8000));
+    // A new source announces at once.
+    emit('emptied');
+    asked.push(isNewMeasuredFrameRate(element, 30000 / 1001, 9000));
+    expect(asked).toEqual([true, false, true, false, false, true]);
+  });
+
+  it('announces at most once every 5 s, then the rate that holds', () => {
+    const { element } = fakeVideo();
+    const asked = (
+      [
+        [30, 0],
+        [24, 1000],
+        [30, 2000],
+        [24, 3000],
+        [24, 5500],
+        [24, 6000],
+      ] as const
+    ).map(([rate, now]) => isNewMeasuredFrameRate(element, rate, now));
+    expect(asked).toEqual([true, false, false, false, true, false]);
   });
 });
 
