@@ -1,6 +1,7 @@
 import copy
 import json
 import shlex
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -370,6 +371,39 @@ def test_merge_with_an_invalid_pair_is_skipped_when_declined(
     )
 
     clip_maker.mergeClips(cs)
+
+
+def test_a_merged_clip_named_from_a_quoted_title_prefix_stays_one_argument(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pairs = []
+    for number in (1, 2):
+        clip = tmp_path / f"clip-{number}.webm"
+        clip.touch()
+        overrides = {"titlePrefix": 'x" -f mp4 "y'}
+        pairs.append({"returncode": 0, "fileName": clip.name, "filePath": str(clip), "overrides": overrides})
+    cs = ClipperState(
+        settings={
+            "markerPairs": pairs,
+            "markerPairMergeList": "1-2",
+            "titleSuffix": "suffix",
+            "videoCodec": "vp9",
+            "overwrite": True,
+        },
+    )
+    cs.clipper_paths.clipsPath = str(tmp_path)
+    commands: list[list[str]] = []
+    monkeypatch.setattr(
+        clip_maker.subprocess,
+        "run",
+        lambda args, **_kwargs: commands.append(args) or subprocess.CompletedProcess(args, 1),
+    )
+
+    clip_maker.mergeClips(cs)
+
+    assert len(commands) == 1
+    assert commands[0][-1] == f"{tmp_path}/x -f mp4 y-suffix-(1-2).webm"
 
 
 @pytest.mark.parametrize("platform", ["win32", "darwin", "linux"])
