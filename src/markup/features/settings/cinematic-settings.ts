@@ -50,7 +50,15 @@ export interface CinematicSettingsProps {
   inheritedHolds: CinematicHolds;
 }
 
-const holdsLabels: Record<CinematicHolds, string> = { loose: 'Loose', firm: 'Firm', exact: 'Exact' };
+const holdsLabels: Record<CinematicHolds, string> = {
+  loose: 'Loose',
+  firm: 'Firm',
+  exact: 'Exact',
+};
+// One expression, so the formatter keeps the option's text off lines of its own, which would put
+// their line breaks and indent into the label.
+const inheritedHoldsLabel = (p: { inheritedHolds: CinematicHolds }) =>
+  `(${holdsLabels[p.inheritedHolds]})`;
 
 function onHoldsChange(p: CinematicSettingsProps) {
   return (e: Event) => {
@@ -64,7 +72,7 @@ const holdsSelect = (p: CinematicSettingsProps) => html`
   <div class="ytc-cinematic-holds" title=${Tooltips.cinematicHoldsTooltip}>
     <span>Hold Points</span>
     <select id=${p.holdsInput.id} @change=${onHoldsChange(p)} ${ref(gateHotkeys)}>
-      <option value="Default" ?selected=${p.holds == null}>(${holdsLabels[p.inheritedHolds]})</option>
+      <option value="Default" ?selected=${p.holds == null}>${inheritedHoldsLabel(p)}</option>
       ${(['loose', 'firm', 'exact'] as const).map(
         (holds) =>
           html`<option value=${holds} ?selected=${p.holds === holds}>${holdsLabels[holds]}</option>`

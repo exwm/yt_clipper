@@ -33,7 +33,11 @@ const zoomPanCropMap: CropPoint[] = Array.from({ length: 9 }, (_, i) => ({
   crop: i % 2 === 0 ? '0:0:1920:1080' : '600:300:640:360',
 }));
 
-function plotInput(cropMap: CropPoint[], solved: boolean, enableZoomPan = true): CinematicPlotInput {
+function plotInput(
+  cropMap: CropPoint[],
+  solved: boolean,
+  enableZoomPan = true
+): CinematicPlotInput {
   const margins = cinematicMarginsFromPercent(12, 8);
   return {
     cropMap,
@@ -120,7 +124,10 @@ describe('cinematicPlotSeries', () => {
     // where the band is flat.
     const holds = ['0:0:1920:1080', '0:0:1920:1080', '600:300:640:360', '600:300:640:360'];
     const series = cinematicPlotSeries(
-      plotInput(holds.map((crop, i) => ({ x: 2 * i, y: 0, crop })), false),
+      plotInput(
+        holds.map((crop, i) => ({ x: 2 * i, y: 0, crop })),
+        false
+      ),
       'zoom'
     )!;
     expect(series.points.map((p) => p.value)).toEqual([1, 1, 3, 3]);

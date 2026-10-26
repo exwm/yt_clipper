@@ -24,7 +24,8 @@ function rerender(e: Event): void {
 function onFlagChange(name: FeatureFlagName) {
   return (e: Event): void => {
     const input = e.currentTarget as HTMLInputElement | HTMLSelectElement;
-    const value = input instanceof HTMLInputElement && input.type === 'checkbox' ? input.checked : input.value;
+    const value =
+      input instanceof HTMLInputElement && input.type === 'checkbox' ? input.checked : input.value;
     setFeatureFlag(name, value as never);
     rerender(e);
   };

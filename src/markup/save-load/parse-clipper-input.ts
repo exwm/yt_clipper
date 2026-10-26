@@ -35,14 +35,7 @@ import { releaseMismatchedHolds } from '../crop/crop-point-holds';
  *  loadable and are excluded from the allowlist. */
 type LoadableMarkerPair = Pick<
   MarkerPair,
-  | 'start'
-  | 'end'
-  | 'speed'
-  | 'speedMap'
-  | 'crop'
-  | 'cropMap'
-  | 'enableZoomPan'
-  | 'cropRes'
+  'start' | 'end' | 'speed' | 'speedMap' | 'crop' | 'cropMap' | 'enableZoomPan' | 'cropRes'
 > & {
   overrides?: Partial<MarkerPairOverrides>;
   /** 1-indexed display number added by save-time serializer. Tolerated but
@@ -285,8 +278,7 @@ function requireNonNegativeFinite(value: unknown, field: string, index: number):
  *  expects to consume. */
 const OVERRIDES_VALIDATORS = {
   titlePrefix: (v: unknown) => typeof v === 'string',
-  cropPointEasing: (v: unknown) =>
-    v === 'smoothInOut' || v === 'smoothTrack' || v === 'cinematic',
+  cropPointEasing: (v: unknown) => v === 'smoothInOut' || v === 'smoothTrack' || v === 'cinematic',
   // The schema's bounds: the clipper skips a pair with a margin outside them.
   cropPointEasingCinematicMargin: (v: unknown) => isFiniteNumber(v) && v >= 0 && v <= 50,
   cropPointEasingCinematicZoomMargin: (v: unknown) => isFiniteNumber(v) && v >= 0 && v <= 100,

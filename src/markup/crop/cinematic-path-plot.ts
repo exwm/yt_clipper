@@ -155,9 +155,7 @@ export function cinematicPlotSeries(
   const smoothTrack = eased('smoothTrack');
   const easeInOut = eased('smoothInOut');
   const path = input.path;
-  const cinematic = path
-    ? sampleTimes.map((t) => scale.value(evalCropPathAtTime(path, t)))
-    : null;
+  const cinematic = path ? sampleTimes.map((t) => scale.value(evalCropPathAtTime(path, t))) : null;
   const bounds = path?.centerBounds;
   const band = bounds
     ? solvedBand(input, bounds, axis, sampleTimes)
@@ -178,7 +176,10 @@ export function cinematicPlotSeries(
 
 // The bounds at time t, linear between the solver's samples as its box is.
 function boundAt(t: number, times: readonly number[], values: readonly number[]): number {
-  const i = Math.max(1, times.findIndex((bt) => bt >= t));
+  const i = Math.max(
+    1,
+    times.findIndex((bt) => bt >= t)
+  );
   if (i >= times.length) return values[values.length - 1];
   const span = times[i] - times[i - 1];
   const s = span > 0 ? Math.min(1, Math.max(0, (t - times[i - 1]) / span)) : 1;

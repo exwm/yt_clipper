@@ -209,10 +209,7 @@ let wasShowable = false;
 
 const minimapTemplate = () => html`
   <div class="ytc-zoom-minimap-header">
-    <button
-      class="ytc-zoom-minimap-close"
-      title="Hide minimap (Shift+V shows it again)"
-    >
+    <button class="ytc-zoom-minimap-close" title="Hide minimap (Shift+V shows it again)">
       ${renderUIIcon('close', 10)}
     </button>
   </div>

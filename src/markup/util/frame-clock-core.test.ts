@@ -59,7 +59,8 @@ function scenarios(seedsPerCell: number): Scenario[] {
       const seed = c * seedsPerCell + i + 1;
       const random = mulberry32(seed);
       const noisy = random() < 0.5;
-      const pick = <T>(values: T[]) => (noisy ? values[Math.floor(random() * values.length)] : values[0]);
+      const pick = <T>(values: T[]) =>
+        noisy ? values[Math.floor(random() * values.length)] : values[0];
       return {
         ...cell,
         seed,
@@ -178,7 +179,9 @@ describe('the frame clock over seeded playback', () => {
     [24, 60],
   ])('reports a change from %p to %p fps within 70 frames', (before, after) => {
     for (const countsFrames of [true, false]) {
-      const { reported } = play(clean(before, countsFrames), 200 + 70, (k) => (k < 200 ? before : after));
+      const { reported } = play(clean(before, countsFrames), 200 + 70, (k) =>
+        k < 200 ? before : after
+      );
       expect(new Set(reported.filter((rate) => rate != null))).toEqual(new Set([before, after]));
       expect(reported[reported.length - 1]).toBe(after);
     }

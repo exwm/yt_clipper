@@ -90,7 +90,12 @@
       ],
       "enableZoomPan": true,
       "cropRes": "1920x1080",
-      "overrides": { "cropPointEasing": "cinematic", "cropPointEasingCinematicMargin": 6, "cropPointEasingCinematicZoomMargin": 10, "cropPointEasingCinematicHolds": "loose" }
+      "overrides": {
+        "cropPointEasing": "cinematic",
+        "cropPointEasingCinematicMargin": 6,
+        "cropPointEasingCinematicZoomMargin": 10,
+        "cropPointEasingCinematicHolds": "loose"
+      }
     },
     {
       "number": 3,

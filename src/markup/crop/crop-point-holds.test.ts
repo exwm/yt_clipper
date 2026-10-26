@@ -97,41 +97,112 @@ describe('cropBeforeHold', () => {
   it.each([
     [
       'the crop from before the point became a hold point',
-      [state([[0, P], [1, Q]]), state([[0, P], [1, P, true]])],
+      [
+        state([
+          [0, P],
+          [1, Q],
+        ]),
+        state([
+          [0, P],
+          [1, P, true],
+        ]),
+      ],
       1,
       Q,
     ],
     [
       'nothing for a point that was always a hold point',
-      [state([[0, P], [1, P, true]]), state([[0, R], [1, R, true]])],
+      [
+        state([
+          [0, P],
+          [1, P, true],
+        ]),
+        state([
+          [0, R],
+          [1, R, true],
+        ]),
+      ],
       1,
       undefined,
     ],
     [
       'nothing past the current state, which redo would bring back',
-      [state([[0, P], [1, P, true]]), state([[0, P], [1, Q]])],
+      [
+        state([
+          [0, P],
+          [1, P, true],
+        ]),
+        state([
+          [0, P],
+          [1, Q],
+        ]),
+      ],
       1,
       undefined,
       0,
     ],
     [
       'nothing for a point added where a deleted one was',
-      [state([[0, P], [1, Q]]), state([[0, P]]), state([[0, P], [1, P, true]])],
+      [
+        state([
+          [0, P],
+          [1, Q],
+        ]),
+        state([[0, P]]),
+        state([
+          [0, P],
+          [1, P, true],
+        ]),
+      ],
       1,
       undefined,
     ],
     [
       'nothing for a point moved onto the time of an earlier one',
-      [state([[0, P], [1, R]]), state([[0, P], [0.5, P, true]]), state([[0, P], [1, P, true]])],
+      [
+        state([
+          [0, P],
+          [1, R],
+        ]),
+        state([
+          [0, P],
+          [0.5, P, true],
+        ]),
+        state([
+          [0, P],
+          [1, P, true],
+        ]),
+      ],
       1,
       undefined,
     ],
     [
       'the position at the size every pan-only point now has',
       [
-        state([[0, '0:0:960:1080'], [1, '640:0:960:1080']], '1920x1080', false),
-        state([[0, '0:0:960:1080'], [1, '0:0:960:1080', true]], '1920x1080', false),
-        state([[0, '0:0:800:900'], [1, '0:0:800:900', true]], '1920x1080', false),
+        state(
+          [
+            [0, '0:0:960:1080'],
+            [1, '640:0:960:1080'],
+          ],
+          '1920x1080',
+          false
+        ),
+        state(
+          [
+            [0, '0:0:960:1080'],
+            [1, '0:0:960:1080', true],
+          ],
+          '1920x1080',
+          false
+        ),
+        state(
+          [
+            [0, '0:0:800:900'],
+            [1, '0:0:800:900', true],
+          ],
+          '1920x1080',
+          false
+        ),
       ],
       1,
       '640:0:800:900',
@@ -139,30 +210,74 @@ describe('cropBeforeHold', () => {
     [
       'a crop moved back into the frame at the new size',
       [
-        state([[0, '0:0:960:1080'], [1, '960:0:960:1080']], '1920x1080', false),
-        state([[0, '0:0:1200:1080'], [1, '0:0:1200:1080', true]], '1920x1080', false),
+        state(
+          [
+            [0, '0:0:960:1080'],
+            [1, '960:0:960:1080'],
+          ],
+          '1920x1080',
+          false
+        ),
+        state(
+          [
+            [0, '0:0:1200:1080'],
+            [1, '0:0:1200:1080', true],
+          ],
+          '1920x1080',
+          false
+        ),
       ],
       1,
       '720:0:1200:1080',
     ],
     [
       'a crop scaled to the crop resolution now',
-      [state([[0, '0:0:480:270'], [1, '240:135:480:270']], '960x540'), state([[0, P], [1, P, true]])],
+      [
+        state(
+          [
+            [0, '0:0:480:270'],
+            [1, '240:135:480:270'],
+          ],
+          '960x540'
+        ),
+        state([
+          [0, P],
+          [1, P, true],
+        ]),
+      ],
       1,
       Q,
     ],
     [
       'a crop given in iw and ih',
-      [state([[0, P], [1, '0:0:iw:ih']]), state([[0, P], [1, P, true]])],
+      [
+        state([
+          [0, P],
+          [1, '0:0:iw:ih'],
+        ]),
+        state([
+          [0, P],
+          [1, P, true],
+        ]),
+      ],
       1,
       '0:0:1920:1080',
     ],
     [
       'a zoompan crop at the aspect ratio the points now share, keeping its width and center',
       [
-        state([[0, P], [1, '0:0:960:1080']]),
-        state([[0, P], [1, P, true]]),
-        state([[0, '0:0:1080:1080'], [1, '0:0:1080:1080', true]]),
+        state([
+          [0, P],
+          [1, '0:0:960:1080'],
+        ]),
+        state([
+          [0, P],
+          [1, P, true],
+        ]),
+        state([
+          [0, '0:0:1080:1080'],
+          [1, '0:0:1080:1080', true],
+        ]),
       ],
       1,
       '0:60:960:960',
@@ -170,9 +285,18 @@ describe('cropBeforeHold', () => {
     [
       'a zoompan crop narrowed to fit the frame at that ratio, and moved back into it',
       [
-        state([[0, P], [1, '1600:900:320:180']]),
-        state([[0, P], [1, P, true]]),
-        state([[0, '0:0:270:960'], [1, '0:0:270:960', true]]),
+        state([
+          [0, P],
+          [1, '1600:900:320:180'],
+        ]),
+        state([
+          [0, P],
+          [1, P, true],
+        ]),
+        state([
+          [0, '0:0:270:960'],
+          [1, '0:0:270:960', true],
+        ]),
       ],
       1,
       '1609:3:303:1077',
@@ -180,9 +304,18 @@ describe('cropBeforeHold', () => {
     [
       'a wide zoompan crop narrowed to a tall shared ratio at the frame height',
       [
-        state([[0, P], [1, '0:0:1920:540']]),
-        state([[0, P], [1, P, true]]),
-        state([[0, '0:0:540:1080'], [1, '0:0:540:1080', true]]),
+        state([
+          [0, P],
+          [1, '0:0:1920:540'],
+        ]),
+        state([
+          [0, P],
+          [1, P, true],
+        ]),
+        state([
+          [0, '0:0:540:1080'],
+          [1, '0:0:540:1080', true],
+        ]),
       ],
       1,
       '690:0:540:1080',
@@ -190,9 +323,18 @@ describe('cropBeforeHold', () => {
     [
       'a zoompan crop at a ratio that is not a whole number of pixels',
       [
-        state([[0, P], [1, '0:0:800:100']]),
-        state([[0, P], [1, P, true]]),
-        state([[0, '0:0:400:42'], [1, '0:0:400:42', true]]),
+        state([
+          [0, P],
+          [1, '0:0:800:100'],
+        ]),
+        state([
+          [0, P],
+          [1, P, true],
+        ]),
+        state([
+          [0, '0:0:400:42'],
+          [1, '0:0:400:42', true],
+        ]),
       ],
       1,
       '0:8:800:84',
@@ -200,10 +342,10 @@ describe('cropBeforeHold', () => {
   ] as [string, ReturnType<typeof state>[], number, string | undefined, number?][])(
     'finds %s',
     (_case, states, time, expected, index = states.length - 1) => {
-    const now = states[index];
-    const held = now.cropMap.find((p) => p.x === time)?.crop ?? '';
-    const undoredo = { history: states, index };
-    expect(cropBeforeHold(undoredo, time, now, held)).toBe(expected);
+      const now = states[index];
+      const held = now.cropMap.find((p) => p.x === time)?.crop ?? '';
+      const undoredo = { history: states, index };
+      expect(cropBeforeHold(undoredo, time, now, held)).toBe(expected);
     }
   );
 });

@@ -8,15 +8,12 @@ describe('Crop.setCropStringSafe', () => {
     [1758, 989],
     [1774, 998],
     [212, 119],
-  ])(
-    'keeps a %ix%i crop that already has its aspect ratio when the ratio is locked',
-    (w, h) => {
-      // w / (w / h) can land a hair under h, and the locked ratio used to floor it a pixel short.
-      const crop = new Crop(300, 0, w, h, 1920, 1080);
-      crop.setCropStringSafe(`100:20:${w}:${h}`, true);
-      expect(crop.cropString).toBe(`100:20:${w}:${h}`);
-    }
-  );
+  ])('keeps a %ix%i crop that already has its aspect ratio when the ratio is locked', (w, h) => {
+    // w / (w / h) can land a hair under h, and the locked ratio used to floor it a pixel short.
+    const crop = new Crop(300, 0, w, h, 1920, 1080);
+    crop.setCropStringSafe(`100:20:${w}:${h}`, true);
+    expect(crop.cropString).toBe(`100:20:${w}:${h}`);
+  });
 
   it('moves a minimum-size locked-ratio crop at the right edge back into the frame', () => {
     // Its height rounds under the minimum, and the width that height asks for passes the edge.

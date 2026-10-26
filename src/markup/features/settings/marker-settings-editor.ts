@@ -860,9 +860,7 @@ function renderBarItem(item: BarItem): TemplateResult {
 export function renderSettingsToggleBar(editor: SettingsEditorType): TemplateResult {
   const sections = BAR_GROUP_ORDER.map((group) =>
     barItems
-      .filter(
-        (it) => it.group === group && it.editors.includes(editor) && (it.isShown?.() ?? true)
-      )
+      .filter((it) => it.group === group && it.editors.includes(editor) && (it.isShown?.() ?? true))
       .map(renderBarItem)
   ).filter((section) => section.length > 0);
 

@@ -59,6 +59,7 @@ export function bandsAround(
     bands.push({ x: 0, y: y + height, width: canvasWidth, height: canvasHeight - y - height });
   }
   if (x > 0) bands.push({ x: 0, y, width: x, height });
-  if (x + width < canvasWidth) bands.push({ x: x + width, y, width: canvasWidth - x - width, height });
+  if (x + width < canvasWidth)
+    bands.push({ x: x + width, y, width: canvasWidth - x - width, height });
   return bands;
 }

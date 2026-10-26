@@ -1,5 +1,9 @@
 import { featureFlags, onFeatureFlagChange } from '../feature-flags';
-import { formatFrameLoopWindow, FrameLoopWindow, newFrameLoopWindow } from './video-frame-loop-stats';
+import {
+  formatFrameLoopWindow,
+  FrameLoopWindow,
+  newFrameLoopWindow,
+} from './video-frame-loop-stats';
 import {
   FrameScheduleAction,
   FrameScheduleEvent,
@@ -82,7 +86,9 @@ export function framesSkipped(previous: number | undefined, current: number): nu
 }
 
 /** Update consumers first, keeping the order they subscribed in within each phase. */
-export function orderConsumers<T extends { phase: 'update' | 'draw' }>(consumers: readonly T[]): T[] {
+export function orderConsumers<T extends { phase: 'update' | 'draw' }>(
+  consumers: readonly T[]
+): T[] {
   return [...consumers].sort((a, b) => Number(a.phase === 'draw') - Number(b.phase === 'draw'));
 }
 
@@ -193,7 +199,10 @@ function startLoop(loop: Loop): void {
     const stats = statsWindow(loop, now);
     if (stats) {
       stats.frameCallbacks++;
-      stats.frameCallbackMisses += framesSkipped(loop.lastPresentedFrames, metadata.presentedFrames);
+      stats.frameCallbackMisses += framesSkipped(
+        loop.lastPresentedFrames,
+        metadata.presentedFrames
+      );
     }
     loop.lastPresentedFrames = metadata.presentedFrames;
     const event: FrameScheduleEvent = {

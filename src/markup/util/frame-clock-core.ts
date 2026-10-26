@@ -104,7 +104,7 @@ export function stepClock(state: ClockState, event: ClockEvent): ClockState {
       return {
         ...publishRate(state, FRAMES_TO_TELL_NTSC_RATES).state,
         currentRun: [],
-              measuredRun: [],
+        measuredRun: [],
         measuredFps: null,
       };
     case 'frame':
@@ -138,7 +138,7 @@ function stepFrame(state: ClockState, frame: SeenFrame): ClockState {
     ...state,
     lastFrame: frame,
     currentRun,
-      ...(replacesMeasured && {
+    ...(replacesMeasured && {
       measuredRun: currentRun,
       measuredFps: measureFrameRate(ntscSpan(currentRun)),
     }),
