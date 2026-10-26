@@ -803,6 +803,7 @@ A `default_args.txt` file with comments explaining the usage is provided with th
 Each install also reads `yt_clipper_default_args.txt` in the folder that holds it, so settings in that file carry over when you install a new version next to the old one.
 An install's own `default_args.txt` overrides it when both set the same option.
 A version skips an option in `yt_clipper_default_args.txt` that it does not know, with a warning (versions before 5.49 stop on it).
+Keep your installs in a folder of their own, not in your downloads folder. A `yt_clipper_default_args.txt` saved next to them can set the folders the `clipper script` runs ffmpeg and yt-dlp from.
 Write options as on the command line, with their full names. Join a value that starts with `-` with `=`, for example `--extra-ffmpeg-args="-preset slow"`.
 The file contents are copied below for convenience:
 
