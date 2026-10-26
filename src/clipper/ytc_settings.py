@@ -395,7 +395,7 @@ def getMoreVideoInfo(
 
     videoTitleStyle = "" if settings["noRichLogs"] else "[green]"
     logger.report(
-        f"Video Title: {videoTitleStyle}{settings['videoTitle']}",
+        f"Video Title: {videoTitleStyle}{escape(settings['videoTitle'])}",
         extra={"highlighter": None},
     )
 
@@ -422,10 +422,11 @@ def getMoreVideoInfo(
         default=UNKNOWN_PROPERTY,
     )
 
-    logger.report(f"Video Format: {videoFormat} ({videoFormatID})")
+    # Format names and ids come from the site's metadata, and the Rich log reads messages as markup.
+    logger.report(f"Video Format: {escape(str(videoFormat))} ({escape(str(videoFormatID))})")
     # TODO: improve detection of when unique audio stream format information is available
     if videoFormat != audioFormat:
-        logger.report(f"Audio Format: {audioFormat} ({audioFormatID})")
+        logger.report(f"Audio Format: {escape(str(audioFormat))} ({escape(str(audioFormatID))})")
 
     logger.report(
         f"Video Width: {settings['width']}, Video Height: {settings['height']}",
@@ -443,7 +444,7 @@ def getGlobalSettings(cs: ClipperState) -> None:
     settings = cs.settings
     cp = cs.clipper_paths
 
-    logger.report(f"Video Page URL: {settings['videoPageURL']}")
+    logger.report(f"Video Page URL: {escape(settings['videoPageURL'])}")
     logger.report(
         f"Merge List: {settings['markerPairMergeList'] if settings['markerPairMergeList'] else 'None'}",
     )
