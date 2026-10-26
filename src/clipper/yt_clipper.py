@@ -215,10 +215,10 @@ def runClipping(cs: ClipperState) -> tuple[int, list[str]]:
         logger.error(describeOsError(error))
         return 1, []
     except subprocess.CalledProcessError as error:
-        # The tool printed its own error above, so name it instead of showing a traceback.
-        command = error.cmd if isinstance(error.cmd, (list, tuple)) else shlex.split(str(error.cmd))
+        # The tool printed its own error above, so name it instead of showing a traceback. Every tool
+        # runs from an argument list.
         logger.error(
-            f"{Path(command[0]).name} failed with exit code {error.returncode}. See its messages above.",
+            f"{Path(error.cmd[0]).name} failed with exit code {error.returncode}. See its messages above.",
         )
         return 1, []
     except EOFError:
