@@ -1160,6 +1160,23 @@ def knownSharedArgs(parser: argparse.ArgumentParser, sharedArgs: List[str], shar
     return kept
 
 
+SECRET_OPTIONS = ("--ytdl-password", "-yp")
+
+
+def redactSecrets(args: List[str]) -> List[str]:
+    """`args` with the values of secret options masked, for printing them to the console and log."""
+    shown: List[str] = []
+    for i, arg in enumerate(args):
+        option, joined, _value = arg.partition("=")
+        if joined and option in SECRET_OPTIONS:
+            shown.append(f"{option}=***")
+        elif i > 0 and args[i - 1] in SECRET_OPTIONS:
+            shown.append("***")
+        else:
+            shown.append(arg)
+    return shown
+
+
 def getArgs() -> Tuple[Dict[str, Any], List[str], List[str], List[str], Dict[str, List[str]]]:
     parser = getArgParser()
 
