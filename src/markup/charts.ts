@@ -69,6 +69,12 @@ import {
   isCropPathFresh,
 } from './crop/cinematic-path';
 import {
+  CinematicSolveEvent,
+  CinematicSolveInputs,
+  initialCinematicSolveSchedule,
+  stepCinematicSolve,
+} from './crop/cinematic-solve-schedule';
+import {
   CINEMATIC_PATH_SOLVED_EVENT,
   CinematicPlotInput,
   isCinematicPathPlotShown,
@@ -1004,11 +1010,8 @@ function getActiveCinematicCrop(): [number, number, number, number] | null {
   const mp = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
   const path = mp && cinematicPaths.get(mp);
   if (!path) {
-    // After a failed solve, a frame rate change is new input, as below. The failed inputs
-    // themselves are not solved again.
-    if (mp && failedCinematicSignatures.has(mp) && cinematicRecomputeTimer === undefined) {
-      scheduleCinematicRecompute();
-    }
+    // After a failed solve, a frame rate change is new input, as below.
+    if (mp && failedCinematicSignatures.has(mp)) stepCinematicSolveSchedule({ type: 'frame' });
     return null;
   }
   const { cropResWidth, cropResHeight } = appState.settings;
@@ -1023,8 +1026,8 @@ function getActiveCinematicCrop(): [number, number, number, number] | null {
     )
   ) {
     // Stale without an edit (the video's frame rate changed with its quality): nothing else would
-    // solve it again. Only when no solve is pending, so frames during playback cannot postpone one.
-    if (cinematicRecomputeTimer === undefined) scheduleCinematicRecompute();
+    // solve it again.
+    stepCinematicSolveSchedule({ type: 'frame' });
     return null;
   }
   return evalCinematicCrop(mp, path, currentCropTime());
@@ -1043,12 +1046,11 @@ function evalCinematicCrop(
   return [clampNumber(x, 0, cropResWidth - w), clampNumber(y, 0, cropResHeight - h), w, h];
 }
 
-let cinematicRecomputeTimer: ReturnType<typeof setTimeout> | undefined;
-// The inputs the pending solve was scheduled for.
-let pendingCinematicSignature: string | undefined;
+let cinematicSolveSchedule = initialCinematicSolveSchedule;
+let cinematicSolveTimer: ReturnType<typeof setTimeout> | undefined;
 
 export function isCinematicSolvePending(): boolean {
-  return cinematicRecomputeTimer !== undefined;
+  return cinematicSolveSchedule.pendingSignature !== null;
 }
 
 // Per pair, the inputs of its last solve if that solve failed.
@@ -1057,82 +1059,87 @@ const failedCinematicSignatures = new WeakMap<MarkerPair, string>();
 // resets this, so the solve runs once, after editing settles, not during it.
 const CINEMATIC_RECOMPUTE_DEBOUNCE_MS = 350;
 
-// Recompute the active pair's cinematic path after edits settle. Gated to cinematic mode and only
-// (re)scheduled when the path is out of date, so scrubbing or selecting a pair (crop points
-// unchanged) never starts the timer; during an edit the timer keeps resetting, so the solve fires
-// once afterwards. The L1 solve is global and far too heavy for the per-frame loops, so it only ever
-// runs here, off the timer.
-export function scheduleCinematicRecompute(): void {
-  if (typeof window === 'undefined') return;
-  const previewed = getActiveCropPointEasing() === 'cinematic';
+// The inputs the schedule decides on, read from the active pair now.
+function cinematicSolveInputs(): CinematicSolveInputs {
+  const mp = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
   // The plot in the Cinematic settings also shows the path in Smooth Track, to compare the two.
-  if (!previewed) interpCropSpan?.setAttribute('data-cinematic-segments', '0');
-  if (!previewed && !isCinematicPathPlotShown()) return;
-  const mp = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
-  if (!mp) return;
-  const { cropResWidth, cropResHeight } = appState.settings;
-  const margins = getActiveCinematicMargins();
-  const fps = getFPS();
-  const path = cinematicPaths.get(mp);
-  if (
-    path &&
-    isCropPathFresh(path, getCinematicCropMap(mp), margins, cropResWidth, cropResHeight, fps)
-  ) {
-    // A reopened editor has a new crop chip, without the count of the path it still shows.
-    if (previewed) {
-      interpCropSpan?.setAttribute('data-cinematic-segments', String(path.segments.length));
-    }
-    return;
-  }
-  // The shown count is for a path that no longer applies.
-  interpCropSpan?.setAttribute('data-cinematic-segments', '0');
-  // Inputs that already failed fail again: wait for an edit instead of retrying after each one.
-  const signature = cropPathSignature(
-    getCinematicCropMap(mp),
-    margins,
-    cropResWidth,
-    cropResHeight,
-    fps
-  );
-  if (failedCinematicSignatures.get(mp) === signature) return;
-  // A call with unchanged inputs, such as a paused seek that selects another crop point, keeps the
-  // pending solve's time, so scrubbing cannot postpone it.
-  if (cinematicRecomputeTimer !== undefined && pendingCinematicSignature === signature) return;
-  pendingCinematicSignature = signature;
-  clearTimeout(cinematicRecomputeTimer);
-  cinematicRecomputeTimer = setTimeout(
-    recomputeActiveCinematicPath,
-    CINEMATIC_RECOMPUTE_DEBOUNCE_MS
-  );
-}
-
-function recomputeActiveCinematicPath(): void {
-  cinematicRecomputeTimer = undefined;
-  pendingCinematicSignature = undefined;
-  const mp = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
-  const previewed = getActiveCropPointEasing() === 'cinematic';
-  if (!mp || (!previewed && !isCinematicPathPlotShown())) return;
-  // Never solve mid-manipulation (the drag/draw end re-schedules), matching the loop-safety rules.
-  if (isMouseManipulatingCrop || isDrawingCrop || isDraggingChartPoint()) {
-    scheduleCinematicRecompute();
-    return;
+  const needed = getActiveCropPointEasing() === 'cinematic' || isCinematicPathPlotShown();
+  const manipulating = isMouseManipulatingCrop || isDrawingCrop || isDraggingChartPoint();
+  if (!mp || !needed) {
+    return { signature: null, fresh: false, failedSignature: undefined, manipulating };
   }
   const { cropResWidth, cropResHeight } = appState.settings;
+  const cropMap = getCinematicCropMap(mp);
   const margins = getActiveCinematicMargins();
   // The cuts land on frame boundaries, as the render's do.
   const fps = getFPS();
-  if (
-    isCropPathFresh(
+  return {
+    signature: cropPathSignature(cropMap, margins, cropResWidth, cropResHeight, fps),
+    fresh: isCropPathFresh(
       cinematicPaths.get(mp),
-      getCinematicCropMap(mp),
+      cropMap,
       margins,
       cropResWidth,
       cropResHeight,
       fps
-    )
-  ) {
-    return;
+    ),
+    failedSignature: failedCinematicSignatures.get(mp),
+    manipulating,
+  };
+}
+
+function stepCinematicSolveSchedule(event: CinematicSolveEvent): void {
+  const step = stepCinematicSolve(cinematicSolveSchedule, event, cinematicSolveInputs());
+  cinematicSolveSchedule = step.state;
+  for (const action of step.actions) {
+    if (action.type === 'solve') {
+      solveActiveCinematicPath();
+      continue;
+    }
+    clearTimeout(cinematicSolveTimer);
+    cinematicSolveTimer =
+      action.type === 'startTimer'
+        ? setTimeout(
+            () => stepCinematicSolveSchedule({ type: 'timerFired' }),
+            CINEMATIC_RECOMPUTE_DEBOUNCE_MS
+          )
+        : undefined;
   }
+}
+
+// Recompute the active pair's cinematic path after edits settle (cinematic-solve-schedule.ts
+// decides when), and keep the crop chip's count of the shown path's segments up to date.
+export function scheduleCinematicRecompute(): void {
+  if (typeof window === 'undefined') return;
+  const previewed = getActiveCropPointEasing() === 'cinematic';
+  const mp = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+  const path = mp && cinematicPaths.get(mp);
+  const { cropResWidth, cropResHeight } = appState.settings;
+  const fresh =
+    mp &&
+    path &&
+    isCropPathFresh(
+      path,
+      getCinematicCropMap(mp),
+      getActiveCinematicMargins(),
+      cropResWidth,
+      cropResHeight,
+      getFPS()
+    );
+  // A reopened editor has a new crop chip, without the count of the path it still shows. A stale
+  // count is for a path that no longer applies.
+  const shownSegments = previewed && fresh && path ? path.segments.length : 0;
+  interpCropSpan?.setAttribute('data-cinematic-segments', String(shownSegments));
+  stepCinematicSolveSchedule({ type: 'request' });
+}
+
+function solveActiveCinematicPath(): void {
+  const mp = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
+  if (!mp) return;
+  const previewed = getActiveCropPointEasing() === 'cinematic';
+  const { cropResWidth, cropResHeight } = appState.settings;
+  const margins = getActiveCinematicMargins();
+  const fps = getFPS();
   const startMs = performance.now();
   let path: ReturnType<typeof bakeCinematicPath>;
   try {
