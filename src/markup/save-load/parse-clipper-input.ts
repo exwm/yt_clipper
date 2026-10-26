@@ -80,7 +80,8 @@ export class ClipperInputValidationError extends Error {
 export type DataFormatIssue =
   | { kind: 'unexpectedFields'; path: string; keys: string[] }
   | { kind: 'dangerousKeys'; path: string; keys: string[] }
-  | { kind: 'invalidPoint'; path: string };
+  | { kind: 'invalidPoint'; path: string }
+  | { kind: 'invalidSettings'; path: string; keys: string[] };
 
 export function isDangerousIssue(issue: DataFormatIssue): boolean {
   return issue.kind === 'dangerousKeys';
@@ -313,12 +314,14 @@ function parseOverrides(
   if (!isPlainObject(raw)) return {};
   const picked = pickKnown<keyof MarkerPairOverrides>(raw, overridesAllow, path, issues);
   const out: Partial<MarkerPairOverrides> = {};
+  const invalid: string[] = [];
   for (const [key, validate] of Object.entries(OVERRIDES_VALIDATORS)) {
     const value = (picked as Record<string, unknown>)[key];
-    if (value !== undefined && validate(value)) {
-      (out as Record<string, unknown>)[key] = value;
-    }
+    if (value === undefined) continue;
+    if (validate(value)) (out as Record<string, unknown>)[key] = value;
+    else invalid.push(key);
   }
+  if (invalid.length > 0) issues.push({ kind: 'invalidSettings', path, keys: invalid });
   return out;
 }
 
@@ -418,9 +421,16 @@ export function parseClipperInput(raw: unknown): ParseResult {
   }
 
   // A global setting a pair can override takes the same values as the pair's own.
+  const invalidGlobal: string[] = [];
   for (const [key, validate] of Object.entries(OVERRIDES_VALIDATORS)) {
     const value = (rest as Record<string, unknown>)[key];
-    if (value !== undefined && !validate(value)) delete (rest as Record<string, unknown>)[key];
+    if (value !== undefined && !validate(value)) {
+      delete (rest as Record<string, unknown>)[key];
+      invalidGlobal.push(key);
+    }
+  }
+  if (invalidGlobal.length > 0) {
+    issues.push({ kind: 'invalidSettings', path: '(root)', keys: invalidGlobal });
   }
   const markerPairs = markerPairsRaw.map((pair, i) => parseMarkerPair(pair, i, issues));
   const input = { ...rest, markerPairs } as ClipperInput;
@@ -556,6 +566,8 @@ export function formatIssues(issues: readonly DataFormatIssue[]): string {
           return `stripped prototype-polluting keys at ${issue.path}: ${issue.keys.join(', ')}`;
         case 'invalidPoint':
           return `dropped invalid point at ${issue.path}`;
+        case 'invalidSettings':
+          return `dropped settings with invalid values at ${issue.path}: ${issue.keys.join(', ')}`;
       }
     })
     .join('\n');
