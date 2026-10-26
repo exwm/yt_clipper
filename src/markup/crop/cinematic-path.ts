@@ -10,6 +10,11 @@
 
 import { CropPath, CropPathCenterBounds, CropPathSegment, CropPoint } from '../@types/yt_clipper';
 
+// Read once into module scope: in a sandbox that resolves globals through a proxy or a vm context
+// (jest, and possibly the userscript manager's), each `Math` in the solver's loops was a global
+// lookup, which made a 700 s solve about 50x slower.
+const Math = globalThis.Math;
+
 // Bump here and in the clipper when the solved path changes. Saved markers JSON records it, so the
 // clipper can warn when the crop may move differently than in the preview.
 export const CINEMATIC_SOLVER_VERSION = 1;
