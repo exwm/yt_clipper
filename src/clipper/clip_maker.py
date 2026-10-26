@@ -1524,10 +1524,8 @@ def getDefaultEncodeSettings(videobr: int) -> DictStrAny:
 
 
 def containsValidCharsForVidStab(string: str) -> bool:
-    if not string.isascii():
-        return False
-
-    return all(char != "'" for char in string)
+    # The filter reads the path inside one level of single quotes, then splits its options at ":".
+    return string.isascii() and not any(char in "':\\" for char in string)
 
 
 def skipInvalidMarkerPair(
