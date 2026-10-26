@@ -512,7 +512,7 @@ Each point's label shows its crop position (`x:y`). The crop size (`WxH`) shows 
 
 **Ctrl+Shift+Click:** Toggle a crop point between hold and normal.
 
-- A hold point has no crop of its own. It shows the crop of the crop point before it, and follows when that point changes.
+- While it holds, a hold point shows the crop of the crop point before it, and follows when that point changes.
 - Hold points have a vertical yellow bar behind them.
 - A new marker pair's end point is a hold point.
 - With Cinematic crop easing, the crop holds still there and slows down evenly into each hold. Set **Hold Points** to **Firm** in the Crop Easing settings to stop within the **Pan Margin**. See [Crop Easing](#crop-easing).
