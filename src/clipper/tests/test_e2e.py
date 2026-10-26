@@ -323,18 +323,17 @@ def lateStartVideo(ffmpeg: str, folder: pathlib.Path) -> tuple[pathlib.Path, pat
     return source, markers
 
 
-VIDEOS_WITH_A_START_TIME = [
-    pytest.param(audioFirstVideo, 1.0, id="audio first: the file starting before 0"),
-    pytest.param(lateStartVideo, 11.0, id="late start: the file starting at 10 s"),
-]
-
-
-@pytest.mark.parametrize(("makeVideo", "pairStart"), VIDEOS_WITH_A_START_TIME)
+@pytest.mark.parametrize(
+    "makeVideo",
+    [
+        pytest.param(audioFirstVideo, id="audio first: the file starting before 0"),
+        pytest.param(lateStartVideo, id="late start: the file starting at 10 s"),
+    ],
+)
 def test_clip_of_a_video_with_a_start_time_begins_on_the_pair_start_frame(
     clipper: Clipper,
     tmp_path: pathlib.Path,
     makeVideo: Callable[[str, pathlib.Path], tuple[pathlib.Path, pathlib.Path]],
-    pairStart: float,
 ) -> None:
     # -ss is the video's own timestamp, as the markup's player time is, so the clip begins on the
     # frame 1 s into the video in both: audio pre-roll can give a downloaded file a negative start
@@ -356,31 +355,29 @@ def test_clip_of_a_video_with_a_start_time_begins_on_the_pair_start_frame(
         shutil.rmtree(output, ignore_errors=True)
 
 
-def fileStartTime(ffprobe: str, video: pathlib.Path) -> float:
-    """The file's start time as ffprobe reports it, which an Opus track's pre-skip moves too."""
-    probe = subprocess.run(
-        [ffprobe, "-v", "error", "-show_entries", "format=start_time", "-of", "csv=p=0", str(video)],
-        capture_output=True, text=True, check=True,
-    )  # fmt: skip
-    return float(probe.stdout)
-
-
-@pytest.mark.parametrize(("makeVideo", "pairStart"), VIDEOS_WITH_A_START_TIME)
+@pytest.mark.parametrize(
+    ("makeVideo", "seek"),
+    [
+        # The pair starts at 1.0 s. The file starts at -0.1065 s: the audio's 0.1 s lead plus the
+        # Opus encoder's 6.5 ms pre-skip.
+        pytest.param(audioFirstVideo, 1.1065, id="audio first: the file starting before 0"),
+        # The pair starts at 11.0 s, the file at 10 s.
+        pytest.param(lateStartVideo, 1.0, id="late start: the file starting at 10 s"),
+    ],
+)
 def test_preview_of_a_local_video_starts_ffplay_at_the_pair_start(
     clipper: Clipper,
     tmp_path: pathlib.Path,
     monkeypatch: pytest.MonkeyPatch,
     makeVideo: Callable[[str, pathlib.Path], tuple[pathlib.Path, pathlib.Path]],
-    pairStart: float,
+    seek: float,
 ) -> None:
     # ffplay has no -seek_timestamp, which a preview command with it fails on at once, and its -ss
     # counts from the file's start time, where the clip's counts from the video's own timestamps.
     if clipper.exe:
         pytest.skip("records the ffplay command in process")
     ffmpeg = clipper.toolPath("ffmpeg")
-    ffprobe = clipper.toolPath("ffprobe")
     assert ffmpeg is not None
-    assert ffprobe is not None
     source, markers = makeVideo(ffmpeg, tmp_path)
     previewInputs: list[str] = []
 
@@ -397,9 +394,9 @@ def test_preview_of_a_local_video_starts_ffplay_at_the_pair_start(
     assert run.returncode == 0
     assert len(previewInputs) == 1
     assert "-seek_timestamp" not in previewInputs[0]
-    seek = re.search(r"-ss (\S+) -i", previewInputs[0])
-    assert seek is not None
-    assert float(seek[1]) == pytest.approx(pairStart - fileStartTime(ffprobe, source), abs=0.001)
+    seekArg = re.search(r"-ss (\S+) -i", previewInputs[0])
+    assert seekArg is not None
+    assert float(seekArg[1]) == pytest.approx(seek, abs=0.001)
 
 
 def loggedVideoFilter(output: pathlib.Path) -> str:
