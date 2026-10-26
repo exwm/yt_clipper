@@ -3,7 +3,7 @@ test_*, so `just ui-test` skips it; run it with `just ui-showcase <release>`."""
 
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import pytest
 import tomllib
@@ -18,7 +18,7 @@ CONFIG = Path(__file__).with_name("showcase.toml")
 ASSETS = REPO / "assets" / "image"
 
 
-def release_shots(release: str) -> List[Dict[str, Any]]:
+def release_shots(release: str) -> list[dict[str, Any]]:
     releases = tomllib.loads(CONFIG.read_text(encoding="utf-8"))["release"]
     if release not in releases:
         raise pytest.UsageError(
@@ -35,7 +35,7 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
 
 
 def test_showcase_shot(
-    markup: MarkupPage, shot: Dict[str, Any], pytestconfig: pytest.Config,
+    markup: MarkupPage, shot: dict[str, Any], pytestconfig: pytest.Config,
 ) -> None:
     SCENARIOS[shot["scenario"]](markup)
     path = markup.shot_of(shot["name"], shot["clip"], padding=shot.get("padding", 12))

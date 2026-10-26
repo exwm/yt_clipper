@@ -16,6 +16,16 @@ if TYPE_CHECKING:
 SEEK_TIMEOUT_MS = 15_000
 
 
+def clip_box(boxes: "list[FloatRect]", scroll: tuple[float, float], padding: float) -> "FloatRect":
+    """The page box around viewport `boxes`, padded and kept inside the page's top left corner."""
+    scroll_x, scroll_y = scroll
+    left = max(min(box["x"] for box in boxes) + scroll_x - padding, 0)
+    top = max(min(box["y"] for box in boxes) + scroll_y - padding, 0)
+    right = max(box["x"] + box["width"] for box in boxes) + scroll_x + padding
+    bottom = max(box["y"] + box["height"] for box in boxes) + scroll_y + padding
+    return {"x": left, "y": top, "width": right - left, "height": bottom - top}
+
+
 class MarkupPage:
     def __init__(self, page: "Page", host: Host, shots_dir: Path) -> None:
         self.page = page
@@ -40,16 +50,7 @@ class MarkupPage:
         self.next_frames()
         boxes = [self.box_of(selector) for selector in selectors]
         scroll_x, scroll_y = self.page.evaluate("() => [window.scrollX, window.scrollY]")
-        left = max(min(box["x"] for box in boxes) + scroll_x - padding, 0)
-        top = max(min(box["y"] for box in boxes) + scroll_y - padding, 0)
-        right = max(box["x"] + box["width"] for box in boxes) + scroll_x + padding
-        bottom = max(box["y"] + box["height"] for box in boxes) + scroll_y + padding
-        clip: FloatRect = {
-            "x": left,
-            "y": top,
-            "width": right - left,
-            "height": bottom - top,
-        }
+        clip = clip_box(boxes, (scroll_x, scroll_y), padding)
         path = self.shots_dir / f"{self.shot_count:02d}-{label}.png"
         self.page.screenshot(path=str(path), clip=clip, full_page=True)
         self.report(str(path.relative_to(REPO)))
