@@ -264,6 +264,8 @@ function MarkerPairEditorTemplate(
           ...bindOverride('title-prefix-input', 'titlePrefix', 'string'),
           label: 'Title Prefix',
           value: overrides.titlePrefix ?? '',
+          // The clipper leaves these out of clip names, so the name would differ from the prefix.
+          pattern: '[^"\\\\]*',
           tooltip: Tooltips.titlePrefixTooltip,
           placeholder: 'None',
           styleInfo: { width: '20ch' },
