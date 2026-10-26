@@ -60,7 +60,7 @@ from clipper.log_helpers import (
 )
 from clipper.platforms import getFfmpegHeaders
 from clipper.previews import makePreview, mergePreviews
-from clipper.util import escapeSingleQuotesFFmpeg, getTrimmedBase64Hash
+from clipper.util import escapeSingleQuotesFFmpeg, getTrimmedBase64Hash, shlexDoubleQuoted
 from clipper.video2x import runVideo2xCommand
 from clipper.ytc_logger import Subsystem, make_subsystem_logger, pair_context
 
@@ -835,8 +835,8 @@ def makeClip(  # noqa: PLR0912
                 ffmpegCommand + f' {filterFileOption(cp.ffmpegPath)} "{filterPathVidStabTransformPass}" '
             )
         else:
-            ffmpegVidstabdetect = ffmpegCommand + f'-vf "{vidstabdetectFilter}" '
-            ffmpegVidstabtransform = ffmpegCommand + f'-vf "{vidstabtransformFilter}" '
+            ffmpegVidstabdetect = ffmpegCommand + f"-vf {shlexDoubleQuoted(vidstabdetectFilter)} "
+            ffmpegVidstabtransform = ffmpegCommand + f"-vf {shlexDoubleQuoted(vidstabtransformFilter)} "
 
         ffmpegVidstabdetect += f" -y "
         ffmpegVidstabtransform += overwriteArg
@@ -869,7 +869,7 @@ def makeClip(  # noqa: PLR0912
                 f.write(video_filter)
             ffmpegCommand += f' {filterFileOption(cp.ffmpegPath)} "{filterPathPass1}" '
         else:
-            ffmpegCommand += f' -vf "{video_filter}" '
+            ffmpegCommand += f" -vf {shlexDoubleQuoted(video_filter)} "
 
         # -speed is libvpx-only; libsvtav1 sets preset inside its codec args.
         speed_arg = "" if mps["videoCodec"] == "av1" else f" -speed {mps['encodeSpeed']}"
@@ -1190,7 +1190,7 @@ def ffplayFilterArg(cs: ClipperState, video_filter: str, fileName: str) -> str:
     cannot read one, so it keeps the filter inline, as before."""
     cp = cs.clipper_paths
     if len(video_filter) <= MAX_VFILTER_SIZE or not supportsOptionFiles(ffmpegBesideFfplay(cp.ffplayPath)):
-        return f'-vf "{video_filter}"'
+        return f"-vf {shlexDoubleQuoted(video_filter)}"
     filterPath = Path(cp.clipsPath) / "temp" / fileName
     filterPath.parent.mkdir(parents=True, exist_ok=True)
     filterPath.write_text(video_filter, encoding="utf-8")

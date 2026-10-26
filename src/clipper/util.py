@@ -38,6 +38,20 @@ def escapeSingleQuotesFFmpeg(string: str) -> str:
     return re.sub(r"'", r"'\\''", string)
 
 
+def shlexDoubleQuoted(value: str) -> str:
+    """`value` in double quotes that `shlex.split` reads back unchanged. Inside them it takes `\\` and
+    `"` as escapes, which a filter's own escaping uses."""
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def escapeFilterOptionValue(value: str) -> str:
+    """`value` as a filter option in a filter graph, read literally: escaped once for the option
+    parser and once more for the graph parser (ffmpeg-filters, "Notes on filtergraph escaping")."""
+    optionLevel = re.sub(r"([\\':])", r"\\\1", value)
+    return re.sub(r"([\\'\[\],;])", r"\\\1", optionLevel)
+
+
 def floorToEven(x: Union[int, str, float]) -> int:
     x = int(x)
     return x & ~1
