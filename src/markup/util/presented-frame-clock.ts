@@ -41,6 +41,9 @@ const STANDARD_FRAME_RATE_TOLERANCE = 0.015;
 const PUBLISHED_RATE_HYSTERESIS = 0.002;
 // A duration this many medians long spans a gap no seek event announced, such as a segment swap.
 const OUTLIER_DURATION_MEDIANS = 3;
+// A run keeps durations within this ratio of each other. Between the 1 ms rounding of mediaTime
+// (17 ms after 16 ms at 60 fps) and the 2x of a missed frame.
+const RUN_DURATION_RATIO = 1.5;
 
 interface PresentedFrame {
   mediaTime: number;
@@ -128,8 +131,19 @@ function startClock(video: VideoElement): void {
       droppedFrames: droppedFrames(video),
       presentedFrames: presented.presentedFrames,
     };
+    const duration = lastFrame ? frame.mediaTime - lastFrame.mediaTime : 0;
+    // Without a presented frame count (the every-refresh loop), a refresh the page missed shows only
+    // as a duration spanning two frames. It starts a new run, and the next normal duration starts
+    // another, so the miss stays in no run. A new frame rate keeps its run going.
+    const previousDuration = currentRun[currentRun.length - 1];
+    const offRun =
+      frame.presentedFrames == null &&
+      previousDuration != null &&
+      (duration > previousDuration * RUN_DURATION_RATIO ||
+        duration * RUN_DURATION_RATIO < previousDuration);
     if (lastFrame && isFrameDuration(lastFrame, frame, video)) {
-      currentRun.push(frame.mediaTime - lastFrame.mediaTime);
+      if (offRun) currentRun = [];
+      currentRun.push(duration);
       if (currentRun.length > MAX_FRAME_DURATIONS) currentRun.shift();
       if (currentRun.length >= Math.min(measuredRun.length, FRAMES_TO_TELL_NTSC_RATES)) {
         measuredRun = currentRun;
