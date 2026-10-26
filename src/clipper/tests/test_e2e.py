@@ -15,7 +15,7 @@ import shutil
 import subprocess
 import sys
 import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from fractions import Fraction
 
@@ -368,17 +368,36 @@ def test_clip_from_a_video_whose_timestamps_start_late_begins_on_the_pair_start_
         shutil.rmtree(output, ignore_errors=True)
 
 
-def test_preview_of_a_local_video_starts_ffplay_without_ffmpeg_only_seek_options(
+def fileStartTime(video: pathlib.Path) -> float:
+    """The file's start time as ffprobe reports it, which an Opus track's pre-skip moves too."""
+    probe = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=start_time", "-of", "csv=p=0", str(video)],
+        capture_output=True, text=True, check=True,
+    )  # fmt: skip
+    return float(probe.stdout)
+
+
+@pytest.mark.parametrize(
+    ("makeVideo", "pairStart"),
+    [
+        pytest.param(audioFirstVideo, 1.0, id="audio first: the file starting before 0"),
+        pytest.param(lateStartVideo, 11.0, id="late start: the file starting at 10 s"),
+    ],
+)
+def test_preview_of_a_local_video_starts_ffplay_at_the_pair_start(
     clipper: Clipper,
     tmp_path: pathlib.Path,
     monkeypatch: pytest.MonkeyPatch,
+    makeVideo: Callable[[str, pathlib.Path], tuple[pathlib.Path, pathlib.Path]],
+    pairStart: float,
 ) -> None:
-    # ffplay has no -seek_timestamp, so a preview command with it fails at once.
+    # ffplay has no -seek_timestamp, which a preview command with it fails on at once, and its -ss
+    # counts from the file's start time, where the clip's counts from the video's own timestamps.
     if clipper.exe:
         pytest.skip("records the ffplay command in process")
     ffmpeg = clipper.toolPath("ffmpeg")
     assert ffmpeg is not None
-    source, markers = audioFirstVideo(ffmpeg, tmp_path)
+    source, markers = makeVideo(ffmpeg, tmp_path)
     previewInputs: list[str] = []
 
     def recordPreview(_cs: object, inputs: str, *_args: object, **_kwargs: object) -> None:
@@ -393,8 +412,10 @@ def test_preview_of_a_local_video_starts_ffplay_without_ffmpeg_only_seek_options
     print(run.stdout, run.stderr)
     assert run.returncode == 0
     assert len(previewInputs) == 1
-    assert "-ss " in previewInputs[0]
     assert "-seek_timestamp" not in previewInputs[0]
+    seek = re.search(r"-ss (\S+) -i", previewInputs[0])
+    assert seek is not None
+    assert float(seek[1]) == pytest.approx(pairStart - fileStartTime(source), abs=0.001)
 
 
 def loggedVideoFilter(output: pathlib.Path) -> str:
