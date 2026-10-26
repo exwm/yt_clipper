@@ -204,6 +204,22 @@ def test_a_crop_typed_while_a_crop_draw_is_armed_stays_after_the_draw_is_cancele
     then_the_crop_points_are(markup, [(CROP_MIDDLE, False), (CROP_B, False)])
 
 
+def test_a_crop_nudged_in_the_crop_input_while_a_crop_draw_is_armed_stays_after_the_draw_is_canceled(
+    markup: MarkupPage,
+) -> None:
+    # ArrowUp in the crop input steps the component under the cursor, which writes the crop map.
+    given_a_pair_with_its_crop_chart_open(markup, pair((CROP_A, False), (CROP_B, False)))
+    when_i_press_outside_any_input(markup, "KeyX")
+    crop_input = markup.page.locator("#crop-input")
+    crop_input.click()
+    crop_input.press("Home")
+    crop_input.press("ArrowUp")
+    nudged = [(point["crop"], point["hold"]) for point in crop_points(markup)]
+    assert nudged[0] != (CROP_A, False), "ArrowUp should change the crop"
+    when_i_press_outside_any_input(markup, "KeyX")
+    then_the_crop_points_are(markup, nudged)
+
+
 def test_alt_shift_x_while_a_crop_draw_is_armed_keeps_its_crops_after_the_draw_is_canceled(
     markup: MarkupPage,
 ) -> None:
