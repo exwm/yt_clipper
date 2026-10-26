@@ -423,6 +423,40 @@ def test_a_video_title_url_or_format_with_square_brackets_is_logged_as_text(
     assert f"{logged}{text}" in run.stdout + run.stderr
 
 
+FIND_INPUT_VIDEO = """
+import sys
+from clipper import ytc_logger, ytc_settings
+from clipper.clipper_types import ClipperPaths, ClipperState
+folder, stem = sys.argv[1:]
+cs = ClipperState(
+    settings={"noRichLogs": False, "logLevel": None, "preview": False, "inputVideo": "",
+              "downloadVideo": False, "noAutoFindInputVideo": False, "downloadVideoNameStem": stem},
+    clipper_paths=ClipperPaths(clipsPath=folder),
+)
+ytc_logger.setUpLogger(cs)
+ytc_settings.getInputVideo(cs)
+"""
+
+
+def test_a_found_input_video_with_square_brackets_in_its_name_is_logged_as_text(
+    tmp_path: Path,
+) -> None:
+    # The video is named after the markers file, and the run's Rich log reads messages as markup.
+    stem = "a[red]b"
+    (tmp_path / f"{stem}.mp4").write_bytes(b"")
+    run = subprocess.run(
+        [sys.executable, "-c", FIND_INPUT_VIDEO, str(tmp_path), stem],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={**os.environ, "COLUMNS": "300"},
+        cwd=tmp_path,
+    )
+    found = [line for line in (run.stdout + run.stderr).splitlines() if "Found potential input" in line]
+    assert len(found) == 1, run.stdout + run.stderr
+    assert f"{stem}.mp4" in found[0]
+
+
 # A trimmed yt-dlp -F table (plain text, as captured from a pipe) for highlight tests.
 FORMATS_TABLE = "\n".join(
     [
