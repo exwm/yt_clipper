@@ -80,6 +80,31 @@ it.each([
   expect(wrong).toEqual([]);
 });
 
+// The rate is first asked for when a preview needs it, which can be any number of frames into a run.
+it.each([
+  ['59.94', 60000 / 1001],
+  ['60', 60],
+])('measures %s fps when first asked after 60 to 125 frames', (_l, fps) => {
+  const wrong: unknown[] = [];
+  for (let frames = 60; frames <= 125; frames++) {
+    for (const start of startTimes) {
+      const video = fakeVideo();
+      const element = video as unknown as HTMLVideoElement;
+      const draw = onVideoFrames(element, () => {});
+      getMeasuredFrameRate(element as never, FRAMES_TO_TELL_NTSC_RATES);
+      for (let k = 0; k <= frames; k++) {
+        video.heldTime = toMs(start + k / fps);
+        video.currentTime = video.heldTime;
+        refresh();
+      }
+      const rate = getMeasuredFrameRate(element as never, FRAMES_TO_TELL_NTSC_RATES);
+      if (rate !== fps) wrong.push({ frames, start, rate });
+      draw.stop();
+    }
+  }
+  expect(wrong).toEqual([]);
+});
+
 it('measures a rate drop with no resize event, from 60 to 30 fps', () => {
   const video = fakeVideo();
   const element = video as unknown as HTMLVideoElement;

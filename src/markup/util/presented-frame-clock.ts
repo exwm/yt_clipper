@@ -175,7 +175,12 @@ export function getMeasuredFrameRate(
   if (measuredRun.length < minFrames) return publishedRate;
   // The frame loops ask many times per frame, and the durations only change when a frame is added.
   if (measuredRate?.measuredRunChanges !== measuredRunChanges) {
-    measuredRate = { measuredRunChanges, fps: measureFrameRate(measuredRun) };
+    // Only a whole multiple of 60 durations spans a whole number of milliseconds at an NTSC rate,
+    // so that its rounded ends err alike.
+    const ntscSpan =
+      measuredRun.length - (measuredRun.length % FRAMES_TO_TELL_NTSC_RATES) ||
+      measuredRun.length;
+    measuredRate = { measuredRunChanges, fps: measureFrameRate(measuredRun.slice(-ntscSpan)) };
   }
   const fps = measuredRate.fps;
   if (
