@@ -44,7 +44,7 @@ verify-release install userscript version="":
 check-greasyfork version:
   uv run python tools/release/greasyfork.py {{version}}
 test-py-slow:
-  uv run pytest src/clipper --cov --cov-config="{{justfile_directory()}}/pyproject.toml" --cov-report=html -vvv
+  uv run pytest src/clipper tools/test --cov --cov-config="{{justfile_directory()}}/pyproject.toml" --cov-report=html -vvv
 test-py-update:
   just test-py true
 
