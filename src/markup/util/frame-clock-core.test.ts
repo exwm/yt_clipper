@@ -2,6 +2,7 @@ import {
   ClockFrame,
   ClockState,
   FRAMES_TO_TELL_NTSC_RATES,
+  FRAMES_TO_TELL_STANDARD_RATES,
   initialClock,
   publishRate,
   stepClock,
@@ -116,6 +117,8 @@ function play(
       duringSeek,
       droppedFrames: dropped,
       presentedFrames: s.countsFrames ? presented : undefined,
+      // Every frame is decoded, including those presented while a callback was missed.
+      decodedFrames: presented,
       paused: random() < s.pauseChance,
       playbackRate,
     };
@@ -164,6 +167,45 @@ describe('the frame clock over seeded playback', () => {
     });
     expect(quiet.length).toBeGreaterThan(10);
     const unmeasured = quiet.flatMap((s) => {
+      const final = publishRate(play(s).clock, FRAMES_TO_TELL_NTSC_RATES).rate;
+      return final === s.fps ? [] : [{ ...s, final }];
+    });
+    expect(unmeasured).toEqual([]);
+  });
+
+  // A screen slower than the video shows every other frame, and the skipped ones count as neither
+  // presented nor dropped: each gap is 2 frames long, which would read as half the rate.
+  it.each([true, false])(
+    'reports nothing when every other frame is decoded but never shown (frames counted: %p)',
+    (countsFrames) => {
+      let clock = initialClock;
+      for (let k = 0; k < 240; k++) {
+        const frame: ClockFrame = {
+          mediaTime: Math.round((10 + (2 * k) / 60) * 1000) / 1000,
+          duringSeek: false,
+          droppedFrames: 0,
+          presentedFrames: countsFrames ? k : undefined,
+          decodedFrames: 2 * k,
+          paused: false,
+          playbackRate: 1,
+        };
+        clock = stepClock(clock, { type: 'frame', frame });
+      }
+      expect(publishRate(clock, FRAMES_TO_TELL_STANDARD_RATES).rate).toBeNull();
+    }
+  );
+
+  it('reports the rate when the only noise is skipped frame callbacks it counts', () => {
+    const missesOnly = SCENARIOS.filter((s) => {
+      const { seed, fps, countsFrames, askChance, burst, missChance, burstChance, ...others } = s;
+      return (
+        countsFrames &&
+        (missChance > 0 || burstChance > 0) &&
+        Object.values(others).every((c) => c === 0)
+      );
+    });
+    expect(missesOnly.length).toBeGreaterThan(10);
+    const unmeasured = missesOnly.flatMap((s) => {
       const final = publishRate(play(s).clock, FRAMES_TO_TELL_NTSC_RATES).rate;
       return final === s.fps ? [] : [{ ...s, final }];
     });

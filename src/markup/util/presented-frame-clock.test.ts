@@ -14,9 +14,13 @@ function fakeVideo(currentTime = 0) {
     seeking: false,
     playbackRate: 1,
     droppedVideoFrames: 0,
+    totalVideoFrames: 0,
     currentTime,
     getCurrentTime: () => video.currentTime,
-    getVideoPlaybackQuality: () => ({ droppedVideoFrames: video.droppedVideoFrames }),
+    getVideoPlaybackQuality: () => ({
+      droppedVideoFrames: video.droppedVideoFrames,
+      totalVideoFrames: video.totalVideoFrames,
+    }),
     requestVideoFrameCallback: (callback: VideoFrameRequestCallback) => callbacks.push(callback),
     addEventListener: (type: string, listener: () => void) =>
       (listeners[type] ??= []).push(listener),
@@ -27,6 +31,7 @@ function fakeVideo(currentTime = 0) {
   let presentedFrames = 0;
   const present = (mediaTime: number) => {
     presentedFrames++;
+    video.totalVideoFrames++;
     const pending = callbacks;
     callbacks = [];
     for (const callback of pending) {
@@ -34,9 +39,14 @@ function fakeVideo(currentTime = 0) {
     }
   };
   // A frame presented while the page was too busy to run its callbacks.
-  const miss = () => presentedFrames++;
+  const miss = () => {
+    presentedFrames++;
+    video.totalVideoFrames++;
+  };
+  // A frame decoded but never shown, and not counted as dropped, as on a screen slower than the video.
+  const unshown = () => video.totalVideoFrames++;
   const emit = (type: string) => listeners[type]?.forEach((listener) => listener());
-  return { video, element: video as unknown as VideoElement, present, miss, emit };
+  return { video, element: video as unknown as VideoElement, present, miss, unshown, emit };
 }
 
 describe('getPresentedFrameTime', () => {
@@ -172,6 +182,59 @@ describe('getMeasuredFrameRate', () => {
       rates.delete(null);
       expect({ start, rates: [...rates] }).toEqual({ start, rates: [fps] });
     }
+  });
+
+  // The frame count tells how many frames a gap spans, so a skipped callback keeps the run going.
+  it.each([
+    ['29.97', 30000 / 1001, 30],
+    ['59.94', 60000 / 1001, 20],
+    ['30', 30, 7],
+  ])('measures %s fps when a frame callback is skipped every %d frames', (_label, fps, every) => {
+    for (const start of startTimes) {
+      const { element, present, miss } = fakeVideo();
+      const rates = new Set<number | null>();
+      for (let k = 0; k < 200; k++) {
+        if (k % every === every - 1) miss();
+        else present(toMilliseconds(start + k / fps));
+        rates.add(getMeasuredFrameRate(element, FRAMES_TO_TELL_NTSC_RATES));
+      }
+      rates.delete(null);
+      expect({ start, rates: [...rates] }).toEqual({ start, rates: [fps] });
+    }
+  });
+
+  // A browser that counted each screen refresh showing a frame would report 2 frames per gap at 30
+  // fps on a 60 Hz screen, which would read as 60 fps.
+  it('measures nothing when every gap counts more than one presented frame', () => {
+    const { element, present, miss } = fakeVideo();
+    getMeasuredFrameRate(element);
+    for (let k = 0; k < 120; k++) {
+      miss();
+      present(toMilliseconds(10 + k / 30));
+    }
+    expect(getMeasuredFrameRate(element)).toBeNull();
+  });
+
+  // 60 fps on a 30 Hz screen: every other frame is decoded but not shown, which would read as 30 fps.
+  it('measures nothing when every other frame is decoded but never shown', () => {
+    const { element, present, unshown } = fakeVideo();
+    getMeasuredFrameRate(element);
+    for (let k = 0; k < 240; k += 2) {
+      unshown();
+      present(toMilliseconds(10 + k / 60));
+    }
+    expect(getMeasuredFrameRate(element)).toBeNull();
+  });
+
+  it('measures the rate while the decoder runs a few frames ahead', () => {
+    const { video, element, present } = fakeVideo();
+    getMeasuredFrameRate(element);
+    for (let k = 0; k < 9; k++) {
+      // The decoder gets three frames ahead mid-run.
+      if (k === 3) video.totalVideoFrames += 3;
+      present(10 + k / 30);
+    }
+    expect(getMeasuredFrameRate(element)).toBe(30);
   });
 
   it.each([12, 15, 17])('keeps one rate for %d fps from 8 to 120 frames', (fps) => {

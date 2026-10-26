@@ -29,14 +29,23 @@ beforeEach(() => {
 
 function fakeVideo() {
   const listeners: Record<string, (() => void)[]> = {};
+  let heldTime = 0;
+  let decodedFrames = 0;
   const video = {
     paused: false,
     seeking: false,
     playbackRate: 1,
     currentTime: 0,
-    heldTime: 0,
+    // Each new frame held was decoded, whether or not a refresh shows it.
+    get heldTime() {
+      return heldTime;
+    },
+    set heldTime(time: number) {
+      if (time !== heldTime) decodedFrames++;
+      heldTime = time;
+    },
     getCurrentTime: () => video.currentTime,
-    getVideoPlaybackQuality: () => ({ droppedVideoFrames: 0, totalVideoFrames: 0 }),
+    getVideoPlaybackQuality: () => ({ droppedVideoFrames: 0, totalVideoFrames: decodedFrames }),
     requestVideoFrameCallback: () => 0,
     cancelVideoFrameCallback: () => {},
     addEventListener: (type: string, l: () => void) => (listeners[type] ??= []).push(l),
@@ -74,7 +83,8 @@ it.each([
       rates.add(getMeasuredFrameRate(element as never, FRAMES_TO_TELL_NTSC_RATES));
     }
     rates.delete(null);
-    if ([...rates].some((r) => r !== fps)) wrong.push({ start, rates: [...rates] });
+    // The rate is measured, and never another one.
+    if (rates.size !== 1 || !rates.has(fps)) wrong.push({ start, rates: [...rates] });
     draw.stop();
   }
   expect(wrong).toEqual([]);

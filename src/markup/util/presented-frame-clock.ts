@@ -34,13 +34,15 @@ function startClock(video: VideoElement): void {
   video.addEventListener('resize', () => step({ type: 'resize' }));
   video.addEventListener('seeking', () => step({ type: 'seeking' }));
   const onFrame = (presented: PresentedVideoFrame): void => {
+    const quality = video.getVideoPlaybackQuality?.();
     step({
       type: 'frame',
       frame: {
         mediaTime: presented.mediaTime,
         duringSeek: video.seeking,
-        droppedFrames: video.getVideoPlaybackQuality?.().droppedVideoFrames ?? 0,
+        droppedFrames: quality?.droppedVideoFrames ?? 0,
         presentedFrames: presented.presentedFrames,
+        decodedFrames: quality?.totalVideoFrames,
         paused: video.paused,
         playbackRate: video.playbackRate,
       },
