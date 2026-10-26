@@ -39,8 +39,6 @@ const STANDARD_FRAME_RATE_TOLERANCE = 0.015;
 // Cinematic path solved on its frame grid) settles once, even where early frames can't yet tell a
 // rate from its NTSC neighbor 0.1% away. YouTube's caller waits until they can.
 const PUBLISHED_RATE_HYSTERESIS = 0.002;
-// A duration this many medians long spans a gap no seek event announced, such as a segment swap.
-const OUTLIER_DURATION_MEDIANS = 3;
 // A run keeps durations within this ratio of each other. Between the 1 ms rounding of mediaTime
 // (17 ms after 16 ms at 60 fps) and the 2x of a missed frame.
 const RUN_DURATION_RATIO = 1.5;
@@ -106,7 +104,7 @@ export function stepClock(state: ClockState, event: ClockEvent): ClockState {
       return {
         ...publishRate(state, FRAMES_TO_TELL_NTSC_RATES).state,
         currentRun: [],
-        measuredRun: [],
+              measuredRun: [],
         measuredFps: null,
       };
     case 'frame':
@@ -120,23 +118,27 @@ function stepFrame(state: ClockState, frame: SeenFrame): ClockState {
     return { ...state, lastFrame: frame, currentRun: [] };
   }
   const duration = frame.mediaTime - lastFrame.mediaTime;
-  // Without a presented frame count (the every-refresh loop), a refresh the page missed shows only
-  // as a duration spanning two frames. It starts a new run, and the next normal duration starts
-  // another, so the miss stays in no run. A rate that changes by more than the ratio starts a run too.
+  // A duration off the run's by more than the ratio ends the run and stays in none: a refresh the
+  // page missed (the every-refresh loop counts no frames), a frame the source lacks, a gap no seek
+  // announced, or the first frame of a new rate, which the next duration starts a run for. Two rates
+  // never mix in one run, and a run's durations add up to its last time minus its first, which the
+  // NTSC span needs.
   const previousDuration = state.currentRun[state.currentRun.length - 1];
-  const offRun =
-    frame.presentedFrames == null &&
+  if (
     previousDuration != null &&
     (duration > previousDuration * RUN_DURATION_RATIO ||
-      duration * RUN_DURATION_RATIO < previousDuration);
-  const currentRun = [...(offRun ? [] : state.currentRun), duration].slice(-MAX_FRAME_DURATIONS);
+      duration * RUN_DURATION_RATIO < previousDuration)
+  ) {
+    return { ...state, lastFrame: frame, currentRun: [] };
+  }
+  const currentRun = [...state.currentRun, duration].slice(-MAX_FRAME_DURATIONS);
   const replacesMeasured =
     currentRun.length >= Math.min(state.measuredRun.length, FRAMES_TO_TELL_NTSC_RATES);
   return {
     ...state,
     lastFrame: frame,
     currentRun,
-    ...(replacesMeasured && {
+      ...(replacesMeasured && {
       measuredRun: currentRun,
       measuredFps: measureFrameRate(ntscSpan(currentRun)),
     }),
@@ -186,12 +188,9 @@ export function publishRate(
   return { state: { ...state, publishedRate: measuredFps }, rate: measuredFps };
 }
 
-function measureFrameRate(allDurations: readonly number[]): number {
-  const median = (durations: readonly number[]) =>
-    [...durations].sort((a, b) => a - b)[Math.floor(durations.length / 2)];
-  const typical = median(allDurations);
-  const durations = allDurations.filter((d) => d <= typical * OUTLIER_DURATION_MEDIANS);
-  const frameDuration = median(durations);
+// A run holds no outlier to filter: each duration is within RUN_DURATION_RATIO of the one before.
+function measureFrameRate(durations: readonly number[]): number {
+  const frameDuration = [...durations].sort((a, b) => a - b)[Math.floor(durations.length / 2)];
   const frameCount = durations.reduce(
     (sum, d) => sum + Math.max(1, Math.round(d / frameDuration)),
     0

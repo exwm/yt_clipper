@@ -31,6 +31,14 @@ interface Scenario {
   burst: number[];
   dropChance: number;
   seekChance: number;
+  // A jump no seek event announces, such as a segment swap.
+  gapChance: number;
+  pauseChance: number;
+  // Playback at 2x, which measures nothing.
+  fastChance: number;
+  // A quality switch, and a new source.
+  resizeChance: number;
+  emptiedChance: number;
   askChance: number;
 }
 
@@ -59,31 +67,46 @@ function scenarios(seedsPerCell: number): Scenario[] {
         missChance: pick([0, 0.002, 0.01]),
         dropChance: pick([0, 0.002]),
         seekChance: pick([0, 0.003]),
+        gapChance: pick([0, 0.01]),
+        pauseChance: pick([0, 0.005]),
+        fastChance: pick([0, 0.005]),
+        resizeChance: pick([0, 0.003]),
+        emptiedChance: pick([0, 0.002]),
       };
     })
   );
 }
 
 // Plays the scenario through the clock, asking for the rate as YouTube's caller does, and returns
-// every rate the clock reported and its state at the end.
-function play(s: Scenario): { reported: (number | null)[]; clock: ClockState } {
+// every rate the clock reported and its state at the end. `rateAt` gives the frame rate at frame k.
+function play(
+  s: Scenario,
+  frames = FRAMES,
+  rateAt: (k: number) => number = () => s.fps
+): { reported: (number | null)[]; clock: ClockState } {
   const random = mulberry32(s.seed * 7919 + 1);
   let clock = initialClock;
   let time = 5 + random() * 20;
   let presented = 0;
   let dropped = 0;
+  let fastFramesLeft = 0;
   const reported: (number | null)[] = [];
   const burstMisses = new Set<number>();
-  for (let k = 0; k < FRAMES; k++) {
+  for (let k = 0; k < frames; k++) {
     if (random() < s.burstChance) s.burst.forEach((offset) => burstMisses.add(k + offset));
+    if (random() < s.resizeChance) clock = stepClock(clock, { type: 'resize' });
+    if (random() < s.emptiedChance) clock = stepClock(clock, { type: 'emptied' });
     let duringSeek = false;
     if (random() < s.seekChance) {
       clock = stepClock(clock, { type: 'seeking' });
       time += 1 + random() * 5;
       duringSeek = true;
     }
+    if (random() < s.gapChance) time += 0.2 + random() * 0.5;
+    if (random() < s.fastChance) fastFramesLeft = 20;
+    const playbackRate = fastFramesLeft-- > 0 ? 2 : 1;
     if (random() < s.dropChance) dropped++;
-    time += 1 / s.fps;
+    time += playbackRate / rateAt(k);
     presented++;
     if (random() < s.missChance || burstMisses.has(k)) continue;
     const frame: ClockFrame = {
@@ -92,8 +115,8 @@ function play(s: Scenario): { reported: (number | null)[]; clock: ClockState } {
       duringSeek,
       droppedFrames: dropped,
       presentedFrames: s.countsFrames ? presented : undefined,
-      paused: false,
-      playbackRate: 1,
+      paused: random() < s.pauseChance,
+      playbackRate,
     };
     clock = stepClock(clock, { type: 'frame', frame });
     if (random() < s.askChance) {
@@ -104,6 +127,23 @@ function play(s: Scenario): { reported: (number | null)[]; clock: ClockState } {
   }
   return { reported, clock };
 }
+
+const clean = (fps: number, countsFrames: boolean): Scenario => ({
+  seed: 1,
+  fps,
+  countsFrames,
+  missChance: 0,
+  burstChance: 0,
+  burst: [],
+  dropChance: 0,
+  seekChance: 0,
+  gapChance: 0,
+  pauseChance: 0,
+  fastChance: 0,
+  resizeChance: 0,
+  emptiedChance: 0,
+  askChance: 1,
+});
 
 const SCENARIOS = scenarios(4);
 
@@ -117,14 +157,30 @@ describe('the frame clock over seeded playback', () => {
   });
 
   it('reports the rate once a clean playback is asked for it', () => {
-    const clean = SCENARIOS.filter(
-      (s) => s.missChance === 0 && s.burstChance === 0 && s.dropChance === 0 && s.seekChance === 0
-    );
-    expect(clean.length).toBeGreaterThan(10);
-    const unmeasured = clean.flatMap((s) => {
+    const quiet = SCENARIOS.filter((s) => {
+      const { seed, fps, countsFrames, askChance, burst, ...chances } = s;
+      return Object.values(chances).every((chance) => chance === 0);
+    });
+    expect(quiet.length).toBeGreaterThan(10);
+    const unmeasured = quiet.flatMap((s) => {
       const final = publishRate(play(s).clock, FRAMES_TO_TELL_NTSC_RATES).rate;
       return final === s.fps ? [] : [{ ...s, final }];
     });
     expect(unmeasured).toEqual([]);
+  });
+
+  // A rate change with no resize event, as on a site that splices sources. The new run replaces the
+  // measured one once it can tell NTSC rates, not only once it is as long as the old one.
+  it.each([
+    [60, 30],
+    [30, 60],
+    [60000 / 1001, 30000 / 1001],
+    [24, 60],
+  ])('reports a change from %p to %p fps within 70 frames', (before, after) => {
+    for (const countsFrames of [true, false]) {
+      const { reported } = play(clean(before, countsFrames), 200 + 70, (k) => (k < 200 ? before : after));
+      expect(new Set(reported.filter((rate) => rate != null))).toEqual(new Set([before, after]));
+      expect(reported[reported.length - 1]).toBe(after);
+    }
   });
 });
