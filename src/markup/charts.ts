@@ -86,6 +86,7 @@ import {
   cropInterpolationSectionAtTime,
   findCropKeyframeAtTime,
   nextKeyframeIndex,
+  cropSectionAt,
   sectionCropAt,
 } from './crop/crop-keyframe-math';
 import { isReframeEnabled, syncReframe } from './crop/video-zoom-controller';
@@ -1565,12 +1566,7 @@ export function getInterpolatedCrop(
     solved ??
     sectionCropAt(
       easing,
-      {
-        prev: cropMap[start - 1],
-        start: cropMap[start],
-        end: cropMap[start + 1],
-        next: cropMap[start + 2],
-      },
+      cropSectionAt(cropMap, start),
       time,
       fps,
       { width: cropResWidth, height: cropResHeight },

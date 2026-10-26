@@ -373,3 +373,16 @@ export function sectionCropAt(
     frame
   );
 }
+
+/** The section from `cropMap[start]` to `cropMap[start + 1]`, with the points beside it. */
+export function cropSectionAt(
+  cropMap: readonly CropPoint[],
+  start: number
+): { prev?: CropPoint; start: CropPoint; end: CropPoint; next?: CropPoint } {
+  return {
+    prev: cropMap[start - 1],
+    start: cropMap[start],
+    end: cropMap[start + 1],
+    next: cropMap[start + 2],
+  };
+}
