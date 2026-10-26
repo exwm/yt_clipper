@@ -1,6 +1,7 @@
 import json
 import subprocess
 import sys
+from dataclasses import dataclass
 from typing import Dict, Iterable, List, NoReturn, Tuple
 
 from rich.markup import escape
@@ -270,6 +271,36 @@ def show_formats_table(cs: ClipperState, formats_table: str) -> None:
     printToLogFile(cs.clipper_paths, f"{Text.from_ansi(formats_table)}\n\n")
 
 
+@dataclass(frozen=True)
+class FormatCheckPlan:
+    # yt-dlp would download several files (a comma in --format, a playlist, a video in parts).
+    severalDownloads: bool
+    # The formats table, its rows colored by what the probe could download.
+    formatsTable: str
+    # Each skipped format with the lower quality one yt-dlp fell back to.
+    drops: List[Tuple[Dict, Dict]]
+
+
+def plan_format_check(
+    preferredOutput: str, ytdl_info: Dict, followFormatOrder: bool
+) -> FormatCheckPlan:
+    """What to show and ask, from yt-dlp's unprobed pick and table (`preferredOutput`) and the info of
+    its probed pick. With followFormatOrder, quality is the --format-sort order of the formats."""
+    preferredFormatIds, formats_table = parse_preferred_formats_output(preferredOutput)
+    selectedFormatIds = selected_format_ids(ytdl_info)
+    skippedFormatIds = find_skipped_format_ids(preferredFormatIds, selectedFormatIds)
+    return FormatCheckPlan(
+        # The probe can drop a download that failed, so a comma format may only show up here.
+        severalDownloads=count_preferred_downloads(preferredOutput) > 1,
+        formatsTable=highlight_formats_table(
+            formats_table,
+            selectedFormatIds=selectedFormatIds,
+            unavailableFormatIds=skippedFormatIds,
+        ),
+        drops=find_quality_drops(ytdl_info, skippedFormatIds, followFormatOrder=followFormatOrder),
+    )
+
+
 def check_for_quality_drop(cs: ClipperState, ytdl_args: List[str], ytdl_info: Dict) -> None:
     """Show the formats table with the rows colored by probe result, and ask before continuing
     when yt-dlp fell back to a lower quality format."""
@@ -288,31 +319,19 @@ def check_for_quality_drop(cs: ClipperState, ytdl_args: List[str], ytdl_info: Di
     )
     # Piped, yt-dlp writes the table in the console code page (e.g. cp1252 on Windows). It is only shown.
     preferredOutput = preferred_process.stdout.decode("utf-8", errors="replace")
-    # The probe can drop a download that failed, so a comma format may only show up here.
-    if count_preferred_downloads(preferredOutput) > 1:
-        stop_on_several_downloads()
-    preferredFormatIds, formats_table = parse_preferred_formats_output(preferredOutput)
-
-    selectedFormatIds = selected_format_ids(ytdl_info)
-    skippedFormatIds = find_skipped_format_ids(preferredFormatIds, selectedFormatIds)
-    # Shown before the question, so the user sees which formats could not be downloaded.
-    show_formats_table(
-        cs,
-        highlight_formats_table(
-            formats_table,
-            selectedFormatIds=selectedFormatIds,
-            unavailableFormatIds=skippedFormatIds,
-        ),
-    )
-    prompt_to_continue_on_quality_drop(
+    plan = plan_format_check(
+        preferredOutput,
+        ytdl_info,
         # A --format-sort of the user's own is their idea of quality; the default sort gets the
         # fixed order, which compares bitrate only within one codec.
-        find_quality_drops(
-            ytdl_info,
-            skippedFormatIds,
-            followFormatOrder=list(settings["formatSort"]) != DEFAULT_FORMAT_SORT,
-        ),
-        acceptLowerQuality=settings.get("acceptLowerQuality", False),
+        followFormatOrder=list(settings["formatSort"]) != DEFAULT_FORMAT_SORT,
+    )
+    if plan.severalDownloads:
+        stop_on_several_downloads()
+    # Shown before the question, so the user sees which formats could not be downloaded.
+    show_formats_table(cs, plan.formatsTable)
+    prompt_to_continue_on_quality_drop(
+        plan.drops, acceptLowerQuality=settings.get("acceptLowerQuality", False)
     )
 
 

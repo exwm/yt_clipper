@@ -261,6 +261,27 @@ def test_find_quality_drops(
 
 DROP = [(videoFormat("313", 2160), videoFormat("248", 1080))]
 
+PREFERRED_4K = f"313+251\n{TABLE}"
+INFO_1080 = ytdlInfo([videoFormat("248", 1080), audioFormat("251", 160)], [videoFormat("313", 2160)])
+INFO_4K = ytdlInfo([videoFormat("313", 2160), audioFormat("251", 160)], [])
+
+
+@pytest.mark.parametrize(
+    ("preferredOutput", "info", "severalDownloads", "drops"),
+    [
+        pytest.param(PREFERRED_4K, INFO_4K, False, [], id="the preferred formats downloaded"),
+        pytest.param(PREFERRED_4K, INFO_1080, False, [("313", "248")], id="a fallback to 1080p"),
+        pytest.param(f"313\n{TABLE}251\n{TABLE}", INFO_4K, True, [], id="a comma format"),
+    ],
+)
+def test_plan_format_check(
+    preferredOutput: str, info: dict, severalDownloads: bool, drops: List[tuple]
+) -> None:
+    plan = ytdl.plan_format_check(preferredOutput, info, followFormatOrder=False)
+    assert plan.severalDownloads == severalDownloads
+    dropIds = [(skipped["format_id"], selected["format_id"]) for skipped, selected in plan.drops]
+    assert dropIds == drops
+
 
 @pytest.mark.parametrize(
     ("formatOrder", "drops"),
