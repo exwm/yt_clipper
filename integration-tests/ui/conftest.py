@@ -2,9 +2,10 @@
 
 Each test gets `markup`: a fresh page on the dev site (or, with --youtube URL, on that YouTube video)
 with the userscript injected and activated. Run them through `just ui-test` (dev site) or
-`just ui-test-youtube`, which build the bundle first. Screenshots go to sandbox/ui-shots/<test>/.
+`just ui-test-youtube`, which build the bundle first. Screenshots go to sandbox/ui-shots/<test>/ (<test>-<variant>/ for a parametrized test).
 """
 
+import re
 import shutil
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -188,6 +189,10 @@ def markup(
 ) -> Iterator[MarkupPage]:
     host = YOUTUBE_HOST if youtube_url else DEV_SITE_HOST
     test_name = request.node.originalname.removeprefix("test_").replace("_", "-")
+    # Each variant gets its own folder: parallel workers run the variants at once.
+    callspec = getattr(request.node, "callspec", None)
+    if callspec is not None:
+        test_name += "-" + re.sub(r"[^\w.]+", "-", callspec.id).strip("-")
     shots_dir = SHOTS / (f"{test_name}-{host.name}" if youtube_url else test_name)
     shutil.rmtree(shots_dir, ignore_errors=True)
     shots_dir.mkdir(parents=True)
