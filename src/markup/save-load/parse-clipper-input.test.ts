@@ -437,7 +437,12 @@ describe('parseOverrides: per-field type validation', () => {
     expect(overrides.enableHDR).toBeUndefined();
   });
 
-  const cropEasingValues: [string, unknown, boolean][] = [
+  const pairSettingValues: [string, unknown, boolean][] = [
+    ['crf', '30 -y', false],
+    ['crf', 30, true],
+    ['loop', 'forever', false],
+    ['loop', 'fade', true],
+    ['audio', 'yes', false],
     ['cropPointEasingCinematicMargin', -50, false],
     ['cropPointEasingCinematicMargin', 0, true],
     ['cropPointEasingCinematicMargin', 50, true],
@@ -449,8 +454,8 @@ describe('parseOverrides: per-field type validation', () => {
     ['cropPointEasingCinematicHolds', 'Firm', false],
     ['cropPointEasingCinematicHolds', 'exact', true],
   ];
-  test.each(cropEasingValues)(
-    'crop easing override %s = %p is kept: %s (the schema values)',
+  test.each(pairSettingValues)(
+    'override %s = %p is kept: %s (the schema values)',
     (key, value, kept) => {
       const { input } = parseClipperInput({
         markerPairs: [{ start: 0, end: 5, overrides: { [key]: value } }],
@@ -459,8 +464,8 @@ describe('parseOverrides: per-field type validation', () => {
       expect(overrides[key]).toBe(kept ? value : undefined);
     }
   );
-  test.each(cropEasingValues)(
-    'global crop easing setting %s = %p is kept: %s (the schema values)',
+  test.each(pairSettingValues)(
+    'global setting %s = %p is kept: %s (the schema values)',
     (key, value, kept) => {
       const { input } = parseClipperInput({ markerPairs: [], [key]: value });
       expect((toApplicableSettings(input) as Record<string, unknown>)[key]).toBe(
