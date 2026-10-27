@@ -60,6 +60,14 @@ describe('getFrameCount', () => {
       desc: 'floors fractional frames',
     },
     { fps: 30, duration: 60, seconds: 0, frameNumber: 0, totalFrames: 1800, desc: 'time 0' },
+    {
+      fps: 30,
+      duration: 60,
+      seconds: 1.033,
+      frameNumber: 31,
+      totalFrames: 1800,
+      desc: "a frame's start rounded to the millisecond",
+    },
   ])(
     '$desc: $seconds s @ $fps fps → frame $frameNumber / $totalFrames',
     ({ fps, duration, seconds, frameNumber, totalFrames }) => {
