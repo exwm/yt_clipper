@@ -51,11 +51,26 @@ for rate in RATES:
             cases.append({"rate": rate, "origin": origin, **previous})
 
 
+# Marker pairs at 30 fps: the frames shown at the start and end markers, and the span's ends.
+SPANS = [
+    ("on frame starts", 0, 30 / 30, 50 / 30, 30, 50),
+    ("mid-frame", 0, 30.5 / 30, 50.5 / 30, 30, 50),
+    ("saved to 6 decimals", 0, round(31 / 30, 6), round(52 / 30, 6), 31, 52),
+    ("both in one frame", 0, 30.5 / 30, 30.6 / 30, 30, 30),
+    ("a start marker before the video's first frame", 2 / 30, 0, 1, 0, 28),
+    ("both markers before the video's first frame", 2 / 30, 0, 0.01, 0, 0),
+]
+spans = [
+    {"rate": "30", "origin": origin, "startMarker": start, "endMarker": end, "firstFrame": first, "lastFrame": last, "kind": kind}
+    for kind, origin, start, end, first, last in SPANS
+]  # fmt: skip
+
+
 def rows(items: list[dict]) -> str:
     """One case per line, so the file reads as a table."""
     return ",\n".join("  " + json.dumps(item) for item in items)
 
 
-text = f'{{\n"timeToFrame": [\n{rows(cases)}\n],\n"frameStart": [\n{rows(starts)}\n]\n}}\n'
+text = f'{{\n"timeToFrame": [\n{rows(cases)}\n],\n"frameStart": [\n{rows(starts)}\n],\n"frameSpan": [\n{rows(spans)}\n]\n}}\n'
 OUT.write_bytes(text.encode())
 print(f"{len(cases)} time cases, {len(starts)} frame starts -> {OUT}")

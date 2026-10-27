@@ -970,7 +970,12 @@ export function markerPairDuration(markerPair: MarkerPair): {
     const outputDuration = getOutputDuration(speedMap, getFPS());
     return { text: `${durationHHMMSS} (${toHHMMSSTrimmed(outputDuration)})`, outputDuration };
   }
-  const outputDuration = duration / speed;
+  // At the pair's own speed, as the clipper's constant-speed path renders it.
+  const constantSpeed = [
+    { x: markerPair.start, y: speed },
+    { x: markerPair.end, y: speed },
+  ];
+  const outputDuration = getOutputDuration(constantSpeed, getFPS());
   return {
     text: `${durationHHMMSS}/${speed} = ${toHHMMSSTrimmed(outputDuration)}`,
     outputDuration,

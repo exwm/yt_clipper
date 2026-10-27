@@ -22,8 +22,6 @@ from fractions import Fraction
 import pytest
 
 from clipper import clip_maker
-from clipper.ffmpeg_filter import getSpeedFilterAndDuration
-from clipper.frame_grid import FrameGrid, frameSpan
 from clipper.yt_clipper import main
 
 TESTDATA = pathlib.Path(__file__).parent.resolve() / "testdata"
@@ -132,15 +130,9 @@ class Clipper:
         return float(probe.stdout.strip())
 
 
-def markerPairLength() -> float:
-    """The clip length the test marker pair's speed map asks for, over the frames from the one shown at
-    its start marker through the one shown at its end marker."""
-    pair = json.loads(MARKERS.read_text(encoding="utf-8"))["markerPairs"][0]
-    span = frameSpan(FrameGrid(origin=0, rate=SOURCE_FPS), pair["start"], pair["end"])
-    speedMap = pair["speedMap"]
-    speedMap[0]["x"], speedMap[-1]["x"] = span.start, span.end
-    _, length, _ = getSpeedFilterAndDuration(speedMap, {"isVariableSpeed": True}, SOURCE_FPS)
-    return float(length)
+# The test marker pair's clip: source frames 2253 through 2306 of the 29.97 fps test video, at its
+# speed map's speeds, play as 103 output frames.
+MARKER_PAIR_LENGTH = 103 * 1001 / 30000
 
 
 @pytest.fixture
@@ -360,13 +352,14 @@ def test_clip_of_a_video_with_a_start_time_begins_on_the_pair_start_frame(
         shutil.rmtree(output, ignore_errors=True)
 
 
-def numberedVideo(ffmpeg: str, folder: pathlib.Path) -> pathlib.Path:
+def numberedVideo(ffmpeg: str, folder: pathlib.Path, start: float = 0) -> pathlib.Path:
     """A 4 s, 30 fps lossless video whose frame n has brightness 2n, so a clip's frame names its source
-    frame exactly."""
+    frame exactly. Its first frame shows at `start`."""
     source = folder / "numbered.mkv"
     subprocess.run(
         [ffmpeg, "-v", "error", "-f", "lavfi", "-i", "color=gray:size=320x180:rate=30:duration=4",
-         "-vf", "geq=lum='2*N':cb=128:cr=128", "-c:v", "libx264", "-qp", "0", str(source)],
+         "-vf", "geq=lum='2*N':cb=128:cr=128", "-c:v", "libx264", "-qp", "0",
+         "-output_ts_offset", str(start), str(source)],
         check=True,
     )  # fmt: skip
     return source
@@ -389,13 +382,14 @@ def sourceFrames(ffprobe: str, clip: pathlib.Path) -> list[int]:
 
 
 @pytest.mark.parametrize(
-    ("start", "end", "frames"),
+    ("start", "end", "frames", "sourceStart"),
     [
-        pytest.param(30 / 30, 50 / 30, (30, 50), id="markers on frame starts"),
-        pytest.param(30.5 / 30, 50.5 / 30, (30, 50), id="markers mid-frame"),
+        pytest.param(30 / 30, 50 / 30, (30, 50), 0, id="markers on frame starts"),
+        pytest.param(30.5 / 30, 50.5 / 30, (30, 50), 0, id="markers mid-frame"),
         # 6 decimals is how markers are saved; both round a hair below their frame's start.
-        pytest.param(round(31 / 30, 6), round(52 / 30, 6), (31, 52), id="markers saved to 6 decimals"),
-        pytest.param(30.9 / 30, 50.9 / 30, (30, 50), id="markers late in their frames"),
+        pytest.param(round(31 / 30, 6), round(52 / 30, 6), (31, 52), 0, id="markers saved to 6 decimals"),
+        pytest.param(30.9 / 30, 50.9 / 30, (30, 50), 0, id="markers late in their frames"),
+        pytest.param(0, 1, (0, 28), 2 / 30, id="a start marker before the video's first frame"),
     ],
 )
 def test_a_clip_runs_from_the_frame_shown_at_its_start_marker_through_the_one_at_its_end_marker(
@@ -404,12 +398,13 @@ def test_a_clip_runs_from_the_frame_shown_at_its_start_marker_through_the_one_at
     start: float,
     end: float,
     frames: tuple[int, int],
+    sourceStart: float,
 ) -> None:
     clipper.requireEncoder("libvpx-vp9")
     ffmpeg, ffprobe = clipper.toolPath("ffmpeg"), clipper.toolPath("ffprobe")
     assert ffmpeg is not None
     assert ffprobe is not None
-    source = numberedVideo(ffmpeg, tmp_path)
+    source = numberedVideo(ffmpeg, tmp_path, sourceStart)
     data = json.loads(MARKERS.read_text(encoding="utf-8"))
     data.update(cropRes="320x180", cropResWidth=320, cropResHeight=180, titleSuffix="numbered")
     data["markerPairs"] = [{"number": 1, "start": start, "end": end, "speed": 1, "crop": "0:0:iw:ih", "enableZoomPan": False, "cropRes": "320x180", "overrides": {}}]  # fmt: skip
@@ -502,11 +497,22 @@ def frameTimes(ffprobe: str, clip: pathlib.Path) -> dict[int, float]:
 
 
 @pytest.mark.parametrize(
-    "start",
-    [pytest.param(30 / 30, id="start marker on a frame start"), pytest.param(30.5 / 30, id="mid-frame")],
+    ("start", "sourceStart"),
+    [
+        pytest.param(30 / 30, 0, id="start marker on a frame start"),
+        pytest.param(30.5 / 30, 0, id="mid-frame"),
+        # Measured 18 ms early, with or without the audio trim: ffmpeg starts the audio of a seek before
+        # the first video frame later than its seek point. Under the ~45 ms where early audio shows.
+        pytest.param(
+            0,
+            2 / 30,
+            id="start marker before the video's first frame",
+            marks=pytest.mark.xfail(reason="audio about 18 ms early", strict=True),
+        ),
+    ],
 )
 def test_a_clips_audio_starts_with_its_first_frame(
-    clipper: Clipper, tmp_path: pathlib.Path, start: float
+    clipper: Clipper, tmp_path: pathlib.Path, start: float, sourceStart: float
 ) -> None:
     # The source's click starts exactly with frame 40, so in the clip it starts with frame 40 too.
     clipper.requireEncoder("libvpx-vp9")
@@ -515,9 +521,11 @@ def test_a_clips_audio_starts_with_its_first_frame(
     assert ffprobe is not None
     video = numberedVideo(ffmpeg, tmp_path)
     source = tmp_path / "numbered-click.mkv"
+    click = sourceStart + 40 / 30
+    # Offset when muxing: copying a stream drops an offset it was encoded with.
     subprocess.run(
-        [ffmpeg, "-v", "error", "-i", str(video), "-f", "lavfi", "-i",
-         "aevalsrc='if(between(t,40/30,40/30+0.01),0.9*sin(2*PI*1000*t),0)':s=48000:d=4",
+        [ffmpeg, "-v", "error", "-itsoffset", str(sourceStart), "-i", str(video), "-f", "lavfi", "-i",
+         f"aevalsrc='if(between(t,{click},{click}+0.01),0.9*sin(2*PI*1000*t),0)':s=48000:d=4",
          "-c:v", "copy", "-c:a", "pcm_s16le", str(source)],
         check=True,
     )  # fmt: skip
@@ -776,7 +784,7 @@ def test_make_clip(case: ClipCase, clipper: Clipper) -> None:
     if case.codec:
         assert video.get("codec_name") == case.codec
         # Fast trim cuts at keyframes, so only re-encoded clips keep the exact length.
-        assert clipper.probeDuration(clips[0]) == pytest.approx(markerPairLength(), abs=LENGTH_TOLERANCE)
+        assert clipper.probeDuration(clips[0]) == pytest.approx(MARKER_PAIR_LENGTH, abs=LENGTH_TOLERANCE)
     log = max((output / "logs").glob("*.log"), key=lambda path: path.stat().st_mtime)
     assert not re.findall(r"\b(?:ERROR|CRITICAL)\b", log.read_text(encoding="utf-8"))
 

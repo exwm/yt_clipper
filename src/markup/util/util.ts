@@ -477,12 +477,10 @@ export function getOutputDuration(speedMap: SpeedPoint[], fps = 30) {
 
     const sectStart = left.x - speedMapStartTime;
     let sectEnd = right.x - speedMapStartTime;
-    // The last section runs to the start of the last frame, which is then held for a frame below.
+    // The map ends at the last frame's end. Its last section runs to that frame's start, the frame
+    // then held for a frame below; a speed point inside the last frame leaves that section empty.
     if (sect === nSects - 1) {
-      sectEnd = Math.floor(right.x / frameDur) * frameDur;
-      if (right.x - sectEnd < 1e-10) sectEnd = sectEnd - frameDur;
-      sectEnd = sectEnd - speedMapStartTime;
-      sectEnd = Math.floor(sectEnd * 1000000) / 1000000;
+      sectEnd = Math.max(sectStart, right.x - frameDur - speedMapStartTime);
     }
 
     const sectDuration = sectEnd - sectStart;
@@ -499,12 +497,10 @@ export function getOutputDuration(speedMap: SpeedPoint[], fps = 30) {
         (1 / m) * (Math.log(Math.abs(m * sectEnd + b)) - Math.log(Math.abs(m * sectStart + b)));
     }
   }
-  // Each output frame time is rounded to the nearest multiple of a frame's duration at the given fps
-  outputDuration = Math.round(outputDuration / frameDur) * frameDur;
-  // The last included frame is held for a single frame's duration
-  outputDuration += frameDur;
-  outputDuration = Math.round(outputDuration * 1000) / 1000;
-  return outputDuration;
+  // The last frame's output time rounds to a whole frame, half up as the clipper rounds, and the
+  // frame is held for one frame.
+  const lastFrame = Math.floor(outputDuration * fps + 0.5);
+  return (lastFrame + 1) / fps;
 }
 export async function onLoadVideoPage(callback: Function) {
   const ytdapp = await retryUntilTruthyResult(() => document.getElementsByTagName('ytd-app')[0]);

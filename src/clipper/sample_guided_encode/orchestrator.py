@@ -2502,6 +2502,8 @@ def _encode_windows_for_marker_pair(  # noqa: PLR0913 (keyword-only params; bund
                 originalMarkerSnapshot,
             )
             mp = settings["markerPairs"][markerPairIndex]
+            # The pair's own ends, which its speed and crop maps keep.
+            mp["pairStart"], mp["pairEnd"] = mp["start"], mp["end"]
             mp["start"] = window.start
             mp["end"] = window.end
             # Mirror trial-pipeline overrides into mp["overrides"] too.

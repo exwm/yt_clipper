@@ -190,28 +190,40 @@ def getMarkerPairSettings(  # noqa: PLR0912
         mp["start"] + mps["delay"] - videoPartDelay,
         mp["end"] + mps["delay"] - videoPartDelay,
     )
+    # The maps' ends are the pair's own, also when a sample-guided trial clips a window of it.
+    pairSpan = frameSpan(
+        grid,
+        mp.get("pairStart", mp["start"]) + mps["delay"] - videoPartDelay,
+        mp.get("pairEnd", mp["end"]) + mps["delay"] - videoPartDelay,
+    )
     mp["start"], mp["end"] = span.start, span.end
     mp["seekTo"], mp["trimEnd"] = span.seekTo, span.trimEnd
     mp["duration"] = mp["end"] - mp["start"]
     # The speed and crop maps stay on the video's timeline (the markers' plus the delay), where the
     # video part's frames start at mapsFrameOrigin.
-    mapsStart, mapsEnd = span.start + videoPartDelay, span.end + videoPartDelay
+    mapsStart, mapsEnd = pairSpan.start + videoPartDelay, pairSpan.end + videoPartDelay
     mapsFrameOrigin = videoPartDelay + grid.origin
+    # A sample-guided window starts this far into its pair's crop map.
+    mp["cropMapTimeOffset"] = span.start - pairSpan.start
 
     mp["isVariableSpeed"] = False
     if mps["enableSpeedMaps"] and "speedMap" in mp:
         if mps["delay"] != 0:
             for point in mp["speedMap"]:
                 point["x"] += mps["delay"]
-        # The map's ends are the pair's: the last speed runs to the last frame's end.
-        mp["speedMap"][0]["x"], mp["speedMap"][-1]["x"] = mapsStart, mapsEnd
-
-        for left, right in zip(mp["speedMap"][:-1], mp["speedMap"][1:]):
-            if left["y"] != right["y"]:
-                mp["isVariableSpeed"] = True
-                break
+        speedMap, mp["isVariableSpeed"] = pairSpeedMap(mp["speedMap"], mapsStart, mapsEnd)
+        mp["speedMap"] = (
+            windowSpeedMap(
+                speedMap,
+                span.start + videoPartDelay,
+                span.end + videoPartDelay,
+                float(1 / Fraction(mps["r_frame_rate"])),
+            )
+            if span != pairSpan
+            else speedMap
+        )
     else:
-        mp["speedMap"] = [
+        mp["speedMap"] = speedMap = [
             {"x": mp["start"], "y": mp["speed"]},
             {"x": mp["end"], "y": mp["speed"]},
         ]
@@ -222,7 +234,8 @@ def getMarkerPairSettings(  # noqa: PLR0912
         mps["r_frame_rate"],
     )
 
-    mp["averageSpeed"] = getAverageSpeed(mp["speedMap"], mps["r_frame_rate"])
+    # The pair's, so a sample-guided window encodes with the pair's GOP length.
+    mp["averageSpeed"] = getAverageSpeed(speedMap, mps["r_frame_rate"])
 
     cropString, cropComponents = getAutoScaledCropComponents(
         mp["crop"],
@@ -245,7 +258,7 @@ def getMarkerPairSettings(  # noqa: PLR0912
                 point["x"] += mps["delay"]
         # The map's ends are the pair's. The last point sits mid-frame, where an ease into it finishes
         # on the last frame.
-        lastFrameMiddle = mapsStart + span.trimEnd
+        lastFrameMiddle = mapsStart + pairSpan.trimEnd
         mp["cropMap"][0]["x"], mp["cropMap"][-1]["x"] = mapsStart, lastFrameMiddle
 
         if mps.get("cropPointEasing") == "cinematic":
@@ -423,6 +436,44 @@ def updateEncodeSettings(
         mps["targetMaxBitrate"] = mps["autoTargetMaxBitrate"]
 
     return mps, bitrateFactor, bitrateCropFactor, bitrateFpsFactor
+
+
+def pairSpeedMap(
+    speedMap: list[DictStrAny], mapsStart: float, mapsEnd: float
+) -> tuple[list[DictStrAny], bool]:
+    """The speed map as the clip plays it, with its ends at the pair's first frame's start and last
+    frame's end (the last speed runs to the last frame's end), and whether its speed varies."""
+    points = [dict(point) for point in speedMap]
+    points[0]["x"], points[-1]["x"] = mapsStart, mapsEnd
+    return points, any(left["y"] != right["y"] for left, right in zip(points, points[1:]))
+
+
+def windowSpeedMap(speedMap: list[DictStrAny], start: float, end: float, frameDur: float) -> list[DictStrAny]:
+    """The part of a pair's speed map from start to end, for a sample-guided window of the pair, with
+    the speeds the pair renders there. A map's last section reaches its speed at its last frame's start
+    (getSpeedFilterAndDuration), so the window's end point takes the speed at its own last frame's."""
+    sections = [(left["x"], left["y"], right["x"], right["y"]) for left, right in zip(speedMap, speedMap[1:])]
+    lastLeftX, lastLeftY, lastRightX, lastRightY = sections[-1]
+    sections[-1] = (lastLeftX, lastLeftY, max(lastLeftX, lastRightX - frameDur), lastRightY)
+
+    def speedAt(time: float) -> float:
+        for leftX, leftY, rightX, rightY in sections:
+            if time < rightX:
+                return leftY + (time - leftX) / (rightX - leftX) * (rightY - leftY)
+        return speedMap[-1]["y"]
+
+    inside = [dict(point) for point in speedMap if start < point["x"] < end - frameDur]
+    return [{"x": start, "y": speedAt(start)}, *inside, {"x": end, "y": speedAt(end - frameDur)}]
+
+
+def cropFilterOnPairTime(mp: DictStrAny) -> str:
+    """The crop filter for a clip whose time starts at 0. The crop filters read the time from the
+    pair's start, which a sample-guided window starts after; the rest of the chain reads the clip's."""
+    offset = mp["cropMapTimeOffset"]
+    if not offset:
+        return mp["cropFilter"]
+    # The fine time base keeps the shift from rounding a frame across a crop point.
+    return f"settb=AVTB,setpts=PTS+{offset}/TB,{mp['cropFilter']},setpts=PTS-STARTPTS"
 
 
 def clipFrameGrid(mps: DictStrAny) -> FrameGrid:
@@ -655,7 +706,7 @@ def makeClip(  # noqa: PLR0912
 
     cropComponents = mp["cropComponents"]
     # video_filter += f",mpdecimate=hi=64*2:lo=64:frac=0.1,setpts='(N/FR/TB)'"
-    video_filter += f",{mp['cropFilter']}"
+    video_filter += f",{cropFilterOnPairTime(mp)}"
 
     if mps["subsFilePath"] != "":
         video_filter += getSubsFilter(cs, mp, mps, markerPairIndex)

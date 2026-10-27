@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from clipper.ffprobe import getFrameRate, offGridFrames, warnIfFramesOffGrid
+from clipper.ffprobe import getFrameRate, offGridFrames, shouldCheckFrameTimes, warnIfFramesOffGrid
 
 FRAMES_AT_30 = [n / 30 for n in range(60)]
 
@@ -26,7 +26,22 @@ def test_frames_off_the_grid_are_counted(times: list[float], origin: float, rate
     assert offGridFrames(times, origin, Fraction(rate)) == off
 
 
+@pytest.mark.parametrize(
+    ("videoURL", "inputVideo", "stated", "average", "checks"),
+    [
+        pytest.param("clip.webm", "clip.webm", "30/1", "30/1", True, id="a local video"),
+        pytest.param("https://example.com/v", "", "30/1", "30/1", False, id="a network stream"),
+        pytest.param("clip.mp4", "clip.mp4", "30/1", "3600/179", False, id="a varying rate its header shows"),
+    ],
+)
+def test_frame_times_are_read_for_local_videos_whose_header_shows_no_varying_rate(
+    videoURL: str, inputVideo: str, stated: str, average: str, checks: bool
+) -> None:
+    assert shouldCheckFrameTimes(videoURL, inputVideo, stated, average) == checks
+
+
 @pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="needs ffmpeg and ffprobe on PATH")
+@pytest.mark.parametrize("name", ["video.webm", "-video.webm"])
 @pytest.mark.parametrize(
     ("setpts", "warns"),
     [
@@ -36,14 +51,15 @@ def test_frames_off_the_grid_are_counted(times: list[float], origin: float, rate
     ],
 )
 def test_a_local_webm_with_frames_off_its_grid_is_warned_about(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture, setpts: str, warns: bool
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, setpts: str, warns: bool, name: str
 ) -> None:
     # WebM reports equal r_frame_rate and avg_frame_rate even when its frame times vary. A 1 ms time
-    # base keeps the encoder from rounding the times back onto the 1/30 grid.
-    video = tmp_path / "video.webm"
+    # base keeps the encoder from rounding the times back onto the 1/30 grid. A name starting with '-'
+    # is still the input, not an ffprobe option.
+    video = tmp_path / name
     subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x36:rate=30:duration=2",
                     "-vf", f"settb=1/1000,setpts='{setpts}'", "-fps_mode", "vfr", "-enc_time_base", "1/1000",
-                    "-c:v", "libvpx-vp9", "-deadline", "realtime", str(video)], check=True)  # fmt: skip
+                    "-c:v", "libvpx-vp9", "-deadline", "realtime", "-y", str(video)], check=True)  # fmt: skip
     with caplog.at_level(logging.WARNING):
         warnIfFramesOffGrid("ffprobe", str(video), origin=0, rate=Fraction(30))
     assert any(record.levelno == logging.WARNING for record in caplog.records) == warns

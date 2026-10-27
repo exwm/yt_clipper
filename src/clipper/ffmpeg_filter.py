@@ -246,14 +246,10 @@ def getSpeedFilterAndDuration(
 
         sectStart = left["x"] - speedMapStartTime
         sectEnd = right["x"] - speedMapStartTime
-        # Account for last input frame delay due to potentially imprecise trim
+        # The map ends at the last frame's end. Its last section runs to that frame's start, the frame
+        # then held for a frame below; a speed point inside the last frame leaves that section empty.
         if sect == nSects - 1:
-            sectEnd = floor(right["x"] / frameDur) * frameDur
-            # When trim is frame-precise, the frame that begins at the marker pair end time is not included
-            if right["x"] - sectEnd < 1e-10:
-                sectEnd = sectEnd - frameDur
-            sectEnd = sectEnd - speedMapStartTime
-            sectEnd = floor(sectEnd * 1000000) / 1000000
+            sectEnd = max(sectStart, right["x"] - frameDur - speedMapStartTime)
 
         nDurs = len(outputDurations)
         nextDur = 0
@@ -288,11 +284,10 @@ def getSpeedFilterAndDuration(
     video_filter_speed_map += f"""setpts='({setpts})/TB' """
 
     nDurs = len(outputDurations)
-    # Each output frame time is rounded to the nearest multiple of a frame's duration at the given fps
-    outputDurations[nDurs - 1] = round(outputDurations[nDurs - 1] / frameDur) * frameDur
-    # The last included frame is held for a single frame's duration
-    outputDurations[nDurs - 1] += frameDur
-    outputDurations[nDurs - 1] = round(outputDurations[nDurs - 1] * 1000) / 1000
+    # The last frame's output time rounds to a whole frame, half up as the markup's twin rounds, and
+    # the frame is held for one frame.
+    lastFrame = floor(Fraction(outputDurations[nDurs - 1]) * fps + Fraction(1, 2))
+    outputDurations[nDurs - 1] = float((lastFrame + 1) / fps)
 
     outputDuration = outputDurations[nDurs - 1]
 

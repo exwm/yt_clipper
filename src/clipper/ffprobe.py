@@ -28,7 +28,8 @@ def ffprobeVideoProperties(cs: ClipperState, videoURL: str) -> Optional[DictStrA
                     getFfmpegHeaders(settings["platform"]),
                 ),
             )
-            ffprobeCommand = f'{cp.ffprobePath} "{videoURL}" {ffprobeFlags} '
+            # -i so a path starting with '-' is the input, not an option.
+            ffprobeCommand = f'{cp.ffprobePath} -i "{videoURL}" {ffprobeFlags} '
             logger.debug(ffprobeCommand)
             ffprobeOutput = subprocess.check_output(shlex.split(ffprobeCommand))
             logger.success(f"Successfully fetched video properties with ffprobe")
@@ -68,9 +69,8 @@ def ffprobeVideoProperties(cs: ClipperState, videoURL: str) -> Optional[DictStrA
 
         statedRate, averageRate = ffprobeStreamData["r_frame_rate"], ffprobeStreamData.get("avg_frame_rate")
         ffprobeStreamData["r_frame_rate"] = getFrameRate(statedRate, averageRate)
-        # Unless the header showed a varying rate, check a local video's frame times.
         rate = ffprobeStreamData["r_frame_rate"]
-        if videoURL == settings.get("inputVideo") and rate and not headerRatesDiffer(statedRate, averageRate):
+        if rate and shouldCheckFrameTimes(videoURL, settings.get("inputVideo"), statedRate, averageRate):
             origin = float(ffprobeStreamData.get("start_time") or 0)
             warnIfFramesOffGrid(cp.ffprobePath, videoURL, origin, Fraction(rate))
 
@@ -202,6 +202,14 @@ def headerRatesDiffer(r_frame_rate: Optional[str], avg_frame_rate: Optional[str]
         return False
 
 
+def shouldCheckFrameTimes(
+    videoURL: str, inputVideo: str | None, statedRate: str | None, averageRate: str | None
+) -> bool:
+    """Whether to read a video's frame times: a local video's, unless its header rates already show
+    a varying rate (warned about with them). Network streams come at a constant rate."""
+    return bool(inputVideo) and videoURL == inputVideo and not headerRatesDiffer(statedRate, averageRate)
+
+
 def offGridFrames(times: list[float], origin: float, rate: Fraction) -> int:
     """How many frame times sit more than a quarter frame from the grid origin + n / rate. Millisecond
     timestamps (WebM) stay well inside that."""
@@ -217,7 +225,7 @@ def warnIfFramesOffGrid(ffprobePath: str, videoPath: str, origin: float, rate: F
         f"{ffprobePath} -v error -select_streams v:0 -show_entries packet=pts_time -read_intervals %+20 -of csv=p=0"
     )
     try:
-        output = subprocess.run([*command, videoPath], capture_output=True, text=True, check=True).stdout
+        output = subprocess.run([*command, "-i", videoPath], capture_output=True, text=True, check=True).stdout
     except (OSError, subprocess.CalledProcessError) as e:
         # Advisory only: the clip is made either way.
         logger.verbose(f"Could not read the input video's frame times: {e}")

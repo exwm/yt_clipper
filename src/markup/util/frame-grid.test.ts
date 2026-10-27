@@ -24,7 +24,16 @@ interface StartCase {
   frame: number;
   start: number;
 }
-const cases: { timeToFrame: Case[]; frameStart: StartCase[] } = JSON.parse(
+interface SpanCase {
+  rate: string;
+  origin: number;
+  startMarker: number;
+  endMarker: number;
+  firstFrame: number;
+  lastFrame: number;
+  kind: string;
+}
+const cases: { timeToFrame: Case[]; frameStart: StartCase[]; frameSpan: SpanCase[] } = JSON.parse(
   readFileSync(join(__dirname, '../../clipper/tests/fixtures/frame_grid_cases.json'), 'utf8')
 );
 
@@ -33,18 +42,12 @@ const grid = ({ rate, origin }: { rate: string; origin: number }): FrameGrid => 
   return { origin, rate: Number(num) / Number(den) };
 };
 
-describe('frameSpan', () => {
-  // The rows of the clipper's test_frame_grid span test.
-  it.each([
-    ['on frame starts', 30 / 30, 50 / 30, [30, 50]],
-    ['mid-frame', 30.5 / 30, 50.5 / 30, [30, 50]],
-    ['saved to 6 decimals', Number((31 / 30).toFixed(6)), Number((52 / 30).toFixed(6)), [31, 52]],
-    ['both in one frame', 30.5 / 30, 30.6 / 30, [30, 30]],
-  ] as const)('%s', (_case, startMarker, endMarker, [first, last]) => {
-    const span = frameSpan({ origin: 0, rate: 30 }, startMarker, endMarker);
-    expect([span.firstFrame, span.lastFrame]).toEqual([first, last]);
-    expect(span.start).toBeCloseTo(first / 30, 9);
-    expect(span.end).toBeCloseTo((last + 1) / 30, 9);
+describe('frameSpan, against the clipper’s case table', () => {
+  it.each(cases.frameSpan.map((c) => [c.kind, c] as const))('%s', (_kind, c) => {
+    const span = frameSpan(grid(c), c.startMarker, c.endMarker);
+    expect([span.firstFrame, span.lastFrame]).toEqual([c.firstFrame, c.lastFrame]);
+    expect(span.start).toBeCloseTo(frameStart(grid(c), c.firstFrame), 9);
+    expect(span.end).toBeCloseTo(frameStart(grid(c), c.lastFrame + 1), 9);
   });
 });
 

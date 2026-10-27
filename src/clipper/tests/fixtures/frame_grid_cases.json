@@ -1352,5 +1352,13 @@
   {"rate": "120", "origin": 0.021, "frame": 123, "start": 1.0459999999999998},
   {"rate": "120", "origin": 0.021, "frame": 4321, "start": 36.029333333333334},
   {"rate": "120", "origin": 0.021, "frame": 50000, "start": 416.6876666666667}
+],
+"frameSpan": [
+  {"rate": "30", "origin": 0, "startMarker": 1.0, "endMarker": 1.6666666666666667, "firstFrame": 30, "lastFrame": 50, "kind": "on frame starts"},
+  {"rate": "30", "origin": 0, "startMarker": 1.0166666666666666, "endMarker": 1.6833333333333333, "firstFrame": 30, "lastFrame": 50, "kind": "mid-frame"},
+  {"rate": "30", "origin": 0, "startMarker": 1.033333, "endMarker": 1.733333, "firstFrame": 31, "lastFrame": 52, "kind": "saved to 6 decimals"},
+  {"rate": "30", "origin": 0, "startMarker": 1.0166666666666666, "endMarker": 1.02, "firstFrame": 30, "lastFrame": 30, "kind": "both in one frame"},
+  {"rate": "30", "origin": 0.06666666666666667, "startMarker": 0, "endMarker": 1, "firstFrame": 0, "lastFrame": 28, "kind": "a start marker before the video's first frame"},
+  {"rate": "30", "origin": 0.06666666666666667, "startMarker": 0, "endMarker": 0.01, "firstFrame": 0, "lastFrame": 0, "kind": "both markers before the video's first frame"}
 ]
 }

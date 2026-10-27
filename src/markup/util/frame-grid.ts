@@ -73,7 +73,9 @@ export function loopSeekTarget(
 }
 
 export function frameSpan(grid: FrameGrid, startMarker: number, endMarker: number): FrameSpan {
-  const firstFrame = frameAt(grid, startMarker);
+  // The grid's origin is the video's first frame (the markup's grids start at 0), so a marker before
+  // it means that frame.
+  const firstFrame = Math.max(0, frameAt(grid, startMarker));
   const lastFrame = Math.max(firstFrame, frameAt(grid, endMarker));
   return {
     firstFrame,
