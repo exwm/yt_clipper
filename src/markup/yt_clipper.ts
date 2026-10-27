@@ -57,7 +57,6 @@ import {
   flashMessage,
   injectCSS,
   observeVideoElementChange,
-  seekBySafe,
   setFlashMessageHook,
   sleep,
 } from './util/util';
@@ -131,6 +130,7 @@ import {
   addScrubVideoHandler,
   followFrameRate,
   getFPS,
+  seekByFrames,
   toggleFrameRateMeasurement,
 } from './util/videoUtil';
 import { mountHintsBar, setHintsBarEnabled, toggleHintsBar } from './features/hints-bar/hints-bar';
@@ -721,12 +721,7 @@ function mouseWheelFrameSkipHandler(event: WheelEvent) {
     event.shiftKey &&
     Math.abs(event.deltaY) > 0
   ) {
-    const fps = getFPS();
-    if (event.deltaY < 0) {
-      seekBySafe(appState.video, mouseWheelFrameSkipRate / fps);
-    } else if (event.deltaY > 0) {
-      seekBySafe(appState.video, -mouseWheelFrameSkipRate / fps);
-    }
+    seekByFrames(event.deltaY < 0 ? mouseWheelFrameSkipRate : -mouseWheelFrameSkipRate);
   }
 }
 

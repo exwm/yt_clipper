@@ -4,11 +4,13 @@ import { getPlatform, VideoPlatforms } from '../platforms/platforms';
 import { chartState } from '../charts';
 import { isDrawingCrop } from '../crop-overlay';
 import { isMouseManipulatingCrop } from '../crop-overlay';
-import { blockEvent, flashMessage, seekBySafe } from './util';
+import { blockEvent, flashMessage, seekBySafe, seekToSafe } from './util';
+import { frameStepTarget } from './frame-step';
 import { registerActiveDragCleanup } from './drag-recovery';
 import {
   FRAMES_TO_TELL_NTSC_RATES,
   getMeasuredFrameRate,
+  getPresentedFrameTime,
   isNewMeasuredFrameRate,
 } from './presented-frame-clock';
 
@@ -51,6 +53,21 @@ export function toggleFrameRateMeasurement(): void {
     `Frame rate measurement ${measureFrameRate ? 'on' : 'off'}. Using ${formatFps(fps)} fps.`,
     measureFrameRate ? 'green' : 'red'
   );
+}
+
+let lastFrameStepTarget: number | null = null;
+/** Seeks `frames` whole frames from the frame on screen, to the middle of that frame. */
+export function seekByFrames(frames: number): void {
+  const video = appState.video;
+  const target = frameStepTarget({
+    presentedFrameTime: getPresentedFrameTime(video),
+    playhead: video.getCurrentTime(),
+    lastTarget: lastFrameStepTarget,
+    fps: getFPS(),
+    frames,
+  });
+  lastFrameStepTarget = target;
+  seekToSafe(video, target);
 }
 
 export let prevVideoWidth: number;
