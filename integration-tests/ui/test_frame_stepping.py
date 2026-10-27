@@ -27,6 +27,26 @@ def test_the_measured_frame_rate_flashes_once_the_video_plays(markup: MarkupPage
         then_a_flash_says(markup, f"Measured the frame rate: {rate}")
 
 
+def test_the_command_palette_turns_frame_rate_measurement_off(markup: MarkupPage) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("checks the 60 fps default of a site that reports no frame rate")
+    when_i_run_the_palette_command(markup, "frame rate measurement")
+    then_a_flash_says(markup, "Frame rate measurement off. Using 60 fps.")
+
+
+@step
+def when_i_run_the_palette_command(markup: MarkupPage, search: str) -> None:
+    markup.page.click("#shortcutsTableToggleButton")
+    markup.page.keyboard.type(search)
+    markup.press("Enter")
+
+
+@step
+def then_a_flash_says(markup: MarkupPage, message: str) -> None:
+    markup.page.get_by_text(message).first.wait_for(timeout=5000)
+    markup.shot("flash")
+
+
 @step
 def given_the_video_is_playing(markup: MarkupPage) -> None:
     markup.seek(2, presented=True)

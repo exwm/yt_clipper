@@ -26,7 +26,15 @@ jest.mock('./util', () => ({
 }));
 jest.mock('./drag-recovery', () => ({ registerActiveDragCleanup: jest.fn() }));
 
-import { getFPS } from './videoUtil';
+const mockStorage = new Map<string, string>();
+Object.assign(globalThis, {
+  localStorage: {
+    getItem: (key: string) => mockStorage.get(key) ?? null,
+    setItem: (key: string, value: string) => mockStorage.set(key, value),
+  },
+});
+
+import { getFPS, toggleFrameRateMeasurement } from './videoUtil';
 
 describe('getFPS', () => {
   beforeEach(() => {
@@ -72,6 +80,29 @@ describe('getFPS', () => {
     mockMeasured.fps = measured;
     expect(getFPS()).toBeCloseTo(expected, 6);
   });
+
+  it.each([
+    ['YouTube', 'youtube', 30000 / 1001, 30],
+    ['another site', 'yt_clipper', 24, 60],
+  ])(
+    'on %s, turning measurement off uses the platform rate, saved, until turned back on',
+    (_case, platform, measured, unmeasured) => {
+      mockPlatform.current = platform;
+      mockMeasured.fps = measured;
+      expect(getFPS()).toBeCloseTo(measured, 6);
+
+      toggleFrameRateMeasurement();
+      expect(mockStorage.get('ytc-measure-frame-rate')).toBe('false');
+      expect(getFPS()).toBe(unmeasured);
+      expect(mockFlashMessage.mock.calls.at(-1)?.[0]).toBe(
+        `Frame rate measurement off. Using ${unmeasured} fps.`
+      );
+
+      toggleFrameRateMeasurement();
+      expect(mockStorage.get('ytc-measure-frame-rate')).toBe('true');
+      expect(getFPS()).toBeCloseTo(measured, 6);
+    }
+  );
 
   it.each([
     ['YouTube', 'youtube', 30000 / 1001],

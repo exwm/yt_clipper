@@ -127,7 +127,12 @@ import {
   toggleCropChartLooping,
 } from './charts';
 import { installLitUrlSanitizer } from './util/url-sanitizer';
-import { addScrubVideoHandler, followFrameRate, getFPS } from './util/videoUtil';
+import {
+  addScrubVideoHandler,
+  followFrameRate,
+  getFPS,
+  toggleFrameRateMeasurement,
+} from './util/videoUtil';
 import { mountHintsBar, setHintsBarEnabled, toggleHintsBar } from './features/hints-bar/hints-bar';
 import {
   HoveredRegion,
@@ -225,6 +230,7 @@ export function initShortcutSystem() {
       showShortcutsReference: () => {
         toggleShortcutsTable();
       },
+      toggleFrameRateMeasurement,
       addMarker: () => {
         // During an active crop manipulation (pan-drag OR resize) with
         // the crop chart visible, plain `A` reroutes to "add crop

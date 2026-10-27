@@ -20,6 +20,39 @@ export function followFrameRate(video: VideoElement): void {
   frameRateFrames = onVideoFrames(video, () => getFPS(), { phase: 'update', label: 'frame rate' });
 }
 
+// Whether getFPS uses the rate measured from played frames, saved in this browser. Read on first
+// use; storage that is blocked or full keeps the setting for this page only.
+const MEASURE_FRAME_RATE_KEY = 'ytc-measure-frame-rate';
+let measureFrameRate: boolean | null = null;
+function isFrameRateMeasured(): boolean {
+  if (measureFrameRate == null) {
+    try {
+      measureFrameRate = localStorage.getItem(MEASURE_FRAME_RATE_KEY) !== 'false';
+    } catch {
+      measureFrameRate = true;
+    }
+  }
+  return measureFrameRate;
+}
+
+const formatFps = (fps: number) => Number(fps.toFixed(3));
+
+export function toggleFrameRateMeasurement(): void {
+  measureFrameRate = !isFrameRateMeasured();
+  try {
+    localStorage.setItem(MEASURE_FRAME_RATE_KEY, String(measureFrameRate));
+  } catch {
+    // Blocked or full storage: the setting holds for this page only.
+  }
+  // Drop the measured rate cached for this video, so getFPS reads the platform's again.
+  appState.videoInfo.fps = undefined;
+  const fps = getFPS();
+  flashMessage(
+    `Frame rate measurement ${measureFrameRate ? 'on' : 'off'}. Using ${formatFps(fps)} fps.`,
+    measureFrameRate ? 'green' : 'red'
+  );
+}
+
 export let prevVideoWidth: number;
 export function getFPS(defaultFPS: number | null = 60) {
   let fps: number;
@@ -41,15 +74,14 @@ export function getFPS(defaultFPS: number | null = 60) {
     }
     // A rate measured from played frames replaces the default that startup cached before any frame
     // played. On YouTube it only refines the stats rate, which shows 29.97 fps as 30.
-    const measuredFPS = getMeasuredFrameRate(
-      appState.video,
-      isYouTube ? FRAMES_TO_TELL_NTSC_RATES : undefined
-    );
+    const measuredFPS = isFrameRateMeasured()
+      ? getMeasuredFrameRate(appState.video, isYouTube ? FRAMES_TO_TELL_NTSC_RATES : undefined)
+      : null;
     if (measuredFPS != null && (!isYouTube || Math.abs(measuredFPS - fps) <= fps * 0.005)) {
       fps = measuredFPS;
       appState.videoInfo.fps = fps;
       if (isNewMeasuredFrameRate(appState.video, fps)) {
-        flashMessage(`Measured the frame rate: ${Number(fps.toFixed(3))} fps.`, 'olive');
+        flashMessage(`Measured the frame rate: ${formatFps(fps)} fps.`, 'olive');
       }
     }
   } catch (e) {
