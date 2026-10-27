@@ -29,7 +29,7 @@ describe('findCropKeyframeAtTime', () => {
       ['the first point', 0, 0],
       ['the middle point', 1, 1],
       ['the last point', 2, 2],
-      ['later in the middle point\'s frame', 1 + 0.02, 1],
+      ["later in the middle point's frame", 1 + 0.02, 1],
       ['a hair below the last point, as millisecond times round', 2 - 0.0005, 2],
     ])('%s', (_label, time, index) => {
       const match = findCropKeyframeAtTime(cropMap, time, AT_30);
@@ -118,7 +118,7 @@ describe('nextKeyframeIndex', () => {
   it.each([
     ['on a keyframe, forward steps to the next', 1, 1, 2],
     ['on a keyframe, back steps to the previous', 1, -1, 0],
-    ['later in a keyframe\'s frame, forward still steps off it', 1 + 0.02, 1, 2],
+    ["later in a keyframe's frame, forward still steps off it", 1 + 0.02, 1, 2],
     ['on the next frame, back goes to the keyframe before it', 1 + 1 / 30, -1, 1],
     ['between keyframes, forward goes to the right bracket', 0.5, 1, 1],
     ['between keyframes, back goes to the left bracket', 0.5, -1, 0],

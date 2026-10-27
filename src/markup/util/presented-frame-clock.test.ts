@@ -273,17 +273,18 @@ describe('getMeasuredFrameRate', () => {
     expect(getMeasuredFrameRate(element)).toBe(30);
   });
 
-  it.each([12, 15, 17])('keeps one rate for %d fps from 8 to 120 frames', (fps) => {
+  // A rate taken after 8 frames can be an NTSC neighbor (11.988 for 12); the rate over 60 frames
+  // corrects it, once.
+  it.each([12, 15, 17])('settles on %d fps from 8 to 120 frames, changing at most once', (fps) => {
     const { element, present } = fakeVideo();
     getMeasuredFrameRate(element);
-    const rates = new Set<number | null>();
+    const rates: (number | null)[] = [];
     for (let k = 0; k <= 120; k++) {
       present(toMilliseconds(10 + k / fps));
-      if (k >= 8) rates.add(getMeasuredFrameRate(element));
+      if (k >= 8) rates.push(getMeasuredFrameRate(element));
     }
-    expect(rates.size).toBe(1);
-    const [rate] = rates;
-    expect(Math.abs((rate ?? 0) - fps)).toBeLessThanOrEqual(fps * 0.002);
+    expect(rates.filter((rate, i) => i > 0 && rate !== rates[i - 1]).length).toBeLessThanOrEqual(1);
+    expect(Math.abs((rates[rates.length - 1] ?? 0) - fps)).toBeLessThanOrEqual(fps * 0.002);
   });
 
   it.each([

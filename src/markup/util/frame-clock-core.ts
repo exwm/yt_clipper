@@ -39,9 +39,12 @@ const STANDARD_FRAME_RATE_TOLERANCE = 0.015;
 // Cinematic path solved on its frame grid) settles once, even where early frames can't yet tell a
 // rate from its NTSC neighbor 0.1% away. YouTube's caller waits until they can.
 const PUBLISHED_RATE_HYSTERESIS = 0.002;
-// A run keeps durations within this ratio of each other. Between the 1 ms rounding of mediaTime
-// (17 ms after 16 ms at 60 fps) and the 2x of a missed frame.
-const RUN_DURATION_RATIO = 1.5;
+// A run's gaps stay this close to its mean frame duration: mediaTime rounded to the millisecond errs
+// by up to 1 ms per gap, and the mean by 1 ms over the run, plus a margin. Video captured at a varying
+// rate (a phone's) jitters by a few percent. Rates under 1.5x apart (25 and 30) then never share a run.
+const RUN_ROUNDING_SECONDS = 0.001;
+const RUN_MARGIN_SECONDS = 0.0005;
+const RUN_JITTER_SHARE = 0.02;
 // Rates measured in quick succession, as on a video spliced from parts at different rates, are
 // announced at most this often.
 const ANNOUNCE_INTERVAL_MS = 5000;
@@ -82,10 +85,16 @@ export interface ClockState {
   // another and blur 29.97 into 30. A newer run replaces the measured one once it is as long, or long
   // enough to tell NTSC rates, so a rate change mid-stream is measured again.
   currentRun: readonly RunGap[];
+  // Counts the runs ended, so a rate can tell whether the run that measured it still plays.
+  runId: number;
   measuredRun: readonly RunGap[];
+  measuredRunId: number | null;
   // The rate `measuredRun` measures, or null when it is empty.
   measuredFps: number | null;
   publishedRate: number | null;
+  // How many frames in a row `publishedRate` was measured over. Below FRAMES_TO_TELL_NTSC_RATES the
+  // rate is provisional: millisecond times can't yet tell 29.97 from 30.
+  publishedFrames: number;
   // The last rate `announceRate` took and when (ms), so each new one is announced once per source,
   // at most once per ANNOUNCE_INTERVAL_MS.
   announcedRate: number | null;
@@ -104,9 +113,12 @@ export const initialClock: ClockState = {
   lastFrame: null,
   seekCount: 0,
   currentRun: [],
+  runId: 0,
   measuredRun: [],
+  measuredRunId: null,
   measuredFps: null,
   publishedRate: null,
+  publishedFrames: 0,
   announcedRate: null,
   announcedAt: null,
 };
@@ -124,6 +136,7 @@ export function stepClock(state: ClockState, event: ClockEvent): ClockState {
       return {
         ...publishRate(state, FRAMES_TO_TELL_NTSC_RATES).state,
         currentRun: [],
+        runId: state.runId + 1,
         measuredRun: [],
         measuredFps: null,
       };
@@ -135,11 +148,17 @@ export function stepClock(state: ClockState, event: ClockEvent): ClockState {
 function stepFrame(state: ClockState, frame: SeenFrame): ClockState {
   const { lastFrame } = state;
   const frames = lastFrame ? framesBetween(lastFrame, frame) : 0;
-  // A run starts with a one-frame gap, which sets the frame duration the ratio checks the gaps of
-  // several frames against. A browser that counted more than one presented frame per video frame
-  // then measures nothing instead of a multiple of the rate.
+  const endRun = (): ClockState => ({
+    ...state,
+    lastFrame: frame,
+    currentRun: [],
+    runId: state.currentRun.length > 0 ? state.runId + 1 : state.runId,
+  });
+  // A run starts with a one-frame gap, which sets the frame duration the gaps of several frames are
+  // checked against. A browser that counted more than one presented frame per video frame then
+  // measures nothing instead of a multiple of the rate.
   if (!lastFrame || frames === 0 || (frames > 1 && state.currentRun.length === 0)) {
-    return { ...state, lastFrame: frame, currentRun: [] };
+    return endRun();
   }
   const gap = {
     duration: frame.mediaTime - lastFrame.mediaTime,
@@ -149,22 +168,12 @@ function stepFrame(state: ClockState, frame: SeenFrame): ClockState {
         ? frame.decodedFrames - lastFrame.decodedFrames
         : null,
   };
-  // A frame duration off the run's by more than the ratio ends the run and stays in none: a refresh
-  // the page missed (the every-refresh loop counts no frames), a frame the source lacks, a gap no
-  // seek announced, a frame count that doesn't match its gap, or the first frame of a new rate,
-  // which the next gap starts a run for. Two rates never mix in one run, and a run's gaps add up to
-  // its last time minus its first, which the NTSC span needs.
-  const previousGap = state.currentRun[state.currentRun.length - 1];
-  if (previousGap) {
-    const duration = frameDuration(gap);
-    const previousDuration = frameDuration(previousGap);
-    if (
-      duration > previousDuration * RUN_DURATION_RATIO ||
-      duration * RUN_DURATION_RATIO < previousDuration
-    ) {
-      return { ...state, lastFrame: frame, currentRun: [] };
-    }
-  }
+  // A gap off the run's mean frame duration ends the run and stays in none: a refresh the page missed
+  // (the every-refresh loop counts no frames), a frame the source lacks, a gap no seek announced, a
+  // frame count that doesn't match its gap, or the first frame of a new rate, which the next gap
+  // starts a run for. Two standard rates 1.5x apart or less (25 and 30) never mix in one run, and a
+  // run's gaps add up to its last time minus its first, which the NTSC span needs.
+  if (state.currentRun.length > 0 && !continuesRun(state.currentRun, gap)) return endRun();
   const currentRun = [...state.currentRun, gap].slice(-MAX_RUN_GAPS);
   const span = ntscSpan(currentRun);
   const replacesMeasured =
@@ -175,8 +184,23 @@ function stepFrame(state: ClockState, frame: SeenFrame): ClockState {
     ...state,
     lastFrame: frame,
     currentRun,
-    ...(replacesMeasured && { measuredRun: currentRun, measuredFps: measureFrameRate(span) }),
+    ...(replacesMeasured && {
+      measuredRun: currentRun,
+      measuredRunId: state.runId,
+      measuredFps: measureFrameRate(span),
+    }),
   };
+}
+
+function continuesRun(run: readonly RunGap[], gap: RunGap): boolean {
+  const frames = runFrames(run);
+  const meanDuration = run.reduce((sum, previous) => sum + previous.duration, 0) / frames;
+  const expected = gap.frames * meanDuration;
+  const tolerance = Math.max(
+    RUN_ROUNDING_SECONDS + (gap.frames * RUN_ROUNDING_SECONDS) / frames + RUN_MARGIN_SECONDS,
+    RUN_JITTER_SHARE * expected
+  );
+  return Math.abs(gap.duration - expected) <= tolerance;
 }
 
 // How many frames played from `previous` to `frame` (more than 1 when frame callbacks were skipped),
@@ -215,7 +239,6 @@ function allFramesShown(span: readonly RunGap[]): boolean {
   return Math.abs(decoded - frames) <= DECODED_AHEAD_FRAMES + frames * DECODED_AHEAD_SHARE;
 }
 
-const frameDuration = (gap: RunGap) => gap.duration / gap.frames;
 const runFrames = (run: readonly RunGap[]) => run.reduce((sum, gap) => sum + gap.frames, 0);
 
 // Only a whole multiple of 60 frames spans a whole number of milliseconds at an NTSC rate, so that
@@ -234,41 +257,56 @@ function ntscSpan(run: readonly RunGap[]): readonly RunGap[] | null {
 }
 
 /** The rate to report once `minFrames` frames have played in a row, else the last published one.
- *  A published rate changes only past the hysteresis. */
+ *  A published rate changes only past the hysteresis, except a provisional one, which a run long
+ *  enough to tell NTSC rates replaces. */
 export function publishRate(
   state: ClockState,
   minFrames: number
 ): { state: ClockState; rate: number | null } {
   const { measuredFps, publishedRate } = state;
-  if (runFrames(state.measuredRun) < minFrames || measuredFps == null) {
+  const frames = runFrames(state.measuredRun);
+  if (frames < minFrames || measuredFps == null) {
     return { state, rate: publishedRate };
   }
+  const isNoMoreCertain = isRateConfirmed(state) || frames < FRAMES_TO_TELL_NTSC_RATES;
   if (
     publishedRate != null &&
+    isNoMoreCertain &&
     Math.abs(measuredFps - publishedRate) <= publishedRate * PUBLISHED_RATE_HYSTERESIS
   ) {
     return { state, rate: publishedRate };
   }
-  return { state: { ...state, publishedRate: measuredFps }, rate: measuredFps };
+  return {
+    state: { ...state, publishedRate: measuredFps, publishedFrames: frames },
+    rate: measuredFps,
+  };
+}
+
+/** Whether the published rate was measured over enough frames to tell NTSC rates apart. */
+export function isRateConfirmed(state: ClockState): boolean {
+  return state.publishedFrames >= FRAMES_TO_TELL_NTSC_RATES;
 }
 
 /** Whether to announce `rate` at `now` (ms): it is new since the last one announced for this source,
- *  and that one was at least ANNOUNCE_INTERVAL_MS ago. A rate held back stays new, so it is announced
- *  once the interval is up if it still holds. */
+ *  and that one was at least ANNOUNCE_INTERVAL_MS ago. A provisional rate waits until the run that
+ *  measured it ends, since that run can still tell it from its NTSC neighbor. A rate held back stays
+ *  new, so it is announced once it may be if it still holds. */
 export function announceRate(
   state: ClockState,
   rate: number,
   now: number
 ): { state: ClockState; isNew: boolean } {
   if (rate === state.announcedRate) return { state, isNew: false };
+  if (!isRateConfirmed(state) && state.measuredRunId === state.runId)
+    return { state, isNew: false };
   if (state.announcedAt != null && now - state.announcedAt < ANNOUNCE_INTERVAL_MS) {
     return { state, isNew: false };
   }
   return { state: { ...state, announcedRate: rate, announcedAt: now }, isNew: true };
 }
 
-// A run holds no outlier to filter: each frame duration is within RUN_DURATION_RATIO of the one
-// before, and each gap knows how many frames it spans.
+// A run holds no outlier to filter: each gap is close to the run's mean frame duration, and knows how
+// many frames it spans.
 function measureFrameRate(run: readonly RunGap[]): number {
   const fps = runFrames(run) / run.reduce((sum, gap) => sum + gap.duration, 0);
   const nearest = STANDARD_FRAME_RATES.reduce((best, rate) =>

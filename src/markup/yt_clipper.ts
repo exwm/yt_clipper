@@ -129,7 +129,6 @@ import { installLitUrlSanitizer } from './util/url-sanitizer';
 import {
   addScrubVideoHandler,
   followFrameRate,
-  getFPS,
   seekByFrames,
   toggleFrameRateMeasurement,
 } from './util/videoUtil';
@@ -626,7 +625,6 @@ function initVideoInfo() {
   applyVideoAspectRatio(appState.video.videoWidth, appState.video.videoHeight);
   const url = window.location.origin + window.location.pathname;
   appState.videoInfo.videoUrl = url;
-  appState.videoInfo.fps = getFPS();
   followFrameRate(appState.video);
 
   appState.video.seekTo = (time) => (appState.video.currentTime = time);

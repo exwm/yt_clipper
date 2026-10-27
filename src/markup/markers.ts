@@ -245,8 +245,6 @@ export function initMarkersContainer() {
     appState.hooks.markersDiv.appendChild(appState.markersDiv);
     appState.hooks.markerNumberingsDiv.appendChild(appState.markerNumberingsDiv);
   }
-
-  appState.videoInfo.fps = getFPS();
 }
 export function loopMarkerPair() {
   requestAnimationFrame(loopMarkerPair);

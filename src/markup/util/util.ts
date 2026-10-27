@@ -318,6 +318,11 @@ let expectingOurSeekingEvent = false;
 
 const STALE_PENDING_TIMEOUT_MS = 1000;
 
+/** The seek target held back while another seek is in flight, if any: where the playhead goes next. */
+export function getPendingSeekTime(): number | null {
+  return pendingSeekTime;
+}
+
 /** One frame's duration in seconds, falling back to 30fps when fps is missing/invalid (NaN slips
  *  straight through getFPS). Shared by the frame-tolerance checks so the fallback lives in one place. */
 export function frameDuration(fps: number): number {

@@ -1,10 +1,19 @@
+const mockStats = { resolution: '1920x1080@30', fails: false };
+// A seek coalescer with one seek in flight and the latest request held back, as seekToSafe is.
+const mockSeeks = { current: 0, inFlight: false, pending: null as number | null, requested: [] as number[] };
 const mockAppState = {
-  video: { videoWidth: 1920 },
-  player: { getStatsForNerds: () => ({ resolution: '1920x1080@30' }) },
-  videoInfo: { fps: undefined as number | undefined },
+  video: Object.assign(new EventTarget(), { videoWidth: 1920, getCurrentTime: () => mockSeeks.current }),
+  player: {
+    getStatsForNerds: () => {
+      if (mockStats.fails) throw new Error('player not ready');
+      return { resolution: mockStats.resolution };
+    },
+  },
+  videoInfo: {},
 };
 const mockPlatform = { current: 'youtube' };
 const mockMeasured = { fps: null as number | null, isNew: false };
+const mockNavigation = { isStaleVideo: false };
 const mockFlashMessage = jest.fn();
 
 jest.mock('../appState', () => ({ appState: mockAppState }));
@@ -15,14 +24,27 @@ jest.mock('../platforms/platforms', () => ({
 jest.mock('./presented-frame-clock', () => ({
   FRAMES_TO_TELL_NTSC_RATES: 60,
   getMeasuredFrameRate: () => mockMeasured.fps,
+  getPresentedFrameTime: () => 90 / 30,
   isNewMeasuredFrameRate: () => mockMeasured.isNew,
 }));
+jest.mock('../platforms/navigation', () => ({
+  get isStaleVideo() {
+    return mockNavigation.isStaleVideo;
+  },
+}));
+jest.mock('./video-frame-loop', () => ({ onVideoFrames: () => ({ stop: jest.fn() }) }));
 jest.mock('../charts', () => ({ chartState: {} }));
 jest.mock('../crop-overlay', () => ({ isDrawingCrop: false, isMouseManipulatingCrop: false }));
 jest.mock('./util', () => ({
   blockEvent: jest.fn(),
   flashMessage: mockFlashMessage,
   seekBySafe: jest.fn(),
+  getPendingSeekTime: () => mockSeeks.pending,
+  seekToSafe: (_video: unknown, time: number) => {
+    mockSeeks.requested.push(time);
+    if (mockSeeks.inFlight) mockSeeks.pending = time;
+    else Object.assign(mockSeeks, { inFlight: true, current: time });
+  },
 }));
 jest.mock('./drag-recovery', () => ({ registerActiveDragCleanup: jest.fn() }));
 
@@ -34,13 +56,18 @@ Object.assign(globalThis, {
   },
 });
 
-import { getFPS, toggleFrameRateMeasurement } from './videoUtil';
+import { followFrameRate, getFPS, seekByFrames, toggleFrameRateMeasurement } from './videoUtil';
 
 describe('getFPS', () => {
   beforeEach(() => {
+    // A new source each test, so the stats rate is read again.
+    followFrameRate(mockAppState.video as never);
+    mockAppState.video.dispatchEvent(new Event('emptied'));
     mockAppState.video.videoWidth = 1920;
-    mockAppState.videoInfo.fps = undefined;
+    mockStats.resolution = '1920x1080@30';
+    mockStats.fails = false;
     mockMeasured.isNew = false;
+    mockNavigation.isStaleVideo = false;
     mockFlashMessage.mockClear();
   });
 
@@ -67,6 +94,33 @@ describe('getFPS', () => {
     mockMeasured.isNew = isNew;
     getFPS();
     expect(mockFlashMessage.mock.calls.map(([message]) => message)).toEqual(messages);
+  });
+
+  it('uses but does not flash a rate while the page shows another video', () => {
+    mockPlatform.current = 'yt_clipper';
+    Object.assign(mockMeasured, { fps: 30, isNew: true });
+    mockNavigation.isStaleVideo = true;
+    expect(getFPS()).toBe(30);
+    expect(mockFlashMessage).not.toHaveBeenCalled();
+  });
+
+  it('does not keep the default it falls back to while the player has no stats', () => {
+    mockPlatform.current = 'youtube';
+    mockMeasured.fps = 30000 / 1001;
+    mockStats.fails = true;
+    expect(getFPS()).toBe(60);
+    mockStats.fails = false;
+    expect(getFPS()).toBeCloseTo(30000 / 1001, 6);
+  });
+
+  it("reads YouTube's stats rate again for a new source", () => {
+    mockPlatform.current = 'youtube';
+    mockMeasured.fps = null;
+    expect(getFPS()).toBe(30);
+    mockStats.resolution = '1920x1080@60';
+    expect(getFPS()).toBe(30);
+    mockAppState.video.dispatchEvent(new Event('emptied'));
+    expect(getFPS()).toBe(60);
   });
 
   it.each([
@@ -114,5 +168,17 @@ describe('getFPS', () => {
     // A quality change resizes the video, which re-reads the platform's rate.
     mockAppState.video.videoWidth = 1280;
     expect(getFPS()).toBeCloseTo(measured, 6);
+  });
+});
+
+describe('seekByFrames', () => {
+  // Three quick wheel ticks while the first step's seek is in flight: the second and third are held
+  // back, the latest replacing the one before. The third must chain from the second, not repeat it.
+  it('steps three frames on three quick steps', () => {
+    mockPlatform.current = 'yt_clipper';
+    mockMeasured.fps = 30;
+    Object.assign(mockSeeks, { current: 90 / 30, inFlight: false, pending: null, requested: [] });
+    for (let i = 0; i < 3; i++) seekByFrames(1);
+    expect(mockSeeks.requested.map((time) => Math.floor(time * 30))).toEqual([91, 92, 93]);
   });
 });

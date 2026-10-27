@@ -1,9 +1,11 @@
 import {
+  announceRate,
   ClockFrame,
   ClockState,
   FRAMES_TO_TELL_NTSC_RATES,
   FRAMES_TO_TELL_STANDARD_RATES,
   initialClock,
+  isRateConfirmed,
   publishRate,
   stepClock,
 } from './frame-clock-core';
@@ -84,7 +86,8 @@ function scenarios(seedsPerCell: number): Scenario[] {
 function play(
   s: Scenario,
   frames = FRAMES,
-  rateAt: (k: number) => number = () => s.fps
+  rateAt: (k: number) => number = () => s.fps,
+  minFrames = FRAMES_TO_TELL_NTSC_RATES
 ): { reported: (number | null)[]; clock: ClockState } {
   const random = mulberry32(s.seed * 7919 + 1);
   let clock = initialClock;
@@ -124,7 +127,7 @@ function play(
     };
     clock = stepClock(clock, { type: 'frame', frame });
     if (random() < s.askChance) {
-      const published = publishRate(clock, FRAMES_TO_TELL_NTSC_RATES);
+      const published = publishRate(clock, minFrames);
       clock = published.state;
       reported.push(published.rate);
     }
@@ -212,6 +215,46 @@ describe('the frame clock over seeded playback', () => {
     expect(unmeasured).toEqual([]);
   });
 
+  // Off YouTube a rate is taken after 8 frames, too few to tell NTSC rates from their neighbors with
+  // millisecond times. The rate measured over enough frames replaces it.
+  it('settles on the video’s own rate, changing it at most once, when asked after 8 frames', () => {
+    const wrong = RATES.flatMap((fps) =>
+      Array.from({ length: 200 }, (_, i) => ({ ...clean(fps, true), seed: i + 1 }))
+    ).flatMap((s) => {
+      const rates = play(s, 600, undefined, FRAMES_TO_TELL_STANDARD_RATES).reported.filter(
+        (rate): rate is number => rate != null
+      );
+      const changes = rates.filter((rate, i) => i > 0 && rate !== rates[i - 1]).length;
+      return rates[rates.length - 1] === s.fps && changes <= 1
+        ? []
+        : [{ fps: s.fps, seed: s.seed, rates: [...new Set(rates)], changes }];
+    });
+    expect(wrong).toEqual([]);
+  });
+
+  it('keeps a rate taken after 8 frames when seeks break every run before it is confirmed', () => {
+    let clock = initialClock;
+    let rate: number | null = null;
+    for (let k = 0; k < 400; k++) {
+      if (k % 40 === 0) clock = stepClock(clock, { type: 'seeking' });
+      const frame: ClockFrame = {
+        mediaTime: Math.round((10 + k / 30) * 1000) / 1000,
+        duringSeek: k % 40 === 0,
+        droppedFrames: 0,
+        presentedFrames: k,
+        decodedFrames: k,
+        paused: false,
+        playbackRate: 1,
+      };
+      clock = stepClock(clock, { type: 'frame', frame });
+      const published = publishRate(clock, FRAMES_TO_TELL_STANDARD_RATES);
+      clock = published.state;
+      rate = published.rate;
+    }
+    expect(rate).not.toBeNull();
+    expect(isRateConfirmed(clock)).toBe(false);
+  });
+
   // A rate change with no resize event, as on a site that splices sources. The new run replaces the
   // measured one once it can tell NTSC rates, not only once it is as long as the old one.
   it.each([
@@ -219,6 +262,11 @@ describe('the frame clock over seeded playback', () => {
     [30, 60],
     [60000 / 1001, 30000 / 1001],
     [24, 60],
+    // Rates under 1.5x apart, whose frames once joined one run.
+    [30, 25],
+    [25, 30],
+    [24, 30],
+    [50, 60],
   ])('reports a change from %p to %p fps within 70 frames', (before, after) => {
     for (const countsFrames of [true, false]) {
       const { reported } = play(clean(before, countsFrames), 200 + 70, (k) =>
@@ -227,5 +275,60 @@ describe('the frame clock over seeded playback', () => {
       expect(new Set(reported.filter((rate) => rate != null))).toEqual(new Set([before, after]));
       expect(reported[reported.length - 1]).toBe(after);
     }
+  });
+});
+
+// Frames played in a row at `fps`, from `start`, with `jitter(k)` seconds added to frame k's time.
+function frameAt(k: number, time: number, roundToMs = false): ClockFrame {
+  return {
+    mediaTime: roundToMs ? Math.round(time * 1000) / 1000 : time,
+    duringSeek: false,
+    droppedFrames: 0,
+    presentedFrames: k,
+    decodedFrames: k,
+    paused: false,
+    playbackRate: 1,
+  };
+}
+
+it('measures video captured at a jittering rate', () => {
+  // A phone's 30 fps video: exact times, each frame up to 2 ms early or late.
+  const random = mulberry32(7);
+  let clock = initialClock;
+  for (let k = 0; k < 120; k++) {
+    const time = 10 + k / 30 + (random() - 0.5) * 0.004;
+    clock = stepClock(clock, { type: 'frame', frame: frameAt(k, time) });
+  }
+  expect(publishRate(clock, FRAMES_TO_TELL_STANDARD_RATES).rate).toBe(30);
+});
+
+describe('announceRate', () => {
+  // 30 fps with millisecond times: 8 frames can't tell it from 29.97.
+  const play30 = (frames: number, clock = initialClock) => {
+    for (let k = 0; k < frames; k++) {
+      clock = stepClock(clock, { type: 'frame', frame: frameAt(k, 10 + k / 30, true) });
+    }
+    return clock;
+  };
+  const ask = (clock: ClockState) => {
+    const published = publishRate(clock, FRAMES_TO_TELL_STANDARD_RATES);
+    return announceRate(published.state, published.rate!, 0);
+  };
+
+  it('holds a provisional rate back while the run that measured it plays', () => {
+    expect(ask(play30(20)).isNew).toBe(false);
+  });
+
+  it('announces a provisional rate once its run ends', () => {
+    let clock = ask(play30(20)).state;
+    clock = stepClock(clock, { type: 'seeking' });
+    clock = stepClock(clock, { type: 'frame', frame: { ...frameAt(20, 40), duringSeek: true } });
+    expect(ask(clock).isNew).toBe(true);
+  });
+
+  it('announces a rate once it is confirmed', () => {
+    const { state, isNew } = ask(play30(FRAMES_TO_TELL_NTSC_RATES + 1));
+    expect(isNew).toBe(true);
+    expect(state.announcedRate).toBe(30);
   });
 });

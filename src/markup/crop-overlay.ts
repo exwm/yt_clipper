@@ -648,7 +648,9 @@ export function setCropManipulationKind(kind: 'drag' | 'resize' | null): void {
  *  keyframe except the very last would collapse to the original p0 crop. `null` when no drag is
  *  active. */
 export let cropDragStartPoint: Pick<CropPoint, 'crop' | 'hold' | 'ownCrop'> | null = null;
-export function setCropDragStartPoint(point: Pick<CropPoint, 'crop' | 'hold' | 'ownCrop'> | null): void {
+export function setCropDragStartPoint(
+  point: Pick<CropPoint, 'crop' | 'hold' | 'ownCrop'> | null
+): void {
   cropDragStartPoint = point && { crop: point.crop, hold: point.hold, ownCrop: point.ownCrop };
 }
 /** True for the brief window between a mid-drag `Alt + A` keypress and

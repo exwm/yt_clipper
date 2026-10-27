@@ -116,7 +116,9 @@ export const addCropPoint = function (this: any, time: number) {
     }
     const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     const grid = getFrameGrid();
-    if (markerPair.cropMap.some((cropPoint) => frameAt(grid, cropPoint.x) === frameAt(grid, time))) {
+    if (
+      markerPair.cropMap.some((cropPoint) => frameAt(grid, cropPoint.x) === frameAt(grid, time))
+    ) {
       flashMessage('A crop point already exists on this frame.', 'olive');
       return;
     }
