@@ -6,7 +6,7 @@ import { isDrawingCrop } from '../crop-overlay';
 import { isMouseManipulatingCrop } from '../crop-overlay';
 import { blockEvent, flashMessage, seekBySafe, seekToSafe } from './util';
 import { frameStepTarget } from './frame-step';
-import { FrameGrid, frameAt, frameMiddle } from './frame-grid';
+import { FrameGrid, frameAt, frameMiddle, loopSeekTarget } from './frame-grid';
 import { registerActiveDragCleanup } from './drag-recovery';
 import {
   FRAMES_TO_TELL_NTSC_RATES,
@@ -66,6 +66,12 @@ export function getFrameGrid(): FrameGrid {
 export function seekToFrameAt(time: number): void {
   const grid = getFrameGrid();
   seekToSafe(appState.video, frameMiddle(grid, frameAt(grid, time)));
+}
+
+/** Keeps playback within the frames shown from `start` through `end`, for the preview loops. */
+export function loopPlaybackOver(start: number, end: number): void {
+  const target = loopSeekTarget(getFrameGrid(), start, end, appState.video.getCurrentTime());
+  if (target != null) seekToSafe(appState.video, target);
 }
 
 let lastFrameStepTarget: number | null = null;

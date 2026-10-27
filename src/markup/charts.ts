@@ -20,7 +20,6 @@ import {
   flashMessage,
   getCropString,
   injectCSS,
-  isWithinSameFrame,
   pauseSafe,
   seekToSafe,
   timeRounder,
@@ -100,7 +99,8 @@ import { speedChartSpec } from './ui/chart/speedchart/speedChartSpec';
 import { registerActiveDragCleanup } from './util/drag-recovery';
 import { Chart, ChartConfiguration } from 'chart.js';
 import { scatterChartDefaults } from './ui/chart/scatterChartSpec';
-import { getFPS } from './util/videoUtil';
+import { getFPS, getFrameGrid, loopPlaybackOver } from './util/videoUtil';
+import { frameAt } from './util/frame-grid';
 import { getPresentedFrameTime } from './util/presented-frame-clock';
 import { onVideoFrames, VideoFrameSubscription } from './util/video-frame-loop';
 import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
@@ -1215,7 +1215,7 @@ export function getCurrentCropComponents(): [number, number, number, number] | n
     if (
       parkedPoint &&
       appState.video.paused &&
-      isWithinSameFrame(time, parkedPoint.x, getFPS()) &&
+      frameAt(getFrameGrid(), time) === frameAt(getFrameGrid(), parkedPoint.x) &&
       getActiveCropPointEasing() !== 'cinematic'
     ) {
       const [kx, ky, kw, kh] = getCropComponents(parkedPoint.crop);
@@ -1557,17 +1557,7 @@ export function cropChartSectionLoop() {
       const [start, end] = currentCropChartSection;
       const sectStart = (chartData[start] as any).x;
       const sectEnd = (chartData[end] as any).x;
-      const isTimeBetweenCropChartSection =
-        sectStart <= appState.video.getCurrentTime() && appState.video.getCurrentTime() <= sectEnd;
-
-      // A hair before the section start still counts as inside it: the frame-rounded target lands
-      // sub-frame off, and an exact re-seek every frame would storm the player.
-      if (
-        !isTimeBetweenCropChartSection &&
-        !isWithinSameFrame(appState.video.getCurrentTime(), sectStart, appState.videoInfo.fps)
-      ) {
-        seekToSafe(appState.video, sectStart);
-      }
+      loopPlaybackOver(sectStart, sectEnd);
     }
   }
 }

@@ -47,7 +47,6 @@ import {
   flashMessage,
   getOutputDuration,
   getVideoDuration,
-  isWithinSameFrame,
   pauseSafe,
   seekToSafe,
   setAttributes,
@@ -57,10 +56,11 @@ import { html, render, svg } from 'lit-html';
 import {
   getFPS,
   getFrameGrid,
+  loopPlaybackOver,
   refreshPlayerControlsAutoHideTimer,
   seekToFrameAt,
 } from './util/videoUtil';
-import { frameAt, frameMiddle, frameSpan, frameStart } from './util/frame-grid';
+import { frameAt, frameMiddle, frameStart } from './util/frame-grid';
 import { getPresentedFrameTime } from './util/presented-frame-clock';
 import { platform } from './yt_clipper';
 import { registerActiveDragCleanup } from './util/drag-recovery';
@@ -285,17 +285,7 @@ export function loopMarkerPair() {
     chartLoop.end < markerPair.end &&
     chartLoop.start < chartLoop.end
   ) {
-    const isTimeBetweenChartLoop =
-      chartLoop.start <= appState.video.getCurrentTime() &&
-      appState.video.getCurrentTime() <= chartLoop.end;
-    // A hair before start still counts as the loop point: the frame-rounded target lands sub-frame
-    // off, and an exact re-seek every frame would storm the player.
-    if (
-      !isTimeBetweenChartLoop &&
-      !isWithinSameFrame(appState.video.getCurrentTime(), chartLoop.start, appState.videoInfo.fps)
-    ) {
-      seekToSafe(appState.video, chartLoop.start);
-    }
+    loopPlaybackOver(chartLoop.start, chartLoop.end);
   } else if (
     (appState.isCropChartLoopingOn &&
       appState.isCurrentChartVisible &&
@@ -306,12 +296,7 @@ export function loopMarkerPair() {
     cropChartSectionLoop();
   } else if (getIsMarkerLoopPreviewOn() && !isMarkerSeekPending) {
     // Loops through the frame shown at the end marker, as the clipper clips it.
-    const grid = getFrameGrid();
-    const { firstFrame, lastFrame } = frameSpan(grid, markerPair.start, markerPair.end);
-    const frame = frameAt(grid, appState.video.getCurrentTime());
-    if (frame < firstFrame || frame > lastFrame) {
-      seekToSafe(appState.video, frameMiddle(grid, firstFrame));
-    }
+    loopPlaybackOver(markerPair.start, markerPair.end);
   }
 }
 export function jumpToNearestMarkerOrPair(e: KeyboardEvent, keyCode: string) {

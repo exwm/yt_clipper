@@ -1,6 +1,14 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { FrameGrid, frameAt, frameMiddle, frameSpan, frameStart, snapToFrame } from './frame-grid';
+import {
+  FrameGrid,
+  frameAt,
+  frameMiddle,
+  frameSpan,
+  frameStart,
+  loopSeekTarget,
+  snapToFrame,
+} from './frame-grid';
 
 interface Case {
   rate: string;
@@ -36,6 +44,21 @@ describe('frameSpan', () => {
     expect([span.firstFrame, span.lastFrame]).toEqual([first, last]);
     expect(span.start).toBeCloseTo(first / 30, 9);
     expect(span.end).toBeCloseTo((last + 1) / 30, 9);
+  });
+});
+
+describe('loopSeekTarget', () => {
+  // A loop from frame 30 (1 s) through frame 60 (2 s) at 30 fps.
+  it.each([
+    ['inside', 1.5, null],
+    ['on the frame shown at the end', 2.02, null],
+    ['a hair before the start, saved rounded', 0.9995, null],
+    ['past the frame shown at the end', 2.034, 30.5 / 30],
+    ['before the start', 0.99, 30.5 / 30],
+  ] as const)('%s', (_case, playhead, target) => {
+    const seekTo = loopSeekTarget({ origin: 0, rate: 30 }, 1, 2, playhead);
+    if (target == null) expect(seekTo).toBeNull();
+    else expect(seekTo).toBeCloseTo(target, 9);
   });
 });
 

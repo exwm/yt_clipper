@@ -46,6 +46,20 @@ export interface FrameSpan {
   end: number;
 }
 
+/** Where a loop over the frames shown from `start` through `end` seeks when the playhead is at `time`:
+ *  the middle of its first frame when `time` shows a frame outside them, else null. The middle keeps
+ *  the next check inside the loop, so the loop never seeks again on the frame it landed on. */
+export function loopSeekTarget(
+  grid: FrameGrid,
+  start: number,
+  end: number,
+  time: number
+): number | null {
+  const { firstFrame, lastFrame } = frameSpan(grid, start, end);
+  const frame = frameAt(grid, time);
+  return frame < firstFrame || frame > lastFrame ? frameMiddle(grid, firstFrame) : null;
+}
+
 export function frameSpan(grid: FrameGrid, startMarker: number, endMarker: number): FrameSpan {
   const firstFrame = frameAt(grid, startMarker);
   const lastFrame = Math.max(firstFrame, frameAt(grid, endMarker));

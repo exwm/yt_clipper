@@ -323,14 +323,6 @@ export function frameDuration(fps: number): number {
   return 1 / (fps > 0 ? fps : 30);
 }
 
-/** Whether two times land on the same displayed frame (within half a frame). The section/marker
- *  loops use this to decide they're already at the loop point: the loop target is frame-rounded but
- *  the video lands a hair off, so an exact check would re-seek every frame (a seek storm). Half a
- *  frame still distinguishes adjacent frames (one frame apart = 1/fps > 0.5/fps). */
-export function isWithinSameFrame(timeA: number, timeB: number, fps: number): boolean {
-  return Math.abs(timeA - timeB) <= 0.5 * frameDuration(fps);
-}
-
 // Apply a decision from the pure core: store the new pending slot, (re)arm or clear the stale timer,
 // and fire any seek it asked for.
 function applyDecision(video: VideoElement, decision: SeekDecision) {
