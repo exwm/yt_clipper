@@ -10,6 +10,7 @@
 import { easeSinInOut } from 'd3-ease';
 import { CropPoint } from '../@types/yt_clipper';
 import { sortX } from '../ui/chart/chartPrimitives';
+import { frameAt, frameMiddle } from '../util/frame-grid';
 import { bsearch, clampNumber, frameDuration, getEasedValue } from '../util/util';
 
 export interface CropKeyframeMatch {
@@ -100,8 +101,9 @@ export function getEaseSectionDuration(
   const realDuration = endTime - startTime;
   if (realDuration <= 0) return null;
 
-  const leftFrameIndex = Math.floor(endTime * fps);
-  const adjustedDuration = (leftFrameIndex - 0.5) / fps - startTime;
+  // The frame the point was placed on, allowing for its time being rounded below that frame's start.
+  const grid = { origin: 0, rate: fps };
+  const adjustedDuration = frameMiddle(grid, frameAt(grid, endTime) - 1) - startTime;
   if (adjustedDuration <= 0) return realDuration;
 
   return adjustedDuration;
