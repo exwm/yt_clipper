@@ -18,12 +18,14 @@ import {
   getRotatedCropComponents,
   getRotatedCropString,
   getNumericCropString,
+  isDefaultCropMap,
   isStaticCrop,
   cropStringsEqual,
   getCropMultiples,
   multiplyCropString,
 } from './crop-utils';
 import { appState } from './appState';
+import { CropPoint } from './@types/yt_clipper';
 
 beforeEach(() => {
   appState.settings = {
@@ -169,6 +171,24 @@ describe('isStaticCrop', () => {
   ])('$desc → $expected', ({ crops, expected }) => {
     const cropMap = crops.map((crop, i) => ({ crop, time: i * 5 })) as any;
     expect(isStaticCrop(cropMap)).toBe(expected);
+  });
+});
+
+describe('isDefaultCropMap', () => {
+  const crop = '0:0:960:1080';
+  const start = { x: 3, y: 0, crop };
+  const end = { x: 9, y: 0, crop, hold: true };
+  // A saved pair leaves out only this map: a load rebuilds it, so any other one must be saved.
+  it.each([
+    ['a new pair', [start, end], true],
+    ['an end hold point with its own crop', [start, { ...end, ownCrop: '640:0:960:1080' }], false],
+    ['an end hold point whose own crop is its crop', [start, { ...end, ownCrop: crop }], false],
+    ['an end released from hold', [start, { ...end, hold: undefined }], false],
+    ['instant easing', [start, { ...end, easeIn: 'instant' }], false],
+    ['two crops', [start, { ...end, crop: '640:0:960:1080' }], false],
+    ['three points', [start, { ...start, x: 6 }, end], false],
+  ] as const)('%s → %s', (_case, cropMap, expected) => {
+    expect(isDefaultCropMap(cropMap as unknown as CropPoint[])).toBe(expected);
   });
 });
 

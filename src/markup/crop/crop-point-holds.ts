@@ -34,45 +34,25 @@ export function releaseHoldIfChanged(
 ): void {
   const point = cropMap[index];
   if (!point?.hold) return;
-  if (index === 0 || !cropsEqual(point.crop, cropMap[index - 1].crop)) delete point.hold;
+  if (index === 0 || !cropsEqual(point.crop, cropMap[index - 1].crop))
+    releaseHold(point, undefined);
 }
 
 interface PairCropState {
-  cropMap: CropPoint[];
   cropRes: string;
   enableZoomPan: boolean;
 }
 
-/** The crop a point had before it became a hold point, from the undo history, fitted to the pair
- *  now: at its crop resolution, in pan-only mode at the size all its points share (`heldCrop`'s), and
- *  within the frame. Undefined when the point was a hold point from the start, or when an earlier
- *  state has no point at its time (a point deleted there, or this one moved since). */
-export function cropBeforeHold(
-  undoredo: { history: PairCropState[]; index: number },
-  time: number,
-  now: PairCropState,
-  heldCrop: string
-): string | undefined {
-  for (let i = undoredo.index; i >= 0; i--) {
-    const state = undoredo.history[i];
-    const point = state?.cropMap.find((p) => p.x === time);
-    if (!point) return undefined;
-    if (!point.hold) return fitCropToPair(point.crop, state.cropRes, now, heldCrop);
-  }
-  return undefined;
+/** The crop a hold point gets back when released: its own crop, fitted to the pair now (in pan-only
+ *  mode the size all its points share, the held crop's; in zoompan mode their aspect ratio; within
+ *  the frame). Undefined for a point added as a hold point, which keeps the crop it holds. */
+export function ownCropToRelease(point: CropPoint, pair: PairCropState): string | undefined {
+  return point.ownCrop == null ? undefined : fitCropToPair(point.ownCrop, pair, point.crop);
 }
 
-function fitCropToPair(
-  crop: string,
-  cropRes: string,
-  now: PairCropState,
-  heldCrop: string
-): string {
-  const [oldW, oldH] = cropRes.split('x').map(Number);
+function fitCropToPair(crop: string, now: PairCropState, heldCrop: string): string {
   const [resW, resH] = now.cropRes.split('x').map(Number);
-  let [x, y, w, h] = parseCropToComponents(crop, oldW, oldH);
-  [x, w] = [(x * resW) / oldW, (w * resW) / oldW];
-  [y, h] = [(y * resH) / oldH, (h * resH) / oldH];
+  let [x, y, w, h] = parseCropToComponents(crop, resW, resH);
   const [, , heldW, heldH] = parseCropToComponents(heldCrop, resW, resH);
   if (!now.enableZoomPan) {
     [w, h] = [heldW, heldH];
@@ -94,6 +74,7 @@ function fitCropToPair(
 
 function releaseHold(point: CropPoint | Draft<CropPoint>, ownCrop: string | undefined): void {
   delete point.hold;
+  delete point.ownCrop;
   if (ownCrop != null) point.crop = ownCrop;
 }
 
@@ -106,6 +87,7 @@ export function toggleHold(cropMap: CropMap, index: number, ownCrop?: string): b
     releaseHold(point, ownCrop);
   } else {
     point.hold = true;
+    point.ownCrop = point.crop;
     delete point.easeIn;
   }
   return true;

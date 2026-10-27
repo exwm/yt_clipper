@@ -116,6 +116,29 @@ def test_a_hold_point_released_after_a_pan_only_resize_keeps_the_shared_size(
     then_crop_point_has_the_type(markup, 2, "normal", "0:0:800:900")
 
 
+def test_a_hold_point_released_after_a_markers_load_gets_back_its_own_crop(markup: MarkupPage) -> None:
+    # A loaded pair has no undo history, so the point's own crop must come from the saved file.
+    given_a_pair_with_its_crop_chart_open(
+        markup, pair((CROP_A, False), (CROP_B, False), (CROP_A, False))
+    )
+    when_i_toggle_hold_of_crop_point(markup, 2)
+    when_i_load_the_saved_pair_and_open_it(markup, when_i_save_the_markers(markup))
+    when_i_toggle_hold_of_crop_point(markup, 2)
+    then_crop_point_has_the_type(markup, 2, "normal", CROP_A)
+
+
+def test_a_hold_point_moved_past_another_point_gets_back_its_own_crop(markup: MarkupPage) -> None:
+    # Moved ahead of the point before it, the hold point becomes point 1 and holds the first crop.
+    given_a_pair_with_its_crop_chart_open(
+        markup, pair((CROP_A, False), (CROP_MIDDLE, False), (CROP_B, False), (CROP_A, False))
+    )
+    when_i_toggle_hold_of_crop_point(markup, 2)
+    when_i_drag_crop_point_to(markup, 2, 4)
+    then_crop_point_has_the_type(markup, 1, "hold", CROP_A)
+    when_i_toggle_hold_of_crop_point(markup, 1)
+    then_crop_point_has_the_type(markup, 1, "normal", CROP_B)
+
+
 def test_hold_points_are_drawn_over_a_vertical_yellow_bar(markup: MarkupPage) -> None:
     # Two hold points in a row each get a bar, and the end point holds too. Screenshots for review show
     # each role color (start, end, other) on a hold point.
@@ -604,6 +627,24 @@ def given_a_pair_with_its_crop_chart_open(markup: MarkupPage, marker_pair: dict)
 @step
 def when_i_toggle_hold_of_crop_point(markup: MarkupPage, index: int) -> None:
     click_crop_point_with(markup, index, ["Control", "Shift"])
+
+
+@step
+def when_i_drag_crop_point_to(markup: MarkupPage, index: int, seconds: float) -> None:
+    x, y = crop_point_position(markup, index)
+    canvas = markup.box_of("#cropChartCanvas")
+    target = canvas["x"] + markup.page.evaluate(
+        f"(t) => Object.values({CROP_CHART_JS}.scales).find((s) => s.isHorizontal()).getPixelForValue(t)",
+        seconds,
+    )
+    markup.page.mouse.move(x, y)
+    markup.page.mouse.down()
+    markup.page.mouse.move(target, y, steps=8)
+    markup.page.mouse.up()
+    # The zoom plugin reads the drag as a pan and swallows clicks for 500 ms after it
+    # (`_ghostClickHandler`), with no event to wait on.
+    markup.page.wait_for_timeout(600)
+    markup.report(f"crop point times {[round(p['x'], 2) for p in crop_points(markup)]}")
 
 
 @step

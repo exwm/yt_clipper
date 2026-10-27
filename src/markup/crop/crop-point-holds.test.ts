@@ -1,7 +1,7 @@
 import { produce } from 'immer';
 import { CropPoint } from '../@types/yt_clipper';
 import {
-  cropBeforeHold,
+  ownCropToRelease,
   releaseHoldIfChanged,
   releaseMismatchedHolds,
   resolveHeldCrops,
@@ -9,18 +9,22 @@ import {
   toggleInstant,
 } from './crop-point-holds';
 
-// Rows write a crop map as letters for crops and `(h)` for a hold point: 'A B(h)'. The functions
-// only compare crop text, so a letter stands in for a crop string.
+// Rows write a crop map as letters for crops, `(h)` for a hold point and `{X}` for its own crop:
+// 'A A(h){B}'. The functions only compare crop text, so a letter stands in for a crop string.
 function cropMap(row: string): CropPoint[] {
   return row.split(' ').map((token, i) => {
-    const point: CropPoint = { x: i, y: 0, crop: token.replace('(h)', '') };
-    if (token.endsWith('(h)')) point.hold = true;
+    const [, crop, hold, ownCrop] = /^(\w+)(\(h\))?(?:\{(\w+)\})?$/.exec(token) ?? [];
+    const point: CropPoint = { x: i, y: 0, crop };
+    if (hold) point.hold = true;
+    if (ownCrop) point.ownCrop = ownCrop;
     return point;
   });
 }
 
 function row(map: CropPoint[]): string {
-  return map.map((point) => point.crop + (point.hold ? '(h)' : '')).join(' ');
+  return map
+    .map((p) => p.crop + (p.hold ? '(h)' : '') + (p.ownCrop ? `{${p.ownCrop}}` : ''))
+    .join(' ');
 }
 
 describe('resolveHeldCrops', () => {
@@ -48,6 +52,8 @@ describe('releaseHoldIfChanged', () => {
     ['A B', 1, 'A B'],
     ['A(h) B', 0, 'A B'],
     ['A B(h)', 0, 'A B(h)'],
+    ['A B(h){C}', 1, 'A B'],
+    ['A A(h){C}', 1, 'A A(h){C}'],
   ])('%s at index %d gives %s', (input, index, expected) => {
     expect(row(produce(cropMap(input), (map) => releaseHoldIfChanged(map, index)))).toBe(expected);
   });
@@ -72,6 +78,7 @@ describe('toggleInstant', () => {
   it.each([
     ['A B', 'instant', 'A B'],
     ['A B(h)', 'instant', 'A C'],
+    ['A A(h){C}', 'instant', 'A C'],
   ])('%s at index 1 becomes %s and gives %s', (input, expectedType, expected) => {
     const map = cropMap(input);
     toggleInstant(map, 1, 'C');
@@ -82,278 +89,71 @@ describe('toggleInstant', () => {
   });
 });
 
-describe('cropBeforeHold', () => {
-  // A pair state: [time, crop, hold] points, at 1920x1080 in zoompan mode unless given.
-  type Point = [number, string, boolean?];
-  const state = (points: Point[], cropRes = '1920x1080', enableZoomPan = true) => ({
-    cropMap: points.map(([x, crop, hold]) => ({ x, y: 0, crop, ...(hold ? { hold } : {}) })),
-    cropRes,
-    enableZoomPan,
-  });
+describe('ownCropToRelease', () => {
   const P = '0:0:960:540';
-  const Q = '480:270:960:540';
-  const R = '960:540:960:540';
-
+  // [own crop, the crop it holds now, pan-only], at 1920x1080.
   it.each([
-    [
-      'the crop from before the point became a hold point',
-      [
-        state([
-          [0, P],
-          [1, Q],
-        ]),
-        state([
-          [0, P],
-          [1, P, true],
-        ]),
-      ],
-      1,
-      Q,
-    ],
-    [
-      'nothing for a point that was always a hold point',
-      [
-        state([
-          [0, P],
-          [1, P, true],
-        ]),
-        state([
-          [0, R],
-          [1, R, true],
-        ]),
-      ],
-      1,
-      undefined,
-    ],
-    [
-      'nothing past the current state, which redo would bring back',
-      [
-        state([
-          [0, P],
-          [1, P, true],
-        ]),
-        state([
-          [0, P],
-          [1, Q],
-        ]),
-      ],
-      1,
-      undefined,
-      0,
-    ],
-    [
-      'nothing for a point added where a deleted one was',
-      [
-        state([
-          [0, P],
-          [1, Q],
-        ]),
-        state([[0, P]]),
-        state([
-          [0, P],
-          [1, P, true],
-        ]),
-      ],
-      1,
-      undefined,
-    ],
-    [
-      'nothing for a point moved onto the time of an earlier one',
-      [
-        state([
-          [0, P],
-          [1, R],
-        ]),
-        state([
-          [0, P],
-          [0.5, P, true],
-        ]),
-        state([
-          [0, P],
-          [1, P, true],
-        ]),
-      ],
-      1,
-      undefined,
-    ],
+    ['the own crop as it was', '480:270:960:540', P, false, '480:270:960:540'],
     [
       'the position at the size every pan-only point now has',
-      [
-        state(
-          [
-            [0, '0:0:960:1080'],
-            [1, '640:0:960:1080'],
-          ],
-          '1920x1080',
-          false
-        ),
-        state(
-          [
-            [0, '0:0:960:1080'],
-            [1, '0:0:960:1080', true],
-          ],
-          '1920x1080',
-          false
-        ),
-        state(
-          [
-            [0, '0:0:800:900'],
-            [1, '0:0:800:900', true],
-          ],
-          '1920x1080',
-          false
-        ),
-      ],
-      1,
+      '640:0:960:1080',
+      '0:0:800:900',
+      true,
       '640:0:800:900',
     ],
     [
       'a crop moved back into the frame at the new size',
-      [
-        state(
-          [
-            [0, '0:0:960:1080'],
-            [1, '960:0:960:1080'],
-          ],
-          '1920x1080',
-          false
-        ),
-        state(
-          [
-            [0, '0:0:1200:1080'],
-            [1, '0:0:1200:1080', true],
-          ],
-          '1920x1080',
-          false
-        ),
-      ],
-      1,
+      '960:0:960:1080',
+      '0:0:1200:1080',
+      true,
       '720:0:1200:1080',
     ],
-    [
-      'a crop scaled to the crop resolution now',
-      [
-        state(
-          [
-            [0, '0:0:480:270'],
-            [1, '240:135:480:270'],
-          ],
-          '960x540'
-        ),
-        state([
-          [0, P],
-          [1, P, true],
-        ]),
-      ],
-      1,
-      Q,
-    ],
-    [
-      'a crop given in iw and ih',
-      [
-        state([
-          [0, P],
-          [1, '0:0:iw:ih'],
-        ]),
-        state([
-          [0, P],
-          [1, P, true],
-        ]),
-      ],
-      1,
-      '0:0:1920:1080',
-    ],
+    ['a crop given in iw and ih', '0:0:iw:ih', P, false, '0:0:1920:1080'],
     [
       'a zoompan crop at the aspect ratio the points now share, keeping its width and center',
-      [
-        state([
-          [0, P],
-          [1, '0:0:960:1080'],
-        ]),
-        state([
-          [0, P],
-          [1, P, true],
-        ]),
-        state([
-          [0, '0:0:1080:1080'],
-          [1, '0:0:1080:1080', true],
-        ]),
-      ],
-      1,
+      '0:0:960:1080',
+      '0:0:1080:1080',
+      false,
       '0:60:960:960',
     ],
     [
       'a zoompan crop narrowed to fit the frame at that ratio, and moved back into it',
-      [
-        state([
-          [0, P],
-          [1, '1600:900:320:180'],
-        ]),
-        state([
-          [0, P],
-          [1, P, true],
-        ]),
-        state([
-          [0, '0:0:270:960'],
-          [1, '0:0:270:960', true],
-        ]),
-      ],
-      1,
+      '1600:900:320:180',
+      '0:0:270:960',
+      false,
       '1609:3:303:1077',
     ],
     [
       'a wide zoompan crop narrowed to a tall shared ratio at the frame height',
-      [
-        state([
-          [0, P],
-          [1, '0:0:1920:540'],
-        ]),
-        state([
-          [0, P],
-          [1, P, true],
-        ]),
-        state([
-          [0, '0:0:540:1080'],
-          [1, '0:0:540:1080', true],
-        ]),
-      ],
-      1,
+      '0:0:1920:540',
+      '0:0:540:1080',
+      false,
       '690:0:540:1080',
     ],
     [
       'a zoompan crop at a ratio that is not a whole number of pixels',
-      [
-        state([
-          [0, P],
-          [1, '0:0:800:100'],
-        ]),
-        state([
-          [0, P],
-          [1, P, true],
-        ]),
-        state([
-          [0, '0:0:400:42'],
-          [1, '0:0:400:42', true],
-        ]),
-      ],
-      1,
+      '0:0:800:100',
+      '0:0:400:42',
+      false,
       '0:8:800:84',
     ],
-  ] as [string, ReturnType<typeof state>[], number, string | undefined, number?][])(
-    'finds %s',
-    (_case, states, time, expected, index = states.length - 1) => {
-      const now = states[index];
-      const held = now.cropMap.find((p) => p.x === time)?.crop ?? '';
-      const undoredo = { history: states, index };
-      expect(cropBeforeHold(undoredo, time, now, held)).toBe(expected);
-    }
-  );
+  ])('gives %s', (_case, ownCrop, crop, panOnly, expected) => {
+    const point: CropPoint = { x: 1, y: 0, crop, hold: true, ownCrop };
+    const pair = { cropRes: '1920x1080', enableZoomPan: !panOnly };
+    expect(ownCropToRelease(point, pair)).toBe(expected);
+  });
+
+  it('gives nothing for a hold point added as one, which keeps the crop it holds', () => {
+    const point: CropPoint = { x: 1, y: 0, crop: P, hold: true };
+    expect(ownCropToRelease(point, { cropRes: '1920x1080', enableZoomPan: true })).toBeUndefined();
+  });
 });
 
 describe('toggleHold', () => {
   it.each([
-    ['A B', 1, true, 'A B(h)'],
+    ['A B', 1, true, 'A B(h){B}'],
     ['A B(h)', 1, true, 'A B'],
+    ['A A(h){B}', 1, true, 'A A'],
     ['A B', 0, false, 'A B'],
   ])('%s at index %d returns %s and gives %s', (input, index, toggled, expected) => {
     const map = cropMap(input);
@@ -362,7 +162,7 @@ describe('toggleHold', () => {
   });
 
   it('gives a released hold point back its own crop', () => {
-    const map = cropMap('A A(h)');
+    const map = cropMap('A A(h){B}');
     toggleHold(map, 1, 'B');
     expect(row(map)).toBe('A B');
   });
@@ -371,7 +171,7 @@ describe('toggleHold', () => {
     const map = cropMap('A B');
     map[1].easeIn = 'instant';
     toggleHold(map, 1);
-    expect(map[1]).toEqual({ x: 1, y: 0, crop: 'B', hold: true });
+    expect(map[1]).toEqual({ x: 1, y: 0, crop: 'B', hold: true, ownCrop: 'B' });
   });
 });
 
@@ -380,6 +180,7 @@ describe('releaseMismatchedHolds', () => {
     ['A A(h)', 'A A(h)'],
     ['A B(h)', 'A B'],
     ['A B(h) B(h)', 'A B B(h)'],
+    ['A B(h){C}', 'A B'],
     ['A(h) A(h)', 'A A(h)'],
   ])('%s loads as %s', (input, expected) => {
     const map = cropMap(input);

@@ -123,7 +123,8 @@
         "y": { "const": 0 },
         "crop": { "$ref": "#/$defs/crop" },
         "easeIn": { "const": "instant" },
-        "hold": { "const": true }
+        "hold": { "const": true },
+        "ownCrop": { "$ref": "#/$defs/crop" }
       }
     },
     "overrides": {

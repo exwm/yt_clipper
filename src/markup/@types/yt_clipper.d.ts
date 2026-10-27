@@ -141,6 +141,8 @@ interface CropPoint {
   easeIn?: 'instant';
   // Shows the crop of the point before it: `crop-point-holds.ts` keeps `crop` equal to that crop.
   hold?: true;
+  // A hold point's own crop, which it gets back when released.
+  ownCrop?: string;
   // A Firm hold point, set only in the Cinematic solve's copy of the crop map (never saved).
   firmHold?: true;
 }

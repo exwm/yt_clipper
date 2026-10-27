@@ -144,6 +144,18 @@ describe('share-format byte budget', () => {
     );
   });
 
+  test.each(['480:270:960:540', '0:0:iw:ih'])(
+    "a hold point's own crop (%s) comes back from a share link",
+    (ownCrop) => {
+      // The pair's third point is a hold point.
+      const pair = variableCropFixture.markerPairs[1];
+      const cropMap = pair.cropMap!.map((point, i) => (i === 2 ? { ...point, ownCrop } : point));
+      const payload: SharePayload = { ...variableCropFixture, markerPairs: [{ ...pair, cropMap }] };
+      const loaded = deserializeBinary(serializeBinary(payload));
+      expect(loaded.markerPairs[0].cropMap?.[2]).toMatchObject({ hold: true, ownCrop });
+    }
+  );
+
   test('50-pair static fixture is under 475 B', () => {
     const bytes = serializeBinary(manyPairsFixture);
     expect(bytes.byteLength).toBeLessThan(475);

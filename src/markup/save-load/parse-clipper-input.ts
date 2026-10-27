@@ -166,6 +166,7 @@ export const cropPointAllow = {
   crop: true,
   easeIn: true,
   hold: true,
+  ownCrop: true,
   // Set only in the Cinematic solve's copy of the crop map, so a file never carries it.
 } as const satisfies Record<Exclude<keyof CropPoint, 'firmHold'>, true>;
 
@@ -348,7 +349,10 @@ function parseCropPoint(raw: unknown, path: string, issues: DataFormatIssue[]): 
   const out: CropPoint = { x: picked.x, y: 0, crop: picked.crop };
   if (picked.easeIn === 'instant') out.easeIn = 'instant';
   // The types are exclusive. Instant wins, as the clipper renders the saved crop with its cut.
-  if (picked.hold === true && out.easeIn == null) out.hold = true;
+  if (picked.hold === true && out.easeIn == null) {
+    out.hold = true;
+    if (typeof picked.ownCrop === 'string') out.ownCrop = picked.ownCrop;
+  }
   return out;
 }
 

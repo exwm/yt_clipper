@@ -112,6 +112,15 @@ export function isStaticCrop(cropMap: CropPoint[]) {
   return cropMap.length === 2 && cropStringsEqual(cropMap[0].crop, cropMap[1].crop);
 }
 
+/** Whether a crop map is the one a new pair gets, which a load rebuilds when the saved pair has none:
+ *  one crop, a plain start point and a hold end point. */
+export function isDefaultCropMap(cropMap: CropPoint[]) {
+  if (!isStaticCrop(cropMap)) return false;
+  const [start, end] = cropMap;
+  const hasNoFlags = (point: CropPoint) => point.ownCrop == null && point.easeIn == null;
+  return hasNoFlags(start) && !start.hold && hasNoFlags(end) && end.hold === true;
+}
+
 export function cropStringsEqual(a: string, b: string): boolean {
   const [ax, ay, aw, ah] = getCropComponents(a);
   const [bx, by, bw, bh] = getCropComponents(b);
@@ -149,6 +158,9 @@ export function multiplyMarkerPairCrops(
   draft.cropMap.forEach((cropPoint, idx) => {
     const multipliedCropString = multiplyCropString(cropMultipleX, cropMultipleY, cropPoint.crop);
     cropPoint.crop = multipliedCropString;
+    if (cropPoint.ownCrop != null) {
+      cropPoint.ownCrop = multiplyCropString(cropMultipleX, cropMultipleY, cropPoint.ownCrop);
+    }
     if (idx === 0) draft.crop = multipliedCropString;
   });
   saveMarkerPairHistory(draft, markerPair, false);

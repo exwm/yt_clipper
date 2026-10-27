@@ -170,6 +170,27 @@ describe('parseClipperInput: marker pair validation', () => {
     expect(cropMap[0].hold).toBeUndefined();
     expect(cropMap[1]).toEqual({ x: 2, y: 0, crop, easeIn, hold: expectedHold });
   });
+
+  // Only a hold point gets its own crop back, so only a hold point keeps one.
+  test.each([
+    ['a hold point', true, '480:270:960:540'],
+    ['a normal point', undefined, undefined],
+  ])("loads %s's own crop", (_name, hold, expectedOwnCrop) => {
+    const { input } = parseClipperInput({
+      markerPairs: [
+        {
+          start: 0,
+          end: 5,
+          cropMap: [
+            { x: 0, y: 0, crop: '0:0:960:540' },
+            { x: 2, y: 0, crop: '0:0:960:540', hold, ownCrop: '480:270:960:540' },
+            { x: 5, y: 0, crop: '0:0:960:540' },
+          ],
+        },
+      ],
+    });
+    expect(input.markerPairs[0].cropMap![1].ownCrop).toBe(expectedOwnCrop);
+  });
 });
 
 describe('parseClipperInput: allowlist filter', () => {
