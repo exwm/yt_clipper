@@ -13,6 +13,8 @@ import {
 } from './util/util';
 import { injectProgressBar } from './util/util';
 import { getFPS } from './util/videoUtil';
+import { frameAt } from './util/frame-grid';
+import { getPresentedFrameTime } from './util/presented-frame-clock';
 import { multiplyCropString } from './crop-utils';
 
 let frameCaptureViewerWindow: Window;
@@ -165,9 +167,11 @@ export function captureFrame() {
   }
   const frameDiv = document.createElement('div');
   frameDiv.setAttribute('class', 'frame-div');
-  const frameCount = getFrameCount(currentTime);
-  const frameFileName = `${appState.settings.titleSuffix}-${resString}-@${currentTime}s(${toHHMMSSTrimmed(
-    currentTime
+  // The canvas draws the frame on screen, so the name gives that frame's time.
+  const frameTime = getPresentedFrameTime(appState.video);
+  const frameCount = getFrameCount(frameTime);
+  const frameFileName = `${appState.settings.titleSuffix}-${resString}-@${frameTime}s(${toHHMMSSTrimmed(
+    frameTime
   ).replace(':', ';')})-f${frameCount.frameNumber}(${frameCount.totalFrames})`;
   render(FrameCaptionTemplate(canvas.width, canvas.height, frameFileName), frameDiv);
   (canvas as any).fileName = `${frameFileName}.png`;
@@ -197,7 +201,7 @@ export function getFrameCount(seconds: number) {
   let frameNumber: number | string;
   let totalFrames: number | string;
   if (fps) {
-    frameNumber = Math.floor(seconds * fps);
+    frameNumber = frameAt({ origin: 0, rate: fps }, seconds);
     totalFrames = Math.floor(getVideoDuration(getPlatform(), appState.video) * fps);
   } else {
     frameNumber = 'Unknown';

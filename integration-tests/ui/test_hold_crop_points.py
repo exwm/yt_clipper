@@ -498,7 +498,7 @@ def test_opening_the_speed_chart_and_adding_a_speed_point_during_a_crop_drag_can
     markup.page.keyboard.up("Control")
     markup.page.mouse.move(x + 60, y, steps=4)
     markup.press("KeyD")
-    markup.seek(4.5)
+    markup.seek(4.5, presented=True)
     markup.press("Alt+KeyA")
     markup.page.mouse.move(x + 120, y, steps=4)
     markup.page.mouse.up()
@@ -645,7 +645,7 @@ def when_i_drag_from_crop_point_and_press_a_at(
     for seconds in times:
         x += 60
         markup.page.mouse.move(x, y, steps=4)
-        markup.seek(seconds)
+        markup.seek(seconds, presented=True)
         markup.press("KeyA")
         new_index = [point["x"] for point in crop_points(markup)].index(seconds)
         added.append(crop_points(markup)[new_index]["crop"])
@@ -663,7 +663,7 @@ def when_i_ctrl_drag_crop_point_and_press_ctrl_alt_a_midway(markup: MarkupPage, 
     x, y = grab_crop_point(markup, index)
     markup.page.mouse.move(x + 50, y, steps=4)
     # Off any point, where Ctrl+Alt+A would add one rather than toggle the point under the playhead.
-    markup.seek(4.5)
+    markup.seek(4.5, presented=True)
     markup.page.keyboard.down("Alt")
     markup.page.keyboard.press("KeyA")
     markup.page.keyboard.up("Alt")
@@ -790,7 +790,7 @@ def when_i_minimap_drag_crop_point_and_press_midway(
     x, y = ctrl_drag_on_the_minimap(markup, before)
     assert crop_points(markup)[index]["crop"] != before, "the drag should move the crop"
     if seek_to is not None:
-        markup.seek(seek_to)
+        markup.seek(seek_to, presented=True)
     markup.press(key)
     markup.page.mouse.move(x + 30, y, steps=4)
     markup.page.mouse.up()

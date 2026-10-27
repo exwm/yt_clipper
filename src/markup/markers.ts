@@ -47,14 +47,21 @@ import {
   flashMessage,
   getOutputDuration,
   getVideoDuration,
-  isWithinSameFrame,
   pauseSafe,
   seekToSafe,
   setAttributes,
   toHHMMSSTrimmed,
 } from './util/util';
 import { html, render, svg } from 'lit-html';
-import { getFPS, refreshPlayerControlsAutoHideTimer } from './util/videoUtil';
+import {
+  getFPS,
+  getFrameGrid,
+  loopPlaybackOver,
+  refreshPlayerControlsAutoHideTimer,
+  seekToFrameAt,
+} from './util/videoUtil';
+import { frameAt, frameMiddle, frameSpan, frameStart } from './util/frame-grid';
+import { getPresentedFrameTime } from './util/presented-frame-clock';
 import { platform } from './yt_clipper';
 import { registerActiveDragCleanup } from './util/drag-recovery';
 
@@ -83,7 +90,7 @@ export function openMarkerPairEditorByIndex(index: number, { seek = false } = {}
   if (endMarker !== appState.prevSelectedEndMarker) {
     toggleMarkerPairEditor(endMarker);
   }
-  if (seek) seekToSafe(appState.video, appState.markerPairs[index].start);
+  if (seek) seekToFrameAt(appState.markerPairs[index].start);
   refreshPlayerControlsAutoHideTimer();
   return true;
 }
@@ -155,7 +162,6 @@ export function moveMarkerByFrameHandler(event: WheelEvent) {
       }, 500)
     );
 
-    const fps = getFPS();
     let targetMarker = appState.prevSelectedEndMarker;
     const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     let targetMarkerTime = markerPair.end;
@@ -164,16 +170,15 @@ export function moveMarkerByFrameHandler(event: WheelEvent) {
       targetMarkerTime = markerPair.start;
     }
 
-    let newMarkerTime: number;
-    if (event.deltaY > 0) {
-      newMarkerTime = targetMarkerTime - 1 / fps;
-      moveMarker(targetMarker, Math.max(0, newMarkerTime));
-    } else {
-      newMarkerTime = targetMarkerTime + 1 / fps;
-      moveMarker(targetMarker, Math.min(getVideoDuration(platform, appState.video), newMarkerTime));
-    }
-
-    seekToSafe(appState.video, newMarkerTime);
+    const grid = getFrameGrid();
+    const frame = frameAt(grid, targetMarkerTime) + (event.deltaY > 0 ? -1 : 1);
+    const newMarkerTime = clampNumber(
+      frameStart(grid, frame),
+      0,
+      getVideoDuration(platform, appState.video)
+    );
+    moveMarker(targetMarker, newMarkerTime);
+    seekToFrameAt(newMarkerTime);
   }
 }
 
@@ -280,17 +285,7 @@ export function loopMarkerPair() {
     chartLoop.end < markerPair.end &&
     chartLoop.start < chartLoop.end
   ) {
-    const isTimeBetweenChartLoop =
-      chartLoop.start <= appState.video.getCurrentTime() &&
-      appState.video.getCurrentTime() <= chartLoop.end;
-    // A hair before start still counts as the loop point: the frame-rounded target lands sub-frame
-    // off, and an exact re-seek every frame would storm the player.
-    if (
-      !isTimeBetweenChartLoop &&
-      !isWithinSameFrame(appState.video.getCurrentTime(), chartLoop.start, appState.videoInfo.fps)
-    ) {
-      seekToSafe(appState.video, chartLoop.start);
-    }
+    loopPlaybackOver(chartLoop.start, chartLoop.end);
   } else if (
     (appState.isCropChartLoopingOn &&
       appState.isCurrentChartVisible &&
@@ -300,15 +295,8 @@ export function loopMarkerPair() {
     chartState.shouldTriggerCropChartUpdates = false;
     cropChartSectionLoop();
   } else if (getIsMarkerLoopPreviewOn() && !isMarkerSeekPending) {
-    const isTimeBetweenMarkerPair =
-      markerPair.start <= appState.video.getCurrentTime() &&
-      appState.video.getCurrentTime() <= markerPair.end;
-    if (
-      !isTimeBetweenMarkerPair &&
-      !isWithinSameFrame(appState.video.getCurrentTime(), markerPair.start, appState.videoInfo.fps)
-    ) {
-      seekToSafe(appState.video, markerPair.start);
-    }
+    // Loops through the frame shown at the end marker, as the clipper clips it.
+    loopPlaybackOver(markerPair.start, markerPair.end);
   }
 }
 export function jumpToNearestMarkerOrPair(e: KeyboardEvent, keyCode: string) {
@@ -347,46 +335,49 @@ export let prevJumpKeyCode: 'ArrowLeft' | 'ArrowRight';
 export let prevTime: number | null;
 export function jumpToNearestMarker(e: KeyboardEvent, currentTime: number, keyCode: string) {
   blockEvent(e);
-  let minTime: number = currentTime;
   currentTime = prevTime ?? currentTime;
-  let markerTimes: number[] = [];
-  appState.markerPairs.forEach((markerPair) => {
-    markerTimes.push(markerPair.start);
-    markerTimes.push(markerPair.end);
-  });
-
+  // Markers compare by frame: a jump lands in the middle of the marker's frame, past its time.
+  const grid = getFrameGrid();
+  const currentFrame = frameAt(grid, currentTime);
+  const markerTimes = appState.markerPairs.flatMap((markerPair) => [
+    markerPair.start,
+    markerPair.end,
+  ]);
   if (!appState.isNextMarkerStart) {
     markerTimes.push(appState.startTime);
   }
-  markerTimes = markerTimes.map((markerTime) => parseFloat(markerTime.toFixed(6)));
+  let markerFrames = markerTimes.map((markerTime) => frameAt(grid, markerTime));
+  let targetFrame = currentFrame;
   if (keyCode === 'ArrowLeft') {
-    markerTimes = markerTimes.filter((markerTime) => markerTime < currentTime);
-    minTime = Math.max(...markerTimes);
-    if (dblJump != 0 && markerTimes.length > 0 && prevJumpKeyCode === 'ArrowLeft') {
-      markerTimes = markerTimes.filter((markerTime) => markerTime < minTime);
-      minTime = Math.max(...markerTimes);
+    markerFrames = markerFrames.filter((markerFrame) => markerFrame < currentFrame);
+    targetFrame = Math.max(...markerFrames);
+    if (dblJump != 0 && markerFrames.length > 0 && prevJumpKeyCode === 'ArrowLeft') {
+      markerFrames = markerFrames.filter((markerFrame) => markerFrame < targetFrame);
+      targetFrame = Math.max(...markerFrames);
     }
     prevJumpKeyCode = 'ArrowLeft';
   } else if (keyCode === 'ArrowRight') {
-    markerTimes = markerTimes.filter((markerTime) => markerTime > currentTime);
-    minTime = Math.min(...markerTimes);
-    if (dblJump != 0 && markerTimes.length > 0 && prevJumpKeyCode === 'ArrowRight') {
-      markerTimes = markerTimes.filter((markerTime) => markerTime > minTime);
-      minTime = Math.min(...markerTimes);
+    markerFrames = markerFrames.filter((markerFrame) => markerFrame > currentFrame);
+    targetFrame = Math.min(...markerFrames);
+    if (dblJump != 0 && markerFrames.length > 0 && prevJumpKeyCode === 'ArrowRight') {
+      markerFrames = markerFrames.filter((markerFrame) => markerFrame > targetFrame);
+      targetFrame = Math.min(...markerFrames);
     }
     prevJumpKeyCode = 'ArrowRight';
   }
+  const seekToTarget = () => {
+    if (targetFrame !== currentFrame && Number.isFinite(targetFrame))
+      seekToSafe(appState.video, frameMiddle(grid, targetFrame));
+  };
 
   if (dblJump !== 0) {
     clearTimeout(dblJump);
     dblJump = 0;
     prevTime = null;
-    if (minTime !== currentTime && minTime != Infinity && minTime != -Infinity)
-      seekToSafe(appState.video, minTime);
+    seekToTarget();
   } else {
     prevTime = currentTime;
-    if (minTime !== currentTime && minTime != Infinity && minTime != -Infinity)
-      seekToSafe(appState.video, minTime);
+    seekToTarget();
     dblJump = setTimeout(() => {
       dblJump = 0;
       prevTime = null;
@@ -401,11 +392,7 @@ export const marker_attrs = {
   'shape-rendering': 'crispEdges',
 };
 export function addMarker(markerConfig: MarkerConfig = {}) {
-  const preciseCurrentTime = markerConfig.time ?? appState.video.getCurrentTime();
-  // TODO: Calculate appState.video fps precisely so current frame time
-  // is accurately determined.
-  // const currentFrameTime = getCurrentFrameTime(roughCurrentTime);
-  const currentFrameTime = preciseCurrentTime;
+  const currentFrameTime = markerConfig.time ?? getPresentedFrameTime(appState.video);
   const progressPos = (currentFrameTime / getVideoDuration(platform, appState.video)) * 100;
 
   if (!appState.isNextMarkerStart && currentFrameTime <= appState.startTime) {
@@ -773,7 +760,7 @@ export function moveMarker(
   const idx = parseInt(dataIdx) - 1;
   const markerPair = appState.markerPairs[idx];
 
-  const toTime = newTime ?? appState.video.getCurrentTime();
+  const toTime = newTime ?? getPresentedFrameTime(appState.video);
 
   if (type === 'start' && toTime >= markerPair.end) {
     flashMessage('Start marker cannot be placed after or at end marker', 'red');
@@ -951,7 +938,9 @@ export function highlightSelectedMarkerPair(currentMarker: SVGRectElement) {
 }
 export function updateMarkerPairDuration(markerPair: MarkerPair) {
   const speedAdjustedDurationSpan = document.getElementById('duration');
-  const duration = markerPair.end - markerPair.start;
+  // The clip includes the frame shown at the end marker.
+  const span = frameSpan(getFrameGrid(), markerPair.start, markerPair.end);
+  const duration = span.end - span.start;
   const durationHHMMSS = toHHMMSSTrimmed(duration);
   const speed = markerPair.speed;
   const speedMap = markerPair.speedMap;

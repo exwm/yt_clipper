@@ -165,9 +165,10 @@ class MarkupPage:
         self.next_frames()  # hotkey handlers run at once; let what they changed render
 
     def add_marker_pair(self, start: float, end: float) -> None:
-        self.seek(start)
+        # A marker marks the frame on screen, so wait for the seek to present it.
+        self.seek(start, presented=True)
         self.press("KeyA")
-        self.seek(end)
+        self.seek(end, presented=True)
         self.press("KeyA")
 
     def load_marker_pairs(self, spans: list[tuple[float, float]]) -> None:

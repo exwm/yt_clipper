@@ -20,7 +20,6 @@ import {
   flashMessage,
   getCropString,
   injectCSS,
-  isWithinSameFrame,
   pauseSafe,
   seekToSafe,
   timeRounder,
@@ -93,14 +92,15 @@ import { isReframeEnabled, syncReframe } from './crop/video-zoom-controller';
 import { featureFlags } from './feature-flags';
 import { renderMarkerPair } from './markers';
 import { isDraggingChartPoint } from './ui/chart/chart.js-drag-data-plugin';
-import { roundX, sortX } from './ui/chart/chartPrimitives';
+import { sortX } from './ui/chart/chartPrimitives';
 import { updateCharts } from './ui/chart/chartutil';
 import { createTimeLineLayer, TimeLineLayer, TimeLinePosition } from './ui/chart/chart-time-line';
 import { speedChartSpec } from './ui/chart/speedchart/speedChartSpec';
 import { registerActiveDragCleanup } from './util/drag-recovery';
 import { Chart, ChartConfiguration } from 'chart.js';
 import { scatterChartDefaults } from './ui/chart/scatterChartSpec';
-import { getFPS } from './util/videoUtil';
+import { getFPS, getFrameGrid, loopPlaybackOver } from './util/videoUtil';
+import { frameAt } from './util/frame-grid';
 import { getPresentedFrameTime } from './util/presented-frame-clock';
 import { onVideoFrames, VideoFrameSubscription } from './util/video-frame-loop';
 import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
@@ -1196,7 +1196,7 @@ export function getCurrentCropComponents(): [number, number, number, number] | n
   if (!isStaticCrop(cropMap) && !editing) {
     const time = currentCropTime();
     // Snap to the exact crop point only while parked on its own frame (video paused). Right after an
-    // edit the playhead sits a sub-frame off the auto-keyed point (inserted at roundX(time)), so
+    // edit the playhead sits a sub-frame off the auto-keyed point (inserted at its frame's start), so
     // interpolating there would blend toward a neighbor and shift a fast smoothTrack crop a few
     // pixels off what was drawn; the snap holds it. We must NOT snap during playback, nor when
     // frame-stepping PAST a point (a full frame away), or the crop freezes for the ~3 frames within
@@ -1209,7 +1209,7 @@ export function getCurrentCropComponents(): [number, number, number, number] | n
     if (
       parkedPoint &&
       appState.video.paused &&
-      isWithinSameFrame(time, parkedPoint.x, getFPS()) &&
+      frameAt(getFrameGrid(), time) === frameAt(getFrameGrid(), parkedPoint.x) &&
       getActiveCropPointEasing() !== 'cinematic'
     ) {
       const [kx, ky, kw, kh] = getCropComponents(parkedPoint.crop);
@@ -1300,7 +1300,8 @@ export function autoKeyCurrentCropPoint(): boolean {
 
   // Ctrl+wheel zoom calls this per wheel tick; pauseSafe avoids re-pausing (it churns the player).
   pauseSafe(appState.video);
-  const time = appState.video.getCurrentTime();
+  // The frame on screen is the one being edited.
+  const time = getPresentedFrameTime(appState.video);
 
   const { onKeyframe, index } = isPlayheadOnCropKeyframe(cropMap, time);
   if (onKeyframe) {
@@ -1328,19 +1329,10 @@ export function autoKeyCurrentCropPoint(): boolean {
   );
   safeCrop.setCropStringSafe(getCropString(cx, cy, cw, ch), pair.enableZoomPan);
   const crop = safeCrop.cropString;
-  const x = roundX(time);
-  const existingIndex = cropMap.findIndex((p) => p.x === x);
-  if (existingIndex !== -1) {
-    // The keyframe check above uses a full-frame tolerance, but keyframe times live on roundX's
-    // 0.01s grid. Above ~100fps a frame is finer than that grid, so the check can miss a point
-    // already at this quantized time. Edit it rather than push a duplicate x.
-    selectCropPoint(existingIndex);
-    return true;
-  }
   const draft = createDraft(getMarkerPairHistory(pair));
-  draft.cropMap.push({ x, y: 0, crop });
+  draft.cropMap.push({ x: time, y: 0, crop });
   draft.cropMap.sort(sortX);
-  const newIndex = draft.cropMap.findIndex((p) => p.x === x);
+  const newIndex = draft.cropMap.findIndex((p) => p.x === time);
   saveMarkerPairHistory(draft, pair, false);
   // Render before selecting so setCurrentCropPoint's bounds-clamp reads the post-insert length,
   // else the new index is clamped down and the previous point is selected. Mirrors addCropPoint.
@@ -1364,9 +1356,8 @@ export function addHoldCropPointAtCurrentTime(): void {
     return;
   }
 
-  const time = appState.video.getCurrentTime();
-  const x = roundX(time);
-  const { onKeyframe, index } = isPlayheadOnCropKeyframe(cropMap, time);
+  const x = getPresentedFrameTime(appState.video);
+  const { onKeyframe, index } = isPlayheadOnCropKeyframe(cropMap, x);
   const pointIndex = onKeyframe ? index : cropMap.findIndex((p) => p.x === x);
   let selectedIndex: number;
   if (pointIndex !== -1) {
@@ -1560,17 +1551,7 @@ export function cropChartSectionLoop() {
       const [start, end] = currentCropChartSection;
       const sectStart = (chartData[start] as any).x;
       const sectEnd = (chartData[end] as any).x;
-      const isTimeBetweenCropChartSection =
-        sectStart <= appState.video.getCurrentTime() && appState.video.getCurrentTime() <= sectEnd;
-
-      // A hair before the section start still counts as inside it: the frame-rounded target lands
-      // sub-frame off, and an exact re-seek every frame would storm the player.
-      if (
-        !isTimeBetweenCropChartSection &&
-        !isWithinSameFrame(appState.video.getCurrentTime(), sectStart, appState.videoInfo.fps)
-      ) {
-        seekToSafe(appState.video, sectStart);
-      }
+      loopPlaybackOver(sectStart, sectEnd);
     }
   }
 }

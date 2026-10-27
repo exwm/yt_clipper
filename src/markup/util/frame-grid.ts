@@ -35,3 +35,38 @@ export function frameMiddle(grid: FrameGrid, frame: number): number {
 export function snapToFrame(grid: FrameGrid, time: number): number {
   return frameStart(grid, frameAt(grid, time));
 }
+
+/** A marker pair's frames: from the frame shown at its start marker through the one at its end
+ *  marker, as the clipper's frame_grid.frameSpan clips them. */
+export interface FrameSpan {
+  firstFrame: number;
+  lastFrame: number;
+  // The first frame's start, and the last frame's end.
+  start: number;
+  end: number;
+}
+
+/** Where a loop over the frames shown from `start` through `end` seeks when the playhead is at `time`:
+ *  the middle of its first frame when `time` shows a frame outside them, else null. The middle keeps
+ *  the next check inside the loop, so the loop never seeks again on the frame it landed on. */
+export function loopSeekTarget(
+  grid: FrameGrid,
+  start: number,
+  end: number,
+  time: number
+): number | null {
+  const { firstFrame, lastFrame } = frameSpan(grid, start, end);
+  const frame = frameAt(grid, time);
+  return frame < firstFrame || frame > lastFrame ? frameMiddle(grid, firstFrame) : null;
+}
+
+export function frameSpan(grid: FrameGrid, startMarker: number, endMarker: number): FrameSpan {
+  const firstFrame = frameAt(grid, startMarker);
+  const lastFrame = Math.max(firstFrame, frameAt(grid, endMarker));
+  return {
+    firstFrame,
+    lastFrame,
+    start: frameStart(grid, firstFrame),
+    end: frameStart(grid, lastFrame + 1),
+  };
+}

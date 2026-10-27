@@ -87,7 +87,6 @@ export const addSpeedPoint = function (this: any, time, speed) {
     }
     resolveCropEditConflict('addSpeedPoint');
 
-    time = roundX(time);
     speed = roundY(speed);
 
     const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
@@ -114,7 +113,6 @@ export const addCropPoint = function (this: any, time: number) {
     if (time <= scatterChartBounds.XMinBound || time >= scatterChartBounds.XMaxBound) {
       return;
     }
-    time = roundX(time);
     const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     if (markerPair.cropMap.some((cropPoint) => cropPoint.x === time)) {
       flashMessage('A crop point already exists at this time.', 'olive');
@@ -320,7 +318,8 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
       event.shiftKey &&
       dataAtClick.length === 0
     ) {
-      const time = this.scales['x-axis-1'].getValueForPixel(event.offsetX);
+      // A clicked time is on no frame in particular; one from the playhead is a frame's start.
+      const time = roundX(this.scales['x-axis-1'].getValueForPixel(event.offsetX));
       if (chartType === 'speed') {
         const speed = this.scales['y-axis-1'].getValueForPixel(event.offsetY);
         addSpeedPoint.call(this, time, speed);

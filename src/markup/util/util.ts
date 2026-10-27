@@ -1,5 +1,6 @@
 import { html, render } from 'lit-html';
 import { SpeedPoint } from '../@types/yt_clipper';
+import { frameSpan } from './frame-grid';
 import { VideoPlatforms } from '../platforms/platforms';
 import { appState, VideoElement } from '../appState';
 import {
@@ -323,14 +324,6 @@ export function frameDuration(fps: number): number {
   return 1 / (fps > 0 ? fps : 30);
 }
 
-/** Whether two times land on the same displayed frame (within half a frame). The section/marker
- *  loops use this to decide they're already at the loop point: the loop target is frame-rounded but
- *  the video lands a hair off, so an exact check would re-seek every frame (a seek storm). Half a
- *  frame still distinguishes adjacent frames (one frame apart = 1/fps > 0.5/fps). */
-export function isWithinSameFrame(timeA: number, timeB: number, fps: number): boolean {
-  return Math.abs(timeA - timeB) <= 0.5 * frameDuration(fps);
-}
-
 // Apply a decision from the pure core: store the new pending slot, (re)arm or clear the stale timer,
 // and fire any seek it asked for.
 function applyDecision(video: VideoElement, decision: SeekDecision) {
@@ -440,31 +433,42 @@ export function arrayEquals(a, b) {
   return a.length === b.length && a.every((v, i) => v === b[i]);
 }
 
+/** A marker pair's output duration as the clipper renders it: the frames from the one shown at its
+ *  start marker through the one at its end marker, at its speed map's speeds. Mirrors
+ *  getSpeedFilterAndDuration in the clipper's ffmpeg_filter.py; both are checked against
+ *  src/clipper/tests/fixtures/output_duration_cases.json. */
 export function getOutputDuration(speedMap: SpeedPoint[], fps = 30) {
+  const last = speedMap.length - 1;
+  const span = frameSpan({ origin: 0, rate: fps }, speedMap[0].x, speedMap[last].x);
+  // The map's ends are the pair's: the last speed runs to the last frame's end.
+  const points = speedMap.map((point, i) => ({
+    ...point,
+    x: i === 0 ? span.start : i === last ? span.end : point.x,
+  }));
+  if (points.every((point) => point.y === points[0].y)) {
+    return (span.end - span.start) / points[0].y;
+  }
+
   let outputDuration = 0;
   const frameDur = 1 / fps;
-  const nSects = speedMap.length - 1;
-  // Account for marker pair start time as trim filter sets start time to ~0
-  const speedMapStartTime = speedMap[0].x;
-  // Account for first input frame delay due to potentially imprecise trim
-  const startt = Math.ceil(speedMapStartTime / frameDur) * frameDur - speedMapStartTime;
+  const nSects = points.length - 1;
+  const speedMapStartTime = span.start;
 
   for (let sect = 0; sect < nSects; ++sect) {
-    const left = speedMap[sect];
-    const right = speedMap[sect + 1];
+    const left = points[sect];
+    const right = points[sect + 1];
 
     const startSpeed = left.y;
     const endSpeed = right.y;
     const speedChange = endSpeed - startSpeed;
 
-    const sectStart = left.x - speedMapStartTime - startt;
-    let sectEnd = right.x - speedMapStartTime - startt;
-    // Account for last input frame delay due to potentially imprecise trim
+    const sectStart = left.x - speedMapStartTime;
+    let sectEnd = right.x - speedMapStartTime;
+    // The last section runs to the start of the last frame, which is then held for a frame below.
     if (sect === nSects - 1) {
       sectEnd = Math.floor(right.x / frameDur) * frameDur;
-      // When trim is frame-precise, the frame that begins at the marker pair end time is not included
       if (right.x - sectEnd < 1e-10) sectEnd = sectEnd - frameDur;
-      sectEnd = sectEnd - speedMapStartTime - startt;
+      sectEnd = sectEnd - speedMapStartTime;
       sectEnd = Math.floor(sectEnd * 1000000) / 1000000;
     }
 

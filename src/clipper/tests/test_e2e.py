@@ -372,15 +372,20 @@ def numberedVideo(ffmpeg: str, folder: pathlib.Path) -> pathlib.Path:
     return source
 
 
-def sourceFrames(ffprobe: str, clip: pathlib.Path) -> list[int]:
-    """The numbered source frame of each of the clip's frames."""
+def frameBrightness(ffprobe: str, clip: pathlib.Path) -> list[float]:
+    """Each of the clip's frames' average brightness."""
     movie = clip.as_posix().replace(":", "\\\\:")
     probe = subprocess.run(
         [ffprobe, "-v", "error", "-f", "lavfi", "-i", f"movie={movie},signalstats",
          "-show_entries", "frame_tags=lavfi.signalstats.YAVG", "-of", "csv=p=0"],
         capture_output=True, text=True, check=True,
     )  # fmt: skip
-    return [round(float(value.strip(",")) / 2) for value in probe.stdout.split()]
+    return [float(value.strip(",")) for value in probe.stdout.split()]
+
+
+def sourceFrames(ffprobe: str, clip: pathlib.Path) -> list[int]:
+    """The numbered source frame of each of the clip's frames."""
+    return [round(brightness / 2) for brightness in frameBrightness(ffprobe, clip)]
 
 
 @pytest.mark.parametrize(
@@ -417,6 +422,66 @@ def test_a_clip_runs_from_the_frame_shown_at_its_start_marker_through_the_one_at
         assert run.returncode == 0
         shown = sourceFrames(ffprobe, next(output.glob("*.webm")))
         assert (shown[0], shown[-1], len(shown)) == (*frames, frames[1] - frames[0] + 1)
+    finally:
+        shutil.rmtree(output, ignore_errors=True)
+
+
+@pytest.mark.parametrize("easing", ["smoothInOut", "smoothTrack"])
+@pytest.mark.parametrize(
+    ("sourceStart", "pointTime"),
+    [
+        pytest.param(0, 91 / 30, id="exact"),
+        # How markers are saved, and how YouTube rounds frame times: both a hair below the frame start.
+        pytest.param(0, round(91 / 30, 6), id="saved to 6 decimals"),
+        pytest.param(0, round(91 / 30, 3), id="a millisecond frame time"),
+        # Over half a frame in, where frames counted from 0 would split a frame early.
+        pytest.param(0.021, round(0.021 + 91 / 30, 6), id="a video starting 21 ms in"),
+    ],
+)
+def test_an_instant_crop_point_switches_on_its_own_frame(
+    clipper: Clipper, tmp_path: pathlib.Path, easing: str, sourceStart: float, pointTime: float
+) -> None:
+    # Frame n's left half has brightness n and its right half 255 - n, so a frame's crop names the half
+    # and the source frame both.
+    clipper.requireEncoder("libvpx-vp9")
+    ffmpeg = clipper.toolPath("ffmpeg")
+    ffprobe = clipper.toolPath("ffprobe")
+    assert ffmpeg is not None
+    assert ffprobe is not None
+    source = tmp_path / "halves.mkv"
+    subprocess.run(
+        [ffmpeg, "-v", "error", "-f", "lavfi", "-i", "color=gray:size=320x180:rate=30:duration=4",
+         "-vf", "geq=lum='if(lt(X,160),N,255-N)':cb=128:cr=128", "-c:v", "libx264", "-qp", "0",
+         "-output_ts_offset", str(sourceStart), str(source)],
+        check=True,
+    )  # fmt: skip
+    left, right = "0:0:160:180", "160:0:160:180"
+    data = json.loads(MARKERS.read_text(encoding="utf-8"))
+    data.update(
+        cropRes="320x180",
+        cropResWidth=320,
+        cropResHeight=180,
+        titleSuffix="halves",
+        cropPointEasing=easing,
+    )
+    start, end = sourceStart + 2.0, sourceStart + 3.5
+    cropMap = [
+        {"x": start, "y": 0, "crop": left},
+        {"x": pointTime, "y": 0, "crop": right, "easeIn": "instant"},
+        {"x": end, "y": 0, "crop": right},
+    ]
+    data["markerPairs"] = [{"number": 1, "start": start, "end": end, "speed": 1, "crop": left, "enableZoomPan": False, "cropRes": "320x180", "overrides": {}, "cropMap": cropMap}]  # fmt: skip
+    markers = tmp_path / "halves.json"
+    markers.write_text(json.dumps(data), encoding="utf-8")
+    output = clipper.cwd / "webms" / markers.stem
+    try:
+        run = clipper.run(["--markers-json", str(markers), "--input-video", str(source), *OFFLINE_ARGS])
+        print(run.stdout, run.stderr)
+        assert run.returncode == 0
+        # A right-half frame is brighter than 127.5; its source frame is 255 - its brightness.
+        brightness = frameBrightness(ffprobe, next(output.glob("*.webm")))
+        firstRight = next(round(255 - b) for b in brightness if b > 127.5)
+        assert firstRight == 91
     finally:
         shutil.rmtree(output, ignore_errors=True)
 

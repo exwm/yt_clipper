@@ -15,6 +15,7 @@ from clipper.clipper_types import (
     Settings,
     SpeedMap,
 )
+from clipper.frame_grid import FrameGrid, frameAt, frameMiddle
 from clipper.ytc_logger import Subsystem, make_subsystem_logger
 
 logger = make_subsystem_logger(Subsystem.FFMPEG_FILTER)
@@ -771,11 +772,9 @@ def getFrameTimeBetweenLeftFrames(time: float, fps: float) -> float:
     jump must land on that frame. Landing between frames instead of snapping to a frame boundary
     also avoids float precision issues.
     """
-    leftFrameIndex = floor(time * fps)
-
-    midpointTime = (leftFrameIndex - 0.5) / fps
-
-    return midpointTime
+    # The frame the keyframe was placed on, allowing for its time being rounded below that frame's start.
+    grid = FrameGrid(origin=0, rate=fps)
+    return frameMiddle(grid, frameAt(grid, time) - 1)
 
 
 def getEaseSectionDuration(

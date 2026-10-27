@@ -9,6 +9,7 @@
 // dependency-free so it unit-tests in node like crop-keyframe-math.ts.
 
 import { CropPath, CropPathCenterBounds, CropPathSegment, CropPoint } from '../@types/yt_clipper';
+import { frameAt, frameMiddle } from '../util/frame-grid';
 
 // Read once into module scope: in a sandbox that resolves globals through a proxy or a vm context
 // (jest, and possibly the userscript manager's), each `Math` in the solver's loops was a global
@@ -907,7 +908,9 @@ export function splitAtInstantCuts(cropMap: readonly CropPoint[], fps?: number):
 // frame grid, not the pair start's, since a pair can start between frames. Mirrors the clipper.
 function cutTime(cutX: number, previousX: number, fps?: number): number {
   if (!fps) return cutX;
-  const snapped = (Math.floor(cutX * fps) - 0.5) / fps;
+  // The frame the cut point was placed on, allowing for its time being rounded below that frame's start.
+  const grid = { origin: 0, rate: fps };
+  const snapped = frameMiddle(grid, frameAt(grid, cutX) - 1);
   return snapped > previousX ? snapped : cutX;
 }
 

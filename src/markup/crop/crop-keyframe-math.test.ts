@@ -184,6 +184,11 @@ describe('getEaseSectionDuration', () => {
   it('falls back when a ~1-frame section ends late within its frame', () => {
     expect(getEaseSectionDuration(0.963667, 0.997, 30)).toBeCloseTo(0.997 - 0.963667, 9);
   });
+
+  it('finishes on the frame of an end point saved a hair below its start', () => {
+    // Frame 31's start saved to 6 decimals.
+    expect(getEaseSectionDuration(0, Number((31 / 30).toFixed(6)), 30)).toBeCloseTo(30.5 / 30, 9);
+  });
 });
 
 describe('getEasedCropComponentsAtTime', () => {

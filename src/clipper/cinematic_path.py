@@ -19,6 +19,7 @@ from typing import Any, NamedTuple, Optional
 import numpy as np
 
 from clipper import banded_lapack
+from clipper.frame_grid import FrameGrid, frameAt, frameMiddle
 
 SOLVER_VERSION = 1
 
@@ -474,7 +475,9 @@ def _cutTime(cutX: float, previousX: float, fps: Optional[float], videoPartStart
     """
     if not fps:
         return cutX
-    snapped = videoPartStart + (math.floor((cutX - videoPartStart) * fps) - 0.5) / fps
+    # The frame the cut point was placed on, allowing for its time being rounded below that frame's start.
+    grid = FrameGrid(origin=videoPartStart, rate=fps)
+    snapped = frameMiddle(grid, frameAt(grid, cutX) - 1)
     return snapped if snapped > previousX else cutX
 
 

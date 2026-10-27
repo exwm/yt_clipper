@@ -399,6 +399,9 @@ def test_assert_crop_filter_has_no_gaps_detects_a_gap() -> None:
         # ~1 frame, but the right point sits late in its frame (fractional frame ~0.9): the
         # adjustment inverts, so it falls back to the real duration.
         (0.963667, 0.997, 30.0, 0.997 - 0.963667),
+        # The right point on frame 31's start, saved to 6 decimals a hair below it: the ease still
+        # finishes on frame 31, not frame 30.
+        (0.0, round(31 / 30, 6), 30.0, 30.5 / 30),
     ],
 )
 def test_getEaseSectionDuration(

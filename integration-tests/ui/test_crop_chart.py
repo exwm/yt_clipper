@@ -59,6 +59,20 @@ def test_fast_crop_point_drag_lands_the_video_on_the_point(dynamic_crop: MarkupP
     then_the_video_is_at_crop_point(dynamic_crop, 1)
 
 
+# The test video is 30 fps, with frame n starting at exactly n / 30 s. Rounding the playhead to
+# 0.01 s would put these points at 6.03 s (frame 180) and 6.70 s (frame 201).
+@pytest.mark.parametrize(("frame", "into_frame"), [(181, 0.03), (200, 0.98)])
+def test_a_crop_point_added_at_the_playhead_marks_the_start_of_the_frame_shown(
+    markup: MarkupPage, frame: int, into_frame: float
+) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("relies on the dev site's test video frame times")
+    given_a_marker_pair_with_its_editor_open(markup)
+    given_the_crop_chart_is_open(markup)
+    when_i_add_a_crop_point_at(markup, (frame + into_frame) / 30)
+    then_a_crop_point_is_at(markup, frame / 30)
+
+
 def test_crop_chart_sits_below_the_settings_editor(markup: MarkupPage) -> None:
     if markup.host != DEV_SITE_HOST:
         pytest.skip("the chart placement fix is for the generic yt_clipper site")
@@ -141,7 +155,8 @@ def when_i_switch_the_crop_easing_away_and_back(markup: MarkupPage) -> None:
 
 @step
 def when_i_add_a_crop_point_at(markup: MarkupPage, seconds: float) -> None:
-    markup.seek(seconds)
+    # A point marks the frame on screen, so wait for the seek to present it.
+    markup.seek(seconds, presented=True)
     count = len(crop_points(markup))
     markup.press("Alt+KeyA")
     assert len(crop_points(markup)) == count + 1
@@ -201,6 +216,13 @@ def then_the_crop_chip_x_is_between_the_first_two_points(markup: MarkupPage) -> 
     markup.report(f"chip {chip!r}, point x offsets {first} and {second}")
     markup.shot("crop-chip-interpolated")
     assert min(first, second) < crop_x(chip) < max(first, second)
+
+
+@step
+def then_a_crop_point_is_at(markup: MarkupPage, seconds: float) -> None:
+    times = [point["x"] for point in crop_points(markup)]
+    markup.report(f"crop point times {times}")
+    assert any(abs(time - seconds) < 1e-5 for time in times)
 
 
 @step
