@@ -6,7 +6,7 @@ import { isDrawingCrop } from '../crop-overlay';
 import { isMouseManipulatingCrop } from '../crop-overlay';
 import { blockEvent, flashMessage, seekBySafe, seekToSafe } from './util';
 import { frameStepTarget } from './frame-step';
-import { FrameGrid, frameAt, frameMiddle, loopSeekTarget } from './frame-grid';
+import { FrameGrid, frameSeekTarget, loopSeekTarget } from './frame-grid';
 import { registerActiveDragCleanup } from './drag-recovery';
 import {
   FRAMES_TO_TELL_NTSC_RATES,
@@ -61,11 +61,9 @@ export function getFrameGrid(): FrameGrid {
   return { origin: 0, rate: getFPS() };
 }
 
-/** Seeks to the middle of the frame shown at `time`. A seek to a frame's start can show either
- *  neighbor. */
+/** Seeks to show the frame at `time`, a placed time such as a marker's or a crop point's. */
 export function seekToFrameAt(time: number): void {
-  const grid = getFrameGrid();
-  seekToSafe(appState.video, frameMiddle(grid, frameAt(grid, time)));
+  seekToSafe(appState.video, frameSeekTarget(getFrameGrid(), time));
 }
 
 /** Keeps playback within the frames shown from `start` through `end`, for the preview loops. */

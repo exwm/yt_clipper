@@ -28,7 +28,7 @@ import {
   cancelCropEdit,
   ensureReframeZoomPan,
   resolveCropEditConflict,
-  setCropDragStartCropString,
+  setCropDragStartPoint,
   setCropManipulationKind,
   setIsMouseManipulatingCrop,
   setRefreshCropDragInitState,
@@ -865,10 +865,10 @@ function beginCropManipulation(e: PointerEvent): void {
     [x0, y0, w0, h0] = getCropComponents(getSelectedCropString());
     initCropMap = getCropMapProperties().initCropMap ?? undefined;
     // As the video drag does, so A or Alt+A mid-drag adds a point and the drag goes on with it.
-    setCropDragStartCropString(
-      getSelectedCropString(),
-      initCropMap?.[appState.currentCropPointIndex]?.hold === true
-    );
+    setCropDragStartPoint({
+      ...initCropMap?.[appState.currentCropPointIndex],
+      crop: getSelectedCropString(),
+    });
     setRefreshCropDragInitState(() => {
       initCropMap = getCropMapProperties().initCropMap ?? undefined;
     });
@@ -961,7 +961,7 @@ function beginCropManipulation(e: PointerEvent): void {
       active = false;
       setIsMouseManipulatingCrop(false);
       setCropManipulationKind(null);
-      setCropDragStartCropString(null);
+      setCropDragStartPoint(null);
       setRefreshCropDragInitState(null);
       // One checkpoint for the whole gesture (auto-key insert + edits), matching the
       // video crop handler: the per-edit updateCropString calls don't push history.

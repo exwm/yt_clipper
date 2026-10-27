@@ -24,20 +24,20 @@ def test_a_marker_marks_the_start_of_the_frame_shown_and_moves_one_frame_at_a_ti
     when_i_add_a_marker_pair_on_frames(markup, 90, 120)
     then_the_pair_spans_frames(markup, 90, 120)
     when_i_nudge_the_start_marker_forward(markup, times=3)
-    then_the_video_shows_the_middle_of_frame(markup, 93)
+    then_the_video_shows_frame(markup, 93)
     then_the_pair_spans_frames(markup, 93, 120)
 
 
-def test_ctrl_left_jumps_to_the_middle_of_each_earlier_markers_frame(markup: MarkupPage) -> None:
+def test_ctrl_left_jumps_to_each_earlier_markers_frame(markup: MarkupPage) -> None:
     if markup.host != DEV_SITE_HOST:
         pytest.skip("checks a site that reports no frame rate; YouTube's stats report one")
     given_the_video_has_played_until_its_frame_rate_is_measured(markup)
     when_i_add_a_marker_pair_on_frames(markup, 90, 120)
     markup.seek(150.5 / VIDEO_FPS, presented=True)
     when_i_jump_to_the_previous_marker(markup)
-    then_the_video_shows_the_middle_of_frame(markup, 120)
+    then_the_video_shows_frame(markup, 120)
     when_i_jump_to_the_previous_marker(markup)
-    then_the_video_shows_the_middle_of_frame(markup, 90)
+    then_the_video_shows_frame(markup, 90)
 
 
 @step
@@ -74,11 +74,11 @@ def when_i_nudge_the_start_marker_forward(markup: MarkupPage, times: int) -> Non
 
 
 @step
-def then_the_video_shows_the_middle_of_frame(markup: MarkupPage, frame: int) -> None:
+def then_the_video_shows_frame(markup: MarkupPage, frame: int) -> None:
     position = markup.current_time() * VIDEO_FPS
     markup.report(f"playhead at frame {position:.3f}")
+    # A seek to a frame lands just past its start, where the frame it shows is the frame its time means.
     assert math.floor(position) == frame
-    assert position - frame == pytest.approx(0.5, abs=0.05)
 
 
 @step

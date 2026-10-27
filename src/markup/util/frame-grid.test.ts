@@ -5,6 +5,7 @@ import {
   frameAt,
   frameMiddle,
   frameSpan,
+  frameSeekTarget,
   frameStart,
   loopSeekTarget,
   snapToFrame,
@@ -47,14 +48,53 @@ describe('frameSpan', () => {
   });
 });
 
+describe('frameSeekTarget', () => {
+  const at30: FrameGrid = { origin: 0, rate: 30 };
+  it.each([
+    ['a frame start', 31 / 30, 31],
+    ['a frame start rounded to the millisecond', 1.033, 31],
+    ['a chart point late in its frame', 6.03, 180],
+  ] as const)('stays in the frame of %s', (_case, time, frame) => {
+    const target = frameSeekTarget(at30, time);
+    expect(frameAt(at30, target)).toBe(frame);
+    expect(target).toBeGreaterThan(time);
+  });
+
+  // The grid in use can be a rate off until the rate is measured. A seek still shows the frame a time
+  // means on the video's own grid: for markers, the video's frame starts rounded to the millisecond, and
+  // for chart points, times on the chart's 0.01 s grid.
+  const frameStartsRounded = (video: FrameGrid) =>
+    Array.from({ length: 3000 }, (_, frame) => Math.round(frameStart(video, frame) * 1000) / 1000);
+  const chartTimes = Array.from({ length: 6000 }, (_, i) => i / 100);
+  it.each([
+    ['29.97 fps on a 30 fps grid', 30000 / 1001, 30],
+    ['25 fps on the 60 fps default', 25, 60],
+    ['59.94 fps on a 60 fps grid', 60000 / 1001, 60],
+    ['23.976 fps on the 60 fps default', 24000 / 1001, 60],
+    ['120 fps on the 60 fps default', 120, 60],
+    ['30 fps on the 60 fps default', 30, 60],
+    ['30 fps on a 30 fps grid', 30, 30],
+    ['29.97 fps on a 29.97 fps grid', 30000 / 1001, 30000 / 1001],
+  ] as const)('shows the frame a time means for %s', (_case, videoRate, gridRate) => {
+    const video: FrameGrid = { origin: 0, rate: videoRate };
+    const grid: FrameGrid = { origin: 0, rate: gridRate };
+    // The browser shows the frame whose start is at or before the playhead.
+    const frameShown = (time: number) => Math.floor(time * videoRate);
+    const wrong = [...frameStartsRounded(video), ...chartTimes].filter(
+      (time) => frameShown(frameSeekTarget(grid, time)) !== frameAt(video, time)
+    );
+    expect(wrong).toEqual([]);
+  });
+});
+
 describe('loopSeekTarget', () => {
   // A loop from frame 30 (1 s) through frame 60 (2 s) at 30 fps.
   it.each([
     ['inside', 1.5, null],
     ['on the frame shown at the end', 2.02, null],
     ['a hair before the start, saved rounded', 0.9995, null],
-    ['past the frame shown at the end', 2.034, 30.5 / 30],
-    ['before the start', 0.99, 30.5 / 30],
+    ['past the frame shown at the end', 2.034, 1.001],
+    ['before the start', 0.99, 1.001],
   ] as const)('%s', (_case, playhead, target) => {
     const seekTo = loopSeekTarget({ origin: 0, rate: 30 }, 1, 2, playhead);
     if (target == null) expect(seekTo).toBeNull();

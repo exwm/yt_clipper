@@ -1,7 +1,9 @@
 import { ChartConfiguration, ChartFontOptions, ChartOptions } from 'chart.js';
 import { createDraft } from 'immer';
 import { getMarkerPairHistory, saveMarkerPairHistory } from '../../util/undoredo';
-import { flashMessage, seekToSafe, timeRounder } from '../../util/util';
+import { flashMessage, timeRounder } from '../../util/util';
+import { getFrameGrid, seekToFrameAt } from '../../util/videoUtil';
+import { frameAt } from '../../util/frame-grid';
 import { toggleCropPointType, triggerCropChartUpdates } from '../../charts';
 import { appState } from '../../appState';
 import {
@@ -16,13 +18,12 @@ import {
 import { cropChartMode, setCurrentCropPoint } from './cropchart/cropChartSpec';
 import { isReframeEnabled } from '../../crop/video-zoom-controller';
 import {
-  cropDragStartCropString,
-  cropDragStartWasHold,
+  cropDragStartPoint,
   cropManipulationKind,
   isMouseManipulatingCrop,
   refreshCropDragInitState,
   resolveCropEditConflict,
-  setCropDragStartCropString,
+  setCropDragStartPoint,
   suppressNextAltLock,
 } from '../../crop-overlay';
 
@@ -114,8 +115,9 @@ export const addCropPoint = function (this: any, time: number) {
       return;
     }
     const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
-    if (markerPair.cropMap.some((cropPoint) => cropPoint.x === time)) {
-      flashMessage('A crop point already exists at this time.', 'olive');
+    const grid = getFrameGrid();
+    if (markerPair.cropMap.some((cropPoint) => frameAt(grid, cropPoint.x) === frameAt(grid, time))) {
+      flashMessage('A crop point already exists on this frame.', 'olive');
       return;
     }
     // A crop drag refreshes its own snapshot below; a draw can't.
@@ -138,14 +140,15 @@ export const addCropPoint = function (this: any, time: number) {
     // all points by mode invariant, so the revert is harmless but
     // doesn't add per-keyframe size differences.
     const isLiveCropManipulation =
-      isMouseManipulatingCrop && cropManipulationKind != null && cropDragStartCropString != null;
+      isMouseManipulatingCrop && cropManipulationKind != null && cropDragStartPoint != null;
     const draggedPointRef = isLiveCropManipulation
       ? draft.cropMap[appState.currentCropPointIndex]
       : null;
     const liveCropAtAddTime = draggedPointRef ? draggedPointRef.crop : null;
-    if (draggedPointRef && cropDragStartCropString != null) {
-      draggedPointRef.crop = cropDragStartCropString;
-      if (cropDragStartWasHold) draggedPointRef.hold = true;
+    if (draggedPointRef && cropDragStartPoint != null) {
+      draggedPointRef.crop = cropDragStartPoint.crop;
+      if (cropDragStartPoint.hold) draggedPointRef.hold = true;
+      if (cropDragStartPoint.ownCrop != null) draggedPointRef.ownCrop = cropDragStartPoint.ownCrop;
     }
 
     draft.cropMap.push({
@@ -181,7 +184,7 @@ export const addCropPoint = function (this: any, time: number) {
     // point shows as selected (green) while the playhead sits between keyframes (amber border) and
     // edits/playback target there instead. Seek onto the new point so it's the actual edit target.
     if (isReframeEnabled() && !isLiveCropManipulation) {
-      seekToSafe(appState.video, time);
+      seekToFrameAt(time);
     }
 
     if (isLiveCropManipulation) {
@@ -196,7 +199,8 @@ export const addCropPoint = function (this: any, time: number) {
       // Alt + A would revert the just-added keyframe back to the
       // ORIGINAL p0 crop: collapsing all intermediate keyframes to
       // one value and leaving only the very last point usable.
-      if (liveCropAtAddTime != null) setCropDragStartCropString(liveCropAtAddTime);
+      // The new point is a plain one: a later Alt + A reverts it without a hold or own crop.
+      if (liveCropAtAddTime != null) setCropDragStartPoint({ crop: liveCropAtAddTime });
       // The Alt held to fire `Alt + A` would otherwise engage the
       // pan handler's Y-axis lock on the next frame; tell the drag to
       // ignore Alt until the user releases it.
@@ -220,7 +224,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
       if (chartType === 'crop') {
         // Moving a point reorders the crop map under a draw.
         resolveCropEditConflict('grabCropPoint');
-        seekToSafe(appState.video, timeRounder(value.x));
+        seekToFrameAt(timeRounder(value.x));
         // Reframe suppresses the per-frame chart re-render, and the seek that would refresh the
         // selection is async, so select the grabbed point now to highlight it immediately.
         if (element && isReframeEnabled()) setCurrentCropPoint(chartInstance, element._index);
@@ -256,7 +260,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
       }
 
       if (chartType === 'crop' && shouldDrag.dragX && fromValue.x != toValue.x) {
-        seekToSafe(appState.video, timeRounder(toValue.x));
+        seekToFrameAt(timeRounder(toValue.x));
       }
       if (
         (shouldDrag.dragX && fromValue.x !== toValue.x) ||
@@ -404,7 +408,7 @@ export function scatterChartSpec(chartType: 'speed' | 'crop', inputId): ChartCon
       // highlight lands on it. Shift is left alone here so shift+click can create a point without
       // hover stealing the seek/select. Plain hover stays passive.
       if (e.altKey && !e.shiftKey) {
-        seekToSafe(appState.video, this.data.datasets[0].data[index].x);
+        seekToFrameAt(this.data.datasets[0].data[index].x);
         setCurrentCropPoint(this, index);
       }
       return;

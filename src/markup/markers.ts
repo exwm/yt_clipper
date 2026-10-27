@@ -60,7 +60,7 @@ import {
   refreshPlayerControlsAutoHideTimer,
   seekToFrameAt,
 } from './util/videoUtil';
-import { frameAt, frameMiddle, frameSpan, frameStart } from './util/frame-grid';
+import { frameAt, frameSpan, frameStart } from './util/frame-grid';
 import { getPresentedFrameTime } from './util/presented-frame-clock';
 import { platform } from './yt_clipper';
 import { registerActiveDragCleanup } from './util/drag-recovery';
@@ -303,7 +303,9 @@ export function jumpToNearestMarkerOrPair(e: KeyboardEvent, keyCode: string) {
   refreshPlayerControlsAutoHideTimer();
   if (!arrowKeyCropAdjustmentEnabled) {
     if (e.ctrlKey && !e.altKey && !e.shiftKey) {
-      jumpToNearestMarker(e, appState.video.getCurrentTime(), keyCode);
+      // The frame on screen, not the playhead: after a jump the playhead is just past the marker's
+      // time, which a grid rate still being measured can put in the next grid frame.
+      jumpToNearestMarker(e, getPresentedFrameTime(appState.video), keyCode);
     } else if (e.altKey && !e.shiftKey) {
       if (!e.ctrlKey && !(appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen)) {
         blockEvent(e);
@@ -336,7 +338,7 @@ export let prevTime: number | null;
 export function jumpToNearestMarker(e: KeyboardEvent, currentTime: number, keyCode: string) {
   blockEvent(e);
   currentTime = prevTime ?? currentTime;
-  // Markers compare by frame: a jump lands in the middle of the marker's frame, past its time.
+  // Markers compare by frame: a jump lands inside the marker's frame, past its time.
   const grid = getFrameGrid();
   const currentFrame = frameAt(grid, currentTime);
   const markerTimes = appState.markerPairs.flatMap((markerPair) => [
@@ -346,28 +348,33 @@ export function jumpToNearestMarker(e: KeyboardEvent, currentTime: number, keyCo
   if (!appState.isNextMarkerStart) {
     markerTimes.push(appState.startTime);
   }
-  let markerFrames = markerTimes.map((markerTime) => frameAt(grid, markerTime));
-  let targetFrame = currentFrame;
+  let markers = markerTimes.map((time) => ({ time, frame: frameAt(grid, time) }));
+  // The nearest marker in the jump's direction, if any.
+  const nearest = (candidates: typeof markers, direction: 1 | -1) =>
+    candidates.reduce<(typeof markers)[number] | null>(
+      (best, marker) => (best == null || direction * (marker.frame - best.frame) < 0 ? marker : best),
+      null
+    );
+  let target: (typeof markers)[number] | null = null;
   if (keyCode === 'ArrowLeft') {
-    markerFrames = markerFrames.filter((markerFrame) => markerFrame < currentFrame);
-    targetFrame = Math.max(...markerFrames);
-    if (dblJump != 0 && markerFrames.length > 0 && prevJumpKeyCode === 'ArrowLeft') {
-      markerFrames = markerFrames.filter((markerFrame) => markerFrame < targetFrame);
-      targetFrame = Math.max(...markerFrames);
+    markers = markers.filter((marker) => marker.frame < currentFrame);
+    target = nearest(markers, -1);
+    if (dblJump != 0 && target != null && prevJumpKeyCode === 'ArrowLeft') {
+      const first = target;
+      target = nearest(markers.filter((marker) => marker.frame < first.frame), -1) ?? target;
     }
     prevJumpKeyCode = 'ArrowLeft';
   } else if (keyCode === 'ArrowRight') {
-    markerFrames = markerFrames.filter((markerFrame) => markerFrame > currentFrame);
-    targetFrame = Math.min(...markerFrames);
-    if (dblJump != 0 && markerFrames.length > 0 && prevJumpKeyCode === 'ArrowRight') {
-      markerFrames = markerFrames.filter((markerFrame) => markerFrame > targetFrame);
-      targetFrame = Math.min(...markerFrames);
+    markers = markers.filter((marker) => marker.frame > currentFrame);
+    target = nearest(markers, 1);
+    if (dblJump != 0 && target != null && prevJumpKeyCode === 'ArrowRight') {
+      const first = target;
+      target = nearest(markers.filter((marker) => marker.frame > first.frame), 1) ?? target;
     }
     prevJumpKeyCode = 'ArrowRight';
   }
   const seekToTarget = () => {
-    if (targetFrame !== currentFrame && Number.isFinite(targetFrame))
-      seekToSafe(appState.video, frameMiddle(grid, targetFrame));
+    if (target != null) seekToFrameAt(target.time);
   };
 
   if (dblJump !== 0) {

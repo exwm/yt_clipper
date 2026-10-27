@@ -640,20 +640,16 @@ export function setIsMouseManipulatingCrop(
 export function setCropManipulationKind(kind: 'drag' | 'resize' | null): void {
   cropManipulationKind = kind;
 }
-/** The crop string the currently-edited point should be reverted to if a
- *  mid-drag `Alt + A` adds a new keyframe. Initially set to the
- *  dragged point's crop at drag start, then *re-set on each Alt + A* to
- *  the live crop value the new keyframe inherits, so a subsequent
- *  Alt + A reverts the just-added point to *its* drop position rather
- *  than all the way back to the drag's original point. Without this
- *  per-keyframe update, every prior keyframe except the very last would
- *  collapse to the original p0 crop. `null` when no drag is active. */
-export let cropDragStartCropString: string | null = null;
-/** Whether the edited point was a hold point at that start, so the revert keeps it holding. */
-export let cropDragStartWasHold = false;
-export function setCropDragStartCropString(value: string | null, wasHold = false): void {
-  cropDragStartCropString = value;
-  cropDragStartWasHold = wasHold;
+/** What the currently-edited point should be reverted to if a mid-drag `Alt + A` adds a new
+ *  keyframe: its crop, and whether it was a hold point with its own crop. Initially the dragged
+ *  point at drag start, then *re-set on each Alt + A* to the live crop the new keyframe inherits (a
+ *  plain point), so a subsequent Alt + A reverts the just-added point to *its* drop position rather
+ *  than all the way back to the drag's original point. Without this per-keyframe update, every prior
+ *  keyframe except the very last would collapse to the original p0 crop. `null` when no drag is
+ *  active. */
+export let cropDragStartPoint: Pick<CropPoint, 'crop' | 'hold' | 'ownCrop'> | null = null;
+export function setCropDragStartPoint(point: Pick<CropPoint, 'crop' | 'hold' | 'ownCrop'> | null): void {
+  cropDragStartPoint = point && { crop: point.crop, hold: point.hold, ownCrop: point.ownCrop };
 }
 /** True for the brief window between a mid-drag `Alt + A` keypress and
  *  the user releasing Alt. While set, `processDragCrop` ignores
@@ -880,7 +876,7 @@ export function addCropMouseManipulationListener() {
         unregisterDragRecovery();
         setIsMouseManipulatingCrop(false);
         cropManipulationKind = null;
-        setCropDragStartCropString(null);
+        setCropDragStartPoint(null);
         refreshCropDragInitState = null;
         // A pending move is applied, unless the drag is canceled.
         if (cropDragRafId) {
@@ -963,10 +959,10 @@ export function addCropMouseManipulationListener() {
       // variation only shows up in zoompan mode (pan-only mode keeps
       // W/H equal across all points by mode invariant, so the revert is
       // harmless but doesn't add per-keyframe variation).
-      setCropDragStartCropString(
-        cropString,
-        initCropMap?.[appState.currentCropPointIndex]?.hold === true
-      );
+      setCropDragStartPoint({
+        ...initCropMap?.[appState.currentCropPointIndex],
+        crop: cropString,
+      });
       refreshCropDragInitState = () => {
         initCropMap = getCropMapProperties().initCropMap;
       };

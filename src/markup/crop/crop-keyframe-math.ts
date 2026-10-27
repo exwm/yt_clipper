@@ -10,27 +10,24 @@
 import { easeSinInOut } from 'd3-ease';
 import { CropPoint } from '../@types/yt_clipper';
 import { sortX } from '../ui/chart/chartPrimitives';
-import { frameAt, frameMiddle } from '../util/frame-grid';
-import { bsearch, clampNumber, frameDuration, getEasedValue } from '../util/util';
+import { FrameGrid, frameAt, frameMiddle } from '../util/frame-grid';
+import { bsearch, clampNumber, getEasedValue } from '../util/util';
 
 export interface CropKeyframeMatch {
-  /** True when the playhead is within a frame of a keyframe's time. */
+  /** True when the playhead shows a point's frame. */
   onKeyframe: boolean;
-  /** The NEAREST point to the playhead, so clicking/seeking to a point selects it
-   *  even when the seek lands a hair off the point's exact (frame-quantized) time. */
+  /** The point on the playhead's frame, else the nearest one. */
   index: number;
   /** Indices bracketing the playhead: `[left, right]` (equal when exactly on a point). */
   section: [number, number];
 }
 
-// A full frame of slop absorbs the grid mismatch between a keyframe's stored time (the 0.01s roundX
-// grid) and the video frame the playhead lands on when seeking to it (the 1/fps grid): seeking to a
-// keyframe can land up to nearly a frame off, and a tighter half-frame test misses it, so the
-// highlight flickers off right after landing on the point.
+// On a point means on the point's frame. Points added at the playhead sit on frame starts, so a
+// distance test as wide as a frame would also take the neighboring frame's point.
 export function findCropKeyframeAtTime(
   cropMap: CropPoint[],
   time: number,
-  fps: number
+  grid: FrameGrid
 ): CropKeyframeMatch {
   // bsearch returns [i, i] on an exact hit and [i, i+1] between points, but
   // [-1, 0] / [n-1, n] just outside the map: clamp to valid indices (the
@@ -39,27 +36,26 @@ export function findCropKeyframeAtTime(
   const [rawStart, rawEnd] = bsearch(cropMap, { x: time, y: 0, crop: '' }, sortX);
   const s = Math.max(0, Math.min(rawStart, lastIndex));
   const e = Math.max(0, Math.min(rawEnd, lastIndex));
-  const distToStart = Math.abs(cropMap[s].x - time);
-  const distToEnd = Math.abs(cropMap[e].x - time);
-  // Selection follows the NEAREST point (robust to a seek that lands a frame off).
-  const index = distToStart <= distToEnd ? s : e;
-  const onKeyframe = Math.min(distToStart, distToEnd) < frameDuration(fps);
-  return { onKeyframe, index, section: [s, e] };
+  const frame = frameAt(grid, time);
+  const onStart = frameAt(grid, cropMap[s].x) === frame;
+  const onEnd = frameAt(grid, cropMap[e].x) === frame;
+  const nearest = Math.abs(cropMap[s].x - time) <= Math.abs(cropMap[e].x - time) ? s : e;
+  const index = onStart ? s : onEnd ? e : nearest;
+  return { onKeyframe: onStart || onEnd, index, section: [s, e] };
 }
 
 /**
  * The index of the keyframe to step to from `time` in direction `dir` (+1 forward, -1 back): for
- * reframe wheel/keyframe navigation. On a keyframe (full-frame tolerance, so a seek that landed a
- * frame off still counts as "on it") step to the adjacent point; between keyframes go to the
+ * reframe wheel/keyframe navigation. On a keyframe's frame step to the adjacent point; between keyframes go to the
  * bracketing point in that direction. Clamped to the map, so stepping past the ends stays put.
  */
 export function nextKeyframeIndex(
   cropMap: CropPoint[],
   time: number,
-  fps: number,
+  grid: FrameGrid,
   dir: 1 | -1
 ): number {
-  const { onKeyframe, index, section } = findCropKeyframeAtTime(cropMap, time, fps);
+  const { onKeyframe, index, section } = findCropKeyframeAtTime(cropMap, time, grid);
   const next =
     dir > 0 ? (onKeyframe ? index + 1 : section[1]) : onKeyframe ? index - 1 : section[0];
   return Math.max(0, Math.min(next, cropMap.length - 1));

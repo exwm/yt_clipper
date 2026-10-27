@@ -34,6 +34,7 @@ describe('resolveHeldCrops', () => {
     ['A B C(h)', 'A B B(h)'],
     ['A B(h) C D(h)', 'A A(h) C C(h)'],
     ['A(h) B', 'A B'],
+    ['A(h){C} B', 'A B'],
     ['A A(h)', 'A A(h)'],
   ])('%s resolves to %s', (input, expected) => {
     expect(row(produce(cropMap(input), resolveHeldCrops))).toBe(expected);

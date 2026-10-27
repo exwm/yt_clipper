@@ -99,7 +99,7 @@ import { speedChartSpec } from './ui/chart/speedchart/speedChartSpec';
 import { registerActiveDragCleanup } from './util/drag-recovery';
 import { Chart, ChartConfiguration } from 'chart.js';
 import { scatterChartDefaults } from './ui/chart/scatterChartSpec';
-import { getFPS, getFrameGrid, loopPlaybackOver } from './util/videoUtil';
+import { getFPS, getFrameGrid, loopPlaybackOver, seekToFrameAt } from './util/videoUtil';
 import { frameAt } from './util/frame-grid';
 import { getPresentedFrameTime } from './util/presented-frame-clock';
 import { onVideoFrames, VideoFrameSubscription } from './util/video-frame-loop';
@@ -214,15 +214,17 @@ export function selectCropPointWithMouseWheel(e: WheelEvent) {
       // frame and the playhead lands centred on it; pause so the user lands there to edit it.
       assertDefined(cropChartData);
       const points = cropChartData as CropPoint[];
+      // The frame on screen: after the last step the playhead is just past its point's time, which
+      // can be in the next grid frame.
       const nextIndex = nextKeyframeIndex(
         points,
-        appState.video.getCurrentTime(),
-        getFPS(),
+        getPresentedFrameTime(appState.video),
+        getFrameGrid(),
         e.deltaY < 0 ? 1 : -1
       );
       setCurrentCropPoint(cropChart, nextIndex);
       pauseSafe(appState.video);
-      seekToSafe(appState.video, points[nextIndex].x);
+      seekToFrameAt(points[nextIndex].x);
     } else if (e.deltaY < 0) {
       if (currentCropChartMode === cropChartMode.Start) {
         setCurrentCropPoint(cropChart, appState.currentCropPointIndex + 1, cropChartMode.End);
@@ -1257,11 +1259,11 @@ export function withPresentedFrameTime<T>(mediaTime: number, fn: () => T): T {
   }
 }
 
-// Is the playhead sitting on a crop keyframe (within a frame)? Drives the
-// reframe auto-key model: on a keyframe an edit updates it, between keyframes
-// an edit creates one. Thin wrapper supplying the detected fps to the pure math.
+// Is the playhead sitting on a crop keyframe's frame? Drives the reframe auto-key model: on a
+// keyframe an edit updates it, between keyframes an edit creates one. Thin wrapper supplying the
+// frame grid to the pure math.
 export function isPlayheadOnCropKeyframe(cropMap: CropPoint[], time: number): CropKeyframeMatch {
-  return findCropKeyframeAtTime(cropMap, time, getFPS());
+  return findCropKeyframeAtTime(cropMap, time, getFrameGrid());
 }
 
 // Select a crop point for editing. Set the index directly (works even when the
@@ -1295,10 +1297,11 @@ export function autoKeyCurrentCropPoint(): boolean {
   // crops always auto-key.
   if (isStaticCrop(cropMap) && !cropChartOpen) return true;
 
-  const timeBeforePause = appState.video.getCurrentTime();
+  // The frame on screen: right after a seek to the end marker the playhead is just past its time.
+  const frameTime = getPresentedFrameTime(appState.video);
   if (
-    !isPlayheadOnCropKeyframe(cropMap, timeBeforePause).onKeyframe &&
-    (timeBeforePause < pair.start || timeBeforePause > pair.end)
+    !isPlayheadOnCropKeyframe(cropMap, frameTime).onKeyframe &&
+    (frameTime < pair.start || frameTime > pair.end)
   ) {
     flashMessage('Seek into the marker pair to edit its crop.', 'olive');
     return false;

@@ -86,6 +86,7 @@ def test_crop_chart_sits_below_the_settings_editor(markup: MarkupPage) -> None:
 
 @step
 def given_a_marker_pair_with_its_editor_open(markup: MarkupPage) -> None:
+    markup.measure_frame_rate()
     markup.add_marker_pair(PAIR_START, PAIR_END)
     markup.open_marker_pair(0)
 

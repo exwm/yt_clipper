@@ -20,86 +20,67 @@ const cropMap: CropPoint[] = [
   { x: 2, y: 0, crop: '0:0:100:100' },
 ];
 
-const FPS_60 = 60; // one-frame tolerance ≈ 0.0167s
-const FPS_30 = 30; // one-frame tolerance ≈ 0.0333s
+// The grid the playhead's frames are on: frame n starts at n / 30 s.
+const AT_30 = { origin: 0, rate: 30 };
 
 describe('findCropKeyframeAtTime', () => {
-  describe('on a keyframe', () => {
+  describe("on a point's frame", () => {
     it.each([
-      ['first', 0, 0],
-      ['middle', 1, 1],
-      ['last', 2, 2],
-    ])('exact hit on the %s keyframe', (_label, time, index) => {
-      const match = findCropKeyframeAtTime(cropMap, time, FPS_60);
+      ['the first point', 0, 0],
+      ['the middle point', 1, 1],
+      ['the last point', 2, 2],
+      ['later in the middle point\'s frame', 1 + 0.02, 1],
+      ['a hair below the last point, as millisecond times round', 2 - 0.0005, 2],
+    ])('%s', (_label, time, index) => {
+      const match = findCropKeyframeAtTime(cropMap, time, AT_30);
       expect(match.onKeyframe).toBe(true);
       expect(match.index).toBe(index);
     });
 
-    it('within a frame counts as on the keyframe', () => {
-      const match = findCropKeyframeAtTime(cropMap, 1 + 0.005, FPS_60);
+    it('takes a 0.01 s chart point on the frame shown, whatever its time in the frame', () => {
+      const chartPoint: CropPoint[] = [cropMap[0], { ...cropMap[1], x: 1.03 }, cropMap[2]];
+      const match = findCropKeyframeAtTime(chartPoint, 1, AT_30);
       expect(match.onKeyframe).toBe(true);
       expect(match.index).toBe(1);
-    });
-
-    it('snaps to the nearer endpoint of a section', () => {
-      const match = findCropKeyframeAtTime(cropMap, 2 - 0.005, FPS_60);
-      expect(match.onKeyframe).toBe(true);
-      expect(match.index).toBe(2);
     });
   });
 
-  describe('between keyframes', () => {
-    it('just past the tolerance is not on a keyframe', () => {
-      const match = findCropKeyframeAtTime(cropMap, 1 + 0.02, FPS_60);
+  describe('off the points', () => {
+    // Points added at the playhead sit on frame starts, so the next frame starts a frame later.
+    it.each([
+      ['the next frame', 1 + 1 / 30],
+      ['the next frame, its start rounded to the millisecond', 1.033],
+      ['the frame before', 1 - 1 / 30],
+    ])('%s is not on the point', (_label, time) => {
+      const match = findCropKeyframeAtTime(cropMap, time, AT_30);
       expect(match.onKeyframe).toBe(false);
       expect(match.index).toBe(1);
-      expect(match.section).toEqual([1, 2]);
     });
 
     it('mid-section brackets the surrounding points', () => {
-      const match = findCropKeyframeAtTime(cropMap, 0.5, FPS_60);
+      const match = findCropKeyframeAtTime(cropMap, 0.5, AT_30);
       expect(match.onKeyframe).toBe(false);
       expect(match.section).toEqual([0, 1]);
     });
 
     it('selects the nearer point (index), not the section left point', () => {
       // 1.6 is closer to point 2 than point 1, so a click/seek there selects point 2.
-      const match = findCropKeyframeAtTime(cropMap, 1.6, FPS_60);
+      const match = findCropKeyframeAtTime(cropMap, 1.6, AT_30);
       expect(match.onKeyframe).toBe(false);
       expect(match.index).toBe(2);
       expect(match.section).toEqual([1, 2]);
     });
   });
 
-  describe('tolerance scales with fps', () => {
-    it('0.025s off is on-keyframe at 30fps but not at 60fps', () => {
-      // Between the two one-frame tolerances: 0.0167s (60fps) < 0.025s < 0.0333s (30fps).
-      const time = 1 + 0.025;
-      expect(findCropKeyframeAtTime(cropMap, time, FPS_30).onKeyframe).toBe(true);
-      expect(findCropKeyframeAtTime(cropMap, time, FPS_60).onKeyframe).toBe(false);
-    });
-
-    it.each([
-      ['zero', 0],
-      ['NaN', NaN],
-      ['negative', -60],
-    ])('invalid fps (%s) falls back to the 30fps tolerance, not 1/fps', (_label, fps) => {
-      // 0.01s off is within the 30fps one-frame tolerance, so it counts as on-keyframe...
-      expect(findCropKeyframeAtTime(cropMap, 1 + 0.01, fps as number).onKeyframe).toBe(true);
-      // ...but a mid-section time does not (1/0 = Infinity would mark everything on-keyframe).
-      expect(findCropKeyframeAtTime(cropMap, 0.5, fps as number).onKeyframe).toBe(false);
-    });
-  });
-
   describe('edges clamp to valid indices', () => {
     it('time before the first keyframe clamps to index 0', () => {
-      const match = findCropKeyframeAtTime(cropMap, -0.5, FPS_60);
+      const match = findCropKeyframeAtTime(cropMap, -0.5, AT_30);
       expect(match.index).toBe(0);
       expect(match.section).toEqual([0, 0]);
     });
 
     it('time past the last keyframe clamps to the last index', () => {
-      const match = findCropKeyframeAtTime(cropMap, 2.5, FPS_60);
+      const match = findCropKeyframeAtTime(cropMap, 2.5, AT_30);
       expect(match.index).toBe(2);
       expect(match.section).toEqual([2, 2]);
     });
@@ -137,22 +118,17 @@ describe('nextKeyframeIndex', () => {
   it.each([
     ['on a keyframe, forward steps to the next', 1, 1, 2],
     ['on a keyframe, back steps to the previous', 1, -1, 0],
+    ['later in a keyframe\'s frame, forward still steps off it', 1 + 0.02, 1, 2],
+    ['on the next frame, back goes to the keyframe before it', 1 + 1 / 30, -1, 1],
     ['between keyframes, forward goes to the right bracket', 0.5, 1, 1],
     ['between keyframes, back goes to the left bracket', 0.5, -1, 0],
   ])('%s', (_label, time: number, dir: number, expected: number) => {
-    expect(nextKeyframeIndex(cropMap, time, FPS_60, dir as 1 | -1)).toBe(expected);
+    expect(nextKeyframeIndex(cropMap, time, AT_30, dir as 1 | -1)).toBe(expected);
   });
 
   it('clamps at the ends instead of stepping past', () => {
-    expect(nextKeyframeIndex(cropMap, 2, FPS_60, 1)).toBe(2); // forward off the last point
-    expect(nextKeyframeIndex(cropMap, 0, FPS_60, -1)).toBe(0); // back off the first point
-  });
-
-  it('a seek landing up to a frame short still steps off the current keyframe', () => {
-    // Within the one-frame on-keyframe tolerance of keyframe 1, so forward must reach 2 (not re-pick
-    // 1): the half-frame-threshold bug this replaced re-selected the current point for one tick.
-    const justShort = 1 - 0.9 / FPS_60;
-    expect(nextKeyframeIndex(cropMap, justShort, FPS_60, 1)).toBe(2);
+    expect(nextKeyframeIndex(cropMap, 2, AT_30, 1)).toBe(2); // forward off the last point
+    expect(nextKeyframeIndex(cropMap, 0, AT_30, -1)).toBe(0); // back off the first point
   });
 });
 
