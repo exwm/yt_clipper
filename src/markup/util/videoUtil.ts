@@ -5,13 +5,13 @@ import { chartState } from '../charts';
 import { isDrawingCrop } from '../crop-overlay';
 import { isMouseManipulatingCrop } from '../crop-overlay';
 import { blockEvent, flashMessage, getPendingSeekTime, seekBySafe, seekToSafe } from './util';
-import { frameStepTarget } from './frame-step';
+import { FrameSeek, frameDecisionTime, frameStepTarget } from './frame-step';
 import { FrameGrid, frameSeekTarget, loopSeekTarget } from './frame-grid';
 import { registerActiveDragCleanup } from './drag-recovery';
 import {
   FRAMES_TO_TELL_NTSC_RATES,
   getMeasuredFrameRate,
-  getPresentedFrame,
+  getPresentedFrameTime,
   isNewMeasuredFrameRate,
 } from './presented-frame-clock';
 import { isStaleVideo } from '../platforms/navigation';
@@ -64,9 +64,23 @@ export function getFrameGrid(): FrameGrid {
   return { origin: 0, rate: getFPS() };
 }
 
+let lastFrameSeek: FrameSeek | null = null;
 /** Seeks to show the frame at `time`, a placed time such as a marker's or a crop point's. */
 export function seekToFrameAt(time: number): void {
-  seekToSafe(appState.video, frameSeekTarget(getFrameGrid(), time));
+  const target = frameSeekTarget(getFrameGrid(), time);
+  lastFrameSeek = { target, frameTime: time };
+  seekToSafe(appState.video, target);
+}
+
+/** The time of the frame the user is on, for decisions such as which marker or crop point is next. */
+export function getFrameDecisionTime(): number {
+  const video = appState.video;
+  return frameDecisionTime({
+    presentedFrameTime: getPresentedFrameTime(video),
+    playhead: getPendingSeekTime() ?? video.getCurrentTime(),
+    lastFrameSeek,
+    fps: getFPS(),
+  });
 }
 
 /** Keeps playback within the frames shown from `start` through `end`, for the preview loops. */
@@ -75,7 +89,8 @@ export function loopPlaybackOver(start: number, end: number): void {
   if (target != null) seekToSafe(appState.video, target);
 }
 
-let lastFrameStep: { target: number; presentedFrameTime: number } | null = null;
+let lastFrameStep: { target: number; presentedFrameTime: number; direction: number } | null =
+  null;
 /** Seeks `frames` whole frames from the frame on screen, to the middle of that frame. */
 export function seekByFrames(frames: number): void {
   const video = appState.video;
@@ -84,17 +99,22 @@ export function seekByFrames(frames: number): void {
     seekBySafe(video, frames / getFPS());
     return;
   }
-  const presented = getPresentedFrame(video);
+  const presentedFrameTime = getPresentedFrameTime(video);
+  const pendingSeekTime = getPendingSeekTime();
+  const fps = getFPS();
   const target = frameStepTarget({
-    presentedFrameTime: presented.time,
-    isFrameSettled: presented.settled,
+    presentedFrameTime,
+    isSeekInFlight: video.seeking || pendingSeekTime != null,
     // A step held back while another seek is in flight is where the playhead is headed.
-    playhead: getPendingSeekTime() ?? video.getCurrentTime(),
+    playhead: pendingSeekTime ?? video.getCurrentTime(),
     lastStep: lastFrameStep,
-    fps: getFPS(),
+    fps,
     frames,
   });
-  lastFrameStep = { target, presentedFrameTime: presented.time };
+  lastFrameStep = { target, presentedFrameTime, direction: Math.sign(frames) };
+  // Not a frame seek for decisions: on a rate higher than the video's, a step's frame start isn't the
+  // frame it shows, so decisions read the frame on screen.
+  lastFrameSeek = null;
   seekToSafe(video, target);
 }
 

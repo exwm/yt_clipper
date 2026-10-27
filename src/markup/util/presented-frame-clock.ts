@@ -6,7 +6,6 @@ import {
   FRAMES_TO_TELL_NTSC_RATES,
   FRAMES_TO_TELL_STANDARD_RATES,
   initialClock,
-  isFrameSettled,
   publishRate,
   stepClock,
 } from './frame-clock-core';
@@ -57,19 +56,12 @@ function startClock(video: VideoElement): void {
 /** The time of the frame on screen on the platform's timeline, or the playhead until the video
  *  presents a frame. */
 export function getPresentedFrameTime(video: VideoElement): number {
-  return getPresentedFrame(video).time;
-}
-
-/** The frame on screen: its time, and whether it was presented after the latest seek ended (else it
- *  can be a frame from before that seek). */
-export function getPresentedFrame(video: VideoElement): { time: number; settled: boolean } {
   if (clockVideo !== video) startClock(video);
   const { lastFrame } = clock;
-  if (lastFrame == null) return { time: video.getCurrentTime(), settled: false };
+  if (lastFrame == null) return video.getCurrentTime();
   // A platform that plays a video in parts (afreecatv) times its timeline from the first part's start,
   // and each part's media time from its own.
-  const time = lastFrame.mediaTime + (video.getCurrentTime() - video.currentTime);
-  return { time, settled: isFrameSettled(clock) };
+  return lastFrame.mediaTime + (video.getCurrentTime() - video.currentTime);
 }
 
 /** The frame rate measured from presented frames, snapped to the nearest standard rate when close to

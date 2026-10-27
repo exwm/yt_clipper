@@ -99,7 +99,13 @@ import { speedChartSpec } from './ui/chart/speedchart/speedChartSpec';
 import { registerActiveDragCleanup } from './util/drag-recovery';
 import { Chart, ChartConfiguration } from 'chart.js';
 import { scatterChartDefaults } from './ui/chart/scatterChartSpec';
-import { getFPS, getFrameGrid, loopPlaybackOver, seekToFrameAt } from './util/videoUtil';
+import {
+  getFPS,
+  getFrameDecisionTime,
+  getFrameGrid,
+  loopPlaybackOver,
+  seekToFrameAt,
+} from './util/videoUtil';
 import { frameAt } from './util/frame-grid';
 import { getPresentedFrameTime } from './util/presented-frame-clock';
 import { onVideoFrames, VideoFrameSubscription } from './util/video-frame-loop';
@@ -214,11 +220,11 @@ export function selectCropPointWithMouseWheel(e: WheelEvent) {
       // frame and the playhead lands centred on it; pause so the user lands there to edit it.
       assertDefined(cropChartData);
       const points = cropChartData as CropPoint[];
-      // The frame on screen: after the last step the playhead is just past its point's time, which
-      // can be in the next grid frame.
+      // Not the playhead: after the last step it is just past its point's time, which can be in the
+      // next grid frame.
       const nextIndex = nextKeyframeIndex(
         points,
-        getPresentedFrameTime(appState.video),
+        getFrameDecisionTime(),
         getFrameGrid(),
         e.deltaY < 0 ? 1 : -1
       );
@@ -1297,8 +1303,8 @@ export function autoKeyCurrentCropPoint(): boolean {
   // crops always auto-key.
   if (isStaticCrop(cropMap) && !cropChartOpen) return true;
 
-  // The frame on screen: right after a seek to the end marker the playhead is just past its time.
-  const frameTime = getPresentedFrameTime(appState.video);
+  // Not the playhead: right after a seek to the end marker it is just past the marker's time.
+  const frameTime = getFrameDecisionTime();
   if (
     !isPlayheadOnCropKeyframe(cropMap, frameTime).onKeyframe &&
     (frameTime < pair.start || frameTime > pair.end)
@@ -1309,8 +1315,8 @@ export function autoKeyCurrentCropPoint(): boolean {
 
   // Ctrl+wheel zoom calls this per wheel tick; pauseSafe avoids re-pausing (it churns the player).
   pauseSafe(appState.video);
-  // The frame on screen is the one being edited.
-  const time = getPresentedFrameTime(appState.video);
+  // The frame being edited: the one on screen, or the one a seek in flight is going to.
+  const time = getFrameDecisionTime();
 
   const { onKeyframe, index } = isPlayheadOnCropKeyframe(cropMap, time);
   if (onKeyframe) {

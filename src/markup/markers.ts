@@ -55,6 +55,7 @@ import {
 import { html, render, svg } from 'lit-html';
 import {
   getFPS,
+  getFrameDecisionTime,
   getFrameGrid,
   loopPlaybackOver,
   refreshPlayerControlsAutoHideTimer,
@@ -301,9 +302,9 @@ export function jumpToNearestMarkerOrPair(e: KeyboardEvent, keyCode: string) {
   refreshPlayerControlsAutoHideTimer();
   if (!arrowKeyCropAdjustmentEnabled) {
     if (e.ctrlKey && !e.altKey && !e.shiftKey) {
-      // The frame on screen, not the playhead: after a jump the playhead is just past the marker's
-      // time, which a grid rate still being measured can put in the next grid frame.
-      jumpToNearestMarker(e, getPresentedFrameTime(appState.video), keyCode);
+      // Not the playhead: after a jump it is just past the marker's time, which a grid rate still
+      // being measured can put in the next grid frame.
+      jumpToNearestMarker(e, getFrameDecisionTime(), keyCode);
     } else if (e.altKey && !e.shiftKey) {
       if (!e.ctrlKey && !(appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen)) {
         blockEvent(e);
@@ -350,7 +351,8 @@ export function jumpToNearestMarker(e: KeyboardEvent, currentTime: number, keyCo
   // The nearest marker in the jump's direction, if any.
   const nearest = (candidates: typeof markers, direction: 1 | -1) =>
     candidates.reduce<(typeof markers)[number] | null>(
-      (best, marker) => (best == null || direction * (marker.frame - best.frame) < 0 ? marker : best),
+      (best, marker) =>
+        best == null || direction * (marker.frame - best.frame) < 0 ? marker : best,
       null
     );
   let target: (typeof markers)[number] | null = null;
@@ -359,7 +361,11 @@ export function jumpToNearestMarker(e: KeyboardEvent, currentTime: number, keyCo
     target = nearest(markers, -1);
     if (dblJump != 0 && target != null && prevJumpKeyCode === 'ArrowLeft') {
       const first = target;
-      target = nearest(markers.filter((marker) => marker.frame < first.frame), -1) ?? target;
+      target =
+        nearest(
+          markers.filter((marker) => marker.frame < first.frame),
+          -1
+        ) ?? target;
     }
     prevJumpKeyCode = 'ArrowLeft';
   } else if (keyCode === 'ArrowRight') {
@@ -367,7 +373,11 @@ export function jumpToNearestMarker(e: KeyboardEvent, currentTime: number, keyCo
     target = nearest(markers, 1);
     if (dblJump != 0 && target != null && prevJumpKeyCode === 'ArrowRight') {
       const first = target;
-      target = nearest(markers.filter((marker) => marker.frame > first.frame), 1) ?? target;
+      target =
+        nearest(
+          markers.filter((marker) => marker.frame > first.frame),
+          1
+        ) ?? target;
     }
     prevJumpKeyCode = 'ArrowRight';
   }

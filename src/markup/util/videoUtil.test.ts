@@ -1,10 +1,18 @@
 const mockStats = { resolution: '1920x1080@30', fails: false };
 // A seek coalescer with one seek in flight and the latest request held back, as seekToSafe is.
-const mockSeeks = { current: 0, inFlight: false, pending: null as number | null, requested: [] as number[] };
+const mockSeeks = {
+  current: 0,
+  inFlight: false,
+  pending: null as number | null,
+  requested: [] as number[],
+};
 const mockAppState = {
   video: Object.assign(new EventTarget(), {
     videoWidth: 1920,
     getCurrentTime: () => mockSeeks.current,
+    get seeking() {
+      return mockSeeks.inFlight;
+    },
     requestVideoFrameCallback: jest.fn() as ((callback: unknown) => number) | undefined,
   }),
   player: {
@@ -29,7 +37,7 @@ jest.mock('./presented-frame-clock', () => ({
   FRAMES_TO_TELL_NTSC_RATES: 60,
   getMeasuredFrameRate: () => mockMeasured.fps,
   // Frame 90, shown before the steps' seeks, which stay in flight.
-  getPresentedFrame: () => ({ time: 90 / 30, settled: false }),
+  getPresentedFrameTime: () => 90 / 30,
   isNewMeasuredFrameRate: () => mockMeasured.isNew,
 }));
 jest.mock('../platforms/navigation', () => ({
