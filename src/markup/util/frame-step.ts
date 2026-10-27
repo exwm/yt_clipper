@@ -5,25 +5,27 @@
  * a frame from both edges, so millisecond-rounded timestamps and a rate slightly off can't change
  * the frame shown.
  *
- * Steps chain from the last target while that step's seek is pending: the playhead is still on its
- * target and the frame on screen is still the one shown when the step was taken. Fast steps before
- * the seek presents a frame would otherwise repeat a target, and a rate too high for the video can
- * land a step on the same frame. Otherwise (the step's frame is shown, or the playhead moved on)
- * steps start from the frame shown, so a rate slightly off never builds up over many steps.
+ * Steps chain from the last target while the playhead is on it, until a frame other than the one
+ * the last step started from is presented after the latest seek ended. Fast steps would otherwise
+ * repeat a target; a slow seek that presents an earlier step's frame while a later one is in flight
+ * would restart behind it; and a rate too high for the video would land every step on the same
+ * frame. Steps then start from the frame shown, so a rate slightly off never builds up.
  */
 export function frameStepTarget(step: {
-  // The media time of the frame on screen (its start).
+  // The media time of the frame on screen (its start), and whether it was presented after the
+  // latest seek ended.
   presentedFrameTime: number;
+  isFrameSettled: boolean;
   playhead: number;
   lastStep: { target: number; presentedFrameTime: number } | null;
   fps: number;
   frames: number;
 }): number {
-  const { presentedFrameTime, playhead, lastStep, fps, frames } = step;
+  const { presentedFrameTime, isFrameSettled, playhead, lastStep, fps, frames } = step;
   const frameDuration = 1 / fps;
+  const showsNewFrame = isFrameSettled && presentedFrameTime !== lastStep?.presentedFrameTime;
   const isPending =
-    lastStep?.presentedFrameTime === presentedFrameTime &&
-    Math.abs(playhead - lastStep.target) < frameDuration / 4;
+    lastStep != null && !showsNewFrame && Math.abs(playhead - lastStep.target) < frameDuration / 4;
   const frameStart = isPending ? lastStep.target - frameDuration / 2 : presentedFrameTime;
   return frameStart + (frames + 0.5) * frameDuration;
 }

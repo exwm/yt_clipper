@@ -282,6 +282,13 @@ export function publishRate(
   };
 }
 
+/** Whether the frame on screen was presented after the latest seek ended, so it shows that seek's
+ *  frame rather than one from before it. */
+export function isFrameSettled(state: ClockState): boolean {
+  const { lastFrame } = state;
+  return lastFrame != null && !lastFrame.duringSeek && lastFrame.seekCount === state.seekCount;
+}
+
 /** Whether the published rate was measured over enough frames to tell NTSC rates apart. */
 export function isRateConfirmed(state: ClockState): boolean {
   return state.publishedFrames >= FRAMES_TO_TELL_NTSC_RATES;

@@ -28,7 +28,8 @@ jest.mock('../platforms/platforms', () => ({
 jest.mock('./presented-frame-clock', () => ({
   FRAMES_TO_TELL_NTSC_RATES: 60,
   getMeasuredFrameRate: () => mockMeasured.fps,
-  getPresentedFrameTime: () => 90 / 30,
+  // Frame 90, shown before the steps' seeks, which stay in flight.
+  getPresentedFrame: () => ({ time: 90 / 30, settled: false }),
   isNewMeasuredFrameRate: () => mockMeasured.isNew,
 }));
 jest.mock('../platforms/navigation', () => ({

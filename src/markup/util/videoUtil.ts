@@ -11,7 +11,7 @@ import { registerActiveDragCleanup } from './drag-recovery';
 import {
   FRAMES_TO_TELL_NTSC_RATES,
   getMeasuredFrameRate,
-  getPresentedFrameTime,
+  getPresentedFrame,
   isNewMeasuredFrameRate,
 } from './presented-frame-clock';
 import { isStaleVideo } from '../platforms/navigation';
@@ -84,16 +84,17 @@ export function seekByFrames(frames: number): void {
     seekBySafe(video, frames / getFPS());
     return;
   }
-  const presentedFrameTime = getPresentedFrameTime(video);
+  const presented = getPresentedFrame(video);
   const target = frameStepTarget({
-    presentedFrameTime,
+    presentedFrameTime: presented.time,
+    isFrameSettled: presented.settled,
     // A step held back while another seek is in flight is where the playhead is headed.
     playhead: getPendingSeekTime() ?? video.getCurrentTime(),
     lastStep: lastFrameStep,
     fps: getFPS(),
     frames,
   });
-  lastFrameStep = { target, presentedFrameTime };
+  lastFrameStep = { target, presentedFrameTime: presented.time };
   seekToSafe(video, target);
 }
 
