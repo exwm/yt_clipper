@@ -66,6 +66,16 @@ describe('getPresentedFrameTime', () => {
     expect(getPresentedFrameTime(element)).toBe(1 + 1 / 30);
   });
 
+  it("gives the frame's time on the platform's timeline when the video plays in parts", () => {
+    // The second part of a video whose first part is 100 s long, as on afreecatv.
+    const { video, element, present } = fakeVideo(1.0);
+    video.getCurrentTime = () => 100 + video.currentTime;
+    getPresentedFrameTime(element);
+    present(1.0);
+    video.currentTime = 1.01;
+    expect(getPresentedFrameTime(element)).toBe(101);
+  });
+
   it('falls back to the playhead after the video source empties', () => {
     const { video, element, present, emit } = fakeVideo();
     getPresentedFrameTime(element);

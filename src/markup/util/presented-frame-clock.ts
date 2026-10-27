@@ -53,10 +53,15 @@ function startClock(video: VideoElement): void {
   clockSubscription = onVideoFrames(video, onFrame, { phase: 'update', label: 'frame clock' });
 }
 
-/** The media time of the frame on screen, or the playhead until the video presents a frame. */
+/** The time of the frame on screen on the platform's timeline, or the playhead until the video
+ *  presents a frame. */
 export function getPresentedFrameTime(video: VideoElement): number {
   if (clockVideo !== video) startClock(video);
-  return clock.lastFrame?.mediaTime ?? video.getCurrentTime();
+  const { lastFrame } = clock;
+  if (lastFrame == null) return video.getCurrentTime();
+  // A platform that plays a video in parts (afreecatv) times its timeline from the first part's start,
+  // and each part's media time from its own.
+  return lastFrame.mediaTime + (video.getCurrentTime() - video.currentTime);
 }
 
 /** The frame rate measured from presented frames, snapped to the nearest standard rate when close to

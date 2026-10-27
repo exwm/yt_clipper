@@ -132,6 +132,10 @@ export function onVideoFrames(
   onFrame: VideoFrameConsumer,
   options: VideoFrameConsumerOptions = {}
 ): VideoFrameSubscription {
+  // Browsers without frame callbacks (Firefox before 132) get no frames, rather than a script that
+  // fails to start.
+  if (typeof video.requestVideoFrameCallback !== 'function')
+    return { redraw: () => {}, stop: () => {} };
   const phase = options.phase ?? 'draw';
   const consumer: Consumer = { onFrame, phase, label: options.label ?? phase };
   let loop = loops.get(video);

@@ -2,7 +2,11 @@ const mockStats = { resolution: '1920x1080@30', fails: false };
 // A seek coalescer with one seek in flight and the latest request held back, as seekToSafe is.
 const mockSeeks = { current: 0, inFlight: false, pending: null as number | null, requested: [] as number[] };
 const mockAppState = {
-  video: Object.assign(new EventTarget(), { videoWidth: 1920, getCurrentTime: () => mockSeeks.current }),
+  video: Object.assign(new EventTarget(), {
+    videoWidth: 1920,
+    getCurrentTime: () => mockSeeks.current,
+    requestVideoFrameCallback: jest.fn() as ((callback: unknown) => number) | undefined,
+  }),
   player: {
     getStatsForNerds: () => {
       if (mockStats.fails) throw new Error('player not ready');
@@ -57,6 +61,7 @@ Object.assign(globalThis, {
 });
 
 import { followFrameRate, getFPS, seekByFrames, toggleFrameRateMeasurement } from './videoUtil';
+import { seekBySafe } from './util';
 
 describe('getFPS', () => {
   beforeEach(() => {
@@ -180,5 +185,18 @@ describe('seekByFrames', () => {
     Object.assign(mockSeeks, { current: 90 / 30, inFlight: false, pending: null, requested: [] });
     for (let i = 0; i < 3; i++) seekByFrames(1);
     expect(mockSeeks.requested.map((time) => Math.floor(time * 30))).toEqual([91, 92, 93]);
+  });
+
+  it('steps by frame durations from the playhead in a browser without frame callbacks', () => {
+    mockPlatform.current = 'yt_clipper';
+    mockMeasured.fps = 30;
+    const { requestVideoFrameCallback } = mockAppState.video;
+    mockAppState.video.requestVideoFrameCallback = undefined;
+    try {
+      seekByFrames(-2);
+      expect(seekBySafe).toHaveBeenLastCalledWith(mockAppState.video, -2 / 30);
+    } finally {
+      mockAppState.video.requestVideoFrameCallback = requestVideoFrameCallback;
+    }
   });
 });

@@ -79,6 +79,11 @@ let lastFrameStep: { target: number; presentedFrameTime: number } | null = null;
 /** Seeks `frames` whole frames from the frame on screen, to the middle of that frame. */
 export function seekByFrames(frames: number): void {
   const video = appState.video;
+  // Without frame callbacks the frame on screen is unknown: step from the playhead.
+  if (typeof video.requestVideoFrameCallback !== 'function') {
+    seekBySafe(video, frames / getFPS());
+    return;
+  }
   const presentedFrameTime = getPresentedFrameTime(video);
   const target = frameStepTarget({
     presentedFrameTime,
