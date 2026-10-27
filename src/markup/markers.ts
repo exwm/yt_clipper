@@ -60,7 +60,7 @@ import {
   refreshPlayerControlsAutoHideTimer,
   seekToFrameAt,
 } from './util/videoUtil';
-import { frameAt, frameMiddle, frameStart } from './util/frame-grid';
+import { frameAt, frameMiddle, frameSpan, frameStart } from './util/frame-grid';
 import { getPresentedFrameTime } from './util/presented-frame-clock';
 import { platform } from './yt_clipper';
 import { registerActiveDragCleanup } from './util/drag-recovery';
@@ -938,7 +938,9 @@ export function highlightSelectedMarkerPair(currentMarker: SVGRectElement) {
 }
 export function updateMarkerPairDuration(markerPair: MarkerPair) {
   const speedAdjustedDurationSpan = document.getElementById('duration');
-  const duration = markerPair.end - markerPair.start;
+  // The clip includes the frame shown at the end marker.
+  const span = frameSpan(getFrameGrid(), markerPair.start, markerPair.end);
+  const duration = span.end - span.start;
   const durationHHMMSS = toHHMMSSTrimmed(duration);
   const speed = markerPair.speed;
   const speedMap = markerPair.speedMap;

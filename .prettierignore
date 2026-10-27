@@ -6,3 +6,4 @@
 src/clipper/tests/fixtures/*_parity.json
 # One case per line, as generated.
 src/clipper/tests/fixtures/frame_grid_cases.json
+src/clipper/tests/fixtures/output_duration_cases.json
