@@ -21,7 +21,7 @@ jest.mock('./save-load', () => ({
 }));
 
 jest.mock('../crop-utils', () => ({
-  isStaticCrop: () => true,
+  isDefaultCropMap: () => true,
 }));
 
 jest.mock('./load-markers-review', () => ({

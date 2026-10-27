@@ -97,6 +97,30 @@ def test_cinematic_cut_on_the_last_point_still_shows(fps: float | None, time: fl
 
 
 @pytest.mark.parametrize(
+    "end",
+    [
+        pytest.param({}, id="plain end"),
+        pytest.param({"hold": True, "ownCrop": "0:0:960:1080"}, id="hold end with its own crop"),
+    ],
+)
+def test_cinematic_path_of_one_crop_stays_still(end: dict) -> None:
+    from clipper import cinematic_path
+
+    # Saved when the end point carries a flag the default map lacks; it must render as a static crop.
+    cropMap = [{"x": 3, "y": 0, "crop": "320:0:960:1080"}, {"x": 9, "y": 0, "crop": "320:0:960:1080", **end}]
+    path = cinematic_path.bakeCinematicPath(
+        cinematic_path.cinematicCropMap(cropMap, cinematic_path.DEFAULT_CINEMATIC_HOLDS),
+        cinematic_path.cinematicMargins({}),
+        1920,
+        1080,
+        fps=30,
+    )
+    assert path is not None
+    for frame in range(181):
+        assert cinematic_path.evalCropPathAtTime(path, frame / 30) == pytest.approx((320, 0, 960, 1080), abs=1e-6)
+
+
+@pytest.mark.parametrize(
     "xs",
     [
         pytest.param((0, 0, 960, 960), id="hold then pan to the frame edge"),

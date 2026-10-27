@@ -8,7 +8,7 @@ import {
   clearYTClipperLocalStorage,
 } from '../auto-save';
 import { html, render } from 'lit-html';
-import { isStaticCrop } from '../crop-utils';
+import { isDefaultCropMap } from '../crop-utils';
 import { pairSettings } from '../features/settings/pair-settings';
 import { CINEMATIC_SOLVER_VERSION } from '../crop/cinematic-path';
 import { deleteElement, flashMessage, assertDefined } from '../util/util';
@@ -49,7 +49,7 @@ export function getClipperInputData(date?) {
       speedMapLoop: undefined,
       speedMap: isVariableSpeed(markerPair.speedMap) ? markerPair.speedMap : undefined,
       speedChartLoop: undefined,
-      cropMap: !isStaticCrop(markerPair.cropMap) ? markerPair.cropMap : undefined,
+      cropMap: !isDefaultCropMap(markerPair.cropMap) ? markerPair.cropMap : undefined,
       cropChartLoop: undefined,
       undoredo: undefined,
       startNumbering: undefined,

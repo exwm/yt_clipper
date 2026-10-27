@@ -1,6 +1,6 @@
 import { MarkerPair } from '../@types/yt_clipper';
 import { __version__, appState } from '../appState';
-import { isStaticCrop } from '../crop-utils';
+import { isDefaultCropMap } from '../crop-utils';
 import { DEFAULT_CROP_POINT_EASING } from '../crop/crop-keyframe-math';
 import { copyToClipboard, flashMessage } from '../util/util';
 import { showLoadMarkersReviewModal } from './load-markers-review';
@@ -126,7 +126,7 @@ function buildSharePayload(): SharePayload {
     };
     if (pair.enableZoomPan) out.enableZoomPan = true;
     if (isVariableSpeed(pair.speedMap)) out.speedMap = pair.speedMap;
-    if (!isStaticCrop(pair.cropMap)) out.cropMap = pair.cropMap;
+    if (!isDefaultCropMap(pair.cropMap)) out.cropMap = pair.cropMap;
     if (pair.overrides && Object.keys(pair.overrides).length > 0) {
       out.overrides = pair.overrides;
     }

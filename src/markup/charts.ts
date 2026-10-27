@@ -56,7 +56,7 @@ import {
 } from './crop-overlay';
 import { getCropComponents, isStaticCrop, setCropInputValue } from './crop-utils';
 import { Crop } from './crop/crop';
-import { cropBeforeHold, toggleHold, toggleInstant } from './crop/crop-point-holds';
+import { ownCropToRelease, toggleHold, toggleInstant } from './crop/crop-point-holds';
 import { triggerCropPreviewRedraw } from './crop/crop-preview';
 import {
   bakeCinematicPath,
@@ -1394,7 +1394,7 @@ export function toggleCropPointType(
 ): boolean {
   const draft = createDraft(getMarkerPairHistory(pair));
   const point = draft.cropMap[index];
-  const ownCrop = point.hold ? cropBeforeHold(pair.undoredo, point.x, pair, point.crop) : undefined;
+  const ownCrop = point.hold ? ownCropToRelease(point, pair) : undefined;
   if (type === 'instant') {
     toggleInstant(draft.cropMap, index, ownCrop);
   } else if (!toggleHold(draft.cropMap, index, ownCrop)) {
