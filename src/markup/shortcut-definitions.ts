@@ -3,6 +3,7 @@ import { featureFlags } from './feature-flags';
 
 export interface ShortcutDeps {
   showShortcutsReference: () => void;
+  toggleFrameRateMeasurement: () => void;
   addMarker: () => void;
   moveMarkerToCurrentTime: (which: 'start' | 'end') => void;
   addChartPoint: () => void;
@@ -120,6 +121,19 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       binding: null,
       handler: () => {
         deps.showShortcutsReference();
+      },
+      executable: true,
+    },
+    {
+      id: 'toggleFrameRateMeasurement',
+      description: 'Toggle frame rate measurement from playback',
+      displayKey: '',
+      section: 'Markup',
+      category: 'General Shortcuts',
+      essential: false,
+      binding: null,
+      handler: () => {
+        deps.toggleFrameRateMeasurement();
       },
       executable: true,
     },

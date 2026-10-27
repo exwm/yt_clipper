@@ -57,7 +57,6 @@ import {
   flashMessage,
   injectCSS,
   observeVideoElementChange,
-  seekBySafe,
   setFlashMessageHook,
   sleep,
 } from './util/util';
@@ -127,7 +126,13 @@ import {
   toggleCropChartLooping,
 } from './charts';
 import { installLitUrlSanitizer } from './util/url-sanitizer';
-import { addScrubVideoHandler, getFPS } from './util/videoUtil';
+import {
+  addScrubVideoHandler,
+  followFrameRate,
+  getFPS,
+  seekByFrames,
+  toggleFrameRateMeasurement,
+} from './util/videoUtil';
 import { mountHintsBar, setHintsBarEnabled, toggleHintsBar } from './features/hints-bar/hints-bar';
 import {
   HoveredRegion,
@@ -225,6 +230,7 @@ export function initShortcutSystem() {
       showShortcutsReference: () => {
         toggleShortcutsTable();
       },
+      toggleFrameRateMeasurement,
       addMarker: () => {
         // During an active crop manipulation (pan-drag OR resize) with
         // the crop chart visible, plain `A` reroutes to "add crop
@@ -621,6 +627,7 @@ function initVideoInfo() {
   const url = window.location.origin + window.location.pathname;
   appState.videoInfo.videoUrl = url;
   appState.videoInfo.fps = getFPS();
+  followFrameRate(appState.video);
 
   appState.video.seekTo = (time) => (appState.video.currentTime = time);
   appState.video.getCurrentTime = () => {
@@ -714,12 +721,7 @@ function mouseWheelFrameSkipHandler(event: WheelEvent) {
     event.shiftKey &&
     Math.abs(event.deltaY) > 0
   ) {
-    const fps = getFPS();
-    if (event.deltaY < 0) {
-      seekBySafe(appState.video, mouseWheelFrameSkipRate / fps);
-    } else if (event.deltaY > 0) {
-      seekBySafe(appState.video, -mouseWheelFrameSkipRate / fps);
-    }
+    seekByFrames(event.deltaY < 0 ? mouseWheelFrameSkipRate : -mouseWheelFrameSkipRate);
   }
 }
 

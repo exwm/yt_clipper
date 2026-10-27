@@ -4,7 +4,8 @@ const mockAppState = {
   videoInfo: { fps: undefined as number | undefined },
 };
 const mockPlatform = { current: 'youtube' };
-const mockMeasured = { fps: null as number | null };
+const mockMeasured = { fps: null as number | null, isNew: false };
+const mockFlashMessage = jest.fn();
 
 jest.mock('../appState', () => ({ appState: mockAppState }));
 jest.mock('../platforms/platforms', () => ({
@@ -14,18 +15,58 @@ jest.mock('../platforms/platforms', () => ({
 jest.mock('./presented-frame-clock', () => ({
   FRAMES_TO_TELL_NTSC_RATES: 60,
   getMeasuredFrameRate: () => mockMeasured.fps,
+  isNewMeasuredFrameRate: () => mockMeasured.isNew,
 }));
 jest.mock('../charts', () => ({ chartState: {} }));
 jest.mock('../crop-overlay', () => ({ isDrawingCrop: false, isMouseManipulatingCrop: false }));
-jest.mock('./util', () => ({ blockEvent: jest.fn(), seekBySafe: jest.fn() }));
+jest.mock('./util', () => ({
+  blockEvent: jest.fn(),
+  flashMessage: mockFlashMessage,
+  seekBySafe: jest.fn(),
+}));
 jest.mock('./drag-recovery', () => ({ registerActiveDragCleanup: jest.fn() }));
 
-import { getFPS } from './videoUtil';
+const mockStorage = new Map<string, string>();
+Object.assign(globalThis, {
+  localStorage: {
+    getItem: (key: string) => mockStorage.get(key) ?? null,
+    setItem: (key: string, value: string) => mockStorage.set(key, value),
+  },
+});
+
+import { getFPS, toggleFrameRateMeasurement } from './videoUtil';
 
 describe('getFPS', () => {
   beforeEach(() => {
     mockAppState.video.videoWidth = 1920;
     mockAppState.videoInfo.fps = undefined;
+    mockMeasured.isNew = false;
+    mockFlashMessage.mockClear();
+  });
+
+  it.each([
+    [
+      'a new measured rate it uses',
+      'youtube',
+      30000 / 1001,
+      true,
+      ['Measured the frame rate: 29.97 fps.'],
+    ],
+    ['a rate already announced', 'youtube', 30000 / 1001, false, []],
+    ['a measured rate it ignores', 'youtube', 25, true, []],
+    [
+      'a new rate on another site',
+      'yt_clipper',
+      24000 / 1001,
+      true,
+      ['Measured the frame rate: 23.976 fps.'],
+    ],
+  ])('flashes %s', (_case, platform, measured, isNew, messages) => {
+    mockPlatform.current = platform;
+    mockMeasured.fps = measured;
+    mockMeasured.isNew = isNew;
+    getFPS();
+    expect(mockFlashMessage.mock.calls.map(([message]) => message)).toEqual(messages);
   });
 
   it.each([
@@ -39,6 +80,29 @@ describe('getFPS', () => {
     mockMeasured.fps = measured;
     expect(getFPS()).toBeCloseTo(expected, 6);
   });
+
+  it.each([
+    ['YouTube', 'youtube', 30000 / 1001, 30],
+    ['another site', 'yt_clipper', 24, 60],
+  ])(
+    'on %s, turning measurement off uses the platform rate, saved, until turned back on',
+    (_case, platform, measured, unmeasured) => {
+      mockPlatform.current = platform;
+      mockMeasured.fps = measured;
+      expect(getFPS()).toBeCloseTo(measured, 6);
+
+      toggleFrameRateMeasurement();
+      expect(mockStorage.get('ytc-measure-frame-rate')).toBe('false');
+      expect(getFPS()).toBe(unmeasured);
+      expect(mockFlashMessage.mock.calls.at(-1)?.[0]).toBe(
+        `Frame rate measurement off. Using ${unmeasured} fps.`
+      );
+
+      toggleFrameRateMeasurement();
+      expect(mockStorage.get('ytc-measure-frame-rate')).toBe('true');
+      expect(getFPS()).toBeCloseTo(measured, 6);
+    }
+  );
 
   it.each([
     ['YouTube', 'youtube', 30000 / 1001],

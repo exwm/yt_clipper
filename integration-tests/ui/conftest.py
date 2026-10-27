@@ -210,7 +210,9 @@ def markup(
     with steps.timed("(activate the markup)"):
         activate_markup(page)
 
-    yield MarkupPage(page, host, shots_dir)
+    # pytest-playwright traces only its own page; the YouTube context is the fixture's.
+    traced = not youtube_url and request.config.getoption("tracing") != "off"
+    yield MarkupPage(page, host, shots_dir, tracing=traced)
 
     call_report = getattr(request.node, "report_call", None)
     if call_report is not None and call_report.failed:

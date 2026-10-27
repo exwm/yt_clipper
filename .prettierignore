@@ -4,3 +4,5 @@
 *.md
 # Written by tools/test/write-parity-fixtures.ts, which keeps each case's own number format.
 src/clipper/tests/fixtures/*_parity.json
+# One case per line, as generated.
+src/clipper/tests/fixtures/frame_grid_cases.json
