@@ -66,10 +66,13 @@ def ffprobeVideoProperties(cs: ClipperState, videoURL: str) -> Optional[DictStrA
         if not color_transfer:
             logger.warning(f"Could not find color_transfer in ffprobe results.")
 
-        ffprobeStreamData["r_frame_rate"] = getFrameRate(
-            ffprobeStreamData["r_frame_rate"],
-            ffprobeStreamData.get("avg_frame_rate"),
-        )
+        statedRate, averageRate = ffprobeStreamData["r_frame_rate"], ffprobeStreamData.get("avg_frame_rate")
+        ffprobeStreamData["r_frame_rate"] = getFrameRate(statedRate, averageRate)
+        # Unless the header showed a varying rate, check a local video's frame times.
+        rate = ffprobeStreamData["r_frame_rate"]
+        if videoURL == settings.get("inputVideo") and rate and not headerRatesDiffer(statedRate, averageRate):
+            origin = float(ffprobeStreamData.get("start_time") or 0)
+            warnIfFramesOffGrid(cp.ffprobePath, videoURL, origin, Fraction(rate))
 
         settings["inputIsHDR"] = settings.get("inputIsHDR") or color_transfer in (
             "smpte2084",
@@ -175,7 +178,62 @@ def getFrameRate(
         )
         frame_rate = avg_frame_rate
 
+    if headerRatesDiffer(r_frame_rate, avg_frame_rate):
+        logger.warning(
+            " ".join(
+                [
+                    f"The video's frame rate varies (r_frame_rate={float(r):.3f}, avg_frame_rate={float(avg):.3f}).",
+                    f"Clips use a constant {float(Fraction(frame_rate)):.3f} fps,",
+                    "so where the video's frames stray from that rate, a clip's first or last frame and instant crop points can be a frame off.",
+                ]
+            ),
+        )
+
     return frame_rate
+
+
+def headerRatesDiffer(r_frame_rate: Optional[str], avg_frame_rate: Optional[str]) -> bool:
+    """Whether ffprobe's two rates say the frame rate varies. Constant-rate videos report equal rates;
+    0.1% leaves room for an average rounded like 29.97. WebM and MKV report equal rates either way."""
+    try:
+        r, avg = Fraction(r_frame_rate or ""), Fraction(avg_frame_rate or "")
+        return abs(r - avg) / avg > Fraction(1, 1000)
+    except (ValueError, ZeroDivisionError):
+        return False
+
+
+def offGridFrames(times: list[float], origin: float, rate: Fraction) -> int:
+    """How many frame times sit more than a quarter frame from the grid origin + n / rate. Millisecond
+    timestamps (WebM) stay well inside that."""
+    frames = [(time - origin) * float(rate) for time in times]
+    return sum(1 for frame in frames if abs(frame - round(frame)) > 0.25)
+
+
+def warnIfFramesOffGrid(ffprobePath: str, videoPath: str, origin: float, rate: Fraction) -> None:
+    """Warns when the local video's first 20 s of frame times stray from the grid that markers and crop
+    points are mapped to. Reads packets only, without decoding."""
+    # The path is its own argument, so no quoting can split it. ffprobePath is shell-quoted.
+    command = shlex.split(
+        f"{ffprobePath} -v error -select_streams v:0 -show_entries packet=pts_time -read_intervals %+20 -of csv=p=0"
+    )
+    try:
+        output = subprocess.run([*command, videoPath], capture_output=True, text=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError) as e:
+        # Advisory only: the clip is made either way.
+        logger.verbose(f"Could not read the input video's frame times: {e}")
+        return
+    times = [float(value) for value in output.split() if value not in ("", "N/A")]
+    off = offGridFrames(times, origin, rate)
+    if off:
+        logger.warning(
+            " ".join(
+                [
+                    f"The video's frame rate varies: {off} of its first {len(times)} frames are off its {float(rate):.3f} fps grid.",
+                    "Clips use a constant frame rate,",
+                    "so where the video's frames stray from it, a clip's first or last frame and instant crop points can be a frame off.",
+                ]
+            ),
+        )
 
 
 def getColorBitDepth(
