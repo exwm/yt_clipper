@@ -23,6 +23,7 @@ import pytest
 
 from clipper import clip_maker
 from clipper.ffmpeg_filter import getSpeedFilterAndDuration
+from clipper.frame_grid import FrameGrid, frameSpan
 from clipper.yt_clipper import main
 
 TESTDATA = pathlib.Path(__file__).parent.resolve() / "testdata"
@@ -132,8 +133,12 @@ class Clipper:
 
 
 def markerPairLength() -> float:
-    """The clip length the test marker pair's speed map asks for."""
-    speedMap = json.loads(MARKERS.read_text(encoding="utf-8"))["markerPairs"][0]["speedMap"]
+    """The clip length the test marker pair's speed map asks for, over the frames from the one shown at
+    its start marker through the one shown at its end marker."""
+    pair = json.loads(MARKERS.read_text(encoding="utf-8"))["markerPairs"][0]
+    span = frameSpan(FrameGrid(origin=0, rate=SOURCE_FPS), pair["start"], pair["end"])
+    speedMap = pair["speedMap"]
+    speedMap[0]["x"], speedMap[-1]["x"] = span.start, span.end
     _, length, _ = getSpeedFilterAndDuration(speedMap, {"isVariableSpeed": True}, SOURCE_FPS)
     return float(length)
 
@@ -355,6 +360,126 @@ def test_clip_of_a_video_with_a_start_time_begins_on_the_pair_start_frame(
         shutil.rmtree(output, ignore_errors=True)
 
 
+def numberedVideo(ffmpeg: str, folder: pathlib.Path) -> pathlib.Path:
+    """A 4 s, 30 fps lossless video whose frame n has brightness 2n, so a clip's frame names its source
+    frame exactly."""
+    source = folder / "numbered.mkv"
+    subprocess.run(
+        [ffmpeg, "-v", "error", "-f", "lavfi", "-i", "color=gray:size=320x180:rate=30:duration=4",
+         "-vf", "geq=lum='2*N':cb=128:cr=128", "-c:v", "libx264", "-qp", "0", str(source)],
+        check=True,
+    )  # fmt: skip
+    return source
+
+
+def sourceFrames(ffprobe: str, clip: pathlib.Path) -> list[int]:
+    """The numbered source frame of each of the clip's frames."""
+    movie = clip.as_posix().replace(":", "\\\\:")
+    probe = subprocess.run(
+        [ffprobe, "-v", "error", "-f", "lavfi", "-i", f"movie={movie},signalstats",
+         "-show_entries", "frame_tags=lavfi.signalstats.YAVG", "-of", "csv=p=0"],
+        capture_output=True, text=True, check=True,
+    )  # fmt: skip
+    return [round(float(value.strip(",")) / 2) for value in probe.stdout.split()]
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "frames"),
+    [
+        pytest.param(30 / 30, 50 / 30, (30, 50), id="markers on frame starts"),
+        pytest.param(30.5 / 30, 50.5 / 30, (30, 50), id="markers mid-frame"),
+        # 6 decimals is how markers are saved; both round a hair below their frame's start.
+        pytest.param(round(31 / 30, 6), round(52 / 30, 6), (31, 52), id="markers saved to 6 decimals"),
+        pytest.param(30.9 / 30, 50.9 / 30, (30, 50), id="markers late in their frames"),
+    ],
+)
+def test_a_clip_runs_from_the_frame_shown_at_its_start_marker_through_the_one_at_its_end_marker(
+    clipper: Clipper,
+    tmp_path: pathlib.Path,
+    start: float,
+    end: float,
+    frames: tuple[int, int],
+) -> None:
+    clipper.requireEncoder("libvpx-vp9")
+    ffmpeg, ffprobe = clipper.toolPath("ffmpeg"), clipper.toolPath("ffprobe")
+    assert ffmpeg is not None
+    assert ffprobe is not None
+    source = numberedVideo(ffmpeg, tmp_path)
+    data = json.loads(MARKERS.read_text(encoding="utf-8"))
+    data.update(cropRes="320x180", cropResWidth=320, cropResHeight=180, titleSuffix="numbered")
+    data["markerPairs"] = [{"number": 1, "start": start, "end": end, "speed": 1, "crop": "0:0:iw:ih", "enableZoomPan": False, "cropRes": "320x180", "overrides": {}}]  # fmt: skip
+    markers = tmp_path / "numbered.json"
+    markers.write_text(json.dumps(data), encoding="utf-8")
+    output = clipper.cwd / "webms" / markers.stem
+    try:
+        run = clipper.run(["--markers-json", str(markers), "--input-video", str(source), *OFFLINE_ARGS])
+        print(run.stdout, run.stderr)
+        assert run.returncode == 0
+        shown = sourceFrames(ffprobe, next(output.glob("*.webm")))
+        assert (shown[0], shown[-1], len(shown)) == (*frames, frames[1] - frames[0] + 1)
+    finally:
+        shutil.rmtree(output, ignore_errors=True)
+
+
+def frameTimes(ffprobe: str, clip: pathlib.Path) -> dict[int, float]:
+    """When each numbered source frame first shows in the clip."""
+    movie = clip.as_posix().replace(":", "\\\\:")
+    probe = subprocess.run(
+        [ffprobe, "-v", "error", "-f", "lavfi", "-i", f"movie={movie},signalstats",
+         "-show_entries", "frame=pts_time:frame_tags=lavfi.signalstats.YAVG", "-of", "csv=p=0"],
+        capture_output=True, text=True, check=True,
+    )  # fmt: skip
+    times: dict[int, float] = {}
+    for line in probe.stdout.split():
+        pts, brightness = (float(value) for value in line.split(",") if value)
+        times.setdefault(round(brightness / 2), pts)
+    return times
+
+
+@pytest.mark.parametrize(
+    "start",
+    [pytest.param(30 / 30, id="start marker on a frame start"), pytest.param(30.5 / 30, id="mid-frame")],
+)
+def test_a_clips_audio_starts_with_its_first_frame(
+    clipper: Clipper, tmp_path: pathlib.Path, start: float
+) -> None:
+    # The source's click starts exactly with frame 40, so in the clip it starts with frame 40 too.
+    clipper.requireEncoder("libvpx-vp9")
+    ffmpeg, ffprobe = clipper.toolPath("ffmpeg"), clipper.toolPath("ffprobe")
+    assert ffmpeg is not None
+    assert ffprobe is not None
+    video = numberedVideo(ffmpeg, tmp_path)
+    source = tmp_path / "numbered-click.mkv"
+    subprocess.run(
+        [ffmpeg, "-v", "error", "-i", str(video), "-f", "lavfi", "-i",
+         "aevalsrc='if(between(t,40/30,40/30+0.01),0.9*sin(2*PI*1000*t),0)':s=48000:d=4",
+         "-c:v", "copy", "-c:a", "pcm_s16le", str(source)],
+        check=True,
+    )  # fmt: skip
+    data = json.loads(MARKERS.read_text(encoding="utf-8"))
+    data.update(
+        cropRes="320x180", cropResWidth=320, cropResHeight=180, titleSuffix="click", audio=True
+    )
+    data["markerPairs"] = [{"number": 1, "start": start, "end": 1.8, "speed": 1, "crop": "0:0:iw:ih", "enableZoomPan": False, "cropRes": "320x180", "overrides": {}}]  # fmt: skip
+    markers = tmp_path / "click.json"
+    markers.write_text(json.dumps(data), encoding="utf-8")
+    output = clipper.cwd / "webms" / markers.stem
+    try:
+        run = clipper.run(["--markers-json", str(markers), "--input-video", str(source), *OFFLINE_ARGS])
+        print(run.stdout, run.stderr)
+        assert run.returncode == 0
+        clip = next(output.glob("*.webm"))
+        silence = subprocess.run(
+            [ffmpeg, "-i", str(clip), "-af", "silencedetect=n=-30dB:d=0.005", "-f", "null", "-"],
+            capture_output=True, text=True, check=True,
+        ).stderr  # fmt: skip
+        click = float(re.search(r"silence_end: (\S+)", silence)[1])  # type: ignore[index]
+        # Under half a frame (16.7 ms): the encoder's own audio padding is a few ms.
+        assert click == pytest.approx(frameTimes(ffprobe, clip)[40], abs=0.008)
+    finally:
+        shutil.rmtree(output, ignore_errors=True)
+
+
 @pytest.mark.parametrize(
     "extraArgs",
     [
@@ -393,14 +518,14 @@ def test_subtitles_burn_in_for_a_markers_file_named_with_an_apostrophe(
 @pytest.mark.parametrize(
     ("makeVideo", "seek"),
     [
-        # The pair starts at 1.0 s. The file starts at -0.1065 s: the audio's 0.1 s lead plus the
-        # Opus encoder's 6.5 ms pre-skip.
-        pytest.param(audioFirstVideo, 1.1065, id="audio first: the file starting before 0"),
+        # The pair starts at 1.0 s, and ffplay half a 30 fps frame before. The file starts at
+        # -0.1065 s: the audio's 0.1 s lead plus the Opus encoder's 6.5 ms pre-skip.
+        pytest.param(audioFirstVideo, 1.1065 - 1 / 60, id="audio first: the file starting before 0"),
         # The pair starts at 11.0 s, the file at 10 s.
-        pytest.param(lateStartVideo, 1.0, id="late start: the file starting at 10 s"),
+        pytest.param(lateStartVideo, 1.0 - 1 / 60, id="late start: the file starting at 10 s"),
     ],
 )
-def test_preview_of_a_local_video_starts_ffplay_at_the_pair_start(
+def test_preview_of_a_local_video_starts_ffplay_half_a_frame_before_the_pair_start(
     clipper: Clipper,
     tmp_path: pathlib.Path,
     monkeypatch: pytest.MonkeyPatch,
