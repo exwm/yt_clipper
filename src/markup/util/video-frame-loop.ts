@@ -48,10 +48,14 @@ export interface PresentedVideoFrame {
 
 export type VideoFrameConsumer = (frame: PresentedVideoFrame) => void;
 
+type ConsumerPhase = 'clock' | 'update' | 'draw';
+const PHASE_ORDER: Record<ConsumerPhase, number> = { clock: 0, update: 1, draw: 2 };
+
 export interface VideoFrameConsumerOptions {
-  // 'update' consumers (the clock, crop state) run before 'draw' consumers on each frame, so a draw
-  // reads state already updated for that frame. A 'draw' consumer also asks for 'everyRefresh'.
-  phase?: 'update' | 'draw';
+  // On each frame the frame clock runs first, then 'update' consumers (crop state), then 'draw'
+  // consumers, so each reads state already updated for that frame. A 'draw' consumer also asks for
+  // 'everyRefresh'.
+  phase?: ConsumerPhase;
   // Names the consumer in the debug stats.
   label?: string;
 }
@@ -85,18 +89,16 @@ export function framesSkipped(previous: number | undefined, current: number): nu
   return previous == null ? 0 : Math.max(0, current - previous - 1);
 }
 
-/** Update consumers first, keeping the order they subscribed in within each phase. */
-export function orderConsumers<T extends { phase: 'update' | 'draw' }>(
-  consumers: readonly T[]
-): T[] {
-  return [...consumers].sort((a, b) => Number(a.phase === 'draw') - Number(b.phase === 'draw'));
+/** Consumers in phase order, keeping the order they subscribed in within each phase. */
+export function orderConsumers<T extends { phase: ConsumerPhase }>(consumers: readonly T[]): T[] {
+  return [...consumers].sort((a, b) => PHASE_ORDER[a.phase] - PHASE_ORDER[b.phase]);
 }
 
 // ─── shell ───────────────────────────────────────────────────────────────────
 
 interface Consumer {
   onFrame: VideoFrameConsumer;
-  phase: 'update' | 'draw';
+  phase: ConsumerPhase;
   label: string;
 }
 
@@ -132,6 +134,10 @@ export function onVideoFrames(
   onFrame: VideoFrameConsumer,
   options: VideoFrameConsumerOptions = {}
 ): VideoFrameSubscription {
+  // Browsers without frame callbacks (Firefox before 132) get no frames, rather than a script that
+  // fails to start.
+  if (typeof video.requestVideoFrameCallback !== 'function')
+    return { redraw: () => {}, stop: () => {} };
   const phase = options.phase ?? 'draw';
   const consumer: Consumer = { onFrame, phase, label: options.label ?? phase };
   let loop = loops.get(video);

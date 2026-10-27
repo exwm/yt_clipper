@@ -29,8 +29,17 @@ def clip_box(boxes: "list[FloatRect]", scroll: tuple[float, float], padding: flo
 
 
 class MarkupPage:
-    def __init__(self, page: "Page", host: Host, shots_dir: Path, tracing: bool = False) -> None:
+    def __init__(
+        self,
+        page: "Page",
+        host: Host,
+        shots_dir: Path,
+        tracing: bool = False,
+        assumed_frame_rate: bool = False,
+    ) -> None:
         self.page = page
+        # Tests that measure the rate run at the assumed 60 fps instead (--assumed-frame-rate).
+        self.assumed_frame_rate = assumed_frame_rate
         self.host = host
         self.shots_dir = shots_dir
         self.shot_count = 0
@@ -131,14 +140,34 @@ class MarkupPage:
                 let waiting = presented ? 2 : 1;
                 const done = () => { if (--waiting === 0) { clearTimeout(timer); resolve(true); } };
                 v.addEventListener('seeked', done, { once: true });
-                // Registered before the seek, so it cannot miss the frame the seek presents.
-                if (presented) v.requestVideoFrameCallback(done);
+                // Registered before the seek, so it cannot miss the frame the seek presents. A frame
+                // from before the seek (playback just paused) can still arrive: wait for the frame
+                // that covers the target, which starts at most a frame (0.1 s at 10 fps) before it.
+                const onFrame = (_now, meta) => {
+                  const behind = t - meta.mediaTime;
+                  if (behind > -0.002 && behind < 0.1) done();
+                  else v.requestVideoFrameCallback(onFrame);
+                };
+                if (presented) v.requestVideoFrameCallback(onFrame);
                 if (player?.seekTo) player.seekTo(t, true);
                 else v.currentTime = t;
             })""",
             [seconds, SEEK_TIMEOUT_MS, presented],
         )
         assert settled, f"seek to {seconds}s did not settle within {SEEK_TIMEOUT_MS} ms"
+
+    def measure_frame_rate(self) -> None:
+        """Play half a second, so the markup measures the video's frame rate from played frames. A site
+        that reports no rate (the dev site) otherwise steps, seeks and compares frames at 60 fps."""
+        self.seek(2, presented=True)
+        if self.assumed_frame_rate:
+            return
+        with self.untraced():
+            self.play()
+            self.page.wait_for_function(
+                "() => document.querySelector('video').currentTime > 2.5", timeout=SEEK_TIMEOUT_MS
+            )
+            self.pause()
 
     def current_time(self) -> float:
         return self.page.evaluate("() => document.querySelector('video').currentTime")
@@ -181,7 +210,9 @@ class MarkupPage:
         global settings."""
         # With the crop easing, as the markup script saves it: a file without one is from before
         # 5.49 and loads as EaseInOut.
-        data = json.dumps({"cropPointEasing": "smoothTrack", **(settings or {}), "markerPairs": pairs})
+        data = json.dumps(
+            {"cropPointEasing": "smoothTrack", **(settings or {}), "markerPairs": pairs}
+        )
         self.press("KeyG")
         self.page.set_input_files(
             "#markers-json-input",

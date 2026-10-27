@@ -121,6 +121,31 @@ describe('stepFrameSchedule', () => {
       { type: 'dispatch', mediaTime: 0.5, image: 'videoFrame' },
     ]);
   });
+
+  // After a seek, even one within the frame on screen, the next frame taken is passed on once, so the
+  // consumers that show which point is on the frame see the time the clock gives it then.
+  const afterAFrame = (events: FrameScheduleEvent[]) =>
+    run(run(everyRefresh, [taken(4)]).state, events).actions.filter((a) => a.type === 'dispatch')
+      .length;
+  it.each([
+    [
+      'passes the frame on screen on once after a seek within it',
+      [{ type: 'seeked' }, refresh(true), taken(4), refresh(true), taken(4)],
+      1,
+    ],
+    [
+      'passes on a new frame once after a seek',
+      [{ type: 'seeked' }, refresh(true), taken(5), refresh(true), taken(5)],
+      1,
+    ],
+    ['passes nothing again with no seek', [refresh(true), taken(4)], 0],
+  ] as const)('%s', (_case, events, dispatches) => {
+    expect(afterAFrame([...events])).toBe(dispatches);
+  });
+  it('passes nothing again for a frame reported during playback, with no seek', () => {
+    const { actions } = run(everyRefresh, [refresh(), taken(4), callback(4), refresh(), taken(4)]);
+    expect(actions.filter((a) => a.type === 'dispatch')).toHaveLength(1);
+  });
 });
 
 // ─── simulated playback ──────────────────────────────────────────────────────

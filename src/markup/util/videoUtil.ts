@@ -4,30 +4,63 @@ import { getPlatform, VideoPlatforms } from '../platforms/platforms';
 import { chartState } from '../charts';
 import { isDrawingCrop } from '../crop-overlay';
 import { isMouseManipulatingCrop } from '../crop-overlay';
-import { blockEvent, flashMessage, seekBySafe, seekToSafe } from './util';
-import { frameStepTarget } from './frame-step';
-import { FrameGrid, frameAt, frameMiddle, loopSeekTarget } from './frame-grid';
+import { blockEvent, flashMessage, getPendingSeekTime, seekBySafe, seekToSafe } from './util';
+import { FrameSeek, frameStepTarget, frameTime, presentedFrameStart } from './frame-step';
+import { FrameGrid, frameSeekTarget, loopSeekTarget } from './frame-grid';
 import { registerActiveDragCleanup } from './drag-recovery';
 import {
-  FRAMES_TO_TELL_NTSC_RATES,
   getMeasuredFrameRate,
   getPresentedFrameTime,
   isNewMeasuredFrameRate,
+  isPresentedSinceSeek,
 } from './presented-frame-clock';
+import { getCurrentPageVideoID, isStaleVideo } from '../platforms/navigation';
 
 let frameRateFrames: VideoFrameSubscription | null = null;
-/** Reads the frame rate on each played frame, so a measured rate is taken, and flashed, as soon as
- *  it is measured rather than at the next action that needs it. */
+/** Reads the frame rate on each played frame, so a measured rate is flashed and shown as soon as it
+ *  is measured rather than at the next action that needs it. */
 export function followFrameRate(video: VideoElement): void {
+  // Starts the frame clock first, so its listeners reset the measured rate before these read it.
+  getMeasuredFrameRate(video);
   frameRateFrames?.stop();
-  frameRateFrames = onVideoFrames(video, () => getFPS(), { phase: 'update', label: 'frame rate' });
+  frameRateFrames = onVideoFrames(video, updateFrameRate, { phase: 'update', label: 'frame rate' });
+  // A new source (YouTube reuses the video element on navigation) has its own stats rate.
+  video.addEventListener('emptied', () => {
+    youTubeStatsFps = null;
+    isNewSourceLoaded = false;
+    updateFrameRate();
+  });
+  video.addEventListener('loadedmetadata', () => {
+    isNewSourceLoaded = true;
+    updateFrameRate();
+  });
+  video.addEventListener('resize', updateFrameRate);
+}
+
+// The video playing is the one the markup is for. `isStaleVideo` is set only once YouTube finishes a
+// navigation, after a new video's rate can already be measured (history forward), so compare ids too.
+function isMarkupVideo(): boolean {
+  const markupVideoID = appState.settings?.videoID;
+  const pageVideoID = getCurrentPageVideoID();
+  return (
+    !isStaleVideo && (markupVideoID == null || pageVideoID == null || pageVideoID === markupVideoID)
+  );
+}
+
+function updateFrameRate(): void {
+  const frameRate = getFrameRate();
+  const { rate, source } = frameRate;
+  if (source === 'measured' && isMarkupVideo() && isNewMeasuredFrameRate(appState.video, rate)) {
+    flashMessage(`Measured the frame rate: ${formatFps(rate)} fps.`, 'olive');
+  }
+  showFrameRate(frameRate);
 }
 
 // Whether getFPS uses the rate measured from played frames, saved in this browser. Read on first
 // use; storage that is blocked or full keeps the setting for this page only.
 const MEASURE_FRAME_RATE_KEY = 'ytc-measure-frame-rate';
 let measureFrameRate: boolean | null = null;
-function isFrameRateMeasured(): boolean {
+export function isFrameRateMeasured(): boolean {
   if (measureFrameRate == null) {
     try {
       measureFrameRate = localStorage.getItem(MEASURE_FRAME_RATE_KEY) !== 'false';
@@ -47,13 +80,19 @@ export function toggleFrameRateMeasurement(): void {
   } catch {
     // Blocked or full storage: the setting holds for this page only.
   }
-  // Drop the measured rate cached for this video, so getFPS reads the platform's again.
-  appState.videoInfo.fps = undefined;
-  const fps = getFPS();
+  const frameRate = getFrameRate();
+  // This flash names the rate, so the next frame doesn't flash it again.
+  if (frameRate.source === 'measured') isNewMeasuredFrameRate(appState.video, frameRate.rate);
   flashMessage(
-    `Frame rate measurement ${measureFrameRate ? 'on' : 'off'}. Using ${formatFps(fps)} fps.`,
+    `Frame rate measurement ${measureFrameRate ? 'on' : 'off'}. Using ${formatFps(frameRate.rate)} fps.`,
     measureFrameRate ? 'green' : 'red'
   );
+  showFrameRate(frameRate);
+  if (typeof document !== 'undefined') {
+    document
+      .getElementById('global-frame-rate-toggle')
+      ?.classList.toggle('active', measureFrameRate);
+  }
 }
 
 /** The video's frames at the frame rate in use. */
@@ -61,71 +100,159 @@ export function getFrameGrid(): FrameGrid {
   return { origin: 0, rate: getFPS() };
 }
 
-/** Seeks to the middle of the frame shown at `time`. A seek to a frame's start can show either
- *  neighbor. */
+// Gecko times the first frame after a seek at the seek target (DropVideoUpToSeekTarget), and its
+// VideoFrame read gives no time to correct it with.
+const SEEK_RETIMES_FRAME =
+  typeof navigator !== 'undefined' && /\bFirefox\//.test(navigator.userAgent);
+
+let lastFrameSeek: FrameSeek | null = null;
+/** Seeks to show the frame at `time`, a placed time such as a marker's or a crop point's. */
 export function seekToFrameAt(time: number): void {
-  const grid = getFrameGrid();
-  seekToSafe(appState.video, frameMiddle(grid, frameAt(grid, time)));
+  const target = frameSeekTarget(getFrameGrid(), time);
+  lastFrameSeek = { target, frameTime: time };
+  seekToSafe(appState.video, target);
+}
+
+/** The start of the frame a frame callback or the frame clock presents at `mediaTime`, on the video's
+ *  own timeline. */
+export function getPresentedFrameStart(mediaTime: number): number {
+  const video = appState.video;
+  // The frame's own timeline, as its mediaTime.
+  return presentedFrameStart(mediaTime, video.currentTime, getFPS(), SEEK_RETIMES_FRAME);
+}
+
+/** The time of the frame the user is on, which placements store and frame decisions read. */
+export function getFrameTime(): number {
+  const video = appState.video;
+  const pendingSeekTime = getPendingSeekTime();
+  return frameTime({
+    // eslint-disable-next-line no-restricted-syntax -- getFrameTime is built from these
+    presentedFrameTime: getPresentedFrameTime(video),
+    // eslint-disable-next-line no-restricted-syntax -- getFrameTime is built from these
+    playhead: pendingSeekTime ?? video.getCurrentTime(),
+    isSeekInFlight: video.seeking || pendingSeekTime != null,
+    isFrameCurrent: isPresentedSinceSeek(video),
+    lastFrameSeek,
+    fps: getFPS(),
+    seekRetimesFrame: SEEK_RETIMES_FRAME,
+  });
 }
 
 /** Keeps playback within the frames shown from `start` through `end`, for the preview loops. */
 export function loopPlaybackOver(start: number, end: number): void {
-  const target = loopSeekTarget(getFrameGrid(), start, end, appState.video.getCurrentTime());
+  const video = appState.video;
+  // Playing, the frame on screen, so the loop turns back while its last frame shows.
+  const isPlaying = !video.paused;
+  const time = isPlaying
+    ? getFrameTime()
+    : // eslint-disable-next-line no-restricted-syntax -- a paused loop seeks back from where the playhead is
+      video.getCurrentTime();
+  const grid = getFrameGrid();
+  // Also 5.48's test: at an assumed rate a mid-frame end can fall in a grid frame after the frame on
+  // screen's, which then turns back only once the frame after it shows.
+  // eslint-disable-next-line no-restricted-syntax -- the playhead past the end, as 5.48
+  const isPastEnd = isPlaying && video.getCurrentTime() > end;
+  const target = isPastEnd
+    ? frameSeekTarget(grid, start)
+    : loopSeekTarget(grid, start, end, time, isPlaying);
   if (target != null) seekToSafe(appState.video, target);
 }
 
-let lastFrameStepTarget: number | null = null;
+let lastStepTarget: number | null = null;
 /** Seeks `frames` whole frames from the frame on screen, to the middle of that frame. */
 export function seekByFrames(frames: number): void {
   const video = appState.video;
+  // Without frame callbacks the frame on screen is unknown: step from the playhead.
+  if (typeof video.requestVideoFrameCallback !== 'function') {
+    seekBySafe(video, frames / getFPS());
+    return;
+  }
   const target = frameStepTarget({
+    // eslint-disable-next-line no-restricted-syntax -- frame steps start from the frame on screen
     presentedFrameTime: getPresentedFrameTime(video),
-    playhead: video.getCurrentTime(),
-    lastTarget: lastFrameStepTarget,
+    // A step held back while another seek is in flight is where the playhead is headed.
+    // eslint-disable-next-line no-restricted-syntax -- frame steps start from the frame on screen
+    playhead: getPendingSeekTime() ?? video.getCurrentTime(),
+    isFrameCurrent: isPresentedSinceSeek(video),
+    lastTarget: lastStepTarget,
     fps: getFPS(),
+    duration: video.duration,
     frames,
+    seekRetimesFrame: SEEK_RETIMES_FRAME,
   });
-  lastFrameStepTarget = target;
+  lastStepTarget = target;
+  // Not a frame seek for decisions: on a rate higher than the video's, a step's frame start isn't the
+  // frame it shows, so decisions read the frame on screen.
+  lastFrameSeek = null;
   seekToSafe(video, target);
 }
 
 export let prevVideoWidth: number;
-export function getFPS(defaultFPS: number | null = 60) {
-  let fps: number;
+// YouTube's stats rate for the rendition playing, read once per rendition (width) and source. Between
+// a new source's `emptied` and its `loadedmetadata` the stats still describe the old video, so the
+// rate read then isn't kept.
+let youTubeStatsFps: number | null = null;
+let isNewSourceLoaded = true;
+
+export type FrameRateSource = 'measured' | 'platform' | 'default';
+
+/** The frame rate in use and where it comes from: a confirmed measured rate, else the platform's
+ *  (YouTube's stats), else the default. */
+export function getFrameRate(defaultFPS = 60): { rate: number; source: FrameRateSource } {
+  let frameRate: { rate: number; source: FrameRateSource } = {
+    rate: defaultFPS,
+    source: 'default',
+  };
   try {
     const isYouTube = getPlatform() === VideoPlatforms.youtube;
-    if (
-      appState.videoInfo.fps != null &&
-      appState.video.videoWidth != null &&
-      prevVideoWidth === appState.video.videoWidth
-    ) {
-      fps = appState.videoInfo.fps;
-    } else if (isYouTube) {
-      appState.videoInfo.fps = parseFloat(
-        /@(\d+)/.exec((appState.player as YTPlayer).getStatsForNerds().resolution)?.[1] ?? '60'
-      );
-      fps = appState.videoInfo.fps;
-    } else {
-      fps = defaultFPS ?? 60;
-    }
-    // A rate measured from played frames replaces the default that startup cached before any frame
-    // played. On YouTube it only refines the stats rate, which shows 29.97 fps as 30.
-    const measuredFPS = isFrameRateMeasured()
-      ? getMeasuredFrameRate(appState.video, isYouTube ? FRAMES_TO_TELL_NTSC_RATES : undefined)
-      : null;
-    if (measuredFPS != null && (!isYouTube || Math.abs(measuredFPS - fps) <= fps * 0.005)) {
-      fps = measuredFPS;
-      appState.videoInfo.fps = fps;
-      if (isNewMeasuredFrameRate(appState.video, fps)) {
-        flashMessage(`Measured the frame rate: ${formatFps(fps)} fps.`, 'olive');
+    if (isYouTube) {
+      let statsFps = youTubeStatsFps;
+      if (statsFps == null || prevVideoWidth !== appState.video.videoWidth) {
+        statsFps = parseFloat(
+          /@(\d+)/.exec((appState.player as YTPlayer).getStatsForNerds().resolution)?.[1] ?? '60'
+        );
+        if (isNewSourceLoaded) youTubeStatsFps = statsFps;
       }
+      frameRate = { rate: statsFps, source: 'platform' };
+    }
+    // A confirmed measured rate replaces the default. On YouTube it only refines the stats rate, which
+    // shows 29.97 fps as 30.
+    const measured = isFrameRateMeasured() ? getMeasuredFrameRate(appState.video) : null;
+    if (
+      measured != null &&
+      (!isYouTube || Math.abs(measured - frameRate.rate) <= frameRate.rate * 0.005)
+    ) {
+      frameRate = { rate: measured, source: 'measured' };
     }
   } catch (e) {
     console.log('Could not detect fps', e);
-    fps = defaultFPS ?? 60; // by default parameter value assume high fps to avoid skipping frames
   }
   prevVideoWidth = appState.video.videoWidth;
-  return fps;
+  return frameRate;
+}
+
+const FRAME_RATE_SOURCES: Record<FrameRateSource, string> = {
+  measured: 'measured',
+  platform: "the platform's",
+  default: 'assumed',
+};
+
+/** The frame rate in use and where it comes from, as the global settings editor shows it. */
+export function describeFrameRate({ rate, source }: { rate: number; source: FrameRateSource }) {
+  return `${formatFps(rate)} fps (${FRAME_RATE_SOURCES[source]})`;
+}
+
+// Runs on every played frame: touch the page only when the text changes.
+function showFrameRate(frameRate: { rate: number; source: FrameRateSource }) {
+  if (typeof document === 'undefined') return;
+  const field = document.getElementById('global-frame-rate');
+  const text = describeFrameRate(frameRate);
+  if (field != null && field.textContent !== text) field.textContent = text;
+}
+
+export function getFPS(defaultFPS: number | null = 60): number {
+  // By default assume a high rate, so a step never skips a frame.
+  return getFrameRate(defaultFPS ?? 60).rate;
 }
 export function hidePlayerControls() {
   appState.hooks.controls.originalDisplay =
@@ -204,7 +331,7 @@ export function scrubVideoHandler(e) {
       const widthMultiple = baseWidth / screen.width;
       const dragPosX = e.clientX - videoRect.left;
       const changeX = (dragPosX - prevClickPosX) * pixelRatio * widthMultiple;
-      const seekBy = changeX * (1 / appState.videoInfo.fps);
+      const seekBy = changeX * (1 / getFPS());
       seekBySafe(appState.video, seekBy);
       prevClickPosX = e.clientX - videoRect.left;
     }

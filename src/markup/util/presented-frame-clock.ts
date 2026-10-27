@@ -3,10 +3,8 @@ import {
   announceRate,
   ClockEvent,
   ClockState,
-  FRAMES_TO_TELL_NTSC_RATES,
-  FRAMES_TO_TELL_STANDARD_RATES,
   initialClock,
-  publishRate,
+  isFrameCurrent,
   stepClock,
 } from './frame-clock-core';
 import { onVideoFrames, PresentedVideoFrame, VideoFrameSubscription } from './video-frame-loop';
@@ -18,8 +16,6 @@ import { onVideoFrames, PresentedVideoFrame, VideoFrameSubscription } from './vi
  * The clock also measures the frame duration during playback, for sites that report no frame rate.
  * The decisions are in `frame-clock-core.ts`; this module feeds it the video's events.
  */
-
-export { FRAMES_TO_TELL_NTSC_RATES, FRAMES_TO_TELL_STANDARD_RATES };
 
 let clockVideo: VideoElement | null = null;
 let clockSubscription: VideoFrameSubscription | null = null;
@@ -34,6 +30,15 @@ function startClock(video: VideoElement): void {
   video.addEventListener('emptied', () => step({ type: 'emptied' }));
   video.addEventListener('resize', () => step({ type: 'resize' }));
   video.addEventListener('seeking', () => step({ type: 'seeking' }));
+  video.addEventListener('seeked', () =>
+    step({
+      type: 'seeked',
+      heldFrameTime: heldFrameTime(video),
+      // The held frame's timeline (a part's, on afreecatv), not the platform's.
+      currentTime: video.currentTime,
+      seeking: video.seeking,
+    })
+  );
   const onFrame = (presented: PresentedVideoFrame): void => {
     const quality = video.getVideoPlaybackQuality?.();
     step({
@@ -50,37 +55,54 @@ function startClock(video: VideoElement): void {
     });
   };
   clockSubscription?.stop();
-  clockSubscription = onVideoFrames(video, onFrame, { phase: 'update', label: 'frame clock' });
+  clockSubscription = onVideoFrames(video, onFrame, { phase: 'clock', label: 'frame clock' });
 }
 
-/** The media time of the frame on screen, or the playhead until the video presents a frame. */
+/** The time of the frame on screen on the platform's timeline, or the playhead until the video
+ *  presents a frame. */
 export function getPresentedFrameTime(video: VideoElement): number {
   if (clockVideo !== video) startClock(video);
-  return clock.lastFrame?.mediaTime ?? video.getCurrentTime();
+  const { onScreen } = clock;
+  // eslint-disable-next-line no-restricted-syntax -- the frame clock owns the frame on screen
+  if (onScreen == null) return video.getCurrentTime();
+  // A platform that plays a video in parts (afreecatv) times its timeline from the first part's start,
+  // and each part's media time from its own.
+  // eslint-disable-next-line no-restricted-syntax -- the frame clock owns the frame on screen
+  return onScreen.mediaTime + (video.getCurrentTime() - video.currentTime);
 }
 
-/** The frame rate measured from presented frames, snapped to the nearest standard rate when close to
- *  one. Before `minFrames` frames have played in a row it is the last measured rate, or null.
- *  Averaging over the run evens out mediaTime rounded to the millisecond. */
-export function getMeasuredFrameRate(
-  video: VideoElement,
-  minFrames = FRAMES_TO_TELL_STANDARD_RATES
-): number | null {
+/** Whether the frame on screen is the playhead's frame: presented, or read, after the last seek finished. */
+export function isPresentedSinceSeek(video: VideoElement): boolean {
   if (clockVideo !== video) startClock(video);
-  const published = publishRate(clock, minFrames);
-  clock = published.state;
-  return published.rate;
+  return isFrameCurrent(clock);
 }
 
-/** Whether to announce `rate`: a measured rate not yet announced for the video's current source, at
- *  most once every 5 s. */
-export function isNewMeasuredFrameRate(
-  video: VideoElement,
-  rate: number,
-  now = performance.now()
-): boolean {
+// The time of the frame the video holds, or null where it can't be read: no WebCodecs, or a
+// cross-origin video that isn't CORS-clean (the constructor throws). Firefox reads it as time 0,
+// which the clock rejects.
+function heldFrameTime(video: VideoElement): number | null {
+  if (typeof VideoFrame !== 'function') return null;
+  try {
+    const frame = new VideoFrame(video);
+    const time = frame.timestamp / 1e6;
+    frame.close();
+    return time;
+  } catch {
+    return null;
+  }
+}
+
+/** The frame rate measured from presented frames once a run of them confirms it (snapped to the
+ *  nearest standard rate when close to one), else null. */
+export function getMeasuredFrameRate(video: VideoElement): number | null {
   if (clockVideo !== video) startClock(video);
-  const announced = announceRate(clock, rate, now);
+  return clock.publishedRate;
+}
+
+/** Whether to announce `rate`: the first time it is the rate in use for the video's current source. */
+export function isNewMeasuredFrameRate(video: VideoElement, rate: number): boolean {
+  if (clockVideo !== video) startClock(video);
+  const announced = announceRate(clock, rate);
   clock = announced.state;
   return announced.isNew;
 }

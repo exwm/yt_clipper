@@ -1,6 +1,6 @@
 import type { VideoElement } from '../appState';
+import { FRAMES_TO_CONFIRM_ROUNDED } from './frame-clock-core';
 import {
-  FRAMES_TO_TELL_NTSC_RATES,
   getMeasuredFrameRate,
   getPresentedFrameTime,
   isNewMeasuredFrameRate,
@@ -46,8 +46,18 @@ function fakeVideo(currentTime = 0) {
   };
   // A frame decoded but never shown, and not counted as dropped, as on a screen slower than the video.
   const unshown = () => video.totalVideoFrames++;
+  // A screen refresh counted as a presented frame, with no new frame decoded.
+  const countedAgain = () => presentedFrames++;
   const emit = (type: string) => listeners[type]?.forEach((listener) => listener());
-  return { video, element: video as unknown as VideoElement, present, miss, unshown, emit };
+  return {
+    video,
+    element: video as unknown as VideoElement,
+    present,
+    miss,
+    unshown,
+    countedAgain,
+    emit,
+  };
 }
 
 describe('getPresentedFrameTime', () => {
@@ -66,6 +76,16 @@ describe('getPresentedFrameTime', () => {
     expect(getPresentedFrameTime(element)).toBe(1 + 1 / 30);
   });
 
+  it("gives the frame's time on the platform's timeline when the video plays in parts", () => {
+    // The second part of a video whose first part is 100 s long, as on afreecatv.
+    const { video, element, present } = fakeVideo(1.0);
+    video.getCurrentTime = () => 100 + video.currentTime;
+    getPresentedFrameTime(element);
+    present(1.0);
+    video.currentTime = 1.01;
+    expect(getPresentedFrameTime(element)).toBe(101);
+  });
+
   it('falls back to the playhead after the video source empties', () => {
     const { video, element, present, emit } = fakeVideo();
     getPresentedFrameTime(element);
@@ -77,37 +97,23 @@ describe('getPresentedFrameTime', () => {
 });
 
 describe('isNewMeasuredFrameRate', () => {
-  it('announces the first rate, a changed rate, and the same rate again for a new source', () => {
+  it('announces each rate once per source: a changed rate, but not the same one again', () => {
     const { element, emit } = fakeVideo();
-    const asked = (
-      [
-        [30, 0],
-        [30, 1000],
-        [30000 / 1001, 6000],
-        [30000 / 1001, 7000],
-      ] as const
-    ).map(([rate, now]) => isNewMeasuredFrameRate(element, rate, now));
+    const asked = [30, 30, 30000 / 1001, 30000 / 1001].map((rate) =>
+      isNewMeasuredFrameRate(element, rate)
+    );
     emit('resize');
-    asked.push(isNewMeasuredFrameRate(element, 30000 / 1001, 8000));
+    asked.push(isNewMeasuredFrameRate(element, 30000 / 1001));
     // A new source announces at once.
     emit('emptied');
-    asked.push(isNewMeasuredFrameRate(element, 30000 / 1001, 9000));
+    asked.push(isNewMeasuredFrameRate(element, 30000 / 1001));
     expect(asked).toEqual([true, false, true, false, false, true]);
   });
 
-  it('announces at most once every 5 s, then the rate that holds', () => {
+  it("announces a spliced video's rates once each, however often they alternate", () => {
     const { element } = fakeVideo();
-    const asked = (
-      [
-        [30, 0],
-        [24, 1000],
-        [30, 2000],
-        [24, 3000],
-        [24, 5500],
-        [24, 6000],
-      ] as const
-    ).map(([rate, now]) => isNewMeasuredFrameRate(element, rate, now));
-    expect(asked).toEqual([true, false, false, false, true, false]);
+    const asked = [30, 24, 30, 24].map((rate) => isNewMeasuredFrameRate(element, rate));
+    expect(asked).toEqual([true, true, false, false]);
   });
 });
 
@@ -119,13 +125,14 @@ describe('getMeasuredFrameRate', () => {
   it.each([
     ['30 fps', frames(30, 9), 30],
     ['29.97 fps', frames(30000 / 1001, 9), 30000 / 1001],
-    ['60 fps rounded to the millisecond, as on YouTube', frames(60, 9, toMilliseconds), 60],
-    ['24 fps rounded to the millisecond', frames(24, 9, toMilliseconds), 24],
+    // Millisecond times confirm a rate over 60 frames in a row.
+    ['60 fps rounded to the millisecond, as on YouTube', frames(60, 61, toMilliseconds), 60],
+    ['24 fps rounded to the millisecond', frames(24, 61, toMilliseconds), 24],
     // A skipped frame ends the run, and the frames after it measure again.
     ['30 fps after a frame the decoder skipped', frames(30, 16).filter((_, k) => k !== 5), 30],
     [
       '60 fps after a frame the decoder skipped, rounded',
-      frames(60, 16, toMilliseconds).filter((_, k) => k !== 3),
+      frames(60, 70, toMilliseconds).filter((_, k) => k !== 3),
       60,
     ],
     ['a non-standard rate', frames(17, 9), 17],
@@ -145,11 +152,11 @@ describe('getMeasuredFrameRate', () => {
     'tells %s fps from its NTSC neighbor over 2 s of frames rounded to the millisecond',
     (_case, fps) => {
       const { element, present } = fakeVideo();
-      getMeasuredFrameRate(element, FRAMES_TO_TELL_NTSC_RATES);
-      frames(fps, FRAMES_TO_TELL_NTSC_RATES, toMilliseconds).forEach(present);
-      expect(getMeasuredFrameRate(element, FRAMES_TO_TELL_NTSC_RATES)).toBeNull();
-      present(toMilliseconds(10 + FRAMES_TO_TELL_NTSC_RATES / fps));
-      expect(getMeasuredFrameRate(element, FRAMES_TO_TELL_NTSC_RATES)).toBeCloseTo(fps, 6);
+      getMeasuredFrameRate(element);
+      frames(fps, FRAMES_TO_CONFIRM_ROUNDED, toMilliseconds).forEach(present);
+      expect(getMeasuredFrameRate(element)).toBeNull();
+      present(toMilliseconds(10 + FRAMES_TO_CONFIRM_ROUNDED / fps));
+      expect(getMeasuredFrameRate(element)).toBeCloseTo(fps, 6);
     }
   );
 
@@ -162,7 +169,7 @@ describe('getMeasuredFrameRate', () => {
     (fps, before, by) => {
       const { video, element, present, emit } = fakeVideo();
       const at = (k: number) => toMilliseconds(10 + k / fps);
-      getMeasuredFrameRate(element, FRAMES_TO_TELL_NTSC_RATES);
+      getMeasuredFrameRate(element);
       for (let k = 0; k < before; k++) present(at(k));
       // The seek starts, a frame decoded before it still presents, then the seeked frame presents
       // while seeking is still true.
@@ -171,9 +178,9 @@ describe('getMeasuredFrameRate', () => {
       present(at(before));
       present(at(before + by));
       video.seeking = false;
-      for (let k = before + by + 1; k < before + by + 1 + FRAMES_TO_TELL_NTSC_RATES + 1; k++)
+      for (let k = before + by + 1; k < before + by + 1 + FRAMES_TO_CONFIRM_ROUNDED + 1; k++)
         present(at(k));
-      expect(getMeasuredFrameRate(element, FRAMES_TO_TELL_NTSC_RATES)).toBeCloseTo(fps, 6);
+      expect(getMeasuredFrameRate(element)).toBeCloseTo(fps, 6);
     }
   );
 
@@ -190,12 +197,12 @@ describe('getMeasuredFrameRate', () => {
     (_label, fps, drops) => {
       for (const start of startTimes) {
         const { video, element, present } = fakeVideo();
-        getMeasuredFrameRate(element, FRAMES_TO_TELL_NTSC_RATES);
+        getMeasuredFrameRate(element);
         const rates = new Set<number | null>();
         for (let k = 0; k < 60 + 62; k++) {
           if (drops.includes(k)) video.droppedVideoFrames++;
           present(toMilliseconds(start + k / fps));
-          rates.add(getMeasuredFrameRate(element, FRAMES_TO_TELL_NTSC_RATES));
+          rates.add(getMeasuredFrameRate(element));
         }
         rates.delete(null);
         expect({ start, rates: [...rates] }).toEqual({ start, rates: [fps] });
@@ -213,7 +220,7 @@ describe('getMeasuredFrameRate', () => {
       for (let k = 0; k < 200; k++) {
         if (misses.includes(k)) miss();
         else present(toMilliseconds(start + k / fps));
-        rates.add(getMeasuredFrameRate(element, FRAMES_TO_TELL_NTSC_RATES));
+        rates.add(getMeasuredFrameRate(element));
       }
       rates.delete(null);
       expect({ start, rates: [...rates] }).toEqual({ start, rates: [fps] });
@@ -232,7 +239,7 @@ describe('getMeasuredFrameRate', () => {
       for (let k = 0; k < 200; k++) {
         if (k % every === every - 1) miss();
         else present(toMilliseconds(start + k / fps));
-        rates.add(getMeasuredFrameRate(element, FRAMES_TO_TELL_NTSC_RATES));
+        rates.add(getMeasuredFrameRate(element));
       }
       rates.delete(null);
       expect({ start, rates: [...rates] }).toEqual({ start, rates: [fps] });
@@ -242,10 +249,10 @@ describe('getMeasuredFrameRate', () => {
   // A browser that counted each screen refresh showing a frame would report 2 frames per gap at 30
   // fps on a 60 Hz screen, which would read as 60 fps.
   it('measures nothing when every gap counts more than one presented frame', () => {
-    const { element, present, miss } = fakeVideo();
+    const { element, present, countedAgain } = fakeVideo();
     getMeasuredFrameRate(element);
     for (let k = 0; k < 120; k++) {
-      miss();
+      countedAgain();
       present(toMilliseconds(10 + k / 30));
     }
     expect(getMeasuredFrameRate(element)).toBeNull();
@@ -273,17 +280,18 @@ describe('getMeasuredFrameRate', () => {
     expect(getMeasuredFrameRate(element)).toBe(30);
   });
 
-  it.each([12, 15, 17])('keeps one rate for %d fps from 8 to 120 frames', (fps) => {
+  // A rate taken after 8 frames can be an NTSC neighbor (11.988 for 12); the rate over 60 frames
+  // corrects it, once.
+  it.each([12, 15, 17])('settles on %d fps from 8 to 120 frames, changing at most once', (fps) => {
     const { element, present } = fakeVideo();
     getMeasuredFrameRate(element);
-    const rates = new Set<number | null>();
+    const rates: (number | null)[] = [];
     for (let k = 0; k <= 120; k++) {
       present(toMilliseconds(10 + k / fps));
-      if (k >= 8) rates.add(getMeasuredFrameRate(element));
+      if (k >= 8) rates.push(getMeasuredFrameRate(element));
     }
-    expect(rates.size).toBe(1);
-    const [rate] = rates;
-    expect(Math.abs((rate ?? 0) - fps)).toBeLessThanOrEqual(fps * 0.002);
+    expect(rates.filter((rate, i) => i > 0 && rate !== rates[i - 1]).length).toBeLessThanOrEqual(1);
+    expect(Math.abs((rates[rates.length - 1] ?? 0) - fps)).toBeLessThanOrEqual(fps * 0.002);
   });
 
   it.each([
@@ -296,7 +304,7 @@ describe('getMeasuredFrameRate', () => {
       const rates = new Set<number | null>();
       for (let k = 0; k < 600; k++) {
         present(toMilliseconds(start + k / fps));
-        rates.add(getMeasuredFrameRate(element, FRAMES_TO_TELL_NTSC_RATES));
+        rates.add(getMeasuredFrameRate(element));
       }
       rates.delete(null);
       expect({ start, rates: [...rates] }).toEqual({ start, rates: [fps] });
@@ -319,12 +327,12 @@ describe('getMeasuredFrameRate', () => {
       expect(getMeasuredFrameRate(element)).toBe(60);
     });
 
-    it('measures the new rate soon after a new rendition, keeping the old one until then', () => {
+    it('measures the new rate once a new rendition confirms it, keeping the old one until then', () => {
       const { element, present, emit } = fakeVideo();
       getMeasuredFrameRate(element);
       before.forEach(present);
       emit('resize');
-      const frames = after(9);
+      const frames = after(61);
       frames.slice(0, 5).forEach(present);
       expect(getMeasuredFrameRate(element)).toBe(30);
       frames.slice(5).forEach(present);
@@ -338,13 +346,13 @@ describe('getMeasuredFrameRate', () => {
   ])('keeps 29.97 fps after %s and a short run of frames', (_case, event) => {
     const fps = 30000 / 1001;
     const { element, present, emit } = fakeVideo();
-    getMeasuredFrameRate(element, FRAMES_TO_TELL_NTSC_RATES);
+    getMeasuredFrameRate(element);
     for (let k = 0; k <= 120; k++) present(toMilliseconds(10 + k / fps));
     emit(event);
     const rates = new Set<number | null>();
     for (let k = 0; k < 30; k++) {
       present(toMilliseconds(20 + k / fps));
-      rates.add(getMeasuredFrameRate(element, FRAMES_TO_TELL_NTSC_RATES));
+      rates.add(getMeasuredFrameRate(element));
     }
     expect([...rates]).toEqual([fps]);
   });

@@ -32,28 +32,14 @@ def test_a_frame_starts_where_its_times_map_to_it() -> None:
         assert frameAt(g, frameMiddle(g, case["frame"])) == case["frame"]
 
 
-@pytest.mark.parametrize(
-    ("startMarker", "endMarker", "frames"),
-    [
-        pytest.param(30 / 30, 50 / 30, (30, 50), id="on frame starts"),
-        pytest.param(30.5 / 30, 50.5 / 30, (30, 50), id="mid-frame"),
-        pytest.param(round(31 / 30, 6), round(52 / 30, 6), (31, 52), id="saved to 6 decimals"),
-        pytest.param(30.5 / 30, 30.6 / 30, (30, 30), id="both in one frame"),
-    ],
-)
-def test_a_span_runs_from_the_frame_at_the_start_marker_through_the_one_at_the_end_marker(
-    startMarker: float, endMarker: float, frames: tuple[int, int]
-) -> None:
-    g = FrameGrid(origin=0, rate=Fraction(30))
-    span = frameSpan(g, startMarker, endMarker)
-    first, last = frames
-    assert (span.firstFrame, span.lastFrame) == frames
-    assert span.start == pytest.approx(first / 30)
-    assert span.end == pytest.approx((last + 1) / 30)
+@pytest.mark.parametrize("case", CASES["frameSpan"], ids=lambda case: case["kind"])
+def test_a_span_runs_from_the_frame_at_the_start_marker_through_the_one_at_the_end_marker(case: dict) -> None:
+    g = grid(case)
+    span = frameSpan(g, case["startMarker"], case["endMarker"])
+    first, last = case["firstFrame"], case["lastFrame"]
+    assert (span.firstFrame, span.lastFrame) == (first, last)
+    assert span.start == pytest.approx(frameStart(g, first))
+    assert span.end == pytest.approx(frameStart(g, last + 1))
     # The seek and the trim end sit half a frame from every frame edge.
-    assert span.seekTo == pytest.approx((first - 0.5) / 30)
-    assert span.trimEnd == pytest.approx((last + 0.5) / 30 - first / 30)
-
-
-def test_a_float_rate_works_like_its_fraction() -> None:
-    assert frameAt(FrameGrid(origin=0, rate=30000 / 1001), 91 * 1001 / 30000) == 91
+    assert span.seekTo == pytest.approx(frameStart(g, first) - 0.5 / 30)
+    assert span.trimEnd == pytest.approx(frameStart(g, last) + 0.5 / 30 - span.start)

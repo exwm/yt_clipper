@@ -1,4 +1,4 @@
-"""Marker placement: a marker marks the frame on screen, saved as the start of that frame, and
+"""Marker placement: a marker marks the start of the frame of the playhead, and
 Alt+Shift+Mousewheel moves it one frame. The dev site's test video is 30 fps, with frame n starting
 at exactly n / 30 s."""
 
@@ -11,33 +11,48 @@ from harness.steps import step
 from test_crop_easing import when_i_save_the_markers
 from test_frame_stepping import (
     VIDEO_FPS,
+    frames_per_step,
     given_the_video_has_played_until_its_frame_rate_is_measured,
+    then_a_flash_says,
 )
 
 
-def test_a_marker_marks_the_start_of_the_frame_shown_and_moves_one_frame_at_a_time(
+def test_a_marker_marks_the_start_of_the_playheads_frame_and_moves_one_frame_at_a_time(
     markup: MarkupPage,
 ) -> None:
     if markup.host != DEV_SITE_HOST:
         pytest.skip("checks a site that reports no frame rate; YouTube's stats report one")
     given_the_video_has_played_until_its_frame_rate_is_measured(markup)
     when_i_add_a_marker_pair_on_frames(markup, 90, 120)
+    then_the_pair_is_at(markup, 90 / VIDEO_FPS, 120 / VIDEO_FPS)
     then_the_pair_spans_frames(markup, 90, 120)
     when_i_nudge_the_start_marker_forward(markup, times=3)
-    then_the_video_shows_the_middle_of_frame(markup, 93)
-    then_the_pair_spans_frames(markup, 93, 120)
+    nudged_to = 90 + math.floor(3 * frames_per_step(markup))
+    then_the_video_shows_frame(markup, nudged_to)
+    then_the_pair_spans_frames(markup, nudged_to, 120)
 
 
-def test_ctrl_left_jumps_to_the_middle_of_each_earlier_markers_frame(markup: MarkupPage) -> None:
+# A pair needs its end marker after its start marker's frame: a second A on the same frame is refused.
+def test_a_second_a_on_the_start_markers_frame_is_refused(markup: MarkupPage) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("relies on the dev site's test video frame times")
+    for into_frame in (0.2, 0.8):
+        markup.seek((90 + into_frame) / VIDEO_FPS, presented=True)
+        markup.press("KeyA")
+    then_a_flash_says(markup, "End marker must be after start marker.")
+    assert when_i_save_the_markers(markup)["markerPairs"] == []
+
+
+def test_ctrl_left_jumps_to_each_earlier_markers_frame(markup: MarkupPage) -> None:
     if markup.host != DEV_SITE_HOST:
         pytest.skip("checks a site that reports no frame rate; YouTube's stats report one")
     given_the_video_has_played_until_its_frame_rate_is_measured(markup)
     when_i_add_a_marker_pair_on_frames(markup, 90, 120)
     markup.seek(150.5 / VIDEO_FPS, presented=True)
     when_i_jump_to_the_previous_marker(markup)
-    then_the_video_shows_the_middle_of_frame(markup, 120)
+    then_the_video_shows_frame(markup, 120)
     when_i_jump_to_the_previous_marker(markup)
-    then_the_video_shows_the_middle_of_frame(markup, 90)
+    then_the_video_shows_frame(markup, 90)
 
 
 @step
@@ -74,17 +89,24 @@ def when_i_nudge_the_start_marker_forward(markup: MarkupPage, times: int) -> Non
 
 
 @step
-def then_the_video_shows_the_middle_of_frame(markup: MarkupPage, frame: int) -> None:
+def then_the_video_shows_frame(markup: MarkupPage, frame: int) -> None:
     position = markup.current_time() * VIDEO_FPS
     markup.report(f"playhead at frame {position:.3f}")
+    # A seek to a frame lands just past its start, where the frame it shows is the frame its time means.
     assert math.floor(position) == frame
-    assert position - frame == pytest.approx(0.5, abs=0.05)
 
 
 @step
 def then_the_pair_spans_frames(markup: MarkupPage, start: int, end: int) -> None:
     pair = when_i_save_the_markers(markup)["markerPairs"][0]
     markup.report(f"saved start {pair['start']}, end {pair['end']}")
-    assert (pair["start"], pair["end"]) == pytest.approx(
-        (start / VIDEO_FPS, end / VIDEO_FPS), abs=1e-5
+    assert (math.floor(pair["start"] * VIDEO_FPS), math.floor(pair["end"] * VIDEO_FPS)) == (
+        start,
+        end,
     )
+
+
+@step
+def then_the_pair_is_at(markup: MarkupPage, start: float, end: float) -> None:
+    pair = when_i_save_the_markers(markup)["markerPairs"][0]
+    assert (pair["start"], pair["end"]) == pytest.approx((start, end), abs=1e-5)

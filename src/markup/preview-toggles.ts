@@ -1,3 +1,5 @@
+import { frameSpan } from './util/frame-grid';
+import { getFrameGrid } from './util/videoUtil';
 import { easeCubicInOut } from 'd3-ease';
 import { MarkerPair } from './@types/yt_clipper';
 import { appState } from './appState';
@@ -115,6 +117,7 @@ export function getIsFadeLoopPreviewOn() {
 }
 
 function fadeLoopPreviewHandler() {
+  // eslint-disable-next-line no-restricted-syntax -- the fade loop preview follows playback
   const currentTime = appState.video.getCurrentTime();
   const shortestActiveMarkerPair = getShortestActiveMarkerPair();
   if (
@@ -138,8 +141,8 @@ function fadeLoopPreviewHandler() {
 }
 
 export function getFadeBounds(markerPair: MarkerPair, currentTime: number): number | null {
-  const start = Math.floor(markerPair.start * 1e6) / 1e6;
-  const end = Math.ceil(markerPair.end * 1e6) / 1e6;
+  // Over the frames the clip includes, the end marker's frame too.
+  const { start, end } = frameSpan(getFrameGrid(), markerPair.start, markerPair.end);
   const inputDuration = end - start;
   const outputDuration = markerPair.outputDuration;
   let { fadeDuration } = pairSettings(markerPair, appState.settings);

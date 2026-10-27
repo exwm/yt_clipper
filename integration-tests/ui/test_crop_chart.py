@@ -7,6 +7,7 @@ import pytest
 from harness.hosts import DEV_SITE_HOST
 from harness.markup_page import MarkupPage
 from harness.steps import step
+from test_frame_stepping import given_the_video_has_played_until_its_frame_rate_is_measured
 
 PAIR_START = 3.0
 PAIR_END = 9.0
@@ -27,9 +28,13 @@ def test_crop_chip_shows_the_live_interpolated_crop(dynamic_crop: MarkupPage) ->
     then_the_crop_chip_x_is_between_the_first_two_points(dynamic_crop)
 
 
+# Measured, also on Firefox, which times the frame shown after a seek at the seek target.
+@pytest.mark.parametrize("measured", [True, False], ids=["measured rate", "assumed 60 fps"])
 def test_crop_preview_stays_on_the_frame_on_screen_after_a_seek_within_it(
-    dynamic_crop: MarkupPage,
+    dynamic_crop: MarkupPage, measured: bool
 ) -> None:
+    if measured:
+        given_the_video_has_played_until_its_frame_rate_is_measured(dynamic_crop)
     on_screen = when_i_pause_mid_pan_and_seek_within_the_frame(dynamic_crop)
     when_i_switch_the_crop_easing_away_and_back(dynamic_crop)
     then_the_crop_chip_is_unchanged(dynamic_crop, on_screen)
@@ -62,7 +67,7 @@ def test_fast_crop_point_drag_lands_the_video_on_the_point(dynamic_crop: MarkupP
 # The test video is 30 fps, with frame n starting at exactly n / 30 s. Rounding the playhead to
 # 0.01 s would put these points at 6.03 s (frame 180) and 6.70 s (frame 201).
 @pytest.mark.parametrize(("frame", "into_frame"), [(181, 0.03), (200, 0.98)])
-def test_a_crop_point_added_at_the_playhead_marks_the_start_of_the_frame_shown(
+def test_a_crop_point_added_at_the_playhead_marks_the_start_of_its_frame(
     markup: MarkupPage, frame: int, into_frame: float
 ) -> None:
     if markup.host != DEV_SITE_HOST:
@@ -86,6 +91,7 @@ def test_crop_chart_sits_below_the_settings_editor(markup: MarkupPage) -> None:
 
 @step
 def given_a_marker_pair_with_its_editor_open(markup: MarkupPage) -> None:
+    markup.measure_frame_rate()
     markup.add_marker_pair(PAIR_START, PAIR_END)
     markup.open_marker_pair(0)
 

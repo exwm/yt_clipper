@@ -8,7 +8,7 @@ import { releaseHoldIfChanged } from '../../crop/crop-point-holds';
 import { getInterpolatedSpeed } from '../../speed';
 import { MarkerPair } from '../../@types/yt_clipper';
 import { sortX } from './chartPrimitives';
-import { getPresentedFrameTime } from '../../util/presented-frame-clock';
+import { getFrameTime } from '../../util/videoUtil';
 
 export {
   sortX,
@@ -26,7 +26,7 @@ export function addChartPoint() {
     // eslint-disable-next-line @typescript-eslint/no-require-imports -- lazy import to break circular dependency with scatterChartSpec
     const { addSpeedPoint, addCropPoint } = require('./scatterChartSpec');
     assertDefined(chartState.currentChartInput, 'currentChartInput must be defined');
-    const time = getPresentedFrameTime(appState.video);
+    const time = getFrameTime();
     if (chartState.currentChartInput.type == 'speed') {
       addSpeedPoint.call(chartState.currentChartInput.chart, time, 1);
     } else if (chartState.currentChartInput.type == 'crop') {

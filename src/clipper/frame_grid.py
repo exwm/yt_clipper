@@ -64,7 +64,8 @@ class FrameSpan:
 
 
 def frameSpan(grid: FrameGrid, startMarker: float, endMarker: float) -> FrameSpan:
-    firstFrame = frameAt(grid, startMarker)
+    # The grid's origin is the video's first frame, so a marker before it means that frame.
+    firstFrame = max(0, frameAt(grid, startMarker))
     lastFrame = max(firstFrame, frameAt(grid, endMarker))
     start = frameStart(grid, firstFrame)
     return FrameSpan(

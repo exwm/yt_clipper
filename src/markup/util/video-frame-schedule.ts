@@ -16,6 +16,10 @@ export interface FrameScheduleState {
   timing: VideoFrameLoopTiming;
   // The last frame passed on (media time, s).
   lastDispatchedTime: number | null;
+  // A seek finished since the last frame passed on: the next frame taken is passed on even when it is
+  // the last one, so after a seek within one frame the consumers that show which point is on the
+  // frame read the time the clock now gives it (its read at `seeked`).
+  isSeekUndispatched: boolean;
   // The next refresh should take a frame even while paused: a seek or new frame was reported, a
   // frame could not be taken yet, or the loop (re)started.
   woken: boolean;
@@ -56,6 +60,7 @@ export function initialFrameSchedule(timing: VideoFrameLoopTiming): FrameSchedul
   return {
     timing,
     lastDispatchedTime: null,
+    isSeekUndispatched: false,
     woken: true,
     timestampsChecked: false,
     timestampsDisagree: false,
@@ -85,9 +90,9 @@ export function stepFrameSchedule(
       };
     }
     case 'frameTaken': {
-      if (state.timing !== 'everyRefresh' || event.frameTime === state.lastDispatchedTime) {
-        return { state, actions: [] };
-      }
+      if (state.timing !== 'everyRefresh') return { state, actions: [] };
+      const isRepeat = event.frameTime === state.lastDispatchedTime;
+      if (isRepeat && !state.isSeekUndispatched) return { state, actions: [] };
       if (!state.timestampsChecked) {
         const offsetSeconds = event.frameTime - event.videoTime;
         if (Math.abs(offsetSeconds) > MAX_TIMESTAMP_DISAGREEMENT_S) {
@@ -103,7 +108,12 @@ export function stepFrameSchedule(
         }
       }
       return {
-        state: { ...state, lastDispatchedTime: event.frameTime, timestampsChecked: true },
+        state: {
+          ...state,
+          lastDispatchedTime: event.frameTime,
+          isSeekUndispatched: false,
+          timestampsChecked: true,
+        },
         actions: [{ type: 'dispatch', mediaTime: event.frameTime, image: 'videoFrame' }],
       };
     }
@@ -126,7 +136,7 @@ export function stepFrameSchedule(
       };
     }
     case 'seeked':
-      return { state: { ...state, woken: true }, actions: [] };
+      return { state: { ...state, woken: true, isSeekUndispatched: true }, actions: [] };
     case 'sourceChanged':
       return { state: { ...initialFrameSchedule(state.timing) }, actions: [] };
   }

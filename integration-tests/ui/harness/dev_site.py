@@ -36,11 +36,17 @@ VIDEO_STYLES = {
         ":speed=0.004:type=linear:seed=7",
         "20",
     ),
+    # A rate whose frames a 60 fps grid doesn't split evenly (@pytest.mark.video_style("testsrc24")).
+    "testsrc24": ("testsrc2=size=320x180:rate=24", "40"),
 }
+# The extra test videos are short: only the main one needs a long timeline (a crowded progress bar).
+EXTRA_VIDEO_SECONDS = 20
 
 
 def test_video_name(seconds: int, style: str) -> str:
-    return f"test-video-{seconds}s.mp4" if style == "testsrc" else f"test-video-{style}-{seconds}s.mp4"
+    return (
+        f"test-video-{seconds}s.mp4" if style == "testsrc" else f"test-video-{style}-{seconds}s.mp4"
+    )
 
 
 def ensure_test_video(seconds: int, style: str = "testsrc") -> str:
@@ -79,6 +85,8 @@ def build(video_seconds: int, userscript: Path = BUNDLE, video_style: str = "tes
     page = SITE_PAGE.read_text(encoding="utf-8")
     page = page.replace("</body>", "\n".join(scripts) + "\n</body>")
     (DEV_SITE / "index.html").write_text(page, encoding="utf-8")
+    if video_style == "testsrc":
+        ensure_test_video(EXTRA_VIDEO_SECONDS, "testsrc24")
     return ensure_test_video(video_seconds, video_style)
 
 

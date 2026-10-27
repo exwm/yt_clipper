@@ -3,13 +3,7 @@ import { SpeedPoint } from '../@types/yt_clipper';
 import { frameSpan } from './frame-grid';
 import { VideoPlatforms } from '../platforms/platforms';
 import { appState, VideoElement } from '../appState';
-import {
-  onExternalSeek,
-  onSeekRequest,
-  onSeekSettled,
-  onStaleTimer,
-  SeekDecision,
-} from './seek-coalescer';
+import { onExternalSeek, onSeekRequest, onSeekSettled, SeekDecision } from './seek-coalescer';
 
 export function assertDefined<T>(value: T | null | undefined, msg?: string): asserts value is T {
   if (value == null) {
@@ -299,12 +293,13 @@ export function getEasedValue(
 // seek-coalescer.ts; this file is the shell that holds the state and
 // applies its effects. On top of that:
 //
-//   - A 1s timer bounds the wait: a normal seek settles well within it
+//   - A 1s timer recovers a missed ``seeked``: a normal seek settles well within it
 //     and its ``seeked`` flushes the pending. The earlier 250ms was too
 //     short: a slow seek (YouTube buffering mid-scrub) outran it and
 //     the pending was dropped, stranding a fast drag at an intermediate
-//     frame. After a full second still seeking we give up rather than
-//     queue indefinitely.
+//     frame. A seek still running after a second keeps its pending and
+//     re-arms, so frame steps held behind a slow seek are not lost; a
+//     new source (``emptied``) drops it.
 //
 //   - A ``seeking`` event listener detects external seeks (YouTube
 //     progress bar, native keyboard shortcuts, ad insertion, etc.)
@@ -317,6 +312,11 @@ let stalePendingTimerId: number | null = null;
 let expectingOurSeekingEvent = false;
 
 const STALE_PENDING_TIMEOUT_MS = 1000;
+
+/** The seek target held back while another seek is in flight, if any: where the playhead goes next. */
+export function getPendingSeekTime(): number | null {
+  return pendingSeekTime;
+}
 
 /** One frame's duration in seconds, falling back to 30fps when fps is missing/invalid (NaN slips
  *  straight through getFPS). Shared by the frame-tolerance checks so the fallback lives in one place. */
@@ -346,7 +346,8 @@ function armStalePendingTimer() {
     if (pendingSeekVideo === null) return;
     applyDecision(
       pendingSeekVideo,
-      onStaleTimer(pendingSeekTime, pendingSeekVideo.getCurrentTime(), pendingSeekVideo.seeking)
+      // eslint-disable-next-line no-restricted-syntax -- the seek coalescer owns seeks
+      onSeekSettled(pendingSeekTime, pendingSeekVideo.getCurrentTime(), pendingSeekVideo.seeking)
     );
   }, STALE_PENDING_TIMEOUT_MS);
 }
@@ -367,6 +368,7 @@ function onSeeked() {
   if (pendingSeekVideo === null) return;
   applyDecision(
     pendingSeekVideo,
+    // eslint-disable-next-line no-restricted-syntax -- the seek coalescer owns seeks
     onSeekSettled(pendingSeekTime, pendingSeekVideo.getCurrentTime(), pendingSeekVideo.seeking)
   );
 }
@@ -382,24 +384,35 @@ function onSeeking() {
   if (pendingSeekVideo !== null) applyDecision(pendingSeekVideo, onExternalSeek());
 }
 
+// A new source (YouTube reuses the video element) ends a stuck seek without 'seeked'.
+function onEmptied() {
+  if (pendingSeekVideo !== null) applyDecision(pendingSeekVideo, onExternalSeek());
+}
+
 function ensureSeekListeners(video: VideoElement) {
   if (pendingSeekVideo === video) return;
   if (pendingSeekVideo !== null) {
     pendingSeekVideo.removeEventListener('seeked', onSeeked);
     pendingSeekVideo.removeEventListener('seeking', onSeeking);
+    pendingSeekVideo.removeEventListener('emptied', onEmptied);
+    // The old video's target is not for this one.
+    applyDecision(video, onExternalSeek());
   }
   pendingSeekVideo = video;
   video.addEventListener('seeked', onSeeked);
   video.addEventListener('seeking', onSeeking);
+  video.addEventListener('emptied', onEmptied);
 }
 
 export function seekToSafe(video: VideoElement, newTime: number) {
   newTime = clampNumber(newTime, 0, video.duration);
   if (isNaN(newTime)) return;
   ensureSeekListeners(video);
+  // eslint-disable-next-line no-restricted-syntax -- the seek coalescer owns seeks
   applyDecision(video, onSeekRequest(newTime, video.getCurrentTime(), video.seeking));
 }
 export function seekBySafe(video: VideoElement, timeDelta: number) {
+  // eslint-disable-next-line no-restricted-syntax -- a relative seek starts from the playhead
   const newTime = video.getCurrentTime() + timeDelta;
   seekToSafe(video, newTime);
 }
@@ -464,12 +477,10 @@ export function getOutputDuration(speedMap: SpeedPoint[], fps = 30) {
 
     const sectStart = left.x - speedMapStartTime;
     let sectEnd = right.x - speedMapStartTime;
-    // The last section runs to the start of the last frame, which is then held for a frame below.
+    // The map ends at the last frame's end. Its last section runs to that frame's start, the frame
+    // then held for a frame below; a speed point inside the last frame leaves that section empty.
     if (sect === nSects - 1) {
-      sectEnd = Math.floor(right.x / frameDur) * frameDur;
-      if (right.x - sectEnd < 1e-10) sectEnd = sectEnd - frameDur;
-      sectEnd = sectEnd - speedMapStartTime;
-      sectEnd = Math.floor(sectEnd * 1000000) / 1000000;
+      sectEnd = Math.max(sectStart, right.x - frameDur - speedMapStartTime);
     }
 
     const sectDuration = sectEnd - sectStart;
@@ -486,12 +497,10 @@ export function getOutputDuration(speedMap: SpeedPoint[], fps = 30) {
         (1 / m) * (Math.log(Math.abs(m * sectEnd + b)) - Math.log(Math.abs(m * sectStart + b)));
     }
   }
-  // Each output frame time is rounded to the nearest multiple of a frame's duration at the given fps
-  outputDuration = Math.round(outputDuration / frameDur) * frameDur;
-  // The last included frame is held for a single frame's duration
-  outputDuration += frameDur;
-  outputDuration = Math.round(outputDuration * 1000) / 1000;
-  return outputDuration;
+  // The last frame's output time rounds to a whole frame, half up as the clipper rounds, and the
+  // frame is held for one frame.
+  const lastFrame = Math.floor(outputDuration * fps + 0.5);
+  return (lastFrame + 1) / fps;
 }
 export async function onLoadVideoPage(callback: Function) {
   const ytdapp = await retryUntilTruthyResult(() => document.getElementsByTagName('ytd-app')[0]);

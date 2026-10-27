@@ -99,8 +99,15 @@ import { speedChartSpec } from './ui/chart/speedchart/speedChartSpec';
 import { registerActiveDragCleanup } from './util/drag-recovery';
 import { Chart, ChartConfiguration } from 'chart.js';
 import { scatterChartDefaults } from './ui/chart/scatterChartSpec';
-import { getFPS, getFrameGrid, loopPlaybackOver } from './util/videoUtil';
-import { frameAt } from './util/frame-grid';
+import {
+  getFPS,
+  getFrameGrid,
+  getFrameTime,
+  getPresentedFrameStart,
+  loopPlaybackOver,
+  seekToFrameAt,
+} from './util/videoUtil';
+import { frameAt, isInFrameSpan } from './util/frame-grid';
 import { getPresentedFrameTime } from './util/presented-frame-clock';
 import { onVideoFrames, VideoFrameSubscription } from './util/video-frame-loop';
 import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
@@ -216,13 +223,13 @@ export function selectCropPointWithMouseWheel(e: WheelEvent) {
       const points = cropChartData as CropPoint[];
       const nextIndex = nextKeyframeIndex(
         points,
-        appState.video.getCurrentTime(),
-        getFPS(),
+        getFrameTime(),
+        getFrameGrid(),
         e.deltaY < 0 ? 1 : -1
       );
       setCurrentCropPoint(cropChart, nextIndex);
       pauseSafe(appState.video);
-      seekToSafe(appState.video, points[nextIndex].x);
+      seekToFrameAt(points[nextIndex].x);
     } else if (e.deltaY < 0) {
       if (currentCropChartMode === cropChartMode.Start) {
         setCurrentCropPoint(cropChart, appState.currentCropPointIndex + 1, cropChartMode.End);
@@ -341,6 +348,7 @@ export function renderSpeedAndCropUI(rerenderCharts = true, updateCurrentCropPoi
       if (!isDynamicCrop) {
         renderStaticCropOverlay(crop);
       } else {
+        // eslint-disable-next-line no-restricted-syntax -- draws the crop for the current time
         updateDynamicCropOverlays(cropMap, appState.video.getCurrentTime(), isDynamicCrop);
       }
 
@@ -475,6 +483,7 @@ export function getCropPreviewMouseTimeSetter(
       }
       const seekTime = timeRounder(getSeekTime(e));
 
+      // eslint-disable-next-line no-restricted-syntax -- skips a seek to where the playhead already is
       if (Math.abs(appState.video.getCurrentTime() - seekTime) >= 0.01) {
         seekToSafe(appState.video, seekTime);
       }
@@ -551,6 +560,7 @@ export function getMouseChartTimeAnnotationSetter(chartInput: ChartInput) {
         return;
       }
       const time = timeRounder(chart.scales['x-axis-1'].getValueForPixel(e.offsetX));
+      // eslint-disable-next-line no-restricted-syntax -- skips a seek to where the playhead already is
       if (Math.abs(appState.video.getCurrentTime() - time) >= 0.01) {
         seekToSafe(appState.video, time);
       }
@@ -728,6 +738,7 @@ export function updateChartTimeAnnotation() {
     // The playhead, so the line lands where a click seeks to. Its position is read every frame, so a
     // chart zoom, pan or resize moves it too; the layer skips unchanged lines.
     const time = clampNumber(
+      // eslint-disable-next-line no-restricted-syntax -- the chart's time line shows the playhead
       appState.video.getCurrentTime(),
       currentInput.minBound,
       currentInput.maxBound
@@ -762,7 +773,8 @@ export function triggerCropChartUpdates() {
 // (scrub/edit) → fall back to the last presented frame, which a sub-frame seek doesn't change.
 let presentedFrameTime: number | null = null;
 function currentCropTime(): number {
-  return presentedFrameTime ?? getPresentedFrameTime(appState.video);
+  // eslint-disable-next-line no-restricted-syntax -- the crop drawn for the picture on screen
+  return presentedFrameTime ?? getPresentedFrameStart(getPresentedFrameTime(appState.video));
 }
 
 let cropPreviewSubscription: { video: VideoElement; frames: VideoFrameSubscription } | null = null;
@@ -774,10 +786,14 @@ function subscribeCropPreviewToFrames(): void {
   const video = appState.video;
   cropPreviewSubscription = {
     video,
-    frames: onVideoFrames(video, (frame) => cropChartPreviewHandler(frame.mediaTime), {
-      phase: 'update',
-      label: 'crop chart preview',
-    }),
+    frames: onVideoFrames(
+      video,
+      (frame) => cropChartPreviewHandler(getPresentedFrameStart(frame.mediaTime)),
+      {
+        phase: 'update',
+        label: 'crop chart preview',
+      }
+    ),
   };
 }
 
@@ -809,13 +825,17 @@ export function cropChartPreviewHandler(frameTime?: number) {
         // (reframeKeyframeColor), so the two never disagree: both read isPlayheadOnCropKeyframe at the
         // same frame. Do NOT gate on video.seeking: a frame-step presents its frame while seeking is
         // still true, and skipping it left the point stale (border green, point not) with no later
-        // frame to fix it. The full-frame on-keyframe tolerance keeps a seek-to-point landing green.
+        // frame to fix it. A seek to a point lands on its frame, which getFrameTime reads as the point's.
         if (isDynamicCrop && !isManipulatingOrDrawing) {
           // On a keyframe, select & highlight it (the edit target). Between keyframes a manipulation
           // creates a NEW point, so no existing point is the target: clear the highlight. Re-render
           // only when the displayed selection changes AND playback is paused (a click or scrub), so
           // the chart matches the live video border; during playback skip it to avoid stutter.
-          const { onKeyframe, index } = isPlayheadOnCropKeyframe(chartData, time);
+          // Paused, what the next edit does: the frame time it reads.
+          const { onKeyframe, index } = isPlayheadOnCropKeyframe(
+            chartData,
+            appState.video.paused ? getFrameTime() : time
+          );
           const wasHighlighted = isCropPointHighlightVisible();
           const prevIndex = appState.currentCropPointIndex;
           if (onKeyframe) {
@@ -1202,7 +1222,7 @@ export function getCurrentCropComponents(): [number, number, number, number] | n
     // frame-stepping PAST a point (a full frame away), or the crop freezes for the ~3 frames within
     // a frame of the point and looks like a jump when crossing it. The paused gate plus the same-frame
     // (half-frame) test restricts the snap to exactly the parked-on-a-point cases.
-    const { index } = isPlayheadOnCropKeyframe(cropMap, time);
+    const { index } = isPlayheadOnCropKeyframe(cropMap, getFrameTime());
     const parkedPoint = cropMap[index];
     // Cinematic mode approximates points rather than passing through them, so snapping to the exact
     // keyframe crop would jump off the path; let it interpolate (eval the baked path) instead.
@@ -1251,11 +1271,11 @@ export function withPresentedFrameTime<T>(mediaTime: number, fn: () => T): T {
   }
 }
 
-// Is the playhead sitting on a crop keyframe (within a frame)? Drives the
-// reframe auto-key model: on a keyframe an edit updates it, between keyframes
-// an edit creates one. Thin wrapper supplying the detected fps to the pure math.
+// Is the playhead sitting on a crop keyframe's frame? Drives the reframe auto-key model: on a
+// keyframe an edit updates it, between keyframes an edit creates one. Thin wrapper supplying the
+// frame grid to the pure math.
 export function isPlayheadOnCropKeyframe(cropMap: CropPoint[], time: number): CropKeyframeMatch {
-  return findCropKeyframeAtTime(cropMap, time, getFPS());
+  return findCropKeyframeAtTime(cropMap, time, getFrameGrid());
 }
 
 // Select a crop point for editing. Set the index directly (works even when the
@@ -1289,19 +1309,19 @@ export function autoKeyCurrentCropPoint(): boolean {
   // crops always auto-key.
   if (isStaticCrop(cropMap) && !cropChartOpen) return true;
 
-  const timeBeforePause = appState.video.getCurrentTime();
+  const frameTime = getFrameTime();
   if (
-    !isPlayheadOnCropKeyframe(cropMap, timeBeforePause).onKeyframe &&
-    (timeBeforePause < pair.start || timeBeforePause > pair.end)
+    !isPlayheadOnCropKeyframe(cropMap, frameTime).onKeyframe &&
+    !isInFrameSpan(getFrameGrid(), pair.start, pair.end, frameTime)
   ) {
     flashMessage('Seek into the marker pair to edit its crop.', 'olive');
     return false;
   }
 
   // Ctrl+wheel zoom calls this per wheel tick; pauseSafe avoids re-pausing (it churns the player).
+  // The frame read before the pause: pausing can move the playhead past the picture.
   pauseSafe(appState.video);
-  // The frame on screen is the one being edited.
-  const time = getPresentedFrameTime(appState.video);
+  const time = frameTime;
 
   const { onKeyframe, index } = isPlayheadOnCropKeyframe(cropMap, time);
   if (onKeyframe) {
@@ -1356,7 +1376,7 @@ export function addHoldCropPointAtCurrentTime(): void {
     return;
   }
 
-  const x = getPresentedFrameTime(appState.video);
+  const x = getFrameTime();
   const { onKeyframe, index } = isPlayheadOnCropKeyframe(cropMap, x);
   const pointIndex = onKeyframe ? index : cropMap.findIndex((p) => p.x === x);
   let selectedIndex: number;
@@ -1364,7 +1384,14 @@ export function addHoldCropPointAtCurrentTime(): void {
     if (!toggleCropPointType(pair, pointIndex, 'hold')) return;
     selectedIndex = pointIndex;
   } else {
-    if (x <= pair.start || x >= pair.end) return;
+    // The pair's first and last frames hold its edge points.
+    const grid = getFrameGrid();
+    if (
+      frameAt(grid, x) <= frameAt(grid, pair.start) ||
+      frameAt(grid, x) >= frameAt(grid, pair.end)
+    )
+      return;
+    // eslint-disable-next-line local/no-timeline-time-comparison -- where the new point goes, in time order
     selectedIndex = cropMap.findIndex((p) => p.x > x);
     const draft = createDraft(getMarkerPairHistory(pair));
     draft.cropMap.splice(selectedIndex, 0, {
@@ -1409,7 +1436,9 @@ const BETWEEN_KEYFRAME_COLOR = '#f5a623';
 export function reframeKeyframeColor(time: number): string {
   const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
   if (!markerPair) return BETWEEN_KEYFRAME_COLOR;
-  return isPlayheadOnCropKeyframe(markerPair.cropMap, time).onKeyframe
+  // Paused, what the next edit does: the frame time it reads.
+  const frameTime = appState.video.paused ? getFrameTime() : time;
+  return isPlayheadOnCropKeyframe(markerPair.cropMap, frameTime).onKeyframe
     ? ON_KEYFRAME_COLOR
     : BETWEEN_KEYFRAME_COLOR;
 }
@@ -1496,6 +1525,7 @@ export function refreshDynamicCropOverlays() {
   const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
   if (!markerPair) return;
   const cropMap = markerPair.cropMap;
+  // eslint-disable-next-line no-restricted-syntax -- draws the crop for the current time
   updateDynamicCropOverlays(cropMap, appState.video.getCurrentTime(), !isStaticCrop(cropMap));
 }
 // The crop the preview shows at a time in the section from cropMap[start] to cropMap[start + 1],

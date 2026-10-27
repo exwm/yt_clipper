@@ -1,7 +1,10 @@
 """Hold crop points: a hold point shows the crop of the crop point before it and follows it when it
 changes. The flag is saved and loaded with the markers."""
 
+import math
+
 import pytest
+from harness.hosts import DEV_SITE_HOST
 from harness.markup_page import MarkupPage
 from harness.steps import step
 from test_crop_chart import (
@@ -14,6 +17,7 @@ from test_crop_chart import (
     given_the_crop_chart_is_open,
 )
 from test_crop_easing import when_i_save_the_markers, when_i_set_the_crop
+from test_frame_stepping import VIDEO_FPS, when_i_run_the_palette_command, when_i_shift_scroll
 
 # Full-height crops, so a drag at the video's middle row starts inside them. Crops are x:y:w:h in
 # the default 1920x1080 crop resolution.
@@ -116,7 +120,41 @@ def test_a_hold_point_released_after_a_pan_only_resize_keeps_the_shared_size(
     then_crop_point_has_the_type(markup, 2, "normal", "0:0:800:900")
 
 
-def test_a_hold_point_released_after_a_markers_load_gets_back_its_own_crop(markup: MarkupPage) -> None:
+def test_a_hold_point_added_on_the_frame_after_another_is_a_new_point(markup: MarkupPage) -> None:
+    # Points added at the playhead sit on frame starts, a frame apart here.
+    given_a_pair_with_its_crop_chart_open(markup, pair((CROP_A, False), (CROP_A, False)))
+    when_i_add_a_hold_point_on_frame(markup, 180)
+    when_i_add_a_hold_point_on_frame(markup, 181)
+    then_the_crop_points_are(
+        markup, [(CROP_A, False), (CROP_A, True), (CROP_A, True), (CROP_A, False)]
+    )
+
+
+def test_a_hold_point_dragged_from_while_pressing_a_keeps_its_own_crop(markup: MarkupPage) -> None:
+    # Holding shows A; its own crop is B. The points added mid-drag are plain ones. The end point has a
+    # crop of its own: an edit to the second last point also moves the end point when they match.
+    given_a_pair_with_its_crop_chart_open(
+        markup, pair((CROP_A, False), (CROP_B, False), (CROP_MIDDLE, False))
+    )
+    when_i_toggle_hold_of_crop_point(markup, 1)
+    added = when_i_drag_from_crop_point_and_press_a_at(markup, 1, [6.5, 7.5])
+    then_the_crop_points_are(
+        markup,
+        [
+            (CROP_A, False),
+            (CROP_A, True),
+            (added[0], False),
+            (added[1], False),
+            (CROP_MIDDLE, False),
+        ],
+    )
+    when_i_toggle_hold_of_crop_point(markup, 1)
+    then_crop_point_has_the_type(markup, 1, "normal", CROP_B)
+
+
+def test_a_hold_point_released_after_a_markers_load_gets_back_its_own_crop(
+    markup: MarkupPage,
+) -> None:
     # A loaded pair has no undo history, so the point's own crop must come from the saved file.
     given_a_pair_with_its_crop_chart_open(
         markup, pair((CROP_A, False), (CROP_B, False), (CROP_A, False))
@@ -307,7 +345,9 @@ def test_closing_the_global_settings_while_a_crop_draw_is_armed_cancels_the_draw
     markup.page.wait_for_selector("#settings-editor-div", state="detached")
 
 
-def test_a_wheel_zoom_just_before_a_canceled_drag_stays_its_own_undo_step(markup: MarkupPage) -> None:
+def test_a_wheel_zoom_just_before_a_canceled_drag_stays_its_own_undo_step(
+    markup: MarkupPage,
+) -> None:
     # The wheel zoom commits 300 ms after the wheel goes idle, which here lands during the drag.
     given_a_pair_with_its_crop_chart_open(markup, pair((CROP_A, False), (CROP_B, False)))
     start = crop_points(markup)[0]["crop"]
@@ -553,8 +593,12 @@ def test_alt_wheel_during_a_crop_drag_keeps_the_dragged_point(markup: MarkupPage
     assert crop_x(points[0]) > crop_x(CROP_A), "the drag should have moved the first point"
 
 
-@pytest.mark.parametrize("key", ["Shift+KeyV", "KeyV"], ids=["closing the minimap", "leaving reframe"])
-def test_a_minimap_crop_drag_is_canceled_when_the_minimap_goes(markup: MarkupPage, key: str) -> None:
+@pytest.mark.parametrize(
+    "key", ["Shift+KeyV", "KeyV"], ids=["closing the minimap", "leaving reframe"]
+)
+def test_a_minimap_crop_drag_is_canceled_when_the_minimap_goes(
+    markup: MarkupPage, key: str
+) -> None:
     given_a_pair_with_its_crop_chart_open(
         markup, pair((CROP_A, False), (CROP_B, False), (CROP_A, False))
     )
@@ -615,7 +659,11 @@ def given_reframe_at(markup: MarkupPage, seconds: float) -> None:
 
 
 @step
-def given_a_pair_with_its_crop_chart_open(markup: MarkupPage, marker_pair: dict) -> None:
+def given_a_pair_with_its_crop_chart_open(
+    markup: MarkupPage, marker_pair: dict, measured: bool = True
+) -> None:
+    if measured:
+        markup.measure_frame_rate()
     markup.load_saved_marker_pairs([marker_pair])
     markup.open_marker_pair(0)
     open_the_crop_chart(markup)
@@ -627,6 +675,13 @@ def given_a_pair_with_its_crop_chart_open(markup: MarkupPage, marker_pair: dict)
 @step
 def when_i_toggle_hold_of_crop_point(markup: MarkupPage, index: int) -> None:
     click_crop_point_with(markup, index, ["Control", "Shift"])
+
+
+@step
+def when_i_add_a_hold_point_on_frame(markup: MarkupPage, frame: int) -> None:
+    # Midway into the frame, where the playhead sits after a frame step. The test video is 30 fps.
+    markup.seek((frame + 0.5) / 30, presented=True)
+    markup.press("Control+Alt+KeyA")
 
 
 @step
@@ -890,6 +945,14 @@ def when_i_load_the_saved_pair_and_open_it(markup: MarkupPage, saved: dict) -> N
 
 
 @step
+def then_no_two_crop_points_are_on_one_frame(markup: MarkupPage) -> None:
+    times = [point["x"] for point in crop_points(markup)]
+    markup.report(f"crop point times {times}")
+    frames = [math.floor((time + 0.001) * VIDEO_FPS) for time in times]
+    assert len(frames) == len(set(frames))
+
+
+@step
 def then_only_the_middle_point_is_saved_as_a_hold_point_with_the_first_points_crop(
     markup: MarkupPage, saved: dict
 ) -> None:
@@ -939,14 +1002,18 @@ def then_crop_point_is_selected(markup: MarkupPage, index: int) -> None:
 
 
 @step
-def then_only_hold_points_have_a_yellow_bar(markup: MarkupPage, holds: list[int], normal: list[int]) -> None:
+def then_only_hold_points_have_a_yellow_bar(
+    markup: MarkupPage, holds: list[int], normal: list[int]
+) -> None:
     # The playhead line is drawn on the chart too, so park it between points and grid ticks. A bare
     # grid tick shows the bar stands apart from a grid line.
     markup.seek(5.3, presented=True)
     markup.page.mouse.move(0, 0)
     markup.next_frames()
     shares = chart_bar_color_shares(markup, [*holds, *normal], bare_tick_time=5.0)
-    markup.report(f"share of each column in the bar's color, by point index (-1 is the bare tick): {shares}")
+    markup.report(
+        f"share of each column in the bar's color, by point index (-1 is the bare tick): {shares}"
+    )
     # The point, its labels and the section line cover part of a hold point's column; the bar shows
     # through the rest.
     assert all(shares[str(index)] > 0.25 for index in holds)
@@ -1081,3 +1148,103 @@ def select_crop_point(markup: MarkupPage, index: int) -> None:
     markup.page.mouse.move(x, y, steps=3)
     markup.page.keyboard.up("Control")
     markup.next_frames()
+
+
+# 1.5 ms before frame 180 (or 270) of the test video ends: a seek to it lands within the placement
+# tolerance of the next frame's start, so the playhead reads as the next frame.
+LATE_IN_FRAME_180 = round(181 / VIDEO_FPS - 0.0015, 6)
+
+
+# At the assumed 60 fps (before the rate is measured, or with measurement turned off) the dev site's
+# 30 fps video steps and compares frames at 60 fps, so a grid frame is half a video frame. In reframe the frame loop takes a frame on every refresh.
+@pytest.mark.parametrize("reframe", [False, True], ids=["chart only", "in reframe"])
+@pytest.mark.parametrize(
+    "turned_off", [False, True], ids=["never measured", "measurement turned off"]
+)
+def test_points_added_on_one_frame_at_the_assumed_frame_rate_stay_one_point(
+    markup: MarkupPage, reframe: bool, turned_off: bool
+) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("relies on the dev site reporting no frame rate")
+    # Turned off mid-session, the rate in use drops from the measured 30 back to 60.
+    given_a_pair_with_its_crop_chart_open(
+        markup, pair((CROP_A, False), (CROP_A, False)), measured=turned_off
+    )
+    if turned_off:
+        when_i_run_the_palette_command(markup, "frame rate measurement")
+    if reframe:
+        given_reframe_at(markup, 180.1 / VIDEO_FPS)
+    for into_frame in (0.1, 0.6, 0.9):
+        when_i_add_a_hold_point_at(markup, (180 + into_frame) / VIDEO_FPS)
+    for _ in range(4):
+        when_i_shift_scroll(markup, "up", 1)
+        markup.press("Control+Alt+KeyA")
+    then_no_two_crop_points_are_on_one_frame(markup)
+
+
+LATE_IN_FRAME_270 = round(271 / VIDEO_FPS - 0.0015, 6)
+
+
+def test_alt_wheel_in_reframe_steps_back_past_a_point_late_in_its_frame(markup: MarkupPage) -> None:
+    given_a_pair_with_its_crop_chart_open(markup, pair_with_points_at(3, LATE_IN_FRAME_180, 9))
+    given_reframe_at(markup, 7.5)
+    when_i_alt_wheel_down(markup)
+    then_the_video_shows_the_frame_of(markup, LATE_IN_FRAME_180)
+    when_i_alt_wheel_down(markup)
+    then_the_video_shows_the_frame_of(markup, 3)
+
+
+def test_a_reframe_crop_edit_after_jumping_to_an_end_late_in_its_frame_is_applied(
+    markup: MarkupPage,
+) -> None:
+    given_a_pair_with_its_crop_chart_open(markup, pair_with_points_at(3, 6, LATE_IN_FRAME_270))
+    given_reframe_at(markup, 7.5)
+    when_i_jump_to_the_next_marker(markup)
+    before = saved_crop_maps(markup)
+    when_i_pan_the_reframed_crop(markup)
+    then_the_end_point_was_edited(markup, before)
+
+
+def pair_with_points_at(*times: float) -> dict:
+    crops = [CROP_A, CROP_B, CROP_A]
+    crop_map = [{"x": t, "y": 0, "crop": crop} for t, crop in zip(times, crops, strict=True)]
+    return {"start": times[0], "end": times[-1], "crop": CROP_A, "cropMap": crop_map}
+
+
+@step
+def when_i_alt_wheel_down(markup: MarkupPage) -> None:
+    markup.page.mouse.move(*markup.center_of("video"))
+    markup.page.keyboard.down("Alt")
+    markup.page.mouse.wheel(0, 100)
+    markup.page.keyboard.up("Alt")
+    markup.eventually("() => !document.querySelector('video').seeking")
+    markup.next_frames(2)
+
+
+@step
+def when_i_jump_to_the_next_marker(markup: MarkupPage) -> None:
+    markup.press("Control+ArrowRight")
+    markup.eventually("() => !document.querySelector('video').seeking")
+    markup.next_frames(2)
+
+
+@step
+def when_i_pan_the_reframed_crop(markup: MarkupPage) -> None:
+    video = markup.reveal("video")
+    x, y = video["x"] + video["width"] * 0.3, video["y"] + video["height"] / 2
+    ctrl_drag(markup, (x, y), (x + 100, y))
+    markup.next_frames()
+
+
+@step
+def then_the_video_shows_the_frame_of(markup: MarkupPage, seconds: float) -> None:
+    frame = int(markup.current_time() * VIDEO_FPS)
+    markup.report(f"video at {markup.current_time():.6f}s, frame {frame}")
+    assert frame == int((seconds + 0.001) * VIDEO_FPS)
+
+
+@step
+def then_the_end_point_was_edited(markup: MarkupPage, before: list) -> None:
+    assert not markup.page.locator(".msg-div", has_text="Seek into the marker pair").count()
+    assert len(crop_points(markup)) == 3, "the edit should update the end point, not add one"
+    assert saved_crop_maps(markup) != before

@@ -46,22 +46,39 @@ export interface FrameSpan {
   end: number;
 }
 
-/** Where a loop over the frames shown from `start` through `end` seeks when the playhead is at `time`:
- *  the middle of its first frame when `time` shows a frame outside them, else null. The middle keeps
- *  the next check inside the loop, so the loop never seeks again on the frame it landed on. */
+/** Where to seek to show the frame at `time`, a placed time such as a marker's. The video shows the
+ *  frame covering `time` plus the placement tolerance, the frame `frameAt` gives on the video's own
+ *  grid, so this holds even while the grid's rate is wrong (29.97 fps taken as 30). A seek to a frame's
+ *  rounded start could show either neighbor. Capped at the next grid frame's middle for grids finer
+ *  than the tolerance. */
+export function frameSeekTarget(grid: FrameGrid, time: number): number {
+  return Math.min(
+    time + PLACEMENT_TOLERANCE,
+    (time + frameStart(grid, frameAt(grid, time) + 1)) / 2
+  );
+}
+
+/** Where a loop over the frames shown from `start` through `end` seeks at `time`: its start's frame
+ *  when `time` shows a frame outside them, else null. The target is inside the loop's first grid
+ *  frame, unless the start is within about 2 ms of that frame's end. While playing, `time` is the
+ *  frame on screen, and the loop turns back on its last frame: the seek runs while that frame shows,
+ *  so the frame after it never does (the playhead runs ahead of the picture). */
 export function loopSeekTarget(
   grid: FrameGrid,
   start: number,
   end: number,
-  time: number
+  time: number,
+  isPlaying = false
 ): number | null {
   const { firstFrame, lastFrame } = frameSpan(grid, start, end);
   const frame = frameAt(grid, time);
-  return frame < firstFrame || frame > lastFrame ? frameMiddle(grid, firstFrame) : null;
+  const isPastLoop = isPlaying ? frame >= lastFrame : frame > lastFrame;
+  return frame < firstFrame || isPastLoop ? frameSeekTarget(grid, start) : null;
 }
-
 export function frameSpan(grid: FrameGrid, startMarker: number, endMarker: number): FrameSpan {
-  const firstFrame = frameAt(grid, startMarker);
+  // The grid's origin is the video's first frame (the markup's grids start at 0), so a marker before
+  // it means that frame.
+  const firstFrame = Math.max(0, frameAt(grid, startMarker));
   const lastFrame = Math.max(firstFrame, frameAt(grid, endMarker));
   return {
     firstFrame,
@@ -69,4 +86,16 @@ export function frameSpan(grid: FrameGrid, startMarker: number, endMarker: numbe
     start: frameStart(grid, firstFrame),
     end: frameStart(grid, lastFrame + 1),
   };
+}
+
+/** Whether two times on the timeline mean the same frame. */
+export function sameFrame(grid: FrameGrid, a: number, b: number): boolean {
+  return frameAt(grid, a) === frameAt(grid, b);
+}
+
+/** Whether `time` shows one of a marker pair's frames, its end marker's frame included. */
+export function isInFrameSpan(grid: FrameGrid, start: number, end: number, time: number): boolean {
+  const { firstFrame, lastFrame } = frameSpan(grid, start, end);
+  const frame = frameAt(grid, time);
+  return frame >= firstFrame && frame <= lastFrame;
 }

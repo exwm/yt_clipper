@@ -245,6 +245,7 @@ function estimatedBand(
   for (const t of sampleTimes) {
     const time = firstTime + t;
     const { run, target } =
+      // eslint-disable-next-line local/no-timeline-time-comparison -- the solver's runs, ordered by time
       runsLatestFirst.find((r) => r.run[0].x <= time) ??
       runsLatestFirst[runsLatestFirst.length - 1];
     const crop = runCropAt(run, target, time, input);

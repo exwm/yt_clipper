@@ -18,6 +18,7 @@ export function resolveHeldCrops(cropMap: CropMap): void {
     if (!point.hold) return;
     if (index === 0) {
       delete point.hold;
+      delete point.ownCrop;
       return;
     }
     const heldCrop = cropMap[index - 1].crop;

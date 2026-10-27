@@ -27,6 +27,12 @@ jest.mock('./util/util', () => ({
   }),
 }));
 
+jest.mock('./util/videoUtil', () => ({
+  getFrameGrid: () => ({ origin: 0, rate: 30 }),
+  // The frame time of the playhead these tests set.
+  getFrameTime: () =>
+    jest.requireActual<typeof import('./appState')>('./appState').appState.video.getCurrentTime(),
+}));
 jest.mock('./util/undoredo', () => ({
   getMarkerPairHistory: jest.fn((mp) => ({ ...mp })),
   saveMarkerPairHistory: jest.fn((draft, mp) => {

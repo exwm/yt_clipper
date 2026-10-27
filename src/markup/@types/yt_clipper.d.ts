@@ -40,8 +40,8 @@ interface Settings {
 }
 
 interface MarkerPair {
-  start: number;
-  end: number;
+  start: TimelineTime;
+  end: TimelineTime;
   speed: number;
   speedMap: SpeedPoint[];
   speedChartLoop: ChartLoop;
@@ -58,8 +58,8 @@ interface MarkerPair {
 }
 
 interface MarkerPairHistory {
-  start: number;
-  end: number;
+  start: TimelineTime;
+  end: TimelineTime;
   speed: number;
   speedMap: SpeedPoint[];
   crop: string;
@@ -131,11 +131,11 @@ interface Denoise {
 }
 
 interface SpeedPoint {
-  x: number;
+  x: TimelineTime;
   y: number;
 }
 interface CropPoint {
-  x: number;
+  x: TimelineTime;
   y: 0;
   crop: string;
   easeIn?: 'instant';
@@ -199,3 +199,8 @@ interface ChartInput {
   chartLoopKey: 'speedChartLoop' | 'cropChartLoop';
   dataMapKey: 'speedMap' | 'cropMap';
 }
+
+/** A time on the video timeline that means a frame: a marker, a crop or speed point. A plain number
+ *  assigns to it, and the type follows the value through copies, so the lint rule against ordering
+ *  these times with < or > (local/no-timeline-time-comparison) still sees it. */
+type TimelineTime = number & { readonly __timelineTime?: true };

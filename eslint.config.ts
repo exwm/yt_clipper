@@ -3,10 +3,12 @@ import { defineConfig } from 'eslint/config';
 import litPlugin from 'eslint-plugin-lit';
 import noUnsanitized from 'eslint-plugin-no-unsanitized';
 import tseslint from 'typescript-eslint';
+import noTimelineTimeComparison from './eslint-rules/no-timeline-time-comparison';
 import noUrlAttributeInterpolation from './eslint-rules/no-url-attribute-interpolation';
 
 const localPlugin = {
   rules: {
+    'no-timeline-time-comparison': noTimelineTimeComparison,
     'no-url-attribute-interpolation': noUrlAttributeInterpolation,
   },
 };
@@ -44,6 +46,8 @@ export default defineConfig(
       // Block dynamic values in URL-context attributes in lit templates — lit-html doesn't
       // strip dangerous schemes (javascript:/data:) like DOMPurify did.
       'local/no-url-attribute-interpolation': 'error',
+      // Marker and point times mean frames: compare them with the frame-grid helpers.
+      'local/no-timeline-time-comparison': 'error',
       // Block lit escape-hatch directives that would reopen the HTML parser.
       'no-restricted-imports': [
         'error',
@@ -95,6 +99,17 @@ export default defineConfig(
           selector: "CallExpression[callee.name='unsafeSVG']",
           message: 'unsafeSVG is forbidden in this codebase.',
         },
+        // One time for the frame the user is on: placements and frame decisions read getFrameTime().
+        // A direct read (a seek, a scrub, a loop, pixels) needs an eslint-disable-next-line with its
+        // reason.
+        {
+          selector: "CallExpression[callee.property.name='getCurrentTime']",
+          message: 'Read getFrameTime() for placements and frame decisions, or say why not.',
+        },
+        {
+          selector: "CallExpression[callee.name='getPresentedFrameTime']",
+          message: 'Read getFrameTime() for placements and frame decisions, or say why not.',
+        },
       ],
     },
   },
@@ -139,5 +154,5 @@ export default defineConfig(
   // Ignore test files and mocks (excluded from tsconfig project service)
   {
     ignores: ['**/*.test.ts', '**/__mocks__/**'],
-  },
+  }
 );
