@@ -10,7 +10,7 @@
 import { easeSinInOut } from 'd3-ease';
 import { CropPoint } from '../@types/yt_clipper';
 import { sortX } from '../ui/chart/chartPrimitives';
-import { FrameGrid, frameAt, frameMiddle, PLACEMENT_TOLERANCE } from '../util/frame-grid';
+import { FrameGrid, frameAt, frameMiddle } from '../util/frame-grid';
 import { bsearch, clampNumber, getEasedValue } from '../util/util';
 
 export interface CropKeyframeMatch {
@@ -23,14 +23,12 @@ export interface CropKeyframeMatch {
 }
 
 // On a point means on the point's frame. A distance test as wide as a frame would also take the
-// neighboring frame's point. `frameShownStart`, the start of the frame on screen while paused, also
-// takes a point between it and the playhead: both are in that frame, which a grid finer than the
-// video (a frame rate not yet measured) can split.
+// neighboring frame's point. Points and the time read share frame starts (getFrameTime), so equal
+// frames compare equal on any grid.
 export function findCropKeyframeAtTime(
   cropMap: CropPoint[],
   time: number,
-  grid: FrameGrid,
-  frameShownStart?: number
+  grid: FrameGrid
 ): CropKeyframeMatch {
   // bsearch returns [i, i] on an exact hit and [i, i+1] between points, but
   // [-1, 0] / [n-1, n] just outside the map: clamp to valid indices (the
@@ -40,11 +38,7 @@ export function findCropKeyframeAtTime(
   const s = Math.max(0, Math.min(rawStart, lastIndex));
   const e = Math.max(0, Math.min(rawEnd, lastIndex));
   const frame = frameAt(grid, time);
-  const isOnFrame = (x: number) =>
-    frameAt(grid, x) === frame ||
-    (frameShownStart != null &&
-      x >= frameShownStart - PLACEMENT_TOLERANCE &&
-      x <= time + PLACEMENT_TOLERANCE);
+  const isOnFrame = (x: number) => frameAt(grid, x) === frame;
   const onStart = isOnFrame(cropMap[s].x);
   const onEnd = isOnFrame(cropMap[e].x);
   const nearest = Math.abs(cropMap[s].x - time) <= Math.abs(cropMap[e].x - time) ? s : e;

@@ -55,7 +55,7 @@ import {
 import { html, render, svg } from 'lit-html';
 import {
   getFPS,
-  getFrameDecisionTime,
+  getFrameTime,
   getFrameGrid,
   loopPlaybackOver,
   refreshPlayerControlsAutoHideTimer,
@@ -301,9 +301,7 @@ export function jumpToNearestMarkerOrPair(e: KeyboardEvent, keyCode: string) {
   refreshPlayerControlsAutoHideTimer();
   if (!arrowKeyCropAdjustmentEnabled) {
     if (e.ctrlKey && !e.altKey && !e.shiftKey) {
-      // Not the playhead: after a jump it is just past the marker's time, which a grid rate still
-      // being measured can put in the next grid frame.
-      jumpToNearestMarker(e, getFrameDecisionTime(), keyCode);
+      jumpToNearestMarker(e, getFrameTime(), keyCode);
     } else if (e.altKey && !e.shiftKey) {
       if (!e.ctrlKey && !(appState.isSettingsEditorOpen && !appState.wasGlobalSettingsEditorOpen)) {
         blockEvent(e);
@@ -406,8 +404,7 @@ export const marker_attrs = {
   'shape-rendering': 'crispEdges',
 };
 export function addMarker(markerConfig: MarkerConfig = {}) {
-  // The playhead's own time, which means the frame on screen while paused.
-  const currentFrameTime = markerConfig.time ?? appState.video.getCurrentTime();
+  const currentFrameTime = markerConfig.time ?? getFrameTime();
   const progressPos = (currentFrameTime / getVideoDuration(platform, appState.video)) * 100;
 
   if (!appState.isNextMarkerStart && currentFrameTime <= appState.startTime) {
@@ -686,6 +683,7 @@ export function markerNumberingMouseDownHandler(e: PointerEvent) {
     pendingDragEvent = null;
     if (!e) return;
     const time = getDragTime(e);
+    // eslint-disable-next-line no-restricted-syntax -- skips a seek to where the playhead already is
     if (Math.abs(time - appState.video.getCurrentTime()) < 0.01) return;
     moveMarker(targetMarker, time, false, false);
     seekToSafe(appState.video, time);
@@ -775,7 +773,7 @@ export function moveMarker(
   const idx = parseInt(dataIdx) - 1;
   const markerPair = appState.markerPairs[idx];
 
-  const toTime = newTime ?? appState.video.getCurrentTime();
+  const toTime = newTime ?? getFrameTime();
 
   if (type === 'start' && toTime >= markerPair.end) {
     flashMessage('Start marker cannot be placed after or at end marker', 'red');

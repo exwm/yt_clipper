@@ -360,6 +360,7 @@ function MarkerPairEditorTemplate(
                 },
                 plot: {
                   input: getActiveCinematicPlotInput,
+                  // eslint-disable-next-line no-restricted-syntax -- the Cinematic plot's time line shows the playhead
                   currentTime: () => appState.video.getCurrentTime(),
                   seekOnRightDrag: getCropPreviewMouseTimeSetter,
                   requestPath: scheduleCinematicRecompute,

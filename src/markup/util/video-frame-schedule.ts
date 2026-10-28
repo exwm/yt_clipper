@@ -16,6 +16,12 @@ export interface FrameScheduleState {
   timing: VideoFrameLoopTiming;
   // The last frame passed on (media time, s).
   lastDispatchedTime: number | null;
+  // A seek started since the last frame callback.
+  isSeekUnpresented: boolean;
+  // The first frame the frame callback reported after a seek started, to pass on even when it is the
+  // last one passed on: a seek within one frame presents it again, and the frame clock must see it
+  // after the seek. Armed by the callback, not 'seeked', which can come before the seek's frame.
+  redispatchTime: number | null;
   // The next refresh should take a frame even while paused: a seek or new frame was reported, a
   // frame could not be taken yet, or the loop (re)started.
   woken: boolean;
@@ -32,6 +38,7 @@ export type FrameScheduleEvent =
   // A 'takeFrame' action found no decoded frame to take.
   | { type: 'frameUnavailable' }
   | { type: 'frameCallback'; mediaTime: number; presentedFrames: number }
+  | { type: 'seeking' }
   | { type: 'seeked' }
   // The video loaded a new source (`emptied`): its frames and timeline start over.
   | { type: 'sourceChanged' };
@@ -56,6 +63,8 @@ export function initialFrameSchedule(timing: VideoFrameLoopTiming): FrameSchedul
   return {
     timing,
     lastDispatchedTime: null,
+    isSeekUnpresented: false,
+    redispatchTime: null,
     woken: true,
     timestampsChecked: false,
     timestampsDisagree: false,
@@ -85,9 +94,9 @@ export function stepFrameSchedule(
       };
     }
     case 'frameTaken': {
-      if (state.timing !== 'everyRefresh' || event.frameTime === state.lastDispatchedTime) {
-        return { state, actions: [] };
-      }
+      if (state.timing !== 'everyRefresh') return { state, actions: [] };
+      const isRepeat = event.frameTime === state.lastDispatchedTime;
+      if (isRepeat && event.frameTime !== state.redispatchTime) return { state, actions: [] };
       if (!state.timestampsChecked) {
         const offsetSeconds = event.frameTime - event.videoTime;
         if (Math.abs(offsetSeconds) > MAX_TIMESTAMP_DISAGREEMENT_S) {
@@ -103,7 +112,12 @@ export function stepFrameSchedule(
         }
       }
       return {
-        state: { ...state, lastDispatchedTime: event.frameTime, timestampsChecked: true },
+        state: {
+          ...state,
+          lastDispatchedTime: event.frameTime,
+          redispatchTime: null,
+          timestampsChecked: true,
+        },
         actions: [{ type: 'dispatch', mediaTime: event.frameTime, image: 'videoFrame' }],
       };
     }
@@ -112,7 +126,15 @@ export function stepFrameSchedule(
       return { state: { ...state, woken: true }, actions: [] };
     case 'frameCallback': {
       if (state.timing !== 'frameCallback')
-        return { state: { ...state, woken: true }, actions: [] };
+        return {
+          state: {
+            ...state,
+            woken: true,
+            isSeekUnpresented: false,
+            redispatchTime: state.isSeekUnpresented ? event.mediaTime : state.redispatchTime,
+          },
+          actions: [],
+        };
       return {
         state: { ...state, lastDispatchedTime: event.mediaTime },
         actions: [
@@ -125,6 +147,8 @@ export function stepFrameSchedule(
         ],
       };
     }
+    case 'seeking':
+      return { state: { ...state, isSeekUnpresented: true }, actions: [] };
     case 'seeked':
       return { state: { ...state, woken: true }, actions: [] };
     case 'sourceChanged':

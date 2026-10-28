@@ -95,6 +95,17 @@ export default defineConfig(
           selector: "CallExpression[callee.name='unsafeSVG']",
           message: 'unsafeSVG is forbidden in this codebase.',
         },
+        // One time for the frame the user is on: placements and frame decisions read getFrameTime().
+        // A direct read (a seek, a scrub, a loop, pixels) needs an eslint-disable-next-line with its
+        // reason.
+        {
+          selector: "CallExpression[callee.property.name='getCurrentTime']",
+          message: 'Read getFrameTime() for placements and frame decisions, or say why not.',
+        },
+        {
+          selector: "CallExpression[callee.name='getPresentedFrameTime']",
+          message: 'Read getFrameTime() for placements and frame decisions, or say why not.',
+        },
       ],
     },
   },

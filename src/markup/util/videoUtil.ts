@@ -5,13 +5,14 @@ import { chartState } from '../charts';
 import { isDrawingCrop } from '../crop-overlay';
 import { isMouseManipulatingCrop } from '../crop-overlay';
 import { blockEvent, flashMessage, getPendingSeekTime, seekBySafe, seekToSafe } from './util';
-import { FrameSeek, frameDecisionTime, frameStepTarget } from './frame-step';
+import { FrameSeek, frameStepTarget, frameTime } from './frame-step';
 import { FrameGrid, frameSeekTarget, loopSeekTarget } from './frame-grid';
 import { registerActiveDragCleanup } from './drag-recovery';
 import {
   getMeasuredFrameRate,
   getPresentedFrameTime,
   isNewMeasuredFrameRate,
+  isPresentedSinceSeek,
 } from './presented-frame-clock';
 import { isStaleVideo } from '../platforms/navigation';
 
@@ -92,23 +93,25 @@ export function seekToFrameAt(time: number): void {
   seekToSafe(appState.video, target);
 }
 
-/** The time of the frame the user is on, for decisions such as which marker or crop point is next. */
-export function getFrameDecisionTime(): number {
-  return frameDecisionTime({ ...frameSeekState(), fallbackTime: getPresentedFrameTime(appState.video) });
-}
-
-/** The time to place a crop point at: the playhead, or right after a frame seek, its frame time. */
-export function getPlacementTime(): number {
-  return frameDecisionTime({ ...frameSeekState(), fallbackTime: appState.video.getCurrentTime() });
-}
-
-function frameSeekState() {
+/** The time of the frame the user is on, which placements store and frame decisions read. */
+export function getFrameTime(): number {
   const video = appState.video;
-  return { playhead: getPendingSeekTime() ?? video.getCurrentTime(), lastFrameSeek, fps: getFPS() };
+  const pendingSeekTime = getPendingSeekTime();
+  return frameTime({
+    // eslint-disable-next-line no-restricted-syntax -- getFrameTime is built from these
+    presentedFrameTime: getPresentedFrameTime(video),
+    // eslint-disable-next-line no-restricted-syntax -- getFrameTime is built from these
+    playhead: pendingSeekTime ?? video.getCurrentTime(),
+    isSeekInFlight: video.seeking || pendingSeekTime != null,
+    isFrameCurrent: isPresentedSinceSeek(video),
+    lastFrameSeek,
+    fps: getFPS(),
+  });
 }
 
 /** Keeps playback within the frames shown from `start` through `end`, for the preview loops. */
 export function loopPlaybackOver(start: number, end: number): void {
+  // eslint-disable-next-line no-restricted-syntax -- loops compare the playhead with their frames
   const target = loopSeekTarget(getFrameGrid(), start, end, appState.video.getCurrentTime());
   if (target != null) seekToSafe(appState.video, target);
 }
@@ -123,9 +126,12 @@ export function seekByFrames(frames: number): void {
     return;
   }
   const target = frameStepTarget({
+    // eslint-disable-next-line no-restricted-syntax -- frame steps start from the frame on screen
     presentedFrameTime: getPresentedFrameTime(video),
     // A step held back while another seek is in flight is where the playhead is headed.
+    // eslint-disable-next-line no-restricted-syntax -- frame steps start from the frame on screen
     playhead: getPendingSeekTime() ?? video.getCurrentTime(),
+    isFrameCurrent: isPresentedSinceSeek(video),
     lastTarget: lastStepTarget,
     fps: getFPS(),
     duration: video.duration,
@@ -150,7 +156,10 @@ export type FrameRateSource = 'measured' | 'platform' | 'default';
 /** The frame rate in use and where it comes from: a confirmed measured rate, else the platform's
  *  (YouTube's stats), else the default. */
 export function getFrameRate(defaultFPS = 60): { rate: number; source: FrameRateSource } {
-  let frameRate: { rate: number; source: FrameRateSource } = { rate: defaultFPS, source: 'default' };
+  let frameRate: { rate: number; source: FrameRateSource } = {
+    rate: defaultFPS,
+    source: 'default',
+  };
   try {
     const isYouTube = getPlatform() === VideoPlatforms.youtube;
     if (isYouTube) {

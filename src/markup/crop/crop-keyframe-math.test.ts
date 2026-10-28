@@ -45,23 +45,6 @@ describe('findCropKeyframeAtTime', () => {
     });
   });
 
-  // A 30 fps video on the 60 fps grid used before its rate is measured, paused in the frame shown
-  // from 6.0 s to 6.0333 s, with the playhead at 6.025 s (grid frame 361).
-  describe('on a grid finer than the video, with the frame on screen known', () => {
-    const AT_60 = { origin: 0, rate: 60 };
-    const pointAt = (x: number): CropPoint[] => [cropMap[0], { ...cropMap[1], x }, { ...cropMap[2], x: 9 }];
-    it.each([
-      // Placed at the playhead earlier in the same frame, in grid frame 360.
-      ['a point placed earlier in the frame shown', 6.005, true],
-      ["a point at the frame's start", 6.0, true],
-      ['a point on the next video frame', 6.04, false],
-      ['a point on the frame before', 5.99, false],
-    ])('%s', (_label, x, onKeyframe) => {
-      const match = findCropKeyframeAtTime(pointAt(x), 6.025, AT_60, 6.0);
-      expect(match.onKeyframe).toBe(onKeyframe);
-    });
-  });
-
   describe('off the points', () => {
     // Points added at the playhead sit on frame starts, so the next frame starts a frame later.
     it.each([

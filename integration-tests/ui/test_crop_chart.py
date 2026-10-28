@@ -62,7 +62,7 @@ def test_fast_crop_point_drag_lands_the_video_on_the_point(dynamic_crop: MarkupP
 # The test video is 30 fps, with frame n starting at exactly n / 30 s. Rounding the playhead to
 # 0.01 s would put these points at 6.03 s (frame 180) and 6.70 s (frame 201).
 @pytest.mark.parametrize(("frame", "into_frame"), [(181, 0.03), (200, 0.98)])
-def test_a_crop_point_added_at_the_playhead_lands_on_the_playhead(
+def test_a_crop_point_added_at_the_playhead_marks_the_start_of_its_frame(
     markup: MarkupPage, frame: int, into_frame: float
 ) -> None:
     if markup.host != DEV_SITE_HOST:
@@ -70,7 +70,7 @@ def test_a_crop_point_added_at_the_playhead_lands_on_the_playhead(
     given_a_marker_pair_with_its_editor_open(markup)
     given_the_crop_chart_is_open(markup)
     when_i_add_a_crop_point_at(markup, (frame + into_frame) / 30)
-    then_a_crop_point_is_at(markup, (frame + into_frame) / 30)
+    then_a_crop_point_is_at(markup, frame / 30)
 
 
 def test_crop_chart_sits_below_the_settings_editor(markup: MarkupPage) -> None:

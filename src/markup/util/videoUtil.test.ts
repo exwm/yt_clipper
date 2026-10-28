@@ -39,6 +39,7 @@ jest.mock('./presented-frame-clock', () => ({
   getMeasuredFrameRate: () => mockMeasured.fps,
   // Frame 90, shown before the steps' seeks, which stay in flight.
   getPresentedFrameTime: () => 90 / 30,
+  isPresentedSinceSeek: () => mockSeeks.requested.length === 0,
   isNewMeasuredFrameRate: (_video: unknown, rate: number) => {
     const isNew = mockMeasured.isNew && !mockMeasured.announced.has(rate);
     mockMeasured.announced.add(rate);

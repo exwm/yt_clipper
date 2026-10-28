@@ -124,14 +124,15 @@ describe('the loop core', () => {
     ]);
   });
 
-  it('orders update consumers first, keeping the subscription order within a phase', () => {
+  it('orders the clock first, then update consumers, keeping the subscription order within a phase', () => {
     const ordered = orderConsumers([
       { phase: 'draw', id: 1 },
       { phase: 'update', id: 2 },
       { phase: 'draw', id: 3 },
       { phase: 'update', id: 4 },
+      { phase: 'clock', id: 5 },
     ] as const);
-    expect(ordered.map((c) => c.id)).toEqual([2, 4, 1, 3]);
+    expect(ordered.map((c) => c.id)).toEqual([5, 2, 4, 1, 3]);
   });
 });
 

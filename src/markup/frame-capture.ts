@@ -100,6 +100,7 @@ function FrameCaptionTemplate(width: number, height: number, frameFileName: stri
 }
 
 export function captureFrame() {
+  // eslint-disable-next-line no-restricted-syntax -- checks the playhead is buffered
   const currentTime = appState.video.getCurrentTime();
   for (let i = 0; i < appState.video.buffered.length; i++) {
     console.log(appState.video.buffered.start(i), appState.video.buffered.end(i));
@@ -168,6 +169,7 @@ export function captureFrame() {
   const frameDiv = document.createElement('div');
   frameDiv.setAttribute('class', 'frame-div');
   // The canvas draws the frame on screen, so the name gives that frame's time.
+  // eslint-disable-next-line no-restricted-syntax -- names the picture captured
   const frameTime = getPresentedFrameTime(appState.video);
   const frameCount = getFrameCount(frameTime);
   const frameFileName = `${appState.settings.titleSuffix}-${resString}-@${frameTime}s(${toHHMMSSTrimmed(

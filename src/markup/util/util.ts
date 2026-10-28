@@ -346,6 +346,7 @@ function armStalePendingTimer() {
     if (pendingSeekVideo === null) return;
     applyDecision(
       pendingSeekVideo,
+      // eslint-disable-next-line no-restricted-syntax -- the seek coalescer owns seeks
       onSeekSettled(pendingSeekTime, pendingSeekVideo.getCurrentTime(), pendingSeekVideo.seeking)
     );
   }, STALE_PENDING_TIMEOUT_MS);
@@ -367,6 +368,7 @@ function onSeeked() {
   if (pendingSeekVideo === null) return;
   applyDecision(
     pendingSeekVideo,
+    // eslint-disable-next-line no-restricted-syntax -- the seek coalescer owns seeks
     onSeekSettled(pendingSeekTime, pendingSeekVideo.getCurrentTime(), pendingSeekVideo.seeking)
   );
 }
@@ -406,9 +408,11 @@ export function seekToSafe(video: VideoElement, newTime: number) {
   newTime = clampNumber(newTime, 0, video.duration);
   if (isNaN(newTime)) return;
   ensureSeekListeners(video);
+  // eslint-disable-next-line no-restricted-syntax -- the seek coalescer owns seeks
   applyDecision(video, onSeekRequest(newTime, video.getCurrentTime(), video.seeking));
 }
 export function seekBySafe(video: VideoElement, timeDelta: number) {
+  // eslint-disable-next-line no-restricted-syntax -- a relative seek starts from the playhead
   const newTime = video.getCurrentTime() + timeDelta;
   seekToSafe(video, newTime);
 }

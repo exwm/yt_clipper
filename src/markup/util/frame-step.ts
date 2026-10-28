@@ -7,23 +7,50 @@ export interface FrameSeek {
   frameTime: number;
 }
 
+// Millisecond-rounded frame times sit up to half a millisecond off the frame's start.
+const FRAME_TIME_ROUNDING = 0.0005;
+
+/** Whether the frame on screen, which starts at `presentedFrameTime`, holds the playhead. A frame from
+ *  before a seek never does: the markup's seeks land 1 ms or more into a frame. */
+function holdsPlayhead(presentedFrameTime: number, playhead: number, fps: number): boolean {
+  return (
+    presentedFrameTime <= playhead + PLACEMENT_TOLERANCE &&
+    playhead < presentedFrameTime + 1 / fps + FRAME_TIME_ROUNDING
+  );
+}
+
 /**
- * The time of the frame the user is on: while the playhead is still on the target of the markup's
- * last frame seek, that seek's frame time, else `fallbackTime` (the frame on screen for a decision
- * such as which crop point is next, the playhead for a placement). Until a seek presents its frame the frame on screen is the one before it,
- * and browsers present that frame before or after their seek events in no fixed order; the markup's
- * own seek doesn't depend on them.
+ * The time of the frame the user is on, which placements store and decisions read: the frame of the
+ * playhead, presented yet or not. Right after one of the markup's frame seeks, that seek's placed
+ * time. Else the start of the frame on screen, once it was presented after the last seek started
+ * (playing, the picture) or it holds the playhead. Else the playhead less the placement tolerance,
+ * which `frameAt` reads as the playhead's own frame on any grid. A point placed on a frame and the
+ * time read there later are then the same frame start, so finding a point on the frame shown needs
+ * no grid guess.
  */
-export function frameDecisionTime(at: {
-  fallbackTime: number;
+export function frameTime(at: {
+  presentedFrameTime: number;
+  // Where the playhead is or is going: the seek held back, else the current time.
   playhead: number;
+  isSeekInFlight: boolean;
+  // The frame on screen was presented after the last seek started: it is the playhead's frame,
+  // whatever the rate in use, which the frame length `holdsPlayhead` needs can't be before measuring.
+  isFrameCurrent: boolean;
   lastFrameSeek: FrameSeek | null;
   fps: number;
 }): number {
-  const { fallbackTime, playhead, lastFrameSeek, fps } = at;
-  const isOnLastSeek =
-    lastFrameSeek != null && Math.abs(playhead - lastFrameSeek.target) < 1 / fps / 4;
-  return isOnLastSeek ? lastFrameSeek.frameTime : fallbackTime;
+  const { presentedFrameTime, playhead, isSeekInFlight, isFrameCurrent, lastFrameSeek, fps } = at;
+  if (
+    lastFrameSeek != null &&
+    Math.abs(playhead - lastFrameSeek.target) < 1 / fps / 4 &&
+    playhead >= lastFrameSeek.frameTime - PLACEMENT_TOLERANCE
+  ) {
+    return lastFrameSeek.frameTime;
+  }
+  if (!isSeekInFlight && (isFrameCurrent || holdsPlayhead(presentedFrameTime, playhead, fps))) {
+    return presentedFrameTime;
+  }
+  return Math.max(0, playhead - PLACEMENT_TOLERANCE);
 }
 
 /**
@@ -32,28 +59,35 @@ export function frameDecisionTime(at: {
  * is half a frame from both edges, so millisecond-rounded timestamps and a rate slightly off can't
  * change the frame shown.
  *
- * A step starts from the frame on screen once it holds the playhead. Until then (a seek in flight, or
- * its frame not presented yet) the frame on screen is an earlier one, which can't hold the playhead:
- * a step then continues from the last step's target, or from the playhead's frame after another seek. So no
- * order of seek events and frame presentation matters, and a rate slightly off never builds up.
+ * A step starts from the frame on screen once it was presented after the last seek and holds the
+ * playhead. Until then (a seek in flight, or its frame not presented yet) the frame on screen is an
+ * earlier one:
+ * a step then continues from the last step's target, or from the playhead's frame after another seek.
+ * So no order of seek events and frame presentation matters, and a rate slightly off never builds up.
  */
 export function frameStepTarget(step: {
   // The media time of the frame on screen (its start).
   presentedFrameTime: number;
   // Where the playhead is or is going: the seek held back, else the current time.
   playhead: number;
+  // The frame on screen was presented after the last seek started (see `frameTime`).
+  isFrameCurrent: boolean;
   lastTarget: number | null;
   fps: number;
   // The video's duration: NaN before its metadata loads, Infinity while live.
   duration: number;
   frames: number;
 }): number {
-  const { presentedFrameTime, playhead, lastTarget, fps, duration, frames } = step;
+  const { presentedFrameTime, playhead, isFrameCurrent, lastTarget, fps, duration, frames } = step;
   const frameDuration = 1 / fps;
-  const holdsPlayhead =
-    presentedFrameTime <= playhead + PLACEMENT_TOLERANCE &&
-    playhead < presentedFrameTime + frameDuration;
-  const frameStart = holdsPlayhead
+  // A frame from before the last seek could hold the playhead only through the tolerances, when a
+  // user seek lands just before its start: it must contain the playhead exactly. A frame presented
+  // before `seeking` (YouTube) never reads current, and a step's middle target is well inside it.
+  const holds =
+    holdsPlayhead(presentedFrameTime, playhead, fps) &&
+    (isFrameCurrent ||
+      (presentedFrameTime <= playhead && playhead < presentedFrameTime + frameDuration));
+  const frameStart = holds
     ? presentedFrameTime
     : lastTarget != null && Math.abs(playhead - lastTarget) < frameDuration / 4
       ? lastTarget - frameDuration / 2

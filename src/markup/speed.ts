@@ -13,6 +13,7 @@ const defaultRoundSpeedMapEasing = 0.05;
 const defaultSpeedRoundPrecision = 2;
 
 export function getShortestActiveMarkerPair(currentTime?: number): MarkerPair {
+  // eslint-disable-next-line no-restricted-syntax -- the speed preview follows playback
   currentTime ??= appState.video.getCurrentTime();
 
   if (
@@ -95,6 +96,7 @@ export function updateSpeed() {
     if (isVariableSpeed(shortestActiveMarkerPair.speedMap)) {
       markerPairSpeed = getSpeedMapping(
         shortestActiveMarkerPair.speedMap,
+        // eslint-disable-next-line no-restricted-syntax -- the speed preview follows playback
         appState.video.getCurrentTime()
       );
     } else {
@@ -167,6 +169,7 @@ export function getSpeedMapping(
     const speed = getInterpolatedSpeed(
       left,
       right,
+      // eslint-disable-next-line no-restricted-syntax -- the speed preview follows playback
       appState.video.getCurrentTime(),
       roundMultiple,
       roundPrecision

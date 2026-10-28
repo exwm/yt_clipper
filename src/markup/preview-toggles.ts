@@ -115,6 +115,7 @@ export function getIsFadeLoopPreviewOn() {
 }
 
 function fadeLoopPreviewHandler() {
+  // eslint-disable-next-line no-restricted-syntax -- the fade loop preview follows playback
   const currentTime = appState.video.getCurrentTime();
   const shortestActiveMarkerPair = getShortestActiveMarkerPair();
   if (
