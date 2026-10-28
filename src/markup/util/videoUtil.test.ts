@@ -37,12 +37,16 @@ jest.mock('../platforms/platforms', () => ({
   VideoPlatforms: { youtube: 'youtube', yt_clipper: 'yt_clipper' },
 }));
 // The frame on screen. By default frame 90, shown before the steps' seeks, which stay in flight.
-const mockScreen = { mediaTime: null as number | null, isCurrent: null as boolean | null };
+const mockScreen = {
+  mediaTime: null as number | null,
+  isRead: false,
+  isCurrent: null as boolean | null,
+};
 jest.mock('./presented-frame-clock', () => ({
   getMeasuredFrameRate: () => mockMeasured.fps,
   getFrameOnScreen: () => ({
     mediaTime: mockScreen.mediaTime ?? 90 / 30,
-    isRead: false,
+    isRead: mockScreen.isRead,
     isCurrent: mockScreen.isCurrent ?? mockSeeks.requested.length === 0,
   }),
   isNewMeasuredFrameRate: (_video: unknown, rate: number) => {
@@ -92,8 +96,10 @@ Object.assign(globalThis, {
 import {
   describeFrameRate,
   followFrameRate,
+  frameStartOf,
   getFPS,
   getFrameTime,
+  getScreenFrame,
   seekByFrames,
   seekToFrameAt,
   toggleFrameRateMeasurement,
@@ -328,7 +334,7 @@ describe('seekByFrames', () => {
       Object.assign(mockScreen, { mediaTime: frame(shown), isCurrent: true });
     }
     const lastShown = () => Math.floor(mockSeeks.requested.at(-1)! * 30 + 1e-9);
-    afterEach(() => Object.assign(mockScreen, { mediaTime: null, isCurrent: null }));
+    afterEach(() => Object.assign(mockScreen, { mediaTime: null, isRead: false, isCurrent: null }));
 
     it.each([
       ['its frame shown', true],
@@ -372,6 +378,30 @@ describe('seekByFrames', () => {
       expect(getFrameTime()).toBe(frame(180));
     });
 
+    // Afreeca TV plays a video in parts. The frame on screen and the playhead are both on the
+    // platform's timeline, so a frame timed at the playhead is found on a later part too.
+    it('takes the frame start of a frame timed at the playhead on a later part', () => {
+      pausedOn(90, 30);
+      const playhead = 100 + frame(90) + 0.02;
+      mockSeeks.current = playhead;
+      mockScreen.mediaTime = playhead;
+      Object.assign(mockAppState.video, { currentTime: frame(90) + 0.02 });
+      expect(getScreenFrame().start).toBeCloseTo(100 + frame(90), 9);
+    });
+
+    // A frame callback after a seek to an exact frame start, before the rate is measured: its start
+    // is known only when the read at `seeked` timed the same frame, as the frame on screen's is.
+    it.each([
+      ['read at seeked', true, frame(108)],
+      ['not read', false, frame(108) - 0.001],
+    ])('takes the start of a presented frame timed at the playhead, %s', (_case, isRead, start) => {
+      pausedOn(108, 60);
+      mockSeeks.current = frame(108);
+      Object.assign(mockScreen, { mediaTime: frame(108), isRead });
+      Object.assign(mockAppState.video, { currentTime: frame(108) });
+      expect(frameStartOf(frame(108))).toBeCloseTo(start, 9);
+      expect(getScreenFrame().start).toBeCloseTo(start, 9);
+    });
     // At the assumed 60 fps a step can stay on the same video frame; the time read is that frame's.
     it('reads the frame on screen after steps at a rate above the video', () => {
       pausedOn(90, 60);

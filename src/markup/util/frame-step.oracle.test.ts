@@ -1,11 +1,5 @@
 import { PLACEMENT_TOLERANCE, frameSeekTarget } from './frame-grid';
-import {
-  frameStepTarget,
-  frameTime,
-  OwnSeek,
-  presentedFrameStart,
-  screenFrame,
-} from './frame-step';
+import { frameStepTarget, frameTime, OwnSeek, screenFrame } from './frame-step';
 
 // A frozen copy of frame-step.ts as of 5.49 (uxrlrlyt), the oracle the consolidation is checked
 // against. Deleted once the consolidation lands.
@@ -256,7 +250,12 @@ const production = {
     frameStepTarget(screenAt(s), { ...oracleInputs(s), ownSeek: ownSeekAt(s) }),
   // A frame callback's frame, never a read.
   frameStart: (s: State) =>
-    presentedFrameStart(s.mediaTime, s.playhead, s.fps, false, s.isRateExact),
+    screenFrame(
+      { mediaTime: s.mediaTime, isRead: false, isCurrent: true },
+      s.playhead,
+      s.fps,
+      s.isRateExact
+    ).start,
 };
 
 // Where production departs from the oracle on purpose. A departing state must still mean the frame

@@ -107,7 +107,7 @@ export default defineConfig(
           message: 'Read getFrameTime() for placements and frame decisions, or say why not.',
         },
         {
-          selector: "CallExpression[callee.name='getPresentedFrameTime']",
+          selector: 'CallExpression[callee.name=/^(getScreenFrame|getFrameOnScreen)$/]',
           message: 'Read getFrameTime() for placements and frame decisions, or say why not.',
         },
       ],

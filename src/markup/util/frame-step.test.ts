@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { ClockState, initialClock, isFrameCurrent, stepClock } from './frame-clock-core';
-import { frameStepTarget, frameTime, presentedFrameStart, screenFrame } from './frame-step';
+import { frameStepTarget, frameTime, screenFrame } from './frame-step';
 import { onExternalSeek, onSeekRequest, onSeekSettled, SeekDecision } from './seek-coalescer';
 
 // The frame-step functions over the frame on screen and the playhead, as the tables state them.
@@ -221,16 +221,18 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-describe('presentedFrameStart', () => {
+describe('screenFrame', () => {
   it.each([
     ['a frame start', frame(90), frame(90) + 0.02, false, frame(90)],
     ['a seek target, not read at seeked', frame(90) + 0.02, frame(90) + 0.02, false, frame(90)],
     ['a seek target read at seeked', frame(90) + 0.02, frame(90) + 0.02, true, frame(90) + 0.02],
     ['a rounded NTSC frame start at the playhead', 3.036, 3.036, false, 3.036],
-  ] as const)('of %s', (_case, mediaTime, playhead, isRead, expected) => {
+    ['no frame presented yet: the playhead', null, frame(90), false, frame(90)],
+  ] as const)('starts %s', (_case, mediaTime, playhead, isRead, expected) => {
     const rate = mediaTime === 3.036 ? 30000 / 1001 : fps;
     // A measured rate.
-    expect(presentedFrameStart(mediaTime, playhead, rate, isRead, true)).toBeCloseTo(expected, 9);
+    const { start } = screenFrame({ mediaTime, isRead, isCurrent: true }, playhead, rate, true);
+    expect(start).toBeCloseTo(expected, 9);
   });
 });
 

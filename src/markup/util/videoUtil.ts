@@ -5,14 +5,7 @@ import { chartState } from '../charts';
 import { isDrawingCrop } from '../crop-overlay';
 import { isMouseManipulatingCrop } from '../crop-overlay';
 import { blockEvent, flashMessage, getPendingSeekTime, seekBySafe, seekToSafe } from './util';
-import {
-  OwnSeek,
-  frameStepTarget,
-  frameTime,
-  presentedFrameStart,
-  ScreenFrame,
-  screenFrame,
-} from './frame-step';
+import { OwnSeek, frameStepTarget, frameTime, ScreenFrame, screenFrame } from './frame-step';
 import { FrameGrid, frameSeekTarget, loopSeekTarget } from './frame-grid';
 import { registerActiveDragCleanup } from './drag-recovery';
 import {
@@ -116,30 +109,45 @@ export function seekToFrameAt(time: number): void {
   seekToSafe(appState.video, target);
 }
 
-/** The start of the frame a frame callback or the frame clock presents at `mediaTime`, on the video's
- *  own timeline. */
-export function getPresentedFrameStart(mediaTime: number): number {
-  const video = appState.video;
-  const { rate, source } = getFrameRate();
-  // The frame's own timeline, as its mediaTime. A presented frame, not one read at `seeked`.
-  return presentedFrameStart(mediaTime, video.currentTime, rate, false, source === 'measured');
+// Where the playhead is or is going: the seek held back, else the current time.
+function getPlayhead(): number {
+  // eslint-disable-next-line no-restricted-syntax -- frame times and steps are built from it
+  return getPendingSeekTime() ?? appState.video.getCurrentTime();
 }
 
-// The frame on screen at `playhead`.
-function getScreenFrame(playhead: number): ScreenFrame {
+/** The frame on screen, its start on the platform's timeline. Placements and frame decisions read
+ *  `getFrameTime`. */
+export function getScreenFrame(): ScreenFrame {
   const { rate, source } = getFrameRate();
-  return screenFrame(getFrameOnScreen(appState.video), playhead, rate, source === 'measured');
+  // eslint-disable-next-line no-restricted-syntax -- the frame on screen is built from it
+  const onScreen = getFrameOnScreen(appState.video);
+  return screenFrame(onScreen, getPlayhead(), rate, source === 'measured');
+}
+
+/** The start of the frame a frame callback presents at `mediaTime`, on the video's own timeline. */
+export function frameStartOf(mediaTime: number): number {
+  const video = appState.video;
+  const { rate, source } = getFrameRate();
+  // eslint-disable-next-line no-restricted-syntax -- whether the read at `seeked` timed this frame
+  const onScreen = getFrameOnScreen(video);
+  // The clock's time is on the platform's timeline, the frame's on its own part's.
+  // eslint-disable-next-line no-restricted-syntax -- the offset between the two timelines
+  const partStart = video.getCurrentTime() - video.currentTime;
+  const isRead =
+    onScreen.isRead &&
+    onScreen.mediaTime != null &&
+    Math.abs(onScreen.mediaTime - partStart - mediaTime) < 0.00001;
+  const presented = { mediaTime, isRead, isCurrent: true };
+  return screenFrame(presented, video.currentTime, rate, source === 'measured').start;
 }
 
 /** The time of the frame the user is on, which placements store and frame decisions read. */
 export function getFrameTime(): number {
   const video = appState.video;
-  const pendingSeekTime = getPendingSeekTime();
-  // eslint-disable-next-line no-restricted-syntax -- getFrameTime is built from these
-  const playhead = pendingSeekTime ?? video.getCurrentTime();
-  return frameTime(getScreenFrame(playhead), {
-    playhead,
-    isSeekInFlight: video.seeking || pendingSeekTime != null,
+  // eslint-disable-next-line no-restricted-syntax -- getFrameTime is built from it
+  return frameTime(getScreenFrame(), {
+    playhead: getPlayhead(),
+    isSeekInFlight: video.seeking || getPendingSeekTime() != null,
     ownSeek,
     fps: getFPS(),
   });
@@ -173,12 +181,10 @@ export function seekByFrames(frames: number): void {
     seekBySafe(video, frames / getFPS());
     return;
   }
-  // A step held back while another seek is in flight is where the playhead is headed.
-  // eslint-disable-next-line no-restricted-syntax -- frame steps start from the frame on screen
-  const playhead = getPendingSeekTime() ?? video.getCurrentTime();
   const fps = getFPS();
-  const target = frameStepTarget(getScreenFrame(playhead), {
-    playhead,
+  // eslint-disable-next-line no-restricted-syntax -- frame steps start from the frame on screen
+  const target = frameStepTarget(getScreenFrame(), {
+    playhead: getPlayhead(),
     ownSeek,
     fps,
     duration: video.duration,

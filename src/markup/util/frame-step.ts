@@ -94,17 +94,6 @@ export function screenFrame(
   };
 }
 
-/** The start of a presented frame timed `mediaTime` (see `screenFrame`). */
-export function presentedFrameStart(
-  mediaTime: number,
-  playhead: number,
-  fps: number,
-  isRead: boolean,
-  isRateExact: boolean
-): number {
-  return screenFrame({ mediaTime, isRead, isCurrent: true }, playhead, fps, isRateExact).start;
-}
-
 /**
  * The time of the frame the user is on, which placements store and decisions read: the frame of the
  * playhead, presented yet or not. Right after a jump to a placed time, that time. Else the start of
