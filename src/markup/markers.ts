@@ -62,7 +62,6 @@ import {
   seekToFrameAt,
 } from './util/videoUtil';
 import { frameAt, frameSpan, frameStart } from './util/frame-grid';
-import { getPresentedFrameTime } from './util/presented-frame-clock';
 import { platform } from './yt_clipper';
 import { registerActiveDragCleanup } from './util/drag-recovery';
 
@@ -407,7 +406,8 @@ export const marker_attrs = {
   'shape-rendering': 'crispEdges',
 };
 export function addMarker(markerConfig: MarkerConfig = {}) {
-  const currentFrameTime = markerConfig.time ?? getPresentedFrameTime(appState.video);
+  // The playhead's own time, which means the frame on screen while paused.
+  const currentFrameTime = markerConfig.time ?? appState.video.getCurrentTime();
   const progressPos = (currentFrameTime / getVideoDuration(platform, appState.video)) * 100;
 
   if (!appState.isNextMarkerStart && currentFrameTime <= appState.startTime) {
@@ -775,7 +775,7 @@ export function moveMarker(
   const idx = parseInt(dataIdx) - 1;
   const markerPair = appState.markerPairs[idx];
 
-  const toTime = newTime ?? getPresentedFrameTime(appState.video);
+  const toTime = newTime ?? appState.video.getCurrentTime();
 
   if (type === 'start' && toTime >= markerPair.end) {
     flashMessage('Start marker cannot be placed after or at end marker', 'red');

@@ -103,6 +103,7 @@ import {
   getFPS,
   getFrameDecisionTime,
   getFrameGrid,
+  getPlacementTime,
   loopPlaybackOver,
   seekToFrameAt,
 } from './util/videoUtil';
@@ -1269,7 +1270,9 @@ export function withPresentedFrameTime<T>(mediaTime: number, fn: () => T): T {
 // keyframe an edit updates it, between keyframes an edit creates one. Thin wrapper supplying the
 // frame grid to the pure math.
 export function isPlayheadOnCropKeyframe(cropMap: CropPoint[], time: number): CropKeyframeMatch {
-  return findCropKeyframeAtTime(cropMap, time, getFrameGrid());
+  // While paused the frame on screen holds the playhead; during playback the playhead runs ahead.
+  const frameShownStart = appState.video.paused ? getPresentedFrameTime(appState.video) : undefined;
+  return findCropKeyframeAtTime(cropMap, time, getFrameGrid(), frameShownStart);
 }
 
 // Select a crop point for editing. Set the index directly (works even when the
@@ -1303,8 +1306,8 @@ export function autoKeyCurrentCropPoint(): boolean {
   // crops always auto-key.
   if (isStaticCrop(cropMap) && !cropChartOpen) return true;
 
-  // Not the playhead: right after a seek to the end marker it is just past the marker's time.
-  const frameTime = getFrameDecisionTime();
+  // Not the bare playhead: right after a seek to the end marker it is just past the marker's time.
+  const frameTime = getPlacementTime();
   if (
     !isPlayheadOnCropKeyframe(cropMap, frameTime).onKeyframe &&
     (frameTime < pair.start || frameTime > pair.end)
@@ -1315,8 +1318,8 @@ export function autoKeyCurrentCropPoint(): boolean {
 
   // Ctrl+wheel zoom calls this per wheel tick; pauseSafe avoids re-pausing (it churns the player).
   pauseSafe(appState.video);
-  // The frame being edited: the one on screen, or the one a seek in flight is going to.
-  const time = getFrameDecisionTime();
+  // On the playhead, or the frame a seek in flight is going to.
+  const time = getPlacementTime();
 
   const { onKeyframe, index } = isPlayheadOnCropKeyframe(cropMap, time);
   if (onKeyframe) {
@@ -1371,7 +1374,7 @@ export function addHoldCropPointAtCurrentTime(): void {
     return;
   }
 
-  const x = getPresentedFrameTime(appState.video);
+  const x = getPlacementTime();
   const { onKeyframe, index } = isPlayheadOnCropKeyframe(cropMap, x);
   const pointIndex = onKeyframe ? index : cropMap.findIndex((p) => p.x === x);
   let selectedIndex: number;

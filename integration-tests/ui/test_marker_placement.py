@@ -1,4 +1,4 @@
-"""Marker placement: a marker marks the frame on screen, saved as the start of that frame, and
+"""Marker placement: a marker lands on the playhead, which means the frame on screen, and
 Alt+Shift+Mousewheel moves it one frame. The dev site's test video is 30 fps, with frame n starting
 at exactly n / 30 s."""
 
@@ -15,13 +15,14 @@ from test_frame_stepping import (
 )
 
 
-def test_a_marker_marks_the_start_of_the_frame_shown_and_moves_one_frame_at_a_time(
+def test_a_marker_lands_on_the_playhead_and_moves_one_frame_at_a_time(
     markup: MarkupPage,
 ) -> None:
     if markup.host != DEV_SITE_HOST:
         pytest.skip("checks a site that reports no frame rate; YouTube's stats report one")
     given_the_video_has_played_until_its_frame_rate_is_measured(markup)
     when_i_add_a_marker_pair_on_frames(markup, 90, 120)
+    then_the_pair_is_at(markup, 90.8 / VIDEO_FPS, 120.8 / VIDEO_FPS)
     then_the_pair_spans_frames(markup, 90, 120)
     when_i_nudge_the_start_marker_forward(markup, times=3)
     then_the_video_shows_frame(markup, 93)
@@ -85,6 +86,10 @@ def then_the_video_shows_frame(markup: MarkupPage, frame: int) -> None:
 def then_the_pair_spans_frames(markup: MarkupPage, start: int, end: int) -> None:
     pair = when_i_save_the_markers(markup)["markerPairs"][0]
     markup.report(f"saved start {pair['start']}, end {pair['end']}")
-    assert (pair["start"], pair["end"]) == pytest.approx(
-        (start / VIDEO_FPS, end / VIDEO_FPS), abs=1e-5
-    )
+    assert (math.floor(pair["start"] * VIDEO_FPS), math.floor(pair["end"] * VIDEO_FPS)) == (start, end)
+
+
+@step
+def then_the_pair_is_at(markup: MarkupPage, start: float, end: float) -> None:
+    pair = when_i_save_the_markers(markup)["markerPairs"][0]
+    assert (pair["start"], pair["end"]) == pytest.approx((start, end), abs=1e-5)

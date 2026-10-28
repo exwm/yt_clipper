@@ -8,22 +8,22 @@ export interface FrameSeek {
 }
 
 /**
- * The time of the frame the user is on, for a decision such as which crop point or marker is next:
- * while the playhead is still on the target of the markup's last frame seek, that seek's frame time,
- * else the frame on screen. Until a seek presents its frame the frame on screen is the one before it,
+ * The time of the frame the user is on: while the playhead is still on the target of the markup's
+ * last frame seek, that seek's frame time, else `fallbackTime` (the frame on screen for a decision
+ * such as which crop point is next, the playhead for a placement). Until a seek presents its frame the frame on screen is the one before it,
  * and browsers present that frame before or after their seek events in no fixed order; the markup's
  * own seek doesn't depend on them.
  */
 export function frameDecisionTime(at: {
-  presentedFrameTime: number;
+  fallbackTime: number;
   playhead: number;
   lastFrameSeek: FrameSeek | null;
   fps: number;
 }): number {
-  const { presentedFrameTime, playhead, lastFrameSeek, fps } = at;
+  const { fallbackTime, playhead, lastFrameSeek, fps } = at;
   const isOnLastSeek =
     lastFrameSeek != null && Math.abs(playhead - lastFrameSeek.target) < 1 / fps / 4;
-  return isOnLastSeek ? lastFrameSeek.frameTime : presentedFrameTime;
+  return isOnLastSeek ? lastFrameSeek.frameTime : fallbackTime;
 }
 
 /**

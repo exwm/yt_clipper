@@ -21,8 +21,8 @@ describe('frameDecisionTime', () => {
       jump,
       frame(183),
     ],
-  ] as const)('%s', (_case, presentedFrameTime, playhead, lastFrameSeek, expected) => {
-    expect(frameDecisionTime({ presentedFrameTime, playhead, lastFrameSeek, fps })).toBe(expected);
+  ] as const)('%s', (_case, fallbackTime, playhead, lastFrameSeek, expected) => {
+    expect(frameDecisionTime({ fallbackTime, playhead, lastFrameSeek, fps })).toBe(expected);
   });
 });
 

@@ -74,13 +74,17 @@ export function seekToFrameAt(time: number): void {
 
 /** The time of the frame the user is on, for decisions such as which marker or crop point is next. */
 export function getFrameDecisionTime(): number {
+  return frameDecisionTime({ ...frameSeekState(), fallbackTime: getPresentedFrameTime(appState.video) });
+}
+
+/** The time to place a crop point at: the playhead, or right after a frame seek, its frame time. */
+export function getPlacementTime(): number {
+  return frameDecisionTime({ ...frameSeekState(), fallbackTime: appState.video.getCurrentTime() });
+}
+
+function frameSeekState() {
   const video = appState.video;
-  return frameDecisionTime({
-    presentedFrameTime: getPresentedFrameTime(video),
-    playhead: getPendingSeekTime() ?? video.getCurrentTime(),
-    lastFrameSeek,
-    fps: getFPS(),
-  });
+  return { playhead: getPendingSeekTime() ?? video.getCurrentTime(), lastFrameSeek, fps: getFPS() };
 }
 
 /** Keeps playback within the frames shown from `start` through `end`, for the preview loops. */

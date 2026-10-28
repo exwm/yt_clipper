@@ -10,7 +10,7 @@
 import { easeSinInOut } from 'd3-ease';
 import { CropPoint } from '../@types/yt_clipper';
 import { sortX } from '../ui/chart/chartPrimitives';
-import { FrameGrid, frameAt, frameMiddle } from '../util/frame-grid';
+import { FrameGrid, frameAt, frameMiddle, PLACEMENT_TOLERANCE } from '../util/frame-grid';
 import { bsearch, clampNumber, getEasedValue } from '../util/util';
 
 export interface CropKeyframeMatch {
@@ -22,12 +22,15 @@ export interface CropKeyframeMatch {
   section: [number, number];
 }
 
-// On a point means on the point's frame. Points added at the playhead sit on frame starts, so a
-// distance test as wide as a frame would also take the neighboring frame's point.
+// On a point means on the point's frame. A distance test as wide as a frame would also take the
+// neighboring frame's point. `frameShownStart`, the start of the frame on screen while paused, also
+// takes a point between it and the playhead: both are in that frame, which a grid finer than the
+// video (a frame rate not yet measured) can split.
 export function findCropKeyframeAtTime(
   cropMap: CropPoint[],
   time: number,
-  grid: FrameGrid
+  grid: FrameGrid,
+  frameShownStart?: number
 ): CropKeyframeMatch {
   // bsearch returns [i, i] on an exact hit and [i, i+1] between points, but
   // [-1, 0] / [n-1, n] just outside the map: clamp to valid indices (the
@@ -37,8 +40,13 @@ export function findCropKeyframeAtTime(
   const s = Math.max(0, Math.min(rawStart, lastIndex));
   const e = Math.max(0, Math.min(rawEnd, lastIndex));
   const frame = frameAt(grid, time);
-  const onStart = frameAt(grid, cropMap[s].x) === frame;
-  const onEnd = frameAt(grid, cropMap[e].x) === frame;
+  const isOnFrame = (x: number) =>
+    frameAt(grid, x) === frame ||
+    (frameShownStart != null &&
+      x >= frameShownStart - PLACEMENT_TOLERANCE &&
+      x <= time + PLACEMENT_TOLERANCE);
+  const onStart = isOnFrame(cropMap[s].x);
+  const onEnd = isOnFrame(cropMap[e].x);
   const nearest = Math.abs(cropMap[s].x - time) <= Math.abs(cropMap[e].x - time) ? s : e;
   const index = onStart ? s : onEnd ? e : nearest;
   return { onKeyframe: onStart || onEnd, index, section: [s, e] };
