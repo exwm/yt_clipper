@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { initialClock, isFrameCurrent, stepClock } from './frame-clock-core';
-import { frameStepTarget, frameTime } from './frame-step';
+import { frameStepTarget, frameTime, presentedFrameStart } from './frame-step';
 import { onExternalSeek, onSeekRequest, onSeekSettled, SeekDecision } from './seek-coalescer';
 
 const fps = 30;
@@ -21,6 +21,7 @@ describe('frameTime', () => {
       isFrameCurrent: true,
       lastFrameSeek: null,
       fps,
+      seekRetimesFrame: false,
       ...overrides,
     });
   it.each([
@@ -77,8 +78,37 @@ describe('frameTime', () => {
       },
       markerTime - 0.006,
     ],
+    // Firefox times the first frame after a seek at the seek target, so it reads as the playhead.
+    [
+      'Firefox, after a seek into a frame: its start',
+      { presentedFrameTime: frame(90) + 0.02, playhead: frame(90) + 0.02, seekRetimesFrame: true },
+      frame(90),
+    ],
+    [
+      'Firefox, after a seek into a frame, at a rate in use above the video: its grid frame start',
+      {
+        presentedFrameTime: frame(90) + 0.02,
+        playhead: frame(90) + 0.02,
+        fps: 60,
+        seekRetimesFrame: true,
+      },
+      181 / 60,
+    ],
   ] as const)('%s', (_case, overrides, expected) => {
     expect(at(overrides)).toBeCloseTo(expected, 9);
+  });
+
+  it('reads one time for a whole video frame on Firefox, after seeks to any point in it', () => {
+    const times = new Set(
+      [0.1, 0.3, 0.5, 0.7, 0.95].map((into) =>
+        at({
+          presentedFrameTime: (90 + into) / fps,
+          playhead: (90 + into) / fps,
+          seekRetimesFrame: true,
+        })
+      )
+    );
+    expect([...times]).toEqual([frame(90)]);
   });
 
   // Any two playhead positions in one paused video frame read the same time once the frame is
@@ -137,13 +167,40 @@ function mulberry32(seed: number): () => number {
   };
 }
 
+describe('presentedFrameStart', () => {
+  it.each([
+    ['a frame start', frame(90), frame(90) + 0.02, true, frame(90)],
+    [
+      'a seek target, where seeks retime their frame',
+      frame(90) + 0.02,
+      frame(90) + 0.02,
+      true,
+      frame(90),
+    ],
+    [
+      'a seek target, where they never do',
+      frame(90) + 0.02,
+      frame(90) + 0.02,
+      false,
+      frame(90) + 0.02,
+    ],
+    ['a rounded NTSC frame start at the playhead', 3.036, 3.036, true, 3.036],
+  ] as const)('of %s', (_case, mediaTime, playhead, seekRetimesFrame, expected) => {
+    const rate = mediaTime === 3.036 ? 30000 / 1001 : fps;
+    expect(presentedFrameStart(mediaTime, playhead, rate, seekRetimesFrame)).toBeCloseTo(
+      expected,
+      9
+    );
+  });
+});
+
 describe('frameStepTarget', () => {
   it.each([
     ['one forward from a frame start', frame(90), frame(90), null, 1, middleOf(91)],
     ['one back from a frame start', frame(90), frame(90), null, -1, middleOf(89)],
     ['three forward', frame(90), frame(90), null, 3, middleOf(93)],
     // A millisecond-rounded frame time, as on YouTube.
-    ['from a rounded frame time', 3.003, 3.003, null, 1, 3.003 + 1.5 / fps],
+    ['from a rounded frame time', 3.003, 3.02, null, 1, 3.003 + 1.5 / fps],
     // The frame on screen holds the playhead: step from it.
     [
       'from the frame holding the last target',
@@ -195,9 +252,49 @@ describe('frameStepTarget', () => {
         fps,
         duration,
         frames,
+        seekRetimesFrame: false,
       })
     ).toBeCloseTo(expected, 9);
   });
+
+  // Firefox times the first frame after a seek at the seek target, so the frame on screen reads as
+  // starting at the playhead.
+  it.each([
+    ['after a step', middleOf(91), middleOf(91), 1, middleOf(92)],
+    ['back after a step', middleOf(91), middleOf(91), -1, middleOf(90)],
+    ['after a seek mid-frame', frame(90) + 0.02, null, 1, middleOf(91)],
+  ] as const)('on Firefox %s', (_case, playhead, lastTarget, frames, expected) => {
+    const step = { presentedFrameTime: playhead, playhead, isFrameCurrent: true, lastTarget, fps };
+    expect(frameStepTarget({ ...step, duration, frames, seekRetimesFrame: true })).toBeCloseTo(
+      expected,
+      9
+    );
+  });
+
+  // After a seek to a millisecond-rounded frame start (a marker's time): the frame on screen starts at
+  // the playhead and is the playhead's frame, just below its grid start, also where seeks retime.
+  it.each([
+    [1, 92, false],
+    [-1, 90, false],
+    [1, 92, true],
+    [-1, 90, true],
+  ])(
+    'steps %i from a rounded NTSC frame start at the playhead (retiming seeks: %p)',
+    (frames, expectedFrame, seekRetimesFrame) => {
+      const ntsc = 30000 / 1001;
+      const at = {
+        presentedFrameTime: 3.036,
+        playhead: 3.036,
+        isFrameCurrent: true,
+        lastTarget: null,
+        fps: ntsc,
+        duration,
+        frames,
+        seekRetimesFrame,
+      };
+      expect(frameStepTarget(at)).toBeCloseTo((expectedFrame + 0.5) / ntsc, 3);
+    }
+  );
 
   // At the end the video snaps its time to the duration ('ended'), past the last frame's middle.
   it('steps back from the end of the video, at a rate in use above the video', () => {
@@ -212,6 +309,7 @@ describe('frameStepTarget', () => {
       fps: fpsInUse,
       duration: end,
       frames: -1,
+      seekRetimesFrame: false,
     };
     expect(frameStepTarget(at)).toBeCloseTo(lastMiddle - 1 / fpsInUse, 9);
   });
@@ -224,6 +322,7 @@ describe('frameStepTarget', () => {
       fps,
       duration,
       frames: 1,
+      seekRetimesFrame: false,
     };
     expect(frameStepTarget({ ...at, isFrameCurrent: false })).toBeCloseTo(middleOf(151), 9);
   });
@@ -245,6 +344,7 @@ describe('frameStepTarget', () => {
         fps: stepFps,
         duration,
         frames: 1,
+        seekRetimesFrame: false,
       });
       lastTarget = target;
       presentedFrameTime = shownAt(target) / videoFps;
@@ -439,6 +539,7 @@ describe('frameStepTarget', () => {
             isFrameCurrent: isFrameCurrent(video.clock),
             lastFrameSeek: null,
             fps: stepFps,
+            seekRetimesFrame: false,
           });
           if (frameShownAt(time + 0.001) !== frameShownAt(video.currentTime)) frameTimeMisses++;
         }
@@ -451,6 +552,7 @@ describe('frameStepTarget', () => {
             fps: burst.fpsAt?.(step) ?? stepFps,
             duration,
             frames: burst.moves[step],
+            seekRetimesFrame: false,
           });
           lastTarget = target;
           apply(onSeekRequest(target, video.currentTime, video.seeking));
@@ -705,6 +807,7 @@ describe('frameTime over recorded seeks', () => {
           isFrameCurrent: isFrameCurrent(clock),
           lastFrameSeek: null,
           fps,
+          seekRetimesFrame: name.startsWith('firefox'),
         });
         const want = Math.min(Math.floor(currentTime * 30 + 1e-6), lastFrame);
         const got = Math.floor((time + 0.001) * 30 + 1e-6);

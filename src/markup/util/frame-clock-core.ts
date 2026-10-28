@@ -194,10 +194,10 @@ function stepFrame(state: ClockState, frame: SeenFrame): ClockState {
         )
       : presented;
   const endRun = (): ClockState => ({ ...state, lastFrame: frame, currentRun: [] });
-  // A run starts with a one-frame gap, which sets the frame duration the gaps of several frames are
-  // checked against. A browser that counted more than one presented frame per video frame then
-  // measures nothing instead of a multiple of the rate.
-  if (!lastFrame || frames === 0 || (frames > 1 && state.currentRun.length === 0)) {
+  // A run can start on a gap of several frames, as the presented count tells them: Firefox calls back
+  // about 25 times a second, so at 50 or 60 fps every gap spans 2 or 3 frames. A browser that counts
+  // more than one presented frame per video frame measures nothing: its decoded count disagrees.
+  if (!lastFrame || frames === 0) {
     return endRun();
   }
   const gap = {

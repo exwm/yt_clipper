@@ -5,7 +5,7 @@ import { chartState } from '../charts';
 import { isDrawingCrop } from '../crop-overlay';
 import { isMouseManipulatingCrop } from '../crop-overlay';
 import { blockEvent, flashMessage, getPendingSeekTime, seekBySafe, seekToSafe } from './util';
-import { FrameSeek, frameStepTarget, frameTime } from './frame-step';
+import { FrameSeek, frameStepTarget, frameTime, presentedFrameStart } from './frame-step';
 import { FrameGrid, frameSeekTarget, loopSeekTarget } from './frame-grid';
 import { registerActiveDragCleanup } from './drag-recovery';
 import {
@@ -100,12 +100,25 @@ export function getFrameGrid(): FrameGrid {
   return { origin: 0, rate: getFPS() };
 }
 
+// Gecko times the first frame after a seek at the seek target (DropVideoUpToSeekTarget), and its
+// VideoFrame read gives no time to correct it with.
+const SEEK_RETIMES_FRAME =
+  typeof navigator !== 'undefined' && /\bFirefox\//.test(navigator.userAgent);
+
 let lastFrameSeek: FrameSeek | null = null;
 /** Seeks to show the frame at `time`, a placed time such as a marker's or a crop point's. */
 export function seekToFrameAt(time: number): void {
   const target = frameSeekTarget(getFrameGrid(), time);
   lastFrameSeek = { target, frameTime: time };
   seekToSafe(appState.video, target);
+}
+
+/** The start of the frame a frame callback or the frame clock presents at `mediaTime`, on the video's
+ *  own timeline. */
+export function getPresentedFrameStart(mediaTime: number): number {
+  const video = appState.video;
+  // The frame's own timeline, as its mediaTime.
+  return presentedFrameStart(mediaTime, video.currentTime, getFPS(), SEEK_RETIMES_FRAME);
 }
 
 /** The time of the frame the user is on, which placements store and frame decisions read. */
@@ -121,6 +134,7 @@ export function getFrameTime(): number {
     isFrameCurrent: isPresentedSinceSeek(video),
     lastFrameSeek,
     fps: getFPS(),
+    seekRetimesFrame: SEEK_RETIMES_FRAME,
   });
 }
 
@@ -164,6 +178,7 @@ export function seekByFrames(frames: number): void {
     fps: getFPS(),
     duration: video.duration,
     frames,
+    seekRetimesFrame: SEEK_RETIMES_FRAME,
   });
   lastStepTarget = target;
   // Not a frame seek for decisions: on a rate higher than the video's, a step's frame start isn't the

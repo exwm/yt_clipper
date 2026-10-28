@@ -7,6 +7,7 @@ import pytest
 from harness.hosts import DEV_SITE_HOST
 from harness.markup_page import MarkupPage
 from harness.steps import step
+from test_frame_stepping import given_the_video_has_played_until_its_frame_rate_is_measured
 
 PAIR_START = 3.0
 PAIR_END = 9.0
@@ -27,9 +28,13 @@ def test_crop_chip_shows_the_live_interpolated_crop(dynamic_crop: MarkupPage) ->
     then_the_crop_chip_x_is_between_the_first_two_points(dynamic_crop)
 
 
+# Measured, also on Firefox, which times the frame shown after a seek at the seek target.
+@pytest.mark.parametrize("measured", [True, False], ids=["measured rate", "assumed 60 fps"])
 def test_crop_preview_stays_on_the_frame_on_screen_after_a_seek_within_it(
-    dynamic_crop: MarkupPage,
+    dynamic_crop: MarkupPage, measured: bool
 ) -> None:
+    if measured:
+        given_the_video_has_played_until_its_frame_rate_is_measured(dynamic_crop)
     on_screen = when_i_pause_mid_pan_and_seek_within_the_frame(dynamic_crop)
     when_i_switch_the_crop_easing_away_and_back(dynamic_crop)
     then_the_crop_chip_is_unchanged(dynamic_crop, on_screen)

@@ -103,6 +103,7 @@ import {
   getFPS,
   getFrameGrid,
   getFrameTime,
+  getPresentedFrameStart,
   loopPlaybackOver,
   seekToFrameAt,
 } from './util/videoUtil';
@@ -773,7 +774,7 @@ export function triggerCropChartUpdates() {
 let presentedFrameTime: number | null = null;
 function currentCropTime(): number {
   // eslint-disable-next-line no-restricted-syntax -- the crop drawn for the picture on screen
-  return presentedFrameTime ?? getPresentedFrameTime(appState.video);
+  return presentedFrameTime ?? getPresentedFrameStart(getPresentedFrameTime(appState.video));
 }
 
 let cropPreviewSubscription: { video: VideoElement; frames: VideoFrameSubscription } | null = null;
@@ -785,10 +786,14 @@ function subscribeCropPreviewToFrames(): void {
   const video = appState.video;
   cropPreviewSubscription = {
     video,
-    frames: onVideoFrames(video, (frame) => cropChartPreviewHandler(frame.mediaTime), {
-      phase: 'update',
-      label: 'crop chart preview',
-    }),
+    frames: onVideoFrames(
+      video,
+      (frame) => cropChartPreviewHandler(getPresentedFrameStart(frame.mediaTime)),
+      {
+        phase: 'update',
+        label: 'crop chart preview',
+      }
+    ),
   };
 }
 

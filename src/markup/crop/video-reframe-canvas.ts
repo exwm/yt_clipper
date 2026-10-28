@@ -21,7 +21,7 @@ import { cropToTargetRect, videoBoxToCanvasPoint } from './video-zoom-math';
 import { createWebGLGammaRenderer, prevGammaVal, WebGLGammaRenderer } from '../util/previewGamma';
 import { deleteElement, injectCSS } from '../util/util';
 import { onVideoFrames, VideoFrameSubscription } from '../util/video-frame-loop';
-import { getFPS } from '../util/videoUtil';
+import { getFPS, getPresentedFrameStart } from '../util/videoUtil';
 import { featureFlags } from '../feature-flags';
 import { bandsAround, touchedPixels, wholePixelsInside } from './reframe-canvas-pixels';
 import {
@@ -99,7 +99,7 @@ function startLoop(): void {
     (frame) => {
       if (!canvas) return;
       const start = performance.now();
-      drawReframeFrame(frame.mediaTime, frame.image);
+      drawReframeFrame(getPresentedFrameStart(frame.mediaTime), frame.image);
       if (featureFlags.reframeFrameStats) {
         recordFrameStats(v, {
           now: frame.now,

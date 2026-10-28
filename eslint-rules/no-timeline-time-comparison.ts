@@ -1,5 +1,5 @@
 import type { Rule } from 'eslint';
-import type { BinaryExpression, MemberExpression, Node } from 'estree';
+import type { BinaryExpression, Node } from 'estree';
 
 // Times on the video timeline mean frames: a marker pair covers the frames from its start marker's
 // through its end marker's, and a point stored at a frame's start means that whole frame. Ordering
@@ -7,12 +7,9 @@ import type { BinaryExpression, MemberExpression, Node } from 'estree';
 // reads as outside the pair). Compare frames with `frameAt`, `sameFrame` or `isInFrameSpan`
 // (util/frame-grid.ts). Where time is the right unit (interpolation, sorting, seek targets), disable
 // the rule on the line with the reason.
-const TIMELINE_TIMES: Record<string, readonly string[]> = {
-  MarkerPair: ['start', 'end'],
-  MarkerPairHistory: ['start', 'end'],
-  CropPoint: ['x'],
-  SpeedPoint: ['x'],
-};
+// The type of marker and point times (@types/yt_clipper.d.ts). It follows a value through copies,
+// destructuring and parameters, so `const { end } = pair; time < end` is still caught.
+const TIMELINE_TIME = 'TimelineTime';
 
 const ORDERING = new Set(['<', '<=', '>', '>=']);
 
@@ -24,7 +21,7 @@ const rule: Rule.RuleModule = {
     },
     messages: {
       compareFrames:
-        '{{type}}.{{property}} is a frame on the timeline: compare frames (frameAt, sameFrame, isInFrameSpan), not times.',
+        '{{property}} is a {{type}}, a frame on the timeline: compare frames (frameAt, sameFrame, isInFrameSpan), not times.',
     },
     schema: [],
   },
@@ -40,16 +37,17 @@ const rule: Rule.RuleModule = {
     const nodeMap = services.esTreeNodeToTSNodeMap;
 
     const timelineTime = (node: Node): { type: string; property: string } | null => {
-      if (node.type !== 'MemberExpression') return null;
-      const member = node as MemberExpression;
-      if (member.computed || member.property.type !== 'Identifier') return null;
-      const property = member.property.name;
-      const objectType = checker.getTypeAtLocation(nodeMap.get(member.object as Node));
-      const symbol = objectType.aliasSymbol ?? objectType.getSymbol();
-      const type: string | undefined = symbol?.getName();
-      return type != null && TIMELINE_TIMES[type]?.includes(property) ? { type, property } : null;
+      const type = checker.getTypeAtLocation(nodeMap.get(node));
+      const types = type.isUnion?.() ? type.types : [type];
+      if (!types.some((t: any) => t.aliasSymbol?.getName() === TIMELINE_TIME)) return null;
+      const property =
+        node.type === 'MemberExpression' && node.property.type === 'Identifier'
+          ? node.property.name
+          : node.type === 'Identifier'
+            ? node.name
+            : 'value';
+      return { type: TIMELINE_TIME, property };
     };
-
     return {
       BinaryExpression(node: BinaryExpression & Rule.NodeParentExtension) {
         if (!ORDERING.has(node.operator)) return;

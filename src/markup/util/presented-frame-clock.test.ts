@@ -46,8 +46,18 @@ function fakeVideo(currentTime = 0) {
   };
   // A frame decoded but never shown, and not counted as dropped, as on a screen slower than the video.
   const unshown = () => video.totalVideoFrames++;
+  // A screen refresh counted as a presented frame, with no new frame decoded.
+  const countedAgain = () => presentedFrames++;
   const emit = (type: string) => listeners[type]?.forEach((listener) => listener());
-  return { video, element: video as unknown as VideoElement, present, miss, unshown, emit };
+  return {
+    video,
+    element: video as unknown as VideoElement,
+    present,
+    miss,
+    unshown,
+    countedAgain,
+    emit,
+  };
 }
 
 describe('getPresentedFrameTime', () => {
@@ -239,10 +249,10 @@ describe('getMeasuredFrameRate', () => {
   // A browser that counted each screen refresh showing a frame would report 2 frames per gap at 30
   // fps on a 60 Hz screen, which would read as 60 fps.
   it('measures nothing when every gap counts more than one presented frame', () => {
-    const { element, present, miss } = fakeVideo();
+    const { element, present, countedAgain } = fakeVideo();
     getMeasuredFrameRate(element);
     for (let k = 0; k < 120; k++) {
-      miss();
+      countedAgain();
       present(toMilliseconds(10 + k / 30));
     }
     expect(getMeasuredFrameRate(element)).toBeNull();

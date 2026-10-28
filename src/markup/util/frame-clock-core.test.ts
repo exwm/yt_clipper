@@ -390,6 +390,24 @@ describe('announceRate', () => {
 const TRACES: Record<string, { fps: number; frames: [number, number, number, number][] }> =
   JSON.parse(readFileSync(join(__dirname, 'frame-clock-traces.json'), 'utf8'));
 
+function replay(trace: { frames: [number, number, number, number][] }): ClockState {
+  let clock = initialClock;
+  for (const [mediaTime, presentedFrames, decodedFrames, droppedFrames] of trace.frames) {
+    clock = stepClock(clock, {
+      type: 'frame',
+      frame: {
+        mediaTime,
+        presentedFrames,
+        decodedFrames,
+        droppedFrames,
+        duringSeek: false,
+        paused: false,
+        playbackRate: 1,
+      },
+    });
+  }
+  return clock;
+}
 describe('the frame clock over recorded browser frames', () => {
   it.each(Object.entries(TRACES))('reports %s at its own rate or not at all', (_name, trace) => {
     let clock = initialClock;
@@ -413,26 +431,15 @@ describe('the frame clock over recorded browser frames', () => {
     if (process.env.TRACE_REPORT) console.log(_name, clock.publishedRate);
   });
 
+  // Firefox calls back about 25 times a second: at 60 fps each gap spans 2 or 3 frames, all counted as
+  // presented, so a run starts on a gap of several frames.
+  it('measures 60 fps from Firefox, which calls back on every second or third frame', () => {
+    expect(replay(TRACES['firefox h264-2160p60-mp4 busy0']).publishedRate).toBe(60);
+  });
   // A 61 fps video on a 59.95 Hz display: Chrome drops a frame about every 43, so 60 frames never
   // play in a row. Counting the dropped frames' gaps keeps the run going.
   it('measures the rate when a frame drops more often than every 60', () => {
-    const trace = TRACES['chromium vp9-61-webm cadence'];
-    let clock = initialClock;
-    for (const [mediaTime, presentedFrames, decodedFrames, droppedFrames] of trace.frames) {
-      clock = stepClock(clock, {
-        type: 'frame',
-        frame: {
-          mediaTime,
-          presentedFrames,
-          decodedFrames,
-          droppedFrames,
-          duringSeek: false,
-          paused: false,
-          playbackRate: 1,
-        },
-      });
-    }
-    expect(clock.publishedRate).toBe(61);
+    expect(replay(TRACES['chromium vp9-61-webm cadence']).publishedRate).toBe(61);
   });
 });
 
