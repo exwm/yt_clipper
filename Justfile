@@ -40,7 +40,8 @@ smoke-release folder version="":
 verify-release install userscript version="":
   just smoke-release "{{install}}" {{version}}
   uv run pytest src/clipper/tests/test_e2e.py -k youtube-vp9 --clipper-exe "{{install}}/yt_clipper{{ if os_family() == "windows" { ".exe" } else { "" } }}"
-  uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n 4 --tracing retain-on-failure --output sandbox/ui-test-results --userscript "{{userscript}}"
+  just ui-test --userscript "{{userscript}}"
+  just ui-test-display-rates --userscript "{{userscript}}"
 # After publishing: check that Greasy Fork serves the release's userscript (waits up to 3 minutes).
 check-greasyfork version:
   uv run python tools/release/greasyfork.py {{version}}
@@ -130,10 +131,23 @@ dev-site:
 # Run the markup UI tests (pytest + Playwright, in an installed Chrome) on the dev site, in parallel. Screenshots
 # go to sandbox/ui-shots/<test>/, and a failed test's Playwright trace to sandbox/ui-test-results/. Extra args go to pytest,
 # e.g. `just ui-test -k "zoom or crop"`, or `just ui-test -n 0 -s --headed` to watch one at a time.
+# The timing tests run after the rest, on fewer workers, so the others' load can't fail them. A phase
+# that -k leaves empty (pytest exit 5) passes, unless both are. Filter with -k: a -m replaces the phases' marks.
 [positional-arguments]
 ui-test *args:
   just _parcel-once
-  uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n 4 --durations=10 --tracing retain-on-failure --output sandbox/ui-test-results "$@"
+  @just _ui-test-phase 8 "not display_rate and not timing" "$@"; rest=$?; just _ui-test-phase 4 "timing and not display_rate" "$@"; timing=$?; [ $rest -eq 5 ] && [ $timing -eq 5 ] && exit 5; [ $rest -eq 5 ] && rest=0; [ $timing -eq 5 ] && timing=0; exit $((rest | timing))
+[positional-arguments]
+_ui-test-phase workers marks *args:
+  @workers="$1"; marks="$2"; shift 2; uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n "$workers" --durations=10 --tracing retain-on-failure --output sandbox/ui-test-results -m "$marks" "$@"
+# The loop's end frame on simulated 30, 50, 120 and 144 Hz displays, in Playwright's chromium-headless-shell
+# (installed here once per Playwright version). Apart from ui-test: beside the other tests' load the simulated
+# display drops refreshes now and then, which cuts an end frame short.
+[positional-arguments]
+ui-test-display-rates *args:
+  just _parcel-once
+  uv run --group ui-test playwright install chromium-headless-shell
+  uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n 4 --durations=10 --output sandbox/ui-test-results -m display_rate "$@"
 # Release highlight close-ups listed in integration-tests/ui/showcase.toml, into sandbox/showcase/<release>/.
 # Add --update-assets to also write the shots that name an asset into assets/image/.
 [positional-arguments]
@@ -173,6 +187,7 @@ release-prep version:
   just ui-test
   # Again with the frame rate never measured: the assumed 60 fps a user gets with Measure off, as 5.48.
   just ui-test --assumed-frame-rate
+  just ui-test-display-rates
   uv run python tools/release/version.py check {{version}}
 # Tagged commits are made immutable in jj: the changelog links and the tag point at them.
 

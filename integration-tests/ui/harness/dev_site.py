@@ -141,12 +141,12 @@ class DevSiteHandler(http.server.SimpleHTTPRequestHandler):
 
 @contextlib.contextmanager
 def serving(port: int) -> Generator[str]:
-    """Serve the dev site in a background thread, yielding its URL."""
+    """Serve the dev site in a background thread, yielding its URL. Port 0 takes a free one."""
     handler = functools.partial(DevSiteHandler, directory=str(DEV_SITE))
     server = http.server.ThreadingHTTPServer(("localhost", port), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        yield f"http://localhost:{port}/"
+        yield f"http://localhost:{server.server_address[1]}/"
     finally:
         server.shutdown()

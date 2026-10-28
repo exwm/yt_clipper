@@ -5,8 +5,11 @@ with the userscript injected and activated. Run them through `just ui-test` (dev
 `just ui-test-youtube`, which build the bundle first. Screenshots go to sandbox/ui-shots/<test>/ (<test>-<variant>/ for a parametrized test).
 """
 
+import ctypes
 import re
 import shutil
+import sys
+import warnings
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,7 +18,6 @@ from typing import TYPE_CHECKING
 import pytest
 from harness import steps
 from harness.dev_site import (
-    DEFAULT_PORT,
     DEFAULT_VIDEO_SECONDS,
     EXTRA_VIDEO_SECONDS,
     VIDEO_STYLES,
@@ -28,6 +30,7 @@ from harness.hosts import DEV_SITE_HOST, YOUTUBE_HOST, activate_markup, open_dev
 from harness.markup_page import MarkupPage
 from harness.page_problems import PageProblems
 from harness.paths import BUNDLE, REPO, SANDBOX, SHOTS
+from harness.simulated_display import simulated_display
 
 if TYPE_CHECKING:
     from playwright.sync_api import BrowserContext, Page, Playwright
@@ -39,7 +42,8 @@ YOUTUBE_STORAGE_TO_CLEAR = "cookies,local_storage,indexeddb,service_workers,cach
 def pytest_addoption(parser: pytest.Parser) -> None:
     group = parser.getgroup("markup ui")
     group.addoption("--youtube", metavar="URL", help="run on this YouTube video, not the dev site")
-    group.addoption("--dev-site-port", type=int, default=DEFAULT_PORT)
+    # 0: each worker serves on a free port the OS picks, so parallel runs and reserved ranges never collide.
+    group.addoption("--dev-site-port", type=int, default=0)
     group.addoption("--video-seconds", type=int, default=DEFAULT_VIDEO_SECONDS)
     group.addoption(
         "--video-style",
@@ -76,7 +80,19 @@ def is_ci_build(config: pytest.Config) -> bool:
     return path.exists() and "IS_CI_BUILD = true" in path.read_text(encoding="utf-8")
 
 
+def measures_the_rate(item: pytest.Item) -> bool:
+    """A test of the measured rate, or a `measured` row: with Measure off it runs as its assumed twin."""
+    callspec = getattr(item, "callspec", None)
+    measured_row = callspec is not None and callspec.params.get("measured") is True
+    return measured_row or item.get_closest_marker("measured_rate") is not None
+
+
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    if config.getoption("assumed_frame_rate"):
+        deselected = [item for item in items if measures_the_rate(item)]
+        if deselected:
+            config.hook.pytest_deselected(items=deselected)
+            items[:] = [item for item in items if not measures_the_rate(item)]
     if not is_ci_build(config):
         return
     skip = pytest.mark.skip(reason="needs the feature flags popup, which CI builds leave out")
@@ -98,6 +114,20 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "local_build: needs the feature flags popup, which CI builds (the releases) leave out, so it"
         " is skipped against a CI-built userscript (just verify-release)",
+    )
+    config.addinivalue_line(
+        "markers",
+        "display_rate(hz): run in chromium-headless-shell on a simulated display of this refresh rate"
+        " (harness/simulated_display.py)",
+    )
+    config.addinivalue_line(
+        "markers",
+        "measured_rate: checks frame rate measurement, so --assumed-frame-rate leaves it out",
+    )
+    config.addinivalue_line(
+        "markers",
+        "timing: counts frames or refreshes as the video plays, so other tests' load can fail it;"
+        " just ui-test runs these in a phase of their own",
     )
     # Build the dev site once, in the main process: parallel workers (pytest-xdist) only serve it.
     is_worker = hasattr(config, "workerinput")
@@ -129,9 +159,10 @@ def dev_site(
     if youtube_url:
         yield None
         return
-    # Each parallel worker (gw0, gw1, ...) serves on its own port; a serial run is "master".
-    worker_index = int(worker_id.removeprefix("gw")) if worker_id.startswith("gw") else 0
-    port = int(pytestconfig.getoption("dev_site_port")) + worker_index
+    # A fixed port: each parallel worker (gw0, gw1, ...) serves on its own; a serial run is "master".
+    port = int(pytestconfig.getoption("dev_site_port"))
+    if port:
+        port += int(worker_id.removeprefix("gw")) if worker_id.startswith("gw") else 0
     video_name = test_video_name(
         int(pytestconfig.getoption("video_seconds")), pytestconfig.getoption("video_style")
     )
@@ -169,7 +200,19 @@ def youtube_context(
 
 @pytest.fixture
 def browser_page(request: pytest.FixtureRequest, youtube_url: str | None) -> Iterator["Page"]:
-    """A fresh page: pytest-playwright's own on the dev site, or one in the YouTube profile."""
+    """A fresh page: pytest-playwright's own on the dev site, one on a simulated display, or one in
+    the YouTube profile."""
+    display_rate = request.node.get_closest_marker("display_rate")
+    if display_rate and not youtube_url:
+        if request.getfixturevalue("browser_name") != "chromium":
+            pytest.skip("simulates displays in chromium-headless-shell")
+        hz = display_rate.args[0]
+        playwright: Playwright = request.getfixturevalue("playwright")
+        with simulated_display(playwright, hz, CONTEXT_OPTIONS) as (page, stats):
+            yield page
+        print(f"\n  {hz} Hz display: {stats.ticks} refreshes, {stats.missed} missed")
+        assert stats.stalled_at is None, f"refresh {stats.stalled_at} never finished"
+        return
     if not youtube_url:
         yield request.getfixturevalue("page")
         return
@@ -191,6 +234,52 @@ def pytest_runtest_makereport(item: pytest.Item) -> Iterator[None]:
     report = yield
     setattr(item, f"report_{report.when}", report)
     return report
+
+
+# Windows turns idle displays off, and Chrome then times frames with a 17 ms sleep (about 57 Hz), not
+# the display's vsync (ui/gl/vsync_thread_win.cc), which skews every timing test.
+ES_CONTINUOUS = 0x80000000
+ES_DISPLAY_REQUIRED = 0x00000002
+
+
+@pytest.fixture(scope="session", autouse=True)
+def displays_stay_on() -> Iterator[None]:
+    if sys.platform != "win32":
+        yield
+        return
+    ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED)
+    yield
+    ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS)
+
+
+MEDIAN_REFRESH_MS = """() => new Promise((done) => {
+    const times = [];
+    const onFrame = (time) => {
+        times.push(time);
+        if (times.length < 31) requestAnimationFrame(onFrame);
+        else {
+            const gaps = times.slice(1).map((t, i) => t - times[i]).sort((a, b) => a - b);
+            done(gaps[15]);
+        }
+    };
+    requestAnimationFrame(onFrame);
+})"""
+# The median frame gap this worker measured, once.
+measured_refresh_ms: list[float] = []
+
+
+def warn_unless_refresh_is_60_hz(page: "Page") -> None:
+    """Once per worker: the timing tests expect a 60 Hz display."""
+    if measured_refresh_ms:
+        return
+    median_ms = page.evaluate(MEDIAN_REFRESH_MS)
+    measured_refresh_ms.append(median_ms)
+    if not 16.4 <= median_ms <= 16.9:
+        warnings.warn(
+            f"frames run every {median_ms:.2f} ms, not 16.67 (60 Hz): the displays may be off,"
+            " so loop and frame timing tests can fail; wake the displays and rerun",
+            stacklevel=1,
+        )
 
 
 @pytest.fixture
@@ -234,9 +323,15 @@ def markup(
             open_dev_site(page, dev_site.url, video_name)
     with steps.timed("(activate the markup)"):
         activate_markup(page)
+    if not request.node.get_closest_marker("display_rate"):
+        warn_unless_refresh_is_60_hz(page)
 
-    # pytest-playwright traces only its own page; the YouTube context is the fixture's.
-    traced = not youtube_url and request.config.getoption("tracing") != "off"
+    # pytest-playwright traces only its own page; the YouTube and simulated display contexts are ours.
+    traced = (
+        not youtube_url
+        and not request.node.get_closest_marker("display_rate")
+        and request.config.getoption("tracing") != "off"
+    )
     yield MarkupPage(page, host, shots_dir, tracing=traced, assumed_frame_rate=assumed)
 
     call_report = getattr(request.node, "report_call", None)

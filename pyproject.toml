@@ -41,6 +41,7 @@ ui-test = [
     "playwright==1.63.0",
     "pytest-playwright>=0.10.0,<0.11",
     "pytest-rerunfailures>=16.7,<17",
+    "websockets>=16.0,<17",
 ]
 
 [tool.uv]

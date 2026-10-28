@@ -1,11 +1,13 @@
 """Frame stepping: on a site that reports no frame rate, Shift+Mousewheel steps one frame of the
 video, at the rate measured from played frames. The dev site's test video is 30 fps."""
 
+import json
 import math
 
 import pytest
 from harness.hosts import DEV_SITE_HOST
 from harness.markup_page import MarkupPage
+from harness.paths import REPO
 from harness.steps import step
 
 VIDEO_FPS = 30
@@ -41,26 +43,26 @@ def test_shift_mousewheel_steps_back_from_the_end_of_the_video(markup: MarkupPag
 
 # On YouTube the measured rate refines the stats rate, whatever the video's rate.
 @pytest.mark.platform
+@pytest.mark.measured_rate
 def test_the_measured_frame_rate_flashes_once_the_video_plays(markup: MarkupPage) -> None:
-    skip_with_measurement_off(markup)
     rate = f"{VIDEO_FPS} fps." if markup.host == DEV_SITE_HOST else ""
     with markup.untraced():
         given_the_video_is_playing(markup)
         then_a_flash_says(markup, f"Measured the frame rate: {rate}")
 
 
+@pytest.mark.measured_rate
 def test_the_command_palette_turns_frame_rate_measurement_off(markup: MarkupPage) -> None:
-    skip_with_measurement_off(markup)
     if markup.host != DEV_SITE_HOST:
         pytest.skip("checks the 60 fps default of a site that reports no frame rate")
     when_i_run_the_palette_command(markup, "frame rate measurement")
     then_a_flash_says(markup, "Frame rate measurement off. Using 60 fps.")
 
 
+@pytest.mark.measured_rate
 def test_the_measure_button_beside_the_frame_rate_turns_measurement_off_and_on(
     markup: MarkupPage,
 ) -> None:
-    skip_with_measurement_off(markup)
     if markup.host != DEV_SITE_HOST:
         pytest.skip("checks the 60 fps default of a site that reports no frame rate")
     given_the_global_settings_editor_is_open(markup)
@@ -70,11 +72,6 @@ def test_the_measure_button_beside_the_frame_rate_turns_measurement_off_and_on(
     then_the_frame_rate_reads(markup, "60 fps (assumed)", measuring=False)
     when_i_click_the_measure_button(markup)
     then_the_frame_rate_reads(markup, "60 fps (assumed)", measuring=True)
-
-
-def skip_with_measurement_off(markup: MarkupPage) -> None:
-    if markup.assumed_frame_rate:
-        pytest.skip("starts with frame rate measurement on; this run turns it off")
 
 
 @step
@@ -107,8 +104,7 @@ def test_previews_follow_the_pairs_frames_across_steps_off_its_first_and_last_fr
 ) -> None:
     if markup.host != DEV_SITE_HOST:
         pytest.skip("relies on the dev site's test video frame times")
-    # --assumed-frame-rate keeps the rate assumed in the measured variant too.
-    if into_frame and (not measured or markup.assumed_frame_rate):
+    if into_frame and not measured:
         # A half-frame grid can't tell whether a mid-frame marker is in the frame on screen or the next,
         # and the playhead here is before the start marker's time, which 5.48 also read as outside.
         reason = "a mid-frame marker's frame is unknown until the rate is measured"
@@ -177,6 +173,11 @@ def frames_stepped_to(markup: MarkupPage, start: int, steps: int) -> list[int]:
     return [start + direction * rounding(k * per_step) for k in range(1, abs(steps) + 1)]
 
 
+# The loop seeks back on its end frame's last refresh, so a slow seek can let the next frame show
+# now and then: the maintainer accepted a rare extra frame for an end frame shown its full time.
+RARE_CYCLES_PAST_END = 1 / 8
+
+
 # A pair's loop plays through its end marker's frame and seeks back before the frame after it shows,
 # also on a 24 fps video, whose frames a 60 fps grid doesn't split evenly.
 @pytest.mark.parametrize(
@@ -186,15 +187,16 @@ def frames_stepped_to(markup: MarkupPage, start: int, steps: int) -> list[int]:
 )
 @pytest.mark.parametrize("measured", [True, False], ids=["measured rate", "assumed 60 fps"])
 # A mid-frame end marker, as 5.48 placed them and drags still do. At an assumed rate its frame is
-# unknown, so the loop may show the frame after it on some cycles, no more than 5.48 (3 of 19 at 24 fps).
+# unknown, and as in 5.48 the frame after it shows on some or all cycles, by the display's rate and
+# phase, so only its end frame is checked there.
 @pytest.mark.parametrize(
     ("end_into_frame", "most_cycles_past_end_assumed"),
-    [(0, 0), (0.5, 0.25)],
+    [(0, RARE_CYCLES_PAST_END), (0.5, 1)],
     ids=["frame start end", "mid-frame end"],
 )
+@pytest.mark.timing
 def test_a_pairs_loop_never_shows_the_frame_after_its_end_marker(
     markup: MarkupPage,
-    request: pytest.FixtureRequest,
     measured: bool,
     fps: int,
     end_into_frame: float,
@@ -202,47 +204,262 @@ def test_a_pairs_loop_never_shows_the_frame_after_its_end_marker(
 ) -> None:
     if markup.host != DEV_SITE_HOST:
         pytest.skip("relies on the dev site's test videos")
-    is_measured = measured and not markup.assumed_frame_rate
-    most_cycles_past_end = 0 if is_measured else most_cycles_past_end_assumed
-    if end_into_frame and fps == 30 and not is_measured:
-        request.applymarker(
-            pytest.mark.xfail(
-                strict=True,
-                reason="at the assumed 60 fps the frame after a mid-frame end shows each cycle, as in 5.48",
-            )
-        )
+    most_cycles_past_end = RARE_CYCLES_PAST_END if measured else most_cycles_past_end_assumed
     if measured:
         markup.measure_frame_rate()
     end = (66 + end_into_frame) / fps
     markup.load_saved_marker_pairs([{"start": 60 / fps, "end": end, "crop": "0:0:iw:ih"}])
     markup.open_marker_pair(0)
     markup.press("Shift+KeyC")
-    shown = when_the_loop_plays(markup, fps, seconds=4)
+    shown = when_the_loop_plays(markup, fps, turns=LOOP_TURNS)
     markup.report(f"frames shown {shown}")
     assert shown
     assert min(shown) >= 60
     assert max(shown) <= 67
     assert 66 in shown
     cycles = sum(1 for frame, next_frame in zip(shown, shown[1:]) if next_frame < frame)
+    assert cycles == LOOP_TURNS
     assert shown.count(67) <= most_cycles_past_end * cycles
 
 
+# The loop turns back while its end frame shows, and should hold it the whole refreshes a frame lasts
+# on this display, which every frame holds at least: 2 at 60 Hz for 24 or 30 fps. Headless Chrome
+# sometimes runs at about 57 Hz, where a 30 fps frame may hold 1.
+@pytest.mark.parametrize(
+    "fps",
+    [pytest.param(24, marks=pytest.mark.video_style("testsrc24")), 30],
+    ids=["24 fps", "30 fps"],
+)
+@pytest.mark.timing
+@pytest.mark.measured_rate
+def test_a_pairs_loop_shows_its_end_frame_for_about_its_full_time(
+    markup: MarkupPage, fps: int, browser_name: str
+) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("relies on the dev site's test videos")
+    if browser_name == "firefox":
+        pytest.skip(
+            "Firefox reads no frame times from VideoFrame, so the loop turns back at once, as 5.48"
+        )
+    markup.measure_frame_rate()
+    markup.load_saved_marker_pairs([{"start": 60 / fps, "end": 66 / fps, "crop": "0:0:iw:ih"}])
+    markup.open_marker_pair(0)
+    markup.press("Shift+KeyC")
+    held, refresh_ms, _ = when_the_loop_plays_by_refresh(markup, fps, turns=END_FRAME_TURNS)
+    runs = held_runs(held)
+    end_frame = [refreshes for frame, refreshes, after in runs if frame == 66 and after < 66]
+    played = [
+        refreshes for frame, refreshes, after in runs if 60 < frame < 66 and after == frame + 1
+    ]
+    whole_refreshes = math.floor(1000 / fps / refresh_ms + 0.02)
+    markup.report(f"refresh {refresh_ms:.2f} ms, whole refreshes a frame {whole_refreshes}")
+    markup.report(f"end frame refreshes per turn {end_frame}")
+    markup.report(f"played frame refreshes {played}")
+    # Under 2 refreshes a frame means the display isn't at 60 Hz (asleep, see the harness warning).
+    assert whole_refreshes >= 2, f"the display ran at {1000 / refresh_ms:.0f} Hz; wake it and rerun"
+    assert len(end_frame) >= 10
+    assert min(end_frame) >= whole_refreshes
+
+
+def display_rate_case(
+    hz: int,
+    fps: int,
+    end_frame_refreshes: int,
+    *marks: pytest.MarkDecorator,
+    measured: bool = True,
+) -> "pytest.ParameterSet":
+    style = [pytest.mark.video_style("testsrc24")] if fps == 24 else []
+    return pytest.param(
+        hz,
+        fps,
+        measured,
+        end_frame_refreshes,
+        marks=[pytest.mark.display_rate(hz), *style, *marks],
+        id=f"{hz} Hz {fps} fps" + ("" if measured else " assumed rate"),
+    )
+
+
+# Under 2 refreshes a frame, but not exactly 1, the loop seeks back as the end frame shows, and on some
+# cycles the seek takes longer than the rest of that frame. The gate never holds there: it is the same
+# with the gate off.
+SEEK_OUTLASTS_END_FRAME = pytest.mark.xfail(
+    strict=True,
+    reason="the loop turns back as the end frame shows, and on some cycles the next frame shows first",
+)
+# Display Hz, video fps, and the refreshes the end frame should hold at least: the whole refreshes a
+# frame lasts when 2 or more, else 1. Chromium's cadence gives every frame at least these
+# (display-cadences.json).
+DISPLAY_RATE_CASES = [
+    display_rate_case(30, 24, 1, SEEK_OUTLASTS_END_FRAME),
+    display_rate_case(30, 30, 1),
+    display_rate_case(50, 24, 2),
+    display_rate_case(50, 30, 1, SEEK_OUTLASTS_END_FRAME),
+    display_rate_case(120, 24, 5),
+    display_rate_case(120, 30, 4),
+    display_rate_case(144, 24, 6),
+    display_rate_case(144, 30, 4),
+    # Before the rate is measured (or with Measure off) the frame's own duration, where the browser
+    # reports it, times the end frame.
+    display_rate_case(30, 24, 1, SEEK_OUTLASTS_END_FRAME, measured=False),
+    display_rate_case(50, 24, 2, measured=False),
+    display_rate_case(120, 24, 5, measured=False),
+    display_rate_case(144, 24, 6, measured=False),
+]
+
+
+# The end frame gate on displays other than 60 Hz, simulated in chromium-headless-shell: the loop
+# holds its end frame for the refreshes a frame holds there, and never shows the frame after it.
+@pytest.mark.parametrize(("hz", "fps", "measured", "end_frame_refreshes"), DISPLAY_RATE_CASES)
+def test_a_pairs_loop_holds_its_end_frame_and_never_the_next_on_other_display_rates(
+    markup: MarkupPage, hz: int, fps: int, measured: bool, end_frame_refreshes: int
+) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("relies on the dev site's test videos")
+    given_the_frame_rate_is(markup, measured=measured)
+    markup.load_saved_marker_pairs([{"start": 60 / fps, "end": 66 / fps, "crop": "0:0:iw:ih"}])
+    markup.open_marker_pair(0)
+    markup.press("Shift+KeyC")
+    held, refresh_ms, refreshed_at = when_the_loop_plays_by_refresh(
+        markup, fps, turns=END_FRAME_TURNS
+    )
+    end_frame_ms = [
+        ms for frame, ms, after in shown_runs(held, refreshed_at) if frame == 66 and after < 66
+    ]
+    markup.report(f"refresh {refresh_ms:.2f} ms, end frame ms on screen per turn {end_frame_ms}")
+    markup.report(f"refreshes past the end {held.count(67)}")
+    assert refresh_ms == pytest.approx(1000 / hz, abs=0.2)
+    assert max(1, math.floor(1000 / fps / refresh_ms + 0.02)) == end_frame_refreshes
+    assert min(held) >= 60
+    assert 67 not in held
+    assert len(end_frame_ms) >= 10
+    # A turn may end a refresh early: the gate times the end frame from the last check that saw another
+    # frame, which errs early so it never shows the next. 0.2 ms covers rounded animation frame times.
+    assert min(end_frame_ms) >= (end_frame_refreshes - 1) * 1000 / hz - 0.2
+
+
 @step
-def when_the_loop_plays(markup: MarkupPage, fps: int, seconds: float) -> list[int]:
-    """The frames shown while the video plays, from the first time it shows the pair's first frame."""
+def given_the_frame_rate_is(markup: MarkupPage, measured: bool) -> None:
+    """Measured from played frames, or assumed at 60 fps with Measure off."""
+    if measured:
+        markup.measure_frame_rate()
+    elif not markup.assumed_frame_rate:
+        when_i_run_the_palette_command(markup, "frame rate measurement")
+        then_a_flash_says(markup, "Frame rate measurement off. Using 60 fps.")
+
+
+@pytest.mark.parametrize(
+    ("hz", "fps", "measured", "end_frame_refreshes"),
+    [pytest.param(*case.values, id=case.id) for case in DISPLAY_RATE_CASES],
+)
+def test_the_end_frame_refreshes_expected_are_the_fewest_in_chromiums_cadence(
+    hz: int, fps: int, measured: bool, end_frame_refreshes: int
+) -> None:
+    cadences = json.loads((REPO / "src/markup/util/display-cadences.json").read_text())
+    [held] = [
+        cadence["afterReset"] + cadence["playing"]
+        for cadence in cadences
+        if cadence["hz"] == hz and cadence["fps"] == fps
+    ]
+    assert min(held) == end_frame_refreshes
+
+
+# The fewest turns back the loop assertions need, and a cap on how long to play for them.
+LOOP_TURNS = 8
+END_FRAME_TURNS = 11
+LOOP_PLAY_CAP_MS = 10_000
+
+
+@step
+def when_the_loop_plays_by_refresh(
+    markup: MarkupPage, fps: int, turns: int
+) -> tuple[list[int], float, list[float]]:
+    """The frame the video holds at each refresh while it plays (a VideoFrame read per animation
+    frame), from the first time it shows the pair's first frame until it has turned back `turns`
+    times, the median refresh (ms), and each refresh's animation frame time (ms)."""
+    markup.seek(60.5 / fps, presented=True)
+    with markup.untraced():
+        rows = markup.page.evaluate(
+            """async ([turns, capMs]) => {
+                const v = document.querySelector('video');
+                const rows = [];
+                let turned = 0;
+                let done;
+                const finished = new Promise((resolve) => { done = resolve; });
+                const onRefresh = (now) => {
+                    const frame = new VideoFrame(v);
+                    const time = frame.timestamp / 1e6;
+                    frame.close();
+                    if (rows.length && time < rows[rows.length - 1][1]) turned++;
+                    rows.push([now, time]);
+                    if (turned >= turns) done();
+                    else requestAnimationFrame(onRefresh);
+                };
+                await v.play();
+                requestAnimationFrame(onRefresh);
+                const timer = setTimeout(done, capMs);
+                await finished;
+                clearTimeout(timer);
+                v.pause();
+                return rows;
+            }""",
+            [turns, LOOP_PLAY_CAP_MS],
+        )
+    refreshed_at = [now for now, _ in rows]
+    gaps = sorted(b - a for a, b in zip(refreshed_at, refreshed_at[1:]))
+    held = [math.floor(time * fps + 0.02) for _, time in rows]
+    return held, gaps[len(gaps) // 2], refreshed_at
+
+
+def held_runs(held: list[int]) -> list[tuple[int, int, int]]:
+    """Each run of one frame held: the frame, its refreshes, and the frame held after it."""
+    runs, run = [], 1
+    for frame, after in zip(held, held[1:]):
+        if after == frame:
+            run += 1
+            continue
+        runs.append((frame, run, after))
+        run = 1
+    return runs
+
+
+def shown_runs(held: list[int], refreshed_at: list[float]) -> list[tuple[int, float, int]]:
+    """Each run of one frame held: the frame, its time on screen (ms) from the refresh that showed it
+    to the one that replaced it, and the frame after it."""
+    runs, shown_at = [], refreshed_at[0]
+    for frame, after, at in zip(held, held[1:], refreshed_at[1:]):
+        if after != frame:
+            runs.append((frame, at - shown_at, after))
+            shown_at = at
+    return runs
+
+
+@step
+def when_the_loop_plays(markup: MarkupPage, fps: int, turns: int) -> list[int]:
+    """The frames shown while the video plays, from the first time it shows the pair's first frame
+    until it has turned back `turns` times, so every cycle recorded is whole."""
     markup.seek(60.5 / fps, presented=True)
     times = markup.page.evaluate(
-        """async (seconds) => {
+        """async ([turns, capMs]) => {
             const v = document.querySelector('video');
             const times = [];
-            const onFrame = (_now, meta) => { times.push(meta.mediaTime); v.requestVideoFrameCallback(onFrame); };
+            let turned = 0;
+            let done;
+            const finished = new Promise((resolve) => { done = resolve; });
+            const onFrame = (_now, meta) => {
+                if (times.length && meta.mediaTime < times[times.length - 1]) turned++;
+                times.push(meta.mediaTime);
+                if (turned >= turns) done();
+                else v.requestVideoFrameCallback(onFrame);
+            };
             v.requestVideoFrameCallback(onFrame);
             await v.play();
-            await new Promise((done) => setTimeout(done, seconds * 1000));
+            const timer = setTimeout(done, capMs);
+            await finished;
+            clearTimeout(timer);
             v.pause();
             return times;
         }""",
-        seconds,
+        [turns, LOOP_PLAY_CAP_MS],
     )
     return [math.floor(time * fps + 0.02) for time in times]
 

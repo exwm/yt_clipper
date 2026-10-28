@@ -92,6 +92,7 @@ def test_reframe_and_the_modal_preview_draw_each_frame_a_paused_seek_shows(
 
 
 @pytest.mark.local_build
+@pytest.mark.timing
 def test_reframe_draws_as_many_frames_as_a_plain_loop_sees_on_a_busy_machine(
     markup: MarkupPage,
 ) -> None:
