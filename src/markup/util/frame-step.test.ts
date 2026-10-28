@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { initialClock, isFrameCurrent, stepClock } from './frame-clock-core';
+import { ClockState, initialClock, isFrameCurrent, stepClock } from './frame-clock-core';
 import { frameStepTarget, frameTime, presentedFrameStart } from './frame-step';
 import { onExternalSeek, onSeekRequest, onSeekSettled, SeekDecision } from './seek-coalescer';
 
@@ -96,6 +96,17 @@ describe('frameTime', () => {
     ],
   ] as const)('%s', (_case, overrides, expected) => {
     expect(at(overrides)).toBeCloseTo(expected, 9);
+  });
+
+  // Unmeasured, the 60 fps grid frame of a retimed frame can start in the video frame before.
+  it.failing('reads frame 1 of a 24 fps video after a seek into it on Firefox, unmeasured', () => {
+    const time = at({
+      presentedFrameTime: 0.045,
+      playhead: 0.045,
+      fps: 60,
+      seekRetimesFrame: true,
+    });
+    expect(Math.floor((time + 0.001) * 24)).toBe(1);
   });
 
   it('reads one time for a whole video frame on Firefox, after seeks to any point in it', () => {
@@ -753,53 +764,72 @@ const SEEK_TRACES: Record<string, (string | number | null)[][]> = JSON.parse(
   readFileSync(join(__dirname, 'frame-seek-traces.json'), 'utf8')
 );
 
+// Replays a trace through the frame clock, calling `onSettled` after each event that leaves the video
+// paused with no seek in flight, after the first seek. `want` is the playhead's frame of the 30 fps clip.
+function replaySettled(
+  name: string,
+  onSettled: (at: {
+    type: string;
+    clock: ClockState;
+    currentTime: number;
+    want: number;
+    lastFrame: number;
+    lastFire: number | null;
+  }) => void
+): void {
+  const events = SEEK_TRACES[name];
+  const lastFrame = Math.max(
+    ...events.filter((e) => e[0] === 'frame').map((e) => Math.floor((e[1] as number) * 30 + 0.02))
+  );
+  let clock = initialClock;
+  let inFlight = false;
+  let currentTime = 0;
+  let lastFire: number | null = null;
+  // The clips play before the first seek; during playback the time read is the picture's (P4).
+  let seeked = false;
+  let playing = false;
+  for (const [type, a, b, c, d] of events) {
+    if (type === 'fire' || type === 'userSeek') inFlight = seeked = true;
+    if (type === 'fire') lastFire = a as number;
+    if (type === 'seeking') clock = stepClock(clock, { type: 'seeking' });
+    if (type === 'seeked') {
+      currentTime = a as number;
+      clock = stepClock(clock, {
+        type: 'seeked',
+        heldFrameTime: b as number | null,
+        currentTime,
+        seeking: false,
+      });
+      inFlight = false;
+    }
+    if (type === 'frame') {
+      currentTime = c as number;
+      clock = stepClock(clock, {
+        type: 'frame',
+        frame: {
+          mediaTime: a as number,
+          duringSeek: inFlight,
+          droppedFrames: 0,
+          presentedFrames: b as number,
+          decodedFrames: b as number,
+          paused: d !== false,
+          playbackRate: 1,
+        },
+      });
+    }
+    if (type === 'frame') playing = d === false;
+    if (!seeked || playing || inFlight || type === 'fire' || type === 'userSeek') continue;
+    const want = Math.min(Math.floor(currentTime * 30 + 1e-6), lastFrame);
+    onSettled({ type: type as string, clock, currentTime, want, lastFrame, lastFire });
+  }
+}
+
 describe('frameTime over recorded seeks', () => {
   it.each(Object.keys(SEEK_TRACES).flatMap((name) => [30, 60].map((fps) => [name, fps] as const)))(
     'reads the playhead frame of %s whenever no seek is in flight, at %p fps in use',
     (name, fps) => {
-      const events = SEEK_TRACES[name];
-      const lastFrame = Math.max(
-        ...events
-          .filter((e) => e[0] === 'frame')
-          .map((e) => Math.floor((e[1] as number) * 30 + 0.02))
-      );
-      let clock = initialClock;
-      let inFlight = false;
-      let currentTime = 0;
-      // The clips play before the first seek; during playback the time read is the picture's (P4).
-      let seeked = false;
-      let playing = false;
       const misses: string[] = [];
-      for (const [type, a, b, c, d] of events) {
-        if (type === 'fire' || type === 'userSeek') inFlight = seeked = true;
-        if (type === 'seeking') clock = stepClock(clock, { type: 'seeking' });
-        if (type === 'seeked') {
-          currentTime = a as number;
-          clock = stepClock(clock, {
-            type: 'seeked',
-            heldFrameTime: b as number | null,
-            currentTime,
-            seeking: false,
-          });
-          inFlight = false;
-        }
-        if (type === 'frame') {
-          currentTime = c as number;
-          clock = stepClock(clock, {
-            type: 'frame',
-            frame: {
-              mediaTime: a as number,
-              duringSeek: inFlight,
-              droppedFrames: 0,
-              presentedFrames: b as number,
-              decodedFrames: b as number,
-              paused: d !== false,
-              playbackRate: 1,
-            },
-          });
-        }
-        if (type === 'frame') playing = d === false;
-        if (!seeked || playing || inFlight || type === 'fire' || type === 'userSeek') continue;
+      replaySettled(name, ({ type, clock, currentTime, want }) => {
         const time = frameTime({
           presentedFrameTime: clock.onScreen?.mediaTime ?? currentTime,
           playhead: currentTime,
@@ -809,11 +839,38 @@ describe('frameTime over recorded seeks', () => {
           fps,
           seekRetimesFrame: name.startsWith('firefox'),
         });
-        const want = Math.min(Math.floor(currentTime * 30 + 1e-6), lastFrame);
         const got = Math.floor((time + 0.001) * 30 + 1e-6);
         if (got !== want) misses.push(`${type} at frame ${want} read ${got}`);
-      }
+      });
       expect(misses).toEqual([]);
     }
   );
+});
+
+describe('frameStepTarget over recorded seeks', () => {
+  // From every settled moment, one step either way shows the neighbor frame, whether or not the
+  // last seek the markup made counts as a step's.
+  it.each(Object.keys(SEEK_TRACES))('steps to the neighbor frames of %s at 30 fps', (name) => {
+    const misses: string[] = [];
+    replaySettled(name, ({ type, clock, currentTime, want, lastFrame, lastFire }) => {
+      for (const lastTarget of [null, lastFire]) {
+        for (const frames of [1, -1]) {
+          const target = frameStepTarget({
+            presentedFrameTime: clock.onScreen?.mediaTime ?? currentTime,
+            playhead: currentTime,
+            isFrameCurrent: isFrameCurrent(clock),
+            lastTarget,
+            fps: 30,
+            duration: (lastFrame + 1) / 30,
+            frames,
+            seekRetimesFrame: name.startsWith('firefox'),
+          });
+          const expected = Math.min(Math.max(want + frames, 0), lastFrame);
+          const got = Math.floor(target * 30 + 1e-6);
+          if (got !== expected) misses.push(`${type} at ${want} ${frames} went to ${got}`);
+        }
+      }
+    });
+    expect(misses).toEqual([]);
+  });
 });

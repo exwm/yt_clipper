@@ -36,11 +36,12 @@ jest.mock('../platforms/platforms', () => ({
   getPlatform: () => mockPlatform.current,
   VideoPlatforms: { youtube: 'youtube', yt_clipper: 'yt_clipper' },
 }));
+// The frame on screen. By default frame 90, shown before the steps' seeks, which stay in flight.
+const mockScreen = { mediaTime: null as number | null, isCurrent: null as boolean | null };
 jest.mock('./presented-frame-clock', () => ({
   getMeasuredFrameRate: () => mockMeasured.fps,
-  // Frame 90, shown before the steps' seeks, which stay in flight.
-  getPresentedFrameTime: () => 90 / 30,
-  isPresentedSinceSeek: () => mockSeeks.requested.length === 0,
+  getPresentedFrameTime: () => mockScreen.mediaTime ?? 90 / 30,
+  isPresentedSinceSeek: () => mockScreen.isCurrent ?? mockSeeks.requested.length === 0,
   isNewMeasuredFrameRate: (_video: unknown, rate: number) => {
     const isNew = mockMeasured.isNew && !mockMeasured.announced.has(rate);
     mockMeasured.announced.add(rate);
@@ -89,7 +90,9 @@ import {
   describeFrameRate,
   followFrameRate,
   getFPS,
+  getFrameTime,
   seekByFrames,
+  seekToFrameAt,
   toggleFrameRateMeasurement,
 } from './videoUtil';
 import { seekBySafe } from './util';
@@ -303,6 +306,72 @@ describe('seekByFrames', () => {
     Object.assign(mockSeeks, { current: 90 / 30, inFlight: false, pending: null, requested: [] });
     for (let i = 0; i < 3; i++) seekByFrames(1);
     expect(mockSeeks.requested.map((time) => Math.floor(time * 30))).toEqual([91, 92, 93]);
+  });
+
+  describe('between steps and jumps', () => {
+    const frame = (n: number) => n / 30;
+    // Paused on frame `n` of a 30 fps video, at the rate in use `fps` (60: assumed).
+    function pausedOn(n: number, fps: 30 | 60) {
+      mockPlatform.current = 'yt_clipper';
+      mockMeasured.fps = fps === 30 ? 30 : null;
+      Object.assign(mockSeeks, { current: (n + 0.5) / 30, inFlight: false, pending: null });
+      mockSeeks.requested = [];
+      Object.assign(mockScreen, { mediaTime: frame(n), isCurrent: true });
+    }
+    // The seek in flight finishes and its frame shows.
+    function land() {
+      mockSeeks.inFlight = false;
+      const shown = Math.floor(mockSeeks.current * 30 + 1e-9);
+      Object.assign(mockScreen, { mediaTime: frame(shown), isCurrent: true });
+    }
+    const lastShown = () => Math.floor(mockSeeks.requested.at(-1)! * 30 + 1e-9);
+    afterEach(() => Object.assign(mockScreen, { mediaTime: null, isCurrent: null }));
+
+    it.each([
+      ['its frame shown', true],
+      ['its frame not shown yet', false],
+    ])('steps on from the frame a jump went to, %s', (_case, hasLanded) => {
+      pausedOn(90, 30);
+      seekByFrames(1);
+      land();
+      seekToFrameAt(frame(120));
+      mockScreen.isCurrent = false;
+      if (hasLanded) land();
+      seekByFrames(1);
+      expect(lastShown()).toBe(121);
+    });
+
+    it("reads a jump's placed time after a step, and steps on from its frame", () => {
+      pausedOn(90, 30);
+      seekByFrames(1);
+      land();
+      // A marker 1.5 ms before its frame's end.
+      const markerTime = frame(181) - 0.0015;
+      seekToFrameAt(markerTime);
+      mockScreen.isCurrent = false;
+      expect(getFrameTime()).toBe(markerTime);
+      land();
+      expect(getFrameTime()).toBe(markerTime);
+      seekByFrames(1);
+      land();
+      expect(lastShown()).toBe(181);
+      expect(getFrameTime()).toBe(frame(181));
+    });
+
+    // At the assumed 60 fps a step can stay on the same video frame; the time read is that frame's.
+    it('reads the frame on screen after steps at a rate above the video', () => {
+      pausedOn(90, 60);
+      const shown: number[] = [];
+      const times: number[] = [];
+      for (let i = 0; i < 2; i++) {
+        seekByFrames(1);
+        land();
+        shown.push(lastShown());
+        times.push(getFrameTime());
+      }
+      expect(shown).toEqual([90, 91]);
+      expect(times).toEqual([frame(90), frame(91)]);
+    });
   });
 
   it('steps by frame durations from the playhead in a browser without frame callbacks', () => {
