@@ -51,6 +51,7 @@ import {
 } from './settings-editor';
 import { Settings } from '../../@types/yt_clipper';
 import { Tooltips } from '../../ui/tooltips';
+import { describeFrameRate, getFrameRate } from '../../util/videoUtil';
 import { assertDefined, copyToClipboard, toHHMMSSTrimmed } from '../../util/util';
 
 export function toggleGlobalSettingsEditor() {
@@ -237,6 +238,10 @@ function GlobalSettingsEditorTemplate(binder: SettingsBinder<Settings>): Templat
             @change=${mergeList.onChange}
             ${ref(gateHotkeys)}
           />
+        </div>
+        <div class="settings-editor-input-div" title=${Tooltips.frameRateTooltip}>
+          <span style="display:inline">Frame Rate: </span>
+          <span id="global-frame-rate" style="display:inline">${describeFrameRate(getFrameRate())}</span>
         </div>
         <div class="settings-editor-input-div">
           <span style="display:inline">Merge Durations: </span>

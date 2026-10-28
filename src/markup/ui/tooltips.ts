@@ -186,6 +186,12 @@ export namespace Tooltips {
     Note that the YouTube video rotate preview using the R/Alt+R shortcuts does NOT affect the output video.
     `;
 
+  export const frameRateTooltip = stripIndent`
+    The frame rate the markup script uses for frame steps and frame times.
+    It is measured from the frames the video plays, about 2 seconds of playback.
+    Until then it is the platform's rate (YouTube) or an assumed 60 fps.
+    `;
+
   export const mergeListTooltip = stripIndent`
     Specify which marker pairs if any you would like to merge/concatenate.
     Each merge is a comma separated list of marker pair numbers or ranges (e.g., '1-3,5,9' = '1,2,3,5,9').

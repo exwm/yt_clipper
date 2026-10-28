@@ -9,7 +9,6 @@ import { FrameSeek, frameDecisionTime, frameStepTarget } from './frame-step';
 import { FrameGrid, frameSeekTarget, loopSeekTarget } from './frame-grid';
 import { registerActiveDragCleanup } from './drag-recovery';
 import {
-  FRAMES_TO_TELL_NTSC_RATES,
   getMeasuredFrameRate,
   getPresentedFrameTime,
   isNewMeasuredFrameRate,
@@ -17,15 +16,33 @@ import {
 import { isStaleVideo } from '../platforms/navigation';
 
 let frameRateFrames: VideoFrameSubscription | null = null;
-/** Reads the frame rate on each played frame, so a measured rate is taken, and flashed, as soon as
- *  it is measured rather than at the next action that needs it. */
+/** Reads the frame rate on each played frame, so a measured rate is flashed and shown as soon as it
+ *  is measured rather than at the next action that needs it. */
 export function followFrameRate(video: VideoElement): void {
+  // Starts the frame clock first, so its listeners reset the measured rate before these read it.
+  getMeasuredFrameRate(video);
   frameRateFrames?.stop();
-  frameRateFrames = onVideoFrames(video, () => getFPS(), { phase: 'update', label: 'frame rate' });
+  frameRateFrames = onVideoFrames(video, updateFrameRate, { phase: 'update', label: 'frame rate' });
   // A new source (YouTube reuses the video element on navigation) has its own stats rate.
   video.addEventListener('emptied', () => {
     youTubeStatsFps = null;
+    isNewSourceLoaded = false;
+    updateFrameRate();
   });
+  video.addEventListener('loadedmetadata', () => {
+    isNewSourceLoaded = true;
+    updateFrameRate();
+  });
+  video.addEventListener('resize', updateFrameRate);
+}
+
+function updateFrameRate(): void {
+  const frameRate = getFrameRate();
+  const { rate, source } = frameRate;
+  if (source === 'measured' && !isStaleVideo && isNewMeasuredFrameRate(appState.video, rate)) {
+    flashMessage(`Measured the frame rate: ${formatFps(rate)} fps.`, 'olive');
+  }
+  showFrameRate(frameRate);
 }
 
 // Whether getFPS uses the rate measured from played frames, saved in this browser. Read on first
@@ -52,11 +69,14 @@ export function toggleFrameRateMeasurement(): void {
   } catch {
     // Blocked or full storage: the setting holds for this page only.
   }
-  const fps = getFPS();
+  const frameRate = getFrameRate();
+  // This flash names the rate, so the next frame doesn't flash it again.
+  if (frameRate.source === 'measured') isNewMeasuredFrameRate(appState.video, frameRate.rate);
   flashMessage(
-    `Frame rate measurement ${measureFrameRate ? 'on' : 'off'}. Using ${formatFps(fps)} fps.`,
+    `Frame rate measurement ${measureFrameRate ? 'on' : 'off'}. Using ${formatFps(frameRate.rate)} fps.`,
     measureFrameRate ? 'green' : 'red'
   );
+  showFrameRate(frameRate);
 }
 
 /** The video's frames at the frame rate in use. */
@@ -123,41 +143,68 @@ export function seekByFrames(frames: number): void {
 }
 
 export let prevVideoWidth: number;
-// YouTube's stats rate for the rendition playing, read once per rendition (width) and source.
+// YouTube's stats rate for the rendition playing, read once per rendition (width) and source. Between
+// a new source's `emptied` and its `loadedmetadata` the stats still describe the old video, so the
+// rate read then isn't kept.
 let youTubeStatsFps: number | null = null;
-export function getFPS(defaultFPS: number | null = 60) {
-  let fps: number;
+let isNewSourceLoaded = true;
+
+export type FrameRateSource = 'measured' | 'platform' | 'default';
+
+/** The frame rate in use and where it comes from: a confirmed measured rate, else the platform's
+ *  (YouTube's stats), else the default. */
+export function getFrameRate(defaultFPS = 60): { rate: number; source: FrameRateSource } {
+  let frameRate: { rate: number; source: FrameRateSource } = { rate: defaultFPS, source: 'default' };
   try {
     const isYouTube = getPlatform() === VideoPlatforms.youtube;
     if (isYouTube) {
-      if (youTubeStatsFps == null || prevVideoWidth !== appState.video.videoWidth) {
-        youTubeStatsFps = parseFloat(
+      let statsFps = youTubeStatsFps;
+      if (statsFps == null || prevVideoWidth !== appState.video.videoWidth) {
+        statsFps = parseFloat(
           /@(\d+)/.exec((appState.player as YTPlayer).getStatsForNerds().resolution)?.[1] ?? '60'
         );
+        if (isNewSourceLoaded) youTubeStatsFps = statsFps;
       }
-      fps = youTubeStatsFps;
-    } else {
-      fps = defaultFPS ?? 60;
+      frameRate = { rate: statsFps, source: 'platform' };
     }
-    // A rate measured from played frames replaces the default. On YouTube it only refines the stats
-    // rate, which shows 29.97 fps as 30.
-    const measuredFPS = isFrameRateMeasured()
-      ? getMeasuredFrameRate(appState.video, isYouTube ? FRAMES_TO_TELL_NTSC_RATES : undefined)
-      : null;
-    if (measuredFPS != null && (!isYouTube || Math.abs(measuredFPS - fps) <= fps * 0.005)) {
-      fps = measuredFPS;
-      // A rate taken after a few frames can be corrected later; the correction flashes too, after the
-      // flash interval. Waiting for a confirmed rate would never flash where frames drop every so often.
-      if (!isStaleVideo && isNewMeasuredFrameRate(appState.video, fps)) {
-        flashMessage(`Measured the frame rate: ${formatFps(fps)} fps.`, 'olive');
-      }
+    // A confirmed measured rate replaces the default. On YouTube it only refines the stats rate, which
+    // shows 29.97 fps as 30.
+    const measured = isFrameRateMeasured() ? getMeasuredFrameRate(appState.video) : null;
+    if (
+      measured != null &&
+      (!isYouTube || Math.abs(measured - frameRate.rate) <= frameRate.rate * 0.005)
+    ) {
+      frameRate = { rate: measured, source: 'measured' };
     }
   } catch (e) {
     console.log('Could not detect fps', e);
-    fps = defaultFPS ?? 60; // by default parameter value assume high fps to avoid skipping frames
   }
   prevVideoWidth = appState.video.videoWidth;
-  return fps;
+  return frameRate;
+}
+
+const FRAME_RATE_SOURCES: Record<FrameRateSource, string> = {
+  measured: 'measured',
+  platform: "the platform's",
+  default: 'assumed until measured',
+};
+
+/** The frame rate in use and where it comes from, as the global settings editor shows it. */
+export function describeFrameRate({ rate, source }: { rate: number; source: FrameRateSource }) {
+  return `${formatFps(rate)} fps (${FRAME_RATE_SOURCES[source]})`;
+}
+
+// Runs on every played frame: touch the page only when the text changes.
+function showFrameRate(frameRate: { rate: number; source: FrameRateSource }) {
+  if (typeof document === 'undefined') return;
+  const field = document.getElementById('global-frame-rate');
+  const text = describeFrameRate(frameRate);
+  if (field != null && field.textContent !== text) field.textContent = text;
+}
+
+export function getFPS(defaultFPS: number | null = 60): number {
+  // By default assume a high rate, so a step never skips a frame.
+  return getFrameRate(defaultFPS ?? 60).rate;
 }
 export function hidePlayerControls() {
   appState.hooks.controls.originalDisplay =

@@ -1,4 +1,4 @@
-import { FRAMES_TO_TELL_NTSC_RATES, getMeasuredFrameRate } from './presented-frame-clock';
+import { getMeasuredFrameRate } from './presented-frame-clock';
 import { onVideoFrames, setVideoFrameLoopTiming } from './video-frame-loop';
 
 let refreshCallbacks: FrameRequestCallback[] = [];
@@ -74,13 +74,13 @@ it.each([
     const video = fakeVideo();
     const element = video as unknown as HTMLVideoElement;
     const draw = onVideoFrames(element, () => {});
-    getMeasuredFrameRate(element as never, FRAMES_TO_TELL_NTSC_RATES);
+    getMeasuredFrameRate(element as never);
     const rates = new Set<number | null>();
     for (let k = 0; k < 200; k++) {
       video.heldTime = toMs(start + k / fps);
       video.currentTime = video.heldTime;
       if (!misses.includes(k)) refresh();
-      rates.add(getMeasuredFrameRate(element as never, FRAMES_TO_TELL_NTSC_RATES));
+      rates.add(getMeasuredFrameRate(element as never));
     }
     rates.delete(null);
     // The rate is measured, and never another one.
@@ -101,13 +101,13 @@ it.each([
       const video = fakeVideo();
       const element = video as unknown as HTMLVideoElement;
       const draw = onVideoFrames(element, () => {});
-      getMeasuredFrameRate(element as never, FRAMES_TO_TELL_NTSC_RATES);
+      getMeasuredFrameRate(element as never);
       for (let k = 0; k <= frames; k++) {
         video.heldTime = toMs(start + k / fps);
         video.currentTime = video.heldTime;
         refresh();
       }
-      const rate = getMeasuredFrameRate(element as never, FRAMES_TO_TELL_NTSC_RATES);
+      const rate = getMeasuredFrameRate(element as never);
       if (rate !== fps) wrong.push({ frames, start, rate });
       draw.stop();
     }
@@ -128,7 +128,7 @@ it('measures a rate drop with no resize event, from 60 to 30 fps', () => {
     video.heldTime = toMs(time);
     video.currentTime = video.heldTime;
     refresh();
-    rates.push(getMeasuredFrameRate(element as never, FRAMES_TO_TELL_NTSC_RATES));
+    rates.push(getMeasuredFrameRate(element as never));
   }
   draw.stop();
   expect([rates[99], rates[199]]).toEqual([60, 30]);

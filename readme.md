@@ -326,6 +326,8 @@ Click the copy button to the right of the **Crop** label in a settings editor to
 
 **Shift+Mousewheel-Click:** Click the mouse wheel (or middle mouse button) to cycle the frame skip/seek rate between 1 and 3 frames.
 
+On sites that report no frame rate, the `markup script` measures it while the video plays and flashes it once measured. Until then frame steps assume 60 fps. The global settings editor shows the frame rate in use, and the **Toggle frame rate measurement from playback** command in the command palette turns measurement off and on.
+
 **Alt+Click+Drag:** Scrub/seek video time backward or forward by dragging left or right respectively.
 
 **C:** Toggle previewing marker pair speed.

@@ -3,10 +3,7 @@ import {
   announceRate,
   ClockEvent,
   ClockState,
-  FRAMES_TO_TELL_NTSC_RATES,
-  FRAMES_TO_TELL_STANDARD_RATES,
   initialClock,
-  publishRate,
   stepClock,
 } from './frame-clock-core';
 import { onVideoFrames, PresentedVideoFrame, VideoFrameSubscription } from './video-frame-loop';
@@ -18,8 +15,6 @@ import { onVideoFrames, PresentedVideoFrame, VideoFrameSubscription } from './vi
  * The clock also measures the frame duration during playback, for sites that report no frame rate.
  * The decisions are in `frame-clock-core.ts`; this module feeds it the video's events.
  */
-
-export { FRAMES_TO_TELL_NTSC_RATES, FRAMES_TO_TELL_STANDARD_RATES };
 
 let clockVideo: VideoElement | null = null;
 let clockSubscription: VideoFrameSubscription | null = null;
@@ -64,28 +59,17 @@ export function getPresentedFrameTime(video: VideoElement): number {
   return lastFrame.mediaTime + (video.getCurrentTime() - video.currentTime);
 }
 
-/** The frame rate measured from presented frames, snapped to the nearest standard rate when close to
- *  one. Before `minFrames` frames have played in a row it is the last measured rate, or null.
- *  Averaging over the run evens out mediaTime rounded to the millisecond. */
-export function getMeasuredFrameRate(
-  video: VideoElement,
-  minFrames = FRAMES_TO_TELL_STANDARD_RATES
-): number | null {
+/** The frame rate measured from presented frames once a run of them confirms it (snapped to the
+ *  nearest standard rate when close to one), else null. */
+export function getMeasuredFrameRate(video: VideoElement): number | null {
   if (clockVideo !== video) startClock(video);
-  const published = publishRate(clock, minFrames);
-  clock = published.state;
-  return published.rate;
+  return clock.publishedRate;
 }
 
-/** Whether to announce `rate`: a measured rate not yet announced for the video's current source, at
- *  most once every 5 s. */
-export function isNewMeasuredFrameRate(
-  video: VideoElement,
-  rate: number,
-  now = performance.now()
-): boolean {
+/** Whether to announce `rate`: the first time it is the rate in use for the video's current source. */
+export function isNewMeasuredFrameRate(video: VideoElement, rate: number): boolean {
   if (clockVideo !== video) startClock(video);
-  const announced = announceRate(clock, rate, now);
+  const announced = announceRate(clock, rate);
   clock = announced.state;
   return announced.isNew;
 }
