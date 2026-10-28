@@ -5,7 +5,14 @@ import { chartState } from '../charts';
 import { isDrawingCrop } from '../crop-overlay';
 import { isMouseManipulatingCrop } from '../crop-overlay';
 import { blockEvent, flashMessage, getPendingSeekTime, seekBySafe, seekToSafe } from './util';
-import { FrameSeek, frameStepTarget, frameTime, presentedFrameStart } from './frame-step';
+import {
+  FrameSeek,
+  frameStepTarget,
+  frameTime,
+  presentedFrameStart,
+  ScreenFrame,
+  screenFrame,
+} from './frame-step';
 import { FrameGrid, frameSeekTarget, loopSeekTarget } from './frame-grid';
 import { registerActiveDragCleanup } from './drag-recovery';
 import {
@@ -121,20 +128,28 @@ export function getPresentedFrameStart(mediaTime: number): number {
   return presentedFrameStart(mediaTime, video.currentTime, getFPS(), SEEK_RETIMES_FRAME);
 }
 
+// The frame on screen at `playhead`.
+function getScreenFrame(playhead: number): ScreenFrame {
+  const video = appState.video;
+  const onScreen = {
+    // eslint-disable-next-line no-restricted-syntax -- frame times and steps are built from it
+    mediaTime: getPresentedFrameTime(video),
+    isCurrent: isPresentedSinceSeek(video),
+  };
+  return screenFrame(onScreen, playhead, getFPS(), SEEK_RETIMES_FRAME);
+}
+
 /** The time of the frame the user is on, which placements store and frame decisions read. */
 export function getFrameTime(): number {
   const video = appState.video;
   const pendingSeekTime = getPendingSeekTime();
-  return frameTime({
-    // eslint-disable-next-line no-restricted-syntax -- getFrameTime is built from these
-    presentedFrameTime: getPresentedFrameTime(video),
-    // eslint-disable-next-line no-restricted-syntax -- getFrameTime is built from these
-    playhead: pendingSeekTime ?? video.getCurrentTime(),
+  // eslint-disable-next-line no-restricted-syntax -- getFrameTime is built from these
+  const playhead = pendingSeekTime ?? video.getCurrentTime();
+  return frameTime(getScreenFrame(playhead), {
+    playhead,
     isSeekInFlight: video.seeking || pendingSeekTime != null,
-    isFrameCurrent: isPresentedSinceSeek(video),
     lastFrameSeek,
     fps: getFPS(),
-    seekRetimesFrame: SEEK_RETIMES_FRAME,
   });
 }
 
@@ -167,18 +182,15 @@ export function seekByFrames(frames: number): void {
     seekBySafe(video, frames / getFPS());
     return;
   }
-  const target = frameStepTarget({
-    // eslint-disable-next-line no-restricted-syntax -- frame steps start from the frame on screen
-    presentedFrameTime: getPresentedFrameTime(video),
-    // A step held back while another seek is in flight is where the playhead is headed.
-    // eslint-disable-next-line no-restricted-syntax -- frame steps start from the frame on screen
-    playhead: getPendingSeekTime() ?? video.getCurrentTime(),
-    isFrameCurrent: isPresentedSinceSeek(video),
+  // A step held back while another seek is in flight is where the playhead is headed.
+  // eslint-disable-next-line no-restricted-syntax -- frame steps start from the frame on screen
+  const playhead = getPendingSeekTime() ?? video.getCurrentTime();
+  const target = frameStepTarget(getScreenFrame(playhead), {
+    playhead,
     lastTarget: lastStepTarget,
     fps: getFPS(),
     duration: video.duration,
     frames,
-    seekRetimesFrame: SEEK_RETIMES_FRAME,
   });
   lastStepTarget = target;
   // Not a frame seek for decisions: on a rate higher than the video's, a step's frame start isn't the

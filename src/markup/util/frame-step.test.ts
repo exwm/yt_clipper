@@ -1,8 +1,38 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { ClockState, initialClock, isFrameCurrent, stepClock } from './frame-clock-core';
-import { frameStepTarget, frameTime, presentedFrameStart } from './frame-step';
+import {
+  FrameSeek,
+  frameStepTarget,
+  frameTime,
+  presentedFrameStart,
+  screenFrame,
+} from './frame-step';
 import { onExternalSeek, onSeekRequest, onSeekSettled, SeekDecision } from './seek-coalescer';
+
+// The frame-step functions over the frame on screen and the playhead, as the tables state them.
+interface OnScreen {
+  presentedFrameTime: number;
+  playhead: number;
+  isFrameCurrent: boolean;
+  fps: number;
+  seekRetimesFrame: boolean;
+}
+const screenOf = (at: OnScreen) =>
+  screenFrame(
+    { mediaTime: at.presentedFrameTime, isCurrent: at.isFrameCurrent },
+    at.playhead,
+    at.fps,
+    at.seekRetimesFrame
+  );
+function frameTimeOf(at: OnScreen & { isSeekInFlight: boolean; lastFrameSeek: FrameSeek | null }) {
+  return frameTime(screenOf(at), at);
+}
+function stepTargetOf(
+  step: OnScreen & { lastTarget: number | null; duration: number; frames: number }
+) {
+  return frameStepTarget(screenOf(step), step);
+}
 
 const fps = 30;
 const frame = (n: number) => n / fps;
@@ -13,8 +43,8 @@ describe('frameTime', () => {
   // A jump to a marker 1.5 ms before its frame's end: the seek lands 1 ms past it.
   const markerTime = frame(181) - 0.0015;
   const jump = { target: markerTime + 0.001, frameTime: markerTime };
-  const at = (overrides: Partial<Parameters<typeof frameTime>[0]>) =>
-    frameTime({
+  const at = (overrides: Partial<Parameters<typeof frameTimeOf>[0]>) =>
+    frameTimeOf({
       presentedFrameTime: frame(90),
       playhead: middleOf(90),
       isSeekInFlight: false,
@@ -255,7 +285,7 @@ describe('frameStepTarget', () => {
     // The frame on screen was presented after the last seek, as when paused after a step.
     const isFrameCurrent = true;
     expect(
-      frameStepTarget({
+      stepTargetOf({
         presentedFrameTime,
         playhead,
         isFrameCurrent,
@@ -276,7 +306,7 @@ describe('frameStepTarget', () => {
     ['after a seek mid-frame', frame(90) + 0.02, null, 1, middleOf(91)],
   ] as const)('on Firefox %s', (_case, playhead, lastTarget, frames, expected) => {
     const step = { presentedFrameTime: playhead, playhead, isFrameCurrent: true, lastTarget, fps };
-    expect(frameStepTarget({ ...step, duration, frames, seekRetimesFrame: true })).toBeCloseTo(
+    expect(stepTargetOf({ ...step, duration, frames, seekRetimesFrame: true })).toBeCloseTo(
       expected,
       9
     );
@@ -303,7 +333,7 @@ describe('frameStepTarget', () => {
         frames,
         seekRetimesFrame,
       };
-      expect(frameStepTarget(at)).toBeCloseTo((expectedFrame + 0.5) / ntsc, 3);
+      expect(stepTargetOf(at)).toBeCloseTo((expectedFrame + 0.5) / ntsc, 3);
     }
   );
 
@@ -322,7 +352,7 @@ describe('frameStepTarget', () => {
       frames: -1,
       seekRetimesFrame: false,
     };
-    expect(frameStepTarget(at)).toBeCloseTo(lastMiddle - 1 / fpsInUse, 9);
+    expect(stepTargetOf(at)).toBeCloseTo(lastMiddle - 1 / fpsInUse, 9);
   });
   it('steps from the playhead, not a frame from before a user seek that lands just before it', () => {
     const playhead = frame(151) - 0.0004;
@@ -335,7 +365,7 @@ describe('frameStepTarget', () => {
       frames: 1,
       seekRetimesFrame: false,
     };
-    expect(frameStepTarget({ ...at, isFrameCurrent: false })).toBeCloseTo(middleOf(151), 9);
+    expect(stepTargetOf({ ...at, isFrameCurrent: false })).toBeCloseTo(middleOf(151), 9);
   });
 
   // A seek shows the frame that covers its target. `videoFps` is the video's rate, `fps` the rate in
@@ -347,7 +377,7 @@ describe('frameStepTarget', () => {
     const shown: number[] = [];
     for (let i = 0; i < steps; i++) {
       const playhead = lastTarget ?? presentedFrameTime;
-      const target = frameStepTarget({
+      const target = stepTargetOf({
         presentedFrameTime,
         playhead,
         isFrameCurrent: true,
@@ -543,7 +573,7 @@ describe('frameStepTarget', () => {
         tick();
         // An edit now (P1): the time read means the playhead's own frame.
         if (!video.seeking && pending == null) {
-          const time = frameTime({
+          const time = frameTimeOf({
             presentedFrameTime: frameOnScreen(),
             playhead: video.currentTime,
             isSeekInFlight: false,
@@ -555,7 +585,7 @@ describe('frameStepTarget', () => {
           if (frameShownAt(time + 0.001) !== frameShownAt(video.currentTime)) frameTimeMisses++;
         }
         while (step < burst.moves.length && now >= burstStart + step * burst.gap) {
-          const target = frameStepTarget({
+          const target = stepTargetOf({
             presentedFrameTime: frameOnScreen(),
             isFrameCurrent: isFrameCurrent(video.clock),
             playhead: pending ?? video.currentTime,
@@ -830,7 +860,7 @@ describe('frameTime over recorded seeks', () => {
     (name, fps) => {
       const misses: string[] = [];
       replaySettled(name, ({ type, clock, currentTime, want }) => {
-        const time = frameTime({
+        const time = frameTimeOf({
           presentedFrameTime: clock.onScreen?.mediaTime ?? currentTime,
           playhead: currentTime,
           isSeekInFlight: false,
@@ -855,7 +885,7 @@ describe('frameStepTarget over recorded seeks', () => {
     replaySettled(name, ({ type, clock, currentTime, want, lastFrame, lastFire }) => {
       for (const lastTarget of [null, lastFire]) {
         for (const frames of [1, -1]) {
-          const target = frameStepTarget({
+          const target = stepTargetOf({
             presentedFrameTime: clock.onScreen?.mediaTime ?? currentTime,
             playhead: currentTime,
             isFrameCurrent: isFrameCurrent(clock),

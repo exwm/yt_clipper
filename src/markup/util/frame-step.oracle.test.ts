@@ -1,5 +1,5 @@
 import { PLACEMENT_TOLERANCE, frameSeekTarget } from './frame-grid';
-import { frameStepTarget, frameTime, presentedFrameStart } from './frame-step';
+import { frameStepTarget, frameTime, presentedFrameStart, screenFrame } from './frame-step';
 
 // A frozen copy of frame-step.ts as of 5.49 (uxrlrlyt), the oracle the consolidation is checked
 // against. Deleted once the consolidation lands.
@@ -17,7 +17,9 @@ namespace Oracle {
     );
   }
   function containsPlayhead(presentedFrameTime: number, playhead: number, fps: number): boolean {
-    return presentedFrameTime <= playhead && playhead + TIME_ROUNDING < presentedFrameTime + 1 / fps;
+    return (
+      presentedFrameTime <= playhead && playhead + TIME_ROUNDING < presentedFrameTime + 1 / fps
+    );
   }
   function mayBeRetimed(t: number, playhead: number, fps: number, seekRetimesFrame: boolean) {
     const gridOffset = Math.abs(t * fps - Math.round(t * fps));
@@ -78,7 +80,8 @@ namespace Oracle {
     frames: number;
     seekRetimesFrame: boolean;
   }): number {
-    const { presentedFrameTime, playhead, isFrameCurrent, lastTarget, fps, duration, frames } = step;
+    const { presentedFrameTime, playhead, isFrameCurrent, lastTarget, fps, duration, frames } =
+      step;
     const frameDuration = 1 / fps;
     const lastMiddle = Number.isFinite(duration) ? duration - frameDuration / 2 : Infinity;
     const playheadInVideo = Math.min(playhead, lastMiddle);
@@ -123,7 +126,10 @@ interface State {
   isCurrent: boolean;
   playhead: number;
   isSeekInFlight: boolean;
-  lastSeek: { kind: 'place'; time: number; target: number } | { kind: 'step'; target: number } | null;
+  lastSeek:
+    | { kind: 'place'; time: number; target: number }
+    | { kind: 'step'; target: number }
+    | null;
   duration: number;
   frames: number;
 }
@@ -176,7 +182,11 @@ function clockStates(seed: number, count: number): State[] {
     const placed = start(n) - pick([0, 0.0015, 0.0004]);
     const lastSeek = pick([
       null,
-      { kind: 'place' as const, time: placed, target: frameSeekTarget({ origin: 0, rate: fps }, placed) },
+      {
+        kind: 'place' as const,
+        time: placed,
+        target: frameSeekTarget({ origin: 0, rate: fps }, placed),
+      },
       { kind: 'step' as const, target: playhead },
       { kind: 'step' as const, target: playhead + pick([-0.3, 0.2, 0.3, 1.5]) / fps },
     ]);
@@ -206,7 +216,9 @@ function oracleInputs(s: State) {
     isSeekInFlight: s.isSeekInFlight,
     isFrameCurrent: s.isCurrent,
     lastFrameSeek:
-      s.lastSeek?.kind === 'place' ? { target: s.lastSeek.target, frameTime: s.lastSeek.time } : null,
+      s.lastSeek?.kind === 'place'
+        ? { target: s.lastSeek.target, frameTime: s.lastSeek.time }
+        : null,
     lastTarget: s.lastSeek?.kind === 'step' ? s.lastSeek.target : null,
     fps: s.fps,
     duration: s.duration,
@@ -216,30 +228,57 @@ function oracleInputs(s: State) {
 }
 
 // The production functions over the same state.
+const screenAt = (s: State) =>
+  screenFrame(
+    { mediaTime: s.mediaTime, isCurrent: s.isCurrent },
+    s.playhead,
+    s.fps,
+    s.browser === 'firefox'
+  );
 const production = {
-  frameTime: (s: State) => frameTime(oracleInputs(s)),
-  frameStepTarget: (s: State) => frameStepTarget(oracleInputs(s)),
+  frameTime: (s: State) => frameTime(screenAt(s), oracleInputs(s)),
+  frameStepTarget: (s: State) => frameStepTarget(screenAt(s), oracleInputs(s)),
   frameStart: (s: State) =>
     presentedFrameStart(s.mediaTime, s.playhead, s.fps, s.browser === 'firefox'),
 };
 
+// Where production departs from the oracle on purpose. A departing state must still mean the same
+// video frame.
+const departures: { name: string; applies: (s: State) => boolean }[] = [
+  {
+    // The frame on screen is judged at the playhead, not the playhead clamped to the last frame.
+    name: 'a step at the end of the video before its frame shows',
+    applies: (s) => !s.isCurrent && s.playhead > s.duration - 0.5 / s.fps,
+  },
+];
+
+// The video frame a time read means, and the one a step's target shows.
+const frameRead = (s: State, time: number) => Math.floor((time + 0.001) * s.videoFps + 1e-6);
+const frameShown = (s: State, target: number) => Math.floor(target * s.videoFps + 1e-6);
+
 describe('the frame-step functions against the 5.49 oracle', () => {
   const states = clockStates(1, 30000);
   it.each([
-    ['frameTime', (s: State) => Oracle.frameTime(oracleInputs(s)), production.frameTime],
+    ['frameTime', (s: State) => Oracle.frameTime(oracleInputs(s)), production.frameTime, frameRead],
     [
       'frameStepTarget',
       (s: State) => Oracle.frameStepTarget(oracleInputs(s)),
       production.frameStepTarget,
+      frameShown,
     ],
     [
       'the start of a presented frame',
       (s: State) =>
         Oracle.presentedFrameStart(s.mediaTime, s.playhead, s.fps, s.browser === 'firefox'),
       production.frameStart,
+      frameRead,
     ],
-  ] as const)('%s agrees over clock states', (_name, oracle, actual) => {
+  ] as const)('%s agrees over clock states', (_name, oracle, actual, frameOf) => {
     const differ = states.filter((s) => Math.abs(oracle(s) - actual(s)) > 1e-12);
-    expect(differ.slice(0, 3)).toEqual([]);
+    const unexplained = differ.filter(
+      (s) =>
+        !departures.some((d) => d.applies(s)) || frameOf(s, oracle(s)) !== frameOf(s, actual(s))
+    );
+    expect(unexplained.slice(0, 3)).toEqual([]);
   });
 });
