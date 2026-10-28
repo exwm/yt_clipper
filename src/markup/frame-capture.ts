@@ -12,9 +12,8 @@ import {
   assertDefined,
 } from './util/util';
 import { injectProgressBar } from './util/util';
-import { getFPS } from './util/videoUtil';
+import { getFPS, getScreenFrame } from './util/videoUtil';
 import { frameAt } from './util/frame-grid';
-import { getPresentedFrameTime } from './util/presented-frame-clock';
 import { multiplyCropString } from './crop-utils';
 
 let frameCaptureViewerWindow: Window;
@@ -170,7 +169,7 @@ export function captureFrame() {
   frameDiv.setAttribute('class', 'frame-div');
   // The canvas draws the frame on screen, so the name gives that frame's time.
   // eslint-disable-next-line no-restricted-syntax -- names the picture captured
-  const frameTime = getPresentedFrameTime(appState.video);
+  const frameTime = getScreenFrame().start;
   const frameCount = getFrameCount(frameTime);
   const frameFileName = `${appState.settings.titleSuffix}-${resString}-@${frameTime}s(${toHHMMSSTrimmed(
     frameTime

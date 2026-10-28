@@ -100,15 +100,15 @@ import { registerActiveDragCleanup } from './util/drag-recovery';
 import { Chart, ChartConfiguration } from 'chart.js';
 import { scatterChartDefaults } from './ui/chart/scatterChartSpec';
 import {
+  frameStartOf,
   getFPS,
   getFrameGrid,
   getFrameTime,
-  getPresentedFrameStart,
+  getScreenFrame,
   loopPlaybackOver,
   seekToFrameAt,
 } from './util/videoUtil';
 import { frameAt, isInFrameSpan } from './util/frame-grid';
-import { getPresentedFrameTime } from './util/presented-frame-clock';
 import { onVideoFrames, VideoFrameSubscription } from './util/video-frame-loop';
 import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
 import type { HoveredRegion } from './features/hints-bar/hover-region';
@@ -774,7 +774,7 @@ export function triggerCropChartUpdates() {
 let presentedFrameTime: number | null = null;
 function currentCropTime(): number {
   // eslint-disable-next-line no-restricted-syntax -- the crop drawn for the picture on screen
-  return presentedFrameTime ?? getPresentedFrameStart(getPresentedFrameTime(appState.video));
+  return presentedFrameTime ?? getScreenFrame().start;
 }
 
 let cropPreviewSubscription: { video: VideoElement; frames: VideoFrameSubscription } | null = null;
@@ -788,7 +788,7 @@ function subscribeCropPreviewToFrames(): void {
     video,
     frames: onVideoFrames(
       video,
-      (frame) => cropChartPreviewHandler(getPresentedFrameStart(frame.mediaTime)),
+      (frame) => cropChartPreviewHandler(frameStartOf(frame.mediaTime)),
       {
         phase: 'update',
         label: 'crop chart preview',

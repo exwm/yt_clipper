@@ -7,6 +7,7 @@ import {
   isFrameCurrent,
   stepClock,
 } from './frame-clock-core';
+import type { FrameOnScreen } from './frame-step';
 import { onVideoFrames, PresentedVideoFrame, VideoFrameSubscription } from './video-frame-loop';
 
 /**
@@ -58,23 +59,19 @@ function startClock(video: VideoElement): void {
   clockSubscription = onVideoFrames(video, onFrame, { phase: 'clock', label: 'frame clock' });
 }
 
-/** The time of the frame on screen on the platform's timeline, or the playhead until the video
- *  presents a frame. */
-export function getPresentedFrameTime(video: VideoElement): number {
+/** What the clock knows of the frame on screen. Its time is on the platform's timeline, as the
+ *  playhead (getCurrentTime) is, and null until the video presents a frame. */
+export function getFrameOnScreen(video: VideoElement): FrameOnScreen {
   if (clockVideo !== video) startClock(video);
   const { onScreen } = clock;
-  // eslint-disable-next-line no-restricted-syntax -- the frame clock owns the frame on screen
-  if (onScreen == null) return video.getCurrentTime();
-  // A platform that plays a video in parts (afreecatv) times its timeline from the first part's start,
-  // and each part's media time from its own.
-  // eslint-disable-next-line no-restricted-syntax -- the frame clock owns the frame on screen
-  return onScreen.mediaTime + (video.getCurrentTime() - video.currentTime);
-}
-
-/** Whether the frame on screen is the playhead's frame: presented, or read, after the last seek finished. */
-export function isPresentedSinceSeek(video: VideoElement): boolean {
-  if (clockVideo !== video) startClock(video);
-  return isFrameCurrent(clock);
+  return {
+    // A platform that plays a video in parts (afreecatv) times its timeline from the first part's
+    // start, and each part's media time from its own.
+    // eslint-disable-next-line no-restricted-syntax -- the frame clock owns the frame on screen
+    mediaTime: onScreen && onScreen.mediaTime + (video.getCurrentTime() - video.currentTime),
+    isRead: onScreen?.isRead ?? false,
+    isCurrent: isFrameCurrent(clock),
+  };
 }
 
 // The time of the frame the video holds, or null where it can't be read: no WebCodecs, or a
