@@ -25,6 +25,20 @@ def test_shift_mousewheel_steps_one_frame_at_a_time_at_the_measured_frame_rate(
     then_the_frames_shown_are(markup, backward, list(range(129, 119, -1)))
 
 
+# Before a rate is measured steps are 1/60 s; at the end Chrome snaps the time to the duration, past
+# the last frame, and steps back must still leave the last frame.
+def test_shift_mousewheel_steps_back_from_the_end_of_the_video(markup: MarkupPage) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("checks the 60 fps default of a site that reports no frame rate")
+    duration = markup.page.evaluate("() => document.querySelector('video').duration")
+    markup.seek(duration - 0.12, presented=True)
+    forward = when_i_shift_scroll(markup, "up", times=8)
+    backward = when_i_shift_scroll(markup, "down", times=3)
+    then_the_last_frame_was_reached_and_left(
+        markup, forward, backward, math.ceil(duration * VIDEO_FPS) - 1
+    )
+
+
 # On YouTube the measured rate refines the stats rate, whatever the video's rate.
 @pytest.mark.platform
 def test_the_measured_frame_rate_flashes_once_the_video_plays(markup: MarkupPage) -> None:
@@ -99,3 +113,13 @@ def when_i_shift_scroll(markup: MarkupPage, direction: str, times: int) -> list[
 def then_the_frames_shown_are(markup: MarkupPage, shown: list[int], expected: list[int]) -> None:
     markup.report(f"frames shown {shown}")
     assert shown == expected
+
+
+@step
+def then_the_last_frame_was_reached_and_left(
+    markup: MarkupPage, forward: list[int], backward: list[int], last_frame: int
+) -> None:
+    markup.report(f"forward {forward}, backward {backward}")
+    # At the end the time is the duration, which reads as the frame after the last.
+    assert min(forward[-1], last_frame) == last_frame
+    assert backward[-1] < last_frame

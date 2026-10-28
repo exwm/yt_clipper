@@ -820,7 +820,7 @@ export function cropChartPreviewHandler(frameTime?: number) {
         // (reframeKeyframeColor), so the two never disagree: both read isPlayheadOnCropKeyframe at the
         // same frame. Do NOT gate on video.seeking: a frame-step presents its frame while seeking is
         // still true, and skipping it left the point stale (border green, point not) with no later
-        // frame to fix it. The full-frame on-keyframe tolerance keeps a seek-to-point landing green.
+        // frame to fix it. A seek to a point lands on its frame, which getFrameTime reads as the point's.
         if (isDynamicCrop && !isManipulatingOrDrawing) {
           // On a keyframe, select & highlight it (the edit target). Between keyframes a manipulation
           // creates a NEW point, so no existing point is the target: clear the highlight. Re-render

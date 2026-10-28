@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import {
   announceRate,
   ClockFrame,
@@ -67,7 +69,7 @@ function scenarios(seedsPerCell: number): Scenario[] {
         seed,
         burstChance: cell.burst.length > 0 ? 0.01 : 0,
         missChance: pick([0, 0.002, 0.01]),
-        dropChance: pick([0, 0.002]),
+        dropChance: pick([0, 0.002, 0.02]),
         seekChance: pick([0, 0.003]),
         gapChance: pick([0, 0.01]),
         pauseChance: pick([0, 0.005]),
@@ -90,6 +92,7 @@ function play(
   let clock = initialClock;
   let time = 5 + random() * 20;
   let presented = 0;
+  let decoded = 0;
   let dropped = 0;
   let fastFramesLeft = 0;
   const reported: (number | null)[] = [];
@@ -107,9 +110,15 @@ function play(
     if (random() < s.gapChance) time += 0.2 + random() * 0.5;
     if (random() < s.fastChance) fastFramesLeft = 20;
     const playbackRate = fastFramesLeft-- > 0 ? 2 : 1;
-    if (random() < s.dropChance) dropped++;
+    // A dropped frame is decoded but never presented: the next one comes a frame later.
+    if (random() < s.dropChance) {
+      dropped++;
+      decoded++;
+      time += playbackRate / rateAt(k);
+    }
     time += playbackRate / rateAt(k);
     presented++;
+    decoded++;
     if (random() < s.missChance || burstMisses.has(k)) continue;
     const frame: ClockFrame = {
       // YouTube rounds mediaTime to the millisecond.
@@ -117,8 +126,8 @@ function play(
       duringSeek,
       droppedFrames: dropped,
       presentedFrames: s.countsFrames ? presented : undefined,
-      // Every frame is decoded, including those presented while a callback was missed.
-      decodedFrames: presented,
+      // Every frame is decoded, including those dropped or presented while a callback was missed.
+      decodedFrames: decoded,
       paused: random() < s.pauseChance,
       playbackRate,
     };
@@ -208,6 +217,51 @@ describe('the frame clock over seeded playback', () => {
     expect(unmeasured).toEqual([]);
   });
 
+  // A machine that drops a frame every 50: 60 frames of millisecond times never play in a row.
+  it.each(
+    RATES.flatMap((fps) => [true, false].map((countsFrames) => [fps, countsFrames] as const))
+  )(
+    'measures %p fps from millisecond times with a frame dropped every 50 (frames counted: %p)',
+    (fps, countsFrames) => {
+      let clock = initialClock;
+      for (let k = 0; k < 600; k++) {
+        const dropped = Math.floor((k + 25) / 50);
+        const videoFrame = 300 + k + dropped;
+        const frame: ClockFrame = {
+          mediaTime: Math.round((videoFrame / fps) * 1000) / 1000,
+          duringSeek: false,
+          droppedFrames: dropped,
+          presentedFrames: countsFrames ? k : undefined,
+          decodedFrames: k + dropped,
+          paused: false,
+          playbackRate: 1,
+        };
+        clock = stepClock(clock, { type: 'frame', frame });
+      }
+      expect(clock.publishedRate).toBe(fps);
+    }
+  );
+  // The worst case a browser could report: every other frame dropped, each drop counted a callback
+  // late, and the decoded count leaving dropped frames out, so it can't tell a gap of 2 frames.
+  it.each([true, false])(
+    'publishes nothing when every other frame drops, counted late and left out of the decoded count (frames counted: %p)',
+    (countsFrames) => {
+      let clock = initialClock;
+      for (let k = 0; k < 600; k++) {
+        const frame: ClockFrame = {
+          mediaTime: Math.round(((300 + 2 * k) / 60) * 1000) / 1000,
+          duringSeek: false,
+          droppedFrames: Math.max(0, k - 1),
+          presentedFrames: countsFrames ? k : undefined,
+          decodedFrames: k,
+          paused: false,
+          playbackRate: 1,
+        };
+        clock = stepClock(clock, { type: 'frame', frame });
+      }
+      expect(clock.publishedRate).toBeNull();
+    }
+  );
   // With millisecond times 8 frames can't tell NTSC rates from their neighbors: no rate is published
   // until a run of 60 confirms one.
   it('publishes no rate when seeks break every run before 60 frames of millisecond times', () => {
@@ -325,5 +379,84 @@ describe('announceRate', () => {
   it('announces the rate again for a new source', () => {
     const announced = announceRate(confirmed30(), 30).state;
     expect(announceRate(stepClock(announced, { type: 'emptied' }), 30).isNew).toBe(true);
+  });
+});
+
+// Frames recorded in Chrome and Firefox playing synthetic clips (testsrc2, 7 s), clean and with a
+// busy main thread: [mediaTime, presentedFrames, totalVideoFrames, droppedVideoFrames] per frame
+// callback. Chrome reported a burst of drops a callback late; Firefox raised its dropped count by 30
+// with every frame still presented. A 61 fps clip on a 59.95 Hz display drops a frame about every 43
+// (the renderer drops one each time the video gains a refresh).
+const TRACES: Record<string, { fps: number; frames: [number, number, number, number][] }> =
+  JSON.parse(readFileSync(join(__dirname, 'frame-clock-traces.json'), 'utf8'));
+
+describe('the frame clock over recorded browser frames', () => {
+  it.each(Object.entries(TRACES))('reports %s at its own rate or not at all', (_name, trace) => {
+    let clock = initialClock;
+    const reported = new Set<number>();
+    for (const [mediaTime, presentedFrames, decodedFrames, droppedFrames] of trace.frames) {
+      clock = stepClock(clock, {
+        type: 'frame',
+        frame: {
+          mediaTime,
+          presentedFrames,
+          decodedFrames,
+          droppedFrames,
+          duringSeek: false,
+          paused: false,
+          playbackRate: 1,
+        },
+      });
+      if (clock.publishedRate != null) reported.add(clock.publishedRate);
+    }
+    expect([...reported].filter((rate) => rate !== trace.fps)).toEqual([]);
+    if (process.env.TRACE_REPORT) console.log(_name, clock.publishedRate);
+  });
+
+  // A 61 fps video on a 59.95 Hz display: Chrome drops a frame about every 43, so 60 frames never
+  // play in a row. Counting the dropped frames' gaps keeps the run going.
+  it('measures the rate when a frame drops more often than every 60', () => {
+    const trace = TRACES['chromium vp9-61-webm cadence'];
+    let clock = initialClock;
+    for (const [mediaTime, presentedFrames, decodedFrames, droppedFrames] of trace.frames) {
+      clock = stepClock(clock, {
+        type: 'frame',
+        frame: {
+          mediaTime,
+          presentedFrames,
+          decodedFrames,
+          droppedFrames,
+          duringSeek: false,
+          paused: false,
+          playbackRate: 1,
+        },
+      });
+    }
+    expect(clock.publishedRate).toBe(61);
+  });
+});
+
+describe('the frame on screen after a seek', () => {
+  const seekedAt = (currentTime: number, heldFrameTime: number | null, seeking = false) =>
+    stepClock(stepClock(initialClock, { type: 'seeking' }), {
+      type: 'seeked',
+      heldFrameTime,
+      currentTime,
+      seeking,
+    });
+  it.each([
+    ['the frame read where it can be the frame there', 6.05, 6.033333, 6.033333],
+    // Firefox reads every frame as about 0 (5 µs).
+    ["Firefox's read near the start", 0.3, 0.000005, null],
+    ['a read of frame 0 at the start', 0.0005, 0, 0],
+    ['a frame after the playhead', 6.05, 6.1, null],
+    ['a frame far before the playhead', 6.05, 1, null],
+    ['no read', 6.05, null, null],
+  ] as const)('keeps %s', (_case, currentTime, held, expected) => {
+    expect(seekedAt(currentTime, held).onScreen?.mediaTime ?? null).toBe(expected);
+  });
+
+  it('reads nothing when another seek already started', () => {
+    expect(seekedAt(6.05, 6.033333, true).onScreen).toBeNull();
   });
 });

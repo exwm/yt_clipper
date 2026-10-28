@@ -1,3 +1,6 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { initialClock, isFrameCurrent, stepClock } from './frame-clock-core';
 import { frameStepTarget, frameTime } from './frame-step';
 import { onExternalSeek, onSeekRequest, onSeekSettled, SeekDecision } from './seek-coalescer';
 
@@ -196,6 +199,22 @@ describe('frameStepTarget', () => {
     ).toBeCloseTo(expected, 9);
   });
 
+  // At the end the video snaps its time to the duration ('ended'), past the last frame's middle.
+  it('steps back from the end of the video, at a rate in use above the video', () => {
+    const fpsInUse = 60;
+    const end = 2400;
+    const lastMiddle = end - 0.5 / fpsInUse;
+    const at = {
+      presentedFrameTime: end - 1 / 30,
+      playhead: end,
+      isFrameCurrent: true,
+      lastTarget: lastMiddle,
+      fps: fpsInUse,
+      duration: end,
+      frames: -1,
+    };
+    expect(frameStepTarget(at)).toBeCloseTo(lastMiddle - 1 / fpsInUse, 9);
+  });
   it('steps from the playhead, not a frame from before a user seek that lands just before it', () => {
     const playhead = frame(151) - 0.0004;
     const at = {
@@ -271,9 +290,12 @@ describe('frameStepTarget', () => {
     // The video's last frame, and its duration in frames (longer when its audio is).
     lastFrame?: number;
     durationFrames?: number;
-    // YouTube's order: a seek's frame is presented before its `seeking`, so the frame clock stamps it
-    // with the seek count from before it and it never reads current.
+    // YouTube's order: a seek's frame is presented before its `seeking`.
     framesBeforeSeeking?: boolean;
+    // Whether `new VideoFrame(video)` reads the frame held at `seeked` (Chrome; Firefox reads 0), and
+    // whether the coalescer's `seeked` listener, which starts the next seek, runs before the clock's.
+    readsHeldFrame?: boolean;
+    coalescerFirst?: boolean;
   }
   interface Burst {
     moves: number[];
@@ -299,23 +321,42 @@ describe('frameStepTarget', () => {
       seeking: false,
       seekEndsAt: 0,
       shownFrame: startFrame,
-      // Seeks started, and how many had when the frame on screen was presented (the frame clock's
-      // stamp).
-      seeks: 0,
-      shownAfterSeeks: 0,
-      framesDue: [] as { frame: number; at: number; seekEndsAt: number; stamp: number }[],
+      presented: 0,
+      // The frame clock, fed the video's events in their order.
+      clock: initialClock,
+      framesDue: [] as { frame: number; at: number; seekEndsAt: number }[],
     };
     let pending: number | null = null;
     let timerAt: number | null = null;
     let lastTarget: number | null = null;
     let now = 0;
+    // Every frame shown, in order, for the bursts' checks.
+    const shownLog: number[] = [];
+    const present = (frame: number) => {
+      if (frame !== video.shownFrame) shownLog.push(frame);
+      video.shownFrame = frame;
+      video.presented++;
+      video.clock = stepClock(video.clock, {
+        type: 'frame',
+        frame: {
+          mediaTime: frameStart(frame),
+          duringSeek: video.seeking,
+          droppedFrames: 0,
+          presentedFrames: video.presented,
+          decodedFrames: video.presented,
+          paused: true,
+          playbackRate: 1,
+        },
+      });
+    };
     const seekTo = (target: number) => {
-      video.seeks++;
       video.framesDue = video.framesDue.filter((due) => due.seekEndsAt <= now);
+      if (playback.framesBeforeSeeking) present(frameShownAt(target));
+      video.clock = stepClock(video.clock, { type: 'seeking' });
       Object.assign(video, { currentTime: target, seeking: true, seekEndsAt: now + seekTime });
+      if (playback.framesBeforeSeeking) return;
       const at = Math.max(now, now + seekTime + arrival);
-      const stamp = playback.framesBeforeSeeking ? video.seeks - 1 : video.seeks;
-      video.framesDue.push({ frame: frameShownAt(target), at, seekEndsAt: now + seekTime, stamp });
+      video.framesDue.push({ frame: frameShownAt(target), at, seekEndsAt: now + seekTime });
       video.framesDue.sort((a, b) => a.at - b.at);
     };
     const apply = (decision: SeekDecision) => {
@@ -323,22 +364,43 @@ describe('frameStepTarget', () => {
       timerAt = decision.effects.some((e) => e.type === 'armTimer') ? now + 1000 : null;
       for (const effect of decision.effects) if (effect.type === 'fire') seekTo(effect.target);
     };
+    const settle = () => {
+      const held = frameStart(frameShownAt(video.currentTime));
+      video.clock = stepClock(video.clock, {
+        type: 'seeked',
+        heldFrameTime: playback.readsHeldFrame ? held : null,
+        currentTime: video.currentTime,
+        seeking: video.seeking,
+      });
+    };
     const isBusy = () => video.seeking || pending != null || video.framesDue.length > 0;
     const tick = () => {
+      // A step's frame can come after the next step's `seeking` (Chrome, YouTube).
       while (video.framesDue.length > 0 && now >= video.framesDue[0].at) {
-        const due = video.framesDue.shift()!;
-        video.shownFrame = due.frame;
-        video.shownAfterSeeks = due.stamp;
+        present(video.framesDue.shift()!.frame);
       }
       if (video.seeking && now >= video.seekEndsAt) {
+        // Where the frame can't be read at `seeked` (Firefox), an earlier seek's frame comes before this
+        // seek's `seeked`: in recorded Chrome, YouTube and Firefox seeks (round 6 traces) a late frame
+        // came after the next `seeking`, never after the next `seeked`. Where it can (Chrome), the
+        // model lets it come later, which the clock's read guards.
+        const late = playback.readsHeldFrame
+          ? []
+          : video.framesDue.filter((due) => due.seekEndsAt < video.seekEndsAt);
+        late.forEach((due) => present(due.frame));
+        video.framesDue = video.framesDue.filter((due) => !late.includes(due));
         video.seeking = false;
+        if (!playback.coalescerFirst) settle();
         apply(onSeekSettled(pending, video.currentTime, false));
+        if (playback.coalescerFirst) settle();
       }
       if (timerAt != null && now >= timerAt) {
         timerAt = null;
         apply(onSeekSettled(pending, video.currentTime, video.seeking));
       }
     };
+    const frameOnScreen = () => video.clock.onScreen?.mediaTime ?? video.currentTime;
+    present(startFrame);
     const results: {
       afterUserSeek: boolean;
       nearRoundedBoundary: boolean;
@@ -349,6 +411,8 @@ describe('frameStepTarget', () => {
       monotonic: boolean;
       // Every frame shown during the burst, in order.
       shown: number[];
+      // Times with no seek in flight when `frameTime` read another frame than the playhead's.
+      frameTimeMisses: number;
     }[] = [];
     for (const burst of bursts) {
       for (; isBusy(); now++) tick();
@@ -360,17 +424,28 @@ describe('frameStepTarget', () => {
         from = frameShownAt(burst.userSeek.time);
         for (const end = now + burst.userSeek.lead; now < end; now++) tick();
       }
-      const shown: number[] = [];
+      const shownFrom = shownLog.length;
       const burstStart = now;
       let step = 0;
+      let frameTimeMisses = 0;
       for (; step < burst.moves.length || isBusy(); now++) {
-        const before = video.shownFrame;
         tick();
-        if (video.shownFrame !== before) shown.push(video.shownFrame);
+        // An edit now (P1): the time read means the playhead's own frame.
+        if (!video.seeking && pending == null) {
+          const time = frameTime({
+            presentedFrameTime: frameOnScreen(),
+            playhead: video.currentTime,
+            isSeekInFlight: false,
+            isFrameCurrent: isFrameCurrent(video.clock),
+            lastFrameSeek: null,
+            fps: stepFps,
+          });
+          if (frameShownAt(time + 0.001) !== frameShownAt(video.currentTime)) frameTimeMisses++;
+        }
         while (step < burst.moves.length && now >= burstStart + step * burst.gap) {
           const target = frameStepTarget({
-            presentedFrameTime: frameStart(video.shownFrame),
-            isFrameCurrent: video.shownAfterSeeks === video.seeks,
+            presentedFrameTime: frameOnScreen(),
+            isFrameCurrent: isFrameCurrent(video.clock),
             playhead: pending ?? video.currentTime,
             lastTarget,
             fps: burst.fpsAt?.(step) ?? stepFps,
@@ -382,6 +457,7 @@ describe('frameStepTarget', () => {
           step++;
         }
       }
+      const shown = shownLog.slice(shownFrom);
       const wanted = burst.moves.reduce((sum, move) => sum + move, 0);
       const direction = Math.sign(burst.moves[0]);
       const oneWay = burst.moves.every((move) => Math.sign(move) === direction);
@@ -399,6 +475,7 @@ describe('frameStepTarget', () => {
         moved: video.shownFrame - from,
         ended: video.shownFrame === Math.min(Math.max(from + wanted, 0), lastFrame),
         shown,
+        frameTimeMisses,
         monotonic:
           !oneWay || shown.every((n, i) => direction * (n - (i === 0 ? from : shown[i - 1])) >= 0),
       });
@@ -453,6 +530,9 @@ describe('frameStepTarget', () => {
       arrival,
       roundToMs: random() < 0.5,
       startFrame,
+      // Chrome reads the held frame; Firefox doesn't. Either listener order.
+      readsHeldFrame: random() < 0.5,
+      coalescerFirst: random() < 0.5,
     };
     return { seed, playback, bursts };
   }
@@ -493,6 +573,17 @@ describe('frameStepTarget', () => {
     expect(failures(scenarios, isWrong)).toEqual([]);
   });
 
+  // P1 through the same browser model: an edit at any moment with no seek in flight, during or after
+  // a burst, reads a time in the playhead's own frame.
+  it("reads the playhead's frame whenever no seek is in flight, at any rate in use", () => {
+    const rates = [...MATCHED_RATES.map((rate) => [rate, rate]), ...MISMATCHED_RATES];
+    const scenarios = Array.from({ length: 600 }, (_, i) => scenario(i + 1, rates));
+    const isWrong = (r: ReturnType<typeof playBursts>[number]) =>
+      r.frameTimeMisses > 0 && !r.nearRoundedBoundary;
+    expect(
+      failures(scenarios, isWrong).map(({ seed, frameTimeMisses }) => ({ seed, frameTimeMisses }))
+    ).toEqual([]);
+  });
   it.each([
     [30, 60, 30],
     [30, 30, 60],
@@ -550,4 +641,76 @@ describe('frameStepTarget', () => {
     ]);
     expect(results.map((r) => r.ended)).toEqual([true, true, true, true, true]);
   });
+});
+
+// Seeks recorded in Chrome (synthetic clips and YouTube) and Firefox: step bursts through a coalescer
+// like seekToSafe, jumps, a seek within one frame, a user seek during a seek. Events in order:
+// ['fire' | 'userSeek', target], ['seeking'], ['seeked', currentTime, frame read by new VideoFrame],
+// ['frame', mediaTime, presentedFrames, currentTime, paused]. The clips are 30 fps.
+const SEEK_TRACES: Record<string, (string | number | null)[][]> = JSON.parse(
+  readFileSync(join(__dirname, 'frame-seek-traces.json'), 'utf8')
+);
+
+describe('frameTime over recorded seeks', () => {
+  it.each(Object.keys(SEEK_TRACES).flatMap((name) => [30, 60].map((fps) => [name, fps] as const)))(
+    'reads the playhead frame of %s whenever no seek is in flight, at %p fps in use',
+    (name, fps) => {
+      const events = SEEK_TRACES[name];
+      const lastFrame = Math.max(
+        ...events
+          .filter((e) => e[0] === 'frame')
+          .map((e) => Math.floor((e[1] as number) * 30 + 0.02))
+      );
+      let clock = initialClock;
+      let inFlight = false;
+      let currentTime = 0;
+      // The clips play before the first seek; during playback the time read is the picture's (P4).
+      let seeked = false;
+      let playing = false;
+      const misses: string[] = [];
+      for (const [type, a, b, c, d] of events) {
+        if (type === 'fire' || type === 'userSeek') inFlight = seeked = true;
+        if (type === 'seeking') clock = stepClock(clock, { type: 'seeking' });
+        if (type === 'seeked') {
+          currentTime = a as number;
+          clock = stepClock(clock, {
+            type: 'seeked',
+            heldFrameTime: b as number | null,
+            currentTime,
+            seeking: false,
+          });
+          inFlight = false;
+        }
+        if (type === 'frame') {
+          currentTime = c as number;
+          clock = stepClock(clock, {
+            type: 'frame',
+            frame: {
+              mediaTime: a as number,
+              duringSeek: inFlight,
+              droppedFrames: 0,
+              presentedFrames: b as number,
+              decodedFrames: b as number,
+              paused: d !== false,
+              playbackRate: 1,
+            },
+          });
+        }
+        if (type === 'frame') playing = d === false;
+        if (!seeked || playing || inFlight || type === 'fire' || type === 'userSeek') continue;
+        const time = frameTime({
+          presentedFrameTime: clock.onScreen?.mediaTime ?? currentTime,
+          playhead: currentTime,
+          isSeekInFlight: false,
+          isFrameCurrent: isFrameCurrent(clock),
+          lastFrameSeek: null,
+          fps,
+        });
+        const want = Math.min(Math.floor(currentTime * 30 + 1e-6), lastFrame);
+        const got = Math.floor((time + 0.001) * 30 + 1e-6);
+        if (got !== want) misses.push(`${type} at frame ${want} read ${got}`);
+      }
+      expect(misses).toEqual([]);
+    }
+  );
 });

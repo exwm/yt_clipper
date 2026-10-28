@@ -1,5 +1,12 @@
 import type { VideoElement } from '../appState';
-import { announceRate, ClockEvent, ClockState, initialClock, stepClock } from './frame-clock-core';
+import {
+  announceRate,
+  ClockEvent,
+  ClockState,
+  initialClock,
+  isFrameCurrent,
+  stepClock,
+} from './frame-clock-core';
 import { onVideoFrames, PresentedVideoFrame, VideoFrameSubscription } from './video-frame-loop';
 
 /**
@@ -23,6 +30,15 @@ function startClock(video: VideoElement): void {
   video.addEventListener('emptied', () => step({ type: 'emptied' }));
   video.addEventListener('resize', () => step({ type: 'resize' }));
   video.addEventListener('seeking', () => step({ type: 'seeking' }));
+  video.addEventListener('seeked', () =>
+    step({
+      type: 'seeked',
+      heldFrameTime: heldFrameTime(video),
+      // The held frame's timeline (a part's, on afreecatv), not the platform's.
+      currentTime: video.currentTime,
+      seeking: video.seeking,
+    })
+  );
   const onFrame = (presented: PresentedVideoFrame): void => {
     const quality = video.getVideoPlaybackQuality?.();
     step({
@@ -46,20 +62,34 @@ function startClock(video: VideoElement): void {
  *  presents a frame. */
 export function getPresentedFrameTime(video: VideoElement): number {
   if (clockVideo !== video) startClock(video);
-  const { lastFrame } = clock;
+  const { onScreen } = clock;
   // eslint-disable-next-line no-restricted-syntax -- the frame clock owns the frame on screen
-  if (lastFrame == null) return video.getCurrentTime();
+  if (onScreen == null) return video.getCurrentTime();
   // A platform that plays a video in parts (afreecatv) times its timeline from the first part's start,
   // and each part's media time from its own.
   // eslint-disable-next-line no-restricted-syntax -- the frame clock owns the frame on screen
-  return lastFrame.mediaTime + (video.getCurrentTime() - video.currentTime);
+  return onScreen.mediaTime + (video.getCurrentTime() - video.currentTime);
 }
 
-/** Whether the frame on screen was presented after the last seek started, so it is the playhead's
- *  frame. A frame presented before 'seeking' (YouTube) reads as not, which is the safe side. */
+/** Whether the frame on screen is the playhead's frame: presented, or read, after the last seek finished. */
 export function isPresentedSinceSeek(video: VideoElement): boolean {
   if (clockVideo !== video) startClock(video);
-  return clock.lastFrame?.seekCount === clock.seekCount;
+  return isFrameCurrent(clock);
+}
+
+// The time of the frame the video holds, or null where it can't be read: no WebCodecs, or a
+// cross-origin video that isn't CORS-clean (the constructor throws). Firefox reads it as time 0,
+// which the clock rejects.
+function heldFrameTime(video: VideoElement): number | null {
+  if (typeof VideoFrame !== 'function') return null;
+  try {
+    const frame = new VideoFrame(video);
+    const time = frame.timestamp / 1e6;
+    frame.close();
+    return time;
+  } catch {
+    return null;
+  }
 }
 
 /** The frame rate measured from presented frames once a run of them confirms it (snapped to the

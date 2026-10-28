@@ -76,6 +76,13 @@ interface RunGap {
 export interface ClockState {
   lastFrame: SeenFrame | null;
   seekCount: number;
+  // Seeks finished (`seeked`), and the frame on screen with how many seeks had started and finished
+  // when it was presented or read. A frame presented while a seek is in flight can be the frame of
+  // the seek before it (Chrome, YouTube), so it is the playhead's frame only once a seek finishes
+  // after it, and no seek has started since.
+  settleCount: number;
+  // `isRead`: read at `seeked` (new VideoFrame), which a later paused frame can't replace.
+  onScreen: { mediaTime: number; seeks: number; settle: number; isRead: boolean } | null;
   // The gaps between the last frames played in a row. A seek, a pause or a dropped frame ends a run.
   // The rate is measured on one run only: within a run the gaps add up to its last time minus its
   // first, so millisecond rounding errs by about 1 ms in total, while each extra run would add
@@ -90,6 +97,9 @@ export interface ClockState {
 export type ClockEvent =
   | { type: 'frame'; frame: ClockFrame }
   | { type: 'seeking' }
+  // A seek finished. `heldFrameTime` is the frame the video holds then (`new VideoFrame(video)`), or
+  // null where the browser can't read it. `seeking`: another seek already started.
+  | { type: 'seeked'; heldFrameTime: number | null; currentTime: number; seeking: boolean }
   // A new rendition, which can have a new frame rate.
   | { type: 'resize' }
   // A new source.
@@ -98,6 +108,8 @@ export type ClockEvent =
 export const initialClock: ClockState = {
   lastFrame: null,
   seekCount: 0,
+  settleCount: 0,
+  onScreen: null,
   currentRun: [],
   publishedRate: null,
   announcedRates: [],
@@ -107,20 +119,80 @@ export function stepClock(state: ClockState, event: ClockEvent): ClockState {
   switch (event.type) {
     case 'seeking':
       return { ...state, seekCount: state.seekCount + 1 };
+    case 'seeked': {
+      const settleCount = state.settleCount + 1;
+      const held = heldFrameRead(event);
+      const onScreen =
+        held == null
+          ? state.onScreen
+          : { mediaTime: held, seeks: state.seekCount, settle: settleCount, isRead: true };
+      return { ...state, settleCount, onScreen };
+    }
     case 'emptied':
-      return { ...initialClock, seekCount: state.seekCount };
+      return { ...initialClock, seekCount: state.seekCount, settleCount: state.settleCount };
     case 'resize':
       // The rate stays published until a run confirms a new one, so a quality switch doesn't flip
       // 29.97 back to the platform's 30.
       return { ...state, currentRun: [] };
     case 'frame':
-      return stepFrame(state, { ...event.frame, seekCount: state.seekCount });
+      return {
+        ...stepFrame(state, { ...event.frame, seekCount: state.seekCount }),
+        onScreen: keepsReadFrame(state, event.frame)
+          ? state.onScreen
+          : {
+              mediaTime: event.frame.mediaTime,
+              seeks: state.seekCount,
+              settle: state.settleCount,
+              isRead: false,
+            },
+      };
   }
+}
+
+/** Whether the frame on screen is the playhead's: presented, or read, after the last seek finished,
+ *  with no seek started since. */
+export function isFrameCurrent(state: ClockState): boolean {
+  const { onScreen } = state;
+  return onScreen?.seeks === state.seekCount && onScreen.settle === state.settleCount;
+}
+
+// A paused video shows a new frame only after a seek, so while paused the frame read at the last
+// `seeked` stands until the next seek: a frame presented after it is the same frame, or a late frame
+// of an earlier seek. Recorded seeks show late frames after the next `seeking`; this keeps one that
+// comes after the next `seeked` from replacing the read.
+function keepsReadFrame(state: ClockState, frame: ClockFrame): boolean {
+  return frame.paused && state.onScreen?.isRead === true && isFrameCurrent(state);
+}
+
+// The frame read at `seeked`, when it can be the frame there. Firefox reads every frame as about
+// 0 (5 µs); a frame after the playhead is on another timeline; a seek already in flight moves on.
+function heldFrameRead(event: {
+  heldFrameTime: number | null;
+  currentTime: number;
+  seeking: boolean;
+}): number | null {
+  const { heldFrameTime: held, currentTime, seeking } = event;
+  const isFrameThere =
+    !seeking &&
+    held != null &&
+    (held >= 0.001 || currentTime <= 0.001) &&
+    held <= currentTime + 0.001 &&
+    currentTime - held < 0.5;
+  return isFrameThere ? held : null;
 }
 
 function stepFrame(state: ClockState, frame: SeenFrame): ClockState {
   const { lastFrame } = state;
-  const frames = lastFrame ? framesBetween(lastFrame, frame) : 0;
+  const presented = lastFrame ? framesBetween(lastFrame, frame) : 0;
+  const frames =
+    lastFrame && presented > 0 && frame.droppedFrames > lastFrame.droppedFrames
+      ? framesWithDrops(
+          state.currentRun,
+          frame.mediaTime - lastFrame.mediaTime,
+          presented,
+          frame.droppedFrames - lastFrame.droppedFrames
+        )
+      : presented;
   const endRun = (): ClockState => ({ ...state, lastFrame: frame, currentRun: [] });
   // A run starts with a one-frame gap, which sets the frame duration the gaps of several frames are
   // checked against. A browser that counted more than one presented frame per video frame then
@@ -198,9 +270,9 @@ function continuesRun(run: readonly RunGap[], gap: RunGap): boolean {
   return Math.abs(gap.duration - expected) <= tolerance;
 }
 
-// How many frames played from `previous` to `frame` (more than 1 when frame callbacks were skipped),
-// or 0 when the gap doesn't measure the frame rate: across a seek, while paused, faster than normal
-// speed, or with frames dropped in between, which the presented frame count leaves out.
+// How many frames were presented from `previous` to `frame` (more than 1 when frame callbacks were
+// skipped), or 0 when the gap doesn't measure the frame rate: across a seek, while paused, or faster
+// than normal speed. Dropped frames are left out of the count (framesWithDrops).
 function framesBetween(previous: SeenFrame, frame: SeenFrame): number {
   const measures =
     !frame.paused &&
@@ -208,11 +280,32 @@ function framesBetween(previous: SeenFrame, frame: SeenFrame): number {
     previous.seekCount === frame.seekCount &&
     !previous.duringSeek &&
     !frame.duringSeek &&
-    previous.droppedFrames === frame.droppedFrames &&
     frame.mediaTime > previous.mediaTime;
   if (!measures) return 0;
   if (previous.presentedFrames == null || frame.presentedFrames == null) return 1;
   return Math.max(0, frame.presentedFrames - previous.presentedFrames);
+}
+
+// How many frames a gap with dropped frames spans: its duration in the run's frames, when the
+// browser's dropped count explains the frames the presented count left out. Else 0, which ends the
+// run: a run shorter than 8 frames has no frame duration to count by yet, and a dropped count the
+// browser reports a gap late doesn't match. A machine that drops a frame every second or two then still
+// completes the 60 frames millisecond times need; `allFramesShown` still checks the span, whose
+// decoded count includes the dropped frames.
+function framesWithDrops(
+  run: readonly RunGap[],
+  duration: number,
+  presented: number,
+  dropped: number
+): number {
+  // A run must first set its frame duration on frames with no drops: a browser that leaves dropped
+  // frames out of its decoded count and reports them a callback late would otherwise keep a run going
+  // whose first gap spans two frames, at half the rate.
+  if (runFrames(run) < FRAMES_TO_CONFIRM_EXACT) return 0;
+  const frames = Math.round(
+    duration / (run.reduce((sum, gap) => sum + gap.duration, 0) / runFrames(run))
+  );
+  return frames >= presented && frames <= presented + dropped ? frames : 0;
 }
 
 // How far a run's decoded frame count may differ from its frame count, for the frames the decoder

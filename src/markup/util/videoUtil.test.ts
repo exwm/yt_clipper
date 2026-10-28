@@ -23,11 +23,12 @@ const mockAppState = {
     },
   },
   videoInfo: {},
+  settings: { videoID: 'markup-video' },
 };
 const mockPlatform = { current: 'youtube' };
 // `isNew`: whether the clock would announce a rate it hasn't announced yet.
 const mockMeasured = { fps: null as number | null, isNew: false, announced: new Set<number>() };
-const mockNavigation = { isStaleVideo: false };
+const mockNavigation = { isStaleVideo: false, pageVideoID: 'markup-video' as string | null };
 const mockFlashMessage = jest.fn();
 
 jest.mock('../appState', () => ({ appState: mockAppState }));
@@ -50,6 +51,7 @@ jest.mock('../platforms/navigation', () => ({
   get isStaleVideo() {
     return mockNavigation.isStaleVideo;
   },
+  getCurrentPageVideoID: () => mockNavigation.pageVideoID,
 }));
 // The frame rate consumer followFrameRate subscribes, called by `playFrame`.
 const mockFrames = { onFrame: null as (() => void) | null };
@@ -103,6 +105,7 @@ describe('getFPS', () => {
     mockMeasured.isNew = false;
     mockMeasured.announced.clear();
     mockNavigation.isStaleVideo = false;
+    mockNavigation.pageVideoID = 'markup-video';
     mockFlashMessage.mockClear();
   });
 
@@ -136,6 +139,14 @@ describe('getFPS', () => {
     }
   );
 
+  // History forward on YouTube: the next video's rate is measured before the navigation finishes.
+  it('does not flash a rate measured on another video before the page is marked stale', () => {
+    mockPlatform.current = 'youtube';
+    Object.assign(mockMeasured, { fps: 30, isNew: true });
+    mockNavigation.pageVideoID = 'next-video';
+    playFrame();
+    expect(mockFlashMessage).not.toHaveBeenCalled();
+  });
   it('uses but does not flash a rate while the page shows another video', () => {
     mockPlatform.current = 'yt_clipper';
     Object.assign(mockMeasured, { fps: 30, isNew: true });

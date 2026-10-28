@@ -222,19 +222,14 @@ function startLoop(loop: Loop): void {
   const onSeeked = (): void => {
     step(loop, { type: 'seeked' }, performance.now(), null);
   };
-  const onSeeking = (): void => {
-    step(loop, { type: 'seeking' }, performance.now(), null);
-  };
   // A new source starts its frames and timeline over, and may be checked into another timing.
   const onEmptied = (): void => {
     step(loop, { type: 'sourceChanged' }, performance.now(), null);
     retime(loop);
   };
-  loop.video.addEventListener('seeking', onSeeking);
   loop.video.addEventListener('seeked', onSeeked);
   loop.video.addEventListener('emptied', onEmptied);
   loop.removeListeners = () => {
-    loop.video.removeEventListener('seeking', onSeeking);
     loop.video.removeEventListener('seeked', onSeeked);
     loop.video.removeEventListener('emptied', onEmptied);
   };

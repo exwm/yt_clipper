@@ -14,7 +14,7 @@ import {
   isNewMeasuredFrameRate,
   isPresentedSinceSeek,
 } from './presented-frame-clock';
-import { isStaleVideo } from '../platforms/navigation';
+import { getCurrentPageVideoID, isStaleVideo } from '../platforms/navigation';
 
 let frameRateFrames: VideoFrameSubscription | null = null;
 /** Reads the frame rate on each played frame, so a measured rate is flashed and shown as soon as it
@@ -37,10 +37,20 @@ export function followFrameRate(video: VideoElement): void {
   video.addEventListener('resize', updateFrameRate);
 }
 
+// The video playing is the one the markup is for. `isStaleVideo` is set only once YouTube finishes a
+// navigation, after a new video's rate can already be measured (history forward), so compare ids too.
+function isMarkupVideo(): boolean {
+  const markupVideoID = appState.settings?.videoID;
+  const pageVideoID = getCurrentPageVideoID();
+  return (
+    !isStaleVideo && (markupVideoID == null || pageVideoID == null || pageVideoID === markupVideoID)
+  );
+}
+
 function updateFrameRate(): void {
   const frameRate = getFrameRate();
   const { rate, source } = frameRate;
-  if (source === 'measured' && !isStaleVideo && isNewMeasuredFrameRate(appState.video, rate)) {
+  if (source === 'measured' && isMarkupVideo() && isNewMeasuredFrameRate(appState.video, rate)) {
     flashMessage(`Measured the frame rate: ${formatFps(rate)} fps.`, 'olive');
   }
   showFrameRate(frameRate);

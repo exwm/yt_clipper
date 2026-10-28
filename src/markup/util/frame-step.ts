@@ -19,6 +19,17 @@ function holdsPlayhead(presentedFrameTime: number, playhead: number, fps: number
   );
 }
 
+// A frame from before the last seek can look like it holds the playhead only through the tolerances,
+// when a user seek lands just before its start: such a frame must contain the playhead exactly. A
+// frame presented before `seeking` (YouTube) is never current, and a step's middle target is well
+// inside it.
+// Firefox rounds currentTime to the microsecond, so a playhead on the next frame's start can read a
+// hair before it.
+const TIME_ROUNDING = 0.00001;
+function containsPlayhead(presentedFrameTime: number, playhead: number, fps: number): boolean {
+  return presentedFrameTime <= playhead && playhead + TIME_ROUNDING < presentedFrameTime + 1 / fps;
+}
+
 /**
  * The time of the frame the user is on, which placements store and decisions read: the frame of the
  * playhead, presented yet or not. Right after one of the markup's frame seeks, that seek's placed
@@ -47,7 +58,7 @@ export function frameTime(at: {
   ) {
     return lastFrameSeek.frameTime;
   }
-  if (!isSeekInFlight && (isFrameCurrent || holdsPlayhead(presentedFrameTime, playhead, fps))) {
+  if (!isSeekInFlight && (isFrameCurrent || containsPlayhead(presentedFrameTime, playhead, fps))) {
     return presentedFrameTime;
   }
   return Math.max(0, playhead - PLACEMENT_TOLERANCE);
@@ -80,23 +91,22 @@ export function frameStepTarget(step: {
 }): number {
   const { presentedFrameTime, playhead, isFrameCurrent, lastTarget, fps, duration, frames } = step;
   const frameDuration = 1 / fps;
-  // A frame from before the last seek could hold the playhead only through the tolerances, when a
-  // user seek lands just before its start: it must contain the playhead exactly. A frame presented
-  // before `seeking` (YouTube) never reads current, and a step's middle target is well inside it.
-  const holds =
-    holdsPlayhead(presentedFrameTime, playhead, fps) &&
-    (isFrameCurrent ||
-      (presentedFrameTime <= playhead && playhead < presentedFrameTime + frameDuration));
-  const frameStart = holds
-    ? presentedFrameTime
-    : lastTarget != null && Math.abs(playhead - lastTarget) < frameDuration / 4
-      ? lastTarget - frameDuration / 2
-      : // The playhead's grid frame, so every target is a frame middle. A plain floor: the playhead
-        // is exact, unlike placed times.
-        Math.floor(playhead * fps + 1e-9) / fps;
-  const target = frameStart + (frames + 0.5) * frameDuration;
   // At the video's ends, the middle of its first or last frame, so the next step back or forward
   // starts from a frame middle too.
   const lastMiddle = Number.isFinite(duration) ? duration - frameDuration / 2 : Infinity;
+  // Past the last frame's middle (at the end the video snaps to its duration), the playhead is on
+  // the last frame.
+  const playheadInVideo = Math.min(playhead, lastMiddle);
+  const holds =
+    holdsPlayhead(presentedFrameTime, playheadInVideo, fps) &&
+    (isFrameCurrent || containsPlayhead(presentedFrameTime, playheadInVideo, fps));
+  const frameStart = holds
+    ? presentedFrameTime
+    : lastTarget != null && Math.abs(playheadInVideo - lastTarget) < frameDuration / 4
+      ? lastTarget - frameDuration / 2
+      : // The playhead's grid frame, so every target is a frame middle. A plain floor: the playhead
+        // is exact, unlike placed times.
+        Math.floor(playheadInVideo * fps + 1e-9) / fps;
+  const target = frameStart + (frames + 0.5) * frameDuration;
   return Math.min(Math.max(target, frameDuration / 2), lastMiddle);
 }
