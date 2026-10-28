@@ -56,19 +56,29 @@ function gridFrameStart(playhead: number, fps: number): number {
 
 /**
  * The frame on screen at `playhead`. Firefox times the first frame after a seek at the seek target
- * (Gecko's DropVideoUpToSeekTarget), so a frame timed at the playhead, off the grid, may start
- * earlier, unless the read at `seeked` timed it: its start is then unknown, and the stand-in is its
- * grid frame's start. Millisecond-rounded frame starts sit on the grid.
+ * (Gecko's DropVideoUpToSeekTarget), so a frame timed at the playhead may start earlier, unless the
+ * read at `seeked` timed it, or it sits on the grid of a measured rate (millisecond-rounded frame
+ * starts do). Its start is then unknown. The stand-in is its grid frame's start on a measured rate;
+ * else the playhead less the placement tolerance, as in 5.48, since a grid frame of an assumed rate
+ * can start in the video frame before.
  */
-export function screenFrame(on: FrameOnScreen, playhead: number, fps: number): ScreenFrame {
+export function screenFrame(
+  on: FrameOnScreen,
+  playhead: number,
+  fps: number,
+  isRateExact: boolean
+): ScreenFrame {
   const mediaTime = on.mediaTime ?? playhead;
   const gridOffset = Math.abs(mediaTime * fps - Math.round(mediaTime * fps));
   const isStartKnown =
     Math.abs(mediaTime - playhead) >= TIME_ROUNDING ||
     on.isRead ||
-    gridOffset <= FRAME_TIME_ROUNDING * fps;
+    (isRateExact && gridOffset <= FRAME_TIME_ROUNDING * fps);
+  const standIn = isRateExact
+    ? gridFrameStart(playhead, fps)
+    : Math.max(0, playhead - PLACEMENT_TOLERANCE);
   return {
-    start: isStartKnown ? mediaTime : gridFrameStart(playhead, fps),
+    start: isStartKnown ? mediaTime : standIn,
     isStartKnown,
     isPlayheads: on.isCurrent || containsPlayhead(mediaTime, playhead, fps),
   };
@@ -79,9 +89,10 @@ export function presentedFrameStart(
   mediaTime: number,
   playhead: number,
   fps: number,
-  isRead: boolean
+  isRead: boolean,
+  isRateExact: boolean
 ): number {
-  return screenFrame({ mediaTime, isRead, isCurrent: true }, playhead, fps).start;
+  return screenFrame({ mediaTime, isRead, isCurrent: true }, playhead, fps, isRateExact).start;
 }
 
 /**

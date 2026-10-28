@@ -118,13 +118,15 @@ export function seekToFrameAt(time: number): void {
  *  own timeline. */
 export function getPresentedFrameStart(mediaTime: number): number {
   const video = appState.video;
+  const { rate, source } = getFrameRate();
   // The frame's own timeline, as its mediaTime. A presented frame, not one read at `seeked`.
-  return presentedFrameStart(mediaTime, video.currentTime, getFPS(), false);
+  return presentedFrameStart(mediaTime, video.currentTime, rate, false, source === 'measured');
 }
 
 // The frame on screen at `playhead`.
 function getScreenFrame(playhead: number): ScreenFrame {
-  return screenFrame(getFrameOnScreen(appState.video), playhead, getFPS());
+  const { rate, source } = getFrameRate();
+  return screenFrame(getFrameOnScreen(appState.video), playhead, rate, source === 'measured');
 }
 
 /** The time of the frame the user is on, which placements store and frame decisions read. */

@@ -132,6 +132,8 @@ interface State {
     | null;
   duration: number;
   frames: number;
+  // The video frame shown at the playhead.
+  playheadFrame: number;
 }
 
 function clockStates(seed: number, count: number): State[] {
@@ -204,6 +206,7 @@ function clockStates(seed: number, count: number): State[] {
       lastSeek,
       duration,
       frames: pick([-5, -1, 1, 1, 3]),
+      playheadFrame: Math.min(Math.floor(playhead * videoFps + 1e-6), lastFrame),
     };
   });
 }
@@ -232,20 +235,19 @@ const screenAt = (s: State) =>
   screenFrame(
     { mediaTime: s.mediaTime, isRead: s.isRead, isCurrent: s.isCurrent },
     s.playhead,
-    s.fps
+    s.fps,
+    s.isRateExact
   );
 const production = {
   frameTime: (s: State) => frameTime(screenAt(s), oracleInputs(s)),
   frameStepTarget: (s: State) => frameStepTarget(screenAt(s), oracleInputs(s)),
   // A frame callback's frame, never a read.
-  frameStart: (s: State) => presentedFrameStart(s.mediaTime, s.playhead, s.fps, false),
+  frameStart: (s: State) =>
+    presentedFrameStart(s.mediaTime, s.playhead, s.fps, false, s.isRateExact),
 };
 
-const isOffGrid = (time: number, fps: number) =>
-  Math.abs(time * fps - Math.round(time * fps)) > 0.0005 * fps;
-
-// Where production departs from the oracle on purpose. A departing state must still mean the same
-// video frame.
+// Where production departs from the oracle on purpose. A departing state must still mean the frame
+// the oracle meant, or the frame actually shown.
 const departures: { name: string; applies: (s: State) => boolean }[] = [
   {
     // The frame on screen is judged at the playhead, not the playhead clamped to the last frame.
@@ -253,31 +255,46 @@ const departures: { name: string; applies: (s: State) => boolean }[] = [
     applies: (s) => !s.isCurrent && s.playhead > s.duration - 0.5 / s.fps,
   },
   {
-    // No user agent check: without a read, Chromium's frame there may be retimed as Gecko's are.
-    name: 'Chromium, a frame timed at the playhead off the grid',
-    applies: (s) =>
-      s.browser === 'chrome' &&
-      Math.abs(s.mediaTime - s.playhead) < 0.00001 &&
-      isOffGrid(s.mediaTime, s.fps),
+    // No user agent check: without a read, Chromium's frame there may be retimed as Gecko's are. Off
+    // a measured rate's grid, its start is unknown, and the stand-in is the playhead less 1 ms.
+    name: 'a frame timed at the playhead',
+    applies: (s) => Math.abs(s.mediaTime - s.playhead) < 0.00001,
   },
 ];
-// Until the stand-in is the playhead less 1 ms (M4), Chromium without a read takes Gecko's grid
-// frame start, which at a rate other than the video's can start in the frame before.
-const mayReadFrameBefore = (s: State) => s.browser === 'chrome' && s.fps !== s.videoFps;
 
 // The video frame a time read means, and the one a step's target shows.
 const frameRead = (s: State, time: number) => Math.floor((time + 0.001) * s.videoFps + 1e-6);
 const frameShown = (s: State, target: number) => Math.floor(target * s.videoFps + 1e-6);
+// Whether a step shows the frame it should: the one 5.49 steps to on Firefox, where frames timed at
+// the playhead were already unknown; `frames` away where the rate in use is the video's; else within
+// a frame of as many video frames as the step spans.
+const stepsAsItShould = (s: State, shown: number) => {
+  const asGecko = Oracle.frameStepTarget({ ...oracleInputs(s), seekRetimesFrame: true });
+  const lastFrame = Math.round(s.duration * s.videoFps) - 1;
+  const want = s.playheadFrame + (s.frames * s.videoFps) / s.fps;
+  const clamp = (n: number) => Math.min(Math.max(n, 0), lastFrame);
+  return (
+    shown === frameShown(s, asGecko) ||
+    (s.fps === s.videoFps ? shown === clamp(want) : Math.abs(shown - clamp(Math.round(want))) <= 1)
+  );
+};
 
 describe('the frame-step functions against the 5.49 oracle', () => {
   const states = clockStates(1, 30000);
   it.each([
-    ['frameTime', (s: State) => Oracle.frameTime(oracleInputs(s)), production.frameTime, frameRead],
+    [
+      'frameTime',
+      (s: State) => Oracle.frameTime(oracleInputs(s)),
+      production.frameTime,
+      frameRead,
+      (s: State, read: number) => read === s.playheadFrame,
+    ],
     [
       'frameStepTarget',
       (s: State) => Oracle.frameStepTarget(oracleInputs(s)),
       production.frameStepTarget,
       frameShown,
+      stepsAsItShould,
     ],
     [
       'the start of a presented frame',
@@ -285,13 +302,14 @@ describe('the frame-step functions against the 5.49 oracle', () => {
         Oracle.presentedFrameStart(s.mediaTime, s.playhead, s.fps, s.browser === 'firefox'),
       production.frameStart,
       frameRead,
+      (s: State, read: number) => read === s.playheadFrame,
     ],
-  ] as const)('%s agrees over clock states', (_name, oracle, actual, frameOf) => {
+  ] as const)('%s agrees over clock states', (_name, oracle, actual, frameOf, isAsItShould) => {
     const differ = states.filter((s) => Math.abs(oracle(s) - actual(s)) > 1e-12);
     const unexplained = differ.filter(
       (s) =>
         !departures.some((d) => d.applies(s)) ||
-        (frameOf(s, oracle(s)) !== frameOf(s, actual(s)) && !mayReadFrameBefore(s))
+        (frameOf(s, actual(s)) !== frameOf(s, oracle(s)) && !isAsItShould(s, frameOf(s, actual(s))))
     );
     expect(unexplained.slice(0, 3)).toEqual([]);
   });

@@ -17,12 +17,15 @@ interface OnScreen {
   isFrameCurrent: boolean;
   fps: number;
   isRead: boolean;
+  // The rate in use was measured. Unless a row says otherwise, it was.
+  isRateExact?: boolean;
 }
 const screenOf = (at: OnScreen) =>
   screenFrame(
     { mediaTime: at.presentedFrameTime, isRead: at.isRead, isCurrent: at.isFrameCurrent },
     at.playhead,
-    at.fps
+    at.fps,
+    at.isRateExact ?? true
   );
 function frameTimeOf(at: OnScreen & { isSeekInFlight: boolean; lastFrameSeek: FrameSeek | null }) {
   return frameTime(screenOf(at), at);
@@ -114,26 +117,28 @@ describe('frameTime', () => {
       frame(90),
     ],
     [
-      'Firefox, after a seek into a frame, at a rate in use above the video: its grid frame start',
+      'Firefox, after a seek into a frame, at an assumed rate above the video: the playhead less 1 ms',
       {
         presentedFrameTime: frame(90) + 0.02,
         playhead: frame(90) + 0.02,
         fps: 60,
         isRead: false,
+        isRateExact: false,
       },
-      181 / 60,
+      frame(90) + 0.019,
     ],
   ] as const)('%s', (_case, overrides, expected) => {
     expect(at(overrides)).toBeCloseTo(expected, 9);
   });
 
   // Unmeasured, the 60 fps grid frame of a retimed frame can start in the video frame before.
-  it.failing('reads frame 1 of a 24 fps video after a seek into it on Firefox, unmeasured', () => {
+  it('reads frame 1 of a 24 fps video after a seek into it on Firefox, unmeasured', () => {
     const time = at({
       presentedFrameTime: 0.045,
       playhead: 0.045,
       fps: 60,
       isRead: false,
+      isRateExact: false,
     });
     expect(Math.floor((time + 0.001) * 24)).toBe(1);
   });
@@ -215,7 +220,8 @@ describe('presentedFrameStart', () => {
     ['a rounded NTSC frame start at the playhead', 3.036, 3.036, false, 3.036],
   ] as const)('of %s', (_case, mediaTime, playhead, isRead, expected) => {
     const rate = mediaTime === 3.036 ? 30000 / 1001 : fps;
-    expect(presentedFrameStart(mediaTime, playhead, rate, isRead)).toBeCloseTo(expected, 9);
+    // A measured rate.
+    expect(presentedFrameStart(mediaTime, playhead, rate, isRead, true)).toBeCloseTo(expected, 9);
   });
 });
 
@@ -548,6 +554,7 @@ describe('frameStepTarget', () => {
       }
       const shownFrom = shownLog.length;
       const burstStart = now;
+      const stepFpsAt = (step: number) => burst.fpsAt?.(step) ?? stepFps;
       let step = 0;
       let frameTimeMisses = 0;
       for (; step < burst.moves.length || isBusy(); now++) {
@@ -561,7 +568,8 @@ describe('frameStepTarget', () => {
             isFrameCurrent: isFrameCurrent(video.clock),
             lastFrameSeek: null,
             fps: stepFps,
-            isRead: true,
+            isRead: video.clock.onScreen?.isRead ?? false,
+            isRateExact: stepFps === videoFps,
           });
           if (frameShownAt(time + 0.001) !== frameShownAt(video.currentTime)) frameTimeMisses++;
         }
@@ -571,10 +579,11 @@ describe('frameStepTarget', () => {
             isFrameCurrent: isFrameCurrent(video.clock),
             playhead: pending ?? video.currentTime,
             lastTarget,
-            fps: burst.fpsAt?.(step) ?? stepFps,
+            fps: stepFpsAt(step),
             duration,
             frames: burst.moves[step],
-            isRead: true,
+            isRead: video.clock.onScreen?.isRead ?? false,
+            isRateExact: stepFpsAt(step) === videoFps,
           });
           lastTarget = target;
           apply(onSeekRequest(target, video.currentTime, video.seeking));
@@ -849,6 +858,7 @@ describe('frameTime over recorded seeks', () => {
           lastFrameSeek: null,
           fps,
           isRead: clock.onScreen?.isRead ?? false,
+          isRateExact: fps === 30,
         });
         const got = Math.floor((time + 0.001) * 30 + 1e-6);
         if (got !== want) misses.push(`${type} at frame ${want} read ${got}`);
@@ -875,6 +885,7 @@ describe('frameStepTarget over recorded seeks', () => {
             duration: (lastFrame + 1) / 30,
             frames,
             isRead: clock.onScreen?.isRead ?? false,
+            isRateExact: fps === 30,
           });
           const expected = Math.min(Math.max(want + frames, 0), lastFrame);
           const got = Math.floor(target * 30 + 1e-6);
