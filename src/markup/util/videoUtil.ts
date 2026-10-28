@@ -16,10 +16,9 @@ import {
 import { FrameGrid, frameSeekTarget, loopSeekTarget } from './frame-grid';
 import { registerActiveDragCleanup } from './drag-recovery';
 import {
+  getFrameOnScreen,
   getMeasuredFrameRate,
-  getPresentedFrameTime,
   isNewMeasuredFrameRate,
-  isPresentedSinceSeek,
 } from './presented-frame-clock';
 import { getCurrentPageVideoID, isStaleVideo } from '../platforms/navigation';
 
@@ -107,11 +106,6 @@ export function getFrameGrid(): FrameGrid {
   return { origin: 0, rate: getFPS() };
 }
 
-// Gecko times the first frame after a seek at the seek target (DropVideoUpToSeekTarget), and its
-// VideoFrame read gives no time to correct it with.
-const SEEK_RETIMES_FRAME =
-  typeof navigator !== 'undefined' && /\bFirefox\//.test(navigator.userAgent);
-
 let lastFrameSeek: FrameSeek | null = null;
 /** Seeks to show the frame at `time`, a placed time such as a marker's or a crop point's. */
 export function seekToFrameAt(time: number): void {
@@ -124,19 +118,13 @@ export function seekToFrameAt(time: number): void {
  *  own timeline. */
 export function getPresentedFrameStart(mediaTime: number): number {
   const video = appState.video;
-  // The frame's own timeline, as its mediaTime.
-  return presentedFrameStart(mediaTime, video.currentTime, getFPS(), SEEK_RETIMES_FRAME);
+  // The frame's own timeline, as its mediaTime. A presented frame, not one read at `seeked`.
+  return presentedFrameStart(mediaTime, video.currentTime, getFPS(), false);
 }
 
 // The frame on screen at `playhead`.
 function getScreenFrame(playhead: number): ScreenFrame {
-  const video = appState.video;
-  const onScreen = {
-    // eslint-disable-next-line no-restricted-syntax -- frame times and steps are built from it
-    mediaTime: getPresentedFrameTime(video),
-    isCurrent: isPresentedSinceSeek(video),
-  };
-  return screenFrame(onScreen, playhead, getFPS(), SEEK_RETIMES_FRAME);
+  return screenFrame(getFrameOnScreen(appState.video), playhead, getFPS());
 }
 
 /** The time of the frame the user is on, which placements store and frame decisions read. */

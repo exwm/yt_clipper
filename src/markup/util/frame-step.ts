@@ -11,6 +11,8 @@ export interface FrameSeek {
 export interface FrameOnScreen {
   // Null before the video presents a frame.
   mediaTime: number | null;
+  // Read at the last `seeked` (new VideoFrame), which times it at its start.
+  isRead: boolean;
   // Presented or read after the last seek finished, with no seek started since.
   isCurrent: boolean;
 }
@@ -53,24 +55,18 @@ function gridFrameStart(playhead: number, fps: number): number {
 }
 
 /**
- * The frame on screen at `playhead`. Where seeks retime their frame (Firefox, Gecko's
- * DropVideoUpToSeekTarget), a frame timed at the playhead, off the grid, may start earlier: its
- * start is unknown, and the stand-in is its grid frame's start. Millisecond-rounded frame starts sit
- * on the grid.
+ * The frame on screen at `playhead`. Firefox times the first frame after a seek at the seek target
+ * (Gecko's DropVideoUpToSeekTarget), so a frame timed at the playhead, off the grid, may start
+ * earlier, unless the read at `seeked` timed it: its start is then unknown, and the stand-in is its
+ * grid frame's start. Millisecond-rounded frame starts sit on the grid.
  */
-export function screenFrame(
-  on: FrameOnScreen,
-  playhead: number,
-  fps: number,
-  seekRetimesFrame: boolean
-): ScreenFrame {
+export function screenFrame(on: FrameOnScreen, playhead: number, fps: number): ScreenFrame {
   const mediaTime = on.mediaTime ?? playhead;
   const gridOffset = Math.abs(mediaTime * fps - Math.round(mediaTime * fps));
-  const isStartKnown = !(
-    seekRetimesFrame &&
-    Math.abs(mediaTime - playhead) < TIME_ROUNDING &&
-    gridOffset > FRAME_TIME_ROUNDING * fps
-  );
+  const isStartKnown =
+    Math.abs(mediaTime - playhead) >= TIME_ROUNDING ||
+    on.isRead ||
+    gridOffset <= FRAME_TIME_ROUNDING * fps;
   return {
     start: isStartKnown ? mediaTime : gridFrameStart(playhead, fps),
     isStartKnown,
@@ -83,9 +79,9 @@ export function presentedFrameStart(
   mediaTime: number,
   playhead: number,
   fps: number,
-  seekRetimesFrame: boolean
+  isRead: boolean
 ): number {
-  return screenFrame({ mediaTime, isCurrent: true }, playhead, fps, seekRetimesFrame).start;
+  return screenFrame({ mediaTime, isRead, isCurrent: true }, playhead, fps).start;
 }
 
 /**

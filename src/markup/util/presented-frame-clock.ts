@@ -7,6 +7,7 @@ import {
   isFrameCurrent,
   stepClock,
 } from './frame-clock-core';
+import type { FrameOnScreen } from './frame-step';
 import { onVideoFrames, PresentedVideoFrame, VideoFrameSubscription } from './video-frame-loop';
 
 /**
@@ -69,6 +70,18 @@ export function getPresentedFrameTime(video: VideoElement): number {
   // and each part's media time from its own.
   // eslint-disable-next-line no-restricted-syntax -- the frame clock owns the frame on screen
   return onScreen.mediaTime + (video.getCurrentTime() - video.currentTime);
+}
+
+/** What the clock knows of the frame on screen, its time on the platform's timeline. */
+export function getFrameOnScreen(video: VideoElement): FrameOnScreen {
+  if (clockVideo !== video) startClock(video);
+  const { onScreen } = clock;
+  return {
+    // eslint-disable-next-line no-restricted-syntax -- the frame clock owns the frame on screen
+    mediaTime: onScreen == null ? null : getPresentedFrameTime(video),
+    isRead: onScreen?.isRead ?? false,
+    isCurrent: isFrameCurrent(clock),
+  };
 }
 
 /** Whether the frame on screen is the playhead's frame: presented, or read, after the last seek finished. */

@@ -40,8 +40,11 @@ jest.mock('../platforms/platforms', () => ({
 const mockScreen = { mediaTime: null as number | null, isCurrent: null as boolean | null };
 jest.mock('./presented-frame-clock', () => ({
   getMeasuredFrameRate: () => mockMeasured.fps,
-  getPresentedFrameTime: () => mockScreen.mediaTime ?? 90 / 30,
-  isPresentedSinceSeek: () => mockScreen.isCurrent ?? mockSeeks.requested.length === 0,
+  getFrameOnScreen: () => ({
+    mediaTime: mockScreen.mediaTime ?? 90 / 30,
+    isRead: false,
+    isCurrent: mockScreen.isCurrent ?? mockSeeks.requested.length === 0,
+  }),
   isNewMeasuredFrameRate: (_video: unknown, rate: number) => {
     const isNew = mockMeasured.isNew && !mockMeasured.announced.has(rate);
     mockMeasured.announced.add(rate);
