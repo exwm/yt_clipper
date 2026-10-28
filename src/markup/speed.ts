@@ -22,6 +22,7 @@ export function getShortestActiveMarkerPair(currentTime?: number): MarkerPair {
   // A pair is active on its frames, its end marker's frame included, as the clipper clips them: a
   // time test against the end marker's time (the start of its frame) leaves out the rest of that frame.
   const grid = getFrameGrid();
+  // This also holds every time between the markers', 5.48's test: `frameAt` never decreases.
   const isActive = (markerPair: MarkerPair) =>
     isInFrameSpan(grid, markerPair.start, markerPair.end, currentTime);
   if (

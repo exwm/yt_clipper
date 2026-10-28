@@ -58,20 +58,23 @@ export function frameSeekTarget(grid: FrameGrid, time: number): number {
   );
 }
 
-/** Where a loop over the frames shown from `start` through `end` seeks when the playhead is at `time`:
- *  its start's frame when `time` shows a frame outside them, else null. The target is inside the
- *  loop's first grid frame, unless the start is within about 2 ms of that frame's end. */
+/** Where a loop over the frames shown from `start` through `end` seeks at `time`: its start's frame
+ *  when `time` shows a frame outside them, else null. The target is inside the loop's first grid
+ *  frame, unless the start is within about 2 ms of that frame's end. While playing, `time` is the
+ *  frame on screen, and the loop turns back on its last frame: the seek runs while that frame shows,
+ *  so the frame after it never does (the playhead runs ahead of the picture). */
 export function loopSeekTarget(
   grid: FrameGrid,
   start: number,
   end: number,
-  time: number
+  time: number,
+  isPlaying = false
 ): number | null {
   const { firstFrame, lastFrame } = frameSpan(grid, start, end);
   const frame = frameAt(grid, time);
-  return frame < firstFrame || frame > lastFrame ? frameSeekTarget(grid, start) : null;
+  const isPastLoop = isPlaying ? frame >= lastFrame : frame > lastFrame;
+  return frame < firstFrame || isPastLoop ? frameSeekTarget(grid, start) : null;
 }
-
 export function frameSpan(grid: FrameGrid, startMarker: number, endMarker: number): FrameSpan {
   // The grid's origin is the video's first frame (the markup's grids start at 0), so a marker before
   // it means that frame.

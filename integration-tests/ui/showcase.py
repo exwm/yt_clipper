@@ -35,7 +35,9 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
 
 
 def test_showcase_shot(
-    markup: MarkupPage, shot: dict[str, Any], pytestconfig: pytest.Config,
+    markup: MarkupPage,
+    shot: dict[str, Any],
+    pytestconfig: pytest.Config,
 ) -> None:
     SCENARIOS[shot["scenario"]](markup)
     path = markup.shot_of(shot["name"], shot["clip"], padding=shot.get("padding", 12))

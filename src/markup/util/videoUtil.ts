@@ -126,8 +126,21 @@ export function getFrameTime(): number {
 
 /** Keeps playback within the frames shown from `start` through `end`, for the preview loops. */
 export function loopPlaybackOver(start: number, end: number): void {
-  // eslint-disable-next-line no-restricted-syntax -- loops compare the playhead with their frames
-  const target = loopSeekTarget(getFrameGrid(), start, end, appState.video.getCurrentTime());
+  const video = appState.video;
+  // Playing, the frame on screen, so the loop turns back while its last frame shows.
+  const isPlaying = !video.paused;
+  const time = isPlaying
+    ? getFrameTime()
+    : // eslint-disable-next-line no-restricted-syntax -- a paused loop seeks back from where the playhead is
+      video.getCurrentTime();
+  const grid = getFrameGrid();
+  // Also 5.48's test: at an assumed rate a mid-frame end can fall in a grid frame after the frame on
+  // screen's, which then turns back only once the frame after it shows.
+  // eslint-disable-next-line no-restricted-syntax -- the playhead past the end, as 5.48
+  const isPastEnd = isPlaying && video.getCurrentTime() > end;
+  const target = isPastEnd
+    ? frameSeekTarget(grid, start)
+    : loopSeekTarget(grid, start, end, time, isPlaying);
   if (target != null) seekToSafe(appState.video, target);
 }
 

@@ -409,7 +409,12 @@ export function addMarker(markerConfig: MarkerConfig = {}) {
   const currentFrameTime = markerConfig.time ?? getFrameTime();
   const progressPos = (currentFrameTime / getVideoDuration(platform, appState.video)) * 100;
 
-  if (!appState.isNextMarkerStart && currentFrameTime <= appState.startTime) {
+  // By frame: before its frame is shown, the time read is the playhead less 1 ms, later in the frame.
+  const grid = getFrameGrid();
+  if (
+    !appState.isNextMarkerStart &&
+    frameAt(grid, currentFrameTime) <= frameAt(grid, appState.startTime)
+  ) {
     flashMessage('End marker must be after start marker.', 'red');
     return;
   }
@@ -665,9 +670,11 @@ export function markerNumberingMouseDownHandler(e: PointerEvent) {
     const duration = getVideoDuration(platform, appState.video);
     const x = e.pageX - offsetX - progressBarRect.left;
     const time = (duration * x) / progressBarRect.width;
+    // Off the other marker's frame, which moveMarker refuses.
+    const grid = getFrameGrid();
     return numberingType === 'start'
-      ? clampNumber(time, 0, markerPair.end - 1e-3)
-      : clampNumber(time, markerPair.start + 1e-3, duration);
+      ? clampNumber(time, 0, frameStart(grid, frameAt(grid, markerPair.end) - 1))
+      : clampNumber(time, frameStart(grid, frameAt(grid, markerPair.start) + 1), duration);
   }
 
   // Coalesce pointermove events with requestAnimationFrame so the marker
@@ -777,8 +784,9 @@ export function moveMarker(
 
   const toTime = newTime ?? getFrameTime();
   const grid = getFrameGrid();
-  // Already on that frame: nothing moves, and the charts keep their points.
-  if (sameFrame(grid, toTime, markerPair[type])) return;
+  // Moving to the playhead on the frame the marker is on: nothing moves, and the charts keep their
+  // points. A drag passes its own time and commits on release where its moves left the marker.
+  if (newTime == null && sameFrame(grid, toTime, markerPair[type])) return;
   if (type === 'start' && frameAt(grid, toTime) >= frameAt(grid, markerPair.end)) {
     flashMessage('Start marker cannot be placed after or at end marker', 'red');
     return;

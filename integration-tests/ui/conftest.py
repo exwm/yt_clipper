@@ -17,6 +17,7 @@ from harness import steps
 from harness.dev_site import (
     DEFAULT_PORT,
     DEFAULT_VIDEO_SECONDS,
+    EXTRA_VIDEO_SECONDS,
     VIDEO_STYLES,
     build,
     require_urls,
@@ -53,6 +54,11 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="also write showcase shots that name an asset into assets/image/",
     )
     group.addoption(
+        "--assumed-frame-rate",
+        action="store_true",
+        help="never measure the frame rate: frame steps and frame times stay at the assumed 60 fps, as 5.48",
+    )
+    group.addoption(
         "--userscript",
         metavar="PATH",
         default=str(BUNDLE),
@@ -81,6 +87,9 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
+        "markers", "video_style(style): open the dev site on this test video (VIDEO_STYLES)"
+    )
+    config.addinivalue_line(
         "markers",
         "platform: depends on the video platform (its player, seeking, controls, or layout), so it"
         " also runs on YouTube (just ui-test-youtube selects these); the rest run on the dev site",
@@ -93,7 +102,11 @@ def pytest_configure(config: pytest.Config) -> None:
     # Build the dev site once, in the main process: parallel workers (pytest-xdist) only serve it.
     is_worker = hasattr(config, "workerinput")
     if not is_worker and not config.getoption("youtube") and not config.option.collectonly:
-        build(int(config.getoption("video_seconds")), userscript_path(config), config.getoption("video_style"))
+        build(
+            int(config.getoption("video_seconds")),
+            userscript_path(config),
+            config.getoption("video_style"),
+        )
 
 
 @dataclass(frozen=True)
@@ -201,18 +214,30 @@ def markup(
     problems = PageProblems(on_youtube=bool(youtube_url), require_urls=require_urls(userscript))
     page = browser_page
     problems.watch(page)
+    assumed = request.config.getoption("assumed_frame_rate")
+    if assumed:
+        # Measure off, as a user sets it, so playing never measures mid-test.
+        page.add_init_script(
+            "try { localStorage.setItem('ytc-measure-frame-rate', 'false'); } catch {}"
+        )
     with steps.timed("(open the page)"):
         if youtube_url:
             open_youtube(page, youtube_url, userscript)
         else:
             assert dev_site is not None
-            open_dev_site(page, dev_site.url, dev_site.video_name)
+            style = request.node.get_closest_marker("video_style")
+            video_name = (
+                test_video_name(EXTRA_VIDEO_SECONDS, style.args[0])
+                if style
+                else dev_site.video_name
+            )
+            open_dev_site(page, dev_site.url, video_name)
     with steps.timed("(activate the markup)"):
         activate_markup(page)
 
     # pytest-playwright traces only its own page; the YouTube context is the fixture's.
     traced = not youtube_url and request.config.getoption("tracing") != "off"
-    yield MarkupPage(page, host, shots_dir, tracing=traced)
+    yield MarkupPage(page, host, shots_dir, tracing=traced, assumed_frame_rate=assumed)
 
     call_report = getattr(request.node, "report_call", None)
     if call_report is not None and call_report.failed:

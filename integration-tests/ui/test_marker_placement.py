@@ -11,7 +11,9 @@ from harness.steps import step
 from test_crop_easing import when_i_save_the_markers
 from test_frame_stepping import (
     VIDEO_FPS,
+    frames_per_step,
     given_the_video_has_played_until_its_frame_rate_is_measured,
+    then_a_flash_says,
 )
 
 
@@ -25,8 +27,20 @@ def test_a_marker_marks_the_start_of_the_playheads_frame_and_moves_one_frame_at_
     then_the_pair_is_at(markup, 90 / VIDEO_FPS, 120 / VIDEO_FPS)
     then_the_pair_spans_frames(markup, 90, 120)
     when_i_nudge_the_start_marker_forward(markup, times=3)
-    then_the_video_shows_frame(markup, 93)
-    then_the_pair_spans_frames(markup, 93, 120)
+    nudged_to = 90 + math.floor(3 * frames_per_step(markup))
+    then_the_video_shows_frame(markup, nudged_to)
+    then_the_pair_spans_frames(markup, nudged_to, 120)
+
+
+# A pair needs its end marker after its start marker's frame: a second A on the same frame is refused.
+def test_a_second_a_on_the_start_markers_frame_is_refused(markup: MarkupPage) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("relies on the dev site's test video frame times")
+    for into_frame in (0.2, 0.8):
+        markup.seek((90 + into_frame) / VIDEO_FPS, presented=True)
+        markup.press("KeyA")
+    then_a_flash_says(markup, "End marker must be after start marker.")
+    assert when_i_save_the_markers(markup)["markerPairs"] == []
 
 
 def test_ctrl_left_jumps_to_each_earlier_markers_frame(markup: MarkupPage) -> None:
@@ -86,7 +100,10 @@ def then_the_video_shows_frame(markup: MarkupPage, frame: int) -> None:
 def then_the_pair_spans_frames(markup: MarkupPage, start: int, end: int) -> None:
     pair = when_i_save_the_markers(markup)["markerPairs"][0]
     markup.report(f"saved start {pair['start']}, end {pair['end']}")
-    assert (math.floor(pair["start"] * VIDEO_FPS), math.floor(pair["end"] * VIDEO_FPS)) == (start, end)
+    assert (math.floor(pair["start"] * VIDEO_FPS), math.floor(pair["end"] * VIDEO_FPS)) == (
+        start,
+        end,
+    )
 
 
 @step

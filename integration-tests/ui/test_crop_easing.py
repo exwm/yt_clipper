@@ -105,7 +105,13 @@ def test_moving_the_start_marker_of_a_cinematic_pair_ending_in_a_hold_point_keep
     markup: MarkupPage,
 ) -> None:
     # Under Firm, the end point's hold settles within the margin instead of easing in.
-    held_end = {**PAN_PAIR, "cropMap": [*PAN_PAIR["cropMap"][:-1], {"x": 9, "y": 0, "crop": "900:0:960:540", "hold": True}]}
+    held_end = {
+        **PAN_PAIR,
+        "cropMap": [
+            *PAN_PAIR["cropMap"][:-1],
+            {"x": 9, "y": 0, "crop": "900:0:960:540", "hold": True},
+        ],
+    }
     given_pairs_with_the_first_ones_editor_open(
         markup, [held_end, {"start": 12, "end": 14}], {"cropPointEasingCinematicHolds": "firm"}
     )
@@ -145,7 +151,9 @@ def test_a_paused_preview_follows_a_cinematic_margin_change(dynamic_pan: MarkupP
     when_i_set_the_cinematic_margin(dynamic_pan, "45")
     then_the_shown_crop_changes_from(dynamic_pan, before)
     then_the_crops_match(
-        dynamic_pan, shown_crop_x(dynamic_pan), previewed_crop_x_at(dynamic_pan, BETWEEN_POINTS_TIME)
+        dynamic_pan,
+        shown_crop_x(dynamic_pan),
+        previewed_crop_x_at(dynamic_pan, BETWEEN_POINTS_TIME),
     )
 
 
@@ -284,7 +292,9 @@ def test_a_fractional_margin_from_a_markers_json_is_saved_through_presets_and_cu
     then_the_pair_saves_the_margins(when_i_save_the_markers(markup), 12.5, 10)
 
 
-def test_the_pixel_hints_follow_a_crop_undone_with_the_settings_open(dynamic_pan: MarkupPage) -> None:
+def test_the_pixel_hints_follow_a_crop_undone_with_the_settings_open(
+    dynamic_pan: MarkupPage,
+) -> None:
     # A new crop size applies to every crop point of the pair.
     when_i_set_the_crop(dynamic_pan, "0:0:480:270")
     when_i_reopen_the_cinematic_settings(dynamic_pan)
@@ -566,13 +576,17 @@ def then_the_saved_easing_is(saved: dict, globalEasing: str, pairEasings: list[s
 
 
 @step
-def then_the_pair_saves_the_margins(saved: dict, margin: float | None, zoomMargin: float | None) -> None:
+def then_the_pair_saves_the_margins(
+    saved: dict, margin: float | None, zoomMargin: float | None
+) -> None:
     overrides = saved["markerPairs"][0].get("overrides", {})
     assert overrides.get("cropPointEasingCinematicMargin") == margin
     assert overrides.get("cropPointEasingCinematicZoomMargin") == zoomMargin
 
 
-def test_cinematic_hold_points_hold_as_still_as_the_hold_points_setting_says(markup: MarkupPage) -> None:
+def test_cinematic_hold_points_hold_as_still_as_the_hold_points_setting_says(
+    markup: MarkupPage,
+) -> None:
     # The pan stops at 600 from 5 s to the hold point at 6.5 s.
     given_pairs_with_the_first_ones_editor_open(markup, [HOLD_PAIR, {"start": 12, "end": 14}])
     when_i_choose_easing(markup, "cinematic")
@@ -608,7 +622,9 @@ def then_the_hold_drifts_more_than(markup: MarkupPage, drift: float) -> None:
         if hold_drift(markup) > drift + 1:
             return
         markup.next_frames(10)
-    raise AssertionError(f"the hold drifted {hold_drift(markup)} px, not more than {drift}: {hold_xs(markup)}")
+    raise AssertionError(
+        f"the hold drifted {hold_drift(markup)} px, not more than {drift}: {hold_xs(markup)}"
+    )
 
 
 @step
@@ -617,7 +633,9 @@ def then_the_hold_drifts_at_most(markup: MarkupPage, drift: float) -> None:
         if hold_drift(markup) <= drift:
             return
         markup.next_frames(10)
-    raise AssertionError(f"the hold drifted {hold_drift(markup)} px, more than {drift}: {hold_xs(markup)}")
+    raise AssertionError(
+        f"the hold drifted {hold_drift(markup)} px, more than {drift}: {hold_xs(markup)}"
+    )
 
 
 def test_a_pair_inherits_cinematic_hold_points_set_globally(markup: MarkupPage) -> None:
@@ -641,11 +659,20 @@ def test_the_global_editor_keeps_edits_made_after_a_load(markup: MarkupPage) -> 
     # old one: the Cinematic settings it showed and every later edit were lost.
     markup.load_saved_marker_pairs(
         [PAN_PAIR, OTHER_PAIR],
-        {"cropPointEasing": "cinematic", "cropPointEasingCinematicMargin": 45, "cropPointEasingCinematicHolds": "exact"},
+        {
+            "cropPointEasing": "cinematic",
+            "cropPointEasingCinematicMargin": 45,
+            "cropPointEasingCinematicHolds": "exact",
+        },
     )
     when_i_switch_to_the_global_settings_editor(markup)
     when_i_load_markers(
-        markup, {"cropPointEasing": "smoothTrack", "titleSuffix": "loaded", "markerPairs": [{"start": 20, "end": 22}]}
+        markup,
+        {
+            "cropPointEasing": "smoothTrack",
+            "titleSuffix": "loaded",
+            "markerPairs": [{"start": 20, "end": 22}],
+        },
     )
     # The open editor shows the loaded settings.
     assert markup.page.locator("#title-suffix-input").input_value() == "loaded"
@@ -660,7 +687,11 @@ def test_the_global_editor_keeps_edits_made_after_a_load(markup: MarkupPage) -> 
     markup.page.fill("#title-suffix-input", "after-load")
     markup.page.dispatch_event("#title-suffix-input", "change")
     saved = when_i_save_the_markers(markup)
-    assert (saved.get("cropPointEasingCinematicMargin"), saved.get("cropPointEasingCinematicHolds"), saved.get("titleSuffix")) == (
+    assert (
+        saved.get("cropPointEasingCinematicMargin"),
+        saved.get("cropPointEasingCinematicHolds"),
+        saved.get("titleSuffix"),
+    ) == (
         30,
         "loose",
         "after-load",
@@ -668,28 +699,45 @@ def test_the_global_editor_keeps_edits_made_after_a_load(markup: MarkupPage) -> 
 
 
 def test_an_open_pair_editor_names_the_crop_easing_a_load_sets(markup: MarkupPage) -> None:
-    given_pairs_with_the_first_ones_editor_open(markup, [PAN_PAIR, OTHER_PAIR], {"cropPointEasing": "smoothTrack"})
-    when_i_load_markers(markup, {"cropPointEasing": "cinematic", "markerPairs": [{"start": 20, "end": 22}]})
-    assert markup.page.locator(f"{EASING_SELECT} option[value='Default']").inner_text() == "(Cinematic)"
+    given_pairs_with_the_first_ones_editor_open(
+        markup, [PAN_PAIR, OTHER_PAIR], {"cropPointEasing": "smoothTrack"}
+    )
+    when_i_load_markers(
+        markup, {"cropPointEasing": "cinematic", "markerPairs": [{"start": 20, "end": 22}]}
+    )
+    assert (
+        markup.page.locator(f"{EASING_SELECT} option[value='Default']").inner_text()
+        == "(Cinematic)"
+    )
     # The pair previews the mode it now inherits.
     then_a_cinematic_path_is_baked(markup)
 
 
-def test_an_open_paused_pair_previews_the_easing_a_load_sets_away_from_cinematic(markup: MarkupPage) -> None:
-    given_pairs_with_the_first_ones_editor_open(markup, [PAN_PAIR, OTHER_PAIR], {"cropPointEasing": "cinematic"})
+def test_an_open_paused_pair_previews_the_easing_a_load_sets_away_from_cinematic(
+    markup: MarkupPage,
+) -> None:
+    given_pairs_with_the_first_ones_editor_open(
+        markup, [PAN_PAIR, OTHER_PAIR], {"cropPointEasing": "cinematic"}
+    )
     then_a_cinematic_path_is_baked(markup)
     cinematic = previewed_crop_x_at(markup, BETWEEN_POINTS_TIME)
-    when_i_load_markers(markup, {"cropPointEasing": "smoothTrack", "markerPairs": [{"start": 20, "end": 22}]})
+    when_i_load_markers(
+        markup, {"cropPointEasing": "smoothTrack", "markerPairs": [{"start": 20, "end": 22}]}
+    )
     # Without a seek: the paused preview redraws at once.
     shown = shown_crop_x(markup)
     assert shown == previewed_crop_x_at(markup, BETWEEN_POINTS_TIME)
     assert shown != cinematic
 
 
-def test_the_crop_easing_settings_highlight_modified_settings_when_opened(markup: MarkupPage) -> None:
+def test_the_crop_easing_settings_highlight_modified_settings_when_opened(
+    markup: MarkupPage,
+) -> None:
     pair = {**PAN_PAIR, "overrides": {"cropPointEasingCinematicHolds": "exact"}}
     given_pairs_with_the_first_ones_editor_open(
-        markup, [pair, OTHER_PAIR], {"cropPointEasing": "cinematic", "cropPointEasingCinematicHolds": "loose"}
+        markup,
+        [pair, OTHER_PAIR],
+        {"cropPointEasing": "cinematic", "cropPointEasingCinematicHolds": "loose"},
     )
     when_i_reopen_the_cinematic_settings(markup)
     then_the_holds_label_has(markup, "marker-pair-settings-editor-highlighted-label")
@@ -706,7 +754,13 @@ def when_i_load_markers(markup: MarkupPage, markers: dict) -> None:
     markup.press("KeyG")
     markup.page.set_input_files(
         "#markers-json-input",
-        files=[{"name": "loaded.json", "mimeType": "application/json", "buffer": json.dumps(markers).encode()}],
+        files=[
+            {
+                "name": "loaded.json",
+                "mimeType": "application/json",
+                "buffer": json.dumps(markers).encode(),
+            }
+        ],
     )
     markup.page.click("#upload-markers-json")
     markup.page.click(".ytc-share-modal-load")
@@ -723,7 +777,9 @@ def when_i_open_the_global_cinematic_settings(markup: MarkupPage) -> None:
 
 @step
 def then_the_holds_label_has(markup: MarkupPage, highlight: str) -> None:
-    label = markup.page.evaluate("h => document.querySelector(h).previousElementSibling.className", HOLDS_SELECT)
+    label = markup.page.evaluate(
+        "h => document.querySelector(h).previousElementSibling.className", HOLDS_SELECT
+    )
     assert highlight in label.split()
 
 
@@ -834,7 +890,9 @@ def then_the_plot_shows_the_cinematic_path_on(
         "(buttons) => buttons.map((b) => b.dataset.cinematicPlotAxis).join(',')",
     )
     assert pressed == axes
-    return markup.page.evaluate("() => document.querySelector('.ytc-cinematic-plot-canvas').toDataURL()")
+    return markup.page.evaluate(
+        "() => document.querySelector('.ytc-cinematic-plot-canvas').toDataURL()"
+    )
 
 
 @step
@@ -846,7 +904,9 @@ def then_the_plot_redraws(markup: MarkupPage, unlike: str) -> str:
         timeout=5000,
     )
     markup.shot("cinematic-plot-redrawn")
-    return markup.page.evaluate("() => document.querySelector('.ytc-cinematic-plot-canvas').toDataURL()")
+    return markup.page.evaluate(
+        "() => document.querySelector('.ytc-cinematic-plot-canvas').toDataURL()"
+    )
 
 
 @step
@@ -867,7 +927,9 @@ def then_the_easing_is(
     assert active.count() == 1
     assert active.get_attribute("data-crop-easing") == easing
     # The plot's legend marks the same easing's path, which the plot draws on top.
-    layer = {"smoothTrack": "smoothTrack", "cinematic": "cinematic", "smoothInOut": "easeInOut"}[easing]
+    layer = {"smoothTrack": "smoothTrack", "cinematic": "cinematic", "smoothInOut": "easeInOut"}[
+        easing
+    ]
     legend = markup.page.locator(".ytc-cinematic-plot-legend-item.active")
     assert legend.count() == 1
     assert legend.get_attribute("data-plot-layer") == layer

@@ -29,8 +29,17 @@ def clip_box(boxes: "list[FloatRect]", scroll: tuple[float, float], padding: flo
 
 
 class MarkupPage:
-    def __init__(self, page: "Page", host: Host, shots_dir: Path, tracing: bool = False) -> None:
+    def __init__(
+        self,
+        page: "Page",
+        host: Host,
+        shots_dir: Path,
+        tracing: bool = False,
+        assumed_frame_rate: bool = False,
+    ) -> None:
         self.page = page
+        # Tests that measure the rate run at the assumed 60 fps instead (--assumed-frame-rate).
+        self.assumed_frame_rate = assumed_frame_rate
         self.host = host
         self.shots_dir = shots_dir
         self.shot_count = 0
@@ -151,6 +160,8 @@ class MarkupPage:
         """Play half a second, so the markup measures the video's frame rate from played frames. A site
         that reports no rate (the dev site) otherwise steps, seeks and compares frames at 60 fps."""
         self.seek(2, presented=True)
+        if self.assumed_frame_rate:
+            return
         with self.untraced():
             self.play()
             self.page.wait_for_function(
@@ -199,7 +210,9 @@ class MarkupPage:
         global settings."""
         # With the crop easing, as the markup script saves it: a file without one is from before
         # 5.49 and loads as EaseInOut.
-        data = json.dumps({"cropPointEasing": "smoothTrack", **(settings or {}), "markerPairs": pairs})
+        data = json.dumps(
+            {"cropPointEasing": "smoothTrack", **(settings or {}), "markerPairs": pairs}
+        )
         self.press("KeyG")
         self.page.set_input_files(
             "#markers-json-input",

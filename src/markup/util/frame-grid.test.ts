@@ -103,6 +103,18 @@ describe('loopSeekTarget', () => {
     if (target == null) expect(seekTo).toBeNull();
     else expect(seekTo).toBeCloseTo(target, 9);
   });
+
+  // Playing, the time is the frame on screen: the loop turns back on its last frame, while that frame
+  // shows, so the frame after it never does. The playhead runs ahead of the picture.
+  it.each([
+    ['the picture inside', 1.5, null],
+    ['the picture on the frame at the end', 2.0, 1.001],
+    ['the picture past the end', 2.034, 1.001],
+  ] as const)('playing, %s', (_case, frameTime, target) => {
+    const seekTo = loopSeekTarget({ origin: 0, rate: 30 }, 1, 2, frameTime, true);
+    if (target == null) expect(seekTo).toBeNull();
+    else expect(seekTo).toBeCloseTo(target, 9);
+  });
 });
 
 describe('frame grid, against the clipper’s case table', () => {

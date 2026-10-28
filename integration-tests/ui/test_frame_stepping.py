@@ -21,8 +21,8 @@ def test_shift_mousewheel_steps_one_frame_at_a_time_at_the_measured_frame_rate(
     when_i_pause_on_a_frame(markup, 90)
     forward = when_i_shift_scroll(markup, "up", times=40)
     backward = when_i_shift_scroll(markup, "down", times=10)
-    then_the_frames_shown_are(markup, forward, list(range(91, 131)))
-    then_the_frames_shown_are(markup, backward, list(range(129, 119, -1)))
+    then_the_frames_shown_are(markup, forward, frames_stepped_to(markup, 90, 40))
+    then_the_frames_shown_are(markup, backward, frames_stepped_to(markup, forward[-1], -10))
 
 
 # Before a rate is measured steps are 1/60 s; at the end Chrome snaps the time to the duration, past
@@ -42,6 +42,7 @@ def test_shift_mousewheel_steps_back_from_the_end_of_the_video(markup: MarkupPag
 # On YouTube the measured rate refines the stats rate, whatever the video's rate.
 @pytest.mark.platform
 def test_the_measured_frame_rate_flashes_once_the_video_plays(markup: MarkupPage) -> None:
+    skip_with_measurement_off(markup)
     rate = f"{VIDEO_FPS} fps." if markup.host == DEV_SITE_HOST else ""
     with markup.untraced():
         given_the_video_is_playing(markup)
@@ -49,6 +50,7 @@ def test_the_measured_frame_rate_flashes_once_the_video_plays(markup: MarkupPage
 
 
 def test_the_command_palette_turns_frame_rate_measurement_off(markup: MarkupPage) -> None:
+    skip_with_measurement_off(markup)
     if markup.host != DEV_SITE_HOST:
         pytest.skip("checks the 60 fps default of a site that reports no frame rate")
     when_i_run_the_palette_command(markup, "frame rate measurement")
@@ -58,6 +60,7 @@ def test_the_command_palette_turns_frame_rate_measurement_off(markup: MarkupPage
 def test_the_measure_button_beside_the_frame_rate_turns_measurement_off_and_on(
     markup: MarkupPage,
 ) -> None:
+    skip_with_measurement_off(markup)
     if markup.host != DEV_SITE_HOST:
         pytest.skip("checks the 60 fps default of a site that reports no frame rate")
     given_the_global_settings_editor_is_open(markup)
@@ -67,6 +70,11 @@ def test_the_measure_button_beside_the_frame_rate_turns_measurement_off_and_on(
     then_the_frame_rate_reads(markup, "60 fps (assumed)", measuring=False)
     when_i_click_the_measure_button(markup)
     then_the_frame_rate_reads(markup, "60 fps (assumed)", measuring=True)
+
+
+def skip_with_measurement_off(markup: MarkupPage) -> None:
+    if markup.assumed_frame_rate:
+        pytest.skip("starts with frame rate measurement on; this run turns it off")
 
 
 @step
@@ -92,15 +100,31 @@ def then_the_frame_rate_reads(markup: MarkupPage, text: str, measuring: bool) ->
 # The previews apply a pair's own settings on all its frames, its end marker's frame included, and
 # drop them outside, also after stepping off a boundary frame and back.
 @pytest.mark.parametrize("measured", [True, False], ids=["measured rate", "assumed 60 fps"])
+# Markers at frame starts, as placed now, or late in their frames, as older files and drags store them.
+@pytest.mark.parametrize("into_frame", [0, 0.7], ids=["frame starts", "mid-frame markers"])
 def test_previews_follow_the_pairs_frames_across_steps_off_its_first_and_last_frames(
-    markup: MarkupPage, measured: bool
+    markup: MarkupPage, measured: bool, into_frame: float, request: pytest.FixtureRequest
 ) -> None:
     if markup.host != DEV_SITE_HOST:
         pytest.skip("relies on the dev site's test video frame times")
+    # --assumed-frame-rate keeps the rate assumed in the measured variant too.
+    if into_frame and (not measured or markup.assumed_frame_rate):
+        # A half-frame grid can't tell whether a mid-frame marker is in the frame on screen or the next,
+        # and the playhead here is before the start marker's time, which 5.48 also read as outside.
+        reason = "a mid-frame marker's frame is unknown until the rate is measured"
+        request.applymarker(pytest.mark.xfail(strict=True, reason=reason))
     if measured:
         given_the_video_has_played_until_its_frame_rate_is_measured(markup)
     markup.load_saved_marker_pairs(
-        [{"start": 3, "end": 6, "speed": 0.5, "crop": "0:0:iw:ih", "overrides": {"gamma": 2}}]
+        [
+            {
+                "start": (90 + into_frame) / VIDEO_FPS,
+                "end": (180 + into_frame) / VIDEO_FPS,
+                "speed": 0.5,
+                "crop": "0:0:iw:ih",
+                "overrides": {"gamma": 2},
+            }
+        ]
     )
     markup.press("KeyC")
     markup.press("Alt+KeyC")
@@ -137,6 +161,92 @@ def then_the_previews_are(markup: MarkupPage, frame: int, applied: bool) -> None
     assert state["rate"] == (0.5 if applied else 1)
 
 
+def frames_per_step(markup: MarkupPage) -> float:
+    """A step moves one frame at the measured rate, and 1/60 s at the assumed 60 fps (half a frame of
+    the 30 fps test video), as 5.48 stepped on sites that report no rate."""
+    return VIDEO_FPS / 60 if markup.assumed_frame_rate else 1
+
+
+def frames_stepped_to(markup: MarkupPage, start: int, steps: int) -> list[int]:
+    """The frame shown after each of `steps` steps (negative: back) from frame `start`."""
+    direction = 1 if steps > 0 else -1
+    per_step = frames_per_step(markup)
+    # Forward from a frame's start, a half-frame step stays in it first. Back from where forward steps
+    # left the playhead (the first half of its frame), the first one leaves it.
+    rounding = math.floor if steps > 0 else math.ceil
+    return [start + direction * rounding(k * per_step) for k in range(1, abs(steps) + 1)]
+
+
+# A pair's loop plays through its end marker's frame and seeks back before the frame after it shows,
+# also on a 24 fps video, whose frames a 60 fps grid doesn't split evenly.
+@pytest.mark.parametrize(
+    "fps",
+    [pytest.param(24, marks=pytest.mark.video_style("testsrc24")), 30],
+    ids=["24 fps", "30 fps"],
+)
+@pytest.mark.parametrize("measured", [True, False], ids=["measured rate", "assumed 60 fps"])
+# A mid-frame end marker, as 5.48 placed them and drags still do. At an assumed rate its frame is
+# unknown, so the loop may show the frame after it on some cycles, no more than 5.48 (3 of 19 at 24 fps).
+@pytest.mark.parametrize(
+    ("end_into_frame", "most_cycles_past_end_assumed"),
+    [(0, 0), (0.5, 0.25)],
+    ids=["frame start end", "mid-frame end"],
+)
+def test_a_pairs_loop_never_shows_the_frame_after_its_end_marker(
+    markup: MarkupPage,
+    request: pytest.FixtureRequest,
+    measured: bool,
+    fps: int,
+    end_into_frame: float,
+    most_cycles_past_end_assumed: float,
+) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("relies on the dev site's test videos")
+    is_measured = measured and not markup.assumed_frame_rate
+    most_cycles_past_end = 0 if is_measured else most_cycles_past_end_assumed
+    if end_into_frame and fps == 30 and not is_measured:
+        request.applymarker(
+            pytest.mark.xfail(
+                strict=True,
+                reason="at the assumed 60 fps the frame after a mid-frame end shows each cycle, as in 5.48",
+            )
+        )
+    if measured:
+        markup.measure_frame_rate()
+    end = (66 + end_into_frame) / fps
+    markup.load_saved_marker_pairs([{"start": 60 / fps, "end": end, "crop": "0:0:iw:ih"}])
+    markup.open_marker_pair(0)
+    markup.press("Shift+KeyC")
+    shown = when_the_loop_plays(markup, fps, seconds=4)
+    markup.report(f"frames shown {shown}")
+    assert shown
+    assert min(shown) >= 60
+    assert max(shown) <= 67
+    assert 66 in shown
+    cycles = sum(1 for frame, next_frame in zip(shown, shown[1:]) if next_frame < frame)
+    assert shown.count(67) <= most_cycles_past_end * cycles
+
+
+@step
+def when_the_loop_plays(markup: MarkupPage, fps: int, seconds: float) -> list[int]:
+    """The frames shown while the video plays, from the first time it shows the pair's first frame."""
+    markup.seek(60.5 / fps, presented=True)
+    times = markup.page.evaluate(
+        """async (seconds) => {
+            const v = document.querySelector('video');
+            const times = [];
+            const onFrame = (_now, meta) => { times.push(meta.mediaTime); v.requestVideoFrameCallback(onFrame); };
+            v.requestVideoFrameCallback(onFrame);
+            await v.play();
+            await new Promise((done) => setTimeout(done, seconds * 1000));
+            v.pause();
+            return times;
+        }""",
+        seconds,
+    )
+    return [math.floor(time * fps + 0.02) for time in times]
+
+
 @step
 def when_i_run_the_palette_command(markup: MarkupPage, search: str) -> None:
     markup.page.click("#shortcutsTableToggleButton")
@@ -161,6 +271,8 @@ def given_the_video_is_playing(markup: MarkupPage) -> None:
 @step
 def given_the_video_has_played_until_its_frame_rate_is_measured(markup: MarkupPage) -> None:
     markup.seek(2, presented=True)
+    if markup.assumed_frame_rate:
+        return
     with markup.untraced():
         markup.play()
         markup.page.get_by_text(f"Measured the frame rate: {VIDEO_FPS} fps.").first.wait_for(

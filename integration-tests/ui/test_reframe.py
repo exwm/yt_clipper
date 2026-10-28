@@ -42,7 +42,9 @@ BUSY_CPU_SLOWDOWN = 10
 BUSY_SETTLE_SECONDS = 2.1
 BUSY_MEASURED_SECONDS = 3.3
 MAX_SHARE_BELOW_PLAIN_LOOP = 0.05
-FRAME_LOOP_STATS = re.compile(r"\[yt_clipper frame loop\].*\breframe\b.*? (\d+) new frames, video showed (\d+)")
+FRAME_LOOP_STATS = re.compile(
+    r"\[yt_clipper frame loop\].*\breframe\b.*? (\d+) new frames, video showed (\d+)"
+)
 
 # The dev site's test video, whose frame counter makes every frame's pixels differ.
 VIDEO_FPS = 30
@@ -78,7 +80,9 @@ def test_ctrl_alt_a_on_a_crop_point_toggles_hold_while_reframed(markup: MarkupPa
     then_the_saved_middle_point_is(markup, hold=False, crop=CROP_B)
 
 
-def test_reframe_and_the_modal_preview_draw_each_frame_a_paused_seek_shows(reframed: MarkupPage) -> None:
+def test_reframe_and_the_modal_preview_draw_each_frame_a_paused_seek_shows(
+    reframed: MarkupPage,
+) -> None:
     # While paused the previews draw only when a seek or frame step shows a new frame.
     when_i_open_the_modal_crop_preview(reframed)
     when_i_pause_on(reframed, PAUSED_SEEK_SECONDS, "before")
@@ -88,7 +92,9 @@ def test_reframe_and_the_modal_preview_draw_each_frame_a_paused_seek_shows(refra
 
 
 @pytest.mark.local_build
-def test_reframe_draws_as_many_frames_as_a_plain_loop_sees_on_a_busy_machine(markup: MarkupPage) -> None:
+def test_reframe_draws_as_many_frames_as_a_plain_loop_sees_on_a_busy_machine(
+    markup: MarkupPage,
+) -> None:
     given_a_dynamic_crop(markup)
     given_the_frame_loop_stats_are_on(markup)
     given_reframe_is_on(markup)
@@ -304,7 +310,9 @@ def then_reframe_drew_about_as_many_frames_as_the_plain_loop(
     assert plain_shown > 0, "the video showed no frames to the plain loop"
     assert reframe_shown > 0, "the video showed no frames to reframe"
     plain_share, reframe_share = seen / plain_shown, drawn / reframe_shown
-    markup.report(f"plain loop saw {plain_share:.0%} of the frames shown, reframe drew {reframe_share:.0%}")
+    markup.report(
+        f"plain loop saw {plain_share:.0%} of the frames shown, reframe drew {reframe_share:.0%}"
+    )
     assert reframe_share >= plain_share - MAX_SHARE_BELOW_PLAIN_LOOP, (
         f"reframe drew {drawn} of {reframe_shown} frames, a plain loop saw {seen} of {plain_shown}"
     )
