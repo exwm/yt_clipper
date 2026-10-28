@@ -298,7 +298,10 @@ export function scrubVideoHandler(e) {
     appState.isCurrentChartVisible &&
     chartState.currentChartInput &&
     chartState.currentChartInput.type !== 'crop';
+  // Where the hook holds the progress bar (the generic site), Alt+drag on a marker number moves it.
+  const isOnMarkerNumber = appState.markerNumberingsDiv?.contains(e.target as Node);
   if (
+    !isOnMarkerNumber &&
     !e.ctrlKey &&
     e.altKey &&
     !e.shiftKey &&
