@@ -27,47 +27,42 @@ export function frameDecisionTime(at: {
 }
 
 /**
- * Where a step of whole frames should seek: the middle of the frame `frames` away from the frame on
- * screen. A seek shows the frame that covers its target, so a target on a frame boundary can show
- * either neighbor, and a step of one frame duration from a boundary stays on one. The middle is half
- * a frame from both edges, so millisecond-rounded timestamps and a rate slightly off can't change
- * the frame shown.
+ * Where a step of whole frames should seek: the middle of the frame `frames` away. A seek shows the
+ * frame that covers its target, so a target on a frame boundary can show either neighbor; the middle
+ * is half a frame from both edges, so millisecond-rounded timestamps and a rate slightly off can't
+ * change the frame shown.
  *
- * Steps chain from the last target while the playhead is on it, until no seek is in flight and a new
- * frame on screen holds that target. Until then the frame on screen can be an earlier step's, whose
- * frame comes before or after its seek ends, and a rate too high for the video can land a step on
- * the frame it started from. Steps then start from the frame shown, so a rate slightly off never
- * builds up.
+ * A step starts from the frame on screen once it holds the playhead. Until then (a seek in flight, or
+ * its frame not presented yet) the frame on screen is an earlier one, which can't hold the playhead:
+ * a step then continues from the last step's target, or from the playhead's frame after another seek. So no
+ * order of seek events and frame presentation matters, and a rate slightly off never builds up.
  */
 export function frameStepTarget(step: {
   // The media time of the frame on screen (its start).
   presentedFrameTime: number;
-  isSeekInFlight: boolean;
+  // Where the playhead is or is going: the seek held back, else the current time.
   playhead: number;
-  // The last step's target, the frame on screen when it was taken, and its direction (1 or -1).
-  lastStep: { target: number; presentedFrameTime: number; direction: number } | null;
+  lastTarget: number | null;
   fps: number;
+  // The video's duration: NaN before its metadata loads, Infinity while live.
+  duration: number;
   frames: number;
 }): number {
-  const { presentedFrameTime, isSeekInFlight, playhead, lastStep, fps, frames } = step;
+  const { presentedFrameTime, playhead, lastTarget, fps, duration, frames } = step;
   const frameDuration = 1 / fps;
-  // An earlier step's frame is behind the target in the step's direction: forward, it ends before
-  // the target (a quarter frame of slack, so a rate somewhat higher than the video's still finds the
-  // target in its frame; an earlier step's frame is 1.5 frames or more back); back, it starts after.
-  const showsEarlierFrame =
-    lastStep != null &&
-    (lastStep.direction > 0
-      ? presentedFrameTime + 1.25 * frameDuration <= lastStep.target
-      : presentedFrameTime > lastStep.target + PLACEMENT_TOLERANCE);
-  const showsLastTarget =
-    lastStep != null &&
-    !isSeekInFlight &&
-    presentedFrameTime !== lastStep.presentedFrameTime &&
-    !showsEarlierFrame;
-  const isPending =
-    lastStep != null &&
-    Math.abs(playhead - lastStep.target) < frameDuration / 4 &&
-    !showsLastTarget;
-  const frameStart = isPending ? lastStep.target - frameDuration / 2 : presentedFrameTime;
-  return frameStart + (frames + 0.5) * frameDuration;
+  const holdsPlayhead =
+    presentedFrameTime <= playhead + PLACEMENT_TOLERANCE &&
+    playhead < presentedFrameTime + frameDuration;
+  const frameStart = holdsPlayhead
+    ? presentedFrameTime
+    : lastTarget != null && Math.abs(playhead - lastTarget) < frameDuration / 4
+      ? lastTarget - frameDuration / 2
+      : // The playhead's grid frame, so every target is a frame middle. A plain floor: the playhead
+        // is exact, unlike placed times.
+        Math.floor(playhead * fps + 1e-9) / fps;
+  const target = frameStart + (frames + 0.5) * frameDuration;
+  // At the video's ends, the middle of its first or last frame, so the next step back or forward
+  // starts from a frame middle too.
+  const lastMiddle = Number.isFinite(duration) ? duration - frameDuration / 2 : Infinity;
+  return Math.min(Math.max(target, frameDuration / 2), lastMiddle);
 }

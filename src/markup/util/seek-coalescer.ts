@@ -4,7 +4,7 @@
 // target is held in a single "pending" slot and flushed when the seek settles ("latest write wins").
 // Splitting the decisions out makes the concurrency behavior unit-testable: a fast drag's final target
 // survives the in-flight seek instead of being dropped (which would strand the video at an
-// intermediate frame), bounded by the shell's timeout so a stuck seek does not wait forever.
+// intermediate frame), re-armed by the shell's timer so a missed 'seeked' is recovered.
 
 export type SeekEffect =
   | { type: 'fire'; target: number } // seek the video to target now
@@ -26,7 +26,9 @@ export function onSeekRequest(target: number, current: number, seeking: boolean)
   return { pending: null, effects: [{ type: 'fire', target }] };
 }
 
-// The active seek settled: a 'seeked' event, or the stale timer firing once the seek has finished.
+// The active seek settled: a 'seeked' event, or the stale timer. The timer flushes once a seek has
+// finished whose 'seeked' was missed, and re-arms while a slow seek is still running, so the latest
+// target (a step held back) survives a seek of any length. A new source drops it (onExternalSeek).
 export function onSeekSettled(
   pending: number | null,
   current: number,
@@ -40,21 +42,9 @@ export function onSeekSettled(
   return { pending: null, effects: [{ type: 'fire', target: pending }] };
 }
 
-// An external seek began (YouTube bar, native shortcut, ad, ...): drop our pending so it can't snap
-// back over the user's intent. The shell only calls this for seeks that are not ours.
+// An external seek began (YouTube bar, native shortcut, ad, ...), or the video loaded a new source:
+// drop our pending so it can't snap back over the user's intent or land on another video. The shell
+// only calls this for seeks that are not ours.
 export function onExternalSeek(): SeekDecision {
   return NONE;
-}
-
-// The stale-pending timer fired. The timeout gives a slow seek time to finish (its 'seeked' would have
-// flushed the pending). If it still has not settled, give up rather than queue indefinitely; if it has
-// settled but we missed the 'seeked' event, flush now.
-export function onStaleTimer(
-  pending: number | null,
-  current: number,
-  seeking: boolean
-): SeekDecision {
-  if (pending === null) return NONE;
-  if (seeking) return NONE; // slower than the timeout: drop rather than wait forever
-  return onSeekSettled(pending, current, seeking);
 }

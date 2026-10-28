@@ -3,13 +3,7 @@ import { SpeedPoint } from '../@types/yt_clipper';
 import { frameSpan } from './frame-grid';
 import { VideoPlatforms } from '../platforms/platforms';
 import { appState, VideoElement } from '../appState';
-import {
-  onExternalSeek,
-  onSeekRequest,
-  onSeekSettled,
-  onStaleTimer,
-  SeekDecision,
-} from './seek-coalescer';
+import { onExternalSeek, onSeekRequest, onSeekSettled, SeekDecision } from './seek-coalescer';
 
 export function assertDefined<T>(value: T | null | undefined, msg?: string): asserts value is T {
   if (value == null) {
@@ -299,12 +293,13 @@ export function getEasedValue(
 // seek-coalescer.ts; this file is the shell that holds the state and
 // applies its effects. On top of that:
 //
-//   - A 1s timer bounds the wait: a normal seek settles well within it
+//   - A 1s timer recovers a missed ``seeked``: a normal seek settles well within it
 //     and its ``seeked`` flushes the pending. The earlier 250ms was too
 //     short: a slow seek (YouTube buffering mid-scrub) outran it and
 //     the pending was dropped, stranding a fast drag at an intermediate
-//     frame. After a full second still seeking we give up rather than
-//     queue indefinitely.
+//     frame. A seek still running after a second keeps its pending and
+//     re-arms, so frame steps held behind a slow seek are not lost; a
+//     new source (``emptied``) drops it.
 //
 //   - A ``seeking`` event listener detects external seeks (YouTube
 //     progress bar, native keyboard shortcuts, ad insertion, etc.)
@@ -351,7 +346,7 @@ function armStalePendingTimer() {
     if (pendingSeekVideo === null) return;
     applyDecision(
       pendingSeekVideo,
-      onStaleTimer(pendingSeekTime, pendingSeekVideo.getCurrentTime(), pendingSeekVideo.seeking)
+      onSeekSettled(pendingSeekTime, pendingSeekVideo.getCurrentTime(), pendingSeekVideo.seeking)
     );
   }, STALE_PENDING_TIMEOUT_MS);
 }
@@ -387,15 +382,24 @@ function onSeeking() {
   if (pendingSeekVideo !== null) applyDecision(pendingSeekVideo, onExternalSeek());
 }
 
+// A new source (YouTube reuses the video element) ends a stuck seek without 'seeked'.
+function onEmptied() {
+  if (pendingSeekVideo !== null) applyDecision(pendingSeekVideo, onExternalSeek());
+}
+
 function ensureSeekListeners(video: VideoElement) {
   if (pendingSeekVideo === video) return;
   if (pendingSeekVideo !== null) {
     pendingSeekVideo.removeEventListener('seeked', onSeeked);
     pendingSeekVideo.removeEventListener('seeking', onSeeking);
+    pendingSeekVideo.removeEventListener('emptied', onEmptied);
+    // The old video's target is not for this one.
+    applyDecision(video, onExternalSeek());
   }
   pendingSeekVideo = video;
   video.addEventListener('seeked', onSeeked);
   video.addEventListener('seeking', onSeeking);
+  video.addEventListener('emptied', onEmptied);
 }
 
 export function seekToSafe(video: VideoElement, newTime: number) {

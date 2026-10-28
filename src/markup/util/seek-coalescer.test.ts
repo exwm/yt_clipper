@@ -1,10 +1,4 @@
-import {
-  onExternalSeek,
-  onSeekRequest,
-  onSeekSettled,
-  onStaleTimer,
-  SeekDecision,
-} from './seek-coalescer';
+import { onExternalSeek, onSeekRequest, onSeekSettled, SeekDecision } from './seek-coalescer';
 
 describe('onSeekRequest', () => {
   it('fires immediately when not seeking', () => {
@@ -41,23 +35,6 @@ describe('onSeekSettled', () => {
   });
 });
 
-describe('onStaleTimer', () => {
-  it('flushes once the seek has settled (recovers a missed seeked event)', () => {
-    expect(onStaleTimer(5, 0, false)).toEqual({
-      pending: null,
-      effects: [{ type: 'fire', target: 5 }],
-    });
-  });
-
-  it('gives up rather than queue indefinitely if still seeking past the timeout', () => {
-    expect(onStaleTimer(5, 0, true)).toEqual({ pending: null, effects: [] });
-  });
-
-  it('no-ops with an empty slot', () => {
-    expect(onStaleTimer(null, 0, false)).toEqual({ pending: null, effects: [] });
-  });
-});
-
 describe('onExternalSeek', () => {
   it('drops any pending target', () => {
     expect(onExternalSeek()).toEqual({ pending: null, effects: [] });
@@ -80,7 +57,8 @@ describe('coalescer scenarios', () => {
         apply(onSeekRequest(target, current, seeking)),
       settled: (current: number, seeking: boolean) =>
         apply(onSeekSettled(pending, current, seeking)),
-      stale: (current: number, seeking: boolean) => apply(onStaleTimer(pending, current, seeking)),
+      // The stale timer settles the same way as 'seeked'.
+      stale: (current: number, seeking: boolean) => apply(onSeekSettled(pending, current, seeking)),
       external: () => apply(onExternalSeek()),
     };
   }
@@ -102,12 +80,23 @@ describe('coalescer scenarios', () => {
     expect(d.fired).toEqual([1, 3]);
   });
 
-  it('gives up if the timer fires while the seek is still stuck', () => {
+  it('keeps the final target through a seek slower than the timer, until it finishes', () => {
     const d = makeDriver();
     d.request(1, 0, false);
     d.request(3, 0, true); // pend 3
-    d.stale(0, true); // a full second later still seeking -> drop rather than queue forever
-    d.settled(1, false); // the stuck seek eventually finishes; nothing left to flush
+    d.stale(1, true); // still seeking after a second, and after two
+    d.stale(1, true);
+    d.settled(1, false);
+    expect(d.fired).toEqual([1, 3]);
+  });
+
+  it('drops the target of a seek that never ends at the next external seek or new source', () => {
+    const d = makeDriver();
+    d.request(1, 0, false);
+    d.request(3, 0, true);
+    d.stale(1, true);
+    d.external(); // a new source ends the stuck seek without 'seeked'
+    d.stale(0, false);
     expect(d.fired).toEqual([1]);
   });
 

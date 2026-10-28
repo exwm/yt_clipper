@@ -1,8 +1,10 @@
 import { frameDecisionTime, frameStepTarget } from './frame-step';
+import { onExternalSeek, onSeekRequest, onSeekSettled, SeekDecision } from './seek-coalescer';
 
 const fps = 30;
 const frame = (n: number) => n / fps;
 const middleOf = (n: number) => (n + 0.5) / fps;
+const duration = 3600;
 
 describe('frameDecisionTime', () => {
   // A jump to a marker 1.5 ms before its frame's end: the seek lands 1 ms past it.
@@ -26,85 +28,87 @@ describe('frameDecisionTime', () => {
   });
 });
 
+// A small seeded generator, so a failing scenario replays exactly from its seed.
+function mulberry32(seed: number): () => number {
+  let a = seed;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let r = Math.imul(a ^ (a >>> 15), 1 | a);
+    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 describe('frameStepTarget', () => {
-  // A step from frame 90 to 91, and one taken on 92 to 93.
-  const stepFrom90 = { target: middleOf(91), presentedFrameTime: frame(90), direction: 1 };
-  const stepTo93 = { target: middleOf(93), presentedFrameTime: frame(91), direction: 1 };
   it.each([
-    ['one forward from a frame start', frame(90), false, frame(90), null, 1, middleOf(91)],
-    ['one back from a frame start', frame(90), false, frame(90), null, -1, middleOf(89)],
-    ['three forward', frame(90), false, frame(90), null, 3, middleOf(93)],
+    ['one forward from a frame start', frame(90), frame(90), null, 1, middleOf(91)],
+    ['one back from a frame start', frame(90), frame(90), null, -1, middleOf(89)],
+    ['three forward', frame(90), frame(90), null, 3, middleOf(93)],
     // A millisecond-rounded frame time, as on YouTube.
-    ['from a rounded frame time', 3.003, false, 3.003, null, 1, 3.003 + 1.5 / fps],
-    // The last step's seek hasn't presented its frame yet: chain from its target.
-    ['chained while a step is pending', frame(90), true, middleOf(91), stepFrom90, 1, middleOf(92)],
-    // A slow seek presents an earlier step's frame while the latest step's seek is in flight.
+    ['from a rounded frame time', 3.003, 3.003, null, 1, 3.003 + 1.5 / fps],
+    // The frame on screen holds the playhead: step from it.
     [
-      "chained while an earlier step's frame shows",
-      frame(92),
-      true,
-      middleOf(93),
-      stepTo93,
-      1,
-      middleOf(94),
-    ],
-    // The last step's seek ended on the frame it started from (a rate too high), or its frame isn't
-    // presented yet: chain on.
-    [
-      'chained when the last step showed no new frame',
-      frame(90),
-      false,
+      'from the frame holding the last target',
+      frame(91),
       middleOf(91),
-      stepFrom90,
+      middleOf(91),
       1,
       middleOf(92),
     ],
-    // No seek in flight and a new frame shows: start from it, so a rate slightly off can't build up.
+    // The last step's seek hasn't presented its frame: the frame on screen can't hold its target.
+    ['chained while a step is pending', frame(90), middleOf(91), middleOf(91), 1, middleOf(92)],
     [
-      'from the frame the last step showed',
+      "chained while an earlier step's frame shows",
       frame(92),
-      false,
-      middleOf(91),
-      stepFrom90,
+      middleOf(94),
+      middleOf(94),
       1,
-      middleOf(93),
+      middleOf(95),
     ],
     [
-      'after the playhead moved on',
-      frame(120),
-      true,
-      frame(120) + 0.01,
-      stepFrom90,
-      1,
-      middleOf(121),
+      "chained back while an earlier step's frame shows",
+      frame(92),
+      middleOf(90),
+      middleOf(90),
+      -1,
+      middleOf(89),
     ],
-  ] as const)(
-    '%s',
-    (_case, presentedFrameTime, isSeekInFlight, playhead, lastStep, frames, expected) => {
-      expect(
-        frameStepTarget({ presentedFrameTime, isSeekInFlight, playhead, lastStep, fps, frames })
-      ).toBeCloseTo(expected, 9);
-    }
-  );
+    // Nothing near the playhead (a seek elsewhere whose frame hasn't shown): step from the playhead.
+    [
+      'from the playhead after a seek elsewhere',
+      frame(90),
+      frame(150) + 0.01,
+      middleOf(91),
+      1,
+      middleOf(151),
+    ],
+    // In the last millisecond of a frame the playhead is still in it.
+    ['from the playhead late in its frame', frame(90), frame(151) - 0.0005, null, 1, middleOf(151)],
+    ['back from the first frame', frame(0), frame(0), null, -1, middleOf(0)],
+  ] as const)('%s', (_case, presentedFrameTime, playhead, lastTarget, frames, expected) => {
+    expect(
+      frameStepTarget({ presentedFrameTime, playhead, lastTarget, fps, duration, frames })
+    ).toBeCloseTo(expected, 9);
+  });
 
   // A seek shows the frame that covers its target. `videoFps` is the video's rate, `fps` the rate in
   // use; each step from a pause, its frame shown before the next.
   function stepsFromAPause(videoFps: number, stepFps: number, steps: number): number[] {
     const shownAt = (time: number) => Math.floor(time * videoFps + 1e-9);
     let presentedFrameTime = 90 / videoFps;
-    let lastStep: { target: number; presentedFrameTime: number; direction: number } | null = null;
+    let lastTarget: number | null = null;
     const shown: number[] = [];
     for (let i = 0; i < steps; i++) {
-      const playhead = lastStep?.target ?? presentedFrameTime;
+      const playhead = lastTarget ?? presentedFrameTime;
       const target = frameStepTarget({
         presentedFrameTime,
-        isSeekInFlight: false,
         playhead,
-        lastStep,
+        lastTarget,
         fps: stepFps,
+        duration,
         frames: 1,
       });
-      lastStep = { target, presentedFrameTime, direction: 1 };
+      lastTarget = target;
       presentedFrameTime = shownAt(target) / videoFps;
       shown.push(shownAt(target));
     }
@@ -116,7 +120,6 @@ describe('frameStepTarget', () => {
     expect(shown.filter((n, i) => n !== 91 + i)).toEqual([]);
   });
 
-  // A rate somewhat off the video's, as before it is measured: each step moves one frame.
   it.each([
     [50, 60],
     [30, 25],
@@ -134,95 +137,256 @@ describe('frameStepTarget', () => {
     expect(shown[shown.length - 1]).toBe(100);
   });
 
-  // Steps faster than the seeks, which run one at a time with the latest request held back, as
-  // seekToSafe runs them. A seek presents its frame `frameDelay` ms after it ends: before (negative)
-  // or after, as browsers and sources differ. Times are in ms.
-  function stepsDuringSlowSeeks(stepGap: number, seekTime: number, frameDelay: number, moves: number[]) {
-    const steps = moves.length;
-    const state = {
-      shownFrame: 600,
-      inFlight: null as { target: number; endsAt: number } | null,
-      pending: null as number | null,
-      frameDue: [] as { frame: number; at: number }[],
-      playhead: middleOf(600),
-      lastStep: null as { target: number; presentedFrameTime: number; direction: number } | null,
+  // Bursts of steps in a model of the browser and seekToSafe's coalescer (`seek-coalescer.ts`, with
+  // its 1 s timer). Setting the time moves the playhead and sets `seeking` at once, as on HTML5 video
+  // and YouTube. A seek's frame is presented `arrival` ms after the seek ends (negative: before, down
+  // to its start, as YouTube presents before 'seeking'), unless another seek replaces it first. With
+  // millisecond-rounded frame times the frame shown follows the rounded boundaries. Times are in ms.
+  interface Playback {
+    videoFps: number;
+    stepFps: number;
+    seekTime: number;
+    arrival: number;
+    roundToMs: boolean;
+    startFrame: number;
+    // The video's last frame, and its duration in frames (longer when its audio is).
+    lastFrame?: number;
+    durationFrames?: number;
+  }
+  interface Burst {
+    moves: number[];
+    gap: number;
+    // A seek of the user's own, `lead` ms before the first step.
+    userSeek?: { time: number; lead: number };
+    // The rate in use at each step, when it changes mid-burst.
+    fpsAt?: (step: number) => number;
+  }
+  function playBursts(playback: Playback, bursts: Burst[]) {
+    const { videoFps, stepFps, seekTime, arrival, roundToMs, startFrame } = playback;
+    const frameStart = (n: number) =>
+      roundToMs ? Math.round((n / videoFps) * 1000) / 1000 : n / videoFps;
+    const lastFrame = playback.lastFrame ?? Infinity;
+    const duration = (playback.durationFrames ?? Infinity) / videoFps;
+    const frameShownAt = (time: number) => {
+      const n = Math.floor(time * videoFps + 1e-9);
+      const shown = frameStart(n + 1) <= time ? n + 1 : frameStart(n) > time ? n - 1 : n;
+      return Math.min(shown, lastFrame);
     };
-    const shown: number[] = [];
-    const seek = (target: number, now: number) => {
-      if (state.inFlight) {
-        state.pending = target;
-        return;
-      }
-      state.inFlight = { target, endsAt: now + seekTime };
-      state.frameDue.push({ frame: Math.floor(target * fps), at: now + seekTime + frameDelay });
+    const video = {
+      currentTime: frameStart(startFrame) + 0.4 / videoFps,
+      seeking: false,
+      seekEndsAt: 0,
+      shownFrame: startFrame,
+      framesDue: [] as { frame: number; at: number; seekEndsAt: number }[],
     };
-    for (
-      let now = 0, step = 0;
-      step < steps || state.inFlight || state.frameDue.length > 0;
-      now++
-    ) {
-      while (state.frameDue.length > 0 && now >= state.frameDue[0].at) {
-        state.shownFrame = state.frameDue.shift()!.frame;
-        shown.push(state.shownFrame);
+    let pending: number | null = null;
+    let timerAt: number | null = null;
+    let lastTarget: number | null = null;
+    let now = 0;
+    const seekTo = (target: number) => {
+      video.framesDue = video.framesDue.filter((due) => due.seekEndsAt <= now);
+      Object.assign(video, { currentTime: target, seeking: true, seekEndsAt: now + seekTime });
+      const at = Math.max(now, now + seekTime + arrival);
+      video.framesDue.push({ frame: frameShownAt(target), at, seekEndsAt: now + seekTime });
+      video.framesDue.sort((a, b) => a.at - b.at);
+    };
+    const apply = (decision: SeekDecision) => {
+      pending = decision.pending;
+      timerAt = decision.effects.some((e) => e.type === 'armTimer') ? now + 1000 : null;
+      for (const effect of decision.effects) if (effect.type === 'fire') seekTo(effect.target);
+    };
+    const isBusy = () => video.seeking || pending != null || video.framesDue.length > 0;
+    const tick = () => {
+      while (video.framesDue.length > 0 && now >= video.framesDue[0].at) {
+        video.shownFrame = video.framesDue.shift()!.frame;
       }
-      const ended = state.inFlight;
-      if (ended && now >= ended.endsAt) {
-        state.playhead = ended.target;
-        state.inFlight = null;
-        const pending = state.pending;
-        state.pending = null;
-        if (pending != null) seek(pending, now);
+      if (video.seeking && now >= video.seekEndsAt) {
+        video.seeking = false;
+        apply(onSeekSettled(pending, video.currentTime, false));
       }
-      while (step < steps && now >= step * stepGap) {
-        const target = frameStepTarget({
-          presentedFrameTime: frame(state.shownFrame),
-          isSeekInFlight: state.inFlight != null || state.pending != null,
-          playhead: state.pending ?? state.inFlight?.target ?? state.playhead,
-          lastStep: state.lastStep,
-          fps,
-          frames: moves[step],
-        });
-        state.lastStep = {
-          target,
-          presentedFrameTime: frame(state.shownFrame),
-          direction: Math.sign(moves[step]),
-        };
-        seek(target, now);
-        step++;
+      if (timerAt != null && now >= timerAt) {
+        timerAt = null;
+        apply(onSeekSettled(pending, video.currentTime, video.seeking));
       }
+    };
+    const results: {
+      afterUserSeek: boolean;
+      oneWay: boolean;
+      wanted: number;
+      moved: number;
+      ended: boolean;
+      monotonic: boolean;
+    }[] = [];
+    for (const burst of bursts) {
+      for (; isBusy(); now++) tick();
+      now += 500;
+      let from = video.shownFrame;
+      if (burst.userSeek != null) {
+        apply(onExternalSeek());
+        seekTo(burst.userSeek.time);
+        from = frameShownAt(burst.userSeek.time);
+        for (const end = now + burst.userSeek.lead; now < end; now++) tick();
+      }
+      const shown: number[] = [];
+      const burstStart = now;
+      let step = 0;
+      for (; step < burst.moves.length || isBusy(); now++) {
+        const before = video.shownFrame;
+        tick();
+        if (video.shownFrame !== before) shown.push(video.shownFrame);
+        while (step < burst.moves.length && now >= burstStart + step * burst.gap) {
+          const target = frameStepTarget({
+            presentedFrameTime: frameStart(video.shownFrame),
+            playhead: pending ?? video.currentTime,
+            lastTarget,
+            fps: burst.fpsAt?.(step) ?? stepFps,
+            duration,
+            frames: burst.moves[step],
+          });
+          lastTarget = target;
+          apply(onSeekRequest(target, video.currentTime, video.seeking));
+          step++;
+        }
+      }
+      const wanted = burst.moves.reduce((sum, move) => sum + move, 0);
+      const direction = Math.sign(burst.moves[0]);
+      const oneWay = burst.moves.every((move) => Math.sign(move) === direction);
+      results.push({
+        oneWay,
+        wanted,
+        afterUserSeek: burst.userSeek != null,
+        moved: video.shownFrame - from,
+        ended: video.shownFrame === Math.min(Math.max(from + wanted, 0), lastFrame),
+        monotonic:
+          !oneWay || shown.every((n, i) => direction * (n - (i === 0 ? from : shown[i - 1])) >= 0),
+      });
     }
-    return shown;
+    return results;
   }
 
+  const MATCHED_RATES = [24, 25, 30000 / 1001, 30, 50, 60000 / 1001, 60];
+  const MISMATCHED_RATES = [
+    [30000 / 1001, 30],
+    [30, 30000 / 1001],
+    [30, 25],
+    [25, 30],
+    [24, 60],
+    [25, 60],
+    [30, 60],
+    [50, 60],
+  ];
+  function scenario(seed: number, rates: readonly (readonly number[])[]) {
+    const random = mulberry32(seed);
+    const pick = <T>(values: readonly T[]) => values[Math.floor(random() * values.length)];
+    const [videoFps, stepFps] = pick(rates);
+    // One seek in ten outlasts the coalescer's timer.
+    const seekTime =
+      random() < 0.1 ? 1000 + Math.floor(random() * 6000) : 5 + Math.floor(random() * 396);
+    const arrival = Math.floor(-seekTime + random() * (seekTime + 50));
+    // Anywhere in a long video, so a rate slightly off drifts across the video's frame boundaries.
+    const startFrame = Math.floor(random() * 100000);
+    const bursts = Array.from({ length: 4 }, (): Burst => {
+      const length = 1 + Math.floor(random() * 30);
+      const size = pick([1, 1, 1, 5]);
+      const reverses = random() < 0.25;
+      const direction = random() < 0.5 ? 1 : -1;
+      const moves = Array.from(
+        { length },
+        (_, k) => (reverses && k >= length / 2 ? -direction : direction) * size
+      );
+      // A user seek with millisecond-rounded frame times can't tell a frame from its neighbor within
+      // half a millisecond of their boundary, until its frame is presented: kept out of these runs.
+      let frames = startFrame + random() * 300;
+      if (Math.abs(frames - Math.round(frames)) < 0.0005 * videoFps) frames += 0.5;
+      const userSeek =
+        random() < 0.3 ? { time: frames / videoFps, lead: Math.floor(random() * 60) } : undefined;
+      return { moves, gap: Math.floor(random() * 301), userSeek };
+    });
+    const playback = {
+      videoFps,
+      stepFps,
+      seekTime,
+      arrival,
+      roundToMs: random() < 0.5,
+      startFrame,
+    };
+    return { seed, playback, bursts };
+  }
+  const failures = (
+    scenarios: ReturnType<typeof scenario>[],
+    isWrong: (r: ReturnType<typeof playBursts>[number], s: Playback) => boolean
+  ) =>
+    scenarios.flatMap(({ seed, playback, bursts }) =>
+      playBursts(playback, bursts)
+        .filter((r) => isWrong(r, playback))
+        .map((r) => ({ seed, ...r }))
+    );
+
+  it('moves every burst by exactly its steps at a matched rate, whatever the timing', () => {
+    const scenarios = Array.from({ length: 600 }, (_, i) =>
+      scenario(
+        i + 1,
+        MATCHED_RATES.map((rate) => [rate, rate])
+      )
+    );
+    expect(failures(scenarios, (r) => !r.ended || !r.monotonic)).toEqual([]);
+  });
+
+  // Before a rate is confirmed (S3): never backward, and at least one frame per as many steps as the
+  // rate in use has frames per video frame. Right after a user seek a step starts from the playhead's
+  // grid frame, which on another grid can start in the video frame before: one step can be lost.
+  it('moves a one-way burst forward, never stuck, at a rate in use other than the video', () => {
+    const scenarios = Array.from({ length: 600 }, (_, i) => scenario(i + 1, MISMATCHED_RATES));
+    const isWrong = (r: ReturnType<typeof playBursts>[number], s: Playback) =>
+      r.oneWay &&
+      (!r.monotonic ||
+        Math.sign(r.moved) * Math.sign(r.wanted) < 0 ||
+        Math.abs(r.moved) <
+          Math.floor(Math.abs(r.wanted) / Math.ceil(s.stepFps / s.videoFps)) -
+            (r.afterUserSeek ? 1 : 0));
+    expect(failures(scenarios, isWrong)).toEqual([]);
+  });
+
   it.each([
-    [0, 300, 15, -1],
-    [10, 300, 15, -1],
-    [33, 300, 15, -1],
-    [33, 40, 15, -1],
-    [33, 300, -10, -1],
-    [10, 300, -10, 1],
-    [100, 20, -5, 1],
-    [100, 20, 15, 1],
-    // Fast seeks whose frame comes just after the seek ends, steps faster than seek plus frame.
-    [33, 20, 15, 1],
-    [16, 10, 8, 1],
-    [40, 25, 20, 1],
-    [33, 20, 15, -1],
+    [30, 60, 30],
+    [30, 30, 60],
+    [30000 / 1001, 30, 30000 / 1001],
+    [25, 60, 25],
   ])(
-    'lands every step and moves one way, steps %p ms apart, seeks of %p ms, frame %p ms after, by %p',
-    (gap, seek, frameDelay, by) => {
-      const shown = stepsDuringSlowSeeks(gap, seek, frameDelay, Array(30).fill(by));
-      expect(shown[shown.length - 1]).toBe(600 + 30 * by);
-      expect(shown.every((n, i) => i === 0 || by * (n - shown[i - 1]) >= 0)).toBe(true);
+    'never moves back when the rate in use changes mid-burst on a %p fps video, %p to %p',
+    (videoFps, from, to) => {
+      const wrong = Array.from({ length: 100 }, (_, i) => {
+        const { playback, bursts } = scenario(i + 1, [[videoFps, to]]);
+        const change = i % 10;
+        const oneWay = bursts.map((b) => ({
+          ...b,
+          moves: b.moves.map(() => Math.sign(b.moves[0])),
+          fpsAt: (step: number) => (step < change ? from : to),
+        }));
+        return playBursts(playback, oneWay).filter((r) => !r.monotonic || r.moved * r.wanted < 0);
+      }).flat();
+      expect(wrong).toEqual([]);
     }
   );
 
-  // A burst that turns around before its last frames show: each step still counts.
-  it.each([
-    ['three forward then three back', [1, 1, 1, -1, -1, -1]],
-    ['four of five forward then four back', [5, 5, 5, 5, -5, -5, -5, -5]],
-  ])('lands every step of %s', (_case, moves) => {
-    const shown = stepsDuringSlowSeeks(8, 5, 8, moves);
-    expect(shown[shown.length - 1]).toBe(600);
+  it('stops on the last and first frames, and steps back from the end', () => {
+    const playback = {
+      videoFps: 30,
+      stepFps: 30,
+      seekTime: 20,
+      arrival: 5,
+      roundToMs: false,
+      startFrame: 95,
+      lastFrame: 99,
+      durationFrames: 100,
+    };
+    const results = playBursts(playback, [
+      { moves: Array(10).fill(1), gap: 100 },
+      { moves: [-1], gap: 0 },
+      { moves: [-1], gap: 0 },
+      { moves: [-1, -1, -1], gap: 50, userSeek: { time: 1 / 30 + 0.01, lead: 30 } },
+      { moves: [1], gap: 0 },
+    ]);
+    expect(results.map((r) => r.ended)).toEqual([true, true, true, true, true]);
   });
 });

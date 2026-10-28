@@ -9,6 +9,7 @@ const mockSeeks = {
 const mockAppState = {
   video: Object.assign(new EventTarget(), {
     videoWidth: 1920,
+    duration: 3600,
     getCurrentTime: () => mockSeeks.current,
     get seeking() {
       return mockSeeks.inFlight;

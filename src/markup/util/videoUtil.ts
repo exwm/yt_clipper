@@ -113,8 +113,7 @@ export function loopPlaybackOver(start: number, end: number): void {
   if (target != null) seekToSafe(appState.video, target);
 }
 
-let lastFrameStep: { target: number; presentedFrameTime: number; direction: number } | null =
-  null;
+let lastStepTarget: number | null = null;
 /** Seeks `frames` whole frames from the frame on screen, to the middle of that frame. */
 export function seekByFrames(frames: number): void {
   const video = appState.video;
@@ -123,19 +122,16 @@ export function seekByFrames(frames: number): void {
     seekBySafe(video, frames / getFPS());
     return;
   }
-  const presentedFrameTime = getPresentedFrameTime(video);
-  const pendingSeekTime = getPendingSeekTime();
-  const fps = getFPS();
   const target = frameStepTarget({
-    presentedFrameTime,
-    isSeekInFlight: video.seeking || pendingSeekTime != null,
+    presentedFrameTime: getPresentedFrameTime(video),
     // A step held back while another seek is in flight is where the playhead is headed.
-    playhead: pendingSeekTime ?? video.getCurrentTime(),
-    lastStep: lastFrameStep,
-    fps,
+    playhead: getPendingSeekTime() ?? video.getCurrentTime(),
+    lastTarget: lastStepTarget,
+    fps: getFPS(),
+    duration: video.duration,
     frames,
   });
-  lastFrameStep = { target, presentedFrameTime, direction: Math.sign(frames) };
+  lastStepTarget = target;
   // Not a frame seek for decisions: on a rate higher than the video's, a step's frame start isn't the
   // frame it shows, so decisions read the frame on screen.
   lastFrameSeek = null;
