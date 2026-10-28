@@ -5,8 +5,11 @@ with the userscript injected and activated. Run them through `just ui-test` (dev
 `just ui-test-youtube`, which build the bundle first. Screenshots go to sandbox/ui-shots/<test>/ (<test>-<variant>/ for a parametrized test).
 """
 
+import ctypes
 import re
 import shutil
+import sys
+import warnings
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -194,6 +197,52 @@ def pytest_runtest_makereport(item: pytest.Item) -> Iterator[None]:
     return report
 
 
+# Windows turns idle displays off, and Chrome then times frames with a 17 ms sleep (about 57 Hz), not
+# the display's vsync (ui/gl/vsync_thread_win.cc), which skews every timing test.
+ES_CONTINUOUS = 0x80000000
+ES_DISPLAY_REQUIRED = 0x00000002
+
+
+@pytest.fixture(scope="session", autouse=True)
+def displays_stay_on() -> Iterator[None]:
+    if sys.platform != "win32":
+        yield
+        return
+    ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED)
+    yield
+    ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS)
+
+
+MEDIAN_REFRESH_MS = """() => new Promise((done) => {
+    const times = [];
+    const onFrame = (time) => {
+        times.push(time);
+        if (times.length < 31) requestAnimationFrame(onFrame);
+        else {
+            const gaps = times.slice(1).map((t, i) => t - times[i]).sort((a, b) => a - b);
+            done(gaps[15]);
+        }
+    };
+    requestAnimationFrame(onFrame);
+})"""
+# The median frame gap this worker measured, once.
+measured_refresh_ms: list[float] = []
+
+
+def warn_unless_refresh_is_60_hz(page: "Page") -> None:
+    """Once per worker: the timing tests expect a 60 Hz display."""
+    if measured_refresh_ms:
+        return
+    median_ms = page.evaluate(MEDIAN_REFRESH_MS)
+    measured_refresh_ms.append(median_ms)
+    if not 16.4 <= median_ms <= 16.9:
+        warnings.warn(
+            f"frames run every {median_ms:.2f} ms, not 16.67 (60 Hz): the displays may be off,"
+            " so loop and frame timing tests can fail; wake the displays and rerun",
+            stacklevel=1,
+        )
+
+
 @pytest.fixture
 def markup(
     browser_page: "Page",
@@ -235,6 +284,7 @@ def markup(
             open_dev_site(page, dev_site.url, video_name)
     with steps.timed("(activate the markup)"):
         activate_markup(page)
+    warn_unless_refresh_is_60_hz(page)
 
     # pytest-playwright traces only its own page; the YouTube context is the fixture's.
     traced = not youtube_url and request.config.getoption("tracing") != "off"
