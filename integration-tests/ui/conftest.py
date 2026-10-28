@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING
 import pytest
 from harness import steps
 from harness.dev_site import (
-    DEFAULT_PORT,
     DEFAULT_VIDEO_SECONDS,
     EXTRA_VIDEO_SECONDS,
     VIDEO_STYLES,
@@ -39,7 +38,8 @@ YOUTUBE_STORAGE_TO_CLEAR = "cookies,local_storage,indexeddb,service_workers,cach
 def pytest_addoption(parser: pytest.Parser) -> None:
     group = parser.getgroup("markup ui")
     group.addoption("--youtube", metavar="URL", help="run on this YouTube video, not the dev site")
-    group.addoption("--dev-site-port", type=int, default=DEFAULT_PORT)
+    # 0: each worker serves on a free port the OS picks, so parallel runs and reserved ranges never collide.
+    group.addoption("--dev-site-port", type=int, default=0)
     group.addoption("--video-seconds", type=int, default=DEFAULT_VIDEO_SECONDS)
     group.addoption(
         "--video-style",
@@ -129,9 +129,10 @@ def dev_site(
     if youtube_url:
         yield None
         return
-    # Each parallel worker (gw0, gw1, ...) serves on its own port; a serial run is "master".
-    worker_index = int(worker_id.removeprefix("gw")) if worker_id.startswith("gw") else 0
-    port = int(pytestconfig.getoption("dev_site_port")) + worker_index
+    # A fixed port: each parallel worker (gw0, gw1, ...) serves on its own; a serial run is "master".
+    port = int(pytestconfig.getoption("dev_site_port"))
+    if port:
+        port += int(worker_id.removeprefix("gw")) if worker_id.startswith("gw") else 0
     video_name = test_video_name(
         int(pytestconfig.getoption("video_seconds")), pytestconfig.getoption("video_style")
     )
