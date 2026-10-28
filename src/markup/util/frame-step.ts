@@ -1,10 +1,20 @@
 import { PLACEMENT_TOLERANCE } from './frame-grid';
 
-/** A seek the markup made to show a frame: where it seeks, and the time of the frame it shows (a
- *  placed time such as a marker's, or a step's frame start). */
-export interface FrameSeek {
+/** The markup's last seek to show a frame: where it seeks, and the start of the frame it means. A
+ *  'place' seek shows a placed time, such as a marker's; a 'step' seek a frame middle on the grid of
+ *  the rate in use, which at a rate above the video's isn't the frame it shows. */
+export interface OwnSeek {
   target: number;
-  frameTime: number;
+  frameStart: number;
+  kind: 'place' | 'step';
+}
+
+/** Whether the playhead is still where `seek` put it. */
+export function isAtOwnSeek(seek: OwnSeek, playhead: number, fps: number): boolean {
+  return (
+    Math.abs(playhead - seek.target) < 1 / fps / 4 &&
+    playhead >= seek.frameStart - PLACEMENT_TOLERANCE
+  );
 }
 
 /** What the frame clock knows of the frame on screen. */
@@ -97,11 +107,11 @@ export function presentedFrameStart(
 
 /**
  * The time of the frame the user is on, which placements store and decisions read: the frame of the
- * playhead, presented yet or not. Right after one of the markup's frame seeks, that seek's placed
- * time. Else the start of the frame on screen, once it is the playhead's frame. Else the playhead
- * less the placement tolerance, which `frameAt` reads as the playhead's own frame on any grid. A
- * point placed on a frame and the time read there later are then the same frame start, so finding a
- * point on the frame shown needs no grid guess.
+ * playhead, presented yet or not. Right after a jump to a placed time, that time. Else the start of
+ * the frame on screen, once it is the playhead's frame. Else the playhead less the placement
+ * tolerance, which `frameAt` reads as the playhead's own frame on any grid. A point placed on a frame
+ * and the time read there later are then the same frame start, so finding a point on the frame shown
+ * needs no grid guess.
  */
 export function frameTime(
   screen: ScreenFrame,
@@ -109,18 +119,12 @@ export function frameTime(
     // Where the playhead is or is going: the seek held back, else the current time.
     playhead: number;
     isSeekInFlight: boolean;
-    lastFrameSeek: FrameSeek | null;
+    ownSeek: OwnSeek | null;
     fps: number;
   }
 ): number {
-  const { playhead, isSeekInFlight, lastFrameSeek, fps } = at;
-  if (
-    lastFrameSeek != null &&
-    Math.abs(playhead - lastFrameSeek.target) < 1 / fps / 4 &&
-    playhead >= lastFrameSeek.frameTime - PLACEMENT_TOLERANCE
-  ) {
-    return lastFrameSeek.frameTime;
-  }
+  const { playhead, isSeekInFlight, ownSeek, fps } = at;
+  if (ownSeek?.kind === 'place' && isAtOwnSeek(ownSeek, playhead, fps)) return ownSeek.frameStart;
   if (!isSeekInFlight && screen.isPlayheads) return screen.start;
   return Math.max(0, playhead - PLACEMENT_TOLERANCE);
 }
@@ -143,14 +147,14 @@ export function frameStepTarget(
   step: {
     // Where the playhead is or is going: the seek held back, else the current time.
     playhead: number;
-    lastTarget: number | null;
+    ownSeek: OwnSeek | null;
     fps: number;
     // The video's duration: NaN before its metadata loads, Infinity while live.
     duration: number;
     frames: number;
   }
 ): number {
-  const { playhead, lastTarget, fps, duration, frames } = step;
+  const { playhead, ownSeek, fps, duration, frames } = step;
   const frameDuration = 1 / fps;
   // At the video's ends, the middle of its first or last frame, so the next step back or forward
   // starts from a frame middle too.
@@ -161,8 +165,8 @@ export function frameStepTarget(
   const frameStart =
     screen.isPlayheads && screen.isStartKnown && holdsPlayhead(screen.start, playheadInVideo, fps)
       ? screen.start
-      : lastTarget != null && Math.abs(playheadInVideo - lastTarget) < frameDuration / 4
-        ? lastTarget - frameDuration / 2
+      : ownSeek?.kind === 'step' && isAtOwnSeek(ownSeek, playheadInVideo, fps)
+        ? ownSeek.frameStart
         : // The playhead's grid frame, so every target is a frame middle.
           gridFrameStart(playheadInVideo, fps);
   const target = frameStart + (frames + 0.5) * frameDuration;

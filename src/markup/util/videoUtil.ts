@@ -6,7 +6,7 @@ import { isDrawingCrop } from '../crop-overlay';
 import { isMouseManipulatingCrop } from '../crop-overlay';
 import { blockEvent, flashMessage, getPendingSeekTime, seekBySafe, seekToSafe } from './util';
 import {
-  FrameSeek,
+  OwnSeek,
   frameStepTarget,
   frameTime,
   presentedFrameStart,
@@ -30,8 +30,10 @@ export function followFrameRate(video: VideoElement): void {
   getMeasuredFrameRate(video);
   frameRateFrames?.stop();
   frameRateFrames = onVideoFrames(video, updateFrameRate, { phase: 'update', label: 'frame rate' });
-  // A new source (YouTube reuses the video element on navigation) has its own stats rate.
+  // A new source (YouTube reuses the video element on navigation) has its own stats rate, and its
+  // playhead never shows the frame of a seek made on the old one.
   video.addEventListener('emptied', () => {
+    ownSeek = null;
     youTubeStatsFps = null;
     isNewSourceLoaded = false;
     updateFrameRate();
@@ -106,11 +108,11 @@ export function getFrameGrid(): FrameGrid {
   return { origin: 0, rate: getFPS() };
 }
 
-let lastFrameSeek: FrameSeek | null = null;
+let ownSeek: OwnSeek | null = null;
 /** Seeks to show the frame at `time`, a placed time such as a marker's or a crop point's. */
 export function seekToFrameAt(time: number): void {
   const target = frameSeekTarget(getFrameGrid(), time);
-  lastFrameSeek = { target, frameTime: time };
+  ownSeek = { target, frameStart: time, kind: 'place' };
   seekToSafe(appState.video, target);
 }
 
@@ -138,7 +140,7 @@ export function getFrameTime(): number {
   return frameTime(getScreenFrame(playhead), {
     playhead,
     isSeekInFlight: video.seeking || pendingSeekTime != null,
-    lastFrameSeek,
+    ownSeek,
     fps: getFPS(),
   });
 }
@@ -163,7 +165,6 @@ export function loopPlaybackOver(start: number, end: number): void {
   if (target != null) seekToSafe(appState.video, target);
 }
 
-let lastStepTarget: number | null = null;
 /** Seeks `frames` whole frames from the frame on screen, to the middle of that frame. */
 export function seekByFrames(frames: number): void {
   const video = appState.video;
@@ -175,17 +176,15 @@ export function seekByFrames(frames: number): void {
   // A step held back while another seek is in flight is where the playhead is headed.
   // eslint-disable-next-line no-restricted-syntax -- frame steps start from the frame on screen
   const playhead = getPendingSeekTime() ?? video.getCurrentTime();
+  const fps = getFPS();
   const target = frameStepTarget(getScreenFrame(playhead), {
     playhead,
-    lastTarget: lastStepTarget,
-    fps: getFPS(),
+    ownSeek,
+    fps,
     duration: video.duration,
     frames,
   });
-  lastStepTarget = target;
-  // Not a frame seek for decisions: on a rate higher than the video's, a step's frame start isn't the
-  // frame it shows, so decisions read the frame on screen.
-  lastFrameSeek = null;
+  ownSeek = { target, frameStart: target - 0.5 / fps, kind: 'step' };
   seekToSafe(video, target);
 }
 

@@ -361,6 +361,17 @@ describe('seekByFrames', () => {
       expect(getFrameTime()).toBe(frame(181));
     });
 
+    // YouTube reuses the video element for the next video, whose playhead can land on the old target.
+    it("forgets a jump's placed time when the video's source changes", () => {
+      followFrameRate(mockAppState.video as never);
+      pausedOn(90, 30);
+      const markerTime = frame(181) - 0.0015;
+      seekToFrameAt(markerTime);
+      land();
+      mockAppState.video.dispatchEvent(new Event('emptied'));
+      expect(getFrameTime()).toBe(frame(180));
+    });
+
     // At the assumed 60 fps a step can stay on the same video frame; the time read is that frame's.
     it('reads the frame on screen after steps at a rate above the video', () => {
       pausedOn(90, 60);

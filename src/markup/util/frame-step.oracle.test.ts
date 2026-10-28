@@ -1,5 +1,11 @@
 import { PLACEMENT_TOLERANCE, frameSeekTarget } from './frame-grid';
-import { frameStepTarget, frameTime, presentedFrameStart, screenFrame } from './frame-step';
+import {
+  frameStepTarget,
+  frameTime,
+  OwnSeek,
+  presentedFrameStart,
+  screenFrame,
+} from './frame-step';
 
 // A frozen copy of frame-step.ts as of 5.49 (uxrlrlyt), the oracle the consolidation is checked
 // against. Deleted once the consolidation lands.
@@ -238,9 +244,16 @@ const screenAt = (s: State) =>
     s.fps,
     s.isRateExact
   );
+const ownSeekAt = (s: State): OwnSeek | null =>
+  s.lastSeek?.kind === 'place'
+    ? { target: s.lastSeek.target, frameStart: s.lastSeek.time, kind: 'place' }
+    : s.lastSeek?.kind === 'step'
+      ? { target: s.lastSeek.target, frameStart: s.lastSeek.target - 0.5 / s.fps, kind: 'step' }
+      : null;
 const production = {
-  frameTime: (s: State) => frameTime(screenAt(s), oracleInputs(s)),
-  frameStepTarget: (s: State) => frameStepTarget(screenAt(s), oracleInputs(s)),
+  frameTime: (s: State) => frameTime(screenAt(s), { ...oracleInputs(s), ownSeek: ownSeekAt(s) }),
+  frameStepTarget: (s: State) =>
+    frameStepTarget(screenAt(s), { ...oracleInputs(s), ownSeek: ownSeekAt(s) }),
   // A frame callback's frame, never a read.
   frameStart: (s: State) =>
     presentedFrameStart(s.mediaTime, s.playhead, s.fps, false, s.isRateExact),

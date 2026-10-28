@@ -1,13 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { ClockState, initialClock, isFrameCurrent, stepClock } from './frame-clock-core';
-import {
-  FrameSeek,
-  frameStepTarget,
-  frameTime,
-  presentedFrameStart,
-  screenFrame,
-} from './frame-step';
+import { frameStepTarget, frameTime, presentedFrameStart, screenFrame } from './frame-step';
 import { onExternalSeek, onSeekRequest, onSeekSettled, SeekDecision } from './seek-coalescer';
 
 // The frame-step functions over the frame on screen and the playhead, as the tables state them.
@@ -27,13 +21,28 @@ const screenOf = (at: OnScreen) =>
     at.fps,
     at.isRateExact ?? true
   );
-function frameTimeOf(at: OnScreen & { isSeekInFlight: boolean; lastFrameSeek: FrameSeek | null }) {
-  return frameTime(screenOf(at), at);
+// A jump to a placed time: its target, and the time placed.
+interface Jump {
+  target: number;
+  frameTime: number;
 }
+function frameTimeOf(at: OnScreen & { isSeekInFlight: boolean; lastFrameSeek: Jump | null }) {
+  const jump = at.lastFrameSeek;
+  const ownSeek = jump && {
+    target: jump.target,
+    frameStart: jump.frameTime,
+    kind: 'place' as const,
+  };
+  return frameTime(screenOf(at), { ...at, ownSeek });
+}
+// `lastTarget`: the last step's target.
 function stepTargetOf(
   step: OnScreen & { lastTarget: number | null; duration: number; frames: number }
 ) {
-  return frameStepTarget(screenOf(step), step);
+  const { lastTarget: target, fps } = step;
+  const ownSeek =
+    target == null ? null : { target, frameStart: target - 0.5 / fps, kind: 'step' as const };
+  return frameStepTarget(screenOf(step), { ...step, ownSeek });
 }
 
 const fps = 30;
