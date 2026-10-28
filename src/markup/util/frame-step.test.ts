@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { ClockState, initialClock, isFrameCurrent, stepClock } from './frame-clock-core';
-import { frameStepTarget, frameTime, screenFrame } from './frame-step';
+import { frameStepTarget, frameTime, OwnSeek, screenFrame } from './frame-step';
 import { onExternalSeek, onSeekRequest, onSeekSettled, SeekDecision } from './seek-coalescer';
 
 // The frame-step functions over the frame on screen and the playhead, as the tables state them.
@@ -21,19 +21,8 @@ const screenOf = (at: OnScreen) =>
     at.fps,
     at.isRateExact ?? true
   );
-// A jump to a placed time: its target, and the time placed.
-interface Jump {
-  target: number;
-  frameTime: number;
-}
-function frameTimeOf(at: OnScreen & { isSeekInFlight: boolean; lastFrameSeek: Jump | null }) {
-  const jump = at.lastFrameSeek;
-  const ownSeek = jump && {
-    target: jump.target,
-    frameStart: jump.frameTime,
-    kind: 'place' as const,
-  };
-  return frameTime(screenOf(at), { ...at, ownSeek });
+function frameTimeOf(at: OnScreen & { isSeekInFlight: boolean; ownSeek: OwnSeek | null }) {
+  return frameTime(screenOf(at), at);
 }
 // `lastTarget`: the last step's target.
 function stepTargetOf(
@@ -53,14 +42,19 @@ const duration = 3600;
 describe('frameTime', () => {
   // A jump to a marker 1.5 ms before its frame's end: the seek lands 1 ms past it.
   const markerTime = frame(181) - 0.0015;
-  const jump = { target: markerTime + 0.001, frameTime: markerTime };
+  const jump: OwnSeek = { target: markerTime + 0.001, frameStart: markerTime, kind: 'place' };
+  const midJump: OwnSeek = {
+    target: frame(90) + 0.011,
+    frameStart: frame(90) + 0.01,
+    kind: 'place',
+  };
   const at = (overrides: Partial<Parameters<typeof frameTimeOf>[0]>) =>
     frameTimeOf({
       presentedFrameTime: frame(90),
       playhead: middleOf(90),
       isSeekInFlight: false,
       isFrameCurrent: true,
-      lastFrameSeek: null,
+      ownSeek: null,
       fps,
       isRead: true,
       ...overrides,
@@ -90,23 +84,23 @@ describe('frameTime', () => {
     // Right after the markup's own seek, its placed time, whatever the frame on screen shows.
     [
       'a jump in flight',
-      { isSeekInFlight: true, playhead: jump.target, lastFrameSeek: jump },
+      { isSeekInFlight: true, playhead: jump.target, ownSeek: jump },
       markerTime,
     ],
     [
       'a jump landed',
-      { presentedFrameTime: frame(180), playhead: jump.target, lastFrameSeek: jump },
+      { presentedFrameTime: frame(180), playhead: jump.target, ownSeek: jump },
       markerTime,
     ],
     [
       'the playhead moved on from the jump',
-      { presentedFrameTime: frame(183), playhead: frame(183) + 0.01, lastFrameSeek: jump },
+      { presentedFrameTime: frame(183), playhead: frame(183) + 0.01, ownSeek: jump },
       frame(183),
     ],
     // Just before a marker jumped to earlier, in the frame before it.
     [
       'the playhead back before the jump',
-      { presentedFrameTime: frame(180), playhead: markerTime - 0.005, lastFrameSeek: jump },
+      { presentedFrameTime: frame(180), playhead: markerTime - 0.005, ownSeek: jump },
       frame(180),
     ],
     [
@@ -115,9 +109,21 @@ describe('frameTime', () => {
         isFrameCurrent: false,
         presentedFrameTime: frame(150),
         playhead: markerTime - 0.005,
-        lastFrameSeek: jump,
+        ownSeek: jump,
       },
       markerTime - 0.006,
+    ],
+    // A jump into the middle of a frame: its placed time while the playhead stays within a quarter
+    // frame of the target, then the frame on screen.
+    [
+      'a sixth of a frame past a jump mid-frame',
+      { playhead: midJump.target + 1 / fps / 6, ownSeek: midJump },
+      midJump.frameStart,
+    ],
+    [
+      'a third of a frame past a jump mid-frame',
+      { playhead: midJump.target + 1 / fps / 3, ownSeek: midJump },
+      frame(90),
     ],
     // Firefox times the first frame after a seek at the seek target, so it reads as the playhead.
     [
@@ -237,12 +243,15 @@ describe('screenFrame', () => {
 });
 
 describe('frameStepTarget', () => {
+  // Columns: the frame on screen, the playhead, the last step's target, the frames to step, and
+  // whether the frame was read at `seeked`. The frame on screen was presented after the last seek,
+  // as when paused after a step.
   it.each([
-    ['one forward from a frame start', frame(90), frame(90), null, 1, middleOf(91)],
-    ['one back from a frame start', frame(90), frame(90), null, -1, middleOf(89)],
-    ['three forward', frame(90), frame(90), null, 3, middleOf(93)],
+    ['one forward from a frame start', frame(90), frame(90), null, 1, true, middleOf(91)],
+    ['one back from a frame start', frame(90), frame(90), null, -1, true, middleOf(89)],
+    ['three forward', frame(90), frame(90), null, 3, true, middleOf(93)],
     // A millisecond-rounded frame time, as on YouTube.
-    ['from a rounded frame time', 3.003, 3.02, null, 1, 3.003 + 1.5 / fps],
+    ['from a rounded frame time', 3.003, 3.02, null, 1, true, 3.003 + 1.5 / fps],
     // The frame on screen holds the playhead: step from it.
     [
       'from the frame holding the last target',
@@ -250,16 +259,26 @@ describe('frameStepTarget', () => {
       middleOf(91),
       middleOf(91),
       1,
+      true,
       middleOf(92),
     ],
     // The last step's seek hasn't presented its frame: the frame on screen can't hold its target.
-    ['chained while a step is pending', frame(90), middleOf(91), middleOf(91), 1, middleOf(92)],
+    [
+      'chained while a step is pending',
+      frame(90),
+      middleOf(91),
+      middleOf(91),
+      1,
+      true,
+      middleOf(92),
+    ],
     [
       "chained while an earlier step's frame shows",
       frame(92),
       middleOf(94),
       middleOf(94),
       1,
+      true,
       middleOf(95),
     ],
     [
@@ -268,6 +287,7 @@ describe('frameStepTarget', () => {
       middleOf(90),
       middleOf(90),
       -1,
+      true,
       middleOf(89),
     ],
     // Nothing near the playhead (a seek elsewhere whose frame hasn't shown): step from the playhead.
@@ -277,39 +297,59 @@ describe('frameStepTarget', () => {
       frame(150) + 0.01,
       middleOf(91),
       1,
+      true,
       middleOf(151),
     ],
     // In the last millisecond of a frame the playhead is still in it.
-    ['from the playhead late in its frame', frame(90), frame(151) - 0.0005, null, 1, middleOf(151)],
-    ['back from the first frame', frame(0), frame(0), null, -1, middleOf(0)],
-  ] as const)('%s', (_case, presentedFrameTime, playhead, lastTarget, frames, expected) => {
-    // The frame on screen was presented after the last seek, as when paused after a step.
-    const isFrameCurrent = true;
-    expect(
-      stepTargetOf({
-        presentedFrameTime,
-        playhead,
-        isFrameCurrent,
-        lastTarget,
-        fps,
-        duration,
-        frames,
-        isRead: true,
-      })
-    ).toBeCloseTo(expected, 9);
+    [
+      'from the playhead late in its frame',
+      frame(90),
+      frame(151) - 0.0005,
+      null,
+      1,
+      true,
+      middleOf(151),
+    ],
+    ['back from the first frame', frame(0), frame(0), null, -1, true, middleOf(0)],
+    // Firefox times the first frame after a seek at the seek target, unread.
+    [
+      'after a step, its frame timed at it',
+      middleOf(91),
+      middleOf(91),
+      middleOf(91),
+      1,
+      false,
+      middleOf(92),
+    ],
+    [
+      'back after a step, its frame timed at it',
+      middleOf(91),
+      middleOf(91),
+      middleOf(91),
+      -1,
+      false,
+      middleOf(90),
+    ],
+    [
+      'after a seek mid-frame, its frame timed at it',
+      frame(90) + 0.02,
+      frame(90) + 0.02,
+      null,
+      1,
+      false,
+      middleOf(91),
+    ],
+  ] as const)('%s', (_case, presentedFrameTime, playhead, lastTarget, frames, isRead, expected) => {
+    const at = { presentedFrameTime, playhead, isFrameCurrent: true, lastTarget, fps, isRead };
+    expect(stepTargetOf({ ...at, duration, frames })).toBeCloseTo(expected, 9);
   });
-
-  // Firefox times the first frame after a seek at the seek target, so the frame on screen reads as
-  // starting at the playhead.
-  it.each([
-    ['after a step', middleOf(91), middleOf(91), 1, middleOf(92)],
-    ['back after a step', middleOf(91), middleOf(91), -1, middleOf(90)],
-    ['after a seek mid-frame', frame(90) + 0.02, null, 1, middleOf(91)],
-  ] as const)('on Firefox %s', (_case, playhead, lastTarget, frames, expected) => {
-    const step = { presentedFrameTime: playhead, playhead, isFrameCurrent: true, lastTarget, fps };
-    expect(stepTargetOf({ ...step, duration, frames, isRead: false })).toBeCloseTo(expected, 9);
+  // Before the rate is measured, the stand-in start of a frame timed at the playhead is not a grid
+  // frame's: a step goes on from the last step's frame instead.
+  it('steps on from the last step after its frame was timed at it, before the rate is measured', () => {
+    const at = { presentedFrameTime: middleOf(91), playhead: middleOf(91), isFrameCurrent: true };
+    const step = { ...at, lastTarget: middleOf(91), fps, isRead: false, isRateExact: false };
+    expect(stepTargetOf({ ...step, duration, frames: 1 })).toBeCloseTo(middleOf(92), 9);
   });
-
   // After a seek to a millisecond-rounded frame start (a marker's time): the frame on screen starts at
   // the playhead and is the playhead's frame, just below its grid start, read at seeked or not.
   it.each([
@@ -577,7 +617,7 @@ describe('frameStepTarget', () => {
             playhead: video.currentTime,
             isSeekInFlight: false,
             isFrameCurrent: isFrameCurrent(video.clock),
-            lastFrameSeek: null,
+            ownSeek: null,
             fps: stepFps,
             isRead: video.clock.onScreen?.isRead ?? false,
             isRateExact: stepFps === videoFps,
@@ -866,7 +906,7 @@ describe('frameTime over recorded seeks', () => {
           playhead: currentTime,
           isSeekInFlight: false,
           isFrameCurrent: isFrameCurrent(clock),
-          lastFrameSeek: null,
+          ownSeek: null,
           fps,
           isRead: clock.onScreen?.isRead ?? false,
           isRateExact: fps === 30,

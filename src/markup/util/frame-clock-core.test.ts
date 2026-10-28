@@ -390,7 +390,11 @@ describe('announceRate', () => {
 const TRACES: Record<string, { fps: number; frames: [number, number, number, number][] }> =
   JSON.parse(readFileSync(join(__dirname, 'frame-clock-traces.json'), 'utf8'));
 
-function replay(trace: { frames: [number, number, number, number][] }): ClockState {
+// Plays a trace through the clock, calling `onFrame` with the clock after each frame.
+function replay(
+  trace: { frames: [number, number, number, number][] },
+  onFrame?: (clock: ClockState) => void
+): ClockState {
   let clock = initialClock;
   for (const [mediaTime, presentedFrames, decodedFrames, droppedFrames] of trace.frames) {
     clock = stepClock(clock, {
@@ -405,28 +409,16 @@ function replay(trace: { frames: [number, number, number, number][] }): ClockSta
         playbackRate: 1,
       },
     });
+    onFrame?.(clock);
   }
   return clock;
 }
 describe('the frame clock over recorded browser frames', () => {
   it.each(Object.entries(TRACES))('reports %s at its own rate or not at all', (_name, trace) => {
-    let clock = initialClock;
     const reported = new Set<number>();
-    for (const [mediaTime, presentedFrames, decodedFrames, droppedFrames] of trace.frames) {
-      clock = stepClock(clock, {
-        type: 'frame',
-        frame: {
-          mediaTime,
-          presentedFrames,
-          decodedFrames,
-          droppedFrames,
-          duringSeek: false,
-          paused: false,
-          playbackRate: 1,
-        },
-      });
-      if (clock.publishedRate != null) reported.add(clock.publishedRate);
-    }
+    const clock = replay(trace, ({ publishedRate }) => {
+      if (publishedRate != null) reported.add(publishedRate);
+    });
     expect([...reported].filter((rate) => rate !== trace.fps)).toEqual([]);
     if (process.env.TRACE_REPORT) console.log(_name, clock.publishedRate);
   });

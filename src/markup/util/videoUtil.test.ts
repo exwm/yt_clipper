@@ -367,6 +367,16 @@ describe('seekByFrames', () => {
       expect(getFrameTime()).toBe(frame(181));
     });
 
+    // Firefox times the jump's frame at its target. A step then goes on from the playhead's grid
+    // frame, not the marker's time near its frame's end, which would skip a frame.
+    it('steps one frame on from a jump to a marker near its frame end, its frame timed at it', () => {
+      pausedOn(90, 30);
+      seekToFrameAt(frame(181) - 0.0015);
+      land();
+      mockScreen.mediaTime = mockSeeks.current;
+      seekByFrames(1);
+      expect(lastShown()).toBe(181);
+    });
     // YouTube reuses the video element for the next video, whose playhead can land on the old target.
     it("forgets a jump's placed time when the video's source changes", () => {
       followFrameRate(mockAppState.video as never);
