@@ -58,6 +58,7 @@ import {
   getFrameTime,
   getFrameGrid,
   loopPlaybackOver,
+  noteRefresh,
   refreshPlayerControlsAutoHideTimer,
   seekToFrameAt,
 } from './util/videoUtil';
@@ -246,8 +247,9 @@ export function initMarkersContainer() {
     appState.hooks.markerNumberingsDiv.appendChild(appState.markerNumberingsDiv);
   }
 }
-export function loopMarkerPair() {
+export function loopMarkerPair(frameTime?: number) {
   requestAnimationFrame(loopMarkerPair);
+  if (frameTime != null) noteRefresh(frameTime);
 
   if (!getIsMarkerLoopPreviewOn() && !appState.isCropChartLoopingOn) {
     return;

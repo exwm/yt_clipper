@@ -227,6 +227,89 @@ def test_a_pairs_loop_never_shows_the_frame_after_its_end_marker(
     assert shown.count(67) <= most_cycles_past_end * cycles
 
 
+# The loop turns back while its end frame shows, and should hold it the whole refreshes a frame lasts
+# on this display, which every frame holds at least: 2 at 60 Hz for 24 or 30 fps. Headless Chrome
+# sometimes runs at about 57 Hz, where a 30 fps frame may hold 1.
+@pytest.mark.parametrize(
+    "fps",
+    [pytest.param(24, marks=pytest.mark.video_style("testsrc24")), 30],
+    ids=["24 fps", "30 fps"],
+)
+def test_a_pairs_loop_shows_its_end_frame_for_about_its_full_time(
+    markup: MarkupPage, fps: int, browser_name: str
+) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("relies on the dev site's test videos")
+    if browser_name == "firefox":
+        pytest.skip(
+            "Firefox reads no frame times from VideoFrame, so the loop turns back at once, as 5.48"
+        )
+    if markup.assumed_frame_rate:
+        pytest.skip("checks the measured rate")
+    markup.measure_frame_rate()
+    markup.load_saved_marker_pairs([{"start": 60 / fps, "end": 66 / fps, "crop": "0:0:iw:ih"}])
+    markup.open_marker_pair(0)
+    markup.press("Shift+KeyC")
+    held, refresh_ms = when_the_loop_plays_by_refresh(markup, fps, seconds=4)
+    runs = held_runs(held)
+    end_frame = [refreshes for frame, refreshes, after in runs if frame == 66 and after < 66]
+    played = [
+        refreshes for frame, refreshes, after in runs if 60 < frame < 66 and after == frame + 1
+    ]
+    whole_refreshes = math.floor(1000 / fps / refresh_ms + 0.02)
+    markup.report(f"refresh {refresh_ms:.2f} ms, whole refreshes a frame {whole_refreshes}")
+    markup.report(f"end frame refreshes per turn {end_frame}")
+    markup.report(f"played frame refreshes {played}")
+    if whole_refreshes < 2:
+        pytest.skip(f"the display ran at {1000 / refresh_ms:.0f} Hz, under 2 refreshes a frame")
+    assert len(end_frame) >= 10
+    assert min(end_frame) >= whole_refreshes
+
+
+@step
+def when_the_loop_plays_by_refresh(
+    markup: MarkupPage, fps: int, seconds: float
+) -> tuple[list[int], float]:
+    """The frame the video holds at each refresh while it plays (a VideoFrame read per animation
+    frame), from the first time it shows the pair's first frame, and the median refresh (ms)."""
+    markup.seek(60.5 / fps, presented=True)
+    with markup.untraced():
+        rows = markup.page.evaluate(
+            """async (seconds) => {
+                const v = document.querySelector('video');
+                const rows = [];
+                let on = true;
+                const onRefresh = (now) => {
+                    const frame = new VideoFrame(v);
+                    rows.push([now, frame.timestamp / 1e6]);
+                    frame.close();
+                    if (on) requestAnimationFrame(onRefresh);
+                };
+                await v.play();
+                requestAnimationFrame(onRefresh);
+                await new Promise((done) => setTimeout(done, seconds * 1000));
+                on = false;
+                v.pause();
+                return rows;
+            }""",
+            seconds,
+        )
+    gaps = sorted(b[0] - a[0] for a, b in zip(rows, rows[1:]))
+    return [math.floor(time * fps + 0.02) for _, time in rows], gaps[len(gaps) // 2]
+
+
+def held_runs(held: list[int]) -> list[tuple[int, int, int]]:
+    """Each run of one frame held: the frame, its refreshes, and the frame held after it."""
+    runs, run = [], 1
+    for frame, after in zip(held, held[1:]):
+        if after == frame:
+            run += 1
+            continue
+        runs.append((frame, run, after))
+        run = 1
+    return runs
+
+
 @step
 def when_the_loop_plays(markup: MarkupPage, fps: int, seconds: float) -> list[int]:
     """The frames shown while the video plays, from the first time it shows the pair's first frame."""

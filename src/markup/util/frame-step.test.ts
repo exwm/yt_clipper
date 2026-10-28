@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { ClockState, initialClock, isFrameCurrent, stepClock } from './frame-clock-core';
-import { frameStepTarget, frameTime, OwnSeek, screenFrame } from './frame-step';
+import { frameStepTarget, frameTime, OwnSeek, screenFrame, shouldHoldEndFrame } from './frame-step';
 import { onExternalSeek, onSeekRequest, onSeekSettled, SeekDecision } from './seek-coalescer';
 
 // The frame-step functions over the frame on screen and the playhead, as the tables state them.
@@ -945,5 +945,108 @@ describe('frameStepTarget over recorded seeks', () => {
       }
     });
     expect(misses).toEqual([]);
+  });
+});
+
+// Held refreshes per frame that Chromium's frame selection gives each display and video rate, from a
+// port of its VideoCadenceEstimator and VideoRendererAlgorithm checked against Chromium's tests:
+// after a seek (`afterReset`), and in steady playback (`playing`, some with a drift reset).
+const DISPLAY_CADENCES: {
+  hz: number;
+  fps: number;
+  cadence: number[];
+  afterReset: number[];
+  playing: number[];
+}[] = JSON.parse(readFileSync(join(__dirname, 'display-cadences.json'), 'utf8'));
+
+describe('the loop end frame over display cadences', () => {
+  type Gate = typeof shouldHoldEndFrame;
+  interface Display {
+    // The gap a refresh reads over the true interval.
+    gapError?: number;
+    // Refreshes whose animation frame callback doesn't run.
+    isMissed?: (refresh: number) => boolean;
+    // Each refresh's time off by up to this share of the interval, either way.
+    jitter?: number;
+  }
+  // The loop checks on each refresh (time clamped to 100 us, as Chrome gives it outside
+  // cross-origin isolation) with `counts[i]` the end frame. The refresh of the end frame it seeks
+  // on, else null.
+  function seekRefresh(
+    gate: Gate,
+    hz: number,
+    fps: number,
+    counts: number[],
+    i: number,
+    d: Display
+  ) {
+    const shown = [-1, -1, ...counts.flatMap((count, frame) => Array(count).fill(frame))];
+    const first = shown.indexOf(i);
+    let previous = NaN;
+    let lastOtherFrameAt = -Infinity;
+    for (let j = 0; j < first + counts[i]; j++) {
+      if (d.isMissed?.(j)) continue;
+      // A fixed scatter (sin of a large multiple), so a failure replays.
+      const offset = (d.jitter ?? 0) * Math.sin(j * 12.9898);
+      const time = Math.floor((1000 + ((j + offset) * 1000) / hz) * 10) / 10;
+      const refresh = { time, gap: (time - previous) * (d.gapError ?? 1) };
+      previous = time;
+      if (shown[j] !== i) lastOtherFrameAt = time;
+      else if (!gate(refresh, lastOtherFrameAt, 1000 / fps)) return j - first + 1;
+    }
+    return null;
+  }
+  // Each frame (after the first two) as a loop's end frame, where the loop seeks after its last
+  // refresh. A frame held 0 refreshes never shows, and with its last refresh missed the loop has no
+  // check left to seek on.
+  function overshoots(gate: Gate, display: Display = {}): string[] {
+    const late: string[] = [];
+    for (const { hz, fps, afterReset, playing } of DISPLAY_CADENCES) {
+      for (const counts of [afterReset, playing]) {
+        for (let i = 2; i < counts.length; i++) {
+          const lastRefresh = 2 + counts.slice(0, i + 1).reduce((a, b) => a + b, 0) - 1;
+          if (counts[i] === 0 || display.isMissed?.(lastRefresh)) continue;
+          if (seekRefresh(gate, hz, fps, counts, i, display) == null)
+            late.push(`${hz} Hz ${fps} fps frame ${i}`);
+        }
+      }
+    }
+    return late;
+  }
+
+  it.each<[string, Display]>([
+    ['exact', {}],
+    ['the gap 3% long', { gapError: 1.03 }],
+    ['the gap 3% short', { gapError: 0.97 }],
+    ['every 7th refresh missed', { isMissed: (j) => j % 7 === 3 }],
+    ['every 3rd refresh missed', { isMissed: (j) => j % 3 === 1 }],
+    ['each refresh time off by up to 3%', { jitter: 0.03 }],
+  ])('never holds past the end frame, %s', (_name, display) => {
+    expect(overshoots(shouldHoldEndFrame, display)).toEqual([]);
+  });
+
+  // The end frame can have shown up to a refresh before the loop first sees it.
+  it.failing('timed from the first refresh it shows, holds past the end frame', () => {
+    const fromFirstSeen: Gate = (refresh, lastOtherFrameAt, frameDuration) =>
+      shouldHoldEndFrame(refresh, lastOtherFrameAt + refresh.gap, frameDuration);
+    expect(overshoots(fromFirstSeen)).toEqual([]);
+  });
+
+  it.each([
+    [60, 24, 2],
+    [60, 30, 2],
+    [60, 60, 1],
+    [50, 30, 1],
+    [120, 30, 4],
+    [144, 25, 5],
+    [144, 30, 4],
+    [165, 24, 6],
+  ])('holds the end frame at %i Hz, %i fps for %i refreshes', (hz, fps, expected) => {
+    const counts = [9, 9, 99];
+    expect(seekRefresh(shouldHoldEndFrame, hz, fps, counts, 2, {})).toBe(expected);
+  });
+
+  it('turns back at once before a refresh gap is known', () => {
+    expect(shouldHoldEndFrame({ time: 1000, gap: NaN }, 990, 1000 / 30)).toBe(false);
   });
 });

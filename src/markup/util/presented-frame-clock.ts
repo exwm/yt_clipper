@@ -74,6 +74,14 @@ export function getFrameOnScreen(video: VideoElement): FrameOnScreen {
   };
 }
 
+/** The time of the frame the video holds now, on the platform's timeline, or null where it can't be
+ *  read. Frame callbacks can report a frame a refresh after it shows. */
+export function getHeldFrameTime(video: VideoElement): number | null {
+  const time = heldFrameTime(video);
+  // eslint-disable-next-line no-restricted-syntax -- the offset between the two timelines
+  return time == null ? null : time + (video.getCurrentTime() - video.currentTime);
+}
+
 // The time of the frame the video holds, or null where it can't be read: no WebCodecs, or a
 // cross-origin video that isn't CORS-clean (the constructor throws). Firefox reads it as time 0,
 // which the clock rejects.

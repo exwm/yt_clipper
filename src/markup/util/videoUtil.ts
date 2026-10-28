@@ -5,11 +5,27 @@ import { chartState } from '../charts';
 import { isDrawingCrop } from '../crop-overlay';
 import { isMouseManipulatingCrop } from '../crop-overlay';
 import { blockEvent, flashMessage, getPendingSeekTime, seekBySafe, seekToSafe } from './util';
-import { OwnSeek, frameStepTarget, frameTime, ScreenFrame, screenFrame } from './frame-step';
-import { FrameGrid, frameSeekTarget, loopSeekTarget } from './frame-grid';
+import {
+  OwnSeek,
+  frameStepTarget,
+  frameTime,
+  Refresh,
+  ScreenFrame,
+  screenFrame,
+  shouldHoldEndFrame,
+} from './frame-step';
+import {
+  FrameGrid,
+  frameAt,
+  frameSeekTarget,
+  frameSpan,
+  loopSeekTarget,
+  PLACEMENT_TOLERANCE,
+} from './frame-grid';
 import { registerActiveDragCleanup } from './drag-recovery';
 import {
   getFrameOnScreen,
+  getHeldFrameTime,
   getMeasuredFrameRate,
   isNewMeasuredFrameRate,
 } from './presented-frame-clock';
@@ -170,7 +186,27 @@ export function loopPlaybackOver(start: number, end: number): void {
   const target = isPastEnd
     ? frameSeekTarget(grid, start)
     : loopSeekTarget(grid, start, end, time, isPlaying);
-  if (target != null) seekToSafe(appState.video, target);
+  // A seek as the end frame shows cuts it to one refresh. Also past the end, which the playhead
+  // crosses a refresh after a frame-start end's frame shows, but only for the frame shown at the end:
+  // at an assumed rate the grid's last frame can be the video frame after it. Firefox reads every
+  // frame as time 0, so only a loop ending in the first frame holds, at most a frame after play.
+  const heldTime = isPlaying ? getHeldFrameTime(video) : null;
+  const isEndFrame =
+    heldTime != null &&
+    heldTime <= end + PLACEMENT_TOLERANCE &&
+    frameAt(grid, heldTime) === frameSpan(grid, start, end).lastFrame;
+  if (!isEndFrame) lastOtherFrameAt = refresh.time;
+  const frameDuration = 1000 / (grid.rate * video.playbackRate);
+  const isHolding = isEndFrame && shouldHoldEndFrame(refresh, lastOtherFrameAt, frameDuration);
+  if (target != null && !isHolding) seekToSafe(appState.video, target);
+}
+
+// NaN until two refreshes are noted, which never holds.
+let refresh: Refresh = { time: NaN, gap: NaN };
+let lastOtherFrameAt = -Infinity;
+/** Notes an animation frame's time (its callback's argument), for the loop's end frame. */
+export function noteRefresh(time: number): void {
+  refresh = { time, gap: time - refresh.time };
 }
 
 /** Seeks `frames` whole frames from the frame on screen, to the middle of that frame. */

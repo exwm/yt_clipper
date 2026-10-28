@@ -118,6 +118,29 @@ export function frameTime(
   return Math.max(0, playhead - PLACEMENT_TOLERANCE);
 }
 
+/** A display refresh as an animation frame callback sees it: its time and the gap since the last
+ *  one, in ms. A missed refresh doubles the gap. */
+export interface Refresh {
+  time: number;
+  gap: number;
+}
+
+/**
+ * Whether a loop should keep its end frame on screen at `refresh` rather than seek back, so the frame
+ * shows about its full time and the frame after it never shows. The end frame started after
+ * `lastOtherFrameAt`, the last refresh the loop saw another frame, so the next frame can show a
+ * frame duration (ms) after it. A frame under 2 refreshes long turns back at once.
+ */
+export function shouldHoldEndFrame(
+  refresh: Refresh,
+  lastOtherFrameAt: number,
+  frameDuration: number
+): boolean {
+  // The 2% keeps a frame of exactly 2 refreshes from turning back at 1 on rounded frame times. Kept
+  // small: a frame of 6.875 refreshes (165 Hz, 24 fps) holds 6 or 7.
+  return refresh.time + refresh.gap * 0.98 <= lastOtherFrameAt + frameDuration;
+}
+
 /**
  * Where a step of whole frames should seek: the middle of the frame `frames` away. A seek shows the
  * frame that covers its target, so a target on a frame boundary can show either neighbor; the middle
