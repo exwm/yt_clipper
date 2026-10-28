@@ -192,6 +192,10 @@ export namespace Tooltips {
     Until then it is the platform's rate (YouTube) or an assumed 60 fps.
     `;
 
+  export const frameRateMeasurementTooltip = stripIndent`n    Toggle measuring the frame rate from played frames (on when highlighted).
+    Turned off, the markup script uses the platform's rate (YouTube) or 60 fps.
+    `;
+
   export const mergeListTooltip = stripIndent`
     Specify which marker pairs if any you would like to merge/concatenate.
     Each merge is a comma separated list of marker pair numbers or ranges (e.g., '1-3,5,9' = '1,2,3,5,9').

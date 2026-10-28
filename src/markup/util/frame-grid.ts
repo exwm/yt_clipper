@@ -82,3 +82,15 @@ export function frameSpan(grid: FrameGrid, startMarker: number, endMarker: numbe
     end: frameStart(grid, lastFrame + 1),
   };
 }
+
+/** Whether two times on the timeline mean the same frame. */
+export function sameFrame(grid: FrameGrid, a: number, b: number): boolean {
+  return frameAt(grid, a) === frameAt(grid, b);
+}
+
+/** Whether `time` shows one of a marker pair's frames, its end marker's frame included. */
+export function isInFrameSpan(grid: FrameGrid, start: number, end: number, time: number): boolean {
+  const { firstFrame, lastFrame } = frameSpan(grid, start, end);
+  const frame = frameAt(grid, time);
+  return frame >= firstFrame && frame <= lastFrame;
+}

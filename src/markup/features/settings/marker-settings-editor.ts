@@ -66,6 +66,7 @@ import {
   getUndoMarkerPairChangeCount,
   hideSelectedMarkerPairOverlay,
   highlightSelectedMarkerPair,
+  markerPairDuration,
   moveMarkerPairToIndex,
   refreshMarkerPairNavButtonsDisabledState,
   selectAdjacentMarkerPair,
@@ -153,8 +154,6 @@ function MarkerPairEditorTemplate(
   const markerPairIndex = appState.markerPairs.indexOf(markerPair);
   const endTime = toHHMMSSTrimmed(markerPair.end);
   const speed = markerPair.speed;
-  const duration = toHHMMSSTrimmed(markerPair.end - markerPair.start);
-  const speedAdjustedDuration = toHHMMSSTrimmed((markerPair.end - markerPair.start) / speed);
   const crop = markerPair.crop;
   const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
   const [, , w, h] = getCropComponents(crop);
@@ -275,12 +274,12 @@ function MarkerPairEditorTemplate(
           title=${Tooltips.timeDurationTooltip}
         >
           <span>Time:</span>
-          <span id="start-time">${appState.startTime}</span>
+          <span id="start-time">${toHHMMSSTrimmed(markerPair.start)}</span>
           <span> - </span>
           <span id="end-time">${endTime}</span>
           <br />
           <span>Duration: </span>
-          <span id="duration">${duration}/${markerPair.speed} = ${speedAdjustedDuration}</span>
+          <span id="duration">${markerPairDuration(markerPair).text}</span>
         </div>
       `,
     })}

@@ -18,6 +18,7 @@ export function easedCropAtTime(
   fps = 30,
   frame?: { width: number; height: number }
 ): number[] {
+  // eslint-disable-next-line local/no-timeline-time-comparison -- samples the crop curve at a time
   const i = cropMap.findIndex((p, k) => k < cropMap.length - 1 && t >= p.x && t < cropMap[k + 1].x);
   if (i < 0) throw new Error(`no crop section holds t = ${t}`);
   const components = (crop: string) => crop.split(':').map(Number);

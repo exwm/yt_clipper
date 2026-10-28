@@ -561,6 +561,7 @@ export function firmHeldSpans(
   cropResHeight: number
 ): FirmHeldSpan[] {
   // A coincident-time duplicate is skipped, as the solve skips it.
+  // eslint-disable-next-line local/no-timeline-time-comparison -- the solver orders points by time
   const points = run.filter((point, k) => k === 0 || point.x > run[k - 1].x);
   const crops = points.map((p) => parseCropToComponents(p.crop, cropResWidth, cropResHeight));
   const firmHeldAt = (k: number) =>
@@ -860,6 +861,7 @@ export function heldSpans(
   let previous: CropPoint | null = null;
   for (const point of run) {
     // A coincident-time duplicate is skipped, as the solve skips it.
+    // eslint-disable-next-line local/no-timeline-time-comparison -- the solver orders points by time
     if (previous && point.x <= previous.x) continue;
     if (previous && holdsAfter(previous, point)) {
       const held = parseCropToComponents(point.crop, cropResWidth, cropResHeight);
@@ -893,6 +895,7 @@ export function splitAtInstantCuts(cropMap: readonly CropPoint[], fps?: number):
       runs.push(run);
       run = [{ ...point, x: cutX }];
       // The cut crop holds until the point's own time, as the other crop easings hold it.
+      // eslint-disable-next-line local/no-timeline-time-comparison -- the solver orders points by time
       if (cutX < point.x) run.push(point);
     } else {
       run.push(point);

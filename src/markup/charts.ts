@@ -106,7 +106,7 @@ import {
   loopPlaybackOver,
   seekToFrameAt,
 } from './util/videoUtil';
-import { frameAt } from './util/frame-grid';
+import { frameAt, isInFrameSpan } from './util/frame-grid';
 import { getPresentedFrameTime } from './util/presented-frame-clock';
 import { onVideoFrames, VideoFrameSubscription } from './util/video-frame-loop';
 import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
@@ -1313,7 +1313,7 @@ export function autoKeyCurrentCropPoint(): boolean {
   const frameTime = getFrameTime();
   if (
     !isPlayheadOnCropKeyframe(cropMap, frameTime).onKeyframe &&
-    (frameTime < pair.start || frameTime > pair.end)
+    !isInFrameSpan(getFrameGrid(), pair.start, pair.end, frameTime)
   ) {
     flashMessage('Seek into the marker pair to edit its crop.', 'olive');
     return false;
@@ -1385,7 +1385,14 @@ export function addHoldCropPointAtCurrentTime(): void {
     if (!toggleCropPointType(pair, pointIndex, 'hold')) return;
     selectedIndex = pointIndex;
   } else {
-    if (x <= pair.start || x >= pair.end) return;
+    // The pair's first and last frames hold its edge points.
+    const grid = getFrameGrid();
+    if (
+      frameAt(grid, x) <= frameAt(grid, pair.start) ||
+      frameAt(grid, x) >= frameAt(grid, pair.end)
+    )
+      return;
+    // eslint-disable-next-line local/no-timeline-time-comparison -- where the new point goes, in time order
     selectedIndex = cropMap.findIndex((p) => p.x > x);
     const draft = createDraft(getMarkerPairHistory(pair));
     draft.cropMap.splice(selectedIndex, 0, {

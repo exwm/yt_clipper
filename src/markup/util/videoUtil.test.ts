@@ -238,7 +238,11 @@ describe('getFPS', () => {
   describe('the Frame Rate field in the global settings', () => {
     const fields = { open: null as { textContent: string } | null };
     beforeAll(() => {
-      Object.assign(globalThis, { document: { getElementById: () => fields.open } });
+      Object.assign(globalThis, {
+        document: {
+          getElementById: (id: string) => (id === 'global-frame-rate' ? fields.open : null),
+        },
+      });
     });
     afterAll(() => {
       delete (globalThis as { document?: unknown }).document;
@@ -249,19 +253,19 @@ describe('getFPS', () => {
       mockMeasured.fps = null;
       fields.open = { textContent: '' };
       playFrame();
-      expect(fields.open.textContent).toBe('60 fps (assumed until measured)');
+      expect(fields.open.textContent).toBe('60 fps (assumed)');
 
       fields.open = null;
       mockMeasured.fps = 30;
       playFrame();
       // The editor opens again with the text it last read.
-      fields.open = { textContent: '60 fps (assumed until measured)' };
+      fields.open = { textContent: '60 fps (assumed)' };
       // Paused: the next refresh comes from an event, not a frame.
       mockAppState.video.dispatchEvent(new Event('resize'));
       expect(fields.open.textContent).toBe('30 fps (measured)');
 
       toggleFrameRateMeasurement();
-      expect(fields.open.textContent).toBe('60 fps (assumed until measured)');
+      expect(fields.open.textContent).toBe('60 fps (assumed)');
       toggleFrameRateMeasurement();
       expect(fields.open.textContent).toBe('30 fps (measured)');
     });
@@ -273,7 +277,7 @@ describe('getFPS', () => {
       playFrame();
       mockMeasured.fps = null;
       mockAppState.video.dispatchEvent(new Event('emptied'));
-      expect(fields.open.textContent).toBe('60 fps (assumed until measured)');
+      expect(fields.open.textContent).toBe('60 fps (assumed)');
     });
   });
 
@@ -319,7 +323,7 @@ describe('describeFrameRate', () => {
   it.each([
     [{ rate: 30000 / 1001, source: 'measured' }, '29.97 fps (measured)'],
     [{ rate: 30, source: 'platform' }, "30 fps (the platform's)"],
-    [{ rate: 60, source: 'default' }, '60 fps (assumed until measured)'],
+    [{ rate: 60, source: 'default' }, '60 fps (assumed)'],
   ] as const)('%j', (frameRate, text) => {
     expect(describeFrameRate(frameRate)).toBe(text);
   });

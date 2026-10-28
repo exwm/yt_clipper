@@ -322,6 +322,14 @@
 
 /* Inactive hover brightens toward white; active hover keeps the accent but
    brighter, so hovering never hides whether a toggle is on. */
+/* A text toggle: the icon toggles' line-height 0 would overlap its text with the border. */
+#global-frame-rate-toggle {
+  margin-left: 6px;
+  padding: 1px 6px;
+  line-height: normal;
+  font-size: 11px;
+}
+
 .settings-toggle:hover:not(:disabled) {
   color: white;
   border-color: var(--light-grey);

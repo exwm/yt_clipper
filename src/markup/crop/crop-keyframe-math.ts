@@ -41,7 +41,9 @@ export function findCropKeyframeAtTime(
   const isOnFrame = (x: number) => frameAt(grid, x) === frame;
   const onStart = isOnFrame(cropMap[s].x);
   const onEnd = isOnFrame(cropMap[e].x);
-  const nearest = Math.abs(cropMap[s].x - time) <= Math.abs(cropMap[e].x - time) ? s : e;
+  // In frames, so the answer is the same anywhere in the frame.
+  const framesTo = (x: number) => Math.abs(frameAt(grid, x) - frame);
+  const nearest = framesTo(cropMap[s].x) <= framesTo(cropMap[e].x) ? s : e;
   const index = onStart ? s : onEnd ? e : nearest;
   return { onKeyframe: onStart || onEnd, index, section: [s, e] };
 }

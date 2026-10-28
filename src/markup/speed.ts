@@ -5,6 +5,8 @@ import { appState } from './appState';
 import { pairSettings } from './features/settings/pair-settings';
 import { isVariableSpeed } from './save-load';
 import { flashMessage, roundValue } from './util/util';
+import { isInFrameSpan } from './util/frame-grid';
+import { getFrameGrid, getFrameTime } from './util/videoUtil';
 import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
 
 let isSpeedPreviewOn = false;
@@ -13,32 +15,24 @@ const defaultRoundSpeedMapEasing = 0.05;
 const defaultSpeedRoundPrecision = 2;
 
 export function getShortestActiveMarkerPair(currentTime?: number): MarkerPair {
-  // eslint-disable-next-line no-restricted-syntax -- the speed preview follows playback
-  currentTime ??= appState.video.getCurrentTime();
+  // The frame on screen: on the end marker's frame it is the marker's own time, on any grid, where
+  // the playhead mid-frame can fall in the next grid frame before the rate is measured.
+  currentTime ??= getFrameTime();
 
+  // A pair is active on its frames, its end marker's frame included, as the clipper clips them: a
+  // time test against the end marker's time (the start of its frame) leaves out the rest of that frame.
+  const grid = getFrameGrid();
+  const isActive = (markerPair: MarkerPair) =>
+    isInFrameSpan(grid, markerPair.start, markerPair.end, currentTime);
   if (
     appState.isSettingsEditorOpen &&
     !appState.wasGlobalSettingsEditorOpen &&
     appState.prevSelectedMarkerPairIndex != null
   ) {
     const selectedMarkerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
-    if (
-      currentTime >= Math.floor(selectedMarkerPair.start * 1e6) / 1e6 &&
-      currentTime <= Math.ceil(selectedMarkerPair.end * 1e6) / 1e6
-    ) {
-      return selectedMarkerPair;
-    }
+    if (isActive(selectedMarkerPair)) return selectedMarkerPair;
   }
-  const activeMarkerPairs = appState.markerPairs.filter((markerPair) => {
-    if (
-      currentTime >= Math.floor(markerPair.start * 1e6) / 1e6 &&
-      currentTime <= Math.ceil(markerPair.end * 1e6) / 1e6
-    ) {
-      return true;
-    }
-    return false;
-  });
-
+  const activeMarkerPairs = appState.markerPairs.filter(isActive);
   if (activeMarkerPairs.length === 0) {
     return null as unknown as MarkerPair;
   }
@@ -94,10 +88,12 @@ export function updateSpeed() {
     let markerPairSpeed: number;
 
     if (isVariableSpeed(shortestActiveMarkerPair.speedMap)) {
+      const { start, end } = shortestActiveMarkerPair;
       markerPairSpeed = getSpeedMapping(
         shortestActiveMarkerPair.speedMap,
+        // On the end marker's frame, past the end point's time, the clip plays at the end speed.
         // eslint-disable-next-line no-restricted-syntax -- the speed preview follows playback
-        appState.video.getCurrentTime()
+        Math.min(Math.max(appState.video.getCurrentTime(), start), end)
       );
     } else {
       markerPairSpeed = shortestActiveMarkerPair.speed;
@@ -155,6 +151,7 @@ export function getSpeedMapping(
   let left: SpeedPoint | undefined;
   let right: SpeedPoint | undefined;
   for (let i = 0; i < len; ++i) {
+    // eslint-disable-next-line local/no-timeline-time-comparison -- the speed curve at a time
     if (speedMap[i].x <= time && time <= speedMap[i + 1].x) {
       left = speedMap[i];
       right = speedMap[i + 1];

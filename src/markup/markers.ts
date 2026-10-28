@@ -61,7 +61,7 @@ import {
   refreshPlayerControlsAutoHideTimer,
   seekToFrameAt,
 } from './util/videoUtil';
-import { frameAt, frameSpan, frameStart } from './util/frame-grid';
+import { frameAt, frameSpan, frameStart, sameFrame } from './util/frame-grid';
 import { platform } from './yt_clipper';
 import { registerActiveDragCleanup } from './util/drag-recovery';
 
@@ -279,7 +279,9 @@ export function loopMarkerPair() {
     chartLoop.enabled &&
     chartLoop.start &&
     chartLoop.end &&
+    // eslint-disable-next-line local/no-timeline-time-comparison -- a loop inside the pair, either way over the same frames
     chartLoop.start > markerPair.start &&
+    // eslint-disable-next-line local/no-timeline-time-comparison -- a loop inside the pair, either way over the same frames
     chartLoop.end < markerPair.end &&
     chartLoop.start < chartLoop.end
   ) {
@@ -774,12 +776,14 @@ export function moveMarker(
   const markerPair = appState.markerPairs[idx];
 
   const toTime = newTime ?? getFrameTime();
-
-  if (type === 'start' && toTime >= markerPair.end) {
+  const grid = getFrameGrid();
+  // Already on that frame: nothing moves, and the charts keep their points.
+  if (sameFrame(grid, toTime, markerPair[type])) return;
+  if (type === 'start' && frameAt(grid, toTime) >= frameAt(grid, markerPair.end)) {
     flashMessage('Start marker cannot be placed after or at end marker', 'red');
     return;
   }
-  if (type === 'end' && toTime <= markerPair.start) {
+  if (type === 'end' && frameAt(grid, toTime) <= frameAt(grid, markerPair.start)) {
     flashMessage('End marker cannot be placed before or at start marker', 'red');
     return;
   }
@@ -788,7 +792,10 @@ export function moveMarker(
   const initialState: MarkerPairHistory = getMarkerPairHistory(markerPair);
   const draft = createDraft(initialState);
   const lastState = peekLastState(markerPair.undoredo);
-  const isStretch = type === 'start' ? toTime <= lastState.start : toTime >= lastState.end;
+  const isStretch =
+    type === 'start'
+      ? frameAt(grid, toTime) < frameAt(grid, lastState.start)
+      : frameAt(grid, toTime) > frameAt(grid, lastState.end);
 
   draft[type] = toTime;
   if (adjustCharts) {
@@ -949,27 +956,31 @@ export function highlightSelectedMarkerPair(currentMarker: SVGRectElement) {
   selectedEndMarkerOverlay.classList.remove('selected-marker-overlay-hidden');
   appState.selectedMarkerPairOverlay.style.display = 'block';
 }
-export function updateMarkerPairDuration(markerPair: MarkerPair) {
-  const speedAdjustedDurationSpan = document.getElementById('duration');
-  // The clip includes the frame shown at the end marker.
+/** The marker pair's duration as the settings editor shows it, and its output duration: over the
+ *  frames the clip includes, the end marker's frame too. */
+export function markerPairDuration(markerPair: MarkerPair): {
+  text: string;
+  outputDuration: number;
+} {
   const span = frameSpan(getFrameGrid(), markerPair.start, markerPair.end);
   const duration = span.end - span.start;
   const durationHHMMSS = toHHMMSSTrimmed(duration);
-  const speed = markerPair.speed;
-  const speedMap = markerPair.speedMap;
+  const { speed, speedMap } = markerPair;
   if (isVariableSpeed(speedMap)) {
-    const outputDuration = getOutputDuration(markerPair.speedMap, getFPS());
-    const outputDurationHHMMSS = toHHMMSSTrimmed(outputDuration);
-    if (speedAdjustedDurationSpan)
-      speedAdjustedDurationSpan.textContent = `${durationHHMMSS} (${outputDurationHHMMSS})`;
-    markerPair.outputDuration = outputDuration;
-  } else {
-    const outputDuration = duration / speed;
-    const outputDurationHHMMSS = toHHMMSSTrimmed(outputDuration);
-    if (speedAdjustedDurationSpan)
-      speedAdjustedDurationSpan.textContent = `${durationHHMMSS}/${speed} = ${outputDurationHHMMSS}`;
-    markerPair.outputDuration = outputDuration;
+    const outputDuration = getOutputDuration(speedMap, getFPS());
+    return { text: `${durationHHMMSS} (${toHHMMSSTrimmed(outputDuration)})`, outputDuration };
   }
+  const outputDuration = duration / speed;
+  return {
+    text: `${durationHHMMSS}/${speed} = ${toHHMMSSTrimmed(outputDuration)}`,
+    outputDuration,
+  };
+}
+export function updateMarkerPairDuration(markerPair: MarkerPair) {
+  const { text, outputDuration } = markerPairDuration(markerPair);
+  const speedAdjustedDurationSpan = document.getElementById('duration');
+  if (speedAdjustedDurationSpan) speedAdjustedDurationSpan.textContent = text;
+  markerPair.outputDuration = outputDuration;
 }
 export function renumberMarkerPairs() {
   const markersSvg = document.getElementById('markers-svg');

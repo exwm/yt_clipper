@@ -55,6 +55,88 @@ def test_the_command_palette_turns_frame_rate_measurement_off(markup: MarkupPage
     then_a_flash_says(markup, "Frame rate measurement off. Using 60 fps.")
 
 
+def test_the_measure_button_beside_the_frame_rate_turns_measurement_off_and_on(
+    markup: MarkupPage,
+) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("checks the 60 fps default of a site that reports no frame rate")
+    given_the_global_settings_editor_is_open(markup)
+    then_the_frame_rate_reads(markup, "60 fps (assumed)", measuring=True)
+    when_i_click_the_measure_button(markup)
+    then_a_flash_says(markup, "Frame rate measurement off. Using 60 fps.")
+    then_the_frame_rate_reads(markup, "60 fps (assumed)", measuring=False)
+    when_i_click_the_measure_button(markup)
+    then_the_frame_rate_reads(markup, "60 fps (assumed)", measuring=True)
+
+
+@step
+def given_the_global_settings_editor_is_open(markup: MarkupPage) -> None:
+    markup.press("KeyW")
+    markup.page.wait_for_selector("#global-frame-rate")
+
+
+@step
+def when_i_click_the_measure_button(markup: MarkupPage) -> None:
+    markup.page.click("#global-frame-rate-toggle")
+    markup.next_frames()
+
+
+@step
+def then_the_frame_rate_reads(markup: MarkupPage, text: str, measuring: bool) -> None:
+    markup.shot("frame-rate")
+    assert markup.page.inner_text("#global-frame-rate") == text
+    classes = markup.page.get_attribute("#global-frame-rate-toggle", "class") or ""
+    assert ("active" in classes.split()) == measuring
+
+
+# The previews apply a pair's own settings on all its frames, its end marker's frame included, and
+# drop them outside, also after stepping off a boundary frame and back.
+@pytest.mark.parametrize("measured", [True, False], ids=["measured rate", "assumed 60 fps"])
+def test_previews_follow_the_pairs_frames_across_steps_off_its_first_and_last_frames(
+    markup: MarkupPage, measured: bool
+) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("relies on the dev site's test video frame times")
+    if measured:
+        given_the_video_has_played_until_its_frame_rate_is_measured(markup)
+    markup.load_saved_marker_pairs(
+        [{"start": 3, "end": 6, "speed": 0.5, "crop": "0:0:iw:ih", "overrides": {"gamma": 2}}]
+    )
+    markup.press("KeyC")
+    markup.press("Alt+KeyC")
+    for inside, outside, direction in [(90, 89, "down"), (180, 181, "up")]:
+        markup.seek((inside + 0.5) / VIDEO_FPS, presented=True)
+        then_the_previews_are(markup, inside, applied=True)
+        when_i_step_to_the_next_frame(markup, direction)
+        then_the_previews_are(markup, outside, applied=False)
+        when_i_step_to_the_next_frame(markup, "up" if direction == "down" else "down")
+        then_the_previews_are(markup, inside, applied=True)
+
+
+@step
+def when_i_step_to_the_next_frame(markup: MarkupPage, direction: str) -> None:
+    """Shift+scroll until the video shows another frame: at the assumed 60 fps a step on a 30 fps
+    video can move half a frame."""
+    start = math.floor(markup.current_time() * VIDEO_FPS)
+    for _ in range(3):
+        when_i_shift_scroll(markup, direction, times=1)
+        if math.floor(markup.current_time() * VIDEO_FPS) != start:
+            return
+
+
+@step
+def then_the_previews_are(markup: MarkupPage, frame: int, applied: bool) -> None:
+    markup.next_frames(3)
+    state = markup.page.evaluate(
+        "() => { const v = document.querySelector('video');"
+        " return { time: v.currentTime, filter: v.style.filter, rate: v.playbackRate }; }"
+    )
+    markup.report(f"frame {frame}: {state}")
+    assert math.floor(state["time"] * VIDEO_FPS) == frame
+    assert ("gamma-filter" in state["filter"]) == applied
+    assert state["rate"] == (0.5 if applied else 1)
+
+
 @step
 def when_i_run_the_palette_command(markup: MarkupPage, search: str) -> None:
     markup.page.click("#shortcutsTableToggleButton")

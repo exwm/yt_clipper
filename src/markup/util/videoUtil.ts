@@ -60,7 +60,7 @@ function updateFrameRate(): void {
 // use; storage that is blocked or full keeps the setting for this page only.
 const MEASURE_FRAME_RATE_KEY = 'ytc-measure-frame-rate';
 let measureFrameRate: boolean | null = null;
-function isFrameRateMeasured(): boolean {
+export function isFrameRateMeasured(): boolean {
   if (measureFrameRate == null) {
     try {
       measureFrameRate = localStorage.getItem(MEASURE_FRAME_RATE_KEY) !== 'false';
@@ -88,6 +88,11 @@ export function toggleFrameRateMeasurement(): void {
     measureFrameRate ? 'green' : 'red'
   );
   showFrameRate(frameRate);
+  if (typeof document !== 'undefined') {
+    document
+      .getElementById('global-frame-rate-toggle')
+      ?.classList.toggle('active', measureFrameRate);
+  }
 }
 
 /** The video's frames at the frame rate in use. */
@@ -201,7 +206,7 @@ export function getFrameRate(defaultFPS = 60): { rate: number; source: FrameRate
 const FRAME_RATE_SOURCES: Record<FrameRateSource, string> = {
   measured: 'measured',
   platform: "the platform's",
-  default: 'assumed until measured',
+  default: 'assumed',
 };
 
 /** The frame rate in use and where it comes from, as the global settings editor shows it. */
