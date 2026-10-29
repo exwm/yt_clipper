@@ -14,6 +14,7 @@ import {
   ScreenFrame,
   screenFrame,
   shouldHoldEndFrame,
+  TIME_ROUNDING,
 } from './frame-step';
 import {
   FrameGrid,
@@ -154,7 +155,7 @@ export function frameStartOf(mediaTime: number): number {
   const isRead =
     onScreen.isRead &&
     onScreen.mediaTime != null &&
-    Math.abs(onScreen.mediaTime - platformTime) < 0.00001;
+    Math.abs(onScreen.mediaTime - platformTime) < TIME_ROUNDING;
   const presented = { mediaTime: platformTime, isRead, isCurrent: true };
   return screenFrame(presented, playhead, rate, source === 'measured').start;
 }

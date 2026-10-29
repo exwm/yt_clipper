@@ -40,7 +40,7 @@ export interface ScreenFrame {
 const FRAME_TIME_ROUNDING = 0.0005;
 // Firefox rounds currentTime to the microsecond, so a playhead on the next frame's start can read a
 // hair before it.
-const TIME_ROUNDING = 0.00001;
+export const TIME_ROUNDING = 0.00001;
 
 /** Whether the frame starting at `start` holds the playhead within a frame of the rate in use. A
  *  frame from before a seek never does: the markup's seeks land 1 ms or more into a frame. */

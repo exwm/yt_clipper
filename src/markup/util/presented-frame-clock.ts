@@ -90,10 +90,12 @@ export function getHeldFrame(
   };
 }
 
-// The frame the video holds, or null where it can't be read: no WebCodecs, or a cross-origin video
-// that isn't CORS-clean (the constructor throws). Firefox reads it as time 0 with no duration, which
-// the clock rejects.
-function readHeldFrame(video: VideoElement): { time: number; duration: number | null } | null {
+/** The frame the video holds, on its own timeline, or null where it can't be read: no WebCodecs, or
+ *  a cross-origin video that isn't CORS-clean (the constructor throws). Firefox reads it as time 0
+ *  with no duration, which the clock rejects. */
+export function readHeldFrame(
+  video: VideoElement
+): { time: number; duration: number | null } | null {
   if (typeof VideoFrame !== 'function') return null;
   try {
     const frame = new VideoFrame(video);
