@@ -7,7 +7,9 @@ import {
   frameSpan,
   frameSeekTarget,
   frameStart,
+  isInFrameSpan,
   loopSeekTarget,
+  sameFrame,
   snapToFrame,
 } from './frame-grid';
 
@@ -133,5 +135,31 @@ describe('frame grid, against the clipper’s case table', () => {
       expect(snapToFrame(g, c.start)).toBeCloseTo(c.start, 9);
       expect(frameAt(g, frameMiddle(g, c.frame))).toBe(c.frame);
     }
+  });
+});
+
+// A pair at 30 fps from 1 s (frame 30) to an end marker mid frame 60 (2 s to 2.0333 s).
+describe('isInFrameSpan', () => {
+  const grid = { origin: 0, rate: 30 };
+  it.each([
+    ['the frame before the start', 0.99, false],
+    ['the start frame', 1, true],
+    ['the start frame, just before its rounded start', 1 - 0.0005, true],
+    ['the end marker frame, after the end time', 2.03, true],
+    ['the frame after the end', 2.034, false],
+  ])('%s', (_name, time, expected) => {
+    expect(isInFrameSpan(grid, 1, 2.01, time)).toBe(expected);
+  });
+});
+
+describe('sameFrame', () => {
+  const grid = { origin: 0, rate: 30 };
+  it.each([
+    ['a frame start and its middle', 1, 1 + 0.5 / 30, true],
+    ['a frame start rounded down and the start', 1 - 0.0005, 1, true],
+    ['the last time in a frame and the next start', 1 + 1 / 30 - 0.002, 1 + 1 / 30, false],
+    ['two frames apart', 1, 1 + 2 / 30, false],
+  ])('%s', (_name, a, b, expected) => {
+    expect(sameFrame(grid, a, b)).toBe(expected);
   });
 });

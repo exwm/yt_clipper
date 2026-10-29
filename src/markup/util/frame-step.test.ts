@@ -5,6 +5,7 @@ import { PLACEMENT_TOLERANCE } from './frame-grid';
 import {
   frameStepTarget,
   frameTime,
+  isAtOwnSeek,
   LoopRefresh,
   loopTurnBack,
   OwnSeek,
@@ -1179,4 +1180,33 @@ describe('the loop end frame over display cadences', () => {
   it('turns back at once before a refresh gap is known', () => {
     expect(shouldHoldEndFrame({ time: 1000, gap: NaN }, 990, 1000 / 30)).toBe(false);
   });
+});
+
+// At 30 fps a quarter frame is 8.33 ms: a seek to 1.0167 meaning the frame from 1 s.
+describe('isAtOwnSeek', () => {
+  const seek: OwnSeek = { target: 1.0167, frameStart: 1, kind: 'step' };
+  it.each([
+    ['at the target', 1.0167, true],
+    ['just inside a quarter frame after', 1.0167 + 0.0083, true],
+    ['just past a quarter frame after', 1.0167 + 0.0084, false],
+    ['just past a quarter frame before', 1.0167 - 0.0084, false],
+  ])('%s', (_name, playhead, expected) => {
+    expect(isAtOwnSeek(seek, playhead, 30)).toBe(expected);
+  });
+
+  it.each([
+    ['within the tolerance before the frame start', 0.9991, true],
+    ['past the tolerance before the frame start', 0.9989, false],
+  ])('a seek 0.5 ms into its frame, the playhead %s', (_name, playhead, expected) => {
+    expect(isAtOwnSeek({ target: 1.0005, frameStart: 1, kind: 'place' }, playhead, 30)).toBe(
+      expected
+    );
+  });
+});
+
+// 4.1 s at 30 fps is just under 123 frames in floating point: still frame 123's start.
+it("steps from the playhead's grid frame where playhead x fps lands just below a whole number", () => {
+  const unknown = { start: 0, isStartKnown: false, isPlayheads: false };
+  const step = { isSeekInFlight: true, ownSeek: null, fps: 30, duration: 10, frames: 1 };
+  expect(frameStepTarget(unknown, { ...step, playhead: 4.1 })).toBeCloseTo(4.1 + 1.5 / 30, 9);
 });
