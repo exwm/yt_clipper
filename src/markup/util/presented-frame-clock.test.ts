@@ -2,6 +2,7 @@ import type { VideoElement } from '../appState';
 import { FRAMES_TO_CONFIRM_ROUNDED } from './frame-clock-core';
 import {
   getFrameOnScreen,
+  getHeldFrame,
   getMeasuredFrameRate,
   isNewMeasuredFrameRate,
 } from './presented-frame-clock';
@@ -59,6 +60,40 @@ function fakeVideo(currentTime = 0) {
     emit,
   };
 }
+
+describe('getHeldFrame', () => {
+  // `new VideoFrame(video)` reads the frame held at `held` s, 1/30 s long.
+  const withHeldFrame = (held: number) => {
+    globalThis.VideoFrame = class {
+      timestamp = held * 1e6;
+      duration = 1e6 / 30;
+      close() {}
+    } as unknown as typeof VideoFrame;
+  };
+  afterEach(() => {
+    delete (globalThis as { VideoFrame?: unknown }).VideoFrame;
+  });
+
+  // On the second part of a video whose first part is 100 s long.
+  const heldAt = (held: number) => {
+    const { video, element } = fakeVideo(10.01);
+    video.getCurrentTime = () => 100 + video.currentTime;
+    withHeldFrame(held);
+    return getHeldFrame(element);
+  };
+
+  it('reads a frame held near the playhead on the platform timeline', () => {
+    expect(heldAt(10)).toEqual({ time: 110, duration: 1 / 30 });
+  });
+
+  // Firefox reads every frame as about 0.
+  it.each([
+    ['as Firefox reads it', 0.000005],
+    ['far from the playhead', 9],
+  ])('has no frame held %s', (_case, held) => {
+    expect(heldAt(held)).toBeNull();
+  });
+});
 
 describe('getFrameOnScreen', () => {
   it('has no frame until one is presented', () => {

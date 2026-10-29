@@ -96,6 +96,25 @@ describe('getShortestActiveMarkerPair', () => {
       time: 5,
       expected: null,
     },
+    // At 30 fps: active on its frames, the end marker's frame (1 s to 1.0333 s) included.
+    {
+      desc: "on the end marker's frame, after its time",
+      pairs: [{ start: 0, end: 1 }],
+      time: 1.02,
+      expected: { start: 0, end: 1 },
+    },
+    {
+      desc: "on the start marker's frame, before its time",
+      pairs: [{ start: 1.01, end: 2 }],
+      time: 1.005,
+      expected: { start: 1.01, end: 2 },
+    },
+    {
+      desc: "on the frame after the end marker's",
+      pairs: [{ start: 0, end: 1 }],
+      time: 1.034,
+      expected: null,
+    },
   ])('$desc', ({ pairs, time, expected }) => {
     appState.markerPairs = pairs as any;
     appState.video = { getCurrentTime: () => time } as any;

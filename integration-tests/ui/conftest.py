@@ -129,6 +129,10 @@ def pytest_configure(config: pytest.Config) -> None:
         "timing: counts frames or refreshes as the video plays, so other tests' load can fail it;"
         " just ui-test runs these in a phase of their own",
     )
+    config.addinivalue_line(
+        "markers",
+        "alone: loads the machine itself (CPU throttling), so it runs with no other test beside it",
+    )
     # Build the dev site once, in the main process: parallel workers (pytest-xdist) only serve it.
     is_worker = hasattr(config, "workerinput")
     if not is_worker and not config.getoption("youtube") and not config.option.collectonly:

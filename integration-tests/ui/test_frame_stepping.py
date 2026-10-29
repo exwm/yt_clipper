@@ -3,6 +3,7 @@ video, at the rate measured from played frames. The dev site's test video is 30 
 
 import json
 import math
+import statistics
 
 import pytest
 from harness.hosts import DEV_SITE_HOST
@@ -25,6 +26,38 @@ def test_shift_mousewheel_steps_one_frame_at_a_time_at_the_measured_frame_rate(
     backward = when_i_shift_scroll(markup, "down", times=10)
     then_the_frames_shown_are(markup, forward, frames_stepped_to(markup, 90, 40))
     then_the_frames_shown_are(markup, backward, frames_stepped_to(markup, forward[-1], -10))
+
+
+# Paused from playing, Chrome can hold a frame that starts after the playhead (10.7667 held at
+# 10.7293): a step moves from the frame shown.
+@pytest.mark.parametrize("direction", ["up", "down"], ids=["forward", "back"])
+def test_shift_mousewheel_right_after_pausing_steps_from_the_frame_shown(
+    markup: MarkupPage, direction: str
+) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("relies on the dev site's test video frame times")
+    given_the_video_has_played_until_its_frame_rate_is_measured(markup)
+    steps = 1 if direction == "up" else -1
+    for trial in range(3):
+        held = when_i_play_and_pause(markup, play_ms=300 + 70 * trial)
+        stepped = when_i_shift_scroll(markup, direction, times=1)
+        then_the_frames_shown_are(markup, stepped, frames_stepped_to(markup, held, steps))
+
+
+@step
+def when_i_play_and_pause(markup: MarkupPage, play_ms: int) -> int:
+    """The frame held once paused, read as Chrome holds it rather than from the playhead."""
+    markup.play()
+    markup.page.wait_for_timeout(play_ms)
+    markup.pause()
+    markup.next_frames(3)
+    state = markup.page.evaluate(
+        "() => { const v = document.querySelector('video'); const f = new VideoFrame(v);"
+        " const held = f.timestamp / 1e6; f.close(); return { held, time: v.currentTime }; }"
+    )
+    markup.report(f"paused: {state}")
+    # A frame start, rounded to the microsecond.
+    return round(state["held"] * VIDEO_FPS)
 
 
 # Before a rate is measured steps are 1/60 s; at the end Chrome snaps the time to the duration, past
@@ -261,6 +294,49 @@ def test_a_pairs_loop_shows_its_end_frame_for_about_its_full_time(
     assert min(end_frame) >= whole_refreshes
 
 
+# Paused in the end frame's second half, the loop turns back as 5.48 did: played from there, the next
+# frame would show at the first refresh, before the loop can turn back.
+@pytest.mark.timing
+@pytest.mark.measured_rate
+def test_a_pairs_loop_played_from_a_pause_on_its_end_frame_never_shows_the_next(
+    markup: MarkupPage,
+) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("relies on the dev site's test videos")
+    fps = 30
+    markup.measure_frame_rate()
+    markup.load_saved_marker_pairs([{"start": 60 / fps, "end": 66 / fps, "crop": "0:0:iw:ih"}])
+    markup.open_marker_pair(0)
+    markup.press("Shift+KeyC")
+    for _ in range(3):
+        held, _, _ = when_the_loop_plays_by_refresh(markup, fps, turns=1, from_frame=66.75)
+        markup.report(f"frames shown {held}")
+        assert 67 not in held
+
+
+# A step lands on a frame's middle, so stepping onto the end frame with the loop on stays there.
+def test_a_pairs_loop_stays_on_its_end_frame_when_stepped_onto(markup: MarkupPage) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("relies on the dev site's test video frame times")
+    given_the_video_has_played_until_its_frame_rate_is_measured(markup)
+    markup.load_saved_marker_pairs(
+        [{"start": 60 / VIDEO_FPS, "end": 66 / VIDEO_FPS, "crop": "0:0:iw:ih"}]
+    )
+    markup.open_marker_pair(0)
+    markup.press("Shift+KeyC")
+    markup.seek(65.5 / VIDEO_FPS, presented=True)
+    when_i_step_to_the_next_frame(markup, "up")
+    markup.next_frames(5)
+    then_the_frame_shown_is(markup, 66)
+
+
+@step
+def then_the_frame_shown_is(markup: MarkupPage, frame: int) -> None:
+    time = markup.current_time()
+    markup.report(f"time {time}")
+    assert math.floor(time * VIDEO_FPS) == frame
+
+
 def display_rate_case(
     hz: int,
     fps: int,
@@ -288,22 +364,16 @@ SEEK_OUTLASTS_END_FRAME = pytest.mark.xfail(
 )
 # Display Hz, video fps, and the refreshes the end frame should hold at least: the whole refreshes a
 # frame lasts when 2 or more, else 1. Chromium's cadence gives every frame at least these
-# (display-cadences.json).
+# (display-cadences.json). Jest pins the other rates over the same code.
 DISPLAY_RATE_CASES = [
     display_rate_case(30, 24, 1, SEEK_OUTLASTS_END_FRAME),
     display_rate_case(30, 30, 1),
     display_rate_case(50, 24, 2),
-    display_rate_case(50, 30, 1, SEEK_OUTLASTS_END_FRAME),
     display_rate_case(120, 24, 5),
-    display_rate_case(120, 30, 4),
-    display_rate_case(144, 24, 6),
     display_rate_case(144, 30, 4),
     # Before the rate is measured (or with Measure off) the frame's own duration, where the browser
     # reports it, times the end frame.
-    display_rate_case(30, 24, 1, SEEK_OUTLASTS_END_FRAME, measured=False),
-    display_rate_case(50, 24, 2, measured=False),
     display_rate_case(120, 24, 5, measured=False),
-    display_rate_case(144, 24, 6, measured=False),
 ]
 
 
@@ -335,6 +405,8 @@ def test_a_pairs_loop_holds_its_end_frame_and_never_the_next_on_other_display_ra
     # A turn may end a refresh early: the gate times the end frame from the last check that saw another
     # frame, which errs early so it never shows the next. 0.2 ms covers rounded animation frame times.
     assert min(end_frame_ms) >= (end_frame_refreshes - 1) * 1000 / hz - 0.2
+    # Most turns hold it the full refreshes, which the early bound alone can't check at 2 or fewer.
+    assert statistics.median(end_frame_ms) >= end_frame_refreshes * 1000 / hz - 0.2
 
 
 @step
@@ -371,20 +443,23 @@ LOOP_PLAY_CAP_MS = 10_000
 
 @step
 def when_the_loop_plays_by_refresh(
-    markup: MarkupPage, fps: int, turns: int
+    markup: MarkupPage, fps: int, turns: int, from_frame: float = 60.5
 ) -> tuple[list[int], float, list[float]]:
     """The frame the video holds at each refresh while it plays (a VideoFrame read per animation
-    frame), from the first time it shows the pair's first frame until it has turned back `turns`
-    times, the median refresh (ms), and each refresh's animation frame time (ms)."""
-    markup.seek(60.5 / fps, presented=True)
+    frame), from paused at `from_frame` until it has turned back `turns` times, the median refresh
+    (ms), and each refresh's animation frame time (ms)."""
+    markup.seek(from_frame / fps, presented=True)
     with markup.untraced():
         rows = markup.page.evaluate(
             """async ([turns, capMs]) => {
                 const v = document.querySelector('video');
                 const rows = [];
                 let turned = 0;
+                let isDone = false;
                 let done;
-                const finished = new Promise((resolve) => { done = resolve; });
+                const finished = new Promise((resolve) => {
+                    done = () => { isDone = true; resolve(); };
+                });
                 const onRefresh = (now) => {
                     const frame = new VideoFrame(v);
                     const time = frame.timestamp / 1e6;
@@ -392,7 +467,7 @@ def when_the_loop_plays_by_refresh(
                     if (rows.length && time < rows[rows.length - 1][1]) turned++;
                     rows.push([now, time]);
                     if (turned >= turns) done();
-                    else requestAnimationFrame(onRefresh);
+                    if (!isDone) requestAnimationFrame(onRefresh);
                 };
                 await v.play();
                 requestAnimationFrame(onRefresh);

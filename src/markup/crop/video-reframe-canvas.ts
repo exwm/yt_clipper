@@ -22,6 +22,7 @@ import { createWebGLGammaRenderer, prevGammaVal, WebGLGammaRenderer } from '../u
 import { deleteElement, injectCSS } from '../util/util';
 import { onVideoFrames, VideoFrameSubscription } from '../util/video-frame-loop';
 import { frameStartOf, getFPS } from '../util/videoUtil';
+import { readHeldFrame } from '../util/presented-frame-clock';
 import { featureFlags } from '../feature-flags';
 import { bandsAround, touchedPixels, wholePixelsInside } from './reframe-canvas-pixels';
 import {
@@ -108,27 +109,13 @@ function startLoop(): void {
           presentedFrames: frame.presentedFrames ?? Math.round(frame.mediaTime * getFPS()),
           drawMs: performance.now() - start,
           // Drawn from the video itself, the picture can be a newer frame than the crop's.
-          drawnTime: frame.image === v ? heldFrameTime(v) : frame.mediaTime,
+          drawnTime: frame.image === v ? (readHeldFrame(v)?.time ?? null) : frame.mediaTime,
         });
       }
     },
     { label: 'reframe' }
   );
   frames.redraw();
-}
-
-// The media time of the frame the video holds now, which is the frame drawImage just drew, or null
-// when the browser has no VideoFrame.
-function heldFrameTime(v: HTMLVideoElement): number | null {
-  if (typeof VideoFrame === 'undefined') return null;
-  try {
-    const frame = new VideoFrame(v);
-    const time = frame.timestamp / 1e6;
-    frame.close();
-    return time;
-  } catch {
-    return null;
-  }
 }
 
 function recordFrameStats(

@@ -1,4 +1,12 @@
-import { PLACEMENT_TOLERANCE } from './frame-grid';
+import {
+  FrameGrid,
+  frameAt,
+  frameMiddle,
+  frameSeekTarget,
+  frameSpan,
+  loopSeekTarget,
+  PLACEMENT_TOLERANCE,
+} from './frame-grid';
 
 /** The markup's last seek to show a frame: where it seeks, and the start of the frame it means. A
  *  'place' seek shows a placed time, such as a marker's; a 'step' seek a frame middle on the grid of
@@ -40,7 +48,7 @@ export interface ScreenFrame {
 const FRAME_TIME_ROUNDING = 0.0005;
 // Firefox rounds currentTime to the microsecond, so a playhead on the next frame's start can read a
 // hair before it.
-const TIME_ROUNDING = 0.00001;
+export const TIME_ROUNDING = 0.00001;
 
 /** Whether the frame starting at `start` holds the playhead within a frame of the rate in use. A
  *  frame from before a seek never does: the markup's seeks land 1 ms or more into a frame. */
@@ -142,14 +150,70 @@ export function shouldHoldEndFrame(
 }
 
 /** The end frame's duration in ms at `playbackRate`: the `reported` one (s) where the browser gives
- *  it, else a frame at `rate`, which before the rate is measured is the assumed 60 fps. */
+ *  it, else a frame at `rate`, which before the rate is measured is the assumed 60 fps. A measured
+ *  rate bounds it. */
 export function endFrameDuration(
   reported: number | null,
   rate: number,
-  playbackRate: number
+  playbackRate: number,
+  isRateMeasured: boolean
 ): number {
   const duration = reported != null && reported > 0 ? reported : 1 / rate;
-  return (duration * 1000) / playbackRate;
+  return ((isRateMeasured ? Math.min(duration, 1 / rate) : duration) * 1000) / playbackRate;
+}
+
+/** What a loop over the frames shown from `start` through `end` reads at a refresh, and its state
+ *  from the refresh before. */
+export interface LoopRefresh {
+  grid: FrameGrid;
+  isRateMeasured: boolean;
+  start: number;
+  end: number;
+  isPlaying: boolean;
+  // Playing, the frame on screen's time; paused, the playhead.
+  time: number;
+  playhead: number;
+  // The frame the video holds while playing, on the platform's timeline; null where it can't be read.
+  held: { time: number; duration: number | null } | null;
+  refresh: Refresh;
+  playbackRate: number;
+  // The last refresh the loop saw a frame other than its end frame.
+  lastOtherFrameAt: number;
+}
+
+/** Where a loop seeks at a refresh, or null, and its `lastOtherFrameAt` for the next one. */
+export function loopTurnBack(loop: LoopRefresh): {
+  seekTo: number | null;
+  lastOtherFrameAt: number;
+} {
+  const { grid, start, end, isPlaying, time, playhead, held, refresh } = loop;
+  // Both are 5.48's tests. Playing: at an assumed rate a mid-frame end can fall in a grid frame after
+  // the frame on screen's, which then turns back only once the frame after it shows. Paused: past the
+  // end frame's middle, where a step lands, since playing on from there shows the next frame at the
+  // first refresh, before the loop can turn back.
+  const isPastEnd = isPlaying
+    ? playhead > end
+    : playhead > frameMiddle(grid, frameSpan(grid, start, end).lastFrame) + PLACEMENT_TOLERANCE;
+  const target = isPastEnd
+    ? frameSeekTarget(grid, start)
+    : loopSeekTarget(grid, start, end, time, isPlaying);
+  // A seek as the end frame shows cuts it to one refresh. Also past the end, which the playhead
+  // crosses a refresh after a frame-start end's frame shows, but only for the frame shown at the end:
+  // at an assumed rate the grid's last frame can be the video frame after it. The frame's own
+  // duration, where the browser reports it, also times it before the rate is measured.
+  const isEndFrame =
+    held != null &&
+    held.time <= end + PLACEMENT_TOLERANCE &&
+    frameAt(grid, held.time) === frameSpan(grid, start, end).lastFrame;
+  const lastOtherFrameAt = isEndFrame ? loop.lastOtherFrameAt : refresh.time;
+  const frameDuration = endFrameDuration(
+    held?.duration ?? null,
+    grid.rate,
+    loop.playbackRate,
+    loop.isRateMeasured
+  );
+  const isHolding = isEndFrame && shouldHoldEndFrame(refresh, lastOtherFrameAt, frameDuration);
+  return { seekTo: isHolding ? null : target, lastOtherFrameAt };
 }
 
 /**
@@ -170,6 +234,7 @@ export function frameStepTarget(
   step: {
     // Where the playhead is or is going: the seek held back, else the current time.
     playhead: number;
+    isSeekInFlight: boolean;
     ownSeek: OwnSeek | null;
     fps: number;
     // The video's duration: NaN before its metadata loads, Infinity while live.
@@ -177,7 +242,7 @@ export function frameStepTarget(
     frames: number;
   }
 ): number {
-  const { playhead, ownSeek, fps, duration, frames } = step;
+  const { playhead, isSeekInFlight, ownSeek, fps, duration, frames } = step;
   const frameDuration = 1 / fps;
   // At the video's ends, the middle of its first or last frame, so the next step back or forward
   // starts from a frame middle too.
@@ -185,13 +250,20 @@ export function frameStepTarget(
   // Past the last frame's middle (at the end the video snaps to its duration), the playhead is on
   // the last frame.
   const playheadInVideo = Math.min(playhead, lastMiddle);
-  const frameStart =
-    screen.isPlayheads && screen.isStartKnown && holdsPlayhead(screen.start, playheadInVideo, fps)
-      ? screen.start
-      : ownSeek?.kind === 'step' && isAtOwnSeek(ownSeek, playheadInVideo, fps)
-        ? ownSeek.frameStart
-        : // The playhead's grid frame, so every target is a frame middle.
-          gridFrameStart(playheadInVideo, fps);
+  const ownStep =
+    ownSeek?.kind === 'step' && isAtOwnSeek(ownSeek, playheadInVideo, fps) ? ownSeek : null;
+  // With no seek pending and the playhead moved off the last step, the frame on screen is the user's,
+  // as `frameTime` reads it, even when it doesn't hold the playhead: paused from playing, Chrome can
+  // hold a frame that starts after the playhead or ends before it.
+  const isScreenFrom =
+    screen.isPlayheads &&
+    screen.isStartKnown &&
+    (holdsPlayhead(screen.start, playheadInVideo, fps) || (!isSeekInFlight && ownStep == null));
+  const frameStart = isScreenFrom
+    ? screen.start
+    : (ownStep?.frameStart ??
+      // The playhead's grid frame, so every target is a frame middle.
+      gridFrameStart(playheadInVideo, fps));
   const target = frameStart + (frames + 0.5) * frameDuration;
   return Math.min(Math.max(target, frameDuration / 2), lastMiddle);
 }

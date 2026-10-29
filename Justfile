@@ -101,6 +101,11 @@ lint-ts: typecheck-ts eslint-ts
 test-ts coverage="true":
   just _timed jest npx jest test {{ if coverage == "true" { "--coverage" } else { "" } }} --json --outputFile=coverage/jest-report.json
   uv run python tools/test/jest_slowest.py coverage/jest-report.json
+# Plants each bug in tools/test/planted-bugs/bugs.json in turn and runs its jest tests: fails if one
+# is not caught (results in sandbox/planted-bugs/). `PLANT_UI=1` runs the UI test of those that name one.
+[positional-arguments]
+planted-bugs *ids:
+  node tools/test/planted-bugs/plant.js "$@"
 # Rewrite the crop easing and Cinematic parity tables' samples from the markup's preview math, after
 # adding a case or changing the preview. An unchanged case comes out byte for byte the same.
 regen-parity:
@@ -131,12 +136,12 @@ dev-site:
 # Run the markup UI tests (pytest + Playwright, in an installed Chrome) on the dev site, in parallel. Screenshots
 # go to sandbox/ui-shots/<test>/, and a failed test's Playwright trace to sandbox/ui-test-results/. Extra args go to pytest,
 # e.g. `just ui-test -k "zoom or crop"`, or `just ui-test -n 0 -s --headed` to watch one at a time.
-# The timing tests run after the rest, on fewer workers, so the others' load can't fail them. A phase
-# that -k leaves empty (pytest exit 5) passes, unless both are. Filter with -k: a -m replaces the phases' marks.
+# The timing tests run after the rest, on fewer workers, so the others' load can't fail them, and a test that
+# loads the machine itself runs alone last. A phase that -k leaves empty (pytest exit 5) passes, unless all are. Filter with -k: a -m replaces the phases' marks.
 [positional-arguments]
 ui-test *args:
   just _parcel-once
-  @just _ui-test-phase 8 "not display_rate and not timing" "$@"; rest=$?; just _ui-test-phase 4 "timing and not display_rate" "$@"; timing=$?; [ $rest -eq 5 ] && [ $timing -eq 5 ] && exit 5; [ $rest -eq 5 ] && rest=0; [ $timing -eq 5 ] && timing=0; exit $((rest | timing))
+  @just _ui-test-phase 8 "not display_rate and not timing and not alone" "$@"; rest=$?; just _ui-test-phase 4 "timing and not display_rate" "$@"; timing=$?; just _ui-test-phase 1 "alone" "$@"; alone=$?; [ $rest -eq 5 ] && [ $timing -eq 5 ] && [ $alone -eq 5 ] && exit 5; [ $rest -eq 5 ] && rest=0; [ $timing -eq 5 ] && timing=0; [ $alone -eq 5 ] && alone=0; exit $((rest | timing | alone))
 [positional-arguments]
 _ui-test-phase workers marks *args:
   @workers="$1"; marks="$2"; shift 2; uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n "$workers" --durations=10 --tracing retain-on-failure --output sandbox/ui-test-results -m "$marks" "$@"
