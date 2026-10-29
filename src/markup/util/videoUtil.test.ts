@@ -398,6 +398,19 @@ describe('seekByFrames', () => {
       Object.assign(mockAppState.video, { currentTime: frame(90) + 0.02 });
       expect(getScreenFrame().start).toBeCloseTo(100 + frame(90), 9);
     });
+    // A frame callback times its frame on the part's own timeline; crop points are on the platform's.
+    it.each([
+      ['at its start', 0],
+      ['at the playhead', 0.02],
+    ])('takes the platform frame start of a frame on a later part, timed %s', (_case, into) => {
+      pausedOn(90, 30);
+      const playhead = 100 + frame(90) + 0.02;
+      mockSeeks.current = playhead;
+      mockScreen.mediaTime = playhead;
+      Object.assign(mockAppState.video, { currentTime: frame(90) + 0.02 });
+      expect(frameStartOf(frame(90) + into)).toBeCloseTo(getScreenFrame().start, 9);
+      expect(frameStartOf(frame(90) + into)).toBeCloseTo(100 + frame(90), 9);
+    });
 
     // A frame callback after a seek to an exact frame start, before the rate is measured: its start
     // is known only when the read at `seeked` timed the same frame, as the frame on screen's is.

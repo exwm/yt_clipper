@@ -141,21 +141,22 @@ export function getScreenFrame(): ScreenFrame {
   return screenFrame(onScreen, getPlayhead(), rate, source === 'measured');
 }
 
-/** The start of the frame a frame callback presents at `mediaTime`, on the video's own timeline. */
+/** The start of the frame a frame callback presents at `mediaTime` (on the video's own timeline), on
+ *  the platform's timeline, as `getScreenFrame` gives it. */
 export function frameStartOf(mediaTime: number): number {
   const video = appState.video;
   const { rate, source } = getFrameRate();
   // eslint-disable-next-line no-restricted-syntax -- whether the read at `seeked` timed this frame
   const onScreen = getFrameOnScreen(video);
-  // The clock's time is on the platform's timeline, the frame's on its own part's.
-  // eslint-disable-next-line no-restricted-syntax -- the offset between the two timelines
-  const partStart = video.getCurrentTime() - video.currentTime;
+  // eslint-disable-next-line no-restricted-syntax -- the frame's time on the platform's timeline
+  const playhead = video.getCurrentTime();
+  const platformTime = mediaTime + playhead - video.currentTime;
   const isRead =
     onScreen.isRead &&
     onScreen.mediaTime != null &&
-    Math.abs(onScreen.mediaTime - partStart - mediaTime) < 0.00001;
-  const presented = { mediaTime, isRead, isCurrent: true };
-  return screenFrame(presented, video.currentTime, rate, source === 'measured').start;
+    Math.abs(onScreen.mediaTime - platformTime) < 0.00001;
+  const presented = { mediaTime: platformTime, isRead, isCurrent: true };
+  return screenFrame(presented, playhead, rate, source === 'measured').start;
 }
 
 /** The time of the frame the user is on, which placements store and frame decisions read. */
