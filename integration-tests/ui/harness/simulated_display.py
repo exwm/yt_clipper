@@ -41,8 +41,6 @@ STALL_SECONDS = 5
 @dataclass
 class DisplayStats:
     ticks: int = 0
-    # Ticks whose begin frame finished after the next tick was due.
-    late: int = 0
     # Ticks never sent, as a late refresh ran past them.
     missed: int = 0
     # The tick whose begin frame never finished, which closes the page.
@@ -139,7 +137,6 @@ def drive(url: str, hz: float, stop: threading.Event, stats: DisplayStats) -> No
                     send(devtools, 0, "Page.close", {})
                     return
                 stats.ticks += 1
-                stats.late += time.perf_counter() - due > interval
     finally:
         if sys.platform == "win32":
             ctypes.windll.winmm.timeEndPeriod(1)

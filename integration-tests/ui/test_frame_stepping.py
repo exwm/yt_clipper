@@ -104,8 +104,7 @@ def test_previews_follow_the_pairs_frames_across_steps_off_its_first_and_last_fr
 ) -> None:
     if markup.host != DEV_SITE_HOST:
         pytest.skip("relies on the dev site's test video frame times")
-    # --assumed-frame-rate keeps the rate assumed in the measured variant too.
-    if into_frame and (not measured or markup.assumed_frame_rate):
+    if into_frame and not measured:
         # A half-frame grid can't tell whether a mid-frame marker is in the frame on screen or the next,
         # and the playhead here is before the start marker's time, which 5.48 also read as outside.
         reason = "a mid-frame marker's frame is unknown until the rate is measured"
@@ -205,8 +204,7 @@ def test_a_pairs_loop_never_shows_the_frame_after_its_end_marker(
 ) -> None:
     if markup.host != DEV_SITE_HOST:
         pytest.skip("relies on the dev site's test videos")
-    is_measured = measured and not markup.assumed_frame_rate
-    most_cycles_past_end = RARE_CYCLES_PAST_END if is_measured else most_cycles_past_end_assumed
+    most_cycles_past_end = RARE_CYCLES_PAST_END if measured else most_cycles_past_end_assumed
     if measured:
         markup.measure_frame_rate()
     end = (66 + end_into_frame) / fps
@@ -257,8 +255,8 @@ def test_a_pairs_loop_shows_its_end_frame_for_about_its_full_time(
     markup.report(f"refresh {refresh_ms:.2f} ms, whole refreshes a frame {whole_refreshes}")
     markup.report(f"end frame refreshes per turn {end_frame}")
     markup.report(f"played frame refreshes {played}")
-    if whole_refreshes < 2:
-        pytest.skip(f"the display ran at {1000 / refresh_ms:.0f} Hz, under 2 refreshes a frame")
+    # Under 2 refreshes a frame means the display isn't at 60 Hz (asleep, see the harness warning).
+    assert whole_refreshes >= 2, f"the display ran at {1000 / refresh_ms:.0f} Hz; wake it and rerun"
     assert len(end_frame) >= 10
     assert min(end_frame) >= whole_refreshes
 
@@ -317,8 +315,6 @@ def test_a_pairs_loop_holds_its_end_frame_and_never_the_next_on_other_display_ra
 ) -> None:
     if markup.host != DEV_SITE_HOST:
         pytest.skip("relies on the dev site's test videos")
-    if measured and markup.assumed_frame_rate:
-        pytest.skip("checks the measured rate")
     given_the_frame_rate_is(markup, measured=measured)
     markup.load_saved_marker_pairs([{"start": 60 / fps, "end": 66 / fps, "crop": "0:0:iw:ih"}])
     markup.open_marker_pair(0)

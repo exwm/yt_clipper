@@ -40,7 +40,8 @@ smoke-release folder version="":
 verify-release install userscript version="":
   just smoke-release "{{install}}" {{version}}
   uv run pytest src/clipper/tests/test_e2e.py -k youtube-vp9 --clipper-exe "{{install}}/yt_clipper{{ if os_family() == "windows" { ".exe" } else { "" } }}"
-  uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n 4 --tracing retain-on-failure --output sandbox/ui-test-results --userscript "{{userscript}}"
+  just ui-test --userscript "{{userscript}}"
+  just ui-test-display-rates --userscript "{{userscript}}"
 # After publishing: check that Greasy Fork serves the release's userscript (waits up to 3 minutes).
 check-greasyfork version:
   uv run python tools/release/greasyfork.py {{version}}
@@ -131,14 +132,14 @@ dev-site:
 # go to sandbox/ui-shots/<test>/, and a failed test's Playwright trace to sandbox/ui-test-results/. Extra args go to pytest,
 # e.g. `just ui-test -k "zoom or crop"`, or `just ui-test -n 0 -s --headed` to watch one at a time.
 # The timing tests run after the rest, on fewer workers, so the others' load can't fail them. A phase
-# that -k leaves empty (pytest exit 5) passes.
+# that -k leaves empty (pytest exit 5) passes, unless both are. Filter with -k: a -m replaces the phases' marks.
 [positional-arguments]
 ui-test *args:
   just _parcel-once
-  @just _ui-test-phase 8 "not display_rate and not timing" "$@"; rest=$?; just _ui-test-phase 4 "timing and not display_rate" "$@"; timing=$?; exit $((rest | timing))
+  @just _ui-test-phase 8 "not display_rate and not timing" "$@"; rest=$?; just _ui-test-phase 4 "timing and not display_rate" "$@"; timing=$?; [ $rest -eq 5 ] && [ $timing -eq 5 ] && exit 5; [ $rest -eq 5 ] && rest=0; [ $timing -eq 5 ] && timing=0; exit $((rest | timing))
 [positional-arguments]
 _ui-test-phase workers marks *args:
-  @workers="$1"; marks="$2"; shift 2; uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n "$workers" --durations=10 --tracing retain-on-failure --output sandbox/ui-test-results -m "$marks" "$@"; status=$?; [ $status -eq 5 ] && exit 0; exit $status
+  @workers="$1"; marks="$2"; shift 2; uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n "$workers" --durations=10 --tracing retain-on-failure --output sandbox/ui-test-results -m "$marks" "$@"
 # The loop's end frame on simulated 30, 50, 120 and 144 Hz displays, in Playwright's chromium-headless-shell
 # (installed here once per Playwright version). Apart from ui-test: beside the other tests' load the simulated
 # display drops refreshes now and then, which cuts an end frame short.

@@ -210,9 +210,7 @@ def browser_page(request: pytest.FixtureRequest, youtube_url: str | None) -> Ite
         playwright: Playwright = request.getfixturevalue("playwright")
         with simulated_display(playwright, hz, CONTEXT_OPTIONS) as (page, stats):
             yield page
-        print(
-            f"\n  {hz} Hz display: {stats.ticks} refreshes, {stats.late} late, {stats.missed} missed"
-        )
+        print(f"\n  {hz} Hz display: {stats.ticks} refreshes, {stats.missed} missed")
         assert stats.stalled_at is None, f"refresh {stats.stalled_at} never finished"
         return
     if not youtube_url:
