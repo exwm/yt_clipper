@@ -212,13 +212,14 @@ def test_a_pairs_loop_never_shows_the_frame_after_its_end_marker(
     markup.load_saved_marker_pairs([{"start": 60 / fps, "end": end, "crop": "0:0:iw:ih"}])
     markup.open_marker_pair(0)
     markup.press("Shift+KeyC")
-    shown = when_the_loop_plays(markup, fps, seconds=4)
+    shown = when_the_loop_plays(markup, fps, turns=LOOP_TURNS)
     markup.report(f"frames shown {shown}")
     assert shown
     assert min(shown) >= 60
     assert max(shown) <= 67
     assert 66 in shown
     cycles = sum(1 for frame, next_frame in zip(shown, shown[1:]) if next_frame < frame)
+    assert cycles == LOOP_TURNS
     assert shown.count(67) <= most_cycles_past_end * cycles
 
 
@@ -245,7 +246,7 @@ def test_a_pairs_loop_shows_its_end_frame_for_about_its_full_time(
     markup.load_saved_marker_pairs([{"start": 60 / fps, "end": 66 / fps, "crop": "0:0:iw:ih"}])
     markup.open_marker_pair(0)
     markup.press("Shift+KeyC")
-    held, refresh_ms = when_the_loop_plays_by_refresh(markup, fps, seconds=4)
+    held, refresh_ms = when_the_loop_plays_by_refresh(markup, fps, turns=END_FRAME_TURNS)
     runs = held_runs(held)
     end_frame = [refreshes for frame, refreshes, after in runs if frame == 66 and after < 66]
     played = [
@@ -321,7 +322,7 @@ def test_a_pairs_loop_holds_its_end_frame_and_never_the_next_on_other_display_ra
     markup.load_saved_marker_pairs([{"start": 60 / fps, "end": 66 / fps, "crop": "0:0:iw:ih"}])
     markup.open_marker_pair(0)
     markup.press("Shift+KeyC")
-    held, refresh_ms = when_the_loop_plays_by_refresh(markup, fps, seconds=4)
+    held, refresh_ms = when_the_loop_plays_by_refresh(markup, fps, turns=END_FRAME_TURNS)
     end_frame = [
         refreshes for frame, refreshes, after in held_runs(held) if frame == 66 and after < 66
     ]
@@ -361,33 +362,46 @@ def test_the_end_frame_refreshes_expected_are_the_fewest_in_chromiums_cadence(
     assert min(held) == end_frame_refreshes
 
 
+# The fewest turns back the loop assertions need, and a cap on how long to play for them.
+LOOP_TURNS = 8
+END_FRAME_TURNS = 11
+LOOP_PLAY_CAP_MS = 10_000
+
+
 @step
 def when_the_loop_plays_by_refresh(
-    markup: MarkupPage, fps: int, seconds: float
+    markup: MarkupPage, fps: int, turns: int
 ) -> tuple[list[int], float]:
     """The frame the video holds at each refresh while it plays (a VideoFrame read per animation
-    frame), from the first time it shows the pair's first frame, and the median refresh (ms)."""
+    frame), from the first time it shows the pair's first frame until it has turned back `turns`
+    times, and the median refresh (ms)."""
     markup.seek(60.5 / fps, presented=True)
     with markup.untraced():
         rows = markup.page.evaluate(
-            """async (seconds) => {
+            """async ([turns, capMs]) => {
                 const v = document.querySelector('video');
                 const rows = [];
-                let on = true;
+                let turned = 0;
+                let done;
+                const finished = new Promise((resolve) => { done = resolve; });
                 const onRefresh = (now) => {
                     const frame = new VideoFrame(v);
-                    rows.push([now, frame.timestamp / 1e6]);
+                    const time = frame.timestamp / 1e6;
                     frame.close();
-                    if (on) requestAnimationFrame(onRefresh);
+                    if (rows.length && time < rows[rows.length - 1][1]) turned++;
+                    rows.push([now, time]);
+                    if (turned >= turns) done();
+                    else requestAnimationFrame(onRefresh);
                 };
                 await v.play();
                 requestAnimationFrame(onRefresh);
-                await new Promise((done) => setTimeout(done, seconds * 1000));
-                on = false;
+                const timer = setTimeout(done, capMs);
+                await finished;
+                clearTimeout(timer);
                 v.pause();
                 return rows;
             }""",
-            seconds,
+            [turns, LOOP_PLAY_CAP_MS],
         )
     gaps = sorted(b[0] - a[0] for a, b in zip(rows, rows[1:]))
     return [math.floor(time * fps + 0.02) for _, time in rows], gaps[len(gaps) // 2]
@@ -406,21 +420,32 @@ def held_runs(held: list[int]) -> list[tuple[int, int, int]]:
 
 
 @step
-def when_the_loop_plays(markup: MarkupPage, fps: int, seconds: float) -> list[int]:
-    """The frames shown while the video plays, from the first time it shows the pair's first frame."""
+def when_the_loop_plays(markup: MarkupPage, fps: int, turns: int) -> list[int]:
+    """The frames shown while the video plays, from the first time it shows the pair's first frame
+    until it has turned back `turns` times, so every cycle recorded is whole."""
     markup.seek(60.5 / fps, presented=True)
     times = markup.page.evaluate(
-        """async (seconds) => {
+        """async ([turns, capMs]) => {
             const v = document.querySelector('video');
             const times = [];
-            const onFrame = (_now, meta) => { times.push(meta.mediaTime); v.requestVideoFrameCallback(onFrame); };
+            let turned = 0;
+            let done;
+            const finished = new Promise((resolve) => { done = resolve; });
+            const onFrame = (_now, meta) => {
+                if (times.length && meta.mediaTime < times[times.length - 1]) turned++;
+                times.push(meta.mediaTime);
+                if (turned >= turns) done();
+                else v.requestVideoFrameCallback(onFrame);
+            };
             v.requestVideoFrameCallback(onFrame);
             await v.play();
-            await new Promise((done) => setTimeout(done, seconds * 1000));
+            const timer = setTimeout(done, capMs);
+            await finished;
+            clearTimeout(timer);
             v.pause();
             return times;
         }""",
-        seconds,
+        [turns, LOOP_PLAY_CAP_MS],
     )
     return [math.floor(time * fps + 0.02) for time in times]
 
