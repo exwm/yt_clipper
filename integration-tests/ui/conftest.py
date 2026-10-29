@@ -30,6 +30,7 @@ from harness.hosts import DEV_SITE_HOST, YOUTUBE_HOST, activate_markup, open_dev
 from harness.markup_page import MarkupPage
 from harness.page_problems import PageProblems
 from harness.paths import BUNDLE, REPO, SANDBOX, SHOTS
+from harness.simulated_display import simulated_display
 
 if TYPE_CHECKING:
     from playwright.sync_api import BrowserContext, Page, Playwright
@@ -102,6 +103,11 @@ def pytest_configure(config: pytest.Config) -> None:
         "local_build: needs the feature flags popup, which CI builds (the releases) leave out, so it"
         " is skipped against a CI-built userscript (just verify-release)",
     )
+    config.addinivalue_line(
+        "markers",
+        "display_rate(hz): run in chromium-headless-shell on a simulated display of this refresh rate"
+        " (harness/simulated_display.py)",
+    )
     # Build the dev site once, in the main process: parallel workers (pytest-xdist) only serve it.
     is_worker = hasattr(config, "workerinput")
     if not is_worker and not config.getoption("youtube") and not config.option.collectonly:
@@ -173,7 +179,21 @@ def youtube_context(
 
 @pytest.fixture
 def browser_page(request: pytest.FixtureRequest, youtube_url: str | None) -> Iterator["Page"]:
-    """A fresh page: pytest-playwright's own on the dev site, or one in the YouTube profile."""
+    """A fresh page: pytest-playwright's own on the dev site, one on a simulated display, or one in
+    the YouTube profile."""
+    display_rate = request.node.get_closest_marker("display_rate")
+    if display_rate and not youtube_url:
+        if request.getfixturevalue("browser_name") != "chromium":
+            pytest.skip("simulates displays in chromium-headless-shell")
+        hz = display_rate.args[0]
+        playwright: Playwright = request.getfixturevalue("playwright")
+        with simulated_display(playwright, hz, CONTEXT_OPTIONS) as (page, stats):
+            yield page
+        print(
+            f"\n  {hz} Hz display: {stats.ticks} refreshes, {stats.late} late, {stats.skipped} dropped"
+        )
+        assert stats.stalled_at is None, f"refresh {stats.stalled_at} never finished"
+        return
     if not youtube_url:
         yield request.getfixturevalue("page")
         return
@@ -286,8 +306,12 @@ def markup(
         activate_markup(page)
     warn_unless_refresh_is_60_hz(page)
 
-    # pytest-playwright traces only its own page; the YouTube context is the fixture's.
-    traced = not youtube_url and request.config.getoption("tracing") != "off"
+    # pytest-playwright traces only its own page; the YouTube and simulated display contexts are ours.
+    traced = (
+        not youtube_url
+        and not request.node.get_closest_marker("display_rate")
+        and request.config.getoption("tracing") != "off"
+    )
     yield MarkupPage(page, host, shots_dir, tracing=traced, assumed_frame_rate=assumed)
 
     call_report = getattr(request.node, "report_call", None)

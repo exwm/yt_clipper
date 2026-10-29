@@ -1,11 +1,13 @@
 """Frame stepping: on a site that reports no frame rate, Shift+Mousewheel steps one frame of the
 video, at the rate measured from played frames. The dev site's test video is 30 fps."""
 
+import json
 import math
 
 import pytest
 from harness.hosts import DEV_SITE_HOST
 from harness.markup_page import MarkupPage
+from harness.paths import REPO
 from harness.steps import step
 
 VIDEO_FPS = 30
@@ -264,6 +266,85 @@ def test_a_pairs_loop_shows_its_end_frame_for_about_its_full_time(
         pytest.skip(f"the display ran at {1000 / refresh_ms:.0f} Hz, under 2 refreshes a frame")
     assert len(end_frame) >= 10
     assert min(end_frame) >= whole_refreshes
+
+
+def display_rate_case(
+    hz: int, fps: int, end_frame_refreshes: int, *marks: pytest.MarkDecorator
+) -> "pytest.ParameterSet":
+    style = [pytest.mark.video_style("testsrc24")] if fps == 24 else []
+    return pytest.param(
+        hz,
+        fps,
+        end_frame_refreshes,
+        marks=[pytest.mark.display_rate(hz), *style, *marks],
+        id=f"{hz} Hz {fps} fps",
+    )
+
+
+# Under 2 refreshes a frame, but not exactly 1, the loop seeks back as the end frame shows, and on some
+# cycles the seek takes longer than the rest of that frame. The gate never holds there: it is the same
+# with the gate off.
+SEEK_OUTLASTS_END_FRAME = pytest.mark.xfail(
+    strict=True,
+    reason="the loop turns back as the end frame shows, and on some cycles the next frame shows first",
+)
+# Display Hz, video fps, and the refreshes the end frame should hold at least: the whole refreshes a
+# frame lasts when 2 or more, else 1. Chromium's cadence gives every frame at least these
+# (display-cadences.json).
+DISPLAY_RATE_CASES = [
+    display_rate_case(30, 24, 1, SEEK_OUTLASTS_END_FRAME),
+    display_rate_case(30, 30, 1),
+    display_rate_case(50, 24, 2),
+    display_rate_case(50, 30, 1, SEEK_OUTLASTS_END_FRAME),
+    display_rate_case(120, 24, 5),
+    display_rate_case(120, 30, 4),
+    display_rate_case(144, 24, 6),
+    display_rate_case(144, 30, 4),
+]
+
+
+# The end frame gate on displays other than 60 Hz, simulated in chromium-headless-shell: the loop
+# holds its end frame the refreshes a frame holds there, and never shows the frame after it.
+@pytest.mark.parametrize(("hz", "fps", "end_frame_refreshes"), DISPLAY_RATE_CASES)
+def test_a_pairs_loop_holds_its_end_frame_and_never_the_next_on_other_display_rates(
+    markup: MarkupPage, hz: int, fps: int, end_frame_refreshes: int
+) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("relies on the dev site's test videos")
+    if markup.assumed_frame_rate:
+        pytest.skip("checks the measured rate")
+    markup.measure_frame_rate()
+    markup.load_saved_marker_pairs([{"start": 60 / fps, "end": 66 / fps, "crop": "0:0:iw:ih"}])
+    markup.open_marker_pair(0)
+    markup.press("Shift+KeyC")
+    held, refresh_ms = when_the_loop_plays_by_refresh(markup, fps, seconds=4)
+    end_frame = [
+        refreshes for frame, refreshes, after in held_runs(held) if frame == 66 and after < 66
+    ]
+    markup.report(f"refresh {refresh_ms:.2f} ms, end frame refreshes per turn {end_frame}")
+    markup.report(f"refreshes past the end {held.count(67)}")
+    assert refresh_ms == pytest.approx(1000 / hz, abs=0.2)
+    assert max(1, math.floor(1000 / fps / refresh_ms + 0.02)) == end_frame_refreshes
+    assert min(held) >= 60
+    assert 67 not in held
+    assert len(end_frame) >= 10
+    assert min(end_frame) >= end_frame_refreshes
+
+
+@pytest.mark.parametrize(
+    ("hz", "fps", "end_frame_refreshes"),
+    [pytest.param(*case.values, id=case.id) for case in DISPLAY_RATE_CASES],
+)
+def test_the_end_frame_refreshes_expected_are_the_fewest_in_chromiums_cadence(
+    hz: int, fps: int, end_frame_refreshes: int
+) -> None:
+    cadences = json.loads((REPO / "src/markup/util/display-cadences.json").read_text())
+    [held] = [
+        cadence["afterReset"] + cadence["playing"]
+        for cadence in cadences
+        if cadence["hz"] == hz and cadence["fps"] == fps
+    ]
+    assert min(held) == end_frame_refreshes
 
 
 @step

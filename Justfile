@@ -133,7 +133,15 @@ dev-site:
 [positional-arguments]
 ui-test *args:
   just _parcel-once
-  uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n 4 --durations=10 --tracing retain-on-failure --output sandbox/ui-test-results "$@"
+  uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n 4 --durations=10 --tracing retain-on-failure --output sandbox/ui-test-results -m "not display_rate" "$@"
+# The loop's end frame on simulated 30, 50, 120 and 144 Hz displays, in Playwright's chromium-headless-shell
+# (installed here once per Playwright version). Apart from ui-test: beside the other tests' load the simulated
+# display drops refreshes now and then, which cuts an end frame short.
+[positional-arguments]
+ui-test-display-rates *args:
+  just _parcel-once
+  uv run --group ui-test playwright install chromium-headless-shell
+  uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n 4 --durations=10 --output sandbox/ui-test-results -m display_rate "$@"
 # Release highlight close-ups listed in integration-tests/ui/showcase.toml, into sandbox/showcase/<release>/.
 # Add --update-assets to also write the shots that name an asset into assets/image/.
 [positional-arguments]
@@ -173,6 +181,7 @@ release-prep version:
   just ui-test
   # Again with the frame rate never measured: the assumed 60 fps a user gets with Measure off, as 5.48.
   just ui-test --assumed-frame-rate
+  just ui-test-display-rates
   uv run python tools/release/version.py check {{version}}
 # Tagged commits are made immutable in jj: the changelog links and the tag point at them.
 
