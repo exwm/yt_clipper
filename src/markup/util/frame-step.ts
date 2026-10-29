@@ -1,4 +1,11 @@
-import { PLACEMENT_TOLERANCE } from './frame-grid';
+import {
+  FrameGrid,
+  frameAt,
+  frameSeekTarget,
+  frameSpan,
+  loopSeekTarget,
+  PLACEMENT_TOLERANCE,
+} from './frame-grid';
 
 /** The markup's last seek to show a frame: where it seeks, and the start of the frame it means. A
  *  'place' seek shows a placed time, such as a marker's; a 'step' seek a frame middle on the grid of
@@ -150,6 +157,50 @@ export function endFrameDuration(
 ): number {
   const duration = reported != null && reported > 0 ? reported : 1 / rate;
   return (duration * 1000) / playbackRate;
+}
+
+/** What a loop over the frames shown from `start` through `end` reads at a refresh, and its state
+ *  from the refresh before. */
+export interface LoopRefresh {
+  grid: FrameGrid;
+  start: number;
+  end: number;
+  isPlaying: boolean;
+  // Playing, the frame on screen's time; paused, the playhead.
+  time: number;
+  playhead: number;
+  // The frame the video holds while playing, on the platform's timeline; null where it can't be read.
+  held: { time: number; duration: number | null } | null;
+  refresh: Refresh;
+  playbackRate: number;
+  // The last refresh the loop saw a frame other than its end frame.
+  lastOtherFrameAt: number;
+}
+
+/** Where a loop seeks at a refresh, or null, and its `lastOtherFrameAt` for the next one. */
+export function loopTurnBack(loop: LoopRefresh): {
+  seekTo: number | null;
+  lastOtherFrameAt: number;
+} {
+  const { grid, start, end, isPlaying, time, playhead, held, refresh } = loop;
+  // Also 5.48's test: at an assumed rate a mid-frame end can fall in a grid frame after the frame on
+  // screen's, which then turns back only once the frame after it shows.
+  const isPastEnd = isPlaying && playhead > end;
+  const target = isPastEnd
+    ? frameSeekTarget(grid, start)
+    : loopSeekTarget(grid, start, end, time, isPlaying);
+  // A seek as the end frame shows cuts it to one refresh. Also past the end, which the playhead
+  // crosses a refresh after a frame-start end's frame shows, but only for the frame shown at the end:
+  // at an assumed rate the grid's last frame can be the video frame after it. The frame's own
+  // duration, where the browser reports it, also times it before the rate is measured.
+  const isEndFrame =
+    held != null &&
+    held.time <= end + PLACEMENT_TOLERANCE &&
+    frameAt(grid, held.time) === frameSpan(grid, start, end).lastFrame;
+  const lastOtherFrameAt = isEndFrame ? loop.lastOtherFrameAt : refresh.time;
+  const frameDuration = endFrameDuration(held?.duration ?? null, grid.rate, loop.playbackRate);
+  const isHolding = isEndFrame && shouldHoldEndFrame(refresh, lastOtherFrameAt, frameDuration);
+  return { seekTo: isHolding ? null : target, lastOtherFrameAt };
 }
 
 /**

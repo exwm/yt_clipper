@@ -1,10 +1,12 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { ClockState, initialClock, isFrameCurrent, stepClock } from './frame-clock-core';
+import { PLACEMENT_TOLERANCE } from './frame-grid';
 import {
-  endFrameDuration,
   frameStepTarget,
   frameTime,
+  LoopRefresh,
+  loopTurnBack,
   OwnSeek,
   screenFrame,
   shouldHoldEndFrame,
@@ -975,8 +977,75 @@ const DISPLAY_CADENCES: {
   playing: number[];
 }[] = JSON.parse(readFileSync(join(__dirname, 'display-cadences.json'), 'utf8'));
 
+describe('loopTurnBack', () => {
+  // A 30 fps loop over frames 30 through 60 (1 s to the end marker on frame 60's start), playing on
+  // a 60 Hz display, its end frame on screen since the refresh before.
+  const GAP = 1000 / 60;
+  const at = (loop: Partial<LoopRefresh>) =>
+    loopTurnBack({
+      grid: { origin: 0, rate: 30 },
+      start: 1,
+      end: 2,
+      isPlaying: true,
+      time: 2,
+      playhead: 2.01,
+      held: { time: 2, duration: 1 / 30 },
+      refresh: { time: 1000, gap: GAP },
+      playbackRate: 1,
+      lastOtherFrameAt: 1000 - GAP,
+      ...loop,
+    });
+  const backTo = (time: number) => expect.closeTo(time + PLACEMENT_TOLERANCE, 6);
+  const frame = (time: number, duration: number | null = 1 / 30) => ({
+    time,
+    playhead: time + 0.01,
+    held: { time, duration },
+  });
+
+  it.each<[string, Partial<LoopRefresh>, unknown]>([
+    ['holds the end frame its first refresh', {}, null],
+    [
+      'turns back on the end frame once it has shown its time',
+      { lastOtherFrameAt: 1000 - 2 * GAP },
+      backTo(1),
+    ],
+    ['keeps playing inside the loop', frame(1.5), null],
+    ['turns back from a frame before the start', frame(0.5), backTo(1)],
+    // Firefox reads no held frame: the loop turns back as the end frame shows, with no hold.
+    ['Firefox, on the end frame', { held: null }, backTo(1)],
+    ['Firefox, on the frame before the end', { held: null, time: 59 / 30, playhead: 1.99 }, null],
+    ['paused on the end frame', { isPlaying: false, held: null, time: 2, playhead: 2 }, null],
+    [
+      'paused past the end',
+      { isPlaying: false, held: null, time: 2.04, playhead: 2.04 },
+      backTo(1),
+    ],
+    // The assumed 60 fps on 24 fps video, the end marker inside video frame 48 (2 s to 2.0417 s) but
+    // on the grid frame after the one it shows: the playhead past the end turns back, else the
+    // frame after it does, as in 5.48.
+    [
+      'an assumed rate, a mid-frame end, the playhead past it',
+      { grid: { origin: 0, rate: 60 }, end: 2.03, ...frame(2, 1 / 24), playhead: 2.035 },
+      backTo(1),
+    ],
+    [
+      'an assumed rate, a mid-frame end, the playhead before it',
+      { grid: { origin: 0, rate: 60 }, end: 2.03, ...frame(2, 1 / 24), playhead: 2.02 },
+      null,
+    ],
+    // An Afreeca TV part: times on the platform's timeline, an hour on.
+    ['an Afreeca TV part, the end frame held', { start: 3601, end: 3602, ...frame(3602) }, null],
+    [
+      'an Afreeca TV part, the end frame shown its time',
+      { start: 3601, end: 3602, ...frame(3602), lastOtherFrameAt: 1000 - 2 * GAP },
+      backTo(3601),
+    ],
+  ])('%s', (_name, loop, expected) => {
+    expect(at(loop).seekTo).toEqual(expected);
+  });
+});
+
 describe('the loop end frame over display cadences', () => {
-  type Gate = typeof shouldHoldEndFrame;
   interface Display {
     // The gap a refresh reads over the true interval.
     gapError?: number;
@@ -984,22 +1053,19 @@ describe('the loop end frame over display cadences', () => {
     isMissed?: (refresh: number) => boolean;
     // Each refresh's time off by up to this share of the interval, either way.
     jitter?: number;
-    // The duration (ms) the gate takes for frame `frame`, else exactly 1000 / fps.
-    frameDuration?: (fps: number, frame: number) => number;
+    // The duration (s) the browser reports for frame `frame`, else exactly 1 / fps.
+    reported?: (fps: number, frame: number) => number | null;
+    // The rate in use, else the video's.
+    rate?: number;
+    playbackRate?: number;
   }
   // The loop checks on each refresh (time clamped to 100 us, as Chrome gives it outside
-  // cross-origin isolation) with `counts[i]` the end frame. The refresh of the end frame it seeks
-  // on, else null.
-  function seekRefresh(
-    gate: Gate,
-    hz: number,
-    fps: number,
-    counts: number[],
-    i: number,
-    d: Display
-  ) {
+  // cross-origin isolation) with `counts[i]` the end frame, the loop's frames 0 through i. The
+  // refresh of the end frame it seeks on (0 or less on an earlier frame), else null.
+  function seekRefresh(hz: number, fps: number, counts: number[], i: number, d: Display) {
     const shown = [-1, -1, ...counts.flatMap((count, frame) => Array(count).fill(frame))];
     const first = shown.indexOf(i);
+    const grid = { origin: 0, rate: d.rate ?? fps };
     let previous = NaN;
     let lastOtherFrameAt = -Infinity;
     for (let j = 0; j < first + counts[i]; j++) {
@@ -1009,24 +1075,38 @@ describe('the loop end frame over display cadences', () => {
       const time = Math.floor((1000 + ((j + offset) * 1000) / hz) * 10) / 10;
       const refresh = { time, gap: (time - previous) * (d.gapError ?? 1) };
       previous = time;
-      if (shown[j] !== i) lastOtherFrameAt = time;
-      else if (!gate(refresh, lastOtherFrameAt, d.frameDuration?.(fps, i) ?? 1000 / fps))
-        return j - first + 1;
+      // Frames before the loop's first read as no held frame.
+      const frameStart = Math.max(0, shown[j]) / fps;
+      const duration = d.reported ? d.reported(fps, shown[j]) : 1 / fps;
+      const turn = loopTurnBack({
+        grid,
+        start: 0,
+        end: i / fps,
+        isPlaying: true,
+        time: frameStart,
+        playhead: frameStart,
+        held: shown[j] < 0 ? null : { time: frameStart, duration },
+        refresh,
+        playbackRate: d.playbackRate ?? 1,
+        lastOtherFrameAt,
+      });
+      lastOtherFrameAt = turn.lastOtherFrameAt;
+      if (turn.seekTo != null) return j - first + 1;
     }
     return null;
   }
   // Each frame (after the first two) as a loop's end frame, where the loop seeks after its last
   // refresh. A frame held 0 refreshes never shows, and with its last refresh missed the loop has no
   // check left to seek on.
-  function overshoots(gate: Gate, display: Display = {}): string[] {
+  function overshoots(display: Display = {}): string[] {
     const late: string[] = [];
     for (const { hz, fps, afterReset, playing } of DISPLAY_CADENCES) {
       for (const counts of [afterReset, playing]) {
         for (let i = 2; i < counts.length; i++) {
           const lastRefresh = 2 + counts.slice(0, i + 1).reduce((a, b) => a + b, 0) - 1;
           if (counts[i] === 0 || display.isMissed?.(lastRefresh)) continue;
-          if (seekRefresh(gate, hz, fps, counts, i, display) == null)
-            late.push(`${hz} Hz ${fps} fps frame ${i}`);
+          const seekOn = seekRefresh(hz, fps, counts, i, display);
+          if (seekOn == null || seekOn < 1) late.push(`${hz} Hz ${fps} fps frame ${i}: ${seekOn}`);
         }
       }
     }
@@ -1041,23 +1121,16 @@ describe('the loop end frame over display cadences', () => {
     ['every 3rd refresh missed', { isMissed: (j) => j % 3 === 1 }],
     ['each refresh time off by up to 3%', { jitter: 0.03 }],
     // webm stores times in ms, and Chrome reports the frame duration from them (42000 us at 24 fps).
-    ['the frame duration rounded to the ms', { frameDuration: (fps) => Math.round(1000 / fps) }],
+    ['the frame duration rounded to the ms', { reported: (fps) => Math.round(1000 / fps) / 1000 }],
     [
       'each frame duration between ms-rounded times',
       {
-        frameDuration: (fps, frame) =>
-          Math.round(((frame + 1) * 1000) / fps) - Math.round((frame * 1000) / fps),
+        reported: (fps, frame) =>
+          (Math.round(((frame + 1) * 1000) / fps) - Math.round((frame * 1000) / fps)) / 1000,
       },
     ],
   ])('never holds past the end frame, %s', (_name, display) => {
-    expect(overshoots(shouldHoldEndFrame, display)).toEqual([]);
-  });
-
-  // The end frame can have shown up to a refresh before the loop first sees it.
-  it.failing('timed from the first refresh it shows, holds past the end frame', () => {
-    const fromFirstSeen: Gate = (refresh, lastOtherFrameAt, frameDuration) =>
-      shouldHoldEndFrame(refresh, lastOtherFrameAt + refresh.gap, frameDuration);
-    expect(overshoots(fromFirstSeen)).toEqual([]);
+    expect(overshoots(display)).toEqual([]);
   });
 
   it.each([
@@ -1070,8 +1143,7 @@ describe('the loop end frame over display cadences', () => {
     [144, 30, 4],
     [165, 24, 6],
   ])('holds the end frame at %i Hz, %i fps for %i refreshes', (hz, fps, expected) => {
-    const counts = [9, 9, 99];
-    expect(seekRefresh(shouldHoldEndFrame, hz, fps, counts, 2, {})).toBe(expected);
+    expect(seekRefresh(hz, fps, [9, 9, 99], 2, {})).toBe(expected);
   });
 
   // At the assumed 60 fps, on 24 fps video: the frame's reported duration (us) times the end frame,
@@ -1087,14 +1159,12 @@ describe('the loop end frame over display cadences', () => {
   ])(
     'at %i Hz with a reported duration of %p us at %px, holds the end frame %i refreshes',
     (hz, reported, playbackRate, expected) => {
-      const gate: Gate = (refresh, lastOtherFrameAt) =>
-        shouldHoldEndFrame(
-          refresh,
-          lastOtherFrameAt,
-          endFrameDuration(reported == null ? null : reported / 1e6, 60, playbackRate)
-        );
-      const counts = [9, 9, 99];
-      expect(seekRefresh(gate, hz, 24, counts, 2, {})).toBe(expected);
+      const display = {
+        reported: () => (reported == null ? null : reported / 1e6),
+        rate: 60,
+        playbackRate,
+      };
+      expect(seekRefresh(hz, 24, [9, 9, 99], 2, display)).toBe(expected);
     }
   );
 

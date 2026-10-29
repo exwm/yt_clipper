@@ -6,24 +6,16 @@ import { isDrawingCrop } from '../crop-overlay';
 import { isMouseManipulatingCrop } from '../crop-overlay';
 import { blockEvent, flashMessage, getPendingSeekTime, seekBySafe, seekToSafe } from './util';
 import {
-  endFrameDuration,
+  loopTurnBack,
   OwnSeek,
   frameStepTarget,
   frameTime,
   Refresh,
   ScreenFrame,
   screenFrame,
-  shouldHoldEndFrame,
   TIME_ROUNDING,
 } from './frame-step';
-import {
-  FrameGrid,
-  frameAt,
-  frameSeekTarget,
-  frameSpan,
-  loopSeekTarget,
-  PLACEMENT_TOLERANCE,
-} from './frame-grid';
+import { FrameGrid, frameSeekTarget } from './frame-grid';
 import { registerActiveDragCleanup } from './drag-recovery';
 import {
   getFrameOnScreen,
@@ -180,31 +172,22 @@ export function loopPlaybackOver(start: number, end: number): void {
   const video = appState.video;
   // Playing, the frame on screen, so the loop turns back while its last frame shows.
   const isPlaying = !video.paused;
-  const time = isPlaying
-    ? getFrameTime()
-    : // eslint-disable-next-line no-restricted-syntax -- a paused loop seeks back from where the playhead is
-      video.getCurrentTime();
-  const grid = getFrameGrid();
-  // Also 5.48's test: at an assumed rate a mid-frame end can fall in a grid frame after the frame on
-  // screen's, which then turns back only once the frame after it shows.
-  // eslint-disable-next-line no-restricted-syntax -- the playhead past the end, as 5.48
-  const isPastEnd = isPlaying && video.getCurrentTime() > end;
-  const target = isPastEnd
-    ? frameSeekTarget(grid, start)
-    : loopSeekTarget(grid, start, end, time, isPlaying);
-  // A seek as the end frame shows cuts it to one refresh. Also past the end, which the playhead
-  // crosses a refresh after a frame-start end's frame shows, but only for the frame shown at the end:
-  // at an assumed rate the grid's last frame can be the video frame after it. The frame's own
-  // duration, where the browser reports it, also times it before the rate is measured.
-  const held = isPlaying ? getHeldFrame(video) : null;
-  const isEndFrame =
-    held != null &&
-    held.time <= end + PLACEMENT_TOLERANCE &&
-    frameAt(grid, held.time) === frameSpan(grid, start, end).lastFrame;
-  if (!isEndFrame) lastOtherFrameAt = refresh.time;
-  const frameDuration = endFrameDuration(held?.duration ?? null, grid.rate, video.playbackRate);
-  const isHolding = isEndFrame && shouldHoldEndFrame(refresh, lastOtherFrameAt, frameDuration);
-  if (target != null && !isHolding) seekToSafe(appState.video, target);
+  // eslint-disable-next-line no-restricted-syntax -- a paused loop seeks back from the playhead; past the end, as 5.48
+  const playhead = video.getCurrentTime();
+  const turn = loopTurnBack({
+    grid: getFrameGrid(),
+    start,
+    end,
+    isPlaying,
+    time: isPlaying ? getFrameTime() : playhead,
+    playhead,
+    held: isPlaying ? getHeldFrame(video) : null,
+    refresh,
+    playbackRate: video.playbackRate,
+    lastOtherFrameAt,
+  });
+  lastOtherFrameAt = turn.lastOtherFrameAt;
+  if (turn.seekTo != null) seekToSafe(video, turn.seekTo);
 }
 
 // NaN until two refreshes are noted, which never holds.
