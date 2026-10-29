@@ -3,6 +3,7 @@ video, at the rate measured from played frames. The dev site's test video is 30 
 
 import json
 import math
+import statistics
 
 import pytest
 from harness.hosts import DEV_SITE_HOST
@@ -367,6 +368,8 @@ def test_a_pairs_loop_holds_its_end_frame_and_never_the_next_on_other_display_ra
     # A turn may end a refresh early: the gate times the end frame from the last check that saw another
     # frame, which errs early so it never shows the next. 0.2 ms covers rounded animation frame times.
     assert min(end_frame_ms) >= (end_frame_refreshes - 1) * 1000 / hz - 0.2
+    # Most turns hold it the full refreshes, which the early bound alone can't check at 2 or fewer.
+    assert statistics.median(end_frame_ms) >= end_frame_refreshes * 1000 / hz - 0.2
 
 
 @step
@@ -415,8 +418,11 @@ def when_the_loop_plays_by_refresh(
                 const v = document.querySelector('video');
                 const rows = [];
                 let turned = 0;
+                let isDone = false;
                 let done;
-                const finished = new Promise((resolve) => { done = resolve; });
+                const finished = new Promise((resolve) => {
+                    done = () => { isDone = true; resolve(); };
+                });
                 const onRefresh = (now) => {
                     const frame = new VideoFrame(v);
                     const time = frame.timestamp / 1e6;
@@ -424,7 +430,7 @@ def when_the_loop_plays_by_refresh(
                     if (rows.length && time < rows[rows.length - 1][1]) turned++;
                     rows.push([now, time]);
                     if (turned >= turns) done();
-                    else requestAnimationFrame(onRefresh);
+                    if (!isDone) requestAnimationFrame(onRefresh);
                 };
                 await v.play();
                 requestAnimationFrame(onRefresh);
