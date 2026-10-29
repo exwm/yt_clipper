@@ -304,7 +304,8 @@ def markup(
             open_dev_site(page, dev_site.url, video_name)
     with steps.timed("(activate the markup)"):
         activate_markup(page)
-    warn_unless_refresh_is_60_hz(page)
+    if not request.node.get_closest_marker("display_rate"):
+        warn_unless_refresh_is_60_hz(page)
 
     # pytest-playwright traces only its own page; the YouTube and simulated display contexts are ours.
     traced = (
