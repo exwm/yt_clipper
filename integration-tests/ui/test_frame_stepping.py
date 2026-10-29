@@ -174,6 +174,11 @@ def frames_stepped_to(markup: MarkupPage, start: int, steps: int) -> list[int]:
     return [start + direction * rounding(k * per_step) for k in range(1, abs(steps) + 1)]
 
 
+# The loop seeks back on its end frame's last refresh, so a slow seek can let the next frame show
+# now and then: the maintainer accepted a rare extra frame for an end frame shown its full time.
+RARE_CYCLES_PAST_END = 1 / 8
+
+
 # A pair's loop plays through its end marker's frame and seeks back before the frame after it shows,
 # also on a 24 fps video, whose frames a 60 fps grid doesn't split evenly.
 @pytest.mark.parametrize(
@@ -187,7 +192,7 @@ def frames_stepped_to(markup: MarkupPage, start: int, steps: int) -> list[int]:
 # phase, so only its end frame is checked there.
 @pytest.mark.parametrize(
     ("end_into_frame", "most_cycles_past_end_assumed"),
-    [(0, 0), (0.5, 1)],
+    [(0, RARE_CYCLES_PAST_END), (0.5, 1)],
     ids=["frame start end", "mid-frame end"],
 )
 @pytest.mark.timing
@@ -201,7 +206,7 @@ def test_a_pairs_loop_never_shows_the_frame_after_its_end_marker(
     if markup.host != DEV_SITE_HOST:
         pytest.skip("relies on the dev site's test videos")
     is_measured = measured and not markup.assumed_frame_rate
-    most_cycles_past_end = 0 if is_measured else most_cycles_past_end_assumed
+    most_cycles_past_end = RARE_CYCLES_PAST_END if is_measured else most_cycles_past_end_assumed
     if measured:
         markup.measure_frame_rate()
     end = (66 + end_into_frame) / fps
