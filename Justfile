@@ -130,10 +130,15 @@ dev-site:
 # Run the markup UI tests (pytest + Playwright, in an installed Chrome) on the dev site, in parallel. Screenshots
 # go to sandbox/ui-shots/<test>/, and a failed test's Playwright trace to sandbox/ui-test-results/. Extra args go to pytest,
 # e.g. `just ui-test -k "zoom or crop"`, or `just ui-test -n 0 -s --headed` to watch one at a time.
+# The timing tests run after the rest, on fewer workers, so the others' load can't fail them. A phase
+# that -k leaves empty (pytest exit 5) passes.
 [positional-arguments]
 ui-test *args:
   just _parcel-once
-  uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n 4 --durations=10 --tracing retain-on-failure --output sandbox/ui-test-results -m "not display_rate" "$@"
+  @just _ui-test-phase 8 "not display_rate and not timing" "$@"; rest=$?; just _ui-test-phase 4 "timing and not display_rate" "$@"; timing=$?; exit $((rest | timing))
+[positional-arguments]
+_ui-test-phase workers marks *args:
+  @workers="$1"; marks="$2"; shift 2; uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n "$workers" --durations=10 --tracing retain-on-failure --output sandbox/ui-test-results -m "$marks" "$@"; status=$?; [ $status -eq 5 ] && exit 0; exit $status
 # The loop's end frame on simulated 30, 50, 120 and 144 Hz displays, in Playwright's chromium-headless-shell
 # (installed here once per Playwright version). Apart from ui-test: beside the other tests' load the simulated
 # display drops refreshes now and then, which cuts an end frame short.

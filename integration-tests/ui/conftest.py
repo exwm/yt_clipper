@@ -108,6 +108,11 @@ def pytest_configure(config: pytest.Config) -> None:
         "display_rate(hz): run in chromium-headless-shell on a simulated display of this refresh rate"
         " (harness/simulated_display.py)",
     )
+    config.addinivalue_line(
+        "markers",
+        "timing: counts frames or refreshes as the video plays, so other tests' load can fail it;"
+        " just ui-test runs these in a phase of their own",
+    )
     # Build the dev site once, in the main process: parallel workers (pytest-xdist) only serve it.
     is_worker = hasattr(config, "workerinput")
     if not is_worker and not config.getoption("youtube") and not config.option.collectonly:

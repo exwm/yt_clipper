@@ -195,6 +195,7 @@ def frames_stepped_to(markup: MarkupPage, start: int, steps: int) -> list[int]:
     [(0, 0), (0.5, 1)],
     ids=["frame start end", "mid-frame end"],
 )
+@pytest.mark.timing
 def test_a_pairs_loop_never_shows_the_frame_after_its_end_marker(
     markup: MarkupPage,
     measured: bool,
@@ -231,6 +232,7 @@ def test_a_pairs_loop_never_shows_the_frame_after_its_end_marker(
     [pytest.param(24, marks=pytest.mark.video_style("testsrc24")), 30],
     ids=["24 fps", "30 fps"],
 )
+@pytest.mark.timing
 def test_a_pairs_loop_shows_its_end_frame_for_about_its_full_time(
     markup: MarkupPage, fps: int, browser_name: str
 ) -> None:
