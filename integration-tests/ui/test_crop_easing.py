@@ -144,6 +144,8 @@ def test_a_paused_preview_shows_the_cinematic_path_once_it_is_solved(
     then_the_crops_match(dynamic_pan, paused, cinematic)
 
 
+# The crop redraws after a debounced solve, which other tests' load can push past a frame.
+@pytest.mark.timing
 def test_a_paused_preview_follows_a_cinematic_margin_change(dynamic_pan: MarkupPage) -> None:
     when_i_choose_easing(dynamic_pan, "cinematic")
     then_a_cinematic_path_is_baked(dynamic_pan)
