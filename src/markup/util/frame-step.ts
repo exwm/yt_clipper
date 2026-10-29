@@ -1,6 +1,7 @@
 import {
   FrameGrid,
   frameAt,
+  frameMiddle,
   frameSeekTarget,
   frameSpan,
   loopSeekTarget,
@@ -186,9 +187,13 @@ export function loopTurnBack(loop: LoopRefresh): {
   lastOtherFrameAt: number;
 } {
   const { grid, start, end, isPlaying, time, playhead, held, refresh } = loop;
-  // Also 5.48's test: at an assumed rate a mid-frame end can fall in a grid frame after the frame on
-  // screen's, which then turns back only once the frame after it shows.
-  const isPastEnd = isPlaying && playhead > end;
+  // Both are 5.48's tests. Playing: at an assumed rate a mid-frame end can fall in a grid frame after
+  // the frame on screen's, which then turns back only once the frame after it shows. Paused: past the
+  // end frame's middle, where a step lands, since playing on from there shows the next frame at the
+  // first refresh, before the loop can turn back.
+  const isPastEnd = isPlaying
+    ? playhead > end
+    : playhead > frameMiddle(grid, frameSpan(grid, start, end).lastFrame) + PLACEMENT_TOLERANCE;
   const target = isPastEnd
     ? frameSeekTarget(grid, start)
     : loopSeekTarget(grid, start, end, time, isPlaying);

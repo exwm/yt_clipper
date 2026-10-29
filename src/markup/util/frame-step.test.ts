@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { ClockState, initialClock, isFrameCurrent, stepClock } from './frame-clock-core';
-import { PLACEMENT_TOLERANCE } from './frame-grid';
+import { frameMiddle, PLACEMENT_TOLERANCE } from './frame-grid';
 import {
   frameStepTarget,
   frameTime,
@@ -1003,6 +1003,7 @@ describe('loopTurnBack', () => {
     playhead: time + 0.01,
     held: { time, duration },
   });
+  const paused = (playhead: number) => ({ time: playhead, playhead });
 
   it.each<[string, Partial<LoopRefresh>, unknown]>([
     ['holds the end frame its first refresh', {}, null],
@@ -1023,6 +1024,42 @@ describe('loopTurnBack', () => {
     ['Firefox, on the end frame', { held: null }, backTo(1)],
     ['Firefox, on the frame before the end', { held: null, time: 59 / 30, playhead: 1.99 }, null],
     ['paused on the end frame', { isPlaying: false, held: null, time: 2, playhead: 2 }, null],
+    // A step lands on a frame's middle, so stepping onto the end frame stays there.
+    [
+      'paused on the end frame middle, from a step',
+      { isPlaying: false, held: null, ...paused(frameMiddle({ origin: 0, rate: 30 }, 60)) },
+      null,
+    ],
+    // Playing on from the second half would show the next frame at the first refresh.
+    [
+      'paused in the end frame second half',
+      {
+        isPlaying: false,
+        held: null,
+        ...paused(frameMiddle({ origin: 0, rate: 30 }, 60) + PLACEMENT_TOLERANCE + 1e-4),
+      },
+      backTo(1),
+    ],
+    [
+      'an assumed rate, paused on the end frame middle',
+      {
+        grid: { origin: 0, rate: 60 },
+        isPlaying: false,
+        held: null,
+        ...paused(frameMiddle({ origin: 0, rate: 60 }, 120)),
+      },
+      null,
+    ],
+    [
+      'an assumed rate, paused in the end frame second half',
+      {
+        grid: { origin: 0, rate: 60 },
+        isPlaying: false,
+        held: null,
+        ...paused(frameMiddle({ origin: 0, rate: 60 }, 120) + PLACEMENT_TOLERANCE + 1e-4),
+      },
+      backTo(1),
+    ],
     [
       'paused past the end',
       { isPlaying: false, held: null, time: 2.04, playhead: 2.04 },

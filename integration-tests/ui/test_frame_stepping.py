@@ -294,6 +294,49 @@ def test_a_pairs_loop_shows_its_end_frame_for_about_its_full_time(
     assert min(end_frame) >= whole_refreshes
 
 
+# Paused in the end frame's second half, the loop turns back as 5.48 did: played from there, the next
+# frame would show at the first refresh, before the loop can turn back.
+@pytest.mark.timing
+@pytest.mark.measured_rate
+def test_a_pairs_loop_played_from_a_pause_on_its_end_frame_never_shows_the_next(
+    markup: MarkupPage,
+) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("relies on the dev site's test videos")
+    fps = 30
+    markup.measure_frame_rate()
+    markup.load_saved_marker_pairs([{"start": 60 / fps, "end": 66 / fps, "crop": "0:0:iw:ih"}])
+    markup.open_marker_pair(0)
+    markup.press("Shift+KeyC")
+    for _ in range(3):
+        held, _, _ = when_the_loop_plays_by_refresh(markup, fps, turns=1, from_frame=66.75)
+        markup.report(f"frames shown {held}")
+        assert 67 not in held
+
+
+# A step lands on a frame's middle, so stepping onto the end frame with the loop on stays there.
+def test_a_pairs_loop_stays_on_its_end_frame_when_stepped_onto(markup: MarkupPage) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("relies on the dev site's test video frame times")
+    given_the_video_has_played_until_its_frame_rate_is_measured(markup)
+    markup.load_saved_marker_pairs(
+        [{"start": 60 / VIDEO_FPS, "end": 66 / VIDEO_FPS, "crop": "0:0:iw:ih"}]
+    )
+    markup.open_marker_pair(0)
+    markup.press("Shift+KeyC")
+    markup.seek(65.5 / VIDEO_FPS, presented=True)
+    when_i_step_to_the_next_frame(markup, "up")
+    markup.next_frames(5)
+    then_the_frame_shown_is(markup, 66)
+
+
+@step
+def then_the_frame_shown_is(markup: MarkupPage, frame: int) -> None:
+    time = markup.current_time()
+    markup.report(f"time {time}")
+    assert math.floor(time * VIDEO_FPS) == frame
+
+
 def display_rate_case(
     hz: int,
     fps: int,
@@ -400,12 +443,12 @@ LOOP_PLAY_CAP_MS = 10_000
 
 @step
 def when_the_loop_plays_by_refresh(
-    markup: MarkupPage, fps: int, turns: int
+    markup: MarkupPage, fps: int, turns: int, from_frame: float = 60.5
 ) -> tuple[list[int], float, list[float]]:
     """The frame the video holds at each refresh while it plays (a VideoFrame read per animation
-    frame), from the first time it shows the pair's first frame until it has turned back `turns`
-    times, the median refresh (ms), and each refresh's animation frame time (ms)."""
-    markup.seek(60.5 / fps, presented=True)
+    frame), from paused at `from_frame` until it has turned back `turns` times, the median refresh
+    (ms), and each refresh's animation frame time (ms)."""
+    markup.seek(from_frame / fps, presented=True)
     with markup.untraced():
         rows = markup.page.evaluate(
             """async ([turns, capMs]) => {
