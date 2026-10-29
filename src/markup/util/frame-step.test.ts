@@ -1,7 +1,14 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { ClockState, initialClock, isFrameCurrent, stepClock } from './frame-clock-core';
-import { frameStepTarget, frameTime, OwnSeek, screenFrame, shouldHoldEndFrame } from './frame-step';
+import {
+  endFrameDuration,
+  frameStepTarget,
+  frameTime,
+  OwnSeek,
+  screenFrame,
+  shouldHoldEndFrame,
+} from './frame-step';
 import { onExternalSeek, onSeekRequest, onSeekSettled, SeekDecision } from './seek-coalescer';
 
 // The frame-step functions over the frame on screen and the playhead, as the tables state them.
@@ -968,6 +975,8 @@ describe('the loop end frame over display cadences', () => {
     isMissed?: (refresh: number) => boolean;
     // Each refresh's time off by up to this share of the interval, either way.
     jitter?: number;
+    // The duration (ms) the gate takes for frame `frame`, else exactly 1000 / fps.
+    frameDuration?: (fps: number, frame: number) => number;
   }
   // The loop checks on each refresh (time clamped to 100 us, as Chrome gives it outside
   // cross-origin isolation) with `counts[i]` the end frame. The refresh of the end frame it seeks
@@ -992,7 +1001,8 @@ describe('the loop end frame over display cadences', () => {
       const refresh = { time, gap: (time - previous) * (d.gapError ?? 1) };
       previous = time;
       if (shown[j] !== i) lastOtherFrameAt = time;
-      else if (!gate(refresh, lastOtherFrameAt, 1000 / fps)) return j - first + 1;
+      else if (!gate(refresh, lastOtherFrameAt, d.frameDuration?.(fps, i) ?? 1000 / fps))
+        return j - first + 1;
     }
     return null;
   }
@@ -1021,6 +1031,15 @@ describe('the loop end frame over display cadences', () => {
     ['every 7th refresh missed', { isMissed: (j) => j % 7 === 3 }],
     ['every 3rd refresh missed', { isMissed: (j) => j % 3 === 1 }],
     ['each refresh time off by up to 3%', { jitter: 0.03 }],
+    // webm stores times in ms, and Chrome reports the frame duration from them (42000 us at 24 fps).
+    ['the frame duration rounded to the ms', { frameDuration: (fps) => Math.round(1000 / fps) }],
+    [
+      'each frame duration between ms-rounded times',
+      {
+        frameDuration: (fps, frame) =>
+          Math.round(((frame + 1) * 1000) / fps) - Math.round((frame * 1000) / fps),
+      },
+    ],
   ])('never holds past the end frame, %s', (_name, display) => {
     expect(overshoots(shouldHoldEndFrame, display)).toEqual([]);
   });
@@ -1045,6 +1064,30 @@ describe('the loop end frame over display cadences', () => {
     const counts = [9, 9, 99];
     expect(seekRefresh(shouldHoldEndFrame, hz, fps, counts, 2, {})).toBe(expected);
   });
+
+  // At the assumed 60 fps, on 24 fps video: the frame's reported duration (us) times the end frame,
+  // and without one a frame at the rate in use. Chrome reports 41667 on mp4, 42000 on webm.
+  it.each([
+    [120, 41667, 1, 5],
+    [120, 42000, 1, 5],
+    [144, 41667, 1, 6],
+    [50, 41667, 1, 2],
+    [120, 41667, 0.5, 10],
+    [120, null, 1, 2],
+    [120, 0, 1, 2],
+  ])(
+    'at %i Hz with a reported duration of %p us at %px, holds the end frame %i refreshes',
+    (hz, reported, playbackRate, expected) => {
+      const gate: Gate = (refresh, lastOtherFrameAt) =>
+        shouldHoldEndFrame(
+          refresh,
+          lastOtherFrameAt,
+          endFrameDuration(reported == null ? null : reported / 1e6, 60, playbackRate)
+        );
+      const counts = [9, 9, 99];
+      expect(seekRefresh(gate, hz, 24, counts, 2, {})).toBe(expected);
+    }
+  );
 
   it('turns back at once before a refresh gap is known', () => {
     expect(shouldHoldEndFrame({ time: 1000, gap: NaN }, 990, 1000 / 30)).toBe(false);

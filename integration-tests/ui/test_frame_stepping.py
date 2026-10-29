@@ -269,15 +269,20 @@ def test_a_pairs_loop_shows_its_end_frame_for_about_its_full_time(
 
 
 def display_rate_case(
-    hz: int, fps: int, end_frame_refreshes: int, *marks: pytest.MarkDecorator
+    hz: int,
+    fps: int,
+    end_frame_refreshes: int,
+    *marks: pytest.MarkDecorator,
+    measured: bool = True,
 ) -> "pytest.ParameterSet":
     style = [pytest.mark.video_style("testsrc24")] if fps == 24 else []
     return pytest.param(
         hz,
         fps,
+        measured,
         end_frame_refreshes,
         marks=[pytest.mark.display_rate(hz), *style, *marks],
-        id=f"{hz} Hz {fps} fps",
+        id=f"{hz} Hz {fps} fps" + ("" if measured else " assumed rate"),
     )
 
 
@@ -300,20 +305,26 @@ DISPLAY_RATE_CASES = [
     display_rate_case(120, 30, 4),
     display_rate_case(144, 24, 6),
     display_rate_case(144, 30, 4),
+    # Before the rate is measured (or with Measure off) the frame's own duration, where the browser
+    # reports it, times the end frame.
+    display_rate_case(30, 24, 1, SEEK_OUTLASTS_END_FRAME, measured=False),
+    display_rate_case(50, 24, 2, measured=False),
+    display_rate_case(120, 24, 5, measured=False),
+    display_rate_case(144, 24, 6, measured=False),
 ]
 
 
 # The end frame gate on displays other than 60 Hz, simulated in chromium-headless-shell: the loop
 # holds its end frame the refreshes a frame holds there, and never shows the frame after it.
-@pytest.mark.parametrize(("hz", "fps", "end_frame_refreshes"), DISPLAY_RATE_CASES)
+@pytest.mark.parametrize(("hz", "fps", "measured", "end_frame_refreshes"), DISPLAY_RATE_CASES)
 def test_a_pairs_loop_holds_its_end_frame_and_never_the_next_on_other_display_rates(
-    markup: MarkupPage, hz: int, fps: int, end_frame_refreshes: int
+    markup: MarkupPage, hz: int, fps: int, measured: bool, end_frame_refreshes: int
 ) -> None:
     if markup.host != DEV_SITE_HOST:
         pytest.skip("relies on the dev site's test videos")
-    if markup.assumed_frame_rate:
+    if measured and markup.assumed_frame_rate:
         pytest.skip("checks the measured rate")
-    markup.measure_frame_rate()
+    given_the_frame_rate_is(markup, measured=measured)
     markup.load_saved_marker_pairs([{"start": 60 / fps, "end": 66 / fps, "crop": "0:0:iw:ih"}])
     markup.open_marker_pair(0)
     markup.press("Shift+KeyC")
@@ -331,12 +342,22 @@ def test_a_pairs_loop_holds_its_end_frame_and_never_the_next_on_other_display_ra
     assert min(end_frame) >= end_frame_refreshes
 
 
+@step
+def given_the_frame_rate_is(markup: MarkupPage, measured: bool) -> None:
+    """Measured from played frames, or assumed at 60 fps with Measure off."""
+    if measured:
+        markup.measure_frame_rate()
+    elif not markup.assumed_frame_rate:
+        when_i_run_the_palette_command(markup, "frame rate measurement")
+        then_a_flash_says(markup, "Frame rate measurement off. Using 60 fps.")
+
+
 @pytest.mark.parametrize(
-    ("hz", "fps", "end_frame_refreshes"),
+    ("hz", "fps", "measured", "end_frame_refreshes"),
     [pytest.param(*case.values, id=case.id) for case in DISPLAY_RATE_CASES],
 )
 def test_the_end_frame_refreshes_expected_are_the_fewest_in_chromiums_cadence(
-    hz: int, fps: int, end_frame_refreshes: int
+    hz: int, fps: int, measured: bool, end_frame_refreshes: int
 ) -> None:
     cadences = json.loads((REPO / "src/markup/util/display-cadences.json").read_text())
     [held] = [

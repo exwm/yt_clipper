@@ -164,8 +164,8 @@ function keepsReadFrame(state: ClockState, frame: ClockFrame): boolean {
   return frame.paused && state.onScreen?.isRead === true && isFrameCurrent(state);
 }
 
-// The frame read at `seeked`, when it can be the frame there. Firefox reads every frame as about
-// 0 (5 µs); a frame after the playhead is on another timeline; a seek already in flight moves on.
+// The frame read at `seeked`, when it can be the frame there: a frame after the playhead is on
+// another timeline; a seek already in flight moves on.
 function heldFrameRead(event: {
   heldFrameTime: number | null;
   currentTime: number;
@@ -173,12 +173,14 @@ function heldFrameRead(event: {
 }): number | null {
   const { heldFrameTime: held, currentTime, seeking } = event;
   const isFrameThere =
-    !seeking &&
-    held != null &&
-    (held >= 0.001 || currentTime <= 0.001) &&
-    held <= currentTime + 0.001 &&
-    currentTime - held < 0.5;
+    !seeking && held != null && isHeldFrameNear(held, currentTime) && held <= currentTime + 0.001;
   return isFrameThere ? held : null;
+}
+
+/** Whether a frame read at `held` (s) can be the frame at `currentTime`. Firefox reads every frame as
+ *  about 0 (5 µs). Playing, the frame on screen can be a refresh or more ahead of the playhead. */
+export function isHeldFrameNear(held: number, currentTime: number): boolean {
+  return (held >= 0.001 || currentTime <= 0.001) && Math.abs(currentTime - held) < 0.5;
 }
 
 function stepFrame(state: ClockState, frame: SeenFrame): ClockState {

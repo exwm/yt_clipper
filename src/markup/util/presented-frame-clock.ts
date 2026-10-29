@@ -4,6 +4,7 @@ import {
   ClockEvent,
   ClockState,
   initialClock,
+  isHeldFrameNear,
   isFrameCurrent,
   stepClock,
 } from './frame-clock-core';
@@ -34,7 +35,7 @@ function startClock(video: VideoElement): void {
   video.addEventListener('seeked', () =>
     step({
       type: 'seeked',
-      heldFrameTime: heldFrameTime(video),
+      heldFrameTime: readHeldFrame(video)?.time ?? null,
       // The held frame's timeline (a part's, on afreecatv), not the platform's.
       currentTime: video.currentTime,
       seeking: video.seeking,
@@ -74,24 +75,32 @@ export function getFrameOnScreen(video: VideoElement): FrameOnScreen {
   };
 }
 
-/** The time of the frame the video holds now, on the platform's timeline, or null where it can't be
- *  read. Frame callbacks can report a frame a refresh after it shows. */
-export function getHeldFrameTime(video: VideoElement): number | null {
-  const time = heldFrameTime(video);
-  // eslint-disable-next-line no-restricted-syntax -- the offset between the two timelines
-  return time == null ? null : time + (video.getCurrentTime() - video.currentTime);
+/** The frame the video holds now, or null where it can't be read: its time on the platform's
+ *  timeline, and its duration (s) where the browser reports it and the read is plausible. Frame
+ *  callbacks can report a frame a refresh after it shows. */
+export function getHeldFrame(
+  video: VideoElement
+): { time: number; duration: number | null } | null {
+  const frame = readHeldFrame(video);
+  if (frame == null) return null;
+  return {
+    // eslint-disable-next-line no-restricted-syntax -- the offset between the two timelines
+    time: frame.time + (video.getCurrentTime() - video.currentTime),
+    duration: isHeldFrameNear(frame.time, video.currentTime) ? frame.duration : null,
+  };
 }
 
-// The time of the frame the video holds, or null where it can't be read: no WebCodecs, or a
-// cross-origin video that isn't CORS-clean (the constructor throws). Firefox reads it as time 0,
-// which the clock rejects.
-function heldFrameTime(video: VideoElement): number | null {
+// The frame the video holds, or null where it can't be read: no WebCodecs, or a cross-origin video
+// that isn't CORS-clean (the constructor throws). Firefox reads it as time 0 with no duration, which
+// the clock rejects.
+function readHeldFrame(video: VideoElement): { time: number; duration: number | null } | null {
   if (typeof VideoFrame !== 'function') return null;
   try {
     const frame = new VideoFrame(video);
     const time = frame.timestamp / 1e6;
+    const duration = frame.duration == null ? null : frame.duration / 1e6;
     frame.close();
-    return time;
+    return { time, duration };
   } catch {
     return null;
   }

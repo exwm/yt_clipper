@@ -141,6 +141,17 @@ export function shouldHoldEndFrame(
   return refresh.time + refresh.gap * 0.98 <= lastOtherFrameAt + frameDuration;
 }
 
+/** The end frame's duration in ms at `playbackRate`: the `reported` one (s) where the browser gives
+ *  it, else a frame at `rate`, which before the rate is measured is the assumed 60 fps. */
+export function endFrameDuration(
+  reported: number | null,
+  rate: number,
+  playbackRate: number
+): number {
+  const duration = reported != null && reported > 0 ? reported : 1 / rate;
+  return (duration * 1000) / playbackRate;
+}
+
 /**
  * Where a step of whole frames should seek: the middle of the frame `frames` away. A seek shows the
  * frame that covers its target, so a target on a frame boundary can show either neighbor; the middle

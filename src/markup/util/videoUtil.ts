@@ -6,6 +6,7 @@ import { isDrawingCrop } from '../crop-overlay';
 import { isMouseManipulatingCrop } from '../crop-overlay';
 import { blockEvent, flashMessage, getPendingSeekTime, seekBySafe, seekToSafe } from './util';
 import {
+  endFrameDuration,
   OwnSeek,
   frameStepTarget,
   frameTime,
@@ -25,7 +26,7 @@ import {
 import { registerActiveDragCleanup } from './drag-recovery';
 import {
   getFrameOnScreen,
-  getHeldFrameTime,
+  getHeldFrame,
   getMeasuredFrameRate,
   isNewMeasuredFrameRate,
 } from './presented-frame-clock';
@@ -189,14 +190,15 @@ export function loopPlaybackOver(start: number, end: number): void {
   // A seek as the end frame shows cuts it to one refresh. Also past the end, which the playhead
   // crosses a refresh after a frame-start end's frame shows, but only for the frame shown at the end:
   // at an assumed rate the grid's last frame can be the video frame after it. Firefox reads every
-  // frame as time 0, so only a loop ending in the first frame holds, at most a frame after play.
-  const heldTime = isPlaying ? getHeldFrameTime(video) : null;
+  // frame as time 0, so only a loop ending in the first frame holds, at most a frame after play. The
+  // frame's own duration, where the browser reports it, also times it before the rate is measured.
+  const held = isPlaying ? getHeldFrame(video) : null;
   const isEndFrame =
-    heldTime != null &&
-    heldTime <= end + PLACEMENT_TOLERANCE &&
-    frameAt(grid, heldTime) === frameSpan(grid, start, end).lastFrame;
+    held != null &&
+    held.time <= end + PLACEMENT_TOLERANCE &&
+    frameAt(grid, held.time) === frameSpan(grid, start, end).lastFrame;
   if (!isEndFrame) lastOtherFrameAt = refresh.time;
-  const frameDuration = 1000 / (grid.rate * video.playbackRate);
+  const frameDuration = endFrameDuration(held?.duration ?? null, grid.rate, video.playbackRate);
   const isHolding = isEndFrame && shouldHoldEndFrame(refresh, lastOtherFrameAt, frameDuration);
   if (target != null && !isHolding) seekToSafe(appState.video, target);
 }
