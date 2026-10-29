@@ -43,26 +43,26 @@ def test_shift_mousewheel_steps_back_from_the_end_of_the_video(markup: MarkupPag
 
 # On YouTube the measured rate refines the stats rate, whatever the video's rate.
 @pytest.mark.platform
+@pytest.mark.measured_rate
 def test_the_measured_frame_rate_flashes_once_the_video_plays(markup: MarkupPage) -> None:
-    skip_with_measurement_off(markup)
     rate = f"{VIDEO_FPS} fps." if markup.host == DEV_SITE_HOST else ""
     with markup.untraced():
         given_the_video_is_playing(markup)
         then_a_flash_says(markup, f"Measured the frame rate: {rate}")
 
 
+@pytest.mark.measured_rate
 def test_the_command_palette_turns_frame_rate_measurement_off(markup: MarkupPage) -> None:
-    skip_with_measurement_off(markup)
     if markup.host != DEV_SITE_HOST:
         pytest.skip("checks the 60 fps default of a site that reports no frame rate")
     when_i_run_the_palette_command(markup, "frame rate measurement")
     then_a_flash_says(markup, "Frame rate measurement off. Using 60 fps.")
 
 
+@pytest.mark.measured_rate
 def test_the_measure_button_beside_the_frame_rate_turns_measurement_off_and_on(
     markup: MarkupPage,
 ) -> None:
-    skip_with_measurement_off(markup)
     if markup.host != DEV_SITE_HOST:
         pytest.skip("checks the 60 fps default of a site that reports no frame rate")
     given_the_global_settings_editor_is_open(markup)
@@ -72,11 +72,6 @@ def test_the_measure_button_beside_the_frame_rate_turns_measurement_off_and_on(
     then_the_frame_rate_reads(markup, "60 fps (assumed)", measuring=False)
     when_i_click_the_measure_button(markup)
     then_the_frame_rate_reads(markup, "60 fps (assumed)", measuring=True)
-
-
-def skip_with_measurement_off(markup: MarkupPage) -> None:
-    if markup.assumed_frame_rate:
-        pytest.skip("starts with frame rate measurement on; this run turns it off")
 
 
 @step
@@ -233,6 +228,7 @@ def test_a_pairs_loop_never_shows_the_frame_after_its_end_marker(
     ids=["24 fps", "30 fps"],
 )
 @pytest.mark.timing
+@pytest.mark.measured_rate
 def test_a_pairs_loop_shows_its_end_frame_for_about_its_full_time(
     markup: MarkupPage, fps: int, browser_name: str
 ) -> None:
@@ -242,8 +238,6 @@ def test_a_pairs_loop_shows_its_end_frame_for_about_its_full_time(
         pytest.skip(
             "Firefox reads no frame times from VideoFrame, so the loop turns back at once, as 5.48"
         )
-    if markup.assumed_frame_rate:
-        pytest.skip("checks the measured rate")
     markup.measure_frame_rate()
     markup.load_saved_marker_pairs([{"start": 60 / fps, "end": 66 / fps, "crop": "0:0:iw:ih"}])
     markup.open_marker_pair(0)

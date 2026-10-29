@@ -80,7 +80,19 @@ def is_ci_build(config: pytest.Config) -> bool:
     return path.exists() and "IS_CI_BUILD = true" in path.read_text(encoding="utf-8")
 
 
+def measures_the_rate(item: pytest.Item) -> bool:
+    """A test of the measured rate, or a `measured` row: with Measure off it runs as its assumed twin."""
+    callspec = getattr(item, "callspec", None)
+    measured_row = callspec is not None and callspec.params.get("measured") is True
+    return measured_row or item.get_closest_marker("measured_rate") is not None
+
+
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    if config.getoption("assumed_frame_rate"):
+        deselected = [item for item in items if measures_the_rate(item)]
+        if deselected:
+            config.hook.pytest_deselected(items=deselected)
+            items[:] = [item for item in items if not measures_the_rate(item)]
     if not is_ci_build(config):
         return
     skip = pytest.mark.skip(reason="needs the feature flags popup, which CI builds leave out")
@@ -107,6 +119,10 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "display_rate(hz): run in chromium-headless-shell on a simulated display of this refresh rate"
         " (harness/simulated_display.py)",
+    )
+    config.addinivalue_line(
+        "markers",
+        "measured_rate: checks frame rate measurement, so --assumed-frame-rate leaves it out",
     )
     config.addinivalue_line(
         "markers",
