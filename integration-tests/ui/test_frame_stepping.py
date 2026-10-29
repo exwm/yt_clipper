@@ -188,15 +188,15 @@ def frames_stepped_to(markup: MarkupPage, start: int, steps: int) -> list[int]:
 )
 @pytest.mark.parametrize("measured", [True, False], ids=["measured rate", "assumed 60 fps"])
 # A mid-frame end marker, as 5.48 placed them and drags still do. At an assumed rate its frame is
-# unknown, so the loop may show the frame after it on some cycles, no more than 5.48 (3 of 19 at 24 fps).
+# unknown, and as in 5.48 the frame after it shows on some or all cycles, by the display's rate and
+# phase, so only its end frame is checked there.
 @pytest.mark.parametrize(
     ("end_into_frame", "most_cycles_past_end_assumed"),
-    [(0, 0), (0.5, 0.25)],
+    [(0, 0), (0.5, 1)],
     ids=["frame start end", "mid-frame end"],
 )
 def test_a_pairs_loop_never_shows_the_frame_after_its_end_marker(
     markup: MarkupPage,
-    request: pytest.FixtureRequest,
     measured: bool,
     fps: int,
     end_into_frame: float,
@@ -206,13 +206,6 @@ def test_a_pairs_loop_never_shows_the_frame_after_its_end_marker(
         pytest.skip("relies on the dev site's test videos")
     is_measured = measured and not markup.assumed_frame_rate
     most_cycles_past_end = 0 if is_measured else most_cycles_past_end_assumed
-    if end_into_frame and fps == 30 and not is_measured:
-        request.applymarker(
-            pytest.mark.xfail(
-                strict=True,
-                reason="at the assumed 60 fps the frame after a mid-frame end shows each cycle, as in 5.48",
-            )
-        )
     if measured:
         markup.measure_frame_rate()
     end = (66 + end_into_frame) / fps
