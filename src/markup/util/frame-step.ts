@@ -170,6 +170,7 @@ export function frameStepTarget(
   step: {
     // Where the playhead is or is going: the seek held back, else the current time.
     playhead: number;
+    isSeekInFlight: boolean;
     ownSeek: OwnSeek | null;
     fps: number;
     // The video's duration: NaN before its metadata loads, Infinity while live.
@@ -177,7 +178,7 @@ export function frameStepTarget(
     frames: number;
   }
 ): number {
-  const { playhead, ownSeek, fps, duration, frames } = step;
+  const { playhead, isSeekInFlight, ownSeek, fps, duration, frames } = step;
   const frameDuration = 1 / fps;
   // At the video's ends, the middle of its first or last frame, so the next step back or forward
   // starts from a frame middle too.
@@ -185,13 +186,20 @@ export function frameStepTarget(
   // Past the last frame's middle (at the end the video snaps to its duration), the playhead is on
   // the last frame.
   const playheadInVideo = Math.min(playhead, lastMiddle);
-  const frameStart =
-    screen.isPlayheads && screen.isStartKnown && holdsPlayhead(screen.start, playheadInVideo, fps)
-      ? screen.start
-      : ownSeek?.kind === 'step' && isAtOwnSeek(ownSeek, playheadInVideo, fps)
-        ? ownSeek.frameStart
-        : // The playhead's grid frame, so every target is a frame middle.
-          gridFrameStart(playheadInVideo, fps);
+  const ownStep =
+    ownSeek?.kind === 'step' && isAtOwnSeek(ownSeek, playheadInVideo, fps) ? ownSeek : null;
+  // With no seek pending and the playhead moved off the last step, the frame on screen is the user's,
+  // as `frameTime` reads it, even when it doesn't hold the playhead: paused from playing, Chrome can
+  // hold a frame that starts after the playhead or ends before it.
+  const isScreenFrom =
+    screen.isPlayheads &&
+    screen.isStartKnown &&
+    (holdsPlayhead(screen.start, playheadInVideo, fps) || (!isSeekInFlight && ownStep == null));
+  const frameStart = isScreenFrom
+    ? screen.start
+    : (ownStep?.frameStart ??
+      // The playhead's grid frame, so every target is a frame middle.
+      gridFrameStart(playheadInVideo, fps));
   const target = frameStart + (frames + 0.5) * frameDuration;
   return Math.min(Math.max(target, frameDuration / 2), lastMiddle);
 }

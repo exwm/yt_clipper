@@ -33,12 +33,21 @@ function frameTimeOf(at: OnScreen & { isSeekInFlight: boolean; ownSeek: OwnSeek 
 }
 // `lastTarget`: the last step's target.
 function stepTargetOf(
-  step: OnScreen & { lastTarget: number | null; duration: number; frames: number }
+  step: OnScreen & {
+    lastTarget: number | null;
+    duration: number;
+    frames: number;
+    isSeekInFlight?: boolean;
+  }
 ) {
   const { lastTarget: target, fps } = step;
   const ownSeek =
     target == null ? null : { target, frameStart: target - 0.5 / fps, kind: 'step' as const };
-  return frameStepTarget(screenOf(step), { ...step, ownSeek });
+  return frameStepTarget(screenOf(step), {
+    ...step,
+    isSeekInFlight: step.isSeekInFlight ?? false,
+    ownSeek,
+  });
 }
 
 const fps = 30;
@@ -269,54 +278,6 @@ describe('frameStepTarget', () => {
       true,
       middleOf(92),
     ],
-    // The last step's seek hasn't presented its frame: the frame on screen can't hold its target.
-    [
-      'chained while a step is pending',
-      frame(90),
-      middleOf(91),
-      middleOf(91),
-      1,
-      true,
-      middleOf(92),
-    ],
-    [
-      "chained while an earlier step's frame shows",
-      frame(92),
-      middleOf(94),
-      middleOf(94),
-      1,
-      true,
-      middleOf(95),
-    ],
-    [
-      "chained back while an earlier step's frame shows",
-      frame(92),
-      middleOf(90),
-      middleOf(90),
-      -1,
-      true,
-      middleOf(89),
-    ],
-    // Nothing near the playhead (a seek elsewhere whose frame hasn't shown): step from the playhead.
-    [
-      'from the playhead after a seek elsewhere',
-      frame(90),
-      frame(150) + 0.01,
-      middleOf(91),
-      1,
-      true,
-      middleOf(151),
-    ],
-    // In the last millisecond of a frame the playhead is still in it.
-    [
-      'from the playhead late in its frame',
-      frame(90),
-      frame(151) - 0.0005,
-      null,
-      1,
-      true,
-      middleOf(151),
-    ],
     ['back from the first frame', frame(0), frame(0), null, -1, true, middleOf(0)],
     // Firefox times the first frame after a seek at the seek target, unread.
     [
@@ -350,6 +311,27 @@ describe('frameStepTarget', () => {
     const at = { presentedFrameTime, playhead, isFrameCurrent: true, lastTarget, fps, isRead };
     expect(stepTargetOf({ ...at, duration, frames })).toBeCloseTo(expected, 9);
   });
+  // A seek elsewhere whose frame hasn't shown: step from the playhead. In the last millisecond of a
+  // frame the playhead is still in it.
+  it.each([
+    ['from the playhead after a seek elsewhere', frame(150) + 0.01, middleOf(91)],
+    ['from the playhead late in its frame', frame(151) - 0.0005, null],
+  ] as const)('%s', (_case, playhead, lastTarget) => {
+    const at = { presentedFrameTime: frame(90), playhead, isFrameCurrent: false, lastTarget, fps };
+    const step = { ...at, isRead: true, duration, frames: 1 };
+    expect(stepTargetOf(step)).toBeCloseTo(middleOf(151), 9);
+  });
+  // The last step's seek is in flight, its frame not presented: the frame on screen can't hold its
+  // target. Columns: the frame on screen, the last step's target, the frames to step.
+  it.each([
+    ['chained while a step is pending', frame(90), middleOf(91), 1, middleOf(92)],
+    ["chained while an earlier step's frame shows", frame(92), middleOf(94), 1, middleOf(95)],
+    ["chained back while an earlier step's frame shows", frame(92), middleOf(90), -1, middleOf(89)],
+  ] as const)('%s', (_case, presentedFrameTime, lastTarget, frames, expected) => {
+    const at = { presentedFrameTime, playhead: lastTarget, isFrameCurrent: true, lastTarget, fps };
+    const step = { ...at, isRead: true, isSeekInFlight: true, duration, frames };
+    expect(stepTargetOf(step)).toBeCloseTo(expected, 9);
+  });
   // Before the rate is measured, the stand-in start of a frame timed at the playhead is not a grid
   // frame's: a step goes on from the last step's frame instead.
   it('steps on from the last step after its frame was timed at it, before the rate is measured', () => {
@@ -357,6 +339,32 @@ describe('frameStepTarget', () => {
     const step = { ...at, lastTarget: middleOf(91), fps, isRead: false, isRateExact: false };
     expect(stepTargetOf({ ...step, duration, frames: 1 })).toBeCloseTo(middleOf(92), 9);
   });
+  // Chrome, paused after play: the frame held can start after the playhead (10.7667 at 10.7293), or
+  // end before it (2.6 at 2.6347).
+  it.each([
+    [1, 'starts after', -0.037, 30, true, middleOf(91)],
+    [-1, 'starts after', -0.037, 30, true, middleOf(89)],
+    [1, 'starts after', -0.037, 60, false, frame(90) + 1.5 / 60],
+    [-1, 'starts after', -0.037, 60, false, frame(90) - 0.5 / 60],
+    [1, 'ends before', 1 / fps + 0.0015, 30, true, middleOf(91)],
+    [-1, 'ends before', 1 / fps + 0.0015, 30, true, middleOf(89)],
+    [1, 'ends before', 1 / fps + 0.0015, 60, false, frame(90) + 1.5 / 60],
+    [-1, 'ends before', 1 / fps + 0.0015, 60, false, frame(90) - 0.5 / 60],
+  ])(
+    'steps %i from a paused frame that %s the playhead (%p s after its start), at %p fps (measured: %p)',
+    (frames, _case, playheadAfterStart, fpsInUse, isRateExact, expected) => {
+      const at = {
+        presentedFrameTime: frame(90),
+        playhead: frame(90) + playheadAfterStart,
+        isFrameCurrent: true,
+        lastTarget: null,
+        fps: fpsInUse,
+        isRead: false,
+        isRateExact,
+      };
+      expect(stepTargetOf({ ...at, duration, frames })).toBeCloseTo(expected, 9);
+    }
+  );
   // After a seek to a millisecond-rounded frame start (a marker's time): the frame on screen starts at
   // the playhead and is the playhead's frame, just below its grid start, read at seeked or not.
   it.each([
@@ -636,6 +644,7 @@ describe('frameStepTarget', () => {
             presentedFrameTime: frameOnScreen(),
             isFrameCurrent: isFrameCurrent(video.clock),
             playhead: pending ?? video.currentTime,
+            isSeekInFlight: video.seeking || pending != null,
             lastTarget,
             fps: stepFpsAt(step),
             duration,

@@ -27,6 +27,38 @@ def test_shift_mousewheel_steps_one_frame_at_a_time_at_the_measured_frame_rate(
     then_the_frames_shown_are(markup, backward, frames_stepped_to(markup, forward[-1], -10))
 
 
+# Paused from playing, Chrome can hold a frame that starts after the playhead (10.7667 held at
+# 10.7293): a step moves from the frame shown.
+@pytest.mark.parametrize("direction", ["up", "down"], ids=["forward", "back"])
+def test_shift_mousewheel_right_after_pausing_steps_from_the_frame_shown(
+    markup: MarkupPage, direction: str
+) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("relies on the dev site's test video frame times")
+    given_the_video_has_played_until_its_frame_rate_is_measured(markup)
+    steps = 1 if direction == "up" else -1
+    for trial in range(3):
+        held = when_i_play_and_pause(markup, play_ms=300 + 70 * trial)
+        stepped = when_i_shift_scroll(markup, direction, times=1)
+        then_the_frames_shown_are(markup, stepped, frames_stepped_to(markup, held, steps))
+
+
+@step
+def when_i_play_and_pause(markup: MarkupPage, play_ms: int) -> int:
+    """The frame held once paused, read as Chrome holds it rather than from the playhead."""
+    markup.play()
+    markup.page.wait_for_timeout(play_ms)
+    markup.pause()
+    markup.next_frames(3)
+    state = markup.page.evaluate(
+        "() => { const v = document.querySelector('video'); const f = new VideoFrame(v);"
+        " const held = f.timestamp / 1e6; f.close(); return { held, time: v.currentTime }; }"
+    )
+    markup.report(f"paused: {state}")
+    # A frame start, rounded to the microsecond.
+    return round(state["held"] * VIDEO_FPS)
+
+
 # Before a rate is measured steps are 1/60 s; at the end Chrome snaps the time to the duration, past
 # the last frame, and steps back must still leave the last frame.
 def test_shift_mousewheel_steps_back_from_the_end_of_the_video(markup: MarkupPage) -> None:

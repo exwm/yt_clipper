@@ -160,14 +160,17 @@ export function frameStartOf(mediaTime: number): number {
 
 /** The time of the frame the user is on, which placements store and frame decisions read. */
 export function getFrameTime(): number {
-  const video = appState.video;
   // eslint-disable-next-line no-restricted-syntax -- getFrameTime is built from it
   return frameTime(getScreenFrame(), {
     playhead: getPlayhead(),
-    isSeekInFlight: video.seeking || getPendingSeekTime() != null,
+    isSeekInFlight: isSeekInFlight(),
     ownSeek,
     fps: getFPS(),
   });
+}
+
+function isSeekInFlight(): boolean {
+  return appState.video.seeking || getPendingSeekTime() != null;
 }
 
 /** Keeps playback within the frames shown from `start` through `end`, for the preview loops. */
@@ -223,6 +226,7 @@ export function seekByFrames(frames: number): void {
   // eslint-disable-next-line no-restricted-syntax -- frame steps start from the frame on screen
   const target = frameStepTarget(getScreenFrame(), {
     playhead: getPlayhead(),
+    isSeekInFlight: isSeekInFlight(),
     ownSeek,
     fps,
     duration: video.duration,
