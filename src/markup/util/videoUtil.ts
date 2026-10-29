@@ -176,6 +176,7 @@ export function loopPlaybackOver(start: number, end: number): void {
   const playhead = video.getCurrentTime();
   const turn = loopTurnBack({
     grid: getFrameGrid(),
+    isRateMeasured: getFrameRate().source === 'measured',
     start,
     end,
     isPlaying,

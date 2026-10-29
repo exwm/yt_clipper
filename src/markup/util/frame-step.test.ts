@@ -984,6 +984,7 @@ describe('loopTurnBack', () => {
   const at = (loop: Partial<LoopRefresh>) =>
     loopTurnBack({
       grid: { origin: 0, rate: 30 },
+      isRateMeasured: true,
       start: 1,
       end: 2,
       isPlaying: true,
@@ -1011,6 +1012,12 @@ describe('loopTurnBack', () => {
     ],
     ['keeps playing inside the loop', frame(1.5), null],
     ['turns back from a frame before the start', frame(0.5), backTo(1)],
+    // A frame at the measured rate bounds a reported duration that runs past it.
+    [
+      'turns back at a frame at the measured rate, a longer duration reported',
+      { held: { time: 2, duration: 0.05 }, lastOtherFrameAt: 1000 - 2 * GAP },
+      backTo(1),
+    ],
     // Firefox reads no held frame: the loop turns back as the end frame shows, with no hold.
     ['Firefox, on the end frame', { held: null }, backTo(1)],
     ['Firefox, on the frame before the end', { held: null, time: 59 / 30, playhead: 1.99 }, null],
@@ -1080,6 +1087,7 @@ describe('the loop end frame over display cadences', () => {
       const duration = d.reported ? d.reported(fps, shown[j]) : 1 / fps;
       const turn = loopTurnBack({
         grid,
+        isRateMeasured: d.rate == null,
         start: 0,
         end: i / fps,
         isPlaying: true,

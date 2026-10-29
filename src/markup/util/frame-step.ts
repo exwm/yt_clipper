@@ -149,20 +149,23 @@ export function shouldHoldEndFrame(
 }
 
 /** The end frame's duration in ms at `playbackRate`: the `reported` one (s) where the browser gives
- *  it, else a frame at `rate`, which before the rate is measured is the assumed 60 fps. */
+ *  it, else a frame at `rate`, which before the rate is measured is the assumed 60 fps. A measured
+ *  rate bounds it. */
 export function endFrameDuration(
   reported: number | null,
   rate: number,
-  playbackRate: number
+  playbackRate: number,
+  isRateMeasured: boolean
 ): number {
   const duration = reported != null && reported > 0 ? reported : 1 / rate;
-  return (duration * 1000) / playbackRate;
+  return ((isRateMeasured ? Math.min(duration, 1 / rate) : duration) * 1000) / playbackRate;
 }
 
 /** What a loop over the frames shown from `start` through `end` reads at a refresh, and its state
  *  from the refresh before. */
 export interface LoopRefresh {
   grid: FrameGrid;
+  isRateMeasured: boolean;
   start: number;
   end: number;
   isPlaying: boolean;
@@ -198,7 +201,12 @@ export function loopTurnBack(loop: LoopRefresh): {
     held.time <= end + PLACEMENT_TOLERANCE &&
     frameAt(grid, held.time) === frameSpan(grid, start, end).lastFrame;
   const lastOtherFrameAt = isEndFrame ? loop.lastOtherFrameAt : refresh.time;
-  const frameDuration = endFrameDuration(held?.duration ?? null, grid.rate, loop.playbackRate);
+  const frameDuration = endFrameDuration(
+    held?.duration ?? null,
+    grid.rate,
+    loop.playbackRate,
+    loop.isRateMeasured
+  );
   const isHolding = isEndFrame && shouldHoldEndFrame(refresh, lastOtherFrameAt, frameDuration);
   return { seekTo: isHolding ? null : target, lastOtherFrameAt };
 }
