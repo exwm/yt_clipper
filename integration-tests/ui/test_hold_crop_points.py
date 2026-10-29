@@ -1161,6 +1161,7 @@ LATE_IN_FRAME_180 = round(181 / VIDEO_FPS - 0.0015, 6)
 @pytest.mark.parametrize(
     "turned_off", [False, True], ids=["never measured", "measurement turned off"]
 )
+@pytest.mark.timing
 def test_points_added_on_one_frame_at_the_assumed_frame_rate_stay_one_point(
     markup: MarkupPage, reframe: bool, turned_off: bool
 ) -> None:
