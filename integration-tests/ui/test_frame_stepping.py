@@ -242,7 +242,7 @@ def test_a_pairs_loop_shows_its_end_frame_for_about_its_full_time(
     markup.load_saved_marker_pairs([{"start": 60 / fps, "end": 66 / fps, "crop": "0:0:iw:ih"}])
     markup.open_marker_pair(0)
     markup.press("Shift+KeyC")
-    held, refresh_ms = when_the_loop_plays_by_refresh(markup, fps, turns=END_FRAME_TURNS)
+    held, refresh_ms, _ = when_the_loop_plays_by_refresh(markup, fps, turns=END_FRAME_TURNS)
     runs = held_runs(held)
     end_frame = [refreshes for frame, refreshes, after in runs if frame == 66 and after < 66]
     played = [
@@ -305,7 +305,7 @@ DISPLAY_RATE_CASES = [
 
 
 # The end frame gate on displays other than 60 Hz, simulated in chromium-headless-shell: the loop
-# holds its end frame the refreshes a frame holds there, and never shows the frame after it.
+# holds its end frame for the refreshes a frame holds there, and never shows the frame after it.
 @pytest.mark.parametrize(("hz", "fps", "measured", "end_frame_refreshes"), DISPLAY_RATE_CASES)
 def test_a_pairs_loop_holds_its_end_frame_and_never_the_next_on_other_display_rates(
     markup: MarkupPage, hz: int, fps: int, measured: bool, end_frame_refreshes: int
@@ -318,18 +318,22 @@ def test_a_pairs_loop_holds_its_end_frame_and_never_the_next_on_other_display_ra
     markup.load_saved_marker_pairs([{"start": 60 / fps, "end": 66 / fps, "crop": "0:0:iw:ih"}])
     markup.open_marker_pair(0)
     markup.press("Shift+KeyC")
-    held, refresh_ms = when_the_loop_plays_by_refresh(markup, fps, turns=END_FRAME_TURNS)
-    end_frame = [
-        refreshes for frame, refreshes, after in held_runs(held) if frame == 66 and after < 66
+    held, refresh_ms, refreshed_at = when_the_loop_plays_by_refresh(
+        markup, fps, turns=END_FRAME_TURNS
+    )
+    end_frame_ms = [
+        ms for frame, ms, after in shown_runs(held, refreshed_at) if frame == 66 and after < 66
     ]
-    markup.report(f"refresh {refresh_ms:.2f} ms, end frame refreshes per turn {end_frame}")
+    markup.report(f"refresh {refresh_ms:.2f} ms, end frame ms on screen per turn {end_frame_ms}")
     markup.report(f"refreshes past the end {held.count(67)}")
     assert refresh_ms == pytest.approx(1000 / hz, abs=0.2)
     assert max(1, math.floor(1000 / fps / refresh_ms + 0.02)) == end_frame_refreshes
     assert min(held) >= 60
     assert 67 not in held
-    assert len(end_frame) >= 10
-    assert min(end_frame) >= end_frame_refreshes
+    assert len(end_frame_ms) >= 10
+    # A turn may end a refresh early: the gate times the end frame from the last check that saw another
+    # frame, which errs early so it never shows the next. 0.2 ms covers rounded animation frame times.
+    assert min(end_frame_ms) >= (end_frame_refreshes - 1) * 1000 / hz - 0.2
 
 
 @step
@@ -367,10 +371,10 @@ LOOP_PLAY_CAP_MS = 10_000
 @step
 def when_the_loop_plays_by_refresh(
     markup: MarkupPage, fps: int, turns: int
-) -> tuple[list[int], float]:
+) -> tuple[list[int], float, list[float]]:
     """The frame the video holds at each refresh while it plays (a VideoFrame read per animation
     frame), from the first time it shows the pair's first frame until it has turned back `turns`
-    times, and the median refresh (ms)."""
+    times, the median refresh (ms), and each refresh's animation frame time (ms)."""
     markup.seek(60.5 / fps, presented=True)
     with markup.untraced():
         rows = markup.page.evaluate(
@@ -399,8 +403,10 @@ def when_the_loop_plays_by_refresh(
             }""",
             [turns, LOOP_PLAY_CAP_MS],
         )
-    gaps = sorted(b[0] - a[0] for a, b in zip(rows, rows[1:]))
-    return [math.floor(time * fps + 0.02) for _, time in rows], gaps[len(gaps) // 2]
+    refreshed_at = [now for now, _ in rows]
+    gaps = sorted(b - a for a, b in zip(refreshed_at, refreshed_at[1:]))
+    held = [math.floor(time * fps + 0.02) for _, time in rows]
+    return held, gaps[len(gaps) // 2], refreshed_at
 
 
 def held_runs(held: list[int]) -> list[tuple[int, int, int]]:
@@ -412,6 +418,17 @@ def held_runs(held: list[int]) -> list[tuple[int, int, int]]:
             continue
         runs.append((frame, run, after))
         run = 1
+    return runs
+
+
+def shown_runs(held: list[int], refreshed_at: list[float]) -> list[tuple[int, float, int]]:
+    """Each run of one frame held: the frame, its time on screen (ms) from the refresh that showed it
+    to the one that replaced it, and the frame after it."""
+    runs, shown_at = [], refreshed_at[0]
+    for frame, after, at in zip(held, held[1:], refreshed_at[1:]):
+        if after != frame:
+            runs.append((frame, at - shown_at, after))
+            shown_at = at
     return runs
 
 

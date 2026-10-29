@@ -11,6 +11,7 @@ import contextlib
 import ctypes
 import functools
 import json
+import math
 import re
 import sys
 import tempfile
@@ -33,9 +34,6 @@ if TYPE_CHECKING:
 BEGIN_FRAME_ARGS = ["--deterministic-mode"]
 # How long before a tick the driver stops sleeping and spins, to land on the grid.
 SPIN_SECONDS = 0.0005
-# How far behind the driver may fall and still send the ticks, to catch up. A parallel run's load
-# delays a few by several ticks.
-LATE_SECONDS_KEPT = 0.1
 # A begin frame unanswered this long has stalled the page.
 STALL_SECONDS = 5
 
@@ -45,8 +43,8 @@ class DisplayStats:
     ticks: int = 0
     # Ticks whose begin frame finished after the next tick was due.
     late: int = 0
-    # Ticks dropped after the driver fell far behind.
-    skipped: int = 0
+    # Ticks never sent, as a late refresh ran past them.
+    missed: int = 0
     # The tick whose begin frame never finished, which closes the page.
     stalled_at: int | None = None
 
@@ -118,12 +116,19 @@ def drive(url: str, hz: float, stop: threading.Event, stats: DisplayStats) -> No
             start = time.perf_counter()
             tick = 0
             while not stop.is_set():
-                tick += 1
+                # A refresh not finished by its next vsync misses the vsyncs it ran into, as on a
+                # real display: the next one is the first still ahead, and the page sees a longer gap.
+                next_tick = max(tick + 1, math.ceil((time.perf_counter() - start) / interval))
+                stats.missed += next_tick - tick - 1
+                tick = next_tick
                 due = start + tick * interval
                 while (left := due - time.perf_counter()) > SPIN_SECONDS:
                     time.sleep(left - SPIN_SECONDS)
                 while time.perf_counter() < due:
                     time.sleep(0)
+                if time.perf_counter() - due > interval:
+                    stats.missed += 1
+                    continue
                 # perf_counter and Chrome's TimeTicks read the same monotonic clock, so the page's
                 # animation frame times are the grid's.
                 params = {"interval": interval * 1000, "frameTimeTicks": due * 1000}
@@ -134,14 +139,7 @@ def drive(url: str, hz: float, stop: threading.Event, stats: DisplayStats) -> No
                     send(devtools, 0, "Page.close", {})
                     return
                 stats.ticks += 1
-                # A tick sent a little late still carries its own time, which is what the page and
-                # the video's frame choice read. Far behind, ticks drop, as a real display drops them.
-                lag = time.perf_counter() - due
-                stats.late += lag > interval
-                if lag > LATE_SECONDS_KEPT:
-                    behind = int(lag / interval)
-                    stats.skipped += behind
-                    tick += behind
+                stats.late += time.perf_counter() - due > interval
     finally:
         if sys.platform == "win32":
             ctypes.windll.winmm.timeEndPeriod(1)
