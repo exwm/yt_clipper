@@ -1,0 +1,177 @@
+[
+  {
+    "id": "R8.F1-ua",
+    "bug": "the user agent retime check: a frame timed at the playhead counts as retimed only on Firefox (node has no navigator, so it reads as Chrome)",
+    "file": "src/markup/util/frame-step.ts",
+    "old": "  const isStartKnown =\n    Math.abs(mediaTime - playhead) >= TIME_ROUNDING ||\n    on.isRead ||\n    (isRateExact && gridOffset <= FRAME_TIME_ROUNDING * fps);",
+    "new": "  const isFirefox = typeof navigator !== 'undefined' && /Firefox/.test(navigator.userAgent);\n  const isStartKnown =\n    !isFirefox ||\n    Math.abs(mediaTime - playhead) >= TIME_ROUNDING ||\n    (isRateExact && gridOffset <= FRAME_TIME_ROUNDING * fps);",
+    "jest": ["src/markup/util/frame-step.test.ts"]
+  },
+  {
+    "id": "R8.F1-pre",
+    "bug": "before R8.F1: a frame timed at the playhead is taken as the frame's start (Firefox steps move 1 or 2 frames)",
+    "file": "src/markup/util/frame-step.ts",
+    "old": "  const isStartKnown =\n    Math.abs(mediaTime - playhead) >= TIME_ROUNDING ||",
+    "new": "  const isStartKnown =\n    true ||\n    Math.abs(mediaTime - playhead) >= TIME_ROUNDING ||",
+    "jest": ["src/markup/util/frame-step.test.ts"]
+  },
+  {
+    "id": "R8.F1b",
+    "bug": "the grid-floor retime: any frame timed at the playhead is retimed, so Chrome steps stick on ms-rounded NTSC starts (no isRead, no grid check)",
+    "file": "src/markup/util/frame-step.ts",
+    "old": "    Math.abs(mediaTime - playhead) >= TIME_ROUNDING ||\n    on.isRead ||\n    (isRateExact && gridOffset <= FRAME_TIME_ROUNDING * fps);",
+    "new": "    Math.abs(mediaTime - playhead) >= TIME_ROUNDING;",
+    "jest": ["src/markup/util/frame-step.test.ts"]
+  },
+  {
+    "id": "R8.F1c-isRead",
+    "bug": "the seeked read ignored for the start (the R8.F1c fix): an exact seek to an off-grid start equal to the playhead floors to the grid",
+    "file": "src/markup/util/frame-step.ts",
+    "old": "    on.isRead ||\n",
+    "new": "",
+    "jest": ["src/markup/util/frame-step.test.ts"]
+  },
+  {
+    "id": "M-standin-60",
+    "bug": "the stand-in at the assumed rate uses the 60 fps grid start, which can start in the video frame before",
+    "file": "src/markup/util/frame-step.ts",
+    "old": "  const standIn = isRateExact\n    ? gridFrameStart(playhead, fps)\n    : Math.max(0, playhead - PLACEMENT_TOLERANCE);",
+    "new": "  const standIn = gridFrameStart(playhead, fps);",
+    "jest": ["src/markup/util/frame-step.test.ts"]
+  },
+  {
+    "id": "R5.3M2",
+    "bug": "a frame not current counts when it holds the playhead within the tolerances (a user seek just before a stale frame's start)",
+    "file": "src/markup/util/frame-step.ts",
+    "old": "    isPlayheads: on.isCurrent || containsPlayhead(mediaTime, playhead, fps),",
+    "new": "    isPlayheads: on.isCurrent || holdsPlayhead(mediaTime, playhead, fps),",
+    "jest": ["src/markup/util/frame-step.test.ts"]
+  },
+  {
+    "id": "R6.M2",
+    "bug": "back steps at the video's end stick: the playhead snapped to the duration is not clamped to the last frame's middle",
+    "file": "src/markup/util/frame-step.ts",
+    "old": "  const playheadInVideo = Math.min(playhead, lastMiddle);",
+    "new": "  const playheadInVideo = playhead;",
+    "jest": ["src/markup/util/frame-step.test.ts"]
+  },
+  {
+    "id": "R5.3L1",
+    "bug": "rule 3 from the playhead less half a frame instead of its grid frame",
+    "file": "src/markup/util/frame-step.ts",
+    "old": "      gridFrameStart(playheadInVideo, fps));",
+    "new": "      playheadInVideo - 0.5 / fps);",
+    "jest": ["src/markup/util/frame-step.test.ts"]
+  },
+  {
+    "id": "R5.3L2",
+    "bug": "no end clamp: targets past the first or last frame middle",
+    "file": "src/markup/util/frame-step.ts",
+    "old": "  return Math.min(Math.max(target, frameDuration / 2), lastMiddle);",
+    "new": "  return target;",
+    "jest": ["src/markup/util/frame-step.test.ts"]
+  },
+  {
+    "id": "C.min-of-two",
+    "bug": "the min-of-two gate: the end frame timed by the shorter of the reported duration and a frame at the rate in use",
+    "file": "src/markup/util/frame-step.ts",
+    "old": "  const duration = reported != null && reported > 0 ? reported : 1 / rate;",
+    "new": "  const duration = reported != null && reported > 0 ? Math.min(reported, 1 / rate) : 1 / rate;",
+    "jest": ["src/markup/util/frame-step.test.ts"]
+  },
+  {
+    "id": "C.first-seen",
+    "bug": "the loop times the end frame from the first refresh it shows, not the last that saw another frame",
+    "file": "src/markup/util/frame-step.ts",
+    "old": "  const lastOtherFrameAt = isEndFrame ? loop.lastOtherFrameAt : refresh.time;",
+    "new": "  const lastOtherFrameAt = isEndFrame ? loop.lastOtherFrameAt : refresh.time + refresh.gap;",
+    "jest": ["src/markup/util/frame-step.test.ts"],
+    "ui": "test_a_pairs_loop_holds_its_end_frame_and_never_the_next_on_other_display_rates",
+    "uiCmd": "just ui-test-display-rates -k \"test_a_pairs_loop_holds_its_end_frame and 120 and 24 and not assumed\""
+  },
+  {
+    "id": "C.first-seen-core",
+    "bug": "the same, planted in the core's comparison",
+    "file": "src/markup/util/frame-step.ts",
+    "old": "  return refresh.time + refresh.gap * 0.98 <= lastOtherFrameAt + frameDuration;",
+    "new": "  return refresh.time + refresh.gap * 0.98 <= lastOtherFrameAt + refresh.gap + frameDuration;",
+    "jest": ["src/markup/util/frame-step.test.ts"]
+  },
+  {
+    "id": "C.no-margin",
+    "bug": "the gate without the 2% margin: a frame of exactly 2 refreshes turns back at 1 on rounded times",
+    "file": "src/markup/util/frame-step.ts",
+    "old": "refresh.time + refresh.gap * 0.98 <=",
+    "new": "refresh.time + refresh.gap <=",
+    "jest": ["src/markup/util/frame-step.test.ts"]
+  },
+  {
+    "id": "C.zero-duration",
+    "bug": "a reported duration of 0 taken as the frame's duration",
+    "file": "src/markup/util/frame-step.ts",
+    "old": "reported != null && reported > 0 ? reported",
+    "new": "reported != null ? reported",
+    "jest": ["src/markup/util/frame-step.test.ts"]
+  },
+  {
+    "id": "R7.R1",
+    "bug": "the loop turns back on the playhead's grid frame passing the end frame (the playhead, not the frame on screen)",
+    "file": "src/markup/util/frame-grid.ts",
+    "old": "  const isPastLoop = isPlaying ? frame >= lastFrame : frame > lastFrame;",
+    "new": "  const isPastLoop = frame > lastFrame;",
+    "jest": ["src/markup/util/frame-grid.test.ts", "src/markup/util/frame-decisions.test.ts"],
+    "ui": "test_a_pairs_loop_never_shows_the_frame_after_its_end_marker"
+  },
+  {
+    "id": "R6.M1",
+    "bug": "the frame read at seeked ignored (no isRead): the frame on screen after a burst is a late frame from an earlier step",
+    "file": "src/markup/util/frame-clock-core.ts",
+    "old": "      const held = heldFrameRead(event);",
+    "new": "      const held = null as number | null;",
+    "jest": [
+      "src/markup/util/frame-clock-core.test.ts",
+      "src/markup/util/frame-step.test.ts",
+      "src/markup/util/presented-frame-clock.test.ts"
+    ]
+  },
+  {
+    "id": "R6.M1-late",
+    "bug": "a late paused frame replaces the frame read at seeked",
+    "file": "src/markup/util/frame-clock-core.ts",
+    "old": "  return frame.paused && state.onScreen?.isRead === true && isFrameCurrent(state);",
+    "new": "  return false;",
+    "jest": [
+      "src/markup/util/frame-clock-core.test.ts",
+      "src/markup/util/frame-step.test.ts",
+      "src/markup/util/presented-frame-clock.test.ts"
+    ]
+  },
+  {
+    "id": "R8.L.L1",
+    "bug": "times compared instead of frames in getShortestActiveMarkerPair (5.48's time test)",
+    "file": "src/markup/speed.ts",
+    "old": "    isInFrameSpan(grid, markerPair.start, markerPair.end, currentTime);",
+    "new": "    markerPair.start <= currentTime && currentTime <= markerPair.end;",
+    "jest": ["src/markup/speed.test.ts"]
+  },
+  {
+    "id": "R8.M2",
+    "bug": "the Alt+drag clamped to the other marker's time less 1 ms, which is still on its frame",
+    "file": "src/markup/markers.ts",
+    "old": "      ? clampNumber(time, 0, frameStart(grid, frameAt(grid, markerPair.end) - 1))\n      : clampNumber(time, frameStart(grid, frameAt(grid, markerPair.start) + 1), duration);",
+    "new": "      ? clampNumber(time, 0, markerPair.end - 0.001)\n      : clampNumber(time, markerPair.start + 0.001, duration);",
+    "jest": [],
+    "ui": "test_alt_dragging_a_number_past_the_other_stops_a_frame_short_and_moves_the_crop_map",
+    "uiCmd": "just ui-test -k test_alt_dragging_a_number_past_the_other_stops_a_frame_short_and_moves_the_crop_map"
+  },
+  {
+    "id": "R8.D1",
+    "bug": "the Alt+drag scrub takes presses on a marker number (generic site)",
+    "file": "src/markup/util/videoUtil.ts",
+    "old": "    !isOnMarkerNumber &&\n",
+    "new": "",
+    "jest": [],
+    "ui": "test_alt_dragging_a_pairs_end_number_moves_its_end_marker_and_crop_map",
+    "uiCmd": "just ui-test -k test_alt_dragging_a_pairs_end_number_moves_its_end_marker_and_crop_map"
+  }
+]

@@ -101,6 +101,11 @@ lint-ts: typecheck-ts eslint-ts
 test-ts coverage="true":
   just _timed jest npx jest test {{ if coverage == "true" { "--coverage" } else { "" } }} --json --outputFile=coverage/jest-report.json
   uv run python tools/test/jest_slowest.py coverage/jest-report.json
+# Plants each bug in tools/test/planted-bugs/bugs.json in turn and runs its jest tests: fails if one
+# is not caught (results in sandbox/planted-bugs/). `PLANT_UI=1` runs the UI test of those that name one.
+[positional-arguments]
+planted-bugs *ids:
+  node tools/test/planted-bugs/plant.js "$@"
 # Rewrite the crop easing and Cinematic parity tables' samples from the markup's preview math, after
 # adding a case or changing the preview. An unchanged case comes out byte for byte the same.
 regen-parity:
