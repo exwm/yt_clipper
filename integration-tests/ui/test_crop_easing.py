@@ -546,7 +546,10 @@ def then_the_shown_crop_changes_from(markup: MarkupPage, x: float) -> None:
 @step
 def then_the_crops_match(markup: MarkupPage, first: float, second: float) -> None:
     markup.report(f"crop x {first} vs {second}")
-    assert abs(first - second) < 1
+    # Unmeasured, a frame whose start no read confirmed is drawn at the playhead less 1 ms (the accepted
+    # fallback), which can round a pan's crop 1 px off the one at the frame's start.
+    most_px = 1 if markup.assumed_frame_rate else 0
+    assert abs(first - second) <= most_px
 
 
 @step
