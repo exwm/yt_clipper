@@ -321,22 +321,16 @@ SEEK_OUTLASTS_END_FRAME = pytest.mark.xfail(
 )
 # Display Hz, video fps, and the refreshes the end frame should hold at least: the whole refreshes a
 # frame lasts when 2 or more, else 1. Chromium's cadence gives every frame at least these
-# (display-cadences.json).
+# (display-cadences.json). Jest pins the other rates over the same code.
 DISPLAY_RATE_CASES = [
     display_rate_case(30, 24, 1, SEEK_OUTLASTS_END_FRAME),
     display_rate_case(30, 30, 1),
     display_rate_case(50, 24, 2),
-    display_rate_case(50, 30, 1, SEEK_OUTLASTS_END_FRAME),
     display_rate_case(120, 24, 5),
-    display_rate_case(120, 30, 4),
-    display_rate_case(144, 24, 6),
     display_rate_case(144, 30, 4),
     # Before the rate is measured (or with Measure off) the frame's own duration, where the browser
     # reports it, times the end frame.
-    display_rate_case(30, 24, 1, SEEK_OUTLASTS_END_FRAME, measured=False),
-    display_rate_case(50, 24, 2, measured=False),
     display_rate_case(120, 24, 5, measured=False),
-    display_rate_case(144, 24, 6, measured=False),
 ]
 
 
