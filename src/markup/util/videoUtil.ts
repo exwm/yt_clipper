@@ -193,9 +193,8 @@ export function loopPlaybackOver(start: number, end: number): void {
     : loopSeekTarget(grid, start, end, time, isPlaying);
   // A seek as the end frame shows cuts it to one refresh. Also past the end, which the playhead
   // crosses a refresh after a frame-start end's frame shows, but only for the frame shown at the end:
-  // at an assumed rate the grid's last frame can be the video frame after it. Firefox reads every
-  // frame as time 0, so only a loop ending in the first frame holds, at most a frame after play. The
-  // frame's own duration, where the browser reports it, also times it before the rate is measured.
+  // at an assumed rate the grid's last frame can be the video frame after it. The frame's own
+  // duration, where the browser reports it, also times it before the rate is measured.
   const held = isPlaying ? getHeldFrame(video) : null;
   const isEndFrame =
     held != null &&

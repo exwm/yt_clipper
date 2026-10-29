@@ -75,18 +75,18 @@ export function getFrameOnScreen(video: VideoElement): FrameOnScreen {
   };
 }
 
-/** The frame the video holds now, or null where it can't be read: its time on the platform's
- *  timeline, and its duration (s) where the browser reports it and the read is plausible. Frame
+/** The frame the video holds now, or null where it can't be read or the read is implausible: its
+ *  time on the platform's timeline, and its duration (s) where the browser reports it. Frame
  *  callbacks can report a frame a refresh after it shows. */
 export function getHeldFrame(
   video: VideoElement
 ): { time: number; duration: number | null } | null {
   const frame = readHeldFrame(video);
-  if (frame == null) return null;
+  if (frame == null || !isHeldFrameNear(frame.time, video.currentTime)) return null;
   return {
     // eslint-disable-next-line no-restricted-syntax -- the offset between the two timelines
     time: frame.time + (video.getCurrentTime() - video.currentTime),
-    duration: isHeldFrameNear(frame.time, video.currentTime) ? frame.duration : null,
+    duration: frame.duration,
   };
 }
 
