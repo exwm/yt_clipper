@@ -88,6 +88,7 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+.testmondata*
 cover/
 
 # Translations

@@ -36,6 +36,7 @@ test = [
     "diff-cover>=10.6.0,<11",
     "syrupy>=6.1.1,<7",
     "pytest-xdist>=3.8.0,<4",
+    "pytest-testmon>=2.2.0,<3",
 ]
 ui-test = [
     "playwright==1.63.0",

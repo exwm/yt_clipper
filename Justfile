@@ -32,6 +32,13 @@ pretty-py-check:
 test-py update="false":
   just _timed pytest uv run pytest src/clipper tools/release tools/prose tools/test -s --durations=10 --cov --cov-config="{{justfile_directory()}}/pyproject.toml" --cov-report=html --cov-report=xml -m "not slow" \
     {{ if update == "true" { "--snapshot-update" } else { "-n auto --dist worksteal" } }}
+# Only the tests whose covered code changed since the last run (pytest-testmon, recorded in .testmondata;
+# the first run runs all). No coverage: the floor holds only for a full run. Four workers: serial takes
+# minutes once a change reaches the e2e tests, and -n auto starts 15 workers even for no tests (measured).
+# --testmon-forceselect keeps selecting under -m. Exit 5 (no tests ran) passes.
+[positional-arguments]
+test-py-changed *args:
+  @just _timed pytest uv run pytest src/clipper tools/release tools/prose tools/test -m "not slow" --testmon-forceselect -n 4 --dist worksteal "$@"; status=$?; [ $status -eq 5 ] && status=0; exit $status
 # Check an assembled release folder before zipping, as CI does: bundled tools, offline clips, schema.
 smoke-release folder version="":
   uv run python tools/release/smoke_test.py "{{folder}}" {{version}}
@@ -101,6 +108,10 @@ lint-ts: typecheck-ts eslint-ts
 test-ts coverage="true":
   just _timed jest npx jest test {{ if coverage == "true" { "--coverage" } else { "" } }} --json --outputFile=coverage/jest-report.json
   uv run python tools/test/jest_slowest.py coverage/jest-report.json
+# The tests of files changed since a git ref, and of the files that import them, without the coverage
+# floors. HEAD is jj's @-, so the default runs what @ changed; the last tag would select nearly all.
+test-ts-changed base="HEAD":
+  just _timed jest npx jest --changedSince {{base}} --passWithNoTests
 # Plants each bug in tools/test/planted-bugs/bugs.json in turn and runs its jest tests: fails if one
 # is not caught (results in sandbox/planted-bugs/). `PLANT_UI=1` runs the UI test of those that name one.
 [positional-arguments]
