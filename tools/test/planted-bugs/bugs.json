@@ -173,5 +173,61 @@
     "jest": [],
     "ui": "test_alt_dragging_a_pairs_end_number_moves_its_end_marker_and_crop_map",
     "uiCmd": "just ui-test -k test_alt_dragging_a_pairs_end_number_moves_its_end_marker_and_crop_map"
+  },
+  {
+    "id": "read-ms",
+    "bug": "a read duration matches a standard rate within 1 ms, so millisecond durations (webm) read as 23.976 or 30 fps",
+    "file": "src/markup/util/frame-clock-core.ts",
+    "old": "const READ_DURATION_TOLERANCE = 0.000002;",
+    "new": "const READ_DURATION_TOLERANCE = 0.001;",
+    "jest": ["src/markup/util/frame-clock-core.test.ts"]
+  },
+  {
+    "id": "read-one",
+    "bug": "one read at a seek sets the rate, with no second frame to confirm it",
+    "file": "src/markup/util/frame-clock-core.ts",
+    "old": "  if (readCheck == null) return { readRate, readCheck: read };",
+    "new": "  if (readCheck == null) return { readRate: read.rate, readCheck: read };",
+    "jest": ["src/markup/util/frame-clock-core.test.ts"]
+  },
+  {
+    "id": "read-same-frame",
+    "bug": "two reads of the same frame (a seek within it) confirm the rate",
+    "file": "src/markup/util/frame-clock-core.ts",
+    "old": "  if (Math.abs(read.frameTime - readCheck.frameTime) < 0.5 / read.rate)\n    return { readRate, readCheck };\n",
+    "new": "",
+    "jest": ["src/markup/util/frame-clock-core.test.ts"]
+  },
+  {
+    "id": "read-over-run",
+    "bug": "the rate read at seeks wins over the rate a played run confirmed",
+    "file": "src/markup/util/frame-clock-core.ts",
+    "old": "  state.publishedRate ?? state.readRate;",
+    "new": "  state.readRate ?? state.publishedRate;",
+    "jest": ["src/markup/util/frame-clock-core.test.ts"]
+  },
+  {
+    "id": "read-unchecked",
+    "bug": "a read the held frame check rejects (a stale frame from before the seek, or a seek already moving on) still counts toward the rate",
+    "file": "src/markup/util/frame-clock-core.ts",
+    "old": "      if (held == null) return { ...state, settleCount };\n",
+    "new": "      if (held == null && event.heldFrameTime != null) {\n        const duration = event.heldFrameDuration ?? NaN;\n        const rate = rateOfDuration(duration);\n        const frameTime = event.heldFrameTime;\n        const read = rate == null ? null : checkRead(state, { rate, frameTime, duration });\n        return { ...state, settleCount, ...read };\n      }\n      if (held == null) return { ...state, settleCount };\n",
+    "jest": ["src/markup/util/frame-clock-core.test.ts"]
+  },
+  {
+    "id": "read-no-latch",
+    "bug": "reads that disagree start a new check instead of latching, so a variable rate video gets a rate from two later reads",
+    "file": "src/markup/util/frame-clock-core.ts",
+    "old": "  if (readCheck.rate !== read.rate) return { readRate: null, readCheck: 'mixed' };",
+    "new": "  if (readCheck.rate !== read.rate) return { readRate: null, readCheck: read };",
+    "jest": ["src/markup/util/frame-clock-core.test.ts"]
+  },
+  {
+    "id": "read-measure-off",
+    "bug": "with Measure off the measured rate (a read one included) is still used",
+    "file": "src/markup/util/videoUtil.ts",
+    "old": "    const measured = isFrameRateMeasured() ? getMeasuredFrameRate(appState.video) : null;",
+    "new": "    const measured = getMeasuredFrameRate(appState.video);",
+    "jest": ["src/markup/util/videoUtil.test.ts"]
   }
 ]
