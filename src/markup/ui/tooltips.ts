@@ -110,9 +110,10 @@ export namespace Tooltips {
     `;
 
   export const timeDurationTooltip = stripIndent`
-      When speed is constant (static) the duration is formatted as <in-duration>/<speed> = <out-duration>.
-      When speed is variable (dynamic) the duration is formatted as <in-duration> (<out-duration>).
+      When speed is constant (static) the duration is formatted as <in-duration>/<speed> = <out-duration> (<frames>).
+      When speed is variable (dynamic) the duration is formatted as <in-duration> (<out-duration>) (<frames>).
       Durations are formatted as HH:MM:SS.MS omitting insignificant 0s on the left.
+      <frames> is the pair's frame count, the end marker's frame included, at the frame rate shown in the global settings editor.
     `;
 
   export const cropTooltip = stripIndent`

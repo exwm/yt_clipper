@@ -509,6 +509,19 @@ def test_a_pairs_loop_holds_its_end_frame_and_rarely_the_next_on_other_display_r
     assert statistics.median(end_frame_ms) >= end_frame_refreshes * 1000 / hz - 0.2
 
 
+# The end marker's frame counts: 2 s to 2.2 s at 60 fps is frames 120 to 132.
+def test_a_pairs_duration_shows_its_frame_count(markup: MarkupPage) -> None:
+    given_the_frame_rate_is(markup, measured=False)
+    markup.load_saved_marker_pairs([{"start": 2, "end": 2.2, "crop": "0:0:iw:ih"}])
+    markup.open_marker_pair(0)
+    then_the_duration_reads(markup, "00.216/1 = 00.216 (13)")
+
+
+@step
+def then_the_duration_reads(markup: MarkupPage, text: str) -> None:
+    assert markup.page.locator("#duration").inner_text() == text
+
+
 @step
 def given_the_frame_rate_is(markup: MarkupPage, measured: bool) -> None:
     """Measured from played frames, or assumed at 60 fps with Measure off."""
