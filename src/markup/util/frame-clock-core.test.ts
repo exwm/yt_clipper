@@ -7,6 +7,7 @@ import {
   FRAMES_TO_CONFIRM_EXACT,
   FRAMES_TO_CONFIRM_ROUNDED,
   initialClock,
+  measuredRate,
   stepClock,
 } from './frame-clock-core';
 
@@ -435,11 +436,81 @@ describe('the frame clock over recorded browser frames', () => {
   });
 });
 
+describe('the rate read from the frames held at seeks', () => {
+  // A seek that reads its held frame at `held` s, `us` µs long, with the playhead at `currentTime`.
+  type Read = readonly [held: number, us: number | null, currentTime?: number];
+  const r = (...read: Read): Read => read;
+  const readAt = (clock: ClockState, [held, us, currentTime = held + 0.01]: Read) =>
+    stepClock(stepClock(clock, { type: 'seeking' }), {
+      type: 'seeked',
+      heldFrameTime: held,
+      heldFrameDuration: us == null ? null : us / 1e6,
+      currentTime,
+      seeking: false,
+    });
+  const readsOf = (reads: readonly Read[], clock = initialClock) => reads.reduce(readAt, clock);
+
+  it.each<[string, Read[], number | null]>([
+    ['30 fps, exact', [r(3, 33333), r(4, 33333)], 30],
+    ['29.97 fps, exact', [r(3, 33367), r(4, 33367)], 30000 / 1001],
+    ['29.97 fps, as YouTube truncates it', [r(3, 33366), r(4, 33366)], 30000 / 1001],
+    ['23.976 fps, as YouTube reads it', [r(3, 41708), r(4, 41708)], 24000 / 1001],
+    ['24 fps, rounded either way', [r(3, 41667), r(4, 41666)], 24],
+    ['25 fps, whole milliseconds', [r(3, 40000), r(4, 40000)], 25],
+    ['60 fps', [r(3, 16667), r(4, 16667)], 60],
+    ['one read', [r(3, 33333)], null],
+    ['two reads of the same frame', [r(3, 33333), r(3, 33333, 3.02)], null],
+    // webm, and some YouTube videos, time frames to the millisecond.
+    ['millisecond durations of 24 fps', [r(3, 42000), r(4, 42000)], null],
+    ['millisecond durations of 30 fps', [r(3, 33000), r(4, 34000)], null],
+    ['a duration of no standard rate', [r(3, 35000), r(4, 35000)], null],
+    ['a read with no duration', [r(3, 33333), r(4, null)], null],
+    // YouTube can hold the frame from before a seek outside its buffer.
+    ['a stale read of a frame from before the seek', [r(3, 33333), r(5, 33333, 10)], null],
+    ['reads that disagree, then agree', [r(3, 33333), r(4, 41667), r(5, 41667), r(6, 41667)], null],
+  ])('reads %s', (_case, reads, expected) => {
+    expect(measuredRate(readsOf(reads))).toBe(expected);
+  });
+
+  it('reads nothing when another seek already started', () => {
+    const clock = stepClock(stepClock(readsOf([r(3, 33333)]), { type: 'seeking' }), {
+      type: 'seeked',
+      heldFrameTime: 4,
+      heldFrameDuration: 1 / 30,
+      currentTime: 4.01,
+      seeking: true,
+    });
+    expect(measuredRate(clock)).toBeNull();
+  });
+
+  it('prefers a played run to the read', () => {
+    let clock = readsOf([r(3, 33333), r(4, 33333)]);
+    for (let k = 0; k <= FRAMES_TO_CONFIRM_EXACT; k++) {
+      clock = stepClock(clock, { type: 'frame', frame: frameAt(k, 10 + k / 24) });
+    }
+    expect(measuredRate(clock)).toBe(24);
+  });
+
+  it('keeps the read rate through a new rendition, which clears a pending read', () => {
+    const resized = stepClock(readsOf([r(3, 33333), r(4, 33333)]), { type: 'resize' });
+    expect(measuredRate(resized)).toBe(30);
+    const pending = stepClock(readsOf([r(3, 41667)]), { type: 'resize' });
+    expect(measuredRate(readsOf([r(4, 41667)], pending))).toBeNull();
+  });
+
+  it('reads the rate again for a new source, after reads that disagreed', () => {
+    const mixed = readsOf([r(3, 33333), r(4, 41667)]);
+    const emptied = stepClock(mixed, { type: 'emptied' });
+    expect(measuredRate(readsOf([r(3, 41667), r(4, 41667)], emptied))).toBe(24);
+  });
+});
+
 describe('the frame on screen after a seek', () => {
   const seekedAt = (currentTime: number, heldFrameTime: number | null, seeking = false) =>
     stepClock(stepClock(initialClock, { type: 'seeking' }), {
       type: 'seeked',
       heldFrameTime,
+      heldFrameDuration: null,
       currentTime,
       seeking,
     });

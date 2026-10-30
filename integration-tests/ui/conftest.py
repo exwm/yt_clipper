@@ -26,11 +26,12 @@ from harness.dev_site import (
     serving,
     test_video_name,
 )
+from harness.environment import REAL_REFRESH_MS, InconclusiveEnvironment, check_real_display
 from harness.hosts import DEV_SITE_HOST, YOUTUBE_HOST, activate_markup, open_dev_site, open_youtube
 from harness.markup_page import MarkupPage
 from harness.page_problems import PageProblems
 from harness.paths import BUNDLE, REPO, SANDBOX, SHOTS
-from harness.simulated_display import simulated_display
+from harness.simulated_display import DisplayStats, simulated_display
 
 if TYPE_CHECKING:
     from playwright.sync_api import BrowserContext, Page, Playwright
@@ -174,6 +175,9 @@ def dev_site(
         yield DevSite(url=url, video_name=video_name)
 
 
+# The simulated display a `display_rate` test's page runs on.
+DISPLAY_STATS = pytest.StashKey[DisplayStats]()
+
 CONTEXT_OPTIONS = {"viewport": {"width": 1280, "height": 900}, "locale": "en-US"}
 
 
@@ -213,8 +217,9 @@ def browser_page(request: pytest.FixtureRequest, youtube_url: str | None) -> Ite
         hz = display_rate.args[0]
         playwright: Playwright = request.getfixturevalue("playwright")
         with simulated_display(playwright, hz, CONTEXT_OPTIONS) as (page, stats):
+            request.node.stash[DISPLAY_STATS] = stats
             yield page
-        print(f"\n  {hz} Hz display: {stats.ticks} refreshes, {stats.missed} missed")
+        print(f"\n  {hz} Hz display: {stats.ticks} refreshes, {len(stats.missed_at)} missed")
         assert stats.stalled_at is None, f"refresh {stats.stalled_at} never finished"
         return
     if not youtube_url:
@@ -268,22 +273,25 @@ MEDIAN_REFRESH_MS = """() => new Promise((done) => {
     };
     requestAnimationFrame(onFrame);
 })"""
-# The median frame gap this worker measured, once.
+# The median frame gap this worker last measured.
 measured_refresh_ms: list[float] = []
 
 
-def warn_unless_refresh_is_60_hz(page: "Page") -> None:
-    """Once per worker: the timing tests expect a 60 Hz display."""
-    if measured_refresh_ms:
+def check_refresh_is_60_hz(page: "Page", is_timing: bool) -> None:
+    """The timing tests expect a 60 Hz display: one that isn't makes them inconclusive, and the rest
+    warn once. Measured once per worker while it reads 60 Hz (`displays_stay_on` keeps it there),
+    and per timing test after it didn't, so a rerun can find the displays awake."""
+    is_60_hz = REAL_REFRESH_MS[0] <= (measured_refresh_ms or [0])[-1] <= REAL_REFRESH_MS[1]
+    if measured_refresh_ms and (is_60_hz or not is_timing):
         return
     median_ms = page.evaluate(MEDIAN_REFRESH_MS)
     measured_refresh_ms.append(median_ms)
-    if not 16.4 <= median_ms <= 16.9:
-        warnings.warn(
-            f"frames run every {median_ms:.2f} ms, not 16.67 (60 Hz): the displays may be off,"
-            " so loop and frame timing tests can fail; wake the displays and rerun",
-            stacklevel=1,
-        )
+    try:
+        check_real_display(median_ms)
+    except InconclusiveEnvironment as inconclusive:
+        if is_timing:
+            raise
+        warnings.warn(str(inconclusive), stacklevel=1)
 
 
 @pytest.fixture
@@ -327,16 +335,16 @@ def markup(
             open_dev_site(page, dev_site.url, video_name)
     with steps.timed("(activate the markup)"):
         activate_markup(page)
-    if not request.node.get_closest_marker("display_rate"):
-        warn_unless_refresh_is_60_hz(page)
+    display = request.node.stash.get(DISPLAY_STATS, None)
+    if display is None:
+        is_timing = any(request.node.get_closest_marker(mark) for mark in ("timing", "alone"))
+        check_refresh_is_60_hz(page, is_timing)
 
     # pytest-playwright traces only its own page; the YouTube and simulated display contexts are ours.
-    traced = (
-        not youtube_url
-        and not request.node.get_closest_marker("display_rate")
-        and request.config.getoption("tracing") != "off"
+    traced = not youtube_url and display is None and request.config.getoption("tracing") != "off"
+    yield MarkupPage(
+        page, host, shots_dir, tracing=traced, assumed_frame_rate=assumed, display=display
     )
-    yield MarkupPage(page, host, shots_dir, tracing=traced, assumed_frame_rate=assumed)
 
     call_report = getattr(request.node, "report_call", None)
     if call_report is not None and call_report.failed:

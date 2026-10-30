@@ -92,14 +92,25 @@ export interface ClockState {
   publishedRate: number | null;
   // The rates announced for the current source, so each is announced once.
   announcedRates: readonly number[];
+  // The rate two frames read at seeks agree on, and the last read awaiting a read of another frame,
+  // or 'mixed' once two disagreed (a variable rate), until a new source.
+  readRate: number | null;
+  readCheck: { rate: number; frameTime: number; duration: number } | 'mixed' | null;
 }
 
 export type ClockEvent =
   | { type: 'frame'; frame: ClockFrame }
   | { type: 'seeking' }
   // A seek finished. `heldFrameTime` is the frame the video holds then (`new VideoFrame(video)`), or
-  // null where the browser can't read it. `seeking`: another seek already started.
-  | { type: 'seeked'; heldFrameTime: number | null; currentTime: number; seeking: boolean }
+  // null where the browser can't read it, and `heldFrameDuration` its duration (s) where the browser
+  // reports one. `seeking`: another seek already started.
+  | {
+      type: 'seeked';
+      heldFrameTime: number | null;
+      heldFrameDuration: number | null;
+      currentTime: number;
+      seeking: boolean;
+    }
   // A new rendition, which can have a new frame rate.
   | { type: 'resize' }
   // A new source.
@@ -113,6 +124,8 @@ export const initialClock: ClockState = {
   currentRun: [],
   publishedRate: null,
   announcedRates: [],
+  readRate: null,
+  readCheck: null,
 };
 
 export function stepClock(state: ClockState, event: ClockEvent): ClockState {
@@ -122,18 +135,28 @@ export function stepClock(state: ClockState, event: ClockEvent): ClockState {
     case 'seeked': {
       const settleCount = state.settleCount + 1;
       const held = heldFrameRead(event);
-      const onScreen =
-        held == null
-          ? state.onScreen
-          : { mediaTime: held, seeks: state.seekCount, settle: settleCount, isRead: true };
-      return { ...state, settleCount, onScreen };
+      if (held == null) return { ...state, settleCount };
+      const onScreen = {
+        mediaTime: held,
+        seeks: state.seekCount,
+        settle: settleCount,
+        isRead: true,
+      };
+      const duration = event.heldFrameDuration ?? NaN;
+      const rate = rateOfDuration(duration);
+      const read = rate == null ? null : checkRead(state, { rate, frameTime: held, duration });
+      return { ...state, settleCount, onScreen, ...read };
     }
     case 'emptied':
       return { ...initialClock, seekCount: state.seekCount, settleCount: state.settleCount };
     case 'resize':
       // The rate stays published until a run confirms a new one, so a quality switch doesn't flip
       // 29.97 back to the platform's 30.
-      return { ...state, currentRun: [] };
+      return {
+        ...state,
+        currentRun: [],
+        readCheck: state.readCheck === 'mixed' ? 'mixed' : null,
+      };
     case 'frame':
       return {
         ...stepFrame(state, { ...event.frame, seekCount: state.seekCount }),
@@ -175,6 +198,27 @@ function heldFrameRead(event: {
   const isFrameThere =
     !seeking && held != null && isHeldFrameNear(held, currentTime) && held <= currentTime + 0.001;
   return isFrameThere ? held : null;
+}
+
+// The standard rate whose frame lasts `duration` (s) within 2 µs, as exact or truncated microseconds
+// do. Durations rounded to the millisecond (webm, some YouTube videos) match only 25 and 50 fps.
+const READ_DURATION_TOLERANCE = 0.000002;
+const rateOfDuration = (duration: number): number | null =>
+  STANDARD_FRAME_RATES.find((rate) => Math.abs(1 / rate - duration) <= READ_DURATION_TOLERANCE) ??
+  null;
+
+// Two reads of other frames that agree set the rate; a read of the same frame waits for another.
+function checkRead(
+  state: ClockState,
+  read: { rate: number; frameTime: number; duration: number }
+): Pick<ClockState, 'readRate' | 'readCheck'> {
+  const { readRate, readCheck } = state;
+  if (readCheck === 'mixed') return { readRate, readCheck };
+  if (readCheck == null) return { readRate, readCheck: read };
+  if (readCheck.rate !== read.rate) return { readRate: null, readCheck: 'mixed' };
+  if (Math.abs(read.frameTime - readCheck.frameTime) < 0.5 / read.rate)
+    return { readRate, readCheck };
+  return { readRate: read.rate, readCheck: read };
 }
 
 /** Whether a frame read at `held` (s) can be the frame at `currentTime`. Firefox reads every frame as
@@ -344,6 +388,10 @@ function ntscSpan(run: readonly RunGap[]): readonly RunGap[] | null {
   }
   return longest == null ? null : run.slice(longest);
 }
+
+/** The rate a played run confirmed, else the one frames read at seeks agree on. */
+export const measuredRate = (state: ClockState): number | null =>
+  state.publishedRate ?? state.readRate;
 
 /** Whether to announce `rate`: the first time it is the rate in use for the current source. */
 export function announceRate(

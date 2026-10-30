@@ -282,6 +282,28 @@ describe('getFPS', () => {
       expect(fields.open.textContent).toBe('30 fps (measured)');
     });
 
+    // Chrome reads each frame's duration at `seeked`, so a paused video's rate is known after two seeks.
+    it('shows and flashes a rate read at seeks as measured, before any frame plays', () => {
+      mockPlatform.current = 'yt_clipper';
+      Object.assign(mockMeasured, { fps: 24, isNew: true });
+      fields.open = { textContent: '' };
+      mockAppState.video.dispatchEvent(new Event('seeked'));
+      expect(fields.open.textContent).toBe('24 fps (measured)');
+      expect(mockFlashMessage.mock.calls.map(([message]) => message)).toEqual([
+        'Measured the frame rate: 24 fps.',
+      ]);
+    });
+
+    it('with Measure off, shows the assumed rate over a read one', () => {
+      mockPlatform.current = 'yt_clipper';
+      mockMeasured.fps = 24;
+      fields.open = { textContent: '' };
+      toggleFrameRateMeasurement();
+      mockAppState.video.dispatchEvent(new Event('seeked'));
+      expect(fields.open.textContent).toBe('60 fps (assumed)');
+      toggleFrameRateMeasurement();
+    });
+
     it("drops the old video's rate on a new source before its first frame", () => {
       mockPlatform.current = 'yt_clipper';
       mockMeasured.fps = 30;

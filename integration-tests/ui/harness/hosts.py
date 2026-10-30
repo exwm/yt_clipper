@@ -1,7 +1,6 @@
 """The pages a scenario can run on: the dev site or a real YouTube video. Each host opens its page,
 injects or loads the userscript, and names the platform hooks scenarios need."""
 
-import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -12,7 +11,7 @@ from .dev_site import require_urls
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from playwright.sync_api import ConsoleMessage, Page
+    from playwright.sync_api import Page
 
 
 @dataclass(frozen=True)
@@ -89,36 +88,21 @@ def open_youtube(page: "Page", youtube_url: str, userscript: "Path") -> None:
     page.add_script_tag(content=f"{bundle}\n//# sourceURL=yt_clipper.js")
 
 
-ACTIVATION_PRESSES = 20
-# How long an accepted press may take to activate: activation waits for the page to finish loading,
-# and pressing again meanwhile would toggle the markup back off.
-ACTIVATION_WAIT_MS = 6000
-NOT_READY_LOG = "not yet ready to process hotkeys"
+# The userscript marks the video once it has found it, just before it starts taking hotkeys.
+MARKUP_READY = "!!document.querySelector('video.yt-clipper-video')"
+MARKUP_ACTIVE = "!!document.querySelector('#markers-div')"
+# Activation waits for the page to finish loading, so an accepted press can take a while.
+ACTIVATION_TIMEOUT_MS = 15_000
 
 
 def activate_markup(page: "Page") -> None:
-    """Press the activation chord until the markup activates. Until the userscript has found the
-    video it ignores hotkeys (logging that it is not ready) rather than toggling, so a press it
-    logged as ignored is retried at once instead of waiting out a full activation."""
-    not_ready_logs: list[str] = []
-
-    def on_console(message: "ConsoleMessage") -> None:
-        if NOT_READY_LOG in message.text:
-            not_ready_logs.append(message.text)
-
-    page.on("console", on_console)
+    """Press the activation chord once the userscript takes hotkeys, and wait for the markup."""
+    # Checked every animation frame: `wait_for_selector` backs off to 0.5 s between checks.
+    page.wait_for_function(MARKUP_READY, timeout=ACTIVATION_TIMEOUT_MS)
+    page.keyboard.press("Alt+Shift+KeyA")
     try:
-        for _ in range(ACTIVATION_PRESSES):
-            ignored_before = len(not_ready_logs)
-            page.keyboard.press("Alt+Shift+KeyA")
-            deadline = time.monotonic() + ACTIVATION_WAIT_MS / 1000
-            while time.monotonic() < deadline:
-                if page.locator("#markers-div").count():
-                    return
-                if len(not_ready_logs) > ignored_before:
-                    break  # ignored: not ready yet, so press again
-                page.wait_for_timeout(50)
-            page.wait_for_timeout(200)  # the userscript polls for the video every 200ms
-    finally:
-        page.remove_listener("console", on_console)
-    raise RuntimeError("markup did not activate (no #markers-div after Alt+Shift+A)")
+        page.wait_for_function(MARKUP_ACTIVE, timeout=ACTIVATION_TIMEOUT_MS)
+    except PlaywrightTimeoutError as timeout:
+        raise RuntimeError(
+            "markup did not activate (no #markers-div after Alt+Shift+A)"
+        ) from timeout

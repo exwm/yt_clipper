@@ -6,6 +6,7 @@ import {
   initialClock,
   isHeldFrameNear,
   isFrameCurrent,
+  measuredRate,
   stepClock,
 } from './frame-clock-core';
 import type { FrameOnScreen } from './frame-step';
@@ -27,20 +28,25 @@ function startClock(video: VideoElement): void {
   clockVideo = video;
   clock = initialClock;
   const step = (event: ClockEvent) => {
-    if (clockVideo === video) clock = stepClock(clock, event);
+    if (clockVideo !== video) return;
+    const before = clock;
+    clock = stepClock(clock, event);
+    logNewRate(before, clock);
   };
   video.addEventListener('emptied', () => step({ type: 'emptied' }));
   video.addEventListener('resize', () => step({ type: 'resize' }));
   video.addEventListener('seeking', () => step({ type: 'seeking' }));
-  video.addEventListener('seeked', () =>
+  video.addEventListener('seeked', () => {
+    const held = readHeldFrame(video);
     step({
       type: 'seeked',
-      heldFrameTime: readHeldFrame(video)?.time ?? null,
+      heldFrameTime: held?.time ?? null,
+      heldFrameDuration: held?.duration ?? null,
       // The held frame's timeline (a part's, on afreecatv), not the platform's.
       currentTime: video.currentTime,
       seeking: video.seeking,
-    })
-  );
+    });
+  });
   const onFrame = (presented: PresentedVideoFrame): void => {
     const quality = video.getVideoPlaybackQuality?.();
     step({
@@ -58,6 +64,17 @@ function startClock(video: VideoElement): void {
   };
   clockSubscription?.stop();
   clockSubscription = onVideoFrames(video, onFrame, { phase: 'clock', label: 'frame clock' });
+}
+
+function logNewRate(before: ClockState, after: ClockState): void {
+  const rate = measuredRate(after);
+  if (rate == null || rate === measuredRate(before)) return;
+  const reads = [before.readCheck, after.readCheck].flatMap((read) =>
+    typeof read === 'object' && read != null ? [Math.round(read.duration * 1e6)] : []
+  );
+  const origin =
+    after.publishedRate != null ? 'playback' : `frames read at seeks (${reads.join(', ')} µs)`;
+  console.log(`[yt_clipper] Frame rate ${rate} fps, measured from ${origin}.`);
 }
 
 /** What the clock knows of the frame on screen. Its time is on the platform's timeline, as the
@@ -109,10 +126,10 @@ export function readHeldFrame(
 }
 
 /** The frame rate measured from presented frames once a run of them confirms it (snapped to the
- *  nearest standard rate when close to one), else null. */
+ *  nearest standard rate when close to one), else from the frames read at seeks, else null. */
 export function getMeasuredFrameRate(video: VideoElement): number | null {
   if (clockVideo !== video) startClock(video);
-  return clock.publishedRate;
+  return measuredRate(clock);
 }
 
 /** Whether to announce `rate`: the first time it is the rate in use for the video's current source. */
