@@ -134,6 +134,11 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "alone: loads the machine itself (CPU throttling), so it runs with no other test beside it",
     )
+    config.addinivalue_line(
+        "markers",
+        "firefox_limit(reason): a known Firefox limit, a strict xfail under --browser firefox"
+        " (just ui-test-firefox)",
+    )
     # Build the dev site once, in the main process: parallel workers (pytest-xdist) only serve it.
     is_worker = hasattr(config, "workerinput")
     if not is_worker and not config.getoption("youtube") and not config.option.collectonly:
@@ -238,6 +243,13 @@ def browser_page(request: pytest.FixtureRequest, youtube_url: str | None) -> Ite
     )
     yield page
     page.close()
+
+
+@pytest.fixture(autouse=True)
+def firefox_limits(request: pytest.FixtureRequest) -> None:
+    limit = request.node.get_closest_marker("firefox_limit")
+    if limit and request.getfixturevalue("browser_name") == "firefox":
+        request.applymarker(pytest.mark.xfail(strict=True, reason=limit.args[0]))
 
 
 @pytest.hookimpl(wrapper=True)

@@ -32,7 +32,20 @@ def test_crop_chip_shows_the_live_interpolated_crop(dynamic_crop: MarkupPage) ->
 
 
 # Measured, also on Firefox, which times the frame shown after a seek at the seek target.
-@pytest.mark.parametrize("measured", [True, False], ids=["measured rate", "assumed 60 fps"])
+@pytest.mark.parametrize(
+    "measured",
+    [
+        pytest.param(True, id="measured rate"),
+        pytest.param(
+            False,
+            id="assumed 60 fps",
+            marks=pytest.mark.firefox_limit(
+                "Firefox's VideoFrame reports no frame times, so at the assumed 60 fps the preview"
+                " goes by the playhead, as 5.48"
+            ),
+        ),
+    ],
+)
 def test_crop_preview_stays_on_the_frame_on_screen_after_a_seek_within_it(
     dynamic_crop: MarkupPage, measured: bool
 ) -> None:

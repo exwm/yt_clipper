@@ -142,10 +142,20 @@ dev-site:
 [positional-arguments]
 ui-test *args:
   just _parcel-once
-  @just _ui-test-phase 8 "not display_rate and not timing and not alone" "$@"; rest=$?; just _ui-test-phase 4 "timing and not display_rate" "$@"; timing=$?; just _ui-test-phase 1 "alone" "$@"; alone=$?; [ $rest -eq 5 ] && [ $timing -eq 5 ] && [ $alone -eq 5 ] && exit 5; [ $rest -eq 5 ] && rest=0; [ $timing -eq 5 ] && timing=0; [ $alone -eq 5 ] && alone=0; exit $((rest | timing | alone))
+  @just _ui-test-phase "--browser-channel chrome" 8 "not display_rate and not timing and not alone" "$@"; rest=$?; just _ui-test-phase "--browser-channel chrome" 4 "timing and not display_rate" "$@"; timing=$?; just _ui-test-phase "--browser-channel chrome" 1 "alone" "$@"; alone=$?; [ $rest -eq 5 ] && [ $timing -eq 5 ] && [ $alone -eq 5 ] && exit 5; [ $rest -eq 5 ] && rest=0; [ $timing -eq 5 ] && timing=0; [ $alone -eq 5 ] && alone=0; exit $((rest | timing | alone))
+# The UI tests in Playwright's Firefox (installed here once per Playwright version), apart from ui-test and the
+# release checks. Firefox's VideoFrame reports no frame times, so tests of frame exact behavior are strict xfails
+# (marked firefox_limit). The same phases as ui-test, without the alone test, which throttles the CPU through Chrome's DevTools Protocol.
+# Playwright's Firefox now and then fails to close a page's context (_maybeDontRestoreTabs): that test is rerun.
 [positional-arguments]
-_ui-test-phase workers marks *args:
-  @workers="$1"; marks="$2"; shift 2; uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n "$workers" --durations=10 --tracing retain-on-failure --output sandbox/ui-test-results --reruns 2 --only-rerun InconclusiveEnvironment -m "$marks" "$@"
+ui-test-firefox *args:
+  just _parcel-once
+  uv run --group ui-test playwright install firefox
+  @just _ui-test-phase "--browser firefox" 8 "not display_rate and not timing and not alone" --only-rerun _maybeDontRestoreTabs "$@"; rest=$?; just _ui-test-phase "--browser firefox" 4 "timing and not display_rate and not alone" --only-rerun _maybeDontRestoreTabs "$@"; timing=$?; [ $rest -eq 5 ] && [ $timing -eq 5 ] && exit 5; [ $rest -eq 5 ] && rest=0; [ $timing -eq 5 ] && timing=0; exit $((rest | timing))
+# The browser options are word split: "--browser firefox" or "--browser-channel chrome".
+[positional-arguments]
+_ui-test-phase browser workers marks *args:
+  @browser="$1"; workers="$2"; marks="$3"; shift 3; uv run --group ui-test pytest integration-tests/ui $browser -n "$workers" --durations=10 --tracing retain-on-failure --output sandbox/ui-test-results --reruns 2 --only-rerun InconclusiveEnvironment -m "$marks" "$@"
 # The loop's end frame on simulated 30, 50, 120 and 144 Hz displays, in Playwright's chromium-headless-shell
 # (installed here once per Playwright version). Apart from ui-test: beside the other tests' load the simulated
 # display drops refreshes now and then, which cuts an end frame short.

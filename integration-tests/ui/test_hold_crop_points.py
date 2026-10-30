@@ -1165,6 +1165,10 @@ LATE_IN_FRAME_180 = round(181 / VIDEO_FPS - 0.0015, 6)
 @pytest.mark.parametrize("reframe", [False, True], ids=["chart only", "in reframe"])
 @pytest.mark.parametrize("turned_off", [False, True], ids=["measure off", "measurement turned off"])
 @pytest.mark.timing
+@pytest.mark.firefox_limit(
+    "Firefox's VideoFrame reports no frame times, so at the assumed 60 fps a 30 fps frame's two"
+    " halves read as two frames"
+)
 def test_points_added_on_one_frame_at_the_assumed_frame_rate_stay_one_point(
     markup: MarkupPage, reframe: bool, turned_off: bool
 ) -> None:
