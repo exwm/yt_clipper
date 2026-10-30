@@ -4,8 +4,17 @@ video, at the rate measured from played frames. The dev site's test video is 30 
 import json
 import math
 import statistics
+import time
+from dataclasses import dataclass
 
 import pytest
+from harness.environment import (
+    REAL_DISPLAY_HZ,
+    check_real_display,
+    missed_between,
+    split_turns,
+    turns_without_missed_refreshes,
+)
 from harness.hosts import DEV_SITE_HOST
 from harness.markup_page import MarkupPage
 from harness.paths import REPO
@@ -283,8 +292,8 @@ def test_a_pairs_loop_never_shows_the_frame_after_its_end_marker(
 
 
 # The loop turns back while its end frame shows, and should hold it the whole refreshes a frame lasts
-# on this display, which every frame holds at least: 2 at 60 Hz for 24 or 30 fps. Headless Chrome
-# sometimes runs at about 57 Hz, where a 30 fps frame may hold 1.
+# on this display, which every frame holds at least: 2 at 60 Hz for 24 or 30 fps. A display that
+# isn't at 60 Hz (asleep, about 57 Hz) makes the run inconclusive.
 @pytest.mark.parametrize(
     "fps",
     [pytest.param(24, marks=pytest.mark.video_style("testsrc24")), 30],
@@ -305,18 +314,16 @@ def test_a_pairs_loop_shows_its_end_frame_for_about_its_full_time(
     markup.load_saved_marker_pairs([{"start": 60 / fps, "end": 66 / fps, "crop": "0:0:iw:ih"}])
     markup.open_marker_pair(0)
     markup.press("Shift+KeyC")
-    held, refresh_ms, _ = when_the_loop_plays_by_refresh(markup, fps, turns=END_FRAME_TURNS)
-    runs = held_runs(held)
+    played = when_the_loop_plays_by_refresh(markup, fps, turns=END_FRAME_TURNS)
+    runs = held_runs(played.held)
     end_frame = [refreshes for frame, refreshes, after in runs if frame == 66 and after < 66]
-    played = [
+    played_frames = [
         refreshes for frame, refreshes, after in runs if 60 < frame < 66 and after == frame + 1
     ]
-    whole_refreshes = math.floor(1000 / fps / refresh_ms + 0.02)
-    markup.report(f"refresh {refresh_ms:.2f} ms, whole refreshes a frame {whole_refreshes}")
+    whole_refreshes = math.floor(REAL_DISPLAY_HZ / fps + 0.02)
+    markup.report(f"refresh {played.refresh_ms:.2f} ms, whole refreshes a frame {whole_refreshes}")
     markup.report(f"end frame refreshes per turn {end_frame}")
-    markup.report(f"played frame refreshes {played}")
-    # Under 2 refreshes a frame means the display isn't at 60 Hz (asleep, see the harness warning).
-    assert whole_refreshes >= 2, f"the display ran at {1000 / refresh_ms:.0f} Hz; wake it and rerun"
+    markup.report(f"played frame refreshes {played_frames}")
     assert len(end_frame) >= 10
     assert min(end_frame) >= whole_refreshes
 
@@ -336,7 +343,7 @@ def test_a_pairs_loop_played_from_a_pause_on_its_end_frame_never_shows_the_next(
     markup.open_marker_pair(0)
     markup.press("Shift+KeyC")
     for _ in range(3):
-        held, _, _ = when_the_loop_plays_by_refresh(markup, fps, turns=1, from_frame=66.75)
+        held = when_the_loop_plays_by_refresh(markup, fps, turns=1, from_frame=66.75).held
         markup.report(f"frames shown {held}")
         assert 67 not in held
 
@@ -416,14 +423,21 @@ def test_a_pairs_loop_holds_its_end_frame_and_never_the_next_on_other_display_ra
     markup.load_saved_marker_pairs([{"start": 60 / fps, "end": 66 / fps, "crop": "0:0:iw:ih"}])
     markup.open_marker_pair(0)
     markup.press("Shift+KeyC")
-    held, refresh_ms, refreshed_at = when_the_loop_plays_by_refresh(
-        markup, fps, turns=END_FRAME_TURNS
+    played = when_the_loop_plays_by_refresh(markup, fps, turns=DISPLAY_RATE_TURNS)
+    refresh_ms = played.refresh_ms
+    # A refresh the simulated display missed can cut an end frame short: its turn is left out.
+    turns = turns_without_missed_refreshes(
+        split_turns(played.held, played.refreshed_at), refresh_ms, played.missed, fewest_turns=10
     )
+    held = [frame for turn_held, _ in turns for frame in turn_held]
     end_frame_ms = [
-        ms for frame, ms, after in shown_runs(held, refreshed_at) if frame == 66 and after < 66
+        ms
+        for turn_held, turn_at in turns
+        for frame, ms, after in shown_runs(turn_held, turn_at)
+        if frame == 66 and after < 66
     ]
     markup.report(f"refresh {refresh_ms:.2f} ms, end frame ms on screen per turn {end_frame_ms}")
-    markup.report(f"refreshes past the end {held.count(67)}")
+    markup.report(f"refreshes past the end {held.count(67)}, {played.missed} missed")
     assert refresh_ms == pytest.approx(1000 / hz, abs=0.2)
     assert max(1, math.floor(1000 / fps / refresh_ms + 0.02)) == end_frame_refreshes
     assert min(held) >= 60
@@ -465,17 +479,31 @@ def test_the_end_frame_refreshes_expected_are_the_fewest_in_chromiums_cadence(
 # The fewest turns back the loop assertions need, and a cap on how long to play for them.
 LOOP_TURNS = 8
 END_FRAME_TURNS = 11
+# A simulated display misses about 1 in 15 refreshes at 120 Hz beside 3 other tests, and drops the turns
+# they fall in: spare turns keep 10 to check.
+DISPLAY_RATE_TURNS = 15
 LOOP_PLAY_CAP_MS = 10_000
+
+
+@dataclass(frozen=True)
+class LoopRefreshes:
+    # The frame held at each refresh, and the refresh's animation frame time (ms).
+    held: list[int]
+    refreshed_at: list[float]
+    refresh_ms: float
+    # Refreshes the simulated display missed while the loop played.
+    missed: int
 
 
 @step
 def when_the_loop_plays_by_refresh(
     markup: MarkupPage, fps: int, turns: int, from_frame: float = 60.5
-) -> tuple[list[int], float, list[float]]:
+) -> LoopRefreshes:
     """The frame the video holds at each refresh while it plays (a VideoFrame read per animation
-    frame), from paused at `from_frame` until it has turned back `turns` times, the median refresh
-    (ms), and each refresh's animation frame time (ms)."""
+    frame), from paused at `from_frame` until it has turned back `turns` times. On a real display,
+    one not at 60 Hz while it played makes the test inconclusive."""
     markup.seek(from_frame / fps, presented=True)
+    started = time.perf_counter()
     with markup.untraced():
         rows = markup.page.evaluate(
             """async ([turns, capMs]) => {
@@ -506,10 +534,15 @@ def when_the_loop_plays_by_refresh(
             }""",
             [turns, LOOP_PLAY_CAP_MS],
         )
+    ended = time.perf_counter()
     refreshed_at = [now for now, _ in rows]
     gaps = sorted(b - a for a, b in zip(refreshed_at, refreshed_at[1:]))
-    held = [math.floor(time * fps + 0.02) for _, time in rows]
-    return held, gaps[len(gaps) // 2], refreshed_at
+    refresh_ms = gaps[len(gaps) // 2]
+    if markup.display is None:
+        check_real_display(refresh_ms)
+    missed = missed_between(markup.display.missed_at, started, ended) if markup.display else 0
+    held = [math.floor(media_time * fps + 0.02) for _, media_time in rows]
+    return LoopRefreshes(held, refreshed_at, refresh_ms, missed)
 
 
 def held_runs(held: list[int]) -> list[tuple[int, int, int]]:

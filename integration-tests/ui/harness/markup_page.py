@@ -15,6 +15,8 @@ from .paths import REPO
 if TYPE_CHECKING:
     from playwright.sync_api import FloatRect, Page
 
+    from .simulated_display import DisplayStats
+
 SEEK_TIMEOUT_MS = 15_000
 
 
@@ -36,8 +38,11 @@ class MarkupPage:
         shots_dir: Path,
         tracing: bool = False,
         assumed_frame_rate: bool = False,
+        display: "DisplayStats | None" = None,
     ) -> None:
         self.page = page
+        # The simulated display's counts, on a page that has one (`display_rate`).
+        self.display = display
         # Tests that measure the rate run at the assumed 60 fps instead (--assumed-frame-rate).
         self.assumed_frame_rate = assumed_frame_rate
         self.host = host

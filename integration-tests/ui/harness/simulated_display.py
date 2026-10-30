@@ -19,7 +19,7 @@ import threading
 import time
 import urllib.request
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -41,8 +41,8 @@ STALL_SECONDS = 5
 @dataclass
 class DisplayStats:
     ticks: int = 0
-    # Ticks never sent, as a late refresh ran past them.
-    missed: int = 0
+    # The `time.perf_counter` due times of ticks never sent, as a late refresh ran past them.
+    missed_at: list[float] = field(default_factory=list)
     # The tick whose begin frame never finished, which closes the page.
     stalled_at: int | None = None
 
@@ -117,7 +117,7 @@ def drive(url: str, hz: float, stop: threading.Event, stats: DisplayStats) -> No
                 # A refresh not finished by its next vsync misses the vsyncs it ran into, as on a
                 # real display: the next one is the first still ahead, and the page sees a longer gap.
                 next_tick = max(tick + 1, math.ceil((time.perf_counter() - start) / interval))
-                stats.missed += next_tick - tick - 1
+                stats.missed_at.extend(start + t * interval for t in range(tick + 1, next_tick))
                 tick = next_tick
                 due = start + tick * interval
                 while (left := due - time.perf_counter()) > SPIN_SECONDS:
@@ -125,7 +125,7 @@ def drive(url: str, hz: float, stop: threading.Event, stats: DisplayStats) -> No
                 while time.perf_counter() < due:
                     time.sleep(0)
                 if time.perf_counter() - due > interval:
-                    stats.missed += 1
+                    stats.missed_at.append(due)
                     continue
                 # perf_counter and Chrome's TimeTicks read the same monotonic clock, so the page's
                 # animation frame times are the grid's.
