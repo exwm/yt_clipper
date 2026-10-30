@@ -34,18 +34,18 @@ const screenOf = (at: OnScreen) =>
 function frameTimeOf(at: OnScreen & { isSeekInFlight: boolean; ownSeek: OwnSeek | null }) {
   return frameTime(screenOf(at), at);
 }
-// `lastTarget`: the last step's target.
+// `lastTarget`: the last own seek's target, a step's unless `lastSeekKind` says otherwise.
 function stepTargetOf(
   step: OnScreen & {
     lastTarget: number | null;
+    lastSeekKind?: OwnSeek['kind'];
     duration: number;
     frames: number;
     isSeekInFlight?: boolean;
   }
 ) {
-  const { lastTarget: target, fps } = step;
-  const ownSeek =
-    target == null ? null : { target, frameStart: target - 0.5 / fps, kind: 'step' as const };
+  const { lastTarget: target, fps, lastSeekKind: kind = 'step' } = step;
+  const ownSeek = target == null ? null : { target, frameStart: target - 0.5 / fps, kind };
   return frameStepTarget(screenOf(step), {
     ...step,
     isSeekInFlight: step.isSeekInFlight ?? false,
@@ -363,6 +363,18 @@ describe('frameStepTarget', () => {
     [
       'chained while a step is pending',
       { playhead: middleOf(91), lastTarget: middleOf(91), isSeekInFlight: true },
+      middleOf(92),
+    ],
+    // A seek to a placed time late in a frame: a step goes from the playhead's grid frame, not on
+    // from the seek as from a step's.
+    [
+      'from the playhead while a placed seek is pending',
+      {
+        playhead: frame(91) + 0.025,
+        lastTarget: frame(91) + 0.025,
+        lastSeekKind: 'place',
+        isSeekInFlight: true,
+      },
       middleOf(92),
     ],
     [
