@@ -46,6 +46,8 @@ export function followFrameRate(video: VideoElement): void {
     updateFrameRate();
   });
   video.addEventListener('resize', updateFrameRate);
+  // The frame clock reads the frame held at each seek, which can measure the rate before playback.
+  video.addEventListener('seeked', updateFrameRate);
 }
 
 // The video playing is the one the markup is for. `isStaleVideo` is set only once YouTube finishes a

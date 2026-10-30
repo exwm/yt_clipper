@@ -616,6 +616,7 @@ describe('frameStepTarget', () => {
       video.clock = stepClock(video.clock, {
         type: 'seeked',
         heldFrameTime: playback.readsHeldFrame ? held : null,
+        heldFrameDuration: null,
         currentTime: video.currentTime,
         seeking: video.seeking,
       });
@@ -937,6 +938,7 @@ function replaySettled(
       clock = stepClock(clock, {
         type: 'seeked',
         heldFrameTime: b as number | null,
+        heldFrameDuration: null,
         currentTime,
         seeking: false,
       });

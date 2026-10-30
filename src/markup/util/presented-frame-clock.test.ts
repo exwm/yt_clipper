@@ -95,6 +95,41 @@ describe('getHeldFrame', () => {
   });
 });
 
+describe('the rate read at seeks', () => {
+  afterEach(() => {
+    delete (globalThis as { VideoFrame?: unknown }).VideoFrame;
+  });
+
+  // `new VideoFrame(video)` holds the frame at the playhead's 24 fps frame start, or throws as Chrome
+  // does at `loadeddata` before any seek.
+  it('measures the rate after two seeks, and reads nothing while the frame cannot be read', () => {
+    const { video, element, emit } = fakeVideo(0);
+    let isReadable = false;
+    globalThis.VideoFrame = class {
+      timestamp = (Math.floor(video.currentTime * 24) / 24) * 1e6;
+      duration = 41667;
+      constructor() {
+        if (!isReadable) throw new DOMException('no frame yet', 'InvalidStateError');
+      }
+      close() {}
+    } as unknown as typeof VideoFrame;
+    const seekTo = (time: number) => {
+      video.currentTime = time;
+      emit('seeking');
+      emit('seeked');
+    };
+    getMeasuredFrameRate(element);
+    seekTo(2.01);
+    seekTo(3.01);
+    expect(getMeasuredFrameRate(element)).toBeNull();
+    isReadable = true;
+    seekTo(4.01);
+    expect(getMeasuredFrameRate(element)).toBeNull();
+    seekTo(5.01);
+    expect(getMeasuredFrameRate(element)).toBe(24);
+  });
+});
+
 describe('getFrameOnScreen', () => {
   it('has no frame until one is presented', () => {
     const { element } = fakeVideo(4.2);
