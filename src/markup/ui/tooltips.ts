@@ -189,6 +189,7 @@ export namespace Tooltips {
   export const frameRateTooltip = stripIndent`
     The frame rate the markup script uses for frame steps and frame times.
     It is measured from the frames the video plays, about 2 seconds of playback.
+    In Chrome, two seeks to other frames can also measure it.
     Until then it is the platform's rate (YouTube) or an assumed 60 fps.
     `;
 
