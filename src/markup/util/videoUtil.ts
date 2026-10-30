@@ -269,7 +269,8 @@ export function getFrameRate(defaultFPS = 60): { rate: number; source: FrameRate
 
 const FRAME_RATE_SOURCES: Record<FrameRateSource, string> = {
   measured: 'measured',
-  platform: "the platform's",
+  // Only YouTube reports a rate.
+  platform: 'from YouTube',
   default: 'assumed',
 };
 

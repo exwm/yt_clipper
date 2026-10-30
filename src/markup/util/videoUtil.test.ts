@@ -480,7 +480,7 @@ describe('seekByFrames', () => {
 describe('describeFrameRate', () => {
   it.each([
     [{ rate: 30000 / 1001, source: 'measured' }, '29.97 fps (measured)'],
-    [{ rate: 30, source: 'platform' }, "30 fps (the platform's)"],
+    [{ rate: 30, source: 'platform' }, '30 fps (from YouTube)'],
     [{ rate: 60, source: 'default' }, '60 fps (assumed)'],
   ] as const)('%j', (frameRate, text) => {
     expect(describeFrameRate(frameRate)).toBe(text);
