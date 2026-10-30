@@ -28,6 +28,31 @@ def test_shift_mousewheel_steps_one_frame_at_a_time_at_the_measured_frame_rate(
     then_the_frames_shown_are(markup, backward, frames_stepped_to(markup, forward[-1], -10))
 
 
+# Chrome reads each frame's duration at `seeked`: two seeks to other frames confirm the rate.
+@pytest.mark.parametrize(
+    "fps",
+    [pytest.param(24, marks=pytest.mark.video_style("testsrc24")), 30],
+    ids=["24 fps", "30 fps"],
+)
+@pytest.mark.measured_rate
+def test_shift_mousewheel_steps_one_frame_after_two_seeks_before_any_playback(
+    markup: MarkupPage, fps: int, browser_name: str, request: pytest.FixtureRequest
+) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("checks a site that reports no frame rate; YouTube's stats report one")
+    if browser_name == "firefox":
+        reason = "Firefox reads no frame durations from VideoFrame"
+        request.applymarker(pytest.mark.xfail(strict=True, reason=reason))
+    given_the_global_settings_editor_is_open(markup)
+    markup.seek(60.5 / fps, presented=True)
+    when_i_pause_on_a_frame(markup, 90, fps)
+    forward = when_i_shift_scroll(markup, "up", times=5, fps=fps)
+    backward = when_i_shift_scroll(markup, "down", times=3, fps=fps)
+    then_the_frames_shown_are(markup, forward, [91, 92, 93, 94, 95])
+    then_the_frames_shown_are(markup, backward, [94, 93, 92])
+    then_the_frame_rate_reads(markup, f"{fps} fps (measured)", measuring=True)
+
+
 # Paused from playing, Chrome can hold a frame that starts after the playhead (10.7667 held at
 # 10.7293): a step moves from the frame shown.
 @pytest.mark.parametrize("direction", ["up", "down"], ids=["forward", "back"])
@@ -576,12 +601,14 @@ def given_the_video_has_played_until_its_frame_rate_is_measured(markup: MarkupPa
 
 
 @step
-def when_i_pause_on_a_frame(markup: MarkupPage, frame: int) -> None:
-    markup.seek(frame / VIDEO_FPS, presented=True)
+def when_i_pause_on_a_frame(markup: MarkupPage, frame: int, fps: int = VIDEO_FPS) -> None:
+    markup.seek(frame / fps, presented=True)
 
 
 @step
-def when_i_shift_scroll(markup: MarkupPage, direction: str, times: int) -> list[int]:
+def when_i_shift_scroll(
+    markup: MarkupPage, direction: str, times: int, fps: int = VIDEO_FPS
+) -> list[int]:
     """The frame each step shows. The test video's frame n starts at exactly n / 30 s, so a seek
     shows frame floor(playhead * 30); a playhead on a boundary can show either neighbor, which is
     what the floor of a target like 91 / 30 = 3.0333... (frame 90.999...) reveals. (Headless Chrome
@@ -593,7 +620,7 @@ def when_i_shift_scroll(markup: MarkupPage, direction: str, times: int) -> list[
         markup.page.mouse.wheel(0, -100 if direction == "up" else 100)
         markup.page.keyboard.up("Shift")
         markup.next_frames(2)
-        frames.append(math.floor(markup.current_time() * VIDEO_FPS))
+        frames.append(math.floor(markup.current_time() * fps))
     return frames
 
 
