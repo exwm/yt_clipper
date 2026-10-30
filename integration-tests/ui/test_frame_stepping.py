@@ -60,11 +60,12 @@ def when_i_play_and_pause(markup: MarkupPage, play_ms: int) -> int:
     return round(state["held"] * VIDEO_FPS)
 
 
-# Before a rate is measured steps are 1/60 s; at the end Chrome snaps the time to the duration, past
+# With Measure off steps are 1/60 s; at the end Chrome snaps the time to the duration, past
 # the last frame, and steps back must still leave the last frame.
 def test_shift_mousewheel_steps_back_from_the_end_of_the_video(markup: MarkupPage) -> None:
     if markup.host != DEV_SITE_HOST:
         pytest.skip("checks the 60 fps default of a site that reports no frame rate")
+    given_the_frame_rate_is(markup, measured=False)
     duration = markup.page.evaluate("() => document.querySelector('video').duration")
     markup.seek(duration - 0.12, presented=True)
     forward = when_i_shift_scroll(markup, "up", times=8)
@@ -144,6 +145,8 @@ def test_previews_follow_the_pairs_frames_across_steps_off_its_first_and_last_fr
         request.applymarker(pytest.mark.xfail(strict=True, reason=reason))
     if measured:
         given_the_video_has_played_until_its_frame_rate_is_measured(markup)
+    else:
+        given_the_frame_rate_is(markup, measured=False)
     markup.load_saved_marker_pairs(
         [
             {
@@ -238,9 +241,8 @@ def test_a_pairs_loop_never_shows_the_frame_after_its_end_marker(
     if markup.host != DEV_SITE_HOST:
         pytest.skip("relies on the dev site's test videos")
     most_cycles_past_end = RARE_CYCLES_PAST_END if measured else most_cycles_past_end_assumed
-    if measured:
-        markup.measure_frame_rate()
-    end = (66 + end_into_frame) / fps
+    given_the_frame_rate_is(markup, measured=measured)
+    end =(66 + end_into_frame) / fps
     markup.load_saved_marker_pairs([{"start": 60 / fps, "end": end, "crop": "0:0:iw:ih"}])
     markup.open_marker_pair(0)
     markup.press("Shift+KeyC")

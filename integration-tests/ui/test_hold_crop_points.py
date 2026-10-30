@@ -17,7 +17,12 @@ from test_crop_chart import (
     given_the_crop_chart_is_open,
 )
 from test_crop_easing import when_i_save_the_markers, when_i_set_the_crop
-from test_frame_stepping import VIDEO_FPS, when_i_run_the_palette_command, when_i_shift_scroll
+from test_frame_stepping import (
+    VIDEO_FPS,
+    given_the_frame_rate_is,
+    when_i_run_the_palette_command,
+    when_i_shift_scroll,
+)
 
 # Full-height crops, so a drag at the video's middle row starts inside them. Crops are x:y:w:h in
 # the default 1920x1080 crop resolution.
@@ -1159,7 +1164,7 @@ LATE_IN_FRAME_180 = round(181 / VIDEO_FPS - 0.0015, 6)
 # 30 fps video steps and compares frames at 60 fps, so a grid frame is half a video frame. In reframe the frame loop takes a frame on every refresh.
 @pytest.mark.parametrize("reframe", [False, True], ids=["chart only", "in reframe"])
 @pytest.mark.parametrize(
-    "turned_off", [False, True], ids=["never measured", "measurement turned off"]
+    "turned_off", [False, True], ids=["measure off", "measurement turned off"]
 )
 @pytest.mark.timing
 def test_points_added_on_one_frame_at_the_assumed_frame_rate_stay_one_point(
@@ -1168,6 +1173,8 @@ def test_points_added_on_one_frame_at_the_assumed_frame_rate_stay_one_point(
     if markup.host != DEV_SITE_HOST:
         pytest.skip("relies on the dev site reporting no frame rate")
     # Turned off mid-session, the rate in use drops from the measured 30 back to 60.
+    if not turned_off:
+        given_the_frame_rate_is(markup, measured=False)
     given_a_pair_with_its_crop_chart_open(
         markup, pair((CROP_A, False), (CROP_A, False)), measured=turned_off
     )

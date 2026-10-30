@@ -7,7 +7,10 @@ import pytest
 from harness.hosts import DEV_SITE_HOST
 from harness.markup_page import MarkupPage
 from harness.steps import step
-from test_frame_stepping import given_the_video_has_played_until_its_frame_rate_is_measured
+from test_frame_stepping import (
+    given_the_frame_rate_is,
+    given_the_video_has_played_until_its_frame_rate_is_measured,
+)
 
 PAIR_START = 3.0
 PAIR_END = 9.0
@@ -35,6 +38,8 @@ def test_crop_preview_stays_on_the_frame_on_screen_after_a_seek_within_it(
 ) -> None:
     if measured:
         given_the_video_has_played_until_its_frame_rate_is_measured(dynamic_crop)
+    else:
+        given_the_frame_rate_is(dynamic_crop, measured=False)
     on_screen = when_i_pause_mid_pan_and_seek_within_the_frame(dynamic_crop)
     when_i_switch_the_crop_easing_away_and_back(dynamic_crop)
     then_the_crop_chip_is_unchanged(dynamic_crop, on_screen)
