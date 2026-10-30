@@ -53,6 +53,7 @@ import { Settings } from '../../@types/yt_clipper';
 import { Tooltips } from '../../ui/tooltips';
 import {
   describeFrameRate,
+  describeMeasureButton,
   getFrameRate,
   isFrameRateMeasured,
   toggleFrameRateMeasurement,
@@ -107,6 +108,8 @@ function GlobalSettingsEditorTemplate(binder: SettingsBinder<Settings>): Templat
   const markerPairMergelistDurations = getMarkerPairMergeListDurations();
   const encodeDisplay = isExtraSettingsEditorEnabled ? 'block' : 'none';
   const rotate = settings.rotate;
+  const frameRate = getFrameRate();
+  const measureButton = describeMeasureButton(frameRate);
 
   const rotate0 = bind('rotate-0', 'rotate', 'string');
   const rotate90Clock = bind('rotate-90-clock', 'rotate', 'string');
@@ -245,17 +248,15 @@ function GlobalSettingsEditorTemplate(binder: SettingsBinder<Settings>): Templat
           />
         </div>
         <div class="settings-editor-input-div" title=${Tooltips.frameRateTooltip}>
-          <span id="global-frame-rate" style="display:inline"
-            >${describeFrameRate(getFrameRate())}</span
-          >
+          <span id="global-frame-rate" style="display:inline">${describeFrameRate(frameRate)}</span>
           <button
             type="button"
             id="global-frame-rate-toggle"
-            class=${`settings-toggle${isFrameRateMeasured() ? ' active' : ''}`}
+            class=${`settings-toggle${isFrameRateMeasured() ? ' active' : ''}${measureButton.isMeasured ? ' measured' : ''}`}
             title=${Tooltips.frameRateMeasurementTooltip}
             @click=${toggleFrameRateMeasurement}
           >
-            Measure
+            ${measureButton.label}
           </button>
         </div>
         <div class="settings-editor-input-div">

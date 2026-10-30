@@ -346,6 +346,11 @@
   border-color: var(--settings-editor-accent-bright, var(--marker-pair-editor-accent));
 }
 
+/* The rate in use was measured: the success green of the flashes. */
+#global-frame-rate-toggle.measured {
+  border-color: #3ac36a;
+}
+
 .marker-pair-settings-editor {
   --settings-editor-accent: var(--marker-pair-editor-accent);
   --settings-editor-accent-bright: rgb(255, 160, 70);

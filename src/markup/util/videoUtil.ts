@@ -267,24 +267,30 @@ export function getFrameRate(defaultFPS = 60): { rate: number; source: FrameRate
   return frameRate;
 }
 
-const FRAME_RATE_SOURCES: Record<FrameRateSource, string> = {
-  measured: 'measured',
-  // Only YouTube reports a rate.
-  platform: 'from YouTube',
-  default: 'assumed',
-};
-
-/** The frame rate in use and where it comes from, as the global settings editor shows it. */
-export function describeFrameRate({ rate, source }: { rate: number; source: FrameRateSource }) {
-  return `${formatFps(rate)} fps (${FRAME_RATE_SOURCES[source]})`;
+/** The frame rate in use, as the global settings editor shows it. */
+export function describeFrameRate({ rate }: { rate: number }) {
+  return `${formatFps(rate)} fps`;
 }
 
-// Runs on every played frame: touch the page only when the text changes.
+/** The Measure button once the rate in use was measured, which needs measurement on. */
+export function describeMeasureButton({ source }: { source: FrameRateSource }) {
+  const isMeasured = source === 'measured';
+  return { label: isMeasured ? 'Measured' : 'Measure', isMeasured };
+}
+
+// Runs on every played frame: touch the page only when the text or state changes.
 function showFrameRate(frameRate: { rate: number; source: FrameRateSource }) {
   if (typeof document === 'undefined') return;
   const field = document.getElementById('global-frame-rate');
   const text = describeFrameRate(frameRate);
   if (field != null && field.textContent !== text) field.textContent = text;
+  const button = document.getElementById('global-frame-rate-toggle');
+  const { label, isMeasured } = describeMeasureButton(frameRate);
+  if (button == null) return;
+  if (button.textContent !== label) button.textContent = label;
+  if (button.classList.contains('measured') !== isMeasured) {
+    button.classList.toggle('measured', isMeasured);
+  }
 }
 
 export function getFPS(defaultFPS: number | null = 60): number {

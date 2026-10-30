@@ -60,7 +60,7 @@ def test_shift_mousewheel_steps_one_frame_after_two_seeks_before_any_playback(
     backward = when_i_shift_scroll(markup, "down", times=3, fps=fps)
     then_the_frames_shown_are(markup, forward, [91, 92, 93, 94, 95])
     then_the_frames_shown_are(markup, backward, [94, 93, 92])
-    then_the_frame_rate_reads(markup, f"{fps} fps (measured)", measuring=True)
+    then_the_frame_rate_reads(markup, f"{fps} fps", measuring=True, measured=True)
 
 
 # Paused from playing, Chrome can hold a frame that starts after the playhead (10.7667 held at
@@ -135,12 +135,12 @@ def test_the_measure_button_beside_the_frame_rate_turns_measurement_off_and_on(
     if markup.host != DEV_SITE_HOST:
         pytest.skip("checks the 60 fps default of a site that reports no frame rate")
     given_the_global_settings_editor_is_open(markup)
-    then_the_frame_rate_reads(markup, "60 fps (assumed)", measuring=True)
+    then_the_frame_rate_reads(markup, "60 fps", measuring=True, measured=False)
     when_i_click_the_measure_button(markup)
     then_a_flash_says(markup, "Frame rate measurement off. Using 60 fps.")
-    then_the_frame_rate_reads(markup, "60 fps (assumed)", measuring=False)
+    then_the_frame_rate_reads(markup, "60 fps", measuring=False, measured=False)
     when_i_click_the_measure_button(markup)
-    then_the_frame_rate_reads(markup, "60 fps (assumed)", measuring=True)
+    then_the_frame_rate_reads(markup, "60 fps", measuring=True, measured=False)
 
 
 @step
@@ -156,11 +156,16 @@ def when_i_click_the_measure_button(markup: MarkupPage) -> None:
 
 
 @step
-def then_the_frame_rate_reads(markup: MarkupPage, text: str, measuring: bool) -> None:
+def then_the_frame_rate_reads(
+    markup: MarkupPage, text: str, *, measuring: bool, measured: bool
+) -> None:
     markup.shot("frame-rate")
     assert markup.page.inner_text("#global-frame-rate") == text
-    classes = markup.page.get_attribute("#global-frame-rate-toggle", "class") or ""
-    assert ("active" in classes.split()) == measuring
+    button = "#global-frame-rate-toggle"
+    assert markup.page.inner_text(button) == ("Measured" if measured else "Measure")
+    classes = (markup.page.get_attribute(button, "class") or "").split()
+    assert ("active" in classes) == measuring
+    assert ("measured" in classes) == measured
 
 
 # The previews apply a pair's own settings on all its frames, its end marker's frame included, and
