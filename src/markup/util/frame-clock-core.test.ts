@@ -483,8 +483,9 @@ describe('the rate read from the frames held at seeks', () => {
     expect(measuredRate(clock)).toBeNull();
   });
 
+  // A new rendition keeps the read rate, and its played frames, at another rate, can't contradict it.
   it('prefers a played run to the read', () => {
-    let clock = readsOf([r(3, 33333), r(4, 33333)]);
+    let clock = stepClock(readsOf([r(3, 33333), r(4, 33333)]), { type: 'resize' });
     for (let k = 0; k <= FRAMES_TO_CONFIRM_EXACT; k++) {
       clock = stepClock(clock, { type: 'frame', frame: frameAt(k, 10 + k / 24) });
     }
@@ -492,13 +493,20 @@ describe('the rate read from the frames held at seeks', () => {
   });
 
   // `times(k)` is frame k's time; frames are played from 10 s, after the reads.
-  const playedAfterReads = (reads: Read[], times: (k: number) => number) => {
+  const playedAfterReads = (reads: Read[], times: (k: number) => number, playbackRate = 1) => {
     let clock = readsOf(reads);
     for (let k = 0; k < 20; k++) {
-      clock = stepClock(clock, { type: 'frame', frame: frameAt(k, 10 + times(k)) });
+      const frame = { ...frameAt(k, 10 + times(k)), playbackRate };
+      clock = stepClock(clock, { type: 'frame', frame });
     }
     return measuredRate(clock);
   };
+
+  it('drops a read rate when a phone video plays only faster than 1x', () => {
+    const phoneVideo = (k: number) => (20 * k + (k % 7 === 3 ? -1 : 0)) / 600;
+    expect(playedAfterReads([r(3, 33333), r(4, 33333)], phoneVideo, 2)).toBeNull();
+    expect(playedAfterReads([r(3, 33333), r(4, 33333)], (k) => (2 * k) / 30, 2)).toBe(30);
+  });
 
   it.each<[string, Read[], (k: number) => number, number | null]>([
     ['steady 30 fps', [r(3, 33333), r(4, 33333)], (k) => k / 30, 30],
