@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import pytest
 from harness.environment import (
     REAL_DISPLAY_HZ,
+    check_page_kept_up,
     check_real_display,
     missed_between,
     split_turns,
@@ -276,7 +277,7 @@ def test_a_pairs_loop_never_shows_the_frame_after_its_end_marker(
         pytest.skip("relies on the dev site's test videos")
     most_cycles_past_end = RARE_CYCLES_PAST_END if measured else most_cycles_past_end_assumed
     given_the_frame_rate_is(markup, measured=measured)
-    end =(66 + end_into_frame) / fps
+    end = (66 + end_into_frame) / fps
     markup.load_saved_marker_pairs([{"start": 60 / fps, "end": end, "crop": "0:0:iw:ih"}])
     markup.open_marker_pair(0)
     markup.press("Shift+KeyC")
@@ -550,6 +551,7 @@ def when_the_loop_plays_by_refresh(
     gaps = sorted(b - a for a, b in zip(refreshed_at, refreshed_at[1:]))
     refresh_ms = gaps[len(gaps) // 2]
     if markup.display is None:
+        check_page_kept_up(refresh_ms)
         check_real_display(refresh_ms)
     missed = missed_between(markup.display.missed_at, started, ended) if markup.display else 0
     held = [math.floor(media_time * fps + 0.02) for _, media_time in rows]

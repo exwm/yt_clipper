@@ -1163,9 +1163,7 @@ LATE_IN_FRAME_180 = round(181 / VIDEO_FPS - 0.0015, 6)
 # At the assumed 60 fps (before the rate is measured, or with measurement turned off) the dev site's
 # 30 fps video steps and compares frames at 60 fps, so a grid frame is half a video frame. In reframe the frame loop takes a frame on every refresh.
 @pytest.mark.parametrize("reframe", [False, True], ids=["chart only", "in reframe"])
-@pytest.mark.parametrize(
-    "turned_off", [False, True], ids=["measure off", "measurement turned off"]
-)
+@pytest.mark.parametrize("turned_off", [False, True], ids=["measure off", "measurement turned off"])
 @pytest.mark.timing
 def test_points_added_on_one_frame_at_the_assumed_frame_rate_stay_one_point(
     markup: MarkupPage, reframe: bool, turned_off: bool

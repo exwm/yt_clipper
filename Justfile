@@ -153,7 +153,7 @@ _ui-test-phase workers marks *args:
 ui-test-display-rates *args:
   just _parcel-once
   uv run --group ui-test playwright install chromium-headless-shell
-  uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n 4 --durations=10 --output sandbox/ui-test-results --reruns 2 --only-rerun InconclusiveEnvironment -m display_rate "$@"
+  uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n 1 --durations=10 --output sandbox/ui-test-results --reruns 2 --only-rerun InconclusiveEnvironment -m display_rate "$@"
 # Release highlight close-ups listed in integration-tests/ui/showcase.toml, into sandbox/showcase/<release>/.
 # Add --update-assets to also write the shots that name an asset into assets/image/.
 [positional-arguments]

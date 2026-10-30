@@ -3,6 +3,7 @@
 import pytest
 from harness.environment import (
     InconclusiveEnvironment,
+    check_page_kept_up,
     check_real_display,
     missed_between,
     split_turns,
@@ -20,6 +21,17 @@ def test_a_real_display_at_60_hz_is_valid(refresh_ms: float) -> None:
 def test_a_real_display_not_at_60_hz_is_inconclusive(refresh_ms: float) -> None:
     with pytest.raises(InconclusiveEnvironment):
         check_real_display(refresh_ms)
+
+
+# Every other refresh missed: the page's own frame callbacks ran too long.
+def test_frames_slower_than_a_sleeping_display_fail() -> None:
+    with pytest.raises(AssertionError, match="the page missed refreshes"):
+        check_page_kept_up(33.3)
+
+
+# A sleeping display, which the setup check only warns about, is no failure of the page.
+def test_frames_at_a_sleeping_displays_rate_pass() -> None:
+    check_page_kept_up(17.5)
 
 
 # Frames held at each refresh of a 10 ms display: two turns back to 60, after which the rows stop.
