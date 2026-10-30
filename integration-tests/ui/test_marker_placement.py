@@ -33,6 +33,10 @@ def test_a_marker_marks_the_start_of_the_playheads_frame_and_moves_one_frame_at_
 
 
 # A pair needs its end marker after its start marker's frame: a second A on the same frame is refused.
+@pytest.mark.firefox_limit(
+    "Firefox's VideoFrame reports no frame times, so before the rate is measured a frame's two"
+    " halves read as two frames at the assumed 60 fps"
+)
 def test_a_second_a_on_the_start_markers_frame_is_refused(markup: MarkupPage) -> None:
     if markup.host != DEV_SITE_HOST:
         pytest.skip("relies on the dev site's test video frame times")

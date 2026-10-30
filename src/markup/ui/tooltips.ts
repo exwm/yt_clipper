@@ -188,12 +188,15 @@ export namespace Tooltips {
 
   export const frameRateTooltip = stripIndent`
     The frame rate the markup script uses for frame steps and frame times.
-    It is measured from the frames the video plays, about 2 seconds of playback.
-    Until then it is the platform's rate (YouTube) or an assumed 60 fps.
+    It is measured from about 2 seconds of playback, or in Chrome from two seeks to other frames.
+    Until then it is the rate YouTube reports, or 60 fps on other sites.
+    Once it is measured, the button reads Measured with a green border.
     `;
 
-  export const frameRateMeasurementTooltip = stripIndent`n    Toggle measuring the frame rate from played frames (on when highlighted).
-    Turned off, the markup script uses the platform's rate (YouTube) or 60 fps.
+  export const frameRateMeasurementTooltip = stripIndent`
+    Toggle frame rate measurement (on when highlighted).
+    It reads Measured with a green border once the rate is measured.
+    Turned off, the markup script uses the rate YouTube reports, or 60 fps on other sites.
     `;
 
   export const mergeListTooltip = stripIndent`

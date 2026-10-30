@@ -6,12 +6,22 @@ a failure of the markup. Never use them to excuse what the markup itself did."""
 # 17 ms sleep (about 57 Hz, see `displays_stay_on` in conftest.py).
 REAL_DISPLAY_HZ = 60
 REAL_REFRESH_MS = (16.4, 16.9)
+# Slower than the 17 ms sleep, the page itself missed refreshes (a frame callback too slow).
+ASLEEP_REFRESH_MS = 17.6
 # A gap this many refreshes long holds a refresh the simulated display never sent.
 MISSED_REFRESH_GAP = 1.5
 
 
 class InconclusiveEnvironment(Exception):
     """The machine, not the markup, spoiled the window a timing test measured."""
+
+
+def check_page_kept_up(refresh_ms: float) -> None:
+    """Fails a measured window whose frames ran slower than a sleeping display's. Only where the
+    markup works each frame: the setup check measures an idle page, where only the machine is slow."""
+    assert refresh_ms <= ASLEEP_REFRESH_MS, (
+        f"frames ran every {refresh_ms:.2f} ms: the page missed refreshes"
+    )
 
 
 def check_real_display(refresh_ms: float) -> None:
@@ -40,8 +50,9 @@ def turns_without_missed_refreshes(
     fewest_turns: int,
 ) -> list[tuple[list[int], list[float]]]:
     """The turns no missed simulated refresh fell in, when the display missed `missed_in_window`
-    refreshes while the test measured. A gap between refreshes places a miss, and only a miss the
-    display recorded excuses one: a gap the page made itself stays in."""
+    refreshes while the test measured: ones its driver woke too late to send, never ones the page's
+    late refreshes skipped. A gap between refreshes places a miss, so in a window with no miss a gap
+    the page made itself stays in."""
     if not missed_in_window:
         return turns
     clean = [

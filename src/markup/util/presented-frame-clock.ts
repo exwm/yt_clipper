@@ -74,7 +74,8 @@ function logNewRate(before: ClockState, after: ClockState): void {
   );
   const origin =
     after.publishedRate != null ? 'playback' : `frames read at seeks (${reads.join(', ')} µs)`;
-  console.log(`[yt_clipper] Frame rate ${rate} fps, measured from ${origin}.`);
+  // Logged with Measure off too, which then leaves the rate unused.
+  console.log(`[yt_clipper] The video's frame rate is ${rate} fps, from ${origin}.`);
 }
 
 /** What the clock knows of the frame on screen. Its time is on the platform's timeline, as the

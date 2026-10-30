@@ -221,6 +221,21 @@ function checkRead(
   return { readRate: read.rate, readCheck: read };
 }
 
+// Two reads can't tell a varying rate (a phone's capture) from a steady one: a played gap that is no
+// whole number of frames at the read rate shows it, give or take millisecond rounding.
+function checkPlayedGap(
+  state: ClockState,
+  gap: number
+): Pick<ClockState, 'readRate' | 'readCheck'> {
+  const { readRate, readCheck } = state;
+  if (readCheck == null || readCheck === 'mixed') return { readRate, readCheck };
+  const frames = Math.round(gap * readCheck.rate);
+  const isOff =
+    frames < 1 ||
+    Math.abs(gap - frames / readCheck.rate) > RUN_ROUNDING_SECONDS + RUN_MARGIN_SECONDS;
+  return isOff ? { readRate: null, readCheck: 'mixed' } : { readRate, readCheck };
+}
+
 /** Whether a frame read at `held` (s) can be the frame at `currentTime`. Firefox reads every frame as
  *  about 0 (5 µs). Playing, the frame on screen can be a refresh or more ahead of the playhead. */
 export function isHeldFrameNear(held: number, currentTime: number): boolean {
@@ -230,6 +245,10 @@ export function isHeldFrameNear(held: number, currentTime: number): boolean {
 function stepFrame(state: ClockState, frame: SeenFrame): ClockState {
   const { lastFrame } = state;
   const presented = lastFrame ? framesBetween(lastFrame, frame) : 0;
+  // Frame times are whole frames apart at any speed, so faster playback checks the read rate too.
+  if (lastFrame && isPlayedGap(lastFrame, frame)) {
+    state = { ...state, ...checkPlayedGap(state, frame.mediaTime - lastFrame.mediaTime) };
+  }
   const frames =
     lastFrame && presented > 0 && frame.droppedFrames > lastFrame.droppedFrames
       ? framesWithDrops(
@@ -316,18 +335,19 @@ function continuesRun(run: readonly RunGap[], gap: RunGap): boolean {
   return Math.abs(gap.duration - expected) <= tolerance;
 }
 
+// The video played from `previous` to `frame`, with no seek or pause between.
+const isPlayedGap = (previous: SeenFrame, frame: SeenFrame) =>
+  !frame.paused &&
+  previous.seekCount === frame.seekCount &&
+  !previous.duringSeek &&
+  !frame.duringSeek &&
+  frame.mediaTime > previous.mediaTime;
+
 // How many frames were presented from `previous` to `frame` (more than 1 when frame callbacks were
 // skipped), or 0 when the gap doesn't measure the frame rate: across a seek, while paused, or faster
 // than normal speed. Dropped frames are left out of the count (framesWithDrops).
 function framesBetween(previous: SeenFrame, frame: SeenFrame): number {
-  const measures =
-    !frame.paused &&
-    frame.playbackRate <= 1 &&
-    previous.seekCount === frame.seekCount &&
-    !previous.duringSeek &&
-    !frame.duringSeek &&
-    frame.mediaTime > previous.mediaTime;
-  if (!measures) return 0;
+  if (!isPlayedGap(previous, frame) || frame.playbackRate > 1) return 0;
   if (previous.presentedFrames == null || frame.presentedFrames == null) return 1;
   return Math.max(0, frame.presentedFrames - previous.presentedFrames);
 }
