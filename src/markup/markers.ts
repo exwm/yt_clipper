@@ -975,10 +975,12 @@ export function markerPairDuration(markerPair: MarkerPair): {
   const span = frameSpan(getFrameGrid(), markerPair.start, markerPair.end);
   const duration = span.end - span.start;
   const durationHHMMSS = toHHMMSSTrimmed(duration);
+  const frames = ` (${span.lastFrame - span.firstFrame + 1})`;
   const { speed, speedMap } = markerPair;
   if (isVariableSpeed(speedMap)) {
     const outputDuration = getOutputDuration(speedMap, getFPS());
-    return { text: `${durationHHMMSS} (${toHHMMSSTrimmed(outputDuration)})`, outputDuration };
+    const text = `${durationHHMMSS} (${toHHMMSSTrimmed(outputDuration)})${frames}`;
+    return { text, outputDuration };
   }
   // At the pair's own speed, as the clipper's constant-speed path renders it.
   const constantSpeed = [
@@ -987,7 +989,7 @@ export function markerPairDuration(markerPair: MarkerPair): {
   ];
   const outputDuration = getOutputDuration(constantSpeed, getFPS());
   return {
-    text: `${durationHHMMSS}/${speed} = ${toHHMMSSTrimmed(outputDuration)}`,
+    text: `${durationHHMMSS}/${speed} = ${toHHMMSSTrimmed(outputDuration)}${frames}`,
     outputDuration,
   };
 }

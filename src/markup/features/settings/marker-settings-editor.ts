@@ -278,7 +278,7 @@ function MarkerPairEditorTemplate(
           <span> - </span>
           <span id="end-time">${endTime}</span>
           <br />
-          <span>Duration: </span>
+          <span>Dur: </span>
           <span id="duration">${markerPairDuration(markerPair).text}</span>
         </div>
       `,
