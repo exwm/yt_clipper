@@ -221,6 +221,21 @@ function checkRead(
   return { readRate: read.rate, readCheck: read };
 }
 
+// Two reads can't tell a varying rate (a phone's capture) from a steady one: a played gap that is no
+// whole number of frames at the read rate shows it, give or take millisecond rounding.
+function checkPlayedGap(
+  state: ClockState,
+  gap: number
+): Pick<ClockState, 'readRate' | 'readCheck'> {
+  const { readRate, readCheck } = state;
+  if (readCheck == null || readCheck === 'mixed') return { readRate, readCheck };
+  const frames = Math.round(gap * readCheck.rate);
+  const isOff =
+    frames < 1 ||
+    Math.abs(gap - frames / readCheck.rate) > RUN_ROUNDING_SECONDS + RUN_MARGIN_SECONDS;
+  return isOff ? { readRate: null, readCheck: 'mixed' } : { readRate, readCheck };
+}
+
 /** Whether a frame read at `held` (s) can be the frame at `currentTime`. Firefox reads every frame as
  *  about 0 (5 µs). Playing, the frame on screen can be a refresh or more ahead of the playhead. */
 export function isHeldFrameNear(held: number, currentTime: number): boolean {
@@ -230,6 +245,9 @@ export function isHeldFrameNear(held: number, currentTime: number): boolean {
 function stepFrame(state: ClockState, frame: SeenFrame): ClockState {
   const { lastFrame } = state;
   const presented = lastFrame ? framesBetween(lastFrame, frame) : 0;
+  if (lastFrame && presented > 0) {
+    state = { ...state, ...checkPlayedGap(state, frame.mediaTime - lastFrame.mediaTime) };
+  }
   const frames =
     lastFrame && presented > 0 && frame.droppedFrames > lastFrame.droppedFrames
       ? framesWithDrops(

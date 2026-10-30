@@ -491,6 +491,37 @@ describe('the rate read from the frames held at seeks', () => {
     expect(measuredRate(clock)).toBe(24);
   });
 
+  // `times(k)` is frame k's time; frames are played from 10 s, after the reads.
+  const playedAfterReads = (reads: Read[], times: (k: number) => number) => {
+    let clock = readsOf(reads);
+    for (let k = 0; k < 20; k++) {
+      clock = stepClock(clock, { type: 'frame', frame: frameAt(k, 10 + times(k)) });
+    }
+    return measuredRate(clock);
+  };
+
+  it.each<[string, Read[], (k: number) => number, number | null]>([
+    ['steady 30 fps', [r(3, 33333), r(4, 33333)], (k) => k / 30, 30],
+    // A callback missed: the gap spans two frames.
+    ['30 fps with a gap of two frames', [r(3, 33333), r(4, 33333)], (k) => (k + +(k > 5)) / 30, 30],
+    // YouTube's mediaTime is rounded to the millisecond.
+    [
+      '29.97 fps in milliseconds',
+      [r(3, 33366), r(4, 33366)],
+      (k) => Math.round((k * 1001) / 30) / 1000,
+      30000 / 1001,
+    ],
+    // A phone's video on a 1/600 s timescale: 20 ticks a frame, now and then 19 or 21.
+    [
+      'a phone video whose frames vary by a tick',
+      [r(3, 33333), r(4, 33333)],
+      (k) => (20 * k + (k % 7 === 3 ? -1 : 0)) / 600,
+      null,
+    ],
+  ])('a read rate played as %s', (_case, reads, times, expected) => {
+    expect(playedAfterReads(reads, times)).toBe(expected);
+  });
+
   it('keeps the read rate through a new rendition, which clears a pending read', () => {
     const resized = stepClock(readsOf([r(3, 33333), r(4, 33333)]), { type: 'resize' });
     expect(measuredRate(resized)).toBe(30);

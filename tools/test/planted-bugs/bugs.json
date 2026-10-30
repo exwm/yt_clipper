@@ -175,6 +175,14 @@
     "uiCmd": "just ui-test -k test_alt_dragging_a_pairs_end_number_moves_its_end_marker_and_crop_map"
   },
   {
+    "id": "read-no-jitter",
+    "bug": "played frame times that vary don't drop the read rate, so a phone video keeps a 30 fps grid two frames can share",
+    "file": "src/markup/util/frame-clock-core.ts",
+    "old": "  return isOff ? { readRate: null, readCheck: 'mixed' } : { readRate, readCheck };",
+    "new": "  return { readRate, readCheck };",
+    "jest": ["src/markup/util/frame-clock-core.test.ts"]
+  },
+  {
     "id": "read-ms",
     "bug": "a read duration matches a standard rate within 1 ms, so millisecond durations (webm) read as 23.976 or 30 fps",
     "file": "src/markup/util/frame-clock-core.ts",
