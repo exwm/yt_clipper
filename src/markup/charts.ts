@@ -1002,29 +1002,23 @@ export function getActiveCinematicPlotInput(): CinematicPlotInput | null {
 // mid-recompute), in which case the caller falls back to a smooth interpolation.
 function getActiveCinematicCrop(): [number, number, number, number] | null {
   const mp = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
-  const path = mp && cinematicPaths.get(mp);
-  if (!path) {
-    // After a failed solve, a frame rate change is new input, as below.
-    if (mp && failedCinematicSignatures.has(mp)) stepCinematicSolveSchedule({ type: 'frame' });
-    return null;
-  }
+  if (!mp) return null;
   const { cropResWidth, cropResHeight } = appState.settings;
-  if (
-    !isCropPathFresh(
-      path,
-      getCinematicCropMap(mp),
-      getActiveCinematicMargins(),
-      cropResWidth,
-      cropResHeight,
-      getFPS()
-    )
-  ) {
-    // Stale without an edit (the video's frame rate changed with its quality): nothing else would
-    // solve it again.
+  const freshPath = () => {
+    const path = cinematicPaths.get(mp);
+    const cropMap = getCinematicCropMap(mp);
+    const margins = getActiveCinematicMargins();
+    const fresh = isCropPathFresh(path, cropMap, margins, cropResWidth, cropResHeight, getFPS());
+    return fresh && path ? path : null;
+  };
+  let path = freshPath();
+  // Stale or failed without an edit (the frame rate was measured, or changed with the quality):
+  // nothing else would solve it again. The solve can run now, so read the path again.
+  if (!path && (cinematicPaths.has(mp) || failedCinematicSignatures.has(mp))) {
     stepCinematicSolveSchedule({ type: 'frame' });
-    return null;
+    path = freshPath();
   }
-  return evalCinematicCrop(mp, path, currentCropTime());
+  return path ? evalCinematicCrop(mp, path, currentCropTime()) : null;
 }
 
 // The fitted x and w (or y and h) can each be a fraction of a pixel off, so between samples the crop

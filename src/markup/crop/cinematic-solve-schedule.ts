@@ -2,8 +2,9 @@
  * When the preview solves the active pair's Cinematic path: a pure function from the schedule's state,
  * an event and the inputs of the moment to the next state and the actions `charts.ts` carries out.
  *
- * The L1 solve is global and far too heavy for the frame loops, so it runs only off a debounce timer:
- * every edit restarts the timer, and the solve runs once editing settles. Inputs that already failed
+ * The L1 solve is global and far too heavy for the frame loops, so edits solve off a debounce timer:
+ * every edit restarts the timer, and the solve runs once editing settles. A frame rate change solves
+ * on the next frame, once, since its path is then fresh. Inputs that already failed
  * wait for an edit instead of being retried, and a solve never runs mid-drag.
  */
 
@@ -70,8 +71,11 @@ export function stepCinematicSolve(
     case 'request':
       return request(state, inputs);
     case 'frame':
-      // Frames come every refresh during playback, so they only start a timer, never restart one.
-      return state.pendingSignature === null ? request(state, inputs) : { state, actions: [] };
+      // Frames come every refresh during playback, so they never restart a timer.
+      if (state.pendingSignature !== null) return { state, actions: [] };
+      // With no edit pending, the frame rate changed: no edit is coming to settle, so solve now.
+      if (inputs.manipulating || needsNoSolve(inputs)) return request(state, inputs);
+      return { state, actions: [{ type: 'solve' }] };
     case 'timerFired': {
       const idle = initialCinematicSolveSchedule;
       // Mid-drag, wait for another settled interval: the drag's end requests again too.

@@ -73,7 +73,24 @@ describe('stepCinematicSolve', () => {
       idle,
       ['cancelTimer'],
     ],
-    ['a stale frame starts the timer', idle, frame, stale('a'), pendingFor('a'), ['startTimer']],
+    // No edit is pending, so the frame rate made the path stale: no edit is coming to settle.
+    ['a stale frame solves at once', idle, frame, stale('a'), idle, ['solve']],
+    [
+      'a stale frame mid-drag starts the timer',
+      idle,
+      frame,
+      stale('a', { manipulating: true }),
+      pendingFor('a'),
+      ['startTimer'],
+    ],
+    [
+      'a frame never retries failed inputs',
+      idle,
+      frame,
+      stale('a', { failedSignature: 'a' }),
+      idle,
+      [],
+    ],
     [
       'a frame never restarts a running timer',
       pendingFor('a'),
