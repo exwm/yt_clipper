@@ -5,7 +5,7 @@ import { appState } from './appState';
 import { pairSettings } from './features/settings/pair-settings';
 import { isVariableSpeed } from './save-load';
 import { flashMessage, roundValue } from './util/util';
-import { isInFrameSpan } from './util/frame-grid';
+import { frameTiming } from './util/frame-timing';
 import { getFrameGrid, getFrameTime } from './util/videoUtil';
 import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
 
@@ -23,8 +23,7 @@ export function getShortestActiveMarkerPair(currentTime?: number): MarkerPair {
   // time test against the end marker's time (the start of its frame) leaves out the rest of that frame.
   const grid = getFrameGrid();
   // This also holds every time between the markers', 5.48's test: `frameAt` never decreases.
-  const isActive = (markerPair: MarkerPair) =>
-    isInFrameSpan(grid, markerPair.start, markerPair.end, currentTime);
+  const isActive = (markerPair: MarkerPair) => frameTiming.isInPair(grid, markerPair, currentTime);
   if (
     appState.isSettingsEditorOpen &&
     !appState.wasGlobalSettingsEditorOpen &&

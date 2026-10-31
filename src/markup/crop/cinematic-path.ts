@@ -9,6 +9,7 @@
 // dependency-free so it unit-tests in node like crop-keyframe-math.ts.
 
 import { CropPath, CropPathCenterBounds, CropPathSegment, CropPoint } from '../@types/yt_clipper';
+// eslint-disable-next-line no-restricted-imports -- Cinematic's cut time, new in 5.49 and the clipper's twin
 import { frameAt, frameMiddle } from '../util/frame-grid';
 
 // Read once into module scope: in a sandbox that resolves globals through a proxy or a vm context

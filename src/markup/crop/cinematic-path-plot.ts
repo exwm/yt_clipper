@@ -11,6 +11,7 @@ import {
   splitAtInstantCuts,
 } from './cinematic-path';
 import { cropSectionAtTime, EasingCropPoint, sectionCropAt } from './crop-keyframe-math';
+import { frameTiming } from '../util/frame-timing';
 
 // The crop center's two axes, and the zoom: the widest crop the frame fits at the crop's aspect ratio
 // over the crop's width, so 1x is the full frame.
@@ -142,7 +143,8 @@ export function cinematicPlotSeries(
         time,
         fps,
         frame,
-        componentsOf
+        componentsOf,
+        frameTiming.easeSectionDuration
       );
       return scale.value(crop);
     });

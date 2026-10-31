@@ -13,7 +13,7 @@ import {
 } from './util/util';
 import { injectProgressBar } from './util/util';
 import { getFPS, getScreenFrame } from './util/videoUtil';
-import { frameAt } from './util/frame-grid';
+import { frameTiming } from './util/frame-timing';
 import { multiplyCropString } from './crop-utils';
 
 let frameCaptureViewerWindow: Window;
@@ -202,7 +202,7 @@ export function getFrameCount(seconds: number) {
   let frameNumber: number | string;
   let totalFrames: number | string;
   if (fps) {
-    frameNumber = frameAt({ origin: 0, rate: fps }, seconds);
+    frameNumber = frameTiming.frameNumber({ origin: 0, rate: fps }, seconds);
     totalFrames = Math.floor(getVideoDuration(getPlatform(), appState.video) * fps);
   } else {
     frameNumber = 'Unknown';

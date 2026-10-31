@@ -3,6 +3,7 @@ import { createDraft } from 'immer';
 import { getMarkerPairHistory, saveMarkerPairHistory } from '../../util/undoredo';
 import { flashMessage, timeRounder } from '../../util/util';
 import { getFrameGrid, seekToFrameAt } from '../../util/videoUtil';
+// eslint-disable-next-line no-restricted-imports -- one point per frame, new in 5.49 and on in both frame timings
 import { frameAt, sameFrame } from '../../util/frame-grid';
 import { toggleCropPointType, triggerCropChartUpdates } from '../../charts';
 import { appState } from '../../appState';

@@ -6,6 +6,76 @@ import tseslint from 'typescript-eslint';
 import noTimelineTimeComparison from './eslint-rules/no-timeline-time-comparison';
 import noUrlAttributeInterpolation from './eslint-rules/no-url-attribute-interpolation';
 
+// Block lit escape-hatch directives that would reopen the HTML parser.
+const litEscapeHatchImports = [
+  {
+    name: 'lit-html/directives/unsafe-html.js',
+    importNames: ['unsafeHTML'],
+    message: 'unsafeHTML reopens the HTML parser — port the source to a lit-html template instead.',
+  },
+  {
+    name: 'lit-html/directives/unsafe-svg.js',
+    importNames: ['unsafeSVG'],
+    message: 'unsafeSVG reopens the SVG parser — port the source to a lit-html template.',
+  },
+  {
+    name: 'lit-html/static.js',
+    message: 'Static HTML composition bypasses lit-html structural safety. Use normal bindings.',
+  },
+  {
+    name: 'lit/directives/unsafe-html.js',
+    importNames: ['unsafeHTML'],
+    message: 'unsafeHTML reopens the HTML parser — port the source to a lit-html template instead.',
+  },
+  {
+    name: 'lit/directives/unsafe-svg.js',
+    importNames: ['unsafeSVG'],
+    message: 'unsafeSVG reopens the SVG parser — port the source to a lit-html template.',
+  },
+  {
+    name: 'lit/static-html.js',
+    message: 'Static HTML composition bypasses lit-html structural safety. Use normal bindings.',
+  },
+];
+
+// Frame decisions go through `frameTiming` (util/frame-timing.ts), so a flag can swap them all at
+// once. Types and constants stay importable.
+const frameHelperImports = [
+  {
+    group: ['**/frame-grid'],
+    importNames: [
+      'frameAt',
+      'frameStart',
+      'frameMiddle',
+      'snapToFrame',
+      'frameSeekTarget',
+      'loopSeekTarget',
+      'frameSpan',
+      'sameFrame',
+      'isInFrameSpan',
+    ],
+    message: 'Decide frames through frameTiming (util/frame-timing.ts), or say why not.',
+  },
+  {
+    group: ['**/frame-step'],
+    importNames: [
+      'isAtOwnSeek',
+      'screenFrame',
+      'frameTime',
+      'shouldHoldEndFrame',
+      'endFrameDuration',
+      'loopTurnBack',
+      'frameStepTarget',
+    ],
+    message: 'Decide frames through frameTiming (util/frame-timing.ts), or say why not.',
+  },
+  {
+    group: ['**/crop-keyframe-math'],
+    importNames: ['findCropKeyframeAtTime', 'nextKeyframeIndex', 'getEaseSectionDuration'],
+    message: 'Decide frames through frameTiming (util/frame-timing.ts), or say why not.',
+  },
+];
+
 const localPlugin = {
   rules: {
     'no-timeline-time-comparison': noTimelineTimeComparison,
@@ -48,45 +118,9 @@ export default defineConfig(
       'local/no-url-attribute-interpolation': 'error',
       // Marker and point times mean frames: compare them with the frame-grid helpers.
       'local/no-timeline-time-comparison': 'error',
-      // Block lit escape-hatch directives that would reopen the HTML parser.
       'no-restricted-imports': [
         'error',
-        {
-          paths: [
-            {
-              name: 'lit-html/directives/unsafe-html.js',
-              importNames: ['unsafeHTML'],
-              message:
-                'unsafeHTML reopens the HTML parser — port the source to a lit-html template instead.',
-            },
-            {
-              name: 'lit-html/directives/unsafe-svg.js',
-              importNames: ['unsafeSVG'],
-              message: 'unsafeSVG reopens the SVG parser — port the source to a lit-html template.',
-            },
-            {
-              name: 'lit-html/static.js',
-              message:
-                'Static HTML composition bypasses lit-html structural safety. Use normal bindings.',
-            },
-            {
-              name: 'lit/directives/unsafe-html.js',
-              importNames: ['unsafeHTML'],
-              message:
-                'unsafeHTML reopens the HTML parser — port the source to a lit-html template instead.',
-            },
-            {
-              name: 'lit/directives/unsafe-svg.js',
-              importNames: ['unsafeSVG'],
-              message: 'unsafeSVG reopens the SVG parser — port the source to a lit-html template.',
-            },
-            {
-              name: 'lit/static-html.js',
-              message:
-                'Static HTML composition bypasses lit-html structural safety. Use normal bindings.',
-            },
-          ],
-        },
+        { paths: litEscapeHatchImports, patterns: frameHelperImports },
       ],
       // Catch unsafeHTML/unsafeSVG calls by identifier, even if the import is renamed or aliased.
       'no-restricted-syntax': [
@@ -149,6 +183,18 @@ export default defineConfig(
       '@typescript-eslint/no-unsafe-function-type': 'off', // callback params typed as Function
       '@typescript-eslint/unbound-method': 'off', // method references used intentionally
       '@typescript-eslint/no-confusing-void-expression': 'off',
+    },
+  },
+  // The frame helpers' own modules and the frame timing implementations.
+  {
+    files: [
+      'src/markup/util/frame-grid.ts',
+      'src/markup/util/frame-step.ts',
+      'src/markup/util/frame-timing-*.ts',
+      'src/markup/crop/crop-keyframe-math.ts',
+    ],
+    rules: {
+      'no-restricted-imports': ['error', { paths: litEscapeHatchImports }],
     },
   },
   // Ignore test files and mocks (excluded from tsconfig project service)

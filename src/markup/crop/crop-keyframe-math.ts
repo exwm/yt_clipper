@@ -109,6 +109,14 @@ export function getEaseSectionDuration(
   return adjustedDuration;
 }
 
+/** A section's ease duration, as `getEaseSectionDuration` gives it. The preview passes the frame
+ *  timing's, so the easing callers below take it as a parameter. */
+export type EaseSectionDuration = (
+  startTime: number,
+  endTime: number,
+  fps: number
+) => number | null;
+
 // Hold the left point and then instantly transition to the right point once we reach it.
 export const easeInInstant = (timePercentage: number) => (timePercentage >= 1 ? 1 : 0);
 
@@ -255,9 +263,10 @@ export function getEasedCropComponentsAtTime(
   endTime: number,
   easeIn: CropPoint['easeIn'],
   time: number,
-  fps: number
+  fps: number,
+  easeSectionDuration: EaseSectionDuration = getEaseSectionDuration
 ): [number, number, number, number] | null {
-  const sectDuration = getEaseSectionDuration(startTime, endTime, fps);
+  const sectDuration = easeSectionDuration(startTime, endTime, fps);
   if (sectDuration == null) return null;
 
   const clampedTime = clampNumber(time, startTime, endTime);
@@ -301,7 +310,8 @@ export function getSectionEasedCropComponents(
   next: EasingCropPoint | null,
   time: number,
   fps: number,
-  frame?: { width: number; height: number }
+  frame?: { width: number; height: number },
+  easeSectionDuration: EaseSectionDuration = getEaseSectionDuration
 ): [number, number, number, number] {
   const useSpline = easing !== 'smoothInOut' && end.easeIn !== 'instant';
   // Each neighbor carries the transition between it and the section.
@@ -334,7 +344,8 @@ export function getSectionEasedCropComponents(
       end.time,
       end.easeIn,
       time,
-      fps
+      fps,
+      easeSectionDuration
     );
   }
   // A zero-duration section has nothing to ease: hold the start crop.
@@ -357,7 +368,8 @@ export function sectionCropAt(
   time: number,
   fps: number,
   frame: { width: number; height: number } | undefined,
-  componentsOf: (crop: string) => readonly number[]
+  componentsOf: (crop: string) => readonly number[],
+  easeSectionDuration: EaseSectionDuration = getEaseSectionDuration
 ): [number, number, number, number] {
   const easingPoint = (point: CropPoint): EasingCropPoint => ({
     time: point.x,
@@ -372,7 +384,8 @@ export function sectionCropAt(
     section.next ? easingPoint(section.next) : null,
     time,
     fps,
-    frame
+    frame,
+    easeSectionDuration
   );
 }
 

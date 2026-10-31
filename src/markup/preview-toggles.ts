@@ -1,4 +1,4 @@
-import { frameSpan } from './util/frame-grid';
+import { frameTiming } from './util/frame-timing';
 import { getFrameGrid } from './util/videoUtil';
 import { easeCubicInOut } from 'd3-ease';
 import { MarkerPair } from './@types/yt_clipper';
@@ -142,7 +142,7 @@ function fadeLoopPreviewHandler() {
 
 export function getFadeBounds(markerPair: MarkerPair, currentTime: number): number | null {
   // Over the frames the clip includes, the end marker's frame too.
-  const { start, end } = frameSpan(getFrameGrid(), markerPair.start, markerPair.end);
+  const { start, end } = frameTiming.pairSpan(getFrameGrid(), markerPair);
   const inputDuration = end - start;
   const outputDuration = markerPair.outputDuration;
   let { fadeDuration } = pairSettings(markerPair, appState.settings);

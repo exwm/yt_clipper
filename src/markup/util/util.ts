@@ -1,5 +1,6 @@
 import { html, render } from 'lit-html';
 import { SpeedPoint } from '../@types/yt_clipper';
+// eslint-disable-next-line no-restricted-imports -- getOutputDuration, the clipper's twin, one implementation
 import { frameSpan } from './frame-grid';
 import { VideoPlatforms } from '../platforms/platforms';
 import { appState, VideoElement } from '../appState';

@@ -82,8 +82,6 @@ import {
 import {
   CropKeyframeMatch,
   CropPointEasing,
-  findCropKeyframeAtTime,
-  nextKeyframeIndex,
   cropSectionAt,
   cropSectionAtTime,
   sectionCropAt,
@@ -108,7 +106,9 @@ import {
   loopPlaybackOver,
   seekToFrameAt,
 } from './util/videoUtil';
-import { frameAt, isInFrameSpan } from './util/frame-grid';
+// eslint-disable-next-line no-restricted-imports -- the hold toggle's edge frames, new in 5.49 and on in both frame timings
+import { frameAt } from './util/frame-grid';
+import { frameTiming } from './util/frame-timing';
 import { onVideoFrames, VideoFrameSubscription } from './util/video-frame-loop';
 import { getMarkerPairHistory, saveMarkerPairHistory } from './util/undoredo';
 import type { HoveredRegion } from './features/hints-bar/hover-region';
@@ -221,10 +221,10 @@ export function selectCropPointWithMouseWheel(e: WheelEvent) {
       // frame and the playhead lands centred on it; pause so the user lands there to edit it.
       assertDefined(cropChartData);
       const points = cropChartData as CropPoint[];
-      const nextIndex = nextKeyframeIndex(
+      const nextIndex = frameTiming.nextKeyframeIndex(
+        getFrameGrid(),
         points,
         getFrameTime(),
-        getFrameGrid(),
         e.deltaY < 0 ? 1 : -1
       );
       setCurrentCropPoint(cropChart, nextIndex);
@@ -831,10 +831,13 @@ export function cropChartPreviewHandler(frameTime?: number) {
           // creates a NEW point, so no existing point is the target: clear the highlight. Re-render
           // only when the displayed selection changes AND playback is paused (a click or scrub), so
           // the chart matches the live video border; during playback skip it to avoid stutter.
-          // Paused, what the next edit does: the frame time it reads.
           const { onKeyframe, index } = isPlayheadOnCropKeyframe(
             chartData,
-            appState.video.paused ? getFrameTime() : time
+            frameTiming.editFrameTime({
+              isPaused: appState.video.paused,
+              presentedTime: time,
+              frameTime: getFrameTime,
+            })
           );
           const wasHighlighted = isCropPointHighlightVisible();
           const prevIndex = appState.currentCropPointIndex;
@@ -1192,7 +1195,8 @@ export function getEasedCropComponents(
     currentCropTime(),
     getFPS(),
     { width: appState.settings.cropResWidth, height: appState.settings.cropResHeight },
-    getCropComponents
+    getCropComponents,
+    frameTiming.easeSectionDuration
   );
 }
 // The current crop in cropRes coords: the eased/interpolated crop for a dynamic
@@ -1222,17 +1226,15 @@ export function getCurrentCropComponents(): [number, number, number, number] | n
     // frame-stepping PAST a point (a full frame away), or the crop freezes for the ~3 frames within
     // a frame of the point and looks like a jump when crossing it. The paused gate plus the same-frame
     // (half-frame) test restricts the snap to exactly the parked-on-a-point cases.
-    const { index } = isPlayheadOnCropKeyframe(cropMap, getFrameTime());
-    const parkedPoint = cropMap[index];
+    const parkedIndex = frameTiming.parkedPointIndex(getFrameGrid(), cropMap, {
+      frameTime: getFrameTime(),
+      time,
+      isPaused: appState.video.paused,
+    });
     // Cinematic mode approximates points rather than passing through them, so snapping to the exact
     // keyframe crop would jump off the path; let it interpolate (eval the baked path) instead.
-    if (
-      parkedPoint &&
-      appState.video.paused &&
-      frameAt(getFrameGrid(), time) === frameAt(getFrameGrid(), parkedPoint.x) &&
-      getActiveCropPointEasing() !== 'cinematic'
-    ) {
-      const [kx, ky, kw, kh] = getCropComponents(parkedPoint.crop);
+    if (parkedIndex != null && getActiveCropPointEasing() !== 'cinematic') {
+      const [kx, ky, kw, kh] = getCropComponents(cropMap[parkedIndex].crop);
       return [kx, ky, kw, kh];
     }
     // Otherwise interpolate within the section that brackets the CURRENT TIME, not the chart
@@ -1273,9 +1275,9 @@ export function withPresentedFrameTime<T>(mediaTime: number, fn: () => T): T {
 
 // Is the playhead sitting on a crop keyframe's frame? Drives the reframe auto-key model: on a
 // keyframe an edit updates it, between keyframes an edit creates one. Thin wrapper supplying the
-// frame grid to the pure math.
+// frame grid to the frame timing.
 export function isPlayheadOnCropKeyframe(cropMap: CropPoint[], time: number): CropKeyframeMatch {
-  return findCropKeyframeAtTime(cropMap, time, getFrameGrid());
+  return frameTiming.findCropKeyframe(getFrameGrid(), cropMap, time);
 }
 
 // Select a crop point for editing. Set the index directly (works even when the
@@ -1312,7 +1314,7 @@ export function autoKeyCurrentCropPoint(): boolean {
   const frameTime = getFrameTime();
   if (
     !isPlayheadOnCropKeyframe(cropMap, frameTime).onKeyframe &&
-    !isInFrameSpan(getFrameGrid(), pair.start, pair.end, frameTime)
+    !frameTiming.isInPair(getFrameGrid(), pair, frameTime)
   ) {
     flashMessage('Seek into the marker pair to edit its crop.', 'olive');
     return false;
@@ -1436,8 +1438,11 @@ const BETWEEN_KEYFRAME_COLOR = '#f5a623';
 export function reframeKeyframeColor(time: number): string {
   const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
   if (!markerPair) return BETWEEN_KEYFRAME_COLOR;
-  // Paused, what the next edit does: the frame time it reads.
-  const frameTime = appState.video.paused ? getFrameTime() : time;
+  const frameTime = frameTiming.editFrameTime({
+    isPaused: appState.video.paused,
+    presentedTime: time,
+    frameTime: getFrameTime,
+  });
   return isPlayheadOnCropKeyframe(markerPair.cropMap, frameTime).onKeyframe
     ? ON_KEYFRAME_COLOR
     : BETWEEN_KEYFRAME_COLOR;
@@ -1561,7 +1566,8 @@ export function getInterpolatedCrop(
       time,
       fps,
       { width: cropResWidth, height: cropResHeight },
-      getCropComponents
+      getCropComponents,
+      frameTiming.easeSectionDuration
     );
   // Whole pixels, as stored crops are: see autoKeyCurrentCropPoint.
   return getCropString(Math.round(x), Math.round(y), Math.round(w), Math.round(h));

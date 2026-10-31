@@ -5,17 +5,9 @@ import { chartState } from '../charts';
 import { isDrawingCrop } from '../crop-overlay';
 import { isMouseManipulatingCrop } from '../crop-overlay';
 import { blockEvent, flashMessage, getPendingSeekTime, seekBySafe, seekToSafe } from './util';
-import {
-  loopTurnBack,
-  OwnSeek,
-  frameStepTarget,
-  frameTime,
-  Refresh,
-  ScreenFrame,
-  screenFrame,
-  TIME_ROUNDING,
-} from './frame-step';
-import { FrameGrid, frameSeekTarget } from './frame-grid';
+import type { OwnSeek, Refresh, ScreenFrame } from './frame-step';
+import type { FrameGrid } from './frame-grid';
+import { FrameReading, FrameSeek, frameTiming } from './frame-timing';
 import { registerActiveDragCleanup } from './drag-recovery';
 import {
   getFrameOnScreen,
@@ -115,76 +107,68 @@ export function getFrameGrid(): FrameGrid {
 }
 
 let ownSeek: OwnSeek | null = null;
-/** Seeks to show the frame at `time`, a placed time such as a marker's or a crop point's. */
-export function seekToFrameAt(time: number): void {
-  const target = frameSeekTarget(getFrameGrid(), time);
-  ownSeek = { target, frameStart: time, kind: 'place' };
-  seekToSafe(appState.video, target);
+
+/** What frame decisions read of the video now. */
+function readFrame(): FrameReading {
+  const video = appState.video;
+  // The rate first: reading it keeps YouTube's stats rate for the rendition.
+  const { rate, source } = getFrameRate();
+  return {
+    // eslint-disable-next-line no-restricted-syntax -- frame decisions are built from it
+    onScreen: getFrameOnScreen(video),
+    // eslint-disable-next-line no-restricted-syntax -- frame decisions are built from it
+    currentTime: video.getCurrentTime(),
+    pendingSeek: getPendingSeekTime(),
+    seeking: video.seeking,
+    grid: { origin: 0, rate },
+    isRateMeasured: source === 'measured',
+    ownSeek,
+  };
 }
 
-// Where the playhead is or is going: the seek held back, else the current time.
-function getPlayhead(): number {
-  // eslint-disable-next-line no-restricted-syntax -- frame times and steps are built from it
-  return getPendingSeekTime() ?? appState.video.getCurrentTime();
+// The only writer of `ownSeek` besides a new source. A relative seek leaves it as it is.
+function applySeek(seek: FrameSeek): void {
+  if ('by' in seek) {
+    seekBySafe(appState.video, seek.by);
+    return;
+  }
+  ownSeek = seek.ownSeek;
+  seekToSafe(appState.video, seek.to);
+}
+
+/** Seeks to show the frame at `time`, a placed time such as a marker's or a crop point's. */
+export function seekToFrameAt(time: number): void {
+  applySeek(frameTiming.placeSeek(getFrameGrid(), time));
 }
 
 /** The frame on screen, its start on the platform's timeline. Placements and frame decisions read
  *  `getFrameTime`. */
 export function getScreenFrame(): ScreenFrame {
-  const { rate, source } = getFrameRate();
-  // eslint-disable-next-line no-restricted-syntax -- the frame on screen is built from it
-  const onScreen = getFrameOnScreen(appState.video);
-  return screenFrame(onScreen, getPlayhead(), rate, source === 'measured');
+  return frameTiming.screenFrame(readFrame());
 }
 
 /** The start of the frame a frame callback presents at `mediaTime` (on the video's own timeline), on
  *  the platform's timeline, as `getScreenFrame` gives it. */
 export function frameStartOf(mediaTime: number): number {
   const video = appState.video;
-  const { rate, source } = getFrameRate();
-  // eslint-disable-next-line no-restricted-syntax -- whether the read at `seeked` timed this frame
-  const onScreen = getFrameOnScreen(video);
-  // eslint-disable-next-line no-restricted-syntax -- the frame's time on the platform's timeline
-  const playhead = video.getCurrentTime();
-  const platformTime = mediaTime + playhead - video.currentTime;
-  const isRead =
-    onScreen.isRead &&
-    onScreen.mediaTime != null &&
-    Math.abs(onScreen.mediaTime - platformTime) < TIME_ROUNDING;
-  const presented = { mediaTime: platformTime, isRead, isCurrent: true };
-  return screenFrame(presented, playhead, rate, source === 'measured').start;
+  const reading = readFrame();
+  const platformTime = mediaTime + reading.currentTime - video.currentTime;
+  return frameTiming.presentedFrameStart(reading, platformTime);
 }
 
 /** The time of the frame the user is on, which placements store and frame decisions read. */
 export function getFrameTime(): number {
-  // eslint-disable-next-line no-restricted-syntax -- getFrameTime is built from it
-  return frameTime(getScreenFrame(), {
-    playhead: getPlayhead(),
-    isSeekInFlight: isSeekInFlight(),
-    ownSeek,
-    fps: getFPS(),
-  });
-}
-
-function isSeekInFlight(): boolean {
-  return appState.video.seeking || getPendingSeekTime() != null;
+  return frameTiming.frameTime(readFrame());
 }
 
 /** Keeps playback within the frames shown from `start` through `end`, for the preview loops. */
 export function loopPlaybackOver(start: number, end: number): void {
   const video = appState.video;
-  // Playing, the frame on screen, so the loop turns back while its last frame shows.
   const isPlaying = !video.paused;
-  // eslint-disable-next-line no-restricted-syntax -- a paused loop seeks back from the playhead; past the end, as 5.48
-  const playhead = video.getCurrentTime();
-  const turn = loopTurnBack({
-    grid: getFrameGrid(),
-    isRateMeasured: getFrameRate().source === 'measured',
+  const turn = frameTiming.loopTurnBack(readFrame(), {
     start,
     end,
     isPlaying,
-    time: isPlaying ? getFrameTime() : playhead,
-    playhead,
     held: isPlaying ? getHeldFrame(video) : null,
     refresh,
     playbackRate: video.playbackRate,
@@ -205,23 +189,10 @@ export function noteRefresh(time: number): void {
 /** Seeks `frames` whole frames from the frame on screen, to the middle of that frame. */
 export function seekByFrames(frames: number): void {
   const video = appState.video;
-  // Without frame callbacks the frame on screen is unknown: step from the playhead.
-  if (typeof video.requestVideoFrameCallback !== 'function') {
-    seekBySafe(video, frames / getFPS());
-    return;
-  }
-  const fps = getFPS();
-  // eslint-disable-next-line no-restricted-syntax -- frame steps start from the frame on screen
-  const target = frameStepTarget(getScreenFrame(), {
-    playhead: getPlayhead(),
-    isSeekInFlight: isSeekInFlight(),
-    ownSeek,
-    fps,
-    duration: video.duration,
-    frames,
-  });
-  ownSeek = { target, frameStart: target - 0.5 / fps, kind: 'step' };
-  seekToSafe(video, target);
+  const hasFrameCallbacks = typeof video.requestVideoFrameCallback === 'function';
+  applySeek(
+    frameTiming.stepSeek(readFrame(), { frames, duration: video.duration, hasFrameCallbacks })
+  );
 }
 
 export let prevVideoWidth: number;

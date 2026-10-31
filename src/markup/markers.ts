@@ -42,10 +42,8 @@ import {
 import {
   assertDefined,
   blockEvent,
-  clampNumber,
   deleteElement,
   flashMessage,
-  getOutputDuration,
   getVideoDuration,
   pauseSafe,
   seekToSafe,
@@ -54,7 +52,6 @@ import {
 } from './util/util';
 import { html, render, svg } from 'lit-html';
 import {
-  getFPS,
   getFrameTime,
   getFrameGrid,
   loopPlaybackOver,
@@ -62,7 +59,7 @@ import {
   refreshPlayerControlsAutoHideTimer,
   seekToFrameAt,
 } from './util/videoUtil';
-import { frameAt, frameSpan, frameStart, sameFrame } from './util/frame-grid';
+import { frameTiming } from './util/frame-timing';
 import { platform } from './yt_clipper';
 import { registerActiveDragCleanup } from './util/drag-recovery';
 
@@ -171,15 +168,14 @@ export function moveMarkerByFrameHandler(event: WheelEvent) {
       targetMarkerTime = markerPair.start;
     }
 
-    const grid = getFrameGrid();
-    const frame = frameAt(grid, targetMarkerTime) + (event.deltaY > 0 ? -1 : 1);
-    const newMarkerTime = clampNumber(
-      frameStart(grid, frame),
-      0,
+    const { markerTime, seekTime } = frameTiming.nudge(
+      getFrameGrid(),
+      targetMarkerTime,
+      event.deltaY,
       getVideoDuration(platform, appState.video)
     );
-    moveMarker(targetMarker, newMarkerTime);
-    seekToFrameAt(newMarkerTime);
+    moveMarker(targetMarker, markerTime);
+    seekToFrameAt(seekTime);
   }
 }
 
@@ -338,9 +334,6 @@ export let prevTime: number | null;
 export function jumpToNearestMarker(e: KeyboardEvent, currentTime: number, keyCode: string) {
   blockEvent(e);
   currentTime = prevTime ?? currentTime;
-  // Markers compare by frame: a jump lands inside the marker's frame, past its time.
-  const grid = getFrameGrid();
-  const currentFrame = frameAt(grid, currentTime);
   const markerTimes = appState.markerPairs.flatMap((markerPair) => [
     markerPair.start,
     markerPair.end,
@@ -348,42 +341,20 @@ export function jumpToNearestMarker(e: KeyboardEvent, currentTime: number, keyCo
   if (!appState.isNextMarkerStart) {
     markerTimes.push(appState.startTime);
   }
-  let markers = markerTimes.map((time) => ({ time, frame: frameAt(grid, time) }));
-  // The nearest marker in the jump's direction, if any.
-  const nearest = (candidates: typeof markers, direction: 1 | -1) =>
-    candidates.reduce<(typeof markers)[number] | null>(
-      (best, marker) =>
-        best == null || direction * (marker.frame - best.frame) < 0 ? marker : best,
-      null
+  let target: number | null = null;
+  if (keyCode === 'ArrowLeft' || keyCode === 'ArrowRight') {
+    const isDoubleJump = dblJump != 0 && prevJumpKeyCode === keyCode;
+    target = frameTiming.jumpTarget(
+      getFrameGrid(),
+      markerTimes,
+      currentTime,
+      keyCode,
+      isDoubleJump
     );
-  let target: (typeof markers)[number] | null = null;
-  if (keyCode === 'ArrowLeft') {
-    markers = markers.filter((marker) => marker.frame < currentFrame);
-    target = nearest(markers, -1);
-    if (dblJump != 0 && target != null && prevJumpKeyCode === 'ArrowLeft') {
-      const first = target;
-      target =
-        nearest(
-          markers.filter((marker) => marker.frame < first.frame),
-          -1
-        ) ?? target;
-    }
-    prevJumpKeyCode = 'ArrowLeft';
-  } else if (keyCode === 'ArrowRight') {
-    markers = markers.filter((marker) => marker.frame > currentFrame);
-    target = nearest(markers, 1);
-    if (dblJump != 0 && target != null && prevJumpKeyCode === 'ArrowRight') {
-      const first = target;
-      target =
-        nearest(
-          markers.filter((marker) => marker.frame > first.frame),
-          1
-        ) ?? target;
-    }
-    prevJumpKeyCode = 'ArrowRight';
+    prevJumpKeyCode = keyCode;
   }
   const seekToTarget = () => {
-    if (target != null) seekToFrameAt(target.time);
+    if (target != null) seekToFrameAt(target);
   };
 
   if (dblJump !== 0) {
@@ -412,10 +383,9 @@ export function addMarker(markerConfig: MarkerConfig = {}) {
   const progressPos = (currentFrameTime / getVideoDuration(platform, appState.video)) * 100;
 
   // By frame: before its frame is shown, the time read is the playhead less 1 ms, later in the frame.
-  const grid = getFrameGrid();
   if (
     !appState.isNextMarkerStart &&
-    frameAt(grid, currentFrameTime) <= frameAt(grid, appState.startTime)
+    frameTiming.compareFrames(getFrameGrid(), currentFrameTime, appState.startTime) <= 0
   ) {
     flashMessage('End marker must be after start marker.', 'red');
     return;
@@ -672,11 +642,7 @@ export function markerNumberingMouseDownHandler(e: PointerEvent) {
     const duration = getVideoDuration(platform, appState.video);
     const x = e.pageX - offsetX - progressBarRect.left;
     const time = (duration * x) / progressBarRect.width;
-    // Off the other marker's frame, which moveMarker refuses.
-    const grid = getFrameGrid();
-    return numberingType === 'start'
-      ? clampNumber(time, 0, frameStart(grid, frameAt(grid, markerPair.end) - 1))
-      : clampNumber(time, frameStart(grid, frameAt(grid, markerPair.start) + 1), duration);
+    return frameTiming.dragClamp(getFrameGrid(), numberingType, time, markerPair, duration);
   }
 
   // Coalesce pointermove events with requestAnimationFrame so the marker
@@ -788,12 +754,12 @@ export function moveMarker(
   const grid = getFrameGrid();
   // Moving to the playhead on the frame the marker is on: nothing moves, and the charts keep their
   // points. A drag passes its own time and commits on release where its moves left the marker.
-  if (newTime == null && sameFrame(grid, toTime, markerPair[type])) return;
-  if (type === 'start' && frameAt(grid, toTime) >= frameAt(grid, markerPair.end)) {
+  if (newTime == null && frameTiming.isOnMarkerFrame(grid, toTime, markerPair[type])) return;
+  if (type === 'start' && frameTiming.compareFrames(grid, toTime, markerPair.end) >= 0) {
     flashMessage('Start marker cannot be placed after or at end marker', 'red');
     return;
   }
-  if (type === 'end' && frameAt(grid, toTime) <= frameAt(grid, markerPair.start)) {
+  if (type === 'end' && frameTiming.compareFrames(grid, toTime, markerPair.start) <= 0) {
     flashMessage('End marker cannot be placed before or at start marker', 'red');
     return;
   }
@@ -802,10 +768,7 @@ export function moveMarker(
   const initialState: MarkerPairHistory = getMarkerPairHistory(markerPair);
   const draft = createDraft(initialState);
   const lastState = peekLastState(markerPair.undoredo);
-  const isStretch =
-    type === 'start'
-      ? frameAt(grid, toTime) < frameAt(grid, lastState.start)
-      : frameAt(grid, toTime) > frameAt(grid, lastState.end);
+  const isStretch = frameTiming.isStretch(grid, type, toTime, lastState);
 
   draft[type] = toTime;
   if (adjustCharts) {
@@ -972,26 +935,7 @@ export function markerPairDuration(markerPair: MarkerPair): {
   text: string;
   outputDuration: number;
 } {
-  const span = frameSpan(getFrameGrid(), markerPair.start, markerPair.end);
-  const duration = span.end - span.start;
-  const durationHHMMSS = toHHMMSSTrimmed(duration);
-  const frames = ` (${span.lastFrame - span.firstFrame + 1})`;
-  const { speed, speedMap } = markerPair;
-  if (isVariableSpeed(speedMap)) {
-    const outputDuration = getOutputDuration(speedMap, getFPS());
-    const text = `${durationHHMMSS} (${toHHMMSSTrimmed(outputDuration)})${frames}`;
-    return { text, outputDuration };
-  }
-  // At the pair's own speed, as the clipper's constant-speed path renders it.
-  const constantSpeed = [
-    { x: markerPair.start, y: speed },
-    { x: markerPair.end, y: speed },
-  ];
-  const outputDuration = getOutputDuration(constantSpeed, getFPS());
-  return {
-    text: `${durationHHMMSS}/${speed} = ${toHHMMSSTrimmed(outputDuration)}${frames}`,
-    outputDuration,
-  };
+  return frameTiming.pairDuration(getFrameGrid(), markerPair, isVariableSpeed(markerPair.speedMap));
 }
 export function updateMarkerPairDuration(markerPair: MarkerPair) {
   const { text, outputDuration } = markerPairDuration(markerPair);
