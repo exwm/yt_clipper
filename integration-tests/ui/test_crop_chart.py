@@ -32,6 +32,7 @@ def test_crop_chip_shows_the_live_interpolated_crop(dynamic_crop: MarkupPage) ->
 
 
 # Measured, also on Firefox, which times the frame shown after a seek at the seek target.
+@pytest.mark.frame_timing("5.49")
 @pytest.mark.parametrize(
     "measured",
     [
@@ -84,6 +85,7 @@ def test_fast_crop_point_drag_lands_the_video_on_the_point(dynamic_crop: MarkupP
 
 # The test video is 30 fps, with frame n starting at exactly n / 30 s. Rounding the playhead to
 # 0.01 s would put these points at 6.03 s (frame 180) and 6.70 s (frame 201).
+@pytest.mark.frame_timing("5.49")
 @pytest.mark.parametrize(("frame", "into_frame"), [(181, 0.03), (200, 0.98)])
 def test_a_crop_point_added_at_the_playhead_marks_the_start_of_its_frame(
     markup: MarkupPage, frame: int, into_frame: float

@@ -6,6 +6,7 @@ with the userscript injected and activated. Run them through `just ui-test` (dev
 """
 
 import ctypes
+import json
 import re
 import shutil
 import sys
@@ -61,7 +62,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     group.addoption(
         "--assumed-frame-rate",
         action="store_true",
-        help="never measure the frame rate: frame steps and frame times stay at the assumed 60 fps, as 5.48",
+        help="run only the tests of 5.49's frame timing, with the frame rate never measured: frame steps and frame times stay at the assumed 60 fps",
     )
     group.addoption(
         "--userscript",
@@ -81,6 +82,20 @@ def is_ci_build(config: pytest.Config) -> bool:
     return path.exists() and "IS_CI_BUILD = true" in path.read_text(encoding="utf-8")
 
 
+# The `legacyFrameTiming` flag each `frame_timing` mode sets. A test with no mode runs on the
+# userscript's default.
+FRAME_TIMING_LEGACY_FLAG = {"5.48": True, "5.49": False}
+
+
+def frame_timing_flags(node: pytest.Item) -> dict[str, bool]:
+    marker = node.get_closest_marker("frame_timing")
+    return {} if marker is None else {"legacyFrameTiming": FRAME_TIMING_LEGACY_FLAG[marker.args[0]]}
+
+
+def needs_flag_overrides(item: pytest.Item) -> bool:
+    return item.get_closest_marker("local_build") is not None or bool(frame_timing_flags(item))
+
+
 def measures_the_rate(item: pytest.Item) -> bool:
     """A test of the measured rate, or a `measured` row: with Measure off it runs as its assumed twin."""
     callspec = getattr(item, "callspec", None)
@@ -88,17 +103,24 @@ def measures_the_rate(item: pytest.Item) -> bool:
     return measured_row or item.get_closest_marker("measured_rate") is not None
 
 
+def runs_at_the_assumed_rate(item: pytest.Item) -> bool:
+    """A test --assumed-frame-rate keeps: only 5.49's frame timing measures the rate, so the other
+    tests run as they do without the option."""
+    is_549 = frame_timing_flags(item) == {"legacyFrameTiming": False}
+    return is_549 and not measures_the_rate(item)
+
+
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     if config.getoption("assumed_frame_rate"):
-        deselected = [item for item in items if measures_the_rate(item)]
+        deselected = [item for item in items if not runs_at_the_assumed_rate(item)]
         if deselected:
             config.hook.pytest_deselected(items=deselected)
-            items[:] = [item for item in items if not measures_the_rate(item)]
+            items[:] = [item for item in items if runs_at_the_assumed_rate(item)]
     if not is_ci_build(config):
         return
     skip = pytest.mark.skip(reason="needs the feature flags popup, which CI builds leave out")
     for item in items:
-        if item.get_closest_marker("local_build"):
+        if needs_flag_overrides(item):
             item.add_marker(skip)
 
 
@@ -115,6 +137,16 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "local_build: needs the feature flags popup, which CI builds (the releases) leave out, so it"
         " is skipped against a CI-built userscript (just verify-release)",
+    )
+    config.addinivalue_line(
+        "markers",
+        "feature_flags(flags): open the page with these feature flags set as the popup stores them;"
+        " mark the test local_build too",
+    )
+    config.addinivalue_line(
+        "markers",
+        'frame_timing(mode): run with the frame timing of "5.48" or "5.49" (the legacyFrameTiming'
+        " flag); unmarked tests run on the default; skipped against a CI-built userscript",
     )
     config.addinivalue_line(
         "markers",
@@ -337,6 +369,13 @@ def markup(
     page.add_init_script(
         f"try {{ localStorage.setItem('ytc-measure-frame-rate', '{measure}'); }} catch {{}}"
     )
+    flags_marker = request.node.get_closest_marker("feature_flags")
+    flags = {**(flags_marker.args[0] if flags_marker else {}), **frame_timing_flags(request.node)}
+    if flags:
+        stored = json.dumps(json.dumps(flags))
+        page.add_init_script(
+            f"try {{ localStorage.setItem('yt_clipper_feature_flags', {stored}); }} catch {{}}"
+        )
     with steps.timed("(open the page)"):
         if youtube_url:
             open_youtube(page, youtube_url, userscript)

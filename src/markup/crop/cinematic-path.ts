@@ -5,12 +5,11 @@
 // Essa 2011 idea, solved here per component (x, y, w) with a banded ADMM (box-constrained L1 trend
 // filtering), then fitted with piecewise-quadratic segments. The clipper solves the same path
 // (src/clipper/cinematic_path.py) and renders the segments with getCropPathFilter; both are checked
-// against cinematic_path_parity.json so the preview matches the render. DOM-free and
-// dependency-free so it unit-tests in node like crop-keyframe-math.ts.
+// against cinematic_path_parity.json so the preview matches the render. DOM-free so it unit-tests in
+// node like crop-keyframe-math.ts.
 
 import { CropPath, CropPathCenterBounds, CropPathSegment, CropPoint } from '../@types/yt_clipper';
-// eslint-disable-next-line no-restricted-imports -- Cinematic's cut time, new in 5.49 and the clipper's twin
-import { frameAt, frameMiddle } from '../util/frame-grid';
+import { frameTiming } from '../util/frame-timing';
 
 // Read once into module scope: in a sandbox that resolves globals through a proxy or a vm context
 // (jest, and possibly the userscript manager's), each `Math` in the solver's loops was a global
@@ -912,9 +911,7 @@ export function splitAtInstantCuts(cropMap: readonly CropPoint[], fps?: number):
 // frame grid, not the pair start's, since a pair can start between frames. Mirrors the clipper.
 function cutTime(cutX: number, previousX: number, fps?: number): number {
   if (!fps) return cutX;
-  // The frame the cut point was placed on, allowing for its time being rounded below that frame's start.
-  const grid = { origin: 0, rate: fps };
-  const snapped = frameMiddle(grid, frameAt(grid, cutX) - 1);
+  const snapped = frameTiming.cutFrameMiddle({ origin: 0, rate: fps }, cutX);
   return snapped > previousX ? snapped : cutX;
 }
 

@@ -212,7 +212,7 @@ release-prep version:
   just lint-py
   just test-py
   just ui-test
-  # Again with the frame rate never measured: the assumed 60 fps a user gets with Measure off, as 5.48.
+  # 5.49's frame timing at the assumed 60 fps.
   just ui-test --assumed-frame-rate
   just ui-test-display-rates
   uv run python tools/release/version.py check {{version}}

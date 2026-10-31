@@ -1,3 +1,6 @@
+import { useFrameTiming } from '../util/frame-timing-mode.fixtures';
+useFrameTiming('5.49');
+
 import { CropPoint } from '../@types/yt_clipper';
 import { bakeCinematicPath, cinematicCropMap, cinematicMarginsFromPercent } from './cinematic-path';
 import {

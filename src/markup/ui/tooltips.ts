@@ -187,12 +187,16 @@ export namespace Tooltips {
     Note that the YouTube video rotate preview using the R/Alt+R shortcuts does NOT affect the output video.
     `;
 
-  export const frameRateTooltip = stripIndent`
+  // Without the Measure button (the `legacyFrameTiming` flag), only these first two lines.
+  export const frameRateSourceTooltip = stripIndent`
     The frame rate the markup script uses for frame steps and frame times.
     It is the rate YouTube reports, or 60 fps on other sites.
+    `;
+
+  export const frameRateTooltip = `${frameRateSourceTooltip}\n${stripIndent`
     With Measure on, it is measured from about 2 seconds of playback, or in Chrome from two seeks to other frames.
     Once it is measured, the button reads Measured with a green border.
-    `;
+    `}`;
 
   export const frameRateMeasurementTooltip = stripIndent`
     Toggle frame rate measurement (off by default, on when highlighted).

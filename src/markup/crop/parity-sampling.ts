@@ -9,6 +9,7 @@ import {
   evalCropPathAtTime,
 } from './cinematic-path';
 import { CropPointEasing, cropSectionAt, sectionCropAt } from './crop-keyframe-math';
+import { frameTiming } from '../util/frame-timing';
 
 /** The eased crop at `t` in the section that holds it. */
 export function easedCropAtTime(
@@ -22,7 +23,16 @@ export function easedCropAtTime(
   const i = cropMap.findIndex((p, k) => k < cropMap.length - 1 && t >= p.x && t < cropMap[k + 1].x);
   if (i < 0) throw new Error(`no crop section holds t = ${t}`);
   const components = (crop: string) => crop.split(':').map(Number);
-  return sectionCropAt(easing, cropSectionAt(cropMap, i), t, fps, frame, components);
+  // The frame timing's ease, as the preview eases: the clipper follows the same flag.
+  return sectionCropAt(
+    easing,
+    cropSectionAt(cropMap, i),
+    t,
+    fps,
+    frame,
+    components,
+    frameTiming.easeSectionDuration
+  );
 }
 
 export interface CinematicParityCase {

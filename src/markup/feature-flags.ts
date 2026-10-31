@@ -68,6 +68,14 @@ const featureFlagDefinitions = {
     description:
       'Log each video frame loop every 2 s of playback. It shows the timing and consumers, refreshes, frames taken and repeated, new frames, and frame callback calls and misses. It also shows the time each part took.',
   } as FeatureFlagDefinition<boolean>,
+  /** See `util/frame-timing.ts`. On for 5.49.0: 5.49's frame timing does not yet handle every
+   *  video. */
+  legacyFrameTiming: {
+    default: true,
+    description:
+      'Time frames as 5.48 did: markers, crop and speed points at the playhead, steps and seeks by time, and no frame rate measurement.',
+    appliesOnReload: true,
+  } as FeatureFlagDefinition<boolean>,
   featureFlagsPanel: {
     default: FEATURE_FLAG_OVERRIDES_ENABLED,
     description: 'The feature flags popup in the markers toolbar.',

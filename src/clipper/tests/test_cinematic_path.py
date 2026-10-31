@@ -54,6 +54,30 @@ def test_cinematic_cut_on_a_frame_start_saved_a_hair_below_it_shows_on_that_fram
 
 
 @pytest.mark.parametrize(
+    ("cutX", "newCropFrame"),
+    [
+        pytest.param(31 / 30, 31, id="exact"),
+        # Legacy markup stores the raw playhead time, which can sit in its frame's last millisecond.
+        pytest.param(31 / 30 - 0.0005, 30, id="in frame 30's last millisecond"),
+        pytest.param(round(31 / 30, 6), 30, id="frame 31's start saved to 6 decimals, below it"),
+    ],
+)
+def test_a_legacy_cinematic_cut_shows_on_the_frame_its_time_falls_in(cutX: float, newCropFrame: int) -> None:
+    from clipper import cinematic_path
+
+    cropMap = [
+        {"x": 0, "crop": "0:0:640:360"},
+        {"x": cutX, "crop": "1200:0:640:360", "easeIn": "instant"},
+        {"x": 2, "crop": "1200:0:640:360"},
+    ]
+    margins = {"pos": cinematic_path.DEFAULT_MARGIN, "zoom": cinematic_path.DEFAULT_ZOOM_MARGIN}
+    path = cinematic_path.bakeCinematicPath(cropMap, margins, 1920, 1080, fps=30, legacyFrameTiming=True)
+    assert path is not None
+    assert cinematic_path.evalCropPathAtTime(path, (newCropFrame - 1) / 30)[0] == pytest.approx(0, abs=0.5)
+    assert cinematic_path.evalCropPathAtTime(path, newCropFrame / 30)[0] == pytest.approx(1200, abs=0.5)
+
+
+@pytest.mark.parametrize(
     ("pairStart", "videoPartStart"),
     [(0, 0), (10.52, 0), (10.52, 0.02)],
     ids=["pair start on a frame", "pair start between frames", "video part start"],

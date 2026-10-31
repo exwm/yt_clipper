@@ -1,3 +1,6 @@
+import { useFrameTiming } from './frame-timing-mode.fixtures';
+useFrameTiming('5.49');
+
 const mockStats = { resolution: '1920x1080@30', fails: false };
 // A seek coalescer with one seek in flight and the latest request held back, as seekToSafe is.
 const mockSeeks = {

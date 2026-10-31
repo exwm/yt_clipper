@@ -467,7 +467,9 @@ def _segmentPath(
     return segments
 
 
-def _cutTime(cutX: float, previousX: float, fps: Optional[float], videoPartStart: float) -> float:
+def _cutTime(
+    cutX: float, previousX: float, fps: Optional[float], videoPartStart: float, legacyFrameTiming: bool = False
+) -> float:
     """When a cut takes effect: half a frame before the frame the cut point falls in, as the other
     crop easings end a section (ffmpeg_filter.getEaseSectionDuration). A user-placed point usually
     overshoots its frame, so at the raw time the first frame of the new scene would keep the old crop.
@@ -475,9 +477,11 @@ def _cutTime(cutX: float, previousX: float, fps: Optional[float], videoPartStart
     """
     if not fps:
         return cutX
-    # The frame the cut point was placed on, allowing for its time being rounded below that frame's start.
     grid = FrameGrid(origin=videoPartStart, rate=fps)
-    snapped = frameMiddle(grid, frameAt(grid, cutX) - 1)
+    # The frame the cut point was placed on, allowing for its time being rounded below that frame's start.
+    # Legacy frame timing takes the frame its raw time falls in, as getFrameTimeBetweenLeftFrames does.
+    frame = math.floor((cutX - videoPartStart) * fps) if legacyFrameTiming else frameAt(grid, cutX)
+    snapped = frameMiddle(grid, frame - 1)
     return snapped if snapped > previousX else cutX
 
 
@@ -654,6 +658,7 @@ def splitAtInstantCuts(
     cropMap: Sequence[CropPoint],
     fps: Optional[float] = None,
     videoPartStart: float = 0.0,
+    legacyFrameTiming: bool = False,
 ) -> list[list[CropPoint]]:
     """The crop points split at each instant transition (a cut). Each run holds its last crop until the
     cut, where the next run starts, so the solve never smooths across a scene change. With fps, the
@@ -662,7 +667,7 @@ def splitAtInstantCuts(
     run: list[CropPoint] = []
     for point in cropMap:
         if point.get("easeIn") == "instant" and run:
-            cutTime = _cutTime(point["x"], run[-1]["x"], fps, videoPartStart)
+            cutTime = _cutTime(point["x"], run[-1]["x"], fps, videoPartStart, legacyFrameTiming)
             # The copy holds only if its point does, so a hold flag the markup releases on load stays
             # released.
             holds = len(run) > 1 and _holdsAfter(run[-2], run[-1])
@@ -866,6 +871,7 @@ def bakeCinematicPath(
     cropResHeight: int,
     fps: Optional[float] = None,
     videoPartStart: float = 0.0,
+    legacyFrameTiming: bool = False,
 ) -> Optional[dict[str, Any]]:
     """The path for a marker pair's crop points, with times relative to the first point, or None when
     there is nothing to solve (fewer than two points or no duration). fps places instant cuts on
@@ -873,7 +879,7 @@ def bakeCinematicPath(
     if len(cropMap) < 2:
         return None
     firstTime = cropMap[0]["x"]
-    runs = splitAtInstantCuts(cropMap, fps, videoPartStart)
+    runs = splitAtInstantCuts(cropMap, fps, videoPartStart, legacyFrameTiming)
     if banded_lapack.lapack() is None:
         # Fail before solving any run, rather than after the runs the dense fallback can solve.
         longest = max(gridSampleCount(run[-1]["x"] - run[0]["x"]) for run in runs)

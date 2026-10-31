@@ -6,6 +6,7 @@ import {
 import { clampNumber, getOutputDuration, toHHMMSSTrimmed } from './util';
 import {
   frameAt,
+  frameMiddle,
   frameSeekTarget,
   frameSpan,
   frameStart,
@@ -160,4 +161,7 @@ export const frameTiming549: FrameTiming = {
   editFrameTime: ({ isPaused, presentedTime, frameTime }) =>
     isPaused ? frameTime() : presentedTime,
   easeSectionDuration: getEaseSectionDuration,
+  // The frame the cut point was placed on, allowing for its time being rounded below that frame's
+  // start.
+  cutFrameMiddle: (grid, cutX) => frameMiddle(grid, frameAt(grid, cutX) - 1),
 };

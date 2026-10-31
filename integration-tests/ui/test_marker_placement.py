@@ -1,6 +1,7 @@
 """Marker placement: a marker marks the start of the frame of the playhead, and
 Alt+Shift+Mousewheel moves it one frame. The dev site's test video is 30 fps, with frame n starting
-at exactly n / 30 s."""
+at exactly n / 30 s. The frame start tests check 5.49's frame timing; the Alt+drag tests hold in
+both."""
 
 import math
 
@@ -17,6 +18,7 @@ from test_frame_stepping import (
 )
 
 
+@pytest.mark.frame_timing("5.49")
 def test_a_marker_marks_the_start_of_the_playheads_frame_and_moves_one_frame_at_a_time(
     markup: MarkupPage,
 ) -> None:
@@ -33,6 +35,7 @@ def test_a_marker_marks_the_start_of_the_playheads_frame_and_moves_one_frame_at_
 
 
 # A pair needs its end marker after its start marker's frame: a second A on the same frame is refused.
+@pytest.mark.frame_timing("5.49")
 @pytest.mark.firefox_limit(
     "Firefox's VideoFrame reports no frame times, so before the rate is measured a frame's two"
     " halves read as two frames at the assumed 60 fps"
@@ -47,6 +50,7 @@ def test_a_second_a_on_the_start_markers_frame_is_refused(markup: MarkupPage) ->
     assert when_i_save_the_markers(markup)["markerPairs"] == []
 
 
+@pytest.mark.frame_timing("5.49")
 def test_ctrl_left_jumps_to_each_earlier_markers_frame(markup: MarkupPage) -> None:
     if markup.host != DEV_SITE_HOST:
         pytest.skip("checks a site that reports no frame rate; YouTube's stats report one")

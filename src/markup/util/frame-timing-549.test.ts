@@ -121,6 +121,14 @@ describe('crop point frame decisions', () => {
     expect(frameTime).not.toHaveBeenCalled();
     expect(timing.editFrameTime({ isPaused: true, presentedTime: 1.52, frameTime })).toBe(1.5);
   });
+
+  it.each([
+    ['on its frame start', 1, 29.5 / 30],
+    ['0.5 ms before its frame start, rounded', 1 - 0.0005, 29.5 / 30],
+    ['late in its frame', 1.03, 29.5 / 30],
+  ])("cutFrameMiddle: a cut point %s takes effect at the frame before's middle", (_case, x, at) => {
+    expect(timing.cutFrameMiddle(grid, x)).toBeCloseTo(at, 9);
+  });
 });
 
 describe('pairDuration', () => {

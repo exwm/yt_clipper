@@ -326,6 +326,7 @@ def getCropFilter(
     fps: Union[float, Fraction],
     easeType: str = "easeInOutSine",
     videoPartStart: float = 0.0,
+    legacyFrameTiming: bool = False,
 ) -> str:
     fps = Fraction(fps)
 
@@ -347,7 +348,7 @@ def getCropFilter(
         currEaseType = easeType if not right.get("easeIn", False) else right["easeIn"]
 
         sectDuration = getSectionEaseDuration(
-            currEaseType, left["x"] - videoPartStart, right["x"] - videoPartStart, float(fps)
+            currEaseType, left["x"] - videoPartStart, right["x"] - videoPartStart, float(fps), legacyFrameTiming
         )
         if sectDuration is None:
             continue
@@ -437,6 +438,7 @@ def getZoomPanFilter(
     frameWidth: Optional[float] = None,
     frameHeight: Optional[float] = None,
     videoPartStart: float = 0.0,
+    legacyFrameTiming: bool = False,
 ) -> Tuple[str, int]:
     maxSizeCrop = getMaxSizeCrop(cropMap)
     maxWidth = floorToEven(maxSizeCrop["width"])
@@ -476,7 +478,7 @@ def getZoomPanFilter(
         currEaseType = easeType if not right.get("easeIn", False) else right["easeIn"]
 
         sectDuration = getSectionEaseDuration(
-            currEaseType, left["x"] - videoPartStart, right["x"] - videoPartStart, float(fps)
+            currEaseType, left["x"] - videoPartStart, right["x"] - videoPartStart, float(fps), legacyFrameTiming
         )
         if sectDuration is None:
             continue
@@ -756,7 +758,7 @@ def floorToEven(x: Union[int, str, float]) -> int:
     return x & ~1
 
 
-def getFrameTimeBetweenLeftFrames(time: float, fps: float) -> float:
+def getFrameTimeBetweenLeftFrames(time: float, fps: float, legacyFrameTiming: bool = False) -> float:
     """The ease section end time to use for a crop keyframe placed at `time`.
 
     `time` is on the input video's timeline, whose frames lie on the 1/fps grid. A clip keeps that
@@ -767,6 +769,10 @@ def getFrameTimeBetweenLeftFrames(time: float, fps: float) -> float:
     jump must land on that frame. Landing between frames instead of snapping to a frame boundary
     also avoids float precision issues.
     """
+    if legacyFrameTiming:
+        # 5.48's frame: the markup's legacy build stores the raw playhead time, which the tolerance
+        # below would move to the next frame in the last 1 ms of a frame.
+        return (floor(time * fps) - 0.5) / fps
     # The frame the keyframe was placed on, allowing for its time being rounded below that frame's start.
     grid = FrameGrid(origin=0, rate=fps)
     return frameMiddle(grid, frameAt(grid, time) - 1)
@@ -776,6 +782,7 @@ def getEaseSectionDuration(
     startTime: float,
     endTime: float,
     fps: float,
+    legacyFrameTiming: bool = False,
 ) -> Optional[float]:
     realDuration = endTime - startTime
     # Zero/negative duration sections (e.g. redundant hold point pairs) have no
@@ -785,7 +792,7 @@ def getEaseSectionDuration(
 
     # Pull the end time back toward the last displayed frame so the ease finishes on it
     # rather than at the (usually overshot) keyframe time. See getFrameTimeBetweenLeftFrames.
-    adjustedDuration = getFrameTimeBetweenLeftFrames(endTime, fps) - startTime
+    adjustedDuration = getFrameTimeBetweenLeftFrames(endTime, fps, legacyFrameTiming) - startTime
 
     # For sections shorter than the adjustment window the adjusted end time can land before
     # the start time. Fall back to the real duration so the section still renders instead of
@@ -803,6 +810,7 @@ def getSectionEaseDuration(
     startTime: float,
     endTime: float,
     fps: float,
+    legacyFrameTiming: bool = False,
 ) -> Optional[float]:
     """The span a section eases over, from start and end times on the input video's timeline. smoothTrack spans the points' real times, so its sections meet
     exactly and the crop keeps its speed through each point on any frame grid (the clip's frames start
@@ -811,7 +819,7 @@ def getSectionEaseDuration(
     if easeType == "smoothTrack":
         realDuration = endTime - startTime
         return realDuration if realDuration > 0 else None
-    return getEaseSectionDuration(startTime, endTime, fps)
+    return getEaseSectionDuration(startTime, endTime, fps, legacyFrameTiming)
 
 
 def getEasingExpression(

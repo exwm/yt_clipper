@@ -1,3 +1,6 @@
+import { useFrameTiming } from '../util/frame-timing-mode.fixtures';
+useFrameTiming('5.49');
+
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { CropPoint } from '../@types/yt_clipper';

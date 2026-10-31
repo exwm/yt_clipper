@@ -2,11 +2,14 @@ import type { CropPoint, SpeedPoint } from '../@types/yt_clipper';
 import type { CropKeyframeMatch, EaseSectionDuration } from '../crop/crop-keyframe-math';
 import type { FrameGrid, FrameSpan } from './frame-grid';
 import type { FrameOnScreen, LoopRefresh, OwnSeek, ScreenFrame } from './frame-step';
+import { featureFlags } from '../feature-flags';
+import { frameTiming548 } from './frame-timing-548';
 import { frameTiming549 } from './frame-timing-549';
 
 /**
  * The markup's frame decisions, as pure functions of one frame reading. The shell (videoUtil.ts)
- * reads the video and keeps the state the decisions take in and give back.
+ * reads the video and keeps the state the decisions take in and give back. The `legacyFrameTiming`
+ * flag swaps in 5.48's decisions (frame-timing-548.ts) for 5.49's (frame-timing-549.ts).
  */
 
 /** What the shell reads of the video for one frame decision. */
@@ -110,6 +113,9 @@ export interface FrameTiming {
   editFrameTime(at: { isPaused: boolean; presentedTime: number; frameTime: () => number }): number;
   /** The duration to ease a crop section over, which the clipper's twin matches. */
   easeSectionDuration: EaseSectionDuration;
+  /** When a Cinematic cut at `cutX` takes effect: the middle of the frame before the cut point's,
+   *  which the clipper's twin matches. */
+  cutFrameMiddle(grid: FrameGrid, cutX: number): number;
 }
 
 export type MarkerType = 'start' | 'end';
@@ -124,4 +130,8 @@ export interface PairTiming extends TimeSpan {
   speedMap: SpeedPoint[];
 }
 
-export const frameTiming: FrameTiming = frameTiming549;
+/** Whether the markup times frames as 5.48 did. Read once at start, so the flag applies on reload:
+ *  frame decisions never mix the two. */
+export const isLegacyFrameTiming = featureFlags.legacyFrameTiming;
+
+export const frameTiming: FrameTiming = isLegacyFrameTiming ? frameTiming548 : frameTiming549;

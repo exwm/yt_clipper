@@ -1,6 +1,7 @@
 import json
 import math
 import re
+from collections.abc import Callable
 from fractions import Fraction
 from pathlib import Path
 from typing import Optional, Union
@@ -415,6 +416,39 @@ def test_getEaseSectionDuration(
         assert result is None
     else:
         assert result == pytest.approx(expected)
+
+
+@pytest.mark.parametrize(
+    ("endTime", "expected"),
+    [
+        pytest.param(31 / 30, 30.5 / 30, id="on frame 31's start"),
+        pytest.param(31.5 / 30, 30.5 / 30, id="mid frame 31"),
+        # Legacy markup stores the raw playhead time, so a time in a frame's last 1 ms is still that frame.
+        pytest.param(31 / 30 - 0.0005, 29.5 / 30, id="in frame 30's last millisecond"),
+        pytest.param(round(31 / 30, 6), 29.5 / 30, id="frame 31's start saved to 6 decimals, below it"),
+    ],
+)
+def test_legacy_frame_timing_ends_an_ease_section_before_the_frame_its_end_time_falls_in(
+    endTime: float, expected: float
+) -> None:
+    assert ffmpeg_filter.getEaseSectionDuration(0.0, endTime, 30.0, legacyFrameTiming=True) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize(
+    "buildFilter",
+    [
+        pytest.param(lambda cropMap, **kw: ffmpeg_filter.getCropFilter(cropMap[0]["crop"], cropMap, 30, **kw), id="pan"),
+        pytest.param(lambda cropMap, **kw: ffmpeg_filter.getZoomPanFilter(cropMap, 30, **kw)[0], id="zoom"),
+    ],
+)  # fmt: skip
+def test_legacy_frame_timing_reaches_the_crop_filters(buildFilter: Callable[..., str]) -> None:
+    # A point in frame 30's last millisecond: frame 31 for 5.49, frame 30 for 5.48.
+    cropMap = [
+        {"x": 0.0, "y": 0, "crop": "0:0:100:100"},
+        {"x": 31 / 30 - 0.0005, "y": 0, "crop": "50:50:50:50", "easeIn": "instant"},
+        {"x": 2.0, "y": 0, "crop": "50:50:50:50"},
+    ]
+    assert buildFilter(cropMap, legacyFrameTiming=True) != buildFilter(cropMap)
 
 
 @pytest.mark.parametrize(

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from clipper import clip_maker
+from clipper import clip_maker, frame_grid
 from clipper.argparser import getArgParser
 from clipper.clipper_types import ClipperPaths, ClipperState
 
@@ -171,6 +171,20 @@ def test_a_sample_guided_window_crops_its_own_frames(
     isRight = [min(frames[i : i + 8]) > 200 for i in range(0, len(frames), 8)]
     assert len(isRight) >= 60
     assert isRight == [frame >= firstRightFrame for frame in range(len(isRight))]
+
+
+def test_5_49_0_clips_start_and_end_as_in_5_48_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.undo()  # conftest.py sets each test's frame timing
+    assert frame_grid.LEGACY_FRAME_TIMING is True
+
+
+@pytest.mark.frame_timing("5.48")
+def test_legacy_frame_timing_ends_the_pair_and_its_maps_before_the_end_markers_frame(tmp_path: Path) -> None:
+    mp = pairSettings(tmp_path, {"start": 0.5 / 30, "end": 10.0, **PAIR_MAPS})
+    # The start marker's frame is dropped, and the end marker's frame left out.
+    assert (mp["start"], mp["end"]) == pytest.approx((1 / 30, 10.0))
+    assert [point["x"] for point in mp["speedMap"]] == pytest.approx([1 / 30, 5.0, 10.0])
+    assert [point["x"] for point in mp["cropMap"]] == pytest.approx([1 / 30, 5.0, 10 - 0.5 / 30])
 
 
 def test_a_pair_in_a_later_video_part_keeps_its_maps_on_one_timeline(tmp_path: Path) -> None:

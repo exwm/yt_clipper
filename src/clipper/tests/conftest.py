@@ -13,12 +13,16 @@ from pathlib import Path
 import pytest
 import verboselogs
 
+from clipper import frame_grid
 from clipper.ytc_logger import HEADER, IMPORTANT, NOTICE, REPORT
 
 verboselogs.add_log_level(IMPORTANT, "IMPORTANT")
 verboselogs.add_log_level(NOTICE, "NOTICE")
 verboselogs.add_log_level(HEADER, "HEADER")
 verboselogs.add_log_level(REPORT, "REPORT")
+
+# The frame timing this source builds into the clipper, before any test sets it.
+BUILT_FRAME_TIMING = "5.48" if frame_grid.LEGACY_FRAME_TIMING else "5.49"
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -39,11 +43,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
 
 
-def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """The tests that run yt-dlp or encode go first, so xdist spreads them over the workers instead
     of leaving them for last, when the other workers have nothing left."""
     slow = {"test_e2e.py", "test_ytdl.py"}
     items.sort(key=lambda item: item.path.name not in slow)
+    if config.getoption("clipper_exe"):
+        skip = pytest.mark.skip(reason=f"a built clipper keeps its own frame timing ({BUILT_FRAME_TIMING})")
+        for item in items:
+            marker = item.get_closest_marker("frame_timing")
+            if marker and marker.args[0] != BUILT_FRAME_TIMING:
+                item.add_marker(skip)
 
 
 @pytest.fixture(autouse=True)
@@ -52,6 +62,14 @@ def noCoverageInSubprocesses(monkeypatch: pytest.MonkeyPatch) -> None:
     the clipper's code but 5x slower measured. Total coverage is the same without it."""
     for name in ("COV_CORE_SOURCE", "COV_CORE_CONFIG", "COV_CORE_DATAFILE"):
         monkeypatch.delenv(name, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def frameTiming(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The tests pin 5.49's frame timing unless marked `frame_timing("5.48")`. A built clipper
+    (--clipper-exe) keeps its own, so its unmarked tests must pass with either."""
+    marker = request.node.get_closest_marker("frame_timing")
+    monkeypatch.setattr(frame_grid, "LEGACY_FRAME_TIMING", marker is not None and marker.args[0] == "5.48")
 
 
 def pytest_configure(config: pytest.Config) -> None:

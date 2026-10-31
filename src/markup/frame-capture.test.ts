@@ -1,3 +1,6 @@
+import { useFrameTiming } from './util/frame-timing-mode.fixtures';
+useFrameTiming('5.49');
+
 jest.mock('./yt_clipper', () => ({
   platform: 'youtube',
   isTheatreMode: jest.fn().mockReturnValue(false),

@@ -94,7 +94,7 @@ def test_the_clipper_warns_once_when_it_solves_without_banded_lapack(monkeypatch
     clip_maker._bakeCinematicPathFromKey.cache_clear()
     cropMap = [{"x": 0, "y": 0, "crop": "100:300:640:360"}, {"x": 2, "y": 0, "crop": "600:300:640:360"}]
     for fps in (30, 60):
-        clip_maker._bakeCinematicPath(cropMap, {"pos": 0.12, "zoom": 0.08}, 1920, 1080, fps, 0.0)
+        clip_maker._bakeCinematicPath(cropMap, {"pos": 0.12, "zoom": 0.08}, 1920, 1080, fps, 0.0, False)
     clip_maker._warnOfDenseCinematicSolve.cache_clear()
     clip_maker._bakeCinematicPathFromKey.cache_clear()
     assert len(warnings) == 1

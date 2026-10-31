@@ -1,4 +1,4 @@
-import { html, render, TemplateResult } from 'lit-html';
+import { html, nothing, render, TemplateResult } from 'lit-html';
 import { ref } from 'lit-html/directives/ref.js';
 import { appState } from '../../appState';
 import { getCurrentCropComponents, hideChart, scheduleCinematicRecompute } from '../../charts';
@@ -54,10 +54,12 @@ import { Tooltips } from '../../ui/tooltips';
 import {
   describeFrameRate,
   describeMeasureButton,
+  FrameRateSource,
   getFrameRate,
   isFrameRateMeasured,
   toggleFrameRateMeasurement,
 } from '../../util/videoUtil';
+import { isLegacyFrameTiming } from '../../util/frame-timing';
 import { assertDefined, copyToClipboard, toHHMMSSTrimmed } from '../../util/util';
 
 export function toggleGlobalSettingsEditor() {
@@ -85,6 +87,23 @@ if (typeof document !== 'undefined') {
   });
 }
 
+// 5.48's frame timing has no measurement: the readout then shows the platform's or the assumed rate.
+function MeasureButtonTemplate(frameRate: { source: FrameRateSource }) {
+  if (isLegacyFrameTiming) return nothing;
+  const measureButton = describeMeasureButton(frameRate);
+  return html`
+    <button
+      type="button"
+      id="global-frame-rate-toggle"
+      class=${`settings-toggle${isFrameRateMeasured() ? ' active' : ''}${measureButton.isMeasured ? ' measured' : ''}`}
+      title=${Tooltips.frameRateMeasurementTooltip}
+      @click=${toggleFrameRateMeasurement}
+    >
+      ${measureButton.label}
+    </button>
+  `;
+}
+
 function GlobalSettingsEditorTemplate(binder: SettingsBinder<Settings>): TemplateResult {
   const { bind } = binder;
   const settings = appState.settings;
@@ -109,7 +128,6 @@ function GlobalSettingsEditorTemplate(binder: SettingsBinder<Settings>): Templat
   const encodeDisplay = isExtraSettingsEditorEnabled ? 'block' : 'none';
   const rotate = settings.rotate;
   const frameRate = getFrameRate();
-  const measureButton = describeMeasureButton(frameRate);
 
   const rotate0 = bind('rotate-0', 'rotate', 'string');
   const rotate90Clock = bind('rotate-90-clock', 'rotate', 'string');
@@ -247,17 +265,12 @@ function GlobalSettingsEditorTemplate(binder: SettingsBinder<Settings>): Templat
             ${ref(gateHotkeys)}
           />
         </div>
-        <div class="settings-editor-input-div" title=${Tooltips.frameRateTooltip}>
+        <div
+          class="settings-editor-input-div"
+          title=${isLegacyFrameTiming ? Tooltips.frameRateSourceTooltip : Tooltips.frameRateTooltip}
+        >
           <span id="global-frame-rate" style="display:inline">${describeFrameRate(frameRate)}</span>
-          <button
-            type="button"
-            id="global-frame-rate-toggle"
-            class=${`settings-toggle${isFrameRateMeasured() ? ' active' : ''}${measureButton.isMeasured ? ' measured' : ''}`}
-            title=${Tooltips.frameRateMeasurementTooltip}
-            @click=${toggleFrameRateMeasurement}
-          >
-            ${measureButton.label}
-          </button>
+          ${MeasureButtonTemplate(frameRate)}
         </div>
         <div class="settings-editor-input-div">
           <span style="display:inline">Merge Durations: </span>

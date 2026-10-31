@@ -1,5 +1,6 @@
 """Frame stepping: on a site that reports no frame rate, Shift+Mousewheel steps one frame of the
-video, at the rate measured from played frames. The dev site's test video is 30 fps."""
+video, at the rate measured from played frames. The dev site's test video is 30 fps. All of it is
+5.49's frame timing: frame starts, the measured rate and the Measure button, the loop's end frame."""
 
 import json
 import math
@@ -20,6 +21,8 @@ from harness.hosts import DEV_SITE_HOST
 from harness.markup_page import MarkupPage
 from harness.paths import REPO
 from harness.steps import step
+
+pytestmark = pytest.mark.frame_timing("5.49")
 
 VIDEO_FPS = 30
 

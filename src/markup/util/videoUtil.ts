@@ -7,7 +7,7 @@ import { isMouseManipulatingCrop } from '../crop-overlay';
 import { blockEvent, flashMessage, getPendingSeekTime, seekBySafe, seekToSafe } from './util';
 import type { OwnSeek, Refresh, ScreenFrame } from './frame-step';
 import type { FrameGrid } from './frame-grid';
-import { FrameReading, FrameSeek, frameTiming } from './frame-timing';
+import { FrameReading, FrameSeek, frameTiming, isLegacyFrameTiming } from './frame-timing';
 import { registerActiveDragCleanup } from './drag-recovery';
 import {
   getFrameOnScreen,
@@ -63,10 +63,12 @@ function updateFrameRate(): void {
 
 // Whether getFPS uses the rate measured from played frames, saved in this browser. Off until turned
 // on: the measurement doesn't yet handle every video. Read on first use; storage that is blocked or
-// full keeps the setting for this page only.
+// full keeps the setting for this page only. 5.48's frame timing has no measurement, so the setting
+// saved is ignored there, and the Measure button and command that toggle it are hidden.
 const MEASURE_FRAME_RATE_KEY = 'ytc-measure-frame-rate';
 let measureFrameRate: boolean | null = null;
 export function isFrameRateMeasured(): boolean {
+  if (isLegacyFrameTiming) return false;
   if (measureFrameRate == null) {
     try {
       measureFrameRate = localStorage.getItem(MEASURE_FRAME_RATE_KEY) === 'true';

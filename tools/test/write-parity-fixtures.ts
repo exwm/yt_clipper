@@ -1,7 +1,8 @@
 // Rewrites the samples of the crop easing and Cinematic parity tables from the markup's preview math.
 // Each case keeps its inputs (crop points, easing, margins, fps, sample times); add a case or a time
 // by hand, then run `just regen-parity` to fill in the crops it should show. The clipper's tests
-// check its render against the same files.
+// check its render against the same files, with 5.49's frame timing.
+import './frame-timing-549';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { CropPoint } from '../../src/markup/@types/yt_clipper';

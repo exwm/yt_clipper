@@ -14,7 +14,7 @@ from typing import Any, Dict, Generator, List, Optional, Set, Tuple
 
 import rich.markup
 
-from clipper import banded_lapack, cinematic_path
+from clipper import banded_lapack, cinematic_path, frame_grid
 from clipper.clipper_types import (
     INVALID_MARKER_PAIR_KEY,
     BadMergeInput,
@@ -49,7 +49,7 @@ from clipper.ffmpeg_filter import (
     videoStabilizationGammaFixFilter,
 )
 from clipper.ffmpeg_version import filterFileOption, supportsOptionFiles
-from clipper.frame_grid import FrameGrid, frameSpan
+from clipper.frame_grid import FrameGrid, frameSpan, legacyFrameSpan
 from clipper.log_helpers import (
     LogPath,
     build_marker_pair_settings_snapshot,
@@ -78,12 +78,15 @@ def _bakeCinematicPath(
     cropResHeight: int,
     fps: float,
     videoPartStart: float,
+    legacyFrameTiming: bool,
 ) -> Optional[dict[str, Any]]:
     # A pair's settings are made again for each sample-guided trial and encode, and a long pair takes
     # about a second to solve. The path is only read, so the cached one is shared.
     # default=str: a point can carry other fields the solver ignores.
     key = json.dumps(
-        [cropMap, margins, cropResWidth, cropResHeight, fps, videoPartStart], sort_keys=True, default=str
+        [cropMap, margins, cropResWidth, cropResHeight, fps, videoPartStart, legacyFrameTiming],
+        sort_keys=True,
+        default=str,
     )
     return _bakeCinematicPathFromKey(key)
 
@@ -103,11 +106,17 @@ def _warnOfDenseCinematicSolve() -> None:
 
 @functools.lru_cache(maxsize=64)
 def _bakeCinematicPathFromKey(key: str) -> Optional[dict[str, Any]]:
-    cropMap, margins, cropResWidth, cropResHeight, fps, videoPartStart = json.loads(key)
+    cropMap, margins, cropResWidth, cropResHeight, fps, videoPartStart, legacyFrameTiming = json.loads(key)
     if banded_lapack.lapack() is None:
         _warnOfDenseCinematicSolve()
     return cinematic_path.bakeCinematicPath(
-        cropMap, margins, cropResWidth, cropResHeight, fps=fps, videoPartStart=videoPartStart
+        cropMap,
+        margins,
+        cropResWidth,
+        cropResHeight,
+        fps=fps,
+        videoPartStart=videoPartStart,
+        legacyFrameTiming=legacyFrameTiming,
     )
 
 
@@ -183,15 +192,18 @@ def getMarkerPairSettings(  # noqa: PLR0912
             videoPartDelay = videoPart["start"]
             mp["videoPart"] = videoPart
 
-    # The clip runs from the frame shown at its start marker through the one shown at its end marker.
+    # The clip runs from the frame shown at its start marker through the one shown at its end marker,
+    # or with legacy frame timing over the frames 5.48 took. Its crop points then take effect as in 5.48.
+    legacyFrameTiming = frame_grid.LEGACY_FRAME_TIMING
+    spanOf = legacyFrameSpan if legacyFrameTiming else frameSpan
     grid = clipFrameGrid(mps)
-    span = frameSpan(
+    span = spanOf(
         grid,
         mp["start"] + mps["delay"] - videoPartDelay,
         mp["end"] + mps["delay"] - videoPartDelay,
     )
     # The maps' ends are the pair's own, also when a sample-guided trial clips a window of it.
-    pairSpan = frameSpan(
+    pairSpan = spanOf(
         grid,
         mp.get("pairStart", mp["start"]) + mps["delay"] - videoPartDelay,
         mp.get("pairEnd", mp["end"]) + mps["delay"] - videoPartDelay,
@@ -203,6 +215,9 @@ def getMarkerPairSettings(  # noqa: PLR0912
     # video part's frames start at mapsFrameOrigin.
     mapsStart, mapsEnd = pairSpan.start + videoPartDelay, pairSpan.end + videoPartDelay
     mapsFrameOrigin = videoPartDelay + grid.origin
+    # Where crop points count their frames from: legacy frame timing counts from 0, as 5.48 and the
+    # markup's legacy build do.
+    cropFrameOrigin = 0.0 if legacyFrameTiming else mapsFrameOrigin
     # A sample-guided window starts this far into its pair's crop map.
     mp["cropMapTimeOffset"] = span.start - pairSpan.start
 
@@ -274,7 +289,8 @@ def getMarkerPairSettings(  # noqa: PLR0912
                     settings["cropResHeight"],
                     # ffprobe gives a fraction string such as "30000/1001".
                     fps=float(Fraction(mps["r_frame_rate"])),
-                    videoPartStart=mapsFrameOrigin,
+                    videoPartStart=cropFrameOrigin,
+                    legacyFrameTiming=legacyFrameTiming,
                 )
             except Exception as error:
                 # Without a path the pair renders as Smooth Track, as when there is nothing to solve.
@@ -321,7 +337,8 @@ def getMarkerPairSettings(  # noqa: PLR0912
             inputIsHDR=settings["inputIsHDR"],
             frameWidth=settings["width"],
             frameHeight=settings["height"],
-            videoPartStart=mapsFrameOrigin,
+            videoPartStart=cropFrameOrigin,
+            legacyFrameTiming=legacyFrameTiming,
         )
     elif mp["isPanningCrop"]:
         mp["cropFilter"] = getCropFilter(
@@ -329,7 +346,8 @@ def getMarkerPairSettings(  # noqa: PLR0912
             mp["cropMap"],
             mps["r_frame_rate"],
             easeType=cropEaseType,
-            videoPartStart=mapsFrameOrigin,
+            videoPartStart=cropFrameOrigin,
+            legacyFrameTiming=legacyFrameTiming,
         )
     else:
         cc = cropComponents

@@ -153,6 +153,7 @@ class ClipCase:
     # None when the clip keeps the source codec.
     codec: str | None
     localVideo: bool
+    length: float
 
 
 def clipCase(
@@ -163,14 +164,37 @@ def clipCase(
     *,
     localVideo: bool,
     slow: bool = False,
+    length: float = MARKER_PAIR_LENGTH,
+    frameTiming: str | None = None,
 ) -> object:
     marks = [pytest.mark.slow] if slow or not localVideo else []
-    return pytest.param(ClipCase(args, encoder, codec, localVideo), id=name, marks=marks)
+    if frameTiming:
+        marks.append(pytest.mark.frame_timing(frameTiming))
+    return pytest.param(ClipCase(args, encoder, codec, localVideo, length), id=name, marks=marks)
 
 
 CLIP_CASES = [
-    clipCase("vp9", (), "libvpx-vp9", "vp9", localVideo=True),
-    clipCase("av1", ("--video-codec", "av1"), "libsvtav1", "av1", localVideo=True),
+    clipCase("vp9", (), "libvpx-vp9", "vp9", localVideo=True, frameTiming="5.49"),
+    # 5.48 drops source frame 2253, where the start marker sits mid-frame, which plays at 0.3x.
+    clipCase(
+        "vp9-legacy-frame-timing",
+        (),
+        "libvpx-vp9",
+        "vp9",
+        localVideo=True,
+        length=MARKER_PAIR_LENGTH - float(1 / SOURCE_FPS) / 0.3,
+        frameTiming="5.48",
+    ),
+    clipCase("av1", ("--video-codec", "av1"), "libsvtav1", "av1", localVideo=True, frameTiming="5.49"),
+    clipCase(
+        "av1-legacy-frame-timing",
+        ("--video-codec", "av1"),
+        "libsvtav1",
+        "av1",
+        localVideo=True,
+        length=MARKER_PAIR_LENGTH - float(1 / SOURCE_FPS) / 0.3,
+        frameTiming="5.48",
+    ),
     clipCase(
         "nvenc",
         ("--video-codec", "h264_nvenc"),
@@ -392,6 +416,7 @@ def sourceFrames(ffprobe: str, clip: pathlib.Path) -> list[int]:
         pytest.param(0, 1, (0, 28), 2 / 30, id="a start marker before the video's first frame"),
     ],
 )
+@pytest.mark.frame_timing("5.49")
 def test_a_clip_runs_from_the_frame_shown_at_its_start_marker_through_the_one_at_its_end_marker(
     clipper: Clipper,
     tmp_path: pathlib.Path,
@@ -400,6 +425,37 @@ def test_a_clip_runs_from_the_frame_shown_at_its_start_marker_through_the_one_at
     frames: tuple[int, int],
     sourceStart: float,
 ) -> None:
+    shown = clipOfNumberedVideo(clipper, tmp_path, start, end, sourceStart)
+    assert (shown[0], shown[-1], len(shown)) == (*frames, frames[1] - frames[0] + 1)
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "frames", "sourceStart"),
+    [
+        pytest.param(30 / 30, 50 / 30, (30, 49), 0, id="markers on frame starts: the end marker's frame left out"),
+        pytest.param(30.5 / 30, 50.5 / 30, (31, 50), 0, id="markers mid-frame: the start marker's frame dropped"),
+        pytest.param(round(31 / 30, 6), round(52 / 30, 6), (31, 51), 0, id="markers saved to 6 decimals"),
+        pytest.param(30.9 / 30, 50.9 / 30, (31, 50), 0, id="markers late in their frames"),
+        pytest.param(0, 1, (0, 27), 2 / 30, id="a start marker before the video's first frame"),
+    ],
+)  # fmt: skip
+@pytest.mark.frame_timing("5.48")
+def test_a_legacy_clip_runs_from_the_first_frame_starting_at_its_start_marker_to_before_its_end_marker(
+    clipper: Clipper,
+    tmp_path: pathlib.Path,
+    start: float,
+    end: float,
+    frames: tuple[int, int],
+    sourceStart: float,
+) -> None:
+    shown = clipOfNumberedVideo(clipper, tmp_path, start, end, sourceStart)
+    assert (shown[0], shown[-1], len(shown)) == (*frames, frames[1] - frames[0] + 1)
+
+
+def clipOfNumberedVideo(
+    clipper: Clipper, tmp_path: pathlib.Path, start: float, end: float, sourceStart: float, *args: str
+) -> list[int]:
+    """The numbered source frames of a clip of `numberedVideo` from `start` to `end`."""
     clipper.requireEncoder("libvpx-vp9")
     ffmpeg, ffprobe = clipper.toolPath("ffmpeg"), clipper.toolPath("ffprobe")
     assert ffmpeg is not None
@@ -412,11 +468,10 @@ def test_a_clip_runs_from_the_frame_shown_at_its_start_marker_through_the_one_at
     markers.write_text(json.dumps(data), encoding="utf-8")
     output = clipper.cwd / "webms" / markers.stem
     try:
-        run = clipper.run(["--markers-json", str(markers), "--input-video", str(source), *OFFLINE_ARGS])
+        run = clipper.run(["--markers-json", str(markers), "--input-video", str(source), *OFFLINE_ARGS, *args])
         print(run.stdout, run.stderr)
         assert run.returncode == 0
-        shown = sourceFrames(ffprobe, next(output.glob("*.webm")))
-        assert (shown[0], shown[-1], len(shown)) == (*frames, frames[1] - frames[0] + 1)
+        return sourceFrames(ffprobe, next(output.glob("*.webm")))
     finally:
         shutil.rmtree(output, ignore_errors=True)
 
@@ -433,9 +488,36 @@ def test_a_clip_runs_from_the_frame_shown_at_its_start_marker_through_the_one_at
         pytest.param(0.021, round(0.021 + 91 / 30, 6), id="a video starting 21 ms in"),
     ],
 )
+@pytest.mark.frame_timing("5.49")
 def test_an_instant_crop_point_switches_on_its_own_frame(
     clipper: Clipper, tmp_path: pathlib.Path, easing: str, sourceStart: float, pointTime: float
 ) -> None:
+    assert firstFrameCroppedRight(clipper, tmp_path, easing, sourceStart, pointTime) == 91
+
+
+@pytest.mark.parametrize("easing", ["smoothInOut", "smoothTrack"])
+@pytest.mark.parametrize(
+    ("sourceStart", "pointTime", "frame"),
+    [
+        pytest.param(0, 91 / 30, 91, id="exact"),
+        # Legacy markup stores the raw playhead time, which can sit in its frame's last millisecond.
+        pytest.param(0, 91 / 30 - 0.0005, 90, id="in frame 90's last millisecond"),
+        # 5.48 counts frames from 0, not from the video's first frame, so a point on frame 91 cuts on 90.
+        pytest.param(0.021, round(0.021 + 91 / 30, 6), 90, id="a video starting 21 ms in: a frame early"),
+    ],
+)
+@pytest.mark.frame_timing("5.48")
+def test_a_legacy_instant_crop_point_switches_on_5_48s_frame(
+    clipper: Clipper, tmp_path: pathlib.Path, easing: str, sourceStart: float, pointTime: float, frame: int
+) -> None:
+    shown = firstFrameCroppedRight(clipper, tmp_path, easing, sourceStart, pointTime)
+    assert shown == frame
+
+
+def firstFrameCroppedRight(
+    clipper: Clipper, tmp_path: pathlib.Path, easing: str, sourceStart: float, pointTime: float, *args: str
+) -> int:
+    """The first source frame cropped to its right half, from an instant crop point at `pointTime`."""
     # Frame n's left half has brightness n and its right half 255 - n, so a frame's crop names the half
     # and the source frame both.
     clipper.requireEncoder("libvpx-vp9")
@@ -470,13 +552,12 @@ def test_an_instant_crop_point_switches_on_its_own_frame(
     markers.write_text(json.dumps(data), encoding="utf-8")
     output = clipper.cwd / "webms" / markers.stem
     try:
-        run = clipper.run(["--markers-json", str(markers), "--input-video", str(source), *OFFLINE_ARGS])
+        run = clipper.run(["--markers-json", str(markers), "--input-video", str(source), *OFFLINE_ARGS, *args])
         print(run.stdout, run.stderr)
         assert run.returncode == 0
         # A right-half frame is brighter than 127.5; its source frame is 255 - its brightness.
         brightness = frameBrightness(ffprobe, next(output.glob("*.webm")))
-        firstRight = next(round(255 - b) for b in brightness if b > 127.5)
-        assert firstRight == 91
+        return next(round(255 - b) for b in brightness if b > 127.5)
     finally:
         shutil.rmtree(output, ignore_errors=True)
 
@@ -787,7 +868,7 @@ def test_make_clip(case: ClipCase, clipper: Clipper) -> None:
     if case.codec:
         assert video.get("codec_name") == case.codec
         # Fast trim cuts at keyframes, so only re-encoded clips keep the exact length.
-        assert clipper.probeDuration(clips[0]) == pytest.approx(MARKER_PAIR_LENGTH, abs=LENGTH_TOLERANCE)
+        assert clipper.probeDuration(clips[0]) == pytest.approx(case.length, abs=LENGTH_TOLERANCE)
     log = max((output / "logs").glob("*.log"), key=lambda path: path.stat().st_mtime)
     assert not re.findall(r"\b(?:ERROR|CRITICAL)\b", log.read_text(encoding="utf-8"))
 
