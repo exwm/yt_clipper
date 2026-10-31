@@ -422,6 +422,73 @@ def test_a_pairs_loop_stays_on_its_end_frame_when_stepped_onto(markup: MarkupPag
     then_the_frame_shown_is(markup, 66)
 
 
+# An end marker placed before the rate was measured can sit in its frame's second half. A click on its
+# number seeks to it, and the loop stays there, as in 5.48.
+def test_a_pairs_loop_stays_on_its_end_marker_when_its_number_is_clicked(
+    markup: MarkupPage,
+) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("relies on the dev site's test video frame times")
+    given_the_video_has_played_until_its_frame_rate_is_measured(markup)
+    markup.load_saved_marker_pairs(
+        [{"start": 60 / VIDEO_FPS, "end": 66.75 / VIDEO_FPS, "crop": "0:0:iw:ih"}]
+    )
+    markup.open_marker_pair(0)
+    markup.press("Shift+KeyC")
+    when_i_click_the_end_marker_number(markup)
+    markup.next_frames(5)
+    then_the_frame_shown_is(markup, 66)
+
+
+# Frames a steady 17 ms apart (58.82 fps, as video2x's interpolation writes them): a rate no standard
+# one matches. Millisecond frame times can't tell it precisely enough for a grid along the whole video
+# (read as 58.8, a marker on frame 500 meant frame 499), so it keeps the assumed 60 fps, as 5.48 did.
+SEVENTEEN_MS = 0.017
+
+
+@pytest.mark.video_style("testsrc17ms")
+def test_a_58_82_fps_video_keeps_the_assumed_frame_rate_after_playing(markup: MarkupPage) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("relies on the dev site's test videos")
+    given_the_video_has_played_2_s(markup)
+    markup.add_marker_pair(100.5 * SEVENTEEN_MS, 500.5 * SEVENTEEN_MS)
+    markup.open_marker_pair(0)
+    # Frames 102 to 510 of the assumed 60 fps grid.
+    then_the_duration_reads(markup, "06.816/1 = 06.816 (409)")
+
+
+@pytest.mark.video_style("testsrc17ms")
+def test_a_pairs_loop_stays_on_its_end_marker_late_in_a_58_82_fps_video(markup: MarkupPage) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("relies on the dev site's test videos")
+    given_the_video_has_played_2_s(markup)
+    markup.add_marker_pair(460.5 * SEVENTEEN_MS, 500.5 * SEVENTEEN_MS)
+    markup.open_marker_pair(0)
+    markup.press("Shift+KeyC")
+    when_i_click_the_end_marker_number(markup)
+    markup.next_frames(5)
+    time = markup.current_time()
+    markup.report(f"time {time}")
+    assert math.floor(time / SEVENTEEN_MS + 0.001) == 500
+
+
+@step
+def given_the_video_has_played_2_s(markup: MarkupPage) -> None:
+    markup.seek(2, presented=True)
+    with markup.untraced():
+        markup.play()
+        markup.page.wait_for_function(
+            "() => document.querySelector('video').currentTime > 4.2", timeout=8000
+        )
+        markup.pause()
+
+
+@step
+def when_i_click_the_end_marker_number(markup: MarkupPage) -> None:
+    markup.page.locator("#marker-numberings-div text[data-idx='1'].endMarkerNumbering").click()
+    markup.page.wait_for_function("!document.querySelector('video').seeking", timeout=3000)
+
+
 @step
 def then_the_frame_shown_is(markup: MarkupPage, frame: int) -> None:
     time = markup.current_time()

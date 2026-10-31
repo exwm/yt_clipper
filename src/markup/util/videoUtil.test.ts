@@ -85,7 +85,8 @@ jest.mock('./util', () => ({
 }));
 jest.mock('./drag-recovery', () => ({ registerActiveDragCleanup: jest.fn() }));
 
-const mockStorage = new Map<string, string>();
+// Measure on, as a user turns it on: most tests here check the measured rate.
+const mockStorage = new Map<string, string>([['ytc-measure-frame-rate', 'true']]);
 Object.assign(globalThis, {
   localStorage: {
     getItem: (key: string) => mockStorage.get(key) ?? null,
@@ -105,6 +106,28 @@ import {
   toggleFrameRateMeasurement,
 } from './videoUtil';
 import { seekBySafe } from './util';
+
+describe('the Measure setting', () => {
+  it.each([
+    ['nothing saved', null, false],
+    ['turned on', 'true', true],
+    ['turned off', 'false', false],
+  ])('measures the frame rate with %s: %p', (_case, saved, expected) => {
+    jest.isolateModules(() => {
+      const storage = new Map(saved == null ? [] : [['ytc-measure-frame-rate', saved]]);
+      Object.assign(globalThis, {
+        localStorage: { getItem: (key: string) => storage.get(key) ?? null, setItem: jest.fn() },
+      });
+      expect(require('./videoUtil').isFrameRateMeasured()).toBe(expected);
+    });
+    Object.assign(globalThis, {
+      localStorage: {
+        getItem: (key: string) => mockStorage.get(key) ?? null,
+        setItem: (key: string, value: string) => mockStorage.set(key, value),
+      },
+    });
+  });
+});
 
 describe('getFPS', () => {
   beforeEach(() => {

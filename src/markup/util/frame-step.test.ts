@@ -1117,6 +1117,18 @@ describe('loopTurnBack', () => {
       { isPlaying: false, held: null, time: 2.04, playhead: 2.04 },
       backTo(1),
     ],
+    // An end marker placed on another grid (before the rate was measured) can sit in its frame's
+    // second half. A click on its number seeks to it, which stays, as in 5.48.
+    [
+      'paused on an end marker in its frame second half',
+      { isPlaying: false, held: null, end: 2.025, ...paused(2.025) },
+      null,
+    ],
+    [
+      'paused past an end marker in its frame second half',
+      { isPlaying: false, held: null, end: 2.025, ...paused(2.025 + PLACEMENT_TOLERANCE + 1e-4) },
+      backTo(1),
+    ],
     // The assumed 60 fps on 24 fps video, the end marker inside video frame 48 (2 s to 2.0417 s) but
     // on the grid frame after the one it shows: the playhead past the end turns back, else the
     // frame after it does, as in 5.48.

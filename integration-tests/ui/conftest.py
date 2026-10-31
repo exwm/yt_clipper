@@ -330,12 +330,13 @@ def markup(
     problems = PageProblems(on_youtube=bool(youtube_url), require_urls=require_urls(userscript))
     page = browser_page
     problems.watch(page)
+    # Measure off (the default) for --assumed-frame-rate, so playing never measures mid-test, else on,
+    # as a user turns it on.
     assumed = request.config.getoption("assumed_frame_rate")
-    if assumed:
-        # Measure off, as a user sets it, so playing never measures mid-test.
-        page.add_init_script(
-            "try { localStorage.setItem('ytc-measure-frame-rate', 'false'); } catch {}"
-        )
+    measure = "false" if assumed else "true"
+    page.add_init_script(
+        f"try {{ localStorage.setItem('ytc-measure-frame-rate', '{measure}'); }} catch {{}}"
+    )
     with steps.timed("(open the page)"):
         if youtube_url:
             open_youtube(page, youtube_url, userscript)

@@ -204,12 +204,19 @@ describe('getMeasuredFrameRate', () => {
       frames(60, 70, toMilliseconds).filter((_, k) => k !== 3),
       60,
     ],
-    ['a non-standard rate', frames(17, 9), 17],
   ])('measures %s', (_case, times, expected) => {
     const { element, present } = fakeVideo();
     getMeasuredFrameRate(element);
     times.forEach(present);
     expect(getMeasuredFrameRate(element)).toBeCloseTo(expected, 6);
+  });
+
+  // Its grid would drift along a long video, so it keeps the assumed rate, as in 5.48.
+  it('measures no rate for a non-standard one', () => {
+    const { element, present } = fakeVideo();
+    getMeasuredFrameRate(element);
+    frames(17, 9).forEach(present);
+    expect(getMeasuredFrameRate(element)).toBeNull();
   });
 
   it.each([
@@ -351,7 +358,7 @@ describe('getMeasuredFrameRate', () => {
 
   // A rate taken after 8 frames can be an NTSC neighbor (11.988 for 12); the rate over 60 frames
   // corrects it, once.
-  it.each([12, 15, 17])('settles on %d fps from 8 to 120 frames, changing at most once', (fps) => {
+  it.each([12, 15])('settles on %d fps from 8 to 120 frames, changing at most once', (fps) => {
     const { element, present } = fakeVideo();
     getMeasuredFrameRate(element);
     const rates: (number | null)[] = [];

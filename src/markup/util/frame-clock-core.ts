@@ -73,6 +73,17 @@ interface RunGap {
   decoded: number | null;
 }
 
+// The rates a run fits: a constant rate fits every part of the run from its start, within its frame
+// times' rounding. Empty (slowest > fastest) once the rate changed or drifts (an edit between NTSC
+// neighbors, a phone's capture).
+interface RunFit {
+  start: number;
+  frames: number;
+  isExact: boolean;
+  slowest: number;
+  fastest: number;
+}
+
 export interface ClockState {
   lastFrame: SeenFrame | null;
   seekCount: number;
@@ -88,6 +99,8 @@ export interface ClockState {
   // first, so millisecond rounding errs by about 1 ms in total, while each extra run would add
   // another and blur 29.97 into 30.
   currentRun: readonly RunGap[];
+  // The rates the whole current run fits (`currentRun` keeps only its last gaps).
+  runFit: RunFit | null;
   // The rate a run long enough to confirm it measured, or null until one has.
   publishedRate: number | null;
   // The rates announced for the current source, so each is announced once.
@@ -122,6 +135,7 @@ export const initialClock: ClockState = {
   settleCount: 0,
   onScreen: null,
   currentRun: [],
+  runFit: null,
   publishedRate: null,
   announcedRates: [],
   readRate: null,
@@ -155,6 +169,7 @@ export function stepClock(state: ClockState, event: ClockEvent): ClockState {
       return {
         ...state,
         currentRun: [],
+        runFit: null,
         readCheck: state.readCheck === 'mixed' ? 'mixed' : null,
       };
     case 'frame':
@@ -258,7 +273,7 @@ function stepFrame(state: ClockState, frame: SeenFrame): ClockState {
           frame.droppedFrames - lastFrame.droppedFrames
         )
       : presented;
-  const endRun = (): ClockState => ({ ...state, lastFrame: frame, currentRun: [] });
+  const endRun = (): ClockState => ({ ...state, lastFrame: frame, currentRun: [], runFit: null });
   // A run can start on a gap of several frames, as the presented count tells them: Firefox calls back
   // about 25 times a second, so at 50 or 60 fps every gap spans 2 or 3 frames. A browser that counts
   // more than one presented frame per video frame measures nothing: its decoded count disagrees.
@@ -280,14 +295,42 @@ function stepFrame(state: ClockState, frame: SeenFrame): ClockState {
   // run's gaps add up to its last time minus its first, which the NTSC span needs.
   if (state.currentRun.length > 0 && !continuesRun(state.currentRun, gap)) return endRun();
   const currentRun = [...state.currentRun, gap].slice(-MAX_RUN_GAPS);
+  const runFit = fitRun(state.runFit, lastFrame.mediaTime, gap);
   const measurement = confirmingSpan(currentRun);
   let { publishedRate } = state;
   if (measurement != null && allFramesShown(measurement.span)) {
     const rate = measureFrameRate(measurement.span);
-    if (replacesPublished(publishedRate, rate, measurement.isPrecise)) publishedRate = rate;
+    if (
+      rate != null &&
+      fits(runFit, rate) &&
+      replacesPublished(publishedRate, rate, measurement.isPrecise)
+    )
+      publishedRate = rate;
   }
-  return { ...state, lastFrame: frame, currentRun, publishedRate };
+  return { ...state, lastFrame: frame, currentRun, runFit, publishedRate };
 }
+
+function fitRun(fit: RunFit | null, gapStart: number, gap: RunGap): RunFit {
+  const start = fit?.start ?? gapStart;
+  const frames = (fit?.frames ?? 0) + gap.frames;
+  const isExact = (fit?.isExact ?? true) && isExactGap(gap);
+  const duration = gapStart + gap.duration - start;
+  const rounding = isExact ? STEADY_GAP_SECONDS : RUN_ROUNDING_SECONDS + RUN_MARGIN_SECONDS;
+  return {
+    start,
+    frames,
+    isExact,
+    slowest: Math.max(fit?.slowest ?? 0, frames / (duration + rounding)),
+    fastest: Math.min(fit?.fastest ?? Infinity, frames / (duration - rounding)),
+  };
+}
+
+// A standard rate the run's last gaps measure may not be the video's: a steady 30.3 fps (frames 33 ms
+// long, as video2x's interpolation writes them) measures within 1.5% of 30, whose grid would be a
+// frame off within 2 s. Such a run publishes nothing, which keeps the assumed rate, as in 5.48. A run
+// whose rate changed or drifts fits no rate, and its last gaps decide.
+const fits = (fit: RunFit, rate: number) =>
+  fit.slowest > fit.fastest || (rate >= fit.slowest && rate <= fit.fastest);
 
 // The part of the run that confirms a rate, if any, and whether it tells NTSC rates apart. Exact,
 // steady frame times (MP4, HLS) do in 8 frames. Millisecond times (YouTube, WebM) do over a whole
@@ -424,12 +467,13 @@ export function announceRate(
 
 // A run holds no outlier to filter: each gap is close to the run's mean frame duration, and knows how
 // many frames it spans.
-function measureFrameRate(run: readonly RunGap[]): number {
+// A rate no standard one matches is null: millisecond frame times can't tell it precisely enough
+// for a grid along the whole video (58.82 fps read as 58.8 is a frame off by 8 s), so it keeps the
+// assumed rate, as in 5.48.
+function measureFrameRate(run: readonly RunGap[]): number | null {
   const fps = runFrames(run) / run.reduce((sum, gap) => sum + gap.duration, 0);
   const nearest = STANDARD_FRAME_RATES.reduce((best, rate) =>
     Math.abs(fps - rate) < Math.abs(fps - best) ? rate : best
   );
-  if (Math.abs(fps - nearest) <= nearest * STANDARD_FRAME_RATE_TOLERANCE) return nearest;
-  // A rate no standard one matches is rounded, so it doesn't drift with each new duration.
-  return Math.round(fps * 10) / 10;
+  return Math.abs(fps - nearest) <= nearest * STANDARD_FRAME_RATE_TOLERANCE ? nearest : null;
 }

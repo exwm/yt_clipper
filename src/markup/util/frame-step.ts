@@ -190,10 +190,12 @@ export function loopTurnBack(loop: LoopRefresh): {
   // Both are 5.48's tests. Playing: at an assumed rate a mid-frame end can fall in a grid frame after
   // the frame on screen's, which then turns back only once the frame after it shows. Paused: past the
   // end frame's middle, where a step lands, since playing on from there shows the next frame at the
-  // first refresh, before the loop can turn back.
+  // first refresh, before the loop can turn back. Also past the end marker, which a click on its
+  // number seeks to, and which can sit in its frame's second half once the rate is measured.
   const isPastEnd = isPlaying
     ? playhead > end
-    : playhead > frameMiddle(grid, frameSpan(grid, start, end).lastFrame) + PLACEMENT_TOLERANCE;
+    : playhead >
+      Math.max(end, frameMiddle(grid, frameSpan(grid, start, end).lastFrame)) + PLACEMENT_TOLERANCE;
   const target = isPastEnd
     ? frameSeekTarget(grid, start)
     : loopSeekTarget(grid, start, end, time, isPlaying);

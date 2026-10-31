@@ -69,16 +69,17 @@ function updateFrameRate(): void {
   showFrameRate(frameRate);
 }
 
-// Whether getFPS uses the rate measured from played frames, saved in this browser. Read on first
-// use; storage that is blocked or full keeps the setting for this page only.
+// Whether getFPS uses the rate measured from played frames, saved in this browser. Off until turned
+// on: the measurement doesn't yet handle every video. Read on first use; storage that is blocked or
+// full keeps the setting for this page only.
 const MEASURE_FRAME_RATE_KEY = 'ytc-measure-frame-rate';
 let measureFrameRate: boolean | null = null;
 export function isFrameRateMeasured(): boolean {
   if (measureFrameRate == null) {
     try {
-      measureFrameRate = localStorage.getItem(MEASURE_FRAME_RATE_KEY) !== 'false';
+      measureFrameRate = localStorage.getItem(MEASURE_FRAME_RATE_KEY) === 'true';
     } catch {
-      measureFrameRate = true;
+      measureFrameRate = false;
     }
   }
   return measureFrameRate;

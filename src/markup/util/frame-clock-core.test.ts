@@ -8,8 +8,10 @@ import {
   FRAMES_TO_CONFIRM_ROUNDED,
   initialClock,
   measuredRate,
+  STANDARD_FRAME_RATES,
   stepClock,
 } from './frame-clock-core';
+import { frameAt as gridFrameAt } from './frame-grid';
 
 // A small seeded generator, so a failing scenario replays exactly from its seed.
 function mulberry32(seed: number): () => number {
@@ -157,7 +159,223 @@ const clean = (fps: number, countsFrames: boolean): Scenario => ({
 
 const SCENARIOS = scenarios(4);
 
+// Plays `seconds` of a video at `fps` from 1 s, its frame times rounded to the millisecond as WebM and
+// YouTube give them, every frame shown and counted.
+function playRounded(fps: number, seconds: number): ClockState {
+  let clock = initialClock;
+  const first = Math.round(fps);
+  for (let k = 0; k <= Math.round(seconds * fps); k++) {
+    const frame: ClockFrame = {
+      mediaTime: Math.round(((first + k) / fps) * 1000) / 1000,
+      duringSeek: false,
+      droppedFrames: 0,
+      presentedFrames: k,
+      decodedFrames: k,
+      paused: false,
+      playbackRate: 1,
+    };
+    clock = stepClock(clock, { type: 'frame', frame });
+  }
+  return clock;
+}
+
+// The frames the published grid gives other than their own, among frames 0 to `frames`.
+function framesOffGrid(fps: number, rate: number, frames: number): number[] {
+  const off: number[] = [];
+  for (let n = 0; n <= frames; n++) {
+    const start = Math.round((n / fps) * 1000) / 1000;
+    if (gridFrameAt({ origin: 0, rate }, start) !== n) off.push(n);
+  }
+  return off.slice(0, 3);
+}
+
+// Every rate published while one run plays `before` fps for 600 frames, then `after` fps, with
+// exact or millisecond frame times: an edit between NTSC neighbors, or a capture whose rate drifts.
+function ratesOverOneRun(before: number, after: number, exact: boolean): Set<number | null> {
+  let clock = initialClock;
+  let time = 1;
+  const rates = new Set<number | null>();
+  for (let k = 0; k <= 3000; k++) {
+    time += 1 / (k < 600 ? before : after);
+    const frame: ClockFrame = {
+      mediaTime: exact ? Math.round(time * 1e6) / 1e6 : Math.round(time * 1000) / 1000,
+      duringSeek: false,
+      droppedFrames: 0,
+      presentedFrames: k,
+      decodedFrames: k,
+      paused: false,
+      playbackRate: 1,
+    };
+    clock = stepClock(clock, { type: 'frame', frame });
+    rates.add(clock.publishedRate);
+  }
+  return rates;
+}
+
+describe('a rate that changes within one run', () => {
+  it.each([
+    [30, 30000 / 1001],
+    [60, 60000 / 1001],
+  ])('switches from %p to %p fps with exact frame times', (before, after) => {
+    expect([...ratesOverOneRun(before, after, true)]).toEqual([null, before, after]);
+  });
+  // Millisecond times can't tell the switch exactly, but stay on the two standard rates.
+  it.each([
+    [30, 30000 / 1001],
+    [24, 24000 / 1001],
+  ])('stays on standard rates from %p to %p fps with millisecond times', (before, after) => {
+    const rates = [...ratesOverOneRun(before, after, false)].filter((rate) => rate != null);
+    expect(rates.every((rate) => [before, after].includes(rate))).toBe(true);
+  });
+});
+
+describe('the grid of a measured rate', () => {
+  const TEN_MINUTES = 600;
+  // Every standard rate, once 2 s (and 130 frames) have played: the grid holds for the whole video.
+  it.each([...RATES, 48, 15, 12.5])(
+    'keeps every frame of a %p fps video on its own frame for 10 minutes',
+    (fps) => {
+      const rate = playRounded(fps, Math.max(2, 130 / fps)).publishedRate;
+      expect(rate).not.toBeNull();
+      expect(framesOffGrid(fps, rate!, fps * TEN_MINUTES)).toEqual([]);
+    }
+  );
+  // Rates no standard one matches, and steady rates near one, which its grid would drift from: frames
+  // a steady whole number of milliseconds apart (video2x's interpolation writes 17 ms for 60 fps and
+  // 33 ms for 30 fps; 21 ms is 1% off 48, 42 ms 0.7% off 23.976), and others (47.3 is 1.5% off 48).
+  // Millisecond times can't tell them precisely enough for a whole video's grid, so they publish
+  // nothing and keep the assumed rate, as in 5.48.
+  it.each([1000 / 17, 1000 / 33, 1000 / 21, 1000 / 42, 58.8, 61, 47.3, 23.5, 33.7])(
+    'publishes no rate for a steady %p fps video',
+    (fps) => {
+      expect(playRounded(fps, 10).publishedRate).toBeNull();
+    }
+  );
+});
+
+// Plays `seconds` from 1 s at `fps`: exact (µs) or millisecond frame times, a frame callback every
+// `every` frames (Firefox: 2 or 3), a frame dropped every `dropEvery`, at `playbackRate`, and from
+// `switchAt` frames on at `switchTo` fps.
+function playWith(
+  fps: number,
+  {
+    seconds = 10,
+    exact = false,
+    every = 1,
+    dropEvery = Infinity,
+    playbackRate = 1,
+    switchAt = Infinity,
+    switchTo = fps,
+  } = {}
+): ClockState {
+  let clock = initialClock;
+  let time = 1;
+  let dropped = 0;
+  for (let k = 1; time < 1 + seconds; k++) {
+    time += 1 / (k < switchAt ? fps : switchTo);
+    if (k % dropEvery === 0) {
+      dropped++;
+      continue;
+    }
+    if (k % every !== 0) continue;
+    clock = stepClock(clock, {
+      type: 'frame',
+      frame: {
+        mediaTime: exact ? Math.round(time * 1e6) / 1e6 : Math.round(time * 1000) / 1000,
+        duringSeek: false,
+        droppedFrames: dropped,
+        presentedFrames: k - dropped,
+        decodedFrames: k,
+        paused: false,
+        playbackRate,
+      },
+    });
+  }
+  return clock;
+}
+
+describe('a rate no standard one fits, in each way frames reach the clock', () => {
+  it.each<[string, number, Parameters<typeof playWith>[1]]>([
+    ['exact frame times', 1000 / 33, { exact: true }],
+    ['exact frame times, near no standard rate', 58.8, { exact: true }],
+    ['a frame callback every 2 or 3 frames', 1000 / 17, { every: 2 }],
+    ['a frame dropped every 50', 1000 / 33, { dropEvery: 50 }],
+    ['playing at half speed', 1000 / 33, { playbackRate: 0.5 }],
+  ])('publishes no rate with %s', (_case, fps, options) => {
+    expect(playWith(fps, options).publishedRate).toBeNull();
+  });
+
+  it.each<[string, number, Parameters<typeof playWith>[1]]>([
+    ['exact frame times', 30000 / 1001, { exact: true }],
+    ['a frame callback every 2 or 3 frames', 60, { every: 2 }],
+    ['a frame dropped every 50', 30, { dropEvery: 50 }],
+    ['playing at half speed', 30, { playbackRate: 0.5 }],
+  ])('still publishes a standard rate with %s', (_case, fps, options) => {
+    expect(playWith(fps, options).publishedRate).toBe(fps);
+  });
+
+  // Frame times that cycle beyond the timestamps' rounding average a rate no grid fits: 24 fps
+  // content stamped 40, 40 and 20 ms in a variable rate file averages 30 fps, as does 36, 33 and
+  // 31 ms. No run holds them, so nothing is published, as in 5.48.
+  it.each([[[0.04, 0.04, 0.02]], [[0.036, 0.033, 0.031]]])(
+    'publishes no rate for frames lasting %p s in turn',
+    (cycle) => {
+      let clock = initialClock;
+      let time = 1;
+      for (let k = 0; k < 900; k++) {
+        time += cycle[k % cycle.length];
+        clock = stepClock(clock, {
+          type: 'frame',
+          frame: {
+            mediaTime: Math.round(time * 1000) / 1000,
+            duringSeek: false,
+            droppedFrames: 0,
+            presentedFrames: k,
+            decodedFrames: k,
+            paused: false,
+            playbackRate: 1,
+          },
+        });
+      }
+      expect(clock.publishedRate).toBeNull();
+    }
+  );
+
+  // Known limits, pinned so a fix shows up. A rate 0.05% off a standard one fits it over 10 s of
+  // millisecond times, and its grid drifts a frame in about 100 s.
+  it.failing('publishes no rate for a video 0.05% off 30 fps', () => {
+    expect(playWith(30 * 1.0005).publishedRate).toBeNull();
+  });
+  // A switch within one run from 30 to 30.3 fps leaves the run fitting no rate, so its last gaps keep
+  // the 30 they measure.
+  it.failing('drops 30 fps once a run switches to 30.3 fps', () => {
+    expect(
+      playWith(30, { seconds: 20, switchAt: 300, switchTo: 1000 / 33 }).publishedRate
+    ).toBeNull();
+  });
+});
+
 describe('the frame clock over seeded playback', () => {
+  it.each([1000 / 17, 1000 / 33, 58.8, 47.3, 23.5])(
+    'never reports a rate for a %p fps video, which no standard rate fits',
+    (fps) => {
+      const reported = SCENARIOS.filter((s) => s.fps === RATES[0]).flatMap((s) =>
+        play({ ...s, fps }).reported.filter((rate) => rate != null)
+      );
+      expect([...new Set(reported)]).toEqual([]);
+    }
+  );
+
+  // A phone's capture whose rate drifts from 29.9 to 30.1 fps and back over 5 s, with millisecond
+  // times: no rate fits the whole run, and its last gaps keep it on standard rates.
+  it('reports only standard rates for a capture whose rate drifts', () => {
+    const drifting = (k: number) => 30 + 0.1 * Math.sin((2 * Math.PI * k) / 150);
+    const reported = SCENARIOS.filter((s) => s.fps === 30).flatMap((s) =>
+      play(s, 1500, drifting).reported.filter((rate) => rate != null)
+    );
+    expect(reported.every((rate) => STANDARD_FRAME_RATES.includes(rate!))).toBe(true);
+  });
+
   it('never reports a rate other than the video’s own', () => {
     const wrong = SCENARIOS.flatMap((s) => {
       const bad = play(s).reported.filter((rate) => rate != null && rate !== s.fps);
@@ -429,10 +647,10 @@ describe('the frame clock over recorded browser frames', () => {
   it('measures 60 fps from Firefox, which calls back on every second or third frame', () => {
     expect(replay(TRACES['firefox h264-2160p60-mp4 busy0']).publishedRate).toBe(60);
   });
-  // A 61 fps video on a 59.95 Hz display: Chrome drops a frame about every 43, so 60 frames never
-  // play in a row. Counting the dropped frames' gaps keeps the run going.
-  it('measures the rate when a frame drops more often than every 60', () => {
-    expect(replay(TRACES['chromium vp9-61-webm cadence']).publishedRate).toBe(61);
+  // A 61 fps video on a 59.95 Hz display: Chrome drops a frame about every 43. 61 fps is no standard
+  // rate, so it publishes nothing (the runs that drop frames are checked at standard rates above).
+  it('publishes no rate for a 61 fps video whose frames drop more often than every 60', () => {
+    expect(replay(TRACES['chromium vp9-61-webm cadence']).publishedRate).toBeNull();
   });
 });
 

@@ -38,6 +38,16 @@ VIDEO_STYLES = {
     ),
     # A rate whose frames a 60 fps grid doesn't split evenly (@pytest.mark.video_style("testsrc24")).
     "testsrc24": ("testsrc2=size=320x180:rate=24", "40"),
+    # Frames a steady 17 ms apart (58.82 fps), as video2x's interpolation to 60 fps writes them: a rate
+    # no standard one matches.
+    "testsrc17ms": ("testsrc2=size=320x180:rate=60", "40"),
+}
+# Output options per style, which keep each frame's own time.
+VIDEO_STYLE_OUTPUT_ARGS = {
+    "testsrc17ms": (
+        *("-vf", "settb=1/1000,setpts=N*17", "-fps_mode", "passthrough"),
+        *("-enc_time_base", "1/1000", "-video_track_timescale", "1000"),
+    ),
 }
 # The extra test videos are short: only the main one needs a long timeline (a crowded progress bar).
 EXTRA_VIDEO_SECONDS = 20
@@ -61,6 +71,7 @@ def ensure_test_video(seconds: int, style: str = "testsrc") -> str:
                 *("ffmpeg", "-hide_banner", "-loglevel", "error", "-y"),
                 *("-f", "lavfi", "-i", f"{source}:duration={seconds}"),
                 *("-c:v", "libx264", "-preset", "ultrafast", "-crf", crf, "-pix_fmt", "yuv420p"),
+                *VIDEO_STYLE_OUTPUT_ARGS.get(style, ()),
                 str(partial),
             ],
             check=True,
@@ -87,6 +98,7 @@ def build(video_seconds: int, userscript: Path = BUNDLE, video_style: str = "tes
     (DEV_SITE / "index.html").write_text(page, encoding="utf-8")
     if video_style == "testsrc":
         ensure_test_video(EXTRA_VIDEO_SECONDS, "testsrc24")
+        ensure_test_video(EXTRA_VIDEO_SECONDS, "testsrc17ms")
     return ensure_test_video(video_seconds, video_style)
 
 
