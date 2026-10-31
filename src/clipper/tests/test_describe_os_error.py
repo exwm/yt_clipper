@@ -1,6 +1,12 @@
+from pathlib import Path
+
 import pytest
 
 from clipper.yt_clipper import describeOsError
+
+# Paths in the platform's own form: macOS doesn't split a Windows path on its backslashes.
+FFMPEG = str(Path("/example/bin/video-tools/ffmpeg.exe"))
+CLIP = str(Path("/example/clips/clip.webm"))
 
 
 def osError(strerror: str, filename: str | None = None, winerror: int | None = None) -> OSError:
@@ -13,12 +19,12 @@ def osError(strerror: str, filename: str | None = None, winerror: int | None = N
     ("error", "message"),
     [
         pytest.param(
-            osError("No such file or directory", r"C:\Users\example\bin\video-tools\ffmpeg.exe"),
+            osError("No such file or directory", FFMPEG),
             "ffmpeg.exe: No such file or directory. Check that it is in the bin folder.",
             id="a bundled tool that is missing",
         ),
         pytest.param(
-            osError("Permission denied", r"C:\Users\example\clips\clip.webm"),
+            osError("Permission denied", CLIP),
             "clip.webm: Permission denied.",
             id="a file that cannot open",
         ),
