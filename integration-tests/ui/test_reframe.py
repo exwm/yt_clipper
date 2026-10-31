@@ -2,7 +2,6 @@
 machine, and the navigator minimap outlines the crop in two tones so it shows on light and dark video."""
 
 import io
-import re
 from collections.abc import Generator
 from contextlib import contextmanager
 
@@ -10,7 +9,6 @@ import pytest
 from harness.markup_page import MarkupPage
 from harness.steps import step
 from PIL import Image
-from playwright.sync_api import ConsoleMessage
 from test_crop_easing import when_i_save_the_markers
 from test_feature_flags import when_i_open_the_feature_flags_popup
 from test_hold_crop_points import CROP_A, CROP_B, pair
@@ -40,11 +38,10 @@ OUTLINE_CONTRAST = 100
 # frames, so this does not catch that.
 BUSY_CPU_SLOWDOWN = 10
 BUSY_SETTLE_SECONDS = 2.1
-BUSY_MEASURED_SECONDS = 3.3
+# The frame loop's 2 s stats windows measured, and a cap on waiting for them.
+MEASURED_STATS_WINDOWS = 2
+MEASURE_TIMEOUT_MS = 10_000
 MAX_SHARE_BELOW_PLAIN_LOOP = 0.05
-FRAME_LOOP_STATS = re.compile(
-    r"\[yt_clipper frame loop\].*\breframe\b.*? (\d+) new frames, video showed (\d+)"
-)
 
 # The dev site's test video, whose frame counter makes every frame's pixels differ.
 VIDEO_FPS = 30
@@ -223,17 +220,22 @@ def playing_on_a_busy_machine(markup: MarkupPage) -> Generator[None]:
         cdp.send("Emulation.setCPUThrottlingRate", {"rate": 1})
 
 
-# A page loop that notes the frame the video holds on every refresh, until it is stopped: the frames
-# a plain page loop sees, measured in the same window as reframe so both share one machine load.
-START_PLAIN_LOOP = """() => {
+# A page loop that notes the frame the video holds on every refresh: the frames a plain page loop
+# sees. It runs from the end of one of reframe's stats windows (logged on the console) to the end of
+# `windows` more, so both measure the same stretch of the machine's load. A window logged while it
+# runs began before it, under a load the plain loop never met. Returns the plain loop's (frames seen,
+# frames shown) and each window's (new frames drawn, frames shown).
+COUNT_PLAIN_LOOP_AND_REFRAME = r"""([windows, timeoutMs]) => new Promise((resolve) => {
   const video = document.querySelector('video');
+  const stats = /\[yt_clipper frame loop\].*\breframe\b.*? (\d+) new frames, video showed (\d+)/;
   const shown = () => {
     const q = video.getVideoPlaybackQuality();
     return q.totalVideoFrames - q.droppedVideoFrames;
   };
-  const seen = new Set();
-  const shownAtStart = shown();
-  let running = true;
+  const reframe = [];
+  let seen = null;
+  let shownAtStart = 0;
+  let running = false;
   const tick = () => {
     try {
       const frame = new VideoFrame(video);
@@ -242,12 +244,28 @@ START_PLAIN_LOOP = """() => {
     } catch {}
     if (running) requestAnimationFrame(tick);
   };
-  requestAnimationFrame(tick);
-  window.__ytcStopPlainLoop = () => {
+  const log = console.log;
+  const finish = () => {
     running = false;
-    return [seen.size, shown() - shownAtStart];
+    console.log = log;
+    resolve({ plain: seen && [seen.size, shown() - shownAtStart], reframe });
   };
-}"""
+  setTimeout(finish, timeoutMs);
+  console.log = function (...args) {
+    log.apply(this, args);
+    const match = stats.exec(args.join(' '));
+    if (!match || !running && seen) return;
+    if (seen == null) {
+      seen = new Set();
+      shownAtStart = shown();
+      running = true;
+      requestAnimationFrame(tick);
+      return;
+    }
+    reframe.push([Number(match[1]), Number(match[2])]);
+    if (reframe.length === windows) finish();
+  };
+})"""
 
 
 @step
@@ -255,29 +273,19 @@ def when_reframe_and_a_plain_page_loop_count_frames_on_a_busy_machine(
     markup: MarkupPage,
 ) -> tuple[tuple[int, int], tuple[int, int]]:
     """Returns (frames seen, frames shown) for a plain page loop, and (new frames drawn, frames
-    shown) for reframe, over the stats windows logged while throttled (the first one, which began
-    before throttling, left out)."""
-    windows: list[tuple[int, int]] = []
-    measuring = False
-
-    def on_console(message: ConsoleMessage) -> None:
-        match = FRAME_LOOP_STATS.search(message.text)
-        if match and measuring:
-            windows.append((int(match[1]), int(match[2])))
-
-    markup.page.on("console", on_console)
-    try:
-        with playing_on_a_busy_machine(markup):
-            measuring = True
-            markup.page.evaluate(START_PLAIN_LOOP)
-            markup.page.wait_for_timeout(BUSY_MEASURED_SECONDS * 1000)
-            plain = markup.page.evaluate("() => window.__ytcStopPlainLoop()")
-    finally:
-        markup.page.remove_listener("console", on_console)
+    shown) for reframe, over the same stats windows while throttled."""
+    with playing_on_a_busy_machine(markup):
+        counts = markup.page.evaluate(
+            COUNT_PLAIN_LOOP_AND_REFRAME, [MEASURED_STATS_WINDOWS, MEASURE_TIMEOUT_MS]
+        )
+    plain, windows = counts["plain"], counts["reframe"]
     markup.report(
         f"plain loop (seen, shown): {plain}, reframe stats windows (drawn, shown): {windows}"
     )
-    assert windows, "no frame loop stats were logged while throttled"
+    # The plain loop starts at the first window logged, so a full count implies it ran.
+    assert len(windows) == MEASURED_STATS_WINDOWS, (
+        "reframe's frame loop logged too few stats windows while throttled"
+    )
     return (plain[0], plain[1]), (sum(w[0] for w in windows), sum(w[1] for w in windows))
 
 

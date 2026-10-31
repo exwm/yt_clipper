@@ -805,6 +805,9 @@ def when_i_shift_scroll(
         markup.page.keyboard.down("Shift")
         markup.page.mouse.wheel(0, -100 if direction == "up" else 100)
         markup.page.keyboard.up("Shift")
+        # A step during another step's seek waits in the seek coalescer, and the playhead reads the
+        # earlier target until it lands. The coalescer sends it from `seeked`, so `seeking` stays true.
+        markup.eventually("() => !document.querySelector('video').seeking")
         markup.next_frames(2)
         frames.append(math.floor(markup.current_time() * fps))
     return frames

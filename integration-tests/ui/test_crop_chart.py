@@ -155,9 +155,7 @@ def when_i_pause_mid_pan_and_seek_within_the_frame(markup: MarkupPage) -> str:
     frame = round((PAIR_START + MIDDLE_POINT_TIME) / 2 * 30)
     when_i_seek_to(markup, (frame + 0.1) / 30)
     on_screen = markup.page.locator("#interp-crop-value").inner_text()
-    markup.page.evaluate(
-        f"() => {{ document.querySelector('video').currentTime = {(frame + 0.9) / 30}; }}"
-    )
+    markup.seek((frame + 0.9) / 30, presented=True)
     markup.next_frames(3)
     markup.report(f"crop chip on frame {frame}: {on_screen!r}")
     return on_screen
