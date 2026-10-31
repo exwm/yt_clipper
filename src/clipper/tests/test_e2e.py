@@ -586,6 +586,9 @@ def test_subtitles_burn_in_for_a_markers_file_named_with_an_apostrophe(
         assert len(list(output.glob("*.webm"))) == 1
     finally:
         shutil.rmtree(output, ignore_errors=True)
+        # vidstab can't read the quote in the clips folder's path, so the transform goes to temp.
+        transforms = clipper.cwd / "temp" / clip_maker.getTrimmedBase64Hash(data["titleSuffix"])
+        shutil.rmtree(transforms, ignore_errors=True)
 
 
 @pytest.mark.parametrize(
