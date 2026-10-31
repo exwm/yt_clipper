@@ -43,11 +43,12 @@ test-py-changed *args:
 smoke-release folder version="":
   uv run python tools/release/smoke_test.py "{{folder}}" {{version}}
 # Check an installed release with the existing tests: the smoke test, one YouTube clip (with the
-# install's default_args.txt, e.g. cookies), and the UI tests on the release's userscript.
+# install's default_args.txt, e.g. cookies), and the UI tests on the release's userscript, also at the assumed frame rate.
 verify-release install userscript version="":
   just smoke-release "{{install}}" {{version}}
   uv run pytest src/clipper/tests/test_e2e.py -k youtube-vp9 --clipper-exe "{{install}}/yt_clipper{{ if os_family() == "windows" { ".exe" } else { "" } }}"
   just ui-test --userscript "{{userscript}}"
+  just ui-test --userscript "{{userscript}}" --assumed-frame-rate
   just ui-test-display-rates --userscript "{{userscript}}"
 # After publishing: check that Greasy Fork serves the release's userscript (waits up to 3 minutes).
 check-greasyfork version:
