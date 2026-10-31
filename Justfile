@@ -107,7 +107,7 @@ lint-ts: typecheck-ts eslint-ts
 # so bundle-prod leaves it off unless asked (`just bundle-prod true`, as CI does).
 test-ts coverage="true":
   just _timed jest npx jest test {{ if coverage == "true" { "--coverage" } else { "" } }} --json --outputFile=coverage/jest-report.json
-  uv run python tools/test/jest_slowest.py coverage/jest-report.json
+  uv run --no-project python tools/test/jest_slowest.py coverage/jest-report.json
 # The tests of files changed since a git ref, and of the files that import them, without the coverage
 # floors. HEAD is jj's @-, so the default runs what @ changed; the last tag would select nearly all.
 test-ts-changed base="HEAD":
