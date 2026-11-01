@@ -92,8 +92,21 @@ def frame_timing_flags(node: pytest.Item) -> dict[str, bool]:
     return {} if marker is None else {"legacyFrameTiming": FRAME_TIMING_LEGACY_FLAG[marker.args[0]]}
 
 
-def needs_flag_overrides(item: pytest.Item) -> bool:
-    return item.get_closest_marker("local_build") is not None or bool(frame_timing_flags(item))
+def built_frame_timing(config: pytest.Config) -> str | None:
+    """The frame timing the userscript under test defaults to, read from its bundled flag."""
+    path = userscript_path(config)
+    found = path.exists() and re.search(
+        r"legacyFrameTiming: \{\s*default: (true|false)", path.read_text(encoding="utf-8")
+    )
+    return ("5.48" if found[1] == "true" else "5.49") if found else None
+
+
+def needs_flag_overrides(item: pytest.Item, built_mode: str | None) -> bool:
+    """A frame timing test needs the popup's override only when its mode isn't the built default."""
+    marker = item.get_closest_marker("frame_timing")
+    return item.get_closest_marker("local_build") is not None or (
+        marker is not None and marker.args[0] != built_mode
+    )
 
 
 def measures_the_rate(item: pytest.Item) -> bool:
@@ -119,8 +132,9 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     if not is_ci_build(config):
         return
     skip = pytest.mark.skip(reason="needs the feature flags popup, which CI builds leave out")
+    built_mode = built_frame_timing(config)
     for item in items:
-        if needs_flag_overrides(item):
+        if needs_flag_overrides(item, built_mode):
             item.add_marker(skip)
 
 
