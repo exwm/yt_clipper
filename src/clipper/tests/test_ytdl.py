@@ -312,24 +312,26 @@ class RecordingLogger:
         return lambda message, *_args, **_kwargs: self.lines.append(f"{level}: {message}")
 
 
+# Each answer is tested here only: the real yt-dlp and end-to-end tests check one answer each.
 @pytest.mark.parametrize(
-    ("drops", "accept", "answer", "exits"),
+    ("drops", "accept", "answer", "exits", "message"),
     [
-        pytest.param([], False, None, False, id="no drop: no prompt"),
-        pytest.param(DROP, False, "y", False, id="y"),
-        pytest.param(DROP, False, "  Yes  ", False, id="yes with spaces"),
-        pytest.param(DROP, False, "n", True, id="n"),
-        pytest.param(DROP, False, "", True, id="empty answer"),
-        pytest.param(DROP, False, EOFError, True, id="no one to answer"),
-        pytest.param(DROP, True, None, False, id="--accept-lower-quality: no prompt"),
+        pytest.param([], False, None, False, None, id="no drop: no prompt"),
+        pytest.param(DROP, False, "y", False, "Continuing with format 248 (1080p).", id="y"),
+        pytest.param(DROP, False, "  Yes  ", False, "Continuing with format 248 (1080p).", id="yes with spaces"),
+        pytest.param(DROP, False, "n", True, "Stopped without making clips.", id="n"),
+        pytest.param(DROP, False, "", True, "Stopped without making clips.", id="empty answer"),
+        pytest.param(DROP, False, EOFError, True, "No answer to the prompt. Pass --accept-lower-quality", id="no one to answer"),
+        pytest.param(DROP, True, None, False, "as --accept-lower-quality is set", id="--accept-lower-quality: no prompt"),
     ],
-)
+)  # fmt: skip
 def test_prompt_to_continue_on_quality_drop(
     monkeypatch: pytest.MonkeyPatch,
     drops: list[tuple],
     accept: bool,
     answer: object,
     exits: bool,
+    message: str | None,
 ) -> None:
     # Record the messages directly: other tests set up the real logger, which caplog then misses.
     logged: list[str] = []
@@ -345,13 +347,14 @@ def test_prompt_to_continue_on_quality_drop(
 
     monkeypatch.setattr("builtins.input", fakeInput)
     if exits:
-        with pytest.raises(SystemExit):
+        with pytest.raises(SystemExit) as stopped:
             ytdl.prompt_to_continue_on_quality_drop(drops, acceptLowerQuality=accept)
+        assert stopped.value.code == 1
     else:
         ytdl.prompt_to_continue_on_quality_drop(drops, acceptLowerQuality=accept)
-        if drops:
-            # The run says which format it continues with.
-            assert any("Continuing with format 248 (1080p)" in line for line in logged)
+    if message:
+        # The run says which format it continues with, or why it stopped.
+        assert any(message in line for line in logged)
 
 
 LOG_A_QUALITY_DROP = """
@@ -569,25 +572,11 @@ def readLocalInfo(monkeypatch: pytest.MonkeyPatch, infoPath: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    ("hdDownloadable", "accept", "answer", "selected"),
+    ("hdDownloadable", "answer", "selected"),
     [
-        pytest.param(
-            True,
-            False,
-            None,
-            ["1080", "audio"],
-            id="preferred format downloadable: no prompt",
-        ),
-        pytest.param(False, False, "n", None, id="fallback, answer n: stops"),
-        pytest.param(False, False, EOFError, None, id="fallback, no one to answer: stops"),
-        pytest.param(False, False, "y", ["720", "audio"], id="fallback, answer y: continues"),
-        pytest.param(
-            False,
-            True,
-            None,
-            ["720", "audio"],
-            id="fallback, --accept-lower-quality: continues",
-        ),
+        pytest.param(True, None, ["1080", "audio"], id="preferred format downloadable: no prompt"),
+        # The other answers: test_prompt_to_continue_on_quality_drop.
+        pytest.param(False, "y", ["720", "audio"], id="fallback, answer y: continues"),
     ],
 )
 def test_video_info_from_real_ytdlp_asks_before_a_lower_quality_fallback(
@@ -596,9 +585,8 @@ def test_video_info_from_real_ytdlp_asks_before_a_lower_quality_fallback(
     capsys: pytest.CaptureFixture[str],
     localMedia: Path,
     hdDownloadable: bool,
-    accept: bool,
-    answer: object,
-    selected: list[str] | None,
+    answer: str | None,
+    selected: list[str],
 ) -> None:
     """ytdl_bin_get_video_info with the yt-dlp the clipper depends on, offline: each yt-dlp call
     reads a local info JSON instead of the video page."""
@@ -609,9 +597,7 @@ def test_video_info_from_real_ytdlp_asks_before_a_lower_quality_fallback(
         if answer is None:
             raise AssertionError("should not prompt")
         shownBeforeQuestion.append(capsys.readouterr().out)
-        if answer is EOFError:
-            raise EOFError
-        return str(answer)
+        return answer
 
     def tableRows(output: str) -> dict[str, str]:
         """Each printed table row by its format id, which follows the row's color code."""
@@ -628,18 +614,14 @@ def test_video_info_from_real_ytdlp_asks_before_a_lower_quality_fallback(
         settings={
             "format": "bv*+ba/b", "formatSort": ["res"], "downloadVideoPath": str(tmp_path / "out"),
             "cookiefile": "", "cookiesFromBrowser": "", "username": "", "password": "",
-            "videoPageURL": "https://example.com/watch", "downloadVideo": False, "acceptLowerQuality": accept,
+            "videoPageURL": "https://example.com/watch", "downloadVideo": False, "acceptLowerQuality": False,
         },
     )  # fmt: skip
 
-    if selected is None:
-        with pytest.raises(SystemExit):
-            ytdl.ytdl_bin_get_video_info(cs)
-    else:
-        info = ytdl.ytdl_bin_get_video_info(cs)
-        assert ytdl.selected_format_ids(info) == selected
+    info = ytdl.ytdl_bin_get_video_info(cs)
+    assert ytdl.selected_format_ids(info) == selected
     rows = tableRows("".join(shownBeforeQuestion) + capsys.readouterr().out)
-    assert rows[selected[0] if selected else "720"].startswith(ytdl._FORMAT_ROW_AVAILABLE_STYLE)
+    assert rows[selected[0]].startswith(ytdl._FORMAT_ROW_AVAILABLE_STYLE)
     if not hdDownloadable:
         assert rows["1080"].startswith(ytdl._FORMAT_ROW_UNAVAILABLE_STYLE)
     if shownBeforeQuestion:

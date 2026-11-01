@@ -1047,16 +1047,10 @@ class PromptCase:
     printed: str | None = None
 
 
+# The whole script once, through the prompt to a clip from the fallback format. The answers, formats
+# and sorts are tested in test_ytdl.py, in process and with the real yt-dlp.
 PROMPT_CASES = [
-    pytest.param(PromptCase((), frozenset(), None, 0, "1080p"), id="all downloadable, no prompt"),
     pytest.param(PromptCase((), frozenset({"1080p"}), "y\n", 0, "720p", "Continuing with format 720p (720p)."), id="fallback, answer y"),
-    pytest.param(PromptCase((), frozenset({"1080p"}), "n\n", 1, None, "Stopped without making clips"), id="fallback, answer n"),
-    pytest.param(PromptCase((), frozenset({"1080p"}), "", 1, None, "No answer to the prompt"), id="fallback, no one to answer"),
-    pytest.param(PromptCase(("--accept-lower-quality",), frozenset({"1080p"}), None, 0, "720p", "as --accept-lower-quality is set"), id="fallback, accept lower quality"),
-    pytest.param(PromptCase(("--format", "1080p/480p"), frozenset({"1080p"}), "y\n", 0, "480p", "Continuing with format 480p (480p)."), id="format chain"),
-    pytest.param(PromptCase(("--format-sort", "+res"), frozenset({"480p"}), "y\n", 0, "720p", "Continuing with format 720p (720p)."), id="own sort preferring the lowest"),
-    pytest.param(PromptCase(("--format", "720p,480p"), frozenset(), None, 1, None, "several files"), id="comma format"),
-    pytest.param(PromptCase(("--format", "1080p"), frozenset({"1080p"}), None, 1, None, "failed with exit code"), id="only an unavailable format"),
 ]  # fmt: skip
 
 
