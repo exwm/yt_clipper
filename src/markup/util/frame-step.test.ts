@@ -14,6 +14,10 @@ import {
 } from './frame-step';
 import { onExternalSeek, onSeekRequest, onSeekSettled, SeekDecision } from './seek-coalescer';
 
+// Read once: jest runs modules in a vm context, where each global Math lookup in the seeded
+// scenarios is slow.
+const Math = globalThis.Math;
+
 // The frame-step functions over the frame on screen and the playhead, as the tables state them.
 interface OnScreen {
   presentedFrameTime: number;

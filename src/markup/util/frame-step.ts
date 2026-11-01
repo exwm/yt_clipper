@@ -8,6 +8,10 @@ import {
   PLACEMENT_TOLERANCE,
 } from './frame-grid';
 
+// Read once: jest runs modules in a vm context, where each global Math lookup in the seeded frame
+// step tests is slow.
+const Math = globalThis.Math;
+
 /** The markup's last seek to show a frame: where it seeks, and the start of the frame it means. A
  *  'place' seek shows a placed time, such as a marker's; a 'step' seek a frame middle on the grid of
  *  the rate in use, which at a rate above the video's isn't the frame it shows. */
