@@ -101,6 +101,7 @@ YouTube is the primary video platform supported by yt_clipper. Other supported p
     - [Speed Chart Shortcuts](#speed-chart-shortcuts)
     - [Crop Chart Shortcuts](#crop-chart-shortcuts)
     - [ZoomPan Mode Crop Chart Shortcuts](#zoompan-mode-crop-chart-shortcuts)
+    - [Crop Easing](#crop-easing)
     - [Dynamic Crop Tips](#dynamic-crop-tips)
     - [Reframe Mode (WYSIWYG Dynamic Cropping)](#reframe-mode-wysiwyg-dynamic-cropping)
 - [Useful YouTube Controls](#useful-youtube-controls)
@@ -326,7 +327,7 @@ Click the copy button to the right of the **Crop** label in a settings editor to
 
 **Shift+Mousewheel-Click:** Click the mouse wheel (or middle mouse button) to cycle the frame skip/seek rate between 1 and 3 frames.
 
-On sites that report no frame rate, frame steps assume 60 fps. The global settings editor shows the frame rate in use.
+Frame steps use the frame rate YouTube reports. On other sites, the `markup script` steps frames at 60 fps. The global settings editor shows the frame rate in use.
 
 **Alt+Click+Drag:** Scrub/seek video time backward or forward by dragging left or right respectively.
 
@@ -427,7 +428,7 @@ On sites that report no frame rate, frame steps assume 60 fps. The global settin
 
 **Ctrl+Alt+A:** Add a hold crop point at the current time. With the playhead on a crop point, toggle it between hold and normal.
 
-- Use it where a subject starts moving. The crop holds until there. If you change the crop before it later, the hold point follows.
+- Add it where a subject starts moving. The crop stays still until that point. When you later change the crop point before it, the hold point follows.
 - It works once the crop is dynamic or the crop chart is open (**Alt+D**).
 - See **Ctrl+Shift+Click** under [Crop Chart Shortcuts](#crop-chart-shortcuts) for what a hold point is.
 
@@ -514,10 +515,10 @@ Each point's label shows its crop position (`x:y`). The crop size (`WxH`) shows 
 
 **Ctrl+Shift+Click:** Toggle a crop point between hold and normal.
 
-- While it holds, a hold point shows the crop of the crop point before it, and follows when that point changes.
+- A hold point shows the crop of the crop point before it, and follows when that point changes.
 - Hold points have a vertical yellow bar behind them.
 - A new marker pair's end point is a hold point.
-- With Cinematic crop easing, the crop holds still there and slows down evenly into each hold. Set **Hold Points** to **Firm** in the Crop Easing settings to stop within the **Pan Margin**. See [Crop Easing](#crop-easing).
+- With Cinematic crop easing, the crop slows down evenly into each hold and holds still there. Set **Hold Points** to **Firm** in the Crop Easing settings to stop within the **Pan Margin**. See [Crop Easing](#crop-easing).
 - Editing a hold point's crop makes it a normal point.
 - A point that stops holding gets back its own crop, if it had one before it became a hold point.
 - The first crop point can't be a hold point.
@@ -557,19 +558,22 @@ The usual crop shortcuts have different effects than usual in this mode as descr
 
 ### Crop Easing
 
-Use the **Crop Easing** setting to choose how a dynamic crop pans and zooms between crop points. Find it in the global settings editor, and override it per marker pair in the marker pair settings editor.
+Use the **Crop Easing** setting to choose how a dynamic crop pans and zooms between crop points. Find it in the global settings editor, and override it per marker pair in the marker pair editor.
 
 - **Smooth Track (default):** Use it to follow a moving subject. The crop keeps moving through points without stopping at each one. It does not swing past a point when the subject reverses direction.
 - **Cinematic:** Use it for steady, camera-like motion when the crop does not need to hit each point exactly. The crop follows the points within a margin, with steady pauses, constant-speed pans, and smooth transitions.
-  - Use it to frame a subject through camera shake. To steady the camera itself with your crop points, use Smooth Track or the **Weak** margins.
+  - Use it to keep a steady frame on a subject in shaky footage. To cancel the shake with crop points that follow it, use Smooth Track or the **Weak** margins.
   - The `markup script` pauses briefly to recompute the path after each edit. Clips also take slightly longer to render.
-  - Open the gear button next to **Crop Easing** to set the margins. Use **Smooth Track**, **Cinematic** and **EaseInOut** at the top of its settings to switch between the modes and compare them.
-  - In a marker pair's settings, a plot shows the crop path over time. It draws the crop points (white) with their margin (grey), the Cinematic path (orange), the Smooth Track path (dashed blue), and the EaseInOut path (dotted purple). Hold points have a yellow bar behind them when **Hold Points** is **Firm** or **Exact**. The marker pair's own crop easing is drawn thicker, on top. Click an entry in the legend to hide or show it. Right-click the plot to seek the video.
-    - Use **X**, **Y** and **Zoom** to show or hide the horizontal crop center, the vertical crop center, and the zoom. The zoom is 1x for the widest crop the frame fits, with the zoom margin around it. It shows in `zoompan` mode only.
+  - Click the gear button next to **Crop Easing** to set the margins. Use **Smooth Track**, **Cinematic** and **EaseInOut** at the top of its settings to switch between the modes and compare them.
+  - In a marker pair's settings, a plot shows the crop path over time.
+    - Crop points are white, with their margin in grey. The Cinematic path is orange, the Smooth Track path dashed blue, and the EaseInOut path dotted purple. The marker pair's own crop easing is drawn thicker, on top.
+    - Hold points have a yellow bar behind them when **Hold Points** is **Firm** or **Exact**.
+    - Click an entry in the legend to hide or show it. Right-click the plot to seek the video.
+    - Use **X**, **Y** and **Zoom** to show or hide the horizontal crop center, the vertical crop center, and the zoom. Zoom 1x is the widest crop that fits the frame. **Zoom** and its margin show only in `zoompan` mode.
   - The settings under **Cinematic Easing** apply only to Cinematic crop easing, and dim while another easing is chosen.
   - **Weak**, **Medium** and **Strong** set both margins at once. **Custom** restores the margins you last set by hand.
-  - **Pan Margin (%)** (default 12): How far the crop position may drift from the crop points, as a percentage of the crop's shorter side. Type it or drag the slider below it. The pixels for the crop show under the slider. Larger margins give fewer, steadier moves. At zero, the crop position follows the points exactly.
-  - **Zoom Margin (%)** (default 8): How far the crop size may drift, as a percentage of the size. Type it or drag the slider below it. The pixels of crop width show under the slider.
+  - **Pan Margin (%)** (default 12): How far the crop position may drift from the crop points, as a percentage of the crop's shorter side. Type it or drag the slider below it. The margin in pixels for this crop shows under the slider. Larger margins give fewer, steadier moves. At zero, the crop position follows the points exactly.
+  - **Zoom Margin (%)** (default 8): How far the crop size may drift, as a percentage of the size. Type it or drag the slider below it. The margin in pixels of crop width shows under the slider.
   - **Hold Points** (default **Exact**): How still the crop holds from the point before each [hold point](#crop-chart-shortcuts) to the hold point.
     - **Loose:** The crop stays within the margin, as at other crop points.
     - **Firm:** The crop holds still. It slows down and speeds up within the **Pan Margin** (and the **Zoom Margin** for its size), so a larger margin gives gentler stops. A fast pan, or a quick move between two close hold points, can move the crop up to the **Pan Margin** at the start or end of the hold.
@@ -577,7 +581,7 @@ Use the **Crop Easing** setting to choose how a dynamic crop pans and zooms betw
 
   <img src="https://raw.githubusercontent.com/exwm/yt_clipper/master/assets/image/yt_clipper_cinematic_settings.png" alt="yt_clipper_cinematic_settings.png" width="388">
 
-- **EaseInOut:** The crop easing from before version 5.49.0. Each section eases in and out, so the crop slows to a stop at every point. Use it if Smooth Track or Cinematic does not move the crop as you expect. Markers data saved before version 5.49.0 renders with EaseInOut, and loads in the `markup script` with EaseInOut.
+- **EaseInOut:** The crop easing from before version 5.49.0. Each section eases in and out, so the crop slows to a stop at every point. Use it if Smooth Track or Cinematic does not move the crop as you expect. The `markup script` and the `clipper script` use EaseInOut for markers data saved before version 5.49.0.
 
 ### Dynamic Crop Tips
 
@@ -633,7 +637,7 @@ Use the **Crop Easing** setting to choose how a dynamic crop pans and zooms betw
 
 1. If you're new to userscripts check out <https://greasyfork.org/en/help/installing-user-scripts> for instructions.
 2. Refresh the page if the script doesn't load and to clear markers when switching videos in the same window.
-3. Videos can be marked up and the markers json or clipper script can be saved before higher quality levels are available, but the final generated webm quality depends on the quality formats available.
+3. Videos can be marked up and the markers json or `clipper script` can be saved before higher quality levels are available, but the final generated webm quality depends on the quality formats available.
 
 ## Clipper Script Tips
 
@@ -802,11 +806,13 @@ Some videos require sign-in before yt-dlp can download them (age-restricted or p
 
 Default arguments for the `clipper` script may be set using a simple file format.
 A `default_args.txt` file with comments explaining the usage is provided with the clipper script installation.
-Each install also reads `yt_clipper_default_args.txt` in the folder that holds it, so settings in that file carry over when you install a new version next to the old one.
-An install's own `default_args.txt` overrides it when both set the same option.
-A version skips an option in `yt_clipper_default_args.txt` that it does not know, with a warning (versions before 5.49 stop on it).
-Keep your installs in a folder of their own, not in your downloads folder. A `yt_clipper_default_args.txt` saved next to them can set the folders the `clipper script` runs ffmpeg and yt-dlp from.
-Write options as on the command line, with their full names. Join a value that starts with `-` with `=`, for example `--extra-ffmpeg-args="-preset slow"`.
+
+- Each install also reads `yt_clipper_default_args.txt` in the folder that holds it. Settings there carry over when you install a new version next to the old one.
+- An install's own `default_args.txt` overrides it when both set the same option.
+- A version skips an option in `yt_clipper_default_args.txt` that it does not know, with a warning. Versions before 5.49 stop on it.
+- Keep your installs in a folder of their own, not in your downloads folder. A `yt_clipper_default_args.txt` saved next to them can set the folders the `clipper script` runs ffmpeg and yt-dlp from.
+- Write options as on the command line, with their full names. Join a value that starts with `-` with `=`, for example `--extra-ffmpeg-args="-preset slow"`.
+
 The file contents are copied below for convenience:
 
 ```txt
@@ -818,10 +824,11 @@ The file contents are copied below for convenience:
 # Each new version unzips to a new folder, and its own copy of this file starts empty.
 # For settings every version should use (e.g. --cookies), put them in yt_clipper_default_args.txt
 # in the folder that holds your yt_clipper install folders. Every install reads that file first,
-# then this one, so a setting here overrides the same setting there. Versions from 5.49 on skip an
-# option in that file they do not know, with a warning. Older versions stop on it, and every version
-# stops on a value it does not know (e.g. a new --video-codec). Put options and values new in this
-# version here instead. Versions before 5.49 also do not accept quotes in that file.
+# then this one, so a setting here overrides the same setting there.
+# Put options and values new in this version (e.g. a new --video-codec) in this file, not in
+# yt_clipper_default_args.txt. Versions from 5.49 on skip an option they do not know in that file,
+# with a warning. Older versions stop on it, and every version stops on a value it does not know.
+# Versions before 5.49 also do not accept quotes in that file.
 
 
 # The following commented lines provide an example of how to use this file.
@@ -844,9 +851,9 @@ There is an installation that does not require the dependencies below.
 
 1. Extract the appropriate zip file anywhere:
    - Go to <https://github.com/exwm/yt_clipper/releases> and pick a release. In the assets, find the appropriate file for your platform.
-   - **Windows users:** The zip bundles [video2x](https://github.com/k4yt3x/video2x) in `bin/video-tools/`, so [motion interpolation](#motion-interpolation) works without extra setup.
+   - **Windows:** The zip bundles [video2x](https://github.com/k4yt3x/video2x) in `bin/video-tools/`, so [motion interpolation](#motion-interpolation) works without extra setup.
 2. Simply drag and drop the markers .json file onto the `yt_clipper_auto.bat` file on Windows or at the terminal prompt after executing `yt_clipper_auto` on Mac.
-   - **Windows users:** Rename a file with `&` in its name before dropping it. Windows runs the part after `&` as a command.
+   - **Windows:** Rename a file with `&` in its name before dropping it. Windows runs the part after `&` as a command.
 3. Use `Ctrl+C` if you need to cancel the process.
 4. All generated webm clips will be placed in `./webms/<markers-json-filename>`.
    - Each run writes its log to the `logs` folder inside it, named by the time the run started.
@@ -859,7 +866,7 @@ The `markup script` updates itself when it was installed from [Greasy Fork](http
 To check for a newer `clipper script`, run `yt_clipper_check_for_updates.bat` (Windows) or `yt_clipper_check_for_updates` (Mac), or pass `--check-for-updates`. To update it:
 
 1. Download the new zip from the [GitHub Releases](https://github.com/exwm/yt_clipper/releases) page.
-2. Extract it next to your current install, in the same folder.
+2. Extract it into the folder that holds your current install, so the two installs sit side by side.
 3. Put settings every version should use (e.g. `--cookies`) in `yt_clipper_default_args.txt` in that folder. Every install reads it.
    - The `clipper script` reminds you if an older install next to it still has settings in its own `default_args.txt`.
 4. Clips stay in each install's `webms` folder. To keep them together, move the `webms` folder into the new install. The `clipper script` then skips clips that already exist.
@@ -895,7 +902,12 @@ There are some alternative helper scripts for more options:
   - On Windows simply drag and drop both the `json` and the input video onto `yt_clipper_auto_input_video`.
   - On Mac, `yt_clipper_input_video` prompts for the `json` then the input video.
 
-When the clips are done, the helper scripts ask for the options of another run with the same markers `json` data. Enter all its options, or press **Enter** to finish. The options of the run before do not carry over, and existing clips are skipped unless you add `--overwrite` (for example `--overwrite --audio` remakes the clips with audio). Put quotes around a value with `<`, `>`, `|`, `&` or `;` in it, for example `--format "bv[height>=720]"`. The script then leaves a command prompt open in the yt_clipper folder.
+When the clips are done, the helper scripts ask for the options of another run with the same markers data.
+
+- Enter all its options, or press **Enter** to finish. The options of the run before do not carry over.
+- Existing clips are skipped unless you add `--overwrite`. For example, `--overwrite --audio` remakes the clips with audio.
+- Put quotes around a value with `<`, `>`, `|`, `&` or `;` in it, for example `--format "bv[height>=720]"`.
+- The script then leaves a command prompt open in the yt_clipper folder.
 
 The helper scripts have a simple format. Copy and edit `yt_clipper_auto` in a text editor to create custom automated versions. Add options to the line that runs the `clipper script` with `--markers-json`. For example you could add `--deinterlace` to enable deinterlacing or use `--only 2,5` to process only marker pairs 2 and 5.
 
@@ -911,7 +923,7 @@ There are several utility scripts provided as well that wrap ffmpeg or other too
 
 The `merge` utility script can be used to merge any webm files in any order:
 
-- On Mac, follow the prompts after running the utility script, providing the paths of 2 or more input files in the order you want them merged.
+- On Mac, run the utility script and follow the prompts. Enter the paths of 2 or more input files in the order you want them merged.
 - On Windows:
   - Rename the webm files so they sort by name in the order you want. Numbers sort in numeric order (`clip-2` before `clip-10`).
   - Select/highlight all webms to be merged in your file explorer and drag and drop them onto the `merge.bat` script.

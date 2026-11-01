@@ -236,7 +236,7 @@ def warnIfFramesOffGrid(ffprobePath: str, videoPath: str, origin: float, rate: F
         logger.warning(
             " ".join(
                 [
-                    f"The video's frame rate varies: {off} of its first {len(times)} frames are off its {float(rate):.3f} fps grid.",
+                    f"The video's frame rate varies: {off} of its first {len(times)} frames are not at a steady {float(rate):.3f} fps.",
                     *frame_timing.current().varyingRateNote(None),
                 ]
             ),

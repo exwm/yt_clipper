@@ -83,9 +83,9 @@ def getArgParser() -> argparse.ArgumentParser:
             [
                 "List of paths to files to read arguments from.",
                 "The files are processed in order with later files taking precedence.",
-                "By default, a release reads yt_clipper_default_args.txt in the folder that holds the install folders, then the install's own default_args.txt.",
+                "By default, a release install reads yt_clipper_default_args.txt in the folder that holds the install folders, then its own default_args.txt.",
                 "It then reads default_args.txt in the working folder when that is another folder.",
-                "Other installs read default_args.txt in the working folder.",
+                "Run with Python instead of a release, the clipper script reads only default_args.txt in the working folder.",
             ],
         ),
     )
@@ -1112,7 +1112,7 @@ def readArgFile(path: Path) -> List[str]:
         return []
     text, fallbackEncoding = decodeSettingsFile(raw)
     if fallbackEncoding:
-        print(f"Warning: {path} is not saved as UTF-8, so it was read as {fallbackEncoding}. Save it as UTF-8.", file=sys.stderr)
+        print(f"Warning: {path} is not saved as UTF-8, so it was decoded as {fallbackEncoding}. Save it as UTF-8.", file=sys.stderr)
     args: List[str] = []
     for number, line in enumerate(text.splitlines(), start=1):
         if line.lstrip().startswith("#"):

@@ -1450,7 +1450,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     {
       id: 'cropChartAddHoldPoint',
       description:
-        'Add a hold crop point at the current time. It shows the crop of the crop point before it and follows it. With the playhead on a crop point, toggle that point between hold and normal.',
+        'Add a hold crop point at the current time. It shows the crop of the crop point before it, and follows when that point changes. With the playhead on a crop point, toggle that point between hold and normal.',
       displayKey: 'Ctrl + Alt + A',
       section: 'Dynamic Effects',
       category: 'General Chart Shortcuts',
@@ -1726,7 +1726,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     {
       id: 'cropChartToggleHold',
       description:
-        'Toggle a crop point between hold and normal. A hold point shows the crop of the point before it and follows it. A point that stops holding gets back its own crop.',
+        'Toggle a crop point between hold and normal. A hold point shows the crop of the crop point before it, and follows when that point changes. A point that stops holding gets back its own crop.',
       displayKey: 'Ctrl + Shift + Click',
       section: 'Dynamic Effects',
       category: 'Crop Chart Shortcuts',

@@ -109,7 +109,14 @@ export namespace Tooltips {
     YouTube does not support previewing speeds below 0.25.
     `;
 
+  // 5.48's frame timing (the `legacyFrameTiming` flag) shows no frame count.
   export const timeDurationTooltip = stripIndent`
+      When speed is constant (static) the duration is formatted as <in-duration>/<speed> = <out-duration>.
+      When speed is variable (dynamic) the duration is formatted as <in-duration> (<out-duration>).
+      Durations are formatted as HH:MM:SS.MS omitting insignificant 0s on the left.
+    `;
+
+  export const timeDurationWithFramesTooltip = stripIndent`
       When speed is constant (static) the duration is formatted as <in-duration>/<speed> = <out-duration> (<frames>).
       When speed is variable (dynamic) the duration is formatted as <in-duration> (<out-duration>) (<frames>).
       Durations are formatted as HH:MM:SS.MS omitting insignificant 0s on the left.
@@ -133,27 +140,27 @@ export namespace Tooltips {
   export const cropPointEasingTooltip = stripIndent`
     How a dynamic crop pans and zooms between crop points.
     Smooth Track: Use it to follow a moving subject. The crop moves through every point on one smooth curve without stopping. It does not swing past a point where the motion reverses.
-    Cinematic: Use it for steady, camera-like motion when the crop does not need to hit each point exactly. The crop stays within a margin of the points, and its path is solved for as few moves as possible: steady pauses, constant-speed pans, and smooth transitions between them. The path is recomputed shortly after you stop editing, which pauses the page briefly. Clips take slightly longer to render.
+    Cinematic: Use it for steady, camera-like motion when the crop does not need to hit each point exactly. The crop follows the points within a margin, with steady pauses, constant-speed pans, and smooth transitions. The markup script pauses briefly to recompute the path after each edit. Clips take slightly longer to render.
     EaseInOut: The crop easing from before version 5.49.0. Each section eases in and out, so the crop slows to a stop at every point. Use it if Smooth Track or Cinematic does not move the crop as you expect.
     The global default is Smooth Track. On a marker pair, Default uses the global Crop Easing.
-    Markers data saved before version 5.49.0 renders with EaseInOut.
+    The markup script and the clipper script use EaseInOut for markers data saved before version 5.49.0.
     `;
 
   export const cinematicMarginTooltip = stripIndent`
-    How far the crop position may drift from the crop points, as a percentage of the crop's shorter side. The pixels below show what that is for this crop.
+    How far the crop position may drift from the crop points, as a percentage of the crop's shorter side. The number below is the margin in pixels for this crop.
     Larger margins give fewer, steadier moves. Smaller margins follow the points more closely. At zero, the crop position follows the points exactly.
-    To frame a subject through camera shake, use Medium or Strong. To steady the camera itself with your crop points, use Weak or Smooth Track.
+    To keep a steady frame on a subject in shaky footage, use Medium or Strong. To cancel the shake with crop points that follow it, use Weak or Smooth Track.
     Only used when Crop Easing is Cinematic.
     `;
 
   export const cinematicZoomMarginTooltip = stripIndent`
-    How far the crop size may drift from the crop points' sizes, as a percentage of the size. The pixels below show what that is in crop width for this crop.
+    How far the crop size may drift from the crop points' sizes, as a percentage of the size. The number below is the margin in pixels of crop width for this crop.
     Larger margins keep the zoom steadier between zoom moves.
     Only used when Crop Easing is Cinematic.
     `;
 
   export const cinematicSectionTooltip = stripIndent`
-    Used only when Crop Easing is Cinematic. These settings dim with another easing, and changes still save.
+    Used only when Crop Easing is Cinematic. These settings dim while another easing is chosen, and your changes to them are still saved.
     `;
 
   export const cinematicHoldsTooltip = stripIndent`

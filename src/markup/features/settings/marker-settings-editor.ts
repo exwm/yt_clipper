@@ -116,6 +116,7 @@ import { MARKER_PAIR_HISTORY_CHANGED_EVENT } from '../../util/undoredo';
 import { autoHideUnselectedMarkerPairsCSS } from '../../ui/css/css';
 import { Tooltips } from '../../ui/tooltips';
 import { featureFlags } from '../../feature-flags';
+import { isLegacyFrameTiming } from '../../util/frame-timing';
 import { toggleFeatureFlagsPopup } from './feature-flags-popup';
 import {
   assertDefined,
@@ -271,7 +272,9 @@ function MarkerPairEditorTemplate(
         })}
         <div
           class="settings-editor-input-div settings-info-display"
-          title=${Tooltips.timeDurationTooltip}
+          title=${isLegacyFrameTiming
+            ? Tooltips.timeDurationTooltip
+            : Tooltips.timeDurationWithFramesTooltip}
         >
           <span>Time:</span>
           <span id="start-time">${toHHMMSSTrimmed(markerPair.start)}</span>
