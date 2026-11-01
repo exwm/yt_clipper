@@ -83,6 +83,9 @@ lint-subjects revset="tags()..@":
 # Vale sees only comments in code, so this lints the strings users read (--help, tooltips, messages).
 lint-strings *paths="src":
   uv run python tools/prose/lint_strings.py {{paths}}
+# Test media: fetch open datasets, build cases, survey and pick clips (tools/media/media.py --help).
+media *args:
+  uv run python tools/media/media.py {{args}}
 test-prose:
   vale test --coverage .vale/styles
 # Vale errors and warnings on the docs, user-facing strings and commit subjects added since base (default:
