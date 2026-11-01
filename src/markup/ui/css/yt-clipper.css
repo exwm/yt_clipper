@@ -632,9 +632,6 @@
   top: -5px;
   position: absolute;
   z-index: 99;
-  paint-order: stroke;
-  stroke: rgba(0, 0, 0, 0.25);
-  stroke-width: 2px;
 }
 
 #selected-marker-pair-overlay {
@@ -649,9 +646,15 @@
   top: 5px;
 }
 
+/* Marker numbers on the progress bar and the timeline zoom's zoomed bar: a dark halo strong enough
+   to read over bright video or video in the numbers' own colors. */
 .markerNumbering {
   pointer-events: visibleFill;
   user-select: none;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.85);
+  stroke-width: 2.5px;
+  stroke-linejoin: round;
 }
 .markerNumbering:hover {
   fill: var(--bright-red);
