@@ -55,6 +55,27 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
     group.addoption("--showcase-release", default="", help="release in showcase.toml to capture")
     group.addoption(
+        "--look-scenario", default="", help="just ui-look: the showcase scenario to set up"
+    )
+    group.addoption(
+        "--look-selector",
+        action="append",
+        default=[],
+        help="just ui-look: the element to shoot (repeat to shoot the box around several)",
+    )
+    group.addoption("--look-step", default="now", help="just ui-look: a name for this try")
+    group.addoption(
+        "--look-light-page",
+        action="store_true",
+        help="just ui-look: a white page around the player, like YouTube's light theme",
+    )
+    group.addoption(
+        "--look-hover", default="", help="just ui-look: also shoot with the pointer here"
+    )
+    group.addoption(
+        "--look-padding", type=int, default=24, help="just ui-look: pixels around the element"
+    )
+    group.addoption(
         "--update-assets",
         action="store_true",
         help="also write showcase shots that name an asset into assets/image/",

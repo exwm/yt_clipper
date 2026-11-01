@@ -36,6 +36,17 @@ VIDEO_STYLES = {
         ":speed=0.004:type=linear:seed=7",
         "20",
     ),
+    # Light and dark footage for `just ui-look`, where overlays must stay readable over either.
+    "bright": (
+        "gradients=size=320x180:rate=30:nb_colors=3:c0=0xf4f1ea:c1=0xd8e4ef:c2=0xffffff"
+        ":speed=0.004:type=linear:seed=7",
+        "20",
+    ),
+    "dark": (
+        "gradients=size=320x180:rate=30:nb_colors=3:c0=0x0b0c10:c1=0x1d2129:c2=0x2b2520"
+        ":speed=0.004:type=linear:seed=7",
+        "20",
+    ),
     # A rate whose frames a 60 fps grid doesn't split evenly (@pytest.mark.video_style("testsrc24")).
     "testsrc24": ("testsrc2=size=320x180:rate=24", "40"),
     # Frames a steady 17 ms apart (58.82 fps), as video2x's interpolation to 60 fps writes them: a rate
