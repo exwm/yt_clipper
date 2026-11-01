@@ -1,4 +1,4 @@
-"""Timeline zoom (Shift+T): the brush on the progress bar, the zoomed bar, marker pairs on it, the
+"""Timeline zoom (Shift+F): the brush on the progress bar, the zoomed bar, marker pairs on it, the
 loop guard, scrubbing, and fading with the player controls. Terms follow the glossary at the top of
 timeline-zoom.ts. Each test starts from crowded marker pairs with the zoom open."""
 
@@ -92,7 +92,7 @@ def given_crowded_marker_pairs(markup: MarkupPage) -> None:
 
 @step
 def given_the_timeline_zoom_is_open(markup: MarkupPage) -> None:
-    markup.press("Shift+KeyT")
+    markup.press("Shift+KeyF")
     markup.page.wait_for_selector(".ytc-tz-row-hit")
     markup.shot("timeline-open")
 
@@ -274,7 +274,7 @@ def when_i_play_with_the_pointer_away_from_the_player(markup: MarkupPage) -> Non
 
 @step
 def when_i_close_the_timeline_zoom(markup: MarkupPage) -> None:
-    markup.press("Shift+KeyT")
+    markup.press("Shift+KeyF")
     markup.page.wait_for_selector(".ytc-tz", state="detached", timeout=2000)
 
 

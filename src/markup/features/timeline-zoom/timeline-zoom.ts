@@ -1,5 +1,5 @@
 /**
- * Timeline zoom (Shift+T): a focus + context view of the timeline. The zoomed bar (focus) is a
+ * Timeline zoom (Shift+F): a focus + context view of the timeline. The zoomed bar (focus) is a
  * magnified copy of the progress bar (context), floating just above it, for reading and selecting
  * marker pairs that crowd together on long videos. The progress bar is left untouched so the
  * platform's own seeking, chapters, and previews keep working: CSS-zooming YouTube's bar breaks its
@@ -340,7 +340,7 @@ export function toggleTimelineZoom(): void {
   zoomRange = fittedRange(duration);
   shownRange = zoomRange;
   createPanel();
-  flashMessage('Timeline zoom: on (Shift+T to close)', 'olive');
+  flashMessage('Timeline zoom: on (Shift+F to close)', 'olive');
 }
 
 /** A zoom range fitting the playhead and the selected pair, if any (with a margin of the pair's

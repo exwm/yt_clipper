@@ -222,12 +222,12 @@ A shortcuts reference can also be toggled by clicking the **All shortcuts** butt
 
 **Ctrl+Down:** Toggle auto-hiding of unselected marker pairs. Hidden marker pairs cannot be selected with the mouse.
 
-**Shift+T:** Toggle the timeline zoom. Use it when marker pairs crowd together on long videos. It opens with a zoom range around the playhead, with some margin on each side. When a marker pair is selected, the zoom range also covers that pair.
+**Shift+F:** Toggle the timeline zoom. Use it when marker pairs crowd together on long videos. It opens with a zoom range around the playhead, with some margin on each side. When a marker pair is selected, the zoom range also covers that pair.
 
 - A **zoomed bar** appears just above the progress bar. It is a magnified copy of the progress bar for the zoom range, so nearby pairs spread out. The zoom range's start and end times are shown under its ends. The progress bar keeps working as usual, but is faded so the zoomed bar stands out.
 - On the progress bar, a white outline called the **brush** marks the zoom range. A **callout** under the zoomed bar points down at it.
   - Drag the brush's **edge handles** to resize the zoom range.
-  - Drag its dotted **center handle** to move the zoom range. Double-click the center handle to refit the zoom range around the playhead and the selected marker pair, as Shift+T does on open.
+  - Drag its dotted **center handle** to move the zoom range. Double-click the center handle to refit the zoom range around the playhead and the selected marker pair, as Shift+F does on open.
   - While you hover the progress bar, it returns to full strength, and the player's own hover preview shows over the zoomed bar.
 - On the zoomed bar, marker pairs work as on the progress bar. Click a marker number to open its pair and jump to that marker, Alt+drag a number to move its marker, and Shift+hover an end marker or a number to toggle its pair's editor. Click or drag elsewhere to seek. Scroll to zoom in or out around the middle of the zoom range, and Shift+scroll to pan.
 - Where the video continues past an end of the zoomed bar, that end fades out.
@@ -423,7 +423,7 @@ Frame steps use the frame rate YouTube reports. On other sites, the `markup scri
 
 ## Miscellaneous Shortcuts
 
-**Shift+F:** Flatten a VR video to make it easier to crop.
+**Shift+T:** Flatten a VR video to make it easier to crop.
 
 ## Dynamic Speed and Crop Shortcuts
 

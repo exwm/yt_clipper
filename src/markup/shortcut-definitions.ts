@@ -430,11 +430,11 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       id: 'toggleTimelineZoom',
       description:
         "Toggle the timeline zoom: a zoomed bar above the progress bar, where crowded marker pairs spread out. On the progress bar, drag the brush's center handle to move the zoom range or its edge handles to resize it; click a number to open its pair.",
-      displayKey: 'Shift + T',
+      displayKey: 'Shift + F',
       section: 'Markup',
       category: 'Marker Navigation Shortcuts',
       essential: false,
-      binding: { code: 'KeyT', modifiers: { ctrl: false, shift: true, alt: false } },
+      binding: { code: 'KeyF', modifiers: { ctrl: false, shift: true, alt: false } },
       handler: () => {
         deps.toggleTimelineZoom();
       },
@@ -1480,11 +1480,11 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     {
       id: 'flattenVRVideo',
       description: 'Flatten VR Video',
-      displayKey: 'Shift + F',
+      displayKey: 'Shift + T',
       section: 'Playback & Export',
       category: 'Miscellaneous Shortcuts',
       essential: false,
-      binding: { code: 'KeyF', modifiers: { ctrl: false, shift: true, alt: false } },
+      binding: { code: 'KeyT', modifiers: { ctrl: false, shift: true, alt: false } },
       handler: () => {
         deps.flattenVRVideo();
       },
