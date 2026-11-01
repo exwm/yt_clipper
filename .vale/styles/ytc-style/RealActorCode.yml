@@ -1,0 +1,16 @@
+# An option or file named as the actor: "`--sample-guided-encode` picks the CRF". Options and
+# files don't choose; say what the clipper does with them (RealActor covers plain words).
+extends: existence
+message: "'%s': an option or file does not choose. Say what the clipper does with it."
+level: warning
+scope: raw
+nonword: true
+tokens:
+  - '`[^`\n]+` (?:picks|decides|wants|knows|chooses|prefers|tries)\b'
+tests:
+  - name: flags a code span as the actor
+    input: The `--sample-guided-encode` option is off. `--sample-guided-encode` picks the CRF.
+    contains: ytc-style.RealActorCode
+  - name: leaves a code span that the reader uses alone
+    input: Pass `--overwrite` to remake clips. The `clipper script` skips existing webms.
+    absent: ytc-style.RealActorCode

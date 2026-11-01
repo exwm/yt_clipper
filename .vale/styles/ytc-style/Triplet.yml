@@ -1,0 +1,19 @@
+# Three adjectives or adverbs in a row for rhythm: "fast, clean, and reliable".
+# List as many items as there are, or say what it does.
+extends: sequence
+message: "A list of three adjectives reads as rhythm. Keep the ones that are facts."
+level: suggestion
+tokens:
+  - tag: JJ|RB
+  - pattern: ','
+  - tag: JJ|RB
+  - pattern: ','
+  - pattern: and|or
+  - tag: JJ|RB
+tests:
+  - name: flags three adjectives
+    input: The editor is fast, clean, and reliable.
+    contains: ytc-style.Triplet
+  - name: leaves a real list of nouns alone
+    input: Pick Weak, Medium, or Strong. It encodes vp9, h264, and av1.
+    absent: ytc-style.Triplet

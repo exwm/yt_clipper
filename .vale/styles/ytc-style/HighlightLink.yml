@@ -1,0 +1,27 @@
+# Each release highlight (an h4 under Highlights) ends by pointing at its readme section.
+# Turned on only for numbered release notes in .vale.ini: a file with no h4 still gets one empty block.
+extends: occurrence
+message: "End each highlight with 'See this readme section for the full details.'"
+level: warning
+scope: 'doc(section:has(> h4))'
+token: 'See this readme section for the full details'
+min: 1
+tests:
+  - name: flags a highlight without its readme link
+    input: |
+      ### Highlights
+
+      #### Hold Points
+
+      A hold point shows the crop of the crop point before it.
+    contains: ytc-style.HighlightLink
+  - name: passes a highlight that ends with its readme link
+    input: |
+      ### Highlights
+
+      #### Hold Points
+
+      A hold point shows the crop of the crop point before it.
+
+      See [this readme section](https://example.com/readme#hold) for the full details.
+    absent: ytc-style.HighlightLink

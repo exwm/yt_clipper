@@ -75,6 +75,10 @@ lint-strings *paths="src":
   uv run python tools/prose/lint_strings.py {{paths}}
 test-prose:
   vale test --coverage .vale/styles
+# Vale errors and warnings on the docs, user-facing strings and commit subjects added since base (default:
+# the last release tag) fail; suggestions print and pass. Release-prep runs it.
+lint-prose-new *base:
+  uv run python tools/prose/new_prose_alerts.py {{base}}
 
 poetry-sync:
   poetry lock --no-update && poetry install --sync
@@ -107,6 +111,8 @@ lint-ts: typecheck-ts eslint-ts
 # With coverage (thresholds in jest.config.js; reports go to coverage/markup). It triples the run time,
 # so bundle-prod leaves it off unless asked (`just bundle-prod true`, as CI does).
 test-ts coverage="true":
+  # jest writes the report but not its folder, which a fresh checkout lacks.
+  mkdir -p coverage
   just _timed jest npx jest test {{ if coverage == "true" { "--coverage" } else { "" } }} --json --outputFile=coverage/jest-report.json
   uv run --no-project python tools/test/jest_slowest.py coverage/jest-report.json
 # The tests of files changed since a git ref, and of the files that import them, without the coverage
@@ -165,6 +171,8 @@ ui-test-firefox *args:
   uv run --group ui-test playwright install firefox
   @just _ui-test-phase "--browser firefox" 8 "not display_rate and not timing and not alone" --only-rerun _maybeDontRestoreTabs "$@"; rest=$?; just _ui-test-phase "--browser firefox" 4 "timing and not display_rate and not alone" --only-rerun _maybeDontRestoreTabs "$@"; timing=$?; [ $rest -eq 5 ] && [ $timing -eq 5 ] && exit 5; [ $rest -eq 5 ] && rest=0; [ $timing -eq 5 ] && timing=0; exit $((rest | timing))
 # The browser options are word split: "--browser firefox" or "--browser-channel chrome".
+# No exit message: an empty phase exits 5, which the callers pass, and they report a real failure.
+[no-exit-message]
 [positional-arguments]
 _ui-test-phase browser workers marks *args:
   @browser="$1"; workers="$2"; marks="$3"; shift 3; uv run --group ui-test pytest integration-tests/ui $browser -n "$workers" --durations=10 --tracing retain-on-failure --output sandbox/ui-test-results --reruns 2 --only-rerun InconclusiveEnvironment -m "$marks" "$@"
@@ -184,10 +192,12 @@ ui-showcase release *args:
   release="$1"; shift; uv run --group ui-test pytest integration-tests/ui/showcase.py --browser-channel chrome -n 3 --showcase-release "$release" --video-style calm "$@"
 # The platform-dependent tests (marked platform) on a real YouTube video, into sandbox/ui-shots/<test>-youtube/. One at a time (YouTube only reliably buffers
 # the first ~45s for an automated browser), and a failed test is retried once (YouTube loads can stall).
+# An empty url, or pytest options in its place (`just ui-test-youtube --userscript x.js`), use the default video.
+youtube_test_url := "https://www.youtube.com/watch?v=aqz-KE-bpKQ"
 [positional-arguments]
-ui-test-youtube url="https://www.youtube.com/watch?v=aqz-KE-bpKQ" *args:
+ui-test-youtube url=youtube_test_url *args:
   just _parcel-once
-  url="$1"; shift; uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -s --reruns 1 --durations=10 --tracing retain-on-failure --output sandbox/ui-test-results -m platform --youtube "$url" "$@"
+  url="$1"; case "$url" in -*) url="{{youtube_test_url}}" ;; "") url="{{youtube_test_url}}"; shift ;; *) shift ;; esac; uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -s --reruns 1 --durations=10 --tracing retain-on-failure --output sandbox/ui-test-results -m platform --youtube "$url" "$@"
 
 clean-dist:
   rm -r ./dist/*
@@ -209,6 +219,7 @@ release-prep version:
   uv run python tools/release/changelog.py highlights {{version}}
   uv run python tools/release/changelog.py credits {{version}}
   uv run python tools/release/version.py set {{version}}
+  just lint-prose-new
   just bundle-prod true
   just lint-py
   just test-py

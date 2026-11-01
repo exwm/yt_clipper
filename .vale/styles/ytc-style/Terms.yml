@@ -1,0 +1,8 @@
+extends: substitution
+message: "Use '%s' instead of '%s'."
+level: warning
+ignorecase: true
+# One name per concept, from the readme's own usage. "hold" names hold points since 5.49.
+swap:
+  marker pair settings editor: marker pair editor
+  steady holds: steady pauses

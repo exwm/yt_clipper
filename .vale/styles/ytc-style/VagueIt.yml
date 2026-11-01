@@ -1,0 +1,28 @@
+# A sentence that ends "<verb> it." after two or more nouns: the reader has to
+# guess which noun "it" means ("Markers data saved before 5.49.0 uses it.").
+# Imperatives ("move it", "show it") are left alone: their "it" is the object
+# the reader just handled. The tagger often reads "uses" as a plural noun, so
+# the verb is matched by shape. Sequence patterns are searched in the sentence
+# text, so no ^ or $ anchors.
+extends: sequence
+message: "Name what 'it' is. Two or more nouns come before it."
+level: suggestion
+tokens:
+  - tag: NN|NNS|NNP|NNPS
+    skip: 8
+    min: 2
+  - pattern: '\w+(?:s|ed)'
+  - pattern: (?i:it)
+    target: true
+  # nothing but the sentence's end follows: no word, and no clause comma
+  - pattern: '[,;:]|\w+'
+    negate: true
+tests:
+  - name: flags a vague object at the end
+    input: Markers data saved before 5.49.0 uses it.
+    want: |
+      1:39:ytc-style.VagueIt:Name what 'it' is. Two or more nouns come before it.
+  - name: leaves imperatives and mid-sentence uses alone
+    input: |
+      Add a crop point in the middle of a new marker pair and move it. A hold point keeps the crop of the crop point before it, and follows.
+    want: ""

@@ -84,4 +84,7 @@ space_bar
 (?i)dev
 (?i)ci
 (?i)wip
+(?i)easings
+(?i)traceback
+Repo
 [A-Za-z]+'s

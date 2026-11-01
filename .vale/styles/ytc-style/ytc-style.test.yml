@@ -50,6 +50,27 @@
     - "'key frames'"
   absent: "'keyframing'"
 
+- name: one name per concept
+  rule: Terms.yml
+  input: |
+    Open the marker pair settings editor. Cinematic has steady holds.
+  contains:
+    - "'marker pair editor'"
+    - "'steady pauses'"
+
+- name: the readme's names pass the terms rule
+  input: |
+    Open the marker pair editor. Cinematic has steady pauses, and a hold point holds the crop.
+  absent: [ytc-style.Terms, ytc-style.TermsSuggest]
+
+- name: term variants get a suggestion
+  rule: TermsSuggest.yml
+  input: |
+    Save the markers JSON. Toggle a hold crop point.
+  contains:
+    - "'markers data'"
+    - "'hold point'"
+
 - name: semicolons in prose but not in code
   rule: Semicolons.yml
   input: |

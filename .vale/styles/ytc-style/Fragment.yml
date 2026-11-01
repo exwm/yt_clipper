@@ -1,0 +1,27 @@
+# A sentence that is a noun phrase plus a relative clause, with no main verb:
+# "The crop easing from before 5.49.0, which slows to a stop at every point."
+# Sequence tokens can't say "no verb in this window" (`min` without `skip`
+# matches exactly n tokens), so the window is any 8 tokens and `exceptions`
+# drops openings whose window holds a common finite verb.
+extends: sequence
+message: "This sentence may have no main verb. Say what the subject does."
+level: warning
+tokens:
+  # sentence start, or right after a label ("EaseInOut: The ...")
+  - pattern: \w+
+    negate: true
+  - tag: DT
+    skip: 8
+  - pattern: ','
+  - pattern: which|where|who
+exceptions:
+  - '(?:The|A|An|This|Its)\b[^,]*\b(?:is|are|was|were|has|have|had|does|do|did|can|will|must|should|gets?|keeps?|moves?|shows?|stores?|runs?|sets?|adds?|uses?|takes?|makes?|stays?|stops?|starts?|holds?|follows?|appears?|changes?|works?|plays?|loads?|saves?|opens?|skips?|applies|copies|[a-z]+ed)\b[^,]*,'
+tests:
+  - name: flags a label entry with no main verb
+    input: |
+      - EaseInOut: The crop easing from before 5.49.0, which slows to a stop at every point.
+    contains: ytc-style.Fragment
+  - name: leaves a sentence with a verb alone
+    input: |
+      The cache stores each trial, which saves time. The crop slows to a stop at every point.
+    absent: ytc-style.Fragment

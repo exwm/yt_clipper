@@ -1,0 +1,7 @@
+extends: substitution
+message: "Prefer '%s' to '%s', the readme's term, unless the file format itself is meant."
+level: suggestion
+ignorecase: true
+swap:
+  markers (?:file|JSON): markers data
+  hold crop points?: hold point
