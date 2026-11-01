@@ -4,8 +4,8 @@
  * seeks, timers, the frame rate), and must make the same seeks and marker moves.
  */
 import { execFileSync } from 'child_process';
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs';
+import { dirname, join } from 'path';
 import ts from 'typescript';
 import { roundX, roundY, sortX } from '../ui/chart/chartPrimitives';
 import { frameAt, sameFrame } from './frame-grid';
@@ -14,20 +14,31 @@ import { clampNumber, roundValue } from './util';
 
 const TAG = 'v5.48.0';
 // A shallow clone (CI's checkout) has no tags: this check runs locally, as in release-prep.
-const hasTag = (() => {
+const tagCommit = (() => {
   try {
-    execFileSync('git', ['rev-parse', '--verify', '--quiet', `${TAG}^{commit}`], {
-      stdio: 'ignore',
-    });
-    return true;
+    return execFileSync('git', ['rev-parse', '--verify', '--quiet', `${TAG}^{commit}`], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
   } catch {
-    return false;
+    return null;
   }
 })();
+const hasTag = tagCommit !== null;
+// Kept on disk by the tag's commit, so a moved tag reads afresh: each `git show` costs about 0.1 s.
+const TAG_CACHE = join(__dirname, '../../../node_modules/.cache/frame-timing-548-source');
 const tagSource = (path: string) =>
-  cached(`tag:${path}`, () =>
-    execFileSync('git', ['show', `${TAG}:${path}`], { encoding: 'utf8' })
-  );
+  cached(`tag:${path}`, () => {
+    const file = join(TAG_CACHE, tagCommit!, path);
+    if (existsSync(file)) return readFileSync(file, 'utf8');
+    const text = execFileSync('git', ['show', `${TAG}:${path}`], { encoding: 'utf8' });
+    mkdirSync(dirname(file), { recursive: true });
+    // Written whole, then renamed, so a stopped run never leaves a partial file to read later.
+    const partial = `${file}.${process.pid}.partial`;
+    writeFileSync(partial, text);
+    renameSync(partial, file);
+    return text;
+  });
 const ownSource = (path: string) =>
   cached(path, () => readFileSync(join(__dirname, '../../..', path), 'utf8'));
 
@@ -40,10 +51,13 @@ const declaredNames = (s: ts.Statement): string[] =>
         )
       : [];
 
-const compiled = new Map<string, { js: string; found: string[] }>();
-function compile(source: string, names: string[]) {
-  const key = `${names.join()}\n${source}`;
-  if (!compiled.has(key)) {
+// Keyed by the source string itself, then by short keys: a key built by joining the whole source
+// was hashed again on every lookup, a second of the file's run.
+const built = new Map<string, Map<string, (...args: unknown[]) => any>>();
+function compile(source: string, names: string[], keys: string[]) {
+  const bySource = built.get(source) ?? built.set(source, new Map()).get(source)!;
+  const key = `${names.join()}\n${keys.join()}`;
+  if (!bySource.has(key)) {
     const file = ts.createSourceFile('m.ts', source, ts.ScriptTarget.ES2020, true);
     const picked = file.statements.filter((s) => declaredNames(s).some((n) => names.includes(n)));
     const found = picked.flatMap(declaredNames);
@@ -51,19 +65,20 @@ function compile(source: string, names: string[]) {
     if (missing.length) throw new Error(`not declared: ${missing.join(', ')}`);
     const text = picked.map((s) => s.getText().replace(/^export\s+/, '')).join('\n');
     const js = ts.transpileModule(text, { compilerOptions: { target: ts.ScriptTarget.ES2020 } });
-    compiled.set(key, { js: js.outputText, found });
+    const exports = found.map((n) => `${n}: typeof ${n} === 'undefined' ? undefined : ${n}`);
+    bySource.set(
+      key,
+      new Function(...keys, `${js.outputText}\nreturn { ${exports.join(', ')} };`) as any
+    );
   }
-  return compiled.get(key)!;
+  return bySource.get(key)!;
 }
 
-/** The named top-level declarations of `source`, evaluated with `scope` standing in for imports. */
+/** The named top-level declarations of `source`, evaluated with `scope` standing in for imports.
+ *  Each call runs the declarations afresh, so no state carries over between tests. */
 function load(source: string, names: string[], scope: Record<string, unknown> = {}): any {
-  const { js, found } = compile(source, names);
-  const exports = found.map((n) => `${n}: typeof ${n} === 'undefined' ? undefined : ${n}`);
   const keys = Object.keys(scope);
-  return new Function(...keys, `${js}\nreturn { ${exports.join(', ')} };`)(
-    ...keys.map((k) => scope[k])
-  );
+  return compile(source, names, keys)(...keys.map((k) => scope[k]));
 }
 
 const sources = new Map<string, string>();
