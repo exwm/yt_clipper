@@ -30,6 +30,23 @@ def test_brush_handles_move_and_resize_the_zoom_range(zoom: MarkupPage) -> None:
     then_the_zoom_range_end_changed(zoom, moved)
 
 
+@pytest.mark.platform
+@pytest.mark.parametrize("edge", ["start", "end"])
+def test_click_on_an_edge_handle_seeks_there(zoom: MarkupPage, edge: str) -> None:
+    before = zoom_range(zoom)
+    clicked_time = when_i_click_the_edge_handle(zoom, edge)
+    then_playback_seeks_to(zoom, clicked_time)
+    then_the_zoom_range_kept_its_length(zoom, before)
+
+
+def test_edge_handles_ignore_a_playhead_drag_passing_over_them(zoom: MarkupPage) -> None:
+    then_the_end_edge_handle_takes_the_pointer(zoom, expected=True)
+    when_i_press_the_progress_bar_and_drag_onto_the_end_edge_handle(zoom)
+    then_the_end_edge_handle_takes_the_pointer(zoom, expected=False)
+    when_i_release_the_pointer(zoom)
+    then_the_end_edge_handle_takes_the_pointer(zoom, expected=True)
+
+
 def test_wheel_on_the_zoomed_bar_zooms_around_the_middle(zoom: MarkupPage) -> None:
     before = zoom_range(zoom)
     when_i_scroll_up_on_the_zoomed_bar(zoom)
@@ -151,6 +168,30 @@ def when_i_drag_the_end_edge_handle(markup: MarkupPage) -> None:
     markup.page.mouse.move(x + 25, y, steps=4)
     markup.shot("resizing-mid-drag")
     markup.page.mouse.up()
+
+
+@step
+def when_i_click_the_edge_handle(markup: MarkupPage, edge: str) -> float:
+    """Click without moving, and return the video time under the click on the progress bar. The
+    handles sit just outside the zoom range, so at the video's start the start handle is before 0."""
+    x, y = markup.center_of(f".ytc-tz-hit.edge-handle[data-edge='{edge}']")
+    record_seeks(markup)
+    markup.page.mouse.click(x, y)
+    # Wait for the seek to start, not land: the end handle sits past 60 s, beyond the initial buffer
+    # YouTube gives the automated browser, so there the seek never finishes.
+    assert markup.eventually("() => window.__seeks.length > 0"), "no seek happened"
+    markup.shot(f"{edge}-edge-handle-clicked")
+    panel = markup.box_of(".ytc-tz")
+    duration = markup.page.evaluate("() => document.querySelector('video').duration")
+    return min(max((x - panel["x"]) / panel["width"] * duration, 0), duration)
+
+
+@step
+def when_i_press_the_progress_bar_and_drag_onto_the_end_edge_handle(markup: MarkupPage) -> None:
+    x, y = markup.center_of(".ytc-tz-hit.edge-handle[data-edge='end']")
+    markup.page.mouse.move(x + 80, y)
+    markup.page.mouse.down()
+    markup.page.mouse.move(x, y, steps=4)
 
 
 @step
@@ -338,6 +379,38 @@ def then_playback_only_seeks_to_the_pair_start(markup: MarkupPage, pair_index: i
     markup.report(f"seeks {[round(t, 2) for t in seeks]}")
     assert all(start - 0.1 <= t <= end + 0.1 for t in seeks)
     assert any(t == pytest.approx(start, abs=0.1) for t in seeks)
+
+
+@step
+def then_the_end_edge_handle_takes_the_pointer(markup: MarkupPage, *, expected: bool) -> None:
+    # The handle under the pointer, as the browser picks it for the cursor and hover styles
+    x, y = markup.center_of(".ytc-tz-hit.edge-handle[data-edge='end']")
+    is_handle = markup.page.evaluate(
+        "([x, y]) => !!document.elementFromPoint(x, y)?.matches('.ytc-tz-hit.edge-handle')",
+        [x, y],
+    )
+    assert is_handle == expected
+
+
+@step
+def then_playback_seeks_to(markup: MarkupPage, time: float) -> None:
+    seeks = markup.page.evaluate("() => window.__seeks")
+    markup.report(f"clicked at {time:.2f}s, seeks {[round(t, 2) for t in seeks]}")
+    # Within a pixel's worth of time, since the click and the seek map the same x
+    pixel_seconds = markup.page.evaluate(
+        "() => document.querySelector('video').duration"
+        " / document.querySelector('.ytc-tz').getBoundingClientRect().width",
+    )
+    assert any(t == pytest.approx(time, abs=pixel_seconds) for t in seeks)
+
+
+@step
+def then_the_zoom_range_kept_its_length(markup: MarkupPage, before: tuple[float, float]) -> None:
+    # A seek past the range's end pages the zoom range forward, but a click never resizes it.
+    wait_for_the_zoom_to_settle(markup)
+    after = zoom_range(markup)
+    markup.report(f"zoom range {before} -> {after}")
+    assert after[1] - after[0] == pytest.approx(before[1] - before[0])
 
 
 @step

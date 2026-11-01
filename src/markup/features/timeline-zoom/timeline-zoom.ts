@@ -105,6 +105,8 @@ const CENTER_HANDLE_H = 6;
 const CENTER_HANDLE_HIT_W = 28;
 // A second press on the center handle within this long refits the zoom range (see fittedRange).
 const DOUBLE_CLICK_MS = 350;
+// A press on an edge handle that moves less than this is a click, which seeks.
+const DRAG_THRESHOLD_PX = 4;
 // The drag label floats this far above the center handle, clear of the pointer.
 const DRAG_LABEL_LIFT = 20;
 // Rough width of one digit of the 6.5pt numbers, for label thinning.
@@ -229,6 +231,7 @@ const TIMELINE_ZOOM_CSS = `
 .ytc-tz-grip { stroke: rgba(0, 0, 0, 0.6); stroke-width: 1px; }
 .ytc-tz-grip-dot { fill: rgba(0, 0, 0, 0.6); shape-rendering: crispEdges; }
 .ytc-tz-hit { fill: transparent; pointer-events: all; }
+.ytc-tz.pressed-elsewhere * { pointer-events: none !important; }
 .ytc-tz-hit.edge-handle { cursor: ew-resize; }
 .ytc-tz-hit.center-handle { cursor: grab; }
 .ytc-tz.panning .ytc-tz-hit.center-handle { cursor: grabbing; }
@@ -418,6 +421,15 @@ function setProgressBarDimmed(isDimmed: boolean): void {
   for (const element of progressBarElements()) element.classList.toggle('ytc-tz-dimmed', isDimmed);
 }
 
+// While a press that began elsewhere is held (dragging the platform's playhead), the panel ignores the
+// pointer, so its handles don't light up or show their cursors as the drag passes over them.
+function onDocumentPointerDown(e: PointerEvent): void {
+  if (panel && !panel.contains(e.target as Node)) panel.classList.add('pressed-elsewhere');
+}
+function onDocumentPointerUp(): void {
+  panel?.classList.remove('pressed-elsewhere');
+}
+
 // While the pointer is on the progress bar it returns to full strength.
 function onProgressBarEnter(): void {
   setProgressBarDimmed(false);
@@ -449,6 +461,10 @@ function createPanel(): void {
   appState.hooks.progressBar.addEventListener('pointerleave', onProgressBarLeave);
   setProgressBarDimmed(true);
   document.addEventListener('fullscreenchange', onFullscreenChange);
+  document.addEventListener('pointerdown', onDocumentPointerDown, true);
+  window.addEventListener('pointerup', onDocumentPointerUp, true);
+  window.addEventListener('pointercancel', onDocumentPointerUp, true);
+  window.addEventListener('blur', onDocumentPointerUp);
   appState.video.addEventListener('seeked', onVideoSeeked);
   followingPlayhead = true;
   // The panel fades with the player's controls, so wake them: otherwise opening it while they are
@@ -463,6 +479,10 @@ function destroyPanel(): void {
   cancelAnimationFrame(loopId);
   loopId = 0;
   document.removeEventListener('fullscreenchange', onFullscreenChange);
+  document.removeEventListener('pointerdown', onDocumentPointerDown, true);
+  window.removeEventListener('pointerup', onDocumentPointerUp, true);
+  window.removeEventListener('pointercancel', onDocumentPointerUp, true);
+  window.removeEventListener('blur', onDocumentPointerUp);
   appState.video.removeEventListener('seeked', onVideoSeeked);
   appState.hooks.progressBar.removeEventListener('pointerenter', onProgressBarEnter);
   appState.hooks.progressBar.removeEventListener('pointerleave', onProgressBarLeave);
@@ -1028,18 +1048,35 @@ function onPointerDown(e: PointerEvent): void {
 
   const startRange = zoomRange;
   if (target.classList.contains('ytc-tz-hit') && target.classList.contains('edge-handle')) {
+    // The edge handles cover the progress bar, so a click without a drag seeks there as the bar
+    // would, and only a drag resizes.
     const edge = target.getAttribute('data-edge') === 'start' ? 'start' : 'end';
-    brushDrag = edge;
-    beginDrag(e, 'resizing', (ev) =>
-      setRangeByUser(
-        resizeRangeEdge(
-          startRange,
-          edge,
-          progressBarTimeAt(ev.clientX),
-          duration,
-          MIN_RANGE_SECONDS
-        )
-      )
+    const downX = e.clientX;
+    let resizing = false;
+    beginDrag(
+      e,
+      'edge-pressed',
+      (ev) => {
+        if (!resizing && Math.abs(ev.clientX - downX) < DRAG_THRESHOLD_PX) return;
+        if (!resizing) {
+          resizing = true;
+          brushDrag = edge;
+          panel?.classList.add('resizing');
+        }
+        setRangeByUser(
+          resizeRangeEdge(
+            startRange,
+            edge,
+            progressBarTimeAt(ev.clientX),
+            duration,
+            MIN_RANGE_SECONDS
+          )
+        );
+      },
+      () => {
+        panel?.classList.remove('resizing');
+        if (!resizing) seekToSafe(appState.video, loopSafeSeekTime(progressBarTimeAt(downX)));
+      }
     );
     return;
   }
