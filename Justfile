@@ -43,13 +43,12 @@ test-py-changed *args:
 smoke-release folder version="":
   uv run python tools/release/smoke_test.py "{{folder}}" {{version}}
 # Check an installed release with the existing tests: the smoke test, one YouTube clip (with the
-# install's default_args.txt, e.g. cookies), and the UI tests on the release's userscript, also at the assumed frame rate.
+# install's default_args.txt, e.g. cookies), and the UI tests on the release's userscript. No ui-test-frame-549:
+# its tests need the feature flags popup, which CI builds leave out.
 verify-release install userscript version="":
   just smoke-release "{{install}}" {{version}}
   uv run pytest src/clipper/tests/test_e2e.py -k youtube-vp9 --clipper-exe "{{install}}/yt_clipper{{ if os_family() == "windows" { ".exe" } else { "" } }}"
   just ui-test --userscript "{{userscript}}"
-  just ui-test --userscript "{{userscript}}" --assumed-frame-rate
-  just ui-test-display-rates --userscript "{{userscript}}"
 # After publishing: check that Greasy Fork serves the release's userscript (waits up to 3 minutes).
 check-greasyfork version:
   uv run python tools/release/greasyfork.py {{version}}
@@ -164,10 +163,18 @@ dev-site:
 # The timing tests run after the rest, on fewer workers, so the others' load can't fail them, and a test that
 # loads the machine itself runs alone last. A timing test whose measured window the machine spoiled (displays asleep) raises InconclusiveEnvironment, the only failure rerun.
 # A phase that -k leaves empty (pytest exit 5) passes, unless all are. Filter with -k: a -m replaces the phases' marks.
+# Only the frame timing the userscript ships: tests of the other mode run in ui-test-frame-549.
 [positional-arguments]
 ui-test *args:
   just _parcel-once
-  @just _ui-test-phase "--browser-channel chrome" 8 "not display_rate and not timing and not alone" "$@"; rest=$?; just _ui-test-phase "--browser-channel chrome" 4 "timing and not display_rate" "$@"; timing=$?; just _ui-test-phase "--browser-channel chrome" 1 "alone" "$@"; alone=$?; [ $rest -eq 5 ] && [ $timing -eq 5 ] && [ $alone -eq 5 ] && exit 5; [ $rest -eq 5 ] && rest=0; [ $timing -eq 5 ] && timing=0; [ $alone -eq 5 ] && alone=0; exit $((rest | timing | alone))
+  @just _ui-test-phase "--browser-channel chrome" 8 "not unshipped_frame_timing and not display_rate and not timing and not alone" "$@"; rest=$?; just _ui-test-phase "--browser-channel chrome" 4 "not unshipped_frame_timing and timing and not display_rate" "$@"; timing=$?; just _ui-test-phase "--browser-channel chrome" 1 "not unshipped_frame_timing and alone" "$@"; alone=$?; [ $rest -eq 5 ] && [ $timing -eq 5 ] && [ $alone -eq 5 ] && exit 5; [ $rest -eq 5 ] && rest=0; [ $timing -eq 5 ] && timing=0; [ $alone -eq 5 ] && alone=0; exit $((rest | timing | alone))
+# The UI tests of 5.49's frame timing, which the userscript ships off (legacyFrameTiming, D-001): the tests
+# marked frame_timing("5.49"), again at the assumed 60 fps (--assumed-frame-rate), and the display rates.
+# Opt-in, for frame timing work; release-prep runs it again once a 5.49 behavior turns on.
+[positional-arguments]
+ui-test-frame-549 *args:
+  just _parcel-once
+  @just _ui-test-phase "--browser-channel chrome" 8 "unshipped_frame_timing and not display_rate and not timing and not alone" "$@"; rest=$?; just _ui-test-phase "--browser-channel chrome" 4 "unshipped_frame_timing and timing and not display_rate" "$@"; timing=$?; just _ui-test-phase "--browser-channel chrome" 8 "unshipped_frame_timing and not display_rate and not timing and not alone" --assumed-frame-rate "$@"; assumed=$?; just _ui-test-phase "--browser-channel chrome" 4 "unshipped_frame_timing and timing and not display_rate" --assumed-frame-rate "$@"; assumedTiming=$?; just ui-test-display-rates "$@"; rates=$?; [ $rest -eq 5 ] && rest=0; [ $timing -eq 5 ] && timing=0; [ $assumed -eq 5 ] && assumed=0; [ $assumedTiming -eq 5 ] && assumedTiming=0; [ $rates -eq 5 ] && rates=0; exit $((rest | timing | assumed | assumedTiming | rates))
 # The UI tests in Playwright's Firefox (installed here once per Playwright version), apart from ui-test and the
 # release checks. Firefox's VideoFrame reports no frame times, so tests of frame exact behavior are strict xfails
 # (marked firefox_limit). The same phases as ui-test, without the alone test, which throttles the CPU through Chrome's DevTools Protocol.
@@ -233,10 +240,8 @@ release-prep version:
   just bundle-prod true
   just lint-py
   just test-py
+  # The frame timing the release ships (D-061): add `just ui-test-frame-549` once a 5.49 behavior turns on.
   just ui-test
-  # 5.49's frame timing at the assumed 60 fps.
-  just ui-test --assumed-frame-rate
-  just ui-test-display-rates
   uv run python tools/release/version.py check {{version}}
 # Tagged commits are made immutable in jj: the changelog links and the tag point at them.
 

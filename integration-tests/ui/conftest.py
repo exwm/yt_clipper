@@ -123,7 +123,14 @@ def runs_at_the_assumed_rate(item: pytest.Item) -> bool:
     return is_549 and not measures_the_rate(item)
 
 
+# Before -m deselects, so `-m "not unshipped_frame_timing"` sees the mark this adds.
+@pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    built_mode = built_frame_timing(config)
+    for item in items:
+        marker = item.get_closest_marker("frame_timing")
+        if marker is not None and built_mode is not None and marker.args[0] != built_mode:
+            item.add_marker(pytest.mark.unshipped_frame_timing)
     if config.getoption("assumed_frame_rate"):
         deselected = [item for item in items if not runs_at_the_assumed_rate(item)]
         if deselected:
@@ -132,7 +139,6 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     if not is_ci_build(config):
         return
     skip = pytest.mark.skip(reason="needs the feature flags popup, which CI builds leave out")
-    built_mode = built_frame_timing(config)
     for item in items:
         if needs_flag_overrides(item, built_mode):
             item.add_marker(skip)
@@ -161,6 +167,11 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         'frame_timing(mode): run with the frame timing of "5.48" or "5.49" (the legacyFrameTiming'
         " flag); unmarked tests run on the default; skipped against a CI-built userscript",
+    )
+    config.addinivalue_line(
+        "markers",
+        "unshipped_frame_timing: set on a frame_timing test whose mode isn't the userscript's"
+        " default; just ui-test leaves these out, just ui-test-frame-549 runs them",
     )
     config.addinivalue_line(
         "markers",
