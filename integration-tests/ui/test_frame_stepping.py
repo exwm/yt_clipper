@@ -727,29 +727,30 @@ def when_the_loop_plays(markup: MarkupPage, fps: int, turns: int) -> list[int]:
     """The frames shown while the video plays, from the first time it shows the pair's first frame
     until it has turned back `turns` times, so every cycle recorded is whole."""
     markup.seek(60.5 / fps, presented=True)
-    times = markup.page.evaluate(
-        """async ([turns, capMs]) => {
-            const v = document.querySelector('video');
-            const times = [];
-            let turned = 0;
-            let done;
-            const finished = new Promise((resolve) => { done = resolve; });
-            const onFrame = (_now, meta) => {
-                if (times.length && meta.mediaTime < times[times.length - 1]) turned++;
-                times.push(meta.mediaTime);
-                if (turned >= turns) done();
-                else v.requestVideoFrameCallback(onFrame);
-            };
-            v.requestVideoFrameCallback(onFrame);
-            await v.play();
-            const timer = setTimeout(done, capMs);
-            await finished;
-            clearTimeout(timer);
-            v.pause();
-            return times;
-        }""",
-        [turns, LOOP_PLAY_CAP_MS],
-    )
+    with markup.untraced():
+        times = markup.page.evaluate(
+            """async ([turns, capMs]) => {
+                const v = document.querySelector('video');
+                const times = [];
+                let turned = 0;
+                let done;
+                const finished = new Promise((resolve) => { done = resolve; });
+                const onFrame = (_now, meta) => {
+                    if (times.length && meta.mediaTime < times[times.length - 1]) turned++;
+                    times.push(meta.mediaTime);
+                    if (turned >= turns) done();
+                    else v.requestVideoFrameCallback(onFrame);
+                };
+                v.requestVideoFrameCallback(onFrame);
+                await v.play();
+                const timer = setTimeout(done, capMs);
+                await finished;
+                clearTimeout(timer);
+                v.pause();
+                return times;
+            }""",
+            [turns, LOOP_PLAY_CAP_MS],
+        )
     return [math.floor(time * fps + 0.02) for time in times]
 
 

@@ -159,7 +159,7 @@ dev-site:
   just _parcel-once
   uv run --group ui-test python integration-tests/ui/serve_dev_site.py
 # Run the markup UI tests (pytest + Playwright, in an installed Chrome) on the dev site, in parallel. Screenshots
-# go to sandbox/ui-shots/<test>/, and a failed test's Playwright trace to sandbox/ui-test-results/. Extra args go to pytest,
+# go to sandbox/ui-shots/<test>/, and a failed test's Playwright trace (from a traced rerun) to sandbox/ui-test-results/. Extra args go to pytest,
 # e.g. `just ui-test -k "zoom or crop"`, or `just ui-test -n 0 -s --headed` to watch one at a time.
 # The timing tests run after the rest, on fewer workers, so the others' load can't fail them, and a test that
 # loads the machine itself runs alone last. A timing test whose measured window the machine spoiled (displays asleep) raises InconclusiveEnvironment, the only failure rerun.
@@ -179,10 +179,13 @@ ui-test-firefox *args:
   @just _ui-test-phase "--browser firefox" 8 "not display_rate and not timing and not alone" --only-rerun _maybeDontRestoreTabs "$@"; rest=$?; just _ui-test-phase "--browser firefox" 4 "timing and not display_rate and not alone" --only-rerun _maybeDontRestoreTabs "$@"; timing=$?; [ $rest -eq 5 ] && [ $timing -eq 5 ] && exit 5; [ $rest -eq 5 ] && rest=0; [ $timing -eq 5 ] && timing=0; exit $((rest | timing))
 # The browser options are word split: "--browser firefox" or "--browser-channel chrome".
 # No exit message: an empty phase exits 5, which the callers pass, and they report a real failure.
+# Tracing is off: its screenshots took half the run (phase 1 88 s with it, 45 s without) and starve Chrome
+# of frames. A failed phase reruns only its failed tests with tracing, for their traces, and still fails.
+# Each phase keeps its own last-failed list (cache_dir), apart from other pytest runs.
 [no-exit-message]
 [positional-arguments]
 _ui-test-phase browser workers marks *args:
-  @browser="$1"; workers="$2"; marks="$3"; shift 3; uv run --group ui-test pytest integration-tests/ui $browser -n "$workers" --durations=10 --tracing retain-on-failure --output sandbox/ui-test-results --reruns 2 --only-rerun InconclusiveEnvironment -m "$marks" "$@"
+  @browser="$1"; workers="$2"; marks="$3"; shift 3; cache="-o cache_dir=.pytest_cache/ui-test"; uv run --group ui-test pytest integration-tests/ui $browser $cache -n "$workers" --durations=10 --tracing off --output sandbox/ui-test-results --reruns 2 --only-rerun InconclusiveEnvironment -m "$marks" "$@"; status=$?; if [ $status -ne 0 ] && [ $status -ne 5 ]; then echo "Rerunning the failed tests with Playwright tracing (traces in sandbox/ui-test-results):"; uv run --group ui-test pytest integration-tests/ui $browser $cache -n "$workers" --tracing retain-on-failure --output sandbox/ui-test-results --last-failed --last-failed-no-failures none -m "$marks" "$@" && echo "The failed tests passed when rerun with tracing: they are flaky."; fi; exit $status
 # The loop's end frame on simulated 30, 50, 120 and 144 Hz displays, in Playwright's chromium-headless-shell
 # (installed here once per Playwright version). Apart from ui-test: beside the other tests' load the simulated
 # display drops refreshes now and then, which cuts an end frame short.
