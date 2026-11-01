@@ -521,7 +521,8 @@ function renderNumberingText(
 ): SVGTextElement {
   const container = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   render(
-    svg`<text class=${markerNumberClassName(kind)} data-idx=${idx} x="${progressPos}%" y="${MARKER_NUMBER_BASELINE_PX}px" text-anchor="middle">${idx}</text>`,
+    // dx: the marker line starts at the marker's x, so its centre is half its width to the right.
+    svg`<text class=${markerNumberClassName(kind)} data-idx=${idx} x="${progressPos}%" dx="${MARKER_WIDTH_PX / 2}" y="${MARKER_NUMBER_BASELINE_PX}px" text-anchor="middle">${idx}</text>`,
     container
   );
   const numbering = container.children[0] as SVGTextElement;

@@ -152,13 +152,10 @@ const TIMELINE_ZOOM_CSS = `
   overflow: visible;
   pointer-events: none;
 }
-/* Marker numbers haloed exactly as on the progress bar (#start-marker-numberings in yt-clipper.css),
-   and kept out of the content's drop shadow, which would darken them further. */
+/* Marker numbers take their halo from the shared .markerNumbering class (yt-clipper.css), as on the
+   progress bar, and stay out of the content's drop shadow, which would darken them further. */
 .ytc-tz text {
   font-size: 6.5pt;
-  paint-order: stroke;
-  stroke: rgba(0, 0, 0, 0.25);
-  stroke-width: 2px;
   user-select: none;
 }
 /* No background, so the video stays visible behind the zoomed bar (like the platform's own bar);
@@ -242,14 +239,15 @@ const TIMELINE_ZOOM_CSS = `
 .ytc-tz-time {
   position: absolute;
   font: 500 11px/12px ${YOUTUBE_PLAYER_FONT};
-  color: rgba(238, 238, 238, 0.85);
-  text-shadow: 0 0 2px rgb(0, 0, 0);
+  color: rgb(238, 238, 238);
+  /* A crisp 1px outline on four sides; a blurred shadow fades out over bright video. */
+  text-shadow: 1px 0 #000, -1px 0 #000, 0 1px #000, 0 -1px #000;
   white-space: nowrap;
   pointer-events: none;
   transition: opacity 0.15s, color 0.15s;
 }
 .ytc-tz-time.end { transform: translateX(-100%); }
-.ytc-tz.hovering .ytc-tz-time { opacity: 0.3; }
+.ytc-tz.hovering .ytc-tz-time { opacity: 0.6; }
 .ytc-tz.resizing .ytc-tz-time,
 .ytc-tz.panning .ytc-tz-time { color: white; }
 .ytc-tz-drag-label {
