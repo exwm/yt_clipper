@@ -5,6 +5,7 @@ import { frameSpan } from './frame-grid';
 import { VideoPlatforms } from '../platforms/platforms';
 import { appState, VideoElement } from '../appState';
 import { onExternalSeek, onSeekRequest, onSeekSettled, SeekDecision } from './seek-coalescer';
+import { frameTiming } from './frame-timing';
 
 export function assertDefined<T>(value: T | null | undefined, msg?: string): asserts value is T {
   if (value == null) {
@@ -300,7 +301,8 @@ export function getEasedValue(
 //     the pending was dropped, stranding a fast drag at an intermediate
 //     frame. A seek still running after a second keeps its pending and
 //     re-arms, so frame steps held behind a slow seek are not lost; a
-//     new source (``emptied``) drops it.
+//     new source (``emptied``) drops it. 5.48's frame timing drops it
+//     after the second instead, as 5.48 did (``frameTiming.staleSeek``).
 //
 //   - A ``seeking`` event listener detects external seeks (YouTube
 //     progress bar, native keyboard shortcuts, ad insertion, etc.)
@@ -317,12 +319,6 @@ const STALE_PENDING_TIMEOUT_MS = 1000;
 /** The seek target held back while another seek is in flight, if any: where the playhead goes next. */
 export function getPendingSeekTime(): number | null {
   return pendingSeekTime;
-}
-
-/** One frame's duration in seconds, falling back to 30fps when fps is missing/invalid (NaN slips
- *  straight through getFPS). Shared by the frame-tolerance checks so the fallback lives in one place. */
-export function frameDuration(fps: number): number {
-  return 1 / (fps > 0 ? fps : 30);
 }
 
 // Apply a decision from the pure core: store the new pending slot, (re)arm or clear the stale timer,
@@ -347,8 +343,12 @@ function armStalePendingTimer() {
     if (pendingSeekVideo === null) return;
     applyDecision(
       pendingSeekVideo,
-      // eslint-disable-next-line no-restricted-syntax -- the seek coalescer owns seeks
-      onSeekSettled(pendingSeekTime, pendingSeekVideo.getCurrentTime(), pendingSeekVideo.seeking)
+      frameTiming.staleSeek(
+        pendingSeekTime,
+        // eslint-disable-next-line no-restricted-syntax -- the seek coalescer owns seeks
+        pendingSeekVideo.getCurrentTime(),
+        pendingSeekVideo.seeking
+      )
     );
   }, STALE_PENDING_TIMEOUT_MS);
 }
@@ -387,7 +387,8 @@ function onSeeking() {
 
 // A new source (YouTube reuses the video element) ends a stuck seek without 'seeked'.
 function onEmptied() {
-  if (pendingSeekVideo !== null) applyDecision(pendingSeekVideo, onExternalSeek());
+  const decision = frameTiming.newSourceSeek();
+  if (pendingSeekVideo !== null && decision) applyDecision(pendingSeekVideo, decision);
 }
 
 function ensureSeekListeners(video: VideoElement) {
@@ -397,7 +398,8 @@ function ensureSeekListeners(video: VideoElement) {
     pendingSeekVideo.removeEventListener('seeking', onSeeking);
     pendingSeekVideo.removeEventListener('emptied', onEmptied);
     // The old video's target is not for this one.
-    applyDecision(video, onExternalSeek());
+    const decision = frameTiming.newSourceSeek();
+    if (decision) applyDecision(video, decision);
   }
   pendingSeekVideo = video;
   video.addEventListener('seeked', onSeeked);

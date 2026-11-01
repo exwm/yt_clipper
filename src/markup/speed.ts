@@ -88,12 +88,13 @@ export function updateSpeed() {
     let markerPairSpeed: number;
 
     if (isVariableSpeed(shortestActiveMarkerPair.speedMap)) {
-      const { start, end } = shortestActiveMarkerPair;
       markerPairSpeed = getSpeedMapping(
         shortestActiveMarkerPair.speedMap,
-        // On the end marker's frame, past the end point's time, the clip plays at the end speed.
-        // eslint-disable-next-line no-restricted-syntax -- the speed preview follows playback
-        Math.min(Math.max(appState.video.getCurrentTime(), start), end)
+        frameTiming.speedPreviewTime(
+          shortestActiveMarkerPair,
+          // eslint-disable-next-line no-restricted-syntax -- the speed preview follows playback
+          appState.video.getCurrentTime()
+        )
       );
     } else {
       markerPairSpeed = shortestActiveMarkerPair.speed;

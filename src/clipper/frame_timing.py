@@ -71,6 +71,9 @@ class FrameTiming:
     speedFilter: SpeedFilter
     sectionEaseDuration: SectionEaseDuration
     cutTime: CutTime
+    # What a varying frame rate does to clips, for ffprobe's warning: (the clip's rate in fps, or None
+    # when unknown) -> its sentences.
+    varyingRateNote: Callable[[Optional[float]], list[str]]
 
 
 def current() -> FrameTiming:

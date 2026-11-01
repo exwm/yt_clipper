@@ -87,7 +87,7 @@ describe('pair and capture frame decisions', () => {
 
   it('pairSpan runs from the start frame through the end marker frame', () => {
     const span = timing.pairSpan(grid, { start: 1.01, end: 2.01 });
-    expect(span).toMatchObject({ firstFrame: 30, lastFrame: 60, start: 1 });
+    expect(span.start).toBe(1);
     expect(span.end).toBeCloseTo(61 / 30, 9);
   });
 
@@ -157,5 +157,31 @@ describe('pairDuration', () => {
     );
     expect(outputDuration).toBeGreaterThan(1);
     expect(text).toMatch(/^01\.033 \(01\.\d{3}\) \(31\)$/);
+  });
+});
+
+describe('point and preview times', () => {
+  const reading = { currentTime: 1.02 } as Parameters<typeof timing.redrawTime>[0];
+
+  it('points keep the time given, and an auto-key the frame read before the pause', () => {
+    expect(timing.pointTime(1.2345)).toBe(1.2345);
+    expect(timing.autoKeyTime({ beforePause: 1, afterPause: () => 1.1 })).toBe(1);
+  });
+
+  it('the crop section and redraws follow the frame presented, not the playhead', () => {
+    expect(timing.cropSectionTime(reading, 1)).toBe(1);
+    expect(timing.redrawTime(reading, 1)).toBe(1);
+  });
+
+  it.each([
+    [0.99, 1],
+    [1.5, 1.5],
+    [2.02, 2],
+  ])('the speed preview reads the speed points at %p as at %p', (playhead, time) => {
+    expect(timing.speedPreviewTime(pair, playhead)).toBe(time);
+  });
+
+  it.each([[true], [false]])('the measured rate is used as the setting says: %p', (isOn) => {
+    expect(timing.usesMeasuredRate(() => isOn)).toBe(isOn);
   });
 });

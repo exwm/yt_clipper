@@ -7,7 +7,7 @@ import { isMouseManipulatingCrop } from '../crop-overlay';
 import { blockEvent, flashMessage, getPendingSeekTime, seekBySafe, seekToSafe } from './util';
 import type { OwnSeek, Refresh, ScreenFrame } from './frame-step';
 import type { FrameGrid } from './frame-grid';
-import { FrameReading, FrameSeek, frameTiming, isLegacyFrameTiming } from './frame-timing';
+import { FrameReading, FrameSeek, frameTiming } from './frame-timing';
 import { registerActiveDragCleanup } from './drag-recovery';
 import {
   getFrameOnScreen,
@@ -29,7 +29,7 @@ export function followFrameRate(video: VideoElement): void {
   // playhead never shows the frame of a seek made on the old one.
   video.addEventListener('emptied', () => {
     ownSeek = null;
-    youTubeStatsFps = null;
+    youTubeStatsFps = frameTiming.rateCacheAtNewSource(youTubeStatsFps);
     isNewSourceLoaded = false;
     updateFrameRate();
   });
@@ -68,7 +68,10 @@ function updateFrameRate(): void {
 const MEASURE_FRAME_RATE_KEY = 'ytc-measure-frame-rate';
 let measureFrameRate: boolean | null = null;
 export function isFrameRateMeasured(): boolean {
-  if (isLegacyFrameTiming) return false;
+  return frameTiming.usesMeasuredRate(isMeasureFrameRateOn);
+}
+
+function isMeasureFrameRateOn(): boolean {
   if (measureFrameRate == null) {
     try {
       measureFrameRate = localStorage.getItem(MEASURE_FRAME_RATE_KEY) === 'true';
@@ -163,6 +166,17 @@ export function getFrameTime(): number {
   return frameTiming.frameTime(readFrame());
 }
 
+/** The time the crop chart section follows while the preview draws the frame at `presentedTime`. */
+export function cropSectionTime(presentedTime: number): number {
+  return frameTiming.cropSectionTime(readFrame(), presentedTime);
+}
+
+/** The time a redraw outside the frame loop draws at, for the frame the video holds at
+ *  `mediaTime` (on the video's own timeline). */
+export function redrawTime(mediaTime: number): number {
+  return frameTiming.redrawTime(readFrame(), frameStartOf(mediaTime));
+}
+
 /** Keeps playback within the frames shown from `start` through `end`, for the preview loops. */
 export function loopPlaybackOver(start: number, end: number): void {
   const video = appState.video;
@@ -198,9 +212,8 @@ export function seekByFrames(frames: number): void {
 }
 
 export let prevVideoWidth: number;
-// YouTube's stats rate for the rendition playing, read once per rendition (width) and source. Between
-// a new source's `emptied` and its `loadedmetadata` the stats still describe the old video, so the
-// rate read then isn't kept.
+// YouTube's stats rate for the rendition playing, read once per rendition (width), and per source
+// as the frame timing decides.
 let youTubeStatsFps: number | null = null;
 let isNewSourceLoaded = true;
 
@@ -216,14 +229,17 @@ export function getFrameRate(defaultFPS = 60): { rate: number; source: FrameRate
   try {
     const isYouTube = getPlatform() === VideoPlatforms.youtube;
     if (isYouTube) {
-      let statsFps = youTubeStatsFps;
-      if (statsFps == null || prevVideoWidth !== appState.video.videoWidth) {
-        statsFps = parseFloat(
-          /@(\d+)/.exec((appState.player as YTPlayer).getStatsForNerds().resolution)?.[1] ?? '60'
-        );
-        if (isNewSourceLoaded) youTubeStatsFps = statsFps;
-      }
-      frameRate = { rate: statsFps, source: 'platform' };
+      const { rate, cached } = frameTiming.platformRate({
+        cached: youTubeStatsFps,
+        widthChanged: prevVideoWidth !== appState.video.videoWidth,
+        isNewSourceLoaded,
+        readStats: () =>
+          parseFloat(
+            /@(\d+)/.exec((appState.player as YTPlayer).getStatsForNerds().resolution)?.[1] ?? '60'
+          ),
+      });
+      youTubeStatsFps = cached;
+      frameRate = { rate, source: 'platform' };
     }
     // A confirmed measured rate replaces the default. On YouTube it only refines the stats rate, which
     // shows 29.97 fps as 30.

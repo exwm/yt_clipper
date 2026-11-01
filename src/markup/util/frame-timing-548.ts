@@ -1,8 +1,11 @@
 import type { CropPoint, SpeedPoint } from '../@types/yt_clipper';
 import type { CropKeyframeMatch } from '../crop/crop-keyframe-math';
-import { sortX } from '../ui/chart/chartPrimitives';
+import { roundX, sortX } from '../ui/chart/chartPrimitives';
 import type { FrameTiming } from './frame-timing';
+import { onSeekSettled, SeekDecision } from './seek-coalescer';
 import { bsearch, clampNumber, toHHMMSSTrimmed } from './util';
+
+const NONE: SeekDecision = { pending: null, effects: [] };
 
 /**
  * 5.48's frame timing, for the `legacyFrameTiming` flag. 5.48 had no frame grid: it stored the raw
@@ -160,15 +163,8 @@ export const frameTiming548: FrameTiming = {
   },
 
   isInPair: (_grid, pair, time) => time >= floorMicros(pair.start) && time <= ceilMicros(pair.end),
-  // Only `start` and `end` were read (getFadeBounds). The frames are the 5.48 clipper's.
-  pairSpan(grid, pair) {
-    const firstFrame = Math.max(0, Math.ceil((pair.start - grid.origin) * grid.rate - 1e-9));
-    const lastFrame = Math.max(
-      firstFrame,
-      Math.ceil((pair.end - grid.origin) * grid.rate - 1e-9) - 1
-    );
-    return { firstFrame, lastFrame, start: floorMicros(pair.start), end: ceilMicros(pair.end) };
-  },
+  // getFadeBounds (preview-toggles.ts:140).
+  pairSpan: (_grid, pair) => ({ start: floorMicros(pair.start), end: ceilMicros(pair.end) }),
   // frame-capture.ts:200.
   frameNumber: (grid, time) => Math.floor(time * grid.rate),
 
@@ -188,6 +184,32 @@ export const frameTiming548: FrameTiming = {
   },
   // charts.ts:773 and :1089 read the time of the frame presented, paused or playing.
   editFrameTime: ({ presentedTime }) => presentedTime,
+  // Rounded to 0.01 s for every caller (scatterChartSpec.ts:87, :114; charts.ts:1040).
+  pointTime: roundX,
+  // The playhead read after the pause (charts.ts:1014-1015).
+  autoKeyTime: ({ afterPause }) => afterPause(),
+  // The playhead, inside the preview loop too (charts.ts:855).
+  cropSectionTime: (reading) => reading.currentTime,
+  // The playhead (video-reframe-canvas.ts:95, :108).
+  redrawTime: (reading) => reading.currentTime,
+  // Unclamped (speed.ts:97).
+  speedPreviewTime: (_pair, playhead) => playhead,
+  // 5.48 had no measured rate.
+  usesMeasuredRate: () => false,
+  // seek-coalescer.ts:52-61 (onStaleTimer).
+  staleSeek(pending, current, seeking) {
+    if (pending === null) return NONE;
+    if (seeking) return NONE; // slower than the timeout: drop rather than wait forever
+    return onSeekSettled(pending, current, seeking);
+  },
+  // util.ts:392-401 had no `emptied` listener and kept the target when the video changed.
+  newSourceSeek: () => null,
+  // videoUtil.ts:13-23: the stats rate kept until the width changes, over a new source too.
+  platformRate({ cached, widthChanged, readStats }) {
+    const rate = cached != null && !widthChanged ? cached : readStats();
+    return { rate, cached: rate };
+  },
+  rateCacheAtNewSource: (cached) => cached,
   // crop-keyframe-math.ts:95.
   easeSectionDuration(startTime, endTime, fps) {
     const realDuration = endTime - startTime;

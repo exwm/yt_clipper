@@ -97,6 +97,13 @@ def audioFilter(mp: DictStrAny, mps: DictStrAny, aDuration: float) -> str:
     return audio_filter
 
 
+def varyingRateNote(rate: Optional[float]) -> list[str]:
+    stray = "a clip's first or last frame and instant crop points can be a frame off."
+    if rate is None:
+        return ["Clips use a constant frame rate,", f"so where the video's frames stray from it, {stray}"]
+    return [f"Clips use a constant {rate:.3f} fps,", f"so where the video's frames stray from that rate, {stray}"]
+
+
 FRAME_TIMING = FrameTiming(
     name="5.49",
     clipSpan=clipSpan,
@@ -106,4 +113,5 @@ FRAME_TIMING = FrameTiming(
     speedFilter=ffmpeg_filter.getSpeedFilterAndDuration,
     sectionEaseDuration=ffmpeg_filter.sectionEaseDurationFromVideoPart,
     cutTime=cinematic_path.cutTime,
+    varyingRateNote=varyingRateNote,
 )

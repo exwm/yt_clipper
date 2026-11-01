@@ -21,7 +21,7 @@ import { cropToTargetRect, videoBoxToCanvasPoint } from './video-zoom-math';
 import { createWebGLGammaRenderer, prevGammaVal, WebGLGammaRenderer } from '../util/previewGamma';
 import { deleteElement, injectCSS } from '../util/util';
 import { onVideoFrames, VideoFrameSubscription } from '../util/video-frame-loop';
-import { frameStartOf, getFPS } from '../util/videoUtil';
+import { frameStartOf, getFPS, redrawTime } from '../util/videoUtil';
 import { readHeldFrame } from '../util/presented-frame-clock';
 import { featureFlags } from '../feature-flags';
 import { bandsAround, touchedPixels, wholePixelsInside } from './reframe-canvas-pixels';
@@ -100,7 +100,8 @@ function startLoop(): void {
     (frame) => {
       if (!canvas) return;
       const start = performance.now();
-      drawReframeFrame(frameStartOf(frame.mediaTime), frame.image);
+      const time = isRedrawing ? redrawTime(frame.mediaTime) : frameStartOf(frame.mediaTime);
+      drawReframeFrame(time, frame.image);
       if (featureFlags.reframeFrameStats) {
         recordFrameStats(v, {
           now: frame.now,
@@ -115,7 +116,18 @@ function startLoop(): void {
     },
     { label: 'reframe' }
   );
-  frames.redraw();
+  redraw();
+}
+
+// True while a redraw outside the frame loop runs: the frame timing picks the time it draws at.
+let isRedrawing = false;
+function redraw(): void {
+  isRedrawing = true;
+  try {
+    frames?.redraw();
+  } finally {
+    isRedrawing = false;
+  }
 }
 
 function recordFrameStats(
@@ -152,7 +164,7 @@ function stopLoop(): void {
 /** Redraw outside the video frame loop. Paused edits present no new frames (the loop is idle), so
  *  the controller calls this on each edit. */
 export function redrawReframeCanvas(): void {
-  if (canvas) frames?.redraw();
+  if (canvas) redraw();
 }
 
 /** No active crop (no marker pair selected and global settings closed) or no frame yet: show the

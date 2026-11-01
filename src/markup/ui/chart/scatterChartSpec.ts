@@ -3,6 +3,7 @@ import { createDraft } from 'immer';
 import { getMarkerPairHistory, saveMarkerPairHistory } from '../../util/undoredo';
 import { flashMessage, timeRounder } from '../../util/util';
 import { getFrameGrid, seekToFrameAt } from '../../util/videoUtil';
+import { frameTiming } from '../../util/frame-timing';
 // eslint-disable-next-line no-restricted-imports -- one point per frame, new in 5.49 and on in both frame timings
 import { frameAt, sameFrame } from '../../util/frame-grid';
 import { toggleCropPointType, triggerCropChartUpdates } from '../../charts';
@@ -87,6 +88,7 @@ export const addSpeedPoint = function (this: any, time, speed) {
     ) {
       return;
     }
+    time = frameTiming.pointTime(time);
     const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     const grid = getFrameGrid();
     if (markerPair.speedMap.some((point) => sameFrame(grid, point.x, time))) {
@@ -120,6 +122,7 @@ export const addCropPoint = function (this: any, time: number) {
     if (time <= scatterChartBounds.XMinBound || time >= scatterChartBounds.XMaxBound) {
       return;
     }
+    time = frameTiming.pointTime(time);
     const markerPair = appState.markerPairs[appState.prevSelectedMarkerPairIndex];
     const grid = getFrameGrid();
     if (

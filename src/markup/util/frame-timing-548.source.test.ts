@@ -7,7 +7,10 @@ import { execFileSync } from 'child_process';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import ts from 'typescript';
+import { roundX, roundY, sortX } from '../ui/chart/chartPrimitives';
+import { frameAt, sameFrame } from './frame-grid';
 import { frameTiming548 } from './frame-timing-548';
+import { clampNumber, roundValue } from './util';
 
 const TAG = 'v5.48.0';
 // A shallow clone (CI's checkout) has no tags: this check runs locally, as in release-prep.
@@ -130,12 +133,69 @@ function leaves(rate: number, playhead: number) {
     getHeldFrame: () => ({ time: video.currentTime - 0.011, duration: 0.004 }),
     getPendingSeekTime: () => video.currentTime + 0.25,
     frameTiming: frameTiming548,
+    // The chart and crop paths.
+    roundX,
+    roundY,
+    sortX,
+    frameAt,
+    sameFrame,
+    roundValue,
+    bsearch: v548Util.bsearch,
+    assertDefined: () => {},
+    flashMessage: (message: string) => log.push(['flash', message]),
+    createDraft: (state: unknown) => JSON.parse(JSON.stringify(state)),
+    getMarkerPairHistory: (pair: any) => ({ speedMap: pair.speedMap, cropMap: pair.cropMap }),
+    saveMarkerPairHistory: (draft: any, pair: any) => {
+      Object.assign(pair, draft);
+      log.push(['save', draft.speedMap.map((p: any) => p.x), draft.cropMap.map((p: any) => p.x)]);
+    },
+    resolveCropEditConflict: () => true,
+    cropManipulationKind: null,
+    cropDragStartPoint: null,
+    cropDragStartCropString: null,
+    refreshCropDragInitState: () => {},
+    suppressNextAltLock: () => {},
+    cropChartMode: { Start: 0, End: 1 },
+    currentCropChartMode: 0,
+    currentCropChartSection: [0, 1],
+    setCurrentCropPoint: (_chart: unknown, index: number) => log.push(['select', index]),
+    activeCropPoints: (chart: any) => chart?.data.datasets[0].data ?? null,
+    isStaticCrop: () => false,
+    renderSpeedAndCropUI: () => {},
   };
-  const expireTimers = () => [...timers.values()].forEach((fn) => fn());
+  const expireTimers = () => {
+    const due = [...timers.values()];
+    timers.clear();
+    due.forEach((fn) => fn());
+  };
   return { scope, log, video, expireTimers };
 }
 
 type Leaves = ReturnType<typeof leaves>;
+
+/** The current shell's frame reads and seeks, on the leaves. */
+const currentVideoUtil = (l: Leaves) =>
+  load(
+    ownSource('src/markup/util/videoUtil.ts'),
+    [
+      'getFrameGrid',
+      'ownSeek',
+      'readFrame',
+      'applySeek',
+      'seekToFrameAt',
+      'seekByFrames',
+      'getFrameTime',
+      'getScreenFrame',
+      'frameStartOf',
+      'cropSectionTime',
+      'redrawTime',
+      'loopPlaybackOver',
+      'refresh',
+      'lastOtherFrameAt',
+      'noteRefresh',
+    ],
+    l.scope
+  );
 
 /** The shell of each side, with its own module state, on fresh leaves. */
 const sides = {
@@ -159,23 +219,7 @@ const sides = {
     ),
   }),
   current: (l: Leaves) => {
-    const videoUtil = load(
-      ownSource('src/markup/util/videoUtil.ts'),
-      [
-        'getFrameGrid',
-        'ownSeek',
-        'readFrame',
-        'applySeek',
-        'seekToFrameAt',
-        'seekByFrames',
-        'getFrameTime',
-        'loopPlaybackOver',
-        'refresh',
-        'lastOtherFrameAt',
-        'noteRefresh',
-      ],
-      l.scope
-    );
+    const videoUtil = currentVideoUtil(l);
     return {
       ...load(
         ownSource('src/markup/markers.ts'),
@@ -225,10 +269,11 @@ function both(
   rate: number,
   playhead: number,
   setup: (l: Leaves) => void,
-  act: (shell: any, l: Leaves) => void
+  act: (shell: any, l: Leaves) => void,
+  shells: Record<keyof typeof sides, (l: Leaves) => any> = sides
 ) {
   const logs = Object.fromEntries(
-    Object.entries(sides).map(([name, make]) => {
+    Object.entries(shells).map(([name, make]) => {
       const l = leaves(rate, playhead);
       setup(l);
       act(make(l), l);
@@ -409,5 +454,498 @@ function both(
         ).toBe(v548Util.getOutputDuration(speedMap, rate));
       }
     });
+  }
+);
+
+const SCATTER = 'src/markup/ui/chart/scatterChartSpec.ts';
+const CHARTUTIL = 'src/markup/ui/chart/chartutil.ts';
+const CHARTS = 'src/markup/charts.ts';
+const REFRAME = 'src/markup/crop/video-reframe-canvas.ts';
+const SPEED = 'src/markup/speed.ts';
+
+const v548KeyframeMath = () =>
+  load(
+    tagSource('src/markup/crop/crop-keyframe-math.ts'),
+    ['findCropKeyframeAtTime', 'nextKeyframeIndex', 'getEaseSectionDuration'],
+    { ...v548Util, sortX }
+  );
+
+/** Each side's declarations of `names` in `path`: the current side reads frames through its own
+ *  videoUtil. `extra` adds leaves for this path. */
+function shellsOf(
+  path: string,
+  names: { 'v5.48.0': string[]; current: string[] },
+  extra: (l: Leaves) => Record<string, unknown> = () => ({})
+): Record<keyof typeof sides, (l: Leaves) => any> {
+  return {
+    'v5.48.0': (l) => load(tagSource(path), names['v5.48.0'], { ...l.scope, ...extra(l) }),
+    current: (l) =>
+      load(ownSource(path), names.current, { ...l.scope, ...currentVideoUtil(l), ...extra(l) }),
+  };
+}
+
+// The add-point hotkey: addChartPoint calls the scatter chart's add function with the playhead.
+const addPointShells: Record<keyof typeof sides, (l: Leaves) => any> = {
+  'v5.48.0': (l) => {
+    const spec = load(
+      tagSource(SCATTER),
+      ['getScatterChartBounds', 'addSpeedPoint', 'addCropPoint'],
+      l.scope
+    );
+    return load(tagSource(CHARTUTIL), ['addChartPoint'], { ...l.scope, require: () => spec });
+  },
+  current: (l) => {
+    const scope = { ...l.scope, ...currentVideoUtil(l) };
+    const spec = load(
+      ownSource(SCATTER),
+      ['getScatterChartBounds', 'addSpeedPoint', 'addCropPoint'],
+      scope
+    );
+    return load(ownSource(CHARTUTIL), ['addChartPoint'], { ...scope, require: () => spec });
+  },
+};
+
+const autoKeyNames = ['autoKeyCurrentCropPoint', 'isPlayheadOnCropKeyframe', 'selectCropPoint'];
+const autoKeyShells = shellsOf(CHARTS, { 'v5.48.0': autoKeyNames, current: autoKeyNames }, () => ({
+  findCropKeyframeAtTime: v548KeyframeMath().findCropKeyframeAtTime,
+  getCurrentCropComponents: () => [10.4, 20.4, 300.2, 200.2],
+  Crop: class {
+    cropString = '';
+    setCropStringSafe(crop: string) {
+      this.cropString = crop;
+    }
+  },
+  getCropString: (...components: number[]) => components.join(':'),
+}));
+
+// 5.48 had no pinned frame time: its section followed the playhead inside the preview loop too.
+const sectionShells: Record<keyof typeof sides, (l: Leaves) => any> = {
+  'v5.48.0': (l) => ({
+    ...shellsOf(CHARTS, { 'v5.48.0': ['setCurrentCropPointWithCurrentTime'], current: [] })[
+      'v5.48.0'
+    ](l),
+    withPresentedFrameTime: (_time: number, fn: () => void) => fn(),
+  }),
+  current: shellsOf(CHARTS, {
+    'v5.48.0': [],
+    current: [
+      'setCurrentCropPointWithCurrentTime',
+      'currentCropTime',
+      'presentedFrameTime',
+      'withPresentedFrameTime',
+    ],
+  }).current,
+};
+
+const reframeLoopNames = ['startLoop', 'stopLoop', 'redrawReframeCanvas'];
+const reframeShells = shellsOf(
+  REFRAME,
+  { 'v5.48.0': reframeLoopNames, current: [...reframeLoopNames, 'redraw', 'isRedrawing'] },
+  (l) => ({
+    canvas: {},
+    rafId: 0,
+    frameSource: null,
+    frames: null,
+    drawReframeFrame: (time: number) => l.log.push(['draw', time]),
+    // A redraw hands the consumer the last frame presented, here a little before the playhead.
+    onVideoFrames: (video: any, consumer: (frame: unknown) => void) => ({
+      redraw: () => consumer({ mediaTime: video.currentTime - 0.011, image: video, now: 0 }),
+      stop: () => {},
+    }),
+    featureFlags: { reframeFrameStats: false },
+    performance: { now: () => 0 },
+  })
+);
+
+const speedNames = [
+  'updateSpeed',
+  'getShortestActiveMarkerPair',
+  'getSpeedMapping',
+  'getInterpolatedSpeed',
+  'prevSpeed',
+  'defaultRoundSpeedMapEasing',
+  'defaultSpeedRoundPrecision',
+  'updateSpeedInputLabel',
+];
+const speedShells = shellsOf(SPEED, { 'v5.48.0': speedNames, current: speedNames }, () => ({
+  isSpeedPreviewOn: true,
+  isVariableSpeed: () => true,
+  easeCubicInOut: (x: number) => x,
+}));
+
+const cropMapAt = (times: number[]) => times.map((x, i) => ({ x, y: 0, crop: `0:0:${10 + i}:10` }));
+const chartOf = (data: unknown[]) => ({
+  options: { scales: { xAxes: [{ ticks: { min: 0, max: 100 } }] } },
+  renderSpeedAndCropUI: () => {},
+  data: { datasets: [{ data }] },
+});
+
+(hasTag ? describe : describe.skip).each(RATES.map((rate) => [Number(rate.toFixed(3)), rate]))(
+  `chart and crop timing at %p fps${hasTag ? '' : ` (needs the ${TAG} tag)`}`,
+  (_fps, rate) => {
+    it.each([['speed'], ['crop']])(
+      'a %s point added at the playhead stores the same time, and reframe seeks there',
+      (type) => {
+        for (const t of sweep(rate).filter((t) => t > 0.5)) {
+          const logs = both(
+            rate,
+            t,
+            (l) => {
+              const pair = {
+                start: 0,
+                end: 100,
+                speed: 1,
+                speedMap: [
+                  { x: 0, y: 1 },
+                  { x: 100, y: 1 },
+                ],
+                cropMap: cropMapAt([0, 100]),
+              };
+              Object.assign(l.scope.appState, {
+                isChartEnabled: true,
+                isCurrentChartVisible: true,
+                markerPairs: [pair],
+                prevSelectedMarkerPairIndex: 0,
+                currentCropPointIndex: 0,
+              });
+              l.scope.chartState = { currentChartInput: { type, chart: chartOf([]) } };
+              l.scope.isReframeEnabled = () => true;
+            },
+            (shell) => shell.addChartPoint(),
+            addPointShells
+          );
+          expect({ t, log: logs.current }).toEqual({ t, log: logs['v5.48.0'] });
+        }
+      }
+    );
+
+    it.each([[true], [false]])(
+      'a reframe crop edit, paused %p, keys or selects the same point',
+      (paused) => {
+        const times = [0, 30.4 / rate, 45 / rate, 60.5 / rate, 100];
+        for (const t of sweep(rate).filter((t) => t > 0)) {
+          const logs = both(
+            rate,
+            t,
+            (l) => {
+              Object.assign(l.scope.appState, {
+                isSettingsEditorOpen: true,
+                wasGlobalSettingsEditorOpen: false,
+                isCurrentChartVisible: true,
+                markerPairs: [{ start: 0, end: 100, speedMap: [], cropMap: cropMapAt(times) }],
+                prevSelectedMarkerPairIndex: 0,
+                currentCropPointIndex: -1,
+                settings: { cropResWidth: 1920, cropResHeight: 1080 },
+              });
+              l.video.paused = paused;
+              l.scope.chartState = {
+                currentChartInput: { type: 'crop' },
+                cropChartInput: { chart: null },
+              };
+              // Pausing can move the playhead on from the frame shown.
+              l.scope.pauseSafe = (video: any) => {
+                if (video.paused) return;
+                video.paused = true;
+                video.currentTime += 0.3 / rate;
+              };
+            },
+            (shell, l) => {
+              shell.autoKeyCurrentCropPoint();
+              l.log.push(['point', l.scope.appState.currentCropPointIndex]);
+            },
+            autoKeyShells
+          );
+          expect({ t, log: logs.current }).toEqual({ t, log: logs['v5.48.0'] });
+        }
+      }
+    );
+
+    it.each([[0], [1]])(
+      'the crop section in chart mode %p follows the same time while the preview plays',
+      (mode) => {
+        const cropMap = cropMapAt([0, 30.4 / rate, 45 / rate, 60.5 / rate, 90.6 / rate, 100]);
+        for (const t of sweep(rate)) {
+          const logs = both(
+            rate,
+            t,
+            (l) => {
+              Object.assign(l.scope, {
+                currentCropChartMode: mode,
+                currentCropChartSection: [1, 2],
+              });
+              l.scope.chartState = { cropChartInput: { chart: chartOf(cropMap) } };
+              l.video.paused = false;
+            },
+            (shell, l) =>
+              shell.withPresentedFrameTime(l.video.currentTime - 0.4 / rate, () =>
+                shell.setCurrentCropPointWithCurrentTime()
+              ),
+            sectionShells
+          );
+          expect({ t, log: logs.current }).toEqual({ t, log: logs['v5.48.0'] });
+        }
+      }
+    );
+
+    it('the reframe canvas draws its first frame and paused redraws at the same time', () => {
+      for (const t of sweep(rate)) {
+        const logs = both(
+          rate,
+          t,
+          (l) =>
+            Object.assign(l.video, {
+              requestVideoFrameCallback: () => 1,
+              cancelVideoFrameCallback: () => {},
+            }),
+          (shell) => {
+            shell.startLoop();
+            shell.redrawReframeCanvas();
+          },
+          reframeShells
+        );
+        expect({ t, log: logs.current }).toEqual({ t, log: logs['v5.48.0'] });
+      }
+    });
+
+    it('the speed preview plays at the same speed, at the pair edges too', () => {
+      const start = 30.4 / rate + 7e-7;
+      const end = 90.6 / rate;
+      // Inside the pair as 5.48 tests it (start floored, end ceiled to the microsecond) but
+      // outside its speed points.
+      const edges = [
+        (Math.floor(start * 1e6) / 1e6 + start) / 2,
+        (end + Math.ceil(end * 1e6) / 1e6) / 2,
+      ];
+      for (const t of [...sweep(rate), ...edges]) {
+        const logs = both(
+          rate,
+          t,
+          (l) =>
+            Object.assign(l.scope.appState, {
+              isForceSetSpeedOn: false,
+              isSettingsEditorOpen: false,
+              easingMode: 'linear',
+              prevSelectedMarkerPairIndex: null,
+              markerPairs: [
+                {
+                  start,
+                  end,
+                  speed: 1,
+                  speedMap: [
+                    { x: start, y: 0.5 },
+                    { x: (start + end) / 2, y: 1 },
+                    { x: end, y: 0.75 },
+                  ],
+                },
+              ],
+            }),
+          (shell, l) => {
+            shell.updateSpeed();
+            l.log.push(['rate', l.video.playbackRate]);
+          },
+          speedShells
+        );
+        expect({ t, log: logs.current }).toEqual({ t, log: logs['v5.48.0'] });
+      }
+    });
+  }
+);
+
+(hasTag ? it : it.skip)(
+  'above 100 fps a reframe crop edit selects the point already at its 0.01 s time',
+  () => {
+    const rate = 240;
+    // 4.4 ms from the point: more than a frame, so not on it, but the same 0.01 s.
+    const t = 1.2256;
+    const logs = both(
+      rate,
+      t,
+      (l) => {
+        Object.assign(l.scope.appState, {
+          isSettingsEditorOpen: true,
+          wasGlobalSettingsEditorOpen: false,
+          isCurrentChartVisible: true,
+          markerPairs: [{ start: 0, end: 100, speedMap: [], cropMap: cropMapAt([0, 1.23, 100]) }],
+          prevSelectedMarkerPairIndex: 0,
+          currentCropPointIndex: -1,
+          settings: { cropResWidth: 1920, cropResHeight: 1080 },
+        });
+        l.scope.chartState = {
+          currentChartInput: { type: 'crop' },
+          cropChartInput: { chart: null },
+        };
+      },
+      (shell, l) => {
+        shell.autoKeyCurrentCropPoint();
+        l.log.push(['point', l.scope.appState.currentCropPointIndex]);
+      },
+      autoKeyShells
+    );
+    expect(logs['v5.48.0']).toEqual([['point', 1]]);
+    expect(logs.current).toEqual(logs['v5.48.0']);
+  }
+);
+
+/** A video whose seeks and events the coalescer and the frame rate cache listen to. */
+function withEvents(l: Leaves) {
+  const listeners = new Map<string, Set<() => void>>();
+  const dispatch = (type: string) => [...(listeners.get(type) ?? [])].forEach((fn) => fn());
+  Object.assign(l.video, {
+    addEventListener: (type: string, fn: () => void) =>
+      listeners.set(type, (listeners.get(type) ?? new Set()).add(fn)),
+    removeEventListener: (type: string, fn: () => void) => listeners.get(type)?.delete(fn),
+    seekTo: (to: number) => {
+      l.log.push(['seek', to]);
+      Object.assign(l.video, { seeking: true, currentTime: to });
+      dispatch('seeking');
+    },
+  });
+  l.scope.window = { setTimeout: l.scope.setTimeout };
+  return dispatch;
+}
+
+const coalescerNames = [
+  'pendingSeekTime',
+  'pendingSeekVideo',
+  'stalePendingTimerId',
+  'expectingOurSeekingEvent',
+  'STALE_PENDING_TIMEOUT_MS',
+  'applyDecision',
+  'armStalePendingTimer',
+  'fireSeekNow',
+  'onSeeked',
+  'onSeeking',
+  'ensureSeekListeners',
+  'seekToSafe',
+];
+const coalescerShells: Record<keyof typeof sides, (l: Leaves) => any> = {
+  'v5.48.0': (l) =>
+    load(tagSource('src/markup/util/util.ts'), coalescerNames, {
+      ...l.scope,
+      clampNumber,
+      ...load(tagSource('src/markup/util/seek-coalescer.ts'), [
+        'NONE',
+        'onSeekRequest',
+        'onSeekSettled',
+        'onExternalSeek',
+        'onStaleTimer',
+      ]),
+    }),
+  current: (l) =>
+    load(ownSource('src/markup/util/util.ts'), [...coalescerNames, 'onEmptied'], {
+      ...l.scope,
+      clampNumber,
+      ...load(ownSource('src/markup/util/seek-coalescer.ts'), [
+        'NONE',
+        'onSeekRequest',
+        'onSeekSettled',
+        'onExternalSeek',
+      ]),
+    }),
+};
+
+(hasTag ? it.each : it.skip.each)([
+  [
+    'a seek slower than the timer drops the step held back',
+    ['seek 1', 'seek 3', 'expire', 'seeked'],
+  ],
+  [
+    'a new source keeps it until the timer flushes it',
+    ['seek 1', 'seek 3', 'emptied', 'settle quietly', 'expire'],
+  ],
+  ['a missed seeked is recovered by the timer', ['seek 1', 'seek 3', 'settle quietly', 'expire']],
+])('the seek coalescer: %s, as in 5.48', (_case, steps) => {
+  const dispatchers = new Map<Leaves, (type: string) => void>();
+  const logs = both(
+    30,
+    0,
+    (l) => dispatchers.set(l, withEvents(l)),
+    (shell, l) => {
+      const dispatch = dispatchers.get(l)!;
+      for (const step of steps) {
+        if (step.startsWith('seek ')) shell.seekToSafe(l.video, Number(step.slice(5)));
+        else if (step === 'expire') l.expireTimers();
+        else if (step === 'settle quietly') l.video.seeking = false;
+        else {
+          if (step === 'seeked') l.video.seeking = false;
+          dispatch(step);
+        }
+      }
+    },
+    coalescerShells
+  );
+  expect(logs.current).toEqual(logs['v5.48.0']);
+});
+
+const frameRateShells: Record<keyof typeof sides, (l: Leaves) => any> = {
+  'v5.48.0': (l) =>
+    load(tagSource('src/markup/util/videoUtil.ts'), ['prevVideoWidth', 'getFPS'], l.scope),
+  current: (l) =>
+    load(
+      ownSource('src/markup/util/videoUtil.ts'),
+      [
+        'prevVideoWidth',
+        'youTubeStatsFps',
+        'isNewSourceLoaded',
+        'getFrameRate',
+        'getFPS',
+        'isFrameRateMeasured',
+        'isMeasureFrameRateOn',
+        'measureFrameRate',
+        'MEASURE_FRAME_RATE_KEY',
+        'followFrameRate',
+        'frameRateFrames',
+        'ownSeek',
+      ],
+      {
+        ...l.scope,
+        // Decoys: 5.48 had no measured rate, so a saved Measure setting must not reach the rate.
+        localStorage: { getItem: () => 'true' },
+        getMeasuredFrameRate: () => 29.97,
+        onVideoFrames: () => ({ redraw: () => {}, stop: () => {} }),
+        updateFrameRate: () => {},
+      }
+    ),
+};
+
+(hasTag ? it : it.skip)(
+  'the YouTube frame rate is cached until the width changes, over a new source too, as in 5.48',
+  () => {
+    const logs = both(
+      30,
+      0,
+      (l) => {
+        Object.assign(l.scope, {
+          getPlatform: () => 'youtube',
+          VideoPlatforms: { youtube: 'youtube' },
+        });
+        l.scope.appState.videoInfo = {};
+        l.scope.appState.player = { getStatsForNerds: () => ({ resolution: '1920x1080@60' }) };
+        l.video.videoWidth = 1920;
+      },
+      (shell, l) => {
+        const dispatch = withEvents(l);
+        shell.followFrameRate?.(l.video);
+        const stats = (resolution: string) =>
+          (l.scope.appState.player.getStatsForNerds = () => ({ resolution }));
+        l.log.push(['fps', shell.getFPS()]);
+        // Another video on the same element, at the same width.
+        stats('1920x1080@30');
+        dispatch('emptied');
+        l.log.push(['fps', shell.getFPS()]);
+        dispatch('loadedmetadata');
+        l.log.push(['fps', shell.getFPS()]);
+        l.video.videoWidth = 1280;
+        l.log.push(['fps', shell.getFPS()]);
+      },
+      frameRateShells
+    );
+    expect(logs['v5.48.0']).toEqual([
+      ['fps', 60],
+      ['fps', 60],
+      ['fps', 60],
+      ['fps', 30],
+    ]);
+    expect(logs.current).toEqual(logs['v5.48.0']);
   }
 );

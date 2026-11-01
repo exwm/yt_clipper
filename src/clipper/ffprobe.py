@@ -5,6 +5,7 @@ import time
 from fractions import Fraction
 from typing import Optional
 
+from clipper import frame_timing
 from clipper.clipper_types import ClipperState, DictStrAny
 from clipper.pix_fmt_bit_depth import PIX_FMT_BIT_DEPTH_MAP
 from clipper.platforms import getFfmpegHeaders
@@ -183,8 +184,7 @@ def getFrameRate(
             " ".join(
                 [
                     f"The video's frame rate varies (r_frame_rate={float(r):.3f}, avg_frame_rate={float(avg):.3f}).",
-                    f"Clips use a constant {float(Fraction(frame_rate)):.3f} fps,",
-                    "so where the video's frames stray from that rate, a clip's first or last frame and instant crop points can be a frame off.",
+                    *frame_timing.current().varyingRateNote(float(Fraction(frame_rate))),
                 ]
             ),
         )
@@ -237,8 +237,7 @@ def warnIfFramesOffGrid(ffprobePath: str, videoPath: str, origin: float, rate: F
             " ".join(
                 [
                     f"The video's frame rate varies: {off} of its first {len(times)} frames are off its {float(rate):.3f} fps grid.",
-                    "Clips use a constant frame rate,",
-                    "so where the video's frames stray from it, a clip's first or last frame and instant crop points can be a frame off.",
+                    *frame_timing.current().varyingRateNote(None),
                 ]
             ),
         )

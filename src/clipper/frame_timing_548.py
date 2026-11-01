@@ -190,6 +190,16 @@ def cutTime(
     return snapped if snapped > previousX else cutX
 
 
+def varyingRateNote(rate: Optional[float]) -> list[str]:
+    """5.48 had no warning. It takes a clip's frames by their own times (-ss and trim), then a constant
+    speed clip's constant output rate (ffmpeg_codec.py:57-63, -r) repeats or drops frames; a variable
+    speed clip keeps the video's frame times (-fps_mode vfr)."""
+    return [
+        "A clip at a constant speed plays at a constant frame rate,",
+        "so it repeats frames where the video has fewer frames per second and drops frames where it has more.",
+    ]
+
+
 FRAME_TIMING = FrameTiming(
     name="5.48",
     clipSpan=clipSpan,
@@ -199,4 +209,5 @@ FRAME_TIMING = FrameTiming(
     speedFilter=getSpeedFilterAndDuration,
     sectionEaseDuration=sectionEaseDuration,
     cutTime=cutTime,
+    varyingRateNote=varyingRateNote,
 )

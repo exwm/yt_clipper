@@ -3,6 +3,7 @@ import math
 import re
 from collections.abc import Callable
 from fractions import Fraction
+from functools import partial
 from pathlib import Path
 from typing import Optional, Union
 
@@ -10,6 +11,10 @@ import pytest
 
 from clipper import ffmpeg_filter, frame_timing_548
 from clipper.clipper_types import CropMap
+
+# The crop filters at 5.49's ease timing. The clipper passes the frame timing's own.
+getCropFilter = partial(ffmpeg_filter.getCropFilter, sectionEaseDuration=ffmpeg_filter.sectionEaseDurationFromVideoPart)
+getZoomPanFilter = partial(ffmpeg_filter.getZoomPanFilter, sectionEaseDuration=ffmpeg_filter.sectionEaseDurationFromVideoPart)
 
 SMALL_CROP_MAP = [
     {"x": 7.130523, "y": 0, "crop": "109:426:540:960"},
@@ -107,7 +112,7 @@ LARGE_REDUNDANT_CROP_MAP = [
 
 
 def test_getCropFilter(snapshot: str) -> None:
-    cropFilter = ffmpeg_filter.getCropFilter(
+    cropFilter = getCropFilter(
         "109:426:540:960",
         LARGE_REDUNDANT_CROP_MAP,
         60,
@@ -119,7 +124,7 @@ def test_getCropFilter(snapshot: str) -> None:
 def test_getCropFilter_smooth_track_handles_redundant_coincident_points() -> None:
     # A redundant zero-duration point (a neighbor sharing a point's time) must not divide by zero in
     # the tangent. Real exported maps contain these, so the default smoothTrack must survive them.
-    cropFilter = ffmpeg_filter.getCropFilter(
+    cropFilter = getCropFilter(
         "109:426:540:960",
         LARGE_REDUNDANT_CROP_MAP,
         60,
@@ -199,12 +204,12 @@ def test_getCropFilter_smooth_track_handles_crop_points_out_of_time_order() -> N
         {"x": 2, "crop": "20:0:100:100"},
         {"x": 3, "crop": "30:0:100:100"},
     ]
-    assert ffmpeg_filter.getCropFilter("0:0:100:100", cropMap, 30, easeType="smoothTrack")
+    assert getCropFilter("0:0:100:100", cropMap, 30, easeType="smoothTrack")
 
 
 def test_getCropFilter_default_matches_easeInOutSine_for_backwards_compat() -> None:
-    default = ffmpeg_filter.getCropFilter("109:426:540:960", MEDIUM_CROP_MAP, 60)
-    explicit = ffmpeg_filter.getCropFilter(
+    default = getCropFilter("109:426:540:960", MEDIUM_CROP_MAP, 60)
+    explicit = getCropFilter(
         "109:426:540:960",
         MEDIUM_CROP_MAP,
         60,
@@ -216,7 +221,7 @@ def test_getCropFilter_default_matches_easeInOutSine_for_backwards_compat() -> N
 
 
 def test_getCropFilter_smooth_track_uses_cubic_hermite() -> None:
-    cropFilter = ffmpeg_filter.getCropFilter(
+    cropFilter = getCropFilter(
         "109:426:540:960", MEDIUM_CROP_MAP, 60, easeType="smoothTrack",
     )
     # A cubic Hermite (clipped section progress raised to the third power), not the sine ease.
@@ -226,7 +231,7 @@ def test_getCropFilter_smooth_track_uses_cubic_hermite() -> None:
 
 @pytest.mark.parametrize("easeType", ["smoothTrack"])
 def test_getCropFilter_spline_snapshot(easeType: str, snapshot: str) -> None:
-    cropFilter = ffmpeg_filter.getCropFilter(
+    cropFilter = getCropFilter(
         "109:426:540:960",
         MEDIUM_CROP_MAP,
         60,
@@ -236,7 +241,7 @@ def test_getCropFilter_spline_snapshot(easeType: str, snapshot: str) -> None:
 
 
 def test_getZoomPanFilter(snapshot: str) -> None:
-    ffmpegFilter, _maxSize = ffmpeg_filter.getZoomPanFilter(
+    ffmpegFilter, _maxSize = getZoomPanFilter(
         LARGE_REDUNDANT_CROP_MAP,
         60,
         easeType="easeOutCubic",
@@ -247,13 +252,13 @@ def test_getZoomPanFilter(snapshot: str) -> None:
 def test_getZoomPanFilter_derives_zoom_from_eased_width() -> None:
     # The zoom factor is maxWidth / eased(w) (1080 is the largest crop width here), matching the
     # preview which interpolates the width, rather than easing the zoom factor maxWidth/w directly.
-    ffmpegFilter, _maxSize = ffmpeg_filter.getZoomPanFilter(SHORT_ZOOM_CROP_MAP, 60)
+    ffmpegFilter, _maxSize = getZoomPanFilter(SHORT_ZOOM_CROP_MAP, 60)
     assert "z='" in ffmpegFilter
     assert "1080/(" in ffmpegFilter
 
 
 def test_getZoomPanFilter_smooth_track_uses_cubic_hermite() -> None:
-    ffmpegFilter, _maxSize = ffmpeg_filter.getZoomPanFilter(
+    ffmpegFilter, _maxSize = getZoomPanFilter(
         SHORT_ZOOM_CROP_MAP,
         60,
         easeType="smoothTrack",
@@ -266,7 +271,7 @@ def test_getZoomPanFilter_smooth_track_uses_cubic_hermite() -> None:
 
 @pytest.mark.parametrize("easeType", ["smoothTrack"])
 def test_getZoomPanFilter_spline_snapshot(easeType: str, snapshot: str) -> None:
-    ffmpegFilter, _maxSize = ffmpeg_filter.getZoomPanFilter(
+    ffmpegFilter, _maxSize = getZoomPanFilter(
         SHORT_ZOOM_CROP_MAP,
         60,
         easeType=easeType,
@@ -275,7 +280,7 @@ def test_getZoomPanFilter_spline_snapshot(easeType: str, snapshot: str) -> None:
 
 
 def test_short_section_is_not_dropped_getZoomPanFilter(snapshot: str) -> None:
-    ffmpegFilter, _maxSize = ffmpeg_filter.getZoomPanFilter(
+    ffmpegFilter, _maxSize = getZoomPanFilter(
         SHORT_ZOOM_CROP_MAP,
         NTSC_FPS,
         easeType="easeInOutSine",
@@ -290,12 +295,12 @@ def test_short_section_is_not_dropped_getZoomPanFilter(snapshot: str) -> None:
 def test_degenerate_cropmap_falls_back_to_static_getCropFilter() -> None:
     # All sections are zero-duration, so there is nothing to ease: a static crop from the first
     # point is emitted instead of crashing on an empty expression.
-    cropFilter = ffmpeg_filter.getCropFilter("10:20:540:960", DEGENERATE_CROP_MAP, 60)
+    cropFilter = getCropFilter("10:20:540:960", DEGENERATE_CROP_MAP, 60)
     assert cropFilter == "crop='x=10:y=20:w=540:h=960:exact=1'"
 
 
 def test_degenerate_cropmap_falls_back_to_static_getZoomPanFilter() -> None:
-    ffmpegFilter, maxSize = ffmpeg_filter.getZoomPanFilter(DEGENERATE_CROP_MAP, 60)
+    ffmpegFilter, maxSize = getZoomPanFilter(DEGENERATE_CROP_MAP, 60)
     assert ffmpegFilter == "crop='x=10:y=20:w=540:h=960:exact=1'"
     assert maxSize == 540 * 960
 
@@ -314,7 +319,7 @@ def test_short_section_is_not_dropped_getCropFilter(
 ) -> None:
     # A too-close pair must stay in the timeline so the crop never drops to x=0, whether the
     # section holds (667 -> 667) or changes (667 -> 600) the crop.
-    cropFilter = ffmpeg_filter.getCropFilter(
+    cropFilter = getCropFilter(
         "840:0:1080:1080",
         cropMap,
         NTSC_FPS,
@@ -351,7 +356,7 @@ def test_crop_filter_sections_tile_timeline(
 ) -> None:
     # The invariant the gap bug violated: section gates must tile [0, total] with no gaps or
     # overlaps, one section per positive-duration pair, with every divisor usable.
-    cropFilter = ffmpeg_filter.getCropFilter(cropMap[0]["crop"], cropMap, fps, easeType=easeType)
+    cropFilter = getCropFilter(cropMap[0]["crop"], cropMap, fps, easeType=easeType)
     assert_crop_filter_has_no_gaps(cropFilter, cropMap)
 
     axes = _parse_crop_filter_sections(cropFilter)
@@ -441,8 +446,21 @@ def test_legacy_frame_timing_ends_an_ease_section_before_the_frame_its_time_from
 @pytest.mark.parametrize(
     "buildFilter",
     [
-        pytest.param(lambda cropMap, **kw: ffmpeg_filter.getCropFilter(cropMap[0]["crop"], cropMap, 30, **kw), id="pan"),
-        pytest.param(lambda cropMap, **kw: ffmpeg_filter.getZoomPanFilter(cropMap, 30, **kw)[0], id="zoom"),
+        pytest.param(lambda: ffmpeg_filter.getCropFilter("0:0:100:100", SMALL_CROP_MAP, 30), id="pan"),
+        pytest.param(lambda: ffmpeg_filter.getZoomPanFilter(SMALL_CROP_MAP, 30), id="zoom"),
+    ],
+)  # fmt: skip
+def test_crop_filters_need_the_frame_timings_ease_duration(buildFilter: Callable[[], object]) -> None:
+    # No default: a caller that leaves it out would silently get 5.49's timing in 5.48 mode.
+    with pytest.raises(TypeError, match="sectionEaseDuration"):
+        buildFilter()
+
+
+@pytest.mark.parametrize(
+    "buildFilter",
+    [
+        pytest.param(lambda cropMap, **kw: getCropFilter(cropMap[0]["crop"], cropMap, 30, **kw), id="pan"),
+        pytest.param(lambda cropMap, **kw: getZoomPanFilter(cropMap, 30, **kw)[0], id="zoom"),
     ],
 )  # fmt: skip
 def test_legacy_frame_timing_reaches_the_crop_filters(buildFilter: Callable[..., str]) -> None:
@@ -461,7 +479,7 @@ def test_legacy_frame_timing_reaches_the_crop_filters(buildFilter: Callable[...,
     [SMALL_CROP_MAP, MEDIUM_CROP_MAP],
 )
 def test_small_getCropFilter(cropMap: CropMap, snapshot: str) -> None:
-    ffmpegFilter = ffmpeg_filter.getCropFilter(
+    ffmpegFilter = getCropFilter(
         "109:426:540:960",
         cropMap,
         60,
@@ -475,7 +493,7 @@ def test_small_getCropFilter(cropMap: CropMap, snapshot: str) -> None:
     [SMALL_CROP_MAP, MEDIUM_CROP_MAP],
 )
 def test_small_getZoomPanFilter(cropMap: CropMap, snapshot: str) -> None:
-    ffmpegFilter, _maxSize = ffmpeg_filter.getZoomPanFilter(
+    ffmpegFilter, _maxSize = getZoomPanFilter(
         cropMap,
         60,
         easeType="linear",
@@ -684,8 +702,8 @@ def test_zoompan_smooth_track_stays_inside_the_frame() -> None:
     assert max(_eval_ffmpeg_axis(rightEdge(None), t) for t in times) > 4 * 1920
     assert all(_eval_ffmpeg_axis(rightEdge(1920), t) <= 4 * 1920 + 1e-9 for t in times)
     # getZoomPanFilter passes the frame size down, as clip_maker gives it the video's.
-    unclamped, _size = ffmpeg_filter.getZoomPanFilter(cropMap, 30, easeType="smoothTrack")
-    clamped, _size = ffmpeg_filter.getZoomPanFilter(cropMap, 30, easeType="smoothTrack", frameWidth=1920, frameHeight=1080)
+    unclamped, _size = getZoomPanFilter(cropMap, 30, easeType="smoothTrack")
+    clamped, _size = getZoomPanFilter(cropMap, 30, easeType="smoothTrack", frameWidth=1920, frameHeight=1080)
     assert clamped != unclamped
 
 
@@ -776,7 +794,7 @@ CROP_EASING_PARITY = json.loads(
 
 @pytest.mark.parametrize("case", CROP_EASING_PARITY, ids=lambda case: case["name"])
 def test_getCropFilter_matches_the_preview_easing(case: dict) -> None:
-    cropFilter = ffmpeg_filter.getCropFilter(
+    cropFilter = getCropFilter(
         case["cropMap"][0]["crop"],
         case["cropMap"],
         case["fps"],
@@ -799,7 +817,7 @@ def test_smooth_track_keeps_a_steady_pan_at_the_same_speed_through_crop_points(p
     fps = Fraction(30000, 1001)
     times = [0, 1.01, 2.03, 3.04, 4.05]
     cropMap = [{"x": pairStart + t, "y": 0, "crop": f"{300 * t}:0:640:360"} for t in times]
-    cropFilter = ffmpeg_filter.getCropFilter(cropMap[0]["crop"], cropMap, fps, easeType="smoothTrack")
+    cropFilter = getCropFilter(cropMap[0]["crop"], cropMap, fps, easeType="smoothTrack")
     xMatch = re.search(r"x=(.+?):y=", cropFilter)
     assert xMatch is not None
     phase = (pairStart * fps) % 1 / fps
@@ -828,7 +846,7 @@ def test_instant_crop_point_cuts_on_the_frame_it_falls_in(pairStart: float, vide
         {"x": pairStart + pointTime, "y": 0, "crop": "500:0:640:360", "easeIn": "instant"},
         {"x": pairStart + 2, "y": 0, "crop": "500:0:640:360"},
     ]
-    cropFilter = ffmpeg_filter.getCropFilter(cropMap[0]["crop"], cropMap, fps, videoPartStart=videoPartStart)
+    cropFilter = getCropFilter(cropMap[0]["crop"], cropMap, fps, videoPartStart=videoPartStart)
     xMatch = re.search(r"x=(.+?):y=", cropFilter)
     assert xMatch is not None
     clipStart = pairStart - videoPartStart

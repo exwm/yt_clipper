@@ -327,9 +327,9 @@ def getCropFilter(
     fps: Union[float, Fraction],
     easeType: str = "easeInOutSine",
     videoPartStart: float = 0.0,
-    sectionEaseDuration: Optional[SectionEaseDuration] = None,
+    *,
+    sectionEaseDuration: SectionEaseDuration,
 ) -> str:
-    sectionEaseDuration = sectionEaseDuration or sectionEaseDurationFromVideoPart
     fps = Fraction(fps)
 
     firstTime = cropMap[0]["x"]
@@ -440,9 +440,9 @@ def getZoomPanFilter(
     frameWidth: Optional[float] = None,
     frameHeight: Optional[float] = None,
     videoPartStart: float = 0.0,
-    sectionEaseDuration: Optional[SectionEaseDuration] = None,
+    *,
+    sectionEaseDuration: SectionEaseDuration,
 ) -> Tuple[str, int]:
-    sectionEaseDuration = sectionEaseDuration or sectionEaseDurationFromVideoPart
     maxSizeCrop = getMaxSizeCrop(cropMap)
     maxWidth = floorToEven(maxSizeCrop["width"])
     maxHeight = floorToEven(maxSizeCrop["height"])

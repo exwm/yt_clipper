@@ -1,6 +1,7 @@
 import logging
 import shutil
 import subprocess
+from collections.abc import Callable
 from fractions import Fraction
 from pathlib import Path
 
@@ -88,3 +89,39 @@ def test_a_variable_frame_rate_is_warned_about(
     with caplog.at_level(logging.WARNING):
         assert getFrameRate(r_frame_rate, avg_frame_rate) == rate
     assert any(record.levelno == logging.WARNING for record in caplog.records) == warns
+
+
+def _warnOffGrid(monkeypatch: pytest.MonkeyPatch) -> None:
+    jittered = "\n".join(str(t + 0.3 / 30 * (n % 2)) for n, t in enumerate(FRAMES_AT_30))
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: subprocess.CompletedProcess(args, 0, jittered, ""))
+    warnIfFramesOffGrid("ffprobe", "video.webm", origin=0, rate=Fraction(30))
+
+
+@pytest.mark.parametrize(
+    "warn",
+    [
+        pytest.param(lambda _monkeypatch: getFrameRate("30/1", "2990/100"), id="header rates"),
+        pytest.param(_warnOffGrid, id="frames off the grid"),
+    ],
+)
+@pytest.mark.parametrize(
+    "consequence",
+    [
+        pytest.param("a clip's first or last frame and instant crop points can be a frame off", id="5.49"),
+        # 5.48 takes the frames by their own times, then a constant output rate repeats or drops some.
+        pytest.param(
+            "repeats frames where the video has fewer frames per second and drops frames where it has more",
+            marks=pytest.mark.frame_timing("5.48"),
+            id="5.48",
+        ),
+    ],
+)
+def test_the_varying_frame_rate_warning_says_what_the_frame_timing_does_with_it(
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    warn: Callable[[pytest.MonkeyPatch], object],
+    consequence: str,
+) -> None:
+    with caplog.at_level(logging.WARNING):
+        warn(monkeypatch)
+    assert consequence in caplog.text

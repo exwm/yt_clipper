@@ -22,6 +22,7 @@ import {
   TIME_ROUNDING,
 } from './frame-step';
 import type { FrameReading, FrameTiming } from './frame-timing';
+import { onExternalSeek, onSeekSettled } from './seek-coalescer';
 
 /** 5.49's frame timing: frames on the grid of the rate in use, read from the frame on screen. */
 
@@ -160,6 +161,26 @@ export const frameTiming549: FrameTiming = {
   },
   editFrameTime: ({ isPaused, presentedTime, frameTime }) =>
     isPaused ? frameTime() : presentedTime,
+  pointTime: (time) => time,
+  // Pausing can move the playhead past the picture the edit is made on.
+  autoKeyTime: ({ beforePause }) => beforePause,
+  cropSectionTime: (_reading, presentedTime) => presentedTime,
+  redrawTime: (_reading, heldFrameStart) => heldFrameStart,
+  // On the end marker's frame, past the end point's time, the clip plays at the end speed.
+  speedPreviewTime: (pair, playhead) => Math.min(Math.max(playhead, pair.start), pair.end),
+  usesMeasuredRate: (isMeasureOn) => isMeasureOn(),
+  // A seek still running after a second keeps its target, so frame steps held behind a slow seek
+  // are not lost; a new source drops it.
+  staleSeek: onSeekSettled,
+  newSourceSeek: onExternalSeek,
+  platformRate({ cached, widthChanged, isNewSourceLoaded, readStats }) {
+    if (cached != null && !widthChanged) return { rate: cached, cached };
+    const rate = readStats();
+    // Between a new source's `emptied` and its `loadedmetadata` the stats still describe the old
+    // video, so the rate read then isn't kept.
+    return { rate, cached: isNewSourceLoaded ? rate : cached };
+  },
+  rateCacheAtNewSource: () => null,
   easeSectionDuration: getEaseSectionDuration,
   // The frame the cut point was placed on, allowing for its time being rounded below that frame's
   // start.

@@ -98,6 +98,7 @@ import { registerActiveDragCleanup } from './util/drag-recovery';
 import { Chart, ChartConfiguration } from 'chart.js';
 import { scatterChartDefaults } from './ui/chart/scatterChartSpec';
 import {
+  cropSectionTime,
   frameStartOf,
   getFPS,
   getFrameGrid,
@@ -916,7 +917,7 @@ export function setCurrentCropPointWithCurrentTime() {
   const cropChart = chartState.cropChartInput.chart;
   const chartData = activeCropPoints(cropChart, appState);
   if (chartData) {
-    const time = currentCropTime();
+    const time = cropSectionTime(currentCropTime());
     const searchCropPoint = { x: time, y: 0, crop: '' };
     const [istart, iend] = currentCropChartSection;
     let [start, end] = bsearch(chartData, searchCropPoint, sortX);
@@ -1321,9 +1322,8 @@ export function autoKeyCurrentCropPoint(): boolean {
   }
 
   // Ctrl+wheel zoom calls this per wheel tick; pauseSafe avoids re-pausing (it churns the player).
-  // The frame read before the pause: pausing can move the playhead past the picture.
   pauseSafe(appState.video);
-  const time = frameTime;
+  const time = frameTiming.autoKeyTime({ beforePause: frameTime, afterPause: getFrameTime });
 
   const { onKeyframe, index } = isPlayheadOnCropKeyframe(cropMap, time);
   if (onKeyframe) {
@@ -1351,10 +1351,18 @@ export function autoKeyCurrentCropPoint(): boolean {
   );
   safeCrop.setCropStringSafe(getCropString(cx, cy, cw, ch), pair.enableZoomPan);
   const crop = safeCrop.cropString;
+  const x = frameTiming.pointTime(time);
+  const existingIndex = cropMap.findIndex((p) => p.x === x);
+  if (existingIndex !== -1) {
+    // 5.48 rounds point times to 0.01 s, finer than a frame above 100 fps, so the keyframe check
+    // can miss a point already at this time. Edit it rather than push a duplicate x.
+    selectCropPoint(existingIndex);
+    return true;
+  }
   const draft = createDraft(getMarkerPairHistory(pair));
-  draft.cropMap.push({ x: time, y: 0, crop });
+  draft.cropMap.push({ x, y: 0, crop });
   draft.cropMap.sort(sortX);
-  const newIndex = draft.cropMap.findIndex((p) => p.x === time);
+  const newIndex = draft.cropMap.findIndex((p) => p.x === x);
   saveMarkerPairHistory(draft, pair, false);
   // Render before selecting so setCurrentCropPoint's bounds-clamp reads the post-insert length,
   // else the new index is clamped down and the previous point is selected. Mirrors addCropPoint.
