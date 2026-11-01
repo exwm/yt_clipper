@@ -64,7 +64,8 @@ lint-py-fix:
   uv run ruff check src/clipper integration-tests tools --fix
 
 # Advisory prose lint with vale (rules in .vale/styles/ytc-style): reports, never fails. Install vale
-# with `scoop install vale` or `brew install vale`. Pass paths to lint only those.
+# 3.25.1 or later with `scoop install vale` or `brew install vale`: older versions miss sequence rule
+# matches across inline markup and line wraps. Pass paths to lint only those.
 lint-prose *paths="readme.md quickstart.md release-notes .github tools/encoding/README.md src":
   vale --no-exit {{paths}}
 # Commit subjects become changelog lines, so they get the same advisory lint.

@@ -53,7 +53,7 @@ def default_base() -> str:
 
 def main(base: str) -> int:
     if shutil.which("vale") is None:
-        print("vale is not installed: `scoop install vale` or `brew install vale`.")
+        print("vale is not installed: `scoop install vale` or `brew install vale` (3.25.1 or later).")
         return 1
     added = added_lines(run(["git", "diff", "-U0", "--no-color", base, "--", "."]))
     findings: list[tuple[str, str]] = []

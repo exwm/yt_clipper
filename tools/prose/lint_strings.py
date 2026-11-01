@@ -136,7 +136,7 @@ def located_alerts(strings: list[SourceString], alerts: list[dict]) -> list[str]
 
 def main(roots: list[str]) -> None:
     if shutil.which("vale") is None:
-        print("vale is not installed: `scoop install vale` or `brew install vale`.")
+        print("vale is not installed: `scoop install vale` or `brew install vale` (3.25.1 or later).")
         return
     strings = [string for root in roots for string in prose_strings(Path(root).resolve())]
     with tempfile.TemporaryDirectory() as folder:
