@@ -17,13 +17,10 @@ from typing import Union
 # come back just below it. 1 ms is under half a frame at up to 500 fps.
 PLACEMENT_TOLERANCE = 0.001
 
-# Build-time switch, the twin of the markup's `legacyFrameTiming` flag: 5.49.0 clips start and end,
-# and time their crop points (ffmpeg_filter.getFrameTimeBetweenLeftFrames), as 5.48's did. Read at
-# each clip, so the tests can set it (conftest.py `frame_timing` marker).
+# Build-time switch, the twin of the markup's `legacyFrameTiming` flag: 5.49.0 clips make their frame
+# decisions with 5.48.0's code (frame_timing_548.py). Read at each clip, so the tests can set it
+# (conftest.py `frame_timing` marker).
 LEGACY_FRAME_TIMING = True
-
-# Float noise in a marker computed at a frame's start, which still means that start for 5.48's rule.
-_LEGACY_ON_FRAME_START = 1e-9
 
 
 @dataclass(frozen=True)
@@ -55,8 +52,7 @@ def snapToFrame(grid: FrameGrid, time: float) -> float:
 
 @dataclass(frozen=True)
 class FrameSpan:
-    """A clip's frames: from the frame shown at its start marker through the one at its end marker
-    (`legacyFrameSpan` picks them as 5.48 did)."""
+    """A clip's frames: from the frame shown at its start marker through the one at its end marker."""
 
     firstFrame: int
     lastFrame: int
@@ -76,15 +72,6 @@ def frameSpan(grid: FrameGrid, startMarker: float, endMarker: float) -> FrameSpa
     # The grid's origin is the video's first frame, so a marker before it means that frame.
     firstFrame = max(0, frameAt(grid, startMarker))
     return _spanOfFrames(grid, firstFrame, max(firstFrame, frameAt(grid, endMarker)))
-
-
-def legacyFrameSpan(grid: FrameGrid, startMarker: float, endMarker: float) -> FrameSpan:
-    """5.48's clip: the frames whose start is at or after the start marker and before the end marker,
-    so a mid-frame start marker drops the frame shown there and the end marker's frame is left out."""
-    rate = float(grid.rate)
-    firstFrame = max(0, math.ceil((startMarker - grid.origin - _LEGACY_ON_FRAME_START) * rate))
-    lastFrame = math.ceil((endMarker - grid.origin - _LEGACY_ON_FRAME_START) * rate) - 1
-    return _spanOfFrames(grid, firstFrame, max(firstFrame, lastFrame))
 
 
 def _spanOfFrames(grid: FrameGrid, firstFrame: int, lastFrame: int) -> FrameSpan:

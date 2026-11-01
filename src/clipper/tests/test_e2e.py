@@ -351,6 +351,7 @@ def lateStartVideo(ffmpeg: str, folder: pathlib.Path) -> tuple[pathlib.Path, pat
         pytest.param(lateStartVideo, id="late start: the file starting at 10 s"),
     ],
 )
+@pytest.mark.frame_timing("5.49")  # 5.48 seeks from the file's start time
 def test_clip_of_a_video_with_a_start_time_begins_on_the_pair_start_frame(
     clipper: Clipper,
     tmp_path: pathlib.Path,
@@ -435,8 +436,11 @@ def test_a_clip_runs_from_the_frame_shown_at_its_start_marker_through_the_one_at
         pytest.param(30 / 30, 50 / 30, (30, 49), 0, id="markers on frame starts: the end marker's frame left out"),
         pytest.param(30.5 / 30, 50.5 / 30, (31, 50), 0, id="markers mid-frame: the start marker's frame dropped"),
         pytest.param(round(31 / 30, 6), round(52 / 30, 6), (31, 51), 0, id="markers saved to 6 decimals"),
+        # ffmpeg rounds 5.48's seek and trim to the video's 1 ms timestamps.
+        pytest.param(round(31 / 30 + 1e-6, 6), round(52 / 30 + 1e-6, 6), (31, 51), 0, id="markers 1 us after frame starts"),
         pytest.param(30.9 / 30, 50.9 / 30, (31, 50), 0, id="markers late in their frames"),
-        pytest.param(0, 1, (0, 27), 2 / 30, id="a start marker before the video's first frame"),
+        # 5.48 seeks from the file's start time, so the clip runs 1 s from the video's first frame.
+        pytest.param(0, 1, (0, 29), 2 / 30, id="a start marker before the video's first frame"),
     ],
 )  # fmt: skip
 @pytest.mark.frame_timing("5.48")
@@ -499,11 +503,12 @@ def test_an_instant_crop_point_switches_on_its_own_frame(
 @pytest.mark.parametrize(
     ("sourceStart", "pointTime", "frame"),
     [
-        pytest.param(0, 91 / 30, 91, id="exact"),
-        # Legacy markup stores the raw playhead time, which can sit in its frame's last millisecond.
+        # 5.48 times the point from the start marker at 2 s: 91 / 30 - 2 is a hair below 31 / 30.
+        pytest.param(0, 91 / 30, 90, id="exact: a frame early"),
         pytest.param(0, 91 / 30 - 0.0005, 90, id="in frame 90's last millisecond"),
-        # 5.48 counts frames from 0, not from the video's first frame, so a point on frame 91 cuts on 90.
-        pytest.param(0.021, round(0.021 + 91 / 30, 6), 90, id="a video starting 21 ms in: a frame early"),
+        pytest.param(0, round(91 / 30, 6), 90, id="frame 91's start saved to 6 decimals: a frame early"),
+        # 5.48 seeks from the file's start time, so the crop's time runs 21 ms behind the video's.
+        pytest.param(0.021, round(0.021 + 91 / 30, 6), 91, id="a video starting 21 ms in"),
     ],
 )
 @pytest.mark.frame_timing("5.48")
@@ -592,6 +597,7 @@ def frameTimes(ffprobe: str, clip: pathlib.Path) -> dict[int, float]:
         ),
     ],
 )
+@pytest.mark.frame_timing("5.49")  # 5.48's audio starts at the start marker
 def test_a_clips_audio_starts_with_its_first_frame(
     clipper: Clipper, tmp_path: pathlib.Path, start: float, sourceStart: float
 ) -> None:
@@ -638,7 +644,8 @@ def test_a_clips_audio_starts_with_its_first_frame(
     "extraArgs",
     [
         pytest.param([], id="the encode"),
-        pytest.param(["--video-stabilization", "1"], id="video stabilization's two passes"),
+        # 5.48 seeks the late start video from its file's start time, past its end.
+        pytest.param(["--video-stabilization", "1"], id="video stabilization's two passes", marks=pytest.mark.frame_timing("5.49")),
     ],
 )
 def test_subtitles_burn_in_for_a_markers_file_named_with_an_apostrophe(
@@ -682,6 +689,7 @@ def test_subtitles_burn_in_for_a_markers_file_named_with_an_apostrophe(
         pytest.param(lateStartVideo, 1.0 - 1 / 60, id="late start: the file starting at 10 s"),
     ],
 )
+@pytest.mark.frame_timing("5.49")  # 5.48 seeks from the file's start time
 def test_preview_of_a_local_video_starts_ffplay_half_a_frame_before_the_pair_start(
     clipper: Clipper,
     tmp_path: pathlib.Path,

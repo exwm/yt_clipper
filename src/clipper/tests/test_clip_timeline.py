@@ -179,12 +179,21 @@ def test_5_49_0_clips_start_and_end_as_in_5_48_by_default(monkeypatch: pytest.Mo
 
 
 @pytest.mark.frame_timing("5.48")
-def test_legacy_frame_timing_ends_the_pair_and_its_maps_before_the_end_markers_frame(tmp_path: Path) -> None:
-    mp = pairSettings(tmp_path, {"start": 0.5 / 30, "end": 10.0, **PAIR_MAPS})
-    # The start marker's frame is dropped, and the end marker's frame left out.
-    assert (mp["start"], mp["end"]) == pytest.approx((1 / 30, 10.0))
-    assert [point["x"] for point in mp["speedMap"]] == pytest.approx([1 / 30, 5.0, 10.0])
-    assert [point["x"] for point in mp["cropMap"]] == pytest.approx([1 / 30, 5.0, 10 - 0.5 / 30])
+def test_legacy_frame_timing_keeps_the_markers_and_the_maps_saved_points(tmp_path: Path) -> None:
+    # 5.48 passed the raw markers to ffmpeg, which picks the frames.
+    # Maps of its own: the other tests' pairs move PAIR_MAPS' end points.
+    maps = {
+        "speedMap": [{"x": 0.0, "y": 1}, {"x": 5.0, "y": 0.5}, {"x": 10.0, "y": 0.5}],
+        "cropMap": [
+            {"x": 0.0, "y": 0, "crop": "0:0:960:540"},
+            {"x": 5.0, "y": 0, "crop": "960:0:960:540", "easeIn": "instant"},
+            {"x": 10.0, "y": 0, "crop": "960:0:960:540"},
+        ],
+    }
+    mp = pairSettings(tmp_path, {"start": 0.5 / 30, "end": 10.0, **maps})
+    assert (mp["start"], mp["end"], mp["duration"]) == (0.5 / 30, 10.0, 10.0 - 0.5 / 30)
+    assert [point["x"] for point in mp["speedMap"]] == [0.0, 5.0, 10.0]
+    assert [point["x"] for point in mp["cropMap"]] == [0.0, 5.0, 10.0]
 
 
 def test_a_pair_in_a_later_video_part_keeps_its_maps_on_one_timeline(tmp_path: Path) -> None:

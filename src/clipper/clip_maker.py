@@ -14,7 +14,7 @@ from typing import Any, Dict, Generator, List, Optional, Set, Tuple
 
 import rich.markup
 
-from clipper import banded_lapack, cinematic_path, frame_grid
+from clipper import banded_lapack, cinematic_path, frame_timing
 from clipper.clipper_types import (
     INVALID_MARKER_PAIR_KEY,
     BadMergeInput,
@@ -42,14 +42,12 @@ from clipper.ffmpeg_filter import (
     getMinSpeed,
     getMinterpFilter,
     getMinterpFPS,
-    getSpeedFilterAndDuration,
     getSubsFilter,
     getZoomPanFilter,
     resolveCropEaseType,
     videoStabilizationGammaFixFilter,
 )
 from clipper.ffmpeg_version import filterFileOption, supportsOptionFiles
-from clipper.frame_grid import FrameGrid, frameSpan, legacyFrameSpan
 from clipper.log_helpers import (
     LogPath,
     build_marker_pair_settings_snapshot,
@@ -78,13 +76,13 @@ def _bakeCinematicPath(
     cropResHeight: int,
     fps: float,
     videoPartStart: float,
-    legacyFrameTiming: bool,
+    frameTimingName: str,
 ) -> Optional[dict[str, Any]]:
     # A pair's settings are made again for each sample-guided trial and encode, and a long pair takes
     # about a second to solve. The path is only read, so the cached one is shared.
     # default=str: a point can carry other fields the solver ignores.
     key = json.dumps(
-        [cropMap, margins, cropResWidth, cropResHeight, fps, videoPartStart, legacyFrameTiming],
+        [cropMap, margins, cropResWidth, cropResHeight, fps, videoPartStart, frameTimingName],
         sort_keys=True,
         default=str,
     )
@@ -106,7 +104,7 @@ def _warnOfDenseCinematicSolve() -> None:
 
 @functools.lru_cache(maxsize=64)
 def _bakeCinematicPathFromKey(key: str) -> Optional[dict[str, Any]]:
-    cropMap, margins, cropResWidth, cropResHeight, fps, videoPartStart, legacyFrameTiming = json.loads(key)
+    cropMap, margins, cropResWidth, cropResHeight, fps, videoPartStart, frameTimingName = json.loads(key)
     if banded_lapack.lapack() is None:
         _warnOfDenseCinematicSolve()
     return cinematic_path.bakeCinematicPath(
@@ -116,7 +114,7 @@ def _bakeCinematicPathFromKey(key: str) -> Optional[dict[str, Any]]:
         cropResHeight,
         fps=fps,
         videoPartStart=videoPartStart,
-        legacyFrameTiming=legacyFrameTiming,
+        cutTimeAt=frame_timing.byName(frameTimingName).cutTime,
     )
 
 
@@ -192,49 +190,25 @@ def getMarkerPairSettings(  # noqa: PLR0912
             videoPartDelay = videoPart["start"]
             mp["videoPart"] = videoPart
 
-    # The clip runs from the frame shown at its start marker through the one shown at its end marker,
-    # or with legacy frame timing over the frames 5.48 took. Its crop points then take effect as in 5.48.
-    legacyFrameTiming = frame_grid.LEGACY_FRAME_TIMING
-    spanOf = legacyFrameSpan if legacyFrameTiming else frameSpan
-    grid = clipFrameGrid(mps)
-    span = spanOf(
-        grid,
-        mp["start"] + mps["delay"] - videoPartDelay,
-        mp["end"] + mps["delay"] - videoPartDelay,
-    )
-    # The maps' ends are the pair's own, also when a sample-guided trial clips a window of it.
-    pairSpan = spanOf(
-        grid,
-        mp.get("pairStart", mp["start"]) + mps["delay"] - videoPartDelay,
-        mp.get("pairEnd", mp["end"]) + mps["delay"] - videoPartDelay,
-    )
+    timing = frame_timing.current()
+    span = timing.clipSpan(mp, mps, videoPartDelay)
     mp["start"], mp["end"] = span.start, span.end
-    mp["seekTo"], mp["trimEnd"] = span.seekTo, span.trimEnd
+    if span.seekTo is not None:
+        mp["seekTo"], mp["trimEnd"] = span.seekTo, span.trimEnd
     mp["duration"] = mp["end"] - mp["start"]
-    # The speed and crop maps stay on the video's timeline (the markers' plus the delay), where the
-    # video part's frames start at mapsFrameOrigin.
-    mapsStart, mapsEnd = pairSpan.start + videoPartDelay, pairSpan.end + videoPartDelay
-    mapsFrameOrigin = videoPartDelay + grid.origin
-    # Where crop points count their frames from: legacy frame timing counts from 0, as 5.48 and the
-    # markup's legacy build do.
-    cropFrameOrigin = 0.0 if legacyFrameTiming else mapsFrameOrigin
     # A sample-guided window starts this far into its pair's crop map.
-    mp["cropMapTimeOffset"] = span.start - pairSpan.start
+    mp["cropMapTimeOffset"] = span.cropMapTimeOffset
 
     mp["isVariableSpeed"] = False
     if mps["enableSpeedMaps"] and "speedMap" in mp:
         if mps["delay"] != 0:
             for point in mp["speedMap"]:
                 point["x"] += mps["delay"]
-        speedMap, mp["isVariableSpeed"] = pairSpeedMap(mp["speedMap"], mapsStart, mapsEnd)
+        ends = span.speedMapEnds or (mp["speedMap"][0]["x"], mp["speedMap"][-1]["x"])
+        speedMap, mp["isVariableSpeed"] = pairSpeedMap(mp["speedMap"], *ends)
         mp["speedMap"] = (
-            windowSpeedMap(
-                speedMap,
-                span.start + videoPartDelay,
-                span.end + videoPartDelay,
-                float(1 / Fraction(mps["r_frame_rate"])),
-            )
-            if span != pairSpan
+            windowSpeedMap(speedMap, *span.speedMapWindow, float(1 / Fraction(mps["r_frame_rate"])))
+            if span.speedMapWindow
             else speedMap
         )
     else:
@@ -243,7 +217,7 @@ def getMarkerPairSettings(  # noqa: PLR0912
             {"x": mp["end"], "y": mp["speed"]},
         ]
 
-    mp["speedFilter"], mp["outputDuration"], mp["outputDurations"] = getSpeedFilterAndDuration(
+    mp["speedFilter"], mp["outputDuration"], mp["outputDurations"] = timing.speedFilter(
         mp["speedMap"],
         mp,
         mps["r_frame_rate"],
@@ -271,10 +245,8 @@ def getMarkerPairSettings(  # noqa: PLR0912
         if mps["delay"] != 0:
             for point in mp["cropMap"]:
                 point["x"] += mps["delay"]
-        # The map's ends are the pair's. The last point sits mid-frame, where an ease into it finishes
-        # on the last frame.
-        lastFrameMiddle = mapsStart + pairSpan.trimEnd
-        mp["cropMap"][0]["x"], mp["cropMap"][-1]["x"] = mapsStart, lastFrameMiddle
+        if span.cropMapEnds:
+            mp["cropMap"][0]["x"], mp["cropMap"][-1]["x"] = span.cropMapEnds
 
         if mps.get("cropPointEasing") == "cinematic":
             # Solve in cropRes pixels, as the markup preview does, before autoScaleCropMap rescales the points.
@@ -289,8 +261,8 @@ def getMarkerPairSettings(  # noqa: PLR0912
                     settings["cropResHeight"],
                     # ffprobe gives a fraction string such as "30000/1001".
                     fps=float(Fraction(mps["r_frame_rate"])),
-                    videoPartStart=cropFrameOrigin,
-                    legacyFrameTiming=legacyFrameTiming,
+                    videoPartStart=span.cropFrameOrigin,
+                    frameTimingName=timing.name,
                 )
             except Exception as error:
                 # Without a path the pair renders as Smooth Track, as when there is nothing to solve.
@@ -337,8 +309,8 @@ def getMarkerPairSettings(  # noqa: PLR0912
             inputIsHDR=settings["inputIsHDR"],
             frameWidth=settings["width"],
             frameHeight=settings["height"],
-            videoPartStart=cropFrameOrigin,
-            legacyFrameTiming=legacyFrameTiming,
+            videoPartStart=span.cropFrameOrigin,
+            sectionEaseDuration=timing.sectionEaseDuration,
         )
     elif mp["isPanningCrop"]:
         mp["cropFilter"] = getCropFilter(
@@ -346,8 +318,8 @@ def getMarkerPairSettings(  # noqa: PLR0912
             mp["cropMap"],
             mps["r_frame_rate"],
             easeType=cropEaseType,
-            videoPartStart=cropFrameOrigin,
-            legacyFrameTiming=legacyFrameTiming,
+            videoPartStart=span.cropFrameOrigin,
+            sectionEaseDuration=timing.sectionEaseDuration,
         )
     else:
         cc = cropComponents
@@ -494,13 +466,6 @@ def cropFilterOnPairTime(mp: DictStrAny) -> str:
     return f"settb=AVTB,setpts=PTS+{offset}/TB,{mp['cropFilter']},setpts=PTS-STARTPTS"
 
 
-def clipFrameGrid(mps: DictStrAny) -> FrameGrid:
-    """The source's frames on the markers' timeline. A local video is seeked by its own timestamps
-    (-seek_timestamp 1), which start at its video stream's start time; a network stream from 0."""
-    origin = float(mps.get("start_time") or 0) if mps["inputVideo"] else 0.0
-    return FrameGrid(origin=origin, rate=Fraction(mps["r_frame_rate"]))
-
-
 def findVideoPart(mp: DictStrAny, mps: DictStrAny) -> Optional[DictStrAny]:
     videoParts = []
     for videoPart in mps["videoParts"]:
@@ -549,15 +514,9 @@ def fastTrimClip(
     if not mps["inputVideo"]:
         inputs += FFMPEG_NETWORK_INPUT_FLAGS
 
-    videoStart = mp["start"]
-    videoEnd = mp["end"]
-    if mps["inputVideo"]:
-        inputs += f' -seek_timestamp 1 -ss {videoStart} -to {videoEnd} -i "{mps["inputVideo"]}" '
-    elif mps["videoType"] != "multi_video":
-        inputs += f' -ss {videoStart} -to {videoEnd} -i "{mps["videoDownloadURL"]}" '
-    elif "videoPart" in mp:
-        videoPart = mp["videoPart"]
-        inputs += f' -ss {videoStart} -to {videoEnd} -i "{videoPart["url"]}" '
+    videoInput = frame_timing.current().fastTrimInput(mp, mps)
+    if videoInput is not None:
+        inputs += videoInput
     else:
         logger.error(
             f"Failed to generate: {LogPath(mp['fileName'])}. The marker pair defines a clip that spans multiple video parts which is not currently supported.",
@@ -654,14 +613,7 @@ def makeClip(  # noqa: PLR0912
             audio_filter += f"atrim={aStart}:{aEnd},atempo={mp['speed']}"
         # encoding mode starts each clip at time 0
         elif not settings["preview"]:
-            # A local video's audio comes with the video, seeked half a frame before the first frame:
-            # it starts with that frame.
-            audioOffset = mp["start"] - mp["seekTo"] if mps["inputVideo"] else 0
-            audio_filter += f"atrim={audioOffset}:{audioOffset + aDuration},asetpts=PTS-STARTPTS"
-            # atempo plays its output ahead of its input (about 10 ms at tempo 1, more for sparse sounds), so normal
-            # speed skips it.
-            if mp["speed"] != 1:
-                audio_filter += f",atempo={mp['speed']}"
+            audio_filter += frame_timing.current().audioFilter(mp, mps, aDuration)
             if mps["audioFade"] > 0:
                 af = mps["audioFade"]
                 audio_filter += f",afade=d={af},areverse,afade=d={af},areverse"
@@ -677,20 +629,9 @@ def makeClip(  # noqa: PLR0912
     if not mps["inputVideo"]:
         inputs += FFMPEG_NETWORK_INPUT_FLAGS
 
-    # -seek_timestamp 1: in a local video, -ss is the video's own timestamp, as the markup's player time
-    # is, not an offset from the file's start time, which audio pre-roll can make negative. Network
-    # streams keep the offset, which matches players that count from an HLS stream's start. ffplay has
-    # no such option and always seeks from the file's start time, so the preview subtracts it.
-    # Each seeks half a frame before the first frame, which keeps that frame and drops the one before.
-    if mps["inputVideo"] and settings["preview"]:
-        inputs += f' -ss {mp["seekTo"] - settings.get("inputStartTime", 0)} -i "{mps["inputVideo"]}" '
-    elif mps["inputVideo"]:
-        inputs += f' -seek_timestamp 1 -ss {mp["seekTo"]} -i "{mps["inputVideo"]}" '
-    elif mps["videoType"] != "multi_video":
-        inputs += f' -ss {mp["seekTo"]} -i "{mps["videoDownloadURL"]}" '
-    elif "videoPart" in mp:
-        videoPart = mp["videoPart"]
-        inputs += f' -ss {mp["seekTo"]} -i "{videoPart["url"]}" '
+    videoInput = frame_timing.current().videoInput(mp, mps, settings)
+    if videoInput is not None:
+        inputs += videoInput.inputs
     else:
         logger.error(
             f"Failed to generate: {LogPath(mp['fileName'])}. The marker pair defines a clip that spans multiple video parts which is not currently supported.",
@@ -707,12 +648,7 @@ def makeClip(  # noqa: PLR0912
 
     ffmpegCommand = getFfmpegCommandWithoutVideoFilter(audio_filter, cbr, cp, inputs, mp, mps)
 
-    # Time 0 is the first frame's start, and the trim ends mid last frame, half a frame from both its
-    # neighbors.
-    if not mps["preview"]:
-        video_filter += f"setpts=PTS-STARTPTS,trim=0:{mp['trimEnd']}"
-    else:
-        video_filter += f"trim={mp['seekTo']}:{mp['start'] + mp['trimEnd']}"
+    video_filter += videoInput.trim
 
     if mps["preview"] and not settings["inputVideo"]:
         video_filter += f",loop=loop=-1:size=(32767)"
@@ -795,7 +731,7 @@ def makeClip(  # noqa: PLR0912
                 reversed(mp["speedMap"]),
             )
         ]
-        reverseSpeedFilter, _, _ = getSpeedFilterAndDuration(
+        reverseSpeedFilter, _, _ = frame_timing.current().speedFilter(
             reverseSpeedMap,
             mp,
             mps["r_frame_rate"],

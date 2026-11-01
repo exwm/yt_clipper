@@ -8,7 +8,7 @@ from typing import Optional, Union
 
 import pytest
 
-from clipper import ffmpeg_filter
+from clipper import ffmpeg_filter, frame_timing_548
 from clipper.clipper_types import CropMap
 
 SMALL_CROP_MAP = [
@@ -419,19 +419,23 @@ def test_getEaseSectionDuration(
 
 
 @pytest.mark.parametrize(
-    ("endTime", "expected"),
+    ("firstTime", "endTime", "expected"),
     [
-        pytest.param(31 / 30, 30.5 / 30, id="on frame 31's start"),
-        pytest.param(31.5 / 30, 30.5 / 30, id="mid frame 31"),
+        pytest.param(0.0, 31 / 30, 30.5 / 30, id="on frame 31's start"),
+        pytest.param(0.0, 31.5 / 30, 30.5 / 30, id="mid frame 31"),
         # Legacy markup stores the raw playhead time, so a time in a frame's last 1 ms is still that frame.
-        pytest.param(31 / 30 - 0.0005, 29.5 / 30, id="in frame 30's last millisecond"),
-        pytest.param(round(31 / 30, 6), 29.5 / 30, id="frame 31's start saved to 6 decimals, below it"),
+        pytest.param(0.0, 31 / 30 - 0.0005, 29.5 / 30, id="in frame 30's last millisecond"),
+        pytest.param(0.0, round(31 / 30, 6), 29.5 / 30, id="frame 31's start saved to 6 decimals, below it"),
+        # 5.48 times the point from the start marker, so both rounded below their frame starts cancel.
+        pytest.param(1.033333, 1.533333, 14.5 / 30, id="a start marker and a point on frame starts saved to 6 decimals"),
     ],
 )
-def test_legacy_frame_timing_ends_an_ease_section_before_the_frame_its_end_time_falls_in(
-    endTime: float, expected: float
+def test_legacy_frame_timing_ends_an_ease_section_before_the_frame_its_time_from_the_start_marker_falls_in(
+    firstTime: float, endTime: float, expected: float
 ) -> None:
-    assert ffmpeg_filter.getEaseSectionDuration(0.0, endTime, 30.0, legacyFrameTiming=True) == pytest.approx(expected)
+    legacy = frame_timing_548.FRAME_TIMING
+    result = legacy.sectionEaseDuration("instant", firstTime, endTime, firstTime, 0.0, 30.0)
+    assert result == pytest.approx(expected)
 
 
 @pytest.mark.parametrize(
@@ -448,7 +452,8 @@ def test_legacy_frame_timing_reaches_the_crop_filters(buildFilter: Callable[...,
         {"x": 31 / 30 - 0.0005, "y": 0, "crop": "50:50:50:50", "easeIn": "instant"},
         {"x": 2.0, "y": 0, "crop": "50:50:50:50"},
     ]
-    assert buildFilter(cropMap, legacyFrameTiming=True) != buildFilter(cropMap)
+    legacyEase = frame_timing_548.FRAME_TIMING.sectionEaseDuration
+    assert buildFilter(cropMap, sectionEaseDuration=legacyEase) != buildFilter(cropMap)
 
 
 @pytest.mark.parametrize(
