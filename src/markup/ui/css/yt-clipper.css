@@ -13,24 +13,6 @@
   --inherited-accent: dimgrey;
 }
 
-@keyframes valid-input {
-  0% {
-    background-color: tomato;
-  }
-  100% {
-    background-color: lightgreen;
-  }
-}
-
-@keyframes invalid-input {
-  0% {
-    background-color: lightgreen;
-  }
-  100% {
-    background-color: tomato;
-  }
-}
-
 @keyframes flash {
   0% {
     opacity: 1;
@@ -556,18 +538,21 @@
   border: 1px solid black;
 }
 
+/* A transition, not an animation: it eases a change while typing but doesn't run when an editor
+   renders its fields, so valid fields don't flash the invalid color on every open. */
+.settings-editor-input-div input,
+#marker-pair-number-input {
+  transition: background-color 0.4s;
+}
+
 .settings-editor-input-div input:valid,
 #marker-pair-number-input:valid {
-  animation-name: valid-input;
-  animation-duration: 1s;
-  animation-fill-mode: forwards;
+  background-color: lightgreen;
 }
 
 .settings-editor-input-div input:invalid,
 #marker-pair-number-input:invalid {
-  animation-name: invalid-input;
-  animation-duration: 1s;
-  animation-fill-mode: forwards;
+  background-color: tomato;
 }
 
 .fps-mul-stepper {
@@ -577,7 +562,6 @@
 }
 
 #title-suffix-input {
-  background-color: lightgreen;
   min-width: 20em;
   text-align: right;
 }

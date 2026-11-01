@@ -22,6 +22,20 @@ def test_the_title_prefix_field_refuses_characters_clip_names_leave_out(
     then_the_saved_title_prefix_is(markup, saved)
 
 
+def test_fields_show_their_valid_color_as_the_editor_opens(markup: MarkupPage) -> None:
+    given_a_marker_pair_with_its_editor_open(markup)
+    then_the_title_prefix_color_is(markup, LIGHTGREEN)
+    when_i_type_the_title_prefix(markup, 'in"tro')
+    then_the_title_prefix_color_becomes(markup, TOMATO)
+
+
+LIGHTGREEN = "rgb(144, 238, 144)"
+TOMATO = "rgb(255, 99, 71)"
+TITLE_PREFIX_COLOR = (
+    "() => getComputedStyle(document.querySelector('#title-prefix-input')).backgroundColor"
+)
+
+
 @step
 def given_a_marker_pair_with_its_editor_open(markup: MarkupPage) -> None:
     markup.load_marker_pairs([(3, 6)])
@@ -31,6 +45,17 @@ def given_a_marker_pair_with_its_editor_open(markup: MarkupPage) -> None:
 @step
 def when_i_type_the_title_prefix(markup: MarkupPage, text: str) -> None:
     markup.page.fill("#title-prefix-input", text)
+
+
+@step
+def then_the_title_prefix_color_is(markup: MarkupPage, color: str) -> None:
+    # Read at once: a color that animates in on open would still be on its way
+    assert markup.page.evaluate(TITLE_PREFIX_COLOR) == color
+
+
+@step
+def then_the_title_prefix_color_becomes(markup: MarkupPage, color: str) -> None:
+    assert markup.eventually(f"() => ({TITLE_PREFIX_COLOR})() === '{color}'")
 
 
 @step
