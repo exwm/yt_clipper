@@ -68,6 +68,10 @@ lint-py-fix:
 # matches across inline markup and line wraps. Pass paths to lint only those.
 lint-prose *paths="readme.md quickstart.md release-notes .github tools/encoding/README.md src":
   vale --no-exit {{paths}}
+  -uv run python tools/prose/readme_toc.py readme.md
+# Agent instructions are local (gitignored), so they get only the em dash and curly quote rules.
+lint-prose-agents:
+  @if [ -d .claude ]; then vale --no-exit --glob='*.md' .claude; fi
 # Commit subjects become changelog lines, so they get the same advisory lint.
 lint-subjects revset="tags()..@":
   jj log -r '{{revset}}' --no-graph -T 'description.first_line() ++ "\n\n"' | vale --no-exit --ext=.subject
@@ -77,8 +81,10 @@ lint-strings *paths="src":
 test-prose:
   vale test --coverage .vale/styles
 # Vale errors and warnings on the docs, user-facing strings and commit subjects added since base (default:
-# the last release tag) fail; suggestions print and pass. Release-prep runs it.
+# the last release tag) fail, as does a readme table of contents out of step with its headings;
+# suggestions print and pass. Release-prep runs it.
 lint-prose-new *base:
+  uv run python tools/prose/readme_toc.py readme.md
   uv run python tools/prose/new_prose_alerts.py {{base}}
 
 poetry-sync:

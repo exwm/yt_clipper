@@ -156,6 +156,11 @@
   input: Previewing a rotation sets the output rotation, ensuring the two match.
   contains: "', ensuring' clause"
 
+- name: trailing superficial analysis
+  rule: TrailingIng.yml
+  input: The clips merge without a re-encode, showcasing the fixed timescale.
+  contains: "', showcasing' clause"
+
 - name: leading participle clause
   rule: LeadingIng.yml
   input: |
@@ -183,6 +188,13 @@
   rule: ContrastReframe.yml
   input: It's not just a preview. It moves the crop rather than the video.
   contains: ["'not just'", "'rather than'"]
+
+- name: binary contrasts but not a plain limit
+  rule: ContrastReframe.yml
+  input: |
+    This isn't a preview setting, it's an encode setting. The title is not set, but the clips are named by number.
+  contains: "'isn't a preview setting, it's'"
+  absent: "'is not set, but'"
 
 - name: bold lead-in labels but not keys or options
   rule: BoldLeadIn.yml
@@ -254,11 +266,34 @@
     docs(readme): note that av1 encoding is early and its default settings are not tuned yet, so expect to adjust the CRF and preset for your clips when encoding with av1 for now
   absent: [ytc-style.SentenceLength, ytc-style.NoteThat]
 
+- name: commit subjects allow a trailing which
+  format: subject
+  input: |
+    docs(readme): install the `markup script` from Greasy Fork, which keeps it updated
+  absent: ytc-style.TrailingWhich
+
 - name: commit subjects keep the docs conventions
   format: subject
   input: |
     refactor(markup): move the easing dispatch into crop-keyframe-math.ts via --flag
   contains: [ytc-style.Backticks, ytc-style.Keyframe, ytc-style.Latin]
+
+- name: implementation words and long paragraphs are fine in code comments
+  about: Run through .vale.ini, whose [*.{py,ts}] section turns the docs-only rules off.
+  format: py
+  input: |
+    # The heuristic keeps the invariant, which keeps the cache warm. One. Two. Three. Four. Five.
+    # The load-bearing check.
+    x = 1
+  contains: ytc-style.StockMetaphors
+  absent: [ytc-style.InternalTerms, ytc-style.TrailingWhich, ytc-style.ParagraphSentences]
+
+- name: tooltips list one fact per line
+  format: strings
+  input: |
+    Crop values are given as x:y:w:h. Width can be 'iw'. Use Ctrl+Click+Drag on the crop preview to adjust it. Increment values with the up/down keys. Use modifier keys to alter the change amount. The robust heuristic propagates.
+  contains: [ytc-style.Puffery, ytc-style.InternalTerms]
+  absent: ytc-style.ParagraphSentences
 
 - name: project vocabulary and possessives pass spelling
   input: |

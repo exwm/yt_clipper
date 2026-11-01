@@ -1,0 +1,20 @@
+# Things given a person's or a program's verb: "a plot compares", "data renders", "frame steps
+# assume", "a URL clips". RealActor covers settings and modes that pick or know.
+extends: existence
+message: "'%s': name who does it. The reader compares and assumes. The `markup script` or `clipper script` renders and clips."
+level: warning
+ignorecase: true
+tokens:
+  - (?:plot|chart|URL|link|step|preview|section) (?:compares|assumes|clips|decides|expects)
+  - (?:plots|charts|URLs|links|steps|previews|sections) (?:compare|assume|clip|decide|expect)
+  # "file parts and clips" is a noun: only the windowed form with "renders" is safe
+  - '(?:data|file|JSON)(?: [\w.]+){0,5} renders'
+  - (?:data|file|JSON) (?:clips|decides)
+tests:
+  - name: plots, steps and data are not actors
+    input: |
+      In a marker pair's settings, a plot compares the paths. On other sites, frame steps assume 60 fps. Markers data saved before version 5.49.0 renders with EaseInOut.
+    contains: ["'plot compares'", "'steps assume'", "renders'"]
+  - name: clips as a noun after file parts
+    input: The `clipper script` writes the file parts and clips into the webms folder.
+    absent: ytc-style.ActorVerbs

@@ -1,0 +1,17 @@
+# A paragraph of five or more sentences usually lists separate facts or actions. Vale's list
+# scope spans a whole list, so bullets are not counted here.
+extends: occurrence
+message: "This paragraph has five or more sentences. Split separate facts into bullets."
+level: suggestion
+scope: paragraph
+max: 4
+token: '[.!?](?=\s+[A-Z*`(]|\s*$)'
+tests:
+  - name: five sentences in one paragraph
+    input: |
+      When the clips are done, the helper scripts ask for another run. Enter all its options. The options of the run before do not carry over. Existing clips are skipped. Put quotes around a value with `<` in it.
+    contains: ytc-style.ParagraphSentences
+  - name: four sentences pass
+    input: |
+      Use **<** and **>** to view a video frame by frame. Points with instant easing enabled are darkened. The `clipper script` skips existing webms. Refresh the page if the script doesn't load.
+    absent: ytc-style.ParagraphSentences

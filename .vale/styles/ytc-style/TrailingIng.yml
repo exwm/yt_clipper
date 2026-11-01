@@ -5,3 +5,5 @@ ignorecase: true
 nonword: true
 tokens:
   - ', (?:ensuring|making|highlighting|allowing|enabling|letting|giving|providing|resulting in|leading to|meaning|which means)\b'
+  # superficial analysis, from jdkato/voices (Voices.SuperficialAnalysis)
+  - ', (?:underscoring|reflecting|showcasing|demonstrating)\b'

@@ -1,0 +1,19 @@
+# A pronoun or place word with no clear referent: "follows it", "holds until there". VagueIt
+# covers "it" at a sentence end after two nouns.
+extends: existence
+message: "Name what '%s' refers to."
+level: warning
+ignorecase: true
+tokens:
+  - (?:follows|tracks|matches|copies) it\b
+  - until there\b
+  - (?:holds|stays) until (?:it|then)\b
+tests:
+  - name: pronouns and place words with no referent
+    input: |
+      The crop holds until there. A hold point shows the crop of the point before it and follows it.
+    contains: ["'until there'", "'follows it'"]
+  - name: a named referent is fine
+    input: |
+      The crop stays still until that point. A hold point keeps the crop of the crop point before it, and follows.
+    absent: ytc-style.VagueFollow

@@ -1,0 +1,17 @@
+# A trailing ", which" clause that adds a second event ("..., which pauses the page briefly").
+# A plain relative clause ("which should match ...") is fine. TrailingIng covers "-ing" clauses.
+extends: existence
+message: "Split the trailing '%s' clause into its own sentence with a named subject."
+level: warning
+ignorecase: true
+nonword: true
+tokens:
+  - ', which (?:also |then |it )?(?:pauses|adds|kept|keeps|makes|causes|means|lets|stops|slows)\b'
+tests:
+  - name: a second event in a which clause
+    input: |
+      The path is recomputed after you stop editing, which pauses the page briefly. Press **Ctrl+Alt+A**, which also adds a hold.
+    contains: ["', which pauses'", "', which also adds'"]
+  - name: a plain relative clause
+    input: Set the title prefix, which should match the video title.
+    absent: ytc-style.TrailingWhich

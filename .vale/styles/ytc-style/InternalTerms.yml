@@ -1,0 +1,29 @@
+# Implementation words in user-facing text, each with the plain form the 5.48 and 5.49 rewrites
+# used. Off in code comments, where "invariant" and "heuristic" are the right words.
+extends: substitution
+message: "Use '%s' instead of '%s': say what the user sees."
+level: suggestion
+ignorecase: true
+swap:
+  propagat(?:es|ed|ing|e): every crop point gets
+  invariants?: (cut it)
+  heuristics?: (name the input it uses)
+  empirical(?:ly)?: by testing
+  intermediates?: the clip made before
+  (?:is|are) solved: is computed
+  fps grid: steady fps
+  sibling file: file next to
+  architecture: search
+  near-transparent: (name the setting, for example CRF 18)
+  transparency-adjacent: (cut it)
+  apples-to-apples: (say what it compares)
+  industry-standard: usual
+  calibrated for: (cut the reason)
+tests:
+  - name: internal words in docs
+    input: |
+      In `pan-only` mode the new size propagates to every crop point. The CRF heuristic picks it empirically, and the path is solved for few moves.
+    contains: ["'propagates'", "'heuristic'", "'empirically'", "'is solved'"]
+  - name: plain words pass
+    input: In `pan-only` mode every crop point gets the new size.
+    absent: ytc-style.InternalTerms

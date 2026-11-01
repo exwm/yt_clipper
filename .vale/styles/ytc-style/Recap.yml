@@ -1,0 +1,18 @@
+# A recap opener or closer. Adapted from jdkato/voices (Voices.Recap, Human.Closers), which
+# derives them from petergyang/no-ai-slop (MIT).
+extends: existence
+message: "Cut the recap '%s'. End on the last concrete point."
+level: warning
+ignorecase: true
+nonword: true
+tokens:
+  - '(?m)^(?:In conclusion|Ultimately|Overall|In summary|To sum up|In short)\b'
+  - '\b(?:In summary|To sum up|In conclusion),'
+tests:
+  - name: recap openers
+    input: |
+      In conclusion, the crop moves. Overall, it works. The clips merge. In summary, the clips merge.
+    contains: ["'In conclusion'", "'In summary,'"]
+  - name: overall inside a sentence
+    input: The overall bitrate drops at higher CRF values.
+    absent: ytc-style.Recap

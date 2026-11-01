@@ -1,0 +1,20 @@
+# Claims credited to nobody. Adapted from jdkato/voices (Voices.Weasel), which derives it from
+# petergyang/no-ai-slop (MIT).
+extends: existence
+message: "'%s': name the source or cut the claim."
+level: warning
+ignorecase: true
+tokens:
+  - experts agree
+  - (?:industry )?reports suggest
+  - many (?:argue|believe|users find)
+  - widely (?:regarded|considered|known) as
+  - studies show
+  - it is (?:widely |generally )?(?:believed|known|accepted) that
+tests:
+  - name: unsourced claims
+    input: Experts agree that vp9 is widely regarded as the best codec.
+    contains: ["'Experts agree'", "'widely regarded as'"]
+  - name: a named source
+    input: The VMAF scores show vp9 is smaller at the same quality.
+    absent: ytc-style.Weasel

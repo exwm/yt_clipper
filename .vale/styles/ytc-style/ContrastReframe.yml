@@ -7,3 +7,6 @@ tokens:
   - not only
   - rather than
   - instead of just
+  # binary contrast ("isn't a bug, it's a flaw"), from jdkato/voices (Voices.BinaryContrast)
+  - '(?:is|are|it.s|that.s) not [^\n,.;]{1,30}?[,;] (?:it.s|they.re)\b'
+  - '(?:isn.t|aren.t) [^\n,.;]{1,30}?[,;] (?:it.s|they.re)\b'
