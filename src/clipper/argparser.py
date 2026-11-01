@@ -1109,11 +1109,17 @@ def readArgFile(path: Path) -> list[str]:
     try:
         raw = path.read_bytes()
     except OSError as error:
-        print(f"Warning: Could not read {path} ({error.strerror or error}), so its settings are not used.", file=sys.stderr)
+        print(
+            f"Warning: Could not read {path} ({error.strerror or error}), so its settings are not used.",
+            file=sys.stderr,
+        )
         return []
     text, fallbackEncoding = decodeSettingsFile(raw)
     if fallbackEncoding:
-        print(f"Warning: {path} is not saved as UTF-8, so it was decoded as {fallbackEncoding}. Save it as UTF-8.", file=sys.stderr)
+        print(
+            f"Warning: {path} is not saved as UTF-8, so it was decoded as {fallbackEncoding}. Save it as UTF-8.",
+            file=sys.stderr,
+        )
     args: list[str] = []
     for number, line in enumerate(text.splitlines(), start=1):
         if line.lstrip().startswith("#"):
@@ -1122,7 +1128,10 @@ def readArgFile(path: Path) -> list[str]:
         try:
             args += splitArgLine(line)
         except ValueError as error:
-            print(f"Warning: {path} line {number}: {error}. Reading the line without quotes.", file=sys.stderr)
+            print(
+                f"Warning: {path} line {number}: {error}. Reading the line without quotes.",
+                file=sys.stderr,
+            )
             args += line.split()
     return args
 
@@ -1131,7 +1140,9 @@ def readArgFile(path: Path) -> list[str]:
 OPTION_NAME = re.compile(r"--?[A-Za-z][\w-]*")
 
 
-def knownSharedArgs(parser: argparse.ArgumentParser, sharedArgs: list[str], sharedFile: str) -> list[str]:
+def knownSharedArgs(
+    parser: argparse.ArgumentParser, sharedArgs: list[str], sharedFile: str
+) -> list[str]:
     """The shared settings file's arguments this version knows. Every installed version reads that
     file, so an option only a newer version knows is skipped with its values, with a warning. It is
     skipped before parsing: argparse would read an unknown -ab as the known -a with the value b."""

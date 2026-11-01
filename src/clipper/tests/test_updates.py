@@ -52,14 +52,22 @@ def test_default_args_examples_are_real_options() -> None:
     # Uncommenting an example that no longer exists would stop every run on an unknown argument.
     from clipper import argparser
 
-    text = (Path(updates.__file__).parent / "include" / "default_args.txt").read_text(encoding="utf-8")
-    examples = [line.lstrip("# ").split()[0] for line in text.splitlines() if line.startswith("# -")]
-    options = {name for action in argparser.getArgParser()._actions for name in action.option_strings}
+    text = (Path(updates.__file__).parent / "include" / "default_args.txt").read_text(
+        encoding="utf-8"
+    )
+    examples = [
+        line.lstrip("# ").split()[0] for line in text.splitlines() if line.startswith("# -")
+    ]
+    options = {
+        name for action in argparser.getArgParser()._actions for name in action.option_strings
+    }
     assert examples
     assert [example for example in examples if example not in options] == []
 
 
-def makeInstall(parent: Path, name: str, defaultArgs: str | bytes | None, nested: bool = False) -> Path:
+def makeInstall(
+    parent: Path, name: str, defaultArgs: str | bytes | None, nested: bool = False
+) -> Path:
     # Windows' Extract All puts the zip's top folder inside a folder of the same name.
     install = parent / name / name if nested else parent / name
     install.mkdir(parents=True)

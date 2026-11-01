@@ -107,7 +107,10 @@ def main() -> None:
     if argsFromArgFiles:
         logger.notice(f"The following default arguments were read from {argFiles}:")
         logger.notice(
-            {argFile: argparser.redactSecrets(args) for argFile, args in argsFromArgFilesMap.items()}
+            {
+                argFile: argparser.redactSecrets(args)
+                for argFile, args in argsFromArgFilesMap.items()
+            }
         )
         logger.rule(title="Setup")
     elif argFiles:

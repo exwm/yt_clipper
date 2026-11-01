@@ -49,7 +49,9 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     slow = {"test_e2e.py", "test_ytdl.py"}
     items.sort(key=lambda item: item.path.name not in slow)
     if config.getoption("clipper_exe"):
-        skip = pytest.mark.skip(reason=f"a built clipper keeps its own frame timing ({BUILT_FRAME_TIMING})")
+        skip = pytest.mark.skip(
+            reason=f"a built clipper keeps its own frame timing ({BUILT_FRAME_TIMING})"
+        )
         for item in items:
             marker = item.get_closest_marker("frame_timing")
             if marker and marker.args[0] != BUILT_FRAME_TIMING:
@@ -69,7 +71,9 @@ def frameTiming(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch)
     """The tests pin 5.49's frame timing unless marked `frame_timing("5.48")`. A built clipper
     (--clipper-exe) keeps its own, so its unmarked tests must pass with either."""
     marker = request.node.get_closest_marker("frame_timing")
-    monkeypatch.setattr(frame_grid, "LEGACY_FRAME_TIMING", marker is not None and marker.args[0] == "5.48")
+    monkeypatch.setattr(
+        frame_grid, "LEGACY_FRAME_TIMING", marker is not None and marker.args[0] == "5.48"
+    )
 
 
 def pytest_configure(config: pytest.Config) -> None:

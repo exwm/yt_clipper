@@ -13,7 +13,9 @@ from clipper.clipper_types import argvPath
     ("returncode", "stderr", "option"),
     [
         pytest.param(0, b"", "-/filter:v", id="ffmpeg 7 and later"),
-        pytest.param(1, b"Unrecognized option '/filter:v'.", "-filter_script:v", id="an ffmpeg before 7"),
+        pytest.param(
+            1, b"Unrecognized option '/filter:v'.", "-filter_script:v", id="an ffmpeg before 7"
+        ),
         pytest.param(1, b"Permission denied", "-/filter:v", id="a failure that is not the option"),
     ],
 )
@@ -54,7 +56,9 @@ def test_preview_reads_a_long_filter_from_a_file(
     from clipper import clip_maker
 
     monkeypatch.setattr(clip_maker, "supportsOptionFiles", lambda _path: readsFiles)
-    cs = SimpleNamespace(clipper_paths=SimpleNamespace(clipsPath=str(tmp_path), ffplayPath="ffplay"))
+    cs = SimpleNamespace(
+        clipper_paths=SimpleNamespace(clipsPath=str(tmp_path), ffplayPath="ffplay")
+    )
     videoFilter = "null," * (length // 5)
     arg = clip_maker.ffplayFilterArg(cs, videoFilter, "vfilter-1-preview.txt")  # type: ignore[arg-type]
     filterFile = tmp_path / "temp" / "vfilter-1-preview.txt"
@@ -67,7 +71,11 @@ def test_preview_reads_a_long_filter_from_a_file(
 @pytest.mark.parametrize(
     ("ffplayPath", "probed"),
     [
-        pytest.param(r"'C:\Users\example\tools\ffplay.exe'", r"C:\Users\example\tools\ffmpeg.exe", id="the ffmpeg beside ffplay"),
+        pytest.param(
+            r"'C:\Users\example\tools\ffplay.exe'",
+            r"C:\Users\example\tools\ffmpeg.exe",
+            id="the ffmpeg beside ffplay",
+        ),
         pytest.param("ffplay", "ffmpeg", id="the ffmpeg on PATH for ffplay on PATH"),
     ],
 )
@@ -82,8 +90,12 @@ def test_preview_asks_the_ffmpeg_from_ffplays_build(
 
     asked: list[str] = []
     monkeypatch.setattr(clip_maker, "supportsOptionFiles", lambda path: asked.append(path) or False)
-    paths = SimpleNamespace(clipsPath=str(tmp_path), ffmpegPath="'C:\\example\\ffmpeg_ytc.exe'", ffplayPath=ffplayPath)
-    clip_maker.ffplayFilterArg(SimpleNamespace(clipper_paths=paths), "null," * 4000, "vfilter-1-preview.txt")  # type: ignore[arg-type]
+    paths = SimpleNamespace(
+        clipsPath=str(tmp_path), ffmpegPath="'C:\\example\\ffmpeg_ytc.exe'", ffplayPath=ffplayPath
+    )
+    clip_maker.ffplayFilterArg(
+        SimpleNamespace(clipper_paths=paths), "null," * 4000, "vfilter-1-preview.txt"
+    )  # type: ignore[arg-type]
     assert [argvPath(path) for path in asked] == [probed]
 
 

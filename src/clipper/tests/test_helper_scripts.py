@@ -216,7 +216,9 @@ def test_windows_merge_lists_clips_in_number_order_with_quoted_paths(
     clips = [folder / name for name in ("it's-1.mp4", "clip-10.mp4", "clip-2.mp4")]
     for clip in clips:
         clip.write_text("{}", encoding="utf-8")
-    run = runWindowsScript(install / "merge.bat", [str(c) for c in clips], "", tmp_path, tmp_path / "calls.log")
+    run = runWindowsScript(
+        install / "merge.bat", [str(c) for c in clips], "", tmp_path, tmp_path / "calls.log"
+    )
     # ffmpeg's concat list format: each path in quotes, a ' written as '\''.
     assert (folder / "temp_merge.txt").read_text(encoding="utf-8").splitlines() == [
         f"file '{folder}\\clip-2.mp4'",
@@ -305,7 +307,12 @@ def test_macos_merge_quotes_each_path_and_makes_an_mkv_from_mixed_files(
     print(run.stdout, run.stderr)
     mergeList = video.with_name("temp_merge.txt")
     merged = str(video.with_name("Wow! clip-merged.mkv"))
-    assert loggedCalls(log) == [["ffmpeg", "-f", "concat", "-safe", "0", "-i", str(mergeList), "-c", "copy", merged]]
+    assert loggedCalls(log) == [
+        ["ffmpeg", "-f", "concat", "-safe", "0", "-i", str(mergeList), "-c", "copy", merged]
+    ]
     # ffmpeg's concat list format: each path in quotes, a ' written as '\''.
-    assert mergeList.read_text(encoding="utf-8") == f"file '{video}'\nfile '{video.parent}/it'\\''s.mkv'\n"
+    assert (
+        mergeList.read_text(encoding="utf-8")
+        == f"file '{video}'\nfile '{video.parent}/it'\\''s.mkv'\n"
+    )
     assert PROMPT in run.stdout

@@ -19,11 +19,15 @@ FRAMES_AT_30 = [n / 30 for n in range(60)]
         pytest.param([round(t, 3) for t in FRAMES_AT_30], 0, "30", 0, id="millisecond timestamps"),
         pytest.param([0.021 + t for t in FRAMES_AT_30], 0.021, "30", 0, id="from a start offset"),
         pytest.param(FRAMES_AT_30[::2] + FRAMES_AT_30[1:2], 0, "30", 0, id="dropped frames"),
-        pytest.param([t + 0.3 / 30 * (n % 2) for n, t in enumerate(FRAMES_AT_30)], 0, "30", 30, id="jittered"),
+        pytest.param(
+            [t + 0.3 / 30 * (n % 2) for n, t in enumerate(FRAMES_AT_30)], 0, "30", 30, id="jittered"
+        ),
         pytest.param(FRAMES_AT_30, 0, "20", 40, id="a wrong rate"),
     ],
 )
-def test_frames_off_the_grid_are_counted(times: list[float], origin: float, rate: str, off: int) -> None:
+def test_frames_off_the_grid_are_counted(
+    times: list[float], origin: float, rate: str, off: int
+) -> None:
     assert offGridFrames(times, origin, Fraction(rate)) == off
 
 
@@ -32,7 +36,9 @@ def test_frames_off_the_grid_are_counted(times: list[float], origin: float, rate
     [
         pytest.param("clip.webm", "clip.webm", "30/1", "30/1", True, id="a local video"),
         pytest.param("https://example.com/v", "", "30/1", "30/1", False, id="a network stream"),
-        pytest.param("clip.mp4", "clip.mp4", "30/1", "3600/179", False, id="a varying rate its header shows"),
+        pytest.param(
+            "clip.mp4", "clip.mp4", "30/1", "3600/179", False, id="a varying rate its header shows"
+        ),
     ],
 )
 def test_frame_times_are_read_for_local_videos_whose_header_shows_no_varying_rate(
@@ -47,7 +53,9 @@ def test_frame_times_are_read_for_local_videos_whose_header_shows_no_varying_rat
     ("setpts", "warns"),
     [
         pytest.param("N/30/TB", False, id="constant"),
-        pytest.param("if(lt(N,30),N,30+2*(N-30))/30/TB", False, id="half speed after 1 s, on the grid"),
+        pytest.param(
+            "if(lt(N,30),N,30+2*(N-30))/30/TB", False, id="half speed after 1 s, on the grid"
+        ),
         pytest.param("(N+0.4*mod(N,2))/30/TB", True, id="uneven frame times"),
     ],
 )
@@ -93,7 +101,11 @@ def test_a_variable_frame_rate_is_warned_about(
 
 def _warnOffGrid(monkeypatch: pytest.MonkeyPatch) -> None:
     jittered = "\n".join(str(t + 0.3 / 30 * (n % 2)) for n, t in enumerate(FRAMES_AT_30))
-    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: subprocess.CompletedProcess(args, 0, jittered, ""))
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args, 0, jittered, ""),
+    )
     warnIfFramesOffGrid("ffprobe", "video.webm", origin=0, rate=Fraction(30))
 
 
@@ -107,7 +119,9 @@ def _warnOffGrid(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.parametrize(
     "consequence",
     [
-        pytest.param("a clip's first or last frame and instant crop points can be a frame off", id="5.49"),
+        pytest.param(
+            "a clip's first or last frame and instant crop points can be a frame off", id="5.49"
+        ),
         # 5.48 takes the frames by their own times, then a constant output rate repeats or drops some.
         pytest.param(
             "repeats frames where the video has fewer frames per second and drops frames where it has more",

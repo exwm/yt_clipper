@@ -31,7 +31,9 @@ def test_markup_saved_files_are_valid(path: Path) -> None:
     assert validation == markers_schema.MarkersValidation()
 
 
-@pytest.mark.parametrize("crop", ["0:0:960:540", "0:0:0960:0540", "0:0:1.5:1.25", "10.5:0:iw:ih", "0:0:1:1"])
+@pytest.mark.parametrize(
+    "crop", ["0:0:960:540", "0:0:0960:0540", "0:0:1.5:1.25", "10.5:0:iw:ih", "0:0:1:1"]
+)
 def test_crops_with_a_width_and_height_above_zero_are_valid(crop: str) -> None:
     markers = kitchenSink()
     markers["markerPairs"][0]["crop"] = crop
@@ -88,9 +90,13 @@ def test_unknown_keys_are_dropped(path: list[Any], key: str) -> None:
         pytest.param("markerPairMergeList", "1--2", id="malformed merge list"),
         pytest.param("denoise", {"enabled": True, "lumaSpatial": "4:x"}, id="preset value"),
         pytest.param("markerPairs", {}, id="pairs not a list"),
-        pytest.param("cropPointEasingCinematicMargin", "40 -y", id="cinematic margin with arguments"),
+        pytest.param(
+            "cropPointEasingCinematicMargin", "40 -y", id="cinematic margin with arguments"
+        ),
         pytest.param("cropPointEasingCinematicMargin", 51, id="cinematic margin above 50%"),
-        pytest.param("cropPointEasingCinematicZoomMargin", 101, id="cinematic zoom margin above 100%"),
+        pytest.param(
+            "cropPointEasingCinematicZoomMargin", 101, id="cinematic zoom margin above 100%"
+        ),
         pytest.param("cropPointEasingCinematicHolds", "Firm", id="unknown hold points option"),
     ],
 )
@@ -108,7 +114,9 @@ def test_invalid_global_settings_are_reported(key: str, value: object) -> None:
         pytest.param("newMarkerCrop", "0:NaN:iw:ih", id="NaN new marker crop"),
         pytest.param("version", 5, id="numeric version"),
         # It only decides whether to warn that Cinematic crops may move differently.
-        pytest.param("cropPointEasingCinematicSolverVersion", "1", id="Cinematic solver version string"),
+        pytest.param(
+            "cropPointEasingCinematicSolverVersion", "1", id="Cinematic solver version string"
+        ),
     ],
 )
 def test_invalid_markup_only_settings_are_dropped(key: str, value: object) -> None:
@@ -145,7 +153,9 @@ def test_missing_required_setting_is_reported() -> None:
         pytest.param(["cropMap", 2, "hold"], False, id="hold that is false"),
         pytest.param(["speedMap", 0, "y"], -1, id="speed point"),
         pytest.param(["overrides", "cropPointEasing"], "linear", id="unknown crop easing"),
-        pytest.param(["overrides", "cropPointEasingCinematicHolds"], "Firm", id="unknown hold points option"),
+        pytest.param(
+            ["overrides", "cropPointEasingCinematicHolds"], "Firm", id="unknown hold points option"
+        ),
     ],
 )
 def test_invalid_pair_values_only_fail_that_pair(path: list[Any], value: object) -> None:
@@ -291,7 +301,9 @@ def test_file_name_with_trailing_whitespace_is_rejected(tmp_path: Path) -> None:
         pytest.param(
             "x\\.json",
             id="a backslash",
-            marks=pytest.mark.skipif(sys.platform == "win32", reason="a folder separator on Windows"),
+            marks=pytest.mark.skipif(
+                sys.platform == "win32", reason="a folder separator on Windows"
+            ),
         ),
     ],
 )
@@ -301,6 +313,7 @@ def test_a_file_name_with_quotes_names_clips_as_one_argument(tmp_path: Path, nam
     ytc_settings.setMarkersFileNames(settings)
     clip = f"{settings['titleSuffix']}-1.webm"
     assert shlex.split(f'ffmpeg -i in.mp4 "{clip}"') == ["ffmpeg", "-i", "in.mp4", clip]
+
 
 def test_loader_strips_quotes_and_backslashes_from_title(tmp_path: Path) -> None:
     settings = writeMarkers(tmp_path, json.dumps({**kitchenSink(), "videoTitle": 'a "b" c\\'}))
@@ -382,7 +395,9 @@ def test_a_merged_clip_named_from_a_quoted_title_prefix_stays_one_argument(
         clip = tmp_path / f"clip-{number}.webm"
         clip.touch()
         overrides = {"titlePrefix": 'x" -f mp4 "y'}
-        pairs.append({"returncode": 0, "fileName": clip.name, "filePath": str(clip), "overrides": overrides})
+        pairs.append(
+            {"returncode": 0, "fileName": clip.name, "filePath": str(clip), "overrides": overrides}
+        )
     cs = ClipperState(
         settings={
             "markerPairs": pairs,
@@ -416,7 +431,11 @@ def test_title_prefix_cannot_leave_the_output_folder(
 
 
 @pytest.mark.parametrize("platform", ["win32", "darwin", "linux"])
-@pytest.mark.parametrize("name", ['x" -y -f mp4 "z', "x\\", 'a\\"b'], ids=["quotes", "trailing backslash", "escaped quote"])
+@pytest.mark.parametrize(
+    "name",
+    ['x" -y -f mp4 "z', "x\\", 'a\\"b'],
+    ids=["quotes", "trailing backslash", "escaped quote"],
+)
 def test_a_cleaned_file_name_stays_one_argument_of_a_quoted_command(
     monkeypatch: pytest.MonkeyPatch,
     platform: str,

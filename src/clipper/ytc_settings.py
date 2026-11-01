@@ -369,7 +369,9 @@ def getMoreVideoInfo(
         settings.update(probedSettings)
     elif not videoInfo:
         # A local input video has no yt-dlp info to fall back on.
-        logger.critical(f"ffprobe could not read the input video {LogPath(settings['inputVideo'])}.")
+        logger.critical(
+            f"ffprobe could not read the input video {LogPath(settings['inputVideo'])}."
+        )
         sys.exit(1)
     else:
         logger.warning("Could not fetch video info with ffprobe")

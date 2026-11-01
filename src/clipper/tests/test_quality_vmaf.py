@@ -88,7 +88,15 @@ def test_summarize_vmaf_n_frames_computes_mean_percentiles_min(scores: list[floa
     assert summary.p15 == pytest.approx(cuts[14])
     assert summary.p20 == pytest.approx(cuts[19])
     assert summary.p25 == pytest.approx(cuts[24])
-    assert summary.p1 <= summary.p5 <= summary.p10 <= summary.p15 <= summary.p20 <= summary.p25 <= summary.mean
+    assert (
+        summary.p1
+        <= summary.p5
+        <= summary.p10
+        <= summary.p15
+        <= summary.p20
+        <= summary.p25
+        <= summary.mean
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -107,13 +115,17 @@ def _make_fake_ffqm(per_frame_payload: list[dict]) -> MagicMock:
     return instance
 
 
-def test_measure_per_frame_asks_the_library_for_vmaf_neg_and_returns_floats_in_frame_order() -> None:
+def test_measure_per_frame_asks_the_library_for_vmaf_neg_and_returns_floats_in_frame_order() -> (
+    None
+):
     """The library gets our ffmpeg path, ref/dist as strings, threads, the vmaf metric and the NEG
     model (our calibration and shipping decisions are tuned against NEG, not vmaf_v0.6.1). Scores
     come back in frame order as floats: some libvmaf payloads emit integers, which mixed types would
     trip in ``statistics.quantiles``.
     """
-    fake_instance = _make_fake_ffqm([{"n": 1, "vmaf": 95.5}, {"n": 2, "vmaf": 100}, {"n": 3, "vmaf": 91.0}])
+    fake_instance = _make_fake_ffqm(
+        [{"n": 1, "vmaf": 95.5}, {"n": 2, "vmaf": 100}, {"n": 3, "vmaf": 91.0}]
+    )
     with patch(
         "clipper.quality.vmaf.FfmpegQualityMetrics",
         return_value=fake_instance,

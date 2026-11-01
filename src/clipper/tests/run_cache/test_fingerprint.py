@@ -29,7 +29,11 @@ CODEC_ARGS_PAIRS = {
     "crf": ("-c:v libvpx-vp9 -crf 30 -aq-mode 0", "-c:v libvpx-vp9 -crf 42 -aq-mode 0", True),
     "qmin and qmax": ("-crf 30 -qmin 15 -qmax 43", "-crf 42 -qmin 15 -qmax 55", True),
     # The fingerprint is about behavior, not the order the source code emits flags in
-    "flag order": ("-c:v libvpx-vp9 -aq-mode 0 -tile-rows 0", "-tile-rows 0 -aq-mode 0 -c:v libvpx-vp9", True),
+    "flag order": (
+        "-c:v libvpx-vp9 -aq-mode 0 -tile-rows 0",
+        "-tile-rows 0 -aq-mode 0 -c:v libvpx-vp9",
+        True,
+    ),
     "whitespace": ("  -c:v   libvpx-vp9   -aq-mode 0  ", "-c:v libvpx-vp9 -aq-mode 0", True),
     "empty": ("", "   ", True),
     "flag value": ("-c:v libvpx-vp9 -aq-mode 0", "-c:v libvpx-vp9 -aq-mode 4", False),
@@ -51,14 +55,20 @@ def test_canonicalize_codec_args_marks_crf_keeps_boolean_flags_and_empties_blank
 
 
 FILTER_GRAPH_PAIRS = {
-    "trim range": ("trim=12.5:34.7,scale=w=iw/2:h=ih/2", "trim=100.1:200.4,scale=w=iw/2:h=ih/2", True),
+    "trim range": (
+        "trim=12.5:34.7,scale=w=iw/2:h=ih/2",
+        "trim=100.1:200.4,scale=w=iw/2:h=ih/2",
+        True,
+    ),
     # Each filter feeds the next, so order matters, unlike codec args
     "filter order": ("scale=1920:1080,format=yuv420p", "format=yuv420p,scale=1920:1080", False),
     "filter change": ("trim=0:10,scale=1920:1080", "trim=0:10,scale=1280:720", False),
 }
 
 
-@pytest.mark.parametrize(("a", "b", "same"), FILTER_GRAPH_PAIRS.values(), ids=FILTER_GRAPH_PAIRS.keys())
+@pytest.mark.parametrize(
+    ("a", "b", "same"), FILTER_GRAPH_PAIRS.values(), ids=FILTER_GRAPH_PAIRS.keys()
+)
 def test_canonicalize_filter_graph(a: str, b: str, same: bool) -> None:
     assert (canonicalize_filter_graph(a) == canonicalize_filter_graph(b)) == same
 

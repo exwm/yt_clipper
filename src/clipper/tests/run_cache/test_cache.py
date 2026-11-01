@@ -283,10 +283,16 @@ CACHE_GATES = {
 
 
 @pytest.mark.parametrize(
-    ("prior", "current", "kind", "reason"), CACHE_GATES.values(), ids=CACHE_GATES.keys(),
+    ("prior", "current", "kind", "reason"),
+    CACHE_GATES.values(),
+    ids=CACHE_GATES.keys(),
 )
 def test_evaluate_cache_reuse_gates(
-    tmp_path: Path, prior: dict, current: dict, kind: str, reason: str | None,
+    tmp_path: Path,
+    prior: dict,
+    current: dict,
+    kind: str,
+    reason: str | None,
 ) -> None:
     pair_dir = tmp_path / "1"
     _make_run_jsonl(pair_dir / "abc123def456" / "run-260509T100000.jsonl", **prior)

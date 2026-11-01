@@ -58,7 +58,7 @@ test-py-slow:
 test-py-update:
   just test-py true
 
-lint-py:
+lint-py: pretty-py-check
   just _timed "ruff check" uv run ruff check src/clipper integration-tests tools
 lint-py-fix:
   uv run ruff check src/clipper integration-tests tools --fix

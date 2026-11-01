@@ -44,7 +44,11 @@ def test_a_release_passes_yt_dlp_its_ffmpeg_path_unquoted(monkeypatch: pytest.Mo
         },
     )  # fmt: skip
     cs.clipper_paths.ffmpegPath = shlex.quote("C:\\Users\\example\\My Tools\\ffmpeg.exe")
-    assertFollows(ytdl.ytdl_bin_get_args_base(cs), "--ffmpeg-location", "C:\\Users\\example\\My Tools\\ffmpeg.exe")
+    assertFollows(
+        ytdl.ytdl_bin_get_args_base(cs),
+        "--ffmpeg-location",
+        "C:\\Users\\example\\My Tools\\ffmpeg.exe",
+    )
 
 
 def test_cookiefile_passed_as_cookies() -> None:
@@ -263,7 +267,9 @@ def test_find_quality_drops(
 DROP = [(videoFormat("313", 2160), videoFormat("248", 1080))]
 
 PREFERRED_4K = f"313+251\n{TABLE}"
-INFO_1080 = ytdlInfo([videoFormat("248", 1080), audioFormat("251", 160)], [videoFormat("313", 2160)])
+INFO_1080 = ytdlInfo(
+    [videoFormat("248", 1080), audioFormat("251", 160)], [videoFormat("313", 2160)]
+)
 INFO_4K = ytdlInfo([videoFormat("313", 2160), audioFormat("251", 160)], [])
 
 
@@ -452,7 +458,9 @@ def test_a_found_input_video_with_square_brackets_in_its_name_is_logged_as_text(
         env={**os.environ, "COLUMNS": "300"},
         cwd=tmp_path,
     )
-    found = [line for line in (run.stdout + run.stderr).splitlines() if "Found potential input" in line]
+    found = [
+        line for line in (run.stdout + run.stderr).splitlines() if "Found potential input" in line
+    ]
     assert len(found) == 1, run.stdout + run.stderr
     assert f"{stem}.mp4" in found[0]
 
@@ -854,7 +862,9 @@ def test_no_video_from_ytdlp_stops_with_a_clear_error(
 ) -> None:
     # yt-dlp can succeed and print nothing, for example for an empty playlist.
     monkeypatch.setattr(
-        ytdl.subprocess, "run", lambda args, **_kwargs: subprocess.CompletedProcess(args, 0, stdout=b"\n")
+        ytdl.subprocess,
+        "run",
+        lambda args, **_kwargs: subprocess.CompletedProcess(args, 0, stdout=b"\n"),
     )
     logged: list[str] = []
     monkeypatch.setattr(ytdl, "logger", RecordingLogger(logged))

@@ -668,8 +668,12 @@ def getCropPathFilter(
     isZoom = (max(widths) - min(widths)) > 0.5
 
     if not isZoom:
-        easingsX = [(s["startT"], s["endT"], _cropPathPolyExpr(s["x"], "t", s["startT"])) for s in scaled]
-        easingsY = [(s["startT"], s["endT"], _cropPathPolyExpr(s["y"], "t", s["startT"])) for s in scaled]
+        easingsX = [
+            (s["startT"], s["endT"], _cropPathPolyExpr(s["x"], "t", s["startT"])) for s in scaled
+        ]
+        easingsY = [
+            (s["startT"], s["endT"], _cropPathPolyExpr(s["y"], "t", s["startT"])) for s in scaled
+        ]
         cropXExpr = getEaseFilterExpr(easingsX, timeExpr="t")
         cropYExpr = getEaseFilterExpr(easingsY, timeExpr="t")
         # Even, as the other crop paths make it: libx264's yuv420p rejects an odd width or height.
@@ -702,8 +706,12 @@ def getCropPathFilter(
         right = _addTriples(s["x"], s["w"])
         bottom = _addTriples(s["y"], s["h"])
 
-        panRight = f"max({_cropPathPolyExpr(right, 't', startT, panScale)}-{panScale}*{maxWidth}, 0)"
-        panBottom = f"max({_cropPathPolyExpr(bottom, 't', startT, panScale)}-{panScale}*{maxHeight}, 0)"
+        panRight = (
+            f"max({_cropPathPolyExpr(right, 't', startT, panScale)}-{panScale}*{maxWidth}, 0)"
+        )
+        panBottom = (
+            f"max({_cropPathPolyExpr(bottom, 't', startT, panScale)}-{panScale}*{maxHeight}, 0)"
+        )
 
         easeW = _cropPathPolyExpr(s["w"], ZOOM_PAN_TIME_EXPR, startT)
         easeZoom = f"({maxWidth}/({easeW}))"
@@ -732,9 +740,7 @@ def getCropPathFilter(
     zoomPanFilter = ""
     if panScale > 1:
         zoomPanFilter += f"scale=w={panScale}*iw:h={panScale}*ih,"
-    zoomPanFilter += (
-        f"crop='x={panXExpr}:y={panYExpr}:w={panScale}*{maxWidth}:h={panScale}*{maxHeight}:exact=1',"
-    )
+    zoomPanFilter += f"crop='x={panXExpr}:y={panYExpr}:w={panScale}*{maxWidth}:h={panScale}*{maxHeight}:exact=1',"
     if zoomScale > 1:
         zoomPanFilter += f"scale=w={zoomScale}*iw:h={zoomScale}*ih,"
     zoomPanFilter += f"zoompan=z='({zoomExpr})':x='{zoomXExpr}':y='{zoomYExpr}'"
@@ -968,8 +974,12 @@ def getSectionEasingExpression(  # noqa: PLR0913 (one positional/keyword per eas
     if easeType != "smoothTrack":
         return getEasingExpression(easeType, easeA, easeB, easeP)
 
-    startTangent = getCropSectionTangent(prevValue, startValue, endValue, prevTime, startTime, endTime)
-    endTangent = getCropSectionTangent(startValue, endValue, nextValue, startTime, endTime, nextTime)
+    startTangent = getCropSectionTangent(
+        prevValue, startValue, endValue, prevTime, startTime, endTime
+    )
+    endTangent = getCropSectionTangent(
+        startValue, endValue, nextValue, startTime, endTime, nextTime
+    )
     return getHermiteEasingExpression(
         startValue,
         endValue,

@@ -17,7 +17,9 @@ from pathlib import Path
 
 from lint_strings import REPO, corpus, located_alerts, prose_strings
 
-DOCS = re.compile(r"^(readme|quickstart)\.md$|^release-notes/[^/]+\.md$|^tools/encoding/README\.md$")
+DOCS = re.compile(
+    r"^(readme|quickstart)\.md$|^release-notes/[^/]+\.md$|^tools/encoding/README\.md$"
+)
 SOURCE = re.compile(r"^src/.+\.(py|ts)$")
 BLOCKING = {"error", "warning"}
 HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
@@ -43,17 +45,23 @@ def run(command: list[str]) -> str:
 
 
 def vale_alerts(file: Path) -> list[dict]:
-    out = run(["vale", "--config", str(REPO / ".vale.ini"), "--output=JSON", "--no-exit", str(file)])
+    out = run(
+        ["vale", "--config", str(REPO / ".vale.ini"), "--output=JSON", "--no-exit", str(file)]
+    )
     return [alert for alerts in json.loads(out or "{}").values() for alert in alerts]
 
 
 def default_base() -> str:
-    return run(["jj", "log", "-r", "latest(tags() & ::@-)", "--no-graph", "-T", "commit_id"]).strip()
+    return run(
+        ["jj", "log", "-r", "latest(tags() & ::@-)", "--no-graph", "-T", "commit_id"]
+    ).strip()
 
 
 def main(base: str) -> int:
     if shutil.which("vale") is None:
-        print("vale is not installed: `scoop install vale` or `brew install vale` (3.25.1 or later).")
+        print(
+            "vale is not installed: `scoop install vale` or `brew install vale` (3.25.1 or later)."
+        )
         return 1
     added = added_lines(run(["git", "diff", "-U0", "--no-color", base, "--", "."]))
     findings: list[tuple[str, str]] = []
@@ -86,18 +94,35 @@ def main(base: str) -> int:
             )
         ]
 
-    subjects = run(["jj", "log", "-r", f"{base}..@", "--no-graph", "-T", 'description.first_line() ++ "\\n\\n"'])
+    subjects = run(
+        [
+            "jj",
+            "log",
+            "-r",
+            f"{base}..@",
+            "--no-graph",
+            "-T",
+            'description.first_line() ++ "\\n\\n"',
+        ]
+    )
     with tempfile.TemporaryDirectory() as folder:
         subject_file = Path(folder) / "commits.subject"
         subject_file.write_text(subjects, encoding="utf-8")
         texts = subjects.splitlines()
         for alert in vale_alerts(subject_file):
-            findings.append((alert["Severity"], f"subject: {alert['Check']}: {alert['Message']}\n    {texts[alert['Line'] - 1]}"))
+            findings.append(
+                (
+                    alert["Severity"],
+                    f"subject: {alert['Check']}: {alert['Message']}\n    {texts[alert['Line'] - 1]}",
+                )
+            )
 
     for severity, text in findings:
         print(f"{severity}: {text}")
     blocking = sum(severity in BLOCKING for severity, _ in findings)
-    print(f"{blocking} errors or warnings, {len(findings) - blocking} suggestions in prose added since {base[:12]}.")
+    print(
+        f"{blocking} errors or warnings, {len(findings) - blocking} suggestions in prose added since {base[:12]}."
+    )
     return 1 if blocking else 0
 
 

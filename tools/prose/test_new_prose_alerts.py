@@ -30,5 +30,7 @@ diff --git a/old.md b/old.md
         pytest.param("old.md", None, id="a deleted file has no added lines"),
     ],
 )
-def test_added_lines_are_the_new_versions_line_numbers(path: str, expected: set[int] | None) -> None:
+def test_added_lines_are_the_new_versions_line_numbers(
+    path: str, expected: set[int] | None
+) -> None:
     assert added_lines(DIFF).get(path) == expected

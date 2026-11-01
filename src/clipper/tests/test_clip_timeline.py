@@ -54,28 +54,56 @@ PAIR_MAPS = {
 }
 
 
-RAMP_TO_THE_END = {**PAIR_MAPS, "speedMap": [{"x": 0.0, "y": 1}, {"x": 5.0, "y": 1}, {"x": 10.0, "y": 0.5}]}
+RAMP_TO_THE_END = {
+    **PAIR_MAPS,
+    "speedMap": [{"x": 0.0, "y": 1}, {"x": 5.0, "y": 1}, {"x": 10.0, "y": 0.5}],
+}
 
 
 @pytest.mark.parametrize(
     ("window", "maps", "speedMap"),
     [
-        pytest.param((6.0, 8.0), PAIR_MAPS, [(6.0, 0.5), (8 + 1 / 30, 0.5)], id="a window inside the pair"),
-        pytest.param((0.0, 2.0), PAIR_MAPS, [(0.0, 1), (2 + 1 / 30, 0.8)], id="a window at the pair's start"),
-        pytest.param((4.0, 6.0), PAIR_MAPS, [(4.0, 0.6), (5.0, 0.5), (6 + 1 / 30, 0.5)], id="a window across a point"),
-        pytest.param((5.0, 7.0), PAIR_MAPS, [(5.0, 0.5), (7 + 1 / 30, 0.5)], id="a window starting on a point"),
+        pytest.param(
+            (6.0, 8.0), PAIR_MAPS, [(6.0, 0.5), (8 + 1 / 30, 0.5)], id="a window inside the pair"
+        ),
+        pytest.param(
+            (0.0, 2.0), PAIR_MAPS, [(0.0, 1), (2 + 1 / 30, 0.8)], id="a window at the pair's start"
+        ),
+        pytest.param(
+            (4.0, 6.0),
+            PAIR_MAPS,
+            [(4.0, 0.6), (5.0, 0.5), (6 + 1 / 30, 0.5)],
+            id="a window across a point",
+        ),
+        pytest.param(
+            (5.0, 7.0),
+            PAIR_MAPS,
+            [(5.0, 0.5), (7 + 1 / 30, 0.5)],
+            id="a window starting on a point",
+        ),
         # The pair's last section reaches its speed at the last frame's start, 10 s.
-        pytest.param((6.0, 8.0), RAMP_TO_THE_END, [(6.0, 0.9), (8 + 1 / 30, 0.7)], id="a window in a last section ramp"),
+        pytest.param(
+            (6.0, 8.0),
+            RAMP_TO_THE_END,
+            [(6.0, 0.9), (8 + 1 / 30, 0.7)],
+            id="a window in a last section ramp",
+        ),
         # A chart point on the 0.01 s grid can leave a map end a few ms off its marker.
         pytest.param(
             (0.0, 10.0),
-            {**PAIR_MAPS, "speedMap": [{"x": 0.0, "y": 1}, {"x": 5.0, "y": 0.5}, {"x": 9.995, "y": 0.5}]},
+            {
+                **PAIR_MAPS,
+                "speedMap": [{"x": 0.0, "y": 1}, {"x": 5.0, "y": 0.5}, {"x": 9.995, "y": 0.5}],
+            },
             [(0.0, 1), (5.0, 0.5), (10 + 1 / 30, 0.5)],
             id="the whole pair, a map end 5 ms off",
         ),
         pytest.param(
             (0.0, 10.0),
-            {**PAIR_MAPS, "speedMap": [{"x": 0.0, "y": 1}, {"x": 10.01, "y": 0.5}, {"x": 10.02, "y": 0.5}]},
+            {
+                **PAIR_MAPS,
+                "speedMap": [{"x": 0.0, "y": 1}, {"x": 10.01, "y": 0.5}, {"x": 10.02, "y": 0.5}],
+            },
             [(0.0, 1), (10.01, 0.5), (10 + 1 / 30, 0.5)],
             id="the whole pair, a speed point inside its last frame",
         ),
@@ -85,7 +113,9 @@ def test_a_sample_guided_window_plays_its_own_part_of_its_pairs_maps(
     tmp_path: Path, window: tuple, maps: dict, speedMap: list
 ) -> None:
     start, end = window
-    mp = pairSettings(tmp_path, {"start": start, "end": end, "pairStart": 0.0, "pairEnd": 10.0, **maps})
+    mp = pairSettings(
+        tmp_path, {"start": start, "end": end, "pairStart": 0.0, "pairEnd": 10.0, **maps}
+    )
     assert (mp["start"], mp["end"]) == pytest.approx((start, end + 1 / 30))
     assert [(point["x"], point["y"]) for point in mp["speedMap"]] == pytest.approx(speedMap)
     # The crop map stays the pair's, read from the window's start.
@@ -94,7 +124,9 @@ def test_a_sample_guided_window_plays_its_own_part_of_its_pairs_maps(
 
 
 def test_a_sample_guided_window_lasts_as_long_as_its_frames_play(tmp_path: Path) -> None:
-    mp = pairSettings(tmp_path, {"start": 6.0, "end": 8.0, "pairStart": 0.0, "pairEnd": 10.0, **PAIR_MAPS})
+    mp = pairSettings(
+        tmp_path, {"start": 6.0, "end": 8.0, "pairStart": 0.0, "pairEnd": 10.0, **PAIR_MAPS}
+    )
     # 61 frames at 0.5x, the last one held for a frame as a pair's is.
     assert mp["outputDuration"] == pytest.approx(60 / 30 / 0.5 + 1 / 30)
     # The pair's average speed sets the window's GOP length, as in the pair's own encode.
@@ -117,7 +149,9 @@ def test_a_sample_guided_window_is_clipped_with_its_pairs_own_ends(
 
     monkeypatch.setattr(clip_maker, "makeClip", makeClip)
     pair = {"start": 0.0, "end": 10.0, "overrides": {}, **PAIR_MAPS}
-    cs = ClipperState(settings={"markerPairs": [dict(pair)]}, clipper_paths=ClipperPaths(clipsPath=str(tmp_path)))
+    cs = ClipperState(
+        settings={"markerPairs": [dict(pair)]}, clipper_paths=ClipperPaths(clipsPath=str(tmp_path))
+    )
     orchestrator._encode_windows_for_marker_pair(
         cs=cs,
         markerPairIndex=0,
@@ -158,13 +192,32 @@ def test_a_sample_guided_window_crops_its_own_frames(
     tmp_path: Path, window: tuple, maps: dict, firstRightFrame: int
 ) -> None:
     start, end = window
-    pair = {"start": start, "end": end, "pairStart": 0.0, "pairEnd": 10.0, "crop": maps["cropMap"][0]["crop"]}
+    pair = {
+        "start": start,
+        "end": end,
+        "pairStart": 0.0,
+        "pairEnd": 10.0,
+        "crop": maps["cropMap"][0]["crop"],
+    }
     mp = pairSettings(tmp_path, {**pair, **maps})
     # The crop before the cut at 5 s shows black (the left half, or the frame's mean); after it, white.
     source = "color=c=black:s=1920x1080:r=30:d=3,drawbox=x=960:y=0:w=960:h=1080:color=white:t=fill"
-    chain = f"{source},setpts=PTS-STARTPTS,trim=0:{mp['trimEnd']},{clip_maker.cropFilterOnPairTime(mp)}"
+    chain = (
+        f"{source},setpts=PTS-STARTPTS,trim=0:{mp['trimEnd']},{clip_maker.cropFilterOnPairTime(mp)}"
+    )
     frames = subprocess.run(
-        ["ffmpeg", "-v", "error", "-f", "lavfi", "-i", f"{chain},scale=4:2,format=gray", "-f", "rawvideo", "-"],
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            f"{chain},scale=4:2,format=gray",
+            "-f",
+            "rawvideo",
+            "-",
+        ],
         capture_output=True,
         check=True,
     ).stdout

@@ -122,7 +122,16 @@ class Clipper:
         ffprobe = self.toolPath("ffprobe")
         assert ffprobe is not None
         probe = subprocess.run(
-            [ffprobe, "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(clip)],
+            [
+                ffprobe,
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "csv=p=0",
+                str(clip),
+            ],
             capture_output=True,
             text=True,
             check=True,
@@ -185,7 +194,9 @@ CLIP_CASES = [
         length=MARKER_PAIR_LENGTH - float(1 / SOURCE_FPS) / 0.3,
         frameTiming="5.48",
     ),
-    clipCase("av1", ("--video-codec", "av1"), "libsvtav1", "av1", localVideo=True, frameTiming="5.49"),
+    clipCase(
+        "av1", ("--video-codec", "av1"), "libsvtav1", "av1", localVideo=True, frameTiming="5.49"
+    ),
     clipCase(
         "av1-legacy-frame-timing",
         ("--video-codec", "av1"),
@@ -245,7 +256,9 @@ def test_an_input_video_ffprobe_cannot_read_stops_with_a_clear_message(
     markers.write_text(MARKERS.read_text(encoding="utf-8"), encoding="utf-8")
     output = clipper.cwd / "webms" / markers.stem
     try:
-        run = clipper.run(["--markers-json", str(markers), "--input-video", str(broken), *OFFLINE_ARGS])
+        run = clipper.run(
+            ["--markers-json", str(markers), "--input-video", str(broken), *OFFLINE_ARGS]
+        )
         assert run.returncode == 1
         log = "".join(path.read_text(encoding="utf-8") for path in output.glob("logs/*"))
         assert "ffprobe could not read the input video" in log
@@ -260,7 +273,9 @@ def test_an_input_video_ffprobe_cannot_read_stops_with_a_clear_message(
         pytest.param(("0:0:480:360", "480:0:480:360", "960:360:480:360"), "48x36", id="pan"),
         pytest.param(("0:0:480:360", "240:180:720:540", "0:0:960:720"), "96x72", id="zoom"),
         # Its filter is longer than ffmpeg's command line takes, so it is read from a file.
-        pytest.param(("0:0:480:360", "240:180:720:540", "0:0:960:720") * 4, "96x72", id="long zoom"),
+        pytest.param(
+            ("0:0:480:360", "240:180:720:540", "0:0:960:720") * 4, "96x72", id="long zoom"
+        ),
     ],
 )
 def test_cinematic_pair_renders_the_path_solved_from_its_crop_points(
@@ -377,12 +392,16 @@ def test_clip_of_a_video_with_a_start_time_begins_on_the_pair_start_frame(
     source, markers = makeVideo(ffmpeg, tmp_path)
     output = clipper.cwd / "webms" / markers.stem
     try:
-        run = clipper.run(["--markers-json", str(markers), "--input-video", str(source), *OFFLINE_ARGS])
+        run = clipper.run(
+            ["--markers-json", str(markers), "--input-video", str(source), *OFFLINE_ARGS]
+        )
         print(run.stdout, run.stderr)
         assert run.returncode == 0
         first = frameThumbnails(ffmpeg, next(output.glob("*.webm")), 1)[0]
         sourceFrames = frameThumbnails(ffmpeg, source, 40)
-        difference = [sum(abs(a - b) for a, b in zip(first, frame, strict=True)) for frame in sourceFrames]
+        difference = [
+            sum(abs(a - b) for a, b in zip(first, frame, strict=True)) for frame in sourceFrames
+        ]
         assert difference.index(min(difference)) == 30
     finally:
         shutil.rmtree(output, ignore_errors=True)
@@ -423,7 +442,9 @@ def sourceFrames(ffprobe: str, clip: pathlib.Path) -> list[int]:
         pytest.param(30 / 30, 50 / 30, (30, 50), 0, id="markers on frame starts"),
         pytest.param(30.5 / 30, 50.5 / 30, (30, 50), 0, id="markers mid-frame"),
         # 6 decimals is how markers are saved; both round a hair below their frame's start.
-        pytest.param(round(31 / 30, 6), round(52 / 30, 6), (31, 52), 0, id="markers saved to 6 decimals"),
+        pytest.param(
+            round(31 / 30, 6), round(52 / 30, 6), (31, 52), 0, id="markers saved to 6 decimals"
+        ),
         pytest.param(30.9 / 30, 50.9 / 30, (30, 50), 0, id="markers late in their frames"),
         pytest.param(0, 1, (0, 28), 2 / 30, id="a start marker before the video's first frame"),
     ],
@@ -468,7 +489,12 @@ def test_a_legacy_clip_runs_from_the_first_frame_starting_at_its_start_marker_to
 
 
 def clipOfNumberedVideo(
-    clipper: Clipper, tmp_path: pathlib.Path, start: float, end: float, sourceStart: float, *args: str
+    clipper: Clipper,
+    tmp_path: pathlib.Path,
+    start: float,
+    end: float,
+    sourceStart: float,
+    *args: str,
 ) -> list[int]:
     """The numbered source frames of a clip of `numberedVideo` from `start` to `end`."""
     clipper.requireEncoder("libvpx-vp9")
@@ -483,7 +509,9 @@ def clipOfNumberedVideo(
     markers.write_text(json.dumps(data), encoding="utf-8")
     output = clipper.cwd / "webms" / markers.stem
     try:
-        run = clipper.run(["--markers-json", str(markers), "--input-video", str(source), *OFFLINE_ARGS, *args])
+        run = clipper.run(
+            ["--markers-json", str(markers), "--input-video", str(source), *OFFLINE_ARGS, *args]
+        )
         print(run.stdout, run.stderr)
         assert run.returncode == 0
         return sourceFrames(ffprobe, next(output.glob("*.webm")))
@@ -517,21 +545,33 @@ def test_an_instant_crop_point_switches_on_its_own_frame(
         # 5.48 times the point from the start marker at 2 s: 91 / 30 - 2 is a hair below 31 / 30.
         pytest.param(0, 91 / 30, 90, id="exact: a frame early"),
         pytest.param(0, 91 / 30 - 0.0005, 90, id="in frame 90's last millisecond"),
-        pytest.param(0, round(91 / 30, 6), 90, id="frame 91's start saved to 6 decimals: a frame early"),
+        pytest.param(
+            0, round(91 / 30, 6), 90, id="frame 91's start saved to 6 decimals: a frame early"
+        ),
         # 5.48 seeks from the file's start time, so the crop's time runs 21 ms behind the video's.
         pytest.param(0.021, round(0.021 + 91 / 30, 6), 91, id="a video starting 21 ms in"),
     ],
 )
 @pytest.mark.frame_timing("5.48")
 def test_a_legacy_instant_crop_point_switches_on_5_48s_frame(
-    clipper: Clipper, tmp_path: pathlib.Path, easing: str, sourceStart: float, pointTime: float, frame: int
+    clipper: Clipper,
+    tmp_path: pathlib.Path,
+    easing: str,
+    sourceStart: float,
+    pointTime: float,
+    frame: int,
 ) -> None:
     shown = firstFrameCroppedRight(clipper, tmp_path, easing, sourceStart, pointTime)
     assert shown == frame
 
 
 def firstFrameCroppedRight(
-    clipper: Clipper, tmp_path: pathlib.Path, easing: str, sourceStart: float, pointTime: float, *args: str
+    clipper: Clipper,
+    tmp_path: pathlib.Path,
+    easing: str,
+    sourceStart: float,
+    pointTime: float,
+    *args: str,
 ) -> int:
     """The first source frame cropped to its right half, from an instant crop point at `pointTime`."""
     # Frame n's left half has brightness n and its right half 255 - n, so a frame's crop names the half
@@ -568,7 +608,9 @@ def firstFrameCroppedRight(
     markers.write_text(json.dumps(data), encoding="utf-8")
     output = clipper.cwd / "webms" / markers.stem
     try:
-        run = clipper.run(["--markers-json", str(markers), "--input-video", str(source), *OFFLINE_ARGS, *args])
+        run = clipper.run(
+            ["--markers-json", str(markers), "--input-video", str(source), *OFFLINE_ARGS, *args]
+        )
         print(run.stdout, run.stderr)
         assert run.returncode == 0
         # A right-half frame is brighter than 127.5; its source frame is 255 - its brightness.
@@ -636,7 +678,9 @@ def test_a_clips_audio_starts_with_its_first_frame(
     markers.write_text(json.dumps(data), encoding="utf-8")
     output = clipper.cwd / "webms" / markers.stem
     try:
-        run = clipper.run(["--markers-json", str(markers), "--input-video", str(source), *OFFLINE_ARGS])
+        run = clipper.run(
+            ["--markers-json", str(markers), "--input-video", str(source), *OFFLINE_ARGS]
+        )
         print(run.stdout, run.stderr)
         assert run.returncode == 0
         clip = next(output.glob("*.webm"))
@@ -656,7 +700,11 @@ def test_a_clips_audio_starts_with_its_first_frame(
     [
         pytest.param([], id="the encode"),
         # 5.48 seeks the late start video from its file's start time, past its end.
-        pytest.param(["--video-stabilization", "1"], id="video stabilization's two passes", marks=pytest.mark.frame_timing("5.49")),
+        pytest.param(
+            ["--video-stabilization", "1"],
+            id="video stabilization's two passes",
+            marks=pytest.mark.frame_timing("5.49"),
+        ),
     ],
 )
 def test_subtitles_burn_in_for_a_markers_file_named_with_an_apostrophe(
@@ -678,7 +726,14 @@ def test_subtitles_burn_in_for_a_markers_file_named_with_an_apostrophe(
     subs.write_text("WEBVTT\n\n00:10.000 --> 00:13.000\nhello\n", encoding="utf-8")
     output = clipper.cwd / "webms" / markers.stem
     try:
-        args = ["--markers-json", str(markers), "--input-video", str(source), "--subs-file", str(subs)]
+        args = [
+            "--markers-json",
+            str(markers),
+            "--input-video",
+            str(source),
+            "--subs-file",
+            str(subs),
+        ]
         run = clipper.run([*args, *extraArgs, *OFFLINE_ARGS])
         print(run.stdout, run.stderr)
         assert run.returncode == 0
@@ -695,7 +750,9 @@ def test_subtitles_burn_in_for_a_markers_file_named_with_an_apostrophe(
     [
         # The pair starts at 1.0 s, and ffplay half a 30 fps frame before. The file starts at
         # -0.1065 s: the audio's 0.1 s lead plus the Opus encoder's 6.5 ms pre-skip.
-        pytest.param(audioFirstVideo, 1.1065 - 1 / 60, id="audio first: the file starting before 0"),
+        pytest.param(
+            audioFirstVideo, 1.1065 - 1 / 60, id="audio first: the file starting before 0"
+        ),
         # The pair starts at 11.0 s, the file at 10 s.
         pytest.param(lateStartVideo, 1.0 - 1 / 60, id="late start: the file starting at 10 s"),
     ],
@@ -722,7 +779,9 @@ def test_preview_of_a_local_video_starts_ffplay_half_a_frame_before_the_pair_sta
 
     monkeypatch.setattr(clip_maker, "runffplayCommand", recordPreview)
     pairPromptAnswers = iter(["1", "q"])
-    monkeypatch.setattr(clip_maker, "input", lambda _prompt="": next(pairPromptAnswers), raising=False)
+    monkeypatch.setattr(
+        clip_maker, "input", lambda _prompt="": next(pairPromptAnswers), raising=False
+    )
     run = clipper.run(
         ["--markers-json", str(markers), "--input-video", str(source), "--preview", *OFFLINE_ARGS],
     )
@@ -775,14 +834,19 @@ def test_cinematic_solve_failing_renders_as_smooth_track(
     pair = data["markerPairs"][0]
     crops = ("0:0:480:360", "480:0:480:360", "960:360:480:360")
     times = [pair["start"] + (pair["end"] - pair["start"]) * i / 2 for i in range(3)]
-    pair.update(crop=crops[0], cropMap=[{"x": t, "y": 0, "crop": c} for t, c in zip(times, crops, strict=True)])
+    pair.update(
+        crop=crops[0],
+        cropMap=[{"x": t, "y": 0, "crop": c} for t, c in zip(times, crops, strict=True)],
+    )
     pair["overrides"] = {**pair.get("overrides", {}), "cropPointEasing": "cinematic"}
     markers = tmp_path / "cinematic-fallback.json"
     markers.write_text(json.dumps(data), encoding="utf-8")
     output = clipper.cwd / "webms" / markers.stem
     try:
         # In process, so the patched solver is the one that runs.
-        run = clipper.run(["--markers-json", str(markers), "--input-video", str(LOCAL_VIDEO), *OFFLINE_ARGS])
+        run = clipper.run(
+            ["--markers-json", str(markers), "--input-video", str(LOCAL_VIDEO), *OFFLINE_ARGS]
+        )
         assert run.returncode == 0
         assert len(list(output.glob("*.webm"))) == 1
         assert "Could not solve the Cinematic crop path" in caplog.text
@@ -794,8 +858,14 @@ def markersWithCropMap(crops: tuple[str, ...]) -> dict:
     """The test markers with the first pair's crop points spread evenly over it."""
     data = json.loads(MARKERS.read_text(encoding="utf-8"))
     pair = data["markerPairs"][0]
-    times = [pair["start"] + (pair["end"] - pair["start"]) * i / (len(crops) - 1) for i in range(len(crops))]
-    pair.update(crop=crops[0], cropMap=[{"x": t, "y": 0, "crop": crop} for t, crop in zip(times, crops, strict=True)])
+    times = [
+        pair["start"] + (pair["end"] - pair["start"]) * i / (len(crops) - 1)
+        for i in range(len(crops))
+    ]
+    pair.update(
+        crop=crops[0],
+        cropMap=[{"x": t, "y": 0, "crop": crop} for t, crop in zip(times, crops, strict=True)],
+    )
     return data
 
 
@@ -849,7 +919,9 @@ def test_cinematic_hold_points_follow_the_pairs_hold_points_setting(
         ("pair exact under a global loose", "loose", "exact"),
     ]:
         # A slow pan: a fast one keeps the whole margin under Firm, as under Loose.
-        data = markersWithCropMap(("0:0:480:360", "120:0:480:360", "120:0:480:360", "240:120:480:360"))
+        data = markersWithCropMap(
+            ("0:0:480:360", "120:0:480:360", "120:0:480:360", "240:120:480:360")
+        )
         data["cropPointEasing"] = "cinematic"
         pair = data["markerPairs"][0]
         pair["cropMap"][2]["hold"] = True
@@ -861,7 +933,10 @@ def test_cinematic_hold_points_follow_the_pairs_hold_points_setting(
     # Exact is the default.
     assert filters["pair exact under a global loose"] == filters["default"]
     assert filters["global firm"] == filters["pair firm"]
-    assert len({filters["default"], filters["pair firm"], filters["pair loose under a global firm"]}) == 3
+    assert (
+        len({filters["default"], filters["pair firm"], filters["pair loose under a global firm"]})
+        == 3
+    )
 
 
 @pytest.mark.parametrize("case", CLIP_CASES)
@@ -940,7 +1015,9 @@ def pageServer(tmp_path_factory: pytest.TempPathFactory) -> Iterator[PageServer]
             check=True,
         )  # fmt: skip
         sources.append(f'<source src="{label}.mp4" type="video/mp4" label="{label}">')
-    (root / "index.html").write_text(f"<html><body><video>{''.join(sources)}</video></body></html>", encoding="utf-8")
+    (root / "index.html").write_text(
+        f"<html><body><video>{''.join(sources)}</video></body></html>", encoding="utf-8"
+    )
     server = PageServer(("127.0.0.1", 0), functools.partial(PageHandler, directory=str(root)))
     server.unavailable = set()
     threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -1004,7 +1081,9 @@ def test_lower_quality_prompt_end_to_end(
     output = clipper.cwd / "webms" / name
     try:
         markers = pageMarkers(tmp_path, url, name)
-        run = clipper.run(["--markers-json", str(markers), *OFFLINE_ARGS, *case.args], stdin=case.answer)
+        run = clipper.run(
+            ["--markers-json", str(markers), *OFFLINE_ARGS, *case.args], stdin=case.answer
+        )
         logs = "".join(log.read_text(encoding="utf-8") for log in output.glob("logs/*.log"))
         print(run.stdout, run.stderr, logs)
         # In process the log file may not be flushed yet, so the captured records count too.

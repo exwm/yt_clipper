@@ -99,8 +99,14 @@ def audioFilter(mp: DictStrAny, mps: DictStrAny, aDuration: float) -> str:
 def varyingRateNote(rate: float | None) -> list[str]:
     stray = "a clip's first or last frame and instant crop points can be a frame off."
     if rate is None:
-        return ["Clips use a constant frame rate,", f"so where the video's frames stray from it, {stray}"]
-    return [f"Clips use a constant {rate:.3f} fps,", f"so where the video's frames stray from that rate, {stray}"]
+        return [
+            "Clips use a constant frame rate,",
+            f"so where the video's frames stray from it, {stray}",
+        ]
+    return [
+        f"Clips use a constant {rate:.3f} fps,",
+        f"so where the video's frames stray from that rate, {stray}",
+    ]
 
 
 FRAME_TIMING = FrameTiming(

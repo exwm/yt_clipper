@@ -7,7 +7,6 @@ branching on the ``previewFormat`` string and delegating to a format-specific
 implementation.
 """
 
-
 from clipper.clipper_types import ClipperPaths, DictStrAny
 from clipper.previews.avif import (
     AVIF_FILE_EXTENSION,

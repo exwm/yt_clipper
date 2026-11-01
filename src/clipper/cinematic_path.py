@@ -133,7 +133,9 @@ FIRM_HOLD_MAX_BORROW_SHARE = 0.4
 FIRM_HOLD_STILL_SHARE = 0.01
 
 
-def cinematicCropMap(cropMap: Sequence[CropPoint], holds: str = DEFAULT_CINEMATIC_HOLDS) -> list[CropPoint]:
+def cinematicCropMap(
+    cropMap: Sequence[CropPoint], holds: str = DEFAULT_CINEMATIC_HOLDS
+) -> list[CropPoint]:
     """The crop points the Cinematic solve reads: hold points become firm hold points under Firm, and
     ordinary crop points under Loose."""
     if holds == "exact":
@@ -231,7 +233,11 @@ def _holdEase(
         window = min(cap, 4 * minBrake)
     brake = min(brake, window / 2)
     outer = edge + direction * window
-    origin = (_lineAt(times, lines[0], outer), _lineAt(times, lines[1], outer), _lineAt(times, lines[2], outer))
+    origin = (
+        _lineAt(times, lines[0], outer),
+        _lineAt(times, lines[1], outer),
+        _lineAt(times, lines[2], outer),
+    )
     if direction < 0:
         return _HoldEase(outer, edge, True, brake, origin, held)
     return _HoldEase(edge, outer, False, brake, origin, held)
@@ -261,7 +267,9 @@ def _mergedHeldSpans(
         if spans and spans[-1][1] == times[k]:
             spans[-1] = (spans[-1][0], times[k + 1], spans[-1][2])
         else:
-            spans.append((times[k], times[k + 1], (lines[0][k + 1], lines[1][k + 1], lines[2][k + 1])))
+            spans.append(
+                (times[k], times[k + 1], (lines[0][k + 1], lines[1][k + 1], lines[2][k + 1]))
+            )
     return spans
 
 
@@ -287,7 +295,9 @@ DENSE_SOLVE_MAX_SAMPLES = 2001
 
 
 def _tooLongForDenseSolve(n: int) -> RuntimeError:
-    return RuntimeError(f"the banded solve is unavailable, and a {n}-sample run is too slow to solve without it")
+    return RuntimeError(
+        f"the banded solve is unavailable, and a {n}-sample run is too slow to solve without it"
+    )
 
 
 def _systemUpperBand(n: int) -> np.ndarray:
@@ -350,7 +360,10 @@ def solveL1Path(
     kappa = [weight / rho for weight in weights]
 
     for iteration in range(MAX_ITERS):
-        rhs = sum(_differenceAdjoint(zk - uzk, order) for order, zk, uzk in zip((1, 2, 3), z, uz, strict=True)) + (q - uq)
+        rhs = sum(
+            _differenceAdjoint(zk - uzk, order)
+            for order, zk, uzk in zip((1, 2, 3), z, uz, strict=True)
+        ) + (q - uq)
         p = solveSystem(rhs)
 
         primalSq = 0.0
@@ -375,11 +388,14 @@ def solveL1Path(
 
         primalRes = math.sqrt(primalSq / totalVars)
         dualRes = rho * math.sqrt(dualChangeSq / totalVars)
-        dualStack = sum(_differenceAdjoint(u, order) for order, u in zip((1, 2, 3), uz, strict=True)) + uq
+        dualStack = (
+            sum(_differenceAdjoint(u, order) for order, u in zip((1, 2, 3), uz, strict=True)) + uq
+        )
         dualScale = rho * math.sqrt(float(dualStack @ dualStack) / totalVars)
         if (
             iteration > 3
-            and primalRes < RESIDUAL_ABS_TOL + RESIDUAL_REL_TOL * math.sqrt(primalScaleSq / totalVars)
+            and primalRes
+            < RESIDUAL_ABS_TOL + RESIDUAL_REL_TOL * math.sqrt(primalScaleSq / totalVars)
             and dualRes < RESIDUAL_ABS_TOL + RESIDUAL_REL_TOL * dualScale
         ):
             break
@@ -527,7 +543,9 @@ class FirmHeldSpan(NamedTuple):
     settleOut: float
 
 
-def firmHeldSpans(run: Sequence[CropPoint], cropResWidth: int, cropResHeight: int) -> list[FirmHeldSpan]:
+def firmHeldSpans(
+    run: Sequence[CropPoint], cropResWidth: int, cropResHeight: int
+) -> list[FirmHeldSpan]:
     """The spans Firm hold points hold the crop over, from the point before a Firm hold point to the
     last of the Firm hold points after it, with the speeds and settle times into and out of each."""
     # A coincident-time duplicate is skipped, as the solve skips it.
@@ -549,7 +567,12 @@ def firmHeldSpans(run: Sequence[CropPoint], cropResWidth: int, cropResHeight: in
         the pan before it."""
         i = start
         skipped = 0.0
-        while i >= 0 and i + 1 < len(points) and distance(i, held) <= FIRM_HOLD_STILL_SHARE and not firmHeldAt(i + 1):
+        while (
+            i >= 0
+            and i + 1 < len(points)
+            and distance(i, held) <= FIRM_HOLD_STILL_SHARE
+            and not firmHeldAt(i + 1)
+        ):
             skipped += points[i + 1]["x"] - points[i]["x"]
             i += step
         return i, skipped
@@ -617,10 +640,14 @@ def firmHoldAllowance(span: FirmHeldSpan, time: np.ndarray, margin: np.ndarray) 
         if not speed > 0:
             return np.zeros_like(since)
         needed = speed * speed / (2 * FIRM_HOLD_BRAKING) - room
-        return np.where(needed > 0, needed * np.clip(1 - since * FIRM_HOLD_BRAKING / speed, 0, 1), 0.0)
+        return np.where(
+            needed > 0, needed * np.clip(1 - since * FIRM_HOLD_BRAKING / speed, 0, 1), 0.0
+        )
 
     def settling(settle: float, since: np.ndarray) -> np.ndarray:
-        return np.where(since < settle, FIRM_HOLD_SETTLE_ACCELERATION * (settle - since) ** 2 / 2, 0.0)
+        return np.where(
+            since < settle, FIRM_HOLD_SETTLE_ACCELERATION * (settle - since) ** 2 / 2, 0.0
+        )
 
     return width * np.maximum.reduce(
         [
@@ -790,7 +817,9 @@ def _solveRun(
     # Firm hold points pin the box to the held crop over their spans and at the grid samples just
     # outside them, widened by what the crop needs to brake and settle.
     firmSpans = firmHeldSpans(run, cropResWidth, cropResHeight)
-    firmSpanAt = _samplesHeldBy([(gridIndex(span.start), gridIndex(span.end)) for span in firmSpans], sampleCount)
+    firmSpanAt = _samplesHeldBy(
+        [(gridIndex(span.start), gridIndex(span.end)) for span in firmSpans], sampleCount
+    )
     firmSamples = [np.flatnonzero(firmSpanAt == k) for k in range(len(firmSpans))]
     for span, indices in zip(firmSpans, firmSamples, strict=True):
         targetX[indices], targetY[indices], targetW[indices] = span.crop[:3]
@@ -800,7 +829,9 @@ def _solveRun(
     # Per sample, how far a Firm hold lets the crop move: infinite where none applies.
     firmAllowance = np.full(sampleCount, math.inf)
     for span, indices in zip(firmSpans, firmSamples, strict=True):
-        firmAllowance[indices] = firmHoldAllowance(span, firstTime + gridTimes[indices], margin[indices])
+        firmAllowance[indices] = firmHoldAllowance(
+            span, firstTime + gridTimes[indices], margin[indices]
+        )
     maxW = min(cropResWidth, cropResHeight / ratio)
     # The allowance is the position's: the crop brakes and settles in size as it does in place.
     halfW = np.minimum(margins["zoom"] * targetW, firmAllowance)
@@ -814,7 +845,9 @@ def _solveRun(
     # Hold points hold still: each held span's samples are pinned to its crop, and the grid samples just
     # outside it, so nothing moves inside it (it may hold up to one grid step longer at each end).
     held = heldSpans(run, cropResWidth, cropResHeight)
-    pinnedTo = _samplesHeldBy([(gridIndex(spanStart), gridIndex(spanEnd)) for spanStart, spanEnd, _ in held], sampleCount)
+    pinnedTo = _samplesHeldBy(
+        [(gridIndex(spanStart), gridIndex(spanEnd)) for spanStart, spanEnd, _ in held], sampleCount
+    )
 
     def pin(
         lower: np.ndarray,
@@ -859,8 +892,12 @@ def cinematicMargins(markerPairSettings: dict[str, Any]) -> dict[str, float]:
     """A marker pair's margins, from its overrides or the global settings, which hold percentages of
     the crop size."""
     return {
-        "pos": markerPairSettings.get("cropPointEasingCinematicMargin", DEFAULT_MARGIN_PERCENT) / 100,
-        "zoom": markerPairSettings.get("cropPointEasingCinematicZoomMargin", DEFAULT_ZOOM_MARGIN_PERCENT) / 100,
+        "pos": markerPairSettings.get("cropPointEasingCinematicMargin", DEFAULT_MARGIN_PERCENT)
+        / 100,
+        "zoom": markerPairSettings.get(
+            "cropPointEasingCinematicZoomMargin", DEFAULT_ZOOM_MARGIN_PERCENT
+        )
+        / 100,
     }
 
 
@@ -886,10 +923,16 @@ def bakeCinematicPath(
         if longest > DENSE_SOLVE_MAX_SAMPLES:
             raise _tooLongForDenseSolve(longest)
     widestW = max(
-        min(cropResWidth, parseCropToComponents(point["crop"], cropResWidth, cropResHeight)[2] * (1 + margins["zoom"]))
+        min(
+            cropResWidth,
+            parseCropToComponents(point["crop"], cropResWidth, cropResHeight)[2]
+            * (1 + margins["zoom"]),
+        )
         for point in cropMap
     )
-    solved = [_solveRun(run, firstTime, margins, cropResWidth, cropResHeight, widestW) for run in runs]
+    solved = [
+        _solveRun(run, firstTime, margins, cropResWidth, cropResHeight, widestW) for run in runs
+    ]
     segments = [segment for runSegments in solved for segment in (runSegments or [])]
     if not segments:
         return None
@@ -900,7 +943,14 @@ def bakeCinematicPath(
         t = cut["x"] - firstTime
         x, y, w, h = parseCropToComponents(cut["crop"], cropResWidth, cropResHeight)
         segments.append(
-            {"startT": t, "endT": t, "x": [x, 0.0, 0.0], "y": [y, 0.0, 0.0], "w": [w, 0.0, 0.0], "h": [h, 0.0, 0.0]},
+            {
+                "startT": t,
+                "endT": t,
+                "x": [x, 0.0, 0.0],
+                "y": [y, 0.0, 0.0],
+                "w": [w, 0.0, 0.0],
+                "h": [h, 0.0, 0.0],
+            },
         )
     return {"version": SOLVER_VERSION, "margin": dict(margins), "segments": segments}
 

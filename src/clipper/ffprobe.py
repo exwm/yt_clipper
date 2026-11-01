@@ -67,10 +67,15 @@ def ffprobeVideoProperties(cs: ClipperState, videoURL: str) -> DictStrAny | None
         if not color_transfer:
             logger.warning(f"Could not find color_transfer in ffprobe results.")
 
-        statedRate, averageRate = ffprobeStreamData["r_frame_rate"], ffprobeStreamData.get("avg_frame_rate")
+        statedRate, averageRate = (
+            ffprobeStreamData["r_frame_rate"],
+            ffprobeStreamData.get("avg_frame_rate"),
+        )
         ffprobeStreamData["r_frame_rate"] = getFrameRate(statedRate, averageRate)
         rate = ffprobeStreamData["r_frame_rate"]
-        if rate and shouldCheckFrameTimes(videoURL, settings.get("inputVideo"), statedRate, averageRate):
+        if rate and shouldCheckFrameTimes(
+            videoURL, settings.get("inputVideo"), statedRate, averageRate
+        ):
             origin = float(ffprobeStreamData.get("start_time") or 0)
             warnIfFramesOffGrid(cp.ffprobePath, videoURL, origin, Fraction(rate))
 
@@ -206,7 +211,11 @@ def shouldCheckFrameTimes(
 ) -> bool:
     """Whether to read a video's frame times: a local video's, unless its header rates already show
     a varying rate (warned about with them). Network streams come at a constant rate."""
-    return bool(inputVideo) and videoURL == inputVideo and not headerRatesDiffer(statedRate, averageRate)
+    return (
+        bool(inputVideo)
+        and videoURL == inputVideo
+        and not headerRatesDiffer(statedRate, averageRate)
+    )
 
 
 def offGridFrames(times: list[float], origin: float, rate: Fraction) -> int:
@@ -224,7 +233,9 @@ def warnIfFramesOffGrid(ffprobePath: str, videoPath: str, origin: float, rate: F
         f"{ffprobePath} -v error -select_streams v:0 -show_entries packet=pts_time -read_intervals %+20 -of csv=p=0"
     )
     try:
-        output = subprocess.run([*command, "-i", videoPath], capture_output=True, text=True, check=True).stdout
+        output = subprocess.run(
+            [*command, "-i", videoPath], capture_output=True, text=True, check=True
+        ).stdout
     except (OSError, subprocess.CalledProcessError) as e:
         # Advisory only: the clip is made either way.
         logger.verbose(f"Could not read the input video's frame times: {e}")

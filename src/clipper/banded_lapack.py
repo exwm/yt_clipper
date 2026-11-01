@@ -36,7 +36,11 @@ def _openBlasPaths() -> list[Path]:
     # A frozen clipper unpacks numpy's libraries under its own folder.
     frozenRoot = getattr(sys, "_MEIPASS", None)
     if frozenRoot:
-        folders += [Path(frozenRoot) / "numpy.libs", Path(frozenRoot) / "numpy" / ".dylibs", Path(frozenRoot)]
+        folders += [
+            Path(frozenRoot) / "numpy.libs",
+            Path(frozenRoot) / "numpy" / ".dylibs",
+            Path(frozenRoot),
+        ]
     return [path for folder in folders for path in sorted(folder.glob("libscipy_openblas64_*"))]
 
 
@@ -49,14 +53,34 @@ def _openBlas(path: Path) -> _Lapack | None:
         return None
     dpbtrf.argtypes = [ctypes.c_int, ctypes.c_char, _int64, _int64, _double_p, _int64]
     dpbtrf.restype = _int64
-    dpbtrs.argtypes = [ctypes.c_int, ctypes.c_char, _int64, _int64, _int64, _double_p, _int64, _double_p, _int64]
+    dpbtrs.argtypes = [
+        ctypes.c_int,
+        ctypes.c_char,
+        _int64,
+        _int64,
+        _int64,
+        _double_p,
+        _int64,
+        _double_p,
+        _int64,
+    ]
     dpbtrs.restype = _int64
 
     def factor(band: np.ndarray, n: int, kd: int) -> int:
         return dpbtrf(_COL_MAJOR, b"U", n, kd, band.ctypes.data_as(_double_p), kd + 1)
 
     def solve(band: np.ndarray, n: int, kd: int, rhs: np.ndarray) -> int:
-        return dpbtrs(_COL_MAJOR, b"U", n, kd, 1, band.ctypes.data_as(_double_p), kd + 1, rhs.ctypes.data_as(_double_p), n)
+        return dpbtrs(
+            _COL_MAJOR,
+            b"U",
+            n,
+            kd,
+            1,
+            band.ctypes.data_as(_double_p),
+            kd + 1,
+            rhs.ctypes.data_as(_double_p),
+            n,
+        )
 
     return _Lapack(f"OpenBLAS ({path.name})", factor, solve)
 
@@ -71,19 +95,43 @@ def _accelerate() -> _Lapack | None:
         return None
     dpbtrf.argtypes = [ctypes.c_char_p, _int64_p, _int64_p, _double_p, _int64_p, _int64_p]
     dpbtrf.restype = None
-    dpbtrs.argtypes = [ctypes.c_char_p, _int64_p, _int64_p, _int64_p, _double_p, _int64_p, _double_p, _int64_p, _int64_p]
+    dpbtrs.argtypes = [
+        ctypes.c_char_p,
+        _int64_p,
+        _int64_p,
+        _int64_p,
+        _double_p,
+        _int64_p,
+        _double_p,
+        _int64_p,
+        _int64_p,
+    ]
     dpbtrs.restype = None
 
     def factor(band: np.ndarray, n: int, kd: int) -> int:
         info = _int64(0)
-        dpbtrf(b"U", _int64(n), _int64(kd), band.ctypes.data_as(_double_p), _int64(kd + 1), ctypes.byref(info))
+        dpbtrf(
+            b"U",
+            _int64(n),
+            _int64(kd),
+            band.ctypes.data_as(_double_p),
+            _int64(kd + 1),
+            ctypes.byref(info),
+        )
         return info.value
 
     def solve(band: np.ndarray, n: int, kd: int, rhs: np.ndarray) -> int:
         info = _int64(0)
         dpbtrs(
-            b"U", _int64(n), _int64(kd), _int64(1), band.ctypes.data_as(_double_p), _int64(kd + 1),
-            rhs.ctypes.data_as(_double_p), _int64(n), ctypes.byref(info),
+            b"U",
+            _int64(n),
+            _int64(kd),
+            _int64(1),
+            band.ctypes.data_as(_double_p),
+            _int64(kd + 1),
+            rhs.ctypes.data_as(_double_p),
+            _int64(n),
+            ctypes.byref(info),
         )
         return info.value
 

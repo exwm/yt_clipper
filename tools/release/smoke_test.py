@@ -75,8 +75,15 @@ class SmokeTest:
             self.check(path.is_file(), f"{path.relative_to(self.release).as_posix()} exists")
         # CI writes it from --help; plain text, so any editor shows it.
         optionsHelp = self.release / "yt_clipper_help.txt"
-        text = optionsHelp.read_text(encoding="utf-8", errors="replace") if optionsHelp.is_file() else ""
-        self.check("--markers-json" in text and "\x1b" not in text, "yt_clipper_help.txt lists the options as plain text")
+        text = (
+            optionsHelp.read_text(encoding="utf-8", errors="replace")
+            if optionsHelp.is_file()
+            else ""
+        )
+        self.check(
+            "--markers-json" in text and "\x1b" not in text,
+            "yt_clipper_help.txt lists the options as plain text",
+        )
         if sys.platform == "win32":
             # video2x shares the ffmpeg DLLs, so the release must hold one copy.
             copies = list(self.release.rglob("avcodec-*.dll"))
@@ -95,7 +102,10 @@ class SmokeTest:
             self.check(ok, f"yt_clipper {' '.join(args)}")
             if args == ["--print-versions"]:
                 # The frozen clipper must find numpy's banded LAPACK, or long Cinematic pairs solve slowly.
-                self.check("cinematic solver: banded LAPACK" in output, "the Cinematic solve uses banded LAPACK")
+                self.check(
+                    "cinematic solver: banded LAPACK" in output,
+                    "the Cinematic solve uses banded LAPACK",
+                )
         for tool, flag in self.bundledTools():
             result = self.run(tool, flag)
             firstLine = (result.stdout + result.stderr).strip().splitlines()[:1]
@@ -132,13 +142,19 @@ class SmokeTest:
 
     def outputPaths(self) -> set[Path]:
         """The clips, logs and temp files in the release, and their folders."""
-        return {path for name in ("webms", "temp") for path in [self.release / name, *(self.release / name).rglob("*")]}
+        return {
+            path
+            for name in ("webms", "temp")
+            for path in [self.release / name, *(self.release / name).rglob("*")]
+        }
 
     def checkNoLeftovers(self, before: set[Path]) -> None:
         # CI zips the folder right after these checks. An installed release may hold clips already.
         added = sorted(self.outputPaths() - before, reverse=True)
         files = [path for path in added if path.is_file()]
-        self.check(not files, "the checks leave no files in the release" + (f": {files}" if files else ""))
+        self.check(
+            not files, "the checks leave no files in the release" + (f": {files}" if files else "")
+        )
         for path in added:
             if path.is_dir() and not any(path.iterdir()):
                 path.rmdir()

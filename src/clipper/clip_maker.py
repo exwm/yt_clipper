@@ -106,7 +106,9 @@ def _warnOfDenseCinematicSolve() -> None:
 
 @functools.lru_cache(maxsize=64)
 def _bakeCinematicPathFromKey(key: str) -> dict[str, Any] | None:
-    cropMap, margins, cropResWidth, cropResHeight, fps, videoPartStart, frameTimingName = json.loads(key)
+    cropMap, margins, cropResWidth, cropResHeight, fps, videoPartStart, frameTimingName = (
+        json.loads(key)
+    )
     if banded_lapack.lapack() is None:
         _warnOfDenseCinematicSolve()
     return cinematic_path.bakeCinematicPath(
@@ -256,7 +258,9 @@ def getMarkerPairSettings(  # noqa: PLR0912
                 cinematicPath = _bakeCinematicPath(
                     cinematic_path.cinematicCropMap(
                         mp["cropMap"],
-                        mps.get("cropPointEasingCinematicHolds", cinematic_path.DEFAULT_CINEMATIC_HOLDS),
+                        mps.get(
+                            "cropPointEasingCinematicHolds", cinematic_path.DEFAULT_CINEMATIC_HOLDS
+                        ),
                     ),
                     cinematic_path.cinematicMargins(mps),
                     settings["cropResWidth"],
@@ -268,7 +272,9 @@ def getMarkerPairSettings(  # noqa: PLR0912
                 )
             except Exception as error:
                 # Without a path the pair renders as Smooth Track, as when there is nothing to solve.
-                logger.warning(f"Could not solve the Cinematic crop path ({error!r}), so the crop uses Smooth Track.")
+                logger.warning(
+                    f"Could not solve the Cinematic crop path ({error!r}), so the crop uses Smooth Track."
+                )
         autoScaleCropMap(mp["cropMap"], settings)
         for left, right in zip(mp["cropMap"][:-1], mp["cropMap"][1:], strict=True):
             lcc = left["cropComponents"]
@@ -440,11 +446,16 @@ def pairSpeedMap(
     return points, any(left["y"] != right["y"] for left, right in itertools.pairwise(points))
 
 
-def windowSpeedMap(speedMap: list[DictStrAny], start: float, end: float, frameDur: float) -> list[DictStrAny]:
+def windowSpeedMap(
+    speedMap: list[DictStrAny], start: float, end: float, frameDur: float
+) -> list[DictStrAny]:
     """The part of a pair's speed map from start to end, for a sample-guided window of the pair, with
     the speeds the pair renders there. A map's last section reaches its speed at its last frame's start
     (getSpeedFilterAndDuration), so the window's end point takes the speed at its own last frame's."""
-    sections = [(left["x"], left["y"], right["x"], right["y"]) for left, right in itertools.pairwise(speedMap)]
+    sections = [
+        (left["x"], left["y"], right["x"], right["y"])
+        for left, right in itertools.pairwise(speedMap)
+    ]
     lastLeftX, lastLeftY, lastRightX, lastRightY = sections[-1]
     sections[-1] = (lastLeftX, lastLeftY, max(lastLeftX, lastRightX - frameDur), lastRightY)
 
@@ -730,7 +741,8 @@ def makeClip(  # noqa: PLR0912
             {"x": speedPoint["x"], "y": speedPointRev["y"]}
             for speedPoint, speedPointRev in zip(
                 mp["speedMap"],
-                reversed(mp["speedMap"]), strict=True,
+                reversed(mp["speedMap"]),
+                strict=True,
             )
         ]
         reverseSpeedFilter, _, _ = frame_timing.current().speedFilter(
@@ -871,14 +883,18 @@ def makeClip(  # noqa: PLR0912
             with open(filterPathVidStabTransformPass, "w", encoding="utf-8") as f:
                 f.write(vidstabtransformFilter)
             ffmpegVidstabdetect = (
-                ffmpegCommand + f' {filterFileOption(cp.ffmpegPath)} "{filterPathVidStabDetectPass}" '
+                ffmpegCommand
+                + f' {filterFileOption(cp.ffmpegPath)} "{filterPathVidStabDetectPass}" '
             )
             ffmpegVidstabtransform = (
-                ffmpegCommand + f' {filterFileOption(cp.ffmpegPath)} "{filterPathVidStabTransformPass}" '
+                ffmpegCommand
+                + f' {filterFileOption(cp.ffmpegPath)} "{filterPathVidStabTransformPass}" '
             )
         else:
             ffmpegVidstabdetect = ffmpegCommand + f"-vf {shlexDoubleQuoted(vidstabdetectFilter)} "
-            ffmpegVidstabtransform = ffmpegCommand + f"-vf {shlexDoubleQuoted(vidstabtransformFilter)} "
+            ffmpegVidstabtransform = (
+                ffmpegCommand + f"-vf {shlexDoubleQuoted(vidstabtransformFilter)} "
+            )
 
         ffmpegVidstabdetect += f" -y "
         ffmpegVidstabtransform += overwriteArg
@@ -1231,7 +1247,9 @@ def ffplayFilterArg(cs: ClipperState, video_filter: str, fileName: str) -> str:
     32767 characters, and a zooming crop's filter passes that at a few crop points). ffplay before 7
     cannot read one, so it keeps the filter inline, as before."""
     cp = cs.clipper_paths
-    if len(video_filter) <= MAX_VFILTER_SIZE or not supportsOptionFiles(ffmpegBesideFfplay(cp.ffplayPath)):
+    if len(video_filter) <= MAX_VFILTER_SIZE or not supportsOptionFiles(
+        ffmpegBesideFfplay(cp.ffplayPath)
+    ):
         return f"-vf {shlexDoubleQuoted(video_filter)}"
     filterPath = Path(cp.clipsPath) / "temp" / fileName
     filterPath.parent.mkdir(parents=True, exist_ok=True)
@@ -1254,7 +1272,9 @@ def runffplayCommand(
     logger.info("running ffplay command")
     if 0 <= markerPairIndex < len(settings["markerPairs"]):
         ffplayOptions = f"-hide_banner -fs -sync video -fast -genpts -infbuf "
-        ffplayVideoFilter = ffplayFilterArg(cs, video_filter, f"vfilter-{markerPairIndex + 1}-preview.txt")
+        ffplayVideoFilter = ffplayFilterArg(
+            cs, video_filter, f"vfilter-{markerPairIndex + 1}-preview.txt"
+        )
         if settings["inputVideo"]:
             ffplayOptions += f" -loop 0"
             beforeCorrection = ffplayFilterArg(
@@ -1327,7 +1347,10 @@ def mergeClips(cs: ClipperState) -> list[str]:  # noqa: PLR0912
                     raise MissingMarkerPairFilePath
 
             titlePrefixesConsistent = True
-            titlePrefixes = [cleanFileName(p["overrides"].get("titlePrefix", "")) for p in settings["markerPairs"]]
+            titlePrefixes = [
+                cleanFileName(p["overrides"].get("titlePrefix", ""))
+                for p in settings["markerPairs"]
+            ]
             mergeTitlePrefix = titlePrefixes[mergeList[0] - 1]
             if len(mergeList) > 1:
                 for left, right in itertools.pairwise(mergeList):

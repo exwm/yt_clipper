@@ -40,7 +40,9 @@ def test_a_frame_starts_where_its_times_map_to_it() -> None:
 
 
 @pytest.mark.parametrize("case", CASES["frameSpan"], ids=lambda case: case["kind"])
-def test_a_span_runs_from_the_frame_at_the_start_marker_through_the_one_at_the_end_marker(case: dict) -> None:
+def test_a_span_runs_from_the_frame_at_the_start_marker_through_the_one_at_the_end_marker(
+    case: dict,
+) -> None:
     g = grid(case)
     span = frameSpan(g, case["startMarker"], case["endMarker"])
     first, last = case["firstFrame"], case["lastFrame"]

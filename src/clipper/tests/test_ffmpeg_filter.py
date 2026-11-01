@@ -13,8 +13,13 @@ from clipper import ffmpeg_filter, frame_timing_548
 from clipper.clipper_types import CropMap
 
 # The crop filters at 5.49's ease timing. The clipper passes the frame timing's own.
-getCropFilter = partial(ffmpeg_filter.getCropFilter, sectionEaseDuration=ffmpeg_filter.sectionEaseDurationFromVideoPart)
-getZoomPanFilter = partial(ffmpeg_filter.getZoomPanFilter, sectionEaseDuration=ffmpeg_filter.sectionEaseDurationFromVideoPart)
+getCropFilter = partial(
+    ffmpeg_filter.getCropFilter, sectionEaseDuration=ffmpeg_filter.sectionEaseDurationFromVideoPart
+)
+getZoomPanFilter = partial(
+    ffmpeg_filter.getZoomPanFilter,
+    sectionEaseDuration=ffmpeg_filter.sectionEaseDurationFromVideoPart,
+)
 
 SMALL_CROP_MAP = [
     {"x": 7.130523, "y": 0, "crop": "109:426:540:960"},
@@ -141,7 +146,10 @@ def test_getCropFilter_smooth_track_handles_redundant_coincident_points() -> Non
         ("smoothInOut", "easeInOutSine"),
         ("somethingUnknown", "easeInOutSine"),
         ("smoothTrack", "smoothTrack"),
-        ("cinematic", "smoothTrack"),  # when there is no path to solve, matching the preview's fallback
+        (
+            "cinematic",
+            "smoothTrack",
+        ),  # when there is no path to solve, matching the preview's fallback
     ],
 )
 def test_resolveCropEaseType(cropPointEasing: str | None, easeType: str) -> None:
@@ -190,9 +198,13 @@ def test_smoothTrackNeighbor_breaks_only_at_the_neighbor_boundary(
         pytest.param(0.0, 10.0, 1000.0, 30.0, id="capped at three times the smaller slope"),
     ],
 )
-def test_getCropSectionTangent(before: float | None, point: float, after: float, tangent: float) -> None:
+def test_getCropSectionTangent(
+    before: float | None, point: float, after: float, tangent: float
+) -> None:
     beforeTime = None if before is None else 0.0
-    assert ffmpeg_filter.getCropSectionTangent(before, point, after, beforeTime, 1.0, 2.0) == pytest.approx(tangent)
+    assert ffmpeg_filter.getCropSectionTangent(
+        before, point, after, beforeTime, 1.0, 2.0
+    ) == pytest.approx(tangent)
 
 
 def test_getCropFilter_smooth_track_handles_crop_points_out_of_time_order() -> None:
@@ -222,7 +234,10 @@ def test_getCropFilter_default_matches_easeInOutSine_for_backwards_compat() -> N
 
 def test_getCropFilter_smooth_track_uses_cubic_hermite() -> None:
     cropFilter = getCropFilter(
-        "109:426:540:960", MEDIUM_CROP_MAP, 60, easeType="smoothTrack",
+        "109:426:540:960",
+        MEDIUM_CROP_MAP,
+        60,
+        easeType="smoothTrack",
     )
     # A cubic Hermite (clipped section progress raised to the third power), not the sine ease.
     assert "^3" in cropFilter
@@ -430,9 +445,16 @@ def test_getEaseSectionDuration(
         pytest.param(0.0, 31.5 / 30, 30.5 / 30, id="mid frame 31"),
         # Legacy markup stores the raw playhead time, so a time in a frame's last 1 ms is still that frame.
         pytest.param(0.0, 31 / 30 - 0.0005, 29.5 / 30, id="in frame 30's last millisecond"),
-        pytest.param(0.0, round(31 / 30, 6), 29.5 / 30, id="frame 31's start saved to 6 decimals, below it"),
+        pytest.param(
+            0.0, round(31 / 30, 6), 29.5 / 30, id="frame 31's start saved to 6 decimals, below it"
+        ),
         # 5.48 times the point from the start marker, so both rounded below their frame starts cancel.
-        pytest.param(1.033333, 1.533333, 14.5 / 30, id="a start marker and a point on frame starts saved to 6 decimals"),
+        pytest.param(
+            1.033333,
+            1.533333,
+            14.5 / 30,
+            id="a start marker and a point on frame starts saved to 6 decimals",
+        ),
     ],
 )
 def test_legacy_frame_timing_ends_an_ease_section_before_the_frame_its_time_from_the_start_marker_falls_in(
@@ -450,7 +472,9 @@ def test_legacy_frame_timing_ends_an_ease_section_before_the_frame_its_time_from
         pytest.param(lambda: ffmpeg_filter.getZoomPanFilter(SMALL_CROP_MAP, 30), id="zoom"),
     ],
 )  # fmt: skip
-def test_crop_filters_need_the_frame_timings_ease_duration(buildFilter: Callable[[], object]) -> None:
+def test_crop_filters_need_the_frame_timings_ease_duration(
+    buildFilter: Callable[[], object],
+) -> None:
     # No default: a caller that leaves it out would silently get 5.49's timing in 5.48 mode.
     with pytest.raises(TypeError, match="sectionEaseDuration"):
         buildFilter()
@@ -703,7 +727,9 @@ def test_zoompan_smooth_track_stays_inside_the_frame() -> None:
     assert all(_eval_ffmpeg_axis(rightEdge(1920), t) <= 4 * 1920 + 1e-9 for t in times)
     # getZoomPanFilter passes the frame size down, as clip_maker gives it the video's.
     unclamped, _size = getZoomPanFilter(cropMap, 30, easeType="smoothTrack")
-    clamped, _size = getZoomPanFilter(cropMap, 30, easeType="smoothTrack", frameWidth=1920, frameHeight=1080)
+    clamped, _size = getZoomPanFilter(
+        cropMap, 30, easeType="smoothTrack", frameWidth=1920, frameHeight=1080
+    )
     assert clamped != unclamped
 
 
@@ -711,7 +737,14 @@ def test_zoompan_smooth_track_stays_inside_the_frame() -> None:
 def test_getCropPathFilter_zooms_when_one_segment_changes_size(widths: tuple[int, int]) -> None:
     # A single segment's start width alone misses a zoom in, which ends narrower than it starts.
     start, end = widths
-    segment = {"startT": 0.0, "endT": 1.0, "x": [0, 0, 0], "y": [0, 0, 0], "w": [start, end - start, 0], "h": [start / 2, (end - start) / 2, 0]}
+    segment = {
+        "startT": 0.0,
+        "endT": 1.0,
+        "x": [0, 0, 0],
+        "y": [0, 0, 0],
+        "w": [start, end - start, 0],
+        "h": [start / 2, (end - start) / 2, 0],
+    }
     cropFilter, _size = ffmpeg_filter.getCropPathFilter(
         {"segments": [segment]}, {"cropMultipleX": 1, "cropMultipleY": 1}, 30
     )
@@ -720,7 +753,14 @@ def test_getCropPathFilter_zooms_when_one_segment_changes_size(widths: tuple[int
 
 def test_getCropPathFilter_constant_size_is_even() -> None:
     # 1000 cropRes px at 2/3 scale is 666.67 output px; libx264's yuv420p rejects an odd 667.
-    segment = {"startT": 0.0, "endT": 1.0, "x": [0, 0, 0], "y": [0, 0, 0], "w": [1000, 0, 0], "h": [563, 0, 0]}
+    segment = {
+        "startT": 0.0,
+        "endT": 1.0,
+        "x": [0, 0, 0],
+        "y": [0, 0, 0],
+        "w": [1000, 0, 0],
+        "h": [563, 0, 0],
+    }
     cropFilter, size = ffmpeg_filter.getCropPathFilter(
         {"segments": [segment]}, {"cropMultipleX": 2 / 3, "cropMultipleY": 2 / 3}, 30
     )
@@ -805,12 +845,20 @@ def test_getCropFilter_matches_the_preview_easing(case: dict) -> None:
     assert xMatch is not None
     assert yMatch is not None
     for sample in case["samples"]:
-        assert _eval_ffmpeg_axis(xMatch.group(1), sample["t"]) == pytest.approx(sample["x"], abs=0.01)
-        assert _eval_ffmpeg_axis(yMatch.group(1), sample["t"]) == pytest.approx(sample["y"], abs=0.01)
+        assert _eval_ffmpeg_axis(xMatch.group(1), sample["t"]) == pytest.approx(
+            sample["x"], abs=0.01
+        )
+        assert _eval_ffmpeg_axis(yMatch.group(1), sample["t"]) == pytest.approx(
+            sample["y"], abs=0.01
+        )
 
 
-@pytest.mark.parametrize("pairStart", [0, 10.52], ids=["pair start on a frame", "pair start between frames"])
-def test_smooth_track_keeps_a_steady_pan_at_the_same_speed_through_crop_points(pairStart: float) -> None:
+@pytest.mark.parametrize(
+    "pairStart", [0, 10.52], ids=["pair start on a frame", "pair start between frames"]
+)
+def test_smooth_track_keeps_a_steady_pan_at_the_same_speed_through_crop_points(
+    pairStart: float,
+) -> None:
     # 300 px/s through points placed between frames, as the render's frames fall: the clip is cut at
     # the pair start, so its frames keep the source's frame phase. The markup's
     # crop-keyframe-math.test.ts checks the preview the same way.
@@ -836,7 +884,9 @@ def test_smooth_track_keeps_a_steady_pan_at_the_same_speed_through_crop_points(p
     [(0, 0), (10.52, 0), (10.52, 0.02)],
     ids=["pair start on a frame", "pair start between frames", "video part start"],
 )
-def test_instant_crop_point_cuts_on_the_frame_it_falls_in(pairStart: float, videoPartStart: float) -> None:
+def test_instant_crop_point_cuts_on_the_frame_it_falls_in(
+    pairStart: float, videoPartStart: float
+) -> None:
     # The clip keeps the input video's frame phase, so the cut must snap on the video's frame grid,
     # not on one that starts at the pair start. cinematic_path's cut test checks the same case.
     fps = 30

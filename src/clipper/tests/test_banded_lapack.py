@@ -56,7 +56,9 @@ def test_the_system_band_is_the_dense_system() -> None:
     assert np.array_equal(_denseOf(cinematic_path._systemUpperBand(n)), dense)
 
 
-def test_without_banded_lapack_a_run_too_long_to_solve_densely_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_without_banded_lapack_a_run_too_long_to_solve_densely_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Fails at once, so the clipper renders the pair with Smooth Track instead of hanging.
     monkeypatch.setattr(banded_lapack, "bandedCholeskySolver", lambda _band: None)
     assert cinematic_path._systemSolver(cinematic_path.DENSE_SOLVE_MAX_SAMPLES) is not None
@@ -64,7 +66,9 @@ def test_without_banded_lapack_a_run_too_long_to_solve_densely_fails(monkeypatch
         cinematic_path._systemSolver(cinematic_path.DENSE_SOLVE_MAX_SAMPLES + 1)
 
 
-def test_without_banded_lapack_a_pair_with_a_run_too_long_fails_before_solving(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_without_banded_lapack_a_pair_with_a_run_too_long_fails_before_solving(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # A cut splits it into a run the dense fallback solves (2001 samples), then one it cannot.
     monkeypatch.setattr(banded_lapack, "lapack", lambda: None)
     solved: list[int] = []
@@ -75,7 +79,10 @@ def test_without_banded_lapack_a_pair_with_a_run_too_long_fails_before_solving(m
         {"x": 200.0, "y": 0, "crop": "900:300:640:360", "easeIn": "instant"},
         {"x": 400.1, "y": 0, "crop": "700:300:640:360"},
     ]
-    assert [cinematic_path.gridSampleCount(run[-1]["x"] - run[0]["x"]) for run in cinematic_path.splitAtInstantCuts(cropMap, 30)] == [
+    assert [
+        cinematic_path.gridSampleCount(run[-1]["x"] - run[0]["x"])
+        for run in cinematic_path.splitAtInstantCuts(cropMap, 30)
+    ] == [
         2001,
         2002,
     ]
@@ -84,7 +91,9 @@ def test_without_banded_lapack_a_pair_with_a_run_too_long_fails_before_solving(m
     assert solved == []
 
 
-def test_the_clipper_warns_once_when_it_solves_without_banded_lapack(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_clipper_warns_once_when_it_solves_without_banded_lapack(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from clipper import clip_maker
 
     warnings: list[str] = []
@@ -92,16 +101,23 @@ def test_the_clipper_warns_once_when_it_solves_without_banded_lapack(monkeypatch
     monkeypatch.setattr(clip_maker.logger, "warning", warnings.append)
     clip_maker._warnOfDenseCinematicSolve.cache_clear()
     clip_maker._bakeCinematicPathFromKey.cache_clear()
-    cropMap = [{"x": 0, "y": 0, "crop": "100:300:640:360"}, {"x": 2, "y": 0, "crop": "600:300:640:360"}]
+    cropMap = [
+        {"x": 0, "y": 0, "crop": "100:300:640:360"},
+        {"x": 2, "y": 0, "crop": "600:300:640:360"},
+    ]
     for fps in (30, 60):
-        clip_maker._bakeCinematicPath(cropMap, {"pos": 0.12, "zoom": 0.08}, 1920, 1080, fps, 0.0, "5.49")
+        clip_maker._bakeCinematicPath(
+            cropMap, {"pos": 0.12, "zoom": 0.08}, 1920, 1080, fps, 0.0, "5.49"
+        )
     clip_maker._warnOfDenseCinematicSolve.cache_clear()
     clip_maker._bakeCinematicPathFromKey.cache_clear()
     assert len(warnings) == 1
     assert "Smooth Track" in warnings[0]
 
 
-def test_the_cinematic_path_is_the_same_without_banded_lapack(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_cinematic_path_is_the_same_without_banded_lapack(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     cropMap = [
         {"x": 0, "y": 0, "crop": "100:300:640:360"},
         {"x": 2.03, "y": 0, "crop": "600:300:640:360"},
@@ -116,4 +132,6 @@ def test_the_cinematic_path_is_the_same_without_banded_lapack(monkeypatch: pytes
     assert dense is not None
     for step in range(102):
         t = step * 0.05
-        assert cinematic_path.evalCropPathAtTime(fast, t) == pytest.approx(cinematic_path.evalCropPathAtTime(dense, t), abs=1e-6)
+        assert cinematic_path.evalCropPathAtTime(fast, t) == pytest.approx(
+            cinematic_path.evalCropPathAtTime(dense, t), abs=1e-6
+        )

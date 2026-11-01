@@ -31,8 +31,22 @@ def supportsOptionFiles(ffmpeg_path: str) -> bool:
         with tempfile.TemporaryDirectory() as folder:
             script = Path(folder) / "filter.txt"
             script.write_text("null", encoding="utf-8")
-            command = [argvPath(ffmpeg_path), "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "nullsrc=d=0.04"]
-            result = subprocess.run([*command, "-/filter:v", str(script), "-f", "null", "-"], capture_output=True, check=False, timeout=30)
+            command = [
+                argvPath(ffmpeg_path),
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "nullsrc=d=0.04",
+            ]
+            result = subprocess.run(
+                [*command, "-/filter:v", str(script), "-f", "null", "-"],
+                capture_output=True,
+                check=False,
+                timeout=30,
+            )
     except (OSError, subprocess.TimeoutExpired):
         return True
     return result.returncode == 0 or b"Unrecognized option" not in result.stderr

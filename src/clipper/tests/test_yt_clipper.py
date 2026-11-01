@@ -147,7 +147,9 @@ def unexpectedError() -> list[str]:
 
 
 def missingTool() -> list[str]:
-    raise FileNotFoundError(2, "The system cannot find the file specified", "./bin/yt-dlp/yt-dlp.exe")
+    raise FileNotFoundError(
+        2, "The system cannot find the file specified", "./bin/yt-dlp/yt-dlp.exe"
+    )
 
 
 def missingProgramOnWindows() -> list[str]:
@@ -218,7 +220,12 @@ def noAnswer() -> list[str]:
             marks=ONLY_ON_WINDOWS,
         ),
         pytest.param(fullDisk, 1, "No space left on device.", id="a full disk"),
-        pytest.param(noAnswer, 1, "No answer to the prompt above, so the clipper script stopped.", id="a prompt with no answer"),
+        pytest.param(
+            noAnswer,
+            1,
+            "No answer to the prompt above, so the clipper script stopped.",
+            id="a prompt with no answer",
+        ),
     ],
 )
 def test_main_exits_with_an_error_when_the_run_fails(
@@ -284,7 +291,13 @@ CLI_TOOL_DIRS = {"ffmpegToolsDir": "cli-tools", "ytdlDir": "cli-ytdl"}
         ),
         pytest.param(False, {}, "ffmpeg", "yt-dlp", id="system PATH"),
         # The release's own tools, also when it runs from another folder.
-        pytest.param(True, {}, "{install}/bin/video-tools/ffmpeg", "{install}/bin/yt-dlp/yt-dlp", id="frozen release layout"),
+        pytest.param(
+            True,
+            {},
+            "{install}/bin/video-tools/ffmpeg",
+            "{install}/bin/yt-dlp/yt-dlp",
+            id="frozen release layout",
+        ),
     ],
 )
 def test_tool_dirs_come_from_cli_args_not_settings(
@@ -305,11 +318,17 @@ def test_tool_dirs_come_from_cli_args_not_settings(
     def asPath(path: str) -> str:
         return Path(argvPath(path)).as_posix()
 
-    assert asPath(cs.clipper_paths.ffmpegPath).startswith(ffmpeg_prefix.format(install=install.resolve().as_posix()))
-    assert asPath(cs.clipper_paths.ytdlPath).startswith(ytdl_prefix.format(install=install.resolve().as_posix()))
+    assert asPath(cs.clipper_paths.ffmpegPath).startswith(
+        ffmpeg_prefix.format(install=install.resolve().as_posix())
+    )
+    assert asPath(cs.clipper_paths.ytdlPath).startswith(
+        ytdl_prefix.format(install=install.resolve().as_posix())
+    )
 
 
-def test_minterp_enhancements_use_the_install_ffmpeg_ytc(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_minterp_enhancements_use_the_install_ffmpeg_ytc(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # The commands split the path again, so a Windows path must stay quoted with its backslashes.
     install = tmp_path / "yt clipper" / "yt_clipper_win_5.49.0"
     ytcPath = install / "bin" / "video-tools" / "ffmpeg_ytc.exe"
@@ -326,25 +345,42 @@ def test_minterp_enhancements_use_the_install_ffmpeg_ytc(tmp_path: Path, monkeyp
 @pytest.mark.parametrize(
     ("content", "expected"),
     [
-        pytest.param(b"--cookies C:\\Users\\example\\cookies.txt\n", ["--cookies", "C:\\Users\\example\\cookies.txt"], id="plain"),
-        pytest.param("\ufeff--cookies C:\\Users\\example\\c.txt\n".encode(), ["--cookies", "C:\\Users\\example\\c.txt"], id="byte order mark"),
+        pytest.param(
+            b"--cookies C:\\Users\\example\\cookies.txt\n",
+            ["--cookies", "C:\\Users\\example\\cookies.txt"],
+            id="plain",
+        ),
+        pytest.param(
+            "\ufeff--cookies C:\\Users\\example\\c.txt\n".encode(),
+            ["--cookies", "C:\\Users\\example\\c.txt"],
+            id="byte order mark",
+        ),
         pytest.param(
             b'--cookies "C:\\Users\\example\\My Files\\cookies.txt"\n',
             ["--cookies", "C:\\Users\\example\\My Files\\cookies.txt"],
             id="quoted path with a space",
         ),
-        pytest.param("--cookies C:\\Users\\example\\Jos\u00e9\\c.txt\n".encode("cp1252"), None, id="not UTF-8"),
+        pytest.param(
+            "--cookies C:\\Users\\example\\Jos\u00e9\\c.txt\n".encode("cp1252"),
+            None,
+            id="not UTF-8",
+        ),
         pytest.param(
             codecs.BOM_UTF8 + "--cookies C:\\Users\\example\\Jos\u00e9\\c.txt\n".encode("cp1252"),
             None,
             id="not UTF-8 after a UTF-8 byte order mark",
         ),
         pytest.param(
-            codecs.BOM_UTF16_LE + "--cookies C:\\Users\\example\\Jos\u00e9\\c.txt\r\n".encode("utf-16-le"),
+            codecs.BOM_UTF16_LE
+            + "--cookies C:\\Users\\example\\Jos\u00e9\\c.txt\r\n".encode("utf-16-le"),
             ["--cookies", "C:\\Users\\example\\Jos\u00e9\\c.txt"],
             id="UTF-16, as Windows PowerShell 5.1 writes",
         ),
-        pytest.param(b"# cookies\n--audio\n  # indented comment\n--overwrite\n", ["--audio", "--overwrite"], id="comments"),
+        pytest.param(
+            b"# cookies\n--audio\n  # indented comment\n--overwrite\n",
+            ["--audio", "--overwrite"],
+            id="comments",
+        ),
         pytest.param(
             b'--title-suffix "a b\n--cookies "C:\\Users\\example\\x y\\c.txt"\n',
             ["--title-suffix", '"a', "b", "--cookies", "C:\\Users\\example\\x y\\c.txt"],
@@ -390,14 +426,20 @@ def test_bit_depth_from_ytdlp_dynamic_range(dynamicRange: str | None, bitDepth: 
     assert ytc_settings.bitDepthFromDynamicRange(dynamicRange) == bitDepth
 
 
-def test_unreadable_settings_file_is_skipped_with_a_warning(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_unreadable_settings_file_is_skipped_with_a_warning(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     # A folder stands in for a file that cannot be read (locked, or no permission).
     assert argparser.readArgFile(tmp_path) == []
     assert "so its settings are not used" in capsys.readouterr().err
 
 
-@pytest.mark.parametrize("fromInstall", [True, False], ids=["run from the install", "run from another folder"])
-@pytest.mark.parametrize("nested", [False, True], ids=["unzipped", "Extract All nested it in a same-named folder"])
+@pytest.mark.parametrize(
+    "fromInstall", [True, False], ids=["run from the install", "run from another folder"]
+)
+@pytest.mark.parametrize(
+    "nested", [False, True], ids=["unzipped", "Extract All nested it in a same-named folder"]
+)
 def test_release_finds_settings_files_next_to_its_folder(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -414,7 +456,10 @@ def test_release_finds_settings_files_next_to_its_folder(
     monkeypatch.setattr(sys, "executable", str(install / "yt_clipper.exe"))
     monkeypatch.chdir(install if fromInstall else elsewhere)
     # The shared file first, so the install's own settings override it.
-    expected = [str(tmp_path.resolve() / "yt_clipper_default_args.txt"), str(install.resolve() / "default_args.txt")]
+    expected = [
+        str(tmp_path.resolve() / "yt_clipper_default_args.txt"),
+        str(install.resolve() / "default_args.txt"),
+    ]
     if not fromInstall:
         # The working folder's own default_args.txt still applies last, as before 5.49.
         expected.append(str(elsewhere.resolve() / "default_args.txt"))
@@ -424,12 +469,36 @@ def test_release_finds_settings_files_next_to_its_folder(
 @pytest.mark.parametrize(
     ("shared", "own", "key", "value"),
     [
-        pytest.param("", '--extra-ffmpeg-args "-tune film"\n', "extraFfmpegArgs", "-tune film", id="a quoted value that starts with a dash"),
+        pytest.param(
+            "",
+            '--extra-ffmpeg-args "-tune film"\n',
+            "extraFfmpegArgs",
+            "-tune film",
+            id="a quoted value that starts with a dash",
+        ),
         # argparse reads "-preset slow" alone as the short option -p, on the command line too.
-        pytest.param("", '--extra-ffmpeg-args="-preset slow"\n', "extraFfmpegArgs", "-preset slow", id="a quoted value like a short option, after ="),
-        pytest.param("", "-dn 2\n", "denoise", argparser.getDenoisePreset(2), id="a short option with a value"),
+        pytest.param(
+            "",
+            '--extra-ffmpeg-args="-preset slow"\n',
+            "extraFfmpegArgs",
+            "-preset slow",
+            id="a quoted value like a short option, after =",
+        ),
+        pytest.param(
+            "",
+            "-dn 2\n",
+            "denoise",
+            argparser.getDenoisePreset(2),
+            id="a short option with a value",
+        ),
         # The skipped option's value must not join the option before it, which takes several.
-        pytest.param("-S res --from-a-newer-version 5\n", "", "formatSort", ["res"], id="an unknown option's value"),
+        pytest.param(
+            "-S res --from-a-newer-version 5\n",
+            "",
+            "formatSort",
+            ["res"],
+            id="an unknown option's value",
+        ),
     ],
 )
 def test_settings_file_values_reach_their_own_option(
@@ -458,7 +527,9 @@ def test_settings_file_values_reach_their_own_option(
     [
         pytest.param("", [], id="empty"),
         pytest.param("-di -dn 2", ["-di", "-dn", "2"], id="short options"),
-        pytest.param("--audio --from-a-newer-version 5", ["--audio"], id="an unknown option and its value"),
+        pytest.param(
+            "--audio --from-a-newer-version 5", ["--audio"], id="an unknown option and its value"
+        ),
         # Full option names only: a newer option that starts like a current one is neither read as
         # that one nor ambiguous.
         pytest.param("--audio --overwr", ["--audio"], id="a prefix of one option"),
@@ -467,9 +538,19 @@ def test_settings_file_values_reach_their_own_option(
         pytest.param("--audio -fps 60", ["--audio"], id="a short option that starts like -f"),
         pytest.param("--audio -vx 2", ["--audio"], id="a short option that starts like -v"),
         pytest.param("--new --audio-delay -0.5", ["--audio-delay", "-0.5"], id="a negative value"),
-        pytest.param('--new --extra-ffmpeg-args "-crf 20"', ["--extra-ffmpeg-args", "-crf 20"], id="a quoted value"),
-        pytest.param('--new --extra-ffmpeg-args="-crf 20"', ["--extra-ffmpeg-args=-crf 20"], id="a joined value"),
-        pytest.param('--new="a b" --audio', ["--audio"], id="an unknown option with a joined value"),
+        pytest.param(
+            '--new --extra-ffmpeg-args "-crf 20"',
+            ["--extra-ffmpeg-args", "-crf 20"],
+            id="a quoted value",
+        ),
+        pytest.param(
+            '--new --extra-ffmpeg-args="-crf 20"',
+            ["--extra-ffmpeg-args=-crf 20"],
+            id="a joined value",
+        ),
+        pytest.param(
+            '--new="a b" --audio', ["--audio"], id="an unknown option with a joined value"
+        ),
     ],
 )
 def test_the_shared_settings_file_keeps_only_the_options_this_version_knows(
@@ -485,11 +566,25 @@ def test_the_shared_settings_file_keeps_only_the_options_this_version_knows(
 @pytest.mark.parametrize(
     ("shared", "own", "cli", "unknown"),
     [
-        pytest.param("--audio --from-a-newer-version\n", "", [], [], id="in the shared file: skipped"),
-        pytest.param("--audio -vx 2\n", "", [], [], id="in the shared file, skipped before parsing"),
-        pytest.param("--audio\n", "--from-a-newer-version\n", [], ["--from-a-newer-version"], id="in the install's own file"),
-        pytest.param("--audio\n", "--overwr\n", [], ["--overwr"], id="a prefix in the install's own file"),
-        pytest.param("--audio\n", "", ["--overwr"], ["--overwr"], id="a prefix on the command line"),
+        pytest.param(
+            "--audio --from-a-newer-version\n", "", [], [], id="in the shared file: skipped"
+        ),
+        pytest.param(
+            "--audio -vx 2\n", "", [], [], id="in the shared file, skipped before parsing"
+        ),
+        pytest.param(
+            "--audio\n",
+            "--from-a-newer-version\n",
+            [],
+            ["--from-a-newer-version"],
+            id="in the install's own file",
+        ),
+        pytest.param(
+            "--audio\n", "--overwr\n", [], ["--overwr"], id="a prefix in the install's own file"
+        ),
+        pytest.param(
+            "--audio\n", "", ["--overwr"], ["--overwr"], id="a prefix on the command line"
+        ),
     ],
 )
 def test_an_option_only_a_newer_version_knows_is_skipped_only_in_the_shared_settings_file(
@@ -522,7 +617,9 @@ def test_missing_ytdlp_does_not_stop_the_run_start() -> None:
     assert yt_clipper.describeYtdlVersion(cp).startswith("unavailable (")
 
 
-def test_startup_notices_failing_never_stop_the_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_startup_notices_failing_never_stop_the_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     example = Path(__file__).resolve().parents[2] / "schema" / "examples" / "kitchen-sink.json"
     (tmp_path / "markers.json").write_text(example.read_text(encoding="utf-8"), encoding="utf-8")
     monkeypatch.chdir(tmp_path)
@@ -539,9 +636,16 @@ def test_startup_notices_failing_never_stop_the_run(tmp_path: Path, monkeypatch:
     yt_clipper.main()
 
 
-def test_merge_prompt_with_no_one_to_answer_skips_the_merge(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_merge_prompt_with_no_one_to_answer_skips_the_merge(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # A merge needing a failed pair asks whether to merge anyway; a scheduled run cannot answer.
-    cs = ClipperState(settings={"markerPairMergeList": "1-2", "markerPairs": [{"returncode": 1, "overrides": {}}, {"overrides": {}}]})
+    cs = ClipperState(
+        settings={
+            "markerPairMergeList": "1-2",
+            "markerPairs": [{"returncode": 1, "overrides": {}}, {"overrides": {}}],
+        }
+    )
     cs.clipper_paths.clipsPath = str(tmp_path)
 
     def noAnswer(_prompt: str = "") -> str:
@@ -549,6 +653,8 @@ def test_merge_prompt_with_no_one_to_answer_skips_the_merge(tmp_path: Path, monk
 
     logged: list[str] = []
     monkeypatch.setattr("builtins.input", noAnswer)
-    monkeypatch.setattr(clip_maker.logger, "warning", lambda message, *_args, **_kwargs: logged.append(str(message)))
+    monkeypatch.setattr(
+        clip_maker.logger, "warning", lambda message, *_args, **_kwargs: logged.append(str(message))
+    )
     assert clip_maker.mergeClips(cs) == []
     assert "No answer to the prompt, so the merge is skipped." in logged

@@ -1,4 +1,3 @@
-
 import pytest
 
 from clipper import argparser
@@ -57,7 +56,10 @@ def test_suggestKnownOptions(token: str, expected: list[str]) -> None:
         pytest.param("--asld", "--auto-subs-lang (-asl)", None, id="short-flag letters match"),
         # Sharing only a dash must not suggest a terse, unrelated flag.
         pytest.param(
-            "--asd", None, "--video-stabilization-dynamic-zoom (-vsdz)", id="dash overlap",
+            "--asd",
+            None,
+            "--video-stabilization-dynamic-zoom (-vsdz)",
+            id="dash overlap",
         ),
     ],
 )
