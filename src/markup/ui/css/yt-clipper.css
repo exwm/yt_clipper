@@ -74,14 +74,17 @@
   border-left-color: #6cb7ff;
 }
 
+/* Tints fade over the solid background, so a light page never shows through. */
 .flash-success {
   border-left-color: #3ac36a;
-  background: linear-gradient(to right, rgba(58, 195, 106, 0.18), var(--dark-grey) 60%);
+  background: linear-gradient(to right, rgba(58, 195, 106, 0.18), transparent 60%),
+    var(--dark-grey);
 }
 
 .flash-warn {
   border-left-color: #f5a623;
-  background: linear-gradient(to right, rgba(245, 166, 35, 0.2), var(--dark-grey) 60%);
+  background: linear-gradient(to right, rgba(245, 166, 35, 0.2), transparent 60%),
+    var(--dark-grey);
 }
 
 .flash-warn .flash-msg {
@@ -91,7 +94,8 @@
 
 .flash-error {
   border-left-color: var(--bright-red);
-  background: linear-gradient(to right, rgba(237, 28, 63, 0.28), var(--dark-grey) 60%);
+  background: linear-gradient(to right, rgba(237, 28, 63, 0.28), transparent 60%),
+    var(--dark-grey);
   box-shadow: 2px 2px 3px 0px var(--darker-grey), 0 0 0 1px rgba(237, 28, 63, 0.4);
 }
 
@@ -116,7 +120,8 @@
   gap: 12px;
   margin: 8px 4px;
   padding: 10px 14px;
-  background: linear-gradient(to right, rgba(237, 28, 63, 0.28), var(--dark-grey) 60%);
+  background: linear-gradient(to right, rgba(237, 28, 63, 0.28), transparent 60%),
+    var(--dark-grey);
   border: 1px solid rgba(237, 28, 63, 0.6);
   border-left: 4px solid var(--bright-red);
   border-radius: 3px;
@@ -845,7 +850,8 @@
 .ytc-share-modal-warning {
   padding: 8px 10px;
   border-left: 3px solid #f5a623;
-  background: linear-gradient(to right, rgba(245, 166, 35, 0.2), var(--dark-grey) 60%);
+  background: linear-gradient(to right, rgba(245, 166, 35, 0.2), transparent 60%),
+    var(--dark-grey);
   color: #ffc661;
   font-weight: 600;
   font-size: 10pt;
@@ -854,7 +860,8 @@
 .ytc-share-modal-findings {
   padding: 8px 10px;
   border-left: 3px solid #ef4444;
-  background: linear-gradient(to right, rgba(239, 68, 68, 0.2), var(--dark-grey) 60%);
+  background: linear-gradient(to right, rgba(239, 68, 68, 0.2), transparent 60%),
+    var(--dark-grey);
   color: #fca5a5;
   font-size: 10pt;
 }
@@ -898,7 +905,8 @@
 .ytc-share-modal-parse-issues {
   padding: 8px 10px;
   border-left: 3px solid #60a5fa;
-  background: linear-gradient(to right, rgba(96, 165, 250, 0.15), var(--dark-grey) 60%);
+  background: linear-gradient(to right, rgba(96, 165, 250, 0.15), transparent 60%),
+    var(--dark-grey);
   color: var(--light-grey);
   font-size: 10pt;
 }
