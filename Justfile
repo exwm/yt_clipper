@@ -13,14 +13,20 @@ pr pr_number:
 
 # Run a command and print how long it took, so a slow build or check step stays visible. Times come
 # from Node, which every build machine has (macOS's date has no sub-second format). A missing time
-# skips the report but never fails the step: the command's own exit status is kept.
+# skips the report but never fails the step: the command's own exit status is kept, and the recipe that
+# called it reports a failure (an empty UI phase exits 5, which its caller passes).
+[no-exit-message]
 [positional-arguments]
 _timed label *command:
   @label="$1"; shift; start=$(node -p 'Date.now()' 2>/dev/null); "$@"; status=$?; end=$(node -p 'Date.now()' 2>/dev/null); case "$start$end" in ''|*[!0-9]*) ;; *) ms=$((end - start)); printf '[time] %-22s %3d.%01ds\n' "$label" $((ms / 1000)) $((ms % 1000 / 100)) ;; esac; exit $status
 
 # A folder, not a glob: sh on Windows (MSYS2) expands a glob in its arguments before the recipe runs.
+# Warnings only: a line per file buried the step times.
 pretty-ts:
-  just _timed prettier npx prettier src --write --cache
+  just _timed prettier npx prettier src --write --cache --log-level warn
+# Without the cache, so a file the cached write skipped still fails (T-007). CI and release-prep run it.
+pretty-ts-check:
+  just _timed "prettier --check" npx prettier src --check --log-level warn
 pretty-py:
   uv run ruff check --select I --fix src/clipper integration-tests tools && uv run ruff format src/clipper integration-tests tools
 pretty-py-check:
@@ -151,7 +157,9 @@ parcel-build:
 # Format first (it rewrites sources), then check and build in parallel: they only read them.
 bundle-prod coverage="false": pretty-ts (_check-and-build coverage)
 [parallel]
-_check-and-build coverage: typecheck-ts eslint-ts (test-ts coverage) parcel-build
+_check-and-build coverage: typecheck-ts eslint-ts (test-ts coverage) parcel-build (_pretty-ts-check-if coverage)
+_pretty-ts-check-if coverage:
+  {{ if coverage == "true" { "just pretty-ts-check" } else { "true" } }}
 
 # Serve the generic yt_clipper site with the freshly built userscript injected (no Tampermonkey).
 dev-site:
@@ -192,7 +200,7 @@ ui-test-firefox *args:
 [no-exit-message]
 [positional-arguments]
 _ui-test-phase browser workers marks *args:
-  @browser="$1"; workers="$2"; marks="$3"; shift 3; cache="-o cache_dir=.pytest_cache/ui-test"; uv run --group ui-test pytest integration-tests/ui $browser $cache -n "$workers" --durations=10 --tracing off --output sandbox/ui-test-results --reruns 2 --only-rerun InconclusiveEnvironment -m "$marks" "$@"; status=$?; if [ $status -ne 0 ] && [ $status -ne 5 ]; then echo "Rerunning the failed tests with Playwright tracing (traces in sandbox/ui-test-results):"; uv run --group ui-test pytest integration-tests/ui $browser $cache -n "$workers" --tracing retain-on-failure --output sandbox/ui-test-results --last-failed --last-failed-no-failures none -m "$marks" "$@" && echo "The failed tests passed when rerun with tracing: they are flaky."; fi; exit $status
+  @browser="$1"; workers="$2"; marks="$3"; shift 3; cache="-o cache_dir=.pytest_cache/ui-test"; just _timed "ui: $marks" uv run --group ui-test pytest integration-tests/ui $browser $cache -n "$workers" --durations=10 --tracing off --output sandbox/ui-test-results --reruns 2 --only-rerun InconclusiveEnvironment -m "$marks" "$@"; status=$?; if [ $status -ne 0 ] && [ $status -ne 5 ]; then echo "Rerunning the failed tests with Playwright tracing (traces in sandbox/ui-test-results):"; uv run --group ui-test pytest integration-tests/ui $browser $cache -n "$workers" --tracing retain-on-failure --output sandbox/ui-test-results --last-failed --last-failed-no-failures none -m "$marks" "$@" && echo "The failed tests passed when rerun with tracing: they are flaky."; fi; exit $status
 # The loop's end frame on simulated 30, 50, 120 and 144 Hz displays, in Playwright's chromium-headless-shell
 # (installed here once per Playwright version). Apart from ui-test: beside the other tests' load the simulated
 # display drops refreshes now and then, which cuts an end frame short.
@@ -200,7 +208,7 @@ _ui-test-phase browser workers marks *args:
 ui-test-display-rates *args:
   just _parcel-once
   uv run --group ui-test playwright install chromium-headless-shell
-  uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n 1 --durations=10 --output sandbox/ui-test-results --reruns 2 --only-rerun InconclusiveEnvironment -m display_rate "$@"
+  @just _timed "ui: display rates" uv run --group ui-test pytest integration-tests/ui --browser-channel chrome -n 1 --durations=10 --output sandbox/ui-test-results --reruns 2 --only-rerun InconclusiveEnvironment -m display_rate "$@"
 # Release highlight close-ups listed in integration-tests/ui/showcase.toml, into sandbox/showcase/<release>/.
 # Add --update-assets to also write the shots that name an asset into assets/image/.
 [positional-arguments]
@@ -236,12 +244,12 @@ release-prep version:
   uv run python tools/release/changelog.py highlights {{version}}
   uv run python tools/release/changelog.py credits {{version}}
   uv run python tools/release/version.py set {{version}}
-  just lint-prose-new
-  just bundle-prod true
-  just lint-py
-  just test-py
+  just _timed lint-prose-new just lint-prose-new
+  just _timed "bundle-prod true" just bundle-prod true
+  just _timed lint-py just lint-py
+  just _timed test-py just test-py
   # The frame timing the release ships (D-061): add `just ui-test-frame-549` once a 5.49 behavior turns on.
-  just ui-test
+  just _timed ui-test just ui-test
   uv run python tools/release/version.py check {{version}}
 # Tagged commits are made immutable in jj: the changelog links and the tag point at them.
 
