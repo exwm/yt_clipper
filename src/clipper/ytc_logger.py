@@ -2,12 +2,13 @@ import atexit
 import logging
 import shutil
 import sys
+from collections.abc import Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime
 from pathlib import Path
 from types import TracebackType
-from typing import IO, Dict, Generator
+from typing import IO
 
 import coloredlogs
 import verboselogs
@@ -82,7 +83,7 @@ class YTCLogger(verboselogs.VerboseLogger):
         | BaseException = None,
         stack_info: bool = False,
         stacklevel: int = 1,
-        extra: Dict[str, object] | None = None,
+        extra: dict[str, object] | None = None,
     ) -> None:
         if not self.no_rich_logs:
             level_name = logging.getLevelName(level)

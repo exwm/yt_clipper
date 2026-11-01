@@ -7,7 +7,6 @@ branching on the ``previewFormat`` string and delegating to a format-specific
 implementation.
 """
 
-from typing import List, Optional
 
 from clipper.clipper_types import ClipperPaths, DictStrAny
 from clipper.previews.avif import (
@@ -42,7 +41,7 @@ _PREVIEW_FORMAT_EXTENSIONS = {
 }
 
 
-def getPreviewFileExtension(previewFormat: str) -> Optional[str]:
+def getPreviewFileExtension(previewFormat: str) -> str | None:
     """Return the file extension for ``previewFormat`` (e.g. ``"avif"``).
 
     Returns ``None`` for ``"none"`` or unknown formats so callers can branch
@@ -57,7 +56,7 @@ def makePreview(
     previewFormat: str,
     mps: DictStrAny,
     overwrite: bool,
-) -> Optional[str]:
+) -> str | None:
     """Dispatch per-clip preview generation. Returns output path or None."""
     if previewFormat == PREVIEW_FORMAT_NONE:
         return None
@@ -70,11 +69,11 @@ def makePreview(
 
 def mergePreviews(
     cp: ClipperPaths,
-    previewPaths: List[str],
+    previewPaths: list[str],
     mergedClipFilePath: str,
     previewFormat: str,
     overwrite: bool,
-) -> Optional[str]:
+) -> str | None:
     """Dispatch merged-preview generation. Returns output path or None.
 
     The merged preview output path is derived from the merged main-clip path

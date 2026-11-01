@@ -3,8 +3,9 @@ import os
 import re
 import shlex
 import sys
+from collections import OrderedDict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, OrderedDict, Tuple
+from typing import Any
 
 from rich_argparse import ArgumentDefaultsRichHelpFormatter
 
@@ -26,7 +27,7 @@ class DefaultsHelpFormatter(ArgumentDefaultsRichHelpFormatter):
     bitrate); where that default matters it is spelled out in the help text.
     """
 
-    def _get_help_string(self, action: argparse.Action) -> Optional[str]:
+    def _get_help_string(self, action: argparse.Action) -> str | None:
         if action.default in (None, ""):
             return action.help
         return super()._get_help_string(action)
@@ -1071,7 +1072,7 @@ def add_tool_options(tool_options: argparse._ArgumentGroup) -> None:
     )
 
 
-def defaultArgFiles() -> List[str]:
+def defaultArgFiles() -> list[str]:
     """The settings files read before the command line, later ones taking precedence. A release
     reads the shared file every version reads, then its own default_args.txt, whatever folder it runs
     from, then a default_args.txt in the working folder if that is another folder (as before 5.49)."""
@@ -1092,7 +1093,7 @@ def defaultArgFiles() -> List[str]:
     return files
 
 
-def splitArgLine(line: str) -> List[str]:
+def splitArgLine(line: str) -> list[str]:
     """One settings line split like a command line: double quotes group words (a path with spaces);
     backslashes and apostrophes stay as they are (Windows paths, names like O'Brien)."""
     lexer = shlex.shlex(line, posix=True)
@@ -1103,7 +1104,7 @@ def splitArgLine(line: str) -> List[str]:
     return list(lexer)
 
 
-def readArgFile(path: Path) -> List[str]:
+def readArgFile(path: Path) -> list[str]:
     """The arguments in a settings file: one or more per line, and # starts a comment line."""
     try:
         raw = path.read_bytes()
@@ -1113,7 +1114,7 @@ def readArgFile(path: Path) -> List[str]:
     text, fallbackEncoding = decodeSettingsFile(raw)
     if fallbackEncoding:
         print(f"Warning: {path} is not saved as UTF-8, so it was decoded as {fallbackEncoding}. Save it as UTF-8.", file=sys.stderr)
-    args: List[str] = []
+    args: list[str] = []
     for number, line in enumerate(text.splitlines(), start=1):
         if line.lstrip().startswith("#"):
             continue
@@ -1130,12 +1131,12 @@ def readArgFile(path: Path) -> List[str]:
 OPTION_NAME = re.compile(r"--?[A-Za-z][\w-]*")
 
 
-def knownSharedArgs(parser: argparse.ArgumentParser, sharedArgs: List[str], sharedFile: str) -> List[str]:
+def knownSharedArgs(parser: argparse.ArgumentParser, sharedArgs: list[str], sharedFile: str) -> list[str]:
     """The shared settings file's arguments this version knows. Every installed version reads that
     file, so an option only a newer version knows is skipped with its values, with a warning. It is
     skipped before parsing: argparse would read an unknown -ab as the known -a with the value b."""
-    kept: List[str] = []
-    skipped: List[str] = []
+    kept: list[str] = []
+    skipped: list[str] = []
     skipping = False
     for token in sharedArgs:
         name = token.split("=", 1)[0]
@@ -1153,9 +1154,9 @@ def knownSharedArgs(parser: argparse.ArgumentParser, sharedArgs: List[str], shar
 SECRET_OPTIONS = ("--ytdl-password", "-yp")
 
 
-def redactSecrets(args: List[str]) -> List[str]:
+def redactSecrets(args: list[str]) -> list[str]:
     """`args` with the values of secret options masked, for printing them to the console and log."""
-    shown: List[str] = []
+    shown: list[str] = []
     for i, arg in enumerate(args):
         option, joined, _value = arg.partition("=")
         if joined and option in SECRET_OPTIONS:
@@ -1167,15 +1168,15 @@ def redactSecrets(args: List[str]) -> List[str]:
     return shown
 
 
-def getArgs() -> Tuple[Dict[str, Any], List[str], List[str], List[str], Dict[str, List[str]]]:
+def getArgs() -> tuple[dict[str, Any], list[str], list[str], list[str], dict[str, list[str]]]:
     parser = getArgParser()
 
-    givenArgFiles: Optional[List[str]] = parser.parse_known_args()[0].argFiles
-    argFiles: List[str] = defaultArgFiles() if givenArgFiles is None else givenArgFiles
+    givenArgFiles: list[str] | None = parser.parse_known_args()[0].argFiles
+    argFiles: list[str] = defaultArgFiles() if givenArgFiles is None else givenArgFiles
 
     argv = sys.argv[1:]
-    argsFromArgFiles: List[str] = []
-    argsFromArgFilesMap: Dict[str, List[str]] = OrderedDict()
+    argsFromArgFiles: list[str] = []
+    argsFromArgFilesMap: dict[str, list[str]] = OrderedDict()
     for argFile in argFiles:
         argFilePath = Path(argFile)
         if argFilePath.is_file():

@@ -2,6 +2,8 @@
 simulated refresh never sent) makes the run inconclusive, which `just ui-test` reruns, rather than
 a failure of the markup. Never use them to excuse what the markup itself did."""
 
+import itertools
+
 # A real display runs at 60 Hz, as the timing tests expect. Asleep, Windows times Chrome's frames with a
 # 17 ms sleep (about 57 Hz, see `displays_stay_on` in conftest.py).
 REAL_DISPLAY_HZ = 60
@@ -39,7 +41,7 @@ def split_turns(held: list[int], refreshed_at: list[float]) -> list[tuple[list[i
     starts = [0] + [i for i in range(1, len(held)) if held[i] < held[i - 1]]
     return [
         (held[start : end + 1], refreshed_at[start : end + 1])
-        for start, end in zip(starts, starts[1:])
+        for start, end in itertools.pairwise(starts)
     ]
 
 
@@ -58,7 +60,7 @@ def turns_without_missed_refreshes(
     clean = [
         turn
         for turn in turns
-        if all(b - a < MISSED_REFRESH_GAP * refresh_ms for a, b in zip(turn[1], turn[1][1:]))
+        if all(b - a < MISSED_REFRESH_GAP * refresh_ms for a, b in itertools.pairwise(turn[1]))
     ]
     if len(clean) < fewest_turns:
         raise InconclusiveEnvironment(

@@ -14,7 +14,6 @@ import re
 import shlex
 import subprocess
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 import rich.markup
 
@@ -33,7 +32,7 @@ logger = make_subsystem_logger(Subsystem.PREVIEWS)
 # This is a project heuristic: not externally sourced. Format modules may
 # import this table as-is or define their own if their encoder's compression
 # curve warrants different bucket boundaries.
-DEFAULT_PREVIEW_DIM_TIERS: Tuple[Tuple[int, int], ...] = (
+DEFAULT_PREVIEW_DIM_TIERS: tuple[tuple[int, int], ...] = (
     # (source_short_edge_min, preview_long_edge)
     (2160, 720),  # 4K and up         -> 720p preview
     (1440, 640),  # 1440p             -> 640p
@@ -52,8 +51,8 @@ def roundUpToEven(value: float) -> int:
 def pickPreviewLongEdge(
     sourceWidth: int,
     sourceHeight: int,
-    tiers: Tuple[Tuple[int, int], ...] = DEFAULT_PREVIEW_DIM_TIERS,
-    override: Optional[int] = None,
+    tiers: tuple[tuple[int, int], ...] = DEFAULT_PREVIEW_DIM_TIERS,
+    override: int | None = None,
 ) -> int:
     """Pick the target longest-edge (px) for a preview from source resolution.
 
@@ -74,9 +73,9 @@ def pickPreviewLongEdge(
 def computePreviewDimensions(
     sourceWidth: int,
     sourceHeight: int,
-    tiers: Tuple[Tuple[int, int], ...] = DEFAULT_PREVIEW_DIM_TIERS,
-    override: Optional[int] = None,
-) -> Tuple[int, int]:
+    tiers: tuple[tuple[int, int], ...] = DEFAULT_PREVIEW_DIM_TIERS,
+    override: int | None = None,
+) -> tuple[int, int]:
     """Compute (width, height) preserving aspect ratio, both rounded up to even.
 
     Even-dim rounding is required for 4:2:0 chroma subsampling.
@@ -122,7 +121,7 @@ def getPreviewSiblingPath(clipFilePath: str, formatExtension: str) -> str:
     return str(Path(clipFilePath).with_suffix(f".preview.{extension}"))
 
 
-def probeVideoDimensions(cp: ClipperPaths, path: str) -> Optional[Tuple[int, int]]:
+def probeVideoDimensions(cp: ClipperPaths, path: str) -> tuple[int, int] | None:
     """Return (width, height) for the first video stream of ``path`` via ffprobe.
 
     Returns ``None`` when the probe fails or output is malformed: caller
@@ -153,7 +152,7 @@ def runFfmpegPreviewCommand(
     command: str,
     outPath: str,
     previewLabel: str,
-) -> Optional[str]:
+) -> str | None:
     """Run an ffmpeg preview command, log success/failure, return outPath or None.
 
     ``previewLabel`` names the artifact in logs (e.g. ``"AVIF preview"``,
@@ -187,11 +186,11 @@ def runFfmpegPreviewCommand(
 
 def concatCopyPreviewVideos(
     cp: ClipperPaths,
-    inputPaths: List[str],
+    inputPaths: list[str],
     outputPath: str,
     overwrite: bool,
     previewLabel: str,
-) -> Optional[str]:
+) -> str | None:
     """Merge same-codec, same-dim previews into one file via ffmpeg concat-copy.
 
     Pre-conditions the caller must enforce:

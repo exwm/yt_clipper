@@ -40,11 +40,13 @@ testing live above it.
 from __future__ import annotations
 
 import contextlib
+import itertools
 import math
 import re
 import time
+from collections.abc import Callable, Generator
 from dataclasses import dataclass, field, replace
-from typing import Callable, Generator, Literal
+from typing import Literal
 
 from clipper.ytc_logger import Subsystem, make_subsystem_logger
 
@@ -280,7 +282,7 @@ def _piecewise_evaluator(
             return points[0][1]
         if crf >= points[-1][0]:
             return points[-1][1]
-        for (lo_crf, lo_v), (hi_crf, hi_v) in zip(points, points[1:]):
+        for (lo_crf, lo_v), (hi_crf, hi_v) in itertools.pairwise(points):
             if lo_crf <= crf <= hi_crf:
                 # Linear interpolation within segment.
                 if hi_crf == lo_crf:
@@ -310,7 +312,7 @@ def _fit_global_linear(
     ys = [get_low_percentile_value(p.summary, low_pct) for p in probes]
     mean_x = sum(xs) / n
     mean_y = sum(ys) / n
-    num = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys))
+    num = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys, strict=True))
     den = sum((x - mean_x) ** 2 for x in xs)
     if den == 0.0:
         return 0.0, mean_y
@@ -345,7 +347,7 @@ def _fit_log(
     n = len(probes)
     mean_x = sum(xs) / n
     mean_y = sum(ys) / n
-    num = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys))
+    num = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys, strict=True))
     den = sum((x - mean_x) ** 2 for x in xs)
     if den == 0.0:
         return 0.0, mean_y
@@ -504,7 +506,7 @@ def pick_knee(
     points = [(p.crf, get_low_percentile_value(p.summary, fit.low_pct)) for p in sorted_probes]
     # Compute per-segment slopes (VMAF per CRF unit, sign carried).
     slopes: list[tuple[int, int, float]] = []  # (lo_crf, hi_crf, slope)
-    for (lo_crf, lo_v), (hi_crf, hi_v) in zip(points, points[1:]):
+    for (lo_crf, lo_v), (hi_crf, hi_v) in itertools.pairwise(points):
         if hi_crf == lo_crf:
             continue
         slope = (hi_v - lo_v) / (hi_crf - lo_crf)
@@ -516,7 +518,7 @@ def pick_knee(
     # segment's slope is similar.
     best_steepening = 0.0
     best_knee_crf: int | None = None
-    for prev_seg, next_seg in zip(slopes, slopes[1:]):
+    for prev_seg, next_seg in itertools.pairwise(slopes):
         # Steepening = slope of next segment is more negative than the
         # previous segment's. Negative delta = more steepening.
         slope_a = prev_seg[2]
@@ -587,7 +589,7 @@ def needs_extra_probe(
         step = max(
             4,
             max(
-                (hi.crf - lo.crf for lo, hi in zip(sorted_valid, sorted_valid[1:])),
+                (hi.crf - lo.crf for lo, hi in itertools.pairwise(sorted_valid)),
                 default=4,
             )
             // 2,
@@ -603,7 +605,7 @@ def needs_extra_probe(
     # Sparse coverage: walk pairs, find biggest gap.
     biggest_gap = 0
     biggest_gap_midpoint = -1
-    for lo, hi in zip(sorted_valid, sorted_valid[1:]):
+    for lo, hi in itertools.pairwise(sorted_valid):
         gap = hi.crf - lo.crf
         if gap > biggest_gap:
             biggest_gap = gap
@@ -683,7 +685,7 @@ def compute_compressibility(
     sorted_probes = sorted(fit.valid_probes, key=lambda p: p.crf)
     rated = [p for p in sorted_probes if p.bitrate_kbps > 0]
     segments: list[tuple[int, int, float]] = []
-    for lo, hi in zip(rated, rated[1:]):
+    for lo, hi in itertools.pairwise(rated):
         vmaf_lo = get_low_percentile_value(lo.summary, fit.low_pct)
         vmaf_hi = get_low_percentile_value(hi.summary, fit.low_pct)
         vmaf_drop = vmaf_lo - vmaf_hi
@@ -873,7 +875,7 @@ def render_curve_ascii(  # noqa: PLR0912
         """
         chart_lines = chart.splitlines()
         out_lines: list[str] = []
-        for prev, raw_line in zip(["", *chart_lines], chart_lines):
+        for prev, raw_line in zip(["", *chart_lines], chart_lines, strict=False):
             if "(crf)" in prev or "(x)" in prev:
                 out_lines.append(_build_x_label_line(raw_line))
             else:

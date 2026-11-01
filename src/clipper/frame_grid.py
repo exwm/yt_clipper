@@ -10,7 +10,6 @@ tests/fixtures/frame_grid_cases.json.
 import math
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Union
 
 # A time up to this much before a frame's start still means that frame. Times reach the core rounded:
 # saved to 6 decimals, or YouTube's frame times rounded to the millisecond, so a frame's start time can
@@ -28,7 +27,7 @@ class FrameGrid:
     """Frame n of a constant frame rate source starts at origin + n / rate."""
 
     origin: float
-    rate: Union[Fraction, float]
+    rate: Fraction | float
 
 
 def frameAt(grid: FrameGrid, time: float) -> int:

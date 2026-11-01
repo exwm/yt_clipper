@@ -41,7 +41,7 @@ def step_label(name: str) -> str:
     return label[:1].upper() + label[1:]
 
 
-def step(run: Callable[P, R]) -> Callable[P, R]:
+def step[**P, R](run: Callable[P, R]) -> Callable[P, R]:
     label = step_label(run.__name__)
 
     @functools.wraps(run)

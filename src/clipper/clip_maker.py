@@ -1,16 +1,18 @@
 import contextlib
 import copy
 import functools
+import itertools
 import json
 import os
 import re
 import shlex
 import subprocess
 import sys
+from collections.abc import Generator
 from fractions import Fraction
 from math import pi
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional, Set, Tuple
+from typing import Any
 
 import rich.markup
 
@@ -77,7 +79,7 @@ def _bakeCinematicPath(
     fps: float,
     videoPartStart: float,
     frameTimingName: str,
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     # A pair's settings are made again for each sample-guided trial and encode, and a long pair takes
     # about a second to solve. The path is only read, so the cached one is shared.
     # default=str: a point can carry other fields the solver ignores.
@@ -103,7 +105,7 @@ def _warnOfDenseCinematicSolve() -> None:
 
 
 @functools.lru_cache(maxsize=64)
-def _bakeCinematicPathFromKey(key: str) -> Optional[dict[str, Any]]:
+def _bakeCinematicPathFromKey(key: str) -> dict[str, Any] | None:
     cropMap, margins, cropResWidth, cropResHeight, fps, videoPartStart, frameTimingName = json.loads(key)
     if banded_lapack.lapack() is None:
         _warnOfDenseCinematicSolve()
@@ -125,8 +127,8 @@ def getMarkerPairSettings(  # noqa: PLR0912
     enableMinterpFpsBitrateFactor: bool = False,
     enableLogging: bool = True,
     outputSuffix: str = "",
-    outputDir: Optional[str] = None,
-) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    outputDir: str | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """Resolve per-marker-pair settings + filenames.
 
     ``outputSuffix`` (e.g. ``".crfsearch-trial-crf26"``) is appended to
@@ -144,10 +146,10 @@ def getMarkerPairSettings(  # noqa: PLR0912
     cp = cs.clipper_paths
 
     # marker pair properties
-    mp: Dict[str, Any] = settings["markerPairs"][markerPairIndex]
+    mp: dict[str, Any] = settings["markerPairs"][markerPairIndex]
 
     # marker pair settings
-    mps: Dict[str, Any] = {**settings, **(mp["overrides"])}
+    mps: dict[str, Any] = {**settings, **(mp["overrides"])}
 
     mp["exists"] = False
     if not mps["preview"]:
@@ -268,7 +270,7 @@ def getMarkerPairSettings(  # noqa: PLR0912
                 # Without a path the pair renders as Smooth Track, as when there is nothing to solve.
                 logger.warning(f"Could not solve the Cinematic crop path ({error!r}), so the crop uses Smooth Track.")
         autoScaleCropMap(mp["cropMap"], settings)
-        for left, right in zip(mp["cropMap"][:-1], mp["cropMap"][1:]):
+        for left, right in zip(mp["cropMap"][:-1], mp["cropMap"][1:], strict=True):
             lcc = left["cropComponents"]
             rcc = right["cropComponents"]
             if lcc["x"] != rcc["x"] or lcc["y"] != rcc["y"]:
@@ -375,7 +377,7 @@ def updateEncodeSettings(
     mp: DictStrAny,
     mps: DictStrAny,
     enableMinterpFpsBitrateFactor: bool = False,
-) -> Tuple[DictStrAny, float | int, int, int]:
+) -> tuple[DictStrAny, float | int, int, int]:
     bitrateCropFactor = (mp["maxSize"]) / (settings["width"] * settings["height"])
 
     # relax bitrate crop factor assuming that most crops include complex parts
@@ -435,14 +437,14 @@ def pairSpeedMap(
     frame's end (the last speed runs to the last frame's end), and whether its speed varies."""
     points = [dict(point) for point in speedMap]
     points[0]["x"], points[-1]["x"] = mapsStart, mapsEnd
-    return points, any(left["y"] != right["y"] for left, right in zip(points, points[1:]))
+    return points, any(left["y"] != right["y"] for left, right in itertools.pairwise(points))
 
 
 def windowSpeedMap(speedMap: list[DictStrAny], start: float, end: float, frameDur: float) -> list[DictStrAny]:
     """The part of a pair's speed map from start to end, for a sample-guided window of the pair, with
     the speeds the pair renders there. A map's last section reaches its speed at its last frame's start
     (getSpeedFilterAndDuration), so the window's end point takes the speed at its own last frame's."""
-    sections = [(left["x"], left["y"], right["x"], right["y"]) for left, right in zip(speedMap, speedMap[1:])]
+    sections = [(left["x"], left["y"], right["x"], right["y"]) for left, right in itertools.pairwise(speedMap)]
     lastLeftX, lastLeftY, lastRightX, lastRightY = sections[-1]
     sections[-1] = (lastLeftX, lastLeftY, max(lastLeftX, lastRightX - frameDur), lastRightY)
 
@@ -466,7 +468,7 @@ def cropFilterOnPairTime(mp: DictStrAny) -> str:
     return f"settb=AVTB,setpts=PTS+{offset}/TB,{mp['cropFilter']},setpts=PTS-STARTPTS"
 
 
-def findVideoPart(mp: DictStrAny, mps: DictStrAny) -> Optional[DictStrAny]:
+def findVideoPart(mp: DictStrAny, mps: DictStrAny) -> DictStrAny | None:
     videoParts = []
     for videoPart in mps["videoParts"]:
         if mp["start"] >= videoPart["start"] and mp["end"] <= videoPart["end"]:
@@ -487,7 +489,7 @@ def fastTrimClip(
     markerPairIndex: int,
     mp: DictStrAny,
     mps: DictStrAny,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     settings = cs.settings
     cp = cs.clipper_paths
     inputs = ""
@@ -533,8 +535,8 @@ def makeClip(  # noqa: PLR0912
     markerPairIndex: int,
     *,
     outputSuffix: str = "",
-    outputDir: Optional[str] = None,
-) -> Optional[Dict[str, Any]]:
+    outputDir: str | None = None,
+) -> dict[str, Any] | None:
     """Encode one marker pair.
 
     ``outputSuffix`` (e.g. ``".crfsearch-trial-crf26"``) is appended to the
@@ -728,7 +730,7 @@ def makeClip(  # noqa: PLR0912
             {"x": speedPoint["x"], "y": speedPointRev["y"]}
             for speedPoint, speedPointRev in zip(
                 mp["speedMap"],
-                reversed(mp["speedMap"]),
+                reversed(mp["speedMap"]), strict=True,
             )
         ]
         reverseSpeedFilter, _, _ = frame_timing.current().speedFilter(
@@ -961,7 +963,7 @@ def makeClip(  # noqa: PLR0912
 
 def getFfmpegCommandWithoutVideoFilter(
     audio_filter: str,
-    cbr: Optional[int],
+    cbr: int | None,
     cp: ClipperPaths,
     inputs: str,
     mp: DictStrAny,
@@ -1068,7 +1070,7 @@ def _estimate_encoded_frames(settings: Settings, mp: DictStrAny) -> int:
 
 def runffmpegCommand(  # noqa: PLR0912 (encode kind branching + filter-graph substitute is part of the encode-dispatch surface)
     settings: Settings,
-    ffmpegCommands: List[str],
+    ffmpegCommands: list[str],
     markerPairIndex: int,
     mp: DictStrAny,
 ) -> DictStrAny:
@@ -1280,7 +1282,7 @@ def runffplayCommand(
         subprocess.run(shlex.split(ffplayCommand), check=True)
 
 
-def mergeClips(cs: ClipperState) -> List[str]:  # noqa: PLR0912
+def mergeClips(cs: ClipperState) -> list[str]:  # noqa: PLR0912
     """Make each merged clip, and return the merges whose ffmpeg failed. A merge skipped for a
     missing clip is not counted: with --only, the other clips are missing on purpose."""
     settings = cs.settings
@@ -1328,7 +1330,7 @@ def mergeClips(cs: ClipperState) -> List[str]:  # noqa: PLR0912
             titlePrefixes = [cleanFileName(p["overrides"].get("titlePrefix", "")) for p in settings["markerPairs"]]
             mergeTitlePrefix = titlePrefixes[mergeList[0] - 1]
             if len(mergeList) > 1:
-                for left, right in zip(mergeList[:-1], mergeList[1:]):
+                for left, right in itertools.pairwise(mergeList):
                     leftPrefix = titlePrefixes[left - 1]
                     rightPrefix = titlePrefixes[right - 1]
                     if leftPrefix != rightPrefix or leftPrefix == "" or rightPrefix == "":
@@ -1438,14 +1440,14 @@ def checkClipExists(
 
 
 def createMergeList(
-    markerPairMergeList: List[str],
-) -> Generator[Tuple[str, List[int]], None, None]:
+    markerPairMergeList: list[str],
+) -> Generator[tuple[str, list[int]], None, None]:
     for merge in markerPairMergeList:
         mergeList = markerPairsCSVToList(merge)
         yield merge, mergeList
 
 
-def markerPairsCSVToList(markerPairsCSV: str) -> List[int]:
+def markerPairsCSVToList(markerPairsCSV: str) -> list[int]:
     markerPairsCSV = re.sub(r"\s+", "", markerPairsCSV)
     markerPairsCSV = markerPairsCSV.rstrip(",")
     csvRangeValidation = r"^((\d{1,2})|(\d{1,2}-\d{1,2})){1}(,((\d{1,2})|(\d{1,2}-\d{1,2})))*$"
@@ -1571,7 +1573,7 @@ def containsValidCharsForVidStab(string: str) -> bool:
 def skipInvalidMarkerPair(
     marker: DictStrAny,
     markerPairIndex: int,
-    markerPairQueue: Set[int],
+    markerPairQueue: set[int],
 ) -> bool:
     """Mark a marker pair the loader found invalid as failed, so merges that need it skip too."""
     if INVALID_MARKER_PAIR_KEY not in marker:
@@ -1587,7 +1589,7 @@ def skipInvalidMarkerPair(
 def recordEncodeResult(
     settings: Settings,
     markerPairIndex: int,
-    result: Optional[DictStrAny],
+    result: DictStrAny | None,
 ) -> None:
     """Store an encode's result. An encode that gave up returns None: keep the marker pair and
     mark it failed, so merges that need it are skipped instead of crashing on None."""
@@ -1597,7 +1599,7 @@ def recordEncodeResult(
         settings["markerPairs"][markerPairIndex] = result
 
 
-def makeClips(cs: ClipperState) -> List[str]:  # noqa: PLR0912
+def makeClips(cs: ClipperState) -> list[str]:  # noqa: PLR0912
     """Make the queued clips and merges, and return the ones that failed."""
     settings = cs.settings
 
@@ -1620,7 +1622,7 @@ def makeClips(cs: ClipperState) -> List[str]:  # noqa: PLR0912
     # Mid-run per-clip lines still emit live; the aggregate table groups
     # everything together at the bottom of the final Summary Report for
     # easy scanning / copying.
-    sampleGuidedEncodeSummaries: List[Any] = []
+    sampleGuidedEncodeSummaries: list[Any] = []
 
     for markerPairIndex, marker in enumerate(settings["markerPairs"]):
         with pair_context(markerPairIndex):
@@ -1792,7 +1794,7 @@ def getMarkerPairQueue(
     nMarkerPairs: int,
     onlyMarkerPairs: str,
     exceptMarkerPairs: str,
-) -> Set[int]:
+) -> set[int]:
     markerPairQueue = set(range(nMarkerPairs))
     onlyPairsSet = markerPairQueue
     exceptPairsSet = set()

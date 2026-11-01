@@ -31,10 +31,11 @@ import shlex
 import subprocess
 import threading
 import time
+from collections.abc import Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import timedelta
-from typing import IO, Generator
+from typing import IO
 
 from rich.console import Console, Group
 from rich.live import Live

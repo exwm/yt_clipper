@@ -2,7 +2,6 @@ import re
 import shutil
 import subprocess
 from functools import cache
-from typing import Optional
 
 import pytest
 
@@ -10,7 +9,7 @@ from clipper import ffmpeg_codec
 from clipper.tests.test_ffmpeg_codec import _make_mp_mps
 
 VIDEO_CODECS = ["vp9", "vp8", "h264", "h264_vulkan", "h264_nvenc", "av1"]
-SCENARIOS: dict[str, tuple[dict[str, object], dict[str, object], Optional[int]]] = {
+SCENARIOS: dict[str, tuple[dict[str, object], dict[str, object], int | None]] = {
     "crf": ({}, {}, None),
     "hdr": ({}, {"enableHDR": True}, None),
     "target_size": ({}, {}, 12),
@@ -47,7 +46,7 @@ def _shared_options() -> set[str]:
 
 
 @cache
-def _own_options(kind: str, name: str) -> Optional[set[str]]:
+def _own_options(kind: str, name: str) -> set[str] | None:
     lines = _help(f"{kind}={name}")
     return _option_names(lines) if lines and "is not recognized" not in lines[0] else None
 
@@ -55,7 +54,7 @@ def _own_options(kind: str, name: str) -> Optional[set[str]]:
 @pytest.mark.parametrize("scenario", SCENARIOS.values(), ids=SCENARIOS.keys())
 @pytest.mark.parametrize("video_codec", VIDEO_CODECS)
 def test_codec_args_use_only_options_the_local_ffmpeg_knows(
-    video_codec: str, scenario: tuple[dict[str, object], dict[str, object], Optional[int]]
+    video_codec: str, scenario: tuple[dict[str, object], dict[str, object], int | None]
 ) -> None:
     """An ffmpeg upgrade renames options (`-temporal_aq` became `-temporal-aq`), and the old name then fails the encode."""
     mp_overrides, mps_overrides, cbr = scenario

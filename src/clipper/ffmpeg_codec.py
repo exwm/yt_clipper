@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Optional, Tuple
 
 from clipper.clipper_types import DictStrAny
 from clipper.ytc_logger import Subsystem, make_subsystem_logger
@@ -10,10 +9,10 @@ logger = make_subsystem_logger(Subsystem.FFMPEG_CODEC)
 
 def getFfmpegVideoCodecArgs(
     videoCodec: str,
-    cbr: Optional[int],
+    cbr: int | None,
     mp: DictStrAny,
     mps: DictStrAny,
-) -> Tuple[str, str, str]:
+) -> tuple[str, str, str]:
     qmax: int = max(min(mps["crf"] + 13, 63), 34)
     qmin: int = min(mps["crf"], 15)
 
@@ -49,12 +48,12 @@ def getFfmpegVideoCodecArgs(
 
 def getFfmpegVideoCodecVpx(
     videoCodec: str,
-    cbr: Optional[int],
+    cbr: int | None,
     mp: DictStrAny,
     mps: DictStrAny,
     qmax: int,
     qmin: int,
-) -> Tuple[str, str, str]:
+) -> tuple[str, str, str]:
     if mps["minterpFPS"] is not None and mps["minterpTool"] == "ffmpeg":
         fps_arg = f"-r {mps['minterpFPS']}"
     elif not mp["isVariableSpeed"]:
@@ -111,12 +110,12 @@ def getFfmpegVideoCodecVpx(
 
 
 def getFfmpegVideoCodecH264(
-    cbr: Optional[int],
+    cbr: int | None,
     mp: DictStrAny,
     mps: DictStrAny,
     qmax: int,
     qmin: int,
-) -> Tuple[str, str, str]:
+) -> tuple[str, str, str]:
     """Following recommendations from https://www.lighterra.com/papers/videoencodingh264"""
     fps_arg = ""
     if not mps["h264DisableReduceStutter"]:
@@ -176,12 +175,12 @@ def getFfmpegVideoCodecH264(
 
 
 def getFfmpegVideoCodecH264Vulkan(
-    cbr: Optional[int],
+    cbr: int | None,
     mp: DictStrAny,
     mps: DictStrAny,
     qmax: int,
     qmin: int,
-) -> Tuple[str, str, str]:
+) -> tuple[str, str, str]:
     """
     HDR -> SDR:
       Tends to give highly artifacted output with various tonemapping approaches
@@ -260,12 +259,12 @@ def getFfmpegVideoCodecH264Vulkan(
 
 
 def getFfmpegVideoCodecH264Nvenc(
-    cbr: Optional[int],
+    cbr: int | None,
     mp: DictStrAny,
     mps: DictStrAny,
     qmax: int,
     qmin: int,
-) -> Tuple[str, str, str]:
+) -> tuple[str, str, str]:
     """
     HDR Output:
       10-bit encode typically not supported.
@@ -330,12 +329,12 @@ def getFfmpegVideoCodecH264Nvenc(
 
 
 def getFfmpegVideoCodecAv1(
-    cbr: Optional[int],
+    cbr: int | None,
     mp: DictStrAny,
     mps: DictStrAny,
     qmax: int,
     qmin: int,
-) -> Tuple[str, str, str]:
+) -> tuple[str, str, str]:
     """AV1 via libsvtav1, output in mp4.
 
     Preset is hardcoded; the finer ``-svtav1-params`` knobs are documented

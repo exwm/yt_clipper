@@ -8,9 +8,9 @@ timed from the video's first frame (sectionEaseDuration), audio starting with th
 and a local video's own timestamps for `-ss` (videoInput, fastTrimInput).
 """
 
+import itertools
 from fractions import Fraction
 from math import floor, log
-from typing import List, Optional, Tuple, Union
 
 from clipper.clipper_types import ExtendedRealNumber, SpeedMap
 from clipper.frame_timing import ClipSpan, DictStrAny, FrameTiming, VideoInput
@@ -25,7 +25,7 @@ def clipSpan(mp: DictStrAny, mps: DictStrAny, videoPartDelay: float) -> ClipSpan
     )
 
 
-def videoInput(mp: DictStrAny, mps: DictStrAny, settings: DictStrAny) -> Optional[VideoInput]:
+def videoInput(mp: DictStrAny, mps: DictStrAny, settings: DictStrAny) -> VideoInput | None:
     # clip_maker.py:492-503.
     if mps["inputVideo"]:
         inputs = f' -ss {mp["start"]} -i "{mps["inputVideo"]}" '
@@ -41,7 +41,7 @@ def videoInput(mp: DictStrAny, mps: DictStrAny, settings: DictStrAny) -> Optiona
     return VideoInput(inputs=inputs, trim=trim)
 
 
-def fastTrimInput(mp: DictStrAny, mps: DictStrAny) -> Optional[str]:
+def fastTrimInput(mp: DictStrAny, mps: DictStrAny) -> str | None:
     # clip_maker.py:371-384.
     videoStart = mp["start"]
     videoEnd = mp["end"]
@@ -64,15 +64,15 @@ def audioFilter(mp: DictStrAny, mps: DictStrAny, aDuration: float) -> str:
 def getSpeedFilterAndDuration(
     speedMap: SpeedMap,
     mp: DictStrAny,
-    fps: Union[float, Fraction],
-) -> Tuple[str, ExtendedRealNumber, List[ExtendedRealNumber]]:
+    fps: float | Fraction,
+) -> tuple[str, ExtendedRealNumber, list[ExtendedRealNumber]]:
     if not mp["isVariableSpeed"]:
         duration = mp["duration"] / mp["speed"]
         return f"setpts=(PTS-STARTPTS)/{mp['speed']}", duration, [0, duration]
 
     video_filter_speed_map = ""
     setpts = ""
-    outputDurations: List[ExtendedRealNumber] = [0]
+    outputDurations: list[ExtendedRealNumber] = [0]
 
     fps = Fraction(fps)
     frameDur = 1 / fps
@@ -80,7 +80,7 @@ def getSpeedFilterAndDuration(
     # Account for marker pair start time as trim filter sets start time to ~0
     speedMapStartTime = speedMap[0]["x"]
 
-    for sect, (left, right) in enumerate(zip(speedMap[:-1], speedMap[1:])):
+    for sect, (left, right) in enumerate(itertools.pairwise(speedMap)):
         startSpeed = left["y"]
         endSpeed = right["y"]
         speedChange = endSpeed - startSpeed
@@ -154,7 +154,7 @@ def getEaseSectionDuration(
     startTime: float,
     endTime: float,
     fps: float,
-) -> Optional[float]:
+) -> float | None:
     realDuration = endTime - startTime
     if realDuration <= 0:
         return None
@@ -169,7 +169,7 @@ def getEaseSectionDuration(
 
 def sectionEaseDuration(
     easeType: str, leftX: float, rightX: float, firstTime: float, videoPartStart: float, fps: float
-) -> Optional[float]:
+) -> float | None:
     # Smooth Track is new in 5.49 and keeps its sections' real span (ffmpeg_filter.getSectionEaseDuration).
     if easeType == "smoothTrack":
         realDuration = rightX - leftX
@@ -180,7 +180,7 @@ def sectionEaseDuration(
 
 
 def cutTime(
-    cutX: float, previousX: float, fps: Optional[float], firstTime: float, videoPartStart: float
+    cutX: float, previousX: float, fps: float | None, firstTime: float, videoPartStart: float
 ) -> float:
     """Cinematic is new in 5.49: under 5.48's frame timing its cut takes effect where 5.48 ends an instant
     crop point's section, from the start marker (getEaseSectionDuration)."""
@@ -190,7 +190,7 @@ def cutTime(
     return snapped if snapped > previousX else cutX
 
 
-def varyingRateNote(rate: Optional[float]) -> list[str]:
+def varyingRateNote(rate: float | None) -> list[str]:
     """5.48 had no warning. It takes a clip's frames by their own times (-ss and trim), then a constant
     speed clip's constant output rate (ffmpeg_codec.py:57-63, -r) repeats or drops frames; a variable
     speed clip keeps the video's frame times (-fps_mode vfr)."""

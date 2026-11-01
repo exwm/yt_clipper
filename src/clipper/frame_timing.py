@@ -7,7 +7,7 @@ The twin of the markup's `FrameTiming` (src/markup/util/frame-timing.ts).
 from collections.abc import Callable
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Any, Optional, Union
+from typing import Any
 
 from clipper import frame_grid
 
@@ -22,15 +22,15 @@ class ClipSpan:
     start: float
     end: float
     # Where the video input seeks and where its trim ends, from `start` (5.49 only).
-    seekTo: Optional[float] = None
-    trimEnd: Optional[float] = None
+    seekTo: float | None = None
+    trimEnd: float | None = None
     # The speed and crop maps' first and last point times on the video's timeline, or None to keep the
     # saved points.
-    speedMapEnds: Optional[tuple[float, float]] = None
-    cropMapEnds: Optional[tuple[float, float]] = None
+    speedMapEnds: tuple[float, float] | None = None
+    cropMapEnds: tuple[float, float] | None = None
     # A sample-guided window of the pair on the video's timeline, which takes its own part of the
     # pair's speed map, or None.
-    speedMapWindow: Optional[tuple[float, float]] = None
+    speedMapWindow: tuple[float, float] | None = None
     # How far into the pair's crop map the clip starts.
     cropMapTimeOffset: float = 0.0
     # Where crop points count their frames from, on the video's timeline.
@@ -48,12 +48,10 @@ class VideoInput:
 # (easeType, leftX, rightX, firstTime, videoPartStart, fps) -> the span a crop section eases over, or
 # None for a section with no frames. Times are on the video's timeline; firstTime is the crop map's
 # first point.
-SectionEaseDuration = Callable[[str, float, float, float, float, float], Optional[float]]
+SectionEaseDuration = Callable[[str, float, float, float, float, float], float | None]
 # (cutX, previousX, fps, firstTime, videoPartStart) -> when a Cinematic cut at cutX takes effect.
-CutTime = Callable[[float, float, Optional[float], float, float], float]
-SpeedFilter = Callable[
-    [list[DictStrAny], DictStrAny, Union[float, Fraction]], tuple[str, Any, list[Any]]
-]
+CutTime = Callable[[float, float, float | None, float, float], float]
+SpeedFilter = Callable[[list[DictStrAny], DictStrAny, float | Fraction], tuple[str, Any, list[Any]]]
 
 
 @dataclass(frozen=True)
@@ -62,9 +60,9 @@ class FrameTiming:
     # The clip's frames and its maps' ends: (mp, mps, videoPartDelay) -> ClipSpan.
     clipSpan: Callable[[DictStrAny, DictStrAny, float], ClipSpan]
     # The video input and trim: (mp, mps, settings) -> VideoInput, or None for a pair spanning video parts.
-    videoInput: Callable[[DictStrAny, DictStrAny, DictStrAny], Optional[VideoInput]]
+    videoInput: Callable[[DictStrAny, DictStrAny, DictStrAny], VideoInput | None]
     # The fast trim's video input: (mp, mps) -> its arguments, or None for a pair spanning video parts.
-    fastTrimInput: Callable[[DictStrAny, DictStrAny], Optional[str]]
+    fastTrimInput: Callable[[DictStrAny, DictStrAny], str | None]
     # The audio filter's trim and tempo when encoding: (mp, mps, aDuration) -> filter.
     audioFilter: Callable[[DictStrAny, DictStrAny, float], str]
     # The speed filter, the output duration and each speed section's output end.
@@ -73,7 +71,7 @@ class FrameTiming:
     cutTime: CutTime
     # What a varying frame rate does to clips, for ffprobe's warning: (the clip's rate in fps, or None
     # when unknown) -> its sentences.
-    varyingRateNote: Callable[[Optional[float]], list[str]]
+    varyingRateNote: Callable[[float | None], list[str]]
 
 
 def current() -> FrameTiming:

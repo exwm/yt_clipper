@@ -3,17 +3,17 @@ import io
 import shlex
 from dataclasses import dataclass, field
 from fractions import Fraction
-from typing import Any, Dict, List, Union
+from typing import Any
 
 UNKNOWN_PROPERTY = "unknown"
 # Holds the validation errors of a marker pair that makeClips skips.
 INVALID_MARKER_PAIR_KEY = "invalidMarkerPairErrors"
 
-DictStrAny = Dict[str, Any]
-ExtendedRealNumber = Union[int, float, Fraction]
-SpeedMap = List[DictStrAny]
-CropMap = List[DictStrAny]
-Settings = Dict[str, Any]
+DictStrAny = dict[str, Any]
+ExtendedRealNumber = int | float | Fraction
+SpeedMap = list[DictStrAny]
+CropMap = list[DictStrAny]
+Settings = dict[str, Any]
 
 
 def argvPath(quotedPath: str) -> str:

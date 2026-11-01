@@ -12,7 +12,7 @@ import functools
 import sys
 from collections.abc import Callable
 from pathlib import Path
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 import numpy as np
 
@@ -40,7 +40,7 @@ def _openBlasPaths() -> list[Path]:
     return [path for folder in folders for path in sorted(folder.glob("libscipy_openblas64_*"))]
 
 
-def _openBlas(path: Path) -> Optional[_Lapack]:
+def _openBlas(path: Path) -> _Lapack | None:
     try:
         lib = ctypes.CDLL(str(path))
         dpbtrf = lib.scipy_LAPACKE_dpbtrf64_
@@ -61,7 +61,7 @@ def _openBlas(path: Path) -> Optional[_Lapack]:
     return _Lapack(f"OpenBLAS ({path.name})", factor, solve)
 
 
-def _accelerate() -> Optional[_Lapack]:
+def _accelerate() -> _Lapack | None:
     # The ILP64 interface numpy itself uses: Fortran calling convention, every argument by pointer.
     try:
         lib = ctypes.CDLL(ACCELERATE)
@@ -108,7 +108,7 @@ def _solvesCorrectly(found: _Lapack) -> bool:
 
 
 @functools.cache
-def lapack() -> Optional[_Lapack]:
+def lapack() -> _Lapack | None:
     """The first banded Cholesky that loads and solves correctly, or None."""
     candidates = [_openBlas(path) for path in _openBlasPaths()]
     if sys.platform == "darwin":
@@ -122,7 +122,7 @@ def description() -> str:
     return f"banded LAPACK, {found.name}" if found else "dense (no banded LAPACK found)"
 
 
-def bandedCholeskySolver(upperBand: np.ndarray) -> Optional[Callable[[np.ndarray], np.ndarray]]:
+def bandedCholeskySolver(upperBand: np.ndarray) -> Callable[[np.ndarray], np.ndarray] | None:
     """A solver for the symmetric positive definite banded matrix whose upper band is given in LAPACK's
     column-major layout (upperBand[kd + i - j, j] = M[i, j]), factored once. None when no LAPACK loads
     or the factorization fails."""

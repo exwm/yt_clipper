@@ -38,11 +38,12 @@ import copy
 import json
 import math
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from fractions import Fraction
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from clipper.clipper_types import ClipperState
 from clipper.ffmpeg_codec import getFfmpegVideoCodecArgs
@@ -1183,7 +1184,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 (phased orchestra
         )
         fingerprint_dir = pair_dir / fingerprints.encoder_fingerprint
         fingerprint_dir.mkdir(parents=True, exist_ok=True)
-        run_id = datetime.now(timezone.utc).strftime("%y%m%dT%H%M%S")
+        run_id = datetime.now(UTC).strftime("%y%m%dT%H%M%S")
         trials_metadata_path = fingerprint_dir / f"run-{run_id}.jsonl"
 
         # Sidecar is idempotent: first run on a fingerprint creates it,
@@ -1294,7 +1295,7 @@ def run_sample_guided_encode_for_marker_pair(  # noqa: PLR0912 (phased orchestra
             {
                 "type": "run_header",
                 "run_id": run_id,
-                "run_timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "run_timestamp_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "algorithm_version": ALGORITHM_VERSION,
                 "encoder_fingerprint": fingerprints.encoder_fingerprint,
                 "search_fingerprint": fingerprints.search_fingerprint,

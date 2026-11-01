@@ -2,7 +2,6 @@ import shlex
 import subprocess
 from fractions import Fraction
 from pathlib import Path
-from typing import List, Tuple
 
 import rich.markup
 
@@ -171,8 +170,8 @@ def runVideo2xCommand(
     return mp
 
 
-def to_pairs(items: List[str]) -> List[Tuple[str, str]]:
+def to_pairs(items: list[str]) -> list[tuple[str, str]]:
     if len(items) % 2 != 0:
         raise ValueError("List length must be even")
 
-    return list(zip(items[::2], items[1::2]))
+    return list(zip(items[::2], items[1::2], strict=True))

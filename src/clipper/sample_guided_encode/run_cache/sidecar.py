@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -62,7 +62,7 @@ def write_config_sidecar(
     payload = {
         "encoder_fingerprint": encoder_fingerprint,
         "yt_clipper_version": yt_clipper_version,
-        "first_seen_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "first_seen_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "encode_args_signature": encode_args_signature,
     }
     sidecar_path.write_text(
@@ -128,7 +128,7 @@ def write_encode_meta_sidecar(
         "picked_crf": picked_crf,
         "algorithm_version": algorithm_version,
         "yt_clipper_version": yt_clipper_version,
-        "finalized_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "finalized_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
     sidecar_path.write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",

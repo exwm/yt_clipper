@@ -6,6 +6,7 @@ import shlex
 import subprocess
 import sys
 from collections.abc import Mapping
+from datetime import UTC
 from pathlib import Path
 from typing import Any
 
@@ -85,10 +86,10 @@ def main() -> None:
     # timestamps are HH:MM:SS only (see DATE_FORMAT in ytc_logger);
     # this line gives the on-disk log file a date so a postmortem
     # days later can recover the calendar context.
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     logger.report(
-        f"run started at {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}",
+        f"run started at {datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%SZ')}",
     )
     logger.report(f"yt_clipper version: {__version__}")
     logger.report(

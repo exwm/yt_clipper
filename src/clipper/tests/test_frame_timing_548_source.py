@@ -3,11 +3,12 @@ with `git show` and run on the same cases. Skipped where the tag is missing (CI'
 
 import ast
 import subprocess
+from collections.abc import Callable
 from fractions import Fraction
 from functools import cache
 from math import floor, log
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import pytest
 
@@ -19,7 +20,7 @@ TAG = "v5.48.0"
 
 
 @cache
-def taggedText(path: str) -> Optional[str]:
+def taggedText(path: str) -> str | None:
     try:
         return subprocess.run(
             ["git", "show", f"{TAG}:{path}"],
@@ -47,8 +48,8 @@ def function(module: ast.Module, name: str) -> ast.FunctionDef:
 
 
 NAMESPACE: dict[str, Any] = {
-    "Fraction": Fraction, "floor": floor, "log": log, "Any": Any, "Dict": Dict, "List": List, "Optional": Optional,
-    "Tuple": Tuple, "Union": Union, "DictStrAny": DictStrAny, "ExtendedRealNumber": ExtendedRealNumber,
+    "Fraction": Fraction, "floor": floor, "log": log, "Any": Any, "Dict": dict, "List": list, "Optional": Optional,
+    "Tuple": tuple, "Union": Union, "DictStrAny": DictStrAny, "ExtendedRealNumber": ExtendedRealNumber,
     "SpeedMap": SpeedMap,
 }  # fmt: skip
 
@@ -174,7 +175,7 @@ SPEED_MAPS = [
 @pytest.mark.parametrize(("speedMap", "isVariableSpeed"), SPEED_MAPS)
 @pytest.mark.parametrize("fps", [30, "30000/1001", 24, 60])
 def test_the_speed_filter_is_5_48_0s(
-    speedMap: list[DictStrAny], isVariableSpeed: bool, fps: Union[int, str]
+    speedMap: list[DictStrAny], isVariableSpeed: bool, fps: int | str
 ) -> None:
     oracle = taggedFunctions(FFMPEG_FILTER, "getSpeedFilterAndDuration")[
         "getSpeedFilterAndDuration"

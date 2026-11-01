@@ -1,4 +1,3 @@
-from typing import List, Optional
 
 import pytest
 
@@ -9,7 +8,7 @@ from clipper import argparser_suggestions as suggestions
 # scorer: cookie aliases that must collapse to one suggestion, a short flag
 # whose letters resemble a long typo (-asl), and a terse flag that shares only
 # a dash with a typo (-vsdz) and so must not match.
-OPTION_GROUPS: List[List[str]] = [
+OPTION_GROUPS: list[list[str]] = [
     ["--cookies", "--cookiesfile", "--cookiefile", "-cf"],
     ["--auto-subs-lang", "-asl"],
     ["--audio-delay", "-ad"],
@@ -32,7 +31,7 @@ OPTION_GROUPS: List[List[str]] = [
         ),
     ],
 )
-def test_formatOptionForSuggestion(optionStrings: List[str], expected: str) -> None:
+def test_formatOptionForSuggestion(optionStrings: list[str], expected: str) -> None:
     assert suggestions.formatOptionForSuggestion(optionStrings) == expected
 
 
@@ -47,7 +46,7 @@ def test_formatOptionForSuggestion(optionStrings: List[str], expected: str) -> N
         pytest.param("--zzzzzz", [], id="nothing similar"),
     ],
 )
-def test_suggestKnownOptions(token: str, expected: List[str]) -> None:
+def test_suggestKnownOptions(token: str, expected: list[str]) -> None:
     assert suggestions.suggestKnownOptions(token, OPTION_GROUPS) == expected
 
 
@@ -64,8 +63,8 @@ def test_suggestKnownOptions(token: str, expected: List[str]) -> None:
 )
 def test_suggestKnownOptions_dash_stripping(
     token: str,
-    present: Optional[str],
-    absent: Optional[str],
+    present: str | None,
+    absent: str | None,
 ) -> None:
     result = suggestions.suggestKnownOptions(token, OPTION_GROUPS)
     if present is not None:

@@ -3,7 +3,6 @@ import shlex
 import subprocess
 import time
 from fractions import Fraction
-from typing import Optional
 
 from clipper import frame_timing
 from clipper.clipper_types import ClipperState, DictStrAny
@@ -14,7 +13,7 @@ from clipper.ytc_logger import Subsystem, make_subsystem_logger
 logger = make_subsystem_logger(Subsystem.FFPROBE)
 
 
-def ffprobeVideoProperties(cs: ClipperState, videoURL: str) -> Optional[DictStrAny]:
+def ffprobeVideoProperties(cs: ClipperState, videoURL: str) -> DictStrAny | None:
     cp = cs.clipper_paths
     settings = cs.settings
 
@@ -105,8 +104,8 @@ def ffprobeVideoProperties(cs: ClipperState, videoURL: str) -> Optional[DictStrA
     return None
 
 
-def getDisplayMatrix(ffprobeStreamData: dict) -> Optional[dict]:
-    sideDataList: Optional[list[dict]] = ffprobeStreamData.get("side_data_list")
+def getDisplayMatrix(ffprobeStreamData: dict) -> dict | None:
+    sideDataList: list[dict] | None = ffprobeStreamData.get("side_data_list")
 
     if not sideDataList:
         return None
@@ -118,7 +117,7 @@ def getDisplayMatrix(ffprobeStreamData: dict) -> Optional[dict]:
     return displayMatrix[0] if displayMatrix else None
 
 
-def getDisplayMatrixRotation(ffprobeStreamData: dict) -> Optional[int]:
+def getDisplayMatrixRotation(ffprobeStreamData: dict) -> int | None:
     displayMatrix = getDisplayMatrix(ffprobeStreamData)
     if not displayMatrix:
         return None
@@ -139,11 +138,11 @@ def getInputRotationCorrection(rotation: int, ffprobeStreamData: dict) -> None:
 
 
 def getFrameRate(
-    r_frame_rate: Optional[str],
-    avg_frame_rate: Optional[str],
+    r_frame_rate: str | None,
+    avg_frame_rate: str | None,
     *,
     tolerance: float = 0.1,
-) -> Optional[str]:
+) -> str | None:
     """
     Return r_frame_rate if it is sufficiently close to avg_frame_rate,
     otherwise return avg_frame_rate.
@@ -192,7 +191,7 @@ def getFrameRate(
     return frame_rate
 
 
-def headerRatesDiffer(r_frame_rate: Optional[str], avg_frame_rate: Optional[str]) -> bool:
+def headerRatesDiffer(r_frame_rate: str | None, avg_frame_rate: str | None) -> bool:
     """Whether ffprobe's two rates say the frame rate varies. Constant-rate videos report equal rates;
     0.1% leaves room for an average rounded like 29.97. WebM and MKV report equal rates either way."""
     try:
@@ -245,8 +244,8 @@ def warnIfFramesOffGrid(ffprobePath: str, videoPath: str, origin: float, rate: F
 
 def getColorBitDepth(
     ffprobeStreamData: dict[str, str],
-    pix_fmt: Optional[str],
-) -> Optional[int]:
+    pix_fmt: str | None,
+) -> int | None:
     if pix_fmt and pix_fmt in PIX_FMT_BIT_DEPTH_MAP:
         return PIX_FMT_BIT_DEPTH_MAP[pix_fmt]
 

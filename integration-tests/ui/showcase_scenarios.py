@@ -1,7 +1,7 @@
 """Named page setups for release showcase shots (showcase.toml names them). Each builds on the feature
 tests' own steps, so a showcase scenario breaks loudly when the feature it shows changes."""
 
-from typing import Callable, Dict
+from collections.abc import Callable
 
 from harness.markup_page import MarkupPage
 from harness.steps import step
@@ -25,7 +25,7 @@ from test_reframe import (
 )
 
 Scenario = Callable[[MarkupPage], None]
-SCENARIOS: Dict[str, Scenario] = {}
+SCENARIOS: dict[str, Scenario] = {}
 
 
 def scenario(name: str) -> Callable[[Scenario], Scenario]:

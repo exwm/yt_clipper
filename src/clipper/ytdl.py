@@ -1,8 +1,9 @@
 import json
 import subprocess
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, NoReturn, Tuple
+from typing import NoReturn
 
 from rich.markup import escape
 from rich.text import Text
@@ -31,7 +32,7 @@ DEFAULT_FORMAT_SORT = [
 ]
 
 
-def ytdl_bin_get_args_base(cs: ClipperState) -> List[str]:
+def ytdl_bin_get_args_base(cs: ClipperState) -> list[str]:
     settings = cs.settings
     cp = cs.clipper_paths
 
@@ -81,22 +82,22 @@ def ytdl_bin_get_args_base(cs: ClipperState) -> List[str]:
     return ytdl_args
 
 
-def selected_format_ids(ytdl_info: Dict) -> List[str]:
+def selected_format_ids(ytdl_info: dict) -> list[str]:
     """A multi-part video's info has its parts' entries and no format of its own, so no ids."""
     selected = ytdl_info.get("requested_formats") or [ytdl_info]
     return [f["format_id"] for f in selected if "format_id" in f]
 
 
 def find_skipped_format_ids(
-    preferredFormatIds: List[str],
-    selectedFormatIds: List[str],
-) -> List[str]:
+    preferredFormatIds: list[str],
+    selectedFormatIds: list[str],
+) -> list[str]:
     """The formats yt-dlp prefers but skipped as not downloadable: those it picks without
     --check-formats and not with it."""
     return [formatId for formatId in preferredFormatIds if formatId not in selectedFormatIds]
 
 
-def parse_preferred_formats_output(stdout: str) -> Tuple[List[str], str]:
+def parse_preferred_formats_output(stdout: str) -> tuple[list[str], str]:
     """Split the output of `--print format_id --print formats_table` into the format ids yt-dlp
     picks before probing them (e.g. 137+251) and the formats table."""
     formatIds, _, formatsTable = stdout.partition("\n")
@@ -119,21 +120,21 @@ def stop_on_several_downloads() -> NoReturn:
     sys.exit(1)
 
 
-def _is_video(ytdl_format: Dict) -> bool:
+def _is_video(ytdl_format: dict) -> bool:
     return ytdl_format.get("vcodec", "none") != "none"
 
 
-def _is_hdr(ytdl_format: Dict) -> bool:
+def _is_hdr(ytdl_format: dict) -> bool:
     return ytdl_format.get("dynamic_range") not in {None, "SDR"}
 
 
-def _video_codec(ytdl_format: Dict) -> str:
+def _video_codec(ytdl_format: dict) -> str:
     """The codec family, e.g. vp9 for both "vp9" and "vp09.00.51.08"."""
     family = (ytdl_format.get("vcodec") or "").split(".")[0].lower()
     return {"vp09": "vp9", "avc1": "avc", "avc3": "avc"}.get(family, family)
 
 
-def _quality(ytdl_format: Dict, reference: Dict) -> Tuple[float, ...]:
+def _quality(ytdl_format: dict, reference: dict) -> tuple[float, ...]:
     """Video ranks by height, then frame rate, then video bitrate, then HDR over SDR. Bitrate
     counts only against a reference in the same codec: across codecs it does not measure quality
     (AV1 needs less than VP9). Audio ranks by bitrate."""
@@ -150,7 +151,7 @@ def _quality(ytdl_format: Dict, reference: Dict) -> Tuple[float, ...]:
     )
 
 
-def _describe_quality(ytdl_format: Dict) -> str:
+def _describe_quality(ytdl_format: dict) -> str:
     if not _is_video(ytdl_format):
         return f"{ytdl_format.get('abr') or 0:g}k"
     fps = ytdl_format.get("fps")
@@ -160,11 +161,11 @@ def _describe_quality(ytdl_format: Dict) -> str:
     return f"{ytdl_format.get('height') or 0}p{f'{fps:g}' if fps else ''}{bitrate}{hdr}"
 
 
-def _describe_format(ytdl_format: Dict) -> str:
+def _describe_format(ytdl_format: dict) -> str:
     return f"{ytdl_format['format_id']} ({_describe_quality(ytdl_format)})"
 
 
-def describe_quality_drop(drop: Tuple[Dict, Dict]) -> str:
+def describe_quality_drop(drop: tuple[dict, dict]) -> str:
     skipped, selected = drop
     return (
         f"Cannot download format {_describe_format(skipped)}. "
@@ -173,10 +174,10 @@ def describe_quality_drop(drop: Tuple[Dict, Dict]) -> str:
 
 
 def find_quality_drops(
-    ytdl_info: Dict,
-    skippedFormatIds: List[str],
+    ytdl_info: dict,
+    skippedFormatIds: list[str],
     followFormatOrder: bool = False,
-) -> List[Tuple[Dict, Dict]]:
+) -> list[tuple[dict, dict]]:
     """Each selected format that is lower quality than a skipped format of the same kind, paired
     with that skipped format. A skipped format can fall back to one of equal quality (e.g. another
     codec). With followFormatOrder, quality is the order of the info's formats, which yt-dlp sorts
@@ -185,7 +186,7 @@ def find_quality_drops(
     formatsById = {f["format_id"]: f for f in formats}
     position = {f["format_id"]: i for i, f in enumerate(formats)}
 
-    def rank(ytdl_format: Dict, selected: Dict) -> Tuple[float, ...]:
+    def rank(ytdl_format: dict, selected: dict) -> tuple[float, ...]:
         if followFormatOrder:
             return (position.get(ytdl_format.get("format_id"), -1),)
         return _quality(ytdl_format, selected)
@@ -201,7 +202,7 @@ def find_quality_drops(
 
 
 def prompt_to_continue_on_quality_drop(
-    drops: List[Tuple[Dict, Dict]],
+    drops: list[tuple[dict, dict]],
     acceptLowerQuality: bool = False,
 ) -> None:
     if not drops:
@@ -278,11 +279,11 @@ class FormatCheckPlan:
     # The formats table, its rows colored by what the probe could download.
     formatsTable: str
     # Each skipped format with the lower quality one yt-dlp fell back to.
-    drops: List[Tuple[Dict, Dict]]
+    drops: list[tuple[dict, dict]]
 
 
 def plan_format_check(
-    preferredOutput: str, ytdl_info: Dict, followFormatOrder: bool
+    preferredOutput: str, ytdl_info: dict, followFormatOrder: bool
 ) -> FormatCheckPlan:
     """What to show and ask, from yt-dlp's unprobed pick and table (`preferredOutput`) and the info of
     its probed pick. With followFormatOrder, quality is the --format-sort order of the formats."""
@@ -301,7 +302,7 @@ def plan_format_check(
     )
 
 
-def check_for_quality_drop(cs: ClipperState, ytdl_args: List[str], ytdl_info: Dict) -> None:
+def check_for_quality_drop(cs: ClipperState, ytdl_args: list[str], ytdl_info: dict) -> None:
     """Show the formats table with the rows colored by probe result, and ask before continuing
     when yt-dlp fell back to a lower quality format."""
     settings = cs.settings
@@ -335,7 +336,7 @@ def check_for_quality_drop(cs: ClipperState, ytdl_args: List[str], ytdl_info: Di
     )
 
 
-def ytdl_bin_get_video_info(cs: ClipperState) -> Dict:
+def ytdl_bin_get_video_info(cs: ClipperState) -> dict:
     """Return yt-dlp's video info, after showing its formats table with the rows colored by probe
     result and asking before a lower quality fallback."""
     settings = cs.settings

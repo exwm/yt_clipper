@@ -14,7 +14,7 @@ SOLVER_VERSION in both when the result changes, so files previewed with another 
 import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 import numpy as np
 
@@ -181,7 +181,7 @@ def _holdEase(
     cap: float,
     held: tuple[float, float, float],
     minBrake: float,
-) -> Optional[_HoldEase]:
+) -> _HoldEase | None:
     """The ease into (direction -1) or out of (+1) a held span at edge. The target cruises, then brakes
     at a constant rate to rest, as a camera stops on a subject (Gleicher and Liu, Re-cinematography,
     2007). The window reaches back across crop points as far as the acceleration needs, so the pacing
@@ -206,7 +206,7 @@ def _holdEase(
     breaks = sorted(w for w in (direction * (time - edge) for time in times) if 0 < w < cap)
     # The first root comes before the line reaches the held crop, where (A/4) W² - D(W) turns positive,
     # so D = |gap| is linear on every piece the walk reaches.
-    window: Optional[float] = None
+    window: float | None = None
     w0 = 0.0
     for w1 in [*breaks, cap]:
         g0 = gap(main, w0)
@@ -350,7 +350,7 @@ def solveL1Path(
     kappa = [weight / rho for weight in weights]
 
     for iteration in range(MAX_ITERS):
-        rhs = sum(_differenceAdjoint(zk - uzk, order) for order, zk, uzk in zip((1, 2, 3), z, uz)) + (q - uq)
+        rhs = sum(_differenceAdjoint(zk - uzk, order) for order, zk, uzk in zip((1, 2, 3), z, uz, strict=True)) + (q - uq)
         p = solveSystem(rhs)
 
         primalSq = 0.0
@@ -375,7 +375,7 @@ def solveL1Path(
 
         primalRes = math.sqrt(primalSq / totalVars)
         dualRes = rho * math.sqrt(dualChangeSq / totalVars)
-        dualStack = sum(_differenceAdjoint(u, order) for order, u in zip((1, 2, 3), uz)) + uq
+        dualStack = sum(_differenceAdjoint(u, order) for order, u in zip((1, 2, 3), uz, strict=True)) + uq
         dualScale = rho * math.sqrt(float(dualStack @ dualStack) / totalVars)
         if (
             iteration > 3
@@ -469,7 +469,7 @@ def _segmentPath(
 
 
 def cutTime(
-    cutX: float, previousX: float, fps: Optional[float], firstTime: float, videoPartStart: float
+    cutX: float, previousX: float, fps: float | None, firstTime: float, videoPartStart: float
 ) -> float:
     """When a cut takes effect: half a frame before the frame the cut point falls in, as the other
     crop easings end a section (ffmpeg_filter.getEaseSectionDuration). A user-placed point usually
@@ -498,7 +498,7 @@ def heldSpans(
     point, its crop). A hold before a cut also holds to the cut, as the run's copy of it at the cut is
     a hold point too."""
     spans: list[tuple[float, float, tuple[int, int, int, int]]] = []
-    previous: Optional[CropPoint] = None
+    previous: CropPoint | None = None
     for point in run:
         # A coincident-time duplicate is skipped, as the solve skips it.
         if previous is not None and point["x"] <= previous["x"]:
@@ -656,7 +656,7 @@ def _samplesHeldBy(spans: Sequence[tuple[float, float]], sampleCount: int) -> np
 
 def splitAtInstantCuts(
     cropMap: Sequence[CropPoint],
-    fps: Optional[float] = None,
+    fps: float | None = None,
     videoPartStart: float = 0.0,
     cutTimeAt: CutTime = cutTime,
 ) -> list[list[CropPoint]]:
@@ -711,14 +711,14 @@ def _solveRun(
     cropResWidth: int,
     cropResHeight: int,
     widestW: float,
-) -> Optional[list[Segment]]:
+) -> list[Segment] | None:
     """The path of one run between cuts, or None when the run has no duration. widestW bounds every
     width the path takes, over all its runs."""
     times: list[float] = []
     columns: list[tuple[int, int, int, int]] = []
     # Whether the section from point k to point k + 1 is held still.
     heldSections: list[bool] = []
-    previous: Optional[CropPoint] = None
+    previous: CropPoint | None = None
     for point in run:
         rel = point["x"] - firstTime
         # A coincident-time duplicate (a redundant zero-duration point) is skipped.
@@ -731,7 +731,7 @@ def _solveRun(
         previous = point
     if len(times) < 2:
         return None
-    x, y, w, h = (list(values) for values in zip(*columns))
+    x, y, w, h = (list(values) for values in zip(*columns, strict=True))
 
     start = times[0]
     duration = times[-1] - start
@@ -869,10 +869,10 @@ def bakeCinematicPath(
     margins: dict[str, float],
     cropResWidth: int,
     cropResHeight: int,
-    fps: Optional[float] = None,
+    fps: float | None = None,
     videoPartStart: float = 0.0,
     cutTimeAt: CutTime = cutTime,
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """The path for a marker pair's crop points, with times relative to the first point, or None when
     there is nothing to solve (fewer than two points or no duration). fps places instant cuts on
     frame boundaries, as the other crop easings do."""

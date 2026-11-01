@@ -9,8 +9,8 @@ and is exercised manually via smoke testing: not unit tested here.
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 import pytest
 

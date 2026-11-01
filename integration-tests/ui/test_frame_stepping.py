@@ -2,6 +2,7 @@
 video, at the rate measured from played frames. The dev site's test video is 30 fps. All of it is
 5.49's frame timing: frame starts, the measured rate and the Measure button, the loop's end frame."""
 
+import itertools
 import json
 import math
 import statistics
@@ -325,7 +326,7 @@ def test_a_pairs_loop_never_shows_the_frame_after_its_end_marker(
     assert shown
     assert min(shown) >= 60
     assert 66 in shown
-    cycles = sum(1 for frame, next_frame in zip(shown, shown[1:]) if next_frame < frame)
+    cycles = sum(1 for frame, next_frame in itertools.pairwise(shown) if next_frame < frame)
     assert cycles == LOOP_TURNS
     if browser_name == "firefox":
         # Firefox reads no frame times from VideoFrame, and the loop turns back at its next frame
@@ -686,7 +687,7 @@ def when_the_loop_plays_by_refresh(
         )
     ended = time.perf_counter()
     refreshed_at = [now for now, _ in rows]
-    gaps = sorted(b - a for a, b in zip(refreshed_at, refreshed_at[1:]))
+    gaps = sorted(b - a for a, b in itertools.pairwise(refreshed_at))
     refresh_ms = gaps[len(gaps) // 2]
     if markup.display is None:
         check_page_kept_up(refresh_ms)
@@ -701,7 +702,7 @@ def when_the_loop_plays_by_refresh(
 def held_runs(held: list[int]) -> list[tuple[int, int, int]]:
     """Each run of one frame held: the frame, its refreshes, and the frame held after it."""
     runs, run = [], 1
-    for frame, after in zip(held, held[1:]):
+    for frame, after in itertools.pairwise(held):
         if after == frame:
             run += 1
             continue
@@ -714,7 +715,7 @@ def shown_runs(held: list[int], refreshed_at: list[float]) -> list[tuple[int, fl
     """Each run of one frame held: the frame, its time on screen (ms) from the refresh that showed it
     to the one that replaced it, and the frame after it."""
     runs, shown_at = [], refreshed_at[0]
-    for frame, after, at in zip(held, held[1:], refreshed_at[1:]):
+    for frame, after, at in zip(held, held[1:], refreshed_at[1:], strict=False):
         if after != frame:
             runs.append((frame, at - shown_at, after))
             shown_at = at
@@ -822,7 +823,7 @@ def then_the_frames_shown_are(markup: MarkupPage, shown: list[int], expected: li
 @step
 def then_most_steps_moved_one_frame(markup: MarkupPage, frames: list[int], direction: int) -> None:
     """Each step moved 0 to 2 frames in its direction, and at least 3 in 4 moved exactly one."""
-    moves = [(after - before) * direction for before, after in zip(frames, frames[1:])]
+    moves = [(after - before) * direction for before, after in itertools.pairwise(frames)]
     markup.report(f"frames shown {frames[1:]}, moves {moves}")
     assert all(0 <= move <= 2 for move in moves)
     assert moves.count(1) >= 0.75 * len(moves)

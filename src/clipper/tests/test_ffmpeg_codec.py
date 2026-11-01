@@ -1,5 +1,4 @@
 from fractions import Fraction
-from typing import Optional
 
 import pytest
 
@@ -33,7 +32,7 @@ def _make_mp_mps(**mps_overrides: object) -> tuple[dict, dict]:
 # Scenarios chosen to exercise each rate-control branch plus the HDR axis.
 # Snapshots capture the full codec/input/output arg triple so any drift in
 # the encoder flags shows up in review.
-AV1_SCENARIOS: dict[str, tuple[dict[str, object], Optional[int]]] = {
+AV1_SCENARIOS: dict[str, tuple[dict[str, object], int | None]] = {
     "crf_sdr_default": ({}, None),
     "crf_hdr": ({"enableHDR": True}, None),
     "crf_with_mbr_cap": ({"targetMaxBitrate": 2000}, None),
@@ -49,7 +48,7 @@ AV1_SCENARIOS: dict[str, tuple[dict[str, object], Optional[int]]] = {
 )
 def test_av1_codec_args_snapshot(
     mps_overrides: dict[str, object],
-    cbr: Optional[int],
+    cbr: int | None,
     snapshot: str,
 ) -> None:
     mp, mps = _make_mp_mps(**mps_overrides)

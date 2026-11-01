@@ -30,8 +30,8 @@ end via ``render_timing_summary()``.
 from __future__ import annotations
 
 import time
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generator
 
 
 class StageTimer:

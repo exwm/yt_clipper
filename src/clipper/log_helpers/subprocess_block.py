@@ -20,8 +20,9 @@ output flows between the two rules and is attributed by proximity:
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generator, Protocol
+from typing import Protocol
 
 
 class _RuleLogger(Protocol):

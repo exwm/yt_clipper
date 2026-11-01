@@ -1,3 +1,4 @@
+import itertools
 import json
 import math
 import re
@@ -5,7 +6,6 @@ from collections.abc import Callable
 from fractions import Fraction
 from functools import partial
 from pathlib import Path
-from typing import Optional, Union
 
 import pytest
 
@@ -144,11 +144,11 @@ def test_getCropFilter_smooth_track_handles_redundant_coincident_points() -> Non
         ("cinematic", "smoothTrack"),  # when there is no path to solve, matching the preview's fallback
     ],
 )
-def test_resolveCropEaseType(cropPointEasing: Optional[str], easeType: str) -> None:
+def test_resolveCropEaseType(cropPointEasing: str | None, easeType: str) -> None:
     assert ffmpeg_filter.resolveCropEaseType(cropPointEasing) == easeType
 
 
-def _cropMapWithInstantInto(instantIndex: Optional[int]) -> CropMap:
+def _cropMapWithInstantInto(instantIndex: int | None) -> CropMap:
     points = [{"x": float(t), "y": 0, "crop": f"{100 * t}:0:100:100"} for t in range(4)]
     if instantIndex is not None:
         points[instantIndex]["easeIn"] = "instant"
@@ -166,7 +166,7 @@ def _cropMapWithInstantInto(instantIndex: Optional[int]) -> CropMap:
     ],
 )
 def test_smoothTrackNeighbor_breaks_only_at_the_neighbor_boundary(
-    instantIndex: Optional[int],
+    instantIndex: int | None,
     hasPrev: bool,
     hasNext: bool,
 ) -> None:
@@ -190,7 +190,7 @@ def test_smoothTrackNeighbor_breaks_only_at_the_neighbor_boundary(
         pytest.param(0.0, 10.0, 1000.0, 30.0, id="capped at three times the smaller slope"),
     ],
 )
-def test_getCropSectionTangent(before: Optional[float], point: float, after: float, tangent: float) -> None:
+def test_getCropSectionTangent(before: float | None, point: float, after: float, tangent: float) -> None:
     beforeTime = None if before is None else 0.0
     assert ffmpeg_filter.getCropSectionTangent(before, point, after, beforeTime, 1.0, 2.0) == pytest.approx(tangent)
 
@@ -351,7 +351,7 @@ def test_short_section_is_not_dropped_getCropFilter(
 )
 def test_crop_filter_sections_tile_timeline(
     cropMap: CropMap,
-    fps: Union[int, Fraction],
+    fps: int | Fraction,
     easeType: str,
 ) -> None:
     # The invariant the gap bug violated: section gates must tile [0, total] with no gaps or
@@ -360,7 +360,7 @@ def test_crop_filter_sections_tile_timeline(
     assert_crop_filter_has_no_gaps(cropFilter, cropMap)
 
     axes = _parse_crop_filter_sections(cropFilter)
-    positivePairs = sum(1 for left, right in zip(cropMap, cropMap[1:]) if right["x"] > left["x"])
+    positivePairs = sum(1 for left, right in itertools.pairwise(cropMap) if right["x"] > left["x"])
 
     # x and y share one timeline; one section per positive-duration pair; divisors usable.
     assert axes["x"] == axes["y"]
@@ -414,7 +414,7 @@ def test_getEaseSectionDuration(
     startTime: float,
     endTime: float,
     fps: float,
-    expected: Optional[float],
+    expected: float | None,
 ) -> None:
     result = ffmpeg_filter.getEaseSectionDuration(startTime, endTime, fps)
     if expected is None:
@@ -550,7 +550,7 @@ def assert_crop_filter_has_no_gaps(cropFilter: str, cropMap: CropMap) -> None:
         assert sections[-1][1] == pytest.approx(total), (
             f"{axis} axis ends at {sections[-1][1]}, not {total}"
         )
-        for prev, nxt in zip(sections, sections[1:]):
+        for prev, nxt in itertools.pairwise(sections):
             assert nxt[0] == prev[1], (
                 f"{axis} axis gap or overlap: a section ends at {prev[1]} "
                 f"but the next starts at {nxt[0]}"
@@ -825,7 +825,7 @@ def test_smooth_track_keeps_a_steady_pan_at_the_same_speed_through_crop_points(p
     # through the point at 2.03 s.
     frames = [t for k in range(1, int(4.05 * fps)) if 1.01 <= (t := k / fps - phase) <= 3.04]
     xs = [_eval_ffmpeg_axis(xMatch.group(1), float(t)) for t in frames]
-    steps = [b - a for a, b in zip(xs, xs[1:])]
+    steps = [b - a for a, b in itertools.pairwise(xs)]
     # 300 px/s is 10.01 px per frame; sections that ended a frame early made 5 px steps at points.
     perFrame = float(300 / fps)
     assert max(abs(step - perFrame) for step in steps) < 0.05 * perFrame

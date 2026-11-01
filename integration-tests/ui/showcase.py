@@ -2,11 +2,11 @@
 test_*, so `just ui-test` skips it; run it with `just ui-showcase <release>`."""
 
 import shutil
+import tomllib
 from pathlib import Path
 from typing import Any
 
 import pytest
-import tomllib
 from harness.markup_page import MarkupPage
 from harness.paths import REPO, SANDBOX
 from showcase_scenarios import SCENARIOS

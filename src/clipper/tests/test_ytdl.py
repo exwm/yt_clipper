@@ -4,8 +4,8 @@ import shlex
 import shutil
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, List
 
 import pytest
 
@@ -13,7 +13,7 @@ from clipper import ytdl
 from clipper.clipper_types import ClipperState
 
 
-def buildArgs(**cookieSettings: str) -> List[str]:
+def buildArgs(**cookieSettings: str) -> list[str]:
     settings = {
         "format": "bv*+ba/b",
         "formatSort": ["res"],
@@ -27,7 +27,7 @@ def buildArgs(**cookieSettings: str) -> List[str]:
     return ytdl.ytdl_bin_get_args_base(ClipperState(settings=settings))
 
 
-def assertFollows(args: List[str], flag: str, value: str) -> None:
+def assertFollows(args: list[str], flag: str, value: str) -> None:
     """Assert ``flag`` appears immediately followed by ``value``."""
     assert flag in args
     assert args[args.index(flag) + 1] == value
@@ -80,9 +80,9 @@ def test_both_cookie_sources_is_a_fatal_error() -> None:
     ],
 )
 def test_find_skipped_format_ids(
-    preferred: List[str],
-    selected: List[str],
-    skipped: List[str],
+    preferred: list[str],
+    selected: list[str],
+    skipped: list[str],
 ) -> None:
     assert ytdl.find_skipped_format_ids(preferred, selected) == skipped
 
@@ -101,7 +101,7 @@ def test_find_skipped_format_ids(
         ),
     ],
 )
-def test_selected_format_ids(info: dict, ids: List[str]) -> None:
+def test_selected_format_ids(info: dict, ids: list[str]) -> None:
     assert ytdl.selected_format_ids(info) == ids
 
 
@@ -151,7 +151,7 @@ def audioFormat(formatId: str, abr: float) -> dict:
     return {"format_id": formatId, "vcodec": "none", "acodec": "opus", "abr": abr}
 
 
-def ytdlInfo(selected: List[dict], others: List[dict]) -> dict:
+def ytdlInfo(selected: list[dict], others: list[dict]) -> dict:
     return {"formats": [*others, *selected], "requested_formats": selected}
 
 
@@ -253,8 +253,8 @@ def ytdlInfo(selected: List[dict], others: List[dict]) -> dict:
 )
 def test_find_quality_drops(
     info: dict,
-    skippedFormatIds: List[str],
-    expectedDrops: List[str],
+    skippedFormatIds: list[str],
+    expectedDrops: list[str],
 ) -> None:
     drops = ytdl.find_quality_drops(info, skippedFormatIds)
     assert [ytdl.describe_quality_drop(drop) for drop in drops] == expectedDrops
@@ -276,7 +276,7 @@ INFO_4K = ytdlInfo([videoFormat("313", 2160), audioFormat("251", 160)], [])
     ],
 )
 def test_plan_format_check(
-    preferredOutput: str, info: dict, severalDownloads: bool, drops: List[tuple]
+    preferredOutput: str, info: dict, severalDownloads: bool, drops: list[tuple]
 ) -> None:
     plan = ytdl.plan_format_check(preferredOutput, info, followFormatOrder=False)
     assert plan.severalDownloads == severalDownloads
@@ -291,7 +291,7 @@ def test_plan_format_check(
         pytest.param(["1080", "720p60"], 1, id="selected sorts before it: a drop"),
     ],
 )
-def test_find_quality_drops_follows_the_format_order(formatOrder: List[str], drops: int) -> None:
+def test_find_quality_drops_follows_the_format_order(formatOrder: list[str], drops: int) -> None:
     # With the user's own --format-sort, yt-dlp's sorted format list is the measure of quality.
     byId = {"1080": videoFormat("1080", 1080, 30), "720p60": videoFormat("720p60", 720, 60)}
     info = {"formats": [byId[i] for i in formatOrder], "requested_formats": [byId["1080"]]}
@@ -299,7 +299,7 @@ def test_find_quality_drops_follows_the_format_order(formatOrder: List[str], dro
 
 
 class RecordingLogger:
-    def __init__(self, lines: List[str]) -> None:
+    def __init__(self, lines: list[str]) -> None:
         self.lines = lines
 
     def __getattr__(self, level: str) -> Callable[..., None]:
@@ -320,13 +320,13 @@ class RecordingLogger:
 )
 def test_prompt_to_continue_on_quality_drop(
     monkeypatch: pytest.MonkeyPatch,
-    drops: List[tuple],
+    drops: list[tuple],
     accept: bool,
     answer: object,
     exits: bool,
 ) -> None:
     # Record the messages directly: other tests set up the real logger, which caplog then misses.
-    logged: List[str] = []
+    logged: list[str] = []
     monkeypatch.setattr(ytdl, "logger", RecordingLogger(logged))
 
     def fakeInput(prompt: str) -> str:
@@ -551,7 +551,7 @@ def readLocalInfo(monkeypatch: pytest.MonkeyPatch, infoPath: Path) -> None:
     page, offline."""
     runYtdlp = subprocess.run
 
-    def runLocally(args: List[str], **kwargs: object) -> subprocess.CompletedProcess:
+    def runLocally(args: list[str], **kwargs: object) -> subprocess.CompletedProcess:
         localArgs = [sys.executable, "-m", "yt_dlp", *args[1:-1]]
         return runYtdlp(
             [*localArgs, "--enable-file-urls", "--load-info-json", str(infoPath)], **kwargs
@@ -590,7 +590,7 @@ def test_video_info_from_real_ytdlp_asks_before_a_lower_quality_fallback(
     hdDownloadable: bool,
     accept: bool,
     answer: object,
-    selected: List[str] | None,
+    selected: list[str] | None,
 ) -> None:
     """ytdl_bin_get_video_info with the yt-dlp the clipper depends on, offline: each yt-dlp call
     reads a local info JSON instead of the video page."""
@@ -679,7 +679,7 @@ def ladderInfo(media: Path, folder: Path, unavailable: set[str], extra: dict | N
     return path
 
 
-def localClipperState(tmp_path: Path, formatString: str, formatSort: List[str]) -> ClipperState:
+def localClipperState(tmp_path: Path, formatString: str, formatSort: list[str]) -> ClipperState:
     return ClipperState(
         settings={
             "format": formatString, "formatSort": formatSort, "downloadVideoPath": str(tmp_path / "out"),
@@ -720,13 +720,13 @@ def test_lower_quality_prompt_follows_the_users_format_and_sort(
     monkeypatch: pytest.MonkeyPatch,
     localMedia: Path,
     formatString: str,
-    formatSort: List[str],
+    formatSort: list[str],
     unavailable: set[str],
     prompt: str | None,
-    selected: List[str],
+    selected: list[str],
 ) -> None:
     readLocalInfo(monkeypatch, ladderInfo(localMedia, tmp_path, unavailable))
-    asked: List[str] = []
+    asked: list[str] = []
 
     def fakeInput(question: str) -> str:
         asked.append(question)
@@ -750,7 +750,7 @@ def test_lower_quality_prompt_custom_sort_asks_about_a_near_equivalent_fallback(
     # default sort would not ask here (see test_find_quality_drops).
     extra = {"720vp9": {"vcodec": "vp9", "acodec": "none", "height": 720, "fps": 30}}
     readLocalInfo(monkeypatch, ladderInfo(localMedia, tmp_path, {"720", "720p60", "1080"}, extra))
-    asked: List[str] = []
+    asked: list[str] = []
     monkeypatch.setattr("builtins.input", lambda question: asked.append(question) or "y")
     info = ytdl.ytdl_bin_get_video_info(
         localClipperState(tmp_path, "bv*+ba/b", ["res:720,fps:30,vcodec:avc1"])
@@ -784,18 +784,18 @@ def test_lower_quality_prompt_comma_format_stops_with_a_clear_error(
     # A comma asks for separate downloads. With the video unavailable, the probe alone would
     # quietly leave only the audio.
     readLocalInfo(monkeypatch, ladderInfo(localMedia, tmp_path, unavailable))
-    logged: List[str] = []
+    logged: list[str] = []
     monkeypatch.setattr(ytdl, "logger", RecordingLogger(logged))
     with pytest.raises(SystemExit):
         ytdl.ytdl_bin_get_video_info(localClipperState(tmp_path, "720,audio", ["res"]))
     assert any("several files" in line for line in logged)
 
 
-def failingPreferredCall(args: List[str]) -> subprocess.CompletedProcess:
+def failingPreferredCall(args: list[str]) -> subprocess.CompletedProcess:
     raise subprocess.CalledProcessError(1, args)
 
 
-def unexpectedPreferredOutput(args: List[str]) -> subprocess.CompletedProcess:
+def unexpectedPreferredOutput(args: list[str]) -> subprocess.CompletedProcess:
     return subprocess.CompletedProcess(args, 0, stdout=b"not a format list")
 
 
@@ -816,14 +816,14 @@ def test_lower_quality_check_failing_never_stops_the_clip(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     localMedia: Path,
-    preferredCall: Callable[[List[str]], subprocess.CompletedProcess] | None,
+    preferredCall: Callable[[list[str]], subprocess.CompletedProcess] | None,
     breakComparison: bool,
     warning: str | None,
 ) -> None:
     readLocalInfo(monkeypatch, ladderInfo(localMedia, tmp_path, {"1080"}))
     runLocally = ytdl.subprocess.run
 
-    def run(args: List[str], **kwargs: object) -> subprocess.CompletedProcess:
+    def run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess:
         if preferredCall and "--print" in args:
             return preferredCall(args)
         return runLocally(args, **kwargs)
@@ -835,7 +835,7 @@ def test_lower_quality_check_failing_never_stops_the_clip(
     if breakComparison:
         monkeypatch.setattr(ytdl, "find_quality_drops", brokenComparison)
     monkeypatch.setattr("builtins.input", lambda _question: pytest.fail("should not ask"))
-    logged: List[str] = []
+    logged: list[str] = []
     monkeypatch.setattr(ytdl, "logger", RecordingLogger(logged))
 
     info = ytdl.ytdl_bin_get_video_info(localClipperState(tmp_path, "bv*+ba/b", ["res"]))
@@ -856,7 +856,7 @@ def test_no_video_from_ytdlp_stops_with_a_clear_error(
     monkeypatch.setattr(
         ytdl.subprocess, "run", lambda args, **_kwargs: subprocess.CompletedProcess(args, 0, stdout=b"\n")
     )
-    logged: List[str] = []
+    logged: list[str] = []
     monkeypatch.setattr(ytdl, "logger", RecordingLogger(logged))
     with pytest.raises(SystemExit):
         ytdl.ytdl_bin_get_video_info(localClipperState(tmp_path, "bv*+ba/b", ["res"]))

@@ -24,8 +24,8 @@ from __future__ import annotations
 # math.ceil is used in select_sample_windows for ceiling division.
 import math
 import time
+from collections.abc import Callable
 from dataclasses import replace
-from typing import Callable
 
 from clipper.quality import VmafSummary
 from clipper.ytc_logger import Subsystem, make_subsystem_logger

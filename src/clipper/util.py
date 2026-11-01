@@ -2,14 +2,14 @@ import base64
 import hashlib
 import re
 from importlib import util as importlib_util
-from typing import Any, Dict, Union
+from typing import Any
 
 
 def is_module_available(mod: str) -> bool:
     return importlib_util.find_spec(mod) is not None
 
 
-def dictTryGetKeys(d: Dict, *keys: str, default: Any = None) -> Any:  # noqa: ANN401
+def dictTryGetKeys(d: dict, *keys: str, default: Any = None) -> Any:  # noqa: ANN401
     for key in keys:
         value = d.get(key)
         if value is not None:
@@ -52,6 +52,6 @@ def escapeFilterOptionValue(value: str) -> str:
     return re.sub(r"([\\'\[\],;])", r"\\\1", optionLevel)
 
 
-def floorToEven(x: Union[int, str, float]) -> int:
+def floorToEven(x: int | str | float) -> int:
     x = int(x)
     return x & ~1

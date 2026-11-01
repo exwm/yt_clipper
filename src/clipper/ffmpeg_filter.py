@@ -1,10 +1,11 @@
+import itertools
 import sys
 from dataclasses import dataclass
 from fractions import Fraction
 from functools import reduce
 from math import floor, log
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Literal
 
 from clipper import util
 from clipper.clipper_types import (
@@ -22,7 +23,7 @@ from clipper.ytc_logger import Subsystem, make_subsystem_logger
 logger = make_subsystem_logger(Subsystem.FFMPEG_FILTER)
 
 
-def autoScaleCropMap(cropMap: List[Dict[str, Any]], settings: Settings) -> None:
+def autoScaleCropMap(cropMap: list[dict[str, Any]], settings: Settings) -> None:
     for cropPoint in cropMap:
         cropString = cropPoint["crop"]
         cropPoint["crop"], cropPoint["cropComponents"] = getAutoScaledCropComponents(
@@ -35,7 +36,7 @@ def getAutoScaledCropComponents(
     cropString: str,
     settings: Settings,
     forceEvenDimensions: bool = False,
-) -> Tuple[str, Dict[str, float]]:
+) -> tuple[str, dict[str, float]]:
     cropResWidth = settings["cropResWidth"]
     cropResHeight = settings["cropResHeight"]
     cropComponents = getCropComponents(cropString, cropResWidth, cropResHeight)
@@ -66,8 +67,8 @@ def getCropComponents(
     cropString: str,
     maxWidth: int,
     maxHeight: int,
-) -> Dict[str, float]:
-    cropComponents: List[Any] = cropString.split(":")
+) -> dict[str, float]:
+    cropComponents: list[Any] = cropString.split(":")
     if cropComponents[2] == "iw":
         cropComponents[2] = maxWidth
     if cropComponents[3] == "ih":
@@ -81,7 +82,7 @@ def getCropComponents(
     return cropComponentsDict
 
 
-def getMinterpFilter(mp: Dict[str, Any], mps: Dict[str, Any]) -> str:
+def getMinterpFilter(mp: dict[str, Any], mps: dict[str, Any]) -> str:
     speedMap = mp["speedMap"]
 
     minterpFPS = mps["minterpFPS"]
@@ -92,7 +93,7 @@ def getMinterpFilter(mp: Dict[str, Any], mps: Dict[str, Any]) -> str:
         fps = Fraction(mps["r_frame_rate"])
         targetSpeed = minterpFPS / fps
 
-        for sect, (left, right) in enumerate(zip(speedMap[:-1], speedMap[1:])):
+        for sect, (left, right) in enumerate(itertools.pairwise(speedMap)):
             startSpeed = left["y"]
             endSpeed = right["y"]
             speedChange = endSpeed - startSpeed
@@ -130,8 +131,8 @@ def getMinterpFilter(mp: Dict[str, Any], mps: Dict[str, Any]) -> str:
 
 def getMinterpFPS(
     mps: DictStrAny,
-    speedMap: Union[SpeedMap, None],
-) -> Union[ExtendedRealNumber, None]:
+    speedMap: SpeedMap | None,
+) -> ExtendedRealNumber | None:
     if mps["r_frame_rate"] is None:
         return None
     videoFPS = Fraction(mps["r_frame_rate"])
@@ -159,7 +160,7 @@ def getMinterpFPS(
     return minterpFPS
 
 
-def getMaxSpeed(speedMap: Union[SpeedMap, None]) -> float:
+def getMaxSpeed(speedMap: SpeedMap | None) -> float:
     maxSpeed = 0.05
     if speedMap is None:
         maxSpeed = 1
@@ -170,7 +171,7 @@ def getMaxSpeed(speedMap: Union[SpeedMap, None]) -> float:
     return maxSpeed
 
 
-def getMinSpeed(speedMap: Union[SpeedMap, None]) -> float:
+def getMinSpeed(speedMap: SpeedMap | None) -> float:
     if speedMap is None:
         return 1.0
     return min(pt["y"] for pt in speedMap)
@@ -224,15 +225,15 @@ def getSubsFilter(
 def getSpeedFilterAndDuration(
     speedMap: SpeedMap,
     mp: DictStrAny,
-    fps: Union[float, Fraction],
-) -> Tuple[str, ExtendedRealNumber, List[ExtendedRealNumber]]:
+    fps: float | Fraction,
+) -> tuple[str, ExtendedRealNumber, list[ExtendedRealNumber]]:
     if not mp["isVariableSpeed"]:
         duration = mp["duration"] / mp["speed"]
         return f"setpts=(PTS-STARTPTS)/{mp['speed']}", duration, [0, duration]
 
     video_filter_speed_map = ""
     setpts = ""
-    outputDurations: List[ExtendedRealNumber] = [0]
+    outputDurations: list[ExtendedRealNumber] = [0]
 
     fps = Fraction(fps)
     frameDur = 1 / fps
@@ -240,7 +241,7 @@ def getSpeedFilterAndDuration(
     # Account for marker pair start time as trim filter sets start time to ~0
     speedMapStartTime = speedMap[0]["x"]
 
-    for sect, (left, right) in enumerate(zip(speedMap[:-1], speedMap[1:])):
+    for sect, (left, right) in enumerate(itertools.pairwise(speedMap)):
         startSpeed = left["y"]
         endSpeed = right["y"]
         speedChange = endSpeed - startSpeed
@@ -295,7 +296,7 @@ def getSpeedFilterAndDuration(
     return video_filter_speed_map, outputDuration, outputDurations
 
 
-def getAverageSpeed(speedMap: Optional[SpeedMap], fps: Union[float, Fraction]) -> float:
+def getAverageSpeed(speedMap: SpeedMap | None, fps: float | Fraction) -> float:
     if speedMap is None:
         return 1
 
@@ -305,7 +306,7 @@ def getAverageSpeed(speedMap: Optional[SpeedMap], fps: Union[float, Fraction]) -
 
     averageSpeed = 0
     duration = 0
-    for _sect, (left, right) in enumerate(zip(speedMap[:-1], speedMap[1:])):
+    for _sect, (left, right) in enumerate(itertools.pairwise(speedMap)):
         startSpeed = left["y"]
         endSpeed = right["y"]
 
@@ -324,7 +325,7 @@ def getAverageSpeed(speedMap: Optional[SpeedMap], fps: Union[float, Fraction]) -
 def getCropFilter(
     crop: str,
     cropMap: CropMap,
-    fps: Union[float, Fraction],
+    fps: float | Fraction,
     easeType: str = "easeInOutSine",
     videoPartStart: float = 0.0,
     *,
@@ -416,7 +417,7 @@ def getStaticCropFilter(x: str, y: str, w: str, h: str) -> str:
     return f"crop='x={x}:y={y}:w={w}:h={h}:exact=1'"
 
 
-def getEaseFilterExpr(easings: List, timeExpr: Literal["t", "it"]) -> str:
+def getEaseFilterExpr(easings: list, timeExpr: Literal["t", "it"]) -> str:
     # Callers guard against an empty easings list (a fully zero-duration crop map) before here.
     easeFilterExpr = [
         f"(gte({timeExpr}, {startTime})*lt({timeExpr}, {endTime})*{easeExpr})"
@@ -434,15 +435,15 @@ ZOOM_PAN_TIME_EXPR = "it"
 
 def getZoomPanFilter(
     cropMap: CropMap,
-    fps: Union[float, Fraction],
+    fps: float | Fraction,
     easeType: str = "easeInOutSine",
     inputIsHDR: bool = False,
-    frameWidth: Optional[float] = None,
-    frameHeight: Optional[float] = None,
+    frameWidth: float | None = None,
+    frameHeight: float | None = None,
     videoPartStart: float = 0.0,
     *,
     sectionEaseDuration: SectionEaseDuration,
-) -> Tuple[str, int]:
+) -> tuple[str, int]:
     maxSizeCrop = getMaxSizeCrop(cropMap)
     maxWidth = floorToEven(maxSizeCrop["width"])
     maxHeight = floorToEven(maxSizeCrop["height"])
@@ -599,15 +600,15 @@ def getZoomPanFilter(
     return zoomPanFilter, maxSize
 
 
-def _scaleTriple(coeffs: List[Any], scale: float) -> List[float]:
+def _scaleTriple(coeffs: list[Any], scale: float) -> list[float]:
     return [scale * float(coeffs[0]), scale * float(coeffs[1]), scale * float(coeffs[2])]
 
 
-def _addTriples(a: List[float], b: List[float]) -> List[float]:
+def _addTriples(a: list[float], b: list[float]) -> list[float]:
     return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
 
 
-def _cropPathPolyExpr(coeffs: List[float], timeExpr: str, startT: float, scale: float = 1.0) -> str:
+def _cropPathPolyExpr(coeffs: list[float], timeExpr: str, startT: float, scale: float = 1.0) -> str:
     # scale*(c0 + c1*u + c2*u^2) with u = timeExpr - startT, matching evalCropPathAtTime (the markup).
     c2 = scale * coeffs[2]
     c1 = scale * coeffs[1]
@@ -616,7 +617,7 @@ def _cropPathPolyExpr(coeffs: List[float], timeExpr: str, startT: float, scale: 
     return f"(({_fmtEaseNum(c2)})*{u}^2+({_fmtEaseNum(c1)})*{u}+({_fmtEaseNum(c0)}))"
 
 
-def _quadMaxOnSpan(coeffs: List[float], span: float) -> float:
+def _quadMaxOnSpan(coeffs: list[float], span: float) -> float:
     # The maximum of c0 + c1*u + c2*u^2 over u in [0, span] (endpoints, plus the vertex if it is an
     # interior maximum). Used to size the containing crop so it bounds the path's width/height.
     c0, c1, c2 = coeffs[0], coeffs[1], coeffs[2]
@@ -629,11 +630,11 @@ def _quadMaxOnSpan(coeffs: List[float], span: float) -> float:
 
 
 def getCropPathFilter(
-    cropPath: Dict[str, Any],
+    cropPath: dict[str, Any],
     settings: Settings,
-    fps: Union[float, Fraction],
+    fps: float | Fraction,
     inputIsHDR: bool = False,
-) -> Tuple[str, int]:
+) -> tuple[str, int]:
     """Render a baked cinematic crop path (cinematic-path.ts) as an ffmpeg crop/zoompan filter.
 
     The path's per-segment quadratics are in cropRes pixels; scale them to output pixels by the same
@@ -741,8 +742,8 @@ def getCropPathFilter(
     return zoomPanFilter, maxSize
 
 
-def getMaxSizeCrop(cropMap: CropMap) -> Dict[str, int]:
-    def getSize(cropPoint: DictStrAny) -> Dict[str, int]:
+def getMaxSizeCrop(cropMap: CropMap) -> dict[str, int]:
+    def getSize(cropPoint: DictStrAny) -> dict[str, int]:
         _, _, cropW, cropH = cropPoint["crop"].split(":")
         return {"width": int(float(cropW)), "height": int(float(cropH))}
 
@@ -756,7 +757,7 @@ def getMaxSizeCrop(cropMap: CropMap) -> Dict[str, int]:
     return maxSizeCrop
 
 
-def floorToEven(x: Union[int, str, float]) -> int:
+def floorToEven(x: int | str | float) -> int:
     x = int(x)
     return x & ~1
 
@@ -781,7 +782,7 @@ def getEaseSectionDuration(
     startTime: float,
     endTime: float,
     fps: float,
-) -> Optional[float]:
+) -> float | None:
     realDuration = endTime - startTime
     # Zero/negative duration sections (e.g. redundant hold point pairs) have no
     # frames to render, so skip them.
@@ -808,7 +809,7 @@ def getSectionEaseDuration(
     startTime: float,
     endTime: float,
     fps: float,
-) -> Optional[float]:
+) -> float | None:
     """The span a section eases over, from start and end times on the input video's timeline. smoothTrack spans the points' real times, so its sections meet
     exactly and the crop keeps its speed through each point on any frame grid (the clip's frames start
     at the pair's own frame phase, not at multiples of 1/fps). A pulled-back end held it for part of a
@@ -821,7 +822,7 @@ def getSectionEaseDuration(
 
 def sectionEaseDurationFromVideoPart(
     easeType: str, leftX: float, rightX: float, firstTime: float, videoPartStart: float, fps: float
-) -> Optional[float]:
+) -> float | None:
     """5.49's span for a crop section (frame_timing.SectionEaseDuration): crop points count their frames
     from the video part's first frame."""
     return getSectionEaseDuration(easeType, leftX - videoPartStart, rightX - videoPartStart, fps)
@@ -832,7 +833,7 @@ def getEasingExpression(
     easeA: str,
     easeB: str,
     easeP: str,
-) -> Optional[str]:
+) -> str | None:
     easeP = f"(clip({easeP},0,1))"
     easeT = f"(2*{easeP})"
     easeM = f"({easeP}-1)"
@@ -864,7 +865,7 @@ def getEasingExpression(
     return easingExpression
 
 
-def resolveCropEaseType(cropPointEasing: Optional[str]) -> str:
+def resolveCropEaseType(cropPointEasing: str | None) -> str:
     """Map the markers JSON crop easing mode to a crop filter easeType.
 
     Absent or "smoothInOut" maps to the original easeInOutSine, so clips without the field render
@@ -886,12 +887,12 @@ def _fmtEaseNum(value: float) -> str:
 
 
 def getCropSectionTangent(
-    beforeValue: Optional[float],
+    beforeValue: float | None,
     pointValue: float,
-    afterValue: Optional[float],
-    beforeTime: Optional[float],
+    afterValue: float | None,
+    beforeTime: float | None,
     pointTime: float,
-    afterTime: Optional[float],
+    afterTime: float | None,
 ) -> float:
     """The tangent (crop-units per second) at a crop point, from the slopes to its two neighbors.
 
@@ -945,16 +946,16 @@ def getSectionEasingExpression(  # noqa: PLR0913 (one positional/keyword per eas
     easeB: str,
     easeP: str,
     *,
-    prevValue: Optional[float],
+    prevValue: float | None,
     startValue: float,
     endValue: float,
-    nextValue: Optional[float],
-    prevTime: Optional[float],
+    nextValue: float | None,
+    prevTime: float | None,
     startTime: float,
     endTime: float,
-    nextTime: Optional[float],
+    nextTime: float | None,
     sectDuration: float,
-) -> Optional[str]:
+) -> str | None:
     """The easing expression for one crop component over a section.
 
     For smoothTrack this is a neighbor-aware monotone cubic Hermite spline that flows through its
@@ -983,7 +984,7 @@ def _smoothTrackNeighbor(
     index: int,
     boundaryIndex: int,
     firstTime: float,
-) -> Optional[Dict[str, float]]:
+) -> dict[str, float] | None:
     """The parsed crop point at ``index`` for use as a spline tangent neighbor, or None.
 
     None when the index is off the map or the transition between the neighbor and the section is
@@ -1007,10 +1008,10 @@ def _smoothTrackNeighbor(
 
 
 def _derivedNeighborValue(
-    neighbor: Optional[Dict[str, float]],
+    neighbor: dict[str, float] | None,
     scale: float,
     kind: str,
-) -> Optional[float]:
+) -> float | None:
     # The (scaled) value of a zoompan-eased quantity at a neighbor crop point, or None when there is
     # no neighbor. right/bottom are the linear x+w / y+h the pan crop tracks.
     if neighbor is None:
@@ -1031,14 +1032,14 @@ class _SectionEaseContext:
     """The per-section state every zoompan-eased quantity of one section shares."""
 
     easeType: str
-    prev: Optional[Dict[str, float]]
-    nxt: Optional[Dict[str, float]]
+    prev: dict[str, float] | None
+    nxt: dict[str, float] | None
     startTime: float
     endTime: float
     sectDuration: float
     # The frame the crop moves in (output pixels), to keep a Smooth Track crop inside it.
-    frameWidth: Optional[float] = None
-    frameHeight: Optional[float] = None
+    frameWidth: float | None = None
+    frameHeight: float | None = None
 
 
 def _zoomPanSectionEase(
@@ -1050,7 +1051,7 @@ def _zoomPanSectionEase(
     kind: str,
     startDerived: float,
     endDerived: float,
-) -> Optional[str]:
+) -> str | None:
     # One zoompan-eased quantity for a section, routed through the shared easing dispatcher with the
     # neighbor values its spline tangents need.
     return getSectionEasingExpression(
@@ -1072,13 +1073,13 @@ def _zoomPanSectionEase(
 
 def _keepInFrame(
     ctx: _SectionEaseContext,
-    positionEase: Optional[str],
+    positionEase: str | None,
     easeP: str,
     scale: float,
     position: str,
-    start: Dict[str, float],
-    end: Dict[str, float],
-) -> Optional[str]:
+    start: dict[str, float],
+    end: dict[str, float],
+) -> str | None:
     """A (scaled) Smooth Track x or y kept inside the frame, as the preview keeps it.
 
     The spline eases the position and the size on their own, so on a zoom the crop can pass the
@@ -1106,9 +1107,9 @@ def _zoomPanEdgeEase(
     easeP: str,
     scale: float,
     edge: str,
-    start: Dict[str, float],
-    end: Dict[str, float],
-) -> Optional[str]:
+    start: dict[str, float],
+    end: dict[str, float],
+) -> str | None:
     """The (scaled) eased right (x + w) or bottom (y + h) edge of a section's crop.
 
     The spline eases the position and the size and adds them, as the preview draws the crop: its

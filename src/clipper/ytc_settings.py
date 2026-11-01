@@ -4,7 +4,7 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from rich.markup import escape
 
@@ -33,7 +33,7 @@ from clipper.ytdl import ytdl_bin_get_subs, ytdl_bin_get_video_info
 logger = make_subsystem_logger(Subsystem.SETTINGS)
 
 
-def applyMarkersValidation(markers: Dict[str, Any]) -> None:
+def applyMarkersValidation(markers: dict[str, Any]) -> None:
     """Exit on invalid global settings, and mark invalid marker pairs so makeClips skips them."""
     updates.warnIfMarkersNewerThanClipper(markers.get("version"))
     markers_schema.normalizeLegacyFormat(markers)
@@ -59,7 +59,7 @@ def applyMarkersValidation(markers: Dict[str, Any]) -> None:
         markers["markerPairs"][index] = {INVALID_MARKER_PAIR_KEY: messages, "overrides": {}}
 
 
-def warnIfCinematicVersionDiffers(savedVersion: Optional[int]) -> None:
+def warnIfCinematicVersionDiffers(savedVersion: int | None) -> None:
     """The markup saves the version only when a marker pair uses Cinematic crop easing."""
     if savedVersion is None or savedVersion == cinematic_path.SOLVER_VERSION:
         return
@@ -288,12 +288,12 @@ def getVideoInfo(cs: ClipperState) -> None:
     getMoreVideoInfo(cs, videoInfo, audioInfo)
 
 
-def disableVideoStreamingProtocols(settings: Settings, protocols: List[str]) -> None:
+def disableVideoStreamingProtocols(settings: Settings, protocols: list[str]) -> None:
     disableClause = "".join(f"[protocol!={protocol}]" for protocol in protocols)
     settings["format"] = f"({settings['format']}){disableClause}"
 
 
-def _getVideoInfo(cs: ClipperState) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+def _getVideoInfo(cs: ClipperState) -> tuple[dict[str, Any], dict[str, Any]]:
     settings = cs.settings
 
     ytdl_info = ytdl_bin_get_video_info(cs)
@@ -333,7 +333,7 @@ def _getVideoInfo(cs: ClipperState) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     return videoInfo, audioInfo
 
 
-def bitDepthFromDynamicRange(dynamicRange: Optional[str]) -> int:
+def bitDepthFromDynamicRange(dynamicRange: str | None) -> int:
     """The input's color bit depth from yt-dlp's dynamic range ("SDR", "HDR10", "HDR10+", "HDR12",
     "HLG", "DV"), for when ffprobe cannot read the video."""
     dynamicRange = (dynamicRange or "").lower()
@@ -350,8 +350,8 @@ def bitDepthFromDynamicRange(dynamicRange: Optional[str]) -> int:
 
 def getMoreVideoInfo(
     cs: ClipperState,
-    videoInfo: Dict,
-    audioInfo: Dict,
+    videoInfo: dict,
+    audioInfo: dict,
 ) -> None:
     settings = cs.settings
 
@@ -557,7 +557,7 @@ def autoSetCropMultiples(settings: Settings) -> None:
 def filterDash(
     cs: ClipperState,
     dashManifestUrl: str,
-    dashFormatIDs: List[str],
+    dashFormatIDs: list[str],
 ) -> Path:
     cp = cs.clipper_paths
 

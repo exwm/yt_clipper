@@ -19,7 +19,6 @@ as such.
 """
 
 from pathlib import Path
-from typing import List, Optional
 
 from clipper.clipper_types import ClipperPaths, DictStrAny
 from clipper.log_helpers import LogPath
@@ -120,12 +119,12 @@ WEBP_PREVIEW_PIX_FMT = "yuv420p"
 
 
 def pickPreviewQuality(
-    sourceCrf: Optional[int],
+    sourceCrf: int | None,
     sourceWidth: int,
     sourceHeight: int,
     previewWidth: int,
     previewHeight: int,
-    override: Optional[int] = None,
+    override: int | None = None,
 ) -> int:
     """Derive preview quality on libwebp's ascending 0-100 scale.
 
@@ -230,7 +229,7 @@ def makeWebpPreview(
     clipFilePath: str,
     mps: DictStrAny,
     overwrite: bool,
-) -> Optional[str]:
+) -> str | None:
     """Encode an animated WebP preview sibling for a finished clip.
 
     Returns the output path on success, ``None`` on skip or failure.
@@ -310,10 +309,10 @@ def makeWebpPreview(
 
 def mergeWebpPreviews(
     cp: ClipperPaths,
-    previewPaths: List[str],
+    previewPaths: list[str],
     mergedPreviewPath: str,
     overwrite: bool,
-) -> Optional[str]:
+) -> str | None:
     """Phase 1: merged WebP preview is not generated.
 
     WebP's RIFF container holds a single ANIM chunk and does not participate

@@ -3,7 +3,6 @@ runs from the frame shown at its start marker through the one at its end marker,
 frame from every frame edge, and crop points take effect on the frame they were placed on."""
 
 from fractions import Fraction
-from typing import Optional
 
 from clipper import cinematic_path, ffmpeg_filter
 from clipper.frame_grid import FrameGrid, frameSpan
@@ -47,7 +46,7 @@ def clipSpan(mp: DictStrAny, mps: DictStrAny, videoPartDelay: float) -> ClipSpan
     )
 
 
-def videoInput(mp: DictStrAny, mps: DictStrAny, settings: DictStrAny) -> Optional[VideoInput]:
+def videoInput(mp: DictStrAny, mps: DictStrAny, settings: DictStrAny) -> VideoInput | None:
     # -seek_timestamp 1: in a local video, -ss is the video's own timestamp, as the markup's player time
     # is, not an offset from the file's start time, which audio pre-roll can make negative. Network
     # streams keep the offset, which matches players that count from an HLS stream's start. ffplay has
@@ -74,7 +73,7 @@ def videoInput(mp: DictStrAny, mps: DictStrAny, settings: DictStrAny) -> Optiona
     return VideoInput(inputs=inputs, trim=trim)
 
 
-def fastTrimInput(mp: DictStrAny, mps: DictStrAny) -> Optional[str]:
+def fastTrimInput(mp: DictStrAny, mps: DictStrAny) -> str | None:
     videoStart, videoEnd = mp["start"], mp["end"]
     if mps["inputVideo"]:
         return f' -seek_timestamp 1 -ss {videoStart} -to {videoEnd} -i "{mps["inputVideo"]}" '
@@ -97,7 +96,7 @@ def audioFilter(mp: DictStrAny, mps: DictStrAny, aDuration: float) -> str:
     return audio_filter
 
 
-def varyingRateNote(rate: Optional[float]) -> list[str]:
+def varyingRateNote(rate: float | None) -> list[str]:
     stray = "a clip's first or last frame and instant crop points can be a frame off."
     if rate is None:
         return ["Clips use a constant frame rate,", f"so where the video's frames stray from it, {stray}"]
