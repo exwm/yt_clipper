@@ -21,13 +21,27 @@ verboselogs.add_log_level(NOTICE, "NOTICE")
 verboselogs.add_log_level(HEADER, "HEADER")
 verboselogs.add_log_level(REPORT, "REPORT")
 
-# The frame timing this source builds into the clipper, before any test sets it.
+# The frame timing this source builds into the clipper, before any test sets it. A --clipper-exe is
+# assumed to be built from this source.
 BUILT_FRAME_TIMING = frame_timing.current()
 
 
-def markedFrameTiming(marker: pytest.Mark) -> frame_timing.FrameTimingSwitches:
-    """`frame_timing("5.48")`, `("5.49")` or `("next")`: every group at that release."""
-    return frame_timing.switchesAt(marker.args[0])
+def markedFrameTiming(mode: str) -> frame_timing.Build:
+    """`frame_timing("5.48")` or `("next")`: every group at that release; `("5.49")`: 5.49's whole
+    build."""
+    if mode == "5.49":
+        return frame_timing.WHOLE_549
+    if mode == "5.48":
+        return frame_timing.ALL_548
+    if mode == "next":
+        return frame_timing.FrameTimingSwitches()
+    raise ValueError(f"unknown frame_timing mode {mode!r}")
+
+
+def skipsOnBuiltClipper(mode: str, built: frame_timing.FrameTiming) -> bool:
+    """A test marked `mode` checks decisions a built clipper doesn't make. Compared by decisions, so a
+    5.48 test still runs on a next build until next replaces a decision."""
+    return not frame_timing.compose(markedFrameTiming(mode)).sameDecisions(built)
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -59,10 +73,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         )
         for item in items:
             marker = item.get_closest_marker("frame_timing")
-            # Compared by decisions, so a 5.48 test runs on a next build that still decides as 5.48.
-            if marker and not frame_timing.compose(markedFrameTiming(marker)).sameDecisions(
-                BUILT_FRAME_TIMING
-            ):
+            if marker and skipsOnBuiltClipper(marker.args[0], BUILT_FRAME_TIMING):
                 item.add_marker(skip)
 
 
@@ -76,13 +87,13 @@ def noCoverageInSubprocesses(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture(autouse=True)
 def frameTiming(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The tests pin 5.49's frame timing unless marked with another. A built clipper (--clipper-exe)
+    """The tests pin 5.49's whole build unless marked with another. A built clipper (--clipper-exe)
     keeps its own, so its unmarked tests must pass with either."""
     marker = request.node.get_closest_marker("frame_timing")
     monkeypatch.setattr(
         frame_timing,
         "SWITCHES",
-        markedFrameTiming(marker) if marker is not None else frame_timing.ALL_549,
+        markedFrameTiming(marker.args[0]) if marker is not None else frame_timing.WHOLE_549,
     )
 
 

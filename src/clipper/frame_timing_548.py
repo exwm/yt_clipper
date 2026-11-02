@@ -1,11 +1,12 @@
 """5.48.0's frame decisions, the oracle that any `frame_timing.SWITCHES` group can pin (the default is
-next). 5.48 had no frame grid: it passed the raw marker times to ffmpeg (`-ss {start}` and `trim=0:{duration}`), so ffmpeg's own
-rounding to the video's time base picks the frames, and it timed crop points from the start marker. Each
-piece is v5.48.0's code, cited as file:line; test_frame_timing_548_source.py checks it against the tag.
+next). 5.48 had no frame grid: it passed the raw marker times to ffmpeg (`-ss {start}` and
+`trim=0:{duration}`), so ffmpeg's own rounding to the video's time base picks the frames, and it timed
+crop points from the start marker. Each piece is v5.48.0's code, cited as file:line;
+test_frame_timing_548_source.py checks it against the tag.
 
-Three 5.49 fixes are left out here, each behind its own switch: crop points timed from the video's first
-frame (cropPoints), audio starting with the first frame (audioStart), and a local video's own timestamps
-for `-ss` (localTimestamps for fast trims; for encodes it is part of 5.49's clipFrames).
+5.49's fixes are left out here: crop points timed from the video's first frame, audio starting with the
+first frame, and a local video's own timestamps for `-ss`. Each can land in next, behind the switch of
+its group (cropPoints, or clipFrames for the other two).
 """
 
 import itertools

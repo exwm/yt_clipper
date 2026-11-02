@@ -70,7 +70,7 @@ testpaths = "src/clipper/tests"
 pythonpath = "src"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "frame_timing(mode): run with the clipper's frame timing of \"5.48\", \"5.49\" or \"next\", every frame_timing.SWITCHES group at once",
+    "frame_timing(mode): run with the clipper's frame timing of \"5.48\" or \"next\" (every frame_timing.SWITCHES group at that release) or \"5.49\" (its whole build)",
 ]
 
 [tool.coverage.run]

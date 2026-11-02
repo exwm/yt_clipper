@@ -99,17 +99,18 @@ def _bakeCinematicPath(
     cropResHeight: int,
     fps: float,
     videoPartStart: float,
-    frameTimingName: str,
+    frameTiming: frame_timing.Build,
 ) -> dict[str, Any] | None:
     # A pair's settings are made again for each sample-guided trial and encode, and a long pair takes
     # about a second to solve. The path is only read, so the cached one is shared.
     # default=str: a point can carry other fields the solver ignores.
     key = json.dumps(
-        [cropMap, margins, cropResWidth, cropResHeight, fps, videoPartStart, frameTimingName],
+        [cropMap, margins, cropResWidth, cropResHeight, fps, videoPartStart],
         sort_keys=True,
         default=str,
     )
-    return _bakeCinematicPathFromKey(key)
+    # The build is hashable, so it keys the cache as itself and gives back its cut time rule.
+    return _bakeCinematicPathFromKey(key, frameTiming)
 
 
 @functools.cache
@@ -126,10 +127,8 @@ def _warnOfDenseCinematicSolve() -> None:
 
 
 @functools.lru_cache(maxsize=64)
-def _bakeCinematicPathFromKey(key: str) -> dict[str, Any] | None:
-    cropMap, margins, cropResWidth, cropResHeight, fps, videoPartStart, frameTimingName = (
-        json.loads(key)
-    )
+def _bakeCinematicPathFromKey(key: str, frameTiming: frame_timing.Build) -> dict[str, Any] | None:
+    cropMap, margins, cropResWidth, cropResHeight, fps, videoPartStart = json.loads(key)
     if banded_lapack.lapack() is None:
         _warnOfDenseCinematicSolve()
     return cinematic_path.bakeCinematicPath(
@@ -139,7 +138,7 @@ def _bakeCinematicPathFromKey(key: str) -> dict[str, Any] | None:
         cropResHeight,
         fps=fps,
         videoPartStart=videoPartStart,
-        cutTimeAt=frame_timing.byName(frameTimingName).cutTime,
+        cutTimeAt=frame_timing.compose(frameTiming).cutTime,
     )
 
 
@@ -231,8 +230,10 @@ def getMarkerPairSettings(  # noqa: PLR0912
             videoPartDelay = videoPart["start"]
             mp["videoPart"] = videoPart
 
-    timing = frame_timing.current()
+    build = frame_timing.SWITCHES
+    timing = frame_timing.compose(build)
     span = timing.clipSpan(mp, mps, videoPartDelay)
+    cropOrigin = timing.cropPointOrigin(span, mps)
     mp["start"], mp["end"] = span.start, span.end
     if span.seekTo is not None:
         mp["seekTo"], mp["trimEnd"] = span.seekTo, span.trimEnd
@@ -304,8 +305,8 @@ def getMarkerPairSettings(  # noqa: PLR0912
                     settings["cropResHeight"],
                     # ffprobe gives a fraction string such as "30000/1001".
                     fps=float(Fraction(mps["r_frame_rate"])),
-                    videoPartStart=span.cropFrameOrigin,
-                    frameTimingName=timing.name,
+                    videoPartStart=cropOrigin,
+                    frameTiming=build,
                 )
             except Exception as error:
                 # Without a path the pair renders as Smooth Track, as when there is nothing to solve.
@@ -354,7 +355,7 @@ def getMarkerPairSettings(  # noqa: PLR0912
             inputIsHDR=settings["inputIsHDR"],
             frameWidth=settings["width"],
             frameHeight=settings["height"],
-            videoPartStart=span.cropFrameOrigin,
+            videoPartStart=cropOrigin,
             sectionEaseDuration=timing.sectionEaseDuration,
         )
     elif mp["isPanningCrop"]:
@@ -363,7 +364,7 @@ def getMarkerPairSettings(  # noqa: PLR0912
             mp["cropMap"],
             mps["r_frame_rate"],
             easeType=cropEaseType,
-            videoPartStart=span.cropFrameOrigin,
+            videoPartStart=cropOrigin,
             sectionEaseDuration=timing.sectionEaseDuration,
         )
     else:
