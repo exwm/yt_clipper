@@ -102,6 +102,7 @@ import {
   followFrameRate,
   frameStartOf,
   getFPS,
+  getFrameRate,
   getFrameTime,
   getScreenFrame,
   seekByFrames,
@@ -371,6 +372,101 @@ describe('getFPS', () => {
       expect(fields.open.textContent).toBe('60 fps');
       thenMeasureReads('Measure', ['active']);
     });
+  });
+
+  // The rate in use and its source, pinned before the rate provider moved out of videoUtil.ts.
+  it.each([
+    ['YouTube stats', 'youtube', '1920x1080@30', null, 60, { rate: 30, source: 'platform' }],
+    [
+      'YouTube stats without a rate',
+      'youtube',
+      '1920x1080',
+      null,
+      60,
+      { rate: 60, source: 'platform' },
+    ],
+    [
+      'YouTube refined',
+      'youtube',
+      '1920x1080@30',
+      30000 / 1001,
+      60,
+      { rate: 30000 / 1001, source: 'measured' },
+    ],
+    [
+      'YouTube, measured 0.5 % off',
+      'youtube',
+      '1920x1080@30',
+      30.15,
+      60,
+      { rate: 30.15, source: 'measured' },
+    ],
+    [
+      'YouTube, measured over 0.5 % off',
+      'youtube',
+      '1920x1080@30',
+      30.16,
+      60,
+      { rate: 30, source: 'platform' },
+    ],
+    ['YouTube without stats', 'youtube', null, 30000 / 1001, 60, { rate: 60, source: 'default' }],
+    [
+      'YouTube without stats, default 30',
+      'youtube',
+      null,
+      null,
+      30,
+      { rate: 30, source: 'default' },
+    ],
+    ['another site', 'yt_clipper', '1920x1080@30', null, 60, { rate: 60, source: 'default' }],
+    [
+      'another site, default 30',
+      'yt_clipper',
+      '1920x1080@30',
+      null,
+      30,
+      { rate: 30, source: 'default' },
+    ],
+    [
+      'another site, measured',
+      'yt_clipper',
+      '1920x1080@30',
+      24,
+      30,
+      { rate: 24, source: 'measured' },
+    ],
+  ] as const)('getFrameRate: %s', (_case, platform, stats, measured, defaultFPS, expected) => {
+    mockPlatform.current = platform;
+    mockStats.fails = stats == null;
+    mockStats.resolution = stats ?? '';
+    mockMeasured.fps = measured;
+    expect(getFrameRate(defaultFPS)).toEqual(expected);
+  });
+
+  it.each([
+    ['YouTube', 'youtube', { rate: 30, source: 'platform' }],
+    ['another site', 'yt_clipper', { rate: 60, source: 'default' }],
+  ] as const)(
+    'getFrameRate with Measure off on %s ignores a measured rate',
+    (_case, platform, expected) => {
+      mockPlatform.current = platform;
+      mockMeasured.fps = 30000 / 1001;
+      toggleFrameRateMeasurement();
+      try {
+        expect(getFrameRate()).toEqual(expected);
+      } finally {
+        toggleFrameRateMeasurement();
+      }
+    }
+  );
+
+  it.each([
+    ['YouTube', 'youtube', 30],
+    ['another site', 'yt_clipper', 60],
+  ])('getFPS(null) on %s falls back to 60', (_case, platform, expected) => {
+    mockPlatform.current = platform;
+    mockMeasured.fps = null;
+    expect(getFPS(null)).toBe(expected);
   });
 
   it.each([
