@@ -5,6 +5,7 @@ import type { MarkerType, TimeSpan } from '../frame-timing';
 import { frameTiming548 } from '../frame-timing-548';
 import { frameTiming549 } from '../frame-timing-549';
 import { DecisionGroup, decisionGroup } from './group';
+import { GROUP_KEYS } from './keys';
 
 /** Whether two placed times, or a time and a marker pair or crop point, mean the same frame. */
 export interface CompareTiming {
@@ -49,22 +50,8 @@ export interface CompareTiming {
   ): number | null;
 }
 
-const KEYS = [
-  'compareFrames',
-  'isOnMarkerFrame',
-  'isStretch',
-  'dragClamp',
-  'jumpTarget',
-  'isInPair',
-  'pairSpan',
-  'speedPreviewTime',
-  'findCropKeyframe',
-  'nextKeyframeIndex',
-  'parkedPointIndex',
-] as const;
-
 export const compare: DecisionGroup<CompareTiming> = decisionGroup(
-  KEYS,
+  GROUP_KEYS.compare,
   () => frameTiming548,
   () => frameTiming549
 );

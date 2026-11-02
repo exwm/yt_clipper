@@ -1,7 +1,22 @@
+import type { Refresh } from '../frame-step';
 import type { FrameReading, LoopReading } from '../frame-timing';
 import { frameTiming548 } from '../frame-timing-548';
 import { frameTiming549 } from '../frame-timing-549';
 import { DecisionGroup, decisionGroup } from './group';
+import { GROUP_KEYS } from './keys';
+
+/** A preview loop's own state between refreshes, which only this group reads and writes. */
+export interface LoopState {
+  // NaN until two refreshes are noted, which never holds.
+  refresh: Refresh;
+  // The last refresh the loop saw a frame other than its end frame.
+  lastOtherFrameAt: number;
+}
+
+export const INITIAL_LOOP_STATE: LoopState = {
+  refresh: { time: NaN, gap: NaN },
+  lastOtherFrameAt: -Infinity,
+};
 
 /** When a preview loop turns back to its start. */
 export interface LoopTiming {
@@ -11,12 +26,12 @@ export interface LoopTiming {
     reading: FrameReading,
     loop: LoopReading
   ): { seekTo: number | null; lastOtherFrameAt: number };
+  /** The loop state after an animation frame at `time` (its callback's argument). */
+  noteRefresh(state: LoopState, time: number): LoopState;
 }
 
-const KEYS = ['loopTurnBack'] as const;
-
 export const loop: DecisionGroup<LoopTiming> = decisionGroup(
-  KEYS,
+  GROUP_KEYS.loop,
   () => frameTiming548,
   () => frameTiming549
 );

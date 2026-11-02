@@ -21,16 +21,16 @@ import {
   screenFrame as screenFrameAt,
   TIME_ROUNDING,
 } from './frame-step';
-import type { FrameReading, FrameTiming } from './frame-timing';
+import type { FrameReading, FrameTiming, RateReading, ScreenReading } from './frame-timing';
 import { onExternalSeek, onSeekSettled } from './seek-coalescer';
 
 /** 5.49's frame timing: frames on the grid of the rate in use, read from the frame on screen. */
 
 // Where the playhead is or is going: the seek held back, else the current time.
-const playheadOf = (reading: FrameReading) => reading.pendingSeek ?? reading.currentTime;
-const isSeekInFlight = (reading: FrameReading) => reading.seeking || reading.pendingSeek != null;
+const playheadOf = (reading: ScreenReading) => reading.pendingSeek ?? reading.currentTime;
+const isSeekInFlight = (reading: ScreenReading) => reading.seeking || reading.pendingSeek != null;
 
-function screenFrame(reading: FrameReading): ScreenFrame {
+function screenFrame(reading: ScreenReading & RateReading): ScreenFrame {
   const { onScreen, grid, isRateMeasured } = reading;
   return screenFrameAt(onScreen, playheadOf(reading), grid.rate, isRateMeasured);
 }
@@ -86,6 +86,8 @@ export const frameTiming549: FrameTiming = {
       playhead: reading.currentTime,
     });
   },
+  // The end frame hold times its frame from the refreshes.
+  noteRefresh: (state, time) => ({ ...state, refresh: { time, gap: time - state.refresh.time } }),
 
   compareFrames: (grid, a, b) => frameAt(grid, a) - frameAt(grid, b),
   isOnMarkerFrame: sameFrame,

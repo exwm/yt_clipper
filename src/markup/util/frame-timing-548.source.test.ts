@@ -9,6 +9,7 @@ import { dirname, join } from 'path';
 import ts from 'typescript';
 import { roundX, roundY, sortX } from '../ui/chart/chartPrimitives';
 import { frameAt, sameFrame } from './frame-grid';
+import { INITIAL_LOOP_STATE } from './decisions/loop';
 import { frameTiming548 } from './frame-timing-548';
 import { clampNumber, roundValue } from './util';
 
@@ -148,6 +149,7 @@ function leaves(rate: number, playhead: number) {
     getHeldFrame: () => ({ time: video.currentTime - 0.011, duration: 0.004 }),
     getPendingSeekTime: () => video.currentTime + 0.25,
     frameTiming: frameTiming548,
+    INITIAL_LOOP_STATE,
     // The chart and crop paths.
     roundX,
     roundY,
@@ -205,8 +207,7 @@ const currentVideoUtil = (l: Leaves) =>
       'cropSectionTime',
       'redrawTime',
       'loopPlaybackOver',
-      'refresh',
-      'lastOtherFrameAt',
+      'loopState',
       'noteRefresh',
     ],
     l.scope

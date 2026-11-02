@@ -4,6 +4,7 @@ import { frameTiming548 } from '../frame-timing-548';
 import { frameTiming549 } from '../frame-timing-549';
 import type { SeekDecision } from '../seek-coalescer';
 import { DecisionGroup, decisionGroup } from './group';
+import { GROUP_KEYS } from './keys';
 
 /** Where a seek to a placed time goes, and what becomes of a seek seekToSafe holds back. */
 export interface SeekTiming {
@@ -16,10 +17,8 @@ export interface SeekTiming {
   newSourceSeek(): SeekDecision | null;
 }
 
-const KEYS = ['placeSeek', 'staleSeek', 'newSourceSeek'] as const;
-
 export const seek: DecisionGroup<SeekTiming> = decisionGroup(
-  KEYS,
+  GROUP_KEYS.seek,
   () => frameTiming548,
   () => frameTiming549
 );

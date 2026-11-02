@@ -107,6 +107,8 @@ export const frameTiming548: FrameTiming = {
       lastOtherFrameAt: loop.lastOtherFrameAt,
     };
   },
+  // 5.48's loops read no refreshes.
+  noteRefresh: (state) => state,
 
   // Raw time comparisons (markers.ts:406, :772-779).
   compareFrames: (_grid, a, b) => a - b,
