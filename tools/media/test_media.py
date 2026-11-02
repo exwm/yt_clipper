@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -7,7 +8,7 @@ from pathlib import Path
 import pytest
 from media_cases import Case, CaseError, build, flagged_licenses
 from media_coverage import Clip, Coverage, levelers, levels_of, pick
-from media_datasets import DatasetError, Item, fetch, load_dataset
+from media_datasets import DatasetError, Item, cached_path, fetch, load_dataset
 from media_steps import Steps
 from media_survey import Source, read_frames, survey
 
@@ -103,6 +104,106 @@ def test_fetch_checks_the_hash_and_resumes_a_broken_download(
         with pytest.raises(DatasetError, match="does not match"):
             fetch(wrong, tmp_path / "wrong")
         assert not list((tmp_path / "wrong").rglob("*.mp4*"))
+
+
+@pytest.mark.parametrize(
+    ("url", "name"),
+    [
+        ("https://h/v.mp4", "clip.mp4"),
+        ("https://h/v.webm?x=1", "clip.webm"),
+        ("https://h/C:%5cx.mp4", "clip.mp4"),
+        ("https://h/C:x.mp4", "clip.mp4"),
+        ("https://h/a/..", "clip"),
+        ("https://h/", "clip"),
+        ("https://h/a/CON", "clip"),
+        ("https://h/a.b/c", "clip"),
+        ("https://h/v.mp4%00", "clip"),
+        ("https://h/v.toolongsuffix", "clip"),
+    ],
+)
+def test_a_cached_item_is_named_by_its_id_whatever_its_url(
+    tmp_path: Path,
+    url: str,
+    name: str,
+) -> None:
+    item = Item("set", "clip", url, 1, md5="ab")
+    assert cached_path(item, tmp_path) == tmp_path / "datasets" / "set" / name
+
+
+@pytest.mark.parametrize(
+    ("dataset", "item_id"),
+    [
+        ("set", "../x"),
+        ("..", "x"),
+        ("set", "a/../../x"),
+        ("set", "/x"),
+        pytest.param(
+            "set", "OTHER_DRIVE:x", marks=pytest.mark.skipif(os.name != "nt", reason="drives")
+        ),
+    ],
+)
+def test_a_cached_path_outside_its_dataset_folder_is_refused(
+    tmp_path: Path,
+    dataset: str,
+    item_id: str,
+) -> None:
+    # A drive-relative name escapes only on another drive
+    other = "Q:" if tmp_path.drive.upper() != "Q:" else "R:"
+    item = Item(dataset, item_id.replace("OTHER_DRIVE:", other), "https://h/v.mp4", 1, md5="ab")
+    with pytest.raises(DatasetError, match="outside"):
+        cached_path(item, tmp_path / "cache")
+
+
+def write_items(path: Path, *ids: str) -> Path:
+    rows = ",\n".join(f'  {{ id = "{i}", url = "u", size = 1, md5 = "ab" }}' for i in ids)
+    path.write_text(f"items = [\n{rows}\n]\n", encoding="utf-8")
+    return path
+
+
+@pytest.mark.parametrize(
+    "item_id",
+    ["CON", "nul", "NUL.txt", "Com1", "lpt9.mp4", "aux", ".", "..", "", "a/b", "a\\b", "C:x", "a b",
+     "x."],
+)  # fmt: skip
+def test_a_dataset_with_an_unsafe_item_id_is_refused(tmp_path: Path, item_id: str) -> None:
+    with pytest.raises(DatasetError, match="item id"):
+        load_dataset(write_items(tmp_path / "set.toml", "fine", item_id.replace("\\", "\\\\")))
+
+
+def test_a_dataset_with_a_repeated_item_id_or_an_unsafe_name_is_refused(tmp_path: Path) -> None:
+    with pytest.raises(DatasetError, match="twice"):
+        load_dataset(write_items(tmp_path / "set.toml", "a", "b", "a"))
+    with pytest.raises(DatasetError, match="dataset name"):
+        load_dataset(write_items(tmp_path / "my set.toml", "a"))
+    assert list(load_dataset(write_items(tmp_path / "set.v2.toml", "a-1", "b_2.x")).items) == [
+        "a-1",
+        "b_2.x",
+    ]
+
+
+@pytest.mark.parametrize(("legacy", "requests"), [(b"good", 0), (b"bad!", 1)])
+def test_a_file_cached_under_its_url_name_is_renamed_to_its_id_if_it_matches(
+    tmp_path: Path,
+    legacy: bytes,
+    requests: int,
+) -> None:
+    served = tmp_path / "served"
+    served.mkdir()
+    (served / "v.mp4").write_bytes(b"good")
+    with RangeHTTPServer(served) as server:
+        item = Item("set", "clip", server.url("v.mp4"), 4, md5=hashlib.md5(b"good").hexdigest())
+        old = tmp_path / "cache" / "datasets" / "set" / "v.mp4"
+        old.parent.mkdir(parents=True)
+        old.write_bytes(legacy)
+        path = fetch(item, tmp_path / "cache")
+        assert (path.name, path.read_bytes(), len(server.served)) == ("clip.mp4", b"good", requests)
+        assert old.exists() == (legacy != b"good")
+
+
+@pytest.mark.parametrize("name", ["CON", "nul.txt", "../x", "a/b", "", "x."])
+def test_a_case_with_an_unsafe_name_is_refused(name: str) -> None:
+    with pytest.raises(CaseError, match="name"):
+        Case(name, "file:x", 0, 2).check()
 
 
 @pytest.mark.parametrize(

@@ -30,7 +30,7 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-from media_datasets import CACHE, Dataset, DatasetError, fetch
+from media_datasets import CACHE, Dataset, DatasetError, fetch, is_safe_name
 
 from clipper.tests import shaky_media, synthetic_media
 
@@ -52,6 +52,8 @@ class Case:
     note: str = ""
 
     def check(self) -> None:
+        if not is_safe_name(self.name):
+            raise CaseError(f"the case name {self.name!r} is not a safe file name")
         order = []
         for transform in self.transforms:
             kinds = [kind for kind in KINDS if kind in transform]
@@ -190,6 +192,7 @@ def output_suffix(case: Case) -> str:
 
 def build(case: Case, datasets: dict[str, Dataset], ffmpeg: str, cache: Path = CACHE) -> Path:
     """The case's clip, built once per recipe and ffmpeg version."""
+    case.check()
     output = cache / "cases" / f"{case.name}-{recipe_key(case, ffmpeg)}{output_suffix(case)}"
     if output.exists():
         return output

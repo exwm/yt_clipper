@@ -8,9 +8,10 @@ and anything else known about it (category, license, attribution, quality scores
 import base64
 import hashlib
 import os
+import re
 import tomllib
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
@@ -65,9 +66,27 @@ class Dataset:
         return max([self.priority.get(item.category, 1.0), *labels])
 
 
+SAFE_NAME = re.compile(r"[A-Za-z0-9._-]+")
+DEVICE_NAMES = {"CON", "PRN", "AUX", "NUL", *(f"{port}{n}" for port in ("COM", "LPT") for n in range(10))}  # fmt: skip
+SAFE_SUFFIX = re.compile(r"\.[A-Za-z0-9]{1,8}")
+
+
+def is_safe_name(name: str) -> bool:
+    """Whether a name from a dataset or case file can be a file name in the cache on any system.
+    Windows opens a device for CON or NUL.txt and drops a trailing dot."""
+    return (
+        bool(SAFE_NAME.fullmatch(name))
+        and name not in (".", "..")
+        and not name.endswith(".")
+        and name.split(".")[0].upper() not in DEVICE_NAMES
+    )
+
+
 def load_dataset(path: Path) -> Dataset:
     data = tomllib.loads(path.read_text(encoding="utf-8"))
     name = path.stem
+    if not is_safe_name(name):
+        raise DatasetError(f"{path.name}: the dataset name {name!r} is not a safe file name")
     items = {}
     for entry in data.get("items", []):
         missing = [key for key in ("id", "url", "size") if key not in entry]
@@ -75,6 +94,10 @@ def load_dataset(path: Path) -> Dataset:
             raise DatasetError(
                 f"{path.name}: item {entry.get('id', '?')} needs id, url, size and an md5 or sha256",
             )
+        if not isinstance(entry["id"], str) or not is_safe_name(entry["id"]):
+            raise DatasetError(f"{path.name}: the item id {entry['id']!r} is not a safe file name")
+        if entry["id"] in items:
+            raise DatasetError(f"{path.name}: item {entry['id']} is listed twice")
         meta = {key: value for key, value in entry.items() if key not in CORE}
         core = {key: entry[key] for key in CORE if key in entry}
         items[entry["id"]] = Item(dataset=name, meta=meta, **core)
@@ -94,7 +117,23 @@ def load_datasets(folder: Path = DATASETS) -> dict[str, Dataset]:
 
 
 def cached_path(item: Item, cache: Path = CACHE) -> Path:
-    return cache / "datasets" / item.dataset / Path(urlparse(item.url).path).name
+    """`<id><suffix>` in the dataset's folder: a URL's file name may be empty, `..` or `C:x.mp4`."""
+    suffix = PurePosixPath(urlparse(item.url).path).suffix
+    name = item.id + (suffix if SAFE_SUFFIX.fullmatch(suffix) else "")
+    target = cache / "datasets" / item.dataset / name
+    # Checked here too, as items need not come from load_dataset
+    if target.resolve().parent.parent != (cache / "datasets").resolve():
+        raise DatasetError(f"{item.ref}: its cache path is outside its dataset folder")
+    return target
+
+
+def _url_named(item: Item, target: Path) -> Path | None:
+    """Where older caches kept the item, under its URL's file name, if that is inside its folder."""
+    name = Path(urlparse(item.url).path).name
+    legacy = target.parent / name
+    if not name or legacy == target or legacy.resolve().parent != target.parent.resolve():
+        return None
+    return legacy if legacy.is_file() else None
 
 
 def _matches(item: Item, path: Path) -> bool:
@@ -111,6 +150,10 @@ def fetch(item: Item, cache: Path = CACHE) -> Path:
     """The item's file, downloaded once and checked against its hash. A broken download resumes."""
     target = cached_path(item, cache)
     if target.exists():
+        return target
+    legacy = _url_named(item, target)
+    if legacy and _matches(item, legacy):
+        legacy.replace(target)
         return target
     target.parent.mkdir(parents=True, exist_ok=True)
     part = target.with_name(target.name + ".part")
