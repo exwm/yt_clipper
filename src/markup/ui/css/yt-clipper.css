@@ -247,6 +247,19 @@
   gap: 8px;
 }
 
+/* The title and its Prev/Next buttons keep to one line; the toggle bar wraps instead. */
+.settings-legend-main {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 0.25em;
+  white-space: nowrap;
+}
+
+#settings-toggle-host-main {
+  min-width: 0;
+}
+
 /* Fills the gap between the title/nav and the toggle bar with a line in the
    legend's own accent color (orange for marker, red for global), so the
    legend's notch looks like one continuous top border. */
@@ -260,6 +273,8 @@
    up slightly so the buttons clear the settings widgets just below the legend. */
 .settings-toggle-bar {
   display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
   gap: 4px;
   transform: translateY(-2px);
