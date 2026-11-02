@@ -3,6 +3,7 @@
  */
 import {
   _resetDragRecoveryForTests,
+  isAnyDragActive,
   registerActiveDragCleanup,
   releaseAllActiveDrags,
 } from './drag-recovery';
@@ -18,6 +19,17 @@ describe('drag-recovery', () => {
     unregister();
     releaseAllActiveDrags();
     expect(cleanup).not.toHaveBeenCalled();
+  });
+
+  test('isAnyDragActive holds from register until unregister or release', () => {
+    expect(isAnyDragActive()).toBe(false);
+    const unregister = registerActiveDragCleanup(() => {});
+    expect(isAnyDragActive()).toBe(true);
+    unregister();
+    expect(isAnyDragActive()).toBe(false);
+    registerActiveDragCleanup(() => {});
+    releaseAllActiveDrags();
+    expect(isAnyDragActive()).toBe(false);
   });
 
   test('releaseAllActiveDrags fires every registered cleanup exactly once', () => {
