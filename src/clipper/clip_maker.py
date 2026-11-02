@@ -8,7 +8,7 @@ import re
 import shlex
 import subprocess
 import sys
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Generator, Sequence
 from fractions import Fraction
 from functools import partial
 from pathlib import Path
@@ -54,9 +54,14 @@ from clipper.ffmpeg_filter import (
     getZoomPanFilter,
     getZoomPanSize,
     resolveCropEaseType,
+    stabilizedAnalysisPathFor,
     videoStabilizationGammaFixFilter,
 )
-from clipper.ffmpeg_version import filterFileOption, supportsOptionFiles
+from clipper.ffmpeg_version import (
+    filterFileOption,
+    supportsOptionFiles,
+    vidstabWritesTextTransforms,
+)
 from clipper.log_helpers import (
     LogPath,
     build_marker_pair_settings_snapshot,
@@ -906,7 +911,10 @@ def makeClip(  # noqa: PLR0912
         shakyClipPath = f"{shakyPath}/{mp['fileNameStem']}-shaky.{mp['fileNameSuffix']}"
 
         video_filter += "[shaky];[shaky]"
-        detectFilter, transformFilter = getVideoStabilizationFilters(mps, transformPath)
+        textTransforms = vidstabWritesTextTransforms(cp.ffmpegPath)
+        detectFilter, transformFilter = getVideoStabilizationFilters(
+            mps, transformPath, textTransforms=textTransforms
+        )
         vidstabdetectFilter = videoStabilizationGammaFixFilter(video_filter + detectFilter)
         vidstabtransformFilter = videoStabilizationGammaFixFilter(video_filter + transformFilter)
 
@@ -926,6 +934,25 @@ def makeClip(  # noqa: PLR0912
             getVidstabDetectOnlyCommand(cp, inputs, mps) if detectOnly else ffmpegCommand
         )
 
+        # Loops add frames after the detect filter, and an encoding first pass may decode in hardware.
+        # Only text transforms can be repaired.
+        analysisPath = analysisPathFor(transformPath)
+        analyzeFrames = (
+            textTransforms
+            and mps["loop"] == "none"
+            and (detectOnly or not isHardwareAcceleratedVideoCodec(mps["videoCodec"]))
+        )
+        analysisFilterGraph = video_filter + analysisFilter()
+        # Motion interpolation changes each frame's shift, so the output cannot be compared with the
+        # input, and a hardware encode decodes to frames the analysis filters can't read
+        checkShake = (
+            analyzeFrames
+            and not usesMinterpolate
+            and not isHardwareAcceleratedVideoCodec(mps["videoCodec"])
+        )
+        stabilizedAnalysisPath = stabilizedAnalysisPathFor(transformPath)
+        stabilizedAnalysisGraph = f"{vidstabtransformFilter},{analysisFilter()}"
+
         if isHardwareAcceleratedVideoCodec(mps["videoCodec"]):
             if not detectOnly:
                 vidstabdetectFilter = wrapVideoFilterForHardwareAcceleration(
@@ -937,19 +964,22 @@ def makeClip(  # noqa: PLR0912
                 vidstabtransformFilter,
             )
 
-        # Loops add frames after the detect filter, and an encoding first pass may decode in hardware
-        analysisPath = analysisPathFor(transformPath)
-        analyzeFrames = mps["loop"] == "none" and (
-            detectOnly or not isHardwareAcceleratedVideoCodec(mps["videoCodec"])
-        )
-        analysisFilterGraph = video_filter + analysisFilter()
-        filterPathVidStabTransformPass: str | None = None
+        # The transform pass's filter scripts, which get the zoom budget between the passes
+        transformFilterScripts: list[str] = []
 
         if len(video_filter) > MAX_VFILTER_SIZE:
             filterPathAnalysis = f"{cp.clipsPath}/temp/vfilter-{markerPairIndex + 1}-analysis.txt"
             with open(filterPathAnalysis, "w", encoding="utf-8") as f:
                 f.write(analysisFilterGraph)
             analysisFilterArgs = f'{filterFileOption(cp.ffmpegPath)} "{filterPathAnalysis}"'
+            filterPathStabilizedAnalysis = (
+                f"{cp.clipsPath}/temp/vfilter-{markerPairIndex + 1}-pass2-analysis.txt"
+            )
+            with open(filterPathStabilizedAnalysis, "w", encoding="utf-8") as f:
+                f.write(stabilizedAnalysisGraph)
+            stabilizedAnalysisFilterArgs = (
+                f'{filterFileOption(cp.ffmpegPath)} "{filterPathStabilizedAnalysis}"'
+            )
             filterPathVidStabDetectPass = (
                 f"{cp.clipsPath}/temp/vfilter-{markerPairIndex + 1}-pass1.txt"
             )
@@ -964,6 +994,7 @@ def makeClip(  # noqa: PLR0912
                 f.write(vidstabdetectFilter)
             with open(filterPathVidStabTransformPass, "w", encoding="utf-8") as f:
                 f.write(vidstabtransformFilter)
+            transformFilterScripts = [filterPathVidStabTransformPass, filterPathStabilizedAnalysis]
             ffmpegVidstabdetect = (
                 detectCommand
                 + f' {filterFileOption(cp.ffmpegPath)} "{filterPathVidStabDetectPass}" '
@@ -974,6 +1005,7 @@ def makeClip(  # noqa: PLR0912
             )
         else:
             analysisFilterArgs = f"-vf {shlexDoubleQuoted(analysisFilterGraph)}"
+            stabilizedAnalysisFilterArgs = f"-vf {shlexDoubleQuoted(stabilizedAnalysisGraph)}"
             ffmpegVidstabdetect = detectCommand + f"-vf {shlexDoubleQuoted(vidstabdetectFilter)} "
             ffmpegVidstabtransform = (
                 ffmpegCommand + f"-vf {shlexDoubleQuoted(vidstabtransformFilter)} "
@@ -996,24 +1028,36 @@ def makeClip(  # noqa: PLR0912
             ffmpegVidstabdetect += f' "{shakyClipPath}"'
         if analyzeFrames:
             ffmpegVidstabdetect += analysisOutputArgs(analysisFilterArgs, analysisPath)
-        else:
+        elif textTransforms:
             logger.verbose(
                 "Video stabilization: the motion is not repaired with loops or a hardware-encoded first pass."
             )
-        afterFirstPass = partial(
-            prepareVidstabTransformPass,
-            cp.ffmpegPath,
-            transformPath,
-            analysisPath if analyzeFrames else None,
-            mps["videoStabilization"]["smoothing"],
-            filterPathVidStabTransformPass,
-        )
-        # Motion interpolation changes each frame's shift, so the output cannot be compared with the input
-        if analyzeFrames and not usesMinterpolate:
-            afterLastPass = partial(
-                checkStabilizedShake, cp.ffmpegPath, transformPath, mp["filePath"]
+        # Binary transforms leave nothing to repair or size a zoom budget from
+        if textTransforms:
+            afterFirstPass = partial(
+                prepareVidstabTransformPass,
+                cp.ffmpegPath,
+                transformPath,
+                analysisPath if analyzeFrames else None,
+                mps["videoStabilization"]["smoothing"],
+                transformFilterScripts,
             )
         ffmpegVidstabtransform += f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
+        if checkShake:
+            ffmpegVidstabtransform += analysisOutputArgs(
+                stabilizedAnalysisFilterArgs, stabilizedAnalysisPath
+            )
+            smoothing = mps["videoStabilization"]["smoothing"]
+
+            def afterLastPass() -> bool | None:
+                # The budget, sized again from the transforms the transform pass read
+                return checkStabilizedShake(
+                    cp.ffmpegPath,
+                    transformPath,
+                    stabilizedAnalysisPath,
+                    zoomBudgetFromFile(transformPath, smoothing),
+                )
+
         ffmpegCommands = [ffmpegVidstabdetect, ffmpegVidstabtransform]
 
     if not vidstabEnabled:
@@ -1156,18 +1200,18 @@ def prepareVidstabTransformPass(
     transformPath: str,
     analysisPath: str | None,
     smoothing: int,
-    transformFilterScriptPath: str | None,
+    transformFilterScriptPaths: Sequence[str],
 ) -> dict[str, str]:
     """Between the stabilization passes: repairs the motion across flashes and drops fields that
     follow a subject instead of the camera (when the detect pass wrote its analysis frames), and
     sizes the zoom budget from the motion. Returns the budget to
-    put in the transform command, and puts it in the transform's filter script if it has one."""
+    put in the transform command, and puts it in the transform pass's filter scripts."""
     if analysisPath is not None:
         repairMotionsInFiles(ffmpegPath, transformPath, analysisPath)
     budget = f"{zoomBudgetFromFile(transformPath, smoothing):.2f}"
     logger.verbose(f"Video stabilization: zooming in up to {budget}% to steady the clip.")
-    if transformFilterScriptPath is not None:
-        script = Path(transformFilterScriptPath)
+    for scriptPath in transformFilterScriptPaths:
+        script = Path(scriptPath)
         script.write_text(
             script.read_text(encoding="utf-8").replace(ZOOM_BUDGET_PLACEHOLDER, budget),
             encoding="utf-8",

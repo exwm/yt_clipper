@@ -128,7 +128,7 @@ def fieldConsensus(ffmpeg: str, video: Path, seconds: float | None = None) -> fl
         "videoStabilizationDynamicZoom",
     )
     mps = {"videoStabilization": getVidstabPreset(3), **{k: parser.get_default(k) for k in keys}}
-    detect, _ = getVideoStabilizationFilters(mps, "consensus.trf")
+    detect, _ = getVideoStabilizationFilters(mps, "consensus.trf", textTransforms=True)
     with tempfile.TemporaryDirectory() as folder:
         limit = ["-t", str(seconds)] if seconds else []
         subprocess.run(

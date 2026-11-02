@@ -1048,8 +1048,18 @@ def analysisPathFor(transformPath: str) -> str:
     return f"{transformPath}.analysis.nut"
 
 
-def getVideoStabilizationFilters(mps: DictStrAny, transformPath: str) -> tuple[str, str]:
-    """The vidstabdetect and vidstabtransform filters for a marker pair's stabilization settings."""
+def stabilizedAnalysisPathFor(transformPath: str) -> str:
+    """Where the transform pass writes the stabilized clip's analysis frames, beside its transforms file."""
+    return f"{transformPath}.stabilized.nut"
+
+
+def getVideoStabilizationFilters(
+    mps: DictStrAny, transformPath: str, *, textTransforms: bool
+) -> tuple[str, str]:
+    """The vidstabdetect and vidstabtransform filters for a marker pair's stabilization settings.
+    textTransforms: whether vid.stab writes text transforms (vidstabWritesTextTransforms). An older
+    vid.stab's binary transforms can't be repaired or sized for a zoom budget, and it adds a zoom to
+    its optimal zoom, so it gets neither."""
     vidstab = mps["videoStabilization"]
     maxAngle = (
         -1
@@ -1058,13 +1068,18 @@ def getVideoStabilizationFilters(mps: DictStrAny, transformPath: str) -> tuple[s
     )
     maxShift = -1 if mps["videoStabilizationMaxShift"] < 0 else mps["videoStabilizationMaxShift"]
     # vid.stab's default mincontrast of 0.25 drops every field in dim or low contrast scenes.
-    # Text transforms, so flashes can be repaired before the transform.
-    detectFilter = f"vidstabdetect=result='{transformPath}':shakiness={vidstab['shakiness']}:mincontrast=0.05:fileformat=1"
-    # The zoom budget is sized from the detect pass's motion, between the passes
+    detectFilter = (
+        f"vidstabdetect=result='{transformPath}':shakiness={vidstab['shakiness']}:mincontrast=0.05"
+    )
     transformFilter = (
         f"vidstabtransform=input='{transformPath}':smoothing={vidstab['smoothing']}"
-        f":maxangle={maxAngle}:maxshift={maxShift}:zoom={ZOOM_BUDGET_PLACEHOLDER}"
+        f":maxangle={maxAngle}:maxshift={maxShift}"
     )
+    if textTransforms:
+        # Text transforms, so flashes can be repaired before the transform
+        detectFilter += ":fileformat=1"
+        # The zoom budget is sized from the detect pass's motion, between the passes
+        transformFilter += f":zoom={ZOOM_BUDGET_PLACEHOLDER}"
     return detectFilter, transformFilter
 
 
