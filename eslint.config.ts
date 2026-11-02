@@ -185,12 +185,14 @@ export default defineConfig(
       '@typescript-eslint/no-confusing-void-expression': 'off',
     },
   },
-  // The frame helpers' own modules and the frame timing implementations.
+  // The frame helpers' own modules, the frame timing implementations, and the simulations that
+  // model the clipper's frame reading.
   {
     files: [
       'src/markup/util/frame-grid.ts',
       'src/markup/util/frame-step.ts',
       'src/markup/util/frame-timing-*.ts',
+      'src/markup/util/__sim__/*.ts',
       'src/markup/crop/crop-keyframe-math.ts',
     ],
     rules: {
