@@ -32,7 +32,8 @@ export interface CinematicPathPlotProps {
   ) => (e: PointerEvent) => void;
 }
 
-const WIDTH_PX = 260;
+// Until the plot is laid out; then it fills the popover's width.
+const DEFAULT_WIDTH_PX = 260;
 // Each lane's height with every lane the pair has shown. Fewer lanes share the same height, so
 // toggling one does not resize the popover.
 const LANE_HEIGHT_PX = 71;
@@ -75,6 +76,8 @@ interface PlotState {
   series: CinematicPlotSeries[];
   // How many lanes the pair has, which sets the plot's height.
   laneSlots: number;
+  // In CSS pixels, read from the canvas on each redraw.
+  width: number;
   // The plot without the playhead, so the playhead redraws without sampling again.
   base: HTMLCanvasElement;
   drawnPlayhead: number | null;
@@ -84,6 +87,7 @@ interface Panel {
   series: CinematicPlotSeries;
   top: number;
   height: number;
+  width: number;
 }
 
 const plots = new WeakMap<HTMLElement, PlotState>();
@@ -108,16 +112,17 @@ function panelsFor(state: PlotState): Panel[] {
     series,
     top: PAD.top + i * (height + PANEL_GAP_PX),
     height,
+    width: state.width,
   }));
 }
 
-function timeToX(t: number, duration: number): number {
-  return PAD.left + (t / duration) * (WIDTH_PX - PAD.left - PAD.right);
+function timeToX(t: number, duration: number, width: number): number {
+  return PAD.left + (t / duration) * (width - PAD.left - PAD.right);
 }
 
-function scaleFor({ series, top, height }: Panel) {
+function scaleFor({ series, top, height, width }: Panel) {
   const [lo, hi] = cinematicPlotRange(series);
-  const px = (t: number) => timeToX(t, series.duration);
+  const px = (t: number) => timeToX(t, series.duration, width);
   // Down the plot is down the video for y, so the line moves as the crop does. Up is zoomed in.
   const py = (v: number) =>
     series.axis === 'y'
@@ -151,7 +156,7 @@ function drawPanel(
   ctx.save();
   // A margin wider than the plotted range is clipped, so it never rescales the plot.
   ctx.beginPath();
-  ctx.rect(0, panel.top, WIDTH_PX, panel.height);
+  ctx.rect(0, panel.top, panel.width, panel.height);
   ctx.clip();
 
   const { band } = series;
@@ -227,13 +232,13 @@ function drawPanel(
   if (series.axis === 'zoom') {
     ctx.textAlign = 'right';
     ctx.textBaseline = 'top';
-    ctx.fillText(`${scale.hi.toFixed(2)}x`, WIDTH_PX - PAD.right - 2, panel.top + 1);
+    ctx.fillText(`${scale.hi.toFixed(2)}x`, panel.width - PAD.right - 2, panel.top + 1);
     ctx.textBaseline = 'bottom';
     // The lane pads below 1x so a full-frame point shows whole, and then labels 1x where it is.
     const bottom = Math.max(1, scale.lo);
     ctx.fillText(
       `${bottom.toFixed(2)}x`,
-      WIDTH_PX - PAD.right - 2,
+      panel.width - PAD.right - 2,
       Math.min(panel.top + panel.height, scale.py(bottom))
     );
   }
@@ -242,7 +247,7 @@ function drawPanel(
 function drawBase(state: PlotState, dpr: number): void {
   const { base, series } = state;
   const height = canvasHeight(state);
-  base.width = WIDTH_PX * dpr;
+  base.width = state.width * dpr;
   base.height = height * dpr;
   const ctx = base.getContext('2d');
   if (!ctx || series.length === 0) return;
@@ -256,7 +261,7 @@ function drawBase(state: PlotState, dpr: number): void {
   ctx.textAlign = 'left';
   ctx.fillText('0s', PAD.left, height);
   ctx.textAlign = 'right';
-  ctx.fillText(`${series[0].duration.toFixed(1)}s`, WIDTH_PX - PAD.right, height);
+  ctx.fillText(`${series[0].duration.toFixed(1)}s`, state.width - PAD.right, height);
 }
 
 function drawPlayhead(canvas: HTMLCanvasElement, state: PlotState, dpr: number): void {
@@ -269,7 +274,7 @@ function drawPlayhead(canvas: HTMLCanvasElement, state: PlotState, dpr: number):
   const t = state.drawnPlayhead;
   if (duration == null || t == null || t < 0 || t > duration) return;
   ctx.scale(dpr, dpr);
-  const x = timeToX(t, duration);
+  const x = timeToX(t, duration, state.width);
   ctx.strokeStyle = COLORS.playhead;
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -344,7 +349,8 @@ function redraw(container: HTMLElement, previewMargins?: Partial<CinematicMargin
   canvas.dataset.cinematicPlotAxes = state.series.map((s) => s.axis).join(',');
   container.classList.toggle('empty', state.series.length === 0);
   const dpr = window.devicePixelRatio || 1;
-  canvas.width = WIDTH_PX * dpr;
+  state.width = canvas.clientWidth || DEFAULT_WIDTH_PX;
+  canvas.width = state.width * dpr;
   canvas.height = canvasHeight(state) * dpr;
   canvas.style.height = `${canvasHeight(state)}px`;
   drawBase(state, dpr);
@@ -372,6 +378,7 @@ function mount(container: HTMLElement, props: CinematicPathPlotProps): void {
     firstCropTime: null,
     series: [],
     laneSlots: 0,
+    width: DEFAULT_WIDTH_PX,
     base: document.createElement('canvas'),
     drawnPlayhead: null,
   });
@@ -383,9 +390,10 @@ function mount(container: HTMLElement, props: CinematicPathPlotProps): void {
     const input = props.input();
     const duration = plots.get(container)?.series[0]?.duration;
     if (!input || duration == null) return props.currentTime();
+    const width = plots.get(container)?.width ?? DEFAULT_WIDTH_PX;
     const rect = canvas.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * WIDTH_PX;
-    const t = ((x - PAD.left) / (WIDTH_PX - PAD.left - PAD.right)) * duration;
+    const x = ((e.clientX - rect.left) / rect.width) * width;
+    const t = ((x - PAD.left) / (width - PAD.left - PAD.right)) * duration;
     return input.cropMap[0].x + Math.min(Math.max(t, 0), duration);
   };
   canvas.addEventListener('pointerdown', props.seekOnRightDrag(canvas, seekTimeAt), true);

@@ -1090,7 +1090,11 @@
 
 .ytc-cinematic-plot-canvas {
   display: block;
-  width: 260px;
+  box-sizing: border-box;
+  width: 100%;
+  /* Fills the popover's width without widening it: a canvas would otherwise size its container
+     by its pixel buffer. */
+  contain: inline-size;
   height: 110px;
   background: var(--darker-grey);
   border: 1px solid var(--med-grey);
@@ -1235,6 +1239,14 @@
 /* Wide enough for its select's longest option. */
 .ytc-settings-popover > .ytc-cinematic-holds {
   grid-template-columns: 1fr auto;
+}
+
+.ytc-settings-popover select {
+  padding: 1px 2px;
+  background: var(--darker-grey);
+  color: var(--lighter-grey);
+  border: 1px solid var(--med-grey);
+  border-radius: 2px;
 }
 
 .ytc-settings-popover input[type='number'] {
