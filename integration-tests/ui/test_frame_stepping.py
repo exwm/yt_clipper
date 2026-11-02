@@ -5,12 +5,12 @@ video, at the rate measured from played frames. The dev site's test video is 30 
 import itertools
 import json
 import math
-import statistics
 import time
 from dataclasses import dataclass
 
 import pytest
 from harness.environment import (
+    MISSED_REFRESH_GAP,
     REAL_DISPLAY_HZ,
     check_page_kept_up,
     check_real_display,
@@ -560,24 +560,40 @@ def test_a_pairs_loop_holds_its_end_frame_and_rarely_the_next_on_other_display_r
         split_turns(played.held, played.refreshed_at), refresh_ms, played.missed, fewest_turns=10
     )
     held = [frame for turn_held, _ in turns for frame in turn_held]
-    end_frame_ms = [
-        ms
+    end_frame_ms = end_frame_ms_on_screen(turns, 66)
+    # Turns the page refreshed on time throughout. After a late refresh (a longer gap the page caused,
+    # never excused) the gate expects the next one a gap like it away, and turns back a refresh early.
+    on_time = [
+        turn
+        for turn in turns
+        if all(b - a < MISSED_REFRESH_GAP * refresh_ms for a, b in itertools.pairwise(turn[1]))
+    ]
+    gate_frame_ms = end_frame_gate_duration_ms(played, 66, fps, measured)
+    turned_back = [
+        (
+            turn_backs(turn_at, played.seeks_at),
+            end_frame_gate_turns_back_at(turn_held, turn_at, 66, gate_frame_ms),
+        )
         for turn_held, turn_at in turns
-        for frame, ms, after in shown_runs(turn_held, turn_at)
-        if frame == 66 and after < 66
+        if 66 in turn_held
     ]
     markup.report(f"refresh {refresh_ms:.2f} ms, end frame ms on screen per turn {end_frame_ms}")
     markup.report(f"refreshes past the end {held.count(67)}, {played.missed} missed")
+    markup.report(f"{len(on_time)} of {len(turns)} turns refreshed on time")
     assert refresh_ms == pytest.approx(1000 / hz, abs=0.2)
     assert max(1, math.floor(1000 / fps / refresh_ms + 0.02)) == end_frame_refreshes
     assert min(held) >= 60
     assert held.count(67) <= RARE_CYCLES_PAST_END * len(turns)
     assert len(end_frame_ms) >= 10
+    # Each turn seeks back once, at the refresh 5.49's gate picks from the refresh times the page saw,
+    # whatever the phase of the video's frames to the refreshes or the page's late refreshes.
+    assert all(seeks == [predicted] for seeks, predicted in turned_back), turned_back
     # A turn may end a refresh early: the gate times the end frame from the last check that saw another
     # frame, which errs early so it never shows the next. 0.2 ms covers rounded animation frame times.
-    assert min(end_frame_ms) >= (end_frame_refreshes - 1) * 1000 / hz - 0.2
-    # Most turns hold it the full refreshes, which the early bound alone can't check at 2 or fewer.
-    assert statistics.median(end_frame_ms) >= end_frame_refreshes * 1000 / hz - 0.2
+    on_time_end_frame_ms = end_frame_ms_on_screen(on_time, 66)
+    assert (
+        min(on_time_end_frame_ms, default=math.inf) >= (end_frame_refreshes - 1) * 1000 / hz - 0.2
+    )
 
 
 # The end marker's frame counts: 2 s to 2.2 s at 60 fps is frames 120 to 132.
@@ -636,6 +652,64 @@ class LoopRefreshes:
     refresh_ms: float
     # Refreshes the simulated display missed while the loop played.
     missed: int
+    # The held frame's duration (s) at each refresh, as VideoFrame reports it, or None.
+    held_durations: list[float | None]
+    # The refreshes at which the page started a seek.
+    seeks_at: set[float]
+
+
+# 5.49's end frame gate (frame-step.ts `shouldHoldEndFrame`) expects the next refresh this share of
+# the last gap away.
+END_FRAME_GATE_GAP_SHARE = 0.98
+
+
+def end_frame_gate_duration_ms(
+    played: LoopRefreshes, end_frame: int, fps: int, measured: bool
+) -> float:
+    """The end frame's duration the gate times it by (frame-step.ts `endFrameDuration`): the duration
+    VideoFrame reports, which a measured rate bounds."""
+    [reported, *_] = [
+        duration
+        for frame, duration in zip(played.held, played.held_durations, strict=True)
+        if frame == end_frame
+    ]
+    assert reported, "VideoFrame reported no frame duration"
+    return (min(reported, 1 / fps) if measured else reported) * 1000
+
+
+def end_frame_gate_turns_back_at(
+    turn_held: list[int], turn_at: list[float], end_frame: int, frame_ms: float
+) -> int | None:
+    """The refresh in a turn at which 5.49's gate turns back from its end frame, by its rule over the
+    refresh times the page saw: the first one from which the next refresh, a gap like the last away,
+    could come after the end frame's duration from the last refresh that held another frame."""
+    first = turn_held.index(end_frame)
+    last_other_at = turn_at[first - 1]
+    for i in range(first, len(turn_held)):
+        if turn_held[i] != end_frame:
+            return None
+        gap = turn_at[i] - turn_at[i - 1]
+        if turn_at[i] + gap * END_FRAME_GATE_GAP_SHARE > last_other_at + frame_ms:
+            return i
+    return None
+
+
+def end_frame_ms_on_screen(
+    turns: list[tuple[list[int], list[float]]], end_frame: int
+) -> list[float]:
+    """How long each turn showed its end frame (ms), in the turns that went back from it."""
+    return [
+        ms
+        for turn_held, turn_at in turns
+        for frame, ms, after in shown_runs(turn_held, turn_at)
+        if frame == end_frame and after < end_frame
+    ]
+
+
+def turn_backs(turn_at: list[float], seeks_at: set[float]) -> list[int]:
+    """The refreshes in a turn at which the page started a seek. The turn's last refresh is the next
+    turn's first."""
+    return [i for i, at in enumerate(turn_at[:-1]) if at in seeks_at]
 
 
 @step
@@ -649,10 +723,11 @@ def when_the_loop_plays_by_refresh(
         markup.seek(from_frame / fps, presented=True)
     started = time.perf_counter()
     with markup.untraced():
-        rows = markup.page.evaluate(
+        played = markup.page.evaluate(
             """async ([turns, capMs]) => {
                 const v = document.querySelector('video');
                 const rows = [];
+                const seeks = [];
                 let turned = 0;
                 let isDone = false;
                 let done;
@@ -669,34 +744,44 @@ def when_the_loop_plays_by_refresh(
                         return;
                     }
                     const time = frame.timestamp / 1e6;
+                    const duration = frame.duration == null ? null : frame.duration / 1e6;
                     frame.close();
                     if (rows.length && time < rows[rows.length - 1][1]) turned++;
-                    rows.push([now, time]);
+                    rows.push([now, time, duration]);
                     if (turned >= turns) done();
                     if (!isDone) requestAnimationFrame(onRefresh);
                 };
+                // `seeking` fires in a task after the animation frame callbacks of the refresh that
+                // seeked, so the last row is that refresh.
+                const onSeeking = () => {
+                    if (rows.length) seeks.push(rows[rows.length - 1][0]);
+                };
                 await v.play();
+                v.addEventListener('seeking', onSeeking);
                 requestAnimationFrame(onRefresh);
                 const timer = setTimeout(done, capMs);
                 await finished;
                 clearTimeout(timer);
+                v.removeEventListener('seeking', onSeeking);
                 v.pause();
-                return rows;
+                return { rows, seeks };
             }""",
             [turns, LOOP_PLAY_CAP_MS],
         )
     ended = time.perf_counter()
-    refreshed_at = [now for now, _ in rows]
+    rows = played["rows"]
+    refreshed_at = [now for now, _, _ in rows]
     gaps = sorted(b - a for a, b in itertools.pairwise(refreshed_at))
     refresh_ms = gaps[len(gaps) // 2]
     if markup.display is None:
         check_page_kept_up(refresh_ms)
         check_real_display(refresh_ms)
     missed = missed_between(markup.display.missed_at, started, ended) if markup.display else 0
-    held = [math.floor(media_time * fps + 0.02) for _, media_time in rows]
+    held = [math.floor(media_time * fps + 0.02) for _, media_time, _ in rows]
     # Firefox's VideoFrame times every frame near 0, which would hold no frame past the end.
     assert max(held) > 0, "VideoFrame reported no frame times"
-    return LoopRefreshes(held, refreshed_at, refresh_ms, missed)
+    durations = [duration for _, _, duration in rows]
+    return LoopRefreshes(held, refreshed_at, refresh_ms, missed, durations, set(played["seeks"]))
 
 
 def held_runs(held: list[int]) -> list[tuple[int, int, int]]:
