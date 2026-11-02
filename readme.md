@@ -209,6 +209,7 @@ A shortcuts reference can also be toggled by clicking the **All shortcuts** butt
 **Shift+A:** Move end marker of selected pair to current time.
 
 - Adjust marker position more precisely by first using the **<** and **>** keys to seek videos frame by frame.
+- The player's current time shows milliseconds on YouTube and local videos.
 
 **Alt+Shift+Mousewheel:** Move marker one frame forward/backward.
 
