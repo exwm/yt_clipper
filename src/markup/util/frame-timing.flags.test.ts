@@ -18,8 +18,8 @@ function loadWithFlags(overrides: Partial<FeatureFlags>): Loaded {
     });
     loaded = {
       frameTiming: require('./frame-timing'),
-      frameTiming548: require('./frame-timing-548').frameTiming548,
-      frameTiming549: require('./frame-timing-549').frameTiming549,
+      frameTiming548: require('./frame-timing-releases').timing548(),
+      frameTiming549: require('./frame-timing-releases').timing549(),
       featureFlags: require('../feature-flags').featureFlags,
     };
   });
@@ -89,5 +89,14 @@ describe('the frame timing flags', () => {
     expect(Object.entries(groups).filter(([, release]) => release !== '5.48')).toEqual([
       [group, 'next'],
     ]);
+  });
+  it.each([
+    ['the default build', {}, false],
+    ['every group on 5.48', frameTimingFlags('5.48'), false],
+    ['frameTiming549 on', { frameTiming549: true }, true],
+  ] as const)('%s shows a frame count as its steps group counts frames', (_case, flags, counts) => {
+    const { frameTiming } = loadWithFlags(flags);
+    expect(frameTiming.frameTiming.countsFrames).toBe(counts);
+    expect(frameTiming.isFrameCountShown()).toBe(frameTiming.frameTiming.countsFrames);
   });
 });

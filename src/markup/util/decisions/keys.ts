@@ -36,7 +36,7 @@ export const FRAME_TIMING_GROUPS = {
     description: 'When the marker pair and crop loops turn back to their start.',
   },
   steps: {
-    keys: ['stepSeek', 'nudge', 'pairDuration'],
+    keys: ['stepSeek', 'nudge', 'pairDuration', 'countsFrames'],
     description: 'How frame steps and marker nudges move, and how a pair duration counts.',
   },
   compare: {

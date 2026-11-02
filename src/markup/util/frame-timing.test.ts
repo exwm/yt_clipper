@@ -17,6 +17,7 @@ import {
 import { frameTiming548 } from './frame-timing-548';
 import { frameTiming549 } from './frame-timing-549';
 import { frameTimingNext } from './frame-timing-next';
+import { timing548, timing549 } from './frame-timing-releases';
 import { featureFlags, validFeatureFlagOverrides } from '../feature-flags';
 
 const groupNames = Object.keys(frameDecisionGroups) as FrameDecisionGroup[];
@@ -46,12 +47,12 @@ describe('the frame decision groups', () => {
       }
       return legacy;
     });
-    expect(members.sort()).toEqual(Object.keys(frameTiming548).sort());
+    expect(members.sort()).toEqual(Object.keys(timing548()).sort());
   });
 
   it.each([
-    ['5.48', frameTiming548],
-    ['5.49', frameTiming549],
+    ['5.48', timing548()],
+    ['5.49', timing549()],
     ['next', frameTimingNext],
   ] as const)('recompose %s decision by decision', (release, whole) => {
     const composed = composeGroups(allGroups(release));
@@ -127,6 +128,21 @@ describe('the frame decision groups', () => {
   });
 });
 
+it.each([
+  ['5.48', false],
+  ['next', false],
+  ['5.49', true],
+] as const)('the steps group on %s counts frames in a pair duration: %p', (release, counts) => {
+  const steps = frameDecisionGroups.steps.release(release);
+  expect(steps.countsFrames).toBe(counts);
+  const text = steps.pairDuration(
+    { origin: 0, rate: 30 },
+    { start: 1, end: 2, speed: 1, speedMap: [] },
+    false
+  ).text;
+  // 5.49's text ends with the frame count in parentheses: 31 frames, the end marker's included.
+  expect(text.endsWith('(31)')).toBe(counts);
+});
 describe('the build from the flags', () => {
   it.each(groupNames)(
     "is 5.49's whole with frameTiming549 on, even with the %s group's flag on 5.48",
@@ -138,7 +154,7 @@ describe('the build from the flags', () => {
       const composed = composeFrameTiming(
         choiceFromFlags({ ...featureFlags, ...flagsOf(groups), frameTiming549: true })
       );
-      expect(differing(composed, frameTiming549)).toEqual([]);
+      expect(differing(composed, timing549())).toEqual([]);
     }
   );
 
