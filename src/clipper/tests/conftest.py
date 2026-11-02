@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 import verboselogs
 
-from clipper import frame_grid
+from clipper import frame_timing
 from clipper.ytc_logger import HEADER, IMPORTANT, NOTICE, REPORT
 
 verboselogs.add_log_level(IMPORTANT, "IMPORTANT")
@@ -22,7 +22,7 @@ verboselogs.add_log_level(HEADER, "HEADER")
 verboselogs.add_log_level(REPORT, "REPORT")
 
 # The frame timing this source builds into the clipper, before any test sets it.
-BUILT_FRAME_TIMING = "5.48" if frame_grid.LEGACY_FRAME_TIMING else "5.49"
+BUILT_FRAME_TIMING = frame_timing.current().name
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -72,7 +72,11 @@ def frameTiming(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch)
     (--clipper-exe) keeps its own, so its unmarked tests must pass with either."""
     marker = request.node.get_closest_marker("frame_timing")
     monkeypatch.setattr(
-        frame_grid, "LEGACY_FRAME_TIMING", marker is not None and marker.args[0] == "5.48"
+        frame_timing,
+        "SWITCHES",
+        frame_timing.FrameTimingSwitches()
+        if marker is not None and marker.args[0] == "5.48"
+        else frame_timing.ALL_549,
     )
 
 

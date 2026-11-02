@@ -16,11 +16,6 @@ from fractions import Fraction
 # come back just below it. 1 ms is under half a frame at up to 500 fps.
 PLACEMENT_TOLERANCE = 0.001
 
-# Build-time switch, the twin of the markup's `legacyFrameTiming` flag: 5.49.0 clips make their frame
-# decisions with 5.48.0's code (frame_timing_548.py). Read at each clip, so the tests can set it
-# (conftest.py `frame_timing` marker).
-LEGACY_FRAME_TIMING = True
-
 
 @dataclass(frozen=True)
 class FrameGrid:
