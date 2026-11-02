@@ -1085,7 +1085,7 @@ def lengthCase(source: str, tool: str, speed: str, dedupe: bool) -> object:
     marks = []
     if dedupe:
         # Removing duplicates plays the kept frames back to back, which drops the repeats' time and
-        # squeezes a variable frame rate source's gaps (see sandbox/cadence-evening-plan.md).
+        # squeezes a variable frame rate source's gaps (retiming kept frames is future work).
         marks.append(
             pytest.mark.xfail(reason="kept frames play back to back, as in 5.48", strict=True)
         )

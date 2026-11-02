@@ -3,7 +3,7 @@
 A 640x360 window moves over a still, textured 960x600 frame by a known offset per frame (a slow pan
 plus seeded shake), one sendcmd crop per frame. Each variant adds a condition stabilizers struggle
 with; steady variants have no camera motion, so any motion a stabilizer adds is wrong.
-Used by test_stabilization.py and sandbox/stabilization.
+Used by test_stabilization.py and the stabilization evals.
 """
 
 import hashlib
@@ -288,7 +288,7 @@ CLIPS = {
 
 # Each clip's measured traits (clip_character.py) must fall in these ranges. A shaky clip keeps the
 # plain clip's levels except for the traits it stands for, whose ranges come from the real clips
-# surveyed (sandbox/calibration_corpus, clipper outputs): so each clip tests one thing, and a recipe
+# surveyed (real footage and clipper outputs): so each clip tests one thing, and a recipe
 # that drifts from the footage it stands for fails here. Motion is the shake of the strongest real
 # handheld clips (the survey's 75th percentile to its largest, at this size).
 SHAKY_TRAITS = {
@@ -303,7 +303,7 @@ SHAKY_TRAITS = {
     "subject_motion": (0, 0.5),
 }
 STEADY_TRAITS = {"brightness_changes": (0, 0.01), "repeats": (0, 0.01)}
-# combo_coverage.py's trait levels (as of sandbox/stabilization/real/character-v3.jsonl): thirds of the
+# combo_coverage.py's trait levels (from the third survey of real clips): thirds of the
 # surveyed clips' values, or none / some / lots for traits that are often zero. The composites name a
 # level per trait, so a new survey changes only this table.
 LEVELS = {
