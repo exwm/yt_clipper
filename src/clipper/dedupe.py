@@ -1,5 +1,8 @@
 """Removing repeated frames before motion interpolation.
 
+The build runs 5.49's mpdecimate (dedupe_549.py) while FIND_REPEATS_AGAINST_NEARBY_CHANGES is off;
+the rest of this docstring describes the detector the flag turns on.
+
 Low fps video often repeats frames, as lower fps content stored at a higher rate (e.g. 24 in 30) or
 as near duplicates that differ only by encoder noise. Interpolating between a frame and its repeat
 stutters, so repeats are dropped first. The kept frames then play back to back at the source frame
@@ -14,7 +17,13 @@ sees only the frames before each one. tools/encoding/dedupe_eval.py tunes and sc
 
 from fractions import Fraction
 
+from clipper import dedupe_549
 from clipper.clipper_types import DictStrAny
+
+# Build-time switch: on, repeats are found by this module's detector; off, by 5.49's mpdecimate
+# (dedupe_549.py), as the detector drops moving and flash frames of live footage. Read at each clip,
+# so the tests can set it.
+FIND_REPEATS_AGAINST_NEARBY_CHANGES = False
 
 # Sources this fast are rarely low fps content stored at a higher rate (24 * 2 - 1).
 MAX_FPS_FOR_AUTO_DEDUPE = 47
@@ -45,6 +54,18 @@ def shouldRemoveDuplicateFrames(mps: DictStrAny) -> bool:
     return mps["dedupe"] or (
         interpolating and Fraction(mps["r_frame_rate"]) < MAX_FPS_FOR_AUTO_DEDUPE
     )
+
+
+def removeDuplicateFramesFilter(mps: DictStrAny, bitDepth: int) -> str | None:
+    """The build's filter that drops the clip's repeats and plays the kept frames back to back, as
+    in 5.48, or None when the clip keeps its repeats."""
+    if not FIND_REPEATS_AGAINST_NEARBY_CHANGES:
+        if not dedupe_549.shouldRemoveDuplicateFrames(mps):
+            return None
+        return dedupe_549.removeDuplicateFramesFilter()
+    if not shouldRemoveDuplicateFrames(mps):
+        return None
+    return f"{getRemoveDuplicateFramesFilter(bitDepth)},setpts=N/FR/TB"
 
 
 def getRemoveDuplicateFramesFilter(bitDepth: int = 8) -> str:
