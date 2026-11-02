@@ -1,11 +1,11 @@
-"""5.48.0's frame decisions, for the `LEGACY_FRAME_TIMING` build. 5.48 had no frame grid: it passed the raw
-marker times to ffmpeg (`-ss {start}` and `trim=0:{duration}`), so ffmpeg's own rounding to the video's
-time base picks the frames, and it timed crop points from the start marker. Each piece is v5.48.0's code,
-cited as file:line; test_frame_timing_548_source.py checks it against the tag.
+"""5.48.0's frame decisions, the default side of each `frame_timing.SWITCHES` group. 5.48 had no frame
+grid: it passed the raw marker times to ffmpeg (`-ss {start}` and `trim=0:{duration}`), so ffmpeg's own
+rounding to the video's time base picks the frames, and it timed crop points from the start marker. Each
+piece is v5.48.0's code, cited as file:line; test_frame_timing_548_source.py checks it against the tag.
 
-Three 5.49 fixes are left out here, each its own decision so it can be switched on later: crop points
-timed from the video's first frame (sectionEaseDuration), audio starting with the first frame (audioFilter),
-and a local video's own timestamps for `-ss` (videoInput, fastTrimInput).
+Three 5.49 fixes are left out here, each behind its own switch: crop points timed from the video's first
+frame (cropPoints), audio starting with the first frame (audioStart), and a local video's own timestamps
+for `-ss` (localTimestamps for fast trims; for encodes it is part of 5.49's clipFrames).
 """
 
 import itertools

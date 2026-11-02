@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from clipper import clip_maker, frame_grid
+from clipper import clip_maker, frame_timing, frame_timing_548
 from clipper.argparser import getArgParser
 from clipper.clipper_types import ClipperPaths, ClipperState
 
@@ -228,7 +228,7 @@ def test_a_sample_guided_window_crops_its_own_frames(
 
 def test_5_49_0_clips_start_and_end_as_in_5_48_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.undo()  # conftest.py sets each test's frame timing
-    assert frame_grid.LEGACY_FRAME_TIMING is True
+    assert frame_timing.current() == frame_timing_548.FRAME_TIMING
 
 
 @pytest.mark.frame_timing("5.48")
