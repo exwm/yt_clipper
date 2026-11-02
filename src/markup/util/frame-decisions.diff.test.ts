@@ -25,12 +25,11 @@ import { INITIAL_LOOP_STATE, LoopState } from './decisions/loop';
 import { FrameTimingRelease } from './decisions/keys';
 import type { OwnSeek } from './frame-step';
 import {
-  composeFrameTiming,
+  composeGroups,
   frameDecisionGroups,
   FrameDecisionGroup,
   FrameReading,
   FrameTiming,
-  FrameTimingReleases,
 } from './frame-timing';
 
 // Read once: jest runs modules in a vm context, where each global Math lookup is slow.
@@ -504,8 +503,11 @@ const KNOWN_WORSE: Partial<
 
 const groupNames = Object.keys(frameDecisionGroups) as FrameDecisionGroup[];
 const allOn = (release: FrameTimingRelease) =>
-  Object.fromEntries(groupNames.map((name) => [name, release])) as FrameTimingReleases;
-const timing548 = composeFrameTiming(allOn('5.48'));
+  Object.fromEntries(groupNames.map((name) => [name, release])) as Record<
+    FrameDecisionGroup,
+    FrameTimingRelease
+  >;
+const timing548 = composeGroups(allOn('5.48'));
 
 /** Whether `release`'s decisions in `group` are 5.48's own functions. */
 function isSameAs548(group: FrameDecisionGroup, release: FrameTimingRelease): boolean {
@@ -518,7 +520,7 @@ describe.each(ENTRIES.map((entry) => [entry.group, entry] as const))('%s', (grou
   it.each(['5.49', 'next'] as const)(
     'on 5.48 decides as 5.48 exactly, with every other group on %s',
     (others) => {
-      const timing = composeFrameTiming({ ...allOn(others), [group]: '5.48' });
+      const timing = composeGroups({ ...allOn(others), [group]: '5.48' });
       const differing = entry.scenarios.filter(
         (s) =>
           JSON.stringify(entry.act(timing, s, '5.48')) !==
@@ -529,7 +531,7 @@ describe.each(ENTRIES.map((entry) => [entry.group, entry] as const))('%s', (grou
   );
 
   describe.each(['5.49', 'next'] as const)('on %s', (release) => {
-    const timing = composeFrameTiming({ ...allOn('5.48'), [group]: release });
+    const timing = composeGroups({ ...allOn('5.48'), [group]: release });
     if (isSameAs548(group, release)) {
       it("is 5.48's decisions, function by function", () => {
         const decisions = Object.entries(frameDecisionGroups[group].release(release));
@@ -581,12 +583,12 @@ describe.each([
     (name) => [`only ${name} on 5.49`, { ...allOn('5.48'), [name]: '5.49' }] as const
   ),
 ] as const)('%s', (_mix, releases) => {
-  const timing = composeFrameTiming(releases);
+  const timing = composeGroups(releases);
   it.each(ENTRIES.map((entry) => [entry.group, entry] as const))(
     "the %s actions are its release's",
     (group, entry) => {
       const release = releases[group];
-      const own = composeFrameTiming(allOn(release));
+      const own = composeGroups(allOn(release));
       const differing = entry.scenarios.filter(
         (s) =>
           JSON.stringify(entry.act(timing, s, release)) !==

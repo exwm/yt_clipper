@@ -120,11 +120,14 @@ FRAME_TIMING_FLAGS = (
 RELEASE_MODES = {"5.48": "5.48", "next": "5.48", "5.49": "5.49"}
 
 
-def frame_timing_flags(node: pytest.Item) -> dict[str, str]:
+def frame_timing_flags(node: pytest.Item) -> dict[str, str | bool]:
+    """The flags a `frame_timing` mode sets: "5.49" is the whole-build flag, "5.48" every group."""
     marker = node.get_closest_marker("frame_timing")
     if marker is None:
         return {}
-    return dict.fromkeys(FRAME_TIMING_FLAGS, marker.args[0])
+    if marker.args[0] == "5.49":
+        return {"frameTiming549": True}
+    return {"frameTiming549": False, **dict.fromkeys(FRAME_TIMING_FLAGS, marker.args[0])}
 
 
 def built_frame_timing(config: pytest.Config) -> str | None:
@@ -134,6 +137,8 @@ def built_frame_timing(config: pytest.Config) -> str | None:
     if not path.exists():
         return None
     text = path.read_text(encoding="utf-8")
+    if re.search(r"frameTiming549: \{\s*default: (true|!0)", text):
+        return "5.49"
     modes = set()
     for flag in FRAME_TIMING_FLAGS:
         found = re.search(rf"{flag}: frameTimingFlag\(\s*[\"'](5\.48|5\.49|next)[\"']", text)

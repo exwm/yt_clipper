@@ -68,7 +68,7 @@ Object.assign(globalThis, {
 import { splitAtInstantCuts } from '../crop/cinematic-path';
 import { easedCropAtTime } from '../crop/parity-sampling';
 import { createShortcutDefinitions, ShortcutDeps } from '../shortcut-definitions';
-import { frameTiming, frameTimingReleases } from './frame-timing';
+import { frameTiming } from './frame-timing';
 import { frameTiming548 } from './frame-timing-548';
 import { seekBySafe } from './util';
 import {
@@ -90,7 +90,6 @@ function givenThePlayheadAt(seconds: number, pending: number | null = null) {
 
 describe("the shell under 5.48's frame timing", () => {
   it('uses the 5.48 frame timing', () => {
-    expect(new Set(Object.values(frameTimingReleases))).toEqual(new Set(['5.48']));
     expect(Object.keys(frameTiming).sort()).toEqual(Object.keys(frameTiming548).sort());
     for (const [name, decision] of Object.entries(frameTiming548)) {
       expect(frameTiming[name as keyof typeof frameTiming]).toBe(decision);

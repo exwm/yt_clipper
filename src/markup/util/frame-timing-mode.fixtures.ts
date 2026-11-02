@@ -1,22 +1,23 @@
-import type { FrameTimingRelease } from './decisions/keys';
+import type { GroupRelease } from './decisions/keys';
 
 /**
- * For tests: runs a test file with every frame decision group on one release, whatever the flags'
- * defaults are. Call it once at the top of the file, before anything that imports
- * `frame-timing.ts`, which reads the flags when it loads.
+ * For tests: runs a test file on one frame timing, whatever the flags' defaults are: 5.49's whole
+ * build, or every frame decision group on one release. Call it once at the top of the file, before
+ * anything that imports `frame-timing.ts`, which reads the flags when it loads.
  */
-export function useFrameTiming(release: FrameTimingRelease): void {
+export function useFrameTiming(release: GroupRelease | '5.49'): void {
   jest.doMock('../feature-flags', () => {
     const actual = jest.requireActual<typeof import('../feature-flags')>('../feature-flags');
-    return {
-      ...actual,
-      featureFlags: { ...actual.featureFlags, ...frameTimingFlags(release) },
-    };
+    const flags =
+      release === '5.49'
+        ? { frameTiming549: true }
+        : { frameTiming549: false, ...frameTimingFlags(release) };
+    return { ...actual, featureFlags: { ...actual.featureFlags, ...flags } };
   });
 }
 
 /** Every frame decision group's flag set to `release`. */
-export function frameTimingFlags(release: FrameTimingRelease) {
+export function frameTimingFlags(release: GroupRelease) {
   return {
     placementTiming: release,
     seekTiming: release,

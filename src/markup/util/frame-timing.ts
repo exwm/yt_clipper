@@ -6,7 +6,7 @@ import { CinematicTiming, cinematic } from './decisions/cinematic';
 import { CompareTiming, compare } from './decisions/compare';
 import { CropEaseTiming, cropEase } from './decisions/crop-ease';
 import type { DecisionGroup } from './decisions/group';
-import { FrameTimingRelease, GROUP_KEYS } from './decisions/keys';
+import { FrameTimingRelease, GROUP_KEYS, GroupRelease } from './decisions/keys';
 import { LoopTiming, loop } from './decisions/loop';
 import { PlacementTiming, placement } from './decisions/placement';
 import { RateTiming, rate } from './decisions/rate';
@@ -16,9 +16,10 @@ import { StepTiming, steps } from './decisions/steps';
 /**
  * The markup's frame decisions, as pure functions of one frame reading. The shell (videoUtil.ts)
  * reads the video and keeps the state the decisions take in and give back. Each group in
- * `decisions/` takes its decisions from the release its flag picks (`releasesFromFlags`): 5.48's
- * (frame-timing-548.ts) or 5.49's (frame-timing-549.ts), both frozen, or the next release's
- * (frame-timing-next.ts), the default, which is 5.48's until fixes land there.
+ * `decisions/` takes its decisions from the release its flag picks (`choiceFromFlags`): 5.48's
+ * (frame-timing-548.ts, frozen), or the next release's (frame-timing-next.ts), the default, where
+ * fixes land. The `frameTiming549` flag instead makes the whole build 5.49's (frame-timing-549.ts,
+ * frozen), for its oracle tests and opt-in runs.
  *
  * Shared state has one owner. The last own seek is written only by the seek and step groups (and
  * cleared by a new source), and read by placement and steps; 5.48's writers leave it null, so every
@@ -114,11 +115,31 @@ export const frameDecisionGroups = {
   },
 };
 export type FrameDecisionGroup = keyof typeof GROUP_KEYS;
-export type FrameTimingReleases = Record<FrameDecisionGroup, FrameTimingRelease>;
+export type GroupReleases = Record<FrameDecisionGroup, GroupRelease>;
 
-/** The frame timing with each group's decisions from the release `releases` picks for it. Each
- *  member is looked up on first use, for the import cycle `decisionGroup` describes. */
-export function composeFrameTiming(releases: FrameTimingReleases): FrameTiming {
+/** The build's frame timing: 5.49's whole, or each group's release. */
+export type FrameTimingChoice = { whole: '5.49' } | { groups: GroupReleases };
+
+/** The frame timing `choice` makes. */
+export function composeFrameTiming(choice: FrameTimingChoice): FrameTiming {
+  if ('whole' in choice) {
+    const groups = Object.keys(GROUP_KEYS) as FrameDecisionGroup[];
+    return composeGroups(
+      Object.fromEntries(groups.map((name) => [name, '5.49'])) as Record<
+        FrameDecisionGroup,
+        FrameTimingRelease
+      >
+    );
+  }
+  return composeGroups(choice.groups);
+}
+
+/** For tests: the frame timing with each group's decisions from the release `releases` picks for
+ *  it, 5.49's included, which builds only take whole. Each member is looked up on first use, for
+ *  the import cycle `decisionGroup` describes. */
+export function composeGroups(
+  releases: Record<FrameDecisionGroup, FrameTimingRelease>
+): FrameTiming {
   const timing = {};
   for (const name of Object.keys(GROUP_KEYS) as FrameDecisionGroup[]) {
     for (const key of GROUP_KEYS[name]) {
@@ -138,25 +159,27 @@ export function composeFrameTiming(releases: FrameTimingReleases): FrameTiming {
   return timing as FrameTiming;
 }
 
-/** Each group's release, from its flag. */
-export function releasesFromFlags(flags: FeatureFlags): FrameTimingReleases {
+/** The build's frame timing from the flags: `frameTiming549` overrides every group's flag. */
+export function choiceFromFlags(flags: FeatureFlags): FrameTimingChoice {
+  if (flags.frameTiming549) return { whole: '5.49' };
   return {
-    placement: flags.placementTiming,
-    seek: flags.seekTiming,
-    loop: flags.loopTiming,
-    steps: flags.stepsTiming,
-    compare: flags.compareTiming,
-    rate: flags.frameRateTiming,
-    cropEase: flags.cropEaseTiming,
-    cinematic: flags.cinematicTiming,
+    groups: {
+      placement: flags.placementTiming,
+      seek: flags.seekTiming,
+      loop: flags.loopTiming,
+      steps: flags.stepsTiming,
+      compare: flags.compareTiming,
+      rate: flags.frameRateTiming,
+      cropEase: flags.cropEaseTiming,
+      cinematic: flags.cinematicTiming,
+    },
   };
 }
 
-/** Each group's release, read once at start: a flag applies on reload, so a group's decisions never
- *  mix releases. */
-export const frameTimingReleases: Readonly<FrameTimingReleases> = releasesFromFlags(featureFlags);
+// Read once at start: a flag applies on reload, so decisions never mix releases mid-session.
+const frameTimingChoice: FrameTimingChoice = choiceFromFlags(featureFlags);
 
-export const frameTiming: FrameTiming = composeFrameTiming(frameTimingReleases);
+export const frameTiming: FrameTiming = composeFrameTiming(frameTimingChoice);
 
 /** Whether the rate decisions can use a measured rate, for the Measure button and its command. */
 export function hasFrameRateMeasurement(): boolean {
@@ -165,5 +188,5 @@ export function hasFrameRateMeasurement(): boolean {
 
 /** Whether a marker pair's duration counts its frames: only 5.49's does, until a fix in 'next'. */
 export function isFrameCountShown(): boolean {
-  return frameTimingReleases.steps === '5.49';
+  return 'whole' in frameTimingChoice;
 }
