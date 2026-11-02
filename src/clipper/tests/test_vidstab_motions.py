@@ -258,6 +258,12 @@ def test_zoom_budget_covers_the_shake(shake: int, budget: float) -> None:
     assert zoomBudget(transforms, smoothing=10) == budget
 
 
+@pytest.mark.parametrize("speed", [10, 20])
+def test_zoom_budget_of_a_steady_pan_is_the_least(speed: int) -> None:
+    # A pan has no shake: its path is a straight line, which its moving average follows to the ends
+    assert zoomBudget(frames(*[(speed, 0)] * 60), smoothing=10) == MIN_ZOOM_BUDGET
+
+
 def test_zoom_budget_is_the_most_zoom_when_the_transforms_cannot_be_read(tmp_path: Path) -> None:
     unreadable = tmp_path / "binary.trf"
     unreadable.write_bytes(b"TRF1\x00\x00")

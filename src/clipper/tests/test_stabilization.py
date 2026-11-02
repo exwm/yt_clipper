@@ -71,9 +71,24 @@ def shakyMedia(ffmpeg: str) -> Path:
     return shaky_media.mediaFolder(ffmpeg)
 
 
-def run(ffmpeg: str, video: Path, folder: Path, vf: str, output: str | None = None) -> Path:
+LOSSLESS = ("-c:v", "libx264", "-qp", "0")
+
+
+def run(
+    ffmpeg: str,
+    video: Path,
+    folder: Path,
+    vf: str,
+    output: str | None = None,
+    *,
+    encode: tuple[str, ...] = LOSSLESS,
+    analysis: str | None = None,
+) -> Path:
+    """Runs vf on the video into output, and with `analysis` also into the clipper's analysis output."""
     command = [ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-i", str(video), "-vf", vf]
-    command += ["-c:v", "libx264", "-qp", "0", output] if output else ["-f", "null", "-"]
+    command += [*encode, output] if output else ["-f", "null", "-"]
+    if analysis:
+        command += shlex.split(analysisOutputArgs(f'-vf "{vf},{analysisFilter()}"', analysis))
     subprocess.run(command, check=True, cwd=folder)
     return folder / (output or "")
 
@@ -89,10 +104,31 @@ def clipperFilters(transformPath: str, level: int = STRONG) -> tuple[str, str]:
         "videoStabilization": getVidstabPreset(level),
         **{key: parser.get_default(key) for key in defaults},
     }
-    detectFilter, transformFilter = getVideoStabilizationFilters(mps, transformPath)
+    detectFilter, transformFilter = getVideoStabilizationFilters(
+        mps, transformPath, textTransforms=True
+    )
     return videoStabilizationGammaFixFilter(detectFilter), videoStabilizationGammaFixFilter(
         transformFilter,
     )
+
+
+def test_without_text_transforms_the_filters_leave_out_the_text_format_and_zoom_budget() -> None:
+    # An older vid.stab has no fileformat, and adds a zoom to its optimal zoom instead of capping it
+    mps = {
+        "videoStabilization": getVidstabPreset(STRONG),
+        "videoStabilizationMaxAngle": -1,
+        "videoStabilizationMaxShift": -1,
+    }
+    detectFilter, transformFilter = getVideoStabilizationFilters(
+        mps, "transforms.trf", textTransforms=False
+    )
+    assert "fileformat" not in detectFilter
+    assert "zoom=" not in transformFilter
+    detectFilter, transformFilter = getVideoStabilizationFilters(
+        mps, "transforms.trf", textTransforms=True
+    )
+    assert "fileformat=1" in detectFilter
+    assert f"zoom={ZOOM_BUDGET_PLACEHOLDER}" in transformFilter
 
 
 def fill(transformFilter: str, replacements: dict[str, str]) -> str:
@@ -153,10 +189,13 @@ def stabilize(
     video: Path,
     folder: Path,
     level: int = STRONG,
+    output: str = "stabilized.mp4",
+    encode: tuple[str, ...] = LOSSLESS,
 ) -> tuple[Path, dict[str, str]]:
-    """Both passes as the clipper runs them, with the step between them (flash repair, zoom budget).
-    Returns the output and what that step filled into the transform. The detect pass is shared by
-    every preset: only smoothing differs between them, and only the transform reads it."""
+    """Both passes as the clipper runs them, with the step between them (flash repair, zoom budget),
+    and the transform pass's analysis output, stabilized.nut. Returns the output and what that step
+    filled into the transform. The detect pass is shared by every preset: only smoothing differs
+    between them, and only the transform reads it."""
     detect(ffmpeg, video, folder)
     _, transformFilter = clipperFilters("transforms.trf", level)
     replacements = prepareVidstabTransformPass(
@@ -164,14 +203,16 @@ def stabilize(
         str(folder / "transforms.trf"),
         str(folder / "analysis.nut"),
         getVidstabPreset(level)["smoothing"],
-        None,
+        (),
     )
     return run(
         ffmpeg,
         video,
         folder,
         fill(transformFilter, replacements),
-        "stabilized.mp4",
+        output,
+        encode=encode,
+        analysis="stabilized.nut",
     ), replacements
 
 
@@ -276,11 +317,32 @@ def test_a_clip_that_stabilization_makes_shakier_is_reported(
     tmp_path: Path,
     shakier: bool,
 ) -> None:
-    output, _ = stabilize(ffmpeg, shaky_media.makeShakyClip(ffmpeg, "gentle", shakyMedia), tmp_path)
+    _, replacements = stabilize(
+        ffmpeg, shaky_media.makeShakyClip(ffmpeg, "gentle", shakyMedia), tmp_path
+    )
     # No clip here comes out shakier, so the shakier output stands in: a clip that shakes far more
     if shakier:
-        output = shaky_media.makeShakyClip(ffmpeg, "plain", shakyMedia)
-    assert checkStabilizedShake(ffmpeg, str(tmp_path / "transforms.trf"), str(output)) is shakier
+        plain = shaky_media.makeShakyClip(ffmpeg, "plain", shakyMedia)
+        run(ffmpeg, plain, tmp_path, "null", analysis="stabilized.nut")
+    assert checkStabilizedShake(ffmpeg, *checkInputs(tmp_path, replacements)) is shakier
+
+
+def checkInputs(folder: Path, replacements: dict[str, str]) -> tuple[str, str, float]:
+    """checkStabilizedShake's transforms, stabilized analysis and zoom budget, after stabilize."""
+    budget = float(replacements[ZOOM_BUDGET_PLACEHOLDER])
+    return str(folder / "transforms.trf"), str(folder / "stabilized.nut"), budget
+
+
+def test_a_grainy_nearly_still_clip_encoded_lossy_is_not_reported(
+    ffmpeg: str,
+    shakyMedia: Path,
+    tmp_path: Path,
+) -> None:
+    # The encode smooths the grain the input's lossless frames keep, which once read as more shake
+    source = shaky_media.makeShakyClip(ffmpeg, "calmstage", shakyMedia)
+    vp9 = ("-c:v", "libvpx-vp9", "-crf", "30", "-b:v", "0", "-speed", "8")
+    _, replacements = stabilize(ffmpeg, source, tmp_path, output="stabilized.webm", encode=vp9)
+    assert checkStabilizedShake(ffmpeg, *checkInputs(tmp_path, replacements)) is False
 
 
 def test_a_clip_within_the_tolerance_is_not_reported(
@@ -288,16 +350,22 @@ def test_a_clip_within_the_tolerance_is_not_reported(
     shakyMedia: Path,
     tmp_path: Path,
 ) -> None:
-    output, _ = stabilize(ffmpeg, shaky_media.makeShakyClip(ffmpeg, "gentle", shakyMedia), tmp_path)
-    frames = readAnalysis(ffmpeg, str(output), analyze=True)
-    outputShake = shake(frames) / frames[0].size[0]
-    transforms = str(tmp_path / "transforms.trf")
+    _, replacements = stabilize(
+        ffmpeg, shaky_media.makeShakyClip(ffmpeg, "gentle", shakyMedia), tmp_path
+    )
+    transforms, analysis, budget = checkInputs(tmp_path, replacements)
+    frames = readAnalysis(ffmpeg, analysis)
+    # The output's shake as the input's frame would show it, unzoomed
+    outputShake = shake(frames) / frames[0].size[0] / (1 + budget / 100)
+    kept = tmp_path / "kept.nut"
+    shutil.copy(analysis, kept)
     # The input's shake, as the repair keeps it: the output is 3% shakier, inside the 5% tolerance
     Path(inputShakePath(transforms)).write_text(f"{outputShake / 1.03}", encoding="utf-8")
-    assert checkStabilizedShake(ffmpeg, transforms, str(output)) is False
+    assert checkStabilizedShake(ffmpeg, transforms, analysis, budget) is False
     # Far shakier, past the tolerance's 0.05 px floor too (the output shakes under 0.1 px)
+    shutil.copy(kept, analysis)
     Path(inputShakePath(transforms)).write_text(f"{outputShake / 10}", encoding="utf-8")
-    assert checkStabilizedShake(ffmpeg, transforms, str(output)) is True
+    assert checkStabilizedShake(ffmpeg, transforms, analysis, budget) is True
 
 
 def test_dropping_fields_alone_rewrites_the_transforms(
@@ -312,7 +380,9 @@ def test_dropping_fields_alone_rewrites_the_transforms(
     assert (tmp_path / "transforms.trf").read_text(encoding="utf-8") != before
 
 
-@pytest.mark.parametrize("name", ["plain", "gentle"])
+# The shared shake path of plain and most clips needs as much zoom at Medium as at Strongest: its
+# shake is all fast, which a wider window adds nothing to
+@pytest.mark.parametrize("name", ["cut", "gentle"])
 def test_a_stronger_preset_leaves_less_motion_and_zooms_in_further(
     ffmpeg: str,
     shakyMedia: Path,

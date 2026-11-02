@@ -1323,6 +1323,52 @@ def test_stabilized_clip_saves_the_shaky_clip_only_when_asked(
     assert len(list((output / "shaky").glob("*-shaky.webm"))) == int(savesShakyClip)
 
 
+def test_stabilization_runs_without_the_repair_where_vid_stab_has_no_text_transforms(
+    clipper: Clipper,
+    syntheticMedia: pathlib.Path,
+) -> None:
+    # As on ffmpeg 6.x and some 7.x builds, whose vid.stab has no fileformat option
+    if clipper.exe:
+        pytest.skip("fakes the probe in process")
+    clipper.requireEncoder("libvpx-vp9")
+    ffmpeg = clipper.toolPath("ffmpeg")
+    assert ffmpeg is not None
+    clipper.monkeypatch.setattr(clip_maker, "vidstabWritesTextTransforms", lambda _path: False)
+    commands: list[str] = []
+    runFfmpeg = clip_maker.run_ffmpeg_with_progress
+    clipper.monkeypatch.setattr(
+        clip_maker,
+        "run_ffmpeg_with_progress",
+        lambda command, **kwargs: commands.append(command) or runFfmpeg(command, **kwargs),
+    )
+    _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-native-30", syntheticMedia)
+    name = "stabilized-binary-transforms"
+    start, end = SYNTHETIC_PAIR
+    markers = syntheticMarkers(clipper.cwd, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
+    run = clipper.run(
+        [
+            "--markers-json",
+            str(markers),
+            "--input-video",
+            str(uploaded),
+            *OFFLINE_ARGS,
+            "--video-stabilization",
+            "2",
+        ]
+    )
+    print(run.stdout, run.stderr)
+    assert run.returncode == 0
+    output = clipper.cwd / "webms" / name
+    assert len(list(output.glob("*.webm"))) == 1
+    detect, transform = commands
+    assert "vidstabdetect=" in detect
+    assert "fileformat" not in detect
+    assert ".nut" not in detect
+    assert "vidstabtransform=" in transform
+    assert "zoom=" not in transform
+    assert ".nut" not in transform
+
+
 def test_stabilized_pair_with_a_filter_too_long_for_the_command_line_reads_it_from_files(
     clipper: Clipper,
     syntheticMedia: pathlib.Path,
@@ -1358,7 +1404,10 @@ def test_stabilized_pair_with_a_filter_too_long_for_the_command_line_reads_it_fr
     assert run.returncode == 0
     output = clipper.cwd / "webms" / name
     assert (output / "temp" / "vfilter-1-analysis.txt").is_file()
+    assert (output / "temp" / "vfilter-1-pass2-analysis.txt").is_file()
     assert len(list(output.glob("*.webm"))) == 1
+    # Both analysis outputs are read and removed
+    assert not list((output / "shaky").glob("*.nut"))
 
 
 def test_stabilization_with_a_slowdown_and_interpolation_stays_stable_to_the_end(

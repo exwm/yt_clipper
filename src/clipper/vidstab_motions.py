@@ -446,6 +446,26 @@ def frameSize(transforms: TransformsFile) -> tuple[float, float] | None:
     return float(min(xs) + max(xs)), float(min(ys) + max(ys))
 
 
+def extendedPath(path: np.ndarray, radius: int) -> np.ndarray:
+    """The camera path continued `radius` frames past each end, along the straight line fitted to
+    the 2 * radius + 1 frames nearest that end. A steady pan carries on, where holding the end still
+    would make the moving average lag it as if it were shake, and a shaking end frame (which an odd
+    reflection would pivot on) counts no more than its neighbors."""
+
+    def continued(nearest: np.ndarray) -> np.ndarray:
+        # nearest ends with the frame at the clip's end
+        if len(nearest) < 2:
+            return np.full(radius, nearest[-1])
+        steps = np.arange(len(nearest))
+        slope, intercept = np.polyfit(steps, nearest, 1)
+        return intercept + slope * (len(nearest) - 1 + np.arange(1, radius + 1))
+
+    window = 2 * radius + 1
+    before = continued(path[:window][::-1])[::-1]
+    after = continued(path[-window:])
+    return np.concatenate([before, path, after])
+
+
 def zoomBudget(transforms: TransformsFile, smoothing: int) -> float:
     """How far vid.stab's camera path optimization may zoom in, in percent: enough for the clip's
     shake. The camera path (each frame's median field motion, summed) strays from its moving
@@ -458,10 +478,8 @@ def zoomBudget(transforms: TransformsFile, smoothing: int) -> float:
     path = np.cumsum(shifts, axis=0)
     radius = max(1, smoothing)
     kernel = np.ones(2 * radius + 1) / (2 * radius + 1)
-    smooth = np.stack(
-        [np.convolve(np.pad(path[:, k], radius, mode="edge"), kernel, "valid") for k in range(2)],
-        axis=1,
-    )
+    padded = [extendedPath(path[:, k], radius) for k in range(2)]
+    smooth = np.stack([np.convolve(p, kernel, "valid") for p in padded], axis=1)
     stray = np.percentile(np.abs(path - smooth), 99, axis=0)
     share = max(2 * stray[0] / size[0], 2 * stray[1] / size[1])
     return float(np.clip(100 * share + ZOOM_BUDGET_PADDING, MIN_ZOOM_BUDGET, MAX_ZOOM_BUDGET))
@@ -481,22 +499,27 @@ def inputShakePath(transformsPath: str) -> str:
     return f"{transformsPath}.shake"
 
 
-def checkStabilizedShake(ffmpegPath: str, transformsPath: str, outputPath: str) -> bool | None:
+def checkStabilizedShake(
+    ffmpegPath: str, transformsPath: str, outputAnalysisPath: str, zoomBudget: float
+) -> bool | None:
     """Whether the stabilized clip shakes more than its input, beyond SHAKE_TOLERANCE, measured the
-    same way on both. None when either cannot be measured. Warns when it does."""
+    same way on both: from lossless analysis frames, as a lossy encode smooths grain away. The output
+    analysis (the transform pass's, which it deletes) is zoomed in up to zoomBudget percent, which
+    magnifies its shifts. None when either cannot be measured. Warns when it does."""
     try:
         inputShake = float(Path(inputShakePath(transformsPath)).read_text(encoding="utf-8"))
-        output = readAnalysis(ffmpegPath, outputPath, analyze=True)
+        output = readAnalysis(ffmpegPath, outputAnalysisPath)
     except (OSError, ValueError, TransformsFileError):
         return None
     finally:
-        with contextlib.suppress(OSError):
-            Path(inputShakePath(transformsPath)).unlink()
+        for path in (inputShakePath(transformsPath), outputAnalysisPath):
+            with contextlib.suppress(OSError):
+                Path(path).unlink()
     outputShake = shake(output)
     if outputShake is None:
         return None
     width = output[0].size[0]
-    outputShake /= width
+    outputShake /= width * (1 + zoomBudget / 100)
     tolerance = max(SHAKE_TOLERANCE * inputShake, SHAKE_TOLERANCE_PX / width)
     logger.verbose(
         f"Video stabilization: shake {100 * inputShake:.2f}% of the frame's width a frame before, {100 * outputShake:.2f}% after."

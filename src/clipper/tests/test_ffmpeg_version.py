@@ -99,6 +99,56 @@ def test_preview_asks_the_ffmpeg_from_ffplays_build(
     assert [argvPath(path) for path in asked] == [probed]
 
 
+VIDSTABDETECT_HELP_OPTIONS = """\
+Filter vidstabdetect
+  Extract relative transformations, pass 1 of 2 for stabilization (see vidstabtransform for pass 2).
+    Inputs:
+       #0: default (video)
+    Outputs:
+       #0: default (video)
+vidstabdetect AVOptions:
+   result            <string>     ..FV....... path to the file used to write the transforms (default "transforms.trf")
+   shakiness         <int>        ..FV....... how shaky is the video and how quick is the camera? 1: little (fast) 10: very strong/quick (slow) (from 1 to 10) (default 5)
+   accuracy          <int>        ..FV....... (>=shakiness) 1: low 15: high (slow) (from 1 to 15) (default 15)
+   stepsize          <int>        ..FV....... region around minimum is scanned with 1 pixel resolution (from 1 to 32) (default 6)
+   mincontrast       <double>     ..FV....... below this contrast a field is discarded (0-1) (from 0 to 1) (default 0.25)
+   show              <int>        ..FV....... 0: draw nothing; 1,2: show fields and transforms (from 0 to 2) (default 0)
+   tripod            <int>        ..FV....... virtual tripod mode (if >0): motion is compared to a reference reference frame (frame # is the value) (from 0 to INT_MAX) (default 0)
+"""
+# ffmpeg 9.0.2's, whose vid.stab writes text transforms
+VIDSTABDETECT_HELP_FFMPEG_9 = (
+    VIDSTABDETECT_HELP_OPTIONS
+    + """\
+   fileformat        <int>        ..FV....... transforms data file format (from 1 to 2) (default binary)
+     ascii           1            ..FV....... ASCII text
+     binary          2            ..FV....... binary
+"""
+)
+
+
+@pytest.mark.parametrize(
+    ("helpText", "writesText"),
+    [
+        pytest.param(VIDSTABDETECT_HELP_FFMPEG_9, True, id="ffmpeg 9"),
+        # ffmpeg 6.x and some 7.x builds have a vid.stab from before fileformat
+        pytest.param(VIDSTABDETECT_HELP_OPTIONS, False, id="an older vid.stab"),
+        pytest.param("Unknown filter 'vidstabdetect'.\n", False, id="no vid.stab"),
+    ],
+)
+def test_vidstab_text_transforms_follow_the_filters_options(
+    monkeypatch: pytest.MonkeyPatch, helpText: str, writesText: bool
+) -> None:
+    def run(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess([], 0, helpText, "")
+
+    monkeypatch.setattr(ffmpeg_version.subprocess, "run", run)
+    ffmpeg_version.vidstabWritesTextTransforms.cache_clear()
+    try:
+        assert ffmpeg_version.vidstabWritesTextTransforms("ffmpeg") == writesText
+    finally:
+        ffmpeg_version.vidstabWritesTextTransforms.cache_clear()
+
+
 def test_the_ffmpeg_on_path_reads_option_files() -> None:
     # The probe itself, on a real ffmpeg: the tests and releases use 7 or later.
     ffmpeg = shutil.which("ffmpeg")
@@ -106,3 +156,11 @@ def test_the_ffmpeg_on_path_reads_option_files() -> None:
         pytest.skip("needs ffmpeg on PATH")
     ffmpeg_version.supportsOptionFiles.cache_clear()
     assert ffmpeg_version.supportsOptionFiles(ffmpeg)
+
+
+def test_the_ffmpeg_on_path_writes_text_transforms() -> None:
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg is None:
+        pytest.skip("needs ffmpeg on PATH")
+    ffmpeg_version.vidstabWritesTextTransforms.cache_clear()
+    assert ffmpeg_version.vidstabWritesTextTransforms(ffmpeg)

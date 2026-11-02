@@ -959,8 +959,8 @@ Since clipper script `v3.6.1`, releases can be tracked here: <https://github.com
 These dependencies must be manually installed when not using the clipper script installation:
 
 - ffmpeg must be in your path: (<https://www.ffmpeg.org/download.html>).
-  - Use ffmpeg 9.0.2 or newer (the version bundled with the `clipper script` installation).
-  - With older ffmpeg versions, video stabilization zooms in further than it needs to.
+  - Use ffmpeg 9.0.2 (the version bundled with the `clipper script` installation).
+  - With older versions, video stabilization crops more, and the clip can jerk at flashes and around moving subjects.
 - install required python packages as listed in the `requirements.txt`:
   - `pip install -r ./src/clipper/requirements.txt`
 
