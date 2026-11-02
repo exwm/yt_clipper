@@ -239,11 +239,11 @@ def score(kept: set[int], repeats: set[int], truth: list[FrameDiff]) -> dict:
 
 def real_cartoon(seconds: float) -> tuple[Path, set[int], list[FrameDiff]]:
     path, start = REAL_CARTOON
-    clip = WORK / "e2e-cartoon.mkv"
+    clip = WORK / f"e2e-cartoon-{start:g}-{seconds:g}s.mkv"
     if not clip.exists():
         WORK.mkdir(parents=True, exist_ok=True)
-        run([FFMPEG, "-hide_banner", "-y", "-ss", str(start), "-i", str(path), "-t", str(seconds), "-an",
-             "-c:v", "ffv1", "-pix_fmt", "yuv420p", str(clip)])  # fmt: skip
+        synthetic_media.makeWhole(clip, [FFMPEG, "-hide_banner", "-loglevel", "error", "-y", "-ss", str(start),
+                                         "-i", str(path), "-t", str(seconds), "-an", "-c:v", "ffv1", "-pix_fmt", "yuv420p"])  # fmt: skip
     truth = frame_diffs(clip)
     return clip, {n for n in range(1, len(truth)) if truth[n].mean < REAL_UPLOAD_REPEAT_DIFF}, truth
 

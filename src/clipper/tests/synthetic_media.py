@@ -4,6 +4,9 @@ Each clip is made losslessly first, so its exact repeated frames are known, then
 upload. Used by the e2e tests and by tools/encoding/dedupe_eval.py.
 """
 
+import functools
+import hashlib
+import json
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -134,29 +137,46 @@ CLIPS = {
 }  # fmt: skip
 
 
+@functools.cache
+def ffmpegVersion(ffmpeg: str) -> str:
+    return subprocess.run(
+        [ffmpeg, "-version"], capture_output=True, text=True, check=True
+    ).stdout.splitlines()[0]
+
+
+def makeWhole(path: Path, command: list[str]) -> None:
+    """Runs an ffmpeg command whose last argument is the output, into a partial file first, so a
+    stopped run never leaves a file that looks made."""
+    partial = path.with_name(f"partial-{path.name}")
+    subprocess.run([*command, str(partial)], check=True)
+    partial.replace(path)
+
+
 def makeSyntheticClip(
     ffmpeg: str,
     name: str,
     folder: Path,
     seconds: float = 5,
 ) -> tuple[Path, Path]:
-    """The lossless clip (exact frames) and the uploaded one, made once per folder."""
+    """The lossless clip (exact frames) and the uploaded one, made once per folder and recipe."""
     clip = CLIPS[name]
-    folder.mkdir(parents=True, exist_ok=True)
-    lossless = folder / f"{name}.mkv"
-    if not lossless.exists():
-        subprocess.run(
-            [ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", clip.source,
-             "-t", str(seconds), *clip.encodeArgs, "-c:v", "ffv1", "-pix_fmt", "yuv420p", str(lossless)],
-            check=True,
-        )  # fmt: skip
     encode, container = UPLOADS[clip.upload]
-    uploaded = folder / f"{name}.{container}"
+    recipe = [clip.source, clip.encodeArgs, encode, seconds, ffmpegVersion(ffmpeg)]
+    key = hashlib.sha256(json.dumps(recipe).encode()).hexdigest()[:12]
+    folder.mkdir(parents=True, exist_ok=True)
+    lossless = folder / f"{name}-{key}.mkv"
+    if not lossless.exists():
+        makeWhole(
+            lossless,
+            [ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", clip.source,
+             "-t", str(seconds), *clip.encodeArgs, "-c:v", "ffv1", "-pix_fmt", "yuv420p"],
+        )  # fmt: skip
+    uploaded = folder / f"{name}-{key}.{container}"
     if not uploaded.exists():
-        subprocess.run(
+        makeWhole(
+            uploaded,
             [ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-i", str(lossless), *encode,
-             *clip.encodeArgs, "-pix_fmt", "yuv420p", str(uploaded)],
-            check=True,
+             *clip.encodeArgs, "-pix_fmt", "yuv420p"],
         )  # fmt: skip
     return lossless, uploaded
 

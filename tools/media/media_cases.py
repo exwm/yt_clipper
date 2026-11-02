@@ -130,8 +130,17 @@ def frame_format(ffmpeg: str, path: Path) -> tuple[int, int, str]:
     return stream["width"], stream["height"], stream["r_frame_rate"]
 
 
-def recipe_key(case: Case, ffmpeg: str) -> str:
-    recipe = {"case": case.__dict__, "ffmpeg": ffmpeg_version(ffmpeg)}
+def source_identity(ref: str, path: Path) -> list:
+    """What changes when a source does. Made sources carry their recipe's key in their folder or file
+    name, and dataset items are fixed by hash; a `file:` source is any file, so its size and time."""
+    if ref.startswith("file:"):
+        stat = path.stat()
+        return [str(path), stat.st_size, stat.st_mtime_ns]
+    return [path.parent.name, path.name]
+
+
+def recipe_key(case: Case, ffmpeg: str, sources: list[list]) -> str:
+    recipe = {"case": case.__dict__, "ffmpeg": ffmpeg_version(ffmpeg), "sources": sources}
     return hashlib.sha256(json.dumps(recipe, sort_keys=True, default=list).encode()).hexdigest()[
         :16
     ]
@@ -193,14 +202,15 @@ def output_suffix(case: Case) -> str:
 def build(case: Case, datasets: dict[str, Dataset], ffmpeg: str, cache: Path = CACHE) -> Path:
     """The case's clip, built once per recipe and ffmpeg version."""
     case.check()
-    output = cache / "cases" / f"{case.name}-{recipe_key(case, ffmpeg)}{output_suffix(case)}"
+    refs = [case.source, *(s["splice"] for s in case.splices())]
+    sources = [source_path(ref, datasets, ffmpeg, cache) for ref in refs]
+    key = recipe_key(
+        case, ffmpeg, [source_identity(r, p) for r, p in zip(refs, sources, strict=True)]
+    )
+    output = cache / "cases" / f"{case.name}-{key}{output_suffix(case)}"
     if output.exists():
         return output
     output.parent.mkdir(parents=True, exist_ok=True)
-    sources = [
-        source_path(ref, datasets, ffmpeg, cache)
-        for ref in [case.source, *(s["splice"] for s in case.splices())]
-    ]
     partial = output.with_name(f"partial-{output.name}")
     command = [ffmpeg, *build_command(case, sources, frame_format(ffmpeg, sources[0]), partial)]
     encode = case.encode()

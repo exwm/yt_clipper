@@ -149,7 +149,8 @@ def _matches(item: Item, path: Path) -> bool:
 def fetch(item: Item, cache: Path = CACHE) -> Path:
     """The item's file, downloaded once and checked against its hash. A broken download resumes."""
     target = cached_path(item, cache)
-    if target.exists():
+    # A file of the wrong size is a copy cut short or replaced, so it is fetched again
+    if target.exists() and target.stat().st_size == item.size:
         return target
     legacy = _url_named(item, target)
     if legacy and _matches(item, legacy):
