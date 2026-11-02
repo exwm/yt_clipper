@@ -5,14 +5,7 @@ import { appState, VideoElement } from '../appState';
 import { onExternalSeek, onSeekRequest, onSeekSettled, SeekDecision } from './seek-coalescer';
 import { frameTiming } from './frame-timing';
 
-export {
-  bsearch,
-  clampNumber,
-  getEasedValue,
-  getOutputDuration,
-  toHHMMSS,
-  toHHMMSSTrimmed,
-} from './pure-util';
+export { bsearch, clampNumber, getEasedValue, toHHMMSS, toHHMMSSTrimmed } from './pure-util';
 
 export function assertDefined<T>(value: T | null | undefined, msg?: string): asserts value is T {
   if (value == null) {

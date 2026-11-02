@@ -13,7 +13,6 @@ import pytest
 from clipper import (
     argparser,
     clip_maker,
-    ffmpeg_filter,
     frame_timing,
     frame_timing_548,
     frame_timing_549,
@@ -284,6 +283,6 @@ def test_the_delay_doesnt_shift_which_frame_a_crop_point_takes_effect_on(
         # The crop map's times are the markers' plus the delay. 5.49's section reads the origin, so it
         # shows what a fix counting frames from it would do.
         origin = NEXT.cropPointOrigin(frame_timing_548.clipSpan({"start": 0, "end": 1}, {"delay": delay}, 0), {"delay": delay})  # fmt: skip
-        return ffmpeg_filter.sectionEaseDurationFromVideoPart("instant", 1.0 + left + delay, 1.0 + right + delay, 1.0 + delay, origin, 30.0)  # fmt: skip
+        return frame_timing_549.sectionEaseDurationFromVideoPart("instant", 1.0 + left + delay, 1.0 + right + delay, 1.0 + delay, origin, 30.0)  # fmt: skip
 
     assert sectionAt(0.0105) == pytest.approx(sectionAt(0.0))

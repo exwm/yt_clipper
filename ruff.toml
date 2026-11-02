@@ -58,6 +58,7 @@ select = [
   "PERF",
   "FURB",
   "RUF",
+  "TID251",
 ]
 ignore = [
   "F541",    # f-string without any placeholders
@@ -80,6 +81,15 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [lint.pylint]
 max-args = 10
+
+[lint.flake8-tidy-imports.banned-api]
+"clipper.frame_timing_549".msg = "5.49 frame rules are reference only; next composes from 5.48 (D-063). Pick a release through frame_timing.compose."
+
+[lint.per-file-ignores]
+# The composition that picks a release, 5.49's own module, and the tests that use it as an oracle.
+"src/clipper/frame_timing.py" = ["TID251"]
+"src/clipper/frame_timing_549.py" = ["TID251"]
+"src/clipper/tests/**" = ["TID251"]
 
 [format]
 # Like Black, use double quotes for strings.

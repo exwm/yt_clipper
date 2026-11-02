@@ -1,7 +1,8 @@
 /**
- * Pure, DOM-free crop point math: which crop point or section the playhead is on (the reframe
- * auto-key editing model), and the eased crop between crop points for every crop easing except
- * Cinematic, kept in step with the clipper's ffmpeg_filter.py so the preview matches the render.
+ * Pure, DOM-free crop point math: which section the playhead is in, and the eased crop between crop
+ * points for every crop easing except Cinematic, kept in step with the clipper's ffmpeg_filter.py so
+ * the preview matches the render. Frame rules (which point's frame the playhead is on, where a
+ * section's ease ends) live in each release's frame timing (util/frame-timing-<release>.ts).
  *
  * Kept separate from `charts.ts` (which carries the whole browser-side chart and overlay graph) so
  * the logic stays unit-testable in the node test env. The caller supplies `fps`: production passes
@@ -10,7 +11,6 @@
 import { easeSinInOut } from 'd3-ease';
 import { CropPoint } from '../@types/yt_clipper';
 import { sortX } from '../ui/chart/chartPrimitives';
-import { FrameGrid, frameAt, frameMiddle } from '../util/frame-grid';
 import { bsearch, clampNumber, getEasedValue } from '../util/pure-util';
 
 export interface CropKeyframeMatch {
@@ -22,53 +22,10 @@ export interface CropKeyframeMatch {
   section: [number, number];
 }
 
-// On a point means on the point's frame. A distance test as wide as a frame would also take the
-// neighboring frame's point. Points and the time read share frame starts (getFrameTime), so equal
-// frames compare equal on any grid.
-export function findCropKeyframeAtTime(
-  cropMap: CropPoint[],
-  time: number,
-  grid: FrameGrid
-): CropKeyframeMatch {
-  // bsearch returns [i, i] on an exact hit and [i, i+1] between points, but
-  // [-1, 0] / [n-1, n] just outside the map: clamp to valid indices (the
-  // playhead stays within [start, end] in practice, this only guards the edges).
-  const lastIndex = cropMap.length - 1;
-  const [rawStart, rawEnd] = bsearch(cropMap, { x: time, y: 0, crop: '' }, sortX);
-  const s = Math.max(0, Math.min(rawStart, lastIndex));
-  const e = Math.max(0, Math.min(rawEnd, lastIndex));
-  const frame = frameAt(grid, time);
-  const isOnFrame = (x: number) => frameAt(grid, x) === frame;
-  const onStart = isOnFrame(cropMap[s].x);
-  const onEnd = isOnFrame(cropMap[e].x);
-  // In frames, so the answer is the same anywhere in the frame.
-  const framesTo = (x: number) => Math.abs(frameAt(grid, x) - frame);
-  const nearest = framesTo(cropMap[s].x) <= framesTo(cropMap[e].x) ? s : e;
-  const index = onStart ? s : onEnd ? e : nearest;
-  return { onKeyframe: onStart || onEnd, index, section: [s, e] };
-}
-
-/**
- * The index of the keyframe to step to from `time` in direction `dir` (+1 forward, -1 back): for
- * reframe wheel/keyframe navigation. On a keyframe's frame step to the adjacent point; between keyframes go to the
- * bracketing point in that direction. Clamped to the map, so stepping past the ends stays put.
- */
-export function nextKeyframeIndex(
-  cropMap: CropPoint[],
-  time: number,
-  grid: FrameGrid,
-  dir: 1 | -1
-): number {
-  const { onKeyframe, index, section } = findCropKeyframeAtTime(cropMap, time, grid);
-  const next =
-    dir > 0 ? (onKeyframe ? index + 1 : section[1]) : onKeyframe ? index - 1 : section[0];
-  return Math.max(0, Math.min(next, cropMap.length - 1));
-}
-
 /**
  * The `[left, right]` keyframe indices to ease the crop across at `time`: ALWAYS a
  * real interval (`left < right` for a map of ≥2 points), unlike
- * `findCropKeyframeAtTime().section` which collapses to `[i, i]` on an exact hit or at
+ * `frameTiming.findCropKeyframe().section` which collapses to `[i, i]` on an exact hit or at
  * the edges. The reframe preview interpolates across this so it eases smoothly by time,
  * rather than keying off the (nearest-keyframe-snapped) chart selection, which would
  * clamp the time outside its section and make the preview jump at the section midpoint.
@@ -85,32 +42,8 @@ export function cropInterpolationSectionAtTime(
   return [Math.max(0, Math.min(left, maxIndex - 1)), Math.max(1, Math.min(right, maxIndex))];
 }
 
-/**
- * The duration to ease a crop section over, kept in sync with the clipper's getEaseSectionDuration
- * (ffmpeg_filter.py) so the preview eases over the same span the rendered output does. The end time
- * is pulled back toward the last displayed frame so the ease finishes on it; for a section shorter
- * than that pull-back the adjustment inverts, so fall back to the real duration rather than dropping
- * it (in the clipper a dropped section leaves a gap that snaps the crop to 0,0). Returns null for a
- * zero-duration section, which has no frames to ease.
- */
-export function getEaseSectionDuration(
-  startTime: number,
-  endTime: number,
-  fps: number
-): number | null {
-  const realDuration = endTime - startTime;
-  if (realDuration <= 0) return null;
-
-  // The frame the point was placed on, allowing for its time being rounded below that frame's start.
-  const grid = { origin: 0, rate: fps };
-  const adjustedDuration = frameMiddle(grid, frameAt(grid, endTime) - 1) - startTime;
-  if (adjustedDuration <= 0) return realDuration;
-
-  return adjustedDuration;
-}
-
-/** A section's ease duration, as `getEaseSectionDuration` gives it. The preview passes the frame
- *  timing's, so the easing callers below take it as a parameter. */
+/** A section's ease duration, a frame rule each release's frame timing gives
+ *  (`frameTiming.easeSectionDuration`), so the easing callers below take it as a parameter. */
 export type EaseSectionDuration = (
   startTime: number,
   endTime: number,
@@ -264,14 +197,14 @@ export function getEasedCropComponentsAtTime(
   easeIn: CropPoint['easeIn'],
   time: number,
   fps: number,
-  easeSectionDuration: EaseSectionDuration = getEaseSectionDuration
+  easeSectionDuration: EaseSectionDuration
 ): [number, number, number, number] | null {
   const sectDuration = easeSectionDuration(startTime, endTime, fps);
   if (sectDuration == null) return null;
 
   const clampedTime = clampNumber(time, startTime, endTime);
   const easingFunc = easeIn === 'instant' ? easeInInstant : easeSinInOut;
-  // getEaseSectionDuration pulls the end back toward the last frame, so ease over that adjusted
+  // The frame rule pulls the end back toward the last frame, so ease over that adjusted
   // end; getEasedValue clamps the percentage past it.
   const easedEndTime = startTime + sectDuration;
 
@@ -310,8 +243,8 @@ export function getSectionEasedCropComponents(
   next: EasingCropPoint | null,
   time: number,
   fps: number,
-  frame?: { width: number; height: number },
-  easeSectionDuration: EaseSectionDuration = getEaseSectionDuration
+  frame: { width: number; height: number } | undefined,
+  easeSectionDuration: EaseSectionDuration
 ): [number, number, number, number] {
   const useSpline = easing !== 'smoothInOut' && end.easeIn !== 'instant';
   // Each neighbor carries the transition between it and the section.
@@ -369,7 +302,7 @@ export function sectionCropAt(
   fps: number,
   frame: { width: number; height: number } | undefined,
   componentsOf: (crop: string) => readonly number[],
-  easeSectionDuration: EaseSectionDuration = getEaseSectionDuration
+  easeSectionDuration: EaseSectionDuration
 ): [number, number, number, number] {
   const easingPoint = (point: CropPoint): EasingCropPoint => ({
     time: point.x,

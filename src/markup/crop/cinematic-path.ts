@@ -906,9 +906,10 @@ export function splitAtInstantCuts(cropMap: readonly CropPoint[], fps?: number):
 }
 
 // When a cut takes effect: half a frame before the frame the cut point falls in, as the other crop
-// easings end a section (getEaseSectionDuration). A user-placed point usually overshoots its frame,
-// so at the raw time the first frame of the new scene would keep the old crop. Snaps on the video's
-// frame grid, not the pair start's, since a pair can start between frames. Mirrors the clipper.
+// easings end a section (the frame timing's easeSectionDuration, util/frame-timing-<release>.ts). A
+// user-placed point usually overshoots its frame, so at the raw time the first frame of the new scene
+// would keep the old crop. Snaps on the video's frame grid, not the pair start's, since a pair can
+// start between frames. Mirrors the clipper's frame_timing_<release>.cutTime.
 function cutTime(cutX: number, previousX: number, fps?: number): number {
   if (!fps) return cutX;
   const snapped = frameTiming.cutFrameMiddle({ origin: 0, rate: fps }, cutX);

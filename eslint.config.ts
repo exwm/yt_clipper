@@ -69,10 +69,14 @@ const frameHelperImports = [
     ],
     message: 'Decide frames through frameTiming (util/frame-timing.ts), or say why not.',
   },
+];
+
+// Only the composition that picks a release (frame-timing-releases.ts) loads 5.49's frame timing.
+const release549Imports = [
   {
-    group: ['**/crop-keyframe-math'],
-    importNames: ['findCropKeyframeAtTime', 'nextKeyframeIndex', 'getEaseSectionDuration'],
-    message: 'Decide frames through frameTiming (util/frame-timing.ts), or say why not.',
+    group: ['**/frame-timing-549'],
+    message:
+      '5.49 frame rules are reference only; next composes from 5.48 (D-063). Pick a release through frame-timing-releases.ts.',
   },
 ];
 
@@ -120,7 +124,7 @@ export default defineConfig(
       'local/no-timeline-time-comparison': 'error',
       'no-restricted-imports': [
         'error',
-        { paths: litEscapeHatchImports, patterns: frameHelperImports },
+        { paths: litEscapeHatchImports, patterns: [...frameHelperImports, ...release549Imports] },
       ],
       // Catch unsafeHTML/unsafeSVG calls by identifier, even if the import is renamed or aliased.
       'no-restricted-syntax': [
@@ -195,6 +199,16 @@ export default defineConfig(
       'src/markup/util/__sim__/*.ts',
       'src/markup/crop/crop-keyframe-math.ts',
     ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { paths: litEscapeHatchImports, patterns: release549Imports },
+      ],
+    },
+  },
+  // 5.49's frame timing and the composition that picks a release. Tests are not linted.
+  {
+    files: ['src/markup/util/frame-timing-549.ts', 'src/markup/util/frame-timing-releases.ts'],
     rules: {
       'no-restricted-imports': ['error', { paths: litEscapeHatchImports }],
     },

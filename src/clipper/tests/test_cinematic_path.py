@@ -5,6 +5,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from clipper import frame_timing_549
+
 PARITY = json.loads(
     (Path(__file__).parent / "fixtures" / "cinematic_path_parity.json").read_text(encoding="utf-8")
 )
@@ -33,7 +35,9 @@ def test_cinematic_cut_shows_on_the_frame_its_point_falls_in(
         {"x": 2, "crop": "1200:0:640:360"},
     ]
     margins = {"pos": cinematic_path.DEFAULT_MARGIN, "zoom": cinematic_path.DEFAULT_ZOOM_MARGIN}
-    path = cinematic_path.bakeCinematicPath(cropMap, margins, 1920, 1080, fps=fps)
+    path = cinematic_path.bakeCinematicPath(
+        cropMap, margins, 1920, 1080, fps=fps, cutTimeAt=frame_timing_549.cutTime
+    )
     assert path is not None
     assert cinematic_path.evalCropPathAtTime(path, 1.0)[0] == pytest.approx(cropX, abs=0.5)
 
@@ -54,7 +58,9 @@ def test_cinematic_cut_on_a_frame_start_saved_a_hair_below_it_shows_on_that_fram
         {"x": 2, "crop": "1200:0:640:360"},
     ]
     margins = {"pos": cinematic_path.DEFAULT_MARGIN, "zoom": cinematic_path.DEFAULT_ZOOM_MARGIN}
-    path = cinematic_path.bakeCinematicPath(cropMap, margins, 1920, 1080, fps=30)
+    path = cinematic_path.bakeCinematicPath(
+        cropMap, margins, 1920, 1080, fps=30, cutTimeAt=frame_timing_549.cutTime
+    )
     assert path is not None
     # Frame 30 keeps the old crop; frame 31, which the point was placed on, shows the new one.
     assert cinematic_path.evalCropPathAtTime(path, 30 / 30)[0] == pytest.approx(0, abs=0.5)
@@ -112,7 +118,13 @@ def test_cinematic_cut_snaps_on_the_video_frame_grid(
     ]
     margins = {"pos": cinematic_path.DEFAULT_MARGIN, "zoom": cinematic_path.DEFAULT_ZOOM_MARGIN}
     path = cinematic_path.bakeCinematicPath(
-        cropMap, margins, 1920, 1080, fps=fps, videoPartStart=videoPartStart
+        cropMap,
+        margins,
+        1920,
+        1080,
+        fps=fps,
+        videoPartStart=videoPartStart,
+        cutTimeAt=frame_timing_549.cutTime,
     )
     assert path is not None
     clipStart = pairStart - videoPartStart
@@ -138,7 +150,9 @@ def test_cinematic_cut_on_the_last_point_still_shows(fps: float | None, time: fl
         {"x": 2, "crop": "1200:0:400:300", "easeIn": "instant"},
     ]
     margins = {"pos": 0.1, "zoom": 0.0}
-    path = cinematic_path.bakeCinematicPath(cropMap, margins, 1920, 1080, fps=fps)
+    path = cinematic_path.bakeCinematicPath(
+        cropMap, margins, 1920, 1080, fps=fps, cutTimeAt=frame_timing_549.cutTime
+    )
     assert path is not None
     assert cinematic_path.evalCropPathAtTime(path, time)[0] == pytest.approx(1200, abs=0.5)
     # The render covers each frame with a segment: the path must reach the last point's time.
@@ -166,6 +180,7 @@ def test_cinematic_path_of_one_crop_stays_still(end: dict) -> None:
         1920,
         1080,
         fps=30,
+        cutTimeAt=frame_timing_549.cutTime,
     )
     assert path is not None
     for frame in range(181):
@@ -191,7 +206,9 @@ def test_cinematic_path_stays_in_the_margin_and_the_frame_between_samples(
     times = (0, 1, 1.1, 2)
     cropMap = [{"x": t, "crop": f"{x}:0:960:540"} for t, x in zip(times, xs, strict=True)]
     margin = 0.05
-    path = cinematic_path.bakeCinematicPath(cropMap, {"pos": margin, "zoom": 0.0}, 1920, 1080)
+    path = cinematic_path.bakeCinematicPath(
+        cropMap, {"pos": margin, "zoom": 0.0}, 1920, 1080, cutTimeAt=frame_timing_549.cutTime
+    )
     assert path is not None
     # The margin is a share of the crop's shorter side.
     marginPx = margin * min(960, 540)
@@ -215,7 +232,9 @@ def test_cinematic_zoom_keeps_the_crop_edges_in_the_frame_between_samples() -> N
         {"x": 0.881, "crop": "1440:810:480:270"},
         {"x": 1.128, "crop": "0:0:1920:1080"},
     ]
-    path = cinematic_path.bakeCinematicPath(cropMap, {"pos": 0.3, "zoom": 0.0}, 1920, 1080)
+    path = cinematic_path.bakeCinematicPath(
+        cropMap, {"pos": 0.3, "zoom": 0.0}, 1920, 1080, cutTimeAt=frame_timing_549.cutTime
+    )
     assert path is not None
     crops = [cinematic_path.evalCropPathAtTime(path, i / 1000) for i in range(1001)]
     tolerance = cinematic_path.SEGMENT_FIT_TOLERANCE_PX
@@ -235,7 +254,9 @@ def test_cinematic_full_height_crop_keeps_its_aspect_ratio() -> None:
         {"x": 1.8, "crop": "656:0:607:1080"},
         {"x": 3, "crop": "656:0:607:1080"},
     ]
-    path = cinematic_path.bakeCinematicPath(cropMap, {"pos": 0.07, "zoom": 0.08}, 1920, 1080)
+    path = cinematic_path.bakeCinematicPath(
+        cropMap, {"pos": 0.07, "zoom": 0.08}, 1920, 1080, cutTimeAt=frame_timing_549.cutTime
+    )
     assert path is not None
     for i in range(301):
         _, _, w, h = cinematic_path.evalCropPathAtTime(path, i / 100)
@@ -280,7 +301,11 @@ def test_cinematic_overshoot_stays_a_crop_the_render_shows(
         {"x": t, "crop": crop, **({"easeIn": ease[0]} if ease else {})} for t, crop, *ease in points
     ]
     path = cinematic_path.bakeCinematicPath(
-        cropMap, {"pos": cinematic_path.DEFAULT_MARGIN, "zoom": zoom}, 1920, 1080
+        cropMap,
+        {"pos": cinematic_path.DEFAULT_MARGIN, "zoom": zoom},
+        1920,
+        1080,
+        cutTimeAt=frame_timing_549.cutTime,
     )
     assert path is not None
     end = round(points[-1][0] * 1000)
@@ -310,7 +335,9 @@ def test_cinematic_position_margin_is_a_share_of_the_crop_shorter_side(
         {"x": i / 2, "crop": f"{x}:{y}:{width}:{height}"}
         for i, (x, y) in enumerate(zip(xs, ys, strict=True))
     ]
-    path = cinematic_path.bakeCinematicPath(cropMap, {"pos": 0.1, "zoom": 0.0}, 1920, 1080)
+    path = cinematic_path.bakeCinematicPath(
+        cropMap, {"pos": 0.1, "zoom": 0.0}, 1920, 1080, cutTimeAt=frame_timing_549.cutTime
+    )
     assert path is not None
     tolerance = cinematic_path.SEGMENT_FIT_TOLERANCE_PX
     times = [p["x"] for p in cropMap]
@@ -328,7 +355,11 @@ def test_cinematic_path_keeps_a_last_crop_of_another_aspect_ratio_in_the_frame()
     # The markup's cinematic-path.test.ts checks the same case.
     cropMap = [{"x": 0, "crop": "0:0:iw:1105"}, {"x": 2, "crop": "1035.36:1373:2210:17"}]
     path = cinematic_path.bakeCinematicPath(
-        cropMap, {"pos": cinematic_path.DEFAULT_MARGIN, "zoom": 0.08}, 1920, 1080
+        cropMap,
+        {"pos": cinematic_path.DEFAULT_MARGIN, "zoom": 0.08},
+        1920,
+        1080,
+        cutTimeAt=frame_timing_549.cutTime,
     )
     assert path is not None
     crops = [cinematic_path.evalCropPathAtTime(path, i / 500) for i in range(1001)]
@@ -376,7 +407,12 @@ def test_cinematic_zoom_converges_within_the_solver_iteration_limit(
 
     def widths() -> list[float]:
         path = cinematic_path.bakeCinematicPath(
-            cropMap, {"pos": 0.2, "zoom": 0.5}, 1920, 1080, fps=30
+            cropMap,
+            {"pos": 0.2, "zoom": 0.5},
+            1920,
+            1080,
+            fps=30,
+            cutTimeAt=frame_timing_549.cutTime,
         )
         assert path is not None
         return [cinematic_path.evalCropPathAtTime(path, i / 20)[2] for i in range(101)]
@@ -404,7 +440,11 @@ def test_cinematic_path_matches_the_markup(case: dict) -> None:
     # A case without holds reads its hold flags as they are.
     cropMap = cinematic_path.cinematicCropMap(case["cropMap"], case.get("holds", "exact"))
     path = cinematic_path.bakeCinematicPath(
-        cropMap, case["margins"], *case["cropRes"], fps=case.get("fps")
+        cropMap,
+        case["margins"],
+        *case["cropRes"],
+        fps=case.get("fps"),
+        cutTimeAt=frame_timing_549.cutTime,
     )
     assert path is not None
     for sample in case["samples"]:
@@ -435,7 +475,7 @@ def test_cinematic_path_holds_still_at_hold_points(cut_crop: str | None, held_un
             {"x": 6, "y": 0, "crop": "1300:300:640:360"},
         ]
     path = cinematic_path.bakeCinematicPath(
-        cropMap, {"pos": 0.12, "zoom": 0.08}, 1920, 1080, fps=30
+        cropMap, {"pos": 0.12, "zoom": 0.08}, 1920, 1080, fps=30, cutTimeAt=frame_timing_549.cutTime
     )
     assert path is not None
     for step in range(round((held_until - 2.03) / 0.005) + 1):
@@ -476,6 +516,7 @@ def test_cinematic_path_moves_through_a_point_that_is_not_held(
         1920,
         1080,
         fps=30,
+        cutTimeAt=frame_timing_549.cutTime,
     )
     assert path is not None
     xs = [cinematic_path.evalCropPathAtTime(path, 2.03 + step * 0.01)[0] for step in range(105)]
@@ -501,7 +542,9 @@ def test_cinematic_path_ignores_a_hold_flag_the_markup_releases_also_before_a_cu
     ]
     plain = [{key: value for key, value in point.items() if key != "hold"} for point in flagged]
     flaggedPath, plainPath = (
-        cinematic_path.bakeCinematicPath(m, {"pos": 0.12, "zoom": 0.08}, 1920, 1080, fps=30)
+        cinematic_path.bakeCinematicPath(
+            m, {"pos": 0.12, "zoom": 0.08}, 1920, 1080, fps=30, cutTimeAt=frame_timing_549.cutTime
+        )
         for m in (flagged, plain)
     )
     assert flaggedPath is not None
@@ -522,6 +565,7 @@ def _xRange(cropMap: list, holds: str, margin: float, start: float, end: float) 
         1920,
         1080,
         fps=30,
+        cutTimeAt=frame_timing_549.cutTime,
     )
     assert path is not None
     steps = round((end - start) / 0.01)
@@ -595,6 +639,7 @@ def test_cinematic_path_firm_borrows_time_from_crowded_holds_and_jolts_far_less_
             1920,
             1080,
             fps=30,
+            cutTimeAt=frame_timing_549.cutTime,
         )
         assert path is not None
         xs = [cinematic_path.evalCropPathAtTime(path, frame / 30)[0] for frame in range(45, 116)]
@@ -695,7 +740,9 @@ def test_cinematic_path_firm_holds_a_hold_before_a_cut_up_to_the_cut_at_rest() -
 
     cropMap = _points((0, 100), (2, 600), (3.5, 600, True), (4.5, 1200), (6, 900))
     cropMap[3]["easeIn"] = "instant"
-    run = cinematic_path.splitAtInstantCuts(cinematic_path.cinematicCropMap(cropMap, "firm"), 30)[0]
+    run = cinematic_path.splitAtInstantCuts(
+        cinematic_path.cinematicCropMap(cropMap, "firm"), 30, cutTimeAt=frame_timing_549.cutTime
+    )[0]
     [span] = cinematic_path.firmHeldSpans(run, 1920, 1080)
     assert (span.start, span.end, span.speedOut, span.settleOut) == (2, run[-1]["x"], 0, 0)
 
@@ -709,6 +756,7 @@ def _firmPath(cropMap: list, margin: float = 0.12) -> dict:
         1920,
         1080,
         fps=30,
+        cutTimeAt=frame_timing_549.cutTime,
     )
     assert path is not None
     return path
@@ -846,7 +894,9 @@ def test_cinematic_path_holds_leave_crops_near_them_alone(
 ) -> None:
     from clipper import cinematic_path
 
-    path = cinematic_path.bakeCinematicPath(cropMap, {"pos": 0.12, "zoom": 0.08}, 1920, 1080)
+    path = cinematic_path.bakeCinematicPath(
+        cropMap, {"pos": 0.12, "zoom": 0.08}, 1920, 1080, cutTimeAt=frame_timing_549.cutTime
+    )
     assert path is not None
     assert cinematic_path.evalCropPathAtTime(path, time)[0] == pytest.approx(left, abs=0.5)
 

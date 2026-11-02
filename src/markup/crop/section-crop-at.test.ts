@@ -1,5 +1,21 @@
 import { CropPoint } from '../@types/yt_clipper';
-import { cropSectionAt, cropSectionAtTime, sectionCropAt } from './crop-keyframe-math';
+import {
+  cropSectionAt,
+  cropSectionAtTime,
+  CropPointEasing,
+  sectionCropAt as sectionCropAtWithRule,
+} from './crop-keyframe-math';
+import { getEaseSectionDuration } from '../util/frame-timing-549';
+
+// The section crop at 5.49's frame rule, which these cases were written for.
+const sectionCropAt = (
+  easing: CropPointEasing,
+  section: Parameters<typeof sectionCropAtWithRule>[1],
+  time: number,
+  fps: number,
+  frame: { width: number; height: number } | undefined,
+  componentsOf: (crop: string) => readonly number[]
+) => sectionCropAtWithRule(easing, section, time, fps, frame, componentsOf, getEaseSectionDuration);
 
 const point = (x: number, crop: string, easeIn?: CropPoint['easeIn']): CropPoint => ({
   x,

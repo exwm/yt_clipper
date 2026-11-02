@@ -6,8 +6,8 @@ from fractions import Fraction
 from pathlib import Path
 
 from clipper.clip_maker import pairSpeedMap
-from clipper.ffmpeg_filter import getSpeedFilterAndDuration
 from clipper.frame_grid import FrameGrid, frameSpan
+from clipper.frame_timing_549 import getSpeedFilterAndDuration
 
 TABLE = Path(__file__).parent / "fixtures" / "output_duration_cases.json"
 
