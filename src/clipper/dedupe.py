@@ -4,8 +4,8 @@ Low fps video often repeats frames, as lower fps content stored at a higher rate
 as near duplicates that differ only by encoder noise. Interpolating between a frame and its repeat
 stutters, so repeats are dropped first. The kept frames then play back to back at the source frame
 rate, as in 5.48, which speeds the clip up by every dropped frame. Keeping their timestamps instead
-keeps the length but leaves a cadence (e.g. 24 in 30) moving at uneven speed; see
-sandbox/cadence-evening-plan.md for retiming kept frames to the content's own rate.
+keeps the length but leaves a cadence (e.g. 24 in 30) moving at uneven speed. Retiming kept frames
+to the content's own rate is future work.
 
 A repeat is judged against the changes around it, not a fixed threshold, since encoder noise and
 real motion vary by source. It runs in the encode's own filter graph, so it needs no extra pass and
