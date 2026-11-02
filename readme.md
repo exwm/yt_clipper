@@ -692,6 +692,8 @@ yt_clipper also supports `h264_nvenc` for NVIDIA GPU hardware-accelerated h264 e
 
 yt_clipper supports `av1` for AV1 encoding via libsvtav1, output in an mp4 container (matching the container YouTube serves AV1 in). It compresses better than vp9, but encodes slower at lower preset values. Requires ffmpeg with libsvtav1 (shipped since ffmpeg 4.4).
 
+**macOS:** the release's bundled ffmpeg has no libsvtav1. To use `av1`, install an ffmpeg with libsvtav1 and point the `clipper script` at it with `--ffmpeg-tools-dir`.
+
 AV1 support is early. Its default encoding settings are not tuned yet, so expect to adjust them (e.g. the CRF and preset) for your clips.
 
 For consistent output quality regardless of source bitrate, see [Sample-Guided Encoding](#sample-guided-encoding) below. `--sample-guided-encode` tests CRF values on each marker pair and picks one that meets a VMAF quality target, in place of the default CRF picked from the source bitrate.
