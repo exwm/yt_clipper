@@ -21,7 +21,12 @@ import {
   screenFrame as screenFrameAt,
   TIME_ROUNDING,
 } from './frame-step';
-import type { FrameReading, FrameTiming, RateReading, ScreenReading } from './frame-timing';
+import type {
+  FrameReading,
+  FrozenFrameTiming as FrameTiming,
+  RateReading,
+  ScreenReading,
+} from './frame-timing';
 import { onExternalSeek, onSeekSettled } from './seek-coalescer';
 
 /** 5.49's frame timing: frames on the grid of the rate in use, read from the frame on screen. */

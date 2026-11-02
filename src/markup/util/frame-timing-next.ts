@@ -1,6 +1,6 @@
 import { FRAME_TIMING_GROUPS } from './decisions/keys';
 import type { FrameTiming } from './frame-timing';
-import { frameTiming548 } from './frame-timing-548';
+import { timing548 } from './frame-timing-releases';
 
 /**
  * The next release's frame timing, where fixes land one decision at a time. Each decision not in
@@ -15,6 +15,6 @@ export const frameTimingNext = Object.defineProperties(
   Object.fromEntries(
     Object.values(FRAME_TIMING_GROUPS)
       .flatMap((group) => group.keys)
-      .map((key) => [key, { enumerable: true, get: () => fixes[key] ?? frameTiming548[key] }])
+      .map((key) => [key, { enumerable: true, get: () => fixes[key] ?? timing548()[key] }])
   )
 ) as FrameTiming;

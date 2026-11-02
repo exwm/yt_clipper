@@ -1,7 +1,7 @@
 import type { CropPoint, SpeedPoint } from '../@types/yt_clipper';
 import type { CropKeyframeMatch } from '../crop/crop-keyframe-math';
 import { roundX, sortX } from '../ui/chart/chartPrimitives';
-import type { FrameTiming } from './frame-timing';
+import type { FrozenFrameTiming as FrameTiming } from './frame-timing';
 import { onSeekSettled, SeekDecision } from './seek-coalescer';
 import { bsearch, clampNumber, toHHMMSSTrimmed } from './util';
 

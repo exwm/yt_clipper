@@ -23,6 +23,8 @@ export interface StepTiming {
     pair: PairTiming,
     isVariableSpeed: boolean
   ): { text: string; outputDuration: number };
+  /** Whether pairDuration's text counts the pair's frames, for the duration tooltip. */
+  countsFrames: boolean;
 }
 
 export const steps: DecisionGroup<StepTiming> = decisionGroup(FRAME_TIMING_GROUPS.steps.keys);

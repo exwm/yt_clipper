@@ -82,6 +82,10 @@ export interface FrameTiming
     CropEaseTiming,
     CinematicTiming {}
 
+/** The decisions 5.48's and 5.49's frozen objects make: members added since they froze come from
+ *  frame-timing-releases.ts. */
+export type FrozenFrameTiming = Omit<FrameTiming, 'countsFrames'>;
+
 export type MarkerType = 'start' | 'end';
 
 export interface TimeSpan {
@@ -182,7 +186,7 @@ export function hasFrameRateMeasurement(): boolean {
   return frameTiming.usesMeasuredRate(() => true);
 }
 
-/** Whether a marker pair's duration counts its frames: only 5.49's does, until a fix in 'next'. */
+/** Whether a marker pair's duration counts its frames, for the duration tooltip. */
 export function isFrameCountShown(): boolean {
-  return 'whole' in frameTimingChoice;
+  return frameTiming.countsFrames;
 }

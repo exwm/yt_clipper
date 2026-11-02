@@ -1,7 +1,6 @@
 import type { FrameTiming } from '../frame-timing';
-import { frameTiming548 } from '../frame-timing-548';
-import { frameTiming549 } from '../frame-timing-549';
 import { frameTimingNext } from '../frame-timing-next';
+import { timing548, timing549 } from '../frame-timing-releases';
 import type { FrameTimingRelease } from './keys';
 
 /** One group of frame decisions, as each release makes them. */
@@ -24,9 +23,7 @@ export function decisionGroup<K extends keyof FrameTiming>(
     release(release) {
       let decisions = picked.get(release);
       if (decisions == null) {
-        const whole = { '5.48': frameTiming548, '5.49': frameTiming549, next: frameTimingNext }[
-          release
-        ];
+        const whole = { '5.48': timing548(), '5.49': timing549(), next: frameTimingNext }[release];
         decisions = Object.fromEntries(keys.map((key) => [key, whole[key]])) as Pick<
           FrameTiming,
           K
