@@ -1,6 +1,10 @@
-/** The releases whose frame decisions a group can use. 5.48's and 5.49's are frozen; 'next' is
- *  where fixes land, 5.48's until they do. */
-export const FRAME_TIMING_RELEASES = ['5.48', '5.49', 'next'] as const;
+/** The releases a group's flag can pick. 5.48's is frozen; 'next' is where fixes land. */
+export const GROUP_RELEASES = ['5.48', 'next'] as const;
+export type GroupRelease = (typeof GROUP_RELEASES)[number];
+
+/** Every release with frame decisions. 5.49's, frozen too, is taken only whole, by the
+ *  `frameTiming549` build and the oracle tests. */
+export const FRAME_TIMING_RELEASES = [...GROUP_RELEASES, '5.49'] as const;
 export type FrameTimingRelease = (typeof FRAME_TIMING_RELEASES)[number];
 
 /** Each group's decisions. Kept apart from the groups, which import the releases' code, so

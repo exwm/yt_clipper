@@ -3,18 +3,44 @@ import type { OwnSeek } from './frame-step';
 import { FRAME_TIMING_RELEASES, FrameTimingRelease } from './decisions/keys';
 import {
   composeFrameTiming,
+  choiceFromFlags,
+  composeGroups,
   frameDecisionGroups,
   FrameDecisionGroup,
   FrameReading,
-  FrameTimingReleases,
 } from './frame-timing';
 import { frameTiming548 } from './frame-timing-548';
 import { frameTiming549 } from './frame-timing-549';
 import { frameTimingNext } from './frame-timing-next';
+import { featureFlags, validFeatureFlagOverrides } from '../feature-flags';
+import { frameTimingFlags } from './frame-timing-mode.fixtures';
 
 const groupNames = Object.keys(frameDecisionGroups) as FrameDecisionGroup[];
 const allGroups = (release: FrameTimingRelease) =>
-  Object.fromEntries(groupNames.map((name) => [name, release])) as FrameTimingReleases;
+  Object.fromEntries(groupNames.map((name) => [name, release])) as Record<
+    FrameDecisionGroup,
+    FrameTimingRelease
+  >;
+
+/** The decisions of `timing` that are not the same function as `whole`'s. */
+function differing(timing: object, whole: object): string[] {
+  return Object.keys(whole).filter(
+    (name) => timing[name as keyof typeof timing] !== whole[name as keyof typeof whole]
+  );
+}
+
+const flagsOf = (groups: Record<FrameDecisionGroup, string>) =>
+  ({
+    ...frameTimingFlags('next'),
+    placementTiming: groups.placement,
+    seekTiming: groups.seek,
+    loopTiming: groups.loop,
+    stepsTiming: groups.steps,
+    compareTiming: groups.compare,
+    frameRateTiming: groups.rate,
+    cropEaseTiming: groups.cropEase,
+    cinematicTiming: groups.cinematic,
+  }) as ReturnType<typeof frameTimingFlags>;
 
 describe('the frame decision groups', () => {
   it('hold every decision once, with the same members in every release', () => {
@@ -34,7 +60,7 @@ describe('the frame decision groups', () => {
     ['5.49', frameTiming549],
     ['next', frameTimingNext],
   ] as const)('recompose %s decision by decision', (release, whole) => {
-    const composed = composeFrameTiming(allGroups(release));
+    const composed = composeGroups(allGroups(release));
     expect(Object.keys(composed).sort()).toEqual(Object.keys(whole).sort());
     for (const [name, decision] of Object.entries(whole)) {
       const isSame = composed[name as keyof typeof composed] === decision;
@@ -66,18 +92,18 @@ describe('the frame decision groups', () => {
       });
     });
 
-    // So 5.49's readers work beside 5.48's writers.
+    // 5.49's readers run only in 5.49's whole build and its oracle tests, beside 5.49's writers;
+    // this pins that they would work beside 5.48's too.
     it.each([0.5, 1, 1.0123, 2.49])(
-      'reads null as a seek the playhead has left, at %p s',
+      'oracle only: 5.49 reads null as a seek the playhead has left, at %p s',
       (time) => {
-        const { placement, steps, loop } = frameDecisionGroups;
         const refresh = { refresh: { time: 1000, gap: 16.7 }, lastOtherFrameAt: 990 };
         for (const kind of ['place', 'step'] as const) {
           const left: OwnSeek = { target: time + 0.5, frameStart: time + 0.48, kind };
           const decide = (ownSeek: OwnSeek | null) => [
-            placement.release('5.49').frameTime(reading(time, ownSeek)),
-            steps.release('5.49').stepSeek(reading(time, ownSeek), step),
-            loop.release('5.49').loopTurnBack(reading(time, ownSeek), { ...loopAt, ...refresh }),
+            frameTiming549.frameTime(reading(time, ownSeek)),
+            frameTiming549.stepSeek(reading(time, ownSeek), step),
+            frameTiming549.loopTurnBack(reading(time, ownSeek), { ...loopAt, ...refresh }),
           ];
           expect(decide(null)).toEqual(decide(left));
         }
@@ -91,18 +117,37 @@ describe('the frame decision groups', () => {
   });
 
   it("notes each refresh and the gap since the last under 5.49's loop", () => {
-    const { noteRefresh } = frameDecisionGroups.loop.release('5.49');
+    const { noteRefresh } = frameTiming549;
     const state = noteRefresh(noteRefresh(INITIAL_LOOP_STATE, 1000), 1016.5);
     expect(state).toEqual({ refresh: { time: 1016.5, gap: 16.5 }, lastOtherFrameAt: -Infinity });
   });
 
   it.each(groupNames)("swap only the %s group when only it is on 5.49's release", (group) => {
-    const composed = composeFrameTiming({ ...allGroups('5.48'), [group]: '5.49' });
+    const composed = composeGroups({ ...allGroups('5.48'), [group]: '5.49' });
     for (const name of groupNames) {
       const decisions = frameDecisionGroups[name].release(name === group ? '5.49' : '5.48');
       for (const [member, decision] of Object.entries(decisions)) {
         expect(composed[member as keyof typeof composed]).toBe(decision);
       }
     }
+  });
+});
+
+describe('the build from the flags', () => {
+  it.each(groupNames)(
+    "is 5.49's whole with frameTiming549 on, even with the %s group's flag on 5.48",
+    (group) => {
+      const groups = { ...allGroups('next'), [group]: '5.48' };
+      const composed = composeFrameTiming(
+        choiceFromFlags({ ...featureFlags, ...flagsOf(groups), frameTiming549: true })
+      );
+      expect(differing(composed, frameTiming549)).toEqual([]);
+    }
+  );
+
+  it('drops a stored 5.49 on a group flag, which only the whole flag offers', () => {
+    expect(validFeatureFlagOverrides({ stepsTiming: '5.49', loopTiming: '5.48' })).toEqual({
+      loopTiming: '5.48',
+    });
   });
 });

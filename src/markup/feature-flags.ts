@@ -17,7 +17,7 @@
  * those: there the flags are always what this file says.
  */
 
-import { FRAME_TIMING_RELEASES, FrameTimingRelease } from './util/decisions/keys';
+import { GROUP_RELEASES, GroupRelease } from './util/decisions/keys';
 
 // Parcel inlines the variable at build time, and GitHub Actions sets it on every CI build.
 const IS_CI_BUILD = process.env.GITHUB_ACTIONS === 'true';
@@ -36,13 +36,13 @@ interface FeatureFlagDefinition<T> {
 }
 
 function frameTimingFlag(
-  release: FrameTimingRelease,
+  release: GroupRelease,
   description: string
-): FeatureFlagDefinition<FrameTimingRelease> {
+): FeatureFlagDefinition<GroupRelease> {
   return {
     default: release,
-    description: `${description} 'next' is 5.48's until a fix lands there.`,
-    options: FRAME_TIMING_RELEASES,
+    description: `${description} 'next' is 5.48's until a fix lands there. Ignored while frameTiming549 is on.`,
+    options: GROUP_RELEASES,
     appliesOnReload: true,
   };
 }
@@ -82,9 +82,16 @@ const featureFlagDefinitions = {
     description:
       'Log each video frame loop every 2 s of playback. It shows the timing and consumers, refreshes, frames taken and repeated, new frames, and frame callback calls and misses. It also shows the time each part took.',
   } as FeatureFlagDefinition<boolean>,
+  /** The whole build on 5.49's frame decisions, for its oracle tests and opt-in runs: 5.49's frame
+   *  timing does not yet handle every video. Only `util/frame-timing.ts` reads it. */
+  frameTiming549: {
+    default: false,
+    description:
+      "Every frame decision as 5.49 made it, whatever each group's flag picks: markers and points on the frame on screen, steps by whole frames, and the Measure button.",
+    appliesOnReload: true,
+  } as FeatureFlagDefinition<boolean>,
   /** One flag per group of frame decisions (`util/decisions/`), each choosing the release whose
-   *  decisions the group uses. Only `util/frame-timing.ts` reads them. 'next' is 5.48's decisions
-   *  until fixes land there; 5.49's frame timing does not yet handle every video. */
+   *  decisions the group uses. Only `util/frame-timing.ts` reads them. */
   placementTiming: frameTimingFlag(
     'next',
     'Where markers, crop and speed points are placed: at the playhead (5.48), or on the frame on screen (5.49).'
