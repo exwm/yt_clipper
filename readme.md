@@ -969,7 +969,7 @@ Motion interpolation (frame rate multiplication using AI) is powered by [video2x
 To use it, video2x must be in the clipper script installation or on the system PATH if using the script directly:
 
 - **Easiest:** Download the `yt_clipper_win_*.zip` release. video2x is pre-bundled in `bin/video-tools/`, with only the RIFE model the clipper uses (`rife-v4.26`). For its other models (e.g. for upscaling), copy the `models` folder from the matching [yt_clipper build of video2x](https://github.com/exwm/video2x/releases) into `bin/video-tools/`. Only copy the `models` folder: the rest of that zip includes its own copy of the ffmpeg DLLs.
-- **Manual:** Download [video2x-qt6-windows-amd64.zip](https://github.com/k4yt3x/video2x/releases/download/6.4.0/video2x-qt6-windows-amd64.zip), extract it, and place the contents in `bin/video2x/` inside your clipper installation directory.
+- **Manual:** Download `video2x-windows-amd64.zip` from the [yt_clipper build of video2x 6.6.0](https://github.com/exwm/video2x/releases/tag/v6.6.0-exwm), extract it, and place the contents in `bin/video2x/` inside your clipper installation directory. Upstream video2x doesn't work, as it lacks the `--vfr-min-fps` option the `clipper script` uses. Keep the ffmpeg DLLs from the zip in that folder.
 
 Once installed, enable motion interpolation on a marker pair by setting `FPS Multiplier` to a value greater than 1 (e.g. `2` to double the frame rate). The RIFE model is used for interpolation. Hardware-accelerated encoders do not yet work with video2x.
 
