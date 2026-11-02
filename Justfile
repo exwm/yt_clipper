@@ -220,12 +220,12 @@ ui-showcase release *args:
   release="$1"; shift; uv run --group ui-test pytest integration-tests/ui/showcase.py --browser-channel chrome -n 3 --showcase-release "$release" --video-style calm "$@"
 # Close-ups of one UI element for visual work, set up by a showcase scenario (showcase_scenarios.py): over busy, bright
 # and dark video, at 1x and 2x, at rest and with the pointer over --look-hover, into sandbox/ui-look/<scenario>/<selector>/.
-# Name each try with a step; sheet.png stacks every step so far, oldest first. Delete the folder to start over. Example:
+# Name each try with a step (letters, digits, `.`, `_` and `-`); sheet.png stacks every step so far, oldest first. Delete the folder to start over. Example:
 # just ui-look timeline-zoom .ytc-tz-brush before --look-hover ".ytc-tz-hit.edge-handle[data-edge='end']"
 [positional-arguments]
 ui-look scenario selector step *args:
   just _parcel-once
-  scenario="$1"; selector="$2"; step="$3"; shift 3; for style in testsrc bright dark; do uv run --group ui-test pytest integration-tests/ui/look.py --browser-channel chrome -n 2 -q --video-style "$style" --look-scenario "$scenario" --look-selector "$selector" --look-step "$step" "$@" || exit 1; done
+  scenario="$1"; selector="$2"; step="$3"; shift 3; for style in testsrc bright dark; do uv run --group ui-test pytest integration-tests/ui/look.py --browser-channel chrome -n 2 -q --video-style "$style" --look-scenario "$scenario" --look-selector "$selector" --look-step "$step" "$@" || exit 1; done; uv run --group ui-test python integration-tests/ui/look_sheet.py "$scenario" "$selector"
 # The platform-dependent tests (marked platform) on a real YouTube video, into sandbox/ui-shots/<test>-youtube/. One at a time (YouTube only reliably buffers
 # the first ~45s for an automated browser), and a failed test is retried once (YouTube loads can stall).
 # An empty url, or pytest options in its place (`just ui-test-youtube --userscript x.js`), use the default video.
