@@ -21,10 +21,12 @@ from clipper.vidstab_motions import (
     frameShift,
     frameSize,
     gridShift,
+    inputShakePath,
     keepFieldsMovingWithTheCamera,
     measuredMotions,
     parseTransforms,
     repairMotions,
+    repairMotionsInFiles,
     shake,
     zoomBudget,
     zoomBudgetFromFile,
@@ -271,6 +273,14 @@ def test_zoom_budget_reads_a_float_smoothing_as_a_whole_number(
     # A markers JSON file can save 10.0, which its schema counts as an integer
     transforms = frames(*[(10 if i % 2 else -10, 0) for i in range(60)])
     assert zoomBudget(transforms, smoothing) == zoomBudget(transforms, radius)
+
+
+def test_the_repair_drops_a_shake_left_by_an_earlier_run(tmp_path: Path) -> None:
+    # checkStabilizedShake would read it as this run's input shake
+    transforms = str(tmp_path / "missing.trf")
+    Path(inputShakePath(transforms)).write_text("0.5", encoding="utf-8")
+    repairMotionsInFiles("ffmpeg", transforms, str(tmp_path / "missing.nut"))
+    assert not Path(inputShakePath(transforms)).exists()
 
 
 def test_zoom_budget_is_the_most_zoom_when_the_transforms_cannot_be_read(tmp_path: Path) -> None:
