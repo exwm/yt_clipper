@@ -216,27 +216,28 @@ def clipCase(
 
 CLIP_CASES = [
     clipCase("vp9", (), "libvpx-vp9", "vp9", localVideo=True, frameTiming="5.49"),
-    # 5.48 drops source frame 2253, where the start marker sits mid-frame, which plays at 0.3x.
+    # The shipped clips (next, deciding as 5.48 does) drop source frame 2253, where the start marker
+    # sits mid-frame, which plays at 0.3x.
     clipCase(
-        "vp9-legacy-frame-timing",
+        "vp9-shipped-frame-timing",
         (),
         "libvpx-vp9",
         "vp9",
         localVideo=True,
         length=MARKER_PAIR_LENGTH - float(1 / SOURCE_FPS) / 0.3,
-        frameTiming="5.48",
+        frameTiming="next",
     ),
     clipCase(
         "av1", ("--video-codec", "av1"), "libsvtav1", "av1", localVideo=True, frameTiming="5.49"
     ),
     clipCase(
-        "av1-legacy-frame-timing",
+        "av1-shipped-frame-timing",
         ("--video-codec", "av1"),
         "libsvtav1",
         "av1",
         localVideo=True,
         length=MARKER_PAIR_LENGTH - float(1 / SOURCE_FPS) / 0.3,
-        frameTiming="5.48",
+        frameTiming="next",
     ),
     # Motion interpolation turns on duplicate frame removal for this sub-47 fps source.
     clipCase(
@@ -267,13 +268,13 @@ CLIP_CASES = [
     ),
     clipCase("youtube-vp9", (), "libvpx-vp9", "vp9", localVideo=False, frameTiming="5.49"),
     clipCase(
-        "youtube-vp9-legacy-frame-timing",
+        "youtube-vp9-shipped-frame-timing",
         (),
         "libvpx-vp9",
         "vp9",
         localVideo=False,
         length=MARKER_PAIR_LENGTH - float(1 / SOURCE_FPS) / 0.3,
-        frameTiming="5.48",
+        frameTiming="next",
     ),
     clipCase(
         "youtube-vulkan",
@@ -476,6 +477,9 @@ def test_a_legacy_clip_runs_from_the_first_frame_starting_at_its_start_marker_to
     frames: tuple[int, int],
     sourceStart: float,
 ) -> None:
+    # Pins 5.48.0's own frame choices as an oracle, so only in process: a built clipper ships next.
+    if clipper.exe:
+        pytest.skip("pins 5.48's frame timing in process")
     shown = clipOfNumberedVideo(clipper, tmp_path, start, end, sourceStart)
     assert (shown[0], shown[-1], len(shown)) == (*frames, frames[1] - frames[0] + 1)
 
@@ -553,6 +557,9 @@ def test_a_legacy_instant_crop_point_switches_on_5_48s_frame(
     pointTime: float,
     frame: int,
 ) -> None:
+    # Pins 5.48.0's own crop timing as an oracle, so only in process: a built clipper ships next.
+    if clipper.exe:
+        pytest.skip("pins 5.48's frame timing in process")
     shown = firstFrameCroppedRight(clipper, tmp_path, easing, sourceStart, pointTime)
     assert shown == frame
 

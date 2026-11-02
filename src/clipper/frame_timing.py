@@ -1,17 +1,17 @@
 """The clipper's frame decisions, behind one interface: which frames a clip takes, where its speed and
 crop maps start, and where crop points take effect. Build-time switches (`SWITCHES`), one per group of
-decisions, pick each group's implementation: the next release's (frame_timing_next.py, where fixes land),
-or the frozen 5.48.0 (frame_timing_548.py, v5.48.0's own code) or 5.49 (frame_timing_549.py) ones, kept as
-oracles and fallbacks. The twin of the markup's `FrameTiming` (src/markup/util/frame-timing.ts).
+decisions, pick each group's implementation: the next release's (frame_timing_next.py, where fixes land)
+or the frozen 5.48.0 one (frame_timing_548.py, v5.48.0's own code). The frozen 5.49 (frame_timing_549.py)
+is only a whole build (`WHOLE_549`). The twin of the markup's `FrameTiming` (src/markup/util/frame-timing.ts).
 """
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from dataclasses import dataclass, fields, replace
 from fractions import Fraction
-from typing import Any, Literal, get_args
+from typing import Any, Literal
 
 DictStrAny = dict[str, Any]
-Release = Literal["5.48", "5.49", "next"]
+Release = Literal["5.48", "next"]
 
 
 @dataclass(frozen=True)
@@ -52,6 +52,22 @@ SectionEaseDuration = Callable[[str, float, float, float, float, float], float |
 # (cutX, previousX, fps, firstTime, videoPartStart) -> when a Cinematic cut at cutX takes effect.
 CutTime = Callable[[float, float, float | None, float, float], float]
 SpeedFilter = Callable[[list[DictStrAny], DictStrAny, float | Fraction], tuple[str, Any, list[Any]]]
+# (span, mps) -> where crop points count their frames from, on the video's timeline: the videoPartStart
+# given to SectionEaseDuration and CutTime.
+CropPointOrigin = Callable[[ClipSpan, DictStrAny], float]
+
+
+def cropOriginFromClipSpan(span: ClipSpan, mps: DictStrAny) -> float:
+    """5.49's: its clip span's, the video part's first frame."""
+    return span.cropFrameOrigin
+
+
+def cropOriginOnMarkersTimeline(span: ClipSpan, mps: DictStrAny) -> float:
+    """Time 0 on the markers' timeline, where the 5.48 preview counts crop point frames from. Crop point
+    times are the markers' plus the delay, so that is the delay. Read from mps alone, so crop points
+    decide the same whatever clipFrames picks. 5.48's crop functions time from the start marker and
+    don't read it."""
+    return mps["delay"]
 
 
 @dataclass(frozen=True)
@@ -72,6 +88,9 @@ class FrameTiming:
     # What a varying frame rate does to clips, for ffprobe's warning: (the clip's rate in fps, or None
     # when unknown) -> its sentences.
     varyingRateNote: Callable[[float | None], list[str]]
+    # 5.49's by default, so the frozen timings keep their constructors. The 5.48 group and next use
+    # cropOriginOnMarkersTimeline (compose).
+    cropPointOrigin: CropPointOrigin = cropOriginFromClipSpan
 
     def sameDecisions(self, other: "FrameTiming") -> bool:
         """Whether both make every decision with the same functions, whatever their names."""
@@ -80,75 +99,61 @@ class FrameTiming:
 
 @dataclass(frozen=True)
 class FrameTimingSwitches:
-    """One build-time switch per group of decisions that must change together, so fixes can land one at
-    a time. The twin of the markup's per-group flags. No command-line option: the build picks them."""
+    """One build-time switch per group of decisions that must change together, each picking 5.48.0's
+    implementation or next's, so fixes can land one at a time. The twin of the markup's per-group flags.
+    No command-line option: the build picks them."""
 
-    # The clip's frames on the video's frame grid: clipSpan, videoInput, speedFilter, varyingRateNote.
-    # 5.49's videoInput seeks and trims by clipSpan's seekTo and trimEnd, its speedFilter ends the speed
-    # map at clipSpan's last frame end, and its note describes that grid.
+    # The clip's frames and the clock that places them: clipSpan, videoInput, fastTrimInput,
+    # speedFilter, audioFilter, varyingRateNote. One group, so a clip's frames, its encode and fast trim
+    # seeks, and its audio offset follow one clock; ffprobe's varying rate note describes that clock.
     clipFrames: Release = "next"
-    # Crop points counted from the video's first frame: sectionEaseDuration, cutTime.
+    # Where crop points take effect: sectionEaseDuration, cutTime, cropPointOrigin.
     cropPoints: Release = "next"
-    # Audio at normal speed starts with the first frame: audioFilter.
-    audioStart: Release = "next"
-    # A local video seeked by its own timestamps: fastTrimInput. 5.49's clipFrames carries the same rule
-    # for encodes.
-    localTimestamps: Release = "next"
 
 
-def switchesAt(release: Release, groups: Iterable[str] | None = None) -> FrameTimingSwitches:
-    """These groups, or all, at `release`, the others at next."""
-    if groups is None:
-        groups = [field.name for field in fields(FrameTimingSwitches)]
-    return replace(FrameTimingSwitches(), **dict.fromkeys(groups, release))
+# 5.49 as a whole: its decisions depend on each other (its videoInput and audioFilter read its clipSpan's
+# seek), so it is one build choice, for the oracle tests and opt-in runs, never a group's.
+WHOLE_549: Literal["5.49"] = "5.49"
+Build = FrameTimingSwitches | Literal["5.49"]
 
-
-ALL_548 = switchesAt("5.48")
-ALL_549 = switchesAt("5.49")
-
-# Groups whose 5.49 implementation needs other groups at 5.49 too. Next's groups need none yet.
-REQUIRES: dict[str, tuple[str, ...]] = {
-    # Without it, a local video's encodes and fast trims would seek by different clocks.
-    "clipFrames": ("localTimestamps",),
-    # 5.49's audioFilter reads clipSpan's seekTo for a local video.
-    "audioStart": ("clipFrames",),
-}
+ALL_548 = FrameTimingSwitches(clipFrames="5.48", cropPoints="5.48")
 
 # The build: every group at next. Read at each clip, so the tests can set it.
-SWITCHES = FrameTimingSwitches()
+SWITCHES: Build = FrameTimingSwitches()
 
 
-def compose(switches: FrameTimingSwitches) -> FrameTiming:
+def compose(build: Build) -> FrameTiming:
     from clipper import frame_timing_548, frame_timing_549, frame_timing_next
 
-    for group, needed in REQUIRES.items():
-        missing = [n for n in needed if getattr(switches, n) != "5.49"]
-        if getattr(switches, group) == "5.49" and missing:
-            raise ValueError(f"5.49's {group} needs {', '.join(missing)} at 5.49 too")
+    if build == WHOLE_549:
+        return frame_timing_549.FRAME_TIMING
     release = {
-        "5.48": frame_timing_548.FRAME_TIMING,
-        "5.49": frame_timing_549.FRAME_TIMING,
+        # The origin 5.48's crop functions ignore comes from the markers, not 5.48's clip span, so the
+        # cropPoints group reads nothing clipFrames decides.
+        "5.48": replace(frame_timing_548.FRAME_TIMING, cropPointOrigin=cropOriginOnMarkersTimeline),
         "next": frame_timing_next.FRAME_TIMING,
     }
-    clip = release[switches.clipFrames]
-    crop = release[switches.cropPoints]
+    clip = release[build.clipFrames]
+    crop = release[build.cropPoints]
     return FrameTiming(
-        name=_name(switches),
+        name=buildName(build),
         clipSpan=clip.clipSpan,
         videoInput=clip.videoInput,
-        fastTrimInput=release[switches.localTimestamps].fastTrimInput,
-        audioFilter=release[switches.audioStart].audioFilter,
+        fastTrimInput=clip.fastTrimInput,
+        audioFilter=clip.audioFilter,
         speedFilter=clip.speedFilter,
         sectionEaseDuration=crop.sectionEaseDuration,
         cutTime=crop.cutTime,
         varyingRateNote=clip.varyingRateNote,
+        cropPointOrigin=crop.cropPointOrigin,
     )
 
 
-def _name(switches: FrameTimingSwitches) -> str:
-    """The release when every group agrees, else "next" and each other group as "+group=release", which
-    byName reads back."""
-    releases = {field.name: getattr(switches, field.name) for field in fields(switches)}
+def buildName(build: Build) -> str:
+    """The release when every group agrees, else "next" and each other group as "+group=release"."""
+    if build == WHOLE_549:
+        return WHOLE_549
+    releases = {field.name: getattr(build, field.name) for field in fields(build)}
     if len(set(releases.values())) == 1:
         return next(iter(releases.values()))
     others = [f"{group}={release}" for group, release in releases.items() if release != "next"]
@@ -158,13 +163,3 @@ def _name(switches: FrameTimingSwitches) -> str:
 def current() -> FrameTiming:
     """The frame timing the build uses."""
     return compose(SWITCHES)
-
-
-def byName(name: str) -> FrameTiming:
-    for release in get_args(Release):
-        if name == release:
-            return compose(switchesAt(release))
-    base, *others = name.split("+")
-    if base != "next":
-        raise KeyError(name)
-    return compose(replace(FrameTimingSwitches(), **dict(other.split("=") for other in others)))

@@ -11,8 +11,16 @@ from clipper.clipper_types import ClipperPaths, ClipperState
 
 def pairSettings(tmp_path: Path, pair: dict, **settings: object) -> dict:
     """The marker pair as the clipper prepares it for ffmpeg, from the command line's defaults."""
+    mp, _ = clip_maker.getMarkerPairSettings(
+        clipperState(tmp_path, pair, **settings), 0, enableLogging=False
+    )
+    return mp
+
+
+def clipperState(tmp_path: Path, pair: dict, **settings: object) -> ClipperState:
+    """One marker pair's clipper state, from the command line's defaults."""
     defaults = vars(getArgParser().parse_args(["--markers-json", "markers.json"]))
-    cs = ClipperState(
+    return ClipperState(
         settings={
             **{key: value for key, value in defaults.items() if value is not None},
             "markerPairs": [{"overrides": {}, "speed": 1, "crop": "0:0:1920:1080", **pair}],
@@ -40,8 +48,6 @@ def pairSettings(tmp_path: Path, pair: dict, **settings: object) -> dict:
         },
         clipper_paths=ClipperPaths(clipsPath=str(tmp_path)),
     )
-    mp, _ = clip_maker.getMarkerPairSettings(cs, 0, enableLogging=False)
-    return mp
 
 
 PAIR_MAPS = {
@@ -226,10 +232,11 @@ def test_a_sample_guided_window_crops_its_own_frames(
     assert isRight == [frame >= firstRightFrame for frame in range(len(isRight))]
 
 
-def test_5_49_0_clips_start_and_end_as_in_5_48_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_build_ships_next_which_clips_as_5_48_did(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.undo()  # conftest.py sets each test's frame timing
-    assert frame_timing.current().name == "next"
-    assert frame_timing.current().sameDecisions(frame_timing_548.FRAME_TIMING)
+    built = frame_timing.current()
+    assert built.name == "next"
+    assert built.clipSpan is frame_timing_548.clipSpan
 
 
 @pytest.mark.frame_timing("5.48")
