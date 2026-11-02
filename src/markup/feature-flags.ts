@@ -17,6 +17,8 @@
  * those: there the flags are always what this file says.
  */
 
+import { FRAME_TIMING_RELEASES, FrameTimingRelease } from './util/decisions/keys';
+
 // Parcel inlines the variable at build time, and GitHub Actions sets it on every CI build.
 const IS_CI_BUILD = process.env.GITHUB_ACTIONS === 'true';
 export const FEATURE_FLAG_OVERRIDES_ENABLED = !IS_CI_BUILD;
@@ -31,6 +33,18 @@ interface FeatureFlagDefinition<T> {
   appliesOnReload?: boolean;
   // Not offered in the popup.
   hidden?: boolean;
+}
+
+function frameTimingFlag(
+  release: FrameTimingRelease,
+  description: string
+): FeatureFlagDefinition<FrameTimingRelease> {
+  return {
+    default: release,
+    description: `${description} 'next' is 5.48's until a fix lands there.`,
+    options: FRAME_TIMING_RELEASES,
+    appliesOnReload: true,
+  };
 }
 
 const featureFlagDefinitions = {
@@ -68,14 +82,41 @@ const featureFlagDefinitions = {
     description:
       'Log each video frame loop every 2 s of playback. It shows the timing and consumers, refreshes, frames taken and repeated, new frames, and frame callback calls and misses. It also shows the time each part took.',
   } as FeatureFlagDefinition<boolean>,
-  /** See `util/frame-timing.ts`. On for 5.49.0: 5.49's frame timing does not yet handle every
-   *  video. */
-  legacyFrameTiming: {
-    default: true,
-    description:
-      'Time frames as 5.48 did: markers, crop and speed points at the playhead, steps and seeks by time, and no frame rate measurement.',
-    appliesOnReload: true,
-  } as FeatureFlagDefinition<boolean>,
+  /** One flag per group of frame decisions (`util/decisions/`), each choosing the release whose
+   *  decisions the group uses. Only `util/frame-timing.ts` reads them. 'next' is 5.48's decisions
+   *  until fixes land there; 5.49's frame timing does not yet handle every video. */
+  placementTiming: frameTimingFlag(
+    'next',
+    'Where markers, crop and speed points are placed: at the playhead (5.48), or on the frame on screen (5.49).'
+  ),
+  seekTiming: frameTimingFlag(
+    'next',
+    "Where a seek to a marker or point goes: to its time (5.48), or inside its frame, keeping a slow seek's target (5.49)."
+  ),
+  loopTiming: frameTimingFlag(
+    'next',
+    'When the marker pair and crop loops turn back: past the end (5.48), or on the end frame, shown its full time (5.49).'
+  ),
+  stepsTiming: frameTimingFlag(
+    'next',
+    'How frame steps and marker nudges move, and how durations count: by 1/fps of time (5.48), or by whole frames from the frame on screen, counting the end frame (5.49).'
+  ),
+  compareTiming: frameTimingFlag(
+    'next',
+    'How markers, points and the playhead compare: by time (5.48), or by frame (5.49).'
+  ),
+  frameRateTiming: frameTimingFlag(
+    'next',
+    "The frame rate: YouTube's or 60 fps (5.48), or measured from played frames with the Measure button (5.49)."
+  ),
+  cropEaseTiming: frameTimingFlag(
+    'next',
+    "Where a crop section's ease ends: 5.48's frame, or 5.49's, which allows for a time rounded below a frame's start."
+  ),
+  cinematicTiming: frameTimingFlag(
+    'next',
+    "The frame a Cinematic cut takes effect on: 5.48's ease frame, or 5.49's, which allows for a time rounded below a frame's start."
+  ),
   featureFlagsPanel: {
     default: FEATURE_FLAG_OVERRIDES_ENABLED,
     description: 'The feature flags popup in the markers toolbar.',

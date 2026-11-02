@@ -2,8 +2,6 @@ import type { CropPoint } from '../../@types/yt_clipper';
 import type { CropKeyframeMatch } from '../../crop/crop-keyframe-math';
 import type { FrameGrid } from '../frame-grid';
 import type { MarkerType, TimeSpan } from '../frame-timing';
-import { frameTiming548 } from '../frame-timing-548';
-import { frameTiming549 } from '../frame-timing-549';
 import { DecisionGroup, decisionGroup } from './group';
 import { GROUP_KEYS } from './keys';
 
@@ -50,8 +48,4 @@ export interface CompareTiming {
   ): number | null;
 }
 
-export const compare: DecisionGroup<CompareTiming> = decisionGroup(
-  GROUP_KEYS.compare,
-  () => frameTiming548,
-  () => frameTiming549
-);
+export const compare: DecisionGroup<CompareTiming> = decisionGroup(GROUP_KEYS.compare);

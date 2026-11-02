@@ -1,4 +1,9 @@
-/** Each group's decisions. Kept apart from the groups, which import 5.48's and 5.49's code, so
+/** The releases whose frame decisions a group can use. 5.48's and 5.49's are frozen; 'next' is
+ *  where fixes land, 5.48's until they do. */
+export const FRAME_TIMING_RELEASES = ['5.48', '5.49', 'next'] as const;
+export type FrameTimingRelease = (typeof FRAME_TIMING_RELEASES)[number];
+
+/** Each group's decisions. Kept apart from the groups, which import the releases' code, so
  *  frame-timing.ts can lay out its table while those still load (see `decisionGroup`). */
 export const GROUP_KEYS = {
   placement: [
@@ -29,5 +34,6 @@ export const GROUP_KEYS = {
     'parkedPointIndex',
   ],
   rate: ['usesMeasuredRate', 'platformRate', 'rateCacheAtNewSource'],
-  fixed: ['easeSectionDuration', 'cutFrameMiddle'],
+  cropEase: ['easeSectionDuration'],
+  cinematic: ['cutFrameMiddle'],
 } as const;

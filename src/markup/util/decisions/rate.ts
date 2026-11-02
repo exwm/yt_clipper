@@ -1,5 +1,3 @@
-import { frameTiming548 } from '../frame-timing-548';
-import { frameTiming549 } from '../frame-timing-549';
 import { DecisionGroup, decisionGroup } from './group';
 import { GROUP_KEYS } from './keys';
 
@@ -20,8 +18,4 @@ export interface RateTiming {
   rateCacheAtNewSource(cached: number | null): number | null;
 }
 
-export const rate: DecisionGroup<RateTiming> = decisionGroup(
-  GROUP_KEYS.rate,
-  () => frameTiming548,
-  () => frameTiming549
-);
+export const rate: DecisionGroup<RateTiming> = decisionGroup(GROUP_KEYS.rate);

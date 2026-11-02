@@ -1,8 +1,6 @@
 import type { FrameGrid } from '../frame-grid';
 import type { ScreenFrame } from '../frame-step';
 import type { FrameReading, PlayheadReading, RateReading, ScreenReading } from '../frame-timing';
-import { frameTiming548 } from '../frame-timing-548';
-import { frameTiming549 } from '../frame-timing-549';
 import { DecisionGroup, decisionGroup } from './group';
 import { GROUP_KEYS } from './keys';
 
@@ -31,8 +29,4 @@ export interface PlacementTiming {
   redrawTime(reading: PlayheadReading, heldFrameStart: number): number;
 }
 
-export const placement: DecisionGroup<PlacementTiming> = decisionGroup(
-  GROUP_KEYS.placement,
-  () => frameTiming548,
-  () => frameTiming549
-);
+export const placement: DecisionGroup<PlacementTiming> = decisionGroup(GROUP_KEYS.placement);

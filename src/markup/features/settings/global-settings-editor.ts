@@ -60,7 +60,7 @@ import {
   isFrameRateMeasured,
   toggleFrameRateMeasurement,
 } from '../../util/videoUtil';
-import { isLegacyFrameTiming } from '../../util/frame-timing';
+import { hasFrameRateMeasurement } from '../../util/frame-timing';
 import { assertDefined, copyToClipboard, toHHMMSSTrimmed } from '../../util/util';
 
 export function toggleGlobalSettingsEditor() {
@@ -90,7 +90,7 @@ if (typeof document !== 'undefined') {
 
 // 5.48's frame timing has no measurement: the readout then shows the platform's or the assumed rate.
 function MeasureButtonTemplate(frameRate: { source: FrameRateSource }) {
-  if (isLegacyFrameTiming) return nothing;
+  if (!hasFrameRateMeasurement()) return nothing;
   const measureButton = describeMeasureButton(frameRate);
   return html`
     <button
@@ -268,7 +268,9 @@ function GlobalSettingsEditorTemplate(binder: SettingsBinder<Settings>): Templat
         </div>
         <div
           class="settings-editor-input-div"
-          title=${isLegacyFrameTiming ? Tooltips.frameRateSourceTooltip : Tooltips.frameRateTooltip}
+          title=${hasFrameRateMeasurement()
+            ? Tooltips.frameRateTooltip
+            : Tooltips.frameRateSourceTooltip}
         >
           <span id="global-frame-rate" style="display:inline">${describeFrameRate(frameRate)}</span>
           ${MeasureButtonTemplate(frameRate)}

@@ -1,4 +1,4 @@
-"""With the `legacyFrameTiming` flag, the markup times frames as 5.48 did: a marker stores the
+"""With every frame decision group on 5.48, the markup times frames as 5.48 did: a marker stores the
 playhead, Shift+Mousewheel steps 1/fps from the playhead, a seek to a marker goes to its time, and
 the frame rate is never measured. The dev site reports no frame rate, so the rate is the assumed
 60 fps, while its test video is 30 fps with frame n starting at exactly n / 30 s."""

@@ -1,7 +1,5 @@
 import type { Refresh } from '../frame-step';
 import type { FrameReading, LoopReading } from '../frame-timing';
-import { frameTiming548 } from '../frame-timing-548';
-import { frameTiming549 } from '../frame-timing-549';
 import { DecisionGroup, decisionGroup } from './group';
 import { GROUP_KEYS } from './keys';
 
@@ -30,8 +28,4 @@ export interface LoopTiming {
   noteRefresh(state: LoopState, time: number): LoopState;
 }
 
-export const loop: DecisionGroup<LoopTiming> = decisionGroup(
-  GROUP_KEYS.loop,
-  () => frameTiming548,
-  () => frameTiming549
-);
+export const loop: DecisionGroup<LoopTiming> = decisionGroup(GROUP_KEYS.loop);

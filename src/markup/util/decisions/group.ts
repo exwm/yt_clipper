@@ -1,32 +1,39 @@
 import type { FrameTiming } from '../frame-timing';
+import { frameTiming548 } from '../frame-timing-548';
+import { frameTiming549 } from '../frame-timing-549';
+import { frameTimingNext } from '../frame-timing-next';
+import type { FrameTimingRelease } from './keys';
 
-/** One group of frame decisions: 5.48's, which is the fallback, and the candidate its flag turns on. */
+/** One group of frame decisions, as each release makes them. */
 export interface DecisionGroup<G> {
   keys: readonly (keyof G)[];
-  legacy: G;
-  candidate: G;
+  release(release: FrameTimingRelease): G;
 }
 
 /**
- * The group of decisions `keys`, taken from 5.48's and 5.49's whole objects, which stay whole as
- * the oracles their tests check. Taken on first use: frame-timing-548.ts and -549.ts import util.ts,
- * which imports frame-timing.ts, so a module that loads either first finds it still loading here.
+ * The group of decisions `keys`, taken from each release's whole object, which stays whole as the
+ * oracle its tests check. Taken on first use: the releases import util.ts, which imports
+ * frame-timing.ts, so a module that loads a release first finds it still loading here.
  */
 export function decisionGroup<K extends keyof FrameTiming>(
-  keys: readonly K[],
-  legacy: () => FrameTiming,
-  candidate: () => FrameTiming
+  keys: readonly K[]
 ): DecisionGroup<Pick<FrameTiming, K>> {
-  const pick = (timing: FrameTiming) =>
-    Object.fromEntries(keys.map((key) => [key, timing[key]])) as Pick<FrameTiming, K>;
-  const picked: { legacy?: Pick<FrameTiming, K>; candidate?: Pick<FrameTiming, K> } = {};
+  const picked = new Map<FrameTimingRelease, Pick<FrameTiming, K>>();
   return {
     keys,
-    get legacy() {
-      return (picked.legacy ??= pick(legacy()));
-    },
-    get candidate() {
-      return (picked.candidate ??= pick(candidate()));
+    release(release) {
+      let decisions = picked.get(release);
+      if (decisions == null) {
+        const whole = { '5.48': frameTiming548, '5.49': frameTiming549, next: frameTimingNext }[
+          release
+        ];
+        decisions = Object.fromEntries(keys.map((key) => [key, whole[key]])) as Pick<
+          FrameTiming,
+          K
+        >;
+        picked.set(release, decisions);
+      }
+      return decisions;
     },
   };
 }

@@ -1,7 +1,5 @@
 import type { FrameGrid } from '../frame-grid';
 import type { FrameReading, FrameSeek, PairTiming } from '../frame-timing';
-import { frameTiming548 } from '../frame-timing-548';
-import { frameTiming549 } from '../frame-timing-549';
 import { DecisionGroup, decisionGroup } from './group';
 import { GROUP_KEYS } from './keys';
 
@@ -27,8 +25,4 @@ export interface StepTiming {
   ): { text: string; outputDuration: number };
 }
 
-export const steps: DecisionGroup<StepTiming> = decisionGroup(
-  GROUP_KEYS.steps,
-  () => frameTiming548,
-  () => frameTiming549
-);
+export const steps: DecisionGroup<StepTiming> = decisionGroup(GROUP_KEYS.steps);
