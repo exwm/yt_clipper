@@ -1,21 +1,26 @@
-"""The build-time frame timing switches (frame_timing.SWITCHES): each group's decisions come from 5.48.0 or
-5.49 alone, so a group that is off makes 5.48.0's decisions whatever the other groups are, all off is the
-5.48.0 build and all on is 5.49's."""
+"""The build-time frame timing switches (frame_timing.SWITCHES): each group's decisions come from the one
+release its switch picks (5.48.0, 5.49 or next) whatever the other groups are, all at 5.48 is the 5.48.0
+build, all at 5.49 is 5.49's, and next decides as 5.48.0 until a fix lands in it."""
 
 import copy
 import itertools
 from dataclasses import fields, replace
 from fractions import Fraction
 from pathlib import Path
+from typing import get_args
 
 import pytest
 
-from clipper import frame_timing, frame_timing_548, frame_timing_549
-from clipper.frame_timing import FrameTiming, FrameTimingSwitches
+from clipper import frame_timing, frame_timing_548, frame_timing_549, frame_timing_next
+from clipper.frame_timing import FrameTiming, FrameTimingSwitches, Release
 from clipper.tests.test_clip_timeline import pairSettings
 from clipper.tests.test_frame_timing_548_source import INPUTS, MARKERS, SPEED_MAPS
 
-RELEASES = {"5.48": frame_timing_548.FRAME_TIMING, "5.49": frame_timing_549.FRAME_TIMING}
+RELEASES = {
+    "5.48": frame_timing_548.FRAME_TIMING,
+    "5.49": frame_timing_549.FRAME_TIMING,
+    "next": frame_timing_next.FRAME_TIMING,
+}
 GROUPS = [field.name for field in fields(FrameTimingSwitches)]
 DECISIONS = {
     "clipFrames": ("clipSpan", "videoInput", "speedFilter", "varyingRateNote"),
@@ -28,36 +33,30 @@ DECISIONS = {
 def isValid(switches: FrameTimingSwitches) -> bool:
     """5.49's clip frames seek a local video by its own timestamps, and 5.49's audio start reads the
     clip frames' seek."""
-    return (switches.clipFrames == "5.48" or switches.localTimestamps == "5.49") and (
-        switches.audioStart == "5.48" or switches.clipFrames == "5.49"
+    return (switches.clipFrames != "5.49" or switches.localTimestamps == "5.49") and (
+        switches.audioStart != "5.49" or switches.clipFrames == "5.49"
     )
 
 
 ALL_BUILDS = [
-    frame_timing.switchesAt549(group for group, isOn in zip(GROUPS, flags, strict=True) if isOn)
-    for flags in itertools.product([False, True], repeat=len(GROUPS))
+    replace(FrameTimingSwitches(), **dict(zip(GROUPS, releases, strict=True)))
+    for releases in itertools.product(get_args(Release), repeat=len(GROUPS))
 ]
-BUILDS = [
-    pytest.param(build, id=frame_timing._name(build)) for build in ALL_BUILDS if isValid(build)
-]
+VALID_BUILDS = [build for build in ALL_BUILDS if isValid(build)]
+BUILDS = [pytest.param(build, id=frame_timing._name(build)) for build in VALID_BUILDS]
 INVALID_BUILDS = [
     pytest.param(build, id=frame_timing._name(build)) for build in ALL_BUILDS if not isValid(build)
 ]
-# (the build with a group on, the same build with it off), both valid. Switching clipFrames changes
-# every frame, so it has no outputs to keep.
+# (a build, the same build with one group at another release, that group), both valid. Switching
+# clipFrames changes every frame, so it has no outputs to keep.
 TOGGLES = [
-    pytest.param(
-        build,
-        replace(build, **{group: "5.48"}),
-        group,
-        id=f"{frame_timing._name(build)}, {group} off",
-    )
-    for build in ALL_BUILDS
+    (build, replace(build, **{group: other}), group)
+    for build in VALID_BUILDS
     for group in GROUPS
+    for other in get_args(Release)
     if group != "clipFrames"
-    and getattr(build, group) == "5.49"
-    and isValid(build)
-    and isValid(replace(build, **{group: "5.48"}))
+    and getattr(build, group) < other  # each pair of releases once
+    and isValid(replace(build, **{group: other}))
 ]
 
 
@@ -68,9 +67,35 @@ def test_every_decision_has_one_group() -> None:
     )
 
 
-def test_all_off_is_the_5_48_build_and_all_on_is_5_49s() -> None:
-    assert frame_timing.compose(FrameTimingSwitches()) == frame_timing_548.FRAME_TIMING
+def test_all_at_5_48_is_the_5_48_build_and_all_at_5_49_is_5_49s() -> None:
+    assert frame_timing.compose(frame_timing.ALL_548) == frame_timing_548.FRAME_TIMING
     assert frame_timing.compose(frame_timing.ALL_549) == frame_timing_549.FRAME_TIMING
+
+
+def test_the_default_build_is_next_which_makes_5_48s_decisions_until_a_fix_lands() -> None:
+    build = frame_timing.compose(FrameTimingSwitches())
+    assert build == frame_timing_next.FRAME_TIMING
+    assert build.name == "next"
+    for decision in (field.name for field in fields(FrameTiming) if field.name != "name"):
+        assert getattr(build, decision) is getattr(frame_timing_548.FRAME_TIMING, decision)
+
+
+@pytest.mark.parametrize(
+    ("switches", "name"),
+    [
+        (FrameTimingSwitches(), "next"),
+        (frame_timing.ALL_548, "5.48"),
+        (frame_timing.switchesAt("5.49", ["clipFrames", "localTimestamps"]), "next+clipFrames=5.49+localTimestamps=5.49"),
+        (replace(frame_timing.ALL_548, cropPoints="next"), "next+clipFrames=5.48+audioStart=5.48+localTimestamps=5.48"),
+        (replace(frame_timing.ALL_549, cropPoints="5.48"), "next+clipFrames=5.49+cropPoints=5.48+audioStart=5.49+localTimestamps=5.49"),
+    ],
+)  # fmt: skip
+def test_a_builds_name_lists_the_groups_not_at_next_and_reads_back(
+    switches: FrameTimingSwitches, name: str
+) -> None:
+    timing = frame_timing.compose(switches)
+    assert timing.name == name
+    assert frame_timing.byName(name) == timing
 
 
 @pytest.mark.parametrize("build", BUILDS)
@@ -133,18 +158,12 @@ def groupOutputs(
     return {decision: calls[decision]() for decision in DECISIONS[group]}
 
 
-@pytest.mark.parametrize("build", BUILDS)
 @pytest.mark.parametrize("markers", MARKERS)
 @pytest.mark.parametrize(("inputMps", "mpFields"), INPUTS)
 @pytest.mark.parametrize("speed", [1, 0.5])
 def test_each_decision_gives_its_switchs_release_outputs_over_the_case_tables(
-    build: FrameTimingSwitches,
-    markers: tuple[float, float],
-    inputMps: dict,
-    mpFields: dict,
-    speed: float,
+    markers: tuple[float, float], inputMps: dict, mpFields: dict, speed: float
 ) -> None:
-    timing = frame_timing.compose(build)
     mps = {
         **inputMps,
         "delay": 0.0105,
@@ -153,28 +172,30 @@ def test_each_decision_gives_its_switchs_release_outputs_over_the_case_tables(
         "preview": False,
     }
     pair = {"start": markers[0], "end": markers[1], "speed": speed, **mpFields}
-    # clip_maker.getMarkerPairSettings
-    span = timing.clipSpan(pair, mps, 0)
-    mp = {
-        **pair,
-        "start": span.start,
-        "end": span.end,
-        "duration": span.end - span.start,
-        "isVariableSpeed": False,
-    }
-    if span.seekTo is not None:
-        mp |= {"seekTo": span.seekTo, "trimEnd": span.trimEnd}
-    for group in GROUPS:
-        release = RELEASES[getattr(build, group)]
-        assert groupOutputs(timing, group, span, mp, mps, pair) == groupOutputs(
-            release, group, span, mp, mps, pair
-        ), group
+    # Every valid build per case, rather than a test each, keeps the run to a few hundred tests.
+    for build in VALID_BUILDS:
+        timing = frame_timing.compose(build)
+        # clip_maker.getMarkerPairSettings
+        span = timing.clipSpan(pair, mps, 0)
+        mp = {
+            **pair,
+            "start": span.start,
+            "end": span.end,
+            "duration": span.end - span.start,
+            "isVariableSpeed": False,
+        }
+        if span.seekTo is not None:
+            mp |= {"seekTo": span.seekTo, "trimEnd": span.trimEnd}
+        for group in GROUPS:
+            release = RELEASES[getattr(build, group)]
+            assert groupOutputs(timing, group, span, mp, mps, pair) == groupOutputs(
+                release, group, span, mp, mps, pair
+            ), (timing.name, group)
 
 
-@pytest.mark.parametrize("build", BUILDS)
 @pytest.mark.parametrize(("speedMap", "isVariableSpeed"), SPEED_MAPS)
 def test_the_speed_filter_is_the_clip_frames_release_over_the_speed_maps(
-    build: FrameTimingSwitches, speedMap: list[dict], isVariableSpeed: bool
+    speedMap: list[dict], isVariableSpeed: bool
 ) -> None:
     mp = {
         "start": speedMap[0]["x"],
@@ -184,8 +205,9 @@ def test_the_speed_filter_is_the_clip_frames_release_over_the_speed_maps(
         "isVariableSpeed": isVariableSpeed,
     }
     rate = Fraction(30000, 1001)
-    expected = RELEASES[build.clipFrames].speedFilter(speedMap, mp, rate)
-    assert frame_timing.compose(build).speedFilter(speedMap, mp, rate) == expected
+    for build in VALID_BUILDS:
+        expected = RELEASES[build.clipFrames].speedFilter(speedMap, mp, rate)
+        assert frame_timing.compose(build).speedFilter(speedMap, mp, rate) == expected, build
 
 
 # Through clip_maker: switching a group changes only what that group decides.
@@ -237,24 +259,20 @@ def clipOutputs(tmp_path: Path, pair: dict, settings: dict) -> dict:
     return {key: mp[key] for key in (*CLIP_OUTPUTS, "cropFilter")}
 
 
-@pytest.mark.parametrize(("withGroup", "withoutGroup", "group"), TOGGLES)
 @pytest.mark.parametrize(("pair", "settings"), PAIRS)
 def test_switching_a_group_changes_only_its_own_decisions_in_a_clips_settings(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    withGroup: FrameTimingSwitches,
-    withoutGroup: FrameTimingSwitches,
-    group: str,
-    pair: dict,
-    settings: dict,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pair: dict, settings: dict
 ) -> None:
-    monkeypatch.setattr(frame_timing, "SWITCHES", withGroup)
-    on = clipOutputs(tmp_path, pair, settings)
-    monkeypatch.setattr(frame_timing, "SWITCHES", withoutGroup)
-    off = clipOutputs(tmp_path, pair, settings)
-    # The video input, fast trim and audio filter are made later, at the encode.
-    unchanged = CLIP_OUTPUTS if group == "cropPoints" else (*CLIP_OUTPUTS, "cropFilter")
-    assert {key: on[key] for key in unchanged} == {key: off[key] for key in unchanged}
+    outputs = {}
+    for build in VALID_BUILDS:
+        monkeypatch.setattr(frame_timing, "SWITCHES", build)
+        outputs[build] = clipOutputs(tmp_path, pair, settings)
+    for build, switched, group in TOGGLES:
+        # The video input, fast trim and audio filter are made later, at the encode.
+        unchanged = CLIP_OUTPUTS if group == "cropPoints" else (*CLIP_OUTPUTS, "cropFilter")
+        assert {key: outputs[build][key] for key in unchanged} == {
+            key: outputs[switched][key] for key in unchanged
+        }, (frame_timing._name(build), frame_timing._name(switched))
 
 
 # The dependencies between groups.
@@ -276,7 +294,7 @@ def test_5_49s_audio_start_reads_the_seek_of_5_49s_clip_frames() -> None:
     with pytest.raises(KeyError, match="seekTo"):
         frame_timing_549.audioFilter(mp, LOCAL, 1.0)
     with pytest.raises(ValueError, match="audioStart needs clipFrames"):
-        frame_timing.compose(frame_timing.switchesAt549(["audioStart"]))
+        frame_timing.compose(frame_timing.switchesAt("5.49", ["audioStart"]))
 
 
 def test_5_49s_clip_frames_seek_a_local_video_by_its_own_timestamps_as_its_fast_trim_does() -> None:
@@ -295,7 +313,7 @@ def test_5_49s_clip_frames_seek_a_local_video_by_its_own_timestamps_as_its_fast_
     assert "-seek_timestamp 1" not in (frame_timing_548.fastTrimInput(mp, LOCAL) or "")
     assert "-seek_timestamp 1" in (frame_timing_549.fastTrimInput(mp, LOCAL) or "")
     with pytest.raises(ValueError, match="clipFrames needs localTimestamps"):
-        frame_timing.compose(frame_timing.switchesAt549(["clipFrames"]))
+        frame_timing.compose(frame_timing.switchesAt("5.49", ["clipFrames"]))
 
 
 @pytest.mark.xfail(
@@ -315,7 +333,7 @@ def test_5_49s_crop_points_alone_count_from_the_videos_first_frame(
     mps: dict, videoPartDelay: float
 ) -> None:
     pair = {"start": videoPartDelay + 1.0, "end": videoPartDelay + 2.0}
-    alone = frame_timing.compose(frame_timing.switchesAt549(["cropPoints"]))
+    alone = frame_timing.compose(frame_timing.switchesAt("5.49", ["cropPoints"]))
     assert (
         alone.clipSpan(pair, mps, videoPartDelay).cropFrameOrigin
         == frame_timing_549.clipSpan(pair, mps, videoPartDelay).cropFrameOrigin

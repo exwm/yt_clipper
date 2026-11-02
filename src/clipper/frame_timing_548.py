@@ -1,5 +1,5 @@
-"""5.48.0's frame decisions, the default side of each `frame_timing.SWITCHES` group. 5.48 had no frame
-grid: it passed the raw marker times to ffmpeg (`-ss {start}` and `trim=0:{duration}`), so ffmpeg's own
+"""5.48.0's frame decisions, the oracle that any `frame_timing.SWITCHES` group can pin (the default is
+next). 5.48 had no frame grid: it passed the raw marker times to ffmpeg (`-ss {start}` and `trim=0:{duration}`), so ffmpeg's own
 rounding to the video's time base picks the frames, and it timed crop points from the start marker. Each
 piece is v5.48.0's code, cited as file:line; test_frame_timing_548_source.py checks it against the tag.
 
