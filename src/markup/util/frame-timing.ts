@@ -8,7 +8,6 @@ import { CropEaseTiming, cropEase } from './decisions/crop-ease';
 import type { DecisionGroup } from './decisions/group';
 import {
   FRAME_DECISION_GROUPS,
-  FRAME_TIMING_GROUPS,
   FrameDecisionGroup,
   FrameTimingRelease,
   groupFlagName,
@@ -98,32 +97,15 @@ export interface PairTiming extends TimeSpan {
   speedMap: SpeedPoint[];
 }
 
-// Getters, which read each import when used: for the import cycle `decisionGroup` describes.
 export const frameDecisionGroups = {
-  get placement() {
-    return placement;
-  },
-  get seek() {
-    return seek;
-  },
-  get loop() {
-    return loop;
-  },
-  get steps() {
-    return steps;
-  },
-  get compare() {
-    return compare;
-  },
-  get rate() {
-    return rate;
-  },
-  get cropEase() {
-    return cropEase;
-  },
-  get cinematic() {
-    return cinematic;
-  },
+  placement,
+  seek,
+  loop,
+  steps,
+  compare,
+  rate,
+  cropEase,
+  cinematic,
 };
 export type { FrameDecisionGroup };
 export type GroupReleases = Record<FrameDecisionGroup, GroupRelease>;
@@ -145,30 +127,16 @@ export function composeFrameTiming(choice: FrameTimingChoice): FrameTiming {
 }
 
 /** For tests: the frame timing with each group's decisions from the release `releases` picks for
- *  it, 5.49's included, which builds only take whole. Each member is looked up on first use, for
- *  the import cycle `decisionGroup` describes. */
+ *  it, 5.49's included, which builds only take whole. */
 export function composeGroups(
   releases: Record<FrameDecisionGroup, FrameTimingRelease>
 ): FrameTiming {
-  const timing = {};
-  for (const name of FRAME_DECISION_GROUPS) {
-    for (const key of FRAME_TIMING_GROUPS[name].keys) {
-      Object.defineProperty(timing, key, {
-        enumerable: true,
-        configurable: true,
-        get() {
-          // Each group as a slice of the whole: its keys index only its own members.
-          const group = frameDecisionGroups[name] as unknown as DecisionGroup<FrameTiming>;
-          const value = group.release(releases[name])[key];
-          Object.defineProperty(timing, key, { value, enumerable: true });
-          return value;
-        },
-      });
-    }
-  }
-  return timing as FrameTiming;
+  // Each group as a slice of the whole: its keys index only its own members.
+  const slices = FRAME_DECISION_GROUPS.map((name) =>
+    (frameDecisionGroups[name] as unknown as DecisionGroup<FrameTiming>).release(releases[name])
+  );
+  return Object.assign({}, ...slices) as FrameTiming;
 }
-
 /** The build's frame timing from the flags: `frameTiming549` overrides every group's flag. */
 export function choiceFromFlags(flags: FeatureFlags): FrameTimingChoice {
   if (flags.frameTiming549) return { whole: '5.49' };

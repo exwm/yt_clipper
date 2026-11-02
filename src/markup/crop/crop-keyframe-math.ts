@@ -11,7 +11,7 @@ import { easeSinInOut } from 'd3-ease';
 import { CropPoint } from '../@types/yt_clipper';
 import { sortX } from '../ui/chart/chartPrimitives';
 import { FrameGrid, frameAt, frameMiddle } from '../util/frame-grid';
-import { bsearch, clampNumber, getEasedValue } from '../util/util';
+import { bsearch, clampNumber, getEasedValue } from '../util/pure-util';
 
 export interface CropKeyframeMatch {
   /** True when the playhead shows a point's frame. */

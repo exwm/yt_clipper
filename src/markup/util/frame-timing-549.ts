@@ -3,7 +3,7 @@ import {
   getEaseSectionDuration,
   nextKeyframeIndex,
 } from '../crop/crop-keyframe-math';
-import { clampNumber, getOutputDuration, toHHMMSSTrimmed } from './util';
+import { clampNumber, getOutputDuration, toHHMMSSTrimmed } from './pure-util';
 import {
   frameAt,
   frameMiddle,

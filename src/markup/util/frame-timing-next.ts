@@ -1,4 +1,3 @@
-import { FRAME_TIMING_GROUPS } from './decisions/keys';
 import type { FrameTiming } from './frame-timing';
 import { timing548 } from './frame-timing-releases';
 
@@ -9,12 +8,4 @@ import { timing548 } from './frame-timing-releases';
  */
 const fixes: Partial<FrameTiming> = {};
 
-// 5.48's decisions are looked up on use, for the import cycle `decisionGroup` describes.
-export const frameTimingNext = Object.defineProperties(
-  {},
-  Object.fromEntries(
-    Object.values(FRAME_TIMING_GROUPS)
-      .flatMap((group) => group.keys)
-      .map((key) => [key, { enumerable: true, get: () => fixes[key] ?? timing548()[key] }])
-  )
-) as FrameTiming;
+export const frameTimingNext: FrameTiming = { ...timing548, ...fixes };

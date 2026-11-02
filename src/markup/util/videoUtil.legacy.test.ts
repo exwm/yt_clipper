@@ -90,8 +90,8 @@ function givenThePlayheadAt(seconds: number, pending: number | null = null) {
 
 describe("the shell under 5.48's frame timing", () => {
   it('uses the 5.48 frame timing', () => {
-    expect(Object.keys(frameTiming).sort()).toEqual(Object.keys(timing548()).sort());
-    for (const [name, decision] of Object.entries(timing548())) {
+    expect(Object.keys(frameTiming).sort()).toEqual(Object.keys(timing548).sort());
+    for (const [name, decision] of Object.entries(timing548)) {
       expect(frameTiming[name as keyof typeof frameTiming]).toBe(decision);
     }
   });

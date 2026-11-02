@@ -3,7 +3,7 @@ import type { CropKeyframeMatch } from '../crop/crop-keyframe-math';
 import { roundX, sortX } from '../ui/chart/chartPrimitives';
 import type { FrozenFrameTiming as FrameTiming } from './frame-timing';
 import { onSeekSettled, SeekDecision } from './seek-coalescer';
-import { bsearch, clampNumber, toHHMMSSTrimmed } from './util';
+import { bsearch, clampNumber, toHHMMSSTrimmed } from './pure-util';
 
 const NONE: SeekDecision = { pending: null, effects: [] };
 
