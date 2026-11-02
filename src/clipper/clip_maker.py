@@ -1199,7 +1199,7 @@ def prepareVidstabTransformPass(
     ffmpegPath: str,
     transformPath: str,
     analysisPath: str | None,
-    smoothing: int,
+    smoothing: float,
     transformFilterScriptPaths: Sequence[str],
 ) -> dict[str, str]:
     """Between the stabilization passes: repairs the motion across flashes and drops fields that
