@@ -13,6 +13,7 @@ from media_steps import Steps
 from media_survey import Source, read_frames, survey
 
 from clipper.tests.range_http_server import RangeHTTPServer
+from clipper.tests.synthetic_media import CLIPS, SyntheticClip
 
 DATASET = """\
 title = "Test set"
@@ -198,6 +199,39 @@ def test_a_file_cached_under_its_url_name_is_renamed_to_its_id_if_it_matches(
         path = fetch(item, tmp_path / "cache")
         assert (path.name, path.read_bytes(), len(server.served)) == ("clip.mp4", b"good", requests)
         assert old.exists() == (legacy != b"good")
+
+
+def test_a_cached_item_of_the_wrong_size_is_downloaded_again(tmp_path: Path) -> None:
+    served = tmp_path / "served"
+    served.mkdir()
+    (served / "v.mp4").write_bytes(b"whole")
+    with RangeHTTPServer(served) as server:
+        item = Item("set", "clip", server.url("v.mp4"), 5, md5=hashlib.md5(b"whole").hexdigest())
+        cut_short = tmp_path / "cache" / "datasets" / "set" / "clip.mp4"
+        cut_short.parent.mkdir(parents=True)
+        cut_short.write_bytes(b"who")
+        assert fetch(item, tmp_path / "cache").read_bytes() == b"whole"
+        assert len(server.served) == 1
+
+
+def test_a_case_is_built_again_when_its_synthetic_source_changes(
+    ffmpeg: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    case = Case("tiny-case", "synthetic:tiny", 0, 0.5)
+    monkeypatch.setitem(CLIPS, "tiny", SyntheticClip("tiny", "testsrc2=size=64x36:rate=10", "x264"))
+    first = build(case, {}, ffmpeg, tmp_path)
+    monkeypatch.setitem(CLIPS, "tiny", SyntheticClip("tiny", "testsrc2=size=64x36:rate=12", "x264"))
+    assert build(case, {}, ffmpeg, tmp_path) != first
+
+
+def test_a_case_is_built_again_when_its_file_source_changes(ffmpeg: str, tmp_path: Path) -> None:
+    source = lavfi(ffmpeg, "testsrc2=s=64x36:r=10", tmp_path / "source.mkv")
+    case = Case("file-case", f"file:{source}", 0, 0.5)
+    first = build(case, {}, ffmpeg, tmp_path / "cache")
+    lavfi(ffmpeg, "color=c=red:s=64x36:r=10", source)
+    assert build(case, {}, ffmpeg, tmp_path / "cache") != first
 
 
 @pytest.mark.parametrize("name", ["CON", "nul.txt", "../x", "a/b", "", "x."])
