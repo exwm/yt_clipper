@@ -259,7 +259,7 @@ A shortcuts reference can also be toggled by clicking the **All shortcuts** butt
      - Clips made in the same run are saved at that size.
      - Clips made earlier keep their size, and the merge uses a scaled copy.
      - A clip of another shape gets black bars.
-     - Use `--merge-rescale never` to turn this off, or `--merge-rescale always` to scale merges of every codec.
+     - Use `--merge-rescale never` to merge at the clips' own sizes (the `clipper script` asks first for AV1), or `--merge-rescale always` to scale merges of every codec.
    - The format is similar to that for printer page ranges:
      - Each merge is a comma separated list of marker pair numbers or ranges (e.g., '1-3,5,9' = '1,2,3,5,9').
      - Multiple merges are separated with semicolons (e.g., '1-3,5,9;4-6,8' will create two merged webms).
@@ -604,7 +604,7 @@ Use the **Crop Easing** setting to choose how a dynamic crop pans and zooms betw
 
 - Use as few points as possible for smoother motion.
 - Try enabling video stabilization to smooth out the motion, especially if many points are used.
-  - The `clipper script` warns when a stabilized clip comes out shakier than its input. Disable video stabilization for that marker pair if it does.
+  - The `clipper script` warns when a stabilized clip comes out shakier than its input (not checked for loops, motion interpolation or hardware encoders). Disable video stabilization for that marker pair if it does.
 - Pause the video and **Right-Click+Drag** to seek/scrub through the video. Use this to preview the crop movement with precise control.
 - For motion tracking, drop multiple crop points in one continuous **Ctrl+Click+Drag** on the crop overlay: press **A** (when the crop chart is visible) or **Alt+A** at each subject position to add a crop point and keep dragging. Combine with the mouse wheel during the same drag to zoom the crop in/out (center-out) while panning.
 

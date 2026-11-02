@@ -374,8 +374,8 @@ def add_vfilter_options(vfilter_options: argparse._ArgumentGroup) -> None:
         action="store_true",
         help=" ".join(
             [
-                "Deprecated: has no effect and will be removed.",
-                "Stabilization sizes its zoom to the clip's motion instead.",
+                "Deprecated: has no effect, and a later release removes it.",
+                "With ffmpeg 9.0.2, stabilization sizes its zoom to the clip's motion instead.",
             ],
         ),
     )
@@ -642,7 +642,7 @@ def add_output_options(output_options: argparse._ArgumentGroup) -> None:
         dest="mergeRescale",
         help=" ".join(
             [
-                "How to merge clips of different sizes.",
+                "Choose how to merge clips of different sizes.",
                 "Players that decode av1 in hardware show corrupted colors or drop frames where a merged clip changes size, and some players show a black frame there for any codec.",
                 "auto (default) scales the clips of av1 merges up to the largest clip's size.",
                 "always scales the clips of merges of every codec up to the largest clip's size.",
