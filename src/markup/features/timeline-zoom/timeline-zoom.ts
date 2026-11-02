@@ -42,8 +42,15 @@ import {
 } from '../../marker-appearance';
 import { loopSafeSeekTime } from '../../loop-seek-guard';
 import { coalescePerAnimationFrame } from '../../util/frame-coalescer';
-import { flashMessage, getVideoDuration, injectCSS, pauseSafe, seekToSafe } from '../../util/util';
-import { registerActiveDragCleanup } from '../../util/drag-recovery';
+import {
+  flashMessage,
+  getVideoDuration,
+  injectCSS,
+  OWN_OVERLAY_ATTRIBUTE,
+  pauseSafe,
+  seekToSafe,
+} from '../../util/util';
+import { isAnyDragActive, registerActiveDragCleanup } from '../../util/drag-recovery';
 import { refreshPlayerControlsAutoHideTimer } from '../../util/videoUtil';
 import { registerHoverRegion } from '../hints-bar/hover-region';
 import {
@@ -309,8 +316,7 @@ let layout: PanelLayout | null = null;
 let loopId = 0;
 let hoverX: number | null = null;
 let lastKeepAwake = 0;
-// True while a drag (brush or scrub) is in progress, so playback doesn't page the range out from
-// under it.
+// True while a drag on the panel (brush or scrub) is in progress.
 let dragging = false;
 // What a brush drag is changing, for the live drag label: one edge, or the whole range.
 let brushDrag: 'start' | 'end' | 'move' | null = null;
@@ -326,6 +332,14 @@ let endActiveDrag: (() => void) | null = null;
 // back on once the playhead is inside the range again, or after any seek (e.g. a click on the
 // platform's progress bar), so the range still follows a deliberate jump.
 let followingPlayhead = true;
+// True while any registered drag is held (a marker number, crop, chart or speed point drag), and
+// until its last seek lands. Its seeks don't page the range: an Alt+dragged number maps the pointer
+// through the range shown at the press, so paging would pull the marker off the pointer. After a
+// drag begun off the panel, the range catches up on release (see pressBeganOnPanel).
+let holdingForDrag = false;
+// Whether the last press began on the panel. A drag there that ends outside the range leaves the
+// range where it is; one elsewhere (scrubbing the video) is a jump the range follows.
+let pressBeganOnPanel = false;
 
 export function toggleTimelineZoom(): void {
   if (panel) {
@@ -374,7 +388,7 @@ function setRangeByUser(next: ZoomRange, { animate = false } = {}): void {
 }
 
 function onVideoSeeked(): void {
-  followingPlayhead = true;
+  if (!holdingForDrag) followingPlayhead = true;
 }
 
 function readSnapshot(): TimelineSnapshot {
@@ -422,7 +436,8 @@ function setProgressBarDimmed(isDimmed: boolean): void {
 // While a press that began elsewhere is held (dragging the platform's playhead), the panel ignores the
 // pointer, so its handles don't light up or show their cursors as the drag passes over them.
 function onDocumentPointerDown(e: PointerEvent): void {
-  if (panel && !panel.contains(e.target as Node)) panel.classList.add('pressed-elsewhere');
+  pressBeganOnPanel = !!panel?.contains(e.target as Node);
+  if (panel && !pressBeganOnPanel) panel.classList.add('pressed-elsewhere');
 }
 function onDocumentPointerUp(): void {
   panel?.classList.remove('pressed-elsewhere');
@@ -443,6 +458,7 @@ function createPanel(): void {
   }
   panel = document.createElement('div');
   panel.className = 'ytc-tz';
+  panel.setAttribute(OWN_OVERLAY_ATTRIBUTE, '');
   render(panelTemplate(), panel);
   svgEl = panel.querySelector('svg');
   timesEl = panel.querySelector('.ytc-tz-times');
@@ -465,6 +481,7 @@ function createPanel(): void {
   window.addEventListener('blur', onDocumentPointerUp);
   appState.video.addEventListener('seeked', onVideoSeeked);
   followingPlayhead = true;
+  holdingForDrag = false;
   // The panel fades with the player's controls, so wake them: otherwise opening it while they are
   // auto-hidden (pointer off the player) shows nothing.
   refreshPlayerControlsAutoHideTimer();
@@ -547,9 +564,18 @@ function loop(): void {
     snapshot.duration,
     MIN_RANGE_SECONDS
   );
-  if (snapshot.playhead >= zoomRange.start && snapshot.playhead <= zoomRange.end) {
+  const isPlayheadInRange =
+    snapshot.playhead >= zoomRange.start && snapshot.playhead <= zoomRange.end;
+  if (isAnyDragActive()) {
+    holdingForDrag = true;
+  } else if (holdingForDrag && !appState.video.seeking) {
+    // As after a user move, so the range doesn't jump on release.
+    holdingForDrag = false;
+    followingPlayhead = isPlayheadInRange || !pressBeganOnPanel;
+  }
+  if (isPlayheadInRange) {
     followingPlayhead = true;
-  } else if (followingPlayhead && !dragging && !isOutsideActiveLoop(snapshot.playhead)) {
+  } else if (followingPlayhead && !holdingForDrag && !isOutsideActiveLoop(snapshot.playhead)) {
     zoomRange = followPlayhead(zoomRange, snapshot.playhead, snapshot.duration, MIN_RANGE_SECONDS);
   }
   shownRange = easeRangeToward(shownRange ?? zoomRange, zoomRange, EASE_PER_FRAME);
@@ -1073,7 +1099,10 @@ function onPointerDown(e: PointerEvent): void {
       },
       () => {
         panel?.classList.remove('resizing');
-        if (!resizing) seekToSafe(appState.video, loopSafeSeekTime(progressBarTimeAt(downX)));
+        if (resizing) return;
+        seekToSafe(appState.video, loopSafeSeekTime(progressBarTimeAt(downX)));
+        // A click seeks as the progress bar would, so the range follows it.
+        holdingForDrag = false;
       }
     );
     return;

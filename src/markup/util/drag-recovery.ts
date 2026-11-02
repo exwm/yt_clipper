@@ -66,6 +66,11 @@ export function registerActiveDragCleanup(cleanup: () => void): () => void {
   };
 }
 
+/** Whether any registered drag is in progress, anywhere in the markup. */
+export function isAnyDragActive(): boolean {
+  return activeCleanups.size > 0;
+}
+
 /** Test-only: clears registry state so unit tests start clean. Don't call
  *  from production code paths: drag handlers should always own their own
  *  unregister closure. */

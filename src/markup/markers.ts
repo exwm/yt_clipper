@@ -55,6 +55,7 @@ import {
   deleteElement,
   flashMessage,
   getVideoDuration,
+  OWN_OVERLAY_ATTRIBUTE,
   pauseSafe,
   seekToSafe,
   setAttributes,
@@ -240,6 +241,7 @@ export function initMarkersContainer() {
 
   appState.markerNumberingsDiv = document.createElement('div');
   appState.markerNumberingsDiv.setAttribute('id', 'marker-numberings-div');
+  appState.markerNumberingsDiv.setAttribute(OWN_OVERLAY_ATTRIBUTE, '');
   render(markerNumberingsTemplate, appState.markerNumberingsDiv);
   appState.startMarkerNumberings = appState.markerNumberingsDiv.children[0] as SVGSVGElement;
   appState.endMarkerNumberings = appState.markerNumberingsDiv.children[1] as SVGSVGElement;

@@ -361,6 +361,16 @@ export function blockEvent(e) {
   e.stopImmediatePropagation();
 }
 
+/** Marks yt_clipper's own controls that can sit inside a hook with capture listeners (the progress
+ *  bar's numbers on the generic site, the zoomed bar in fullscreen). */
+export const OWN_OVERLAY_ATTRIBUTE = 'data-ytc-own-overlay';
+/** Whether an event is on one of those controls, which handle it themselves, so the video's Alt+drag
+ *  scrub, Ctrl+drag crop and Ctrl+wheel crop zoom leave it alone. */
+export function isOwnOverlayTarget(target: EventTarget | null): boolean {
+  // Pointer and wheel events on a hook always target an element.
+  return (target as Element | null)?.closest(`[${OWN_OVERLAY_ATTRIBUTE}]`) != null;
+}
+
 export function getCropString(x: number, y: number, w: number, h: number) {
   return `${x}:${y}:${w}:${h}`;
 }

@@ -3,7 +3,14 @@ import { onVideoFrames, VideoFrameSubscription } from './video-frame-loop';
 import { chartState } from '../charts';
 import { isDrawingCrop } from '../crop-overlay';
 import { isMouseManipulatingCrop } from '../crop-overlay';
-import { blockEvent, flashMessage, getPendingSeekTime, seekBySafe, seekToSafe } from './util';
+import {
+  blockEvent,
+  flashMessage,
+  getPendingSeekTime,
+  isOwnOverlayTarget,
+  seekBySafe,
+  seekToSafe,
+} from './util';
 import type { OwnSeek, ScreenFrame } from './frame-step';
 import { INITIAL_LOOP_STATE, LoopState } from './decisions/loop';
 import type { FrameGrid } from './frame-grid';
@@ -273,10 +280,8 @@ export function scrubVideoHandler(e) {
     appState.isCurrentChartVisible &&
     chartState.currentChartInput &&
     chartState.currentChartInput.type !== 'crop';
-  // Where the hook holds the progress bar (the generic site), Alt+drag on a marker number moves it.
-  const isOnMarkerNumber = appState.markerNumberingsDiv?.contains(e.target as Node);
   if (
-    !isOnMarkerNumber &&
+    !isOwnOverlayTarget(e.target) &&
     !e.ctrlKey &&
     e.altKey &&
     !e.shiftKey &&

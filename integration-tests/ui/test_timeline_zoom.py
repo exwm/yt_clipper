@@ -71,9 +71,53 @@ def test_loop_guard_on_both_bars(zoom: MarkupPage) -> None:
 
 def test_alt_drag_a_zoomed_number_moves_its_marker(zoom: MarkupPage) -> None:
     pair_index = given_a_pair_opened_from_the_zoomed_bar(zoom)
-    before = start_marker_x(zoom, pair_index)
-    when_i_alt_drag_its_start_number_left(zoom, pair_index)
-    then_its_start_marker_moved(zoom, pair_index, before)
+    pointer_x = when_i_alt_drag_its_start_number_left(zoom, pair_index)
+    then_its_start_number_is_under(zoom, pair_index, pointer_x)
+
+
+def test_alt_drag_a_zoomed_number_past_the_range_end_keeps_the_range(zoom: MarkupPage) -> None:
+    pair_index = given_a_pair_opened_from_the_zoomed_bar(zoom)
+    wait_for_the_zoom_to_settle(zoom)
+    pressed = zoom_range(zoom)
+    drag = when_i_alt_drag_its_end_number_past_the_range_end(zoom, pair_index)
+    then_the_zoom_range_is_unchanged(zoom, pressed)
+    when_i_release_the_alt_drag(zoom)
+    then_the_zoom_range_is_unchanged(zoom, pressed)
+    then_its_end_marker_is_at_the_pointer_time(zoom, pair_index, pressed, drag)
+
+
+def test_alt_drag_a_zoomed_number_in_fullscreen_moves_its_marker(zoom: MarkupPage) -> None:
+    # The dev site fullscreens the player, which holds the scrub and crop listeners, and the zoomed
+    # bar moves inside it.
+    pair_index = given_a_pair_opened_from_the_zoomed_bar(zoom)
+    given_the_player_is_fullscreen(zoom)
+    start, _ = pair_span(pair_index)
+    record_seeks(zoom)
+    pointer_x = when_i_alt_drag_its_start_number_left(zoom, pair_index)
+    then_its_start_number_is_under(zoom, pair_index, pointer_x)
+    then_playback_only_followed_the_marker(zoom, pair_index, start)
+
+
+def test_ctrl_drag_on_the_zoomed_bar_in_fullscreen_leaves_the_crop(zoom: MarkupPage) -> None:
+    given_a_pair_opened_from_the_zoomed_bar(zoom)
+    given_a_fullscreen_player_with_the_zoomed_bar_over_the_video(zoom)
+    before = crop(zoom)
+    when_i_ctrl_drag_on_the_zoomed_bar(zoom)
+    then_the_crop_is(zoom, before)
+
+
+def test_ctrl_hover_on_the_zoomed_bar_in_fullscreen_keeps_it(zoom: MarkupPage) -> None:
+    given_a_pair_opened_from_the_zoomed_bar(zoom)
+    given_a_fullscreen_player_with_the_zoomed_bar_over_the_video(zoom)
+    when_i_hold_ctrl_and_move_along_the_zoomed_bar(zoom)
+    then_the_zoomed_bar_is_visible_with_no_crop_cursor(zoom)
+
+
+def test_an_armed_crop_draw_hides_the_zoomed_bar(zoom: MarkupPage) -> None:
+    # Why the draw needs no own-overlay check: its press can't land on the zoomed bar.
+    given_a_pair_opened_from_the_zoomed_bar(zoom)
+    given_a_crop_draw_is_armed(zoom)
+    then_the_zoomed_bar_is_hidden(zoom)
 
 
 @pytest.mark.platform
@@ -137,6 +181,38 @@ def given_the_zoom_range_is_fitted_to_an_early_pair(markup: MarkupPage) -> None:
     markup.page.mouse.dblclick(x, y)
     wait_for_the_zoom_to_settle(markup)
     markup.report(f"fitted zoom range {zoom_range(markup)}")
+
+
+@step
+def given_the_player_is_fullscreen(markup: MarkupPage) -> None:
+    markup.page.evaluate("s => document.querySelector(s).requestFullscreen()", markup.host.player)
+    assert markup.eventually(
+        "s => document.fullscreenElement === document.querySelector(s)"
+        " && document.querySelector('.ytc-tz')?.parentElement",
+        markup.host.player,
+    ), "the player did not go fullscreen"
+    markup.next_frames(5)  # the zoomed bar lays out at the fullscreen size
+    markup.shot("fullscreen")
+
+
+@step
+def given_a_crop_draw_is_armed(markup: MarkupPage) -> None:
+    markup.press("KeyX")
+    assert markup.eventually(
+        "s => document.querySelector(s).style.cursor === 'crosshair'", markup.host.crop_hook
+    ), "the crop draw did not arm"
+
+
+@step
+def given_a_fullscreen_player_with_the_zoomed_bar_over_the_video(markup: MarkupPage) -> None:
+    # The dev site shows the video at most 720 px tall, so a 720 px screen puts the zoomed bar over it.
+    markup.page.set_viewport_size({"width": 1280, "height": 720})
+    given_the_player_is_fullscreen(markup)
+    assert markup.eventually(
+        "() => { const v = document.querySelector('video').getBoundingClientRect();"
+        " const b = document.querySelector('.ytc-tz-row-hit').getBoundingClientRect();"
+        " const y = (b.top + b.bottom) / 2; return v.top < y && y < v.bottom; }",
+    ), "the zoomed bar is not over the video"
 
 
 @step
@@ -239,8 +315,9 @@ def when_i_click_the_zoomed_bar_outside_the_pair(markup: MarkupPage, pair_index:
 
 
 @step
-def when_i_alt_drag_its_start_number_left(markup: MarkupPage, pair_index: int) -> None:
-    x, y = markup.center_of(f".ytc-tz text[data-pair-index='{pair_index}'][data-marker='start']")
+def when_i_alt_drag_its_start_number_left(markup: MarkupPage, pair_index: int) -> float:
+    """Returns where the pointer let go."""
+    x, y = markup.center_of(zoomed_number(pair_index, "start"))
     markup.page.mouse.move(x, y)
     markup.page.keyboard.down("Alt")
     markup.page.mouse.down()
@@ -248,6 +325,34 @@ def when_i_alt_drag_its_start_number_left(markup: MarkupPage, pair_index: int) -
     markup.shot("number-alt-dragging")
     markup.page.mouse.up()
     markup.page.keyboard.up("Alt")
+    markup.next_frames(3)
+    return x - 20
+
+
+@step
+def when_i_alt_drag_its_end_number_past_the_range_end(
+    markup: MarkupPage, pair_index: int
+) -> tuple[float, float]:
+    """Hold the drag past the zoomed bar's right edge, and return the pointer's (press, now) x."""
+    x, y = markup.center_of(zoomed_number(pair_index, "end"))
+    panel = markup.box_of(".ytc-tz")
+    to_x = panel["x"] + panel["width"] + 40
+    markup.page.mouse.move(x, y)
+    markup.page.keyboard.down("Alt")
+    markup.page.mouse.down()
+    markup.page.mouse.move(to_x, y, steps=8)
+    # Long enough for the per-frame seeks to land and playback following to page the range.
+    markup.next_frames(20)
+    markup.shot("number-alt-dragged-past-the-range-end")
+    return x, to_x
+
+
+@step
+def when_i_release_the_alt_drag(markup: MarkupPage) -> None:
+    markup.page.mouse.up()
+    markup.page.keyboard.up("Alt")
+    assert markup.eventually("() => !document.querySelector('video').seeking")
+    markup.next_frames(20)
 
 
 @step
@@ -259,6 +364,32 @@ def when_i_press_and_drag_along_the_zoomed_bar(markup: MarkupPage) -> float:
     markup.page.mouse.move(x + 120, y, steps=6)
     markup.shot("scrubbing-mid-drag")
     return x + 120
+
+
+@step
+def when_i_ctrl_drag_on_the_zoomed_bar(markup: MarkupPage) -> None:
+    # Diagonal, so a crop pan or an edge resize started by the press would both change the crop.
+    x, y = zoomed_bar_point(markup)
+    markup.page.mouse.move(x, y)
+    markup.page.keyboard.down("Control")
+    markup.page.mouse.down()
+    markup.page.mouse.move(x + 60, y - 60, steps=6)
+    markup.shot("ctrl-dragging-on-the-zoomed-bar")
+    markup.page.mouse.up()
+    markup.page.keyboard.up("Control")
+    markup.next_frames(3)
+
+
+@step
+def when_i_hold_ctrl_and_move_along_the_zoomed_bar(markup: MarkupPage) -> None:
+    # From the video the Ctrl hover hides the controls, and the zoomed bar with them, before the
+    # pointer gets there; on purpose, as for the platform's own controls.
+    x, y = zoomed_bar_point(markup)
+    markup.page.mouse.move(x, y)
+    markup.page.keyboard.down("Control")
+    markup.page.mouse.move(x + 40, y, steps=6)
+    markup.next_frames(3)  # the hover cursor updates once per frame
+    markup.shot("ctrl-hovering-on-the-zoomed-bar")
 
 
 @step
@@ -414,10 +545,71 @@ def then_the_zoom_range_kept_its_length(markup: MarkupPage, before: tuple[float,
 
 
 @step
-def then_its_start_marker_moved(markup: MarkupPage, pair_index: int, before: str) -> None:
-    after = start_marker_x(markup, pair_index)
-    markup.report(f"start marker x {before} -> {after}")
-    assert after != before
+def then_its_start_number_is_under(markup: MarkupPage, pair_index: int, pointer_x: float) -> None:
+    # The grip point stays under the pointer, give or take a frame's snap.
+    x, _ = markup.center_of(zoomed_number(pair_index, "start"))
+    markup.report(f"start number at x {x:.1f}, pointer at {pointer_x:.1f}")
+    assert x == pytest.approx(pointer_x, abs=3)
+
+
+@step
+def then_playback_only_followed_the_marker(
+    markup: MarkupPage, pair_index: int, pressed_time: float
+) -> None:
+    # The drag seeks to the marker as it moves; an Alt+drag scrub of the video would seek elsewhere.
+    moved_to = marker_time(markup, pair_index, "start")
+    seeks = markup.page.evaluate("() => window.__seeks")
+    markup.report(
+        f"marker {pressed_time:.3f}s -> {moved_to:.3f}s, seeks {[round(t, 3) for t in seeks]}"
+    )
+    assert moved_to < pressed_time - 0.01
+    assert all(moved_to - 0.01 <= t <= pressed_time + 0.01 for t in seeks)
+    assert seeks
+    assert seeks[-1] == pytest.approx(moved_to, abs=0.01)
+
+
+@step
+def then_the_crop_is(markup: MarkupPage, expected: str) -> None:
+    actual = crop(markup)
+    markup.report(f"crop {expected} -> {actual}")
+    assert actual == expected
+
+
+@step
+def then_the_zoomed_bar_is_visible_with_no_crop_cursor(markup: MarkupPage) -> None:
+    visibility, cursor = markup.page.evaluate(
+        "s => [getComputedStyle(document.querySelector('.ytc-tz')).visibility,"
+        " document.querySelector(s).style.cursor]",
+        markup.host.crop_hook,
+    )
+    markup.page.keyboard.up("Control")
+    markup.report(f"zoomed bar {visibility}, crop hook cursor {cursor!r}")
+    assert visibility == "visible"
+    assert cursor == ""
+
+
+@step
+def then_the_zoomed_bar_is_hidden(markup: MarkupPage) -> None:
+    assert markup.eventually(
+        "() => getComputedStyle(document.querySelector('.ytc-tz')).visibility === 'hidden'",
+    ), "the zoomed bar stayed visible while a crop draw is armed"
+
+
+@step
+def then_its_end_marker_is_at_the_pointer_time(
+    markup: MarkupPage,
+    pair_index: int,
+    pressed: tuple[float, float],
+    drag: tuple[float, float],
+) -> None:
+    # The drag maps the pointer through the range shown at the press, even past its end.
+    _, end = pair_span(pair_index)
+    panel = markup.box_of(".ytc-tz")
+    seconds_per_px = (pressed[1] - pressed[0]) / panel["width"]
+    expected = end + (drag[1] - drag[0]) * seconds_per_px
+    actual = marker_time(markup, pair_index, "end")
+    markup.report(f"end marker at {actual:.3f}s, pointer time {expected:.3f}s")
+    assert actual == pytest.approx(expected, abs=1 / 30 + seconds_per_px)
 
 
 @step
@@ -470,6 +662,15 @@ def zoom_range(markup: MarkupPage) -> tuple[float, float]:
     return start, end
 
 
+def crop(markup: MarkupPage) -> str:
+    return markup.page.locator("#crop-input").input_value()
+
+
+def zoomed_bar_point(markup: MarkupPage) -> tuple[float, float]:
+    bar = markup.box_of(".ytc-tz-row-hit")
+    return bar["x"] + bar["width"] * 0.3, bar["y"] + bar["height"] / 2
+
+
 def pair_span(pair_index: int) -> tuple[float, float]:
     start = PAIR_SPACING * (pair_index + 1)
     return start, start + PAIR_LENGTH
@@ -484,10 +685,17 @@ def record_seeks(markup: MarkupPage) -> None:
     )
 
 
-def start_marker_x(markup: MarkupPage, pair_index: int) -> str:
+def zoomed_number(pair_index: int, marker: str) -> str:
+    return f".ytc-tz text[data-pair-index='{pair_index}'][data-marker='{marker}']"
+
+
+def marker_time(markup: MarkupPage, pair_index: int, marker: str) -> float:
+    """A marker's time, from its position on the progress bar (a percentage of the duration)."""
     return markup.page.evaluate(
-        "(i) => document.querySelector('#markers-div svg').children[i * 2].getAttribute('x')",
-        pair_index,
+        "([i, end]) => parseFloat(document.querySelector('#markers-div svg')"
+        ".children[i * 2 + end].getAttribute('x')) / 100"
+        " * document.querySelector('video').duration",
+        [pair_index, 1 if marker == "end" else 0],
     )
 
 

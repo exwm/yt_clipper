@@ -16,7 +16,13 @@ import { getCurrentCropComponents, renderSpeedAndCropUI } from '../charts';
 import { setCropPointHighlightVisible } from '../ui/chart/cropchart/cropChartSpec';
 import { platform } from '../yt_clipper';
 import { VideoPlatforms } from '../platforms/platforms';
-import { blockEvent, deleteElement, flashMessage, injectCSS } from '../util/util';
+import {
+  blockEvent,
+  deleteElement,
+  flashMessage,
+  injectCSS,
+  isOwnOverlayTarget,
+} from '../util/util';
 import {
   applyActiveCropDimOpacity,
   centerVideo,
@@ -203,6 +209,7 @@ function onWheel(e: WheelEvent): void {
   // the page.
   if (
     !e.ctrlKey ||
+    isOwnOverlayTarget(e.target) ||
     e.altKey ||
     e.shiftKey ||
     e.metaKey ||

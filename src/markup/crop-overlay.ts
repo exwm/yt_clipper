@@ -20,6 +20,7 @@ import {
   deleteElement,
   flashMessage,
   getCropString,
+  isOwnOverlayTarget,
   setAttributes,
 } from './util/util';
 import { updateCropString } from './crop-utils';
@@ -82,7 +83,8 @@ const cropHoverPerFrame = coalescePerAnimationFrame((e: PointerEvent) => {
   }
 });
 export function updateCropHoverCursor(e) {
-  const cursor = getMouseCropHoverRegion(e);
+  // Over yt_clipper's own controls (the zoomed bar in fullscreen) the crop cursor would hide them.
+  const cursor = isOwnOverlayTarget(e.target) ? null : getMouseCropHoverRegion(e);
 
   if (cursor) {
     hidePlayerControls();
@@ -789,6 +791,7 @@ export function addCropMouseManipulationListener() {
       chartState.currentChartInput.type !== 'crop';
     if (
       ctrlOrCommand(e) &&
+      !isOwnOverlayTarget(e.target) &&
       appState.isSettingsEditorOpen &&
       appState.isCropOverlayVisible &&
       !isCropBlockingChartVisible &&
@@ -1423,6 +1426,7 @@ export function drawCrop() {
     hidePlayerControls();
     appState.hooks.cropMouseManipulation.style.removeProperty('cursor');
     appState.hooks.cropMouseManipulation.style.cursor = 'crosshair';
+    // No own-overlay check: arming hides the player controls above, and the zoomed bar with them.
     beginDrawHandler = (e: PointerEvent) => {
       beginDraw(e);
     };
