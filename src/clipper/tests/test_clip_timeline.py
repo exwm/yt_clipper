@@ -228,7 +228,8 @@ def test_a_sample_guided_window_crops_its_own_frames(
 
 def test_5_49_0_clips_start_and_end_as_in_5_48_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.undo()  # conftest.py sets each test's frame timing
-    assert frame_timing.current() == frame_timing_548.FRAME_TIMING
+    assert frame_timing.current().name == "next"
+    assert frame_timing.current().sameDecisions(frame_timing_548.FRAME_TIMING)
 
 
 @pytest.mark.frame_timing("5.48")

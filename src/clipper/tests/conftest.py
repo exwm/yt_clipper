@@ -22,7 +22,12 @@ verboselogs.add_log_level(HEADER, "HEADER")
 verboselogs.add_log_level(REPORT, "REPORT")
 
 # The frame timing this source builds into the clipper, before any test sets it.
-BUILT_FRAME_TIMING = frame_timing.current().name
+BUILT_FRAME_TIMING = frame_timing.current()
+
+
+def markedFrameTiming(marker: pytest.Mark) -> frame_timing.FrameTimingSwitches:
+    """`frame_timing("5.48")`, `("5.49")` or `("next")`: every group at that release."""
+    return frame_timing.switchesAt(marker.args[0])
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -50,11 +55,14 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     items.sort(key=lambda item: item.path.name not in slow)
     if config.getoption("clipper_exe"):
         skip = pytest.mark.skip(
-            reason=f"a built clipper keeps its own frame timing ({BUILT_FRAME_TIMING})"
+            reason=f"a built clipper keeps its own frame timing ({BUILT_FRAME_TIMING.name})"
         )
         for item in items:
             marker = item.get_closest_marker("frame_timing")
-            if marker and marker.args[0] != BUILT_FRAME_TIMING:
+            # Compared by decisions, so a 5.48 test runs on a next build that still decides as 5.48.
+            if marker and not frame_timing.compose(markedFrameTiming(marker)).sameDecisions(
+                BUILT_FRAME_TIMING
+            ):
                 item.add_marker(skip)
 
 
@@ -68,15 +76,13 @@ def noCoverageInSubprocesses(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture(autouse=True)
 def frameTiming(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The tests pin 5.49's frame timing unless marked `frame_timing("5.48")`. A built clipper
-    (--clipper-exe) keeps its own, so its unmarked tests must pass with either."""
+    """The tests pin 5.49's frame timing unless marked with another. A built clipper (--clipper-exe)
+    keeps its own, so its unmarked tests must pass with either."""
     marker = request.node.get_closest_marker("frame_timing")
     monkeypatch.setattr(
         frame_timing,
         "SWITCHES",
-        frame_timing.FrameTimingSwitches()
-        if marker is not None and marker.args[0] == "5.48"
-        else frame_timing.ALL_549,
+        markedFrameTiming(marker) if marker is not None else frame_timing.ALL_549,
     )
 
 
