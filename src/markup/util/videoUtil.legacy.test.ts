@@ -74,6 +74,7 @@ import { seekBySafe } from './util';
 import {
   frameStartOf,
   getFPS,
+  getFrameRate,
   getFrameTime,
   getScreenFrame,
   isFrameRateMeasured,
@@ -99,6 +100,8 @@ describe('the shell under legacyFrameTiming', () => {
   it('ignores a saved Measure setting and a measured rate', () => {
     expect(isFrameRateMeasured()).toBe(false);
     expect(getFPS()).toBe(60);
+    expect(getFrameRate()).toEqual({ rate: 60, source: 'default' });
+    expect(getFrameRate(30)).toEqual({ rate: 30, source: 'default' });
   });
 
   it('places at the playhead, not the frame on screen or the seek held back', () => {
