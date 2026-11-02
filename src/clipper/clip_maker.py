@@ -233,7 +233,7 @@ def getMarkerPairSettings(  # noqa: PLR0912
     build = frame_timing.SWITCHES
     timing = frame_timing.compose(build)
     span = timing.clipSpan(mp, mps, videoPartDelay)
-    cropOrigin = timing.cropPointOrigin(span, mps)
+    cropOrigin = timing.cropPointOrigin(span, mps, videoPartDelay)
     mp["start"], mp["end"] = span.start, span.end
     if span.seekTo is not None:
         mp["seekTo"], mp["trimEnd"] = span.seekTo, span.trimEnd

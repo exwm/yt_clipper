@@ -17,8 +17,9 @@ DECISIONS = {
         "speedFilter",
         "audioFilter",
         "varyingRateNote",
+        "cropPointOrigin",
     ),
-    "cropPoints": ("sectionEaseDuration", "cutTime", "cropPointOrigin"),
+    "cropPoints": ("sectionEaseDuration", "cutTime"),
 }
 GROUP_BUILDS = [
     FrameTimingSwitches(clipFrames=clipFrames, cropPoints=cropPoints)
@@ -44,8 +45,8 @@ def test_each_group_makes_its_decisions_with_its_switchs_release(
         release = releases[getattr(build, group)]
         for decision in decisions:
             if decision == "cropPointOrigin":
-                # 5.48's crop functions ignore it, so both releases take it from the markers.
-                assert timing.cropPointOrigin is frame_timing.cropOriginOnMarkersTimeline
+                # 5.48.0 had none; both releases seek in the video part's file.
+                assert timing.cropPointOrigin is frame_timing.cropOriginOfVideoPart
             else:
                 assert getattr(timing, decision) is getattr(release, decision), (group, decision)
 
@@ -86,6 +87,6 @@ def test_a_built_clipper_runs_only_the_tests_of_the_decisions_it_makes() -> None
     assert not skipsOnBuiltClipper("next", nextBuild)
     assert skipsOnBuiltClipper("5.49", nextBuild)
     # A 5.48 test runs while next decides as 5.48, and is skipped once next replaces a decision.
-    assert not skipsOnBuiltClipper("5.48", nextBuild)
-    diverged = replace(nextBuild, audioFilter=lambda mp, mps, aDuration: "atrim=0")
-    assert skipsOnBuiltClipper("5.48", diverged)
+    assert skipsOnBuiltClipper("5.48", nextBuild)
+    as548 = replace(nextBuild, sectionEaseDuration=frame_timing_548.sectionEaseDuration, cutTime=frame_timing_548.cutTime)  # fmt: skip
+    assert not skipsOnBuiltClipper("5.48", as548)

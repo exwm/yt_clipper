@@ -52,22 +52,22 @@ SectionEaseDuration = Callable[[str, float, float, float, float, float], float |
 # (cutX, previousX, fps, firstTime, videoPartStart) -> when a Cinematic cut at cutX takes effect.
 CutTime = Callable[[float, float, float | None, float, float], float]
 SpeedFilter = Callable[[list[DictStrAny], DictStrAny, float | Fraction], tuple[str, Any, list[Any]]]
-# (span, mps) -> where crop points count their frames from, on the video's timeline: the videoPartStart
-# given to SectionEaseDuration and CutTime.
-CropPointOrigin = Callable[[ClipSpan, DictStrAny], float]
+# (span, mps, videoPartDelay) -> where crop points count their frames from, on the crop points'
+# timeline: the videoPartStart given to SectionEaseDuration and CutTime. Where the clip's seek puts the
+# video's frames, so it belongs to the clipFrames group.
+CropPointOrigin = Callable[[ClipSpan, DictStrAny, float], float]
 
 
-def cropOriginFromClipSpan(span: ClipSpan, mps: DictStrAny) -> float:
+def cropOriginFromClipSpan(span: ClipSpan, mps: DictStrAny, videoPartDelay: float) -> float:
     """5.49's: its clip span's, the video part's first frame."""
     return span.cropFrameOrigin
 
 
-def cropOriginOnMarkersTimeline(span: ClipSpan, mps: DictStrAny) -> float:
-    """Time 0 on the markers' timeline, where the 5.48 preview counts crop point frames from. Crop point
-    times are the markers' plus the delay, so that is the delay. Read from mps alone, so crop points
-    decide the same whatever clipFrames picks. 5.48's crop functions time from the start marker and
-    don't read it."""
-    return mps["delay"]
+def cropOriginOfVideoPart(span: ClipSpan, mps: DictStrAny, videoPartDelay: float) -> float:
+    """5.48's seek: `-ss` counts from the start of the video part's file, so its frame k sits at the
+    part's start + k/fps. The delay moves the seek and the crop points together, so it cancels. 5.48's
+    crop functions time from the start marker and don't read it."""
+    return videoPartDelay
 
 
 @dataclass(frozen=True)
@@ -89,7 +89,7 @@ class FrameTiming:
     # when unknown) -> its sentences.
     varyingRateNote: Callable[[float | None], list[str]]
     # 5.49's by default, so the frozen timings keep their constructors. The 5.48 group and next use
-    # cropOriginOnMarkersTimeline (compose).
+    # cropOriginOfVideoPart (compose).
     cropPointOrigin: CropPointOrigin = cropOriginFromClipSpan
 
     def sameDecisions(self, other: "FrameTiming") -> bool:
@@ -104,10 +104,11 @@ class FrameTimingSwitches:
     No command-line option: the build picks them."""
 
     # The clip's frames and the clock that places them: clipSpan, videoInput, fastTrimInput,
-    # speedFilter, audioFilter, varyingRateNote. One group, so a clip's frames, its encode and fast trim
-    # seeks, and its audio offset follow one clock; ffprobe's varying rate note describes that clock.
+    # speedFilter, audioFilter, varyingRateNote, cropPointOrigin. One group, so a clip's frames, its
+    # encode and fast trim seeks, its audio offset and where crop points count frames from follow one
+    # clock; ffprobe's varying rate note describes that clock.
     clipFrames: Release = "next"
-    # Where crop points take effect: sectionEaseDuration, cutTime, cropPointOrigin.
+    # Where crop points take effect: sectionEaseDuration, cutTime.
     cropPoints: Release = "next"
 
 
@@ -128,9 +129,8 @@ def compose(build: Build) -> FrameTiming:
     if build == WHOLE_549:
         return frame_timing_549.FRAME_TIMING
     release = {
-        # The origin 5.48's crop functions ignore comes from the markers, not 5.48's clip span, so the
-        # cropPoints group reads nothing clipFrames decides.
-        "5.48": replace(frame_timing_548.FRAME_TIMING, cropPointOrigin=cropOriginOnMarkersTimeline),
+        # 5.48.0 had no origin; its seek puts the video's frames at the part's start.
+        "5.48": replace(frame_timing_548.FRAME_TIMING, cropPointOrigin=cropOriginOfVideoPart),
         "next": frame_timing_next.FRAME_TIMING,
     }
     clip = release[build.clipFrames]
@@ -145,7 +145,7 @@ def compose(build: Build) -> FrameTiming:
         sectionEaseDuration=crop.sectionEaseDuration,
         cutTime=crop.cutTime,
         varyingRateNote=clip.varyingRateNote,
-        cropPointOrigin=crop.cropPointOrigin,
+        cropPointOrigin=clip.cropPointOrigin,
     )
 
 
