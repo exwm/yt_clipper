@@ -103,25 +103,32 @@ def is_ci_build(config: pytest.Config) -> bool:
     return path.exists() and "IS_CI_BUILD = true" in path.read_text(encoding="utf-8")
 
 
-# The frame decision groups' flags (feature-flags.ts), each a release. A `frame_timing` mode sets
-# every group to its release; a test with no mode runs on the userscript's defaults.
+# The frame decision groups' flags, `${group}Timing` for each group in the table in
+# src/markup/util/decisions/keys.ts (test_frame_timing_flags.py checks the two agree). A test with
+# no `frame_timing` mode runs on the userscript's defaults.
 FRAME_TIMING_FLAGS = (
     "placementTiming",
     "seekTiming",
     "loopTiming",
     "stepsTiming",
     "compareTiming",
-    "frameRateTiming",
+    "rateTiming",
     "cropEaseTiming",
     "cinematicTiming",
 )
-# 'next' makes 5.48's decisions until a fix lands there: map it to "5.49" or a mode of its own
-# once one does.
-RELEASE_MODES = {"5.48": "5.48", "next": "5.48", "5.49": "5.49"}
+FRAME_TIMING_KEYS = Path(__file__).parents[2] / "src/markup/util/decisions/keys.ts"
+
+
+def frame_timing_groups() -> list[str]:
+    """The group names in keys.ts' FRAME_TIMING_GROUPS table."""
+    text = FRAME_TIMING_KEYS.read_text(encoding="utf-8")
+    table = text.split("export const FRAME_TIMING_GROUPS = {", 1)[1].split("} as const;", 1)[0]
+    return re.findall(r"^  (\w+): \{", table, re.MULTILINE)
 
 
 def frame_timing_flags(node: pytest.Item) -> dict[str, str | bool]:
-    """The flags a `frame_timing` mode sets: "5.49" is the whole-build flag, "5.48" every group."""
+    """The flags a `frame_timing` mode sets: "5.49" turns on the whole-build flag, "5.48" sets every
+    group to 5.48."""
     marker = node.get_closest_marker("frame_timing")
     if marker is None:
         return {}
@@ -131,28 +138,36 @@ def frame_timing_flags(node: pytest.Item) -> dict[str, str | bool]:
 
 
 def built_frame_timing(config: pytest.Config) -> str | None:
-    """The frame timing the userscript under test defaults to, read from its bundled flags: None
-    when the groups' releases mix modes."""
+    """The userscript's default frame timing, from its bundled `frameTiming549` default: "5.49" when
+    on, else "default" (each group on its default release), or None when it can't be read."""
     path = userscript_path(config)
     if not path.exists():
         return None
-    text = path.read_text(encoding="utf-8")
-    if re.search(r"frameTiming549: \{\s*default: (true|!0)", text):
-        return "5.49"
-    modes = set()
-    for flag in FRAME_TIMING_FLAGS:
-        found = re.search(rf"{flag}: frameTimingFlag\(\s*[\"'](5\.48|5\.49|next)[\"']", text)
-        if found is None:
-            return None
-        modes.add(RELEASE_MODES[found[1]])
-    return modes.pop() if len(modes) == 1 else None
+    found = re.search(
+        r"frameTiming549: \{\s*default: (true|false|!0|!1)", path.read_text(encoding="utf-8")
+    )
+    if found is None:
+        return None
+    return "5.49" if found[1] in ("true", "!0") else "default"
+
+
+def is_shipped_mode(mode: str, built_mode: str) -> bool:
+    """Whether a `frame_timing` mode makes the decisions the build makes by default. The default
+    build's groups are on 'next', which makes 5.48's decisions while frame-timing-next.ts' `fixes`
+    is empty: "5.48" tests then run in `just ui-test`, with the popup's override setting every group
+    to 5.48. Revisit this once a fix lands in next."""
+    return (mode == "5.49") == (built_mode == "5.49")
 
 
 def needs_flag_overrides(item: pytest.Item, built_mode: str | None) -> bool:
-    """A frame timing test needs the popup's override only when its mode isn't the built default."""
+    """A frame timing test needs the popup's override only when its mode isn't one the build makes by
+    default (`is_shipped_mode`). So on a CI build, which leaves the popup out, "5.48" tests still run,
+    on 'next', which makes 5.48's decisions while `fixes` is empty. Revisit this once a fix lands in
+    next."""
     marker = item.get_closest_marker("frame_timing")
     return item.get_closest_marker("local_build") is not None or (
-        marker is not None and marker.args[0] != built_mode
+        marker is not None
+        and (built_mode is None or not is_shipped_mode(marker.args[0], built_mode))
     )
 
 
@@ -177,7 +192,11 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     built_mode = built_frame_timing(config)
     for item in items:
         marker = item.get_closest_marker("frame_timing")
-        if marker is not None and built_mode is not None and marker.args[0] != built_mode:
+        if (
+            marker is not None
+            and built_mode is not None
+            and not is_shipped_mode(marker.args[0], built_mode)
+        ):
             item.add_marker(pytest.mark.unshipped_frame_timing)
     if config.getoption("assumed_frame_rate"):
         deselected = [item for item in items if not runs_at_the_assumed_rate(item)]

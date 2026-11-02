@@ -1,5 +1,5 @@
 import { DecisionGroup, decisionGroup } from './group';
-import { GROUP_KEYS } from './keys';
+import { FRAME_TIMING_GROUPS } from './keys';
 
 /** Which frame rate is in use: the measured one or the platform's, and how the platform's is kept. */
 export interface RateTiming {
@@ -18,4 +18,4 @@ export interface RateTiming {
   rateCacheAtNewSource(cached: number | null): number | null;
 }
 
-export const rate: DecisionGroup<RateTiming> = decisionGroup(GROUP_KEYS.rate);
+export const rate: DecisionGroup<RateTiming> = decisionGroup(FRAME_TIMING_GROUPS.rate.keys);

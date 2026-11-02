@@ -6,7 +6,14 @@ import { CinematicTiming, cinematic } from './decisions/cinematic';
 import { CompareTiming, compare } from './decisions/compare';
 import { CropEaseTiming, cropEase } from './decisions/crop-ease';
 import type { DecisionGroup } from './decisions/group';
-import { FrameTimingRelease, GROUP_KEYS, GroupRelease } from './decisions/keys';
+import {
+  FRAME_DECISION_GROUPS,
+  FRAME_TIMING_GROUPS,
+  FrameDecisionGroup,
+  FrameTimingRelease,
+  groupFlagName,
+  GroupRelease,
+} from './decisions/keys';
 import { LoopTiming, loop } from './decisions/loop';
 import { PlacementTiming, placement } from './decisions/placement';
 import { RateTiming, rate } from './decisions/rate';
@@ -114,7 +121,7 @@ export const frameDecisionGroups = {
     return cinematic;
   },
 };
-export type FrameDecisionGroup = keyof typeof GROUP_KEYS;
+export type { FrameDecisionGroup };
 export type GroupReleases = Record<FrameDecisionGroup, GroupRelease>;
 
 /** The build's frame timing: 5.49's whole, or each group's release. */
@@ -123,9 +130,8 @@ export type FrameTimingChoice = { whole: '5.49' } | { groups: GroupReleases };
 /** The frame timing `choice` makes. */
 export function composeFrameTiming(choice: FrameTimingChoice): FrameTiming {
   if ('whole' in choice) {
-    const groups = Object.keys(GROUP_KEYS) as FrameDecisionGroup[];
     return composeGroups(
-      Object.fromEntries(groups.map((name) => [name, '5.49'])) as Record<
+      Object.fromEntries(FRAME_DECISION_GROUPS.map((name) => [name, '5.49'])) as Record<
         FrameDecisionGroup,
         FrameTimingRelease
       >
@@ -141,8 +147,8 @@ export function composeGroups(
   releases: Record<FrameDecisionGroup, FrameTimingRelease>
 ): FrameTiming {
   const timing = {};
-  for (const name of Object.keys(GROUP_KEYS) as FrameDecisionGroup[]) {
-    for (const key of GROUP_KEYS[name]) {
+  for (const name of FRAME_DECISION_GROUPS) {
+    for (const key of FRAME_TIMING_GROUPS[name].keys) {
       Object.defineProperty(timing, key, {
         enumerable: true,
         configurable: true,
@@ -162,18 +168,8 @@ export function composeGroups(
 /** The build's frame timing from the flags: `frameTiming549` overrides every group's flag. */
 export function choiceFromFlags(flags: FeatureFlags): FrameTimingChoice {
   if (flags.frameTiming549) return { whole: '5.49' };
-  return {
-    groups: {
-      placement: flags.placementTiming,
-      seek: flags.seekTiming,
-      loop: flags.loopTiming,
-      steps: flags.stepsTiming,
-      compare: flags.compareTiming,
-      rate: flags.frameRateTiming,
-      cropEase: flags.cropEaseTiming,
-      cinematic: flags.cinematicTiming,
-    },
-  };
+  const release = (group: FrameDecisionGroup) => [group, flags[groupFlagName(group)]];
+  return { groups: Object.fromEntries(FRAME_DECISION_GROUPS.map(release)) as GroupReleases };
 }
 
 // Read once at start: a flag applies on reload, so decisions never mix releases mid-session.

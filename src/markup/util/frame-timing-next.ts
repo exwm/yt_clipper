@@ -1,4 +1,4 @@
-import { GROUP_KEYS } from './decisions/keys';
+import { FRAME_TIMING_GROUPS } from './decisions/keys';
 import type { FrameTiming } from './frame-timing';
 import { frameTiming548 } from './frame-timing-548';
 
@@ -13,8 +13,8 @@ const fixes: Partial<FrameTiming> = {};
 export const frameTimingNext = Object.defineProperties(
   {},
   Object.fromEntries(
-    Object.values(GROUP_KEYS)
-      .flat()
+    Object.values(FRAME_TIMING_GROUPS)
+      .flatMap((group) => group.keys)
       .map((key) => [key, { enumerable: true, get: () => fixes[key] ?? frameTiming548[key] }])
   )
 ) as FrameTiming;

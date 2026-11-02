@@ -1,4 +1,4 @@
-import type { GroupRelease } from './decisions/keys';
+import { frameTimingFlags, GroupRelease } from './decisions/keys';
 
 /**
  * For tests: runs a test file on one frame timing, whatever the flags' defaults are: 5.49's whole
@@ -14,18 +14,4 @@ export function useFrameTiming(release: GroupRelease | '5.49'): void {
         : { frameTiming549: false, ...frameTimingFlags(release) };
     return { ...actual, featureFlags: { ...actual.featureFlags, ...flags } };
   });
-}
-
-/** Every frame decision group's flag set to `release`. */
-export function frameTimingFlags(release: GroupRelease) {
-  return {
-    placementTiming: release,
-    seekTiming: release,
-    loopTiming: release,
-    stepsTiming: release,
-    compareTiming: release,
-    frameRateTiming: release,
-    cropEaseTiming: release,
-    cinematicTiming: release,
-  };
 }
