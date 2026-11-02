@@ -257,7 +257,7 @@ def add_vfilter_options(vfilter_options: argparse._ArgumentGroup) -> None:
                 "video2x uses the video2x post-processor with the RIFE model for higher quality interpolation.",
                 "video2x requires a vulkan-capable GPU. See also https://github.com/k4yt3x/video2x/.",
                 "Frozen releases look for video2x in bin/video-tools and then bin/video2x in the install folder, then on the system PATH.",
-                "video2x can be downloaded separately from https://github.com/k4yt3x/video2x/releases.",
+                "Download it separately from the yt_clipper build of video2x (6.6.0-exwm) at https://github.com/exwm/video2x/releases, since upstream video2x lacks an option the clipper script uses.",
                 "video2x does not yet support hardware-accelerated encoders like h264_vulkan or h264_nvenc.",
                 "ffmpeg-based motion interpolation is deprecated and scheduled to be removed.",
                 "ffmpeg-based motion interpolation requires --minterp-fps or a non-Numeric minterp mode to have effect.",
