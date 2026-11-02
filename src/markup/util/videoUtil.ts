@@ -1,6 +1,5 @@
-import { appState, VideoElement, YTPlayer } from '../appState';
+import { appState, VideoElement } from '../appState';
 import { onVideoFrames, VideoFrameSubscription } from './video-frame-loop';
-import { getPlatform, VideoPlatforms } from '../platforms/platforms';
 import { chartState } from '../charts';
 import { isDrawingCrop } from '../crop-overlay';
 import { isMouseManipulatingCrop } from '../crop-overlay';
@@ -9,6 +8,15 @@ import type { OwnSeek, Refresh, ScreenFrame } from './frame-step';
 import type { FrameGrid } from './frame-grid';
 import { FrameReading, FrameSeek, frameTiming } from './frame-timing';
 import { registerActiveDragCleanup } from './drag-recovery';
+import {
+  FrameRateSource,
+  isFrameRateMeasured,
+  noteNewSource,
+  noteSourceLoaded,
+  rateInUse,
+  readFrameRates,
+  setFrameRateMeasurement,
+} from './frame-rate-source';
 import {
   getFrameOnScreen,
   getHeldFrame,
@@ -29,12 +37,11 @@ export function followFrameRate(video: VideoElement): void {
   // playhead never shows the frame of a seek made on the old one.
   video.addEventListener('emptied', () => {
     ownSeek = null;
-    youTubeStatsFps = frameTiming.rateCacheAtNewSource(youTubeStatsFps);
-    isNewSourceLoaded = false;
+    noteNewSource();
     updateFrameRate();
   });
   video.addEventListener('loadedmetadata', () => {
-    isNewSourceLoaded = true;
+    noteSourceLoaded();
     updateFrameRate();
   });
   video.addEventListener('resize', updateFrameRate);
@@ -61,36 +68,13 @@ function updateFrameRate(): void {
   showFrameRate(frameRate);
 }
 
-// Whether getFPS uses the rate measured from played frames, saved in this browser. Off until turned
-// on: the measurement doesn't yet handle every video. Read on first use; storage that is blocked or
-// full keeps the setting for this page only. 5.48's frame timing has no measurement, so the setting
-// saved is ignored there, and the Measure button and command that toggle it are hidden.
-const MEASURE_FRAME_RATE_KEY = 'ytc-measure-frame-rate';
-let measureFrameRate: boolean | null = null;
-export function isFrameRateMeasured(): boolean {
-  return frameTiming.usesMeasuredRate(isMeasureFrameRateOn);
-}
-
-function isMeasureFrameRateOn(): boolean {
-  if (measureFrameRate == null) {
-    try {
-      measureFrameRate = localStorage.getItem(MEASURE_FRAME_RATE_KEY) === 'true';
-    } catch {
-      measureFrameRate = false;
-    }
-  }
-  return measureFrameRate;
-}
+export { isFrameRateMeasured };
 
 const formatFps = (fps: number) => Number(fps.toFixed(3));
 
 export function toggleFrameRateMeasurement(): void {
-  measureFrameRate = !isFrameRateMeasured();
-  try {
-    localStorage.setItem(MEASURE_FRAME_RATE_KEY, String(measureFrameRate));
-  } catch {
-    // Blocked or full storage: the setting holds for this page only.
-  }
+  const measureFrameRate = !isFrameRateMeasured();
+  setFrameRateMeasurement(measureFrameRate);
   const frameRate = getFrameRate();
   // This flash names the rate, so the next frame doesn't flash it again.
   if (frameRate.source === 'measured') isNewMeasuredFrameRate(appState.video, frameRate.rate);
@@ -211,50 +195,12 @@ export function seekByFrames(frames: number): void {
   );
 }
 
-export let prevVideoWidth: number;
-// YouTube's stats rate for the rendition playing, read once per rendition (width), and per source
-// as the frame timing decides.
-let youTubeStatsFps: number | null = null;
-let isNewSourceLoaded = true;
-
-export type FrameRateSource = 'measured' | 'platform' | 'default';
+export type { FrameRateSource };
 
 /** The frame rate in use and where it comes from: a confirmed measured rate, else the platform's
  *  (YouTube's stats), else the default. */
 export function getFrameRate(defaultFPS = 60): { rate: number; source: FrameRateSource } {
-  let frameRate: { rate: number; source: FrameRateSource } = {
-    rate: defaultFPS,
-    source: 'default',
-  };
-  try {
-    const isYouTube = getPlatform() === VideoPlatforms.youtube;
-    if (isYouTube) {
-      const { rate, cached } = frameTiming.platformRate({
-        cached: youTubeStatsFps,
-        widthChanged: prevVideoWidth !== appState.video.videoWidth,
-        isNewSourceLoaded,
-        readStats: () =>
-          parseFloat(
-            /@(\d+)/.exec((appState.player as YTPlayer).getStatsForNerds().resolution)?.[1] ?? '60'
-          ),
-      });
-      youTubeStatsFps = cached;
-      frameRate = { rate, source: 'platform' };
-    }
-    // A confirmed measured rate replaces the default. On YouTube it only refines the stats rate, which
-    // shows 29.97 fps as 30.
-    const measured = isFrameRateMeasured() ? getMeasuredFrameRate(appState.video) : null;
-    if (
-      measured != null &&
-      (!isYouTube || Math.abs(measured - frameRate.rate) <= frameRate.rate * 0.005)
-    ) {
-      frameRate = { rate: measured, source: 'measured' };
-    }
-  } catch (e) {
-    console.log('Could not detect fps', e);
-  }
-  prevVideoWidth = appState.video.videoWidth;
-  return frameRate;
+  return rateInUse(readFrameRates(defaultFPS));
 }
 
 /** The frame rate in use, as the global settings editor shows it. */

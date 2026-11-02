@@ -233,9 +233,9 @@
   {
     "id": "read-measure-off",
     "bug": "with Measure off the measured rate (a read one included) is still used",
-    "file": "src/markup/util/videoUtil.ts",
-    "old": "    const measured = isFrameRateMeasured() ? getMeasuredFrameRate(appState.video) : null;",
-    "new": "    const measured = getMeasuredFrameRate(appState.video);",
+    "file": "src/markup/util/frame-rate-source.ts",
+    "old": "    const rate = isFrameRateMeasured() ? getMeasuredFrameRate(appState.video) : null;",
+    "new": "    const rate = getMeasuredFrameRate(appState.video);",
     "jest": ["src/markup/util/videoUtil.test.ts"]
   }
 ]

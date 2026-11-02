@@ -896,32 +896,38 @@ const coalescerShells: Record<keyof typeof sides, (l: Leaves) => any> = {
 const frameRateShells: Record<keyof typeof sides, (l: Leaves) => any> = {
   'v5.48.0': (l) =>
     load(tagSource('src/markup/util/videoUtil.ts'), ['prevVideoWidth', 'getFPS'], l.scope),
-  current: (l) =>
-    load(
-      ownSource('src/markup/util/videoUtil.ts'),
+  current: (l) => {
+    const scope = {
+      ...l.scope,
+      // Decoys: 5.48 had no measured rate, so a saved Measure setting must not reach the rate.
+      localStorage: { getItem: () => 'true' },
+      getMeasuredFrameRate: () => 29.97,
+      onVideoFrames: () => ({ redraw: () => {}, stop: () => {} }),
+      updateFrameRate: () => {},
+    };
+    const rateSource = load(
+      ownSource('src/markup/util/frame-rate-source.ts'),
       [
+        'rateInUse',
+        'MEASURE_FRAME_RATE_KEY',
+        'measureFrameRate',
+        'isFrameRateMeasured',
+        'isMeasureFrameRateOn',
         'prevVideoWidth',
         'youTubeStatsFps',
         'isNewSourceLoaded',
-        'getFrameRate',
-        'getFPS',
-        'isFrameRateMeasured',
-        'isMeasureFrameRateOn',
-        'measureFrameRate',
-        'MEASURE_FRAME_RATE_KEY',
-        'followFrameRate',
-        'frameRateFrames',
-        'ownSeek',
+        'noteNewSource',
+        'noteSourceLoaded',
+        'readFrameRates',
       ],
-      {
-        ...l.scope,
-        // Decoys: 5.48 had no measured rate, so a saved Measure setting must not reach the rate.
-        localStorage: { getItem: () => 'true' },
-        getMeasuredFrameRate: () => 29.97,
-        onVideoFrames: () => ({ redraw: () => {}, stop: () => {} }),
-        updateFrameRate: () => {},
-      }
-    ),
+      scope
+    );
+    return load(
+      ownSource('src/markup/util/videoUtil.ts'),
+      ['getFrameRate', 'getFPS', 'followFrameRate', 'frameRateFrames', 'ownSeek'],
+      { ...scope, ...rateSource }
+    );
+  },
 };
 
 (hasTag ? it : it.skip)(
