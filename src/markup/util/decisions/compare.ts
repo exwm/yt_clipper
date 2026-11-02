@@ -3,7 +3,7 @@ import type { CropKeyframeMatch } from '../../crop/crop-keyframe-math';
 import type { FrameGrid } from '../frame-grid';
 import type { MarkerType, TimeSpan } from '../frame-timing';
 import { DecisionGroup, decisionGroup } from './group';
-import { GROUP_KEYS } from './keys';
+import { FRAME_TIMING_GROUPS } from './keys';
 
 /** Whether two placed times, or a time and a marker pair or crop point, mean the same frame. */
 export interface CompareTiming {
@@ -48,4 +48,6 @@ export interface CompareTiming {
   ): number | null;
 }
 
-export const compare: DecisionGroup<CompareTiming> = decisionGroup(GROUP_KEYS.compare);
+export const compare: DecisionGroup<CompareTiming> = decisionGroup(
+  FRAME_TIMING_GROUPS.compare.keys
+);

@@ -1,6 +1,6 @@
 import type { EaseSectionDuration } from '../../crop/crop-keyframe-math';
 import { DecisionGroup, decisionGroup } from './group';
-import { GROUP_KEYS } from './keys';
+import { FRAME_TIMING_GROUPS } from './keys';
 
 /** How long a crop section eases, which the clipper's twin matches. */
 export interface CropEaseTiming {
@@ -8,4 +8,6 @@ export interface CropEaseTiming {
   easeSectionDuration: EaseSectionDuration;
 }
 
-export const cropEase: DecisionGroup<CropEaseTiming> = decisionGroup(GROUP_KEYS.cropEase);
+export const cropEase: DecisionGroup<CropEaseTiming> = decisionGroup(
+  FRAME_TIMING_GROUPS.cropEase.keys
+);

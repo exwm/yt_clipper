@@ -1,7 +1,7 @@
 import type { Refresh } from '../frame-step';
 import type { FrameReading, LoopReading } from '../frame-timing';
 import { DecisionGroup, decisionGroup } from './group';
-import { GROUP_KEYS } from './keys';
+import { FRAME_TIMING_GROUPS } from './keys';
 
 /** A preview loop's own state between refreshes, which only this group reads and writes. */
 export interface LoopState {
@@ -28,4 +28,4 @@ export interface LoopTiming {
   noteRefresh(state: LoopState, time: number): LoopState;
 }
 
-export const loop: DecisionGroup<LoopTiming> = decisionGroup(GROUP_KEYS.loop);
+export const loop: DecisionGroup<LoopTiming> = decisionGroup(FRAME_TIMING_GROUPS.loop.keys);

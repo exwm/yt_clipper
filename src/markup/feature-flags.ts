@@ -17,7 +17,14 @@
  * those: there the flags are always what this file says.
  */
 
-import { GROUP_RELEASES, GroupRelease } from './util/decisions/keys';
+import {
+  FRAME_DECISION_GROUPS,
+  FRAME_TIMING_GROUPS,
+  GROUP_RELEASES,
+  groupFlagName,
+  GroupFlagName,
+  GroupRelease,
+} from './util/decisions/keys';
 
 // Parcel inlines the variable at build time, and GitHub Actions sets it on every CI build.
 const IS_CI_BUILD = process.env.GITHUB_ACTIONS === 'true';
@@ -35,17 +42,18 @@ interface FeatureFlagDefinition<T> {
   hidden?: boolean;
 }
 
-function frameTimingFlag(
-  release: GroupRelease,
-  description: string
-): FeatureFlagDefinition<GroupRelease> {
-  return {
-    default: release,
-    description: `${description} 'next' is 5.48's until a fix lands there. Ignored while frameTiming549 is on.`,
-    options: GROUP_RELEASES,
-    appliesOnReload: true,
-  };
-}
+// Each group's flag, `${group}Timing`, picking the release whose decisions the group uses.
+const groupFlagDefinitions = Object.fromEntries(
+  FRAME_DECISION_GROUPS.map((group): [GroupFlagName, FeatureFlagDefinition<GroupRelease>] => [
+    groupFlagName(group),
+    {
+      default: 'next',
+      description: `${FRAME_TIMING_GROUPS[group].description} 5.48: as 5.48 decided. next: the next release's decisions, where fixes land. Ignored while frameTiming549 is on.`,
+      options: GROUP_RELEASES,
+      appliesOnReload: true,
+    },
+  ])
+) as Record<GroupFlagName, FeatureFlagDefinition<GroupRelease>>;
 
 const featureFlagDefinitions = {
   /** Shareable-URL save / load.
@@ -90,40 +98,9 @@ const featureFlagDefinitions = {
       "Every frame decision as 5.49 made it, whatever each group's flag picks: markers and points on the frame on screen, steps by whole frames, and the Measure button.",
     appliesOnReload: true,
   } as FeatureFlagDefinition<boolean>,
-  /** One flag per group of frame decisions (`util/decisions/`), each choosing the release whose
-   *  decisions the group uses. Only `util/frame-timing.ts` reads them. */
-  placementTiming: frameTimingFlag(
-    'next',
-    'Where markers, crop and speed points are placed: at the playhead (5.48), or on the frame on screen (5.49).'
-  ),
-  seekTiming: frameTimingFlag(
-    'next',
-    "Where a seek to a marker or point goes: to its time (5.48), or inside its frame, keeping a slow seek's target (5.49)."
-  ),
-  loopTiming: frameTimingFlag(
-    'next',
-    'When the marker pair and crop loops turn back: past the end (5.48), or on the end frame, shown its full time (5.49).'
-  ),
-  stepsTiming: frameTimingFlag(
-    'next',
-    'How frame steps and marker nudges move, and how durations count: by 1/fps of time (5.48), or by whole frames from the frame on screen, counting the end frame (5.49).'
-  ),
-  compareTiming: frameTimingFlag(
-    'next',
-    'How markers, points and the playhead compare: by time (5.48), or by frame (5.49).'
-  ),
-  frameRateTiming: frameTimingFlag(
-    'next',
-    "The frame rate: YouTube's or 60 fps (5.48), or measured from played frames with the Measure button (5.49)."
-  ),
-  cropEaseTiming: frameTimingFlag(
-    'next',
-    "Where a crop section's ease ends: 5.48's frame, or 5.49's, which allows for a time rounded below a frame's start."
-  ),
-  cinematicTiming: frameTimingFlag(
-    'next',
-    "The frame a Cinematic cut takes effect on: 5.48's ease frame, or 5.49's, which allows for a time rounded below a frame's start."
-  ),
+  /** One flag per group of frame decisions, generated from the table in `util/decisions/keys.ts`.
+   *  Only `util/frame-timing.ts` reads them. */
+  ...groupFlagDefinitions,
   featureFlagsPanel: {
     default: FEATURE_FLAG_OVERRIDES_ENABLED,
     description: 'The feature flags popup in the markers toolbar.',

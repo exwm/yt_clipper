@@ -2,7 +2,7 @@ import type { FrameGrid } from '../frame-grid';
 import type { ScreenFrame } from '../frame-step';
 import type { FrameReading, PlayheadReading, RateReading, ScreenReading } from '../frame-timing';
 import { DecisionGroup, decisionGroup } from './group';
-import { GROUP_KEYS } from './keys';
+import { FRAME_TIMING_GROUPS } from './keys';
 
 /** Which frame the user is on, and the time a placement (a marker, a crop or speed point) stores. */
 export interface PlacementTiming {
@@ -29,4 +29,6 @@ export interface PlacementTiming {
   redrawTime(reading: PlayheadReading, heldFrameStart: number): number;
 }
 
-export const placement: DecisionGroup<PlacementTiming> = decisionGroup(GROUP_KEYS.placement);
+export const placement: DecisionGroup<PlacementTiming> = decisionGroup(
+  FRAME_TIMING_GROUPS.placement.keys
+);

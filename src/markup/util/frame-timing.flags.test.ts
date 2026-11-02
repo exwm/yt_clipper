@@ -1,5 +1,5 @@
 import type { FeatureFlags } from '../feature-flags';
-import { frameTimingFlags } from './frame-timing-mode.fixtures';
+import { frameTimingFlags } from './decisions/keys';
 
 type Loaded = {
   frameTiming: typeof import('./frame-timing');
@@ -68,7 +68,7 @@ describe('the frame timing flags', () => {
     loopTiming: 'loop',
     stepsTiming: 'steps',
     compareTiming: 'compare',
-    frameRateTiming: 'rate',
+    rateTiming: 'rate',
     cropEaseTiming: 'cropEase',
     cinematicTiming: 'cinematic',
   } as const;

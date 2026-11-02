@@ -1,6 +1,11 @@
 import { INITIAL_LOOP_STATE } from './decisions/loop';
 import type { OwnSeek } from './frame-step';
-import { FRAME_TIMING_RELEASES, FrameTimingRelease } from './decisions/keys';
+import {
+  FRAME_TIMING_RELEASES,
+  FrameTimingRelease,
+  groupFlagName,
+  GroupRelease,
+} from './decisions/keys';
 import {
   composeFrameTiming,
   choiceFromFlags,
@@ -13,7 +18,6 @@ import { frameTiming548 } from './frame-timing-548';
 import { frameTiming549 } from './frame-timing-549';
 import { frameTimingNext } from './frame-timing-next';
 import { featureFlags, validFeatureFlagOverrides } from '../feature-flags';
-import { frameTimingFlags } from './frame-timing-mode.fixtures';
 
 const groupNames = Object.keys(frameDecisionGroups) as FrameDecisionGroup[];
 const allGroups = (release: FrameTimingRelease) =>
@@ -29,18 +33,8 @@ function differing(timing: object, whole: object): string[] {
   );
 }
 
-const flagsOf = (groups: Record<FrameDecisionGroup, string>) =>
-  ({
-    ...frameTimingFlags('next'),
-    placementTiming: groups.placement,
-    seekTiming: groups.seek,
-    loopTiming: groups.loop,
-    stepsTiming: groups.steps,
-    compareTiming: groups.compare,
-    frameRateTiming: groups.rate,
-    cropEaseTiming: groups.cropEase,
-    cinematicTiming: groups.cinematic,
-  }) as ReturnType<typeof frameTimingFlags>;
+const flagsOf = (groups: Record<FrameDecisionGroup, GroupRelease>) =>
+  Object.fromEntries(groupNames.map((group) => [groupFlagName(group), groups[group]]));
 
 describe('the frame decision groups', () => {
   it('hold every decision once, with the same members in every release', () => {
@@ -137,7 +131,10 @@ describe('the build from the flags', () => {
   it.each(groupNames)(
     "is 5.49's whole with frameTiming549 on, even with the %s group's flag on 5.48",
     (group) => {
-      const groups = { ...allGroups('next'), [group]: '5.48' };
+      const groups = { ...allGroups('next'), [group]: '5.48' } as Record<
+        FrameDecisionGroup,
+        GroupRelease
+      >;
       const composed = composeFrameTiming(
         choiceFromFlags({ ...featureFlags, ...flagsOf(groups), frameTiming549: true })
       );

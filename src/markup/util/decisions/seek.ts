@@ -2,7 +2,7 @@ import type { FrameGrid } from '../frame-grid';
 import type { FrameSeek } from '../frame-timing';
 import type { SeekDecision } from '../seek-coalescer';
 import { DecisionGroup, decisionGroup } from './group';
-import { GROUP_KEYS } from './keys';
+import { FRAME_TIMING_GROUPS } from './keys';
 
 /** Where a seek to a placed time goes, and what becomes of a seek seekToSafe holds back. */
 export interface SeekTiming {
@@ -15,4 +15,4 @@ export interface SeekTiming {
   newSourceSeek(): SeekDecision | null;
 }
 
-export const seek: DecisionGroup<SeekTiming> = decisionGroup(GROUP_KEYS.seek);
+export const seek: DecisionGroup<SeekTiming> = decisionGroup(FRAME_TIMING_GROUPS.seek.keys);

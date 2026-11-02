@@ -1,6 +1,6 @@
 import type { FrameGrid } from '../frame-grid';
 import { DecisionGroup, decisionGroup } from './group';
-import { GROUP_KEYS } from './keys';
+import { FRAME_TIMING_GROUPS } from './keys';
 
 /** When a Cinematic cut takes effect, which the clipper's twin matches. */
 export interface CinematicTiming {
@@ -9,4 +9,6 @@ export interface CinematicTiming {
   cutFrameMiddle(grid: FrameGrid, cutX: number): number;
 }
 
-export const cinematic: DecisionGroup<CinematicTiming> = decisionGroup(GROUP_KEYS.cinematic);
+export const cinematic: DecisionGroup<CinematicTiming> = decisionGroup(
+  FRAME_TIMING_GROUPS.cinematic.keys
+);
