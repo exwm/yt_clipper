@@ -47,12 +47,12 @@ describe('the frame decision groups', () => {
       }
       return legacy;
     });
-    expect(members.sort()).toEqual(Object.keys(timing548()).sort());
+    expect(members.sort()).toEqual(Object.keys(timing548).sort());
   });
 
   it.each([
-    ['5.48', timing548()],
-    ['5.49', timing549()],
+    ['5.48', timing548],
+    ['5.49', timing549],
     ['next', frameTimingNext],
   ] as const)('recompose %s decision by decision', (release, whole) => {
     const composed = composeGroups(allGroups(release));
@@ -154,7 +154,7 @@ describe('the build from the flags', () => {
       const composed = composeFrameTiming(
         choiceFromFlags({ ...featureFlags, ...flagsOf(groups), frameTiming549: true })
       );
-      expect(differing(composed, timing549())).toEqual([]);
+      expect(differing(composed, timing549)).toEqual([]);
     }
   );
 

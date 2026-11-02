@@ -18,8 +18,8 @@ function loadWithFlags(overrides: Partial<FeatureFlags>): Loaded {
     });
     loaded = {
       frameTiming: require('./frame-timing'),
-      frameTiming548: require('./frame-timing-releases').timing548(),
-      frameTiming549: require('./frame-timing-releases').timing549(),
+      frameTiming548: require('./frame-timing-releases').timing548,
+      frameTiming549: require('./frame-timing-releases').timing549,
       featureFlags: require('../feature-flags').featureFlags,
     };
   });
