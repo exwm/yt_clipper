@@ -11,16 +11,17 @@ from pathlib import Path
 
 import pytest
 
-from clipper import ffmpeg_filter, frame_timing_548
+from clipper import ffmpeg_filter, frame_timing_548, frame_timing_549
 from clipper.clipper_types import CropMap
 
 # The crop filters at 5.49's ease timing. The clipper passes the frame timing's own.
 getCropFilter = partial(
-    ffmpeg_filter.getCropFilter, sectionEaseDuration=ffmpeg_filter.sectionEaseDurationFromVideoPart
+    ffmpeg_filter.getCropFilter,
+    sectionEaseDuration=frame_timing_549.sectionEaseDurationFromVideoPart,
 )
 getZoomPanFilter = partial(
     ffmpeg_filter.getZoomPanFilter,
-    sectionEaseDuration=ffmpeg_filter.sectionEaseDurationFromVideoPart,
+    sectionEaseDuration=frame_timing_549.sectionEaseDurationFromVideoPart,
 )
 
 SMALL_CROP_MAP = [
@@ -433,7 +434,7 @@ def test_getEaseSectionDuration(
     fps: float,
     expected: float | None,
 ) -> None:
-    result = ffmpeg_filter.getEaseSectionDuration(startTime, endTime, fps)
+    result = frame_timing_549.getEaseSectionDuration(startTime, endTime, fps)
     if expected is None:
         assert result is None
     else:

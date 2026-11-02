@@ -17,7 +17,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from clipper import cinematic_path
+from clipper import cinematic_path, frame_timing
 from clipper.clipper_types import ClipperPaths, ClipperState, DictStrAny, Settings, argvPath
 from clipper.ffmpeg_codec import getFfmpegVideoCodecArgs, isHardwareAcceleratedVideoCodec
 from clipper.ffmpeg_filter import getAutoScaledCropComponents, getCropPathSize
@@ -176,6 +176,8 @@ def predictClipSize(settings: Settings, markerPair: DictStrAny) -> Size | None:
             cinematic_path.cinematicMargins(mps),
             settings["cropResWidth"],
             settings["cropResHeight"],
+            # Without fps no cut snaps to a frame, so the size is the same under any frame timing.
+            cutTimeAt=frame_timing.current().cutTime,
         )
         if cropMap and mps.get("cropPointEasing") == "cinematic"
         else None

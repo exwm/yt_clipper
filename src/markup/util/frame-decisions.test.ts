@@ -1,5 +1,5 @@
 import { CropPoint } from '../@types/yt_clipper';
-import { findCropKeyframeAtTime, nextKeyframeIndex } from '../crop/crop-keyframe-math';
+import { findCropKeyframeAtTime, nextKeyframeIndex } from './frame-timing-549';
 import { FrameGrid, isInFrameSpan, loopSeekTarget } from './frame-grid';
 
 // Every decision about the timeline means a frame, so it gives one answer anywhere in a frame: at

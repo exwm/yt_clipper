@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { getOutputDuration } from './util';
+import { getOutputDuration } from './frame-timing-549';
 import type { SpeedPoint } from '../@types/yt_clipper';
 
 interface Case {

@@ -8,13 +8,36 @@ import {
   CropPointEasing,
   CropSectionNeighbor,
   cropInterpolationSectionAtTime,
+  getEasedCropComponentsAtTime as getEasedCropComponentsWithRule,
+  getSmoothTrackCropComponentsAtTime,
+} from './crop-keyframe-math';
+import {
   findCropKeyframeAtTime,
   getEaseSectionDuration,
-  getEasedCropComponentsAtTime,
-  getSmoothTrackCropComponentsAtTime,
   nextKeyframeIndex,
-} from './crop-keyframe-math';
+} from '../util/frame-timing-549';
 import { easedCropAtTime } from './parity-sampling';
+
+// The section ease at 5.49's frame rule, which these cases were written for.
+const getEasedCropComponentsAtTime = (
+  start: readonly number[],
+  end: readonly number[],
+  startTime: number,
+  endTime: number,
+  easeIn: CropPoint['easeIn'],
+  time: number,
+  fps: number
+) =>
+  getEasedCropComponentsWithRule(
+    start,
+    end,
+    startTime,
+    endTime,
+    easeIn,
+    time,
+    fps,
+    getEaseSectionDuration
+  );
 
 // Keyframes at t = 0, 1, 2 (crop strings are irrelevant to the time math).
 const cropMap: CropPoint[] = [

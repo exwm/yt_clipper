@@ -19,7 +19,6 @@ from typing import Any, NamedTuple
 import numpy as np
 
 from clipper import banded_lapack
-from clipper.frame_grid import FrameGrid, frameAt, frameMiddle
 from clipper.frame_timing import CutTime
 
 SOLVER_VERSION = 1
@@ -484,23 +483,6 @@ def _segmentPath(
     return segments
 
 
-def cutTime(
-    cutX: float, previousX: float, fps: float | None, firstTime: float, videoPartStart: float
-) -> float:
-    """When a cut takes effect: half a frame before the frame the cut point falls in, as the other
-    crop easings end a section (ffmpeg_filter.getEaseSectionDuration). A user-placed point usually
-    overshoots its frame, so at the raw time the first frame of the new scene would keep the old crop.
-    Frames lie on the input video's 1/fps grid, which starts at videoPartStart in crop point time.
-    """
-    if not fps:
-        return cutX
-    grid = FrameGrid(origin=videoPartStart, rate=fps)
-    # The frame the cut point was placed on, allowing for its time being rounded below that frame's start.
-    frame = frameAt(grid, cutX)
-    snapped = frameMiddle(grid, frame - 1)
-    return snapped if snapped > previousX else cutX
-
-
 def _holdsAfter(previous: CropPoint, point: CropPoint) -> bool:
     """A hold point holds the crop still from the point before it. A hold point whose crop text differs
     from that point's is not one, as the markup releases it on load."""
@@ -685,7 +667,8 @@ def splitAtInstantCuts(
     cropMap: Sequence[CropPoint],
     fps: float | None = None,
     videoPartStart: float = 0.0,
-    cutTimeAt: CutTime = cutTime,
+    *,
+    cutTimeAt: CutTime,
 ) -> list[list[CropPoint]]:
     """The crop points split at each instant transition (a cut). Each run holds its last crop until the
     cut, where the next run starts, so the solve never smooths across a scene change. With fps, the
@@ -908,7 +891,8 @@ def bakeCinematicPath(
     cropResHeight: int,
     fps: float | None = None,
     videoPartStart: float = 0.0,
-    cutTimeAt: CutTime = cutTime,
+    *,
+    cutTimeAt: CutTime,
 ) -> dict[str, Any] | None:
     """The path for a marker pair's crop points, with times relative to the first point, or None when
     there is nothing to solve (fewer than two points or no duration). fps places instant cuts on
@@ -916,7 +900,7 @@ def bakeCinematicPath(
     if len(cropMap) < 2:
         return None
     firstTime = cropMap[0]["x"]
-    runs = splitAtInstantCuts(cropMap, fps, videoPartStart, cutTimeAt)
+    runs = splitAtInstantCuts(cropMap, fps, videoPartStart, cutTimeAt=cutTimeAt)
     if banded_lapack.lapack() is None:
         # Fail before solving any run, rather than after the runs the dense fallback can solve.
         longest = max(gridSampleCount(run[-1]["x"] - run[0]["x"]) for run in runs)

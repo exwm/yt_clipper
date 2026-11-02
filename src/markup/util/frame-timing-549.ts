@@ -1,10 +1,9 @@
+import type { CropPoint, SpeedPoint } from '../@types/yt_clipper';
+import type { CropKeyframeMatch } from '../crop/crop-keyframe-math';
+import { sortX } from '../ui/chart/chartPrimitives';
+import { bsearch, clampNumber, toHHMMSSTrimmed } from './pure-util';
 import {
-  findCropKeyframeAtTime,
-  getEaseSectionDuration,
-  nextKeyframeIndex,
-} from '../crop/crop-keyframe-math';
-import { clampNumber, getOutputDuration, toHHMMSSTrimmed } from './pure-util';
-import {
+  FrameGrid,
   frameAt,
   frameMiddle,
   frameSeekTarget,
@@ -30,6 +29,132 @@ import type {
 import { onExternalSeek, onSeekSettled } from './seek-coalescer';
 
 /** 5.49's frame timing: frames on the grid of the rate in use, read from the frame on screen. */
+
+// 5.49's frame rules, which its frame timing below uses. Shared modules take them as parameters.
+
+// On a point means on the point's frame. A distance test as wide as a frame would also take the
+// neighboring frame's point. Points and the time read share frame starts (getFrameTime), so equal
+// frames compare equal on any grid.
+export function findCropKeyframeAtTime(
+  cropMap: CropPoint[],
+  time: number,
+  grid: FrameGrid
+): CropKeyframeMatch {
+  // bsearch returns [i, i] on an exact hit and [i, i+1] between points, but
+  // [-1, 0] / [n-1, n] just outside the map: clamp to valid indices (the
+  // playhead stays within [start, end] in practice, this only guards the edges).
+  const lastIndex = cropMap.length - 1;
+  const [rawStart, rawEnd] = bsearch(cropMap, { x: time, y: 0, crop: '' }, sortX);
+  const s = Math.max(0, Math.min(rawStart, lastIndex));
+  const e = Math.max(0, Math.min(rawEnd, lastIndex));
+  const frame = frameAt(grid, time);
+  const isOnFrame = (x: number) => frameAt(grid, x) === frame;
+  const onStart = isOnFrame(cropMap[s].x);
+  const onEnd = isOnFrame(cropMap[e].x);
+  // In frames, so the answer is the same anywhere in the frame.
+  const framesTo = (x: number) => Math.abs(frameAt(grid, x) - frame);
+  const nearest = framesTo(cropMap[s].x) <= framesTo(cropMap[e].x) ? s : e;
+  const index = onStart ? s : onEnd ? e : nearest;
+  return { onKeyframe: onStart || onEnd, index, section: [s, e] };
+}
+
+/**
+ * The index of the keyframe to step to from `time` in direction `dir` (+1 forward, -1 back): for
+ * reframe wheel/keyframe navigation. On a keyframe's frame step to the adjacent point; between keyframes go to the
+ * bracketing point in that direction. Clamped to the map, so stepping past the ends stays put.
+ */
+export function nextKeyframeIndex(
+  cropMap: CropPoint[],
+  time: number,
+  grid: FrameGrid,
+  dir: 1 | -1
+): number {
+  const { onKeyframe, index, section } = findCropKeyframeAtTime(cropMap, time, grid);
+  const next =
+    dir > 0 ? (onKeyframe ? index + 1 : section[1]) : onKeyframe ? index - 1 : section[0];
+  return Math.max(0, Math.min(next, cropMap.length - 1));
+}
+
+/**
+ * The duration to ease a crop section over, kept in sync with the clipper's getEaseSectionDuration
+ * (frame_timing_549.py) so the preview eases over the same span the rendered output does. The end time
+ * is pulled back toward the last displayed frame so the ease finishes on it; for a section shorter
+ * than that pull-back the adjustment inverts, so fall back to the real duration rather than dropping
+ * it (in the clipper a dropped section leaves a gap that snaps the crop to 0,0). Returns null for a
+ * zero-duration section, which has no frames to ease.
+ */
+export function getEaseSectionDuration(
+  startTime: number,
+  endTime: number,
+  fps: number
+): number | null {
+  const realDuration = endTime - startTime;
+  if (realDuration <= 0) return null;
+
+  // The frame the point was placed on, allowing for its time being rounded below that frame's start.
+  const grid = { origin: 0, rate: fps };
+  const adjustedDuration = frameMiddle(grid, frameAt(grid, endTime) - 1) - startTime;
+  if (adjustedDuration <= 0) return realDuration;
+
+  return adjustedDuration;
+}
+
+/** A marker pair's output duration as the clipper renders it: the frames from the one shown at its
+ *  start marker through the one at its end marker, at its speed map's speeds. Mirrors
+ *  getSpeedFilterAndDuration in the clipper's frame_timing_549.py; both are checked against
+ *  src/clipper/tests/fixtures/output_duration_cases.json. */
+export function getOutputDuration(speedMap: SpeedPoint[], fps = 30) {
+  const last = speedMap.length - 1;
+  const span = frameSpan({ origin: 0, rate: fps }, speedMap[0].x, speedMap[last].x);
+  // The map's ends are the pair's: the last speed runs to the last frame's end.
+  const points = speedMap.map((point, i) => ({
+    ...point,
+    x: i === 0 ? span.start : i === last ? span.end : point.x,
+  }));
+  if (points.every((point) => point.y === points[0].y)) {
+    return (span.end - span.start) / points[0].y;
+  }
+
+  let outputDuration = 0;
+  const frameDur = 1 / fps;
+  const nSects = points.length - 1;
+  const speedMapStartTime = span.start;
+
+  for (let sect = 0; sect < nSects; ++sect) {
+    const left = points[sect];
+    const right = points[sect + 1];
+
+    const startSpeed = left.y;
+    const endSpeed = right.y;
+    const speedChange = endSpeed - startSpeed;
+
+    const sectStart = left.x - speedMapStartTime;
+    let sectEnd = right.x - speedMapStartTime;
+    // The map ends at the last frame's end. Its last section runs to that frame's start, the frame
+    // then held for a frame below; a speed point inside the last frame leaves that section empty.
+    if (sect === nSects - 1) {
+      sectEnd = Math.max(sectStart, right.x - frameDur - speedMapStartTime);
+    }
+
+    const sectDuration = sectEnd - sectStart;
+    if (sectDuration === 0) continue;
+
+    const m = speedChange / sectDuration;
+    const b = startSpeed - m * sectStart;
+
+    if (speedChange === 0) {
+      outputDuration += sectDuration / endSpeed;
+    } else {
+      // Integrate the reciprocal of the linear time vs speed function for the current section
+      outputDuration +=
+        (1 / m) * (Math.log(Math.abs(m * sectEnd + b)) - Math.log(Math.abs(m * sectStart + b)));
+    }
+  }
+  // The last frame's output time rounds to a whole frame, half up as the clipper rounds, and the
+  // frame is held for one frame.
+  const lastFrame = Math.floor(outputDuration * fps + 0.5);
+  return (lastFrame + 1) / fps;
+}
 
 // Where the playhead is or is going: the seek held back, else the current time.
 const playheadOf = (reading: ScreenReading) => reading.pendingSeek ?? reading.currentTime;

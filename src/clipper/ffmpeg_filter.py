@@ -3,7 +3,7 @@ import sys
 from dataclasses import dataclass
 from fractions import Fraction
 from functools import reduce
-from math import floor, log, pi
+from math import pi
 from pathlib import Path
 from typing import Any, Literal
 
@@ -16,7 +16,6 @@ from clipper.clipper_types import (
     Settings,
     SpeedMap,
 )
-from clipper.frame_grid import FrameGrid, frameAt, frameMiddle
 from clipper.frame_timing import SectionEaseDuration
 from clipper.ytc_logger import Subsystem, make_subsystem_logger
 
@@ -225,80 +224,6 @@ def getSubsFilter(
     subs_filter = f",subtitles=filename={subsPath}:force_style={subsStyle}"
 
     return subs_filter
-
-
-def getSpeedFilterAndDuration(
-    speedMap: SpeedMap,
-    mp: DictStrAny,
-    fps: float | Fraction,
-) -> tuple[str, ExtendedRealNumber, list[ExtendedRealNumber]]:
-    if not mp["isVariableSpeed"]:
-        duration = mp["duration"] / mp["speed"]
-        return f"setpts=(PTS-STARTPTS)/{mp['speed']}", duration, [0, duration]
-
-    video_filter_speed_map = ""
-    setpts = ""
-    outputDurations: list[ExtendedRealNumber] = [0]
-
-    fps = Fraction(fps)
-    frameDur = 1 / fps
-    nSects = len(speedMap) - 1
-    # Account for marker pair start time as trim filter sets start time to ~0
-    speedMapStartTime = speedMap[0]["x"]
-
-    for sect, (left, right) in enumerate(itertools.pairwise(speedMap)):
-        startSpeed = left["y"]
-        endSpeed = right["y"]
-        speedChange = endSpeed - startSpeed
-
-        sectStart = left["x"] - speedMapStartTime
-        sectEnd = right["x"] - speedMapStartTime
-        # The map ends at the last frame's end. Its last section runs to that frame's start, the frame
-        # then held for a frame below; a speed point inside the last frame leaves that section empty.
-        if sect == nSects - 1:
-            sectEnd = max(sectStart, right["x"] - frameDur - speedMapStartTime)
-
-        nDurs = len(outputDurations)
-        nextDur = 0
-        sectDuration = sectEnd - sectStart
-        if sectDuration == 0:
-            nextDur = outputDurations[nDurs - 1]
-            outputDurations.append(nextDur)
-            continue
-
-        m = speedChange / sectDuration
-        b = startSpeed - m * sectStart
-
-        if speedChange == 0:
-            # Duration is time multiplied by slowdown (or time divided by speed)
-            sliceDuration = f"(min((T-STARTT-({sectStart})),{sectDuration})/{endSpeed})"
-            nextDur = (sectDuration / endSpeed) + outputDurations[nDurs - 1]
-        else:
-            # Integrate the reciprocal of the linear time vs speed function for the current section
-            sliceDuration = f"(1/{m})*(log(abs({m}*min((T-STARTT),{sectEnd})+({b})))-log(abs({m}*{sectStart}+({b}))))"
-            nextDur = (
-                (1 / m) * (log(abs(m * sectEnd + b)) - log(abs(m * sectStart + b)))
-            ) + outputDurations[nDurs - 1]
-
-        outputDurations.append(nextDur)
-        sliceDuration = f"if(gte((T-STARTT),{sectStart}), {sliceDuration},0)"
-
-        if sect == 0:
-            setpts += f"(if(eq(N,0),0,{sliceDuration}))"
-        else:
-            setpts += f"+({sliceDuration})"
-
-    video_filter_speed_map += f"""setpts='({setpts})/TB' """
-
-    nDurs = len(outputDurations)
-    # The last frame's output time rounds to a whole frame, half up as the markup's twin rounds, and
-    # the frame is held for one frame.
-    lastFrame = floor(Fraction(outputDurations[nDurs - 1]) * fps + Fraction(1, 2))
-    outputDurations[nDurs - 1] = float((lastFrame + 1) / fps)
-
-    outputDuration = outputDurations[nDurs - 1]
-
-    return video_filter_speed_map, outputDuration, outputDurations
 
 
 def getAverageSpeed(speedMap: SpeedMap | None, fps: float | Fraction) -> float:
@@ -785,72 +710,6 @@ def getMaxSizeCrop(cropMap: CropMap) -> dict[str, int]:
 def floorToEven(x: int | str | float) -> int:
     x = int(x)
     return x & ~1
-
-
-def getFrameTimeBetweenLeftFrames(time: float, fps: float) -> float:
-    """The ease section end time to use for a crop keyframe placed at `time`.
-
-    `time` is on the input video's timeline, whose frames lie on the 1/fps grid. A clip keeps that
-    frame phase, so snapping times relative to a pair start that falls between frames is a frame off.
-    A keyframe's time is user-placed and usually overshoots its actual frame. Ending the ease
-    just before that frame keeps the normalized ease time reaching 1 by the time playback hits
-    the frame, so the transition finishes on it. It shows most for instant ease in, whose
-    jump must land on that frame. Landing between frames instead of snapping to a frame boundary
-    also avoids float precision issues.
-    """
-    # The frame the keyframe was placed on, allowing for its time being rounded below that frame's start.
-    grid = FrameGrid(origin=0, rate=fps)
-    return frameMiddle(grid, frameAt(grid, time) - 1)
-
-
-def getEaseSectionDuration(
-    startTime: float,
-    endTime: float,
-    fps: float,
-) -> float | None:
-    realDuration = endTime - startTime
-    # Zero/negative duration sections (e.g. redundant hold point pairs) have no
-    # frames to render, so skip them.
-    if realDuration <= 0:
-        return None
-
-    # Pull the end time back toward the last displayed frame so the ease finishes on it
-    # rather than at the (usually overshot) keyframe time. See getFrameTimeBetweenLeftFrames.
-    adjustedDuration = getFrameTimeBetweenLeftFrames(endTime, fps) - startTime
-
-    # For sections shorter than the adjustment window the adjusted end time can land before
-    # the start time. Fall back to the real duration so the section still renders instead of
-    # being dropped, which would leave a gap that snaps the crop to 0. Such a short section
-    # skips the frame-time adjustment, so an instant ease in here transitions at the next point
-    # rather than a frame earlier. That is acceptable since the section spans under ~1.5 frames.
-    if adjustedDuration <= 0:
-        return realDuration
-
-    return adjustedDuration
-
-
-def getSectionEaseDuration(
-    easeType: str,
-    startTime: float,
-    endTime: float,
-    fps: float,
-) -> float | None:
-    """The span a section eases over, from start and end times on the input video's timeline. smoothTrack spans the points' real times, so its sections meet
-    exactly and the crop keeps its speed through each point on any frame grid (the clip's frames start
-    at the pair's own frame phase, not at multiples of 1/fps). A pulled-back end held it for part of a
-    frame at every point. Mirrors the markup's getSmoothTrackCropComponentsAtTime."""
-    if easeType == "smoothTrack":
-        realDuration = endTime - startTime
-        return realDuration if realDuration > 0 else None
-    return getEaseSectionDuration(startTime, endTime, fps)
-
-
-def sectionEaseDurationFromVideoPart(
-    easeType: str, leftX: float, rightX: float, firstTime: float, videoPartStart: float, fps: float
-) -> float | None:
-    """5.49's span for a crop section (frame_timing.SectionEaseDuration): crop points count their frames
-    from the video part's first frame."""
-    return getSectionEaseDuration(easeType, leftX - videoPartStart, rightX - videoPartStart, fps)
 
 
 def getEasingExpression(

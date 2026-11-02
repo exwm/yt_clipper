@@ -493,7 +493,7 @@ def windowSpeedMap(
 ) -> list[DictStrAny]:
     """The part of a pair's speed map from start to end, for a sample-guided window of the pair, with
     the speeds the pair renders there. A map's last section reaches its speed at its last frame's start
-    (getSpeedFilterAndDuration), so the window's end point takes the speed at its own last frame's."""
+    (frame_timing_549.getSpeedFilterAndDuration), so the window's end point takes the speed at its own last frame's."""
     sections = [
         (left["x"], left["y"], right["x"], right["y"])
         for left, right in itertools.pairwise(speedMap)

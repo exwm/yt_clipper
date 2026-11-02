@@ -3,7 +3,7 @@ import sys
 import numpy as np
 import pytest
 
-from clipper import banded_lapack, cinematic_path
+from clipper import banded_lapack, cinematic_path, frame_timing_549
 
 
 def _denseOf(upperBand: np.ndarray) -> np.ndarray:
@@ -81,13 +81,22 @@ def test_without_banded_lapack_a_pair_with_a_run_too_long_fails_before_solving(
     ]
     assert [
         cinematic_path.gridSampleCount(run[-1]["x"] - run[0]["x"])
-        for run in cinematic_path.splitAtInstantCuts(cropMap, 30)
+        for run in cinematic_path.splitAtInstantCuts(
+            cropMap, 30, cutTimeAt=frame_timing_549.cutTime
+        )
     ] == [
         2001,
         2002,
     ]
     with pytest.raises(RuntimeError, match="banded solve is unavailable"):
-        cinematic_path.bakeCinematicPath(cropMap, {"pos": 0.12, "zoom": 0.08}, 1920, 1080, fps=30)
+        cinematic_path.bakeCinematicPath(
+            cropMap,
+            {"pos": 0.12, "zoom": 0.08},
+            1920,
+            1080,
+            fps=30,
+            cutTimeAt=frame_timing_549.cutTime,
+        )
     assert solved == []
 
 
@@ -125,9 +134,13 @@ def test_the_cinematic_path_is_the_same_without_banded_lapack(
         {"x": 5.07, "y": 0, "crop": "1200:200:800:450"},
     ]
     margins = {"pos": 0.12, "zoom": 0.08}
-    fast = cinematic_path.bakeCinematicPath(cropMap, margins, 1920, 1080, fps=30)
+    fast = cinematic_path.bakeCinematicPath(
+        cropMap, margins, 1920, 1080, fps=30, cutTimeAt=frame_timing_549.cutTime
+    )
     monkeypatch.setattr(banded_lapack, "bandedCholeskySolver", lambda _band: None)
-    dense = cinematic_path.bakeCinematicPath(cropMap, margins, 1920, 1080, fps=30)
+    dense = cinematic_path.bakeCinematicPath(
+        cropMap, margins, 1920, 1080, fps=30, cutTimeAt=frame_timing_549.cutTime
+    )
     assert fast is not None
     assert dense is not None
     for step in range(102):
