@@ -21,7 +21,7 @@ from fractions import Fraction
 
 import pytest
 
-from clipper import clip_maker, merge_rescale
+from clipper import clip_maker, dedupe, merge_rescale
 from clipper.tests import shaky_media, synthetic_media
 from clipper.tests.range_http_server import RangeHTTPServer
 from clipper.tests.stabilization_metrics import grayFrames, shakeLeft
@@ -1158,10 +1158,25 @@ def holds(clipper: Clipper, clip: pathlib.Path, frames: int = 3) -> int:
     return len(re.findall(f"s{{{frames},}}", still))
 
 
+@pytest.mark.parametrize(
+    "detector",
+    [
+        # 5.49's mpdecimate keeps repeats that differ from their drawing by encoder noise.
+        pytest.param(False, id="mpdecimate", marks=pytest.mark.xfail(reason="5.49's", strict=True)),
+        pytest.param(True, id="detector"),
+    ],
+)
 @pytest.mark.parametrize("tool", INTERPOLATION_TOOLS)
 def test_interpolated_cartoon_does_not_stall(
-    clipper: Clipper, syntheticMedia: pathlib.Path, tool: str
+    clipper: Clipper,
+    syntheticMedia: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tool: str,
+    detector: bool,
 ) -> None:
+    if clipper.exe and detector != dedupe.FIND_REPEATS_AGAINST_NEARBY_CHANGES:
+        pytest.skip("a built clipper keeps its own duplicate frame detector")
+    monkeypatch.setattr(dedupe, "FIND_REPEATS_AGAINST_NEARBY_CHANGES", detector)
     # Drawn at 12 fps and stored at 30, each drawing shows for 2 or 3 frames. Interpolating
     # between a drawing and its repeat would hold the picture still between moves.
     clip = interpolateSyntheticClip(clipper, syntheticMedia, "cartoon-12-in-30", tool, "slowdown")

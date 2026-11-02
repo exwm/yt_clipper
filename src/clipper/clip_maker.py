@@ -28,7 +28,7 @@ from clipper.clipper_types import (
     Settings,
     argvPath,
 )
-from clipper.dedupe import getRemoveDuplicateFramesFilter, shouldRemoveDuplicateFrames
+from clipper.dedupe import removeDuplicateFramesFilter
 from clipper.ffmpeg_codec import (
     getContainerForCodec,
     getFfmpegVideoCodecArgs,
@@ -770,12 +770,13 @@ def makeClip(  # noqa: PLR0912
     video_filter += f",settb=1/9000"
     video_filter += f",{TIMESTAMP_SNAP_FILTER}"
 
-    shouldDedupe = shouldRemoveDuplicateFrames(mps)
+    # The kept frames play back to back, as in 5.48, which removes the stutter but speeds the clip
+    # up by the repeats (see dedupe.py).
+    duplicateRemovalFilter = removeDuplicateFramesFilter(mps, filterBitDepth)
+    shouldDedupe = duplicateRemovalFilter is not None
     if shouldDedupe:
         logger.info("Duplicate frames will be removed.")
-        # The kept frames play back to back, as in 5.48, which removes the stutter but speeds the
-        # clip up by the repeats (see dedupe.py).
-        video_filter += f",{getRemoveDuplicateFramesFilter(filterBitDepth)},setpts=N/FR/TB"
+        video_filter += f",{duplicateRemovalFilter}"
 
     if 0 <= mps["gamma"] <= 4 and mps["gamma"] != 1:
         video_filter += f",lutyuv=y=gammaval({mps['gamma']})"
