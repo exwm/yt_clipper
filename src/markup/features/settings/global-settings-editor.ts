@@ -22,6 +22,7 @@ import {
 import { EncodeSettingsFieldset } from './encode-settings-fieldset';
 import { createCropOverlay, hideCropOverlay, showCropOverlay } from '../../crop-overlay';
 import {
+  formatAspectRatio,
   getCropComponents,
   getDefaultCropRes,
   getNumericCropString,
@@ -109,7 +110,7 @@ function GlobalSettingsEditorTemplate(binder: SettingsBinder<Settings>): Templat
   const settings = appState.settings;
   const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
   const [, , w, h] = getCropComponents(settings.newMarkerCrop);
-  const cropAspectRatio = (w / h).toFixed(13);
+  const cropAspectRatio = formatAspectRatio(w, h);
   const chipCrop =
     appState.rotation !== 0
       ? getRotatedCropString(settings.newMarkerCrop)

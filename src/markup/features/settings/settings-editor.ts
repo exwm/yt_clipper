@@ -12,6 +12,7 @@ import {
 } from '../../crop-overlay';
 import {
   cropStringsEqual,
+  formatAspectRatio,
   getCropComponents,
   getCropMultiples,
   getSelectedCropString,
@@ -746,7 +747,7 @@ export function renderCropForm(crop) {
 
   setCropInputValue(crop);
 
-  const cropAspectRatio = (w / h).toFixed(13);
+  const cropAspectRatio = formatAspectRatio(w, h);
   cropAspectRatioSpan && (cropAspectRatioSpan.textContent = cropAspectRatio);
 }
 export function highlightSpeedAndCropInputs() {

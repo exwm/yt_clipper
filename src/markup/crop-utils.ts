@@ -108,6 +108,26 @@ export function getNumericCropString(cropString: string) {
   return getCropString(x, y, w, h);
 }
 
+const NAMED_ASPECT_RATIOS: [string, number][] = [
+  ['1:1', 1],
+  ['4:3', 4 / 3],
+  ['3:4', 3 / 4],
+  ['3:2', 3 / 2],
+  ['2:3', 2 / 3],
+  ['16:9', 16 / 9],
+  ['9:16', 9 / 16],
+  ['4:5', 4 / 5],
+  ['21:9', 21 / 9],
+];
+
+/** A crop size's aspect ratio for display: three decimals, plus its common name when it has one. */
+export function formatAspectRatio(width: number, height: number): string {
+  const rounded = (width / height).toFixed(3);
+  // Named only when it shows as the same number, so the name never contradicts the digits.
+  const name = NAMED_ASPECT_RATIOS.find(([, named]) => named.toFixed(3) === rounded)?.[0];
+  return name ? `${rounded} (${name})` : rounded;
+}
+
 export function isStaticCrop(cropMap: CropPoint[]) {
   return cropMap.length === 2 && cropStringsEqual(cropMap[0].crop, cropMap[1].crop);
 }

@@ -23,6 +23,7 @@ import {
   cropStringsEqual,
   getCropMultiples,
   multiplyCropString,
+  formatAspectRatio,
 } from './crop-utils';
 import { appState } from './appState';
 import { CropPoint } from './@types/yt_clipper';
@@ -40,6 +41,20 @@ beforeEach(() => {
   appState.markerPairs = [];
   appState.rotation = 0;
   appState.video = { videoWidth: 1920, videoHeight: 1080 } as any;
+});
+
+describe('formatAspectRatio', () => {
+  it.each([
+    [1920, 1080, '1.778 (16:9)'],
+    [960, 540, '1.778 (16:9)'],
+    [1080, 1920, '0.563 (9:16)'],
+    [1080, 1080, '1.000 (1:1)'],
+    [1440, 1080, '1.333 (4:3)'],
+    [1265, 1080, '1.171'],
+    [1919, 1080, '1.777'],
+  ])('%i x %i shows as %s', (width, height, expected) => {
+    expect(formatAspectRatio(width, height)).toBe(expected);
+  });
 });
 
 describe('getCropComponents', () => {
