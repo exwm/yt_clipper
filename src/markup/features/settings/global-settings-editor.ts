@@ -55,11 +55,10 @@ import { Tooltips } from '../../ui/tooltips';
 import {
   describeFrameRate,
   describeMeasureButton,
-  FrameRateSource,
   getFrameRate,
-  isFrameRateMeasured,
   toggleFrameRateMeasurement,
 } from '../../util/videoUtil';
+import { FrameRateSource, isFrameRateMeasured } from '../../util/frame-rate-source';
 import { hasFrameRateMeasurement } from '../../util/frame-timing';
 import { assertDefined, copyToClipboard, toHHMMSSTrimmed } from '../../util/util';
 

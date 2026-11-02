@@ -69,8 +69,6 @@ function updateFrameRate(): void {
   showFrameRate(frameRate);
 }
 
-export { isFrameRateMeasured };
-
 const formatFps = (fps: number) => Number(fps.toFixed(3));
 
 export function toggleFrameRateMeasurement(): void {
@@ -194,8 +192,6 @@ export function seekByFrames(frames: number): void {
     frameTiming.stepSeek(readFrame(), { frames, duration: video.duration, hasFrameCallbacks })
   );
 }
-
-export type { FrameRateSource };
 
 /** The frame rate in use and where it comes from: a confirmed measured rate, else the platform's
  *  (YouTube's stats), else the default. */

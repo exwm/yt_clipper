@@ -77,11 +77,11 @@ import {
   getFrameRate,
   getFrameTime,
   getScreenFrame,
-  isFrameRateMeasured,
   loopPlaybackOver,
   seekByFrames,
   seekToFrameAt,
 } from './videoUtil';
+import { isFrameRateMeasured } from './frame-rate-source';
 
 function givenThePlayheadAt(seconds: number, pending: number | null = null) {
   Object.assign(mockSeeks, { current: seconds, inFlight: false, pending, requested: [] });

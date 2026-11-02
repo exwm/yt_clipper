@@ -122,7 +122,7 @@ describe('the Measure setting', () => {
       Object.assign(globalThis, {
         localStorage: { getItem: (key: string) => storage.get(key) ?? null, setItem: jest.fn() },
       });
-      expect(require('./videoUtil').isFrameRateMeasured()).toBe(expected);
+      expect(require('./frame-rate-source').isFrameRateMeasured()).toBe(expected);
     });
     Object.assign(globalThis, {
       localStorage: {
