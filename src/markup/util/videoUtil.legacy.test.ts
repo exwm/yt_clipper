@@ -90,7 +90,10 @@ function givenThePlayheadAt(seconds: number, pending: number | null = null) {
 describe('the shell under legacyFrameTiming', () => {
   it('uses the 5.48 frame timing', () => {
     expect(isLegacyFrameTiming).toBe(true);
-    expect(frameTiming).toBe(frameTiming548);
+    expect(Object.keys(frameTiming).sort()).toEqual(Object.keys(frameTiming548).sort());
+    for (const [name, decision] of Object.entries(frameTiming548)) {
+      expect(frameTiming[name as keyof typeof frameTiming]).toBe(decision);
+    }
   });
 
   it('ignores a saved Measure setting and a measured rate', () => {
