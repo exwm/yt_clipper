@@ -98,6 +98,11 @@ const featureFlagDefinitions = {
       "Every frame decision as 5.49 made it, whatever each group's flag picks: markers and points on the frame on screen, steps by whole frames, and the Measure button.",
     appliesOnReload: true,
   } as FeatureFlagDefinition<boolean>,
+  /** See `features/time-readout/time-readout.ts`. Read on each update. */
+  millisecondsInTimeReadout: {
+    default: true,
+    description: "Show milliseconds after the player's current time (YouTube and local videos).",
+  } as FeatureFlagDefinition<boolean>,
   /** One flag per group of frame decisions, generated from the table in `util/decisions/keys.ts`.
    *  Only `util/frame-timing.ts` reads them. */
   ...groupFlagDefinitions,

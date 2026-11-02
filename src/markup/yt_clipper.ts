@@ -60,6 +60,7 @@ import {
   setFlashMessageHook,
   sleep,
 } from './util/util';
+import { installMillisecondsReadout } from './features/time-readout/time-readout';
 import { toggleCropPreview } from './crop/crop-preview';
 import { CommandPalette, HotkeyEngine, ShortcutRegistry } from '../command-palette';
 import { createShortcutDefinitions } from './shortcut-definitions';
@@ -217,6 +218,7 @@ function init() {
   // re-syncs the reframe viewport, and the Ctrl+wheel reframe crop-zoom listener.
   initVideoZoom();
   addScrubVideoHandler();
+  installMillisecondsReadout(appState.video, platform, appState.hooks.playerContainer);
   loopMarkerPair();
 }
 
