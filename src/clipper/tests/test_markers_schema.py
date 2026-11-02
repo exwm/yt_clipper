@@ -469,7 +469,10 @@ def test_a_merged_clip_named_from_a_quoted_title_prefix_stays_one_argument(
         lambda args, **_kwargs: commands.append(args) or subprocess.CompletedProcess(args, 1),
     )
     # The merge first probes its clips.
-    probe = '{"streams": [{"codec_name": "vp9", "width": 64, "height": 36}], "format": {"duration": "1"}}'
+    probe = (
+        '{"streams": [{"codec_name": "vp9", "width": 64, "height": 36, "avg_frame_rate": "30/1",'
+        ' "time_base": "1/1000", "pix_fmt": "yuv420p"}], "format": {"duration": "1"}}'
+    )
     monkeypatch.setattr(clip_maker.subprocess, "check_output", lambda *_args, **_kwargs: probe)
 
     clip_maker.mergeClips(cs)

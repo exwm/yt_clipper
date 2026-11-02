@@ -374,9 +374,7 @@ def getZoomPanFilter(
     *,
     sectionEaseDuration: SectionEaseDuration,
 ) -> tuple[str, int]:
-    maxSizeCrop = getMaxSizeCrop(cropMap)
-    maxWidth = floorToEven(maxSizeCrop["width"])
-    maxHeight = floorToEven(maxSizeCrop["height"])
+    maxWidth, maxHeight = getZoomPanSize(cropMap)
     maxSize = maxWidth * maxHeight
 
     fps = Fraction(fps)
@@ -690,6 +688,12 @@ def getCropPathFilter(
     zoomPanFilter += f"zoompan=z='({zoomExpr})':x='{zoomXExpr}':y='{zoomYExpr}'"
     zoomPanFilter += f":d=1:s={targetSize}:fps={fps}"
     return zoomPanFilter, maxSize
+
+
+def getZoomPanSize(cropMap: CropMap) -> tuple[int, int]:
+    """The size getZoomPanFilter outputs the crop map at: its largest crop point, floored to even."""
+    maxSizeCrop = getMaxSizeCrop(cropMap)
+    return floorToEven(maxSizeCrop["width"]), floorToEven(maxSizeCrop["height"])
 
 
 def getMaxSizeCrop(cropMap: CropMap) -> dict[str, int]:

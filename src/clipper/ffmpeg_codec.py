@@ -15,6 +15,8 @@ VIDEO_ENCODERS = {
     "vp8": "libvpx",
     "av1": "libsvtav1",
 }
+# What --enable-hdr encodes to, for the codecs whose software encoder supports it
+HDR_PIXEL_FORMAT = "yuv420p10le"
 
 
 def missingVideoEncoder(ffmpegPath: str, videoCodec: str) -> str | None:
@@ -101,7 +103,9 @@ def getFfmpegVideoCodecVpx(
     sdr_args = "-pix_fmt yuv420p"
     # Set profile 2: color depth: 10 or 12 bit; chroma subsampling: 4:2:0
     # See https://www.webmproject.org/vp9/profiles/
-    hdr_args = f"-pix_fmt yuv420p10le -profile:v 2 {dynamic_range.hdr_args_for_output_metadata}"
+    hdr_args = (
+        f"-pix_fmt {HDR_PIXEL_FORMAT} -profile:v 2 {dynamic_range.hdr_args_for_output_metadata}"
+    )
 
     dynamic_range_args = sdr_args
     if mps["enableHDR"]:
@@ -166,7 +170,7 @@ def getFfmpegVideoCodecH264(
     me_range = 16 if pixel_count < (1800 * 1000) else 32
 
     sdr_args = "-pix_fmt yuv420p"
-    hdr_args = f"-pix_fmt yuv420p10le {dynamic_range.hdr_args_for_output_metadata}"
+    hdr_args = f"-pix_fmt {HDR_PIXEL_FORMAT} {dynamic_range.hdr_args_for_output_metadata}"
 
     dynamic_range_args = sdr_args
     if mps["enableHDR"]:
@@ -365,7 +369,7 @@ def getFfmpegVideoCodecAv1(
     fps_arg = getFpsArg(mp, mps)
 
     sdr_args = "-pix_fmt yuv420p"
-    hdr_args = f"-pix_fmt yuv420p10le {dynamic_range.hdr_args_for_output_metadata}"
+    hdr_args = f"-pix_fmt {HDR_PIXEL_FORMAT} {dynamic_range.hdr_args_for_output_metadata}"
     dynamic_range_args = hdr_args if mps["enableHDR"] else sdr_args
 
     # Hardcoded preset, like h264_nvenc's -preset p6. 6 is the commonly
@@ -378,6 +382,12 @@ def getFfmpegVideoCodecAv1(
     # enable-tf=1, film-grain=0, lookahead auto). See:
     # https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/Docs/Parameters.md
     svtav1_params = "tune=0"
+    # Under -fps_mode vfr SVT-AV1 takes the input's r_frame_rate, which is the mp4 timescale for a
+    # clip whose frames fit no rate, and refuses it (over 240 fps). ffmpeg refuses -r with vfr.
+    if (encoderFrameRate := mps.get("encoderFrameRate")) is not None:
+        svtav1_params += (
+            f":fps-num={encoderFrameRate.numerator}:fps-denom={encoderFrameRate.denominator}"
+        )
 
     # SVT-AV1 rejects -b:v in CRF mode (rc=0) and rejects CBR (rc=2) for
     # VOD; all bitrate-targeted paths use VBR (rc=1). Two-pass needs a

@@ -170,7 +170,7 @@ def relative_centered(ratio: float = 0.3, ceiling: float = 1.5, window: int = 4)
     return Detector(f"relative centered (separate pass)", keep)
 
 
-def shipped_model(video: Path, _fps: Fraction) -> set[int]:
+def detector_model(video: Path, _fps: Fraction) -> set[int]:
     """A Python model of clipper/dedupe.py's filter (8 bit), for tuning its constants."""
     ti = metadata_values(video, "siti", "lavfi.siti.ti")
     mafd = metadata_values(video, "scdet=threshold=100", "lavfi.scd.mafd")
@@ -200,15 +200,16 @@ def shipped_model(video: Path, _fps: Fraction) -> set[int]:
     return kept
 
 
-BEFORE = "mpdecimate (before)"
-SHIPPED = "clipper dedupe (ffmpeg)"
-MODEL = "clipper dedupe (Python model)"
+# The build ships 5.49's mpdecimate while FIND_REPEATS_AGAINST_NEARBY_CHANGES is off
+SHIPPED = "mpdecimate (5.49, shipped)"
+DETECTOR = "clipper detector (ffmpeg, behind the flag)"
+MODEL = "clipper detector (Python model)"
 DETECTORS = [
-    filter_detector(BEFORE, "mpdecimate=hi=64*8:lo=64*5:frac=0.1"),
+    filter_detector(SHIPPED, "mpdecimate=hi=64*8:lo=64*5:frac=0.1"),
     filter_detector("mpdecimate best tuned", "mpdecimate=hi=1536:lo=192:frac=0.33:max=2"),
     relative_centered(),
-    filter_detector(SHIPPED, dedupe.getRemoveDuplicateFramesFilter()),
-    Detector(MODEL, shipped_model),
+    filter_detector(DETECTOR, dedupe.getRemoveDuplicateFramesFilter()),
+    Detector(MODEL, detector_model),
 ]
 
 
@@ -283,7 +284,7 @@ def main() -> None:
                             "repeats": len(repeats), **score(kept, repeats, truth)})  # fmt: skip
 
     kept = {(row["clip"], row["detector"]): row["kept"] for row in results}
-    mismatched = [name for name, *_ in cases if kept[name, SHIPPED] != kept[name, MODEL]]
+    mismatched = [name for name, *_ in cases if kept[name, DETECTOR] != kept[name, MODEL]]
     print(f"clipper filter matches its Python model on {len(cases) - len(mismatched)} of {len(cases)} clips"
           + (f"; differs on {', '.join(mismatched)}" if mismatched else ""))  # fmt: skip
 
