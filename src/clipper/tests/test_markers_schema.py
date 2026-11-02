@@ -3,13 +3,20 @@ import json
 import shlex
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import pytest
+import rich.markup
 
 from clipper import clip_maker, markers_schema, util, ytc_settings
-from clipper.argparser import getDenoisePreset, getVidstabPreset
+from clipper.argparser import (
+    DEFAULT_DENOISE_LEVEL,
+    DEFAULT_VIDSTAB_LEVEL,
+    getDenoisePreset,
+    getVidstabPreset,
+)
 from clipper.clipper_types import INVALID_MARKER_PAIR_KEY, ClipperState
 
 EXAMPLES_DIR = Path(__file__).resolve().parents[2] / "schema" / "examples"
@@ -41,57 +48,173 @@ def test_crops_with_a_width_and_height_above_zero_are_valid(crop: str) -> None:
     assert validate(markers) == markers_schema.MarkersValidation()
 
 
+STALE_VIDSTAB_NUMBERS = {"shakiness": 1, "smoothing": 99, "zoomspeed": 0.9}
+VIDSTAB_NUMBERS = {"shakiness": 5, "smoothing": 12, "zoomspeed": 0.1}
+
+
+def knownPresetCases(
+    key: str, getPreset: Callable[[int], dict], levels: int, stale: dict
+) -> list[object]:
+    """A case per preset name, saved on and off with stale numbers: the clipper's numbers for the
+    name, on as saved, except Disabled, which has no numbers to turn on."""
+    cases = []
+    for level in range(levels):
+        preset = getPreset(level)
+        for enabled in (True, False):
+            saved = {**stale, "enabled": enabled, "desc": preset["desc"]}
+            expected = {**preset, "enabled": enabled and level != 0}
+            cases.append(
+                pytest.param(key, saved, expected, False, id=f"{key} {preset['desc']} {enabled}")
+            )
+    return cases
+
+
 @pytest.mark.parametrize(
-    ("key", "saved", "expected"),
+    ("key", "saved", "expected", "warns"),
     [
-        # Saved numbers are informational: the name picks the clipper's preset
-        (
+        *knownPresetCases("videoStabilization", getVidstabPreset, 7, STALE_VIDSTAB_NUMBERS),
+        *knownPresetCases("denoise", getDenoisePreset, 6, {"lumaSpatial": 1}),
+        # 5.49 accepted any name, and used the saved numbers
+        pytest.param(
             "videoStabilization",
-            {"enabled": True, "desc": "Medium", "shakiness": 1, "smoothing": 99, "zoomspeed": 0.9},
-            getVidstabPreset(3),
+            {"enabled": True, "desc": "Extreme", **VIDSTAB_NUMBERS},
+            {"enabled": True, "desc": "Extreme", **VIDSTAB_NUMBERS},
+            False,
+            id="stabilization, unknown name",
         ),
-        (
+        pytest.param(
             "videoStabilization",
-            {"enabled": False, "desc": "Disabled", "smoothing": 22},
-            getVidstabPreset(0),
+            {"enabled": True, **VIDSTAB_NUMBERS},
+            {"enabled": True, **VIDSTAB_NUMBERS},
+            False,
+            id="stabilization, no name",
         ),
-        # A file without a name keeps its numbers
-        (
+        pytest.param(
+            "videoStabilization",
+            {"enabled": True, "desc": "Extreme"},
+            getVidstabPreset(DEFAULT_VIDSTAB_LEVEL),
+            True,
+            id="stabilization, unknown name without numbers",
+        ),
+        pytest.param(
+            "videoStabilization",
+            {"enabled": True},
+            getVidstabPreset(DEFAULT_VIDSTAB_LEVEL),
+            True,
+            id="stabilization on, no name or numbers",
+        ),
+        pytest.param(
             "videoStabilization",
             {"enabled": True, "smoothing": 12},
-            {"enabled": True, "smoothing": 12},
+            getVidstabPreset(DEFAULT_VIDSTAB_LEVEL),
+            True,
+            id="stabilization on, no name and too few numbers",
         ),
-        ("denoise", {"enabled": True, "desc": "Strong", "lumaSpatial": 1}, getDenoisePreset(4)),
-        ("denoise", {"enabled": True, "lumaSpatial": 3}, {"enabled": True, "lumaSpatial": 3}),
-        # An unknown name keeps its numbers too: denoise names are not an enum in the schema
-        (
+        pytest.param(
+            "videoStabilization",
+            {"enabled": False},
+            {"enabled": False},
+            False,
+            id="stabilization off, no name or numbers",
+        ),
+        pytest.param(
+            "videoStabilization",
+            {"enabled": False, "desc": "Extreme"},
+            {"enabled": False, "desc": "Extreme"},
+            False,
+            id="stabilization off, unknown name without numbers",
+        ),
+        pytest.param(
             "denoise",
             {"enabled": True, "desc": "Custom", "lumaSpatial": 3},
             {"enabled": True, "desc": "Custom", "lumaSpatial": 3},
+            False,
+            id="denoise, unknown name",
+        ),
+        pytest.param(
+            "denoise",
+            {"enabled": True, "lumaSpatial": 3},
+            {"enabled": True, "lumaSpatial": 3},
+            False,
+            id="denoise, no name",
+        ),
+        pytest.param(
+            "denoise",
+            {"enabled": True},
+            getDenoisePreset(DEFAULT_DENOISE_LEVEL),
+            True,
+            id="denoise on, no name or numbers",
+        ),
+        pytest.param(
+            "denoise", {"enabled": False}, {"enabled": False}, False, id="denoise off, no name"
         ),
     ],
-    ids=[
-        "stabilization, stale numbers",
-        "stabilization disabled",
-        "stabilization, no name",
-        "denoise, stale strength",
-        "denoise, no name",
-        "denoise, unknown name",
-    ],
 )
-def test_preset_comes_from_its_saved_name(key: str, saved: dict, expected: dict) -> None:
+def test_a_saved_preset_resolves_by_its_name_and_its_saved_on_or_off(
+    key: str, saved: dict, expected: dict, warns: bool, caplog: pytest.LogCaptureFixture
+) -> None:
     markers = kitchenSink()
     markers[key] = copy.deepcopy(saved)
     markers["markerPairs"][0]["overrides"][key] = copy.deepcopy(saved)
+    assert validate(copy.deepcopy(markers)) == markers_schema.MarkersValidation()
     ytc_settings.applyMarkersValidation(markers)
     assert markers[key] == expected
     assert markers["markerPairs"][0]["overrides"][key] == expected
+    # One warning for each of the two presets saved
+    assert caplog.text.count("preset") == (2 if warns else 0)
 
 
-def test_an_unknown_stabilization_preset_name_is_invalid() -> None:
+@pytest.mark.parametrize(
+    "numbers",
+    [
+        pytest.param({"shakiness": 2.5, "smoothing": 10}, id="fractional shakiness"),
+        pytest.param({"shakiness": 50, "smoothing": 10}, id="shakiness above 10"),
+        pytest.param({"shakiness": 0, "smoothing": 10}, id="shakiness below 1"),
+        pytest.param({"shakiness": 5, "smoothing": 2.5}, id="fractional smoothing"),
+        pytest.param({"shakiness": 5, "smoothing": 5000}, id="smoothing above 1000"),
+    ],
+)
+@pytest.mark.parametrize("where", ["global", "pair"])
+def test_stabilization_numbers_outside_vidstabs_ranges_are_invalid(
+    numbers: dict, where: str
+) -> None:
+    # An unknown preset name keeps its saved numbers, which reach vid.stab and zoomBudget.
     markers = kitchenSink()
-    markers["videoStabilization"] = {"enabled": True, "desc": "Extreme", "smoothing": 99}
-    assert validate(markers).globalErrors
+    saved = {"enabled": True, "desc": "Extreme", **numbers}
+    if where == "global":
+        markers["videoStabilization"] = saved
+    else:
+        markers["markerPairs"][0]["overrides"]["videoStabilization"] = saved
+    validation = validate(markers)
+    if where == "global":
+        assert validation.globalErrors
+        assert not validation.pairErrors
+    else:
+        assert not validation.globalErrors
+        assert list(validation.pairErrors) == [0]
+
+
+def test_stabilization_numbers_written_as_whole_floats_are_kept() -> None:
+    # JSON Schema counts 10.0 as an integer, so it reaches zoomBudget as a float.
+    markers = kitchenSink()
+    saved = {"enabled": True, "desc": "Extreme", "shakiness": 10.0, "smoothing": 10.0}
+    markers["videoStabilization"] = copy.deepcopy(saved)
+    assert validate(markers) == markers_schema.MarkersValidation()
+    ytc_settings.applyMarkersValidation(markers)
+    assert markers["videoStabilization"] == saved
+
+
+@pytest.mark.parametrize("name", ["[bold red]RED[/]", "[link=https://example.com]x[/link]", "[/]"])
+def test_a_preset_name_from_the_markers_file_is_shown_as_written(
+    name: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    # The log renders rich markup, and a markers JSON file may come from someone else.
+    markers = kitchenSink()
+    markers["videoStabilization"] = {"enabled": True, "desc": name}
+    validate(markers)
+    ytc_settings.applyMarkersValidation(markers)
+    [message] = [r.getMessage() for r in caplog.records if "preset" in r.getMessage()]
+    assert f'"{name}"' in rich.markup.render(message).plain
 
 
 def test_legacy_format_is_normalized() -> None:

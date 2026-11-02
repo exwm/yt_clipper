@@ -103,11 +103,11 @@
       "properties": {
         "enabled": { "type": "boolean" },
         "desc": {
-          "description": "The preset's name. The clipper script looks its values up by name; the numbers below are informational.",
-          "enum": ["Disabled", "Very Weak", "Weak", "Medium", "Strong", "Very Strong", "Strongest"]
+          "type": "string",
+          "description": "The preset's name. The clipper script looks a known preset's values up by name, and uses the numbers below for any other name."
         },
-        "shakiness": { "type": "number", "minimum": 0 },
-        "smoothing": { "type": "number", "minimum": 0 },
+        "shakiness": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "smoothing": { "type": "integer", "minimum": 0, "maximum": 1000 },
         "zoomspeed": { "type": "number", "minimum": 0 }
       }
     },

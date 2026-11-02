@@ -264,6 +264,15 @@ def test_zoom_budget_of_a_steady_pan_is_the_least(speed: int) -> None:
     assert zoomBudget(frames(*[(speed, 0)] * 60), smoothing=10) == MIN_ZOOM_BUDGET
 
 
+@pytest.mark.parametrize(("smoothing", "radius"), [(10.0, 10), (2.5, 2)])
+def test_zoom_budget_reads_a_float_smoothing_as_a_whole_number(
+    smoothing: float, radius: int
+) -> None:
+    # A markers JSON file can save 10.0, which its schema counts as an integer
+    transforms = frames(*[(10 if i % 2 else -10, 0) for i in range(60)])
+    assert zoomBudget(transforms, smoothing) == zoomBudget(transforms, radius)
+
+
 def test_zoom_budget_is_the_most_zoom_when_the_transforms_cannot_be_read(tmp_path: Path) -> None:
     unreadable = tmp_path / "binary.trf"
     unreadable.write_bytes(b"TRF1\x00\x00")

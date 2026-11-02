@@ -466,7 +466,7 @@ def extendedPath(path: np.ndarray, radius: int) -> np.ndarray:
     return np.concatenate([before, path, after])
 
 
-def zoomBudget(transforms: TransformsFile, smoothing: int) -> float:
+def zoomBudget(transforms: TransformsFile, smoothing: float) -> float:
     """How far vid.stab's camera path optimization may zoom in, in percent: enough for the clip's
     shake. The camera path (each frame's median field motion, summed) strays from its moving
     average over the smoothing window; the window must cover that on both sides, at the 99th
@@ -476,7 +476,8 @@ def zoomBudget(transforms: TransformsFile, smoothing: int) -> float:
         return MAX_ZOOM_BUDGET
     shifts = np.array([frameShift(m) if m else (0.0, 0.0) for m in transforms.frames], dtype=float)
     path = np.cumsum(shifts, axis=0)
-    radius = max(1, smoothing)
+    # int(): smoothing comes from a markers JSON file, whose schema lets 10.0 through as an integer
+    radius = max(1, int(smoothing))
     kernel = np.ones(2 * radius + 1) / (2 * radius + 1)
     padded = [extendedPath(path[:, k], radius) for k in range(2)]
     smooth = np.stack([np.convolve(p, kernel, "valid") for p in padded], axis=1)
@@ -485,7 +486,7 @@ def zoomBudget(transforms: TransformsFile, smoothing: int) -> float:
     return float(np.clip(100 * share + ZOOM_BUDGET_PADDING, MIN_ZOOM_BUDGET, MAX_ZOOM_BUDGET))
 
 
-def zoomBudgetFromFile(transformsPath: str, smoothing: int) -> float:
+def zoomBudgetFromFile(transformsPath: str, smoothing: float) -> float:
     try:
         return zoomBudget(
             parseTransforms(Path(transformsPath).read_text(encoding="utf-8")), smoothing

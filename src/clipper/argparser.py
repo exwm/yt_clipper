@@ -4,9 +4,11 @@ import re
 import shlex
 import sys
 from collections import OrderedDict
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from rich.markup import escape
 from rich_argparse import ArgumentDefaultsRichHelpFormatter
 
 from clipper import banded_lapack, updates
@@ -14,7 +16,10 @@ from clipper.clipper_types import ClipperPaths, DictStrAny
 from clipper.ffmpeg_version import getFfmpegVersion
 from clipper.settings_file import decodeSettingsFile
 from clipper.version import __version__
+from clipper.ytc_logger import Subsystem, make_subsystem_logger
 from clipper.ytdl import DEFAULT_FORMAT_SORT, ytdl_bin_get_version
+
+logger = make_subsystem_logger(Subsystem.SETTINGS)
 
 
 class DefaultsHelpFormatter(ArgumentDefaultsRichHelpFormatter):
@@ -339,7 +344,7 @@ def add_vfilter_options(vfilter_options: argparse._ArgumentGroup) -> None:
         "--denoise",
         "-dn",
         type=int,
-        default=0,
+        default=DEFAULT_DENOISE_LEVEL,
         choices=range(0, 6),
         help=" ".join(
             [
@@ -353,7 +358,7 @@ def add_vfilter_options(vfilter_options: argparse._ArgumentGroup) -> None:
         "-vs",
         dest="videoStabilization",
         type=int,
-        default=0,
+        default=DEFAULT_VIDSTAB_LEVEL,
         choices=range(0, 7),
         help=" ".join(
             [
@@ -1308,13 +1313,50 @@ def getVidstabPreset(level: int) -> DictStrAny:
 
 
 VIDSTAB_PRESET_LEVELS = {getVidstabPreset(level)["desc"]: level for level in range(7)}
+# The level of `--video-stabilization` and `--denoise` when not given, and of a saved preset with
+# no name the clipper knows and too few numbers to use
+DEFAULT_VIDSTAB_LEVEL = 0
+DEFAULT_DENOISE_LEVEL = 0
+
+
+def resolvePreset(
+    saved: DictStrAny,
+    kind: str,
+    levels: dict[str, int],
+    getPreset: Callable[[int], DictStrAny],
+    numbers: tuple[str, ...],
+    defaultLevel: int,
+) -> DictStrAny:
+    """The clipper's preset for one a markers JSON saved. A known name picks the clipper's numbers,
+    so presets can be retuned between releases, and keeps the saved `enabled`. An unknown name or
+    none keeps the saved numbers the clipper reads (`numbers`); without them an enabled preset
+    falls back to defaultLevel, with a warning."""
+    level = levels.get(saved.get("desc", ""))
+    if level is not None:
+        # The Disabled preset has no numbers, so it can't be turned on
+        return {**getPreset(level), "enabled": saved["enabled"] and level != 0}
+    if not saved["enabled"] or all(key in saved for key in numbers):
+        return saved
+    fallback = getPreset(defaultLevel)
+    # Escaped: the log renders rich markup, and the name comes from a markers JSON file
+    name = f'"{escape(saved["desc"])}"' if "desc" in saved else "with no name"
+    result = "off" if not fallback["enabled"] else f"set to {fallback['desc']}"
+    logger.warning(
+        f"{kind.capitalize()} is {result} where the markers JSON file uses the preset {name}:"
+        " this clipper script doesn't know that name, and the file saves no settings for it."
+    )
+    return fallback
 
 
 def resolveVidstabPreset(saved: DictStrAny) -> DictStrAny:
-    """The clipper's preset for the name a markers JSON saved. The saved numbers are informational,
-    so presets can be retuned between releases. Files without a name keep their numbers."""
-    level = VIDSTAB_PRESET_LEVELS.get(saved.get("desc", ""))
-    return getVidstabPreset(level) if level is not None else saved
+    return resolvePreset(
+        saved,
+        "video stabilization",
+        VIDSTAB_PRESET_LEVELS,
+        getVidstabPreset,
+        ("shakiness", "smoothing"),
+        DEFAULT_VIDSTAB_LEVEL,
+    )
 
 
 def getDenoisePreset(level: int) -> DictStrAny:
@@ -1336,6 +1378,11 @@ DENOISE_PRESET_LEVELS = {getDenoisePreset(level)["desc"]: level for level in ran
 
 
 def resolveDenoisePreset(saved: DictStrAny) -> DictStrAny:
-    """As resolveVidstabPreset, for denoise."""
-    level = DENOISE_PRESET_LEVELS.get(saved.get("desc", ""))
-    return getDenoisePreset(level) if level is not None else saved
+    return resolvePreset(
+        saved,
+        "denoise",
+        DENOISE_PRESET_LEVELS,
+        getDenoisePreset,
+        ("lumaSpatial",),
+        DEFAULT_DENOISE_LEVEL,
+    )
