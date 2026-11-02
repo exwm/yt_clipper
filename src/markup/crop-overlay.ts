@@ -227,6 +227,8 @@ function CropOverlayTemplate(fillOpacity: number, crossHairDisplay: string) {
       </g>
 
       <g id="cropRectBorder" opacity="1" shape-rendering="geometricPrecision">
+        <!-- Masked to outside the crop, so it darkens a thin line around the white dashes and
+             leaves the cropped video untouched -->
         <rect
           id="cropRectBorderBlack"
           x="0"
@@ -235,7 +237,9 @@ function CropOverlayTemplate(fillOpacity: number, crossHairDisplay: string) {
           height="100%"
           fill="none"
           stroke="black"
-          stroke-width="1px"
+          stroke-opacity="0.7"
+          stroke-width="3px"
+          mask="url(#cropMask)"
         />
         <rect
           id="cropRectBorderWhite"

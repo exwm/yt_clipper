@@ -83,6 +83,11 @@ def crop_chart_sections(markup: MarkupPage) -> None:
     given_the_sections_pair_with_its_crop_chart_open(markup)
 
 
+@scenario("narrowed-crop")
+def narrowed_crop(markup: MarkupPage) -> None:
+    given_a_marker_pair_with_a_narrowed_crop(markup)
+
+
 @scenario("reframe-minimap")
 def reframe_minimap(markup: MarkupPage) -> None:
     given_a_marker_pair_with_a_narrowed_crop(markup)
