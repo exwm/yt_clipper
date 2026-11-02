@@ -23,17 +23,34 @@ PROBED_CODECS = {
 
 
 @dataclass(frozen=True)
+class StreamTraits:
+    """What a rescaled copy takes from the clip it copies, as ffprobe reports it."""
+
+    # The average rate, since a clip's frames may fit no exact rate (r_frame_rate is then the timescale)
+    frameRate: str
+    timeBase: str
+    pixelFormat: str
+    # None where the clip has no tag
+    colorRange: str | None
+    colorSpace: str | None
+    colorTransfer: str | None
+    colorPrimaries: str | None
+
+
+@dataclass(frozen=True)
 class MergeInput:
     path: str
     codec: str
     size: tuple[int, int]
     seconds: float
+    traits: StreamTraits
 
 
 def probeMergeInput(cp: ClipperPaths, path: str) -> MergeInput:
     output = subprocess.check_output(
-        [argvPath(cp.ffprobePath), "-v", "error", "-select_streams", "v:0",
-         "-show_entries", "stream=codec_name,width,height:format=duration", "-of", "json", path],
+        [argvPath(cp.ffprobePath), "-v", "error", "-select_streams", "v:0", "-show_entries",
+         "stream=codec_name,width,height,avg_frame_rate,time_base,pix_fmt,color_range,color_space,"
+         "color_transfer,color_primaries:format=duration", "-of", "json", path],
         text=True,
     )  # fmt: skip
     probe = json.loads(output)
@@ -43,6 +60,15 @@ def probeMergeInput(cp: ClipperPaths, path: str) -> MergeInput:
         stream["codec_name"],
         (stream["width"], stream["height"]),
         float(probe["format"]["duration"]),
+        StreamTraits(
+            stream["avg_frame_rate"],
+            stream["time_base"],
+            stream["pix_fmt"],
+            stream.get("color_range"),
+            stream.get("color_space"),
+            stream.get("color_transfer"),
+            stream.get("color_primaries"),
+        ),
     )
 
 

@@ -3,9 +3,9 @@
 A merge copies its clips' streams, so a merge of clips of different sizes changes size at each join.
 FFmpeg's AV1 hardware decoding keeps the first clip's frame size there and shows corrupted colors or
 drops frames (FFmpeg issue 24132), so AV1 merges are rescaled by default; `--merge-rescale always`
-does it for every codec, and `never` merges as is after asking. Clips made in the run are encoded at
-their merge's size (planned before encoding); clips made earlier keep their size, and the merge uses a
-rescaled copy, which later runs reuse.
+does it for every codec, and `never` merges as is after asking. A merge takes its largest clip's
+size. Clips made in the run are encoded at it (planned before encoding); clips made earlier keep
+their size, and the merge uses a rescaled copy, which later runs reuse.
 """
 
 import contextlib
@@ -14,12 +14,17 @@ import os
 import shlex
 import subprocess
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from fractions import Fraction
 from pathlib import Path
 
 from clipper import cinematic_path, frame_timing
 from clipper.clipper_types import ClipperPaths, ClipperState, DictStrAny, Settings, argvPath
-from clipper.ffmpeg_codec import getFfmpegVideoCodecArgs, isHardwareAcceleratedVideoCodec
+from clipper.ffmpeg_codec import (
+    HDR_PIXEL_FORMAT,
+    getFfmpegVideoCodecArgs,
+    isHardwareAcceleratedVideoCodec,
+)
 from clipper.ffmpeg_filter import getAutoScaledCropComponents, getCropPathSize
 from clipper.merge_inputs import PROBE_ERRORS, PROBED_CODECS, MergeInput, probeMergeInput
 from clipper.merge_sizes import (
@@ -29,8 +34,8 @@ from clipper.merge_sizes import (
     describeMerge,
     markerPairsText,
     planMergeSizes,
+    planPairSizes,
     rescaleFilter,
-    scaledEncodeSizes,
     sizeText,
 )
 from clipper.util import escapeSingleQuotesFFmpeg, floorToEven
@@ -65,7 +70,8 @@ def rescaledCopyPath(cp: ClipperPaths, clipPath: str, size: Size) -> str:
 
 
 def validCopySizes(cp: ClipperPaths, clip: MergeInput) -> frozenset[Size]:
-    """Sizes of the clip's rescaled copies that are newer than the clip and read back as expected."""
+    """Sizes of the clip's rescaled copies that are newer than the clip and read back with its codec
+    and traits."""
     clipTime = Path(clip.path).stat().st_mtime
     sizes = set()
     pattern = f"{glob.escape(Path(clip.path).stem)}-*x*{Path(clip.path).suffix}"
@@ -78,10 +84,27 @@ def validCopySizes(cp: ClipperPaths, clip: MergeInput) -> frozenset[Size]:
             continue
         if (
             copy.codec == clip.codec
+            and hasClipTraits(copy, clip)
             and copyPath.name == Path(rescaledCopyPath(cp, clip.path, copy.size)).name
         ):
             sizes.add(copy.size)
     return frozenset(sizes)
+
+
+# SVT-AV1 can end a copy's last frame a little later than the clip's, which moves the average rate
+# by under 0.01%. A copy retimed onto a guessed rate moved it 0.15% or more.
+COPY_FRAME_RATE_TOLERANCE = Fraction(1, 1000)
+
+
+def hasClipTraits(copy: MergeInput, clip: MergeInput) -> bool:
+    """Whether the copy has the clip's traits: its average frame rate within the tolerance, the
+    others exactly."""
+    copyRate, clipRate = averageFrameRate(copy), averageFrameRate(clip)
+    if copyRate is None or clipRate is None:
+        sameRate = copy.traits.frameRate == clip.traits.frameRate
+    else:
+        sameRate = abs(copyRate - clipRate) <= clipRate * COPY_FRAME_RATE_TOLERANCE
+    return sameRate and replace(copy.traits, frameRate="") == replace(clip.traits, frameRate="")
 
 
 def readyMergeInputs(
@@ -130,8 +153,7 @@ def planMergeRescales(
             )
             continue
         for pair, clip in zip(mergeList, inputs, strict=True):
-            if pair not in clips:
-                clips[pair] = MergeClip(pair, clip.size, clip.seconds, validCopySizes(cp, clip))
+            clips.setdefault(pair, MergeClip(pair, clip.size))
         planned.append((merge, mergeList))
     if not planned:
         return {}
@@ -162,7 +184,8 @@ def logMergePlan(
 def predictClipSize(settings: Settings, markerPair: DictStrAny) -> Size | None:
     """The size a marker pair's clip will have, as getMarkerPairSettings and makeClip make it: its
     crop scaled to the video, the largest crop point when it zooms, then rotated. None when the
-    clip is not encoded (fast trim, preview). A Cinematic pair is output at the size of its solved path."""
+    clip is not encoded (fast trim, preview) or its Cinematic path cannot be solved. A Cinematic
+    pair is output at the size of its solved path."""
     mps = {**settings, **markerPair.get("overrides", {})}
     if mps.get("fastTrim") or mps.get("preview"):
         return None
@@ -170,18 +193,21 @@ def predictClipSize(settings: Settings, markerPair: DictStrAny) -> Size | None:
     width, height = int(crop["w"]), int(crop["h"])
     enableCropMaps = mps["enableCropMaps"] if "enableCropMaps" in markerPair else True
     cropMap = markerPair.get("cropMap") if enableCropMaps else None
-    cinematicPath = (
-        cinematic_path.bakeCinematicPath(
-            cropMap,
-            cinematic_path.cinematicMargins(mps),
-            settings["cropResWidth"],
-            settings["cropResHeight"],
-            # Without fps no cut snaps to a frame, so the size is the same under any frame timing.
-            cutTimeAt=frame_timing.current().cutTime,
-        )
-        if cropMap and mps.get("cropPointEasing") == "cinematic"
-        else None
-    )
+    cinematicPath = None
+    if cropMap and mps.get("cropPointEasing") == "cinematic":
+        try:
+            cinematicPath = cinematic_path.bakeCinematicPath(
+                cropMap,
+                cinematic_path.cinematicMargins(mps),
+                settings["cropResWidth"],
+                settings["cropResHeight"],
+                # Without fps no cut snaps to a frame, so the size is the same under any frame timing.
+                cutTimeAt=frame_timing.current().cutTime,
+            )
+        except Exception:
+            # As getMarkerPairSettings does: the encode warns and uses Smooth Track, and the merge
+            # rescales the clip as it came out.
+            return None
     if cinematicPath:
         width, height = getCropPathSize(cinematicPath, settings)
     elif cropMap:
@@ -218,11 +244,11 @@ def mergeClipBeforeEncoding(
             return None
         if clip.codec != codec:
             return None
-        return MergeClip(pair, clip.size, clip.seconds, validCopySizes(cp, clip))
+        return MergeClip(pair, clip.size)
     size = predictClipSize(settings, markerPair)
     if size is None:
         return None
-    return MergeClip(pair, size, markerPair["end"] - markerPair["start"], scalable=True)
+    return MergeClip(pair, size, scalable=True)
 
 
 @dataclass(frozen=True)
@@ -242,7 +268,9 @@ def planMergeEncodeSizes(
     clipPathForPair: Callable[[int], str],
 ) -> MergeEncodePlan:
     """Before encoding, plans the merges of clips of different sizes and logs the plan. A clip made
-    this run for such a merge is encoded at the merge's size."""
+    this run for such a merge is encoded at the merge's size. Merges of clips made earlier, and
+    merges of one size with a new clip, are planned too, since a shared pair links their size to
+    the others'."""
     settings = cs.settings
     codec = PROBED_CODECS.get(settings.get("videoCodec", ""))
     if codec is None or not rescalesCodec(settings, codec) or not canMakeCopies(settings, codec):
@@ -255,26 +283,34 @@ def planMergeEncodeSizes(
             for pair in mergeList
         ]
         known = [clip for clip in mergeClips if clip is not None]
-        if (
-            len(known) < len(mergeClips)
-            or len({clip.size for clip in known}) <= 1
-            or not any(clip.scalable for clip in known)
-        ):
+        if len(known) < len(mergeClips):
+            continue
+        # A merge of one size can still grow with another through a pair they share, and its new
+        # clips then grow with it rather than need copies
+        if len({clip.size for clip in known}) <= 1 and not any(clip.scalable for clip in known):
             continue
         for clip in known:
             clips.setdefault(clip.pair, clip)
         planned.append((merge, mergeList))
-    if not planned:
+    if not any(clip.scalable for clip in clips.values()):
+        # Nothing to encode at a merge's size: merging plans and logs these
         return MergeEncodePlan()
 
-    targets = planMergeSizes([pairs for _, pairs in planned], clips)
-    logMergePlan(planned, clips, targets)
-    encodeSizes = scaledEncodeSizes([pairs for _, pairs in planned], clips, targets)
+    merges = [pairs for _, pairs in planned]
+    targets = planMergeSizes(merges, clips)
+    rescaled = [
+        (request, target)
+        for request, target in zip(planned, targets, strict=True)
+        if any(clips[pair].size != target for pair in request[1])
+    ]
+    if not rescaled:
+        return MergeEncodePlan()
+    logMergePlan([request for request, _ in rescaled], clips, [target for _, target in rescaled])
     return MergeEncodePlan(
         scales={
-            pair - 1: MergeScale(clips[pair].size, size)
-            for pair, size in encodeSizes.items()
-            if size != clips[pair].size
+            pair - 1: MergeScale(size)
+            for pair, size in planPairSizes(merges, clips).items()
+            if clips[pair].scalable and size != clips[pair].size
         },
         sizes={merge: target for (merge, _), target in zip(planned, targets, strict=True)},
     )
@@ -296,8 +332,36 @@ def copyEncodeSettings(
     if "crf" in markerPair:
         mps["crf"] = markerPair["crf"]
     mps.setdefault("targetMaxBitrate", mps["autoTargetMaxBitrate"])
-    # One pass at a quality, with the clip's frames as they are
-    return {**mps, "targetSize": 0, "twoPass": False, "minterpFPS": None}
+    # One pass at a quality, with the clip's frames as they are. The clip's bit depth, not this
+    # run's --enable-hdr: the HDR args tag a copy as they tagged the clip, and an 8-bit copy keeps
+    # the clip's tags through the scale.
+    mps = {
+        **mps,
+        "targetSize": 0,
+        "twoPass": False,
+        "minterpFPS": None,
+        "enableHDR": clip.traits.pixelFormat == HDR_PIXEL_FORMAT,
+    }
+    # The clip's own rate, not the source video's: video2x or a speed change made it another
+    if (frameRate := copyFrameRate(clip)) is not None:
+        mps |= {"r_frame_rate": str(frameRate), "encoderFrameRate": frameRate}
+    return mps
+
+
+def averageFrameRate(clip: MergeInput) -> Fraction | None:
+    """The clip's average frame rate, or None when ffprobe reports none."""
+    try:
+        rate = Fraction(clip.traits.frameRate)
+    except (ValueError, ZeroDivisionError):
+        return None
+    return rate if rate > 0 else None
+
+
+def copyFrameRate(clip: MergeInput) -> Fraction | None:
+    """The clip's average frame rate, rounded to a rate an encoder takes (90000/1001 for a video2x
+    x3 of 29.97 fps), or None when ffprobe reports none."""
+    rate = averageFrameRate(clip)
+    return None if rate is None else rate.limit_denominator(1001)
 
 
 def makeRescaledCopy(
@@ -325,7 +389,10 @@ def makeRescaledCopy(
     command = [
         argvPath(cp.ffmpegPath), "-hide_banner", "-loglevel", "error", "-y", *shlex.split(inputArgs),
         "-i", clip.path, "-map", "0:v:0", "-map", "0:a?", "-vf", rescaleFilter(clip.size, target),
-        *shlex.split(videoArgs), "-c:a", "copy", *shlex.split(outputArgs), partialPath,
+        *shlex.split(videoArgs), "-c:a", "copy", *shlex.split(outputArgs),
+        # Else ffmpeg takes the encoder's time base from the rate ffprobe guesses, and rounds the
+        # timestamps of frames off that rate onto it
+        "-enc_time_base:v", "demux", partialPath,
     ]  # fmt: skip
     logger.notice(f"Rescaling {markerPairsText([pair])} to {sizeText(target)} for merge {merge}.")
     if subprocess.run(command, check=False).returncode != 0:

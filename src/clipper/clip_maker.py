@@ -44,6 +44,7 @@ from clipper.ffmpeg_filter import (
     getAverageSpeed,
     getCropFilter,
     getCropPathFilter,
+    getCropPathSize,
     getEasingExpression,
     getMinSpeed,
     getMinterpFilter,
@@ -51,6 +52,7 @@ from clipper.ffmpeg_filter import (
     getSubsFilter,
     getVideoStabilizationFilters,
     getZoomPanFilter,
+    getZoomPanSize,
     resolveCropEaseType,
     videoStabilizationGammaFixFilter,
 )
@@ -339,6 +341,12 @@ def getMarkerPairSettings(  # noqa: PLR0912
         ]
 
     mp["maxSize"] = cropComponents["w"] * cropComponents["h"]
+    # The size the crop filter outputs, before rotation
+    mp["cropSize"] = (int(cropComponents["w"]), int(cropComponents["h"]))
+    if cinematicPath:
+        mp["cropSize"] = getCropPathSize(cinematicPath, settings)
+    elif mp["isZoomPanCrop"]:
+        mp["cropSize"] = getZoomPanSize(mp["cropMap"])
     cropEaseType = resolveCropEaseType(mps.get("cropPointEasing"))
     if cinematicPath:
         mp["cropFilter"], mp["maxSize"] = getCropPathFilter(
@@ -730,15 +738,18 @@ def makeClip(  # noqa: PLR0912
         cropComponents["w"] /= 2
         cropComponents["h"] /= 2
 
+    clipWidth, clipHeight = mp["cropSize"]
     # if the marker pair crop is used after the filter then it should be rotated the same way
     if mps["rotate"] and mps["rotate"] != "0":
         video_filter += f",transpose={mps['rotate']}"
+        clipWidth, clipHeight = clipHeight, clipWidth
 
     if mergeScale is not None:
         logger.notice(
             f"Scaling {markerPairsText([markerPairIndex + 1])} to {sizeText(mergeScale.size)} for its merge."
         )
-        video_filter += f",{rescaleFilter(mergeScale.fromSize, mergeScale.size)}"
+        # From the size the filters give, so a wrong size prediction can't stretch the clip
+        video_filter += f",{rescaleFilter((clipWidth, clipHeight), mergeScale.size)}"
 
     video_filter_before_correction = None
     if mps["preview"]:
@@ -1446,7 +1457,8 @@ def mergeClips(  # noqa: PLR0912
     cs: ClipperState,
     announcedMergeSizes: dict[str, Size] | None = None,
 ) -> list[str]:
-    """Merges the clips of each merge in the merge list, and returns the merges whose ffmpeg failed.
+    """Merges the clips of each merge in the merge list, and returns the merges that failed: in
+    ffmpeg, for a rescaled copy, for an unreadable clip, or for clips of different codecs.
     announcedMergeSizes are the merge sizes the plan before encoding logged, which are not logged
     again. A merge skipped for a missing clip is not counted: with --only, the other clips are
     missing on purpose."""
@@ -1553,11 +1565,14 @@ def mergeClips(  # noqa: PLR0912
 
         merged_file_log = LogPath(mergedFileName)
         mergedClipReady = mergeFileExists and not settings["overwrite"]
-        willMerge = not mergeFileExists or settings["overwrite"]
-        mergeInputs = probeMergeInputs(cp, merge, inputPaths) if willMerge else None
+        wantsMerge = not mergeFileExists or settings["overwrite"]
+        mergeInputs = probeMergeInputs(cp, merge, inputPaths) if wantsMerge else None
         willMerge = mergeInputs is not None and hasOneCodec(
             merge, mergeList, mergeInputs, settings["videoCodec"]
         )
+        if wantsMerge and not willMerge:
+            # An unreadable clip or clips of different codecs, both logged
+            failedMerges.append(f"merge {merge}")
         if willMerge and mergeInputs is not None:
             if merge in rescaleTargets:
                 with time_stage(f"({merge}) merge rescale"):
@@ -1570,7 +1585,9 @@ def mergeClips(  # noqa: PLR0912
                         getDefaultEncodeSettings,
                     )
                 willMerge = rescaledInputs is not None
-                if rescaledInputs is not None:
+                if rescaledInputs is None:
+                    failedMerges.append(f"merge {merge}")
+                else:
                     with open(inputsTxtPath, "w", encoding="utf-8") as inputsTxt:
                         inputsTxt.write(rescaledInputs)
             else:
