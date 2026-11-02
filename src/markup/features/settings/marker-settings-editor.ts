@@ -48,6 +48,7 @@ import { cyclePreviewRotation } from '../../video-rotation';
 import { loadClipperInputDataFromLocalStorage } from '../../auto-save';
 import {
   cropStringsEqual,
+  formatAspectRatio,
   getCropComponents,
   getNumericCropString,
   getRotatedCropString,
@@ -158,7 +159,7 @@ function MarkerPairEditorTemplate(
   const crop = markerPair.crop;
   const cropInputValidation = `\\d+:\\d+:(\\d+|iw):(\\d+|ih)`;
   const [, , w, h] = getCropComponents(crop);
-  const cropAspectRatio = (w / h).toFixed(13);
+  const cropAspectRatio = formatAspectRatio(w, h);
   // The chip's initial value; the preview loop then keeps it at the live interpolated crop.
   const chipCrop =
     appState.rotation !== 0 ? getRotatedCropString(crop) : getNumericCropString(crop);
