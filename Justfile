@@ -158,11 +158,13 @@ _parcel-once:
 parcel-build:
   just _timed parcel just _parcel-once
 # Format first (it rewrites sources), then check and build in parallel: they only read them.
-bundle-prod coverage="false": pretty-ts (_check-and-build coverage)
+# `just bundle-prod true` (CI, release-prep) checks the formatting instead of writing it, so
+# unformatted code fails the run rather than being formatted into the release change unseen.
+bundle-prod coverage="false": (_format-ts coverage) (_check-and-build coverage)
+_format-ts coverage:
+  {{ if coverage == "true" { "just pretty-ts-check" } else { "just pretty-ts" } }}
 [parallel]
-_check-and-build coverage: typecheck-ts eslint-ts (test-ts coverage) parcel-build (_pretty-ts-check-if coverage)
-_pretty-ts-check-if coverage:
-  {{ if coverage == "true" { "just pretty-ts-check" } else { "true" } }}
+_check-and-build coverage: typecheck-ts eslint-ts (test-ts coverage) parcel-build
 
 # Serve the generic yt_clipper site with the freshly built userscript injected (no Tampermonkey).
 dev-site:
