@@ -14,7 +14,6 @@ from clipper import (
     argparser,
     clip_maker,
     frame_timing,
-    frame_timing_548,
     frame_timing_549,
     ytc_settings,
 )
@@ -111,7 +110,7 @@ def decisionOutputs(decide: FrameTiming, case: Case) -> dict[str, object]:
             for fps in (30.0, None)
             for left, right in CROP_SECTIONS
         ],
-        "cropPointOrigin": decide.cropPointOrigin(span, mps),
+        "cropPointOrigin": decide.cropPointOrigin(span, mps, source.videoPartDelay),
     }  # fmt: skip
 
 
@@ -222,14 +221,30 @@ def clipOf(
 
 
 @pytest.mark.parametrize("case", CASES)
-def test_a_clip_made_with_next_is_5_48s(
+def test_a_clip_made_with_next_is_5_48s_but_for_its_crop_filter(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case: Case
 ) -> None:
-    # Next replaces no decision a clip shows yet. A fix that does lists the outputs it changes here.
+    # Next's crop points (sectionEaseDuration, cutTime) change only the crop filter.
     old = clipOf(tmp_path, monkeypatch, frame_timing.ALL_548, case)
     new = clipOf(tmp_path, monkeypatch, FrameTimingSwitches(), case)
     assert new["commands"]
-    assert new == old
+    assert withoutCropFilter(new) == withoutCropFilter(old)
+    assert new["commands"] == replaced(
+        old["commands"], str(old["cropFilter"]), str(new["cropFilter"])
+    )
+
+
+def withoutCropFilter(clip: dict[str, object]) -> dict[str, object]:
+    return {key: value for key, value in clip.items() if key not in ("cropFilter", "commands")}
+
+
+def replaced(value: object, old: str, new: str) -> object:
+    """`value` with `old` replaced by `new` in every string it holds."""
+    if isinstance(value, str):
+        return value.replace(old, new)
+    if isinstance(value, list | tuple):
+        return type(value)(replaced(item, old, new) for item in value)
+    return value
 
 
 @pytest.mark.parametrize("source", SOURCES)
@@ -241,7 +256,9 @@ def test_a_fast_trim_made_with_next_is_5_48s(
     old = clipOf(tmp_path, monkeypatch, frame_timing.ALL_548, case, fastTrim=True, ext="mp4")
     new = clipOf(tmp_path, monkeypatch, FrameTimingSwitches(), case, fastTrim=True, ext="mp4")
     assert new["commands"]
-    assert new == old
+    # A fast trim copies frames without a crop filter.
+    assert withoutCropFilter(new) == withoutCropFilter(old)
+    assert new["commands"] == old["commands"]
 
 
 @pytest.mark.parametrize(
@@ -261,28 +278,67 @@ def test_every_build_makes_a_clip(
     assert clip["outputDuration"]
 
 
-# Where next's crop points count their frames from: 0 on the markers' timeline, from mps alone.
+# Where crop points take effect in next: on the frame holding the point, as the preview shows it, on
+# the frames the clip's seek gives.
+
+FPS = 30.0
+INSIDE = [0.05, 0.3, 0.5, 0.7, 0.95]
 
 
-def test_next_counts_crop_points_from_the_markers_whatever_clip_frames_picks() -> None:
-    mps = {"inputVideo": "", "videoType": "multi_video", "delay": 0.0105, "r_frame_rate": "30/1"}
-    pair = {"start": PART_START + 1.0, "end": PART_START + 2.0}
-    spans = [
-        frame_timing_548.clipSpan(pair, mps, PART_START),
-        frame_timing_549.clipSpan(pair, mps, PART_START),
-    ]
-    assert spans[0].cropFrameOrigin != spans[1].cropFrameOrigin
-    assert {NEXT.cropPointOrigin(span, mps) for span in spans} == {0.0105}
+def firstFrameFrom(time: float, origin: float = 0.0) -> int:
+    """The first frame starting at or after `time`, counting frames from `origin`."""
+    frame = round((time - origin) * FPS)
+    return frame if frame / FPS >= time - origin - 1e-9 else frame + 1
 
 
-@pytest.mark.parametrize(("left", "right"), CROP_SECTIONS)
-def test_the_delay_doesnt_shift_which_frame_a_crop_point_takes_effect_on(
-    left: float, right: float
+@pytest.mark.parametrize(("startIn", "pointIn"), itertools.product(INSIDE, INSIDE))
+def test_an_instant_point_takes_effect_on_its_own_frame_wherever_the_start_marker_is(
+    startIn: float, pointIn: float
 ) -> None:
-    def sectionAt(delay: float) -> float | None:
-        # The crop map's times are the markers' plus the delay. 5.49's section reads the origin, so it
-        # shows what a fix counting frames from it would do.
-        origin = NEXT.cropPointOrigin(frame_timing_548.clipSpan({"start": 0, "end": 1}, {"delay": delay}, 0), {"delay": delay})  # fmt: skip
-        return frame_timing_549.sectionEaseDurationFromVideoPart("instant", 1.0 + left + delay, 1.0 + right + delay, 1.0 + delay, origin, 30.0)  # fmt: skip
+    start, point = (60 + startIn) / FPS, round((91 + pointIn) / FPS, 6)
+    duration = NEXT.sectionEaseDuration("instant", start, point, start, 0.0, FPS)
+    assert duration is not None
+    assert firstFrameFrom(start + duration) == 91
+    assert firstFrameFrom(NEXT.cutTime(point, start, FPS, start, 0.0)) == 91
 
-    assert sectionAt(0.0105) == pytest.approx(sectionAt(0.0))
+
+def test_a_point_just_below_a_frame_start_takes_effect_on_the_earlier_frame_as_in_the_preview() -> (
+    None
+):
+    # The preview floors a point's time to its frame; 5.49 counted the last millisecond as the next frame.
+    start, point = 60.4 / FPS, 91 / FPS - 0.0005
+    duration = NEXT.sectionEaseDuration("instant", start, point, start, 0.0, FPS)
+    old549 = frame_timing_549.sectionEaseDurationFromVideoPart(
+        "instant", start, point, start, 0.0, FPS
+    )
+    assert duration is not None
+    assert old549 is not None
+    assert (firstFrameFrom(start + duration), firstFrameFrom(start + old549)) == (90, 91)
+
+
+@pytest.mark.parametrize("pointIn", INSIDE)
+def test_a_crop_point_in_a_later_video_part_takes_effect_on_its_own_frame_of_that_part(
+    pointIn: float,
+) -> None:
+    mps = {"inputVideo": "", "videoType": "multi_video", "delay": 0.0, "r_frame_rate": "30/1"}
+    span = NEXT.clipSpan({"start": PART_START + 1.0, "end": PART_START + 4.0}, mps, PART_START)
+    origin = NEXT.cropPointOrigin(span, mps, PART_START)
+    start, point = PART_START + 1.01, PART_START + (91 + pointIn) / FPS
+    duration = NEXT.sectionEaseDuration("instant", start, point, start, origin, FPS)
+    assert duration is not None
+    assert firstFrameFrom(start + duration, PART_START) == 91
+
+
+@pytest.mark.parametrize(
+    "build", [frame_timing.ALL_548, FrameTimingSwitches()], ids=frame_timing.buildName
+)
+@pytest.mark.parametrize("delay", [0.0, 0.0105])
+def test_crop_points_count_frames_from_the_start_of_the_video_part_the_clip_seeks_in(
+    build: frame_timing.Build, delay: float
+) -> None:
+    # The delay moves the clip's seek and its crop points together, so it doesn't move the frames.
+    timing = frame_timing.compose(build)
+    mps = {"inputVideo": "", "videoType": "multi_video", "delay": delay, "r_frame_rate": "30/1"}
+    for partStart in (0.0, PART_START):
+        span = timing.clipSpan({"start": partStart + 1.0, "end": partStart + 2.0}, mps, partStart)
+        assert timing.cropPointOrigin(span, mps, partStart) == partStart

@@ -564,6 +564,44 @@ def test_a_legacy_instant_crop_point_switches_on_5_48s_frame(
     assert shown == frame
 
 
+# The start marker and the instant point inside their frames (30 fps, the point in frame 91), where
+# 5.48 counted crop point frames from the start marker.
+INSIDE_FRAMES = [
+    pytest.param(60.7 / 30, round(91.85 / 30, 6), 92, id="start 70% in, point 85% in"),
+    pytest.param(60.3 / 30, round(91.15 / 30, 6), 90, id="start 30% in, point 15% in"),
+]
+
+
+@pytest.mark.parametrize(("start", "pointTime", "frame548"), INSIDE_FRAMES)
+@pytest.mark.frame_timing("next")
+def test_an_instant_crop_point_switches_on_its_own_frame_wherever_the_start_marker_is(
+    clipper: Clipper, tmp_path: pathlib.Path, start: float, pointTime: float, frame548: int
+) -> None:
+    assert firstFrameCroppedRight(clipper, tmp_path, "smoothInOut", 0, pointTime, start=start) == 91
+
+
+@pytest.mark.parametrize(("start", "pointTime", "frame548"), INSIDE_FRAMES)
+@pytest.mark.frame_timing("5.48")
+def test_a_legacy_instant_crop_point_counts_its_frame_from_the_start_marker(
+    clipper: Clipper, tmp_path: pathlib.Path, start: float, pointTime: float, frame548: int
+) -> None:
+    if clipper.exe:
+        pytest.skip("pins 5.48's frame timing in process")
+    shown = firstFrameCroppedRight(clipper, tmp_path, "smoothInOut", 0, pointTime, start=start)
+    assert shown == frame548
+
+
+@pytest.mark.frame_timing("next")
+def test_an_instant_crop_point_in_a_video_starting_21_ms_in_switches_on_the_frame_shown(
+    clipper: Clipper, tmp_path: pathlib.Path
+) -> None:
+    # Chrome's playhead is the file's own time, so frame 91 shows from 21 ms + 91/30. Crop point frames
+    # count from where the clip's seek puts the video's frames: a seek by the file's own timestamps
+    # (`-seek_timestamp 1`, T-101) that keeps this origin switches on frame 90 here.
+    pointTime = round(0.021 + 91.2 / 30, 6)
+    assert firstFrameCroppedRight(clipper, tmp_path, "smoothInOut", 0.021, pointTime) == 91
+
+
 def firstFrameCroppedRight(
     clipper: Clipper,
     tmp_path: pathlib.Path,
@@ -571,6 +609,7 @@ def firstFrameCroppedRight(
     sourceStart: float,
     pointTime: float,
     *args: str,
+    start: float | None = None,
 ) -> int:
     """The first source frame cropped to its right half, from an instant crop point at `pointTime`."""
     # Frame n's left half has brightness n and its right half 255 - n, so a frame's crop names the half
@@ -596,7 +635,8 @@ def firstFrameCroppedRight(
         titleSuffix="halves",
         cropPointEasing=easing,
     )
-    start, end = sourceStart + 2.0, sourceStart + 3.5
+    start = sourceStart + 2.0 if start is None else start
+    end = sourceStart + 3.5
     cropMap = [
         {"x": start, "y": 0, "crop": left},
         {"x": pointTime, "y": 0, "crop": right, "easeIn": "instant"},
