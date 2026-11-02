@@ -1,17 +1,30 @@
 """Stack `just ui-look` shots into one sheet: a row per step and background, oldest step first, with
 1x shots enlarged 4x and 2x shots 2x (nearest neighbor, so each pixel stays visible)."""
 
-import os
+import re
 import sys
 from pathlib import Path
 
+from harness.paths import SANDBOX
 from PIL import Image, ImageDraw
 
+LOOK = SANDBOX / "ui-look"
 SCALE = {"1x": 4, "2x": 2}
 COLUMNS = [("1x", "rest"), ("1x", "hover"), ("2x", "rest"), ("2x", "hover")]
 GAP = 10
 LABEL_H = 18
 BACKGROUND = (40, 40, 40)
+
+
+def look_folder(scenario: str, selector: str) -> Path:
+    return LOOK / scenario / re.sub(r"[^\w-]+", "_", selector).strip("_")
+
+
+def shot_stem(step: str, style: str, density: int) -> str:
+    """`step~style~density`, the name build_sheet reads back, so a step can't contain `~`."""
+    if not re.fullmatch(r"[\w.-]+", step) or set(step) == {"."}:
+        raise ValueError(f"--look-step {step!r}: use only letters, digits, `.`, `_` and `-`")
+    return f"{step}~{style}~{density}x"
 
 
 def build_sheet(folder: Path) -> Path:
@@ -51,13 +64,11 @@ def build_sheet(folder: Path) -> Path:
     for row in rows:
         sheet.paste(row, (0, y))
         y += row.height
-    # Saved under a temporary name first: parallel workers each rebuild the sheet after their shots.
     path = folder / "sheet.png"
-    partial = folder / f"sheet.{os.getpid()}.partial.png"
-    sheet.save(partial)
-    partial.replace(path)
+    sheet.save(path)
     return path
 
 
 if __name__ == "__main__":
-    print(build_sheet(Path(sys.argv[1])))
+    # just ui-look: once, after the runs for every background
+    print(build_sheet(look_folder(sys.argv[1], sys.argv[2])))
