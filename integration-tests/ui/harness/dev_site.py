@@ -162,11 +162,22 @@ class DevSiteHandler(http.server.SimpleHTTPRequestHandler):
         self._range_remaining = None
 
 
+# Ports above 1023 that Chrome refuses to load (ERR_UNSAFE_PORT): kRestrictedPorts in Chromium's
+# net/base/port_util.cc. The OS can hand out one of them for port 0.
+CHROME_BLOCKED_PORTS = frozenset(
+    {1719, 1720, 1723, 2049, 3659, 4045, 5060, 5061, 6000, 6566, 6665, 6666, 6667, 6668, 6669}
+    | {6697, 10080}
+)
+
+
 @contextlib.contextmanager
 def serving(port: int) -> Generator[str]:
     """Serve the dev site in a background thread, yielding its URL. Port 0 takes a free one."""
     handler = functools.partial(DevSiteHandler, directory=str(DEV_SITE))
     server = http.server.ThreadingHTTPServer(("localhost", port), handler)
+    while port == 0 and server.server_address[1] in CHROME_BLOCKED_PORTS:
+        server.server_close()
+        server = http.server.ThreadingHTTPServer(("localhost", port), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
