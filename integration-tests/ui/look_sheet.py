@@ -1,6 +1,7 @@
 """Stack `just ui-look` shots into one sheet: a row per step and background, oldest step first, with
 1x shots enlarged 4x and 2x shots 2x (nearest neighbor, so each pixel stays visible)."""
 
+import os
 import sys
 from pathlib import Path
 
@@ -50,8 +51,11 @@ def build_sheet(folder: Path) -> Path:
     for row in rows:
         sheet.paste(row, (0, y))
         y += row.height
+    # Saved under a temporary name first: parallel workers each rebuild the sheet after their shots.
     path = folder / "sheet.png"
-    sheet.save(path)
+    partial = folder / f"sheet.{os.getpid()}.partial.png"
+    sheet.save(partial)
+    partial.replace(path)
     return path
 
 

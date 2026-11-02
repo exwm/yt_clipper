@@ -1,16 +1,22 @@
 """Close-ups of UI elements for visual work, set up by the showcase's named scenarios: one shot per
-density (1x and 2x), at rest and with the pointer over --look-hover. Not named test_*, so `just
-ui-test` skips it; run it with `just ui-look`, which repeats it per background video and stacks the
-shots into a comparison sheet (look_sheet.py)."""
+density (1x and 2x), at rest and with the pointer over --look-hover, into a folder per scenario and
+element, with a comparison sheet of every shot there (look_sheet.py). Not named test_*, so `just
+ui-test` skips it; run it with `just ui-look`, which repeats it per background video."""
 
+import re
 import shutil
 
 import pytest
 from harness.markup_page import MarkupPage
 from harness.paths import SANDBOX
+from look_sheet import build_sheet
 from showcase_scenarios import SCENARIOS
 
 LOOK = SANDBOX / "ui-look"
+
+
+def folder_name(selector: str) -> str:
+    return re.sub(r"[^\w-]+", "_", selector).strip("_")
 
 
 @pytest.mark.parametrize(
@@ -31,7 +37,7 @@ def test_look(markup: MarkupPage, density: int, pytestconfig: pytest.Config) -> 
         markup.page.add_style_tag(content="html, body { background: #fff !important; }")
     SCENARIOS[scenario](markup)
 
-    out = LOOK / scenario
+    out = LOOK / scenario / folder_name(selectors[0])
     out.mkdir(parents=True, exist_ok=True)
     name = f"{option('look_step')}~{option('video_style')}~{density}x"
     markup.page.mouse.move(0, 0)
@@ -39,3 +45,4 @@ def test_look(markup: MarkupPage, density: int, pytestconfig: pytest.Config) -> 
     if hover := option("look_hover"):
         markup.page.hover(hover)
         shutil.copyfile(markup.shot_of("hover", selectors, padding), out / f"{name}~hover.png")
+    markup.report(str(build_sheet(out)))
