@@ -545,6 +545,9 @@ def repairMotionsInFiles(
     Leaves the transforms as they are when a file cannot be read, and the flashes when too much of
     the clip changes brightness to fill in the motion it could not measure. measure=False
     interpolates every untrusted frame and keeps every field, for comparison."""
+    # One left by an earlier run would pass for this run's input shake
+    with contextlib.suppress(OSError):
+        Path(inputShakePath(transformsPath)).unlink(missing_ok=True)
     try:
         transforms = parseTransforms(Path(transformsPath).read_text(encoding="utf-8"))
         analysis = readAnalysis(ffmpegPath, analysisPath)

@@ -1323,6 +1323,50 @@ def test_stabilized_clip_saves_the_shaky_clip_only_when_asked(
     assert len(list((output / "shaky").glob("*-shaky.webm"))) == int(savesShakyClip)
 
 
+@pytest.mark.parametrize("failingPass", [1, 2], ids=["detect pass fails", "transform pass fails"])
+def test_a_failed_stabilization_pass_leaves_no_analysis_or_shake_files(
+    clipper: Clipper,
+    syntheticMedia: pathlib.Path,
+    failingPass: int,
+) -> None:
+    # The analysis frames take about 260 MB a minute at 720p
+    if clipper.exe:
+        pytest.skip("fails a pass in process")
+    clipper.requireEncoder("libvpx-vp9")
+    ffmpeg = clipper.toolPath("ffmpeg")
+    assert ffmpeg is not None
+    passes: list[str] = []
+    runFfmpeg = clip_maker.run_ffmpeg_with_progress
+
+    def failAfterWriting(command: str, **kwargs: object) -> int:
+        passes.append(command)
+        returncode = runFfmpeg(command, **kwargs)
+        return 1 if len(passes) == failingPass else returncode
+
+    clipper.monkeypatch.setattr(clip_maker, "run_ffmpeg_with_progress", failAfterWriting)
+    _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-native-30", syntheticMedia)
+    name = f"stabilized-failing-pass-{failingPass}"
+    start, end = SYNTHETIC_PAIR
+    markers = syntheticMarkers(clipper.cwd, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
+    run = clipper.run(
+        [
+            "--markers-json",
+            str(markers),
+            "--input-video",
+            str(uploaded),
+            *OFFLINE_ARGS,
+            "--video-stabilization",
+            "2",
+        ]
+    )
+    print(run.stdout, run.stderr)
+    assert len(passes) == failingPass
+    shaky = clipper.cwd / "webms" / name / "shaky"
+    assert len(list(shaky.glob("*.trf"))) == 1
+    left = [path.name for path in shaky.iterdir() if path.suffix in {".nut", ".shake"}]
+    assert left == []
+
+
 def test_stabilization_runs_without_the_repair_where_vid_stab_has_no_text_transforms(
     clipper: Clipper,
     syntheticMedia: pathlib.Path,

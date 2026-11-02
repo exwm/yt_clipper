@@ -88,6 +88,7 @@ from clipper.vidstab_motions import (
     analysisFilter,
     analysisOutputArgs,
     checkStabilizedShake,
+    inputShakePath,
     repairMotionsInFiles,
     zoomBudgetFromFile,
 )
@@ -886,6 +887,8 @@ def makeClip(  # noqa: PLR0912
     ffmpegCommands: list[str] = []
     afterFirstPass: Callable[[], dict[str, str]] | None = None
     afterLastPass: Callable[[], bool | None] | None = None
+    # Files the passes write for each other, removed once they end however they end
+    scratchPaths: list[str] = []
 
     overwriteArg = " -y " if mps["overwrite"] else " -n "
     vidstabEnabled = mps["videoStabilization"]["enabled"]
@@ -951,6 +954,7 @@ def makeClip(  # noqa: PLR0912
             and not isHardwareAcceleratedVideoCodec(mps["videoCodec"])
         )
         stabilizedAnalysisPath = stabilizedAnalysisPathFor(transformPath)
+        scratchPaths = [analysisPath, stabilizedAnalysisPath, inputShakePath(transformPath)]
         stabilizedAnalysisGraph = f"{vidstabtransformFilter},{analysisFilter()}"
 
         if isHardwareAcceleratedVideoCodec(mps["videoCodec"]):
@@ -1100,22 +1104,27 @@ def makeClip(  # noqa: PLR0912
         logger.error(f"Failed to generate: {LogPath(mp['fileName'])}\n")
         return None
 
+    def runPasses() -> DictStrAny:
+        try:
+            result = runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp, afterFirstPass)
+            if result.get("returncode") == 0 and afterLastPass is not None:
+                afterLastPass()
+            return result
+        finally:
+            # A failed or cancelled pass leaves them, and the analysis frames are large
+            for path in scratchPaths:
+                with contextlib.suppress(OSError):
+                    Path(path).unlink(missing_ok=True)
+
     if not v2x_enabled:
-        result = runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp, afterFirstPass)
-        if result.get("returncode") == 0 and afterLastPass is not None:
-            afterLastPass()
-        return result
+        return runPasses()
 
     if mp.get("preV2xExists"):
         logger.notice(
             f"Skipping ffmpeg and reusing the clip made before video2x: {LogPath(mp['filePath'])}",
         )
-    else:
-        result = runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp, afterFirstPass)
-        if result.get("returncode") != 0:
-            return None
-        if afterLastPass is not None:
-            afterLastPass()
+    elif runPasses().get("returncode") != 0:
+        return None
 
     mps, _, _, _ = updateEncodeSettings(
         settings,
