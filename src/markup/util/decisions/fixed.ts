@@ -3,6 +3,7 @@ import type { FrameGrid } from '../frame-grid';
 import { frameTiming548 } from '../frame-timing-548';
 import { frameTiming549 } from '../frame-timing-549';
 import { DecisionGroup, decisionGroup } from './group';
+import { GROUP_KEYS } from './keys';
 
 /** The crop ease and Cinematic cut frames, which the clipper's twins match. */
 export interface FixedTiming {
@@ -13,10 +14,8 @@ export interface FixedTiming {
   cutFrameMiddle(grid: FrameGrid, cutX: number): number;
 }
 
-const KEYS = ['easeSectionDuration', 'cutFrameMiddle'] as const;
-
 export const fixed: DecisionGroup<FixedTiming> = decisionGroup(
-  KEYS,
+  GROUP_KEYS.fixed,
   () => frameTiming548,
   () => frameTiming549
 );

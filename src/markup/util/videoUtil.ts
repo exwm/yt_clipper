@@ -4,7 +4,8 @@ import { chartState } from '../charts';
 import { isDrawingCrop } from '../crop-overlay';
 import { isMouseManipulatingCrop } from '../crop-overlay';
 import { blockEvent, flashMessage, getPendingSeekTime, seekBySafe, seekToSafe } from './util';
-import type { OwnSeek, Refresh, ScreenFrame } from './frame-step';
+import type { OwnSeek, ScreenFrame } from './frame-step';
+import { INITIAL_LOOP_STATE, LoopState } from './decisions/loop';
 import type { FrameGrid } from './frame-grid';
 import { FrameReading, FrameSeek, frameTiming } from './frame-timing';
 import { registerActiveDragCleanup } from './drag-recovery';
@@ -170,20 +171,19 @@ export function loopPlaybackOver(start: number, end: number): void {
     end,
     isPlaying,
     held: isPlaying ? getHeldFrame(video) : null,
-    refresh,
+    refresh: loopState.refresh,
     playbackRate: video.playbackRate,
-    lastOtherFrameAt,
+    lastOtherFrameAt: loopState.lastOtherFrameAt,
   });
-  lastOtherFrameAt = turn.lastOtherFrameAt;
+  loopState = { ...loopState, lastOtherFrameAt: turn.lastOtherFrameAt };
   if (turn.seekTo != null) seekToSafe(video, turn.seekTo);
 }
 
-// NaN until two refreshes are noted, which never holds.
-let refresh: Refresh = { time: NaN, gap: NaN };
-let lastOtherFrameAt = -Infinity;
+// Written only by the loop decisions.
+let loopState: LoopState = INITIAL_LOOP_STATE;
 /** Notes an animation frame's time (its callback's argument), for the loop's end frame. */
 export function noteRefresh(time: number): void {
-  refresh = { time, gap: time - refresh.time };
+  loopState = frameTiming.noteRefresh(loopState, time);
 }
 
 /** Seeks `frames` whole frames from the frame on screen, to the middle of that frame. */
