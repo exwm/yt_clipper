@@ -8,9 +8,9 @@ import { bsearch, clampNumber, toHHMMSSTrimmed } from './util';
 const NONE: SeekDecision = { pending: null, effects: [] };
 
 /**
- * 5.48's frame timing, for the `legacyFrameTiming` flag. 5.48 had no frame grid: it stored the raw
- * playhead, stepped by 1/fps from it, seeked to raw times, and compared raw times. It reads no
- * frame on screen and keeps no own seek. Citations are v5.48.0 file:line.
+ * 5.48's frame timing: a group's decisions with its flag on '5.48'. 5.48 had no frame grid: it
+ * stored the raw playhead, stepped by 1/fps from it, seeked to raw times, and compared raw times.
+ * It reads no frame on screen and keeps no own seek. Citations are v5.48.0 file:line.
  */
 
 // util.ts:322, which falls back to 30 fps for a missing rate.

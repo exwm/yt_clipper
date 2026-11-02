@@ -1,11 +1,12 @@
 import type { SpeedPoint } from '../@types/yt_clipper';
 import type { FrameGrid } from './frame-grid';
 import type { FrameOnScreen, LoopRefresh, OwnSeek } from './frame-step';
-import { featureFlags } from '../feature-flags';
+import { featureFlags, FeatureFlags } from '../feature-flags';
+import { CinematicTiming, cinematic } from './decisions/cinematic';
 import { CompareTiming, compare } from './decisions/compare';
-import { FixedTiming, fixed } from './decisions/fixed';
+import { CropEaseTiming, cropEase } from './decisions/crop-ease';
 import type { DecisionGroup } from './decisions/group';
-import { GROUP_KEYS } from './decisions/keys';
+import { FrameTimingRelease, GROUP_KEYS } from './decisions/keys';
 import { LoopTiming, loop } from './decisions/loop';
 import { PlacementTiming, placement } from './decisions/placement';
 import { RateTiming, rate } from './decisions/rate';
@@ -15,8 +16,9 @@ import { StepTiming, steps } from './decisions/steps';
 /**
  * The markup's frame decisions, as pure functions of one frame reading. The shell (videoUtil.ts)
  * reads the video and keeps the state the decisions take in and give back. Each group in
- * `decisions/` has 5.48's decisions (frame-timing-548.ts) and 5.49's (frame-timing-549.ts); the
- * `legacyFrameTiming` flag picks 5.48's for every group.
+ * `decisions/` takes its decisions from the release its flag picks (`releasesFromFlags`): 5.48's
+ * (frame-timing-548.ts) or 5.49's (frame-timing-549.ts), both frozen, or the next release's
+ * (frame-timing-next.ts), the default, which is 5.48's until fixes land there.
  *
  * Shared state has one owner. The last own seek is written only by the seek and step groups (and
  * cleared by a new source), and read by placement and steps; 5.48's writers leave it null, so every
@@ -69,7 +71,8 @@ export interface FrameTiming
     StepTiming,
     CompareTiming,
     RateTiming,
-    FixedTiming {}
+    CropEaseTiming,
+    CinematicTiming {}
 
 export type MarkerType = 'start' | 'end';
 
@@ -103,15 +106,19 @@ export const frameDecisionGroups = {
   get rate() {
     return rate;
   },
-  get fixed() {
-    return fixed;
+  get cropEase() {
+    return cropEase;
+  },
+  get cinematic() {
+    return cinematic;
   },
 };
 export type FrameDecisionGroup = keyof typeof GROUP_KEYS;
+export type FrameTimingReleases = Record<FrameDecisionGroup, FrameTimingRelease>;
 
-/** The frame timing with each group's candidate where `useCandidate` says, else 5.48's. Each
+/** The frame timing with each group's decisions from the release `releases` picks for it. Each
  *  member is looked up on first use, for the import cycle `decisionGroup` describes. */
-export function composeFrameTiming(useCandidate: Record<FrameDecisionGroup, boolean>): FrameTiming {
+export function composeFrameTiming(releases: FrameTimingReleases): FrameTiming {
   const timing = {};
   for (const name of Object.keys(GROUP_KEYS) as FrameDecisionGroup[]) {
     for (const key of GROUP_KEYS[name]) {
@@ -121,7 +128,7 @@ export function composeFrameTiming(useCandidate: Record<FrameDecisionGroup, bool
         get() {
           // Each group as a slice of the whole: its keys index only its own members.
           const group = frameDecisionGroups[name] as unknown as DecisionGroup<FrameTiming>;
-          const value = (useCandidate[name] ? group.candidate : group.legacy)[key];
+          const value = group.release(releases[name])[key];
           Object.defineProperty(timing, key, { value, enumerable: true });
           return value;
         },
@@ -131,16 +138,32 @@ export function composeFrameTiming(useCandidate: Record<FrameDecisionGroup, bool
   return timing as FrameTiming;
 }
 
-/** Whether the markup times frames as 5.48 did. Read once at start, so the flag applies on reload:
- *  frame decisions never mix the two. */
-export const isLegacyFrameTiming = featureFlags.legacyFrameTiming;
+/** Each group's release, from its flag. */
+export function releasesFromFlags(flags: FeatureFlags): FrameTimingReleases {
+  return {
+    placement: flags.placementTiming,
+    seek: flags.seekTiming,
+    loop: flags.loopTiming,
+    steps: flags.stepsTiming,
+    compare: flags.compareTiming,
+    rate: flags.frameRateTiming,
+    cropEase: flags.cropEaseTiming,
+    cinematic: flags.cinematicTiming,
+  };
+}
 
-export const frameTiming: FrameTiming = composeFrameTiming({
-  placement: !isLegacyFrameTiming,
-  seek: !isLegacyFrameTiming,
-  loop: !isLegacyFrameTiming,
-  steps: !isLegacyFrameTiming,
-  compare: !isLegacyFrameTiming,
-  rate: !isLegacyFrameTiming,
-  fixed: !isLegacyFrameTiming,
-});
+/** Each group's release, read once at start: a flag applies on reload, so a group's decisions never
+ *  mix releases. */
+export const frameTimingReleases: Readonly<FrameTimingReleases> = releasesFromFlags(featureFlags);
+
+export const frameTiming: FrameTiming = composeFrameTiming(frameTimingReleases);
+
+/** Whether the rate decisions can use a measured rate, for the Measure button and its command. */
+export function hasFrameRateMeasurement(): boolean {
+  return frameTiming.usesMeasuredRate(() => true);
+}
+
+/** Whether a marker pair's duration counts its frames: only 5.49's does, until a fix in 'next'. */
+export function isFrameCountShown(): boolean {
+  return frameTimingReleases.steps === '5.49';
+}

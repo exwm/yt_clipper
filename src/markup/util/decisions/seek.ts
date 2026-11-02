@@ -1,7 +1,5 @@
 import type { FrameGrid } from '../frame-grid';
 import type { FrameSeek } from '../frame-timing';
-import { frameTiming548 } from '../frame-timing-548';
-import { frameTiming549 } from '../frame-timing-549';
 import type { SeekDecision } from '../seek-coalescer';
 import { DecisionGroup, decisionGroup } from './group';
 import { GROUP_KEYS } from './keys';
@@ -17,8 +15,4 @@ export interface SeekTiming {
   newSourceSeek(): SeekDecision | null;
 }
 
-export const seek: DecisionGroup<SeekTiming> = decisionGroup(
-  GROUP_KEYS.seek,
-  () => frameTiming548,
-  () => frameTiming549
-);
+export const seek: DecisionGroup<SeekTiming> = decisionGroup(GROUP_KEYS.seek);

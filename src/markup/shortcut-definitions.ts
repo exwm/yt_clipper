@@ -1,6 +1,6 @@
 import { ShortcutDefinition } from '../command-palette';
 import { featureFlags } from './feature-flags';
-import { isLegacyFrameTiming } from './util/frame-timing';
+import { hasFrameRateMeasurement } from './util/frame-timing';
 
 export interface ShortcutDeps {
   showShortcutsReference: () => void;
@@ -127,7 +127,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       executable: true,
     },
     // 5.48's frame timing has no measurement to toggle.
-    ...(isLegacyFrameTiming
+    ...(!hasFrameRateMeasurement()
       ? []
       : [
           {

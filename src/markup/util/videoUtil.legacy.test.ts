@@ -1,5 +1,5 @@
-// The shell with the `legacyFrameTiming` flag on: it reads, seeks and steps as 5.48 did, and never
-// measures the frame rate.
+// The shell with every frame decision group on 5.48's release: it reads, seeks and steps as 5.48
+// did, and never measures the frame rate.
 import { useFrameTiming } from './frame-timing-mode.fixtures';
 useFrameTiming('5.48');
 
@@ -68,7 +68,7 @@ Object.assign(globalThis, {
 import { splitAtInstantCuts } from '../crop/cinematic-path';
 import { easedCropAtTime } from '../crop/parity-sampling';
 import { createShortcutDefinitions, ShortcutDeps } from '../shortcut-definitions';
-import { frameTiming, isLegacyFrameTiming } from './frame-timing';
+import { frameTiming, frameTimingReleases } from './frame-timing';
 import { frameTiming548 } from './frame-timing-548';
 import { seekBySafe } from './util';
 import {
@@ -88,9 +88,9 @@ function givenThePlayheadAt(seconds: number, pending: number | null = null) {
   mockAppState.video.currentTime = seconds;
 }
 
-describe('the shell under legacyFrameTiming', () => {
+describe("the shell under 5.48's frame timing", () => {
   it('uses the 5.48 frame timing', () => {
-    expect(isLegacyFrameTiming).toBe(true);
+    expect(new Set(Object.values(frameTimingReleases))).toEqual(new Set(['5.48']));
     expect(Object.keys(frameTiming).sort()).toEqual(Object.keys(frameTiming548).sort());
     for (const [name, decision] of Object.entries(frameTiming548)) {
       expect(frameTiming[name as keyof typeof frameTiming]).toBe(decision);

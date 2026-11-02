@@ -179,7 +179,7 @@ dev-site:
 ui-test *args:
   just _parcel-once
   @just _ui-test-phase "--browser-channel chrome" 8 "not unshipped_frame_timing and not display_rate and not timing and not alone" "$@"; rest=$?; just _ui-test-phase "--browser-channel chrome" 4 "not unshipped_frame_timing and timing and not display_rate" "$@"; timing=$?; just _ui-test-phase "--browser-channel chrome" 1 "not unshipped_frame_timing and alone" "$@"; alone=$?; [ $rest -eq 5 ] && [ $timing -eq 5 ] && [ $alone -eq 5 ] && exit 5; [ $rest -eq 5 ] && rest=0; [ $timing -eq 5 ] && timing=0; [ $alone -eq 5 ] && alone=0; exit $((rest | timing | alone))
-# The UI tests of 5.49's frame timing, which the userscript ships off (legacyFrameTiming, D-001): the tests
+# The UI tests of 5.49's frame timing, which the userscript ships off (frameTiming549 off, every group on 5.48 or next, D-001): the tests
 # marked frame_timing("5.49"), again at the assumed 60 fps (--assumed-frame-rate), and the display rates.
 # Opt-in, for frame timing work; release-prep runs it again once a 5.49 behavior turns on.
 [positional-arguments]

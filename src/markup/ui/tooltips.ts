@@ -109,7 +109,7 @@ export namespace Tooltips {
     YouTube does not support previewing speeds below 0.25.
     `;
 
-  // 5.48's frame timing (the `legacyFrameTiming` flag) shows no frame count.
+  // Pair durations whose steps group counts no frames (`countsFrames`) show no frame count.
   export const timeDurationTooltip = stripIndent`
       When speed is constant (static) the duration is formatted as <in-duration>/<speed> = <out-duration>.
       When speed is variable (dynamic) the duration is formatted as <in-duration> (<out-duration>).
@@ -194,7 +194,7 @@ export namespace Tooltips {
     Note that the YouTube video rotate preview using the R/Alt+R shortcuts does NOT affect the output video.
     `;
 
-  // Without the Measure button (the `legacyFrameTiming` flag), only these first two lines.
+  // Without the Measure button (rate decisions with no measurement, as 5.48's), only these first two lines.
   export const frameRateSourceTooltip = stripIndent`
     The frame rate the markup script uses for frame steps and frame times.
     It is the rate YouTube reports, or 60 fps on other sites.

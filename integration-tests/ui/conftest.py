@@ -103,23 +103,44 @@ def is_ci_build(config: pytest.Config) -> bool:
     return path.exists() and "IS_CI_BUILD = true" in path.read_text(encoding="utf-8")
 
 
-# The `legacyFrameTiming` flag each `frame_timing` mode sets. A test with no mode runs on the
-# userscript's default.
-FRAME_TIMING_LEGACY_FLAG = {"5.48": True, "5.49": False}
+# The frame decision groups' flags (feature-flags.ts), each a release. A `frame_timing` mode sets
+# every group to its release; a test with no mode runs on the userscript's defaults.
+FRAME_TIMING_FLAGS = (
+    "placementTiming",
+    "seekTiming",
+    "loopTiming",
+    "stepsTiming",
+    "compareTiming",
+    "frameRateTiming",
+    "cropEaseTiming",
+    "cinematicTiming",
+)
+# 'next' makes 5.48's decisions until a fix lands there: map it to "5.49" or a mode of its own
+# once one does.
+RELEASE_MODES = {"5.48": "5.48", "next": "5.48", "5.49": "5.49"}
 
 
-def frame_timing_flags(node: pytest.Item) -> dict[str, bool]:
+def frame_timing_flags(node: pytest.Item) -> dict[str, str]:
     marker = node.get_closest_marker("frame_timing")
-    return {} if marker is None else {"legacyFrameTiming": FRAME_TIMING_LEGACY_FLAG[marker.args[0]]}
+    if marker is None:
+        return {}
+    return dict.fromkeys(FRAME_TIMING_FLAGS, marker.args[0])
 
 
 def built_frame_timing(config: pytest.Config) -> str | None:
-    """The frame timing the userscript under test defaults to, read from its bundled flag."""
+    """The frame timing the userscript under test defaults to, read from its bundled flags: None
+    when the groups' releases mix modes."""
     path = userscript_path(config)
-    found = path.exists() and re.search(
-        r"legacyFrameTiming: \{\s*default: (true|false)", path.read_text(encoding="utf-8")
-    )
-    return ("5.48" if found[1] == "true" else "5.49") if found else None
+    if not path.exists():
+        return None
+    text = path.read_text(encoding="utf-8")
+    modes = set()
+    for flag in FRAME_TIMING_FLAGS:
+        found = re.search(rf"{flag}: frameTimingFlag\(\s*[\"'](5\.48|5\.49|next)[\"']", text)
+        if found is None:
+            return None
+        modes.add(RELEASE_MODES[found[1]])
+    return modes.pop() if len(modes) == 1 else None
 
 
 def needs_flag_overrides(item: pytest.Item, built_mode: str | None) -> bool:
@@ -140,7 +161,8 @@ def measures_the_rate(item: pytest.Item) -> bool:
 def runs_at_the_assumed_rate(item: pytest.Item) -> bool:
     """A test --assumed-frame-rate keeps: only 5.49's frame timing measures the rate, so the other
     tests run as they do without the option."""
-    is_549 = frame_timing_flags(item) == {"legacyFrameTiming": False}
+    marker = item.get_closest_marker("frame_timing")
+    is_549 = marker is not None and marker.args[0] == "5.49"
     return is_549 and not measures_the_rate(item)
 
 
@@ -186,8 +208,9 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
-        'frame_timing(mode): run with the frame timing of "5.48" or "5.49" (the legacyFrameTiming'
-        " flag); unmarked tests run on the default; skipped against a CI-built userscript",
+        'frame_timing(mode): run with every frame decision group on the release "5.48" or "5.49"'
+        " (the groups' flags); unmarked tests run on the defaults; skipped against a CI-built"
+        " userscript",
     )
     config.addinivalue_line(
         "markers",
