@@ -151,6 +151,18 @@ const placementEntry: Entry<PlacementScenario> = {
   },
 };
 
+// A crop or speed point added at the playhead (Alt+A) while paused on the frame a seek left on screen;
+// scored by how many frames the frame its saved time shows (on a seek back to it, and in the preview)
+// is from the one it was added on.
+const pointEntry: Entry<PlacementScenario> = {
+  group: 'placement',
+  scenarios: placementEntry.scenarios.filter((s) => s.kind === 'start'),
+  classOf: (s) => `${s.site}, ${s.b}, ${timestampsOf(s.v)} timestamps, ${s.at} playheads, points`,
+  calls: ['frameTime', 'pointTime'],
+  act: (timing, s) => timing.pointTime(timing.frameTime(pausedReading(s.b, s.v, s.p, s.fps))),
+  score: (outcome, s) => Math.abs(shownAt(s.v, outcome as number) - shownAt(s.v, s.p)),
+};
+
 // A seek to a placed time, as a marker number click or a jump does; scored by how many frames the
 // frame it shows is from the one the time was placed on. Placed times: a 5.48 playhead anywhere in
 // the frame, 5.49's frame start (saved to 6 decimals), and 5.49's stand-in, the playhead less 1 ms.
@@ -459,6 +471,7 @@ const loopEntry: Entry<LoopScenario> = {
 
 const ENTRIES = [
   placementEntry,
+  pointEntry,
   seekEntry,
   stepsEntry,
   compareEntry,
@@ -491,8 +504,25 @@ const LOOP_FAST =
 // Simulation only: traced in the decisions, not yet seen in a real browser.
 const SEEK_STORM =
   "an old 5.48 file's mid-frame start marker at the assumed 60 fps: the frame on screen starts before the marker's grid frame, so the playing loop seeks back every refresh and never reaches its end (simulation only)";
+const POINT_STAND_IN =
+  "a point added within 1 ms of its frame's start, its start unread: the stand-in, the playhead less 1 ms, names the frame before (most often above 60 fps, where 1 ms is a large part of a frame)";
+const pointPins = Object.fromEntries(
+  (['other', 'youtube'] as const)
+    .flatMap((site) =>
+      (['exact', 'ms'] as const).flatMap((timestamps) => [
+        ...(['firefox', 'noRvfc'] as const).map(
+          (b) => `${site}, ${b}, ${timestamps} timestamps, uniform playheads, points`
+        ),
+        ...(['chromeNoRead', 'firefox', 'noRvfc'] as const).map(
+          (b) => `${site}, ${b}, ${timestamps} timestamps, edge playheads, points`
+        ),
+      ])
+    )
+    .map((name) => [name, POINT_STAND_IN])
+);
 const KNOWN_WORSE_549: Partial<Record<FrameDecisionGroup, Record<string, string>>> = {
   placement: {
+    ...pointPins,
     'other, chromeNoRead, exact timestamps, edge playheads, start markers': EDGE_START, // 11 of 336
     'other, firefox, exact timestamps, edge playheads, start markers': EDGE_START, // 3 of 336
     'other, noRvfc, exact timestamps, edge playheads, start markers': EDGE_START, // 11 of 336
@@ -726,6 +756,13 @@ describe('the scorers', () => {
       placementEntry,
       (s) => s.at === 'uniform' && s.kind === 'start',
       { frameTime: (r) => r.currentTime - 3 / r.grid.rate },
+      'worse',
+    ],
+    [
+      'point a frame late',
+      pointEntry,
+      (s) => s.at === 'uniform',
+      { pointTime: (time) => time + 1 / 30 },
       'worse',
     ],
     [

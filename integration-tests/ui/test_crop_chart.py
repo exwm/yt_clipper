@@ -98,6 +98,24 @@ def test_a_crop_point_added_at_the_playhead_marks_the_start_of_its_frame(
     then_a_crop_point_is_at(markup, frame / 30)
 
 
+# The same playheads in the shipped build: the point keeps the playhead's time, so it stays in the
+# frame on screen, and clicking it shows that frame again.
+@pytest.mark.parametrize(("frame", "into_frame"), [(181, 0.03), (200, 0.98)])
+def test_a_crop_point_added_at_the_playhead_stays_on_the_frame_shown(
+    markup: MarkupPage, frame: int, into_frame: float
+) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("relies on the dev site's test video frame times")
+    given_a_marker_pair_with_its_editor_open(markup)
+    given_the_crop_chart_is_open(markup)
+    playhead = (frame + into_frame) / 30
+    when_i_add_a_crop_point_at(markup, playhead)
+    then_a_crop_point_is_at(markup, playhead)
+    when_i_seek_to(markup, PAIR_START + 0.5)
+    when_i_click_a_crop_point(markup, 1)
+    then_the_playhead_is_in_frame(markup, frame)
+
+
 def test_crop_chart_sits_below_the_settings_editor(markup: MarkupPage) -> None:
     if markup.host != DEV_SITE_HOST:
         pytest.skip("the chart placement fix is for the generic yt_clipper site")
@@ -240,6 +258,14 @@ def then_the_crop_chip_x_is_between_the_first_two_points(markup: MarkupPage) -> 
     markup.report(f"chip {chip!r}, point x offsets {first} and {second}")
     markup.shot("crop-chip-interpolated")
     assert min(first, second) < crop_x(chip) < max(first, second)
+
+
+@step
+def then_the_playhead_is_in_frame(markup: MarkupPage, frame: int) -> None:
+    # After a seek the picture is the playhead's frame (V-002), on the 30 fps test video.
+    shown = int(markup.current_time() * 30 + 1e-9)
+    markup.report(f"playhead {markup.current_time()} in frame {shown}")
+    assert shown == frame
 
 
 @step

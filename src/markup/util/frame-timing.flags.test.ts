@@ -5,6 +5,7 @@ type Loaded = {
   frameTiming: typeof import('./frame-timing');
   frameTiming548: typeof import('./frame-timing-548').frameTiming548;
   frameTiming549: typeof import('./frame-timing-549').frameTiming549;
+  frameTimingNext: typeof import('./frame-timing-next').frameTimingNext;
   featureFlags: FeatureFlags;
 };
 
@@ -20,6 +21,7 @@ function loadWithFlags(overrides: Partial<FeatureFlags>): Loaded {
       frameTiming: require('./frame-timing'),
       frameTiming548: require('./frame-timing-releases').timing548,
       frameTiming549: require('./frame-timing-releases').timing549,
+      frameTimingNext: require('./frame-timing-next').frameTimingNext,
       featureFlags: require('../feature-flags').featureFlags,
     };
   });
@@ -37,18 +39,18 @@ function differing(timing: object, whole: object): string[] {
 const flagNames = Object.keys(frameTimingFlags('next')) as (keyof FeatureFlags)[];
 
 describe('the frame timing flags', () => {
-  it("default to 'next' for every group and frameTiming549 off, which is 5.48's decisions, as the 5.49.0 default build (legacyFrameTiming on) had them", () => {
-    const { frameTiming, frameTiming548, featureFlags } = loadWithFlags({});
+  it("default to 'next' for every group and frameTiming549 off: 5.48's decisions but for next's fixes", () => {
+    const { frameTiming, frameTimingNext, featureFlags } = loadWithFlags({});
     expect(flagNames.map((name) => [name, featureFlags[name]])).toEqual(
       flagNames.map((name) => [name, 'next'])
     );
     expect(featureFlags.frameTiming549).toBe(false);
-    expect(differing(frameTiming.frameTiming, frameTiming548)).toEqual([]);
+    expect(differing(frameTiming.frameTiming, frameTimingNext)).toEqual([]);
   });
 
   it.each([
     ['every group on 5.48', frameTimingFlags('5.48'), '5.48'],
-    ['every group on next', frameTimingFlags('next'), '5.48'],
+    ['every group on next', frameTimingFlags('next'), 'next'],
     ['frameTiming549 on', { frameTiming549: true }, '5.49'],
     [
       'frameTiming549 on, every group on 5.48',
@@ -57,7 +59,11 @@ describe('the frame timing flags', () => {
     ],
   ] as const)('%s makes the decisions of %s', (_case, flags, decisionsOf) => {
     const loaded = loadWithFlags(flags);
-    const whole = decisionsOf === '5.48' ? loaded.frameTiming548 : loaded.frameTiming549;
+    const whole = {
+      '5.48': loaded.frameTiming548,
+      '5.49': loaded.frameTiming549,
+      next: loaded.frameTimingNext,
+    }[decisionsOf];
     expect(differing(loaded.frameTiming.frameTiming, whole)).toEqual([]);
   });
 
