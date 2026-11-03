@@ -915,9 +915,12 @@ def makeClip(  # noqa: PLR0912
         shakyClipPath = f"{shakyPath}/{mp['fileNameStem']}-shaky.{mp['fileNameSuffix']}"
 
         video_filter += "[shaky];[shaky]"
-        textTransforms = vidstabWritesTextTransforms(cp.ffmpegPath)
+        # The motion analysis needs text transforms; without it vid.stab runs as in 5.49
+        motionAnalysis = not mps.get(
+            "noVideoStabilizationMotionAnalysis", False
+        ) and vidstabWritesTextTransforms(cp.ffmpegPath)
         detectFilter, transformFilter = getVideoStabilizationFilters(
-            mps, transformPath, textTransforms=textTransforms
+            mps, transformPath, textTransforms=motionAnalysis
         )
         vidstabdetectFilter = videoStabilizationGammaFixFilter(video_filter + detectFilter)
         vidstabtransformFilter = videoStabilizationGammaFixFilter(video_filter + transformFilter)
@@ -942,7 +945,7 @@ def makeClip(  # noqa: PLR0912
         # Only text transforms can be repaired.
         analysisPath = analysisPathFor(transformPath)
         analyzeFrames = (
-            textTransforms
+            motionAnalysis
             and mps["loop"] == "none"
             and (detectOnly or not isHardwareAcceleratedVideoCodec(mps["videoCodec"]))
         )
@@ -1033,12 +1036,11 @@ def makeClip(  # noqa: PLR0912
             ffmpegVidstabdetect += f' "{shakyClipPath}"'
         if analyzeFrames:
             ffmpegVidstabdetect += analysisOutputArgs(analysisFilterArgs, analysisPath)
-        elif textTransforms:
+        elif motionAnalysis:
             logger.verbose(
                 "Video stabilization: the motion is not repaired with loops or a hardware-encoded first pass."
             )
-        # Binary transforms leave nothing to repair or size a zoom budget from
-        if textTransforms:
+        if motionAnalysis:
             afterFirstPass = partial(
                 prepareVidstabTransformPass,
                 cp.ffmpegPath,
