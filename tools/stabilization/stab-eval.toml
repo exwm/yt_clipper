@@ -1,0 +1,64 @@
+# `just stab-eval`: which cases --quick runs, and what each case and preset is expected to show.
+# Clips are the `stab-*` cases in tools/media/cases/stab.toml. Presets: 1 Very Weak, 3 Medium, 6 Strongest.
+
+# A spread of the traits that broke stabilization before: a black lead-in, an exposure dip, a fast
+# whip, a dark concert, a subject moving on its own, L1 stalls, an FPV flight, a low contrast stretch
+# and a hard cut
+quick = [
+  "stab-MusicVideo_1080P-6c1d",
+  "stab-Vlog_1080P-3744",
+  "stab-Sports_1080P-0640",
+  "stab-VerticalVideo_480P-7278",
+  "stab-Vlog_1080P-4f26",
+  "stab-MusicVideo_1080P-106d",
+  "stab-VerticalVideo_1080P-3709",
+  "stab-fpv-alpine",
+  "stab-shaky-flashconcert",
+  "stab-shaky-dim",
+  "stab-shaky-cut",
+]
+quick_presets = [1, 6]
+
+# kind: worse (more than 10% shakier than 5.49), warn (the shakier clip warning), stall (vid.stab's
+# L1 camera path failed to solve). An entry that stops holding fails the run, so update it then.
+# Worse also needs the shakier clip warning's absolute margin, so noise where 5.49 left almost no
+# shake does not count.
+expected = [
+  { case = "stab-Animation_360P-08c9", preset = 1, kind = "warn", reason = "3.5 against 0.8 unstabilized (1e-4 of the width) when added" },
+  { case = "stab-Animation_360P-08c9", preset = 3, kind = "warn", reason = "2.5 against 0.8 unstabilized (1e-4 of the width) when added" },
+  { case = "stab-Animation_360P-08c9", preset = 6, kind = "warn", reason = "2.9 against 0.8 unstabilized (1e-4 of the width) when added" },
+  { case = "stab-LiveMusic_360P-1d94", preset = 1, kind = "warn", reason = "8.8 against 4.9 unstabilized (1e-4 of the width) when added" },
+  { case = "stab-LiveMusic_360P-1d94", preset = 3, kind = "warn", reason = "11.1 against 4.9 unstabilized (1e-4 of the width) when added" },
+  { case = "stab-LiveMusic_360P-1d94", preset = 6, kind = "warn", reason = "6.5 against 4.9 unstabilized (1e-4 of the width) when added" },
+  { case = "stab-LiveMusic_360P-265c", preset = 3, kind = "warn", reason = "12.7 against 11.6 unstabilized (1e-4 of the width) when added" },
+  { case = "stab-LiveMusic_360P-265c", preset = 6, kind = "warn", reason = "15.6 against 11.6 unstabilized (1e-4 of the width) when added" },
+  { case = "stab-MusicVideo_1080P-0706", preset = 1, kind = "worse", reason = "1.23x 5.49's shake when added" },
+  { case = "stab-MusicVideo_1080P-106d", preset = 6, kind = "stall", reason = "vid.stab's L1 path fails to solve at 15.00% when added" },
+  { case = "stab-Sports_1080P-1ae3", preset = 6, kind = "worse", reason = "1.15x 5.49's shake when added" },
+  { case = "stab-VerticalVideo_1080P-3709", preset = 1, kind = "worse", reason = "1.60x 5.49's shake when added" },
+  { case = "stab-VerticalVideo_1080P-3709", preset = 6, kind = "stall", reason = "vid.stab's L1 path fails to solve at 15.00% when added" },
+  { case = "stab-VerticalVideo_480P-7278", preset = 1, kind = "warn", reason = "10.8 against 5.3 unstabilized (1e-4 of the width) when added" },
+  { case = "stab-VerticalVideo_480P-7278", preset = 3, kind = "warn", reason = "10.8 against 5.3 unstabilized (1e-4 of the width) when added" },
+  { case = "stab-VerticalVideo_480P-7278", preset = 6, kind = "warn", reason = "10.7 against 5.3 unstabilized (1e-4 of the width) when added" },
+  { case = "stab-Vlog_1080P-3744", preset = 1, kind = "worse", reason = "1.24x 5.49's shake when added" },
+  { case = "stab-Vlog_1080P-3744", preset = 6, kind = "stall", reason = "vid.stab's L1 path fails to solve at 15.00% when added" },
+  { case = "stab-Vlog_1080P-4f26", preset = 1, kind = "warn", reason = "44.1 against 9.5 unstabilized (1e-4 of the width) when added" },
+  { case = "stab-Vlog_1080P-4f26", preset = 3, kind = "warn", reason = "39.7 against 9.5 unstabilized (1e-4 of the width) when added" },
+  { case = "stab-Vlog_1080P-4f26", preset = 6, kind = "warn", reason = "33.6 against 9.5 unstabilized (1e-4 of the width) when added" },
+  { case = "stab-drone-llangaffo", preset = 1, kind = "worse", reason = "1.24x 5.49's shake when added" },
+  { case = "stab-fpv-alpine", preset = 1, kind = "worse", reason = "1.27x 5.49's shake when added" },
+  { case = "stab-fpv-alpine", preset = 1, kind = "warn", reason = "12.6 against 8.6 unstabilized (1e-4 of the width) when added" },
+  { case = "stab-fpv-alpine", preset = 3, kind = "worse", reason = "1.91x 5.49's shake when added" },
+  { case = "stab-fpv-alpine", preset = 3, kind = "warn", reason = "15.9 against 8.6 unstabilized (1e-4 of the width) when added" },
+  { case = "stab-fpv-alpine", preset = 6, kind = "worse", reason = "2.74x 5.49's shake when added" },
+  { case = "stab-fpv-alpine", preset = 6, kind = "warn", reason = "11.7 against 8.6 unstabilized (1e-4 of the width) when added" },
+  { case = "stab-fpv-alpine", preset = 6, kind = "stall", reason = "vid.stab's L1 path fails to solve at 15.00% when added" },
+  { case = "stab-fpv-sanfrancisco", preset = 1, kind = "worse", reason = "2.40x 5.49's shake when added" },
+  { case = "stab-fpv-sanfrancisco", preset = 3, kind = "worse", reason = "1.79x 5.49's shake when added" },
+  { case = "stab-shaky-cut", preset = 1, kind = "worse", reason = "4.00x 5.49's shake when added" },
+  { case = "stab-shaky-cut", preset = 3, kind = "worse", reason = "3.10x 5.49's shake when added" },
+  { case = "stab-shaky-flashconcert", preset = 6, kind = "stall", reason = "vid.stab's L1 path fails to solve at 8.63% when added" },
+  { case = "stab-shaky-brightsubject", preset = 1, kind = "warn", reason = "45.6 against 5.5 unstabilized (1e-4 of the width) when added" },
+  { case = "stab-shaky-brightsubject", preset = 3, kind = "warn", reason = "47.0 against 5.5 unstabilized (1e-4 of the width) when added" },
+  { case = "stab-shaky-brightsubject", preset = 6, kind = "warn", reason = "43.8 against 5.5 unstabilized (1e-4 of the width) when added" },
+]
