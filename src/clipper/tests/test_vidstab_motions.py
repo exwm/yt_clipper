@@ -5,6 +5,7 @@ import pytest
 
 from clipper.phase_correlation import FrameShift
 from clipper.vidstab_motions import (
+    GAUSSIAN_PATH,
     MAX_ZOOM_BUDGET,
     MIN_ZOOM_BUDGET,
     FrameAnalysis,
@@ -28,8 +29,10 @@ from clipper.vidstab_motions import (
     repairMotions,
     repairMotionsInFiles,
     shake,
+    solvedZoom,
     zoomBudget,
     zoomBudgetFromFile,
+    zoomCandidates,
 )
 
 
@@ -293,3 +296,42 @@ def test_zoom_budget_is_the_most_zoom_when_the_transforms_cannot_be_read(tmp_pat
     assert zoomBudgetFromFile(str(unreadable), 10) == MAX_ZOOM_BUDGET
     assert zoomBudgetFromFile(str(tmp_path / "missing.trf"), 10) == MAX_ZOOM_BUDGET
     assert zoomBudget(TransformsFile(["VID.STAB 1"], [[], []]), 10) == MAX_ZOOM_BUDGET
+
+
+@pytest.mark.parametrize(
+    ("budget", "fallback", "candidates"),
+    [
+        (8.63, "nudge", ["8.63", "8.38", "8.88", GAUSSIAN_PATH]),
+        # Nudges stay within the budget's range
+        (MAX_ZOOM_BUDGET, "nudge", ["15.00", "14.75", GAUSSIAN_PATH]),
+        (MIN_ZOOM_BUDGET, "nudge", ["2.00", "2.25", GAUSSIAN_PATH]),
+        (8.63, "gauss", ["8.63", GAUSSIAN_PATH]),
+    ],
+)
+def test_a_camera_path_that_stalls_tries_a_nudged_zoom_then_the_gaussian_path(
+    budget: float, fallback: str, candidates: list[str]
+) -> None:
+    assert zoomCandidates(budget, fallback) == candidates
+
+
+@pytest.mark.parametrize(
+    ("stalled", "zoom", "trials"),
+    [
+        (set(), "8.63", ["8.63"]),
+        ({"8.63"}, "8.38", ["8.63", "8.38"]),
+        ({"8.63", "8.38"}, "8.88", ["8.63", "8.38", "8.88"]),
+        # The gaussian path always solves, so it needs no trial
+        ({"8.63", "8.38", "8.88"}, GAUSSIAN_PATH, ["8.63", "8.38", "8.88"]),
+    ],
+)
+def test_the_first_zoom_that_solves_is_used_and_trials_stop_there(
+    stalled: set[str], zoom: str, trials: list[str]
+) -> None:
+    tried: list[str] = []
+
+    def stalls(candidate: str) -> bool:
+        tried.append(candidate)
+        return candidate in stalled
+
+    assert solvedZoom(zoomCandidates(8.63, "nudge"), stalls) == zoom
+    assert tried == trials

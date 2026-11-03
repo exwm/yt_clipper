@@ -1442,6 +1442,10 @@ def test_stabilization_runs_without_the_repair_where_vid_stab_has_no_text_transf
         "run_ffmpeg_with_progress",
         lambda command, **kwargs: commands.append(command) or runFfmpeg(command, **kwargs),
     )
+    trials: list[list[str]] = []
+    clipper.monkeypatch.setattr(
+        clip_maker, "transformStalls", lambda command, cwd=None: trials.append(command) or False
+    )
     _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-native-30", syntheticMedia)
     name = f"stabilized-plain-by-{plainBy}"
     start, end = SYNTHETIC_PAIR
@@ -1469,6 +1473,8 @@ def test_stabilization_runs_without_the_repair_where_vid_stab_has_no_text_transf
     assert "vidstabtransform=" in transform
     assert "zoom=" not in transform
     assert ".nut" not in transform
+    # As 5.49: vid.stab picks the zoom, so no trial of the camera path runs before the transform
+    assert not trials
 
 
 def test_stabilized_pair_with_a_filter_too_long_for_the_command_line_reads_it_from_files(
@@ -1507,6 +1513,8 @@ def test_stabilized_pair_with_a_filter_too_long_for_the_command_line_reads_it_fr
     output = clipper.cwd / "webms" / name
     assert (output / "temp" / "vfilter-1-analysis.txt").is_file()
     assert (output / "temp" / "vfilter-1-pass2-analysis.txt").is_file()
+    # The trial of the camera path before the transform pass reads the long filter from a file too
+    assert (output / "temp" / "vfilter-1-trial.txt").is_file()
     assert len(list(output.glob("*.webm"))) == 1
     # Both analysis outputs are read and removed
     assert not list((output / "shaky").glob("*.nut"))

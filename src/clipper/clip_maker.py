@@ -10,7 +10,6 @@ import subprocess
 import sys
 from collections.abc import Callable, Generator, Sequence
 from fractions import Fraction
-from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -85,12 +84,18 @@ from clipper.previews import makePreview, mergePreviews
 from clipper.util import escapeSingleQuotesFFmpeg, getTrimmedBase64Hash, shlexDoubleQuoted
 from clipper.video2x import runVideo2xCommand
 from clipper.vidstab_motions import (
+    GAUSSIAN_PATH,
     analysisFilter,
     analysisOutputArgs,
     checkStabilizedShake,
     inputShakePath,
+    magnification,
     repairMotionsInFiles,
+    solvedZoom,
+    transformFinalZoom,
+    transformStalls,
     zoomBudgetFromFile,
+    zoomCandidates,
 )
 from clipper.ytc_logger import Subsystem, make_subsystem_logger, pair_context
 
@@ -960,6 +965,8 @@ def makeClip(  # noqa: PLR0912
         stabilizedAnalysisPath = stabilizedAnalysisPathFor(transformPath)
         scratchPaths = [analysisPath, stabilizedAnalysisPath, inputShakePath(transformPath)]
         stabilizedAnalysisGraph = f"{vidstabtransformFilter},{analysisFilter()}"
+        # In software: the trial only needs vid.stab to solve the camera path
+        trialGraph = vidstabtransformFilter
 
         if isHardwareAcceleratedVideoCodec(mps["videoCodec"]):
             if not detectOnly:
@@ -1041,28 +1048,49 @@ def makeClip(  # noqa: PLR0912
                 "Video stabilization: the motion is not repaired with loops or a hardware-encoded first pass."
             )
         if motionAnalysis:
-            afterFirstPass = partial(
-                prepareVidstabTransformPass,
-                argvPath(cp.ffmpegPath),
-                transformPath,
-                analysisPath if analyzeFrames else None,
-                mps["videoStabilization"]["smoothing"],
-                transformFilterScripts,
-            )
+            trialCommand = shlex.split(getVidstabDetectOnlyCommand(cp, inputs, mps))
+            trialScript = Path(cp.clipsPath) / "temp" / f"vfilter-{markerPairIndex + 1}-trial.txt"
+
+            def trialArgs(zoom: str) -> list[str]:
+                graph = trialGraph.replace(ZOOM_BUDGET_PLACEHOLDER, zoom)
+                if len(graph) <= MAX_VFILTER_SIZE:
+                    return [*trialCommand, "-vf", graph]
+                trialScript.parent.mkdir(parents=True, exist_ok=True)
+                trialScript.write_text(graph, encoding="utf-8")
+                return [*trialCommand, filterFileOption(cp.ffmpegPath), str(trialScript)]
+
+            def gaussianZoom() -> float | None:
+                return transformFinalZoom(trialArgs(GAUSSIAN_PATH))
+
+            # The zoom the transform pass gets, for the shakier clip check after it
+            chosen: dict[str, str] = {}
+
+            def afterFirstPass() -> dict[str, str]:
+                chosen.update(
+                    prepareVidstabTransformPass(
+                        argvPath(cp.ffmpegPath),
+                        transformPath,
+                        analysisPath if analyzeFrames else None,
+                        mps["videoStabilization"]["smoothing"],
+                        transformFilterScripts,
+                        lambda zoom: transformStalls(trialArgs(zoom)),
+                    )
+                )
+                return chosen
+
         ffmpegVidstabtransform += f' -speed {mps["encodeSpeed"]} "{mp["filePath"]}"'
         if checkShake:
             ffmpegVidstabtransform += analysisOutputArgs(
                 stabilizedAnalysisFilterArgs, stabilizedAnalysisPath
             )
-            smoothing = mps["videoStabilization"]["smoothing"]
 
             def afterLastPass() -> bool | None:
-                # The budget, sized again from the transforms the transform pass read
-                return checkStabilizedShake(
+                return checkTransformShake(
                     argvPath(cp.ffmpegPath),
                     transformPath,
                     stabilizedAnalysisPath,
-                    zoomBudgetFromFile(transformPath, smoothing),
+                    chosen[ZOOM_BUDGET_PLACEHOLDER],
+                    gaussianZoom,
                 )
 
         ffmpegCommands = [ffmpegVidstabdetect, ffmpegVidstabtransform]
@@ -1213,22 +1241,50 @@ def prepareVidstabTransformPass(
     analysisPath: str | None,
     smoothing: float,
     transformFilterScriptPaths: Sequence[str],
+    stalls: Callable[[str], bool] | None = None,
 ) -> dict[str, str]:
     """Between the stabilization passes: repairs the motion across flashes and drops fields that
     follow a subject instead of the camera (when the detect pass wrote its analysis frames), and
-    sizes the zoom budget from the motion. Returns the budget to
+    sizes the zoom budget from the motion. With `stalls`, a trial of the transform at a zoom, it
+    falls back when vid.stab's camera path fails to solve at the budget. Returns the zoom to
     put in the transform command, and puts it in the transform pass's filter scripts."""
     if analysisPath is not None:
         repairMotionsInFiles(ffmpegPath, transformPath, analysisPath)
-    budget = f"{zoomBudgetFromFile(transformPath, smoothing):.2f}"
-    logger.verbose(f"Video stabilization: zooming in up to {budget}% to steady the clip.")
+    budget = zoomBudgetFromFile(transformPath, smoothing)
+    zoom = f"{budget:.2f}"
+    logger.verbose(f"Video stabilization: zooming in up to {zoom}% to steady the clip.")
+    if stalls is not None and (solved := solvedZoom(zoomCandidates(budget), stalls)) != zoom:
+        instead = (
+            "follows vid.stab's gaussian camera path and zoom"
+            if solved == GAUSSIAN_PATH
+            else f"zooms in up to {solved}%"
+        )
+        logger.info(
+            f"Video stabilization: vid.stab's camera path did not solve at {zoom}% zoom,"
+            f" so the clip {instead} instead."
+        )
+        zoom = solved
     for scriptPath in transformFilterScriptPaths:
         script = Path(scriptPath)
         script.write_text(
-            script.read_text(encoding="utf-8").replace(ZOOM_BUDGET_PLACEHOLDER, budget),
+            script.read_text(encoding="utf-8").replace(ZOOM_BUDGET_PLACEHOLDER, zoom),
             encoding="utf-8",
         )
-    return {ZOOM_BUDGET_PLACEHOLDER: budget}
+    return {ZOOM_BUDGET_PLACEHOLDER: zoom}
+
+
+def checkTransformShake(
+    ffmpegPath: str,
+    transformPath: str,
+    analysisPath: str,
+    zoom: str,
+    gaussianZoom: Callable[[], float | None],
+) -> bool | None:
+    """The shakier clip check after the transform pass, at the zoom that pass used: its zoom option,
+    the budget or a nudge from it, or after the gaussian fallback the zoom vid.stab picked, read
+    from a one-frame trial."""
+    final = gaussianZoom() if zoom == GAUSSIAN_PATH else None
+    return checkStabilizedShake(ffmpegPath, transformPath, analysisPath, magnification(zoom, final))
 
 
 def getVidstabDetectOnlyCommand(cp: ClipperPaths, inputs: str, mps: DictStrAny) -> str:
