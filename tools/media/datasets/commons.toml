@@ -1,0 +1,13 @@
+# Openly licensed footage from Wikimedia Commons that the UGC dataset lacks: drone and FPV flights,
+# whose motion is smooth, fast or both. Originals, as uploaded; each item's license and attribution
+# are from its file page.
+title = "Wikimedia Commons (drone and FPV footage)"
+homepage = "https://commons.wikimedia.org/"
+license = "per item (see each item's license and attribution)"
+items = [
+  { id = "drone-llangaffo", url = "https://upload.wikimedia.org/wikipedia/commons/5/57/Drone_Footage_Eglwys_Llangaffo.webm", size = 33959562, md5 = "bb09b522728ca2656caf9f1db7e01ae2", category = "Drone", license = "CC0", attribution = "'Drone Footage Eglwys Llangaffo' by Taffronaut1111, CC0, https://commons.wikimedia.org/wiki/File:Drone_Footage_Eglwys_Llangaffo.webm" },
+  { id = "drone-bigbar", url = "https://upload.wikimedia.org/wikipedia/commons/b/bc/Drone_Footage_of_the_Big_Bar_Landslide_-_July_25.webm", size = 80627201, md5 = "def9c15e65b328881c0bbe1c9710b2a5", category = "Drone", license = "CC BY 3.0", attribution = "'Drone Footage of the Big Bar Landslide - July 25' by ProvinceofBC, licensed under CC BY 3.0, https://commons.wikimedia.org/wiki/File:Drone_Footage_of_the_Big_Bar_Landslide_-_July_25.webm" },
+  { id = "drone-gothenburg", url = "https://upload.wikimedia.org/wikipedia/commons/8/84/Evening_drone_footage_of_Gothenburg_harbour.webm", size = 155317278, md5 = "8da287c567add64f5db43768e567e6da", category = "Drone", license = "CC0", attribution = "'Evening drone footage of Gothenburg harbour' by christian akerlund, CC0, https://commons.wikimedia.org/wiki/File:Evening_drone_footage_of_Gothenburg_harbour.webm" },
+  { id = "fpv-alpine", url = "https://upload.wikimedia.org/wikipedia/commons/a/ab/FPV_drone_flying_in_alpine_conditions_with_snow%2C_sleet_and_rain.webm", size = 455878449, md5 = "5b78f3e417ec5f35ff1c396dc8d64c2e", category = "FPV", license = "CC BY 3.0", attribution = "'FPV drone flying in alpine conditions with snow, sleet and rain' by anotherview, licensed under CC BY 3.0, https://commons.wikimedia.org/wiki/File:FPV_drone_flying_in_alpine_conditions_with_snow,_sleet_and_rain.webm" },
+  { id = "fpv-sanfrancisco", url = "https://upload.wikimedia.org/wikipedia/commons/c/c5/FPV_drone_video_of_Downtown%2C_San_Francisco%2C_USA.webm", size = 135313170, md5 = "7a3b6a7ced00d7b9ef99b15ef7033eeb", category = "FPV", license = "CC BY 3.0", attribution = "'FPV drone video of Downtown, San Francisco, USA' by the Dronalist, licensed under CC BY 3.0, https://commons.wikimedia.org/wiki/File:FPV_drone_video_of_Downtown,_San_Francisco,_USA.webm" },
+]

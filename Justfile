@@ -36,7 +36,7 @@ pretty-py-check:
 # The config path is absolute so tests that run from a temporary folder still find it. Tests do not
 # measure the Python processes they start (yt-dlp): see noCoverageInSubprocesses in conftest.py.
 test-py update="false":
-  just _timed pytest uv run pytest src/clipper tools/release tools/prose tools/test tools/media -s --durations=10 --cov --cov-config="{{justfile_directory()}}/pyproject.toml" --cov-report=html --cov-report=xml -m "not slow" \
+  just _timed pytest uv run pytest src/clipper tools/release tools/prose tools/test tools/media tools/stabilization -s --durations=10 --cov --cov-config="{{justfile_directory()}}/pyproject.toml" --cov-report=html --cov-report=xml -m "not slow" \
     {{ if update == "true" { "--snapshot-update" } else { "-n auto --dist worksteal" } }}
 # Only the tests whose covered code changed since the last run (pytest-testmon, recorded in .testmondata;
 # the first run runs all). No coverage: the floor holds only for a full run. Four workers: serial takes
@@ -44,7 +44,7 @@ test-py update="false":
 # --testmon-forceselect keeps selecting under -m. Exit 5 (no tests ran) passes.
 [positional-arguments]
 test-py-changed *args:
-  @just _timed pytest uv run pytest src/clipper tools/release tools/prose tools/test tools/media -m "not slow" --testmon-forceselect -n 4 --dist worksteal "$@"; status=$?; [ $status -eq 5 ] && status=0; exit $status
+  @just _timed pytest uv run pytest src/clipper tools/release tools/prose tools/test tools/media tools/stabilization -m "not slow" --testmon-forceselect -n 4 --dist worksteal "$@"; status=$?; [ $status -eq 5 ] && status=0; exit $status
 # Check an assembled release folder before zipping, as CI does: bundled tools, offline clips, schema.
 smoke-release folder version="":
   uv run python tools/release/smoke_test.py "{{folder}}" {{version}}
@@ -86,6 +86,10 @@ lint-strings *paths="src":
 # Test media: fetch open datasets, build cases, survey and pick clips (tools/media/media.py --help).
 media *args:
   uv run python tools/media/media.py {{args}}
+# Video stabilization against 5.49 on open clips, cached by pass (tools/stabilization/stab_eval.py --help).
+# Fails on a clip shakier than 5.49, a shakier clip warning or an L1 stall that stab-eval.toml does not expect.
+stab-eval *args:
+  uv run python tools/stabilization/stab_eval.py {{args}}
 test-prose:
   vale test --coverage .vale/styles
 # Vale errors and warnings on the docs, user-facing strings and commit subjects added since base (default:
