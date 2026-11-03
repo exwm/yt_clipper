@@ -1043,7 +1043,7 @@ def makeClip(  # noqa: PLR0912
         if motionAnalysis:
             afterFirstPass = partial(
                 prepareVidstabTransformPass,
-                cp.ffmpegPath,
+                argvPath(cp.ffmpegPath),
                 transformPath,
                 analysisPath if analyzeFrames else None,
                 mps["videoStabilization"]["smoothing"],
@@ -1059,7 +1059,7 @@ def makeClip(  # noqa: PLR0912
             def afterLastPass() -> bool | None:
                 # The budget, sized again from the transforms the transform pass read
                 return checkStabilizedShake(
-                    cp.ffmpegPath,
+                    argvPath(cp.ffmpegPath),
                     transformPath,
                     stabilizedAnalysisPath,
                     zoomBudgetFromFile(transformPath, smoothing),

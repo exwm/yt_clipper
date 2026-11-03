@@ -327,6 +327,35 @@ def test_a_clip_that_stabilization_makes_shakier_is_reported(
     assert checkStabilizedShake(ffmpeg, *checkInputs(tmp_path, replacements)) is shakier
 
 
+def test_a_black_lead_in_that_moves_is_not_reported(
+    ffmpeg: str,
+    shakyMedia: Path,
+    tmp_path: Path,
+) -> None:
+    # vid.stab's camera path can swing through black frames, where no one sees it, and their faint
+    # content still matches confidently: the stabilized clip starts with 6 such frames
+    _, replacements = stabilize(
+        ffmpeg, shaky_media.makeShakyClip(ffmpeg, "gentle", shakyMedia), tmp_path
+    )
+    transforms, analysis, budget = checkInputs(tmp_path, replacements)
+    width, height = shaky_media.WIDTH, shaky_media.HEIGHT
+    leadIn = (
+        f"testsrc=s={width + 20}x{height + 20}:r={shaky_media.FPS},trim=end_frame=6,format=gray,"
+        f"crop={width}:{height}:x='20*mod(n,2)':y='20*mod(n,2)',lut=c0='val/50',setsar=1[lead];"
+        "[0]format=gray,setsar=1[clip];[lead][clip]concat"
+    )
+    subprocess.run(
+        [
+            *(ffmpeg, "-hide_banner", "-loglevel", "error", "-i", analysis),
+            *("-filter_complex", leadIn, "-fps_mode", "passthrough"),
+            *("-c:v", "ffv1", "-f", "nut", "-y", str(tmp_path / "lead.nut")),
+        ],
+        check=True,
+    )
+    shutil.move(tmp_path / "lead.nut", analysis)
+    assert checkStabilizedShake(ffmpeg, transforms, analysis, budget) is False
+
+
 def checkInputs(folder: Path, replacements: dict[str, str]) -> tuple[str, str, float]:
     """checkStabilizedShake's transforms, stabilized analysis and zoom budget, after stabilize."""
     budget = float(replacements[ZOOM_BUDGET_PLACEHOLDER])
@@ -391,13 +420,21 @@ def test_a_stronger_preset_leaves_less_motion_and_zooms_in_further(
 ) -> None:
     # Very Weak, Medium, Strongest. Most of the motion left is the clip's pan, so the steps are small.
     source = shaky_media.makeShakyClip(ffmpeg, name, shakyMedia)
+    # The shift into the frame after a cut matches unrelated pictures, so it varies with the zoom alone
+    cutFrame = shaky_media.CLIPS[name].cutFrame
     motions, zooms = [], []
     for level in (1, 3, 6):
         folder = tmp_path / str(level)
         folder.mkdir()
         output, replacements = stabilize(ffmpeg, source, folder, level)
         frames = grayFrames(ffmpeg, output, (shaky_media.WIDTH, shaky_media.HEIGHT))
-        motions.append(float(np.mean([np.hypot(s.dx, s.dy) for s in consecutiveShifts(frames)])))
+        shifts = consecutiveShifts(frames)
+        # shifts[n] is the motion into frame n + 1
+        motions.append(
+            float(
+                np.mean([np.hypot(s.dx, s.dy) for n, s in enumerate(shifts) if n + 1 != cutFrame])
+            )
+        )
         zooms.append(float(replacements[ZOOM_BUDGET_PLACEHOLDER]))
     assert all(later <= earlier + 0.01 for earlier, later in itertools.pairwise(motions)), motions
     assert all(later > earlier for earlier, later in itertools.pairwise(zooms)), zooms
