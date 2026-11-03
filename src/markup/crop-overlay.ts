@@ -66,8 +66,11 @@ export function removeCropHoverListener(e: KeyboardEvent) {
   if (e.key === 'Control' || e.key === 'Meta') {
     document.removeEventListener('pointermove', cropHoverHandler, true);
     cropHoverPerFrame.cancel();
-    showPlayerControls();
-    appState.hooks.cropMouseManipulation.style.removeProperty('cursor');
+    // An armed or active draw keeps its crosshair and the controls hidden until it finishes.
+    if (!isDrawingCrop) {
+      showPlayerControls();
+      appState.hooks.cropMouseManipulation.style.removeProperty('cursor');
+    }
     // Reset anchor to default (top-left) for the next crop modification session
     resetCropPreviewAnchor();
   }

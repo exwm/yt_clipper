@@ -33,7 +33,13 @@ import {
   setIsMouseManipulatingCrop,
   setRefreshCropDragInitState,
 } from '../crop-overlay';
-import { clampNumber, flashMessage, getCropString, injectCSS } from '../util/util';
+import {
+  clampNumber,
+  flashMessage,
+  getCropString,
+  injectCSS,
+  OWN_OVERLAY_ATTRIBUTE,
+} from '../util/util';
 import { registerActiveDragCleanup } from '../util/drag-recovery';
 import { getMarkerPairHistory, saveMarkerPairHistory } from '../util/undoredo';
 import { renderUIIcon } from '../features/icons/glyphs';
@@ -348,6 +354,8 @@ function ensureMinimap(): void {
   if (host) return;
   host = document.createElement('div');
   host.className = 'ytc-zoom-minimap';
+  // In fullscreen it sits inside the crop hook, whose scrub and crop listeners must leave it alone.
+  host.setAttribute(OWN_OVERLAY_ATTRIBUTE, '');
   render(minimapTemplate(), host);
   canvasEl = host.querySelector('.ytc-zoom-minimap-canvas');
   canvasCtx = canvasEl?.getContext('2d') ?? null;

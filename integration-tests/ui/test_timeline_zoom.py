@@ -114,10 +114,14 @@ def test_ctrl_hover_on_the_zoomed_bar_in_fullscreen_keeps_it(zoom: MarkupPage) -
 
 
 def test_an_armed_crop_draw_hides_the_zoomed_bar(zoom: MarkupPage) -> None:
-    # Why the draw needs no own-overlay check: its press can't land on the zoomed bar.
+    # Why the draw needs no own-overlay check: its press can't land on the zoomed bar, even after a
+    # Ctrl tap (whose keyup shows the controls when no draw is armed).
     given_a_pair_opened_from_the_zoomed_bar(zoom)
     given_a_crop_draw_is_armed(zoom)
     then_the_zoomed_bar_is_hidden(zoom)
+    when_i_tap_ctrl(zoom)
+    then_the_zoomed_bar_is_hidden(zoom)
+    then_the_crop_hook_shows_the_draw_crosshair(zoom)
 
 
 @pytest.mark.platform
@@ -201,6 +205,11 @@ def given_a_crop_draw_is_armed(markup: MarkupPage) -> None:
     assert markup.eventually(
         "s => document.querySelector(s).style.cursor === 'crosshair'", markup.host.crop_hook
     ), "the crop draw did not arm"
+
+
+@step
+def when_i_tap_ctrl(markup: MarkupPage) -> None:
+    markup.press("Control")
 
 
 @step
@@ -590,9 +599,17 @@ def then_the_zoomed_bar_is_visible_with_no_crop_cursor(markup: MarkupPage) -> No
 
 @step
 def then_the_zoomed_bar_is_hidden(markup: MarkupPage) -> None:
-    assert markup.eventually(
-        "() => getComputedStyle(document.querySelector('.ytc-tz')).visibility === 'hidden'",
-    ), "the zoomed bar stayed visible while a crop draw is armed"
+    markup.next_frames(5)  # the zoomed bar copies the controls' visibility each frame
+    visibility = markup.page.evaluate(
+        "() => getComputedStyle(document.querySelector('.ytc-tz')).visibility"
+    )
+    assert visibility == "hidden", "the zoomed bar shows while a crop draw is armed"
+
+
+@step
+def then_the_crop_hook_shows_the_draw_crosshair(markup: MarkupPage) -> None:
+    cursor = markup.page.locator(markup.host.crop_hook).evaluate("element => element.style.cursor")
+    assert cursor == "crosshair"
 
 
 @step

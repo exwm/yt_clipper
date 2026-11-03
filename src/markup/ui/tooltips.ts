@@ -314,7 +314,7 @@ export namespace Tooltips {
     Usually requires cropping and zooming the video.
     Higher strength presets result in more cropping and zooming.
     Video stabilization may cause static elements within the cropped region to shake.
-    The clipper script warns when a stabilized clip comes out shakier than its input (not checked for loops, motion interpolation or hardware encoders).
+    The clipper script warns when a stabilized clip comes out shakier than its input (not checked for loops, ffmpeg motion interpolation or hardware encoders).
     `;
 
   export const speedMapTooltip = stripIndent`
