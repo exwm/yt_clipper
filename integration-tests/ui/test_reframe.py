@@ -68,6 +68,15 @@ def test_minimap_outlines_the_crop_in_two_tones(reframed: MarkupPage) -> None:
     then_the_minimap_crop_outline_is_dark_outside_and_light_inside(reframed)
 
 
+def test_alt_drag_on_the_minimap_in_fullscreen_leaves_the_playhead(reframed: MarkupPage) -> None:
+    # The dev site fullscreens the player, the hook of the video's Alt+drag scrub, and the minimap
+    # moves inside it.
+    given_the_minimap_is_shown(reframed)
+    given_the_player_is_fullscreen(reframed)
+    when_i_alt_drag_on_the_minimap(reframed)
+    then_the_video_did_not_seek(reframed)
+
+
 def test_ctrl_alt_a_on_a_crop_point_toggles_hold_while_reframed(markup: MarkupPage) -> None:
     # Reframed with the crop chart closed: the crop is dynamic, so the shortcut still works.
     given_a_dynamic_crop_reframed(markup)
@@ -147,7 +156,34 @@ def given_the_minimap_is_shown(markup: MarkupPage) -> None:
     markup.shot("minimap")
 
 
+@step
+def given_the_player_is_fullscreen(markup: MarkupPage) -> None:
+    markup.page.evaluate("s => document.querySelector(s).requestFullscreen()", markup.host.player)
+    assert markup.eventually(
+        "s => document.fullscreenElement === document.querySelector(s)"
+        " && document.fullscreenElement.contains(document.querySelector('.ytc-zoom-minimap'))",
+        markup.host.player,
+    ), "the player did not go fullscreen with the minimap inside"
+    markup.next_frames(5)
+
+
 # ─── when ───────────────────────────────────────────────────────────────────
+
+
+@step
+def when_i_alt_drag_on_the_minimap(markup: MarkupPage) -> None:
+    markup.page.evaluate(
+        "() => { window.__seeks = []; document.querySelector('video')"
+        ".addEventListener('seeking', (e) => window.__seeks.push(e.target.currentTime)); }",
+    )
+    x, y = markup.center_of(".ytc-zoom-minimap canvas")
+    markup.page.mouse.move(x, y)
+    markup.page.keyboard.down("Alt")
+    markup.page.mouse.down()
+    markup.page.mouse.move(x - 30, y, steps=6)
+    markup.page.mouse.up()
+    markup.page.keyboard.up("Alt")
+    markup.next_frames(5)
 
 
 @step
@@ -290,6 +326,13 @@ def when_reframe_and_a_plain_page_loop_count_frames_on_a_busy_machine(
 
 
 # ─── then ───────────────────────────────────────────────────────────────────
+
+
+@step
+def then_the_video_did_not_seek(markup: MarkupPage) -> None:
+    seeks = markup.page.evaluate("() => window.__seeks")
+    markup.report(f"seeks {[round(t, 3) for t in seeks]}")
+    assert seeks == []
 
 
 @step
