@@ -245,24 +245,29 @@ class Runner:
             shutil.copy(detect / "t.trf", d / "t.trf")
             # The repair deletes the analysis output it reads
             shutil.copy(analysis / "input.nut", d / "a.nut")
+
+            def stalls(zoom: str) -> bool:
+                with self.steps.step("stall trial"):
+                    graph = transformText.replace(ZOOM_BUDGET_PLACEHOLDER, zoom)
+                    return vm.transformStalls(
+                        [self.ffmpeg, "-hide_banner", *source, "-vf", graph], str(d)
+                    )
+
             with self.steps.step("repair"):
-                budget = clip_maker.prepareVidstabTransformPass(
-                    self.ffmpeg, str(d / "t.trf"), str(d / "a.nut"), smoothing, ()
+                replacements = clip_maker.prepareVidstabTransformPass(
+                    self.ffmpeg, str(d / "t.trf"), str(d / "a.nut"), smoothing, (), stalls
                 )
-            zoom = float(budget[ZOOM_BUDGET_PLACEHOLDER])
-            info = passInfo(
-                self.run(
-                    [
-                        *source,
-                        *toAnalysis(transformText.replace(ZOOM_BUDGET_PLACEHOLDER, f"{zoom:.2f}")),
-                    ],
-                    d,
-                )
-            )
+            zoom = replacements[ZOOM_BUDGET_PLACEHOLDER]
+            graph = transformText.replace(ZOOM_BUDGET_PLACEHOLDER, zoom)
+            info = passInfo(self.run([*source, *toAnalysis(graph)], d))
             self.saveAnalysis(d / "o.nut", d / "out.npz")
             for name in ("o.nut", "t.trf", "t.trf.shake", "a.nut"):
                 (d / name).unlink(missing_ok=True)
-            (d / "info.json").write_text(json.dumps({**info, "zoom": zoom}), encoding="utf-8")
+            # vid.stab's gaussian path logs the zoom it picks as its final zoom
+            budget = None if zoom == vm.GAUSSIAN_PATH else float(zoom)
+            (d / "info.json").write_text(
+                json.dumps({**info, "zoom": budget, "zoom_option": zoom}), encoding="utf-8"
+            )
 
         on = self.cached(
             "on", passKey(analysis.name, detect.name, self.code, transformText, smoothing), makeOn
@@ -301,7 +306,7 @@ def score(analysis: Path, off: Path, on: Path) -> dict:
         info = json.loads((folder / "info.json").read_text(encoding="utf-8"))
         frames = loadAnalysis(folder / "out.npz")
         s = vm.shake(frames)
-        # A stalled run zooms in to vid.stab's final zoom, not the budget
+        # A stalled run, or vid.stab's gaussian path, zooms in to vid.stab's final zoom
         zoom = info["final_zoom"] if info["final_zoom"] is not None else info["zoom"]
         shake = None if s is None else s / frames[0].size[0] / (1 + zoom / 100)
         warn = (
@@ -312,7 +317,7 @@ def score(analysis: Path, off: Path, on: Path) -> dict:
                 > inputShake + max(vm.SHAKE_TOLERANCE * inputShake, vm.SHAKE_TOLERANCE_PX / width)
             )
         )
-        row[name] = {**info, "shake": shake, "warn": warn}
+        row[name] = {**info, "zoom_used": zoom, "shake": shake, "warn": warn}
     return row
 
 
@@ -376,7 +381,7 @@ def main() -> None:
                 else float("nan")
             )
             print(
-                f"{name[5:40]:35s} {preset} on/5.49 {ratio:5.2f} zoom {row['on']['zoom']:5.2f} "
+                f"{name[5:40]:35s} {preset} on/5.49 {ratio:5.2f} zoom {row['on']['zoom_used']:5.2f} "
                 f"stall {int(row['on']['stalled'])}/{int(row['off']['stalled'])} {' '.join(row['fail'])}",
                 flush=True,
             )

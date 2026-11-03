@@ -7,6 +7,7 @@ that fixes one has to say so here.
 import atexit
 import functools
 import itertools
+import re
 import shlex
 import shutil
 import subprocess
@@ -16,8 +17,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from clipper import clip_maker
 from clipper.argparser import getArgParser, getVidstabPreset
-from clipper.clip_maker import prepareVidstabTransformPass
+from clipper.clip_maker import checkTransformShake, prepareVidstabTransformPass
 from clipper.ffmpeg_filter import (
     ZOOM_BUDGET_PLACEHOLDER,
     getVideoStabilizationFilters,
@@ -27,6 +29,7 @@ from clipper.phase_correlation import consecutiveShifts
 from clipper.tests import shaky_media
 from clipper.tests.stabilization_metrics import grayFrames, motionAdded, shakeLeft
 from clipper.vidstab_motions import (
+    GAUSSIAN_PATH,
     analysisFilter,
     analysisOutputArgs,
     checkStabilizedShake,
@@ -36,6 +39,8 @@ from clipper.vidstab_motions import (
     readAnalysis,
     repairMotionsInFiles,
     shake,
+    transformStalls,
+    zoomBudgetFromFile,
 )
 
 # Shake a stabilized clip may keep, px/frame. The shaky clips start with about 9.6, gentle with 3.
@@ -43,6 +48,7 @@ TARGET_SHAKE = 1.0
 # How far stabilization may move the frames of a steady clip, px
 TARGET_STEADY = 0.5
 STRONG = 4
+STRONGEST = 6
 SIZE = (shaky_media.WIDTH, shaky_media.HEIGHT)
 MISSES = {
     "tilewall": "on a few frames both vid.stab's fields and the cells match a tile off, confidently",
@@ -198,12 +204,20 @@ def stabilize(
     between them, and only the transform reads it."""
     detect(ffmpeg, video, folder)
     _, transformFilter = clipperFilters("transforms.trf", level)
+
+    def stalls(zoom: str) -> bool:
+        graph = fill(transformFilter, {ZOOM_BUDGET_PLACEHOLDER: zoom})
+        return transformStalls(
+            [ffmpeg, "-hide_banner", "-i", str(video), "-vf", graph], str(folder)
+        )
+
     replacements = prepareVidstabTransformPass(
         ffmpeg,
         str(folder / "transforms.trf"),
         str(folder / "analysis.nut"),
         getVidstabPreset(level)["smoothing"],
         (),
+        stalls,
     )
     return run(
         ffmpeg,
@@ -354,6 +368,68 @@ def test_a_black_lead_in_that_moves_is_not_reported(
     )
     shutil.move(tmp_path / "lead.nut", analysis)
     assert checkStabilizedShake(ffmpeg, transforms, analysis, budget) is False
+
+
+def test_a_camera_path_that_fails_to_solve_keeps_the_zoom_near_its_budget(
+    ffmpeg: str,
+    shakyMedia: Path,
+    tmp_path: Path,
+) -> None:
+    # vid.stab's L1 camera path fails to solve this clip at Strongest. vid.stab then falls back to its
+    # gaussian path and adds that path's own zoom to the budget, which cropped 13% for a budget of 8.6%.
+    source = shaky_media.makeShakyClip(ffmpeg, "flashconcert", shakyMedia)
+    _, replacements = stabilize(ffmpeg, source, tmp_path, STRONGEST)
+    budget = zoomBudgetFromFile(
+        str(tmp_path / "transforms.trf"), getVidstabPreset(STRONGEST)["smoothing"]
+    )
+    _, transformFilter = clipperFilters("transforms.trf", STRONGEST)
+    assert zoomUsed(ffmpeg, source, tmp_path, fill(transformFilter, replacements)) <= budget + 0.25
+
+
+def zoomUsed(ffmpeg: str, video: Path, folder: Path, transformFilter: str) -> float:
+    """The zoom the transform crops to. vid.stab logs a final zoom only when its gaussian camera path
+    runs, the fallback for an L1 path that fails to solve. It solves the path before the first frame."""
+    stderr = subprocess.run(
+        [
+            *(ffmpeg, "-hide_banner", "-i", str(video), "-vf", transformFilter),
+            *("-frames:v", "1", "-an", "-f", "null", "-"),
+        ],
+        cwd=folder,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stderr
+    final = re.findall(r"Final zoom: ([-\d.]+)", stderr)
+    zoom = re.search(r":zoom=([\d.]+)", transformFilter)
+    assert final or zoom
+    return float(final[-1]) if final else float(zoom.group(1))
+
+
+@pytest.mark.parametrize(
+    ("zoom", "gaussian", "measuredAt"),
+    [
+        ("8.63", None, 8.63),
+        # A nudge after a stall
+        ("14.75", None, 14.75),
+        # vid.stab's gaussian path, which fpv-alpine fell back to at Strongest: a Final zoom of 4.08
+        (GAUSSIAN_PATH, 4.08, 4.25),
+    ],
+)
+def test_the_shakier_clip_check_measures_the_clip_at_the_zoom_it_used(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    zoom: str,
+    gaussian: float | None,
+    measuredAt: float,
+) -> None:
+    # The transforms are unreadable, so a zoom budget sized again from them would be the most, 15%
+    checked: list[float] = []
+    monkeypatch.setattr(
+        clip_maker, "checkStabilizedShake", lambda *args: checked.append(args[-1]) or False
+    )
+    transforms = str(tmp_path / "missing.trf")
+    checkTransformShake("ffmpeg", transforms, "out.nut", zoom, lambda: gaussian)
+    assert checked == [pytest.approx(measuredAt, abs=0.01)]
 
 
 def checkInputs(folder: Path, replacements: dict[str, str]) -> tuple[str, str, float]:

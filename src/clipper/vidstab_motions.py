@@ -15,7 +15,7 @@ import contextlib
 import re
 import statistics
 import subprocess
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import IO
@@ -67,6 +67,16 @@ MAX_ZOOM_BUDGET = 15.0
 ZOOM_BUDGET_PADDING = 1.0
 # The zoom budget measures the shake over this many times the preset's smoothing window
 ZOOM_BUDGET_WINDOW = 3
+# vid.stab's L1 camera path can fail to solve. vid.stab then falls back to its gaussian path and adds
+# that path's own zoom to the budget, which cropped 12-22% for budgets of 7-15%. A zoom a nudge away
+# solves most such paths; the rest get the gaussian path with only its own zoom, as a 5.49 stall did.
+# The fallback is text for the transform filter's zoom option, which ends the filter.
+STALL_NUDGES = (-0.25, 0.25)
+GAUSSIAN_PATH = "0:optalgo=gauss:optzoom=1"
+# "nudge" tries STALL_NUDGES before the gaussian path, "gauss" goes straight to it
+STALL_FALLBACK = "nudge"
+# vid.stab's error when the L1 path fails to solve (lpsolver_ipm.c), logged at ffmpeg's default level
+STALL_LINE = "interior point method stalled"
 
 FRAME_PATTERN = re.compile(r"^Frame (\d+) \(List \d+ \[(.*)\]\)$")
 MOTION_PATTERN = re.compile(r"\(LM (\S+) (\S+) (\S+) (\S+) (\S+) (\S+) (\S+)\)")
@@ -503,6 +513,49 @@ def zoomBudgetFromFile(transformsPath: str, smoothing: float) -> float:
         )
     except (OSError, TransformsFileError):
         return MAX_ZOOM_BUDGET
+
+
+def zoomCandidates(budget: float, fallback: str = STALL_FALLBACK) -> list[str]:
+    """The transform's zoom option texts to try in order: the budget, then for "nudge" the budget a
+    nudge either way within the budget's range, and last the gaussian path, which always solves."""
+    nudged = [
+        budget + nudge
+        for nudge in STALL_NUDGES
+        if fallback == "nudge" and MIN_ZOOM_BUDGET <= budget + nudge <= MAX_ZOOM_BUDGET
+    ]
+    return [f"{zoom:.2f}" for zoom in (budget, *nudged)] + [GAUSSIAN_PATH]
+
+
+def solvedZoom(candidates: Sequence[str], stalls: Callable[[str], bool]) -> str:
+    """The first candidate whose camera path solves. Trials run only until one does."""
+    return next((zoom for zoom in candidates[:-1] if not stalls(zoom)), candidates[-1])
+
+
+def transformTrialLog(command: Sequence[str], cwd: str | None = None) -> str:
+    """ffmpeg's log of this transform command run for one frame: vid.stab solves the whole camera
+    path, and picks its zoom, when the filter starts."""
+    return subprocess.run(
+        [*command, "-frames:v", "1", "-an", "-f", "null", "-"],
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        cwd=cwd,
+        check=False,
+    ).stderr
+
+
+def transformStalls(command: Sequence[str], cwd: str | None = None) -> bool:
+    """Whether vid.stab's L1 camera path fails to solve in this transform command. A command that
+    fails otherwise counts as solved, so the transform pass runs as it would have and reports the
+    failure."""
+    return STALL_LINE in transformTrialLog(command, cwd)
+
+
+def transformFinalZoom(command: Sequence[str], cwd: str | None = None) -> float | None:
+    """The zoom vid.stab's gaussian camera path picks in this transform command."""
+    return finalZoom(transformTrialLog(command, cwd))
 
 
 def inputShakePath(transformsPath: str) -> str:
