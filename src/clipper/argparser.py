@@ -380,6 +380,21 @@ def add_vfilter_options(vfilter_options: argparse._ArgumentGroup) -> None:
         ),
     )
     vfilter_options.add_argument(
+        "--no-video-stabilization-motion-analysis",
+        "-nvsma",
+        dest="noVideoStabilizationMotionAnalysis",
+        action="store_true",
+        help=" ".join(
+            [
+                "When video stabilization is enabled,",
+                "stabilize with vid.stab alone, as yt_clipper 5.49 did.",
+                "This skips the repair of motion that follows a subject or a flash instead of the camera,",
+                "the zoom sized to the clip's shake,",
+                "and the warning for clips that come out shakier.",
+            ],
+        ),
+    )
+    vfilter_options.add_argument(
         "--video-stabilization-max-angle",
         "-vsma",
         dest="videoStabilizationMaxAngle",

@@ -1382,17 +1382,27 @@ def test_a_failed_stabilization_pass_leaves_no_analysis_or_shake_files(
     assert left == []
 
 
+@pytest.mark.parametrize(
+    "plainBy",
+    [
+        # As on ffmpeg 6.x and some 7.x builds, whose vid.stab has no fileformat option
+        pytest.param("probe", id="no-text-transforms"),
+        pytest.param("option", id="--no-video-stabilization-motion-analysis"),
+    ],
+)
 def test_stabilization_runs_without_the_repair_where_vid_stab_has_no_text_transforms(
     clipper: Clipper,
     syntheticMedia: pathlib.Path,
+    plainBy: str,
 ) -> None:
-    # As on ffmpeg 6.x and some 7.x builds, whose vid.stab has no fileformat option
-    if clipper.exe:
+    if plainBy == "probe" and clipper.exe:
         pytest.skip("fakes the probe in process")
     clipper.requireEncoder("libvpx-vp9")
     ffmpeg = clipper.toolPath("ffmpeg")
     assert ffmpeg is not None
-    clipper.monkeypatch.setattr(clip_maker, "vidstabWritesTextTransforms", lambda _path: False)
+    if plainBy == "probe":
+        clipper.monkeypatch.setattr(clip_maker, "vidstabWritesTextTransforms", lambda _path: False)
+    optionArgs = ["--no-video-stabilization-motion-analysis"] if plainBy == "option" else []
     commands: list[str] = []
     runFfmpeg = clip_maker.run_ffmpeg_with_progress
     clipper.monkeypatch.setattr(
@@ -1401,7 +1411,7 @@ def test_stabilization_runs_without_the_repair_where_vid_stab_has_no_text_transf
         lambda command, **kwargs: commands.append(command) or runFfmpeg(command, **kwargs),
     )
     _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-native-30", syntheticMedia)
-    name = "stabilized-binary-transforms"
+    name = f"stabilized-plain-by-{plainBy}"
     start, end = SYNTHETIC_PAIR
     markers = syntheticMarkers(clipper.cwd, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
     run = clipper.run(
@@ -1413,6 +1423,7 @@ def test_stabilization_runs_without_the_repair_where_vid_stab_has_no_text_transf
             *OFFLINE_ARGS,
             "--video-stabilization",
             "2",
+            *optionArgs,
         ]
     )
     print(run.stdout, run.stderr)
