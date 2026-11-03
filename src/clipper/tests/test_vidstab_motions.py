@@ -176,6 +176,10 @@ def test_shake_is_how_far_each_frames_shift_strays_from_its_neighbours() -> None
     # Unmeasured frames are left out, and too few measured frames tell nothing
     assert shake(clip([(3, 0, 0.9), (40, 40, 0)] * 30)) == pytest.approx(0)
     assert shake(clip([(3, 0, 0.9)] * 10)) is None
+    # So are shifts into or out of a black frame, whose faint content can match far off
+    black = [FrameAnalysis(2, FrameShift(40 * ((i + 1) % 2), 0, 0.9)) for i in range(6)]
+    pan, lit = (3, 0, 0.9), FrameAnalysis(100, FrameShift(40, 0, 0.9))
+    assert shake(clip([pan] * 30) + black + [lit, *clip([pan] * 30)[1:]]) == pytest.approx(0)
 
 
 def test_a_measured_frame_where_no_field_agrees_is_untrusted() -> None:

@@ -43,6 +43,10 @@ SHAKE_RADIUS = 7
 MIN_SHAKE_FRAMES = 30
 SHAKE_TOLERANCE = 0.05
 SHAKE_TOLERANCE_PX = 0.05
+# Shifts into or out of a frame darker than this mean brightness (of 255) are left out of the shake: a
+# black frame shows no motion, yet faint seams in it can match far off (black frames measure 2 to 4,
+# the darkest real footage seen 6.6)
+DARK_FRAME = 5
 # vid.stab's motion into a frame with fewer fields than this share of the clip's median is not trusted
 SPARSE_FIELDS = 0.15
 # How far a vid.stab field's motion may be from the measured motion to be kept, px
@@ -61,6 +65,8 @@ MAX_UNMEASURED_SHARE = 0.3
 MIN_ZOOM_BUDGET = 2.0
 MAX_ZOOM_BUDGET = 15.0
 ZOOM_BUDGET_PADDING = 1.0
+# The zoom budget measures the shake over this many times the preset's smoothing window
+ZOOM_BUDGET_WINDOW = 3
 
 FRAME_PATTERN = re.compile(r"^Frame (\d+) \(List \d+ \[(.*)\]\)$")
 MOTION_PATTERN = re.compile(r"\(LM (\S+) (\S+) (\S+) (\S+) (\S+) (\S+) (\S+)\)")
@@ -310,9 +316,11 @@ def shake(analysis: Sequence[FrameAnalysis]) -> float | None:
     xy = np.array(
         [
             (a.shift.dx, a.shift.dy)
-            if a.shift is not None and a.shift.peak > 0
+            if a.shift is not None
+            and a.shift.peak > 0
+            and min(a.brightness, analysis[i - 1].brightness) >= DARK_FRAME
             else (np.nan, np.nan)
-            for a in analysis
+            for i, a in enumerate(analysis)
         ]
     )
     measured = ~np.isnan(xy[:, 0])
@@ -469,15 +477,17 @@ def extendedPath(path: np.ndarray, radius: int) -> np.ndarray:
 def zoomBudget(transforms: TransformsFile, smoothing: float) -> float:
     """How far vid.stab's camera path optimization may zoom in, in percent: enough for the clip's
     shake. The camera path (each frame's median field motion, summed) strays from its moving
-    average over the smoothing window; the window must cover that on both sides, at the 99th
-    percentile. ffmpeg 9's vid.stab otherwise crops a fixed VS_L1_DEFAULT_ZOOM (15%) of every clip."""
+    average over ZOOM_BUDGET_WINDOW times the smoothing window; the window must cover that on both
+    sides, at the 99th percentile. vid.stab's L1 path, made of straight pieces, strays further than
+    an average over the smoothing window alone, which left slow sways shakier than 5.49. ffmpeg 9's
+    vid.stab otherwise crops a fixed VS_L1_DEFAULT_ZOOM (15%) of every clip."""
     size = frameSize(transforms)
     if size is None or min(size) <= 0:
         return MAX_ZOOM_BUDGET
     shifts = np.array([frameShift(m) if m else (0.0, 0.0) for m in transforms.frames], dtype=float)
     path = np.cumsum(shifts, axis=0)
     # int(): smoothing comes from a markers JSON file, whose schema lets 10.0 through as an integer
-    radius = max(1, int(smoothing))
+    radius = max(1, ZOOM_BUDGET_WINDOW * int(smoothing))
     kernel = np.ones(2 * radius + 1) / (2 * radius + 1)
     padded = [extendedPath(path[:, k], radius) for k in range(2)]
     smooth = np.stack([np.convolve(p, kernel, "valid") for p in padded], axis=1)

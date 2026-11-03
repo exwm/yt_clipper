@@ -1338,6 +1338,38 @@ def test_stabilized_clip_saves_the_shaky_clip_only_when_asked(
     assert len(list((output / "shaky").glob("*-shaky.webm"))) == int(savesShakyClip)
 
 
+def test_stabilization_repairs_the_motion_with_ffmpeg_from_a_tools_folder(
+    clipper: Clipper,
+    syntheticMedia: pathlib.Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # A Windows tools folder is shell-quoted (backslashes), as in every Windows release
+    clipper.requireEncoder("libvpx-vp9")
+    ffmpeg = clipper.toolPath("ffmpeg")
+    assert ffmpeg is not None
+    _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-native-30", syntheticMedia)
+    name = "stabilized-tools-folder"
+    start, end = SYNTHETIC_PAIR
+    markers = syntheticMarkers(clipper.cwd, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
+    run = clipper.run(
+        [
+            "--markers-json",
+            str(markers),
+            "--input-video",
+            str(uploaded),
+            *OFFLINE_ARGS,
+            "--ffmpeg-tools-dir",
+            str(pathlib.Path(ffmpeg).parent),
+            "--video-stabilization",
+            "2",
+        ]
+    )
+    print(run.stdout, run.stderr)
+    assert run.returncode == 0
+    # In process the clipper logs to caplog, a built clipper to its stdout
+    assert "Could not check the video stabilization motion" not in run.stdout + caplog.text
+
+
 @pytest.mark.parametrize("failingPass", [1, 2], ids=["detect pass fails", "transform pass fails"])
 def test_a_failed_stabilization_pass_leaves_no_analysis_or_shake_files(
     clipper: Clipper,
