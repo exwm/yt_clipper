@@ -77,6 +77,7 @@ GAUSSIAN_PATH = "0:optalgo=gauss:optzoom=1"
 STALL_FALLBACK = "nudge"
 # vid.stab's error when the L1 path fails to solve (lpsolver_ipm.c), logged at ffmpeg's default level
 STALL_LINE = "interior point method stalled"
+FINAL_ZOOM_PATTERN = re.compile(r"Final zoom: ([-\d.]+)")
 
 FRAME_PATTERN = re.compile(r"^Frame (\d+) \(List \d+ \[(.*)\]\)$")
 MOTION_PATTERN = re.compile(r"\(LM (\S+) (\S+) (\S+) (\S+) (\S+) (\S+) (\S+)\)")
@@ -556,6 +557,22 @@ def transformStalls(command: Sequence[str], cwd: str | None = None) -> bool:
 def transformFinalZoom(command: Sequence[str], cwd: str | None = None) -> float | None:
     """The zoom vid.stab's gaussian camera path picks in this transform command."""
     return finalZoom(transformTrialLog(command, cwd))
+
+
+def finalZoom(stderr: str) -> float | None:
+    """The zoom vid.stab logs at the info level when its gaussian camera path runs (transform.c:687)."""
+    found = FINAL_ZOOM_PATTERN.findall(stderr)
+    return float(found[-1]) if found else None
+
+
+def magnification(zoom: str, final: float | None = None) -> float:
+    """How far a transform pass zoomed in, percent: the zoom option itself for vid.stab's L1 path,
+    which crops a window 1 / (1 + zoom/100) of the frame (l1campathoptimization.c:519). vid.stab's
+    gaussian path logs a Final zoom instead, a shrink of the sampled frame (1 - final/100), which
+    magnifies by 1 / (1 - final/100)."""
+    if final is not None:
+        return 100 / (1 - final / 100) - 100
+    return float(zoom)
 
 
 def inputShakePath(transformsPath: str) -> str:

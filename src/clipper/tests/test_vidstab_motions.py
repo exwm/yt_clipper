@@ -15,6 +15,7 @@ from clipper.vidstab_motions import (
     analysisScale,
     cells,
     fastFftLength,
+    finalZoom,
     findBrightnessChanges,
     findDisagreeingFrames,
     findSparseFrames,
@@ -24,6 +25,7 @@ from clipper.vidstab_motions import (
     gridShift,
     inputShakePath,
     keepFieldsMovingWithTheCamera,
+    magnification,
     measuredMotions,
     parseTransforms,
     repairMotions,
@@ -335,3 +337,27 @@ def test_the_first_zoom_that_solves_is_used_and_trials_stop_there(
 
     assert solvedZoom(zoomCandidates(8.63, "nudge"), stalls) == zoom
     assert tried == trials
+
+
+@pytest.mark.parametrize(
+    ("zoom", "final", "magnified"),
+    [
+        # vid.stab's L1 path crops exactly its zoom option: 5.49's default 15, a budget, a nudge
+        ("15", None, 15.0),
+        ("8.88", None, 8.88),
+        # Its gaussian path logs a shrink of the sampled frame: 20.68 magnifies by 26.07 (measured 25.7-26.2)
+        ("15.00", 20.68, 26.07),
+        (GAUSSIAN_PATH, 4.08, 4.25),
+        (GAUSSIAN_PATH, 0.0, 0.0),
+    ],
+)
+def test_the_zoom_a_transform_used_is_its_magnification(
+    zoom: str, final: float | None, magnified: float
+) -> None:
+    assert magnification(zoom, final) == pytest.approx(magnified, abs=0.01)
+
+
+def test_the_final_zoom_is_read_from_the_last_line_vid_stab_logs() -> None:
+    log = "[vidstabtransform] Final zoom: 3.5\n[vidstabtransform] Final zoom: 20.682570\nother"
+    assert finalZoom(log) == pytest.approx(20.68257)
+    assert finalZoom("no zoom here") is None
