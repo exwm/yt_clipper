@@ -37,7 +37,7 @@ import sys
 import tempfile
 import time
 import tomllib
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -272,7 +272,7 @@ class Runner:
                         [self.ffmpeg, "-hide_banner", *source, "-vf", graph], str(d)
                     )
 
-            with self.steps.step("repair"), self.timed("repair"):
+            with self.steps.step("repair"), self.timed("repair"), recordedFrames() as frames:
                 replacements = clip_maker.prepareVidstabTransformPass(
                     self.ffmpeg, str(d / "t.trf"), str(d / "a.nut"), smoothing, (), stalls
                 )
@@ -287,7 +287,8 @@ class Runner:
             # vid.stab's gaussian path logs the zoom it picks as its final zoom
             budget = None if zoom == vm.GAUSSIAN_PATH else float(zoom)
             (d / "info.json").write_text(
-                json.dumps({**info, "zoom": budget, "zoom_option": zoom}), encoding="utf-8"
+                json.dumps({**info, "zoom": budget, "zoom_option": zoom, **frames}),
+                encoding="utf-8",
             )
 
         on = self.cached(
@@ -365,8 +366,69 @@ def score(analysis: Path, off: Path, on: Path) -> dict:
                 > inputShake + max(vm.SHAKE_TOLERANCE * inputShake, vm.SHAKE_TOLERANCE_PX / width)
             )
         )
+        jitter = vm.frameJitter(frames) / frames[0].size[0] / (1 + zoom / 100)
         row[name] = {**info, "zoom_used": zoom, "shake": shake, "warn": warn}
+        row[f"{name}_jitter"] = jitter
+    on = row["on"]
+    for kind in ("repaired", "kept"):
+        flagged = on.get(kind, [])
+        row[f"jerk_{kind}"] = {
+            side: localJerk(row[f"{side}_jitter"], flagged) for side in ("off", "on")
+        }
+    for side in ("off", "on"):
+        del row[f"{side}_jitter"]
     return row
+
+
+# A frame's neighbours that count for the local jerk at it
+JERK_WINDOW = 2
+
+
+def localJerk(jitter: np.ndarray, frames: Sequence[int]) -> float | None:
+    """The largest per-frame jitter within JERK_WINDOW of vid.stab's frames (from 1; frame n's
+    motion moves the picture of index n - 1): one jerk the clip's shake averages away. None when no
+    frame there was measured."""
+    near = {
+        i
+        for n in frames
+        for i in range(n - 1 - JERK_WINDOW, n + JERK_WINDOW)
+        if 0 <= i < len(jitter)
+    }
+    values = [jitter[i] for i in near if not np.isnan(jitter[i])]
+    return float(max(values)) if values else None
+
+
+def jerkWorse(jerk: Mapping[str, float | None], width: int) -> bool:
+    """5.50's local jerk more than WORSE times 5.49's and past the shakier clip warning's margin."""
+    on, off = jerk["on"], jerk["off"]
+    return (
+        on is not None
+        and off is not None
+        and on > WORSE * off
+        and on - off > vm.SHAKE_TOLERANCE_PX / width
+    )
+
+
+@contextlib.contextmanager
+def recordedFrames() -> Iterator[dict[str, list[int]]]:
+    """The frames the repair rewrote and the frames whose subject fields it dropped, as the clipper's
+    own between-pass step reports them."""
+    frames: dict[str, list[int]] = {"repaired": [], "kept": []}
+    repair, keep = vm.repairMotions, vm.keepFieldsMovingWithTheCamera
+
+    def repairing(*args: object, **kwargs: object) -> list[int]:
+        frames["repaired"] = repair(*args, **kwargs)
+        return frames["repaired"]
+
+    def keeping(*args: object, **kwargs: object) -> list[int]:
+        frames["kept"] = keep(*args, **kwargs)
+        return frames["kept"]
+
+    vm.repairMotions, vm.keepFieldsMovingWithTheCamera = repairing, keeping
+    try:
+        yield frames
+    finally:
+        vm.repairMotions, vm.keepFieldsMovingWithTheCamera = repair, keep
 
 
 def cropAndTime(rows: list[dict]) -> list[str]:
@@ -394,6 +456,22 @@ def cropAndTime(rows: list[dict]) -> list[str]:
                 f"{part} {median([r['seconds'][side][part] for r in rows if part in r['seconds'][side]])}"
                 for part in order
                 if part in parts
+            )
+        )
+    for kind in ("repaired", "kept"):
+        jerks = [
+            r
+            for r in rows
+            if r[f"jerk_{kind}"]["on"] is not None and r[f"jerk_{kind}"]["off"] is not None
+        ]
+        worse = [r for r in jerks if jerkWorse(r[f"jerk_{kind}"], r["width"])]
+        total = {side: 1e4 * sum(r[f"jerk_{kind}"][side] for r in jerks) for side in ("off", "on")}
+        lines.append(
+            f"local jerk at {kind} frames (1e-4 of the width, summed over {len(jerks)} rows): "
+            f"5.49 {total['off']:.0f}, 5.50 {total['on']:.0f}; 5.50 worse in {len(worse)}"
+            + "".join(
+                f"\n    {r['case'][5:]}: {1e4 * r[f'jerk_{kind}']['off']:.1f} -> {1e4 * r[f'jerk_{kind}']['on']:.1f}"
+                for r in worse
             )
         )
     return lines

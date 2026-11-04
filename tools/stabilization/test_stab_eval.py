@@ -4,7 +4,8 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent))
-from stab_eval import CONFIG, failures, findings, parseConfig, passKey
+import numpy as np
+from stab_eval import CONFIG, failures, findings, jerkWorse, localJerk, parseConfig, passKey
 
 from clipper.vidstab_motions import SHAKE_TOLERANCE_PX
 
@@ -67,3 +68,38 @@ def test_a_pass_key_changes_with_any_part_and_only_then() -> None:
     assert passKey("clip", 6, "filter") != passKey("clip", 6, "filter2")
     # Parts are kept apart, so moving text between them changes the key
     assert passKey("ab", "c") != passKey("a", "bc")
+
+
+JITTER = np.array([0.1, np.nan, 0.2, 0.9, 0.3, 0.1, 0.1, 0.1, 0.5, 0.1])
+
+
+@pytest.mark.parametrize(
+    ("frames", "jerk"),
+    [
+        # vid.stab's frame 4 moves picture 3: pictures 1 to 5 count
+        ([4], 0.9),
+        # A window over the clip's start, and over an unmeasured picture
+        ([1], 0.2),
+        ([10], 0.5),
+        ([], None),
+    ],
+)
+def test_the_local_jerk_is_the_largest_jitter_within_two_frames(
+    frames: list[int], jerk: float | None
+) -> None:
+    assert localJerk(JITTER, frames) == jerk
+
+
+@pytest.mark.parametrize(
+    ("on", "off", "worse"),
+    [
+        (11.1 * FLOOR, 10 * FLOOR, True),
+        (11 * FLOOR, 10 * FLOOR, False),
+        (1.9 * FLOOR, 0.9 * FLOOR, False),
+        (None, FLOOR, False),
+    ],
+)
+def test_a_local_jerk_is_worse_past_ten_percent_and_the_warnings_floor(
+    on: float | None, off: float | None, worse: bool
+) -> None:
+    assert jerkWorse({"on": on, "off": off}, WIDTH) is worse
