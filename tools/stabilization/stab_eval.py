@@ -9,7 +9,9 @@ each preset with the clipper's own filters and between-pass step:
   on        this code: the repair, the zoom budget, the transform
 
 Every output is scored with vidstab_motions.shake, as checkStabilizedShake does: a share of the
-frame's width a frame, divided by 1 + the output's zoom.
+frame's width a frame, divided by 1 + the zoom the pass used (vidstab_motions.magnification). The
+summary also reports each side's crop (that zoom) and its seconds per pass, from the run that made
+the pass.
 
 Each pass is cached under a hash of exactly what decides its output, so a run redoes only what a
 change touched: the built clip, the ffmpeg version and the filter strings for every pass, and for
@@ -23,18 +25,19 @@ YTC_STAB_EVAL_CACHE), never to git.
 """
 
 import argparse
+import contextlib
 import hashlib
 import inspect
 import json
 import os
-import re
 import shutil
+import statistics
 import subprocess
 import sys
 import tempfile
 import time
 import tomllib
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -146,8 +149,11 @@ class Runner:
         if (folder / "done").exists():
             return folder
         tmp = Path(tempfile.mkdtemp(prefix=f"{kind}-", dir=CACHE))
+        self.timing: dict[str, float] = {}
         with self.steps.step(kind):
             make(tmp)
+        # The first run's times stay with the pass, so a warm run still reports them
+        (tmp / "timing.json").write_text(json.dumps(self.timing), encoding="utf-8")
         (tmp / "done").write_text("", encoding="utf-8")
         if folder.exists():
             shutil.rmtree(folder)
@@ -155,20 +161,29 @@ class Runner:
         tmp.replace(folder)
         return folder
 
-    def run(self, args: list[str], cwd: Path) -> str:
-        # The default log level: vid.stab's stall and final zoom lines
-        return subprocess.run(
-            [self.ffmpeg, "-hide_banner", "-y", *args],
-            cwd=cwd,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            check=True,
-        ).stderr
+    @contextlib.contextmanager
+    def timed(self, part: str) -> Iterator[None]:
+        start = time.perf_counter()
+        try:
+            yield
+        finally:
+            self.timing[part] = self.timing.get(part, 0.0) + time.perf_counter() - start
 
-    def saveAnalysis(self, nut: Path, out: Path) -> None:
-        with self.steps.step("read analysis"):
+    def run(self, args: list[str], cwd: Path, part: str) -> str:
+        # The default log level: vid.stab's stall and final zoom lines
+        with self.timed(part):
+            return subprocess.run(
+                [self.ffmpeg, "-hide_banner", "-y", *args],
+                cwd=cwd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=True,
+            ).stderr
+
+    def saveAnalysis(self, nut: Path, out: Path, part: str) -> None:
+        with self.steps.step("read analysis"), self.timed(part):
             a = vm.readAnalysis(self.ffmpeg, str(nut))
         np.savez(
             out,
@@ -223,19 +238,23 @@ class Runner:
                     "input.nut",
                 ],
                 d,
+                "analysis",
             )
-            self.saveAnalysis(d / "input.nut", d / "input.npz")
+            self.saveAnalysis(d / "input.nut", d / "input.npz", "read analysis")
 
         def makeDetect(d: Path) -> None:
-            self.run([*source, "-vf", detectText, "-f", "null", "-"], d)
+            self.run([*source, "-vf", detectText, "-f", "null", "-"], d, "detect")
 
         def makeOff(d: Path) -> None:
-            self.run([*source, "-vf", detect549, "-f", "null", "-"], d)
-            info = passInfo(self.run([*source, *toAnalysis(transform549)], d))
-            self.saveAnalysis(d / "o.nut", d / "out.npz")
+            self.run([*source, "-vf", detect549, "-f", "null", "-"], d, "detect")
+            info = passInfo(self.run([*source, *toAnalysis(transform549)], d, "transform"))
+            self.saveAnalysis(d / "o.nut", d / "out.npz", "read output")
             for name in ("o.nut", "b.trf"):
                 (d / name).unlink()
-            (d / "info.json").write_text(json.dumps({**info, "zoom": 15.0}), encoding="utf-8")
+            # 5.49 passes no zoom: vid.stab's L1 path then crops its default, 15%
+            (d / "info.json").write_text(
+                json.dumps({**info, "zoom": 15.0, "zoom_option": "15"}), encoding="utf-8"
+            )
 
         analysis = self.cached("analysis", passKey(*clipId, vm.analysisFilter()), makeAnalysis)
         detect = self.cached("detect", passKey(*clipId, detectText), makeDetect)
@@ -247,20 +266,22 @@ class Runner:
             shutil.copy(analysis / "input.nut", d / "a.nut")
 
             def stalls(zoom: str) -> bool:
-                with self.steps.step("stall trial"):
+                with self.steps.step("stall trial"), self.timed("trial"):
                     graph = transformText.replace(ZOOM_BUDGET_PLACEHOLDER, zoom)
                     return vm.transformStalls(
                         [self.ffmpeg, "-hide_banner", *source, "-vf", graph], str(d)
                     )
 
-            with self.steps.step("repair"):
+            with self.steps.step("repair"), self.timed("repair"):
                 replacements = clip_maker.prepareVidstabTransformPass(
                     self.ffmpeg, str(d / "t.trf"), str(d / "a.nut"), smoothing, (), stalls
                 )
+            # The repair's own time, without the trials it ran
+            self.timing["repair"] -= self.timing.get("trial", 0.0)
             zoom = replacements[ZOOM_BUDGET_PLACEHOLDER]
             graph = transformText.replace(ZOOM_BUDGET_PLACEHOLDER, zoom)
-            info = passInfo(self.run([*source, *toAnalysis(graph)], d))
-            self.saveAnalysis(d / "o.nut", d / "out.npz")
+            info = passInfo(self.run([*source, *toAnalysis(graph)], d, "transform"))
+            self.saveAnalysis(d / "o.nut", d / "out.npz", "read output")
             for name in ("o.nut", "t.trf", "t.trf.shake", "a.nut"):
                 (d / name).unlink(missing_ok=True)
             # vid.stab's gaussian path logs the zoom it picks as its final zoom
@@ -273,13 +294,41 @@ class Runner:
             "on", passKey(analysis.name, detect.name, self.code, transformText, smoothing), makeOn
         )
         with self.steps.step("score"):
-            return score(analysis, off, on)
+            row = score(analysis, off, on)
+        row["seconds"] = passSeconds(analysis, detect, off, on)
+        return row
+
+
+def passSeconds(analysis: Path, detect: Path, off: Path, on: Path) -> dict[str, dict[str, float]]:
+    """Each side's passes, as the clipper runs them, in seconds from the run that made them. 5.50's
+    analysis frames are a second output of its detect pass in the clipper, a decode of their own here.
+    Reading the analysis outputs is the repair's and the shakier clip check's work."""
+
+    def load(folder: Path) -> dict[str, float]:
+        path = folder / "timing.json"
+        return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+    a, d, f, n = load(analysis), load(detect), load(off), load(on)
+    return {
+        "off": {k: f[k] for k in ("detect", "transform") if k in f},
+        "on": {
+            k: v
+            for k, v in (
+                ("detect", d.get("detect")),
+                ("analysis", a.get("analysis")),
+                ("repair", n.get("repair")),
+                ("trial", n.get("trial", 0.0) if n else None),
+                ("transform", n.get("transform")),
+                ("check", n.get("read output")),
+            )
+            if v is not None
+        },
+    }
 
 
 def passInfo(stderr: str) -> dict:
-    """vid.stab logs its final zoom only when the gaussian path ran, as the fallback for a stall"""
-    zoom = re.findall(r"Final zoom: ([-\d.]+)", stderr)
-    return {"stalled": "stalled" in stderr, "final_zoom": float(zoom[-1]) if zoom else None}
+    """vid.stab logs a final zoom only when its gaussian path ran, the fallback for a stall"""
+    return {"stalled": vm.STALL_LINE in stderr, "final_zoom": vm.finalZoom(stderr)}
 
 
 def loadAnalysis(path: Path) -> list[vm.FrameAnalysis]:
@@ -306,8 +355,7 @@ def score(analysis: Path, off: Path, on: Path) -> dict:
         info = json.loads((folder / "info.json").read_text(encoding="utf-8"))
         frames = loadAnalysis(folder / "out.npz")
         s = vm.shake(frames)
-        # A stalled run, or vid.stab's gaussian path, zooms in to vid.stab's final zoom
-        zoom = info["final_zoom"] if info["final_zoom"] is not None else info["zoom"]
+        zoom = vm.magnification(info.get("zoom_option") or str(info["zoom"]), info["final_zoom"])
         shake = None if s is None else s / frames[0].size[0] / (1 + zoom / 100)
         warn = (
             None
@@ -319,6 +367,36 @@ def score(analysis: Path, off: Path, on: Path) -> dict:
         )
         row[name] = {**info, "zoom_used": zoom, "shake": shake, "warn": warn}
     return row
+
+
+def cropAndTime(rows: list[dict]) -> list[str]:
+    """Report lines for one preset's rows: median crop of 5.49 and 5.50, the rows where 5.50 crops
+    more, and median seconds per pass, over the rows whose passes recorded their times."""
+
+    def median(values: list[float]) -> str:
+        return f"{statistics.median(values):.2f}" if values else "-"
+
+    more = [r for r in rows if r["on"]["zoom_used"] > r["off"]["zoom_used"] + 0.005]
+    lines = [
+        f"crop median 5.49 {median([r['off']['zoom_used'] for r in rows])}%, "
+        f"5.50 {median([r['on']['zoom_used'] for r in rows])}%; 5.50 crops more in {len(more)}"
+        + "".join(
+            f"\n    {r['case'][5:]}: {r['off']['zoom_used']:.2f}% -> {r['on']['zoom_used']:.2f}%"
+            for r in more
+        )
+    ]
+    for side, label in (("off", "5.49"), ("on", "5.50")):
+        parts = {part for r in rows for part in r["seconds"][side]}
+        order = ("detect", "analysis", "repair", "trial", "transform", "check")
+        lines.append(
+            f"seconds median {label}: "
+            + ", ".join(
+                f"{part} {median([r['seconds'][side][part] for r in rows if part in r['seconds'][side]])}"
+                for part in order
+                if part in parts
+            )
+        )
+    return lines
 
 
 def loadCaseFile(path: Path) -> dict[str, Case]:
@@ -391,12 +469,15 @@ def main() -> None:
         "".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8"
     )
     for preset in presets:
-        found = [findings(r["on"], r["off"], r["width"]) for r in rows if r["preset"] == preset]
+        presetRows = [r for r in rows if r["preset"] == preset]
+        found = [findings(r["on"], r["off"], r["width"]) for r in presetRows]
         print(
             f"preset {preset}: "
             + ", ".join(f"{kind} {sum(f[kind] for f in found)}" for kind in KINDS)
             + f" of {len(found)}"
         )
+        for line in cropAndTime(presetRows):
+            print(f"  {line}")
     failed = sum(bool(r["fail"]) for r in rows)
     print(
         f"{len(rows)} rows, {failed} failing, results in {run}; {steps.report()}; total {time.perf_counter() - start:.1f} s",
