@@ -324,6 +324,16 @@ def measuredMotions(
 def shake(analysis: Sequence[FrameAnalysis]) -> float | None:
     """How much the clip shakes, analysis px a frame: the root mean square of each measured frame's
     shift away from its moving average. None with too few measured frames to tell."""
+    jitter = frameJitter(analysis)
+    measured = ~np.isnan(jitter)
+    if measured.sum() < MIN_SHAKE_FRAMES:
+        return None
+    return float(np.sqrt(np.mean(np.square(jitter[measured]))))
+
+
+def frameJitter(analysis: Sequence[FrameAnalysis]) -> np.ndarray:
+    """Each frame's shift away from its moving average, analysis px: the terms of shake(). NaN for a
+    frame it leaves out."""
     xy = np.array(
         [
             (a.shift.dx, a.shift.dy)
@@ -335,15 +345,18 @@ def shake(analysis: Sequence[FrameAnalysis]) -> float | None:
         ]
     )
     measured = ~np.isnan(xy[:, 0])
-    if measured.sum() < MIN_SHAKE_FRAMES:
-        return None
     kernel = np.ones(2 * SHAKE_RADIUS + 1)
     filled = np.where(measured[:, None], xy, 0.0)
-    counts = np.convolve(measured.astype(float), kernel, "same")
-    sums = np.stack([np.convolve(filled[:, k], kernel, "same") for k in range(2)], axis=1)
+
+    def windowSums(values: np.ndarray) -> np.ndarray:
+        # "same" for a clip shorter than the window too, which np.convolve's "same" pads to the window
+        return np.convolve(values, kernel, "full")[SHAKE_RADIUS : SHAKE_RADIUS + len(values)]
+
+    counts = windowSums(measured.astype(float))
+    sums = np.stack([windowSums(filled[:, k]) for k in range(2)], axis=1)
     # Every measured frame counts itself, so its window is never empty
     trend = np.divide(sums, counts[:, None], out=np.zeros_like(sums), where=counts[:, None] > 0)
-    return float(np.sqrt(np.mean(np.sum(np.square(xy[measured] - trend[measured]), axis=1))))
+    return np.hypot(*(xy - trend).T)
 
 
 def findBrightnessChanges(brightness: Sequence[float]) -> set[int]:
