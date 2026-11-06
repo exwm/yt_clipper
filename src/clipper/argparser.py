@@ -386,11 +386,9 @@ def add_vfilter_options(vfilter_options: argparse._ArgumentGroup) -> None:
         action="store_true",
         help=" ".join(
             [
-                "When video stabilization is enabled,",
-                "stabilize with vid.stab alone, as yt_clipper 5.49 did.",
-                "This skips the repair of motion that follows a subject or a flash instead of the camera,",
-                "the zoom sized to the clip's shake,",
-                "and the warning for clips that come out shakier.",
+                "When video stabilization is enabled, turn off its motion analysis:",
+                "the repair of motion that follows a subject or a flash instead of the camera.",
+                "The zoom sized to the clip's shake and the warning for clips that come out shakier stay on.",
             ],
         ),
     )

@@ -1414,27 +1414,85 @@ def test_a_failed_stabilization_pass_leaves_no_analysis_or_shake_files(
     assert left == []
 
 
-@pytest.mark.parametrize(
-    "plainBy",
-    [
-        # As on ffmpeg 6.x and some 7.x builds, whose vid.stab has no fileformat option
-        pytest.param("probe", id="no-text-transforms"),
-        pytest.param("option", id="--no-video-stabilization-motion-analysis"),
-    ],
-)
+def recordStabilizationSteps(clipper: Clipper) -> dict[str, list]:
+    """The ffmpeg commands, stall trials, motion repairs and shakier clip checks of a clipper run."""
+    steps: dict[str, list] = {"commands": [], "trials": [], "repairs": [], "checks": []}
+
+    def recording(original: Callable, calls: list) -> Callable:
+        def recorded(*args: object, **kwargs: object) -> object:
+            calls.append(args[0])
+            return original(*args, **kwargs)
+
+        return recorded
+
+    for name, key in (
+        ("run_ffmpeg_with_progress", "commands"),
+        ("repairMotionsInFiles", "repairs"),
+        ("checkStabilizedShake", "checks"),
+    ):
+        original = getattr(clip_maker, name)
+        clipper.monkeypatch.setattr(clip_maker, name, recording(original, steps[key]))
+    clipper.monkeypatch.setattr(
+        clip_maker,
+        "transformStalls",
+        lambda command, cwd=None: steps["trials"].append(command) or False,
+    )
+    return steps
+
+
+def test_stabilization_without_motion_analysis_keeps_the_zoom_budget_and_check(
+    clipper: Clipper,
+    syntheticMedia: pathlib.Path,
+) -> None:
+    # -nvsma turns off only the motion repair: text transforms, the zoom budget, the stall trial and
+    # the shakier clip check stay
+    if clipper.exe:
+        pytest.skip("records the steps in process")
+    clipper.requireEncoder("libvpx-vp9")
+    ffmpeg = clipper.toolPath("ffmpeg")
+    assert ffmpeg is not None
+    steps = recordStabilizationSteps(clipper)
+    _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-native-30", syntheticMedia)
+    name = "stabilized-without-motion-analysis"
+    start, end = SYNTHETIC_PAIR
+    markers = syntheticMarkers(clipper.cwd, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
+    run = clipper.run(
+        [
+            "--markers-json",
+            str(markers),
+            "--input-video",
+            str(uploaded),
+            *OFFLINE_ARGS,
+            "--video-stabilization",
+            "2",
+            "--no-video-stabilization-motion-analysis",
+        ]
+    )
+    print(run.stdout, run.stderr)
+    assert run.returncode == 0
+    assert len(list((clipper.cwd / "webms" / name).glob("*.webm"))) == 1
+    detect, transform = steps["commands"]
+    assert "fileformat=1" in detect
+    assert ".nut" in detect
+    assert re.search(r"vidstabtransform=[^\"]*:zoom=\d+\.\d\d", transform)
+    assert "optalgo" not in transform
+    assert ".nut" in transform
+    assert steps["trials"]
+    assert not steps["repairs"]
+    assert steps["checks"]
+
+
 def test_stabilization_runs_without_the_repair_where_vid_stab_has_no_text_transforms(
     clipper: Clipper,
     syntheticMedia: pathlib.Path,
-    plainBy: str,
 ) -> None:
-    if plainBy == "probe" and clipper.exe:
+    # As on ffmpeg 6.x and some 7.x builds, whose vid.stab has no fileformat option
+    if clipper.exe:
         pytest.skip("fakes the probe in process")
     clipper.requireEncoder("libvpx-vp9")
     ffmpeg = clipper.toolPath("ffmpeg")
     assert ffmpeg is not None
-    if plainBy == "probe":
-        clipper.monkeypatch.setattr(clip_maker, "vidstabWritesTextTransforms", lambda _path: False)
-    optionArgs = ["--no-video-stabilization-motion-analysis"] if plainBy == "option" else []
+    clipper.monkeypatch.setattr(clip_maker, "vidstabWritesTextTransforms", lambda _path: False)
     commands: list[str] = []
     runFfmpeg = clip_maker.run_ffmpeg_with_progress
     clipper.monkeypatch.setattr(
@@ -1447,7 +1505,7 @@ def test_stabilization_runs_without_the_repair_where_vid_stab_has_no_text_transf
         clip_maker, "transformStalls", lambda command, cwd=None: trials.append(command) or False
     )
     _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-native-30", syntheticMedia)
-    name = f"stabilized-plain-by-{plainBy}"
+    name = "stabilized-plain-by-probe"
     start, end = SYNTHETIC_PAIR
     markers = syntheticMarkers(clipper.cwd, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
     run = clipper.run(
@@ -1459,7 +1517,6 @@ def test_stabilization_runs_without_the_repair_where_vid_stab_has_no_text_transf
             *OFFLINE_ARGS,
             "--video-stabilization",
             "2",
-            *optionArgs,
         ]
     )
     print(run.stdout, run.stderr)

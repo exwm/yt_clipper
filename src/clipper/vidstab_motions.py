@@ -627,6 +627,29 @@ def checkStabilizedShake(
     return True
 
 
+def readInputAnalysis(
+    ffmpegPath: str, transformsPath: str, analysisPath: str
+) -> list[FrameAnalysis] | None:
+    """The detect pass's analysis output, which it then deletes, keeping the input's shake for
+    checkStabilizedShake. None when it cannot be read."""
+    # One left by an earlier run would pass for this run's input shake
+    with contextlib.suppress(OSError):
+        Path(inputShakePath(transformsPath)).unlink(missing_ok=True)
+    try:
+        analysis = readAnalysis(ffmpegPath, analysisPath)
+    except (OSError, TransformsFileError) as error:
+        logger.warning(f"Could not check the video stabilization motion ({error}).")
+        return None
+    finally:
+        with contextlib.suppress(OSError):
+            Path(analysisPath).unlink()
+    if analysis and (inputShake := shake(analysis)) is not None:
+        Path(inputShakePath(transformsPath)).write_text(
+            f"{inputShake / analysis[0].size[0]}", encoding="utf-8"
+        )
+    return analysis
+
+
 def repairMotionsInFiles(
     ffmpegPath: str,
     transformsPath: str,
@@ -638,22 +661,17 @@ def repairMotionsInFiles(
     Leaves the transforms as they are when a file cannot be read, and the flashes when too much of
     the clip changes brightness to fill in the motion it could not measure. measure=False
     interpolates every untrusted frame and keeps every field, for comparison."""
-    # One left by an earlier run would pass for this run's input shake
-    with contextlib.suppress(OSError):
-        Path(inputShakePath(transformsPath)).unlink(missing_ok=True)
     try:
         transforms = parseTransforms(Path(transformsPath).read_text(encoding="utf-8"))
-        analysis = readAnalysis(ffmpegPath, analysisPath)
     except (OSError, TransformsFileError) as error:
         logger.warning(f"Could not check the video stabilization motion ({error}).")
+        for path in (analysisPath, inputShakePath(transformsPath)):
+            with contextlib.suppress(OSError):
+                Path(path).unlink()
         return
-    finally:
-        with contextlib.suppress(OSError):
-            Path(analysisPath).unlink()
-    if analysis and (inputShake := shake(analysis)) is not None:
-        Path(inputShakePath(transformsPath)).write_text(
-            f"{inputShake / analysis[0].size[0]}", encoding="utf-8"
-        )
+    analysis = readInputAnalysis(ffmpegPath, transformsPath, analysisPath)
+    if analysis is None:
+        return
     scale = analysisScale(transforms, analysis[0].size) if analysis else None
     measured = measuredMotions(analysis, scale) if measure and scale is not None else {}
     untrusted = (

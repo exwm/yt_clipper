@@ -605,7 +605,7 @@ Use the **Crop Easing** setting to choose how a dynamic crop pans and zooms betw
 - Use as few points as possible for smoother motion.
 - Try enabling video stabilization to smooth out the motion, especially if many points are used.
   - The `clipper script` warns when a stabilized clip comes out shakier than its input (not checked for loops, ffmpeg motion interpolation or hardware encoders). Disable video stabilization for that marker pair if it does.
-  - If a clip stabilizes worse than with version 5.49.0, run the `clipper script` with `--no-video-stabilization-motion-analysis` (`-nvsma`) to stabilize it as 5.49.0 did.
+  - If a stabilized clip jolts or drifts where it should not, run the `clipper script` with `--no-video-stabilization-motion-analysis` (`-nvsma`). It turns off the motion analysis, which repairs the motion at flashes and ignores things that move on their own.
   - Since version 5.50.0, stabilization presets weaker than **Strongest** crop more and steady more.
 - Pause the video and **Right-Click+Drag** to seek/scrub through the video. Use this to preview the crop movement with precise control.
 - For motion tracking, drop multiple crop points in one continuous **Ctrl+Click+Drag** on the crop overlay: press **A** (when the crop chart is visible) or **Alt+A** at each subject position to add a crop point and keep dragging. Combine with the mouse wheel during the same drag to zoom the crop in/out (center-out) while panning.
