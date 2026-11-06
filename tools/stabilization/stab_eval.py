@@ -5,8 +5,9 @@ each preset with the clipper's own filters and between-pass step:
 
   analysis  the frames the repair reads, shrunk and in gray (the same for every preset)
   detect    vid.stab's text transforms, at the preset's shakiness
-  off       5.49: binary transforms and vid.stab's own L1 zoom, no repair
+  off       5.49.0: its filters, binary transforms, vid.stab's gaussian camera path and zoom
   on        this code: the repair, the zoom budget, the transform
+  nvsma     this code with -nvsma: as on, without the repair (reported, never failing a row)
 
 Every output is scored with vidstab_motions.shake, as checkStabilizedShake does: a share of the
 frame's width a frame, divided by 1 + the zoom the pass used (vidstab_motions.magnification). The
@@ -39,6 +40,7 @@ import time
 import tomllib
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
+from math import pi
 from pathlib import Path
 
 import numpy as np
@@ -208,9 +210,7 @@ class Runner:
         detectText, transformText = (
             gamma(f) for f in getVideoStabilizationFilters(mps, "t.trf", textTransforms=True)
         )
-        detect549, transform549 = (
-            gamma(f) for f in getVideoStabilizationFilters(mps, "b.trf", textTransforms=False)
-        )
+        detect549, transform549 = (gamma(f) for f in filters549(mps, "b.trf"))
         source = ["-i", str(clip), "-an"]
         clipId = (clip.name, clip.stat().st_size, self.version)
 
@@ -251,16 +251,16 @@ class Runner:
             self.saveAnalysis(d / "o.nut", d / "out.npz", "read output")
             for name in ("o.nut", "b.trf"):
                 (d / name).unlink()
-            # 5.49 passes no zoom: vid.stab's L1 path then crops its default, 15%
+            # 5.49 passes no zoom: vid.stab's gaussian path picks one and logs it as its final zoom
             (d / "info.json").write_text(
-                json.dumps({**info, "zoom": 15.0, "zoom_option": "15"}), encoding="utf-8"
+                json.dumps({**info, "zoom": 0.0, "zoom_option": "0"}), encoding="utf-8"
             )
 
         analysis = self.cached("analysis", passKey(*clipId, vm.analysisFilter()), makeAnalysis)
         detect = self.cached("detect", passKey(*clipId, detectText), makeDetect)
         off = self.cached("off", passKey(*clipId, detect549, transform549), makeOff)
 
-        def makeOn(d: Path) -> None:
+        def makeOn(d: Path, repair: bool = True) -> None:
             shutil.copy(detect / "t.trf", d / "t.trf")
             # The repair deletes the analysis output it reads
             shutil.copy(analysis / "input.nut", d / "a.nut")
@@ -274,7 +274,13 @@ class Runner:
 
             with self.steps.step("repair"), self.timed("repair"), recordedFrames() as frames:
                 replacements = clip_maker.prepareVidstabTransformPass(
-                    self.ffmpeg, str(d / "t.trf"), str(d / "a.nut"), smoothing, (), stalls
+                    self.ffmpeg,
+                    str(d / "t.trf"),
+                    str(d / "a.nut"),
+                    smoothing,
+                    (),
+                    stalls,
+                    repair=repair,
                 )
             # The repair's own time, without the trials it ran
             self.timing["repair"] -= self.timing.get("trial", 0.0)
@@ -291,13 +297,30 @@ class Runner:
                 encoding="utf-8",
             )
 
-        on = self.cached(
-            "on", passKey(analysis.name, detect.name, self.code, transformText, smoothing), makeOn
-        )
+        onKey = passKey(analysis.name, detect.name, self.code, transformText, smoothing)
+        on = self.cached("on", onKey, makeOn)
+        # -nvsma: this code without the repair, reported but never failing a row
+        nvsma = self.cached("nvsma", onKey, lambda d: makeOn(d, repair=False))
         with self.steps.step("score"):
-            row = score(analysis, off, on)
+            row = score(analysis, off, on, nvsma)
         row["seconds"] = passSeconds(analysis, detect, off, on)
         return row
+
+
+def filters549(mps: Mapping, transformPath: str) -> tuple[str, str]:
+    """5.49.0's vidstabdetect and vidstabtransform filters, as its clip_maker wrote them (without
+    dynamic zoom). Its ffmpeg 8.0.1 ran vid.stab's gaussian camera path by default; ffmpeg 9
+    defaults to the L1 path, which crops a fixed 15%, so the gaussian path is asked for."""
+    vidstab = mps["videoStabilization"]
+    maxAngle = mps["videoStabilizationMaxAngle"]
+    maxAngle = -1 if maxAngle < 0 else maxAngle * pi / 180
+    maxShift = mps["videoStabilizationMaxShift"]
+    maxShift = -1 if maxShift < 0 else maxShift
+    return (
+        f"vidstabdetect=result='{transformPath}':shakiness={vidstab['shakiness']}",
+        f"vidstabtransform=input='{transformPath}':smoothing={vidstab['smoothing']}"
+        f":maxangle={maxAngle}:maxshift={maxShift}:optalgo=gauss",
+    )
 
 
 def passSeconds(analysis: Path, detect: Path, off: Path, on: Path) -> dict[str, dict[str, float]]:
@@ -345,14 +368,14 @@ def loadAnalysis(path: Path) -> list[vm.FrameAnalysis]:
     ]
 
 
-def score(analysis: Path, off: Path, on: Path) -> dict:
-    """Shake as checkStabilizedShake measures it, for the input and both outputs, and its warning."""
+def score(analysis: Path, off: Path, on: Path, nvsma: Path) -> dict:
+    """Shake as checkStabilizedShake measures it, for the input and each output, and its warning."""
     inputFrames = loadAnalysis(analysis / "input.npz")
     width = inputFrames[0].size[0]
     measured = vm.shake(inputFrames)
     inputShake = None if measured is None else measured / width
     row: dict = {"in": inputShake, "width": width}
-    for name, folder in (("off", off), ("on", on)):
+    for name, folder in (("off", off), ("on", on), ("nvsma", nvsma)):
         info = json.loads((folder / "info.json").read_text(encoding="utf-8"))
         frames = loadAnalysis(folder / "out.npz")
         s = vm.shake(frames)
@@ -375,7 +398,7 @@ def score(analysis: Path, off: Path, on: Path) -> dict:
         row[f"jerk_{kind}"] = {
             side: localJerk(row[f"{side}_jitter"], flagged) for side in ("off", "on")
         }
-    for side in ("off", "on"):
+    for side in ("off", "on", "nvsma"):
         del row[f"{side}_jitter"]
     return row
 
@@ -431,6 +454,24 @@ def recordedFrames() -> Iterator[dict[str, list[int]]]:
         vm.repairMotions, vm.keepFieldsMovingWithTheCamera = repair, keep
 
 
+def shakeRatio(row: Mapping, side: str) -> float | None:
+    """The side's shake over 5.49's, None when either was not measured."""
+    shake, base = row[side]["shake"], row["off"]["shake"]
+    return shake / base if shake and base else None
+
+
+def nvsmaLine(rows: list[dict]) -> str:
+    """-nvsma against 5.49 and against 5.50: its shake ratio median and crop median."""
+    ratios = [x for r in rows if (x := shakeRatio(r, "nvsma")) is not None]
+    shakier = sum(x > WORSE for x in ratios)
+    crop = statistics.median([r["nvsma"]["zoom_used"] for r in rows]) if rows else 0.0
+    ratio = statistics.median(ratios) if ratios else float("nan")
+    return (
+        f"-nvsma: shake {ratio:.2f}x 5.49's (median), more than {WORSE:.2f}x in {shakier} of "
+        f"{len(ratios)}; crop median {crop:.2f}%"
+    )
+
+
 def cropAndTime(rows: list[dict]) -> list[str]:
     """Report lines for one preset's rows: median crop of 5.49 and 5.50, the rows where 5.50 crops
     more, and median seconds per pass, over the rows whose passes recorded their times."""
@@ -447,6 +488,7 @@ def cropAndTime(rows: list[dict]) -> list[str]:
             for r in more
         )
     ]
+    lines.append(nvsmaLine(rows))
     for side, label in (("off", "5.49"), ("on", "5.50")):
         parts = {part for r in rows for part in r["seconds"][side]}
         order = ("detect", "analysis", "repair", "trial", "transform", "check")
@@ -531,13 +573,10 @@ def main() -> None:
                 config.expected.get((name, preset), {}),
             )
             rows.append(row)
-            ratio = (
-                row["on"]["shake"] / row["off"]["shake"]
-                if row["on"]["shake"] and row["off"]["shake"]
-                else float("nan")
-            )
+            ratio, nvsmaRatio = (shakeRatio(row, side) or float("nan") for side in ("on", "nvsma"))
             print(
                 f"{name[5:40]:35s} {preset} on/5.49 {ratio:5.2f} zoom {row['on']['zoom_used']:5.2f} "
+                f"nvsma/5.49 {nvsmaRatio:5.2f} "
                 f"stall {int(row['on']['stalled'])}/{int(row['off']['stalled'])} {' '.join(row['fail'])}",
                 flush=True,
             )
