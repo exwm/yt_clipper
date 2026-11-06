@@ -604,10 +604,77 @@ def magnification(zoom: str, final: float | None = None) -> float:
     return float(zoom)
 
 
+@dataclass(frozen=True)
+class PathTrial:
+    """A transform pass's stabilized analysis frames, and the zoom it used (magnification)."""
+
+    frames: list[FrameAnalysis]
+    zoom: float
+
+
+def transformTrial(
+    command: Sequence[str], zoom: str, analysisPath: str, cwd: str | None = None
+) -> PathTrial | None:
+    """Runs a transform command whose filters end in analysisFilter() into an analysis file, which
+    it reads and deletes. None when the command fails."""
+    try:
+        stderr = subprocess.run(
+            [*command, "-an", "-fps_mode", "passthrough", "-c:v", "ffv1", "-f", "nut", "-y", analysisPath],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            cwd=cwd,
+            check=True,
+        ).stderr  # fmt: skip
+        frames = readAnalysis(command[0], analysisPath)
+    except (subprocess.CalledProcessError, OSError, TransformsFileError):
+        return None
+    finally:
+        with contextlib.suppress(OSError):
+            Path(analysisPath).unlink()
+    final = finalZoom(stderr) if zoom == GAUSSIAN_PATH else None
+    if zoom == GAUSSIAN_PATH and final is None:
+        return None
+    return PathTrial(frames, magnification(zoom, final))
+
+
+def steadierOnGaussianPath(
+    l1: PathTrial, gaussian: PathTrial, unmeasured: Collection[int] = ()
+) -> bool:
+    """Whether vid.stab's gaussian camera path leaves the clip steadier than its L1 path, at no more
+    zoom. On real footage the L1 path can add motion to a nearly steady clip, or leave more shake
+    at its zoom budget, where the gaussian path does not. Both are scored on the frames all of them
+    measured, the input (unmeasured) too, and in the input frame's pixels."""
+    if gaussian.zoom > l1.zoom:
+        return False
+    skipped = {*unmeasured, *unmeasuredFrames(l1.frames), *unmeasuredFrames(gaussian.frames)}
+    l1Shake, gaussianShake = shake(l1.frames, skipped), shake(gaussian.frames, skipped)
+    if l1Shake is None or gaussianShake is None:
+        return False
+    return gaussianShake / (1 + gaussian.zoom / 100) < l1Shake / (1 + l1.zoom / 100)
+
+
 def inputShakePath(transformsPath: str) -> str:
     """Where the repair keeps the input's shake, as a share of the frame's width, and its
     unmeasuredFrames, for checkStabilizedShake."""
     return f"{transformsPath}.shake"
+
+
+def readInputShake(transformsPath: str) -> tuple[float, list[int]]:
+    """The input's shake and unmeasured frames the repair kept. Raises OSError, ValueError, KeyError
+    or TypeError when there are none."""
+    kept = json.loads(Path(inputShakePath(transformsPath)).read_text(encoding="utf-8"))
+    return float(kept["shake"]), [int(i) for i in kept["unmeasured"]]
+
+
+def inputUnmeasured(transformsPath: str) -> list[int]:
+    """The input's unmeasured frames the repair kept, or none when it kept nothing."""
+    try:
+        return readInputShake(transformsPath)[1]
+    except (OSError, ValueError, KeyError, TypeError):
+        return []
 
 
 def checkStabilizedShake(
@@ -618,8 +685,7 @@ def checkStabilizedShake(
     analysis (the transform pass's, which it deletes) is zoomed in up to zoomBudget percent, which
     magnifies its shifts. None when either cannot be measured. Warns when it does."""
     try:
-        kept = json.loads(Path(inputShakePath(transformsPath)).read_text(encoding="utf-8"))
-        inputShake, unmeasured = float(kept["shake"]), kept["unmeasured"]
+        inputShake, unmeasured = readInputShake(transformsPath)
         output = readAnalysis(ffmpegPath, outputAnalysisPath)
     except (OSError, ValueError, KeyError, TypeError, TransformsFileError):
         return None

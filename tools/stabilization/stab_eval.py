@@ -158,9 +158,11 @@ def codeHash() -> str:
 
 
 class Runner:
-    def __init__(self, ffmpeg: str, steps: Steps) -> None:
+    def __init__(self, ffmpeg: str, steps: Steps, comparePaths: bool = False) -> None:
         self.ffmpeg = ffmpeg
         self.steps = steps
+        # The clipper's -vscs, for the "on" and "nvsma" passes
+        self.comparePaths = comparePaths
         self.version = subprocess.run(
             [ffmpeg, "-version"], capture_output=True, text=True, check=True
         ).stdout.splitlines()[0]
@@ -307,6 +309,23 @@ class Runner:
                         [self.ffmpeg, "-hide_banner", *source, "-vf", graph], str(d)
                     )
 
+            def gaussianZoom() -> float | None:
+                with self.steps.step("stall trial"), self.timed("trial"):
+                    graph = transformText.replace(ZOOM_BUDGET_PLACEHOLDER, vm.GAUSSIAN_PATH)
+                    return vm.transformFinalZoom(
+                        [self.ffmpeg, "-hide_banner", *source, "-vf", graph], str(d)
+                    )
+
+            def trial(zoom: str) -> vm.PathTrial | None:
+                with self.steps.step("path trial"), self.timed("trial"):
+                    graph = f"{transformText.replace(ZOOM_BUDGET_PLACEHOLDER, zoom)},{vm.analysisFilter()}"
+                    return vm.transformTrial(
+                        [self.ffmpeg, "-hide_banner", *source, "-vf", graph],
+                        zoom,
+                        str(d / "trial.nut"),
+                        str(d),
+                    )
+
             with self.steps.step("repair"), self.timed("repair"), recordedFrames() as frames:
                 replacements = clip_maker.prepareVidstabTransformPass(
                     self.ffmpeg,
@@ -316,6 +335,8 @@ class Runner:
                     (),
                     stalls,
                     repair=repair,
+                    gaussianZoom=gaussianZoom if self.comparePaths else None,
+                    trial=trial if self.comparePaths else None,
                 )
             # The repair's own time, without the trials it ran
             self.timing["repair"] -= self.timing.get("trial", 0.0)
@@ -334,7 +355,11 @@ class Runner:
                 encoding="utf-8",
             )
 
-        onKey = passKey(analysis.name, detect.name, self.code, transformText, smoothing, OUTPUTS)
+        # -vscs keys apart, so a run without it reuses the passes it made before
+        compare = ("vscs",) if self.comparePaths else ()
+        onKey = passKey(
+            analysis.name, detect.name, self.code, transformText, smoothing, OUTPUTS, *compare
+        )
         on = self.cached("on", onKey, makeOn)
         # -nvsma: this code without the repair, reported but never failing a row
         nvsma = self.cached("nvsma", onKey, lambda d: makeOn(d, repair=False))
@@ -693,6 +718,11 @@ def main() -> None:
     )
     parser.add_argument("--presets", help="comma-separated presets (default 1,3,6)")
     parser.add_argument(
+        "--compare-strategies",
+        action="store_true",
+        help="run 5.50 with the clipper's --video-stabilization-compare-strategies (-vscs)",
+    )
+    parser.add_argument(
         "--cases",
         action="append",
         type=Path,
@@ -717,7 +747,7 @@ def main() -> None:
     )
     ffmpeg = shutil.which("ffmpeg") or "ffmpeg"
     CACHE.mkdir(parents=True, exist_ok=True)
-    runner = Runner(ffmpeg, steps)
+    runner = Runner(ffmpeg, steps, args.compare_strategies)
     datasets = load_datasets()
     rows = []
     for name, case in cases.items():

@@ -10,6 +10,7 @@ from clipper.vidstab_motions import (
     MIN_ZOOM_BUDGET,
     FrameAnalysis,
     LocalMotion,
+    PathTrial,
     TransformsFile,
     TransformsFileError,
     analysisScale,
@@ -32,6 +33,7 @@ from clipper.vidstab_motions import (
     repairMotionsInFiles,
     shake,
     solvedZoom,
+    steadierOnGaussianPath,
     unmeasuredFrames,
     zoomBudget,
     zoomBudgetFromFile,
@@ -192,6 +194,46 @@ def test_shake_is_how_far_each_frames_shift_strays_from_its_neighbours() -> None
     assert unmeasuredFrames(source) == [0, 31]
     assert shake(stabilized) > 1
     assert shake(stabilized, unmeasuredFrames(source)) == pytest.approx(0)
+
+
+def wobbling(
+    amplitude: float, count: int = 60, unmeasured: int | None = None
+) -> list[FrameAnalysis]:
+    """A stabilized clip whose shift alternates `amplitude` either side of a steady pan."""
+    shifts = [
+        FrameShift(0, 0, 0) if i == unmeasured else FrameShift(3 + amplitude * (-1) ** i, 0, 0.9)
+        for i in range(count)
+    ]
+    return [FrameAnalysis(100, None), *(FrameAnalysis(100, s) for s in shifts)]
+
+
+@pytest.mark.parametrize(
+    ("l1", "gaussian", "steadier"),
+    [
+        # Steadier at less zoom
+        (PathTrial(wobbling(2), 8), PathTrial(wobbling(1), 4), True),
+        # Steadier only by zooming in further, or not steadier
+        (PathTrial(wobbling(2), 4), PathTrial(wobbling(1), 8), False),
+        (PathTrial(wobbling(1), 8), PathTrial(wobbling(2), 4), False),
+        # Shake in the input frame's pixels: 1.1 px at 20% zoom is 0.92, 1 px at no zoom is 1
+        (PathTrial(wobbling(1.1), 20), PathTrial(wobbling(1), 0), False),
+    ],
+)
+def test_the_gaussian_path_is_taken_only_when_steadier_at_no_more_zoom(
+    l1: PathTrial, gaussian: PathTrial, steadier: bool
+) -> None:
+    assert steadierOnGaussianPath(l1, gaussian) is steadier
+
+
+def test_a_frame_only_one_path_measured_is_left_out_of_both() -> None:
+    # A single far match on the L1 path, at a frame the gaussian path has no match for
+    l1 = wobbling(0.5)
+    l1[31] = FrameAnalysis(100, FrameShift(30, 0, 0.09))
+    assert (
+        steadierOnGaussianPath(PathTrial(l1, 4), PathTrial(wobbling(0.6, unmeasured=30), 4))
+        is False
+    )
+    assert steadierOnGaussianPath(PathTrial(l1, 4), PathTrial(wobbling(0.6), 4)) is True
 
 
 def test_a_measured_frame_where_no_field_agrees_is_untrusted() -> None:

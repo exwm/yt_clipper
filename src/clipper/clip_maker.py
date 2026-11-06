@@ -85,16 +85,20 @@ from clipper.util import escapeSingleQuotesFFmpeg, getTrimmedBase64Hash, shlexDo
 from clipper.video2x import runVideo2xCommand
 from clipper.vidstab_motions import (
     GAUSSIAN_PATH,
+    PathTrial,
     analysisFilter,
     analysisOutputArgs,
     checkStabilizedShake,
     inputShakePath,
+    inputUnmeasured,
     magnification,
     readInputAnalysis,
     repairMotionsInFiles,
     solvedZoom,
+    steadierOnGaussianPath,
     transformFinalZoom,
     transformStalls,
+    transformTrial,
     zoomBudgetFromFile,
     zoomCandidates,
 )
@@ -1053,8 +1057,8 @@ def makeClip(  # noqa: PLR0912
             trialCommand = shlex.split(getVidstabDetectOnlyCommand(cp, inputs, mps))
             trialScript = Path(cp.clipsPath) / "temp" / f"vfilter-{markerPairIndex + 1}-trial.txt"
 
-            def trialArgs(zoom: str) -> list[str]:
-                graph = trialGraph.replace(ZOOM_BUDGET_PLACEHOLDER, zoom)
+            def trialArgs(zoom: str, graphWithZoom: str = trialGraph) -> list[str]:
+                graph = graphWithZoom.replace(ZOOM_BUDGET_PLACEHOLDER, zoom)
                 if len(graph) <= MAX_VFILTER_SIZE:
                     return [*trialCommand, "-vf", graph]
                 trialScript.parent.mkdir(parents=True, exist_ok=True)
@@ -1064,8 +1068,19 @@ def makeClip(  # noqa: PLR0912
             def gaussianZoom() -> float | None:
                 return transformFinalZoom(trialArgs(GAUSSIAN_PATH))
 
+            def pathTrial(zoom: str) -> PathTrial | None:
+                return transformTrial(
+                    trialArgs(zoom, stabilizedAnalysisGraph), zoom, f"{transformPath}.trial.nut"
+                )
+
             # The zoom the transform pass gets, for the shakier clip check after it
             chosen: dict[str, str] = {}
+            # Motion interpolation changes each frame's shift, so the trials' frames can't be compared
+            comparePaths = (
+                mps.get("videoStabilizationCompareStrategies", False)
+                and analyzeFrames
+                and not usesMinterpolate
+            )
 
             def afterFirstPass() -> dict[str, str]:
                 chosen.update(
@@ -1077,6 +1092,8 @@ def makeClip(  # noqa: PLR0912
                         transformFilterScripts,
                         lambda zoom: transformStalls(trialArgs(zoom)),
                         repair=repairMotion,
+                        gaussianZoom=gaussianZoom if comparePaths else None,
+                        trial=pathTrial if comparePaths else None,
                     )
                 )
                 return chosen
@@ -1247,13 +1264,17 @@ def prepareVidstabTransformPass(
     stalls: Callable[[str], bool] | None = None,
     *,
     repair: bool = True,
+    gaussianZoom: Callable[[], float | None] | None = None,
+    trial: Callable[[str], PathTrial | None] | None = None,
 ) -> dict[str, str]:
     """Between the stabilization passes: repairs the motion across flashes and drops fields that
     follow a subject instead of the camera (when the detect pass wrote its analysis frames, and
     unless repair is False, as with -nvsma), and sizes the zoom budget from the motion. With
     `stalls`, a trial of the transform at a zoom, it falls back when vid.stab's camera path fails to
-    solve at the budget. Returns the zoom to put in the transform command, and puts it in the
-    transform pass's filter scripts."""
+    solve at the budget. With `gaussianZoom` and `trial`, a whole transform pass into analysis
+    frames (-vscs), it takes vid.stab's gaussian path instead when that steadies the clip more at
+    no more zoom. Returns the zoom to put in the transform command, and puts it in the transform
+    pass's filter scripts."""
     if analysisPath is not None:
         if repair:
             repairMotionsInFiles(ffmpegPath, transformPath, analysisPath)
@@ -1274,6 +1295,22 @@ def prepareVidstabTransformPass(
             f" so the clip {instead} instead."
         )
         zoom = solved
+    if (
+        gaussianZoom is not None
+        and trial is not None
+        and zoom != GAUSSIAN_PATH
+        and analysisPath is not None
+        and (final := gaussianZoom()) is not None
+        and magnification(GAUSSIAN_PATH, final) <= float(zoom)
+        and (l1 := trial(zoom)) is not None
+        and (gaussian := trial(GAUSSIAN_PATH)) is not None
+        and steadierOnGaussianPath(l1, gaussian, inputUnmeasured(transformPath))
+    ):
+        logger.info(
+            f"Video stabilization: vid.stab's gaussian camera path steadies this clip more,"
+            f" zooming in {gaussian.zoom:.2f}% instead of up to {zoom}%."
+        )
+        zoom = GAUSSIAN_PATH
     for scriptPath in transformFilterScriptPaths:
         script = Path(scriptPath)
         script.write_text(
