@@ -90,6 +90,7 @@ from clipper.vidstab_motions import (
     checkStabilizedShake,
     inputShakePath,
     magnification,
+    readInputAnalysis,
     repairMotionsInFiles,
     solvedZoom,
     transformFinalZoom,
@@ -920,12 +921,13 @@ def makeClip(  # noqa: PLR0912
         shakyClipPath = f"{shakyPath}/{mp['fileNameStem']}-shaky.{mp['fileNameSuffix']}"
 
         video_filter += "[shaky];[shaky]"
-        # The motion analysis needs text transforms; without it vid.stab runs as in 5.49
-        motionAnalysis = not mps.get(
-            "noVideoStabilizationMotionAnalysis", False
-        ) and vidstabWritesTextTransforms(cp.ffmpegPath)
+        # The zoom budget, the stall fallback, the repair and the shakier clip check need text
+        # transforms; without them vid.stab runs as in 5.49
+        textTransforms = vidstabWritesTextTransforms(cp.ffmpegPath)
+        # -nvsma turns off only the repair of the detected motion
+        repairMotion = not mps.get("noVideoStabilizationMotionAnalysis", False)
         detectFilter, transformFilter = getVideoStabilizationFilters(
-            mps, transformPath, textTransforms=motionAnalysis
+            mps, transformPath, textTransforms=textTransforms
         )
         vidstabdetectFilter = videoStabilizationGammaFixFilter(video_filter + detectFilter)
         vidstabtransformFilter = videoStabilizationGammaFixFilter(video_filter + transformFilter)
@@ -950,7 +952,7 @@ def makeClip(  # noqa: PLR0912
         # Only text transforms can be repaired.
         analysisPath = analysisPathFor(transformPath)
         analyzeFrames = (
-            motionAnalysis
+            textTransforms
             and mps["loop"] == "none"
             and (detectOnly or not isHardwareAcceleratedVideoCodec(mps["videoCodec"]))
         )
@@ -1043,11 +1045,11 @@ def makeClip(  # noqa: PLR0912
             ffmpegVidstabdetect += f' "{shakyClipPath}"'
         if analyzeFrames:
             ffmpegVidstabdetect += analysisOutputArgs(analysisFilterArgs, analysisPath)
-        elif motionAnalysis:
+        elif textTransforms:
             logger.verbose(
                 "Video stabilization: the motion is not repaired with loops or a hardware-encoded first pass."
             )
-        if motionAnalysis:
+        if textTransforms:
             trialCommand = shlex.split(getVidstabDetectOnlyCommand(cp, inputs, mps))
             trialScript = Path(cp.clipsPath) / "temp" / f"vfilter-{markerPairIndex + 1}-trial.txt"
 
@@ -1074,6 +1076,7 @@ def makeClip(  # noqa: PLR0912
                         mps["videoStabilization"]["smoothing"],
                         transformFilterScripts,
                         lambda zoom: transformStalls(trialArgs(zoom)),
+                        repair=repairMotion,
                     )
                 )
                 return chosen
@@ -1242,14 +1245,21 @@ def prepareVidstabTransformPass(
     smoothing: float,
     transformFilterScriptPaths: Sequence[str],
     stalls: Callable[[str], bool] | None = None,
+    *,
+    repair: bool = True,
 ) -> dict[str, str]:
     """Between the stabilization passes: repairs the motion across flashes and drops fields that
-    follow a subject instead of the camera (when the detect pass wrote its analysis frames), and
-    sizes the zoom budget from the motion. With `stalls`, a trial of the transform at a zoom, it
-    falls back when vid.stab's camera path fails to solve at the budget. Returns the zoom to
-    put in the transform command, and puts it in the transform pass's filter scripts."""
+    follow a subject instead of the camera (when the detect pass wrote its analysis frames, and
+    unless repair is False, as with -nvsma), and sizes the zoom budget from the motion. With
+    `stalls`, a trial of the transform at a zoom, it falls back when vid.stab's camera path fails to
+    solve at the budget. Returns the zoom to put in the transform command, and puts it in the
+    transform pass's filter scripts."""
     if analysisPath is not None:
-        repairMotionsInFiles(ffmpegPath, transformPath, analysisPath)
+        if repair:
+            repairMotionsInFiles(ffmpegPath, transformPath, analysisPath)
+        else:
+            # Only the input's shake, for the shakier clip check
+            readInputAnalysis(ffmpegPath, transformPath, analysisPath)
     budget = zoomBudgetFromFile(transformPath, smoothing)
     zoom = f"{budget:.2f}"
     logger.verbose(f"Video stabilization: zooming in up to {zoom}% to steady the clip.")
