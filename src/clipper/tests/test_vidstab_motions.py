@@ -32,6 +32,7 @@ from clipper.vidstab_motions import (
     repairMotionsInFiles,
     shake,
     solvedZoom,
+    unmeasuredFrames,
     zoomBudget,
     zoomBudgetFromFile,
     zoomCandidates,
@@ -185,6 +186,12 @@ def test_shake_is_how_far_each_frames_shift_strays_from_its_neighbours() -> None
     black = [FrameAnalysis(2, FrameShift(40 * ((i + 1) % 2), 0, 0.9)) for i in range(6)]
     pan, lit = (3, 0, 0.9), FrameAnalysis(100, FrameShift(40, 0, 0.9))
     assert shake(clip([pan] * 30) + black + [lit, *clip([pan] * 30)[1:]]) == pytest.approx(0)
+    # A stabilized clip leaves out the frames its input could not measure: a faint match across a cut
+    source = clip([pan] * 30 + [(0, 0, 0)] + [pan] * 30)
+    stabilized = clip([pan] * 30 + [(27, -12, 0.09)] + [pan] * 30)
+    assert unmeasuredFrames(source) == [0, 31]
+    assert shake(stabilized) > 1
+    assert shake(stabilized, unmeasuredFrames(source)) == pytest.approx(0)
 
 
 def test_a_measured_frame_where_no_field_agrees_is_untrusted() -> None:

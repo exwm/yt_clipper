@@ -12,10 +12,11 @@ other frame the cells measure, fields whose motion disagrees with the cells' are
 """
 
 import contextlib
+import json
 import re
 import statistics
 import subprocess
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterator, Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import IO
@@ -321,25 +322,40 @@ def measuredMotions(
     }
 
 
-def shake(analysis: Sequence[FrameAnalysis]) -> float | None:
+def shake(analysis: Sequence[FrameAnalysis], skipped: Collection[int] = ()) -> float | None:
     """How much the clip shakes, analysis px a frame: the root mean square of each measured frame's
     shift away from its moving average. None with too few measured frames to tell."""
-    jitter = frameJitter(analysis)
+    jitter = frameJitter(analysis, skipped)
     measured = ~np.isnan(jitter)
     if measured.sum() < MIN_SHAKE_FRAMES:
         return None
     return float(np.sqrt(np.mean(np.square(jitter[measured]))))
 
 
-def frameJitter(analysis: Sequence[FrameAnalysis]) -> np.ndarray:
+def unmeasuredFrames(analysis: Sequence[FrameAnalysis]) -> list[int]:
+    """The frames (from 0) whose shift shake() leaves out. A stabilized clip is scored without the
+    frames its input leaves out: across a cut, its frames can match faintly where the input's have
+    nothing to match."""
+    return [i for i, a in enumerate(analysis) if not isMeasured(analysis, i)]
+
+
+def isMeasured(analysis: Sequence[FrameAnalysis], i: int) -> bool:
+    a = analysis[i]
+    return (
+        a.shift is not None
+        and a.shift.peak > 0
+        and min(a.brightness, analysis[i - 1].brightness) >= DARK_FRAME
+    )
+
+
+def frameJitter(analysis: Sequence[FrameAnalysis], skipped: Collection[int] = ()) -> np.ndarray:
     """Each frame's shift away from its moving average, analysis px: the terms of shake(). NaN for a
-    frame it leaves out."""
+    frame it leaves out, and for the skipped frames (from 0)."""
+    skip = set(skipped)
     xy = np.array(
         [
             (a.shift.dx, a.shift.dy)
-            if a.shift is not None
-            and a.shift.peak > 0
-            and min(a.brightness, analysis[i - 1].brightness) >= DARK_FRAME
+            if a.shift is not None and i not in skip and isMeasured(analysis, i)
             else (np.nan, np.nan)
             for i, a in enumerate(analysis)
         ]
@@ -589,7 +605,8 @@ def magnification(zoom: str, final: float | None = None) -> float:
 
 
 def inputShakePath(transformsPath: str) -> str:
-    """Where the repair keeps the input's shake, as a share of the frame's width, for checkStabilizedShake."""
+    """Where the repair keeps the input's shake, as a share of the frame's width, and its
+    unmeasuredFrames, for checkStabilizedShake."""
     return f"{transformsPath}.shake"
 
 
@@ -601,15 +618,16 @@ def checkStabilizedShake(
     analysis (the transform pass's, which it deletes) is zoomed in up to zoomBudget percent, which
     magnifies its shifts. None when either cannot be measured. Warns when it does."""
     try:
-        inputShake = float(Path(inputShakePath(transformsPath)).read_text(encoding="utf-8"))
+        kept = json.loads(Path(inputShakePath(transformsPath)).read_text(encoding="utf-8"))
+        inputShake, unmeasured = float(kept["shake"]), kept["unmeasured"]
         output = readAnalysis(ffmpegPath, outputAnalysisPath)
-    except (OSError, ValueError, TransformsFileError):
+    except (OSError, ValueError, KeyError, TypeError, TransformsFileError):
         return None
     finally:
         for path in (inputShakePath(transformsPath), outputAnalysisPath):
             with contextlib.suppress(OSError):
                 Path(path).unlink()
-    outputShake = shake(output)
+    outputShake = shake(output, unmeasured)
     if outputShake is None:
         return None
     width = output[0].size[0]
@@ -645,7 +663,13 @@ def readInputAnalysis(
             Path(analysisPath).unlink()
     if analysis and (inputShake := shake(analysis)) is not None:
         Path(inputShakePath(transformsPath)).write_text(
-            f"{inputShake / analysis[0].size[0]}", encoding="utf-8"
+            json.dumps(
+                {
+                    "shake": inputShake / analysis[0].size[0],
+                    "unmeasured": unmeasuredFrames(analysis),
+                }
+            ),
+            encoding="utf-8",
         )
     return analysis
 
