@@ -25,31 +25,90 @@ quick_presets = [1, 6]
 # Worse also needs the shakier clip warning's absolute margin, so noise where 5.49 left almost no
 # shake does not count.
 expected = [
-  { case = "stab-Animation_360P-08c9", preset = 1, kind = "warn", reason = "3.5 against 0.8 unstabilized (1e-4 of the width) when added" },
-  { case = "stab-Animation_360P-08c9", preset = 3, kind = "warn", reason = "2.5 against 0.8 unstabilized (1e-4 of the width) when added" },
-  { case = "stab-Animation_360P-08c9", preset = 6, kind = "warn", reason = "2.9 against 0.8 unstabilized (1e-4 of the width) when added" },
-  { case = "stab-LiveMusic_360P-1d94", preset = 1, kind = "warn", reason = "8.8 against 4.9 unstabilized (1e-4 of the width) when added" },
-  { case = "stab-LiveMusic_360P-1d94", preset = 3, kind = "warn", reason = "11.1 against 4.9 unstabilized (1e-4 of the width) when added" },
-  { case = "stab-LiveMusic_360P-1d94", preset = 6, kind = "warn", reason = "6.5 against 4.9 unstabilized (1e-4 of the width) when added" },
-  { case = "stab-LiveMusic_360P-265c", preset = 3, kind = "warn", reason = "12.7 against 11.6 unstabilized (1e-4 of the width) when added" },
-  { case = "stab-LiveMusic_360P-265c", preset = 6, kind = "warn", reason = "15.6 against 11.6 unstabilized (1e-4 of the width) when added" },
-  { case = "stab-Sports_1080P-1ae3", preset = 6, kind = "worse", reason = "1.30x 5.49.0's shake, cropping 15.00% against 8.54%" },
-  { case = "stab-VerticalVideo_480P-7278", preset = 1, kind = "warn", reason = "10.8 against 5.3 unstabilized (1e-4 of the width) when added" },
-  { case = "stab-VerticalVideo_480P-7278", preset = 3, kind = "warn", reason = "10.8 against 5.3 unstabilized (1e-4 of the width) when added" },
-  { case = "stab-VerticalVideo_480P-7278", preset = 6, kind = "warn", reason = "10.7 against 5.3 unstabilized (1e-4 of the width) when added" },
-  { case = "stab-Vlog_1080P-4f26", preset = 1, kind = "warn", reason = "44.1 against 9.5 unstabilized (1e-4 of the width) when added" },
-  { case = "stab-Vlog_1080P-4f26", preset = 3, kind = "warn", reason = "39.7 against 9.5 unstabilized (1e-4 of the width) when added" },
-  { case = "stab-Vlog_1080P-4f26", preset = 6, kind = "warn", reason = "33.6 against 9.5 unstabilized (1e-4 of the width) when added" },
-  { case = "stab-VerticalVideo_1080P-4925", preset = 6, kind = "worse", reason = "2.17x 5.49.0's shake, which cropped 114% to steady it (5.50 caps at 15%)" },
-  { case = "stab-fpv-alpine", preset = 1, kind = "worse", reason = "1.87x 5.49.0's shake, cropping 2.84% against 0.28%" },
-  { case = "stab-fpv-alpine", preset = 1, kind = "warn", reason = "12.6 against 8.6 unstabilized (1e-4 of the width) when added" },
-  { case = "stab-fpv-alpine", preset = 3, kind = "worse", reason = "2.91x 5.49.0's shake, cropping 7.53% against 0.93%" },
-  { case = "stab-fpv-alpine", preset = 3, kind = "warn", reason = "15.9 against 8.6 unstabilized (1e-4 of the width) when added" },
-  { case = "stab-fpv-alpine", preset = 6, kind = "worse", reason = "1.42x 5.49.0's shake, cropping 4.25% against 4.77%" },
-  { case = "stab-shaky-brightsubject", preset = 1, kind = "worse", reason = "4.15x 5.49.0's shake: the bright subject's own motion, which 5.50 also warns about" },
-  { case = "stab-shaky-brightsubject", preset = 3, kind = "worse", reason = "8.30x 5.49.0's shake: the bright subject's own motion, which 5.50 also warns about" },
-  { case = "stab-shaky-brightsubject", preset = 6, kind = "worse", reason = "3.71x 5.49.0's shake: the bright subject's own motion, which 5.50 also warns about" },
-  { case = "stab-shaky-brightsubject", preset = 1, kind = "warn", reason = "45.6 against 5.5 unstabilized (1e-4 of the width) when added" },
-  { case = "stab-shaky-brightsubject", preset = 3, kind = "warn", reason = "47.0 against 5.5 unstabilized (1e-4 of the width) when added" },
-  { case = "stab-shaky-brightsubject", preset = 6, kind = "warn", reason = "43.8 against 5.5 unstabilized (1e-4 of the width) when added" },
+  { case = "stab-LiveMusic_360P-265c", preset = 6, kind = "warn", reason = "14.7 against 11.6 unstabilized (1e-4 of the width), at the 15% crop cap where 5.49.0 cropped 23%" },
+  { case = "stab-Vlog_1080P-4f26", preset = 1, kind = "warn", reason = "40.1 against 9.5 unstabilized (1e-4 of the width), still steadier than 5.49.0" },
+  { case = "stab-Vlog_1080P-4f26", preset = 3, kind = "warn", reason = "33.2 against 9.5 unstabilized (1e-4 of the width), still steadier than 5.49.0" },
+  { case = "stab-Vlog_1080P-4f26", preset = 6, kind = "warn", reason = "25.8 against 9.5 unstabilized (1e-4 of the width), still steadier than 5.49.0" },
+  { case = "stab-VerticalVideo_1080P-4925", preset = 6, kind = "worse", reason = "1.99x 5.49.0's shake, which cropped 114% to steady it (5.50 caps at 15%)" },
+  { case = "stab-Sports_1080P-0640", preset = 6, kind = "worse", reason = "1.13x 5.49.0's shake, which cropped 78% to steady it (5.50 caps at 15%)" },
+  { case = "stab-LiveMusic_360P-6a65", preset = 6, kind = "worse", reason = "3.51x 5.49.0's shake, which cropped 50% to steady it (5.50 caps at 15%)" },
+  { case = "stab-LiveMusic_720P-3320", preset = 6, kind = "worse", reason = "1.15x 5.49.0's shake, which cropped 31% (5.50 caps at 15%); a blurred whip neither steadies" },
+  { case = "stab-LiveMusic_720P-3320", preset = 1, kind = "warn", reason = "62.9 against 59.4 unstabilized (1e-4 of the width): a blurred whip neither 5.49.0 nor 5.50 steadies" },
+  { case = "stab-fpv-sanfrancisco", preset = 1, kind = "worse", reason = "1.37x 5.49.0's shake: a nearly steady flight, where the L1 path at its 2% least zoom adds small turns (-vscs takes the gaussian path)" },
 ]
+
+# Every case's class, from a look at its frames: shaky (a handheld, drone or FPV camera), shaky-with-cuts
+# (the same, edited with hard cuts), steady (a nearly still camera: only motion stabilization adds
+# counts) and unsuitable (no camera shake to remove: games, screen captures, tripods, edited TV, which
+# users don't stabilize; reported, never failing a row). Counts are per class.
+[classes]
+"stab-Animation_360P-08c9" = "unsuitable"  # animated title graphics
+"stab-CoverSong_360P-0a9d" = "unsuitable"  # a fixed webcam
+"stab-Gaming_1080P-12d4" = "unsuitable"  # a game with a fixed UI over a panning world
+"stab-HowTo_1080P-1f3b" = "unsuitable"  # a screen capture with cuts
+"stab-Lecture_360P-2276" = "unsuitable"  # a tripod
+"stab-LiveMusic_1080P-6d1a" = "unsuitable"  # a fixed concert camera with a burned-in logo
+"stab-LiveMusic_360P-1d94" = "unsuitable"  # an edited multi-camera concert
+"stab-LiveMusic_360P-265c" = "shaky"  # a phone at a dark concert, flashing lights
+"stab-LiveMusic_360P-3be0" = "shaky"  # a phone at a club
+"stab-MusicVideo_1080P-0706" = "shaky-with-cuts"
+"stab-MusicVideo_1080P-106d" = "shaky-with-cuts"
+"stab-MusicVideo_1080P-2b2b" = "shaky-with-cuts"
+"stab-MusicVideo_1080P-6c1d" = "shaky-with-cuts"  # a black lead-in, then handheld coast shots
+"stab-Sports_1080P-0640" = "shaky"  # handheld at a race track, fast pans after cars
+"stab-Sports_1080P-1ae3" = "shaky"
+"stab-Sports_1080P-3a3b" = "shaky-with-cuts"
+"stab-Sports_2160P-1261" = "unsuitable"  # a tripod with burned-in text
+"stab-Sports_360P-02c3" = "shaky-with-cuts"
+"stab-Sports_720P-675b" = "shaky"
+"stab-TelevisionClip_480P-373d" = "unsuitable"  # a TV interview with a cut
+"stab-VerticalVideo_1080P-3709" = "shaky"
+"stab-VerticalVideo_1080P-4925" = "shaky"  # a phone on a bike
+"stab-VerticalVideo_1080P-73b6" = "shaky"
+"stab-VerticalVideo_360P-0d29" = "shaky"
+"stab-VerticalVideo_480P-7278" = "shaky"  # a phone at a dark concert
+"stab-Vlog_1080P-21f5" = "shaky"
+"stab-Vlog_1080P-23cb" = "shaky-with-cuts"
+"stab-Vlog_1080P-35cd" = "shaky"
+"stab-Vlog_1080P-3744" = "shaky"
+"stab-Vlog_1080P-45c9" = "shaky"
+"stab-Vlog_1080P-4f26" = "shaky"  # a dark lead-in, then a handheld close-up
+"stab-Vlog_1080P-5904" = "shaky"
+"stab-Vlog_720P-329f" = "shaky"
+"stab-LiveMusic_720P-3320" = "shaky"  # concert flashes
+"stab-LiveMusic_360P-6a65" = "shaky"  # concert flashes
+"stab-LiveMusic_480P-459c" = "shaky"  # concert flashes
+"stab-VerticalVideo_2160P-6d62" = "shaky"  # mildly handheld, concert flashes
+"stab-LiveMusic_480P-2019" = "shaky"  # mildly handheld, strobes
+"stab-LiveMusic_480P-58fb" = "steady"  # concert blackouts
+"stab-drone-llangaffo" = "shaky"
+"stab-drone-bigbar" = "shaky"
+"stab-drone-gothenburg" = "shaky"
+"stab-fpv-alpine" = "shaky"
+"stab-fpv-sanfrancisco" = "shaky"
+"stab-shaky-plain" = "shaky"
+"stab-shaky-gentle" = "shaky"
+"stab-shaky-flash" = "shaky"
+"stab-shaky-strobe" = "shaky"
+"stab-shaky-stage" = "shaky"
+"stab-shaky-pulse" = "shaky"
+"stab-shaky-dancer" = "shaky"
+"stab-shaky-dim" = "shaky"
+"stab-shaky-darkdim" = "shaky"
+"stab-shaky-grainy" = "shaky"
+"stab-shaky-occluder" = "shaky"
+"stab-shaky-rotate" = "shaky"
+"stab-shaky-cut" = "shaky-with-cuts"
+"stab-shaky-repeats" = "shaky"
+"stab-shaky-tiles" = "shaky"
+"stab-shaky-tilewall" = "shaky"
+"stab-shaky-flashconcert" = "shaky"
+"stab-shaky-dimstage" = "shaky-with-cuts"
+"stab-shaky-calmcut" = "shaky-with-cuts"
+"stab-shaky-calmrepeats" = "shaky-with-cuts"
+"stab-shaky-brightsubject" = "shaky-with-cuts"
+"stab-shaky-brightcalm" = "shaky"
+"stab-shaky-calmstage" = "shaky"
+"stab-shaky-darkflashes" = "shaky-with-cuts"
+"stab-shaky-gradient" = "steady"
+"stab-shaky-skyobject" = "steady"
