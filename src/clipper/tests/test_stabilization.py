@@ -7,6 +7,7 @@ that fixes one has to say so here.
 import atexit
 import functools
 import itertools
+import json
 import re
 import shlex
 import shutil
@@ -450,6 +451,20 @@ def test_a_grainy_nearly_still_clip_encoded_lossy_is_not_reported(
     assert checkStabilizedShake(ffmpeg, *checkInputs(tmp_path, replacements)) is False
 
 
+@pytest.mark.parametrize("level", [1, 3, 6])
+def test_a_match_across_a_cut_that_the_input_has_none_for_is_not_reported(
+    ffmpeg: str,
+    shakyMedia: Path,
+    tmp_path: Path,
+    level: int,
+) -> None:
+    # Nearly still, then a cut to a negative. The stabilized frames across the cut match faintly at
+    # a far shift, which once read as one jerk of 27 px and a clip 8 times shakier than its input.
+    source = shaky_media.makeShakyClip(ffmpeg, "brightsubject", shakyMedia)
+    _, replacements = stabilize(ffmpeg, source, tmp_path, level)
+    assert checkStabilizedShake(ffmpeg, *checkInputs(tmp_path, replacements)) is False
+
+
 def test_a_clip_within_the_tolerance_is_not_reported(
     ffmpeg: str,
     shakyMedia: Path,
@@ -460,16 +475,21 @@ def test_a_clip_within_the_tolerance_is_not_reported(
     )
     transforms, analysis, budget = checkInputs(tmp_path, replacements)
     frames = readAnalysis(ffmpeg, analysis)
+    keptShake = json.loads(Path(inputShakePath(transforms)).read_text(encoding="utf-8"))
     # The output's shake as the input's frame would show it, unzoomed
-    outputShake = shake(frames) / frames[0].size[0] / (1 + budget / 100)
+    outputShake = shake(frames, keptShake["unmeasured"]) / frames[0].size[0] / (1 + budget / 100)
     kept = tmp_path / "kept.nut"
     shutil.copy(analysis, kept)
     # The input's shake, as the repair keeps it: the output is 3% shakier, inside the 5% tolerance
-    Path(inputShakePath(transforms)).write_text(f"{outputShake / 1.03}", encoding="utf-8")
+    Path(inputShakePath(transforms)).write_text(
+        json.dumps({**keptShake, "shake": outputShake / 1.03}), encoding="utf-8"
+    )
     assert checkStabilizedShake(ffmpeg, transforms, analysis, budget) is False
     # Far shakier, past the tolerance's 0.05 px floor too (the output shakes under 0.1 px)
     shutil.copy(kept, analysis)
-    Path(inputShakePath(transforms)).write_text(f"{outputShake / 10}", encoding="utf-8")
+    Path(inputShakePath(transforms)).write_text(
+        json.dumps({**keptShake, "shake": outputShake / 10}), encoding="utf-8"
+    )
     assert checkStabilizedShake(ffmpeg, transforms, analysis, budget) is True
 
 

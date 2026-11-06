@@ -374,11 +374,12 @@ def score(analysis: Path, off: Path, on: Path, nvsma: Path) -> dict:
     width = inputFrames[0].size[0]
     measured = vm.shake(inputFrames)
     inputShake = None if measured is None else measured / width
+    unmeasured = vm.unmeasuredFrames(inputFrames)
     row: dict = {"in": inputShake, "width": width}
     for name, folder in (("off", off), ("on", on), ("nvsma", nvsma)):
         info = json.loads((folder / "info.json").read_text(encoding="utf-8"))
         frames = loadAnalysis(folder / "out.npz")
-        s = vm.shake(frames)
+        s = vm.shake(frames, unmeasured)
         zoom = vm.magnification(info.get("zoom_option") or str(info["zoom"]), info["final_zoom"])
         shake = None if s is None else s / frames[0].size[0] / (1 + zoom / 100)
         warn = (
@@ -389,7 +390,7 @@ def score(analysis: Path, off: Path, on: Path, nvsma: Path) -> dict:
                 > inputShake + max(vm.SHAKE_TOLERANCE * inputShake, vm.SHAKE_TOLERANCE_PX / width)
             )
         )
-        jitter = vm.frameJitter(frames) / frames[0].size[0] / (1 + zoom / 100)
+        jitter = vm.frameJitter(frames, unmeasured) / frames[0].size[0] / (1 + zoom / 100)
         row[name] = {**info, "zoom_used": zoom, "shake": shake, "warn": warn}
         row[f"{name}_jitter"] = jitter
     on = row["on"]
