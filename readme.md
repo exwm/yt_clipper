@@ -159,6 +159,8 @@ First ensure the script is active on the page by checking your user script exten
 
 A shortcuts reference can also be toggled by clicking the **All shortcuts** button in the footer of the command palette.
 
+The command palette shows a short subtitle under each shortcut, and a long shortcut description in a tooltip.
+
 **Alt+F:** Toggle the contextual hints bar at the bottom of the window. It shows shortcut chips for what is under the cursor or what you are doing.
 
 - Different chips show while you hover the video, the crop overlay, or a chart point, and during a drag.

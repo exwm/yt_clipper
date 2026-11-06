@@ -394,6 +394,8 @@ export const paletteCss = `
 
 .cmdp-item .cmdp-item-desc::before {
   content: '\u2605';
+  display: inline-block;
+  width: 12px;
   margin-right: 6px;
   font-size: 12px;
   visibility: hidden;
@@ -419,6 +421,24 @@ export const paletteCss = `
   background: transparent;
   color: var(--cmdp-accent);
   font-weight: 700;
+}
+
+.cmdp-item-info {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--cmdp-fg-dim);
+  cursor: help;
+}
+
+/* Indented past the essential star, under the description's text. */
+.cmdp-item .cmdp-item-subtitle,
+.cmdp-item .cmdp-item-details {
+  margin: 2px 0 0 18px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .cmdp-item-keys {

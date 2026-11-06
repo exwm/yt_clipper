@@ -157,4 +157,46 @@ describe('ShortcutRegistry', () => {
     reg.register(makeDef({ id: 'a', description: 'Add a marker' }));
     expect(reg.search('zzzzzzzqqqqqqq')).toEqual([]);
   });
+
+  test('search matches details after every description match, highlighting the details terms', () => {
+    const reg = new ShortcutRegistry();
+    reg.registerAll([
+      makeDef({ id: 'detailsOnly', description: 'Toggle reframe', details: 'Fills the player' }),
+      makeDef({ id: 'inDescription', description: 'Player volume' }),
+      makeDef({ id: 'noDetails', description: 'Save settings' }),
+    ]);
+    const results = reg.search('player fills');
+    expect(results.map((r) => [r.shortcut.id, r.matchKind])).toEqual([['detailsOnly', 'details']]);
+    expect(results[0].highlightRanges).toEqual([0, 1, 2, 3, 4, 10, 11, 12, 13, 14, 15]);
+
+    expect(reg.search('player').map((r) => [r.shortcut.id, r.matchKind])).toEqual([
+      ['inDescription', 'fuzzy'],
+      ['detailsOnly', 'details'],
+    ]);
+  });
+
+  test('search ranks description, then subtitle, then details matches', () => {
+    const reg = new ShortcutRegistry();
+    reg.registerAll([
+      makeDef({ id: 'inDetails', description: 'Toggle reframe', details: 'Fills the player' }),
+      makeDef({
+        id: 'inSubtitleAndDetails',
+        description: 'Show minimap',
+        subtitle: 'Outlines the crop on the player',
+        details: 'Drag the player outline',
+      }),
+      makeDef({ id: 'inDescription', description: 'Player volume' }),
+    ]);
+    expect(reg.search('player').map((r) => [r.shortcut.id, r.matchKind])).toEqual([
+      ['inDescription', 'fuzzy'],
+      ['inSubtitleAndDetails', 'subtitle'],
+      ['inDetails', 'details'],
+    ]);
+  });
+
+  test('details match needs every query term', () => {
+    const reg = new ShortcutRegistry();
+    reg.register(makeDef({ id: 'a', description: 'Toggle reframe', details: 'Fills the player' }));
+    expect(reg.search('player zzz')).toEqual([]);
+  });
 });

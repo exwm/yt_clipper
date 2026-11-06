@@ -356,6 +356,10 @@ function chipClasses(def: ShortcutDefinition, extra = ''): string {
   return `hints-bar-chip${extra}${hoverClass}`;
 }
 
+function chipTitle(def: ShortcutDefinition): string {
+  return [def.description, def.subtitle, def.details].filter(Boolean).join('\n');
+}
+
 function renderChip(def: ShortcutDefinition): TemplateResult {
   const primaryKey = def.hintDisplayKey ?? def.displayKey;
 
@@ -363,7 +367,7 @@ function renderChip(def: ShortcutDefinition): TemplateResult {
     return html`
       <span
         class=${chipClasses(def, ' hints-bar-chip--expandable')}
-        title=${def.description}
+        title=${chipTitle(def)}
         tabindex="0"
       >
         <kbd class="hints-bar-chord">
@@ -387,7 +391,7 @@ function renderChip(def: ShortcutDefinition): TemplateResult {
   }
 
   return html`
-    <span class=${chipClasses(def)} title=${def.description}>
+    <span class=${chipClasses(def)} title=${chipTitle(def)}>
       ${renderChord(primaryKey)}
       <span class="hints-bar-label">${def.hintLabel}</span>
     </span>

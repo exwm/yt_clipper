@@ -392,6 +392,86 @@ describe('CommandPalette — paintResults() results list', () => {
     ).toContain('alpha');
   });
 
+  describe('subtitle and details', () => {
+    const handler = () => {};
+    const withDetails = makeDef({
+      id: 'reframe',
+      description: 'Toggle reframe mode',
+      subtitle: 'The crop fills the player',
+      details: 'The preview never changes the output',
+      handler,
+    });
+    const subtitleOnly = makeDef({
+      id: 'zoom',
+      description: 'Toggle the timeline zoom',
+      subtitle: 'Shows a zoomed bar',
+      handler,
+    });
+    const plain = makeDef({ id: 'plain', description: 'Plain row', handler });
+
+    function openWith(defs: ShortcutDefinition[], query = ''): HTMLElement {
+      const container = setupContainer();
+      makePalette(makeRegistry(defs), { container }).open();
+      const search = qs<HTMLInputElement>(container, '.cmdp-search');
+      search.value = query;
+      search.dispatchEvent(new Event('input', { bubbles: true }));
+      return container;
+    }
+
+    function itemFor(container: HTMLElement, description: string): HTMLElement {
+      const item = qsAll(container, '.cmdp-item').find((el) =>
+        el.querySelector('.cmdp-item-desc')?.firstChild?.textContent?.startsWith(description)
+      );
+      if (!item) throw new Error(`no row for ${description}`);
+      return item;
+    }
+
+    test('only a row with details has an info mark and the details as its tooltip', () => {
+      const container = openWith([plain, withDetails, subtitleOnly]);
+      const row = itemFor(container, 'Toggle reframe mode');
+      expect(row.title).toBe('The preview never changes the output');
+      expect(row.querySelector('.cmdp-item-info')).not.toBeNull();
+      const zoomRow = itemFor(container, 'Toggle the timeline zoom');
+      expect(zoomRow.hasAttribute('title')).toBe(false);
+      expect(zoomRow.querySelector('.cmdp-item-info')).toBeNull();
+      expect(itemFor(container, 'Plain row').hasAttribute('title')).toBe(false);
+    });
+
+    test('every row with a subtitle shows it inline, without the details', () => {
+      const container = openWith([plain, withDetails, subtitleOnly]);
+      const row = itemFor(container, 'Toggle reframe mode');
+      expect(row.classList.contains('cmdp-highlighted')).toBe(false);
+      expect(qs(row, '.cmdp-item-subtitle').textContent).toBe('The crop fills the player');
+      expect(row.querySelector('.cmdp-item-details')).toBeNull();
+      const zoomRow = itemFor(container, 'Toggle the timeline zoom');
+      expect(qs(zoomRow, '.cmdp-item-subtitle').textContent).toBe('Shows a zoomed bar');
+      expect(itemFor(container, 'Plain row').querySelector('.cmdp-item-subtitle')).toBeNull();
+    });
+
+    const descriptionMatch = makeDef({
+      id: 'volume',
+      description: 'Player output volume',
+      handler,
+    });
+    test.each([
+      ['subtitle', 'player', '.cmdp-item-subtitle', 'The crop fills the player'],
+      ['details', 'output', '.cmdp-item-details', 'The preview never changes the output'],
+    ])('a %s-only match shows that line with the matches marked', (_, query, line, text) => {
+      const container = openWith([descriptionMatch, withDetails], query);
+      const row = itemFor(container, 'Toggle reframe mode');
+      expect(row.classList.contains('cmdp-highlighted')).toBe(false);
+      expect(qs(row, '.cmdp-item-subtitle').textContent).toBe('The crop fills the player');
+      const matchedLine = qs(row, line);
+      expect(matchedLine.textContent).toBe(text);
+      expect(
+        qsAll(matchedLine, 'mark')
+          .map((m) => m.textContent)
+          .join('')
+      ).toBe(query);
+      expect(row.querySelector('.cmdp-item-desc > mark')).toBeNull();
+    });
+  });
+
   test('recent section appears when recentCommandIds and empty query', () => {
     localStorage.setItem('cmdp-recent-commands', JSON.stringify(['b']));
     const container = setupContainer();

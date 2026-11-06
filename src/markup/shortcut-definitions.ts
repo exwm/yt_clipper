@@ -148,8 +148,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     // ===== Markup / Marker Editing Shortcuts =====
     {
       id: 'addMarker',
-      description:
-        'Add marker at current time. While dragging or resizing the crop with the crop chart visible, add a crop point at the current time instead.',
+      description: 'Add a marker at the current time',
+      subtitle:
+        'While you drag or resize the crop with the crop chart shown, A adds a crop point instead.',
       displayKey: 'A',
       section: 'Markup',
       category: 'Marker Editing Shortcuts',
@@ -166,8 +167,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     },
     {
       id: 'addCropChartPointDuringDrag',
-      description:
-        'Add a crop point at the current time without releasing the crop drag or resize. The dragged point keeps its previous crop, and the new point is selected. In pan-only mode every point shares the crop size.',
+      description: 'Add a crop point during a crop drag or resize',
+      subtitle: 'The drag goes on, and the new point is selected.',
+      details:
+        'The dragged point keeps its previous crop. In pan-only mode every point shares the crop size.',
       displayKey: 'A',
       section: 'Dynamic Effects',
       category: 'Crop Chart Shortcuts',
@@ -428,8 +431,8 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     },
     {
       id: 'toggleTimelineZoom',
-      description:
-        "Toggle the timeline zoom: a zoomed bar above the progress bar, where crowded marker pairs spread out. On the progress bar, drag the brush's center handle to move the zoom range or its edge handles to resize it; click a number to open its pair.",
+      description: 'Toggle the timeline zoom',
+      subtitle: 'Shows a zoomed bar above the progress bar, where crowded marker pairs spread out.',
       displayKey: 'Shift + F',
       section: 'Markup',
       category: 'Marker Navigation Shortcuts',
@@ -455,8 +458,8 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       },
       {
         id: 'timelineZoomWheel',
-        description:
-          'Timeline zoom: scroll on the zoomed bar to zoom in or out around the middle of the zoom range',
+        description: 'Timeline zoom: scroll on the zoomed bar to zoom in or out',
+        subtitle: 'Zooms around the middle of the zoom range.',
         displayKey: 'Wheel',
         hintLabel: 'Zoom',
         hintOrder: 30,
@@ -470,24 +473,24 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       },
       {
         id: 'timelineZoomMoveRange',
-        description:
-          "Timeline zoom: drag the brush's center handle on the progress bar to move the zoom range",
+        description: 'Timeline zoom: drag the center handle to move the zoom range',
+        subtitle: 'The center handle is the middle of the zoom brush on the progress bar.',
         displayKey: 'Drag',
         hintLabel: 'Center Handle: Move',
         hintOrder: 50,
       },
       {
         id: 'timelineZoomResizeRange',
-        description:
-          'Timeline zoom: drag an edge handle of the brush on the progress bar to resize the zoom range',
+        description: 'Timeline zoom: drag an edge handle to resize the zoom range',
+        subtitle: 'The edge handles are the ends of the zoom brush on the progress bar.',
         displayKey: 'Drag',
         hintLabel: 'Edge Handle: Resize',
         hintOrder: 60,
       },
       {
         id: 'timelineZoomFrame',
-        description:
-          'Timeline zoom: double-click the center handle to refit the zoom range around the playhead and the selected marker pair',
+        description: 'Timeline zoom: double-click the center handle to refit the range',
+        subtitle: 'Fits the zoom range around the playhead and the selected marker pair.',
         displayKey: 'Double Click',
         hintLabel: 'Center Handle: Refit',
         hintOrder: 70,
@@ -803,8 +806,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     },
     {
       id: 'cropPanZoomWheel',
-      description:
-        'Scroll the mouse wheel during a crop pan-drag to scale the crop around its center. In pan-only mode every crop point gets the new size. In zoompan mode only the dragged point changes size.',
+      description: 'Scroll the mouse wheel during a crop pan-drag to zoom the crop',
+      subtitle: 'Scales the crop around its center.',
+      details:
+        'In pan-only mode every crop point gets the new size. In zoompan mode only the dragged point changes size.',
       displayKey: 'Wheel',
       section: 'Markup',
       category: 'Cropping Shortcuts',
@@ -892,8 +897,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     },
     {
       id: 'toggleReframe',
-      description:
-        'Toggle reframe mode. The current crop fills the player and everything outside it is black, a preview of the clip as the crop pans and zooms. Ctrl+wheel zooms the crop. The preview never changes the output.',
+      description: 'Toggle reframe mode',
+      subtitle: 'The current crop fills the player and everything outside it is black.',
+      details:
+        'A preview of the clip as the crop pans and zooms. The preview never changes the output.',
       displayKey: 'V',
       section: 'Markup',
       category: 'Cropping Shortcuts',
@@ -910,8 +917,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     },
     {
       id: 'toggleZoomMinimap',
-      description:
-        'Show or hide the reframe navigator minimap. It shows the whole video with the crop outlined. Ctrl+drag on it to move or resize the crop.',
+      description: 'Show or hide the reframe navigator minimap',
+      subtitle:
+        'It shows the whole video with the crop outlined. Ctrl+drag on it to move or resize the crop.',
       displayKey: 'Shift+V',
       section: 'Markup',
       category: 'Cropping Shortcuts',
@@ -1266,8 +1274,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     },
     {
       id: 'toggleAllPreviews',
-      description:
-        'Preview toggles: speed (C), loop (Shift+C), gamma (Alt+C), fade loop (Alt+Shift+C), all (Ctrl+Alt+Shift+C)',
+      description: 'Toggle all previews',
       displayKey: 'Ctrl + Alt + Shift + C',
       section: 'Playback & Export',
       category: 'Preview Shortcuts',
@@ -1509,8 +1516,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     },
     {
       id: 'chartAddPointAtCurrentTime',
-      description:
-        'Add a chart point at the current time. During a crop drag or resize, the dragged point keeps its previous crop and the new point gets the current crop. Press it at each subject position during one drag to track a moving subject.',
+      description: 'Add a chart point at the current time',
+      subtitle: 'In a crop drag or resize, the new point gets the current crop.',
+      details:
+        'The dragged point keeps its previous crop. Press Alt+A at each position of a moving subject during one drag to track it.',
       displayKey: 'Alt + A',
       section: 'Dynamic Effects',
       category: 'General Chart Shortcuts',
@@ -1528,8 +1537,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     },
     {
       id: 'cropChartAddHoldPoint',
-      description:
-        'Add a hold crop point at the current time. It shows the crop of the crop point before it, and follows when that point changes. With the playhead on a crop point, toggle that point between hold and normal.',
+      description: 'Add a hold point at the current time',
+      subtitle: 'With the playhead on a crop point, this toggles it between hold and normal.',
+      details:
+        'A hold point shows the crop of the crop point before it, and follows when that point changes.',
       displayKey: 'Ctrl + Alt + A',
       section: 'Dynamic Effects',
       category: 'General Chart Shortcuts',
@@ -1804,8 +1815,9 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     },
     {
       id: 'cropChartToggleHold',
-      description:
-        'Toggle a crop point between hold and normal. A hold point shows the crop of the crop point before it, and follows when that point changes. A point that stops holding gets back its own crop.',
+      description: 'Toggle a crop point between hold and normal',
+      subtitle: 'A hold point shows the crop of the crop point before it, and follows its changes.',
+      details: 'A point that stops holding gets back its own crop.',
       displayKey: 'Ctrl + Shift + Click',
       section: 'Dynamic Effects',
       category: 'Crop Chart Shortcuts',
@@ -1820,8 +1832,8 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     },
     {
       id: 'cropChartToggleEase',
-      description:
-        'Toggle crop point easing between auto and instant. An instant point cuts to its crop.',
+      description: 'Toggle crop point easing between auto and instant',
+      subtitle: 'An instant point cuts to its crop.',
       displayKey: 'Ctrl + Alt + Shift + Click',
       section: 'Dynamic Effects',
       category: 'Crop Chart Shortcuts',
@@ -1836,8 +1848,10 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
     },
     {
       id: 'cropChartSetTargetComponent',
-      description:
-        'Set target crop component of all points following/preceding selected point. Select crop component with cursor in crop input field',
+      description: 'Set a crop component of all points after or before the selected point',
+      subtitle: 'A sets the points after it, Shift+A the points before it.',
+      details:
+        'Pick the component by placing the text cursor on it in the crop input of the marker pair editor.',
       displayKey: '',
       displayNote: 'a / Shift + A',
       section: 'Dynamic Effects',

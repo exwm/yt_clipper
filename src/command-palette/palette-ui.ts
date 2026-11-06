@@ -928,9 +928,28 @@ export class CommandPalette {
       num.textContent = String(this.itemNumber);
       item.appendChild(num);
 
+      const { description, subtitle, details } = entry.shortcut;
+      const matchedField =
+        entry.matchKind === 'subtitle' || entry.matchKind === 'details' ? entry.matchKind : null;
       const desc = document.createElement('div');
       desc.className = 'cmdp-item-desc';
-      appendHighlightedText(desc, entry.shortcut.description, entry.highlightRanges);
+      appendHighlightedText(desc, description, matchedField ? [] : entry.highlightRanges);
+      if (details) {
+        item.title = details;
+        const infoMark = document.createElement('span');
+        infoMark.className = 'cmdp-item-info';
+        infoMark.textContent = 'ⓘ';
+        infoMark.setAttribute('aria-hidden', 'true');
+        desc.appendChild(infoMark);
+      }
+      const appendLine = (field: 'subtitle' | 'details', text: string) => {
+        const line = document.createElement('div');
+        line.className = `cmdp-item-${field}`;
+        appendHighlightedText(line, text, matchedField === field ? entry.highlightRanges : []);
+        desc.appendChild(line);
+      };
+      if (subtitle) appendLine('subtitle', subtitle);
+      if (details && matchedField === 'details') appendLine('details', details);
       item.appendChild(desc);
 
       const keys = document.createElement('div');
