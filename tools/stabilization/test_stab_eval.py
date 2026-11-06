@@ -5,11 +5,35 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent))
 import numpy as np
-from stab_eval import CONFIG, failures, findings, jerkWorse, localJerk, parseConfig, passKey
+from stab_eval import (
+    CONFIG,
+    failures,
+    filters549,
+    findings,
+    jerkWorse,
+    localJerk,
+    parseConfig,
+    passKey,
+)
 
+from clipper.argparser import getVidstabPreset
 from clipper.vidstab_motions import SHAKE_TOLERANCE_PX
 
 NONE = {"worse": False, "warn": False, "stall": False}
+
+
+def test_the_baseline_runs_5_49s_filters_on_the_gaussian_camera_path() -> None:
+    # 5.49.0's clip_maker strings at Medium with the default max angle and shift; ffmpeg 8.0.1 ran
+    # the gaussian camera path without being asked
+    mps = {
+        "videoStabilization": getVidstabPreset(3),
+        "videoStabilizationMaxAngle": 0,
+        "videoStabilizationMaxShift": -1,
+    }
+    assert filters549(mps, "b.trf") == (
+        "vidstabdetect=result='b.trf':shakiness=6",
+        "vidstabtransform=input='b.trf':smoothing=6:maxangle=0.0:maxshift=-1" + ":optalgo=gauss",
+    )
 
 
 @pytest.mark.parametrize(
