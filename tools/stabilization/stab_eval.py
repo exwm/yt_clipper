@@ -12,7 +12,8 @@ each preset with the clipper's own filters and between-pass step:
 Every output is scored with vidstab_motions.shake, as checkStabilizedShake does: a share of the
 frame's width a frame, divided by 1 + the zoom the pass used (vidstab_motions.magnification). The
 summary also reports each side's crop (that zoom) and its seconds per pass, from the run that made
-the pass.
+the pass, and how far each side's correction steps at the input's hard cuts (cutMotion), which the
+shake leaves out.
 
 Each pass is cached under a hash of exactly what decides its output, so a run redoes only what a
 change touched: the built clip, the ffmpeg version and the filter strings for every pass, and for
@@ -21,7 +22,8 @@ per-frame shifts, since shake() is code too.
 
 A clip and preset fails when "on" is more than 10% shakier than 5.49, warns that stabilization made
 it shakier, or vid.stab's L1 camera path stalls, unless stab-eval.toml expects that; an expectation
-that no longer holds fails too, like a strict xfail. Runs go to sandbox/stab-eval (or
+that no longer holds fails too, like a strict xfail. Clips of the unsuitable class (stab-eval.toml's
+classes) are reported, never failing. Runs go to sandbox/stab-eval (or
 YTC_STAB_EVAL_CACHE), never to git.
 """
 
@@ -29,6 +31,7 @@ import argparse
 import contextlib
 import hashlib
 import inspect
+import itertools
 import json
 import os
 import shutil
@@ -74,12 +77,19 @@ WORSE = 1.10
 KINDS = ("worse", "warn", "stall")
 
 
+CLASSES = ("shaky", "shaky-with-cuts", "steady", "unsuitable")
+# Reported, never failing a row: clips with no camera shake to remove
+REPORT_ONLY = "unsuitable"
+
+
 @dataclass(frozen=True)
 class Config:
     quick: tuple[str, ...]
     quickPresets: tuple[int, ...]
     # (case, preset) -> {kind: reason}
     expected: Mapping[tuple[str, int], Mapping[str, str]]
+    # case -> one of CLASSES
+    classes: Mapping[str, str]
 
 
 def parseConfig(text: str) -> Config:
@@ -96,7 +106,19 @@ def parseConfig(text: str) -> Config:
                 f"{entry['case']} at preset {entry['preset']} expects {entry['kind']} twice"
             )
         kinds[entry["kind"]] = entry["reason"]
-    return Config(tuple(data.get("quick", ())), tuple(data.get("quick_presets", PRESETS)), expected)
+    classes = data.get("classes", {})
+    if unknown := {c for c in classes.values() if c not in CLASSES}:
+        raise ValueError(f"unknown classes {sorted(unknown)}: use {', '.join(CLASSES)}")
+    if reportOnly := {case for case, _ in expected if classes.get(case) == REPORT_ONLY}:
+        raise ValueError(
+            f"{REPORT_ONLY} cases never fail, so expect nothing of them: {sorted(reportOnly)}"
+        )
+    return Config(
+        tuple(data.get("quick", ())),
+        tuple(data.get("quick_presets", PRESETS)),
+        expected,
+        classes,
+    )
 
 
 def failures(found: Mapping[str, bool], expected: Mapping[str, str]) -> list[str]:
@@ -242,6 +264,18 @@ class Runner:
             )
             self.saveAnalysis(d / "input.nut", d / "input.npz", "read analysis")
 
+        def corrections(d: Path, zoom: float) -> None:
+            size = loadAnalysis(d / "out.npz")[0].size
+            with self.steps.step("corrections"):
+                saveCorrections(
+                    self.ffmpeg,
+                    analysis / "input.nut",
+                    d / "o.nut",
+                    d / "corrections.npy",
+                    zoom,
+                    size,
+                )
+
         def makeDetect(d: Path) -> None:
             self.run([*source, "-vf", detectText, "-f", "null", "-"], d, "detect")
 
@@ -249,6 +283,7 @@ class Runner:
             self.run([*source, "-vf", detect549, "-f", "null", "-"], d, "detect")
             info = passInfo(self.run([*source, *toAnalysis(transform549)], d, "transform"))
             self.saveAnalysis(d / "o.nut", d / "out.npz", "read output")
+            corrections(d, vm.magnification("0", info["final_zoom"]))
             for name in ("o.nut", "b.trf"):
                 (d / name).unlink()
             # 5.49 passes no zoom: vid.stab's gaussian path picks one and logs it as its final zoom
@@ -258,7 +293,7 @@ class Runner:
 
         analysis = self.cached("analysis", passKey(*clipId, vm.analysisFilter()), makeAnalysis)
         detect = self.cached("detect", passKey(*clipId, detectText), makeDetect)
-        off = self.cached("off", passKey(*clipId, detect549, transform549), makeOff)
+        off = self.cached("off", passKey(*clipId, detect549, transform549, OUTPUTS), makeOff)
 
         def makeOn(d: Path, repair: bool = True) -> None:
             shutil.copy(detect / "t.trf", d / "t.trf")
@@ -288,6 +323,8 @@ class Runner:
             graph = transformText.replace(ZOOM_BUDGET_PLACEHOLDER, zoom)
             info = passInfo(self.run([*source, *toAnalysis(graph)], d, "transform"))
             self.saveAnalysis(d / "o.nut", d / "out.npz", "read output")
+            gaussian = zoom == vm.GAUSSIAN_PATH
+            corrections(d, vm.magnification(zoom, info["final_zoom"] if gaussian else None))
             for name in ("o.nut", "t.trf", "t.trf.shake", "a.nut"):
                 (d / name).unlink(missing_ok=True)
             # vid.stab's gaussian path logs the zoom it picks as its final zoom
@@ -297,12 +334,13 @@ class Runner:
                 encoding="utf-8",
             )
 
-        onKey = passKey(analysis.name, detect.name, self.code, transformText, smoothing)
+        onKey = passKey(analysis.name, detect.name, self.code, transformText, smoothing, OUTPUTS)
         on = self.cached("on", onKey, makeOn)
         # -nvsma: this code without the repair, reported but never failing a row
         nvsma = self.cached("nvsma", onKey, lambda d: makeOn(d, repair=False))
         with self.steps.step("score"):
             row = score(analysis, off, on, nvsma)
+            row["cuts"] = cutMotion(analysis, off, on)
         row["seconds"] = passSeconds(analysis, detect, off, on)
         return row
 
@@ -433,6 +471,94 @@ def jerkWorse(jerk: Mapping[str, float | None], width: int) -> bool:
     )
 
 
+# What each off and on pass keeps besides its scores: a change here reruns them
+OUTPUTS = "corrections-zoomed"
+# A hard cut: a frame the input's cells could not match whose mean difference from the frame before,
+# in gray levels, is over CUT_MIN_DIFF and CUT_DIFF_RATIO times the clip's median. Not needed by
+# the clipper, so it stays here. 8x and 25 found every cut seen in the stab cases; needing the cells
+# to have failed keeps flashes out, since they match across a flash.
+CUT_MIN_DIFF = 25
+CUT_DIFF_RATIO = 8
+# The frames either side of a cut whose correction steps count for it
+CUT_RADIUS = 1
+
+
+def grayFrames(ffmpeg: str, nut: Path, vf: str = "null") -> Iterator[np.ndarray]:
+    with subprocess.Popen(
+        [ffmpeg, "-hide_banner", "-nostdin", "-loglevel", "error", "-i", str(nut), "-vf", vf,
+         "-fps_mode", "passthrough", "-f", "image2pipe", "-c:v", "pgm", "-"],
+        stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+    ) as process:  # fmt: skip
+        assert process.stdout is not None
+        yield from vm.readPgmFrames(process.stdout)
+
+
+def saveCorrections(
+    ffmpeg: str, inputNut: Path, outputNut: Path, out: Path, zoom: float, size: Sequence[int]
+) -> None:
+    """Each output frame's offset from its own input frame, analysis px: the correction the
+    transform applied, measured in the middle cell of the input zoomed as the output was (zoom,
+    percent; size, the output's). The same frame on both sides, so it holds across a cut, where no
+    shift between frames means anything."""
+    share = 1 + zoom / 100
+    zoomed = f"crop=w=iw/{share}:h=ih/{share},scale={size[0]}:{size[1]}"
+    rows = []
+    inputs, outputs = grayFrames(ffmpeg, inputNut, zoomed), grayFrames(ffmpeg, outputNut)
+    for a, b in zip(inputs, outputs, strict=False):
+        middle = len(vm.cells(a)) // 2
+        cellA, cellB = vm.cells(a)[middle], vm.cells(b)[middle]
+        s = phase_correlation.spectrumShift(
+            phase_correlation.spectrum(cellA), phase_correlation.spectrum(cellB), cellA.shape
+        )
+        rows.append((s.dx, s.dy, s.peak))
+    np.save(out, np.array(rows))
+
+
+def hardCuts(ffmpeg: str, analysis: Path) -> list[int]:
+    """The input's hard cuts (frames from 0), kept with its analysis pass."""
+    path = analysis / "cuts.json"
+    if path.exists():
+        return json.loads(path.read_text(encoding="utf-8"))
+    # Averaged over 8 px squares first: grain alone differs by 20 levels a frame at full size
+    frames = [
+        f[: f.shape[0] // 8 * 8, : f.shape[1] // 8 * 8]
+        .reshape(f.shape[0] // 8, 8, f.shape[1] // 8, 8)
+        .mean(axis=(1, 3))
+        for f in grayFrames(ffmpeg, analysis / "input.nut")
+    ]
+    diff = np.array([np.abs(b - a).mean() for a, b in itertools.pairwise(frames)])
+    unmeasured = set(vm.unmeasuredFrames(loadAnalysis(analysis / "input.npz")))
+    limit = max(CUT_MIN_DIFF, CUT_DIFF_RATIO * float(np.median(diff))) if len(diff) else 0
+    cuts = [i + 1 for i, d in enumerate(diff) if d > limit and i + 1 in unmeasured]
+    path.write_text(json.dumps(cuts), encoding="utf-8")
+    return cuts
+
+
+def cutMotion(analysis: Path, off: Path, on: Path) -> dict:
+    """How far the largest step each side's correction takes within CUT_RADIUS of a hard cut exceeds
+    its median step over the clip (a shaky clip's correction steps every frame), a share of the
+    frame's width: motion that shows on anything fixed in the frame (a logo, a held subject), which
+    the shake leaves out since nothing matches across a cut."""
+    cuts = hardCuts(shutil.which("ffmpeg") or "ffmpeg", analysis)
+    out: dict = {"frames": cuts}
+    for side, folder in (("off", off), ("on", on)):
+        c = np.load(folder / "corrections.npy")
+        width = loadAnalysis(folder / "out.npz")[0].size[0]
+        trusted = c[:, 2] >= vm.MIN_PEAK
+        steps = np.full(len(c), np.nan)
+        both = trusted[1:] & trusted[:-1]
+        steps[1:][both] = np.hypot(*(c[1:, :2] - c[:-1, :2])[both].T)
+        near = [
+            steps[i]
+            for cut in cuts
+            for i in range(cut - CUT_RADIUS, cut + CUT_RADIUS + 1)
+            if 0 <= i < len(c) and not np.isnan(steps[i])
+        ]
+        usual = float(np.nanmedian(steps)) if np.any(~np.isnan(steps)) else 0.0
+        out[side] = max(0.0, max(near) - usual) / width if near else None
+    return out
+
+
 @contextlib.contextmanager
 def recordedFrames() -> Iterator[dict[str, list[int]]]:
     """The frames the repair rewrote and the frames whose subject fields it dropped, as the clipper's
@@ -473,6 +599,24 @@ def nvsmaLine(rows: list[dict]) -> str:
     )
 
 
+def classCounts(rows: list[dict]) -> list[str]:
+    """Per class: rows steadier than 5.49 (under 0.9 of its shake), the same, and shakier (over
+    WORSE), with the median ratio."""
+    lines = []
+    for cls in CLASSES:
+        ratios = [x for r in rows if r["class"] == cls and (x := shakeRatio(r, "on")) is not None]
+        if not ratios:
+            continue
+        steadier = sum(x < 0.9 for x in ratios)
+        shakier = sum(x > WORSE for x in ratios)
+        lines.append(
+            f"{cls}{' (report only)' if cls == REPORT_ONLY else ''}: steadier {steadier}, same "
+            f"{len(ratios) - steadier - shakier}, shakier {shakier} of {len(ratios)}; shake "
+            f"{statistics.median(ratios):.2f}x 5.49's (median)"
+        )
+    return lines
+
+
 def cropAndTime(rows: list[dict]) -> list[str]:
     """Report lines for one preset's rows: median crop of 5.49 and 5.50, the rows where 5.50 crops
     more, and median seconds per pass, over the rows whose passes recorded their times."""
@@ -501,6 +645,18 @@ def cropAndTime(rows: list[dict]) -> list[str]:
                 if part in parts
             )
         )
+    withCuts = [r for r in rows if r["cuts"]["off"] is not None and r["cuts"]["on"] is not None]
+    more = [r for r in withCuts if jerkWorse(r["cuts"], r["width"])]
+    lines.append(
+        f"correction step at hard cuts (1e-4 of the width, the largest within {CUT_RADIUS} frame of a "
+        f"cut beyond the clip's median step, {len(withCuts)} rows):5.49 {1e4 * sum(r['cuts']['off'] for r in withCuts):.0f}, "
+        f"5.50 {1e4 * sum(r['cuts']['on'] for r in withCuts):.0f}; 5.50 larger in {len(more)}"
+        + "".join(
+            f"\n    {r['case'][5:]} at {r['cuts']['frames']}: "
+            f"{1e4 * r['cuts']['off']:.1f} -> {1e4 * r['cuts']['on']:.1f}"
+            for r in more
+        )
+    )
     for kind in ("repaired", "kept"):
         jerks = [
             r
@@ -569,9 +725,14 @@ def main() -> None:
             clip = build(case, datasets, ffmpeg)
         for preset in presets:
             row = {"case": name, "preset": preset, **runner.evaluate(clip, preset)}
-            row["fail"] = failures(
-                findings(row["on"], row["off"], row["width"]),
-                config.expected.get((name, preset), {}),
+            row["class"] = config.classes.get(name, "shaky")
+            row["fail"] = (
+                []
+                if row["class"] == REPORT_ONLY
+                else failures(
+                    findings(row["on"], row["off"], row["width"]),
+                    config.expected.get((name, preset), {}),
+                )
             )
             rows.append(row)
             ratio, nvsmaRatio = (shakeRatio(row, side) or float("nan") for side in ("on", "nvsma"))
@@ -587,13 +748,16 @@ def main() -> None:
         "".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8"
     )
     for preset in presets:
-        presetRows = [r for r in rows if r["preset"] == preset]
+        allRows = [r for r in rows if r["preset"] == preset]
+        presetRows = [r for r in allRows if r["class"] != REPORT_ONLY]
         found = [findings(r["on"], r["off"], r["width"]) for r in presetRows]
         print(
             f"preset {preset}: "
             + ", ".join(f"{kind} {sum(f[kind] for f in found)}" for kind in KINDS)
-            + f" of {len(found)}"
+            + f" of {len(found)} ({REPORT_ONLY} left out)"
         )
+        for line in classCounts(allRows):
+            print(f"  {line}")
         for line in cropAndTime(presetRows):
             print(f"  {line}")
     failed = sum(bool(r["fail"]) for r in rows)

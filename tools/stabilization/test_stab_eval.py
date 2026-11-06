@@ -11,6 +11,7 @@ from stab_eval import (
     filters549,
     findings,
     jerkWorse,
+    load_cases,
     localJerk,
     parseConfig,
     passKey,
@@ -85,6 +86,17 @@ def test_the_checked_in_config_parses_and_bad_entries_are_refused() -> None:
     twice = '[[expected]]\ncase = "stab-x"\npreset = 1\nkind = "warn"\nreason = "r"\n' * 2
     with pytest.raises(ValueError, match="twice"):
         parseConfig(twice)
+    with pytest.raises(ValueError, match="unknown classes"):
+        parseConfig('[classes]\n"stab-x" = "wobbly"\n')
+    # An unsuitable case never fails, so an expectation of it could never be checked
+    expectsUnsuitable = '[[expected]]\ncase = "stab-x"\npreset = 1\nkind = "warn"\nreason = "r"\n'
+    with pytest.raises(ValueError, match="unsuitable"):
+        parseConfig(expectsUnsuitable + '[classes]\n"stab-x" = "unsuitable"\n')
+
+
+def test_every_stab_case_has_a_class() -> None:
+    classes = parseConfig(CONFIG.read_text(encoding="utf-8")).classes
+    assert {n for n in load_cases() if n.startswith("stab-")} == set(classes)
 
 
 def test_a_pass_key_changes_with_any_part_and_only_then() -> None:
