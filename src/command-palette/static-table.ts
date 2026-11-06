@@ -42,13 +42,17 @@ function renderRow(def: ShortcutDefinition): TemplateResult {
   const shortcutCell = def.displayNote
     ? html`<pre>${def.displayNote}</pre>`
     : renderDisplayKey(def.displayKey);
+  const explanation = [def.subtitle, def.details].filter(Boolean).join(' ');
+  const actionCell = html`${def.description}${explanation
+    ? html`<div class="ytc-shortcut-details">${explanation}</div>`
+    : nothing}`;
   return def.essential
     ? html`<tr class="essential-row">
-        <td>${def.description}</td>
+        <td>${actionCell}</td>
         <td>${shortcutCell}</td>
       </tr>`
     : html`<tr>
-        <td>${def.description}</td>
+        <td>${actionCell}</td>
         <td>${shortcutCell}</td>
       </tr>`;
 }

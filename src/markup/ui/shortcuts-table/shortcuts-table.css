@@ -104,6 +104,14 @@ td:first-child {
   color: var(--bright-red);
 }
 
+#shortcutsTableContainer .ytc-shortcut-details {
+  padding-bottom: 6px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #999;
+}
+
 #shortcutsTableContainer h2 {
   display: inline-block;
   color: var(--lighter-grey);

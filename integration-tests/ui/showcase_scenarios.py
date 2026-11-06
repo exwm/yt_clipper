@@ -18,6 +18,8 @@ from test_crop_easing import (
     then_a_cinematic_path_is_baked,
     when_i_choose_easing,
 )
+from test_palette_details import when_i_search
+from test_palette_footer import when_i_open_the_palette
 from test_reframe import (
     given_a_marker_pair_with_a_narrowed_crop,
     given_reframe_is_on,
@@ -110,6 +112,18 @@ def cinematic_settings(markup: MarkupPage) -> None:
 def timeline_zoom(markup: MarkupPage) -> None:
     given_crowded_marker_pairs(markup)
     given_the_timeline_zoom_is_open(markup)
+
+
+@scenario("palette-selected-details")
+def palette_selected_details(markup: MarkupPage) -> None:
+    when_i_open_the_palette(markup)
+    when_i_search(markup, "crop point")
+
+
+@scenario("palette-details-match")
+def palette_details_match(markup: MarkupPage) -> None:
+    when_i_open_the_palette(markup)
+    when_i_search(markup, "crowded")
 
 
 @scenario("hold-crop-points")

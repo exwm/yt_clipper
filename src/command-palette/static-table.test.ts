@@ -141,6 +141,22 @@ describe('renderShortcutsTable', () => {
     expect(chartIdx).toBeGreaterThan(advancedIdx);
   });
 
+  test.each([
+    ['subtitle only', { subtitle: 'Fills the player.' }, 'Fills the player.'],
+    [
+      'subtitle then details',
+      { subtitle: 'Fills the player.', details: 'Never changes the output.' },
+      'Fills the player. Never changes the output.',
+    ],
+  ])('%s render as a second line under the description', (_, fields, line) => {
+    const reg = new ShortcutRegistry();
+    reg.register(makeDef({ id: 'a', description: 'Toggle reframe', ...fields }));
+    const html = renderToString(renderShortcutsTable(reg));
+    expect(html).toContain(
+      `<td>Toggle reframe<div class="ytc-shortcut-details">${line}</div></td>`
+    );
+  });
+
   test('escapes special chars in description', () => {
     const reg = new ShortcutRegistry();
     reg.register(makeDef({ id: 'a', description: 'Rotate 90<deg>' }));

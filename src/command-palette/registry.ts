@@ -125,8 +125,35 @@ export class ShortcutRegistry {
       });
       seen.add(r.obj.id);
     }
+
+    // Subtitle-only, then details-only matches come last, so any description match ranks above them.
+    for (const field of ['subtitle', 'details'] as const) {
+      for (const shortcut of this.shortcuts) {
+        const text = shortcut[field];
+        if (seen.has(shortcut.id) || !text) continue;
+        const ranges = findTermRanges(text, trimmed);
+        if (ranges) {
+          matches.push({ shortcut, score: 0, highlightRanges: ranges, matchKind: field });
+          seen.add(shortcut.id);
+        }
+      }
+    }
     return matches;
   }
+}
+
+/** Indexes of every query term's first occurrence in `text`, or null unless all terms occur.
+ *  Substring, not fuzzy: a fuzzy match over a paragraph accepts almost any short query. */
+function findTermRanges(text: string, query: string): number[] | null {
+  const lowerText = text.toLowerCase();
+  const indexes = new Set<number>();
+  for (const term of query.toLowerCase().split(/\s+/)) {
+    if (term === '') continue;
+    const at = lowerText.indexOf(term);
+    if (at < 0) return null;
+    for (let i = at; i < at + term.length; i++) indexes.add(i);
+  }
+  return [...indexes].sort((a, b) => a - b);
 }
 
 function normalizeDisplayKey(s: string): string {
