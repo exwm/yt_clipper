@@ -45,6 +45,10 @@ export namespace Tooltips {
     Toggle the dynamic crop chart for the selected pair. Hotkey: alt+D.
     `;
 
+  export const timelineZoomToggleTooltip = stripIndent`
+    Toggle the timeline zoom, a zoomed bar above the progress bar. Hotkey: shift+F.
+    `;
+
   export const overridesToggleTooltip = stripIndent`
     Toggle the encode settings section. Hotkey: shift+W.
     `;

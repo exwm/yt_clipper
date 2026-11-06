@@ -111,6 +111,7 @@ import {
 } from '../../speed';
 import { toggleGammaPreview } from '../../preview-toggles';
 import { renderToggleIcon, ToggleIconName } from '../icons/glyphs';
+import { isTimelineZoomOn, toggleTimelineZoom } from '../timeline-zoom/timeline-zoom';
 import { setCurrentCropPoint } from '../../ui/chart/cropchart/cropChartSpec';
 import { refreshPlayerControlsAutoHideTimer } from '../../util/videoUtil';
 import { MARKER_PAIR_HISTORY_CHANGED_EVENT } from '../../util/undoredo';
@@ -740,6 +741,16 @@ const barItems: BarItem[] = [
     isActive: () => appState.isCurrentChartVisible && chartState.currentChartInput?.type === 'crop',
     badge: getCropPointBadgeCount,
     run: () => toggleChart(chartState.cropChartInput),
+  },
+  {
+    id: 'toggle-timeline-zoom',
+    icon: 'timelineZoom',
+    group: 'Charts',
+    editors: ['marker', 'global'],
+    tooltip: Tooltips.timelineZoomToggleTooltip,
+    // Arrows, since timeline-zoom imports this module back.
+    isActive: () => isTimelineZoomOn(),
+    run: () => toggleTimelineZoom(),
   },
   // Previews.
   {

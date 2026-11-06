@@ -375,6 +375,7 @@ export function initShortcutSystem() {
       },
       toggleTimelineZoom: () => {
         toggleTimelineZoom();
+        refreshSettingsBar();
       },
       toggleCropPreviewModal: () => {
         toggleCropPreview('modal');

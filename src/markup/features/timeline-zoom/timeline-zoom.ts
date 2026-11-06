@@ -341,6 +341,10 @@ let holdingForDrag = false;
 // range where it is; one elsewhere (scrubbing the video) is a jump the range follows.
 let pressBeganOnPanel = false;
 
+export function isTimelineZoomOn(): boolean {
+  return panel != null;
+}
+
 export function toggleTimelineZoom(): void {
   if (panel) {
     destroyPanel();

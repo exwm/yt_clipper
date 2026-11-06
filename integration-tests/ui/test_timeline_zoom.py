@@ -15,6 +15,7 @@ PAIR_COUNT = 14
 PAIR_SPACING = 3
 PAIR_LENGTH = 1.5
 END_EDGE_HANDLE = ".ytc-tz-hit.edge-handle[data-edge='end']"
+TIMELINE_ZOOM_BUTTON = "#toggle-timeline-zoom"
 
 
 @pytest.fixture
@@ -61,6 +62,18 @@ def test_markers_show_over_the_brush_and_leave_its_handles_working(zoom: MarkupP
     before = zoom_range(zoom)
     when_i_drag_the_end_edge_handle(zoom)
     then_the_zoom_range_end_changed(zoom, before)
+
+
+def test_the_toolbar_button_toggles_the_zoom_and_shows_its_state(markup: MarkupPage) -> None:
+    given_a_marker_pair_editor(markup)
+    when_i_click_the_timeline_zoom_button(markup)
+    then_the_timeline_zoom_is(markup, is_on=True)
+    when_i_press_shift_f(markup)
+    then_the_timeline_zoom_is(markup, is_on=False)
+    when_i_press_shift_f(markup)
+    then_the_timeline_zoom_is(markup, is_on=True)
+    when_i_click_the_timeline_zoom_button(markup)
+    then_the_timeline_zoom_is(markup, is_on=False)
 
 
 def test_wheel_on_the_zoomed_bar_zooms_around_the_middle(zoom: MarkupPage) -> None:
@@ -559,6 +572,31 @@ def then_the_end_edge_handle_takes_the_pointer(markup: MarkupPage, *, expected: 
         [x, y],
     )
     assert is_handle == expected
+
+
+@step
+def given_a_marker_pair_editor(markup: MarkupPage) -> None:
+    markup.load_marker_pairs([(3, 6)])
+    markup.open_marker_pair(0)
+
+
+@step
+def when_i_click_the_timeline_zoom_button(markup: MarkupPage) -> None:
+    markup.reveal(TIMELINE_ZOOM_BUTTON)
+    markup.page.click(TIMELINE_ZOOM_BUTTON)
+
+
+@step
+def when_i_press_shift_f(markup: MarkupPage) -> None:
+    markup.press("Shift+KeyF")
+
+
+@step
+def then_the_timeline_zoom_is(markup: MarkupPage, *, is_on: bool) -> None:
+    assert (markup.page.locator(".ytc-tz").count() == 1) == is_on
+    is_active = "active" in (markup.page.get_attribute(TIMELINE_ZOOM_BUTTON, "class") or "").split()
+    assert is_active == is_on
+    markup.shot_of(f"button-{'on' if is_on else 'off'}", ["#settings-toggle-bar"], padding=8)
 
 
 @step
