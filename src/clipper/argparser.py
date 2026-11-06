@@ -393,6 +393,19 @@ def add_vfilter_options(vfilter_options: argparse._ArgumentGroup) -> None:
         ),
     )
     vfilter_options.add_argument(
+        "--video-stabilization-compare-strategies",
+        "-vscs",
+        dest="videoStabilizationCompareStrategies",
+        action="store_true",
+        help=" ".join(
+            [
+                "Try more than one stabilization strategy for each clip",
+                "and keep the steadiest one that crops no more.",
+                "Stabilization takes about twice as long.",
+            ],
+        ),
+    )
+    vfilter_options.add_argument(
         "--video-stabilization-max-angle",
         "-vsma",
         dest="videoStabilizationMaxAngle",

@@ -36,11 +36,14 @@ from clipper.vidstab_motions import (
     checkStabilizedShake,
     findBrightnessChanges,
     inputShakePath,
+    magnification,
     measuredMotions,
     readAnalysis,
     repairMotionsInFiles,
     shake,
+    transformFinalZoom,
     transformStalls,
+    transformTrial,
     zoomBudgetFromFile,
 )
 
@@ -198,19 +201,20 @@ def stabilize(
     level: int = STRONG,
     output: str = "stabilized.mp4",
     encode: tuple[str, ...] = LOSSLESS,
+    *,
+    comparePaths: bool = False,
 ) -> tuple[Path, dict[str, str]]:
     """Both passes as the clipper runs them, with the step between them (flash repair, zoom budget),
     and the transform pass's analysis output, stabilized.nut. Returns the output and what that step
     filled into the transform. The detect pass is shared by every preset: only smoothing differs
-    between them, and only the transform reads it."""
+    between them, and only the transform reads it. comparePaths: as with -vscs."""
     detect(ffmpeg, video, folder)
     _, transformFilter = clipperFilters("transforms.trf", level)
 
-    def stalls(zoom: str) -> bool:
+    def command(zoom: str, analysis: bool = False) -> list[str]:
         graph = fill(transformFilter, {ZOOM_BUDGET_PLACEHOLDER: zoom})
-        return transformStalls(
-            [ffmpeg, "-hide_banner", "-i", str(video), "-vf", graph], str(folder)
-        )
+        graph += f",{analysisFilter()}" if analysis else ""
+        return [ffmpeg, "-hide_banner", "-i", str(video), "-vf", graph]
 
     replacements = prepareVidstabTransformPass(
         ffmpeg,
@@ -218,7 +222,21 @@ def stabilize(
         str(folder / "analysis.nut"),
         getVidstabPreset(level)["smoothing"],
         (),
-        stalls,
+        lambda zoom: transformStalls(command(zoom), str(folder)),
+        gaussianZoom=(
+            (lambda: transformFinalZoom(command(GAUSSIAN_PATH), str(folder)))
+            if comparePaths
+            else None
+        ),
+        trial=(
+            (
+                lambda zoom: transformTrial(
+                    command(zoom, analysis=True), zoom, str(folder / "trial.nut"), str(folder)
+                )
+            )
+            if comparePaths
+            else None
+        ),
     )
     return run(
         ffmpeg,
@@ -534,6 +552,34 @@ def test_a_stronger_preset_leaves_less_motion_and_zooms_in_further(
         zooms.append(float(replacements[ZOOM_BUDGET_PLACEHOLDER]))
     assert all(later <= earlier + 0.01 for earlier, later in itertools.pairwise(motions)), motions
     assert all(later > earlier for earlier, later in itertools.pairwise(zooms)), zooms
+
+
+def test_comparing_camera_paths_takes_the_gaussian_one_when_it_is_steadier_at_less_zoom(
+    ffmpeg: str,
+    shakyMedia: Path,
+    tmp_path: Path,
+) -> None:
+    # With -vscs at Strongest: vid.stab's L1 path leaves this clip about twice as shaky as its
+    # gaussian path, which zooms in about half as far
+    name = "dimstage"
+    source = shaky_media.makeShakyClip(ffmpeg, name, shakyMedia)
+    output, replacements = stabilize(ffmpeg, source, tmp_path, STRONGEST, comparePaths=True)
+    budget = zoomBudgetFromFile(
+        str(tmp_path / "transforms.trf"), getVidstabPreset(STRONGEST)["smoothing"]
+    )
+    _, transformFilter = clipperFilters("transforms.trf", STRONGEST)
+    l1 = run(
+        ffmpeg,
+        source,
+        tmp_path,
+        fill(transformFilter, {ZOOM_BUDGET_PLACEHOLDER: f"{budget:.2f}"}),
+        "l1.mp4",
+    )
+    clip = shaky_media.CLIPS[name]
+    assert clipShake(ffmpeg, output, clip) < 0.8 * clipShake(ffmpeg, l1, clip)
+    assert replacements[ZOOM_BUDGET_PLACEHOLDER] == GAUSSIAN_PATH
+    final = zoomUsed(ffmpeg, source, tmp_path, fill(transformFilter, replacements))
+    assert magnification(GAUSSIAN_PATH, final) < budget
 
 
 @pytest.mark.parametrize("name", clipCases(steady=False))
