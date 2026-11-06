@@ -2,15 +2,19 @@
 loop guard, scrubbing, and fading with the player controls. Terms follow the glossary at the top of
 timeline-zoom.ts. Each test starts from crowded marker pairs with the zoom open."""
 
+import io
+
 import pytest
 from harness.markup_page import MarkupPage
 from harness.steps import step
+from PIL import Image
 
 # 14 short pairs 3s apart from 3s, crowded together like the reported screenshot. Kept within the
 # first 45s: an automated browser may only get YouTube's initial buffer, so later seeks can stall.
 PAIR_COUNT = 14
 PAIR_SPACING = 3
 PAIR_LENGTH = 1.5
+END_EDGE_HANDLE = ".ytc-tz-hit.edge-handle[data-edge='end']"
 
 
 @pytest.fixture
@@ -45,6 +49,18 @@ def test_edge_handles_ignore_a_playhead_drag_passing_over_them(zoom: MarkupPage)
     then_the_end_edge_handle_takes_the_pointer(zoom, expected=False)
     when_i_release_the_pointer(zoom)
     then_the_end_edge_handle_takes_the_pointer(zoom, expected=True)
+
+
+def test_markers_show_over_the_brush_and_leave_its_handles_working(zoom: MarkupPage) -> None:
+    pair_index = given_a_pair_ending_under_the_end_edge_handle(zoom)
+    then_its_end_marker_shows_over_the_end_edge_handle(zoom, pair_index)
+    then_the_end_edge_handle_takes_the_pointer_over_its_marker(zoom)
+    then_the_center_handle_takes_the_pointer(zoom)
+    when_i_click_its_end_number(zoom, pair_index)
+    then_its_pair_editor_is_open(zoom)
+    before = zoom_range(zoom)
+    when_i_drag_the_end_edge_handle(zoom)
+    then_the_zoom_range_end_changed(zoom, before)
 
 
 def test_wheel_on_the_zoomed_bar_zooms_around_the_middle(zoom: MarkupPage) -> None:
@@ -160,6 +176,19 @@ def given_the_timeline_zoom_is_open(markup: MarkupPage) -> None:
     markup.press("Shift+KeyF")
     markup.page.wait_for_selector(".ytc-tz-row-hit")
     markup.shot("timeline-open")
+
+
+@step
+def given_a_pair_ending_under_the_end_edge_handle(markup: MarkupPage) -> int:
+    end = time_under(markup, END_EDGE_HANDLE)
+    markup.load_marker_pairs([(end - 6, end)])
+    pair_index = min(
+        range(marker_count(markup) // 2),
+        key=lambda i: abs(marker_time(markup, i, "end") - end),
+    )
+    markup.report(f"pair {pair_index + 1} ends at {end:.2f}s, under the end edge handle")
+    markup.shot_of("marker-under-end-edge-handle", [END_EDGE_HANDLE], padding=40)
+    return pair_index
 
 
 @step
@@ -533,6 +562,55 @@ def then_the_end_edge_handle_takes_the_pointer(markup: MarkupPage, *, expected: 
 
 
 @step
+def when_i_click_its_end_number(markup: MarkupPage, pair_index: int) -> None:
+    markup.page.locator(f"#end-marker-numberings text[data-idx='{pair_index + 1}']").click()
+
+
+@step
+def then_its_end_marker_shows_over_the_end_edge_handle(markup: MarkupPage, pair_index: int) -> None:
+    # The pointer rests on the video, which keeps the controls shown and the handle unlit.
+    markup.page.mouse.move(*markup.center_of("video"))
+    marker = markup.box_of(f"#markers-svg rect:nth-child({pair_index * 2 + 2})")
+    clip = {"x": marker["x"] - 1, "y": marker["y"] + 4, "width": 3, "height": 6}
+    image = Image.open(io.BytesIO(markup.page.screenshot(clip=clip))).convert("RGB")
+    colors = list(image.getdata())
+    markup.report(f"pixels at the marker {sorted(set(colors))}")
+    # The marker is gold, the handle light grey.
+    assert any(r > 150 and g > 120 and b < 100 for r, g, b in colors), "the handle hides the marker"
+
+
+@step
+def then_the_end_edge_handle_takes_the_pointer_over_its_marker(markup: MarkupPage) -> None:
+    then_the_handle_takes_the_pointer(markup, END_EDGE_HANDLE, "ew-resize")
+    markup.shot_of("end-edge-handle-hovered", [END_EDGE_HANDLE], padding=40)
+
+
+@step
+def then_the_center_handle_takes_the_pointer(markup: MarkupPage) -> None:
+    then_the_handle_takes_the_pointer(markup, ".ytc-tz-hit.center-handle", "grab")
+
+
+def then_the_handle_takes_the_pointer(markup: MarkupPage, hit: str, cursor: str) -> None:
+    """The pointer over the handle's middle reaches its hit area, shows its cursor and lights it."""
+    x, y = markup.center_of(hit)
+    markup.page.mouse.move(x, y)
+    assert markup.eventually(
+        """([x, y, hit, cursor]) => {
+          const el = document.elementFromPoint(x, y);
+          const drawn = el?.parentElement.querySelector('.ytc-tz-edge-handle, .ytc-tz-center-handle');
+          return el.matches(hit) && getComputedStyle(el).cursor === cursor
+            && getComputedStyle(drawn).fill === 'rgb(255, 255, 255)';
+        }""",
+        [x, y, hit, cursor],
+    ), f"{hit} does not take the pointer with the {cursor} cursor and its hover light"
+
+
+@step
+def then_its_pair_editor_is_open(markup: MarkupPage) -> None:
+    markup.page.wait_for_selector("#crop-input", state="attached")
+
+
+@step
 def then_playback_seeks_to(markup: MarkupPage, time: float) -> None:
     seeks = markup.page.evaluate("() => window.__seeks")
     markup.report(f"clicked at {time:.2f}s, seeks {[round(t, 2) for t in seeks]}")
@@ -713,6 +791,20 @@ def marker_time(markup: MarkupPage, pair_index: int, marker: str) -> float:
         ".children[i * 2 + end].getAttribute('x')) / 100"
         " * document.querySelector('video').duration",
         [pair_index, 1 if marker == "end" else 0],
+    )
+
+
+def marker_count(markup: MarkupPage) -> int:
+    return markup.page.evaluate("() => document.querySelector('#markers-div svg').children.length")
+
+
+def time_under(markup: MarkupPage, selector: str) -> float:
+    """The video time on the progress bar under the middle of the element."""
+    x, _ = markup.center_of(selector)
+    return markup.page.evaluate(
+        "x => { const b = document.querySelector('#markers-div svg').getBoundingClientRect();"
+        " return (x - b.left) / b.width * document.querySelector('video').duration; }",
+        x,
     )
 
 

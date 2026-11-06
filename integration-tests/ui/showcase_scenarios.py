@@ -25,7 +25,11 @@ from test_reframe import (
     given_reframe_is_on,
     given_the_minimap_is_shown,
 )
-from test_timeline_zoom import given_crowded_marker_pairs, given_the_timeline_zoom_is_open
+from test_timeline_zoom import (
+    given_a_pair_ending_under_the_end_edge_handle,
+    given_crowded_marker_pairs,
+    given_the_timeline_zoom_is_open,
+)
 
 Scenario = Callable[[MarkupPage], None]
 SCENARIOS: dict[str, Scenario] = {}
@@ -112,6 +116,12 @@ def cinematic_settings(markup: MarkupPage) -> None:
 def timeline_zoom(markup: MarkupPage) -> None:
     given_crowded_marker_pairs(markup)
     given_the_timeline_zoom_is_open(markup)
+
+
+@scenario("timeline-zoom-marker-under-handle")
+def timeline_zoom_marker_under_handle(markup: MarkupPage) -> None:
+    timeline_zoom(markup)
+    given_a_pair_ending_under_the_end_edge_handle(markup)
 
 
 @scenario("palette-selected-details")

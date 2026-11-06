@@ -682,8 +682,18 @@ const markerTemplate = ({ pair, kind, x, isSelected }: MarkerView) => {
 
 /** The brush on the progress bar: an outline around the zoom range, edge handles just outside its
  *  ends to resize it, and a center handle on top to move it. Only the handles take the pointer, so
- *  clicks inside the brush still seek the progress bar. */
-const brushTemplate = (rangeX0: number, rangeX1: number, layout: PanelLayout) => {
+ *  clicks inside the brush still seek the progress bar.
+ *
+ *  The shade, outline and edge handles leave a hole at each of the progress bar's markers, so the
+ *  markers show as if drawn above the brush. The markers themselves can't be raised above this panel:
+ *  on YouTube they sit in the player controls' stacking context, which is below it. A mask doesn't
+ *  change hit testing, so the handles still take the pointer over a marker. */
+const brushTemplate = (
+  rangeX0: number,
+  rangeX1: number,
+  layout: PanelLayout,
+  markerXs: number[]
+) => {
   // On whole pixels, so the slim lines stay sharp instead of smearing across two pixel columns.
   const x0 = Math.round(rangeX0);
   const x1 = Math.round(rangeX1);
@@ -692,11 +702,14 @@ const brushTemplate = (rangeX0: number, rangeX1: number, layout: PanelLayout) =>
   // Hit areas are at least TARGET_MIN tall, centred on the slim handles.
   const edgeHandleHitH = Math.max(brushH, TARGET_MIN);
   const edgeHandleHitTop = brushTop + brushH / 2 - edgeHandleHitH / 2;
+  const holes = 'url(#ytc-tz-marker-holes)';
+  // The edge handles reach past the bar's ends.
+  const maskX = -TARGET_MIN;
   const edgeHandle = (edge: 'start' | 'end', x: number) => svg`
     <g class="ytc-tz-edge-handle-group">
       <title>Drag to resize the zoom range</title>
-      <rect class="ytc-tz-edge-handle" x=${x + 0.5} y=${brushTop + 0.5} width=${EDGE_HANDLE_W - 1} height=${brushH - 1}></rect>
-      <line class="ytc-tz-grip" x1=${x + EDGE_HANDLE_W / 2} y1=${brushTop + 3} x2=${x + EDGE_HANDLE_W / 2} y2=${brushTop + brushH - 3}></line>
+      <rect class="ytc-tz-edge-handle" mask=${holes} x=${x + 0.5} y=${brushTop + 0.5} width=${EDGE_HANDLE_W - 1} height=${brushH - 1}></rect>
+      <line class="ytc-tz-grip" mask=${holes} x1=${x + EDGE_HANDLE_W / 2} y1=${brushTop + 3} x2=${x + EDGE_HANDLE_W / 2} y2=${brushTop + brushH - 3}></line>
       <rect class="ytc-tz-hit edge-handle" data-edge=${edge} x=${x + EDGE_HANDLE_W / 2 - TARGET_MIN / 2} y=${edgeHandleHitTop} width=${TARGET_MIN} height=${edgeHandleHitH}></rect>
     </g>
   `;
@@ -721,11 +734,21 @@ const brushTemplate = (rangeX0: number, rangeX1: number, layout: PanelLayout) =>
         <stop offset="0.7" stop-color="black" stop-opacity="0.15"></stop>
         <stop offset="0.9" stop-color="black" stop-opacity="0"></stop>
       </linearGradient>
+      <mask id="ytc-tz-marker-holes" maskUnits="userSpaceOnUse" x=${maskX} y=${brushTop} width=${layout.width + 2 * TARGET_MIN} height=${brushH}>
+        <rect x=${maskX} y=${brushTop} width=${layout.width + 2 * TARGET_MIN} height=${brushH} fill="white"></rect>
+        ${markerXs.map(
+          // Placed and snapped like the real markers (markers.ts), so each hole covers its marker exactly.
+          (x) =>
+            svg`<rect x=${x} y=${layout.markersBandTop} width=${MARKER_WIDTH_PX} height=${MARKER_H} fill="black" shape-rendering="crispEdges"></rect>`
+        )}
+      </mask>
     </defs>
-    <rect class="ytc-tz-outside" x="0" y=${brushTop} width=${Math.max(x0, 0)} height=${brushH}></rect>
-    <rect class="ytc-tz-outside" x=${x1} y=${brushTop} width=${Math.max(layout.width - x1, 0)} height=${brushH}></rect>
-    <rect class="ytc-tz-brush-edge" x=${x0 + 0.5} y=${brushTop + 0.5} width=${Math.max(x1 - x0 - 1, 1)} height=${brushH - 1}></rect>
-    <rect class="ytc-tz-brush" x=${x0 + 0.5} y=${brushTop + 0.5} width=${Math.max(x1 - x0 - 1, 1)} height=${brushH - 1}></rect>
+    <g mask=${holes}>
+      <rect class="ytc-tz-outside" x="0" y=${brushTop} width=${Math.max(x0, 0)} height=${brushH}></rect>
+      <rect class="ytc-tz-outside" x=${x1} y=${brushTop} width=${Math.max(layout.width - x1, 0)} height=${brushH}></rect>
+      <rect class="ytc-tz-brush-edge" x=${x0 + 0.5} y=${brushTop + 0.5} width=${Math.max(x1 - x0 - 1, 1)} height=${brushH - 1}></rect>
+      <rect class="ytc-tz-brush" x=${x0 + 0.5} y=${brushTop + 0.5} width=${Math.max(x1 - x0 - 1, 1)} height=${brushH - 1}></rect>
+    </g>
     <g class="ytc-tz-center-handle-group">
       <title>Drag to move the zoom range</title>
       <rect class="ytc-tz-center-handle" x=${centerHandleX + 0.5} y=${centerHandleY + 0.5} width=${CENTER_HANDLE_W - 1} height=${CENTER_HANDLE_H - 1}></rect>
@@ -859,8 +882,12 @@ const timelineTemplate = (
   // Edges with more timeline beyond them fade out.
   const moreBefore = range.start > 0;
   const moreAfter = range.end < snapshot.duration;
+  const progressBarMarkerXs = [
+    ...snapshot.pairs.flatMap((pair) => [toProgressBarX(pair.start), toProgressBarX(pair.end)]),
+    ...(snapshot.pendingStart == null ? [] : [toProgressBarX(snapshot.pendingStart)]),
+  ];
   return svg`
-    ${brushTemplate(brushX0, brushX1, layout)}
+    ${brushTemplate(brushX0, brushX1, layout, progressBarMarkerXs)}
     <g class="ytc-tz-zoomed">
     ${edgeFadeDefs(width, moreBefore, moreAfter)}
     ${calloutShadowTemplate(width, (brushX0 + brushX1) / 2)}
