@@ -235,6 +235,7 @@ The command palette shows a short subtitle under each shortcut, and a long short
 - On the zoomed bar, marker pairs work as on the progress bar. Click a marker number to open its pair and jump to that marker, Alt+drag a number to move its marker, and Shift+hover an end marker or a number to toggle its pair's editor. Click or drag elsewhere to seek. Scroll to zoom in or out around the middle of the zoom range, and Shift+scroll to pan.
 - Where the video continues past an end of the zoomed bar, that end fades out.
 - During playback the zoom range follows the playhead. The zoomed bar shows and hides with the player controls.
+- Also toggle the timeline zoom with its button in the [settings editor toolbar](#settings-editor-toolbar). Its icon shows three dots over a two-way arrow. The button is highlighted while the zoom is on.
 
 **Ctrl+Left/Right:** Jump to the nearest previous/next marker.
 
@@ -295,8 +296,8 @@ The marker pair editor and the global settings editor each have a toolbar of ico
 
 - Active features are highlighted in the editor's accent color (orange for the marker pair editor, red for the global settings editor).
 - Badges show the undo/redo history depth, the number of points in a dynamic speed or crop chart, the number of overrides set on a marker pair, the current crop dim opacity, and the current preview rotation.
-- The marker pair editor toolbar has: undo/redo pair changes, auto-hide unselected pairs, crop crosshair, cycle crop dim, crop preview, reframe, capture frame, dynamic speed and crop charts, the preview toggles (all, speed, loop, and gamma), and marker pair overrides.
-- The global settings editor toolbar has: save, copy, load, and restore markers data, crop crosshair, cycle crop dim, capture frame, reframe, rotate video, the preview toggles, and global overrides.
+- The marker pair editor toolbar has: undo/redo pair changes, auto-hide unselected pairs, crop crosshair, cycle crop dim, crop preview, reframe, capture frame, dynamic speed and crop charts, timeline zoom, the preview toggles (all, speed, loop, and gamma), and marker pair overrides.
+- The global settings editor toolbar has: save, copy, load, and restore markers data, crop crosshair, cycle crop dim, capture frame, reframe, rotate video, timeline zoom, the preview toggles, and global overrides.
 
 ## Cropping Shortcuts
 
