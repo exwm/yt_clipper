@@ -107,9 +107,9 @@ jobs:
 
       # A pinned ffmpeg build never changes, so download it once per OS and version. The hash in the
       # key makes a cache filled before the hash check download again.
-      - name: Cache ffmpeg dependency
+      - name: Restore ffmpeg dependency
         id: ffmpeg-cache
-        uses: actions/cache@v5
+        uses: actions/cache/restore@v5
         with:
           path: bindeps/ffmpeg
           key: ffmpeg-${{ matrix.os }}-${{ env.FFMPEG_VERSION }}-${{ env.FFMPEG_SHA256 }}
@@ -137,6 +137,14 @@ jobs:
           7z x ./ffmpeg.zip
           mv ./$FFMPEG_DL_NAME ffmpeg
           chmod -v +x ffmpeg/bin/*
+
+      # Saved now rather than after the job, which saves only when every later step passes.
+      - name: Cache ffmpeg dependency
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: bindeps/ffmpeg
+          key: ${{ steps.ffmpeg-cache.outputs.cache-primary-key }}
 
       - name: Download yt-dlp dependency
         run: |
@@ -209,7 +217,6 @@ jobs:
 
       - name: Copy artifacts
         run: |
-          # Copy, not move: the ffmpeg cache saves bindeps/ffmpeg after the job.
           cp ./bindeps/ffmpeg/bin/* ./artifact/py/${{env.FULL_NAME}}/bin/video-tools/
           cp ./bindeps/ffmpeg/*.txt ./artifact/py/${{env.FULL_NAME}}/bin/video-tools/
           # yt-dlp on Windows finds deno next to itself.
