@@ -1,0 +1,70 @@
+name: ffmpeg
+description: The pinned ffmpeg build (FFMPEG_* in the workflow's env) in bindeps/ffmpeg, checked against its sha256.
+
+inputs:
+  cache-os:
+    description: The job's runner image, which names the cache, as before this action.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Set ffmpeg env (windows)
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        echo "FFMPEG_DL_NAME=ffmpeg-${{ env.FFMPEG_VERSION }}-full_build-shared" >> $GITHUB_ENV
+        echo "FFMPEG_DL_PREFIX=${{ env.FFMPEG_WIN_BASE_URL }}/${{ env.FFMPEG_VERSION }}" >> $GITHUB_ENV
+        echo "FFMPEG_SHA256=${{ env.FFMPEG_SHA256_WIN }}" >> $GITHUB_ENV
+
+    - name: Set ffmpeg env (macos)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        echo "FFMPEG_DL_NAME=ffmpeg-${{ env.FFMPEG_VERSION }}-macos64" >> $GITHUB_ENV
+        echo "FFMPEG_DL_PREFIX=${{ env.FFMPEG_MAC_BASE_URL }}/${{ env.FFMPEG_VERSION }}" >> $GITHUB_ENV
+        echo "FFMPEG_SHA256=${{ env.FFMPEG_SHA256_MAC }}" >> $GITHUB_ENV
+
+    # A pinned ffmpeg build never changes, so download it once per OS and version. The hash in the
+    # key makes a cache filled before the hash check download again.
+    - name: Restore ffmpeg
+      id: ffmpeg-cache
+      uses: actions/cache/restore@v5
+      with:
+        path: bindeps/ffmpeg
+        key: ffmpeg-${{ inputs.cache-os }}-${{ env.FFMPEG_VERSION }}-${{ env.FFMPEG_SHA256 }}
+
+    - name: Download ffmpeg (windows)
+      if: runner.os == 'Windows' && steps.ffmpeg-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        mkdir -p ./bindeps && cd ./bindeps
+        curl --fail --retry 10 --retry-delay 60 --retry-all-errors -o ./ffmpeg.zip -L $FFMPEG_DL_PREFIX/$FFMPEG_DL_NAME.7z
+        bash "$GITHUB_WORKSPACE/.github/scripts/verify-sha256.sh" ./ffmpeg.zip "$FFMPEG_SHA256"
+        7z x ./ffmpeg.zip
+        mv ./$FFMPEG_DL_NAME ffmpeg
+
+        ./ffmpeg/bin/ffmpeg -version > version.txt
+        mv version.txt ffmpeg
+
+    - name: Download ffmpeg (macos)
+      if: runner.os == 'macOS' && steps.ffmpeg-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        mkdir -p ./bindeps && cd ./bindeps
+        # --fail keeps an error page from being saved as the archive. --retry-all-errors also retries
+        # failures curl does not class as transient, such as a 429 reported as exit 56.
+        curl --fail --retry 10 --retry-delay 60 --retry-all-errors -o ./ffmpeg.zip -L $FFMPEG_DL_PREFIX/$FFMPEG_DL_NAME.zip
+        bash "$GITHUB_WORKSPACE/.github/scripts/verify-sha256.sh" ./ffmpeg.zip "$FFMPEG_SHA256"
+        7z x ./ffmpeg.zip
+        mv ./$FFMPEG_DL_NAME ffmpeg
+        chmod -v +x ffmpeg/bin/*
+
+    # Saved now rather than after the job, which saves only when every later step passes. The test
+    # and build jobs both download on a miss; the second save finds the key taken and only warns.
+    - name: Cache ffmpeg
+      if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v5
+      with:
+        path: bindeps/ffmpeg
+        key: ${{ steps.ffmpeg-cache.outputs.cache-primary-key }}

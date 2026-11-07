@@ -1,0 +1,28 @@
+name: clipper environment
+description: just, uv, Python and the project's locked dependencies, on a runner with Windows Defender's realtime scanning off.
+
+runs:
+  using: composite
+  steps:
+    - name: Disable Windows Defender realtime scanning
+      if: runner.os == 'Windows'
+      shell: powershell
+      run: Set-MpPreference -DisableRealtimeMonitoring $true
+
+    - name: Setup just
+      uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+      with:
+        version: "0.9.26"
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+
+    - name: Set up Python
+      shell: bash
+      run: uv python install
+
+    - name: Install the project
+      shell: bash
+      run: uv sync --locked
