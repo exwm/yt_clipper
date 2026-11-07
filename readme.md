@@ -117,6 +117,7 @@ YouTube is the primary video platform supported by yt_clipper. Other supported p
     - [Markup Script Tips](#markup-script-tips)
     - [Clipper Script Tips](#clipper-script-tips-1)
   - [Gamma Correction](#gamma-correction)
+  - [Video Stabilization](#video-stabilization)
 - [Clipper Script Source](#clipper-script-source)
 - [Clipper Script Usage](#clipper-script-usage)
   - [Cookies for Sign-in-Required Videos](#cookies-for-sign-in-required-videos)
@@ -606,10 +607,7 @@ Use the **Crop Easing** setting to choose how a dynamic crop pans and zooms betw
 ### Dynamic Crop Tips
 
 - Use as few points as possible for smoother motion.
-- Try enabling video stabilization to smooth out the motion, especially if many points are used.
-  - The `clipper script` warns when a stabilized clip comes out shakier than its input (not checked for loops, ffmpeg motion interpolation or hardware encoders). Disable video stabilization for that marker pair if it does.
-  - If a stabilized clip jolts or drifts where it should not, run the `clipper script` with `--no-video-stabilization-motion-analysis` (`-nvsma`). It turns off the motion analysis, which repairs the motion at flashes and ignores things that move on their own.
-  - Since version 5.50.0, stabilization presets weaker than **Strongest** crop more and steady more.
+- To smooth jumps between crop points, use **Cinematic** crop easing. Use [video stabilization](#video-stabilization) for camera shake.
 - Pause the video and **Right-Click+Drag** to seek/scrub through the video. Use this to preview the crop movement with precise control.
 - For motion tracking, drop multiple crop points in one continuous **Ctrl+Click+Drag** on the crop overlay: press **A** (when the crop chart is visible) or **Alt+A** at each subject position to add a crop point and keep dragging. Combine with the mouse wheel during the same drag to zoom the crop in/out (center-out) while panning.
 
@@ -797,6 +795,21 @@ Two formats are supported:
 - A value of 1 does nothing. Use a value between 0 and 1 to bring back shadow detail and a value greater than 1 to bring back highlight detail.
 - Refer to this [gamma correction guide](https://www.cambridgeincolour.com/tutorials/gamma-correction.htm) for more details.
 
+## Video Stabilization
+
+Set **Stabilization** in the global settings editor, or per marker pair in the marker pair editor, to a preset from **Very Weak** to **Strongest**. Video stabilization smooths out camera shake. It crops and zooms the video, and stronger presets crop more.
+
+- Since version 5.50.0, presets weaker than **Strongest** crop more and steady more.
+- The motion analysis makes video stabilization follow the camera instead of things that move on their own, and repairs the motion at flashes. If a stabilized clip jolts or drifts where it should not, run the `clipper script` with `--no-video-stabilization-motion-analysis` (`-nvsma`) to turn the motion analysis off.
+- The `clipper script` warns when a stabilized clip comes out shakier than its input. Disable video stabilization for that marker pair if it does. The check is skipped for loops, ffmpeg motion interpolation and hardware encoders.
+- Use `--video-stabilization-save-shaky-clip` to also save the unstabilized version of each clip in the `shaky` folder, to compare it with the stabilized clip.
+- With ffmpeg older than 9.0.2, video stabilization runs without the motion analysis. The `clipper script` installation bundles ffmpeg 9.0.2.
+
+On a dynamic crop, video stabilization can pull the crop a few pixels off the crop points. It treats a fast reframe as shake and smooths it into a slide. Crop points with instant easing stay cuts.
+
+- To smooth jumps between crop points, use **Cinematic** [crop easing](#crop-easing), not video stabilization.
+- Disable video stabilization for a marker pair whose crop must follow its crop points exactly.
+
 # Clipper Script Source
 
 - You can find the latest mainline clipper script python source file here: <https://github.com/exwm/yt_clipper/blob/master/src/clipper/yt_clipper.py>
@@ -965,7 +978,7 @@ These dependencies must be manually installed when not using the clipper script 
 
 - ffmpeg must be in your path: (<https://www.ffmpeg.org/download.html>).
   - Use ffmpeg 9.0.2 (the version bundled with the `clipper script` installation).
-  - With older versions, video stabilization crops more, and the clip can jerk at flashes and around moving subjects.
+  - With older versions, video stabilization runs without the motion analysis, so the clip can jerk at flashes and around moving subjects.
 - install required python packages as listed in the `requirements.txt`:
   - `pip install -r ./src/clipper/requirements.txt`
 
