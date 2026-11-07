@@ -118,6 +118,7 @@ YouTube is the primary video platform supported by yt_clipper. Other supported p
     - [Clipper Script Tips](#clipper-script-tips-1)
   - [Gamma Correction](#gamma-correction)
   - [Video Stabilization](#video-stabilization)
+  - [Motion Interpolation](#motion-interpolation)
 - [Clipper Script Source](#clipper-script-source)
 - [Clipper Script Usage](#clipper-script-usage)
   - [Cookies for Sign-in-Required Videos](#cookies-for-sign-in-required-videos)
@@ -132,7 +133,6 @@ YouTube is the primary video platform supported by yt_clipper. Other supported p
       - [Merge Utility Script](#merge-utility-script)
 - [All Releases](#all-releases)
 - [Clipper Script Dependencies](#clipper-script-dependencies)
-  - [Motion Interpolation](#motion-interpolation)
 - [Changelog](#changelog)
 
 # Terminology and Installation
@@ -810,6 +810,32 @@ On a dynamic crop, video stabilization can pull the crop a few pixels off the cr
 - To smooth jumps between crop points, use **Cinematic** [crop easing](#crop-easing), not video stabilization.
 - Disable video stabilization for a marker pair whose crop must follow its crop points exactly.
 
+## Motion Interpolation
+
+Set **Src FPS Multiplier** in the additional settings (**Shift+W**) of the global settings editor, or per marker pair in the additional settings of the marker pair editor, to smooth out slowed-down clips. Motion interpolation adds new frames between the video's own frames, using [video2x](https://github.com/k4yt3x/video2x) and its RIFE model. A value of 0 (the default) disables motion interpolation.
+
+The multiplier is relative to the fps of the source video, not of the slowed-down clip. The clip comes out at the source fps times the multiplier. For a 30 fps video at speed 0.5, the slowed-down clip plays at 15 fps. With a multiplier of:
+
+- **1:** The clip comes out at 30 fps, the source fps.
+- **2:** The clip comes out at 60 fps.
+
+Details:
+
+- In the marker pair editor, the **Src FPS Multiplier** label ends with the multiplier relative to the clip at the marker pair's speed. A multiplier of 1 at speed 0.5 shows **→ 2.00× clip**. A whole number there keeps every original frame.
+- With a dynamic speed chart, slower sections get more new frames, and the whole clip comes out at one fps.
+- The `clipper script` skips motion interpolation when even the slowest part of the clip plays at or above the target fps, for example a multiplier of 1 at speed 1 or faster.
+- Motion interpolation can add artifacts (visual glitches), more so with fast or complex motion.
+- Motion interpolation averages two interpolations per new frame by default, which is slower but has fewer artifacts. Use `--no-minterp-tta` (`-nmtta`) for a faster pass.
+- On the command line, use `--minterp-fps-multiplier` (`-mfm`).
+
+Motion interpolation is only supported on **Windows** and **Linux** for now, and needs a Vulkan-capable GPU. Hardware-accelerated encoders do not yet work with video2x.
+
+The `clipper script` needs the [yt_clipper build of video2x 6.7.0](https://github.com/exwm/video2x/releases/tag/v6.7.0-exwm). Upstream video2x doesn't work, as it lacks the `--vfr-min-fps` option the `clipper script` uses. The `clipper script` looks for video2x in its installation folder, then on the system PATH:
+
+- **Windows (easiest):** Download the `yt_clipper_win_*.zip` release. video2x is pre-bundled in `bin/video-tools/`, with only the RIFE model the clipper uses (`rife-v4.26`). For its other models (for example for upscaling), copy the `models` folder from the matching [yt_clipper build of video2x](https://github.com/exwm/video2x/releases) into `bin/video-tools/`. Only copy the `models` folder: the rest of that zip includes its own copy of the ffmpeg DLLs.
+- **Windows (manual):** Download `video2x-windows-amd64.zip` from the yt_clipper build of video2x, extract it, and place the contents in `bin/video2x/` inside your clipper installation directory. Keep the ffmpeg DLLs from the zip in that folder.
+- **Linux:** Install `video2x-linux-ubuntu-amd64.deb` from the yt_clipper build of video2x, or put its AppImage on the system PATH as `video2x`.
+
 # Clipper Script Source
 
 - You can find the latest mainline clipper script python source file here: <https://github.com/exwm/yt_clipper/blob/master/src/clipper/yt_clipper.py>
@@ -981,19 +1007,7 @@ These dependencies must be manually installed when not using the clipper script 
   - With older versions, video stabilization crops as in version 5.49.0. With ffmpeg 6.x and some 7.x builds, it also runs without the motion analysis, so the clip can jerk at flashes and around moving subjects.
 - install required python packages as listed in the `requirements.txt`:
   - `pip install -r ./src/clipper/requirements.txt`
-
-## Motion Interpolation
-
-Motion interpolation (frame rate multiplication using AI) is powered by [video2x](https://github.com/k4yt3x/video2x) and is only supported on **Windows** and **Linux** for now.
-
-To use it, video2x must be in the clipper script installation or on the system PATH if using the script directly:
-
-- **Easiest:** Download the `yt_clipper_win_*.zip` release. video2x is pre-bundled in `bin/video-tools/`, with only the RIFE model the clipper uses (`rife-v4.26`). For its other models (e.g. for upscaling), copy the `models` folder from the matching [yt_clipper build of video2x](https://github.com/exwm/video2x/releases) into `bin/video-tools/`. Only copy the `models` folder: the rest of that zip includes its own copy of the ffmpeg DLLs.
-- **Manual:** Download `video2x-windows-amd64.zip` from the [yt_clipper build of video2x 6.6.0](https://github.com/exwm/video2x/releases/tag/v6.6.0-exwm), extract it, and place the contents in `bin/video2x/` inside your clipper installation directory. Upstream video2x doesn't work, as it lacks the `--vfr-min-fps` option the `clipper script` uses. Keep the ffmpeg DLLs from the zip in that folder.
-
-Once installed, enable motion interpolation on a marker pair by setting `FPS Multiplier` to a value greater than 1 (e.g. `2` to double the frame rate). The RIFE model is used for interpolation. Hardware-accelerated encoders do not yet work with video2x.
-
-Note that video2x requires a vulkan-capable GPU. See also <https://github.com/k4yt3x/video2x>.
+- video2x is needed for [motion interpolation](#motion-interpolation).
 
 
 # Changelog

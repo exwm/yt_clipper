@@ -300,7 +300,7 @@ export namespace Tooltips {
   //   `;
 
   export const minterpFpsMultiplierTooltip = stripIndent`
-    Input a source fps multiplier (≥ 1) to enable motion interpolation via video2x RIFE.
+    Input a source fps multiplier to enable motion interpolation via video2x RIFE.
     A value of 0 (default) disables motion interpolation.
     A value of 1 targets the original source video fps, compensating for slowdown.
     Higher values (e.g. 2) target N x source fps for extra-smooth slow motion.
@@ -310,7 +310,7 @@ export namespace Tooltips {
 
     Setting a source fps multiplier that is an integer multiple of the static speed (e.g. 1.2 = 2 * 0.6)
     will preserve original frames when doing motion interpolation.
-    This is indicated with the effective clip fps multiplier in parentheses after the input label.
+    The marker pair editor shows the effective clip fps multiplier after the input label (e.g. → 2.00× clip).
     `;
 
   export const vidstabTooltip = stripIndent`

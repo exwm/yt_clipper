@@ -240,7 +240,7 @@ def add_vfilter_options(vfilter_options: argparse._ArgumentGroup) -> None:
         type=float,
         help=" ".join(
             [
-                "Input an fps multiplier (>= 1) to enable motion interpolation via video2x RIFE.",
+                "Input an fps multiplier to enable motion interpolation via video2x RIFE.",
                 "A value of 0 (default) disables motion interpolation.",
                 "A value of 1 targets the original source video fps, compensating for slowdown.",
                 "Higher values (e.g. 2) target N x source fps for extra-smooth slow motion.",
