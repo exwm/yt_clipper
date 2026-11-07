@@ -52,6 +52,7 @@ padding = 0
 
 [[release."5.50.0"]]
 name = "timeline-zoom"
-scenario = "timeline-zoom"
-clip = [".ytc-tz"]
+scenario = "timeline-zoom-highlight"
+clip = [".ytc-tz", ".ytc-tz-brush"]
 padding = 8
+asset = "yt_clipper_timeline_zoom.png"
