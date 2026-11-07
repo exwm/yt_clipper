@@ -900,7 +900,7 @@ export function createShortcutDefinitions(deps: ShortcutDeps): ShortcutDefinitio
       description: 'Toggle reframe mode',
       subtitle: 'The current crop fills the player and everything outside it is black.',
       details:
-        'A preview of the clip as the crop pans and zooms. The preview never changes the output.',
+        'A preview of the clip as the crop pans and zooms. Ctrl+Mousewheel zooms the crop. The preview never changes the output.',
       displayKey: 'V',
       section: 'Markup',
       category: 'Cropping Shortcuts',

@@ -43,8 +43,8 @@ export interface ShortcutDefinition {
   id: string;
   /** One short line that fits a palette row. */
   description: string;
-  /** One short line explaining the description: a muted second line under the keyboard-selected
-   *  palette row and in the shortcuts table. */
+  /** One short line explaining the description: a muted second line under each palette row and in
+   *  the shortcuts table. */
   subtitle?: string;
   /** What doesn't fit the subtitle's line, never repeating it: the palette row's tooltip (with an
    *  info mark) and a line in the shortcuts table. */

@@ -9,7 +9,8 @@ from test_palette_footer import when_i_open_the_palette
 ZOOM_SUBTITLE = "Shows a zoomed bar above the progress bar, where crowded marker pairs spread out."
 REFRAME_SUBTITLE = "The current crop fills the player and everything outside it is black."
 REFRAME_DETAILS = (
-    "A preview of the clip as the crop pans and zooms. The preview never changes the output."
+    "A preview of the clip as the crop pans and zooms. Ctrl+Mousewheel zooms the crop."
+    " The preview never changes the output."
 )
 
 
