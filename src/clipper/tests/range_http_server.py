@@ -1,5 +1,5 @@
-"""A local HTTP file server with byte range support that records what it serves, standing in for a
-video host such as YouTube in tests."""
+"""A local HTTP file server with byte range support that records each range requested, standing in
+for a video host such as YouTube in tests."""
 
 import re
 import threading
@@ -40,6 +40,10 @@ class RangeHTTPServer:
                 if match:
                     start = int(match[1] or 0)
                     end = min(int(match[2]), size - 1) if match[2] else size - 1
+                # Recorded before replying: a client can finish reading before this thread runs on.
+                with server._lock:
+                    server.served.append(ServedRange(self.path, start, end - start + 1))
+                if match:
                     self.send_response(206)
                     self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
                 else:
@@ -60,8 +64,6 @@ class RangeHTTPServer:
                             sent += len(chunk)
                     except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
                         pass  # ffmpeg closes the connection once it has what it needs
-                with server._lock:
-                    server.served.append(ServedRange(self.path, start, sent))
 
         self._httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self._thread = threading.Thread(target=self._httpd.serve_forever, daemon=True)
