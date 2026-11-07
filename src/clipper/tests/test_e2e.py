@@ -68,6 +68,8 @@ class Clipper:
         # A built clipper runs from its own folder, as the release's .bat helpers do, and reads its
         # default_args.txt (e.g. YouTube cookies).
         self.cwd = exe.parent if exe else tmp_path
+        # Markers JSON files a test writes stay out of a built clipper's folder, which CI zips.
+        self.markersDir = tmp_path
         self.monkeypatch = monkeypatch
         self.capsys = capsys
 
@@ -1102,7 +1104,7 @@ def interpolateSyntheticClip(
     assert ffmpeg is not None
     _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, source, media)
     name = f"{source}-{tool}-{speed}" + ("" if dedupe else "-no-dedupe")
-    markers = syntheticMarkers(clipper.cwd, name, SPEED_MAPS[speed], crop=INTERPOLATION_CROP)
+    markers = syntheticMarkers(clipper.markersDir, name, SPEED_MAPS[speed], crop=INTERPOLATION_CROP)
     output = clipper.cwd / "webms" / name
     shutil.rmtree(output, ignore_errors=True)
     run = clipper.run(
@@ -1231,7 +1233,7 @@ def test_removing_duplicate_frames_without_interpolation_plays_the_kept_frames_b
     _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-24-in-30", syntheticMedia)
     name = "motion-24-in-30-no-interpolation"
     speedMap = [{"x": SYNTHETIC_PAIR[0], "y": 1}, {"x": SYNTHETIC_PAIR[1], "y": 1}]
-    markers = syntheticMarkers(clipper.cwd, name, speedMap)
+    markers = syntheticMarkers(clipper.markersDir, name, speedMap)
     run = clipper.run(
         [
             "--markers-json",
@@ -1302,7 +1304,7 @@ def test_cinematic_pair_renders_the_path_solved_from_its_crop_points(
     _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-native-30", syntheticMedia)
     name = f"cinematic-{len(crops)}-{size}"
     start, end = SYNTHETIC_PAIR
-    markers = syntheticMarkers(clipper.cwd, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
+    markers = syntheticMarkers(clipper.markersDir, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
     data = json.loads(markers.read_text(encoding="utf-8"))
     pair = data["markerPairs"][0]
     times = [start + (end - start) * i / (len(crops) - 1) for i in range(len(crops))]
@@ -1353,7 +1355,7 @@ def test_stabilized_clip_saves_the_shaky_clip_only_when_asked(
     _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-native-30", syntheticMedia)
     name = "stabilized" + "".join(args).replace("--", "-")
     start, end = SYNTHETIC_PAIR
-    markers = syntheticMarkers(clipper.cwd, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
+    markers = syntheticMarkers(clipper.markersDir, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
     run = clipper.run(
         [
             "--markers-json",
@@ -1393,7 +1395,7 @@ def test_stabilized_clip_is_made_without_overwrite(
     _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-native-30", syntheticMedia)
     name = "stabilized-without-overwrite"
     start, end = SYNTHETIC_PAIR
-    markers = syntheticMarkers(clipper.cwd, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
+    markers = syntheticMarkers(clipper.markersDir, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
     run = clipper.run(
         [
             "--markers-json",
@@ -1434,7 +1436,7 @@ def test_stabilization_analyses_the_frames_vid_stab_sees_when_removing_duplicate
     _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "fade", syntheticMedia)
     name = "stabilized-dedupe"
     start, end = SYNTHETIC_PAIR
-    markers = syntheticMarkers(clipper.cwd, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
+    markers = syntheticMarkers(clipper.markersDir, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
     run = clipper.run(
         [
             "--markers-json",
@@ -1467,7 +1469,7 @@ def test_stabilization_repairs_the_motion_with_ffmpeg_from_a_tools_folder(
     _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-native-30", syntheticMedia)
     name = "stabilized-tools-folder"
     start, end = SYNTHETIC_PAIR
-    markers = syntheticMarkers(clipper.cwd, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
+    markers = syntheticMarkers(clipper.markersDir, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
     run = clipper.run(
         [
             "--markers-json",
@@ -1511,7 +1513,7 @@ def test_a_failed_stabilization_pass_leaves_no_analysis_or_shake_files(
     _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-native-30", syntheticMedia)
     name = f"stabilized-failing-pass-{failingPass}"
     start, end = SYNTHETIC_PAIR
-    markers = syntheticMarkers(clipper.cwd, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
+    markers = syntheticMarkers(clipper.markersDir, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
     run = clipper.run(
         [
             "--markers-json",
@@ -1572,7 +1574,7 @@ def test_stabilization_without_motion_analysis_keeps_the_zoom_budget_and_check(
     _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-native-30", syntheticMedia)
     name = "stabilized-without-motion-analysis"
     start, end = SYNTHETIC_PAIR
-    markers = syntheticMarkers(clipper.cwd, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
+    markers = syntheticMarkers(clipper.markersDir, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
     run = clipper.run(
         [
             "--markers-json",
@@ -1626,7 +1628,7 @@ def test_stabilization_runs_without_the_repair_where_vid_stab_has_no_text_transf
     _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-native-30", syntheticMedia)
     name = "stabilized-plain-by-probe"
     start, end = SYNTHETIC_PAIR
-    markers = syntheticMarkers(clipper.cwd, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
+    markers = syntheticMarkers(clipper.markersDir, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
     run = clipper.run(
         [
             "--markers-json",
@@ -1681,7 +1683,7 @@ def test_stabilization_crops_as_5_49_with_a_vid_stab_without_the_l1_camera_path(
     _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-native-30", syntheticMedia)
     name = "stabilized-gaussian-only"
     start, end = SYNTHETIC_PAIR
-    markers = syntheticMarkers(clipper.cwd, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
+    markers = syntheticMarkers(clipper.markersDir, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
     run = clipper.run(
         [
             "--markers-json",
@@ -1720,7 +1722,7 @@ def test_stabilized_pair_with_a_filter_too_long_for_the_command_line_reads_it_fr
     _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-native-30", syntheticMedia)
     name = "stabilized-long-filter"
     start, end = SYNTHETIC_PAIR
-    markers = syntheticMarkers(clipper.cwd, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
+    markers = syntheticMarkers(clipper.markersDir, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
     data = json.loads(markers.read_text(encoding="utf-8"))
     crops = ("0:0:320:180", "320:0:320:180") * 20
     times = [start + (end - start) * i / (len(crops) - 1) for i in range(len(crops))]
@@ -1767,7 +1769,7 @@ def test_stabilization_with_a_slowdown_and_interpolation_stays_stable_to_the_end
     # pass leaves 1.7 px/frame of shake here, 1.03 in the whole frame (measured)
     size = (shaky_media.WIDTH // 2, shaky_media.HEIGHT // 2)
     markers = syntheticMarkers(
-        clipper.cwd, name, [{"x": pair[0], "y": 0.5}, {"x": pair[1], "y": 0.5}], pair=pair,
+        clipper.markersDir, name, [{"x": pair[0], "y": 0.5}, {"x": pair[1], "y": 0.5}], pair=pair,
         crop=f"0:0:{size[0]}:{size[1]}",
     )  # fmt: skip
     args = [
@@ -1850,7 +1852,7 @@ def runMerge(
     ffmpeg = clipper.toolPath("ffmpeg")
     assert ffmpeg is not None
     _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, source, media)
-    markers = mergedMarkers(clipper.cwd, name, crops)
+    markers = mergedMarkers(clipper.markersDir, name, crops)
     data = json.loads(markers.read_text(encoding="utf-8"))
     data["markerPairMergeList"] = mergeList
     if editMarkers:
@@ -2286,7 +2288,7 @@ def segmentReads(clipper: Clipper, videoHost: RangeHTTPServer, name: str, args: 
     clipper.requireEncoder("libvpx-vp9")
     start, end = NETWORK_PAIR
     markers = syntheticMarkers(
-        clipper.cwd,
+        clipper.markersDir,
         name,
         [{"x": start, "y": 1}, {"x": end, "y": 1}],
         NETWORK_PAIR,

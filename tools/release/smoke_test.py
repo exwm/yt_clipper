@@ -162,12 +162,8 @@ class SmokeTest:
         self.check(ok, "invalid markers JSON is rejected (the schema is bundled)")
 
     def outputPaths(self) -> set[Path]:
-        """The clips, logs and temp files in the release, and their folders."""
-        return {
-            path
-            for name in ("webms", "temp")
-            for path in [self.release / name, *(self.release / name).rglob("*")]
-        }
+        """Every file and folder in the release, so a check that writes anywhere in it is caught."""
+        return set(self.release.rglob("*"))
 
     def checkNoLeftovers(self, before: set[Path]) -> None:
         # CI zips the folder right after these checks. An installed release may hold clips already.
