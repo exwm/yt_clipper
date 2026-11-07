@@ -41,9 +41,9 @@ env:
   DENO_SHA256_MAC: 32a5b2bcf49432715719c7c769529269fbd08cafdc059b7cecd42f9d771059ab
 
   # Built against the same gyan.dev ffmpeg as FFMPEG_VERSION, whose DLLs it shares.
-  VIDEO2X_VERSION: "6.6.0-exwm"
+  VIDEO2X_VERSION: "6.7.0-exwm"
   VIDEO2X_BASE_URL: https://github.com/exwm/video2x/releases/download
-  VIDEO2X_SHA256_WIN: 77540ce239b7e392f3c024d624f0bce41a1792606b6a21f608507563a76be463
+  VIDEO2X_SHA256_WIN: b1f1551455bc91176d9f0dc5ae8d01d2b0ff3425a99fe42fb018935d9e63a276
   # The models the clipper uses (RIFE_MODEL in src/clipper/video2x.py), out of about 150 MB.
   VIDEO2X_MODELS: "rife/rife-v4.26"
 

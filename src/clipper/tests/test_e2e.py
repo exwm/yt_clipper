@@ -22,7 +22,7 @@ from fractions import Fraction
 
 import pytest
 
-from clipper import clip_maker, dedupe, merge_rescale
+from clipper import clip_maker, dedupe, merge_rescale, video2x
 from clipper.tests import shaky_media, synthetic_media
 from clipper.tests.range_http_server import RangeHTTPServer
 from clipper.tests.stabilization_metrics import grayFrames, shakeLeft
@@ -80,7 +80,8 @@ class Clipper:
         if encoder not in ffmpegEncoders(self.toolPath("ffmpeg")):
             pytest.skip(f"needs an ffmpeg with {encoder}")
 
-    def requireVideo2x(self) -> None:
+    def requireVideo2x(self) -> pathlib.Path:
+        """The video2x the clipper runs, skipping the test without one or a GPU it can use."""
         if self.exe:
             video2x = pathlib.Path(self.toolPath("video2x") or "")
             if not video2x.is_file():
@@ -94,6 +95,7 @@ class Clipper:
             self.monkeypatch.setenv("PATH", f"{video2xDir}{os.pathsep}{os.environ['PATH']}")
         if not hasVulkanDevice(str(video2x)):
             pytest.skip("needs a GPU video2x can use (none on CI runners)")
+        return video2x
 
     def run(self, args: list[str], answer: str | None = None) -> ClipperRun:
         """Runs the clipper. `answer` is typed at every prompt; without it, prompts read end of input."""
@@ -1165,6 +1167,36 @@ def test_interpolated_synthetic_clip_keeps_its_length(
     # As the clipper renders the speed map: through the frame shown at its end.
     length = clipperOutputDuration(SPEED_MAPS[speed], str(SOURCE_FPS))
     assert clipper.probeDuration(clip) == pytest.approx(length, abs=LENGTH_TOLERANCE)
+
+
+@pytest.mark.parametrize("speed", SPEED_MAPS)
+def test_video2x_output_plays_at_the_target_frame_rate(
+    clipper: Clipper, syntheticMedia: pathlib.Path, speed: str, request: pytest.FixtureRequest
+) -> None:
+    version = video2x.exwmVersion(
+        subprocess.run(
+            [clipper.requireVideo2x(), "--version"], capture_output=True, text=True, check=True
+        ).stdout
+    )
+    if version is None:
+        pytest.skip("needs the yt_clipper build of video2x, which has --vfr-min-fps")
+    if version < (6, 6, 1):
+        # Each frame's duration was rounded to the output's time base: a webm at 59.94 fps played at 58.82
+        request.applymarker(pytest.mark.xfail(reason="fixed in video2x 6.6.1-exwm", strict=True))
+    clip = interpolateSyntheticClip(
+        clipper, syntheticMedia, "cartoon-12-in-30", "video2x", speed, dedupe=False
+    )
+    ffprobe = clipper.toolPath("ffprobe")
+    assert ffprobe is not None
+    times = [
+        float(line)
+        for line in subprocess.run(
+            [ffprobe, "-v", "error", "-select_streams", "v:0", "-show_entries", "frame=pts_time", "-of", "csv=p=0", str(clip)],
+            capture_output=True, text=True, check=True,
+        ).stdout.split()
+    ]  # fmt: skip
+    rate = (len(times) - 1) / (times[-1] - times[0])
+    assert rate == pytest.approx(2 * float(SOURCE_FPS), rel=0.002)
 
 
 def holds(clipper: Clipper, clip: pathlib.Path, frames: int = 3) -> int:

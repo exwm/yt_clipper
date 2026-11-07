@@ -262,11 +262,26 @@ def add_vfilter_options(vfilter_options: argparse._ArgumentGroup) -> None:
                 "video2x uses the video2x post-processor with the RIFE model for higher quality interpolation.",
                 "video2x requires a vulkan-capable GPU. See also https://github.com/k4yt3x/video2x/.",
                 "Frozen releases look for video2x in bin/video-tools and then bin/video2x in the install folder, then on the system PATH.",
-                "Download it separately from the yt_clipper build of video2x (6.6.0-exwm) at https://github.com/exwm/video2x/releases, since upstream video2x lacks an option the clipper script uses.",
+                "Download it separately from the yt_clipper build of video2x (6.7.0-exwm) at https://github.com/exwm/video2x/releases, since upstream video2x lacks an option the clipper script uses.",
                 "video2x does not yet support hardware-accelerated encoders like h264_vulkan or h264_nvenc.",
                 "ffmpeg-based motion interpolation is deprecated and scheduled to be removed.",
                 "ffmpeg-based motion interpolation requires --minterp-fps or a non-Numeric minterp mode to have effect.",
                 "ffmpeg uses the built-in minterp filter.",
+            ],
+        ),
+    )
+    vfilter_options.add_argument(
+        "--no-minterp-tta",
+        "-nmtta",
+        action="store_false",
+        dest="minterpTta",
+        default=True,
+        help=" ".join(
+            [
+                "Turn off temporal TTA in video2x motion interpolation, which is faster but adds more artifacts.",
+                "By default, each new frame averages two RIFE interpolations, one with the input frames swapped (temporal TTA).",
+                "This is slower but has fewer artifacts.",
+                "Needs the yt_clipper build of video2x 6.7.0-exwm or later. Older builds interpolate without it.",
             ],
         ),
     )

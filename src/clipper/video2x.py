@@ -1,3 +1,5 @@
+import functools
+import re
 import shlex
 import subprocess
 from fractions import Fraction
@@ -14,6 +16,47 @@ logger = make_subsystem_logger(Subsystem.VIDEO2X)
 
 # The Windows release bundles only this model (VIDEO2X_MODELS in yt_clipper_ci.yml).
 RIFE_MODEL = "rife-v4.26"
+
+# The first yt_clipper build of video2x with --rife-tta-temporal.
+TTA_MIN_VERSION = (6, 7, 0)
+
+
+def exwmVersion(versionOutput: str) -> tuple[int, int, int] | None:
+    """The version in `video2x --version` output of a yt_clipper (-exwm) build, or None for others."""
+    match = re.search(r"(\d+)\.(\d+)\.(\d+)-exwm", versionOutput)
+    return (int(match[1]), int(match[2]), int(match[3])) if match else None
+
+
+def supportsTta(versionOutput: str) -> bool:
+    """Whether `video2x --version` output names a yt_clipper (-exwm) build with temporal TTA."""
+    version = exwmVersion(versionOutput)
+    return version is not None and version >= TTA_MIN_VERSION
+
+
+@functools.cache
+def video2xSupportsTta(video2xPath: str) -> bool:
+    try:
+        output = subprocess.run(
+            [video2xPath, "--version"],
+            capture_output=True,
+            text=True,
+            errors="replace",
+            timeout=30,
+            check=False,
+        ).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        # Interpolating without TTA is the 5.49 behavior, so an unreadable version falls back to it.
+        output = ""
+    supported = supportsTta(output)
+    # A missing or upstream video2x fails the interpolation with its own error, so only an older
+    # yt_clipper build gets this notice.
+    if not supported and exwmVersion(output) is not None:
+        path = rich.markup.escape(video2xPath)
+        logger.notice(
+            f"video2x at '{path}' is older than the yt_clipper build 6.7.0-exwm, so motion interpolation runs without temporal TTA.",
+        )
+    return supported
+
 
 AVCodecContextOptions = {
     "-pix_fmt": "--pix-fmt",
@@ -41,6 +84,8 @@ def buildVideo2xArgs(
     mp: DictStrAny,
     mps: DictStrAny,
     video_codec_args: str,
+    *,
+    tta: bool,
 ) -> str:
     codec = VIDEO_ENCODERS[mps["videoCodec"]]
 
@@ -90,6 +135,7 @@ def buildVideo2xArgs(
                 fps_arg,
                 "--processor rife",
                 f"--rife-model {RIFE_MODEL}",
+                "--rife-tta-temporal" if tta else "",
                 "--preserve-metadata",
                 f"-c {codec}",
                 extra_encoder_args,
@@ -109,7 +155,8 @@ def runVideo2xCommand(
     pre_v2x_path = mp["filePath"]
     final_path = mp["v2xFinalFilePath"]
 
-    args_str = buildVideo2xArgs(pre_v2x_path, final_path, mp, mps, video_codec_args)
+    tta = mps["minterpTta"] and video2xSupportsTta(argvPath(cp.video2xPath))
+    args_str = buildVideo2xArgs(pre_v2x_path, final_path, mp, mps, video_codec_args, tta=tta)
 
     # video2x doesn't have a separate overwrite flag; if the final exists and
     # overwrite is off, skip (we already guarded this via mp["exists"])
