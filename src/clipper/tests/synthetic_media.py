@@ -7,9 +7,12 @@ upload. Used by the e2e tests and by tools/encoding/dedupe_eval.py.
 import functools
 import hashlib
 import json
+import os
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from clipper.tests import shaky_media
 
 MOTION = "testsrc2=size=640x360:rate={rate}"
 # A textured still: a fixed test pattern, no moving parts.
@@ -145,11 +148,24 @@ def ffmpegVersion(ffmpeg: str) -> str:
 
 
 def makeWhole(path: Path, command: list[str]) -> None:
-    """Runs an ffmpeg command whose last argument is the output, into a partial file first, so a
-    stopped run never leaves a file that looks made."""
-    partial = path.with_name(f"partial-{path.name}")
+    """Runs an ffmpeg command whose last argument is the output, into a partial file of this process
+    first, so a stopped run never leaves a file that looks made and test workers sharing the folder
+    never write the same file."""
+    partial = path.with_name(f"partial-{os.getpid()}-{path.name}")
     subprocess.run([*command, str(partial)], check=True)
-    partial.replace(path)
+    try:
+        partial.replace(path)
+    except PermissionError:
+        # Windows: another worker made it first and a test is reading it
+        if not path.exists():
+            raise
+        partial.unlink()
+
+
+def mediaFolder(ffmpeg: str) -> Path:
+    """A folder for the clips kept between test runs and shared by the test workers, as the shaky
+    clips' is."""
+    return shaky_media.mediaFolder(ffmpeg, Path(__file__), "yt_clipper-synthetic-media")
 
 
 def makeSyntheticClip(

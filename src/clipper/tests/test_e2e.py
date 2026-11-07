@@ -42,6 +42,13 @@ EXE = ".exe" if sys.platform == "win32" else ""
 OFFLINE_ARGS = ("--no-ytdl-auto-update", "--overwrite")
 
 
+def toolPath(exe: pathlib.Path | None, name: str) -> str | None:
+    """A built clipper's bundled tool, else the one on PATH."""
+    if exe:
+        return str(exe.parent / "bin" / "video-tools" / f"{name}{EXE}")
+    return shutil.which(name)
+
+
 @dataclass(frozen=True)
 class ClipperRun:
     returncode: int
@@ -65,21 +72,10 @@ class Clipper:
         self.capsys = capsys
 
     def toolPath(self, name: str) -> str | None:
-        if self.exe:
-            return str(self.exe.parent / "bin" / "video-tools" / f"{name}{EXE}")
-        return shutil.which(name)
+        return toolPath(self.exe, name)
 
     def requireEncoder(self, encoder: str) -> None:
-        ffmpeg = self.toolPath("ffmpeg")
-        encoders = ""
-        if ffmpeg and pathlib.Path(ffmpeg).is_file():
-            encoders = subprocess.run(
-                [ffmpeg, "-hide_banner", "-encoders"],
-                capture_output=True,
-                text=True,
-                check=False,
-            ).stdout
-        if encoder not in encoders:
+        if encoder not in ffmpegEncoders(self.toolPath("ffmpeg")):
             pytest.skip(f"needs an ffmpeg with {encoder}")
 
     def requireVideo2x(self) -> None:
@@ -165,6 +161,16 @@ class Clipper:
             check=True,
         )
         return float(probe.stdout.strip())
+
+
+@functools.cache
+def ffmpegEncoders(ffmpeg: str | None) -> str:
+    """ffmpeg's encoder list, read once per worker: nearly every test asks it."""
+    if not (ffmpeg and pathlib.Path(ffmpeg).is_file()):
+        return ""
+    return subprocess.run(
+        [ffmpeg, "-hide_banner", "-encoders"], capture_output=True, text=True, check=False
+    ).stdout
 
 
 @functools.cache
@@ -1034,8 +1040,17 @@ INTERPOLATION_TOOLS = {"minterpolate": "ffmpeg", "video2x": "video2x"}
 
 
 @pytest.fixture(scope="session")
-def syntheticMedia(tmp_path_factory: pytest.TempPathFactory) -> pathlib.Path:
-    return tmp_path_factory.mktemp("synthetic-media")
+def syntheticMedia(
+    pytestconfig: pytest.Config, tmp_path_factory: pytest.TempPathFactory
+) -> pathlib.Path:
+    """The synthetic input clips, made once for every worker and run. Tests write their clips to
+    their own folders."""
+    exe = pytestconfig.getoption("clipper_exe")
+    ffmpeg = toolPath(pathlib.Path(exe).resolve() if exe else None, "ffmpeg")
+    if not (ffmpeg and pathlib.Path(ffmpeg).is_file()):
+        # The tests skip for the missing ffmpeg
+        return tmp_path_factory.mktemp("synthetic-media")
+    return synthetic_media.mediaFolder(ffmpeg)
 
 
 def syntheticMarkers(
@@ -1675,14 +1690,13 @@ def test_stabilized_pair_with_a_filter_too_long_for_the_command_line_reads_it_fr
 
 def test_stabilization_with_a_slowdown_and_interpolation_stays_stable_to_the_end(
     clipper: Clipper,
-    syntheticMedia: pathlib.Path,
 ) -> None:
     # vid.stab uses the motion of each frame in order, so both passes must see the same frames
     # (vid.stab issue 127): a filter that changes the frame count in one pass jerks the clip's end
     clipper.requireEncoder("libvpx-vp9")
     ffmpeg = clipper.toolPath("ffmpeg")
     assert ffmpeg is not None
-    source = shaky_media.makeShakyClip(ffmpeg, "plain", syntheticMedia)
+    source = shaky_media.makeShakyClip(ffmpeg, "plain", shaky_media.mediaFolder(ffmpeg))
     name = "stabilized-slowdown"
     pair = (0.2, 2.8)
     markers = syntheticMarkers(
