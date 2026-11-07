@@ -165,9 +165,10 @@ def needs_flag_overrides(item: pytest.Item, built_mode: str | None) -> bool:
     on 'next', which makes 5.48's decisions while `fixes` is empty. Revisit this once a fix lands in
     next."""
     marker = item.get_closest_marker("frame_timing")
-    return item.get_closest_marker("local_build") is not None or (
-        marker is not None
-        and (built_mode is None or not is_shipped_mode(marker.args[0], built_mode))
+    if item.get_closest_marker("local_build") or item.get_closest_marker("feature_flags"):
+        return True
+    return marker is not None and (
+        built_mode is None or not is_shipped_mode(marker.args[0], built_mode)
     )
 
 
@@ -228,7 +229,7 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers",
         "feature_flags(flags): open the page with these feature flags set as the popup stores them;"
-        " mark the test local_build too",
+        " skipped against a CI-built userscript, like local_build",
     )
     config.addinivalue_line(
         "markers",
