@@ -48,6 +48,36 @@ env:
   VIDEO2X_MODELS: "rife/rife-v4.26"
 
 jobs:
+  # The clipper tests from source, beside the build and its smoke test (about 8 minutes each on
+  # Windows). The release needs both.
+  test-clipper:
+    defaults:
+      run:
+        shell: bash
+    runs-on: ${{ matrix.os }}
+    strategy:
+      max-parallel: 4
+      matrix:
+        os: [windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/ffmpeg
+        with:
+          cache-os: ${{ matrix.os }}
+
+      - uses: ./.github/actions/clipper-env
+
+      - name: Lint with ruff
+        run: just lint-py
+
+      # The downloaded ffmpeg lets the offline end-to-end clip tests run instead of skipping.
+      - name: Run clipper tests
+        run: PATH="$PWD/bindeps/ffmpeg/bin:$PATH" just test-py
+
   build:
     defaults:
       run:
@@ -80,19 +110,13 @@ jobs:
       - name: Set env (windows)
         if: matrix.os == 'windows-latest'
         run: |
-          echo "FFMPEG_DL_NAME=ffmpeg-${{ env.FFMPEG_VERSION }}-full_build-shared" >> $GITHUB_ENV
-          echo "FFMPEG_DL_PREFIX=${{ env.FFMPEG_WIN_BASE_URL }}/${{ env.FFMPEG_VERSION }}" >> $GITHUB_ENV
           echo "VIDEO2X_DL_URL=${{ env.VIDEO2X_BASE_URL }}/v${{ env.VIDEO2X_VERSION }}/video2x-windows-amd64.zip" >> $GITHUB_ENV
-          echo "FFMPEG_SHA256=${{ env.FFMPEG_SHA256_WIN }}" >> $GITHUB_ENV
           echo "YTDLP_SHA256=${{ env.YTDLP_SHA256_WIN }}" >> $GITHUB_ENV
           echo "DENO_SHA256=${{ env.DENO_SHA256_WIN }}" >> $GITHUB_ENV
 
       - name: Set env (macos)
         if: matrix.shortos == 'macos'
         run: |
-          echo "FFMPEG_DL_NAME=ffmpeg-${{ env.FFMPEG_VERSION }}-macos64" >> $GITHUB_ENV
-          echo "FFMPEG_DL_PREFIX=${{ env.FFMPEG_MAC_BASE_URL }}/${{ env.FFMPEG_VERSION }}" >> $GITHUB_ENV
-          echo "FFMPEG_SHA256=${{ env.FFMPEG_SHA256_MAC }}" >> $GITHUB_ENV
           echo "YTDLP_SHA256=${{ env.YTDLP_SHA256_MAC }}" >> $GITHUB_ENV
           echo "DENO_SHA256=${{ env.DENO_SHA256_MAC }}" >> $GITHUB_ENV
 
@@ -105,46 +129,9 @@ jobs:
           mkdir -p ./artifact/py/${{env.FULL_NAME}}/{webms,bin/video-tools,bin/yt-dlp,temp}/
           mkdir -p ./bindeps
 
-      # A pinned ffmpeg build never changes, so download it once per OS and version. The hash in the
-      # key makes a cache filled before the hash check download again.
-      - name: Restore ffmpeg dependency
-        id: ffmpeg-cache
-        uses: actions/cache/restore@v5
+      - uses: ./.github/actions/ffmpeg
         with:
-          path: bindeps/ffmpeg
-          key: ffmpeg-${{ matrix.os }}-${{ env.FFMPEG_VERSION }}-${{ env.FFMPEG_SHA256 }}
-
-      - name: Download ffmpeg dependency (windows)
-        if: matrix.os == 'windows-latest' && steps.ffmpeg-cache.outputs.cache-hit != 'true'
-        run: |
-          cd ./bindeps
-          curl --fail --retry 10 --retry-delay 60 --retry-all-errors -o ./ffmpeg.zip -L $FFMPEG_DL_PREFIX/$FFMPEG_DL_NAME.7z
-          bash "$GITHUB_WORKSPACE/.github/scripts/verify-sha256.sh" ./ffmpeg.zip "$FFMPEG_SHA256"
-          7z x ./ffmpeg.zip
-          mv ./$FFMPEG_DL_NAME ffmpeg
-
-          ./ffmpeg/bin/ffmpeg -version > version.txt
-          mv version.txt ffmpeg
-
-      - name: Download ffmpeg dependency (macos)
-        if: matrix.shortos == 'macos' && steps.ffmpeg-cache.outputs.cache-hit != 'true'
-        run: |
-          cd ./bindeps
-          # --fail keeps an error page from being saved as the archive. --retry-all-errors also retries
-          # failures curl does not class as transient, such as a 429 reported as exit 56.
-          curl --fail --retry 10 --retry-delay 60 --retry-all-errors -o ./ffmpeg.zip -L $FFMPEG_DL_PREFIX/$FFMPEG_DL_NAME.zip
-          bash "$GITHUB_WORKSPACE/.github/scripts/verify-sha256.sh" ./ffmpeg.zip "$FFMPEG_SHA256"
-          7z x ./ffmpeg.zip
-          mv ./$FFMPEG_DL_NAME ffmpeg
-          chmod -v +x ffmpeg/bin/*
-
-      # Saved now rather than after the job, which saves only when every later step passes.
-      - name: Cache ffmpeg dependency
-        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
-        with:
-          path: bindeps/ffmpeg
-          key: ${{ steps.ffmpeg-cache.outputs.cache-primary-key }}
+          cache-os: ${{ matrix.os }}
 
       - name: Download yt-dlp dependency
         run: |
@@ -180,33 +167,7 @@ jobs:
           rm -f ./video2x.zip
           echo "${{ env.VIDEO2X_VERSION }}" > ./video2x/video2x-version.txt
 
-      - name: Disable Windows Defender realtime scanning
-        if: matrix.os == 'windows-latest'
-        shell: powershell
-        run: Set-MpPreference -DisableRealtimeMonitoring $true
-
-      - name: Setup just
-        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
-        with:
-          version: "0.9.26"
-          enable-cache: true
-          cache-dependency-glob: "uv.lock"
-
-      - name: Set up Python
-        run: uv python install
-
-      - name: Install the project
-        run: uv sync --locked
-
-      - name: Lint with ruff
-        run: just lint-py
-
-      # The downloaded ffmpeg lets the offline end-to-end clip tests run instead of skipping.
-      - name: Run clipper tests
-        run: PATH="$PWD/bindeps/ffmpeg/bin:$PATH" just test-py
+      - uses: ./.github/actions/clipper-env
 
       - name: Generate executable
         run: just build-py
@@ -332,7 +293,7 @@ jobs:
           path: ./artifact/js/${{env.NAME}}_${{env.VERSION}}.js
 
   release:
-    needs: [build, markup]
+    needs: [test-clipper, build, markup]
     permissions:
       contents: write
     # Only downloads the builds and calls gh, so it runs on Linux and skips a second macOS queue.
