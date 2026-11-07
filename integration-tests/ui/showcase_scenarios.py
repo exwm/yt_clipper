@@ -29,6 +29,7 @@ from test_timeline_zoom import (
     given_a_pair_ending_under_the_end_edge_handle,
     given_crowded_marker_pairs,
     given_the_timeline_zoom_is_open,
+    when_i_drag_along_the_zoomed_bar_past_its,
 )
 
 Scenario = Callable[[MarkupPage], None]
@@ -122,6 +123,20 @@ def timeline_zoom(markup: MarkupPage) -> None:
 def timeline_zoom_marker_under_handle(markup: MarkupPage) -> None:
     timeline_zoom(markup)
     given_a_pair_ending_under_the_end_edge_handle(markup)
+
+
+@scenario("timeline-zoom-playhead-past-start")
+def timeline_zoom_playhead_past_start(markup: MarkupPage) -> None:
+    timeline_zoom(markup)
+    when_i_drag_along_the_zoomed_bar_past_its(markup, "start")
+    markup.page.mouse.up()
+
+
+@scenario("timeline-zoom-playhead-past-end")
+def timeline_zoom_playhead_past_end(markup: MarkupPage) -> None:
+    timeline_zoom(markup)
+    when_i_drag_along_the_zoomed_bar_past_its(markup, "end")
+    markup.page.mouse.up()
 
 
 @scenario("palette-selected-details")

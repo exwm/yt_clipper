@@ -158,13 +158,16 @@ describe('rangeFittingSpan', () => {
 describe('formatTimelineTime', () => {
   it.each([
     // Seconds per pixel for a 1200px bar: 5s -> 0.004, 120s -> 0.1, 600s -> 0.5.
-    ['shows hundredths when zoomed into a few seconds', 154.756, 0.004, '2:34.76'],
-    ['shows tenths at a couple of minutes', 154.756, 0.1, '2:34.8'],
-    ['shows whole seconds when zoomed out', 154.756, 0.5, '2:35'],
+    // Truncated like the time readout's milliseconds, never rounded up.
+    ['shows milliseconds when zoomed in to the frame', 12.4567, 0.0005, '0:12.456'],
+    ['reads 1.001 s as .001 despite float error', 1.001, 0.0005, '0:01.001'],
+    ['shows hundredths when zoomed into a few seconds', 154.756, 0.004, '2:34.75'],
+    ['shows tenths at a couple of minutes', 154.756, 0.1, '2:34.7'],
+    ['shows whole seconds when zoomed out', 154.756, 0.5, '2:34'],
     ['keeps tenths hours into a long video', 3725.4, 0.1, '1:02:05.4'],
     ['pads seconds below ten', 61, 0.5, '1:01'],
-    ['carries a rounded-up second into the minutes', 59.96, 0.1, '1:00.0'],
-    ['falls back to full precision without a resolution', 1.234, 0, '0:01.23'],
+    ['does not carry into the minutes', 59.96, 0.1, '0:59.9'],
+    ['falls back to full precision without a resolution', 1.234, 0, '0:01.234'],
   ])('%s', (_name, seconds, secondsPerPixel, expected) => {
     expect(formatTimelineTime(seconds, secondsPerPixel)).toBe(expected);
   });

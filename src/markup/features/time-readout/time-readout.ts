@@ -1,6 +1,7 @@
 import type { VideoElement } from '../../appState';
 import { featureFlags } from '../../feature-flags';
 import { VideoPlatforms } from '../../platforms/platforms';
+import { truncatedSeconds } from '../../util/pure-util';
 
 // The player's current-time readout. The players redraw its text on every update, so the
 // milliseconds are an element of their own placed after it.
@@ -11,9 +12,7 @@ const READOUT_SELECTORS: Partial<Record<VideoPlatforms, string>> = {
 
 /** `.456` for 12.456 s: the milliseconds a readout in whole seconds leaves out. */
 export function millisecondsOf(seconds: number): string {
-  // Rounded to the microsecond first, so 1.001 s doesn't read as 1.000 from float error.
-  const milliseconds = Math.floor(Math.round(seconds * 1e6) / 1e3) % 1000;
-  return `.${String(milliseconds).padStart(3, '0')}`;
+  return `.${truncatedSeconds(seconds, 3).fraction}`;
 }
 
 /** Whether a readout's text is the remaining time (`-10:05`), which YouTube shows in the same

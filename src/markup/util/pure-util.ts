@@ -15,6 +15,20 @@ export function toHHMMSSTrimmed(seconds: number) {
   return toHHMMSS(seconds).replace(/(00:)+(.*)/, '$2');
 }
 
+/** Whole seconds and the first `decimals` digits after the point, truncated like the players' own
+ *  time readouts. Rounded to the microsecond first, so 1.001 s doesn't read as 1.000 from float
+ *  error. */
+export function truncatedSeconds(
+  seconds: number,
+  decimals: number
+): { whole: number; fraction: string } {
+  const microseconds = Math.round(seconds * 1e6);
+  const whole = Math.floor(microseconds / 1e6);
+  if (decimals <= 0) return { whole, fraction: '' };
+  const digits = Math.floor(microseconds / 10 ** (6 - decimals)) % 10 ** decimals;
+  return { whole, fraction: String(digits).padStart(decimals, '0') };
+}
+
 export function bsearch<A, B>(
   haystack: ArrayLike<A>,
   needle: B,
