@@ -1037,6 +1037,11 @@ SPEED_MAPS = {
     "ramp": [{"x": SYNTHETIC_PAIR[0], "y": 1}, {"x": SYNTHETIC_PAIR[1], "y": 0.25}],
 }
 INTERPOLATION_TOOLS = {"minterpolate": "ffmpeg", "video2x": "video2x"}
+# Motion interpolation's cost grows with the pixels, so the tests interpolate a quarter of the clip:
+# testsrc2's top right, whose dots move on every new frame. The other quarters hold still for stretches,
+# which the stall test would count, and mpdecimate drops the noisy repeats there that it keeps in the
+# whole frame (measured with ffmpeg 9.0.2: every case's outcome matches the whole frame's).
+INTERPOLATION_CROP = "320:0:320:180"
 
 
 @pytest.fixture(scope="session")
@@ -1058,8 +1063,9 @@ def syntheticMarkers(
     name: str,
     speedMap: list[dict],
     pair: tuple[float, float] = SYNTHETIC_PAIR,
+    crop: str = "0:0:iw:ih",
 ) -> pathlib.Path:
-    """A markers JSON with one full-frame marker pair on a synthetic clip."""
+    """A markers JSON with one marker pair on a synthetic clip, full frame unless cropped."""
     markers = json.loads(MARKERS.read_text(encoding="utf-8"))
     start, end = pair
     markers.update(
@@ -1072,8 +1078,8 @@ def syntheticMarkers(
     markers["markerPairs"] = [
         {
             "number": 1, "start": start, "end": end, "speed": speedMap[0]["y"], "speedMap": speedMap,
-            "crop": "0:0:iw:ih", "cropRes": "640x360", "enableZoomPan": False, "overrides": {},
-            "cropMap": [{"x": start, "y": 0, "crop": "0:0:iw:ih"}, {"x": end, "y": 0, "crop": "0:0:iw:ih"}],
+            "crop": crop, "cropRes": "640x360", "enableZoomPan": False, "overrides": {},
+            "cropMap": [{"x": start, "y": 0, "crop": crop}, {"x": end, "y": 0, "crop": crop}],
         },
     ]  # fmt: skip
     path = folder / f"{name}.json"
@@ -1096,7 +1102,7 @@ def interpolateSyntheticClip(
     assert ffmpeg is not None
     _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, source, media)
     name = f"{source}-{tool}-{speed}" + ("" if dedupe else "-no-dedupe")
-    markers = syntheticMarkers(clipper.cwd, name, SPEED_MAPS[speed])
+    markers = syntheticMarkers(clipper.cwd, name, SPEED_MAPS[speed], crop=INTERPOLATION_CROP)
     output = clipper.cwd / "webms" / name
     shutil.rmtree(output, ignore_errors=True)
     run = clipper.run(
