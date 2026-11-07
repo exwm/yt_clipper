@@ -67,7 +67,8 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     of leaving them for last, when the other workers have nothing left."""
     slow = {"test_e2e.py", "test_ytdl.py"}
     items.sort(key=lambda item: item.path.name not in slow)
-    if config.getoption("clipper_exe"):
+    builtClipper = bool(config.getoption("clipper_exe"))
+    if builtClipper:
         skip = pytest.mark.skip(
             reason=f"a built clipper keeps its own frame timing ({BUILT_FRAME_TIMING.name})"
         )
@@ -75,6 +76,12 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             marker = item.get_closest_marker("frame_timing")
             if marker and skipsOnBuiltClipper(marker.args[0], BUILT_FRAME_TIMING):
                 item.add_marker(skip)
+    # Unmarked tests run 5.49's frame timing from source, but the built clipper's own
+    runs549 = not builtClipper or not skipsOnBuiltClipper("5.49", BUILT_FRAME_TIMING)
+    for item in items:
+        limit = item.get_closest_marker("limit_of_549_frame_timing")
+        if limit and runs549:
+            item.add_marker(pytest.mark.xfail(reason=limit.args[0], strict=True))
 
 
 @pytest.fixture(autouse=True)

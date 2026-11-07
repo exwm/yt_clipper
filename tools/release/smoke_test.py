@@ -3,8 +3,8 @@
     uv run python tools/release/smoke_test.py artifact/py/yt_clipper_win_5.48.0 [5.48.0]
 
 Runs the frozen clipper the way users do, from the release folder, so the bin/ layout is checked
-too: the bundled tools run, the offline end-to-end tests pass with the built clipper (nothing is
-downloaded), and it rejects an invalid markers JSON. The clips are removed again, so the folder can
+too: the bundled tools run, the offline end-to-end tests where a build can differ from source pass
+with the built clipper (nothing is downloaded), and it rejects an invalid markers JSON. The clips are removed again, so the folder can
 be zipped afterwards.
 """
 
@@ -27,6 +27,23 @@ YTDL = {"win32": "yt-dlp.exe", "darwin": "yt-dlp_macos"}.get(sys.platform, "yt-d
 # Without it a frozen release updates its bundled yt-dlp first, over the network. No settings files:
 # an installed release would read the user's.
 OFFLINE_ARGS = ["--no-ytdl-auto-update", "--overwrite", "--arg-files"]
+# The end-to-end tests where a frozen build can differ from the source the CI tests ran: bundled
+# tools and encoders, the shipped frame timing (source runs use 5.49's), vid.stab, merges, the
+# Cinematic solver's LAPACK, subtitle fonts, and interpolation.
+SMOKE_TESTS = " or ".join([
+    "test_make_clip",
+    "test_ffmpeg_is_the_version_releases_bundle",
+    "test_a_clip_runs_from_the_frame_shown_at_its_start_marker_through_the_one_at_its_end_marker",
+    "test_an_instant_crop_point_switches_on_its_own_frame",
+    "test_interpolated_synthetic_clip_keeps_its_length and vfr-motion",
+    "test_stabilized_clip_is_made_without_overwrite",
+    "test_stabilization_repairs_the_motion_with_ffmpeg_from_a_tools_folder",
+    "test_merging_copies_the_clips_as_they_are",
+    "test_clips_made_for_a_merge_are_encoded_at_its_size",
+    "test_cinematic_pair_renders_the_path_solved_from_its_crop_points",
+    "test_subtitles_burn_in_for_a_markers_file_named_with_an_apostrophe",
+    "test_a_clips_audio_starts_with_its_first_frame",
+])  # fmt: skip
 
 
 class SmokeTest:
@@ -112,10 +129,14 @@ class SmokeTest:
             self.check(result.returncode == 0, f"{tool.name} {flag}: {''.join(firstLine)}")
 
     def checkClips(self) -> None:
+        # The built clipper writes clips next to itself, one folder per test's markers JSON.
+        webms = self.release / "webms"
+        before = set(webms.iterdir()) if webms.is_dir() else set()
         try:
             result = subprocess.run(
                 [
                     sys.executable, "-m", "pytest", E2E_TESTS, "-m", "not slow", "-ra",
+                    "-k", SMOKE_TESTS, "--durations", "5",
                     "--clipper-exe", self.clipper,
                     # The tests that make their own media need an ffmpeg, which CI has only here.
                     "--ffmpeg-dir", str(self.ffmpeg.parent),
@@ -124,9 +145,9 @@ class SmokeTest:
                 check=False,
             )  # fmt: skip
         finally:
-            # The end-to-end tests' clip folder, named after their markers JSON.
-            shutil.rmtree(self.release / "webms" / "test-with-dynamic", ignore_errors=True)
-        self.check(result.returncode == 0, "offline end-to-end tests pass with the built clipper")
+            for folder in (set(webms.iterdir()) if webms.is_dir() else set()) - before:
+                shutil.rmtree(folder, ignore_errors=True)
+        self.check(result.returncode == 0, "the end-to-end smoke tests pass with the built clipper")
 
     def checkInvalidMarkersRejected(self, workDir: Path) -> None:
         markers = workDir / "smoke-invalid.json"

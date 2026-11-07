@@ -84,14 +84,18 @@ class Clipper:
 
     def requireVideo2x(self) -> None:
         if self.exe:
-            if not pathlib.Path(self.toolPath("video2x") or "").is_file():
+            video2x = pathlib.Path(self.toolPath("video2x") or "")
+            if not video2x.is_file():
                 pytest.skip("needs a release with video2x")
-            return
-        # The clipper looks for video2x in the working folder's bin/, then on PATH.
-        video2xDir = pathlib.Path(os.environ.get("YTC_VIDEO2X_DIR") or REPO / "bin" / "video2x")
-        if not (video2xDir / f"video2x{EXE}").is_file():
-            pytest.skip(f"needs video2x in {video2xDir} or YTC_VIDEO2X_DIR")
-        self.monkeypatch.setenv("PATH", f"{video2xDir}{os.pathsep}{os.environ['PATH']}")
+        else:
+            # The clipper looks for video2x in the working folder's bin/, then on PATH.
+            video2xDir = pathlib.Path(os.environ.get("YTC_VIDEO2X_DIR") or REPO / "bin" / "video2x")
+            video2x = video2xDir / f"video2x{EXE}"
+            if not video2x.is_file():
+                pytest.skip(f"needs video2x in {video2xDir} or YTC_VIDEO2X_DIR")
+            self.monkeypatch.setenv("PATH", f"{video2xDir}{os.pathsep}{os.environ['PATH']}")
+        if not hasVulkanDevice(str(video2x)):
+            pytest.skip("needs a GPU video2x can use (none on CI runners)")
 
     def run(self, args: list[str], answer: str | None = None) -> ClipperRun:
         """Runs the clipper. `answer` is typed at every prompt; without it, prompts read end of input."""
@@ -161,6 +165,15 @@ class Clipper:
             check=True,
         )
         return float(probe.stdout.strip())
+
+
+@functools.cache
+def hasVulkanDevice(video2x: str) -> bool:
+    """Whether video2x lists a Vulkan device: CI runners have none, so it can't interpolate."""
+    result = subprocess.run(
+        [video2x, "--list-devices"], capture_output=True, text=True, check=False
+    )
+    return result.returncode == 0 and bool(re.search(r"^0\. ", result.stdout, re.MULTILINE))
 
 
 # The test marker pair's clip: source frames 2253 through 2306 of the 29.97 fps test video, at its
@@ -1094,12 +1107,12 @@ def lengthCase(source: str, tool: str, speed: str, dedupe: bool) -> object:
     elif (source, tool, speed) == ("vfr-motion", "minterpolate", "slowdown"):
         # Its frames are off the constant-rate grid the clip's ends are mapped on, so the last one
         # kept is a source frame later than the grid says (the clipper warns about such sources).
-        marks.append(pytest.mark.xfail(reason="ends a slowed source frame late", strict=True))
+        marks.append(pytest.mark.limit_of_549_frame_timing("ends a slowed source frame late"))
     elif (source, tool, speed) == ("vfr-motion", "video2x", "slowdown"):
         # The source's last frame is followed by a gap, so it shows for two frames. The clip given
         # to video2x cannot record that, so video2x shows it for one output frame.
         marks.append(
-            pytest.mark.xfail(reason="ends up to a slowed source frame early", strict=True),
+            pytest.mark.limit_of_549_frame_timing("ends up to a slowed source frame early")
         )
     removal = "dedupe" if dedupe else "no-dedupe"
     return pytest.param(
@@ -1968,7 +1981,8 @@ def test_clips_made_for_a_merge_are_encoded_at_its_size(
     assert not (merge.output / "temp" / "merge-inputs").exists()
     plan = f"Merge 1-2 at {big}: marker pair 2 from {small}."
     assert plan in merge.log
-    assert merge.log.count(plan) == 1
+    # The summary report at the end of the log repeats it
+    assert merge.log.split("Summary Report")[0].count(plan) == 1
     assert merge.log.index(plan) < merge.log.index("Marker pair 1")
 
 
