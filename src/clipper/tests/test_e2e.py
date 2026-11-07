@@ -1705,9 +1705,13 @@ def test_stabilization_with_a_slowdown_and_interpolation_stays_stable_to_the_end
     source = shaky_media.makeShakyClip(ffmpeg, "plain", shaky_media.mediaFolder(ffmpeg))
     name = "stabilized-slowdown"
     pair = (0.2, 2.8)
+    # A quarter of the frame, a third of the time: the end jerk of 8 frames missing from the detect
+    # pass leaves 1.7 px/frame of shake here, 1.03 in the whole frame (measured)
+    size = (shaky_media.WIDTH // 2, shaky_media.HEIGHT // 2)
     markers = syntheticMarkers(
-        clipper.cwd, name, [{"x": pair[0], "y": 0.5}, {"x": pair[1], "y": 0.5}], pair=pair
-    )
+        clipper.cwd, name, [{"x": pair[0], "y": 0.5}, {"x": pair[1], "y": 0.5}], pair=pair,
+        crop=f"0:0:{size[0]}:{size[1]}",
+    )  # fmt: skip
     args = [
         "--video-stabilization",
         "4",
@@ -1723,7 +1727,7 @@ def test_stabilization_with_a_slowdown_and_interpolation_stays_stable_to_the_end
     assert run.returncode == 0
     clip = next((clipper.cwd / "webms" / name).glob("*.webm"))
     assert clipper.probeDuration(clip) == pytest.approx((pair[1] - pair[0]) / 0.5, abs=0.2)
-    assert shakeLeft(grayFrames(ffmpeg, clip, (shaky_media.WIDTH, shaky_media.HEIGHT))) < 1.0
+    assert shakeLeft(grayFrames(ffmpeg, clip, size)) < 1.0
 
 
 def mergedMarkers(folder: pathlib.Path, name: str, crops: tuple[str, str]) -> pathlib.Path:
