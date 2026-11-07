@@ -536,14 +536,16 @@ def makeShakyClip(ffmpeg: str, name: str, folder: Path) -> Path:
     return video
 
 
-def mediaFolder(ffmpeg: str) -> Path:
-    """A folder kept between test runs for the clips, named for what makes them: this file's recipes
-    and the ffmpeg version. A changed recipe or ffmpeg gets a new folder."""
+def mediaFolder(
+    ffmpeg: str, recipes: Path = Path(__file__), name: str = "yt_clipper-shaky-media"
+) -> Path:
+    """A folder kept between test runs for the clips, named for what makes them: the recipes file
+    (this one by default) and the ffmpeg version. A changed recipe or ffmpeg gets a new folder."""
     version = subprocess.run(
         [ffmpeg, "-version"], capture_output=True, text=True, check=True
     ).stdout.splitlines()[0]
-    key = hashlib.sha256(Path(__file__).read_bytes() + version.encode()).hexdigest()[:16]
-    root = Path(tempfile.gettempdir()) / "yt_clipper-shaky-media"
+    key = hashlib.sha256(recipes.read_bytes() + version.encode()).hexdigest()[:16]
+    root = Path(tempfile.gettempdir()) / name
     folder = root / key
     folder.mkdir(parents=True, exist_ok=True)
     # Marked as used, so another version's cleanup keeps it: workspaces may run different recipes
