@@ -960,7 +960,7 @@ def makeClip(  # noqa: PLR0912
             and mps["loop"] == "none"
             and (detectOnly or not isHardwareAcceleratedVideoCodec(mps["videoCodec"]))
         )
-        analysisFilterGraph = video_filter + analysisFilter()
+        analysisFilterGraph = inputAnalysisGraph(video_filter, removesDuplicateFrames=shouldDedupe)
         # Motion interpolation changes each frame's shift, so the output cannot be compared with the
         # input, and a hardware encode decodes to frames the analysis filters can't read
         checkShake = (
@@ -1156,6 +1156,10 @@ def makeClip(  # noqa: PLR0912
         return None
 
     def runPasses() -> DictStrAny:
+        # The analysis outputs are written without -y, which ffmpeg refuses beside -n
+        for path in scratchPaths:
+            with contextlib.suppress(OSError):
+                Path(path).unlink(missing_ok=True)
         try:
             result = runffmpegCommand(settings, ffmpegCommands, markerPairIndex, mp, afterFirstPass)
             if result.get("returncode") == 0 and afterLastPass is not None:
@@ -1332,6 +1336,15 @@ def checkTransformShake(
     from a one-frame trial."""
     final = gaussianZoom() if zoom == GAUSSIAN_PATH else None
     return checkStabilizedShake(ffmpegPath, transformPath, analysisPath, magnification(zoom, final))
+
+
+def inputAnalysisGraph(videoFilter: str, *, removesDuplicateFrames: bool) -> str:
+    """The detect pass's analysis output: the clip's filters, then analysisFilter(). Duplicate frame
+    removal drops frames by their content, so it runs under the passes' gamma lift to keep the
+    frames vid.stab sees. The other filters keep the same frames either way, and run without it."""
+    if removesDuplicateFrames:
+        return f"{videoStabilizationGammaFixFilter(videoFilter + 'null')},{analysisFilter()}"
+    return videoFilter + analysisFilter()
 
 
 def getVidstabDetectOnlyCommand(cp: ClipperPaths, inputs: str, mps: DictStrAny) -> str:

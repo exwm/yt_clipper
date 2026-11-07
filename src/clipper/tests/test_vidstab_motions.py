@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from clipper import vidstab_motions
 from clipper.phase_correlation import FrameShift
 from clipper.vidstab_motions import (
     GAUSSIAN_PATH,
@@ -29,6 +30,7 @@ from clipper.vidstab_motions import (
     magnification,
     measuredMotions,
     parseTransforms,
+    readInputAnalysis,
     repairMotions,
     repairMotionsInFiles,
     shake,
@@ -339,6 +341,34 @@ def test_the_repair_drops_a_shake_left_by_an_earlier_run(tmp_path: Path) -> None
     Path(inputShakePath(transforms)).write_text("0.5", encoding="utf-8")
     repairMotionsInFiles("ffmpeg", transforms, str(tmp_path / "missing.nut"))
     assert not Path(inputShakePath(transforms)).exists()
+
+
+@pytest.mark.parametrize("repair", [True, False], ids=["repair", "-nvsma"])
+def test_an_analysis_of_other_frames_than_vid_stabs_is_not_used(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, repair: bool
+) -> None:
+    # 31 frames detected, 41 analysed: with a flash the repair would fill in, and enough frames
+    # for the shakier clip check
+    transformsPath = tmp_path / "clip.trf"
+    text = formatTransforms(frames(*[(3, 0)] * 20, (40, -30), *[(3, 0)] * 9))
+    transformsPath.write_text(text, encoding="utf-8")
+    brightness = [100.0] * 20 + [200.0] + [100.0] * 20
+    analysis = [
+        FrameAnalysis(b, FrameShift(3, 0, 0.9) if i else None, (64, 36))
+        for i, b in enumerate(brightness)
+    ]
+    monkeypatch.setattr(vidstab_motions, "readAnalysis", lambda *_args: analysis)
+    if repair:
+        repairMotionsInFiles("ffmpeg", str(transformsPath), str(tmp_path / "clip.nut"))
+    else:
+        assert readInputAnalysis("ffmpeg", str(transformsPath), str(tmp_path / "clip.nut")) is None
+    assert transformsPath.read_text(encoding="utf-8") == text
+    assert not Path(inputShakePath(str(transformsPath))).exists()
+
+
+def test_shake_of_no_frames_is_unknown() -> None:
+    # A transform pass that wrote no frames
+    assert shake([]) is None
 
 
 def test_zoom_budget_is_the_most_zoom_when_the_transforms_cannot_be_read(tmp_path: Path) -> None:

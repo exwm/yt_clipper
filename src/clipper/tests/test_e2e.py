@@ -11,6 +11,7 @@ import json
 import os
 import pathlib
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -26,6 +27,7 @@ from clipper.tests import shaky_media, synthetic_media
 from clipper.tests.range_http_server import RangeHTTPServer
 from clipper.tests.stabilization_metrics import grayFrames, shakeLeft
 from clipper.tests.test_output_duration_cases import clipperOutputDuration
+from clipper.vidstab_motions import parseTransforms, readAnalysis
 from clipper.yt_clipper import main
 
 REPO = pathlib.Path(__file__).resolve().parents[3]
@@ -1336,6 +1338,87 @@ def test_stabilized_clip_saves_the_shaky_clip_only_when_asked(
     assert len(list(output.glob("*.webm"))) == 1
     assert len(list((output / "shaky").glob("*.trf"))) == 1
     assert len(list((output / "shaky").glob("*-shaky.webm"))) == int(savesShakyClip)
+
+
+def test_stabilized_clip_is_made_without_overwrite(
+    clipper: Clipper,
+    syntheticMedia: pathlib.Path,
+) -> None:
+    # The passes' extra analysis outputs once carried -y, which ffmpeg refuses beside -n
+    clipper.requireEncoder("libvpx-vp9")
+    ffmpeg = clipper.toolPath("ffmpeg")
+    assert ffmpeg is not None
+    commands: list[str] = []
+    if not clipper.exe:
+        runFfmpeg = clip_maker.run_ffmpeg_with_progress
+        clipper.monkeypatch.setattr(
+            clip_maker,
+            "run_ffmpeg_with_progress",
+            lambda command, **kwargs: commands.append(command) or runFfmpeg(command, **kwargs),
+        )
+    _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-native-30", syntheticMedia)
+    name = "stabilized-without-overwrite"
+    start, end = SYNTHETIC_PAIR
+    markers = syntheticMarkers(clipper.cwd, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
+    run = clipper.run(
+        [
+            "--markers-json",
+            str(markers),
+            "--input-video",
+            str(uploaded),
+            "--no-ytdl-auto-update",
+            "--video-stabilization",
+            "2",
+        ]
+    )
+    print(run.stdout, run.stderr)
+    assert run.returncode == 0
+    assert len(list((clipper.cwd / "webms" / name).glob("*.webm"))) == 1
+    for command in commands:
+        assert not {"-y", "-n"} <= set(shlex.split(command))
+
+
+def test_stabilization_analyses_the_frames_vid_stab_sees_when_removing_duplicate_frames(
+    clipper: Clipper,
+    syntheticMedia: pathlib.Path,
+) -> None:
+    # Duplicate frame removal keeps other frames under the passes' gamma lift than without it: on
+    # a still fading out, 128 of 150 frames with it and 84 without
+    if clipper.exe:
+        pytest.skip("records the analysis in process")
+    clipper.requireEncoder("libvpx-vp9")
+    ffmpeg = clipper.toolPath("ffmpeg")
+    assert ffmpeg is not None
+    analysed: list[int] = []
+
+    def recording(*args: str) -> list:
+        analysis = readAnalysis(*args)
+        analysed.append(len(analysis))
+        return analysis
+
+    clipper.monkeypatch.setattr("clipper.vidstab_motions.readAnalysis", recording)
+    _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "fade", syntheticMedia)
+    name = "stabilized-dedupe"
+    start, end = SYNTHETIC_PAIR
+    markers = syntheticMarkers(clipper.cwd, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
+    run = clipper.run(
+        [
+            "--markers-json",
+            str(markers),
+            "--input-video",
+            str(uploaded),
+            *OFFLINE_ARGS,
+            "--video-stabilization",
+            "2",
+            "--remove-duplicate-frames",
+        ]
+    )
+    print(run.stdout, run.stderr)
+    assert run.returncode == 0
+    transforms = next((clipper.cwd / "webms" / name / "shaky").glob("*.trf"))
+    detected = len(parseTransforms(transforms.read_text(encoding="utf-8")).frames)
+    # The input's analysis, then the stabilized clip's
+    assert analysed[:2] == [detected, detected]
 
 
 def test_stabilization_repairs_the_motion_with_ffmpeg_from_a_tools_folder(

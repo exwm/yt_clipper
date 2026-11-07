@@ -246,8 +246,9 @@ def analysisOutputArgs(filterArgs: str, analysisPath: str) -> str:
     """A second output for the detect command: the same frames, decoded once, losslessly to a small
     file. filterArgs gives the clip's filters followed by analysisFilter(), with -vf or filterFileOption.
     -fps_mode passthrough keeps exactly the frames vidstabdetect sees: a speed change otherwise has
-    frames repeated or dropped for a constant frame rate, and the frames no longer line up."""
-    return f' -an -sn {filterArgs} -fps_mode passthrough -c:v ffv1 -f nut -y "{analysisPath}"'
+    frames repeated or dropped for a constant frame rate, and the frames no longer line up. No -y:
+    ffmpeg refuses one beside the command's -n, so the caller removes a file left by an earlier run."""
+    return f' -an -sn {filterArgs} -fps_mode passthrough -c:v ffv1 -f nut "{analysisPath}"'
 
 
 def readPgmFrames(stream: IO[bytes]) -> Iterator[np.ndarray]:
@@ -351,6 +352,8 @@ def isMeasured(analysis: Sequence[FrameAnalysis], i: int) -> bool:
 def frameJitter(analysis: Sequence[FrameAnalysis], skipped: Collection[int] = ()) -> np.ndarray:
     """Each frame's shift away from its moving average, analysis px: the terms of shake(). NaN for a
     frame it leaves out, and for the skipped frames (from 0)."""
+    if not analysis:
+        return np.empty(0)
     skip = set(skipped)
     xy = np.array(
         [
@@ -712,21 +715,34 @@ def checkStabilizedShake(
 
 
 def readInputAnalysis(
-    ffmpegPath: str, transformsPath: str, analysisPath: str
+    ffmpegPath: str,
+    transformsPath: str,
+    analysisPath: str,
+    transforms: TransformsFile | None = None,
 ) -> list[FrameAnalysis] | None:
     """The detect pass's analysis output, which it then deletes, keeping the input's shake for
-    checkStabilizedShake. None when it cannot be read."""
+    checkStabilizedShake. None when it cannot be read, or when it has other frames than vid.stab's
+    transforms (read from transformsPath unless given)."""
     # One left by an earlier run would pass for this run's input shake
     with contextlib.suppress(OSError):
         Path(inputShakePath(transformsPath)).unlink(missing_ok=True)
     try:
         analysis = readAnalysis(ffmpegPath, analysisPath)
+        if transforms is None:
+            transforms = parseTransforms(Path(transformsPath).read_text(encoding="utf-8"))
     except (OSError, TransformsFileError) as error:
         logger.warning(f"Could not check the video stabilization motion ({error}).")
         return None
     finally:
         with contextlib.suppress(OSError):
             Path(analysisPath).unlink()
+    # Frame n of one would be paired with another frame of the other
+    if len(analysis) != len(transforms.frames):
+        logger.notice(
+            f"Video stabilization: the motion analysis saw {len(analysis)} frames where vid.stab saw"
+            f" {len(transforms.frames)}, so the motion is not repaired or checked."
+        )
+        return None
     if analysis and (inputShake := shake(analysis)) is not None:
         Path(inputShakePath(transformsPath)).write_text(
             json.dumps(
@@ -759,7 +775,7 @@ def repairMotionsInFiles(
             with contextlib.suppress(OSError):
                 Path(path).unlink()
         return
-    analysis = readInputAnalysis(ffmpegPath, transformsPath, analysisPath)
+    analysis = readInputAnalysis(ffmpegPath, transformsPath, analysisPath, transforms)
     if analysis is None:
         return
     scale = analysisScale(transforms, analysis[0].size) if analysis else None

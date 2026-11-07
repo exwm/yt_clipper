@@ -141,6 +141,28 @@ def test_without_text_transforms_the_filters_leave_out_the_text_format_and_zoom_
     assert f"zoom={ZOOM_BUDGET_PLACEHOLDER}" in transformFilter
 
 
+@pytest.mark.parametrize(
+    ("removesDuplicateFrames", "graph"),
+    [
+        # As in 5.50.0
+        (False, f"crop=320:180:0:0[shaky];[shaky]{analysisFilter()}"),
+        # Under the passes' gamma lift, as the detect and transform passes run the clip's filters
+        (
+            True,
+            f"{videoStabilizationGammaFixFilter('crop=320:180:0:0[shaky];[shaky]null')},{analysisFilter()}",
+        ),
+    ],
+)
+def test_the_input_analysis_is_under_the_gamma_lift_only_when_removing_duplicate_frames(
+    removesDuplicateFrames: bool, graph: str
+) -> None:
+    videoFilter = "crop=320:180:0:0[shaky];[shaky]"
+    assert (
+        clip_maker.inputAnalysisGraph(videoFilter, removesDuplicateFrames=removesDuplicateFrames)
+        == graph
+    )
+
+
 def fill(transformFilter: str, replacements: dict[str, str]) -> str:
     for placeholder, value in replacements.items():
         transformFilter = transformFilter.replace(placeholder, value)
