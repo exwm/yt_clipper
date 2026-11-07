@@ -65,12 +65,12 @@ def test_markers_show_over_the_brush_and_leave_its_handles_working(zoom: MarkupP
 
 
 @pytest.mark.parametrize("edge", ["start", "end"])
-def test_a_drag_past_an_edge_of_the_zoomed_bar_keeps_the_playhead_at_that_edge(
+def test_a_zoom_range_moved_off_the_playhead_pins_it_to_the_nearest_edge(
     zoom: MarkupPage, edge: str
 ) -> None:
-    when_i_drag_along_the_zoomed_bar_past_its(zoom, edge)
-    then_the_playhead_shows_at_full_strength_at_the(zoom, edge)
-    when_i_release_the_pointer(zoom)
+    given_the_playhead_mid_video(zoom)
+    when_i_move_the_zoom_range_so_the_playhead_is_past_its(zoom, edge)
+    then_the_playhead_time_is_outside_the_zoom_range(zoom)
     then_the_playhead_shows_at_full_strength_at_the(zoom, edge)
 
 
@@ -585,13 +585,40 @@ def then_the_end_edge_handle_takes_the_pointer(markup: MarkupPage, *, expected: 
 
 
 @step
-def when_i_drag_along_the_zoomed_bar_past_its(markup: MarkupPage, edge: str) -> None:
-    bar = markup.box_of(".ytc-tz-row-hit")
-    y = bar["y"] + bar["height"] / 2
-    inside, past = (0.3, -40) if edge == "start" else (0.7, bar["width"] + 40)
-    markup.page.mouse.move(bar["x"] + bar["width"] * inside, y)
+def given_the_playhead_mid_video(markup: MarkupPage) -> None:
+    # Away from the video's start, so the range can move off the playhead in both directions.
+    markup.seek(300)
+    assert markup.eventually(
+        "() => { const d = document.querySelector('.ytc-tz').dataset;"
+        " const t = document.querySelector('video').currentTime;"
+        " return Number(d.rangeStart) < t && t < Number(d.rangeEnd); }",
+    ), "the zoom range did not follow the seek"
+    wait_for_the_zoom_to_settle(markup)
+
+
+@step
+def when_i_move_the_zoom_range_so_the_playhead_is_past_its(markup: MarkupPage, edge: str) -> None:
+    # Dragging the center handle moves the range without seeking, so the playhead stays put.
+    start, end = zoom_range(markup)
+    playhead = markup.current_time()
+    margin = (end - start) * 0.3
+    shift = playhead - start + margin if edge == "start" else playhead - end - margin
+    panel = markup.box_of(".ytc-tz")
+    duration = markup.page.evaluate("() => document.querySelector('video').duration")
+    x, y = markup.center_of(".ytc-tz-hit.center-handle")
+    markup.page.mouse.move(x, y)
     markup.page.mouse.down()
-    markup.page.mouse.move(bar["x"] + past, y, steps=6)
+    markup.page.mouse.move(x + shift / duration * panel["width"], y, steps=5)
+    markup.page.mouse.up()
+    wait_for_the_zoom_to_settle(markup)
+
+
+@step
+def then_the_playhead_time_is_outside_the_zoom_range(markup: MarkupPage) -> None:
+    start, end = zoom_range(markup)
+    playhead = markup.current_time()
+    markup.report(f"playhead {playhead:.2f}s, zoom range {start:.2f}-{end:.2f}")
+    assert not start <= playhead <= end
 
 
 @step
