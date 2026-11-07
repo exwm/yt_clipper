@@ -9,11 +9,14 @@ from clipper.vidstab_motions import (
     GAUSSIAN_PATH,
     MAX_ZOOM_BUDGET,
     MIN_ZOOM_BUDGET,
+    STALL_LINE,
+    CameraPath,
     FrameAnalysis,
     LocalMotion,
     PathTrial,
     TransformsFile,
     TransformsFileError,
+    TrialLog,
     analysisScale,
     cells,
     fastFftLength,
@@ -30,6 +33,7 @@ from clipper.vidstab_motions import (
     magnification,
     measuredMotions,
     parseTransforms,
+    parseTrialLog,
     readInputAnalysis,
     repairMotions,
     repairMotionsInFiles,
@@ -434,6 +438,49 @@ def test_the_zoom_a_transform_used_is_its_magnification(
     zoom: str, final: float | None, magnified: float
 ) -> None:
     assert magnification(zoom, final) == pytest.approx(magnified, abs=0.01)
+
+
+L1_LINE = "[vidstabtransform @ 0] Camera path optimization in progress (L1, 90 frames, built-in interior point)...\n"
+
+
+@pytest.mark.parametrize(
+    ("log", "trialLog"),
+    [
+        pytest.param(L1_LINE, TrialLog(CameraPath.SOLVED), id="L1 solved"),
+        pytest.param(
+            f"{L1_LINE}[vidstabtransform @ 0] Final zoom: 15.000000\n",
+            TrialLog(CameraPath.SOLVED, 15.0),
+            id="L1 solved with a Final zoom",
+        ),
+        # ffmpeg 9.0.2 falls back to the gaussian path, which logs its zoom plus the zoom option
+        pytest.param(
+            f"{L1_LINE}[vidstabtransform @ 0] {STALL_LINE}\n[vidstabtransform @ 0] Final zoom: 13.172167\n",
+            TrialLog(CameraPath.STALLED, 13.172167),
+            id="stalled",
+        ),
+        # ffmpeg 8.0.1's vid.stab 1.1 has only the gaussian path
+        pytest.param(
+            "[vidstabtransform @ 0] Final zoom: 8.208744\n",
+            TrialLog(CameraPath.GAUSSIAN_ONLY, 8.208744),
+            id="gaussian only",
+        ),
+        # A trial that failed: the transform pass runs as it would have and reports the failure
+        pytest.param("", TrialLog(CameraPath.SOLVED), id="empty"),
+        pytest.param(
+            "Error opening input file\n��[vidstabtr� Final zo\n",
+            TrialLog(CameraPath.SOLVED),
+            id="garbled",
+        ),
+        # Still only the gaussian path, at a zoom no one can tell (%lf prints nan as -nan(ind) on Windows)
+        pytest.param(
+            "[vidstabtransform @ 0] Final zoom: -nan(ind)\n",
+            TrialLog(CameraPath.GAUSSIAN_ONLY),
+            id="gaussian only, nan zoom",
+        ),
+    ],
+)
+def test_a_transform_trial_log_tells_how_the_camera_path_went(log: str, trialLog: TrialLog) -> None:
+    assert parseTrialLog(log) == trialLog
 
 
 def test_the_final_zoom_is_read_from_the_last_line_vid_stab_logs() -> None:

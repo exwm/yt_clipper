@@ -803,7 +803,7 @@ Set **Stabilization** in the global settings editor, or per marker pair in the m
 - The motion analysis makes video stabilization follow the camera instead of things that move on their own, and repairs the motion at flashes. If a stabilized clip jolts or drifts where it should not, run the `clipper script` with `--no-video-stabilization-motion-analysis` (`-nvsma`) to turn the motion analysis off.
 - The `clipper script` warns when a stabilized clip comes out shakier than its input. Disable video stabilization for that marker pair if it does. The check is skipped for loops, ffmpeg motion interpolation and hardware encoders.
 - Use `--video-stabilization-save-shaky-clip` to also save the unstabilized version of each clip in the `shaky` folder, to compare it with the stabilized clip.
-- With ffmpeg older than 9.0.2, video stabilization runs without the motion analysis. The `clipper script` installation bundles ffmpeg 9.0.2.
+- With ffmpeg older than 9.0.2, video stabilization crops as in version 5.49.0. With ffmpeg 6.x and some 7.x builds, it also runs without the motion analysis. The `clipper script` installation bundles ffmpeg 9.0.2.
 
 On a dynamic crop, video stabilization can pull the crop a few pixels off the crop points. It treats a fast reframe as shake and smooths it into a slide. Crop points with instant easing stay cuts.
 
@@ -978,7 +978,7 @@ These dependencies must be manually installed when not using the clipper script 
 
 - ffmpeg must be in your path: (<https://www.ffmpeg.org/download.html>).
   - Use ffmpeg 9.0.2 (the version bundled with the `clipper script` installation).
-  - With older versions, video stabilization runs without the motion analysis, so the clip can jerk at flashes and around moving subjects.
+  - With older versions, video stabilization crops as in version 5.49.0. With ffmpeg 6.x and some 7.x builds, it also runs without the motion analysis, so the clip can jerk at flashes and around moving subjects.
 - install required python packages as listed in the `requirements.txt`:
   - `pip install -r ./src/clipper/requirements.txt`
 

@@ -18,7 +18,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from clipper import clip_maker
+from clipper import clip_maker, vidstab_motions
 from clipper.argparser import getArgParser, getVidstabPreset
 from clipper.clip_maker import checkTransformShake, prepareVidstabTransformPass
 from clipper.ffmpeg_filter import (
@@ -31,6 +31,7 @@ from clipper.tests import shaky_media
 from clipper.tests.stabilization_metrics import grayFrames, motionAdded, shakeLeft
 from clipper.vidstab_motions import (
     GAUSSIAN_PATH,
+    STALL_LINE,
     analysisFilter,
     analysisOutputArgs,
     checkStabilizedShake,
@@ -41,8 +42,8 @@ from clipper.vidstab_motions import (
     readAnalysis,
     repairMotionsInFiles,
     shake,
+    transformCameraPath,
     transformFinalZoom,
-    transformStalls,
     transformTrial,
     zoomBudgetFromFile,
 )
@@ -244,7 +245,7 @@ def stabilize(
         str(folder / "analysis.nut"),
         getVidstabPreset(level)["smoothing"],
         (),
-        lambda zoom: transformStalls(command(zoom), str(folder)),
+        lambda zoom: transformCameraPath(command(zoom), str(folder)),
         gaussianZoom=(
             (lambda: transformFinalZoom(command(GAUSSIAN_PATH), str(folder)))
             if comparePaths
@@ -259,7 +260,7 @@ def stabilize(
             if comparePaths
             else None
         ),
-    )
+    ).replacements
     return run(
         ffmpeg,
         video,
@@ -446,31 +447,92 @@ def zoomUsed(ffmpeg: str, video: Path, folder: Path, transformFilter: str) -> fl
     return float(final[-1]) if final else float(zoom.group(1))
 
 
+L1 = "Camera path optimization in progress (L1, 90 frames, built-in interior point)...\n"
+STALLED = f"{L1}{STALL_LINE}\n"
+
+
+def prepareWithTrialLogs(
+    monkeypatch: pytest.MonkeyPatch, folder: Path, budget: float, logs: dict[str, str]
+) -> tuple[str, clip_maker.TransformZoom]:
+    """prepareVidstabTransformPass at this zoom budget, with trials that log logs[zoom option].
+    Returns the transform filter script it filled, and its zoom."""
+    monkeypatch.setattr(clip_maker, "zoomBudgetFromFile", lambda *_args: budget)
+    monkeypatch.setattr(
+        vidstab_motions, "transformTrialLog", lambda command, _cwd=None: logs[command[-1]]
+    )
+    script = folder / "pass2.txt"
+    script.write_text(
+        f"vidstabtransform=input='t.trf':smoothing=30:zoom={ZOOM_BUDGET_PLACEHOLDER}",
+        encoding="utf-8",
+    )
+    zoom = prepareVidstabTransformPass(
+        "ffmpeg",
+        "t.trf",
+        None,
+        30,
+        [str(script)],
+        lambda zoom: transformCameraPath(["ffmpeg", zoom]),
+    )
+    return script.read_text(encoding="utf-8"), zoom
+
+
 @pytest.mark.parametrize(
-    ("zoom", "gaussian", "measuredAt"),
+    ("budget", "logs", "option", "used"),
     [
-        ("8.63", None, 8.63),
+        (8.63, {"8.63": L1}, "8.63", 8.63),
         # A nudge after a stall
-        ("14.75", None, 14.75),
-        # vid.stab's gaussian path, which fpv-alpine fell back to at Strongest: a Final zoom of 4.08
-        (GAUSSIAN_PATH, 4.08, 4.25),
+        (15.0, {"15.00": STALLED, "14.75": L1}, "14.75", 14.75),
+        # vid.stab's gaussian path, which fpv-alpine fell back to at Strongest: its own zoom of 4.08
+        # magnifies 4.25%. The fallback logs it plus the zoom option of each stalled trial.
+        (
+            8.63,
+            {z: f"{STALLED}Final zoom: {float(z) + 4.08:f}\n" for z in ("8.63", "8.38", "8.88")},
+            GAUSSIAN_PATH,
+            4.25,
+        ),
+        # A fallback that logged no zoom: the shakier clip check is skipped
+        (8.63, dict.fromkeys(("8.63", "8.38", "8.88"), STALLED), GAUSSIAN_PATH, None),
+        # vid.stab without the L1 path, at a nan zoom: no zoom option, and the check is skipped
+        (4.48, {"4.48": "Final zoom: -nan(ind)\n"}, "0", None),
     ],
 )
-def test_the_shakier_clip_check_measures_the_clip_at_the_zoom_it_used(
+def test_the_transform_zoom_carries_the_zoom_the_pass_uses(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
-    zoom: str,
-    gaussian: float | None,
-    measuredAt: float,
+    budget: float,
+    logs: dict[str, str],
+    option: str,
+    used: float | None,
 ) -> None:
-    # The transforms are unreadable, so a zoom budget sized again from them would be the most, 15%
-    checked: list[float] = []
-    monkeypatch.setattr(
-        clip_maker, "checkStabilizedShake", lambda *args: checked.append(args[-1]) or False
+    transform, zoom = prepareWithTrialLogs(monkeypatch, tmp_path, budget, logs)
+    assert transform.endswith(f":zoom={option}")
+    assert zoom.option == option
+    assert zoom.used == (None if used is None else pytest.approx(used, abs=0.01))
+
+
+def test_a_vid_stab_without_the_l1_path_crops_with_its_own_zoom_as_in_5_49(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # ffmpeg 8.0.1's vid.stab 1.1 runs only its gaussian path, which adds the zoom option to its own
+    # zoom: the gentle clip at smoothing 30 logged 3.73 without one and 8.21 with its 4.48 budget.
+    # Only the trial at the budget runs (another would miss in the logs): no stall nudges, and no
+    # trial at 0 for the zoom the shakier clip check measures at.
+    transform, zoom = prepareWithTrialLogs(
+        monkeypatch, tmp_path, 4.48, {"4.48": "[vidstabtransform @ 0] Final zoom: 8.208744\n"}
     )
-    transforms = str(tmp_path / "missing.trf")
-    checkTransformShake("ffmpeg", transforms, "out.nut", zoom, lambda: gaussian)
-    assert checked == [pytest.approx(measuredAt, abs=0.01)]
+    assert transform.endswith(":smoothing=30:zoom=0")
+    assert zoom.option == "0"
+    assert zoom.used == pytest.approx(magnification("0", 3.728744))
+
+
+def test_the_shakier_clip_check_is_skipped_when_no_trial_logged_the_zoom(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A gaussian path's zoom is known only from a trial's log, which a failed trial leaves empty
+    checked: list[tuple] = []
+    monkeypatch.setattr(clip_maker, "checkStabilizedShake", lambda *args: checked.append(args))
+    assert checkTransformShake("ffmpeg", "t.trf", "out.nut", None) is None
+    assert checked == []
 
 
 def checkInputs(folder: Path, replacements: dict[str, str]) -> tuple[str, str, float]:

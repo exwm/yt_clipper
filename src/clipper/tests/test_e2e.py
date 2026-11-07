@@ -27,7 +27,7 @@ from clipper.tests import shaky_media, synthetic_media
 from clipper.tests.range_http_server import RangeHTTPServer
 from clipper.tests.stabilization_metrics import grayFrames, shakeLeft
 from clipper.tests.test_output_duration_cases import clipperOutputDuration
-from clipper.vidstab_motions import parseTransforms, readAnalysis
+from clipper.vidstab_motions import CameraPath, TrialLog, parseTransforms, readAnalysis
 from clipper.yt_clipper import main
 
 REPO = pathlib.Path(__file__).resolve().parents[3]
@@ -1551,8 +1551,8 @@ def recordStabilizationSteps(clipper: Clipper) -> dict[str, list]:
         clipper.monkeypatch.setattr(clip_maker, name, recording(original, steps[key]))
     clipper.monkeypatch.setattr(
         clip_maker,
-        "transformStalls",
-        lambda command, cwd=None: steps["trials"].append(command) or False,
+        "transformCameraPath",
+        lambda command, cwd=None: steps["trials"].append(command) or TrialLog(CameraPath.SOLVED),
     )
     return steps
 
@@ -1619,7 +1619,9 @@ def test_stabilization_runs_without_the_repair_where_vid_stab_has_no_text_transf
     )
     trials: list[list[str]] = []
     clipper.monkeypatch.setattr(
-        clip_maker, "transformStalls", lambda command, cwd=None: trials.append(command) or False
+        clip_maker,
+        "transformCameraPath",
+        lambda command, cwd=None: trials.append(command) or TrialLog(CameraPath.SOLVED),
     )
     _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-native-30", syntheticMedia)
     name = "stabilized-plain-by-probe"
@@ -1649,6 +1651,62 @@ def test_stabilization_runs_without_the_repair_where_vid_stab_has_no_text_transf
     assert ".nut" not in transform
     # As 5.49: vid.stab picks the zoom, so no trial of the camera path runs before the transform
     assert not trials
+
+
+def test_stabilization_crops_as_5_49_with_a_vid_stab_without_the_l1_camera_path(
+    clipper: Clipper,
+    syntheticMedia: pathlib.Path,
+) -> None:
+    # ffmpeg 8.0.1's vid.stab 1.1 has text transforms but only the gaussian camera path, which adds
+    # a zoom option to its own zoom instead of capping it
+    tools = os.environ.get("YTC_TEST_FFMPEG_8_DIR")
+    if not tools:
+        pytest.skip("needs YTC_TEST_FFMPEG_8_DIR, a folder with ffmpeg 8.0.1 and ffprobe")
+    if clipper.exe:
+        pytest.skip("records the commands in process")
+    clipper.requireEncoder("libvpx-vp9")
+    ffmpeg = clipper.toolPath("ffmpeg")
+    assert ffmpeg is not None
+    commands: list[str] = []
+    checkedAt: list[float] = []
+    runFfmpeg = clip_maker.run_ffmpeg_with_progress
+    clipper.monkeypatch.setattr(
+        clip_maker,
+        "run_ffmpeg_with_progress",
+        lambda command, **kwargs: commands.append(command) or runFfmpeg(command, **kwargs),
+    )
+    clipper.monkeypatch.setattr(
+        clip_maker, "checkStabilizedShake", lambda *args: checkedAt.append(args[-1]) or False
+    )
+    _, uploaded = synthetic_media.makeSyntheticClip(ffmpeg, "motion-native-30", syntheticMedia)
+    name = "stabilized-gaussian-only"
+    start, end = SYNTHETIC_PAIR
+    markers = syntheticMarkers(clipper.cwd, name, [{"x": start, "y": 1}, {"x": end, "y": 1}])
+    run = clipper.run(
+        [
+            "--markers-json",
+            str(markers),
+            "--input-video",
+            str(uploaded),
+            *OFFLINE_ARGS,
+            "--ffmpeg-tools-dir",
+            tools,
+            "--video-stabilization",
+            "2",
+        ]
+    )
+    print(run.stdout, run.stderr)
+    assert run.returncode == 0
+    assert len(list((clipper.cwd / "webms" / name).glob("*.webm"))) == 1
+    detect, transform = commands
+    assert "fileformat=1" in detect
+    assert ".nut" in detect
+    transformFilter = re.search(r"vidstabtransform=[^,\"]*", transform)
+    assert transformFilter is not None
+    assert transformFilter.group().endswith(":zoom=0"), transformFilter.group()
+    # At vid.stab's own zoom, which is never 0 on a moving clip
+    assert len(checkedAt) == 1
+    assert 0 < checkedAt[0] < 15
 
 
 def test_stabilized_pair_with_a_filter_too_long_for_the_command_line_reads_it_from_files(

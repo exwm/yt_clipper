@@ -305,10 +305,10 @@ class Runner:
             # The repair deletes the analysis output it reads
             shutil.copy(analysis / "input.nut", d / "a.nut")
 
-            def stalls(zoom: str) -> bool:
+            def cameraPath(zoom: str) -> vm.TrialLog:
                 with self.steps.step("stall trial"), self.timed("trial"):
                     graph = transformText.replace(ZOOM_BUDGET_PLACEHOLDER, zoom)
-                    return vm.transformStalls(
+                    return vm.transformCameraPath(
                         [self.ffmpeg, "-hide_banner", *source, "-vf", graph], str(d)
                     )
 
@@ -330,20 +330,19 @@ class Runner:
                     )
 
             with self.steps.step("repair"), self.timed("repair"), recordedFrames() as frames:
-                replacements = clip_maker.prepareVidstabTransformPass(
+                zoom = clip_maker.prepareVidstabTransformPass(
                     self.ffmpeg,
                     str(d / "t.trf"),
                     str(d / "a.nut"),
                     smoothing,
                     (),
-                    stalls,
+                    cameraPath,
                     repair=repair,
                     gaussianZoom=gaussianZoom if self.comparePaths else None,
                     trial=trial if self.comparePaths else None,
-                )
+                ).option
             # The repair's own time, without the trials it ran
             self.timing["repair"] -= self.timing.get("trial", 0.0)
-            zoom = replacements[ZOOM_BUDGET_PLACEHOLDER]
             graph = transformText.replace(ZOOM_BUDGET_PLACEHOLDER, zoom)
             info = passInfo(self.run([*source, *toAnalysis(graph)], d, "transform"))
             self.saveAnalysis(d / "o.nut", d / "out.npz", "read output")

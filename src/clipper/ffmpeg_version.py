@@ -90,7 +90,7 @@ def vidstabWritesTextTransforms(ffmpeg_path: str) -> bool:
         )
         return False
     logger.warning(
-        "This ffmpeg's video stabilization is older than ffmpeg 9.0.2's, so it runs without the motion analysis."
+        "This ffmpeg's video stabilization is older than ffmpeg 9.0.2's, so it runs as in 5.49, without the motion analysis."
         " Stabilized clips can jerk at flashes and around moving subjects."
         " Use ffmpeg 9.0.2 for the full stabilization.",
     )

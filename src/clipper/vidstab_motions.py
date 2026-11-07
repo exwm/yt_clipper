@@ -18,6 +18,7 @@ import statistics
 import subprocess
 from collections.abc import Callable, Collection, Iterator, Mapping, Sequence
 from dataclasses import dataclass, replace
+from enum import Enum, auto
 from pathlib import Path
 from typing import IO
 
@@ -78,7 +79,8 @@ GAUSSIAN_PATH = "0:optalgo=gauss:optzoom=1"
 STALL_FALLBACK = "nudge"
 # vid.stab's error when the L1 path fails to solve (lpsolver_ipm.c), logged at ffmpeg's default level
 STALL_LINE = "interior point method stalled"
-FINAL_ZOOM_PATTERN = re.compile(r"Final zoom: ([-\d.]+)")
+# vid.stab logs the zoom with %lf, which can print a nan
+FINAL_ZOOM_PATTERN = re.compile(r"Final zoom: (-?\d+(?:\.\d+)?)")
 
 FRAME_PATTERN = re.compile(r"^Frame (\d+) \(List \d+ \[(.*)\]\)$")
 MOTION_PATTERN = re.compile(r"\(LM (\S+) (\S+) (\S+) (\S+) (\S+) (\S+) (\S+)\)")
@@ -579,16 +581,53 @@ def transformTrialLog(command: Sequence[str], cwd: str | None = None) -> str:
     ).stderr
 
 
-def transformStalls(command: Sequence[str], cwd: str | None = None) -> bool:
-    """Whether vid.stab's L1 camera path fails to solve in this transform command. A command that
-    fails otherwise counts as solved, so the transform pass runs as it would have and reports the
-    failure."""
-    return STALL_LINE in transformTrialLog(command, cwd)
+class CameraPath(Enum):
+    """How vid.stab's camera path went in a one-frame transform trial."""
+
+    # The L1 path solved, or the log tells nothing: the transform crops at its zoom option
+    SOLVED = auto()
+    # The L1 path failed to solve (STALL_LINE)
+    STALLED = auto()
+    # A vid.stab without the L1 path (1.1.x, as in ffmpeg 8.0.1) ran its gaussian path
+    GAUSSIAN_ONLY = auto()
+
+
+@dataclass(frozen=True)
+class TrialLog:
+    path: CameraPath
+    # The Final zoom vid.stab's gaussian path logged, when it ran
+    finalZoom: float | None = None
+
+    def ownZoom(self, zoom: str) -> float | None:
+        """The zoom vid.stab's gaussian path picked itself, in this trial at the zoom option `zoom`.
+        vid.stab adds the option to it before logging the Final zoom: with ffmpeg 8.0.1, 8.208744 at
+        a zoom of 4.48 against 3.728744 at 0."""
+        return None if self.finalZoom is None else self.finalZoom - float(zoom)
+
+
+def parseTrialLog(stderr: str) -> TrialLog:
+    """How vid.stab's camera path went in a transform trial's log. A log that tells nothing (a
+    failed or garbled trial) counts as solved, so the transform pass runs at its zoom option as it
+    would have, and reports any failure."""
+    final = finalZoom(stderr)
+    if STALL_LINE in stderr:
+        return TrialLog(CameraPath.STALLED, final)
+    if "(L1" in stderr:
+        return TrialLog(CameraPath.SOLVED, final)
+    # A Final zoom line, even a nan one, means the gaussian path ran alone
+    if "Final zoom: " in stderr:
+        return TrialLog(CameraPath.GAUSSIAN_ONLY, final)
+    return TrialLog(CameraPath.SOLVED)
+
+
+def transformCameraPath(command: Sequence[str], cwd: str | None = None) -> TrialLog:
+    """How vid.stab's camera path goes in this transform command."""
+    return parseTrialLog(transformTrialLog(command, cwd))
 
 
 def transformFinalZoom(command: Sequence[str], cwd: str | None = None) -> float | None:
     """The zoom vid.stab's gaussian camera path picks in this transform command."""
-    return finalZoom(transformTrialLog(command, cwd))
+    return transformCameraPath(command, cwd).finalZoom
 
 
 def finalZoom(stderr: str) -> float | None:
