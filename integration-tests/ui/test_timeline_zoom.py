@@ -64,6 +64,16 @@ def test_markers_show_over_the_brush_and_leave_its_handles_working(zoom: MarkupP
     then_the_zoom_range_end_changed(zoom, before)
 
 
+@pytest.mark.parametrize("edge", ["start", "end"])
+def test_a_drag_past_an_edge_of_the_zoomed_bar_keeps_the_playhead_at_that_edge(
+    zoom: MarkupPage, edge: str
+) -> None:
+    when_i_drag_along_the_zoomed_bar_past_its(zoom, edge)
+    then_the_playhead_shows_at_full_strength_at_the(zoom, edge)
+    when_i_release_the_pointer(zoom)
+    then_the_playhead_shows_at_full_strength_at_the(zoom, edge)
+
+
 def test_the_toolbar_button_toggles_the_zoom_and_shows_its_state(markup: MarkupPage) -> None:
     given_a_marker_pair_editor(markup)
     when_i_click_the_timeline_zoom_button(markup)
@@ -572,6 +582,34 @@ def then_the_end_edge_handle_takes_the_pointer(markup: MarkupPage, *, expected: 
         [x, y],
     )
     assert is_handle == expected
+
+
+@step
+def when_i_drag_along_the_zoomed_bar_past_its(markup: MarkupPage, edge: str) -> None:
+    bar = markup.box_of(".ytc-tz-row-hit")
+    y = bar["y"] + bar["height"] / 2
+    inside, past = (0.3, -40) if edge == "start" else (0.7, bar["width"] + 40)
+    markup.page.mouse.move(bar["x"] + bar["width"] * inside, y)
+    markup.page.mouse.down()
+    markup.page.mouse.move(bar["x"] + past, y, steps=6)
+
+
+@step
+def then_the_playhead_shows_at_full_strength_at_the(markup: MarkupPage, edge: str) -> None:
+    bar = markup.box_of(".ytc-tz-row-hit")
+    edge_x = bar["x"] if edge == "start" else bar["x"] + bar["width"]
+    knob = markup.page.evaluate(
+        "() => { const k = document.querySelector('.ytc-tz-knob');"
+        " if (!k) return null; const b = k.getBoundingClientRect();"
+        " return { x: b.x + b.width / 2, faded: !!k.closest('[mask]'),"
+        " opacity: getComputedStyle(k).opacity }; }",
+    )
+    markup.report(f"knob {knob}, {edge} edge at {edge_x:.1f}")
+    assert knob is not None, "the playhead is not drawn"
+    assert knob["x"] == pytest.approx(edge_x, abs=1)
+    assert not knob["faded"]
+    assert knob["opacity"] == "1"
+    markup.shot_of(f"playhead-at-{edge}", [".ytc-tz-row-hit"], padding=20)
 
 
 @step

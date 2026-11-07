@@ -2,6 +2,8 @@
 // results, so the range behaviour (clamping, panning, edge resizing, wheel zoom, playhead follow)
 // and the label thinning are unit-testable without a browser.
 
+import { truncatedSeconds } from '../../util/pure-util';
+
 /** The visible slice of the video, in seconds. */
 export interface ZoomRange {
   start: number;
@@ -160,7 +162,8 @@ export function fractionToTime(range: ZoomRange, fraction: number): number {
   return range.start + fraction * (range.end - range.start);
 }
 
-const MAX_DECIMALS = 2;
+// Milliseconds, as the time readout shows.
+const MAX_DECIMALS = 3;
 
 /** Decimals that match what one pixel of the timeline can pick out, so precision follows the zoom
  *  rather than the video's length. */
@@ -170,14 +173,15 @@ function timelineTimeDecimals(secondsPerPixel: number): number {
 }
 
 /** A timestamp like the player's own (m:ss or h:mm:ss), with as many decimals as a timeline at
- *  `secondsPerPixel` resolves. */
+ *  `secondsPerPixel` resolves, truncated like the time readout so both show the same time. */
 export function formatTimelineTime(seconds: number, secondsPerPixel: number): string {
-  const decimals = timelineTimeDecimals(secondsPerPixel);
-  const scale = 10 ** decimals;
-  const rounded = Math.round(Math.max(seconds, 0) * scale) / scale;
-  const hours = Math.floor(rounded / 3600);
-  const minutes = Math.floor((rounded % 3600) / 60);
-  const secs = (rounded % 60).toFixed(decimals).padStart(decimals ? 3 + decimals : 2, '0');
+  const { whole, fraction } = truncatedSeconds(
+    Math.max(seconds, 0),
+    timelineTimeDecimals(secondsPerPixel)
+  );
+  const hours = Math.floor(whole / 3600);
+  const minutes = Math.floor((whole % 3600) / 60);
+  const secs = String(whole % 60).padStart(2, '0') + (fraction ? `.${fraction}` : '');
   return hours > 0 ? `${hours}:${String(minutes).padStart(2, '0')}:${secs}` : `${minutes}:${secs}`;
 }
 

@@ -879,7 +879,6 @@ const timelineTemplate = (
   const trackH = hoverX != null ? TRACK_HOVER_H : TRACK_H;
   const trackTop = TRACK_Y - trackH / 2;
   const playedX = clampX(toZoomedX(snapshot.playhead));
-  const playheadInRange = snapshot.playhead >= range.start && snapshot.playhead <= range.end;
   const pendingX = snapshot.pendingStart == null ? null : toZoomedX(snapshot.pendingStart);
   const fillTo = (x: number, cls: string) =>
     svg`<rect class=${cls} x="0" y=${trackTop} width=${clampX(x)} height=${trackH}></rect>`;
@@ -916,9 +915,13 @@ const timelineTemplate = (
         ? svg`<rect class=${markerClassName('start')} x=${pendingX - MARKER_WIDTH_PX / 2} y=${LANE_H} width=${MARKER_WIDTH_PX} height=${MARKER_H}></rect>`
         : ''
     }
-    ${playheadInRange ? svg`<circle class="ytc-tz-knob" cx=${playedX} cy=${TRACK_Y} r=${KNOB_R}></circle>` : ''}
     </g>
     ${markers.map(markerNumberTemplate)}
+    </g>
+    <!-- Out of the edge fade, and pinned to the nearest edge when the playhead is outside the range,
+         so the playhead never fades or disappears. -->
+    <g class="ytc-tz-content">
+    <circle class="ytc-tz-knob" cx=${playedX} cy=${TRACK_Y} r=${KNOB_R}></circle>
     </g>
     </g>
   `;
