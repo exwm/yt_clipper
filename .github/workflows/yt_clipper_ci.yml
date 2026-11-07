@@ -48,17 +48,26 @@ env:
   VIDEO2X_MODELS: "rife/rife-v4.26"
 
 jobs:
-  # The clipper tests from source, beside the build and its smoke test (about 8 minutes each on
-  # Windows). The release needs both.
+  # The clipper tests from source, beside the build and its smoke test. The release needs both.
+  # macOS runners have 3 cores, so its tests split over two jobs (YTC_TEST_SHARD, in conftest.py);
+  # the coverage floor holds on the whole Windows run.
   test-clipper:
     defaults:
       run:
         shell: bash
     runs-on: ${{ matrix.os }}
+    env:
+      # Every core: conftest.py caps -n auto at 75% only for a shared dev machine.
+      PYTEST_XDIST_AUTO_NUM_WORKERS: ${{ matrix.workers }}
+      YTC_TEST_SHARD: ${{ matrix.shard }}
+      PYTEST_ADDOPTS: ${{ matrix.shard && '--cov-fail-under=0' || '' }}
     strategy:
       max-parallel: 4
       matrix:
-        os: [windows-latest, macos-latest]
+        include:
+          - { os: windows-latest, workers: 4, shard: "" }
+          - { os: macos-latest, workers: 3, shard: "1/2" }
+          - { os: macos-latest, workers: 3, shard: "2/2" }
 
     steps:
       - uses: actions/checkout@v5
@@ -69,9 +78,17 @@ jobs:
         with:
           cache-os: ${{ matrix.os }}
 
+      # evermeet's ffmpeg is x86_64: its first run on an arm64 runner waits for Rosetta to translate
+      # it, so start that while the environment installs.
+      - name: Warm up ffmpeg (macos)
+        if: runner.os == 'macOS'
+        run: (bindeps/ffmpeg/bin/ffmpeg -version; bindeps/ffmpeg/bin/ffprobe -version) >/dev/null 2>&1 &
+
       - uses: ./.github/actions/clipper-env
 
+      # ruff's results don't depend on the OS.
       - name: Lint with ruff
+        if: runner.os == 'Windows'
         run: just lint-py
 
       # The downloaded ffmpeg lets the offline end-to-end clip tests run instead of skipping.
