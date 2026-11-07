@@ -30,9 +30,10 @@ from test_reframe import (
 from test_timeline_zoom import (
     given_a_pair_ending_under_the_end_edge_handle,
     given_crowded_marker_pairs,
+    given_the_playhead_mid_video,
     given_the_timeline_zoom_is_open,
     wait_for_the_zoom_to_settle,
-    when_i_drag_along_the_zoomed_bar_past_its,
+    when_i_move_the_zoom_range_so_the_playhead_is_past_its,
     zoom_range,
 )
 
@@ -123,29 +124,36 @@ def timeline_zoom(markup: MarkupPage) -> None:
     given_the_timeline_zoom_is_open(markup)
 
 
-# Past the playhead (20 s), so the zoomed bar shows it among the first seven pairs.
-HIGHLIGHT_RANGE_END = 22
+# Pairs around the middle of the 40 minute video, in a zoom range a quarter of its length, so the
+# brush and its handles are large and clear of the bar's ends.
+HIGHLIGHT_STARTS = [960.0 + 40 * i + (i % 3) * 6 for i in range(12)]
+HIGHLIGHT_PAIRS = [(start, start + 18 + (i % 2) * 8) for i, start in enumerate(HIGHLIGHT_STARTS)]
+HIGHLIGHT_PLAYHEAD = 1200
+HIGHLIGHT_RANGE = (900, 1500)
 
 
 @scenario("timeline-zoom-highlight")
 def timeline_zoom_highlight(markup: MarkupPage) -> None:
-    # A narrower player and a zoom range over the first pairs, so the release notes' 640 px image
-    # shows readable pairs on the zoomed bar above the crowded brush.
+    # A narrower player, so the release notes' 640 px image shows readable pairs on the zoomed bar
+    # above the crowded brush.
     markup.page.set_viewport_size({"width": 760, "height": 900})
-    timeline_zoom(markup)
-    given_the_zoom_range_ends_at(markup, HIGHLIGHT_RANGE_END)
+    markup.load_marker_pairs(HIGHLIGHT_PAIRS)
+    markup.seek(HIGHLIGHT_PLAYHEAD)
+    given_the_timeline_zoom_is_open(markup)
+    given_the_zoom_range_is(markup, *HIGHLIGHT_RANGE)
 
 
 @step
-def given_the_zoom_range_ends_at(markup: MarkupPage, end: float) -> None:
-    x, y = markup.center_of(".ytc-tz-hit.edge-handle[data-edge='end']")
-    panel = markup.box_of(".ytc-tz")
+def given_the_zoom_range_is(markup: MarkupPage, start: float, end: float) -> None:
     duration = markup.page.evaluate("() => document.querySelector('video').duration")
-    markup.page.mouse.move(x, y)
-    markup.page.mouse.down()
-    markup.page.mouse.move(panel["x"] + end / duration * panel["width"], y, steps=6)
-    markup.page.mouse.up()
-    wait_for_the_zoom_to_settle(markup)
+    panel = markup.box_of(".ytc-tz")
+    for edge, time in (("end", end), ("start", start)):
+        x, y = markup.center_of(f".ytc-tz-hit.edge-handle[data-edge='{edge}']")
+        markup.page.mouse.move(x, y)
+        markup.page.mouse.down()
+        markup.page.mouse.move(panel["x"] + time / duration * panel["width"], y, steps=8)
+        markup.page.mouse.up()
+        wait_for_the_zoom_to_settle(markup)
     markup.report(f"zoom range {zoom_range(markup)}")
 
 
@@ -158,15 +166,15 @@ def timeline_zoom_marker_under_handle(markup: MarkupPage) -> None:
 @scenario("timeline-zoom-playhead-past-start")
 def timeline_zoom_playhead_past_start(markup: MarkupPage) -> None:
     timeline_zoom(markup)
-    when_i_drag_along_the_zoomed_bar_past_its(markup, "start")
-    markup.page.mouse.up()
+    given_the_playhead_mid_video(markup)
+    when_i_move_the_zoom_range_so_the_playhead_is_past_its(markup, "start")
 
 
 @scenario("timeline-zoom-playhead-past-end")
 def timeline_zoom_playhead_past_end(markup: MarkupPage) -> None:
     timeline_zoom(markup)
-    when_i_drag_along_the_zoomed_bar_past_its(markup, "end")
-    markup.page.mouse.up()
+    given_the_playhead_mid_video(markup)
+    when_i_move_the_zoom_range_so_the_playhead_is_past_its(markup, "end")
 
 
 @scenario("flash-below-editor")
