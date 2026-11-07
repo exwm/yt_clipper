@@ -249,12 +249,15 @@ class Runner:
                 "o.nut",
             ]
 
+        # As the clipper's detect pass writes it, under the passes' gamma lift
+        inputAnalysis = f"{gamma('null')},{vm.analysisFilter()}"
+
         def makeAnalysis(d: Path) -> None:
             self.run(
                 [
                     *source,
                     "-vf",
-                    vm.analysisFilter(),
+                    inputAnalysis,
                     "-fps_mode",
                     "passthrough",
                     "-c:v",
@@ -293,7 +296,7 @@ class Runner:
                 json.dumps({**info, "zoom": 0.0, "zoom_option": "0"}), encoding="utf-8"
             )
 
-        analysis = self.cached("analysis", passKey(*clipId, vm.analysisFilter()), makeAnalysis)
+        analysis = self.cached("analysis", passKey(*clipId, inputAnalysis), makeAnalysis)
         detect = self.cached("detect", passKey(*clipId, detectText), makeDetect)
         off = self.cached("off", passKey(*clipId, detect549, transform549, OUTPUTS), makeOff)
 
