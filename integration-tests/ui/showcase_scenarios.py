@@ -18,6 +18,8 @@ from test_crop_easing import (
     then_a_cinematic_path_is_baked,
     when_i_choose_easing,
 )
+from test_flash_messages import given_a_marker_pair_with_its_editor_open as given_a_pair_editor_open
+from test_flash_messages import when_a_flash_message_shows
 from test_palette_details import when_i_search
 from test_palette_footer import when_i_open_the_palette
 from test_reframe import (
@@ -137,6 +139,12 @@ def timeline_zoom_playhead_past_end(markup: MarkupPage) -> None:
     timeline_zoom(markup)
     when_i_drag_along_the_zoomed_bar_past_its(markup, "end")
     markup.page.mouse.up()
+
+
+@scenario("flash-below-editor")
+def flash_below_editor(markup: MarkupPage) -> None:
+    given_a_pair_editor_open(markup)
+    when_a_flash_message_shows(markup)
 
 
 @scenario("palette-selected-details")

@@ -228,7 +228,9 @@ const ytclipperSelectors = {
   settingsEditorTheater: '#ytc-editor',
   shortcutsTable: '#ytc-editor',
   frameCapturerProgressBar: '#ytc-editor',
-  flashMessage: '#ytc-editor',
+  // Flash messages go 'beforebegin' of this hook. The editor goes 'afterend' of '#ytc-editor' (this
+  // site counts as theater mode), so the next element puts them below it, as on YouTube.
+  flashMessage: '#ytc-video-title',
   cropOverlay: '#my-video',
   cropMouseManipulation: '#my-video',
   speedChartContainer: 'video',
