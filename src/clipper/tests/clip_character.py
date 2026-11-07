@@ -15,7 +15,7 @@ from pathlib import Path
 
 import numpy as np
 
-from clipper.phase_correlation import phaseShift
+from clipper.phase_correlation import consecutiveShifts, spectrum, spectrumShift
 from clipper.vidstab_motions import findBrightnessChanges
 
 # A frame pair with a lower peak shares nothing: a cut, or a frame too blurred or plain to match
@@ -66,10 +66,12 @@ def cells(frame: np.ndarray) -> list[np.ndarray]:
     ]
 
 
-def subjectMotion(previous: np.ndarray, frame: np.ndarray) -> float | None:
+def subjectMotion(
+    previous: list[np.ndarray], frame: list[np.ndarray], shape: tuple[int, int]
+) -> float | None:
     """How far the middle cell moved apart from the edge cells' median shift, when 5 of the 8 edge
-    cells agree on it within 1 px."""
-    shifts = [phaseShift(a, b) for a, b in zip(cells(previous), cells(frame), strict=True)]
+    cells agree on it within 1 px. Takes the cells' spectra, each frame's computed once."""
+    shifts = [spectrumShift(a, b, shape) for a, b in zip(previous, frame, strict=True)]
     edges = [s for i, s in enumerate(shifts) if i != 4 and s.peak >= NO_MATCH_PEAK]
     if len(edges) < 5:
         return None
@@ -82,14 +84,17 @@ def subjectMotion(previous: np.ndarray, frame: np.ndarray) -> float | None:
 def measure(frames: np.ndarray) -> Character:
     """The traits of gray frames (frames x height x width)."""
     brightness = [float(f.mean()) for f in frames]
-    shifts = [phaseShift(frames[i - 1], frames[i]) for i in range(1, len(frames))]
+    shifts = list(consecutiveShifts(frames))
     differences = [float(np.abs(frames[i] - frames[i - 1]).mean()) for i in range(1, len(frames))]
     jumps = [abs(b - a) / max(1.0, min(a, b)) for a, b in itertools.pairwise(brightness)]
     matched = [i for i, s in enumerate(shifts, start=1) if s.peak >= NO_MATCH_PEAK]
+    cellShape = cells(frames[0])[0].shape
+    # Lazily, so only two frames' cell spectra are held at once
+    cellSpectra = ([spectrum(cell) for cell in cells(frame)] for frame in frames)
     subject = [
         m
-        for i in range(1, len(frames))
-        if (m := subjectMotion(frames[i - 1], frames[i])) is not None
+        for previous, frame in itertools.pairwise(cellSpectra)
+        if (m := subjectMotion(previous, frame, cellShape)) is not None
     ]
     return Character(
         brightness=statistics.median(brightness),
