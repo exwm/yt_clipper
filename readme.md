@@ -65,7 +65,7 @@ YouTube is the primary video platform supported by yt_clipper. Other supported p
 5. Local storage videos (<https://exwm.github.io/yt_clipper/>)
     1. If the platform you want to use isn't directly supported, you can download the video manually and then use the yt_clipper generic video platform.
     2. Load a video from local storage by dragging and dropping the video onto the player, then activate the yt_clipper markup script as usual.
-    3. Use **J** and **L** to seek 1 second, **Left** and **Right** to seek 5 seconds, and **Shift+Left** and **Shift+Right** to seek 10 seconds.
+    3. Use **J** and **L** to seek 1 second, **Left** and **Right** to seek 5 seconds, and **Shift+Left** and **Shift+Right** to seek 10 seconds. A counter on the left or right of the video shows the seconds skipped.
 
 ## AfreecaTV Support Notes
 

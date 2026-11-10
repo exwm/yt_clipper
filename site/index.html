@@ -110,6 +110,52 @@
         opacity: 1;
         transition: opacity 0.4s ease;
       }
+
+      /* Styled after Video.js 10's default skin seek indicator, so the look stays when the player moves to it. */
+      .ytc-seek-indicator {
+        position: absolute;
+        top: 50%;
+        z-index: 10001;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        border-radius: 99px;
+        background-color: rgb(0 0 0 / 25%);
+        box-shadow: 0 0 0 1px rgb(0 0 0 / 10%), 0 1px 3px 0 rgb(0 0 0 / 15%);
+        backdrop-filter: blur(16px) saturate(110%);
+        color: #fff;
+        font: 500 16px/1 system-ui, sans-serif;
+        font-variant-numeric: tabular-nums;
+        pointer-events: none;
+        opacity: 0;
+        translate: 0 -50%;
+        transition: opacity 0.15s cubic-bezier(0, 0, 0.2, 1);
+      }
+      .ytc-seek-indicator[data-open] {
+        opacity: 1;
+      }
+      .ytc-seek-indicator[data-direction='backward'] {
+        left: 8%;
+        flex-direction: row-reverse;
+      }
+      .ytc-seek-indicator[data-direction='forward'] {
+        right: 8%;
+      }
+      .ytc-seek-indicator svg {
+        width: 27px;
+        height: 27px;
+        transition: translate 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .ytc-seek-indicator[data-direction='backward'] svg {
+        scale: -1 1;
+      }
+      .ytc-seek-indicator[data-direction='backward']:not([data-open]) svg {
+        translate: 8px 0;
+      }
+      .ytc-seek-indicator[data-direction='forward']:not([data-open]) svg {
+        translate: -8px 0;
+      }
     </style>
     <script>
       document.addEventListener('drop', handleDrop);
@@ -221,6 +267,28 @@ ${videoLink}
         return parts.length > 1 ? parts.pop().toLowerCase() : null;
       }
 
+      // Shows how far the seek keys moved, like Video.js 10's seek indicator: steps in one direction add up
+      // until it closes.
+      function createSeekIndicator(container) {
+        const SEEK_INDICATOR_CLOSE_DELAY = 800;
+        const indicator = document.getElementById('ytc-seek-indicator');
+        const value = indicator.querySelector('.ytc-seek-indicator-value');
+        container.appendChild(indicator);
+        let total = 0;
+        let closeTimer;
+
+        return (seconds) => {
+          const direction = seconds < 0 ? 'backward' : 'forward';
+          const isSameSeek = indicator.hasAttribute('data-open') && indicator.dataset.direction === direction;
+          total = (isSameSeek ? total : 0) + Math.abs(seconds);
+          indicator.dataset.direction = direction;
+          value.textContent = `${total}s`;
+          indicator.toggleAttribute('data-open', true);
+          clearTimeout(closeTimer);
+          closeTimer = setTimeout(() => indicator.removeAttribute('data-open'), SEEK_INDICATOR_CLOSE_DELAY);
+        };
+      }
+
       function installVideojs() {
         const player = videojs('my-video', {
           playbackRates: [0.25, 0.5, 1, 1.25, 1.5, 1.75, 2],
@@ -228,6 +296,12 @@ ${videoLink}
           userInactiveTimeout: 0,
           controlBar: {},
         });
+        const showSeek = createSeekIndicator(player.el());
+        const seekBy = (seconds) => {
+          const time = player.currentTime() + seconds;
+          player.currentTime(Math.min(player.duration(), Math.max(0, time)));
+          showSeek(seconds);
+        };
 
         // Prevent default behavior like scrolling when spacebar is pressed
         document.addEventListener('keydown', function (event) {
@@ -257,11 +331,11 @@ ${videoLink}
               break;
             case 'KeyJ':
               event.preventDefault();
-              player.currentTime(Math.max(0, player.currentTime() - SEEK_STEP));
+              seekBy(-SEEK_STEP);
               break;
             case 'KeyL':
               event.preventDefault();
-              player.currentTime(Math.min(player.duration(), player.currentTime() + SEEK_STEP));
+              seekBy(SEEK_STEP);
               break;
             case 'ArrowLeft':
             case 'ArrowRight': {
@@ -269,9 +343,7 @@ ${videoLink}
               if (event.ctrlKey || event.altKey || event.metaKey) break;
               event.preventDefault();
               const step = event.shiftKey ? SHIFT_ARROW_SEEK_STEP : ARROW_SEEK_STEP;
-              const direction = event.code === 'ArrowLeft' ? -1 : 1;
-              const time = player.currentTime() + direction * step;
-              player.currentTime(Math.min(player.duration(), Math.max(0, time)));
+              seekBy(event.code === 'ArrowLeft' ? -step : step);
               break;
             }
             case 'Comma':
@@ -308,6 +380,15 @@ ${videoLink}
           >
         </p>
       </video>
+      <div id="ytc-seek-indicator" class="ytc-seek-indicator" aria-hidden="true">
+        <!-- Video.js 10's seek icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 18 18">
+          <path
+            d="M9 1a7.98 7.98 0 0 1 6.132 2.867l1.441-1.44a.25.25 0 0 1 .427.177V6.75a.25.25 0 0 1-.25.25h-4.146a.25.25 0 0 1-.177-.427L13.71 5.29A5.99 5.99 0 0 0 9 3a6 6 0 0 0-4.242 10.242l-1.415 1.415A8 8 0 0 1 9 1"
+          />
+        </svg>
+        <span class="ytc-seek-indicator-value"></span>
+      </div>
     </div>
 
     <div id="ytc-editor"></div>

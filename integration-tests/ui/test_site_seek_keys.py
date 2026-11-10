@@ -1,4 +1,5 @@
-"""The generic site's player keys seek: J/L by 1 s, Left/Right by 5 s, Shift+Left/Right by 10 s."""
+"""The generic site's player keys seek: J/L by 1 s, Left/Right by 5 s, Shift+Left/Right by 10 s, and a
+seek indicator shows how far."""
 
 import pytest
 from harness.hosts import DEV_SITE_HOST
@@ -25,6 +26,28 @@ def test_a_seek_key_moves_the_playhead_by_its_step(
     markup.seek(20, presented=True)
     when_i_press(markup, key)
     then_the_playhead_is_at(markup, 20 + seconds)
+
+
+@pytest.mark.parametrize(
+    ("keys", "direction", "label"),
+    [
+        (["ArrowRight", "ArrowRight"], "forward", "10s"),
+        (["KeyL", "Shift+ArrowRight"], "forward", "11s"),
+        (["Shift+ArrowLeft"], "backward", "10s"),
+        (["ArrowRight", "ArrowLeft"], "backward", "5s"),
+    ],
+)
+def test_the_seek_indicator_adds_up_seeks_in_one_direction(
+    markup: MarkupPage, keys: list[str], direction: str, label: str
+) -> None:
+    if markup.host != DEV_SITE_HOST:
+        pytest.skip("the generic site's own player keys")
+    markup.seek(20, presented=True)
+    for key in keys:
+        when_i_press(markup, key)
+    then_the_seek_indicator_shows(markup, direction, label)
+    markup.shot(f"seek-indicator-{direction}")
+    then_the_seek_indicator_closes(markup)
 
 
 @pytest.mark.parametrize("key", ["ArrowRight", "Shift+ArrowRight"])
@@ -72,3 +95,23 @@ def then_the_playhead_is_at(markup: MarkupPage, seconds: float) -> None:
     time = markup.current_time()
     markup.report(f"time {time}")
     assert time == pytest.approx(seconds, abs=0.05)
+
+
+@step
+def then_the_seek_indicator_shows(markup: MarkupPage, direction: str, label: str) -> None:
+    shown = markup.page.evaluate(
+        """() => {
+            const indicator = document.getElementById('ytc-seek-indicator');
+            return [indicator.hasAttribute('data-open'), indicator.dataset.direction, indicator.textContent.trim()];
+        }"""
+    )
+    markup.report(f"seek indicator {shown}")
+    assert shown == [True, direction, label]
+
+
+@step
+def then_the_seek_indicator_closes(markup: MarkupPage) -> None:
+    closed = markup.eventually(
+        "() => !document.getElementById('ytc-seek-indicator').hasAttribute('data-open')", timeout_ms=2000
+    )
+    assert closed, "the seek indicator stays open"
