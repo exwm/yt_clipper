@@ -232,8 +232,10 @@ ${videoLink}
         // Prevent default behavior like scrolling when spacebar is pressed
         document.addEventListener('keydown', function (event) {
           const activeTag = document.activeElement.tagName;
-          const isTyping = ['INPUT', 'TEXTAREA', 'BUTTON'].includes(activeTag);
+          const isTyping = ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(activeTag);
           const SEEK_STEP = 1;
+          const ARROW_SEEK_STEP = 5;
+          const SHIFT_ARROW_SEEK_STEP = 10;
           const DEFAULT_FPS = 30;
           const FRAME_STEP = 1 / DEFAULT_FPS;
 
@@ -261,6 +263,17 @@ ${videoLink}
               event.preventDefault();
               player.currentTime(Math.min(player.duration(), player.currentTime() + SEEK_STEP));
               break;
+            case 'ArrowLeft':
+            case 'ArrowRight': {
+              // Ctrl and Alt arrows belong to the markup script's marker navigation.
+              if (event.ctrlKey || event.altKey || event.metaKey) break;
+              event.preventDefault();
+              const step = event.shiftKey ? SHIFT_ARROW_SEEK_STEP : ARROW_SEEK_STEP;
+              const direction = event.code === 'ArrowLeft' ? -1 : 1;
+              const time = player.currentTime() + direction * step;
+              player.currentTime(Math.min(player.duration(), Math.max(0, time)));
+              break;
+            }
             case 'Comma':
               event.preventDefault();
               if (!player.paused()) player.pause();
